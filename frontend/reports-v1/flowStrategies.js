@@ -1,5 +1,6 @@
 import {flowBlockRegistry} from './flowBlockRegistry.js';
 import {stageX} from './flowStages.js';
+import {defaultMedia, isPaidPlatform} from './flowMedia.js';
 
 // Curated starting points for planners: every measured step starts planned, with a production brief.
 const ROW_HEIGHT = 170;
@@ -7,7 +8,7 @@ const MEASURED = new Set(['page','form','event','conversion','whatsapp','error']
 
 export const FLOW_STRATEGIES = Object.freeze([
   {
-    id: 'leads-landing', name: 'Captação de leads com landing page', objective: 'Leads', siteKind: 'landing',
+    id: 'leads-landing', mediaObjective: 'leads', name: 'Captação de leads com landing page', objective: 'Leads', siteKind: 'landing',
     summary: 'Anúncios levam a uma landing page com formulário. Quem não converte volta por remarketing.',
     channels: [['traffic.meta', true], ['traffic.google_search', true], ['traffic.instagram', false], ['traffic.linkedin', false], ['traffic.tiktok', false], ['traffic.retargeting', true]],
     steps: [
@@ -18,7 +19,7 @@ export const FLOW_STRATEGIES = Object.freeze([
     links: [['@paid', 'lp', null, 100], ['traffic.retargeting', 'lp', 'Remarketing', 100], ['lp', 'form', null, 35], ['form', 'lead', null, 60]],
   },
   {
-    id: 'leads-whatsapp', name: 'Conversa no WhatsApp', objective: 'Conversas e vendas', siteKind: 'landing',
+    id: 'leads-whatsapp', mediaObjective: 'mensagens', name: 'Conversa no WhatsApp', objective: 'Conversas e vendas', siteKind: 'landing',
     summary: 'A página leva a um clique no WhatsApp; o atendimento comercial segue no CRM.',
     channels: [['traffic.meta', true], ['traffic.instagram', true], ['traffic.google_search', false], ['traffic.tiktok', false]],
     steps: [
@@ -32,7 +33,7 @@ export const FLOW_STRATEGIES = Object.freeze([
     links: [['@paid', 'lp', null, 100], ['lp', 'click', null, 20], ['click', 'conversa', null, 70], ['conversa', 'atendimento', null, 100], ['atendimento', 'venda', 'Ganhou', 20], ['atendimento', 'perdida', 'Perdeu', 80]],
   },
   {
-    id: 'event-webinar', name: 'Inscrição em evento ou webinar', objective: 'Inscrições e vendas', siteKind: 'landing',
+    id: 'event-webinar', mediaObjective: 'leads', name: 'Inscrição em evento ou webinar', objective: 'Inscrições e vendas', siteKind: 'landing',
     summary: 'Inscrição, lembretes até o dia e oferta durante o evento.',
     channels: [['traffic.meta', true], ['traffic.linkedin', true], ['traffic.youtube', false], ['communication.email', true]],
     steps: [
@@ -46,7 +47,7 @@ export const FLOW_STRATEGIES = Object.freeze([
     links: [['@paid', 'inscricao', null, 100], ['communication.email', 'inscricao', 'Convite', 100], ['inscricao', 'form', null, 40], ['form', 'inscrito', null, 80], ['inscrito', 'lembretes', null, 100], ['lembretes', 'sala', null, 40], ['sala', 'compra', null, 10]],
   },
   {
-    id: 'ecommerce', name: 'Venda em e-commerce', objective: 'Compras', siteKind: 'ecommerce',
+    id: 'ecommerce', mediaObjective: 'vendas', name: 'Venda em e-commerce', objective: 'Compras', siteKind: 'ecommerce',
     summary: 'Do anúncio ao produto, carrinho e checkout, com recuperação de carrinho.',
     channels: [['traffic.google_search', true], ['traffic.meta', true], ['traffic.google_display', false], ['traffic.tiktok', false], ['traffic.retargeting', true], ['communication.email', true]],
     steps: [
@@ -58,7 +59,7 @@ export const FLOW_STRATEGIES = Object.freeze([
     links: [['@paid', 'produto', null, 100], ['traffic.retargeting', 'produto', 'Remarketing', 100], ['communication.email', 'checkout', 'Recuperação de carrinho', 100], ['produto', 'carrinho', null, 10], ['carrinho', 'checkout', null, 50], ['checkout', 'compra', null, 60]],
   },
   {
-    id: 'b2b-demand', name: 'Geração de demanda B2B', objective: 'Reuniões e negócios', siteKind: 'multipagina',
+    id: 'b2b-demand', mediaObjective: 'leads', name: 'Geração de demanda B2B', objective: 'Reuniões e negócios', siteKind: 'multipagina',
     summary: 'Conteúdo e página da solução levam ao contato; a venda segue em reunião e proposta.',
     channels: [['traffic.linkedin', true], ['traffic.google_search', true], ['traffic.organic_search', false], ['communication.email_sequence', false]],
     steps: [
@@ -73,7 +74,7 @@ export const FLOW_STRATEGIES = Object.freeze([
     links: [['@paid', 'conteudo', null, 100], ['traffic.organic_search', 'conteudo', null, 100], ['communication.email_sequence', 'solucao', 'Nutrição', 100], ['conteudo', 'solucao', null, 25], ['solucao', 'contato', null, 8], ['contato', 'lead', null, 70], ['lead', 'reuniao', null, 40], ['reuniao', 'ganho', 'Ganhou', 25], ['reuniao', 'perdido', 'Perdeu', 75]],
   },
   {
-    id: 'brand-consideration', name: 'Presença e consideração', objective: 'Engajamento', siteKind: 'institucional',
+    id: 'brand-consideration', mediaObjective: 'alcance', name: 'Presença e consideração', objective: 'Engajamento', siteKind: 'institucional',
     summary: 'Mídia de alcance leva ao site institucional; o sucesso é visitar serviços, cases e contato.',
     channels: [['traffic.youtube', true], ['traffic.dv360', true], ['traffic.google_display', false], ['traffic.organic_search', true], ['traffic.organic_social', false]],
     steps: [
@@ -86,7 +87,7 @@ export const FLOW_STRATEGIES = Object.freeze([
     links: [['@paid', 'home', null, 100], ['traffic.organic_search', 'home', null, 100], ['traffic.organic_social', 'home', null, 100], ['home', 'servicos', null, 30], ['home', 'cases', null, 15], ['servicos', 'contato', null, 5], ['cases', 'contato', null, 8], ['contato', 'lead', null, 60]],
   },
   {
-    id: 'ab-landing', name: 'Teste A/B de landing page', objective: 'Leads', siteKind: 'landing',
+    id: 'ab-landing', mediaObjective: 'leads', name: 'Teste A/B de landing page', objective: 'Leads', siteKind: 'landing',
     summary: 'O tráfego é dividido entre duas versões da página para descobrir a que converte mais.',
     channels: [['traffic.meta', true], ['traffic.google_search', true]],
     steps: [
@@ -99,6 +100,13 @@ export const FLOW_STRATEGIES = Object.freeze([
     links: [['@paid', 'divisao', null, 100], ['divisao', 'a', 'Variante A · 50%', 50], ['divisao', 'b', 'Variante B · 50%', 50], ['a', 'form', null, 35], ['b', 'form', null, 35], ['form', 'lead', null, 60]],
   },
 ]);
+
+// Who each channel reaches by default; the planner renames, splits or removes segments.
+const DEFAULT_SEGMENTS = {
+  google: {name: 'Palavras-chave de intenção', kind: 'palavras_chave'}, retargeting: {name: 'Visitantes dos últimos 30 dias', kind: 'remarketing'},
+  email: {name: 'Base de contatos', kind: 'base'},
+};
+const segmentFor = platform => DEFAULT_SEGMENTS[platform] || (isPaidPlatform(platform) ? {name: 'Público de prospecção', kind: 'prospeccao'} : null);
 
 export const defaultStrategyChannels = strategy => strategy.channels.filter(([, selected]) => selected).map(([kind]) => kind);
 
@@ -113,8 +121,9 @@ export function buildStrategyConfig(strategy, channelKinds = defaultStrategyChan
     const block = flowBlockRegistry[kind];
     const id = crypto.randomUUID();
     ids[kind] = id;
+    const segment = segmentFor(block.source);
     nodes.push({id, type: 'source', kind, source: block.source, title: block.label, stage: 'source', origin: 'strategy',
-      ...place('source')});
+      ...(segment ? {segment} : {}), media: defaultMedia(block.source, isPaidPlatform(block.source) ? strategy.mediaObjective : ''), ...place('source')});
   }
   for (const step of strategy.steps) {
     const block = flowBlockRegistry[step.kind];

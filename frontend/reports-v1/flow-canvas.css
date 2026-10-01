@@ -180,3 +180,4 @@
 .fnode__forecast{display:flex;align-items:baseline;gap:6px;padding:4px 8px;border:1px dashed var(--color-border-brand,#84adff);border-radius:8px;background:var(--color-bg-brand-primary,#eff8ff);color:var(--color-text-brand-secondary,#175cd3);font-size:11px}
 .fnode__forecast b{font-size:13px}
 .flow-edge-actions.is-forecast>span{border:1px dashed var(--color-border-brand,#84adff);background:var(--color-bg-brand-primary,#eff8ff);color:var(--color-text-brand-secondary,#175cd3)}
+.fnode__segment{justify-self:start;padding:1px 8px;border-radius:999px;background:var(--color-bg-secondary);color:var(--color-text-secondary);font-size:11px;font-weight:500}

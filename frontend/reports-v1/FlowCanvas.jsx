@@ -128,6 +128,7 @@ function ShapeNode({id,data,selected}) {
     <div className="fnode__head"><span className="fnode__icon">{platform?<FlowPlatformLogo platform={block.source||node.source}/>:<Icon size={16}/>}</span><span className="fnode__kind">{KIND_LABELS[node.type]||'Etapa'}</span>{planned&&<span className="fnode__status">{NODE_STATUS_LABELS[nodeStatus(node)]}</span>}{block.trackable&&!planned&&!path&&node.type!=='event'&&node.type!=='conversion'&&<span className="fnode__warn" title="Configure a URL real deste nó" aria-label="Configure a URL real deste nó">!</span>}</div>
     <NodeLabel node={node} selected={selected} readOnly={readOnly} onChange={onLabelChange}/>
     {path?<small className="fnode__path">{path}</small>:planned&&node.spec?.suggested_path&&<small className="fnode__path is-suggested">{node.spec.suggested_path}</small>}
+    {node.type==='source'&&node.segment?.name&&<small className="fnode__segment">{node.segment.name}</small>}
     {node.type==='source'&&PAID_UTM[block.source||node.source]&&<small className="fnode__path">utm_source={PAID_UTM[block.source||node.source]}</small>}
     <NodeMetrics node={node} metric={metric} arrived={data.arrived}/>
     {data.forecastSessions!=null&&!metric&&<div className="fnode__forecast" title="Pessoas previstas neste passo no cenário escolhido"><b>~{forecastNumber(data.forecastSessions)}</b><span>{node.type==='conversion'?'conversões previstas':node.type==='source'?'visitas previstas':'pessoas previstas'}</span></div>}

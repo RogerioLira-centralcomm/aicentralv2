@@ -9,6 +9,7 @@ import {ReportsFieldInput} from './ReportsFieldInput.jsx';
 import {ReportsTextArea} from './ReportsTextArea.jsx';
 import {flowBlockFor} from './flowBlockRegistry.js';
 import {NODE_STATUSES,NODE_STATUS_LABELS,SPEC_FIELDS,hasRealPath,isPlanned,nodeStatus} from './flowLifecycle.js';
+import {SEGMENT_KINDS} from './flowMedia.js';
 
 // How the Super Tag counts this step; tells the person whether the site needs any change.
 export function measurementHint(node){
@@ -23,7 +24,7 @@ export function measurementHint(node){
   return 'Nó visual, sem medição.';
 }
 
-export function FlowInspector({node,nodes=[],groups=[],activity=[],journeyMetric=null,integrationsUrl='',readOnly,onChange,onConnect,onCreateGroup,onRemove,onClose,onGestureStart,onGestureEnd}) {
+export function FlowInspector({onSplitSegment,node,nodes=[],groups=[],activity=[],journeyMetric=null,integrationsUrl='',readOnly,onChange,onConnect,onCreateGroup,onRemove,onClose,onGestureStart,onGestureEnd}) {
   const [tab,setTab]=useState('configuration');
   const tabId=useId();
   if(!node)return null;
@@ -53,6 +54,13 @@ export function FlowInspector({node,nodes=[],groups=[],activity=[],journeyMetric
       {block.trackable&&<label>{planned?'Endereço real (quando existir)':'Caminho da página'}<ReportsFieldInput disabled={readOnly} value={node.path||''} placeholder={spec.suggested_path||'/caminho-real'} onChange={event=>{const value=event.target.value.trim();onChange('path',value&&!value.startsWith('/')?`/${value}`:value);}}/><small>{planned?'Ao preencher, mude a Situação para Pronto para incluir o passo na medição.':'Use uma página do domínio autorizado.'}</small></label>}
       {['event','conversion'].includes(node.type)&&<label>Nome do evento{node.type==='conversion'?' (opcional)':''}<ReportsFieldInput disabled={readOnly} value={node.event_name||''} placeholder="lead_enviado" onChange={event=>onChange('event_name',event.target.value)}/><small>Deve corresponder ao nome enviado pela Super Tag.</small></label>}
       {node.type==='source'&&<label>Origem de tráfego<ReportsFieldInput disabled={readOnly} value={node.source||block.source||''} onChange={event=>onChange('source',event.target.value)}/></label>}
+      {node.type==='source'&&<fieldset className="flow-inspector__segment"><legend>Público</legend>
+        <label>Nome do público<ReportsFieldInput disabled={readOnly} maxLength="80" value={node.segment?.name||''} placeholder="Ex.: Remarketing 30 dias" onChange={event=>onChange('segment',{...(node.segment||{}),name:event.target.value})}/></label>
+        <label>Tipo de público<ReportsNativeSelect disabled={readOnly} value={node.segment?.kind||'prospeccao'} onChange={event=>onChange('segment',{...(node.segment||{}),kind:event.target.value})}>{SEGMENT_KINDS.map(([value,label])=><option key={value} value={value}>{label}</option>)}</ReportsNativeSelect></label>
+        <label>Como encontrar este público<ReportsTextArea disabled={readOnly} maxLength="500" rows={3} value={node.segment?.description||''} placeholder="Interesses, palavras-chave, lista ou regra de remarketing" onChange={event=>onChange('segment',{...(node.segment||{}),description:event.target.value})}/></label>
+        {!readOnly&&onSplitSegment&&<UntitledButton type="button" color="secondary" size="sm" onPress={()=>onSplitSegment(node.id)}>Criar outro público deste canal</UntitledButton>}
+        <small>Cada público vira uma origem própria, com página de destino, previsão, criativos e setup.</small>
+      </fieldset>}
       <label>Grupo<ReportsFieldInput list="flow-existing-groups" disabled={readOnly} value={node.pageGroup||''} placeholder="Ex.: Aquisição" onChange={event=>onChange('pageGroup',event.target.value)}/><datalist id="flow-existing-groups">{groups.map(name=><option key={name} value={name}/>)}</datalist></label>{node.pageGroup&&!groups.includes(node.pageGroup)&&<UntitledButton color="tertiary" size="sm" isDisabled={readOnly} onPress={()=>onCreateGroup(node.pageGroup)}>Criar grupo “{node.pageGroup}”</UntitledButton>}
       {node.type!=='note'&&<Switch className="flow-inspector-toggle" isDisabled={readOnly} isSelected={Boolean(node.isEntry)} onChange={value=>onChange('isEntry',value)}><span className="flow-toggle-track"/>Ponto de entrada</Switch>}
       {node.type!=='note'&&<details><summary>Mais detalhes</summary><label>Função na jornada<ReportsNativeSelect disabled={readOnly} value={node.role||'none'} onChange={event=>onChange('role',event.target.value)}>{[['none','Não definida'],['entry','Entrada'],['institutional','Institucional'],['offer','Oferta'],['content','Conteúdo'],['intent','Intenção'],['form','Formulário'],['checkout','Finalização de compra'],['conversion','Confirmação'],['legal','Página legal'],['error','Erro']].map(([value,label])=><option key={value} value={value}>{label}</option>)}</ReportsNativeSelect></label><small>A função ajuda a descrever a jornada. Ela não muda a Etapa nem confirma uma conversão.</small><label>Descrição<ReportsTextArea disabled={readOnly} value={node.description||''} maxLength="500" rows={3} onChange={event=>onChange('description',event.target.value)}/></label></details>}

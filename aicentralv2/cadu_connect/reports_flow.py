@@ -20,7 +20,7 @@ from .reports_v1 import _rows, _selection, _write_guard, _customer_id, _optional
 from .reports_flow_versions import expected_revision, lock_flow, save_draft, publish_draft, session_snapshot, match_version_step
 from .reports_flow_schema import DEFAULT_KINDS, to_v3
 from .reports_flow_validation import MAX_FLOW_PAGES, validate_flow_config
-from .reports_flow_lifecycle import NODE_STATUSES, is_measured, measured_nodes, node_status, normalize_forecast, normalize_spec
+from .reports_flow_lifecycle import NODE_STATUSES, is_measured, measured_nodes, node_status, normalize_forecast, normalize_media, normalize_segment, normalize_spec
 from .reports_flow_stage import normalize_stage_position
 from .reports_flow_metrics import apply_engagement, apply_session_bounds, edge_observation, origin_summary
 
@@ -628,6 +628,12 @@ def _normalize_flow_config(config, allowed_host):
         spec = normalize_spec(node.get('spec'))
         if spec:
             item['spec'] = spec
+        if node_type == 'source':
+            segment, media = normalize_segment(node.get('segment')), normalize_media(node.get('media'))
+            if segment:
+                item['segment'] = segment
+            if media:
+                item['media'] = media
         forecast = normalize_forecast(node.get('forecast'), {'source': ('visits', 'cost'), 'conversion': ('value',)}.get(node_type, ()))
         if forecast:
             item['forecast'] = forecast

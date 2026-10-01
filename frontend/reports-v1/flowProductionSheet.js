@@ -1,5 +1,6 @@
 import {flowBlockFor} from './flowBlockRegistry.js';
 import {MEASURED_TYPES, NODE_STATUS_LABELS, hasRealPath, nodeStatus} from './flowLifecycle.js';
+import {creativeFormatLabel, creativeStatusLabel, mediaProgress, objectiveLabel, segmentKindLabel} from './flowMedia.js';
 
 // The production sheet is a view of the plan itself: what must be created, by whom and by when.
 export const SHEET_SECTIONS = Object.freeze([
@@ -14,6 +15,7 @@ const SECTION_BY_TYPE = {page: 'page', form: 'page', error: 'page', event: 'trac
 
 function missingFor(node) {
   if (node.type === 'note') return (node.checklist || []).filter(item => !item.done).map(item => item.text);
+  if (node.type === 'source') return mediaProgress(node).missing;
   if (!MEASURED_TYPES.has(node.type)) return [];
   const spec = node.spec || {};
   const missing = [];
@@ -40,8 +42,13 @@ export function buildProductionSheet(config) {
       kind: kind === title ? '' : kind, measured, status,
       statusLabel: status ? NODE_STATUS_LABELS[status] : null, spec: node.spec || {}, path: hasRealPath(node) ? node.path : '',
       eventName: node.event_name || '', missing: missingFor(node),
-      done: measured ? ['ready', 'live'].includes(status) && hasRealPath(node) : node.type === 'note' ? checklist.length > 0 && checklist.every(item => item.done) : true,
+      done: measured ? ['ready', 'live'].includes(status) && hasRealPath(node) : node.type === 'note' ? checklist.length > 0 && checklist.every(item => item.done)
+        : node.type === 'source' ? mediaProgress(node).missing.length === 0 : true,
       checklist,
+      segment: node.type === 'source' && node.segment ? [node.segment.name, segmentKindLabel(node.segment.kind)].filter(Boolean).join(' · ') : '',
+      objective: node.type === 'source' ? objectiveLabel(node.media?.objective) : '',
+      creatives: node.type === 'source' ? node.media?.creatives || [] : [],
+      setup: node.type === 'source' ? node.media?.setup || [] : [],
     };
   });
   const tracked = items.filter(item => item.measured);
@@ -57,7 +64,9 @@ const CSV_COLUMNS = [
   ['Endereço sugerido', item => item.spec.suggested_path], ['Endereço final', item => item.path], ['Evento', item => item.eventName],
   ['Objetivo', item => item.spec.goal], ['Mensagem', item => item.spec.headline], ['Conteúdo', item => item.spec.content],
   ['Chamada para ação', item => item.spec.cta], ['Referências', item => item.spec.references], ['Observações', item => item.spec.notes],
-  ['Checklist', item => item.checklist.map(entry => `${entry.done ? '[x]' : '[ ]'} ${entry.text}`).join('\n')],
+  ['Público', item => item.segment], ['Objetivo da campanha', item => item.objective],
+  ['Criativos', item => item.creatives.map(entry => `${entry.name} (${creativeFormatLabel(entry.format)}, ${creativeStatusLabel(entry.status)})`).join('\n')],
+  ['Checklist', item => [...item.checklist, ...item.setup].map(entry => `${entry.done ? '[x]' : '[ ]'} ${entry.text}`).join('\n')],
   ['Pendências', item => item.missing.join('; ')],
 ];
 
@@ -80,11 +89,13 @@ const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&
 export function productionSheetHtml(sheet, {name = 'Fluxo', host = ''} = {}) {
   const field = (label, value) => value ? `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd>` : '';
   const body = sheet.sections.map(section => `<h2>${escapeHtml(section.label)}</h2>${section.items.map(item => `<article><h3>${escapeHtml(item.title)}<small>${escapeHtml([item.kind, item.statusLabel].filter(Boolean).join(' · '))}</small></h3><dl>${
+    field('Público', item.segment) + field('Objetivo da campanha', item.objective) +
     field('Responsável', item.spec.owner) + field('Prazo', item.spec.due_date) + field('Endereço sugerido', item.spec.suggested_path) + field('Endereço final', item.path)
     + field('Evento', item.eventName) + field('Objetivo', item.spec.goal) + field('Mensagem', item.spec.headline) + field('Conteúdo', item.spec.content)
     + field('Chamada para ação', item.spec.cta) + field('Referências', item.spec.references) + field('Observações', item.spec.notes)}</dl>${
-    item.checklist.length ? `<ul class="check">${item.checklist.map(entry => `<li>${entry.done ? '☑' : '☐'} ${escapeHtml(entry.text)}</li>`).join('')}</ul>` : ''}${
-    item.missing.length && item.section !== 'note' ? `<p class="missing">Falta: ${escapeHtml(item.missing.join(', '))}</p>` : ''}</article>`).join('')}`).join('');
+    item.creatives.length ? `<p><strong>Criativos</strong></p><ul class="check">${item.creatives.map(entry => `<li>${escapeHtml(entry.name)} · ${escapeHtml(creativeFormatLabel(entry.format))} · ${escapeHtml(creativeStatusLabel(entry.status))}${entry.message ? ` — ${escapeHtml(entry.message)}` : ''}</li>`).join('')}</ul>` : ''}${
+    [...item.checklist, ...item.setup].length ? `<ul class="check">${[...item.checklist, ...item.setup].map(entry => `<li>${entry.done ? '☑' : '☐'} ${escapeHtml(entry.text)}</li>`).join('')}</ul>` : ''}${
+    item.missing.length && !['note', 'source'].includes(item.section) ? `<p class="missing">Falta: ${escapeHtml(item.missing.join(', '))}</p>` : ''}</article>`).join('')}`).join('');
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Folha de produção · ${escapeHtml(name)}</title><style>
 body{margin:32px;color:#101828;font:13px/1.5 Inter,Arial,sans-serif}h1{margin:0;font-size:22px}header p{margin:4px 0 24px;color:#475467}
 h2{margin:28px 0 8px;padding-bottom:6px;border-bottom:1px solid #eaecf0;font-size:15px}article{margin:0 0 14px;padding:12px 14px;border:1px solid #eaecf0;border-radius:10px;break-inside:avoid}

@@ -143,6 +143,26 @@ class PlannedNormalizationTests(unittest.TestCase):
             with self.assertRaises(BadRequest):
                 _normalize_flow_config({'nodes': nodes, 'edges': [{**edges[0], 'forecast': invalid}]}, HOST)
 
+    def test_origins_keep_segment_and_media_with_closed_vocabularies(self):
+        source = {'id': 'meta', 'type': 'source', 'title': 'Meta', 'x': 0, 'y': 0,
+                  'segment': {'name': '  Remarketing   30 dias ', 'kind': 'remarketing', 'description': ''},
+                  'media': {'objective': 'leads', 'utm': {'source': 'facebook', 'campaign': ''},
+                            'creatives': [{'id': 'c1', 'name': 'Vídeo depoimento', 'format': 'video', 'status': 'aprovado', 'message': 'Oi'}],
+                            'setup': [{'id': 's1', 'text': 'Pixel instalado', 'done': True}, {'id': 's2', 'text': '  '}]}}
+        config, _ = _normalize_flow_config({'nodes': [source, page(status='planned', segment={'name': 'x'}, media={'objective': 'leads'})], 'edges': []}, HOST)
+        meta, landing = config['nodes']
+        self.assertEqual(meta['segment'], {'name': 'Remarketing 30 dias', 'kind': 'remarketing'})
+        self.assertEqual(meta['media'], {'objective': 'leads', 'creatives': [{'id': 'c1', 'name': 'Vídeo depoimento', 'format': 'video', 'status': 'aprovado', 'message': 'Oi'}],
+                                         'setup': [{'id': 's1', 'text': 'Pixel instalado', 'done': True}], 'utm': {'source': 'facebook'}})
+        self.assertNotIn('segment', landing)
+        self.assertNotIn('media', landing)
+        for invalid in ({'objective': 'viral'}, {'creatives': [{'id': 'c', 'format': 'holograma'}]}, {'creatives': [{'id': 'c', 'format': 'video', 'status': 'publicado'}]},
+                        {'utm': {'source': 'face book'}}, {'setup': ['texto']}, {'creatives': [{'id': 'c d', 'format': 'video'}]}):
+            with self.assertRaises(BadRequest):
+                _normalize_flow_config({'nodes': [{**source, 'media': invalid}], 'edges': []}, HOST)
+        with self.assertRaises(BadRequest):
+            _normalize_flow_config({'nodes': [{**source, 'segment': {'name': 'x', 'kind': 'vip'}}], 'edges': []}, HOST)
+
     def test_tags_are_trimmed_deduplicated_and_limited(self):
         config, _ = _normalize_flow_config({'nodes': [], 'edges': [], 'tags': ['  Black  Friday ', 'black friday', 'Leads', 'x' * 60]}, HOST)
         self.assertEqual(config['tags'], ['Black Friday', 'Leads', 'x' * 40])

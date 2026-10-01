@@ -748,7 +748,15 @@ function Access({data, save, busy}) {
   };
   const activeUsers = users.filter(user => user.role && !user.revoked_at);
   const visibleUsers = activeUsers.filter(user => `${user.name} ${user.email || ''}`.toLocaleLowerCase('pt-BR').includes(accessQuery.trim().toLocaleLowerCase('pt-BR')));
-  return <section className="reports-access-page">
+  return <><div className="reports-page-hero">
+      <div className="reports-page-hero__inner">
+        <div className="reports-page-hero__copy">
+          <div className="reports-page-hero__eyebrow">Administração</div>
+          <h1>Acessos</h1>
+          <p>Gerencie quem pode consultar e operar os dados deste cliente.</p>
+        </div>
+      </div>
+    </div><section className="reports-access-page">
     <ReportsDrawer open={grantOpen} onOpenChange={setGrantOpen} onDiscard={()=>{setUserId('');setRole('viewer');setExclusive(false);setLocalError('');}} title="Conceder acesso" description="Defina quem pode consultar ou operar os dados deste cliente." context={data.client.client_name}>
       <p>Defina o acesso à conta principal do Reports. Compartilhamentos restritos são feitos no site ou fluxo.</p>
       {localError && <p className="reports-error" role="alert">{localError}</p>}
@@ -759,7 +767,8 @@ function Access({data, save, busy}) {
       {visibleUsers.length ? <div className="reports-table-wrap"><table><thead><tr><th>Usuário</th><th>Papel</th><th>Tipo</th><th><span className="reports-sr-only">Ações</span></th></tr></thead><tbody>{visibleUsers.map(user => <tr key={user.id}><td>{user.name}</td><td>{ACCESS_ROLE_LABELS[user.role] || user.role}</td><td>{user.access_scope==='shared'?'Recursos compartilhados':'Conta principal'}</td><td className="reports-flow-table__actions"><ReportsActionButton className="reports-danger-button" disabled={busy} onClick={() => setRevokeUser(user)}>Revogar</ReportsActionButton></td></tr>)}</tbody></table></div> : <Empty message={activeUsers.length ? 'Ninguém corresponde à busca.' : 'Nenhum acesso próprio do Reports concedido para este cliente.'} />}
     </article>
     <ReportsConfirmDialog open={Boolean(revokeUser)} title="Revogar acesso" description={revokeUser ? `Remover o acesso de ${revokeUser.name} a este cliente no Reports?` : ''} confirmLabel="Revogar acesso" busy={busy} onCancel={() => setRevokeUser(null)} onConfirm={() => revoke(revokeUser)} />
-  </section>;
+  </section>
+  </>;
 }
 
 // Flows page lives in FlowsPage.jsx.
@@ -1293,7 +1302,15 @@ function Imports({data, reloadBootstrap, focusLibrary = false}) {
     {id:'conflicts',label:'Divergências',count:conflicts.length || undefined},
     {id:'ranges',label:'Períodos importados',count:rangeSnapshots.length || undefined},
   ];
-  return <section className={`reports-imports-page is-${importsView}`}>
+  return <><div className="reports-page-hero">
+      <div className="reports-page-hero__inner">
+        <div className="reports-page-hero__copy">
+          <div className="reports-page-hero__eyebrow">Operação de mídia</div>
+          <h1>Importações</h1>
+          <p>Envie arquivos e revise os dados antes de incluí-los nos relatórios.</p>
+        </div>
+      </div>
+    </div><section className={`reports-imports-page is-${importsView}`}>
     <ReportsTabs className="reports-imports-tabs" label="Etapas de importação" items={tabItems} value={importsView} onChange={setImportsView} />
     {error && <p className="reports-error reports-imports-alert" role="alert">{error}</p>}
     {note && <p className="reports-success reports-imports-alert" role="status">{note}</p>}
@@ -1311,7 +1328,8 @@ function Imports({data, reloadBootstrap, focusLibrary = false}) {
     {detail?.import_file?.file_kind === 'image' && <div className="reports-import-visual"><VisualConfirm key={detail.import_file.id} detail={detail} data={data} busy={busy} setBusy={setBusy} setError={setError} onRefresh={async () => {await open(detail.import_file.id); await refresh(); await reloadBootstrap();}} /></div>}
     {detail && detail.import_file.file_kind !== 'image' && <div className="reports-import-columnmap"><ColumnMapping key={detail.import_file.id} detail={detail} data={data} busy={busy} setBusy={setBusy} setError={setError} onRefresh={async () => {await open(detail.import_file.id); await refresh(); await reloadBootstrap();}} /></div>}
     {editing && <article className="reports-panel reports-span-three reports-import-editing"><div className="reports-panel-head"><h2>Revisar linha</h2><ReportsActionButton type="button" className="reports-text-button" onClick={() => setEditing(null)}>Fechar</ReportsActionButton></div>{draft.campaign_match?.state === 'missing' && <div className="reports-suggestion"><strong>Campanha não encontrada</strong><p>Não localizamos {draft.campaign_name} ({draft.platform} · conta {draft.external_account_id} · campanha {draft.external_campaign_id}). Escolha criar essa campanha para armazenar os dados importados.</p>{!draft.campaign_match?.account_id && <p>Se a conta ainda não estiver cadastrada, os campos acima serão usados para criar o vínculo; sem ID externo, ela ficará identificada como conta de importação do Reports.</p>}<label className="reports-checkbox"><ReportsFieldInput type="checkbox" checked={Boolean(draft.create_campaign)} onChange={event => setDraft({...draft,create_campaign:event.target.checked})} />Criar campanha e associar os dados desta linha</label></div>}{draft.update_kind && <p>Tipo identificado: {{first:'primeiros dados da campanha',incremental:'novos dias de dados',revision:'valores diferentes para uma data já recebida',duplicate:'reenvio com os mesmos valores',campaign_missing:'campanha ainda sem associação'}[draft.update_kind]}.</p>}<form className="reports-form" onSubmit={resolve}><div className="reports-form-pair">{[['platform','Plataforma'],['external_account_id','ID da conta'],['account_name','Nome da conta'],['external_campaign_id','ID da campanha'],['campaign_name','Nome da campanha'],['metric_date','Data ISO (AAAA-MM-DD)'],['currency','Moeda'],['impressions','Impressões'],['clicks','Cliques'],['cost','Custo'],['conversions','Conversões'],['conversion_value','Valor das conversões']].map(([key,label]) => <label key={key}>{label}<ReportsFieldInput value={draft[key] || ''} onChange={event => setDraft({...draft,[key]:event.target.value})} /></label>)}</div><label>Justificativa<ReportsFieldInput required maxLength="1000" value={draft.note || ''} onChange={event => setDraft({...draft,note:event.target.value})} placeholder="Ex.: data e conta conferidas no export original" /></label><ReportsActionButton type="submit" disabled={busy || (draft.campaign_match?.state === 'missing' && !draft.create_campaign)}>Confirmar linha</ReportsActionButton></form></article>}
-  </section>;
+  </section>
+  </>;
 }
 
 function App() {

@@ -356,5 +356,35 @@
       "unmapped_page:oferta"
     ],
     "expected_warnings": []
+  },
+  {
+    "name": "conversao_planejada",
+    "config": {
+      "nodes": [
+        {
+          "id": "inicio",
+          "type": "page",
+          "title": "Início",
+          "path": "/"
+        },
+        {
+          "id": "lead",
+          "type": "conversion",
+          "title": "Lead",
+          "status": "planned"
+        }
+      ],
+      "edges": [
+        {
+          "id": "e1",
+          "from": "inicio",
+          "to": "lead"
+        }
+      ]
+    },
+    "expected_errors": [],
+    "expected_warnings": [
+      "planned_conversion"
+    ]
   }
 ]

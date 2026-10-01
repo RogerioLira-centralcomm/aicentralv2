@@ -24,7 +24,9 @@ def node_status(node):
     status = node.get('status')
     if status in NODE_STATUSES:
         return status
-    return 'live' if has_real_path(node) else 'ready'
+    if node.get('type') not in MEASURED or has_real_path(node):
+        return 'live'
+    return 'ready'
 
 
 def is_measured(node):
@@ -44,6 +46,7 @@ DETAILS = {
     'cycle_without_condition': ('A jornada pode ficar ambígua neste Retorno.', 'review_return'),
     'too_many_pages': ('Com muitas páginas o fluxo deixa de mostrar o caminho principal.', 'reduce_pages'),
     'planned_step': ('Este passo fica fora da medição até ter uma página no ar.', 'link_page'),
+    'planned_conversion': ('A medição não registrará conclusões enquanto a conversão estiver planejada.', 'link_page'),
 }
 
 
@@ -61,9 +64,13 @@ def validate_flow_config(config, allowed_host=''):
             incoming[edge['to']].append(edge['from'])
     # Institutional sites are read by engagement (time, depth, exits); a conversion is optional there.
     engagement = config.get('site_kind') == 'institucional'
-    if not engagement and not any(node.get('type') == 'conversion' for node in nodes):
+    conversions = [node for node in nodes if node.get('type') == 'conversion']
+    if not engagement and not conversions:
         issues.append({'severity': 'error', 'code': 'no_conversion',
                        'message': 'Defina um nó de Conversão antes de publicar.'})
+    elif not engagement and all(node_status(node) in ('planned', 'in_production') for node in conversions):
+        issues.append({'severity': 'warning', 'code': 'planned_conversion',
+                       'message': 'Todas as conversões estão planejadas; a medição não registrará conclusões.'})
     for node in nodes:
         node_id = node['id']
         planned = node.get('type') in MEASURED and node_status(node) in ('planned', 'in_production')

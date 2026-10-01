@@ -29,6 +29,7 @@ class NodeStatusTests(unittest.TestCase):
         self.assertEqual(node_status(page(path='/configurar-abcd')), 'ready')
         self.assertEqual(node_status(page()), 'ready')
         self.assertEqual(node_status(page(status='planned')), 'planned')
+        self.assertEqual(node_status({'id': 's', 'type': 'source', 'title': 'Meta'}), 'live')
 
     def test_only_ready_or_live_steps_with_a_real_address_are_measured(self):
         self.assertTrue(is_measured(page(path='/landing')))
@@ -63,6 +64,19 @@ class PlannedValidationTests(unittest.TestCase):
         config = {'nodes': [page(path='/a'), page('copy', path='/a', status='planned'), conversion()],
                   'edges': [{'from': 'landing', 'to': 'lead'}, {'from': 'copy', 'to': 'lead'}]}
         self.assertNotIn('duplicate_page', codes(validate_flow_config(config, HOST), 'error'))
+
+
+class PlannedConversionTests(unittest.TestCase):
+    def test_measurement_with_only_planned_conversions_warns_without_blocking(self):
+        config = {'nodes': [page(path='/'), conversion(status='planned')], 'edges': [{'from': 'landing', 'to': 'lead'}]}
+        issues = validate_flow_config(config, HOST)
+        self.assertEqual(codes(issues, 'error'), set())
+        self.assertIn('planned_conversion', codes(issues, 'warning'))
+
+    def test_a_live_conversion_removes_the_warning(self):
+        config = {'nodes': [page(path='/'), conversion(), conversion(id='lead2', status='planned', path='/obrigado-2')],
+                  'edges': [{'from': 'landing', 'to': 'lead'}, {'from': 'landing', 'to': 'lead2'}]}
+        self.assertNotIn('planned_conversion', codes(validate_flow_config(config, HOST), 'warning'))
 
 
 class PlannedNormalizationTests(unittest.TestCase):
@@ -105,7 +119,8 @@ class SpecTests(unittest.TestCase):
         self.assertIsNone(normalize_spec(None))
         self.assertIsNone(normalize_spec({'goal': ''}))
         self.assertEqual(normalize_spec({'cta': 'Quero uma proposta', 'unknown': 'x'}), {'cta': 'Quero uma proposta'})
-        for invalid in ({'cta': 'x' * 201}, {'suggested_path': 'oferta'}, {'goal': 3}, []):
+        self.assertEqual(normalize_spec({'suggested_path': 'oferta'}), {'suggested_path': '/oferta'})
+        for invalid in ({'cta': 'x' * 201}, {'due_date': '15/10/2026'}, {'goal': 3}, []):
             with self.assertRaises(BadRequest):
                 normalize_spec(invalid)
 

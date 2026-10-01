@@ -30,7 +30,7 @@ def normalize_spec(spec):
             raise BadRequest('Especificação de nó inválida.')
         if field == 'due_date' and not DUE_DATE.fullmatch(value):
             raise BadRequest('Use o prazo no formato AAAA-MM-DD.')
-        if field == 'suggested_path' and not value.startswith('/'):
-            raise BadRequest('O endereço sugerido precisa começar com /.')
+        if field == 'suggested_path':
+            value = '/' + value.strip().lstrip('/')
         clean[field] = value
     return clean or None

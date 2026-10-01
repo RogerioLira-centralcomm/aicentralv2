@@ -8,7 +8,7 @@ export const hasRealPath=node=>typeof node?.path==='string'&&node.path.startsWit
 // Planning is an explicit choice: without a status, a step missing its URL is "ready" and publication asks for it.
 export function nodeStatus(node){
   if(NODE_STATUSES.includes(node?.status))return node.status;
-  return hasRealPath(node)?'live':'ready';
+  return !measured.has(node?.type)||hasRealPath(node)?'live':'ready';
 }
 export const isPlanned=node=>measured.has(node?.type)&&['planned','in_production'].includes(nodeStatus(node));
 export const isMeasured=node=>measured.has(node?.type)&&['ready','live'].includes(nodeStatus(node))&&hasRealPath(node);
@@ -26,6 +26,7 @@ const details={
   cycle_without_condition:['A jornada pode ficar ambígua neste Retorno.','review_return'],
   too_many_pages:['Com muitas páginas o fluxo deixa de mostrar o caminho principal.','reduce_pages'],
   planned_step:['Este passo fica fora da medição até ter uma página no ar.','link_page'],
+  planned_conversion:['A medição não registrará conclusões enquanto a conversão estiver planejada.','link_page'],
 };
 
 export function flowValidation(config,allowedHost='') {
@@ -35,7 +36,9 @@ export function flowValidation(config,allowedHost='') {
   const pagePaths=new Map();
   // Institutional sites are read by engagement (time, depth, exits); a conversion is optional there.
   const engagement=config.site_kind==='institucional';
-  if(!engagement&&!nodes.some(node=>node.type==='conversion'))issues.push({severity:'error',code:'no_conversion',message:'Defina um nó de Conversão antes de publicar.'});
+  const conversions=nodes.filter(node=>node.type==='conversion');
+  if(!engagement&&!conversions.length)issues.push({severity:'error',code:'no_conversion',message:'Defina um nó de Conversão antes de publicar.'});
+  else if(!engagement&&conversions.every(node=>['planned','in_production'].includes(nodeStatus(node))))issues.push({severity:'warning',code:'planned_conversion',message:'Todas as conversões estão planejadas; a medição não registrará conclusões.'});
   for(const node of nodes){
     const planned=isPlanned(node);
     if(planned)issues.push({severity:'info',code:'planned_step',nodeId:node.id,message:`${node.title||'Um passo'} está planejado e ainda não é medido.`});

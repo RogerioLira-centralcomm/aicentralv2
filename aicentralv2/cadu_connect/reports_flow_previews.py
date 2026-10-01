@@ -131,7 +131,7 @@ def register(bp):
             config = versions[0]['config']
         targets = {}
         for node in config.get('nodes',[]):
-            if node.get('type')!='page': continue
+            if node.get('type')!='page' or node.get('status') in ('planned','in_production'): continue
             host = node.get('host') or flow['allowed_host']
             path = node.get('path') or ''
             if not _host_allowed(host,flow['allowed_host']) or not path.startswith('/') or path.startswith('//') or path.startswith('/configurar-'): continue

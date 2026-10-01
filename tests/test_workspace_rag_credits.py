@@ -22,8 +22,9 @@ def test_rag_charge_uses_client_credit_lots_and_records_usage():
         call for call in cursor.execute.call_args_list
         if 'INSERT INTO cadu_tools_token_usage' in str(call.args[0])
     )
-    assert len(usage_call.args[1]) == 9
-    assert usage_call.args[1][6:8] == (84, 84)
+    # The global credit connector records one charged-token column.
+    assert usage_call.args[1][:6] == ('test-rag-charge', 42, 7, 'workspace_rag', 'indexacao', 'postgres-text')
+    assert usage_call.args[1][6] == 84
 
 
 def test_rag_charge_rejects_when_client_has_insufficient_credit():

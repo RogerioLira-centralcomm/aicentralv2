@@ -87,3 +87,22 @@ def test_response_policy_sent_to_the_model_has_no_duplicated_or_internal_fields(
                 "max_output_tokens", "max_duration_ms"):
         assert key not in sent
     assert sent["mode"] and "max_answer_chars" in sent
+
+
+def test_meeting_plugin_artifact_does_not_ask_for_tables_or_images():
+    from aicentralv2.cadu_workspace.agent_v2 import executor, plugins
+    from aicentralv2.cadu_workspace.agent_v2.context_resolver import ResolvedContext
+    plugins.get_plugin = lambda pid: {"id": pid, "name": pid, "maturity": "active", "internal_tools": [],
+                                      "manifest": {}, "selectable": True, "version": "1"}
+    executor.recent_preferences = lambda *a, **k: []
+    executor.resolve_context = lambda route, request, *a, **k: ResolvedContext(values={"current_context": {}}, tool_calls=[])
+    request = RequestContext(client_id=1, user_id=7, conversation_id="c", surface="conversations",
+                             project_ref="ci:t", capabilities=("workspace",))
+    agenda = executor.prepare_execution("/meeting-copilot Prepare a pauta da reunião de amanhã", request)
+    assert agenda["route"]["artifact_type"] == "meeting_agenda"
+    assert "tabelas para comparações" not in agenda["provider_payload"]["inputs"]["core"]
+    document = executor.prepare_execution("Analise o relatório da campanha em anexo", request,
+                                          has_report_attachment=True)
+    assert document["route"]["artifact_type"] == "document"
+    assert document["execution_mode"] == "agentic"
+    assert "tabelas para comparações" in document["provider_payload"]["inputs"]["core"]

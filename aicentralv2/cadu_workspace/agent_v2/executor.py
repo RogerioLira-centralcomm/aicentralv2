@@ -13,7 +13,7 @@ from .prompt_assembler import build_payload
 from .response_policy import budget_for, policy_for, requested_answer_chars, requested_output_tokens
 from .router import route_request
 from .task_planner import build_task_plan
-from .contracts import execution_mode_for
+from .contracts import FLAT_SCHEMA_ARTIFACTS, execution_mode_for
 from . import plugins
 from .daily_workflows import recent_preferences
 from .evidence import has_read_source
@@ -272,7 +272,9 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
                     + ". Use-as apenas para ordenar sugestões; o pedido atual prevalece. "
                     "Se ajudar, ofereça uma única próxima ação personalizada ao final."
                 )
-        if route.artifact_type:
+        # Fields-only artifacts (meeting notes/agenda, brief) carry plain text per
+        # field; tables, metrics and images apply to the richer artifact types.
+        if route.artifact_type and route.artifact_type not in FLAT_SCHEMA_ARTIFACTS:
             policy["plugin_instruction"] += (
                 " O artefato solicitado apresenta o material para leitura e compartilhamento: "
                 "organize-o com seções curtas, tabelas para comparações, métricas com unidade e período, "

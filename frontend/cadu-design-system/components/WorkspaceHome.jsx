@@ -21,21 +21,7 @@ function withQuery(url, values) {
 
 const isDockResource = item => Boolean(item?.resourceRef) || item?.kind === 'resource';
 
-function HomeCreditAlert({creditAlert}) {
-  if (!creditAlert?.visible) return null;
-  const balance = Number(creditAlert.available || 0).toLocaleString('pt-BR');
-  return <section className={`cadu-ds-home-credit-alert ${creditAlert.isFree ? 'is-free' : 'is-low'}`} aria-live="polite" aria-label="Capacidade de créditos">
-    <strong>{creditAlert.isFree ? creditAlert.title : `Saldo baixo · ${balance} créditos`}</strong>
-    <a className="cadu-ds-home-credit-alert__action" href={creditAlert.href}>{creditAlert.cta}<span aria-hidden="true">↗</span></a>
-  </section>;
-}
 
-function CaduVectorMark() {
-  return <svg className="cadu-ds-home-cadu-mark" viewBox="0 0 98 58" role="img" aria-label="Cadu">
-    <path d="M25 7h26L32 29l19 22H25L5 29z"/>
-    <path d="M55 7h38L74 29l19 22H55L36 29z"/>
-  </svg>;
-}
 
 export function WorkspaceHome({bootstrap}) {
   const {isMobile} = useWorkspaceViewport();
@@ -217,21 +203,19 @@ export function WorkspaceHome({bootstrap}) {
         resources={home.resources || []}
       />}
         <section className="cadu-ds-home-content">
-        <div className="cadu-ds-home-intro"><CaduVectorMark/><div className="cadu-ds-home-intro__copy"><span className="cadu-ds-home-intro__eyebrow">Workspace</span><h1>O que vamos resolver hoje?</h1><p>Descreva o trabalho. O Cadu ajuda a organizar o próximo passo.</p></div></div>
+        <div className="cadu-ds-home-intro"><h1>O que vamos resolver hoje?</h1></div>
         <WorkspaceChatComposer value={value} onChange={setValue} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} hasProject={Boolean(projectRef)} executionMode={executionMode} onExecutionModeChange={setExecutionMode} composerContext={composerContext} onClearContext={() => { setProjectRef(''); setBrandRef(''); setAttachmentDestination('conversation'); }} onContextDrop={dropContext} onAttach={addFiles} projects={projects} projectRef={projectRef} onProjectChange={id => { setProjectRef(id); setBrandRef(''); setAttachmentDestination('conversation'); }} audioTranscriptionEndpoint={bootstrap.endpoints.audioTranscriptions} csrfToken={csrf()} embedded homeMode/>
         <section className="cadu-ds-home-resume" aria-label="Retomar trabalho">
           {resumeSuggestionState === 'ready' && resumeSuggestion ? <a className="cadu-ds-home-resume__result" href={resumeSuggestion.href}>
             <span><small>Trabalho atualizado recentemente</small><b>{resumeSuggestion.title}</b><small>{resumeSuggestion.context}{resumeSuggestion.context && resumeSuggestion.status ? ' · ' : ''}{resumeSuggestion.status}</small></span><span aria-hidden="true">›</span>
           </a> : <>
             {resumeSuggestionState !== 'empty' && <button type="button" className="cadu-ds-home-resume__action" onClick={requestResumeSuggestion} disabled={resumeSuggestionState === 'loading'}>
-              {resumeSuggestionState === 'loading' ? 'Carregando…' : resumeSuggestionState === 'error' ? 'Tentar novamente' : 'Ver trabalho recente'}
+              {resumeSuggestionState === 'loading' ? 'Carregando…' : resumeSuggestionState === 'error' ? 'Tentar novamente' : 'Retomar trabalho recente'}
             </button>}
-            {resumeSuggestionState === 'idle' && <small>Mostra seu trabalho atualizado mais recentemente. A escolha é feita no CentralX.</small>}
             {resumeSuggestionState === 'empty' && <small role="status">Não encontrei uma sugestão útil para retomar agora.</small>}
             {resumeSuggestionState === 'error' && <small role="status">Não consegui preparar a sugestão agora. Você pode continuar usando a Home normalmente.</small>}
           </>}
         </section>
-        <HomeCreditAlert creditAlert={home.creditAlert}/>
         </section>
       </div>
     </main>

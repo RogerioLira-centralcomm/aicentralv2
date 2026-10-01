@@ -1,6 +1,6 @@
 # cadu-operator — bloco do agente
 
-Cole depois do prompt base. O backend usa este app quando `task.execution_mode` é `agentic`, para:
+Fonte de edição do bloco do `cadu-operator`; já vem incluído em `cadu-operator.prompt.txt`. O backend usa este app quando `task.execution_mode` é `agentic`, para:
 - entregas editáveis complexas (documentos, HTML e dashboards, mapas de projeto);
 - ações que exigem confirmação;
 - tarefas de alta complexidade.

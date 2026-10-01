@@ -9497,8 +9497,36 @@ def account_page(section):
         dock_items = []
     return render_template(
         "cadu_workspace/account_react.html", section=section,
-        account=account, dock_items=dock_items,
+        account=_account_public_view(account), dock_items=dock_items,
     )
+
+
+_ACCOUNT_USER_FIELDS = ('id_contato_cliente', 'nome_completo', 'email', 'telefone', 'foto_url', 'cadu_avatar_badge', 'user_type')
+_ACCOUNT_ORG_FIELDS = ('nome_fantasia', 'razao_social', 'cnpj', 'cep', 'logradouro', 'numero', 'complemento', 'bairro',
+                       'cidade', 'estado_sigla')
+_ACCOUNT_PERSON_FIELDS = ('id_contato_cliente', 'nome_completo', 'email', 'cargo', 'setor', 'cargo_descricao',
+                          'setor_display', 'user_type', 'status', 'foto_url')
+
+
+def _account_public_view(account: dict) -> dict:
+    """What the Conta pages may send to the browser.
+
+    The PHP records carry integration masks, CRM identifiers and commercial
+    notes (fee, margin, sales notes). Only the fields the screens use leave the
+    server; text "None" from legacy columns becomes empty.
+    """
+    def pick(record, fields):
+        record = record or {}
+        return {key: ('' if record.get(key) in (None, 'None') else record.get(key))
+                for key in fields if key in record}
+
+    view = dict(account)
+    view['current_user'] = pick(account.get('current_user'), _ACCOUNT_USER_FIELDS)
+    view['organization'] = pick(account.get('organization'), _ACCOUNT_ORG_FIELDS)
+    view['people'] = [pick(person, _ACCOUNT_PERSON_FIELDS) for person in account.get('people') or []]
+    view['states'] = [{'sigla': item.get('sigla'), 'descricao': item.get('descricao')}
+                      for item in account.get('states') or [] if item.get('sigla')]
+    return view
 
 
 def _redirect_account_alias(target):
@@ -9555,7 +9583,7 @@ def integrations():
         current_app.logger.exception('Não foi possível carregar a dock do Workspace para integrações')
         dock_items = []
     return render_template(
-        'cadu_workspace/account_react.html', section='integracoes', account=account, dock_items=dock_items,
+        'cadu_workspace/account_react.html', section='integracoes', account=_account_public_view(account), dock_items=dock_items,
     )
 
 

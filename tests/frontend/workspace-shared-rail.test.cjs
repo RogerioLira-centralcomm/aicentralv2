@@ -27,8 +27,12 @@ test('the sidebar tree comes from one server payload and agency sits beside the 
   assert.match(sidebar, /cadu-ds-context-sidebar__profile-text/);
   assert.doesNotMatch(sidebar, /<span>Agência<\/span>/);
   assert.doesNotMatch(sidebar, /Ver todos<\/a><\/div>\s*\{groups/);
-  assert.doesNotMatch(sidebar, /cadu-ds-context-sidebar__usage/);
-  assert.match(sidebar, /creditAlertVisible = usagePercent !== null && usagePercent >= 80/);
+  // As in Reports: credit use sits beside the person, never as a separate card.
+  assert.match(sidebar, /cadu-ds-context-sidebar__usage/);
+  assert.doesNotMatch(sidebar, /credit-alert/);
+  // One order across Workspace and Chat: Início, Conversas, Marcas, Projetos; Conta lives in the footer.
+  assert.match(sidebar, /id: 'home'[\s\S]*id: 'conversas'[\s\S]*id: 'marcas'[\s\S]*id: 'projetos'/);
+  assert.doesNotMatch(sidebar, /id: 'conta', label: 'Conta'/);
   assert.match(sidebar, /avatarBadgeSource\(bootstrap\.user\)/);
   assert.match(sidebar, /<span>Projetos<\/span>/);
   assert.match(sidebar, /Sem marca/);

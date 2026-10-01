@@ -5,7 +5,7 @@ import {useWorkspaceViewport} from '../hooks/useWorkspaceViewport';
 
 export function WorkspaceLegacyChrome({bootstrap}) {
   const {isMobile} = useWorkspaceViewport();
-  const railActive = {conversas: 'conversas', 'conversas-v2': 'conversas', projetos: 'projetos', marcas: 'marcas'}[bootstrap.active] || '';
+  const railActive = {inicio: 'home', conversas: 'conversas', 'conversas-v2': 'conversas', projetos: 'projetos', marcas: 'marcas', conta: 'conta'}[bootstrap.active] || '';
   useEffect(() => {
     const root = document.getElementById('cadu-workspace-legacy-chrome-root');
     const shell = root?.closest('.workspace-app-shell');

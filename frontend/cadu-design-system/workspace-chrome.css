@@ -367,31 +367,34 @@ body.portal--workspace .cadu-ds-account-shell .cadu-ds-brand-project-groups > ar
   body.portal--workspace .cadu-ds-context-sidebar.is-home:not(.is-collapsed) .cadu-ds-context-sidebar__solution .cadu-ds-solution-switcher summary::after { content:""; width:6px; height:6px; margin:-3px 0 0 2px; border-right:1.5px solid var(--cadu-muted); border-bottom:1.5px solid var(--cadu-muted); opacity:.7; transform:rotate(45deg); }
   body.portal--workspace .cadu-ds-context-sidebar.is-home:not(.is-collapsed) .cadu-ds-context-sidebar__toggle { width:24px; height:24px; }
 
-  /* Projects tree: one column for folder icons, one for text, wrapping instead of "…". */
+  /* Projects tree: icon and name on one line, centred; long names fade out like Chat (no "…", no wrapping). */
   body.portal--workspace #cadu-conversations-v2-root .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__project-tree { margin:0 0 4px; padding:0; }
   body.portal--workspace #cadu-conversations-v2-root .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__brand-heading { min-height:0; padding:5px 8px; }
-  body.portal--workspace #cadu-conversations-v2-root .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__brand-heading b { overflow:visible; text-overflow:clip; white-space:normal; overflow-wrap:anywhere; line-height:1.3; }
   body.portal--workspace #cadu-conversations-v2-root .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__project-child {
     display:grid;
     grid-template-columns:14px minmax(0,1fr);
-    align-items:start;
+    align-items:center;
     column-gap:8px;
-    min-height:0;
-    padding:4px 8px 4px 20px;
-    line-height:1.3;
+    min-height:28px;
+    padding:0 8px 0 20px;
+    line-height:1;
   }
-  body.portal--workspace #cadu-conversations-v2-root .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__project-child svg { margin-top:2px; }
-  body.portal--workspace #cadu-conversations-v2-root .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__project-child > span { display:block; overflow:visible; text-overflow:clip; white-space:normal; overflow-wrap:anywhere; }
+  body.portal--workspace #cadu-conversations-v2-root .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__project-child svg { display:block; margin:0; }
+}
+body.portal--workspace .cadu-ds-context-sidebar .cadu-ds-context-sidebar__fade {
+  display:block;
+  min-width:0;
+  overflow:hidden!important;
+  white-space:nowrap!important;
+  text-overflow:clip!important;
+  -webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 18px),transparent 100%);
+  mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 18px),transparent 100%);
+  line-height:1.35;
 }
 
-/* Footer: real photo, name over agency; credits only when they matter. */
+/* Footer, as in Reports: photo + name/agency (opens Conta) and credit use beside it. */
 body.portal--workspace .cadu-ds-context-sidebar__footer { gap:0; padding-top:10px; }
 body.portal--workspace .cadu-ds-context-sidebar__avatar { width:32px; height:32px; flex:0 0 32px; }
-body.portal--workspace .cadu-ds-context-sidebar__credit-alert { display:grid; gap:1px; margin:0 0 8px; padding:8px 10px; border-radius:8px; background:#fffaeb; color:#93370d; text-decoration:none; }
-body.portal--workspace .cadu-ds-context-sidebar__credit-alert span { font-size:12px; font-weight:650; }
-body.portal--workspace .cadu-ds-context-sidebar__credit-alert small { color:#b54708; font-size:11px; }
-body.portal--workspace .cadu-ds-context-sidebar__credit-alert:hover { background:#fef0c7; }
-body.portal--workspace .cadu-ds-context-sidebar.is-collapsed .cadu-ds-context-sidebar__credit-alert { display:none; }
 
 body.portal--workspace .cadu-ds-context-sidebar__group-note { display:block; padding:5px 8px; color:var(--cadu-muted); font-size:11.5px; font-weight:500; }
 
@@ -426,3 +429,22 @@ body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-page-header>.cadu
 body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-page-header>.cadu-ds-visual-identity.is-photo img { padding:0; object-fit:cover; }
 body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-page-header { display:flex; align-items:center; gap:16px; padding:8px 0 20px; }
 body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-page-header h1 { margin:0; font-size:28px; line-height:1.15; }
+
+body.portal--workspace .cadu-ds-context-sidebar__profile { padding:4px 6px; border-radius:8px; }
+body.portal--workspace .cadu-ds-context-sidebar__profile:hover,
+body.portal--workspace .cadu-ds-context-sidebar__profile.is-active { background:var(--cadu-surface); }
+body.portal--workspace .cadu-ds-context-sidebar__usage { display:flex; flex:none; align-items:center; gap:6px; padding:6px; border-radius:8px; color:var(--cadu-muted); font-size:10px; font-variant-numeric:tabular-nums; text-decoration:none; cursor:pointer; }
+body.portal--workspace .cadu-ds-context-sidebar__usage:hover { background:var(--cadu-surface); color:var(--cadu-accent-strong); }
+body.portal--workspace .cadu-ds-context-sidebar__usage > i { display:block; width:27px; height:4px; overflow:hidden; border-radius:99px; background:var(--cadu-line); }
+body.portal--workspace .cadu-ds-context-sidebar__usage > i > b { display:block; height:100%; border-radius:inherit; background:var(--cadu-accent); }
+body.portal--workspace .cadu-ds-context-sidebar__usage.is-high { color:#b54708; }
+body.portal--workspace .cadu-ds-context-sidebar__usage.is-high > i > b { background:#f79009; }
+body.portal--workspace .cadu-ds-context-sidebar.is-collapsed .cadu-ds-context-sidebar__usage { display:none; }
+/* Collapse control: the same bordered square as Reports and Planner. */
+@media (min-width:761px) {
+  body.portal--workspace .cadu-ds-context-sidebar:not(.is-collapsed) .cadu-ds-context-sidebar__toggle { display:grid; width:26px; height:26px; flex:0 0 26px; place-items:center; padding:0; border:1px solid var(--cadu-line); border-radius:8px; background:var(--cadu-surface); color:var(--cadu-muted); font-size:18px; line-height:1; }
+  body.portal--workspace .cadu-ds-context-sidebar:not(.is-collapsed) .cadu-ds-context-sidebar__toggle:hover { border-color:var(--cadu-accent); color:var(--cadu-accent-strong); }
+}
+/* The fade spans the whole row, so only names that really overflow lose their end. */
+body.portal--workspace .cadu-ds-context-sidebar .cadu-ds-context-sidebar__brand-heading { display:flex; min-width:0; }
+body.portal--workspace .cadu-ds-context-sidebar .cadu-ds-context-sidebar__brand-heading > .cadu-ds-context-sidebar__fade { flex:1 1 auto; width:100%; }

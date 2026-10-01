@@ -7,11 +7,13 @@ import {workspaceUserPhoto} from '../workspaceIdentity.mjs';
 import {workspaceSolutionItems} from '../workspaceSolutions';
 
 // The context rail owns Workspace navigation and project-specific content.
+// One order across Workspace and Chat: start, conversations, then brand → project.
+// Account lives in the footer with the person's photo and credit use, as in Reports.
 const HOME_ITEMS = [
+  {id: 'home', label: 'Início', key: 'home', icon: 'home'},
   {id: 'conversas', label: 'Conversas', key: 'conversations', icon: 'compose'},
-  {id: 'projetos', label: 'Projetos', key: 'projects', icon: 'folder'},
   {id: 'marcas', label: 'Marcas', key: 'brands', icon: 'brand'},
-  {id: 'conta', label: 'Conta', key: 'agency', icon: 'home'},
+  {id: 'projetos', label: 'Projetos', key: 'projects', icon: 'folder'},
 ];
 const MOBILE_HOME_ITEMS = HOME_ITEMS;
 
@@ -62,11 +64,11 @@ function writeCollectionPayload(event, item, kind, label) {
 function SidebarBrandProjects({brands, projects, links}) {
   const {groups, ungrouped} = groupWorkspaceProjects(brands, projects);
   if (!groups.length && !ungrouped.length) return null;
-  const projectLink = project => <a key={entityIdentity(project)} className="cadu-ds-context-sidebar__project-child" href={entityHref(project)} title={entityLabel(project, 'Projeto')}><Icon name="folder" size={13}/><span>{entityLabel(project, 'Projeto')}</span></a>;
+  const projectLink = project => <a key={entityIdentity(project)} className="cadu-ds-context-sidebar__project-child" href={entityHref(project)} title={entityLabel(project, 'Projeto')}><Icon name="folder" size={14}/><span className="cadu-ds-context-sidebar__fade">{entityLabel(project, 'Projeto')}</span></a>;
   return <section className="cadu-ds-context-sidebar__brand-groups" aria-label="Marcas e projetos">
     <div className="cadu-ds-context-sidebar__section-label"><span>Projetos</span></div>
     {groups.slice(0, 4).map(brand => <section className="cadu-ds-context-sidebar__brand-group" key={entityIdentity(brand) || entityLabel(brand)}>
-      <a className="cadu-ds-context-sidebar__brand-heading" href={entityHref(brand) || links.brands || '#'} title={entityLabel(brand, 'Marca')}><b>{entityLabel(brand, 'Marca')}</b></a>
+      <a className="cadu-ds-context-sidebar__brand-heading" href={entityHref(brand) || links.brands || '#'} title={entityLabel(brand, 'Marca')}><b className="cadu-ds-context-sidebar__fade">{entityLabel(brand, 'Marca')}</b></a>
       {brand.projects.length > 0 && <div className="cadu-ds-context-sidebar__project-tree">{brand.projects.slice(0, 3).map(projectLink)}</div>}
     </section>)}
     {ungrouped.length > 0 && <section className="cadu-ds-context-sidebar__brand-group">
@@ -76,7 +78,7 @@ function SidebarBrandProjects({brands, projects, links}) {
   </section>;
 }
 
-export function WorkspaceContextSidebar({mode = 'home', preferenceKey = mode, bootstrap = {}, links = {}, active = 'home', agencyName: agencyNameProp = '', resources = [], projects: projectsProp = [], brands: brandsProp = [], rail = false, onCollapsedChange}) {
+export function WorkspaceContextSidebar({mode = 'home', preferenceKey = mode, bootstrap = {}, links = {}, active = '', agencyName: agencyNameProp = '', resources = [], projects: projectsProp = [], brands: brandsProp = [], rail = false, onCollapsedChange}) {
   // Every Workspace page receives the same unfiltered tree from the server.
   // Catalog pages filter their own lists, so those must never feed the rail.
   const shared = bootstrap.sidebar || {};
@@ -92,7 +94,8 @@ export function WorkspaceContextSidebar({mode = 'home', preferenceKey = mode, bo
   const initialUsage = bootstrap.usagePercent ?? bootstrap.home?.usagePercent ?? bootstrap.account?.position?.usage_percentage;
   const [usagePercent, setUsagePercent] = useState(() => initialUsage !== undefined && initialUsage !== null && initialUsage !== '' && Number.isFinite(Number(initialUsage)) ? Number(initialUsage) : null);
   const usageLabel = usagePercent === null ? '' : `${new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 0}).format(usagePercent)}%`;
-  const creditAlertVisible = usagePercent !== null && usagePercent >= 80;
+  const usageHigh = usagePercent !== null && usagePercent >= 80;
+  const creditsHref = links.creditos || links.credits || links.uso || links.usage || '';
 
   useEffect(() => {
     let active = true;
@@ -128,12 +131,12 @@ export function WorkspaceContextSidebar({mode = 'home', preferenceKey = mode, bo
       {recentFiles.map(item => <a key={item.id || item.resourceRef} href={item.href || item.url} title={item.title || item.name}><Icon name="file" size={14}/><span><b>{item.title || item.name || 'Arquivo'}</b><small>{item.projectName || item.project_name || 'Workspace'}</small></span></a>)}
     </section>}
     {mode === 'home' && !brands.length && <p className="cadu-ds-context-sidebar__empty">Nenhuma marca disponível.</p>}
-    {creditAlertVisible && <a className="cadu-ds-context-sidebar__credit-alert" href={links.creditos || links.credits || links.uso || links.usage || links.home || '/workspace/app'}><span>Créditos em {usageLabel}</span><small>Ver créditos</small></a>}
     <footer className="cadu-ds-context-sidebar__footer">
-      <a className="cadu-ds-context-sidebar__profile" href={links.perfil || links.profile || links.agencia || links.home || '/workspace/app'} aria-label={`Abrir perfil de ${userName || firstName}`} title={userName || firstName}>
+      <a className={`cadu-ds-context-sidebar__profile${active === 'conta' ? ' is-active' : ''}`} href={links.perfil || links.profile || links.agencia || links.home || '/workspace/app'} aria-current={active === 'conta' ? 'page' : undefined} aria-label={`Abrir conta de ${userName || firstName}`} title={userName || firstName}>
         <VisualIdentity src={workspaceUserPhoto(bootstrap.user)} fallbackSrc={bootstrap.user?.photoFallback || avatarBadgeSource(bootstrap.user)} initials={userName || firstName} label={userName || firstName} imageAlt={`Foto de ${userName || firstName}`} className="cadu-ds-context-sidebar__avatar"/>
         <span className="cadu-ds-context-sidebar__profile-text"><strong>{firstName}</strong>{agencyName && <small>{agencyName}</small>}</span>
       </a>
+      {usageLabel && creditsHref && <a className={`cadu-ds-context-sidebar__usage${usageHigh ? ' is-high' : ''}`} href={creditsHref} aria-label={`Créditos: ${usageLabel} usados no mês`} title="Créditos e consumo"><span>{usageLabel}</span><i aria-hidden="true"><b style={{width:`${Math.min(100, usagePercent)}%`}}/></i></a>}
     </footer>
   </aside>;
 }

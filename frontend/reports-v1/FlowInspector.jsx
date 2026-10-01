@@ -9,6 +9,17 @@ import {ReportsFieldInput} from './ReportsFieldInput.jsx';
 import {ReportsTextArea} from './ReportsTextArea.jsx';
 import {flowBlockFor} from './flowBlockRegistry.js';
 
+// How the Super Tag counts this step; tells the person whether the site needs any change.
+export function measurementHint(node){
+  if(node.type==='source')return 'Contado pela origem da sessão (utm_source ou site de referência).';
+  if(node.type==='form')return 'Envio do formulário nesta URL, capturado automaticamente.';
+  if(node.type==='whatsapp')return 'Clique em link do WhatsApp nesta URL, capturado automaticamente.';
+  if(node.type==='event'&&node.event_name==='scroll_depth')return 'Rolagem além de 50% da página, capturada automaticamente.';
+  if(['event','conversion'].includes(node.type)&&node.event_name)return `O site precisa chamar CaduSuperTag.${node.type==='conversion'?'trackConversion':'trackEvent'}('${node.event_name}').`;
+  if(['page','conversion','error'].includes(node.type))return 'Visita a esta URL, capturada automaticamente.';
+  return 'Nó visual, sem medição.';
+}
+
 export function FlowInspector({node,nodes=[],groups=[],activity=[],journeyMetric=null,integrationsUrl='',readOnly,onChange,onConnect,onCreateGroup,onRemove,onClose,onGestureStart,onGestureEnd}) {
   const [tab,setTab]=useState('configuration');
   const tabId=useId();
@@ -19,9 +30,9 @@ export function FlowInspector({node,nodes=[],groups=[],activity=[],journeyMetric
   const status=!block.trackable?'Nó visual':!configured?'Configure a URL real':journeyMetric?.sessions>0?'Passagens observadas':observed?'Eventos recebidos':'Sem eventos no período';
   return <ReportsPanelShell className="reports-node-settings flow-inspector" title={node.title} context={block.category} onClose={onClose} closeLabel="Fechar propriedades" footer={!readOnly&&<UntitledButton type="button" color="tertiary-destructive" size="sm" onPress={onRemove}>Remover do fluxo</UntitledButton>}>
     <div className="reports-tabs" role="tablist" aria-label="Detalhes do nó">{[['summary','Resumo'],['configuration','Configuração']].map(([id,label])=><UntitledButton key={id} type="button" color="tertiary" role="tab" id={`${tabId}-${id}`} aria-controls={`${tabId}-${id}-panel`} aria-selected={tab===id} tabIndex={tab===id?0:-1} onKeyDown={event=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();const next=event.key==='Home'?'summary':event.key==='End'?'configuration':tab==='summary'?'configuration':'summary';setTab(next);document.getElementById(`${tabId}-${next}`)?.focus();}}} onPress={()=>setTab(id)}>{label}</UntitledButton>)}</div>
-    <section role="tabpanel" id={`${tabId}-summary-panel`} aria-labelledby={`${tabId}-summary`} hidden={tab!=='summary'}><h3>{status}</h3><p>{node.path||'Nó visual'}</p><p>{node.evidence||'Acompanhe os eventos recebidos para verificar este nó.'}</p>{journeyMetric&&<p>{Number(journeyMetric.sessions||0).toLocaleString('pt-BR')} sessões no período</p>}</section>
+    <section role="tabpanel" id={`${tabId}-summary-panel`} aria-labelledby={`${tabId}-summary`} hidden={tab!=='summary'}><h3>{status}</h3><p>{node.path||'Nó visual'}</p><p>{node.evidence||'Acompanhe os eventos recebidos para verificar este nó.'}</p>{node.description&&<p>{node.description}</p>}{journeyMetric&&<p>{Number(journeyMetric.sessions||0).toLocaleString('pt-BR')} sessões no período</p>}</section>
     <div role="tabpanel" id={`${tabId}-configuration-panel`} aria-labelledby={`${tabId}-configuration`} hidden={tab!=='configuration'} className="flow-inspector__body" onFocus={onGestureStart} onBlur={onGestureEnd}>
-      <section className="flow-inspector__status" aria-live="polite"><strong>Super Tag</strong><span className={observed||journeyMetric?'is-receiving':''}>{status}</span>{journeyMetric&&<small>{Number(journeyMetric.sessions||0).toLocaleString('pt-BR')} sessões únicas · {Number(journeyMetric.events||0).toLocaleString('pt-BR')} eventos neste nó</small>}{observed&&!journeyMetric&&<small>{Number(observed.total??observed.views??0).toLocaleString('pt-BR')} eventos no período selecionado</small>}{!block.trackable&&<small>Este nó organiza o desenho da jornada. Nenhuma ação é executada.</small>}</section>
+      <section className="flow-inspector__status" aria-live="polite"><strong>Super Tag</strong><span className={observed||journeyMetric?'is-receiving':''}>{status}</span><small>{measurementHint(node)}</small>{journeyMetric&&<small>{Number(journeyMetric.sessions||0).toLocaleString('pt-BR')} sessões únicas · {Number(journeyMetric.events||0).toLocaleString('pt-BR')} eventos neste nó</small>}{observed&&!journeyMetric&&<small>{Number(observed.total??observed.views??0).toLocaleString('pt-BR')} eventos no período selecionado</small>}{!block.trackable&&<small>Este nó organiza o desenho da jornada. Nenhuma ação é executada.</small>}</section>
       {block.category==='Segmentação e CRM'&&<section className="flow-inspector__integration"><strong>Integração de CRM</strong><p>Esta etapa pertence ao cliente selecionado em Reports. O webhook de conversões desse cliente recebe confirmações de lead, qualificação e venda; este bloco ainda não dispara ações nem lê segmentos do CRM.</p>{integrationsUrl&&<a href={integrationsUrl}>Ver integração e webhook do cliente ↗</a>}<small>API para CRM próprio e vínculo com contas individuais: em breve.</small></section>}
       <label>Nome<ReportsFieldInput disabled={readOnly} value={node.title||''} maxLength="60" onChange={event=>onChange('title',event.target.value)}/></label>
 

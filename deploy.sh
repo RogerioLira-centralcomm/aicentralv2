@@ -419,8 +419,14 @@ elif [ "$RUN_FRONTEND_BUILD" = "1" ] && [ -x "./build_frontend.sh" ]; then
     mv "${FRONTEND_STATE_FILE}.tmp" "$FRONTEND_STATE_FILE"
     echo "  > OK (frontend compilado para $FRONTEND_REVISION)"
 elif [ "$RUN_FRONTEND_BUILD" = "1" ] && command -v npm >/dev/null 2>&1 && [ -f package.json ]; then
-    npm install --no-audit --no-fund >> "$DEPLOY_LOG" 2>&1
-    npm run build >> "$DEPLOY_LOG" 2>&1
+    echo "  > Instalando dependências..."
+    npm install --no-audit --no-fund 2>&1 | grep -v "npm warn" | grep -v "install-scripts" >> "$DEPLOY_LOG"
+    echo "  > CSS (vanilla, artifact, studio)..."
+    npm run build:css 2>&1 | grep -E "Done in|✓ built" >> "$DEPLOY_LOG"
+    echo "  > Tailwind builds (conversations, reports)..."
+    npm run build:tailwind 2>&1 | grep -E "Done in|✓ built" >> "$DEPLOY_LOG"
+    echo "  > Vite builds (planner, auth, editor, audio)..."
+    npm run build:vite 2>&1 | grep -E "✓ built" >> "$DEPLOY_LOG"
     mkdir -p "$(dirname "$FRONTEND_STATE_FILE")"
     printf '%s\n' "$FRONTEND_REVISION" > "${FRONTEND_STATE_FILE}.tmp"
     mv "${FRONTEND_STATE_FILE}.tmp" "$FRONTEND_STATE_FILE"

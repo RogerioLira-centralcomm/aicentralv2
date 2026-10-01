@@ -23,7 +23,8 @@ def test_system_prompt_only_references_core_because_data_lives_in_the_user_messa
         assert not re.search(r"\{\{(?!#)", text), "variável sem a sintaxe do Chatflow"
         assert re.findall(r"\{\{(\w+)\}\}", content["system_prompt"]) == ["core"], name
         assert "user_request" not in text and "Valores sugeridos" not in text and text.startswith("Você é o Cadu")
-        for section, _variable in builder.USER_MESSAGE:
+        sections = builder.OPERATOR_SECTIONS if name == "cadu-operator.json" else [s for s, _v in builder.USER_MESSAGE]
+        for section in sections:
             assert section in text, f"{name}: seção {section} não descrita"
 
 

@@ -5,7 +5,9 @@ module.exports = {
   // into the conversations bundle as well.
   content: [
     './frontend/conversations-v2/**/*.{js,jsx}',
-    './frontend/cadu-design-system/**/*.{js,jsx}',
+    './frontend/cadu-design-system/components/**/*.{js,jsx}',
+    './frontend/cadu-design-system/untitled-kit/**/*.{ts,tsx}',
+    '!./frontend/cadu-design-system/node_modules/**',
   ],
   prefix: 'cv-',
   corePlugins: {preflight: false},

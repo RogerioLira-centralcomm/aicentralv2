@@ -58,6 +58,20 @@ class FlowSchemaV3Tests(TestCase):
         self.assertIn(('planned_step', 'a'), codes)
         self.assertIn(('unmapped_page', 'b'), codes)
 
+    def test_a_page_is_its_url(self):
+        document = schema.to_v3({'nodes': [
+            {'id': 'a', 'type': 'page', 'title': 'Oferta', 'url': 'https://www.Cliente.com.br/oferta/bf?utm_source=x#topo'},
+            {'id': 'b', 'type': 'page', 'title': 'Relativa', 'url': '/contato?x=1'},
+            {'id': 'c', 'type': 'page', 'title': 'Sem esquema', 'url': 'cliente.com.br'},
+            {'id': 'd', 'type': 'page', 'title': 'Vazia', 'url': '  '},
+        ], 'edges': []})
+        a, b, c, d = document['nodes']
+        self.assertEqual((a['host'], a['path']), ('www.cliente.com.br', '/oferta/bf'))
+        self.assertEqual((b.get('host'), b['path']), (None, '/contato'))
+        self.assertEqual((c['host'], c['path']), ('cliente.com.br', '/'))
+        self.assertNotIn('path', d)
+        self.assertTrue(all('url' not in node for node in document['nodes']))
+
     def test_duplicate_page_path_is_blocked_at_publish(self):
         config = {'nodes': [
             {'id': 'first', 'type': 'page', 'title': 'Entrada', 'path': '/'},

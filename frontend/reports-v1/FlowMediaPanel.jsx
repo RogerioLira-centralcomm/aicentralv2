@@ -1,5 +1,4 @@
 import React, {useState} from 'react';
-import {Announcement02} from '@untitledui/icons';
 import {ReportsPanelShell} from './ReportsPanelShell.jsx';
 import {ReportsActionButton as Button} from './ReportsActionButton.jsx';
 import {ReportsFieldInput} from './ReportsFieldInput.jsx';
@@ -62,8 +61,7 @@ export function FlowMediaPanel({config, host, flowName, readOnly, onChange, onSe
     setup: {done: sum.setup.done + item.setup.done, total: sum.setup.total + item.setup.total}}),
   {creatives: {done: 0, total: 0}, setup: {done: 0, total: 0}});
   const onMediaChange = (id, media) => onChange({...config, nodes: config.nodes.map(node => node.id === id ? {...node, media} : node)});
-  return <ReportsPanelShell className="flow-blueprint-panel flow-media-panel" icon={Announcement02} title="Criação e setup"
-    description="O que cada canal e público precisa antes de ir ao ar: criativos aprovados e plataforma configurada." onClose={onClose}>
+  return <ReportsPanelShell compact className="flow-blueprint-panel flow-media-panel" title="Criação e setup" onClose={onClose}>
     <div className="flow-media-totals">
       <span><strong>{totals.creatives.done}/{totals.creatives.total}</strong> criativos aprovados</span>
       <span><strong>{totals.setup.done}/{totals.setup.total}</strong> itens de setup</span>

@@ -31,12 +31,13 @@ Tamanho máximo serializado: 256 KB.
 | `path` | quando presente, começa com `/`, sem `?`/`#`, até 500. Um passo medido sem `path` só publica se estiver `planned` ou `in_production` |
 | `status` | opcional: `planned`, `in_production`, `ready`, `live`. Sem `status`, vale `live` com endereço real e `ready` sem ele. Só `ready`/`live` com endereço real entram na medição (publicação de passos, jornada, ao vivo, monitor e ingestão) |
 | `spec` | opcional, para passos planejados: `goal`, `suggested_path` (começa com `/`), `headline`, `content`, `cta`, `owner`, `due_date` (`AAAA-MM-DD`), `references`, `notes`; textos com limite por campo, chaves desconhecidas descartadas |
-| `host` | opcional; precisa ser o domínio autorizado ou um subdomínio dele |
+| `host` | opcional; domínio da página. Em fluxo com site precisa ser o domínio autorizado ou subdomínio; em plano sem site qualquer domínio é aceito |
+| `url` | só na entrada: URL completa da página (ou caminho). É dobrada em `host` + `path`, sem consulta nem âncora, e nunca é gravada |
 | `event_name` | `event`/`conversion`: `[A-Za-z][A-Za-z0-9_]{0,79}` |
 | `x`, `y` | 0–10000 (posição livre; a etapa é semântica, não força coluna) |
 | `kind` | `categoria.item` (ex.: `traffic.meta`); sempre presente; inválido volta ao padrão do tipo |
 | `source` | plataforma da origem (`google`, `meta`, `organic`, `direct`…) |
-| `stage` | `source`, `entry`, `exploration`, `intent`, `conversion`, `support` |
+| `stage` | `source`, `entry`, `exploration`, `intent`, `conversion`, `support`; é só rótulo da faixa, a posição (`x`, `y`) é livre e sempre múltipla da grade de 20 px |
 | `origin` | `manual`, `blueprint`, `probe`, `strategy` — quem criou o nó |
 | outros textos | `role`, `role_source`, `pageType`, `pageTypeStatus`, `groupId`, `suggestedRole`, `pageGroup`, `discoveryPageId`, `stepId`, `event` (até 120) |
 | `description` | texto livre |

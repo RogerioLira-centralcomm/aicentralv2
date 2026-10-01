@@ -51,3 +51,20 @@ test('modelo do time vira um plano novo com identificadores próprios', async ()
   assert(plan.nodes.every(node => node.origin === 'template'));
   assert.equal(template.nodes[0].id, 'a');
 });
+
+test('todo plano nasce alinhado à grade e com as colunas centradas na mesma linha', async () => {
+  const {FLOW_GRID, alignConfigToGrid} = await import('../../frontend/reports-v1/flowStages.js');
+  for (const strategy of FLOW_STRATEGIES) {
+    const plan = buildStrategyConfig(strategy);
+    assert(plan.nodes.every(node => node.x % FLOW_GRID === 0 && node.y % FLOW_GRID === 0), strategy.id);
+    const columns = new Map();
+    for (const node of plan.nodes) columns.set(node.x, [...(columns.get(node.x) || []), node.y]);
+    const middles = [...columns.values()].map(ys => (Math.min(...ys) + Math.max(...ys)) / 2);
+    assert(Math.max(...middles) - Math.min(...middles) <= FLOW_GRID, `${strategy.id}: colunas na mesma linha do meio`);
+  }
+  const off = {nodes: [{id: 'a', x: 83, y: 247}, {id: 'b', x: 410, y: 331}], groups: [{id: 'g', memberIds: ['a'], bounds: {x: 11, y: 29, width: 301, height: 95}}]};
+  const aligned = alignConfigToGrid(off);
+  assert.deepEqual(aligned.nodes.map(node => [node.x, node.y]), [[80, 240], [420, 340]]);
+  assert.deepEqual(aligned.groups[0].bounds, {x: 20, y: 20, width: 300, height: 100});
+  assert.equal(alignConfigToGrid(aligned), aligned);
+});

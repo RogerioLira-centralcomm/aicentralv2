@@ -1,5 +1,4 @@
 import React, {useEffect, useMemo, useState} from 'react';
-import {ClipboardCheck} from '@untitledui/icons';
 import {ReportsPanelShell} from './ReportsPanelShell.jsx';
 import {ReportsActionButton as Button} from './ReportsActionButton.jsx';
 import {ReportsFieldInput} from './ReportsFieldInput.jsx';
@@ -48,8 +47,7 @@ export function FlowPlanPanel({config, name, host, readOnly, onChange, onSelectN
     setDraftTag('');
   };
   const percent = sheet.progress.total ? Math.round(sheet.progress.done / sheet.progress.total * 100) : 0;
-  return <ReportsPanelShell className="flow-blueprint-panel flow-plan-panel" icon={ClipboardCheck} title="Plano e produção"
-    description={strategy ? `Estratégia de origem: ${strategy.name}.` : 'O que este plano precisa para sair do papel.'} onClose={onClose}
+  return <ReportsPanelShell compact className="flow-blueprint-panel flow-plan-panel" title="Plano e produção" onClose={onClose}
     footer={<div className="flow-plan-panel__exports">
       <Button color="secondary" disabled={!sheet.sections.length} onClick={() => download(productionSheetCsv(sheet), 'text/csv;charset=utf-8', `folha-de-producao-${fileName(name)}.csv`)}>Exportar CSV</Button>
       <Button color="secondary" disabled={!sheet.sections.length} onClick={() => download(productionSheetHtml(sheet, {name, host}), 'text/html;charset=utf-8', `folha-de-producao-${fileName(name)}.html`)}>Baixar para imprimir</Button>

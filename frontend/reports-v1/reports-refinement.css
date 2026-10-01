@@ -233,3 +233,17 @@
 .flow-template-card__actions{display:flex;gap:8px;margin:0 16px 16px}
 .reports-flow-strategy.is-team{border-style:dashed}
 .reports-flow-team-note{margin:0;color:var(--color-text-tertiary,#475467);font-size:12px;line-height:1.45}
+/* Painéis laterais compactos: título e fechar numa linha só */
+.reports-panel-shell.is-compact .reports-panel-shell__header{padding:12px 16px 8px}
+.reports-panel-shell.is-compact .reports-panel-shell__top{margin:0;gap:8px}
+.reports-panel-shell.is-compact .reports-panel-shell__header h2{min-width:0;overflow:hidden;font-size:15px;line-height:24px;text-overflow:ellipsis;white-space:nowrap}
+.reports-panel-shell.is-compact .reports-panel-shell__body{padding:4px 16px 16px}
+.reports-panel-shell.is-compact .reports-panel-shell__footer{padding:8px 16px}
+/* Barra de ferramentas: grupos separados e contagem de pendências */
+.reports-flow-rail-divider{display:block;width:24px;height:1px;margin:4px auto;background:var(--color-border-secondary,#eaecf0)}
+.reports-flow-palette-switch .reports-ui-action-button,.reports-flow-palette-switch button{position:relative}
+.reports-flow-rail-badge{position:absolute;top:-2px;right:-2px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--color-bg-warning-solid,#dc6803);color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center}
+/* Barra de ferramentas: grupos separados e contagem de pendências */
+.reports-flow-rail-divider{display:block;width:24px;height:1px;margin:4px auto;background:var(--color-border-secondary,#eaecf0)}
+.reports-flow-palette-switch button{position:relative}
+.reports-flow-rail-badge{position:absolute;top:-2px;right:-2px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--color-bg-warning-solid,#dc6803);color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center}

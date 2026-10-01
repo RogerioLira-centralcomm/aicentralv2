@@ -5,6 +5,8 @@ x, y and their own attributes; edges carry from, to and ports. There are no mirr
 (``data``, ``position``, ``source``/``target``, handles) and no placeholder paths.
 """
 
+from urllib.parse import urlsplit
+
 SCHEMA_VERSION = 3
 DEFAULT_KINDS = {
     'source': 'traffic.source', 'page': 'page.generic', 'form': 'page.form',
@@ -21,6 +23,21 @@ MIRRORED_NODE_FIELDS = ('data', 'position')
 MIRRORED_EDGE_FIELDS = ('source', 'target', 'source_handle', 'target_handle')
 
 
+def _fold_url(item):
+    """A page is its URL: a full address is split into host and path; query and fragment are dropped."""
+    url = item.pop('url', None)
+    if not isinstance(url, str) or not url.strip():
+        return
+    text = url.strip()
+    if text.startswith('/'):
+        item['path'] = '/' + text.split('#')[0].split('?')[0].lstrip('/')
+        return
+    parts = urlsplit(text if '://' in text else f'https://{text}')
+    if parts.hostname:
+        item['host'] = parts.hostname.lower().rstrip('.')
+        item['path'] = parts.path or '/'
+
+
 def _node_v3(node):
     item = {key: value for key, value in node.items() if key not in MIRRORED_NODE_FIELDS}
     data = node.get('data') if isinstance(node.get('data'), dict) else {}
@@ -34,6 +51,7 @@ def _node_v3(node):
             item[axis] = position[axis]
     if not item.get('path') and data.get('url'):
         item['path'] = data['url']
+    _fold_url(item)
     if not item.get('event_name') and tracking.get('event'):
         item['event_name'] = tracking['event']
     if isinstance(item.get('path'), str) and item['path'].startswith(PLACEHOLDER_PREFIX):

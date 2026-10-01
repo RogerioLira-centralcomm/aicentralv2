@@ -163,6 +163,20 @@ class PlannedNormalizationTests(unittest.TestCase):
         with self.assertRaises(BadRequest):
             _normalize_flow_config({'nodes': [{**source, 'segment': {'name': 'x', 'kind': 'vip'}}], 'edges': []}, HOST)
 
+    def test_a_plan_without_a_site_accepts_pages_from_any_domain_but_a_site_restricts_them(self):
+        pages = [page(path='/a', host='cliente.com.br'), page('b', path='/b', host='outro.com')]
+        config, _ = _normalize_flow_config({'nodes': pages, 'edges': []}, '')
+        self.assertEqual([node['host'] for node in config['nodes']], ['cliente.com.br', 'outro.com'])
+        with self.assertRaises(BadRequest):
+            _normalize_flow_config({'nodes': pages, 'edges': []}, 'cliente.com.br')
+
+    def test_pages_can_be_saved_by_full_url(self):
+        config, measured = _normalize_flow_config({'nodes': [page(url='https://cliente.com.br/oferta?x=1')], 'edges': []}, '')
+        node = config['nodes'][0]
+        self.assertEqual((node['host'], node['path']), ('cliente.com.br', '/oferta'))
+        self.assertNotIn('url', node)
+        self.assertTrue(measured)
+
     def test_tags_are_trimmed_deduplicated_and_limited(self):
         config, _ = _normalize_flow_config({'nodes': [], 'edges': [], 'tags': ['  Black  Friday ', 'black friday', 'Leads', 'x' * 60]}, HOST)
         self.assertEqual(config['tags'], ['Black Friday', 'Leads', 'x' * 40])

@@ -41,3 +41,17 @@ export function funnelEdges(config,{full=false,returns=false}={}) {
     return returns||!isReturnEdge(edge,byId);
   });
 }
+
+// One grid for everything on the board: the canvas snaps to it and every placement is a multiple of it,
+// so a group of selected steps keeps its spacing when it is dragged.
+export const FLOW_GRID=20;
+export const alignToGrid=value=>Math.round(Number(value||0)/FLOW_GRID)*FLOW_GRID;
+export function alignConfigToGrid(config){
+  if(!config)return config;
+  const align=item=>({...item,x:alignToGrid(item.x),y:alignToGrid(item.y)});
+  let changed=false;
+  const nodes=(config.nodes||[]).map(node=>{const next=align(node);if(next.x!==node.x||next.y!==node.y)changed=true;return next;});
+  const groups=(config.groups||[]).map(group=>{const bounds={x:alignToGrid(group.bounds.x),y:alignToGrid(group.bounds.y),width:Math.max(FLOW_GRID*5,alignToGrid(group.bounds.width)),height:Math.max(FLOW_GRID*5,alignToGrid(group.bounds.height))};
+    if(Object.keys(bounds).some(key=>bounds[key]!==group.bounds[key]))changed=true;return {...group,bounds};});
+  return changed?{...config,nodes,...(groups.length?{groups}:{})}:config;
+}

@@ -1,5 +1,4 @@
 import React, {useMemo, useState} from 'react';
-import {LineChartUp01} from '@untitledui/icons';
 import {ReportsPanelShell} from './ReportsPanelShell.jsx';
 import {ReportsFieldInput} from './ReportsFieldInput.jsx';
 import {FORECAST_SCENARIOS, forecastRate, forecastScenarios} from './flowForecast.js';
@@ -38,8 +37,7 @@ export function FlowForecastPanel({config, scenario, onScenarioChange, readOnly,
     ? {...node, forecast: Object.fromEntries(Object.entries({...(node.forecast || {}), [field]: value}).filter(([, item]) => item !== ''))} : node)});
   const setRate = (id, value) => onChange({...config, edges: config.edges.map(edge => edge.id === id
     ? (value === '' ? Object.fromEntries(Object.entries(edge).filter(([key]) => key !== 'forecast')) : {...edge, forecast: {rate: value}}) : edge)});
-  return <ReportsPanelShell className="flow-blueprint-panel flow-forecast-panel" icon={LineChartUp01} title="Previsão"
-    description="Veja se os números fecham antes de investir. Os cenários variam as taxas do meio do funil em 25% para menos ou para mais." onClose={onClose}>
+  return <ReportsPanelShell compact className="flow-blueprint-panel flow-forecast-panel" title="Previsão" onClose={onClose}>
     <div className="flow-forecast-scenarios" role="radiogroup" aria-label="Cenário exibido na mesa">{FORECAST_SCENARIOS.map(item =>
       <button key={item.id} type="button" role="radio" aria-checked={item.id === scenario} className={item.id === scenario ? 'is-selected' : ''} onClick={() => onScenarioChange(item.id)}>{item.label}</button>)}</div>
     <table className="flow-forecast-table"><thead><tr><th scope="col"><span className="reports-sr-only">Indicador</span></th>{FORECAST_SCENARIOS.map(item => <th key={item.id} scope="col" className={item.id === scenario ? 'is-selected' : ''}>{item.label}</th>)}</tr></thead>

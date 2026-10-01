@@ -29,7 +29,7 @@ export function FlowPublicationDialog({open,name,host,revision,config,previous,i
     <Modal className="cadu-ds-confirm"><Dialog aria-label="Publicar" className="cadu-ds-confirm__dialog flow-publication-dialog">
       <h2>Publicar</h2><p><strong>{name}</strong> · {host} · rascunho r{revision}</p>
       <fieldset className="flow-publication-mode"><legend className="reports-sr-only">O que publicar</legend>
-        <label className={mode==='plan'?'is-selected':''}><input type="radio" name="publication-mode" value="plan" checked={mode==='plan'} onChange={()=>setMode('plan')}/><span><strong>Publicar plano</strong><small>Congela esta versão do desenho para aprovação e entrega da folha de produção. Não liga a medição.</small></span></label>
+        <label className={mode==='plan'?'is-selected':''}><input type="radio" name="publication-mode" value="plan" checked={mode==='plan'} onChange={()=>setMode('plan')}/><span><strong>Publicar plano</strong><small>Congela esta versão do desenho para aprovação. Não liga a medição. A folha de produção só acompanha se houver páginas a criar.</small></span></label>
         <label className={measure?'is-selected':''}><input type="radio" name="publication-mode" value="measure" checked={measure} onChange={()=>setMode('measure')}/><span><strong>Ativar medição</strong><small>{hasMeasuredSteps?'Os passos prontos passam a ser medidos pela Super Tag; os dados anteriores continuam ligados às versões em que foram coletados.':'Disponível quando ao menos um passo estiver Pronto ou No ar, com a página real.'}</small></span></label>
       </fieldset>
       <p>{config.nodes.length} nós · {config.edges.length} conexões{measure?` · ${warnings.length} avisos permanecem após a publicação`:''}.</p>

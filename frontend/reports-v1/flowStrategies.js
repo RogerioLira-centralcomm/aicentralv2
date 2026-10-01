@@ -1,9 +1,13 @@
 import {flowBlockRegistry} from './flowBlockRegistry.js';
-import {stageX} from './flowStages.js';
+import {FLOW_GRID} from './flowStages.js';
 import {defaultMedia, isPaidPlatform} from './flowMedia.js';
 
 // Curated starting points for planners: every measured step starts planned, with a production brief.
-const ROW_HEIGHT = 170;
+// Cards are about 100px tall (taller with a page capture); rows are a multiple of the board grid.
+const ROW_HEIGHT = FLOW_GRID * 7;
+const TOP = FLOW_GRID * 6;
+const COLUMN_START = FLOW_GRID * 4;
+const COLUMN_WIDTH = FLOW_GRID * 15;
 const MEASURED = new Set(['page','form','event','conversion','whatsapp','error']);
 
 export const FLOW_STRATEGIES = Object.freeze([
@@ -176,8 +180,6 @@ export const defaultStrategyChannels = strategy => strategy.channels.filter(([, 
 /** Builds an editable v2 flow document from a strategy and the channels the planner keeps. */
 export function buildStrategyConfig(strategy, channelKinds = defaultStrategyChannels(strategy)) {
   const chosen = strategy.channels.map(([kind]) => kind).filter(kind => channelKinds.includes(kind));
-  const rows = {};
-  const place = stage => {const row = rows[stage] || 0; rows[stage] = row + 1; return {x: stageX(stage), y: 80 + row * ROW_HEIGHT};};
   const ids = {};
   const nodes = [];
   for (const kind of chosen) {
@@ -186,14 +188,13 @@ export function buildStrategyConfig(strategy, channelKinds = defaultStrategyChan
     ids[kind] = id;
     const segment = segmentFor(block.source);
     nodes.push({id, type: 'source', kind, source: block.source, title: block.label, stage: 'source', origin: 'strategy',
-      ...(segment ? {segment} : {}), media: defaultMedia(block.source, isPaidPlatform(block.source) ? strategy.mediaObjective : ''), ...place('source')});
+      ...(segment ? {segment} : {}), media: defaultMedia(block.source, isPaidPlatform(block.source) ? strategy.mediaObjective : '')});
   }
   for (const step of strategy.steps) {
     const block = flowBlockRegistry[step.kind];
     const id = crypto.randomUUID();
     ids[step.key] = id;
-    const node = {id, type: block.type, kind: step.kind, title: step.title, stage: step.stage, origin: 'strategy',
-      ...place(step.stage)};
+    const node = {id, type: block.type, kind: step.kind, title: step.title, stage: step.stage, origin: 'strategy'};
     if (MEASURED.has(block.type)) Object.assign(node, {status: 'planned', ...(step.spec ? {spec: {...step.spec}} : {})});
     if (step.condition) node.condition = {...step.condition};
     nodes.push(node);
@@ -203,6 +204,7 @@ export function buildStrategyConfig(strategy, channelKinds = defaultStrategyChan
   const edges = strategy.links.flatMap(([from, to, label, rate]) => (from === '@paid' ? paid : [from]).filter(key => ids[key] && ids[to])
     .map(key => ({id: crypto.randomUUID(), from: ids[key], to: ids[to], variant: 'direct', label: label || 'Próximo',
       ...(rate == null ? {} : {forecast: {rate}})})));
+  arrangeByDepth(nodes, edges);
   return {schema_version: 3, site_kind: strategy.siteKind, strategy_id: strategy.id, nodes, edges};
 }
 
@@ -217,4 +219,40 @@ export function instantiateTemplate(config) {
     groups: (config.groups || []).map(group => ({...group, id: crypto.randomUUID(), memberIds: group.memberIds.filter(id => ids.has(id)).map(id => ids.get(id))}))
       .filter(group => group.memberIds.length),
   };
+}
+
+// The journey reads left to right: a step sits one column after the furthest step that feeds it, and each
+// column hangs from a shared middle line, ordered by where its predecessors are to keep connections short.
+function arrangeByDepth(nodes, edges) {
+  const incoming = new Map(nodes.map(node => [node.id, []]));
+  for (const edge of edges) incoming.get(edge.to)?.push(edge.from);
+  const depth = new Map();
+  const visit = (id, trail) => {
+    if (depth.has(id)) return depth.get(id);
+    if (trail.has(id)) return 0;
+    trail.add(id);
+    const value = incoming.get(id).length ? 1 + Math.max(...incoming.get(id).map(from => visit(from, trail))) : 0;
+    trail.delete(id);
+    depth.set(id, value);
+    return value;
+  };
+  nodes.forEach(node => visit(node.id, new Set()));
+  const columns = [];
+  for (const node of nodes) (columns[depth.get(node.id)] ||= []).push(node);
+  const rowOf = new Map();
+  columns.forEach(items => {
+    const score = node => {const rows = incoming.get(node.id).map(from => rowOf.get(from)).filter(value => value != null); return rows.length ? rows.reduce((sum, value) => sum + value, 0) / rows.length : Infinity;};
+    if (items.some(node => score(node) !== Infinity)) items.sort((a, b) => score(a) - score(b) || nodes.indexOf(a) - nodes.indexOf(b));
+    items.forEach((node, row) => rowOf.set(node.id, row));
+  });
+  const tallest = Math.max(...columns.filter(Boolean).map(items => items.length));
+  const middle = (tallest - 1) * ROW_HEIGHT / 2;
+  columns.forEach((items, column) => {
+    if (!items) return;
+    const top = middle - (items.length - 1) * ROW_HEIGHT / 2;
+    items.forEach((node, row) => {
+      node.x = COLUMN_START + column * COLUMN_WIDTH;
+      node.y = TOP + Math.round((top + row * ROW_HEIGHT) / FLOW_GRID) * FLOW_GRID;
+    });
+  });
 }

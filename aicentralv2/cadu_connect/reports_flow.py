@@ -21,7 +21,7 @@ from .reports_flow_versions import expected_revision, lock_flow, save_draft, pub
 from .reports_flow_schema import DEFAULT_KINDS, to_v3
 from .reports_flow_validation import MAX_FLOW_PAGES, validate_flow_config
 from .reports_flow_lifecycle import NODE_STATUSES, is_measured, measured_nodes, node_status, normalize_forecast, normalize_media, normalize_segment, normalize_spec
-from .reports_flow_stage import normalize_stage_position
+from .reports_flow_stage import normalize_stage
 from .reports_flow_metrics import apply_engagement, apply_session_bounds, edge_observation, origin_summary
 
 MAX_TAG_EVENTS_PER_MINUTE = 1200
@@ -534,7 +534,8 @@ def _normalize_flow_config(config, allowed_host):
         host = node.get('host') or None
         if host:
             host = _host(host)
-            if not _host_allowed(host, allowed_host):
+            # A plan without a site has no domain to hold its pages to; a flow with a site does.
+            if allowed_host and not _host_allowed(host, allowed_host):
                 abort(400, description='O nó precisa usar o domínio autorizado ou um subdomínio dele.')
         event_name = str(node.get('event_name') or node.get('event') or '')[:80]
         if event_name and node_type in ('event','conversion') and not re.fullmatch(
@@ -637,7 +638,7 @@ def _normalize_flow_config(config, allowed_host):
         forecast = normalize_forecast(node.get('forecast'), {'source': ('visits', 'cost'), 'conversion': ('value',)}.get(node_type, ()))
         if forecast:
             item['forecast'] = forecast
-        normalized.append(normalize_stage_position(item))
+        normalized.append(normalize_stage(item))
     normalized_edges = []
     edge_ids = set()
     for edge in edges:

@@ -28,12 +28,12 @@ export function FlowSourcePicker({config,campaigns=[],onApply,onClose}) {
       const channel=CHANNELS.find(item=>`s:${item.source}`===key);return {kind:channel.kind,source:channel.source,title:channel.title};
     });
     const count=config.nodes.filter(node=>node.type==='source').length;
-    const nodes=sources.map((item,index)=>({id:crypto.randomUUID(),type:'source',stage:'source',origin:'manual',x:stageX('source'),y:100+(count+index)*170,...item}));
+    const nodes=sources.map((item,index)=>({id:crypto.randomUUID(),type:'source',stage:'source',origin:'manual',x:stageX('source'),y:100+(count+index)*160,...item}));
     onApply({...config,nodes:[...config.nodes,...nodes]});
     onClose();
   };
   const row=(key,title,detail)=><label key={key} className="flow-source-picker__row"><input type="checkbox" disabled={existing.has(key)} checked={existing.has(key)||picked.has(key)} onChange={()=>toggle(key)}/><span><b>{title}</b>{detail&&<small>{detail}</small>}</span>{existing.has(key)&&<small>no fluxo</small>}</label>;
-  return <ReportsPanelShell className="flow-blueprint-panel flow-source-picker" title="Origem do tráfego" description="De onde as pessoas chegam. Depois conecte cada origem à página de entrada." onClose={onClose}
+  return <ReportsPanelShell compact className="flow-blueprint-panel flow-source-picker" title="Campanhas do cliente" onClose={onClose}
     footer={<Button color="primary" disabled={!picked.size} onClick={apply}>{picked.size?`Adicionar ${picked.size} ${picked.size===1?'origem':'origens'}`:'Escolha as origens'}</Button>}>
     {campaigns.length>0&&<section className="flow-probe-block"><h3>Campanhas do cliente</h3>
       {campaigns.length>8&&<ReportsFieldInput type="search" aria-label="Buscar campanha" placeholder="Buscar campanha" value={query} onChange={event=>setQuery(event.target.value)}/>}

@@ -487,3 +487,24 @@
 .flow-plan-panel__template p{margin:0;color:var(--color-text-tertiary);font-size:12px;line-height:1.45}
 .flow-plan-panel__template small{color:var(--color-text-success-primary,#067647);font-size:12px}
 .flow-plan-panel__template small.is-error{color:var(--color-text-error-primary,#b42318)}
+/* Inspetor enxuto */
+.flow-inspector .flow-inspector__body{display:grid;gap:10px}
+.flow-inspector label{display:grid;gap:4px;margin:0;color:var(--color-text-secondary);font-size:12px;font-weight:500}
+.flow-inspector small{color:var(--color-text-tertiary);font-size:12px;line-height:1.4}
+.flow-inspector small.is-error{color:var(--color-text-error-primary,#b42318)}
+.flow-inspector__kind{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--color-text-tertiary);font-size:12px}
+.flow-inspector__kind em{padding:1px 8px;border:1px dashed var(--color-border-primary);border-radius:999px;color:var(--color-text-secondary);font-size:11px;font-style:normal;font-weight:600}
+.flow-inspector__kind em.is-warn{border-style:solid;border-color:var(--color-border-warning,#fec84b);background:var(--color-bg-warning-primary,#fffaeb);color:var(--color-text-warning-primary,#b54708)}
+.flow-inspector__kind em.is-ok{border-style:solid;border-color:var(--color-border-success,#abefc6);color:var(--color-text-success-primary,#067647)}
+.flow-inspector__mode{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:3px;border-radius:10px;background:var(--color-bg-secondary)}
+.flow-inspector__mode button{min-height:30px;border:0;border-radius:8px;background:transparent;color:var(--color-text-tertiary);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.flow-inspector__mode button[aria-checked=true]{background:var(--color-bg-primary);color:var(--color-text-primary);box-shadow:0 1px 2px rgb(16 24 40/.08)}
+.flow-inspector__mode button:focus-visible{outline:2px solid var(--color-border-brand);outline-offset:1px}
+.flow-inspector__brief{display:grid;gap:8px}
+.flow-inspector__pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.flow-inspector details{border:1px solid var(--color-border-secondary);border-radius:10px;padding:8px 10px}
+.flow-inspector details>summary{color:var(--color-text-secondary);font-size:12px;font-weight:600;cursor:pointer}
+.flow-inspector details[open]>summary{margin-bottom:8px}
+.flow-inspector details>*:not(summary){margin-top:8px}
+.flow-inspector__fields{margin:0;color:var(--color-text-tertiary);font-size:12px}
+.flow-inspector .flow-inspector-toggle{font-size:12px}

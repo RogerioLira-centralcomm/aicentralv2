@@ -8,18 +8,16 @@ module = module_from_spec(spec)
 spec.loader.exec_module(module)
 
 
-def test_stage_sets_x_but_preserves_y_and_legacy_role():
+def test_stage_never_moves_a_node():
     original = {'type': 'page', 'stage': 'intent', 'x': 9, 'y': 431, 'role': 'form', 'locked': True}
-    moved = module.normalize_stage_position(original)
-    assert moved == {**original, 'x': 1040}
-    assert original['x'] == 9
+    assert module.normalize_stage(original) == original
 
 
 def test_only_page_in_legacy_source_stage_is_migrated():
-    assert module.normalize_stage_position({'type': 'page', 'stage': 'source', 'path': '/'})['stage'] == 'entry'
-    assert module.normalize_stage_position({'type': 'page', 'stage': 'source', 'path': '/a'})['stage'] == 'exploration'
-    assert module.normalize_stage_position({'type': 'event', 'stage': 'source'})['stage'] == 'source'
-    assert module.normalize_stage_position({'type': 'source', 'stage': 'intent'})['stage'] == 'source'
+    assert module.normalize_stage({'type': 'page', 'stage': 'source', 'path': '/'})['stage'] == 'entry'
+    assert module.normalize_stage({'type': 'page', 'stage': 'source', 'path': '/a'})['stage'] == 'exploration'
+    assert module.normalize_stage({'type': 'event', 'stage': 'source'})['stage'] == 'source'
+    assert module.normalize_stage({'type': 'source', 'stage': 'intent'})['stage'] == 'source'
 
 
 def test_draft_normalization_preserves_page_type_and_legacy_role():
@@ -31,7 +29,7 @@ def test_draft_normalization_preserves_page_type_and_legacy_role():
     normalized, _ = _normalize_flow_config(config, 'example.com')
     node = normalized['nodes'][0]
     assert (node['stage'], node['pageType'], node['role'], node['x'], node['y']) == (
-        'exploration', 'contact', 'intent', 720, 120)
+        'exploration', 'contact', 'intent', 80, 120)
 
 
 def test_draft_normalization_preserves_unresolved_page_type():

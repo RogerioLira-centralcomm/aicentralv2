@@ -1764,18 +1764,6 @@ def register(bp):
         get_db().commit()
         return jsonify(tag=created[0]), 201
 
-    @bp.get('/api/v2/reports/flow/templates')
-    @login_required_api
-    def reports_flow_templates():
-        _selection()
-        return jsonify(templates=[
-            {'id': 'blank', 'label': 'Começar em branco'},
-            {'id': 'lead', 'label': 'Captação de leads'},
-            {'id': 'commerce', 'label': 'Compra no site'},
-            {'id': 'webinar', 'label': 'Inscrição em webinar'},
-            {'id': 'whatsapp', 'label': 'Contato pelo WhatsApp'},
-        ])
-
     @bp.post('/api/v2/reports/flow/flows')
     @login_required_api
     def reports_flow_create_flow():

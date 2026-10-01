@@ -21,10 +21,18 @@ const download = (content, type, filename) => {
 const fileName = name => (name || 'fluxo').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'fluxo';
 
 /** The plan as a deliverable: labels for the team and the production sheet of what must be built. */
-export function FlowPlanPanel({config, name, host, readOnly, onChange, onSelectNode, onClose, versionsUrl = '', versionsKey = 0}) {
+export function FlowPlanPanel({config, name, host, readOnly, onChange, onSelectNode, onClose, versionsUrl = '', versionsKey = 0, onSaveTemplate}) {
   const sheet = useMemo(() => buildProductionSheet(config), [config]);
   const [draftTag, setDraftTag] = useState('');
   const [versions, setVersions] = useState(null);
+  const [template, setTemplate] = useState({name: '', sector: '', description: ''});
+  const [templateState, setTemplateState] = useState('');
+  const saveTemplate = async event => {
+    event.preventDefault();
+    setTemplateState('saving');
+    try {await onSaveTemplate({...template, name: template.name.trim() || name}); setTemplateState('saved'); setTemplate({name: '', sector: '', description: ''});}
+    catch (failure) {setTemplateState(failure.message || 'Não foi possível salvar o modelo.');}
+  };
   useEffect(() => {
     if (!versionsUrl) return undefined;
     let current = true;
@@ -64,6 +72,18 @@ export function FlowPlanPanel({config, name, host, readOnly, onChange, onSelectN
       {versions.length ? <ol>{versions.map(version => <li key={version.revision}><strong>v{version.revision}</strong><span>{new Date(version.created_at).toLocaleString('pt-BR', {day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'})}</span>{version.note && <small>{version.note}</small>}</li>)}</ol>
         : <small>Use Publicar › Publicar plano para congelar uma versão para aprovação, sem ligar a medição.</small>}
     </section>}
+    {!readOnly && onSaveTemplate && <details className="flow-plan-panel__template">
+      <summary>Salvar como modelo do time</summary>
+      <form onSubmit={saveTemplate}>
+        <p>O modelo leva o desenho, os públicos, os briefs, os criativos e as taxas. Endereços, responsáveis, prazos, verba e aprovações ficam de fora.</p>
+        <ReportsFieldInput aria-label="Nome do modelo" placeholder={name || 'Nome do modelo'} maxLength="120" value={template.name} onChange={event => setTemplate(current => ({...current, name: event.target.value}))}/>
+        <ReportsFieldInput aria-label="Setor" placeholder="Setor (ex.: Imobiliário)" maxLength="40" value={template.sector} onChange={event => setTemplate(current => ({...current, sector: event.target.value}))}/>
+        <ReportsFieldInput aria-label="Quando usar" placeholder="Quando usar este modelo" maxLength="500" value={template.description} onChange={event => setTemplate(current => ({...current, description: event.target.value}))}/>
+        <Button type="submit" color="secondary" disabled={templateState === 'saving' || !config.nodes.length}>{templateState === 'saving' ? 'Salvando…' : 'Salvar modelo'}</Button>
+        {templateState === 'saved' && <small role="status">Modelo salvo. Ele aparece em Fluxos › Modelos › Do time.</small>}
+        {templateState && !['saving', 'saved'].includes(templateState) && <small role="alert" className="is-error">{templateState}</small>}
+      </form>
+    </details>}
     {sheet.sections.length ? sheet.sections.map(section => <section key={section.id} className="flow-plan-panel__section" aria-label={section.label}>
       <h3>{section.label} <small>{section.items.length}</small></h3>
       <ul>{section.items.map(item => <li key={item.id}>

@@ -225,3 +225,11 @@
 .flow-template-card__channels li{padding:1px 8px;border-radius:999px;background:var(--color-bg-secondary,#f9fafb);color:var(--color-text-secondary,#344054);font-size:11px;font-weight:500}
 .flow-template-card__meta{color:var(--color-text-quaternary,#667085);font-size:12px}
 .flow-template-card>button{margin:0 16px 16px;justify-self:start}
+.flow-template-gallery__team{display:grid;gap:12px}
+.flow-template-gallery__team h2,.flow-template-gallery__team+.flow-template-gallery__filters{margin:0}
+.flow-template-gallery h2{margin:0;color:var(--color-text-primary,#101828);font-size:15px;font-weight:600}
+.flow-template-gallery h2 small{margin-left:4px;color:var(--color-text-quaternary,#667085);font-weight:500}
+.flow-template-card.is-team{border-color:var(--color-border-brand,#84adff)}
+.flow-template-card__actions{display:flex;gap:8px;margin:0 16px 16px}
+.reports-flow-strategy.is-team{border-style:dashed}
+.reports-flow-team-note{margin:0;color:var(--color-text-tertiary,#475467);font-size:12px;line-height:1.45}

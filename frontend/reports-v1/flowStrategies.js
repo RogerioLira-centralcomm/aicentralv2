@@ -205,3 +205,16 @@ export function buildStrategyConfig(strategy, channelKinds = defaultStrategyChan
       ...(rate == null ? {} : {forecast: {rate}})})));
   return {schema_version: 3, site_kind: strategy.siteKind, strategy_id: strategy.id, nodes, edges};
 }
+
+/** A team template becomes a new plan: every node and connection gets a fresh identifier. */
+export function instantiateTemplate(config) {
+  const ids = new Map((config.nodes || []).map(node => [node.id, crypto.randomUUID()]));
+  return {
+    ...config, schema_version: 3,
+    nodes: (config.nodes || []).map(node => ({...node, id: ids.get(node.id), origin: 'template'})),
+    edges: (config.edges || []).filter(edge => ids.has(edge.from) && ids.has(edge.to))
+      .map(edge => ({...edge, id: crypto.randomUUID(), from: ids.get(edge.from), to: ids.get(edge.to)})),
+    groups: (config.groups || []).map(group => ({...group, id: crypto.randomUUID(), memberIds: group.memberIds.filter(id => ids.has(id)).map(id => ids.get(id))}))
+      .filter(group => group.memberIds.length),
+  };
+}

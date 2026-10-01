@@ -481,3 +481,9 @@
 .flow-inspector__segment{display:grid;gap:8px;margin:0;padding:12px;border:1px solid var(--color-border-secondary);border-radius:10px}
 .flow-inspector__segment legend{padding:0 4px;color:var(--color-text-secondary);font-size:13px;font-weight:600}
 .flow-inspector__segment small{color:var(--color-text-tertiary);font-size:12px}
+.flow-plan-panel__template{padding:10px 12px;border:1px solid var(--color-border-secondary);border-radius:10px}
+.flow-plan-panel__template summary{color:var(--color-text-primary);font-size:13px;font-weight:600;cursor:pointer}
+.flow-plan-panel__template form{display:grid;gap:8px;margin-top:10px}
+.flow-plan-panel__template p{margin:0;color:var(--color-text-tertiary);font-size:12px;line-height:1.45}
+.flow-plan-panel__template small{color:var(--color-text-success-primary,#067647);font-size:12px}
+.flow-plan-panel__template small.is-error{color:var(--color-text-error-primary,#b42318)}

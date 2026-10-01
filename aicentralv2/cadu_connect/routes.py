@@ -170,5 +170,8 @@ register_flow_probe(bp)
 from .reports_flow_blueprint import register as register_flow_blueprint
 register_flow_blueprint(bp)
 
+from .reports_flow_templates import register as register_flow_templates
+register_flow_templates(bp)
+
 from .reports_flow_catalog import register as register_flow_catalog
 register_flow_catalog(bp)

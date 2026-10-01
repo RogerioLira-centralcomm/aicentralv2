@@ -1,6 +1,7 @@
 """The Dify v4 JSON files are generated from the markdown sources and must stay in sync."""
 import importlib.util
 import json
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,23 +16,13 @@ def test_json_files_match_the_markdown_sources():
             f"{name} desatualizado: rode python scripts/build_dify_prompts.py"
 
 
-def test_paste_files_contain_only_the_prompt():
-    for name, expected in builder.build_texts().items():
-        text = (builder.ROOT / name).read_text(encoding="utf-8")
-        assert text == expected, f"{name} desatualizado: rode python scripts/build_dify_prompts.py"
-        assert text.startswith("Você é o Cadu") and '"settings"' not in text and "Valores sugeridos" not in text
-        assert "user_request" not in text
-
-
-def test_chatflow_files_use_only_the_six_start_node_variables():
-    import re
-    for name in builder.build_texts():
-        if ".chatflow." not in name:
-            continue
-        text = (builder.ROOT / name).read_text(encoding="utf-8")
+def test_chatflow_prompt_uses_only_the_six_start_node_variables():
+    for name, content in builder.build().items():
+        text = content["system_prompt_chatflow"]
         found = set(re.findall(r"\{\{#" + builder.START_NODE_ID + r"\.(\w+)#\}\}", text))
         assert found == set(builder.INPUTS), name
         assert not re.search(r"\{\{(?!#)", text), "variável sem a sintaxe do Chatflow"
+        assert "user_request" not in text and "Valores sugeridos" not in text and text.startswith("Você é o Cadu")
 
 
 def test_every_input_variable_is_used_and_memory_is_off():

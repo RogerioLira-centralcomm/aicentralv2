@@ -12,18 +12,18 @@ Os apps Dify só geram a resposta. Por isso **não devem ter** nós de classific
 
 O nó INICIAR de cada app declara 6 variáveis: `core`, `task`, `current_context`, `evidence`, `response_policy` e `output_contract`. A mensagem do usuário não é variável: chega como a mensagem da conversa. O backend envia outras entradas (veja abaixo); o Dify ignora as que o INICIAR não declara.
 
-No nó LLM, cole **o conteúdo inteiro do arquivo de texto e nada mais**, no campo de mensagem do sistema:
+Cada app tem um JSON com o registro completo: configuração, entradas e o prompt em dois formatos de variável. **Do JSON, copie somente o valor de um campo e nada mais:**
 
-| App | `execution_mode` | Chatflow (cole este) | Fora do Chatflow |
-|---|---|---|---|
-| cadu-fast | `fast` | [cadu-fast.chatflow.prompt.txt](cadu-fast.chatflow.prompt.txt) | [cadu-fast.prompt.txt](cadu-fast.prompt.txt) |
-| cadu-analyst | `analysis` | [cadu-analyst.chatflow.prompt.txt](cadu-analyst.chatflow.prompt.txt) | [cadu-analyst.prompt.txt](cadu-analyst.prompt.txt) |
-| cadu-operator | `agentic` | [cadu-operator.chatflow.prompt.txt](cadu-operator.chatflow.prompt.txt) | [cadu-operator.prompt.txt](cadu-operator.prompt.txt) |
+| App | `execution_mode` | Arquivo |
+|---|---|---|
+| cadu-fast | `fast` | [cadu-fast.json](cadu-fast.json) |
+| cadu-analyst | `analysis` | [cadu-analyst.json](cadu-analyst.json) |
+| cadu-operator | `agentic` | [cadu-operator.json](cadu-operator.json) |
 
-- Os arquivos `.chatflow.prompt.txt` usam a sintaxe do Chatflow, `{{#1789813203378.core#}}`, com o id do nó INICIAR do app de conversas. **Se o INICIAR de outro app tiver id diferente, troque o número.** Na dúvida, apague a variável e reinsira pelo seletor (digite `/`).
-- Os `.prompt.txt` (sem `chatflow`) usam `{{core}}`, para apps de chat ou agente simples.
-- Os `.json` são só o registro de configuração (modelo, memória, entradas) no formato do `cadu-conversations-orchestrator-v3.json`. Não cole o JSON no Dify.
-- Os `.md` são a fonte de edição. Depois de alterá-los, rode `python scripts/build_dify_prompts.py` para regenerar tudo; um teste falha se algo ficar fora de sincronia.
+- **`system_prompt_chatflow`**: para Chatflow. Usa `{{#1789813203378.core#}}`, com o id do nó INICIAR do app de conversas. Se o INICIAR de outro app tiver id diferente, troque o número ou apague a variável e reinsira pelo seletor (digite `/`).
+- **`system_prompt`**: para app de chat ou agente simples. Usa `{{core}}`.
+- `settings`, `inputs`, `output_contract` e `runtime_contract` são o registro (modelo, memória, entradas). Não vão para o Dify. `settings` segue o formato do `cadu-conversations-orchestrator-v3.json`.
+- Os `.md` são a fonte de edição. Depois de alterá-los, rode `python scripts/build_dify_prompts.py` para regenerar os JSON; um teste falha se ficarem fora de sincronia.
 
 Se os três modos usam a mesma credencial de reserva (mesmo app), cole só o arquivo do `cadu-analyst`.
 

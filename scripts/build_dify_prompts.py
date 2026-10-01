@@ -35,13 +35,21 @@ def body(path: Path) -> str:
     return re.split(r"^---\s*$", text, maxsplit=1, flags=re.MULTILINE)[1].strip()
 
 
+START_NODE_ID = "1789813203378"  # nó INICIAR do app de conversas (informado pela equipe)
+
+
+def chatflow_syntax(text: str, node_id: str = START_NODE_ID) -> str:
+    """{{core}} -> {{#<node>.core#}}, the variable syntax of a Dify Chatflow."""
+    return re.sub(r"\{\{(" + "|".join(INPUTS) + r")\}\}", lambda m: "{{#" + node_id + "." + m.group(1) + "#}}", text)
+
+
 def build() -> dict:
     base = body(ROOT / "00-base-orquestrador.md")
     files = {}
     for app, spec in APPS.items():
         files[f"{app}.json"] = {
             "version": "4.0",
-            "cole_no_dify": f"{app}.prompt.txt (este JSON é só o registro de configuração; não cole nada daqui)",
+            "cole_no_dify": "Copie somente o valor do campo system_prompt_chatflow (Chatflow) ou system_prompt (app de chat/agente). Nada mais deste arquivo vai para o Dify.",
             "name": f"Cadu Conversations v4 — {app}",
             "app": app,
             "execution_mode": spec["execution_mode"],
@@ -56,6 +64,7 @@ def build() -> dict:
                                "contendo a resposta ao usuário; ui, artifact_patch e task_proposal somente quando contratados e úteis.",
             },
             "system_prompt": base + "\n\n" + body(ROOT / f"{spec['file']}.md"),
+            "system_prompt_chatflow": chatflow_syntax(base + "\n\n" + body(ROOT / f"{spec['file']}.md")),
             "runtime_contract": {
                 "current_request": ["query"],
                 "top_level_provider_fields": ["query", "user", "files", "conversation_id", "response_mode"],
@@ -64,33 +73,14 @@ def build() -> dict:
                 "legacy_inputs_sent_but_unused": LEGACY_UNUSED,
                 "legacy_policy": "O backend ainda envia estes campos por compatibilidade; o prompt v4 não os usa. "
                                  "Podem ser removidos de prompt_assembler.build_payload depois que os três apps estiverem no v4.",
-                "variable_syntax": "O .prompt.txt usa {{nome}}. No Chatflow use o .chatflow.prompt.txt, que traz {{#<id do nó INICIAR>#.nome#}}; se o id do nó INICIAR do app for outro, troque o número.",
+                "variable_syntax": "system_prompt usa {{nome}}; system_prompt_chatflow usa {{#<id do nó INICIAR>.nome#}}. Se o id do nó INICIAR do app for outro, troque o número.",
             },
         }
     return files
-
-
-START_NODE_ID = "1789813203378"  # nó INICIAR do app de conversas (informado pela equipe)
-
-
-def chatflow_syntax(text: str, node_id: str = START_NODE_ID) -> str:
-    """{{core}} -> {{#<node>.core#}}, the variable syntax of a Dify Chatflow."""
-    return re.sub(r"\{\{(" + "|".join(INPUTS) + r")\}\}", lambda m: "{{#" + node_id + "." + m.group(1) + "#}}", text)
-
-
-def build_texts() -> dict:
-    """Exactly what to paste into Dify, with nothing else in the file."""
-    texts = {}
-    for name, content in build().items():
-        texts[name.replace(".json", ".prompt.txt")] = content["system_prompt"] + "\n"
-        texts[name.replace(".json", ".chatflow.prompt.txt")] = chatflow_syntax(content["system_prompt"]) + "\n"
-    return texts
 
 
 if __name__ == "__main__":
     for name, content in build().items():
         (ROOT / name).write_text(json.dumps(content, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         print("gerado", ROOT / name)
-    for name, content in build_texts().items():
-        (ROOT / name).write_text(content, encoding="utf-8")
-        print("gerado", ROOT / name)
+

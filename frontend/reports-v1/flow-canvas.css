@@ -176,3 +176,7 @@
 .fnote__checklist li.is-done{color:var(--color-text-tertiary);text-decoration:line-through}
 .fnote__more{color:var(--color-text-tertiary)}
 .fnote .flow-shape-label{text-align:left;justify-content:flex-start;font-size:14px;font-weight:600}
+/* Camada Previsão: números de plano, sempre com aparência de estimativa */
+.fnode__forecast{display:flex;align-items:baseline;gap:6px;padding:4px 8px;border:1px dashed var(--color-border-brand,#84adff);border-radius:8px;background:var(--color-bg-brand-primary,#eff8ff);color:var(--color-text-brand-secondary,#175cd3);font-size:11px}
+.fnode__forecast b{font-size:13px}
+.flow-edge-actions.is-forecast>span{border:1px dashed var(--color-border-brand,#84adff);background:var(--color-bg-brand-primary,#eff8ff);color:var(--color-text-brand-secondary,#175cd3)}

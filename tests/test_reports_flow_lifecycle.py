@@ -129,6 +129,22 @@ class PlannedNormalizationTests(unittest.TestCase):
         self.assertEqual((config['nodes'][0]['type'], config['nodes'][0]['kind']), ('note', 'annotation.note'))
         self.assertEqual(config['nodes'][0]['checklist'], [{'text': 'Aprovar', 'done': False}])
 
+    def test_forecast_numbers_are_kept_per_node_type_and_on_connections(self):
+        nodes = [{'id': 'meta', 'type': 'source', 'title': 'Meta', 'x': 0, 'y': 0, 'forecast': {'visits': 10000, 'cost': 5000.5, 'value': 9}},
+                 page(status='planned', forecast={'visits': 3}),
+                 conversion(status='planned', forecast={'value': 120, 'cost': ''})]
+        edges = [{'id': 'e1', 'from': 'meta', 'to': 'landing', 'forecast': {'rate': 100}}, {'id': 'e2', 'from': 'landing', 'to': 'lead', 'forecast': {'rate': ''}}]
+        config, _ = _normalize_flow_config({'nodes': nodes, 'edges': edges}, HOST)
+        by_id = {node['id']: node for node in config['nodes']}
+        self.assertEqual(by_id['meta']['forecast'], {'visits': 10000.0, 'cost': 5000.5})
+        self.assertNotIn('forecast', by_id['landing'])
+        self.assertEqual(by_id['lead']['forecast'], {'value': 120.0})
+        self.assertEqual(config['edges'][0]['forecast'], {'rate': 100.0})
+        self.assertNotIn('forecast', config['edges'][1])
+        for invalid in ({'rate': 120}, {'rate': -1}, {'rate': True}, {'rate': float('inf')}, 'alto'):
+            with self.assertRaises(BadRequest):
+                _normalize_flow_config({'nodes': nodes, 'edges': [{**edges[0], 'forecast': invalid}]}, HOST)
+
     def test_tags_are_trimmed_deduplicated_and_limited(self):
         config, _ = _normalize_flow_config({'nodes': [], 'edges': [], 'tags': ['  Black  Friday ', 'black friday', 'Leads', 'x' * 60]}, HOST)
         self.assertEqual(config['tags'], ['Black Friday', 'Leads', 'x' * 40])

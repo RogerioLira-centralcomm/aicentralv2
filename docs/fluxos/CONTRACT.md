@@ -23,6 +23,7 @@ Tamanho máximo serializado: 256 KB.
 |---|---|
 | `id` | string única, até 80 |
 | `type` | `source`, `page`, `form`, `event`, `condition`, `delay`, `segment`, `conversion`, `webhook`, `whatsapp`, `error`, `note` (anotação do plano: não é medida, não conta como passo solto e não é movida por “Organizar”) |
+| `forecast` | camada Previsão: em `source` `{visits, cost}`, em `conversion` `{value}`; números ≥ 0 (visitas até 1e9, custo até 1e12, valor até 1e9); vazios descartados, outros campos ignorados |
 | `checklist` | só em `note`: até 30 itens `{text, done}`; texto até 200, itens vazios descartados |
 | `title` | até 120, espaços normalizados |
 | `path` | quando presente, começa com `/`, sem `?`/`#`, até 500. Um passo medido sem `path` real só publica se estiver `planned` ou `in_production` |
@@ -40,7 +41,7 @@ Tamanho máximo serializado: 256 KB.
 
 ## Conexão
 
-`{id, from, to, from_port?, to_port?, variant?, label?, origin?, kind?}`. As portas são `left-in`, `right-in`, `top-in` (entrada) e `right-out`, `left-out`, `bottom-out` (saída). `variant: planned` desenha a conexão tracejada, sem medição direta.
+`{id, from, to, from_port?, to_port?, variant?, label?, origin?, kind?, forecast?}`. `forecast.rate` é a taxa planejada (0–100) usada na camada Previsão; conexões que fecham ciclo são tratadas como retorno e não alimentam a previsão. As portas são `left-in`, `right-in`, `top-in` (entrada) e `right-out`, `left-out`, `bottom-out` (saída). `variant: planned` desenha a conexão tracejada, sem medição direta.
 
 ## Versões do plano (`GET|POST …/flows/<id>/plan-versions`)
 

@@ -20,7 +20,7 @@ from .reports_v1 import _rows, _selection, _write_guard, _customer_id, _optional
 from .reports_flow_versions import expected_revision, lock_flow, save_draft, publish_draft, session_snapshot, match_version_step
 from .reports_flow_schema import LEGACY_KINDS, legacy_projection, migrate_v1_to_v2
 from .reports_flow_validation import MAX_FLOW_PAGES, validate_flow_config
-from .reports_flow_lifecycle import NODE_STATUSES, is_measured, measured_nodes, node_status, normalize_spec
+from .reports_flow_lifecycle import NODE_STATUSES, is_measured, measured_nodes, node_status, normalize_forecast, normalize_spec
 from .reports_flow_stage import normalize_stage_position
 from .reports_flow_metrics import apply_engagement, apply_session_bounds, edge_observation, origin_summary
 
@@ -633,6 +633,9 @@ def _normalize_flow_config(config, allowed_host):
         spec = normalize_spec(node.get('spec'))
         if spec:
             item['spec'] = spec
+        forecast = normalize_forecast(node.get('forecast'), {'source': ('visits', 'cost'), 'conversion': ('value',)}.get(node_type, ()))
+        if forecast:
+            item['forecast'] = forecast
         normalized.append(normalize_stage_position(item))
     normalized_edges = []
     edge_ids = set()
@@ -657,6 +660,9 @@ def _normalize_flow_config(config, allowed_host):
                 if not isinstance(edge[field], str) or len(edge[field]) > 120:
                     abort(400, description='Propriedade de conexão inválida.')
                 normalized_edge[field] = edge[field]
+        forecast = normalize_forecast(edge.get('forecast'), ('rate',))
+        if forecast:
+            normalized_edge['forecast'] = forecast
         normalized_edges.append(normalized_edge)
     identities = {}
     for node in normalized:

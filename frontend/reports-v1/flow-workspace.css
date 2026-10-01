@@ -410,7 +410,8 @@
 .flow-plan-item.is-done .flow-plan-item__head em{border-style:solid;border-color:var(--color-border-success,#abefc6);color:var(--color-text-success-primary,#067647)}
 .flow-plan-item__missing{color:var(--color-text-warning-primary,#b54708)}
 .flow-plan-panel__exports{display:flex;flex-wrap:wrap;gap:8px}
-.flow-blueprint-panel.flow-plan-panel>.reports-panel-shell__header{display:grid;justify-content:stretch}
+/* The legacy ".flow-blueprint-panel header" flex row must not reach the shared panel header. */
+.flow-blueprint-panel.reports-panel-shell>.reports-panel-shell__header{display:block}
 .flow-inspector__checklist{display:grid;gap:6px;margin:0;padding:0;border:0}
 .flow-inspector__checklist legend{display:flex;gap:6px;margin-bottom:6px;color:var(--color-text-secondary);font-size:13px;font-weight:600}
 .flow-inspector__checklist legend small{color:var(--color-text-tertiary);font-weight:500}
@@ -429,3 +430,26 @@
 .flow-publication-mode input{width:16px;height:16px;min-height:0;margin:2px 0 0;flex:none}
 .flow-publication-mode span{display:grid;gap:2px}
 .flow-publication-mode small{color:var(--color-text-tertiary);font-size:12px;line-height:1.45}
+/* Previsão */
+.flow-forecast-panel .reports-panel-shell__body{display:grid;gap:16px}
+.flow-forecast-scenarios{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;border-radius:10px;background:var(--color-bg-secondary)}
+.flow-forecast-scenarios button{min-height:32px;border:0;border-radius:8px;background:transparent;color:var(--color-text-tertiary);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.flow-forecast-scenarios button.is-selected{background:var(--color-bg-primary);color:var(--color-text-primary);box-shadow:0 1px 2px rgb(16 24 40/.08)}
+.flow-forecast-scenarios button:focus-visible{outline:2px solid var(--color-border-brand);outline-offset:1px}
+.flow-forecast-table{width:100%;border-collapse:collapse;font-size:12px}
+.flow-forecast-table th,.flow-forecast-table td{padding:6px 4px;border-bottom:1px solid var(--color-border-secondary);text-align:right;white-space:nowrap}
+.flow-forecast-table th[scope=row]{color:var(--color-text-tertiary);font-weight:500;text-align:left;white-space:normal}
+.flow-forecast-table thead th{color:var(--color-text-tertiary);font-weight:600}
+.flow-forecast-table .is-selected{color:var(--color-text-primary);font-weight:600;background:var(--color-bg-brand-primary)}
+.flow-forecast-warnings{padding:8px 12px;border-radius:8px;background:var(--color-bg-warning-primary,#fffaeb);color:var(--color-text-warning-primary,#b54708);font-size:12px}
+.flow-forecast-warnings p{margin:2px 0}
+.flow-forecast-group{display:grid;gap:8px}
+.flow-forecast-group h3{margin:0;color:var(--color-text-primary);font-size:13px;font-weight:600}
+.flow-forecast-group>p{margin:0;color:var(--color-text-tertiary);font-size:12px}
+.flow-forecast-row{display:grid;grid-template-columns:1fr 1fr;gap:6px 8px;padding:10px;border:1px solid var(--color-border-secondary);border-radius:10px}
+.flow-forecast-row>strong{grid-column:1/-1;color:var(--color-text-primary);font-size:12px}
+.flow-forecast-row.is-edge{grid-template-columns:110px 1fr;align-items:end}
+.flow-forecast-row>small{color:var(--color-text-tertiary);font-size:11px}
+.flow-forecast-field{display:grid;gap:4px;margin:0!important;color:var(--color-text-tertiary);font-size:11px}
+.flow-forecast-field__input{display:flex;align-items:center;gap:6px}
+.flow-forecast-field__input small{color:var(--color-text-tertiary);font-size:12px}

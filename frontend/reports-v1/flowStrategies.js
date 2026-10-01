@@ -15,7 +15,7 @@ export const FLOW_STRATEGIES = Object.freeze([
       {key: 'form', kind: 'page.form', title: 'Formulário de cadastro', stage: 'intent', spec: {goal: 'Captar nome, e-mail e telefone com o mínimo de campos.', content: 'Nome, e-mail, telefone e consentimento LGPD.', cta: 'Enviar'}},
       {key: 'lead', kind: 'conversion.lead', title: 'Lead captado', stage: 'conversion', spec: {goal: 'Contar o envio do formulário como lead.', notes: 'Evento sugerido: lead_enviado.'}},
     ],
-    links: [['@paid', 'lp'], ['traffic.retargeting', 'lp', 'Remarketing'], ['lp', 'form'], ['form', 'lead']],
+    links: [['@paid', 'lp', null, 100], ['traffic.retargeting', 'lp', 'Remarketing', 100], ['lp', 'form', null, 35], ['form', 'lead', null, 60]],
   },
   {
     id: 'leads-whatsapp', name: 'Conversa no WhatsApp', objective: 'Conversas e vendas', siteKind: 'landing',
@@ -29,7 +29,7 @@ export const FLOW_STRATEGIES = Object.freeze([
       {key: 'venda', kind: 'crm.deal_won', title: 'Venda fechada', stage: 'support'},
       {key: 'perdida', kind: 'crm.deal_lost', title: 'Sem fechamento', stage: 'support'},
     ],
-    links: [['@paid', 'lp'], ['lp', 'click'], ['click', 'conversa'], ['conversa', 'atendimento'], ['atendimento', 'venda', 'Ganhou'], ['atendimento', 'perdida', 'Perdeu']],
+    links: [['@paid', 'lp', null, 100], ['lp', 'click', null, 20], ['click', 'conversa', null, 70], ['conversa', 'atendimento', null, 100], ['atendimento', 'venda', 'Ganhou', 20], ['atendimento', 'perdida', 'Perdeu', 80]],
   },
   {
     id: 'event-webinar', name: 'Inscrição em evento ou webinar', objective: 'Inscrições e vendas', siteKind: 'landing',
@@ -43,7 +43,7 @@ export const FLOW_STRATEGIES = Object.freeze([
       {key: 'sala', kind: 'page.webinar', title: 'Sala do evento', stage: 'support', spec: {goal: 'Receber os inscritos no dia e apresentar a oferta.', suggested_path: '/evento/ao-vivo'}},
       {key: 'compra', kind: 'conversion.purchase', title: 'Compra da oferta', stage: 'support', spec: {goal: 'Contar compras feitas a partir do evento.'}},
     ],
-    links: [['@paid', 'inscricao'], ['communication.email', 'inscricao', 'Convite'], ['inscricao', 'form'], ['form', 'inscrito'], ['inscrito', 'lembretes'], ['lembretes', 'sala'], ['sala', 'compra']],
+    links: [['@paid', 'inscricao', null, 100], ['communication.email', 'inscricao', 'Convite', 100], ['inscricao', 'form', null, 40], ['form', 'inscrito', null, 80], ['inscrito', 'lembretes', null, 100], ['lembretes', 'sala', null, 40], ['sala', 'compra', null, 10]],
   },
   {
     id: 'ecommerce', name: 'Venda em e-commerce', objective: 'Compras', siteKind: 'ecommerce',
@@ -55,7 +55,7 @@ export const FLOW_STRATEGIES = Object.freeze([
       {key: 'checkout', kind: 'page.checkout', title: 'Checkout', stage: 'intent', spec: {goal: 'Concluir pagamento com o menor atrito possível.', suggested_path: '/checkout'}},
       {key: 'compra', kind: 'conversion.purchase', title: 'Compra concluída', stage: 'conversion', spec: {goal: 'Contar o pedido pago.', notes: 'Evento sugerido: purchase, com o valor do pedido.'}},
     ],
-    links: [['@paid', 'produto'], ['traffic.retargeting', 'produto', 'Remarketing'], ['communication.email', 'checkout', 'Recuperação de carrinho'], ['produto', 'carrinho'], ['carrinho', 'checkout'], ['checkout', 'compra']],
+    links: [['@paid', 'produto', null, 100], ['traffic.retargeting', 'produto', 'Remarketing', 100], ['communication.email', 'checkout', 'Recuperação de carrinho', 100], ['produto', 'carrinho', null, 10], ['carrinho', 'checkout', null, 50], ['checkout', 'compra', null, 60]],
   },
   {
     id: 'b2b-demand', name: 'Geração de demanda B2B', objective: 'Reuniões e negócios', siteKind: 'multipagina',
@@ -70,7 +70,7 @@ export const FLOW_STRATEGIES = Object.freeze([
       {key: 'ganho', kind: 'crm.deal_won', title: 'Negócio ganho', stage: 'support'},
       {key: 'perdido', kind: 'crm.deal_lost', title: 'Negócio perdido', stage: 'support'},
     ],
-    links: [['@paid', 'conteudo'], ['traffic.organic_search', 'conteudo'], ['communication.email_sequence', 'solucao', 'Nutrição'], ['conteudo', 'solucao'], ['solucao', 'contato'], ['contato', 'lead'], ['lead', 'reuniao'], ['reuniao', 'ganho', 'Ganhou'], ['reuniao', 'perdido', 'Perdeu']],
+    links: [['@paid', 'conteudo', null, 100], ['traffic.organic_search', 'conteudo', null, 100], ['communication.email_sequence', 'solucao', 'Nutrição', 100], ['conteudo', 'solucao', null, 25], ['solucao', 'contato', null, 8], ['contato', 'lead', null, 70], ['lead', 'reuniao', null, 40], ['reuniao', 'ganho', 'Ganhou', 25], ['reuniao', 'perdido', 'Perdeu', 75]],
   },
   {
     id: 'brand-consideration', name: 'Presença e consideração', objective: 'Engajamento', siteKind: 'institucional',
@@ -83,7 +83,7 @@ export const FLOW_STRATEGIES = Object.freeze([
       {key: 'contato', kind: 'page.form', title: 'Contato', stage: 'intent', spec: {cta: 'Enviar mensagem'}},
       {key: 'lead', kind: 'conversion.lead', title: 'Contato enviado', stage: 'conversion', spec: {goal: 'Contar mensagens enviadas pelo site.'}},
     ],
-    links: [['@paid', 'home'], ['traffic.organic_search', 'home'], ['traffic.organic_social', 'home'], ['home', 'servicos'], ['home', 'cases'], ['servicos', 'contato'], ['cases', 'contato'], ['contato', 'lead']],
+    links: [['@paid', 'home', null, 100], ['traffic.organic_search', 'home', null, 100], ['traffic.organic_social', 'home', null, 100], ['home', 'servicos', null, 30], ['home', 'cases', null, 15], ['servicos', 'contato', null, 5], ['cases', 'contato', null, 8], ['contato', 'lead', null, 60]],
   },
   {
     id: 'ab-landing', name: 'Teste A/B de landing page', objective: 'Leads', siteKind: 'landing',
@@ -96,7 +96,7 @@ export const FLOW_STRATEGIES = Object.freeze([
       {key: 'form', kind: 'page.form', title: 'Formulário', stage: 'intent', spec: {content: 'O mesmo formulário nas duas versões.'}},
       {key: 'lead', kind: 'conversion.lead', title: 'Lead captado', stage: 'conversion', spec: {goal: 'Comparar a taxa de lead de A e B.'}},
     ],
-    links: [['@paid', 'divisao'], ['divisao', 'a', 'Variante A · 50%'], ['divisao', 'b', 'Variante B · 50%'], ['a', 'form'], ['b', 'form'], ['form', 'lead']],
+    links: [['@paid', 'divisao', null, 100], ['divisao', 'a', 'Variante A · 50%', 50], ['divisao', 'b', 'Variante B · 50%', 50], ['a', 'form', null, 35], ['b', 'form', null, 35], ['form', 'lead', null, 60]],
   },
 ]);
 
@@ -127,7 +127,9 @@ export function buildStrategyConfig(strategy, channelKinds = defaultStrategyChan
     nodes.push(node);
   }
   const paid = chosen.filter(kind => kind.startsWith('traffic.') && !strategy.links.some(([from]) => from === kind));
-  const edges = strategy.links.flatMap(([from, to, label]) => (from === '@paid' ? paid : [from]).filter(key => ids[key] && ids[to])
-    .map(key => ({id: crypto.randomUUID(), from: ids[key], to: ids[to], variant: 'direct', label: label || 'Próximo'})));
+  // Rates are planning references, so the forecast starts filled; the planner adjusts them to the campaign.
+  const edges = strategy.links.flatMap(([from, to, label, rate]) => (from === '@paid' ? paid : [from]).filter(key => ids[key] && ids[to])
+    .map(key => ({id: crypto.randomUUID(), from: ids[key], to: ids[to], variant: 'direct', label: label || 'Próximo',
+      ...(rate == null ? {} : {forecast: {rate}})})));
   return {schema_version: 2, site_kind: strategy.siteKind, strategy_id: strategy.id, nodes, edges};
 }

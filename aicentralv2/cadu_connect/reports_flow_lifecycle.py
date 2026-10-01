@@ -1,4 +1,5 @@
 """Lifecycle of a flow node: a step can exist in the plan long before its page does."""
+import math
 import re
 
 from werkzeug.exceptions import BadRequest
@@ -10,6 +11,27 @@ SPEC_LIMITS = {
     'notes': 2000, 'owner': 120, 'due_date': 10, 'references': 2000,
 }
 DUE_DATE = re.compile(r'\d{4}-\d{2}-\d{2}')
+
+
+FORECAST_LIMITS = {'visits': 1e9, 'cost': 1e12, 'value': 1e9, 'rate': 100}
+
+
+def normalize_forecast(forecast, fields):
+    """Plan numbers for the forecast layer; blank values are dropped, invalid ones rejected."""
+    if forecast is None:
+        return None
+    if not isinstance(forecast, dict):
+        raise BadRequest('A previsão precisa ser um objeto.')
+    clean = {}
+    for field in fields:
+        value = forecast.get(field)
+        if value is None or value == '':
+            continue
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) \
+                or not 0 <= value <= FORECAST_LIMITS[field]:
+            raise BadRequest('Use números positivos na previsão; taxas vão de 0 a 100.')
+        clean[field] = round(float(value), 4)
+    return clean or None
 
 
 def measured_nodes(nodes):

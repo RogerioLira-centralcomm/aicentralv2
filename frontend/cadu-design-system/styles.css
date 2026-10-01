@@ -667,7 +667,7 @@ body.portal--workspace .cadu-ds-prompt-suggestions.is-workspace-home button:focu
 /* Account v3: one responsive management canvas for agency, profile, billing
    and integrations. Identity is visual, while headers stay below 120px. */
 .cadu-ds-account-shell .cadu-ds-account-content { max-width:1180px; margin:0 auto; }
-@media (min-width:901px) { .cadu-ds-account-shell .cadu-ds-account-tabs { display:none; } }
+
 .cadu-ds-account-shell .cadu-ds-account-page-header {
   display:grid; grid-template-columns:56px minmax(0,1fr); align-items:center; gap:16px;
   width:100%; max-width:none; min-height:82px; max-height:120px; box-sizing:border-box; padding:0 0 18px;
@@ -720,7 +720,7 @@ body.portal--workspace .cadu-ds-prompt-suggestions.is-workspace-home button:focu
 }
 @media (max-width:640px) {
   .cadu-ds-account-shell .cadu-ds-account-content { padding:20px 16px max(44px,env(safe-area-inset-bottom)); }
-  .cadu-ds-account-shell .cadu-ds-account-tabs { margin:8px 0 24px; }
+  
   .cadu-ds-account-shell .cadu-ds-account-page-header { grid-template-columns:46px minmax(0,1fr); min-height:72px; gap:12px; padding-bottom:14px; }
   .cadu-ds-account-shell .cadu-ds-account-page-header>.cadu-ds-visual-identity { width:46px; height:46px; border-radius:13px; }
   .cadu-ds-account-shell .cadu-ds-account-page-header h1 { font-size:25px; }
@@ -995,9 +995,7 @@ body.portal--workspace:not(:has(.cv-conversations-shell)) .workspace-app-shell[d
 .cadu-ds-account-hero dl { display:flex; gap:26px; margin:0; }
 .cadu-ds-account-hero dl>div { min-width:92px; padding-left:18px; border-left:1px solid var(--cadu-line); }
 .cadu-ds-account-hero dt { color:var(--cadu-muted); font-size:10px; }.cadu-ds-account-hero dd { margin:6px 0 0; font-size:17px; font-weight:720; }
-.cadu-ds-account-tabs { display:flex; gap:4px; margin:22px 0 44px; overflow:auto; }
-.cadu-ds-account-tabs a { flex:0 0 auto; padding:8px 12px; border-radius:999px; color:var(--cadu-muted); font-size:12px; font-weight:650; text-decoration:none; }
-.cadu-ds-account-tabs a[aria-current="page"] { background:var(--cadu-accent-soft); color:var(--cadu-accent-strong); }
+
 .cadu-ds-account-stack { display:grid; gap:48px; }
 .cadu-ds-account-lead,.cadu-ds-account-section>header { display:flex; justify-content:space-between; gap:24px; align-items:end; }
 .cadu-ds-account-lead h2,.cadu-ds-account-section h2,.cadu-ds-account-story h2 { margin:6px 0 0; font-size:clamp(24px,3vw,36px); letter-spacing:-.045em; }
@@ -1796,12 +1794,6 @@ body.portal--workspace .cadu-ds-home-workarea {
 .cadu-ds-home-workarea .cadu-ds-account-content {
   flex:1 1 auto;
   min-width:0;
-}
-
-@media (min-width:761px) {
-  .cadu-ds-account-shell .cadu-ds-account-tabs {
-    display:none;
-  }
 }
 
 .cadu-ds-context-sidebar.is-collapsed {
@@ -2626,15 +2618,6 @@ body.portal--workspace .cadu-ds-home-widget.is-collapsed > header {
   font-size:11px;
 }
 
-.cadu-ds-account-shell .cadu-ds-account-tabs {
-  margin:18px 0 34px;
-}
-
-.cadu-ds-account-shell .cadu-ds-account-tabs a {
-  padding:7px 10px;
-  font-size:11px;
-}
-
 .cadu-ds-account-shell :is(.cadu-ds-account-empty, .cadu-ds-account-section-copy) {
   overflow-wrap:anywhere;
 }
@@ -3079,7 +3062,6 @@ body.portal--workspace .cadu-ds-brand-hero__meta { margin-top:5px; }
 .cadu-ds-account-shell .cadu-ds-pricing-empty { padding:26px; border:1px solid var(--cadu-line); border-radius:12px; background:var(--cadu-surface); text-align:center; }
 .cadu-ds-account-shell .cadu-ds-pricing-empty h2 { margin:0; color:var(--cadu-ink); font-size:16px; }
 .cadu-ds-account-shell .cadu-ds-pricing-empty p { margin:6px 0 0; color:var(--cadu-muted); font-size:12px; }
-
 
 @media (max-width:760px) {
   .cadu-ds-account-page-header h1 {
@@ -3550,8 +3532,6 @@ body.portal--workspace .cadu-ds-dock-resource > i:not(.is-unread) { display:none
   .cadu-ds-project-content,.cadu-ds-brand-content,.cadu-ds-brands-content,.cadu-ds-account-content { max-width:100%; overflow-x:hidden; }
   .cadu-ds-project-hero__actions,.cadu-ds-brand-hero__actions { width:100%; }
   .cadu-ds-project-hero__actions>.is-primary,.cadu-ds-brand-hero__actions>.is-primary { min-height:44px; }
-  .cadu-ds-account-tabs { margin:10px 0 30px; padding-bottom:4px; scroll-snap-type:x proximity; }
-  .cadu-ds-account-tabs a { min-height:40px; display:flex; align-items:center; scroll-snap-align:start; }
 }
 
 /* Cadu mobile surfaces: compact global shell, dense lists and persistent

@@ -317,63 +317,10 @@ def _php_account_data(client_id: int) -> dict:
             space = dict(cursor.fetchone() or {})
     except Exception:
         space = {'projects': 0, 'files': 0, 'bytes_used': 0, 'indexed_tokens': 0}
-    try:
-        with get_db().cursor() as cursor:
-            cursor.execute(
-                """SELECT recipient_email, event_type, subject, status, provider_message_id, created_at
-                     FROM cadu_workspace_email_events
-                    WHERE id_cliente = %s
-                 ORDER BY created_at DESC, id DESC LIMIT 30""",
-                (client_id,),
-            )
-            email_events = [dict(row) for row in cursor.fetchall()]
-    except Exception:
-        email_events = []
     insights = _workspace_account_insights(plan, position, people)
     return {"people": people, "invites": invites, "plan": plan, "credit": credit, "space": space,
             "position": position, "movements": movements, "credit_additions": credit_additions, "purchases": purchases,
-            "insights": insights, "email_catalog": _workspace_account_email_catalog(),
-            "email_events": email_events}
-
-
-def _workspace_account_email_catalog() -> tuple[dict, ...]:
-    """Document the transactional e-mails the account journey can dispatch.
-
-    This is a catalogue of real application triggers, not a delivery log. A
-    provider delivery history needs its own durable event table before it can
-    be presented as one.
-    """
-    return (
-        {
-            "page": "Equipe", "action": "Convidar ou reenviar convite",
-            "recipient": "Pessoa convidada", "subject": "Você foi convidado",
-            "template": "convite-usuario.html", "timing": "Ao enviar ou reenviar",
-        },
-        {
-            "page": "Aceitar convite", "action": "Criar acesso",
-            "recipient": "Nova pessoa da equipe", "subject": "Sua conta está pronta",
-            "template": "bem-vindo.html", "timing": "Depois de aceitar o convite",
-        },
-        {
-            "page": "Boas-vindas", "action": "Apresentar bônus inicial",
-            "recipient": "Nova pessoa da equipe", "subject": "100.000 créditos para começar",
-            "template": "bonus-creditos.html", "timing": "Depois de aceitar o convite, se o bônus estiver ativo",
-        },
-        {
-            "page": "Acesso", "action": "Recuperar senha",
-            "recipient": "Pessoa com acesso ativo", "subject": "Redefina sua senha",
-            "template": "reset-senha.html", "timing": "Ao solicitar recuperação",
-        },
-        {
-            "page": "Acesso", "action": "Confirmar nova senha",
-            "recipient": "Pessoa que redefiniu a senha", "subject": "Senha alterada",
-            "template": "senha-alterada.html", "timing": "Depois de trocar a senha",
-        },
-        {
-            "page": "Faturamento", "action": "Ativar assinatura",
-            "recipient": "E-mail financeiro da agência", "subject": "Plano ativado",
-            "template": "assinatura-confirmacao.html", "timing": "Após a ativação do plano",
-        })
+            "insights": insights}
 
 
 def _workspace_account_insights(plan: dict, position: Optional[dict], people: list[dict]) -> dict:

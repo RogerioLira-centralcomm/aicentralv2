@@ -394,3 +394,35 @@ body.portal--workspace .cadu-ds-context-sidebar__credit-alert:hover { background
 body.portal--workspace .cadu-ds-context-sidebar.is-collapsed .cadu-ds-context-sidebar__credit-alert { display:none; }
 
 body.portal--workspace .cadu-ds-context-sidebar__group-note { display:block; padding:5px 8px; color:var(--cadu-muted); font-size:11.5px; font-weight:500; }
+
+/* Account: closed Workspace rail + the Conta sidebar, open, beside the content (same model as Project detail). */
+@media (min-width:761px) {
+  body.portal--workspace .cadu-ds-account-workarea:has(> .cadu-ds-context-sidebar.is-rail) {
+    grid-template-columns:64px minmax(0,1fr)!important;
+  }
+  body.portal--workspace .cadu-ds-account-workarea > .cadu-ds-entity-portal--account {
+    grid-column:2!important;
+    display:grid;
+    grid-template-columns:var(--cadu-sidebar-width,239px) minmax(0,1fr);
+    min-width:0;
+    min-height:100dvh;
+  }
+  body.portal--workspace .cadu-ds-entity-portal--account > .cadu-ds-entity-nav {
+    position:sticky;
+    top:0;
+    align-self:start;
+    height:100dvh;
+    overflow-y:auto;
+  }
+  body.portal--workspace .cadu-ds-entity-portal--account > .cadu-ds-account-content {
+    grid-column:2;
+    width:min(100%,960px);
+    margin-inline:auto;
+  }
+}
+/* Profile photo: a round crop of the photo itself, not a logo inset. */
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-page-header>.cadu-ds-visual-identity { width:56px; height:56px; flex:none; box-shadow:none; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-page-header>.cadu-ds-visual-identity.is-photo { border-radius:50%; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-page-header>.cadu-ds-visual-identity.is-photo img { padding:0; object-fit:cover; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-page-header { display:flex; align-items:center; gap:16px; padding:8px 0 20px; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-page-header h1 { margin:0; font-size:28px; line-height:1.15; }

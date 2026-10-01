@@ -29,19 +29,18 @@ def test_account_team_keeps_php_backed_actions_and_confirmation_ui():
     assert 'window.confirm' in component
 
 
-def test_account_profile_lists_transactional_email_sources():
+def test_account_profile_is_identity_only_and_keeps_emails_out_of_the_page():
     component = (ROOT / 'frontend/cadu-design-system/components/WorkspaceAccount.jsx').read_text(encoding='utf-8')
     routes = (ROOT / 'aicentralv2/cadu_workspace/routes.py').read_text(encoding='utf-8')
 
-    assert 'E-mails disparados por página' in component
-    assert 'account.email_catalog' in component
-    for subject in (
-        'Você foi convidado',
-        'Sua conta está pronta',
-        'Redefina sua senha',
-        'Senha alterada',
-    ):
-        assert subject in routes
+    # Transactional e-mail lists are operations data, not part of a person's profile,
+    # and recipient addresses must not travel in the page bootstrap.
+    assert 'E-mails disparados por página' not in component
+    assert 'email_catalog' not in component and 'email_events' not in component
+    assert '"email_events"' not in routes
+    # Account sections live in their own sidebar beside the closed Workspace rail.
+    assert 'EntityNavigator label="Conta"' in component
+    assert 'cadu-ds-account-tabs' not in component
 
 
 def test_workspace_invite_names_the_team_and_uses_the_real_role():

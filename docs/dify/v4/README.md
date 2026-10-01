@@ -22,9 +22,12 @@ Se as variáveis específicas não existirem, os três modos usam a mesma creden
 
 | | cadu-fast | cadu-analyst | cadu-operator |
 |---|---|---|---|
-| Modelo | rápido (Claude Haiku 4.5 ou equivalente) | Claude Sonnet 5.5 | Claude Sonnet 5.5 ou Opus 5.5 |
-| Temperatura | 0,3 | 0,4 | 0,2 |
-| Máx. tokens de saída | 1.500 | 6.000 | 8.000 |
+| Modelo | GPT 5.4 | GPT 5.4 | GPT 5.4 |
+| Esforço de raciocínio | baixo | médio | alto |
+| Temperatura (se o Dify expuser) | 0,3 | 0,4 | 0,2 |
+| Máx. tokens de saída | 3.000 | 10.000 | 14.000 |
+
+Valores sugeridos, a ajustar pelo que o Dify permitir para o GPT 5.4. Em modelos com raciocínio, o limite de tokens de saída inclui o raciocínio, por isso é maior que o tamanho da resposta visível. Se o modelo não aceitar temperatura, ignore essa linha.
 | Memória da conversa | **desligada** | **desligada** | **desligada** |
 | Base de conhecimento | nenhuma | nenhuma | nenhuma |
 

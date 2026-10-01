@@ -5,12 +5,14 @@
   "execution_mode": "fast",
   "uso": "Perguntas simples, conversa rápida e planos pedidos como rápidos ou resumidos.",
   "settings": {
-    "model": "rápido (Claude Haiku 4.5 ou equivalente)",
+    "model": "GPT 5.4",
+    "reasoning_effort": "baixo",
     "temperature": 0.3,
-    "max_output_tokens": 1500,
+    "max_output_tokens": 3000,
     "conversation_memory": false,
     "knowledge_base": false,
-    "tools": []
+    "tools": [],
+    "nota": "Valores sugeridos. Se o Dify não expuser temperatura para o GPT 5.4, ignore-a e use o esforço de raciocínio. Em modelos com raciocínio o limite de tokens de saída inclui o raciocínio, por isso é maior que o da resposta visível."
   },
   "inputs": [
     "core",

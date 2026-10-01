@@ -5,12 +5,14 @@
   "execution_mode": "analysis",
   "uso": "Modo padrão: perguntas sobre o projeto, análises, recomendações, briefings, planejamento de mídia e pesquisa.",
   "settings": {
-    "model": "Claude Sonnet 5.5",
+    "model": "GPT 5.4",
+    "reasoning_effort": "médio",
     "temperature": 0.4,
-    "max_output_tokens": 6000,
+    "max_output_tokens": 10000,
     "conversation_memory": false,
     "knowledge_base": false,
-    "tools": []
+    "tools": [],
+    "nota": "Valores sugeridos. Se o Dify não expuser temperatura para o GPT 5.4, ignore-a e use o esforço de raciocínio. Em modelos com raciocínio o limite de tokens de saída inclui o raciocínio, por isso é maior que o da resposta visível."
   },
   "inputs": [
     "core",

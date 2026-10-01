@@ -13,17 +13,17 @@ LEGACY_UNUSED = ["prompt_boundary", "briefing_instruction", "skill_context", "pr
 APPS = {
     "cadu-fast": {
         "file": "cadu-fast", "execution_mode": "fast",
-        "settings": {"model": "rápido (Claude Haiku 4.5 ou equivalente)", "temperature": 0.3, "max_output_tokens": 1500},
+        "settings": {"model": "GPT 5.4", "reasoning_effort": "baixo", "temperature": 0.3, "max_output_tokens": 3000},
         "uso": "Perguntas simples, conversa rápida e planos pedidos como rápidos ou resumidos.",
     },
     "cadu-analyst": {
         "file": "cadu-analyst", "execution_mode": "analysis",
-        "settings": {"model": "Claude Sonnet 5.5", "temperature": 0.4, "max_output_tokens": 6000},
+        "settings": {"model": "GPT 5.4", "reasoning_effort": "médio", "temperature": 0.4, "max_output_tokens": 10000},
         "uso": "Modo padrão: perguntas sobre o projeto, análises, recomendações, briefings, planejamento de mídia e pesquisa.",
     },
     "cadu-operator": {
         "file": "cadu-operator", "execution_mode": "agentic",
-        "settings": {"model": "Claude Sonnet 5.5 ou Opus 5.5", "temperature": 0.2, "max_output_tokens": 8000},
+        "settings": {"model": "GPT 5.4", "reasoning_effort": "alto", "temperature": 0.2, "max_output_tokens": 14000},
         "uso": "Entregas editáveis complexas (documentos, HTML, mapas de projeto), ações com confirmação e tarefas de alta complexidade.",
     },
 }
@@ -45,7 +45,9 @@ def build() -> dict:
             "app": app,
             "execution_mode": spec["execution_mode"],
             "uso": spec["uso"],
-            "settings": {**spec["settings"], "conversation_memory": False, "knowledge_base": False, "tools": []},
+            "settings": {**spec["settings"], "conversation_memory": False, "knowledge_base": False, "tools": [],
+                         "nota": "Valores sugeridos. Se o Dify não expuser temperatura para o GPT 5.4, ignore-a e use o esforço de raciocínio. "
+                                 "Em modelos com raciocínio o limite de tokens de saída inclui o raciocínio, por isso é maior que o da resposta visível."},
             "inputs": INPUTS,
             "output_contract": {
                 "format": "json",

@@ -64,7 +64,18 @@ export function Flow(props) {
     return () => query.removeEventListener('change', update);
   }, []);
   const requiresEditorCanvas=Boolean(flowEditorId())&&!/\/monitor\/?$/.test(location.pathname);
-  return <>{!supported&&requiresEditorCanvas&&<section className="reports-flow-device-message"><h2>Abra este fluxo em um tablet ou computador.</h2><p>A mesa de fluxos precisa de uma tela maior para organizar etapas e conexões. Se estiver em um computador, amplie a janela.</p><button type="button" onClick={async()=>{try{await navigator.clipboard.writeText(location.href);setLinkCopied(true);}catch(_){setLinkCopied(false);}}}>{linkCopied?'Link copiado':'Copiar link'}</button><a href={reportUrl('overview')}>Voltar ao Reports</a></section>}{(supported||!requiresEditorCanvas)&&<div><FlowDesktop key={props.data.client.client_id} {...props}/></div>}</>;
+  return <>
+    <div className="reports-page-hero">
+      <div className="reports-page-hero__inner">
+        <div className="reports-page-hero__copy">
+          <div className="reports-page-hero__eyebrow">Fluxos</div>
+          <h1>Desenhe jornadas do cliente</h1>
+          <p>Crie e monitore fluxos de interação para entender comportamentos e otimizar conversões.</p>
+        </div>
+      </div>
+    </div>
+    {!supported&&requiresEditorCanvas&&<section className="reports-flow-device-message"><h2>Abra este fluxo em um tablet ou computador.</h2><p>A mesa de fluxos precisa de uma tela maior para organizar etapas e conexões. Se estiver em um computador, amplie a janela.</p><button type="button" onClick={async()=>{try{await navigator.clipboard.writeText(location.href);setLinkCopied(true);}catch(_){setLinkCopied(false);}}}>{linkCopied?'Link copiado':'Copiar link'}</button><a href={reportUrl('overview')}>Voltar ao Reports</a></section>}{(supported||!requiresEditorCanvas)&&<div><FlowDesktop key={props.data.client.client_id} {...props}/></div>}
+  </>;
 }
 
 function FlowDesktop({data, save, busy, filters, refreshRevision}) {

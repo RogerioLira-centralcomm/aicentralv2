@@ -3,6 +3,8 @@
 The persisted transcript is canonical. Memory state, recovered references and
 selected context are bounded projections assembled here for every runtime.
 """
+from __future__ import annotations
+
 
 import json
 import re

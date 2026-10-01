@@ -1,4 +1,6 @@
 """Project attachment ingestion shared by Workspace UI and MCP adapters."""
+from __future__ import annotations
+
 
 from io import BytesIO
 from pathlib import Path

@@ -1,4 +1,6 @@
 """Blocos determinísticos para prompts de mockups de formatos publicitários."""
+from __future__ import annotations
+
 
 from .creative_brand_analysis import format_copy_system_lines
 from .creative_construct_params import locks_from_kv_items, normalize_kv_items

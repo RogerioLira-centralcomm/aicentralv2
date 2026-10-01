@@ -3,6 +3,7 @@
 import secrets
 from dataclasses import dataclass
 from hashlib import sha256
+from typing import Optional
 
 from flask import current_app, request, session
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
@@ -25,7 +26,7 @@ class MCPPrincipal:
     context: RequestContext
     exposure: str = "internal"
     credential_type: str = "internal"
-    credential_id: str | None = None
+    credential_id: Optional[str] = None
 
 
 def _serializer():

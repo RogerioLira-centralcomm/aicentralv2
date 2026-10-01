@@ -1,4 +1,6 @@
 """Database access for the versioned Cadu chat plugin catalog."""
+from __future__ import annotations
+
 
 import json
 

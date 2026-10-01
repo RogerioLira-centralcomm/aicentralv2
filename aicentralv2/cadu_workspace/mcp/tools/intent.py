@@ -1,4 +1,6 @@
 """Side-effect-free natural-language intent interpretation for every MCP surface."""
+from __future__ import annotations
+
 
 from dataclasses import replace
 from html import escape

@@ -1,4 +1,6 @@
 """Regras de negócio e composição de prompts da Modelagem de Criativos."""
+from __future__ import annotations
+
 
 from datetime import date, datetime
 from decimal import Decimal

@@ -1,4 +1,6 @@
 """Artifact persistence with optimistic versioning and tenant scoping."""
+from __future__ import annotations
+
 
 import json
 import re
@@ -716,7 +718,8 @@ def content_markdown(artifact: dict) -> str:
     metrics = content.get("metrics") or content.get("kpis") or {}
     if isinstance(metrics, dict) and metrics:
         parts.extend(["## Indicadores", "| Indicador | Valor |", "| --- | --- |"])
-        parts.extend(f"| {str(key).replace('|', '\\|')} | {str(value).replace('|', '\\|')} |" for key, value in metrics.items())
+        pipe_esc = '\\|'
+        parts.extend(f"| {str(key).replace('|', pipe_esc)} | {str(value).replace('|', pipe_esc)} |" for key, value in metrics.items())
     tables = list(content.get("tables") or [])
     if not tables and any(content.get(key) for key in ("channels", "allocations", "rows")):
         tables.append({"title": "Distribuição", "columns": content.get("columns") or [],

@@ -1,4 +1,6 @@
 """Durable ordered journal and checkpoints for Conversations V2."""
+from __future__ import annotations
+
 
 from uuid import uuid4
 

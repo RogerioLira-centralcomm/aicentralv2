@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # --- (ao final do arquivo, após a última rota existente) ---
 
 # Removido endpoint direto para compatibilidade com factory

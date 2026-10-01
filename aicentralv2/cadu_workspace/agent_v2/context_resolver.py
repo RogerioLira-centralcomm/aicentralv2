@@ -1,4 +1,6 @@
 """Resolve only the context explicitly requested by an IntentRoute."""
+from __future__ import annotations
+
 
 from dataclasses import dataclass, field
 import re

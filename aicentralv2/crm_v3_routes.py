@@ -4,6 +4,8 @@ Fase 3 (auth): todas as rotas exigem sessão. A página `/crm-v3/` usa
 `@login_required` (redireciona para /login); os endpoints `/crm-v3/api/*` usam
 `@login_required_api` (retornam 401 JSON) para permitir chamadas fetch.
 """
+from __future__ import annotations
+
 
 from flask import Blueprint, current_app, g, jsonify, render_template, request, session, url_for
 

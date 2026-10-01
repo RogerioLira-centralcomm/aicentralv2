@@ -1,4 +1,6 @@
 """Tenant-scoped operational views for the Cadu Harness."""
+from __future__ import annotations
+
 
 from ...cadu_family import repository
 

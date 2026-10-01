@@ -1,4 +1,6 @@
 """Confirmed, catalog-bound extra-credit purchases for MCP agents."""
+from __future__ import annotations
+
 
 from html import escape
 

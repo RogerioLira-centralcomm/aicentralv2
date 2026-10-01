@@ -6,6 +6,7 @@ from copy import deepcopy
 from typing import Optional
 
 from .contracts import IntentRoute, RequestContext
+from .evidence import read_status
 
 
 CORE = """Você é Cadu, um parceiro de trabalho atencioso e competente. Converse em português natural, claro e direto. Entenda o que a pessoa quer concluir e ajude a avançar sem fazê-la repetir o contexto.
@@ -294,6 +295,10 @@ def _bounded_json(value: dict, limit: int) -> str:
                         break
                     header = proposal
                 compact[key] = {**header, "truncated": True}
+        elif key in {"web.search", "web.read"} and isinstance(item, dict):
+            projected = _project_web(item, lambda candidate, _key=key: fits({**compact, _key: candidate}))
+            if projected is not None:
+                compact[key] = projected
         elif key == "brands.get_context" and isinstance(item, dict):
             # Retain the identity fields the Planner needs even when the
             # complete brand record contains many campaigns or source URLs.
@@ -361,6 +366,51 @@ def _bounded_json(value: dict, limit: int) -> str:
                         compact[key] = minimal
 
     return json.dumps(compact, ensure_ascii=False, default=str, separators=(",", ":"))
+
+
+_WEB_HEADER_KEYS = ("query", "source_count", "sources_read", "search_mode", "searched_at", "recency", "country",
+                    "radar_evidence_filter", "search_expanded", "status", "message")
+_WEB_SOURCE_KEYS = ("id", "title", "page_title", "url", "published_at", "freshness", "research_stream",
+                    "quality_gate", "source_type")
+_WEB_CONTENT_STEPS = (4000, 2500, 1500, 900, 500, 250)
+
+
+def _slim_web_source(source: dict, limit: int) -> dict:
+    """One source without content_blocks (a duplicate of content) and with bounded text."""
+    status = read_status(source)
+    row = {name: source[name] for name in _WEB_SOURCE_KEYS if source.get(name) not in (None, "")}
+    row["read_status"] = status
+    text = str(source.get("content") or "").strip() if status == "read" else ""
+    text = text or str(source.get("content_excerpt") or source.get("snippet") or source.get("excerpt") or "").strip()
+    if text:
+        row["content"] = text if len(text) <= limit else text[:limit].rstrip() + "…"
+        if len(text) > limit:
+            row["content_truncated"] = True
+    return row
+
+
+def _project_web(item: dict, fits):
+    """Fit a web.search/web.read result into the budget instead of dropping it whole.
+
+    Read sources come first, then discovered ones; every source keeps its URL and
+    date so claims stay citable, and page text shrinks before sources disappear.
+    """
+    header = {name: item[name] for name in _WEB_HEADER_KEYS if item.get(name) not in (None, "")}
+    sources = [row for row in (item.get("sources") if isinstance(item.get("sources"), list) else [item]) if isinstance(row, dict)]
+    sources.sort(key=lambda row: read_status(row) != "read")  # stable: reads first
+    for limit in _WEB_CONTENT_STEPS:
+        candidate = {**header, "sources": [_slim_web_source(row, limit) for row in sources]}
+        if limit < _WEB_CONTENT_STEPS[0] and any(row.get("content_truncated") for row in candidate["sources"]):
+            candidate["content_truncated"] = True
+        if fits(candidate):
+            return candidate
+    for count in range(len(sources) - 1, 0, -1):
+        candidate = {**header, "content_truncated": True,
+                     "sources": [_slim_web_source(row, _WEB_CONTENT_STEPS[-1]) for row in sources[:count]],
+                     "sources_omitted": len(sources) - count}
+        if fits(candidate):
+            return candidate
+    return None
 
 
 def build_payload(*, message: str, request: RequestContext, route: IntentRoute,

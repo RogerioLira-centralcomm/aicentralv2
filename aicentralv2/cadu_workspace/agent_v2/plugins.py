@@ -43,7 +43,14 @@ _CHANNEL_COPY = re.compile(r"\b(?:copy\s+por\s+canal|varia[cç][oõ]es?\s+de\s+(
 _PAGE_REVIEW = re.compile(r"\b(?:revise?|analise?|avalie?|audite?)\b.{0,60}\b(?:p[aá]gina|site|landing\s*page|website)\b|\b(?:convers[aã]o|cta|experi[eê]ncia)\b.{0,60}\b(?:p[aá]gina|site|landing\s*page)\b", re.I)
 _MEETING_COPILOT = re.compile(r"\b(?:pauta\s+(?:da\s+)?reuni[aã]o|resuma?\s+(?:a\s+)?reuni[aã]o|ata\s+(?:da\s+)?reuni[aã]o|decis[oõ]es\s+e\s+encaminhamentos)\b", re.I)
 _CLIENT_DELIVERY = re.compile(r"\b(?:status|andamento|pend[eê]ncias?)\b.{0,60}\b(?:para\s+o\s+cliente|entregas?|projeto)\b|\bentregas?\s+e\s+pend[eê]ncias?\b", re.I)
-_MARKET_RADAR = re.compile(r"\b(?:radar|movimentos?\s+recentes?|novidades?)\b.{0,65}\b(?:marca|concorrentes?|mercado|setor)\b|\b(?:concorrentes?|marca)\b.{0,65}\b(?:movimentos?|novidades?|lan[cç]amentos?)\b", re.I)
+_MARKET_RADAR = re.compile(
+    r"\b(?:radar|movimentos?\s+recentes?|novidades?)\b.{0,65}\b(?:marca|concorr\w+|mercado|setor)\b|"
+    r"\b(?:concorr\w+|marca)\b.{0,65}\b(?:movimentos?|novidades?|lan[cç]amentos?)\b|"
+    # "lançamentos dos concorrentes" and "o que a concorrência lançou/anunciou"
+    r"\blan[cç]amentos?\s+(?:d[aeo]s?|da)\s+concorr\w+|"
+    r"\bconcorr\w+\b.{0,40}\b(?:lan[cç]ou|lan[cç]aram|anunci(?:ou|aram)|ativ(?:ou|aram)|fez|fizeram)\b|"
+    r"\b(?:acompanh\w+|monitor\w+)\b.{0,50}\bconcorr\w+",
+    re.I)
 
 # The UI flow guide and runtime mode mapping share this catalog. Connector
 # plugins stay outside these groups and keep their existing grants.

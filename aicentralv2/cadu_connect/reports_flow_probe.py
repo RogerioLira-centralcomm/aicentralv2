@@ -448,6 +448,43 @@ def cooldown_ok(flow_id, seconds=ANALYZE_COOLDOWN_SECONDS, now=None):
     return True, 0
 
 
+# Requests that prove a tag actually fired (not just that its code is on the page).
+NETWORK_TAGS = {
+    'Meta Pixel': ('facebook.com/tr', 'connect.facebook.net'),
+    'GA4': ('google-analytics.com/g/collect', 'analytics.google.com/g/collect'),
+    'Google Ads': ('googleadservices.com/pagead', 'googleads.g.doubleclick.net', 'google.com/pagead'),
+    'GTM': ('googletagmanager.com/gtm.js',),
+    'TikTok Pixel': ('analytics.tiktok.com',),
+    'LinkedIn Insight': ('px.ads.linkedin.com', 'snap.licdn.com'),
+    'Microsoft Clarity': ('clarity.ms',),
+}
+
+
+def tags_from_requests(urls):
+    """Tag names whose collection endpoints were requested, in a stable order."""
+    fired = []
+    for name, needles in NETWORK_TAGS.items():
+        if any(needle in str(url) for url in urls for needle in needles):
+            fired.append(name)
+    return fired
+
+
+def render_with_browser(url):
+    """Load the page with scripts running and list the requests it makes. Never captures images."""
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True)
+        try:
+            page = browser.new_page()
+            requests_seen = []
+            page.on('request', lambda request: requests_seen.append(request.url) if len(requests_seen) < 500 else None)
+            page.goto(url, wait_until='domcontentloaded', timeout=20000)
+            page.wait_for_timeout(4000)
+            return {'html': page.content(), 'requests': requests_seen}
+        finally:
+            browser.close()
+
+
 def playwright_available():
     try:
         import playwright.sync_api  # noqa: F401
@@ -465,8 +502,8 @@ def _submit_with_browser(url, form_index, allowed_host):
         browser = pw.chromium.launch(headless=True)
         try:
             page = browser.new_page()
-            hosts = set()
-            page.on('request', lambda request: hosts.add(urlparse(request.url).hostname or ''))
+            hosts, urls = set(), []
+            page.on('request', lambda request: (hosts.add(urlparse(request.url).hostname or ''), urls.append(request.url) if len(urls) < 800 else None))
             page.goto(url, wait_until='domcontentloaded', timeout=20000)
             page.wait_for_timeout(1500)
             page_html = page.content()
@@ -495,10 +532,12 @@ def _submit_with_browser(url, form_index, allowed_host):
                 else:
                     field.fill(str(value))
             before = page.url
+            fired_before = set(tags_from_requests(urls))
             scope.locator('[type=submit], button:not([type])').first.click(timeout=8000)
             page.wait_for_timeout(5000)
             return {'outcome': classify_outcome(before, page.url, page.inner_text('body')[:4000]),
-                    'network_hosts': sorted(host for host in hosts if host)[:60], 'submitted': True}
+                    'network_hosts': sorted(host for host in hosts if host)[:60], 'submitted': True,
+                    'fired_on_submit': [name for name in tags_from_requests(urls) if name not in fired_before]}
         finally:
             browser.close()
 
@@ -539,13 +578,28 @@ def register(bp):
         try:
             if mode == 'submit':
                 return jsonify(_run_submit(flow, selected, url, payload))
-            try:
-                status, _, html = _fetch(url, body=True)
-            except Exception:
-                abort(502, description='Não foi possível ler a página agora.')
-            if status >= 300:
-                abort(502, description=f'A página respondeu {status}; o teste não pôde ler o conteúdo.')
+            rendered = None
+            if payload.get('render') is True:
+                if not playwright_available():
+                    abort(501, description='A leitura renderizada exige o navegador de testes, que não está instalado neste servidor.')
+                try:
+                    rendered = render_with_browser(url)
+                except Exception:
+                    abort(502, description='O navegador de testes não conseguiu abrir a página.')
+                html = rendered['html']
+            else:
+                try:
+                    status, _, html = _fetch(url, body=True)
+                except Exception:
+                    abort(502, description='Não foi possível ler a página agora.')
+                if status >= 300:
+                    abort(502, description=f'A página respondeu {status}; o teste não pôde ler o conteúdo.')
             result = analyze_html(html, url, path, payload.get('site_kind'))
+            if rendered:
+                result['method'] = 'rendered'
+                result['fired_tags'] = tags_from_requests(rendered['requests'])
+                result['limits'] = ['Página aberta com scripts em execução; os pixels listados como disparados fizeram requisições de verdade.',
+                                    'O formulário não foi enviado.']
             result.pop('_evidence', None)
             result['submit_available'] = playwright_available()
             return jsonify(result)

@@ -18,6 +18,7 @@ export function FlowConversionProbe({flowId,clientId,csrf,domain,config,onApply,
   const [formIndex,setFormIndex]=useState(0);
   const [confirmSubmit,setConfirmSubmit]=useState(false);
   const [submitted,setSubmitted]=useState(null);
+  const [render,setRender]=useState(false);
 
   const call=async body=>{
     const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),45000);
@@ -30,7 +31,7 @@ export function FlowConversionProbe({flowId,clientId,csrf,domain,config,onApply,
   };
   const analyze=async nextKind=>{
     setBusy(true);setError('');setSubmitted(null);
-    try{const value=await call({mode:'analyze',path,site_kind:nextKind||savedKind||undefined});setResult(value);setKind(value.selected_kind);}
+    try{const value=await call({mode:'analyze',path,render:render||undefined,site_kind:nextKind||savedKind||undefined});setResult(value);setKind(value.selected_kind);}
     catch(failure){setError(failure.name==='AbortError'?'A página demorou demais para responder.':failure.message);}
     finally{setBusy(false);}
   };
@@ -54,13 +55,15 @@ export function FlowConversionProbe({flowId,clientId,csrf,domain,config,onApply,
     {error&&<p role="alert">{error}</p>}
     <label>Página inicial do teste<ReportsFieldInput value={path} onChange={event=>setPath(event.target.value)} placeholder="/"/></label>
     <Button color="primary" disabled={busy||!path.startsWith('/')} onClick={()=>analyze()}>{busy&&!submitted?'Analisando…':result?'Analisar de novo':'Analisar página'}</Button>
-    <small>A análise lê o HTML da página. Não envia formulários e não captura imagens.</small>
+    {result?.submit_available&&<label className="flow-inspector__checkbox"><input type="checkbox" checked={render} onChange={event=>setRender(event.target.checked)}/> Abrir com scripts para ver quais pixels disparam</label>}
+    <small>{render?'Abre a página num navegador de testes, sem capturar imagens e sem enviar formulários.':'A análise lê o HTML da página. Não envia formulários e não captura imagens.'}</small>
     {result&&<>
       <section className="flow-probe-block"><h3>Tipo de site</h3>
         <ReportsNativeSelect value={kind} onChange={event=>{setKind(event.target.value);analyze(event.target.value);}} aria-label="Tipo de site">{KINDS.map(([id,label])=><option key={id} value={id}>{label}{id===result.site_kind.kind?' · sugerido':''}</option>)}</ReportsNativeSelect>
         <small>{result.site_kind.reasons.join(' ')} Sugestão por regras, confiança {result.site_kind.confidence}.</small></section>
       <section className="flow-probe-block"><h3>Medição</h3>
         <div className="flow-probe-chips">{result.tags.map(tag=><span key={tag.name} className={tag.detected?'is-on':''}>{tag.name}</span>)}</div>
+        {result.fired_tags&&<small>{result.fired_tags.length?`Dispararam ao abrir: ${result.fired_tags.join(', ')}.`:'Nenhum pixel disparou ao abrir a página.'}</small>}
         <small>{result.events.length?`Eventos encontrados: ${result.events.join(', ')}.`:'Nenhum evento de conversão encontrado no código da página.'} {result.limits[0]}</small></section>
       <section className="flow-probe-block"><h3>O que o visitante pode fazer</h3>
         {result.forms.length?result.forms.map(form=><p key={form.index}><b>{PURPOSE[form.purpose]||'Formulário'}</b> · {form.fields.length} campos{form.submit_label?` · “${form.submit_label}”`:''}<br/><small>{form.can_submit?'Pode ser testado.':form.blocked_reason}</small></p>):<p><small>Nenhum formulário nesta página.</small></p>}
@@ -72,7 +75,7 @@ export function FlowConversionProbe({flowId,clientId,csrf,domain,config,onApply,
         <ReportsNativeSelect value={formIndex} onChange={event=>setFormIndex(Number(event.target.value))} aria-label="Formulário a testar">{submittable.map(form=><option key={form.index} value={form.index}>{PURPOSE[form.purpose]} · {form.fields.length} campos</option>)}</ReportsNativeSelect>
         <label className="flow-inspector__checkbox"><input type="checkbox" checked={confirmSubmit} onChange={event=>setConfirmSubmit(event.target.checked)}/> Entendo e autorizo este envio de teste</label>
         <Button disabled={!confirmSubmit||busy} onClick={submit}>{busy?'Enviando…':'Enviar teste'}</Button></details>}
-      {submitted&&<section className="flow-probe-block"><h3>Resultado do envio</h3><p>{submitted.outcome.label}{submitted.outcome.path&&submitted.outcome.type!=='no_confirmation_signal'?` (${submitted.outcome.path})`:''}</p></section>}
+      {submitted&&<section className="flow-probe-block"><h3>Resultado do envio</h3><p>{submitted.outcome.label}{submitted.outcome.path&&submitted.outcome.type!=='no_confirmation_signal'?` (${submitted.outcome.path})`:''}</p><p><small>{submitted.fired_on_submit?.length?`Dispararam no envio: ${submitted.fired_on_submit.join(', ')}.`:'Nenhum pixel disparou no envio: a conversão não chega às plataformas de mídia.'}</small></p></section>}
     </>}
   </ReportsPanelShell>;
 }

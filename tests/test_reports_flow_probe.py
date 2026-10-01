@@ -87,3 +87,11 @@ class LandingMeasurementTests(unittest.TestCase):
         node = {'id': 'e', 'type': 'event', 'path': '/lp', 'event_name': 'scroll_depth'}
         self.assertEqual(match_flow_node([node], '/lp', 'x.com', 'custom_event', 'scroll_depth'), node)
         self.assertIsNone(match_flow_node([node], '/lp', 'x.com', 'custom_event', 'outro'))
+
+
+class NetworkTagTests(unittest.TestCase):
+    def test_fired_tags_come_from_collection_requests(self):
+        urls = ['https://www.facebook.com/tr/?id=1&ev=PageView', 'https://region1.google-analytics.com/g/collect?v=2',
+                'https://cdn.example.com/app.js']
+        self.assertEqual(probe.tags_from_requests(urls), ['Meta Pixel', 'GA4'])
+        self.assertEqual(probe.tags_from_requests([]), [])

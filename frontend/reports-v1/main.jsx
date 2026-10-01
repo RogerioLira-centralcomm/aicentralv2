@@ -219,7 +219,17 @@ function Accounts({data, save, busy}) {
     try {await save('/accounts', form); setForm({...form, external_id: '', name: '', parent_account_id: ''}); setCreateOpen(false);}
     catch (_) { /* Global error banner shows the failure. */ }
   };
-  return <section className="reports-accounts-page">
+  return <>
+    <div className="reports-page-hero">
+      <div className="reports-page-hero__inner">
+        <div className="reports-page-hero__copy">
+          <div className="reports-page-hero__eyebrow">Operação de mídia</div>
+          <h1>Contas</h1>
+          <p>Organize as contas de mídia vinculadas a este cliente.</p>
+        </div>
+      </div>
+    </div>
+    <section className="reports-accounts-page">
     <header className="reports-accounts-heading"><div><p>{data.client.client_name || `Cliente ${data.client.client_id}`} <span>·</span> {integer(data.accounts.length)} {data.accounts.length === 1 ? 'conta' : 'contas'}</p></div><div className="reports-accounts-heading__actions"><UntitledButton className="reports-account-connect" color="tertiary" href={reportUrl('monitor')}>Conectar fonte</UntitledButton>{data.client.role!=='viewer'&&<UntitledButton className="reports-account-add" onPress={()=>setCreateOpen(true)}>Adicionar conta</UntitledButton>}</div></header>
     <div className="reports-accounts-layout">
     <article className="reports-panel reports-accounts-list"><div className="reports-accounts-toolbar"><div className="reports-accounts-search"><ReportsFieldInput type="search" aria-label="Buscar contas" placeholder="Nome, ID ou plataforma" value={query} onChange={event => setQuery(event.target.value)}/></div></div>
@@ -235,7 +245,8 @@ function Accounts({data, save, busy}) {
       <div className="reports-untitled-drawer__actions"><UntitledButton type="submit" isDisabled={busy} isLoading={busy}>Salvar conta</UntitledButton></div>
     </form></ReportsDrawer>
     </div>
-  </section>;
+  </section>
+  </>;
 }
 
 function AccountRow({item, data, save, busy}) {

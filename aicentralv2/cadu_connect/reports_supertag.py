@@ -131,6 +131,14 @@ def _fanout_flow_events(site, prepared, page_host):
             (event_id, _site_id, _client_id, visitor_id, session_id, kind,
              event_name, path, referrer, attribution_json, data_json, _width, _height,
              occurred_at) = item
+            if kind == 'scroll_depth':
+                # Landing pages measure "read half the page" as an in-page step. Mirror it only when
+                # the flow has that step on this path, so ordinary scrolling never inflates flow events.
+                depth = (json.loads(data_json or '{}') or {}).get('depth')
+                if not isinstance(depth, (int, float)) or depth < 50 or not any(
+                        node.get('event_name') == 'scroll_depth' and node.get('path') == _safe_path(path) for node in nodes):
+                    continue
+                kind, event_name = 'custom_event', 'scroll_depth'
             if kind not in {'page_view', 'page_leave', 'heartbeat', 'click', 'whatsapp_click',
                             'form_submit', 'custom_event', 'conversion'}:
                 continue

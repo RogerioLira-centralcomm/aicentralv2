@@ -359,12 +359,14 @@ def build_proposal(kind, evidence, path='/', outcome=None):
     nodes = []
     if kind == 'landing':
         page = _node('page', 'Landing page', path, stage='entry', entry=True, description='Página de entrada observada pelo teste.')
-        nodes = [page, _node('event', 'Rolou até o meio', path, stage='exploration', event_name='scroll_50'),
-                 _node('event', 'Clicou no CTA', path, stage='intent', event_name='cta_click')]
+        # Steps the Super Tag measures on its own: half-page scroll, WhatsApp click and form submit.
+        nodes = [page, _node('event', 'Leu metade da página', path, stage='exploration', event_name='scroll_depth',
+                             description='Medido pela Super Tag quando a rolagem passa de 50%.')]
+        if evidence['summary']['whatsapp']:
+            nodes.append(_node('whatsapp', 'Clicou no WhatsApp', path, stage='intent'))
         if form:
-            nodes += [_node('form', form['submit_label'] or 'Formulário', path, stage='intent', fields=form['fields'],
-                            description='Campos observados no HTML da página.'),
-                      _node('event', 'Enviou o formulário', path, stage='intent', event_name='form_submit')]
+            nodes.append(_node('form', form['submit_label'] or 'Formulário', path, stage='intent', fields=form['fields'],
+                               description='Envio medido pela Super Tag.'))
         nodes.append(_conversion_node(path, outcome))
     elif kind == 'institucional':
         page = _node('page', 'Página inicial', path, stage='entry', entry=True)
@@ -375,12 +377,13 @@ def build_proposal(kind, evidence, path='/', outcome=None):
         if form:
             nodes.append(_node('form', form['submit_label'] or 'Formulário', contact or path, stage='intent', fields=form['fields']))
         if evidence['summary']['whatsapp']:
-            nodes.append(_node('event', 'Clicou no WhatsApp', path, stage='intent', event_name='whatsapp_click'))
+            nodes.append(_node('whatsapp', 'Clicou no WhatsApp', path, stage='intent'))
         nodes.append(_conversion_node(contact or path, outcome))
     elif kind == 'ecommerce':
         links = evidence['summary']['internal_paths']
         cart = next((item for item in links if re.search(r'carrinho|cart', item, re.I)), '/carrinho')
         checkout = next((item for item in links if re.search(r'checkout|finalizar', item, re.I)), '/checkout')
+        # view_item/add_to_cart are custom events the store sends (CaduSuperTag.trackEvent('add_to_cart')); the warning says so.
         nodes = [_node('page', 'Início', path, stage='entry', entry=True),
                  _node('event', 'Viu um produto', path, stage='exploration', event_name='view_item'),
                  _node('event', 'Adicionou ao carrinho', path, stage='intent', event_name='add_to_cart'),
@@ -389,6 +392,7 @@ def build_proposal(kind, evidence, path='/', outcome=None):
                  _node('conversion', 'Compra concluída', checkout, stage='conversion', event_name='purchase',
                        description='Evento padrão de compra. Confirme a página de pedido recebido no seu site.')]
         warnings.append('Os caminhos de carrinho e checkout seguem o padrão encontrado; confirme-os no editor.')
+        warnings.append("Produto visto e carrinho precisam que a loja chame CaduSuperTag.trackEvent('view_item') e trackEvent('add_to_cart').")
     else:
         return {'kind': kind, 'use_catalog': True, 'nodes': [], 'edges': [], 'warnings': warnings,
                 'note': 'Para sites com muitas páginas, monte o fluxo pelo explorador de páginas.'}

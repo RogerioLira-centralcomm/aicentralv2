@@ -72,3 +72,18 @@ class ProbeTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class LandingMeasurementTests(unittest.TestCase):
+    def test_landing_steps_are_ones_the_tag_measures(self):
+        result = probe.analyze_html(LEAD, 'https://x.com/lp-oferta', '/lp-oferta')
+        nodes = result['proposal']['nodes']
+        self.assertIn('scroll_depth', [node.get('event_name') for node in nodes])
+        self.assertIn('whatsapp', [node['type'] for node in nodes])
+        self.assertNotIn('cta_click', [node.get('event_name') for node in nodes])
+
+    def test_scroll_step_matches_mirrored_event(self):
+        from aicentralv2.cadu_connect.reports_flow_matching import match_flow_node
+        node = {'id': 'e', 'type': 'event', 'path': '/lp', 'event_name': 'scroll_depth'}
+        self.assertEqual(match_flow_node([node], '/lp', 'x.com', 'custom_event', 'scroll_depth'), node)
+        self.assertIsNone(match_flow_node([node], '/lp', 'x.com', 'custom_event', 'outro'))

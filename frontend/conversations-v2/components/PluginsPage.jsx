@@ -1,6 +1,7 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {request} from '../lib/api';
 import {Icon} from '../lib/icons';
+import {CaduBadge} from '../../cadu-design-system/components/CaduBadge';
 import {availableFlows, flowPluginIds} from '../lib/pluginFlows';
 import './pluginFlows.css';
 export {pluginPrompt} from '../lib/pluginPrompts';
@@ -77,7 +78,7 @@ export function PluginsPage({onClose, onUsePlugin, caduMark = '', exploreUrl = '
           <ul>{googlePlugins.map(plugin => <li key={plugin.id}><button type="button" className="cv-plugin-card" onClick={() => onUsePlugin?.(plugin)} aria-label={`Abrir ${plugin.name}`}>
             <CaduPluginMark caduMark={caduMark} name={plugin.name} pluginId={plugin.id}/>
             <span className="cv-plugin-card__copy"><strong>{plugin.name}</strong><small title={plugin.description}>{plugin.description}</small></span>
-            <span className={`cv-plugin-status${plugin.id === 'google-connect' || googleState?.connected ? ' is-active' : ''}`}>{plugin.id === 'google-connect' ? (googleState?.connected ? 'Conectado' : 'Conectar') : !googleState?.connected ? 'Requer conexão' : googleState?.services?.find(item => item.key === plugin.id.replace('google-', ''))?.enabled ? 'Usar' : 'Atualizar acesso'}</span>
+            <CaduBadge tone={plugin.id === 'google-connect' || googleState?.connected ? 'brand' : 'neutral'}>{plugin.id === 'google-connect' ? (googleState?.connected ? 'Conectado' : 'Conectar') : !googleState?.connected ? 'Requer conexão' : googleState?.services?.find(item => item.key === plugin.id.replace('google-', ''))?.enabled ? 'Usar' : 'Atualizar acesso'}</CaduBadge>
           </button></li>)}</ul>
         </section>}
         {!!developing.length && <section className="cv-plugin-shelf">
@@ -86,7 +87,7 @@ export function PluginsPage({onClose, onUsePlugin, caduMark = '', exploreUrl = '
             <div className="cv-plugin-card is-disabled" aria-disabled="true">
               <CaduPluginMark caduMark={caduMark} name={plugin.name} pluginId={plugin.id}/>
               <span className="cv-plugin-card__copy"><strong>{plugin.name}</strong><small>{plugin.description}</small></span>
-              <span className="cv-plugin-status">{plugin.maturity === 'early' ? 'Em evolução' : 'Em breve'}</span>
+              <CaduBadge tone="neutral">{plugin.maturity === 'early' ? 'Em evolução' : 'Em breve'}</CaduBadge>
             </div>
           </li>)}</ul>
         </section>}
@@ -96,7 +97,7 @@ export function PluginsPage({onClose, onUsePlugin, caduMark = '', exploreUrl = '
             <div className="cv-plugin-card is-disabled" aria-disabled="true">
               <CaduPluginMark logo={item.logo} name={item.name}/>
               <span className="cv-plugin-card__copy"><strong>{item.name}</strong><small>{item.category}</small></span>
-              <span className="cv-plugin-status">Planejada</span>
+              <CaduBadge tone="neutral">Planejada</CaduBadge>
             </div>
           </li>)}</ul>
         </section>}

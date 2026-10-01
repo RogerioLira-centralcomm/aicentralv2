@@ -20,7 +20,7 @@ MAX_BYTES = 15 * 1024 * 1024
 MAX_TEXT = 120_000
 TEXT_EXTENSIONS = {'.txt', '.csv', '.md', '.markdown', '.json'}
 HTML_EXTENSIONS = {'.html', '.htm'}
-ALLOWED_EXTENSIONS = TEXT_EXTENSIONS | HTML_EXTENSIONS | {'.pdf', '.docx'}
+ALLOWED_EXTENSIONS = TEXT_EXTENSIONS | HTML_EXTENSIONS | {'.pdf', '.docx', '.xlsx', '.pptx'}
 IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.tif', '.tiff', '.bmp', '.avif'}
 CREATIVE_EXTENSIONS = {
     '.ai', '.eps', '.svg', '.psd', '.psb', '.indd', '.idml', '.fig', '.sketch', '.xd',
@@ -129,29 +129,142 @@ def _pdf_text(data: bytes, *, with_coverage: bool = False):
             from pypdf import PdfReader
         reader = PdfReader(BytesIO(data))
         total = len(reader.pages)
-        processed = min(80, total)
+        processed = min(200, total)
         page_texts = [(page.extract_text() or '') for page in reader.pages[:processed]]
-        text = '\n'.join(page_texts)
+        # Page markers let answers cite "página N" and keep pages apart in chunks.
+        text = '\n\n'.join(f'[Página {number}]\n{value.strip()}'
+                           for number, value in enumerate(page_texts, start=1) if value.strip())
         pages_with_text = sum(bool(value.strip()) for value in page_texts)
         return (text, total, processed, pages_with_text) if with_coverage else text
     except Exception as exc:
         raise BadRequest('Não foi possível ler o PDF. Verifique se ele está íntegro e sem senha.') from exc
 
 
-def _docx_text(data: bytes) -> str:
+MAX_UNZIPPED = 40 * 1024 * 1024
+
+
+def _local(tag) -> str:
+    """Element name without namespace; Office files vary in prefixes and strictness."""
+    return str(tag).rsplit('}', 1)[-1]
+
+
+def _children(node, name):
+    return [child for child in node if _local(child.tag) == name]
+
+
+def _office_xml(data: bytes, members, label: str) -> list[tuple[str, bytes]]:
+    """Read selected XML members from an Office package within the size limit."""
     try:
         with ZipFile(BytesIO(data)) as package:
-            if sum(item.file_size for item in package.infolist()) > 40 * 1024 * 1024:
-                raise BadRequest('O DOCX descompactado ultrapassa o limite permitido.')
-            xml = package.read('word/document.xml')
+            if sum(item.file_size for item in package.infolist()) > MAX_UNZIPPED:
+                raise BadRequest(f'O {label} descompactado ultrapassa o limite permitido.')
+            names = members(package.namelist())
+            if not names:
+                raise KeyError(label)
+            return [(name, package.read(name)) for name in names]
     except (BadZipFile, KeyError) as exc:
-        raise BadRequest('O conteúdo não corresponde a um DOCX válido.') from exc
+        raise BadRequest(f'O conteúdo não corresponde a um {label} válido.') from exc
+
+
+def _parse_xml(value: bytes, label: str):
     try:
-        root = ET.fromstring(xml)
+        return ET.fromstring(value)
     except ET.ParseError as exc:
-        raise BadRequest('Não foi possível ler a estrutura do DOCX.') from exc
-    values = [node.text or '' for node in root.iter() if node.tag.endswith('}t')]
-    return ' '.join(value for value in values if value).strip()
+        raise BadRequest(f'Não foi possível ler a estrutura do {label}.') from exc
+
+
+def _docx_paragraph(node) -> str:
+    text = ''.join((item.text or '') if _local(item.tag) == 't'
+                   else ' ' if _local(item.tag) in {'p', 'tab', 'br'} else ''
+                   for item in node.iter())
+    return ' '.join(text.split())
+
+
+def _docx_text(data: bytes) -> str:
+    """Keep paragraphs, headings (as Markdown) and tables so chunks follow sections."""
+    root = _parse_xml(_office_xml(data, lambda names: ['word/document.xml'] if 'word/document.xml' in names else [],
+                                  'DOCX')[0][1], 'DOCX')
+    body = next(iter(_children(root, 'body')), root)
+    blocks = []
+    for node in body:
+        if _local(node.tag) == 'p':
+            text = _docx_paragraph(node)
+            if not text:
+                continue
+            style_name = next((value for item in node.iter() if _local(item.tag) == 'pStyle'
+                               for key, value in item.attrib.items() if _local(key) == 'val'), '')
+            level = re.search(r'(?:heading|t[ií]tulo|ttulo)\s*(\d)', style_name, re.IGNORECASE)
+            if level or style_name.lower() in {'title', 'titulo', 'título', 'ttulo'}:
+                blocks.append('#' * min(6, int(level.group(1)) + 1 if level else 1) + ' ' + text)
+            else:
+                blocks.append(text)
+        elif _local(node.tag) == 'tbl':
+            rows = []
+            for row in (item for item in node.iter() if _local(item.tag) == 'tr'):
+                cells = [_docx_paragraph(cell) for cell in _children(row, 'tc')]
+                if any(cells):
+                    rows.append('| ' + ' | '.join(cells) + ' |')
+            if rows:
+                blocks.append('\n'.join(rows))
+    return '\n\n'.join(blocks).strip()
+
+
+def _xlsx_text(data: bytes) -> str:
+    """Serialize each sheet as header-labelled rows; formulas use their cached values."""
+    _office_xml(data, lambda names: ['xl/workbook.xml'] if 'xl/workbook.xml' in names else [], 'XLSX')
+    try:
+        from openpyxl import load_workbook
+        workbook = load_workbook(BytesIO(data), read_only=True, data_only=True)
+    except Exception as exc:
+        raise BadRequest('Não foi possível ler a planilha XLSX.') from exc
+    blocks = []
+    try:
+        for sheet in workbook.worksheets:
+            header, lines = None, []
+            for values in sheet.iter_rows(values_only=True):
+                cells = ['' if value is None else ' '.join(str(value).split()) for value in values]
+                if not any(cells):
+                    continue
+                if header is None:
+                    header = [cell or f'Coluna {index + 1}' for index, cell in enumerate(cells)]
+                    continue
+                pairs = [f'{header[index] if index < len(header) else f"Coluna {index + 1}"}: {cell}'
+                         for index, cell in enumerate(cells) if cell]
+                lines.append('; '.join(pairs))
+                if sum(len(line) for line in lines) > MAX_TEXT:
+                    break
+            if header is not None:
+                blocks.append(f'## Planilha: {sheet.title}\n\nColunas: {", ".join(header)}\n\n' + '\n'.join(lines))
+    finally:
+        workbook.close()
+    return '\n\n'.join(blocks).strip()
+
+
+def _pptx_text(data: bytes) -> str:
+    """One section per slide, in presentation order, including speaker notes."""
+    def slide_order(name):
+        return int(re.search(r'(\d+)\.xml$', name).group(1))
+    members = _office_xml(data, lambda names: sorted(
+        [name for name in names if re.fullmatch(r'ppt/(?:slides/slide|notesSlides/notesSlide)\d+\.xml', name)],
+        key=lambda name: (slide_order(name), 'notes' in name)), 'PPTX')
+    slides, notes = {}, {}
+    for name, xml in members:
+        root = _parse_xml(xml, 'PPTX')
+        paragraphs = [' '.join(''.join(run.text or '' for run in paragraph.iter() if _local(run.tag) == 't').split())
+                      for paragraph in root.iter() if _local(paragraph.tag) == 'p']
+        text = '\n'.join(item for item in paragraphs if item)
+        (notes if 'notesSlide' in name else slides)[slide_order(name)] = text
+    blocks = []
+    for number in sorted(slides):
+        block = f'## Slide {number}\n\n{slides[number]}'.strip()
+        note = re.sub(r'^\d+$', '', notes.get(number, ''), flags=re.MULTILINE).strip()
+        if note:
+            block += f'\n\nNotas: {note}'
+        blocks.append(block)
+    return '\n\n'.join(blocks).strip()
+
+
+OFFICE_EXTRACTORS = {'.docx': _docx_text, '.xlsx': _xlsx_text, '.pptx': _pptx_text}
 
 
 def _ocr_image(data: bytes) -> tuple[str, str]:
@@ -261,9 +374,9 @@ def inspect_upload(file_storage, *, require_text: bool = False) -> dict:
                     raise
         elif require_text:
             raise BadRequest('O conteúdo não corresponde a um PDF válido.')
-    elif suffix == '.docx':
+    elif suffix in OFFICE_EXTRACTORS:
         try:
-            text = _docx_text(data)
+            text = OFFICE_EXTRACTORS[suffix](data)
             processing = 'text_extraction'
         except BadRequest:
             if require_text:

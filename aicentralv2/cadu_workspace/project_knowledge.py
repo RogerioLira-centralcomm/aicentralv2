@@ -25,6 +25,7 @@ STORED_VECTOR_DIMENSIONS = 1536  # cadu_ci_chunks.embedding vector(1536)
 CHUNK_TARGET = int(os.getenv("WORKSPACE_RAG_CHUNK_TARGET", "1800"))
 CHUNK_OVERLAP = int(os.getenv("WORKSPACE_RAG_CHUNK_OVERLAP", "220"))
 INDEX_PIPELINE_VERSION = "workspace-rag-v2"
+EMBED_BATCH = 96
 
 
 class KnowledgeIndexError(RuntimeError):
@@ -118,18 +119,33 @@ def _embed(texts: list[str]) -> tuple[list[list[float]], int, str]:
 
 
 def index(content: str) -> tuple[list[Chunk], int, str]:
-    pieces = split(content)
+    # Repeated passages (page headers, duplicated slides) would violate the
+    # unique (source, content_hash) index and fail the whole file.
+    pieces, seen = [], set()
+    for order, (value, section) in enumerate(split(content)):
+        digest = hashlib.sha256(value.encode("utf-8")).hexdigest()
+        if digest not in seen:
+            seen.add(digest)
+            pieces.append((order, value, section, digest))
     if not pieces:
         raise KnowledgeIndexError("A fonte não contém texto suficiente para indexação semântica.")
-    vectors, tokens, model = _embed([value for value, _section in pieces])
+    # Embed each chunk with its section title so a passage about "verba" under
+    # "Plano de mídia Q4" is retrievable by either; the stored text is unchanged.
+    texts = [f"{section}\n\n{value}" if section and section not in value[:200] else value
+             for _order, value, section, _digest in pieces]
+    vectors, tokens, model = [], 0, EMBEDDING_MODEL
+    for start in range(0, len(texts), EMBED_BATCH):
+        batch, batch_tokens, model = _embed(texts[start:start + EMBED_BATCH])
+        vectors.extend(batch)
+        tokens += batch_tokens
     records = [Chunk(
         order=order,
         content=value,
-        content_hash=hashlib.sha256(value.encode("utf-8")).hexdigest(),
+        content_hash=digest,
         section=section,
         tokens=_estimate_tokens(value),
         embedding=vector,
-    ) for order, ((value, section), vector) in enumerate(zip(pieces, vectors))]
+    ) for (order, value, section, digest), vector in zip(pieces, vectors)]
     return records, tokens, model
 
 

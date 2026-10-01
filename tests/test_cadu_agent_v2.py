@@ -1993,12 +1993,15 @@ def test_project_file_support_never_claims_unknown_content_is_understood():
     image = project_source_service.inspect_file_support("referencia.webp", "image/webp")
     assert image["status"] == "supported"
     assert image["can_index"] is True
-    spreadsheet = project_source_service.inspect_file_support("investimento.xlsx")
+    for readable in ("investimento.xlsx", "planejamento.pptx"):
+        support = project_source_service.inspect_file_support(readable)
+        assert support["status"] == "supported" and support["can_index"] is True
+    spreadsheet = project_source_service.inspect_file_support("investimento.xls")
     assert spreadsheet["status"] == "attachment_only"
     assert spreadsheet["can_attach"] is True
     assert spreadsheet["can_index"] is False
     assert spreadsheet["processing"] == "metadata_only"
-    presentation = project_source_service.inspect_file_support("planejamento.pptx")
+    presentation = project_source_service.inspect_file_support("planejamento.ppt")
     assert presentation["status"] == "attachment_only"
     document = project_source_service.inspect_file_support("briefing.odt")
     assert document["status"] == "attachment_only"

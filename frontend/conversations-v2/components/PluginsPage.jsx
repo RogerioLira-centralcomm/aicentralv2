@@ -50,7 +50,7 @@ export function PluginsPage({onClose, onUsePlugin, caduMark = '', exploreUrl = '
 
   return <section className="cv-plugins-page" aria-label="Plugins">
     <header className="cv-plugins-page__header">
-      <button type="button" onClick={onClose} aria-label="Voltar à conversa"><Icon name="chevron" size={18}/><span>Voltar</span></button>
+      <button type="button" className="cv-btn cv-btn--ghost" onClick={onClose} aria-label="Voltar à conversa"><Icon name="chevron" size={18}/><span>Voltar</span></button>
       <div><h1>Plugins</h1></div>
       <span className="cv-plugins-page__count">{loading ? 'Carregando' : `${flows.length} fluxos de trabalho`}</span>
     </header>
@@ -65,7 +65,7 @@ export function PluginsPage({onClose, onUsePlugin, caduMark = '', exploreUrl = '
               <div><h3>{flow.name}</h3><p>{flow.description}</p></div>
             </div>
             <div className="cv-plugin-flow-card__modes" aria-label={`Modos de ${flow.name}`}>
-              {flow.availableModes.map(mode => <button key={mode.id} type="button" onClick={() => onUsePlugin?.(mode.plugin)}
+              {flow.availableModes.map(mode => <button key={mode.id} type="button" className="cv-btn cv-btn--sm" onClick={() => onUsePlugin?.(mode.plugin)}
                 aria-label={`${flow.name}: ${mode.label}`}>{mode.label}</button>)}
               {flow.upcomingModes.map(mode => <span key={mode.id} className="is-upcoming" title="Em desenvolvimento">
                 {mode.label} · em breve

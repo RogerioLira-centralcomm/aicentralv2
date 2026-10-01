@@ -47,24 +47,6 @@
   gap: 6px;
 }
 
-#cadu-conversations-v2-root .cv-plugin-flow-card__modes button {
-  min-height: 28px;
-  padding: 3px 10px;
-  border: 1px solid rgba(159,199,191,.25);
-  border-radius: 6px;
-  background: #173032;
-  color: #c9e5df;
-  font: 500 11px Inter,ui-sans-serif,system-ui,sans-serif;
-  cursor: pointer;
-}
-
-#cadu-conversations-v2-root .cv-plugin-flow-card__modes button:hover,
-#cadu-conversations-v2-root .cv-plugin-flow-card__modes button:focus-visible {
-  border-color: #7bd8c9;
-  outline: 0;
-  background: #1f4141;
-}
-
 #cadu-conversations-v2-root .cv-plugin-flow-card__modes .is-upcoming {
   display: inline-flex;
   min-height: 28px;

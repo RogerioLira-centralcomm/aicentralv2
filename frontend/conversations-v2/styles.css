@@ -2025,8 +2025,6 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-conversation-stage:has(>.cv-plugins-page)>:not(.cv-plugins-page) { display:none!important; }
 #cadu-conversations-v2-root .cv-plugins-page { position:relative; z-index:35; display:flex; min-width:0; min-height:0; flex:1 1 auto; flex-direction:column; overflow:hidden; container-type:inline-size; background:var(--cv-bg); color:var(--cv-text); }
 #cadu-conversations-v2-root .cv-plugins-page__header { display:flex; min-height:58px; flex:none; align-items:center; gap:12px; padding:0 16px; border-bottom:1px solid var(--cv-line); }
-#cadu-conversations-v2-root .cv-plugins-page__header>button { display:flex; min-height:34px; align-items:center; gap:5px; padding:0 8px; border:0; border-radius:7px; background:transparent; color:#9fc7bf; font:400 12px Inter,ui-sans-serif,system-ui,sans-serif; cursor:pointer; }
-#cadu-conversations-v2-root .cv-plugins-page__header>button svg { transform:rotate(180deg); }
 #cadu-conversations-v2-root .cv-plugins-page__header>div { min-width:0; }
 #cadu-conversations-v2-root .cv-plugins-page__header h1 { margin:0; color:#eaf4f1; font-size:17px; font-weight:500; letter-spacing:-.02em; }
 #cadu-conversations-v2-root .cv-plugins-page__header p { margin:3px 0 0; color:#8ea9a3; font-size:11px; }
@@ -2041,6 +2039,18 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-plugin-shelf ul { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:12px 0 0; padding:0; list-style:none; }
 #cadu-conversations-v2-root .cv-plugin-shelf:not(.cv-plugin-flow-shelf) li:last-child:nth-child(odd) { grid-column:1/-1; }
 #cadu-conversations-v2-root .cv-plugin-shelf li { min-width:0; margin:0; padding:0; }
+/* Botões do chat: uma família única sobre os tokens escuros do Conversations. */
+#cadu-conversations-v2-root .cv-btn { display:inline-flex; min-height:36px; align-items:center; justify-content:center; gap:6px; padding:0 14px; border:1px solid rgba(255,255,255,.2); border-radius:8px; background:transparent; color:#e5f0eb; font:600 12px/1 Inter,ui-sans-serif,system-ui,sans-serif; white-space:nowrap; cursor:pointer; transition:background .14s ease,border-color .14s ease,color .14s ease; }
+#cadu-conversations-v2-root .cv-btn:hover:not(:disabled) { border-color:rgba(101,216,203,.5); background:var(--cv-raised); }
+#cadu-conversations-v2-root .cv-btn:focus-visible { outline:2px solid var(--cv-accent); outline-offset:2px; }
+#cadu-conversations-v2-root .cv-btn:disabled { opacity:.45; cursor:not-allowed; }
+#cadu-conversations-v2-root .cv-btn--primary { border-color:var(--cv-accent); background:var(--cv-accent); color:#06211e; }
+#cadu-conversations-v2-root .cv-btn--primary:hover:not(:disabled) { border-color:var(--cv-accent); background:color-mix(in srgb,var(--cv-accent) 86%,white); }
+#cadu-conversations-v2-root .cv-btn--ghost { border-color:transparent; color:#9fc7bf; font-weight:500; }
+#cadu-conversations-v2-root .cv-btn--sm { min-height:28px; padding:0 10px; border-color:rgba(159,199,191,.25); border-radius:6px; background:#173032; color:#c9e5df; font-size:11px; font-weight:500; }
+#cadu-conversations-v2-root .cv-btn--sm:hover:not(:disabled) { border-color:#7bd8c9; background:#1f4141; }
+#cadu-conversations-v2-root .cv-btn--icon { min-height:32px; padding:0 8px; border-color:transparent; font-size:22px; font-weight:400; color:#bed3ce; }
+#cadu-conversations-v2-root .cv-plugins-page__header>.cv-btn svg { transform:rotate(180deg); }
 #cadu-conversations-v2-root .cv-plugin-card { display:flex; width:100%; min-width:0; min-height:60px; align-items:center; gap:12px; padding:10px 12px; border:1px solid rgba(176,225,216,.14); border-radius:8px; background:#101f21; color:inherit; text-align:left; text-decoration:none; cursor:pointer; transition:background .14s ease,border-color .14s ease,transform .14s ease; }
 #cadu-conversations-v2-root button.cv-plugin-card:hover,#cadu-conversations-v2-root button.cv-plugin-card:focus-visible { border-color:rgba(101,216,203,.5); outline:0; background:#142b2c; }
 #cadu-conversations-v2-root button.cv-plugin-card:active { transform:scale(.995); }
@@ -2127,27 +2137,20 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 
 #cadu-conversations-v2-root .cv-google-plugin-panel { position:absolute; z-index:65; top:76px; right:18px; width:min(440px,calc(100% - 36px)); max-height:calc(100dvh - 170px); overflow:auto; padding:22px; border:1px solid rgba(126,221,207,.3); border-radius:18px; background:#172320; color:#eef7f3; box-shadow:0 20px 60px rgba(0,0,0,.38); }
 #cadu-conversations-v2-root .cv-google-plugin-panel__top { display:flex; align-items:center; justify-content:space-between; gap:12px; color:#9bc9c0; font-size:10px; font-weight:700; letter-spacing:.08em; }
-#cadu-conversations-v2-root .cv-google-plugin-panel__top button { border:0; background:none; color:#bed3ce; font-size:22px; cursor:pointer; }
 #cadu-conversations-v2-root .cv-google-plugin-panel h2 { margin:12px 0; font-size:23px; line-height:1.2; }
 #cadu-conversations-v2-root .cv-google-plugin-panel p { margin:10px 0; color:#c8d8d3; font-size:13px; line-height:1.55; }
 #cadu-conversations-v2-root .cv-google-plugin-panel__notice { padding:10px 12px; border-radius:9px; background:rgba(226,171,72,.12); }
 #cadu-conversations-v2-root .cv-google-plugin-panel__resources { display:grid; gap:6px; margin:15px 0; font-size:12px; }
 #cadu-conversations-v2-root .cv-google-plugin-panel__search { display:flex; gap:7px; margin-top:14px; }
 #cadu-conversations-v2-root .cv-google-plugin-panel__search input { min-width:0; flex:1; min-height:36px; padding:7px 10px; border:1px solid rgba(255,255,255,.2); border-radius:8px; background:#101b18; color:#fff; font:inherit; font-size:12px; }
-#cadu-conversations-v2-root .cv-google-plugin-panel__search button,
-#cadu-conversations-v2-root .cv-google-plugin-panel__resources>button { min-height:36px; padding:7px 10px; border:1px solid rgba(255,255,255,.2); border-radius:8px; background:#243932; color:#e5f0eb; font:inherit; font-size:12px; cursor:pointer; }
 #cadu-conversations-v2-root .cv-google-plugin-panel__resources a { overflow:hidden; padding:8px 10px; border:1px solid rgba(255,255,255,.09); border-radius:8px; color:#b6eee1; text-overflow:ellipsis; white-space:nowrap; }
 #cadu-conversations-v2-root .cv-google-plugin-panel__resources>div { display:grid; gap:4px; }
 #cadu-conversations-v2-root .cv-google-plugin-panel__resources small { color:#a7bbb5; font-size:10px; }
 #cadu-conversations-v2-root .cv-google-plugin-panel__resources form { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:7px; }
-#cadu-conversations-v2-root .cv-google-plugin-panel__resources select,
-#cadu-conversations-v2-root .cv-google-plugin-panel__resources button { min-height:30px; padding:5px 8px; border:1px solid rgba(255,255,255,.18); border-radius:7px; background:#101b18; color:#e5f0eb; font:inherit; font-size:11px; }
-#cadu-conversations-v2-root .cv-google-plugin-panel__resources button { cursor:pointer; }
+#cadu-conversations-v2-root .cv-google-plugin-panel__resources select { min-height:30px; padding:5px 8px; border:1px solid rgba(255,255,255,.18); border-radius:7px; background:#101b18; color:#e5f0eb; font:inherit; font-size:11px; }
 #cadu-conversations-v2-root .cv-google-plugin-panel__draft { display:grid; gap:6px; margin-top:16px; color:#c8d8d3; font-size:12px; }
 #cadu-conversations-v2-root .cv-google-plugin-panel__draft textarea { width:100%; padding:10px; border:1px solid rgba(255,255,255,.16); border-radius:9px; background:#101b18; color:#fff; font:inherit; resize:vertical; }
 #cadu-conversations-v2-root .cv-google-plugin-panel__actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:17px; }
-#cadu-conversations-v2-root .cv-google-plugin-panel__actions button { min-height:38px; padding:8px 12px; border:1px solid rgba(255,255,255,.2); border-radius:9px; background:transparent; color:#e5f0eb; font:inherit; font-size:12px; cursor:pointer; }
-#cadu-conversations-v2-root .cv-google-plugin-panel__actions button.is-primary { border-color:#7fe4d0; background:#7fe4d0; color:#09271f; font-weight:700; }
 @media (max-width:767px) { #cadu-conversations-v2-root .cv-google-plugin-panel { top:70px; right:8px; width:calc(100% - 16px); max-height:calc(100dvh - 130px); } }
 
 #cadu-conversations-v2-root .cv-thread-opening { display:flex; min-height:100%; align-items:center; justify-content:center; gap:10px; color:#8fa9a4; font-size:13px; }

@@ -401,7 +401,13 @@ if [ "${FORCE_FRONTEND_BUILD:-0}" != "1" ] && [ -s "$FRONTEND_STATE_FILE" ]; the
     fi
 fi
 
-if [ "$RUN_FRONTEND_BUILD" = "1" ] && [ -x "./build_frontend.sh" ]; then
+if [ "$RUN_FRONTEND_BUILD" = "1" ] && [ -x "./build_frontend_fast.sh" ]; then
+    bash ./build_frontend_fast.sh 2>&1 | tee -a "$DEPLOY_LOG"
+    mkdir -p "$(dirname "$FRONTEND_STATE_FILE")"
+    printf '%s\n' "$FRONTEND_REVISION" > "${FRONTEND_STATE_FILE}.tmp"
+    mv "${FRONTEND_STATE_FILE}.tmp" "$FRONTEND_STATE_FILE"
+    echo "  > OK (frontend compilado para $FRONTEND_REVISION)"
+elif [ "$RUN_FRONTEND_BUILD" = "1" ] && [ -x "./build_frontend.sh" ]; then
     # Keep the detailed log while streaming progress to the terminal. Without
     # this, npm ci/Vite can run for several minutes and the deploy appears
     # frozen at [2b/8].

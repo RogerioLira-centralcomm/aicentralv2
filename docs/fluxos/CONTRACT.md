@@ -11,6 +11,7 @@ Fonte da verdade: `_normalize_flow_config` em `aicentralv2/cadu_connect/reports_
 | `edges` | lista | até 300 |
 | `groups` | lista | `{id, name, memberIds[], bounds{x,y,width,height}}` |
 | `site_kind` | opcional | `landing` \| `institucional` \| `multipagina` \| `ecommerce`; outro valor → 400 |
+| `strategy_id` | opcional | estratégia de origem do plano (`flowStrategies.js`), só informativo |
 | demais chaves | livre | preservadas (`viewport`, `settings`, `dismissedSuggestions`…) |
 
 Tamanho máximo serializado: 256 KB.
@@ -31,7 +32,7 @@ Tamanho máximo serializado: 256 KB.
 | `kind` | `categoria.item` (ex.: `traffic.meta`); preservado em v1 e v2; inválido é descartado |
 | `source` | plataforma da origem (`google`, `meta`, `organic`, `direct`…) |
 | `stage` | `source`, `entry`, `exploration`, `intent`, `conversion`, `support` |
-| `origin` | `manual`, `blueprint`, `probe` — quem criou o nó |
+| `origin` | `manual`, `blueprint`, `probe`, `strategy` — quem criou o nó |
 | outros textos | `role`, `role_source`, `pageType`, `pageTypeStatus`, `groupId`, `suggestedRole`, `pageGroup`, `discoveryPageId`, `stepId`, `event` (até 120) |
 | `description` | texto livre |
 

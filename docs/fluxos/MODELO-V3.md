@@ -205,22 +205,61 @@ Quem tem papel `viewer` no Reports abre o fluxo em modo leitura, sem editar. Exp
 - Estados vazio, carregando, erro e parcial desenhados para todas as telas.
 - Tema escuro e claro, com contraste mínimo AA.
 
-## 7. Fases
+## 7. Três camadas sobre o mesmo desenho
 
-| Fase | Entrega | Aceite |
+A referência organiza o produto em três camadas sobre o mesmo mapa. Adotamos a mesma divisão porque ela acompanha o trabalho do usuário, do plano ao resultado:
+
+| Camada | Pergunta | No Fluxos |
 |---|---|---|
-| **1. Modelo** | Contrato v3, `migrate_v2_to_v3`, `status` por nó (nós planejados sem `path`), domínio opcional na criação, metas no fluxo, etapa e entrada derivadas, `page_group`. | Os fluxos existentes abrem iguais em v3 (todos `live`); um fluxo sem domínio e sem páginas é salvo; um grupo `/audiencia/*` vira um nó com 331 páginas. |
-| **2. Plano e folha de produção** | Cenário “e se”, modelos curados, especificação por nó, “Publicar plano” e “Ativar medição” separados, folha de produção com status, responsável e prazo, exportação em PDF e CSV, vincular página real. | Um fluxo 100% planejado é publicado como plano e gera a folha; ao vincular uma página, o item muda para “no ar” e a medição daquele nó liga. |
-| **3. Origem e UTM** | `match` por origem, gerador de links, atribuição por origem na jornada. | Duas campanhas Meta separadas no mesmo fluxo recebem sessões distintas. |
-| **4. Mesa premium** | Paleta por abas com busca, barra flutuante, conexões tipadas com chip de taxa e volume, nós de contato fora do site. | O modo Números mostra taxa e volume em cada conexão, e um nó de e-mail ou ligação aceita dados importados. |
-| **5. Plano × real e vazamentos** | Metas planejadas por origem e conexão, desvio, comparação de período, painel “Vazamentos” e nós de saída. | Cada origem exibe planejado, realizado e desvio; o maior vazamento do fluxo de teste aparece em primeiro no painel. |
-| **6. Começar pela campanha** | Modelos por objetivo e importação de campanha. | Um fluxo completo nasce de uma campanha em menos de 2 minutos. |
-| **7. Compartilhar** | Modo leitura para `viewer`, exportação, comentários, versões. | Um usuário `viewer` abre o fluxo e não consegue editar nem apagar. |
-| **8. Alertas e previsão** | Previsão e alertas. | Alertas disparam em dados de teste e nunca com “sem dados”. |
+| **Mapa** | “Como a campanha deve funcionar?” | Estratégias prontas, passos planejados com especificação, notas e checklists na mesa, folha de produção. |
+| **Previsão** | “Os números fecham antes de investir?” | Visitas por origem, taxa por conexão, valor e custo; cenários pessimista, provável e otimista; resultado e retorno previstos. |
+| **Desempenho** | “O que aconteceu de verdade e onde perdemos gente?” | Medição pela Super Tag e importações, real × previsto, vazamentos, metas e alertas. |
 
-Cada fase termina em produção com a anterior intacta. A Fase 1 muda pouco o que o usuário vê, mas é a que corrige D7: sem ela, nada do planejamento antes das páginas existe. A Fase 2 é a que entrega o novo jeito de trabalhar.
+Um fluxo pode viver só na camada Mapa (plano que nunca será medido), passar pela Previsão e só depois ligar o Desempenho.
 
-## 8. Riscos e decisões em aberto
+### 7.1 O que os planos da referência oferecem e o que fazemos com isso
+
+Sem modelo comercial: a tabela serve para decidir funcionalidades, não pacotes.
+
+| Na referência | Hoje no Fluxos | Decisão |
+|---|---|---|
+| Mapa arrastar e soltar, mapas ilimitados | ✅ | Manter. |
+| Banco de 100+ modelos de funil | ❌ | **Biblioteca de estratégias** curadas pelo time, por objetivo e canal (Fase 2). Começa com 7 e cresce com estratégias salvas pelos times (Fase 6). |
+| Simular lucro antes de investir | ❌ | **Camada Previsão** (Fase 3). |
+| Notas, checklists e imagens na mesa | ❌ | Fase 2. Checklists alimentam a folha de produção. |
+| Etiquetas para organizar os mapas | ❌ | Fase 2: etiquetas por fluxo (objetivo, canal, cliente, status). |
+| Colaboradores ilimitados | ✅ | Papéis do Reports. |
+| Rastrear origens, páginas, vídeos e botões em vários domínios | ✅ parcial | Super Tag mede páginas, formulários, WhatsApp e eventos; vídeo e múltiplos domínios entram na Fase 4. |
+| Formulários e agendas | ✅ parcial | Formulários sim; agendamento como ponto de contato (Fase 4). |
+| Caminhos que os leads percorrem | ✅ parcial | Audiência ao vivo com identificação; jornada por pessoa no período (Fase 5). |
+| Metas de KPI e alertas por e-mail | ❌ | Fase 5. |
+| Gargalos e oportunidades | ❌ | Painel de vazamentos (Fase 5). |
+| Real × previsão e simulação de otimização | ❌ | Fase 5, depende da Fase 3. |
+| Assistente de IA que aponta lacunas e prioriza ações | ❌ | Fase 6, com o Cadu e a TypeSafe que já existem no projeto. |
+| Compras, negócios e eventos personalizados | ✅ parcial | Eventos e conversões sim; negócios pelo webhook de conversões do cliente (Fase 6). |
+| Contas de anúncio para custo e lucro | ❌ | Fase 6, aproveitando as importações e campanhas do Reports. |
+| Vários espaços de trabalho | ✅ | Clientes do Reports. |
+| Integrações (webhooks, Google Ads, Meta, CRMs, e-commerce) | ✅ parcial | Webhook de conversões existe; demais na Fase 6. |
+
+## 8. Fases (revisadas em 01/10/2026)
+
+Prioridade: **planejar primeiro**. As fases de medição vêm depois de o planejador conseguir montar, prever e entregar um plano completo.
+
+| Fase | Camada | Entrega | Aceite |
+|---|---|---|---|
+| **1. Base do plano** | Mapa | ✅ Situação do passo e especificação. Pendente: fluxo sem domínio (migração; ver 8.1), metas no fluxo com etapa e entrada derivadas, `page_group`. | Um fluxo sem domínio e sem páginas é salvo; os fluxos existentes abrem iguais. |
+| **2. Estratégias e mapa** | Mapa | Biblioteca de estratégias por objetivo com escolha de canais; notas e checklists na mesa; etiquetas de fluxo; folha de produção (PDF e CSV); “Publicar plano” separado de “Ativar medição”. | Um planejador cria um fluxo completo a partir de uma estratégia em menos de 2 minutos e entrega a folha de produção. |
+| **3. Previsão** | Previsão | Números de plano em origens (visitas, custo), conexões (taxa) e metas (valor); cenários pessimista, provável e otimista; totais de conversões, receita, custo por resultado e retorno. | Mudar a taxa de uma conexão recalcula o fluxo inteiro e os três cenários. |
+| **4. Medir o plano** | Desempenho | Conectar o site depois, UTM por origem e gerador de links, vincular páginas reais, vídeo e múltiplos domínios. | Duas campanhas Meta no mesmo fluxo recebem sessões distintas. |
+| **5. Desempenho** | Desempenho | Real × previsto na mesa, vazamentos e nós de saída, metas de KPI com alertas, filtros, jornada por pessoa, tendência por nó. | Cada origem mostra previsto, realizado e desvio; o maior vazamento aparece primeiro. |
+| **6. Inteligência e integrações** | Todas | Assistente que aponta lacunas e prioriza ações, custo de anúncios por importação, negócios do CRM, estratégias salvas pelos times. | O assistente explica cada recomendação com os números do próprio fluxo. |
+| **7. Compartilhar** | Todas | Modo leitura, modo apresentação, exportação, comentários e versões. | Um usuário `viewer` apresenta o fluxo sem conseguir editar. |
+
+### 8.1 Fluxo sem domínio
+
+Hoje cada fluxo exige uma tag interna e uma instalação da Super Tag (`tag_id` e `site_id` obrigatórios, `allowed_host` obrigatório na tag). Há 9 consultas com `JOIN` obrigatório nessas tabelas e cerca de 97 acessos diretos a `allowed_host`, `tag_id` e `site_id` no Reports, vários no caminho da coleta. A mudança certa é tornar essas colunas anuláveis só para fluxos em modo plano e trocar os `JOIN`s por `LEFT JOIN` onde o fluxo pode não ter site, com publicação bloqueada até o site ser conectado. Não usar domínio fictício: ele criaria uma instalação falsa da Super Tag nas listas do cliente. Enquanto isso não entra, as estratégias pedem o site do cliente, que normalmente já existe; o que não é exigido são as páginas.
+
+## 9. Riscos e decisões em aberto
 
 | Risco / decisão | Tratamento |
 |---|---|
@@ -234,24 +273,24 @@ Cada fase termina em produção com a anterior intacta. A Fase 1 muda pouco o qu
 | Dados de fora do site chegam atrasados ou incompletos. | Cada nó mostra a fonte e a data da última atualização; sem dado vira “sem medição”. |
 | Importação de e-mail ou CRM exige mapear colunas. | Reaproveitar o fluxo de importação do Reports (mapa de colunas e sugestões) em vez de criar outro. |
 
-## 8.1 Lacunas em relação à referência (análise de 01/10/2026)
+## 9.1 Lacunas em relação à referência (análise de 01/10/2026)
 
 Acrescentadas às fases conforme a prioridade:
 
 | Lacuna | Fase |
 |---|---|
-| Cenário “e se”: visitas por origem, taxas por conexão e valor da meta, recalculando o fluxo inteiro | 2 |
+| Cenário “e se”: visitas por origem, taxas por conexão e valor da meta, recalculando o fluxo inteiro | 3 |
 | Modelos curados e modelos do time | 2 e 6 |
-| Teste A/B no nó de divisão | 4 |
-| Notas e molduras soltas, seleção múltipla, alinhar e distribuir, busca de nó | 4 |
-| Vista em tabela da jornada (também para acessibilidade e CSV) | 4 |
+| Teste A/B no nó de divisão | 2 (no plano) e 5 (medido) |
+| Notas e molduras soltas, seleção múltipla, alinhar e distribuir, busca de nó | 2 |
+| Vista em tabela da jornada (também para acessibilidade e CSV) | 5 |
 | Explorar o que vem antes e depois de um nó, com botão para incluir no desenho | 5 |
 | Filtros por dispositivo, origem e UTM na jornada; conversão entre dois passos quaisquer | 5 |
 | Pessoas por passo no período, com a linha do tempo de cada jornada | 5 |
 | Tendência por nó e marcos de publicação na linha do tempo | 5 |
-| Modo apresentação e explicação de cada número | 4 e 7 |
+| Modo apresentação e explicação de cada número | 7 e 5 |
 
-## 9. Como saberemos que melhorou
+## 10. Como saberemos que melhorou
 
 - Fluxos criados **antes** de a primeira página existir, e quantos chegam a `live`.
 - Tempo entre “Publicar plano” e “Ativar medição”.
@@ -261,11 +300,12 @@ Acrescentadas às fases conforme a prioridade:
 - Fluxos monitorados semanalmente por pessoas diferentes do criador.
 - Redução de nós de página importados em massa (substituídos por grupos).
 
-## 10. Progresso
+## 11. Progresso
 
 | Data | Entrega | Commit |
 |---|---|---|
 | 01/10/2026 | Fase 1a: situação do passo (planejado, em produção, pronto, no ar), especificação para produção, passos planejados fora de toda a medição, aviso de conversão só planejada, passo novo da paleta nasce planejado. | `30f679ee`, `734d1fb6` |
+| 01/10/2026 | Fase 2 (início): biblioteca com 7 estratégias (leads com landing page, WhatsApp, evento/webinar, e-commerce, B2B, presença e consideração, teste A/B), escolha de canais e criação do plano pelo “Novo fluxo”; aviso de conversão planejada só quando algo já é medido. | ver histórico |
 
 Decisão registrada: planejar é uma escolha explícita. Um passo antigo sem situação e sem URL continua bloqueando a publicação (com a opção de marcá-lo como planejado), para nenhum passo sair da medição sem que a pessoa perceba.
 

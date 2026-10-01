@@ -68,7 +68,8 @@ def validate_flow_config(config, allowed_host=''):
     if not engagement and not conversions:
         issues.append({'severity': 'error', 'code': 'no_conversion',
                        'message': 'Defina um nó de Conversão antes de publicar.'})
-    elif not engagement and all(node_status(node) in ('planned', 'in_production') for node in conversions):
+    elif (not engagement and any(is_measured(node) for node in nodes)
+          and all(node_status(node) in ('planned', 'in_production') for node in conversions)):
         issues.append({'severity': 'warning', 'code': 'planned_conversion',
                        'message': 'Todas as conversões estão planejadas; a medição não registrará conclusões.'})
     for node in nodes:

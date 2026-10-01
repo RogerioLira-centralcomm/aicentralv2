@@ -38,7 +38,7 @@ export function flowValidation(config,allowedHost='') {
   const engagement=config.site_kind==='institucional';
   const conversions=nodes.filter(node=>node.type==='conversion');
   if(!engagement&&!conversions.length)issues.push({severity:'error',code:'no_conversion',message:'Defina um nó de Conversão antes de publicar.'});
-  else if(!engagement&&conversions.every(node=>['planned','in_production'].includes(nodeStatus(node))))issues.push({severity:'warning',code:'planned_conversion',message:'Todas as conversões estão planejadas; a medição não registrará conclusões.'});
+  else if(!engagement&&nodes.some(isMeasured)&&conversions.every(node=>['planned','in_production'].includes(nodeStatus(node))))issues.push({severity:'warning',code:'planned_conversion',message:'Todas as conversões estão planejadas; a medição não registrará conclusões.'});
   for(const node of nodes){
     const planned=isPlanned(node);
     if(planned)issues.push({severity:'info',code:'planned_step',nodeId:node.id,message:`${node.title||'Um passo'} está planejado e ainda não é medido.`});

@@ -73,6 +73,10 @@ class PlannedConversionTests(unittest.TestCase):
         self.assertEqual(codes(issues, 'error'), set())
         self.assertIn('planned_conversion', codes(issues, 'warning'))
 
+    def test_a_flow_that_is_only_a_plan_does_not_warn(self):
+        config = {'nodes': [page(status='planned'), conversion(status='planned')], 'edges': [{'from': 'landing', 'to': 'lead'}]}
+        self.assertNotIn('planned_conversion', codes(validate_flow_config(config, HOST), 'warning'))
+
     def test_a_live_conversion_removes_the_warning(self):
         config = {'nodes': [page(path='/'), conversion(), conversion(id='lead2', status='planned', path='/obrigado-2')],
                   'edges': [{'from': 'landing', 'to': 'lead'}, {'from': 'landing', 'to': 'lead2'}]}

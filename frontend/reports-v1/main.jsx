@@ -81,33 +81,64 @@ const FLOW_NODE_LABELS = {page:'Página', form:'Formulário', event:'Evento', wh
 function AccountsManagementView({data, selectedCustomer, setSelectedCustomer, selectedAccount, setSelectedAccount, selectedCampaign, setSelectedCampaign, save, busy, onExit}) {
   const accountsOfCustomer = selectedCustomer ? data.accounts.filter(a => a.customer_id === selectedCustomer.id) : data.accounts;
   const campaignsOfAccount = selectedAccount ? data.campaigns.filter(c => c.account_id === selectedAccount.id) : [];
+  const accountCount = a => (data.accounts.filter(x => x.customer_id === a.id) || []).length;
+  const campaignCount = a => (data.campaigns.filter(c => c.account_id === a.id) || []).length;
 
   return <div className="reports-accounts-view">
-    <div className="reports-breadcrumb"><button onClick={onExit} className="reports-text-button">← Voltar</button></div>
+    <div className="reports-breadcrumb">
+      <button onClick={onExit} className="reports-text-button" title="Voltar para visualização padrão">
+        <span>←</span> Voltar
+      </button>
+    </div>
+
     <div className="reports-3col-layout">
       <div className="reports-col reports-col--customers">
         <div className="reports-col-header"><h3>Clientes</h3></div>
         <div className="reports-col-list">
-          {(data.customers || []).map(c => (
-            <div key={c.id} className={`reports-col-item ${selectedCustomer?.id === c.id ? 'active' : ''}`} onClick={() => setSelectedCustomer(c)}>
-              <div className="reports-col-item-label">{c.name}</div>
-              <div className="reports-col-item-meta">{data.accounts.filter(a => a.customer_id === c.id).length} contas</div>
-            </div>
-          ))}
-          {!data.customers?.length && <div className="reports-col-empty">Nenhum cliente</div>}
+          {(data.customers || []).map(c => {
+            const count = accountCount(c);
+            return (
+              <div
+                key={c.id}
+                className={`reports-col-item ${selectedCustomer?.id === c.id ? 'active' : ''}`}
+                onClick={() => {setSelectedCustomer(c); setSelectedAccount(null); setSelectedCampaign(null);}}
+                role="button"
+                tabIndex={0}
+                title={c.name}
+              >
+                <div className="reports-col-item-label">{c.name}</div>
+                <div className="reports-col-item-meta">{count} {count === 1 ? 'conta' : 'contas'}</div>
+              </div>
+            );
+          })}
+          {!data.customers?.length && <div className="reports-col-empty">Nenhum cliente cadastrado</div>}
         </div>
       </div>
 
       <div className="reports-col reports-col--accounts">
         <div className="reports-col-header"><h3>Contas</h3></div>
         <div className="reports-col-list">
-          {accountsOfCustomer.map(a => (
-            <div key={a.id} className={`reports-col-item ${selectedAccount?.id === a.id ? 'active' : ''}`} onClick={() => setSelectedAccount(a)}>
-              <div className="reports-col-item-label">{a.name}</div>
-              <div className="reports-col-item-meta">{a.platform || 'Manual'}</div>
+          {accountsOfCustomer.map(a => {
+            const count = campaignCount(a);
+            return (
+              <div
+                key={a.id}
+                className={`reports-col-item ${selectedAccount?.id === a.id ? 'active' : ''}`}
+                onClick={() => {setSelectedAccount(a); setSelectedCampaign(null);}}
+                role="button"
+                tabIndex={0}
+                title={`${a.name} • ${a.platform || 'Manual'}`}
+              >
+                <div className="reports-col-item-label">{a.name}</div>
+                <div className="reports-col-item-meta">{a.platform || 'Manual'} · {count} campanhas</div>
+              </div>
+            );
+          })}
+          {!accountsOfCustomer.length && (
+            <div className="reports-col-empty">
+              {selectedCustomer ? 'Nenhuma conta neste cliente' : 'Selecione um cliente'}
             </div>
-          ))}
-          {!accountsOfCustomer.length && <div className="reports-col-empty">{selectedCustomer ? 'Nenhuma conta' : 'Selecione um cliente'}</div>}
+          )}
         </div>
       </div>
 
@@ -115,23 +146,35 @@ function AccountsManagementView({data, selectedCustomer, setSelectedCustomer, se
         <div className="reports-col-header"><h3>Campanhas</h3></div>
         <div className="reports-col-list">
           {campaignsOfAccount.map(c => (
-            <div key={c.id} className={`reports-col-item ${selectedCampaign?.id === c.id ? 'active' : ''}`} onClick={() => setSelectedCampaign(c)}>
+            <div
+              key={c.id}
+              className={`reports-col-item ${selectedCampaign?.id === c.id ? 'active' : ''}`}
+              onClick={() => setSelectedCampaign(c)}
+              role="button"
+              tabIndex={0}
+              title={c.name}
+            >
               <div className="reports-col-item-label">{c.name}</div>
               <div className="reports-col-item-meta">{c.id}</div>
             </div>
           ))}
-          {!campaignsOfAccount.length && <div className="reports-col-empty">{selectedAccount ? 'Nenhuma campanha' : 'Selecione uma conta'}</div>}
+          {!campaignsOfAccount.length && (
+            <div className="reports-col-empty">
+              {selectedAccount ? 'Nenhuma campanha' : 'Selecione uma conta'}
+            </div>
+          )}
         </div>
       </div>
     </div>
 
-    {selectedCampaign && (
+    {selectedCampaign && selectedAccount && (
       <div className="reports-campaign-detail">
         <h2>{selectedCampaign.name}</h2>
         <div className="reports-campaign-info">
-          <div><strong>ID:</strong> {selectedCampaign.id}</div>
-          <div><strong>Conta:</strong> {selectedAccount?.name}</div>
-          <div><strong>Plataforma:</strong> {selectedAccount?.platform || 'Manual'}</div>
+          <div><strong>ID da campanha:</strong> <span>{selectedCampaign.id}</span></div>
+          <div><strong>Conta:</strong> <span>{selectedAccount.name}</span></div>
+          <div><strong>Plataforma:</strong> <span>{selectedAccount.platform || 'Manual'}</span></div>
+          {selectedAccount.id && <div><strong>ID da conta:</strong> <span>{selectedAccount.id}</span></div>}
         </div>
       </div>
     )}

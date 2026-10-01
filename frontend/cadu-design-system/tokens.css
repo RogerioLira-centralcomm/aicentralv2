@@ -192,3 +192,13 @@
   --cadu-text-secondary: var(--cadu-muted);
   --cadu-border: var(--cadu-line);
 }
+
+/* Status tones the Untitled build omits in light mode (Tailwind keeps only tokens a utility uses).
+   Derived from the solid/text tones that do exist, so skins stay consistent. Dark mode keeps Untitled's own values. */
+:root {
+  --color-fg-warning-primary: var(--color-bg-warning-solid, #dc6803);
+  --color-fg-success-primary: var(--color-bg-success-solid, #079455);
+  --color-fg-tertiary: var(--color-text-tertiary, #475467);
+  --color-border-warning: color-mix(in srgb, var(--color-bg-warning-solid, #dc6803) 45%, transparent);
+  --color-border-success: color-mix(in srgb, var(--color-bg-success-solid, #079455) 45%, transparent);
+}

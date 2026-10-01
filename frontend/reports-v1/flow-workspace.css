@@ -154,22 +154,12 @@
 /* Live monitoring: motion expresses collection health, never simulated traffic. */
 .reports-flow-live-status{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;margin:12px 0;color:#667085;font-size:12px}
 .reports-flow-live-status .is-healthy{color:#087443}.reports-flow-live-status .is-warning{color:#946200}
-.reports-flow-monitor-canvas .reports-flow-live-edge{fill:none;stroke-width:2;stroke-dasharray:7 6;animation:reports-flow-signal 1.4s linear infinite}
-.reports-flow-monitor-canvas .reports-flow-live-edge.is-healthy{stroke:#16a36a}
-.reports-flow-monitor-canvas .reports-flow-live-edge.is-warning{stroke:#d69a16;animation-duration:3s}
-.reports-main .reports-flow-monitor-node{box-sizing:border-box;width:172px;height:144px;min-height:144px;grid-template-rows:repeat(6,minmax(0,1fr));gap:3px}
-.reports-main .reports-flow-monitor-node.is-healthy{border-color:#75cda3}
-.reports-main .reports-flow-monitor-node.is-warning{border-color:#e9bf5c;background:#fffdf5}
-.reports-main .reports-flow-monitor-node .reports-flow-node-health{font-size:10px;color:#087443}
-.reports-main .reports-flow-monitor-node.is-warning .reports-flow-node-health{color:#946200}
-.reports-flow-monitor-node small:has(.reports-flow-brand-mark){display:flex;align-items:center;gap:5px}
-.reports-flow-monitor-node small .reports-flow-brand-mark{width:16px;height:16px;object-fit:contain}
 .reports-main .reports-live-value{display:inline-block;color:inherit;font-size:inherit;font-weight:inherit;font-variant-numeric:tabular-nums;border-radius:4px}
 .reports-main .reports-live-value>span{color:inherit;font-size:inherit;font-weight:inherit}
 .reports-live-value.is-updated{animation:reports-value-update 1.1s ease-out}
 @keyframes reports-flow-signal{to{stroke-dashoffset:-26}}
 @keyframes reports-value-update{0%,25%{background:#d1fadf;box-shadow:0 0 0 4px #d1fadf}100%{background:transparent;box-shadow:0 0 0 0 transparent}}
-@media(prefers-reduced-motion:reduce){.reports-flow-monitor-canvas .reports-flow-live-edge,.reports-live-value.is-updated{animation:none}}
+@media(prefers-reduced-motion:reduce){.reports-live-value.is-updated{animation:none}}
 .reports-flow-version-picker{display:flex;align-items:center;flex-wrap:wrap;gap:10px;font-size:12px;color:#344054;margin:12px 0}
 .reports-flow-version-picker select{min-height:40px;border:1px solid #d0d5dd;border-radius:7px;background:#fff;padding:6px 10px}
 .reports-flow-version-picker small{color:#667085}
@@ -194,7 +184,6 @@
 .reports-main .reports-flow-block>strong{font-size:14px;line-height:20px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .reports-main .reports-flow-block>span,.reports-main .reports-flow-block>small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .reports-main .reports-block-actions{margin-top:auto}
-.reports-main .reports-flow-monitor-node{width:248px}
 .reports-flow-canvas-content>.reports-canvas-toolbar{z-index:5}
 .reports-main:has(.reports-supertag-page){padding-top:0}
 @media(max-width:767px){.reports-site-tabs{flex-wrap:wrap}.reports-group-editor{flex-direction:column;align-items:stretch}.reports-group-editor label{min-width:0}}
@@ -233,9 +222,6 @@
 @media(pointer:coarse){.reports-main .reports-editor-controls button,.reports-editor-tools summary{min-height:44px;height:44px}}
 
 /* Movement requires a new transition, never just availability or elapsed time. */
-.reports-flow-monitor-canvas .reports-flow-live-edge{animation:none;stroke-dasharray:none;stroke:#98a2b3}
-.reports-flow-monitor-canvas .reports-flow-live-edge.is-new-transition{stroke:#16a36a;stroke-dasharray:7 6;animation:reports-flow-signal .6s linear 3}
-@media(prefers-reduced-motion:reduce){.reports-flow-monitor-canvas .reports-flow-live-edge.is-new-transition{animation:none}}
 
 /* The site inventory is the primary source for this editor. Keep it readable
    beside a canvas that starts at actual size instead of a reduced zoom. */

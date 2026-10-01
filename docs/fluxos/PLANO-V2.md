@@ -107,9 +107,12 @@ A (mesa) → D.1/D.2 (motor e contrato) → B (entrada) → C (monitoramento rea
 - [x] B.x Removida a segunda tela de entrada (`FlowLibrary`, atrás de feature flag) e os modelos fixos (`flowTemplates.js`).
 - [x] C.1 Jornada no servidor: `entrances`/`exits` por página, sessões por origem (Google Ads, Meta, orgânico, direto, redes, outros sites) aplicadas aos nós de origem e às suas conexões, e `origins` no payload (`reports_flow_metrics.py` + testes).
 - [x] C.2 A mesa usa as saídas do servidor; o cálculo local fica como “(est.)”.
-- [ ] C.3 Monitorar = editor em modo leitura (remover `FlowMonitorWorkspace`).
-- [ ] C.4 Nó agregado “Saiu do site”.
-- [ ] D.1 Extrair `FlowsIndex`, `FlowEditor`, `useFlowEditorState`, `useDiscovery` de `main.jsx`.
-- [ ] D.2 `CONTRACT.md` + testes de paridade Python/JS.
-- [ ] D.3 Consolidar CSS de fluxo.
+- [x] C.3 Monitorar usa a mesma mesa (`FlowCanvas` em leitura com a jornada medida). O canvas SVG desenhado à mão foi removido (`FlowLiveEdge`, `flowEdgePath`). `FlowMonitorWorkspace` (flag v2 e links compartilhados) já usava a mesa e foi mantido.
+- [x] C.4 Nó agregado “Saiu do site” (menu Exibir, páginas com ≥20% de saída).
+- [~] D.1 Página de fluxos extraída para `FlowsPage.jsx` e helpers para `reportsCommon.jsx` (`main.jsx` de 1942 para ~1300 linhas). Pendente: separar lista e editor e criar o reducer `useFlowEditorState`.
+- [x] D.2 [CONTRACT.md](CONTRACT.md) e `tests/test_reports_flow_contract.py`.
+- [~] D.3 CSS morto removido (formas antigas, biblioteca, canvas SVG). Tokens de status ausentes no modo claro adicionados em `tokens.css`, o que corrige as linhas de retorno invisíveis. Pendente: fundir os arquivos.
 - [ ] E Playwright no servidor, leitura renderizada e eventos de landing na Super Tag.
+
+### Ideias aproveitadas do mockup antigo
+- `utm_source=…` nos cards de origem; “X% do tráfego” em formulário e conversão; resumo no topo. Para depois: aba “Eventos” no inspetor e campos capturados no formulário (vindos do teste de conversão), e “Testar fluxo” e “Publicar” juntos no cabeçalho.

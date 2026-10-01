@@ -55,3 +55,5 @@
 .flow-view-menu label small{grid-column:2;color:var(--color-text-tertiary);font-size:11px}
 .flow-view-menu p{margin:0;padding-top:8px;border-top:1px solid var(--color-border-secondary);color:var(--color-text-tertiary);font-size:11px;line-height:1.45}
 .flow-journey-summary{top:12px}
+.fnode__rate{margin-left:auto;color:var(--color-text-success-primary);font-size:11px;font-variant-numeric:tabular-nums}
+.fnode.is-type-exit{width:200px;border-style:dashed;border-color:var(--color-border-warning);background:color-mix(in srgb,var(--color-bg-warning-solid) 6%,var(--color-bg-primary))}.fnode.is-type-exit .fnode__icon{background:var(--color-bg-warning-secondary);color:var(--color-fg-warning-primary)}

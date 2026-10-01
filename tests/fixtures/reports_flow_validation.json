@@ -1,7 +1,288 @@
 [
-  {"name":"conversao_valida","config":{"nodes":[{"id":"origem","type":"source","title":"Busca","stage":"source"},{"id":"fim","type":"conversion","title":"Compra","path":"/obrigado","stage":"conversion"}],"edges":[{"id":"c1","from":"origem","to":"fim"}]},"expected_errors":[],"expected_warnings":[]},
-  {"name":"canal_isolado","config":{"nodes":[{"id":"origem","type":"source","title":"QR Code","stage":"source"},{"id":"fim","type":"conversion","title":"Compra","path":"/obrigado","stage":"conversion"}],"edges":[]},"expected_errors":[],"expected_warnings":["orphan:origem","orphan:fim"]},
-  {"name":"sem_conversao","config":{"nodes":[{"id":"pagina","type":"page","title":"Início","path":"/","stage":"entry"}],"edges":[]},"expected_errors":["no_conversion"],"expected_warnings":[]},
-  {"name":"evento_sem_url_e_nome","config":{"nodes":[{"id":"evento","type":"event","title":"Clique","stage":"intent"},{"id":"fim","type":"conversion","path":"/obrigado","title":"Fim"}],"edges":[{"id":"c1","from":"evento","to":"fim"}]},"expected_errors":["unmapped_page:evento","unmapped_event:evento"],"expected_warnings":[]},
-  {"name":"retorno_sem_condicao","config":{"nodes":[{"id":"a","type":"page","path":"/a","title":"A"},{"id":"b","type":"conversion","path":"/b","title":"B"}],"edges":[{"id":"ida","from":"a","to":"b"},{"id":"volta","from":"b","to":"a"}]},"expected_errors":["cycle_without_condition"],"expected_warnings":[]}
+  {
+    "name": "conversao_valida",
+    "config": {
+      "nodes": [
+        {
+          "id": "origem",
+          "type": "source",
+          "title": "Busca",
+          "stage": "source"
+        },
+        {
+          "id": "fim",
+          "type": "conversion",
+          "title": "Compra",
+          "path": "/obrigado",
+          "stage": "conversion"
+        }
+      ],
+      "edges": [
+        {
+          "id": "c1",
+          "from": "origem",
+          "to": "fim"
+        }
+      ]
+    },
+    "expected_errors": [],
+    "expected_warnings": []
+  },
+  {
+    "name": "canal_isolado",
+    "config": {
+      "nodes": [
+        {
+          "id": "origem",
+          "type": "source",
+          "title": "QR Code",
+          "stage": "source"
+        },
+        {
+          "id": "fim",
+          "type": "conversion",
+          "title": "Compra",
+          "path": "/obrigado",
+          "stage": "conversion"
+        }
+      ],
+      "edges": []
+    },
+    "expected_errors": [],
+    "expected_warnings": [
+      "orphan:origem",
+      "orphan:fim"
+    ]
+  },
+  {
+    "name": "sem_conversao",
+    "config": {
+      "nodes": [
+        {
+          "id": "pagina",
+          "type": "page",
+          "title": "Início",
+          "path": "/",
+          "stage": "entry"
+        }
+      ],
+      "edges": []
+    },
+    "expected_errors": [
+      "no_conversion"
+    ],
+    "expected_warnings": []
+  },
+  {
+    "name": "evento_sem_url_e_nome",
+    "config": {
+      "nodes": [
+        {
+          "id": "evento",
+          "type": "event",
+          "title": "Clique",
+          "stage": "intent"
+        },
+        {
+          "id": "fim",
+          "type": "conversion",
+          "path": "/obrigado",
+          "title": "Fim"
+        }
+      ],
+      "edges": [
+        {
+          "id": "c1",
+          "from": "evento",
+          "to": "fim"
+        }
+      ]
+    },
+    "expected_errors": [
+      "unmapped_page:evento",
+      "unmapped_event:evento"
+    ],
+    "expected_warnings": []
+  },
+  {
+    "name": "retorno_sem_condicao",
+    "config": {
+      "nodes": [
+        {
+          "id": "a",
+          "type": "page",
+          "path": "/a",
+          "title": "A"
+        },
+        {
+          "id": "b",
+          "type": "conversion",
+          "path": "/b",
+          "title": "B"
+        }
+      ],
+      "edges": [
+        {
+          "id": "ida",
+          "from": "a",
+          "to": "b"
+        },
+        {
+          "id": "volta",
+          "from": "b",
+          "to": "a"
+        }
+      ]
+    },
+    "expected_errors": [
+      "cycle_without_condition"
+    ],
+    "expected_warnings": []
+  },
+  {
+    "name": "institucional_sem_conversao",
+    "config": {
+      "site_kind": "institucional",
+      "nodes": [
+        {
+          "id": "origem",
+          "type": "source",
+          "title": "Busca",
+          "stage": "source"
+        },
+        {
+          "id": "home",
+          "type": "page",
+          "title": "Home",
+          "path": "/",
+          "stage": "entry"
+        },
+        {
+          "id": "contato",
+          "type": "page",
+          "title": "Contato",
+          "path": "/contato",
+          "stage": "intent"
+        }
+      ],
+      "edges": [
+        {
+          "id": "a",
+          "from": "origem",
+          "to": "home"
+        },
+        {
+          "id": "b",
+          "from": "home",
+          "to": "contato"
+        }
+      ]
+    },
+    "expected_errors": [],
+    "expected_warnings": []
+  },
+  {
+    "name": "paginas_demais",
+    "config": {
+      "nodes": [
+        {
+          "id": "p0",
+          "type": "page",
+          "title": "P0",
+          "path": "/p0",
+          "stage": "exploration"
+        },
+        {
+          "id": "p1",
+          "type": "page",
+          "title": "P1",
+          "path": "/p1",
+          "stage": "exploration"
+        },
+        {
+          "id": "p2",
+          "type": "page",
+          "title": "P2",
+          "path": "/p2",
+          "stage": "exploration"
+        },
+        {
+          "id": "p3",
+          "type": "page",
+          "title": "P3",
+          "path": "/p3",
+          "stage": "exploration"
+        },
+        {
+          "id": "p4",
+          "type": "page",
+          "title": "P4",
+          "path": "/p4",
+          "stage": "exploration"
+        },
+        {
+          "id": "p5",
+          "type": "page",
+          "title": "P5",
+          "path": "/p5",
+          "stage": "exploration"
+        },
+        {
+          "id": "p6",
+          "type": "page",
+          "title": "P6",
+          "path": "/p6",
+          "stage": "exploration"
+        },
+        {
+          "id": "fim",
+          "type": "conversion",
+          "title": "Lead",
+          "path": "/obrigado",
+          "stage": "conversion"
+        }
+      ],
+      "edges": [
+        {
+          "id": "e0",
+          "from": "p0",
+          "to": "fim"
+        },
+        {
+          "id": "e1",
+          "from": "p1",
+          "to": "fim"
+        },
+        {
+          "id": "e2",
+          "from": "p2",
+          "to": "fim"
+        },
+        {
+          "id": "e3",
+          "from": "p3",
+          "to": "fim"
+        },
+        {
+          "id": "e4",
+          "from": "p4",
+          "to": "fim"
+        },
+        {
+          "id": "e5",
+          "from": "p5",
+          "to": "fim"
+        },
+        {
+          "id": "e6",
+          "from": "p6",
+          "to": "fim"
+        }
+      ]
+    },
+    "expected_errors": [],
+    "expected_warnings": [
+      "too_many_pages"
+    ]
+  }
 ]

@@ -348,9 +348,9 @@
 .reports-shell--flow-editor .reports-editor-tools>summary{font-size:0;border:0;padding:8px;width:36px;height:36px}
 .reports-shell--flow-editor .reports-editor-tools>summary:after{content:'⋯';font-size:20px}
 .reports-shell--flow-editor .reports-editor-tools>div{left:44px;right:auto;bottom:0;min-width:180px}
-.reports-shell--flow-editor .reports-flow-designer button:not(.react-flow__controls-button){border-width:1px;border-style:solid;border-color:var(--color-border-secondary);box-shadow:none}
+.reports-shell--flow-editor .reports-flow-designer button:not(.react-flow__controls-button):not([data-reports-tone=primary]){border-width:1px;border-style:solid;border-color:var(--color-border-secondary);box-shadow:none}
 .reports-shell--flow-editor .reports-node-palette>button{float:right;width:28px;height:28px;min-height:28px!important;padding:4px!important;border:0!important}
-.flow-assist-actions{left:16px;bottom:16px}.flow-assist-panel{left:16px}
+.flow-assist-actions{left:50%;bottom:16px;transform:translateX(-50%)}.flow-assist-panel{left:16px}
 .reports-shell--flow-editor .is-workspace-v2 .reports-flow-designer--compact>.reports-flow-canvas{width:auto!important;right:var(--right,0px);left:var(--left,0px)}
 
 /* The editor toolbar uses one filled CTA; the remaining controls are compact actions. */
@@ -373,7 +373,7 @@
 .reports-main .reports-flow-index-layout .reports-flow-create-fields{grid-template-columns:1fr;gap:14px}
 .reports-main .reports-flow-index-layout .reports-flow-create{gap:16px}
 .reports-main .reports-flow-index-layout .reports-flow-create-actions{align-items:stretch;flex-direction:column}
-.reports-shell--flow-editor .reports-flow-designer .reports-ui-button{appearance:none;border:1px solid var(--color-border-secondary);border-radius:6px;background:var(--color-bg-primary);color:var(--color-text-secondary);font:inherit;font-size:12px;line-height:18px;padding:5px 9px;min-height:28px}
+.reports-shell--flow-editor .reports-flow-designer .reports-ui-button:not([data-reports-tone=primary]){appearance:none;border:1px solid var(--color-border-secondary);border-radius:6px;background:var(--color-bg-primary);color:var(--color-text-secondary);font:inherit;font-size:12px;line-height:18px;padding:5px 9px;min-height:28px}
 .reports-shell--flow-editor .reports-flow-designer .reports-ui-button:focus-visible{outline:2px solid var(--color-border-brand);outline-offset:2px}
 .flow-command-dialog{margin:0}.flow-command-dialog::backdrop{background:rgb(16 24 40 / .25)}
 .reports-shell--flow-editor .flow-catalog-filters button{border:0!important;min-height:26px!important;padding:4px 6px!important}

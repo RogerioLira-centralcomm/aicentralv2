@@ -34,3 +34,16 @@ class SessionBoundsTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class EngagementTests(unittest.TestCase):
+    def test_active_time_is_weighted_and_missing_is_none(self):
+        from aicentralv2.cadu_connect.reports_flow_metrics import apply_engagement
+        nodes = [{'id': 'home'}, {'id': 'sobre'}, {'id': 'src'}]
+        result = apply_engagement(nodes, [{'node_id': 'home', 'avg_active_ms': 30000, 'leaves': 3},
+                                          {'node_id': 'sobre', 'avg_active_ms': 90000, 'leaves': 1}],
+                                  {'pages_per_session': 2.5}, {'home', 'sobre'})
+        self.assertEqual(nodes[0]['avg_active_ms'], 30000)
+        self.assertNotIn('avg_active_ms', nodes[2])
+        self.assertEqual(result, {'avg_active_ms': 45000, 'pages_per_session': 2.5})
+        self.assertEqual(apply_engagement([], [], {'pages_per_session': None}, set()), {'avg_active_ms': None, 'pages_per_session': None})

@@ -90,3 +90,18 @@ def origin_summary(bounds):
         totals[platform] = totals.get(platform, 0) + int(row['sessions'] or 0)
     return [{'platform': platform, 'label': PLATFORM_LABELS.get(platform, platform), 'sessions': sessions}
             for platform, sessions in sorted(totals.items(), key=lambda item: -item[1])]
+
+
+def apply_engagement(nodes, active_rows, depth_row, measured_ids):
+    """Average active time per page and pages per session; None means not measured, never zero."""
+    by_node = {str(row['node_id']): row for row in active_rows or []}
+    weighted, leaves = 0, 0
+    for item in nodes:
+        row = by_node.get(item['id'])
+        if item['id'] in measured_ids and row:
+            item['avg_active_ms'] = int(row['avg_active_ms'] or 0)
+            weighted += int(row['avg_active_ms'] or 0) * int(row['leaves'] or 0)
+            leaves += int(row['leaves'] or 0)
+    pages = (depth_row or {}).get('pages_per_session')
+    return {'avg_active_ms': round(weighted / leaves) if leaves else None,
+            'pages_per_session': float(pages) if pages is not None else None}

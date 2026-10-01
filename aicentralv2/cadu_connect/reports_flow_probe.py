@@ -369,16 +369,28 @@ def build_proposal(kind, evidence, path='/', outcome=None):
                                description='Envio medido pela Super Tag.'))
         nodes.append(_conversion_node(path, outcome))
     elif kind == 'institucional':
-        page = _node('page', 'Página inicial', path, stage='entry', entry=True)
-        contact = next((item for item in evidence['summary']['internal_paths'] if re.search(r'contato|contact|fale|orcamento', item, re.I)), None)
-        nodes = [page]
+        # Institutional sites are read by engagement: the menu pages people browse and where visits end.
+        # No conversion is invented; contact, form and WhatsApp stay as intent steps.
+        links = evidence['summary']['internal_paths']
+        menu = [item for item in links if NAV_HINTS.search(item) and not re.search(r'contato|contact|fale', item, re.I)][:3]
+        contact = next((item for item in links if re.search(r'contato|contact|fale|orcamento', item, re.I)), None)
+        nodes = [_node('page', 'Página inicial', path, stage='entry', entry=True)]
+        nodes += [_node('page', item.strip('/').split('/')[-1].replace('-', ' ').capitalize() or 'Página', item, stage='exploration') for item in menu]
         if contact:
             nodes.append(_node('page', 'Contato', contact, stage='intent', description='Caminho de contato encontrado no menu.'))
         if form:
             nodes.append(_node('form', form['submit_label'] or 'Formulário', contact or path, stage='intent', fields=form['fields']))
         if evidence['summary']['whatsapp']:
             nodes.append(_node('whatsapp', 'Clicou no WhatsApp', path, stage='intent'))
-        nodes.append(_conversion_node(contact or path, outcome))
+        warnings = [warning for warning in warnings if 'confirmação' not in warning and 'obrigado' not in warning]
+        warnings.append('Site institucional: o fluxo mede tempo nas páginas, páginas por visita e onde as visitas terminam.')
+        entry = nodes[0]
+        edges = [{'id': str(uuid.uuid4()), 'from': entry['id'], 'to': node['id'], 'label': 'Menu'} for node in nodes[1:] if node['type'] == 'page']
+        last_page = next((node for node in reversed(nodes) if node['type'] == 'page' and node is not entry), entry)
+        edges += [{'id': str(uuid.uuid4()), 'from': last_page['id'] if node['type'] != 'whatsapp' else entry['id'], 'to': node['id'], 'label': 'Passo observado'} for node in nodes if node['type'] in ('form', 'whatsapp')]
+        sources = _source_nodes(tags)
+        edges += [{'id': str(uuid.uuid4()), 'from': source['id'], 'to': entry['id'], 'label': 'Chega por', 'variant': 'planned'} for source in sources]
+        return {'kind': kind, 'use_catalog': False, 'nodes': _place(sources + nodes), 'edges': edges, 'warnings': warnings}
     elif kind == 'ecommerce':
         links = evidence['summary']['internal_paths']
         cart = next((item for item in links if re.search(r'carrinho|cart', item, re.I)), '/carrinho')

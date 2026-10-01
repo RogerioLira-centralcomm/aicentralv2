@@ -3,6 +3,7 @@ import json
 import os
 import time
 import uuid
+from .reports_flow_validation import MAX_FLOW_PAGES
 from pathlib import Path
 from flask import abort, current_app, jsonify, request, session
 from ..db import get_db
@@ -66,7 +67,7 @@ def propose(catalog,goal,observed=None,media=None):
     elif goal=='appointment':pages.sort(key=lambda p:(not any(w in p['path_prefix'] for w in ('agend','calendar','booking')) and p['role']!='entry',priority.get(p['role'],9)))
     nodes=[];groups=[];templates={};visible=0;columns={};warnings=[]
     source_limit=min(3,len(observed.get('sources',[]))+len(media))
-    page_limit=15-source_limit
+    page_limit=MAX_FLOW_PAGES
     for page in pages:
         template=page.get('template_id')
         if visible>=page_limit and template not in templates:continue
@@ -97,7 +98,7 @@ def propose(catalog,goal,observed=None,media=None):
     known=set()
     for row in source_rows:
         source=str(row['source'])[:80]
-        if len(known)>=source_limit or visible>=15:break
+        if len(known)>=source_limit:break
         if source in known:continue
         known.add(source);visible+=1
         nodes.append({'id':str(uuid.uuid4()),'type':'source','source':source,'title':source,'stage':'source','origin':'blueprint','role_source':'observado','evidence':f"{row['sessions']} sessões no site" if row['sessions'] is not None else 'Conta de mídia conectada; tráfego não atribuído','x':80,'y':100+len(known)*200})

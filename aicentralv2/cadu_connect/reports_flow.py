@@ -19,9 +19,9 @@ from ..db import get_db
 from .reports_v1 import _rows, _selection, _write_guard, _customer_id, _optional_positive_id
 from .reports_flow_versions import expected_revision, lock_flow, save_draft, publish_draft, session_snapshot, match_version_step
 from .reports_flow_schema import LEGACY_KINDS, legacy_projection, migrate_v1_to_v2
-from .reports_flow_validation import validate_flow_config
+from .reports_flow_validation import MAX_FLOW_PAGES, validate_flow_config
 from .reports_flow_stage import normalize_stage_position
-from .reports_flow_metrics import apply_session_bounds, edge_observation, origin_summary
+from .reports_flow_metrics import apply_engagement, apply_session_bounds, edge_observation, origin_summary
 
 MAX_TAG_EVENTS_PER_MINUTE = 1200
 MAX_DISCOVERY_PAGES = 60
@@ -388,8 +388,10 @@ def _discovery_flow_groups(pages):
     return primary, list(groups.values())
 
 
-def _assemble_discovered_flow(config, pages, allowed_host):
-    """Add verified pages and observed hyperlinks without replacing authored nodes."""
+def _assemble_discovered_flow(config, pages, allowed_host, max_pages=None):
+    """Add verified pages and observed hyperlinks without replacing authored nodes.
+
+    max_pages caps the page nodes of the resulting flow; the rest stays in the explorer."""
     nodes = [dict(node) for node in config.get('nodes', [])]
     edges = [dict(edge) for edge in config.get('edges', [])]
     by_page = {(node.get('host') or allowed_host, node.get('path')): node
@@ -400,7 +402,8 @@ def _assemble_discovered_flow(config, pages, allowed_host):
         key = (page['page_host'], page['path_prefix'])
         if key in by_page:
             continue
-        if len(nodes) >= 200:
+        page_count = sum(1 for node in nodes if node.get('type') in ('page', 'form', 'conversion', 'error'))
+        if len(nodes) >= 200 or (max_pages is not None and page_count >= max_pages):
             omitted += 1
             continue
         path = page['path_prefix']
@@ -1448,7 +1451,7 @@ def register(bp):
             primary, groups = _discovery_flow_groups(all_pages)
             suggestions = [{'id': group['id'], 'name': group['name'], 'kind': group['kind'],
                             'page_count': len(group['pages'])} for group in groups]
-            config, omitted = _assemble_discovered_flow(locked['draft_config'] or {}, primary, flow['allowed_host'])
+            config, omitted = _assemble_discovered_flow(locked['draft_config'] or {}, primary, flow['allowed_host'], max_pages=MAX_FLOW_PAGES)
             config, _ = _normalize_flow_config(config, flow['allowed_host'])
             updated = save_draft(flow_id, selected, revision, locked['name'], config)
         get_db().commit()
@@ -2091,6 +2094,21 @@ def register(bp):
         ) SELECT first_node,last_node,origin,COUNT(*)::bigint AS sessions
           FROM bounds GROUP BY first_node,last_node,origin""", tuple(scope))
         apply_session_bounds(config, nodes, edges, bounds, measured_ids)
+        # Engagement, for sites read by attention rather than a single conversion:
+        # active time per page (page_leave carries it) and distinct pages per session.
+        active = _rows("""SELECT s.node_id,AVG(e.duration_ms)::bigint AS avg_active_ms,COUNT(*)::bigint AS leaves
+            FROM cadu_reports_flow_events e
+            JOIN cadu_reports_flow_steps s ON s.id=e.step_id AND s.client_id=e.client_id AND s.flow_revision=e.flow_revision
+            LEFT JOIN cadu_reports_campaigns c ON c.id=e.campaign_id AND c.client_id=e.client_id
+            LEFT JOIN cadu_reports_accounts a ON a.id=c.account_id AND a.client_id=e.client_id
+            WHERE e.client_id=%s AND e.tag_id=%s AND e.flow_revision=%s
+              AND e.occurred_at >= %s AND e.occurred_at < %s
+              AND e.event_kind='page_leave' AND e.duration_ms>0"""+extra+"""
+            GROUP BY s.node_id""", tuple(scope))
+        depth = _rows(visits_cte + """SELECT AVG(pages)::numeric(10,2) AS pages_per_session FROM (
+            SELECT session_id,COUNT(DISTINCT node_id) AS pages FROM visits WHERE node_id IS NOT NULL GROUP BY session_id) per_session""",
+            tuple(scope))[0]
+        engagement = apply_engagement(nodes, active, depth, measured_ids)
         origins = origin_summary(bounds)
         entries = int(funnel['entries'] or 0)
         conversions = int(funnel['conversions'] or 0)
@@ -2104,7 +2122,7 @@ def register(bp):
                                    'source':'Super Tag deste fluxo'},
                        scope={'from':start.isoformat(),'to':end.isoformat(),'revision':revision,
                               'account_id':request.args.get('account_id'),'campaign_id':request.args.get('campaign_id'),'platform':platform},
-                       nodes=nodes, edges=edges, origins=origins, suggestions=suggestions,group_nodes=group_nodes,group_edges=group_edges,
+                       nodes=nodes, edges=edges, origins=origins, engagement=engagement, suggestions=suggestions,group_nodes=group_nodes,group_edges=group_edges,
                        funnel={'entries': entries, 'conversions': conversions,
                                'rate': round(100 * conversions / entries, 1) if entries else None})
 

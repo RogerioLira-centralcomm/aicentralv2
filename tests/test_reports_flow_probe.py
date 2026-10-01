@@ -95,3 +95,13 @@ class NetworkTagTests(unittest.TestCase):
                 'https://cdn.example.com/app.js']
         self.assertEqual(probe.tags_from_requests(urls), ['Meta Pixel', 'GA4'])
         self.assertEqual(probe.tags_from_requests([]), [])
+
+
+class InstitutionalProposalTests(unittest.TestCase):
+    def test_institutional_has_no_invented_conversion(self):
+        html = '<html><body>' + ''.join(f'<a href="/{p}">{p}</a>' for p in ['sobre', 'servicos', 'cases', 'blog', 'equipe', 'contato', 'a', 'b', 'c', 'd']) + '<a href="https://wa.me/55">w</a></body></html>'
+        result = probe.analyze_html(html, 'https://x.com/', '/', 'institucional')
+        types = [node['type'] for node in result['proposal']['nodes']]
+        self.assertNotIn('conversion', types)
+        self.assertLessEqual(sum(1 for t in types if t in ('page', 'form', 'conversion', 'error')), 6)
+        self.assertIn('whatsapp', types)

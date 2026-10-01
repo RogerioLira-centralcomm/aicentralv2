@@ -1,6 +1,9 @@
 """Publication checks for the authored journey; draft saving stays permissive."""
 
 MEASURED = {'page', 'form', 'event', 'conversion', 'whatsapp', 'error'}
+PAGE_TYPES = {'page', 'form', 'conversion', 'error'}
+# A flow follows a few pages that matter; the explorer is where the rest of the site lives.
+MAX_FLOW_PAGES = 6
 DETAILS = {
     'no_conversion': ('Sem conversão definida, não será possível medir a conclusão desta jornada.', 'add_conversion'),
     'unmapped_page': ('O nó não poderá ser associado a uma página ou evento recebido.', 'configure_url'),
@@ -10,6 +13,7 @@ DETAILS = {
     'intent_without_goal': ('Não há caminho deste nó até uma conversão definida.', 'connect_to_conversion'),
     'unconfirmed_goal': ('O objetivo sugerido ainda não foi revisado.', 'confirm_goal'),
     'cycle_without_condition': ('A jornada pode ficar ambígua neste Retorno.', 'review_return'),
+    'too_many_pages': ('Com muitas páginas o fluxo deixa de mostrar o caminho principal.', 'reduce_pages'),
 }
 
 
@@ -25,7 +29,9 @@ def validate_flow_config(config, allowed_host=''):
         if edge.get('from') in outgoing and edge.get('to') in incoming:
             outgoing[edge['from']].append(edge['to'])
             incoming[edge['to']].append(edge['from'])
-    if not any(node.get('type') == 'conversion' for node in nodes):
+    # Institutional sites are read by engagement (time, depth, exits); a conversion is optional there.
+    engagement = config.get('site_kind') == 'institucional'
+    if not engagement and not any(node.get('type') == 'conversion' for node in nodes):
         issues.append({'severity': 'error', 'code': 'no_conversion',
                        'message': 'Defina um nó de Conversão antes de publicar.'})
     for node in nodes:
@@ -54,8 +60,13 @@ def validate_flow_config(config, allowed_host=''):
             if edge.get('to') in reachable:reachable.add(edge.get('from'))
         changed=len(reachable)!=before
     for node in nodes:
-        if (node.get('stage')=='intent' or node.get('type') in ('form','whatsapp')) and node['id'] not in reachable:
+        if not engagement and (node.get('stage')=='intent' or node.get('type') in ('form','whatsapp')) and node['id'] not in reachable:
             issues.append({'severity':'error','code':'intent_without_goal','node_id':node['id'],'message':f"Conecte {node.get('title') or 'o nó de Intenção'} a um nó de Conversão."})
+    # A group of similar pages reads as one step.
+    pages = len({node.get('groupId') or node['id'] for node in nodes if node.get('type') in PAGE_TYPES})
+    if pages > MAX_FLOW_PAGES:
+        issues.append({'severity': 'warning', 'code': 'too_many_pages',
+                       'message': f'O fluxo tem {pages} páginas; mantenha até {MAX_FLOW_PAGES} no caminho principal.'})
     if any(n.get('origin')=='blueprint' for n in nodes) and config.get('blueprintGoalConfirmed') is not True:
         issues.append({'severity':'error','code':'unconfirmed_goal','message':'Confirme o objetivo da montagem antes de publicar.'})
     stack, visited = [], set()

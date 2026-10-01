@@ -156,3 +156,8 @@
 .flow-journey-summary{top:12px}
 .fnode__rate{margin-left:auto;color:var(--color-text-success-primary);font-size:11px;font-variant-numeric:tabular-nums}
 .fnode.is-type-exit{width:200px;border-style:dashed;border-color:var(--color-border-warning);background:color-mix(in srgb,var(--color-bg-warning-solid) 6%,var(--color-bg-primary))}.fnode.is-type-exit .fnode__icon{background:var(--color-bg-warning-secondary);color:var(--color-fg-warning-primary)}
+.flow-source-picker__row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:8px 0;font-size:13px;cursor:pointer}
+.flow-source-picker__row span{display:grid;gap:2px;min-width:0}
+.flow-source-picker__row small{color:var(--color-text-tertiary);font-size:11px}
+.fnode__time{flex:1 0 100%;color:var(--color-text-tertiary);font-size:11px}
+.fnode__note{color:var(--color-text-tertiary);font-size:11px;line-height:1.4}

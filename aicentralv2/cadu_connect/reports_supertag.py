@@ -443,6 +443,44 @@ def register(bp):
             if response is not None:
                 response.close()
 
+    @bp.get('/api/v2/reports/supertag/sites/<uuid:site_id>/verify-install')
+    @login_required_api
+    def supertag_verify_install(site_id):
+        """Looks for the tag in the site's HTML. A tag injected by GTM is invisible here, so absence is not failure."""
+        selected = _selection()
+        found = _rows('''SELECT public_id,allowed_host FROM cadu_reports_supertag_sites
+            WHERE id=%s AND client_id=%s AND revoked_at IS NULL''', (str(site_id), selected['client_id']))
+        if not found:
+            abort(404)
+        site = found[0]
+        parsed, host, addresses = _check_site_url(f"https://{site['allowed_host']}/")
+        response = None
+        try:
+            response = _pinned_get(parsed.geturl(), addresses, accept='text/html')
+            response.max_bytes = SITE_CHECK_MAX_BYTES
+            reachable = response.status_code < 400
+            html = ''
+            if reachable and 'html' in response.headers.get('Content-Type', '').lower():
+                chunks, size = [], 0
+                for chunk in response.iter_content(16_384):
+                    size += len(chunk)
+                    if size > SITE_CHECK_MAX_BYTES:
+                        break
+                    chunks.append(chunk)
+                html = b''.join(chunks).decode(_html_charset(response.headers.get('Content-Type', '')), errors='replace')
+            return jsonify(host=host, reachable=reachable, status=response.status_code,
+                tag_in_html=site['public_id'] in html,
+                gtm_detected='googletagmanager.com/gtm.js' in html or 'GTM-' in html,
+                checked_at=datetime.now(timezone.utc).isoformat())
+        except BadRequest:
+            raise
+        except (OSError, ValueError, urllib3.exceptions.HTTPError):
+            return jsonify(host=host, reachable=False, status=None, tag_in_html=False, gtm_detected=False,
+                checked_at=datetime.now(timezone.utc).isoformat())
+        finally:
+            if response is not None:
+                response.close()
+
     @bp.after_request
     def supertag_public_cors(response):
         if not request.path.startswith('/connect/public/supertag/v1/'):
@@ -549,7 +587,9 @@ def register(bp):
         sites = _rows('''SELECT s.id,s.public_id,s.label,s.allowed_host,s.enabled,s.config,
                 s.config_version,s.created_at,s.updated_at,s.revoked_at,
                 COUNT(e.id)::bigint AS events_30d,
-                COUNT(e.id) FILTER (WHERE e.event_kind='conversion')::bigint AS conversions_30d
+                COUNT(e.id) FILTER (WHERE e.event_kind='conversion')::bigint AS conversions_30d,
+                (SELECT MAX(l.occurred_at) FROM cadu_reports_supertag_events l
+                    WHERE l.site_id=s.id AND l.expires_at > NOW()) AS last_event_at
             FROM cadu_reports_supertag_sites s LEFT JOIN cadu_reports_supertag_events e
               ON e.site_id=s.id AND e.expires_at > NOW() AND e.occurred_at >= NOW() - INTERVAL '30 days'
             WHERE s.client_id=%s

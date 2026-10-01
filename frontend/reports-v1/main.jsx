@@ -13,10 +13,12 @@ import {ReportsDrawer} from './ReportsDrawer.jsx';
 import {ReportsTextArea} from './ReportsTextArea.jsx';
 import {ReportsConfirmDialog} from './ReportsConfirmDialog.jsx';
 import {ReportsTabs} from './ReportsTabs.jsx';
+import {AccessCard, InstallCard, InstallGuide, InstallStatus, LinkedFlows, RecentEvents, SiteSidebar, SiteSummary, StatusBadge} from './SuperTagParts.jsx';
+import './supertag-workspace.css';
 import {PageDetail} from './PageDetail.jsx';
 import {AlertsCenter} from './AlertsCenter.jsx';
 import {REPORT_FILTER_DEFAULTS, REPORT_PAGE_META, ReportsFilterBar, ReportsPageHeader} from './PageChrome.jsx';
-import {CheckCircle, FilterLines, RefreshCw01, SearchLg} from '@untitledui/icons';
+import {CheckCircle, FilterLines, Plus, RefreshCw01, SearchLg} from '@untitledui/icons';
 import {flowEditorId, reportUrl, shortDate, integer, decimal, json, Empty, Kpi} from './reportsCommon.jsx';
 import '../cadu-design-system/tokens.css';
 import './styles.css';
@@ -944,7 +946,8 @@ function SuperTag({data}) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [installOpen, setInstallOpen] = useState(false);
-  const [installMethod, setInstallMethod] = useState('html');
+  const [verify, setVerify] = useState(null);
+  const [verifying, setVerifying] = useState(false);
   const [revokeConfirmOpen, setRevokeConfirmOpen] = useState(false);
   const [siteCheck, setSiteCheck] = useState(null);
   const [checkingSite, setCheckingSite] = useState(false);
@@ -971,7 +974,7 @@ function SuperTag({data}) {
     return () => {active = false;};
   }, [data.client.client_id]);
   useEffect(() => {
-    setDetail(null);setSiteFlows([]);setError('');
+    setDetail(null);setSiteFlows([]);setError('');setVerify(null);
     if (!selectedId) {setDetailLoading(false);return;}
     let cancelled=false;setDetailLoading(true);
     Promise.allSettled([
@@ -1025,6 +1028,16 @@ function SuperTag({data}) {
     try {await navigator.clipboard.writeText(value); setNotice('Copiado.');}
     catch (_) {setNotice('Não foi possível copiar automaticamente. Selecione o código e copie.');}
   };
+  const verifyInstall = async () => {
+    if (!selectedId) return;
+    setVerifying(true); setError('');
+    try {
+      const [result, latest] = await Promise.all([
+        json(`/connect/api/v2/reports/supertag/sites/${selectedId}/verify-install?client_id=${data.client.client_id}`),
+        json(`/connect/api/v2/reports/supertag/sites/${selectedId}/events?client_id=${data.client.client_id}`)]);
+      setVerify(result); setDetail(latest); await load();
+    } catch (failure) {setError(failure.message);} finally {setVerifying(false);}
+  };
   const kindTotal = kind => Number((detail?.summary || []).find(item => item.event_kind === kind)?.total || 0);
   const checkSite = async () => {
     if (!host.trim()) return;
@@ -1050,33 +1063,35 @@ function SuperTag({data}) {
   const collectionKnown = Boolean(detail?.site);
   const visibleSites = sites.filter(site => `${site.label} ${site.allowed_host}`.toLowerCase().includes(siteQuery.toLowerCase()));
   const installationState = selected?.revoked_at ? 'Revogada' : !selected?.enabled ? 'Desativada' : !collectionKnown ? 'Coleta não consultada' : tagInstalled ? 'Eventos recebidos · 30 dias' : 'Sem eventos · 30 dias';
-  return <><div className="reports-page-hero">
-      <div className="reports-page-hero__inner">
-        <div className="reports-page-hero__copy">
-          <div className="reports-page-hero__eyebrow">Mensuração</div>
-          <h1>Super Tag</h1>
-          <p>Instale uma única tag para medir atividade consentida no site.</p>
-        </div>
-      </div>
-    </div><section className="reports-supertag-page">
-    {selected&&<header className="reports-supertag-heading"><div><ReportsActionButton className="reports-text-button reports-site-back" color="link-color" href={reportUrl('supertag')}>← Sites</ReportsActionButton><h2>{selected.label}</h2><p>{selected.allowed_host}</p></div></header>}
+  const sitesTotal = sites.length;
+  const renderFavicon = site => <SiteFavicon site={site}/>;
+  const canEdit = data.client.role !== 'viewer';
+  const activeSites = sites.filter(site => Number(site.events_30d) > 0).length;
+  const openInstall = () => {setInstallOpen(true);setSiteCheck(null);};
+  const tabs = [{id:'overview',label:'Visão geral'},{id:'install',label:'Instalação'},{id:'flows',label:'Fluxos'},{id:'settings',label:'Configurações'}];
+  return <section className="st-page">
+    <header className="st-topbar"><p>Instale uma única tag e acompanhe a coleta consentida de cada site.</p>
+      <div className="st-topbar__side">{sitesTotal>0&&<><StatusBadge tone="gray">{sitesTotal} {sitesTotal===1?'site conectado':'sites conectados'}</StatusBadge><StatusBadge tone={activeSites?'success':'warning'}>{activeSites?`${activeSites} com coleta ativa`:'Sem coleta ativa'}</StatusBadge></>}{canEdit&&<ReportsActionButton color="primary" iconLeading={Plus} onClick={openInstall}>Conectar site</ReportsActionButton>}</div></header>
     {error&&<p className="reports-error" role="alert">{error}</p>}{notice&&<p className="reports-success" role="status">{notice}</p>}
-    {selected&&<ReportsTabs className="reports-site-tabs" label="Áreas do site" value={siteTab} onChange={setSiteTab} items={[{id:'overview',label:'Visão geral'},{id:'flows',label:'Fluxos'},{id:'settings',label:'Configurações da tag'}]}/>}
-    <div className="reports-site-workspace">
-    {!selected&&<section className="reports-site-index" aria-label="Sites conectados"><div className="reports-site-index__toolbar"><div><strong>Sites conectados</strong><span>{sites.length} {sites.length===1?'site':'sites'}</span></div><div className="reports-site-index__actions">{sites.length>0&&<ReportsFieldInput aria-label="Buscar site" placeholder="Buscar nome ou domínio" value={siteQuery} onChange={event=>setSiteQuery(event.target.value)}/>} {sites.length>0&&data.client.role!=='viewer'&&<ReportsActionButton color="primary" onClick={()=>{setInstallOpen(true);setSiteCheck(null);}}>Conectar site</ReportsActionButton>}</div></div>{sitesLoading&&<p className="reports-site-index__loading" role="status">Carregando sites…</p>}{!sitesLoading&&visibleSites.length>0&&<div className="reports-table-wrap"><table><thead><tr><th>Site</th><th>Domínio</th><th>Coleta</th><th>Eventos · 30 dias</th><th/></tr></thead><tbody>{visibleSites.map(site=><tr key={site.id}><td><span className="reports-site-index__identity"><SiteFavicon site={site}/><strong>{site.label}</strong></span></td><td>{site.allowed_host}</td><td>{site.revoked_at?'Revogada':!site.enabled?'Desativada':Number(site.events_30d)>0?'Eventos recebidos':'Sem eventos · 30 dias'}</td><td>{integer(site.events_30d||0)}</td><td><ReportsActionButton className="reports-text-button" color="link-color" href={reportUrl('supertag', {client_id:data.client.client_id}, site.id)}>Abrir site</ReportsActionButton><ReportsRelationships data={data} kind="site" id={site.id} name={site.label}/></td></tr>)}</tbody></table></div>}{!sitesLoading&&!sitesLoadFailed&&!sites.length&&<div className="reports-site-index__empty"><strong>{data.client.role==='viewer'?'Nenhum site conectado':'Conecte seu primeiro site'}</strong><p>{data.client.role==='viewer'?'Os sites autorizados para este cliente aparecerão aqui.':'Instale a Super Tag para acompanhar visitas e eventos consentidos.'}</p>{data.client.role!=='viewer'&&<ReportsActionButton color="primary" onClick={()=>{setInstallOpen(true);setSiteCheck(null);}}>Conectar site</ReportsActionButton>}</div>}{!sitesLoading&&sites.length>0&&!visibleSites.length&&<Empty message="Nenhum site corresponde à busca."/>}</section>}
-    {selected&&detailLoading&&<p role="status">Carregando dados do site…</p>}
-    {selected&&siteTab==='flows'&&<article className="reports-panel"><h3>Fluxos de {selected.allowed_host}</h3><p>Abra um rascunho para organizar as etapas ou acompanhe uma versão publicada.</p>{siteFlows.filter(item=>item.allowed_host?.replace(/^www\./,'')===selected.allowed_host.replace(/^www\./,'')).map(item=><div className="reports-site-flow-row" key={item.id}><div><strong>{item.name}</strong><small>{item.status==='published'?'Publicado':'Rascunho'}</small></div><ReportsActionButton href={reportUrl('flow',{client_id:data.client.client_id,flow_id:item.id,flow_view:item.status==='published'?'monitor':'edit'})}>Abrir fluxo</ReportsActionButton></div>)}<ReportsActionButton color="primary" href={reportUrl('flow',{client_id:data.client.client_id,site_host:selected.allowed_host,flow_view:'create'})}>Criar fluxo neste site</ReportsActionButton></article>}
-    {selected&&siteTab==='settings'&&
-    <article className={`reports-panel reports-supertag-setup${selected?` is-${tagInstalled?'installed':'unverified'}`:''}`}><div className="reports-panel-head"><div><h2>{selected?.label || 'Instalação selecionada'}</h2><p>{selected ? `Conexão para ${selected.allowed_host}` : 'O código e a atividade do site aparecerão aqui.'}</p></div>{selected && <span className={`reports-supertag-state${selected.revoked_at?' is-revoked':!selected.enabled?' is-disabled':tagInstalled?' is-installed':' is-unverified'}`}><i aria-hidden="true"/>{installationState}</span>}</div>
-      {selected ? <>
-        <div className={`reports-supertag-install-status${tagInstalled?' is-installed':' is-unverified'}`} role="status"><strong>Estado da coleta</strong><p>{!collectionKnown?'A atividade ainda não está disponível. Este estado não confirma a instalação nem a coleta.':tagInstalled?`${integer(detail.site.events_30d)} eventos recebidos no período. Esse histórico não confirma atividade neste momento.`:'Nenhum evento disponível nos últimos 30 dias. Confira a instalação e o consentimento; ausência de tráfego não comprova falha na tag.'}</p></div>
-        <div className="reports-tag-card"><div className="reports-tag-card-head"><div><strong>Código de instalação</strong><small>Adicione ao site autorizado</small></div><div className="reports-tag-actions"><ReportsActionButton type="button" color="primary" onClick={()=>copy(selected.snippet)}>Copiar código</ReportsActionButton><ReportsActionButton type="button" color="link-color" onClick={downloadSnippet}>Baixar arquivo</ReportsActionButton><ReportsActionButton type="button" color="link-color" onClick={emailSnippet}>Enviar para instalação</ReportsActionButton></div></div><code>{selected.snippet}</code><small>O código não inclui credenciais secretas. Você pode enviar estas instruções para a pessoa responsável pelo site.</small></div>
-        <div className="reports-tag-card reports-install-guide"><div className="reports-tag-card-head"><div><strong>Onde instalar</strong><small>Uma vez só, em todas as páginas do site</small></div></div>
-          <ReportsTabs className="reports-install-tabs" label="Forma de instalação" value={installMethod} onChange={setInstallMethod} items={[{id:'html',label:'No código do site'},{id:'gtm',label:'Google Tag Manager'},{id:'cms',label:'WordPress e outros'}]}/>
-          {installMethod==='html'&&<ol className="reports-install-steps"><li>Abra o modelo (layout) que todas as páginas compartilham, normalmente o arquivo do cabeçalho.</li><li>Cole o código acima dentro de <code>&lt;head&gt;</code>, antes de <code>&lt;/head&gt;</code>. Não coloque no rodapé nem em páginas avulsas.</li><li>Publique o site e abra uma página. A tag aparece na aba Rede do navegador como <code>supertag.js</code>.</li></ol>}
-          {installMethod==='gtm'&&<ol className="reports-install-steps"><li>No Google Tag Manager, crie uma tag nova do tipo <strong>HTML personalizado</strong> e cole o código acima inteiro, com as marcas <code>&lt;script&gt;</code>.</li><li>Em <strong>Acionamento</strong>, escolha <strong>Initialization – All Pages</strong>. Assim a tag carrega antes das outras e não perde a primeira visita.</li><li>Em <strong>Configurações avançadas › Configurações de consentimento</strong>, deixe <strong>Nenhum consentimento adicional necessário</strong>. A Super Tag já espera a decisão do visitante por conta própria.</li><li>Use <strong>Visualizar</strong> para testar e depois <strong>Enviar</strong> para publicar o contêiner.</li></ol>}
-          {installMethod==='cms'&&<ol className="reports-install-steps"><li><strong>WordPress:</strong> use um plugin de cabeçalho e rodapé (por exemplo, WPCode) e cole o código na área <strong>Header</strong>. Ou use o <code>functions.php</code> do tema filho.</li><li><strong>Wix, Webflow, Shopify e similares:</strong> procure <strong>Código personalizado</strong> ou <strong>Custom code</strong> nas configurações do site, aplique a todas as páginas e posicione em <strong>Head</strong>.</li><li>Se você usa o GTM no CMS, prefira a instalação pelo GTM.</li></ol>}
-          <small>Instale a Super Tag uma única vez. Se ela estiver no site e também no GTM, as visitas são contadas em dobro.</small></div>
+    <div className="st-layout">
+      <SiteSidebar sites={sites} loading={sitesLoading} query={siteQuery} onQuery={setSiteQuery} selectedId={selectedId} clientId={data.client.client_id} canAdd={canEdit} onAdd={openInstall} renderFavicon={renderFavicon}/>
+      <main className="st-main">
+        {!selected&&!sitesLoading&&<div className="st-empty"><h2>{sitesTotal?'Selecione um site':canEdit?'Conecte seu primeiro site':'Nenhum site conectado'}</h2><p>{sitesTotal?'Escolha um site na lista para ver a instalação, os eventos e os fluxos vinculados.':canEdit?'Instale a Super Tag para acompanhar visitas e eventos consentidos.':'Os sites autorizados para este cliente aparecerão aqui.'}</p>{!sitesTotal&&canEdit&&<ReportsActionButton color="primary" onClick={openInstall}>Conectar site</ReportsActionButton>}</div>}
+        {selected&&<>
+          <SiteSummary site={selected} renderFavicon={renderFavicon}/>
+          <ReportsTabs className="reports-site-tabs" label="Áreas do site" value={siteTab} onChange={setSiteTab} items={tabs}/>
+          {detailLoading&&<p className="st-muted" role="status">Carregando dados do site…</p>}
+          {siteTab==='overview'&&<>
+            <InstallStatus site={selected} hasEvents={hasEvents} verify={verify} verifying={verifying} onVerify={verifyInstall} onCopy={()=>copy(selected.snippet)} canEdit={canEdit}/>
+            <div className="st-grid"><InstallCard site={selected} onCopy={()=>copy(selected.snippet)} onDownload={downloadSnippet} onEmail={emailSnippet}/>{hasEvents?<RecentEvents summary={detail?.summary}/>:<InstallGuide/>}</div>
+            <div className="st-grid st-grid--wide"><LinkedFlows flows={siteFlows} site={selected} clientId={data.client.client_id}/><AccessCard data={data} site={selected}/></div>
+          </>}
+          {siteTab==='install'&&<>
+            <InstallCard site={selected} onCopy={()=>copy(selected.snippet)} onDownload={downloadSnippet} onEmail={emailSnippet}/>
+            <InstallGuide/>
+          </>}
+          {siteTab==='flows'&&<LinkedFlows flows={siteFlows} site={selected} clientId={data.client.client_id}/>}
+          {siteTab==='settings'&&<article className="st-card st-settings"><header><div><h3>Configurações da tag</h3><p>Identificação, retenção e consentimento deste site.</p></div></header>
         <div className="reports-supertag-settings">
           <label>Duração do identificador<ReportsNativeSelect disabled={busy || data.client.role==='viewer'} value={selected.config?.audience_days || 365} onChange={event=>update({audience_days:Number(event.target.value)})}>{[[30,'30 dias'],[60,'60 dias'],[90,'90 dias'],[180,'6 meses'],[365,'1 ano'],[395,'13 meses (máximo do navegador)']].map(([days,name])=><option key={days} value={days}>{name}</option>)}</ReportsNativeSelect><small>Tempo que o mesmo visitante é reconhecido. Navegadores limitam este valor a cerca de 13 meses.</small></label>
           <label>Retenção dos eventos<ReportsNativeSelect disabled={busy || data.client.role==='viewer'} value={selected.config?.retention_days || 365} onChange={event=>update({retention_days:Number(event.target.value)})}>{[[30,'30 dias'],[60,'60 dias'],[90,'90 dias'],[180,'6 meses'],[365,'1 ano'],[730,'2 anos'],[1095,'3 anos'],[1825,'5 anos']].map(([days,name])=><option key={days} value={days}>{name}</option>)}</ReportsNativeSelect><small>Por quanto tempo os eventos ficam guardados para comparar períodos.</small></label>
@@ -1084,13 +1099,8 @@ function SuperTag({data}) {
           <label className="reports-checkbox"><ReportsFieldInput type="checkbox" disabled={busy || data.client.role==='viewer'} checked={selected.config?.visibility_enabled !== false} onChange={event=>update({visibility_enabled:event.target.checked})} /><span>Medir visibilidade em elementos marcados<small>Registra quando um elemento marcado aparece na tela.</small></span></label></div>
         <div className="reports-tag-card"><div className="reports-tag-card-head"><div><strong>Associar visita a um usuário conhecido</strong><small>Chame após login ou confirmação do formulário, com consentimento concedido</small></div></div><code>{"window.CaduSuperTag?.identify({ name: usuario.nome, email: usuario.email });"}</code><small>Também aceita telefone. E-mail e telefone são protegidos por HMAC; valores de formulário nunca são lidos automaticamente. A associação expira conforme a retenção configurada.</small></div>
         {data.client.role!=='viewer' && !selected.revoked_at && <ReportsActionButton type="button" className="reports-danger-button" disabled={busy} onClick={() => setRevokeConfirmOpen(true)}>Revogar instalação</ReportsActionButton>}
-      </> : <Empty message="Selecione uma instalação para ver seu código e as configurações."/>}
-    </article>
-    }
-    <ReportsDrawer open={installOpen} onOpenChange={setInstallOpen} onDiscard={()=>{setHost('');setLabel('Site principal');setSiteCheck(null);setError('');}} title="Nova instalação da Super Tag" description="Informe a página inicial para personalizar e testar a conexão." context={data.client.client_name}>
-      <form className="reports-form" onSubmit={create}><label>URL do site<ReportsFieldInput required type="url" value={host} onChange={event=>{setHost(event.target.value);setSiteCheck(null);}} placeholder="https://www.exemplo.com.br" /></label><ReportsActionButton type="button" className="reports-secondary-button" disabled={!host.trim()||checkingSite} onClick={checkSite}>{checkingSite?'Verificando site…':'Verificar site'}</ReportsActionButton>{siteCheck && <div className={`reports-site-preview${siteCheck.error?' has-error':''}`}><span className="reports-site-favicon">{siteCheck.favicon?<img src={siteCheck.favicon} alt=""/>:'◎'}</span><div><strong>{siteCheck.title||siteCheck.host||'Site encontrado'}</strong><small>{siteCheck.host}{siteCheck.status?` · Respondeu com HTTP ${siteCheck.status}`:''}</small></div>{!siteCheck.error&&<b>Ping concluído</b>}{siteCheck.error&&<p role="alert">{siteCheck.error}</p>}</div>}{error && <p className="reports-error" role="alert">{error}</p>}<label>Nome desta instalação<ReportsFieldInput required maxLength="120" value={label} onChange={event=>setLabel(event.target.value)} placeholder={siteCheck?.title||'Site principal'} /></label><p className="reports-info">A Super Tag verifica o domínio usando o servidor Python, identifica o título e favicon e confirma que o site responde. Eventos só serão coletados após consentimento.</p><div className="reports-modal-actions"><ReportsActionButton type="submit" className="reports-primary-button" disabled={busy||!siteCheck||Boolean(siteCheck.error)}>{busy?'Criando…':'Criar instalação'}</ReportsActionButton></div></form>
-    </ReportsDrawer>
-    {selected&&siteTab==='overview'&&detail && <>
+          </article>}
+          {selected&&siteTab==='overview'&&detail&&hasEvents && <div className="st-analytics">
       {hasEvents ? <div className="reports-supertag-analytics"><div className="reports-supertag-kpis"><Kpi label="Eventos · 30 dias" value={integer(detail.site.events_30d)} detail="Eventos aceitos pelo coletor" /><Kpi label="Páginas vistas" value={integer(kindTotal('page_view'))} detail="Após consentimento" /><Kpi label="Sessões conhecidas" value={integer(detail.known_sessions||0)} detail="Identificadas pelo site" /><Kpi label="Sessões encerradas" value={integer(detail.branding?.overall?.closed_sessions||0)} detail="Após 30 min sem eventos" /></div><BrandingInsights branding={detail.branding}/><article className="reports-panel reports-supertag-activity"><div className="reports-panel-head"><div><h2>Atividade por página</h2><p>Saída = última página de uma sessão encerrada</p></div><span>Últimos 30 dias</span></div>
         {detail.pages?.length ? <div className="reports-table-wrap"><table><thead><tr><th>Página</th><th>Visitas</th><th>Saídas</th><th>Tempo ativo médio</th><th>Formulários</th><th>Cliques</th><th>Conversões</th><th>Visibilidade</th><th>Rolagem</th></tr></thead><tbody>{detail.pages.map(item=><tr key={item.page_path}><td>{item.page_path}</td><td>{integer(item.views)}</td><td>{integer(item.exits)}</td><td>{item.avg_active_seconds==null?'—':`${decimal(item.avg_active_seconds)} s`}<small>{integer(item.measured_visits)} visitas medidas</small></td><td>{integer(item.form_submissions)}</td><td>{integer(item.clicks)}</td><td>{integer(item.conversions)}</td><td>{integer(item.visibility_events)}</td><td>{integer(item.scroll_events)}</td></tr>)}</tbody></table></div> : <Empty message="Os eventos aparecem depois de consentimento e da primeira visita." />}
       </article>
@@ -1099,11 +1109,16 @@ function SuperTag({data}) {
       </article>
       <article className="reports-panel reports-supertag-heatmap"><div className="reports-panel-head"><h2>Dados para mapas de interação</h2><span>{detail.heatmap?.length || 0} células agregadas</span></div><p>Cliques são agrupados em uma grade normalizada de 5% do viewport. Para mapas de visibilidade, marque os elementos com <code>data-cadu-track data-cadu-element="hero_cta"</code>. O código não lê texto nem valores de formulário.</p>
         {detail.heatmap?.length ? <div className="reports-table-wrap"><table><thead><tr><th>Tipo</th><th>Elemento</th><th>Grade normalizada</th><th>Ocorrências</th></tr></thead><tbody>{detail.heatmap.slice(0,30).map((item,index)=><tr key={`${item.event_kind}:${item.element_id}:${index}`}><td>{item.event_kind}</td><td>{item.element_id || '—'}</td><td>{item.x != null ? `${(Number(item.x)/10).toFixed(1)}–${Math.min(100,(Number(item.x)+49)/10).toFixed(1)}% × ${(Number(item.y)/10).toFixed(1)}–${Math.min(100,(Number(item.y)+49)/10).toFixed(1)}%` : item.ratio != null ? `${item.ratio}% visível` : item.depth != null ? `${item.depth}% rolagem` : '—'}</td><td>{integer(item.total)}</td></tr>)}</tbody></table></div> : <Empty message="Os agregados de cliques e visibilidade aparecerão com o tráfego consentido." />}
-      </article></div> : detail && <article className="reports-panel reports-supertag-first-connection"><div className="reports-connection-illustration" aria-hidden="true"><span>↗</span><i/><b/></div><div><h2>Sem eventos nos últimos 30 dias</h2><p>O site está cadastrado. Ainda não há eventos disponíveis neste período para exibir a atividade.</p><ReportsActionButton type="button" className="reports-primary-button" onClick={()=>setSiteTab('settings')}>Ver configurações da tag</ReportsActionButton></div></article>}
-    </>}
+      </article></div> : null}
+    </div>}
+        </>}
+      </main>
     </div>
+    <ReportsDrawer open={installOpen} onOpenChange={setInstallOpen} onDiscard={()=>{setHost('');setLabel('Site principal');setSiteCheck(null);setError('');}} title="Nova instalação da Super Tag" description="Informe a página inicial para personalizar e testar a conexão." context={data.client.client_name}>
+      <form className="reports-form" onSubmit={create}><label>URL do site<ReportsFieldInput required type="url" value={host} onChange={event=>{setHost(event.target.value);setSiteCheck(null);}} placeholder="https://www.exemplo.com.br" /></label><ReportsActionButton type="button" className="reports-secondary-button" disabled={!host.trim()||checkingSite} onClick={checkSite}>{checkingSite?'Verificando site…':'Verificar site'}</ReportsActionButton>{siteCheck && <div className={`reports-site-preview${siteCheck.error?' has-error':''}`}><span className="reports-site-favicon">{siteCheck.favicon?<img src={siteCheck.favicon} alt=""/>:'◎'}</span><div><strong>{siteCheck.title||siteCheck.host||'Site encontrado'}</strong><small>{siteCheck.host}{siteCheck.status?` · Respondeu com HTTP ${siteCheck.status}`:''}</small></div>{!siteCheck.error&&<b>Ping concluído</b>}{siteCheck.error&&<p role="alert">{siteCheck.error}</p>}</div>}{error && <p className="reports-error" role="alert">{error}</p>}<label>Nome desta instalação<ReportsFieldInput required maxLength="120" value={label} onChange={event=>setLabel(event.target.value)} placeholder={siteCheck?.title||'Site principal'} /></label><p className="reports-info">A Super Tag verifica o domínio usando o servidor Python, identifica o título e favicon e confirma que o site responde. Eventos só serão coletados após consentimento.</p><div className="reports-modal-actions"><ReportsActionButton type="submit" className="reports-primary-button" disabled={busy||!siteCheck||Boolean(siteCheck.error)}>{busy?'Criando…':'Criar instalação'}</ReportsActionButton></div></form>
+    </ReportsDrawer>
     <ReportsConfirmDialog open={revokeConfirmOpen} title="Revogar Super Tag" description="A coleta neste domínio será interrompida. Os dados já recebidos permanecem no Reports." confirmLabel="Revogar instalação" busy={busy} onCancel={() => setRevokeConfirmOpen(false)} onConfirm={revoke} />
-  </section></>;
+  </section>;
 }
 
 function Events({data, filters, initialKind = 'all', refreshRevision}) {

@@ -1058,7 +1058,7 @@ def register(bp):
                 abort(400, description='Escolha um intervalo de até 367 dias.')
             event_period_filter = ''
             event_date_filter = ' AND e.occurred_at >= %s::date AND e.occurred_at < (%s::date + INTERVAL \'1 day\')'
-            event_scope_params = [*params, *scope_params[3:], parsed_start.isoformat(), parsed_end.isoformat()]
+            event_scope_params = [*params, *scope_params[len(params)+1:], parsed_start.isoformat(), parsed_end.isoformat()]
         elif start_date or end_date:
             abort(400, description='Informe as duas datas do intervalo.')
         event_scoped_events = '''WITH selected_events AS (
@@ -1270,7 +1270,7 @@ def register(bp):
         confirmed_params = list(conversion_params)
         if start_date and end_date:
             confirmed_time_filter = "x.occurred_at >= %s::date AND x.occurred_at < (%s::date + INTERVAL '1 day')"
-            confirmed_params = [*params, parsed_start.isoformat(), parsed_end.isoformat(), *conversion_params[3:]]
+            confirmed_params = [*params, parsed_start.isoformat(), parsed_end.isoformat(), *conversion_params[len(params)+1:]]
         confirmed = _rows('''SELECT x.conversion_kind,COUNT(*)::bigint AS total
             FROM cadu_reports_external_conversions x
             LEFT JOIN cadu_reports_campaigns c ON c.id=x.campaign_id

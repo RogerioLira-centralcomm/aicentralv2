@@ -114,7 +114,10 @@ def _pinned_get(url: str, addresses: set[str], *, accept: str):
         connection = getattr(response, "_connection", None) or getattr(response, "connection", None)
         sock = getattr(connection, "sock", None)
         peer = str(sock.getpeername()[0]) if sock else ""
-        if peer not in addresses or not ip_address(peer).is_global:
+        # Allow CDN/proxy endpoints (different IP but global) when domain remains valid
+        if peer and ip_address(peer).is_global:
+            return _PinnedResponse(response, pool)
+        if peer not in addresses:
             response.release_conn()
             pool.close()
             raise BadRequest("O endereço conectado não corresponde ao destino público validado.")
@@ -211,7 +214,8 @@ def _request(url: str, *, accept: str, session=None, max_bytes=MAX_HTML_BYTES):
                                   timeout=REQUEST_TIMEOUT, stream=True, allow_redirects=False)
             try:
                 peer = _connected_ip(response)
-                if peer not in expected_addresses or not ip_address(peer).is_global:
+                # Allow global public IPs (including CDN/proxy) to reach any global address
+                if peer and not ip_address(peer).is_global:
                     raise BadRequest("O endereço conectado não corresponde ao destino público validado.")
             except Exception:
                 response.close()

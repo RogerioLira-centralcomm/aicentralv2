@@ -46,6 +46,7 @@
   var activeController = null;
   var hasConsentManager = false;
   var consentResolved = false;
+  var tcfBound = false;
   var cookieName = 'cadu_stg_' + siteId.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 24);
 
   function readCookie(name) {
@@ -55,7 +56,7 @@
   }
 
   function writeCookie(value, days) {
-    document.cookie = cookieName + '=' + encodeURIComponent(value) + '; Max-Age=' + (days * 86400) +
+    document.cookie = cookieName + '=' + encodeURIComponent(value) + '; Max-Age=' + (Math.min(days, 395) * 86400) +
       '; Path=/; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
   }
 
@@ -121,6 +122,8 @@
     try {
       if (window.__tcfapi) {
         hasConsentManager = true;
+        if (tcfBound) return true;
+        tcfBound = true;
         window.__tcfapi('addEventListener', 2, function (tcData, success) {
           if (success && tcData && (tcData.eventStatus === 'tcloaded' || tcData.eventStatus === 'useractioncomplete')) {
             setConsent(!!(tcData.purpose && tcData.purpose.consents && tcData.purpose.consents[1]));
@@ -149,10 +152,67 @@
     return false;
   }
 
-  function showConsentPromptDeferred(fromCmp) {
-    window.setTimeout(function () {
-      if (!hasConsentManager && !consentResolved && consentMode !== 'manual' && consentState === 'unknown') showConsentPrompt();
-    }, 3000);
+  // Google Consent Mode: CMPs that talk to gtag/GTM push consent commands to dataLayer. An 'update' is the
+  // visitor's answer; a 'default' only tells us a CMP is expected, so we must wait instead of asking twice.
+  function readGoogleConsent() {
+    var layer = window.dataLayer, answer, declared = false;
+    if (!layer || !layer.length) return {declared: false};
+    for (var i = 0; i < layer.length; i++) {
+      var item = layer[i];
+      if (!item || item[0] !== 'consent' || !item[2]) continue;
+      declared = true;
+      if (item[1] === 'update' && item[2].analytics_storage) answer = item[2].analytics_storage;
+    }
+    return {declared: declared, answer: answer};
+  }
+
+  var CMP_BANNERS = '#onetrust-banner-sdk,#CybotCookiebotDialog,#cookiebanner,#cookie-law-info-bar,#cmplz-cookiebanner-container,.cmplz-cookiebanner,.cky-consent-container,#iubenda-cs-banner,#usercentrics-root,#didomi-host,#truste-consent-track,.osano-cm-window,#cookie-notice,#moove_gdpr_cookie_info_bar,.cc-window,.cc_banner,#sp-cc,#cookiescript_injected,[id*="cookie-banner" i],[class*="cookie-banner" i],[id*="cookie-consent" i],[class*="cookie-consent" i],[id*="cookieconsent" i],[class*="cookieconsent" i],[id*="lgpd" i],[class*="lgpd" i],[aria-label*="cookies" i],[aria-label*="privacidade" i]';
+
+  function foreignBannerVisible() {
+    try {
+      var nodes = document.querySelectorAll(CMP_BANNERS);
+      for (var i = 0; i < nodes.length; i++) {
+        if (consentUi && (nodes[i] === consentUi || consentUi.contains(nodes[i]))) continue;
+        var box = nodes[i].getBoundingClientRect();
+        if (box.width > 0 && box.height > 0) return true;
+      }
+    } catch (_) { /* Selector support varies. */ }
+    return false;
+  }
+
+  function detectLateConsent() {
+    if (existingConsent()) return true;
+    var google = readGoogleConsent();
+    if (google.declared) hasConsentManager = true;
+    if (google.answer) { setConsent(google.answer === 'granted'); return true; }
+    return false;
+  }
+
+  // CMPs often load after this script (GTM, deferred plugins). Keep looking before asking, and never ask while
+  // another banner is on screen: the visitor would see two prompts for the same decision.
+  function showConsentPromptDeferred() {
+    var tries = 0;
+    (function wait() {
+      tries += 1;
+      if (consentState !== 'unknown' || consentMode === 'manual') return;
+      detectLateConsent();
+      if (consentState !== 'unknown') return;
+      if (!hasConsentManager && !consentResolved && tries >= 5 && !foreignBannerVisible()) { showConsentPrompt(); return; }
+      if (tries < 60) window.setTimeout(wait, 1000);
+    })();
+  }
+
+  // Answers given after load through Google Consent Mode (the visitor accepts on the site's own banner).
+  function watchGoogleConsent() {
+    var tries = 0, timer = window.setInterval(function () {
+      tries += 1;
+      var answer = readGoogleConsent().answer;
+      if (answer) {
+        var granted = answer === 'granted';
+        if (granted !== consented || consentState === 'unknown') setConsent(granted);
+      }
+      if (tries >= 600) window.clearInterval(timer);
+    }, 1000);
   }
 
   function showConsentPrompt() {
@@ -311,7 +371,7 @@
     if (!config || !consented || started) return;
     started = true;
     visitorId = readCookie(cookieName) || crypto.randomUUID();
-    writeCookie(visitorId, config.audience_days || 90);
+    writeCookie(visitorId, config.audience_days || 365);
     try {
       sessionId = sessionStorage.getItem(cookieName + '_session') || crypto.randomUUID();
       lastMeaningfulAt = Number(sessionStorage.getItem(cookieName + '_active_at')) || Date.now();
@@ -443,6 +503,7 @@
     if (detail && Object.prototype.hasOwnProperty.call(detail, 'analytics')) setConsent(detail.analytics);
   });
   existingConsent();
+  watchGoogleConsent();
   window.addEventListener('cadu:consent', function () { hasConsentManager = true; });
   window.addEventListener('CookiebotOnAccept', function () { hasConsentManager = true; consentResolved = true; setConsent(!!(window.Cookiebot && window.Cookiebot.consent && window.Cookiebot.consent.statistics)); });
   window.addEventListener('CookiebotOnDecline', function () { hasConsentManager = true; consentResolved = true; setConsent(false); });

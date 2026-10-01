@@ -24,6 +24,11 @@ from ..cadu_workspace.brand_site_inspector import (
 from .reports_flow import _campaign_match, _host_allowed, _safe_path
 from .reports_v1 import _rows, _selection, _write_guard
 
+# Browsers cap first-party cookies at ~400 days, so the identifier stops at 395; event retention has no such cap.
+AUDIENCE_DAYS_CHOICES = (30, 60, 90, 180, 365, 395)
+RETENTION_DAYS_CHOICES = (30, 60, 90, 180, 365, 730, 1095, 1825)
+DEFAULT_AUDIENCE_DAYS = 365
+DEFAULT_RETENTION_DAYS = 365
 MAX_BATCH_EVENTS = 25
 MAX_BATCH_BYTES = 32 * 1024
 MAX_SITE_EVENTS_PER_MINUTE = 10_000
@@ -494,9 +499,9 @@ def register(bp):
             abort(400, description='Informe e-mail ou telefone para reconhecer o visitante.')
         kind, value = ('email', normalized_email) if normalized_email else ('phone', normalized_phone)
         identity_digest = _known_identity_digest(site, campaign_scope, kind, value)
-        retention_days = (site.get('config') or {}).get('retention_days', 90)
-        if isinstance(retention_days, bool) or retention_days not in (30, 60, 90, 180, 365):
-            retention_days = 90
+        retention_days = (site.get('config') or {}).get('retention_days', DEFAULT_RETENTION_DAYS)
+        if isinstance(retention_days, bool) or retention_days not in RETENTION_DAYS_CHOICES:
+            retention_days = DEFAULT_RETENTION_DAYS
         session_row = _rows('''INSERT INTO cadu_reports_supertag_sessions
                 (site_id,session_id,visitor_id,ip_digest,started_at,last_seen_at,campaign_scope,expires_at)
             VALUES (%s,%s,%s,%s,NOW(),NOW(),%s,NOW() + (%s * INTERVAL '1 day'))
@@ -602,12 +607,12 @@ def register(bp):
                 abort(400, description='Informe se a coleta de visibilidade está ativa.')
             config['visibility_enabled'] = payload['visibility_enabled']
         if 'audience_days' in payload:
-            if isinstance(payload['audience_days'], bool) or payload['audience_days'] not in (30, 60, 90, 180, 365):
-                abort(400, description='Escolha uma retenção entre 30 e 365 dias.')
+            if isinstance(payload['audience_days'], bool) or payload['audience_days'] not in AUDIENCE_DAYS_CHOICES:
+                abort(400, description='Escolha uma duração entre 30 e 395 dias.')
             config['audience_days'] = payload['audience_days']
         if 'retention_days' in payload:
-            if isinstance(payload['retention_days'], bool) or payload['retention_days'] not in (30, 60, 90, 180, 365):
-                abort(400, description='Escolha a retenção dos eventos entre 30 e 365 dias.')
+            if isinstance(payload['retention_days'], bool) or payload['retention_days'] not in RETENTION_DAYS_CHOICES:
+                abort(400, description='Escolha a retenção dos eventos entre 30 dias e 5 anos.')
             config['retention_days'] = payload['retention_days']
         updated = _rows('''UPDATE cadu_reports_supertag_sites SET label=%s,allowed_host=%s,
             config=%s::jsonb,config_version=config_version+1,updated_at=NOW()
@@ -646,7 +651,7 @@ def register(bp):
         response = make_response(jsonify(site_id=site['public_id'], config_version=site['config_version'],
             consent_required=True, consent_mode=(site.get('config') or {}).get('consent_mode', 'auto'),
             visibility_enabled=(site.get('config') or {}).get('visibility_enabled', True),
-            audience_days=(site.get('config') or {}).get('audience_days', 90)))
+            audience_days=(site.get('config') or {}).get('audience_days', DEFAULT_AUDIENCE_DAYS)))
         response.headers['Cache-Control'] = 'public, max-age=300, stale-while-revalidate=3600'
         response.set_etag(f'{site["public_id"]}:{site["config_version"]}')
         return response.make_conditional(request)
@@ -694,9 +699,9 @@ def register(bp):
             abort(403)
         prepared = [_event(item, site) for item in events]
         ip_digest = _ip_digest()
-        retention_days = (site.get('config') or {}).get('retention_days', 90)
-        if isinstance(retention_days, bool) or retention_days not in (30, 60, 90, 180, 365):
-            retention_days = 90
+        retention_days = (site.get('config') or {}).get('retention_days', DEFAULT_RETENTION_DAYS)
+        if isinstance(retention_days, bool) or retention_days not in RETENTION_DAYS_CHOICES:
+            retention_days = DEFAULT_RETENTION_DAYS
         conn = get_db()
         try:
             for event_id in sorted(str(item[0]) for item in prepared):

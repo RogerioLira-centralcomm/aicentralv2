@@ -8,7 +8,7 @@ import {CREATIVE_FORMATS, CREATIVE_STATUSES, LIMITS, OBJECTIVES, entryPageFor, m
 
 const newId = () => crypto.randomUUID().slice(0, 8);
 
-function SourceMedia({node, config, host, flowName, readOnly, onMediaChange, onSelect}) {
+export function SourceMedia({node, config, host, flowName, readOnly, onMediaChange, onSelect}) {
   const [setupDraft, setSetupDraft] = useState('');
   const [copied, setCopied] = useState(false);
   const block = flowBlockFor(node);
@@ -16,7 +16,7 @@ function SourceMedia({node, config, host, flowName, readOnly, onMediaChange, onS
   const creatives = media.creatives || [];
   const setup = media.setup || [];
   const entry = entryPageFor(config, node.id);
-  const link = utmLink(node, {platform: block.source || node.source, host, entryPath: entry?.path, flowName});
+  const link = utmLink(node, {platform: block.source || node.source, host: host || entry?.host || '', entryPath: entry?.path, flowName});
   const progress = mediaProgress(node);
   const update = patch => onMediaChange(node.id, {...media, ...patch});
   const setCreative = (id, patch) => update({creatives: creatives.map(item => item.id === id ? {...item, ...patch} : item)});
@@ -32,7 +32,7 @@ function SourceMedia({node, config, host, flowName, readOnly, onMediaChange, onS
     <div className="flow-media-utm">
       <strong>Link com UTM</strong>
       {link.url ? <><code>{link.url}</code><Button color="secondary" onClick={copy}>{copied ? 'Copiado' : 'Copiar link'}</Button></>
-        : <small>{host ? 'Defina o endereço da página de entrada desta origem para gerar o link.' : 'Conecte o site do fluxo para gerar o link.'} Parâmetros: <code>{link.query}</code></small>}
+        : <small>{entry ? 'Defina a URL completa da página de entrada para gerar o link.' : 'Conecte esta origem a uma página para gerar o link.'} Parâmetros: <code>{link.query}</code></small>}
     </div>
     <section aria-label="Criativos"><h4>Criativos <small>{creatives.length}</small></h4>
       {creatives.map(item => <div key={item.id} className="flow-media-creative">

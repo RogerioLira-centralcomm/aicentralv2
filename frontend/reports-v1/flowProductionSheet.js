@@ -71,7 +71,7 @@ const CSV_COLUMNS = [
 ];
 
 // Spreadsheet apps execute cells that start with these characters as formulas.
-const cell = value => {
+export const sheetCell = value => {
   let text = String(value ?? '');
   if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
   return /[";\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
@@ -80,7 +80,7 @@ const cell = value => {
 export function productionSheetCsv(sheet) {
   const rows = sheet.sections.flatMap(section => section.items);
   return '﻿' + [CSV_COLUMNS.map(([label]) => label), ...rows.map(item => CSV_COLUMNS.map(([, read]) => read(item)))]
-    .map(row => row.map(cell).join(';')).join('\r\n');
+    .map(row => row.map(sheetCell).join(';')).join('\r\n');
 }
 
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'})[char]);

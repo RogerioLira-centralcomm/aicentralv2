@@ -44,3 +44,11 @@ test('estratégias nascem com público, objetivo e mídia em cada canal pago, e 
   const section = buildProductionSheet(plan).sections.find(item => item.id === 'source');
   assert(section.items.every(item => !item.done && item.missing.length && item.segment && item.objective));
 });
+
+test('o CSV da revisão protege fórmulas e separa por ponto e vírgula', async () => {
+  const {sheetCell} = await import('../../frontend/reports-v1/flowProductionSheet.js');
+  assert.equal(sheetCell('=SOMA(A1)'), "'=SOMA(A1)");
+  assert.equal(sheetCell('a;b'), '"a;b"');
+  assert.equal(sheetCell('linha 1\nlinha 2'), '"linha 1\nlinha 2"');
+  assert.equal(sheetCell('ok'), 'ok');
+});

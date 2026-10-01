@@ -1,6 +1,7 @@
 """Small server-side client for TypeSafe System One evaluations."""
 
 import json
+import logging
 import time
 
 import requests
@@ -12,7 +13,12 @@ from .integration_credentials import (
 )
 
 
+logger = logging.getLogger(__name__)
+
 API_URL = "https://api.typesafe.ai/v1/systemone"
+RETRYABLE_STATUS = (429, 502, 503, 504, 529)
+MAX_ATTEMPTS = 3
+TOTAL_DEADLINE_SECONDS = 60
 
 
 class TypeSafeError(RuntimeError):
@@ -46,6 +52,7 @@ def system_one(state, questions, *, model=None, timeout=30, attempts=3):
     try:
         config = get_configuration("typesafe")
     except Exception:
+        logger.warning("TypeSafe configuration unavailable; using the default model", exc_info=True)
         config = {}
     if not isinstance(config, dict):
         config = {}
@@ -54,7 +61,12 @@ def system_one(state, questions, *, model=None, timeout=30, attempts=3):
     ).strip()
     if not request_model or len(request_model) > 120:
         raise TypeSafeError("O modelo TypeSafe configurado é inválido.")
-    for attempt in range(max(1, min(3, attempts))):
+    max_attempts = max(1, min(MAX_ATTEMPTS, attempts))
+    deadline = time.monotonic() + TOTAL_DEADLINE_SECONDS
+    for attempt in range(max_attempts):
+        remaining = deadline - time.monotonic()
+        if attempt and remaining <= 0:
+            break
         try:
             response = requests.post(
                 API_URL,
@@ -63,12 +75,19 @@ def system_one(state, questions, *, model=None, timeout=30, attempts=3):
                     "Content-Type": "application/json",
                 },
                 json={"state": state, "model": request_model, "questions": questions},
-                timeout=timeout,
+                timeout=max(1, min(timeout, remaining)),
             )
+        except (requests.Timeout, requests.ConnectionError) as exc:
+            logger.warning("TypeSafe request failed (%s) on attempt %d", type(exc).__name__, attempt + 1)
+            if attempt == max_attempts - 1:
+                raise TypeSafeError("Não foi possível conectar à API TypeSafe.") from exc
+            time.sleep(_typesafe_retry_delay(None, attempt))
+            continue
         except requests.RequestException as exc:
             raise TypeSafeError("Não foi possível conectar à API TypeSafe.") from exc
-        if response.status_code not in (429, 529) or attempt == max(1, min(3, attempts)) - 1:
+        if response.status_code not in RETRYABLE_STATUS or attempt == max_attempts - 1:
             break
+        logger.warning("TypeSafe returned HTTP %d on attempt %d; retrying", response.status_code, attempt + 1)
         time.sleep(_typesafe_retry_delay(response.headers.get("Retry-After"), attempt))
 
     if response.status_code in (401, 403):
@@ -77,7 +96,10 @@ def system_one(state, questions, *, model=None, timeout=30, attempts=3):
         raise TypeSafeError("A API TypeSafe limitou as chamadas. Tente novamente mais tarde.")
     if response.status_code == 529:
         raise TypeSafeError("A API TypeSafe está temporariamente sobrecarregada.")
+    if response.status_code in (502, 503, 504):
+        raise TypeSafeError("A API TypeSafe está temporariamente indisponível.")
     if response.status_code >= 400:
+        logger.warning("TypeSafe rejected the evaluation with HTTP %d", response.status_code)
         raise TypeSafeError(f"A API TypeSafe retornou HTTP {response.status_code}.")
     try:
         result = response.json()
@@ -91,4 +113,18 @@ def system_one(state, questions, *, model=None, timeout=30, attempts=3):
         raise TypeSafeError("A resposta TypeSafe não contém respostas tipadas.")
     if any(question_id not in result["answers"] for question_id in questions):
         raise TypeSafeError("A resposta TypeSafe não contém todas as avaliações solicitadas.")
+    if any(not _valid_answer(result["answers"][question_id], question["type"])
+           for question_id, question in questions.items()):
+        raise TypeSafeError("A resposta TypeSafe tem avaliações com formato inválido.")
+    logger.info("TypeSafe evaluation ok: model=%s input_tokens=%d output_tokens=%d",
+                result["model"], usage["input_tokens"], usage["output_tokens"])
     return result
+
+
+def _valid_answer(answer, expected_type):
+    if not isinstance(answer, dict) or answer.get("type") != expected_type:
+        return False
+    value = answer.get(expected_type)
+    if expected_type == "choice":
+        return isinstance(value, str) and bool(value)
+    return isinstance(value, (int, float)) and not isinstance(value, bool)

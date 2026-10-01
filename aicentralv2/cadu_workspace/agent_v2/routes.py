@@ -99,11 +99,6 @@ def conversations_v2_lab():
         user_id=session.get("user_id"),
         is_internal=bool(session.get("is_centralcomm")),
     ).public_metadata()
-    if not conversation_rollout["shell_v2"]:
-        return render_template(
-            "cadu_workspace/conversations.html",
-            conversation_runtime_v2=conversation_rollout["runtime_v2"],
-        )
     return render_template(
         "cadu_workspace/conversations_v2_lab.html",
         chat_brands=dock_brands, chat_projects=menu_projects, dock_items=dock_items,

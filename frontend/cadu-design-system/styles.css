@@ -3029,15 +3029,7 @@ body.portal--workspace .cadu-ds-brand-hero__meta { margin-top:5px; }
 
 /* Workspace plan catalog follows a conventional SaaS pricing layout while
    keeping every displayed value tied to the active plan definitions. */
-.cadu-ds-account-shell .cadu-ds-pricing-heading { max-width:720px; margin:10px auto 8px; text-align:center; }
-.cadu-ds-account-shell .cadu-ds-pricing-heading>span,
 .cadu-ds-account-shell .cadu-ds-pricing-comparison>header>span { color:var(--cadu-accent-strong); font-size:10px; font-weight:750; letter-spacing:.1em; text-transform:uppercase; }
-.cadu-ds-account-shell .cadu-ds-pricing-heading h1 { margin:8px 0; color:var(--cadu-ink); font-size:clamp(28px,4vw,40px); letter-spacing:-.045em; line-height:1.08; }
-.cadu-ds-account-shell .cadu-ds-pricing-heading p { margin:0; color:var(--cadu-muted); font-size:13px; line-height:1.5; }
-.cadu-ds-account-shell .cadu-ds-pricing-current { display:flex; align-items:center; gap:10px; width:max-content; max-width:100%; margin:14px auto 2px; padding:9px 13px; border:1px solid var(--cadu-line); border-radius:999px; background:var(--cadu-surface); }
-.cadu-ds-account-shell .cadu-ds-pricing-current span { color:var(--cadu-muted); font-size:11px; }
-.cadu-ds-account-shell .cadu-ds-pricing-current strong { color:var(--cadu-ink); font-size:12px; }
-.cadu-ds-account-shell .cadu-ds-pricing-current a { color:var(--cadu-accent-strong); font-size:11px; font-weight:700; text-decoration:none; }
 .cadu-ds-account-shell .cadu-ds-pricing-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); align-items:stretch; gap:14px; margin-top:18px; }
 .cadu-ds-account-shell .cadu-ds-pricing-card { position:relative; display:flex; min-width:0; flex-direction:column; padding:20px; border:1px solid var(--cadu-line); border-radius:14px; background:var(--cadu-surface); }
 .cadu-ds-account-shell .cadu-ds-pricing-card.is-current { border-color:color-mix(in srgb,var(--cadu-accent) 62%,var(--cadu-line)); box-shadow:0 0 0 2px color-mix(in srgb,var(--cadu-accent-soft) 56%,transparent); }
@@ -3082,7 +3074,6 @@ body.portal--workspace .cadu-ds-brand-hero__meta { margin-top:5px; }
   .cadu-ds-account-shell .cadu-ds-conversion-steps { grid-template-columns:1fr; }
   .cadu-ds-account-shell .cadu-ds-credit-usage-guide__grid { grid-template-columns:1fr; }
   .cadu-ds-account-shell .cadu-ds-plan-grid { grid-template-columns:1fr; }
-  .cadu-ds-account-shell .cadu-ds-pricing-current { align-items:flex-start; flex-wrap:wrap; justify-content:center; border-radius:12px; }
   .cadu-ds-account-shell .cadu-ds-pricing-card { padding:17px; }
 }
 

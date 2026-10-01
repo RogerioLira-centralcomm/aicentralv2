@@ -17,24 +17,12 @@ const HOME_ITEMS = [
 ];
 const MOBILE_HOME_ITEMS = HOME_ITEMS;
 
-const ACCOUNT_ITEMS = [
-  {id: 'agencia', label: 'Agência', key: 'agencia', icon: 'home'},
-  {id: 'equipe', label: 'Equipe', key: 'equipe', icon: 'folder'},
-  {id: 'faturamento', label: 'Faturamento', key: 'faturamento', icon: 'file'},
-  {id: 'integracoes', label: 'Integrações', key: 'integracoes', icon: 'external'},
-  {id: 'planos', label: 'Plano', key: 'planos', icon: 'pulse'},
-  {id: 'perfil', label: 'Perfil', key: 'perfil', icon: 'brand'},
-  {id: 'uso', label: 'Uso', key: 'uso', icon: 'pulse'},
-  {id: 'creditos', label: 'Créditos', key: 'creditos', icon: 'history'},
-  {id: 'observabilidade', label: 'Observabilidade do Cadu', key: 'observability', icon: 'pulse'},
-];
-
 function readCollapsed(mode, preferenceKey) {
   try {
     if (mode === 'home' && window.matchMedia('(max-width: 760px)').matches) return true;
     const saved = window.localStorage.getItem(`cadu:sidebar:${preferenceKey}`);
-    return mode === 'home' || mode === 'account' ? saved !== 'open' : saved === 'collapsed';
-  } catch (_) { return mode === 'home' || mode === 'account'; }
+    return mode === 'home' ? saved !== 'open' : saved === 'collapsed';
+  } catch (_) { return mode === 'home'; }
 }
 
 const AVATAR_BADGES = ['badge-comet.png', 'badge-ribbon.png', 'badge-orbit.png', 'badge-prism.png', 'badge-sunburst.png', 'badge-sphere.png'];
@@ -87,7 +75,7 @@ export function WorkspaceContextSidebar({mode = 'home', preferenceKey = mode, bo
   const projects = Array.isArray(shared.projects) ? shared.projects : projectsProp;
   const [storedCollapsed, setCollapsed] = useState(() => readCollapsed(mode, preferenceKey));
   const collapsed = rail || storedCollapsed;
-  const items = mode === 'account' ? ACCOUNT_ITEMS : HOME_ITEMS;
+  const items = HOME_ITEMS;
   const recentFiles = useMemo(() => resources.filter(item => item?.href || item?.url).slice(0, 3), [resources]);
   const userName = String(bootstrap.user?.name || '').trim();
   const firstName = userName.split(/\s+/)[0] || 'Conta';
@@ -114,12 +102,12 @@ export function WorkspaceContextSidebar({mode = 'home', preferenceKey = mode, bo
   }, [collapsed, preferenceKey, rail]);
   useEffect(() => { onCollapsedChange?.(collapsed); }, [collapsed, onCollapsedChange]);
 
-  return <aside className={`cadu-ds-context-sidebar is-${mode} ${collapsed ? 'is-collapsed' : ''}${rail ? ' is-rail' : ''}`} aria-label={mode === 'account' ? 'Navegação da conta' : 'Navegação do Workspace'}>
+  return <aside className={`cadu-ds-context-sidebar is-${mode} ${collapsed ? 'is-collapsed' : ''}${rail ? ' is-rail' : ''}`} aria-label="Navegação do Workspace">
     <header className="cadu-ds-context-sidebar__header">
-      {mode === 'home' && !collapsed ? <div className="cadu-ds-context-sidebar__solution"><CaduSolutionSwitcher logo={bootstrap.caduMark} solutions={workspaceSolutionItems(bootstrap)} activeId="workspace" showActiveLabel overlay/></div> : (mode === 'home' || (mode === 'account' && collapsed)) ? <a className="cadu-ds-context-sidebar__collapsed-home" href={links.home || '/workspace/app'} aria-label="Início do Workspace"><img src={bootstrap.caduMark} alt=""/></a> : mode === 'account' ? <div className="cadu-ds-context-sidebar__heading"><span>Conta</span></div> : null}
+      {mode === 'home' && !collapsed ? <div className="cadu-ds-context-sidebar__solution"><CaduSolutionSwitcher logo={bootstrap.caduMark} solutions={workspaceSolutionItems(bootstrap)} activeId="workspace" showActiveLabel overlay/></div> : mode === 'home' ? <a className="cadu-ds-context-sidebar__collapsed-home" href={links.home || '/workspace/app'} aria-label="Início do Workspace"><img src={bootstrap.caduMark} alt=""/></a> : null}
       {!rail && <button type="button" className="cadu-ds-context-sidebar__toggle" onClick={() => setCollapsed(value => !value)} aria-label={collapsed ? 'Abrir navegação' : 'Fechar navegação'} aria-expanded={!collapsed}><span className="cadu-ds-context-sidebar__toggle-mobile">{collapsed ? 'Menu' : 'Fechar'}</span><span className="cadu-ds-context-sidebar__toggle-desktop" aria-hidden="true">{collapsed ? '›' : '‹'}</span></button>}
     </header>
-    {items.length > 0 && <nav className="cadu-ds-context-sidebar__nav" aria-label={mode === 'account' ? 'Seções da conta' : 'Seções do Workspace'}>
+    {items.length > 0 && <nav className="cadu-ds-context-sidebar__nav" aria-label="Seções do Workspace">
       {items.map(item => { const href = links[item.key]; if (!href) return null; return <a key={item.id} href={href} className={active === item.id ? 'is-active' : ''} aria-current={active === item.id ? 'page' : undefined} title={collapsed ? item.label : undefined}><Icon name={item.icon} size={16}/><span>{item.label}</span></a>; })}
     </nav>}
     {mode === 'home' && <nav className="cadu-ds-context-sidebar__nav cadu-ds-context-sidebar__nav--mobile" aria-label="Destinos do Workspace">{MOBILE_HOME_ITEMS.map(item => links[item.key] ? <a key={item.id} href={links[item.key]}><Icon name={item.icon} size={16}/><span>{item.label}</span></a> : null)}</nav>}

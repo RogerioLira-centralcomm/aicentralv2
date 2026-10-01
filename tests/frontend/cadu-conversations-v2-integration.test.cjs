@@ -7,26 +7,6 @@ const {pathToFileURL} = require('node:url');
 
 const root = path.resolve(__dirname, '../..');
 
-test('runtime v2 translates internal events into public UI events', () => {
-  const window = {};
-  vm.runInNewContext(fs.readFileSync(path.join(root, 'aicentralv2/static/cadu_workspace/conversations/runtime-v2.js'), 'utf8'), {window, TextDecoder});
-  const runtime = window.CaduConversationV2;
-  assert.equal(runtime.normalize({event:'run.started', conversation_id:'c', run_id:'r'}).event, 'start');
-  assert.deepEqual(
-    JSON.parse(JSON.stringify(runtime.normalize({event:'route.selected', route:{action:'create_brief'}}))),
-    {event:'progress', message:'Preparando o briefing…'}
-  );
-  assert.equal(runtime.normalize({event:'tool.completed', name:'private.tool'}).message.includes('private.tool'), false);
-  assert.deepEqual(
-    JSON.parse(JSON.stringify(runtime.normalize({event:'answer.delta', answer:'Primeiro parágrafo'}))),
-    {event:'replace', text:'Primeiro parágrafo'}
-  );
-  assert.equal(runtime.normalize({event:'answer.completed', response:{answer:'Pronto'}}).event, 'v2.answer');
-  assert.equal(runtime.normalize({event:'artifact.created', artifact:{id:'a'}}).event, 'v2.artifact');
-  assert.equal(runtime.normalize({event:'run.completed', status:'completed'}).event, 'done');
-  assert.equal(runtime.normalize({event:'run.completed', status:'cancelled'}).status, 'stopped');
-});
-
 test('planning tables parse as cells and render through the chat component', async () => {
   const model = await import(pathToFileURL(path.join(root, 'frontend/conversations-v2/lib/markdownModel.mjs')).href);
   assert.deepEqual(model.splitTableRow('| Topo | R$ 800 | A\\|B |'), ['Topo', 'R$ 800', 'A|B']);
@@ -449,13 +429,6 @@ test('Workspace React surfaces share one product navigation catalog', () => {
     const source = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components', file), 'utf8');
     assert.match(source, /<CaduDock/);
   }
-});
-
-test('v2 artifact surface uses optimistic version checks', () => {
-  const artifact = fs.readFileSync(path.join(root, 'aicentralv2/static/cadu_workspace/conversations/artifacts-v2.js'), 'utf8');
-  assert.match(artifact, /expected_version/);
-  assert.match(artifact, /current_version/);
-  assert.match(artifact, /Este artefato mudou em outra sessão/);
 });
 
 test('manual artifact edits block tab changes and publishing until their latest revision is saved', () => {

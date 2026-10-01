@@ -3786,37 +3786,6 @@ def _resolve_workspace_context(client_id: int, project_ref: str = '', brand_ref:
     }
 
 
-def _workspace_data_health() -> dict:
-    """Expose missing Workspace schema/data access instead of a blank dashboard."""
-    required = ('cadu_ci_projetos', 'cadu_ci_projeto_arquivos', 'cadu_ci_chunks')
-    for attempt in range(2):
-        try:
-            with get_db().cursor() as cursor:
-                # Resolve each relation explicitly so a database may contain only a
-                # partial rollout without appearing healthy.
-                cursor.execute("SELECT to_regclass(%s) AS relation", ('public.cadu_ci_projetos',))
-                if not (cursor.fetchone() or {}).get('relation'):
-                    return {'ready': False, 'message': 'A estrutura de projetos ainda não foi ativada.'}
-                for table in required[1:]:
-                    cursor.execute("SELECT to_regclass(%s) AS relation", (f'public.{table}',))
-                    if not (cursor.fetchone() or {}).get('relation'):
-                        return {'ready': False, 'message': 'A estrutura de fontes do projeto ainda não foi ativada.'}
-            return {'ready': True, 'message': ''}
-        except Exception:
-            # A pooled worker may hold a connection closed by the server. Drop
-            # it once and establish a fresh one before showing a false outage.
-            connection = g.pop('db', None)
-            if connection is not None:
-                try:
-                    connection.close()
-                except Exception:
-                    pass
-            if attempt == 0:
-                continue
-            current_app.logger.warning('Workspace sem acesso à base de dados após reconexão', exc_info=True)
-    return {'ready': False, 'message': 'Os dados do Workspace estão temporariamente indisponíveis.'}
-
-
 def _workspace_source_root() -> str:
     """Use a configured persistent volume; preserve legacy instance storage by default."""
     return str(current_app.config.get('WORKSPACE_SOURCE_STORAGE_DIR') or current_app.instance_path)
@@ -4863,13 +4832,6 @@ WORKSPACE_PUBLIC_HEROES = (
     {"image": "public-people-v1.jpg", "tone": "light"},
     {"image": "public-people-v3.jpg", "tone": "dark"},
 )
-WORKSPACE_APP_HEROES = (
-    {"image": "app-team-v1.jpg", "tone": "dark"},
-    {"image": "app-team-v2.jpg", "tone": "dark"},
-    {"image": "app-team-v3.jpg", "tone": "dark"},
-)
-
-
 @bp.get("/entrada/<product>")
 def product_entry(product):
     if not session.get("user_id"):
@@ -5596,14 +5558,8 @@ def dashboard():
 @bp.get("/workspace/app/visao-geral")
 @login_required
 def legacy_dashboard_overview():
-    """Keep the previous dashboard available while the prompt-first home evolves."""
-    client_id = int(session.get("cliente_id") or 0)
-    return render_template(
-        "cadu_workspace/index.html", sections=[], projects=_workspace_projects(client_id),
-        brands=_workspace_brands(client_id), customizations=list_customizations(client_id=client_id),
-        credit=credit_position(client_id), hero=secrets.choice(WORKSPACE_APP_HEROES),
-        data_health=_workspace_data_health(),
-    )
+    """The previous dashboard was retired; old links land on the Workspace home."""
+    return redirect(url_for('cadu_workspace.dashboard'), code=308)
 
 
 @bp.get("/workspace/app")

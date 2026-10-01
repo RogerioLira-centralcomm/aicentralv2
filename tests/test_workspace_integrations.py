@@ -16,7 +16,7 @@ class WorkspaceIntegrationsLayoutTests(TestCase):
         self.assertIn("'googleMeetArtifactBase'", template)
         self.assertIn('function Integrations', component)
         self.assertIn('Conectar agentes e MCPs publicáveis', component)
-        self.assertIn('Contas autorizadas', component)
+        self.assertIn('Dados disponíveis para este cliente', component)
         self.assertIn('Reuniões encontradas', component)
         self.assertIn('Preparar para revisão', component)
         self.assertIn('Vincular ao projeto', component)
@@ -26,11 +26,13 @@ class WorkspaceIntegrationsLayoutTests(TestCase):
         self.assertNotIn('developer token', component.lower())
 
     def test_integracoes_e_agencia_compartilham_sidebar_de_conta(self):
+        account = (ROOT / 'frontend' / 'cadu-design-system' / 'components' / 'WorkspaceAccount.jsx').read_text(encoding='utf-8')
         context = (ROOT / 'frontend' / 'cadu-design-system' / 'components' / 'WorkspaceContextSidebar.jsx').read_text(encoding='utf-8')
 
-        self.assertIn("{id: 'agencia', label: 'Agência'", context)
-        self.assertIn("{id: 'integracoes', label: 'Integrações'", context)
-        self.assertIn("mode === 'account' ? false : readCollapsed(mode)", context)
+        # Conta sections live in the account's own sidebar, beside the closed Workspace rail.
+        self.assertIn("'perfil', 'agencia', 'equipe', 'integracoes'", account)
+        self.assertIn('EntityNavigator label="Conta"', account)
+        self.assertNotIn('ACCOUNT_ITEMS', context)
 
 
 if __name__ == '__main__':

@@ -137,8 +137,6 @@
   margin:0; color:var(--cadu-muted); font-size:11px; font-weight:650; letter-spacing:.025em; line-height:1.35;
 }
 [data-cadu-skin="workspace"] .cadu-ds-account-page-header .cadu-ds-page-description { margin:8px 0 0; color:var(--cadu-muted); font-size:13px; line-height:1.55; }
-[data-cadu-skin="workspace"] .cadu-ds-pricing-heading h1 { max-width:24ch; color:var(--cadu-ink); font-size:clamp(28px,3vw,36px); font-weight:650; letter-spacing:-.045em; line-height:1.12; }
-[data-cadu-skin="workspace"] .cadu-ds-pricing-heading p { max-width:66ch; color:var(--cadu-muted); font-size:13px; line-height:1.55; }
 [data-cadu-skin="workspace"] .cadu-ds-home-intro__copy { display:grid; justify-items:center; gap:8px; }
 [data-cadu-skin="workspace"] .cadu-ds-home-intro__eyebrow { color:var(--cadu-muted); font-size:11px; font-weight:650; letter-spacing:.045em; text-transform:uppercase; }
 [data-cadu-skin="workspace"] .cadu-ds-home-intro h1 { margin:0; color:var(--cadu-ink); }
@@ -146,7 +144,7 @@
 [data-cadu-skin="workspace"] .cadu-ds-brand-section>header>div>p,
 [data-cadu-skin="workspace"] .cadu-ds-project-content .cadu-ds-project-hero__copy>p { color:var(--cadu-muted); font-size:11px; font-weight:650; letter-spacing:.025em; }
 [data-cadu-skin="workspace"] .cadu-ds-brand-section>header>div>h2 { color:var(--cadu-ink); font-size:clamp(18px,1.8vw,22px); font-weight:650; letter-spacing:-.035em; line-height:1.2; }
-[data-cadu-skin="workspace"] :is(.untitled-catalog-header,.cadu-ds-account-page-header,.cadu-ds-pricing-heading) :is(a,button):focus-visible { outline:2px solid var(--cadu-accent); outline-offset:3px; }
+[data-cadu-skin="workspace"] :is(.untitled-catalog-header,.cadu-ds-account-page-header) :is(a,button):focus-visible { outline:2px solid var(--cadu-accent); outline-offset:3px; }
 
 /* Projects opens with the compact Workspace rail and flat catalog actions. */
 @media (min-width:761px) {

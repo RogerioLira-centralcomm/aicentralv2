@@ -18,17 +18,17 @@ LEGACY_UNUSED = ["user_request", "prompt_boundary", "briefing_instruction", "ski
                  "user_memory_context", "user_profile_context", "is_first_message"]
 APPS = {
     "cadu-fast": {
-        "file": "cadu-fast", "execution_mode": "fast",
+        "file": "cadu-fast", "execution_mode": "fast", "saida": "saida-flat",
         "settings": {"model": "GPT 5.4", "reasoning_effort": "baixo", "temperature": 0.3, "max_output_tokens": 3000},
         "uso": "Perguntas simples, conversa rápida e planos pedidos como rápidos ou resumidos.",
     },
     "cadu-analyst": {
-        "file": "cadu-analyst", "execution_mode": "analysis",
+        "file": "cadu-analyst", "execution_mode": "analysis", "saida": "saida-flat",
         "settings": {"model": "GPT 5.4", "reasoning_effort": "médio", "temperature": 0.4, "max_output_tokens": 10000},
         "uso": "Modo padrão: perguntas sobre o projeto, análises, recomendações, briefings, planejamento de mídia e pesquisa.",
     },
     "cadu-operator": {
-        "file": "cadu-operator", "execution_mode": "agentic",
+        "file": "cadu-operator", "execution_mode": "agentic", "saida": "saida-nested",
         "settings": {"model": "GPT 5.4", "reasoning_effort": "alto", "temperature": 0.2, "max_output_tokens": 14000},
         "uso": "Entregas editáveis complexas (documentos, HTML, mapas de projeto), ações com confirmação e tarefas de alta complexidade.",
     },
@@ -53,6 +53,7 @@ def build() -> dict:
     base = body(ROOT / "00-base-orquestrador.md")
     files = {}
     for app, spec in APPS.items():
+        full_prompt = "\n\n".join([base, body(ROOT / f"{spec['saida']}.md"), body(ROOT / f"{spec['file']}.md")])
         files[f"{app}.json"] = {
             "version": "4.0",
             "cole_no_dify": "Copie somente o valor do campo system_prompt_chatflow (Chatflow) ou system_prompt (app de chat/agente). Nada mais deste arquivo vai para o Dify.",
@@ -70,8 +71,8 @@ def build() -> dict:
                 "instruction": "Retorne somente JSON válido conforme o campo output_contract recebido: text primeiro, com text.content "
                                "contendo a resposta ao usuário; ui, artifact_patch e task_proposal somente quando contratados e úteis.",
             },
-            "system_prompt": base + "\n\n" + body(ROOT / f"{spec['file']}.md"),
-            "system_prompt_chatflow": chatflow_syntax(base + "\n\n" + body(ROOT / f"{spec['file']}.md")),
+            "system_prompt": full_prompt,
+            "system_prompt_chatflow": chatflow_syntax(full_prompt),
             "runtime_contract": {
                 "current_request": ["query"],
                 "top_level_provider_fields": ["query", "user", "files", "conversation_id", "response_mode"],

@@ -73,6 +73,18 @@ def test_output_format_follows_the_credential_source(app, monkeypatch):
         assert provider._configuration("agentic")["output_format"] == "nested"
 
 
+def test_operator_with_its_own_credentials_still_gets_the_rich_nested_contract(app, monkeypatch):
+    monkeypatch.delenv("CADU_DIFY_OUTPUT_FORMAT", raising=False)
+    monkeypatch.setattr(provider, "_chat_configuration", lambda: ("https://legacy.example/v1", "legacy"))
+    app.config.update(CADU_DIFY_OPERATOR_URL="https://dify.example/v1", CADU_DIFY_OPERATOR_KEY="k")
+    with app.app_context():
+        config = provider._configuration("agentic")
+        assert config["source"] == "mode-specific" and config["output_format"] == "nested"
+    app.config["CADU_DIFY_OPERATOR_OUTPUT_FORMAT"] = "flat"
+    with app.app_context():
+        assert provider._configuration("agentic")["output_format"] == "flat"
+
+
 def test_output_format_can_be_forced(app, monkeypatch):
     monkeypatch.setattr(provider, "_chat_configuration", lambda: ("https://legacy.example/v1", "legacy"))
     monkeypatch.setenv("CADU_DIFY_OUTPUT_FORMAT", "nested")

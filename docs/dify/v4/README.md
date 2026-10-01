@@ -25,7 +25,7 @@ Cada app tem um JSON com o registro completo: configuração, entradas e o promp
 - `settings`, `inputs`, `output_contract` e `runtime_contract` são o registro (modelo, memória, entradas). Não vão para o Dify. `settings` segue o formato do `cadu-conversations-orchestrator-v3.json`.
 - Os `.md` são a fonte de edição. Depois de alterá-los, rode `python scripts/build_dify_prompts.py` para regenerar os JSON; um teste falha se ficarem fora de sincronia.
 
-Se os três modos usam a mesma credencial de reserva (mesmo app), cole só o arquivo do `cadu-analyst`.
+Os textos de saída estão em `saida-flat.md` (Fast e Analyst) e `saida-nested.md` (Operator); o gerador monta cada JSON com base + saída + bloco do app.
 
 ## Estrutura real dos apps no Dify (verificada em 01/10/2026)
 
@@ -36,16 +36,17 @@ Cada app é um Chatflow com 3 nós: INICIAR (6 variáveis), LLM e RESPOSTA (devo
 - **Saída estruturada (Structured Output) ligada** nos apps novos, com este esquema, todos os campos obrigatórios: `actions`, `answer`, `artifact_patch` (`fields`, `summary`, `title`), `assumptions`, `citations`, `confidence`, `questions`.
 - O app em produção hoje é o **Cadu Conversations V2 Runtime** (`gpt-5.4-mini`, memória desligada). Os apps Fast, Analyst e Operator são novos e, em 01/10/2026, ainda não recebiam tráfego do backend.
 
-### Incompatibilidade de formato (precisa de decisão)
+### Formato de saída por app (decidido em 01/10/2026)
 
-O backend envia `output_contract` com `{"text":{"content":...},"ui":{...}}`, mas o esquema dos apps novos só tem `answer` e campos soltos. Teste em 01/10/2026, mesmas entradas, mesmo modelo:
+O esquema plano da saída estruturada (`answer`, `questions`, `artifact_patch` com `title`/`summary`/`fields`) não comporta HTML, tabelas nem `task_proposal`. Por isso:
 
-| Contrato enviado | Resultado |
-|---|---|
-| `text.content` / `ui` (formato atual do backend) | `answer` **vazio**; o conteúdo vai para `artifact_patch` |
-| `answer` e campos soltos (formato do esquema) | `answer` preenchido corretamente, `artifact_patch` vazio |
+| App | Saída | Contrato enviado pelo backend |
+|---|---|---|
+| cadu-fast, cadu-analyst | Structured Output **ligado**, esquema plano | plano (`answer`, ...), automático quando `CADU_DIFY_FAST_*` / `CADU_DIFY_ANALYST_*` estão definidas |
+| cadu-operator | Structured Output **desligado**, JSON livre; o nó RESPOSTA devolve `LLM / text` | rico (`text.content`, `ui`, `artifact_patch` com html/css/js/tables, `task_proposal`) |
+| app de reserva (V2 Runtime) | como já era | rico (inalterado) |
 
-O backend aceita os dois formatos na leitura (`guardrails.normalize_response`), então a correção pode ser feita de qualquer lado: mudar o contrato do backend para o formato do esquema, ou trocar o esquema do Dify para `text.content`/`ui`. Enquanto isso não for decidido, o prompt do sistema manda seguir o esquema do nó.
+Teste de 01/10/2026 que motivou isso: com o contrato `text.content`/`ui` num app de esquema plano, `answer` vinha **vazio** e o conteúdo ia para `artifact_patch`; com o contrato no formato do esquema, a resposta vinha correta. Variáveis opcionais para forçar: `CADU_DIFY_FAST_OUTPUT_FORMAT`, `CADU_DIFY_ANALYST_OUTPUT_FORMAT`, `CADU_DIFY_OPERATOR_OUTPUT_FORMAT` e `CADU_DIFY_OUTPUT_FORMAT` (valores `flat` ou `nested`).
 
 ## Configuração recomendada por app
 

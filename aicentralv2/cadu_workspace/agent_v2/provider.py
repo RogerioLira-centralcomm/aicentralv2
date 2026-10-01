@@ -35,18 +35,22 @@ def _chat_configuration():
     return str(url or "").rstrip("/"), str(key or "")
 
 
-def _output_format(source: str) -> str:
-    """Contract shape the Dify app's structured output expects.
+def _output_format(source: str, mode: str = "analysis") -> str:
+    """Contract shape the Dify app expects.
 
-    Apps configured through the mode-specific variables (CADU_DIFY_*_URL/KEY) use
-    the flat schema (answer, questions, ...). The fallback credential keeps the
-    historical nested shape (text.content / ui). CADU_DIFY_OUTPUT_FORMAT forces
-    either one.
+    Fast and analysis apps configured through the mode-specific variables use the
+    flat structured-output schema (answer, questions, ...). The agentic (operator)
+    app returns free-form JSON so it can carry html, tables and task proposals,
+    which a fixed schema cannot; it and the fallback credential use the nested
+    shape (text.content / ui). CADU_DIFY_FAST|ANALYST|OPERATOR_OUTPUT_FORMAT or
+    CADU_DIFY_OUTPUT_FORMAT force flat or nested.
     """
-    forced = str(current_app.config.get("CADU_DIFY_OUTPUT_FORMAT") or os.getenv("CADU_DIFY_OUTPUT_FORMAT") or "auto").strip().lower()
-    if forced in {"flat", "nested"}:
-        return forced
-    return "flat" if source == "mode-specific" else "nested"
+    mode_key = RUNTIMES.get(mode, RUNTIMES["analysis"])[1].replace("_URL", "_OUTPUT_FORMAT")
+    for key in (mode_key, "CADU_DIFY_OUTPUT_FORMAT"):
+        forced = str(current_app.config.get(key) or os.getenv(key) or "").strip().lower()
+        if forced in {"flat", "nested"}:
+            return forced
+    return "flat" if source == "mode-specific" and mode in {"fast", "analysis"} else "nested"
 
 
 def _configuration(execution_mode="analysis") -> dict:
@@ -80,7 +84,7 @@ def _configuration(execution_mode="analysis") -> dict:
         raise ProviderUnavailable(f"O runtime {runtime_id} ainda não foi configurado.")
     return {"id": runtime_id, "mode": mode, "url": url, "key": key, "source": source,
             "transport": "chat-messages", "config_version": "2026-10-01.v4",
-            "output_format": _output_format(source)}
+            "output_format": _output_format(source, mode)}
 
 
 def runtime_for(execution_mode="analysis") -> dict:

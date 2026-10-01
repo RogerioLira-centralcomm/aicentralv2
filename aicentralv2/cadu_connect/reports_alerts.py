@@ -161,6 +161,13 @@ class PeriodicRunner:
             evaluate_all(heavy=heavy)
         except Exception:
             current_app.logger.exception('Ciclo de alertas do Reports falhou')
+        if heavy:
+            try:
+                from .reports_ingest_v2 import prune_chunk_runs
+                prune_chunk_runs()
+            except Exception:
+                get_db().rollback()
+                current_app.logger.exception('Limpeza dos lotes do Google Ads falhou')
         return True
 
 

@@ -71,5 +71,6 @@ novo seguindo os quatro passos acima. Nenhuma tela do Reports consome ainda as t
 
 ## Retenção
 
-Linhas de lote (`google_ads_engine_v2_chunk`) ficam em `cadu_reports_source_runs` sem limpeza automática; a lista de
-execuções do Reports as oculta. Se o volume crescer, a limpeza precisa preservar as referências de `last_run_id`.
+Linhas de lote (`google_ads_engine_v2_chunk`) com mais de 30 dias são apagadas pelo ciclo pesado do worker do monitor
+(`prune_chunk_runs`), desde que nenhuma linha de dados ainda aponte para elas por `last_run_id`. Os resumos
+(`google_ads_engine_v2`) ficam. A lista de execuções do Reports já oculta os lotes.

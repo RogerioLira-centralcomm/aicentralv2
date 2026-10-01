@@ -191,3 +191,16 @@ def test_campaign_metrics_reuse_the_v1_record_contract(client):
     response, _ = post(client, db, envelope('campaign_metrics', records=[record, record]))
     assert response.status_code == 200 and response.get_json()['records'] == 1
     assert any('cadu_reports_campaign_daily_metrics' in sql for sql, _ in db.statements)
+
+
+def test_chunk_retention_only_removes_unreferenced_old_batches():
+    db = mock.Mock()
+    db.cursor.return_value.rowcount = 3
+    with mock.patch.object(v2, 'get_db', return_value=db):
+        assert v2.prune_chunk_runs(30) == 3
+    sql, params = db.cursor.return_value.execute.call_args[0]
+    assert params == (v2.CHUNK_SOURCE_KIND, 30)
+    for table in v2._RUN_REFERENCES:
+        assert f'FROM {table} t WHERE t.last_run_id=r.id' in sql
+    assert 'NOT EXISTS' in sql and 'summary' not in sql
+    db.commit.assert_called_once()

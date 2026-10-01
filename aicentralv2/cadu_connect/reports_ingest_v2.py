@@ -537,3 +537,21 @@ def register(bp):
         _rows('UPDATE cadu_reports_ingest_keys SET last_used_at=NOW() WHERE id=%s RETURNING id', (key['id'],))
         get_db().commit()
         return jsonify(accepted=True, duplicate=False, dataset=dataset, records=len(rows), client_id=client_id)
+
+
+CHUNK_RETENTION_DAYS = 30
+_RUN_REFERENCES = ('cadu_reports_campaign_daily_metrics', 'cadu_reports_gads_ad_group_daily', 'cadu_reports_gads_keyword_daily',
+                   'cadu_reports_gads_search_term_daily', 'cadu_reports_gads_device_daily', 'cadu_reports_gads_campaign_settings',
+                   'cadu_reports_gads_negative_keywords', 'cadu_reports_gads_landing_page_daily')
+
+
+def prune_chunk_runs(days=CHUNK_RETENTION_DAYS):
+    """Delete old per-batch idempotency rows that no data row still points to (``last_run_id``). Summaries are kept."""
+    unreferenced = ' AND '.join(f'NOT EXISTS (SELECT 1 FROM {table} t WHERE t.last_run_id=r.id)' for table in _RUN_REFERENCES)
+    cursor = get_db().cursor()
+    cursor.execute(
+        f"DELETE FROM cadu_reports_source_runs r WHERE r.source_kind=%s AND r.created_at < NOW() - make_interval(days => %s) AND {unreferenced}",
+        (CHUNK_SOURCE_KIND, int(days)))
+    removed = cursor.rowcount
+    get_db().commit()
+    return removed

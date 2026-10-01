@@ -132,7 +132,7 @@ sem coleta nova, e a Fase 3 entrega o ranking de cliques que hoje só existe com
 
 | Fase | Estado | Onde |
 |---|---|---|
-| 0 — Fundamentos | Feita, exceto vínculo manual domínio ↔ campanha e política de retenção do Google Ads | `reports_page_identity.py`, `reports_page_metrics.py` (dicionário de métricas) |
+| 0 — Fundamentos | Feita (vínculo manual dispensado; retenção dos lotes em 30 dias) | `reports_page_identity.py`, `reports_page_metrics.py` (dicionário de métricas) |
 | 1 — Página 360 | Feita (números, origem paga, saúde, dicionário) | `GET /connect/api/v2/reports/pages/overview`, rota `/connect/app/pages`, `PageDetail.jsx`; o inspetor do monitor ganhou "Ver detalhes da página" |
 | 3 — Mapa de interação v1 | Feita: grade 10×10 da primeira tela e ranking de elementos marcados, por dispositivo | `GET /connect/api/v2/reports/pages/interactions`, seção "Mapa de interação" em `PageDetail.jsx` |
 | 2 — Mapa de conversão | Feita: Sankey origem → página → próximo passo → resultado no site, mais faixa de CRM (lead, qualificado, venda) | `GET /connect/api/v2/reports/pages/conversion-map`, `sankeyLayout.js`, seção "Mapa de conversão" em `PageDetail.jsx` |
@@ -174,7 +174,7 @@ do domínio autorizado, com proteção SSRF. A leitura do Google Ads é somente 
 
 ## 9. Pendências conhecidas (fora do plano)
 
-- Vínculo manual domínio ↔ campanha e política de retenção do Google Ads (Fase 0).
+- Vínculo manual domínio ↔ campanha: dispensado, o vínculo vem da URL de destino dos anúncios. A retenção dos lotes do Google Ads está feita (30 dias, `prune_chunk_runs`).
 - Mover as capturas para um serviço externo (nova implementação de `CaptureStore`).
 - Ajustar limiares das regras de sugestão e alerta com dados reais após o primeiro deploy.
 - Rodar uma captura real (Firecrawl cobra créditos) e ver a Página 360 com dados de produção.

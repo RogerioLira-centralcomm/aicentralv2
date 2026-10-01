@@ -558,7 +558,7 @@ def planner_catalog_detail(kind, item_id):
     from ..cadu_planner import catalog
     context.identity()
     context.resolve()
-    return jsonify(kind=kind, record=catalog.detail(kind, item_id))
+    return jsonify(kind=kind, record=catalog.client_detail(kind, item_id))
 
 
 @bp.get('/api/planner/documents')
@@ -901,12 +901,8 @@ def planner_doc_share(doc_id):
 def planner_doc_public(token):
     from ..cadu_planner import docs
     document = docs.public_document(token)
-    response = make_response(render_template('cadu_planner/react.html', document=document,
-        product='planner', spec=PRODUCTS['planner'], module='docs', title=document.get('title') or 'Documento',
-        products=PRODUCTS, landing=LANDINGS['planner'], user=None, selected=None,
-        clients=[], entities=[], records=[], csrf='', planner_view='public-doc',
-        marketplace_facets={'categories': []}, cadu_family_writes_enabled=False,
-        login_url=login_url(), product_url=product_url, planner_url=planner_url))
+    response = make_response(_render_planner('public-doc', 'docs', document.get('title') or 'Documento',
+                                             public=True, document=document))
     response.headers['Content-Security-Policy'] = "sandbox; default-src 'none'; script-src 'self'; style-src 'self'; img-src https: data:; font-src https: data:"
     response.headers['X-Content-Type-Options'] = 'nosniff'
     return response
@@ -919,25 +915,6 @@ def planner_public_link_report(token):
     return redirect(target, code=302)
 
 
-@bp.get('/planner/audiencias/<int:audience_id>')
-def planner_audience_detail(audience_id):
-    """Customer-facing decision page; the catalog modal remains a quick preview."""
-    if not session.get('user_id'):
-        return redirect(workspace_public_url(), code=302)
-    from ..cadu_planner import catalog
-    user = context.identity()
-    selected = context.resolve()
-    audience = catalog.detail('audiencias', audience_id)
-    similar_audiences = catalog.related_audiences(audience)
-    token = session.setdefault('family_csrf', secrets.token_urlsafe(32))
-    return render_template('cadu_planner/react.html',
-        product='planner', spec=PRODUCTS['planner'], module='audiencias', title=audience['name'],
-        products=PRODUCTS, landing=LANDINGS['planner'], user=user, selected=selected,
-        clients=context.authorized_clients(), entities=[], records=[],
-        audience=audience, similar_audiences=similar_audiences, profile=PROFILES['planner'], csrf=token, legacy_url=None, planner_view='audience-detail',
-        login_url=login_url(), product_url=product_url, planner_url=planner_url)
-
-
 @bp.get('/planner/planos/<plan_id>')
 def planner_plan_media_desk(plan_id):
     if not session.get('user_id'):
@@ -946,26 +923,14 @@ def planner_plan_media_desk(plan_id):
     user = context.identity()
     selected = context.resolve()
     plan = plans.get_plan(selected['client_id'], user['id'], plan_id)
-    token = session.setdefault('family_csrf', secrets.token_urlsafe(32))
-    return render_template('cadu_planner/react.html',
-        product='planner', spec=PRODUCTS['planner'], module='planos', title=plan['title'],
-        products=PRODUCTS, landing=LANDINGS['planner'], user=user, selected=selected,
-        clients=context.authorized_clients(), entities=[], records=[],
-        plan=plan, profile=PROFILES['planner'], csrf=token, planner_view='plan-detail',
-        legacy_url=None,
-        login_url=login_url(), product_url=product_url, planner_url=planner_url)
+    return _render_planner('plan-detail', 'planos', plan['title'], plan=plan)
 
 
 @bp.get('/planner/planos/public/<token>')
 def planner_public_plan(token):
     from ..cadu_planner import plans
     plan = plans.public_plan(token)
-    return render_template('cadu_planner/react.html',
-        product='planner', spec=PRODUCTS['planner'], module='planos', title=plan['title'],
-        products=PRODUCTS, landing=LANDINGS['planner'], user=None, selected=None,
-        clients=[], entities=[], records=[], plan=plan, profile=PROFILES['planner'], csrf='',
-        planner_view='public-plan', legacy_url=None, login_url=login_url(),
-        product_url=product_url, planner_url=planner_url)
+    return _render_planner('public-plan', 'planos', plan['title'], public=True, plan=plan)
 
 
 @bp.get('/planner/<kind>/<int:item_id>')
@@ -974,22 +939,14 @@ def planner_catalog_detail_page(kind, item_id):
         abort(404)
     if not session.get('user_id'):
         return redirect(workspace_public_url(), code=302)
-    user = context.identity()
-    selected = context.resolve()
+    context.resolve()
     if kind == 'portais':
         from ..cadu_planner import portals
         record = portals.detail(item_id)
     else:
         from ..cadu_planner import catalog
-        record = catalog.detail(kind, item_id)
-    labels = {'audiencias': 'Audiência', 'canais': 'Canal', 'formatos': 'Formato', 'interativos': 'Formato interativo', 'portais': 'Portal'}
-    token = session.setdefault('family_csrf', secrets.token_urlsafe(32))
-    return render_template('cadu_planner/react.html',
-        product='planner', spec=PRODUCTS['planner'], module=kind, title=record['name'],
-        products=PRODUCTS, landing=LANDINGS['planner'], user=user, selected=selected,
-        clients=context.authorized_clients(), entities=[], records=[],
-        record=record, kind_label=labels[kind], profile=PROFILES['planner'], csrf=token, planner_view='catalog-detail',
-        legacy_url=None, login_url=login_url(), product_url=product_url, planner_url=planner_url)
+        record = catalog.client_detail(kind, item_id)
+    return _render_planner('catalog-detail', kind, record['name'], record=record)
 
 
 @bp.get('/planner/places/<slug>')
@@ -998,16 +955,9 @@ def planner_place_detail_page(slug):
     if not session.get('user_id'):
         return redirect(workspace_public_url(), code=302)
     from ..cadu_planner import places
-    user = context.identity()
-    selected = context.resolve()
+    context.resolve()
     record = places.detail(slug)
-    token = session.setdefault('family_csrf', secrets.token_urlsafe(32))
-    return render_template('cadu_planner/react.html',
-        product='planner', spec=PRODUCTS['planner'], module='places', title=record['name'],
-        products=PRODUCTS, landing=LANDINGS['planner'], user=user, selected=selected,
-        clients=context.authorized_clients(), entities=[], records=[], record=record,
-        profile=PROFILES['planner'], csrf=token, planner_view='catalog-detail', legacy_url=None,
-        login_url=login_url(), product_url=product_url, planner_url=planner_url)
+    return _render_planner('catalog-detail', 'places', record['name'], record=record)
 
 
 @bp.post('/api/planner/docs/<doc_id>/export')
@@ -1329,15 +1279,17 @@ def _planner_react_page(module=None):
     if module not in spec['modules']:
         abort(404)
     title, _legacy = spec['modules'][module]
-    user = context.identity()
-    selected = context.resolve()
-    records = product_pages.load_records('planner', module, user, selected,
+    records = product_pages.load_records('planner', module, context.identity(), context.resolve(),
                                          request.args.get('q', ''), request.args)
-    planner_view = 'page'
-    token = session.setdefault('family_csrf', secrets.token_urlsafe(32))
-    return render_template('cadu_planner/react.html', product='planner', spec=spec,
-        module=module, title=title, products=PRODUCTS, landing=LANDINGS['planner'],
-        user=user, selected=selected, clients=context.authorized_clients(), entities=[],
-        records=records, profile=PROFILES['planner'], csrf=token, legacy_url=None,
-        login_url=login_url(), product_url=product_url, planner_url=planner_url,
-        planner_view=planner_view, marketplace_facets=marketplace_facets('planner', module))
+    return _render_planner('page', module, title, records=records,
+                           marketplace_facets=marketplace_facets('planner', module))
+
+
+def _render_planner(view, module, title, *, public=False, **data):
+    """Every Planner page boots the same React app; shared links carry no session data."""
+    session_data = {'user': None, 'selected': None, 'csrf': '', 'cadu_family_writes_enabled': False} if public else {
+        'user': context.identity(), 'selected': context.resolve(),
+        'csrf': session.setdefault('family_csrf', secrets.token_urlsafe(32)),
+    }
+    return render_template('cadu_planner/react.html', planner_view=view, module=module, title=title,
+                           planner_url=planner_url, product_url=product_url, **session_data, **data)

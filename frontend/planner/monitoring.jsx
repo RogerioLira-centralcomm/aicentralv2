@@ -1,4 +1,11 @@
 import React, {useEffect, useRef, useState} from 'react';
+import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
+import {CaduBadge} from '../cadu-design-system/components/CaduBadge.jsx';
+import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.jsx';
+import {CaduPageHeader} from '../cadu-design-system/components/CaduPageHeader.jsx';
+import {CaduSelectField} from '../cadu-design-system/components/CaduField.jsx';
+import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
+import {PlannerNotice, PlannerPanel} from './PlannerUi.jsx';
 
 const SITE_TYPES = [
   ['campaign', 'Landing page de campanha'],
@@ -120,61 +127,46 @@ export function MonitorPage({request}) {
   const selectedHealth = site?.health_checks?.[0];
 
   return <>
-    <div className="page-intro monitor-intro">
-      <div><span className="eyebrow">Medição própria</span><h1>Sites e funis</h1>
-        <p>Mapeie jornadas por URL e acompanhe dados recebidos, conversões e disponibilidade.</p></div>
-      <button className="button primary" onClick={() => {setShowSetup(!showSetup);setAnalysis(null);setError('');}}>
-        {showSetup ? 'Fechar cadastro' : 'Adicionar site'}
-      </button>
-    </div>
+    <CaduPageHeader title="Sites e funis" description="Mapeie jornadas por URL e acompanhe visitas, conversões e disponibilidade."
+      actions={<CaduButton variant={showSetup ? 'secondary' : 'primary'} onClick={() => {setShowSetup(!showSetup);setAnalysis(null);setError('');}}>{showSetup ? 'Fechar cadastro' : 'Adicionar site'}</CaduButton>}/>
 
-    {error && <div className="feedback" role="alert">{error}<button onClick={() => setError('')} aria-label="Fechar aviso">×</button></div>}
-    {notice && <div className="monitor-notice" role="status">{notice}<button onClick={() => setNotice('')} aria-label="Fechar aviso">×</button></div>}
+    <PlannerNotice notice={error ? {tone: 'error', message: error} : notice ? {message: notice} : null} onDismiss={() => { setError(''); setNotice(''); }}/>
 
-    {showSetup && <section className="panel monitor-setup">
-      <h2>Começar pelo endereço do site</h2>
-      <p>Vamos ler apenas a página pública informada para sugerir o tipo de site e um primeiro funil.</p>
+    {showSetup && <PlannerPanel className="monitor-setup" title="Começar pelo endereço do site" description="Lemos apenas a página pública informada para sugerir o tipo de site e um primeiro funil.">
       <form className="monitor-url-form" onSubmit={analyze}>
-        <label>URL inicial
-          <input type="url" required value={entryUrl} onChange={e => setEntryUrl(e.target.value)}
-            placeholder="https://www.exemplo.com.br/campanha" autoComplete="url" />
-        </label>
-        <button className="button primary" disabled={busy}>{busy ? 'Analisando…' : 'Analisar endereço'}</button>
+        <CaduInput label="URL inicial" type="url" required value={entryUrl} onChange={e => setEntryUrl(e.target.value)} placeholder="https://www.exemplo.com.br/campanha" autoComplete="url"/>
+        <CaduButton type="submit" loading={busy}>Analisar endereço</CaduButton>
       </form>
       {analysis && <form className="monitor-confirm" onSubmit={createSite}>
         <div className="monitor-evidence">
-          <div><small>Página analisada</small><strong>{analysis.evidence?.title || analysis.domain}</strong>
-            <span>{analysis.entry_url}</span></div>
-          {analysis.suggestion && <span className="badge">Sugestão · {Math.round((analysis.suggestion.site_type_confidence || 0) * 100)}%</span>}
+          <div><small>Página analisada</small><strong>{analysis.evidence?.title || analysis.domain}</strong><span>{analysis.entry_url}</span></div>
+          {analysis.suggestion && <CaduBadge tone="brand">Sugestão · {Math.round((analysis.suggestion.site_type_confidence || 0) * 100)}%</CaduBadge>}
         </div>
-        <p>{analysis.message}</p>
-        <div className="form-grid">
-          <label>Nome deste site<input required maxLength="180" value={siteName} onChange={e => setSiteName(e.target.value)} /></label>
-          <label>Tipo de site<select value={siteType} onChange={e => setSiteType(e.target.value)}>
-            {SITE_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select></label>
-          <label className="wide">Nome do primeiro funil<input required maxLength="120" value={funnelName} onChange={e => setFunnelName(e.target.value)} /></label>
+        {analysis.message && <p>{analysis.message}</p>}
+        <div className="planner-fields">
+          <CaduInput label="Nome deste site" required maxLength="180" value={siteName} onChange={e => setSiteName(e.target.value)}/>
+          <CaduSelectField label="Tipo de site" value={siteType} onChange={e => setSiteType(e.target.value)} options={SITE_TYPES.map(([value, label]) => ({value, label}))}/>
+          <CaduInput className="is-wide" label="Nome do primeiro funil" required maxLength="120" value={funnelName} onChange={e => setFunnelName(e.target.value)}/>
         </div>
         <div className="monitor-evidence-list"><strong>Endereços públicos encontrados</strong>
           {analysis.evidence?.public_paths?.length ? <div>{analysis.evidence.public_paths.slice(0, 8).map(path => <code key={path}>{path}</code>)}</div>
             : <span>Não encontramos outros caminhos públicos nesta página.</span>}
         </div>
         <p className="monitor-privacy">A sugestão é revisável. O Planner não recebe senhas, campos de formulário nem dados pessoais do site.</p>
-        <button className="button primary" disabled={busy}>{busy ? 'Salvando…' : 'Confirmar e configurar site'}</button>
+        <div><CaduButton type="submit" loading={busy}>Confirmar e configurar site</CaduButton></div>
       </form>}
-    </section>}
+    </PlannerPanel>}
 
     {sites.length > 0 ? <>
-      <div className="monitor-site-switcher"><label>Site acompanhado
-        <select value={siteId} onChange={e => {setSiteId(e.target.value);setNotice('');}}>
-          {sites.map(item => <option key={item.id} value={item.id}>{item.name} · {item.domain}</option>)}
-        </select>
-      </label><span>Atualização dos dados recebidos a cada 15 segundos</span></div>
+      <div className="monitor-site-switcher">
+        <CaduSelectField label="Site acompanhado" value={siteId} onChange={e => {setSiteId(e.target.value);setNotice('');}} options={sites.map(item => ({value: item.id, label: `${item.name} · ${item.domain}`}))}/>
+        <span>Dados atualizados a cada 15 segundos</span>
+      </div>
 
       {site && <>
         <section className="monitor-site-heading">
-          <div><span className="badge">{typeLabel}</span><h2>{site.name}</h2><a href={site.entry_url} target="_blank" rel="noreferrer">{site.entry_url}</a></div>
-          <button className="button" onClick={() => window.open(site.test_url, '_blank', 'noopener,noreferrer')}>Abrir teste em nova aba</button>
+          <div><CaduBadge tone="neutral">{typeLabel}</CaduBadge><h2>{site.name}</h2><a href={site.entry_url} target="_blank" rel="noreferrer">{site.entry_url}</a></div>
+          <CaduButton variant="secondary" onClick={() => window.open(site.test_url, '_blank', 'noopener,noreferrer')}>Abrir teste em nova aba</CaduButton>
         </section>
 
         <section className="monitor-metrics" aria-label="Métricas do site">
@@ -185,52 +177,46 @@ export function MonitorPage({request}) {
         </section>
 
         <div className="monitor-columns">
-          <section className="panel monitor-health">
-            <div className="monitor-section-head"><div><h2>Disponibilidade</h2><p>Verificação automática da URL configurada.</p></div>
-              <span className={'health-state ' + (selectedHealth?.status || 'waiting')}><i />{healthLabel(selectedHealth?.status)}</span></div>
+          <PlannerPanel title="Disponibilidade" description="Verificação automática da URL configurada." actions={<span className={'health-state ' + (selectedHealth?.status || 'waiting')}><i />{healthLabel(selectedHealth?.status)}</span>}>
             {selectedHealth ? <div className="health-detail"><strong>{selectedHealth.response_ms ?? '—'} ms</strong>
               <span>{selectedHealth.detail}</span><small>Última verificação · {formatDate(selectedHealth.checked_at)}</small></div>
-              : <div className="monitor-empty-inline">A primeira verificação será feita pelo monitor automático.</div>}
+              : <p className="planner-muted">A primeira verificação será feita pelo monitor automático.</p>}
             {!!site.health_checks?.length && <div className="health-pages" aria-label="Disponibilidade por URL">
               {site.health_checks.map(check => <div className="health-page-row" key={check.checked_url}>
                 <code>{check.checked_url}</code><span>{formatDate(check.checked_at)}</span>
                 <b className={check.status}>{healthLabel(check.status)}</b>
               </div>)}
             </div>}
-          </section>
-          <section className="panel monitor-install">
-            <div className="monitor-section-head"><div><h2>Instalar pelo GTM</h2><p>Adicione como tag HTML personalizada e configure o GTM para exigir consentimento de análise antes do disparo.</p></div><span className="monitor-pulse"><i />Tag própria</span></div>
+          </PlannerPanel>
+          <PlannerPanel className="monitor-install" title="Instalar pelo GTM" description="Adicione como tag HTML personalizada e exija consentimento de análise antes do disparo." actions={<span className="monitor-pulse"><i />Tag própria</span>}>
             <pre><code>{site.install_snippet}</code></pre>
-            <button className="button small" onClick={() => navigator.clipboard?.writeText(site.install_snippet).then(() => setNotice('Código da tag copiado.')).catch(() => setError('Não foi possível copiar o código.'))}>Copiar tag</button>
-            <p className="monitor-privacy">A tag envia páginas e conversões somente ao Planner. Para excluir sessões de teste das tags de anúncios que já existem, crie no GTM uma exceção para a URL com <code>cadu_test=1</code> (ou para o cookie <code>cadu_monitor_test=1</code>).</p>
-          </section>
+            <CaduButton variant="secondary" onClick={() => navigator.clipboard?.writeText(site.install_snippet).then(() => setNotice('Código da tag copiado.')).catch(() => setError('Não foi possível copiar o código.'))}>Copiar tag</CaduButton>
+            <p className="monitor-privacy">A tag envia páginas e conversões somente ao Planner. Para excluir sessões de teste das tags de anúncios, crie no GTM uma exceção para a URL com <code>cadu_test=1</code> (ou para o cookie <code>cadu_monitor_test=1</code>).</p>
+          </PlannerPanel>
         </div>
 
-        <section className="panel monitor-funnels">
-          <div className="monitor-section-head"><div><h2>Funis por URL</h2><p>Crie jornadas diferentes para campanhas, site institucional ou áreas específicas.</p></div>
-            <button className="button" onClick={() => {setEditingFunnel('');setFunnelDraft(EMPTY_FUNNEL);setShowFunnelForm(!showFunnelForm);}}>Novo funil</button></div>
+        <PlannerPanel className="monitor-funnels" title="Funis por URL" description="Jornadas diferentes para campanhas, site institucional ou áreas específicas."
+          actions={<CaduButton variant="secondary" onClick={() => {setEditingFunnel('');setFunnelDraft(EMPTY_FUNNEL);setShowFunnelForm(!showFunnelForm);}}>Novo funil</CaduButton>}>
           {showFunnelForm && <form className="monitor-funnel-form" onSubmit={saveFunnel}>
-            <label>Nome do funil<input required maxLength="120" value={funnelDraft.name} onChange={e => setFunnelDraft({...funnelDraft, name: e.target.value})} placeholder="Ex.: Campanha de lançamento" /></label>
-            <label>URL de entrada<input required value={funnelDraft.start_path} onChange={e => setFunnelDraft({...funnelDraft, start_path: e.target.value})} placeholder="/campanha" /></label>
-            <label>URL de conversão<input value={funnelDraft.conversion_path} onChange={e => setFunnelDraft({...funnelDraft, conversion_path: e.target.value})} placeholder="/obrigado" /></label>
-            <div className="monitor-form-actions"><button className="button" type="button" onClick={() => setShowFunnelForm(false)}>Cancelar</button><button className="button primary" disabled={busy}>{editingFunnel ? 'Salvar alterações' : 'Salvar funil'}</button></div>
+            <CaduInput label="Nome do funil" required maxLength="120" value={funnelDraft.name} onChange={e => setFunnelDraft({...funnelDraft, name: e.target.value})} placeholder="Ex.: Campanha de lançamento"/>
+            <CaduInput label="URL de entrada" required value={funnelDraft.start_path} onChange={e => setFunnelDraft({...funnelDraft, start_path: e.target.value})} placeholder="/campanha"/>
+            <CaduInput label="URL de conversão" value={funnelDraft.conversion_path} onChange={e => setFunnelDraft({...funnelDraft, conversion_path: e.target.value})} placeholder="/obrigado"/>
             <small>Use caminhos reais do site. A conversão fica sem contagem até você informar uma URL ou configurar o evento do GTM.</small>
+            <div className="monitor-form-actions"><CaduButton variant="secondary" onClick={() => setShowFunnelForm(false)}>Cancelar</CaduButton><CaduButton type="submit" loading={busy}>{editingFunnel ? 'Salvar alterações' : 'Salvar funil'}</CaduButton></div>
           </form>}
           <div className="funnel-list">{(site.funnels || []).map(funnel => <article className="funnel-row" key={funnel.id}>
             <div className="funnel-route"><span className="route-node">{funnel.start_path}</span><span className="route-link" /><span className={funnel.conversion_path ? 'route-node is-goal' : 'route-node is-empty'}>{funnel.conversion_path || 'Conversão a configurar'}</span></div>
-            <div className="funnel-row-info"><div><strong>{funnel.name}</strong>{funnel.is_default && <span className="badge">Padrão</span>}</div>
+            <div className="funnel-row-info"><div><strong>{funnel.name}</strong>{funnel.is_default && <CaduBadge tone="neutral">Padrão</CaduBadge>}</div>
               <small>{Number((site.metrics?.funnel_conversions || {})[funnel.id] || 0).toLocaleString('pt-BR')} conversões nas últimas 24 horas</small></div>
-            <button className="button small" onClick={() => editFunnel(funnel)}>Editar</button>
+            <CaduButton variant="secondary" size="sm" onClick={() => editFunnel(funnel)}>Editar</CaduButton>
             {!funnel.conversion_path && <code className="funnel-hook">GTM: window.CaduPlannerMonitor?.conversion('{funnel.id}')</code>}
           </article>)}</div>
           <p className="monitor-privacy">Conversões marcadas como teste ficam separadas e não entram nos números acima nem são enviadas a plataformas de anúncios.</p>
-        </section>
+        </PlannerPanel>
       </>}
-    </> : !showSetup && <section className="panel monitor-empty">
-      <div className="monitor-empty-mark">↗</div><h2>Acompanhe o que acontece no site</h2>
-      <p>Comece por uma URL. O Planner sugere o tipo de site, prepara um funil inicial e gera a tag para instalar pelo Google Tag Manager.</p>
-      <button className="button primary" onClick={() => setShowSetup(true)}>Mapear meu primeiro site</button>
-    </section>}
+    </> : !showSetup && <PlannerPanel className="planner-panel--flush"><CaduEmptyState title="Acompanhe o que acontece no site"
+      description="Comece por uma URL. O Planner sugere o tipo de site, prepara um funil inicial e gera a tag para instalar pelo Google Tag Manager."
+      action={<CaduButton onClick={() => setShowSetup(true)}>Mapear meu primeiro site</CaduButton>}/></PlannerPanel>}
   </>;
 }
 

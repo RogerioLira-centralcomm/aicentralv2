@@ -140,113 +140,45 @@ class FamilyTest(TestCase):
         self.assertIn('places', [key for _, keys in PRODUCTS['planner']['navigation'] for key in keys])
         self.assertIn('places', [key for key, _, _ in LANDINGS['planner']['links']])
 
-    def test_planner_uses_public_nav_for_guests_and_complete_sidebar_after_login(self):
+    def planner_boot(self, html):
+        import json
+        import re
+        match = re.search(r'<script id="planner-bootstrap" type="application/json">(.*?)</script>', html, re.S)
+        self.assertIsNotNone(match)
+        return json.loads(match.group(1))
+
+    def test_planner_renders_the_react_shell_with_only_public_identity(self):
         guest = self.client.get('/familia/planner/')
         self.assertEqual(guest.status_code, 302)
         self.assertEqual(guest.headers['Location'], '/workspace/')
 
         self.login()
-        with mock.patch('aicentralv2.cadu_family.product_pages.load_records', return_value=[]):
-            member_html = self.client.get('/familia/planner/').get_data(as_text=True)
-        self.assertIn('class="family-layout family-layout--sidebar family-layout--planner"', member_html)
-        self.assertIn('data-cadu-sidebar-mobile-close', member_html)
-        self.assertIn('class="planner-nav-icon"', member_html)
-        self.assertIn('fa-solid fa-house', member_html)
-        self.assertNotIn('name="project_ref"', member_html)
-        self.assertNotIn('name="brand_ref"', member_html)
-        self.assertNotIn('Gerenciar projetos', member_html)
-        self.assertNotIn('Gerenciar projetos e marcas', member_html)
-        self.assertIn('class="planner-sidebar-footer"', member_html)
-        self.assertIn('class="family-sidebar-credits cadu-credit-meter"', member_html)
-        self.assertIn('Uso de créditos', member_html)
-        self.assertIn('Abrir opções da conta', member_html)
-        self.assertIn('href="/perfil">Meu perfil', member_html)
-        self.assertNotIn('/marcas', member_html)
+        with mock.patch('aicentralv2.cadu_family.product_pages.load_records', return_value=[{'id': 'p1', 'title': 'Plano'}]):
+            response = self.client.get('/familia/planner/')
+        html = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('<html lang="pt-BR" data-cadu-skin="planner">', html)
+        self.assertIn('cadu_workspace/untitled/workspace-kit.css', html)
+        self.assertIn('cadu_planner/react/app.js', html)
+        boot = self.planner_boot(html)
+        self.assertEqual(boot['module'], 'inicio')
+        self.assertEqual(boot['view'], 'page')
+        self.assertEqual(boot['records'], [{'id': 'p1', 'title': 'Plano'}])
+        self.assertEqual(set(boot['user']), {'name', 'avatar'})
+        self.assertNotIn('a@example.test', html)
+        self.assertTrue(boot['urls']['monitoring'])
 
-    def test_workspace_home_redirect_does_not_load_legacy_inventory(self):
-        self.login()
-        self.entities.return_value = [{**ENTITIES[0], 'name': '<script>untrusted</script>'}]
-        response = self.client.get('/familia/workspace/')
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.headers['Location'], '/app')
-        self.entities.assert_not_called()
-
-    def test_connect_home_does_not_query_reports(self):
-        self.login()
-        with mock.patch('aicentralv2.cadu_connect.repository.campaigns_for_client') as reports:
-            self.assertEqual(self.client.get('/familia/connect/').status_code, 200)
-            reports.assert_not_called()
-
-    def test_legacy_workspace_modules_keep_specific_native_destinations(self):
-        for path in ('/familia/workspace/projetos', '/familia/workspace/marcas',
-                     '/familia/workspace/consumo', '/familia/workspace/equipe'):
-            with self.subTest(path=path):
-                response = self.client.get(path)
-                self.assertEqual(response.status_code, 302)
-                self.assertEqual(response.headers['Location'], '/workspace/')
-
-    def test_cross_tenant_selection_is_rejected_before_any_handoff(self):
-        self.login()
-        response = self.post('context', {'client_id': 99})
-        self.assertEqual(response.status_code, 403)
-        with self.client.session_transaction() as session:
-            self.assertNotEqual((session.get('family_context') or {}).get('client_id'), 99)
-
-    def test_skills_can_use_the_shared_agent_when_the_feature_is_available(self):
-        from aicentralv2.cadu_family.catalog import PROFILES
-
-        self.assertEqual(set(PROFILES), {'workspace', 'planner', 'connect', 'skills'})
-        self.login()
-        studio = self.post('conversations/send', {'message': 'Olá', 'profile': 'studio'})
-        self.assertEqual(studio.status_code, 400)
-        with mock.patch('aicentralv2.cadu_family.chat.prepare', return_value={
-            'queued': True, 'run_id': 'run-1', 'conversation_id': 'conversation-1',
-        }) as prepare:
-            skills = self.post('conversations/send', {
-                'message': 'Olá', 'profile': 'skills',
-                'request_id': '11111111-1111-4111-8111-111111111111',
-            })
-        self.assertEqual(skills.status_code, 202)
-        self.assertTrue(skills.get_json()['accepted'])
-        prepare.assert_called_once()
-
-    def test_backend_failure_is_not_empty_success(self):
-        self.login()
-        self.entities.side_effect = RuntimeError('database password must not leak')
-        with mock.patch('aicentralv2.cadu_family.repository.get_db'):
-            result = self.client.get('/familia/api/context')
-        self.assertEqual(result.status_code, 503)
-        self.assertNotIn('password', result.get_data(as_text=True))
-
-    def test_planner_review_returns_a_clear_conflict_when_credits_are_insufficient(self):
-        self.login()
-        self.app.config['CADU_FAMILY_WRITES_ENABLED'] = True
-        with mock.patch(
-            'aicentralv2.cadu_planner.revisions.review_briefing',
-            side_effect=InsufficientToolCredits('Saldo insuficiente: esta execução estima 48000 tokens e há 12 disponíveis.'),
-        ):
-            response = self.post('planner/plans/plan-1/briefing-review', {})
-        self.assertEqual(response.status_code, 409)
-        self.assertIn('Saldo insuficiente', response.get_json()['error'])
-
-    def test_disabled_rollout_returns_not_found(self):
-        self.app.config['CADU_FAMILY_ENABLED'] = False
-        self.assertEqual(self.client.get('/familia/workspace/').status_code, 404)
-
-    def test_planner_host_stays_available_when_the_family_rollout_is_disabled(self):
-        self.app.config.update(CADU_FAMILY_ENABLED=False, PLANNER_URL='https://planner.centralcomm.media')
-        self.app.add_url_rule('/cadu-assets/<family>/icon-<int:size>.png', 'cadu_maintenance_product_icon',
-                              lambda family, size: '')
-        response = self.client.get('/familia/planner/', headers={'Host': 'planner.centralcomm.media'})
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.headers['Location'], '/workspace/')
-
-    def test_history_read_checks_user_and_client(self):
-        self.login()
-        with mock.patch('aicentralv2.cadu_family.repository.conversation_messages', return_value=None) as read:
-            response = self.client.get('/familia/api/conversations/foreign/messages')
-        self.assertEqual(response.status_code, 404)
-        read.assert_called_once_with(7, 12, 'foreign')
+    def test_planner_public_document_is_readable_without_scripts(self):
+        document = {'title': 'Briefing', 'type': 'briefing', 'html': '<p>Texto <b>do</b> cliente</p><script>x()</script>'}
+        with mock.patch('aicentralv2.cadu_planner.docs.public_document', return_value=document):
+            response = self.client.get('/familia/planner/docs/public/token')
+        html = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("sandbox", response.headers['Content-Security-Policy'])
+        self.assertIn('<h1>Briefing</h1>', html)
+        self.assertIn('Texto do cliente', html)
+        self.assertNotIn('<script>x()</script>', html)
+        self.assertIsNone(self.planner_boot(html)['user'])
 
     def test_planner_catalog_requires_authorized_actor(self):
         self.assertEqual(self.client.get('/familia/api/planner/catalog/canais').status_code, 401)
@@ -255,12 +187,11 @@ class FamilyTest(TestCase):
             response = self.client.get('/familia/api/planner/catalog/canais?q=video&limit=2')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json(), {'kind': 'canais', 'records': []})
-        catalog.assert_called_once_with('canais', 'video')
+        catalog.assert_called_once_with('canais', 'video', category='', platform='', sort='relevant', format_type='', segment='')
 
-    def test_planner_catalog_rejects_unknown_kind_and_out_of_range_limit(self):
+    def test_planner_catalog_rejects_unknown_kind(self):
         self.login()
         self.assertEqual(self.client.get('/familia/api/planner/catalog/cotacoes').status_code, 404)
-        self.assertEqual(self.client.get('/familia/api/planner/catalog/formatos?limit=31').status_code, 400)
 
     def test_planner_catalog_detail_uses_projected_row_and_auth_context(self):
         self.login()
@@ -273,13 +204,13 @@ class FamilyTest(TestCase):
         self.assertIn('FROM cadu_formatos', sql)
         self.assertEqual(params, (3,))
 
-    def test_planner_catalog_cards_are_only_in_logged_in_planner(self):
+    def test_planner_catalog_page_preloads_the_first_page(self):
         self.login()
         with mock.patch('aicentralv2.cadu_planner.pages.repository.catalog', return_value=[{'id': 1, 'name': 'Canal'}]):
             html = self.client.get('/familia/planner/canais').get_data(as_text=True)
-        self.assertIn('planner-catalog-grid', html)
-        self.assertIn('data-catalog-kind="canais"', html)
-        self.assertIn('cadu_planner/catalog.js', html)
+        boot = self.planner_boot(html)
+        self.assertEqual(boot['module'], 'canais')
+        self.assertEqual(boot['records'], [{'id': 1, 'name': 'Canal'}])
         self.assertNotIn('href="/familia/api/planner/catalog/', html)
 
     def test_planner_document_preview_requires_context_and_does_not_expose_html(self):

@@ -1,0 +1,114 @@
+import React, {useState} from 'react';
+import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
+import {CaduBadge} from '../cadu-design-system/components/CaduBadge.jsx';
+import {CaduDialog} from '../cadu-design-system/components/CaduDialog.jsx';
+import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.jsx';
+import {CaduPageHeader} from '../cadu-design-system/components/CaduPageHeader.jsx';
+import {CaduSelectField, CaduTextAreaField} from '../cadu-design-system/components/CaduField.jsx';
+import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
+import {Icon} from '../cadu-design-system/components/Icon.jsx';
+import {PlannerPanel} from './PlannerUi.jsx';
+import {plainText} from './api.js';
+
+const DOC_TYPES = [['documento', 'Documento'], ['briefing', 'Briefing'], ['apresentacao', 'Apresentação'], ['proposta', 'Proposta']];
+const typeLabel = value => DOC_TYPES.find(([key]) => key === value)?.[1] || value || 'Documento';
+
+function CreateDocDialog({onClose, onCreate, busy}) {
+  return <CaduDialog className="planner-dialog" closeOnBackdrop onClose={onClose}>{({titleId}) => <form onSubmit={onCreate}>
+    <header><h2 id={titleId}>Novo documento</h2><button type="button" onClick={onClose} aria-label="Fechar">×</button></header>
+    <CaduInput label="Título" name="title" required autoFocus/>
+    <CaduSelectField label="Tipo" name="type" options={DOC_TYPES.map(([value, label]) => ({value, label}))}/>
+    <footer><CaduButton variant="secondary" onClick={onClose}>Cancelar</CaduButton><CaduButton type="submit" loading={busy}>Criar documento</CaduButton></footer>
+  </form>}</CaduDialog>;
+}
+
+function DocumentView({boot, request, notify, document: initial, startEditing, onChange}) {
+  const [doc, setDoc] = useState(initial);
+  const [editing, setEditing] = useState(startEditing);
+  const [html, setHtml] = useState(initial.html || '');
+  const [busy, setBusy] = useState('');
+  const canWrite = boot.writesEnabled && doc.is_owner;
+  const apply = next => { setDoc(next); setHtml(next.html || ''); onChange(next); };
+  const run = async (key, action) => {
+    setBusy(key);
+    try { await action(); } catch (error) { notify({tone: 'error', message: error.message}); } finally { setBusy(''); }
+  };
+  const save = () => run('save', async () => {
+    const data = await request(`/docs/${doc.id}`, {method: 'PUT', body: JSON.stringify({title: doc.title, html, status: doc.status || 'draft'})});
+    apply(data.document);
+    setEditing(false);
+    notify({message: 'Documento salvo.'});
+  });
+  const review = () => run('review', async () => {
+    const estimate = await request(`/docs/${doc.id}/review/estimate`);
+    if (!window.confirm(`Revisar em ${estimate.passes} etapas. Estimativa: ${Number(estimate.estimated_tokens).toLocaleString('pt-BR')} créditos. Continuar?`)) return;
+    const data = await request(`/docs/${doc.id}/review`, {method: 'POST', body: JSON.stringify({})});
+    if (data.document) { apply(data.document); setEditing(false); }
+  });
+  const duplicate = () => run('duplicate', async () => {
+    const data = await request(`/docs/${doc.id}/duplicate`, {method: 'POST', body: JSON.stringify({})});
+    onChange(data.document, true);
+    notify({message: 'Documento duplicado.'});
+  });
+  const share = () => run('share', async () => {
+    const data = await request(`/docs/${doc.id}/share`, {method: 'POST', body: JSON.stringify({enabled: !doc.share_enabled})});
+    apply(data.document);
+    if (data.document.share_enabled) {
+      await navigator.clipboard?.writeText(new URL(`/docs/public/${data.document.share_token}`, boot.urls.home).href);
+      notify({message: 'Link público copiado.'});
+    }
+  });
+
+  return <>
+    <CaduPageHeader back={{href: boot.urls.docs, label: 'Docs'}} title={doc.title || 'Documento'}
+      meta={<><CaduBadge tone="neutral">{typeLabel(doc.type)}</CaduBadge>{doc.share_enabled && <CaduBadge tone="brand">Público</CaduBadge>}{doc.updated_at && <span className="planner-muted">Atualizado em {doc.updated_at}</span>}</>}
+      actions={canWrite ? <>
+        {editing ? <CaduButton loading={busy === 'save'} onClick={save}>Salvar alterações</CaduButton> : <CaduButton variant="secondary" onClick={() => setEditing(true)}>Editar</CaduButton>}
+        <CaduButton variant="secondary" loading={busy === 'review'} onClick={review}>Revisar</CaduButton>
+        <CaduButton variant="secondary" loading={busy === 'duplicate'} onClick={duplicate}>Duplicar</CaduButton>
+        <CaduButton variant="secondary" loading={busy === 'share'} onClick={share}>{doc.share_enabled ? 'Despublicar' : 'Compartilhar'}</CaduButton>
+      </> : null}/>
+    <PlannerPanel>
+      {editing ? <div className="planner-doc-editor">
+        <CaduInput label="Título" value={doc.title || ''} onChange={event => setDoc({...doc, title: event.target.value})}/>
+        <CaduTextAreaField label="Conteúdo (HTML)" value={html} onChange={event => setHtml(event.target.value)} rows={18}/>
+      </div> : <article className="planner-doc-preview">{plainText(doc.html) || 'Documento sem texto para prévia.'}</article>}
+    </PlannerPanel>
+  </>;
+}
+
+export function DocsPage({boot, request, notify}) {
+  const [documents, setDocuments] = useState(Array.isArray(boot.records) ? boot.records : []);
+  const [open, setOpen] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const openDoc = async summary => {
+    try {
+      const data = await request(`/docs/${summary.id}`);
+      setOpen({document: data.document, editing: false});
+    } catch (error) { notify({tone: 'error', message: error.message}); }
+  };
+  const create = async event => {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      const data = await request('/docs', {method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget)))});
+      setDocuments(current => [data.document, ...current]);
+      setCreating(false);
+      setOpen({document: data.document, editing: true});
+    } catch (error) { notify({tone: 'error', message: error.message}); } finally { setBusy(false); }
+  };
+  const changed = (next, added = false) => setDocuments(current => added ? [next, ...current] : current.map(item => item.id === next.id ? {...item, ...next} : item));
+
+  if (open) return <DocumentView key={open.document.id} boot={boot} request={request} notify={notify} document={open.document} startEditing={open.editing} onChange={changed}/>;
+  return <>
+    <CaduPageHeader title="Docs" description="Briefings, propostas e apresentações do cliente." actions={boot.writesEnabled ? <CaduButton onClick={() => setCreating(true)}>Criar documento</CaduButton> : null}/>
+    {documents.length ? <div className="planner-list">{documents.map(item => <button type="button" className="planner-plan-row" key={item.id} onClick={() => openDoc(item)}>
+      <span className="planner-plan-row__icon" aria-hidden="true"><Icon name="file" size={18}/></span>
+      <span className="planner-plan-row__copy"><strong>{item.title}</strong><small>{typeLabel(item.type)}{item.updated_at ? ` · ${item.updated_at}` : ''}</small></span>
+      <span className="planner-plan-row__go" aria-hidden="true">Abrir</span>
+    </button>)}</div> : <PlannerPanel className="planner-panel--flush"><CaduEmptyState title="Nenhum documento ainda" description="Crie um briefing ou uma proposta para compartilhar com o cliente." action={boot.writesEnabled ? <CaduButton onClick={() => setCreating(true)}>Criar documento</CaduButton> : null}/></PlannerPanel>}
+    {creating && <CreateDocDialog busy={busy} onClose={() => setCreating(false)} onCreate={create}/>}
+  </>;
+}

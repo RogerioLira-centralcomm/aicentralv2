@@ -1,113 +1,85 @@
-import React, {useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {createRoot} from 'react-dom/client';
-import './style.css';
-import {MonitorPage} from './monitoring.jsx';
+import '../cadu-design-system/tokens.css';
+import '../cadu-design-system/primitives.css';
+import './planner.css';
 import {SolutionSidebar} from '../cadu-design-system/components/SolutionSidebar.jsx';
-import {Icon} from '../cadu-design-system/components/Icon.jsx';
-import {VisualIdentity} from '../cadu-design-system/components/VisualIdentity.jsx';
+import {CatalogDetail, CatalogPage} from './Catalog.jsx';
+import {DocsPage} from './Docs.jsx';
+import {MonitorPage} from './monitoring.jsx';
+import {PlanDetail} from './PlanDetail.jsx';
+import {PlanCreatePage, PlannerHome, PlansPage} from './PlansPages.jsx';
+import {PlannerNotice, usePlanSelection} from './PlannerUi.jsx';
+import {PublicDoc, PublicPlan} from './PublicViews.jsx';
+import {CATALOG_KINDS, createPlannerApi, moduleUrl, newPlanUrl} from './api.js';
 
-const labels={inicio:'Visão geral',planos:'Planos',audiencias:'Audiências',canais:'Canais',formatos:'Formatos',interativos:'Interativos',places:'Places',portais:'Portais',monitoramento:'Sites e funis',docs:'Docs'};
-const api=(path)=>{if(path.startsWith('/monitor'))return '/familia/api/planner'+path;if(path==='/plans')return '/familia/api/planner/plans';if(path==='/docs')return '/familia/api/planner/docs';if(path==='/selections')return '/familia/api/planner/selections';if(path.startsWith('/catalog/'))return '/familia/api/planner/catalog/'+path.slice('/catalog/'.length);return '/familia/api/planner'+path};
-function App({boot}){
- const [error,setError]=useState('');
- const [busy,setBusy]=useState(false);
- const [allocationDraft,setAllocationDraft]=useState({});
- const [records,setRecords]=useState(Array.isArray(boot.records)?boot.records:[]);
- const [total,setTotal]=useState(boot.records?.length||0);
- const [plan,setPlan]=useState(boot.plan||null);
- const [q,setQ]=useState(''); const [category,setCategory]=useState(''); const [offset,setOffset]=useState(0);
- const [catalogLoading,setCatalogLoading]=useState(false);
- const [dialog,setDialog]=useState(''); const [doc,setDoc]=useState(null);
- const [docEditing,setDocEditing]=useState(false); const [docHtml,setDocHtml]=useState('');
- const [selectedKeys,setSelectedKeys]=useState(new Set());
- const [showCreate,setShowCreate]=useState(new URLSearchParams(location.search).get('create')==='1');
+const PUBLIC_VIEWS = new Set(['public-plan', 'public-doc']);
+const SOLUTION_ICONS = {
+  workspace: '/static/images/cadu/products/cadu-icon.png', planner: '/static/images/cadu/products/planner-icon.png',
+  studio: '/static/images/cadu/products/studio-icon.png', connect: '/static/images/cadu/products/connect-icon.png',
+  skills: '/static/images/cadu/products/skills-icon.png',
+};
 
- const request=async(path,options={})=>{const response=await fetch(api(path),{credentials:'same-origin',...options,headers:{...(options.body?{'Content-Type':'application/json','X-CSRF-Token':boot.csrf}:{}),...(options.headers||{})}});const body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||body.description||'Não foi possível concluir a ação.');if(body.plan&&(path.startsWith('/plans/')||options.method==='POST'&&path==='/plans')&&!path.endsWith('/share'))return body.plan;if(body.document&&(path.startsWith('/docs/')||options.method==='POST'&&path==='/docs')&&!path.endsWith('/share'))return body.document;if(body.record&&path.startsWith('/catalog/'))return body.record;return body};
- useEffect(()=>{const path=plan?`/plans/${plan.id}`:'/selections';request(path).then(x=>{const items=plan?(x.items||[]):(x.selections||[]);setSelectedKeys(new Set(items.map(i=>i.kind+':'+i.resource_id)))}).catch(()=>{})},[boot.module,plan?.id]);
- useEffect(()=>{
-  let path='';
-  if(boot.module==='portais'){const params=new URLSearchParams({q,category,limit:'50',offset:String(offset)});path='/catalog/portais?'+params;}
-  else if(['audiencias','canais','formatos','interativos','places'].includes(boot.module)){const params=new URLSearchParams({q,category,limit:'100'});path=boot.module==='places'?'/places?'+params:'/catalog/'+boot.module+'?'+params;}
-  else if(boot.module==='planos'||boot.module==='inicio')path='/plans';
-  else if(boot.module==='docs')path='/docs';
-  if(!path)return undefined;
-  const controller=new AbortController();let current=true;
-  setCatalogLoading(true);setError('');
-  request(path,{signal:controller.signal}).then(data=>{
-   if(!current)return;
-   if(boot.module==='portais'){setRecords(data.records||[]);setTotal(data.total||0);}
-   else if(['audiencias','canais','formatos','interativos','places'].includes(boot.module)){const next=data.records||[];setRecords(next);setTotal(next.length);}
-   else if(boot.module==='docs')setRecords(data.documents||[]);
-   else setRecords(data.plans||[]);
-  }).catch(failure=>{if(current&&failure.name!=='AbortError')setError(failure.message);}).finally(()=>{if(current)setCatalogLoading(false);});
-  return()=>{current=false;controller.abort();};
- },[boot.module,q,category,offset]);
- const nav=[['inicio','Início','home'],['planos','Planos de mídia','plan'],['audiencias','Audiências','users'],['canais','Canais','share'],['formatos','Formatos','table'],['interativos','Interativos','plugin'],['places','Places','browser'],['portais','Portais','library'],['monitoramento','Sites e funis','pulse'],['docs','Docs','file']];
- const navUrl={inicio:boot.urls.home,planos:boot.urls.plans,audiencias:boot.urls.audiences,canais:boot.urls.channels,formatos:boot.urls.formats,interativos:boot.urls.interactive,places:boot.urls.places,portais:boot.urls.portals,monitoramento:boot.urls.monitoring,docs:boot.urls.docs};
- const newPlanHref=(()=>{const url=new URL(boot.urls.plans,window.location.origin);url.searchParams.set('create','1');return url.pathname+url.search})();
- const plannerSidebarGroups=[{label:'Planos de mídia',items:[{id:'novo-plano',label:'Novo plano',icon:'plus',href:newPlanHref},{id:'historico',label:'Histórico',icon:'history',href:boot.urls.plans}]},{label:'Descobrir',items:nav.filter(([id])=>['canais','audiencias','formatos','interativos','portais'].includes(id)).map(([id,label,icon])=>({id,label,icon,href:navUrl[id]}))}];
- const plannerSidebarActive=boot.module==='planos'?'historico':new URLSearchParams(window.location.search).has('create')?'novo-plano':boot.module;
- const go=url=>window.location.assign(url);
- async function createPlan(event){event.preventDefault();setBusy(true);try{const briefing=Object.fromEntries(new FormData(event.currentTarget));const data=await request('/plans',{method:'POST',body:JSON.stringify({...briefing,briefing})});go(boot.urls.plans+'/'+encodeURIComponent(data.id));}catch(e){setError(e.message)}finally{setBusy(false)}}
- async function toggle(kind,id){try{const path=plan?`/plans/${plan.id}/items/toggle`:'/selections/toggle';const data=await request(path,{method:'POST',body:JSON.stringify({kind,resource_id:String(id)})});setSelectedKeys(old=>{const next=new Set(old),key=kind+':'+id;data.selected?next.add(key):next.delete(key);return next});if(plan){const updated=await request('/plans/'+plan.id);setPlan(updated)}return data.selected}catch(e){setError(e.message)}}
- const activeItems=plan?.items||[];
- function Catalog(){
-  const kind=boot.module;
-  const portalMode=kind==='portais';
-  const items=portalMode?records:records.filter(x=>`${x.name||''} ${x.description||''} ${x.category||''} ${x.domain||''} ${x.platform||''} ${x.segment||''}`.toLowerCase().includes(q.toLowerCase())&&(!category||x.category===category));
-  const detailUrl=item=>kind==='places'?`${boot.urls.places}/${item.slug}`:`${boot.urls[kind==='portais'?'portals':kind==='audiencias'?'audiences':kind==='canais'?'channels':kind==='formatos'?'formats':'interactive']}/${item.id}`;
-  const addItem=async(event,item)=>{event.stopPropagation();const selected=await toggle(kind,item.id||item.slug);if(selected!==undefined)setError(selected?'Adicionado ao plano.':'Removido do plano.');};
-  const resultsLabel=catalogLoading?'Atualizando catálogo…':portalMode?`${total.toLocaleString('pt-BR')} portais`: `${items.length} referências`;
-  const audienceLabel=item=>item.audience_estimate||item.audience||item.tamanho||'';
-  const openLabel=portalMode?'Abrir ficha do portal':'Abrir detalhes';
-  return <section className={`discovery-page discovery-page--${kind}`}>
-   <div className="page-intro discovery-intro"><div><span className="eyebrow">Biblioteca de mídia</span><h1>{labels[kind]}</h1><p>{portalMode?'Descubra veículos editoriais com dados públicos e fontes verificáveis.':'Explore referências selecionadas para encontrar o contexto certo para o seu plano.'}</p></div><button className="button quiet" onClick={()=>go(boot.urls.plans)}>Ver planos</button></div>
-   <div className="discovery-toolbar"><label className="discovery-search"><Icon name="search" size={17}/><input aria-label="Pesquisar referências" value={q} onChange={e=>{setQ(e.target.value);setOffset(0)}} placeholder={portalMode?'Buscar por portal, domínio ou categoria':'Buscar por nome, descrição ou categoria'}/></label><label className="discovery-category"><span>Categoria</span><select value={category} onChange={e=>{setCategory(e.target.value);setOffset(0)}}><option value="">Todas</option>{(boot.categories||[]).map(c=><option key={c}>{c}</option>)}</select></label><span className="discovery-count">{resultsLabel}{portalMode?` · página ${Math.floor(offset/50)+1}`:''}</span></div>
-   {portalMode?<div className="portal-directory" aria-label="Portais disponíveis">{items.map(item=><article className="portal-row" key={item.id}><a className="portal-row-hit" href={detailUrl(item)} aria-label={`${openLabel}: ${item.name}`}/>
-      <span className="portal-favicon"><Icon name="browser" size={20}/><img src={`https://${item.domain}/favicon.ico`} alt="" loading="lazy" onError={event=>{event.currentTarget.style.display='none'}}/></span>
-      <span className="portal-row-main"><span className="portal-row-title">{item.featured_rank&&<i>Destaque</i>}<strong>{item.name}</strong></span><small>{item.domain}</small><span className="portal-row-description">{item.description||'Veículo editorial independente.'}</span></span>
-      <span className="portal-row-category"><small>Categoria</small><b>{item.category||'Não categorizado'}</b></span>
-      <span className="portal-row-audience"><small>Audiência pública</small><b>{audienceLabel(item)||'Sem estimativa publicada'}</b>{item.audience_period&&<small>{item.audience_period}</small>}{item.audience_source_url&&<a href={item.audience_source_url} target="_blank" rel="noreferrer" onClick={event=>event.stopPropagation()}>Fonte verificada ↗</a>}</span>
-      <span className="portal-row-stats"><span><small title="Página inicial e links internos identificados na última leitura">Páginas encontradas</small><b>{Number(item.discovered_pages_count)>0?Number(item.discovered_pages_count).toLocaleString('pt-BR'):item.last_crawled_at?'Contagem indisponível':'Aguardando leitura'}</b></span><span><small title="Leituras bem-sucedidas registradas no catálogo">Atualizações</small><b>{Number(item.crawl_updates_count)>0?Number(item.crawl_updates_count).toLocaleString('pt-BR'):item.last_crawled_at?'Contagem indisponível':'—'}</b></span>{item.last_crawled_at&&<small>Última leitura {new Date(item.last_crawled_at).toLocaleDateString('pt-BR')}</small>}</span>
-      <button className={`button small ${selectedKeys.has(kind+':'+(item.id||item.slug))?'is-selected':''}`} onClick={event=>addItem(event,item)}>{selectedKeys.has(kind+':'+(item.id||item.slug))?'No plano':'Adicionar'}</button>
-    </article>)}{!items.length&&<div className="discovery-empty"><Icon name="search" size={22}/><strong>Nenhum portal encontrado</strong><span>Ajuste a busca ou escolha outra categoria.</span></div>}</div>
-  :<div className="discovery-grid" aria-label={`${labels[kind]} disponíveis`}>{items.map(item=>{
-    const selected=selectedKeys.has(kind+':'+(item.id||item.slug));
-    const logo=kind==='canais'?(item.logo_path||item.logo_url||''):(item.platform_logo||item.logo_path||'');
-    const image=kind==='canais'?'':item.image_url||'';
-    const identityOnly=!image&&Boolean(logo);
-    const detail=detailUrl(item);
-    const eyebrow=item.category||item.platform||item.segment||item.city||labels[kind];
-    const audience=audienceLabel(item);
-    const meta=kind==='places'?[item.city,item.traffic&&`${item.traffic_label||'Movimento'}: ${item.traffic}`,item.points?.length&&`${item.points.length} pontos`].filter(Boolean):kind==='audiencias'?[item.platform,item.subcategory,audience&&`Público: ${audience}`].filter(Boolean):kind==='canais'?[item.category,item.audience&&`Alcance: ${item.audience}`].filter(Boolean):[item.platform,item.dimensions||item.format_type,item.purpose].filter(Boolean);
-    return <article className="discovery-card" key={item.id||item.slug}><a className="discovery-card-hit" href={detail} aria-label={`${openLabel}: ${item.name}`}/>
-     <div className={`discovery-card-art${image?' has-image':''}${identityOnly?' is-identity':''}`}>{image?<img src={image} alt="" loading="lazy" onError={event=>{event.currentTarget.style.display='none';event.currentTarget.parentElement.classList.remove('has-image')}}/>:logo?<VisualIdentity src={logo} initials={item.name} label={item.name} imageTreatment="brand"/>:<Icon name={kind==='places'?'browser':kind==='audiencias'?'users':kind==='canais'?'share':kind==='interativos'?'plugin':'plan'} size={31}/>}</div>
-     <div className="discovery-card-body"><span className="discovery-card-category">{eyebrow||labels[kind]}</span><h2>{item.name}</h2><p>{item.description||item.purpose||'Uma referência para enriquecer as decisões do plano.'}</p><div className="discovery-card-meta">{meta.map((value,i)=><span key={`${i}-${value}`}>{value}</span>)}</div><div className="discovery-card-footer"><span>Explorar detalhes <Icon name="arrowUp" size={14}/></span><button className={`button small${selected?' is-selected':''}`} onClick={event=>addItem(event,item)}>{selected?'No plano':'Adicionar'}</button></div></div>
-    </article>;
-   })}{!items.length&&<div className="discovery-empty"><Icon name="search" size={22}/><strong>Nenhuma referência encontrada</strong><span>Ajuste a busca ou escolha outra categoria.</span></div>}</div>}
-   {portalMode&&<div className="pagination"><button className="button small" disabled={!offset} onClick={()=>setOffset(Math.max(0,offset-50))}>Anterior</button><button className="button small" disabled={offset+records.length>=total} onClick={()=>setOffset(offset+50)}>Próxima</button></div>}
-  </section>;
- }
- function Home(){const latest=records[0];return <><section className="hero"><div><span className="eyebrow">Planejamento de mídia{boot.clientName?` · ${boot.clientName}`:''}</span><h1>{latest?'Continue de onde sua decisão parou.':'Vamos estruturar seu primeiro plano de mídia.'}</h1><p>Reúna objetivo, investimento, público e mix em uma recomendação clara para revisar.</p><div className="actions"><button className="button primary" onClick={()=>latest?go(boot.urls.plans+'/'+latest.id):go(newPlanHref)}>{latest?'Continuar plano':'Criar meu primeiro plano'}</button><button className="button" onClick={()=>go(boot.urls.plans)}>Ver planos</button></div></div><img src={boot.assets} alt="Mapa de decisões de mídia"/></section><section className="shortcut-grid">{nav.filter(([key])=>['canais','audiencias','formatos','interativos','portais'].includes(key)).map(([key,label])=><a key={key} href={navUrl[key]}><span>{label}</span><b>Explorar →</b></a>)}</section></>}
- function CreatePlanPage(){return <section className="planner-form-page"><button className="back" type="button" onClick={()=>go(boot.urls.plans)}>← Todos os planos</button><header className="page-intro"><div><span className="eyebrow">Planejamento · Novo plano</span><h1>Começar uma campanha</h1><p>Defina o contexto inicial. Você poderá refinar o mix de mídia depois.</p></div></header><div className="planner-form-page__layout"><form className="planner-create-form" onSubmit={createPlan}><section><span className="eyebrow">01 · Campanha</span><h2>Identificação</h2><p>Esses dados organizam o plano e ajudam a manter a recomendação ligada ao trabalho certo.</p><label>Nome do plano<input name="title" required minLength="2" maxLength="180" placeholder="Ex.: Lançamento de verão" autoFocus/></label><div className="form-grid"><label>Anunciante<input name="advertiser_name" placeholder="Nome da marca ou anunciante"/></label><label>Campanha<input name="campaign_name" placeholder="Nome da campanha, se já definido"/></label></div></section><section><span className="eyebrow">02 · Direção</span><h2>Objetivo e investimento</h2><div className="form-grid"><label>Objetivo<select name="objective"><option value="">A definir</option><option value="awareness">Awareness</option><option value="consideracao">Consideração</option><option value="leads">Leads</option><option value="vendas">Vendas</option><option value="trafego">Tráfego</option></select></label><label>Investimento<input name="budget" inputMode="decimal" placeholder="Ex.: R$ 50.000"/></label><label>Período<input name="period" placeholder="Ex.: maio a julho de 2026"/></label><label>Praça<input name="geography" placeholder="Ex.: Brasil ou cidades atendidas"/></label><label className="wide">KPIs<input name="kpis" placeholder="Ex.: alcance, leads ou vendas"/></label></div></section><section><span className="eyebrow">03 · Contexto adicional</span><h2>Notas para o planejamento</h2><label>Informações importantes<textarea name="notes" rows="4" placeholder="Inclua restrições, datas ou observações que ajudem a estruturar o plano."/></label></section><footer><button type="button" className="button" onClick={()=>go(boot.urls.plans)}>Cancelar</button><button className="button primary" disabled={busy}>{busy?'Criando…':'Criar plano'}</button></footer></form><aside className="planner-form-summary"><span className="eyebrow">Depois da criação</span><h2>Você continuará no plano</h2><p>Na próxima etapa poderá selecionar canais, audiências, formatos e portais, depois revisar a distribuição do investimento.</p><ul><li>O rascunho fica salvo para continuar mais tarde.</li><li>Campos ainda indefinidos podem ser preenchidos depois.</li></ul></aside></div></section>}
- function Plans(){if(showCreate)return <CreatePlanPage/>;return <><div className="page-intro"><div><span className="eyebrow">Planejamento</span><h1>Planos de mídia</h1><p>Retome uma recomendação ou comece uma campanha.</p></div><button className="button primary" onClick={()=>go(newPlanHref)}>Novo plano</button></div><div className="plan-list">{records.map(x=><a key={x.id} href={boot.urls.plans+'/'+x.id}><div><strong>{x.title}</strong><small>{x.objective||'Objetivo a definir'} · {x.item_count||0} escolhas</small></div><span className="badge">{x.status_label||x.status}</span></a>)}{!records.length&&<div className="empty">Ainda não há planos para este cliente.<button className="button primary" onClick={()=>go(newPlanHref)}>Criar o primeiro plano</button></div>}</div></>}
- function PlanDetail(){if(!plan)return <p>Carregando plano…</p>;const briefing=plan.briefing||{};const channels=(plan.items||[]).filter(item=>item.kind==='canais');return <><button className="back" onClick={()=>go(boot.urls.plans)}>← Todos os planos</button><div className="page-intro"><div><span className="eyebrow">Plano de mídia · {plan.status}</span><h1>{plan.title}</h1><p>{plan.advertiser_name||'Campanha em definição'}{plan.campaign_name?` · ${plan.campaign_name}`:''}</p></div><div className="actions"><button className="button" onClick={async()=>{try{const x=await request(`/plans/${plan.id}/share`,{method:'POST',body:JSON.stringify({enabled:true})});const token=x.plan?.share_token||x.share_token;if(token){await navigator.clipboard.writeText(new URL('/planos/public/'+token,boot.urls.home).href);setError('Link público copiado.')}else setError('Link público do plano criado.')}catch(e){setError(e.message)}}}>Publicar plano</button><button className="button primary" onClick={async()=>{try{await request(`/plans/${plan.id}/status`,{method:'PUT',body:JSON.stringify({status:plan.status==='ready'?'draft':'ready'})});const d=await request('/plans/'+plan.id);setPlan(d)}catch(e){setError(e.message)}}}>{plan.status==='ready'?'Reabrir':'Marcar pronto'}</button></div></div><div className="detail-grid"><section className="panel"><h2>Direção da campanha</h2><form className="briefing" onSubmit={async e=>{e.preventDefault();try{const fields=Object.fromEntries(new FormData(e.currentTarget));await request('/plans/'+plan.id,{method:'PUT',body:JSON.stringify({briefing:fields,advertiser_name:fields.advertiser_name,campaign_name:fields.campaign_name})});setError('Direção salva.')}catch(x){setError(x.message)}}}>{[['advertiser_name','Anunciante'],['campaign_name','Campanha'],['objective','Objetivo'],['budget','Investimento'],['period','Período'],['geography','Praça'],['kpis','KPIs']].map(([name,label])=><label key={name}>{label}<input name={name} defaultValue={plan[name]||briefing[name]||''}/></label>)}<label className="wide">Notas<textarea name="notes" defaultValue={briefing.notes||''}/></label><button className="button primary">Salvar direção</button></form></section><section className="panel"><h2>Composição do plano</h2>{plan.readiness&&<div className="readiness"><strong>{plan.readiness.ready?'Pronto para revisão':'Checklist do plano'}</strong>{(plan.readiness.checks||[]).map((item,i)=><small key={i}>{item.complete?'✓':'○'} {item.label}</small>)}</div>}{activeItems.map(item=><div className="selected-row" key={item.kind+item.resource_id}><div><strong>{item.snapshot?.name||item.resource_id}</strong><small>{labels[item.kind]||item.kind}</small></div><button className="text-button" onClick={()=>toggle(item.kind,item.resource_id)}>Remover</button></div>)}{!activeItems.length&&<p className="muted">Ainda não há referências neste plano.</p>}{channels.length>0&&<section className="allocation-list"><h3>Distribuição de investimento</h3>{channels.map(item=>{const key=String(item.resource_id),saved=plan.allocation_by_channel?.[key]||{};return <label className="allocation-row" key={key}><span>{item.snapshot?.name||key}</span><input aria-label={'Investimento '+key} placeholder='Investimento' value={allocationDraft[key]?.investment??saved.investment??''} onChange={e=>setAllocationDraft({...allocationDraft,[key]:{...allocationDraft[key],investment:e.target.value}})}/><input aria-label={'Participação '+key} placeholder='% do plano' value={allocationDraft[key]?.weight??saved.weight??''} onChange={e=>setAllocationDraft({...allocationDraft,[key]:{...allocationDraft[key],weight:e.target.value}})}/></label>})}<button className="button small" onClick={async()=>{try{const allocations=channels.map(item=>({resource_id:String(item.resource_id),...(plan.allocation_by_channel?.[String(item.resource_id)]||{}),...(allocationDraft[String(item.resource_id)]||{})}));const x=await request(`/plans/${plan.id}/allocations`,{method:'PUT',body:JSON.stringify({allocations})});setPlan(x);setError('Distribuição salva.')}catch(e){setError(e.message)}}}>Salvar distribuição</button></section>}<div className="inline-links">{nav.slice(2,8).map(([k,l])=><a href={boot.urls[k==='audiencias'?'audiences':k==='canais'?'channels':k==='formatos'?'formats':k==='interativos'?'interactive':k]} key={k}>Adicionar {l}</a>)}</div></section></div></>}
- function PublicPlan(){if(!plan)return <p>Plano indisponível.</p>;return <section className="panel public-plan"><span className="eyebrow">Plano de mídia</span><h1>{plan.title}</h1><p>{plan.advertiser_name||''}{plan.campaign_name?` · ${plan.campaign_name}`:''}</p><div className="facts">{[['Objetivo',plan.objective],['Investimento',plan.briefing?.budget],['Período',plan.briefing?.period],['Praça',plan.briefing?.geography],['KPIs',plan.briefing?.kpis]].filter(x=>x[1]).map(([k,v])=><div key={k}><small>{k}</small><strong>{v}</strong></div>)}</div><h2>Seleção de mídia</h2>{(plan.items||[]).map(item=><div className="selected-row" key={item.kind+item.resource_id}><div><strong>{item.snapshot?.name||item.resource_id}</strong><small>{labels[item.kind]||item.kind}</small></div></div>)}</section>}
- function PublicDoc(){const doc=boot.document||{};const text=(doc.html||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();return <article className="panel public-doc"><span className="eyebrow">Cadu Planner · {doc.type||'Documento'}</span><h1>{doc.title||'Documento'}</h1><p>{text||'Este documento não contém texto para exibição.'}</p></article>}
- function PublicLinkReport(){const report=boot.report||{},result=report.result||{};return <article className="panel public-doc"><span className="eyebrow">Relatório de destino · {report.mode||''}</span><h1>{report.status_label||'Relatório'}</h1><p className="url-break">{report.final_url||''}</p><strong className="report-score">{report.score||0}/100</strong><h2>Resultado</h2><p>{result.summary||'Sem resumo disponível.'}</p></article>}
- function PublicEntry(){const entry=boot.entry||{};return <main className="public-entry"><div className="public-entry-copy"><span className="eyebrow">{entry.eyebrow||'Planejamento de mídia'}</span><h1>{entry.title||'Cadu Planner'}</h1><p>{entry.description||'Organize objetivos, públicos e canais antes de produzir.'}</p><div className="actions"><button className="button primary" onClick={()=>go(boot.urls.home)}>Abrir Planner</button><button className="button" onClick={()=>go(boot.urls.workspace)}>Ir ao Workspace</button></div><small>Use a navegação do Workspace para alternar entre as soluções.</small></div><img src={boot.assets} alt="Decisões de mídia organizadas em um plano"/></main>}
- function Docs(){return <><div className="page-intro"><div><span className="eyebrow">Entregas</span><h1>Docs</h1><p>Briefings, propostas e apresentações do cliente.</p></div>{boot.writesEnabled&&<button className="button primary" onClick={()=>setDialog('doc-create')}>Criar documento</button>}</div><div className="plan-list">{records.map(x=><button className="doc-row" key={x.id} onClick={async()=>{try{const d=await request('/docs/'+x.id);setDoc(d);setDocHtml(d.html||'');setDocEditing(false);setDialog('doc')}catch(e){setError(e.message)}}}><div><strong>{x.title}</strong><small>{x.type} · {x.updated_at||''}</small></div><span>Ver documento →</span></button>)}{!records.length&&<div className="empty">Ainda não há documentos neste cliente.</div>}</div></>}
- function Detail(){const item=boot.audience||boot.record;if(!item)return <p>Referência indisponível.</p>;const attributes=Array.isArray(item.public_attributes)?item.public_attributes.filter(a=>a&&typeof a==='object'&&a.atributo!=='status_curadoria'):[];return <><button className="back" onClick={()=>history.back()}>← Voltar ao catálogo</button><div className="page-intro"><div><span className="eyebrow">{item.category||labels[boot.module]}</span><h1>{item.name}</h1><p>{item.domain?`${item.domain} · `:''}{item.description||''}</p></div><button className="button primary" onClick={()=>toggle(boot.module,item.id||item.slug)}>Adicionar ao plano</button></div><section className="panel facts">{[['Categoria',item.category],['Público estimado',item.audience_estimate||item.audience],['Período da estimativa',item.audience_period],['Cidade',item.city],['Operador',item.operator],['Especificação',item.dimensions],['Arquivos',item.files]].filter(x=>x[1]).map(([k,v])=><div key={k}><small>{k}</small><strong>{v}</strong></div>)}</section>{item.audience_source_url&&<p className="source-note">Fonte da audiência: <a href={item.audience_source_url} target="_blank" rel="noreferrer">{item.audience_source_url}</a></p>}{boot.module==='portais'&&attributes.length>0&&<section className="panel public-attributes"><h2>Características públicas e evidências</h2>{attributes.map((a,index)=><div key={`${a.atributo||'atributo'}-${index}`}><strong>{String(a.atributo||'Característica').replaceAll('_',' ')}</strong><span>{String(a.valor??'—')}</span>{a.observed_at&&<small>Verificado em {a.observed_at}</small>}{a.source_url&&<a href={a.source_url} target="_blank" rel="noreferrer">Abrir fonte pública →</a>}</div>)}</section>}</>}
- const moduleView=()=>{if(boot.view==='plan-detail')return <PlanDetail/>;if(boot.view==='catalog-detail'||boot.view==='audience-detail')return <Detail/>;if(boot.view==='public-plan')return <PublicPlan/>;if(boot.view==='public-doc')return <PublicDoc/>;if(boot.view==='public-link-report')return <PublicLinkReport/>;if(boot.view==='public-entry')return <PublicEntry/>;if(boot.module==='monitoramento')return <MonitorPage request={request}/>;if(boot.module==='inicio')return <Home/>;if(boot.module==='planos')return <Plans/>;if(boot.module==='docs')return <Docs/>;return <Catalog/>};
- async function createDoc(event){event.preventDefault();try{const data=await request('/docs',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(event.currentTarget)))});setDoc(data);setDocHtml(data.html||'');setDocEditing(true);setDialog('doc');setRecords([data,...records])}catch(e){setError(e.message)}}
- const publicOnly=boot.view==='public-plan'||boot.view==='public-doc'||boot.view==='public-link-report'||boot.view==='public-entry';
- const solutionUrls={workspace:boot.urls.workspace,planner:boot.urls.home,studio:boot.urls.studio,connect:boot.urls.reports,skills:boot.urls.skills};
- const solutionIcons={workspace:'/static/images/cadu/products/cadu-icon.png',planner:'/static/images/cadu/products/planner-icon.png',studio:'/static/images/cadu/products/studio-icon.png',connect:'/static/images/cadu/products/connect-icon.png',skills:'/static/images/cadu/products/skills-icon.png'};
- return <div className={'planner-shell '+(publicOnly?'is-public':'')}>
- {!publicOnly&&<SolutionSidebar solution="Planner" userName={boot.user?.name||'Minha conta'} userAvatar={boot.user?.avatar||boot.user?.foto_url||''} creditsUrl={boot.urls.credits} profileUrl={boot.urls.profile} accent="#c2410c" storageKey="planner-sidebar" active={plannerSidebarActive} activeSolutionId="planner" solutionLogo={solutionIcons.planner} solutionUrls={solutionUrls} solutionIcons={solutionIcons} groups={plannerSidebarGroups} footer={<a href={boot.urls.logout}>Sair</a>} />}
- <main className="planner-main"><div className="content">{error&&<div className="feedback" role="status">{error}<button onClick={()=>setError('')}>×</button></div>}{moduleView()}</div></main>
- {dialog==='doc-create'&&<div className="modal-backdrop"><form className="modal" onSubmit={createDoc}><header><h2>Novo documento</h2><button type="button" onClick={()=>setDialog('')}>×</button></header><label>Título<input name="title" required/></label><label>Tipo<select name="type"><option value="documento">Documento</option><option value="briefing">Briefing</option><option value="apresentacao">Apresentação</option><option value="proposta">Proposta</option></select></label><footer><button className="button primary">Criar documento</button></footer></form></div>}
- {dialog==='doc'&&doc&&<section className="doc-editor-page"><button type="button" className="back" onClick={()=>{setDialog('');setDocEditing(false)}}>← Todos os documentos</button><section className="doc-editor-page__card"><header><div><span className="eyebrow">{doc.type}</span><h2>{doc.title}</h2><small>{doc.status||'Rascunho'}{doc.updated_at?` · ${doc.updated_at}`:''}</small></div><button onClick={()=>setDialog('')}>×</button></header>{docEditing?<><label>Título<input value={doc.title||''} onChange={e=>setDoc({...doc,title:e.target.value})}/></label><label>Conteúdo HTML<textarea className="doc-editor" value={docHtml} onChange={e=>setDocHtml(e.target.value)}/></label></>:<article className="doc-preview">{(doc.html||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim()||'Documento sem texto para prévia.'}</article>}<footer>{boot.writesEnabled&&doc.is_owner&&<>{docEditing?<button className="button primary" onClick={async()=>{try{const x=await request('/docs/'+doc.id,{method:'PUT',body:JSON.stringify({title:doc.title,html:docHtml,status:doc.status||'draft'})});setDoc(x);setDocEditing(false);setError('Documento salvo.')}catch(e){setError(e.message)}}}>Salvar alterações</button>:<button className="button" onClick={()=>setDocEditing(true)}>Editar</button>}<button className="button" onClick={async()=>{try{const x=await request('/docs/'+doc.id+'/review/estimate');if(!window.confirm(`Revisar em ${x.passes} etapas. Estimativa: ${x.estimated_tokens.toLocaleString('pt-BR')} créditos. Continuar?`))return;const y=await request('/docs/'+doc.id+'/review',{method:'POST',body:JSON.stringify({})});if(y.document){setDoc(y.document);setDocHtml(y.document.html||'');setDocEditing(false)}}catch(e){setError(e.message)}}}>Revisar</button><button className="button" onClick={async()=>{try{await request('/docs/'+doc.id+'/duplicate',{method:'POST',body:JSON.stringify({})});setError('Documento duplicado. Atualize a página para vê-lo.')}catch(e){setError(e.message)}}}>Duplicar</button><button className="button" onClick={async()=>{try{const x=await request('/docs/'+doc.id+'/share',{method:'POST',body:JSON.stringify({enabled:!doc.share_enabled})});setDoc(x);if(x.share_enabled)await navigator.clipboard.writeText(new URL('/docs/public/'+x.share_token,boot.urls.home).href)}catch(e){setError(e.message)}}}>{doc.share_enabled?'Despublicar':'Compartilhar'}</button></>}<button className="button" onClick={()=>setDialog('')}>Fechar</button></footer></section></section>}
- </div>
+function sidebarGroups(urls) {
+  const item = (id, label, icon, href) => ({id, label, icon, href: href || moduleUrl(urls, id)});
+  return [
+    {label: '', items: [item('inicio', 'Início', 'home')]},
+    {label: 'Planos de mídia', items: [item('novo-plano', 'Novo plano', 'plus', newPlanUrl(urls)), item('planos', 'Todos os planos', 'history')]},
+    {label: 'Descobrir', items: [item('canais', 'Canais', 'share'), item('audiencias', 'Audiências', 'users'), item('formatos', 'Formatos', 'table'), item('interativos', 'Interativos', 'plugin'), item('portais', 'Portais', 'library'), item('places', 'Places', 'browser')]},
+    // Sites e funis stays reachable by URL until its migration is applied in production.
+    {label: 'Entregas', items: [item('docs', 'Docs', 'file')]},
+  ];
 }
-const root=document.getElementById('planner-root');if(root){const node=document.getElementById('planner-bootstrap');createRoot(root).render(<App boot={JSON.parse(node?.textContent||'{}')}/>)}
+
+function App({boot}) {
+  const request = useMemo(() => createPlannerApi(boot.csrf), [boot.csrf]);
+  const [notice, setNotice] = useState(null);
+  const notify = useCallback(next => setNotice(next), []);
+  const [plan, setPlan] = useState(boot.plan || null);
+  // The server renders plans with the home's progress details; no second fetch.
+  const plans = ['inicio', 'planos'].includes(boot.module) && Array.isArray(boot.records) ? boot.records : [];
+  const creating = boot.module === 'planos' && boot.view === 'page' && new URLSearchParams(window.location.search).get('create') === '1';
+  const publicView = PUBLIC_VIEWS.has(boot.view);
+  const selection = usePlanSelection(request, plan, setPlan, notify, !publicView);
+
+  // Success messages fade on their own; errors wait for the person.
+  useEffect(() => {
+    if (!notice || notice.tone === 'error') return undefined;
+    const timer = window.setTimeout(() => setNotice(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  const view = (() => {
+    if (boot.view === 'public-plan') return <PublicPlan plan={plan}/>;
+    if (boot.view === 'public-doc') return <PublicDoc document={boot.document}/>;
+    if (boot.view === 'plan-detail') return <PlanDetail boot={boot} request={request} plan={plan} setPlan={setPlan} toggle={selection.toggle} notify={notify}/>;
+    if (boot.view === 'catalog-detail' || boot.view === 'audience-detail') return <CatalogDetail boot={boot} selection={selection}/>;
+    if (creating) return <PlanCreatePage boot={boot} request={request} notify={notify}/>;
+    if (boot.module === 'inicio') return <PlannerHome boot={boot} plans={plans}/>;
+    if (boot.module === 'planos') return <PlansPage boot={boot} plans={plans}/>;
+    if (boot.module === 'monitoramento') return <MonitorPage request={request}/>;
+    if (boot.module === 'docs') return <DocsPage boot={boot} request={request} notify={notify}/>;
+    if (CATALOG_KINDS.includes(boot.module)) return <CatalogPage boot={boot} request={request} selection={selection} notify={notify}/>;
+    return null;
+  })();
+
+  const active = creating ? 'novo-plano' : boot.module;
+  const urls = boot.urls;
+  return <div className={`planner-shell${publicView ? ' is-public' : ''}`}>
+    {!publicView && <SolutionSidebar solution="Planner" accent="var(--cadu-accent)" storageKey="planner-sidebar" active={active}
+      activeSolutionId="planner" solutionLogo={SOLUTION_ICONS.planner} solutionIcons={SOLUTION_ICONS}
+      solutionUrls={{workspace: urls.workspace, planner: urls.home, studio: urls.studio, connect: urls.reports, skills: urls.skills}}
+      groups={sidebarGroups(urls)} userName={boot.user?.name || 'Minha conta'} accountLabel={boot.clientName || undefined}
+      userAvatar={boot.user?.avatar || ''} creditsUrl={urls.credits} profileUrl={urls.profile}/>}
+    <main className="planner-main" id="content">
+      <PlannerNotice notice={notice} onDismiss={() => setNotice(null)}/>
+      {view}
+    </main>
+  </div>;
+}
+
+const root = document.getElementById('planner-root');
+if (root) {
+  const node = document.getElementById('planner-bootstrap');
+  createRoot(root).render(<App boot={JSON.parse(node?.textContent || '{}')}/>);
+}

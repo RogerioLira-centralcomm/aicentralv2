@@ -104,6 +104,7 @@ def get_plan(client_id, actor_id, plan_id):
     plan['items'] = repository.rows('''SELECT kind, resource_id, snapshot, created_at
                                          FROM cadu_planner_plan_items WHERE plan_id = %s
                                       ORDER BY kind, created_at''', (str(plan_id),))
+    _project_snapshots(plan['items'])
     plan['allocations'] = repository.rows('''SELECT resource_id, investment, weight, flight, notes
                                                 FROM cadu_planner_channel_allocations WHERE plan_id = %s
                                              ORDER BY resource_id''', (str(plan_id),)) if _allocations_available() else []
@@ -133,6 +134,13 @@ def share_plan(client_id, actor_id, plan_id, enabled):
     return get_plan(client_id, actor_id, plan_id)
 
 
+def _project_snapshots(items):
+    """Older snapshots stored the full catalog row; customers only see the client projection."""
+    for item in items:
+        item['snapshot'] = catalog.client_projection(item.get('kind'), item.get('snapshot') or {})
+    return items
+
+
 def public_plan(token):
     """Return a client-safe projection for an explicitly shared media plan."""
     rows = repository.rows('''SELECT id, title, objective, status, advertiser_name, campaign_name, briefing,
@@ -146,6 +154,7 @@ def public_plan(token):
     plan['items'] = repository.rows('''SELECT kind, resource_id, snapshot
                                          FROM cadu_planner_plan_items WHERE plan_id = %s
                                       ORDER BY kind, created_at''', (str(plan['id']),))
+    _project_snapshots(plan['items'])
     plan['allocations'] = repository.rows('''SELECT resource_id, investment, weight, flight, notes
                                                 FROM cadu_planner_channel_allocations WHERE plan_id = %s
                                              ORDER BY resource_id''', (str(plan['id']),)) if _allocations_available() else []
@@ -272,7 +281,7 @@ def toggle_item(client_id, actor_id, plan_id, payload):
         from .portals import detail
         record = detail(resource_id)
     else:
-        record = catalog.detail(kind, resource_id)
+        record = catalog.client_detail(kind, resource_id)
     with get_db() as conn, conn.cursor() as cur:
         cur.execute('''DELETE FROM cadu_planner_plan_items
                          WHERE plan_id = %s AND kind = %s AND resource_id = %s RETURNING id''',

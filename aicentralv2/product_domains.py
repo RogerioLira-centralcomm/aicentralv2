@@ -192,7 +192,16 @@ def register_product_host_routing(app) -> None:
         planner_host_only()
         return app.view_functions['cadu_family.page']('planner', module)
 
-    for planner_module in ('planos', 'audiencias', 'canais', 'formatos', 'interativos', 'places', 'portais', 'docs'):
+    @app.before_request
+    def planner_formats_on_planner_host():
+        # ``/formatos`` is also a Studio shortcut registered first (and guarded
+        # by Studio access). On the Planner host it is always the Planner catalog.
+        if request.method == 'GET' and request.path == '/formatos' and (
+                request.host.split(':', 1)[0] or '').lower() == _configured_host('PLANNER_URL'):
+            return planner_page('formatos')
+        return None
+
+    for planner_module in ('planos', 'audiencias', 'canais', 'formatos', 'interativos', 'places', 'portais', 'monitoramento', 'docs'):
         app.add_url_rule(f'/{planner_module}', endpoint=f'planner_host_{planner_module}',
                          view_func=lambda module=planner_module: planner_page(module), methods=['GET'])
 
@@ -205,11 +214,6 @@ def register_product_host_routing(app) -> None:
     def planner_host_public_plan(token):
         planner_host_only()
         return app.view_functions['cadu_family.planner_public_plan'](token)
-
-    @app.get('/audiencias/<int:audience_id>')
-    def planner_host_audience_detail(audience_id):
-        planner_host_only()
-        return app.view_functions['cadu_family.planner_audience_detail'](audience_id)
 
     @app.get('/places/<slug>')
     def planner_host_place_detail(slug):

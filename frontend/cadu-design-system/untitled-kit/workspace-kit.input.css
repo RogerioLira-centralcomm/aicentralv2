@@ -19,8 +19,8 @@
   transition-timing-function: inherit;
 }
 
-/* The kit is loaded only by Workspace templates. CADU owns the brand scale. */
-[data-cadu-skin="workspace"] {
+/* The kit is loaded by Workspace and Planner templates. CADU owns the brand scale. */
+[data-cadu-skin="workspace"], [data-cadu-skin="planner"] {
   --color-brand-25: var(--colors-brand-25);
   --color-brand-50: var(--colors-brand-50);
   --color-brand-100: var(--colors-brand-100);

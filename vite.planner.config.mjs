@@ -3,6 +3,9 @@ import {resolve} from 'node:path';
 
 export default defineConfig({
   publicDir: false,
+  // The Cadu Design System controls are Untitled UI TSX modules without a React import.
+  esbuild: {jsx: 'automatic'},
+  resolve: {dedupe: ['react', 'react-dom']},
   build: {
     emptyOutDir: false,
     cssCodeSplit: false,

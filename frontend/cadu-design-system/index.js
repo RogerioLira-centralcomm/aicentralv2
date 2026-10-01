@@ -2,6 +2,7 @@ export {ThemeProvider, useCaduTheme} from './ThemeProvider';
 export {Icon} from './components/Icon';
 export {CaduDialog} from './components/CaduDialog';
 export {CaduButton} from './components/CaduButton';
+export {CaduPageHeader} from './components/CaduPageHeader';
 export {CaduSurface} from './components/CaduSurface';
 export {CaduSolutionSwitcher, AgencySwitcher, ProjectSelector} from './components/WorkspaceSelectors';
 export {CaduDock, DockDropZone, DockBrandShortcut, DockResourceShortcut, DockUsageRing} from './components/CaduDock';

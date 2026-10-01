@@ -131,7 +131,13 @@
   --cadu-muted: #9ab0ac;
   --cadu-line: rgba(181, 218, 211, .14);
 }
-[data-cadu-skin="planner"] { --cadu-accent: #3f79d8; --cadu-accent-strong: #2c5bad; --cadu-accent-soft: #eaf1ff; }
+/* Planner follows its green product mark; the Untitled brand scale is derived from it. */
+[data-cadu-skin="planner"] {
+  --cadu-accent: #079455; --cadu-accent-strong: #067647; --cadu-accent-soft: #ecfdf3;
+  --colors-brand-25: #f6fef9; --colors-brand-50: #ecfdf3; --colors-brand-100: #dcfae6; --colors-brand-200: #abefc6;
+  --colors-brand-300: #75e0a7; --colors-brand-400: #47cd89; --colors-brand-500: #17b26a; --colors-brand-600: #079455;
+  --colors-brand-700: #067647; --colors-brand-800: #085d3a; --colors-brand-900: #074d31; --colors-brand-950: #053321;
+}
 [data-cadu-skin="studio"] { --cadu-accent: #bd78e8; --cadu-accent-strong: #9452c2; --cadu-accent-soft: #f5ebfc; }
 [data-cadu-skin="reports"] { --cadu-accent: #175cd3; --cadu-accent-strong: #004eeb; --cadu-accent-soft: #eff8ff; }
 [data-cadu-skin="skills"] { --cadu-accent: #7a68d8; --cadu-accent-strong: #5c4cb2; --cadu-accent-soft: #f0edff; }

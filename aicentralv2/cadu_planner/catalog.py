@@ -207,6 +207,44 @@ def detail(kind, value):
     return records[0]
 
 
+# What a customer may see of an audience: its public description, people and
+# estimated indicators. Costs, sale prices, internal ids and pipeline tracking
+# stay with the internal tools that call ``detail`` directly.
+CLIENT_AUDIENCE_KEYS = ('id', 'name', 'description', 'audience', 'image_url', 'category', 'subcategory', 'channel')
+CLIENT_AUDIENCE_GROUPS = {
+    'Narrativa e aplicação': None,
+    'Público, perfil e comportamento': None,
+    'Demografia e dispositivos': None,
+    'Métricas e precificação': ('Indicadores estimados', {
+        'ctr_medio_estimado', 'taxa_conversao_estimada', 'cpa_estimado_min', 'cpa_estimado_max',
+        'tamanho_mercado_brl', 'alcance_incremental'}),
+}
+
+
+def client_projection(kind, record):
+    """Reduce a catalog record to the fields a Planner customer may see."""
+    if kind != 'audiencias' or not isinstance(record, dict):
+        return record
+    projected = {key: record.get(key) for key in CLIENT_AUDIENCE_KEYS if record.get(key) not in (None, '')}
+    groups = []
+    for group in record.get('data_groups') or _audience_data_groups(record):
+        rule = CLIENT_AUDIENCE_GROUPS.get(group.get('title'), False)
+        if rule is False:
+            continue
+        title, allowed = rule if rule else (group['title'], None)
+        fields = [field for field in group.get('fields') or []
+                  if (allowed is None or field.get('variable') in allowed)
+                  and not field.get('is_empty') and not field.get('is_structured')]
+        if fields:
+            groups.append({'title': title, 'fields': fields})
+    projected['data_groups'] = groups
+    return projected
+
+
+def client_detail(kind, value):
+    return client_projection(kind, detail(kind, value))
+
+
 def related_audiences(audience, limit=6):
     """Return a compact, explainable comparison set for an audience detail page."""
     try:

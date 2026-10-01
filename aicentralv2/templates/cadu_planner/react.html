@@ -1,2 +1,44 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="csrf-token" content="{{ csrf }}"><title>{{ title }} — Cadu Planner</title><link rel="icon" href="{{ url_for('static',filename='images/cadu/brand-icons/planner-192.png') }}"><link rel="stylesheet" href="{{ url_for('static',filename='cadu_planner/react/app.css') }}?v={{ cadu_workspace_asset_version }}"></head>
-<body class="planner-react" data-product="planner"><script id="planner-bootstrap" type="application/json">{{ {'module':module,'view':planner_view|default('page'),'title':title,'entry':entry|default(none),'records':records|default([]),'plan':plan|default(none),'record':record|default(none),'audience':audience|default(none),'document':document|default(none),'report':report|default(none),'similarAudiences':similar_audiences|default([]),'user':dict(user|default({}), avatar=session.get('user_photo_url') or ('/static/images/cadu/avatars/' ~ session.get('cadu_avatar_badge')) if session.get('cadu_avatar_badge') else session.get('user_photo_url','')),'clientName':(selected.client_name if selected else ''),'categories':marketplace_facets.categories|default([]),'csrf':csrf,'writesEnabled':cadu_family_writes_enabled|default(false),'assets':url_for('static',filename='images/cadu/planner/planner-decision-map-v3.png'),'urls':{'home':planner_url(),'plans':planner_url('planos'),'audiences':planner_url('audiencias'),'channels':planner_url('canais'),'formats':planner_url('formatos'),'interactive':planner_url('interativos'),'places':planner_url('places'),'portals':planner_url('portais'),'monitoring':planner_url('monitoramento'),'docs':planner_url('docs'),'workspace':product_url('workspace','/workspace/app'),'studio':product_url('studio','/'),'reports':product_url('connect','/'),'skills':product_url('skills','/'),'login':product_url('auth','/login'),'profile':product_url('workspace','/workspace/app/conta?section=perfil'),'credits':product_url('workspace','/workspace/app/creditos'),'logout':product_url('auth','/logout')}}|tojson }}</script><div id="planner-root"></div><script type="module" src="{{ url_for('static',filename='cadu_planner/react/app.js') }}?v={{ cadu_workspace_asset_version }}"></script></body></html>
+<!doctype html>
+<html lang="pt-BR" data-cadu-skin="planner">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="csrf-token" content="{{ csrf }}">
+<title>{{ title }} — Cadu Planner</title>
+<link rel="icon" href="{{ url_for('static', filename='images/cadu/brand-icons/planner-192.png') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/untitled/workspace-kit.css') }}?v={{ cadu_workspace_asset_version }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='cadu_planner/react/app.css') }}?v={{ cadu_workspace_asset_version }}">
+</head>
+{#- The profile photo comes first, then the SSO picture, then the chosen Cadu badge, as in Reports. -#}
+{%- set badge = session.get('cadu_avatar_badge') -%}
+{%- set avatar = (perfil_contato or {}).get('foto_url') or session.get('user_photo_url') or session.get('google_picture') or (('/static/images/cadu/avatars/' ~ badge) if badge else '') -%}
+<body class="planner-react" data-product="planner">
+<script id="planner-bootstrap" type="application/json">{{ {
+  'module': module,
+  'view': planner_view|default('page'),
+  'title': title,
+  'records': records|default([]),
+  'plan': plan|default(none),
+  'record': record|default(none),
+  'audience': audience|default(none),
+  'document': document|default(none),
+  'user': {'name': (user or {}).get('name') or session.get('user_name', 'Minha conta'), 'avatar': avatar} if user else none,
+  'clientName': (selected.client_name if selected else ''),
+  'categories': ((marketplace_facets if marketplace_facets is defined else none) or {}).get('categories') or [],
+  'csrf': csrf,
+  'writesEnabled': cadu_family_writes_enabled|default(false),
+  'urls': {
+    'home': planner_url(), 'plans': planner_url('planos'), 'audiences': planner_url('audiencias'),
+    'channels': planner_url('canais'), 'formats': planner_url('formatos'), 'interactive': planner_url('interativos'),
+    'places': planner_url('places'), 'portals': planner_url('portais'), 'monitoring': planner_url('monitoramento'),
+    'docs': planner_url('docs'), 'workspace': product_url('workspace', '/workspace/app'), 'studio': product_url('studio', '/'),
+    'reports': product_url('connect', '/'), 'skills': product_url('skills', '/'),
+    'profile': product_url('workspace', '/workspace/app/conta?section=perfil'),
+    'credits': product_url('workspace', '/workspace/app/creditos'), 'logout': product_url('auth', '/logout')
+  }
+}|tojson }}</script>
+{#- Public documents are served in a script-less sandbox, so their text is rendered here. -#}
+<div id="planner-root">{% if planner_view == 'public-doc' and document %}<div class="planner-shell is-public"><main class="planner-main"><article class="planner-public"><span class="planner-section-label">{{ document.type or 'Documento' }}</span><h1>{{ document.title or 'Documento' }}</h1><p class="planner-doc-preview">{{ (document.html or '')|striptags or 'Este documento não contém texto para exibição.' }}</p></article></main></div>{% endif %}</div>
+<script type="module" src="{{ url_for('static', filename='cadu_planner/react/app.js') }}?v={{ cadu_workspace_asset_version }}"></script>
+</body>
+</html>

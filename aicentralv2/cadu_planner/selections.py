@@ -17,16 +17,19 @@ def _record(kind, resource_id):
     if kind == "portais":
         from .portals import detail
         return detail(resource_id)
-    return catalog.detail(kind, resource_id)
+    return catalog.client_detail(kind, resource_id)
 
 
 def list_selected(client_id, actor_id):
     available = repository.rows("SELECT to_regclass('public.cadu_planner_selections') IS NOT NULL AS available")
     if not available or not available[0]["available"]:
         return []
-    return repository.rows('''SELECT kind, resource_id, snapshot, created_at
-                                FROM cadu_planner_selections
-                               WHERE client_id=%s AND actor_id=%s ORDER BY kind, created_at DESC''', (client_id, actor_id))
+    items = repository.rows('''SELECT kind, resource_id, snapshot, created_at
+                                 FROM cadu_planner_selections
+                                WHERE client_id=%s AND actor_id=%s ORDER BY kind, created_at DESC''', (client_id, actor_id))
+    for item in items:
+        item["snapshot"] = catalog.client_projection(item.get("kind"), item.get("snapshot") or {})
+    return items
 
 
 def toggle(client_id, actor_id, payload):

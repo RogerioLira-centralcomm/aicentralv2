@@ -309,6 +309,8 @@ Acrescentadas às fases conforme a prioridade:
 | 01/10/2026 | Fase 2: painel Plano e produção (folha de produção em CSV e para imprimir, etiquetas), notas e checklists na mesa, “Publicar plano” separado de “Ativar medição” com versões do plano. | `2b40d003`, `223377ad`, `8d6d7a51` |
 | 01/10/2026 | Fase 3: camada Previsão com cenários pessimista, provável e otimista, totais de resultados, receita, custo por resultado e ROAS; estratégias com taxas de referência. | `897f6e2c` |
 | 01/10/2026 | Fase 1 (fecho): plano sem site, com conexão do site depois e guarda das ações que dependem dele. | ver histórico |
+| 01/10/2026 | Catálogo de páginas por cliente (sitemap), painéis simétricos e compactos, inspetor sem cartão aninhado e sem menu Exibir. | `7aded072`, `9c4c7fac` |
+| 01/10/2026 | Medição em vários domínios: passos em outro domínio do cliente, Super Tag instalada em cada um, aviso `external_host_without_tag`. | `8f28971a` |
 
 Decisão registrada: planejar é uma escolha explícita. Um passo antigo sem situação e sem URL continua bloqueando a publicação (com a opção de marcá-lo como planejado), para nenhum passo sair da medição sem que a pessoa perceba.
 

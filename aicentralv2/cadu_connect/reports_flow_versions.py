@@ -3,6 +3,7 @@ import json
 
 from flask import abort
 
+from .reports_flow_lifecycle import is_measured
 from .reports_v1 import _rows
 
 
@@ -47,7 +48,7 @@ def sync_published_steps(flow, selected):
     active_ids = []
     for index, node in enumerate(nodes):
         kind = node.get('type')
-        if kind not in {'page','form','event','conversion','whatsapp','error'}:
+        if not is_measured(node):
             continue
         step = _rows("""INSERT INTO cadu_reports_flow_steps
             (client_id,tag_id,node_id,flow_revision,name,path_prefix,page_host,step_kind,is_entry,position,campaign_id)

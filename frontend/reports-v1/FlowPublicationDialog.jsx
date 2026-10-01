@@ -20,12 +20,14 @@ export function FlowPublicationDialog({open,name,host,revision,config,previous,i
   const edges=changed(previous?.edges,config.edges);
   const errors=issues.filter(item=>item.severity==='error');
   const warnings=issues.filter(item=>item.severity==='warning');
+  const planned=issues.filter(item=>item.code==='planned_step');
   return <ModalOverlay className="cadu-ds-overlay cadu-ds-overlay--center" isOpen={open} onOpenChange={value=>{if(!value&&!busy)onClose();}} isDismissable={!busy}>
     <Modal className="cadu-ds-confirm"><Dialog aria-label="Publicar fluxo" className="cadu-ds-confirm__dialog flow-publication-dialog">
       <h2>Publicar fluxo</h2><p><strong>{name}</strong> · {host} · rascunho r{revision}. Esta versão será usada no monitoramento dos próximos eventos; os dados anteriores continuam ligados às versões em que foram coletados.</p>
       <p>{config.nodes.length} nós · {config.edges.length} conexões · {issues.filter(item=>item.severity==='warning').length} avisos permanecem após a publicação.</p>
       <div className="flow-publication-summary"><strong>Mudanças desde a publicação anterior</strong><span>Nós: +{nodes.added} · {nodes.updated} alterados · −{nodes.removed}</span><span>Conexões: +{edges.added} · {edges.updated} alteradas · −{edges.removed}</span></div>
       {errors.length>0&&<section className="flow-publication-errors" role="alert"><strong>{errors.length} problema{errors.length===1?'':'s'} impedem a publicação</strong><ul>{errors.slice(0,5).map((issue,index)=><li key={`${issue.code}:${index}`}>{issue.message}</li>)}</ul></section>}
+      {planned.length>0&&<p className="flow-publication-planned">{planned.length} passo{planned.length===1?'':'s'} planejado{planned.length===1?'':'s'} fica{planned.length===1?'':'m'} fora da medição até ter{planned.length===1?'':'em'} página no ar.</p>}
       {warnings.length>0&&<section className="flow-publication-warnings"><strong>Avisos que permanecerão</strong><ul>{warnings.map((issue,index)=><li key={`${issue.code}:${index}`}>{issue.message} {issue.consequence}</li>)}</ul></section>}
       <label>Nota desta versão (opcional)<ReportsTextArea value={note} maxLength="500" rows={3} onChange={event=>onNoteChange(event.target.value)} placeholder="O que mudou nesta publicação?"/></label>
       <div className="cadu-ds-confirm__actions"><Button color="secondary" onPress={onClose} isDisabled={busy}>Cancelar</Button><Button color="primary" onPress={onPublish} isDisabled={busy||errors.length>0} isLoading={busy}>Publicar versão</Button></div>

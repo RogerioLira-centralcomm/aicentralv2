@@ -14,6 +14,7 @@ from werkzeug.exceptions import BadRequest
 
 from ..db import get_db
 from .reports_flow import _host_allowed, _safe_path
+from .reports_flow_lifecycle import is_measured
 from .reports_link_tester import _fetch
 from .reports_v1 import _rows
 
@@ -25,7 +26,7 @@ def _page_targets(flow):
     found = {("https", host, "/"): {"host": host, "path": "/", "label": "Página inicial"}}
     config = flow.get("config") if isinstance(flow.get("config"), dict) else {}
     for node in config.get("nodes", []):
-        if not isinstance(node, dict) or node.get("type") not in {"page", "form", "event", "conversion", "whatsapp", "error"}:
+        if not is_measured(node):
             continue
         path = node.get("path")
         page_host = node.get("host") or host

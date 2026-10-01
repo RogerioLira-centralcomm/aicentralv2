@@ -22,7 +22,9 @@ Tamanho máximo serializado: 256 KB.
 | `id` | string única, até 80 |
 | `type` | `source`, `page`, `form`, `event`, `condition`, `delay`, `segment`, `conversion`, `webhook`, `whatsapp`, `error` |
 | `title` | até 120, espaços normalizados |
-| `path` | obrigatório para tipos medidos (`page`, `form`, `event`, `conversion`, `whatsapp`, `error`): começa com `/`, sem `?`/`#`, até 500 |
+| `path` | quando presente, começa com `/`, sem `?`/`#`, até 500. Um passo medido sem `path` real só publica se estiver `planned` ou `in_production` |
+| `status` | opcional: `planned`, `in_production`, `ready`, `live`. Sem `status`, vale `live` com endereço real e `ready` sem ele. Só `ready`/`live` com endereço real entram na medição (publicação de passos, jornada, ao vivo, monitor e ingestão) |
+| `spec` | opcional, para passos planejados: `goal`, `suggested_path` (começa com `/`), `headline`, `content`, `cta`, `owner`, `due_date` (`AAAA-MM-DD`), `references`, `notes`; textos com limite por campo, chaves desconhecidas descartadas |
 | `host` | opcional; precisa ser o domínio autorizado ou um subdomínio dele |
 | `event_name` | `event`/`conversion`: `[A-Za-z][A-Za-z0-9_]{0,79}` |
 | `x`, `y` | 0–10000 (posição livre; a etapa é semântica, não força coluna) |

@@ -1,4 +1,17 @@
+// Kept free of imports: the parity test loads this file on its own.
 const measured=new Set(['page','form','event','conversion','whatsapp','error']);
+export const MEASURED_TYPES=measured;
+export const NODE_STATUSES=['planned','in_production','ready','live'];
+// Older drafts marked a step without a real URL with a fake "/configurar-…" path.
+export const hasRealPath=node=>typeof node?.path==='string'&&node.path.startsWith('/')&&!node.path.startsWith('//')&&!node.path.startsWith('/configurar-');
+// A step can exist in the plan before its page does; only ready/live steps are measured.
+// Planning is an explicit choice: without a status, a step missing its URL is "ready" and publication asks for it.
+export function nodeStatus(node){
+  if(NODE_STATUSES.includes(node?.status))return node.status;
+  return hasRealPath(node)?'live':'ready';
+}
+export const isPlanned=node=>measured.has(node?.type)&&['planned','in_production'].includes(nodeStatus(node));
+export const isMeasured=node=>measured.has(node?.type)&&['ready','live'].includes(nodeStatus(node))&&hasRealPath(node);
 const pageTypes=new Set(['page','form','conversion','error']);
 // A flow follows a few pages that matter; the explorer is where the rest of the site lives.
 export const MAX_FLOW_PAGES=6;
@@ -12,6 +25,7 @@ const details={
   unconfirmed_goal:['O objetivo sugerido ainda não foi revisado.','confirm_goal'],
   cycle_without_condition:['A jornada pode ficar ambígua neste Retorno.','review_return'],
   too_many_pages:['Com muitas páginas o fluxo deixa de mostrar o caminho principal.','reduce_pages'],
+  planned_step:['Este passo fica fora da medição até ter uma página no ar.','link_page'],
 };
 
 export function flowValidation(config,allowedHost='') {
@@ -23,9 +37,11 @@ export function flowValidation(config,allowedHost='') {
   const engagement=config.site_kind==='institucional';
   if(!engagement&&!nodes.some(node=>node.type==='conversion'))issues.push({severity:'error',code:'no_conversion',message:'Defina um nó de Conversão antes de publicar.'});
   for(const node of nodes){
-    if(measured.has(node.type)&&(!node.path||node.path.startsWith('/configurar-')))issues.push({severity:'error',code:'unmapped_page',nodeId:node.id,message:`Configure a URL real de ${node.title||'um nó'}.`});
-    if(node.type==='event'&&(!node.event_name||node.placeholder===true))issues.push({severity:'error',code:'unmapped_event',nodeId:node.id,message:`Configure o nome do evento de ${node.title||'um nó'}.`});
-    if(node.type==='page'&&node.path&&!node.path.startsWith('/configurar-')){
+    const planned=isPlanned(node);
+    if(planned)issues.push({severity:'info',code:'planned_step',nodeId:node.id,message:`${node.title||'Um passo'} está planejado e ainda não é medido.`});
+    else if(measured.has(node.type)&&!hasRealPath(node))issues.push({severity:'error',code:'unmapped_page',nodeId:node.id,message:`Configure a URL real de ${node.title||'um nó'} ou marque o passo como Planejado.`});
+    if(!planned&&node.type==='event'&&(!node.event_name||node.placeholder===true))issues.push({severity:'error',code:'unmapped_event',nodeId:node.id,message:`Configure o nome do evento de ${node.title||'um nó'}.`});
+    if(node.type==='page'&&isMeasured(node)){
       const key=`${node.host||allowedHost}:${node.path}`;
       if(pagePaths.has(key))issues.push({severity:'error',code:'duplicate_page',nodeId:node.id,message:`A URL ${node.path} já está em outra página do fluxo.`});
       else pagePaths.set(key,node.id);

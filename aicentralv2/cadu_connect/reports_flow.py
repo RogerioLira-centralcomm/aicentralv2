@@ -20,6 +20,7 @@ from .reports_v1 import _rows, _selection, _write_guard, _customer_id, _optional
 from .reports_flow_versions import expected_revision, lock_flow, save_draft, publish_draft, session_snapshot, match_version_step
 from .reports_flow_schema import LEGACY_KINDS, legacy_projection, migrate_v1_to_v2
 from .reports_flow_validation import MAX_FLOW_PAGES, validate_flow_config
+from .reports_flow_lifecycle import NODE_STATUSES, is_measured, measured_nodes, node_status, normalize_spec
 from .reports_flow_stage import normalize_stage_position
 from .reports_flow_metrics import apply_engagement, apply_session_bounds, edge_observation, origin_summary
 
@@ -499,7 +500,6 @@ def _normalize_flow_config(config, allowed_host):
         config = legacy_projection(config)
     nodes, edges = config.get('nodes', []), config.get('edges', [])
     known_types = {'source','page','form','event','condition','delay','segment','conversion','webhook','whatsapp','error'}
-    measured_types = {'page','form','event','conversion','whatsapp','error'}
     if not isinstance(nodes, list) or len(nodes) > 200 or not isinstance(edges, list) or len(edges) > 300:
         abort(400, description='O fluxo aceita até 200 nós e 300 conexões.')
     normalized, ids = [], set()
@@ -512,10 +512,13 @@ def _normalize_flow_config(config, allowed_host):
         ids.add(node_id)
         node_type = node['type']
         title = ' '.join(str(node.get('title') or node_type).split())[:120]
-        path = node.get('path', '')
-        if node_type in measured_types and (not isinstance(path, str) or not path.startswith('/')
+        path = node.get('path') or ''
+        # A planned step may not have a page yet; when an address is given it must be valid.
+        if path and (not isinstance(path, str) or not path.startswith('/')
                 or '?' in path or '#' in path or len(path) > 500):
             abort(400, description='Cada nó medido precisa de um caminho interno válido.')
+        if 'status' in node and node['status'] not in NODE_STATUSES:
+            abort(400, description='Estado do nó inválido.')
         host = node.get('host') or None
         if host:
             host = _host(host)
@@ -606,6 +609,11 @@ def _normalize_flow_config(config, allowed_host):
         if isinstance(node.get('evidence'), str):item['evidence']=node['evidence'][:2000]
         if isinstance(node.get('isEntry'), bool):
             item['isEntry'] = node['isEntry']
+        if 'status' in node:
+            item['status'] = node['status']
+        spec = normalize_spec(node.get('spec'))
+        if spec:
+            item['spec'] = spec
         normalized.append(normalize_stage_position(item))
     normalized_edges = []
     edge_ids = set()
@@ -633,7 +641,7 @@ def _normalize_flow_config(config, allowed_host):
         normalized_edges.append(normalized_edge)
     identities = {}
     for node in normalized:
-        if node['type'] not in measured_types:
+        if not is_measured(node):
             continue
         identity = (node['type'],node.get('host') or allowed_host,node.get('path'),node.get('event_name'))
         if identity in identities and node['type'] != 'page':
@@ -673,7 +681,7 @@ def _normalize_flow_config(config, allowed_host):
         abort(400, description='A configuração contém valores inválidos.')
     if len(encoded) > 256_000:
         abort(413, description='A configuração do fluxo excede o limite de armazenamento.')
-    return result, any(node['type'] in measured_types for node in normalized)
+    return result, any(is_measured(node) for node in normalized)
 
 
 def _validate_flow_references(config, selected):
@@ -1137,9 +1145,7 @@ def register(bp):
         if selected_flow:
             selected_flow['config'] = selected_flow.get('active_config') or {}
         if selected_flow and isinstance(selected_flow.get('config'), dict):
-            configured_nodes = [node for node in selected_flow['config'].get('nodes', [])
-                if isinstance(node, dict) and node.get('type') in ('page','form','event','conversion','whatsapp','error')
-                and isinstance(node.get('path'), str) and node['path'].startswith('/')]
+            configured_nodes = measured_nodes(selected_flow['config'].get('nodes', []))
             configured_nodes = configured_nodes[:200]
             configured_edges = [edge for edge in selected_flow['config'].get('edges', [])
                 if isinstance(edge, dict) and isinstance(edge.get('from'), str)
@@ -1231,7 +1237,11 @@ def register(bp):
                 for node in (selected_flow.get('config') or {}).get('nodes', [])
                 if node.get('id') not in measured_ids)
             for node in canvas_nodes:
-                if not node.get('path'):
+                if not is_measured(node):
+                    if node_status(node) in ('planned', 'in_production'):
+                        node['tracking_status'] = 'planned'
+                        node['tracking_reason'] = 'Planejado: fora da medição até a página estar no ar'
+                        continue
                     node['tracking_status'] = tracking_health['status']
                     node['tracking_reason'] = tracking_health['reason'] + ' · estado geral da coleta'
                     continue

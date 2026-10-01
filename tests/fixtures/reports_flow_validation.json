@@ -284,5 +284,77 @@
     "expected_warnings": [
       "too_many_pages"
     ]
+  },
+  {
+    "name": "passo_planejado_sem_pagina",
+    "config": {
+      "nodes": [
+        {
+          "id": "oferta",
+          "type": "page",
+          "title": "Oferta",
+          "status": "planned",
+          "spec": {
+            "suggested_path": "/oferta"
+          }
+        },
+        {
+          "id": "cta",
+          "type": "event",
+          "title": "Clique no CTA",
+          "status": "in_production"
+        },
+        {
+          "id": "lead",
+          "type": "conversion",
+          "title": "Lead",
+          "path": "/obrigado"
+        }
+      ],
+      "edges": [
+        {
+          "id": "e1",
+          "from": "oferta",
+          "to": "cta"
+        },
+        {
+          "id": "e2",
+          "from": "cta",
+          "to": "lead"
+        }
+      ]
+    },
+    "expected_errors": [],
+    "expected_warnings": []
+  },
+  {
+    "name": "passo_pronto_sem_pagina",
+    "config": {
+      "nodes": [
+        {
+          "id": "oferta",
+          "type": "page",
+          "title": "Oferta",
+          "status": "ready"
+        },
+        {
+          "id": "lead",
+          "type": "conversion",
+          "title": "Lead",
+          "path": "/obrigado"
+        }
+      ],
+      "edges": [
+        {
+          "id": "e1",
+          "from": "oferta",
+          "to": "lead"
+        }
+      ]
+    },
+    "expected_errors": [
+      "unmapped_page:oferta"
+    ],
+    "expected_warnings": []
   }
 ]

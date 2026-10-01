@@ -1,6 +1,35 @@
-"""Publication checks for the authored journey; draft saving stays permissive."""
+"""Publication checks for the authored journey; draft saving stays permissive.
+
+Kept free of package imports: parity tests load this file on its own.
+"""
 
 MEASURED = {'page', 'form', 'event', 'conversion', 'whatsapp', 'error'}
+NODE_STATUSES = ('planned', 'in_production', 'ready', 'live')
+# Older drafts marked a step without a real URL with a fake "/configurar-…" path.
+PLACEHOLDER_PREFIX = '/configurar-'
+
+
+def has_real_path(node):
+    path = node.get('path')
+    return (isinstance(path, str) and path.startswith('/') and not path.startswith('//')
+            and not path.startswith(PLACEHOLDER_PREFIX))
+
+
+def node_status(node):
+    """A step can exist in the plan before its page does; only ready/live steps are measured.
+
+    Planning is an explicit choice: a step without a status and without a real URL is
+    "ready" with a missing address, so publication still asks for it.
+    """
+    status = node.get('status')
+    if status in NODE_STATUSES:
+        return status
+    return 'live' if has_real_path(node) else 'ready'
+
+
+def is_measured(node):
+    return (isinstance(node, dict) and node.get('type') in MEASURED
+            and node_status(node) in ('ready', 'live') and has_real_path(node))
 PAGE_TYPES = {'page', 'form', 'conversion', 'error'}
 # A flow follows a few pages that matter; the explorer is where the rest of the site lives.
 MAX_FLOW_PAGES = 6
@@ -14,6 +43,7 @@ DETAILS = {
     'unconfirmed_goal': ('O objetivo sugerido ainda não foi revisado.', 'confirm_goal'),
     'cycle_without_condition': ('A jornada pode ficar ambígua neste Retorno.', 'review_return'),
     'too_many_pages': ('Com muitas páginas o fluxo deixa de mostrar o caminho principal.', 'reduce_pages'),
+    'planned_step': ('Este passo fica fora da medição até ter uma página no ar.', 'link_page'),
 }
 
 
@@ -36,13 +66,17 @@ def validate_flow_config(config, allowed_host=''):
                        'message': 'Defina um nó de Conversão antes de publicar.'})
     for node in nodes:
         node_id = node['id']
-        if node.get('type') in MEASURED and (not node.get('path') or node['path'].startswith('/configurar-')):
+        planned = node.get('type') in MEASURED and node_status(node) in ('planned', 'in_production')
+        if planned:
+            issues.append({'severity': 'info', 'code': 'planned_step', 'node_id': node_id,
+                           'message': f"{node.get('title') or 'Um passo'} está planejado e ainda não é medido."})
+        elif node.get('type') in MEASURED and not has_real_path(node):
             issues.append({'severity': 'error', 'code': 'unmapped_page', 'node_id': node_id,
-                           'message': f"Configure a URL real de {node.get('title') or 'um nó'}."})
-        if node.get('type') == 'event' and (not node.get('event_name') or node.get('placeholder') is True):
+                           'message': f"Configure a URL real de {node.get('title') or 'um nó'} ou marque o passo como Planejado."})
+        if not planned and node.get('type') == 'event' and (not node.get('event_name') or node.get('placeholder') is True):
             issues.append({'severity': 'error', 'code': 'unmapped_event', 'node_id': node_id,
                            'message': f"Configure o nome do evento de {node.get('title') or 'um nó'}."})
-        if node.get('type') == 'page' and node.get('path') and not node['path'].startswith('/configurar-'):
+        if node.get('type') == 'page' and is_measured(node):
             key = (node.get('host') or allowed_host, node['path'])
             if key in page_paths:
                 issues.append({'severity': 'error', 'code': 'duplicate_page', 'node_id': node_id,

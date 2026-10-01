@@ -7,6 +7,7 @@ import React, {useEffect, useCallback, useMemo, useRef, useState} from 'react';
 import {ReactFlow, useReactFlow, useUpdateNodeInternals, Background, BackgroundVariant, BaseEdge, EdgeLabelRenderer, Handle, MarkerType, MiniMap, Controls, ControlButton, NodeToolbar, NodeResizer, useViewport, Position, ReactFlowProvider, getBezierPath} from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import {flowBlockFor} from './flowBlockRegistry.js';
+import {NODE_STATUS_LABELS,hasRealPath,isPlanned,nodeStatus} from './flowLifecycle.js';
 import {FLOW_PLATFORMS, FlowPlatformLogo} from './FlowPlatformLogo.jsx';
 import './flow-canvas.css';
 import {FlowEdgeActivity} from './FlowEdgeActivity.jsx';
@@ -114,15 +115,16 @@ function ShapeNode({id,data,selected}) {
   const isPage=['page','form','error'].includes(node.type)||block.shape==='page';
   const capture=isPage&&zoom>=.4&&preview?.url&&brokenImage!==preview.url;
   const platform=node.type==='source'&&FLOW_PLATFORMS[block.source||node.source];
-  const path=node.path&&!node.path.startsWith('/configurar-')?node.path:'';
-  return <div onMouseEnter={()=>setHovered(true)} onMouseLeave={()=>setHovered(false)} className={`fnode is-tone-${block.tone} is-type-${node.type}${zoom<.55?' is-compact':''}${selected?' is-selected':''}`}>
+  const path=hasRealPath(node)?node.path:'';
+  const planned=isPlanned(node);
+  return <div onMouseEnter={()=>setHovered(true)} onMouseLeave={()=>setHovered(false)} className={`fnode is-tone-${block.tone} is-type-${node.type}${planned?' is-planned':''}${zoom<.55?' is-compact':''}${selected?' is-selected':''}`}>
     <NodeHandles/>
     <NodeToolbar className="flow-node-hover" isVisible={hovered&&!selected&&zoom>=.55} position={Position.Bottom}><strong>{node.title}</strong>{path&&<small>{node.host}{path}</small>}<small>Etapa: {flowStageLabel(node)} · Função: {flowRoleLabel(node.role)} · {flowRoleSourceLabel(node.role_source)}</small>{node.evidence&&<p>{node.evidence}</p>}{data.paths?.map(item=><small key={item.id}>{item.label} · {number(item.sessions)} sessões</small>)}</NodeToolbar>
     <NodeToolbar isVisible={selected&&!readOnly} position={Position.Top}><ReportsActionButton aria-label="Duplicar nó" onClick={()=>onDuplicate(node.id)}><Copy01 size={16}/></ReportsActionButton><ReportsActionButton aria-label="Remover do fluxo" onClick={()=>onRemove(node.id)}><Trash01 size={16}/></ReportsActionButton>{isPage&&canCapture&&<ReportsActionButton aria-label={preview?.status==='ready'?'Atualizar captura':'Solicitar captura'} onClick={()=>onRegenerate(node.id)}><RefreshCw01 size={16}/></ReportsActionButton>}</NodeToolbar>
     {capture&&<img className="fnode__capture" src={preview.canvas_url||preview.url} alt="" loading="lazy" decoding="async" onLoad={()=>updateInternals(id)} onError={()=>setBrokenImage(preview.url)}/>}
-    <div className="fnode__head"><span className="fnode__icon">{platform?<FlowPlatformLogo platform={block.source||node.source}/>:<Icon size={16}/>}</span><span className="fnode__kind">{KIND_LABELS[node.type]||'Etapa'}</span>{block.trackable&&!path&&node.type!=='event'&&node.type!=='conversion'&&<span className="fnode__warn" title="Configure a URL real deste nó" aria-label="Configure a URL real deste nó">!</span>}</div>
+    <div className="fnode__head"><span className="fnode__icon">{platform?<FlowPlatformLogo platform={block.source||node.source}/>:<Icon size={16}/>}</span><span className="fnode__kind">{KIND_LABELS[node.type]||'Etapa'}</span>{planned&&<span className="fnode__status">{NODE_STATUS_LABELS[nodeStatus(node)]}</span>}{block.trackable&&!planned&&!path&&node.type!=='event'&&node.type!=='conversion'&&<span className="fnode__warn" title="Configure a URL real deste nó" aria-label="Configure a URL real deste nó">!</span>}</div>
     <NodeLabel node={node} selected={selected} readOnly={readOnly} onChange={onLabelChange}/>
-    {path&&<small className="fnode__path">{path}</small>}
+    {path?<small className="fnode__path">{path}</small>:planned&&node.spec?.suggested_path&&<small className="fnode__path is-suggested">{node.spec.suggested_path}</small>}
     {node.type==='source'&&PAID_UTM[block.source||node.source]&&<small className="fnode__path">utm_source={PAID_UTM[block.source||node.source]}</small>}
     <NodeMetrics node={node} metric={metric} arrived={data.arrived}/>
   </div>;

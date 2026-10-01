@@ -1,16 +1,30 @@
 """Deterministic live presence and direct transitions; no inferred people counts."""
 from datetime import timedelta
-from .reports_flow_matching import match_flow_node
+from .reports_flow_matching import match_flow_node, normalize_host, normalize_path
+from .reports_flow_metrics import PLATFORM_LABELS, node_platform, origin_platform
+
+
+def _event_origin(event):
+    """Same encoding the journey query uses, so live and journey agree on where a session came from."""
+    if event.get('utm_source'):
+        return f"utm:{str(event['utm_source']).lower()}"
+    if event.get('referrer_host'):
+        return f"ref:{str(event['referrer_host']).lower()}"
+    return None
 
 
 def build_live_snapshot(events, nodes, edges, now, session_limit=100):
-    latest, previous, transitions, edge_activity = {}, {}, {}, {}
+    latest, previous, transitions, edge_activity, origin_transitions = {}, {}, {}, {}, {}
     nodes_by_path = {}
     for node in nodes:
-        nodes_by_path.setdefault(node.get("path"), []).append(node)
+        nodes_by_path.setdefault(normalize_path(node.get("path")), []).append(node)
     edges_by_pair = {}
     for edge in edges:
         edges_by_pair.setdefault((edge["from"], edge["to"]), []).append(edge)
+    sources_by_platform = {}
+    for node in nodes:
+        if node.get('type') == 'source':
+            sources_by_platform.setdefault(node_platform(node), []).append(node)
     # Events are ordered by occurrence, with stable ingestion-ID tie breaking.
     for event in sorted(events, key=lambda e: (e['occurred_at'], int(e['id']))):
         session = event['session_id']
@@ -18,9 +32,23 @@ def build_live_snapshot(events, nodes, edges, now, session_limit=100):
         kind = event['event_kind']
         if kind in ('heartbeat', 'page_leave', 'click'):
             continue
-        match = match_flow_node(nodes_by_path.get(event['page_path'], []), event['page_path'], event['page_host'], kind, event.get('event_name'))
+        match = match_flow_node(nodes_by_path.get(normalize_path(event['page_path']), []), event['page_path'], event['page_host'], kind, event.get('event_name'))
         current = match['id'] if match else None
         old = previous.get(session)
+        if session not in previous and current and kind == 'page_view':
+            # A session's first mapped page is the passage from its origin: the source node when the
+            # flow has one, otherwise the "other origins" lane the monitor draws for unmapped traffic.
+            platform = origin_platform(_event_origin(event))
+            targets = sources_by_platform.get(platform, [])
+            hit = False
+            for source in targets:
+                for edge in edges_by_pair.get((source['id'], current), []):
+                    hit = True
+                    edge_activity[edge['id']] = event['occurred_at'].isoformat()
+                    transitions[edge['id']] = max(transitions.get(edge['id'], 0), int(event['id']))
+            if not hit and not targets:
+                key = f'origin:{platform}:{current}'
+                origin_transitions[key] = max(origin_transitions.get(key, 0), int(event['id']))
         if old and current and old != current:
             for edge in edges_by_pair.get((old, current), []):
                 edge_activity[edge['id']] = event['occurred_at'].isoformat()
@@ -41,20 +69,22 @@ def build_live_snapshot(events, nodes, edges, now, session_limit=100):
         locations[key] = locations.get(key, 0) + 1
     node_presence = {}
     for node in nodes:
-        if node['type'] != 'page':
+        # The thank-you page is where people are most worth seeing, so conversion and error pages count too.
+        if node['type'] not in ('page', 'form', 'conversion', 'error') or node.get('event_name'):
             continue
         node_presence[node['id']] = sum(count for (host, path), count in locations.items()
-            if path == node.get('path') and (not node.get('host') or node['host'] == host))
+            if normalize_path(path) == normalize_path(node.get('path')) and (not node.get('host') or normalize_host(node['host']) == normalize_host(host)))
     conversion_pages = {(e['page_host'], e['page_path']) for e in active
                         if any(n['type'] == 'conversion' and not n.get('event_name')
-                               and n.get('path') == e['page_path'] and
-                               (not n.get('host') or n['host'] == e['page_host']) for n in nodes)}
+                               and normalize_path(n.get('path')) == normalize_path(e['page_path']) and
+                               (not n.get('host') or normalize_host(n['host']) == normalize_host(e['page_host'])) for n in nodes)}
     sessions = [{"session_id":str(e['session_id']),"visitor_id":str(e.get('visitor_id') or e['session_id']),"page":e['page_path'],"host":e['page_host'],"last_seen_at":e['occurred_at'].isoformat(),"journey":journeys.get(str(e['session_id']), [])[-20:],"conversions":sum(item['kind']=='conversion' for item in journeys.get(str(e['session_id']), []))} for e in sorted(active,key=lambda e:e['occurred_at'],reverse=True)]
     visible_sessions=sessions if session_limit is None else sessions[:session_limit]
     return {'sessions':visible_sessions, 'sessions_truncated':session_limit is not None and len(sessions)>session_limit, 'active_visitors':len({item['visitor_id'] for item in sessions}), 'active_sessions': len(active), 'active_window_seconds': 90,
             'sessions_on_conversion_pages': sum(locations[key] for key in conversion_pages),
             'node_presence': node_presence, 'transitions': {key: str(value) for key, value in transitions.items()},
             'edge_activity': edge_activity,
+            'origin_transitions': {key: str(value) for key, value in origin_transitions.items()},
             'locations': [{'host': host, 'path': path, 'active_sessions': count}
                           for (host, path), count in locations.items()]}
 

@@ -46,7 +46,7 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
     const target = String(flowItem?.allowed_host || '').toLowerCase().replace(/^www\./, '');
     return target === allowed || target.endsWith(`.${allowed}`);
   });
-  const openFlow = (item, view) => {if(view==='edit')location.assign(flowEditorUrl(item.id,data.client.client_id));else location.assign(reportUrl(`flows/${item.id}/monitor`,{client_id:data.client.client_id}));};
+  const openFlow = (item, view) => {if(view==='edit'){const url=new URL(flowEditorUrl(item.id,data.client.client_id),location.origin);url.searchParams.set('modo','editar');location.assign(url);}else location.assign(reportUrl(`flows/${item.id}/monitor`,{client_id:data.client.client_id}));};
   const flowTags=item=>Array.isArray(item.config?.tags)?item.config.tags:[];
   const allTags=[...new Set(flows.flatMap(flowTags))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
   const visibleFlows=flows.filter(item=>(!flowTagFilter||flowTags(item).includes(flowTagFilter))&&(flowStatusFilter==='all'||(flowStatusFilter==='published'?item.status==='published':item.status!=='published'))&&`${item.name} ${item.allowed_host}`.toLocaleLowerCase('pt-BR').includes(flowQuery.trim().toLocaleLowerCase('pt-BR')));

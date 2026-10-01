@@ -17,7 +17,7 @@ import {suggestedHost} from './flowPageUrl.js';
 import {defaultMedia} from './flowMedia.js';
 import {computeForecast, FORECAST_SCENARIOS} from './flowForecast.js';
 import {FlowCatalog} from './FlowCatalog.jsx';
-import {Lightbulb02, FlipBackward, FlipForward, Plus, CheckDone01, Signal01, Target04, LayersThree01, ClipboardCheck, LineChartUp01, Announcement02} from '@untitledui/icons';
+import {File05, Flag01, MessageSquare01, LayoutGrid01, Maximize01, Lightbulb02, FlipBackward, FlipForward, Plus, CheckDone01, Signal01, Target04, LayersThree01, ClipboardCheck, LineChartUp01, Announcement02} from '@untitledui/icons';
 import {FlowSolutionSwitcher} from './FlowNavbarAccount.jsx';
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {FlowLiveValue} from './FlowLiveValue.jsx';
@@ -46,6 +46,8 @@ import {FLOW_PLATFORMS, FlowPlatformLogo} from './FlowPlatformLogo.jsx';
 import {layoutFlow} from './flowLayout.js';
 import {FLOW_STAGES, FLOW_GRID, alignConfigToGrid, alignToGrid, placeNodeInStage, stageAtX, stageX} from './flowStages.js';
 import {useFlowHistory} from './useFlowHistory.js';
+import {useFlowPolling} from './useFlowPolling.js';
+import {withUnmappedOrigins} from './flowOrigins.js';
 import {SearchLg} from '@untitledui/icons';
 import {flowEditorId, reportUrl, flowEditorUrl, shortDate, integer, decimal, json, Empty, FLOW_CHANNELS, Kpi} from './reportsCommon.jsx';
 
@@ -65,15 +67,6 @@ export function Flow(props) {
   }, []);
   const requiresEditorCanvas=Boolean(flowEditorId())&&!/\/monitor\/?$/.test(location.pathname);
   return <>
-    <div className="reports-page-hero">
-      <div className="reports-page-hero__inner">
-        <div className="reports-page-hero__copy">
-          <div className="reports-page-hero__eyebrow">Fluxos</div>
-          <h1>Desenhe jornadas do cliente</h1>
-          <p>Crie e monitore fluxos de interação para entender comportamentos e otimizar conversões.</p>
-        </div>
-      </div>
-    </div>
     {!supported&&requiresEditorCanvas&&<section className="reports-flow-device-message"><h2>Abra este fluxo em um tablet ou computador.</h2><p>A mesa de fluxos precisa de uma tela maior para organizar etapas e conexões. Se estiver em um computador, amplie a janela.</p><button type="button" onClick={async()=>{try{await navigator.clipboard.writeText(location.href);setLinkCopied(true);}catch(_){setLinkCopied(false);}}}>{linkCopied?'Link copiado':'Copiar link'}</button><a href={reportUrl('overview')}>Voltar ao Reports</a></section>}{(supported||!requiresEditorCanvas)&&<div><FlowDesktop key={props.data.client.client_id} {...props}/></div>}
   </>;
 }
@@ -242,7 +235,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
     return()=>{stopped=true;window.clearTimeout(timer);document.removeEventListener('visibilitychange',visibility);};
   }, [liveScope]);
   const chooseFlow = id => {if(commandLock.current)return;setSelectedFlowId(id);const url=new URL(location.href);if(id)url.searchParams.set('flow_id',id);else url.searchParams.delete('flow_id');history.replaceState(null,'',url);};
-  const openFlow = (item, view) => {if(view==='edit')location.assign(flowEditorUrl(item.id,data.client.client_id));else location.assign(reportUrl(`flows/${item.id}/monitor`,{client_id:data.client.client_id}));};
+  const openFlow = (item, view) => {if(view==='edit'){const url=new URL(flowEditorUrl(item.id,data.client.client_id),location.origin);url.searchParams.set('modo','editar');location.assign(url);}else location.assign(reportUrl(`flows/${item.id}/monitor`,{client_id:data.client.client_id}));};
   // Pages in the flow, counting a group of similar pages once.
   const pageSlots=config=>new Set(config.nodes.filter(node=>['page','form','conversion','error'].includes(node.type)).map(node=>node.groupId||node.id)).size;
   const pageLimitReached=config=>{if(pageSlots(config)<MAX_FLOW_PAGES)return false;setFlowLayoutNote(`O fluxo já tem ${MAX_FLOW_PAGES} páginas. Agrupe páginas parecidas ou remova uma antes de adicionar outra.`);return true;};
@@ -269,6 +262,14 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   const updateNode = (key,value) => setFlowConfig(current=>{const next={...current,nodes:current.nodes.map(node=>node.id===selectedNodeId?key==='stage'?{...placeNodeInStage(node,value),manuallyEdited:true}:key==='pageType'?{...node,pageType:value,pageTypeStatus:'confirmed',manuallyEdited:true}:{...node,[key]:value,manuallyEdited:true}:node)};if(key==='pageGroup'&&!value.trim())return syncGroups({...next,groups:(next.groups||[]).map(g=>({...g,memberIds:g.memberIds.filter(id=>id!==selectedNodeId)}))});const target=key==='pageGroup'&&(current.groups||[]).find(g=>g.name===value);return target?groupNodes(next,[...new Set([...target.memberIds,selectedNodeId])],target.name,target.id):next;});
   const snap = value => snapToGrid ? Math.round(value/FLOW_GRID)*FLOW_GRID : value;
   const autoArrange = async (mode='stages') => {
+    if(editorMode==='journey'&&journeyShown?.config?.nodes?.length){
+      try {
+        const nodes=await layoutFlow(journeyShown.config,{mode:'stages'});
+        setJourneyLayout(Object.fromEntries(nodes.map(node=>[node.id,{x:node.x,y:node.y,stage:node.stage}])));
+        setFlowLayoutNote('Mapa organizado. O rascunho e a publicação não foram alterados.');
+      } catch (failure) {setFlowLayoutNote(`Não foi possível organizar: ${failure.message}`);}
+      return;
+    }
     if(!flowConfig.nodes.length)return;
     try {
       const documentAtStart=JSON.stringify(flowConfig);
@@ -481,6 +482,22 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
       .finally(()=>{if(!cancelled)setJourneyLoading(false);});
     return()=>{cancelled=true;};
   },[editorMode,flowView,selectedFlowId,journeyDays,selectedFlow?.published_revision,data.client.client_id]);
+  // A published flow opens where it is watched; the draft is one click away (or ?modo=editar).
+  const autoMonitorRef=useRef('');
+  useEffect(()=>{
+    if(flowView!=='edit'||!selectedFlow||autoMonitorRef.current===selectedFlow.id)return;
+    autoMonitorRef.current=selectedFlow.id;
+    if(workspaceV2||selectedFlow.status!=='published'||new URLSearchParams(location.search).get('modo')==='editar')return;
+    setEditorMode('journey');
+  },[flowView,selectedFlow?.id,selectedFlow?.status,workspaceV2]);
+  const monitoring=flowView==='edit'&&editorMode==='journey'&&selectedFlow?.status==='published'&&!workspaceV2;
+  const liveFeed=useFlowPolling(monitoring?`/connect/api/v2/reports/flow/flows/${selectedFlowId}/live?client_id=${data.client.client_id}&identity=all`:null,{interval:6000,enabled:monitoring});
+  const journeyView=useMemo(()=>editorMode==='journey'&&journeyData?.status==='ready'?withUnmappedOrigins(journeyData):null,[editorMode,journeyData]);
+  // "Organizar" while monitoring only moves the cards on screen; the draft and the publication stay as they are.
+  const [journeyLayout,setJourneyLayout]=useState(null);
+  useEffect(()=>{setJourneyLayout(null);},[journeyData]);
+  const journeyShown=useMemo(()=>journeyView&&journeyLayout?{...journeyView,config:{...journeyView.config,nodes:journeyView.config.nodes.map(node=>({...node,...journeyLayout[node.id]}))}}:journeyView,[journeyView,journeyLayout]);
+  const liveSnapshot=monitoring&&liveFeed.fresh&&journeyData?.revision!=null&&String(liveFeed.data?.revision)===String(journeyData.revision)?liveFeed.data:null;
   const validationIssues = useMemo(()=>[...flowValidation(flowConfig,selectedFlow?.allowed_host),...(trackingReady===false?[{severity:'warning',code:'tracking_not_ready',message:'Super Tag sem eventos recebidos nas últimas 24 horas.',consequence:'As métricas do fluxo podem ficar sem dados até a coleta voltar.',action:'check_supertag'}]:trackingReady===undefined?[{severity:'warning',code:'tracking_unknown',message:'Coleta ainda não verificada.',consequence:'As métricas do fluxo podem ficar sem dados até a instalação ser confirmada.',action:'check_supertag'}]:[])],[flowConfig,selectedFlow?.allowed_host,trackingReady]);
   const blockingIssues=validationIssues.filter(issue=>issue.severity==='error'||issue.severity==='bloqueante');
   const pendingIssues=validationIssues.filter(issue=>issue.severity!=='info');
@@ -490,6 +507,8 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   const toolSetters={source:setSourcePickerOpen,probe:setProbeOpen,plan:setPlanOpen,forecast:setForecastOpen,media:setMediaOpen,blueprint:setBlueprintOpen};
   const closeTools=except=>Object.entries(toolSetters).forEach(([name,set])=>{if(name!==except)set(false);});
   const toggleTool=name=>{closeTools(name);toolSetters[name](value=>!value);};
+  // Quick additions from the rail: one click puts the block on the map; from monitoring it also returns to the draft.
+  const quickAddNode=(type,options={})=>{if(readOnly)return;closeTools();setEditorMode('edit');setSimulatedPath([]);addNode(type,options);};
   const connectSite=async host=>{await save(`/flow/flows/${selectedFlowId}/site`,{allowed_host:host},false);setConnectSiteOpen(false);await reload();setVersionMessage(`Site ${host} conectado. A Super Tag está pronta para a medição dos passos prontos.`);};
   const forecastLayer=useMemo(()=>forecastOpen?computeForecast(flowConfig,FORECAST_SCENARIOS.find(item=>item.id===forecastScenario).factor):null,[forecastOpen,flowConfig,forecastScenario]);
   const plannedSteps=validationIssues.filter(issue=>issue.code==='planned_step').length;
@@ -593,6 +612,14 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
             <ReportsActionButton aria-label="Páginas do site" title="Buscar páginas do site e adicionar ao mapa" aria-pressed={paletteOpen&&paletteMode==='site'} onClick={()=>{closeTools();setPaletteMode('site');if(paletteMode==='site'&&paletteOpen)setPaletteOpen(false);else panelLayout.openExplorer();}}><SearchLg size={18}/></ReportsActionButton>
             {!planWithoutSite&&<ReportsActionButton aria-label="Testar conversão" title="Testar a página inicial e propor o caminho" disabled={readOnly} aria-pressed={probeOpen} onClick={()=>toggleTool('probe')}><Target04 size={18}/></ReportsActionButton>}
             {(data.campaigns||[]).length>0&&<ReportsActionButton aria-label="Campanhas do cliente" title="Origens a partir das campanhas do cliente" disabled={readOnly} aria-pressed={sourcePickerOpen} onClick={()=>toggleTool('source')}><Signal01 size={18}/></ReportsActionButton>}
+            {!readOnly&&<><span className="reports-flow-rail-divider" role="separator"/>
+            <ReportsActionButton aria-label="Nova origem" title="Nova origem de tráfego" onClick={()=>quickAddNode('source')}><Signal01 size={18}/></ReportsActionButton>
+            <ReportsActionButton aria-label="Nova página" title="Nova página" onClick={()=>quickAddNode('page')}><File05 size={18}/></ReportsActionButton>
+            <ReportsActionButton aria-label="Nova conversão" title="Nova conversão" onClick={()=>quickAddNode('conversion')}><Flag01 size={18}/></ReportsActionButton>
+            <ReportsActionButton aria-label="Nova nota" title="Nova nota" onClick={()=>quickAddNode('note')}><MessageSquare01 size={18}/></ReportsActionButton></>}
+            <span className="reports-flow-rail-divider" role="separator"/>
+            <ReportsActionButton aria-label="Organizar fluxo" title="Organizar o mapa da esquerda para a direita" onClick={()=>autoArrange()} disabled={!(editorMode==='journey'?journeyShown?.config?.nodes?.length:flowConfig.nodes.length)||(readOnly&&editorMode!=='journey')}><LayoutGrid01 size={18}/></ReportsActionButton>
+            <ReportsActionButton aria-label="Ajustar à tela" title="Ajustar o mapa à tela" onClick={fitCanvas}><Maximize01 size={18}/></ReportsActionButton>
             <span className="reports-flow-rail-divider" role="separator"/>
             <ReportsActionButton aria-label="Plano e produção" title="Plano e produção: o que falta criar, etiquetas e modelo" aria-pressed={planOpen} onClick={()=>toggleTool('plan')}><ClipboardCheck size={18}/></ReportsActionButton>
             <ReportsActionButton aria-label="Criação e setup" title="Criação e setup: criativos, públicos e plataforma por canal" aria-pressed={mediaOpen} onClick={()=>toggleTool('media')}><Announcement02 size={18}/></ReportsActionButton>
@@ -615,9 +642,9 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
           {planOpen&&<FlowPlanPanel onSaveTemplate={async template=>{await save('/flow/templates',{...template,config:flowConfig},false);}} versionsUrl={selectedFlowId?`/connect/api/v2/reports/flow/flows/${selectedFlowId}/plan-versions?client_id=${data.client.client_id}`:''} versionsKey={planVersionsKey} config={flowConfig} name={flowName} host={selectedFlow?.allowed_host} readOnly={readOnly} onChange={next=>{if(!readOnly)setFlowConfig(next);}} onSelectNode={id=>{setPlanOpen(false);setSelectedNodeId(id);revealNode(id);}} onClose={()=>setPlanOpen(false)}/>}
           {sourcePickerOpen&&<FlowSourcePicker config={flowConfig} campaigns={data.campaigns||[]} onApply={next=>{if(!readOnly)setFlowConfig(next);}} onClose={()=>setSourcePickerOpen(false)}/>}
           {flowConfig.nodes.length===0&&!probeOpen&&!blueprintOpen&&!sourcePickerOpen&&<div className="reports-flow-empty-guide" role="status"><strong>Por onde a jornada começa?</strong><p>Comece pelas campanhas e canais que trazem pessoas a {selectedFlow.allowed_host}, ou deixe o teste ler a página inicial e propor o caminho até a conversão.</p><div><ReportsActionButton color="primary" disabled={readOnly} onClick={()=>setSourcePickerOpen(true)}>Começar pela origem</ReportsActionButton><ReportsActionButton color="secondary" disabled={readOnly} onClick={()=>setProbeOpen(true)}>Testar conversão</ReportsActionButton><ReportsActionButton color="tertiary" onClick={()=>{setPaletteMode('site');panelLayout.openExplorer();}}>Explorar páginas</ReportsActionButton></div></div>}
-          <FlowCanvas forecast={forecastLayer} inspectorOpen={inspectorOpen} onNavigationModeChange={setNavigationOnly} ghostNodes={blueprintPreview.nodes} ghostEdges={blueprintPreview.edges} previewContext={{flowId:selectedFlowId,clientId:data.client.client_id,csrf:data.csrf,canCapture:!readOnly,revision:editorMode==='journey'?journeyData?.revision:null}} config={editorMode==='journey'&&journeyData?.config?journeyData.config:flowConfig} journey={editorMode==='journey'?journeyData:null} setConfig={setFlowConfig} selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId} onAddNode={(item,point,source)=>addNode(item.type,item,point,source)} onGestureStart={flowHistory.begin} onGestureEnd={flowHistory.end} onInsertEdge={insertOnEdge} onSelectedIdsChange={setSelectedNodeIds} onDuplicateSelection={duplicateSelection} readOnly={readOnly||editorMode!=='edit'} simulatedPath={simulatedPath} snapToGrid={snapToGrid} fitOnMount={workspaceV2} onOrganize={readOnly?undefined:autoArrange} onReady={instance=>{canvasFlowRef.current=instance;}} onZoomChange={setCanvasZoom}/>
+          <FlowCanvas forecast={forecastLayer} inspectorOpen={inspectorOpen} onNavigationModeChange={setNavigationOnly} ghostNodes={blueprintPreview.nodes} ghostEdges={blueprintPreview.edges} previewContext={{flowId:selectedFlowId,clientId:data.client.client_id,csrf:data.csrf,canCapture:!readOnly,revision:editorMode==='journey'?journeyData?.revision:null}} config={editorMode==='journey'&&journeyData?.config?(journeyShown?.config||journeyData.config):flowConfig} journey={editorMode==='journey'?(journeyShown||journeyData):null} siteHost={selectedFlow?.allowed_host||''} live={liveSnapshot} liveScope={`${selectedFlowId}:${journeyData?.revision}`} fitKey={`${editorMode}:${selectedFlowId}:${editorMode==='journey'?`${journeyData?.revision}:${journeyView?.config?.nodes?.length}:${journeyLayout?'arranged':''}`:''}`} fitMonitor={editorMode==='journey'} setConfig={setFlowConfig} selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId} onAddNode={(item,point,source)=>addNode(item.type,item,point,source)} onGestureStart={flowHistory.begin} onGestureEnd={flowHistory.end} onInsertEdge={insertOnEdge} onSelectedIdsChange={setSelectedNodeIds} onDuplicateSelection={duplicateSelection} readOnly={readOnly||editorMode!=='edit'} simulatedPath={simulatedPath} snapToGrid={snapToGrid} fitOnMount={workspaceV2||editorMode==='journey'} onOrganize={readOnly?undefined:autoArrange} onReady={instance=>{canvasFlowRef.current=instance;}} onZoomChange={setCanvasZoom}/>
 
-          {inspectorOpen&&<FlowInspector sitePages={sitePagesProps} onSplitSegment={splitSegment} nodes={flowConfig.nodes} onConnect={(from,to)=>setFlowConfig(current=>current.edges.some(edge=>edge.from===from&&edge.to===to)?current:{...current,edges:[...current.edges,{id:crypto.randomUUID(),from,to,variant:'direct',label:'Próximo'}]})} onCreateGroup={name=>setFlowConfig(current=>groupNodes(current,[selectedNodeId],name))} groups={[...new Set((flowConfig.groups||[]).map(g=>g.name))]} integrationsUrl={reportUrl('monitor',{client_id:data.client.client_id})} node={(editorMode==='journey'&&journeyData?.config?journeyData.config:flowConfig).nodes.find(item=>item.id===selectedNodeId)} activity={flow.events} onGestureStart={flowHistory.begin} onGestureEnd={flowHistory.end} journeyMetric={editorMode==='journey'?journeyData?.nodes?.find(item=>item.id===selectedNodeId):null} readOnly={readOnly||editorMode!=='edit'} onChange={updateNode} onClose={()=>setInspectorOpen(false)} onRemove={()=>{setFlowConfig(current=>({...current,nodes:current.nodes.filter(item=>item.id!==selectedNodeId),edges:current.edges.filter(edge=>edge.from!==selectedNodeId&&edge.to!==selectedNodeId)}));setSelectedNodeId('');setInspectorOpen(false);}}/>}
+          {inspectorOpen&&<FlowInspector sitePages={sitePagesProps} onSplitSegment={splitSegment} nodes={flowConfig.nodes} onConnect={(from,to)=>setFlowConfig(current=>current.edges.some(edge=>edge.from===from&&edge.to===to)?current:{...current,edges:[...current.edges,{id:crypto.randomUUID(),from,to,variant:'direct',label:'Próximo'}]})} onCreateGroup={name=>setFlowConfig(current=>groupNodes(current,[selectedNodeId],name))} groups={[...new Set((flowConfig.groups||[]).map(g=>g.name))]} integrationsUrl={reportUrl('monitor',{client_id:data.client.client_id})} node={(editorMode==='journey'&&journeyData?.config?(journeyShown?.config||journeyData.config):flowConfig).nodes.find(item=>item.id===selectedNodeId)} activity={flow.events} onGestureStart={flowHistory.begin} onGestureEnd={flowHistory.end} journeyMetric={editorMode==='journey'?(journeyShown||journeyData)?.nodes?.find(item=>item.id===selectedNodeId):null} readOnly={readOnly||editorMode!=='edit'} onChange={updateNode} onClose={()=>setInspectorOpen(false)} onRemove={()=>{setFlowConfig(current=>({...current,nodes:current.nodes.filter(item=>item.id!==selectedNodeId),edges:current.edges.filter(edge=>edge.from!==selectedNodeId&&edge.to!==selectedNodeId)}));setSelectedNodeId('');setInspectorOpen(false);}}/>}
         </div>
         {editorMode==='review'&&<FlowReviewPage config={flowConfig} host={selectedFlow?.allowed_host||''} flowName={flowName} readOnly={readOnly} onChange={next=>{if(!readOnly)setFlowConfig(next);}} onSelectNode={id=>{setEditorMode('edit');setSelectedNodeId(id);setTimeout(()=>canvasFlowRef.current?.fitView({nodes:[{id}],padding:.6,duration:200}),150);}}/>}
         {editorMode==='simulate'&&<FlowSimulator config={flowConfig} onPathChange={setSimulatedPath} onClose={()=>{setEditorMode('edit');setSimulatedPath([]);}}/>}

@@ -105,3 +105,22 @@ def apply_engagement(nodes, active_rows, depth_row, measured_ids):
     pages = (depth_row or {}).get('pages_per_session')
     return {'avg_active_ms': round(weighted / leaves) if leaves else None,
             'pages_per_session': float(pages) if pages is not None else None}
+
+
+def origin_landings(bounds, config):
+    """Where each origin lands, flagged when the flow draws no source node for that origin.
+
+    The map only shows the sources someone planned; visitors also arrive direct, from other sites or from
+    campaigns nobody drew, and the monitor has to show them too.
+    """
+    drawn = {node_platform(node) for node in config.get('nodes', [])
+             if isinstance(node, dict) and node.get('type') == 'source'}
+    totals = {}
+    for row in bounds or []:
+        platform = origin_platform(row.get('origin'))
+        key = (platform, row['first_node'])
+        totals[key] = totals.get(key, 0) + int(row['sessions'] or 0)
+    return [{'platform': platform, 'label': PLATFORM_LABELS.get(platform, platform), 'node_id': node_id,
+             'sessions': sessions, 'drawn': platform in drawn}
+            for (platform, node_id), sessions in sorted(totals.items(), key=lambda item: -item[1])
+            if node_id is not None]

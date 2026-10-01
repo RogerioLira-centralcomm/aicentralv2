@@ -60,3 +60,34 @@ class LiveContractTests(TestCase):
 
     def test_heartbeat_does_not_mark_unobserved_edges(self):
         self.assertEqual(self.build([self.event(1,'a',10,'heartbeat')])['edge_activity'],{})
+
+
+class LiveOriginAndPathTests(TestCase):
+    setUp=LiveContractTests.setUp
+    event=LiveContractTests.event
+    build=LiveContractTests.build
+
+    def test_trailing_slash_and_case_do_not_hide_the_thank_you_page(self):
+        self.nodes.append(dict(id='sale',type='conversion',path='/obrigado'))
+        self.edges.append(dict(id='as',**{'from':'a','to':'sale'}))
+        events=[self.event(1,'a',50),self.event(2,'Obrigado/',20)]
+        self.assertEqual(self.build(events)['transitions'],{'as':'2'})
+        self.assertEqual(self.build(events)['node_presence']['sale'],1)
+
+    def test_first_page_pulses_the_drawn_source_edge(self):
+        self.nodes.append(dict(id='src',type='source',kind='traffic.meta',source='instagram'))
+        self.edges.append(dict(id='srca',**{'from':'src','to':'a'}))
+        first=dict(self.event(1,'a',30),utm_source='instagram')
+        result=self.build([first])
+        self.assertEqual(result['transitions'],{'srca':'1'})
+        self.assertEqual(result['origin_transitions'],{})
+
+    def test_undrawn_origin_is_reported_apart_from_authored_edges(self):
+        first=dict(self.event(1,'a',30),referrer_host='partner.example')
+        result=self.build([first])
+        self.assertEqual(result['transitions'],{})
+        self.assertEqual(result['origin_transitions'],{'origin:referral:a':'1'})
+
+    def test_direct_visit_without_a_direct_source_is_an_undrawn_origin(self):
+        result=self.build([self.event(1,'a',30)])
+        self.assertEqual(result['origin_transitions'],{'origin:direct:a':'1'})

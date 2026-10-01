@@ -22,7 +22,7 @@ from .reports_flow_schema import DEFAULT_KINDS, to_v3
 from .reports_flow_validation import MAX_FLOW_PAGES, validate_flow_config
 from .reports_flow_lifecycle import NODE_STATUSES, is_measured, measured_nodes, node_status, normalize_forecast, normalize_media, normalize_segment, normalize_spec
 from .reports_flow_stage import normalize_stage
-from .reports_flow_metrics import apply_engagement, apply_session_bounds, edge_observation, origin_summary
+from .reports_flow_metrics import apply_engagement, apply_session_bounds, edge_observation, origin_landings, origin_summary
 
 MAX_TAG_EVENTS_PER_MINUTE = 1200
 MAX_DISCOVERY_PAGES = 60
@@ -2029,7 +2029,7 @@ def register(bp):
                            active_window_seconds=90, next_cursor=since or None)
         if flow['status'] != 'published' or flow.get('revoked_at') or revision is None:
             return jsonify(**unavailable)
-        events = _rows("""SELECT id,visitor_id,session_id,page_host,page_path,event_kind,event_name,occurred_at,flow_revision
+        events = _rows("""SELECT id,visitor_id,session_id,page_host,page_path,event_kind,event_name,occurred_at,flow_revision,utm_source,referrer_host
             FROM cadu_reports_flow_events WHERE client_id=%s
               AND tag_id=%s AND flow_revision IS NOT NULL
               AND occurred_at>NOW()-INTERVAL '15 minutes' AND occurred_at<=NOW()
@@ -2076,9 +2076,10 @@ def register(bp):
         snapshot['sessions_truncated']=len(filtered_sessions)>100
         snapshot['sessions']=filtered_sessions[:100]
         snapshot['identity_filter']=identity_filter
-        cursor=max([int(since or 0),*(int(value) for value in snapshot['transitions'].values())])
+        cursor=max([int(since or 0),*(int(value) for value in snapshot['transitions'].values()),*(int(value) for value in snapshot.get('origin_transitions',{}).values())])
         if since:
             snapshot['transitions']={key:value for key,value in snapshot['transitions'].items() if int(value)>int(since)}
+            snapshot['origin_transitions']={key:value for key,value in snapshot.get('origin_transitions',{}).items() if int(value)>int(since)}
         return jsonify(**snapshot,status='ready',generated_at=now.isoformat(),revision=revision,
                        next_cursor=str(cursor),poll_interval_ms=15000,scope='all_pinned_publications_current_graph',
                        tracking_health={'status':'healthy' if any(item['flow_revision']==revision for item in events) else 'quiet',
@@ -2269,6 +2270,7 @@ def register(bp):
             tuple(scope))[0]
         engagement = apply_engagement(nodes, active, depth, measured_ids)
         origins = origin_summary(bounds)
+        landings = origin_landings(bounds, config)
         entries = int(funnel['entries'] or 0)
         conversions = int(funnel['conversions'] or 0)
         return jsonify(status='ready', revision=revision, period_days=days, config=to_v3(config),
@@ -2281,7 +2283,7 @@ def register(bp):
                                    'source':'Super Tag deste fluxo'},
                        scope={'from':start.isoformat(),'to':end.isoformat(),'revision':revision,
                               'account_id':request.args.get('account_id'),'campaign_id':request.args.get('campaign_id'),'platform':platform},
-                       nodes=nodes, edges=edges, origins=origins, engagement=engagement, suggestions=suggestions,group_nodes=group_nodes,group_edges=group_edges,
+                       nodes=nodes, edges=edges, origins=origins, origin_landings=landings, engagement=engagement, suggestions=suggestions,group_nodes=group_nodes,group_edges=group_edges,
                        funnel={'entries': entries, 'conversions': conversions,
                                'rate': round(100 * conversions / entries, 1) if entries else None})
 

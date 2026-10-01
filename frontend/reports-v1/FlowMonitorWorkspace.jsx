@@ -1,3 +1,4 @@
+import {formatRange, isoDate} from './friendlyDates.js';
 import {reportUrl} from './reportsCommon.jsx';
 import {ReportsPanelShell} from './ReportsPanelShell.jsx';
 import {FlowLiveAudience} from './FlowLiveAudience.jsx';
@@ -67,7 +68,7 @@ export function FlowMonitorWorkspace({flow,client,csrf,versions=[],filters,baseC
   const filtered=document.nodes.filter(n=>`${n.title} ${n.path||''}`.toLowerCase().includes(query.toLowerCase()));
   const scope=journey.data?.scope;
   const collection=journey.data?.collection;
-  const periodLabel=scope?.from&&scope?.to?`${new Date(scope.from).toLocaleDateString('pt-BR',{timeZone:journey.data?.timezone||'America/Sao_Paulo'})} a ${new Date(Date.parse(scope.to)-1000).toLocaleDateString('pt-BR',{timeZone:journey.data?.timezone||'America/Sao_Paulo'})}`:customDates?`${filters.startDate} a ${filters.endDate}`:`Últimos ${days} dias`;
+  const periodLabel=scope?.from&&scope?.to?formatRange(isoDate(new Date(scope.from)),isoDate(new Date(Date.parse(scope.to)-1000))):customDates?formatRange(filters.startDate,filters.endDate):`Últimos ${days} dias`;
   return <section className="flow-monitor-workspace">
     <header className="flow-workspace-header"><div className="flow-workspace-identity"><Button color="tertiary" size="sm" aria-label="Voltar aos fluxos" onClick={onBack}><ArrowLeft size={18}/></Button><FlowSolutionSwitcher/><span>{flow.name}</span></div><nav aria-label="Modo do fluxo">{onEdit&&<Button color="tertiary" size="sm" onClick={onEdit}>{client.role==='viewer'?'Ver fluxo':'Editar'}</Button>}<Button color="secondary" size="sm" aria-current="page" onClick={()=>{}}>Monitorar</Button></nav><div className="flow-workspace-header-actions">{headerActions}<ReportsNativeSelect aria-label="Período" value={customDates?'custom':days} onChange={e=>{setCustomDates(false);setDays(Number(e.target.value));}}>{customDates&&<option value="custom">Período personalizado</option>}{[7,30,90].map(d=><option key={d} value={d}>Últimos {d} dias</option>)}</ReportsNativeSelect><Button color="tertiary" size="sm" onClick={()=>setPaused(v=>!v)}>{paused?'Retomar':'Pausar'}</Button><FlowNavbarAccount/></div></header>
     <div className="flow-monitor-scope" role="status">Publicação v{journey.data?.revision||flow.published_revision||'—'} · {periodLabel} · fuso {journey.data?.timezone||'America/Sao_Paulo'} · {collection?.source||'Super Tag deste fluxo'} · {collection?.status==='no_data'?'Sem eventos no período':collection?.last_event_at?`Último evento: ${new Date(collection.last_event_at).toLocaleString('pt-BR')}`:'Última coleta indisponível'}{collection?.coverage_percent!=null&&` · ${collection.coverage_percent}% dos eventos associados a nós`}</div>

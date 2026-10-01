@@ -10,7 +10,7 @@ const COLUMN_START = FLOW_GRID * 4;
 const COLUMN_WIDTH = FLOW_GRID * 15;
 const MEASURED = new Set(['page','form','event','conversion','whatsapp','error']);
 
-export const FLOW_STRATEGIES = Object.freeze([
+const STRATEGY_SOURCE = [
   {
     id: 'leads-landing', sector: 'Geral', mediaObjective: 'leads', name: 'Captação de leads com landing page', objective: 'Leads', siteKind: 'landing',
     summary: 'Anúncios levam a uma landing page com formulário. Quem não converte volta por remarketing.',
@@ -166,7 +166,64 @@ export const FLOW_STRATEGIES = Object.freeze([
     ],
     links: [['@paid', 'loja', null, 100], ['traffic.organic_search', 'loja', null, 100], ['traffic.qr', 'loja', 'QR na vitrine', 100], ['loja', 'rota', null, 12], ['loja', 'whatsapp', null, 6], ['rota', 'visita', null, 100], ['whatsapp', 'visita', null, 60]],
   },
+  {
+    id: 'reach-awareness', sector: 'Marca', mediaObjective: 'alcance', name: 'Alcance e reconhecimento de marca', objective: 'Alcance', siteKind: 'institucional',
+    summary: 'Campanhas de alcance apresentam a marca a um público novo; quem visita o site entra em uma lista para ser impactado de novo.',
+    channels: [['traffic.youtube', true], ['traffic.meta', true], ['traffic.instagram', true], ['traffic.tiktok', false], ['traffic.google_display', false], ['traffic.organic_social', false]],
+    steps: [
+      {key: 'home', kind: 'page.landing', title: 'Página de apresentação', stage: 'entry', spec: {goal: 'Contar quem somos em poucos segundos e convidar a conhecer mais.', suggested_path: '/', headline: 'O que a marca resolve, em uma frase', cta: 'Conhecer a marca'}},
+      {key: 'video', kind: 'event.video', title: 'Vídeo institucional assistido', stage: 'exploration', spec: {goal: 'Medir quem assiste ao vídeo até o fim.', notes: 'Evento sugerido: video_completo.'}},
+      {key: 'sobre', kind: 'page.generic', title: 'Quem somos', stage: 'exploration', spec: {suggested_path: '/sobre'}},
+      {key: 'newsletter', kind: 'page.form', title: 'Cadastro para novidades', stage: 'intent', spec: {goal: 'Formar uma lista própria para campanhas de remarketing.', content: 'E-mail e consentimento LGPD.', cta: 'Quero receber novidades'}},
+      {key: 'inscrito', kind: 'conversion.signup', title: 'Inscrito na lista', stage: 'conversion', spec: {goal: 'Contar cada cadastro como público aquecido.', notes: 'Evento sugerido: inscricao_novidades.'}},
+    ],
+    links: [['@paid', 'home', null, 100], ['traffic.organic_social', 'home', null, 100], ['home', 'video', null, 25], ['home', 'sobre', null, 18], ['video', 'newsletter', null, 8], ['sobre', 'newsletter', null, 6], ['newsletter', 'inscrito', null, 55]],
+  },
+  {
+    id: 'content-traffic', sector: 'Conteúdo', mediaObjective: 'trafego', name: 'Conteúdo e tráfego qualificado', objective: 'Visitas e leitura', siteKind: 'multipagina',
+    summary: 'Artigos atraem quem pesquisa o problema; o sucesso é ler até o fim e baixar um material.',
+    channels: [['traffic.organic_search', true], ['traffic.organic_social', true], ['traffic.linkedin', false], ['traffic.meta', false], ['communication.email', false]],
+    steps: [
+      {key: 'artigo', kind: 'page.blog', title: 'Artigo do blog', stage: 'entry', spec: {goal: 'Responder a dúvida que trouxe a pessoa.', suggested_path: '/blog/artigo'}},
+      {key: 'leitura', kind: 'event.scroll', title: 'Leitura até o fim', stage: 'exploration', spec: {goal: 'Medir quem lê o artigo completo.', notes: 'Rolagem de 75% ou mais.'}},
+      {key: 'relacionado', kind: 'page.blog', title: 'Outro artigo', stage: 'exploration', spec: {suggested_path: '/blog'}},
+      {key: 'material', kind: 'page.landing', title: 'Material gratuito', stage: 'intent', spec: {goal: 'Oferecer um guia em troca do e-mail.', suggested_path: '/materiais/guia', cta: 'Baixar o guia'}},
+      {key: 'download', kind: 'conversion.lead', title: 'Guia baixado', stage: 'conversion', spec: {goal: 'Contar quem baixa o material.', notes: 'Evento sugerido: guia_baixado.'}},
+    ],
+    links: [['@paid', 'artigo', null, 100], ['traffic.organic_search', 'artigo', null, 100], ['traffic.organic_social', 'artigo', null, 100], ['communication.email', 'artigo', 'Newsletter', 100], ['artigo', 'leitura', null, 40], ['artigo', 'relacionado', null, 20], ['leitura', 'material', null, 12], ['relacionado', 'material', null, 8], ['material', 'download', null, 35]],
+  },
+  {
+    id: 'video-engagement', sector: 'Marca', mediaObjective: 'alcance', name: 'Vídeo e engajamento', objective: 'Visualizações e cliques', siteKind: 'landing',
+    summary: 'Vídeos curtos geram interesse; quem assiste e clica segue para uma página que aprofunda a oferta.',
+    channels: [['traffic.youtube', true], ['traffic.tiktok', true], ['traffic.instagram', true], ['traffic.meta', false]],
+    steps: [
+      {key: 'pagina', kind: 'page.landing', title: 'Página do vídeo ou campanha', stage: 'entry', spec: {goal: 'Continuar a história contada no vídeo.', suggested_path: '/campanha', cta: 'Ver mais'}},
+      {key: 'video', kind: 'event.video', title: 'Vídeo assistido na página', stage: 'exploration', spec: {goal: 'Medir a retenção do vídeo no site.'}},
+      {key: 'cta', kind: 'event.button', title: 'Clique na chamada principal', stage: 'intent', spec: {goal: 'Medir o interesse em saber mais.', notes: 'Botão principal da página.'}},
+      {key: 'oferta', kind: 'page.generic', title: 'Página da oferta', stage: 'exploration', spec: {suggested_path: '/oferta'}},
+      {key: 'interesse', kind: 'conversion.generic', title: 'Interesse demonstrado', stage: 'conversion', spec: {goal: 'Contar quem chega à página da oferta como interessado.'}},
+    ],
+    links: [['@paid', 'pagina', null, 100], ['pagina', 'video', null, 35], ['pagina', 'cta', null, 12], ['video', 'cta', null, 20], ['cta', 'oferta', null, 85], ['oferta', 'interesse', null, 60]],
+  },
+];
+
+/** Where in the funnel each plan works: top (be found), middle (be considered), bottom (decide). */
+export const FUNNEL_STAGES = Object.freeze([
+  {id: 'topo', label: 'Topo de funil', hint: 'Alcance e descoberta: apresentar a marca a quem ainda não conhece.'},
+  {id: 'meio', label: 'Meio de funil', hint: 'Consideração: nutrir o interesse até o contato.'},
+  {id: 'fundo', label: 'Fundo de funil', hint: 'Decisão: levar a pessoa a comprar, agendar ou pedir proposta.'},
 ]);
+const FUNNEL_BY_ID = {
+  'reach-awareness': 'topo', 'content-traffic': 'topo', 'video-engagement': 'topo', 'brand-consideration': 'topo',
+  'event-webinar': 'meio', 'b2b-demand': 'meio', 'saas-trial': 'meio',
+};
+export const FLOW_STRATEGIES = Object.freeze(STRATEGY_SOURCE.map(item => Object.freeze({...item, funnel: FUNNEL_BY_ID[item.id] || 'fundo'})));
+
+/** The measured result a plan aims at: its last conversion step, or else its last step. */
+export const strategyResult = strategy => {
+  const conversions = strategy.steps.filter(step => step.kind.startsWith('conversion.'));
+  return (conversions.at(-1) || strategy.steps.at(-1))?.title || '';
+};
 
 // Who each channel reaches by default; the planner renames, splits or removes segments.
 const DEFAULT_SEGMENTS = {

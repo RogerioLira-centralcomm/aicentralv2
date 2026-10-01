@@ -604,3 +604,14 @@
 .reports-panel-shell__footer .flow-inspector__remove{min-height:24px;padding:0 6px;font-size:12px;font-weight:500;margin-right:auto}
 .flow-inspector__tag-note{padding:8px 10px;border-radius:8px;background:var(--color-bg-warning-primary,#fffaeb);color:var(--color-text-warning-primary,#b54708)!important}
 .flow-inspector__tag-note a{color:inherit;font-weight:600}
+
+/* Monitor page rhythm: every block shares the same 20px inner padding, 12px radius and 16px gap. */
+.reports-main .reports-monitor-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 16px;padding:18px 20px;border:1px solid #eaecf0;border-radius:12px;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+.reports-main .reports-monitor-toolbar h3{font-size:18px;line-height:28px;font-weight:600}
+.reports-main .reports-monitor-toolbar select{min-width:260px;max-width:340px}
+.reports-main .reports-page-monitor,.reports-main .reports-monitor-mesa{padding:20px}
+.reports-main .reports-panel-head select,.reports-main .reports-monitor-mesa .reports-panel-head>select{width:auto;min-width:170px;max-width:240px;flex:none}
+.reports-main .reports-flow-version-picker{display:flex;align-items:center;gap:10px;margin:0 0 4px;padding:0 4px;color:#475467;font-size:13px}
+.reports-main .reports-flow-version-picker select{min-width:190px}
+.reports-main .reports-flow-return{display:inline-flex;align-items:center;margin:0 0 12px;padding:0 2px}
+.reports-main .reports-grid{gap:16px}

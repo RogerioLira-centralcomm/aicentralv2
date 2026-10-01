@@ -56,7 +56,7 @@ def _project_packet():
 def test_search_combines_project_direction_resources_tasks_and_indexed_content(monkeypatch):
     monkeypatch.setattr(workspace, "get_db", lambda: _IndexStatusDb())
     monkeypatch.setattr(workspace, "_native_project_id", lambda context: "project-1")
-    monkeypatch.setattr(workspace, "get_project_context", lambda *_: _project_packet())
+    monkeypatch.setattr(workspace, "get_project_context", lambda *_, **__: _project_packet())
     monkeypatch.setattr(workspace.project_context_service, "context_items", lambda *_: [
         {"id": "context:custom:publico", "label": "Público", "display_value": "Público B2B"},
     ])
@@ -82,7 +82,7 @@ def test_search_combines_project_direction_resources_tasks_and_indexed_content(m
 def test_search_includes_project_activity_saved_as_reference(monkeypatch):
     monkeypatch.setattr(workspace, "get_db", lambda: _IndexStatusDb())
     monkeypatch.setattr(workspace, "_native_project_id", lambda context: "project-1")
-    monkeypatch.setattr(workspace, "get_project_context", lambda *_: _project_packet())
+    monkeypatch.setattr(workspace, "get_project_context", lambda *_, **__: _project_packet())
     monkeypatch.setattr(workspace.project_context_service, "context_items", lambda *_: [])
     monkeypatch.setattr(workspace.project_resource_service, "list_for_context", lambda *_: {"resources": [{
         "id": "reference-1", "resource_type": "link", "title": "Reunião de campanha",
@@ -205,7 +205,7 @@ def test_resource_read_uses_source_tables_when_registry_is_partially_populated(m
 def test_search_reports_partial_inventory_failure_without_losing_saved_context(monkeypatch):
     monkeypatch.setattr(workspace, "get_db", lambda: _IndexStatusDb())
     monkeypatch.setattr(workspace, "_native_project_id", lambda context: "project-1")
-    monkeypatch.setattr(workspace, "get_project_context", lambda *_: _project_packet())
+    monkeypatch.setattr(workspace, "get_project_context", lambda *_, **__: _project_packet())
     monkeypatch.setattr(workspace.project_context_service, "context_items", lambda *_: [
         {"id": "context:standard:audience", "label": "Público", "display_value": "B2B"},
     ])
@@ -223,7 +223,7 @@ def test_search_reports_partial_inventory_failure_without_losing_saved_context(m
 def test_search_marks_resource_index_as_pending(monkeypatch):
     monkeypatch.setattr(workspace, "get_db", lambda: _IndexStatusDb(pending=True))
     monkeypatch.setattr(workspace, "_native_project_id", lambda context: "project-1")
-    monkeypatch.setattr(workspace, "get_project_context", lambda *_: _project_packet())
+    monkeypatch.setattr(workspace, "get_project_context", lambda *_, **__: _project_packet())
     monkeypatch.setattr(workspace.project_context_service, "context_items", lambda *_: [])
     monkeypatch.setattr(workspace.project_resource_service, "list_for_context", lambda *_: {"resources": []})
     monkeypatch.setattr(workspace.project_task_service, "list_tasks", lambda *_: {"tasks": []})
@@ -236,7 +236,7 @@ def test_search_marks_resource_index_as_pending(monkeypatch):
 def test_search_does_not_report_unavailable_sources_as_no_matches(monkeypatch):
     monkeypatch.setattr(workspace, "get_db", lambda: _IndexStatusDb())
     monkeypatch.setattr(workspace, "_native_project_id", lambda context: "project-1")
-    monkeypatch.setattr(workspace, "get_project_context", lambda *_: {
+    monkeypatch.setattr(workspace, "get_project_context", lambda *_, **__: {
         **_project_packet(), "fontes_verificadas": [], "retrieval_status": "unavailable",
     })
     monkeypatch.setattr(workspace.project_context_service, "context_items", lambda *_: [])
@@ -351,7 +351,7 @@ def test_search_checks_project_access_before_reading_context(monkeypatch):
         raise ToolInputError("Sem acesso")
 
     monkeypatch.setattr(workspace, "_native_project_id", denied)
-    monkeypatch.setattr(workspace, "get_project_context", lambda *_: (_ for _ in ()).throw(AssertionError("read")))
+    monkeypatch.setattr(workspace, "get_project_context", lambda *_, **__: (_ for _ in ()).throw(AssertionError("read")))
     try:
         workspace.search_project_content(CONTEXT, {"query": "público"})
     except ToolInputError:

@@ -31,16 +31,18 @@ def budget_for(route: IntentRoute, execution_mode: str = "analysis") -> Executio
 
 def policy_for(route: IntentRoute) -> dict:
     policies = {
-        "direct": {"max_questions": 1, "max_next_steps": 2, "max_answer_chars": 900, "artifact_in_chat": False},
+        # These are server-side ceilings applied after generation, not targets:
+        # a low ceiling silently truncates otherwise correct answers.
+        "direct": {"max_questions": 1, "max_next_steps": 2, "max_answer_chars": 3000, "artifact_in_chat": False},
         # Intermediate/analysis is the normal working mode. It must have room
         # for a useful answer even when the user did not request an artifact.
         "analysis": {"max_questions": 1, "max_next_steps": 2, "max_answer_chars": 6000, "artifact_in_chat": False},
-        "decision": {"max_questions": 1, "max_next_steps": 2, "max_answer_chars": 320, "artifact_in_chat": False},
-        "artifact_first": {"max_questions": 1, "max_next_steps": 2, "max_answer_chars": 240, "artifact_in_chat": False},
+        "decision": {"max_questions": 1, "max_next_steps": 2, "max_answer_chars": 4000, "artifact_in_chat": False},
+        "artifact_first": {"max_questions": 1, "max_next_steps": 2, "max_answer_chars": 900, "artifact_in_chat": False},
         # This is a ceiling for genuinely useful quick-choice controls, not a
         # target. The prompt prefers one concise natural message and may gather
         # several independent blockers together without serial turns.
-        "clarification": {"max_questions": 3, "max_next_steps": 1, "max_answer_chars": 700, "artifact_in_chat": False},
+        "clarification": {"max_questions": 3, "max_next_steps": 1, "max_answer_chars": 1200, "artifact_in_chat": False},
     }
     policy = {"mode": route.response_mode, **policies[route.response_mode]}
     if route.action == "search_insights":

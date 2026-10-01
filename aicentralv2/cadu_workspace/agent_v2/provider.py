@@ -64,7 +64,7 @@ def _configuration(execution_mode="analysis") -> dict:
     if not key or parsed.scheme != "https" or not parsed.hostname:
         raise ProviderUnavailable(f"O runtime {runtime_id} ainda não foi configurado.")
     return {"id": runtime_id, "mode": mode, "url": url, "key": key, "source": source,
-            "transport": "chat-messages", "config_version": "2026-09-21.1"}
+            "transport": "chat-messages", "config_version": "2026-10-01.v4"}
 
 
 def runtime_for(execution_mode="analysis") -> dict:

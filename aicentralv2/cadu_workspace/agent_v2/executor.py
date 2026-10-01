@@ -19,8 +19,46 @@ from .daily_workflows import recent_preferences
 from .evidence import has_read_source
 from .market_radar import fallback_query, requested_recency, relevant_read_sources
 from .project_status import summarize_tasks
+from .retrieval_query import retrieval_query
 from ..mcp.registry import load_builtin_tools
 from ...db import close_db
+
+
+PROJECT_TOOLS = ("workspace.search_project_content", "workspace.get_project_context")
+# Generic work that depends on the selected project unless the router already
+# chose a narrower data source. The regex router must not decide by omission
+# that a project-bound conversation ignores the project.
+PROJECT_GROUNDED_ACTIONS = frozenset({
+    "answer", "analyze", "recommend", "plan_campaign", "create_brief", "update_brief",
+    "create_client_delivery", "create_substantial_delivery", "create_meeting_agenda",
+    "create_meeting_summary", "describe_project",
+})
+_SMALL_TALK = re.compile(
+    r"^\s*(?:oi|ol[aá]|e a[ií]|bom dia|boa tarde|boa noite|obrigad[oa]|valeu|ok|okay|beleza|"
+    r"tudo bem|perfeito|show|legal|top|entendi)[\s!.?,]*$", re.IGNORECASE,
+)
+
+
+def needs_project_grounding(route, request, message: str) -> bool:
+    return (bool(request.project_ref) and route.action in PROJECT_GROUNDED_ACTIONS
+            and not any(tool in route.needs_tools for tool in PROJECT_TOOLS)
+            and not _SMALL_TALK.match(str(message or "")))
+
+
+def _project_evidence_text(values: dict) -> str:
+    """Flatten retrieved project values (never field names) for readiness checks."""
+    search = values.get("workspace.search_project_content")
+    if not isinstance(search, dict):
+        return ""
+    parts = [str(value) for value in (search.get("project") or {}).values() if value]
+    for row in search.get("results") or []:
+        parts.extend(str(row.get(name) or "") for name in ("display_value", "trecho", "description"))
+    return " ".join(parts)[:20000]
+
+
+def _has_project_evidence(values: dict) -> bool:
+    search = values.get("workspace.search_project_content")
+    return isinstance(search, dict) and bool(search.get("results") or search.get("project"))
 
 
 _BRIEFING_FIELDS = (
@@ -141,8 +179,12 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
                         response_mode="artifact_first" if artifact_requested else "analysis",
                         requires_confirmation=False,
                         needs_tools=tuple(dict.fromkeys((*route.needs_tools, *plugin_tools))))
+    if (needs_project_grounding(route, request, routed_message)
+            and not (selected_plugin and (plugin_missing or selected_plugin.get("unavailable")))):
+        route = replace(route, needs_tools=(*route.needs_tools, "workspace.search_project_content"))
     readiness = None
-    if route.action == "create_brief":
+    # With a project, readiness is decided after the project is read.
+    if route.action == "create_brief" and not request.project_ref:
         readiness = briefing_readiness(message, history)
         if readiness["complete"]:
             route = replace(route, response_mode="artifact_first", artifact_type="brief")
@@ -312,8 +354,28 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
         tool_overrides["media.creation_capabilities"] = studio_capability_arguments(
             routed_message, is_edit=route.action == "studio_edit_image",
         )
+    retrieval = None
+    if any(tool in resolution_route.needs_tools for tool in PROJECT_TOOLS):
+        retrieval = retrieval_query(routed_message, history)
+        for tool in PROJECT_TOOLS:
+            tool_overrides[tool] = {**tool_overrides.get(tool, {}), "query": retrieval["query"]}
     resolved = resolve_context(resolution_route, request, routed_message, registry, execution_mode,
                                tool_argument_overrides=tool_overrides)
+    if route.action == "create_brief" and request.project_ref:
+        readiness = briefing_readiness(message, history, _project_evidence_text(resolved.values))
+        if _has_project_evidence(resolved.values):
+            # Structure the brief in chat from saved project facts and surface
+            # only the open decisions, instead of interviewing the user for
+            # information the project already has.
+            readiness["project_grounded"] = True
+            route = replace(route, response_mode="analysis")
+            policy.update(policy_for(route))
+        elif readiness["complete"]:
+            route = replace(route, response_mode="artifact_first", artifact_type="brief")
+            policy.update(policy_for(route))
+            policy["artifact_type"] = "brief"
+            policy["allow_artifact"] = True
+        policy["briefing_readiness"] = readiness
     if selected_plugin and selected_plugin.get("id") == "client-delivery":
         resolved.values["project_task_status"] = summarize_tasks(resolved.values.get("projects.list_tasks"))
     if market_radar:
@@ -586,7 +648,21 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
         "project_evidence_tools": [name for name in project_tools if name in provider_evidence],
         "evidence_truncated": bool(provider_evidence.get("truncated")),
         "evidence_chars": len(payload["inputs"]["evidence"]),
+        "project_search_ran": bool(retrieval),
     }
+    if retrieval:
+        sent = (provider_evidence.get("workspace.search_project_content") or {}).get("results") or []
+        found = (resolved.values.get("workspace.search_project_content") or {})
+        payload_diagnostics["retrieval"] = {
+            "strategy": retrieval["strategy"],
+            "query_chars": len(retrieval["query"]),
+            "results_found": len(found.get("results") or []) if isinstance(found, dict) else 0,
+            "results_sent": len(sent),
+            "result_types_sent": sorted({str(row.get("result_type")) for row in sent}),
+            "sent_ids": [row.get("chunk_id") or row.get("message_id") or row.get("resource_id")
+                         or row.get("task_id") or row.get("memory_id") or row.get("label")
+                         for row in sent][:24],
+        }
     return {
         "route": route.to_dict(), "execution_mode": execution_mode,
         "budget": asdict(budget), "policy": policy,

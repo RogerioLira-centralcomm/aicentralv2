@@ -1790,7 +1790,8 @@ def test_intermediate_mode_keeps_room_for_substantive_answers():
     policy = policy_for(route)
     assert route.response_mode == "decision"
     assert route.action == "start_brand_audit"
-    assert policy["max_answer_chars"] == 320
+    # A decision answer must not be truncated below a useful recommendation.
+    assert policy["max_answer_chars"] >= 2400
 
 
 def test_explicit_word_count_expands_the_answer_allowance():
@@ -2501,9 +2502,9 @@ def test_prompt_payload_is_compact_and_does_not_inject_unrequested_domains():
                             user_label="user-7")
     serialized = __import__("json").dumps(payload, ensure_ascii=False)
     # The production Dify workflow still requires ``core`` and its temporary
-    # ``skill_context`` alias. Keep the complete request below a small 10 KB
+    # ``skill_context`` alias. Keep the complete request below a small 12 KB
     # envelope until that legacy input is removed from the workflow.
-    assert len(serialized) < 10000
+    assert len(serialized) < 12000
     assert "workspace_da_equipe" not in serialized
     assert "catalogo_midia_cadu" not in serialized
     assert payload["inputs"]["user_profile_context"] == payload["inputs"]["current_context"]

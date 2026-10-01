@@ -324,7 +324,7 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
                 with _read_savepoint():
                     sources = repository.rows('''WITH first_chunks AS (
                         SELECT c.id AS chunk_id, c.arquivo_id AS source_id, c.titulo,
-                               LEFT(c.conteudo, 1000) AS trecho,
+                               LEFT(c.conteudo, 2000) AS trecho,
                                0::double precision AS score, c.content_hash, c.embedding_model,
                                s.classification_metadata->'extraction_coverage' AS extraction_coverage,
                                s.classification_metadata->>'rag_pipeline_version' AS pipeline_version,
@@ -365,7 +365,7 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
                         UNION ALL SELECT id, row_number() OVER (ORDER BY score DESC) AS rank FROM semantic
                     ) candidates GROUP BY id
                 ) SELECT c.id AS chunk_id, c.arquivo_id AS source_id, c.titulo,
-                              LEFT(c.conteudo, 1000) AS trecho, r.score,
+                              LEFT(c.conteudo, 2000) AS trecho, r.score,
                               c.content_hash, c.embedding_model,
                               s.classification_metadata->'extraction_coverage' AS extraction_coverage,
                               s.classification_metadata->>'rag_pipeline_version' AS pipeline_version
@@ -379,7 +379,7 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query, *, resul
                 # fallback, never an indexing mode.
                 with _read_savepoint():
                     sources = repository.rows('''SELECT c.id AS chunk_id, c.arquivo_id AS source_id, c.titulo,
-                                                   LEFT(c.conteudo, 1000) AS trecho,
+                                                   LEFT(c.conteudo, 2000) AS trecho,
                                                    ts_rank_cd(c.search_vector, plainto_tsquery('portuguese', %s)) AS score,
                                                    c.content_hash, c.embedding_model,
                                                    s.classification_metadata->'extraction_coverage' AS extraction_coverage,

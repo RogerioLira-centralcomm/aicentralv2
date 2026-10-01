@@ -69,7 +69,7 @@ def _search_project_conversation_history(context: RequestContext, query: str, ov
           AND length(message.content) BETWEEN 20 AND 12000
           AND (%s = '' OR to_tsvector('portuguese', message.content)
                  @@ to_tsquery('portuguese', %s))
-        ORDER BY text_rank DESC, message.created_at DESC LIMIT 4"""
+        ORDER BY text_rank DESC, message.created_at DESC LIMIT 6"""
     results = []
     for role, result_type, evidence_level, base_score in (
         ("user", "conversation_history", "user_statement", 3),
@@ -90,6 +90,16 @@ def _search_project_conversation_history(context: RequestContext, query: str, ov
             "score": base_score + float(item.get("text_rank") or 0),
         } for item in historical)
     return results
+
+
+def _fuse_ranked_lists(groups: list[tuple[list[dict], float]], k: int = 10) -> list[dict]:
+    """Merge per-type rankings by position; raw scores are not comparable across types."""
+    fused = []
+    for rows, weight in groups:
+        ordered = sorted(rows, key=lambda item: item.get("score") or 0, reverse=True)
+        fused.extend((weight / (k + position), row) for position, row in enumerate(ordered, start=1))
+    fused.sort(key=lambda item: item[0], reverse=True)
+    return [{**row, "rank_score": round(score, 5)} for score, row in fused]
 
 
 def _history_search_terms(word: str) -> bool:
@@ -610,7 +620,7 @@ def search_project_content(context: RequestContext, arguments: dict) -> dict:
         arguments.get("mode") != "search" and is_overview_query(query)
     )
     packet = (get_project_context(context, {"query": query}, result_limit=12, overview=True) if overview
-              else get_project_context(context, {"query": query}))
+              else get_project_context(context, {"query": query}, result_limit=8))
     direction = packet.get("direction") or {}
     context_results = project_context_service.context_items(direction)
     source_results = [{**item, "result_type": "indexed_source"}
@@ -726,8 +736,12 @@ def search_project_content(context: RequestContext, arguments: dict) -> dict:
         groups = [context_ranked[:8], memory_results[:8], source_ranked[:12], resource_results[:15], task_results[:12], conversation_results[:6]]
         ranked = [group[index] for index in range(15) for group in groups if index < len(group)][:30]
     else:
-        ranked = context_ranked + memory_results + source_ranked + resource_results + task_results + conversation_results
-        ranked.sort(key=lambda item: item.get("score") or 0, reverse=True)
+        ranked = _fuse_ranked_lists([
+            (context_ranked, 1.2), (memory_results, 1.2), (source_ranked, 1.2),
+            ([row for row in conversation_results if row.get("evidence_level") == "user_statement"], 0.8),
+            (task_results, 0.7), (resource_results, 0.5),
+            ([row for row in conversation_results if row.get("evidence_level") != "user_statement"], 0.4),
+        ])
     return {
         "project_ref": context.project_ref,
         "mode": "overview" if overview else "search",

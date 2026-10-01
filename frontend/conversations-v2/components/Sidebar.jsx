@@ -9,6 +9,7 @@ import {DockUsageRing} from '../../cadu-design-system/components/CaduDock';
 import {Icon} from '../../cadu-design-system/components/Icon';
 import {useWorkspaceNotifications} from '../../cadu-design-system/components/WorkspaceNotifications';
 import {groupWorkspaceProjects, isArchivedEntity, nextBrandSelection, projectsForBrandSelection, workspaceBrandByRef} from '../../cadu-design-system/workspaceEntities.mjs';
+import {workspaceUserPhoto} from '../../cadu-design-system/workspaceIdentity.mjs';
 
 function contextLabel(item, projects, brands) {
   const project = projects.find(candidate => (candidate.ref || candidate.projectRef || candidate.id) === item.project_ref);
@@ -396,7 +397,7 @@ export function Sidebar({conversations, conversationSections = [], projects = []
     {open && <button type="button" onClick={onClose} aria-label="Fechar chats recentes" className="cv-recent-backdrop is-visible"/>}
     <aside ref={sidebarRef} id="cv-recent-sidebar" role={!desktopMode ? 'dialog' : undefined} aria-modal={!desktopMode ? 'true' : undefined} className={`cv-recent-sidebar ${desktopClosed ? 'is-closed' : 'is-open'}`} aria-label="Chats recentes">
       {desktopClosed ? <div className="cv-sidebar-mini-rail">
-        <CaduSolutionSwitcher logo={logo} solutions={solutions} activeId="workspace" overlay/><button type="button" className="cv-sidebar-mini-rail__expand" onClick={onOpenSidebar} aria-label="Expandir sidebar" title="Expandir sidebar"><NavIcon name="expand"/></button>
+        <CaduSolutionSwitcher logo={logo} solutions={solutions} activeId="workspace" showActiveLabel={false} overlay/><button type="button" className="cv-sidebar-mini-rail__expand" onClick={onOpenSidebar} aria-label="Expandir sidebar" title="Expandir sidebar"><NavIcon name="expand"/></button>
       </div> : <>
       <div className="cv-mobile-navigation">
         <header><div><strong>Workspace</strong><small>{conversationDisplayTitle(currentTitle || activeConversation?.title, 'Novo chat')}</small></div><button type="button" onClick={onClose} aria-label="Fechar navegação"><NavIcon name="close"/></button></header>
@@ -418,7 +419,7 @@ export function Sidebar({conversations, conversationSections = [], projects = []
       </div>
       <div className="cv-desktop-history">
       <header className="cv-recent-sidebar__header">
-        <div className="cv-chat-solution-switcher"><CaduSolutionSwitcher logo={logo} solutions={solutions} activeId="workspace" overlay/></div>
+        <div className="cv-chat-solution-switcher"><CaduSolutionSwitcher logo={logo} solutions={solutions} activeId="workspace" showActiveLabel overlay/></div>
         <div className="cv-recent-sidebar__tools"><button type="button" className="cv-sidebar-icon-button" onClick={() => { setSpotlightQuery(''); setSpotlightOpen(true); }} aria-label="Buscar conversas" title="Buscar conversas"><NavIcon name="search"/></button>{notifications.open && <button type="button" className="cv-sidebar-icon-button cv-sidebar-notifications" onClick={notifications.open} aria-label={notifications.pending.length ? `Abrir notificações, ${notifications.pending.length} pendentes` : 'Abrir notificações'} title="Notificações"><Icon name="pulse" size={17}/>{notifications.pending.length > 0 && <i>{notifications.pending.length > 9 ? '9+' : notifications.pending.length}</i>}</button>}<button type="button" className="cv-sidebar-icon-button" onClick={onClose} aria-label="Fechar navegação" title="Fechar navegação"><NavIcon name="collapse"/></button></div>
       </header>
       <div className="cv-recent-list">
@@ -440,7 +441,7 @@ export function Sidebar({conversations, conversationSections = [], projects = []
         {!selectedBrandRef && conversationSections.map(section => { const items = customSectionConversations(section); return items.length ? <section className="cv-nav-group cv-section-conversations" key={section.id}><header><SidebarTitle>{section.name}</SidebarTitle></header>{conversationList(items, true)}</section> : null; })}
         {!selectedBrandRef && <section className={`cv-nav-group cv-personal-recent${recentCollapsed ? ' is-collapsed' : ''}`}><header><button type="button" className="cv-personal-recent__toggle" aria-expanded={!recentCollapsed} onClick={() => setRecentCollapsed(value => !value)}><span>Recentes</span><NavIcon name="chevron"/></button></header>{!recentCollapsed && <>{conversationList(standard.slice(0, showAllRecent ? undefined : 5), true)}{(standard.length > 5 || historyHasMore) && <button type="button" className="cv-project-tree__more" disabled={loading} onClick={() => { if (!showAllRecent) { setShowAllRecent(true); if (standard.length <= 5 || historyHasMore) onLoadMoreHistory?.(); } else if (historyHasMore) onLoadMoreHistory?.(); else setShowAllRecent(false); }}>{loading && conversations.length ? 'Carregando…' : !showAllRecent && standard.length > 5 ? 'Mostrar mais' : historyHasMore ? 'Carregar mais conversas' : 'Mostrar menos'}</button>}{loading && !conversations.length && <div className="cv-recent-loading" aria-label="Carregando conversas"><i/><i/><i/></div>}{!loading && historyError && <div className="cv-history-error" role="alert"><p>{historyError}</p><button type="button" onClick={onRetryHistory}>Tentar novamente</button></div>}{!loading && !historyError && !standard.length && <p>Nenhuma conversa recente.</p>}</>}</section>}
       </div>
-      <footer className="cv-chat-sidebar-footer">{navUrls.profile ? <a href={navUrls.profile} aria-label={`Perfil de ${user.name || 'usuário'}`}><VisualIdentity src={user.avatar} initials={user.name} label={user.name} imageAlt={`Foto de ${user.name || 'usuário'}`}/><span>{user.name || 'Perfil'}</span></a> : <button type="button" aria-label={`Abrir perfil de ${user.name || 'usuário'}`}><VisualIdentity src={user.avatar} initials={user.name} label={user.name} imageAlt={`Foto de ${user.name || 'usuário'}`}/><span>{user.name || 'Perfil'}</span></button>}<UsageMiniChart percent={usagePercent}/></footer>
+      <footer className="cv-chat-sidebar-footer">{navUrls.profile ? <a href={navUrls.profile} aria-label={`Perfil de ${user.name || 'usuário'}`}><VisualIdentity src={workspaceUserPhoto(user)} initials={user.name} label={user.name} imageAlt={`Foto de ${user.name || 'usuário'}`}/><span>{user.name || 'Perfil'}</span></a> : <button type="button" aria-label={`Abrir perfil de ${user.name || 'usuário'}`}><VisualIdentity src={workspaceUserPhoto(user)} initials={user.name} label={user.name} imageAlt={`Foto de ${user.name || 'usuário'}`}/><span>{user.name || 'Perfil'}</span></button>}<UsageMiniChart percent={usagePercent}/></footer>
       </div>
       </>}
     </aside>

@@ -164,7 +164,17 @@ function Overview({data, setupData, metrics, imported, sites, sources, loading, 
   if (loading) return <div className="reports-overview-loading" role="status">Carregando dados de mídia…</div>;
   if (loadFailed) return <section className="reports-overview-loading" role="alert"><h2>Não foi possível carregar a visão geral</h2><p>Confira a conexão e tente novamente.</p><UntitledButton color="secondary" size="sm" onPress={onRefresh}>Tentar novamente</UntitledButton></section>;
   if (!hasMetrics) return <OverviewSetup data={setupData || data} sites={sites} sources={sources} imported={imported}/>;
-  return <div className="reports-dashboard">
+  return <>
+    <div className="reports-page-hero">
+      <div className="reports-page-hero__inner">
+        <div className="reports-page-hero__copy">
+          <div className="reports-page-hero__eyebrow">Resultados operacionais</div>
+          <h1>Visão geral</h1>
+          <p>Dados de mídia, atividade do site e campanhas em um só lugar.</p>
+        </div>
+      </div>
+    </div>
+    <div className="reports-dashboard">
     <section className="reports-dashboard-kpis" aria-label="Resumo de mídia">
       <Kpi label="Impressões" value={hasMetrics ? integer(totals.impressions) : '—'} detail="No período selecionado" />
       <Kpi label="Cliques" value={hasMetrics ? integer(totals.clicks) : '—'} detail="No período selecionado" />
@@ -191,7 +201,8 @@ function Overview({data, setupData, metrics, imported, sites, sources, loading, 
       {data.campaigns.length ? <div className="reports-dashboard-table-wrap"><table className="reports-dashboard-table"><thead><tr><th>Campanha</th><th>Conta</th><th>Plataforma</th><th>Status</th><th>ID da campanha</th></tr></thead><tbody>{visibleCampaigns.map(campaign => {const status = ({ENABLED:'Ativa',PAUSED:'Pausada',REMOVED:'Removida',active:'Ativa',paused:'Pausada',disabled:'Desativada'})[campaign.status] || 'Não informado'; return <tr key={campaign.id}><td><a href={campaignHref(campaign.id)}>{campaign.name}</a></td><td>{accounts.get(String(campaign.account_id))?.name || '—'}</td><td>{platformName(campaign.platform)}</td><td><span className={`reports-dashboard-status ${campaign.status === 'PAUSED' || campaign.status === 'paused' ? 'is-paused' : ''}`}>{status}</span></td><td>{campaign.external_id || '—'}</td></tr>;})}</tbody></table>{!campaigns.length && <div className="reports-dashboard-table-empty"><strong>Nenhuma campanha corresponde à busca ou aos filtros.</strong><ReportsActionButton color="link-color" type="button" onClick={() => {setQuery('');onFiltersChange({platform:'',account:'',campaign:''});}}>Limpar filtros</ReportsActionButton></div>}</div> : <div className="reports-dashboard-table-empty"><strong>Adicione uma campanha para acompanhar seus resultados.</strong><UntitledButton color="link-color" size="sm" href={reportUrl('campaigns')}>Adicionar campanha</UntitledButton></div>}
       {campaigns.length > pageSize && <nav className="reports-dashboard-pagination" aria-label="Paginação de campanhas"><ReportsActionButton type="button" disabled={tablePage <= 1} onClick={() => setTablePage(value => Math.max(1, value - 1))}>← Anterior</ReportsActionButton><span>Página {tablePage} de {pageCount}</span><ReportsActionButton type="button" disabled={tablePage >= pageCount} onClick={() => setTablePage(value => Math.min(pageCount, value + 1))}>Próxima →</ReportsActionButton></nav>}
     </section>
-  </div>;
+  </div>
+  </>;
 }
 
 function CustomerSelect({data,value,onChange}) {return <label>Cliente / anunciante<ReportsNativeSelect value={value} onChange={e=>onChange(e.target.value)}><option value="">Operação própria</option>{(data.customers||[]).filter(c=>c.status==='active').map(c=><option value={c.id} key={c.id}>{c.name}</option>)}</ReportsNativeSelect></label>;}
@@ -277,7 +288,17 @@ function Campaigns({data, save, busy, filters, refreshRevision}) {
   const closeCampaign = () => {setCampaignId('');setCampaignDetail(null);setDetailError('');history.replaceState(history.state,'',campaignUrl({id:'',view:''}));};
   const submit = async event => {event.preventDefault(); try {await save('/campaigns', form); setForm({...form, external_id: '', name: '', objective: '', channel_type: ''}); setCreateOpen(false);} catch (_) { /* Global error banner shows the failure. */ }};
   if (campaignId) return <CampaignDetail data={data} detail={campaignDetail} error={detailError} tab={tab} setTab={changeCampaignTab} close={closeCampaign} filters={filters} refreshRevision={refreshRevision} save={save} busy={busy} updateDetail={setCampaignDetail} />;
-  return <section className="reports-campaigns-page reports-campaigns-list-page"><article className="reports-panel"><div className="reports-panel-head reports-panel-head--actions"><div className="reports-list-head-actions"><span>{visibleCampaigns.length} de {data.campaigns.length}</span>{data.client.role !== 'viewer' && <ReportsActionButton className="reports-campaign-add" onClick={() => setCreateOpen(true)} color="primary">Adicionar campanha</ReportsActionButton>}</div></div>
+  return <>
+    <div className="reports-page-hero">
+      <div className="reports-page-hero__inner">
+        <div className="reports-page-hero__copy">
+          <div className="reports-page-hero__eyebrow">Operação de mídia</div>
+          <h1>Campanhas</h1>
+          <p>Consulte campanhas, identifique sua origem e abra os resultados detalhados.</p>
+        </div>
+      </div>
+    </div>
+    <section className="reports-campaigns-page reports-campaigns-list-page"><article className="reports-panel"><div className="reports-panel-head reports-panel-head--actions"><div className="reports-list-head-actions"><span>{visibleCampaigns.length} de {data.campaigns.length}</span>{data.client.role !== 'viewer' && <ReportsActionButton className="reports-campaign-add" onClick={() => setCreateOpen(true)} color="primary">Adicionar campanha</ReportsActionButton>}</div></div>
     {visibleCampaigns.length ? <div className="reports-table-wrap"><table><thead><tr><th>Campanha</th><th>Conta</th><th>Plataforma</th><th>Tipo</th><th>ID externo</th><th>Projeto Workspace (opcional)</th><th>Status</th></tr></thead><tbody>{visibleCampaigns.map(item => <tr key={item.id}><td><ReportsActionButton type="button" className="reports-campaign-open" onClick={()=>openCampaign(item)}><strong>{item.name}</strong><small>Abrir detalhes ↗</small></ReportsActionButton></td><td>{item.account_name||'Sem conta de mídia'}</td><td>{item.platform||'Manual'}</td><td>{item.channel_type || item.objective || '—'}</td><td>{item.external_id}</td><td><ReportsRelationships data={data} kind="campaign" id={item.id} name={item.name}/></td><td>{({ENABLED:'Ativa',PAUSED:'Pausada',REMOVED:'Removida',unknown:'Não informado'})[item.status] || item.status}</td></tr>)}</tbody></table></div> : <Empty message={data.campaigns.length ? 'Nenhuma campanha corresponde aos filtros desta página.' : 'Nenhuma campanha ainda. Adicione uma ou sincronize uma conta de mídia.'} />}</article>
     <ReportsDrawer open={createOpen} onOpenChange={setCreateOpen} onDiscard={()=>setForm({customer_id:'',account_id:'',external_id:'',name:'',objective:'',channel_type:''})} title="Adicionar campanha" description="Crie uma campanha manual ou associe uma conta de mídia." context={data.client.client_name}>{data.client.role==='viewer'?<Empty message="Seu acesso permite consultar as campanhas, sem cadastrar ou editar."/>:<form className="reports-form" onSubmit={submit}>
       <CustomerSelect data={data} value={form.customer_id} onChange={value=>setForm({...form,customer_id:value,account_id:''})}/>
@@ -287,7 +308,8 @@ function Campaigns({data, save, busy, filters, refreshRevision}) {
       <label>Objetivo (opcional)<ReportsFieldInput maxLength="160" value={form.objective} onChange={event => setForm({...form, objective: event.target.value})} placeholder="Ex.: geração de leads" /></label>
       <label>Tipo de canal (opcional)<ReportsFieldInput maxLength="64" value={form.channel_type} onChange={event => setForm({...form, channel_type: event.target.value})} placeholder="Ex.: pesquisa, social, vídeo" /></label>
       <ReportsActionButton type="submit" disabled={busy}>Salvar campanha</ReportsActionButton>
-    </form>}</ReportsDrawer></section>;
+    </form>}</ReportsDrawer></section>
+  </>;
 }
 
 function CampaignDetail({data, detail, error, tab, setTab, close, filters, refreshRevision, save, busy, updateDetail}) {
@@ -965,6 +987,15 @@ function Events({data, filters, initialKind = 'all', refreshRevision}) {
   const copyEvent = async () => {try {await navigator.clipboard.writeText(customSnippet);setCopied(true);window.setTimeout(()=>setCopied(false),1800);} catch (_) {setError('Não foi possível copiar o código.');}};
   const timeAgo = value => {const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000)); return minutes < 60 ? `há ${minutes} min` : minutes < 1440 ? `há ${Math.floor(minutes / 60)} h` : `há ${Math.floor(minutes / 1440)} d`;};
   return <>
+    <div className="reports-page-hero">
+      <div className="reports-page-hero__inner">
+        <div className="reports-page-hero__copy">
+          <div className="reports-page-hero__eyebrow">Mensuração</div>
+          <h1>Eventos</h1>
+          <p>Explore a atividade recebida e prepare eventos personalizados.</p>
+        </div>
+      </div>
+    </div>
     <section className="reports-events-layout"><article className="reports-panel reports-events-main"><div className="reports-panel-head"><div><h2>Atividade recebida</h2><p>Veja as interações recebidas pela Super Tag e prepare eventos personalizados.</p></div><a className="reports-inline-link" href={reportUrl('flow')}>Abrir Fluxos ↗</a></div>
       <ReportsTabs className="reports-event-tabs" label="Tipos de evento" items={[{id:'all',label:'Todos os eventos'},{id:'standard',label:'Padrão'},{id:'custom',label:'Personalizados'},{id:'conversion',label:'Conversões'}]} value={kindFilter} onChange={setKindFilter} />
       <div className="reports-event-filters"><ReportsFieldInput type="search" aria-label="Buscar eventos" placeholder="Buscar evento ou página…" value={query} onChange={event=>setQuery(event.target.value)}/><ReportsNativeSelect aria-label="Filtrar fonte" value={sourceFilter} onChange={event=>setSourceFilter(event.target.value)}><option value="all">Todas as fontes</option>{sources.map(source=><option key={source}>{source}</option>)}</ReportsNativeSelect><ReportsActionButton type="button" onClick={loadEvents}><RefreshCw01 size={16} aria-hidden="true"/>Atualizar</ReportsActionButton></div>

@@ -57,5 +57,7 @@ test('estratégias já trazem taxas de referência em todas as conexões', () =>
     assert.deepEqual(result.missingRates, [], strategy.id);
     assert.deepEqual(result.overAllocated, [], strategy.id);
     assert(result.totals.results > 0, strategy.id);
+    const byId = new Map(plan.nodes.map(node => [node.id, node]));
+    assert(plan.edges.every(edge => !(byId.get(edge.from).type === 'source' && byId.get(edge.to).type === 'conversion')), `${strategy.id}: origem não converte direto`);
   }
 });

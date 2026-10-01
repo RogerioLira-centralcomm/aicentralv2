@@ -203,3 +203,25 @@
 .reports-flow-plan-only button:focus-visible{outline:2px solid var(--color-border-brand,#175cd3);outline-offset:1px}
 .flow-connect-site__row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:8px}
 .flow-connect-site__row label{display:grid;gap:6px;font-size:14px;font-weight:500}
+/* Fluxos e modelos */
+.reports-flow-index__views{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--color-border-secondary,#eaecf0)}
+.reports-flow-index__views button{position:relative;min-height:40px;padding:0 4px;margin-right:16px;border:0;background:transparent;color:var(--color-text-tertiary,#475467);font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.reports-flow-index__views button small{margin-left:4px;color:var(--color-text-quaternary,#667085);font-weight:500}
+.reports-flow-index__views button[aria-selected=true]{color:var(--color-text-primary,#101828)}
+.reports-flow-index__views button[aria-selected=true]::after{content:"";position:absolute;right:0;bottom:-1px;left:0;height:2px;border-radius:2px;background:var(--color-fg-brand-primary,#175cd3)}
+.reports-flow-index__views button:focus-visible{outline:2px solid var(--color-border-brand,#175cd3);outline-offset:2px}
+.flow-template-gallery{display:grid;gap:16px}
+.flow-template-gallery__filters{display:flex;flex-wrap:wrap;gap:6px}
+.flow-template-gallery__filters button{min-height:32px;padding:0 12px;border:1px solid var(--color-border-secondary,#eaecf0);border-radius:999px;background:var(--color-bg-primary,#fff);color:var(--color-text-secondary,#344054);font:inherit;font-size:13px;font-weight:500;cursor:pointer}
+.flow-template-gallery__filters button[aria-pressed=true]{border-color:var(--color-border-brand,#175cd3);background:var(--color-bg-brand-primary,#eff8ff);color:var(--color-text-brand-secondary,#175cd3)}
+.flow-template-gallery__grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin:0;padding:0;list-style:none}
+.flow-template-card{display:grid;grid-template-rows:auto 1fr auto;height:100%;overflow:hidden;border:1px solid var(--color-border-secondary,#eaecf0);border-radius:12px;background:var(--color-bg-primary,#fff)}
+.flow-template-card img{width:100%;aspect-ratio:16/7;object-fit:contain;padding:8px;border-bottom:1px solid var(--color-border-secondary,#eaecf0);background:var(--color-bg-secondary,#f9fafb)}
+.flow-template-card__body{display:grid;align-content:start;gap:6px;padding:14px 16px}
+.flow-template-card__body small{color:var(--color-text-brand-secondary,#175cd3);font-size:11px;font-weight:600;letter-spacing:.02em;text-transform:uppercase}
+.flow-template-card h3{margin:0;color:var(--color-text-primary,#101828);font-size:16px}
+.flow-template-card p{margin:0;color:var(--color-text-tertiary,#475467);font-size:13px;line-height:1.5}
+.flow-template-card__channels{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 0;padding:0;list-style:none}
+.flow-template-card__channels li{padding:1px 8px;border-radius:999px;background:var(--color-bg-secondary,#f9fafb);color:var(--color-text-secondary,#344054);font-size:11px;font-weight:500}
+.flow-template-card__meta{color:var(--color-text-quaternary,#667085);font-size:12px}
+.flow-template-card>button{margin:0 16px 16px;justify-self:start}

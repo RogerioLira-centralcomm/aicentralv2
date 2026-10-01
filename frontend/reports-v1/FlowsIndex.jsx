@@ -7,6 +7,7 @@ import {plural} from './flowFeedback.js';
 import {flowNextAction} from './flowNextAction.js';
 import {flowBlockRegistry} from './flowBlockRegistry.js';
 import {FLOW_STRATEGIES, buildStrategyConfig, defaultStrategyChannels} from './flowStrategies.js';
+import {FlowTemplateGallery} from './FlowTemplateGallery.jsx';
 import {Empty, flowEditorUrl, json, reportUrl} from './reportsCommon.jsx';
 
 /** Flow list and creation: the entry screen of Fluxos. Owns its own form state; the editor never reads it. */
@@ -16,6 +17,7 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
   const [flowQuery,setFlowQuery]=useState('');
   const [flowStatusFilter,setFlowStatusFilter]=useState('all');
   const [flowTagFilter,setFlowTagFilter]=useState('');
+  const [indexView,setIndexView]=useState(()=>new URLSearchParams(location.search).get('modelos')==='1'?'models':'flows');
   const [flowSiteCheck, setFlowSiteCheck] = useState(null);
   const [flowSiteChecking, setFlowSiteChecking] = useState(false);
   const [flowSiteKind,setFlowSiteKind]=useState('');
@@ -27,6 +29,7 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
   const [strategyChannels,setStrategyChannels]=useState([]);
   const strategy=FLOW_STRATEGIES.find(item=>item.id===strategyId);
   const chooseStrategy=item=>{setStrategyId(item.id);setStrategyChannels(defaultStrategyChannels(item));};
+  const startFromTemplate=item=>{setFlowStart('strategy');chooseStrategy(item);setFlowCreateOpen(true);};
   const toggleChannel=kind=>setStrategyChannels(current=>current.includes(kind)?current.filter(item=>item!==kind):[...current,kind]);
   const fromStrategy=flowStart==='strategy';
   const strategyReady=!fromStrategy||(strategy&&strategyChannels.length>0);
@@ -50,6 +53,11 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
   return <>
     {localError&&<div className="reports-error" role="alert">{localError}</div>}
     <section className="reports-flow-index">
+      <div className="reports-flow-index__views" role="tablist" aria-label="Fluxos e modelos">
+        <button type="button" role="tab" aria-selected={indexView==='flows'} onClick={()=>setIndexView('flows')}>Fluxos <small>{flows.length}</small></button>
+        <button type="button" role="tab" aria-selected={indexView==='models'} onClick={()=>setIndexView('models')}>Modelos <small>{FLOW_STRATEGIES.length}</small></button>
+      </div>
+      {indexView==='models'?<FlowTemplateGallery canCreate={data.client.role!=='viewer'} onUse={startFromTemplate}/>:<>
       <div className="reports-flow-index__tools">
         <ReportsFieldInput type="search" aria-label="Buscar fluxo" placeholder="Buscar por nome ou domínio" value={flowQuery} onChange={event=>setFlowQuery(event.target.value)}/>
         <ReportsNativeSelect aria-label="Estado do fluxo" value={flowStatusFilter} onChange={event=>setFlowStatusFilter(event.target.value)}><option value="all">Todos os estados</option><option value="published">Publicados</option><option value="draft">Rascunhos</option></ReportsNativeSelect>
@@ -65,8 +73,8 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
           <td><button type="button" className={`reports-flow-next is-${next.tone}`} onClick={()=>openFlow(item,next.view)}>{next.label}</button></td>
           <td>{flowUpdatedLabel(item.updated_at)}</td>
           <td className="reports-flow-table__actions"><ReportsActionButton color="tertiary" onClick={()=>openFlow(item,'edit')}>Editar</ReportsActionButton>{item.status==='published'&&<ReportsActionButton color="tertiary" onClick={()=>openFlow(item,'monitor')}>Monitorar</ReportsActionButton>}</td>
-        </tr>;})}</tbody></table></div>:<Empty message={flows.length?'Nenhum fluxo corresponde à busca.':'Nenhum fluxo ainda. Crie o primeiro para mapear a jornada de um site.'}/>}
-      </article>
+        </tr>;})}</tbody></table></div>:<Empty message={flows.length?'Nenhum fluxo corresponde à busca.':'Nenhum fluxo ainda. Comece por um modelo pronto ou crie um fluxo do zero.'}/>}
+      </article></>}
     </section>
     <ReportsDrawer open={flowCreateOpen} onOpenChange={setFlowCreateOpen} onDiscard={()=>{setFlowName('');setFlowCustomerId('');setFlowCampaignId('');}} title="Novo fluxo" description="Comece por uma estratégia pronta ou pelo teste da página inicial do site." context={data.client.client_name}>
       {localError&&<div className="reports-error" role="alert">{localError}</div>}

@@ -8,7 +8,7 @@ const MEASURED = new Set(['page','form','event','conversion','whatsapp','error']
 
 export const FLOW_STRATEGIES = Object.freeze([
   {
-    id: 'leads-landing', mediaObjective: 'leads', name: 'Captação de leads com landing page', objective: 'Leads', siteKind: 'landing',
+    id: 'leads-landing', sector: 'Geral', mediaObjective: 'leads', name: 'Captação de leads com landing page', objective: 'Leads', siteKind: 'landing',
     summary: 'Anúncios levam a uma landing page com formulário. Quem não converte volta por remarketing.',
     channels: [['traffic.meta', true], ['traffic.google_search', true], ['traffic.instagram', false], ['traffic.linkedin', false], ['traffic.tiktok', false], ['traffic.retargeting', true]],
     steps: [
@@ -19,7 +19,7 @@ export const FLOW_STRATEGIES = Object.freeze([
     links: [['@paid', 'lp', null, 100], ['traffic.retargeting', 'lp', 'Remarketing', 100], ['lp', 'form', null, 35], ['form', 'lead', null, 60]],
   },
   {
-    id: 'leads-whatsapp', mediaObjective: 'mensagens', name: 'Conversa no WhatsApp', objective: 'Conversas e vendas', siteKind: 'landing',
+    id: 'leads-whatsapp', sector: 'Geral', mediaObjective: 'mensagens', name: 'Conversa no WhatsApp', objective: 'Conversas e vendas', siteKind: 'landing',
     summary: 'A página leva a um clique no WhatsApp; o atendimento comercial segue no CRM.',
     channels: [['traffic.meta', true], ['traffic.instagram', true], ['traffic.google_search', false], ['traffic.tiktok', false]],
     steps: [
@@ -33,7 +33,7 @@ export const FLOW_STRATEGIES = Object.freeze([
     links: [['@paid', 'lp', null, 100], ['lp', 'click', null, 20], ['click', 'conversa', null, 70], ['conversa', 'atendimento', null, 100], ['atendimento', 'venda', 'Ganhou', 20], ['atendimento', 'perdida', 'Perdeu', 80]],
   },
   {
-    id: 'event-webinar', mediaObjective: 'leads', name: 'Inscrição em evento ou webinar', objective: 'Inscrições e vendas', siteKind: 'landing',
+    id: 'event-webinar', sector: 'Eventos', mediaObjective: 'leads', name: 'Inscrição em evento ou webinar', objective: 'Inscrições e vendas', siteKind: 'landing',
     summary: 'Inscrição, lembretes até o dia e oferta durante o evento.',
     channels: [['traffic.meta', true], ['traffic.linkedin', true], ['traffic.youtube', false], ['communication.email', true]],
     steps: [
@@ -47,7 +47,7 @@ export const FLOW_STRATEGIES = Object.freeze([
     links: [['@paid', 'inscricao', null, 100], ['communication.email', 'inscricao', 'Convite', 100], ['inscricao', 'form', null, 40], ['form', 'inscrito', null, 80], ['inscrito', 'lembretes', null, 100], ['lembretes', 'sala', null, 40], ['sala', 'compra', null, 10]],
   },
   {
-    id: 'ecommerce', mediaObjective: 'vendas', name: 'Venda em e-commerce', objective: 'Compras', siteKind: 'ecommerce',
+    id: 'ecommerce', sector: 'Varejo', mediaObjective: 'vendas', name: 'Venda em e-commerce', objective: 'Compras', siteKind: 'ecommerce',
     summary: 'Do anúncio ao produto, carrinho e checkout, com recuperação de carrinho.',
     channels: [['traffic.google_search', true], ['traffic.meta', true], ['traffic.google_display', false], ['traffic.tiktok', false], ['traffic.retargeting', true], ['communication.email', true]],
     steps: [
@@ -59,7 +59,7 @@ export const FLOW_STRATEGIES = Object.freeze([
     links: [['@paid', 'produto', null, 100], ['traffic.retargeting', 'produto', 'Remarketing', 100], ['communication.email', 'checkout', 'Recuperação de carrinho', 100], ['produto', 'carrinho', null, 10], ['carrinho', 'checkout', null, 50], ['checkout', 'compra', null, 60]],
   },
   {
-    id: 'b2b-demand', mediaObjective: 'leads', name: 'Geração de demanda B2B', objective: 'Reuniões e negócios', siteKind: 'multipagina',
+    id: 'b2b-demand', sector: 'B2B', mediaObjective: 'leads', name: 'Geração de demanda B2B', objective: 'Reuniões e negócios', siteKind: 'multipagina',
     summary: 'Conteúdo e página da solução levam ao contato; a venda segue em reunião e proposta.',
     channels: [['traffic.linkedin', true], ['traffic.google_search', true], ['traffic.organic_search', false], ['communication.email_sequence', false]],
     steps: [
@@ -74,7 +74,7 @@ export const FLOW_STRATEGIES = Object.freeze([
     links: [['@paid', 'conteudo', null, 100], ['traffic.organic_search', 'conteudo', null, 100], ['communication.email_sequence', 'solucao', 'Nutrição', 100], ['conteudo', 'solucao', null, 25], ['solucao', 'contato', null, 8], ['contato', 'lead', null, 70], ['lead', 'reuniao', null, 40], ['reuniao', 'ganho', 'Ganhou', 25], ['reuniao', 'perdido', 'Perdeu', 75]],
   },
   {
-    id: 'brand-consideration', mediaObjective: 'alcance', name: 'Presença e consideração', objective: 'Engajamento', siteKind: 'institucional',
+    id: 'brand-consideration', sector: 'Marca', mediaObjective: 'alcance', name: 'Presença e consideração', objective: 'Engajamento', siteKind: 'institucional',
     summary: 'Mídia de alcance leva ao site institucional; o sucesso é visitar serviços, cases e contato.',
     channels: [['traffic.youtube', true], ['traffic.dv360', true], ['traffic.google_display', false], ['traffic.organic_search', true], ['traffic.organic_social', false]],
     steps: [
@@ -87,7 +87,7 @@ export const FLOW_STRATEGIES = Object.freeze([
     links: [['@paid', 'home', null, 100], ['traffic.organic_search', 'home', null, 100], ['traffic.organic_social', 'home', null, 100], ['home', 'servicos', null, 30], ['home', 'cases', null, 15], ['servicos', 'contato', null, 5], ['cases', 'contato', null, 8], ['contato', 'lead', null, 60]],
   },
   {
-    id: 'ab-landing', mediaObjective: 'leads', name: 'Teste A/B de landing page', objective: 'Leads', siteKind: 'landing',
+    id: 'ab-landing', sector: 'Testes', mediaObjective: 'leads', name: 'Teste A/B de landing page', objective: 'Leads', siteKind: 'landing',
     summary: 'O tráfego é dividido entre duas versões da página para descobrir a que converte mais.',
     channels: [['traffic.meta', true], ['traffic.google_search', true]],
     steps: [
@@ -98,6 +98,69 @@ export const FLOW_STRATEGIES = Object.freeze([
       {key: 'lead', kind: 'conversion.lead', title: 'Lead captado', stage: 'conversion', spec: {goal: 'Comparar a taxa de lead de A e B.'}},
     ],
     links: [['@paid', 'divisao', null, 100], ['divisao', 'a', 'Variante A · 50%', 50], ['divisao', 'b', 'Variante B · 50%', 50], ['a', 'form', null, 35], ['b', 'form', null, 35], ['form', 'lead', null, 60]],
+  },
+  {
+    id: 'education-enrollment', sector: 'Educação', mediaObjective: 'leads', name: 'Captação de alunos', objective: 'Matrículas', siteKind: 'landing',
+    summary: 'Anúncios levam à página do curso; o interesse vira atendimento do consultor e matrícula.',
+    channels: [['traffic.google_search', true], ['traffic.meta', true], ['traffic.youtube', false], ['traffic.retargeting', true], ['communication.email_sequence', false]],
+    steps: [
+      {key: 'curso', kind: 'page.landing', title: 'Página do curso', stage: 'entry', spec: {goal: 'Mostrar grade, diferenciais, formato e investimento.', suggested_path: '/curso', cta: 'Quero saber mais'}},
+      {key: 'interesse', kind: 'page.form', title: 'Formulário de interesse', stage: 'intent', spec: {content: 'Nome, WhatsApp, curso e turno de interesse.', cta: 'Falar com um consultor'}},
+      {key: 'lead', kind: 'conversion.lead', title: 'Interessado captado', stage: 'conversion', spec: {goal: 'Contar cada pedido de contato.'}},
+      {key: 'consultor', kind: 'crm.meeting', title: 'Atendimento do consultor', stage: 'support'},
+      {key: 'matricula', kind: 'crm.deal_won', title: 'Matrícula realizada', stage: 'support'},
+    ],
+    links: [['@paid', 'curso', null, 100], ['communication.email_sequence', 'curso', 'Nutrição', 100], ['curso', 'interesse', null, 25], ['interesse', 'lead', null, 70], ['lead', 'consultor', null, 60], ['consultor', 'matricula', 'Matriculou', 20]],
+  },
+  {
+    id: 'real-estate-launch', sector: 'Imobiliário', mediaObjective: 'leads', name: 'Lançamento imobiliário', objective: 'Visitas e vendas', siteKind: 'landing',
+    summary: 'A página do empreendimento capta cadastros; o corretor agenda a visita ao decorado e conduz a proposta.',
+    channels: [['traffic.meta', true], ['traffic.google_search', true], ['traffic.youtube', false], ['traffic.retargeting', true]],
+    steps: [
+      {key: 'empreendimento', kind: 'page.landing', title: 'Página do empreendimento', stage: 'entry', spec: {goal: 'Apresentar plantas, localização, condições e diferenciais.', suggested_path: '/lancamento', cta: 'Quero receber a tabela'}},
+      {key: 'cadastro', kind: 'page.form', title: 'Cadastro de interesse', stage: 'intent', spec: {content: 'Nome, WhatsApp, renda aproximada e tipologia de interesse.', cta: 'Receber tabela'}},
+      {key: 'lead', kind: 'conversion.lead', title: 'Cadastro recebido', stage: 'conversion', spec: {goal: 'Contar cadastros qualificados.'}},
+      {key: 'visita', kind: 'crm.meeting', title: 'Visita ao decorado', stage: 'support'},
+      {key: 'venda', kind: 'crm.deal_won', title: 'Proposta aceita', stage: 'support'},
+      {key: 'perdida', kind: 'crm.deal_lost', title: 'Sem negócio', stage: 'support'},
+    ],
+    links: [['@paid', 'empreendimento', null, 100], ['empreendimento', 'cadastro', null, 15], ['cadastro', 'lead', null, 75], ['lead', 'visita', null, 25], ['visita', 'venda', 'Comprou', 15], ['visita', 'perdida', 'Não comprou', 85]],
+  },
+  {
+    id: 'health-appointment', sector: 'Saúde', mediaObjective: 'leads', name: 'Agendamento de consulta', objective: 'Consultas agendadas', siteKind: 'multipagina',
+    summary: 'A busca leva à página da especialidade; o paciente agenda online ou chama no WhatsApp.',
+    channels: [['traffic.google_search', true], ['traffic.organic_search', true], ['traffic.meta', false]],
+    steps: [
+      {key: 'especialidade', kind: 'page.generic', title: 'Página da especialidade', stage: 'entry', spec: {goal: 'Explicar a especialidade, os profissionais e os convênios.', suggested_path: '/especialidades', cta: 'Agendar consulta'}},
+      {key: 'agenda', kind: 'page.calendar', title: 'Agenda online', stage: 'intent', spec: {goal: 'Escolher profissional, data e horário.', suggested_path: '/agendar'}},
+      {key: 'whatsapp', kind: 'event.whatsapp', title: 'Clique no WhatsApp', stage: 'intent', spec: {goal: 'Atender quem prefere conversar antes de agendar.'}},
+      {key: 'agendada', kind: 'conversion.signup', title: 'Consulta agendada', stage: 'conversion', spec: {goal: 'Contar agendamentos confirmados.', notes: 'Evento sugerido: consulta_agendada.'}},
+    ],
+    links: [['@paid', 'especialidade', null, 100], ['traffic.organic_search', 'especialidade', null, 100], ['especialidade', 'agenda', null, 20], ['especialidade', 'whatsapp', null, 10], ['agenda', 'agendada', null, 50], ['whatsapp', 'agendada', 'Pelo WhatsApp', 40]],
+  },
+  {
+    id: 'saas-trial', sector: 'Tecnologia', mediaObjective: 'leads', name: 'Teste grátis de software', objective: 'Assinaturas', siteKind: 'multipagina',
+    summary: 'A página do produto leva ao cadastro do teste; a sequência de e-mails ativa o uso até a assinatura.',
+    channels: [['traffic.google_search', true], ['traffic.linkedin', true], ['traffic.meta', false], ['communication.email_sequence', true]],
+    steps: [
+      {key: 'produto', kind: 'page.sales', title: 'Página do produto', stage: 'entry', spec: {goal: 'Mostrar o problema resolvido, provas e planos.', suggested_path: '/produto', cta: 'Testar grátis'}},
+      {key: 'cadastro', kind: 'page.form', title: 'Cadastro do teste', stage: 'intent', spec: {content: 'Nome, e-mail corporativo e empresa; sem cartão.', cta: 'Começar teste'}},
+      {key: 'trial', kind: 'conversion.signup', title: 'Teste iniciado', stage: 'conversion', spec: {goal: 'Contar contas de teste criadas.', notes: 'Evento sugerido: trial_iniciado.'}},
+      {key: 'assinatura', kind: 'conversion.purchase', title: 'Assinatura', stage: 'support', spec: {goal: 'Contar testes que viram assinatura.'}},
+    ],
+    links: [['@paid', 'produto', null, 100], ['produto', 'cadastro', null, 15], ['cadastro', 'trial', null, 70], ['communication.email_sequence', 'produto', 'Ativação por e-mail', 100], ['trial', 'assinatura', null, 15]],
+  },
+  {
+    id: 'local-store', sector: 'Varejo', mediaObjective: 'trafego', name: 'Visita à loja física', objective: 'Visitas à loja', siteKind: 'institucional',
+    summary: 'Mídia local e busca levam à página da loja; a pessoa pede a rota ou chama no WhatsApp antes de ir.',
+    channels: [['traffic.meta', true], ['traffic.organic_search', true], ['traffic.qr', false], ['traffic.google_search', false]],
+    steps: [
+      {key: 'loja', kind: 'page.generic', title: 'Página da loja', stage: 'entry', spec: {goal: 'Endereço, horário, estoque em destaque e ofertas da semana.', suggested_path: '/loja', cta: 'Como chegar'}},
+      {key: 'rota', kind: 'event.button', title: 'Clique em “Como chegar”', stage: 'intent', spec: {goal: 'Medir quem pede a rota até a loja.', notes: 'Evento sugerido: rota_solicitada.'}},
+      {key: 'whatsapp', kind: 'event.whatsapp', title: 'Clique no WhatsApp', stage: 'intent'},
+      {key: 'visita', kind: 'conversion.generic', title: 'Intenção de visita', stage: 'conversion', spec: {goal: 'Somar pedidos de rota e conversas como intenção de visita.'}},
+    ],
+    links: [['@paid', 'loja', null, 100], ['traffic.organic_search', 'loja', null, 100], ['traffic.qr', 'loja', 'QR na vitrine', 100], ['loja', 'rota', null, 12], ['loja', 'whatsapp', null, 6], ['rota', 'visita', null, 100], ['whatsapp', 'visita', null, 60]],
   },
 ]);
 

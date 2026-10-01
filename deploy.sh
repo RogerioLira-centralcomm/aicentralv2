@@ -46,6 +46,7 @@ echo ""
 # Parar o serviço só depois de código, build e dependências estarem prontos:
 # o site continua no ar durante a parte lenta do deploy.
 stop_service_for_deploy() {
+    [ "$SERVICE_STOPPED" = "1" ] && return 0
     echo ""
     echo "[parada] Parando servico (codigo, build e dependencias prontos)..."
     sudo systemctl stop "$APP_SERVICE" 2>/dev/null || true
@@ -213,6 +214,8 @@ else
 fi
 if [ ! -f "$REQUIREMENTS_STATE_FILE" ] || [ "$(cat "$REQUIREMENTS_STATE_FILE")" != "$REQUIREMENTS_HASH" ]; then
     echo "  > requirements.txt mudou; atualizando ambiente Python..."
+    # Bibliotecas não podem ser trocadas sob workers em execução.
+    stop_service_for_deploy
     "$VENV_PIP" install --upgrade pip --quiet 2>&1
     cleanup_pip_orphans "$VENV_PIP"
     "$VENV_PIP" install -r requirements.txt --upgrade --quiet 2>&1

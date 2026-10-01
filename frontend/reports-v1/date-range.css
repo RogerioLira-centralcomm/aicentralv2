@@ -1,0 +1,34 @@
+.rdr-trigger{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 14px;border:1px solid #d0d5dd;border-radius:8px;background:#fff;color:#344054;font:inherit;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+.rdr-trigger:hover{background:#f9fafb}.rdr-trigger[data-focus-visible]{outline:0;box-shadow:0 0 0 4px #d1e0ff;border-color:#175cd3}
+.rdr-trigger svg{color:#667085}.rdr-caret{transform:rotate(90deg)}
+.rdr-popover{z-index:2000;font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;color:#101828;border:1px solid #eaecf0;border-radius:12px;background:#fff;box-shadow:0 20px 24px -4px rgba(16,24,40,.08),0 8px 8px -4px rgba(16,24,40,.03)}
+.rdr-dialog{outline:0}
+.rdr-body{display:flex}
+.rdr-presets{display:grid;align-content:start;gap:2px;margin:0;padding:16px 12px;list-style:none;border-right:1px solid #eaecf0;min-width:168px}
+.rdr-presets button{width:100%;padding:8px 12px;border:0;border-radius:8px;background:none;color:#344054;font:inherit;font-size:14px;font-weight:500;text-align:left;cursor:pointer}
+.rdr-presets button:hover{background:#f9fafb}.rdr-presets button.is-active{background:#eff4ff;color:#175cd3}
+.rdr-calendar{padding:16px 20px}
+.rdr-calendar header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.rdr-calendar header h2{margin:0;font-size:15px;font-weight:600;text-transform:capitalize}
+.rdr-calendar header button{display:grid;place-items:center;width:32px;height:32px;border:0;border-radius:8px;background:none;color:#667085;cursor:pointer}
+.rdr-calendar header button:hover{background:#f2f4f7}.rdr-calendar header button[data-disabled]{opacity:.35;cursor:default}
+.rdr-calendar table{border-collapse:separate;border-spacing:0 2px}
+.rdr-calendar th{width:40px;height:32px;color:#344054;font-size:13px;font-weight:500;text-transform:capitalize}
+.rdr-calendar td{padding:0}
+.rdr-calendar [role=gridcell] div{display:grid;place-items:center;width:40px;height:40px;color:#344054;font-size:14px;cursor:pointer;border-radius:20px;outline:0}
+.rdr-calendar [data-outside-month]{display:none}
+.rdr-calendar [data-disabled]{color:#d0d5dd;cursor:default}
+.rdr-calendar [role=gridcell] div:hover:not([data-selected]):not([data-disabled]){background:#f2f4f7}
+.rdr-calendar [data-selected]{background:#eff4ff;border-radius:0}
+.rdr-calendar [data-selection-start],.rdr-calendar [data-selection-end]{background:#175cd3!important;color:#fff!important;font-weight:600}
+.rdr-calendar [data-selection-start]{border-radius:20px 0 0 20px}.rdr-calendar [data-selection-end]{border-radius:0 20px 20px 0}
+.rdr-calendar [data-selection-start][data-selection-end]{border-radius:20px}
+.rdr-calendar [data-focus-visible]{box-shadow:0 0 0 3px #d1e0ff}
+.rdr-dialog footer{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 20px;border-top:1px solid #eaecf0}
+.rdr-fields{display:flex;align-items:center;gap:8px;color:#667085}
+.rdr-fields span{padding:8px 14px;border:1px solid #d0d5dd;border-radius:8px;color:#101828;font-size:14px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+.rdr-actions{display:flex;gap:8px}
+.rdr-secondary,.rdr-primary{min-height:40px;padding:0 16px;border-radius:8px;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.rdr-secondary{border:1px solid #d0d5dd;background:#fff;color:#344054}.rdr-primary{border:1px solid #175cd3;background:#175cd3;color:#fff}
+.rdr-primary:hover{background:#1849a9}.rdr-secondary:hover{background:#f9fafb}
+@media(max-width:700px){.rdr-body{flex-direction:column}.rdr-presets{grid-template-columns:repeat(2,1fr);border-right:0;border-bottom:1px solid #eaecf0}.rdr-dialog footer{flex-direction:column;align-items:stretch}}

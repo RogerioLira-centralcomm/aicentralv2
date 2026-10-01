@@ -5,12 +5,18 @@ import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.js
 export const flowEditorId = () => location.pathname.match(/^\/connect\/app\/flows\/([0-9a-f-]{36})(?:\/monitor)?\/?$/i)?.[1] || '';
 export const reportUrl = (section, params = {}, siteId = '') => {
   const url = new URL(`/connect/app/${section}${siteId ? `/sites/${encodeURIComponent(siteId)}` : ''}`, location.origin);
-  const currentClient = new URLSearchParams(location.search).get('client_id');
-  if (currentClient) url.searchParams.set('client_id', currentClient);
-  Object.entries(params).forEach(([key, value]) => {if (value != null && value !== '') url.searchParams.set(key, String(value));});
+  // The signed-in session already knows the active client; keeping it out of the address bar keeps links short and shareable.
+  Object.entries(params).forEach(([key, value]) => {if (key !== 'client_id' && value != null && value !== '') url.searchParams.set(key, String(value));});
   return `${url.pathname}${url.search}`;
 };
-export const flowEditorUrl = (id, clientId) => reportUrl(`flows/${encodeURIComponent(id)}`, {client_id:clientId});
+export const flowEditorUrl = id => reportUrl(`flows/${encodeURIComponent(id)}`);
+/** The bootstrap call persists the chosen client in the session; after that the parameter is only noise in the URL. */
+export const dropClientFromUrl = () => {
+  const url = new URL(location.href);
+  if (!url.searchParams.has('client_id')) return;
+  url.searchParams.delete('client_id');
+  history.replaceState(history.state, '', `${url.pathname}${url.search}${url.hash}`);
+};
 const formatter = new Intl.DateTimeFormat('pt-BR', {day: '2-digit', month: 'short', year: 'numeric'});
 export const shortDate = value => value ? formatter.format(new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value)) : '—';
 export const integer = value => new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 0}).format(value || 0);

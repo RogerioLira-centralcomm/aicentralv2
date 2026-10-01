@@ -142,3 +142,9 @@
 .st-card table thead,.st-card table tbody{display:table;width:100%;min-width:420px}
 @media(max-width:1100px){.st-layout,.st-grid,.st-grid--wide{grid-template-columns:minmax(0,1fr)}}
 .st-summary h2{overflow-wrap:anywhere;min-width:0}.st-summary__identity>div{min-width:0}
+
+.reports-site-list-favicon{position:relative}
+.reports-site-list-favicon__initial{display:grid;place-items:center;width:100%;height:100%}
+.reports-site-list-favicon img{position:absolute;inset:0;margin:auto}
+.st-summary{grid-template-columns:minmax(0,1fr);justify-content:stretch}
+.st-summary__metrics{width:100%}

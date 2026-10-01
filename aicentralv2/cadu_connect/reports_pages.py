@@ -6,7 +6,8 @@ never summed: the platform counts what it billed, the tag counts what it observe
 """
 import re
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from flask import abort, jsonify, request
 
@@ -16,7 +17,7 @@ from .reports_page_identity import canonical_page, sql_normalized_path
 from .reports_page_suggestions import MIN_TERM_CLICKS, build_suggestions
 from .reports_page_metrics import (
     DEVICE_LABELS, DEVICES, DICTIONARY, MIN_RELIABLE_CLICKS, RETENTION_DAYS, breakdown, build_conversion_map, build_document_grid, build_elements,
-    build_grid, build_metrics, compare, device_bucket, sum_groups)
+    build_grid, build_metrics, compare, device_bucket, pct, sum_groups)
 from .reports_v1 import _rows, _selection
 
 HEALTH_TIMELINE = 30
@@ -330,7 +331,153 @@ def _device_param():
     return device
 
 
+
+_DOMAIN_TOTALS_SQL = f'''
+    SELECT e.site_id,
+        COUNT(*) FILTER (WHERE e.event_kind='page_view')::bigint AS views,
+        COUNT(DISTINCT e.session_id) FILTER (WHERE e.event_kind='page_view')::bigint AS sessions,
+        COUNT(DISTINCT e.visitor_id) FILTER (WHERE e.event_kind='page_view')::bigint AS visitors,
+        COUNT(*) FILTER (WHERE e.event_kind IN ('click','whatsapp_click'))::bigint AS clicks,
+        COUNT(*) FILTER (WHERE e.event_kind='form_submit')::bigint AS form_submits,
+        COUNT(*) FILTER (WHERE e.event_kind='conversion')::bigint AS conversions,
+        AVG(CASE WHEN e.event_data->>'duration_ms' ~ '^[0-9]{{1,9}}$' THEN (e.event_data->>'duration_ms')::numeric END)
+            FILTER (WHERE e.event_kind='page_leave') AS avg_active_ms,
+        MAX(e.occurred_at) AS last_event_at
+    FROM {EVENT_TABLE} e JOIN cadu_reports_supertag_sites s ON s.id=e.site_id
+    WHERE s.client_id=%(client)s AND s.revoked_at IS NULL AND e.expires_at>NOW()
+        AND e.occurred_at>=%(since)s AND e.occurred_at<%(until)s
+    GROUP BY e.site_id'''
+
+_DOMAIN_DAILY_SQL = f'''
+    SELECT e.site_id,(e.occurred_at AT TIME ZONE 'America/Sao_Paulo')::date AS day,
+        COUNT(DISTINCT e.session_id) FILTER (WHERE e.event_kind='page_view')::bigint AS sessions,
+        COUNT(*) FILTER (WHERE e.event_kind='conversion')::bigint AS conversions
+    FROM {EVENT_TABLE} e JOIN cadu_reports_supertag_sites s ON s.id=e.site_id
+    WHERE s.client_id=%(client)s AND s.revoked_at IS NULL AND e.expires_at>NOW()
+        AND e.occurred_at>=%(since)s AND e.occurred_at<%(until)s
+    GROUP BY e.site_id,day ORDER BY day'''
+
+_DOMAIN_PAGES_SQL = f'''
+    SELECT * FROM (
+        SELECT e.site_id,{_NORM_E} AS path,
+            COUNT(*) FILTER (WHERE e.event_kind='page_view')::bigint AS views,
+            COUNT(DISTINCT e.session_id) FILTER (WHERE e.event_kind='page_view')::bigint AS sessions,
+            COUNT(*) FILTER (WHERE e.event_kind='conversion')::bigint AS conversions,
+            AVG(CASE WHEN e.event_data->>'duration_ms' ~ '^[0-9]{{1,9}}$' THEN (e.event_data->>'duration_ms')::numeric END)
+                FILTER (WHERE e.event_kind='page_leave') AS avg_active_ms,
+            ROW_NUMBER() OVER (PARTITION BY e.site_id ORDER BY COUNT(*) FILTER (WHERE e.event_kind='page_view') DESC) AS rn
+        FROM {EVENT_TABLE} e JOIN cadu_reports_supertag_sites s ON s.id=e.site_id
+        WHERE s.client_id=%(client)s AND s.revoked_at IS NULL AND e.expires_at>NOW()
+            AND e.occurred_at>=%(since)s AND e.occurred_at<%(until)s
+        GROUP BY e.site_id,{_NORM_E}) ranked
+    WHERE rn<=%(limit)s AND views>0 ORDER BY site_id,rn'''
+
+# First page view of each session decides where the visit came from and on what device.
+_DOMAIN_SESSIONS_SQL = f'''
+    SELECT site_id,origin,
+        CASE WHEN width IS NULL THEN 'unknown' WHEN width<768 THEN 'mobile' WHEN width<1024 THEN 'tablet' ELSE 'desktop' END AS device,
+        COUNT(*)::bigint AS sessions
+    FROM (SELECT e.site_id,e.session_id,
+            (ARRAY_AGG(COALESCE(NULLIF('utm:'||LOWER(COALESCE(e.attribution->>'utm_source','')),'utm:'),
+                NULLIF('ref:'||COALESCE(e.referrer_host,''),'ref:')) ORDER BY e.occurred_at,e.id))[1] AS origin,
+            (ARRAY_AGG(e.viewport_width ORDER BY e.occurred_at,e.id))[1] AS width
+        FROM {EVENT_TABLE} e JOIN cadu_reports_supertag_sites s ON s.id=e.site_id
+        WHERE s.client_id=%(client)s AND s.revoked_at IS NULL AND e.expires_at>NOW() AND e.event_kind='page_view'
+            AND e.occurred_at>=%(since)s AND e.occurred_at<%(until)s
+        GROUP BY e.site_id,e.session_id) first_view
+    GROUP BY site_id,origin,device'''
+
+DOMAIN_TOP_PAGES = 8
+
+
+def _domain_metrics(row):
+    row = row or {}
+    sessions = int(row.get('sessions') or 0)
+    conversions = int(row.get('conversions') or 0)
+    avg_ms = row.get('avg_active_ms')
+    return {'sessions': sessions, 'visitors': int(row.get('visitors') or 0), 'views': int(row.get('views') or 0),
+            'clicks': int(row.get('clicks') or 0), 'form_submits': int(row.get('form_submits') or 0),
+            'conversions': conversions, 'conversion_rate': pct(conversions, sessions),
+            'avg_active_seconds': round(float(avg_ms) / 1000, 1) if avg_ms is not None else None}
+
+
+def _window():
+    """Rolling days by default; an explicit start/end date pair is read as whole days in São Paulo."""
+    zone = ZoneInfo('America/Sao_Paulo')
+    start_arg, end_arg = request.args.get('start_date'), request.args.get('end_date')
+    if start_arg or end_arg:
+        try:
+            first, last = date.fromisoformat(start_arg or ''), date.fromisoformat(end_arg or '')
+        except ValueError:
+            abort(400, description='Informe as duas datas do intervalo.')
+        if first > last or (last - first).days + 1 > RETENTION_DAYS:
+            abort(400, description=f'O período vai de 1 a {RETENTION_DAYS} dias.')
+        return (datetime.combine(first, time.min, zone), datetime.combine(last + timedelta(days=1), time.min, zone),
+                (last - first).days + 1)
+    try:
+        days = int(request.args.get('days', 30))
+    except ValueError:
+        abort(400, description='Período inválido.')
+    if not 1 <= days <= RETENTION_DAYS:
+        abort(400, description=f'O período vai de 1 a {RETENTION_DAYS} dias.')
+    today = datetime.now(zone).date()
+    return (datetime.combine(today - timedelta(days=days - 1), time.min, zone),
+            datetime.combine(today + timedelta(days=1), time.min, zone), days)
+
+
 def register(bp):
+    @bp.get('/api/v2/reports/pages/domains')
+    @login_required_api
+    def reports_pages_domains():
+        """One card per monitored domain: totals, trend, top pages, origins and devices for the window."""
+        selected = _selection()
+        client = selected['client_id']
+        since, until, days = _window()
+        span = until - since
+        scope = {'client': client, 'since': since, 'until': until}
+        previous_scope = {'client': client, 'since': since - span, 'until': since}
+        has_previous = (datetime.now(timezone.utc) - (since - span)).days < RETENTION_DAYS
+        sites = _rows('''SELECT id,label,allowed_host,enabled FROM cadu_reports_supertag_sites
+            WHERE client_id=%s AND revoked_at IS NULL ORDER BY allowed_host''', (client,))
+        current = {str(row['site_id']): row for row in _rows(_DOMAIN_TOTALS_SQL, scope)}
+        previous = {str(row['site_id']): row for row in _rows(_DOMAIN_TOTALS_SQL, previous_scope)} if has_previous else {}
+        daily, pages, origins, devices = {}, {}, {}, {}
+        for row in _rows(_DOMAIN_DAILY_SQL, scope):
+            daily.setdefault(str(row['site_id']), {})[row['day']] = row
+        for row in _rows(_DOMAIN_PAGES_SQL, {**scope, 'limit': DOMAIN_TOP_PAGES}):
+            pages.setdefault(str(row['site_id']), []).append(row)
+        for row in _rows(_DOMAIN_SESSIONS_SQL, scope):
+            key = str(row['site_id'])
+            platform = origin_platform(row.get('origin'))
+            origins.setdefault(key, {})[platform] = origins.get(key, {}).get(platform, 0) + int(row['sessions'])
+            devices.setdefault(key, {})[row['device']] = devices.get(key, {}).get(row['device'], 0) + int(row['sessions'])
+        first_day = since.astimezone(ZoneInfo('America/Sao_Paulo')).date()
+        out = []
+        for site in sites:
+            key = str(site['id'])
+            metrics = _domain_metrics(current.get(key))
+            before = _domain_metrics(previous[key]) if key in previous else (_domain_metrics(None) if has_previous else None)
+            series = daily.get(key, {})
+            out.append({
+                'site_id': key, 'label': site['label'], 'host': site['allowed_host'], 'enabled': site['enabled'],
+                'metrics': metrics, 'previous': before, 'change': compare(metrics, before),
+                'last_event_at': (current.get(key) or {}).get('last_event_at'),
+                'daily': [{'date': (first_day + timedelta(days=offset)).isoformat(),
+                           'sessions': int((series.get(first_day + timedelta(days=offset)) or {}).get('sessions') or 0),
+                           'conversions': int((series.get(first_day + timedelta(days=offset)) or {}).get('conversions') or 0)}
+                          for offset in range(days)],
+                'top_pages': [{'path': row['path'], 'views': int(row['views']), 'sessions': int(row['sessions']),
+                               'conversions': int(row['conversions']),
+                               'avg_active_seconds': round(float(row['avg_active_ms']) / 1000, 1) if row['avg_active_ms'] is not None else None}
+                              for row in pages.get(key, [])],
+                'sources': [{'platform': platform, 'label': PLATFORM_LABELS.get(platform, platform), 'sessions': total}
+                            for platform, total in sorted(origins.get(key, {}).items(), key=lambda item: -item[1])[:6]],
+                'devices': [{'device': name, 'label': DEVICE_LABELS[name], 'sessions': total}
+                            for name, total in sorted(devices.get(key, {}).items(), key=lambda item: -item[1])],
+            })
+        return jsonify(window={'days': days, 'since': since, 'until': until, 'timezone': 'America/Sao_Paulo'},
+                       previous_available=has_previous, domains=out)
+
     @bp.get('/api/v2/reports/pages/overview')
     @login_required_api
     def reports_page_overview():

@@ -19,7 +19,7 @@ import {PageDetail} from './PageDetail.jsx';
 import {AlertsCenter} from './AlertsCenter.jsx';
 import {REPORT_FILTER_DEFAULTS, REPORT_PAGE_META, ReportsFilterBar, ReportsPageHeader} from './PageChrome.jsx';
 import {CheckCircle, FilterLines, Plus, RefreshCw01, SearchLg} from '@untitledui/icons';
-import {flowEditorId, reportUrl, shortDate, integer, decimal, json, Empty, Kpi} from './reportsCommon.jsx';
+import {dropClientFromUrl, flowEditorId, reportUrl, shortDate, integer, decimal, json, Empty, Kpi} from './reportsCommon.jsx';
 import '../cadu-design-system/tokens.css';
 import './styles.css';
 import './flow-workspace.css';
@@ -394,7 +394,7 @@ function Campaigns({data, save, busy, filters, refreshRevision}) {
   useEffect(()=>{const sync=()=>{const params=new URLSearchParams(location.search);setCampaignId(params.get('campaign_id')||'');const current=params.get('campaign_tab')||'overview';setTab(current==='metrics'?'performance':current);};addEventListener('popstate',sync);return()=>removeEventListener('popstate',sync);},[]);
   const campaignUrl = ({id = campaignId, view = ''} = {}) => {
     const url = new URL(location.href);
-    url.searchParams.set('client_id', String(data.client.client_id));
+    url.searchParams.delete('client_id');
     if (id) url.searchParams.set('campaign_id', String(id)); else url.searchParams.delete('campaign_id');
     if (view) url.searchParams.set('campaign_tab', view); else url.searchParams.delete('campaign_tab');
     url.pathname = '/connect/app/campaigns';
@@ -903,12 +903,16 @@ const siteFaviconCache = new Map();
 function SiteFavicon({site}) {
   const host = site.allowed_host;
   const [favicon, setFavicon] = useState(() => siteFaviconCache.get(host) ?? `https://${host}/favicon.ico`);
+  const [loaded, setLoaded] = useState(false);
   const [checked, setChecked] = useState(false);
   useEffect(() => {
     setFavicon(siteFaviconCache.get(host) ?? `https://${host}/favicon.ico`);
+    setLoaded(false);
     setChecked(false);
   }, [host]);
+  // The initial stays on screen until an image really loads, so a failing favicon never shows a broken-image icon.
   const recover = async () => {
+    setLoaded(false);
     if (checked) {
       siteFaviconCache.set(host, '');
       setFavicon('');
@@ -925,9 +929,10 @@ function SiteFavicon({site}) {
       setFavicon('');
     }
   };
-  return <span className="reports-site-list-favicon" aria-hidden="true">{favicon
-    ? <img src={favicon} alt="" onError={recover} />
-    : <span>{(site.label || host).trim().charAt(0).toUpperCase()}</span>}</span>;
+  return <span className="reports-site-list-favicon" aria-hidden="true">
+    <span className="reports-site-list-favicon__initial">{(site.label || host).trim().charAt(0).toUpperCase()}</span>
+    {favicon && <img src={favicon} alt="" referrerPolicy="no-referrer" onLoad={() => setLoaded(true)} onError={recover} style={loaded ? undefined : {visibility: 'hidden'}}/>}
+  </span>;
 }
 
 function SuperTag({data}) {
@@ -1058,7 +1063,8 @@ function SuperTag({data}) {
     const body = encodeURIComponent(`Olá!\n\nPor favor, instale a Super Tag no site ${selected.allowed_host}.\n\nCole este código antes de </head> ou pelo gerenciador de tags:\n\n${selected.snippet}\n\nDepois de publicar, avise para validarmos o primeiro envio. A coleta respeita o consentimento configurado.\n`);
     window.location.href=`mailto:?subject=${subject}&body=${body}`;
   };
-  const hasEvents = Number(detail?.site?.events_30d || 0)>0;
+  // The site list carries the 30-day total; the detail call only refines it, so either source proves collection.
+  const hasEvents = Number(selected?.events_30d || detail?.site?.events_30d || 0)>0;
   const tagInstalled = Boolean(selected && hasEvents);
   const collectionKnown = Boolean(detail?.site);
   const visibleSites = sites.filter(site => `${site.label} ${site.allowed_host}`.toLowerCase().includes(siteQuery.toLowerCase()));
@@ -1496,7 +1502,7 @@ function App() {
   const [refreshRevision, setRefreshRevision] = useState(0);
   const clientId = new URLSearchParams(location.search).get('client_id');
   const load = async () => {
-    try {setData(await json(`/connect/api/v2/reports/bootstrap${clientId ? `?client_id=${encodeURIComponent(clientId)}` : ''}`)); setError('');}
+    try {setData(await json(`/connect/api/v2/reports/bootstrap${clientId ? `?client_id=${encodeURIComponent(clientId)}` : ''}`)); setError(''); dropClientFromUrl();}
     catch (failure) {setError(failure.message);}
   };
   useEffect(() => {

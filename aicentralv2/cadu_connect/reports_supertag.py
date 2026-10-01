@@ -222,7 +222,7 @@ def _event(raw, site):
     if not isinstance(data, dict):
         abort(400, description='Metadados do evento inválidos.')
     allowed_data = {
-        'click': {'x', 'y', 'element_id'}, 'whatsapp_click': {'x', 'y', 'element_id'},
+        'click': {'x', 'y', 'element_id', 'dx', 'dy', 'dh'}, 'whatsapp_click': {'x', 'y', 'element_id', 'dx', 'dy', 'dh'},
         'visibility': {'element_id', 'ratio'}, 'scroll_depth': {'depth'},
         'form_submit': {'form_id'}, 'custom_event': set(), 'conversion': set(), 'page_view': set(),
         'page_leave': {'duration_ms'}, 'heartbeat': set(),
@@ -241,6 +241,21 @@ def _event(raw, site):
             if not isinstance(element_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,80}', element_id):
                 abort(400, description='Identificador de elemento inválido.')
             clean_data['element_id'] = element_id
+        # Contract v2: position inside the whole document (per-mille of its width/height) and the document height in px.
+        # All three travel together or not at all; tags without them keep working and only feed the first-screen map.
+        document = {key: data.get(key) for key in ('dx', 'dy', 'dh') if key in data}
+        if document:
+            if set(document) != {'dx', 'dy', 'dh'}:
+                abort(400, description='Posição no documento incompleta.')
+            for axis in ('dx', 'dy'):
+                value = document[axis]
+                if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= value <= 1000:
+                    abort(400, description='Posição do clique no documento inválida.')
+                clean_data[axis] = int(value)
+            height = document['dh']
+            if isinstance(height, bool) or not isinstance(height, (int, float)) or not 1 <= height <= 100000:
+                abort(400, description='Altura do documento inválida.')
+            clean_data['dh'] = int(height)
     elif kind == 'visibility':
         element_id = data.get('element_id')
         ratio = data.get('ratio')

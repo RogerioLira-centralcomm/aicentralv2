@@ -1,0 +1,91 @@
+import React, {useCallback, useEffect, useState} from 'react';
+import {Empty, integer, json, reportUrl} from './reportsCommon.jsx';
+import {ReportsNativeSelect} from './ReportsNativeSelect.jsx';
+import './alerts-center.css';
+
+const SEVERITY = {high: 'Prioridade alta', medium: 'Prioridade média', low: 'Prioridade baixa'};
+const dash = '—';
+const when = value => value ? new Date(value).toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short'}) : dash;
+const money = (micros, currency) => micros == null ? dash : new Intl.NumberFormat('pt-BR', {style: 'currency', currency: currency || 'BRL'}).format(micros / 1_000_000);
+const evidenceValue = item => item.value == null ? dash : item.unit === 'percent' ? `${Number(item.value).toLocaleString('pt-BR', {maximumFractionDigits: 1})}%`
+  : item.unit === 'count' ? integer(item.value) : item.unit === 'money' ? money(item.value, item.currency) : String(item.value);
+const EVENT_LABEL = {opened: 'Alerta aberto', acknowledged: 'Reconhecido', assigned: 'Assumido', unassigned: 'Liberado', silenced: 'Silenciado', unsilenced: 'Silêncio removido',
+  resolved: 'Resolvido automaticamente', notified: 'E-mail enviado', notification_skipped: 'E-mail não enviado', notification_failed: 'Falha ao enviar e-mail'};
+const SKIP_REASON = {disabled: 'envio de e-mail desativado', cooldown: 'já avisado nas últimas 24 h', low_severity: 'prioridade baixa', no_recipients: 'sem destinatários'};
+
+function statusText(alert) {
+  if (alert.status === 'resolved') return `Resolvido ${alert.resolution === 'auto' ? 'automaticamente' : ''} em ${when(alert.resolved_at)}`;
+  if (alert.status === 'silenced') return `Silenciado até ${when(alert.silenced_until)}`;
+  if (alert.status === 'acknowledged') return `Reconhecido em ${when(alert.acknowledged_at)}`;
+  return 'Aberto';
+}
+
+function History({alertId, client}) {
+  const [events, setEvents] = useState(null);
+  useEffect(() => {
+    let active = true;
+    json(`/connect/api/v2/reports/alerts/${alertId}/events?client_id=${client}`).then(body => { if (active) setEvents(body.events); }).catch(() => { if (active) setEvents([]); });
+    return () => { active = false; };
+  }, [alertId, client]);
+  if (!events) return <p className="alerts-note" role="status">Carregando histórico…</p>;
+  return <ol className="alerts-history" aria-label="Histórico do alerta">{events.map((item, index) => <li key={index}>
+    <b>{EVENT_LABEL[item.kind] || item.kind}</b>{item.kind === 'notification_skipped' && item.detail?.reason ? ` · ${SKIP_REASON[item.detail.reason] || item.detail.reason}` : ''}
+    {item.kind === 'silenced' && item.detail?.hours ? ` · por ${item.detail.hours === 168 ? '7 dias' : `${item.detail.hours} h`}` : ''}
+    {item.actor_name ? ` · ${item.actor_name}` : ''}<small>{when(item.created_at)}</small></li>)}</ol>;
+}
+
+function AlertCard({alert, userId, choices, busy, onAct, client}) {
+  const [hours, setHours] = useState(String(choices[1] || choices[0]));
+  const [history, setHistory] = useState(false);
+  const live = alert.status !== 'resolved';
+  const mine = alert.assigned_to === userId;
+  return <li className={`alerts-card is-${alert.severity}${live ? '' : ' is-resolved'}`}>
+    <header><span className="alerts-badge">{SEVERITY[alert.severity]}</span><h3>{alert.title}</h3><span className="alerts-status">{statusText(alert)}</span></header>
+    <p>{alert.summary}</p>
+    <dl className="alerts-evidence">{alert.evidence.map((item, index) => <div key={index}><dt>{item.label}</dt><dd>{evidenceValue(item)}</dd></div>)}</dl>
+    <p className="alerts-meta">{alert.site_label} · {alert.allowed_host} · visto pela primeira vez em {when(alert.first_seen_at)} · {integer(alert.occurrences)} {alert.occurrences === 1 ? 'verificação' : 'verificações'}
+      {alert.assigned_name ? ` · responsável: ${alert.assigned_name}` : ' · sem responsável'}</p>
+    <div className="alerts-actions">
+      {live && alert.status === 'open' && <button type="button" disabled={busy} onClick={() => onAct(alert, 'acknowledge', {})}>Reconhecer</button>}
+      {live && <button type="button" disabled={busy} onClick={() => onAct(alert, 'assign', {assign: !mine})}>{mine ? 'Liberar' : 'Assumir'}</button>}
+      {live && alert.status !== 'silenced' && <span className="alerts-snooze"><ReportsNativeSelect value={hours} onChange={event => setHours(event.target.value)} aria-label="Duração do silêncio">
+        {choices.map(item => <option key={item} value={item}>{item === 168 ? '7 dias' : item === 24 ? '24 horas' : `${item} hora`}</option>)}</ReportsNativeSelect>
+        <button type="button" disabled={busy} onClick={() => onAct(alert, 'silence', {hours: Number(hours)})}>Silenciar</button></span>}
+      {live && alert.status === 'silenced' && <button type="button" disabled={busy} onClick={() => onAct(alert, 'unsilence', {})}>Remover silêncio</button>}
+      {alert.page_path && <a className="reports-inline-link" href={reportUrl('pages', {site_id: alert.site_id, path: alert.page_path})}>Abrir a página</a>}
+      <button type="button" className="alerts-link" aria-expanded={history} onClick={() => setHistory(value => !value)}>{history ? 'Ocultar histórico' : 'Histórico'}</button>
+    </div>
+    {history && <History alertId={alert.id} client={client}/>}
+  </li>;
+}
+
+export function AlertsCenter({data}) {
+  const client = data.client.client_id;
+  const [status, setStatus] = useState('active');
+  const [state, setState] = useState({loading: true, error: '', body: null});
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => json(`/connect/api/v2/reports/alerts?client_id=${client}&status=${status}`)
+    .then(body => setState({loading: false, error: '', body})).catch(failure => setState({loading: false, error: failure.message, body: null})), [client, status]);
+  useEffect(() => { setState(current => ({...current, loading: true})); load(); }, [load]);
+  const act = async (alert, action, body) => {
+    setBusy(true);
+    try {
+      await json(`/connect/api/v2/reports/alerts/${alert.id}/${action}`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf}, body: JSON.stringify({client_id: client, ...body})});
+      await load();
+    } catch (failure) { setState(current => ({...current, error: failure.message})); }
+    setBusy(false);
+  };
+  const body = state.body;
+  return <div className="alerts-center">
+    <div className="alerts-tabs" role="tablist" aria-label="Estado dos alertas">
+      {[['active', 'Ativos'], ['resolved', 'Resolvidos']].map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={status === key} className={status === key ? 'is-active' : ''} onClick={() => setStatus(key)}>{label}</button>)}
+    </div>
+    {state.error && <div className="reports-error" role="alert">{state.error}</div>}
+    {state.loading && !body && <div className="reports-loading" role="status">Carregando alertas…</div>}
+    {body && !body.alerts.length && <Empty message={status === 'active' ? 'Nenhum alerta ativo. O monitor confirma cada problema antes de avisar.' : 'Nenhum alerta resolvido ainda.'}/>}
+    {body?.alerts.length > 0 && <ul className="alerts-list">{body.alerts.map(alert => <AlertCard key={alert.id} alert={alert} userId={body.user_id} choices={body.silence_choices} busy={busy} onAct={act} client={client}/>)}</ul>}
+    {body && <article className="reports-panel alerts-rules"><div className="reports-panel-head"><h2>Quando um alerta abre</h2><span>{body.emails_enabled ? 'E-mail ativado neste ambiente' : 'E-mail desativado neste ambiente'}</span></div>
+      <ul>{body.rules.map(rule => <li key={rule.rule}><b>{rule.title}.</b> {rule.when}</li>)}</ul>
+      <p className="alerts-note">Um alerta só abre depois da confirmação da regra, é atualizado em vez de duplicado, fecha sozinho quando o problema acaba e pode ser silenciado. Os alertas não alteram nada no seu site nem no Google Ads.</p></article>}
+  </div>;
+}

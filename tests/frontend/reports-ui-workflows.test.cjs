@@ -62,7 +62,7 @@ async function main() {
   const publicTagCalls = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.route('**/workspace/api/creditos/resumo', route => route.fulfill({json: {monthly_usage_percentage: 88.3}}));
-  await page.route('**/static/cadu_connect/google-ads-monitor.js', route => route.fulfill({body: 'var CADU={endpoint:"__CADU_INGEST_URL__",apiKey:"__CADU_API_KEY__",accountIds:__CADU_ACCOUNT_IDS__};', contentType: 'text/javascript'}));
+  await page.route('**/static/cadu_connect/google-ads-engine-v2.js', route => route.fulfill({body: 'var CADU={endpoint:"__CADU_INGEST_URL__",apiKey:"__CADU_API_KEY__",accountIds:__CADU_ACCOUNT_IDS__};', contentType: 'text/javascript'}));
   await page.route('**/connect/api/v1/reports/**', async route => {
     const request = route.request();
     const url = new URL(request.url());

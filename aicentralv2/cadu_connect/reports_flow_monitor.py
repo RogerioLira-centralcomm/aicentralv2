@@ -170,10 +170,13 @@ def worker_loop_command(interval):
     """Poll the Reports availability monitor from a supervised Python worker."""
     app = current_app._get_current_object()
     click.echo(f"Monitor de Fluxos ativo; consulta a cada {interval}s.")
+    from .reports_alerts import PeriodicRunner
+    alerts = PeriodicRunner()
     while True:
         try:
             with app.app_context():
                 worked = process_one()
+                alerts.tick()
             if not worked:
                 time.sleep(interval)
         except KeyboardInterrupt:

@@ -13,6 +13,8 @@ import {ReportsDrawer} from './ReportsDrawer.jsx';
 import {ReportsTextArea} from './ReportsTextArea.jsx';
 import {ReportsConfirmDialog} from './ReportsConfirmDialog.jsx';
 import {ReportsTabs} from './ReportsTabs.jsx';
+import {PageDetail} from './PageDetail.jsx';
+import {AlertsCenter} from './AlertsCenter.jsx';
 import {REPORT_FILTER_DEFAULTS, REPORT_PAGE_META, ReportsFilterBar, ReportsPageHeader} from './PageChrome.jsx';
 import {CheckCircle, FilterLines, RefreshCw01, SearchLg} from '@untitledui/icons';
 import {flowEditorId, reportUrl, shortDate, integer, decimal, json, Empty, Kpi} from './reportsCommon.jsx';
@@ -26,7 +28,7 @@ const SECTIONS = [
   ['overview', 'Visão geral', '◫'], ['customers','Clientes e anunciantes','◎'], ['accounts', 'Contas', '▤'],
   ['campaigns', 'Campanhas', '◎'], ['reports', 'Relatórios', '▥'],
   ['imports', 'Importações', '⇧'], ['monitor', 'Dados de mídia', '⌘'],
-  ['supertag', 'Super Tag', '</>'], ['flow', 'Fluxos', '◇'],
+  ['supertag', 'Super Tag', '</>'], ['flow', 'Fluxos', '◇'], ['pages', 'Páginas', '▭'], ['alerts', 'Alertas', '!'],
   ['events', 'Eventos', '◉'], ['links', 'Link Tester', '↗'],
   ['access', 'Acessos', '♙'],
 ];
@@ -720,7 +722,7 @@ function Monitor({data, save, busy}) {
     try {
       let template = '';
       if (sourceKind === 'google_ads_script') {
-        const response = await fetch('/static/cadu_connect/google-ads-monitor.js', {credentials: 'same-origin'});
+        const response = await fetch('/static/cadu_connect/google-ads-engine-v2.js', {credentials: 'same-origin'});
         if (!response.ok) throw new Error('Não foi possível carregar o script do Google Ads.');
         template = await response.text();
       }
@@ -728,7 +730,7 @@ function Monitor({data, save, busy}) {
       const created = await save('/ingest-keys', {label, source_kind: sourceKind, manager_account_id: managerAccountId ? managers.find(item => String(item.id) === managerAccountId)?.external_id : '', account_ids: sourceKind === 'google_ads_script' ? selectedIds : []}, false);
       if (sourceKind === 'google_ads_script') {
         const scriptIds = created.allowed_account_ids.map(formatGoogleId);
-        setScript(template.replace('__CADU_INGEST_URL__', `${location.origin}/connect/api/v1/reports/ingest/google-ads`).replace('__CADU_API_KEY__', created.token).replace('__CADU_ACCOUNT_IDS__', JSON.stringify(scriptIds)));
+        setScript(template.replace('__CADU_INGEST_URL__', `${location.origin}/connect/api/v1/reports/ingest/google-ads/v2`).replace('__CADU_API_KEY__', created.token).replace('__CADU_ACCOUNT_IDS__', JSON.stringify(scriptIds)));
       } else {
         setScript(`POST ${location.origin}/connect/api/v1/reports/ingest/conversions\nAuthorization: Bearer ${created.token}\nContent-Type: application/json\n\n${JSON.stringify({events: [{external_event_id: 'pedido-123', visitor_id: 'UUID recebido de window.CaduSuperTag.getVisitorId()', kind: 'sale', occurred_at: new Date().toISOString(), value_micros: 129000000, currency: 'BRL'}]}, null, 2)}`);
       }
@@ -1544,7 +1546,7 @@ function App() {
     const ids = new Set(accounts.map(item => item.id));
     return {...data, accounts, campaigns: data.campaigns.filter(item => ((!item.account_id&&!filters.account&&!filters.platform)||ids.has(item.account_id)) && (!filters.campaign || String(item.id) === filters.campaign))};
   }, [data, filters]);
-  const reportIcons = {overview:'home',customers:'users',accounts:'table',campaigns:'plan',reports:'analysis',imports:'download',monitor:'pulse',supertag:'plugin',flow:'branch',events:'calendar',links:'link',access:'folder'};
+  const reportIcons = {overview:'home',customers:'users',accounts:'table',campaigns:'plan',reports:'analysis',imports:'download',monitor:'pulse',supertag:'plugin',flow:'branch',pages:'browser',alerts:'alert',events:'calendar',links:'link',access:'folder'};
   const navItems = ids => SECTIONS.filter(([id]) => ids.includes(id) && (id !== 'access' || data?.can_manage_access)).map(([id,title]) => ({id,label:title,icon:reportIcons[id],href:reportUrl(id==='flow'?'flows':id)}));
   const solutionUrls={workspace:rootElement.dataset.workspaceUrl,planner:rootElement.dataset.plannerUrl,studio:rootElement.dataset.studioUrl,connect:location.pathname+location.search,skills:rootElement.dataset.skillsUrl};
   const solutionIcons={workspace:'/static/images/cadu/products/cadu-icon.png',planner:'/static/images/cadu/products/planner-icon.png',studio:'/static/images/cadu/products/studio-icon.png',connect:'/static/images/cadu/products/connect-icon.png',skills:'/static/images/cadu/products/skills-icon.png'};
@@ -1554,7 +1556,7 @@ function App() {
   if(data?.shared)return <SharedReports key={data.client.client_id} data={data}/>;
   const showAccountsView = accountsView && pageSection === 'accounts' && data?.ready;
   return <div data-cadu-skin="reports" className={`reports-shell reports-shell--${pageSection}${isFlowEditor?' reports-shell--flow-editor':''}${showAccountsView ? ' reports-shell--accounts-view' : ''}`}>
-    {!isFlowEditor && !showAccountsView && <SolutionSidebar solution="Reports" userName={rootElement.dataset.userName||'Minha conta'} accountLabel={rootElement.dataset.agencyName||'Agência'} userAvatar={rootElement.dataset.userAvatar||''} creditsUrl={rootElement.dataset.creditsUrl} profileUrl={rootElement.dataset.profileUrl} accent="#175cd3" storageKey="reports-sidebar" active={pageSection} activeSolutionId="connect" solutionLogo={solutionIcons.connect} solutionUrls={solutionUrls} solutionIcons={solutionIcons} groups={[{label:'',items:navItems(['overview'])},{label:'Operação de mídia',items:navItems(['customers','accounts','campaigns','reports','imports','monitor'])},{label:'Mensuração',items:navItems(['supertag','flow','events','links'])},{label:'Administração',items:navItems(['access'])}]} />}
+    {!isFlowEditor && !showAccountsView && <SolutionSidebar solution="Reports" userName={rootElement.dataset.userName||'Minha conta'} accountLabel={rootElement.dataset.agencyName||'Agência'} userAvatar={rootElement.dataset.userAvatar||''} creditsUrl={rootElement.dataset.creditsUrl} profileUrl={rootElement.dataset.profileUrl} accent="#175cd3" storageKey="reports-sidebar" active={pageSection} activeSolutionId="connect" solutionLogo={solutionIcons.connect} solutionUrls={solutionUrls} solutionIcons={solutionIcons} groups={[{label:'',items:navItems(['overview'])},{label:'Operação de mídia',items:navItems(['customers','accounts','campaigns','reports','imports','monitor'])},{label:'Mensuração',items:navItems(['supertag','flow','pages','alerts','events','links'])},{label:'Administração',items:navItems(['access'])}]} />}
     <main className="reports-main">
       {showAccountsView ? (
         <AccountsManagementView data={data} selectedCustomer={selectedCustomer} setSelectedCustomer={setSelectedCustomer} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} selectedCampaign={selectedCampaign} setSelectedCampaign={setSelectedCampaign} save={save} busy={busy} onExit={() => setAccountsView(false)} />
@@ -1565,7 +1567,7 @@ function App() {
             onAction={pageSection === 'overview' ? {label: 'Biblioteca de dados', onClick: () => {location.assign(reportUrl('data-library'));}} : undefined} />}
           {data?.ready && !isFlowEditor && (['campaigns', 'events'].includes(pageSection) || (pageSection === 'flow' && new URLSearchParams(location.search).get('flow_view') === 'monitor')) && <ReportsFilterBar
             data={data} filters={filters} onChange={updateFilters} onRefresh={onRefresh} />}
-          <div className="reports-content">{error && <div className="reports-error" role="alert">{error}</div>}{!data ? <div className="reports-loading" role="status">Carregando Reports…</div> : !data.ready ? <Empty message="A base de Reports V1 ainda precisa da migração de dados." /> : pageSection === 'customers' ? <ReportsCustomers data={data} save={save} busy={busy}/> : pageSection === 'accounts' ? <Accounts data={data} save={save} busy={busy} /> : pageSection === 'campaigns' ? <Campaigns data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} /> : pageSection === 'reports' ? <Reports data={data} save={save} busy={busy} /> : pageSection === 'supertag' ? <SuperTag data={data} /> : pageSection === 'links' ? <Links data={data} save={save} busy={busy} /> : pageSection === 'imports' ? <Imports data={data} reloadBootstrap={load} focusLibrary={section === 'data-library'} /> : pageSection === 'monitor' ? <Monitor data={data} save={save} busy={busy} /> : pageSection === 'flow' ? <Flow data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} /> : pageSection === 'events' ? <Events key={section} data={data} filters={filters} initialKind={section === 'conversions' ? 'conversion' : 'all'} refreshRevision={refreshRevision} /> : pageSection === 'access' ? data.can_manage_access ? <Access data={data} save={save} busy={busy} /> : <Empty message="Seu acesso não permite administrar usuários do Reports neste cliente." /> : <Overview data={selected} setupData={data} metrics={metrics} imported={importedMetrics} sites={overviewSites} sources={overviewSources} loading={overviewLoading} loadFailed={overviewFailed} filters={filters} onFiltersChange={updateFilters} onRefresh={onRefresh} />}</div>
+          <div className="reports-content">{error && <div className="reports-error" role="alert">{error}</div>}{!data ? <div className="reports-loading" role="status">Carregando Reports…</div> : !data.ready ? <Empty message="A base de Reports V1 ainda precisa da migração de dados." /> : pageSection === 'pages' ? <PageDetail data={data} /> : pageSection === 'alerts' ? <AlertsCenter data={data} /> : pageSection === 'customers' ? <ReportsCustomers data={data} save={save} busy={busy}/> : pageSection === 'accounts' ? <Accounts data={data} save={save} busy={busy} /> : pageSection === 'campaigns' ? <Campaigns data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} /> : pageSection === 'reports' ? <Reports data={data} save={save} busy={busy} /> : pageSection === 'supertag' ? <SuperTag data={data} /> : pageSection === 'links' ? <Links data={data} save={save} busy={busy} /> : pageSection === 'imports' ? <Imports data={data} reloadBootstrap={load} focusLibrary={section === 'data-library'} /> : pageSection === 'monitor' ? <Monitor data={data} save={save} busy={busy} /> : pageSection === 'flow' ? <Flow data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} /> : pageSection === 'events' ? <Events key={section} data={data} filters={filters} initialKind={section === 'conversions' ? 'conversion' : 'all'} refreshRevision={refreshRevision} /> : pageSection === 'access' ? data.can_manage_access ? <Access data={data} save={save} busy={busy} /> : <Empty message="Seu acesso não permite administrar usuários do Reports neste cliente." /> : <Overview data={selected} setupData={data} metrics={metrics} imported={importedMetrics} sites={overviewSites} sources={overviewSources} loading={overviewLoading} loadFailed={overviewFailed} filters={filters} onFiltersChange={updateFilters} onRefresh={onRefresh} />}</div>
         </>
       )}
     </main>

@@ -170,8 +170,8 @@ def register(bp):
                 FROM cadu_reports_ingest_keys WHERE client_id=%s
                 ORDER BY created_at DESC''', (selected['client_id'],))
         runs = _rows('''SELECT id,source_kind,status,record_count,period_start,period_end,
-                created_at,finished_at FROM cadu_reports_source_runs
-                WHERE client_id=%s
+                created_at,finished_at,metadata FROM cadu_reports_source_runs
+                WHERE client_id=%s AND source_kind <> 'google_ads_engine_v2_chunk'
                 ORDER BY created_at DESC LIMIT 20''',
                 (selected['client_id'],))
         return jsonify(keys=keys, runs=runs)

@@ -1,13 +1,14 @@
 /** Cadu Reports · Monitoramento Google Ads V1
  * Instale em Ferramentas > Scripts na conta Google Ads ou MCC.
- * O script somente lê métricas de ontem e envia ao espaço Reports da agência.
+ * O script somente lê métricas dos últimos 7 dias (reenvio idempotente) e envia ao espaço Reports da agência.
  * Agende diariamente após a atualização dos dados da conta.
  */
 var CADU = {
   endpoint: '__CADU_INGEST_URL__',
   apiKey: '__CADU_API_KEY__',
   accountIds: __CADU_ACCOUNT_IDS__, // Obrigatório em MCC; emitido para este client_id.
-  batchSize: 200
+  batchSize: 200,
+  windowDays: 7
 };
 
 function main() {
@@ -28,10 +29,14 @@ function main() {
 
 function collectAndSend(managerId) {
   var account = AdsApp.currentAccount();
+  var tz = account.getTimeZone();
+  var DAY = 24 * 60 * 60 * 1000;
+  var since = Utilities.formatDate(new Date(Date.now() - CADU.windowDays * DAY), tz, 'yyyy-MM-dd');
+  var until = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
   var query = 'SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type, segments.date, ' +
     'metrics.impressions, metrics.clicks, metrics.cost_micros, ' +
     'metrics.conversions, metrics.conversions_value ' +
-    'FROM campaign WHERE segments.date DURING YESTERDAY';
+    'FROM campaign WHERE segments.date BETWEEN "' + since + '" AND "' + until + '"';
   var rows = AdsApp.search(query);
   var records = [];
   while (rows.hasNext()) {
@@ -61,7 +66,13 @@ function collectAndSend(managerId) {
     };
     sendBatch(body);
   }
-  Logger.log(account.getCustomerId() + ': ' + records.length + ' linhas enviadas ao Cadu Reports.');
+  if (!records.length) {
+    var total = AdsApp.search('SELECT campaign.id FROM campaign').totalNumEntries();
+    Logger.log(account.getCustomerId() + ': nenhuma métrica entre ' + since + ' e ' + until +
+      ' (' + total + ' campanhas na conta). Nada enviado: verifique se houve veiculação no período.');
+    return;
+  }
+  Logger.log(account.getCustomerId() + ': ' + records.length + ' linhas enviadas ao Cadu Reports (' + since + ' a ' + until + ').');
 }
 
 function sendBatch(body) {

@@ -142,7 +142,7 @@ def register(bp):
         if section and section not in {
             'overview', 'customers', 'accounts', 'campaigns', 'reports', 'imports',
             'monitor', 'supertag', 'flow', 'flows', 'events', 'links', 'access',
-            'data-library', 'conversions',
+            'data-library', 'conversions', 'pages', 'alerts',
         }:
             abort(404)
         selected = reports_access.resolve(request.args.get('client_id'))

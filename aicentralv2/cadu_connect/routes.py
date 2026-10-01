@@ -33,6 +33,14 @@ from .reports_v1 import register as register_reports_v1
 register_reports_v1(bp)
 from .reports_ingest import register as register_reports_ingest
 register_reports_ingest(bp)
+from .reports_ingest_v2 import register as register_reports_ingest_v2
+register_reports_ingest_v2(bp)
+from .reports_pages import register as register_reports_pages
+register_reports_pages(bp)
+from .reports_alerts import register as register_reports_alerts
+register_reports_alerts(bp)
+from .reports_page_captures import register as register_reports_page_captures
+register_reports_page_captures(bp)
 from .reports_flow import register as register_reports_flow
 register_reports_flow(bp)
 from .reports_supertag import register as register_reports_supertag

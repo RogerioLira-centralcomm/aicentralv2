@@ -182,6 +182,15 @@
     return {width: Math.min(window.innerWidth || 0, 10000), height: Math.min(window.innerHeight || 0, 10000)};
   }
 
+  function documentBox() {
+    var root = document.documentElement, body = document.body;
+    if (!root || !body) return null;
+    var width = Math.max(root.scrollWidth || 0, body.scrollWidth || 0, window.innerWidth || 0);
+    var height = Math.max(root.scrollHeight || 0, body.scrollHeight || 0, window.innerHeight || 0);
+    if (width < 1 || height < 1 || height > 100000) return null;
+    return {width: width, height: height, scrollX: window.pageXOffset || 0, scrollY: window.pageYOffset || 0};
+  }
+
   function event(kind, data, name, pathOverride) {
     if (!started || !consented || buffer.length >= maxBuffer) return false;
     if (kind !== 'heartbeat' && kind !== 'page_leave') {
@@ -324,9 +333,17 @@
         var href = target.getAttribute('href') || '';
         var kind = /(?:wa\.me|api\.whatsapp\.com)/i.test(href) ? 'whatsapp_click' : 'click';
         var size = viewport();
-        event(kind, {x: Math.max(0, Math.min(1000, Math.round(eventObject.clientX / Math.max(size.width, 1) * 1000))),
+        var doc = documentBox();
+        var data = {x: Math.max(0, Math.min(1000, Math.round(eventObject.clientX / Math.max(size.width, 1) * 1000))),
           y: Math.max(0, Math.min(1000, Math.round(eventObject.clientY / Math.max(size.height, 1) * 1000))),
-          element_id: elementId(target)});
+          element_id: elementId(target)};
+        if (doc) {
+          // Position inside the whole page, so clicks made at different scroll offsets land in the same place.
+          data.dx = Math.max(0, Math.min(1000, Math.round((eventObject.clientX + doc.scrollX) / doc.width * 1000)));
+          data.dy = Math.max(0, Math.min(1000, Math.round((eventObject.clientY + doc.scrollY) / doc.height * 1000)));
+          data.dh = doc.height;
+        }
+        event(kind, data);
       }, true);
       document.addEventListener('submit', function (eventObject) {
         var form = eventObject.target;

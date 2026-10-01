@@ -747,7 +747,11 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             **({"conversation_history": history} if history else {}),
             **({"selected_context": selected_context} if selected_context else {}),
         }, max_context_chars),
-        "response_policy": json.dumps(policy, ensure_ascii=False, separators=(",", ":")),
+        # Output-size budgets are internal. Showing them to the model only pushes
+        # it toward terse or truncated answers; they protect nothing.
+        "response_policy": json.dumps({key: value for key, value in policy.items()
+                                       if key not in {"max_output_tokens", "max_duration_ms"}},
+                                      ensure_ascii=False, separators=(",", ":")),
         "briefing_instruction": briefing_instruction,
         "output_contract": json.dumps({
             "text": {"content": "string"},

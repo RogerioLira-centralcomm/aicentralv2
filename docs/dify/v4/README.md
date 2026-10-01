@@ -48,22 +48,23 @@ O esquema plano da saída estruturada (`answer`, `questions`, `artifact_patch` c
 
 Teste de 01/10/2026 que motivou isso: com o contrato `text.content`/`ui` num app de esquema plano, `answer` vinha **vazio** e o conteúdo ia para `artifact_patch`; com o contrato no formato do esquema, a resposta vinha correta. Variáveis opcionais para forçar: `CADU_DIFY_FAST_OUTPUT_FORMAT`, `CADU_DIFY_ANALYST_OUTPUT_FORMAT`, `CADU_DIFY_OPERATOR_OUTPUT_FORMAT` e `CADU_DIFY_OUTPUT_FORMAT` (valores `flat` ou `nested`).
 
-## Configuração recomendada por app
+## Configuração por app (publicada em 01/10/2026)
 
 | | cadu-fast | cadu-analyst | cadu-operator |
 |---|---|---|---|
-| Modelo | GPT 5.4 | GPT 5.4 | GPT 5.4 |
-| Esforço de raciocínio | baixo | médio | alto |
-| Temperatura (se o Dify expuser) | 0,3 | 0,4 | 0,2 |
-| Máx. tokens de saída | 3.000 | 10.000 | 14.000 |
-| Memória da conversa | **desligada** | **desligada** (o Analyst já está) | **desligada** |
+| Modelo | gpt-5.4-mini | gpt-5.4 | gpt-5.4 |
+| Esforço de raciocínio | baixo | médio | médio |
+| **Max Tokens** | **desligado** | **desligado** | **desligado** |
+| **Verbosity** | **desligado** | **desligado** | **desligado** |
+| Memória da conversa | desligada | desligada | desligada |
 | Base de conhecimento | nenhuma | nenhuma | nenhuma |
+| Saída | Structured Output (esquema plano) | Structured Output (esquema plano) | JSON livre (RESPOSTA devolve `LLM / text`) |
 
-Valores sugeridos, a ajustar pelo que o Dify permitir para o GPT 5.4. Em modelos com raciocínio, o limite de tokens de saída inclui o raciocínio, por isso é maior que o tamanho da resposta visível. Se o modelo não aceitar temperatura, ignore essa linha.
+**Não limite tokens nem verbosidade.** Em modelos com raciocínio, `Max Tokens` inclui o raciocínio: com 3.200 no Operator (e 900 no Fast) o modelo gastava tudo pensando e devolvia `text` vazio, sem erro nenhum. `Verbosity: low` deixa respostas telegráficas. O `gpt-5.4-pro` levou mais de 3 minutos numa página HTML simples; o `gpt-5.4` com esforço médio levou cerca de 1 minuto. O backend também não envia mais `max_output_tokens` nem `max_duration_ms` ao modelo, e os tetos de caracteres do servidor ficam acima de qualquer resposta normal (30.000 em conversa e análise).
 
 **Por que a memória fica desligada.** O backend envia o histórico canônico em `evidence.conversation_history` e o estado em `evidence.conversation_state`. Com a memória do Dify ligada:
 - o histórico chega duas vezes;
-- o histórico diverge entre os três apps, porque cada um tem sua própria sessão.
+- o histórico diverge entre os apps, porque cada um tem sua própria sessão.
 
 ## Entradas enviadas pelo backend e não usadas pelo prompt
 

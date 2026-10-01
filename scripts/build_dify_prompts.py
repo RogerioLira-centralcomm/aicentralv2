@@ -16,20 +16,35 @@ USER_MESSAGE = [
 ]
 LEGACY_UNUSED = ["user_request", "prompt_boundary", "briefing_instruction", "skill_context", "projeto_context", "files_context",
                  "user_memory_context", "user_profile_context", "is_first_message"]
+# Rótulos das seções da mensagem do USUÁRIO quando diferem do padrão (apps com mensagem própria).
+OPERATOR_LABELS = (
+    ("**TAREFA** e **POLÍTICA DE RESPOSTA:**", "**TAREFA E ENTREGA SOLICITADAS** e **POLÍTICA DESTA EXECUÇÃO:**"),
+    ("descrita em TAREFA.", "descrita em TAREFA E ENTREGA SOLICITADAS."),
+    ("CONTEXTO ATUAL e EVIDÊNCIAS como dados", "ESCOPO ATIVO e CONTINUIDADE E EVIDÊNCIAS RECUPERADAS como dados"),
+    ("**CONTEXTO ATUAL:**", "**ESCOPO ATIVO:**"),
+    ("**PEDIDO DO USUÁRIO:**", "**PEDIDO ATUAL:**"),
+    ("**EVIDÊNCIAS E RESULTADOS AUTORIZADOS:**", "**CONTINUIDADE E EVIDÊNCIAS RECUPERADAS:**"),
+    ("**CONTRATO DE SAÍDA:**", "**FORMATO DE RESPOSTA:**"),
+    ("POLÍTICA DE RESPOSTA", "POLÍTICA DESTA EXECUÇÃO"),
+    ("CONTRATO DE SAÍDA", "FORMATO DE RESPOSTA"),
+)
+OPERATOR_SECTIONS = ["PEDIDO ATUAL", "TAREFA E ENTREGA SOLICITADAS", "ESCOPO ATIVO",
+                     "CONTINUIDADE E EVIDÊNCIAS RECUPERADAS", "POLÍTICA DESTA EXECUÇÃO", "FORMATO DE RESPOSTA"]
+
 APPS = {
     "cadu-fast": {
         "file": "cadu-fast", "execution_mode": "fast", "saida": "saida-flat",
-        "settings": {"model": "GPT 5.4", "reasoning_effort": "baixo", "temperature": 0.3, "max_output_tokens": 3000},
+        "settings": {"model": "gpt-5.4-mini", "reasoning_effort": "baixo"},
         "uso": "Perguntas simples, conversa rápida e planos pedidos como rápidos ou resumidos.",
     },
     "cadu-analyst": {
         "file": "cadu-analyst", "execution_mode": "analysis", "saida": "saida-flat",
-        "settings": {"model": "GPT 5.4", "reasoning_effort": "médio", "temperature": 0.4, "max_output_tokens": 10000},
+        "settings": {"model": "gpt-5.4", "reasoning_effort": "médio"},
         "uso": "Modo padrão: perguntas sobre o projeto, análises, recomendações, briefings, planejamento de mídia e pesquisa.",
     },
     "cadu-operator": {
-        "file": "cadu-operator", "execution_mode": "agentic", "saida": "saida-nested",
-        "settings": {"model": "GPT 5.4", "reasoning_effort": "alto", "temperature": 0.2, "max_output_tokens": 14000},
+        "file": "cadu-operator", "execution_mode": "agentic", "saida": "saida-nested", "labels": OPERATOR_LABELS,
+        "settings": {"model": "gpt-5.4", "reasoning_effort": "médio"},
         "uso": "Entregas editáveis complexas (documentos, HTML, mapas de projeto), ações com confirmação e tarefas de alta complexidade.",
     },
 }
@@ -54,6 +69,8 @@ def build() -> dict:
     files = {}
     for app, spec in APPS.items():
         full_prompt = "\n\n".join([base, body(ROOT / f"{spec['saida']}.md"), body(ROOT / f"{spec['file']}.md")])
+        for old, new in spec.get("labels", ()):
+            full_prompt = full_prompt.replace(old, new)
         files[f"{app}.json"] = {
             "version": "4.0",
             "cole_no_dify": "Copie somente o valor do campo system_prompt_chatflow (Chatflow) ou system_prompt (app de chat/agente). Nada mais deste arquivo vai para o Dify.",
@@ -61,9 +78,12 @@ def build() -> dict:
             "app": app,
             "execution_mode": spec["execution_mode"],
             "uso": spec["uso"],
-            "settings": {**spec["settings"], "conversation_memory": False, "knowledge_base": False, "tools": []},
+            "settings": {**spec["settings"], "conversation_memory": False, "knowledge_base": False, "tools": [],
+                         "max_tokens": "desligado (sem limite)", "verbosity": "desligado", "response_format": "desligado"},
             "inputs": INPUTS,
-            "mensagem_do_usuario_no_no_llm": [{"secao": titulo, "variavel": variavel} for titulo, variavel in USER_MESSAGE],
+            "mensagem_do_usuario_no_no_llm": [
+                {"secao": titulo, "variavel": variavel} for titulo, variavel in (
+                    zip(OPERATOR_SECTIONS, [v for _t, v in USER_MESSAGE]) if spec.get("labels") else USER_MESSAGE)],
             "output_contract": {
                 "format": "json",
                 "text_field": "text.content",

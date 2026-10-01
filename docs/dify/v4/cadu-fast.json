@@ -6,13 +6,14 @@
   "execution_mode": "fast",
   "uso": "Perguntas simples, conversa rápida e planos pedidos como rápidos ou resumidos.",
   "settings": {
-    "model": "GPT 5.4",
+    "model": "gpt-5.4-mini",
     "reasoning_effort": "baixo",
-    "temperature": 0.3,
-    "max_output_tokens": 3000,
     "conversation_memory": false,
     "knowledge_base": false,
-    "tools": []
+    "tools": [],
+    "max_tokens": "desligado (sem limite)",
+    "verbosity": "desligado",
+    "response_format": "desligado"
   },
   "inputs": [
     "core",

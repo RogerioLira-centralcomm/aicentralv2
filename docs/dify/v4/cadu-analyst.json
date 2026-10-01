@@ -6,13 +6,14 @@
   "execution_mode": "analysis",
   "uso": "Modo padrão: perguntas sobre o projeto, análises, recomendações, briefings, planejamento de mídia e pesquisa.",
   "settings": {
-    "model": "GPT 5.4",
+    "model": "gpt-5.4",
     "reasoning_effort": "médio",
-    "temperature": 0.4,
-    "max_output_tokens": 10000,
     "conversation_memory": false,
     "knowledge_base": false,
-    "tools": []
+    "tools": [],
+    "max_tokens": "desligado (sem limite)",
+    "verbosity": "desligado",
+    "response_format": "desligado"
   },
   "inputs": [
     "core",

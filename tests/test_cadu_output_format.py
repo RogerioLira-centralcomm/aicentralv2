@@ -93,3 +93,44 @@ def test_output_format_can_be_forced(app, monkeypatch):
     monkeypatch.setenv("CADU_DIFY_OUTPUT_FORMAT", "flat")
     with app.app_context():
         assert provider._configuration("analysis")["output_format"] == "flat"
+
+
+def _artifact_policy(artifact_type="meeting_agenda"):
+    return {"mode": "artifact_first", "artifact_type": artifact_type, "allow_artifact": True,
+            "max_answer_chars": 8000, "max_questions": 1, "max_next_steps": 2,
+            "artifact_chat_message": "Organizei o resultado em uma versão editável."}
+
+
+EMPTY_PATCH = {"title": "", "summary": "", "fields": []}
+
+
+def _envelope(answer, patch):
+    return json.dumps({"answer": answer, "questions": [], "actions": [], "assumptions": [], "citations": [],
+                       "confidence": "medium", "artifact_patch": patch}, ensure_ascii=False)
+
+
+def test_empty_patch_from_the_flat_schema_means_no_artifact():
+    response = normalize_response(_envelope("Pauta: status, verba e próximos passos. " * 5, EMPTY_PATCH), _artifact_policy())
+    assert not response.artifact_patch or response.artifact_patch.get("fields")
+    # the artifact-first fallback may build one from the answer, but never an empty record
+    if response.artifact_patch:
+        assert any(str(f.get("value") or "").strip() for f in response.artifact_patch["fields"]) \
+            or str(response.artifact_patch.get("html") or "").strip()
+
+
+def test_filled_patch_is_kept_untouched():
+    patch = {"title": "Pauta", "summary": "Alinhamento", "fields": [
+        {"key": "Objetivo", "value": "Alinhar o lançamento", "state": "confirmed"}]}
+    response = normalize_response(_envelope("Preparei a pauta.", patch), _artifact_policy())
+    assert response.answer == "Preparei a pauta."
+    assert response.artifact_patch["title"] == "Pauta" and response.artifact_patch["fields"][0]["key"] == "Objetivo"
+
+
+def test_missing_state_field_counts_as_content():
+    patch = {"title": "Ata", "summary": "", "fields": [{"key": "Decisões", "value": "", "state": "missing"}]}
+    assert normalize_response(_envelope("Ata parcial.", patch), _artifact_policy("meeting_summary")).artifact_patch
+
+
+def test_empty_html_patch_still_fails_closed_with_the_visual_message():
+    response = normalize_response(_envelope("Pronto.", {"title": "", "summary": "", "fields": []}), _artifact_policy("html"))
+    assert response.artifact_patch is None and "conteúdo visual" in response.answer

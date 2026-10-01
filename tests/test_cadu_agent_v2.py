@@ -332,7 +332,8 @@ def test_negative_artifact_and_conditional_web_request_cannot_create_or_save_doc
 ])
 def test_negative_artifact_constraints_override_positive_keywords(message):
     route = route_request(message, has_project=True)
-    assert route.response_mode == "analysis"
+    # A pure chat instruction is answered in chat: no artifact, no confirmation.
+    assert route.response_mode in {"direct", "analysis"}
     assert route.artifact_type is None
     assert route.requires_confirmation is False
 
@@ -515,7 +516,7 @@ def test_brand_analysis_without_selected_brand_never_falls_back_to_chat_diagnosi
     assert execution["route"]["action"] == "select_brand_for_audit"
     assert preflight["ready"] is False
     assert preflight["missing"] == ["marca cadastrada e selecionada"]
-    assert "não analise/recomende" in CORE
+    assert "Siga `action_preflight`" in CORE
 
     selected_route = route_request(message, has_brand=True)
     assert selected_route.action == "start_brand_audit"
@@ -814,11 +815,9 @@ def test_link_context_distinguishes_project_references_tasks_and_decisions_from_
     assert decision["timeline"]["label"] == "Decisão adicionada"
 
 
-def test_long_form_prompt_requires_editorial_structure_without_bullet_wall():
-    assert "um título específico" in CORE
-    assert "de três a sete subtítulos" in CORE
-    assert '"em parágrafos" significa predominância de' in CORE
-    assert "bullets ocupam no máximo um terço" in CORE
+def test_long_form_prompt_leaves_structure_to_the_task_without_a_fixed_template():
+    assert "Não imponha quantidade fixa de seções ou bullets" in CORE
+    assert "Preserve a extensão solicitada" in CORE
 
 
 def context(**overrides):
@@ -990,7 +989,8 @@ def test_artifact_write_does_not_close_request_scoped_connection(monkeypatch):
         lambda current, artifact_id: {"id": artifact_id, "client_id": current.client_id},
     )
 
-    artifact = artifact_service.create_draft(context(), "brief", {"objective": "Teste"})
+    artifact = artifact_service.create_draft(
+        context(), "brief", {"fields": [{"key": "Objetivo", "value": "Teste", "state": "confirmed"}]})
 
     assert artifact["client_id"] == 12
     assert connection.committed is True
@@ -2190,7 +2190,7 @@ def test_project_overview_prompt_requires_a_direct_evidence_based_answer():
         user_label="Pessoa",
     )
 
-    assert "responda diretamente" in payload["inputs"]["core"]
+    assert "de forma direta" in payload["inputs"]["core"]
     assert "não peça descrição, README ou briefing" in payload["inputs"]["core"]
     assert "visibilidade, fontes existentes" in payload["inputs"]["core"]
     assert "Seja proativo" in payload["inputs"]["core"]
@@ -2583,9 +2583,9 @@ def test_prompt_payload_includes_bounded_prior_conversation_as_evidence():
 
 
 def test_prompt_contract_resolves_last_content_without_asking_for_paste():
-    assert '"isso", "continue"' in CORE
-    assert "sem pedir que o usuário o repita" in CORE
-    assert "`active_entities` e `pending_action` são a resolução canônica" in CORE
+    assert "“isso” e “continue”" in CORE
+    assert "`conversation_state` e `conversation_history`" in CORE
+    assert "sem fazê-la repetir o contexto" in CORE
 
 
 def test_prompt_payload_includes_selected_context_as_bounded_evidence():
@@ -2807,7 +2807,7 @@ def test_colloquial_router_understands_today_and_short_negation():
     refused = route_request("n crie documento agora, responda no chat")
     assert live.action == "search_web"
     assert refused.artifact_type is None
-    assert refused.response_mode == "analysis"
+    assert refused.response_mode in {"direct", "analysis"}
 
 
 def test_generic_reference_preserves_recent_file_and_subject():
@@ -2892,8 +2892,8 @@ def test_prompt_payload_separates_user_request_from_orchestrator_instructions():
     assert payload["query"] == user_request["text"]
     assert user_request["role"] == "user"
     assert "evidence" in boundary["orchestrator_fields"]
-    assert "não são falas do usuário" in payload["inputs"]["core"]
-    assert '"Projeto usado"' in payload["inputs"]["core"]
+    assert "não os apresente como falas do usuário" in payload["inputs"]["core"]
+    assert "“Projeto usado”" in payload["inputs"]["core"]
 
 
 def test_response_policy_caps_questions_even_if_provider_ignores_instruction():

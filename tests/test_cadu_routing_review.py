@@ -106,3 +106,12 @@ def test_meeting_plugin_artifact_does_not_ask_for_tables_or_images():
     assert document["route"]["artifact_type"] == "document"
     assert document["execution_mode"] == "agentic"
     assert "tabelas para comparações" in document["provider_payload"]["inputs"]["core"]
+
+
+@pytest.mark.parametrize("message", ["Faça uma imagem do produto", "Faça a imagem do lançamento", "Façam uma ilustração para o post"])
+def test_imperative_faca_reaches_the_studio_for_images(message):
+    assert route_request(message).action == "studio_create_image"
+
+
+def test_imperative_faca_reaches_the_studio_for_video():
+    assert route_request("Faça um vídeo curto do produto").action.startswith("studio_")

@@ -481,8 +481,8 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
                            (), ("media.creation_capabilities",), None, True)
     if not video_prompt_only and _has(
         text,
-        rf"\b(?:cri\w*|ger\w*|faz\w*|produz\w*|desenh\w*|planej\w*)\b.{{0,65}}\b{video_subject}\b|"
-        rf"\b{video_subject}\b.{{0,65}}\b(?:cri\w*|ger\w*|faz\w*|produz\w*|desenh\w*|planej\w*)\b",
+        rf"\b(?:cri\w*|ger\w*|fa[zç]\w*|produz\w*|desenh\w*|planej\w*)\b.{{0,65}}\b{video_subject}\b|"
+        rf"\b{video_subject}\b.{{0,65}}\b(?:cri\w*|ger\w*|fa[zç]\w*|produz\w*|desenh\w*|planej\w*)\b",
     ):
         return IntentRoute("studio", "studio_plan_video", "medium", "analysis",
                            (), ("media.creation_capabilities",), None, True)
@@ -502,8 +502,8 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
                            (), ("media.creation_capabilities",), None, True)
     if not prompt_only and _has(
         text,
-        rf"\b(?:cri\w*|ger\w*|faz\w*|produz\w*|desenh\w*)\b.{{0,65}}\b{visual_subject}\b|"
-        rf"\b{visual_subject}\b.{{0,65}}\b(?:cri\w*|ger\w*|faz\w*|produz\w*|desenh\w*)\b",
+        rf"\b(?:cri\w*|ger\w*|fa[zç]\w*|produz\w*|desenh\w*)\b.{{0,65}}\b{visual_subject}\b|"
+        rf"\b{visual_subject}\b.{{0,65}}\b(?:cri\w*|ger\w*|fa[zç]\w*|produz\w*|desenh\w*)\b",
     ):
         return IntentRoute("studio", "studio_create_image", "medium", "analysis",
                            (), ("media.creation_capabilities",), None, True)

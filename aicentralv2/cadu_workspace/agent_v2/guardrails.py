@@ -761,6 +761,28 @@ def _fallback_artifact(answer, policy):
     return patch
 
 
+def _patch_has_content(patch: dict) -> bool:
+    """True when an artifact patch carries something worth saving or rendering."""
+    def filled(item):
+        if isinstance(item, str):
+            return bool(item.strip())
+        if isinstance(item, dict):
+            return any(filled(child) for child in item.values())
+        if isinstance(item, (list, tuple)):
+            return any(filled(child) for child in item)
+        return item is not None and item is not False
+
+    for key in ("html", "css", "js", "summary", "metrics", "options", "highlights", "citations", "tables"):
+        if filled(patch.get(key)):
+            return True
+    for field in patch.get("fields") or []:
+        if isinstance(field, dict) and str(field.get("key") or field.get("title") or "").strip() and (
+                filled(field.get("value") if field.get("value") is not None else field.get("content"))
+                or str(field.get("state") or "").lower() in {"missing", "conflicting"}):
+            return True
+    return False
+
+
 def normalize_response(raw, policy: dict) -> AgentResponse:
     value = _decode_provider_value(raw)
     if not isinstance(value, dict):
@@ -824,6 +846,10 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
     can_materialize_artifact = bool(policy.get("allow_artifact", False))
     artifact_type = policy.get("artifact_type")
     patch = _clean_patch(value.get("artifact_patch"), artifact_type=artifact_type)
+    # A fixed output schema makes the provider return an empty patch on turns
+    # with nothing to deliver. That is "no artifact", not an empty document.
+    if patch is not None and not _patch_has_content(patch):
+        patch = None
     invalid_html_patch = False
     if not can_materialize_artifact:
         patch = None

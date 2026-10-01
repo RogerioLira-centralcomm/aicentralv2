@@ -750,9 +750,9 @@ def _flow_associations(payload, selected, current=None):
 def _flow_row(flow_id, selected):
     found = _rows('''SELECT f.id,f.site_id,f.flow_code,f.name,f.status,f.customer_id,f.campaign_id,f.draft_config AS config,f.config AS active_config,
             f.draft_revision,f.published_revision,f.created_at,f.updated_at,
-            f.published_at,t.id AS tag_id,t.label AS tag_label,t.allowed_host,t.public_key,t.revoked_at
+            f.published_at,t.id AS tag_id,t.label AS tag_label,COALESCE(t.allowed_host,'') AS allowed_host,t.public_key,t.revoked_at
         FROM cadu_reports_flow_registry f
-        JOIN cadu_reports_site_tags t ON t.id=f.tag_id
+        LEFT JOIN cadu_reports_site_tags t ON t.id=f.tag_id
         WHERE f.id=%s AND f.client_id=%s''',
         (flow_id, selected['client_id']))
     if not found:
@@ -792,7 +792,36 @@ def _campaign_match(tag, attribution, matched_step):
     return None, None
 
 
+SITE_REQUIRED_ENDPOINTS = frozenset({
+    'reports_flow_configure_monitor', 'reports_flow_check_monitor', 'reports_flow_discover_site',
+    'reports_flow_create_discovered_flows', 'reports_flow_discoveries', 'reports_flow_link_translation',
+    'reports_flow_suggest_page', 'reports_flow_select_discovered_page', 'reports_flow_publish_flow',
+    'reports_flow_test_flow', 'create_blueprint', 'preview_image', 'flow_probe',
+})
+
+
 def register(bp):
+    @bp.before_request
+    def _plan_without_site_guard():
+        """Site-bound actions on a plan without a site get a clear answer instead of failing later."""
+        endpoint = (request.endpoint or '').rsplit('.', 1)[-1]
+        capture = endpoint == 'previews' and request.method == 'POST'
+        if (endpoint not in SITE_REQUIRED_ENDPOINTS and not capture) or not session.get('user_id'):
+            return None
+        flow_id = (request.view_args or {}).get('flow_id')
+        try:
+            flow_id = str(uuid.UUID(str(flow_id)))
+        except (ValueError, TypeError):
+            return None
+        payload = request.get_json(silent=True) if request.method != 'GET' else None
+        selected = _selection(payload if isinstance(payload, dict) else None)
+        found = _rows('SELECT tag_id FROM cadu_reports_flow_registry WHERE id=%s AND client_id=%s',
+                      (flow_id, selected['client_id']))
+        if found and found[0]['tag_id'] is None:
+            return jsonify(error='site_required',
+                           description='Este plano ainda não tem site. Conecte o site do fluxo para usar esta função.'), 409
+        return None
+
     @bp.after_request
     def reports_flow_collection_cors(response):
         origin = request.headers.get('Origin') or request.headers.get('Referer') or ''
@@ -940,13 +969,13 @@ def register(bp):
                  selected_flow['tag_id'] if selected_flow else None,
                  selected_flow['published_revision'] if selected_flow else None))
             flows = _rows('''SELECT f.id,f.site_id,f.flow_code,f.name,f.status,f.customer_id,f.campaign_id,f.draft_config AS config,f.draft_revision,f.published_revision,f.tag_id,
-                    t.label AS tag_label,t.allowed_host,t.public_key,t.revoked_at,f.created_at,f.updated_at,f.published_at,
+                    t.label AS tag_label,COALESCE(t.allowed_host,'') AS allowed_host,t.public_key,t.revoked_at,f.created_at,f.updated_at,f.published_at,
                     (SELECT STRING_AGG(DISTINCT c.name, ' · ' ORDER BY c.name)
                         FROM cadu_reports_flow_steps s
                         JOIN cadu_reports_campaigns c ON c.id=s.campaign_id
                             AND c.client_id=s.client_id
                         WHERE s.tag_id=f.tag_id AND s.client_id=f.client_id AND s.is_active=TRUE) AS campaign_names
-                FROM cadu_reports_flow_registry f JOIN cadu_reports_site_tags t ON t.id=f.tag_id
+                FROM cadu_reports_flow_registry f LEFT JOIN cadu_reports_site_tags t ON t.id=f.tag_id
                 WHERE f.client_id=%s ORDER BY f.created_at DESC''', params)
             supertag_sites = _rows('''SELECT id,public_id,label,allowed_host,enabled,revoked_at
                 FROM cadu_reports_supertag_sites WHERE client_id=%s
@@ -1059,14 +1088,14 @@ def register(bp):
         for site in supertag_sites:
             site['snippet'] = _supertag_snippet(site)
         flows = _rows('''SELECT f.id,f.site_id,f.flow_code,f.name,f.status,f.customer_id,f.campaign_id,f.draft_config AS config,f.draft_revision,f.published_revision,f.tag_id,t.label AS tag_label,
-                t.allowed_host,t.public_key,t.revoked_at,f.created_at,f.updated_at,f.published_at,
+                COALESCE(t.allowed_host,'') AS allowed_host,t.public_key,t.revoked_at,f.created_at,f.updated_at,f.published_at,
                 f.monitor_enabled,f.monitor_interval_minutes,f.monitor_status,f.monitor_checked_at,
                 (SELECT STRING_AGG(DISTINCT c.name, ' · ' ORDER BY c.name)
                     FROM cadu_reports_flow_steps s
                     JOIN cadu_reports_campaigns c ON c.id=s.campaign_id
                         AND c.client_id=s.client_id
                     WHERE s.tag_id=f.tag_id AND s.client_id=f.client_id AND s.is_active=TRUE) AS campaign_names
-            FROM cadu_reports_flow_registry f JOIN cadu_reports_site_tags t ON t.id=f.tag_id
+            FROM cadu_reports_flow_registry f LEFT JOIN cadu_reports_site_tags t ON t.id=f.tag_id
             WHERE f.client_id=%s ORDER BY f.created_at DESC''', params)
         flows = [{**item, 'config': migrate_v1_to_v2(item['config'])} for item in flows]
         activity = _rows(scoped_events + '''SELECT e.tag_id,e.page_path,
@@ -1762,6 +1791,22 @@ def register(bp):
         if not name:
             abort(400, description='Informe o nome do fluxo.')
         customer_id, campaign_id = _flow_associations(payload, selected)
+        if payload.get('plan_only') is True and not payload.get('allowed_host') and not tag:
+            # A plan can exist before any site: no internal tag and no Super Tag installation yet.
+            config, _ = _normalize_flow_config(
+                payload.get('config') if isinstance(payload.get('config'), dict) else {}, '')
+            if any(is_measured(node) for node in config['nodes']):
+                abort(400, description='Um plano sem site só aceita passos planejados.')
+            _validate_flow_references(config, selected)
+            created = _rows('''INSERT INTO cadu_reports_flow_registry
+                (id,client_id,flow_code,tag_id,name,draft_config,created_by,site_id,customer_id,campaign_id)
+                VALUES (%s,%s,%s,NULL,%s,%s::jsonb,%s,NULL,%s,%s)
+                RETURNING id,site_id,flow_code,name,status,customer_id,campaign_id,draft_config AS config,draft_revision,published_revision,tag_id,created_at,updated_at''',
+                (str(uuid.uuid4()), selected['client_id'], _new_flow_code(), name, json.dumps(config),
+                 session['user_id'], customer_id, campaign_id))[0]
+            get_db().commit()
+            return jsonify(flow={**created, 'allowed_host': ''}, tag=None, supertag_site=None,
+                           tag_urls=_client_tag_urls(selected['client_id'],)), 201
         requested_host = _host(payload.get('allowed_host') or (tag or {}).get('allowed_host'))
         supertag_site, _ = ensure_supertag_site(selected, requested_host, name)
         # Each flow owns an internal tag, even when created from an existing site tag.
@@ -1787,6 +1832,38 @@ def register(bp):
         get_db().commit()
         return jsonify(flow=created, tag=tag, supertag_site=supertag_site,
                        tag_urls=_client_tag_urls(selected['client_id'],)), 201
+
+    @bp.post('/api/v2/reports/flow/flows/<flow_id>/site')
+    @login_required_api
+    def reports_flow_connect_site(flow_id):
+        """Give a plan its site: the internal tag and the Super Tag installation are created only now."""
+        from .reports_supertag import ensure_supertag_site
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            abort(400)
+        selected = _selection(payload)
+        _write_guard(selected)
+        flow = _rows('''SELECT id,name,tag_id,draft_config FROM cadu_reports_flow_registry
+            WHERE id=%s AND client_id=%s FOR UPDATE''', (flow_id, selected['client_id']))
+        if not flow:
+            abort(404, description='Fluxo não encontrado neste cliente.')
+        flow = flow[0]
+        if flow['tag_id']:
+            abort(409, description='Este fluxo já tem um site conectado.')
+        host = _host(payload.get('allowed_host'))
+        # Addresses typed while planning must belong to the site being connected.
+        _normalize_flow_config(flow['draft_config'] or {}, host)
+        supertag_site, _ = ensure_supertag_site(selected, host, flow['name'])
+        tag = _rows('''INSERT INTO cadu_reports_site_tags
+            (id,client_id,label,allowed_host,public_key,created_by,tag_kind)
+            VALUES (%s,%s,%s,%s,%s,%s,'flow')
+            RETURNING id,label,allowed_host,public_key,created_at,revoked_at,tag_kind''',
+            (str(uuid.uuid4()), selected['client_id'], flow['name'], host, secrets.token_urlsafe(24), session['user_id']))[0]
+        updated = _rows('''UPDATE cadu_reports_flow_registry SET tag_id=%s,site_id=%s,updated_at=NOW()
+            WHERE id=%s AND client_id=%s RETURNING id,site_id,tag_id,updated_at''',
+            (tag['id'], supertag_site['id'], flow['id'], selected['client_id']))[0]
+        get_db().commit()
+        return jsonify(flow={**updated, 'allowed_host': host}, tag=tag, supertag_site=supertag_site)
 
     @bp.patch('/api/v2/reports/flow/flows/<flow_id>/associations')
     @login_required_api
@@ -1838,7 +1915,7 @@ def register(bp):
           WHERE client_id=%s AND site_id=%s AND occurred_at>NOW()-INTERVAL '24 hours'
           AND expires_at>NOW()) AS ready""",(selected['client_id'],flow['site_id']))[0]['ready'])
         issues=validate_flow_config(flow.get('config') or {},flow['allowed_host'])
-        if not ready:issues.append({'severity':'warning','code':'tracking_not_ready','message':'Super Tag sem eventos recebidos nas últimas 24 horas. Verifique a instalação.'})
+        if flow.get('tag_id') and not ready:issues.append({'severity':'warning','code':'tracking_not_ready','message':'Super Tag sem eventos recebidos nas últimas 24 horas. Verifique a instalação.'})
         return jsonify(issues=issues,tracking_ready=ready,draft_revision=flow['draft_revision'])
 
     @bp.post('/api/v2/reports/flow/flows/<flow_id>/publish')

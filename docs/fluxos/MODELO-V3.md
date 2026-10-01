@@ -306,7 +306,10 @@ Acrescentadas às fases conforme a prioridade:
 |---|---|---|
 | 01/10/2026 | Fase 1a: situação do passo (planejado, em produção, pronto, no ar), especificação para produção, passos planejados fora de toda a medição, aviso de conversão só planejada, passo novo da paleta nasce planejado. | `30f679ee`, `734d1fb6` |
 | 01/10/2026 | Fase 2 (início): biblioteca com 7 estratégias (leads com landing page, WhatsApp, evento/webinar, e-commerce, B2B, presença e consideração, teste A/B), escolha de canais e criação do plano pelo “Novo fluxo”; aviso de conversão planejada só quando algo já é medido. | ver histórico |
+| 01/10/2026 | Fase 2: painel Plano e produção (folha de produção em CSV e para imprimir, etiquetas), notas e checklists na mesa, “Publicar plano” separado de “Ativar medição” com versões do plano. | `2b40d003`, `223377ad`, `8d6d7a51` |
+| 01/10/2026 | Fase 3: camada Previsão com cenários pessimista, provável e otimista, totais de resultados, receita, custo por resultado e ROAS; estratégias com taxas de referência. | `897f6e2c` |
+| 01/10/2026 | Fase 1 (fecho): plano sem site, com conexão do site depois e guarda das ações que dependem dele. | ver histórico |
 
 Decisão registrada: planejar é uma escolha explícita. Um passo antigo sem situação e sem URL continua bloqueando a publicação (com a opção de marcá-lo como planejado), para nenhum passo sair da medição sem que a pessoa perceba.
 
-Pendente na Fase 1: domínio opcional na criação (exige migração do registro de fluxo e da tag), metas no fluxo com etapa e entrada derivadas do grafo, e `page_group`.
+Pendente na Fase 1: metas no fluxo com etapa e entrada derivadas do grafo, e `page_group`. Próximas fases: 4 (medir o plano: UTM por origem e vincular páginas reais), 5 (desempenho), 6 (inteligência e integrações) e 7 (compartilhar).

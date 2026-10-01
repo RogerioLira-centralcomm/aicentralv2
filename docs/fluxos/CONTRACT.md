@@ -49,6 +49,13 @@ Tamanho máximo serializado: 256 KB.
 - `GET` devolve `{ready, versions[{revision, name, note, created_by, created_at}]}`, da mais recente para a mais antiga (até 50).
 - “Ativar medição” continua sendo `POST …/publish`, com as pendências bloqueantes de sempre.
 
+## Plano sem site
+
+- `POST …/flows` com `{name, plan_only: true, config}` e sem `allowed_host` cria o fluxo sem tag interna e sem instalação da Super Tag (`tag_id` e `site_id` nulos, `allowed_host` devolvido como `''`). Só aceita passos não medidos.
+- O banco garante que um fluxo sem site continua `draft` (`reports_flow_plan_only_site`).
+- Ações que dependem do site (explorar páginas, teste de conversão, prévias, montagem, monitor, teste, ativar medição) respondem `409 {error: 'site_required'}`.
+- `POST …/flows/<id>/site {allowed_host}` conecta o site depois: valida os endereços já informados contra o domínio, cria a tag interna e liga a instalação da Super Tag. Fluxo que já tem site → 409.
+
 ## Jornada medida (`GET …/flows/<id>/journey`)
 
 - `nodes[]`: `{id, sessions, events, entrances?, exits?, estimated_from?}`. Nós de origem recebem `sessions` pela origem da sessão (`estimated_from: 'origin'`).

@@ -11,4 +11,6 @@ test('next action follows the flow lifecycle', () => {
   assert.deepEqual(flowNextAction({status:'published',monitor_enabled:true,monitor_status:'offline',config:{nodes:[{type:'source'},{type:'conversion'}]}}).view, 'monitor');
   assert.equal(flowNextAction({status:'published',config:{nodes:[{type:'source'},{type:'conversion'}]}}).label, 'Acompanhar jornada');
   assert.equal(flowNextAction({revoked_at:'2026-01-01',config:{nodes:[]}}).label, 'Reativar a tag do site');
+  assert.equal(flowNextAction({allowed_host:'',status:'draft',config:{nodes:[{type:'source'},{type:'page',status:'planned'}]}}).label, 'Revisar o plano');
+  assert.equal(flowNextAction({allowed_host:'',config:{nodes:[]}}).label, 'Montar o plano');
 });

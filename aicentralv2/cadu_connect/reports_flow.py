@@ -18,7 +18,7 @@ from ..auth import login_required_api
 from ..db import get_db
 from .reports_v1 import _rows, _selection, _write_guard, _customer_id, _optional_positive_id
 from .reports_flow_versions import expected_revision, lock_flow, save_draft, publish_draft, session_snapshot, match_version_step
-from .reports_flow_schema import LEGACY_KINDS, legacy_projection, migrate_v1_to_v2
+from .reports_flow_schema import DEFAULT_KINDS, to_v3
 from .reports_flow_validation import MAX_FLOW_PAGES, validate_flow_config
 from .reports_flow_lifecycle import NODE_STATUSES, is_measured, measured_nodes, node_status, normalize_forecast, normalize_spec
 from .reports_flow_stage import normalize_stage_position
@@ -506,10 +506,10 @@ def _normalize_flow_tags(tags):
 def _normalize_flow_config(config, allowed_host):
     if not isinstance(config, dict):
         abort(400, description='A configuração do fluxo precisa ser um objeto.')
-    if config.get('schema_version', 1) not in (1, 2):
+    if config.get('schema_version', 1) not in (1, 2, 3):
         abort(400, description='Versão de fluxo não suportada.')
-    if config.get('schema_version') == 2:
-        config = legacy_projection(config)
+    # Older shapes are read once; only the canonical v3 document is stored.
+    config = to_v3(config)
     nodes, edges = config.get('nodes', []), config.get('edges', [])
     known_types = {'source','page','form','event','condition','delay','segment','conversion','webhook','whatsapp','error','note'}
     if not isinstance(nodes, list) or len(nodes) > 200 or not isinstance(edges, list) or len(edges) > 300:
@@ -554,22 +554,17 @@ def _normalize_flow_config(config, allowed_host):
             position[axis] = round(numeric)
         item = {'id': node_id, 'type': node_type, 'title': title,
                 'x': position['x'], 'y': position['y']}
-        if config.get('schema_version') == 2:
-            kind = node.get('kind') or LEGACY_KINDS.get(node_type)
-            if not isinstance(kind, str) or len(kind) > 80:
-                abort(400, description='Tipo visual de nó inválido.')
-            if 'data' in node and not isinstance(node['data'], dict):
-                abort(400, description='Dados de nó inválidos.')
-            item['kind'] = kind
-            item['data'] = node.get('data') or {}
+        kind = node.get('kind') or DEFAULT_KINDS.get(node_type)
+        if isinstance(kind, str) and re.fullmatch(r'[a-z_]+\.[a-z0-9_]+', kind):
+            item['kind'] = kind[:80]
+        else:
+            item['kind'] = DEFAULT_KINDS[node_type]
         if isinstance(path, str) and path:
             item['path'] = path
         if host:
             item['host'] = host
         if event_name:
             item['event_name'] = event_name
-        if 'kind' not in item and isinstance(node.get('kind'), str) and re.fullmatch(r'[a-z_]+\.[a-z0-9_]+', node['kind']):
-            item['kind'] = node['kind'][:80]
         for field in ('source','event','discoveryPageId','stepId','pageGroup','suggestedRole','groupId','stage','role','origin','role_source','pageType','pageTypeStatus'):
             if isinstance(node.get(field), str):
                 item[field] = node[field][:120]
@@ -651,10 +646,9 @@ def _normalize_flow_config(config, allowed_host):
         edge_ids.add(edge_id)
         normalized_edge = {'id':edge_id, 'from':source,'to':target,
                            'label':' '.join(str(edge.get('label') or 'Próximo').split())[:80]}
-        if config.get('schema_version') == 2:
-            if edge.get('variant', 'direct') not in ('direct', 'planned'):
-                abort(400, description='Tipo visual de conexão inválido.')
-            normalized_edge['variant'] = edge.get('variant', 'direct')
+        if edge.get('variant', 'direct') not in ('direct', 'planned'):
+            abort(400, description='Tipo visual de conexão inválido.')
+        normalized_edge['variant'] = edge.get('variant', 'direct')
         for field in ('from_port','to_port','kind','condition_ref','origin','evidence'):
             if field in edge:
                 if not isinstance(edge[field], str) or len(edge[field]) > 120:
@@ -700,8 +694,6 @@ def _normalize_flow_config(config, allowed_host):
         result['tags'] = _normalize_flow_tags(config['tags'])
     if result.get('site_kind') not in (None, 'landing', 'institucional', 'multipagina', 'ecommerce'):
         abort(400, description='Tipo de site inválido.')
-    if config.get('schema_version') == 2:
-        result = migrate_v1_to_v2(result)
     try:
         encoded = json.dumps(result, ensure_ascii=False, allow_nan=False).encode('utf-8')
     except (ValueError, TypeError, RecursionError):
@@ -983,6 +975,7 @@ def register(bp):
             from .reports_supertag import _supertag_snippet
             for site in supertag_sites:
                 site['snippet'] = _supertag_snippet(site)
+            flows = [{**item, 'config': to_v3(item['config'])} for item in flows]
             return jsonify(tags=tags,steps=steps,flows=flows,events=[],event_group_count=0,
                 event_summary={},tag_urls=_client_tag_urls(selected['client_id'],),activity=[],
                 online=0,conversions=0,site_pages=[],page_transitions=[],confirmed=[],period_days=days,
@@ -1097,7 +1090,7 @@ def register(bp):
                     WHERE s.tag_id=f.tag_id AND s.client_id=f.client_id AND s.is_active=TRUE) AS campaign_names
             FROM cadu_reports_flow_registry f LEFT JOIN cadu_reports_site_tags t ON t.id=f.tag_id
             WHERE f.client_id=%s ORDER BY f.created_at DESC''', params)
-        flows = [{**item, 'config': migrate_v1_to_v2(item['config'])} for item in flows]
+        flows = [{**item, 'config': to_v3(item['config'])} for item in flows]
         activity = _rows(scoped_events + '''SELECT e.tag_id,e.page_path,
             COUNT(*) FILTER (WHERE e.event_kind IN ('page_view','conversion','error_view')) AS views,
             COUNT(*) FILTER (WHERE e.event_kind='form_submit') AS form_submissions,
@@ -1914,7 +1907,7 @@ def register(bp):
         ready=bool(flow.get('site_id') and _rows("""SELECT EXISTS(SELECT 1 FROM cadu_reports_supertag_events
           WHERE client_id=%s AND site_id=%s AND occurred_at>NOW()-INTERVAL '24 hours'
           AND expires_at>NOW()) AS ready""",(selected['client_id'],flow['site_id']))[0]['ready'])
-        issues=validate_flow_config(flow.get('config') or {},flow['allowed_host'])
+        issues=validate_flow_config(to_v3(flow.get('config') or {}),flow['allowed_host'])
         if flow.get('tag_id') and not ready:issues.append({'severity':'warning','code':'tracking_not_ready','message':'Super Tag sem eventos recebidos nas últimas 24 horas. Verifique a instalação.'})
         return jsonify(issues=issues,tracking_ready=ready,draft_revision=flow['draft_revision'])
 
@@ -2268,7 +2261,7 @@ def register(bp):
         origins = origin_summary(bounds)
         entries = int(funnel['entries'] or 0)
         conversions = int(funnel['conversions'] or 0)
-        return jsonify(status='ready', revision=revision, period_days=days, config=migrate_v1_to_v2(config),
+        return jsonify(status='ready', revision=revision, period_days=days, config=to_v3(config),
                        timezone='America/Sao_Paulo',generated_at=now.isoformat(),
                        collection={'status':'observed' if has_events else 'no_data',
                                    'event_count':int(collection['event_count']),

@@ -24,9 +24,10 @@ class FlowContractTests(unittest.TestCase):
         self.assertEqual(config['nodes'][0]['kind'], 'traffic.meta')
         self.assertEqual(config['nodes'][0]['source'], 'meta')
 
-    def test_invalid_kind_is_dropped(self):
+    def test_invalid_kind_falls_back_to_the_default_kind_of_its_type(self):
         config, _ = _normalize_flow_config({'nodes': [node(kind='<script>')], 'edges': []}, 'exemplo.com.br')
-        self.assertNotIn('kind', config['nodes'][0])
+        self.assertEqual(config['nodes'][0]['kind'], 'page.generic')
+        self.assertEqual(config['schema_version'], 3)
 
     def test_site_kind(self):
         config, _ = _normalize_flow_config({'nodes': [node()], 'edges': [], 'site_kind': 'landing'}, 'exemplo.com.br')

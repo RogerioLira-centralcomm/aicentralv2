@@ -26,7 +26,6 @@ def codes(issues, severity):
 class NodeStatusTests(unittest.TestCase):
     def test_status_is_explicit_and_legacy_nodes_keep_their_meaning(self):
         self.assertEqual(node_status(page(path='/landing')), 'live')
-        self.assertEqual(node_status(page(path='/configurar-abcd')), 'ready')
         self.assertEqual(node_status(page()), 'ready')
         self.assertEqual(node_status(page(status='planned')), 'planned')
         self.assertEqual(node_status({'id': 's', 'type': 'source', 'title': 'Meta'}), 'live')
@@ -37,7 +36,6 @@ class NodeStatusTests(unittest.TestCase):
         self.assertFalse(is_measured(page(path='/landing', status='planned')))
         self.assertFalse(is_measured(page(path='/landing', status='in_production')))
         self.assertFalse(is_measured(page(status='ready')))
-        self.assertFalse(is_measured(page(path='/configurar-abcd')))
         self.assertFalse(is_measured({'id': 's', 'type': 'source', 'title': 'Meta'}))
         self.assertEqual([node['id'] for node in measured_nodes([page(path='/a'), page('b', status='planned')])], ['landing'])
 

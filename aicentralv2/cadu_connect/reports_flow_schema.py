@@ -1,83 +1,69 @@
-"""Add a versioned editor view while preserving the collector's v1 fields.
+"""The flow document has one shape (v3). Older shapes are read once and never written back.
 
-The v2 document deliberately retains type/title/x/y and from/to. Published
-collectors and immutable session snapshots still consume those fields.
+v3 keeps exactly the fields the editor and the collector use: nodes carry type, kind, title,
+x, y and their own attributes; edges carry from, to and ports. There are no mirrored copies
+(``data``, ``position``, ``source``/``target``, handles) and no placeholder paths.
 """
 
-LEGACY_KINDS = {
+SCHEMA_VERSION = 3
+DEFAULT_KINDS = {
     'source': 'traffic.source', 'page': 'page.generic', 'form': 'page.form',
     'event': 'event.custom', 'condition': 'logic.condition',
     'delay': 'logic.delay', 'segment': 'crm.segment',
     'conversion': 'conversion.generic', 'webhook': 'utility.webhook',
     'whatsapp': 'event.whatsapp', 'error': 'page.error', 'note': 'annotation.note',
 }
-KIND_TYPES = {kind: legacy for legacy, kind in LEGACY_KINDS.items()}
+KIND_TYPES = {kind: node_type for node_type, kind in DEFAULT_KINDS.items()}
+MEASURED = {'page', 'form', 'event', 'conversion', 'whatsapp', 'error'}
+# Drafts before v3 marked a step without a real address with a fake path.
+PLACEHOLDER_PREFIX = '/configurar-'
+MIRRORED_NODE_FIELDS = ('data', 'position')
+MIRRORED_EDGE_FIELDS = ('source', 'target', 'source_handle', 'target_handle')
 
 
-def legacy_projection(config):
-    """Accept either v2-only fields or a hybrid document without changing v1 readers."""
-    projected = dict(config)
-    nodes = []
-    for node in config.get('nodes', []):
-        if not isinstance(node, dict):
-            nodes.append(node)
-            continue
-        item = dict(node)
-        data = item.get('data') if isinstance(item.get('data'), dict) else {}
-        position = item.get('position') if isinstance(item.get('position'), dict) else {}
-        tracking = data.get('tracking') if isinstance(data.get('tracking'), dict) else {}
-        item.setdefault('type', KIND_TYPES.get(item.get('kind')))
-        item.setdefault('title', data.get('label'))
-        item.setdefault('x', position.get('x'))
-        item.setdefault('y', position.get('y'))
-        item.setdefault('path', data.get('url'))
-        item.setdefault('event_name', tracking.get('event'))
-        nodes.append(item)
-    edges = []
-    for edge in config.get('edges', []):
-        if not isinstance(edge, dict):
-            edges.append(edge)
-            continue
-        item = dict(edge)
-        item.setdefault('from', item.get('source'))
-        item.setdefault('to', item.get('target'))
-        if item.get('from_port') is None:item['from_port']=item.get('source_handle') or 'right-out'
-        if item.get('to_port') is None:item['to_port']=item.get('target_handle') or 'left-in'
-        edges.append(item)
-    projected.update(nodes=nodes, edges=edges)
-    return projected
+def _node_v3(node):
+    item = {key: value for key, value in node.items() if key not in MIRRORED_NODE_FIELDS}
+    data = node.get('data') if isinstance(node.get('data'), dict) else {}
+    position = node.get('position') if isinstance(node.get('position'), dict) else {}
+    tracking = data.get('tracking') if isinstance(data.get('tracking'), dict) else {}
+    item.setdefault('type', KIND_TYPES.get(node.get('kind')))
+    if item.get('title') in (None, ''):
+        item['title'] = data.get('label')
+    for axis in ('x', 'y'):
+        if item.get(axis) is None and position.get(axis) is not None:
+            item[axis] = position[axis]
+    if not item.get('path') and data.get('url'):
+        item['path'] = data['url']
+    if not item.get('event_name') and tracking.get('event'):
+        item['event_name'] = tracking['event']
+    if isinstance(item.get('path'), str) and item['path'].startswith(PLACEHOLDER_PREFIX):
+        del item['path']
+        if item.get('type') in MEASURED:
+            item.setdefault('status', 'planned')
+    if not item.get('path'):
+        item.pop('path', None)
+    if not item.get('kind') and item.get('type') in DEFAULT_KINDS:
+        item['kind'] = DEFAULT_KINDS[item['type']]
+    return item
 
 
-def migrate_v1_to_v2(config):
-    """Return a non-mutating, idempotent editor document with legacy projection."""
+def _edge_v3(edge):
+    item = {key: value for key, value in edge.items() if key not in MIRRORED_EDGE_FIELDS}
+    item.setdefault('from', edge.get('source'))
+    item.setdefault('to', edge.get('target'))
+    if not item.get('from_port') and edge.get('source_handle'):
+        item['from_port'] = edge['source_handle']
+    if not item.get('to_port') and edge.get('target_handle'):
+        item['to_port'] = edge['target_handle']
+    item.setdefault('variant', 'planned' if edge.get('kind') == 'site_link' else 'direct')
+    return item
+
+
+def to_v3(config):
+    """Return the canonical document; idempotent and never mutates its input."""
     source = config if isinstance(config, dict) else {}
-    nodes = []
-    for node in source.get('nodes', []):
-        if not isinstance(node, dict):
-            continue
-        item = dict(node)
-        data = dict(item.get('data') or {}) if isinstance(item.get('data'), dict) else {}
-        tracking = dict(data.get('tracking') or {}) if isinstance(data.get('tracking'), dict) else {}
-        tracking['event'] = (item.get('event_name') or '') if 'event_name' in item else (tracking.get('event') or '')
-        tracking['params'] = tracking.get('params') if isinstance(tracking.get('params'), dict) else {}
-        data.update(label=item.get('title') if 'title' in item else (data.get('label') or item.get('type') or 'Etapa'),
-                    url=(item.get('path') or '') if 'path' in item else (data.get('url') or ''),
-                    tracking=tracking)
-        item.update(kind=item.get('kind') or LEGACY_KINDS.get(item.get('type'), 'utility.unknown'),
-                    position={'x': item.get('x', 0), 'y': item.get('y', 0)}, data=data)
-        nodes.append(item)
-    edges = []
-    for edge in source.get('edges', []):
-        if not isinstance(edge, dict):
-            continue
-        item = dict(edge)
-        item.update(source=item.get('from'), target=item.get('to'),
-                    source_handle=item.get('from_port') or 'right-out',
-                    target_handle=item.get('to_port') or 'left-in',
-                    variant=item.get('variant') or ('planned' if item.get('kind') == 'site_link' else 'direct'))
-        edges.append(item)
-    return {**source, 'schema_version': 2, 'nodes': nodes, 'edges': edges,
-            'viewport': source.get('viewport') if isinstance(source.get('viewport'), dict)
-            else {'x': 0, 'y': 0, 'zoom': 1},
-            'settings': source.get('settings') if isinstance(source.get('settings'), dict)
-            else {'edge_style': 'bezier', 'grid': True}}
+    document = {key: value for key, value in source.items() if key not in ('nodes', 'edges')}
+    document['schema_version'] = SCHEMA_VERSION
+    document['nodes'] = [_node_v3(node) if isinstance(node, dict) else node for node in source.get('nodes', []) or []]
+    document['edges'] = [_edge_v3(edge) if isinstance(edge, dict) else edge for edge in source.get('edges', []) or []]
+    return document

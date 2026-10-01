@@ -5,14 +5,11 @@ Kept free of package imports: parity tests load this file on its own.
 
 MEASURED = {'page', 'form', 'event', 'conversion', 'whatsapp', 'error'}
 NODE_STATUSES = ('planned', 'in_production', 'ready', 'live')
-# Older drafts marked a step without a real URL with a fake "/configurar-…" path.
-PLACEHOLDER_PREFIX = '/configurar-'
 
 
 def has_real_path(node):
     path = node.get('path')
-    return (isinstance(path, str) and path.startswith('/') and not path.startswith('//')
-            and not path.startswith(PLACEHOLDER_PREFIX))
+    return isinstance(path, str) and path.startswith('/') and not path.startswith('//')
 
 
 def node_status(node):

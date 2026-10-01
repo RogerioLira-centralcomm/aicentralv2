@@ -2,8 +2,7 @@
 const measured=new Set(['page','form','event','conversion','whatsapp','error']);
 export const MEASURED_TYPES=measured;
 export const NODE_STATUSES=['planned','in_production','ready','live'];
-// Older drafts marked a step without a real URL with a fake "/configurar-…" path.
-export const hasRealPath=node=>typeof node?.path==='string'&&node.path.startsWith('/')&&!node.path.startsWith('//')&&!node.path.startsWith('/configurar-');
+export const hasRealPath=node=>typeof node?.path==='string'&&node.path.startsWith('/')&&!node.path.startsWith('//');
 // A step can exist in the plan before its page does; only ready/live steps are measured.
 // Planning is an explicit choice: without a status, a step missing its URL is "ready" and publication asks for it.
 export function nodeStatus(node){

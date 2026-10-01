@@ -13,6 +13,7 @@ from urllib.parse import urlparse, urlencode
 import requests
 from PIL import Image
 from flask import abort, current_app, jsonify, request, send_file
+from .reports_flow_schema import to_v3
 from ..auth import login_required_api
 from .reports_v1 import _selection, _write_guard, _rows
 from .reports_flow import _flow_row, _host_allowed, _safe_path
@@ -130,11 +131,11 @@ def register(bp):
             if not versions: abort(404)
             config = versions[0]['config']
         targets = {}
-        for node in config.get('nodes',[]):
+        for node in to_v3(config).get('nodes',[]):
             if node.get('type')!='page' or node.get('status') in ('planned','in_production'): continue
             host = node.get('host') or flow['allowed_host']
             path = node.get('path') or ''
-            if not _host_allowed(host,flow['allowed_host']) or not path.startswith('/') or path.startswith('//') or path.startswith('/configurar-'): continue
+            if not _host_allowed(host,flow['allowed_host']) or not path.startswith('/') or path.startswith('//'): continue
             targets[node['id']] = f'https://{host}{_safe_path(path)}'
         return selected,flow,targets
 

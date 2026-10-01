@@ -6,7 +6,7 @@ Fonte da verdade: `_normalize_flow_config` em `aicentralv2/cadu_connect/reports_
 
 | Campo | Tipo | Regra |
 |---|---|---|
-| `schema_version` | 1 ou 2 | v2 é projetado para v1 ao salvar (`legacy_projection`); a leitura devolve v2 (`migrate_v1_to_v2`). |
+| `schema_version` | 3 | Um único formato, gravado e devolvido (`to_v3`). Documentos 1 e 2 ainda são aceitos na entrada e convertidos: campos espelhados (`data`, `position`, `source`/`target`, `*_handle`) são dobrados nos campos canônicos e caminhos `/configurar-…` viram passos planejados. Nada é gravado em formato antigo. |
 | `nodes` | lista | até 200 |
 | `edges` | lista | até 300 |
 | `groups` | lista | `{id, name, memberIds[], bounds{x,y,width,height}}` |
@@ -26,13 +26,13 @@ Tamanho máximo serializado: 256 KB.
 | `forecast` | camada Previsão: em `source` `{visits, cost}`, em `conversion` `{value}`; números ≥ 0 (visitas até 1e9, custo até 1e12, valor até 1e9); vazios descartados, outros campos ignorados |
 | `checklist` | só em `note`: até 30 itens `{text, done}`; texto até 200, itens vazios descartados |
 | `title` | até 120, espaços normalizados |
-| `path` | quando presente, começa com `/`, sem `?`/`#`, até 500. Um passo medido sem `path` real só publica se estiver `planned` ou `in_production` |
+| `path` | quando presente, começa com `/`, sem `?`/`#`, até 500. Um passo medido sem `path` só publica se estiver `planned` ou `in_production` |
 | `status` | opcional: `planned`, `in_production`, `ready`, `live`. Sem `status`, vale `live` com endereço real e `ready` sem ele. Só `ready`/`live` com endereço real entram na medição (publicação de passos, jornada, ao vivo, monitor e ingestão) |
 | `spec` | opcional, para passos planejados: `goal`, `suggested_path` (começa com `/`), `headline`, `content`, `cta`, `owner`, `due_date` (`AAAA-MM-DD`), `references`, `notes`; textos com limite por campo, chaves desconhecidas descartadas |
 | `host` | opcional; precisa ser o domínio autorizado ou um subdomínio dele |
 | `event_name` | `event`/`conversion`: `[A-Za-z][A-Za-z0-9_]{0,79}` |
 | `x`, `y` | 0–10000 (posição livre; a etapa é semântica, não força coluna) |
-| `kind` | `categoria.item` (ex.: `traffic.meta`); preservado em v1 e v2; inválido é descartado |
+| `kind` | `categoria.item` (ex.: `traffic.meta`); sempre presente; inválido volta ao padrão do tipo |
 | `source` | plataforma da origem (`google`, `meta`, `organic`, `direct`…) |
 | `stage` | `source`, `entry`, `exploration`, `intent`, `conversion`, `support` |
 | `origin` | `manual`, `blueprint`, `probe`, `strategy` — quem criou o nó |
@@ -48,6 +48,10 @@ Tamanho máximo serializado: 256 KB.
 - `POST {expected_revision, note?}` congela o rascunho atual em `cadu_reports_flow_plan_versions` para aprovação. Não altera `status`, `published_revision`, passos publicados nem a Super Tag. Rascunho vazio → 422; tabela ausente → 503. Publicar de novo a mesma revisão só atualiza a nota.
 - `GET` devolve `{ready, versions[{revision, name, note, created_by, created_at}]}`, da mais recente para a mais antiga (até 50).
 - “Ativar medição” continua sendo `POST …/publish`, com as pendências bloqueantes de sempre.
+
+## Limpeza dos dados do Fluxos
+
+`migrations/run_reset_reports_flows_v3.py` apaga todos os dados de fluxo (desenhos, versões, passos, sessões e eventos de fluxo, descobertas, monitor, prévias registradas) e as tags internas de fluxo que nenhuma tabela de fora do Fluxos usa. Mantém Super Tag, sites, eventos do site e chaves de importação. Por padrão só simula; para apagar: `RESET_REPORTS_FLOWS=1 python migrations/run_reset_reports_flows_v3.py --confirm`. Nunca roda no deploy.
 
 ## Plano sem site
 

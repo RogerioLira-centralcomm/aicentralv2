@@ -114,14 +114,14 @@ export function buildStrategyConfig(strategy, channelKinds = defaultStrategyChan
     const id = crypto.randomUUID();
     ids[kind] = id;
     nodes.push({id, type: 'source', kind, source: block.source, title: block.label, stage: 'source', origin: 'strategy',
-      data: {label: block.label, url: ''}, ...place('source')});
+      ...place('source')});
   }
   for (const step of strategy.steps) {
     const block = flowBlockRegistry[step.kind];
     const id = crypto.randomUUID();
     ids[step.key] = id;
     const node = {id, type: block.type, kind: step.kind, title: step.title, stage: step.stage, origin: 'strategy',
-      data: {label: step.title, url: ''}, ...place(step.stage)};
+      ...place(step.stage)};
     if (MEASURED.has(block.type)) Object.assign(node, {status: 'planned', ...(step.spec ? {spec: {...step.spec}} : {})});
     if (step.condition) node.condition = {...step.condition};
     nodes.push(node);
@@ -131,5 +131,5 @@ export function buildStrategyConfig(strategy, channelKinds = defaultStrategyChan
   const edges = strategy.links.flatMap(([from, to, label, rate]) => (from === '@paid' ? paid : [from]).filter(key => ids[key] && ids[to])
     .map(key => ({id: crypto.randomUUID(), from: ids[key], to: ids[to], variant: 'direct', label: label || 'Próximo',
       ...(rate == null ? {} : {forecast: {rate}})})));
-  return {schema_version: 2, site_kind: strategy.siteKind, strategy_id: strategy.id, nodes, edges};
+  return {schema_version: 3, site_kind: strategy.siteKind, strategy_id: strategy.id, nodes, edges};
 }

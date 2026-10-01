@@ -18,7 +18,9 @@ def register(app):
     app.cli.add_command(rebuild_command)
     app.cli.add_command(memory_worker_command)
     app.cli.add_command(memory_worker_loop_command)
+    from ..cadu_workspace.retrieval_eval import eval_command as retrieval_eval_command
     app.cli.add_command(conversation_index_backfill_command)
+    app.cli.add_command(retrieval_eval_command)
 
     @app.context_processor
     def family_flags():

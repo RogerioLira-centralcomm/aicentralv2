@@ -1,0 +1,8 @@
+# Um caso por linha (JSONL). Copie para retrieval-cases.jsonl e troque pelos seus projetos reais.
+# project_ref: "ci:<id do projeto>". expect_any: textos que uma boa fonte contém (basta um; ignora acentos e caixa).
+# history (opcional): transcrição anterior, para testar perguntas de continuação como "e o orçamento?".
+{"id": "verba-direta", "project_ref": "ci:EXEMPLO", "question": "Qual é a verba de mídia aprovada?", "expect_any": ["R$ 50 mil", "50.000"]}
+{"id": "publico-direto", "project_ref": "ci:EXEMPLO", "question": "Quem é o público-alvo da campanha?", "expect_any": ["B2B", "público-alvo"]}
+{"id": "continuacao", "project_ref": "ci:EXEMPLO", "question": "e o orçamento?", "history": "Usuário: Como está o plano de mídia do lançamento no Google Ads?\nAssistente: O plano está em revisão.", "expect_any": ["orçamento", "verba"]}
+{"id": "decisao-conversa", "project_ref": "ci:EXEMPLO", "question": "O que decidimos sobre os canais?", "expect_any": ["Google Ads", "Meta Ads"]}
+{"id": "arquivo-planilha", "project_ref": "ci:EXEMPLO", "question": "Qual o CPL meta do plano?", "expect_any": ["CPL"]}

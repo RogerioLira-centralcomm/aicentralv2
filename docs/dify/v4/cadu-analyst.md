@@ -6,6 +6,8 @@ Cole depois do prompt base. O backend usa este app quando `task.execution_mode` 
 
 ## Modo análise
 
+Perguntas gerais ou simples (conhecimento geral, definições, ajuda de texto) recebem uma resposta direta e curta, sem a estrutura abaixo e sem mencionar o projeto. A estrutura a seguir vale para análises, recomendações, planos e consultas sobre o projeto.
+
 Antes de escrever, identifique na evidência:
 - o que responde diretamente ao pedido;
 - o que está confirmado e o que é hipótese;

@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Novo layout - Dados de mídia</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f7f6;
+      color: #17241f;
+    }
+
+    /* Hero Section */
+    .reports-media-hero {
+      position: relative;
+      overflow: hidden;
+      border-radius: 16px;
+      padding: 32px 36px;
+      background: linear-gradient(135deg, #f0f5ff 0%, #e6f0ff 50%, #dce8ff 100%);
+      border: 1px solid #e0e8f0;
+      margin-bottom: 24px;
+    }
+
+    .reports-media-hero:before {
+      content: "";
+      position: absolute;
+      right: -80px;
+      top: -60px;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(23, 107, 226, .08) 0%, rgba(23, 107, 226, 0) 70%);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .reports-media-hero__inner {
+      position: relative;
+      max-width: 600px;
+    }
+
+    .reports-media-hero__eyebrow {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      font-weight: 750;
+      color: #155fce;
+      margin-bottom: 8px;
+    }
+
+    .reports-media-hero h1 {
+      font-size: clamp(28px, 3vw, 38px);
+      line-height: 1.15;
+      letter-spacing: -.04em;
+      margin: 0 0 12px;
+      color: #17241f;
+    }
+
+    .reports-media-hero p {
+      margin: 0;
+      color: #627168;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    /* Layout Container */
+    .reports-media-container {
+      display: grid;
+      gap: 24px;
+    }
+
+    .reports-media-layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    /* Sidebar */
+    .reports-media-sidebar {
+      position: sticky;
+      top: 20px;
+      display: grid;
+      gap: 16px;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e0e8e3;
+      border-radius: 15px;
+      box-shadow: 0 2px 8px rgba(24, 56, 39, .035);
+    }
+
+    .reports-media-status {
+      padding: 20px;
+    }
+
+    .reports-media-status h2 {
+      margin: 0 0 16px;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -.02em;
+    }
+
+    .reports-media-kpis {
+      display: grid;
+      gap: 16px;
+    }
+
+    .reports-media-kpi {
+      display: grid;
+      gap: 6px;
+    }
+
+    .reports-media-kpi__label {
+      font-size: 12px;
+      color: #718078;
+      font-weight: 600;
+    }
+
+    .reports-media-kpi__value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #17241f;
+      line-height: 1;
+    }
+
+    /* Main Area */
+    .reports-media-main {
+      display: grid;
+      gap: 20px;
+      min-width: 0;
+    }
+
+    .reports-media-connect,
+    .reports-media-script,
+    .reports-media-keys,
+    .reports-media-runs {
+      padding: 24px;
+    }
+
+    .reports-media-connect h2,
+    .reports-media-script h2,
+    .reports-media-keys h2,
+    .reports-media-runs h2 {
+      margin: 0 0 12px;
+      font-size: 17px;
+      letter-spacing: -.02em;
+      color: #17241f;
+    }
+
+    .reports-media-connect > p {
+      margin: 0 0 20px;
+      color: #627168;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+
+    .panel-head span {
+      font-size: 12px;
+      color: #718078;
+    }
+
+    form label {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 14px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #17241f;
+    }
+
+    input, select {
+      padding: 10px 12px;
+      border: 1px solid #d0d5dd;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: inherit;
+    }
+
+    button {
+      padding: 10px 16px;
+      background: #103b29;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 650;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+
+    button:hover {
+      background: #185438;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th {
+      text-align: left;
+      padding: 12px;
+      border-bottom: 1px solid #e0e8e3;
+      font-weight: 600;
+      color: #17241f;
+    }
+
+    td {
+      padding: 12px;
+      border-bottom: 1px solid #f0f4f2;
+      color: #44524a;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .empty {
+      padding: 40px 20px;
+      text-align: center;
+      color: #718078;
+      font-size: 13px;
+    }
+
+    /* Responsive */
+    @media (max-width: 1000px) {
+      .reports-media-layout {
+        grid-template-columns: 1fr;
+      }
+      .reports-media-sidebar {
+        position: static;
+      }
+    }
+
+    @media (max-width: 700px) {
+      .reports-media-hero {
+        padding: 24px 20px;
+        margin-bottom: 16px;
+      }
+      .reports-media-hero h1 {
+        font-size: 24px;
+      }
+      .reports-media-sidebar {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      }
+      .reports-media-status {
+        padding: 16px;
+      }
+      .reports-media-main {
+        gap: 14px;
+      }
+      .reports-media-connect,
+      .reports-media-script,
+      .reports-media-keys,
+      .reports-media-runs {
+        padding: 16px;
+      }
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .diff-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      background: #dffcf0;
+      border: 1px solid #abefc2;
+      border-radius: 4px;
+      font-size: 11px;
+      color: #176b3c;
+      font-weight: 600;
+      margin: 0 8px 0 0;
+    }
+
+    .changes {
+      background: #fff;
+      border: 1px solid #e0e8e3;
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 32px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .changes h3 {
+      margin: 0 0 12px;
+      font-size: 15px;
+      color: #17241f;
+    }
+
+    .changes ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    .changes li {
+      margin-bottom: 8px;
+      color: #627168;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="reports-media-hero">
+      <div class="reports-media-hero__inner">
+        <div class="reports-media-hero__eyebrow">Conectar dados</div>
+        <h1>Dados de mídia</h1>
+        <p>Receba campanhas, métricas e conversões de suas fontes de anúncios e CRM.</p>
+      </div>
+    </div>
+
+    <div class="reports-media-container">
+      <div class="reports-media-layout">
+        <aside class="reports-media-sidebar">
+          <div class="card reports-media-status">
+            <h2>Status</h2>
+            <div class="reports-media-kpis">
+              <div class="reports-media-kpi">
+                <span class="reports-media-kpi__label">Fontes conectadas</span>
+                <strong class="reports-media-kpi__value">2</strong>
+              </div>
+              <div class="reports-media-kpi">
+                <span class="reports-media-kpi__label">Últimos envios</span>
+                <strong class="reports-media-kpi__value">15</strong>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <main class="reports-media-main">
+          <article class="card reports-media-connect">
+            <div class="panel-head">
+              <h2>Conectar fonte</h2>
+              <span>Instalação</span>
+            </div>
+            <p>Google Ads envia campanhas e métricas. O webhook recebe conversões confirmadas pelo CRM sem dados pessoais.</p>
+            <form>
+              <label>Fonte
+                <select>
+                  <option>Google Ads Script</option>
+                  <option>CRM / conversões</option>
+                </select>
+              </label>
+              <label>Nome da instalação
+                <input type="text" value="Google Ads · monitoramento">
+              </label>
+              <button>Gerar integração</button>
+            </form>
+          </article>
+
+          <article class="card reports-media-keys">
+            <div class="panel-head">
+              <h2>Chaves de ingestão</h2>
+              <span>2 criadas</span>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Fonte</th>
+                  <th>MCC / contas permitidas</th>
+                  <th>Último envio</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Google Ads · monitoramento</td>
+                  <td>Google Ads</td>
+                  <td>123-456-7890</td>
+                  <td>30 de set</td>
+                  <td><span style="color: #12a855;">●</span> Ativa</td>
+                </tr>
+                <tr>
+                  <td>Google Ads · monitoramento</td>
+                  <td>Google Ads</td>
+                  <td>123-456-7890</td>
+                  <td>—</td>
+                  <td><span style="color: #f59e0b;">●</span> Aguardando</td>
+                </tr>
+              </tbody>
+            </table>
+          </article>
+
+          <article class="card reports-media-runs">
+            <div class="panel-head">
+              <h2>Últimos envios</h2>
+              <span>15 lotes</span>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Recebido</th>
+                  <th>Período</th>
+                  <th>Linhas</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>30 de set</td>
+                  <td>29 de set – 30 de set</td>
+                  <td>1.250</td>
+                  <td>Concluído</td>
+                </tr>
+                <tr>
+                  <td>29 de set</td>
+                  <td>28 de set – 29 de set</td>
+                  <td>980</td>
+                  <td>Concluído</td>
+                </tr>
+              </tbody>
+            </table>
+          </article>
+        </main>
+      </div>
+    </div>
+
+    <div class="changes">
+      <h3><span class="diff-badge">ALTERAÇÕES</span>Nova estrutura da página "Dados de mídia"</h3>
+      <ul>
+        <li><strong>Hero section:</strong> Adicionado header com gradiente azul, eyebrow, título e descrição para melhor apresentação</li>
+        <li><strong>Sidebar com KPIs:</strong> Painel fixo na esquerda mostrando "Fontes conectadas" e "Últimos envios" em grande escala</li>
+        <li><strong>Layout responsivo:</strong> Grid 2 colunas em desktop, empilhado em tablet, 2 colunas para KPIs em mobile</li>
+        <li><strong>Melhor organização:</strong> Informações principais agrupadas de forma clara e intuitiva</li>
+        <li><strong>Typography melhorada:</strong> Hierarquia visual mais clara com eyebrow, headings e body text bem definidos</li>
+        <li><strong>Espaçamento aumentado:</strong> Melhor respiro visual entre elementos (gap: 24px, 20px)</li>
+        <li><strong>Responsividade:</strong> Sidebar sticky até 1000px, depois empilha; KPIs em 2 colunas em mobile (700px)</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

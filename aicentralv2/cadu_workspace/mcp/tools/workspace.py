@@ -9,6 +9,7 @@ from uuid import uuid4
 from flask import current_app
 from ....cadu_family import repository
 from ....db import get_db
+from ...agent_v2 import rerank as rerank_module
 from ...agent_v2.contracts import RequestContext
 from ...conversations.service import project_knowledge_context
 from ...project_query import is_overview_query
@@ -619,7 +620,8 @@ def get_project_context(context: RequestContext, arguments: dict, *, result_limi
         "type": "object",
         "required": ["query"],
         "properties": {"query": {"type": "string", "minLength": 2, "maxLength": 400},
-                       "mode": {"type": "string", "enum": ["search", "overview"]}},
+                       "mode": {"type": "string", "enum": ["search", "overview"]},
+                       "rerank": {"type": "boolean"}},
         "additionalProperties": False,
     },
 )
@@ -756,9 +758,13 @@ def search_project_content(context: RequestContext, arguments: dict) -> dict:
             ([row for row in conversation_results
               if row.get("evidence_level") == "prior_assistant_output_unverified"], 0.4),
         ])
+    reranked = False
+    if not overview:
+        ranked, reranked = rerank_module.rerank(query, ranked, setting=arguments.get("rerank"))
     return {
         "project_ref": context.project_ref,
         "mode": "overview" if overview else "search",
+        "reranked": reranked,
         "context_status": packet.get("context_status") or "unavailable",
         "query": query,
         "revision": direction.get("revision"),

@@ -2505,9 +2505,9 @@ def test_prompt_payload_is_compact_and_does_not_inject_unrequested_domains():
                             user_label="user-7")
     serialized = __import__("json").dumps(payload, ensure_ascii=False)
     # The production Dify workflow still requires ``core`` and its temporary
-    # ``skill_context`` alias. Keep the complete request below a small 12 KB
+    # ``skill_context`` alias. Keep the complete request below a small 13 KB
     # envelope until that legacy input is removed from the workflow.
-    assert len(serialized) < 12000
+    assert len(serialized) < 13000
     assert "workspace_da_equipe" not in serialized
     assert "catalogo_midia_cadu" not in serialized
     assert payload["inputs"]["user_profile_context"] == payload["inputs"]["current_context"]

@@ -126,52 +126,9 @@ git pull origin main >> "$DEPLOY_LOG" 2>&1
 git checkout -- . 2>/dev/null || true
 echo "  > OK"
 
-# 2b. Build frontend (artefatos gerados somente quando a camada visual mudou)
-echo ""
-echo "[2b/8] Build frontend (Tailwind)..."
-FRONTEND_STATE_FILE="${FRONTEND_STATE_FILE:-logs/.last-frontend-build-revision}"
-FRONTEND_REVISION="$(git rev-parse HEAD)"
-RUN_FRONTEND_BUILD=1
-if [ "${FORCE_FRONTEND_BUILD:-0}" != "1" ] && [ -s "$FRONTEND_STATE_FILE" ]; then
-    LAST_FRONTEND_REVISION="$(head -n 1 "$FRONTEND_STATE_FILE")"
-    if git cat-file -e "${LAST_FRONTEND_REVISION}^{commit}" 2>/dev/null && \
-       git diff --quiet "$LAST_FRONTEND_REVISION" "$FRONTEND_REVISION" -- \
-           frontend aicentralv2/templates aicentralv2/static/cadu_workspace \
-           aicentralv2/static/cadu_studio aicentralv2/static/css package.json \
-           package-lock.json build_frontend.sh postcss.config.js \
-           tailwind.config.js tailwind.artifact.config.js \
-           tailwind.conversations.config.js tailwind.studio.config.js \
-           vite.auth.config.mjs vite.conversations.config.mjs \
-           vite.reports.config.mjs vite.planner.config.mjs \
-           vite.studio-editor.config.mjs vite.studio-audio.config.mjs && \
-       [ -f "aicentralv2/static/css/tailwind/output.css" ]; then
-        RUN_FRONTEND_BUILD=0
-    fi
-fi
-
-if [ "$RUN_FRONTEND_BUILD" = "1" ] && [ -x "./build_frontend.sh" ]; then
-    # Keep the detailed log while streaming progress to the terminal. Without
-    # this, npm ci/Vite can run for several minutes and the deploy appears
-    # frozen at [2b/8].
-    bash ./build_frontend.sh 2>&1 | tee -a "$DEPLOY_LOG"
-    mkdir -p "$(dirname "$FRONTEND_STATE_FILE")"
-    printf '%s\n' "$FRONTEND_REVISION" > "${FRONTEND_STATE_FILE}.tmp"
-    mv "${FRONTEND_STATE_FILE}.tmp" "$FRONTEND_STATE_FILE"
-    echo "  > OK (frontend compilado para $FRONTEND_REVISION)"
-elif [ "$RUN_FRONTEND_BUILD" = "1" ] && command -v npm >/dev/null 2>&1 && [ -f package.json ]; then
-    npm install --no-audit --no-fund >> "$DEPLOY_LOG" 2>&1
-    npm run build >> "$DEPLOY_LOG" 2>&1
-    mkdir -p "$(dirname "$FRONTEND_STATE_FILE")"
-    printf '%s\n' "$FRONTEND_REVISION" > "${FRONTEND_STATE_FILE}.tmp"
-    mv "${FRONTEND_STATE_FILE}.tmp" "$FRONTEND_STATE_FILE"
-    echo "  > OK (frontend compilado para $FRONTEND_REVISION)"
-elif [ "$RUN_FRONTEND_BUILD" = "0" ]; then
-    echo "  > Frontend sem alteracoes; pulando build."
-else
-    echo "  > ERRO: build frontend indisponivel — output.css nao sera gerado"
-    exit 1
-fi
-
+# Ordem: código → dependências → schema → build → parada curta → workers → início.
+# O schema vem antes do build: um worker do gunicorn reciclado durante o build já
+# carrega o código novo e encontra as colunas novas, e o serviço só cai no fim.
 # 3. Atualizar dependencias
 echo ""
 echo "[3/7] Atualizando dependencias..."
@@ -224,44 +181,6 @@ if [ ! -f "$REQUIREMENTS_STATE_FILE" ] || [ "$(cat "$REQUIREMENTS_STATE_FILE")" 
 else
     echo "  > requirements.txt sem alteracoes; pulando instalacao Python."
 fi
-echo "  > OK"
-
-stop_service_for_deploy
-
-# 4. Criar diretorios e dependencias do sistema
-mkdir -p aicentralv2/static/uploads/audiencias aicentralv2/static/uploads/cotacoes \
-    aicentralv2/static/media/whatsapp/outbound logs
-chmod 755 aicentralv2/static/uploads/audiencias aicentralv2/static/uploads/cotacoes \
-    aicentralv2/static/media/whatsapp aicentralv2/static/media/whatsapp/outbound logs
-
-if ! command -v ffmpeg >/dev/null 2>&1; then
-    echo ""
-    echo "  > ffmpeg nao encontrado — instalando (necessario para audio WhatsApp)..."
-    sudo apt-get update -qq && sudo apt-get install -y ffmpeg >/dev/null 2>&1 || \
-        echo "  > AVISO: instale ffmpeg manualmente (sudo apt install ffmpeg)"
-fi
-
-# 5. Limpar cache Python
-echo ""
-echo "[4/7] Limpando cache..."
-if [ "${CLEAN_PYTHON_CACHE:-0}" = "1" ]; then
-    find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-    find . -type f -name "*.pyc" -delete 2>/dev/null || true
-else
-    echo "  > Cache preservado (use CLEAN_PYTHON_CACHE=1 para limpar manualmente)."
-fi
-echo "  > OK"
-
-# 6. Recarregar systemd (o unit principal e gerenciado no servidor)
-echo ""
-echo "[5/8] Recarregando systemd..."
-sudo systemctl daemon-reload
-echo "  > OK"
-
-# 7. Nginx — limite de upload (413)
-echo ""
-echo "[6/8] Configurando nginx (client_max_body_size 256M)..."
-bash deploy/configure_nginx_upload.sh >> "$DEPLOY_LOG" 2>&1
 echo "  > OK"
 
 # 8. Atualizar schema e dados idempotentes
@@ -414,9 +333,11 @@ fi
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_supertag_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_supertag_flow_lifecycle_events.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_private_tags_v1.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_ownership_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_plan_versions_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_plan_only_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_templates_v1.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_probe_runs_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_supertag_known_visitors.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_link_associations_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py move_link_tester_to_reports_v1.sql
@@ -452,6 +373,90 @@ fi
 else
     echo "  > Nenhuma migração alterada desde $LAST_MIGRATION_REVISION; pulando bloco de migrações."
 fi
+
+# 2b. Build frontend (artefatos gerados somente quando a camada visual mudou)
+echo ""
+echo "[2b/8] Build frontend (Tailwind)..."
+FRONTEND_STATE_FILE="${FRONTEND_STATE_FILE:-logs/.last-frontend-build-revision}"
+FRONTEND_REVISION="$(git rev-parse HEAD)"
+RUN_FRONTEND_BUILD=1
+if [ "${FORCE_FRONTEND_BUILD:-0}" != "1" ] && [ -s "$FRONTEND_STATE_FILE" ]; then
+    LAST_FRONTEND_REVISION="$(head -n 1 "$FRONTEND_STATE_FILE")"
+    if git cat-file -e "${LAST_FRONTEND_REVISION}^{commit}" 2>/dev/null && \
+       git diff --quiet "$LAST_FRONTEND_REVISION" "$FRONTEND_REVISION" -- \
+           frontend aicentralv2/templates aicentralv2/static/cadu_workspace \
+           aicentralv2/static/cadu_studio aicentralv2/static/css package.json \
+           package-lock.json build_frontend.sh postcss.config.js \
+           tailwind.config.js tailwind.artifact.config.js \
+           tailwind.conversations.config.js tailwind.studio.config.js \
+           vite.auth.config.mjs vite.conversations.config.mjs \
+           vite.reports.config.mjs vite.planner.config.mjs \
+           vite.studio-editor.config.mjs vite.studio-audio.config.mjs && \
+       [ -f "aicentralv2/static/css/tailwind/output.css" ]; then
+        RUN_FRONTEND_BUILD=0
+    fi
+fi
+
+if [ "$RUN_FRONTEND_BUILD" = "1" ] && [ -x "./build_frontend.sh" ]; then
+    # Keep the detailed log while streaming progress to the terminal. Without
+    # this, npm ci/Vite can run for several minutes and the deploy appears
+    # frozen at [2b/8].
+    bash ./build_frontend.sh 2>&1 | tee -a "$DEPLOY_LOG"
+    mkdir -p "$(dirname "$FRONTEND_STATE_FILE")"
+    printf '%s\n' "$FRONTEND_REVISION" > "${FRONTEND_STATE_FILE}.tmp"
+    mv "${FRONTEND_STATE_FILE}.tmp" "$FRONTEND_STATE_FILE"
+    echo "  > OK (frontend compilado para $FRONTEND_REVISION)"
+elif [ "$RUN_FRONTEND_BUILD" = "1" ] && command -v npm >/dev/null 2>&1 && [ -f package.json ]; then
+    npm install --no-audit --no-fund >> "$DEPLOY_LOG" 2>&1
+    npm run build >> "$DEPLOY_LOG" 2>&1
+    mkdir -p "$(dirname "$FRONTEND_STATE_FILE")"
+    printf '%s\n' "$FRONTEND_REVISION" > "${FRONTEND_STATE_FILE}.tmp"
+    mv "${FRONTEND_STATE_FILE}.tmp" "$FRONTEND_STATE_FILE"
+    echo "  > OK (frontend compilado para $FRONTEND_REVISION)"
+elif [ "$RUN_FRONTEND_BUILD" = "0" ]; then
+    echo "  > Frontend sem alteracoes; pulando build."
+else
+    echo "  > ERRO: build frontend indisponivel — output.css nao sera gerado"
+    exit 1
+fi
+
+stop_service_for_deploy
+
+# 4. Criar diretorios e dependencias do sistema
+mkdir -p aicentralv2/static/uploads/audiencias aicentralv2/static/uploads/cotacoes \
+    aicentralv2/static/media/whatsapp/outbound logs
+chmod 755 aicentralv2/static/uploads/audiencias aicentralv2/static/uploads/cotacoes \
+    aicentralv2/static/media/whatsapp aicentralv2/static/media/whatsapp/outbound logs
+
+if ! command -v ffmpeg >/dev/null 2>&1; then
+    echo ""
+    echo "  > ffmpeg nao encontrado — instalando (necessario para audio WhatsApp)..."
+    sudo apt-get update -qq && sudo apt-get install -y ffmpeg >/dev/null 2>&1 || \
+        echo "  > AVISO: instale ffmpeg manualmente (sudo apt install ffmpeg)"
+fi
+
+# 5. Limpar cache Python
+echo ""
+echo "[4/7] Limpando cache..."
+if [ "${CLEAN_PYTHON_CACHE:-0}" = "1" ]; then
+    find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+    find . -type f -name "*.pyc" -delete 2>/dev/null || true
+else
+    echo "  > Cache preservado (use CLEAN_PYTHON_CACHE=1 para limpar manualmente)."
+fi
+echo "  > OK"
+
+# 6. Recarregar systemd (o unit principal e gerenciado no servidor)
+echo ""
+echo "[5/8] Recarregando systemd..."
+sudo systemctl daemon-reload
+echo "  > OK"
+
+# 7. Nginx — limite de upload (413)
+echo ""
+echo "[6/8] Configurando nginx (client_max_body_size 256M)..."
+bash deploy/configure_nginx_upload.sh >> "$DEPLOY_LOG" 2>&1
+echo "  > OK"
 
 # O catálogo pode ser montado fora do Git em qualquer momento. Mantemos esta
 # importação independente do marcador de migrations para não ignorar um novo

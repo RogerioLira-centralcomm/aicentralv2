@@ -481,6 +481,26 @@ def tags_from_requests(urls):
     return fired
 
 
+def _guard_browser(page):
+    """Abort every request whose host does not resolve to a public address (SSRF), like the HTTP fetch does."""
+    from werkzeug.exceptions import BadRequest
+    from .reports_link_tester import _public_host
+    verdicts = {}
+
+    def handle(route):
+        parsed = urlparse(route.request.url)
+        if parsed.scheme not in ('http', 'https') or not parsed.hostname:
+            return route.abort() if parsed.scheme not in ('data', 'blob') else route.continue_()
+        if parsed.hostname not in verdicts:
+            try:
+                _public_host(parsed)
+                verdicts[parsed.hostname] = True
+            except (BadRequest, ValueError):
+                verdicts[parsed.hostname] = False
+        return route.continue_() if verdicts[parsed.hostname] else route.abort()
+    page.route('**/*', handle)
+
+
 def render_with_browser(url):
     """Load the page with scripts running and list the requests it makes. Never captures images."""
     from playwright.sync_api import sync_playwright
@@ -488,6 +508,7 @@ def render_with_browser(url):
         browser = pw.chromium.launch(headless=True)
         try:
             page = browser.new_page()
+            _guard_browser(page)
             requests_seen = []
             page.on('request', lambda request: requests_seen.append(request.url) if len(requests_seen) < 500 else None)
             page.goto(url, wait_until='domcontentloaded', timeout=20000)
@@ -514,6 +535,7 @@ def _submit_with_browser(url, form_index, allowed_host):
         browser = pw.chromium.launch(headless=True)
         try:
             page = browser.new_page()
+            _guard_browser(page)
             hosts, urls = set(), []
             page.on('request', lambda request: (hosts.add(urlparse(request.url).hostname or ''), urls.append(request.url) if len(urls) < 800 else None))
             page.goto(url, wait_until='domcontentloaded', timeout=20000)

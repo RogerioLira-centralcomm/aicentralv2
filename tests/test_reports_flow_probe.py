@@ -105,3 +105,31 @@ class InstitutionalProposalTests(unittest.TestCase):
         self.assertNotIn('conversion', types)
         self.assertLessEqual(sum(1 for t in types if t in ('page', 'form', 'conversion', 'error')), 6)
         self.assertIn('whatsapp', types)
+
+
+class BrowserGuardTests(unittest.TestCase):
+    def test_private_hosts_are_aborted_and_public_continue(self):
+        from unittest import mock
+
+        class Route:
+            def __init__(self, url):
+                self.request = type('R', (), {'url': url})()
+                self.result = None
+            def abort(self): self.result = 'abort'
+            def continue_(self): self.result = 'continue'
+
+        class Page:
+            def route(self, pattern, handler): self.handler = handler
+
+        page = Page()
+        probe._guard_browser(page)
+        from werkzeug.exceptions import BadRequest
+        def fake_public(parsed):
+            if parsed.hostname in ('169.254.169.254', 'localhost'):
+                raise BadRequest('privado')
+        with mock.patch('aicentralv2.cadu_connect.reports_link_tester._public_host', side_effect=fake_public):
+            for url, expected in (('http://169.254.169.254/latest/meta-data', 'abort'), ('http://localhost:5432/', 'abort'),
+                                  ('https://www.example.com/app.js', 'continue'), ('file:///etc/passwd', 'abort')):
+                route = Route(url)
+                page.handler(route)
+                self.assertEqual(route.result, expected, url)

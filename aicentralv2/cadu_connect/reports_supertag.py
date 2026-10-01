@@ -116,17 +116,25 @@ def ensure_supertag_site(selected, host, label):
     return site, True
 
 
+def _flow_listens_to(flow, site, nodes, page_host):
+    if flow.get('site_id') == site['id'] and _host_allowed(page_host, flow['allowed_host']):
+        return True
+    return any(node.get('host') and _host_allowed(page_host, node['host']) and _host_allowed(node['host'], site['allowed_host'])
+               for node in nodes if isinstance(node, dict))
+
+
 def _fanout_flow_events(site, prepared, page_host):
     """Mirror consented Super Tag events into published flows on the same site."""
-    flow_rows = _rows('''SELECT f.id,f.client_id,f.flow_code,f.config,t.id AS tag_id,t.allowed_host
+    flow_rows = _rows('''SELECT f.id,f.client_id,f.site_id,f.flow_code,f.config,t.id AS tag_id,t.allowed_host
         FROM cadu_reports_flow_registry f JOIN cadu_reports_site_tags t ON t.id=f.tag_id
-        WHERE f.client_id=%s AND f.site_id=%s AND f.status='published' AND t.revoked_at IS NULL''',
-        (site['client_id'],site['id']))
+        WHERE f.client_id=%s AND f.status='published' AND t.revoked_at IS NULL''',
+        (site['client_id'],))
     from .reports_flow_versions import session_snapshot, match_version_step
     for flow in flow_rows:
-        if not _host_allowed(page_host, flow['allowed_host']):
-            continue
         nodes = (flow.get('config') or {}).get('nodes', [])
+        # A flow listens to its own site and to any other installation of the client that one of its steps lives on.
+        if not _flow_listens_to(flow, site, nodes, page_host):
+            continue
         for item in prepared:
             (event_id, _site_id, _client_id, visitor_id, session_id, kind,
              event_name, path, referrer, attribution_json, data_json, _width, _height,

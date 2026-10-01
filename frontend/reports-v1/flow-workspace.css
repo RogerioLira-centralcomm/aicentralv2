@@ -602,3 +602,5 @@
 .flow-inspector details.flow-inspector__more>summary{padding:2px 0}
 .reports-shell--flow-editor .reports-flow-designer--compact>.reports-node-settings{top:12px}
 .reports-panel-shell__footer .flow-inspector__remove{min-height:24px;padding:0 6px;font-size:12px;font-weight:500;margin-right:auto}
+.flow-inspector__tag-note{padding:8px 10px;border-radius:8px;background:var(--color-bg-warning-primary,#fffaeb);color:var(--color-text-warning-primary,#b54708)!important}
+.flow-inspector__tag-note a{color:inherit;font-weight:600}

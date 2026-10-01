@@ -82,3 +82,10 @@ Por cliente e domínio, a partir do sitemap; não pertence a um fluxo (`cadu_rep
 ## Teste de conversão (`POST …/flows/<id>/probe`)
 
 Payload: `{path, mode: 'analyze'|'submit', site_kind?, form_index?, confirm_submit?}`. A análise nunca envia formulário nem captura tela. O envio exige `confirm_submit: true`, Playwright no servidor e o domínio autorizado; o limite é de 3 por dia por fluxo (`cadu_reports_flow_probe_runs`). Os nós propostos levam `origin: 'probe'`.
+
+## Vários domínios (medição)
+
+- Um passo pode ter `host` de outro domínio do cliente; o salvamento não restringe mais o domínio.
+- A medição exige a Super Tag instalada nesse domínio. O fanout (`_fanout_flow_events`) leva ao fluxo os eventos do próprio site e das outras instalações do cliente em que algum passo do fluxo vive (`_flow_listens_to`).
+- `readiness` devolve o aviso `external_host_without_tag` para passos medidos em domínio sem instalação; não bloqueia a publicação.
+- Buscas feitas pelo servidor (prévias, descoberta, sondagem) continuam restritas ao domínio do fluxo e a destinos públicos.

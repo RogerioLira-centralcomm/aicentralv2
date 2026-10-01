@@ -163,12 +163,11 @@ class PlannedNormalizationTests(unittest.TestCase):
         with self.assertRaises(BadRequest):
             _normalize_flow_config({'nodes': [{**source, 'segment': {'name': 'x', 'kind': 'vip'}}], 'edges': []}, HOST)
 
-    def test_a_plan_without_a_site_accepts_pages_from_any_domain_but_a_site_restricts_them(self):
+    def test_pages_may_live_on_other_domains_with_or_without_a_site(self):
         pages = [page(path='/a', host='cliente.com.br'), page('b', path='/b', host='outro.com')]
-        config, _ = _normalize_flow_config({'nodes': pages, 'edges': []}, '')
-        self.assertEqual([node['host'] for node in config['nodes']], ['cliente.com.br', 'outro.com'])
-        with self.assertRaises(BadRequest):
-            _normalize_flow_config({'nodes': pages, 'edges': []}, 'cliente.com.br')
+        for allowed in ('', 'cliente.com.br'):
+            config, _ = _normalize_flow_config({'nodes': pages, 'edges': []}, allowed)
+            self.assertEqual([node['host'] for node in config['nodes']], ['cliente.com.br', 'outro.com'])
 
     def test_pages_can_be_saved_by_full_url(self):
         config, measured = _normalize_flow_config({'nodes': [page(url='https://cliente.com.br/oferta?x=1')], 'edges': []}, '')

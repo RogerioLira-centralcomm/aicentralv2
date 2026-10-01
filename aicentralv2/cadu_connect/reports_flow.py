@@ -49,6 +49,20 @@ def _host(value):
     return value
 
 
+def _external_host_issues(config, allowed_host, client_id):
+    """Measured steps on another domain only receive data once the client's Super Tag is installed there."""
+    from .reports_flow_validation import is_measured
+    external = [node for node in config.get('nodes', []) if isinstance(node, dict) and node.get('host')
+                and is_measured(node) and not _host_allowed(node['host'], allowed_host or '')]
+    if not external:
+        return []
+    installed = [row['allowed_host'] for row in _rows(
+        """SELECT allowed_host FROM cadu_reports_supertag_sites WHERE client_id=%s AND enabled=TRUE AND revoked_at IS NULL""", (client_id,))]
+    return [{'severity': 'warning', 'code': 'external_host_without_tag', 'node_id': node.get('id'),
+             'message': f"A Super Tag ainda não está instalada em {node['host']}. Instale-a nesse domínio para medir “{node.get('title') or node.get('path')}”."}
+            for node in external if not any(_host_allowed(node['host'], host) for host in installed)]
+
+
 def _domain_root(host):
     return host[4:] if host.startswith('www.') else host
 
@@ -534,9 +548,8 @@ def _normalize_flow_config(config, allowed_host):
         host = node.get('host') or None
         if host:
             host = _host(host)
-            # A plan without a site has no domain to hold its pages to; a flow with a site does.
-            if allowed_host and not _host_allowed(host, allowed_host):
-                abort(400, description='O nó precisa usar o domínio autorizado ou um subdomínio dele.')
+            # Pages may live on other domains of the client; they are measured once the Super Tag is installed there
+            # (see _external_host_issues). Server-side fetches stay restricted to the flow's own domain.
         event_name = str(node.get('event_name') or node.get('event') or '')[:80]
         if event_name and node_type in ('event','conversion') and not re.fullmatch(
                 r'[A-Za-z][A-Za-z0-9_]{0,79}', event_name):
@@ -1903,6 +1916,7 @@ def register(bp):
           WHERE client_id=%s AND site_id=%s AND occurred_at>NOW()-INTERVAL '24 hours'
           AND expires_at>NOW()) AS ready""",(selected['client_id'],flow['site_id']))[0]['ready'])
         issues=validate_flow_config(to_v3(flow.get('config') or {}),flow['allowed_host'])
+        issues+=_external_host_issues(to_v3(flow.get('config') or {}),flow['allowed_host'],selected['client_id'])
         if flow.get('tag_id') and not ready:issues.append({'severity':'warning','code':'tracking_not_ready','message':'Super Tag sem eventos recebidos nas últimas 24 horas. Verifique a instalação.'})
         return jsonify(issues=issues,tracking_ready=ready,draft_revision=flow['draft_revision'])
 

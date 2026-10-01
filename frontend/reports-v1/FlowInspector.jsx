@@ -38,7 +38,7 @@ export function FlowInspector({sitePages,onSplitSegment,node,nodes=[],groups=[],
       <div className="flow-inspector__kind"><span>{block.category}</span>{chip&&<em className={chip[1]} aria-live="polite">{chip[0]}</em>}</div>
       <label>Nome<ReportsFieldInput disabled={readOnly} value={node.title||''} maxLength="60" onChange={event=>onChange('title',event.target.value)}/></label>
       {node.type==='note'&&<NoteEditor node={node} readOnly={readOnly} onChange={onChange}/>}
-      {pageLike&&<PageSource node={node} spec={spec} planned={planned} readOnly={readOnly} onChange={onChange} sitePages={sitePages}/>}
+      {pageLike&&<PageSource node={node} spec={spec} planned={planned} readOnly={readOnly} onChange={onChange} sitePages={sitePages} integrationsUrl={integrationsUrl}/>}
       {['event','conversion'].includes(node.type)&&<label>Nome do evento{node.type==='conversion'?' (opcional)':''}<ReportsFieldInput disabled={readOnly} value={node.event_name||''} placeholder="lead_enviado" onChange={event=>onChange('event_name',event.target.value)}/>{node.event_name&&<small>{measurementHint(node)}</small>}</label>}
       {node.type==='source'&&<>
         <label>Público<ReportsFieldInput disabled={readOnly} maxLength="80" value={node.segment?.name||''} placeholder="Ex.: Remarketing 30 dias" onChange={event=>onChange('segment',{...(node.segment||{}),name:event.target.value})}/></label>
@@ -85,7 +85,10 @@ function NoteEditor({node,readOnly,onChange}){
   </>;
 }
 
-function PageSource({node,spec,planned,readOnly,onChange,sitePages}){
+function PageSource({node,spec,planned,readOnly,onChange,sitePages,integrationsUrl}){
+  const installed=sitePages?.hosts||[];
+  const covered=host=>installed.some(root=>{const base=root.replace(/^www\./,'');return host===base||host.endsWith(`.${base}`)||host===root;});
+  const needsTag=!planned&&node.host&&installed.length>0&&!covered(node.host);
   const setMode=create=>{onChange('status',create?'planned':'ready');};
   const placeholderTitle=!node.title||/^(P[aá]gina( \/ URL)?|Formul[aá]rio|Convers[aã]o|Erro|Evento|Clique WhatsApp)$/i.test(node.title.trim());
   const pick=({host,path,name})=>{onChange('host',host);onChange('path',path);if(placeholderTitle&&name)onChange('title',name.slice(0,60));};
@@ -101,6 +104,7 @@ function PageSource({node,spec,planned,readOnly,onChange,sitePages}){
       <button type="button" role="radio" aria-checked={planned} disabled={readOnly} onClick={()=>setMode(true)}>Vai ser criada</button>
     </div>
     <FlowPagePicker node={node} readOnly={readOnly} planned={planned} clientId={sitePages?.clientId} csrf={sitePages?.csrf} hosts={sitePages?.hosts||[]} notice={sitePages?.notice||''} defaultHost={sitePages?.defaultHost||''} onPick={pick} onUrl={setUrl}/>
+    {needsTag&&<small className="flow-inspector__tag-note">Outro domínio: instale a Super Tag em <strong>{node.host}</strong> para medir esta página.{integrationsUrl&&<> <a href={integrationsUrl}>Instalar ↗</a></>}</small>}
     {planned&&<div className="flow-inspector__brief">
       <label>O que a página precisa ter<ReportsTextArea disabled={readOnly} rows={2} maxLength="500" value={spec.goal||''} placeholder="Objetivo, oferta e chamada principal" onChange={event=>setSpec('goal',event.target.value)}/></label>
       <div className="flow-inspector__pair"><label>Responsável<ReportsFieldInput disabled={readOnly} maxLength="120" value={spec.owner||''} onChange={event=>setSpec('owner',event.target.value)}/></label>

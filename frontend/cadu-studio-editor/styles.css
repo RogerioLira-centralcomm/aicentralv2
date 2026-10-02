@@ -488,3 +488,10 @@ body:has(#cadu-studio-editor-root) > .cadu-family-footer { display:none; }
   .se-asset-grid button:hover { transform:none; }
 }
 .se-rail-item__actions button { white-space:nowrap; }
+.se-rail-item.is-broken .se-rail-item__copy b { color:#8e9aa6; }
+.se-rail-item__actions.is-broken { align-items:center; }
+.se-rail-item__actions.is-broken small { margin-right:auto; color:#d9a25c; font-size:10px; }
+.se-rail-item__actions.is-broken button { background:rgba(255,255,255,.06)!important; color:#e6ebf0!important; font-weight:600; }
+.se-asset-grid button[draggable] { cursor:grab; }
+.se-asset-grid button[draggable]:active { cursor:grabbing; }
+.se-stage.is-asset-over::after { content:'Solte para abrir no palco'; position:absolute; inset:12px; z-index:4; display:grid; place-items:center; border:2px dashed rgba(124,92,255,.7); border-radius:14px; background:rgba(8,13,18,.72); color:#e9e3ff; font-size:15px; font-weight:700; pointer-events:none; animation:se-notice-in .16s ease-out both; }

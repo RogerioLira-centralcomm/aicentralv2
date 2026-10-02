@@ -426,3 +426,65 @@ body:has(#cadu-studio-editor-root) > .cadu-family-footer { display:none; }
 @media (max-width:1280px) { .se-layout { grid-template-columns:220px minmax(0,1fr) 300px; } }
 @media (max-width:1180px) { .se-layout { grid-template-columns:190px minmax(0,1fr) 290px; } }
 @media (max-width:900px) { .se-layout { display:grid; grid-template-columns:72px minmax(0,1fr); } .se-left-rail { grid-row:1; } .se-right-panel { grid-column:2; } }
+
+/* ── Editor refinement: integrated toolbar, fitted stage, empty drop zone,
+   compact versions and a clean project shelf. ─────────────────────────── */
+@media (min-width:901px) {
+  .se-main { padding:0; }
+  .se-workspace { min-height:0; }
+  .se-toolbar { width:100%; max-width:none; align-self:stretch; justify-content:flex-start; min-height:46px; margin:0; padding:6px 14px; border:0; border-bottom:1px solid rgba(255,255,255,.07); border-radius:0; background:#0e151b; scrollbar-width:none; }
+  .se-toolbar::-webkit-scrollbar { display:none; }
+  .se-toolbar > .se-tool-group { margin-right:auto; }
+  .se-stage { margin:0; border-radius:0; }
+}
+.se-tool-group { display:flex; gap:2px; padding:2px; border-radius:8px; background:rgba(255,255,255,.04); }
+.se-toolbar button { transition:background .16s ease,color .16s ease; }
+
+/* The artboard always fits the stage, whatever the image ratio. */
+.se-stage { container-type:size; }
+.se-stage.has-asset { padding:24px; }
+.se-stage.has-asset .se-artboard { --se-ratio:1; width:min(100cqw,calc(100cqh * var(--se-ratio))); height:auto; max-width:100%; max-height:100%; transform-origin:center; animation:se-artboard-in .28s ease-out both; transition:transform .18s ease; }
+.se-artboard img { object-fit:contain; }
+@keyframes se-artboard-in { from { opacity:0; scale:.985; } to { opacity:1; scale:1; } }
+
+/* Empty stage: a real drop zone with both ways to bring an image in. */
+.se-upload-stage { width:min(480px,86%); min-height:240px; padding:28px; align-content:center; gap:10px; border:1.5px dashed rgba(124,92,255,.38); border-radius:16px; background:rgba(124,92,255,.04); text-align:center; cursor:default; animation:se-artboard-in .3s ease-out both; transition:border-color .18s ease,background .18s ease; }
+.se-upload-stage i { margin:0 auto 4px; color:#b8a6ff; }
+.se-upload-stage span { max-width:340px; margin:0 auto; color:#8e9aa6; font-size:12px; line-height:1.5; }
+.se-upload-stage__actions { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:8px; }
+.se-upload-stage__actions button { min-height:34px; padding:0 14px; border:1px solid rgba(255,255,255,.12); border-radius:8px; background:transparent; color:#e6ebf0; cursor:pointer; font:inherit; font-size:12px; font-weight:650; transition:background .16s ease,border-color .16s ease; }
+.se-upload-stage__actions button:hover { border-color:rgba(255,255,255,.26); background:rgba(255,255,255,.05); }
+.se-upload-stage__actions button.is-primary { border-color:transparent; background:#7c5cff; color:#fff; }
+.se-upload-stage__actions button.is-primary:hover { background:#8d70ff; }
+.se-upload-stage:hover { border-color:rgba(124,92,255,.6); background:rgba(124,92,255,.07); }
+
+/* Notices sit at the bottom of the stage instead of over the toolbar. */
+.se-notice { top:auto; right:auto; bottom:18px; left:50%; transform:translateX(-50%); animation:se-notice-in .22s ease-out both; }
+@keyframes se-notice-in { from { opacity:0; translate:0 8px; } to { opacity:1; translate:0 0; } }
+
+/* Versions: compact rows; actions only on the selected row, inline. */
+.se-rail-item { padding:0; }
+.se-rail-item__select { grid-template-columns:44px minmax(0,1fr); align-items:center; padding:6px; border-radius:8px; transition:background .16s ease; }
+.se-rail-item__select:hover { background:rgba(255,255,255,.04); }
+.se-rail-item img,.se-rail-item .se-image-fallback { width:44px; height:44px; border-radius:6px; font-size:7px; }
+.se-rail-item .se-image-fallback { display:grid; place-items:center; background:#1a232b; color:#6f7c88; text-align:center; }
+.se-rail-item.is-selected { margin:0; padding:0; border-radius:8px; background:rgba(124,92,255,.1); box-shadow:inset 2px 0 #7c5cff; }
+.se-rail-item__actions { padding:0 6px 6px 56px; gap:4px; }
+.se-rail-item__actions button { flex:0 1 auto; padding:5px 9px; font-size:10px; }
+.se-rail-list { gap:2px; }
+
+/* Project shelf: scrolls with the rail, no inner scrollbar, names on hover. */
+.se-shelves { scrollbar-width:none; }
+.se-shelves::-webkit-scrollbar { display:none; }
+.se-asset-shelf.is-highlighted summary { color:#fff; }
+.se-asset-shelf.is-highlighted .se-asset-grid button { border-color:rgba(124,92,255,.7); transition:border-color .3s ease; }
+.se-asset-grid button { transition:border-color .16s ease,transform .16s ease; }
+.se-asset-grid button:hover { transform:translateY(-1px); }
+.se-asset-grid span { opacity:0; transition:opacity .16s ease; }
+.se-asset-grid button:hover span,.se-asset-grid button:focus-visible span { opacity:1; }
+
+@media (prefers-reduced-motion:reduce) {
+  .se-stage.has-asset .se-artboard,.se-upload-stage,.se-notice { animation:none; }
+  .se-asset-grid button:hover { transform:none; }
+}
+.se-rail-item__actions button { white-space:nowrap; }

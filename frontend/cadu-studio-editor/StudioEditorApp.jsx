@@ -23,6 +23,8 @@ export default function StudioEditorApp({bootstrap}) {
     // Workspace sends source_url/source_title; Criar's "Editar imagem" sends source/title.
     const source = query.get('source_url') || query.get('source') || '';
     let url = '';
+    // An empty source must not become a handoff: new URL('', origin) is valid and points at this very page.
+    if (!source.trim()) return null;
     try { const parsed = new URL(source, window.location.origin); if (['http:', 'https:'].includes(parsed.protocol)) url = parsed.href; } catch (_) {}
     return url ? {id: 'workspace-handoff', url, name: query.get('source_title') || query.get('title') || 'Imagem de referência', status: 'draft', source: query.get('from') === 'studio-create-v2' ? 'studio-create' : 'workspace'} : null;
   }, []);

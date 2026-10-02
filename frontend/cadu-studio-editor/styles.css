@@ -569,3 +569,18 @@ details.se-brand-content > .se-brand-label { margin-top:8px; }
 .se-workspace > .se-toolbar { grid-row:1; align-self:start; }
 .se-workspace > .se-stage { grid-row:2; align-self:stretch; justify-self:stretch; width:100%; height:100%; min-height:240px; }
 @media (max-width:900px) { .se-workspace { height:auto; grid-template-rows:auto minmax(320px,1fr); } }
+
+/* The portal shell styles every <main> with `.portal main { margin:auto }`, which turns the
+   editor column into a centred, content-sized grid item. Keep it stretched to the full row. */
+.se-layout > .se-main { margin:0; align-self:stretch; justify-self:stretch; width:100%; height:100%; }
+
+/* Centre column: three clear surfaces. Toolbar (raised), stage (deepest, with a faint grid)
+   and the cards that sit on it, so the work area reads apart from the two side panels. */
+.se-main { background:#0a1118; }
+.se-workspace > .se-toolbar { background:#131d27; border-bottom:1px solid rgba(255,255,255,.08); box-shadow:0 1px 0 rgba(0,0,0,.35); }
+.se-workspace > .se-stage { background-color:#070b10; background-image:radial-gradient(rgba(148,163,184,.10) 1px,transparent 1px); background-size:22px 22px; border:0; box-shadow:inset 0 1px 0 rgba(0,0,0,.4); }
+.se-upload-stage,.se-stage-broken { background:#0f1822; border:1.5px dashed rgba(148,163,184,.28); box-shadow:0 12px 32px rgba(0,0,0,.35); }
+.se-upload-stage:hover { background:#121e2a; border-color:rgba(124,92,255,.6); }
+.se-stage.has-asset .se-artboard { background:#0f1822; box-shadow:0 18px 50px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.08); }
+.se-left-rail { background:#0e1a20; }
+.se-right-panel { background:#101c22; }

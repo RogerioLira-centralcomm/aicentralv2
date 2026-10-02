@@ -602,7 +602,7 @@
     } else {
       await Promise.all([loadHistory(params.get('run') || undefined), loadViewerCatalog()]);
     }
-    await consumeHandoff();
+    if (!await consumeHandoff()) await consumeSourceParam(params);
     refreshQuote();
     document.addEventListener('cadu:brand-change', async (event) => {
       const id = String(event.detail?.clientId || '');
@@ -1076,6 +1076,28 @@
     applyStudioCopy(options?.copy);
     schedulePersist();
     return true;
+  }
+
+  // "Editar imagem" in Criar opens /imagem?source=<image> without a Studio
+  // session; load that piece onto the stage directly.
+  async function consumeSourceParam(params) {
+    const source = String(params.get('source') || '').trim();
+    if (!source || params.get('studio_session_id')) return false;
+    if (state.versions.length) await persistHistory();
+    await startNewRun();
+    const aspect = String(params.get('aspect') || '').trim();
+    const loaded = await ingestStill(source, {
+      from: 'studio',
+      skipReset: true,
+      name: String(params.get('title') || 'Peça do Studio'),
+      ...(aspect ? { aspect } : {}),
+    });
+    if (loaded && window.history.replaceState) {
+      const url = new URL(window.location.href);
+      ['source', 'title', 'aspect', 'from'].forEach((key) => url.searchParams.delete(key));
+      window.history.replaceState({}, '', url);
+    }
+    return loaded;
   }
 
   async function consumeHandoff() {

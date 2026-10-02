@@ -34,7 +34,7 @@ const asset={id:'v1',name:'Peça',url:'http://studio.test'+STILL,dataUrl:'http:/
   // O pedido mexe no texto: "Textos" sai do preservar só neste pedido, e isso aparece na tela.
   await page.locator('.se-chip--released',{hasText:'Liberado: Textos'}).waitFor();
   await page.getByRole('button',{name:/Gerar edição/}).click();
-  await page.getByText('Criei uma nova versão. Você pode revisar no palco ou pedir outro ajuste.').waitFor({timeout:15000});
+  await page.locator('.se-chat-last',{hasText:'Criei uma nova versão'}).waitFor({timeout:15000});
   const task=calls.find(c=>c.p.endsWith('/studio/tasks'));
   const payload=JSON.parse(task.body).payload;
   assert.ok(payload.reference_images.length<=2,`referências enviadas: ${payload.reference_images.length}`);
@@ -48,6 +48,7 @@ const asset={id:'v1',name:'Peça',url:'http://studio.test'+STILL,dataUrl:'http:/
   const stored=JSON.parse(await page.evaluate(()=>localStorage.getItem('cadu-studio-editor-v1:174'))).selectedGlobalReferences;
   assert.equal(stored.length,1,`a seleção guardada cai para o limite de 2 e remover o chip tira mais uma: ${JSON.stringify(stored)}`);
   // A escolha das referências do projeto tem um botão e aceita no máximo duas.
+  await page.locator('.se-brand-content > summary').click();
   assert.match(await page.getByRole('button',{name:/Referências do projeto/}).innerText(),/\(1 em uso\)/,'o botão mostra quantas referências do projeto vão na edição');
   await page.getByRole('button',{name:/Referências do projeto/}).click();
   const drawer=page.getByRole('dialog',{name:'Referências do projeto'});

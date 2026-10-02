@@ -40,7 +40,7 @@ const STILL='/static/images/cadu/brand-icons/studio-192.png';
   assert.equal(await page.locator('.se-mask-tools').count(),0,'ao focar o texto a máscara é concluída e a barra do pincel fecha');
   await page.getByPlaceholder('Diga ao Cadu o que fazer nesta peça…').fill('Troque o fundo por um céu de fim de tarde, mantendo o logo.');
   await page.getByRole('button',{name:/Gerar edição/}).click();
-  await page.getByText('Criei uma nova versão. Você pode revisar no palco ou pedir outro ajuste.').waitFor();
+  await page.locator('.se-chat-last',{hasText:'Criei uma nova versão'}).waitFor();
   assert.equal(await page.locator('.se-notice').count(),0,'resultado já aparece no palco e na conversa: sem aviso extra');
   const task=calls.find(c=>c.path.endsWith('/studio/tasks'));
   assert.ok(task,'a edição foi enviada como tarefa do Studio');

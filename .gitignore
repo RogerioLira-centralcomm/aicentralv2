@@ -64,9 +64,35 @@ dist/
 node_modules/
 *.egg-info/
 
-# Tailwind — gerado por npm run build (nao versionar; evita conflito no deploy)
+# Build artifacts — gerados por npm run build (não versionar; evita conflito no deploy)
+# Tailwind CSS compilado
 aicentralv2/static/css/tailwind/output.css
 aicentralv2/static/css/tailwind/output-legacy.css
+aicentralv2/static/css/video-studio.css
+aicentralv2/static/cadu_connect/react/untitled.css
+aicentralv2/static/cadu_workspace/untitled/workspace-kit.css
+
+# Vite bundles (app.js, app.css)
+aicentralv2/static/cadu_connect/react/app.js
+aicentralv2/static/cadu_connect/react/app.css
+aicentralv2/static/cadu_workspace/conversations/react/app.js
+aicentralv2/static/cadu_workspace/conversations/react/app.css
+aicentralv2/static/cadu_workspace/planner/react/app.js
+aicentralv2/static/cadu_workspace/planner/react/app.css
+aicentralv2/static/cadu_auth/app.js
+aicentralv2/static/cadu_auth/app.css
+aicentralv2/static/cadu_studio/editor/react/app.js
+aicentralv2/static/cadu_studio/editor/react/app.css
+aicentralv2/static/cadu_studio/audio/react/app.js
+aicentralv2/static/cadu_studio/audio/react/app.css
+
+# Vite assets (cache busting)
+aicentralv2/static/cadu_workspace/conversations/react/assets/
+aicentralv2/static/cadu_workspace/planner/react/assets/
+aicentralv2/static/cadu_auth/assets/
+aicentralv2/static/cadu_studio/editor/react/assets/
+aicentralv2/static/cadu_studio/audio/react/assets/
+aicentralv2/static/cadu_connect/react/assets/
 
 # Studio browser test fixtures and screenshots (regenerated on every run)
 tests/frontend/.fixtures/

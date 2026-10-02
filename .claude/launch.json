@@ -9,6 +9,18 @@
         "dev"
       ],
       "port": 3000
+    },
+    {
+      "name": "flask",
+      "runtimeExecutable": ".venv/bin/flask",
+      "runtimeArgs": [
+        "--app",
+        "run:app",
+        "run",
+        "--port",
+        "5050"
+      ],
+      "port": 5050
     }
   ]
 }

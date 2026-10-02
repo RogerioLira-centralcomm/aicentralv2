@@ -7,7 +7,7 @@ export function PlannerNotice({notice, onDismiss}) {
   if (!notice) return null;
   return <div className={`planner-notice planner-notice--${notice.tone || 'success'}`} role={notice.tone === 'error' ? 'alert' : 'status'}>
     <span>{notice.message}</span>
-    <button type="button" onClick={onDismiss} aria-label="Fechar aviso">×</button>
+    <CaduButton variant="tertiary" size="sm" aria-label="Fechar aviso" onClick={onDismiss}><Icon name="close" size={16}/></CaduButton>
   </div>;
 }
 

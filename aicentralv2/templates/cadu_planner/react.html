@@ -6,7 +6,8 @@
 <meta name="csrf-token" content="{{ csrf }}">
 <title>{{ title }} — Cadu Planner</title>
 <link rel="icon" href="{{ url_for('static', filename='images/cadu/brand-icons/planner-192.png') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/untitled/workspace-kit.css') }}?v={{ cadu_workspace_asset_version }}">
+{#- The Planner's own Untitled UI skin (preflight + every class its screens use); see frontend/planner/untitled-kit. -#}
+<link rel="stylesheet" href="{{ url_for('static', filename='cadu_planner/react/untitled.css') }}?v={{ cadu_workspace_asset_version }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='cadu_planner/react/app.css') }}?v={{ cadu_workspace_asset_version }}">
 </head>
 {#- The profile photo comes first, then the SSO picture, then the chosen Cadu badge, as in Reports. -#}

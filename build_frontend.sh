@@ -83,6 +83,7 @@ else
   npm run build:vanilla
   npm run build:conversations
   npm run build:reports
+  npm run build:planner
 fi
 
 if [ -f "aicentralv2/static/css/tailwind/output.css" ]; then

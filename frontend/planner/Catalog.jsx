@@ -53,7 +53,7 @@ function cardChips(kind, item, eyebrow) {
       : kind === 'canais' ? [] : [item.format_type, item.purpose];
   const seen = new Set([String(eyebrow || '').toLowerCase()]);
   const tidy = value => /^[a-z0-9]+([_-][a-z0-9]+)+$/.test(value) ? value.replace(/[_-]+/g, ' ').replace(/^./, letter => letter.toUpperCase()) : value;
-  return values.filter(Boolean).map(String).map(tidy).filter(value => !seen.has(value.toLowerCase()) && seen.add(value.toLowerCase())).slice(0, 3);
+  return values.filter(Boolean).map(String).map(tidy).filter(value => !seen.has(value.toLowerCase()) && seen.add(value.toLowerCase())).slice(0, 2);
 }
 
 const VISUAL_KINDS = new Set(['audiencias', 'places']);

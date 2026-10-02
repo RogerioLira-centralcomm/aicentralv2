@@ -15,7 +15,7 @@ const typeLabel = value => DOC_TYPES.find(([key]) => key === value)?.[1] || valu
 
 function CreateDocDialog({onClose, onCreate, busy}) {
   return <CaduDialog className="planner-dialog" closeOnBackdrop onClose={onClose}>{({titleId}) => <form onSubmit={onCreate}>
-    <header><h2 id={titleId}>Novo documento</h2><button type="button" onClick={onClose} aria-label="Fechar">×</button></header>
+    <header><h2 id={titleId}>Novo documento</h2><CaduButton variant="tertiary" size="sm" aria-label="Fechar" onClick={onClose}><Icon name="close" size={18}/></CaduButton></header>
     <CaduInput label="Título" name="title" required autoFocus/>
     <CaduSelectField label="Tipo" name="type" options={DOC_TYPES.map(([value, label]) => ({value, label}))}/>
     <footer><CaduButton variant="secondary" onClick={onClose}>Cancelar</CaduButton><CaduButton type="submit" loading={busy}>Criar documento</CaduButton></footer>

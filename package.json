@@ -8,7 +8,7 @@
     "build:artifact": "tailwindcss -c ./tailwind.artifact.config.js -i ./aicentralv2/static/css/tailwind/artifact.input.css -o ./aicentralv2/static/css/tailwind/artifact.css --minify",
     "build:studio": "tailwindcss -c ./tailwind.studio.config.js -i ./aicentralv2/static/css/tailwind/video-studio.input.css -o ./aicentralv2/static/css/video-studio.css --minify",
     "build:reports": "npm ci --prefix frontend/reports-v1/untitled-kit --no-audit --no-fund --prefer-offline --progress=false 2>/dev/null && npm run build --prefix frontend/reports-v1/untitled-kit 2>/dev/null && vite build --config vite.reports.config.mjs",
-    "build:planner": "vite build --config vite.planner.config.mjs",
+    "build:planner": "npm ci --prefix frontend/planner/untitled-kit --no-audit --no-fund --prefer-offline --progress=false 2>/dev/null && npm run build --prefix frontend/planner/untitled-kit 2>/dev/null && vite build --config vite.planner.config.mjs",
     "build:conversations": "npm ci --prefix frontend/cadu-design-system/untitled-kit --no-audit --no-fund --prefer-offline --progress=false 2>/dev/null && npm run build --prefix frontend/cadu-design-system/untitled-kit 2>/dev/null && vite build --config vite.conversations.config.mjs",
     "build:auth": "vite build --config vite.auth.config.mjs",
     "build:editor": "vite build --config vite.studio-editor.config.mjs",

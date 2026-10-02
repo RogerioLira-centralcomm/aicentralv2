@@ -1,0 +1,47 @@
+/* Untitled UI v8 skin for the Planner entry.
+   Unlike the shared workspace-kit, this includes Tailwind's preflight (the kit's
+   controls assume it: borders, button resets) and scans the Planner sources, so
+   every Untitled class used by Planner screens is generated here. Preflight
+   lives in the "base" layer; planner.css (unlayered) still wins where it styles. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "../../../cadu-design-system/untitled-kit/theme.css";
+@plugin "tailwindcss-react-aria-components";
+@plugin "tailwindcss-animate";
+
+@source "../../../cadu-design-system/untitled-kit/*.tsx";
+@source "../../../cadu-design-system/components/Cadu*.jsx";
+@source "../../../cadu-design-system/components/SolutionSidebar.jsx";
+@source "../../*.jsx";
+@source "../../details/*.jsx";
+
+@custom-variant dark (&:where(.dark-mode, .dark-mode *));
+@custom-variant label (& [data-label]);
+@custom-variant focus-input-within (&:has(input:focus));
+
+@utility transition-inherit-all {
+  transition-property: inherit;
+  transition-duration: inherit;
+  transition-timing-function: inherit;
+}
+
+/* CADU owns the brand scale; the Planner skin maps it into Untitled's tokens. */
+[data-cadu-skin="planner"] {
+  --color-brand-25: var(--colors-brand-25);
+  --color-brand-50: var(--colors-brand-50);
+  --color-brand-100: var(--colors-brand-100);
+  --color-brand-200: var(--colors-brand-200);
+  --color-brand-300: var(--colors-brand-300);
+  --color-brand-400: var(--colors-brand-400);
+  --color-brand-500: var(--colors-brand-500);
+  --color-brand-600: var(--colors-brand-600);
+  --color-brand-700: var(--colors-brand-700);
+  --color-brand-800: var(--colors-brand-800);
+  --color-brand-900: var(--colors-brand-900);
+  --color-brand-950: var(--colors-brand-950);
+  /* Solid brand surfaces carry white text: brand-700 keeps it at WCAG AA (5.7:1). */
+  --background-color-brand-solid: var(--color-brand-700);
+  --background-color-brand-solid_hover: var(--color-brand-800);
+}

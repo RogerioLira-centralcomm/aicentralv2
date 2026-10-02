@@ -38,6 +38,7 @@ fi
 # Cachear subprojetos
 cache_prefix "frontend/reports-v1/untitled-kit"
 cache_prefix "frontend/cadu-design-system/untitled-kit"
+cache_prefix "frontend/planner/untitled-kit"
 
 # Build Tailwind (rápido)
 echo "[INFO] Gerando CSS..."

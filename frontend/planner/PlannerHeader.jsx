@@ -1,4 +1,5 @@
 import React, {createContext, useContext, useState} from 'react';
+import {CaduSelectField} from '../cadu-design-system/components/CaduField.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {saveContext} from './api.js';
 
@@ -38,18 +39,12 @@ export function ContextSelector({boot, notify, onChange}) {
   };
 
   return <div className="ph-context" aria-label="Contexto do planejamento" aria-busy={saving}>
-    {bar.brands.length > 0 && <label className="ph-context__field"><Icon name="brand" size={16}/>
-      <span className="planner-sr-only">Marca</span>
-      <select value={selection.brand_ref} disabled={saving} onChange={event => change('brand_ref', event.target.value)}>
-        <option value="">Todas as marcas</option>
-        {bar.brands.map(item => <option key={item.ref} value={item.ref}>{item.name}</option>)}
-      </select></label>}
-    {bar.projects.length > 0 && <label className="ph-context__field"><Icon name="folder" size={16}/>
-      <span className="planner-sr-only">Projeto</span>
-      <select value={selection.project_ref} disabled={saving} onChange={event => change('project_ref', event.target.value)}>
-        <option value="">Sem projeto</option>
-        {projects.map(item => <option key={item.ref} value={item.ref}>{item.name}</option>)}
-      </select></label>}
+    {bar.brands.length > 0 && <CaduSelectField size="sm" className="ph-context__select" aria-label="Marca" value={selection.brand_ref} disabled={saving}
+      onChange={event => change('brand_ref', event.target.value)}
+      options={[{value: '', label: 'Todas as marcas'}, ...bar.brands.map(item => ({value: item.ref, label: item.name}))]}/>}
+    {bar.projects.length > 0 && <CaduSelectField size="sm" className="ph-context__select" aria-label="Projeto" value={selection.project_ref} disabled={saving}
+      onChange={event => change('project_ref', event.target.value)}
+      options={[{value: '', label: 'Sem projeto'}, ...projects.map(item => ({value: item.ref, label: item.name}))]}/>}
   </div>;
 }
 

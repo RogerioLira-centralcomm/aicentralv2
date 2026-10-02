@@ -113,7 +113,7 @@ function HeroMedia({media, name}) {
  * section index. The name lives only in the page header, the "add to plan"
  * action with the header actions; related items are links, never buttons.
  */
-export function DetailLayout({boot, selection, kind, record, icon = 'plan', eyebrow, metrics = [], sections = [], media = null, accent}) {
+export function DetailLayout({boot, selection, kind, record, icon = 'plan', eyebrow, metrics = [], sections = [], media = null}) {
   const id = record.id || record.slug;
   const visible = sections.filter(section => section && !section.hidden);
   const [current, setCurrent] = useState(visible[0]?.id);
@@ -130,8 +130,8 @@ export function DetailLayout({boot, selection, kind, record, icon = 'plan', eyeb
   }, [visible.length]);
 
   const shownMetrics = metrics.filter(item => hasValue(item.value));
-  const color = accent || record.cor;
-  return <article className="pd" style={color ? {'--pd-accent': color} : undefined}>
+  // One accent for every page (the Planner green); the channel colour stays on its logo.
+  return <article className="pd">
     <PlannerHeader crumbs={[[MODULE_LABELS[kind], moduleUrl(boot.urls, kind)]]} title={record.name}
       leading={<DetailMark record={record} icon={icon}/>}
       meta={eyebrow ? <CaduBadge tone="neutral">{eyebrow}</CaduBadge> : null}
@@ -140,7 +140,7 @@ export function DetailLayout({boot, selection, kind, record, icon = 'plan', eyeb
     <section className={`pd-hero${media ? ' has-media' : ''}`} aria-label="Resumo">
       <div className="pd-hero__copy">
         <p>{record.description || 'Sem descrição publicada.'}</p>
-        {shownMetrics.length > 0 && <dl className="pd-hero__metrics">{shownMetrics.map(item => <div key={item.label}>
+        {shownMetrics.length > 0 && <dl className="pd-hero__metrics" style={{'--metric-count': Math.min(shownMetrics.length, 6)}}>{shownMetrics.map(item => <div key={item.label}>
           <dt>{item.label}</dt><dd>{item.value}</dd>{item.hint && <small>{item.hint}</small>}
         </div>)}</dl>}
       </div>

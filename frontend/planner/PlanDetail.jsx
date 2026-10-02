@@ -29,7 +29,7 @@ function addUrl(urls, module, planId) {
 
 function QuoteDialog({onClose, onSubmit, busy}) {
   return <CaduDialog className="planner-dialog" closeOnBackdrop onClose={onClose}>{({titleId}) => <form onSubmit={onSubmit}>
-    <header><h2 id={titleId}>Solicitar proposta</h2><button type="button" onClick={onClose} aria-label="Fechar">×</button></header>
+    <header><h2 id={titleId}>Solicitar proposta</h2><CaduButton variant="tertiary" size="sm" aria-label="Fechar" onClick={onClose}><Icon name="close" size={18}/></CaduButton></header>
     <p>O plano é congelado como versão e enviado ao time comercial. Os valores são definidos na proposta.</p>
     <CaduSelectField label="Escopo" name="scope" required options={[{value: '', label: 'Escolha o escopo'}, ...QUOTE_SCOPES.map(([value, label]) => ({value, label}))]}/>
     <CaduTextAreaField label="Mensagem para o time comercial" name="message" rows={4} maxLength={2000} placeholder="Prazos, restrições ou dúvidas sobre o plano."/>
@@ -135,7 +135,7 @@ export function PlanDetail({boot, request, plan, setPlan, toggle, notify}) {
             <ul className="planner-items">{list.map(item => <li key={`${item.kind}:${item.resource_id}`}>
               <span><a href={`${moduleUrl(boot.urls, item.kind)}/${encodeURIComponent(item.resource_id)}`}><strong>{item.snapshot?.name || item.resource_id}</strong></a>
                 <small>{[item.snapshot?.category, item.snapshot?.audience].filter(Boolean).join(' · ')}</small></span>
-              <button type="button" className="planner-text-action" onClick={() => toggle(item.kind, item.resource_id)}>Remover</button>
+              <CaduButton variant="tertiary" size="sm" onClick={() => toggle(item.kind, item.resource_id)}>Remover</CaduButton>
             </li>)}</ul>
           </div>) : <p className="planner-muted">Ainda não há referências neste plano. Explore as vitrines; o que você adicionar entra direto aqui.</p>}
           <div className="planner-add-links">{ADD_MODULES.map(module => <a key={module} href={addUrl(boot.urls, module, plan.id)}><Icon name="plus" size={14}/>{MODULE_LABELS[module]}</a>)}</div>

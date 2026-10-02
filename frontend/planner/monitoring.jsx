@@ -134,10 +134,8 @@ export function MonitorPage({request}) {
       meta={site ? <CaduBadge tone="neutral">{typeLabel}</CaduBadge> : null}
       description={site ? <a href={site.entry_url} target="_blank" rel="noreferrer">{site.entry_url}</a> : 'Mapeie jornadas por URL e acompanhe visitas, conversões e disponibilidade.'}
       actions={<>
-        {sites.length > 1 && <label className="ph-context__field"><Icon name="browser" size={16}/><span className="planner-sr-only">Site acompanhado</span>
-          <select value={siteId} onChange={e => {setSiteId(e.target.value);setNotice('');}}>
-            {sites.map(item => <option key={item.id} value={item.id}>{item.name} · {item.domain}</option>)}
-          </select></label>}
+        {sites.length > 1 && <CaduSelectField size="sm" className="ph-context__select" aria-label="Site acompanhado" value={siteId}
+          onChange={e => {setSiteId(e.target.value);setNotice('');}} options={sites.map(item => ({value: item.id, label: `${item.name} · ${item.domain}`}))}/>}
         {site && <CaduButton variant="secondary" onClick={() => window.open(site.test_url, '_blank', 'noopener,noreferrer')}><Icon name="external" size={16}/>Abrir teste</CaduButton>}
         <CaduButton variant={showSetup ? 'secondary' : 'primary'} onClick={() => {setShowSetup(!showSetup);setAnalysis(null);setError('');}}>{showSetup ? 'Fechar cadastro' : <><Icon name="plus" size={16}/>Adicionar site</>}</CaduButton>
       </>}/>

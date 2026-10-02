@@ -125,9 +125,8 @@ export function PlansPage({boot, plans}) {
     <div className="planner-toolbar">
       <CaduInput className="planner-toolbar__search" aria-label="Buscar planos" type="search" value={query} placeholder="Buscar por plano, campanha ou anunciante"
         leading={<span className="planner-toolbar__search-icon" aria-hidden="true"><Icon name="search" size={16}/></span>} onChange={event => setQuery(event.target.value)}/>
-      <div className="pl-segmented" role="group" aria-label="Status">
-        {STATUS_FILTERS.map(([value, label]) => <button key={value} type="button" aria-pressed={status === value} onClick={() => setStatus(value)}>{label}</button>)}
-      </div>
+      <CaduSelectField size="md" className="planner-toolbar__category" aria-label="Status" value={status} onChange={event => setStatus(event.target.value)}
+        options={STATUS_FILTERS.map(([value, label]) => ({value, label: value ? label : 'Todos os status'}))}/>
       <span className="planner-toolbar__count" aria-live="polite">{visible.length} de {plans.length}</span>
     </div>
     {visible.length ? <PlanTable plans={visible} urls={boot.urls}/>

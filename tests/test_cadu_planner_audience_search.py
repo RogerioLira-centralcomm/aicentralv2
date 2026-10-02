@@ -18,7 +18,7 @@ def test_page_total_and_facets(monkeypatch):
     result, calls = run(monkeypatch)
     assert result['total'] == 933
     assert [record.get('total_count') for record in result['records']] == [None, None]
-    assert result['facets']['platforms'] == [{'value': 'Netflix', 'count': 60}]
+    assert result['facets']['platforms'] == [{'value': 'Netflix', 'count': 60, 'logo': '/static/images/creative-viewers/netflix.png'}]
     # Subcategories only appear once a category is chosen.
     assert result['facets']['subcategories'] == []
     assert len(calls) == 3
@@ -47,3 +47,12 @@ def test_empty_search_skips_the_text_filter(monkeypatch):
     assert "%(query)s = ''" in sql and params['query'] == '' and params['q'] == '%%'
     _result, calls = run(monkeypatch, query='viagem')
     assert calls[0][1]['query'] == 'viagem' and calls[0][1]['q'] == '%viagem%'
+
+
+def test_platform_logos_resolve_to_files_that_exist():
+    from pathlib import Path
+    static = Path(repository.__file__).resolve().parents[1]
+    for name in repository.AUDIENCE_PLATFORM_LOGOS:
+        logo = repository.platform_logo_by_name(name)
+        assert logo and (static / logo.lstrip('/')).is_file(), name
+    assert repository.platform_logo_by_name('Plataforma desconhecida') == ''

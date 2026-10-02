@@ -536,3 +536,7 @@ details.se-brand-content > .se-brand-label { margin-top:8px; }
 @keyframes se-progress { from { transform:translateX(-100%); } to { transform:translateX(250%); } }
 @media (prefers-reduced-motion:reduce) { .se-generating__bar::after { animation:none; width:60%; } .se-generating { animation:none; } }
 .se-notice { top:58px; bottom:auto; }
+
+.se-stage-broken{display:grid;gap:8px;justify-items:center;text-align:center;max-width:360px;margin:auto;padding:24px;color:var(--se-text,#e8e8ee)}
+.se-stage-broken small{opacity:.7}
+.se-stage-broken button{margin-top:6px;padding:8px 16px;border-radius:8px;border:0;background:#6d4aff;color:#fff;font-weight:600;cursor:pointer}

@@ -15,7 +15,6 @@ from .auth import admin_required, admin_required_api, login_required, login_requ
 from .creative_media.studio_csrf import get_or_create_token as studio_csrf_token
 from .creative_media.studio import _studio_reference_masks
 from .creative_format_lab.swap_routes import register_trocr_routes
-from .creative_format_lab.swap_csrf import get_or_create_token as trocr_csrf_token
 from .creative_modeling_generation import OpenRouterError
 from .creative_format_registry import catalog_entries
 from .cadu_tool_billing import InsufficientToolCredits
@@ -376,13 +375,9 @@ def modelagem_desk(page):
         panel=panel,
         mc_studio_js=spec["studio"],
         mc_page_js=page_js,
-        # The Trocr routes validate their own CSRF token. Studio/video routes
-        # keep using the Studio token, even though both use the same header.
-        mc_trocr_csrf=(
-            trocr_csrf_token() if page == "trocar"
-            else studio_csrf_token() if page in {"criar", "video"}
-            else ""
-        ),
+        # The React editor (trocar), Criar and Vídeo call Studio routes, which
+        # validate the Studio token in the shared X-Trocr-CSRF-Token header.
+        mc_trocr_csrf=studio_csrf_token() if page in {"criar", "video", "trocar"} else "",
         mc_workspace_brands=page == 'marcas' and _configured_product_host('workspace') == (request.host.split(':', 1)[0] or '').lower(),
         mc_format_catalog=catalog_entries(),
         mc_reference_masks=_studio_reference_masks() if page == "criar" else [],
@@ -446,7 +441,7 @@ def api_format_lab_session(session_id):
     return _execute(lambda: _ok(_service().get_format_lab_session(session_id)))
 
 
-@admin_required_api
+@studio_or_admin_required_api
 def api_format_lab_quote():
     return _execute(lambda: _ok(_service().format_lab_quote(_json())))
 

@@ -8,7 +8,7 @@ function unwrap(response) {
 
 function requestJson(url, csrf, method, body) {
   return fetch(url, {
-    method, credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf || ''}, body: JSON.stringify(body),
+    method, credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-Trocr-CSRF-Token': csrf || ''}, body: JSON.stringify(body),
   }).then(unwrap);
 }
 
@@ -80,7 +80,7 @@ export function finalizeStudioSession({apiRoot, csrf, clientId, sessionId, activ
 export function finalizeStudioSessionOnExit({apiRoot, csrf, clientId, sessionId, save, activeSeconds, specifications, hasEdits}) {
   return fetch(`${sessionRoot(apiRoot)}/${encodeURIComponent(sessionId)}/leave`, {
     method: 'POST', credentials: 'same-origin', keepalive: true,
-    headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf || ''},
+    headers: {'Content-Type': 'application/json', 'X-Trocr-CSRF-Token': csrf || ''},
     body: JSON.stringify({client_id: clientId, has_edits: hasEdits, save, finalize: {active_seconds: activeSeconds, pending_jobs: false, specifications}}),
   }).catch(() => undefined);
 }
@@ -91,7 +91,7 @@ export function uploadStudioAsset({apiRoot, csrf, clientId, projectId, file}) {
   if (projectId) form.append('project_id', projectId);
   form.append('files', file, file.name);
   return fetch(`${apiRoot}/format-lab/studio/reference-uploads`, {
-    method: 'POST', credentials: 'same-origin', headers: {'X-CSRF-Token': csrf || ''}, body: form,
+    method: 'POST', credentials: 'same-origin', headers: {'X-Trocr-CSRF-Token': csrf || ''}, body: form,
   }).then(unwrap).then(data => data.items?.[0] || Promise.reject(new Error('O Studio não devolveu o ativo enviado.')));
 }
 

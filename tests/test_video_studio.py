@@ -177,7 +177,7 @@ class MediaTest(unittest.TestCase):
         app = self.app()
         client = app.test_client()
         with client.session_transaction() as sess:
-            sess.update(user_id=7, user_type='admin', trocr_csrf_token='test-token')
+            sess.update(user_id=7, user_type='admin', studio_csrf_token='test-token')
         service = Mock()
         service.load_format_lab_swap_library.return_value = {'items': [{'id': 'clip-test', 'video_url': '/parametros/api/media/assets/asset-test/content'}]}
         service.serve_media_asset.return_value = (self.silent, 'video/mp4')
@@ -190,7 +190,7 @@ class MediaTest(unittest.TestCase):
         data = {'client_id': 20, 'clip_id': 'clip-test', 'request_id': 'a'*32, 'edit': {'start': .4, 'end': 1.4}}
         url = '/parametros/api/format-lab/studio/exports'
         headers = {'X-Trocr-CSRF-Token': 'test-token'}
-        with patch('aicentralv2.creative_format_lab.swap_routes._http', return_value=http), patch.object(studio._POOL, 'submit', side_effect=lambda fn,*args: fn(*args)) as submit:
+        with patch('aicentralv2.creative_format_lab.swap_routes._http', return_value=http), patch('aicentralv2.creative_media.studio._http', return_value=http), patch.object(studio._POOL, 'submit', side_effect=lambda fn,*args: fn(*args)) as submit:
             response = client.post(url, json=data, headers=headers)
             self.assertEqual(response.status_code, 200, response.json)
             again = client.post(url, json=data, headers=headers)
@@ -217,7 +217,7 @@ class MediaTest(unittest.TestCase):
         url = '/parametros/api/format-lab/studio/sounds'
         self.assertEqual(client.get(url + '?client_id=10').status_code, 401)
         with client.session_transaction() as sess:
-            sess.update(user_id=7, user_type='admin', trocr_csrf_token='test-token')
+            sess.update(user_id=7, user_type='admin', studio_csrf_token='test-token')
         self.assertEqual(client.post(url).status_code, 403)
         def execute(fn):
             try:

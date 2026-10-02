@@ -1,4 +1,4 @@
-const { chromium } = require('/Users/apololira/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const { chromium, ARTIFACTS } = require('./studio-browser.cjs');
 const assert = require('node:assert/strict');
 
 (async () => {
@@ -57,7 +57,7 @@ const assert = require('node:assert/strict');
     await page.setViewportSize({ width, height: 1000 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, `overflow at ${width}px`);
   }
-  await page.screenshot({ path: '/private/tmp/creative-analyzer-phase4.png', fullPage: true });
+  await page.screenshot({ path: ARTIFACTS + '/creative-analyzer.png', fullPage: true });
   assert.deepEqual(errors, []);
   console.log('PASS project shelves, attention path, editor actions and 390–1280px layout');
   await browser.close();

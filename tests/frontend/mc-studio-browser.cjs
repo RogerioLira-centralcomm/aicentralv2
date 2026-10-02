@@ -1,13 +1,13 @@
-const {chromium}=require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const {chromium,ensureHomeFixture,HOME_FIXTURE,ARTIFACTS}=require('./studio-browser.cjs');
 const fs=require('fs');
 const { execFileSync } = require('node:child_process');
-fs.mkdirSync('tmp/studio-check', { recursive: true });
+ensureHomeFixture();
 execFileSync(process.env.PYTHON || 'python3', ['tests/frontend/render-studio-fixture.py']); const assert=require('node:assert/strict');
 (async()=>{
  const browser=await chromium.launch({headless:true,...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {})}); const page=await browser.newPage({viewport:{width:1440,height:1050}}); const errors=[];page.on('pageerror',e=>errors.push(e.message));
  let videoFail=false;let clientFail=false;const counts={};
  await page.route('http://studio.test/**',async route=>{const url=new URL(route.request().url());counts[url.pathname+url.search]=(counts[url.pathname+url.search]||0)+1;
- if(url.pathname==='/')return route.fulfill({contentType:'text/html',body:fs.readFileSync('tmp/studio-check/rendered.html','utf8')});
+ if(url.pathname==='/')return route.fulfill({contentType:'text/html',body:fs.readFileSync(HOME_FIXTURE+'/rendered.html','utf8')});
  if(url.pathname.startsWith('/static/'))return route.fulfill({path:'aicentralv2'+url.pathname});
  if(url.pathname.endsWith('/clients'))return route.fulfill({status:clientFail?500:200,json:{data:[{id:'A',name:'TIM CELULAR S.A.',primary_color:'#123'},{id:'B',name:'Z Marca B',primary_color:'#456'}]}});
  if(url.pathname==='/workspace/api/creditos/resumo')return route.fulfill({json:{configured:true,available:200,monthly:500}});
@@ -22,8 +22,8 @@ execFileSync(process.env.PYTHON || 'python3', ['tests/frontend/render-studio-fix
  await page.getByRole('searchbox').fill('');await page.getByLabel('Marca desta sessão').selectOption('B');await page.getByText('60% usado · 200 disponíveis',{exact:true}).waitFor();await page.locator('.studio-card strong').first().filter({hasText:'B'}).waitFor();
  assert.match(await page.locator('.studio-card a').first().getAttribute('href'),/client=B/);
  await page.waitForTimeout(100);assert.equal(await page.locator('#mcCaduCredits').textContent(),'60% usado · 200 disponíveis');
- await page.screenshot({path:'tmp/studio-check/desktop.png',fullPage:true});
- for (const width of [1024,768,390]) { await page.setViewportSize({width,height:844}); assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`Overflow em ${width}px`); }assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:'tmp/studio-check/mobile.png',fullPage:true});
+ await page.screenshot({path:ARTIFACTS+'/home-desktop.png',fullPage:true});
+ for (const width of [1024,768,390]) { await page.setViewportSize({width,height:844}); assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`Overflow em ${width}px`); }assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:ARTIFACTS+'/home-mobile.png',fullPage:true});
  videoFail=true;await page.getByRole('button',{name:'Atualizar',exact:true}).click();await page.getByRole('alert').waitFor();assert.equal(await page.locator('.studio-card').count(),12);
  videoFail=false;await page.getByRole('button',{name:'Tentar novamente'}).click();await page.getByRole('alert').waitFor({state:'detached'});
  await page.evaluate(()=>document.dispatchEvent(new CustomEvent('cadu:credits-refresh',{detail:{clientId:'A'}})));assert.equal(await page.getByLabel('Marca desta sessão').inputValue(),'B');

@@ -66,8 +66,9 @@ def plan_request(message, context=None, text_callable=None):
                     {"role": "user", "content": json.dumps({"pedido": text, "contexto": current}, ensure_ascii=False)},
                 ],
                 model=MODEL,
-                max_tokens=900,
+                max_tokens=4000,
                 temperature=0.1,
+                reasoning={"effort": "low"},
                 response_format={"type": "json_object"},
             )
             content = response["message"].get("content") if isinstance(response, dict) else response
@@ -98,8 +99,9 @@ def suggest_narration(creative=None, duration=8, text_callable=None):
                     {"role": "user", "content": json.dumps(context, ensure_ascii=False)},
                 ],
                 model=MODEL,
-                max_tokens=500,
+                max_tokens=2000,
                 temperature=0.2,
+                reasoning={"effort": "low"},
                 response_format={"type": "json_object"},
             )
             content = response["message"].get("content") if isinstance(response, dict) else response
@@ -114,17 +116,38 @@ def suggest_narration(creative=None, duration=8, text_callable=None):
         script = fallback["script"]
     if len(script.split()) > context["word_limit"]:
         script = " ".join(script.split()[:context["word_limit"]]).rstrip(" ,;:") + "."
-    prompt = " ".join(str(proposed.get("prompt") or fallback["prompt"]).split())
-    factual_direction = f"Conteúdo factual da peça: {script} "
-    if script.casefold() not in prompt.casefold():
-        prompt = factual_direction + prompt
-    prompt = prompt[:400]
+    direction = " ".join(str(proposed.get("prompt") or fallback["prompt"]).split())
+    prompt = _voice_prompt(direction, script)
     return {
         "script": script,
         "prompt": prompt,
         "provider": "ai" if assisted else "rules",
         "model": MODEL if assisted else "local",
     }
+
+
+VOICE_PROMPT_LIMIT = 400
+VOICE_DIRECTION_SHARE = 240
+
+
+def _voice_prompt(direction, script, limit=VOICE_PROMPT_LIMIT):
+    """Fit narrator direction and factual subject in the voice prompt without losing either."""
+    if script.casefold() in direction.casefold():
+        return _clip_words(direction, limit)
+    label = " Conteúdo factual da peça: "
+    head = _clip_words(direction, VOICE_DIRECTION_SHARE)
+    room = limit - len(head) - len(label)
+    if room < 40:
+        return _clip_words(direction, limit)
+    return f"{head}{label}{_clip_words(script, room)}"
+
+
+def _clip_words(text, limit):
+    text = str(text or "").strip()
+    if len(text) <= limit:
+        return text
+    cut = text[:limit - 1].rsplit(" ", 1)[0].rstrip(" ,;:")
+    return f"{cut}…"
 
 
 def _narration_context(raw, duration):

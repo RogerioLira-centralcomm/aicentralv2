@@ -117,6 +117,8 @@ restore_generated_file "aicentralv2/static/css/video-studio.css"
 restore_generated_file "aicentralv2/static/cadu_auth/app.css"
 restore_generated_file "aicentralv2/static/cadu_studio/editor/react/app.css"
 restore_generated_file "aicentralv2/static/cadu_studio/editor/react/app.js"
+restore_generated_file "aicentralv2/static/cadu_studio/ui/navbar.css"
+restore_generated_file "aicentralv2/static/cadu_studio/ui/navbar.js"
 restore_generated_file "aicentralv2/static/cadu_workspace/conversations/react/app.css"
 restore_generated_file "aicentralv2/static/cadu_workspace/conversations/react/app.js"
 restore_generated_file "aicentralv2/static/cadu_connect/react/app.css"
@@ -404,7 +406,7 @@ if [ "${FORCE_FRONTEND_BUILD:-0}" != "1" ] && [ -s "$FRONTEND_STATE_FILE" ]; the
            tailwind.conversations.config.js tailwind.studio.config.js \
            vite.auth.config.mjs vite.conversations.config.mjs \
            vite.reports.config.mjs vite.planner.config.mjs \
-           vite.studio-editor.config.mjs vite.studio-audio.config.mjs && \
+           vite.studio-editor.config.mjs vite.studio-audio.config.mjs vite.studio-ui.config.mjs && \
        [ -f "aicentralv2/static/css/tailwind/output.css" ]; then
         RUN_FRONTEND_BUILD=0
     fi

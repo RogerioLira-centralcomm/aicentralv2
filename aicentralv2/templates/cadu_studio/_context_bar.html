@@ -3,6 +3,7 @@
   <div class="studio-product-identity">
     {% set cadu_active_product = 'studio' %}{% include "cadu/_product_switch.html" %}
   </div>
+  <div id="caduStudioNavbar"></div>
   <nav class="mc-cadu-nav" aria-label="Navegação do Studio" data-studio-navigation>
     <a href="{{ studio_url('modelagem_criar') }}"{% if mc_page == 'criar' %} class="is-current" aria-current="page"{% endif %}>Criar</a>
     <a id="mcCaduStill" href="{{ studio_url('modelagem_trocar') }}"{% if mc_page == 'trocar' %} class="is-current" aria-current="page"{% endif %}>Editar</a>
@@ -21,4 +22,24 @@
     </details>
   </div>
 </header>
+<script id="caduStudioNavbarBootstrap" type="application/json">{{ {
+  'active': {'criar': 'create', 'trocar': 'editor', 'video': 'videos', 'audio': 'audio', 'analyzer': 'analyzer'}.get(mc_page, 'home'),
+  'creditSummaryUrl': '/workspace/api/creditos/resumo',
+  'user': {'name': session.get('user_name', 'Minha conta'), 'email': session.get('user_email', ''), 'avatar': (perfil_contato or {}).get('foto_url') or session.get('user_photo_url', '')},
+  'links': {
+    'home': studio_url('modelagem_criativos'),
+    'create': studio_url('modelagem_criar'),
+    'editor': studio_url('modelagem_trocar'),
+    'videos': studio_url('modelagem_video'),
+    'audio': product_url('studio', '/audio'),
+    'analyzer': product_url('studio', '/analyzer'),
+    'library': studio_url('modelagem_criativos') ~ '#studioLibrary',
+    'credits': product_url('workspace', '/workspace/app/creditos'),
+    'profile': product_url('workspace', '/workspace/app/conta?section=perfil'),
+    'workspace': product_url('workspace', '/workspace/app'),
+    'logout': product_url('auth', '/logout')
+  }
+}|tojson }}</script>
+<link rel="stylesheet" href="{{ url_for('static', filename='cadu_studio/ui/navbar.css') }}?v=3">
+<script type="module" src="{{ url_for('static', filename='cadu_studio/ui/navbar.js') }}?v=3"></script>
 <div id="mcPageAlert" class="cx-alert cx-alert-danger hidden" role="alert"></div>

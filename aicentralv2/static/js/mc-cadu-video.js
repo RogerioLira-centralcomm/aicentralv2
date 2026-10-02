@@ -78,8 +78,35 @@ async function boot() {
       if (status) status.textContent = "Não foi possível recuperar esta sessão. O Studio continua disponível para uma nova criação.";
     }
   }
+  adoptHandoffScenes(params);
   const pending = sessionStorage.getItem(JOB_KEY);
   if (pending && !state.generating) resume(pending);
+}
+
+function adoptHandoffScenes(params) {
+  const ids = String(params.get("scenes") || "").split(",").map((id) => id.trim()).filter(Boolean).slice(0, 30);
+  if (!ids.length) return;
+  const scenes = ids.map((id) => state.library.find((item) => item.id === id)).filter((item) => item && !item.broken);
+  const clean = new URL(window.location.href);
+  clean.searchParams.delete("scenes");
+  clean.searchParams.delete("from");
+  window.history.replaceState(null, "", clean.toString());
+  if (!scenes.length) {
+    setStatus("As imagens enviadas pelo Criar ainda não apareceram na biblioteca. Atualize a página.");
+    return;
+  }
+  state.scenes = scenes;
+  state.selectedSceneId = scenes[0].id;
+  state.generationMode = scenes.length > 1 ? "storyboard" : "single_image";
+  if (state.generationMode === "single_image") adoptSelectedAspect(scenes[0]);
+  alignBeatsToScenes();
+  state.previewMode = "scene";
+  paintAll();
+  markDirty();
+  scheduleQuote();
+  setStatus(scenes.length > 1
+    ? `${scenes.length} cenas vieram do Criar e já estão no storyboard, na ordem escolhida.`
+    : "A imagem do Criar já está pronta para animar.");
 }
 
 function bindUi() {

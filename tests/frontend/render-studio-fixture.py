@@ -12,4 +12,5 @@ env.globals['session']={}
 env.globals['request']=SimpleNamespace(endpoint='parametros.modelagem_criativos')
 env.globals['product_url']=lambda slug, fallback='/': fallback
 env.globals['studio_url']=lambda endpoint: '/parametros/modelagem-criativos'
-Path('tmp/studio-check/rendered.html').write_text(env.get_template('parametros/modelagem_criativos.html').render())
+out=Path('tests/frontend/.fixtures/studio-home');out.mkdir(parents=True,exist_ok=True)
+(out/'rendered.html').write_text(env.get_template('parametros/modelagem_criativos.html').render())

@@ -136,6 +136,53 @@ class StudioCreationHistory:
             raise ValueError('Projeto não encontrado nesta marca.')
         return row['id']
 
+    def register_asset(self, client_id, user_id, project_id, kind, source_type, source_id,
+                       title, asset_url, metadata=None):
+        """Record a Studio output in the shared library hub, once per source."""
+        if kind not in {'image', 'video', 'reference', 'document'}:
+            raise ValueError('Tipo de ativo inválido.')
+        source_id = str(source_id or '').strip()[:180]
+        asset_url = str(asset_url or '').strip()[:4000]
+        if not source_id or not asset_url:
+            raise ValueError('Ativo sem origem ou arquivo.')
+        with self.connection.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cx_studio_assets
+                    (id, client_id, owner_user_id, project_id, kind, source_type, source_id,
+                     title, asset_url, storage_key, metadata)
+                VALUES (%s, %s, %s, NULLIF(%s, '')::uuid, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (client_id, source_type, source_id)
+                    WHERE source_id <> '' AND deleted_at IS NULL
+                DO UPDATE SET updated_at=NOW()
+                RETURNING id::text AS id
+            ''', (str(uuid4()), int(client_id), int(user_id) if user_id else None, str(project_id or ''),
+                  kind, str(source_type)[:48], source_id, str(title or 'Ativo do Studio')[:160],
+                  asset_url, asset_url, Json(metadata if isinstance(metadata, dict) else {})))
+            row = cursor.fetchone()
+        self.connection.commit()
+        return row['id'] if row else ''
+
+    def owned_image_urls(self, client_id, urls):
+        """Return the subset of ``urls`` created or attached inside this brand."""
+        wanted = [str(url or '').strip()[:2000] for url in urls if str(url or '').strip()]
+        if not wanted:
+            return set()
+        with self.connection.cursor() as cursor:
+            cursor.execute('''
+                SELECT result->>'image_url' AS url FROM cx_studio_image_generations
+                 WHERE client_id=%s AND status='completed' AND deleted_at IS NULL
+                   AND result->>'image_url' = ANY(%s)
+                UNION
+                SELECT asset_url FROM cx_studio_project_items
+                 WHERE client_id=%s AND kind='image' AND asset_url = ANY(%s)
+                UNION
+                SELECT asset_url FROM cx_studio_assets
+                 WHERE client_id=%s AND kind='image' AND deleted_at IS NULL AND asset_url = ANY(%s)
+            ''', (int(client_id), wanted, int(client_id), wanted, int(client_id), wanted))
+            found = {str(row['url']) for row in cursor.fetchall()}
+        self.connection.commit()
+        return found
+
     def remove_item(self, project_id, client_id, asset_url):
         asset_url = str(asset_url or '').strip()[:2000]
         if not asset_url:

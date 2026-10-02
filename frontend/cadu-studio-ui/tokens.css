@@ -1,0 +1,27 @@
+/* Cadu Studio UI tokens. The Studio is always dark: there is no light variant by design. */
+:root {
+  --csu-bg: #0b1016;
+  --csu-surface: #10171e;
+  --csu-raised: #161f28;
+  --csu-overlay: #1b2531;
+  --csu-line: rgba(255, 255, 255, .08);
+  --csu-line-strong: rgba(255, 255, 255, .16);
+  --csu-text: #eef2f6;
+  --csu-text-soft: #c3ccd5;
+  --csu-muted: #8d99a5;
+  --csu-accent: #7c5cff;
+  --csu-accent-soft: rgba(124, 92, 255, .16);
+  --csu-accent-text: #c7bbff;
+  --csu-focus: #8fe8d1;
+  --csu-ok: #6ee1d1;
+  --csu-warn: #f0b45a;
+  --csu-danger: #f08a8a;
+  --csu-radius-sm: 6px;
+  --csu-radius: 9px;
+  --csu-radius-lg: 14px;
+  --csu-shadow: 0 18px 50px rgba(0, 0, 0, .45);
+  --csu-font: var(--cadu-font-sans, Inter, system-ui, -apple-system, "Segoe UI", sans-serif);
+  --csu-fast: 120ms;
+  --csu-ease: cubic-bezier(.2, .7, .2, 1);
+  color-scheme: dark;
+}

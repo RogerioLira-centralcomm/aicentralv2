@@ -82,3 +82,21 @@ def test_trocr_service_exposes_optimized_instruction_without_losing_original():
     assert result["original_instruction"] == original
     assert result["refined_instruction"].startswith("Replace only")
     assert result["prompt_version"] == "studio-prompt-v1"
+
+
+def test_fallback_explains_which_literal_the_optimizer_changed():
+    from aicentralv2.creative_media.studio_prompt import optimize_prompt
+
+    def provider(*_args, **_kwargs):
+        return {"message": {"content": {"optimized_prompt": "Change headline to SALE 50%", "detected_language": "pt-BR"}}}
+
+    result = optimize_prompt('Troque o título para "Liquidação 50%"', mode="edit", text_callable=provider)
+    assert result["optimized"] is False
+    assert result["fallback_reason"] == "literal_changed"
+    assert '"Liquidação 50%"' in result["missing_literals"]
+    assert result["optimized_prompt"] == 'Troque o título para "Liquidação 50%"'
+
+
+def test_fallback_reason_when_no_provider_is_available():
+    from aicentralv2.creative_media.studio_prompt import optimize_prompt
+    assert optimize_prompt("Clareie o fundo")["fallback_reason"] == "no_provider"

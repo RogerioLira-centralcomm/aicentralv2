@@ -296,6 +296,7 @@ def register_studio_routes(blueprint):
     blueprint.add_url_rule('/api/format-lab/studio/prompt/optimize', view_func=studio_prompt_optimize, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/create/directions', view_func=studio_create_directions, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/create/image', view_func=studio_create_image, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/send-to-video', view_func=studio_send_to_video, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/csrf', view_func=studio_csrf, methods=['GET'])
     blueprint.add_url_rule('/api/format-lab/studio/agent/narration', view_func=studio_agent_narration, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/projects', view_func=studio_projects, methods=['GET', 'POST'])
@@ -629,6 +630,19 @@ def studio_create_image():
             except Exception:
                 logger.exception('Studio image project history sync failed for %s', project_id)
                 result['history_sync_pending'] = True
+        if history and not result.get('replayed'):
+            try:
+                result['library_asset_id'] = history.register_asset(
+                    client_id, user_id, '' if quick_mode else project_id, 'image', 'studio_create',
+                    request_id, str(data.get('title') or 'Imagem criada no Studio'), result['image_url'],
+                    {'aspect_ratio': str(data.get('aspect_ratio') or ''), 'masked': result.get('masked', False)},
+                )
+            except Exception:
+                logger.exception('Studio image library registration failed for %s', request_id)
+                try:
+                    history.connection.rollback()
+                except Exception:
+                    logger.exception('Studio image library rollback failed')
         if quick_mode and history and claim:
             result['asset_id'] = f"personal:{claim['id']}"
         result.setdefault('title', str(data.get('title') or 'Criação rápida'))
@@ -647,6 +661,54 @@ def studio_create_image():
                 result['history_sync_pending'] = True
         result.pop('model', None)
         return ok(result)
+
+    return execute(run)
+
+
+SEND_TO_VIDEO_MAX = 30
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_send_to_video():
+    """Hand Studio stills to the video desk, in order, as one storyboard run."""
+    execute, json_body, ok, service = _http()
+
+    def run():
+        data = json_body()
+        client_id = data.get('client_id')
+        user_id = session.get('user_id')
+        if not user_id:
+            raise ValueError('Entre novamente para enviar ao vídeo.')
+        _scope(client_id)
+        project_id = str(data.get('project_id') or '').strip()
+        if project_id:
+            _assert_project_brand_access(project_id, client_id)
+        items = data.get('items') if isinstance(data.get('items'), list) else []
+        items = [item for item in items if isinstance(item, dict) and str(item.get('image_url') or '').strip()]
+        if not items:
+            raise ValueError('Escolha ao menos uma imagem para levar ao vídeo.')
+        if len(items) > SEND_TO_VIDEO_MAX:
+            raise ValueError(f'Envie no máximo {SEND_TO_VIDEO_MAX} imagens por vez.')
+        urls = [str(item['image_url']).strip() for item in items]
+        history = _creation_history()
+        if history:
+            owned = history.owned_image_urls(client_id, urls)
+            if any(url not in owned for url in urls):
+                raise ValueError('Uma das imagens não pertence a esta marca.')
+        modeling = service()
+        scene_ids, run_id = [], ''
+        for index, item in enumerate(items, start=1):
+            added = modeling.add_format_lab_swap_library_still({
+                'client_id': client_id,
+                'image_url': str(item['image_url']).strip(),
+                'name': str(item.get('title') or f'Cena {index}')[:120],
+                'aspect_ratio': str(item.get('aspect_ratio') or data.get('aspect_ratio') or '16:9'),
+                **({'run_id': run_id} if run_id else {'new_run': True}),
+            }, user_id)
+            run_id = str(added.get('run_id') or run_id)
+            scene_ids.append(str(added.get('id') or ''))
+        return ok({'scene_ids': [ident for ident in scene_ids if ident], 'run_id': run_id})
 
     return execute(run)
 

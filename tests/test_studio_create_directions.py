@@ -73,7 +73,8 @@ def test_create_returns_requested_number_of_safe_directions():
     assert result["count"] == 3
     assert len(result["directions"]) == 3
     assert provider_result["model"] == "test"
-    assert captured["max_tokens"] == 1_860
+    assert captured["max_tokens"] == 4_000 + 3 * 1_200
+    assert captured["reasoning"] == {"effort": "low"}
 
 
 def test_direction_director_receives_reference_pixels_without_base64():

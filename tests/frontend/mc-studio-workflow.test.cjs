@@ -1,4 +1,5 @@
-const {chromium}=require('/Users/apololira/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium,ensureEditorFixture,FIXTURE,ARTIFACTS}=require('./studio-browser.cjs');
+ensureEditorFixture();
 const fs=require('fs'),assert=require('node:assert/strict');
 (async()=>{
 const browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
@@ -6,9 +7,9 @@ const page=await browser.newPage({viewport:{width:1440,height:1050}}),errors=[];
 let saved={},exported=null;
 await page.route('http://studio.test/**',async route=>{
 const url=new URL(route.request().url()),p=url.pathname;
-if(p==='/')return route.fulfill({contentType:'text/html; charset=utf-8',body:fs.readFileSync('tmp/studio-editor-check/index.html','utf8')});
+if(p==='/')return route.fulfill({contentType:'text/html; charset=utf-8',body:fs.readFileSync(FIXTURE+'/index.html','utf8')});
 if(p.startsWith('/static/'))return route.fulfill({path:'aicentralv2'+p});
-if(p==='/clip.mp4')return route.fulfill({path:'tmp/studio-editor-check/clip.mp4',contentType:'video/mp4'});
+if(p==='/clip.mp4')return route.fulfill({path:FIXTURE+'/clip.mp4',contentType:'video/mp4'});
 let data={};
 if(p.endsWith('/swap/library'))data={items:url.searchParams.get('media')==='video'?[{id:'clip1',name:'Vídeo de teste',duration:3,video_url:'/clip.mp4'}]:[{id:'still1',name:'Criativo vertical',width:90,height:160,aspect_ratio:'16:9',image_url:'/static/images/canais/prime-video.svg'}]};
 if(p.endsWith('/clips'))data={items:[]};
@@ -72,15 +73,15 @@ await page.locator('[data-caption-style="size"]').fill('6');await page.locator('
 await page.locator('[data-caption-position=".14"]').click();
 await page.locator('#mcLiveSeek').fill('0.5');await page.locator('#mcLiveSeek').dispatchEvent('input');
 await page.locator('[data-caption-preset="classic"]').scrollIntoViewIfNeeded();
-await page.screenshot({path:'tmp/studio-editor-check/caption-style-controls.png',fullPage:true});
+await page.screenshot({path:ARTIFACTS+'/caption-style-controls.png',fullPage:true});
 await page.locator('#mcStudioExportFormat').selectOption('mp4');
 await page.waitForFunction(()=>document.querySelector('#mcStudioExportFormat').getAttribute('aria-busy')==='true');
 await page.waitForTimeout(100);
 assert.equal(exported.composition.caption_style.font,'anton');assert.equal(exported.composition.caption_style.size,.06);assert.equal(exported.composition.caption_style.y,.14);
 assert.equal(exported.composition.items.length,4);assert.equal(exported.composition.items[0].keyframes.length,2);assert.equal(exported.composition.audio.length,2);assert.equal(exported.composition.audio[0].solo,true);assert.equal(exported.composition.audio[0].gain_points[0].gain,.5);assert.equal(exported.composition.ratio,'4:5');
-await page.screenshot({path:'tmp/studio-editor-check/processing.png',fullPage:true});
+await page.screenshot({path:ARTIFACTS+'/processing.png',fullPage:true});
 assert.equal(await page.locator('#caduProcessing').evaluate(el=>el.open),false);
-await page.screenshot({path:'tmp/studio-editor-check/composition.png',fullPage:true});
+await page.screenshot({path:ARTIFACTS+'/composition.png',fullPage:true});
 await page.locator('.mc-pro-clip').first().click();await page.locator('#mcLiveSeek').fill('0.5');await page.locator('#mcLiveSeek').dispatchEvent('input');await page.locator('[data-compose-action="split"]').click();assert.equal(await page.locator('[data-composition-item]').count(),5);assert.ok((await page.locator('[data-composition-item]').first().getAttribute('title')).includes('0.50s'));const beforeAutoOut=await page.locator('[data-compose-key="out"]').inputValue();await page.locator('.mc-pro-audio').first().click();
 await page.evaluate(()=>document.dispatchEvent(new CustomEvent('cadu:apply-autocut',{detail:{id:'clip1',autocut:{duration:3,cuts:[{in:.8,out:1.2,reason:'Pausa',confidence:1}],review:[],options:{mode:'moderate',transition:'fade',transition_duration:.1}}}})));
 assert.equal(await page.locator('[data-cut-timeline]').count(),1);
@@ -101,6 +102,6 @@ assert.equal(await page.locator('[data-composition-item]').count(),4);assert.ok(
 await page.locator('[data-audio-index="1"][data-audio-key="start"]').fill('5');await page.locator('[data-audio-index="1"][data-audio-key="start"]').dispatchEvent('change');await page.locator('[data-caption="0"][data-caption-key="start"]').fill('5');await page.locator('[data-caption="0"][data-caption-key="start"]').dispatchEvent('change');await page.locator('[data-caption="0"][data-caption-key="end"]').fill('5.5');await page.locator('[data-caption="0"][data-caption-key="end"]').dispatchEvent('change');
 const rippleTrimHandle=await page.locator('.mc-pro-clip.is-selected [data-timeline-trim="out"]').boundingBox();await page.mouse.move(rippleTrimHandle.x+rippleTrimHandle.width/2,rippleTrimHandle.y+rippleTrimHandle.height/2);await page.mouse.down();await page.mouse.move(rippleTrimHandle.x-24,rippleTrimHandle.y+rippleTrimHandle.height/2);await page.mouse.up();assert.ok(Number(await page.locator('[data-audio-index="1"][data-audio-key="start"]').inputValue())<5);assert.ok(Number(await page.locator('[data-caption="0"][data-caption-key="start"]').inputValue())<5);
 await page.locator('[data-audio-index="1"][data-audio-key="start"]').fill('5');await page.locator('[data-audio-index="1"][data-audio-key="start"]').dispatchEvent('change');await page.locator('[data-audio-index="1"][data-audio-key="ripple"]').uncheck();const fixedTrimHandle=await page.locator('.mc-pro-clip.is-selected [data-timeline-trim="out"]').boundingBox();await page.mouse.move(fixedTrimHandle.x+fixedTrimHandle.width/2,fixedTrimHandle.y+fixedTrimHandle.height/2);await page.mouse.down();await page.mouse.move(fixedTrimHandle.x-20,fixedTrimHandle.y+fixedTrimHandle.height/2);await page.mouse.up();assert.equal(await page.locator('[data-audio-index="1"][data-audio-key="start"]').inputValue(),'5');
-await page.screenshot({path:'tmp/studio-editor-check/autocut-controls.png',fullPage:true});
+await page.screenshot({path:ARTIFACTS+'/autocut-controls.png',fullPage:true});
 assert.deepEqual(errors,[]);console.log('PASS timeline zoom/snap, ripple trim/delete and transition drag, audio split/sync/solo/envelope, captions, keyframes, preview, export and non-destructive smart cuts');await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});

@@ -67,3 +67,7 @@ node_modules/
 # Tailwind — gerado por npm run build (nao versionar; evita conflito no deploy)
 aicentralv2/static/css/tailwind/output.css
 aicentralv2/static/css/tailwind/output-legacy.css
+
+# Studio browser test fixtures and screenshots (regenerated on every run)
+tests/frontend/.fixtures/
+tests/frontend/.artifacts/

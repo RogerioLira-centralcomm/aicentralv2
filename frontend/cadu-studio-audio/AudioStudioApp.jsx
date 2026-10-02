@@ -1,4 +1,5 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
+import StudioNavbar from '../cadu-studio-ui/StudioNavbar';
 
 const DURATION = 30;
 const initialBlocks = [
@@ -27,15 +28,11 @@ function Waveform({seed=1}) {
 }
 
 function Topbar({bootstrap, projects, project, projectLoading, projectError, onProjectChange, onExport}) {
-  const links = bootstrap.links || {};
-  return <header className="au-topbar">
-    <a className="au-brand" href={links.home || '/'}><img src={bootstrap.logo || '/static/images/cadu/brand-icons/studio-192.png'} alt=""/><strong>Cadu</strong><span>Studio</span></a>
-    <nav aria-label="Navegação do Studio">{[['Criar','create'],['Editor','editor'],['Vídeos','videos'],['Áudio','audio'],['Analyzer','analyzer'],['Biblioteca','library']].map(([label,key])=><a key={key} href={links[key] || '#'} className={key==='audio'?'is-active':''} aria-current={key==='audio'?'page':undefined}>{label}</a>)}</nav>
-    <label className="au-project-picker"><span>Projeto e marca</span><select aria-label="Projeto ativo" value={project?.id || ''} onChange={event=>onProjectChange(event.target.value)} disabled={projectLoading}><option value="">{projectLoading?'Carregando projetos…':'Sessão pessoal'}</option>{projects.map(item=><option key={item.id} value={item.id}>{item.name}{item.brand_name?` · ${item.brand_name}`:''}</option>)}</select>{projectError&&<small title={projectError}>Projetos indisponíveis</small>}</label>
-    <a className="au-credits" href={links.credits || '#'}><small>Uso e créditos</small><b>{Number(bootstrap.credits || 0).toLocaleString('pt-BR')}</b><i><em style={{width:`${Math.min(100,Number(bootstrap.usagePercent || 0))}%`}}/></i></a>
-    <button className="au-primary au-export" onClick={onExport}>Exportar áudio</button>
-    <a className="au-avatar" href={links.profile || '#'} aria-label="Abrir conta">{bootstrap.user?.avatar?<img src={bootstrap.user.avatar} alt=""/>:String(bootstrap.user?.name || 'C').slice(0,1).toUpperCase()}</a>
-  </header>;
+  const options = projects.map(item => ({id: String(item.id), name: item.name, brandName: item.brand_name || item.brandName || item.client_name || ''}));
+  return <StudioNavbar active="audio" links={bootstrap.links || {}} user={bootstrap.user} projects={options} projectId={project?.id ? String(project.id) : ''}
+    projectsLoading={projectLoading} allowQuick quickLabel="Sessão pessoal" onProjectChange={onProjectChange}
+    credits={{available: bootstrap.credits, usagePercent: bootstrap.usagePercent}}
+    actions={<>{projectError && <small className="au-project-error" role="status">{projectError}</small>}<button type="button" className="csu-button csu-button--primary" onClick={onExport}>Exportar áudio</button></>}/>;
 }
 
 function Timeline({tracks, setTracks, playhead, setPlayhead, selectedClip, setSelectedClip, onSplit, onSeparate}) {

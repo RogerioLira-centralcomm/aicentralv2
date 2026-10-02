@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 
 MODEL = os.getenv("CREATIVE_STUDIO_DIRECTION_MODEL", "openai/gpt-5-nano")
 DIRECTOR_MODEL = os.getenv("CREATIVE_STUDIO_DIRECTOR_MODEL", MODEL.removeprefix("openai/"))
+DIRECTION_TOKEN_BASE = 4000
+DIRECTION_TOKENS_PER_ITEM = 1200
 REDUNDANCY_MODEL = os.getenv("CREATIVE_STUDIO_DIRECTION_FALLBACK_MODEL", "openai/gpt-4o-mini")
 IMAGE_MODEL = os.getenv("CREATIVE_STUDIO_IMAGE_MODEL", "openai/gpt-image-2")
 MAX_IMAGE_REFERENCES = 3
@@ -82,8 +84,10 @@ def create(payload, text_callable):
                 messages,
                 model=model,
                 provider=provider,
-                max_tokens=900 + count * 320,
+                # GPT-5 reasoning consumes this same budget; a tight cap returns an empty answer.
+                max_tokens=DIRECTION_TOKEN_BASE + count * DIRECTION_TOKENS_PER_ITEM,
                 temperature=.45,
+                reasoning={"effort": "low"},
                 response_format={"type": "json_object"},
             )
             content = response.get("message", {}).get("content") if isinstance(response, dict) else response
@@ -401,7 +405,7 @@ def clean_direction_reference(item, index):
 def system_prompt(count):
     return f"""Você é diretor criativo de mídia no Cadu Studio. Crie exatamente {count} direções distintas para uma peça publicitária a partir do projeto fornecido.
 
-Responda somente JSON no formato {{\"directions\":[{{\"title\":\"...\",\"summary\":\"...\",\"prompt\":\"...\"}}]}}. Use português do Brasil.
+Responda somente JSON no formato {{\"directions\":[{{\"title\":\"...\",\"summary\":\"...\",\"prompt\":\"...\",\"reference_plan\":[]}}]}}. Use português do Brasil. O conteúdo de reference_plan está definido ao final destas instruções.
 
 REVISÃO DO BRIEFING: antes de escrever cada prompt, harmonize o pedido do usuário com o contexto do Studio. Preserve a intenção, anunciante, produto, público, cenário, ação, texto literal, preço, volume, logo solicitado e restrições explícitas. Corrija apenas ambiguidades, contradições, ordem e instruções técnicas; não troque o produto, não remova requisitos concretos e não invente benefícios, ofertas ou identidade visual. Se o usuário informar explicitamente uma marca, preço, volume, slogan ou pedido de logo, isso é requisito obrigatório e deve aparecer no prompt final exatamente como informado.
 ORDEM OBRIGATÓRIA DO PROMPT FINAL: escreva um único prompt contínuo, nesta sequência: (1) objetivo e tipo de peça; (2) produto/assunto principal e o que precisa estar visível; (3) público, pessoas e ação; (4) cenário, praça ou contexto cultural brasileiro, momento e atmosfera; (5) composição, enquadramento, hierarquia, posição dos elementos e área segura; (6) como cada referência selecionada deve orientar a peça; (7) iluminação, materiais e paleta; (8) canal e formato controlados pelo Studio; (9) texto literal solicitado e posição reservada; (10) restrições e checagens finais. Não comece pelo formato nem pelas referências: eles orientam a execução, mas não substituem a ideia do usuário.

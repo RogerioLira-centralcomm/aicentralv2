@@ -7,6 +7,7 @@ could be rendered in the creative exactly as the user supplied it.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 
@@ -15,6 +16,7 @@ from ..creative_modeling_generation import _json_content
 
 MODEL = os.getenv("CREATIVE_STUDIO_PROMPT_MODEL", "openai/gpt-5-nano")
 VERSION = "studio-prompt-v1"
+logger = logging.getLogger(__name__)
 _SYSTEM = """You are the prompt compiler for a professional image studio.
 Convert the user's operational request into concise, unambiguous technical English for an image model.
 
@@ -70,8 +72,13 @@ def optimize_prompt(prompt, *, mode="create", context=None, text_callable=None):
         "optimized": False,
         "version": VERSION,
     }
+
+    def kept_original(reason, missing=()):
+        logger.info("studio_prompt fallback reason=%s missing_literals=%d", reason, len(missing))
+        return {**fallback, "fallback_reason": reason, "missing_literals": list(missing)[:12]}
+
     if not callable(text_callable):
-        return fallback
+        return kept_original("no_provider")
     payload = {
         "mode": "edit" if str(mode).lower() == "edit" else "create",
         "source_request": original,
@@ -82,16 +89,19 @@ def optimize_prompt(prompt, *, mode="create", context=None, text_callable=None):
         response = text_callable(
             [{"role": "system", "content": _SYSTEM},
              {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
-            model=MODEL, max_tokens=900, temperature=0,
+            model=MODEL, max_tokens=4000, temperature=0,
             response_format={"type": "json_object"}, reasoning={"effort": "low"},
         )
         content = _content(response) or {}
         optimized = str(content.get("optimized_prompt") or "").strip()[:20000]
         language = str(content.get("detected_language") or "pt-BR").strip()[:16]
     except (TypeError, ValueError, KeyError, json.JSONDecodeError):
-        return fallback
-    if not optimized or any(literal not in optimized for literal in literals):
-        return fallback
+        return kept_original("provider_error")
+    if not optimized:
+        return kept_original("empty_answer")
+    missing = [literal for literal in literals if literal not in optimized]
+    if missing:
+        return kept_original("literal_changed", missing)
     return {
         **fallback,
         "optimized_prompt": optimized,

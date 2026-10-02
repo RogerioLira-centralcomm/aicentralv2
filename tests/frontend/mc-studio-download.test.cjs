@@ -1,13 +1,14 @@
-const {chromium}=require('/Users/apololira/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium,ensureEditorFixture,FIXTURE,ARTIFACTS}=require('./studio-browser.cjs');
+ensureEditorFixture();
 const fs=require('fs'),assert=require('node:assert/strict');
 (async()=>{
  const browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
  const page=await browser.newPage({viewport:{width:1440,height:1000},acceptDownloads:true}),errors=[],jobs=new Map();page.on('pageerror',e=>errors.push(e.message));
  await page.route('http://studio.test/**',async route=>{
   const url=new URL(route.request().url()),p=url.pathname;
-  if(p==='/')return route.fulfill({contentType:'text/html',body:fs.readFileSync('tmp/studio-editor-check/index.html','utf8')});
+  if(p==='/')return route.fulfill({contentType:'text/html',body:fs.readFileSync(FIXTURE+'/index.html','utf8')});
   if(p.startsWith('/static/'))return route.fulfill({path:'aicentralv2'+p});
-  if(p==='/clip.mp4'||(p.includes('/exports/')&&p.endsWith('/content')&&url.searchParams.get('inline')==='1'))return route.fulfill({path:'tmp/studio-editor-check/clip.mp4',contentType:'video/mp4'});
+  if(p==='/clip.mp4'||(p.includes('/exports/')&&p.endsWith('/content')&&url.searchParams.get('inline')==='1'))return route.fulfill({path:FIXTURE+'/clip.mp4',contentType:'video/mp4'});
   if(p.includes('/exports/')&&p.endsWith('/content')){const job=jobs.get(p.split('/').at(-2));return route.fulfill({status:200,contentType:'application/octet-stream',headers:{'Content-Disposition':`attachment; filename="${job.filename}"`},body:Buffer.from('exported test file')});}
   let data={};
   if(p.endsWith('/swap/library'))data={items:url.searchParams.get('media')==='video'?[{id:'clip1',name:'Oferta',duration:3,video_url:'/clip.mp4'}]:[]};
@@ -26,7 +27,7 @@ const fs=require('fs'),assert=require('node:assert/strict');
   const download=page.waitForEvent('download');await page.locator('#mcStudioExportFormat').selectOption(format);
   await page.waitForFunction(()=>document.querySelector('#mcStudioExportFormat').selectedOptions[0].textContent.includes('00:01'));
   assert.equal(await page.locator('#mcStudioExportFormat').getAttribute('aria-busy'),'true');
-  if(format==='mp4')await page.screenshot({path:'tmp/studio-editor-check/download-progress.png',fullPage:true});
+  if(format==='mp4')await page.screenshot({path:ARTIFACTS+'/download-progress.png',fullPage:true});
   const file=await download;
   assert.equal(file.suggestedFilename(),`marca_v001_oferta_especial_9x16.${format}`);
   assert.equal(await page.locator('#caduProcessing a').filter({hasText:'Baixar'}).count(),0);

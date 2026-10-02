@@ -1,13 +1,14 @@
-const {chromium}=require('/Users/apololira/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium,ensureEditorFixture,FIXTURE,ARTIFACTS}=require('./studio-browser.cjs');
+ensureEditorFixture();
 const fs=require('fs'),assert=require('node:assert/strict');
 (async()=>{
 const browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
 const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
 await page.route('http://studio.test/**',async route=>{
 const url=new URL(route.request().url()),path=url.pathname;
-if(path==='/')return route.fulfill({contentType:'text/html',body:fs.readFileSync('tmp/studio-editor-check/index.html','utf8')});
+if(path==='/')return route.fulfill({contentType:'text/html',body:fs.readFileSync(FIXTURE+'/index.html','utf8')});
 if(path.startsWith('/static/'))return route.fulfill({path:'aicentralv2'+path});
-if(path==='/clip.mp4')return route.fulfill({path:'tmp/studio-editor-check/clip.mp4',contentType:'video/mp4'});
+if(path==='/clip.mp4')return route.fulfill({path:FIXTURE+'/clip.mp4',contentType:'video/mp4'});
 let data={};
 if(path.endsWith('/swap/library'))data={items:url.searchParams.get('media')==='video'?[{id:'clip1',name:'Teste horizontal',video_url:'/clip.mp4'}]:[]};
 if(path.endsWith('/clips'))data={items:[]};
@@ -39,6 +40,6 @@ await page.evaluate(()=>document.dispatchEvent(new CustomEvent('cadu:clip-import
 await page.locator('[data-lib-tab="video"]').click();await page.locator('[data-action="play"][data-clip="clip1"]').click();
 assert.equal(await page.locator('#mcSwapVideo').evaluate(v=>v.volume),0);
 assert.equal(await page.getByRole('textbox',{name:'Texto 1',exact:true}).inputValue(),'Oferta especial');
-await page.screenshot({path:'tmp/studio-editor-check/editor.png',fullPage:true});
+await page.screenshot({path:ARTIFACTS+'/editor.png',fullPage:true});
 assert.deepEqual(errors,[]);console.log('PASS tabs 390–1440px, filmstrip, text, mute, 100 sounds, contain, no JS errors');await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});

@@ -78,6 +78,6 @@ def test_studio_navigation_has_one_authoritative_active_state():
     css = (root / 'aicentralv2' / 'static' / 'css' / 'cadu-studio-navigation.css').read_text()
 
     assert css.count('.mc-cadu-bar--studio .mc-cadu-nav > a[aria-current="page"]') == 1
-    assert 'background: #263b39;' in css
-    assert 'color: #8fe8d1;' in css
+    assert 'box-shadow: inset 0 -2px #8b7cf6;' in css
+    assert 'color: #c7c0ff;' in css
     assert 'outline: 3px solid #8fe8d1;' in css

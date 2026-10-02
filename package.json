@@ -15,10 +15,12 @@
     "build:audio": "vite build --config vite.studio-audio.config.mjs",
     "build:css": "npm run build:vanilla && npm run build:artifact && npm run build:studio",
     "build:tailwind": "npm run build:conversations & npm run build:reports & wait",
-    "build:vite": "npm run build:planner & npm run build:auth & npm run build:editor & npm run build:audio & wait",
+    "build:vite": "npm run build:planner & npm run build:auth & npm run build:editor & npm run build:audio & npm run build:studio-ui & wait",
     "build": "npm run build:css && npm run build:tailwind && npm run build:vite",
     "dev:conversations": "vite --config vite.conversations.config.mjs",
-    "test:workspace-layout": "node tests/frontend/cadu-workspace-layout.test.cjs"
+    "test:workspace-layout": "node tests/frontend/cadu-workspace-layout.test.cjs",
+    "test:studio": ".venv/bin/python -m pytest -q -p no:cacheprovider tests/test_studio_*.py tests/test_video_studio*.py && node tests/frontend/mc-studio-library.test.cjs && node tests/frontend/mc-video-editor.test.cjs && node tests/frontend/mc-studio-workflow.test.cjs && node tests/frontend/mc-studio-download.test.cjs && node tests/frontend/mc-video-handoff.test.cjs && node tests/frontend/studio-navbar.test.cjs && node tests/frontend/studio-react-navbar.test.cjs && node tests/frontend/studio-editor-flow.test.cjs && node tests/frontend/studio-create-flow.test.cjs",
+    "build:studio-ui": "vite build --config vite.studio-ui.config.mjs"
   },
   "dependencies": {
     "@untitledui/icons": "^0.0.23",

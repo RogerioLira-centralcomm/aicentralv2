@@ -142,3 +142,18 @@ class StudioAgentPlanTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_voice_prompt_keeps_narrator_direction_when_the_script_is_long():
+    from aicentralv2.creative_media.studio_agent import _voice_prompt, VOICE_PROMPT_LIMIT
+    direction = "Narrador brasileiro, voz grave e calorosa, ritmo pausado, sorriso na voz."
+    script = "Oferta " * 150
+    prompt = _voice_prompt(direction, script.strip())
+    assert prompt.startswith(direction)
+    assert "Conteúdo factual da peça: Oferta" in prompt
+    assert len(prompt) <= VOICE_PROMPT_LIMIT
+
+
+def test_voice_prompt_does_not_repeat_a_script_already_in_the_direction():
+    from aicentralv2.creative_media.studio_agent import _voice_prompt
+    assert _voice_prompt("Narre: Chegou o Cadu.", "Chegou o Cadu.") == "Narre: Chegou o Cadu."

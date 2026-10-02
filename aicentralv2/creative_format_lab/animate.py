@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import base64
 from io import BytesIO
 
@@ -48,6 +50,8 @@ EXTEND_WARNING = (
     "A extensão continua o clipe escolhido. Sem first frame. "
     "A cotação usa a tarifa de referência de vídeo."
 )
+
+logger = logging.getLogger(__name__)
 
 
 def quote_animate(payload=None):
@@ -698,6 +702,7 @@ class AnimateService:
             else extra.get("name") or "Animação",
         )
         stored = self.store.persist_animate(payload, extra, user_id=job.get("user_id"))
+        register_library_video(self.repository, job, stored or extra)
         return stored or extra
 
     def _camadas(self):
@@ -859,3 +864,32 @@ def _file_from_bytes(raw, name="still.png"):
 
 def _data_url(payload, mime):
     return f"data:{mime};base64,{base64.b64encode(payload).decode('ascii')}"
+
+
+def register_library_video(repository, job, version):
+    """Mirror a finished clip into the shared Studio library; never fail the job."""
+    connection = getattr(repository, "conn", None)
+    video_url = str((version or {}).get("video_url") or "")
+    if connection is None or not video_url or not str(job.get("client_id") or "").isdigit():
+        return ""
+    from ..creative_media.studio_history import StudioCreationHistory
+    try:
+        return StudioCreationHistory(connection).register_asset(
+            job.get("client_id"), job.get("user_id"), "", "video", "studio_video",
+            str(job.get("public_id") or ""), str((version or {}).get("name") or "Clipe do Studio"), video_url,
+            {
+                "poster_url": str((version or {}).get("poster_url") or (version or {}).get("image_url") or ""),
+                "duration": (version or {}).get("duration"),
+                "has_audio": bool((version or {}).get("has_audio")),
+                "storyboard_ids": list((version or {}).get("storyboard_ids") or []),
+                "library_version_id": str((version or {}).get("id") or ""),
+            },
+        )
+    except Exception:
+        logger.exception("Studio video library registration failed for %s", job.get("public_id"))
+        try:
+            connection.rollback()
+        except Exception:
+            pass
+        return ""
+

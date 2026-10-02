@@ -666,3 +666,15 @@ body.portal--studio:has(.studio-v2) > main#content > .studio-v2,.studio-v2 .stud
 .studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-grid .result-media img{width:100%;height:100%;object-fit:contain}
 .studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-grid[data-count="1"]{display:flex;justify-content:center}
 .studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-heading{text-align:center;justify-content:center;gap:16px}
+/* The card sizes to the image, but the image must never cover the actions below it. */
+.studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-grid .result-card{overflow:hidden}
+.studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-grid .result-media{overflow:hidden;position:relative}
+.studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-grid .result-card footer{position:relative;z-index:2;flex:none}
+/* Collapsed dock: one clean row with every button fully visible. */
+@media(min-width:901px){
+  .studio-v2:is([data-state="generated"],[data-state="results_ready"]) .prompt-dock:not(.is-expanded){max-height:none;overflow:visible;padding:6px 8px 6px 18px}
+  .studio-v2:is([data-state="generated"],[data-state="results_ready"]) .prompt-dock:not(.is-expanded) .prompt-composer-controls,
+  .studio-v2:is([data-state="generated"],[data-state="results_ready"]) .prompt-dock:not(.is-expanded) .creation-intent{display:none!important}
+  .studio-v2:is([data-state="generated"],[data-state="results_ready"]) .prompt-dock:not(.is-expanded) .prompt-row{min-height:0;align-items:center}
+  .studio-v2:is([data-state="generated"],[data-state="results_ready"]) .prompt-dock:not(.is-expanded) .prompt-row .prompt-actions{align-self:center}
+}

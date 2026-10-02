@@ -47,7 +47,7 @@ REGISTRY_KEYS = {
 
 # Extra rules that go into the written contract, from the format's platform constraints.
 FORMAT_NOTES = {
-    "story-9x16": "The top 12% and the bottom 20% of the canvas are covered by the app interface: no text, button or logo there.",
+    "story-9x16": "The top 12% and the bottom 20% of the canvas are covered by the app interface: no text, button or logo there, but the photograph continues full-bleed behind them.",
     "youtube-16x9": "This placement uses the headline only: do not draw any button, pill, price or call-to-action.",
     "iab-728x90": "Compact banner: use only a calm, plain background image; no product, no people, no small print.",
     "iab-320x50": "Compact banner: use only a calm, plain background image; no product, no people, no small print.",
@@ -67,6 +67,13 @@ FAMILIES = {
     "tipografico": ("Tipográfico", "Título domina a peça; assunto pequeno e de apoio."),
     "visual-puro": ("Visual puro", "Só imagem, sem título nem CTA."),
     "compacto": ("Banner compacto", "Título, CTA e logo sobre fundo calmo; sem produto nem pessoas."),
+    "texto-central": ("Texto central", "Cena full-bleed; título e CTA centralizados no meio da peça."),
+    "cartao-flutuante": ("Cartão flutuante", "Cartão chapado com título e CTA flutuando sobre a foto."),
+    "faixa-inferior": ("Faixa inferior", "Foto em cima; faixa chapada embaixo com o texto."),
+    "texto-direita": ("Texto à direita", "Assunto à esquerda, texto alinhado à direita."),
+    "minimalista": ("Minimalista", "Muito respiro; assunto pequeno e título discreto."),
+    "compacto-central": ("Banner compacto central", "Título centralizado com CTA à esquerda; sem produto nem pessoas."),
+    "compacto-logo-esquerda": ("Banner compacto com logo à esquerda", "Logo à esquerda, título ao centro, CTA à direita."),
 }
 
 LOGO_OPTIONS = {"none": "Sem logo", "bottom-right": "Logo embaixo à direita", "top-left": "Logo em cima à esquerda"}
@@ -117,6 +124,41 @@ _LAYOUTS = {
     },
     "compacto": {
         "wide": {"headline": (0, 0.12, 0.5, 0.76), "cta": (0.54, 0.2, 0.22, 0.6)},
+    },
+    "compacto-central": {
+        "wide": {"headline": (0.25, 0.12, 0.5, 0.76), "cta": (0, 0.2, 0.18, 0.6)},
+    },
+    "compacto-logo-esquerda": {
+        "wide": {"headline": (0.2, 0.12, 0.5, 0.76), "cta": (0.74, 0.2, 0.2, 0.6)},
+    },
+    "texto-central": {
+        "vertical": {"headline": (0.08, 0.36, 0.84, 0.18), "cta": (0.3, 0.6, 0.4, 0.08)},
+        "square": {"headline": (0.08, 0.34, 0.84, 0.2), "cta": (0.3, 0.6, 0.4, 0.11)},
+        "landscape": {"headline": (0.15, 0.28, 0.7, 0.26), "cta": (0.38, 0.62, 0.24, 0.15)},
+        "wide": {"headline": (0.2, 0.12, 0.6, 0.5), "cta": (0.4, 0.68, 0.2, 0.24)},
+    },
+    "cartao-flutuante": {
+        "vertical": {"subject": (0, 0, 1, 0.48), "panel": (0.06, 0.52, 0.88, 0.34), "headline": (0.12, 0.57, 0.76, 0.14), "cta": (0.12, 0.75, 0.46, 0.07)},
+        "square": {"subject": (0.25, 0, 0.75, 0.55), "panel": (0.05, 0.5, 0.62, 0.44), "headline": (0.1, 0.55, 0.52, 0.2), "cta": (0.1, 0.8, 0.3, 0.1)},
+        "landscape": {"subject": (0.5, 0, 0.5, 0.85), "panel": (0.04, 0.18, 0.44, 0.64), "headline": (0.08, 0.26, 0.36, 0.3), "cta": (0.08, 0.64, 0.2, 0.12)},
+        "wide": {"subject": (0.5, 0, 0.5, 1), "panel": (0.02, 0.1, 0.42, 0.8), "headline": (0.05, 0.18, 0.36, 0.4), "cta": (0.05, 0.64, 0.16, 0.22)},
+    },
+    "faixa-inferior": {
+        "vertical": {"subject": (0, 0, 1, 0.66), "panel": (0, 0.7, 1, 0.3), "headline": (0.05, 0.74, 0.9, 0.12), "cta": (0.05, 0.88, 0.4, 0.08)},
+        "square": {"subject": (0, 0, 1, 0.62), "panel": (0, 0.66, 1, 0.34), "headline": (0.04, 0.7, 0.6, 0.14), "cta": (0.04, 0.86, 0.3, 0.1)},
+        "landscape": {"subject": (0, 0, 1, 0.62), "panel": (0, 0.66, 1, 0.34), "headline": (0.03, 0.72, 0.55, 0.2), "cta": (0.62, 0.74, 0.18, 0.16)},
+    },
+    "texto-direita": {
+        "vertical": {"headline": (0.3, 0.04, 0.7, 0.2), "cta": (0.5, 0.27, 0.5, 0.08), "subject": (0, 0.42, 1, 0.56)},
+        "square": {"subject": (0, 0, 0.5, 1), "headline": (0.55, 0.14, 0.45, 0.38), "cta": (0.55, 0.62, 0.3, 0.12)},
+        "landscape": {"subject": (0, 0, 0.5, 1), "headline": (0.56, 0.12, 0.44, 0.38), "cta": (0.56, 0.58, 0.22, 0.15)},
+        "wide": {"subject": (0, 0, 0.45, 1), "headline": (0.5, 0.12, 0.36, 0.5), "cta": (0.5, 0.7, 0.16, 0.24)},
+    },
+    "minimalista": {
+        "vertical": {"subject": (0.35, 0.2, 0.5, 0.36), "headline": (0, 0.7, 0.6, 0.1), "cta": (0, 0.84, 0.36, 0.07)},
+        "square": {"subject": (0.45, 0.1, 0.45, 0.45), "headline": (0, 0.68, 0.55, 0.12), "cta": (0, 0.85, 0.28, 0.1)},
+        "landscape": {"subject": (0.6, 0.1, 0.3, 0.6), "headline": (0, 0.6, 0.45, 0.18), "cta": (0, 0.82, 0.16, 0.13)},
+        "wide": {"subject": (0.7, 0.1, 0.25, 0.8), "headline": (0, 0.3, 0.45, 0.4), "cta": (0, 0.75, 0.14, 0.2)},
     },
     "visual-puro": {
         "vertical": {"subject": (0, 0, 1, 1)},
@@ -327,10 +369,6 @@ def render_mask(spec, longest_side=1200, provider_size=None):
     if frame != (0.0, 0.0, 1.0, 1.0):  # strips that will be trimmed are darker and left without zones
         draw.rectangle((0, 0, size[0], size[1]), fill=206)
         draw.rectangle(_px(size, frame), fill=_BG)
-    # the margin ring between the delivered edge and the safe frame is shaded: nothing but scene goes there
-    ring = _px(size, frame)
-    draw.rectangle(ring, fill=224)
-    draw.rectangle(_px(size, _mapped(spec["safe"], frame)), fill=_BG)
 
     if "panel" in zones:
         box = _px(size, zones["panel"])
@@ -388,11 +426,18 @@ def zone_lines(spec, frame=(0.0, 0.0, 1.0, 1.0)):
     return lines
 
 
+def final_check(spec, provider_size=None):
+    """Closing reminder that repeats the zone coordinates; models weigh the end of the prompt heavily."""
+    frame = provider_frame(spec, provider_size)
+    zones = "; ".join(line.removeprefix("- ") for line in zone_lines(spec, frame))
+    return f"FINAL LAYOUT CHECK: before finishing, verify the zones exactly: {zones}. If any element is elsewhere, recompose."
+
+
 def safe_line(spec, frame):
     x, y, w, h = _mapped(spec["safe"], frame)
     return (
         f"SAFE FRAME: every letter of text, the button and the logo must sit strictly inside x {_range(x, w)} and y {_range(y, h)} of the canvas; "
-        "the slightly darker ring outside it is margin where only the scene continues. Start text lines at the left edge of the headline zone, never closer to the edge."
+        "outside it the photograph keeps going edge to edge (never a flat band, frame or empty strip). Start text lines at the left edge of the headline zone, never closer to the edge."
     )
 
 
@@ -409,6 +454,8 @@ def layout_contract(spec, image_index=1, provider_size=None):
         "white box with dashed border = logo space, keep that area clean and empty; white block with a black frame = flat text panel; light grey = the scene or background, which continues full-bleed behind everything; "
         "the thin dashed rectangle is the safe margin: no text or logo outside it.",
         *(["The slightly lighter inner area is the final frame; the darker strips outside it are trimmed away afterwards. Continue the scene into those strips, but put no text, logo, button or key subject there."] if trimmed else []),
+        "PRIORITY: these zones override any placement written anywhere else in this prompt (briefing or creative direction). "
+        "If the text below asks for the headline, button or logo somewhere else, ignore that part and follow these zones.",
         "Zones as percentage of the canvas (x from the left, y from the top):",
         *zone_lines(spec, frame),
         safe_line(spec, frame),
@@ -433,60 +480,78 @@ def layout_contract(spec, image_index=1, provider_size=None):
 
 MASK_URL_PREFIX = "/static/images/cadu/studio/references/layouts/"
 
+BR, NONE, TL = "bottom-right", "none", "top-left"
+
+# Ten deliberately different creatives per social format: layout family × logo × CTA.
 _SOCIAL = (
-    ("foto-texto-base", "bottom-right", True),
-    ("foto-texto-topo", "none", True),
-    ("split", "bottom-right", True),
-    ("produto-destaque", "bottom-right", True),
-    ("assunto-na-base", "bottom-right", False),
+    ("foto-texto-base", BR, True),
+    ("foto-texto-topo", NONE, True),
+    ("split", BR, True),
+    ("produto-destaque", BR, False),
+    ("assunto-na-base", BR, False),
+    ("texto-central", NONE, True),
+    ("cartao-flutuante", BR, True),
+    ("faixa-inferior", NONE, False),
+    ("texto-direita", BR, True),
+    ("minimalista", NONE, False),
 )
 _DISPLAY = (
-    ("foto-texto-base", "bottom-right", True),
-    ("foto-texto-topo", "bottom-right", True),
-    ("split", "bottom-right", True),
-    ("produto-destaque", "bottom-right", True),
+    ("foto-texto-base", BR, True),
+    ("foto-texto-topo", NONE, True),
+    ("split", BR, True),
+    ("produto-destaque", BR, False),
+    ("texto-central", NONE, True),
+    ("cartao-flutuante", BR, True),
+    ("faixa-inferior", BR, True),
+    ("texto-direita", NONE, False),
+)
+_COMPACT = (
+    ("compacto", BR, True),
+    ("compacto", NONE, False),
+    ("compacto", BR, False),
+    ("compacto-central", NONE, True),
+    ("compacto-logo-esquerda", TL, True),
 )
 
-# format -> (family, logo, cta) set. Display units require logo + headline + CTA; YouTube in-feed forbids a CTA;
-# the compact leaderboard/mobile banners carry text only (see creative_format_registry).
+# format -> (family, logo, cta) set. YouTube in-feed forbids a CTA and the compact banners carry no
+# product or people (creative_format_registry); every format has at least five clearly different layouts.
 MASK_SETS = {
     "feed-4x5": _SOCIAL,
     "feed-1x1": _SOCIAL,
-    "story-9x16": (
-        ("foto-texto-base", "bottom-right", True),
-        ("foto-texto-topo", "none", True),
-        ("split", "bottom-right", True),
-        ("produto-destaque", "bottom-right", True),
-        ("tipografico", "bottom-right", False),
-    ),
-    "linkedin-1200x627": (
-        ("foto-texto-base", "bottom-right", True),
-        ("foto-texto-topo", "none", True),
-        ("assunto-na-base", "bottom-right", False),
-        ("split", "bottom-right", True),
-        ("tipografico", "bottom-right", True),
-    ),
+    "story-9x16": _SOCIAL,
+    "linkedin-1200x627": _SOCIAL,
     "youtube-16x9": (
-        ("foto-texto-base", "bottom-right", False),
-        ("foto-texto-topo", "none", False),
-        ("split", "none", False),
-        ("tipografico", "bottom-right", False),
+        ("foto-texto-base", BR, False),
+        ("foto-texto-topo", NONE, False),
+        ("split", NONE, False),
+        ("tipografico", BR, False),
+        ("texto-central", NONE, False),
+        ("faixa-inferior", BR, False),
+        ("texto-direita", BR, False),
+        ("minimalista", NONE, False),
     ),
     "iab-300x250": _DISPLAY,
     "display-300x300": _DISPLAY,
     "iab-300x600": _DISPLAY,
     "iab-160x600": (
-        ("foto-texto-base", "bottom-right", True),
-        ("foto-texto-topo", "bottom-right", True),
-        ("produto-destaque", "bottom-right", True),
+        ("foto-texto-base", BR, True),
+        ("foto-texto-topo", NONE, True),
+        ("produto-destaque", BR, True),
+        ("texto-central", NONE, False),
+        ("faixa-inferior", BR, True),
+        ("minimalista", NONE, False),
     ),
     "iab-970x250": (
-        ("foto-texto-base", "bottom-right", True),
-        ("foto-texto-topo", "bottom-right", True),
-        ("split", "bottom-right", True),
+        ("foto-texto-base", BR, True),
+        ("foto-texto-topo", NONE, True),
+        ("split", BR, True),
+        ("texto-direita", BR, False),
+        ("cartao-flutuante", NONE, True),
+        ("texto-central", BR, True),
+        ("minimalista", NONE, False),
     ),
-    "iab-728x90": (("compacto", "bottom-right", True),),
-    "iab-320x50": (("compacto", "bottom-right", True),),
+    "iab-728x90": _COMPACT,
+    "iab-320x50": _COMPACT,
 }
 
 

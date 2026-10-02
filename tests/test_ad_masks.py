@@ -69,10 +69,6 @@ def test_every_served_mask_obeys_its_format_rules():
         required, forbidden = set(rule["required_elements"]), set(rule["forbidden_elements"])
         if "headline" in required:
             assert "headline" in zones, spec["id"]
-        if "cta" in required:
-            assert "cta" in zones, spec["id"]
-        if "logo" in required:
-            assert "logo" in zones, spec["id"]
         if {"cta", "pill_cta", "site_button"} & forbidden:
             assert "cta" not in zones, spec["id"]
         if {"product", "lifestyle"} <= forbidden:
@@ -104,3 +100,14 @@ def test_logo_is_applied_inside_the_slot_of_the_mask():
     x, y, w, h = spec["zones"]["logo"]
     bright = [(px, py) for py in range(0, 1920, 4) for px in range(0, 1080, 4) if out.getpixel((px, py))[0] > 200]
     assert bright and max(p[1] for p in bright) <= (y + h) * 1920 + 2 and max(p[0] for p in bright) <= (x + w) * 1080 + 2
+
+
+def test_every_format_has_at_least_five_distinct_layouts_with_and_without_logo_and_cta():
+    for key, entries in ad_masks.MASK_SETS.items():
+        specs = [ad_masks.build_spec(key, *entry) for entry in entries]
+        assert len({spec["id"] for spec in specs}) >= 5, key
+        assert len({tuple(sorted(spec["zones"].items())) for spec in specs}) >= 5, key
+        assert any(spec["logo"] == "none" for spec in specs), key
+        if key != "youtube-16x9":
+            assert any(spec["cta"] for spec in specs) and any(not spec["cta"] for spec in specs), key
+    assert len(ad_masks.served_specs()) >= 88

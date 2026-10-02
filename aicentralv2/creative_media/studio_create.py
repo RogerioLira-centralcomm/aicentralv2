@@ -419,6 +419,16 @@ def direction_user_content(request, context):
             f"source={reference.get('source', 'user')}; role={reference.get('role', 'reference')}. "
             "Inspecione os pixels e aplique o contrato descrito no contexto."
         )})
+        from . import ad_masks
+        spec = ad_masks.spec_from_url(url)
+        if spec:
+            # The director misreads wireframes when left to guess; hand it the exact zones it must describe.
+            blocks.append({"type": "text", "text": (
+                f"CONTRATO DE LAYOUT OBRIGATÓRIO da referência {index} (o gerador recebe o mesmo contrato): "
+                "descreva a composição exatamente com estas zonas, nas mesmas posições, sem inventar outra divisão "
+                "da tela, sem mover título, CTA ou logo e sem acrescentar elementos que o contrato não prevê.\n"
+                + ad_masks.layout_contract(spec, index)
+            )})
         blocks.append({"type": "image_url", "image_url": {"url": _director_image_url(url)}})
     logo = official_logo_reference(context.get("brand_context"))
     if logo and not any(
@@ -696,34 +706,49 @@ def create_image(payload, modeling, client_id, user_id):
         f"Output aspect ratio: {aspect_ratio}.",
         *([f"FINAL LOGO CHECK: the image must contain no logo, wordmark, monogram or brand name of any company; the {logo_corner.replace('-', ' ')} corner stays plain background."] if logo_corner else []),
         *(["FINAL LOGO CHECK: this composition has no logo; the image must contain no logo, wordmark, monogram or brand name."] if logo_free else []),
-        *(["FINAL LAYOUT CHECK: the composition must match the wireframe zones described at the top; if it does not, recompose before finishing."] if layout_lines else []),
+        *([final_layout_check(references, provider_size)] if layout_lines else []),
     ] if line)
     provider_references = provider_image_references(references_with_provider_masks(references, provider_size), mask)
+    def render(prompt_text):
+        try:
+            result = modeling.generator.generate_image(
+                prompt_text,
+                provider_references,
+                aspect_ratio=aspect_ratio,
+                quality=provider_quality,
+                resolution=provider_resolution,
+                model=IMAGE_MODEL,
+                max_input_references=MAX_IMAGE_REFERENCES,
+                size=f"{provider_size[0]}x{provider_size[1]}" if sizing else None,
+            )
+        except Exception as error:
+            setattr(error, "studio_phase", "image_provider")
+            raise
+        image = result.get("b64_json")
+        if not image:
+            raise ValueError("O gerador não devolveu uma imagem.")
+        fmt = result.get("output_format") or "png"
+        try:
+            if mask and primary:
+                image, fmt = compose_inside_mask(image, primary["data"], mask), "png"
+            elif width and height:
+                # A composition mask is drawn on the provider canvas with the final frame marked, so trim exactly to it.
+                image = fit_generated_output(image, width, height, fmt, max_trim=0.5 if mask_specs(raw_references) else None)
+        except Exception as error:
+            setattr(error, "studio_phase", "image_storage")
+            raise
+        return result, image, fmt
+
+    provider, encoded, output_format = render(technical_prompt)
+    if sizing and not mask and MARGIN_QA_ENABLED:
+        # Elements the model drew outside the safe frame get one corrected attempt (charged once).
+        safe = safe_frame(raw_references, int(width), int(height))
+        edges = margin_violations(encoded, safe, getattr(modeling.generator, "text_callable", None))
+        logger.info("Studio margin check request=%s edges=%s", request_id, ",".join(edges) or "none")
+        if edges:
+            logger.info("Studio margin check failed edges=%s; regenerating once", ",".join(edges))
+            provider, encoded, output_format = render(technical_prompt + "\n" + margin_correction(edges, safe))
     try:
-        provider = modeling.generator.generate_image(
-            technical_prompt,
-            provider_references,
-            aspect_ratio=aspect_ratio,
-            quality=provider_quality,
-            resolution=provider_resolution,
-            model=IMAGE_MODEL,
-            max_input_references=MAX_IMAGE_REFERENCES,
-            size=f"{provider_size[0]}x{provider_size[1]}" if sizing else None,
-        )
-    except Exception as error:
-        setattr(error, "studio_phase", "image_provider")
-        raise
-    encoded = provider.get("b64_json")
-    if not encoded:
-        raise ValueError("O gerador não devolveu uma imagem.")
-    output_format = provider.get("output_format") or "png"
-    try:
-        if mask and primary:
-            encoded = compose_inside_mask(encoded, primary["data"], mask)
-            output_format = "png"
-        elif width and height:
-            # A composition mask is drawn on the provider canvas with the final frame marked, so trim exactly to it.
-            encoded = fit_generated_output(encoded, width, height, output_format, max_trim=0.5 if mask_specs(raw_references) else None)
         if brand_logo and not mask:
             encoded = apply_brand_logo(encoded, output_format, brand_logo, logo_corner, rect=next((spec["zones"]["logo"] for spec in mask_specs(raw_references) if "logo" in spec["zones"]), None))
         image_url = modeling.storage.save_generated_base64(
@@ -1033,6 +1058,15 @@ def assert_masks_fit_format(references, width, height):
                 )
 
 
+def final_layout_check(references, provider_size=None):
+    from . import ad_masks
+    for item in references:
+        spec = ad_masks.spec_from_url(item.get("data") or item.get("url")) if item.get("source") == "global" else None
+        if spec:
+            return ad_masks.final_check(spec, provider_size)
+    return "FINAL LAYOUT CHECK: the composition must match the wireframe zones described at the top; if it does not, recompose before finishing."
+
+
 def mask_specs(references):
     from . import ad_masks
     urls = [str(item.get("url") or item.get("data") or "") for item in references or [] if isinstance(item, dict)]
@@ -1232,6 +1266,81 @@ def reserved_band_line():
     return (
         "RESERVED EDGE BANDS: keep the outer 8% of the canvas on every side free of logo, text, buttons and faces; "
         "only background, light and texture may live there."
+    )
+
+
+# Off by default: a vision check plus a possible second image costs more than it saves. Opt in with =1.
+MARGIN_QA_ENABLED = os.getenv("CREATIVE_STUDIO_MARGIN_QA", "0") == "1"
+LAYOUT_QA_MODEL = os.getenv("CREATIVE_STUDIO_LAYOUT_QA_MODEL", "gpt-5-mini")
+MARGIN_QA_SLACK = 0.02
+
+
+def safe_frame(references, width, height):
+    """Safe area of the delivered piece as (left, top, right, bottom) fractions."""
+    from . import ad_masks
+    for spec in mask_specs(references):
+        x, y, w, h = spec["safe"]
+        return (x, y, x + w, y + h)
+    return ad_masks._safe_rect(width, height)
+
+
+def _margin_strips(image, safe, slack=MARGIN_QA_SLACK):
+    """Thin strips along each edge, outside the safe frame minus a small tolerance."""
+    width, height = image.size
+    left, top, right, bottom = safe
+    boxes = {
+        "left": (0, 0, round(width * (left - slack)), height),
+        "right": (round(width * (right + slack)), 0, width, height),
+        "top": (0, 0, width, round(height * (top - slack))),
+        "bottom": (0, round(height * (bottom + slack)), width, height),
+    }
+    return {name: image.crop(box) for name, box in boxes.items() if box[2] - box[0] >= 4 and box[3] - box[1] >= 4}
+
+
+def margin_violations(encoded, safe, text_callable, model=LAYOUT_QA_MODEL):
+    """Edges whose margin strip contains rendered text or a button. Fails open: [] when the check is unavailable.
+
+    Asking a vision model for coordinates is off by 2-3 points, which is useless for an 8% margin; asking
+    whether a cropped edge strip contains letters is reliable (validated on Studio pieces, 2026-10-02).
+    """
+    if not text_callable:
+        return []
+    try:
+        image = Image.open(io.BytesIO(base64.b64decode(str(encoded), validate=True))).convert("RGB")
+        strips = _margin_strips(image, safe)
+        if not strips:
+            return []
+        content = [{"type": "text", "text": (
+            "Each image below is a thin strip cut from the EDGE of an advertisement. For each strip answer true only if it "
+            "contains rendered typography (letters, words or parts of letters) or part of a call-to-action button, meaning a "
+            "pill or rounded rectangle with a text label. Answer false for everything else: photographic content, people, "
+            "furniture, lights, decorative shapes, waves, lines, gradients or solid color areas. Reply JSON with one boolean per strip name."
+        )}]
+        for name, strip in strips.items():
+            buffer = io.BytesIO()
+            strip.save(buffer, "JPEG", quality=88)
+            content += [
+                {"type": "text", "text": f"Strip: {name}"},
+                {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")}},
+            ]
+        response = text_callable(
+            [{"role": "user", "content": content}], model=model, provider="openai", max_tokens=2000,
+            temperature=0, reasoning={"effort": "low"}, response_format={"type": "json_object"},
+        )
+        raw = response.get("message", {}).get("content") if isinstance(response, dict) else response
+        answer = raw if isinstance(raw, dict) else _json_content(raw)
+        return [name for name in strips if answer.get(name) is True]
+    except Exception:
+        logger.warning("Studio margin check unavailable", exc_info=True)
+        return []
+
+
+def margin_correction(edges, safe):
+    left, top, right, bottom = safe
+    return (
+        f"CORRECTION: a previous attempt placed text or the button too close to the {', '.join(edges)} edge. "
+        f"Every letter, the button and any mark must sit inside x {round(left * 100)}–{round(right * 100)}% and "
+        f"y {round(top * 100)}–{round(bottom * 100)}% of the canvas, with visible breathing room; only the scene may reach the edges."
     )
 
 

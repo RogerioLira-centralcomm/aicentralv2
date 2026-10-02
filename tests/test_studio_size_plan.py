@@ -59,3 +59,26 @@ def test_image_quota_waits_and_retries(monkeypatch):
     responses = iter([SimpleNamespace(status_code=429, headers={"retry-after": "3"}), SimpleNamespace(status_code=200, headers={})])
     result = openrouter_service._post_with_rate_retry(SimpleNamespace(post=lambda url, **kw: next(responses)), "u")
     assert result.status_code == 200 and calls == [("sleep", 3.0)]
+
+
+def test_margin_strips_cover_only_the_area_outside_the_safe_frame():
+    from PIL import Image
+    from aicentralv2.creative_media import studio_create
+    strips = studio_create._margin_strips(Image.new("RGB", (1000, 2000)), (0.08, 0.12, 0.92, 0.80))
+    assert strips["left"].size == (60, 2000) and strips["right"].size == (60, 2000)
+    assert strips["top"].size == (1000, 200) and strips["bottom"].size == (1000, 360)
+
+
+def test_margin_check_reports_edges_and_fails_open():
+    import base64, io
+    from PIL import Image
+    from aicentralv2.creative_media import studio_create
+    buffer = io.BytesIO(); Image.new("RGB", (400, 500)).save(buffer, "PNG")
+    encoded = base64.b64encode(buffer.getvalue()).decode()
+    reply = lambda *a, **k: {"message": {"content": '{"left": true, "right": false, "top": false, "bottom": false}'}}
+    assert studio_create.margin_violations(encoded, (0.08, 0.08, 0.92, 0.92), reply) == ["left"]
+    def broken(*a, **k):
+        raise RuntimeError("down")
+    assert studio_create.margin_violations(encoded, (0.08, 0.08, 0.92, 0.92), broken) == []
+    assert studio_create.margin_violations(encoded, (0.08, 0.08, 0.92, 0.92), None) == []
+    assert "left" in studio_create.margin_correction(["left"], (0.08, 0.08, 0.92, 0.92))

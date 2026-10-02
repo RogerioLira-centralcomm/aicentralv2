@@ -253,65 +253,10 @@ def _studio_reference_masks():
             'exact_size': True,
             'url': url_for('static', filename=f"images/cadu/studio/references/layouts/{ad_masks.mask_filename(spec)}"),
         })
-    references = [
-        {
-            'id': f'feed-mask-{index:02d}',
-            'label': f'Feed · composição {index:02d}',
-            'role': 'composition',
-            'group': 'feed-4x5',
-            'concept': 'composition-mask',
-            'format': '4:5',
-            'width': 1080,
-            'height': 1350,
-            'url': url_for(
-                'static',
-                filename=f'images/cadu/studio/references/feed/feed-mask-{index:02d}.webp',
-            ),
-        }
-        for index in range(1, 11)
-    ]
-    references = [*pilot, *references]
-    references.extend(
-        {
-            'id': f'square-mask-{index:02d}',
-            'label': f'300×300 · composição {index:02d}',
-            'role': 'composition',
-            'group': 'display-300x300',
-            'concept': concept,
-            'format': '1:1',
-            'width': 300,
-            'height': 300,
-            'url': url_for(
-                'static',
-                filename=f'images/cadu/studio/references/square-300x300/square-mask-{index:02d}.webp',
-            ),
-        }
-        for index, concept in enumerate((
-            'product-hero',
-            'institutional-full-bleed',
-            'photo-text-split',
-            'editorial-footer',
-            'service-contact',
-            'headline-overlay',
-        ), start=1)
-    )
-    references.append(
-        {
-            'id': 'iab-300x250-mask-01',
-            'label': '300×250 · composição 01',
-            'role': 'composition',
-            'group': 'iab-300x250',
-            'concept': 'institutional-lifestyle',
-            'format': '6:5',
-            'width': 300,
-            'height': 250,
-            'url': url_for(
-                'static',
-                filename='images/cadu/studio/references/iab-300x250/iab-300x250-mask-01.webp',
-            ),
-        }
-    )
-    return references
+    # The earlier hand-drawn masks (feed/, square-300x300/, iab-300x250/) stay on disk for saved sessions
+    # but are no longer offered: every format now has its own generated set.
+    return pilot
+
 
 
 def _record(root, ident, kind):

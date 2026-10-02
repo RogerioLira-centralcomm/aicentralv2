@@ -441,7 +441,7 @@ ORDEM OBRIGATÓRIA DO PROMPT FINAL: escreva um único prompt contínuo, nesta se
 FORMATO É CONTROLADO PELO STUDIO: o campo contexto.format, contexto.format_key, contexto.width e contexto.height é a fonte de verdade do output selecionado na interface. Se o texto do pedido mencionar outra dimensão ou proporção, trate isso apenas como descrição do pedido e ignore a dimensão conflitante. Nunca escreva 300x300, 1080x1080 ou outra medida no prompt final quando o formato selecionado for diferente. Sempre repita o formato controlado pelo contexto no prompt final.
 MARCA E PROJETO: contexto.creation_intent define o escopo. Em "branded_creative", quando contexto.brand_context existir, use-o como fonte de verdade para nome, logo, paleta, tipografia, ativos, elementos obrigatórios e elementos proibidos; aplique os ativos aprovados na peça. Tipografia pode trazer família aprovada ou somente uma classificação observada; não invente o nome de uma fonte proprietária quando houver apenas classificação. Em "neutral_asset", ignore integralmente a identidade do projeto: a solicitação é um fundo, página, textura, cena ou elemento reutilizável, não uma peça de marca. Referências de composição continuam sendo apenas guias de posição e hierarquia. Se contexto.requested_palette tiver cores, aplique-as apenas nesta peça como escolha explícita do briefing: elas não sobrescrevem nem passam a ser apresentadas como cores oficiais da marca. Avalie logo e cores separadamente em contexto.brand_context.readiness. LOGO: quando houver logo oficial (has_logo=true, ele chega como imagem anexada com o rótulo \"logo oficial\"), o prompt final DEVE dizer explicitamente onde o logo oficial entra (canto, assinatura ou lockup), em tamanho legível, uma única vez, reproduzido exatamente como fornecido; nunca peça para reservar área vazia no lugar dele. Sem logo oficial, nunca invente logotipo, monograma, inicial, símbolo ou wordmark: reserve uma área limpa para aplicação posterior. CORES: quando houver paleta oficial, cite os hexadecimais no prompt final e diga onde aparecem (fundo, formas, tipografia, CTA); uma paleta temática do briefing (por exemplo, rosa de Outubro Rosa) pode conduzir o clima, mas as cores oficiais precisam continuar reconhecíveis. Sem paleta oficial mas com logo, use as cores visíveis do próprio logo como acentos, sem chamá-las de paleta oficial. Sem logo e sem cores, não invente identidade. TIPOGRAFIA: quando brand_context.fonts existir, indique a direção tipográfica para os textos visíveis. O título de cada direção deve citar a marca. EXCEÇÃO DE REMIX: quando contexto.reference_mode for "visual_remix" ou "user_visual_reference", a imagem anexada pelo usuário é a evidência visual prioritária. Extraia dela apenas características observáveis — paleta, materiais, luz, tratamento do assunto e linguagem da peça — sem dizer que são cores ou logo oficiais do projeto e sem exigir identidade ausente.
 
-REFERÊNCIAS — você receberá as imagens selecionadas como blocos visuais no mesmo turno. Inspecione seus pixels antes de escrever cada direção; não deduza a composição apenas pelo nome ou URL. Trate cada item do contexto como contrato, nunca como decoração. Itens com source="global" são máscaras protegidas de composição do Studio: use-as como planta estrutural, extraindo ordem de camadas, zona do produto/assunto, faixa de headline, área de preço ou CTA, margens seguras, alinhamento, respiro e relação entre foreground e background. Reproduza essa arquitetura espacial na peça final com o conteúdo do briefing, sem copiar o template, sem usar o objeto fictício da máscara como produto, sem alterar o arquivo e sem colocá-lo na biblioteca do usuário. Para cada global, devolva no reference_plan um layout com subject_zone, headline_zone, support_zone, safe_margin, layer_order e alignment, descrevendo posições relativas observadas na imagem. Itens com source="user" ou source="project" são referências de produção: aplique na imagem criada o conteúdo visual útil, como produto, pessoa, embalagem, identidade, textura, cenário ou objeto, preservando os detalhes relevantes quando a intenção indicar. Quando reference_mode="visual_remix", una a imagem do usuário e a máscara global: a imagem do usuário define a linguagem visual e a máscara global define a estrutura, zonas e respiro. Gere uma nova peça coerente, não uma cópia literal, e não transforme cores vistas no anexo em identidade oficial. Não confunda uma referência global de composição com uma imagem-base do usuário. Quando reference_mode="briefing_only", não mencione referências visuais, não invente uma reference_plan e crie uma direção original baseada somente no briefing, canal e formato. O prompt final deve mencionar como cada referência será usada somente quando houver referência selecionada e respeitar o role declarado.
+REFERÊNCIAS — você receberá as imagens selecionadas como blocos visuais no mesmo turno. Inspecione seus pixels antes de escrever cada direção; não deduza a composição apenas pelo nome ou URL. Trate cada item do contexto como contrato, nunca como decoração. Itens com source="global" são máscaras protegidas de composição do Studio: diagramas anotados em que só o retângulo interno, dentro da guia SAFE MARGIN, é a peça; título, legenda e coluna de camadas ao redor são documentação. Use-as como planta estrutural, extraindo ordem de camadas, zona do produto/assunto, faixa de headline, área de preço ou CTA, margens seguras, alinhamento, respiro e relação entre foreground e background. Reproduza essa arquitetura espacial na peça final com o conteúdo do briefing, sem copiar o template, sem usar o objeto fictício da máscara como produto, sem alterar o arquivo e sem colocá-lo na biblioteca do usuário. Quando houver máscara global, o prompt final deve descrever em texto a posição de cada zona (por exemplo, "metade esquerda: cena da TV; metade direita: título e texto; canto inferior direito: CTA") e, se a máscara tiver zona LOGO, posicionar o logo oficial nela. Para cada global, devolva no reference_plan um layout com subject_zone, headline_zone, support_zone, safe_margin, layer_order e alignment, descrevendo posições relativas observadas na imagem. Itens com source="user" ou source="project" são referências de produção: aplique na imagem criada o conteúdo visual útil, como produto, pessoa, embalagem, identidade, textura, cenário ou objeto, preservando os detalhes relevantes quando a intenção indicar. Quando reference_mode="visual_remix", una a imagem do usuário e a máscara global: a imagem do usuário define a linguagem visual e a máscara global define a estrutura, zonas e respiro. Gere uma nova peça coerente, não uma cópia literal, e não transforme cores vistas no anexo em identidade oficial. Não confunda uma referência global de composição com uma imagem-base do usuário. Quando reference_mode="briefing_only", não mencione referências visuais, não invente uma reference_plan e crie uma direção original baseada somente no briefing, canal e formato. O prompt final deve mencionar como cada referência será usada somente quando houver referência selecionada e respeitar o role declarado.
 
 Para Display, trate o formato IAB informado como uma unidade publicitária final — não o transforme em pôster ou interface. Para CTV, trate como still cinematográfico 16:9. Para social, preserve área segura e leitura no feed. Escreva uma cena específica, não adjetivos vagos como “moderno”, “bonito” ou “impactante”. Prefira detalhes observáveis: lugar, hora, enquadramento, distância de câmera, gesto, textura e espaço para copy.
 
@@ -613,7 +613,10 @@ def create_image(payload, modeling, client_id, user_id):
         "SAFE AREA CHECK: Keep all requested logos, brand marks, headline text and product packaging fully inside the selected format with visible breathing room on every side. Never place a logo partially outside the frame or crop it at the top, bottom or side. If no official logo asset is supplied, leave a clean intentional logo-safe area instead of generating a guessed mark."
     )
     requested_palette = clean_palette(data.get("requested_palette"))
+    layout_lines = composition_layout_lines(references, mask)
     technical_prompt = "\n".join([
+        *layout_lines,
+        crop_safe_zone_line(aspect_ratio, width, height),
         "MANDATORY BRIEFING FIDELITY: Preserve every concrete requirement in the user briefing, especially named products, packaging, people, setting, action, copy and requested format. A composition reference is only a layout guide; it must never replace the requested subject or product.",
         "MANDATORY COMMERCIAL FACTS: Any advertiser name, brand name, product name, price, currency, package volume, slogan or logo request explicitly present in the user briefing must remain in the creative instruction exactly as provided. Do not silently drop Reserva, R$ 599, 50 ml, 1 Million or any other named fact.",
         brand_identity_guard(data.get("brand_context"), visual_reference=visual_reference, creation_intent=creation_intent, editing=bool(mask)),
@@ -633,6 +636,7 @@ def create_image(payload, modeling, client_id, user_id):
         f"Requested output dimensions: {width}x{height}px." if width and height else "Requested output dimensions: use the selected aspect ratio.",
         f"Creative direction exploration intensity: {direction_intensity}/100.",
         f"Output aspect ratio: {aspect_ratio}.",
+        *(["FINAL LAYOUT CHECK: the composition must match the wireframe zones described at the top; if it does not, recompose before finishing."] if layout_lines else []),
     ])
     provider_references = provider_image_references(references, mask)
     try:
@@ -896,6 +900,50 @@ def image_mime(value):
     if suffix == "webp":
         return "image/webp"
     return "image/png"
+
+
+def composition_layout_lines(references, mask=""):
+    """Lead the prompt with the selected wireframe so it is not lost at the end."""
+    if mask:
+        return []
+    indexes = [index for index, item in enumerate(references, start=1) if item.get("source") == "global"]
+    if not indexes:
+        return []
+    index = indexes[0]
+    return [
+        f"LAYOUT (binding, highest priority after the briefing): IMAGE {index} is an annotated layout wireframe, not artwork. "
+        "Only the large inner rectangle inside its SAFE MARGIN guide is the ad canvas; the title, legend, layer-order column and notes around it are documentation and must not appear. "
+        "Rebuild that inner rectangle's zone geometry in the final ad: the same split between image area and text area, the same position and relative size of the main subject, "
+        "headline block, support text and CTA, and the same margins. Fill each zone with the briefing's content. "
+        "If the wireframe marks a LOGO zone, the official logo goes there. "
+        "Never render the wireframe's grey placeholders, numbers, labels, sample words such as HEADLINE, LOGO or CTA, guide lines or its placeholder product (bottle, jar or box).",
+    ]
+
+
+def crop_safe_zone_line(aspect_ratio, width, height):
+    """Tell the model which bands are trimmed when the provider ratio differs from the delivery size."""
+    from ..creative_modeling_generation import normalize_image_aspect_ratio
+    if not (width and height):
+        return "EDGE SAFETY: keep all text, logos and key subjects at least 7% away from every edge."
+    provider_ratio = normalize_image_aspect_ratio(aspect_ratio)
+    try:
+        ratio_width, ratio_height = (float(part) for part in provider_ratio.split(":", 1))
+        generated, target = ratio_width / ratio_height, width / height
+    except (TypeError, ValueError, ZeroDivisionError):
+        return "EDGE SAFETY: keep all text, logos and key subjects at least 7% away from every edge."
+    if abs(generated - target) < 0.01:
+        return "EDGE SAFETY: keep all text, logos and key subjects at least 7% away from every edge; nothing may touch or cross the frame."
+    if generated < target:
+        trimmed = (1 - generated / target) / 2
+        bands = "top and bottom"
+    else:
+        trimmed = (1 - target / generated) / 2
+        bands = "left and right"
+    margin = round(trimmed * 100 + 7)
+    return (
+        f"EDGE SAFETY: the image is generated at {provider_ratio} and then trimmed to {width}x{height}, removing about {round(trimmed * 100, 1)}% at the {bands}. "
+        f"Keep every headline, text line, logo and key subject at least {margin}% away from the {bands} edges and 7% from the other edges; nothing may touch or cross the frame."
+    )
 
 
 def fit_generated_output(encoded, width, height, output_format="png"):

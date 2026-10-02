@@ -72,3 +72,6 @@
 /* The server header is swapped for the React navbar on mount: hide the swap, never the page. */
 @keyframes csu-reveal{to{visibility:visible}}
 .mc-cadu-bar--studio:not(.has-studio-navbar)>.mc-cadu-nav,.mc-cadu-bar--studio:not(.has-studio-navbar)>.mc-cadu-meta{visibility:hidden;animation:csu-reveal 0s 1.2s forwards}
+
+/* Cadu product icon sits close to the left edge. */
+@media (min-width:821px){.mc-cadu-bar.has-studio-navbar{padding-left:10px!important}.mc-cadu-bar.has-studio-navbar>.studio-product-identity .cadu-product-switch>summary{padding-left:4px}}

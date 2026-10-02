@@ -614,3 +614,29 @@ body.portal--studio:has(.studio-v2) > main#content > .studio-v2,.studio-v2 .stud
 @media(prefers-reduced-motion:reduce){.studio-v2 .prompt-dock{transition:none}}
 .studio-v2:is([data-state="generated"],[data-state="results_ready"]) .result-followup-actions{flex:none;margin-top:10px;padding:0}
 @media(max-width:900px){.studio-v2:is([data-state="generated"],[data-state="results_ready"]) .canvas-stage{overflow:auto}}
+
+/* Reference rail: aligned heading icon, quiet toggle, and a real collapsed
+   rail (icon column) on desktop. */
+.studio-v2 .studio-rail>.panel-heading{align-items:center}
+.studio-v2 .studio-rail>.panel-heading h2{gap:10px;align-items:center}
+.studio-v2 .studio-rail>.panel-heading h2>i,
+.studio-v2 .studio-rail:not(.is-references-collapsed)>.panel-heading h2>i{margin-top:0;font-size:17px;line-height:1}
+.studio-v2 .rail-close{place-items:center;width:32px;height:32px;padding:0;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--v2-muted);font-size:14px}
+.studio-v2 .rail-close:hover{border-color:var(--v2-line);background:rgba(255,255,255,.05);color:var(--v2-text)}
+.studio-v2 .rail-close:focus-visible{outline:2px solid var(--v2-purple-2);outline-offset:2px}
+.studio-v2 .studio-rail.is-references-collapsed .rail-close i{transform:none}
+.studio-v2 .studio-rail.is-references-collapsed .rail-close i::before{content:"\f101"}
+@media(min-width:901px){
+  .studio-v2 .studio-v2__body:has(.studio-rail.is-references-collapsed){grid-template-columns:64px minmax(520px,1fr) 360px}
+  .studio-v2 .studio-rail.is-references-collapsed{padding-inline:8px;overflow:hidden}
+  .studio-v2 .studio-rail.is-references-collapsed>.panel-heading{flex-direction:column-reverse;align-items:center;gap:14px}
+  .studio-v2 .studio-rail.is-references-collapsed>.panel-heading .eyebrow,
+  .studio-v2 .studio-rail.is-references-collapsed>.panel-heading h2>span,
+  .studio-v2 .studio-rail.is-references-collapsed .rail-project-context,
+  .studio-v2 .studio-rail.is-references-collapsed .rail-item span,
+  .studio-v2 .studio-rail.is-references-collapsed .rail-item>i:last-child{display:none!important}
+  .studio-v2 .studio-rail.is-references-collapsed>.panel-heading h2{margin:0;cursor:pointer}
+  .studio-v2 .studio-rail.is-references-collapsed .rail-section{padding:0;border:0}
+  .studio-v2 .studio-rail.is-references-collapsed .rail-item{justify-content:center;width:44px;height:44px;margin:4px auto;padding:0;border-radius:10px}
+  .studio-v2 .studio-rail.is-references-collapsed .rail-item:hover{background:rgba(255,255,255,.06)}
+}

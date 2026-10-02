@@ -174,10 +174,6 @@
 .rs-drawer .rs-actions{justify-content:flex-end;gap:16px}
 
 /* Campaign detail: full-width rows were referenced but never defined; no card around the cards. */
-.reports-span-four{grid-column:1/-1}
-.reports-main .reports-campaign-detail{padding:0;border:0;background:none;box-shadow:none;gap:16px}
-.reports-main .reports-campaign-crumb{display:flex;align-items:center;gap:8px;font-size:14px}
-.reports-main .reports-campaign-tabs{padding:4px 8px}
 
 /* Mídia → Criativos: brief form beside what the data shows. */
 .rs-creative{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr);gap:24px;align-items:start}

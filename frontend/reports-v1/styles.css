@@ -2,7 +2,7 @@
 #cadu-reports-v1-root{min-height:100dvh}
 .reports-shell{display:grid;width:100%}.reports-grid{display:grid;align-items:stretch}.reports-grid--four{grid-template-columns:repeat(4,minmax(0,1fr))}.reports-grid--three{grid-template-columns:repeat(3,minmax(0,1fr))}.reports-span-two{grid-column:span 2}.reports-span-three{grid-column:span 3}
 .reports-kpi{min-width:0;border:1px solid var(--r-line);background:var(--r-surface)}
-.reports-panel{min-width:0}.reports-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.reports-kpi{display:grid;gap:5px}.reports-kpi strong{line-height:1.2}.reports-empty{padding:30px 14px;color:var(--r-muted);font-size:12px;text-align:center}.reports-row{display:flex;justify-content:space-between;gap:10px;padding:12px 0;border-top:1px solid var(--r-line);font-size:12px}.reports-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--r-muted)}.reports-row b{white-space:nowrap}
+.reports-panel{min-width:0}.reports-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.reports-kpi{display:grid;gap:5px}.reports-kpi strong{line-height:1.2}.reports-empty{padding:30px 14px;color:var(--r-muted);font-size:12px;text-align:center}
 .reports-table-wrap{max-width:100%;overflow:auto}
 .reports-form{display:grid;gap:16px}.reports-form label{display:grid;gap:6px}.reports-form input:not([type=checkbox]):not([type=radio]):not([type=file]){box-sizing:border-box;width:100%;min-width:0;min-height:40px;padding:9px 11px;border:1px solid var(--color-border-primary);border-radius:8px;background:var(--color-bg-primary);color:var(--r-ink);font:400 13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}.reports-form select{box-sizing:border-box;width:100%;min-width:0}.reports-form :is(input,select,textarea):focus-visible{outline:2px solid color-mix(in srgb,var(--r-blue) 28%,transparent);outline-offset:1px;border-color:var(--r-blue)}.reports-form button,.reports-panel form button[type=submit]{justify-self:start;min-height:40px;margin-top:3px;padding:9px 14px;border:1px solid var(--r-blue);border-radius:8px;background:var(--r-blue);color:var(--color-text-white);font:600 13px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;cursor:pointer}.reports-form button:disabled,.reports-panel form button[type=submit]:disabled{opacity:.5;cursor:default}.reports-error{margin-bottom:14px;padding:11px 14px;border:1px solid var(--color-border-error_subtle);border-radius:8px;background:var(--color-bg-error-primary);color:var(--color-text-error-primary);font-size:12px}.reports-inline-link{color:var(--r-blue);font-size:12px;font-weight:700;text-decoration:none}
 .reports-form .reports-checkbox{display:flex;align-items:center;gap:8px;color:var(--r-ink);font-size:12px}.reports-form .reports-checkbox input{width:16px;height:16px;margin:0;accent-color:var(--r-blue)}
@@ -13,8 +13,6 @@
 .reports-flow-node button{justify-self:start;font-size:10px}
 .reports-flow-builder{overflow:hidden}.reports-flow-topbar{display:flex;justify-content:space-between;gap:16px;margin-bottom:16px}.reports-flow-topbar h2{margin:0 0 5px}.reports-flow-topbar p{margin:0;color:var(--r-muted);font-size:12px}.reports-flow-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}.reports-flow-actions button{padding:7px 11px;border:1px solid var(--r-line);border-radius:7px;background:white;color:var(--r-ink);font:inherit;font-size:11px}.reports-flow-designer{display:grid;border:1px solid var(--r-line);overflow:hidden}.reports-node-palette{border-right:1px solid var(--r-line);overflow:auto}.reports-node-palette>input,.reports-node-settings input,.reports-node-settings select{width:100%}.reports-palette-group{display:grid;gap:6px;margin-top:13px}.reports-palette-group strong{color:var(--r-muted);font-size:10px;font-weight:500}.reports-palette-group button{display:flex;align-items:center;gap:8px;padding:5px 7px;border:1px solid var(--r-line);border-radius:6px;background:var(--color-bg-primary);color:var(--r-ink);text-align:left;font:inherit;font-size:11px}.reports-palette-group button span{display:grid;place-items:center;width:24px;height:24px;border-radius:6px;background:var(--color-bg-brand-primary);color:var(--color-text-brand-secondary)}.reports-flow-canvas{touch-action:none}.reports-node-settings{position:relative;display:grid;align-content:start;gap:10px;border-left:1px solid var(--r-line);overflow:auto}.reports-node-settings h3{margin:5px 24px 0 0}.reports-node-settings p{margin:0;color:var(--r-muted)}.reports-node-settings label{margin:0}.reports-node-settings label{display:grid;gap:5px}.reports-node-settings .reports-danger-button{color:var(--color-text-error-primary)!important}.reports-tag-card>code{display:block;margin:8px 0;padding:10px;border:1px solid var(--r-line);border-radius:6px;background:var(--color-bg-brand-primary);white-space:pre-wrap;overflow-wrap:anywhere;font-size:10px}@media(max-width:1100px){.reports-node-settings{grid-template-columns:repeat(3,minmax(0,1fr))}.reports-node-settings h3,.reports-node-settings>p{grid-column:1/-1}}@media(max-width:720px){.reports-flow-topbar{align-items:flex-start;flex-direction:column}.reports-flow-actions{justify-content:flex-start}.reports-flow-designer{grid-template-columns:1fr}.reports-node-palette{max-height:240px;border-right:0;border-bottom:1px solid var(--r-line)}.reports-flow-canvas{min-height:460px}.reports-node-settings{grid-template-columns:1fr 1fr}}.reports-success,.reports-info{margin:0!important;padding:8px 10px;border-radius:7px;font-size:11px!important}.reports-success{background:var(--color-bg-success-primary);color:var(--color-text-success-primary)}.reports-info{background:var(--color-bg-brand-primary);color:var(--color-text-brand-secondary)}
 .reports-confirmed-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:15px}.reports-confirmed-grid .reports-kpi{min-height:95px;box-shadow:none}.reports-confirmed-grid .reports-kpi strong{font-size:24px}.reports-association-history p{overflow-wrap:anywhere}
-.reports-campaign-hero-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.reports-period-chip{padding:7px 10px;border:1px solid var(--r-line);border-radius:8px;background:var(--color-bg-secondary);color:var(--color-text-tertiary);font-size:11px;font-weight:600;white-space:nowrap}.reports-collection-toolbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:0 0 13px;padding:10px;border:1px solid var(--r-line);border-radius:9px;background:var(--color-bg-secondary)}.reports-collection-search{display:flex;align-items:center;gap:8px;flex:1 1 240px;min-width:180px;height:36px;padding:0 10px;border:1px solid var(--color-border-primary);border-radius:7px;background:var(--color-bg-primary);color:var(--color-text-quaternary)}.reports-collection-search>span{font-size:18px;line-height:1}.reports-collection-search input{width:100%;min-width:0}.reports-collection-filter{display:flex;align-items:center;gap:8px;color:var(--color-text-quaternary);font-size:11px;font-weight:600}.reports-collection-filter select{min-width:125px}.reports-source-total{display:grid;gap:4px}.reports-source-total strong{font-size:28px;letter-spacing:-.04em}.reports-source-total span{color:var(--r-muted);font-size:11px}
-@media(max-width:760px){.reports-collection-toolbar{align-items:stretch}.reports-collection-search{flex-basis:100%}.reports-collection-filter{flex:1;justify-content:space-between}.reports-collection-filter select{flex:1;min-width:0}.reports-campaign-hero-actions{align-items:flex-start}}
 @media(max-width:1250px){.reports-grid--four{grid-template-columns:repeat(2,minmax(0,1fr))}.reports-grid--three{grid-template-columns:repeat(2,minmax(0,1fr))}.reports-span-three{grid-column:span 2}}
 @media(max-width:760px){.reports-grid--four,.reports-grid--three,.reports-confirmed-grid{grid-template-columns:1fr}.reports-span-two,.reports-span-three{grid-column:span 1}}
 
@@ -24,21 +22,13 @@
 
 .reports-col:hover{box-shadow:0 2px 8px rgba(16,24,40,.08)}
 
-.reports-campaign-detail{padding:20px;background:var(--r-surface);border:1px solid var(--r-line);border-radius:8px;margin-top:0;box-shadow:0 1px 2px rgba(16,24,40,.05)}
-
-.reports-campaign-detail h2{margin:0 0 14px;font-size:16px;font-weight:650;letter-spacing:-.35px;color:var(--r-ink)}
-
 @media(max-width:800px){.reports-col{min-height:340px}}
 
 /* Reports UI scale: one full-width workspace, readable data density, no dock shell. */
 #cadu-reports-v1-root{overflow-x:clip}
 .reports-node-settings p{font-size:11px}
-.reports-campaign-hero p,.reports-campaign-hero small{font-size:12px}
-.reports-campaign-tabs{overflow-x:auto;scrollbar-width:thin}
-.reports-campaign-tabs button{white-space:nowrap}
 @media(min-width:1600px){
   .reports-content{max-width:none}
-  .reports-campaign-detail{grid-template-columns:repeat(4,minmax(0,1fr))}
 }
 @media(max-width:1100px){
   .reports-main{padding-inline:18px}
@@ -46,8 +36,7 @@
 @media(max-width:760px){
   .reports-shell{display:block}
   .reports-main{padding-inline:14px}
-  .reports-campaign-hero{padding:16px}
-}.reports-primary-link{padding:9px 13px;border-radius:7px;background:var(--color-bg-primary-solid);color:white;text-decoration:none;font-size:12px}.reports-campaign-crumb{display:flex;align-items:center;gap:9px;color:var(--r-muted);font-size:11px}.reports-campaign-crumb b{color:var(--r-ink);font-weight:550}.reports-campaign-hero{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:18px 20px}.reports-campaign-hero small{color:var(--r-muted);font-size:11px}.reports-campaign-hero h2{display:flex;align-items:center;gap:10px;margin:6px 0}.reports-campaign-hero p{margin:0;color:var(--r-muted);font-size:11px}.reports-campaign-status{padding:4px 9px;border-radius:20px;background:var(--color-bg-success-primary);color:var(--color-text-success-primary);font-size:10px;font-weight:500}.reports-campaign-status.is-paused{background:var(--color-bg-warning-primary);color:var(--color-text-warning-primary)}.reports-campaign-tabs{display:flex;gap:22px;padding:0 16px;border-bottom:1px solid var(--r-line)}.reports-campaign-tabs button{padding:12px 2px;border:0;border-bottom:2px solid transparent;background:none;color:var(--r-muted);font:inherit;font-size:11px;cursor:pointer}.reports-campaign-tabs button.is-active{border-color:var(--r-blue);color:var(--r-blue);font-weight:600}.reports-campaign-settings{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 20px}.reports-campaign-settings p{display:grid;gap:4px;margin:0;padding:10px;border:1px solid var(--r-line);border-radius:7px}.reports-campaign-settings small{color:var(--r-muted);font-size:10px}.reports-campaign-settings b{font-size:12px;font-weight:500;overflow-wrap:anywhere}.reports-campaign-detail .reports-kpi{min-height:92px}@media(max-width:760px){.reports-campaign-hero{align-items:flex-start;flex-direction:column}.reports-campaign-hero h2{align-items:flex-start;flex-direction:column}.reports-campaign-tabs{gap:14px;overflow:auto}.reports-campaign-tabs button{white-space:nowrap}.reports-campaign-settings{grid-template-columns:1fr 1fr}}
+}
 
 .reports-flow-canvas.is-drop-target{background-color:var(--color-bg-brand-primary);box-shadow:inset 0 0 0 2px #3285e7}
 .reports-palette-group button[draggable="true"]{cursor:grab}
@@ -71,9 +60,8 @@
 .reports-shell{min-height:100dvh}
 .reports-main{box-sizing:border-box;padding-inline:clamp(18px,1.8vw,32px)}
 .reports-kpi strong{font-variant-numeric:tabular-nums}
-.reports-row,.reports-empty{font-size:13px}
-.reports-form button,.reports-primary-link,.reports-inline-link{font-size:13px}
-.reports-campaign-tabs button{font-size:13px}
+.reports-empty{font-size:13px}
+.reports-form button,.reports-inline-link{font-size:13px}
 .reports-flow-topbar p,.reports-monitor-toolbar p{font-size:13px}
 .reports-flow-actions button{font-size:12px}
 .reports-flow-actions button{min-height:38px}
@@ -88,13 +76,10 @@
 .reports-monitor-page{font-size:12px}
 .reports-monitor-page small,.reports-monitor-page em,.reports-monitor-note,.reports-monitor-history-row>small{font-size:11px}
 .reports-page-kind{font-size:11px;padding:4px 7px}
-.reports-campaign-hero h2{font-size:23px}
-.reports-campaign-hero p,.reports-campaign-hero small,.reports-campaign-settings b{font-size:13px}
-.reports-campaign-settings small,.reports-campaign-status{font-size:11px}
 #cadu-reports-v1-root :focus-visible{outline:2px solid var(--color-border-brand);outline-offset:2px}
 @media(min-width:1600px){.reports-main{padding-inline:36px}}
 @media(max-width:900px) and (min-width:761px){.reports-grid--four,.reports-grid--three{grid-template-columns:repeat(2,minmax(0,1fr))}.reports-span-three{grid-column:1/-1}.reports-main{padding-inline:16px}.reports-flow-designer{grid-template-columns:156px minmax(0,1fr)}.reports-node-settings{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr));border-left:0;border-top:1px solid var(--r-line)}.reports-node-settings h3,.reports-node-settings>p{grid-column:1/-1}}
-@media(min-width:761px){#cadu-reports-v1-root small{font-size:12px;line-height:1.4}.reports-flow-node small,.reports-flow-node span,.reports-flow-node em,.reports-flow-node button{font-size:12px}.reports-campaign-crumb{font-size:12px}}
+@media(min-width:761px){#cadu-reports-v1-root small{font-size:12px;line-height:1.4}.reports-flow-node small,.reports-flow-node span,.reports-flow-node em,.reports-flow-node button{font-size:12px}}
 @media(prefers-reduced-motion:reduce){#cadu-reports-v1-root *{scroll-behavior:auto;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 
 /* Reports dashboard skin: Untitled UI sidebar structure with Cadu blue identity. */
@@ -109,7 +94,7 @@
 .reports-kpi{min-height:116px;padding:18px}
 .reports-kpi span,.reports-kpi small{color:var(--color-text-quaternary);font-size:12px}
 .reports-kpi strong{color:var(--r-ink);font-size:30px;font-weight:600;letter-spacing:-.04em}
-.reports-primary-link,.reports-form button,.reports-primary-button{background:var(--color-bg-brand-solid)}
+.reports-form button,.reports-primary-button{background:var(--color-bg-brand-solid)}
 .reports-inline-link{color:var(--color-text-brand-secondary)}
 @media(max-width:980px) and (min-width:761px){.reports-shell{grid-template-columns:205px minmax(0,1fr)}.reports-shell>.cadu-solution-sidebar{width:205px}.reports-shell>.cadu-solution-sidebar.is-collapsed{width:58px}.reports-shell:has(>.cadu-solution-sidebar.is-collapsed){grid-template-columns:58px minmax(0,1fr)}}
 @media(max-width:760px){.reports-shell,.reports-shell:has(>.cadu-solution-sidebar.is-collapsed){display:block}.reports-shell>.cadu-solution-sidebar,.reports-shell>.cadu-solution-sidebar.is-collapsed{position:relative;top:auto;width:100%;height:auto;min-height:54px}}
@@ -125,15 +110,12 @@
 .reports-main .reports-form input:not([type=checkbox]):not([type=file]){box-sizing:border-box;min-height:40px;padding:9px 12px;border:1px solid var(--color-border-primary);border-radius:8px;background:var(--color-bg-primary);color:var(--color-text-secondary);font:inherit;font-size:13px;box-shadow:0 1px 2px #1018280d}
 .reports-main .reports-form select,.reports-main .reports-form textarea,.reports-main .reports-node-settings input,.reports-main .reports-node-settings select,.reports-main .reports-node-palette>input{box-sizing:border-box}
 .reports-main .reports-form input::placeholder,.reports-main .reports-form textarea::placeholder{color:var(--color-text-placeholder)}
-.reports-main .reports-form button,.reports-main .reports-primary-button,.reports-main .reports-primary-link{min-height:38px;padding:0 14px;border:1px solid var(--ui-blue);border-radius:8px;background:var(--ui-blue);color:var(--color-text-white);font:inherit;font-size:13px;font-weight:600;text-decoration:none;box-shadow:0 1px 2px #1018280d;cursor:pointer}
-.reports-main .reports-form button:hover,.reports-main .reports-primary-button:hover,.reports-main .reports-primary-link:hover{background:var(--color-bg-brand-solid_hover)}
+.reports-main .reports-form button,.reports-main .reports-primary-button{min-height:38px;padding:0 14px;border:1px solid var(--ui-blue);border-radius:8px;background:var(--ui-blue);color:var(--color-text-white);font:inherit;font-size:13px;font-weight:600;text-decoration:none;box-shadow:0 1px 2px #1018280d;cursor:pointer}
+.reports-main .reports-form button:hover,.reports-main .reports-primary-button:hover{background:var(--color-bg-brand-solid_hover)}
 .reports-main .reports-form button:disabled,.reports-main button:disabled{opacity:.55;cursor:not-allowed}
 .reports-main .reports-inline-link{color:var(--ui-blue);font-size:13px;font-weight:500}
 .reports-main .reports-danger-button{border:1px solid var(--color-border-error_subtle);border-radius:8px;background:var(--color-bg-primary);color:var(--color-text-error-primary)}
 .reports-main .reports-table-wrap{border:1px solid var(--ui-line);border-radius:9px;background:var(--color-bg-primary)}
-.reports-main .reports-campaign-tabs{gap:4px;border-color:var(--ui-line)}
-.reports-main .reports-campaign-tabs button{min-height:38px;padding:0 12px;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--color-text-quaternary);font-size:13px;font-weight:500}
-.reports-main .reports-campaign-tabs button.is-active{border-color:var(--ui-line);background:var(--color-bg-primary);color:var(--color-text-secondary);box-shadow:0 1px 2px #1018280d}
 .reports-modal h2,.reports-modal h3{color:var(--ui-ink);font-size:18px;font-weight:600;letter-spacing:-.02em}
 .reports-modal-actions{border-top:1px solid var(--ui-line)}
 #cadu-reports-v1-root :is(input,select,textarea,button,a):focus-visible{outline:3px solid var(--color-border-brand_alt);outline-offset:2px}
@@ -345,10 +327,6 @@ body.reports-flow-editor-active .reports-flow-builder{height:calc(100dvh - 210px
 .reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__usage{justify-content:space-between;width:100%;color:var(--color-text-secondary)!important}
 .reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__usage>i{width:60px;background:var(--color-bg-secondary)}
 .reports-shell > .cadu-solution-sidebar .cadu-solution-sidebar__usage>i>b{background:var(--color-bg-brand-solid)}
-.reports-main .reports-collection-toolbar{padding:0;border:0;background:transparent}
-.reports-main .reports-collection-search{position:relative;gap:0;height:auto;padding:0;border:0;background:transparent}
-
-.reports-main .reports-collection-search .cadu-untitled-field{width:100%}
 @media(max-width:760px){
   .reports-page-header__inner{min-width:0}
   .reports-shell > .cadu-solution-sidebar,.reports-shell > .cadu-solution-sidebar.is-collapsed{overflow-y:auto}

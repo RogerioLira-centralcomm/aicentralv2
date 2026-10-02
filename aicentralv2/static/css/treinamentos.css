@@ -203,8 +203,10 @@ a.ts-project:hover {
 
 .ts-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
+  row-gap: 10px;
   padding: 14px 22px;
   border-bottom: 1px solid #eef2f6;
   position: sticky;
@@ -214,7 +216,7 @@ a.ts-project:hover {
 }
 
 .ts-import {
-  flex: 1;
+  flex: 1 1 280px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -234,26 +236,40 @@ a.ts-project:hover {
   font-size: 13px;
 }
 
-.ts-format .cx-select-sm {
-  max-width: 7.5rem;
-}
-
 .ts-format {
+  --ts-format-control-h: 32px;
   display: flex;
+  flex-shrink: 0;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
 }
 
-.ts-format .cx-btn-ghost {
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
+.ts-format [data-cmd].cx-btn-ghost {
+  width: var(--ts-format-control-h);
+  height: var(--ts-format-control-h);
+  min-width: var(--ts-format-control-h);
+  min-height: var(--ts-format-control-h);
   padding: 0;
   border-radius: 8px;
 }
 
-.ts-format select {
-  padding: 4px 6px;
+.ts-format .ts-format-label.cx-btn-ghost {
+  width: auto;
+  min-width: unset;
+  height: var(--ts-format-control-h);
+  min-height: var(--ts-format-control-h);
+  padding: 0 10px;
+  white-space: nowrap;
+  border-radius: 8px;
+}
+
+.ts-format .cx-select-sm {
+  width: auto;
+  flex: 0 0 auto;
+  max-width: 7.5rem;
+  height: var(--ts-format-control-h);
+  min-height: var(--ts-format-control-h);
+  padding: 0 0.5rem;
   border-radius: 8px;
 }
 

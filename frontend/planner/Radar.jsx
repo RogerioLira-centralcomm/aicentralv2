@@ -1,10 +1,10 @@
-import React from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {CaduBadge} from '../cadu-design-system/components/CaduBadge.jsx';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
-import {PlannerHeader} from './PlannerHeader.jsx';
+import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
-import {PlannerPanel} from './PlannerUi.jsx';
-import {newPlanUrl} from './api.js';
+import {Illustration} from './Illustration.jsx';
+import {PlannerHeader} from './PlannerHeader.jsx';
 
 export const QUADRANTS = {
   integrada: {label: 'Integrada', tone: 'brand', icon: 'branch', text: 'Iniciar a conversa no orgânico e amplificar com mídia.'},
@@ -12,15 +12,15 @@ export const QUADRANTS = {
   midia: {label: 'Mídia', tone: 'warning', icon: 'analysis', text: 'Existe audiência e contexto de mídia.'},
   ignorar: {label: 'Ignorar', tone: 'neutral', icon: 'close', text: 'Não merece investimento agora.'},
 };
-
-const FLOW = ['Sinal', 'Oportunidade', 'Estratégia', 'Orgânico / Pago', 'Criativos', 'Plano de mídia', 'Resultado'];
+const VERDICTS = {confirmado: ['Confirmada', 'success'], parcial: ['Evidência parcial', 'warning'], contestado: ['Contestada', 'neutral'], nao_verificado: ['Não verificada', 'neutral']};
+const STEP_STATUS = {pending: 'Aguardando', running: 'Em andamento', done: 'Concluída', failed: 'Falhou', skipped: 'Pulada'};
+const tokens = value => Number(value || 0).toLocaleString('pt-BR');
 
 /** Organic × paid decision matrix, the Radar's main reading. */
 function Matrix({opportunities}) {
-  const cell = key => opportunities.filter(item => item.quadrant === key);
   const box = key => {
     const meta = QUADRANTS[key];
-    const items = cell(key);
+    const items = opportunities.filter(item => item.quadrant === key);
     return <div className={`planner-matrix__cell is-${key}`}>
       <span className="planner-matrix__title"><Icon name={meta.icon} size={14}/>{meta.label}<b>{items.length}</b></span>
       <small>{meta.text}</small>
@@ -34,46 +34,170 @@ function Matrix({opportunities}) {
   </div>;
 }
 
-function OpportunityRow({item, urls}) {
-  const meta = QUADRANTS[item.quadrant] || QUADRANTS.ignorar;
-  return <div className="planner-plan-row">
-    <span className="planner-plan-row__icon" aria-hidden="true"><Icon name={meta.icon} size={18}/></span>
-    <span className="planner-plan-row__copy"><strong>{item.title}</strong><small>{item.thesis}</small></span>
-    <span className="planner-scores"><span><b>{item.editorial_score ?? '—'}</b><small>Editorial</small></span><span><b>{item.paid_score ?? '—'}</b><small>Pago</small></span></span>
-    <CaduBadge tone={meta.tone}>{meta.label}</CaduBadge>
-    <CaduButton size="sm" variant="secondary" href={newPlanUrl(urls) + `&opportunity=${encodeURIComponent(item.id)}`}>Criar plano</CaduButton>
-  </div>;
+function StepNode({step}) {
+  return <li className={`radar-step is-${step.status}`}>
+    <span className="radar-step__mark" aria-hidden="true">
+      {step.status === 'done' ? <Icon name="check" size={12}/> : step.status === 'failed' ? <Icon name="close" size={12}/> : null}
+    </span>
+    <span className="radar-step__copy">
+      <strong>{step.label}</strong>
+      <small>{step.detail || step.hint}</small>
+      {(step.preview || []).length > 0 && <span className="radar-step__preview">{step.preview.map(item => <i key={item.url || item.title}
+        title={item.url || item.title}>{item.title}{item.score != null && <b>{item.score}</b>}</i>)}</span>}
+    </span>
+    <span className="radar-step__meta"><small className="sr-only">{STEP_STATUS[step.status]}</small>{step.tokens > 0 && <>{tokens(step.tokens)} tokens</>}</span>
+  </li>;
 }
 
-export function RadarPage({boot}) {
-  const opportunities = Array.isArray(boot.records) ? boot.records : [];
+/**
+ * The run as a chain: two independent discovery flows side by side, then the
+ * steps that depend on both. Each node shows what it found and what it cost.
+ */
+function RunChain({run}) {
+  const steps = run.steps || [];
+  const parallel = steps.filter(step => step.parallel);
+  const serial = steps.filter(step => !step.parallel);
+  const running = run.status === 'running';
+  return <section className="radar-run" aria-labelledby="radar-run-title" aria-live="polite">
+    <div className="radar-run__head">
+      <Illustration slot="radar-scan" busy={running}/>
+      <div>
+        <h2 id="radar-run-title">{running ? 'O Radar está procurando' : run.status === 'failed' ? 'A busca parou' : 'Busca concluída'}</h2>
+        <p>{run.focus ? `Tema: ${run.focus}` : 'Tema a partir da marca e do projeto escolhidos.'}</p>
+        <p className="radar-run__cost"><Icon name="analysis" size={14}/>
+          <span><b>{tokens(run.tokens)}</b> tokens usados{run.estimated_tokens ? ` de até ${tokens(run.estimated_tokens)} reservados` : ''}.
+            {running ? ' Você paga só o que for usado.' : ''}</span></p>
+        {run.error && <p className="radar-run__error">{run.error}</p>}
+      </div>
+    </div>
+    <ol className="radar-chain">
+      <li className="radar-chain__fork"><span className="radar-chain__label">Em paralelo</span><ol>{parallel.map(step => <StepNode key={step.key} step={step}/>)}</ol></li>
+      {serial.map(step => <StepNode key={step.key} step={step}/>)}
+    </ol>
+  </section>;
+}
+
+function OpportunityCard({item, onPlan, busy, lead}) {
+  const meta = QUADRANTS[item.quadrant] || QUADRANTS.ignorar;
+  const breakdown = item.score_breakdown || {};
+  const verdict = VERDICTS[breakdown.verification?.verdict] || VERDICTS.nao_verificado;
+  const places = (item.geo_scores || []).slice(0, 3);
+  return <article className="radar-opportunity">
+    <header>
+      <CaduBadge tone={meta.tone}>{meta.label}</CaduBadge><CaduBadge tone={verdict[1]}>{verdict[0]}</CaduBadge>
+      {breakdown.window && <small>Janela: {breakdown.window}</small>}
+    </header>
+    <h3>{item.title}</h3>
+    <p>{item.thesis}</p>
+    <dl className="radar-opportunity__scores">
+      <div><dt>Editorial</dt><dd>{item.editorial_score ?? '—'}</dd>{breakdown.why?.editorial && <small>{breakdown.why.editorial}</small>}</div>
+      <div><dt>Pago</dt><dd>{item.paid_score ?? '—'}</dd>{breakdown.why?.paid && <small>{breakdown.why.paid}</small>}</div>
+      {places.length > 0 && <div><dt>Praças</dt><dd className="radar-opportunity__places">{places.map(place => <span key={place.place}>{place.place}<b>{place.score}</b></span>)}</dd></div>}
+    </dl>
+    {breakdown.verification?.notes && <p className="radar-opportunity__check"><Icon name="search" size={14}/>{breakdown.verification.notes}</p>}
+    <footer>
+      {(breakdown.channels || []).length > 0 && <span className="planner-muted">Canais: {breakdown.channels.join(', ')}</span>}
+      {/* One primary action on the page: the strongest opportunity. Ignored ones stay quiet. */}
+      <CaduButton size="sm" variant={item.quadrant === 'ignorar' ? 'tertiary' : lead ? 'primary' : 'secondary'}
+        loading={busy} disabled={item.status === 'em_plano'} onClick={() => onPlan(item)}>
+        {item.status === 'em_plano' ? 'Já virou plano' : item.quadrant === 'ignorar' ? 'Planejar mesmo assim' : 'Criar planejamento'}</CaduButton>
+    </footer>
+  </article>;
+}
+
+export function RadarPage({boot, request, notify, context}) {
   const enabled = Boolean(boot.features?.radar);
+  const [focus, setFocus] = useState('');
+  const [estimate, setEstimate] = useState(null);
+  const [run, setRun] = useState(null);
+  const [starting, setStarting] = useState(false);
+  const [planning, setPlanning] = useState('');
+  const poll = useRef(null);
+  const brand = boot.contextBar?.brands?.find(item => item.ref === context?.brand_ref);
+  const project = boot.contextBar?.projects?.find(item => item.ref === context?.project_ref);
+
+  const load = useCallback(async id => {
+    const data = await request(id ? `/radar/runs/${id}` : '/radar/runs/latest');
+    setRun(data.run || null);
+    return data.run;
+  }, [request]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    load().catch(() => {});
+    request('/radar/estimate').then(setEstimate).catch(() => {});
+  }, [enabled, load, request]);
+
+  useEffect(() => {
+    window.clearTimeout(poll.current);
+    if (run?.status === 'running') poll.current = window.setTimeout(() => load(run.id).catch(() => {}), 2000);
+    return () => window.clearTimeout(poll.current);
+  }, [run, load]);
+
+  const start = async event => {
+    event.preventDefault();
+    setStarting(true);
+    try {
+      const data = await request('/radar/runs', {method: 'POST', body: JSON.stringify({
+        focus, brand_ref: context?.brand_ref || null, project_ref: context?.project_ref || null})});
+      setRun(data.run);
+    } catch (error) {
+      notify({tone: 'error', message: error.message});
+    } finally {
+      setStarting(false);
+    }
+  };
+  const createPlan = async item => {
+    setPlanning(item.id);
+    try {
+      const data = await request(`/radar/opportunities/${item.id}/plan`, {method: 'POST', body: JSON.stringify({})});
+      window.location.assign(`${boot.urls.plans}/${encodeURIComponent(data.plan.id)}`);
+    } catch (error) {
+      notify({tone: 'error', message: error.message});
+      setPlanning('');
+    }
+  };
+
+  const running = run?.status === 'running';
+  const opportunities = run?.opportunities || [];
   return <>
-    <PlannerHeader title="Radar de Oportunidades" withContext
-      description="Sinais de mercado que viram conteúdo, mídia ou os dois."
-      meta={!enabled && <CaduBadge tone="brand">Em breve</CaduBadge>}
-      actions={<CaduButton disabled={!enabled} title={enabled ? undefined : 'Disponível na próxima versão do Radar'}><Icon name="search" size={16}/>Buscar oportunidades</CaduButton>}/>
-    {opportunities.length > 0 ? <>
+    <PlannerHeader title="Radar de Oportunidades" withContext description="Sinais de mercado que viram conteúdo, mídia ou os dois."
+      meta={!enabled && <CaduBadge tone="brand">Em breve</CaduBadge>}/>
+
+    <form className="radar-compose" onSubmit={start}>
+      {!run && <Illustration slot="radar-empty"/>}
+      <div className="radar-compose__body">
+        <label htmlFor="radar-focus">O que o Radar deve procurar?</label>
+        <div className="radar-compose__row">
+          <CaduInput id="radar-focus" value={focus} maxLength={240} disabled={!enabled || running}
+            placeholder="Ex.: volta às aulas e crédito estudantil no Sudeste" onChange={event => setFocus(event.target.value)}/>
+          <CaduButton type="submit" loading={starting} disabled={!enabled || running || (focus.trim().length < 3 && !brand && !project)}>
+            <Icon name="search" size={16}/>Buscar oportunidades</CaduButton>
+        </div>
+        <p className="radar-compose__meta">
+          {(brand || project) && <span>Contexto: {[brand?.name, project?.name].filter(Boolean).join(' · ')}</span>}
+          {enabled ? <span>Cada busca reserva até {estimate ? tokens(estimate.estimated_tokens) : '…'} tokens dos seus créditos; você paga só o que usar.</span>
+            : <span>O Radar será liberado para a sua conta em breve.</span>}
+        </p>
+      </div>
+    </form>
+
+    {run ? <RunChain run={run}/> : <ol className="radar-how" aria-label="Como o Radar trabalha">
+      <li><strong>Descobre e busca, em paralelo</strong><small>Perplexity e Firecrawl procuram sinais recentes por caminhos independentes.</small></li>
+      <li><strong>Lê as fontes</strong><small>Só páginas lidas viram evidência.</small></li>
+      <li><strong>Dá notas</strong><small>Editorial (vale conteúdo?), Paga (há audiência comprável?) e por praça.</small></li>
+      <li><strong>Tenta provar que está errado</strong><small>Um segundo modelo confere data, fonte primária e contexto.</small></li>
+    </ol>}
+
+    {opportunities.length > 0 && <>
       <Matrix opportunities={opportunities}/>
-      <section className="planner-section"><header className="planner-section__header"><h2>Oportunidades</h2></header>
-        <div className="planner-list">{opportunities.map(item => <OpportunityRow key={item.id} item={item} urls={boot.urls}/>)}</div>
+      <section className="radar-results" aria-labelledby="radar-results-title">
+        <h2 id="radar-results-title">Oportunidades<span>{opportunities.length}</span></h2>
+        <div className="radar-results__grid">{opportunities.map((item, index) => <OpportunityCard key={item.id} item={item} lead={index === 0 && item.quadrant !== 'ignorar'}
+          busy={planning === item.id} onPlan={createPlan}/>)}</div>
       </section>
-    </> : <div className="planner-radar-intro">
-      <ol className="planner-flow" aria-label="Do sinal ao resultado">{FLOW.map(step => <li key={step}>{step}</li>)}</ol>
-      <PlannerPanel title="Como o Radar vai funcionar" description="Cada sinal passa por três leituras independentes antes de virar oportunidade.">
-        <ol className="planner-steps">
-          <li><strong>Descobre</strong><small>Busca notícias, tendências e dados recentes ligados à marca e ao ICP.</small></li>
-          <li><strong>Lê e estrutura</strong><small>Extrai as fontes encontradas em dados comparáveis.</small></li>
-          <li><strong>Tenta provar que está errado</strong><small>Um verificador independente confere data, fonte primária e contexto.</small></li>
-          <li><strong>Dá duas notas</strong><small>Editorial (vale um conteúdo?) e Paga (existe audiência comprável, em que praça?).</small></li>
-        </ol>
-      </PlannerPanel>
-      <section className="planner-radar-decision" aria-labelledby="radar-decision">
-        <h2 id="radar-decision">A decisão</h2>
-        <p>O mesmo assunto pode virar conteúdo, mídia ou os dois.</p>
-        <Matrix opportunities={[]}/>
-      </section>
-    </div>}
+    </>}
+    {run?.status === 'done' && !opportunities.length && <p className="planner-muted">A busca não encontrou oportunidades fortes o suficiente. Tente um tema mais específico.</p>}
   </>;
 }
 

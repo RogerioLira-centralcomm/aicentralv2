@@ -68,7 +68,7 @@ function App({boot}) {
   const view = (() => {
     if (boot.view === 'public-plan') return <PublicPlan plan={plan}/>;
     if (boot.view === 'public-doc') return <PublicDoc document={boot.document}/>;
-    if (boot.view === 'plan-detail') return <PlanDetail boot={boot} request={request} plan={plan} setPlan={setPlan} toggle={selection.toggle} notify={notify}/>;
+    if (boot.view === 'plan-detail') return <PlanDetail boot={boot} request={request} plan={plan} setPlan={setPlan} selection={selection} notify={notify}/>;
     if (boot.view === 'channel-detail') return <ChannelDetail boot={boot} selection={selection}/>;
     if (boot.view === 'audience-detail') return <AudienceDetail boot={boot} selection={selection}/>;
     if (boot.view === 'format-detail') return <FormatDetail boot={boot} selection={selection}/>;
@@ -76,7 +76,7 @@ function App({boot}) {
     if (boot.view === 'catalog-detail' && boot.module === 'portais') return <PortalDetail boot={boot} selection={selection}/>;
     if (boot.view === 'catalog-detail') return <CatalogDetail boot={boot} selection={selection}/>;
     if (creating) return <PlanCreatePage boot={boot} request={request} notify={notify} selection={context}/>;
-    if (boot.module === 'radar') return <RadarPage boot={boot}/>;
+    if (boot.module === 'radar') return <RadarPage boot={boot} request={request} notify={notify} context={context}/>;
     if (boot.module === 'inicio') return <PlannerHome boot={boot} plans={plans}/>;
     if (boot.module === 'planos') return <PlansPage boot={boot} plans={plans}/>;
     if (boot.module === 'monitoramento') return <MonitorPage request={request}/>;

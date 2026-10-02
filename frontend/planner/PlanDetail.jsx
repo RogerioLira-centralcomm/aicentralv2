@@ -6,7 +6,10 @@ import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.js
 import {CaduSelectField, CaduTextAreaField} from '../cadu-design-system/components/CaduField.jsx';
 import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
-import {PlannerPanel} from './PlannerUi.jsx';
+import {AddItemsDialog} from './AddItemsDialog.jsx';
+import {MediaBalance} from './MediaBalance.jsx';
+import {FinalReviewDialog, TimeSaved} from './PlanReview.jsx';
+import {LogoTile, PlannerPanel} from './PlannerUi.jsx';
 import {CaduPanel, SectionRail} from './PlanWorkbench.jsx';
 import {MODULE_LABELS, OBJECTIVES, moduleUrl, objectiveLabel} from './api.js';
 import {PlannerHeader} from './PlannerHeader.jsx';
@@ -37,9 +40,11 @@ function QuoteDialog({onClose, onSubmit, busy}) {
   </form>}</CaduDialog>;
 }
 
-export function PlanDetail({boot, request, plan, setPlan, toggle, notify}) {
-  const [allocationDraft, setAllocationDraft] = useState({});
+export function PlanDetail({boot, request, plan, setPlan, selection, notify}) {
+  const toggle = selection.toggle;
   const [quoteOpen, setQuoteOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [busy, setBusy] = useState('');
   const overview = plan?.workbench_overview;
   const [active, setActive] = useState(overview?.next || 'briefing');
@@ -47,7 +52,6 @@ export function PlanDetail({boot, request, plan, setPlan, toggle, notify}) {
 
   const briefing = plan.briefing || {};
   const items = plan.items || [];
-  const channels = items.filter(item => item.kind === 'canais');
   const readiness = plan.readiness || {checks: []};
   const lastQuote = (plan.quote_requests || [])[0];
   const pending = (readiness.checks || []).filter(check => !check.complete).length;
@@ -63,10 +67,23 @@ export function PlanDetail({boot, request, plan, setPlan, toggle, notify}) {
     await navigator.clipboard?.writeText(new URL(`/planos/public/${token}`, boot.urls.home).href);
     notify({message: 'Link público copiado.'});
   });
-  const toggleStatus = () => run('status', async () => {
-    const data = await request(`/plans/${plan.id}/status`, {method: 'PUT', body: JSON.stringify({status: plan.status === 'ready' ? 'draft' : 'ready'})});
+  const reopen = () => run('status', async () => {
+    const data = await request(`/plans/${plan.id}/status`, {method: 'PUT', body: JSON.stringify({status: 'draft'})});
     setPlan(data.plan);
   });
+  const finalize = async () => {
+    setBusy('status');
+    try {
+      const data = await request(`/plans/${plan.id}/status`, {method: 'PUT', body: JSON.stringify({status: 'ready'})});
+      setPlan(data.plan);
+      return true;
+    } catch (error) {
+      notify({tone: 'error', message: error.message});
+      return false;
+    } finally {
+      setBusy('');
+    }
+  };
   const saveBriefing = event => {
     event.preventDefault();
     const fields = Object.fromEntries(new FormData(event.currentTarget));
@@ -76,16 +93,6 @@ export function PlanDetail({boot, request, plan, setPlan, toggle, notify}) {
       notify({message: 'Direção salva.'});
     });
   };
-  const saveAllocations = () => run('allocations', async () => {
-    const allocations = channels.map(item => {
-      const key = String(item.resource_id);
-      return {resource_id: key, ...(plan.allocation_by_channel?.[key] || {}), ...(allocationDraft[key] || {})};
-    });
-    const data = await request(`/plans/${plan.id}/allocations`, {method: 'PUT', body: JSON.stringify({allocations})});
-    setPlan(data.plan);
-    setAllocationDraft({});
-    notify({message: 'Distribuição salva.'});
-  });
   const submitQuote = event => {
     event.preventDefault();
     const fields = Object.fromEntries(new FormData(event.currentTarget));
@@ -100,21 +107,21 @@ export function PlanDetail({boot, request, plan, setPlan, toggle, notify}) {
     setActive(key);
     document.getElementById(`bloco-${SECTION_BLOCK[key]}`)?.scrollIntoView({behavior: 'smooth', block: 'start'});
   };
+  const goTo = key => { setReviewOpen(false); selectSection(key); };
   const grouped = KIND_ORDER.map(kind => [kind, items.filter(item => item.kind === kind)]).filter(([, list]) => list.length);
-  const draftValue = (key, field) => allocationDraft[key]?.[field] ?? plan.allocation_by_channel?.[key]?.[field] ?? '';
-  const setDraft = (key, field, value) => setAllocationDraft(current => ({...current, [key]: {...current[key], [field]: value}}));
 
   return <>
     <PlannerHeader crumbs={[['Planos', boot.urls.plans]]} title={plan.title}
       description={[plan.advertiser_name, plan.objective && objectiveLabel(plan.objective), briefing.period, briefing.geography].filter(Boolean).join(' · ') || 'Defina a direção da campanha para começar.'}
-      meta={<><CaduBadge tone={planStatusTone(plan)}>{planStatusLabel(plan)}</CaduBadge>{lastQuote && <CaduBadge tone="brand">Proposta: {QUOTE_STATUS[lastQuote.status] || lastQuote.status}</CaduBadge>}</>}
+      meta={<><CaduBadge tone={planStatusTone(plan)}>{planStatusLabel(plan)}</CaduBadge>{lastQuote && <CaduBadge tone="brand">Proposta: {QUOTE_STATUS[lastQuote.status] || lastQuote.status}</CaduBadge>}
+        {plan.status === 'ready' && <TimeSaved estimate={plan.time_saved} className="is-inline" compact/>}</>}
       actions={<>
         <CaduButton variant="secondary" loading={busy === 'share'} onClick={share}><Icon name="link" size={16}/>Copiar link</CaduButton>
         <CaduButton variant="secondary" disabled={!readiness.ready} title={readiness.ready ? undefined : 'Complete o checklist para pedir proposta'}
           onClick={() => setQuoteOpen(true)}>Solicitar proposta</CaduButton>
-        <CaduButton loading={busy === 'status'} disabled={plan.status !== 'ready' && !readiness.ready}
-          title={plan.status !== 'ready' && !readiness.ready ? `Faltam ${pending} ${pending === 1 ? 'item' : 'itens'} do checklist` : undefined}
-          onClick={toggleStatus}>{plan.status === 'ready' ? 'Reabrir plano' : 'Marcar como pronto'}</CaduButton>
+        {plan.status === 'ready'
+          ? <CaduButton variant="secondary" loading={busy === 'status'} onClick={reopen}>Reabrir plano</CaduButton>
+          : <CaduButton onClick={() => setReviewOpen(true)} title={pending ? `Faltam ${pending} ${pending === 1 ? 'item' : 'itens'} do checklist` : undefined}>Revisar e finalizar</CaduButton>}
       </>}/>
     <div className="planner-workbench">
       <SectionRail overview={overview} active={active} onSelect={selectSection}/>
@@ -133,27 +140,22 @@ export function PlanDetail({boot, request, plan, setPlan, toggle, notify}) {
           {grouped.length ? grouped.map(([kind, list]) => <div key={kind} className="planner-composition">
             <h3>{MODULE_LABELS[kind] || kind}<small>{list.length}</small></h3>
             <ul className="planner-items">{list.map(item => <li key={`${item.kind}:${item.resource_id}`}>
+              <LogoTile src={item.logo} name={item.snapshot?.name} size="sm"/>
               <span><a href={`${moduleUrl(boot.urls, item.kind)}/${encodeURIComponent(item.resource_id)}`}><strong>{item.snapshot?.name || item.resource_id}</strong></a>
                 <small>{[item.snapshot?.category, item.snapshot?.audience].filter(Boolean).join(' · ')}</small></span>
               <CaduButton variant="tertiary" size="sm" onClick={() => toggle(item.kind, item.resource_id)}>Remover</CaduButton>
             </li>)}</ul>
           </div>) : <p className="planner-muted">Ainda não há referências neste plano. Explore as vitrines; o que você adicionar entra direto aqui.</p>}
-          <div className="planner-add-links">{ADD_MODULES.map(module => <a key={module} href={addUrl(boot.urls, module, plan.id)}><Icon name="plus" size={14}/>{MODULE_LABELS[module]}</a>)}</div>
+          <div className="planner-add">
+            <CaduButton variant="secondary" onClick={() => setAddOpen(true)}><Icon name="plus" size={16}/>Adicionar itens</CaduButton>
+            <span className="planner-muted">ou explore as vitrines:</span>
+            <div className="planner-add-links">{ADD_MODULES.map(module => <a key={module} href={addUrl(boot.urls, module, plan.id)}>{MODULE_LABELS[module]}</a>)}</div>
+          </div>
         </PlannerPanel>
-        <PlannerPanel className={`planner-block${SECTION_BLOCK[active] === 'distribuicao' ? ' is-active' : ''}`} title="Verba e distribuição" description="Valor e participação de cada canal escolhido.">
+        <PlannerPanel className={`planner-block${SECTION_BLOCK[active] === 'distribuicao' ? ' is-active' : ''}`} title="Balanceamento de mídia"
+          description="Escolha como dividir a verba, ajuste as fatias e veja a diferença antes de aplicar.">
           <span id="bloco-distribuicao" className="planner-anchor"/>
-          {channels.length > 0 ? <>
-            <div className="planner-allocation">{channels.map(item => {
-              const key = String(item.resource_id);
-              const name = item.snapshot?.name || key;
-              return <div className="planner-allocation__row" key={key}>
-                <strong>{name}</strong>
-                <CaduInput size="sm" aria-label={`Investimento em ${name}`} inputMode="decimal" placeholder="Investimento" value={draftValue(key, 'investment')} onChange={event => setDraft(key, 'investment', event.target.value)}/>
-                <CaduInput size="sm" aria-label={`Participação de ${name}`} inputMode="decimal" placeholder="% do plano" value={draftValue(key, 'weight')} onChange={event => setDraft(key, 'weight', event.target.value)}/>
-              </div>;
-            })}</div>
-            <CaduButton variant="secondary" loading={busy === 'allocations'} onClick={saveAllocations}>Salvar distribuição</CaduButton>
-          </> : <p className="planner-muted">Escolha ao menos um canal para distribuir a verba.</p>}
+          <MediaBalance request={request} plan={plan} setPlan={setPlan} notify={notify} onEditDirection={() => selectSection('briefing')}/>
         </PlannerPanel>
         <PlannerPanel className={`planner-block${SECTION_BLOCK[active] === 'criativos' ? ' is-active' : ''}`} title="Sistema criativo" description="Big idea, mensagens por etapa e a matriz de peças por canal.">
           <span id="bloco-criativos" className="planner-anchor"/>
@@ -170,5 +172,8 @@ export function PlanDetail({boot, request, plan, setPlan, toggle, notify}) {
       </div>
     </div>
     {quoteOpen && <QuoteDialog busy={busy === 'quote'} onClose={() => setQuoteOpen(false)} onSubmit={submitQuote}/>}
+    {addOpen && <AddItemsDialog request={request} selection={selection} onClose={() => setAddOpen(false)}/>}
+    {reviewOpen && <FinalReviewDialog plan={plan} busy={busy === 'status'} onClose={() => setReviewOpen(false)} onFinalize={finalize}
+      onGoTo={goTo} onAddItems={() => { setReviewOpen(false); setAddOpen(true); }}/>}
   </>;
 }

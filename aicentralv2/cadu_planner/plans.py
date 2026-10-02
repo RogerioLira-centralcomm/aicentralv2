@@ -139,6 +139,8 @@ def get_plan(client_id, actor_id, plan_id):
     from . import workbench
     from .proposals import pending_by_section
     plan['workbench_overview'] = workbench.overview(plan, pending_by_section(plan['id']) if cobuild else {})
+    from .time_saved import estimate
+    plan['time_saved'] = estimate(plan)
     return plan
 
 
@@ -158,6 +160,30 @@ def _project_snapshots(items):
     """Older snapshots stored the full catalog row; customers only see the client projection."""
     for item in items:
         item['snapshot'] = catalog.client_projection(item.get('kind'), item.get('snapshot') or {})
+    _decorate_item_logos(items)
+    return items
+
+
+def _decorate_item_logos(items):
+    """Logo de cada item (o mesmo das vitrines), resolvido na leitura: snapshots antigos não têm."""
+    from .channels import _channel_logo
+    channel_ids = [int(item['resource_id']) for item in items
+                   if item.get('kind') == 'canais' and str(item.get('resource_id')).isdigit()]
+    slugs = {str(row['id']): row for row in repository.rows(
+        'SELECT id, slug, logo_path FROM cadu_canais WHERE id = ANY(%s)', (channel_ids,))} if channel_ids else {}
+    for item in items:
+        snapshot, kind = item.get('snapshot') or {}, item.get('kind')
+        if kind == 'canais':
+            row = slugs.get(str(item.get('resource_id'))) or {}
+            item['logo'] = _channel_logo(str(row.get('slug') or '').lower(), row.get('logo_path')) if row else ''
+        elif kind in ('formatos', 'interativos'):
+            item['logo'] = repository.platform_logo_by_slug(str(snapshot.get('plataforma_slug') or ''), '')
+        elif kind == 'audiencias':
+            item['logo'] = repository.platform_logo_by_name(snapshot.get('channel') or snapshot.get('platform'))
+        elif kind == 'portais' and snapshot.get('domain'):
+            item['logo'] = f"https://{snapshot['domain']}/favicon.ico"
+        else:
+            item['logo'] = ''
     return items
 
 

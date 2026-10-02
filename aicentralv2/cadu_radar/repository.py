@@ -25,3 +25,32 @@ def list_opportunities(client_id, *, brand_ref=None, status=None, limit=50):
                                  FROM cadu_radar_opportunities
                                 WHERE {' AND '.join(clauses)}
                              ORDER BY created_at DESC LIMIT %s''', tuple(params))
+
+
+def create_plan(client_id, actor_id, opportunity_id, context):
+    """Nasce um planejamento a partir da oportunidade: tese vira briefing, praças viram geografia."""
+    from werkzeug.exceptions import NotFound
+    from ..cadu_planner import plans
+    from ..db import get_db
+    rows = repository.rows('''SELECT id, title, thesis, geo_scores, score_breakdown, brand_ref, project_ref, quadrant
+                                FROM cadu_radar_opportunities WHERE id = %s AND client_id = %s''',
+                           (str(opportunity_id), int(client_id)))
+    if not rows:
+        raise NotFound('Oportunidade indisponível.')
+    item = rows[0]
+    breakdown = item.get('score_breakdown') or {}
+    places = [place.get('place') for place in item.get('geo_scores') or [] if place.get('place')]
+    objective = {'conteudo': 'awareness', 'integrada': 'consideracao', 'midia': 'consideracao'}.get(item.get('quadrant'), '')
+    notes = '\n'.join(part for part in [
+        item.get('thesis'), f"Janela: {breakdown['window']}" if breakdown.get('window') else '',
+        f"Canais sugeridos pelo Radar: {', '.join(breakdown.get('channels') or [])}" if breakdown.get('channels') else ''] if part)
+    plan = plans.create_plan(client_id, actor_id, {
+        'title': item['title'][:180], 'objective': objective,
+        'briefing': {'notes': notes[:2000], 'geography': ', '.join(places)[:120]},
+        'brand_ref': item.get('brand_ref'), 'project_ref': item.get('project_ref')}, context)
+    with get_db() as conn, conn.cursor() as cur:
+        if plans._cobuild_available():
+            cur.execute("UPDATE cadu_planner_plans SET source = 'radar', opportunity_id = %s WHERE id = %s",
+                        (str(item['id']), str(plan['id'])))
+        cur.execute("UPDATE cadu_radar_opportunities SET status = 'em_plano', updated_at = NOW() WHERE id = %s", (str(item['id']),))
+    return plans.get_plan(client_id, actor_id, plan['id'])

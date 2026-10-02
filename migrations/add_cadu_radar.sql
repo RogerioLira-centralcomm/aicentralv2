@@ -91,3 +91,7 @@ CREATE TABLE IF NOT EXISTS cadu_media_benchmarks (
     CHECK (p25 <= p50 AND p50 <= p75),
     UNIQUE (channel, objective, geo_level, geo, metric, source)
 );
+
+-- Tema pedido pelo usuário em cada busca (o run guarda o custo real em cost.tokens).
+ALTER TABLE cadu_radar_runs ADD COLUMN IF NOT EXISTS focus TEXT;
+CREATE INDEX IF NOT EXISTS cadu_radar_opportunities_run_idx ON cadu_radar_opportunities (run_id);

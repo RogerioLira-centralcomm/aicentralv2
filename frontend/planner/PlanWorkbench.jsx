@@ -2,6 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {CaduBadge} from '../cadu-design-system/components/CaduBadge.jsx';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
+import {IllustratedWait} from './Illustration.jsx';
 import {PlannerPanel} from './PlannerUi.jsx';
 
 export const SECTION_STATES = {
@@ -98,6 +99,8 @@ export function CaduPanel({boot, request, plan, setPlan, notify, active}) {
   const labels = Object.fromEntries((plan.workbench_overview?.sections || []).map(section => [section.key, section.label]));
   return <PlannerPanel className="planner-cadu" title="Montar com o Cadu"
     description="O Cadu propõe uma seção de cada vez e explica o porquê. Você aceita, ajusta ou recusa.">
+    {busy === 'review' && <IllustratedWait slot="plan-building" title="O Cadu está revisando o briefing"
+      description="Três passagens: ler o contexto, reorganizar e aplicar a versão revisada."/>}
     {visible.map(proposal => <ProposalCard key={proposal.id} proposal={proposal} label={labels[proposal.section]} busy={busy === proposal.id} onDecide={decide}/>)}
     {!visible.length && <p className="planner-muted">{state.cobuild
       ? 'Nenhuma proposta pendente nesta seção.'

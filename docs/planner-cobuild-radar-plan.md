@@ -377,3 +377,69 @@ Feito nesta entrega (Fase 0 + Fase 1):
 2. Implementar os proposers por seção em `proposals.propose_section`.
 3. Ligar a flag `CADU_PLANNER_COBUILD_ENABLED`.
 4. Criar a ponte com o SmartPlanner (`planner_plan_id`).
+
+---
+
+## Andamento em 2026-10-02 (segunda entrega)
+
+### Balanceamento de mídia (`cadu_planner/balance.py`)
+
+- **Motor.** O balanceamento importa o motor do SmartPlanner (`smart_planner/mix.py`): métodos funil, alcance, frequência, eficiência, presença e manual, além de pesos por grupo e objetivo, normalização em 100% e divisão em reais.
+- **Independência.** O Planner não usa telas nem tabelas do SmartPlanner. O resultado vai para `cadu_planner_channel_allocations` e para `workbench.balance`, que guarda método, estratégia e se houve progressão.
+- **Leitura do briefing.** O balanceamento lê o investimento ("R$ 120 mil", "1,2 mi") e o período ("mar a mai 2027", "3 meses").
+- **Canal → grupo.** Cada canal do plano entra num grupo de mídia, nesta ordem de prioridade:
+  1. `cadu_canais.chave_sp`
+  2. Slug do canal
+  3. Categoria do canal
+- **Mês a mês.** Planos com 2 meses ou mais começam puxando para lembrança e terminam no objetivo do plano.
+- **Alertas:**
+  - Fatia do canal abaixo de `investimento_minimo_valor`.
+  - Um grupo com 60% ou mais da verba.
+  - Falta de investimento ou de período no briefing.
+- **Endpoints:** `GET /plans/<id>/balance` faz a prévia e não grava. `POST /plans/<id>/balance` aplica.
+- **Tela:** `MediaBalance.jsx`.
+  - Mostra investimento, período e estratégia adotada.
+  - Mostra os métodos, com o recomendado marcado.
+  - Mostra a barra por grupo e a tabela por canal (logo, papel, KPIs, fatia, R$ e diferença para o que está salvo no plano).
+  - Mostra o calendário mensal.
+  - No modo manual, oferece "Fechar em 100%".
+
+### Revisão e inclusão de itens
+
+- **Inclusão sem sair do plano.** `AddItemsDialog.jsx` busca nas seis vitrines dentro do próprio plano.
+- **Revisão final.** `PlanReview.jsx` (`FinalReviewDialog`) aparece antes de finalizar. Mostra direção, composição com logos e balanceamento, com atalhos para corrigir o que falta.
+- **Logos.** Os itens do plano trazem `logo`, resolvido na leitura do plano (`plans._decorate_item_logos`).
+- **Tempo poupado.** Calculado em `cadu_planner/time_saved.py` com tempos de referência do trabalho manual. Aparece de forma discreta ao finalizar e no cabeçalho do plano pronto. A conta completa fica no `title`.
+
+### Radar funcionando (`cadu_radar/pipeline.py`)
+
+- **Fluxos.** `discover` (Perplexity) e `search` (Firecrawl) rodam em paralelo. Depois vêm, em sequência: `extract`, `judge`, `verify` e `save`.
+- **Falha de um fluxo.** Se um dos dois fluxos iniciais cair, o outro segue sozinho.
+- **Notas.** O modelo só preenche os critérios. Pesos, penalidades e quadrante saem de `scoring.py`. O verificador baixa as notas quando a evidência é fraca e manda as contestadas para "ignorar".
+- **Créditos:**
+  - Antes de começar, reserva o teto com `estimate_tokens`.
+  - Cada chamada cobra o uso real com chave idempotente `radar:<run>:<etapa>`.
+  - O Firecrawl é somado a partir do livro `cadu_tools_token_usage`.
+  - A tela mostra os tokens por etapa e o total.
+- **Endpoints:**
+  - `GET /radar/estimate`
+  - `POST /radar/runs`
+  - `GET /radar/runs/latest`
+  - `GET /radar/runs/<id>`
+  - `POST /radar/opportunities/<id>/plan`: cria o plano com `source='radar'`.
+- **Tela.** A cadeia de etapas fica ao vivo, com os dois fluxos paralelos lado a lado. Cada etapa mostra prévia do que encontrou e custo. Abaixo vêm a matriz e os cartões com veredito, praças e janela.
+- **Migração.** `add_cadu_radar.sql` ganhou a coluna `focus`.
+
+### Ilustrações
+
+Os espaços de ilustração são placeholders na paleta do Planner, em `Illustration.jsx`. Cada um carrega o briefing de criação em 2D ou 3D. O padrão está em `docs/design/planner-illustrations.md`.
+
+### Tokens de cor
+
+O Planner usava cinco tokens que não existem no skin: `--color-bg-secondary_subtle`, `--color-bg-disabled`, `--color-text-disabled`, `--color-border-disabled` e `--shadow-xl`. Eles foram trocados por tokens `--planner-*` definidos em `body.planner-react`, incluindo os tons de gráfico `--planner-tone-0..5`.
+
+### Para ligar em produção
+
+1. Aplicar `add_cadu_planner_cobuild.sql` e `add_cadu_radar.sql`.
+2. Ligar `CADU_RADAR_ENABLED`.
+3. O balanceamento e a revisão funcionam sem flag. O balanceamento só precisa da tabela de alocações, que já existe.

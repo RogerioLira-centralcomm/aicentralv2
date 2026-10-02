@@ -828,6 +828,59 @@ def planner_radar_opportunities():
                    enabled=bool(current_app.config.get('CADU_RADAR_ENABLED')))
 
 
+@bp.get('/api/planner/radar/estimate')
+def planner_radar_estimate():
+    """Teto de tokens que uma busca do Radar reserva, mostrado antes de começar."""
+    from ..cadu_radar import pipeline
+    selected = context.resolve()
+    return jsonify(estimated_tokens=pipeline.estimate_tokens(selected['client_id']),
+                   steps=[{'key': key, 'label': label, 'hint': hint, 'parallel': key in pipeline.PARALLEL}
+                          for key, label, hint in pipeline.STEPS])
+
+
+@bp.post('/api/planner/radar/runs')
+def planner_radar_start():
+    from ..cadu_radar import pipeline
+    selected = writable_context()
+    user = context.identity()
+    payload = request.get_json(silent=True) or {}
+    brand_ref, project_ref = _planner_refs(selected['client_id'], payload.get('brand_ref'), payload.get('project_ref'))
+    try:
+        run = pipeline.start_run(selected['client_id'], user['id'], focus=payload.get('focus') or '',
+                                 brand_ref=brand_ref, project_ref=project_ref)
+    except pipeline.RadarDisabled as exc:
+        abort(403, description=str(exc))
+    except InsufficientToolCredits as exc:
+        abort(409, description=str(exc))
+    return jsonify(run=run), 202
+
+
+@bp.get('/api/planner/radar/runs/latest')
+def planner_radar_latest():
+    from ..cadu_radar import pipeline, repository as radar
+    selected = context.resolve()
+    return jsonify(run=pipeline.latest_run(selected['client_id']) if radar.available() else None)
+
+
+@bp.get('/api/planner/radar/runs/<run_id>')
+def planner_radar_run(run_id):
+    from ..cadu_radar import pipeline
+    selected = context.resolve()
+    run = pipeline.get_run(selected['client_id'], run_id)
+    if not run:
+        abort(404)
+    return jsonify(run=run)
+
+
+@bp.post('/api/planner/radar/opportunities/<opportunity_id>/plan')
+def planner_radar_create_plan(opportunity_id):
+    """Cria um planejamento que nasce da oportunidade (source='radar')."""
+    from ..cadu_radar import repository as radar
+    selected = writable_context()
+    user = context.identity()
+    return jsonify(plan=radar.create_plan(selected['client_id'], user['id'], opportunity_id, selected)), 201
+
+
 @bp.get('/api/planner/plans/<plan_id>')
 def planner_plan_detail(plan_id):
     from ..cadu_planner import plans
@@ -868,6 +921,26 @@ def planner_plan_allocations(plan_id):
     selected = writable_context()
     user = context.identity()
     return jsonify(plan=plans.save_allocations(selected['client_id'], user['id'], plan_id, request.get_json(silent=True) or {}))
+
+
+@bp.get('/api/planner/plans/<plan_id>/balance')
+def planner_plan_balance(plan_id):
+    """Proposta de balanceamento (não grava): método, fatias, reais, calendário e alertas."""
+    from ..cadu_planner import balance, plans
+    user, selected = context.identity(), context.resolve()
+    plan = plans.get_plan(selected['client_id'], user['id'], plan_id)
+    manual = {key[2:]: request.args.get(key) for key in request.args if key.startswith('w.')}
+    return jsonify(balance=balance.compute(plan, request.args.get('method') or None, manual,
+                                           progress=request.args.get('progress', '1') != '0'))
+
+
+@bp.post('/api/planner/plans/<plan_id>/balance')
+def planner_plan_balance_apply(plan_id):
+    """Grava o balanceamento escolhido pelo usuário como a distribuição do plano."""
+    from ..cadu_planner import balance
+    selected = writable_context()
+    user = context.identity()
+    return jsonify(plan=balance.apply(selected['client_id'], user['id'], plan_id, request.get_json(silent=True) or {}))
 
 
 @bp.put('/api/planner/plans/<plan_id>/status')

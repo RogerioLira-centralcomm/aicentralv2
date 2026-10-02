@@ -703,6 +703,11 @@ def normalize_image_references(raw, storage):
             if not path.is_file():
                 raise ValueError("Imagem de referência não encontrada.")
             image_data = value
+        elif value.startswith("/static/") and ".." not in value:
+            # Official brand logos and other Studio-owned assets live under
+            # other /static/ folders; the provider can only fetch them by
+            # their public URL, resolved in provider_image_references.
+            image_data = value
         elif value.startswith(("https://", "http://")):
             from ..creative_modeling_storage import _validated_public_asset_url, studio_owned_static_path
             # A just-uploaded piece is already a canonical Studio URL. Keep it
@@ -774,9 +779,37 @@ def validate_mask(source_data_url, mask_data_url):
         raise ValueError("Marque uma área antes de gerar.")
 
 
+def _provider_reference_value(value):
+    """Give the provider a fetchable image: public URL, or pixels when the host is not public."""
+    raw = str(value or "")
+    if not raw.startswith("/static/"):
+        return raw
+    from urllib.parse import urlparse
+    from flask import current_app
+    from pathlib import Path
+    from ..creative_modeling_storage import public_studio_asset_url
+    try:
+        url = public_studio_asset_url(raw)
+        host = (urlparse(url).hostname or "").lower()
+        if host not in {"localhost", "127.0.0.1", "::1"} and not host.endswith((".localhost", ".test")):
+            return url
+    except ValueError:
+        pass
+    # Local development: the provider cannot reach this host, so embed the file.
+    static_root = Path(current_app.static_folder).resolve()
+    path = (static_root / raw.removeprefix("/static/")).resolve()
+    try:
+        path.relative_to(static_root)
+    except ValueError:
+        raise ValueError("Imagem de referência não encontrada.")
+    if not path.is_file():
+        raise ValueError("Imagem de referência não encontrada.")
+    return f"data:{image_mime(path)};base64,{base64.b64encode(path.read_bytes()).decode('ascii')}"
+
+
 def provider_image_references(references, mask):
     """Prepare up to three high-fidelity provider inputs for Studio V2."""
-    values = [item["data"] for item in references[:MAX_IMAGE_REFERENCES]]
+    values = [_provider_reference_value(item["data"]) for item in references[:MAX_IMAGE_REFERENCES]]
     if not mask or not references:
         return [compact_provider_reference(value) for value in values]
     primary = references[0]["data"]

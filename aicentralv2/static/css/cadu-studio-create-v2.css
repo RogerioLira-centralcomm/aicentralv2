@@ -284,6 +284,19 @@ body.portal--studio:has(.studio-v2) > .cadu-family-footer { display:none!importa
   padding-inline:0;
   background:transparent;
 }
+.studio-v2 a.wide-link{
+  gap:10px;
+  justify-content:flex-start;
+  font:inherit;
+  font-size:13px;
+  font-weight:600;
+  line-height:1.3;
+  color:var(--v2-muted);
+  text-decoration:none;
+}
+.studio-v2 a.wide-link span{flex:1;min-width:0;text-align:left}
+.studio-v2 a.wide-link:hover,.studio-v2 a.wide-link:focus-visible{color:var(--v2-text)}
+.studio-v2 a.wide-link i{font-size:13px;flex:none}
 
 /* Composer inspired by the Codex input: the brief stays open and the
    secondary controls live on a quiet bottom rail. */

@@ -214,7 +214,24 @@ def _assert_project_brand_access(project_id, client_id):
         for item in linked_project_contexts(account_id)
         if item.get('id') is not None and item.get('client_id') is not None
     }
-    if allowed.get(project_key) != brand_id:
+    if allowed.get(project_key) == brand_id:
+        return
+    # The Studio selector carries the cx_studio_projects id; the permission
+    # table is keyed by the external (Workspace) project id stored in its
+    # document, so resolve one to the other before refusing.
+    try:
+        uuid.UUID(project_key)
+    except ValueError:
+        raise ValueError('Projeto não encontrado nesta marca.')
+    from ..db import get_db
+    with get_db().cursor() as cursor:
+        cursor.execute(
+            "SELECT document->>'external_project_id' AS external_id FROM cx_studio_projects WHERE id=%s AND client_id=%s LIMIT 1",
+            (project_key, brand_id),
+        )
+        row = cursor.fetchone()
+    external_id = str((row.get('external_id') if isinstance(row, dict) else row['external_id']) if row else '')
+    if not external_id or allowed.get(external_id) != brand_id:
         raise ValueError('Projeto não encontrado nesta marca.')
 
 

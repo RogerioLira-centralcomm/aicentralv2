@@ -192,3 +192,32 @@
 .reports-main .reports-campaign-detail{padding:0;border:0;background:none;box-shadow:none;gap:16px}
 .reports-main .reports-campaign-crumb{display:flex;align-items:center;gap:8px;font-size:14px}
 .reports-main .reports-campaign-tabs{padding:4px 8px}
+
+/* Mídia → Criativos: brief form beside what the data shows. */
+.rs-creative{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr);gap:24px;align-items:start}
+.rs-creative__form{display:grid;gap:16px;min-width:0}
+.rs-field{display:grid;gap:6px;min-width:0}
+.rs-field>span{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--rs-text);font-size:14px;font-weight:500}
+.rs-field-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.rs-field textarea{min-height:200px;font-size:14px;line-height:20px}
+.rs-link-button{padding:0;border:0;background:none;color:var(--rs-brand);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.rs-error-inline{margin:0;color:var(--rs-error);font-size:14px}
+.rs-creative__signals{padding:16px 20px;border-radius:12px;background:var(--rs-soft);border:1px solid var(--rs-line)}
+.rs-creative__signals h3{margin:0 0 12px;color:var(--rs-ink);font-size:14px;font-weight:600}
+.rs-creative__signals dl{display:grid;gap:14px;margin:0}
+.rs-creative__signals dt{color:var(--rs-muted);font-size:12px;font-weight:500}
+.rs-creative__signals dd{margin:4px 0 0;color:var(--rs-ink);font-size:14px;overflow-wrap:anywhere}
+.rs-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.rs-chips li{padding:2px 10px;border:1px solid #d0d5dd;border-radius:999px;background:#fff;font-size:13px}
+.rs-thumb-cell{display:flex;align-items:center;gap:12px}
+.rs-thumb-cell img,.rs-thumb-empty{flex:none;width:44px;height:44px;border-radius:8px;object-fit:cover;background:#f2f4f7}
+.rs-thumb-empty{display:grid;place-items:center;color:#98a2b3}
+@media (max-width:900px){.rs-creative{grid-template-columns:1fr}.rs-field-row{grid-template-columns:1fr}}
+
+/* Relatórios: filters on the left, count and create on the right, one row. */
+.reports-report-library .reports-list-head-actions{flex:1;justify-content:space-between}
+.reports-report-library .rs-toolbar{flex:1;flex-wrap:wrap;min-width:0}
+.reports-report-library .rs-toolbar>*{flex:none}
+.reports-report-library .rs-toolbar>:last-child{width:220px;max-width:100%}
+.reports-report-library .rs-search input{min-width:200px}
+.reports-report-library .reports-panel-head--actions{margin-bottom:16px}

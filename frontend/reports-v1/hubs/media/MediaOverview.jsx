@@ -55,6 +55,7 @@ export function MediaOverview({data}) {
           {key: 'account_name', label: 'Conta'},
           {key: 'platform', label: 'Canal', render: row => platformName(row.platform)},
           {key: 'status', label: 'Status', render: row => <span className="rs-badge is-success">{STATUS[row.status] || row.status}</span>},
+          {key: 'creative', label: '', sortable: false, render: row => <AppLink className="rs-link" href={reportUrl('media/creatives', {campaign: row.id})}>Criar criativo</AppLink>},
         ]}/>
     </Section>
   </div>;

@@ -64,11 +64,18 @@
       if (requestId !== projectRequest) return;
       const items = Array.isArray(payload?.items) ? payload.items : [];
       const saved = (() => { try { return localStorage.getItem("cadu-studio-project") || ""; } catch (_error) { return ""; } })();
-      const selected = items.some((item) => String(item.id) === saved) ? saved : String(items[0]?.id || "");
-      const quickOption = allowQuickCreate ? '<option value="" data-quick-mode="true" selected>Criação rápida · sem projeto</option>' : "";
+      // Links from Workspace and Reports name the project (Workspace UUID or Studio id) or only the brand;
+      // honour them so the brand references travel with the request instead of falling back to quick creation.
+      const query = new URLSearchParams(window.location.search);
+      const wantedProject = String(query.get("project_id") || "").trim();
+      const wantedBrand = String(query.get("creative_client_id") || "").trim();
+      const requested = (wantedProject && items.find((item) => String(item.id) === wantedProject || String(item.external_project_id || "") === wantedProject))
+        || (() => { const ofBrand = wantedBrand && !wantedProject ? items.filter((item) => String(item.client_id) === wantedBrand) : []; return ofBrand.length === 1 ? ofBrand[0] : null; })();
+      const selected = requested ? String(requested.id) : items.some((item) => String(item.id) === saved) ? saved : String(items[0]?.id || "");
+      const quickOption = allowQuickCreate ? `<option value="" data-quick-mode="true"${requested ? "" : " selected"}>Criação rápida · sem projeto</option>` : "";
       projectSelect.innerHTML = items.length ? quickOption + items.map((item) => {
         const suffix = Number(item.brand_count || 1) > 1 ? ` +${Number(item.brand_count) - 1}` : "";
-        return `<option value="${escapeHtml(item.id)}" data-client-id="${escapeHtml(item.client_id)}" data-brand-name="${escapeHtml(item.brand_name)}" data-brand-context="${escapeHtml(JSON.stringify(item.brand_context || {}))}" data-project-brief="${escapeHtml(item.brief || "")}"${!allowQuickCreate && String(item.id) === selected ? " selected" : ""}>${escapeHtml(item.name)} · ${escapeHtml(item.brand_name)}${suffix}</option>`;
+        return `<option value="${escapeHtml(item.id)}" data-client-id="${escapeHtml(item.client_id)}" data-brand-name="${escapeHtml(item.brand_name)}" data-brand-context="${escapeHtml(JSON.stringify(item.brand_context || {}))}" data-project-brief="${escapeHtml(item.brief || "")}"${(!allowQuickCreate || requested) && String(item.id) === selected ? " selected" : ""}>${escapeHtml(item.name)} · ${escapeHtml(item.brand_name)}${suffix}</option>`;
       }).join("") : '<option value="">Nenhum projeto com marca vinculada</option>';
       projectSelect.disabled = !items.length;
       if (items.length) activate(); else publish("cadu:project-ready", { clientId: "", projectId: "", items: [] });

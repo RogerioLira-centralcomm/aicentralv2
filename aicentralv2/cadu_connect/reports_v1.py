@@ -195,9 +195,13 @@ def register(bp):
             {campaign_project_join}
                 WHERE c.client_id=%s ORDER BY a.name,c.name''', params)
         reports_ready = _rows("SELECT to_regclass('public.cadu_connect_report_workspaces') IS NOT NULL AS ready")[0]['ready']
-        reports = (_rows('''SELECT id,campaign_name,project_ref,account_id,media_campaign_id,
-                revision,updated_at FROM cadu_connect_report_workspaces
-                WHERE client_id=%s ORDER BY updated_at DESC LIMIT 60''', params)
+        # A report is "published" while it has an active public link; the list groups by it.
+        links_ready = reports_ready and _rows("SELECT to_regclass('public.cadu_connect_report_public_links') IS NOT NULL AS ready")[0]['ready']
+        published_sql = ('''EXISTS (SELECT 1 FROM cadu_connect_report_public_links l WHERE l.report_id=w.id
+                AND l.revoked_at IS NULL AND (l.expires_at IS NULL OR l.expires_at > NOW()))''' if links_ready else 'FALSE')
+        reports = (_rows(f'''SELECT w.id,w.campaign_name,w.project_ref,w.account_id,w.media_campaign_id,
+                w.revision,w.updated_at,{published_sql} AS published FROM cadu_connect_report_workspaces w
+                WHERE w.client_id=%s ORDER BY w.updated_at DESC LIMIT 60''', params)
             if reports_ready else [])
         link_tests_ready = _rows("SELECT to_regclass('public.cadu_reports_link_test_runs') IS NOT NULL AS ready")[0]['ready']
         link_tests = (_rows('''SELECT r.id,r.mode,r.original_url,r.final_url,r.score,r.status_label,r.public_token,

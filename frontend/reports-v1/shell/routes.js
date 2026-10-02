@@ -7,7 +7,7 @@ export const APP_BASE = '/connect/app';
 export const HUBS = {
   media: {
     title: 'Mídia', description: 'Investimento, alcance e resultado das campanhas.',
-    tabs: [['media', 'Visão geral'], ['media/campaigns', 'Campanhas'], ['media/performance', 'Desempenho'], ['media/data', 'Dados']],
+    tabs: [['media', 'Visão geral'], ['media/campaigns', 'Campanhas'], ['media/performance', 'Desempenho'], ['media/creatives', 'Criativos'], ['media/data', 'Dados']],
   },
   journey: {
     title: 'Site & Jornada', description: 'O que as pessoas fazem depois que chegam ao site.',
@@ -24,6 +24,7 @@ export const ROUTES = {
   media: {page: 'media', nav: 'media', hub: 'media', period: true},
   'media/campaigns': {page: 'campaigns', nav: 'media', hub: 'media', period: true},
   'media/performance': {page: 'performance', nav: 'media', hub: 'media', period: true},
+  'media/creatives': {page: 'creatives', nav: 'media', hub: 'media'},
   'media/data': {page: 'monitor', nav: 'media', hub: 'media'},
   journey: {page: 'journey', nav: 'journey', hub: 'journey', period: true},
   'journey/flows': {page: 'flow', nav: 'journey', hub: 'journey'},

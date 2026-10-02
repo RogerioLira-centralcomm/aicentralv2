@@ -128,13 +128,19 @@ Endpoints novos: `GET /journey/navigation`, `GET /journey/conversions`, `GET /jo
 
 Correções de organização feitas no caminho: detalhe de campanha usava `.reports-span-four` sem definição (cabeçalho e abas presos numa célula da grade) e um card envolvendo os cards; aba "Mapa de calor" (placeholder) escondida; CSS dos heroes removido.
 
-### Pendências conscientes
+### Criativos e pendências resolvidas
 
-- **Mídia → Criativos**: não há tabela nem endpoint de criativos; a aba só entra quando o motor coletar anúncios. Canais está na Visão geral de Mídia (tabela por plataforma) para não duplicar.
-- **Conteúdo como entidade própria** (relacionar manualmente com campanhas, criativos e URLs) exige tabela nova; hoje o conteúdo é a seção do site.
-- **Super Tag com tabs** (Instalação, Domínios, Diagnóstico): a tela já é mestre-detalhe por site com os dois estágios; reorganizar em tabs fica para quando houver mais de uma visão por site.
-- **Relatórios por categoria** (dashboards, recorrentes, exportados): o modelo de relatório não guarda tipo; os filtros atuais cobrem busca e campanha.
-- **Navegação em Sankey** cliente-wide: as tabelas de caminhos cobrem a leitura; o Sankey da página continua no detalhe de cada página.
+- **Mídia → Criativos** (`GET /creatives/campaigns/<id>`, `POST /creatives/studio`, `GET /creatives/sessions` em `reports_creatives.py`): o briefing nasce dos dados da campanha (buscas que converteram, página de destino, CTR e conversões dos últimos 30 dias, objetivo), com formato e ângulo escolhidos. "Abrir no Studio" cria uma sessão retomável pelo mesmo `start_studio_session` do agente do Workspace, com a marca Studio (`studio:<id>`) e o projeto do Workspace (`ci:<uuid>`). Marca e projeto vêm por padrão do projeto da campanha → marca vinculada ao projeto → marca do cliente/anunciante. O Reports não gera imagem nem consome créditos; direção, geração e cobrança ficam no Studio. As sessões ganham `metadata.origin='cadu_reports'` e o histórico aparece na própria aba, com a imagem mais recente.
+- **Studio respeita o projeto e a marca do link** (`static/js/mc-cadu-nav.js`): `/criar?project_id=` (UUID do Workspace ou id do projeto Studio) seleciona o projeto; só com `creative_client_id`, seleciona o projeto da marca quando ele é único. Antes o parâmetro era ignorado e a criação caía em "Criação rápida", sem as referências da marca — isso também corrige os links que o Workspace já enviava.
+- **Navegação em Sankey**: os 10 caminhos mais comuns aparecem como fluxo entre páginas, acima da tabela.
+- **Relatórios**: situação Publicado (link público ativo) ou Em edição, com contagem, além de busca e campanha.
+
+### Pendências que dependem de modelo novo
+
+- **Criativos com desempenho por anúncio**: o motor Google Ads não coleta anúncios; quando coletar, a aba ganha a tabela de peças e o botão passa a partir da peça vencedora.
+- **Conteúdo como entidade própria** (ligar manualmente a campanhas, criativos e URLs) exige tabela nova; hoje o conteúdo é a seção do site.
+- **Relatórios por tipo** (dashboard, recorrente, exportado) exige guardar o tipo no relatório.
+- **Super Tag com tabs** (Instalação, Domínios, Diagnóstico): a tela já é mestre-detalhe por site com os dois estágios.
 
 ## 10. Riscos identificados
 

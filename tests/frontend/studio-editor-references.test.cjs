@@ -32,7 +32,7 @@ const asset={id:'v1',name:'Peça',url:'http://studio.test'+STILL,dataUrl:'http:/
   assert.ok(chips>=1&&chips<=2,`no máximo 2 referências globais visíveis (${chips})`);
   await page.getByPlaceholder('Diga ao Cadu o que fazer nesta peça…').fill('Troque a frase para Conheça as principais mídias digitais.');
   await page.getByRole('button',{name:/Gerar edição/}).click();
-  await page.getByText('Nova edição pronta para revisar.').waitFor({timeout:15000});
+  await page.getByText('Criei uma nova versão. Você pode revisar no palco ou pedir outro ajuste.').waitFor({timeout:15000});
   const task=calls.find(c=>c.p.endsWith('/studio/tasks'));
   const payload=JSON.parse(task.body).payload;
   assert.ok(payload.reference_images.length<=2,`referências enviadas: ${payload.reference_images.length}`);

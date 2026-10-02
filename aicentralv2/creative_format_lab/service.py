@@ -1419,11 +1419,16 @@ class FormatLabService:
             return None
 
         def _run(prompt, aspect_ratio="1:1", background="opaque", input_references=None, **_extra):
+            from .swap import SWAP_MAX_INPUT_REFERENCES
+
             kwargs = {
                 "input_references": input_references,
                 "aspect_ratio": aspect_ratio,
                 "background": background,
                 "output_format": "png",
+                # The edit sends the source piece plus up to two references. Without this the
+                # generator kept its default of two inputs and refused every edit with a reference.
+                "max_input_references": SWAP_MAX_INPUT_REFERENCES,
             }
             quality = payload.get("image_quality")
             if quality:

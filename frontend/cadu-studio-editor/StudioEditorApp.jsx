@@ -65,6 +65,11 @@ export default function StudioEditorApp({bootstrap}) {
   const [estimate, setEstimate] = useState(null);
   const [quoteState, setQuoteState] = useState('idle');
   const [notice, setNotice] = useState('');
+  useEffect(() => {
+    if (!notice || /^(Não foi|Não deu|Esta mesa|Selecione|Gere uma|Escolha uma|A fila foi interrompida)/.test(notice)) return undefined;
+    const timer = window.setTimeout(() => setNotice(''), 4000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
   const [agentMessages, setAgentMessages] = useState(initial.agentMessages || []);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [expandOpen, setExpandOpen] = useState(false);
@@ -220,13 +225,13 @@ export default function StudioEditorApp({bootstrap}) {
     if (!file.type.startsWith('image/')) { setNotice('Escolha uma imagem PNG, JPG ou WebP.'); return; }
     const dataUrl = await readFile(file);
     let next = {id: makeId(), name: file.name || 'Original', url: dataUrl, dataUrl, status: 'draft'};
-    setAsset(next); setVersions([next]); setSelectedId(next.id); setMask(null); setNotice('Peça pronta para editar.');
+    setAsset(next); setVersions([next]); setSelectedId(next.id); setMask(null); 
     const projectId = project?.id || bootstrap.projectId;
     if (!clientId) return;
     try {
       const saved = await uploadStudioAsset({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, clientId, projectId, file});
       next = {...next, assetId: saved.asset_id, url: saved.url, dataUrl: saved.url};
-      setAsset(next); setVersions([next]); setNotice('Peça salva na biblioteca e pronta para editar.');
+      setAsset(next); setVersions([next]); 
     } catch (error) { setNotice(error.message || 'A peça ficou disponível localmente, mas não foi salva na biblioteca.'); }
   }, [bootstrap.apiRoot, bootstrap.csrf, bootstrap.projectId, clientId, project?.id]);
   const addReference = useCallback(async event => {
@@ -277,10 +282,10 @@ export default function StudioEditorApp({bootstrap}) {
   const selectVersion = id => { const version = versions.find(item => item.id === id); if (!version) return; setSelectedId(id); setAsset(version); };
   const selectShelfAsset = item => {
     const existing = versions.find(version => version.url === item.url);
-    if (existing) { setAsset(existing); setSelectedId(existing.id); setNotice(`${item.name} aberta como base desta sessão.`); return; }
+    if (existing) { setAsset(existing); setSelectedId(existing.id); return; }
     const next = {...item, id: `shelf:${item.id || makeId()}`, dataUrl: item.url, status: 'draft'};
     setVersions(current => [next, ...current]);
-    setAsset(next); setSelectedId(next.id); setMask(null); setCrop(null); setNotice(`${item.name} aberta como base desta sessão.`);
+    setAsset(next); setSelectedId(next.id); setMask(null); setCrop(null); 
   };
   const restoreEditorSnapshot = serialized => {
     const snapshot = JSON.parse(serialized);
@@ -306,10 +311,10 @@ export default function StudioEditorApp({bootstrap}) {
     if (!version) return;
     setVersions(current => current.map(item => item.id === id ? {...item, status: 'approved'} : item));
     const session = studioSessionRef.current || studioSession;
-    if (!session || !version.url || String(version.url).startsWith('data:')) { setNotice('Versão aprovada nesta mesa. Ela será sincronizada quando estiver salva no Studio.'); return; }
+    if (!session || !version.url || String(version.url).startsWith('data:')) { return; }
     try {
       const updated = await acceptStudioSessionAsset({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, clientId, sessionId: session.id, asset: version});
-      studioSessionRef.current = updated; setStudioSession(updated); setStatus('synced'); setNotice('Versão aprovada e vinculada à sessão do Studio.');
+      studioSessionRef.current = updated; setStudioSession(updated); setStatus('synced'); 
     } catch (error) { setNotice(error.message || 'A aprovação ficou local e será tentada novamente ao finalizar.'); }
   };
   const setBase = async id => {
@@ -317,10 +322,10 @@ export default function StudioEditorApp({bootstrap}) {
     if (!version) return;
     selectVersion(id);
     const session = studioSessionRef.current || studioSession;
-    if (!session || !version.url || String(version.url).startsWith('data:')) { setNotice('Esta é a peça-base local. Ela será vinculada quando estiver salva no Studio.'); return; }
+    if (!session || !version.url || String(version.url).startsWith('data:')) { return; }
     try {
       const updated = await acceptStudioSessionAsset({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, clientId, sessionId: session.id, asset: version, role: 'base'});
-      studioSessionRef.current = updated; setStudioSession(updated); setNotice('Peça-base atualizada para os próximos desdobramentos.');
+      studioSessionRef.current = updated; setStudioSession(updated); 
     } catch (error) { setNotice(error.message || 'Não foi possível definir esta peça como base.'); }
   };
   const runEdition = async instruction => {
@@ -329,19 +334,19 @@ export default function StudioEditorApp({bootstrap}) {
     if (!effectivePrompt || generating) return;
     setGenerating(true);
     setAgentMessages(current => [...current, {id: makeId(), role: 'user', text: effectivePrompt}, {id: makeId(), role: 'assistant', text: 'Preparando a nova versão…'}]);
-    setNotice('Preparando a edição com sua instrução…');
+    
     try {
       const data = await requestEdition({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, asset, prompt: effectivePrompt, director: {...director, instruction: makeDirectorInstruction(effectivePrompt, director)}, format, outputSize, quality, mask, crop, clientId, references, globalReferenceIds: selectedGlobalReferences, brand: project?.brand_context});
-      if (data.noop || data.mode === 'noop') { setNotice(data.preview || 'Marque uma região ou detalhe o pedido.'); setAgentMessages(current => [...current.slice(0, -1), {id: makeId(), role: 'assistant', text: data.preview || 'Qual parte da peça você quer alterar?'}]); return; }
+      if (data.noop || data.mode === 'noop') { setAgentMessages(current => [...current.slice(0, -1), {id: makeId(), role: 'assistant', text: data.preview || 'Qual parte da peça você quer alterar?'}]); return; }
       const url = data.image_url || data.png_data_url;
       if (!url) throw new Error(data.preview || 'A geração não devolveu uma imagem.');
       const nextVersion = {id: makeId(), name: `V${versions.length + 1}`, url, dataUrl: url, status: 'new', parentUrl: asset.url};
       setVersions(current => [nextVersion, ...current]); setAsset(nextVersion); setSelectedId(nextVersion.id); setMask(null); setCrop(null);
       setAgentMessages(current => [...current.slice(0, -1), {id: makeId(), role: 'assistant', text: 'Criei uma nova versão. Você pode revisar no palco ou pedir outro ajuste.'}]);
-      setNotice('Nova edição pronta para revisar.');
+      
     } catch (error) {
       setAgentMessages(current => [...current.slice(0, -1), {id: makeId(), role: 'assistant', text: error.message || 'Não foi possível concluir esta edição.'}]);
-      setNotice(error.message || 'Não foi possível gerar esta edição.');
+      
     } finally { setGenerating(false); }
   };
   const generate = async () => {

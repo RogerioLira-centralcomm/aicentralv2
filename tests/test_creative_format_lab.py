@@ -4772,3 +4772,26 @@ class SwapInputReferencesLimitTest(unittest.TestCase):
 
         self.assertEqual(seen["max_input_references"], 3)
         self.assertEqual(seen["input_references"], ["a", "b", "c"])
+
+
+class EditImageCallableLimitTest(unittest.TestCase):
+    def test_an_edit_with_two_references_reaches_the_generator_without_the_two_image_limit(self):
+        from types import SimpleNamespace
+        from aicentralv2.creative_format_lab.service import FormatLabService
+
+        calls = []
+
+        def generate_image(prompt, input_references=None, max_input_references=2, **kwargs):
+            # Same rule as the real generator: refuse more inputs than the declared limit.
+            if len(input_references or []) > max_input_references:
+                raise ValueError(f"Use no máximo {max_input_references} imagens de referência.")
+            calls.append(list(input_references or []))
+            return {"b64_json": "aGVsbG8="}
+
+        service = FormatLabService.__new__(FormatLabService)
+        service.modeling = SimpleNamespace(generator=SimpleNamespace(generate_image=generate_image))
+
+        run = service._image_callable({"generate": True})
+        run("Troque o CTA.", input_references=["base", "ref-1", "ref-2"], aspect_ratio="4:5")
+
+        self.assertEqual(calls, [["base", "ref-1", "ref-2"]])

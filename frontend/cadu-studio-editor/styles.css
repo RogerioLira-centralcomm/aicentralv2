@@ -652,3 +652,6 @@ details.se-brand-content > .se-text-button { justify-self:start; margin-top:2px;
 details.se-delivery-content > label { display:grid; gap:8px; margin:0; color:#8e9aa6; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; }
 details.se-delivery-content .se-format-options { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; letter-spacing:0; text-transform:none; }
 details.se-panel-section[open] > summary { margin-bottom:4px; }
+
+.se-reference-chip.is-global { box-shadow:0 0 0 1px rgba(124,92,255,.7); }
+.se-reference-chip.is-global::after { content:'G'; position:absolute; left:2px; bottom:2px; width:12px; height:12px; border-radius:50%; background:#7c5cff; color:#fff; font-size:8px; font-weight:800; line-height:12px; text-align:center; }

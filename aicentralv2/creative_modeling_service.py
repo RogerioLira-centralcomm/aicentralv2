@@ -1304,6 +1304,8 @@ class CreativeModelingService:
                 aspect_ratio=aspect_ratio,
                 background=background,
                 output_format="png",
+                # Source piece + two references, the same ceiling the edit builds its inputs to.
+                max_input_references=3,
             )
             if isinstance(result, dict):
                 return result.get("b64_json") or result.get("url") or ""

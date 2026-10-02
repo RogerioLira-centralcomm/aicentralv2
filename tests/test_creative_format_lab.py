@@ -4741,3 +4741,34 @@ class CreativeFormatLabRoutesTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["data"]["engine"], "python")
         service.example_format_lab_layers.assert_called_once()
+
+
+class SwapInputReferencesLimitTest(unittest.TestCase):
+    def test_an_edit_sends_the_source_and_at_most_two_references_instead_of_failing(self):
+        from aicentralv2.creative_format_lab.swap import SWAP_MAX_INPUT_REFERENCES, swap_input_references
+
+        base = "data:image/png;base64,AAAA"
+        extras = [f"https://cdn.example.com/ref-{index}.png" for index in range(5)]
+
+        refs = swap_input_references({
+            "reference": base,
+            "reference_images": extras,
+            "reference_inputs": [{"image": url} for url in extras],
+            "initial_reference": "https://cdn.example.com/initial.png",
+        })
+
+        self.assertEqual(SWAP_MAX_INPUT_REFERENCES, 3)
+        self.assertEqual(refs, [base, extras[0], extras[1]], "a peça base vem primeiro e as referências mantêm a ordem")
+
+    def test_the_image_callable_allows_the_same_number_of_inputs_the_edit_builds(self):
+        from types import SimpleNamespace
+        from aicentralv2.creative_modeling_service import CreativeModelingService
+
+        seen = {}
+        service = CreativeModelingService.__new__(CreativeModelingService)
+        service.generator = SimpleNamespace(generate_image=lambda prompt, **kwargs: seen.update(kwargs) or {"b64_json": "x"})
+
+        service._agent_image_callable()("Troque o fundo.", input_references=["a", "b", "c"])
+
+        self.assertEqual(seen["max_input_references"], 3)
+        self.assertEqual(seen["input_references"], ["a", "b", "c"])

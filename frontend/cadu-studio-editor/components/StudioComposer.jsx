@@ -3,7 +3,7 @@ import {StudioModal} from './StudioModal';
 
 const EDIT_SUGGESTIONS = [['Trocar o fundo', 'Troque o fundo mantendo o logo, o título e o assunto principal.'], ['Remover textos extras', 'Remova os textos pequenos e selos, mantendo só o título, o botão e o logo.'], ['Cores da marca', 'Aplique as cores oficiais da marca na peça, sem mudar a composição.'], ['Título legível', 'Deixe o título mais legível, com mais contraste e respiro.']];
 
-export function StudioComposer({value, onChange, director, onDirectorChange, onGenerate, onAttach, references, onRemoveReference, mask, format, generating, disabled, disabledReason = '', estimateLabel, messages = []}) {
+export function StudioComposer({value, onChange, director, onDirectorChange, onGenerate, onAttach, references, onRemoveReference, globalReferences = [], onRemoveGlobalReference = () => {}, mask, format, generating, disabled, disabledReason = '', estimateLabel, messages = []}) {
   const textarea = useRef(null);
   const [droppedFile, setDroppedFile] = useState(null);
   const [dragging, setDragging] = useState(false);
@@ -38,6 +38,7 @@ export function StudioComposer({value, onChange, director, onDirectorChange, onG
     <div className="se-composer__context">
       {mask && <span className="se-chip">Região marcada <button type="button" onClick={mask.onClear} aria-label="Remover região marcada">×</button></span>}
       <span className="se-chip">Formato {format}</span>
+      {globalReferences.map(item => <span className="se-reference-chip is-global" key={item.id} title="Referência global do projeto"><img src={item.url} alt=""/><button type="button" onClick={() => onRemoveGlobalReference(item.id)} aria-label="Remover referência global do projeto">×</button></span>)}
       {references.map((item, index) => <span className="se-reference-chip" key={item.id}><img src={item.dataUrl} alt=""/><button type="button" onClick={() => onRemoveReference(index)} aria-label={`Remover referência ${item.name}`}>×</button></span>)}
       <span className="se-drop-hint">Arraste uma imagem para anexar</span>
     </div>

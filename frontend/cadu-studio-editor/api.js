@@ -113,7 +113,8 @@ export function requestEdition({apiRoot, csrf, asset, prompt, director, format, 
   const selection = mask?.bounds ? {role: 'marked_region', bbox_px: mask.bounds, instruction: 'Apply the requested change only inside the marked region. Preserve the source image outside it.'} : crop?.bounds ? {role: 'crop', bbox_px: crop.bounds, instruction: 'Use the selected crop as the composition frame. Preserve the content inside it and rebalance only when required by the requested output format.'} : undefined;
   const localReferences = references.map(item => ({id: item.id, url: publicImageUrl(item.dataUrl), role: 'reference', source: 'user', label: item.name || 'Referência local'})).filter(item => item.url);
   const globalReferences = (brand?.assets?.references || []).map((url, index) => ({id: `brand-reference-${index}`, url: publicImageUrl(url), role: 'reference', source: 'project', label: 'Referência global da marca'})).filter(item => item.url && (!Array.isArray(globalReferenceIds) || globalReferenceIds.includes(item.id)));
-  const directorReferences = [...localReferences, ...globalReferences].slice(0, 4);
+  // Source piece + at most two references: more would be refused by the image generator.
+  const directorReferences = [...localReferences, ...globalReferences].slice(0, 2);
   const publicBrand = {...(brand || {}), logo_url: publicImageUrl(brand?.logo_url) || undefined, assets: {...(brand?.assets || {}), references: globalReferences.map(item => item.url)}};
   const payload = {
     reference: sourceUrl,

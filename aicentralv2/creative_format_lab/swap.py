@@ -365,6 +365,11 @@ def explicit_brand_change(payload=None):
     return payload.get("explicit_brand_change") is True and "logo" in alter
 
 
+# The source piece plus up to two visual references. The image generator takes this many inputs;
+# anything beyond is dropped (references keep their order) instead of failing the whole edit.
+SWAP_MAX_INPUT_REFERENCES = 3
+
+
 def swap_input_references(payload=None, brand=None):
     refs = []
     reference = _reference(payload)
@@ -383,7 +388,7 @@ def swap_input_references(payload=None, brand=None):
         image = str(value or "").strip()
         if image.startswith(("https://", "http://", "data:image/")) and image not in refs:
             refs.append(image)
-        if len(refs) >= 5:
+        if len(refs) >= SWAP_MAX_INPUT_REFERENCES:
             break
     for item in (payload or {}).get("reference_inputs") or []:
         if not isinstance(item, dict):
@@ -391,12 +396,12 @@ def swap_input_references(payload=None, brand=None):
         image = str(item.get("image") or item.get("url") or "").strip()
         if image.startswith(("https://", "http://", "data:image/")) and image not in refs:
             refs.append(image)
-        if len(refs) >= 5:
+        if len(refs) >= SWAP_MAX_INPUT_REFERENCES:
             break
     initial_reference = str((payload or {}).get("initial_reference") or "").strip()
-    if initial_reference and initial_reference not in refs and len(refs) < 5:
+    if initial_reference and initial_reference not in refs and len(refs) < SWAP_MAX_INPUT_REFERENCES:
         refs.append(initial_reference)
-    return refs[:5]
+    return refs[:SWAP_MAX_INPUT_REFERENCES]
 
 
 def has_composition_reference(payload=None):

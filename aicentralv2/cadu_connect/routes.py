@@ -155,13 +155,14 @@ def index():
     # single unauthenticated entry point: the public Workspace page.
     if not session.get("user_id"):
         return redirect(workspace_public_url(), code=302)
-    return redirect(url_for('cadu_connect.reports_v1_app'), code=302)
+    # The SPA shares one endpoint across several rules; without a section url_for picks /app/flows/new.
+    return redirect(url_for('cadu_connect.reports_v1_app', section='overview'), code=302)
 
 
 @bp.get('/campanhas')
 @login_required
 def campaigns_board():
-    return redirect(url_for('cadu_connect.reports_v1_app') + '#campaigns', code=302)
+    return redirect(url_for('cadu_connect.reports_v1_app', section='overview') + '#campaigns', code=302)
 
 
 @bp.post("/api/campaigns/<int:campaign_id>/project")

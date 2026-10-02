@@ -20,6 +20,25 @@ def typed_choice(choice='cost'):
             'probabilities': probabilities}
 
 
+SAMPLES = [{'sheet_name': 'Plan1', 'raw': {'valor investido especial': '12,50'}}]
+
+
+def evidence_query(sql, params=()):
+    if 'SELECT sha256,platform_hint FROM cadu_reports_import_files' in sql:
+        return [{'sha256': 'abc123', 'platform_hint': 'Meta Ads'}]
+    if 'SELECT DISTINCT ON (sheet_name) sheet_name,raw' in sql:
+        return SAMPLES
+    return None
+
+
+def current_fingerprint():
+    with mock.patch.object(reports_imports, '_rows', side_effect=evidence_query):
+        return reports_imports._column_suggestion_evidence(IMPORT_ID, (SELECTED['client_id'],))[2]
+
+
+FINGERPRINT = current_fingerprint()
+
+
 class ReportsImportColumnSuggestionsTest(TestCase):
     def setUp(self):
         app = Flask(__name__)
@@ -38,12 +57,13 @@ class ReportsImportColumnSuggestionsTest(TestCase):
 
         def query(sql, params=()):
             calls.append((sql, params))
-            if 'SELECT id,platform_hint FROM cadu_reports_import_files' in sql:
-                return [{'id': IMPORT_ID, 'platform_hint': 'Meta Ads'}]
+            found = evidence_query(sql, params)
+            if found is not None:
+                return found
             if 'SELECT result,model,created_at' in sql:
                 return rows['previous']
-            if 'SELECT DISTINCT ON (sheet_name) raw' in sql:
-                return [{'raw': {'valor investido especial': '12,50'}}]
+            if 'FOR UPDATE' in sql:
+                return [{'id': IMPORT_ID}]
             if 'INSERT INTO cadu_reports_import_column_suggestions' in sql:
                 return [{'result': rows['stored_result'], 'model': 'jev-1.13.0',
                          'created_at': '2026-09-28T12:00:00Z'}]
@@ -67,7 +87,7 @@ class ReportsImportColumnSuggestionsTest(TestCase):
              mock.patch.object(reports_imports, '_rows', side_effect=query), \
              mock.patch.object(reports_imports, 'get_db', return_value=connection), \
              mock.patch('aicentralv2.services.typesafe_service.system_one', side_effect=evaluate) as ai:
-            response = self.client.post(f'/api/v1/reports/imports/{IMPORT_ID}/suggest-columns')
+            response = self.client.post(f'/api/v2/reports/imports/{IMPORT_ID}/suggest-columns')
         return response, connection, calls, ai
 
     def test_platform_hint_is_in_the_question_and_current_result_is_versioned_and_upserted(self):
@@ -75,6 +95,7 @@ class ReportsImportColumnSuggestionsTest(TestCase):
         evaluation = {'answers': {'h0': answer}, 'model': 'jev-1.13.0',
                       'usage': {'input_tokens': 15, 'output_tokens': 4}}
         result = {'prompt_version': reports_imports.COLUMN_SUGGESTION_PROMPT_VERSION,
+                  'evidence_fingerprint': FINGERPRINT,
                   'suggestions': [{'header': 'valor investido especial', 'field': 'cost',
                                    'confidence': 0.9, 'probabilities': answer['probabilities']}],
                   'omitted_count': 0}
@@ -91,21 +112,21 @@ class ReportsImportColumnSuggestionsTest(TestCase):
 
     def test_current_cached_result_avoids_a_second_provider_call(self):
         cached = {'prompt_version': reports_imports.COLUMN_SUGGESTION_PROMPT_VERSION,
-                  'suggestions': [], 'omitted_count': 0}
+                  'evidence_fingerprint': FINGERPRINT, 'suggestions': [], 'omitted_count': 0}
         response, connection, calls, ai = self.request_suggestion(
             {'previous': [{'result': cached, 'model': 'jev-1.13.0'}]}, None)
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.get_json()['duplicate'])
         ai.assert_not_called()
         connection.rollback.assert_called_once()
-        self.assertEqual(len(calls), 2)
+        self.assertEqual(len(calls), 3)  # file evidence, samples, cached result
 
     def test_old_prompt_cache_is_refreshed(self):
         answer = typed_choice()
         result = {'answers': {'h0': answer}, 'model': 'jev-1.13.0',
                   'usage': {'input_tokens': 15, 'output_tokens': 4}}
         stored = {'prompt_version': reports_imports.COLUMN_SUGGESTION_PROMPT_VERSION,
-                  'suggestions': [], 'omitted_count': 0}
+                  'evidence_fingerprint': FINGERPRINT, 'suggestions': [], 'omitted_count': 0}
         response, _, calls, ai = self.request_suggestion(
             {'previous': [{'result': {'suggestions': [], 'omitted_count': 0}}],
              'stored_result': stored}, result)
@@ -134,11 +155,14 @@ class ReportsImportColumnSuggestionsTest(TestCase):
         connection.rollback.assert_called()
         self.assertFalse(any('INSERT INTO' in sql for sql, _ in calls))
 
-    def test_cache_version_check_handles_json_text(self):
-        result = {'prompt_version': reports_imports.COLUMN_SUGGESTION_PROMPT_VERSION}
-        self.assertTrue(reports_imports._column_suggestion_cache_is_current(result))
-        self.assertTrue(reports_imports._column_suggestion_cache_is_current(json.dumps(result)))
-        self.assertFalse(reports_imports._column_suggestion_cache_is_current('{invalid'))
+    def test_cache_check_needs_the_current_prompt_and_the_same_file_evidence(self):
+        result = {'prompt_version': reports_imports.COLUMN_SUGGESTION_PROMPT_VERSION, 'evidence_fingerprint': 'fp'}
+        current = reports_imports._column_suggestion_cache_is_current
+        self.assertTrue(current(result, 'fp'))
+        self.assertTrue(current(json.dumps(result), 'fp'))
+        self.assertFalse(current(result, 'other-file'))
+        self.assertFalse(current({**result, 'prompt_version': 'old'}, 'fp'))
+        self.assertFalse(current('{invalid', 'fp'))
 
 
 if __name__ == '__main__':

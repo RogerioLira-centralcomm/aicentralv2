@@ -46,12 +46,16 @@ class ReportSourceTests(TestCase):
             with self.assertRaises(ValueError):
                 sources.prepare_image(upload())
 
-    def test_project_access_rechecked_before_serving_source(self):
+    def test_report_is_looked_up_inside_the_selected_client_only(self):
+        from werkzeug.exceptions import NotFound
         app = Flask(__name__)
-        selected = {'organization_id': 4, 'client_id': 5}
-        with app.test_request_context(), mock.patch.object(sources.context, 'resolve', return_value=selected), mock.patch.object(sources.context, 'inventory', return_value=[]):
-            query = mock.Mock(return_value=[{'project_ref': 'projects:9'}])
-            from werkzeug.exceptions import NotFound
+        selected = {'organization_id': 4, 'client_id': 5, 'role': 'admin'}
+        with app.test_request_context(), mock.patch('aicentralv2.cadu_connect.reports_access.resolve', return_value=selected):
+            query = mock.Mock(return_value=[])
             with self.assertRaises(NotFound):
                 sources.authorized_report(query, 10)
-            self.assertEqual(query.call_args.args[1], (10, 4, 5))
+            self.assertEqual(query.call_args.args[1], (10, 5))
+            query = mock.Mock(return_value=[{'id': 10, 'client_id': 5}])
+            report, chosen = sources.authorized_report(query, 10, lock=True)
+            self.assertEqual((report['id'], chosen['client_id']), (10, 5))
+            self.assertIn('FOR UPDATE', query.call_args.args[0])

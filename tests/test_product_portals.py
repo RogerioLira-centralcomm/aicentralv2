@@ -157,7 +157,7 @@ class ProductPortalsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_data(as_text=True), "login")
 
-    def test_connect_uses_workspace_as_guest_entry_and_renders_reports_for_a_session(self):
+    def test_connect_uses_workspace_as_guest_entry_and_opens_reports_overview_for_a_session(self):
         app = _app()
         client = app.test_client()
         with mock.patch("aicentralv2.cadu_connect.routes.customization_targets") as targets:
@@ -170,14 +170,9 @@ class ProductPortalsTest(TestCase):
         with mock.patch("aicentralv2.cadu_connect.routes.campaigns_for_client", return_value=[]), \
              mock.patch("aicentralv2.cadu_connect.routes.customization_targets", return_value={"clients": [], "projects": []}):
             response = client.get("/", headers={"Host": "connect.centralcomm.media"})
-        self.assertEqual(response.status_code, 200)
-        html = response.get_data(as_text=True)
-        self.assertIn("Reports", html)
-        self.assertIn("O que precisa de decisão agora.", html)
-        self.assertIn("Clientes e projetos", html)
-        self.assertIn("relatórios de mídia por cliente", html)
-        self.assertIn('reports-home.css?v=3', html)
-        self.assertNotIn("Carteira de clientes", html)
+        # With a session the home opens the Reports app on its overview, never on "new flow".
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.headers["Location"].endswith("/connect/app/overview"), response.headers["Location"])
 
     def test_workspace_session_is_reused_by_connect(self):
         app = _app()

@@ -39,8 +39,8 @@ export const ROUTES = {
   events: {page: 'events', nav: 'events', title: 'Eventos', description: 'O que a Super Tag está capturando em cada página.', period: true},
   imports: {page: 'imports', nav: 'imports', title: 'Importações', description: 'Envie arquivos e revise os dados antes de entrarem nos relatórios.'},
   'tools/link-tester': {page: 'links', nav: 'links', title: 'Link Tester', description: 'Verifique destinos e associe links às campanhas certas.'},
-  'settings/clients': {page: 'customers', nav: 'customers', title: 'Clientes', description: 'Clientes, anunciantes, marcas e projetos.'},
-  'settings/accounts': {page: 'accounts', nav: 'accounts', title: 'Contas e conexões', description: 'Contas de mídia vinculadas a este cliente.'},
+  'settings/clients': {page: 'accounts', nav: 'accounts', title: 'Clientes e contas', description: 'Clientes e marcas, contas de mídia e campanhas com seus projetos do Workspace.'},
+  'settings/accounts': {page: 'accounts', nav: 'accounts', title: 'Clientes e contas', description: 'Clientes e marcas, contas de mídia e campanhas com seus projetos do Workspace.'},
   'settings/access': {page: 'access', nav: 'access', title: 'Acessos', description: 'Quem pode consultar e operar os dados deste cliente.'},
 };
 

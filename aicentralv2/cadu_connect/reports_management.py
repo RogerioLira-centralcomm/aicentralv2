@@ -24,7 +24,35 @@ def workspace_items(selected):
     return [i for i in items if str(i.get('status') or '').lower() not in ('arquivado','archived','deletado') and (i['kind']=='brand' or (i['kind']=='project' and repository.project_user_can_view(selected['client_id'],i['ref'],selected['user_id'])))]
 
 
+def workspace_map(items,brand_links,project_links):
+    """One read for the clients screen: brands per customer and projects per campaign.
+
+    A link to something the user can no longer see stays visible as unavailable, so it can be removed."""
+    visible={i['ref']:i for i in items}
+    def entry(ref,kind):
+        item=visible.get(ref)
+        if item and item['kind']==kind: return {'ref':ref,'name':item['name'],'accessible':True}
+        return {'ref':ref,'name':'Indisponível no Workspace','accessible':False}
+    customer_brands,campaign_projects={},{}
+    for link in brand_links: customer_brands.setdefault(str(link['customer_id']),[]).append(entry(link['brand_ref'],'brand'))
+    for link in project_links: campaign_projects.setdefault(str(link['campaign_id']),[]).append(entry(link['project_ref'],'project'))
+    brands=[{'ref':i['ref'],'name':i['name'],'logo_url':i.get('logo_url') or ''} for i in items if i['kind']=='brand']
+    projects=[{'ref':i['ref'],'name':i['name'],'brand_refs':list(i.get('related_refs') or [])} for i in items if i['kind']=='project']
+    return {'available':True,'brands':brands,'projects':projects,'customer_brands':customer_brands,'campaign_projects':campaign_projects}
+
+
 def register(bp):
+    @bp.get('/api/v2/reports/workspace/map')
+    @login_required_api
+    def reports_workspace_map():
+        from .reports_access import reports_only
+        selected=_selection()
+        if reports_only():
+            return jsonify(available=False,brands=[],projects=[],customer_brands={},campaign_projects={})
+        brand_links=_rows('SELECT customer_id,brand_ref FROM cadu_reports_customer_workspace_brand_links WHERE client_id=%s ORDER BY brand_ref',(selected['client_id'],))
+        project_links=_rows('SELECT campaign_id,project_ref FROM cadu_reports_workspace_links WHERE client_id=%s AND campaign_id IS NOT NULL ORDER BY project_ref',(selected['client_id'],))
+        return jsonify(workspace_map(workspace_items(selected),brand_links,project_links))
+
     @bp.get('/api/v2/reports/workspace/catalog')
     @login_required_api
     def reports_workspace_catalog():

@@ -77,6 +77,6 @@ export function ReportsFilterBar({data, filters, onChange, onRefresh}) {
       <option value="">Todas</option>{campaigns.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
     </ReportsNativeSelect></label>
     </div>
-    <div className="reports-filter-bar__actions">{activeCount > 0 && <><span className="reports-filter-bar__count">{activeCount} {activeCount === 1 ? 'filtro ativo' : 'filtros ativos'}</span><UntitledButton size="sm" color="tertiary" onPress={clearFilters}>Limpar</UntitledButton></>}<UntitledButton className="reports-filter-bar__refresh" size="sm" color="tertiary" onPress={onRefresh}><RefreshCw01 size={16} aria-hidden="true"/>Atualizar</UntitledButton></div>
+    <div className="reports-filter-bar__actions">{activeCount > 0 && <><span className="reports-filter-bar__count">{activeCount} {activeCount === 1 ? 'filtro ativo' : 'filtros ativos'}</span><UntitledButton size="sm" color="tertiary" onPress={clearFilters}>Limpar</UntitledButton></>}<UntitledButton size="md" color="secondary" iconLeading={RefreshCw01} onPress={onRefresh}>Atualizar</UntitledButton></div>
   </section>;
 }

@@ -142,12 +142,10 @@
 
 /* Cabeçalhos de painel só com ações, nota de painel, busca de acessos e carregamento. */
 .reports-panel-head--actions{justify-content:flex-end}
-.reports-panel-note{margin:0 0 14px;color:var(--color-text-tertiary,var(--color-text-tertiary));font-size:13px;line-height:1.45}
 .reports-access-search{max-width:360px;margin:0 0 12px}
 .reports-loading{display:grid;min-height:40vh;place-items:center;color:var(--color-text-tertiary,var(--color-text-tertiary));font-size:14px}
 .reports-flow-publish-hint{max-width:none;white-space:nowrap}
 .reports-main .reports-panel-head button span{color:inherit;font-size:inherit}
-.reports-campaign-open>span{display:grid;justify-items:start;gap:2px;text-align:left}
 
 /* Site explorer: groups first, ten pages at a time. */
 .flow-catalog{display:grid;gap:10px}

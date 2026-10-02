@@ -862,6 +862,75 @@ def catalog(module, query='', category='', platform='', sort='relevant', format_
     raise ValueError('Catálogo inválido.')
 
 
+AUDIENCE_SORTS = {
+    'relevant': 'COALESCE(a.relevancia_score, 0) DESC, a.nome, a.id',
+    'size': 'a.publico_numero DESC NULLS LAST, a.nome, a.id',
+    'name': 'a.nome, a.id',
+}
+AUDIENCE_PAGE_MAX = 96
+
+
+def audience_search(query='', category='', platform='', subcategory='', sort='relevant', limit=48, offset=0):
+    """One page of the audience marketplace plus facet counts.
+
+    Each facet counts what the *other* filters leave available, so picking a
+    channel shows how many audiences each category still has (and vice versa).
+    """
+    clean = lambda value, size=100: value.strip()[:size] if isinstance(value, str) else ''
+    query, category, platform, subcategory = clean(query), clean(category), clean(platform), clean(subcategory)
+    ordering = AUDIENCE_SORTS.get(sort, AUDIENCE_SORTS['relevant'])
+    try:
+        limit = max(1, min(int(limit), AUDIENCE_PAGE_MAX))
+        offset = max(0, int(offset))
+    except (TypeError, ValueError):
+        limit, offset = 48, 0
+    search = '%' + query + '%'
+    base = '''FROM cadu_audiencias a
+         LEFT JOIN cadu_categorias c ON c.id = a.categoria_id
+         LEFT JOIN cadu_subcategorias s ON s.id = a.subcategoria_id
+         LEFT JOIN cadu_audiencias_plataformas p ON p.id = a.plataforma_id
+             WHERE a.is_active = TRUE
+               AND (%(query)s = '' OR a.nome ILIKE %(q)s OR COALESCE(a.descricao_curta, '') ILIKE %(q)s
+                    OR COALESCE(a.descricao, '') ILIKE %(q)s OR COALESCE(c.nome, '') ILIKE %(q)s
+                    OR COALESCE(s.nome, '') ILIKE %(q)s OR COALESCE(p.nome, '') ILIKE %(q)s)'''
+    filters = {
+        'category': "(%(category)s = '' OR c.nome = %(category)s)",
+        'platform': "(%(platform)s = '' OR p.nome = %(platform)s)",
+        'subcategory': "(%(subcategory)s = '' OR s.nome = %(subcategory)s)",
+    }
+    params = {'q': search, 'query': query, 'category': category, 'platform': platform, 'subcategory': subcategory,
+              'limit': limit, 'offset': offset}
+
+    def where(*skip):
+        return base + ''.join(' AND ' + sql for key, sql in filters.items() if key not in skip)
+
+    records = rows('''SELECT a.id, a.nome AS name, COALESCE(a.descricao_curta, a.descricao) AS description,
+                             a.publico_estimado AS audience, a.publico_numero AS audience_size,
+                             a.imagem_url AS image_url, a.perfil_socioeconomico, a.propensao_compra, a.tamanho,
+                             c.nome AS category, s.nome AS subcategory, p.nome AS platform,
+                             COUNT(*) OVER () AS total_count
+                    ''' + where() + ' ORDER BY ' + ordering + ' LIMIT %(limit)s OFFSET %(offset)s', params)
+    total = int(records[0].pop('total_count')) if records else 0
+    for record in records[1:]:
+        record.pop('total_count', None)
+    if not records and offset:
+        total = int((rows('SELECT COUNT(*) AS n ' + where(), params) or [{'n': 0}])[0]['n'])
+
+    def facet(column, *skip):
+        return [{'value': row['value'], 'count': int(row['n'])} for row in rows(
+            'SELECT ' + column + ' AS value, COUNT(*) AS n ' + where(*skip)
+            + ' AND ' + column + ' IS NOT NULL GROUP BY 1 ORDER BY 2 DESC, 1', params)]
+
+    return {
+        'records': records, 'total': total, 'limit': limit, 'offset': offset,
+        'facets': {
+            'platforms': facet('p.nome', 'platform'),
+            'categories': facet('c.nome', 'category', 'subcategory'),
+            'subcategories': facet('s.nome', 'subcategory') if category else [],
+        },
+    }
+
+
 def audience_catalog_facets():
     """Small, stable filter lists for the customer-facing audience marketplace."""
     categories = rows('''SELECT DISTINCT c.nome AS value FROM cadu_audiencias a

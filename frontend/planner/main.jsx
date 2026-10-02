@@ -6,6 +6,7 @@ import './planner.css';
 import {SolutionSidebar} from '../cadu-design-system/components/SolutionSidebar.jsx';
 import {CatalogDetail, CatalogPage} from './Catalog.jsx';
 import {ContextSelector, PlannerChrome} from './PlannerHeader.jsx';
+import {AudienceShowcase} from './AudienceShowcase.jsx';
 import {AudienceDetail} from './details/AudienceDetail.jsx';
 import {ChannelDetail} from './details/ChannelDetail.jsx';
 import {FormatDetail} from './details/FormatDetail.jsx';
@@ -79,6 +80,7 @@ function App({boot}) {
     if (boot.module === 'planos') return <PlansPage boot={boot} plans={plans}/>;
     if (boot.module === 'monitoramento') return <MonitorPage request={request}/>;
     if (boot.module === 'docs') return <DocsPage boot={boot} request={request} notify={notify}/>;
+    if (boot.module === 'audiencias') return <AudienceShowcase boot={boot} request={request} selection={selection} notify={notify}/>;
     if (CATALOG_KINDS.includes(boot.module)) return <CatalogPage boot={boot} request={request} selection={selection} notify={notify}/>;
     return null;
   })();

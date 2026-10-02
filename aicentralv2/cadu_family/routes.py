@@ -564,7 +564,9 @@ def planner_catalog(kind):
     from ..cadu_planner import catalog
     context.identity()
     context.resolve()
-    if kind in {'audiencias', 'canais', 'formatos', 'interativos'}:
+    if kind == 'audiencias':
+        return jsonify(kind=kind, **_audience_page(request.args))
+    if kind in {'canais', 'formatos', 'interativos'}:
         records = repository.catalog(
             kind, request.args.get('q', ''), category=request.args.get('category', ''),
             platform=request.args.get('platform', ''), sort=request.args.get('sort', 'relevant'),
@@ -1385,6 +1387,15 @@ def page(product, module=None):
         planner_view='page', marketplace_facets=marketplace_facets(product, module))
 
 
+def _audience_page(args):
+    """Audience marketplace page from URL args (Portuguese names on the page, English in the API)."""
+    pick = lambda *names: next((args.get(name) for name in names if args.get(name)), '')
+    return repository.audience_search(
+        query=pick('q'), category=pick('categoria', 'category'), platform=pick('canal', 'platform'),
+        subcategory=pick('subcategoria', 'subcategory'), sort=pick('ordem', 'sort') or 'relevant',
+        limit=pick('limit') or 48, offset=pick('offset') or 0)
+
+
 def _planner_react_page(module=None):
     """Render every Planner route through the single React application."""
     spec = PRODUCTS['planner']
@@ -1392,6 +1403,10 @@ def _planner_react_page(module=None):
     if module not in spec['modules']:
         abort(404)
     title, _legacy = spec['modules'][module]
+    if module == 'audiencias':
+        # The largest showcase: paged, faceted and filterable from the URL.
+        page = _audience_page(request.args)
+        return _render_planner('page', module, title, records=page.pop('records'), catalog_meta=page)
     records = product_pages.load_records('planner', module, context.identity(), context.resolve(),
                                          request.args.get('q', ''), request.args)
     return _render_planner('page', module, title, records=records,

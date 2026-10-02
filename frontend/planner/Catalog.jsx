@@ -22,14 +22,14 @@ const DESCRIPTIONS = {
 const KIND_ICON = {places: 'browser', audiencias: 'users', canais: 'share', interativos: 'plugin', formatos: 'plan', portais: 'library'};
 const number = value => Number(value).toLocaleString('pt-BR');
 const audienceLabel = item => item.audience_estimate || item.audience || item.tamanho || '';
-const itemKey = item => item.id || item.slug;
+export const itemKey = item => item.id || item.slug;
 
 export function catalogDetailUrl(urls, kind, item) {
   // Places are addressed by slug; every other catalog by numeric id.
   return `${moduleUrl(urls, kind)}/${encodeURIComponent(kind === 'places' ? item.slug || item.id : item.id)}`;
 }
 
-function useDebounced(value, delay = 250) {
+export function useDebounced(value, delay = 250) {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
     const timer = window.setTimeout(() => setDebounced(value), delay);
@@ -42,7 +42,12 @@ function useDebounced(value, delay = 250) {
 function keyFact(kind, item) {
   const audience = audienceLabel(item);
   if (kind === 'places') return item.traffic ? `${item.traffic_label || 'Movimento'}: ${item.traffic}` : item.investment ? `Investimento ${item.investment}` : '';
-  if (kind === 'audiencias') return audience && `Público ${audience}`;
+  if (kind === 'audiencias') {
+    // The numeric size gives one consistent format ("86,6 mi"); the label is the fallback.
+    const size = Number(item.audience_size);
+    if (size > 0) return `Público ${size.toLocaleString('pt-BR', {notation: 'compact', maximumFractionDigits: 1})}`;
+    return audience && `Público ${audience}`;
+  }
   if (kind === 'canais') return item.audience && `Alcance ${item.audience}`;
   return item.dimensions || '';
 }
@@ -82,7 +87,7 @@ function CardMark({kind, item}) {
 const InPlan = () => <span className="planner-card__inplan"><Icon name="check" size={12}/>No plano</span>;
 
 /** The whole card is the link to the detail page; adding to the plan happens there. */
-function CatalogCard({kind, item, urls, selected}) {
+export function CatalogCard({kind, item, urls, selected}) {
   const [imageFailed, setImageFailed] = useState(false);
   const visual = VISUAL_KINDS.has(kind);
   const showImage = visual && item.image_url && !imageFailed;

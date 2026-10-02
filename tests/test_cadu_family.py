@@ -158,7 +158,7 @@ class FamilyTest(TestCase):
         html = response.get_data(as_text=True)
         self.assertEqual(response.status_code, 200)
         self.assertIn('<html lang="pt-BR" data-cadu-skin="planner">', html)
-        self.assertIn('cadu_workspace/untitled/workspace-kit.css', html)
+        self.assertIn('cadu_planner/react/untitled.css', html)
         self.assertIn('cadu_planner/react/app.js', html)
         boot = self.planner_boot(html)
         self.assertEqual(boot['module'], 'inicio')

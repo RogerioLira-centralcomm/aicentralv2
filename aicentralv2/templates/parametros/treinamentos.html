@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/treinamentos.css') }}?v=13">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/treinamentos.css') }}?v=14">
 {% endblock %}
 
 {% block content %}
@@ -49,13 +49,13 @@
           <option value="H2">Título</option>
           <option value="H3">Subtítulo</option>
         </select>
-        <button type="button" id="tsAddPage" class="cx-btn cx-btn-sm cx-btn-ghost" title="Nova página">Página</button>
+        <button type="button" id="tsAddPage" class="ts-format-label cx-btn cx-btn-sm cx-btn-ghost" title="Nova página">Página</button>
         <select id="tsPageLayout" class="cx-select cx-select-sm" aria-label="Layout da página">
           <option value="copy">Só texto</option>
           <option value="split">Texto + imagem</option>
           <option value="title">Título</option>
         </select>
-        <button type="button" id="tsSurfaceBtn" class="cx-btn cx-btn-sm cx-btn-ghost" title="Roteiro ou palco 16:9">Palco</button>
+        <button type="button" id="tsSurfaceBtn" class="ts-format-label cx-btn cx-btn-sm cx-btn-ghost" title="Roteiro ou palco 16:9">Palco</button>
       </div>
       <div class="ts-cost" id="tsCost" title="Consumo de IA nesta sessão">
         Sessão <strong>R$ 0,00</strong>

@@ -6,14 +6,16 @@ export const money = (micros, currency) => micros == null || !currency ? '—' :
 export const amount = (value, currency) => value == null || !currency ? '—' : new Intl.NumberFormat('pt-BR', {style: 'currency', currency}).format(Number(value));
 export const platformName = value => ({manual:'Manual',google_ads: 'Google Ads', meta_ads: 'Meta Ads', microsoft_ads: 'Microsoft Ads', other: 'Outra'})[value||'manual'] || String(value).replaceAll('_', ' ');
 
-export function Chart({type = 'bar', labels, values, height = 260, horizontal = false}) {
+/** One series (`values`) or several (`series: [{name, data}]`), e.g. the period and the comparison period. */
+export function Chart({type = 'bar', labels, values, series, height = 260, horizontal = false}) {
   const host = useRef(null);
   useEffect(() => {
-    if (!host.current || !window.ApexCharts || !values?.length) return undefined;
+    const data = series || [{name: 'Total', data: values || []}];
+    if (!host.current || !window.ApexCharts || !data[0]?.data?.length) return undefined;
     const chart = new window.ApexCharts(host.current, {
     chart: {type, height, toolbar: {show: false}, animations: {enabled: false}, fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Arial, sans-serif'},
-      series: [{name: 'Total', data: values}],
-      colors: ['#175cd3'],
+      series: data,
+      colors: ['#175cd3', '#98a2b3', '#53b1fd'],
       dataLabels: {enabled: false},
       grid: {borderColor: '#eaecf0', strokeDashArray: 0},
       stroke: {curve: 'smooth', width: type === 'bar' ? 0 : 2},
@@ -24,10 +26,10 @@ export function Chart({type = 'bar', labels, values, height = 260, horizontal = 
       yaxis: {labels: {style: {colors: '#667085', fontSize: '12px'}, formatter: value => new Intl.NumberFormat('pt-BR', {notation: 'compact', maximumFractionDigits: 1}).format(value)}, forceNiceScale: true, min: 0},
       tooltip: {theme: 'light'},
       responsive: [{breakpoint: 640, options: {xaxis: {tickAmount: Math.min(3, Math.max(1, (labels?.length || 1) - 1))}}}],
-      legend: {show: false},
+      legend: {show: data.length > 1, position: 'top', horizontalAlign: 'right', fontSize: '12px', labels: {colors: '#475467'}},
     });
     chart.render();
     return () => chart.destroy();
-  }, [type, height, horizontal, JSON.stringify(labels), JSON.stringify(values)]);
-  return values?.length ? <div ref={host} className="reports-chart" /> : <Empty message="O gráfico aparece quando houver dados para esta seleção." />;
+  }, [type, height, horizontal, JSON.stringify(labels), JSON.stringify(values), JSON.stringify(series)]);
+  return (series?.[0]?.data?.length || values?.length) ? <div ref={host} className="reports-chart" /> : <Empty message="O gráfico aparece quando houver dados para esta seleção." />;
 }

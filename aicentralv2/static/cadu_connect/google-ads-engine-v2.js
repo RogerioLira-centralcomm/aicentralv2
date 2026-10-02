@@ -22,9 +22,10 @@ var CADU = {
   apiKey: '__CADU_API_KEY__',
   accountIds: __CADU_ACCOUNT_IDS__, // Obrigatório em MCC; emitido para este cliente.
 
-  engineVersion: '2.0.0',
+  engineVersion: '2.1.0',
   schemaVersion: 2,
-  windowDays: 7,                    // Reenvia os últimos N dias para absorver conversões atrasadas.
+  windowDays: 14,                   // Janela recente quando o Reports não responde ao plano (conversões chegam atrasadas).
+  // O Reports devolve o plano de datas: a janela recente + a próxima fatia do histórico (até 13 meses), uma por execução.
   chunkSize: 300,                   // Registros por requisição (limite do servidor: 500).
   maxRuntimeMs: 25 * 60 * 1000,     // Folga sobre o limite de 30 minutos do Google Ads Scripts.
   maxAttempts: 3,
@@ -176,24 +177,39 @@ var COLLECTORS = {
   campaign_settings: {
     kind: 'snapshot',
     collect: function (ctx, cfg) {
-      var records = [];
-      var query = 'SELECT campaign.id, campaign.name, campaign.status, campaign.serving_status, ' +
+      var base = 'SELECT campaign.id, campaign.name, campaign.status, campaign.serving_status, ' +
         'campaign.advertising_channel_type, campaign.bidding_strategy_type, ' +
-        'campaign_budget.amount_micros, campaign_budget.explicitly_shared ' +
-        'FROM campaign WHERE campaign.status != "REMOVED"';
-      var result = Gaql.each(query, cfg.maxRows, function (row) {
-        records.push({
-          campaign_id: String(row.campaign.id),
-          campaign_name: row.campaign.name,
-          status: row.campaign.status,
-          serving_status: Util.get(row, 'campaign.servingStatus'),
-          channel_type: Util.get(row, 'campaign.advertisingChannelType'),
-          bidding_strategy_type: Util.get(row, 'campaign.biddingStrategyType'),
-          budget_micros: Util.get(row, 'campaignBudget.amountMicros') === null ? null : Util.number(row.campaignBudget.amountMicros),
-          budget_shared: Util.get(row, 'campaignBudget.explicitlyShared') === null ? null : row.campaignBudget.explicitlyShared === true
+        'campaign_budget.amount_micros, campaign_budget.explicitly_shared';
+      // Metas de lance (tCPA/tROAS); se a versão da API recusar algum campo, cai para a consulta básica.
+      var targets = ', campaign.target_cpa.target_cpa_micros, campaign.maximize_conversions.target_cpa_micros, ' +
+        'campaign.target_roas.target_roas, campaign.maximize_conversion_value.target_roas';
+      var where = ' FROM campaign WHERE campaign.status != "REMOVED"';
+      var read = function (query) {
+        var records = [];
+        var result = Gaql.each(query, cfg.maxRows, function (row) {
+          var tcpa = Util.get(row, 'campaign.targetCpa.targetCpaMicros') || Util.get(row, 'campaign.maximizeConversions.targetCpaMicros');
+          var troas = Util.get(row, 'campaign.targetRoas.targetRoas') || Util.get(row, 'campaign.maximizeConversionValue.targetRoas');
+          records.push({
+            campaign_id: String(row.campaign.id),
+            campaign_name: row.campaign.name,
+            status: row.campaign.status,
+            serving_status: Util.get(row, 'campaign.servingStatus'),
+            channel_type: Util.get(row, 'campaign.advertisingChannelType'),
+            bidding_strategy_type: Util.get(row, 'campaign.biddingStrategyType'),
+            budget_micros: Util.get(row, 'campaignBudget.amountMicros') === null ? null : Util.number(row.campaignBudget.amountMicros),
+            budget_shared: Util.get(row, 'campaignBudget.explicitlyShared') === null ? null : row.campaignBudget.explicitlyShared === true,
+            target_cpa_micros: tcpa ? Util.number(tcpa) : null,
+            target_roas: troas ? Util.number(troas) : null
+          });
         });
-      });
-      return {records: records, truncated: result.truncated};
+        return {records: records, truncated: result.truncated};
+      };
+      try {
+        return read(base + targets + where);
+      } catch (error) {
+        Logger.log(ctx.account.id + ' · campaign_settings: metas de lance indisponíveis nesta versão da API (' + String(error).slice(0, 120) + ')');
+        return read(base + where);
+      }
     }
   },
 
@@ -425,6 +441,8 @@ var Engine = {
       since: Util.day(new Date(Date.now() - CADU.windowDays * 24 * 60 * 60 * 1000), timeZone),
       until: Util.day(new Date(), timeZone)
     };
+    ctx.ranges = Engine.plan(ctx);
+    ctx.since = ctx.ranges.reduce(function (min, range) { return range.since < min ? range.since : min; }, ctx.since);
     var accountStartedAt = Date.now();
     var results = [];
     var timedOut = false;
@@ -455,13 +473,28 @@ var Engine = {
     var collector = COLLECTORS[name];
     var label = ctx.account.id + ' · ' + name;
     try {
-      var collected = collector.collect(ctx, cfg);
+      var collected;
+      if (collector.kind === 'daily') {
+        // Uma leitura por faixa de datas do plano; os lotes seguem numerados para não colidirem na mesma execução.
+        collected = {records: [], truncated: false};
+        var offset = 0;
+        for (var r = 0; r < ctx.ranges.length; r++) {
+          if (r > 0 && Engine.outOfTime()) { collected.truncated = true; break; }
+          var part = collector.collect({account: ctx.account, managerId: ctx.managerId, since: ctx.ranges[r].since, until: ctx.ranges[r].until}, cfg);
+          if (!CADU.dryRun) offset = Engine.sendDataset(ctx, name, collector.kind, part.records, !part.truncated, offset);
+          collected.count = (collected.count || 0) + part.records.length;
+          collected.truncated = collected.truncated || part.truncated;
+        }
+      } else {
+        collected = collector.collect(ctx, cfg);
+        if (!CADU.dryRun) Engine.sendDataset(ctx, name, collector.kind, collected.records, !collected.truncated, 0);
+      }
       var records = collected.records;
-      var status = collected.truncated ? 'truncated' : (records.length ? 'ok' : 'empty');
-      if (!CADU.dryRun) Engine.sendDataset(ctx, name, collector.kind, records, !collected.truncated);
-      Logger.log(label + ': ' + records.length + ' linhas' + (CADU.dryRun ? ' (simulação, nada enviado)' : ' enviadas') +
+      var rowCount = collected.count === undefined ? records.length : collected.count;
+      var status = collected.truncated ? 'truncated' : (rowCount ? 'ok' : 'empty');
+      Logger.log(label + ': ' + rowCount + ' linhas' + (CADU.dryRun ? ' (simulação, nada enviado)' : ' enviadas') +
         (collected.truncated ? ' [cortado em ' + cfg.maxRows + ']' : '') + ' em ' + Util.seconds(startedAt));
-      return {name: name, status: status, rows: records.length, error: null};
+      return {name: name, status: status, rows: rowCount, error: null};
     } catch (error) {
       var message = String(error && error.message ? error.message : error).slice(0, 300);
       Logger.log(label + ': ERRO ' + message);
@@ -481,18 +514,39 @@ var Engine = {
   },
 
   /** complete=false (coleta cortada) impede o snapshot de marcar como removido o que ficou de fora. */
-  sendDataset: function (ctx, name, kind, records, complete) {
+  sendDataset: function (ctx, name, kind, records, complete, offset) {
+    offset = offset || 0;
     var snapshot = kind === 'snapshot';
-    if (!records.length && !snapshot) return;
+    if (!records.length && !snapshot) return offset;
     // Snapshot vazio ainda é enviado: informa ao Reports que tudo o que existia foi removido.
     var chunks = records.length ? Util.chunk(records, CADU.chunkSize) : [[]];
     for (var index = 0; index < chunks.length; index++) {
       if (Engine.outOfTime()) throw new Error('tempo limite durante o envio de ' + name);
       var body = Engine.envelope(ctx, name);
-      body.chunk = {index: index, total: chunks.length};
+      body.chunk = {index: offset + index, total: offset + chunks.length};
       if (snapshot) body.snapshot = {id: Engine.runKey + ':' + name, final: complete && index === chunks.length - 1};
       body.records = chunks[index];
       Transport.send(body);
+    }
+    return offset + chunks.length;
+  },
+
+  /** Plano de datas do Reports para esta conta; sem resposta, usa só a janela recente. */
+  plan: function (ctx) {
+    var fallback = [{since: ctx.since, until: ctx.until, kind: 'recent'}];
+    try {
+      var url = CADU.endpoint + '/plan?account_id=' + encodeURIComponent(ctx.account.id) +
+        (ctx.managerId ? '&manager_account_id=' + encodeURIComponent(ctx.managerId) : '');
+      var response = UrlFetchApp.fetch(url, {method: 'get', headers: {Authorization: 'Bearer ' + CADU.apiKey}, muteHttpExceptions: true});
+      if (response.getResponseCode() !== 200) return fallback;
+      var plan = JSON.parse(response.getContentText());
+      var ranges = (plan.ranges || []).filter(function (range) { return /^\d{4}-\d{2}-\d{2}$/.test(range.since) && /^\d{4}-\d{2}-\d{2}$/.test(range.until); });
+      if (!ranges.length) return fallback;
+      Logger.log(ctx.account.id + ': plano ' + ranges.map(function (range) { return range.kind + ' ' + range.since + '→' + range.until; }).join(', '));
+      return ranges;
+    } catch (error) {
+      Logger.log(ctx.account.id + ': plano indisponível, usando a janela recente (' + String(error).slice(0, 120) + ')');
+      return fallback;
     }
   },
 

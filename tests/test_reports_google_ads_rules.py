@@ -69,3 +69,53 @@ class GoogleAdsRulesTest(TestCase):
         items = build(devices=devices)
         self.assertEqual('device_cpa', items[0]['rule'])
         self.assertEqual('Tablet', items[0]['object']['label'])
+
+
+class GoalRulesTest(TestCase):
+    base = {'account_id': 1, 'campaign_external_id': '10', 'campaign_name': 'Luz', 'budget': 150}
+
+    def test_pacing_over_suggests_the_daily_budget_that_closes_the_month_at_the_cap(self):
+        campaign = {**self.base, 'cost': 1000, 'conversions': 30, 'goal': {'monthly_budget_cap': 3000},
+                    'pacing': {'mtd_cost': 1200, 'days_left': 18, 'projected_cost': 3900, 'projected_conversions': 80}}
+        item = rules.goal_recommendations([campaign])[0]
+        self.assertEqual('pacing_over', item['rule'])
+        self.assertIn('para 100,00', item['action'])  # (3000 - 1200) / 18
+
+    def test_cap_reached_and_flight_ended_are_high(self):
+        campaign = {**self.base, 'cost': 3100, 'conversions': 30, 'goal': {'monthly_budget_cap': 3000, 'flight_end': '2026-09-30', 'flight_ended': True},
+                    'pacing': {'mtd_cost': 3100, 'days_left': 10, 'projected_cost': 4000, 'last3_cost': 300}}
+        found = {item['rule']: item['severity'] for item in rules.goal_recommendations([campaign])}
+        self.assertEqual('high', found['cap_reached'])
+        self.assertEqual('high', found['flight_ended'])
+        self.assertNotIn('pacing_over', found)
+
+    def test_cpa_and_conversion_goal(self):
+        campaign = {**self.base, 'cost': 6000, 'conversions': 80, 'target_cpa': 60,
+                    'goal': {'target_cpa': 40, 'target_conversions_month': 200},
+                    'pacing': {'mtd_cost': 300, 'days_left': 20, 'projected_cost': 3000, 'projected_conversions': 100}}
+        found = [item['rule'] for item in rules.goal_recommendations([campaign])]
+        self.assertEqual(['cpa_above_target', 'target_mismatch', 'conversion_goal_risk'], found)
+
+    def test_room_in_the_budget_when_cpa_is_within_target(self):
+        campaign = {**self.base, 'cost': 800, 'conversions': 40, 'goal': {'monthly_budget_cap': 3000, 'target_cpa': 30},
+                    'pacing': {'mtd_cost': 800, 'days_left': 20, 'projected_cost': 1600}}
+        item = rules.goal_recommendations([campaign])[0]
+        self.assertEqual('pacing_under', item['rule'])
+        self.assertIn('110,00', item['action'])  # (3000 - 800) / 20
+
+    def test_no_goal_no_recommendation(self):
+        self.assertEqual([], rules.goal_recommendations([{**self.base, 'cost': 999, 'conversions': 0}]))
+
+
+class CollectionPlanTest(TestCase):
+    def test_backfills_one_slice_per_run_until_the_history_floor(self):
+        from datetime import date
+        from aicentralv2.cadu_connect.reports_ingest_v2 import BACKFILL_STEP_DAYS, HISTORY_DAYS, collection_plan
+        today = date(2026, 10, 2)
+        first = collection_plan(today, None)
+        self.assertEqual(['recent', 'backfill'], [item['kind'] for item in first])
+        self.assertEqual('2026-09-19', first[0]['since'])
+        second = collection_plan(today, date.fromisoformat(first[1]['since']))
+        self.assertEqual((date.fromisoformat(first[1]['since']) - date.fromisoformat(second[1]['since'])).days, BACKFILL_STEP_DAYS)
+        floor = today.toordinal() - HISTORY_DAYS + 1
+        self.assertEqual(['recent'], [item['kind'] for item in collection_plan(today, date.fromordinal(floor))])

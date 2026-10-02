@@ -190,7 +190,7 @@ def register(bp):
         name = ("COALESCE(NULLIF(e.event_name,''),e.event_kind)" if _column_exists(EVENT_TABLE, 'event_name')
                 else 'e.event_kind')
         groups = _rows(_CONV_GROUPS_SQL.format(name=name), scope)
-        daily = _rows(_CONV_DAILY_SQL, scope)
+        daily = [{**row, 'day': row['day'].isoformat()} for row in _rows(_CONV_DAILY_SQL, scope)]
         totals = {kind: sum(int(row['total']) for row in groups if row['kind'] == kind) for kind in _CONVERSION_KINDS}
         crm_ready = _rows("SELECT to_regclass('public.cadu_reports_external_conversions') IS NOT NULL AS ready")[0]['ready']
         return jsonify(window=_window_json(since, until, days), totals=totals, groups=groups, daily=daily,

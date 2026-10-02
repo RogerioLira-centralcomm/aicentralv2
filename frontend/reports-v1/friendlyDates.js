@@ -2,8 +2,16 @@
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const ZONE = 'America/Sao_Paulo';
 
+/** "2026-10-02" from an ISO day or from Flask's default date format ("Fri, 02 Oct 2026 00:00:00 GMT"). */
+export const toIsoDay = value => {
+  const text = String(value ?? '');
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text.slice(0, 10);
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? text.slice(0, 10) : parsed.toISOString().slice(0, 10);
+};
+
 const parts = iso => {
-  const [year, month, day] = String(iso).slice(0, 10).split('-').map(Number);
+  const [year, month, day] = toIsoDay(iso).split('-').map(Number);
   return {year, month, day};
 };
 

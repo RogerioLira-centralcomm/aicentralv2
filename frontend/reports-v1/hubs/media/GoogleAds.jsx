@@ -3,12 +3,13 @@ import {ArrowRight, Download01, Copy01} from '@untitledui/icons';
 import {ReportsActionButton} from '../../ReportsActionButton.jsx';
 import {ReportsNativeSelect} from '../../ReportsNativeSelect.jsx';
 import {reportUrl} from '../../reportsCommon.jsx';
-import {dayLabel, friendlyAgo, formatRange} from '../../friendlyDates.js';
+import {dayLabel, friendlyAgo, formatRange, toIsoDay} from '../../friendlyDates.js';
 import {useReportsContext} from '../../shell/context.js';
 import {apiUrl, useApi} from '../../shell/useApi.js';
 import {Chart} from '../../shell/media.jsx';
 import {DataTable, EmptyState, ErrorState, LoadingState, MetricGroup, Section} from '../../shell/primitives.jsx';
 import {MediaPerformance} from './MediaPerformance.jsx';
+import {GoalDrawer, GoalsSection, OBJECTIVES, PacingBar} from './GoogleAdsGoals.jsx';
 import {currency, number, percent} from '../shared.jsx';
 
 const VIEWS = [['overview', 'Resumo e ações'], ['search_terms', 'Termos de pesquisa'], ['keywords', 'Palavras-chave'], ['negatives', 'Palavras negativas'], ['campaigns', 'Campanhas'], ['details', 'Grupos, páginas e dispositivos']];
@@ -20,6 +21,7 @@ const BIDDING = {MAXIMIZE_CONVERSIONS: 'Maximizar conversões', MAXIMIZE_CONVERS
 const STATUS = {ENABLED: ['Ativa', 'success'], PAUSED: ['Pausada', 'gray'], REMOVED: ['Removida', 'error']};
 const DATASET = {campaign_metrics: 'campanhas', campaign_settings: 'configurações', ad_group_metrics: 'grupos', device_metrics: 'dispositivos', landing_page_metrics: 'páginas de destino', keyword_metrics: 'palavras-chave', search_term_metrics: 'termos de pesquisa', negative_keywords: 'negativas'};
 const badge = ([label, tone]) => <span className={`rs-badge is-${tone}`}>{label}</span>;
+const COMPARE = {previous: 'vs período anterior', year: 'vs mesmo período do ano anterior'};
 const change = (now, before) => before ? (Number(now || 0) - Number(before)) * 100 / Number(before) : null;
 
 /** CSV that Google Ads Editor imports directly (Conta → Importar → Colar/arquivo). */
@@ -73,45 +75,59 @@ function Recommendations({items, money, onOpen, rules}) {
   </>;
 }
 
-function Overview({body, money, onOpen}) {
+function Overview({body, money, onOpen, onEditGoal}) {
   const {totals, previous} = body;
+  const label = COMPARE[body.compare?.mode] || COMPARE.previous;
+  // Each day is compared with the day at the same distance from the start of the comparison window.
+  const offset = Math.round((Date.parse(body.period.start) - Date.parse(body.compare.start)) / 864e5);
+  const shift = day => new Date(Date.parse(`${toIsoDay(day)}T12:00:00Z`) - offset * 864e5).toISOString().slice(0, 10);
+  const before = new Map((body.previous_daily || []).map(item => [toIsoDay(item.date), item]));
+  const series = key => [{name: formatRange(body.period.start, body.period.end), data: body.daily.map(item => Number(item[key] || 0))},
+    {name: formatRange(body.compare.start, body.compare.end), data: body.daily.map(item => Number(before.get(shift(item.date))?.[key] || 0))}];
   return <div className="rs-stack">
-    <MetricGroup label="Resumo do Google Ads" items={[
+    <MetricGroup label="Resumo do Google Ads" changeLabel={label} items={[
       {label: 'Investimento', value: money(totals.cost), change: change(totals.cost, previous.cost)},
       {label: 'Conversões', value: number(totals.conversions), change: change(totals.conversions, previous.conversions)},
-      {label: 'Custo por conversão', value: totals.cpa != null ? money(totals.cpa) : '—', detail: previous.cpa ? `antes ${money(previous.cpa)}` : undefined},
+      {label: 'Custo por conversão', value: totals.cpa != null ? money(totals.cpa) : '—', change: change(totals.cpa, previous.cpa), inverse: true},
       {label: 'Valor das conversões', value: totals.conversion_value ? money(totals.conversion_value) : '—', detail: totals.roas ? `ROAS ${totals.roas.toLocaleString('pt-BR')}` : 'Sem valor informado'},
       {label: 'Cliques', value: number(totals.clicks), detail: `CTR ${totals.ctr != null ? `${totals.ctr.toLocaleString('pt-BR')}%` : '—'} · CPC ${totals.cpc != null ? money(totals.cpc) : '—'}`},
     ]}/>
-    <Section title="Ações recomendadas" description="Em ordem de execução: o que trava a conta primeiro, depois o maior impacto em reais">
+    <Section title="Próximos passos" description="Em ordem de execução: o que trava a conta primeiro, depois metas e o maior impacto em reais">
       <Recommendations items={body.recommendations} money={money} onOpen={onOpen} rules={body.rules}/>
     </Section>
+    {body.goals_ready && <GoalsSection campaigns={body.campaigns} money={money} onEdit={onEditGoal}/>}
     <div className="rs-grid rs-grid--2">
-      <Section title="Investimento por dia" description={formatRange(body.period.start, body.period.end)}>
-        <Chart type="bar" height={220} labels={body.daily.map(item => dayLabel(item.date))} values={body.daily.map(item => Number(item.cost || 0))}/>
+      <Section title="Investimento por dia" description={`Período atual ${label.replace('vs ', 'e ')}`}>
+        <Chart type="area" height={220} labels={body.daily.map(item => dayLabel(item.date))} series={series('cost')}/>
       </Section>
       <Section title="Conversões por dia" description="Conversões informadas pelo Google Ads">
-        <Chart type="area" height={220} labels={body.daily.map(item => dayLabel(item.date))} values={body.daily.map(item => Number(item.conversions || 0))}/>
+        <Chart type="area" height={220} labels={body.daily.map(item => dayLabel(item.date))} series={series('conversions')}/>
       </Section>
     </div>
-    <Section title="Saúde da coleta" description="O script envia os últimos 8 dias a cada execução diária">
+    <Section title="Saúde da coleta" description="Cada execução diária relê os últimos 14 dias e busca mais 45 dias do passado, até 13 meses de histórico">
       <AccountHealth accounts={body.accounts}/>
     </Section>
   </div>;
 }
 
-function Campaigns({body, money}) {
-  return <Section title="Campanhas" description="Configuração do último envio ao lado do resultado do período">
+const delta = (now, before, inverse = false) => {
+  const value = change(now, before);
+  if (value == null || !Number.isFinite(value)) return null;
+  const good = (value >= 0) !== inverse;
+  return <small className={`rs-cell-sub ${good ? 'ga-up' : 'ga-down'}`}>{value >= 0 ? '+' : ''}{value.toLocaleString('pt-BR', {maximumFractionDigits: 0})}%</small>;
+};
+
+function Campaigns({body, money, onEditGoal}) {
+  return <Section title="Campanhas" description={`Configuração do Google Ads, meta da equipe e resultado do período (variação ${COMPARE[body.compare?.mode] || COMPARE.previous})`}>
     <DataTable label="Campanhas" rows={body.campaigns} rowKey={row => `${row.account_id}:${row.campaign_external_id}`} initialSort={{key: 'cost', dir: 'desc'}} columns={[
-      {key: 'campaign_name', label: 'Campanha', render: row => <><strong>{row.campaign_name}</strong><small className="rs-cell-sub">{BIDDING[row.bidding_strategy_type] || row.bidding_strategy_type || '—'}</small></>},
-      {key: 'status', label: 'Status', sortable: false, render: row => row.status ? badge(STATUS[row.status] || [row.status, 'gray']) : '—'},
-      {key: 'budget', label: 'Orçamento/dia', numeric: true, render: row => row.budget != null ? <>{money(row.budget)}{row.budget_shared && <small className="rs-cell-sub">compartilhado</small>}</> : '—'},
-      {key: 'budget_usage', label: 'Uso do orçamento', numeric: true, sort: row => row.budget_usage || 0, render: row => row.budget_usage != null ? <span className={row.budget_usage >= 95 ? 'ga-strong' : ''}>{row.budget_usage.toLocaleString('pt-BR')}%</span> : '—'},
-      {key: 'cost', label: 'Investimento', numeric: true, render: row => money(row.cost)},
-      {key: 'clicks', label: 'Cliques', numeric: true, render: row => number(row.clicks)},
-      {key: 'conversions', label: 'Conversões', numeric: true, render: row => number(row.conversions)},
-      {key: 'cpa', label: 'CPA', numeric: true, sort: row => row.cpa ?? Infinity, render: row => row.cpa != null ? money(row.cpa) : '—'},
+      {key: 'campaign_name', label: 'Campanha', render: row => <span className="ga-camp"><strong>{row.campaign_name}</strong><small className="rs-cell-sub">{row.status && row.status !== 'ENABLED' ? `${(STATUS[row.status] || [row.status])[0]} · ` : ''}{BIDDING[row.bidding_strategy_type] || row.bidding_strategy_type || '—'}</small></span>},
+      {key: 'budget', label: 'Orçamento/dia', numeric: true, render: row => row.budget != null ? <>{money(row.budget)}<small className={`rs-cell-sub${row.budget_usage >= 95 ? ' ga-strong' : ''}`}>{row.budget_usage != null ? `uso ${row.budget_usage.toLocaleString('pt-BR')}%` : ''}{row.budget_shared ? ' · compartilhado' : ''}</small></> : '—'},
+      {key: 'pacing', label: 'Ritmo do mês', sortable: false, render: row => <PacingBar campaign={row} money={money}/>},
+      {key: 'cost', label: 'Investimento', numeric: true, render: row => <>{money(row.cost)}{delta(row.cost, row.previous?.cost)}</>},
+      {key: 'conversions', label: 'Conversões', numeric: true, render: row => <>{number(row.conversions)}{delta(row.conversions, row.previous?.conversions)}</>},
+      {key: 'cpa', label: 'CPA', numeric: true, sort: row => row.cpa ?? Infinity, render: row => <>{row.cpa != null ? money(row.cpa) : '—'}{row.goal?.target_cpa != null ? <small className="rs-cell-sub">meta {money(row.goal.target_cpa)}</small> : delta(row.cpa, row.previous?.cpa, true)}</>},
       {key: 'roas', label: 'ROAS', numeric: true, sort: row => row.roas || 0, render: row => row.roas != null ? row.roas.toLocaleString('pt-BR') : '—'},
+      {key: 'goal', label: 'Meta', sortable: false, render: row => row.campaign_id && body.goals_ready ? <button type="button" className="rs-link-button" onClick={() => onEditGoal(row)}>{row.goal ? (OBJECTIVES.find(([key]) => key === (row.goal.objective || ''))?.[1] || 'Editar') : 'Definir'}</button> : '—'},
     ]}/>
   </Section>;
 }
@@ -217,7 +233,14 @@ export function GoogleAds({data}) {
   const initial = new URLSearchParams(location.search);
   const [view, setView] = useState(VIEWS.some(([key]) => key === initial.get('view')) ? initial.get('view') : 'overview');
   const [termFilter, setTermFilter] = useState(initial.get('filter') || '');
-  const [state, retry] = useApi(apiUrl('/google-ads/summary', {start_date: period.start, end_date: period.end}));
+  const [compare, setCompare] = useState(initial.get('compare') === 'year' ? 'year' : 'previous');
+  const [editing, setEditing] = useState(null);
+  const [state, retry] = useApi(apiUrl('/google-ads/summary', {start_date: period.start, end_date: period.end, compare}));
+  const changeCompare = value => {
+    setCompare(value);
+    const url = new URL(location.href); value === 'previous' ? url.searchParams.delete('compare') : url.searchParams.set('compare', value);
+    history.replaceState(history.state, '', url);
+  };
   const go = (next, filter = '') => {
     setView(next); setTermFilter(filter);
     const url = new URL(location.href); url.searchParams.set('view', next); filter ? url.searchParams.set('filter', filter) : url.searchParams.delete('filter');
@@ -233,12 +256,17 @@ export function GoogleAds({data}) {
     action={<ReportsActionButton color="primary" size="sm" href={reportUrl('media/data')}>Conectar Google Ads</ReportsActionButton>}/>;
   const counts = {search_terms: body.counts?.negate || 0, overview: body.recommendations.filter(item => item.severity !== 'low').length};
   return <div className="rs-stack">
-    <nav className="ga-views" aria-label="Google Ads">{VIEWS.map(([key, label]) => <button type="button" key={key} aria-current={view === key ? 'page' : undefined} onClick={() => go(key)}>{label}{counts[key] ? <span>{counts[key]}</span> : null}</button>)}</nav>
-    {view === 'overview' && <Overview body={body} money={money} onOpen={link => go(link.tab, link.filter || '')}/>}
+    <div className="ga-bar">
+      <nav className="ga-views" aria-label="Google Ads">{VIEWS.map(([key, label]) => <button type="button" key={key} aria-current={view === key ? 'page' : undefined} onClick={() => go(key)}>{label}{counts[key] ? <span>{counts[key]}</span> : null}</button>)}</nav>
+      {['overview', 'campaigns'].includes(view) && <label className="ga-compare"><span>Comparar com</span><ReportsNativeSelect value={compare} onChange={event => changeCompare(event.target.value)}>
+        <option value="previous">Período anterior</option><option value="year">Mesmo período do ano anterior</option></ReportsNativeSelect></label>}
+    </div>
+    {view === 'overview' && <Overview body={body} money={money} onOpen={link => go(link.tab, link.filter || '')} onEditGoal={setEditing}/>}
     {view === 'search_terms' && <SearchTerms key={termFilter} period={period} initialFilter={termFilter}/>}
     {view === 'keywords' && <Keywords period={period}/>}
     {view === 'negatives' && <Negatives period={period}/>}
-    {view === 'campaigns' && <Campaigns body={body} money={money}/>}
+    {view === 'campaigns' && <Campaigns body={body} money={money} onEditGoal={setEditing}/>}
+    {editing && <GoalDrawer key={editing.campaign_external_id} campaign={editing} data={data} money={money} onClose={() => setEditing(null)} onSaved={() => {setEditing(null); retry();}}/>}
     {view === 'details' && <MediaPerformance views={['ad_groups', 'landing_pages', 'devices']} hideSettings/>}
   </div>;
 }

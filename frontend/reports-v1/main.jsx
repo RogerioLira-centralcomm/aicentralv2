@@ -27,6 +27,7 @@ import {Chart, amount, money, platformName} from './shell/media.jsx';
 import {Overview} from './hubs/overview/Overview.jsx';
 import {MediaOverview} from './hubs/media/MediaOverview.jsx';
 import {GoogleAds} from './hubs/media/GoogleAds.jsx';
+import {GoogleAdsHowItWorks} from './hubs/media/GoogleAdsHowItWorks.jsx';
 import {MediaCreatives} from './hubs/media/MediaCreatives.jsx';
 import {Contents} from './hubs/journey/Contents.jsx';
 import {JourneyOverview} from './hubs/journey/JourneyOverview.jsx';
@@ -605,7 +606,7 @@ function Monitor({data, save, busy}) {
         </aside>
         <main className="reports-media-main">
           <article className="reports-panel reports-media-connect">
-            <div className="reports-panel-head"><h2>Conectar fonte</h2><span>Instalação</span></div>
+            <div className="reports-panel-head"><h2>Conectar fonte</h2><GoogleAdsHowItWorks/></div>
             <p>Google Ads envia campanhas e métricas. O webhook recebe conversões confirmadas pelo CRM sem dados pessoais.</p>
             {data.client.role !== 'viewer' && <form className="reports-form" onSubmit={create}>
               <label>Fonte

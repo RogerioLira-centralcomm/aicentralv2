@@ -181,8 +181,23 @@ def _norm_campaign_settings(value):
            'bidding_strategy_type': (_enum_text(value.get('bidding_strategy_type'), 'Estratégia de lances', limit=64)
                                      if value.get('bidding_strategy_type') else None),
            'budget_micros': None if budget is None else _count(budget, 'Orçamento'),
-           'budget_shared': shared if isinstance(shared, bool) else None}
+           'budget_shared': shared if isinstance(shared, bool) else None,
+           # Bidding targets (engine 2.1+): tCPA in micros and tROAS as a ratio; absent on older scripts.
+           'target_cpa_micros': None if value.get('target_cpa_micros') in (None, '', 0) else _count(value.get('target_cpa_micros'), 'CPA desejado'),
+           'target_roas': _ratio(value.get('target_roas'))}
     return (row['campaign_external_id'],), row
+
+
+def _ratio(value):
+    if value in (None, '', 0):
+        return None
+    try:
+        parsed = Decimal(str(value))
+    except InvalidOperation:
+        abort(400, description='ROAS desejado inválido.')
+    if parsed < 0 or parsed > 1000:
+        abort(400, description='ROAS desejado inválido.')
+    return parsed
 
 
 def _norm_negative_keyword(value):
@@ -259,20 +274,46 @@ def _write_device(row, ctx):
                  ('campaign_external_id', 'device', 'metric_date'), row, ctx)
 
 
+def _settings_targets_ready():
+    """The target columns arrive with add_reports_google_ads_history_goals.sql; older databases keep working without them."""
+    return bool(_rows("""SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='cadu_reports_gads_campaign_settings'
+        AND column_name='target_cpa_micros') AND to_regclass('public.cadu_reports_gads_campaign_settings_history') IS NOT NULL AS ready""")[0]['ready'])
+
+
 def _write_campaign_settings(row, ctx):
-    _rows('''INSERT INTO cadu_reports_gads_campaign_settings
+    if 'targets_ready' not in ctx:
+        ctx['targets_ready'] = _settings_targets_ready()
+    targets = ctx['targets_ready']
+    if targets:
+        # Keep a history row whenever something an operator would care about changed (or the campaign is new).
+        _rows('''INSERT INTO cadu_reports_gads_campaign_settings_history
+                (client_id,account_id,campaign_external_id,campaign_name,status,bidding_strategy_type,budget_micros,target_cpa_micros,target_roas)
+            SELECT %(client)s::bigint,%(account)s::bigint,%(campaign)s::varchar,%(name)s::varchar,%(status)s::varchar,
+                %(bidding)s::varchar,%(budget)s::bigint,%(tcpa)s::bigint,%(troas)s::numeric
+            WHERE NOT EXISTS (SELECT 1 FROM cadu_reports_gads_campaign_settings s
+                WHERE s.account_id=%(account)s::bigint AND s.campaign_external_id=%(campaign)s::varchar
+                  AND s.status IS NOT DISTINCT FROM %(status)s::varchar AND s.bidding_strategy_type IS NOT DISTINCT FROM %(bidding)s::varchar
+                  AND s.budget_micros IS NOT DISTINCT FROM %(budget)s::bigint AND s.target_cpa_micros IS NOT DISTINCT FROM %(tcpa)s::bigint
+                  AND s.target_roas IS NOT DISTINCT FROM %(troas)s::numeric)
+            RETURNING id''', {'client': ctx['client_id'], 'account': ctx['account_pk'], 'campaign': row['campaign_external_id'],
+                                'name': row['campaign_name'], 'status': row['status'], 'bidding': row['bidding_strategy_type'],
+                                'budget': row['budget_micros'], 'tcpa': row['target_cpa_micros'], 'troas': row['target_roas']})
+    extra_cols = ',target_cpa_micros,target_roas' if targets else ''
+    extra_vals = ',%s,%s' if targets else ''
+    extra_set = ',target_cpa_micros=EXCLUDED.target_cpa_micros,target_roas=EXCLUDED.target_roas' if targets else ''
+    params = [ctx['client_id'], ctx['account_pk'], row['campaign_external_id'], row['campaign_name'], row['status'],
+              row['serving_status'], row['channel_type'], row['bidding_strategy_type'], row['budget_micros'],
+              row['budget_shared'], ctx['snapshot_id'], ctx['run_id']] + ([row['target_cpa_micros'], row['target_roas']] if targets else [])
+    _rows(f'''INSERT INTO cadu_reports_gads_campaign_settings
             (client_id,account_id,campaign_external_id,campaign_name,status,serving_status,channel_type,
-             bidding_strategy_type,budget_micros,budget_shared,snapshot_id,last_run_id)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+             bidding_strategy_type,budget_micros,budget_shared,snapshot_id,last_run_id{extra_cols})
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s{extra_vals})
         ON CONFLICT (account_id,campaign_external_id) DO UPDATE SET
             campaign_name=EXCLUDED.campaign_name,status=EXCLUDED.status,serving_status=EXCLUDED.serving_status,
             channel_type=EXCLUDED.channel_type,bidding_strategy_type=EXCLUDED.bidding_strategy_type,
-            budget_micros=EXCLUDED.budget_micros,budget_shared=EXCLUDED.budget_shared,
+            budget_micros=EXCLUDED.budget_micros,budget_shared=EXCLUDED.budget_shared{extra_set},
             snapshot_id=EXCLUDED.snapshot_id,last_run_id=EXCLUDED.last_run_id,removed_at=NULL,updated_at=NOW()
-        RETURNING account_id''',
-          (ctx['client_id'], ctx['account_pk'], row['campaign_external_id'], row['campaign_name'], row['status'],
-           row['serving_status'], row['channel_type'], row['bidding_strategy_type'], row['budget_micros'],
-           row['budget_shared'], ctx['snapshot_id'], ctx['run_id']))
+        RETURNING account_id''', tuple(params))
 
 
 def _write_negative(row, ctx):
@@ -469,7 +510,47 @@ def _summary(payload):
             'timed_out': raw.get('timed_out') is True}
 
 
+# History: every run re-reads the recent window (conversions arrive late) and backfills one older slice, until the
+# account has HISTORY_DAYS of daily data. Rows are never deleted, so the history only grows.
+RECENT_DAYS = 14
+HISTORY_DAYS = 395
+BACKFILL_STEP_DAYS = 45
+
+
+def collection_plan(today, oldest):
+    """Date ranges the script should read now: the recent window plus the next missing slice of history."""
+    recent_start = today - timedelta(days=RECENT_DAYS - 1)
+    ranges = [{'since': recent_start.isoformat(), 'until': today.isoformat(), 'kind': 'recent'}]
+    floor = today - timedelta(days=HISTORY_DAYS - 1)
+    edge = min(oldest, recent_start) if oldest else recent_start
+    if edge > floor:
+        start = max(floor, edge - timedelta(days=BACKFILL_STEP_DAYS))
+        ranges.append({'since': start.isoformat(), 'until': (edge - timedelta(days=1)).isoformat(), 'kind': 'backfill'})
+    return ranges
+
+
 def register(bp):
+    @bp.get('/api/v1/reports/ingest/google-ads/v2/plan')
+    def reports_ingest_v2_plan():
+        """Tells the script which dates to read for one account (engine 2.1+). Same key and scope rules as the ingest."""
+        key = _authenticate()
+        account_id = _google_id(request.args.get('account_id'), 'ID da conta', account=True)
+        manager = request.args.get('manager_account_id')
+        _authorize_scope(key, _google_id(manager, 'ID da MCC', account=True) if manager else None, account_id)
+        # Oldest day already covered: stored data or, when a slice came back empty, the window the script already read.
+        found = _rows('''SELECT LEAST(
+                (SELECT MIN(d.metric_date) FROM cadu_reports_gads_ad_group_daily d JOIN cadu_reports_accounts a ON a.id=d.account_id
+                    WHERE a.client_id=%(client)s AND a.platform='google_ads'
+                      AND regexp_replace(a.external_id,'\\D','','g')=regexp_replace(%(account)s,'\\D','','g')),
+                (SELECT MIN(r.period_start) FROM cadu_reports_source_runs r
+                    WHERE r.client_id=%(client)s AND r.source_kind=%(summary)s AND r.status IN ('completed','partial')
+                      AND regexp_replace(r.metadata->>'account_id','\\D','','g')=regexp_replace(%(account)s,'\\D','','g'))) AS oldest''',
+                      {'client': key['client_id'], 'account': account_id, 'summary': SUMMARY_SOURCE_KIND})
+        get_db().commit()
+        oldest = found[0]['oldest'] if found else None
+        return jsonify(ranges=collection_plan(date.today(), oldest), history_days=HISTORY_DAYS, recent_days=RECENT_DAYS,
+                       oldest=oldest.isoformat() if oldest else None)
+
     @bp.post('/api/v1/reports/ingest/google-ads/v2')
     def reports_ingest_google_ads_v2():
         key = _authenticate()

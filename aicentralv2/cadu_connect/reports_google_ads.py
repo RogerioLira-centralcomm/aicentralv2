@@ -3,13 +3,17 @@
 Reads only what the script already stores (cadu_reports_gads_*, campaign daily metrics and the run summaries).
 Amounts come in micros and are returned in currency units; a client mixing currencies gets costs as null.
 """
+import calendar
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
+from zoneinfo import ZoneInfo
 
 from flask import abort, jsonify, request
 
 from ..auth import login_required_api
 from .reports_google_ads_rules import RULES, build_recommendations, keyword_conflicts, term_action
-from .reports_v1 import _rows, _selection
+from ..db import get_db
+from .reports_v1 import _column_exists, _rows, _selection, _write_guard
 
 SUMMARY_KIND = 'google_ads_engine_v2'
 CHUNK_KIND = 'google_ads_engine_v2_chunk'
@@ -40,8 +44,30 @@ _CAMPAIGNS_SQL = f'''SELECT x.account_id,x.campaign_external_id,
     FROM cadu_reports_gads_ad_group_daily x WHERE {_P}
     GROUP BY x.account_id,x.campaign_external_id'''
 _SETTINGS_SQL = '''SELECT account_id,campaign_external_id,campaign_name,status,serving_status,channel_type,
-        bidding_strategy_type,budget_micros,budget_shared
+        bidding_strategy_type,budget_micros,budget_shared{targets}
     FROM cadu_reports_gads_campaign_settings WHERE client_id=%(client)s AND removed_at IS NULL'''
+# Month-to-date and recent pace per campaign, independent of the period on screen.
+_PACING_SQL = '''SELECT x.account_id,x.campaign_external_id,
+        SUM(x.cost_micros) FILTER (WHERE x.metric_date>=%(month_start)s)::bigint AS mtd_cost_micros,
+        SUM(x.conversions) FILTER (WHERE x.metric_date>=%(month_start)s)::numeric AS mtd_conversions,
+        SUM(x.cost_micros) FILTER (WHERE x.metric_date>%(today)s - 7 AND x.metric_date<%(today)s)::bigint AS last7_cost_micros,
+        SUM(x.conversions) FILTER (WHERE x.metric_date>%(today)s - 7 AND x.metric_date<%(today)s)::numeric AS last7_conversions,
+        SUM(x.cost_micros) FILTER (WHERE x.metric_date>%(today)s - 3)::bigint AS last3_cost_micros
+    FROM cadu_reports_gads_ad_group_daily x
+    WHERE x.client_id=%(client)s AND x.metric_date>=LEAST(%(month_start)s,%(today)s - 7)
+    GROUP BY x.account_id,x.campaign_external_id'''
+_CAMPAIGN_IDS_SQL = '''SELECT id,account_id,external_id FROM cadu_reports_campaigns WHERE client_id=%(client)s AND account_id IS NOT NULL'''
+_GOALS_SQL = '''SELECT g.campaign_id,g.objective,g.monthly_budget_cap,g.total_budget_cap,g.flight_start,g.flight_end,g.target_cpa,
+        g.target_roas,g.target_conversions_month,g.notes,g.updated_at,c.account_id,c.external_id AS campaign_external_id,
+        (SELECT SUM(x.cost_micros) FROM cadu_reports_gads_ad_group_daily x WHERE x.account_id=c.account_id
+            AND x.campaign_external_id=c.external_id AND g.flight_start IS NOT NULL AND x.metric_date>=g.flight_start
+            AND (g.flight_end IS NULL OR x.metric_date<=g.flight_end))::bigint AS flight_cost_micros
+    FROM cadu_reports_campaign_goals g JOIN cadu_reports_campaigns c ON c.id=g.campaign_id WHERE g.client_id=%(client)s'''
+_HISTORY_SQL = '''SELECT observed_at,status,bidding_strategy_type,budget_micros,target_cpa_micros,target_roas
+    FROM cadu_reports_gads_campaign_settings_history
+    WHERE client_id=%(client)s AND account_id=%(account)s AND campaign_external_id=%(campaign)s
+    ORDER BY observed_at DESC LIMIT 50'''
+OBJECTIVES = ('leads', 'sales', 'traffic', 'awareness', 'app')
 _TOTALS_SQL = f'''SELECT {_M} FROM cadu_reports_gads_ad_group_daily x WHERE {_P}'''
 _DAILY_SQL = f'''SELECT x.metric_date AS date,{_M} FROM cadu_reports_gads_ad_group_daily x WHERE {_P}
     GROUP BY x.metric_date ORDER BY x.metric_date'''
@@ -95,6 +121,8 @@ def _ready():
 def _money(rows):
     """Micros → currency units, plus the ratios a Google Ads report reads first."""
     for row in rows:
+        if isinstance(row.get('date'), date):
+            row['date'] = row['date'].isoformat()
         cost = row.pop('cost_micros', None)
         value = row.pop('value_micros', None)
         row['cost'] = None if cost is None else round(cost / 1e6, 2)
@@ -108,12 +136,26 @@ def _money(rows):
     return rows
 
 
+def _comparison(start, end, mode):
+    """The window compared against: the previous span of the same length, or the same dates one year earlier."""
+    if mode == 'year':
+        def back(day):
+            try:
+                return day.replace(year=day.year - 1)
+            except ValueError:
+                return day - timedelta(days=365)
+        return back(start), back(end)
+    span = (end - start).days + 1
+    return start - timedelta(days=span), start - timedelta(days=1)
+
+
 def _scope():
     selected = _selection()
     start, end = _period()
-    span = (end - start).days + 1
-    return selected, {'client': selected['client_id'], 'start': start, 'end': end, 'summary': SUMMARY_KIND, 'chunk': CHUNK_KIND}, \
-        {'client': selected['client_id'], 'start': start - timedelta(days=span), 'end': start - timedelta(days=1)}
+    mode = request.args.get('compare') if request.args.get('compare') in ('previous', 'year') else 'previous'
+    before_start, before_end = _comparison(start, end, mode)
+    return selected, {'client': selected['client_id'], 'start': start, 'end': end, 'summary': SUMMARY_KIND, 'chunk': CHUNK_KIND,
+                      'compare': mode}, {'client': selected['client_id'], 'start': before_start, 'end': before_end}
 
 
 def _currency(scope):
@@ -147,7 +189,121 @@ def _empty(start, end):
                    daily=[], campaigns=[], recommendations=[], rules=RULES, currency=None)
 
 
+def _goals_ready():
+    return bool(_rows("SELECT to_regclass('public.cadu_reports_campaign_goals') IS NOT NULL AS ready")[0]['ready'])
+
+
+def _today():
+    return datetime.now(ZoneInfo('America/Sao_Paulo')).date()
+
+
+def _attach_goals(scope, campaigns):
+    """Campaign id (to save goals), the goal itself and the month pace that the goal rules read."""
+    today = _today()
+    month_start = today.replace(day=1)
+    days_left = calendar.monthrange(today.year, today.month)[1] - today.day
+    ids = {(row['account_id'], str(row['external_id'])): row['id'] for row in _rows(_CAMPAIGN_IDS_SQL, scope)}
+    pace = {(row['account_id'], row['campaign_external_id']): row for row in
+            _rows(_PACING_SQL, {'client': scope['client'], 'month_start': month_start, 'today': today})}
+    goals = {(row['account_id'], str(row['campaign_external_id'])): row for row in _rows(_GOALS_SQL, scope)} if _goals_ready() else {}
+    for campaign in campaigns:
+        key = (campaign['account_id'], str(campaign['campaign_external_id']))
+        campaign['campaign_id'] = ids.get(key)
+        row = pace.get(key) or {}
+        mtd = (row.get('mtd_cost_micros') or 0) / 1e6
+        daily = (row.get('last7_cost_micros') or 0) / 1e6 / 7
+        mtd_conv = float(row.get('mtd_conversions') or 0)
+        daily_conv = float(row.get('last7_conversions') or 0) / 7
+        campaign['pacing'] = {'mtd_cost': round(mtd, 2), 'mtd_conversions': round(mtd_conv, 2), 'daily_avg': round(daily, 2),
+                              'days_left': days_left, 'projected_cost': round(mtd + daily * days_left, 2),
+                              'projected_conversions': round(mtd_conv + daily_conv * days_left, 1),
+                              'last3_cost': round((row.get('last3_cost_micros') or 0) / 1e6, 2)}
+        goal = goals.get(key)
+        if goal:
+            campaign['pacing']['flight_cost'] = round((goal.pop('flight_cost_micros') or 0) / 1e6, 2)
+            goal = {k: (float(v) if isinstance(v, Decimal) else v.isoformat() if isinstance(v, (date, datetime)) else v)
+                    for k, v in goal.items() if k not in ('account_id', 'campaign_external_id')}
+            goal['flight_ended'] = bool(goal.get('flight_end') and date.fromisoformat(goal['flight_end']) < today)
+        campaign['goal'] = goal
+
+
+def _money_value(payload, key, maximum=1e9):
+    value = payload.get(key)
+    if value in (None, ''):
+        return None
+    try:
+        parsed = Decimal(str(value).replace(',', '.'))
+    except InvalidOperation:
+        abort(400, description=f'Valor inválido em {key}.')
+    if parsed < 0 or parsed > Decimal(str(maximum)):
+        abort(400, description=f'Valor fora do limite em {key}.')
+    return parsed
+
+
+def _day_value(payload, key):
+    value = payload.get(key)
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(str(value))
+    except ValueError:
+        abort(400, description=f'Data inválida em {key}.')
+
+
 def register(bp):
+    @bp.put('/api/v2/reports/google-ads/goals/<int:campaign_id>')
+    @login_required_api
+    def reports_google_ads_goal(campaign_id):
+        """Save what the team wants from a campaign. Empty fields clear the target."""
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            abort(400)
+        selected = _selection(payload)
+        _write_guard(selected)
+        if not _goals_ready():
+            abort(503, description='Aplique a migração add_reports_google_ads_history_goals.sql para registrar metas.')
+        if not _rows('SELECT id FROM cadu_reports_campaigns WHERE id=%s AND client_id=%s', (campaign_id, selected['client_id'])):
+            abort(404, description='Campanha não encontrada.')
+        objective = payload.get('objective') or None
+        if objective is not None and objective not in OBJECTIVES:
+            abort(400, description='Objetivo inválido.')
+        conversions = payload.get('target_conversions_month')
+        try:
+            conversions = int(conversions) if conversions not in (None, '') else None
+        except (TypeError, ValueError):
+            abort(400, description='Meta de conversões inválida.')
+        start, end = _day_value(payload, 'flight_start'), _day_value(payload, 'flight_end')
+        if start and end and end < start:
+            abort(400, description='A data final deve ser depois da inicial.')
+        values = {'campaign': campaign_id, 'client': selected['client_id'], 'objective': objective,
+                  'monthly': _money_value(payload, 'monthly_budget_cap'), 'total': _money_value(payload, 'total_budget_cap'),
+                  'start': start, 'end': end, 'cpa': _money_value(payload, 'target_cpa'), 'roas': _money_value(payload, 'target_roas', 1000),
+                  'conversions': conversions, 'notes': str(payload.get('notes') or '')[:1000] or None, 'user': selected['user_id']}
+        _rows('''INSERT INTO cadu_reports_campaign_goals (campaign_id,client_id,objective,monthly_budget_cap,total_budget_cap,flight_start,
+                flight_end,target_cpa,target_roas,target_conversions_month,notes,updated_by,updated_at)
+            VALUES (%(campaign)s,%(client)s,%(objective)s,%(monthly)s,%(total)s,%(start)s,%(end)s,%(cpa)s,%(roas)s,%(conversions)s,%(notes)s,%(user)s,NOW())
+            ON CONFLICT (campaign_id) DO UPDATE SET objective=EXCLUDED.objective,monthly_budget_cap=EXCLUDED.monthly_budget_cap,
+                total_budget_cap=EXCLUDED.total_budget_cap,flight_start=EXCLUDED.flight_start,flight_end=EXCLUDED.flight_end,
+                target_cpa=EXCLUDED.target_cpa,target_roas=EXCLUDED.target_roas,target_conversions_month=EXCLUDED.target_conversions_month,
+                notes=EXCLUDED.notes,updated_by=EXCLUDED.updated_by,updated_at=NOW()
+            RETURNING campaign_id''', values)
+        get_db().commit()
+        return jsonify(saved=True)
+
+    @bp.get('/api/v2/reports/google-ads/campaigns/<int:account_id>/<campaign_external_id>/history')
+    @login_required_api
+    def reports_google_ads_campaign_history(account_id, campaign_external_id):
+        """Changes of status, bidding, budget and targets as the script observed them."""
+        selected = _selection()
+        if not _rows("SELECT to_regclass('public.cadu_reports_gads_campaign_settings_history') IS NOT NULL AS ready")[0]['ready']:
+            return jsonify(history=[], ready=False)
+        rows = _rows(_HISTORY_SQL, {'client': selected['client_id'], 'account': account_id, 'campaign': campaign_external_id[:20]})
+        for row in rows:
+            row['budget'] = round(row.pop('budget_micros') / 1e6, 2) if row.get('budget_micros') is not None else None
+            row['target_cpa'] = round(row.pop('target_cpa_micros') / 1e6, 2) if row.get('target_cpa_micros') else None
+            row['target_roas'] = float(row['target_roas']) if row.get('target_roas') else None
+        return jsonify(history=rows, ready=True)
+
     @bp.get('/api/v2/reports/google-ads/summary')
     @login_required_api
     def reports_google_ads_summary():
@@ -158,11 +314,18 @@ def register(bp):
         accounts = _accounts(scope)
         totals = _money(_rows(_TOTALS_SQL, scope))[0]
         previous = _money(_rows(_TOTALS_SQL, previous_scope))[0]
-        settings = {(row['account_id'], row['campaign_external_id']): row for row in _rows(_SETTINGS_SQL, scope)}
+        targets = _column_exists('cadu_reports_gads_campaign_settings', 'target_cpa_micros')
+        settings = {(row['account_id'], row['campaign_external_id']): row for row in
+                    _rows(_SETTINGS_SQL.format(targets=',target_cpa_micros,target_roas' if targets else ''), scope)}
         campaigns = _money(_rows(_CAMPAIGNS_SQL, scope))
+        before = {(row['account_id'], row['campaign_external_id']): row for row in _money(_rows(_CAMPAIGNS_SQL, previous_scope))}
         for campaign in campaigns:
             setting = settings.pop((campaign['account_id'], campaign['campaign_external_id']), {})
             campaign.update({key: setting.get(key) for key in ('status', 'serving_status', 'channel_type', 'bidding_strategy_type', 'budget_shared')})
+            campaign['target_cpa'] = round(setting['target_cpa_micros'] / 1e6, 2) if setting.get('target_cpa_micros') else None
+            campaign['target_roas'] = float(setting['target_roas']) if setting.get('target_roas') else None
+            prior = before.get((campaign['account_id'], campaign['campaign_external_id']))
+            campaign['previous'] = {key: prior.get(key) for key in ('cost', 'clicks', 'conversions', 'cpa', 'roas')} if prior else None
             campaign['budget'] = round(setting['budget_micros'] / 1e6, 2) if setting.get('budget_micros') is not None else None
             campaign['daily_spend'] = round(campaign['cost'] / campaign['active_days'], 2) if campaign['cost'] is not None and campaign['active_days'] else None
             campaign['budget_usage'] = round(campaign['daily_spend'] * 100 / campaign['budget'], 1) if campaign.get('daily_spend') and campaign['budget'] else None
@@ -177,6 +340,7 @@ def register(bp):
                                   'budget': round(setting['budget_micros'] / 1e6, 2) if setting.get('budget_micros') is not None else None,
                                   'daily_spend': None, 'budget_usage': None})
         campaigns.sort(key=lambda row: -(row['cost'] or 0))
+        _attach_goals(scope, campaigns)
         negatives = [row for row in _rows(_NEGATIVES_SQL, scope) if row['removed_at'] is None]
         known = _known(accounts)
         terms = _terms(scope, negatives, known)
@@ -188,7 +352,9 @@ def register(bp):
             for key in ('last_run_at', 'negatives_at'):
                 account[key] = account[key].isoformat() if account.get(key) else None
         return jsonify(ready=True, period={'start': scope['start'].isoformat(), 'end': scope['end'].isoformat()}, currency=_currency(scope),
-                       accounts=accounts, totals=totals, previous=previous, daily=_money(_rows(_DAILY_SQL, scope)),
+                       compare={'mode': scope['compare'], 'start': previous_scope['start'].isoformat(), 'end': previous_scope['end'].isoformat()},
+                       goals_ready=_goals_ready(), accounts=accounts, totals=totals, previous=previous, daily=_money(_rows(_DAILY_SQL, scope)),
+                       previous_daily=_money(_rows(_DAILY_SQL, previous_scope)),
                        campaigns=campaigns, recommendations=recommendations, rules=RULES,
                        counts={'negate': sum(t['action'] == 'negate' for t in terms), 'add_keyword': sum(t['action'] == 'add_keyword' for t in terms)})
 

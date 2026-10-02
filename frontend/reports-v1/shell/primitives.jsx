@@ -4,13 +4,13 @@ import {ReportsActionButton} from '../ReportsActionButton.jsx';
 import {navigateOnClick} from './routes.js';
 
 /** One row of numbers separated by dividers — a summary strip, not a card per metric. */
-export function MetricGroup({items, label = 'Resumo'}) {
+export function MetricGroup({items, label = 'Resumo', changeLabel = 'vs período anterior'}) {
   return <section className="rs-metrics" aria-label={label} style={{'--rs-metric-count': items.length}}>
     {items.map(item => <div key={item.label} className="rs-metric">
       <span className="rs-metric__label">{item.label}</span>
       <strong className="rs-metric__value">{item.value ?? '—'}</strong>
       {item.change != null && Number.isFinite(item.change)
-        ? <small className={`rs-metric__change ${item.change >= 0 ? 'is-up' : 'is-down'}`}>{item.change >= 0 ? <ArrowUp size={12} aria-hidden="true"/> : <ArrowDown size={12} aria-hidden="true"/>}{Math.abs(item.change).toLocaleString('pt-BR', {maximumFractionDigits: 1})}%<span> vs período anterior</span></small>
+        ? <small className={`rs-metric__change ${(item.change >= 0) !== Boolean(item.inverse) ? 'is-up' : 'is-down'}`}>{item.change >= 0 ? <ArrowUp size={12} aria-hidden="true"/> : <ArrowDown size={12} aria-hidden="true"/>}{Math.abs(item.change).toLocaleString('pt-BR', {maximumFractionDigits: 1})}%<span> {changeLabel}</span></small>
         : item.detail ? <small className="rs-metric__detail">{item.detail}</small> : null}
     </div>)}
   </section>;

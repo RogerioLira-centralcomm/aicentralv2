@@ -20,8 +20,31 @@ BUDGET_USAGE = 0.95
 DEVICE_CPA_RATIO = 2.0
 MIN_DEVICE_CLICKS = 30
 MAX_PER_RULE = 10
+PACING_OVER = 1.03
+PACING_UNDER = 0.85
+CPA_TOLERANCE = 1.2
+ROAS_TOLERANCE = 0.8
+CONVERSION_GOAL_RISK = 0.9
+TARGET_MISMATCH = 0.2
+MIN_GOAL_CONVERSIONS = 5
 
 RULES = [
+    {'rule': 'cap_reached', 'severity': 'high', 'title': 'Teto de orçamento atingido',
+     'when': 'O gasto do mês (ou do período da campanha) já alcançou o teto definido na meta.'},
+    {'rule': 'flight_ended', 'severity': 'high', 'title': 'Campanha gastando depois do fim previsto',
+     'when': 'A data final da meta já passou e houve gasto nos últimos 3 dias.'},
+    {'rule': 'pacing_over', 'severity': 'medium', 'title': 'Ritmo vai estourar o teto do mês',
+     'when': f'Projeção do mês (gasto até hoje + média dos últimos 7 dias × dias restantes) {int((PACING_OVER - 1) * 100)}% acima do teto mensal.'},
+    {'rule': 'cpa_above_target', 'severity': 'medium', 'title': 'Custo por conversão acima da meta',
+     'when': f'CPA do período {int((CPA_TOLERANCE - 1) * 100)}% acima da meta, com ao menos {MIN_GOAL_CONVERSIONS} conversões (ou gasto de 3 metas sem conversão).'},
+    {'rule': 'roas_below_target', 'severity': 'medium', 'title': 'ROAS abaixo da meta',
+     'when': f'ROAS do período abaixo de {int(ROAS_TOLERANCE * 100)}% da meta.'},
+    {'rule': 'conversion_goal_risk', 'severity': 'medium', 'title': 'Meta de conversões do mês em risco',
+     'when': f'Projeção de conversões do mês abaixo de {int(CONVERSION_GOAL_RISK * 100)}% da meta mensal.'},
+    {'rule': 'pacing_under', 'severity': 'low', 'title': 'Orçamento sobrando no mês',
+     'when': f'Projeção abaixo de {int(PACING_UNDER * 100)}% do teto mensal, com conversões dentro da meta de CPA.'},
+    {'rule': 'target_mismatch', 'severity': 'low', 'title': 'Meta do Google Ads diferente da meta da equipe',
+     'when': f'CPA desejado configurado no Google Ads difere mais de {int(TARGET_MISMATCH * 100)}% da meta registrada no Reports.'},
     {'rule': 'script_stale', 'severity': 'high', 'title': 'Script do Google Ads sem enviar dados',
      'when': f'Nenhuma execução do script recebida há mais de {STALE_HOURS} horas.'},
     {'rule': 'negative_conflict', 'severity': 'high', 'title': 'Negativa bloqueando palavra-chave ativa',
@@ -198,5 +221,71 @@ def build_recommendations(*, accounts, campaigns, terms, keywords, devices, nega
                                'Nenhuma conversão.' if conversions == 0 else f'Custo por conversão {cost / conversions / account_cpa:.1f}× o da conta.'.replace('.', ','),
                                f'Reduza o ajuste de lance para {label.lower()} ou revise a página nesse dispositivo.', 'cost', cost, link={'tab': 'details'}))
 
+    items.extend(goal_recommendations(campaigns))
     items.sort(key=lambda item: (_ORDER[item['severity']], 0 if item['impact']['kind'] == 'none' else 1, -item['impact']['value']))
+    return items
+
+
+def _br(value):
+    return f'{value:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+
+
+def goal_recommendations(campaigns):
+    """Next steps against what the team set for each campaign: budget ceilings, flight dates and objective targets."""
+    items = []
+    for campaign in campaigns:
+        goal, pacing = campaign.get('goal') or {}, campaign.get('pacing') or {}
+        if not goal:
+            continue
+        key = f"{campaign['account_id']}:{campaign['campaign_external_id']}"
+        obj = {'kind': 'campaign', 'label': campaign['campaign_name']}
+        cap = _num(goal.get('monthly_budget_cap')) or None
+        mtd, days_left = _num(pacing.get('mtd_cost')), int(pacing.get('days_left') or 0)
+        projected = _num(pacing.get('projected_cost'))
+        daily_budget = campaign.get('budget')
+        if goal.get('flight_ended') and _num(pacing.get('last3_cost')) > 0:
+            items.append(_item('flight_ended', key, obj, f"A meta terminava em {goal['flight_end']} e a campanha gastou {_br(_num(pacing['last3_cost']))} nos últimos 3 dias.",
+                               'Pause a campanha ou atualize a data final da meta.', 'cost', _num(pacing['last3_cost']), link={'tab': 'campaigns'}))
+        total_cap = _num(goal.get('total_budget_cap')) or None
+        if total_cap and _num(pacing.get('flight_cost')) >= total_cap:
+            items.append(_item('cap_reached', f'{key}:total', obj, f"Gasto total {_br(_num(pacing['flight_cost']))} para um teto de {_br(total_cap)}.",
+                               'Pause a campanha ou aprove um teto maior com o cliente.', 'cost', _num(pacing['flight_cost']) - total_cap, link={'tab': 'campaigns'}))
+        if cap and mtd >= cap:
+            items.append(_item('cap_reached', key, obj, f'Gasto do mês {_br(mtd)} para um teto de {_br(cap)}.',
+                               'Pause a campanha ou reduza o orçamento diário até o próximo mês.', 'cost', mtd - cap, link={'tab': 'campaigns'}))
+        elif cap and days_left and projected > cap * PACING_OVER:
+            suggested = max(0.0, (cap - mtd) / days_left)
+            items.append(_item('pacing_over', key, obj, f'Projeção de {_br(projected)} para um teto de {_br(cap)} ({_br(mtd)} gastos, {days_left} dias restantes).',
+                               f"Reduza o orçamento diário{f' de {_br(daily_budget)}' if daily_budget else ''} para {_br(suggested)}.",
+                               'cost', projected - cap, link={'tab': 'campaigns'}))
+        target_cpa = _num(goal.get('target_cpa')) or None
+        cost, conversions = _num(campaign.get('cost')), _num(campaign.get('conversions'))
+        cpa = cost / conversions if conversions else None
+        if cap and days_left and projected < cap * PACING_UNDER and conversions > 0 and (target_cpa is None or (cpa or 0) <= target_cpa):
+            suggested = (cap - mtd) / days_left
+            items.append(_item('pacing_under', key, obj, f'Projeção de {_br(projected)} para um teto de {_br(cap)}; CPA de {_br(cpa)}.',
+                               f'Pode subir o orçamento diário para até {_br(suggested)} e usar o teto do mês.', 'conversions', conversions, link={'tab': 'campaigns'}))
+        if target_cpa:
+            if conversions >= MIN_GOAL_CONVERSIONS and cpa > target_cpa * CPA_TOLERANCE:
+                items.append(_item('cpa_above_target', key, obj, f'CPA de {_br(cpa)} para uma meta de {_br(target_cpa)}.',
+                                   'Negative os termos sem conversão desta campanha e revise as palavras-chave mais caras antes de mexer no lance.',
+                                   'cost', cost - conversions * target_cpa, link={'tab': 'search_terms', 'filter': 'negate'}))
+            elif conversions == 0 and cost >= 3 * target_cpa:
+                items.append(_item('cpa_above_target', key, obj, f'{_br(cost)} gastos sem conversão; a meta é {_br(target_cpa)} por conversão.',
+                                   'Confira a conversão e a página de destino; se estiverem certas, reduza o orçamento.', 'cost', cost, link={'tab': 'campaigns'}))
+            google_cpa = campaign.get('target_cpa')
+            if google_cpa and abs(google_cpa - target_cpa) / target_cpa > TARGET_MISMATCH:
+                items.append(_item('target_mismatch', key, obj, f'CPA desejado no Google Ads: {_br(google_cpa)}; meta da equipe: {_br(target_cpa)}.',
+                                   'Alinhe o CPA desejado da estratégia de lances à meta acordada.', 'none', 0, link={'tab': 'campaigns'}))
+        target_roas = _num(goal.get('target_roas')) or None
+        roas = _num(campaign.get('conversion_value')) / cost if cost and campaign.get('conversion_value') else None
+        if target_roas and roas is not None and roas < target_roas * ROAS_TOLERANCE:
+            items.append(_item('roas_below_target', key, obj, f'ROAS de {roas:.2f} para uma meta de {target_roas:.2f}.'.replace('.', ','),
+                               'Concentre investimento nos grupos e termos com maior valor; reduza os de ROAS mais baixo.', 'cost', cost, link={'tab': 'details'}))
+        goal_conversions = int(goal.get('target_conversions_month') or 0)
+        projected_conversions = _num(pacing.get('projected_conversions'))
+        if goal_conversions and days_left and projected_conversions < goal_conversions * CONVERSION_GOAL_RISK:
+            items.append(_item('conversion_goal_risk', key, obj, f'Projeção de {projected_conversions:.0f} conversões para uma meta de {goal_conversions}.',
+                               'Aumente o orçamento nas campanhas dentro da meta de CPA ou amplie palavras-chave que já convertem.',
+                               'conversions', goal_conversions - projected_conversions, link={'tab': 'campaigns'}))
     return items

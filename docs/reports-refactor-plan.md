@@ -149,6 +149,16 @@ Correções de organização feitas no caminho: detalhe de campanha usava `.repo
 - **Alertas**: as ações de prioridade alta e média aparecem no topo da central de Alertas, com link para o objeto no Google Ads.
 - Endpoints: `GET /google-ads/summary`, `/google-ads/search-terms`, `/google-ads/keywords`, `/google-ads/negatives`.
 
+**Histórico, comparação e metas (script 2.1)**
+
+- **Histórico permanente**: as linhas diárias nunca são apagadas. O script 2.1 pede ao Reports um plano de datas (`GET /api/v1/reports/ingest/google-ads/v2/plan`): relê os últimos 14 dias (conversões atrasadas) e busca mais 45 dias do passado por execução, até 13 meses. O plano avança mesmo quando uma fatia antiga vem vazia (usa a janela registrada no resumo da execução). Os lotes de faixas diferentes seguem numerados para não colidir na idempotência.
+- **Configuração com histórico**: CPA e ROAS desejados lidos do Google Ads (com queda para a consulta antiga se a API recusar os campos) e `cadu_reports_gads_campaign_settings_history` com cada mudança de status, lance, orçamento e metas.
+- **Comparação**: período anterior ou mesmo período do ano anterior, nos KPIs (CPA com sentido invertido), nos gráficos (série comparada alinhada por dia) e por campanha.
+- **Metas da equipe** (`cadu_reports_campaign_goals`, `PUT /google-ads/goals/<campaign_id>`): objetivo, teto mensal e total, período, CPA, ROAS e conversões por mês. Ritmo do mês: gasto até hoje + média dos últimos 7 dias × dias restantes.
+- **Próximos passos de meta**: teto atingido, campanha gastando após o fim, ritmo que estoura o teto (com o orçamento diário que fecha no teto), CPA/ROAS fora da meta, meta de conversões em risco, orçamento sobrando com CPA dentro da meta, CPA desejado no Google diferente da meta da equipe.
+- **"Como funciona"** em Mídia → Dados: modal para operadores de Google Ads com as etapas, todas as extrações, as regras, segurança e limites.
+- **Aplicar**: `python migrations/run_sql_migration.py add_reports_google_ads_history_goals.sql` e gerar/reinstalar o script (versão 2.1.0) nas contas.
+
 **Meta e demais plataformas** terão áreas separadas, alimentadas por prints e, no futuro, por extensão do Chrome; não entram na área Google Ads.
 
 **Limites do script hoje** (registrados para a próxima versão do motor): não coleta ações de conversão separadas, parcela de impressões, anúncios/RSA, recursos, geografia, horário, públicos nem negativas de conta e de Performance Max; envia os últimos 8 dias a cada execução.

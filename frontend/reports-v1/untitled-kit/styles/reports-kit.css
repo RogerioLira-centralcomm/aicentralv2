@@ -16,7 +16,10 @@
 @layer base {
   /* Opt-in preflight for screens built only from kit components and utilities (no legacy markup inside). */
   .untitled-scope, .untitled-scope *, .untitled-scope ::before, .untitled-scope ::after { box-sizing: border-box; border: 0 solid; }
+  .untitled-scope { font-family: var(--font-body); }
   .untitled-scope :where(h1, h2, h3, h4, p, dl, dd, figure, blockquote) { margin: 0; }
+  .untitled-scope :where(fieldset) { min-width: 0; margin: 0; padding: 0; }
+  .untitled-scope :where(legend) { padding: 0; }
   .untitled-scope :where(ul, ol) { margin: 0; padding: 0; list-style: none; }
   .untitled-scope :where(button, input, select, textarea) { font: inherit; color: inherit; background-color: transparent; }
   .untitled-scope :where(button) { padding: 0; cursor: pointer; }

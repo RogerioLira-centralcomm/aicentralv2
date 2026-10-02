@@ -30,9 +30,9 @@ function writeUrl(filters) {
 }
 
 /** One row of mutually exclusive choices with live counts ("Todos" clears it). */
-export function FacetChips({label, items, value, total, onChange}) {
+export function FacetChips({label, items, value, total, onChange, inline = false}) {
   if (!items.length) return null;
-  return <div className="aud-facet" role="group" aria-label={label}>
+  return <div className={`aud-facet${inline ? ' aud-facet--inline' : ''}`} role="group" aria-label={label}>
     <span className="aud-facet__label">{label}</span>
     <div className="aud-facet__chips">
       <button type="button" className="aud-chip" aria-pressed={!value} onClick={() => onChange('')}>Todos<span>{number(total)}</span></button>
@@ -102,20 +102,22 @@ export function AudienceShowcase({boot, request, selection, notify}) {
   return <>
     <PlannerHeader title="Audiências" withContext actions={<ActivePlanChip/>}
       description={`${number(total)} ${total === 1 ? 'audiência comprável' : 'audiências compráveis'}${active ? ' com estes filtros' : ''}`}/>
-    <section className="aud-filters" aria-label="Filtros de audiências">
-      <div className="aud-filters__top">
+    <section className="aud-filters aud-filters--aud" aria-label="Filtros de audiências">
+      <div className="aud-filters__top aud-filters__top--aud">
         <CaduInput className="aud-filters__search" aria-label="Buscar audiências" type="search" value={filters.q}
           placeholder="Buscar por público, interesse, categoria ou canal"
           leading={<span className="planner-toolbar__search-icon" aria-hidden="true"><Icon name="search" size={16}/></span>}
           onChange={event => set('q', event.target.value)}/>
+        <CaduSelectField className="aud-filters__select" aria-label="Categoria" value={filters.category}
+          onChange={event => set('category', event.target.value)}
+          options={[{value: '', label: `Todas as categorias (${number(categoryTotal)})`}, ...facets.categories.map(item => ({value: item.value, label: `${item.value} (${number(item.count)})`}))]}/>
         {facets.subcategories.length > 0 && <CaduSelectField className="aud-filters__select" aria-label="Subcategoria" value={filters.subcategory}
           onChange={event => set('subcategory', event.target.value)}
           options={[{value: '', label: 'Todas as subcategorias'}, ...facets.subcategories.map(item => ({value: item.value, label: `${item.value} (${number(item.count)})`}))]}/>}
-        <CaduSelectField className="aud-filters__select" aria-label="Ordenar" value={filters.sort}
+        <CaduSelectField className="aud-filters__select aud-filters__select--sort" aria-label="Ordenar" value={filters.sort}
           onChange={event => set('sort', event.target.value)} options={SORTS.map(([value, label]) => ({value, label}))}/>
       </div>
-      <FacetChips label="Canal de compra" items={facets.platforms} value={filters.platform} total={platformTotal} onChange={value => set('platform', value)}/>
-      <FacetChips label="Categoria" items={facets.categories} value={filters.category} total={categoryTotal} onChange={value => set('category', value)}/>
+      <FacetChips inline label="Canal de compra" items={facets.platforms} value={filters.platform} total={platformTotal} onChange={value => set('platform', value)}/>
       {active > 0 && <div className="aud-filters__summary">
         <span aria-live="polite">{loading ? 'Atualizando…' : `${number(total)} ${total === 1 ? 'resultado' : 'resultados'}`}</span>
         <CaduButton variant="tertiary" size="sm" onClick={() => setFilters({q: '', platform: '', category: '', subcategory: '', sort: filters.sort})}>Limpar filtros</CaduButton>

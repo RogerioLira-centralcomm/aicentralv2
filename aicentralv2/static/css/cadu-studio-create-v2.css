@@ -645,3 +645,24 @@ body.portal--studio:has(.studio-v2) > main#content > .studio-v2,.studio-v2 .stud
 .studio-v2 .creative-line{display:none}
 .studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-heading h2{font-size:clamp(26px,2.6vw,34px);line-height:1.15;letter-spacing:-.01em;margin:4px 0}
 .studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-heading p{display:block;margin:4px 0 0}
+
+/* Resultado compacto: dimensões no topo, sem vão, dock recolhido de uma linha */
+.studio-v2 .results-heading .eyebrow{font-size:12px;font-weight:600;letter-spacing:.01em;color:#b7a4ff;font-variant-numeric:tabular-nums}
+.studio-v2:is([data-state="generated"],[data-state="results_ready"]) .canvas-stage{padding:10px 24px 84px;justify-content:flex-start}
+.studio-v2:is([data-state="generated"],[data-state="results_ready"]) #resultsView:not([hidden]){margin-top:0;align-self:stretch}
+.studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-heading{margin-bottom:6px;align-items:flex-end}
+.studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-heading h2{font-size:clamp(22px,2vw,28px);margin:2px 0 0}
+.studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-heading p{font-size:12.5px;margin:2px 0 0}
+.studio-v2:is([data-state="generated"],[data-state="results_ready"]) .result-followup-actions{flex-wrap:wrap;gap:8px;margin-top:8px}
+.studio-v2:is([data-state="generated"],[data-state="results_ready"]) .result-followup-actions button{min-height:42px;white-space:nowrap}
+@media(min-width:901px){
+  .studio-v2:is([data-state="generated"],[data-state="results_ready"]) .prompt-dock:not(.is-expanded){bottom:12px;transform:translateX(-50%);max-height:58px;overflow:hidden}
+  .studio-v2:is([data-state="generated"],[data-state="results_ready"]) .prompt-dock:not(.is-expanded) textarea{height:28px;min-height:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;resize:none}
+}
+
+/* Resultado: cartão se ajusta à proporção da imagem (sem barras laterais) e tudo centralizado */
+.studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-grid .result-card{display:flex;flex-direction:column;width:auto;height:100%;max-width:100%;justify-self:center}
+.studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-grid .result-media{flex:1 1 0;min-height:0;height:auto;width:auto;aspect-ratio:var(--result-ratio,4 / 5)}
+.studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-grid .result-media img{width:100%;height:100%;object-fit:contain}
+.studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-grid[data-count="1"]{display:flex;justify-content:center}
+.studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-heading{text-align:center;justify-content:center;gap:16px}

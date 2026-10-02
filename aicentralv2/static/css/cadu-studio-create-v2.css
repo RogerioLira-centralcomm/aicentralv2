@@ -678,3 +678,8 @@ body.portal--studio:has(.studio-v2) > main#content > .studio-v2,.studio-v2 .stud
   .studio-v2:is([data-state="generated"],[data-state="results_ready"]) .prompt-dock:not(.is-expanded) .prompt-row{min-height:0;align-items:center}
   .studio-v2:is([data-state="generated"],[data-state="results_ready"]) .prompt-dock:not(.is-expanded) .prompt-row .prompt-actions{align-self:center}
 }
+/* Several variations: the card hugs its image (no empty strip above the actions). */
+.studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-grid .result-media{background:var(--v2-panel)}
+.studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-grid[data-count="2"] .result-card{height:auto;align-self:center;justify-self:stretch;width:100%}
+.studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-grid[data-count="2"] .result-media{flex:none;height:auto;width:100%}
+.studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-grid[data-count="2"]{align-content:center}

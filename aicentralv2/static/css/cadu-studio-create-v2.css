@@ -640,3 +640,8 @@ body.portal--studio:has(.studio-v2) > main#content > .studio-v2,.studio-v2 .stud
   .studio-v2 .studio-rail.is-references-collapsed .rail-item{justify-content:center;width:44px;height:44px;margin:4px auto;padding:0;border-radius:10px}
   .studio-v2 .studio-rail.is-references-collapsed .rail-item:hover{background:rgba(255,255,255,.06)}
 }
+
+/* Resultado: título grande, sem a direção/prompt na página (fica no editor) */
+.studio-v2 .creative-line{display:none}
+.studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-heading h2{font-size:clamp(26px,2.6vw,34px);line-height:1.15;letter-spacing:-.01em;margin:4px 0}
+.studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-heading p{display:block;margin:4px 0 0}

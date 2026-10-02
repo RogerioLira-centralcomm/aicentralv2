@@ -5990,10 +5990,19 @@ class CreativeModelingService:
         result = dict(provider_result or {})
         if result.get("actual_cost_usd") in (None, ""):
             result["actual_cost_usd"] = float(fallback_cost or 0)
+        media_tokens = None
+        if media:
+            # Media is worth its USD cost at the global connector's base rate, the same convention
+            # the Workspace estimates with and the editor charges with. Without this the connector
+            # converted it at the plan's per-token price and an image came out at a few dozen credits.
+            from .cadu_tool_billing import usage_tokens
+            from .creative_media.studio_costs import media_tokens_for_cost
+            media_tokens = media_tokens_for_cost(result["actual_cost_usd"], usage_tokens(result.get("usage"))[2])
         return self.credit_connector.charge_provider(
             actor=CreditActor.from_values(payer, user_id),
             idempotency_key=str(idempotency_key), app="Cadu Studio", stage=stage,
             provider_result=result, model=str(result.get("model") or "studio"),
+            media_tokens=media_tokens,
             margin_multiplier=1,
             metadata={**(metadata or {}), "billing_class": "media" if media else "agent"},
         )

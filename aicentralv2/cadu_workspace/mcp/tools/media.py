@@ -57,10 +57,8 @@ def creation_capabilities(context: RequestContext, arguments: dict) -> dict:
     fidelity = {"econômica": "draft", "padrão": "draft", "alta": "publish"}.get(quality, "draft")
     estimate = None
     try:
-        modeling = CreativeModelingService()
-        image_usd = Decimal(str(modeling._estimate("image", fidelity, studio_create.IMAGE_MODEL)))
-        image_usd *= Decimal("1") + studio_create.REFERENCE_IMAGE_COST_FACTOR * reference_count
-        image_credits = cost_token_equivalent(image_usd, margin_multiplier=1)
+        from ...creative_media.studio_costs import image_credits as catalog_image_credits
+        image_credits = catalog_image_credits(reference_count)
         estimate = {
             "unit": "credits", "estimated_total": 1100 + studio_create.estimated_tokens(1, reference_count) + image_credits,
             "components": {

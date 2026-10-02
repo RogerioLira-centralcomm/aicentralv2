@@ -557,8 +557,8 @@ def create_image(payload, modeling, client_id, user_id):
     provider_quality, provider_resolution, billing_fidelity = quality_map.get(
         requested_quality, ("medium", "1K", "draft"),
     )
-    estimate = Decimal(str(modeling._estimate("image", billing_fidelity, IMAGE_MODEL)))
-    estimate *= Decimal("1") + REFERENCE_IMAGE_COST_FACTOR * len(references)
+    from .studio_costs import image_generation_usd_with_references
+    estimate = image_generation_usd_with_references(len(references))
     from ..cadu_tool_billing import cost_token_equivalent
     credits, actor = credit_context(modeling, client_id, user_id)
     try:

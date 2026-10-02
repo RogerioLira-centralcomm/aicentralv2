@@ -14,6 +14,12 @@ from werkzeug.utils import secure_filename
 from .auth import admin_required, admin_required_api, login_required, login_required_api
 from .creative_media.studio_csrf import get_or_create_token as studio_csrf_token
 from .creative_media.studio import _studio_reference_masks
+
+
+def _studio_image_credits():
+    """Credits one image generation is worth and the share each extra reference adds (catalog cost)."""
+    from .creative_media.studio_costs import REFERENCE_IMAGE_COST_FACTOR, image_credits
+    return {'image': image_credits(0), 'reference_factor': float(REFERENCE_IMAGE_COST_FACTOR)}
 from .creative_format_lab.swap_routes import register_trocr_routes
 from .creative_modeling_generation import OpenRouterError
 from .creative_format_registry import catalog_entries
@@ -381,6 +387,7 @@ def modelagem_desk(page):
         mc_workspace_brands=page == 'marcas' and _configured_product_host('workspace') == (request.host.split(':', 1)[0] or '').lower(),
         mc_format_catalog=catalog_entries(),
         mc_reference_masks=_studio_reference_masks() if page == "criar" else [],
+        mc_image_credits=_studio_image_credits() if page == "criar" else 0,
         studio_credit=studio_credit,
     ))
     if page in {"criar", "video"}:

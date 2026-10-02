@@ -259,7 +259,7 @@ def test_official_logo_is_added_to_image_provider_when_a_reference_slot_is_free(
 
     assert [item["role"] for item in references] == ["composition", "identity"]
     assert references[-1]["url"].endswith("reserva-logo.png")
-    assert "Official color tokens: #152f4e, #ffffff." in studio_create.brand_identity_guard({
+    assert "OFFICIAL COLORS: #152f4e, #ffffff." in studio_create.brand_identity_guard({
         "logo_url": "/static/uploads/creative_references/reserva-logo.png",
         "palette": ["#152f4e", "#ffffff"],
     })
@@ -305,8 +305,11 @@ def test_global_feed_reference_stays_url_first_for_image_providers():
     assert references[0]["role"] == "composition"
     assert references[0]["data"] == "/static/images/cadu/studio/references/feed/feed-mask-01.webp"
 
-    provider_value = studio_create.provider_image_references(references, "")[0]
-    assert provider_value == references[0]["data"]
+    # Providers only accept fetchable URLs: a relative /static/ path becomes the public Studio URL.
+    app.config.update(STUDIO_URL="https://studio.centralcomm.media")
+    with app.app_context():
+        provider_value = studio_create.provider_image_references(references, "")[0]
+    assert provider_value == "https://studio.centralcomm.media/static/images/cadu/studio/references/feed/feed-mask-01.webp"
 
 
 def test_uploaded_reference_stays_url_first_until_pixels_are_needed():

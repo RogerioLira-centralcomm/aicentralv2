@@ -252,8 +252,14 @@ def brand_identity_readiness(brand_context):
     }
 
 
-def brand_identity_guard(raw_brand, visual_reference=False, creation_intent="branded_creative"):
+def brand_identity_guard(raw_brand, visual_reference=False, creation_intent="branded_creative", editing=False):
     brand = raw_brand if isinstance(raw_brand, dict) else {}
+    if editing:
+        # A masked edit changes one region; it must not stamp a new logo onto the piece.
+        return (
+            "BRAND IDENTITY (edit): preserve any logo, colors and typography already present outside the selected region. "
+            "Do not add or move a logo unless the edit instruction explicitly asks for it."
+        )
     if creation_intent == "neutral_asset":
         return (
             "NEUTRAL ASSET MODE: This request is a page, background, texture, scene or other reusable visual asset, not a branded advertisement. "
@@ -271,20 +277,42 @@ def brand_identity_guard(raw_brand, visual_reference=False, creation_intent="bra
                 if logo else ""
             )
         )
-    readiness = brand_identity_readiness(brand)
-    if readiness["status"] == "ready":
-        palette = ", ".join(text(item, 16) for item in brand.get("palette", []) if text(item, 16))
-        return (
-            "BRAND IDENTITY GUARD: Official logo and palette are available. "
-            "Use only supplied identity assets; do not alter or reinterpret them. "
-            f"Official color tokens: {palette}."
+    name = text(brand.get("name"), 120) or "the brand"
+    logo = official_logo_reference(brand)
+    palette = [text(item, 16) for item in brand.get("palette", []) if text(item, 16)]
+    fonts = [
+        text(item.get("family") or item.get("classification"), 80) if isinstance(item, dict) else text(item, 80)
+        for item in brand.get("fonts", [])
+    ]
+    fonts = [item for item in fonts if item]
+    lines = ["BRAND IDENTITY (mandatory for this branded piece):"]
+    if logo:
+        lines.append(
+            f"- LOGO: the image labelled as the official logo of {name} must appear exactly once, reproduced faithfully "
+            "(same shapes, letters and colors; no redraw, recolor, outline, 3D or distortion), fully inside the safe margin, "
+            "on a calm area with enough contrast, at a clearly legible size (about 10-16% of the canvas width). "
+            "Do not invent any other logo, monogram or wordmark for the brand."
         )
-    missing = ", ".join(readiness["missing"])
-    return (
-        f"BRAND IDENTITY GUARD: This project is missing official {missing}. "
-        "Do not invent, infer or stylize a logo, monogram, lettermark, initials, wordmark, icon or color system from the brand name. "
-        "Keep a clean neutral safe area for identity to be applied later, and never present arbitrary colors as official brand colors."
-    )
+    else:
+        lines.append(
+            f"- LOGO: no official logo of {name} was supplied. Do not invent, infer or stylize a logo, monogram, initials or wordmark; "
+            "keep a clean intentional area where it will be applied later."
+        )
+    if palette:
+        lines.append(
+            f"- OFFICIAL COLORS: {', '.join(palette)}. They must be clearly visible in the piece (backgrounds, shapes, typography or CTA), "
+            "not only in the logo. A campaign or briefing palette may lead the mood, but the official colors must remain recognizable."
+        )
+    elif logo:
+        lines.append(
+            "- COLORS: no official palette was registered. Take accent colors from the supplied logo's own visible colors so the piece "
+            "feels like the brand; do not present unrelated colors as official."
+        )
+    else:
+        lines.append("- COLORS: no official palette was registered; never present arbitrary colors as official brand colors.")
+    if fonts:
+        lines.append(f"- TYPOGRAPHY: follow this direction for visible copy: {', '.join(fonts[:3])}.")
+    return " ".join(lines)
 
 
 def official_logo_reference(raw_brand):
@@ -301,6 +329,7 @@ def official_logo_reference(raw_brand):
                 "role": "identity",
                 "source": "project",
                 "label": f"{text(brand.get('name'), 120) or 'Marca'} · logo oficial",
+                "instruction": "the OFFICIAL BRAND LOGO: place it once, exactly as supplied, fully visible and legible inside the safe margin",
             }
     return None
 
@@ -410,7 +439,7 @@ Responda somente JSON no formato {{\"directions\":[{{\"title\":\"...\",\"summary
 REVISÃO DO BRIEFING: antes de escrever cada prompt, harmonize o pedido do usuário com o contexto do Studio. Preserve a intenção, anunciante, produto, público, cenário, ação, texto literal, preço, volume, logo solicitado e restrições explícitas. Corrija apenas ambiguidades, contradições, ordem e instruções técnicas; não troque o produto, não remova requisitos concretos e não invente benefícios, ofertas ou identidade visual. Se o usuário informar explicitamente uma marca, preço, volume, slogan ou pedido de logo, isso é requisito obrigatório e deve aparecer no prompt final exatamente como informado.
 ORDEM OBRIGATÓRIA DO PROMPT FINAL: escreva um único prompt contínuo, nesta sequência: (1) objetivo e tipo de peça; (2) produto/assunto principal e o que precisa estar visível; (3) público, pessoas e ação; (4) cenário, praça ou contexto cultural brasileiro, momento e atmosfera; (5) composição, enquadramento, hierarquia, posição dos elementos e área segura; (6) como cada referência selecionada deve orientar a peça; (7) iluminação, materiais e paleta; (8) canal e formato controlados pelo Studio; (9) texto literal solicitado e posição reservada; (10) restrições e checagens finais. Não comece pelo formato nem pelas referências: eles orientam a execução, mas não substituem a ideia do usuário.
 FORMATO É CONTROLADO PELO STUDIO: o campo contexto.format, contexto.format_key, contexto.width e contexto.height é a fonte de verdade do output selecionado na interface. Se o texto do pedido mencionar outra dimensão ou proporção, trate isso apenas como descrição do pedido e ignore a dimensão conflitante. Nunca escreva 300x300, 1080x1080 ou outra medida no prompt final quando o formato selecionado for diferente. Sempre repita o formato controlado pelo contexto no prompt final.
-MARCA E PROJETO: contexto.creation_intent define o escopo. Em "branded_creative", quando contexto.brand_context existir, use-o como fonte de verdade para nome, logo, paleta, tipografia, ativos, elementos obrigatórios e elementos proibidos; aplique os ativos aprovados na peça. Tipografia pode trazer família aprovada ou somente uma classificação observada; não invente o nome de uma fonte proprietária quando houver apenas classificação. Em "neutral_asset", ignore integralmente a identidade do projeto: a solicitação é um fundo, página, textura, cena ou elemento reutilizável, não uma peça de marca. Referências de composição continuam sendo apenas guias de posição e hierarquia. Se contexto.requested_palette tiver cores, aplique-as apenas nesta peça como escolha explícita do briefing: elas não sobrescrevem nem passam a ser apresentadas como cores oficiais da marca. Se contexto.brand_context.readiness indicar ausência de logo ou cores, trate o nome apenas como contexto verbal: nunca invente logotipo, monograma, inicial, símbolo, wordmark ou paleta de marca. Reserve uma área neutra e segura para a identidade ser aplicada posteriormente. EXCEÇÃO DE REMIX: quando contexto.reference_mode for "visual_remix" ou "user_visual_reference", a imagem anexada pelo usuário é a evidência visual prioritária. Extraia dela apenas características observáveis — paleta, materiais, luz, tratamento do assunto e linguagem da peça — sem dizer que são cores ou logo oficiais do projeto e sem exigir identidade ausente.
+MARCA E PROJETO: contexto.creation_intent define o escopo. Em "branded_creative", quando contexto.brand_context existir, use-o como fonte de verdade para nome, logo, paleta, tipografia, ativos, elementos obrigatórios e elementos proibidos; aplique os ativos aprovados na peça. Tipografia pode trazer família aprovada ou somente uma classificação observada; não invente o nome de uma fonte proprietária quando houver apenas classificação. Em "neutral_asset", ignore integralmente a identidade do projeto: a solicitação é um fundo, página, textura, cena ou elemento reutilizável, não uma peça de marca. Referências de composição continuam sendo apenas guias de posição e hierarquia. Se contexto.requested_palette tiver cores, aplique-as apenas nesta peça como escolha explícita do briefing: elas não sobrescrevem nem passam a ser apresentadas como cores oficiais da marca. Avalie logo e cores separadamente em contexto.brand_context.readiness. LOGO: quando houver logo oficial (has_logo=true, ele chega como imagem anexada com o rótulo \"logo oficial\"), o prompt final DEVE dizer explicitamente onde o logo oficial entra (canto, assinatura ou lockup), em tamanho legível, uma única vez, reproduzido exatamente como fornecido; nunca peça para reservar área vazia no lugar dele. Sem logo oficial, nunca invente logotipo, monograma, inicial, símbolo ou wordmark: reserve uma área limpa para aplicação posterior. CORES: quando houver paleta oficial, cite os hexadecimais no prompt final e diga onde aparecem (fundo, formas, tipografia, CTA); uma paleta temática do briefing (por exemplo, rosa de Outubro Rosa) pode conduzir o clima, mas as cores oficiais precisam continuar reconhecíveis. Sem paleta oficial mas com logo, use as cores visíveis do próprio logo como acentos, sem chamá-las de paleta oficial. Sem logo e sem cores, não invente identidade. TIPOGRAFIA: quando brand_context.fonts existir, indique a direção tipográfica para os textos visíveis. O título de cada direção deve citar a marca. EXCEÇÃO DE REMIX: quando contexto.reference_mode for "visual_remix" ou "user_visual_reference", a imagem anexada pelo usuário é a evidência visual prioritária. Extraia dela apenas características observáveis — paleta, materiais, luz, tratamento do assunto e linguagem da peça — sem dizer que são cores ou logo oficiais do projeto e sem exigir identidade ausente.
 
 REFERÊNCIAS — você receberá as imagens selecionadas como blocos visuais no mesmo turno. Inspecione seus pixels antes de escrever cada direção; não deduza a composição apenas pelo nome ou URL. Trate cada item do contexto como contrato, nunca como decoração. Itens com source="global" são máscaras protegidas de composição do Studio: use-as como planta estrutural, extraindo ordem de camadas, zona do produto/assunto, faixa de headline, área de preço ou CTA, margens seguras, alinhamento, respiro e relação entre foreground e background. Reproduza essa arquitetura espacial na peça final com o conteúdo do briefing, sem copiar o template, sem usar o objeto fictício da máscara como produto, sem alterar o arquivo e sem colocá-lo na biblioteca do usuário. Para cada global, devolva no reference_plan um layout com subject_zone, headline_zone, support_zone, safe_margin, layer_order e alignment, descrevendo posições relativas observadas na imagem. Itens com source="user" ou source="project" são referências de produção: aplique na imagem criada o conteúdo visual útil, como produto, pessoa, embalagem, identidade, textura, cenário ou objeto, preservando os detalhes relevantes quando a intenção indicar. Quando reference_mode="visual_remix", una a imagem do usuário e a máscara global: a imagem do usuário define a linguagem visual e a máscara global define a estrutura, zonas e respiro. Gere uma nova peça coerente, não uma cópia literal, e não transforme cores vistas no anexo em identidade oficial. Não confunda uma referência global de composição com uma imagem-base do usuário. Quando reference_mode="briefing_only", não mencione referências visuais, não invente uma reference_plan e crie uma direção original baseada somente no briefing, canal e formato. O prompt final deve mencionar como cada referência será usada somente quando houver referência selecionada e respeitar o role declarado.
 
@@ -487,7 +516,7 @@ def create_image(payload, modeling, client_id, user_id):
     try:
         provider_source_references = (
             references_with_brand_logo(raw_references, data.get("brand_context"))
-            if creation_intent == "branded_creative" else raw_references
+            if creation_intent == "branded_creative" and not data.get("mask") else raw_references
         )
         references = normalize_image_references(provider_source_references, modeling.storage)
     except Exception as error:
@@ -555,7 +584,9 @@ def create_image(payload, modeling, client_id, user_id):
         )
     else:
         edit_guard = "Respect the declared role of every image. Never silently swap the base image and a supporting reference."
-    edit_guard += " Never add text, logos, prices or offers that the user did not request."
+    edit_guard += (
+        " Apart from the supplied official brand logo, never add third-party logos, prices or offers that the user did not request."
+    )
     channel = str(data.get("channel") or "").strip()[:32]
     try:
         direction_intensity = max(0, min(int(data.get("direction_intensity") or 70), 100))
@@ -576,14 +607,17 @@ def create_image(payload, modeling, client_id, user_id):
         "VISUAL REMIX IDENTITY CHECK: The user reference is sufficient visual evidence for this remix. "
         "Do not reserve a project-logo area or invent a project logo unless the briefing explicitly requests one."
         if visual_reference else
+        "LOGO CHECK: Before finishing, verify the supplied official logo is present once, unaltered, legible and fully inside the frame with breathing room. "
+        "Keep headline text, product and packaging fully inside the selected format as well."
+        if supplied_logo and not mask else
         "SAFE AREA CHECK: Keep all requested logos, brand marks, headline text and product packaging fully inside the selected format with visible breathing room on every side. Never place a logo partially outside the frame or crop it at the top, bottom or side. If no official logo asset is supplied, leave a clean intentional logo-safe area instead of generating a guessed mark."
     )
     requested_palette = clean_palette(data.get("requested_palette"))
     technical_prompt = "\n".join([
         "MANDATORY BRIEFING FIDELITY: Preserve every concrete requirement in the user briefing, especially named products, packaging, people, setting, action, copy and requested format. A composition reference is only a layout guide; it must never replace the requested subject or product.",
         "MANDATORY COMMERCIAL FACTS: Any advertiser name, brand name, product name, price, currency, package volume, slogan or logo request explicitly present in the user briefing must remain in the creative instruction exactly as provided. Do not silently drop Reserva, R$ 599, 50 ml, 1 Million or any other named fact.",
-        brand_identity_guard(data.get("brand_context"), visual_reference=visual_reference, creation_intent=creation_intent),
-        f"REQUESTED CREATIVE PALETTE: {', '.join(requested_palette)}. Use these colors for this piece only; they are not a claim about official brand identity." if requested_palette else "REQUESTED CREATIVE PALETTE: none.",
+        brand_identity_guard(data.get("brand_context"), visual_reference=visual_reference, creation_intent=creation_intent, editing=bool(mask)),
+        f"REQUESTED CREATIVE PALETTE: {', '.join(requested_palette)}. Use these colors for this piece's campaign mood only; they are not a claim about official brand identity and must not erase the official brand colors or logo." if requested_palette else "REQUESTED CREATIVE PALETTE: none.",
         prompt,
         "\nREFERENCE CONTRACT:",
         *(role_lines or ["No image reference was supplied; create an original image."]),
@@ -721,6 +755,7 @@ def normalize_image_references(raw, storage):
             "role": role,
             "source": "global" if value.startswith("/static/images/cadu/studio/references/") else str(item.get("source") or "user") if str(item.get("source") or "user") in {"user", "project"} else "user",
             "label": text(item.get("label") or f"Imagem {index + 1}", 120),
+            "instruction": text(item.get("instruction"), 300),
             "data": image_data,
         })
     if sum(1 for item in cleaned if item["role"] == "primary") > 1:

@@ -16,9 +16,21 @@ from werkzeug.exceptions import BadRequest, RequestEntityTooLarge, ServiceUnavai
 
 MAX_AUDIO_BYTES = 10 * 1024 * 1024
 MAX_AUDIO_SECONDS = 300
+# Audio files picked from the computer (meetings, briefings) may be long; they
+# are split into provider-sized chunks and transcribed in parallel.
+LONG_MAX_AUDIO_BYTES = 200 * 1024 * 1024
+LONG_MAX_AUDIO_SECONDS = 90 * 60
+CHUNK_SECONDS = 600
+SINGLE_REQUEST_BYTES = 24 * 1024 * 1024
 MIME_SUFFIXES = {
     "audio/webm": ".webm", "audio/ogg": ".ogg", "audio/mp4": ".m4a",
     "audio/mpeg": ".mp3", "audio/wav": ".wav", "audio/x-wav": ".wav",
+    "audio/x-m4a": ".m4a", "audio/m4a": ".m4a", "audio/aac": ".aac", "audio/mp3": ".mp3",
+    "audio/flac": ".flac", "audio/x-flac": ".flac", "video/webm": ".webm", "video/mp4": ".mp4",
+}
+EXTENSION_MIMES = {
+    ".webm": "audio/webm", ".ogg": "audio/ogg", ".oga": "audio/ogg", ".m4a": "audio/mp4", ".mp4": "audio/mp4",
+    ".mp3": "audio/mpeg", ".wav": "audio/wav", ".aac": "audio/aac", ".flac": "audio/flac",
 }
 
 
@@ -80,7 +92,7 @@ def _remote_transcription(*, provider: str, path: Path, mime: str, duration: flo
         fields["languages[]"] = language
     else:
         fields["language"] = language
-    timeout = min(55.0, max(18.0, 15.0 + max(0.0, float(duration or 0)) * .25))
+    timeout = min(180.0, max(18.0, 15.0 + max(0.0, float(duration or 0)) * .25))
     with path.open("rb") as source:
         response = requests.post(
             url,
@@ -124,13 +136,70 @@ def _local_transcription(path: Path) -> dict:
     }
 
 
-def transcribe_upload(file_storage) -> dict:
+def _transcribe_file(path: Path, mime: str, duration: float) -> tuple[dict, list[str]]:
+    failures = []
+    for provider in _provider_order():
+        try:
+            result = _local_transcription(path) if provider == "local" else _remote_transcription(provider=provider, path=path, mime=mime, duration=duration)
+            return result, failures
+        except (requests.RequestException, RuntimeError, ValueError) as error:
+            failures.append(f"{provider}: {error}")
+    raise ServiceUnavailable("Não foi possível transcrever o áudio agora.")
+
+
+def _transcribe_in_chunks(path: Path, duration: float) -> dict:
+    """Split a long file into mono MP3 chunks and transcribe them in order."""
+    import subprocess
+    import tempfile
+    from concurrent.futures import ThreadPoolExecutor
+    with tempfile.TemporaryDirectory(prefix="cadu-voice-chunks-") as folder:
+        pattern = str(Path(folder) / "part-%03d.mp3")
+        try:
+            subprocess.run([
+                "ffmpeg", "-v", "error", "-i", str(path), "-vn", "-ac", "1", "-ar", "16000", "-b:a", "48k",
+                "-f", "segment", "-segment_time", str(CHUNK_SECONDS), "-reset_timestamps", "1", pattern,
+            ], check=True, capture_output=True, timeout=300)
+        except (subprocess.SubprocessError, OSError) as error:
+            raise ServiceUnavailable("Não foi possível preparar o áudio para transcrição.") from error
+        parts = sorted(Path(folder).glob("part-*.mp3"))
+        if not parts:
+            raise ServiceUnavailable("Não foi possível preparar o áudio para transcrição.")
+        from flask import current_app, has_app_context
+        # Worker threads need their own app context: provider keys may be
+        # stored in the integrations table, read through the app's database.
+        app = current_app._get_current_object() if has_app_context() else None
+        def run(part):
+            if app is None:
+                return _transcribe_file(part, "audio/mpeg", min(CHUNK_SECONDS, duration))
+            with app.app_context():
+                return _transcribe_file(part, "audio/mpeg", min(CHUNK_SECONDS, duration))
+        with ThreadPoolExecutor(max_workers=min(4, len(parts))) as pool:
+            outcomes = list(pool.map(run, parts))
+    results = [item[0] for item in outcomes]
+    cost = sum((Decimal(str(item.get("provider_cost_usd") or 0)) for item in results), Decimal("0"))
+    return {
+        "text": clean_transcript(" ".join(item["text"] for item in results)),
+        "language": results[0].get("language") or "",
+        "provider": results[0].get("provider") or "unknown",
+        "model": results[0].get("model") or "unknown",
+        "provider_cost_usd": str(cost),
+        "chunks": len(results),
+        "_failures": sum(len(item[1]) for item in outcomes),
+    }
+
+
+def transcribe_upload(file_storage, *, allow_long: bool = False) -> dict:
+    max_bytes = LONG_MAX_AUDIO_BYTES if allow_long else MAX_AUDIO_BYTES
+    max_seconds = LONG_MAX_AUDIO_SECONDS if allow_long else MAX_AUDIO_SECONDS
     mime = str(file_storage.mimetype or "").split(";", 1)[0].strip().lower()
+    if allow_long and mime not in MIME_SUFFIXES:
+        # Computer files often arrive as application/octet-stream; trust the extension, ffprobe still validates.
+        mime = EXTENSION_MIMES.get(Path(str(file_storage.filename or "")).suffix.lower(), mime)
     if mime not in MIME_SUFFIXES:
         raise BadRequest("Formato de áudio não compatível com a transcrição.")
-    payload = file_storage.stream.read(MAX_AUDIO_BYTES + 1)
-    if len(payload) > MAX_AUDIO_BYTES:
-        raise RequestEntityTooLarge("A gravação pode ter no máximo 10 MB.")
+    payload = file_storage.stream.read(max_bytes + 1)
+    if len(payload) > max_bytes:
+        raise RequestEntityTooLarge(f"O áudio pode ter no máximo {max_bytes // (1024 * 1024)} MB.")
     if len(payload) < 256:
         raise BadRequest("A gravação está vazia ou curta demais.")
     descriptor, raw_path = mkstemp(prefix="cadu-voice-", suffix=MIME_SUFFIXES[mime])
@@ -139,19 +208,23 @@ def transcribe_upload(file_storage) -> dict:
     try:
         path.write_bytes(payload)
         from ..creative_media.studio import probe
-        duration, streams = probe(path)
-        if "audio" not in streams or not 0 < duration <= MAX_AUDIO_SECONDS:
-            raise BadRequest("Grave uma mensagem de voz com até cinco minutos.")
-        failures = []
-        result = None
-        for provider in _provider_order():
-            try:
-                result = _local_transcription(path) if provider == "local" else _remote_transcription(provider=provider, path=path, mime=mime, duration=duration)
-                break
-            except (requests.RequestException, RuntimeError, ValueError) as error:
-                failures.append(f"{provider}: {error}")
-        if not result:
-            raise ServiceUnavailable("Não foi possível transcrever o áudio agora.")
+        try:
+            duration, streams = probe(path)
+        except Exception as error:
+            if not allow_long:
+                raise
+            raise BadRequest("Não foi possível ler este arquivo de áudio.") from error
+        if "audio" not in streams or not 0 < duration <= max_seconds:
+            raise BadRequest(
+                f"Envie um áudio com até {max_seconds // 60} minutos." if allow_long
+                else "Grave uma mensagem de voz com até cinco minutos."
+            )
+        if allow_long and (duration > CHUNK_SECONDS or len(payload) > SINGLE_REQUEST_BYTES):
+            result = _transcribe_in_chunks(path, duration)
+            failures = result.pop("_failures", 0)
+            result.update(text=result["text"][:60000], duration=round(duration, 2), fallback_count=failures)
+            return result
+        result, failures = _transcribe_file(path, mime, duration)
         result.update(text=result["text"][:20000], duration=round(duration, 2), fallback_count=len(failures))
         return result
     except (BadRequest, RequestEntityTooLarge):

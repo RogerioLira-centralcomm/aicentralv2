@@ -319,6 +319,7 @@ def register_studio_routes(blueprint):
     blueprint.add_url_rule('/api/format-lab/studio/projects', view_func=studio_projects, methods=['GET', 'POST'])
     blueprint.add_url_rule('/api/format-lab/studio/library-sessions', view_func=studio_library_sessions, methods=['GET'])
     blueprint.add_url_rule('/api/format-lab/studio/reference-uploads', view_func=studio_reference_uploads, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/audio/transcriptions', view_func=studio_audio_transcriptions, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/brand-palette/suggest', view_func=studio_brand_palette_suggest, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/brand-palette', view_func=studio_brand_palette, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/personal-assets', view_func=studio_personal_assets, methods=['DELETE'])
@@ -949,6 +950,71 @@ def studio_library_sessions():
             'personal_assets': personal_assets,
             'reference_masks': _studio_reference_masks(),
         })
+    return execute(run)
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_audio_transcriptions():
+    """Turn a dictated briefing or an audio file into prompt text.
+
+    Same transcription chain as the Workspace composer (OpenAI, OpenRouter,
+    local Whisper); files chosen from the computer may be long and are
+    transcribed in chunks. Billed by audio duration to the Studio account.
+    """
+    import os
+    from ..cadu_workspace.voice_input_service import transcribe_upload, transcription_credit_tokens
+    from ..cadu_credit_connector import CaduCreditConnector, CreditActor
+    execute, _, ok, service = _http()
+
+    def run():
+        project_id = str(request.form.get('project_id') or '').strip()
+        client_id = request.form.get('client_id') if project_id else _quick_creative_client(service())
+        user_id = session.get('user_id')
+        _scope(client_id)
+        if not user_id:
+            raise ValueError('Entre novamente para transcrever o áudio.')
+        if project_id:
+            _assert_project_brand_access(project_id, client_id)
+        audio = request.files.get('audio')
+        if not audio or len(request.files) != 1:
+            raise ValueError('Envie um áudio por vez.')
+        from werkzeug.exceptions import HTTPException
+        try:
+            result = transcribe_upload(audio, allow_long=request.form.get('source') == 'file')
+        except HTTPException as error:
+            raise ValueError(error.description or 'Não foi possível transcrever o áudio agora.') from error
+        charged_credits = transcription_credit_tokens(result.get('duration'))
+        request_key = str(request.headers.get('X-Idempotency-Key') or uuid.uuid4()).strip()[:180]
+        payer = service()._credits_crm_id(client_id) or int(client_id)
+        charge = CaduCreditConnector().charge_provider(
+            actor=CreditActor.from_values(payer, int(user_id)),
+            idempotency_key=f'studio:voice-transcription:{client_id}:{request_key}',
+            app='studio.voice_transcription', stage='transcription',
+            provider_result={
+                'model': str(result.get('model') or 'unknown'),
+                'provider': result.get('provider') or 'unknown',
+                'actual_cost_usd': str(result.get('provider_cost_usd') or 0),
+            },
+            media_tokens=charged_credits if not result.get('provider_cost_usd') else None,
+            metadata={
+                'duration_seconds': result.get('duration'),
+                'language': result.get('language') or '',
+                'mime_type': str(audio.mimetype or '')[:100],
+                'provider': result.get('provider') or 'unknown',
+                'fallback_count': int(result.get('fallback_count') or 0),
+                'chunks': int(result.get('chunks') or 1),
+                'billing_basis': 'audio_duration',
+                'credits_per_minute': int(os.getenv('CADU_VOICE_CREDITS_PER_MINUTE', '300')),
+            },
+        )
+        return ok({
+            'text': result['text'],
+            'duration': result.get('duration'),
+            'chunks': int(result.get('chunks') or 1),
+            'charged_credits': int((charge or {}).get('tokens_cobrados') or charged_credits),
+        })
+
     return execute(run)
 
 

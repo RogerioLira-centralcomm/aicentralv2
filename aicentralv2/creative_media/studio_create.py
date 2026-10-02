@@ -630,6 +630,8 @@ def create_image(payload, modeling, client_id, user_id):
             f"LOGO ZONE: leave the {logo_corner.replace('-', ' ')} corner clean for the official logo that is applied afterwards; "
             "do not draw any logo or brand name in the image, and keep headline text and the button out of that corner."
         )
+    if logo_corner:
+        prompt = strip_logo_clauses(prompt)
     requested_palette = clean_palette(data.get("requested_palette"))
     layout_lines = composition_layout_lines(references, mask)
     technical_prompt = "\n".join([
@@ -656,6 +658,7 @@ def create_image(payload, modeling, client_id, user_id):
         f"Requested output dimensions: {width}x{height}px." if width and height else "Requested output dimensions: use the selected aspect ratio.",
         f"Creative direction exploration intensity: {direction_intensity}/100.",
         f"Output aspect ratio: {aspect_ratio}.",
+        *([f"FINAL LOGO CHECK: the image must contain no logo, wordmark, monogram or brand name of any company; the {logo_corner.replace('-', ' ')} corner stays plain background."] if logo_corner else []),
         *(["FINAL LAYOUT CHECK: the composition must match the wireframe zones described at the top; if it does not, recompose before finishing."] if layout_lines else []),
     ])
     provider_references = provider_image_references(references, mask)
@@ -946,6 +949,7 @@ def composition_layout_lines(references, mask=""):
 LOGO_WIDTH_RATIO = 0.20
 LOGO_HEIGHT_RATIO = 0.085
 LOGO_MARGIN_RATIO = 0.07
+LOGO_CORNER_EDGE_LIMIT = 9.0
 
 
 def logo_position(references):
@@ -990,6 +994,50 @@ def _mean_luminance(image, mask=None):
     return sum(luma for luma, alpha in zip(pixels, weights) if alpha > 128) / weight / 255
 
 
+_LOGO_WORD = re.compile(r"\blogo(?:tipo|marca|type)?s?\b|\bwordmark\b|\bmarca d['’]água\b", re.IGNORECASE)
+
+
+def strip_logo_clauses(prompt):
+    """Drop short clauses that ask the model to draw a logo; the Studio applies it afterwards.
+
+    The approved direction is written as ';'-separated clauses or sentences. A clause that
+    mentions the logo and nothing long besides it is removed so the model is not told to draw one.
+    """
+    pieces = re.split(r"(?<=[;.])\s+", str(prompt or ""))
+    kept = [piece for piece in pieces if not (_LOGO_WORD.search(piece) and len(piece) <= 220)]
+    return " ".join(kept).strip() or str(prompt or "")
+
+
+def clean_logo_corner(canvas, position):
+    """Blur the logo's corner when the model drew something there anyway.
+
+    The corner was asked to stay plain. If its edge density is high, lettering or a lookalike
+    mark is likely there (models like to hug the edge, so the zone reaches the border); a
+    feathered heavy blur makes it unreadable before the real logo goes on.
+    Returns True when the area had to be cleaned.
+    """
+    width, height = canvas.size
+    zone_w, zone_h = round(width * 0.32), round(height * 0.20)
+    at_left, at_top = position.endswith("left"), position.startswith("top")
+    left = 0 if at_left else width - zone_w
+    top = 0 if at_top else height - zone_h
+    box = (left, top, left + zone_w, top + zone_h)
+    region = canvas.crop(box).convert("RGB")
+    edges = region.convert("L").filter(ImageFilter.FIND_EDGES)
+    density = sum(edges.tobytes()) / max(1, edges.width * edges.height)
+    if density < LOGO_CORNER_EDGE_LIMIT:
+        return False
+    softened = region.filter(ImageFilter.GaussianBlur(radius=max(8, zone_h // 4))).convert("RGBA")
+    # Feather only the sides that face the picture; the sides on the border stay fully covered.
+    soft = 14
+    feather = Image.new("L", region.size, 0)
+    x0, x1 = (0, region.width - soft) if at_left else (soft, region.width)
+    y0, y1 = (0, region.height - soft) if at_top else (soft, region.height)
+    feather.paste(255, (x0, y0, x1, y1))
+    canvas.paste(softened, box[:2], feather.filter(ImageFilter.GaussianBlur(radius=soft / 2)))
+    return True
+
+
 def apply_brand_logo(encoded, output_format, logo, position="bottom-right"):
     """Place the official logo whole, away from the edges, with a plate when contrast is low."""
     try:
@@ -1000,6 +1048,8 @@ def apply_brand_logo(encoded, output_format, logo, position="bottom-right"):
         raise ValueError("A imagem retornada não pôde receber o logo.") from exc
     canvas = canvas.convert("RGBA")
     width, height = canvas.size
+    if clean_logo_corner(canvas, position):
+        logger.info("Studio logo corner had model-drawn content and was softened before the official logo")
     scale = min(width * LOGO_WIDTH_RATIO / logo.width, height * LOGO_HEIGHT_RATIO / logo.height)
     mark = logo.resize((max(1, round(logo.width * scale)), max(1, round(logo.height * scale))), Image.Resampling.LANCZOS)
     margin = round(min(width, height) * LOGO_MARGIN_RATIO)

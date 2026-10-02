@@ -536,3 +536,30 @@ def test_remote_logo_falls_back_to_the_model_reference():
     app = Flask(__name__)
     with app.app_context():
         assert studio_create.load_brand_logo({"logo_url": "https://cdn.example.com/logo.png"}) is None
+
+
+def test_clauses_that_ask_for_a_logo_are_removed_when_the_studio_applies_it():
+    prompt = "Objetivo: 2ª via pelo celular; logo Cemig oficial entra no canto inferior direito dentro da margem segura; paleta verde e branco. Texto: título exato."
+
+    cleaned = studio_create.strip_logo_clauses(prompt)
+
+    assert "logo" not in cleaned.lower()
+    assert "Objetivo: 2ª via pelo celular" in cleaned and "paleta verde e branco" in cleaned and "título exato" in cleaned
+
+
+def test_a_prompt_made_only_of_logo_text_is_kept_instead_of_emptied():
+    assert studio_create.strip_logo_clauses("Logo no canto.") == "Logo no canto."
+
+
+def test_a_busy_logo_corner_is_softened_and_a_plain_one_is_left_alone():
+    import random
+    from PIL import Image, ImageFilter
+    rng = random.Random(7)
+    busy = Image.new("RGB", (1080, 1350), (20, 60, 50))
+    for _ in range(900):
+        x, y = rng.randrange(780, 1080), rng.randrange(1060, 1350)
+        busy.paste((240, 240, 240), (x, y, x + 6, y + 14))
+    plain = Image.new("RGB", (1080, 1350), (20, 60, 50)).filter(ImageFilter.GaussianBlur(4))
+
+    assert studio_create.clean_logo_corner(busy.convert("RGBA"), "bottom-right") is True
+    assert studio_create.clean_logo_corner(plain.convert("RGBA"), "bottom-right") is False

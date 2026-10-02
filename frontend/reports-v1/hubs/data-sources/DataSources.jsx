@@ -22,7 +22,7 @@ export function DataSources({data}) {
   const business = (keys.body?.keys || []).filter(item => live(item) && item.source_kind !== 'google_ads_script');
   const accounts = data.accounts.filter(item => item.status !== 'disabled');
   return <div className="rs-stack">
-    <Section title="Mídia" description="Plataformas de anúncio conectadas e contas cadastradas" action={<ReportsActionButton color="secondary" size="sm" href={reportUrl('media/data')}>Conectar fonte</ReportsActionButton>}>
+    <Section title="Mídia" description="Plataformas de anúncio conectadas e contas cadastradas" action={<ReportsActionButton color="secondary" size="sm" href={reportUrl('data-sources/connect')}>Conectar fonte</ReportsActionButton>}>
       <Async state={keys} onRetry={retryKeys}>
         {() => <DataTable label="Fontes de mídia" rows={media} rowKey={row => row.id}
           empty={<EmptyState title="Nenhuma integração de mídia" description={accounts.length ? `${accounts.length} ${accounts.length === 1 ? 'conta cadastrada' : 'contas cadastradas'}, ainda sem envio automático. Gere o script do Google Ads ou envie arquivos.` : 'Cadastre as contas de mídia e conecte o Google Ads ou envie arquivos exportados.'}/>}
@@ -57,7 +57,7 @@ export function DataSources({data}) {
           ]}/>}
       </Async>
     </Section>
-    <Section title="Negócio" description="Conversões confirmadas pelo CRM" action={<ReportsActionButton color="secondary" size="sm" href={reportUrl('media/data')}>Conectar CRM</ReportsActionButton>}>
+    <Section title="Negócio" description="Conversões confirmadas pelo CRM" action={<ReportsActionButton color="secondary" size="sm" href={reportUrl('data-sources/connect')}>Conectar CRM</ReportsActionButton>}>
       <Async state={keys} onRetry={retryKeys}>
         {() => <DataTable label="Fontes de negócio" rows={business} rowKey={row => row.id}
           empty={<p className="rs-muted">Nenhum webhook de conversões. Conecte o CRM para confirmar leads e vendas.</p>} columns={[

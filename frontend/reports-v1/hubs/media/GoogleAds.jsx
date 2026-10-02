@@ -25,6 +25,7 @@ const badge = ([label, tone]) => <span className={`rs-badge is-${tone}`}>{label}
 const COMPARE = {previous: 'vs período anterior', year: 'vs mesmo período do ano anterior'};
 const change = (now, before) => before ? (Number(now || 0) - Number(before)) * 100 / Number(before) : null;
 const LIVE = ['approved', 'sent', 'applied'];
+const ACTION_ORDER = ['negate', 'add_keyword', 'review', 'covered', 'excluded', 'added', 'keep'];
 // A recommendation is settled once its change is waiting, being applied or applied; anything else can be approved again.
 const liveAction = (actions, item) => actions.byRecommendation.get(item.id) || item.queued || null;
 const proposalOf = item => ({...item.proposal, recommendation_id: item.id});
@@ -111,7 +112,7 @@ function Overview({body, money, onOpen, onEditGoal, actions, onApply}) {
       {label: 'Cliques', value: number(totals.clicks), detail: `CTR ${totals.ctr != null ? `${totals.ctr.toLocaleString('pt-BR')}%` : '—'} · CPC ${totals.cpc != null ? money(totals.cpc) : '—'}`},
     ]}/>
     <Section title="Próximos passos" description="Em ordem de execução: o que trava a conta primeiro, depois metas e o maior impacto em reais. As que têm mudança pronta podem ser aplicadas direto no Google Ads."
-      action={actions.canEdit && pending.length > 1 && <ReportsActionButton color="primary" size="sm" onClick={() => onApply(pending.map(proposalOf))}><Zap size={16} aria-hidden="true"/>Aplicar {pending.length} mudanças</ReportsActionButton>}>
+      action={actions.canEdit && pending.length > 1 && <ReportsActionButton color="primary" size="sm" onClick={() => onApply(pending.map(proposalOf))} iconLeading={Zap}>Aplicar {pending.length} mudanças</ReportsActionButton>}>
       <Recommendations items={body.recommendations} money={money} onOpen={onOpen} rules={body.rules} actions={actions} onApply={onApply}/>
     </Section>
     {body.goals_ready && <GoalsSection campaigns={body.campaigns} money={money} onEdit={onEditGoal}/>}
@@ -153,7 +154,7 @@ function Campaigns({body, money, onEditGoal}) {
 
 function SearchTerms({period, initialFilter, actions, onApply}) {
   const [state, retry] = useApi(apiUrl('/google-ads/search-terms', {start_date: period.start, end_date: period.end}));
-  const [filter, setFilter] = useState(initialFilter || 'negate');
+  const [filter, setFilter] = useState(initialFilter || 'all');
   const [match, setMatch] = useState('EXACT');
   const [selected, setSelected] = useState(() => new Set());
   const terms = state.body?.terms || [];
@@ -161,17 +162,23 @@ function SearchTerms({period, initialFilter, actions, onApply}) {
   const visible = filter === 'all' ? terms : terms.filter(row => row.action === filter);
   const money = value => currency(value, state.body?.currency);
   const keyOf = row => `${row.account_id}:${row.ad_group_external_id}:${row.term_hash}`;
+  const pickable = row => row.action === 'negate' || row.action === 'add_keyword';
   const chosen = visible.filter(row => selected.has(keyOf(row)));
-  const exportRows = chosen.length ? chosen : visible;
-  const exportable = filter === 'negate' || filter === 'add_keyword';
+  // In "Todos" the toolbar follows the selection: negatives unless only keyword candidates are marked.
+  const mode = filter === 'negate' || filter === 'add_keyword' ? filter : chosen.length && chosen.every(row => row.action === 'add_keyword') ? 'add_keyword' : 'negate';
+  const exportRows = (chosen.length ? chosen : visible).filter(row => row.action === mode);
+  const exportable = visible.some(pickable);
   if (state.error) return <ErrorState message={state.error} onRetry={retry}/>;
   if (state.loading && !state.body) return <LoadingState rows={8}/>;
   if (!terms.length) return <EmptyState title="Sem termos de pesquisa no período" description="Os termos chegam pelo script do Google Ads. Confira a coleta no Resumo."/>;
   const toggle = row => setSelected(current => {const next = new Set(current); next.has(keyOf(row)) ? next.delete(keyOf(row)) : next.add(keyOf(row)); return next;});
+  const pickableRows = visible.filter(pickable);
+  const allPicked = pickableRows.length > 0 && pickableRows.every(row => selected.has(keyOf(row)));
+  const toggleAll = () => setSelected(allPicked ? new Set() : new Set(pickableRows.map(keyOf)));
   const waste = visible.filter(row => row.action === 'negate').reduce((sum, row) => sum + Number(row.cost || 0), 0);
   // Same ids as the recommendations, so a term approved here also shows as approved in Resumo e ações.
   const recommendationId = row => `${row.action === 'add_keyword' ? 'add_keyword' : 'negative_candidate'}:${row.account_id}:${row.ad_group_external_id}:${row.term_hash}`;
-  const applicable = exportRows.filter(row => ['negate', 'add_keyword'].includes(row.action) && !LIVE.includes(actions.byRecommendation.get(recommendationId(row))?.status));
+  const applicable = (chosen.length ? chosen : exportRows).filter(row => pickable(row) && !LIVE.includes(actions.byRecommendation.get(recommendationId(row))?.status));
   const proposals = () => applicable.map(row => row.action === 'negate'
     ? {op: 'negative.add', account_id: row.account_id, target: {level: 'campaign', campaign_id: row.campaign_external_id},
       params: {text: row.search_term, match_type: match}, label: `Negativar ${match === 'EXACT' ? `[${row.search_term}]` : `"${row.search_term}"`} em “${row.campaign_name}”`,
@@ -180,19 +187,20 @@ function SearchTerms({period, initialFilter, actions, onApply}) {
       params: {text: row.search_term, match_type: 'EXACT'}, label: `Adicionar [${row.search_term}] em “${row.ad_group_name}”`, recommendation_id: recommendationId(row)});
   return <Section title="Termos de pesquisa" description={`${terms.length} termos com mais investimento no período${terms.length >= state.body.limit ? ` (os ${state.body.limit} primeiros)` : ''}${state.body.negatives_known ? '' : ' · negativas ainda não lidas: termos sem conversão ficam em Revisar'}`}
     action={exportable && <div className="rs-actions">
-      {filter === 'negate' && <ReportsNativeSelect aria-label="Correspondência da negativa" value={match} onChange={event => setMatch(event.target.value)}><option value="EXACT">Negativa exata</option><option value="PHRASE">Negativa de frase</option></ReportsNativeSelect>}
-      <ReportsActionButton color="secondary" size="sm" onClick={() => navigator.clipboard?.writeText(exportRows.map(row => filter === 'negate' && match === 'EXACT' ? `[${row.search_term}]` : filter === 'negate' ? `"${row.search_term}"` : `[${row.search_term}]`).join('\n'))}><Copy01 size={16} aria-hidden="true"/>Copiar</ReportsActionButton>
-      <ReportsActionButton color="secondary" size="sm" onClick={() => download(editorCsv(exportRows, filter, match), `google-ads-${filter === 'negate' ? 'negativas' : 'palavras-chave'}-${period.end}.csv`)}><Download01 size={16} aria-hidden="true"/>Exportar para o Editor ({exportRows.length})</ReportsActionButton>
-      {actions.canEdit && <ReportsActionButton color="primary" size="sm" isDisabled={!applicable.length} onClick={() => onApply(proposals())}><Zap size={16} aria-hidden="true"/>{filter === 'negate' ? 'Negativar' : 'Adicionar'} no Google Ads ({applicable.length})</ReportsActionButton>}
+      {mode === 'negate' && <ReportsNativeSelect aria-label="Correspondência da negativa" value={match} onChange={event => setMatch(event.target.value)}><option value="EXACT">Negativa exata</option><option value="PHRASE">Negativa de frase</option></ReportsNativeSelect>}
+      <ReportsActionButton color="secondary" size="sm" onClick={() => navigator.clipboard?.writeText(exportRows.map(row => mode === 'negate' && match === 'EXACT' ? `[${row.search_term}]` : mode === 'negate' ? `"${row.search_term}"` : `[${row.search_term}]`).join('\n'))} iconLeading={Copy01}>Copiar</ReportsActionButton>
+      <ReportsActionButton color="secondary" size="sm" onClick={() => download(editorCsv(exportRows, mode, match), `google-ads-${mode === 'negate' ? 'negativas' : 'palavras-chave'}-${period.end}.csv`)} iconLeading={Download01}>Exportar para o Editor ({exportRows.length})</ReportsActionButton>
+      {actions.canEdit && <ReportsActionButton color="primary" size="sm" isDisabled={!applicable.length} onClick={() => onApply(proposals())} iconLeading={Zap}>{chosen.length && chosen.some(row => row.action === 'negate') && chosen.some(row => row.action === 'add_keyword') ? 'Aplicar' : mode === 'negate' ? 'Negativar' : 'Adicionar'} no Google Ads ({applicable.length})</ReportsActionButton>}
     </div>}>
     <div className="rs-segmented ga-filter" role="group" aria-label="Ação">
-      {[['negate', 'Negativar'], ['add_keyword', 'Virar palavra-chave'], ['review', 'Revisar'], ['covered', 'Já negativados'], ['all', 'Todos']].filter(([key]) => key === 'all' || counts[key] || key === filter).map(([key, label]) =>
+      {[['negate', 'Negativar'], ['add_keyword', 'Virar palavra-chave'], ['review', 'Revisar'], ['covered', 'Já negativados'], ['excluded', 'Excluídos'], ['added', 'Já são palavras-chave'], ['keep', 'Manter'], ['all', 'Todos']].map(([key, label]) =>
         <button type="button" key={key} aria-pressed={filter === key} onClick={() => {setFilter(key); setSelected(new Set());}}>{label} · {key === 'all' ? terms.length : counts[key] || 0}</button>)}
     </div>
     {filter === 'negate' && waste > 0 && <p className="ga-note">{money(waste)} gastos nestes termos sem nenhuma conversão. Selecione as linhas e negative direto no Google Ads (próxima execução do script de Ações) ou exporte para o Editor.</p>}
-    <DataTable label="Termos de pesquisa" rows={visible} rowKey={keyOf} initialSort={{key: 'cost', dir: 'desc'}} empty={<p className="rs-muted">Nenhum termo nesta ação.</p>} columns={[
-      ...(exportable ? [{key: 'pick', label: '', sortable: false, render: row => <input type="checkbox" aria-label={`Selecionar ${row.search_term}`} checked={selected.has(keyOf(row))} onChange={() => toggle(row)}/>}] : []),
-      {key: 'action', label: 'Ação', sortable: false, render: row => {
+    <DataTable label="Termos de pesquisa" rows={visible} rowKey={keyOf} initialSort={{key: 'action', dir: 'asc'}} empty={<p className="rs-muted">Nenhum termo nesta ação.</p>} columns={[
+      ...(exportable ? [{key: 'pick', label: <input type="checkbox" aria-label="Selecionar todos" checked={allPicked} onChange={toggleAll}/>, sortable: false, render: row => pickable(row) ? <input type="checkbox" aria-label={`Selecionar ${row.search_term}`} checked={selected.has(keyOf(row))} onChange={() => toggle(row)}/> : null}] : []),
+      // Action first (what to do), then the most expensive term inside each action.
+      {key: 'action', label: 'Ação', sort: row => `${ACTION_ORDER.indexOf(row.action) < 0 ? 9 : ACTION_ORDER.indexOf(row.action)}:${String(1e12 - Math.round(Number(row.cost || 0) * 100)).padStart(13, '0')}`, render: row => {
         const applied = actions.byRecommendation.get(recommendationId(row));
         return applied ? <ActionStatus action={applied} actions={actions}/> : badge(TERM_ACTION[row.action] || [row.action, 'gray']);
       }},
@@ -279,7 +287,7 @@ function Negatives({period, actions, onApply}) {
       action={<div className="rs-actions">
         {actions.canEdit && <ReportsActionButton color="secondary" size="sm" isDisabled={review.busy || !active.length} onClick={runReview}>{review.busy ? 'Revisando…' : reviews ? 'Revisar de novo com IA' : 'Revisar com IA'}</ReportsActionButton>}
         {canPick && <ReportsActionButton color="secondary" size="sm" isDisabled={!suggested.length} onClick={() => setSelected(new Set(suggested.map(row => row.id)))}>Selecionar sugeridas ({suggested.length})</ReportsActionButton>}
-        {canPick && <ReportsActionButton color="primary" size="sm" isDisabled={!applicable.length} onClick={() => onApply(proposals())}><Zap size={16} aria-hidden="true"/>Remover no Google Ads ({applicable.length})</ReportsActionButton>}
+        {canPick && <ReportsActionButton color="primary" size="sm" isDisabled={!applicable.length} onClick={() => onApply(proposals())} iconLeading={Zap}>Remover no Google Ads ({applicable.length})</ReportsActionButton>}
       </div>}>
       <div className="rs-segmented ga-filter" role="group" aria-label="Grupo">
         {[['remove', `Pode remover · ${count('remove')}`], ['review', `Revisar · ${count('review')}`], ['keep', `Manter · ${count('keep')}`], ['all', `Todas · ${active.length}`], ['removed', `Removidas · ${removed.length}`]].map(([key, label]) =>
@@ -339,7 +347,7 @@ export function GoogleAds({data}) {
   if (state.loading && !body) return <div className="rs-stack"><LoadingState rows={2}/><LoadingState rows={6}/></div>;
   if (!body.ready || (!body.accounts.length && !hasAccount)) return <EmptyState title="Google Ads ainda não conectado"
     description="Gere o script do Google Ads em Mídia → Dados e programe-o para rodar todos os dias. Esta área mostra termos, negativas, palavras-chave e as ações recomendadas."
-    action={<ReportsActionButton color="primary" size="sm" href={reportUrl('media/data')}>Conectar Google Ads</ReportsActionButton>}/>;
+    action={<ReportsActionButton color="primary" size="sm" href={reportUrl('data-sources/connect')}>Conectar Google Ads</ReportsActionButton>}/>;
   const counts = {search_terms: body.counts?.negate || 0, overview: body.recommendations.filter(item => item.severity !== 'low').length, actions: actions.waiting};
   return <div className="rs-stack">
     <div className="ga-bar">

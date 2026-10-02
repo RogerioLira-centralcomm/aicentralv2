@@ -100,6 +100,19 @@ _NEGATIVES_SQL = '''SELECT n.id,n.account_id,n.level,n.campaign_external_id,n.ca
 _CURRENCY_SQL = '''SELECT DISTINCT COALESCE(currency,'') AS currency FROM cadu_reports_accounts
     WHERE client_id=%(client)s AND platform='google_ads' AND account_kind='advertiser' AND status<>'disabled' '''
 
+_UNLINKED_SQL = '''SELECT s.account_id,a.name AS account_name,s.campaign_external_id,s.campaign_name,s.status,s.channel_type,
+        s.bidding_strategy_type,s.last_seen
+    FROM (SELECT DISTINCT ON (account_id,campaign_external_id) account_id,campaign_external_id,campaign_name,status,channel_type,
+            bidding_strategy_type,last_seen
+        FROM (SELECT account_id,campaign_external_id,campaign_name,status,channel_type,bidding_strategy_type,NULL::date AS last_seen,0 AS rank
+                FROM cadu_reports_gads_campaign_settings WHERE client_id=%(client)s AND removed_at IS NULL
+            UNION ALL SELECT account_id,campaign_external_id,campaign_name,NULL,NULL,NULL,MAX(metric_date),1
+                FROM cadu_reports_gads_ad_group_daily WHERE client_id=%(client)s GROUP BY account_id,campaign_external_id,campaign_name) u
+        ORDER BY account_id,campaign_external_id,rank,last_seen DESC NULLS LAST) s
+    JOIN cadu_reports_accounts a ON a.id=s.account_id AND a.client_id=%(client)s
+    WHERE NOT EXISTS (SELECT 1 FROM cadu_reports_campaigns c WHERE c.account_id=s.account_id AND c.external_id=s.campaign_external_id::text)
+    ORDER BY (s.status='ENABLED') DESC NULLS LAST,a.name,s.campaign_name'''
+
 _TABLES = ('cadu_reports_gads_ad_group_daily', 'cadu_reports_gads_search_term_daily', 'cadu_reports_gads_keyword_daily',
            'cadu_reports_gads_device_daily', 'cadu_reports_gads_negative_keywords', 'cadu_reports_gads_campaign_settings')
 
@@ -305,6 +318,19 @@ def register(bp):
             row['target_cpa'] = round(row.pop('target_cpa_micros') / 1e6, 2) if row.get('target_cpa_micros') else None
             row['target_roas'] = float(row['target_roas']) if row.get('target_roas') else None
         return jsonify(history=rows, ready=True)
+
+    @bp.get('/api/v2/reports/google-ads/unlinked-campaigns')
+    @login_required_api
+    def reports_google_ads_unlinked_campaigns():
+        """Campaigns the script already sent that have no Reports campaign yet, so they can be created with the right ids."""
+        selected = _selection()
+        if not _ready():
+            return jsonify(campaigns=[])
+        rows = _rows(_UNLINKED_SQL, {'client': selected['client_id']})
+        for row in rows:
+            row['campaign_external_id'] = str(row['campaign_external_id'])
+            row['last_seen'] = row['last_seen'].isoformat() if row.get('last_seen') else None
+        return jsonify(campaigns=rows)
 
     @bp.get('/api/v2/reports/google-ads/summary')
     @login_required_api

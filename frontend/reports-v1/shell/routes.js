@@ -7,11 +7,15 @@ export const APP_BASE = '/connect/app';
 export const HUBS = {
   media: {
     title: 'Mídia', description: 'Investimento, alcance e resultado das campanhas.',
-    tabs: [['media', 'Visão geral'], ['media/campaigns', 'Campanhas'], ['media/google-ads', 'Google Ads'], ['media/creatives', 'Criativos'], ['media/data', 'Dados']],
+    tabs: [['media', 'Visão geral'], ['media/campaigns', 'Campanhas'], ['media/google-ads', 'Google Ads'], ['media/creatives', 'Criativos']],
   },
   journey: {
     title: 'Site & Jornada', description: 'O que as pessoas fazem depois que chegam ao site.',
     tabs: [['journey', 'Visão geral'], ['journey/flows', 'Fluxos'], ['journey/pages', 'Páginas'], ['journey/content', 'Conteúdos'], ['journey/navigation', 'Navegação'], ['journey/conversions', 'Conversões']],
+  },
+  data: {
+    title: 'Fontes de dados', description: 'De onde vêm os dados de mídia, site, CRM e arquivos deste cliente.',
+    tabs: [['data-sources', 'Visão geral'], ['data-sources/connect', 'Conexões e chaves'], ['supertag', 'Super Tag'], ['events', 'Eventos'], ['imports', 'Importações']],
   },
 };
 
@@ -25,7 +29,6 @@ export const ROUTES = {
   'media/campaigns': {page: 'campaigns', nav: 'media', hub: 'media', period: true},
   'media/google-ads': {page: 'google-ads', nav: 'media', hub: 'media', period: true},
   'media/creatives': {page: 'creatives', nav: 'media', hub: 'media'},
-  'media/data': {page: 'monitor', nav: 'media', hub: 'media'},
   journey: {page: 'journey', nav: 'journey', hub: 'journey', period: true, scope: 'site'},
   'journey/flows': {page: 'flow', nav: 'journey', hub: 'journey'},
   'journey/pages': {page: 'pages', nav: 'journey', hub: 'journey', period: true, scope: 'site'},
@@ -34,10 +37,11 @@ export const ROUTES = {
   'journey/conversions': {page: 'conversions', nav: 'journey', hub: 'journey', period: true},
   reports: {page: 'reports', nav: 'reports', title: 'Relatórios', description: 'Análises salvas e entregáveis prontos para distribuir.'},
   alerts: {page: 'alerts', nav: 'alerts', title: 'Alertas', description: 'O que precisa da sua atenção, com responsável e histórico.'},
-  'data-sources': {page: 'data-sources', nav: 'data-sources', title: 'Fontes de dados', description: 'De onde vêm os dados de mídia, site e arquivos deste cliente.'},
-  supertag: {page: 'supertag', nav: 'supertag', title: 'Super Tag', description: 'Uma tag para medir a atividade consentida nos sites.'},
-  events: {page: 'events', nav: 'events', title: 'Eventos', description: 'O que a Super Tag está capturando em cada página.', period: true},
-  imports: {page: 'imports', nav: 'imports', title: 'Importações', description: 'Envie arquivos e revise os dados antes de entrarem nos relatórios.'},
+  'data-sources': {page: 'data-sources', nav: 'data-sources', hub: 'data'},
+  'data-sources/connect': {page: 'monitor', nav: 'data-sources', hub: 'data'},
+  supertag: {page: 'supertag', nav: 'data-sources', hub: 'data'},
+  events: {page: 'events', nav: 'data-sources', hub: 'data', period: true},
+  imports: {page: 'imports', nav: 'data-sources', hub: 'data'},
   'tools/link-tester': {page: 'links', nav: 'links', title: 'Link Tester', description: 'Verifique destinos e associe links às campanhas certas.'},
   'settings/clients': {page: 'accounts', nav: 'accounts', title: 'Clientes e contas', description: 'Clientes e marcas, contas de mídia e campanhas com seus projetos do Workspace.'},
   'settings/accounts': {page: 'accounts', nav: 'accounts', title: 'Clientes e contas', description: 'Clientes e marcas, contas de mídia e campanhas com seus projetos do Workspace.'},
@@ -46,7 +50,7 @@ export const ROUTES = {
 
 /** Old first-level sections and where they live now. */
 export const LEGACY = {
-  campaigns: 'media/campaigns', monitor: 'media/data', pages: 'journey/pages', flows: 'journey/flows', flow: 'journey/flows',
+  campaigns: 'media/campaigns', monitor: 'data-sources/connect', pages: 'journey/pages', flows: 'journey/flows', flow: 'journey/flows',
   conversions: 'journey/conversions', customers: 'settings/clients', accounts: 'settings/accounts', access: 'settings/access',
   links: 'tools/link-tester', 'data-library': 'imports',
 };
@@ -75,6 +79,8 @@ export function legacyRedirect(href = location.href) {
   const url = new URL(href, location.origin);
   const parts = segments(url.pathname);
   // Mídia → Desempenho became the Google Ads area.
+  // Mídia → Dados became Fontes de dados → Conexões e chaves.
+  if (parts[0] === 'media' && parts[1] === 'data') {url.pathname = `${APP_BASE}/data-sources/connect`; return `${url.pathname}${url.search}${url.hash}`;}
   if (parts[0] === 'media' && parts[1] === 'performance') {url.pathname = `${APP_BASE}/media/google-ads`; return `${url.pathname}${url.search}${url.hash}`;}
   if (!parts.length) {url.pathname = `${APP_BASE}/overview`; return `${url.pathname}${url.search}${url.hash}`;}
   if (isFlowEntity(parts) || ROUTES[parts.slice(0, 2).join('/')] || (ROUTES[parts[0]] && !LEGACY[parts[0]])) return '';

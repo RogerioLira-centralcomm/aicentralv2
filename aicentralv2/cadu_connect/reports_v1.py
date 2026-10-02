@@ -204,7 +204,7 @@ def register(bp):
         published_sql = ('''EXISTS (SELECT 1 FROM cadu_connect_report_public_links l WHERE l.report_id=w.id
                 AND l.revoked_at IS NULL AND (l.expires_at IS NULL OR l.expires_at > NOW()))''' if links_ready else 'FALSE')
         reports = (_rows(f'''SELECT w.id,w.campaign_name,w.project_ref,w.account_id,w.media_campaign_id,
-                w.revision,w.updated_at,{published_sql} AS published FROM cadu_connect_report_workspaces w
+                w.document->>'flow_id' AS flow_id,w.document->>'flow_name' AS flow_name,w.revision,w.updated_at,{published_sql} AS published FROM cadu_connect_report_workspaces w
                 WHERE w.client_id=%s ORDER BY w.updated_at DESC LIMIT 60''', params)
             if reports_ready else [])
         link_tests_ready = _rows("SELECT to_regclass('public.cadu_reports_link_test_runs') IS NOT NULL AS ready")[0]['ready']
@@ -503,6 +503,26 @@ def register(bp):
             abort(503)
         name = _required_text(payload, 'campaign_name', 200)
         campaign_id = payload.get('media_campaign_id') or None
+        flow_id = str(payload.get('flow_id') or '').strip() or None
+        if flow_id and campaign_id:
+            abort(400, description='Escolha campanha ou fluxo, não os dois.')
+        flow = None
+        if flow_id:
+            try:
+                flow_id = str(uuid.UUID(flow_id))
+            except ValueError:
+                abort(400, description='Fluxo inválido.')
+            found_flow = _rows('''SELECT id,name,tag_id,campaign_id FROM cadu_reports_flow_registry
+                WHERE id=%s AND client_id=%s''', (flow_id, selected['client_id']))
+            if not found_flow:
+                abort(404, description='Fluxo não encontrado neste cliente.')
+            flow = found_flow[0]
+            # Media that brings traffic to the flow: the flow's own campaign plus the campaigns tied to its steps.
+            flow_campaigns = _rows('''SELECT c.id,c.name,c.external_id,a.platform FROM cadu_reports_campaigns c
+                LEFT JOIN cadu_reports_accounts a ON a.id=c.account_id
+                WHERE c.client_id=%s AND (c.id=%s OR c.id IN (SELECT s.campaign_id FROM cadu_reports_flow_steps s
+                    WHERE s.client_id=%s AND s.tag_id=%s AND s.archived_at IS NULL AND s.campaign_id IS NOT NULL))
+                ORDER BY c.name''', (selected['client_id'], flow['campaign_id'], selected['client_id'], flow['tag_id']))
         account_id = None
         platform = ''
         external_account_id = ''
@@ -528,7 +548,12 @@ def register(bp):
             'external_account_id': external_account_id,
             'external_campaign_id': external_campaign_id,
         }
-        campaign_key = f"media:{campaign_id}" if campaign_id else f"standalone:{uuid.uuid4()}"
+        if flow:
+            document.update({'scope': 'flow', 'flow_id': flow_id, 'flow_name': flow['name'],
+                             'flow_campaigns': [{'id': row['id'], 'name': row['name'], 'platform': row['platform'] or '',
+                                                 'external_id': row['external_id'] or ''} for row in flow_campaigns]})
+        campaign_key = (f"media:{campaign_id}" if campaign_id else f"flow:{flow_id}:{uuid.uuid4()}" if flow
+                        else f"standalone:{uuid.uuid4()}")
         created = _rows('''INSERT INTO cadu_connect_report_workspaces
                 (client_id,project_ref,campaign_name,campaign_key,document,account_id,media_campaign_id,created_by,updated_by)
                 VALUES (%s,NULL,%s,%s,%s::jsonb,%s,%s,%s,%s) RETURNING id,revision''',
@@ -616,6 +641,11 @@ def register(bp):
             source_document = report[0].get('document') or {}
             safe_document = {key: _redact_ai_text(source_document.get(key), limit)
                              for key, limit in (('objective', 2000), ('goals', 4000))}
+            if source_document.get('scope') == 'flow' and safe_document.get('objective'):
+                # A flow report reads the journey first; the planner sees which flow and media it covers.
+                media = ', '.join(item.get('name', '') for item in source_document.get('flow_campaigns') or []) or 'sem campanhas ligadas'
+                scope = f"Escopo: fluxo “{_redact_ai_text(source_document.get('flow_name'), 120)}” (mídia: {_redact_ai_text(media, 600)})."
+                safe_document['objective'] = f"{scope}\n\n{safe_document['objective']}"
             plan = suggest_report_plan(safe_document, reviewed_metrics,
                                       reviewed_source_count=reviewed_source_count)
         except TypeSafeError as exc:

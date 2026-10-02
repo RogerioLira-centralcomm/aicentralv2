@@ -8,6 +8,7 @@ import {ReportsNativeSelect} from './ReportsNativeSelect.jsx';
 import {ReportsTextArea} from './ReportsTextArea.jsx';
 import {Alert, Callout, Card, DateField, DrawerActions, EmptyNote} from './ReportsBlocks.jsx';
 import {json, shortDate} from './reportsCommon.jsx';
+import {createFromGoogle, loadUnlinkedGoogleCampaigns} from './GoogleCampaignLinks.jsx';
 
 const API = '/connect/api/v2/reports';
 const EMPTY_METRIC = {name: '', raw: '', unit: 'count', definition: '', scope: '', evidence: ''};
@@ -39,19 +40,22 @@ function Library({data, onOpen, onCreate}) {
   const [kind, setKind] = useState('all');
   const term = query.trim().toLocaleLowerCase();
   const visible = data.reports.filter(item => (!term || `${item.campaign_name} ${item.project_ref || ''}`.toLocaleLowerCase().includes(term))
-    && (!campaign || (campaign === 'none' ? !item.media_campaign_id : String(item.media_campaign_id) === campaign))
+    && (!campaign || (campaign === 'none' ? !item.media_campaign_id && !item.flow_id : campaign.startsWith('flow:') ? item.flow_id === campaign.slice(5) : String(item.media_campaign_id) === campaign))
     && (kind === 'all' || (kind === 'published') === Boolean(item.published)));
   const counts = {all: data.reports.length, published: data.reports.filter(item => item.published).length, draft: data.reports.filter(item => !item.published).length};
   const campaignName = id => data.campaigns.find(item => String(item.id) === String(id))?.name;
-  return <Card flush title="Relatórios" badge={<Badge type="pill-color" size="sm" color="gray">{data.reports.length}</Badge>} description="Documentos de resultado por campanha ou período, com evidências revisadas e link público opcional."
+  const flows = [...new Map(data.reports.filter(item => item.flow_id).map(item => [item.flow_id, item.flow_name])).entries()];
+  const scopeLabel = item => item.flow_id ? `Fluxo · ${item.flow_name || 'sem nome'}` : campaignName(item.media_campaign_id) || 'Sem campanha';
+  return <Card flush title="Relatórios" badge={<Badge type="pill-color" size="sm" color="gray">{data.reports.length}</Badge>} description="Documentos de resultado por campanha ou por fluxo, com evidências revisadas e link público opcional."
     actions={data.client.role !== 'viewer' && <Button size="md" color="primary" iconLeading={Plus} onPress={onCreate}>Criar relatório</Button>}>
     <div className="flex flex-wrap items-center gap-3 border-b border-secondary px-6 py-3">
       <div className="rs-segmented rs-segmented--sm" role="group" aria-label="Situação">{KINDS.map(([key, label]) => <button type="button" key={key} aria-pressed={kind === key} onClick={() => setKind(key)}>{label} <small>{counts[key]}</small></button>)}</div>
       <div className="ml-auto flex flex-wrap gap-3">
         <div className="w-64"><ReportsFieldInput size="sm" type="search" aria-label="Buscar relatório" placeholder="Buscar relatório" value={query} onChange={event => setQuery(event.target.value)}
           leading={<SearchLg size={16} aria-hidden="true" className="ml-3 shrink-0 text-fg-quaternary"/>}/></div>
-        <div className="w-56"><ReportsNativeSelect size="sm" aria-label="Campanha" value={campaign} onChange={event => setCampaign(event.target.value)}>
-          <option value="">Todas as campanhas</option><option value="none">Sem campanha</option>
+        <div className="w-56"><ReportsNativeSelect size="sm" aria-label="Campanha ou fluxo" value={campaign} onChange={event => setCampaign(event.target.value)}>
+          <option value="">Todas as campanhas e fluxos</option><option value="none">Sem campanha nem fluxo</option>
+          {flows.map(([id, name]) => <option key={id} value={`flow:${id}`}>Fluxo · {name}</option>)}
           {data.campaigns.filter(item => data.reports.some(report => String(report.media_campaign_id) === String(item.id))).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
         </ReportsNativeSelect></div>
       </div>
@@ -63,26 +67,87 @@ function Library({data, onOpen, onCreate}) {
         <span className="text-xs text-tertiary">v{item.revision}</span>
       </div>
       <h3 className="text-md font-semibold text-primary">{item.campaign_name}</h3>
-      <p className="text-sm text-tertiary">{campaignName(item.media_campaign_id) || 'Sem campanha'}{item.project_ref ? ' · com projeto' : ''}</p>
+      <p className="text-sm text-tertiary">{scopeLabel(item)}{item.project_ref ? ' · com projeto' : ''}</p>
       <p className="mt-auto pt-2 text-xs text-quaternary">Atualizado em {shortDate(item.updated_at)}</p>
     </button>)}</div>
-      : <EmptyNote title={data.reports.length ? 'Nada corresponde aos filtros' : 'Nenhum relatório ainda'}>{data.reports.length ? 'Ajuste a busca, a situação ou a campanha.' : 'Crie um relatório independente ou associado a uma campanha.'}</EmptyNote>}
+      : <EmptyNote title={data.reports.length ? 'Nada corresponde aos filtros' : 'Nenhum relatório ainda'}>{data.reports.length ? 'Ajuste a busca, a situação ou a campanha.' : 'Crie um relatório por campanha, por fluxo ou independente.'}</EmptyNote>}
   </Card>;
 }
 
 function CreateDrawer({open, data, save, busy, onClose}) {
-  const [form, setForm] = useState({campaign_name: '', media_campaign_id: ''});
-  useEffect(() => {if (open) setForm({campaign_name: '', media_campaign_id: ''});}, [open]);
-  const submit = async event => {event.preventDefault(); try {await save('/workspaces', form); onClose();} catch (_) { /* The page banner shows the failure. */ }};
-  return <ReportsDrawer open={open} onOpenChange={value => {if (!value) onClose();}} title="Criar relatório" description="O relatório pertence a este cliente; a campanha é opcional." context={data.client.client_name}>
+  const [form, setForm] = useState({campaign_name: '', media_campaign_id: '', flow_id: ''});
+  const [scope, setScope] = useState('campaign');
+  const [flows, setFlows] = useState(null);
+  const [flowError, setFlowError] = useState('');
+  const [google, setGoogle] = useState([]);
+  useEffect(() => {if (open) loadUnlinkedGoogleCampaigns().then(setGoogle).catch(() => setGoogle([]));}, [open]);
+  const pickedGoogle = form.media_campaign_id.startsWith('gads:') ? google[Number(form.media_campaign_id.slice(5))] : null;
+  useEffect(() => {if (open) {setForm({campaign_name: '', media_campaign_id: '', flow_id: ''}); setScope('campaign');}}, [open]);
+  // Flows load only when the flow scope is picked: the list comes from the Fluxos area.
+  useEffect(() => {
+    if (!open || scope !== 'flow' || flows) return;
+    json(`${API}/flow`).then(value => setFlows((value.flows || []).filter(item => !item.archived_at))).catch(failure => {setFlows([]); setFlowError(failure.message);});
+  }, [open, scope]);
+  const submit = async event => {
+    event.preventDefault();
+    try {
+      // A Google Ads campaign without a Reports record is created first, with all the context the script sent.
+      const campaignId = pickedGoogle ? (await createFromGoogle(save, pickedGoogle, false)).campaign.id : form.media_campaign_id;
+      const payload = scope === 'flow' ? {campaign_name: form.campaign_name, flow_id: form.flow_id} : scope === 'campaign' ? {campaign_name: form.campaign_name, media_campaign_id: campaignId} : {campaign_name: form.campaign_name};
+      await save('/workspaces', payload); onClose();
+    } catch (_) { /* The page banner shows the failure. */ }
+  };
+  const SCOPES = [['campaign', 'Por campanha', 'Resultado de mídia de uma campanha.'], ['flow', 'Por fluxo', 'Jornada do fluxo com a mídia das campanhas que levam tráfego a ele.'], ['none', 'Independente', 'Sem vínculo; você monta as evidências.']];
+  return <ReportsDrawer open={open} onOpenChange={value => {if (!value) onClose();}} title="Criar relatório" description="Escolha o foco do relatório: uma campanha ou um fluxo." context={data.client.client_name}>
     <form className="untitled-scope flex flex-col gap-5" onSubmit={submit}>
       <ReportsFieldInput label="Nome" required maxLength={200} value={form.campaign_name} onChange={event => setForm({...form, campaign_name: event.target.value})} placeholder="Ex.: Resultado de setembro"/>
-      <ReportsNativeSelect label="Campanha" hint="Opcional." value={form.media_campaign_id} onChange={event => setForm({...form, media_campaign_id: event.target.value})}>
-        <option value="">Sem campanha vinculada</option>{data.campaigns.map(item => <option key={item.id} value={item.id}>{item.name} · {item.account_name || 'manual'}</option>)}
-      </ReportsNativeSelect>
+      <fieldset className="flex flex-col gap-2"><legend className="mb-2 text-sm font-medium text-secondary">Foco</legend>
+        {SCOPES.map(([key, label, hint]) => <label key={key} className={`flex cursor-pointer items-start gap-3 rounded-lg p-3 ring-inset ${scope === key ? 'bg-brand-primary ring-2 ring-brand' : 'ring-1 ring-secondary hover:bg-primary_hover'}`}>
+          <input type="radio" name="report-scope" className="mt-1 size-4 accent-brand-600" checked={scope === key} onChange={() => setScope(key)}/>
+          <span><span className="block text-sm font-semibold text-primary">{label}</span><span className="block text-sm text-tertiary">{hint}</span></span>
+        </label>)}
+      </fieldset>
+      {scope === 'campaign' && <ReportsNativeSelect label="Campanha" required value={form.media_campaign_id} onChange={event => setForm({...form, media_campaign_id: event.target.value})}
+        hint={pickedGoogle ? `Será criada agora com a conta ${pickedGoogle.account_name}, o ID ${pickedGoogle.campaign_external_id}, o tipo e o objetivo do Google Ads.` : google.length ? `${google.length} campanha(s) do Google Ads ainda sem cadastro aparecem no fim da lista: escolha uma para criar na hora.` : undefined}>
+        <option value="">{data.campaigns.length || google.length ? 'Escolha a campanha' : 'Nenhuma campanha cadastrada'}</option>{data.campaigns.map(item => <option key={item.id} value={item.id}>{item.name} · {item.account_name || 'manual'}</option>)}
+        {google.map((item, index) => <option key={`gads-${index}`} value={`gads:${index}`}>＋ Criar do Google Ads: {item.campaign_name || item.campaign_external_id} · {item.account_name}</option>)}
+      </ReportsNativeSelect>}
+      {scope === 'campaign' && !data.campaigns.length && google.length > 0 && !pickedGoogle && <Button size="sm" color="secondary" iconLeading={Plus} onPress={() => setForm({...form, media_campaign_id: 'gads:0', campaign_name: form.campaign_name || `Resultado · ${google[0].campaign_name}`})}>Criar rápido com a campanha do Google Ads</Button>}
+      {scope === 'flow' && <ReportsNativeSelect label="Fluxo" required hint={flowError || (flows && !flows.length ? 'Nenhum fluxo neste cliente. Crie em Site & Jornada › Fluxos.' : 'As campanhas ligadas ao fluxo e às etapas entram no relatório.')} value={form.flow_id} onChange={event => setForm({...form, flow_id: event.target.value})}>
+        <option value="">{flows ? 'Escolha o fluxo' : 'Carregando fluxos…'}</option>{(flows || []).map(item => <option key={item.id} value={item.id}>{item.name}{item.status === 'published' ? '' : item.status === 'paused' ? ' (pausado)' : ' (rascunho)'}</option>)}
+      </ReportsNativeSelect>}
       <DrawerActions onCancel={onClose} busy={busy} label="Criar relatório"/>
     </form>
   </ReportsDrawer>;
+}
+
+/** Flow-scoped report: the journey of the flow in the report period, plus the media feeding it. */
+function FlowJourneyCard({document}) {
+  const [state, setState] = useState({loading: true});
+  const params = new URLSearchParams(document.start_date && document.end_date ? {start_date: document.start_date, end_date: document.end_date} : {days: '30'});
+  useEffect(() => {
+    let live = true;
+    json(`${API}/flow/flows/${document.flow_id}/journey?${params}`).then(body => live && setState({body})).catch(failure => live && setState({error: failure.message}));
+    return () => {live = false;};
+  }, [document.flow_id, document.start_date, document.end_date]);
+  const body = state.body;
+  const labels = Object.fromEntries((body?.config?.nodes || []).map(node => [node.id, node.title || node.label || node.name || node.id]));
+  const steps = (body?.nodes || []).filter(node => node.sessions != null);
+  const pct = value => value == null ? '—' : `${value.toLocaleString('pt-BR')}%`;
+  return <Card title={`Jornada · ${document.flow_name}`} description={`${body?.scope ? `${shortDate(body.scope.from)} – ${shortDate(body.scope.to)}` : 'Últimos 30 dias'} · Super Tag do fluxo. Mídia: ${(document.flow_campaigns || []).map(item => item.name).join(', ') || 'nenhuma campanha ligada ao fluxo'}.`}>
+    {state.loading ? <p className="text-sm text-tertiary">Carregando a jornada…</p>
+      : state.error ? <Alert>{state.error}</Alert>
+      : body.status !== 'ready' ? <EmptyNote title="Jornada indisponível">Publique o fluxo para medir a jornada.</EmptyNote>
+      : <div className="flex flex-col gap-4">
+        <dl className="grid gap-px overflow-hidden rounded-lg bg-border-secondary ring-1 ring-secondary sm:grid-cols-3">
+          {[['Entradas', body.funnel?.entries], ['Conversões', body.funnel?.conversions], ['Taxa', pct(body.funnel?.rate)]].map(([term, value]) =>
+            <div key={term} className="bg-primary px-4 py-3"><dt className="text-sm text-tertiary">{term}</dt><dd className="text-xl font-semibold text-primary tabular-nums">{typeof value === 'number' ? value.toLocaleString('pt-BR') : value ?? '—'}</dd></div>)}
+        </dl>
+        {steps.length ? <table className="w-full text-sm"><thead><tr><th className="py-2 text-left font-medium text-tertiary">Etapa</th><th className="py-2 text-right font-medium text-tertiary">Sessões</th></tr></thead>
+          <tbody>{steps.map(node => <tr key={node.id} className="border-t border-secondary"><td className="py-2 text-primary">{labels[node.id]}</td><td className="py-2 text-right tabular-nums">{node.sessions.toLocaleString('pt-BR')}</td></tr>)}</tbody></table>
+          : <p className="text-sm text-tertiary">{body.collection?.status === 'no_data' ? 'Nenhum evento da Super Tag no período.' : 'Nenhuma etapa medida.'}</p>}
+      </div>}
+  </Card>;
 }
 
 function ReportDetail({data, save, busy, detail, refresh, onBack, setError}) {
@@ -129,6 +194,7 @@ function ReportDetail({data, save, busy, detail, refresh, onBack, setError}) {
     </section>
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
       <div className="flex min-w-0 flex-col gap-6">
+        {detail.report.document?.scope === 'flow' && <FlowJourneyCard document={detail.report.document}/>}
         <Card title="Documento" description="O que o relatório comunica. Cada atualização vira uma versão.">
           <form className="flex flex-col gap-5" onSubmit={update}>
             <ReportsTextArea label="Objetivo" disabled={viewer} maxLength={2000} rows={3} value={draft.objective || ''} onChange={event => edit('objective', event.target.value)}/>

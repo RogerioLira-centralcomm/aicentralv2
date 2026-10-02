@@ -8,6 +8,7 @@ import {ReportsLibrary} from './ReportsLibrary.jsx';
 import {CampaignDetail} from './CampaignDetail.jsx';
 import {SuperTagPage} from './SuperTagPage.jsx';
 import {CAMPAIGN_STATUS, ClientsAccounts, Status as CampaignStatus, channelLabel} from './ClientsAccounts.jsx';
+import {UnlinkedGoogleCampaigns} from './GoogleCampaignLinks.jsx';
 import {SharedReports} from './SharedReports.jsx';
 import React, {useEffect, useMemo, useState} from 'react';
 import {createRoot} from 'react-dom/client';
@@ -84,7 +85,9 @@ function Campaigns({data, save, busy, filters, refreshRevision}) {
   const changeCampaignTab = value => {setTab(value);history.replaceState(history.state,'',campaignUrl({view:value}));};
   const closeCampaign = () => {setCampaignId('');setCampaignDetail(null);setDetailError('');history.replaceState(history.state,'',campaignUrl({id:'',view:''}));};
   if (campaignId) return <CampaignDetail data={data} detail={campaignDetail} error={detailError} tab={tab} setTab={changeCampaignTab} close={closeCampaign} filters={filters} refreshRevision={refreshRevision} save={save} busy={busy} updateDetail={setCampaignDetail} />;
-  return <section className="reports-campaigns-page reports-campaigns-list-page"><article className="reports-panel">
+  return <section className="reports-campaigns-page reports-campaigns-list-page">
+    <UnlinkedGoogleCampaigns save={save} busy={busy} clientId={data.client.client_id} revision={refreshRevision}/>
+    <article className="reports-panel">
     <div className="reports-panel-head"><div><h2>Campanhas <small>{visibleCampaigns.length} de {data.campaigns.length}</small></h2><p>Abra uma campanha para ver desempenho, criativos e jornada.</p></div>
       <UntitledButton size="sm" color="secondary" href={`${APP_BASE}/settings/accounts`}>Gerenciar em Clientes e contas</UntitledButton></div>
     {visibleCampaigns.length ? <div className="reports-table-wrap"><table className="cadu-table"><thead><tr><th>Campanha</th><th>Conta</th><th>Tipo</th><th>Status</th></tr></thead><tbody>{visibleCampaigns.map(item => <tr key={item.id}>
@@ -100,7 +103,7 @@ const reportIcons = {overview:'home', media:'analysis', journey:'branch', report
 const NAV_GROUPS = [
   ['', [['overview', 'Visão geral', 'overview']]],
   ['Análise', [['media', 'Mídia', 'media'], ['journey', 'Site & Jornada', 'journey'], ['reports', 'Relatórios', 'reports'], ['alerts', 'Alertas', 'alerts']]],
-  ['Dados', [['data-sources', 'Fontes de dados', 'data-sources'], ['supertag', 'Super Tag', 'supertag'], ['events', 'Eventos', 'events'], ['imports', 'Importações', 'imports']]],
+  ['Dados', [['data-sources', 'Fontes de dados', 'data-sources']]],
   ['Ferramentas', [['links', 'Link Tester', 'tools/link-tester']]],
   ['Configurações', [['accounts', 'Clientes e contas', 'settings/accounts'], ['access', 'Acessos', 'settings/access']]],
 ];

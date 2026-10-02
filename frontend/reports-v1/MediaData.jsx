@@ -10,6 +10,7 @@ import {FlowPlatformLogo} from './FlowPlatformLogo.jsx';
 import {GoogleAdsHowItWorks} from './hubs/media/GoogleAdsHowItWorks.jsx';
 import {APP_BASE} from './shell/routes.js';
 import {integer, json, shortDate} from './reportsCommon.jsx';
+import {UnlinkedGoogleCampaigns} from './GoogleCampaignLinks.jsx';
 
 const validGoogleAdsAccountId = value => /^(?:\d{10}|\d{3}-\d{3}-\d{4})$/.test(String(value || '').trim());
 const formatGoogleId = value => String(value).replace(/^(\d{3})(\d{3})(\d{4})$/, '$1-$2-$3');
@@ -24,6 +25,14 @@ const SCRIPTS = {
   read: {file: '/static/cadu_connect/google-ads-engine-v2.js', title: 'Leitura', schedule: 'diariamente', kind: 'google_ads_script'},
   actions: {file: '/static/cadu_connect/google-ads-actions.js', title: 'Acoes', schedule: 'de hora em hora', kind: 'google_ads_actions'},
 };
+
+/** Numbered step title: the connection reads as choose → configure → install → link campaigns. */
+function Step({n, title, children}) {
+  return <div className="flex items-start gap-3">
+    <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-solid text-sm font-semibold text-white">{n}</span>
+    <div><p className="text-md font-semibold text-primary">{title}</p>{children && <p className="mt-0.5 text-sm text-tertiary">{children}</p>}</div>
+  </div>;
+}
 
 /** Name used for the .txt file and suggested for the script in Google Ads: product, script, account and version. */
 export function scriptName(kind, accountLabel, version) {
@@ -90,6 +99,7 @@ export function MediaData({data, save, busy}) {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
   const [revokeId, setRevokeId] = useState('');
+  const [keyFilter, setKeyFilter] = useState('active');
   const canEdit = data.client.role !== 'viewer';
   const google = sourceKind === 'google_ads_script';
   const managers = data.accounts.filter(account => account.platform === 'google_ads' && account.account_kind === 'manager' && account.status !== 'disabled' && validGoogleAdsAccountId(account.external_id));
@@ -159,7 +169,15 @@ export function MediaData({data, save, busy}) {
     try {await save(`/ingest-keys/${id}/revoke`, {}, false); await reload(); setRevokeId('');} catch (failure) {setError(failure.message);}
   };
   const badLimit = withActions && Object.values(limits).some(value => !(Number(String(value).replace(',', '.')) >= 1 && Number(String(value).replace(',', '.')) <= 100));
-  const disabled = busy || (google && (!accountIds.length || (managerAccountId && !children.length) || badLimit));
+  // Why "Gerar" is off, said next to the button instead of only greying it out.
+  const reason = !google ? '' : managerAccountId && !children.length ? 'Esta MCC não tem contas anunciantes cadastradas.'
+    : !accountIds.length ? (managerAccountId ? 'Marque ao menos uma conta da MCC.' : 'Escolha a conta que receberá os dados.')
+    : badLimit ? 'Os tetos de variação devem ficar entre 1% e 100%.' : !label.trim() ? 'Dê um nome à instalação.' : '';
+  const disabled = busy || Boolean(reason);
+  const shownKeys = keys.filter(item => keyFilter === 'all' || (keyFilter === 'active' ? !item.revoked_at : item.revoked_at));
+  const generated = scripts.length > 0 || Boolean(script);
+  const googleKeys = active.filter(item => item.source_kind === 'google_ads_script');
+  const receiving = googleKeys.some(item => item.last_used_at);
 
   return <div className="untitled-scope flex flex-col gap-6">
     <dl className="grid gap-px overflow-hidden rounded-xl bg-border-secondary shadow-xs ring-1 ring-secondary sm:grid-cols-4">
@@ -170,6 +188,7 @@ export function MediaData({data, save, busy}) {
 
     {canEdit && <Card title="Conectar fonte" description="Cada fonte recebe uma chave própria. Você pode revogar a qualquer momento." actions={<GoogleAdsHowItWorks/>}>
       <form className="flex flex-col gap-6" onSubmit={create}>
+        <Step n={1} title="Escolha a fonte"/>
         <div role="radiogroup" aria-label="Fonte" className="grid gap-3 sm:grid-cols-2">
           {Object.entries(SOURCES).map(([kind, source]) => {
             const on = sourceKind === kind;
@@ -180,6 +199,7 @@ export function MediaData({data, save, busy}) {
             </label>;
           })}
         </div>
+        <Step n={2} title="Configure">{google ? 'Conta ou MCC onde o script roda, contas autorizadas e, se quiser, o script de Ações.' : 'Dê um nome; a chave do webhook é gerada em seguida.'}</Step>
         <div className="grid gap-4 sm:grid-cols-2">
           <ReportsFieldInput label="Nome da instalação" required maxLength={120} value={label} onChange={event => setLabel(event.target.value)} hint="Aparece na lista de chaves."/>
           {google && <ReportsNativeSelect label="Onde o script será instalado" value={managerAccountId} onChange={event => {setManagerAccountId(event.target.value); setAccountIds([]);}}>
@@ -216,12 +236,17 @@ export function MediaData({data, save, busy}) {
           <p className="text-sm text-warning-primary">{blocking.length} conta(s) sem ID de 10 dígitos. <a className="font-semibold underline" href={`${APP_BASE}/settings/accounts`}>Corrija em Clientes e contas</a> para incluí-las.</p>
         </div>}
         <div className="flex items-center justify-end gap-3 border-t border-secondary pt-5">
-          {google && <span className="text-sm text-tertiary">{accountIds.length ? `${accountIds.length} conta(s) selecionada(s)` : 'Escolha ao menos uma conta'}</span>}
+          <span role="status" className={`text-sm ${reason ? 'text-warning-primary' : 'text-tertiary'}`}>{reason || (google ? `${accountIds.length} conta(s) selecionada(s)` : '')}</span>
           <Button type="submit" size="md" color="primary" isDisabled={disabled} isLoading={busy}>{google ? (withActions ? 'Gerar os 2 scripts' : 'Gerar script de Leitura') : 'Gerar chave do webhook'}</Button>
         </div>
       </form>
     </Card>}
 
+    {canEdit && <Card title={<span className="flex items-center gap-3"><span className="flex size-7 items-center justify-center rounded-full bg-brand-solid text-sm font-semibold text-white">3</span>Instale e acompanhe o primeiro envio</span>}
+      description={generated ? (generatedKind === 'conversion_webhook' ? 'Envie as conversões no formato abaixo. O primeiro lote aparece em Últimos envios.' : 'Cole cada script em Ferramentas › Scripts da conta ou MCC e agende: Leitura diariamente, Ações de hora em hora.')
+        : googleKeys.length ? (receiving ? `Recebendo dados · último envio ${shortDate(lastRun)}.` : 'Script gerado, aguardando o primeiro envio. Rode o script uma vez no Google Ads para testar.') : 'Gere a fonte acima; o código e as instruções aparecem aqui.'}>
+      {!generated && <p className="text-sm text-tertiary">{receiving ? 'Tudo certo. Confira abaixo as campanhas que ainda precisam de cadastro.' : 'Nada a instalar ainda.'}</p>}
+    </Card>}
     {scripts.length > 0 && <div className="flex flex-col gap-4">
       <p role="status" className="rounded-lg bg-warning-primary px-4 py-3 text-sm text-warning-primary ring-1 ring-secondary ring-inset">As chaves dentro dos scripts não serão mostradas de novo. Baixe os arquivos .txt agora e instale cada script com o nome sugerido.</p>
       {scripts.map(item => <ScriptCard key={item.kind} item={item}/>)}
@@ -233,10 +258,18 @@ export function MediaData({data, save, busy}) {
       <pre aria-label="Código da integração" className="max-h-80 overflow-auto rounded-lg bg-secondary p-4 font-mono text-xs leading-5 whitespace-pre text-secondary ring-1 ring-secondary ring-inset">{script}</pre>
     </Card>}
 
-    <Card flush title="Chaves de ingestão" badge={<Badge type="pill-color" size="sm" color="gray">{keys.length}</Badge>} description="Cada instalação usa a própria chave. Revogar interrompe os envios; o histórico fica.">
-      {keys.length ? <div className="overflow-x-auto"><table className="w-full min-w-[760px]">
+    {googleKeys.length > 0 && <div className="flex flex-col gap-3">
+      <Step n={4} title="Ligue as campanhas do Google Ads">Os relatórios saem por campanha: cada campanha recebida pelo script precisa existir no Reports com o mesmo ID.</Step>
+      <UnlinkedGoogleCampaigns save={save} busy={busy} clientId={data.client.client_id} revision={runs.length}
+        emptyMessage={receiving ? 'Todas as campanhas recebidas já estão cadastradas.' : 'As campanhas aparecem aqui depois do primeiro envio do script de Leitura.'}/>
+    </div>}
+
+    <Card flush title="Chaves de ingestão" badge={<Badge type="pill-color" size="sm" color="gray">{keys.length}</Badge>} description="Cada instalação usa a própria chave. Revogar interrompe os envios; o histórico fica."
+      actions={keys.length > 0 && <div className="rs-segmented" role="group" aria-label="Chaves">{[['active', `Ativas · ${active.length}`], ['revoked', `Revogadas · ${keys.length - active.length}`], ['all', 'Todas']].map(([key, text]) =>
+        <button type="button" key={key} aria-pressed={keyFilter === key} onClick={() => setKeyFilter(key)}>{text}</button>)}</div>}>
+      {shownKeys.length ? <div className="overflow-x-auto"><table className="w-full min-w-[760px]">
         <thead><tr><th className={TH}>Instalação</th><th className={TH}>Contas permitidas</th><th className={TH}>Último envio</th><th className={TH}>Estado</th><th className={TH}><span className="sr-only">Ações</span></th></tr></thead>
-        <tbody>{keys.map(item => {
+        <tbody>{shownKeys.map(item => {
           const [state, color] = health(item);
           return <tr key={item.id} className={item.revoked_at ? 'opacity-60' : 'hover:bg-primary_hover'}>
             <td className={TD}><p className="font-medium text-primary">{item.label}</p><p className="text-xs text-tertiary">{KEY_KINDS[item.source_kind]?.short || item.source_kind}</p></td>
@@ -249,7 +282,7 @@ export function MediaData({data, save, busy}) {
             <td className={`${TD} text-right`}>{!item.revoked_at && canEdit && <Button size="sm" color="link-destructive" isDisabled={busy} onPress={() => setRevokeId(item.id)}>Revogar</Button>}</td>
           </tr>;
         })}</tbody>
-      </table></div> : <div className="px-6 py-10 text-center"><p className="text-md font-semibold text-primary">Nenhuma fonte conectada</p><p className="mt-1 text-sm text-tertiary">Gere um script do Google Ads ou uma chave de webhook acima.</p></div>}
+      </table></div> : <div className="px-6 py-10 text-center"><p className="text-md font-semibold text-primary">{keys.length ? 'Nenhuma chave neste filtro' : 'Nenhuma fonte conectada'}</p><p className="mt-1 text-sm text-tertiary">Gere um script do Google Ads ou uma chave de webhook acima.</p></div>}
     </Card>
 
     <Card flush title="Últimos envios" badge={<Badge type="pill-color" size="sm" color="gray">{runs.length}</Badge>} description="Lotes recebidos das fontes conectadas.">

@@ -196,7 +196,7 @@ function Agents({body, actions}) {
       <span className={`rs-dot is-${tone}`} aria-hidden="true"/>
       <span className="gaa-agents__name"><strong>{account.name}</strong><small>{account.external_id}</small></span>
       {!account.has_key ? <span className="gaa-agents__info">Script de Ações não instalado
-        <ReportsActionButton color="link-color" size="sm" href={reportUrl('media/data')}>Gerar scripts</ReportsActionButton></span>
+        <ReportsActionButton color="link-color" size="sm" href={reportUrl('data-sources/connect')}>Gerar scripts</ReportsActionButton></span>
         : !account.last_poll_at ? <span className="gaa-agents__info">Chave gerada · aguardando a primeira execução (agende de hora em hora)</span>
           : <span className="gaa-agents__info">
             <span>Última verificação {friendlyAgo(account.last_poll_at)}</span>
@@ -235,8 +235,7 @@ export function ActionsView({actions}) {
   const notifySupported = typeof Notification !== 'undefined';
   return <div className="rs-stack">
     <Section title="Script de Ações" description="O Google Ads só deixa scripts rodarem de hora em hora. Cada mudança aprovada aqui é aplicada na próxima execução do script de Ações da conta."
-      action={notifySupported && <ReportsActionButton color={actions.notify ? 'secondary' : 'tertiary'} size="sm" onClick={actions.toggleNotify}>
-        <Bell01 size={16} aria-hidden="true"/>{actions.notify ? 'Avisos do navegador ligados' : 'Avisar no navegador'}</ReportsActionButton>}>
+      action={notifySupported && <ReportsActionButton color={actions.notify ? 'secondary' : 'tertiary'} size="sm" onClick={actions.toggleNotify} iconLeading={Bell01}>{actions.notify ? 'Avisos do navegador ligados' : 'Avisar no navegador'}</ReportsActionButton>}>
       {body.accounts.length ? <Agents body={body} actions={actions}/> : <p className="rs-muted">Nenhuma conta Google Ads cadastrada.</p>}
     </Section>
     <Section title={`Na fila${open.length ? ` · ${open.length}` : ''}`} description="Aprovadas e esperando a próxima execução. Cancele enquanto estiverem agendadas.">

@@ -2,6 +2,7 @@ import React, {useEffect, useRef, useState} from 'react';
 import {ArrowLeft, FileCheck02, Stars02, UploadCloud02, XClose} from '@untitledui/icons';
 import {Button} from '../cadu-design-system/untitled-kit/button.tsx';
 import {Badge, BadgeWithDot} from '../cadu-design-system/untitled-kit/badges.tsx';
+import {Callout, Card, DrawerActions, EmptyNote, TD, TH} from './ReportsBlocks.jsx';
 import {ReportsDrawer} from './ReportsDrawer.jsx';
 import {ReportsFieldInput} from './ReportsFieldInput.jsx';
 import {ReportsNativeSelect} from './ReportsNativeSelect.jsx';
@@ -17,26 +18,9 @@ const IDENTITY = [['platform', 'Plataforma'], ['external_account_id', 'ID da con
 const METRICS = [['currency', 'Moeda'], ['impressions', 'Impressões'], ['clicks', 'Cliques'], ['cost', 'Custo'], ['conversions', 'Conversões'], ['conversion_value', 'Valor das conversões']];
 const MAP_FIELDS = [['platform', 'Plataforma'], ['account_id', 'ID da conta'], ['account_name', 'Nome da conta'], ['campaign_id', 'ID da campanha'], ['campaign_name', 'Nome da campanha'], ['date', 'Data'],
   ['currency', 'Moeda'], ['impressions', 'Impressões'], ['clicks', 'Cliques'], ['cost', 'Custo'], ['conversions', 'Conversões'], ['conversion_value', 'Valor das conversões']];
-const TH = 'border-b border-secondary bg-secondary px-6 py-3 text-left text-xs font-semibold whitespace-nowrap text-tertiary';
-const TD = 'border-b border-secondary px-6 py-3 align-middle text-sm text-secondary';
 const number = value => value === null || value === undefined || value === '' ? '—' : Number(value).toLocaleString('pt-BR');
 
-function Card({title, badge, description, actions, children, flush = false}) {
-  return <section className="overflow-hidden rounded-xl bg-primary shadow-xs ring-1 ring-secondary">
-    {title && <header className="flex flex-wrap items-start justify-between gap-4 border-b border-secondary px-6 py-5">
-      <div className="min-w-60 flex-1">
-        <div className="flex items-center gap-2"><h2 className="text-lg font-semibold text-primary">{title}</h2>{badge}</div>
-        {description && <p className="mt-0.5 text-sm text-tertiary">{description}</p>}
-      </div>
-      {actions && <div className="flex shrink-0 flex-wrap gap-3">{actions}</div>}
-    </header>}
-    <div className={flush ? '' : 'px-6 py-5'}>{children}</div>
-  </section>;
-}
 
-function EmptyNote({title, children}) {
-  return <div className="px-6 py-10 text-center"><p className="text-md font-semibold text-primary">{title}</p>{children && <p className="mx-auto mt-1 max-w-md text-sm text-tertiary">{children}</p>}</div>;
-}
 
 function Status({map, value}) {
   const [label, color] = map[value] || [value || '—', 'gray'];
@@ -52,20 +36,7 @@ function Progress({done, total}) {
   </div>;
 }
 
-function Callout({tone = 'gray', title, children}) {
-  const tones = {gray: 'bg-secondary_subtle ring-secondary', warning: 'bg-warning-primary ring-secondary', error: 'bg-error-primary ring-error_subtle', brand: 'bg-brand-primary ring-brand_alt'};
-  return <div className={`rounded-lg p-4 ring-1 ring-inset ${tones[tone]}`}>
-    {title && <p className="text-sm font-semibold text-primary">{title}</p>}
-    <div className="mt-1 text-sm text-secondary">{children}</div>
-  </div>;
-}
 
-function DrawerActions({onCancel, busy, label, disabled}) {
-  return <div className="flex justify-end gap-3 border-t border-secondary pt-4">
-    <Button type="button" size="md" color="secondary" onPress={onCancel}>Cancelar</Button>
-    <Button type="submit" size="md" color="primary" isDisabled={busy || disabled} isLoading={busy}>{label}</Button>
-  </div>;
-}
 
 /** Media files (exports and prints): upload, review row by row, then resolve conflicts between files. */
 export function ImportsPage({data, reloadBootstrap, focusLibrary = false}) {

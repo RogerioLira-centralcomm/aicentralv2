@@ -39,9 +39,9 @@
 .cadu-ds-panel__header p { margin: 4px 0 0; color: var(--color-text-tertiary, #475467); font-size: 14px; line-height: 20px; }
 .cadu-ds-panel__body { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 12px 24px 28px; scrollbar-width: thin; }
 .cadu-ds-panel__body form { display: grid; align-content: start; gap: 20px; margin: 0; }
-.cadu-ds-panel__body label:not([data-label]) { display: grid; gap: 6px; color: var(--color-text-secondary, #344054); font-size: 14px; font-weight: 500; line-height: 20px; }
-.cadu-ds-panel__body label:not([data-label]) small { color: var(--color-text-tertiary, #475467); font-size: 12px; font-weight: 400; line-height: 18px; }
-.cadu-ds-panel__body label:has(input[type=checkbox]) { display: flex; align-items: flex-start; gap: 8px; font-weight: 400; }
+.cadu-ds-panel__body label:not([data-label]):not(.untitled-scope *) { display: grid; gap: 6px; color: var(--color-text-secondary, #344054); font-size: 14px; font-weight: 500; line-height: 20px; }
+.cadu-ds-panel__body label:not([data-label]):not(.untitled-scope *) small { color: var(--color-text-tertiary, #475467); font-size: 12px; font-weight: 400; line-height: 18px; }
+.cadu-ds-panel__body label:has(input[type=checkbox]):not(.untitled-scope *) { display: flex; align-items: flex-start; gap: 8px; font-weight: 400; }
 .cadu-ds-panel__body input[type=checkbox] { width: 16px; height: 16px; flex: none; margin-top: 2px; }
 .cadu-ds-panel__body p { color: var(--color-text-tertiary, #475467); font-size: 14px; line-height: 1.55; }
 .cadu-ds-panel__footer { display: flex; flex: none; align-items: center; justify-content: flex-end; gap: 8px; padding: 16px 24px; border-top: 1px solid var(--color-border-secondary, #eaecf0); }

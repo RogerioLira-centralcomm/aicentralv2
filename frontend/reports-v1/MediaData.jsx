@@ -2,6 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {AlertTriangle, Check, Copy01, Database01} from '@untitledui/icons';
 import {Button} from '../cadu-design-system/untitled-kit/button.tsx';
 import {Badge, BadgeWithDot} from '../cadu-design-system/untitled-kit/badges.tsx';
+import {Card, TD, TH} from './ReportsBlocks.jsx';
 import {ReportsFieldInput} from './ReportsFieldInput.jsx';
 import {ReportsNativeSelect} from './ReportsNativeSelect.jsx';
 import {ReportsConfirmDialog} from './ReportsConfirmDialog.jsx';
@@ -10,8 +11,6 @@ import {GoogleAdsHowItWorks} from './hubs/media/GoogleAdsHowItWorks.jsx';
 import {APP_BASE} from './shell/routes.js';
 import {integer, json, shortDate} from './reportsCommon.jsx';
 
-const TH = 'border-b border-secondary bg-secondary px-6 py-3 text-left text-xs font-semibold whitespace-nowrap text-tertiary';
-const TD = 'border-b border-secondary px-6 py-3 align-middle text-sm text-secondary';
 const validGoogleAdsAccountId = value => /^(?:\d{10}|\d{3}-\d{3}-\d{4})$/.test(String(value || '').trim());
 const formatGoogleId = value => String(value).replace(/^(\d{3})(\d{3})(\d{4})$/, '$1-$2-$3');
 const SOURCES = {
@@ -27,15 +26,6 @@ function health(item) {
   return ['Ativa', 'success'];
 }
 
-function Card({title, badge, description, actions, children, flush = false}) {
-  return <section className="overflow-hidden rounded-xl bg-primary shadow-xs ring-1 ring-secondary">
-    <header className="flex flex-wrap items-start justify-between gap-4 border-b border-secondary px-6 py-5">
-      <div className="min-w-60 flex-1"><div className="flex items-center gap-2"><h2 className="text-lg font-semibold text-primary">{title}</h2>{badge}</div>{description && <p className="mt-0.5 text-sm text-tertiary">{description}</p>}</div>
-      {actions && <div className="flex shrink-0 gap-3">{actions}</div>}
-    </header>
-    <div className={flush ? '' : 'px-6 py-5'}>{children}</div>
-  </section>;
-}
 
 /** Mídia › Dados: connect Google Ads or a CRM, see each key's health and the batches received. */
 export function MediaData({data, save, busy}) {

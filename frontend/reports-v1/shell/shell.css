@@ -199,12 +199,6 @@
 @media (max-width:900px){.rs-creative{grid-template-columns:1fr}.rs-field-row{grid-template-columns:1fr}}
 
 /* Relatórios: filters on the left, count and create on the right, one row. */
-.reports-report-library .reports-list-head-actions{flex:1;justify-content:space-between}
-.reports-report-library .rs-toolbar{flex:1;flex-wrap:wrap;min-width:0}
-.reports-report-library .rs-toolbar>*{flex:none}
-.reports-report-library .rs-toolbar>:last-child{width:220px;max-width:100%}
-.reports-report-library .rs-search input{min-width:200px}
-.reports-report-library .reports-panel-head--actions{margin-bottom:16px}
 
 /* Reports sidebar: same compact rows as the shared component (the older page CSS is more specific). */
 .reports-shell>.cadu-solution-sidebar{gap:12px;padding:12px}

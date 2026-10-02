@@ -4,10 +4,11 @@ import {MediaData} from './MediaData.jsx';
 import {AccessPage} from './AccessPage.jsx';
 import {LinkTester} from './LinkTester.jsx';
 import {EventsPage} from './EventsPage.jsx';
+import {ReportsLibrary} from './ReportsLibrary.jsx';
 import {CAMPAIGN_STATUS, ClientsAccounts, Status as CampaignStatus, channelLabel} from './ClientsAccounts.jsx';
 import {ReportsRelationships} from './ReportsRelationships.jsx';
 import {SharedReports} from './SharedReports.jsx';
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {SolutionSidebar} from '../cadu-design-system/components/SolutionSidebar.jsx';
 import {Button as UntitledButton} from '../cadu-design-system/untitled-kit/button.tsx';
@@ -231,127 +232,6 @@ function CampaignDetail({data, detail, error, tab, setTab, close, filters, refre
   </section>;
 }
 
-function Reports({data, save, busy}) {
-  const [form, setForm] = useState({campaign_name: '', media_campaign_id: ''});
-  const [createOpen, setCreateOpen] = useState(false);
-  const [reportQuery, setReportQuery] = useState('');
-  const [reportCampaign, setReportCampaign] = useState('');
-  const [reportKind, setReportKind] = useState('all');
-  const [detail, setDetail] = useState(null);
-  const [draft, setDraft] = useState({});
-  const [note, setNote] = useState('');
-  const [expiresDays, setExpiresDays] = useState('30');
-  const [detailError, setDetailError] = useState('');
-  const [reviewSource, setReviewSource] = useState(null);
-  const [reviewMetrics, setReviewMetrics] = useState([]);
-  const [reviewNote, setReviewNote] = useState('');
-  const [reviewHistory, setReviewHistory] = useState([]);
-  const [suggesting, setSuggesting] = useState(false);
-  const [typeSafeReview, setTypeSafeReview] = useState(null);
-  const [reviewingTypeSafe, setReviewingTypeSafe] = useState(false);
-  const reviewRequestRef = useRef(0);
-  const reviewContextRef = useRef('');
-  reviewContextRef.current = JSON.stringify({clientId:data.client.client_id,
-    reportId:detail?.report?.id, sourceId:reviewSource?.id, metrics:reviewMetrics});
-  const invalidateTypeSafeReview = () => {
-    reviewRequestRef.current += 1;
-    setTypeSafeReview(null);
-    setReviewingTypeSafe(false);
-  };
-  const [planSuggestion, setPlanSuggestion] = useState(null);
-  const [planning, setPlanning] = useState(false);
-  useEffect(() => {setDetail(null); setDraft({}); setPlanSuggestion(null); invalidateTypeSafeReview(); setDetailError('');}, [data.client.client_id]);
-  const submit = async event => {event.preventDefault(); try {await save('/workspaces', form); setForm({campaign_name: '', media_campaign_id: ''}); setCreateOpen(false);} catch (_) { /* Global error banner shows the failure. */ }};
-  const open = async (event, reportId) => {event.preventDefault(); setDetailError(''); setPlanSuggestion(null); setReviewSource(null); invalidateTypeSafeReview(); try {const value = await json(`/connect/api/v2/reports/workspaces/${reportId}?client_id=${data.client.client_id}`); setDetail(value); setDraft(value.report.document || {}); setNote('');} catch (failure) {setDetailError(failure.message);}};
-  const refresh = async reportId => {const value = await json(`/connect/api/v2/reports/workspaces/${reportId}?client_id=${data.client.client_id}`); setDetail(value); setDraft(value.report.document || {});};
-  const update = async event => {event.preventDefault(); if (!detail) return; try {await save(`/workspaces/${detail.report.id}/document`, {revision: detail.report.revision, update_note: note, document: Object.fromEntries(['objective', 'goals', 'management_notes', 'start_date', 'end_date', 'accent'].map(field => [field, draft[field] || '']))}); await refresh(detail.report.id); setNote(''); setDetailError('');} catch (failure) {setDetailError(failure.message);}};
-  const planNextAction = async () => {
-    if (!detail) return;
-    setPlanning(true); setDetailError('');
-    try {
-      const body = await json(`/connect/api/v2/reports/workspaces/${detail.report.id}/plan`, {
-        method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf},
-        body: JSON.stringify({client_id: data.client.client_id}),
-      });
-      setPlanSuggestion(body.plan);
-    } catch (failure) {setDetailError(failure.message);} finally {setPlanning(false);}
-  };
-  const incorporatePlan = () => {
-    if (!planSuggestion) return;
-    const addition = `${planSuggestion.title}\n${planSuggestion.steps.map(step => `• ${step}`).join('\n')}`;
-    setDraft(current => ({...current, management_notes: [current.management_notes, addition].filter(Boolean).join('\n\n')}));
-    setPlanSuggestion(null);
-  };
-  const publish = async () => {if (!detail) return; try {await save(`/workspaces/${detail.report.id}/publish`, {expires_days: Number(expiresDays)}, false); await refresh(detail.report.id); setDetailError('');} catch (failure) {setDetailError(failure.message);}};
-  const unpublish = async () => {if (!detail) return; try {await save(`/workspaces/${detail.report.id}/unpublish`, {}, false); await refresh(detail.report.id); setDetailError('');} catch (failure) {setDetailError(failure.message);}};
-  const edit = (field, value) => {setDraft(current => ({...current, [field]: value})); if (field === 'objective' || field === 'goals') setPlanSuggestion(null);};
-  const openReview = async source => {
-    invalidateTypeSafeReview();
-    const requestId = reviewRequestRef.current;
-    try {const body = await json(`/connect/relatorios/${detail.report.id}/fontes/${source.id}/revisar`); if (requestId !== reviewRequestRef.current) return; setReviewSource(source); setReviewMetrics(body.metrics?.length ? body.metrics : [{name: '', raw: '', unit: 'count', definition: '', scope: '', evidence: ''}]); setReviewHistory(body.history || []); setReviewNote(''); setDetailError('');}
-    catch (failure) {setDetailError(failure.message);}
-  };
-  const suggestReview = async () => {
-    if (!reviewSource) return;
-    const requestId = reviewRequestRef.current;
-    const context = reviewContextRef.current;
-    setSuggesting(true); setDetailError('');
-    try {
-      const payload = new FormData(); payload.append('_csrf', data.csrf);
-      const response = await fetch(`/connect/relatorios/${detail.report.id}/fontes/${reviewSource.id}/sugerir`, {method: 'POST', credentials: 'same-origin', body: payload});
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error || `Falha HTTP ${response.status}`);
-      if (requestId !== reviewRequestRef.current || context !== reviewContextRef.current) return;
-      invalidateTypeSafeReview();
-      setReviewMetrics(body.suggestion.metrics.length ? body.suggestion.metrics : [{name: '', raw: '', unit: 'count', definition: '', scope: '', evidence: ''}]);
-    } catch (failure) {setDetailError(failure.message);} finally {setSuggesting(false);}
-  };
-  const reviewWithTypeSafe = async () => {
-    if (!reviewSource) return;
-    const requestId = ++reviewRequestRef.current;
-    const context = reviewContextRef.current;
-    setReviewingTypeSafe(true); setDetailError('');
-    setTypeSafeReview(null);
-    try {
-      const body = await json(`/connect/relatorios/${detail.report.id}/fontes/${reviewSource.id}/revisar-typesafe`, {
-        method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf},
-        body: JSON.stringify({metrics: reviewMetrics}),
-      });
-      if (requestId === reviewRequestRef.current && context === reviewContextRef.current)
-        setTypeSafeReview(body.review);
-    } catch (failure) {
-      if (requestId === reviewRequestRef.current && context === reviewContextRef.current)
-        setDetailError(failure.message);
-    } finally {
-      if (requestId === reviewRequestRef.current) setReviewingTypeSafe(false);
-    }
-  };
-  const updateReviewMetric = (index, key, value) => {
-    invalidateTypeSafeReview();
-    setReviewMetrics(current => current.map((item, itemIndex) => itemIndex === index ? {...item, [key]: value} : item));
-  };
-  const saveReview = async event => {
-    event.preventDefault(); if (!reviewSource) return;
-    try {
-      const payload = {revision: detail.report.revision, note: reviewNote, metrics: reviewMetrics.map(item => ({name: item.name, value: item.raw, unit: item.unit, definition: item.definition, scope: item.scope, evidence: item.evidence}))};
-      await json(`/connect/relatorios/${detail.report.id}/fontes/${reviewSource.id}/revisar?client_id=${data.client.client_id}`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf}, body: JSON.stringify(payload)});
-      await refresh(detail.report.id); setReviewSource(null); setReviewNote(''); setTypeSafeReview(null);
-    } catch (failure) {setDetailError(failure.message);}
-  };
-  const reportTerm = reportQuery.trim().toLocaleLowerCase();
-  const visibleReports = data.reports.filter(item => (!reportTerm || `${item.campaign_name} ${item.project_ref || ''}`.toLocaleLowerCase().includes(reportTerm)) &&
-    (!reportCampaign || (reportCampaign === 'none' ? !item.media_campaign_id : String(item.media_campaign_id) === reportCampaign)) &&
-    (reportKind === 'all' || (reportKind === 'published') === Boolean(item.published)));
-  const reportKinds = [['all', 'Todos', data.reports.length], ['published', 'Publicados', data.reports.filter(item => item.published).length], ['draft', 'Em edição', data.reports.filter(item => !item.published).length]];
-  return <><section className="reports-report-library"><article className="reports-panel"><div className="reports-panel-head reports-panel-head--actions"><div className="reports-list-head-actions"><div className="rs-toolbar"><div className="rs-segmented" role="group" aria-label="Situação">{reportKinds.map(([key, label, count]) => <button type="button" key={key} aria-pressed={reportKind === key} onClick={() => setReportKind(key)}>{label} · {count}</button>)}</div><label className="rs-search"><ReportsFieldInput leading={<SearchLg size={16} aria-hidden="true" className="ml-3 shrink-0 text-fg-quaternary"/>} type="search" placeholder="Buscar relatório" value={reportQuery} onChange={event => setReportQuery(event.target.value)} aria-label="Buscar relatório"/></label><ReportsNativeSelect aria-label="Campanha" value={reportCampaign} onChange={event => setReportCampaign(event.target.value)}><option value="">Todas as campanhas</option><option value="none">Sem campanha</option>{data.campaigns.filter(item => data.reports.some(report => String(report.media_campaign_id) === String(item.id))).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</ReportsNativeSelect></div><span>{visibleReports.length} de {data.reports.length}</span>{data.client.role !== 'viewer' && <ReportsActionButton className="reports-report-create" color="primary" onClick={() => setCreateOpen(true)}>Criar relatório</ReportsActionButton>}</div></div><div className="reports-grid reports-grid--three">{visibleReports.length ? visibleReports.map(item => <a className="reports-panel reports-report-card" key={item.id} href={reportUrl('reports')} onClick={event => open(event, item.id)}><span>{item.published ? <span className="rs-badge is-success">Publicado</span> : 'Em edição'} · v{item.revision}</span><h2>{item.campaign_name}</h2><p>{item.project_ref || 'Sem projeto associado'}</p><small>{data.campaigns.find(campaign => String(campaign.id) === String(item.media_campaign_id))?.name || 'Sem campanha'} · atualizado em {shortDate(item.updated_at)}</small></a>) : <Empty message={data.reports.length ? 'Nenhum relatório corresponde aos filtros.' : 'Nenhum relatório ainda. Crie um independente ou associado a uma campanha.'} />}</div></article><ReportsDrawer open={createOpen} onOpenChange={setCreateOpen} onDiscard={()=>setForm({campaign_name:'',media_campaign_id:''})} title="Criar relatório" description="O relatório pertence a este cliente; a campanha é opcional." context={data.client.client_name}>{data.client.role !== 'viewer' && <form className="reports-form" onSubmit={submit}><label>Nome<ReportsFieldInput required maxLength="200" value={form.campaign_name} onChange={event => setForm({...form, campaign_name: event.target.value})} placeholder="Ex.: Resultado de setembro" /></label><label>Campanha (opcional)<ReportsNativeSelect value={form.media_campaign_id} onChange={event => setForm({...form, media_campaign_id: event.target.value})}><option value="">Sem campanha vinculada</option>{data.campaigns.map(item => <option key={item.id} value={item.id}>{item.account_name} · {item.name}</option>)}</ReportsNativeSelect></label><ReportsActionButton type="submit" disabled={busy}>Criar relatório</ReportsActionButton></form>}</ReportsDrawer></section>
-    {detailError && <p className="reports-error" role="alert">{detailError}</p>}
-    {detail && <section className="reports-detail-layout" aria-label="Detalhe do relatório"><div className="reports-detail-main"><article className="reports-panel"><div className="reports-panel-head"><h2>{detail.report.campaign_name}</h2><span>Versão {detail.report.revision} · {shortDate(detail.report.updated_at)}</span></div><form className="reports-form" onSubmit={update}><label>Objetivo<ReportsTextArea disabled={data.client.role === 'viewer'} maxLength="2000" rows="3" value={draft.objective || ''} onChange={event => edit('objective', event.target.value)} /></label><label>Metas<ReportsTextArea disabled={data.client.role === 'viewer'} maxLength="4000" rows="3" value={draft.goals || ''} onChange={event => edit('goals', event.target.value)} /></label><label>Notas de gestão<ReportsTextArea disabled={data.client.role === 'viewer'} maxLength="8000" rows="4" value={draft.management_notes || ''} onChange={event => edit('management_notes', event.target.value)} /></label><div className="reports-form-pair"><label>Início<ReportsFieldInput disabled={data.client.role === 'viewer'} type="date" value={draft.start_date || ''} onChange={event => edit('start_date', event.target.value)} /></label><label>Fim<ReportsFieldInput disabled={data.client.role === 'viewer'} type="date" value={draft.end_date || ''} onChange={event => edit('end_date', event.target.value)} /></label><label>Cor<ReportsFieldInput disabled={data.client.role === 'viewer'} type="color" value={draft.accent || '#1767c5'} onChange={event => edit('accent', event.target.value)} /></label></div>{data.client.role !== 'viewer' && <><label>Nota desta versão<ReportsFieldInput required maxLength="2000" value={note} onChange={event => setNote(event.target.value)} placeholder="O que mudou neste relatório?" /></label><ReportsActionButton type="submit" disabled={busy}>Salvar atualização</ReportsActionButton></>}</form></article>
-      <article className="reports-panel"><div className="reports-panel-head"><h2>Fontes e evidências</h2><span>{detail.sources.length} fontes</span></div>{detail.sources.length ? detail.sources.map(item => <div className="reports-row" key={item.id}><span>{item.original_name} · {item.supplier || 'Fornecedor não informado'} · {item.status === 'reviewed' ? 'Revisada' : 'Aguardando revisão'}</span><ReportsActionButton className="reports-inline-link" type="button" onClick={() => openReview(item)}>Revisar ↗</ReportsActionButton><a className="reports-inline-link" href={`/connect/relatorios/${detail.report.id}/fontes/${item.id}`} target="_blank" rel="noopener noreferrer">Abrir print ↗</a></div>) : <Empty message="As fontes recebidas aparecerão aqui." />}<div className="reports-form-pair"><label>Prints<ReportsFieldInput type="file" multiple accept="image/png,image/jpeg,image/webp" id="report-source-files" /></label><label>Origem<ReportsFieldInput maxLength="200" id="report-source-supplier" placeholder="Ex.: Meta Ads" /></label><label>Início<ReportsFieldInput type="date" id="report-source-start" /></label><label>Fim<ReportsFieldInput type="date" id="report-source-end" /></label></div>{data.client.role !== 'viewer' && <ReportsActionButton type="button" disabled={busy} onClick={async () => {const files=document.getElementById('report-source-files')?.files;if(!files?.length)return;const payload=new FormData();Array.from(files).forEach(file=>payload.append('prints',file));payload.append('supplier',document.getElementById('report-source-supplier')?.value||'');payload.append('period_start',document.getElementById('report-source-start')?.value||'');payload.append('period_end',document.getElementById('report-source-end')?.value||'');payload.append('_csrf',data.csrf);try{const response=await fetch(`/connect/relatorios/${detail.report.id}/fontes`,{method:'POST',body:payload,credentials:'same-origin'});if(!response.ok)throw new Error(`Falha HTTP ${response.status}`);await refresh(detail.report.id);}catch(failure){setDetailError(failure.message);}}}>Receber fontes</ReportsActionButton>}</article>
-      {reviewSource && <article className="reports-panel"><div className="reports-panel-head"><h2>Revisar fonte · {reviewSource.original_name}</h2><div><ReportsActionButton type="button" className="reports-text-button" disabled={suggesting || data.client.role==='viewer'} onClick={suggestReview}>{suggesting ? 'Lendo print…' : 'Sugerir com IA'}</ReportsActionButton><ReportsActionButton type="button" className="reports-text-button" disabled={reviewingTypeSafe || data.client.role==='viewer' || !reviewMetrics.some(metric=>metric.name&&metric.raw&&metric.evidence)} onClick={reviewWithTypeSafe}>{reviewingTypeSafe ? 'Revisando evidências…' : 'Comparar trechos com TypeSafe'}</ReportsActionButton><ReportsActionButton type="button" className="reports-text-button" onClick={() => {invalidateTypeSafeReview(); setReviewSource(null);}}>Fechar</ReportsActionButton></div></div><img className="reports-source-preview" src={`/connect/relatorios/${detail.report.id}/fontes/${reviewSource.id}`} alt={`Print ${reviewSource.original_name}`} /><p>Confira cada valor e evidência no print antes de confirmar. A sugestão de extração não altera os dados até a revisão.</p>{typeSafeReview && <div className="reports-suggestion"><strong>Leitura do trecho informado · confira no print</strong><p>O TypeSafe compara os valores com o texto informado. Ele não verifica se esse texto aparece no print. Confira a fonte original; concentração não é chance de acerto.</p>{typeSafeReview.judgments.map(item=><p key={item.index}>{item.name}: {item.judgment==='supported'?'trecho informado compatível':item.judgment==='contradicted'?'possível divergência':'evidência insuficiente'} · concentração {Math.round(item.confidence*100)}%</p>)}<p>Esta leitura não alterou os valores nem verificou a imagem. Compare cada trecho com o print antes de confirmar.</p>{typeSafeReview.omitted_count>0&&<p>{typeSafeReview.omitted_count} indicadores ficaram fora desta revisão.</p>}</div>}{reviewHistory.map(item => <p key={item.report_revision}>Revisão v{item.report_revision} · {item.note} · {shortDate(item.created_at)}</p>)}<form className="reports-form" onSubmit={saveReview}><div className="reports-form-pair">{reviewMetrics.map((metric,index) => <fieldset className="reports-metric-review" key={index}><label>Indicador<ReportsFieldInput required maxLength="120" value={metric.name} onChange={event => updateReviewMetric(index,'name',event.target.value)} /></label><label>Valor (use vírgula decimal)<ReportsFieldInput inputMode="decimal" value={metric.raw || ''} onChange={event => updateReviewMetric(index,'raw',event.target.value)} /></label><label>Unidade<ReportsNativeSelect value={metric.unit} onChange={event => updateReviewMetric(index,'unit',event.target.value)}>{['count','BRL','USD','percent','seconds'].map(unit => <option key={unit}>{unit}</option>)}</ReportsNativeSelect></label>{[['definition','Definição'],['scope','Escopo'],['evidence','Evidência']].map(([key,label]) => <label key={key}>{label}<ReportsFieldInput required maxLength="1000" value={metric[key] || ''} onChange={event => updateReviewMetric(index,key,event.target.value)} /></label>)}{reviewMetrics.length>1 && <ReportsActionButton type="button" className="reports-text-button" onClick={() => {setReviewMetrics(reviewMetrics.filter((_,i)=>i!==index)); invalidateTypeSafeReview();}}>Remover</ReportsActionButton>}</fieldset>)}</div>{reviewMetrics.length<60 && <ReportsActionButton type="button" className="reports-text-button" onClick={() => {setReviewMetrics([...reviewMetrics,{name:'',raw:'',unit:'count',definition:'',scope:'',evidence:''}]); invalidateTypeSafeReview();}}>+ Indicador</ReportsActionButton>}<label>Nota da revisão<ReportsTextArea required maxLength="2000" value={reviewNote} onChange={event => setReviewNote(event.target.value)} /></label><ReportsActionButton disabled={busy || data.client.role==='viewer'} type="submit">Confirmar e registrar versão</ReportsActionButton></form></article>}
-      </div><aside className="reports-detail-assistant" aria-label="Assistente do relatório"><article className="reports-panel reports-assistant-card"><div className="reports-assistant-heading"><span className="reports-assistant-avatar" aria-hidden="true">C</span><div><h2>Assistente</h2><small>Contexto do relatório</small></div></div><p>Use o TypeSafe para sugerir próximos passos com base no objetivo e nas métricas revisadas. A sugestão só entra no documento quando você escolher incorporar e salvar.</p>{data.client.role !== 'viewer' && <ReportsActionButton type="button" className="reports-assistant-primary" disabled={planning} onClick={planNextAction}>{planning ? 'Preparando sugestão…' : 'Planejar próximo passo'}</ReportsActionButton>}{planSuggestion && <div className="reports-suggestion"><strong>{planSuggestion.title}</strong><ul>{planSuggestion.steps.map((step,index)=><li key={index}>{step}</li>)}</ul><ReportsActionButton type="button" className="reports-text-button" onClick={incorporatePlan}>Incorporar às notas</ReportsActionButton></div>}<div className="reports-assistant-hint"><strong>Revisão de evidências</strong><span>{reviewSource ? `Revisando ${reviewSource.original_name}` : `${detail.sources.length} fontes disponíveis`}</span><small>{reviewSource ? 'A leitura compara o texto informado; confira cada trecho no print antes de confirmar.' : 'Abra Revisar em uma fonte para conferir os valores e a evidência original.'}</small></div></article><article className="reports-panel reports-assistant-publication"><div className="reports-panel-head"><h2>Publicação</h2><span>{detail.public_link ? 'Link ativo' : 'Privado'}</span></div>{detail.public_link ? <><p>{detail.public_link.expires_at ? `Disponível até ${shortDate(detail.public_link.expires_at)}.` : 'Disponível sem data de expiração.'}</p><a className="reports-inline-link" href={`/connect/r/${detail.public_link.token}`} target="_blank" rel="noopener noreferrer">Abrir link público ↗</a>{data.client.role !== 'viewer' && <ReportsActionButton className="reports-text-button" type="button" disabled={busy} onClick={unpublish}>Revogar link</ReportsActionButton>}</> : data.client.role !== 'viewer' ? <div className="reports-form"><label>Validade<ReportsNativeSelect value={expiresDays} onChange={event => setExpiresDays(event.target.value)}><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option><option value="0">Sem expiração</option></ReportsNativeSelect></label><ReportsActionButton type="button" disabled={busy} onClick={publish}>Publicar relatório</ReportsActionButton></div> : <p>Este relatório ainda não foi publicado.</p>}<div className="reports-association-history"><h3>Versões</h3>{detail.versions.map(item => <p key={item.revision}>v{item.revision} · {item.note} · {shortDate(item.created_at)}</p>)}</div></article></aside></section>}
-  </>;
-}
-
 // Flows page lives in FlowsPage.jsx.
 function BrandingInsights({branding}) {
   const overall = branding?.overall;
@@ -479,7 +359,7 @@ function SuperTag({data}) {
         method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':data.csrf},
         body:JSON.stringify({label,allowed_host:checkedHost})});
       if (siteCheck?.favicon) siteFaviconCache.set(checkedHost, siteCheck.favicon);
-      await load(); location.assign(reportUrl('supertag', {client_id:data.client.client_id}, result.site.id));
+      await load(); location.assign(reportUrl('supertag', {}, result.site.id));
     } catch (failure) {setError(failure.message);} finally {setBusy(false);}
   };
   const update = async changes => {
@@ -556,7 +436,7 @@ function SuperTag({data}) {
       <div className="st-topbar__side">{sitesTotal>0&&<><StatusBadge tone="gray">{sitesTotal} {sitesTotal===1?'site conectado':'sites conectados'}</StatusBadge><StatusBadge tone={activeSites?'success':'warning'}>{activeSites?`${activeSites} com coleta ativa`:'Sem coleta ativa'}</StatusBadge></>}{canEdit&&<ReportsActionButton color={selected?'secondary':'primary'} iconLeading={Plus} onClick={openInstall}>Conectar site</ReportsActionButton>}</div></header>
     {error&&<p className="reports-error" role="alert">{error}</p>}{notice&&<p className="reports-success" role="status">{notice}</p>}
     <div className="st-layout">
-      <SiteSidebar sites={sites} loading={sitesLoading} query={siteQuery} onQuery={setSiteQuery} selectedId={selectedId} clientId={data.client.client_id} canAdd={canEdit} onAdd={openInstall} renderFavicon={renderFavicon}/>
+      <SiteSidebar sites={sites} loading={sitesLoading} query={siteQuery} onQuery={setSiteQuery} selectedId={selectedId} canAdd={canEdit} onAdd={openInstall} renderFavicon={renderFavicon}/>
       <main className="st-main">
         {!selected&&!sitesLoading&&<div className="st-empty"><h2>{sitesTotal?'Selecione um site':canEdit?'Conecte seu primeiro site':'Nenhum site conectado'}</h2><p>{sitesTotal?'Escolha um site na lista para ver a instalação, os eventos e os fluxos vinculados.':canEdit?'Instale a Super Tag para acompanhar visitas e eventos consentidos.':'Os sites autorizados para este cliente aparecerão aqui.'}</p>{!sitesTotal&&canEdit&&<ReportsActionButton color="primary" onClick={openInstall}>Conectar site</ReportsActionButton>}</div>}
         {selected&&<>
@@ -566,13 +446,13 @@ function SuperTag({data}) {
           {siteTab==='overview'&&<>
             <InstallStatus site={selected} hasEvents={hasEvents} verify={verify} verifying={verifying} onVerify={verifyInstall} onCopy={()=>copy(selected.snippet)} onGuide={()=>setSiteTab('install')}/>
             <div className="st-grid"><InstallCard site={selected} onCopy={()=>copy(selected.snippet)} onDownload={downloadSnippet} onEmail={emailSnippet}/>{hasEvents?<RecentEvents summary={detail?.summary}/>:<InstallGuide/>}</div>
-            <div className="st-grid st-grid--wide"><LinkedFlows flows={siteFlows} site={selected} clientId={data.client.client_id}/><AccessCard data={data} site={selected}/></div>
+            <div className="st-grid st-grid--wide"><LinkedFlows flows={siteFlows} site={selected}/><AccessCard data={data} site={selected}/></div>
           </>}
           {siteTab==='install'&&<>
             <InstallCard site={selected} onCopy={()=>copy(selected.snippet)} onDownload={downloadSnippet} onEmail={emailSnippet}/>
             <InstallGuide/>
           </>}
-          {siteTab==='flows'&&<LinkedFlows flows={siteFlows} site={selected} clientId={data.client.client_id}/>}
+          {siteTab==='flows'&&<LinkedFlows flows={siteFlows} site={selected}/>}
           {siteTab==='settings'&&<article className="st-card st-settings"><header><div><h3>Configurações da tag</h3><p>Identificação, retenção e consentimento deste site.</p></div></header>
         <div className="reports-supertag-settings">
           <label>Duração do identificador<ReportsNativeSelect disabled={busy || data.client.role==='viewer'} value={selected.config?.audience_days || 365} onChange={event=>update({audience_days:Number(event.target.value)})}>{[[30,'30 dias'],[60,'60 dias'],[90,'90 dias'],[180,'6 meses'],[365,'1 ano'],[395,'13 meses (máximo do navegador)']].map(([days,name])=><option key={days} value={days}>{name}</option>)}</ReportsNativeSelect><small>Tempo que o mesmo visitante é reconhecido. Navegadores limitam este valor a cerca de 13 meses.</small></label>
@@ -704,7 +584,7 @@ function App() {
       pages: () => <PageDetail data={data} />,
       navigation: () => <Navigation/>,
       conversions: () => <Conversions/>,
-      reports: () => <Reports data={data} save={save} busy={busy} />,
+      reports: () => <ReportsLibrary data={data} save={save} busy={busy}/>,
       alerts: () => <AlertsCenter data={data} />,
       'data-sources': () => <DataSources data={data}/>,
       supertag: () => <SuperTag data={data} />,

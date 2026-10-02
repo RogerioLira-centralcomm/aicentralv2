@@ -42,3 +42,11 @@ export function DrawerActions({onCancel, busy, label, disabled}) {
     <Button type="submit" size="md" color="primary" isDisabled={busy || disabled} isLoading={busy}>{label}</Button>
   </div>;
 }
+
+/** Native date input with the kit field look (the kit Input skips native-only types). */
+export function DateField({label, hideLabel = false, className = '', ...props}) {
+  return <label className={`flex flex-col gap-1.5 text-sm font-medium text-secondary ${className}`.trim()}>
+    <span className={hideLabel ? 'sr-only' : ''}>{label}</span>
+    <input type="date" {...props} className="h-10 w-full rounded-lg bg-primary px-3 text-sm text-primary shadow-xs ring-1 ring-primary ring-inset outline-hidden focus:ring-2 focus:ring-brand disabled:opacity-60"/>
+  </label>;
+}

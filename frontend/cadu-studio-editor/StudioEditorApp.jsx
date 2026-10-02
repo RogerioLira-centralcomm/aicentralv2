@@ -1,140 +1,19 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import StudioNavbar from '../cadu-studio-ui/StudioNavbar';
 import {acceptStudioSessionAsset, attachStudioSessionProject, continueStudioSession, createStudioSession, finalizeStudioSession, finalizeStudioSessionOnExit, listStudioSessions, loadProjectContexts, loadProjectCreationHistory, loadStudioLibrary, readStudioSession, requestEdition as requestEditorEdition, requestQuote, saveStudioSession, uploadStudioAsset} from './api';
-import {MaskCanvas} from './components/MaskCanvas';
 import {StudioComposer} from './components/StudioComposer';
 import {StudioModal} from './components/StudioModal';
+import {FORMATS, readFile} from './shared';
+import {LeftRail} from './components/LeftRail';
+import {StudioTopbar} from './components/StudioTopbar';
+import {BrandPanel} from './components/BrandPanel';
+import {CanvasWorkspace} from './components/CanvasWorkspace';
+import {ExpandDialog} from './components/ExpandDialog';
 
-const FORMATS = ['4:5', '1:1', '9:16', '16:9'];
-const ASSET_DRAG_TYPE = 'application/x-cadu-studio-asset';
 const FORMAT_SIZES = {'4:5': {width: 1080, height: 1350}, '1:1': {width: 1080, height: 1080}, '9:16': {width: 1080, height: 1920}, '16:9': {width: 1920, height: 1080}};
 const outputSizeFor = format => ({...(FORMAT_SIZES[format] || FORMAT_SIZES['4:5']), format});
 const STORAGE_PREFIX = 'cadu-studio-editor-v1';
 const makeId = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
 const makeDirectorInstruction = (prompt, director) => [prompt, director?.objective && `Direção do editor: ${director.objective}`, director?.preserve?.length && `Preserve rigorosamente: ${director.preserve.join(', ')}.`, 'Use referências visuais apenas por similaridade; preserve a identidade da peça-base.'].filter(Boolean).join('\n\n');
-
-function readFile(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error('Não foi possível abrir a imagem.'));
-    reader.readAsDataURL(file);
-  });
-}
-
-function imageSize(url) {
-  return new Promise(resolve => {
-    const image = new Image();
-    image.onload = () => resolve({width: image.naturalWidth || 1600, height: image.naturalHeight || 900});
-    image.onerror = () => resolve({width: 1600, height: 900});
-    image.src = url;
-  });
-}
-
-function browserImageUrl(value) {
-  const raw = String(value || '').trim();
-  if (!raw || raw.startsWith('data:') || raw.startsWith('blob:')) return raw;
-  try {
-    const parsed = new URL(raw, window.location.origin);
-    if (parsed.pathname.startsWith('/static/') || parsed.pathname.startsWith('/parametros/')) return `${window.location.origin}${parsed.pathname}${parsed.search}`;
-    return parsed.href;
-  } catch {
-    return raw;
-  }
-}
-
-function StudioImage({src, alt = '', className = '', onUnavailable}) {
-  const [failed, setFailed] = useState(false);
-  const resolvedSrc = browserImageUrl(src);
-  useEffect(() => setFailed(false), [resolvedSrc]);
-  useEffect(() => { if (!resolvedSrc || failed) onUnavailable?.(); }, [resolvedSrc, failed]);
-  if (!resolvedSrc || failed) return <span className={`se-image-fallback ${className}`} role="img" aria-label={alt}>Imagem indisponível</span>;
-  return <img className={className} src={resolvedSrc} alt={alt} onError={() => setFailed(true)} />;
-}
-
-function AssetShelf({title, empty, items, loading, onSelect, open = false, focusable = false}) {
-  const ref = useRef(null);
-  useEffect(() => {
-    if (!focusable) return undefined;
-    const focusShelf = () => { if (!ref.current) return; ref.current.open = true; ref.current.scrollIntoView({block: 'start', behavior: 'smooth'}); ref.current.classList.add('is-highlighted'); window.setTimeout(() => ref.current?.classList.remove('is-highlighted'), 1400); ref.current.querySelector('.se-asset-grid button')?.focus({preventScroll: true}); };
-    window.addEventListener('cadu:studio-focus-shelf', focusShelf);
-    return () => window.removeEventListener('cadu:studio-focus-shelf', focusShelf);
-  }, [focusable]);
-  return <details ref={ref} className="se-asset-shelf" open={open}><summary><span>{title}</span><b>{loading ? '…' : items.length}</b></summary>{loading ? <p>Carregando imagens…</p> : items.length ? <div className="se-asset-grid">{items.slice(0, 18).map(item => <button type="button" key={item.id || item.url} onClick={() => onSelect(item)} title={`${item.name} · clique ou arraste para o palco`} draggable onDragStart={event => { event.dataTransfer.setData(ASSET_DRAG_TYPE, JSON.stringify(item)); event.dataTransfer.effectAllowed = 'copy'; }}><StudioImage src={item.thumbUrl || item.url} alt={item.name}/><span>{item.name}</span></button>)}</div> : <p>{empty}</p>}</details>;
-}
-
-function LeftRail({versions, selectedId, filter, onFilter, onSelect, onApprove, onSetBase, onRemove = () => {}, onUpload, onNewSession = () => window.dispatchEvent(new Event('cadu:studio-new-session')), onHistory, onRestoreSession = ident => window.dispatchEvent(new CustomEvent('cadu:studio-restore-session', {detail: {ident}})), sessions = [], activeSessionId = '', readOnly, libraryUrl, project, libraryAssets, previousAssets, shelfLoading, onSelectAsset}) {
-  const [brokenIds, setBrokenIds] = useState([]);
-  const visibleVersions = versions.filter(version => filter === 'all' || (filter === 'review' && version.status !== 'approved') || (filter === 'approved' && version.status === 'approved'));
-  return <aside className="se-left-rail" aria-label="Criativos e sessões">
-    <section className="se-rail-section">
-      <header className="se-session-switcher"><label><span>Sessão de edição</span><select aria-label="Selecionar sessão de edição" value={activeSessionId || ''} onChange={event => event.target.value && onRestoreSession(event.target.value)}><option value="">{versions.length ? 'Sessão local' : 'Nova sessão'}</option>{sessions.map(item => <option key={item.id} value={item.id}>{item.title || 'Sessão sem título'}</option>)}</select></label><button type="button" disabled={readOnly} onClick={onNewSession}>+ Nova</button></header>
-      <div className="se-rail-heading"><h2>Versões</h2><button type="button" onClick={onHistory}>Ver histórico</button></div>
-      <div className="se-filter"><button className={filter === 'all' ? 'is-active' : ''} type="button" onClick={() => onFilter('all')}>Todos</button><button className={filter === 'review' ? 'is-active' : ''} type="button" onClick={() => onFilter('review')}>A revisar</button><button className={filter === 'approved' ? 'is-active' : ''} type="button" onClick={() => onFilter('approved')}>Aprovadas</button></div>
-      <div className="se-rail-list">{visibleVersions.length ? visibleVersions.map(version => <article className={`se-rail-item ${selectedId === version.id ? 'is-selected' : ''} ${brokenIds.includes(version.id) ? 'is-broken' : ''}`} key={version.id}><button className="se-rail-item__select" type="button" onClick={() => onSelect(version.id)}><StudioImage src={version.url} alt={version.name} onUnavailable={() => setBrokenIds(current => current.includes(version.id) ? current : [...current, version.id])}/><span className="se-rail-item__copy"><b>{version.name}</b><small className={`se-status se-status--${version.status}`}>{version.status === 'approved' ? 'Aprovada' : version.status === 'new' ? 'Nova' : 'Rascunho'}</small></span></button>{brokenIds.includes(version.id) && <span className="se-rail-item__actions is-broken"><small>Arquivo não encontrado</small><button type="button" disabled={readOnly} onClick={() => onRemove(version.id)}>Remover</button></span>}{selectedId === version.id && !brokenIds.includes(version.id) && <span className="se-rail-item__actions"><button type="button" disabled={readOnly} onClick={() => onApprove(version.id)}>{version.status === 'approved' ? 'Aprovada' : 'Aprovar'}</button><button type="button" disabled={readOnly} onClick={() => onSetBase(version.id)}>Usar como base</button></span>}</article>) : versions.length ? <p className="se-rail-empty">Nenhuma peça neste filtro.</p> : <button type="button" className="se-upload-empty" onClick={onUpload}>Envie uma peça para começar</button>}</div>
-    </section>
-    <div className="se-shelves"><AssetShelf title={project ? 'Imagens do projeto' : 'Imagens pessoais'} empty={project ? 'As imagens vinculadas ao projeto aparecerão aqui.' : 'Suas imagens pessoais aparecerão aqui.'} items={libraryAssets} loading={shelfLoading} onSelect={onSelectAsset} open focusable/><AssetShelf title="Anteriores a esta sessão" empty="Nenhuma geração ou edição anterior." items={previousAssets} loading={shelfLoading} onSelect={onSelectAsset}/></div>
-    <nav className="se-rail-footer" aria-label="Biblioteca"><a href={libraryUrl || '#'}><span>Biblioteca</span><small>Todos os itens salvos</small></a><button type="button" onClick={onHistory}><span>Sessões anteriores</span><small>Retome uma mesa</small></button></nav>
-  </aside>;
-}
-
-function StudioTopbar({links, projects, project, onProjectChange, bootstrap, sessionName = 'Nova sessão de edição', onHistory = () => window.dispatchEvent(new Event('cadu:studio-history')), onNewSession = () => window.dispatchEvent(new Event('cadu:studio-new-session'))}) {
-  const options = projects.map(item => ({id: String(item.id), name: item.name, brandName: item.brand_name || item.brandName || item.client_name || ''}));
-  return <StudioNavbar active="editor" links={links} user={bootstrap.user} projects={options} projectId={project?.id ? String(project.id) : ''}
-    onProjectChange={onProjectChange} credits={{available: bootstrap.credits, usagePercent: bootstrap.usagePercent}}/>;
-}
-
-function BrandPanel({format, setFormat, status, project, selectedGlobalReferences, onGlobalReferencesChange, batchProgress, onPauseQueue, onCancelQueue, onResumeQueue, readOnly, onHistory, onFinalize, onContinue, onExpand, composer}) {
-  const [drawer, setDrawer] = useState(null);
-  const brand = project?.brand_context || {};
-  const brandFonts = brand.fonts || brand.profile?.fonts || [];
-  const globalReferences = (brand.assets?.references || []).map((url, index) => ({id: `brand-reference-${index}`, url, label: `Referência global ${index + 1}`}));
-  const selectedCount = selectedGlobalReferences.length;
-  return <aside className="se-right-panel" aria-label="Assistente, projeto, marca e entrega">
-    <header className="se-project-head"><div><span>Projeto e marca</span><strong>Contexto do projeto</strong></div><div className="se-session-actions"><span className={`se-save-state is-${status}`}>{readOnly ? 'Sessão finalizada' : status === 'saving' ? 'Salvando rascunho' : status === 'synced' ? 'Sessão sincronizada' : 'Rascunho local'}</span>{readOnly ? <button type="button" onClick={onContinue}>Continuar</button> : <button type="button" onClick={onFinalize}>Finalizar</button>}</div></header>
-    <section className="se-panel-section se-assistant-content">{composer}</section>
-    <details className="se-panel-section se-brand-content" open><summary><h2>Marca</h2></summary><span className="se-brand-label">Cores</span>{brand.palette?.length ? <div className="se-brand-swatches">{brand.palette.slice(0, 5).map(color => <i key={typeof color === 'string' ? color : color.hex} style={{background: typeof color === 'string' ? color : color.hex}} title={typeof color === 'string' ? color : color.hex}/>)}</div> : <span className="se-brand-empty">Selecione um projeto para carregar as cores.</span>}<span className="se-brand-label">Tipografia</span><strong className="se-type-preview">{brandFonts.length ? brandFonts.slice(0, 2).map(font => typeof font === 'string' ? font : font.family).filter(Boolean).join(' · ') : 'Tipografia não definida'}</strong><button type="button" className="se-text-button" onClick={() => setDrawer('guidelines')}>Abrir diretrizes</button></details>
-    <details className="se-panel-section se-delivery-content" open><summary><h2>Entrega</h2></summary><label>Formato<div className="se-format-options">{FORMATS.map(item => <button type="button" key={item} className={format === item ? 'is-active' : ''} onClick={() => setFormat(item)}>{item}</button>)}</div></label>{batchProgress && batchProgress.status !== 'completed' && <div className="se-queue-state"><strong>Fila: {batchProgress.completed}/{batchProgress.total}</strong><span>Gerando uma peça por vez.</span></div>}</details>
-    {drawer === 'guidelines' && <StudioModal title="Diretrizes da marca" onClose={() => setDrawer(null)}><div className="se-brand-drawer"><p>{brand.brand_summary || 'Nenhuma diretriz descritiva foi cadastrada para esta marca.'}</p>{brand.creative_guidelines?.length ? <section><h3>Direção criativa</h3><ul>{brand.creative_guidelines.map(item => <li key={item}>{item}</li>)}</ul></section> : null}{brand.mandatory_elements?.length ? <section><h3>Obrigatórios</h3><ul>{brand.mandatory_elements.map(item => <li key={item}>{item}</li>)}</ul></section> : null}{brand.forbidden_elements?.length ? <section><h3>Evitar</h3><ul>{brand.forbidden_elements.map(item => <li key={item}>{item}</li>)}</ul></section> : null}</div></StudioModal>}
-    {drawer === 'references' && <StudioModal title="Referências globais" onClose={() => setDrawer(null)}><div className="se-brand-drawer"><p>Escolha quais referências devem acompanhar esta edição. Elas orientam similaridade visual e não substituem a peça-base.</p>{globalReferences.length ? <div className="se-global-reference-list">{globalReferences.map(reference => <label key={reference.id}><input type="checkbox" checked={selectedGlobalReferences.includes(reference.id)} onChange={() => onGlobalReferencesChange(selectedGlobalReferences.includes(reference.id) ? selectedGlobalReferences.filter(id => id !== reference.id) : [...selectedGlobalReferences, reference.id])}/><img src={reference.url} alt=""/><span>{reference.label}</span></label>)}</div> : <p>Nenhuma referência global disponível neste projeto.</p>}</div></StudioModal>}
-  </aside>;
-}
-
-function CanvasWorkspace({onDropAsset = () => {}, generating = false, asset, mode, setMode, mask, crop, maskRef, onMaskChange, onCropChange, onUpload, format, onUndo, onRedo, canUndo, canRedo, outputSize, onOutputSizeChange, zoom = 100, onZoomChange = () => {}, quality = 'draft', onQualityChange = () => {}, onRemoveBackground = () => {}}) {
-  const [size, setSize] = useState({width: 1600, height: 900});
-  const [cropDrag, setCropDrag] = useState(null);
-  const [assetOver, setAssetOver] = useState(false);
-  const [brushSize, setBrushSize] = useState(36);
-  const [compare, setCompare] = useState(false);
-  const [comparePosition, setComparePosition] = useState(50);
-  const beforeUrl = asset?.parentUrl || '';
-  useEffect(() => { setCompare(false); setComparePosition(50); }, [asset?.url]);
-  const isAssetDrag = event => Array.from(event.dataTransfer?.types || []).includes(ASSET_DRAG_TYPE);
-  const stageDrag = {
-    onDragOver: event => { if (!isAssetDrag(event)) return; event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; setAssetOver(true); },
-    onDragLeave: event => { if (!event.currentTarget.contains(event.relatedTarget)) setAssetOver(false); },
-    onDrop: event => { if (!isAssetDrag(event)) return; event.preventDefault(); setAssetOver(false); try { onDropAsset(JSON.parse(event.dataTransfer.getData(ASSET_DRAG_TYPE))); } catch (_) {} },
-  };
-  useEffect(() => { if (asset?.url) imageSize(asset.url).then(setSize); }, [asset?.url]);
-  const cropBounds = crop?.bounds || [Math.round(size.width * .16), Math.round(size.height * .12), Math.round(size.width * .68), Math.round(size.height * .76)];
-  const applyCrop = () => { onCropChange({bounds: cropBounds}); setMode('select'); };
-  const cropStyle = {left: `${(cropBounds[0] / size.width) * 100}%`, top: `${(cropBounds[1] / size.height) * 100}%`, width: `${(cropBounds[2] / size.width) * 100}%`, height: `${(cropBounds[3] / size.height) * 100}%`};
-  const moveCrop = event => { if (!cropDrag) return; const rect = event.currentTarget.getBoundingClientRect(); const dx = ((event.clientX - cropDrag.x) / rect.width) * size.width; const dy = ((event.clientY - cropDrag.y) / rect.height) * size.height; let [x, y, width, height] = cropDrag.bounds; const minSize = Math.min(96, size.width * .15, size.height * .15); if (cropDrag.action === 'move') { x = Math.max(0, Math.min(size.width - width, x + dx)); y = Math.max(0, Math.min(size.height - height, y + dy)); } else { const edge = cropDrag.action; if (edge.includes('e')) width = Math.max(minSize, Math.min(size.width - x, width + dx)); if (edge.includes('s')) height = Math.max(minSize, Math.min(size.height - y, height + dy)); if (edge.includes('w')) { const nextX = Math.max(0, Math.min(x + width - minSize, x + dx)); width += x - nextX; x = nextX; } if (edge.includes('n')) { const nextY = Math.max(0, Math.min(y + height - minSize, y + dy)); height += y - nextY; y = nextY; } } onCropChange({bounds: [Math.round(x), Math.round(y), Math.round(width), Math.round(height)]}); };
-  const beginCrop = (event, action) => { event.preventDefault(); event.stopPropagation(); event.currentTarget.setPointerCapture?.(event.pointerId); setCropDrag({action, x: event.clientX, y: event.clientY, bounds: cropBounds}); };
-  return <section className="se-workspace"><div className="se-toolbar" role="toolbar" aria-label="Ferramentas de edição"><div className="se-tool-group"><button className={mode === 'select' ? 'is-active' : ''} type="button" onClick={() => setMode('select')}>Selecionar</button><button className={mode === 'mask' ? 'is-active' : ''} type="button" onClick={() => setMode('mask')}>Marcar região</button><button className={mode === 'crop' ? 'is-active' : ''} type="button" onClick={() => setMode('crop')}>Cortar</button><button type="button" onClick={onRemoveBackground}>Remover fundo</button>{beforeUrl && <button type="button" className={compare ? 'is-active' : ''} aria-pressed={compare} onClick={() => { setCompare(value => !value); setMode('select'); }}>Comparar</button>}</div><span/><label className="se-size-field"><span>L</span><input aria-label="Largura" type="number" min="256" max="4096" value={outputSize.width} onChange={event => onOutputSizeChange({...outputSize, width: Number(event.target.value)})}/></label><b>×</b><label className="se-size-field"><span>A</span><input aria-label="Altura" type="number" min="256" max="4096" value={outputSize.height} onChange={event => onOutputSizeChange({...outputSize, height: Number(event.target.value)})}/></label><label className="se-output-picker"><span>Saída</span><select value={quality} onChange={event => onQualityChange(event.target.value)}><option value="draft">Baixa</option><option value="standard">Padrão</option><option value="high">Alta</option></select></label><span/><button type="button" disabled={!canUndo} onClick={onUndo} aria-label="Desfazer">↶</button><button type="button" disabled={!canRedo} onClick={onRedo} aria-label="Refazer">↷</button><button type="button" onClick={() => onZoomChange(Math.max(50, zoom - 10))} aria-label="Reduzir zoom">−</button><button type="button" onClick={() => onZoomChange(Math.min(150, zoom + 10))} aria-label="Aumentar zoom">＋</button><button type="button" onClick={() => onZoomChange(100)}>{zoom}%</button></div><div className={`se-stage ${asset ? 'has-asset' : ''} ${assetOver ? 'is-asset-over' : ''}`} {...stageDrag}>{asset ? <div key={asset.url} className="se-artboard" style={{'--se-ratio': size.width / size.height, aspectRatio: `${size.width} / ${size.height}`, transform: `scale(${zoom / 100})`}} onPointerMove={moveCrop} onPointerUp={() => setCropDrag(null)} onPointerCancel={() => setCropDrag(null)}><StudioImage src={asset.url} alt="Criativo em edição"/>{compare && beforeUrl && <><div className="se-compare-before" style={{clipPath: `inset(0 ${100 - comparePosition}% 0 0)`}}><StudioImage src={beforeUrl} alt="Versão anterior"/></div><span className="se-compare-divider" style={{left: `${comparePosition}%`}} aria-hidden="true"/><span className="se-compare-label is-before">Antes</span><span className="se-compare-label is-after">Depois</span><input className="se-compare-range" type="range" min="0" max="100" value={comparePosition} onChange={event => setComparePosition(Number(event.target.value))} aria-label="Comparar antes e depois"/></>}{generating && <div className="se-generating" role="status"><span className="se-generating__bar"/><strong>Gerando nova versão…</strong><small>A peça atual continua aqui até a nova ficar pronta.</small></div>}<MaskCanvas ref={maskRef} active={mode === 'mask'} width={size.width} height={size.height} brushSize={brushSize} onChange={onMaskChange}/>{mask && mode !== 'mask' && <span className="se-mask-note">Região marcada</span>}{crop && mode !== 'crop' && <span className="se-crop-note">Corte aplicado</span>}{mode === 'crop' && <><div className="se-crop-frame" style={cropStyle} onPointerDown={event => beginCrop(event, 'move')}><span>Arraste para mover</span>{['nw', 'ne', 'se', 'sw'].map(edge => <button key={edge} type="button" aria-label={`Redimensionar corte ${edge}`} className={`se-crop-handle is-${edge}`} onPointerDown={event => beginCrop(event, edge)}/>)}</div><div className="se-mask-tools"><span>Arraste a moldura ou as alças para definir o enquadramento</span><button type="button" onClick={() => { onCropChange(null); setMode('select'); }}>Limpar</button><button type="button" onClick={applyCrop}>Aplicar corte</button></div></>}{mode === 'mask' && <div className="se-mask-tools"><span>Pinte a área a alterar</span><span className="se-brush-sizes" role="group" aria-label="Tamanho do pincel">{[['P', 16], ['M', 36], ['G', 72]].map(([label, value]) => <button type="button" key={label} className={brushSize === value ? 'is-active' : ''} aria-pressed={brushSize === value} onClick={() => setBrushSize(value)} title={`Pincel ${label === 'P' ? 'pequeno' : label === 'M' ? 'médio' : 'grande'}`}><i style={{width: `${Math.max(6, value / 4)}px`, height: `${Math.max(6, value / 4)}px`}} aria-hidden="true"/>{label}</button>)}</span><button type="button" onClick={() => maskRef.current?.undoStroke()}>Desfazer traço</button><button type="button" onClick={() => maskRef.current?.clear()}>Limpar</button><button type="button" onClick={() => { onMaskChange(maskRef.current?.exportMask()); setMode('select'); }}>Concluir máscara</button></div>}</div> : <div className="se-upload-stage" role="group" aria-label="Adicionar imagem ao palco"><i aria-hidden="true">＋</i><strong>Solte uma imagem aqui</strong><span>Ou escolha uma imagem do computador ou das Imagens do projeto ao lado. PNG, JPG ou WebP, até 20 MB.</span><div className="se-upload-stage__actions"><button type="button" className="is-primary" onClick={onUpload}>Escolher do computador</button><button type="button" onClick={() => window.dispatchEvent(new Event('cadu:studio-focus-shelf'))}>Usar imagem do projeto</button></div></div>}</div></section>;
-}
-
-function ExpandDialog({asset, onClose, onQueue, onQuote}) {
-  const [count, setCount] = useState(4);
-  const [formats, setFormats] = useState(new Set(['4:5', '1:1']));
-  const [queued, setQueued] = useState(false);
-  const [estimate, setEstimate] = useState(null);
-  const toggle = value => setFormats(current => { const next = new Set(current); next.has(value) ? next.delete(value) : next.add(value); return next; });
-  useEffect(() => { let active = true; setEstimate(null); onQuote({count, formats: [...formats]}).then(value => { if (active) setEstimate(value); }).catch(() => { if (active) setEstimate(false); }); return () => { active = false; }; }, [count, formats, onQuote]);
-  const prepare = async () => { if (!formats.size || queued) return; setQueued(true); try { await onQueue({count, formats: [...formats]}); onClose(); } finally { setQueued(false); } };
-  const estimateLabel = estimate === null ? 'Calculando estimativa…' : estimate === false ? 'Não foi possível calcular a estimativa.' : `${Number(estimate).toLocaleString('pt-BR')} créditos estimados para ${count} peças.`;
-  return <StudioModal title="Desdobrar formatos" onClose={onClose}><div className="se-expand-dialog"><div className="se-expand-base">{asset && <img src={asset.url} alt="Peça base"/>}<div><strong>Peça-base</strong><span>Esta versão será usada como referência em todas as saídas.</span></div></div><div><h3>Formatos</h3><div className="se-format-options">{FORMATS.map(item => <button type="button" key={item} className={formats.has(item) ? 'is-active' : ''} onClick={() => toggle(item)}>{item}</button>)}</div></div><div className="se-expand-quantity"><span>Quantidade de peças</span><button type="button" onClick={() => setCount(value => Math.max(1, value - 1))}>−</button><strong>{count}</strong><button type="button" onClick={() => setCount(value => Math.min(30, value + 1))}>+</button><small>Uma geração por vez, sempre a partir da peça-base.</small></div><footer><span>{estimateLabel}</span><button type="button" disabled={!formats.size || queued || estimate === null || estimate === false} onClick={prepare}>{queued ? 'Preparando…' : 'Preparar fila'}</button></footer></div></StudioModal>;
-}
 
 export default function StudioEditorApp({bootstrap}) {
   const storageKey = `${STORAGE_PREFIX}:${bootstrap.clientId || 'default'}`;

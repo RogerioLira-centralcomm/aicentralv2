@@ -12,6 +12,7 @@ from flask import abort, jsonify, request
 
 from ..auth import login_required_api
 from .reports_google_ads_actions import recommendation_actions
+from . import reports_google_ads_negatives as negative_review
 from .reports_google_ads_rules import RULES, build_recommendations, keyword_conflicts, term_action
 from ..db import get_db
 from .reports_v1 import _column_exists, _rows, _selection, _write_guard
@@ -384,20 +385,42 @@ def register(bp):
             return jsonify(ready=False, keywords=[], currency=None)
         return jsonify(ready=True, currency=_currency(scope), keywords=_money(_rows(_KEYWORDS_SQL, scope)), limit=TERMS_LIMIT)
 
-    @bp.get('/api/v2/reports/google-ads/negatives')
-    @login_required_api
-    def reports_google_ads_negatives():
-        """Active negatives by level, the ones removed in the last 30 days, and the active keywords each one blocks."""
-        selected, scope, _ = _scope()
-        if not _ready():
-            return jsonify(ready=False, negatives=[], conflicts=[])
+    def _negatives_state(scope):
         rows = _rows(_NEGATIVES_SQL, scope)
         active = [row for row in rows if row['removed_at'] is None]
         keywords = [k for k in _money(_rows(_KEYWORDS_SQL, scope)) if int(k.get('impressions') or 0) > 0]
+        terms = _money(_rows(_TERMS_SQL, scope))
         conflicts = [{'negative_id': item['negative']['id'], 'keyword': item['keyword']['keyword_text'],
                       'campaign_name': item['keyword']['campaign_name'], 'ad_group_name': item['keyword']['ad_group_name'],
                       'cost': item['keyword']['cost']} for item in keyword_conflicts(keywords, active)]
         blocked = {item['negative_id'] for item in conflicts}
         for row in rows:
             row['blocks_keyword'] = row['id'] in blocked
-        return jsonify(ready=True, negatives=rows, conflicts=conflicts, removed_days=REMOVED_DAYS)
+        scored = negative_review.score_negatives(rows, keywords, terms, blocked)
+        return rows, scored, keywords, terms, conflicts
+
+    @bp.get('/api/v2/reports/google-ads/negatives')
+    @login_required_api
+    def reports_google_ads_negatives():
+        """Active negatives with score and group, the ones removed in the last 30 days, and the keywords each one blocks."""
+        selected, scope, _ = _scope()
+        if not _ready():
+            return jsonify(ready=False, negatives=[], conflicts=[])
+        rows, scored, _, _, conflicts = _negatives_state(scope)
+        return jsonify(ready=True, negatives=rows, conflicts=conflicts, removed_days=REMOVED_DAYS,
+                       groups=negative_review.GROUPS, summary=negative_review.summary(scored))
+
+    @bp.post('/api/v2/reports/google-ads/negatives/review')
+    @login_required_api
+    def reports_google_ads_negatives_review():
+        """Agente revisor: reads the account's keywords and converting terms and rules on each negative. Suggests only."""
+        selected, scope, _ = _scope()
+        _write_guard(selected)
+        if not _ready():
+            abort(409, description='Google Ads ainda não conectado.')
+        _, scored, keywords, terms, _ = _negatives_state(scope)
+        try:
+            reviews = negative_review.review(scored, keywords, terms)
+        except negative_review.ReviewError as exc:
+            abort(502, description=str(exc))
+        return jsonify(reviews={str(key): value for key, value in reviews.items()}, ai_confidence=negative_review.AI_CONFIDENCE)

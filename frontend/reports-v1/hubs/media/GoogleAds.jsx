@@ -226,34 +226,86 @@ function Keywords({period}) {
   </Section>;
 }
 
-function Negatives({period}) {
-  const [state, retry] = useApi(apiUrl('/google-ads/negatives', {start_date: period.start, end_date: period.end}));
-  const [scope, setScope] = useState('active');
+const NEG_GROUP = {remove: ['Pode remover', 'error'], review: ['Revisar', 'warning'], keep: ['Manter', 'success']};
+const negativeLabel = row => row.match_type === 'EXACT' ? `[${row.keyword_text}]` : row.match_type === 'PHRASE' ? `"${row.keyword_text}"` : row.keyword_text;
+const removalId = row => `negative_remove:${row.account_id}:${row.id}`;
+/** What the agent said wins only when it is sure; a doubtful "remove" on a keeper just asks for a look. */
+function finalVerdict(row, review, minimum) {
+  if (!review || row.verdict === 'remove') return row.verdict;
+  if (review.confidence >= minimum) return review.verdict;
+  return row.verdict === 'keep' && review.verdict === 'remove' ? 'review' : row.verdict;
+}
+
+function Negatives({period, actions, onApply}) {
+  const query = {start_date: period.start, end_date: period.end};
+  const [state, retry] = useApi(apiUrl('/google-ads/negatives', query));
+  const [scope, setScope] = useState('');
+  const [selected, setSelected] = useState(() => new Set());
+  const [reviews, setReviews] = useState(null);
+  const [review, setReview] = useState({busy: false, error: ''});
   if (state.error) return <ErrorState message={state.error} onRetry={retry}/>;
   if (state.loading && !state.body) return <LoadingState rows={8}/>;
   const rows = state.body.negatives;
-  const active = rows.filter(row => !row.removed_at);
+  const minimum = reviews?.minimum ?? 0.7;
+  const active = rows.filter(row => !row.removed_at).map(row => ({...row, final: finalVerdict(row, reviews?.items[row.id], minimum)}));
   const removed = rows.filter(row => row.removed_at);
+  const count = key => active.filter(row => row.final === key).length;
   const byLevel = level => active.filter(row => row.level === level).length;
-  const visible = scope === 'active' ? active : scope === 'conflicts' ? active.filter(row => row.blocks_keyword) : removed;
+  const current = scope || (count('remove') ? 'remove' : 'all');
+  const visible = current === 'all' ? active : current === 'removed' ? removed : active.filter(row => row.final === current);
+  const canPick = actions.canEdit && current !== 'removed';
+  const chosen = visible.filter(row => selected.has(row.id));
+  const applicable = chosen.filter(row => !LIVE.includes(actions.byRecommendation.get(removalId(row))?.status));
+  const choose = key => {setScope(key); setSelected(new Set());};
+  const toggle = row => setSelected(prev => {const next = new Set(prev); next.has(row.id) ? next.delete(row.id) : next.add(row.id); return next;});
+  const suggested = visible.filter(row => row.final === 'remove' && !LIVE.includes(actions.byRecommendation.get(removalId(row))?.status));
+  const runReview = async () => {
+    setReview({busy: true, error: ''});
+    try {
+      const result = await actions.post(`/google-ads/negatives/review?${new URLSearchParams(query)}`);
+      setReviews({items: result.reviews, minimum: result.ai_confidence});
+      setReview({busy: false, error: ''});
+    } catch (failure) {setReview({busy: false, error: failure.message});}
+  };
+  const proposals = () => applicable.map(row => ({...row.proposal, recommendation_id: removalId(row)}));
   return <div className="rs-stack">
     <MetricGroup label="Palavras negativas" items={[
-      {label: 'Negativas ativas', value: number(active.length)},
-      {label: 'Em listas compartilhadas', value: number(byLevel('shared_list')), detail: (count => `${count} ${count === 1 ? 'lista' : 'listas'}`)(new Set(active.filter(row => row.shared_set_name).map(row => row.shared_set_name)).size)},
-      {label: 'Em campanhas e grupos', value: number(byLevel('campaign') + byLevel('ad_group'))},
+      {label: 'Negativas ativas', value: number(active.length), detail: `${number(byLevel('shared_list'))} em listas · ${number(byLevel('campaign') + byLevel('ad_group'))} em campanhas e grupos`},
+      {label: 'Pode remover', value: number(count('remove')), detail: count('remove') ? 'Conflitos e duplicadas' : 'Nada a limpar'},
+      {label: 'Para revisar', value: number(count('review')), detail: reviews ? 'Com a revisão da IA' : 'Peça a revisão da IA'},
       {label: 'Bloqueando palavra-chave', value: number(state.body.conflicts.length), detail: state.body.conflicts.length ? 'Revise primeiro' : 'Nenhum conflito'},
     ]}/>
-    <Section title="Negativas" description={`Inventário do último envio completo · removidas nos últimos ${state.body.removed_days} dias ficam registradas`}
-      action={<div className="rs-segmented" role="group" aria-label="Situação">
-        {[['active', `Ativas · ${active.length}`], ['conflicts', `Conflitos · ${state.body.conflicts.length}`], ['removed', `Removidas · ${removed.length}`]].map(([key, label]) => <button type="button" key={key} aria-pressed={scope === key} onClick={() => setScope(key)}>{label}</button>)}
+    <Section title="Negativas" description={`Score de utilidade de 0 a 100, calculado com palavras-chave, termos de pesquisa e duplicidade · removidas nos últimos ${state.body.removed_days} dias ficam registradas`}
+      action={<div className="rs-actions">
+        {actions.canEdit && <ReportsActionButton color="secondary" size="sm" isDisabled={review.busy || !active.length} onClick={runReview}>{review.busy ? 'Revisando…' : reviews ? 'Revisar de novo com IA' : 'Revisar com IA'}</ReportsActionButton>}
+        {canPick && <ReportsActionButton color="secondary" size="sm" isDisabled={!suggested.length} onClick={() => setSelected(new Set(suggested.map(row => row.id)))}>Selecionar sugeridas ({suggested.length})</ReportsActionButton>}
+        {canPick && <ReportsActionButton color="primary" size="sm" isDisabled={!applicable.length} onClick={() => onApply(proposals())}><Zap size={16} aria-hidden="true"/>Remover no Google Ads ({applicable.length})</ReportsActionButton>}
       </div>}>
-      {scope === 'conflicts' && state.body.conflicts.length > 0 && <ul className="ga-conflicts">{state.body.conflicts.map((item, index) => <li key={index}><strong>{item.keyword}</strong> <span>{item.campaign_name} › {item.ad_group_name}</span></li>)}</ul>}
-      <DataTable label="Negativas" rows={visible} rowKey={row => row.id} empty={<p className="rs-muted">{scope === 'active' ? 'Nenhuma negativa ativa recebida. Elas chegam no fim de cada execução completa do script.' : 'Nada aqui.'}</p>} columns={[
-        {key: 'keyword_text', label: 'Negativa', render: row => <><strong>{row.match_type === 'EXACT' ? `[${row.keyword_text}]` : row.match_type === 'PHRASE' ? `"${row.keyword_text}"` : row.keyword_text}</strong>{row.blocks_keyword && <small className="rs-cell-sub ga-strong">bloqueia palavra-chave ativa</small>}</>},
+      <div className="rs-segmented ga-filter" role="group" aria-label="Grupo">
+        {[['remove', `Pode remover · ${count('remove')}`], ['review', `Revisar · ${count('review')}`], ['keep', `Manter · ${count('keep')}`], ['all', `Todas · ${active.length}`], ['removed', `Removidas · ${removed.length}`]].map(([key, label]) =>
+          <button type="button" key={key} aria-pressed={current === key} onClick={() => choose(key)}>{label}</button>)}
+      </div>
+      {review.error && <p className="ga-note" role="alert">{review.error}</p>}
+      {reviews && <p className="ga-note">A IA revisou {Object.keys(reviews.items).length} negativas e só muda o grupo quando tem {Math.round(minimum * 100)}% de confiança ou mais. Nada é removido sem a sua aprovação.</p>}
+      {current === 'remove' && count('remove') > 0 && <p className="ga-note">Estas negativas não protegem o orçamento: bloqueiam palavra-chave ativa ou já estão cobertas por outra. Selecione e remova pela fila de Ações (aplica na próxima execução do script).</p>}
+      <DataTable label="Negativas" rows={visible} rowKey={row => row.id} initialSort={current === 'removed' ? undefined : {key: 'score', dir: 'asc'}}
+        empty={<p className="rs-muted">{current === 'removed' ? 'Nada removido no período.' : current === 'all' ? 'Nenhuma negativa ativa recebida. Elas chegam no fim de cada execução completa do script.' : 'Nenhuma negativa neste grupo.'}</p>} columns={[
+        ...(canPick ? [{key: 'pick', label: '', sortable: false, render: row => <input type="checkbox" aria-label={`Selecionar ${negativeLabel(row)}`} checked={selected.has(row.id)} onChange={() => toggle(row)}/>}] : []),
+        ...(current === 'removed' ? [] : [{key: 'final', label: 'Sugestão', sortable: false, render: row => {
+          const applied = actions.byRecommendation.get(removalId(row));
+          return applied ? <ActionStatus action={applied} actions={actions}/> : badge(NEG_GROUP[row.final]);
+        }}, {key: 'score', label: 'Score', numeric: true, render: row => <span className={`rs-badge is-${row.final === 'remove' ? 'error' : row.final === 'review' ? 'warning' : 'success'}`} title="Quanto vale manter esta negativa: baixo, pode sair; alto, está protegendo o orçamento.">{row.score}</span>}]),
+        {key: 'keyword_text', label: 'Negativa', render: row => {
+          const ai = reviews?.items[row.id];
+          return <><strong>{negativeLabel(row)}</strong>
+            {row.blocks_keyword && <small className="rs-cell-sub ga-strong">bloqueia palavra-chave ativa</small>}
+            {!row.removed_at && row.reasons?.[0] && <small className="rs-cell-sub">{row.reasons[0]}</small>}
+            {ai && <small className="rs-cell-sub">IA · {NEG_GROUP[ai.verdict][0]} ({Math.round(ai.confidence * 100)}%): {ai.reason}</small>}</>;
+        }},
         {key: 'match_type', label: 'Correspondência', render: row => MATCH[row.match_type] || row.match_type},
         {key: 'level', label: 'Nível', render: row => LEVEL[row.level] || row.level},
         {key: 'where', label: 'Onde', sort: row => row.shared_set_name || row.campaign_name || '', render: row => row.level === 'shared_list' ? <>{row.shared_set_name}<small className="rs-cell-sub">{(row.attached_campaign_ids || []).length} campanhas</small></> : <>{row.campaign_name}{row.ad_group_name && <small className="rs-cell-sub">{row.ad_group_name}</small>}</>},
-        {key: 'last_seen_at', label: scope === 'removed' ? 'Removida' : 'Visto', render: row => friendlyAgo(row.removed_at || row.last_seen_at)},
+        {key: 'last_seen_at', label: current === 'removed' ? 'Removida' : 'Visto', render: row => friendlyAgo(row.removed_at || row.last_seen_at)},
       ]}/>
     </Section>
   </div>;
@@ -299,7 +351,7 @@ export function GoogleAds({data}) {
     {view === 'actions' && <ActionsView actions={actions}/>}
     {view === 'search_terms' && <SearchTerms key={termFilter} period={period} initialFilter={termFilter} actions={actions} onApply={setApplying}/>}
     {view === 'keywords' && <Keywords period={period}/>}
-    {view === 'negatives' && <Negatives period={period}/>}
+    {view === 'negatives' && <Negatives period={period} actions={actions} onApply={setApplying}/>}
     {view === 'campaigns' && <Campaigns body={body} money={money} onEditGoal={setEditing}/>}
     {editing && <GoalDrawer key={editing.campaign_external_id} campaign={editing} data={data} money={money} onClose={() => setEditing(null)} onSaved={() => {setEditing(null); retry();}}/>}
     {view === 'details' && <MediaPerformance views={['ad_groups', 'landing_pages', 'devices']} hideSettings/>}

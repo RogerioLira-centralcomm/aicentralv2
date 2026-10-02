@@ -384,3 +384,13 @@ body.portal--connect .cadu-conversation-launcher{display:none!important}
 @media (max-width:760px){.portal--connect .reports-shell > .reports-main > .reports-page-header{min-height:54px;margin-bottom:16px}}
 .portal--connect .reports-shell > .reports-main > .reports-page-header--overview{min-height:92px;margin-bottom:24px}
 @media (max-width:760px){.portal--connect .reports-shell > .reports-main > .reports-page-header--overview{min-height:0}}
+/* Monitoramento: disponibilidade e jornada em números */
+.flow-failure-banner{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:12px 16px;border:1px solid var(--color-border-warning);border-radius:12px;background:var(--color-bg-warning-primary);color:var(--color-text-warning-primary);font-size:13px}
+.flow-failure-banner.is-error{border-color:var(--color-border-error);background:var(--color-bg-error-primary);color:var(--color-text-error-primary)}
+.flow-failure-banner ul{margin:4px 0;padding-left:18px;display:grid;gap:2px}.flow-failure-banner small{display:block;opacity:.85}
+.flow-failure-banner a{flex:none;font-weight:600;text-decoration:underline;color:inherit}
+.flow-health-table td,.flow-journey-numbers td{vertical-align:top}.flow-health-table small,.flow-journey-numbers td small{display:block;color:var(--color-text-tertiary);font-size:11px}
+.flow-health-table tr.is-down{background:var(--color-bg-error-primary)}
+.flow-health-table.is-checking{opacity:.7}
+.reports-monitor-footnote{margin-top:4px;font-size:12px;color:var(--color-text-tertiary)}.reports-monitor-footnote summary{cursor:pointer;font-weight:600}.reports-monitor-footnote>*:not(summary){margin-top:8px}
+.reports-grid--one{grid-template-columns:1fr}

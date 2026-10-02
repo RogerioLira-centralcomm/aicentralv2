@@ -5,6 +5,7 @@ from that page; nothing implies measured traffic. A real form submit is a
 separate, explicit and rate-limited action, never part of the default analysis.
 """
 import json
+import os
 import re
 import secrets
 import time
@@ -518,12 +519,37 @@ def render_with_browser(url):
             browser.close()
 
 
-def playwright_available():
+_PLAYWRIGHT_CACHE = {'at': 0.0, 'value': (False, '')}
+
+
+def playwright_status(max_age=60):
+    """(available, reason). Checks the package and the Chromium binary in THIS process, cached briefly.
+
+    The reason names what is missing (package, browser binary or driver) so the screen never has to guess.
+    """
+    now = time.monotonic()
+    if now - _PLAYWRIGHT_CACHE['at'] < max_age and _PLAYWRIGHT_CACHE['at']:
+        return _PLAYWRIGHT_CACHE['value']
     try:
-        import playwright.sync_api  # noqa: F401
-        return True
-    except Exception:
-        return False
+        from playwright.sync_api import sync_playwright
+    except Exception as exc:
+        value = (False, f'O pacote playwright não carrega neste processo ({type(exc).__name__}).')
+    else:
+        try:
+            with sync_playwright() as pw:
+                executable = pw.chromium.executable_path
+            if executable and os.path.exists(executable):
+                value = (True, '')
+            else:
+                value = (False, 'O Chromium do Playwright não foi baixado neste servidor (playwright install chromium).')
+        except Exception as exc:
+            value = (False, f'O Playwright não iniciou neste processo ({type(exc).__name__}).')
+    _PLAYWRIGHT_CACHE.update(at=now, value=value)
+    return value
+
+
+def playwright_available():
+    return playwright_status()[0]
 
 
 def _submit_with_browser(url, form_index, allowed_host):
@@ -617,7 +643,7 @@ def register(bp):
             rendered = None
             if payload.get('render') is True:
                 if not playwright_available():
-                    abort(501, description='A leitura renderizada exige o navegador de testes, que não está instalado neste servidor.')
+                    abort(501, description=playwright_status()[1] or 'O navegador de testes não está disponível neste servidor.')
                 try:
                     rendered = render_with_browser(url)
                 except Exception:
@@ -637,7 +663,7 @@ def register(bp):
                 result['limits'] = ['Página aberta com scripts em execução; os pixels listados como disparados fizeram requisições de verdade.',
                                     'O formulário não foi enviado.']
             result.pop('_evidence', None)
-            result['submit_available'] = playwright_available()
+            result['submit_available'], result['submit_unavailable_reason'] = playwright_status()
             return jsonify(result)
         finally:
             _probe_slots.release()
@@ -646,7 +672,7 @@ def register(bp):
         if payload.get('confirm_submit') is not True:
             abort(400, description='Confirme o envio de teste para continuar.')
         if not playwright_available():
-            abort(501, description='O envio de teste exige o navegador de testes, que não está instalado neste servidor.')
+            abort(501, description=playwright_status()[1] or 'O navegador de testes não está disponível neste servidor.')
         index = payload.get('form_index')
         if not isinstance(index, int) or index < 0 or index > 20:
             abort(400, description='Escolha o formulário a testar.')

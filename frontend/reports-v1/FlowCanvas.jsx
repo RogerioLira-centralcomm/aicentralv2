@@ -1,4 +1,4 @@
-import {isEngagementFlow} from './flowGoals.js';
+import {flowGoal,goalById,isEngagementFlow} from './flowGoals.js';
 import {FLOW_STAGES,stageFor,stageAtX,stageX,funnelEdges,isReturnEdge,FLOW_STAGE_WIDTH,FLOW_GRID,alignToGrid} from './flowStages.js';
 import {edgeMetricLabel} from './flowMetricLabels.js';
 import {flowRoleLabel,flowRoleSourceLabel,flowStageLabel} from './flowUiLabels.js';
@@ -41,8 +41,16 @@ function JourneySummary({config,journey}) {
   const top=exits.slice().sort((a,b)=>(b.metric.exits||0)-(a.metric.exits||0))[0];
   if(!arrived&&!converted)return null;
   if(isEngagementFlow(config)){
-    const engagement=journey.engagement||{};
-    return <div className="flow-journey-summary" role="status"><span><b>{number(arrived)}</b> chegaram</span>{engagement.pages_per_session!=null&&<span><b>{engagement.pages_per_session.toLocaleString('pt-BR',{maximumFractionDigits:1})}</b> páginas por visita</span>}{engagement.avg_active_ms!=null&&<span><b>{duration(engagement.avg_active_ms)}</b> ativos por página</span>}<span><b>{number(left)}</b> saíram</span>{top&&top.metric.exits>0&&<span>Maior saída: <b>{top.node.title}</b> ({number(top.metric.exits)})</span>}</div>;
+    const engagement=journey.engagement||{};const goal=flowGoal(config);
+    const pages=engagement.pages_per_session!=null&&<span key="pages"><b>{engagement.pages_per_session.toLocaleString('pt-BR',{maximumFractionDigits:1})}</b> páginas por visita</span>;
+    const time=engagement.avg_active_ms!=null&&<span key="time"><b>{duration(engagement.avg_active_ms)}</b> ativos por página</span>;
+    const reached=<span key="arrived"><b>{number(arrived)}</b> chegaram</span>;
+    const sources=rows.filter(row=>row.node.type==='source').sort((a,b)=>b.metric.sessions-a.metric.sessions);
+    const topSource=sources[0]&&sources[0].metric.sessions>0&&<span key="source">Maior origem: <b>{sources[0].node.title}</b> ({number(sources[0].metric.sessions)})</span>;
+    const leaving=<span key="left"><b>{number(left)}</b> saíram</span>;
+    const topExit=top&&top.metric.exits>0&&<span key="exit">Maior saída: <b>{top.node.title}</b> ({number(top.metric.exits)})</span>;
+    const order={time:[time,reached,pages,leaving],reach:[reached,topSource,pages,leaving],navigation:[reached,pages,leaving,topExit]}[goal]||[reached,pages,time,leaving,topExit];
+    return <div className="flow-journey-summary" role="status" aria-label={`Objetivo: ${goalById(goal).label}`}>{order.filter(Boolean)}</div>;
   }
   const rate=arrived?Math.round(converted/arrived*100):null;
   return <div className="flow-journey-summary" role="status"><span><b>{number(arrived)}</b> chegaram</span><span><b>{number(converted)}</b> converteram{rate!=null&&` · ${rate}%`}</span><span><b>{number(left)}</b> saíram sem converter</span>{top&&top.metric.exits>0&&<span>Maior saída: <b>{top.node.title}</b> ({number(top.metric.exits)})</span>}</div>;

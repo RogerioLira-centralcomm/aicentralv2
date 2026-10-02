@@ -94,7 +94,7 @@ export function FlowConversionProbe({flowId,clientId,csrf,domain,config,onApply,
         {result.submit_available
           ?<><label className="flow-inspector__checkbox"><input type="checkbox" checked={confirmSubmit} onChange={event=>setConfirmSubmit(event.target.checked)}/> Autorizo este envio de teste</label>
             <Button color="primary" disabled={!confirmSubmit||busy} onClick={submit}>{busy?'Enviando e observando…':'Enviar teste'}</Button></>
-          :<p className="flow-probe-callout is-warning" role="status">O navegador de testes ainda não está instalado neste servidor, então o envio não pode ser feito agora. A análise acima continua válida.</p>}</section>}
+          :<p className="flow-probe-callout is-warning" role="status">O envio não pode ser feito agora. {result.submit_unavailable_reason||'O navegador de testes não respondeu neste servidor.'} A análise acima continua válida.</p>}</section>}
       {submitted&&<ProbeOutcome submitted={submitted}/>}
       {proposal?.use_catalog&&<section className="flow-probe-block"><h3>Próximo passo</h3><small>{proposal.note}</small></section>}
       {proposal&&!proposal.use_catalog&&<section className="flow-probe-block"><h3>Caminho proposto</h3><small>{proposal.nodes.length} etapas, da origem do tráfego até a conversão, já no mapa como prévia.</small></section>}

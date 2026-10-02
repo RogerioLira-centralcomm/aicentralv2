@@ -95,12 +95,10 @@ export function uploadStudioAsset({apiRoot, csrf, clientId, projectId, file}) {
   }).then(unwrap).then(data => data.items?.[0] || Promise.reject(new Error('O Studio não devolveu o ativo enviado.')));
 }
 
-export function requestQuote({apiRoot, csrf, prompt, format, clientId, hasMask}) {
-  return postJson(`${apiRoot}/format-lab/quote`, csrf, {
-    kind: 'swap', client_id: clientId || undefined, instruction: prompt, note: prompt,
-    aspect_ratio: format, quality: 'draft', use_brand_context: true,
-    selection_context: hasMask ? {role: 'marked_region'} : undefined,
-  });
+// Credits for an edit come from the Studio's own estimate; the generic format-lab quote
+// returns a plan without `estimated_tokens` and left the button stuck on "calculando".
+export function requestQuote({apiRoot, csrf, prompt, format, quality = 'draft'}) {
+  return postJson(`${apiRoot}/format-lab/studio/edit-quote`, csrf, {instruction: prompt, aspect_ratio: format, quality});
 }
 
 function publicImageUrl(value) {

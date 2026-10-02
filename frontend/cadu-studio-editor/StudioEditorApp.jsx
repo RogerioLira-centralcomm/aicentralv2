@@ -57,6 +57,7 @@ export default function StudioEditorApp({bootstrap}) {
   const [shelfLoading, setShelfLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [estimate, setEstimate] = useState(null);
+  const [quoteState, setQuoteState] = useState('idle');
   const [notice, setNotice] = useState('');
   const [agentMessages, setAgentMessages] = useState(initial.agentMessages || []);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -198,12 +199,16 @@ export default function StudioEditorApp({bootstrap}) {
     return () => window.removeEventListener('pagehide', finishOnExit);
   }, [asset, bootstrap.apiRoot, bootstrap.csrf, clientId, crop?.bounds, director, format, generating, mask?.bounds, outputSize, project?.name, prompt, selectedGlobalReferences, selectedId, versions]);
   useEffect(() => {
-    if (!asset || !prompt.trim()) { setEstimate(null); return undefined; }
+    if (!asset || !prompt.trim()) { setEstimate(null); setQuoteState('idle'); return undefined; }
+    let current = true;
+    setQuoteState('loading');
     const timer = window.setTimeout(() => {
-      requestQuote({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, prompt, format, clientId, hasMask: Boolean(mask)}).then(quote => setEstimate(quote)).catch(() => setEstimate(null));
+      requestQuote({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, prompt, format, quality})
+        .then(quote => { if (!current) return; setEstimate(quote); setQuoteState(quote?.estimated_tokens ? 'ready' : 'error'); })
+        .catch(() => { if (current) { setEstimate(null); setQuoteState('error'); } });
     }, 420);
-    return () => window.clearTimeout(timer);
-  }, [asset, bootstrap.apiRoot, bootstrap.csrf, clientId, format, mask, prompt]);
+    return () => { current = false; window.clearTimeout(timer); };
+  }, [asset, bootstrap.apiRoot, bootstrap.csrf, format, prompt, quality]);
   const upload = useCallback(async event => {
     const file = event.target.files?.[0]; event.target.value = ''; if (!file) return;
     if (!file.type.startsWith('image/')) { setNotice('Escolha uma imagem PNG, JPG ou WebP.'); return; }
@@ -419,9 +424,9 @@ export default function StudioEditorApp({bootstrap}) {
   const resumeQueue = () => { if (!batchProgress?.base || !batchProgress?.formats?.length) { setNotice('Não foi possível localizar a peça-base desta fila.'); return; } queueExpansion({count: batchProgress.total, formats: batchProgress.formats, completed: batchProgress.failedIndex ?? batchProgress.completed, base: batchProgress.base}); };
   const quoteExpansion = useCallback(async ({count, formats}) => {
     const instruction = prompt.trim() || 'Adaptar este criativo, preservando marca, produto e hierarquia visual.';
-    const quotes = await Promise.all(formats.map(formatOption => requestQuote({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, prompt: instruction, format: formatOption, clientId, hasMask: false})));
+    const quotes = await Promise.all(formats.map(formatOption => requestQuote({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, prompt: instruction, format: formatOption, quality})));
     return quotes.reduce((total, quote, index) => total + (Number(quote.estimated_tokens || 0) * (Math.floor(count / formats.length) + (index < count % formats.length ? 1 : 0))), 0);
-  }, [bootstrap.apiRoot, bootstrap.csrf, clientId, prompt]);
+  }, [bootstrap.apiRoot, bootstrap.csrf, prompt, quality]);
   const openHistory = async () => {
     setHistoryOpen(true);
     if (!clientId) return;
@@ -490,7 +495,7 @@ export default function StudioEditorApp({bootstrap}) {
     } catch (error) { setNotice(error.message || 'Não foi possível duplicar esta mesa local.'); }
   };
   const links = bootstrap.links || {};
-  const estimateLabel = estimate?.estimated_tokens ? `${Number(estimate.estimated_tokens).toLocaleString('pt-BR')} créditos` : prompt.trim() ? 'calculando custo…' : 'custo ao gerar';
+  const estimateLabel = quoteState === 'ready' && estimate?.estimated_tokens ? `${Number(estimate.estimated_tokens).toLocaleString('pt-BR')} créditos` : quoteState === 'loading' ? 'calculando custo…' : 'custo ao gerar';
   const readOnly = studioSession?.status === 'finalized';
   const composer = <StudioComposer value={prompt} onChange={setPrompt} director={director} onDirectorChange={setDirector} onGenerate={generate} onAttach={() => referenceInput.current?.click()} references={references} onRemoveReference={index => setReferences(current => current.filter((_, itemIndex) => itemIndex !== index))} mask={mask ? {...mask, onClear: () => { maskRef.current?.clear(); setMask(null); }} : null} format={format} generating={generating} disabled={!asset || readOnly} disabledReason={readOnly ? 'Sessão finalizada. Use Continuar para editar de novo.' : !asset ? 'Abra uma imagem no palco para editar.' : ''} estimateLabel={estimateLabel} messages={agentMessages}/>;
   return <div className={`se-app ${readOnly ? 'is-read-only' : ''}`}><StudioTopbar links={links} projects={projects} project={project} onProjectChange={changeProject} bootstrap={bootstrap} sessionName={studioSession?.title || asset?.name || 'Nova sessão de edição'} onHistory={openHistory} onNewSession={newSession}/><div className="se-layout"><LeftRail versions={versions} selectedId={selectedId} filter={railFilter} onFilter={setRailFilter} onSelect={selectVersion} onApprove={approve} onSetBase={setBase} onRemove={removeVersion} onUpload={() => fileInput.current?.click()} onNewSession={newSession} onHistory={openHistory} onRestoreSession={restoreSession} sessions={sessionHistory} activeSessionId={studioSession?.id || ''} readOnly={readOnly} libraryUrl={links.library} project={project} libraryAssets={libraryAssets} previousAssets={previousAssets} shelfLoading={shelfLoading} onSelectAsset={selectShelfAsset}/><main className="se-main"><CanvasWorkspace onDropAsset={selectShelfAsset} generating={generating} asset={asset} mode={mode} setMode={setMode} mask={mask} crop={crop} maskRef={maskRef} onMaskChange={setMask} onCropChange={setCrop} onUpload={() => fileInput.current?.click()} format={format} outputSize={outputSize} onOutputSizeChange={setOutputSize} zoom={zoom} onZoomChange={setZoom} quality={quality} onQualityChange={setQuality} onRemoveBackground={removeBackground} onUndo={undo} onRedo={redo} canUndo={historyState.undo} canRedo={historyState.redo}/>{notice && <div className="se-notice" role="status">{notice}<button type="button" onClick={() => setNotice('')} aria-label="Fechar aviso">×</button></div>}</main><BrandPanel format={format} setFormat={setFormat} status={status} project={project} selectedGlobalReferences={selectedGlobalReferences} onGlobalReferencesChange={setSelectedGlobalReferences} batchProgress={batchProgress} onPauseQueue={pauseQueue} onCancelQueue={cancelQueue} onResumeQueue={resumeQueue} readOnly={readOnly} onHistory={openHistory} onFinalize={finalize} onContinue={continueEditing} onExpand={() => setExpandOpen(true)} composer={composer}/></div><input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={upload}/><input ref={referenceInput} type="file" accept="image/png,image/jpeg,image/webp" hidden multiple onChange={addReference}/>{historyOpen && <StudioModal title="Sessões e versões" onClose={() => setHistoryOpen(false)}><div className="se-history-dialog"><p>{studioSession ? 'Sessão atual sincronizada com o Studio.' : 'Versões locais desta mesa.'}</p>{versions.map(item => <button type="button" key={item.id} onClick={() => { selectVersion(item.id); setHistoryOpen(false); }}><img src={item.url} alt=""/><span>{item.name}</span><small>{item.status === 'approved' ? 'Aprovada' : 'Em edição'}</small></button>)}{sessionHistory.length > 0 && <><p>Outras sessões</p>{sessionHistory.filter(item => item.id !== studioSession?.id).map(item => <button type="button" className="se-history-session" key={item.id} onClick={() => restoreSession(item.id)}><span>{item.title || 'Mesa sem título'}</span><small>{item.status === 'finalized' ? 'Finalizada' : 'Em andamento'}</small></button>)}</>}</div></StudioModal>}{conflictOpen && <StudioModal title="Alteração em outra aba" onClose={() => setConflictOpen(false)}><div className="se-conflict-dialog"><p>Esta sessão foi atualizada em outra aba antes do seu último salvamento. Escolha a versão que deve continuar.</p><button type="button" onClick={resolveConflictWithRemote}><strong>Restaurar versão do Studio</strong><span>Descarta alterações desta aba e abre a última versão sincronizada.</span></button><button type="button" onClick={duplicateLocalSession}><strong>Duplicar minha mesa local</strong><span>Preserva suas alterações em uma nova sessão independente.</span></button></div></StudioModal>}{expandOpen && <ExpandDialog asset={selected || asset} onQuote={quoteExpansion} onQueue={queueExpansion} onClose={() => setExpandOpen(false)}/>}</div>;

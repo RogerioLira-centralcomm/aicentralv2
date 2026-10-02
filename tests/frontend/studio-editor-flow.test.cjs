@@ -21,7 +21,7 @@ const STILL='/static/images/cadu/brand-icons/studio-192.png';
     const ok=data=>route.fulfill({json:{success:true,data}});
     if(path.endsWith('/project-contexts'))return ok({items:[{id:'p1',name:'Lançamento Verão',client_id:174,brand_name:'Centralcomm'}]});
     if(path.endsWith('/reference-uploads'))return ok({items:[{id:'r1',asset_id:'a1',url:STILL}]});
-    if(path.endsWith('/format-lab/quote'))return ok({estimated_tokens:1200,estimate_label:'~1,2 mil tokens'});
+    if(path.endsWith('/studio/edit-quote'))return ok({estimated_tokens:1200,estimate_label:'~1,2 mil tokens'});
     if(path.endsWith('/studio/tasks')&&method==='POST')return ok({id:'task-1',status:'queued'});
     if(path.endsWith('/studio/tasks/task-1'))return ok({id:'task-1',status:'ready',result:{image_url:STILL}});
     if(/\/sessions(\/[^/]+)?$/.test(path)&&method!=='GET')return ok({id:'s1',revision:1,title:'Mesa',status:'active',assets:[]});

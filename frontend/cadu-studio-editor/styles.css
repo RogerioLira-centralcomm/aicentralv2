@@ -540,3 +540,23 @@ details.se-brand-content > .se-brand-label { margin-top:8px; }
 .se-stage-broken{display:grid;gap:8px;justify-items:center;text-align:center;max-width:360px;margin:auto;padding:24px;color:var(--se-text,#e8e8ee)}
 .se-stage-broken small{opacity:.7}
 .se-stage-broken button{margin-top:6px;padding:8px 16px;border-radius:8px;border:0;background:#6d4aff;color:#fff;font-weight:600;cursor:pointer}
+
+/* Consistent empty states: the broken-image message uses the same card as the drop zone. */
+.se-stage-broken { width:min(480px,86%); max-width:none; margin:auto; padding:28px; gap:10px; border:1.5px dashed rgba(255,255,255,.14); border-radius:16px; background:rgba(255,255,255,.02); animation:se-artboard-in .3s ease-out both; }
+.se-stage-broken strong { font-size:15px; color:#e6ebf0; }
+.se-stage-broken small { max-width:340px; font-size:12px; line-height:1.5; color:#8e9aa6; opacity:1; }
+.se-stage-broken button { min-height:34px; margin-top:8px; padding:0 14px; border-radius:8px; background:#7c5cff; font-size:12px; font-weight:650; }
+.se-stage-broken button:hover { background:#8d70ff; }
+
+/* Versions list: neutral rows. Purple marks only the selected version's edge; a missing file
+   is shown as a muted row with a small notice instead of a coloured block. */
+.se-rail-item.is-selected { background:rgba(255,255,255,.05); box-shadow:inset 2px 0 #7c5cff; }
+.se-rail-item.is-broken.is-selected { background:rgba(255,255,255,.03); box-shadow:inset 2px 0 rgba(255,255,255,.28); }
+.se-rail-item.is-broken img,.se-rail-item.is-broken .se-image-fallback { opacity:.55; }
+.se-rail-item__actions.is-broken { display:flex; align-items:center; gap:8px; padding:0 8px 8px 58px; }
+.se-rail-item__actions.is-broken small { margin-right:auto; color:#9aa5b1; font-size:10.5px; line-height:1.25; }
+.se-rail-item__actions.is-broken small::before { content:'• '; color:#d98a5c; }
+.se-rail-item__actions.is-broken button { flex:none; padding:5px 10px; }
+.se-rail-item .se-status { color:#8e9aa6; }
+.se-rail-item .se-status--approved { color:#6fcf97; }
+.se-rail-item .se-status--new { color:#b7a4ff; }

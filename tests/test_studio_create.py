@@ -248,3 +248,26 @@ def test_trocr_editor_uses_the_react_workspace_assets():
     assert "cadu_studio/editor/react/app.js') }}?v=1" in template
     assert 'id="cadu-studio-editor-root"' in template
     assert "trocr-editor.css" not in template
+
+
+def test_edit_quote_comes_from_the_swap_estimate_and_grows_with_quality():
+    from aicentralv2.creative_format_lab.swap import quote_swap
+    base = {'instruction': 'Troque o fundo', 'aspect_ratio': '4:5', 'reference': 'studio-editor'}
+
+    draft = quote_swap({**base, 'quality': 'draft'})['estimated_tokens']
+    high = quote_swap({**base, 'quality': 'high'})['estimated_tokens']
+
+    assert draft > 0 and high > draft
+
+
+def test_edit_quote_route_is_registered_for_the_editor():
+    from aicentralv2.creative_media import studio
+    rules = []
+
+    class Recorder:
+        def add_url_rule(self, rule, **kwargs):
+            rules.append(rule)
+
+    studio.register_studio_routes(Recorder())
+
+    assert '/api/format-lab/studio/edit-quote' in rules

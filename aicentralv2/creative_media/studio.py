@@ -319,6 +319,7 @@ def register_studio_routes(blueprint):
     blueprint.add_url_rule('/api/format-lab/studio/projects', view_func=studio_projects, methods=['GET', 'POST'])
     blueprint.add_url_rule('/api/format-lab/studio/library-sessions', view_func=studio_library_sessions, methods=['GET'])
     blueprint.add_url_rule('/api/format-lab/studio/reference-uploads', view_func=studio_reference_uploads, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/edit-quote', view_func=studio_edit_quote, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/audio/transcriptions', view_func=studio_audio_transcriptions, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/brand-palette/suggest', view_func=studio_brand_palette_suggest, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/brand-palette', view_func=studio_brand_palette, methods=['POST'])
@@ -950,6 +951,27 @@ def studio_library_sessions():
             'personal_assets': personal_assets,
             'reference_masks': _studio_reference_masks(),
         })
+    return execute(run)
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_edit_quote():
+    """Credits an image edit will reserve, using the same estimate the edit itself checks."""
+    from ..creative_format_lab.swap import quote_swap
+    execute, json_body, ok, _ = _http()
+
+    def run():
+        data = json_body()
+        quote = quote_swap({
+            'instruction': str(data.get('instruction') or '')[:2000],
+            'aspect_ratio': str(data.get('aspect_ratio') or '4:5')[:12],
+            'quality': str(data.get('quality') or 'draft')[:12],
+            'variation_count': str(data.get('variation_count') or '1'),
+            'reference': 'studio-editor',
+        })
+        return ok({'estimated_tokens': int(quote.get('estimated_tokens') or 0), 'quality': quote.get('quality')})
+
     return execute(run)
 
 

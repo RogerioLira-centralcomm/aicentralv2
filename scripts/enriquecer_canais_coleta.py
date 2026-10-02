@@ -1,7 +1,7 @@
 """Coleta imagens e textos oficiais dos canais (Firecrawl) e gera prévia para revisão.
 
-Somente leitura no banco; nada é gravado em cadu_canais. Saída em
-output/canais-enriquecimento/{raw/<slug>.json, previa.json, previa.md}.
+Só coleta (cache bruto em tmp). Quem grava em cadu_canais é
+scripts/enriquecer_canais_aplicar.py; a base é a fonte de verdade.
 """
 
 from __future__ import annotations
@@ -9,12 +9,13 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "output" / "canais-enriquecimento"
+OUT = Path(tempfile.gettempdir()) / "canais-coleta"
 RAW = OUT / "raw"
 
 # Páginas oficiais de mídia/anunciantes de cada canal ativo.
@@ -106,28 +107,9 @@ def main() -> None:
     with ThreadPoolExecutor(max_workers=2) as ex:
         resultados = dict(ex.map(coletar, slugs))
 
-    previa, linhas = {}, ["# Prévia de enriquecimento dos canais\n"]
     for slug, paginas in resultados.items():
         ok = [p for p in paginas if not p.get("erro")]
-        imagens = []
-        for p in ok:
-            for img in [p["og_image"], *p["imagens"]]:
-                if img and img not in imagens:
-                    imagens.append(img)
-        previa[slug] = {
-            "fontes": [p["url"] for p in ok],
-            "descricao_oficial": next((p["descricao"] for p in ok if p["descricao"]), ""),
-            "og_image": next((p["og_image"] for p in ok if p["og_image"]), ""),
-            "imagens_candidatas": imagens[:12],
-            "falhas": [p for p in paginas if p.get("erro")],
-        }
-        linhas.append(
-            f"- **{slug}**: {len(ok)}/{len(paginas)} páginas, {len(imagens)} imagens, "
-            f"og:image {'sim' if previa[slug]['og_image'] else 'não'}"
-        )
-    (OUT / "previa.json").write_text(json.dumps(previa, ensure_ascii=False, indent=1), encoding="utf-8")
-    (OUT / "previa.md").write_text("\n".join(linhas) + "\n", encoding="utf-8")
-    print("\n".join(linhas))
+        print(f"{slug}: {len(ok)}/{len(paginas)} páginas")
 
 
 if __name__ == "__main__":

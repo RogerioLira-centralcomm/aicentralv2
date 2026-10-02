@@ -2,7 +2,7 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {acceptStudioSessionAsset, attachStudioSessionProject, continueStudioSession, createStudioSession, finalizeStudioSession, finalizeStudioSessionOnExit, listStudioSessions, loadProjectContexts, loadProjectCreationHistory, loadStudioLibrary, readStudioSession, requestEdition as requestEditorEdition, requestQuote, saveStudioSession, uploadStudioAsset} from './api';
 import {StudioComposer} from './components/StudioComposer';
 import {StudioModal} from './components/StudioModal';
-import {ADAPT_INSTRUCTION, FORMAT_LABELS, FORMATS, imageSize, nearestFormat, readFile} from './shared';
+import {ADAPT_INSTRUCTION, FORMAT_LABELS, FORMATS, PRESERVE_LABELS, effectivePreserve, imageSize, nearestFormat, readFile} from './shared';
 import {LeftRail} from './components/LeftRail';
 import {StudioTopbar} from './components/StudioTopbar';
 import {BrandPanel} from './components/BrandPanel';
@@ -17,7 +17,17 @@ const formatTokens = value => {
   return tokens >= 1000 ? `~${(tokens / 1000).toLocaleString('pt-BR', {maximumFractionDigits: 1})} mil tokens` : `~${tokens.toLocaleString('pt-BR')} tokens`;
 };
 const makeId = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
-const makeDirectorInstruction = (prompt, director) => [prompt, director?.objective && `Direção do editor: ${director.objective}`, director?.preserve?.length && `Preserve rigorosamente: ${director.preserve.join(', ')}.`, 'Use referências visuais apenas por similaridade; preserve a identidade da peça-base.'].filter(Boolean).join('\n\n');
+const makeDirectorInstruction = (prompt, director) => {
+  // Items the request asks to change are released from "Preservar" for this edit; the rest stays locked.
+  const {kept, released} = effectivePreserve(prompt, director?.preserve || []);
+  return [
+    prompt,
+    director?.objective && `Direção do editor: ${director.objective}`,
+    kept.length && `Preserve rigorosamente: ${kept.map(key => PRESERVE_LABELS[key] || key).join(', ')}.`,
+    released.length && `Pode alterar, conforme o pedido: ${released.map(key => PRESERVE_LABELS[key] || key).join(', ')}. Mude só o que foi pedido.`,
+    'Use referências visuais apenas por similaridade; preserve a identidade da peça-base.',
+  ].filter(Boolean).join('\n\n');
+};
 
 export default function StudioEditorApp({bootstrap}) {
   const storageKey = `${STORAGE_PREFIX}:${bootstrap.clientId || 'default'}`;
@@ -550,7 +560,7 @@ export default function StudioEditorApp({bootstrap}) {
   const globalReferenceChips = selectedGlobalReferences.map(id => ({id, url: brandReferenceUrls[Number(String(id).split('-').pop())]})).filter(item => item.url).slice(0, Math.max(0, 2 - references.length)); // only what will actually be sent
   useEffect(() => {
     if (!brandReferenceUrls.length || !selectedGlobalReferences.length) return;
-    const valid = selectedGlobalReferences.filter(id => brandReferenceUrls[Number(String(id).split('-').pop())]);
+    const valid = selectedGlobalReferences.filter(id => brandReferenceUrls[Number(String(id).split('-').pop())]).slice(0, 2);
     if (valid.length !== selectedGlobalReferences.length) setSelectedGlobalReferences(valid);
   }, [brandReferenceUrls.length, selectedGlobalReferences]);
   const composer = <StudioComposer onPromptFocus={concludeMask} value={prompt} onChange={setPrompt} director={director} onDirectorChange={setDirector} onGenerate={generate} onAttach={() => referenceInput.current?.click()} references={references} onRemoveReference={index => setReferences(current => current.filter((_, itemIndex) => itemIndex !== index))} globalReferences={globalReferenceChips} onRemoveGlobalReference={id => setSelectedGlobalReferences(current => current.filter(item => item !== id))} mask={mask ? {...mask, onClear: () => { maskRef.current?.clear(); setMask(null); }} : null} format={format} generating={generating} disabled={!asset || readOnly} disabledReason={readOnly ? 'Sessão finalizada. Use Continuar para editar de novo.' : !asset ? 'Abra uma imagem no palco para editar.' : ''} estimateLabel={estimateLabel} messages={agentMessages}/>;

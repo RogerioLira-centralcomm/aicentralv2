@@ -52,3 +52,20 @@ export function adaptTargets(width, height) {
 }
 
 export const ADAPT_INSTRUCTION = target => `Adapte esta peça para o formato ${target}, mantendo todos os elementos, textos, logo e cores, apenas reorganizando o layout para a nova proporção.`;
+
+// What "Preservar" protects, in words the model reads.
+export const PRESERVE_LABELS = {identity: 'identidade da marca (logo e cores)', copy: 'textos', layout: 'composição', people: 'pessoas'};
+export const PRESERVE_SHORT = {identity: 'Identidade', copy: 'Textos', layout: 'Composição', people: 'Pessoas'};
+const CHANGE_PATTERNS = {
+  copy: /\b(texto|textos|frase|frases|t[íi]tulo|headline|cta|bot[ãa]o|palavra|escrit[ao]|legenda|slogan|copy|chamada|subt[íi]tulo|pre[çc]o|mensagem)\b/i,
+  identity: /\b(logo|logotipo|logomarca|paleta|cores da marca|identidade)\b/i,
+  layout: /\b(layout|composi[çc][ãa]o|posi[çc][ãa]o|mov[ae]r?|reorganiz\w*|alinh\w*|enquadr\w*|centraliz\w*|reposicion\w*)\b/i,
+  people: /\b(pessoa|pessoas|rosto|modelo|homem|mulher|crian[çc]a|personagem|express[ãa]o)\b/i,
+};
+
+// The request wins over "Preservar": an item the instruction asks to change is released for that edit only.
+export function effectivePreserve(instruction, preserve = []) {
+  const text = String(instruction || '');
+  const released = preserve.filter(key => CHANGE_PATTERNS[key]?.test(text));
+  return {kept: preserve.filter(key => !released.includes(key)), released};
+}

@@ -674,3 +674,8 @@ details.se-panel-section[open] > summary { margin-bottom:4px; }
   .se-toolbar > .se-tool-group { flex:none; margin-right:0; }
   .se-toolbar > .se-format-tools { margin-right:auto; }
 }
+.se-director__label { display:block; margin:10px 0 4px; color:#8e9aa6; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; }
+.se-director label.is-released { color:#d9a25c; text-decoration:line-through; text-decoration-color:rgba(217,162,92,.6); }
+.se-chip.se-chip--released { background:rgba(217,162,92,.14); color:#e8b678; }
+.se-global-reference-list label.is-disabled { opacity:.45; cursor:not-allowed; }
+details.se-brand-content > .se-text-button + .se-text-button { margin-top:-4px; }

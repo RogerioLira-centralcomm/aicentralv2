@@ -31,17 +31,33 @@ const asset={id:'v1',name:'Peça',url:'http://studio.test'+STILL,dataUrl:'http:/
   const chips=await page.locator('.se-reference-chip.is-global').count();
   assert.ok(chips>=1&&chips<=2,`no máximo 2 referências globais visíveis (${chips})`);
   await page.getByPlaceholder('Diga ao Cadu o que fazer nesta peça…').fill('Troque a frase para Conheça as principais mídias digitais.');
+  // O pedido mexe no texto: "Textos" sai do preservar só neste pedido, e isso aparece na tela.
+  await page.locator('.se-chip--released',{hasText:'Liberado: Textos'}).waitFor();
   await page.getByRole('button',{name:/Gerar edição/}).click();
   await page.getByText('Criei uma nova versão. Você pode revisar no palco ou pedir outro ajuste.').waitFor({timeout:15000});
   const task=calls.find(c=>c.p.endsWith('/studio/tasks'));
   const payload=JSON.parse(task.body).payload;
   assert.ok(payload.reference_images.length<=2,`referências enviadas: ${payload.reference_images.length}`);
   assert.ok(payload.reference_inputs.length<=2);
+  assert.match(payload.instruction,/Pode alterar, conforme o pedido: textos/);
+  assert.match(payload.instruction,/Preserve rigorosamente: identidade da marca \(logo e cores\), composição\./,'o resto continua preservado, em palavras e não em chaves internas');
+  assert.doesNotMatch(payload.instruction,/identity|copy|layout/,'sem nomes internos no pedido ao modelo');
   // remover um chip global tira a referência do próximo envio
   await page.locator('.se-reference-chip.is-global button').first().click();
   await page.waitForTimeout(700);
   const stored=JSON.parse(await page.evaluate(()=>localStorage.getItem('cadu-studio-editor-v1:174'))).selectedGlobalReferences;
-  assert.equal(stored.length,2,`remover o chip tira a referência da seleção guardada: ${JSON.stringify(stored)}`);
+  assert.equal(stored.length,1,`a seleção guardada cai para o limite de 2 e remover o chip tira mais uma: ${JSON.stringify(stored)}`);
+  // A escolha das referências do projeto tem um botão e aceita no máximo duas.
+  assert.match(await page.getByRole('button',{name:/Referências do projeto/}).innerText(),/\(1 em uso\)/,'o botão mostra quantas referências do projeto vão na edição');
+  await page.getByRole('button',{name:/Referências do projeto/}).click();
+  const drawer=page.getByRole('dialog',{name:'Referências do projeto'});
+  await drawer.waitFor();
+  assert.equal(await drawer.locator('input[type=checkbox]:checked').count(),1);
+  await drawer.locator('input[type=checkbox]:not(:checked)').first().check();
+  assert.equal(await drawer.locator('input[type=checkbox]:checked').count(),2);
+  assert.equal(await drawer.locator('input[type=checkbox]:disabled').count(),1,'com duas em uso a terceira fica bloqueada');
+  await drawer.getByRole('button',{name:'Não usar referências do projeto'}).click();
+  assert.equal(await drawer.locator('input[type=checkbox]:checked').count(),0);
   assert.deepEqual(errors,[]);
   console.log('PASS Editor: peça base + no máximo 2 referências, chips globais visíveis e removíveis');
   await browser.close();

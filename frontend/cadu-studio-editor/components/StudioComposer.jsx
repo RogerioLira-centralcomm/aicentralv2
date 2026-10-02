@@ -1,9 +1,11 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {StudioModal} from './StudioModal';
+import {PRESERVE_SHORT, effectivePreserve} from '../shared';
 
 const EDIT_SUGGESTIONS = [['Trocar o fundo', 'Troque o fundo mantendo o logo, o título e o assunto principal.'], ['Remover textos extras', 'Remova os textos pequenos e selos, mantendo só o título, o botão e o logo.'], ['Cores da marca', 'Aplique as cores oficiais da marca na peça, sem mudar a composição.'], ['Título legível', 'Deixe o título mais legível, com mais contraste e respiro.']];
 
 export function StudioComposer({onPromptFocus = () => {}, value, onChange, director, onDirectorChange, onGenerate, onAttach, references, onRemoveReference, globalReferences = [], onRemoveGlobalReference = () => {}, mask, format, generating, disabled, disabledReason = '', estimateLabel, messages = []}) {
+  const released = effectivePreserve(value, director?.preserve || []).released;
   const textarea = useRef(null);
   const [droppedFile, setDroppedFile] = useState(null);
   const [dragging, setDragging] = useState(false);
@@ -40,12 +42,14 @@ export function StudioComposer({onPromptFocus = () => {}, value, onChange, direc
       <span className="se-chip">Formato {format}</span>
       {globalReferences.map(item => <span className="se-reference-chip is-global" key={item.id} title="Referência global do projeto"><img src={item.url} alt=""/><button type="button" onClick={() => onRemoveGlobalReference(item.id)} aria-label="Remover referência global do projeto">×</button></span>)}
       {references.map((item, index) => <span className="se-reference-chip" key={item.id}><img src={item.dataUrl} alt=""/><button type="button" onClick={() => onRemoveReference(index)} aria-label={`Remover referência ${item.name}`}>×</button></span>)}
+      {released.length > 0 && <span className="se-chip se-chip--released" title="O pedido muda isto; o restante continua preservado">Liberado: {released.map(key => PRESERVE_SHORT[key]).join(", ")}</span>}
       <span className="se-drop-hint">Arraste uma imagem para anexar</span>
     </div>
     <details className="se-director" open={Boolean(director?.open)} onToggle={event => onDirectorChange({...director, open: event.currentTarget.open})}>
       <summary>Direção do editor</summary>
       <textarea value={director?.objective || ''} onChange={event => onDirectorChange({...director, objective: event.target.value})} placeholder="Ex.: dê prioridade ao produto e use as referências apenas para textura e linguagem visual." maxLength="700" disabled={disabled || generating}/>
-      <div>{[['identity','Identidade'],['copy','Textos'],['layout','Composição'],['people','Pessoas']].map(([key,label]) => <label key={key}><input type="checkbox" checked={Boolean(director?.preserve?.includes(key))} onChange={event => onDirectorChange({...director, preserve: event.target.checked ? [...(director?.preserve || []), key] : (director?.preserve || []).filter(item => item !== key)})}/>{label}</label>)}</div>
+      <span className="se-director__label">Preservar</span>
+      <div>{[['identity','Identidade'],['copy','Textos'],['layout','Composição'],['people','Pessoas']].map(([key,label]) => <label key={key} className={released.includes(key) ? 'is-released' : ''} title={released.includes(key) ? 'Liberado neste pedido, porque ele pede essa mudança' : ''}><input type="checkbox" checked={Boolean(director?.preserve?.includes(key))} onChange={event => onDirectorChange({...director, preserve: event.target.checked ? [...(director?.preserve || []), key] : (director?.preserve || []).filter(item => item !== key)})}/>{label}</label>)}</div>
     </details>
     {!disabled && !generating && !value.trim() && <div className="se-suggestions" aria-label="Sugestões de edição">{EDIT_SUGGESTIONS.map(([label, text]) => <button type="button" key={label} title={text} onClick={() => { onChange(text); textarea.current?.focus(); }}>{label}</button>)}</div>}
     <footer><button className="se-generate" type="submit" disabled={disabled || generating || !value.trim()}>{generating ? 'Gerando edição…' : `Gerar edição · ${estimateLabel}`}</button>{!generating && (disabled || !value.trim()) && <small className="se-generate-hint" role="status">{disabledReason || 'Descreva a edição para gerar.'}</small>}</footer>

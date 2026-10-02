@@ -16,6 +16,31 @@ import os
 mail = Mail()
 
 
+_STATIC_FINGERPRINTS = {}
+
+
+def static_fingerprint(static_folder, relative_path):
+    """Short content hash of one static file, for cache-busting query strings.
+
+    Fixed ``?v=1`` strings let browsers and CDNs keep an old bundle after a deploy, so
+    the page ends up with new JavaScript and old CSS. The hash is cached per file
+    until its size or modification time changes.
+    """
+    path = os.path.join(static_folder, relative_path)
+    try:
+        stat = os.stat(path)
+    except OSError:
+        return "0"
+    key = (path, stat.st_mtime_ns, stat.st_size)
+    cached = _STATIC_FINGERPRINTS.get(path)
+    if cached and cached[0] == key:
+        return cached[1]
+    with open(path, "rb") as handle:
+        digest = hashlib.sha256(handle.read()).hexdigest()[:10]
+    _STATIC_FINGERPRINTS[path] = (key, digest)
+    return digest
+
+
 def _workspace_asset_version(static_folder, configured_version=""):
     """Return one content fingerprint for every current Cadu interface shell."""
     digest = hashlib.sha256()
@@ -230,6 +255,8 @@ def create_app(config_class=Config):
             file_path = Path(app.root_path) / 'static' / rel_path
             return foto_url if file_path.is_file() else None
         return foto_url
+
+    app.jinja_env.globals['static_fingerprint'] = lambda relative_path: static_fingerprint(app.static_folder, relative_path)
 
     # Tornar config acessível nos templates
     @app.context_processor

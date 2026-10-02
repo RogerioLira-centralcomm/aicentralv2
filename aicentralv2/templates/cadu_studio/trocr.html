@@ -2,7 +2,7 @@
 {% block title %}Cadu Studio Editor{% endblock %}
 {% block product_id %}studio{% endblock %}
 {% block navigation %}{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_studio/editor/react/app.css') }}?v=1">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_studio/editor/react/app.css') }}?v={{ static_fingerprint('cadu_studio/editor/react/app.css') if static_fingerprint is defined else 0 }}">{% endblock %}
 {% block content %}
 <div id="cadu-studio-editor-root" aria-label="Cadu Studio Editor"><noscript>Ative o JavaScript para usar o Cadu Studio Editor.</noscript></div>
 <script id="cadu-studio-editor-bootstrap" type="application/json">{{ {
@@ -34,4 +34,4 @@
   }
 }|tojson }}</script>
 {% endblock %}
-{% block portal_scripts %}<script type="module" src="{{ url_for('static', filename='cadu_studio/editor/react/app.js') }}?v=1"></script>{% endblock %}
+{% block portal_scripts %}<script type="module" src="{{ url_for('static', filename='cadu_studio/editor/react/app.js') }}?v={{ static_fingerprint('cadu_studio/editor/react/app.js') if static_fingerprint is defined else 0 }}"></script>{% endblock %}

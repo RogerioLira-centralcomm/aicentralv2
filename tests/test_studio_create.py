@@ -244,8 +244,8 @@ def test_trocr_editor_uses_the_react_workspace_assets():
     root = Path(__file__).resolve().parents[1]
     template = (root / "aicentralv2" / "templates" / "cadu_studio" / "trocr.html").read_text(encoding="utf-8")
 
-    assert "cadu_studio/editor/react/app.css') }}?v=1" in template
-    assert "cadu_studio/editor/react/app.js') }}?v=1" in template
+    assert "cadu_studio/editor/react/app.css') }}?v={{ static_fingerprint('cadu_studio/editor/react/app.css')" in template
+    assert "cadu_studio/editor/react/app.js') }}?v={{ static_fingerprint('cadu_studio/editor/react/app.js')" in template
     assert 'id="cadu-studio-editor-root"' in template
     assert "trocr-editor.css" not in template
 
@@ -271,3 +271,24 @@ def test_edit_quote_route_is_registered_for_the_editor():
     studio.register_studio_routes(Recorder())
 
     assert '/api/format-lab/studio/edit-quote' in rules
+
+
+def test_static_fingerprint_changes_with_the_file_content(tmp_path):
+    from aicentralv2 import static_fingerprint
+    bundle = tmp_path / "app.js"
+    bundle.write_text("one")
+    first = static_fingerprint(str(tmp_path), "app.js")
+
+    bundle.write_text("two!")
+
+    assert first != static_fingerprint(str(tmp_path), "app.js")
+    assert static_fingerprint(str(tmp_path), "missing.js") == "0"
+
+
+def test_editor_audio_and_navbar_bundles_are_versioned_by_content():
+    from pathlib import Path
+    templates = Path(__file__).parents[1] / "aicentralv2" / "templates" / "cadu_studio"
+    for name in ("trocr.html", "audio.html", "_context_bar.html"):
+        html = (templates / name).read_text()
+        assert "static_fingerprint(" in html, name
+        assert "react/app.css') }}?v=1" not in html and "app.js') }}?v=1" not in html, name

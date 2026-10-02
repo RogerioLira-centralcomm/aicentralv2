@@ -560,3 +560,12 @@ details.se-brand-content > .se-brand-label { margin-top:8px; }
 .se-rail-item .se-status { color:#8e9aa6; }
 .se-rail-item .se-status--approved { color:#6fcf97; }
 .se-rail-item .se-status--new { color:#b7a4ff; }
+
+/* Stage layout is a two-row grid: the toolbar is always the first row and the stage takes
+   every remaining pixel. Flex with inherited heights could let the pair float to the middle
+   of the column when a parent height was not definite. */
+.se-main { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr); align-content:stretch; justify-content:stretch; }
+.se-workspace { display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); align-content:stretch; align-self:stretch; justify-self:stretch; width:100%; height:100%; min-height:0; }
+.se-workspace > .se-toolbar { grid-row:1; align-self:start; }
+.se-workspace > .se-stage { grid-row:2; align-self:stretch; justify-self:stretch; width:100%; height:100%; min-height:240px; }
+@media (max-width:900px) { .se-workspace { height:auto; grid-template-rows:auto minmax(320px,1fr); } }

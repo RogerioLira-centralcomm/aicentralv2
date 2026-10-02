@@ -29,7 +29,8 @@ const page=(app)=>`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"
     await tab.getByRole('button',{name:/Projeto e marca/}).waitFor();
     await tab.screenshot({path:`${ARTIFACTS}/navbar-${name}.png`});
     if(name==='editor'){
-      await tab.locator('.se-session-nav').getByRole('button',{name:'Histórico'}).click();
+      assert.equal(await tab.locator('.csu-navbar .se-session-nav').count(),0,'sessão de edição só na sidebar esquerda');
+      await tab.locator('.se-left-rail').getByRole('button',{name:'Ver histórico'}).click();
       const dialog=tab.getByRole('dialog',{name:'Sessões e versões'});
       await dialog.waitFor();
       await tab.keyboard.press('Escape');

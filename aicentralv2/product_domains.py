@@ -201,7 +201,7 @@ def register_product_host_routing(app) -> None:
             return planner_page('formatos')
         return None
 
-    for planner_module in ('planos', 'audiencias', 'canais', 'formatos', 'interativos', 'places', 'portais', 'monitoramento', 'docs'):
+    for planner_module in ('planos', 'radar', 'audiencias', 'canais', 'formatos', 'interativos', 'places', 'portais', 'monitoramento', 'docs'):
         app.add_url_rule(f'/{planner_module}', endpoint=f'planner_host_{planner_module}',
                          view_func=lambda module=planner_module: planner_page(module), methods=['GET'])
 

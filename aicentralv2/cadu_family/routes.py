@@ -569,6 +569,9 @@ def planner_catalog(kind):
             kind, request.args.get('q', ''), category=request.args.get('category', ''),
             platform=request.args.get('platform', ''), sort=request.args.get('sort', 'relevant'),
             format_type=request.args.get('type', ''), segment=request.args.get('segment', ''))
+        if kind == 'canais':
+            from ..cadu_planner.channels import decorate_logos
+            decorate_logos(records)
         return jsonify(kind=kind, records=records)
     if kind == 'portais':
         from ..cadu_planner import portals
@@ -734,12 +737,93 @@ def planner_plans():
     return jsonify(plans=plans.list_plans(selected['client_id'], user['id']))
 
 
+def _planner_refs(client_id, brand_ref=None, project_ref=None):
+    """Marca e projeto só valem se pertencem ao inventário do cliente selecionado."""
+    if not brand_ref and not project_ref:
+        return None, None
+    items = {row['ref']: row for row in context.inventory(client_id)}
+    for ref, kind in ((brand_ref, 'brand'), (project_ref, 'project')):
+        if ref and (not isinstance(ref, str) or (items.get(ref) or {}).get('kind') != kind):
+            abort(403, description='Marca ou projeto não pertencem ao cliente selecionado.')
+    return brand_ref or None, project_ref or None
+
+
+def _planner_context_bar(client_id):
+    """Marcas, projetos e a escolha salva na sessão para a barra de contexto."""
+    try:
+        entities = context.inventory(client_id)
+    except Exception:
+        current_app.logger.warning('Inventário de marcas e projetos indisponível no Planner.')
+        return {'brands': [], 'projects': [], 'brand_ref': None, 'project_ref': None}
+    saved = session.get('family_context') or {}
+    known = {row['ref']: row['kind'] for row in entities}
+    pick = lambda kind: [{'ref': row['ref'], 'name': row['name'], 'logo_url': row.get('logo_url') or '',
+                          'related_refs': row.get('related_refs') or []}
+                         for row in entities if row['kind'] == kind and row.get('status') not in ('arquivado',)]
+    return {'brands': pick('brand'), 'projects': pick('project'),
+            'brand_ref': saved.get('brand_ref') if known.get(saved.get('brand_ref')) == 'brand' else None,
+            'project_ref': saved.get('project_ref') if known.get(saved.get('project_ref')) == 'project' else None}
+
+
+@bp.get('/api/planner/context')
+def planner_context_details():
+    """Contexto de marca e projeto do workspace usado para planejar e achar oportunidades."""
+    from ..cadu_planner.context import load_plan_context
+    selected = context.resolve()
+    brand_ref, project_ref = _planner_refs(selected['client_id'], request.args.get('brand_ref'),
+                                           request.args.get('project_ref'))
+    return jsonify(context=load_plan_context(selected['client_id'], brand_ref, project_ref))
+
+
 @bp.post('/api/planner/plans')
 def planner_plan_create():
     from ..cadu_planner import plans
     selected = writable_context()
     user = context.identity()
-    return jsonify(plan=plans.create_plan(selected['client_id'], user['id'], request.get_json(silent=True) or {}, selected)), 201
+    payload = request.get_json(silent=True) or {}
+    payload['brand_ref'], payload['project_ref'] = _planner_refs(
+        selected['client_id'], payload.get('brand_ref'), payload.get('project_ref'))
+    return jsonify(plan=plans.create_plan(selected['client_id'], user['id'], payload, selected)), 201
+
+
+@bp.get('/api/planner/plans/<plan_id>/workbench')
+def planner_plan_workbench(plan_id):
+    """Seções, propostas pendentes e a linha do tempo da co-construção."""
+    from ..cadu_planner import plans, proposals
+    user, selected = context.identity(), context.resolve()
+    plan = plans.get_plan(selected['client_id'], user['id'], plan_id)
+    return jsonify(overview=plan['workbench_overview'], proposals=proposals.list_proposals(plan['id']),
+                   events=proposals.list_events(plan['id']), cobuild_enabled=proposals.cobuild_enabled())
+
+
+@bp.post('/api/planner/plans/<plan_id>/proposals/<proposal_id>/decision')
+def planner_plan_proposal_decision(plan_id, proposal_id):
+    from ..cadu_planner import proposals
+    selected = writable_context()
+    user = context.identity()
+    return jsonify(plan=proposals.decide(selected['client_id'], user['id'], plan_id, proposal_id,
+                                         request.get_json(silent=True) or {}))
+
+
+@bp.post('/api/planner/plans/<plan_id>/sections/<section>/propose')
+def planner_plan_propose_section(plan_id, section):
+    from ..cadu_planner import proposals
+    selected = writable_context()
+    user = context.identity()
+    try:
+        return jsonify(proposals.propose_section(selected['client_id'], user['id'], plan_id, section))
+    except NotImplementedError as exc:
+        abort(501, description=str(exc))
+
+
+@bp.get('/api/planner/radar/opportunities')
+def planner_radar_opportunities():
+    from ..cadu_radar import repository as radar
+    selected = context.resolve()
+    brand_ref, _project = _planner_refs(selected['client_id'], request.args.get('brand_ref'))
+    return jsonify(opportunities=radar.list_opportunities(selected['client_id'], brand_ref=brand_ref,
+                                                          status=request.args.get('status') or None),
+                   enabled=bool(current_app.config.get('CADU_RADAR_ENABLED')))
 
 
 @bp.get('/api/planner/plans/<plan_id>')
@@ -965,13 +1049,17 @@ def planner_catalog_detail_page(kind, item_id):
     if not session.get('user_id'):
         return redirect(workspace_public_url(), code=302)
     context.resolve()
+    from ..cadu_planner import catalog
     if kind == 'portais':
         from ..cadu_planner import portals
-        record = portals.detail(item_id)
+        record, view = portals.detail(item_id), 'catalog-detail'
+    elif kind == 'canais':
+        record, view = catalog.channel_profile(item_id), 'channel-detail'
+    elif kind == 'audiencias':
+        record, view = catalog.audience_profile(item_id), 'audience-detail'
     else:
-        from ..cadu_planner import catalog
-        record = catalog.client_detail(kind, item_id)
-    return _render_planner('catalog-detail', kind, record['name'], record=record)
+        record, view = catalog.format_profile(kind, item_id), 'format-detail'
+    return _render_planner(view, kind, record['name'], record=record)
 
 
 @bp.get('/planner/places/<slug>')
@@ -1310,11 +1398,38 @@ def _planner_react_page(module=None):
                            marketplace_facets=marketplace_facets('planner', module))
 
 
+def _active_plan(selected, user):
+    """Plano em que as vitrines adicionam itens: ``?plan=`` ou o último aberto na sessão."""
+    from werkzeug.exceptions import HTTPException
+    from ..cadu_planner import plans
+    requested = request.args.get('plan')
+    plan_id = requested or session.get('planner_active_plan')
+    if not plan_id:
+        return None
+    try:
+        plan = plans.get_plan(selected['client_id'], user['id'], plan_id)
+    except HTTPException:
+        session.pop('planner_active_plan', None)
+        return None
+    session['planner_active_plan'] = str(plan['id'])
+    return plan
+
+
 def _render_planner(view, module, title, *, public=False, **data):
     """Every Planner page boots the same React app; shared links carry no session data."""
     session_data = {'user': None, 'selected': None, 'csrf': '', 'cadu_family_writes_enabled': False} if public else {
         'user': context.identity(), 'selected': context.resolve(),
         'csrf': session.setdefault('family_csrf', secrets.token_urlsafe(32)),
     }
+    features = {'cobuild': bool(current_app.config.get('CADU_PLANNER_COBUILD_ENABLED')),
+                'radar': bool(current_app.config.get('CADU_RADAR_ENABLED'))}
+    if not public:
+        selected, user = session_data['selected'], session_data['user']
+        data.setdefault('context_bar', _planner_context_bar(selected['client_id']))
+        if view == 'plan-detail' and data.get('plan'):
+            session['planner_active_plan'] = str(data['plan']['id'])
+        elif 'plan' not in data and view != 'public-doc':
+            data['plan'] = _active_plan(selected, user)
     return render_template('cadu_planner/react.html', planner_view=view, module=module, title=title,
-                           planner_url=planner_url, product_url=product_url, **session_data, **data)
+                           planner_url=planner_url, product_url=product_url, planner_features=features,
+                           **session_data, **data)

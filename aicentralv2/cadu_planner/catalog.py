@@ -271,3 +271,85 @@ def audience_facets():
     categories = rows('''SELECT DISTINCT c.nome AS value FROM cadu_audiencias a JOIN cadu_categorias c ON c.id = a.categoria_id WHERE a.is_active = TRUE ORDER BY c.nome LIMIT 30''')
     channels = rows('''SELECT DISTINCT p.nome AS value FROM cadu_audiencias a JOIN cadu_audiencias_plataformas p ON p.id = a.plataforma_id WHERE a.is_active = TRUE ORDER BY p.nome LIMIT 30''')
     return {'categories': [item['value'] for item in categories], 'channels': [item['value'] for item in channels]}
+
+
+# Papel típico de um canal num plano, inferido da categoria/tipo cadastrados.
+# É um ponto de partida explicável; o Cadu ajusta o papel por plano.
+CHANNEL_ROLES = (
+    (('search', 'busca', 'google ads'), 'Capturar demanda', 'Aparece quando a pessoa já procura pelo assunto.'),
+    (('video', 'vídeo', 'youtube', 'ctv', 'tv', 'svod', 'avod'), 'Construir alcance',
+     'Explica a ideia em vídeo e gera cobertura.'),
+    (('social', 'rede', 'meta', 'instagram', 'facebook', 'tiktok'), 'Frequência e variações',
+     'Distribui variações criativas com segmentação fina.'),
+    (('audio', 'áudio', 'música', 'musica', 'podcast', 'spotify', 'deezer'), 'Frequência em contexto',
+     'Acompanha a rotina com mensagens em áudio.'),
+    (('dooh', 'ooh', 'exterior', 'mobiliário', 'mobiliario'), 'Presença local',
+     'Marca presença física na praça prioritária.'),
+    (('portal', 'programática', 'programatica', 'notícia', 'noticia', 'display'), 'Contexto e expansão',
+     'Leva a mensagem para conteúdos relacionados ao tema.'),
+    (('retail', 'marketplace', 'delivery', 'ecommerce', 'e-commerce', 'ifood', 'amazon'), 'Perto da compra',
+     'Fala com quem está decidindo o que comprar.'),
+)
+
+# Campos do canal que um cliente do Planner pode ver. Investimento mínimo e
+# dados de landing page ficam com o time comercial.
+CLIENT_CHANNEL_KEYS = (
+    'id', 'slug', 'name', 'categoria', 'tipo', 'cor', 'logo_url', 'hero_image_url', 'descricao', 'alcance',
+    'usuarios_unicos', 'tempo_medio', 'viewability', 'completion_rate', 'taxa_engajamento', 'demografia',
+    'segmentacao', 'segmentacoes', 'formatos_resumo', 'especificacoes', 'modelo_compra', 'brand_safety',
+    'medicao', 'diferenciais', 'produtos',
+)
+
+
+def channel_roles(channel):
+    import re
+    haystack = ' '.join(str(channel.get(key) or '') for key in ('categoria', 'category', 'tipo', 'slug', 'name')).lower()
+    words = set(re.findall(r'[\w-]+', haystack))
+    # Palavras inteiras: "tv" não pode casar com "streaming" nem "spotify".
+    return [{'role': role, 'description': description}
+            for keywords, role, description in CHANNEL_ROLES
+            if any((word in words) if ' ' not in word else (word in haystack) for word in keywords)][:3]
+
+
+def channel_profile(channel_id):
+    """Ficha completa do canal para o cliente: dados, formatos, exemplos e notícias."""
+    from . import channels
+    try:
+        record_id = int(channel_id)
+    except (TypeError, ValueError):
+        raise BadRequest('Identificador de canal inválido.')
+    channel = channels.detail(record_id)
+    gallery, ads = channels.related_media(channel)
+    profile = {key: channel.get(key) for key in CLIENT_CHANNEL_KEYS if channel.get(key) not in (None, '', [], {})}
+    profile.update(
+        description=channel.get('descricao'), category=channel.get('categoria'), audience=channel.get('alcance'),
+        roles=channel_roles(channel), gallery=gallery, ad_examples=ads,
+        concepts=channels.activation_concepts(channel),
+        formats=[{'id': row['id'], 'name': row['name'], 'description': row.get('descricao'),
+                  'dimensions': row.get('dimensoes'), 'format_type': row.get('tipo')}
+                 for row in channels.formats(channel)],
+        news=channels.news(record_id),
+    )
+    return profile
+
+
+def format_profile(kind, value):
+    """Formato ou interativo com os canais onde ele pode rodar."""
+    record = detail(kind, value)
+    slug = str(record.get('plataforma_slug') or '')
+    record['channels'] = rows('''SELECT id, nome AS name, categoria AS category, logo_path
+                                   FROM cadu_canais
+                                  WHERE is_active = TRUE AND slug = ANY(%s)
+                               ORDER BY ordem NULLS LAST, nome LIMIT 12''',
+                              ([slug, slug.replace('_', '-')],)) if slug else []
+    return record
+
+
+def audience_profile(value):
+    """Audiência projetada para o cliente, com audiências parecidas para comparar."""
+    record = detail('audiencias', value)
+    related = related_audiences({'id': record['id'], 'category_id': record.get('categoria_id'),
+                                 'platform_id': record.get('plataforma_id')})
+    projected = client_projection('audiencias', record)
+    projected['related'] = related
+    return projected

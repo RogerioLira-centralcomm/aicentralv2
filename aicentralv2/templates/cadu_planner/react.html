@@ -27,8 +27,10 @@
   'categories': ((marketplace_facets if marketplace_facets is defined else none) or {}).get('categories') or [],
   'csrf': csrf,
   'writesEnabled': cadu_family_writes_enabled|default(false),
+  'features': planner_features|default({}),
+  'contextBar': context_bar|default(none),
   'urls': {
-    'home': planner_url(), 'plans': planner_url('planos'), 'audiences': planner_url('audiencias'),
+    'home': planner_url(), 'plans': planner_url('planos'), 'radar': planner_url('radar'), 'audiences': planner_url('audiencias'),
     'channels': planner_url('canais'), 'formats': planner_url('formatos'), 'interactive': planner_url('interativos'),
     'places': planner_url('places'), 'portals': planner_url('portais'), 'monitoring': planner_url('monitoramento'),
     'docs': planner_url('docs'), 'workspace': product_url('workspace', '/workspace/app'), 'studio': product_url('studio', '/'),

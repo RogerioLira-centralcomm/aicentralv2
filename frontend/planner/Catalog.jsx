@@ -2,16 +2,20 @@ import React, {useEffect, useRef, useState} from 'react';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {CaduBadge} from '../cadu-design-system/components/CaduBadge.jsx';
 import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.jsx';
-import {CaduPageHeader} from '../cadu-design-system/components/CaduPageHeader.jsx';
 import {CaduSelectField} from '../cadu-design-system/components/CaduField.jsx';
 import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {VisualIdentity} from '../cadu-design-system/components/VisualIdentity.jsx';
 import {PlannerPanel, SelectionButton} from './PlannerUi.jsx';
 import {MODULE_LABELS, moduleUrl} from './api.js';
+import {ActivePlanChip, PlannerHeader} from './PlannerHeader.jsx';
 
 const PORTAL_PAGE = 50;
 const DESCRIPTIONS = {
+  canais: 'Onde a campanha aparece e o papel que cada canal cumpre no plano.',
+  audiencias: 'Públicos compráveis, com tamanho estimado e contexto de uso.',
+  formatos: 'Peças por canal, com especificações e finalidade.',
+  interativos: 'Formatos com interação para engajar e medir atenção.',
   portais: 'Veículos editoriais com dados públicos e fontes verificáveis.',
   places: 'Pontos físicos, circulação e produtos de mídia em lugares.',
 };
@@ -34,56 +38,91 @@ function useDebounced(value, delay = 250) {
   return debounced;
 }
 
-function cardMeta(kind, item) {
+// The one number that helps choose, shown at the card's foot.
+function keyFact(kind, item) {
   const audience = audienceLabel(item);
-  if (kind === 'places') return [item.city, item.traffic && `${item.traffic_label || 'Movimento'}: ${item.traffic}`, item.points?.length && `${item.points.length} pontos`];
-  if (kind === 'audiencias') return [item.platform, item.subcategory, audience && `Público: ${audience}`];
-  if (kind === 'canais') return [item.category, item.audience && `Alcance: ${item.audience}`];
-  return [item.platform, item.dimensions || item.format_type, item.purpose];
+  if (kind === 'places') return item.traffic ? `${item.traffic_label || 'Movimento'}: ${item.traffic}` : item.investment ? `Investimento ${item.investment}` : '';
+  if (kind === 'audiencias') return audience && `Público ${audience}`;
+  if (kind === 'canais') return item.audience && `Alcance ${item.audience}`;
+  return item.dimensions || '';
 }
 
-function CatalogCard({kind, item, urls, selected, onToggle}) {
-  const logo = kind === 'canais' ? (item.logo_path || item.logo_url || '') : (item.platform_logo || item.logo_path || '');
-  const image = kind === 'canais' ? '' : item.image_url || '';
+function cardChips(kind, item, eyebrow) {
+  const values = kind === 'places' ? [item.city, item.points?.length && `${item.points.length} pontos`]
+    : kind === 'audiencias' ? [item.platform, item.subcategory, item.perfil_socioeconomico && `Classe ${item.perfil_socioeconomico}`]
+      : kind === 'canais' ? [] : [item.format_type, item.purpose];
+  const seen = new Set([String(eyebrow || '').toLowerCase()]);
+  const tidy = value => /^[a-z0-9]+([_-][a-z0-9]+)+$/.test(value) ? value.replace(/[_-]+/g, ' ').replace(/^./, letter => letter.toUpperCase()) : value;
+  return values.filter(Boolean).map(String).map(tidy).filter(value => !seen.has(value.toLowerCase()) && seen.add(value.toLowerCase())).slice(0, 3);
+}
+
+const VISUAL_KINDS = new Set(['audiencias', 'places']);
+// Platform logos served by the Planner itself (the legacy /assets_images path is not).
+const PLATFORM_LOGOS = {
+  google_ads: '/static/images/canais/google-ads.png', tiktok_ads: '/static/images/canais/tiktok.png',
+  dv360: '/static/images/canais/google-dv360.svg', the_trade_desk: '/static/images/canais/the-trade-desk.png',
+  interativos: '/static/images/canais/interativos.svg', kwai_ads: '/static/images/canais/kwai.svg',
+};
+
+export function platformLogo(item) {
+  const slug = String(item.platform_slug || item.plataforma_slug || '').replace(/-/g, '_');
+  if (PLATFORM_LOGOS[slug]) return PLATFORM_LOGOS[slug];
+  const logo = item.platform_logo || '';
+  return logo.startsWith('/static/') || /^https?:/.test(logo) ? logo : '';
+}
+
+function CardMark({kind, item}) {
+  const logo = kind === 'canais' ? (item.logo_path || item.logo_url || '') : platformLogo(item);
+  const label = kind === 'canais' ? item.name : (item.platform || item.name);
+  return <span className="planner-mark planner-mark--sm" style={item.cor ? {'--planner-mark-color': item.cor} : undefined}>
+    {logo ? <VisualIdentity src={logo} initials={label} label={label} imageTreatment="brand"/> : <Icon name={KIND_ICON[kind] || 'plan'} size={18}/>}
+  </span>;
+}
+
+const InPlan = () => <span className="planner-card__inplan"><Icon name="check" size={12}/>No plano</span>;
+
+/** The whole card is the link to the detail page; adding to the plan happens there. */
+function CatalogCard({kind, item, urls, selected}) {
   const [imageFailed, setImageFailed] = useState(false);
-  const showImage = image && !imageFailed;
-  const meta = cardMeta(kind, item).filter(Boolean);
-  return <article className="planner-card">
-    <a className="planner-card__hit" href={catalogDetailUrl(urls, kind, item)} aria-label={`Abrir detalhes: ${item.name}`}/>
-    <div className={`planner-card__art${showImage ? ' has-image' : ''}${!showImage ? ' is-identity' : ''}`}>
-      {showImage ? <img src={image} alt="" loading="lazy" onError={() => setImageFailed(true)}/>
-        : logo ? <VisualIdentity src={logo} initials={item.name} label={item.name} imageTreatment="brand"/>
-          : <Icon name={KIND_ICON[kind] || 'plan'} size={24}/>}
-    </div>
-    <div className="planner-card__body">
-      <span className="planner-card__eyebrow">{item.category || item.platform || item.segment || item.city || MODULE_LABELS[kind]}</span>
-      <h2>{item.name}</h2>
-      <p>{item.description || item.purpose || 'Referência para apoiar as decisões do plano.'}</p>
-      {meta.length > 0 && <div className="planner-card__meta">{meta.map((value, index) => <span key={`${index}-${value}`}>{value}</span>)}</div>}
-      <footer className="planner-card__footer"><span>Ver detalhes</span><SelectionButton selected={selected} onToggle={onToggle}/></footer>
-    </div>
-  </article>;
+  const visual = VISUAL_KINDS.has(kind);
+  const showImage = visual && item.image_url && !imageFailed;
+  // Never repeat the page title on every card ("Interativos" on the Interativos page).
+  const eyebrow = [item.platform, item.category, item.segment, item.city]
+    .find(value => value && String(value).toLowerCase() !== String(MODULE_LABELS[kind]).toLowerCase()) || '';
+  const chips = cardChips(kind, item, eyebrow);
+  const fact = keyFact(kind, item);
+  return <a className={`planner-card${visual ? ' is-visual' : ''}${selected ? ' is-selected' : ''}`} href={catalogDetailUrl(urls, kind, item)}>
+    {visual && <span className={`planner-card__art${showImage ? ' has-image' : ''}`}>
+      {showImage ? <img src={item.image_url} alt="" loading="lazy" onError={() => setImageFailed(true)}/> : <Icon name={KIND_ICON[kind] || 'plan'} size={22}/>}
+      {selected && <InPlan/>}
+    </span>}
+    <span className="planner-card__body">
+      {visual ? (eyebrow && <span className="planner-card__eyebrow">{eyebrow}</span>)
+        : <span className="planner-card__identity"><CardMark kind={kind} item={item}/><span className="planner-card__eyebrow">{eyebrow}</span>{selected && <InPlan/>}</span>}
+      <strong className="planner-card__title">{item.name}</strong>
+      <span className="planner-card__text">{item.description || item.purpose || 'Referência para apoiar as decisões do plano.'}</span>
+      {(fact || chips.length > 0) && <span className="planner-card__foot">
+        {fact && <b title={fact}>{fact}</b>}
+        {chips.map(value => <span key={value}>{value}</span>)}
+      </span>}
+    </span>
+  </a>;
 }
 
-function PortalRow({item, urls, selected, onToggle}) {
+function PortalRow({item, urls, selected}) {
   const [faviconFailed, setFaviconFailed] = useState(false);
   const pages = Number(item.discovered_pages_count);
-  const updates = Number(item.crawl_updates_count);
-  return <article className="planner-portal">
-    <a className="planner-card__hit" href={catalogDetailUrl(urls, 'portais', item)} aria-label={`Abrir ficha do portal: ${item.name}`}/>
+  return <a className={`planner-portal${selected ? ' is-selected' : ''}`} href={catalogDetailUrl(urls, 'portais', item)}>
     <span className="planner-portal__favicon">{faviconFailed ? <Icon name="browser" size={18}/> : <img src={`https://${item.domain}/favicon.ico`} alt="" loading="lazy" onError={() => setFaviconFailed(true)}/>}</span>
     <span className="planner-portal__main">
-      <span className="planner-portal__title"><strong>{item.name}</strong>{item.featured_rank && <CaduBadge tone="brand">Destaque</CaduBadge>}</span>
-      <small>{item.domain}</small>
-      <span className="planner-portal__description">{item.description || 'Veículo editorial independente.'}</span>
+      <span className="planner-portal__title"><strong>{item.name}</strong>{item.featured_rank && <CaduBadge tone="brand">Destaque</CaduBadge>}{selected && <InPlan/>}</span>
+      <small>{item.domain} · {item.description || 'Veículo editorial independente.'}</small>
     </span>
-    <span className="planner-portal__fact planner-portal__fact--category"><small>Categoria</small><b>{item.category || 'Não categorizado'}</b></span>
-    <span className="planner-portal__fact planner-portal__fact--audience"><small>Audiência pública</small><b>{audienceLabel(item) || 'Sem estimativa publicada'}</b>
-      {item.audience_source_url && <a href={item.audience_source_url} target="_blank" rel="noreferrer">Fonte ↗</a>}</span>
-    <span className="planner-portal__fact planner-portal__fact--pages"><small>Páginas lidas</small><b>{pages > 0 ? number(pages) : item.last_crawled_at ? '—' : 'Aguardando leitura'}</b>
-      {item.last_crawled_at && <small>{updates > 0 ? `${number(updates)} leituras · ` : ''}{new Date(item.last_crawled_at).toLocaleDateString('pt-BR')}</small>}</span>
-    <SelectionButton selected={selected} onToggle={onToggle}/>
-  </article>;
+    <span className="planner-portal__fact"><small>Categoria</small><b>{item.category || 'Não categorizado'}</b></span>
+    <span className="planner-portal__fact"><small>Audiência pública</small><b>{audienceLabel(item) || 'Sem estimativa'}</b></span>
+    <span className="planner-portal__fact"><small>Páginas lidas</small><b>{pages > 0 ? number(pages) : item.last_crawled_at ? '—' : 'Aguardando'}</b></span>
+    <Icon name="chevron" size={16}/>
+  </a>;
 }
 
 export function CatalogPage({boot, request, selection, notify}) {
@@ -119,12 +158,10 @@ export function CatalogPage({boot, request, selection, notify}) {
     return () => { current = false; controller.abort(); };
   }, [request, notify, kind, portalMode, search, category, offset]);
 
-  const toggle = item => selection.toggle(kind, itemKey(item));
   const countLabel = loading ? 'Atualizando…' : portalMode ? `${number(total)} portais · página ${Math.floor(offset / PORTAL_PAGE) + 1}` : `${number(records.length)} ${records.length === 1 ? 'referência' : 'referências'}`;
 
   return <>
-    <CaduPageHeader title={MODULE_LABELS[kind]} description={DESCRIPTIONS[kind] || 'Referências selecionadas para encontrar o contexto certo para o plano.'}
-      actions={<CaduButton variant="secondary" href={boot.urls.plans}>Ver planos</CaduButton>}/>
+    <PlannerHeader title={MODULE_LABELS[kind]} description={DESCRIPTIONS[kind]} withContext actions={<ActivePlanChip/>}/>
     <div className="planner-toolbar">
       <CaduInput className="planner-toolbar__search" aria-label="Pesquisar referências" type="search" value={query} placeholder={portalMode ? 'Buscar por portal, domínio ou categoria' : 'Buscar por nome, descrição ou categoria'}
         leading={<span className="planner-toolbar__search-icon" aria-hidden="true"><Icon name="search" size={16}/></span>}
@@ -134,8 +171,8 @@ export function CatalogPage({boot, request, selection, notify}) {
       <span className="planner-toolbar__count" aria-live="polite">{countLabel}</span>
     </div>
     {!records.length && !loading ? <PlannerPanel className="planner-panel--flush"><CaduEmptyState title="Nenhuma referência encontrada" description="Ajuste a busca ou escolha outra categoria."/></PlannerPanel>
-      : portalMode ? <div className="planner-list" aria-label="Portais disponíveis">{records.map(item => <PortalRow key={itemKey(item)} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))} onToggle={() => toggle(item)}/>)}</div>
-        : <div className="planner-grid" aria-label={`${MODULE_LABELS[kind]} disponíveis`}>{records.map(item => <CatalogCard key={itemKey(item)} kind={kind} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))} onToggle={() => toggle(item)}/>)}</div>}
+      : portalMode ? <div className="planner-list" aria-label="Portais disponíveis">{records.map(item => <PortalRow key={itemKey(item)} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))}/>)}</div>
+        : <div className="planner-grid" aria-label={`${MODULE_LABELS[kind]} disponíveis`}>{records.map(item => <CatalogCard key={itemKey(item)} kind={kind} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))}/>)}</div>}
     {portalMode && total > PORTAL_PAGE && <nav className="planner-pagination" aria-label="Páginas de portais">
       <CaduButton variant="secondary" disabled={!offset} onClick={() => setOffset(Math.max(0, offset - PORTAL_PAGE))}>Anterior</CaduButton>
       <CaduButton variant="secondary" disabled={offset + records.length >= total} onClick={() => setOffset(offset + PORTAL_PAGE)}>Próxima</CaduButton>
@@ -164,9 +201,9 @@ export function CatalogDetail({boot, selection}) {
   const facts = FACTS.map(([label, field]) => [label, typeof field === 'function' ? field(item) : item[field]]).filter(([, value]) => value);
   const attributes = Array.isArray(item.public_attributes) ? item.public_attributes.filter(entry => entry && typeof entry === 'object' && entry.atributo !== 'status_curadoria') : [];
   return <>
-    <CaduPageHeader back={{href: moduleUrl(boot.urls, kind), label: MODULE_LABELS[kind]}} title={item.name}
+    <PlannerHeader crumbs={[[MODULE_LABELS[kind], moduleUrl(boot.urls, kind)]]} title={item.name}
       description={[item.domain, item.description].filter(Boolean).join(' · ')}
-      actions={<SelectionButton size="md" selected={selection.isSelected(kind, id)} onToggle={() => selection.toggle(kind, id)}/>}/>
+      actions={<><ActivePlanChip/><SelectionButton size="md" selected={selection.isSelected(kind, id)} onToggle={() => selection.toggle(kind, id)}/></>}/>
     {item.image_url && !item.gallery?.length && <DetailHero src={item.image_url}/>}
     {item.gallery?.length > 0 && <div className="planner-gallery" aria-label="Fotos">{item.gallery.slice(0, 8).map((photo, index) => <img key={photo.url} src={photo.url} alt={photo.caption || `Foto ${index + 1} de ${item.name}`} loading="lazy"/>)}</div>}
     {facts.length > 0 && <PlannerPanel title="Resumo"><dl className="planner-facts">{facts.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>

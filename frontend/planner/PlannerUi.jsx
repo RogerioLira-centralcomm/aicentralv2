@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
+import {Icon} from '../cadu-design-system/components/Icon.jsx';
 
 /** One status line at the top of the page; errors stay until dismissed. */
 export function PlannerNotice({notice, onDismiss}) {
@@ -22,9 +23,12 @@ export function PlannerPanel({title, description, actions = null, className = ''
 }
 
 /** Add or remove a catalog reference from the open plan (or the loose selection). */
-export function SelectionButton({selected, onToggle, size = 'sm', className = ''}) {
-  return <CaduButton variant={selected ? 'secondary' : 'primary'} size={size} className={`planner-selection-button${selected ? ' is-selected' : ''} ${className}`.trim()} aria-pressed={selected} onClick={onToggle}>
-    {selected ? 'No plano' : 'Adicionar'}
+export function SelectionButton({selected, onToggle, size = 'sm', quiet = false, className = ''}) {
+  // In lists the action is secondary (many items); on a detail page it is the main action.
+  const variant = selected || quiet ? 'secondary' : 'primary';
+  return <CaduButton variant={variant} size={size} className={`planner-selection-button${selected ? ' is-selected' : ''}${quiet ? ' is-quiet' : ''} ${className}`.trim()}
+    aria-pressed={selected} aria-label={selected ? 'No plano. Remover do plano' : undefined} onClick={onToggle}>
+    {selected ? <><Icon name="check" size={16}/>No plano</> : <><Icon name="plus" size={16}/>{size === 'md' ? 'Adicionar ao plano' : 'Adicionar'}</>}
   </CaduButton>;
 }
 

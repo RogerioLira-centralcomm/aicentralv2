@@ -71,6 +71,15 @@ def detail(channel_id):
     return channel
 
 
+def decorate_logos(records):
+    """Catalog lists carry logo_path only; use the curated logo when a channel has one."""
+    for record in records or []:
+        logo = _LOGOS.get(str(record.get('slug') or '').lower())
+        if logo:
+            record['logo_path'] = f'/static/images/canais/{logo}'
+    return records
+
+
 def related_media(channel):
     """Only return media explicitly attached to the channel or an approved ad example."""
     channel_id, slug = channel['id'], str(channel.get('slug') or '')

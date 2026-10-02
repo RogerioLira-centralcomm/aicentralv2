@@ -5,6 +5,13 @@ import '../cadu-design-system/primitives.css';
 import './planner.css';
 import {SolutionSidebar} from '../cadu-design-system/components/SolutionSidebar.jsx';
 import {CatalogDetail, CatalogPage} from './Catalog.jsx';
+import {ContextSelector, PlannerChrome} from './PlannerHeader.jsx';
+import {AudienceDetail} from './details/AudienceDetail.jsx';
+import {ChannelDetail} from './details/ChannelDetail.jsx';
+import {FormatDetail} from './details/FormatDetail.jsx';
+import {PlaceDetail} from './details/PlaceDetail.jsx';
+import {PortalDetail} from './details/PortalDetail.jsx';
+import {RadarPage} from './Radar.jsx';
 import {DocsPage} from './Docs.jsx';
 import {MonitorPage} from './monitoring.jsx';
 import {PlanDetail} from './PlanDetail.jsx';
@@ -24,10 +31,10 @@ function sidebarGroups(urls) {
   const item = (id, label, icon, href) => ({id, label, icon, href: href || moduleUrl(urls, id)});
   return [
     {label: '', items: [item('inicio', 'Início', 'home')]},
-    {label: 'Planos de mídia', items: [item('novo-plano', 'Novo plano', 'plus', newPlanUrl(urls)), item('planos', 'Todos os planos', 'history')]},
+    {label: 'Planejamento', items: [item('novo-plano', 'Novo planejamento', 'plus', newPlanUrl(urls)), item('planos', 'Planos', 'history')]},
+    {label: 'Oportunidades', items: [item('radar', 'Radar', 'pulse')]},
     {label: 'Descobrir', items: [item('canais', 'Canais', 'share'), item('audiencias', 'Audiências', 'users'), item('formatos', 'Formatos', 'table'), item('interativos', 'Interativos', 'plugin'), item('portais', 'Portais', 'library'), item('places', 'Places', 'browser')]},
-    // Sites e funis stays reachable by URL until its migration is applied in production.
-    {label: 'Entregas', items: [item('docs', 'Docs', 'file')]},
+    // Docs and "Sites e funis" are legacy tools: reachable by URL, not part of the Planner flow.
   ];
 }
 
@@ -41,6 +48,13 @@ function App({boot}) {
   const creating = boot.module === 'planos' && boot.view === 'page' && new URLSearchParams(window.location.search).get('create') === '1';
   const publicView = PUBLIC_VIEWS.has(boot.view);
   const selection = usePlanSelection(request, plan, setPlan, notify, !publicView);
+  const [context, setContext] = useState({brand_ref: boot.contextBar?.brand_ref || '', project_ref: boot.contextBar?.project_ref || ''});
+  // Catalog pages add to the open plan; the plan page itself does not need the chip.
+  const chrome = useMemo(() => ({
+    urls: boot.urls,
+    activePlan: boot.view !== 'plan-detail' && CATALOG_KINDS.includes(boot.module) ? plan : null,
+    contextNode: publicView ? null : <ContextSelector boot={boot} notify={notify} onChange={setContext}/>,
+  }), [boot, plan, publicView, notify]);
 
   // Success messages fade on their own; errors wait for the person.
   useEffect(() => {
@@ -53,8 +67,14 @@ function App({boot}) {
     if (boot.view === 'public-plan') return <PublicPlan plan={plan}/>;
     if (boot.view === 'public-doc') return <PublicDoc document={boot.document}/>;
     if (boot.view === 'plan-detail') return <PlanDetail boot={boot} request={request} plan={plan} setPlan={setPlan} toggle={selection.toggle} notify={notify}/>;
-    if (boot.view === 'catalog-detail' || boot.view === 'audience-detail') return <CatalogDetail boot={boot} selection={selection}/>;
-    if (creating) return <PlanCreatePage boot={boot} request={request} notify={notify}/>;
+    if (boot.view === 'channel-detail') return <ChannelDetail boot={boot} selection={selection}/>;
+    if (boot.view === 'audience-detail') return <AudienceDetail boot={boot} selection={selection}/>;
+    if (boot.view === 'format-detail') return <FormatDetail boot={boot} selection={selection}/>;
+    if (boot.view === 'catalog-detail' && boot.module === 'places') return <PlaceDetail boot={boot} selection={selection}/>;
+    if (boot.view === 'catalog-detail' && boot.module === 'portais') return <PortalDetail boot={boot} selection={selection}/>;
+    if (boot.view === 'catalog-detail') return <CatalogDetail boot={boot} selection={selection}/>;
+    if (creating) return <PlanCreatePage boot={boot} request={request} notify={notify} selection={context}/>;
+    if (boot.module === 'radar') return <RadarPage boot={boot}/>;
     if (boot.module === 'inicio') return <PlannerHome boot={boot} plans={plans}/>;
     if (boot.module === 'planos') return <PlansPage boot={boot} plans={plans}/>;
     if (boot.module === 'monitoramento') return <MonitorPage request={request}/>;
@@ -73,7 +93,7 @@ function App({boot}) {
       userAvatar={boot.user?.avatar || ''} creditsUrl={urls.credits} profileUrl={urls.profile}/>}
     <main className="planner-main" id="content">
       <PlannerNotice notice={notice} onDismiss={() => setNotice(null)}/>
-      {view}
+      <PlannerChrome.Provider value={chrome}>{view}</PlannerChrome.Provider>
     </main>
   </div>;
 }

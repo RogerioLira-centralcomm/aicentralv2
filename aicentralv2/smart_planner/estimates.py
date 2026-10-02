@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ..cadu_planner.benchmarks import impressions as _impressions, reach as _reach
 from .helpers import as_dict, as_list, text
 from .pace import format_money
 
@@ -57,8 +58,8 @@ def _channel_scenarios(amount: float, spec: dict) -> list[dict]:
         ):
             used_cpm = cpm * cpm_factor
             used_freq = max(1.0, freq * freq_factor)
-            impressions = (amount / used_cpm) * 1000
-            reach = impressions / used_freq
+            impressions = _impressions(amount, used_cpm)
+            reach = _reach(impressions, used_freq)
             rows.append({
                 "scenario": name,
                 "cpm": round(used_cpm, 2),

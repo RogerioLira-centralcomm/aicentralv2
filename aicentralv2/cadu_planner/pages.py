@@ -13,12 +13,16 @@ def load_records(module, user, selected, query='', filters=None):
             _decorate_home_plan(records[0], selected['client_id'], user['id'])
         return records
     if module in ('audiencias', 'canais', 'formatos', 'interativos'):
-        return repository.catalog(module, query,
+        records = repository.catalog(module, query,
                                   category=filters.get('category', ''),
                                   platform=filters.get('platform', ''),
                                   sort=filters.get('sort', 'relevant'),
                                   format_type=filters.get('type', ''),
                                   segment=filters.get('segment', ''))
+        if module == 'canais':
+            from .channels import decorate_logos
+            decorate_logos(records)
+        return records
     if module == 'places':
         from .places import catalog
         return catalog(query, category=filters.get('category', ''), city=filters.get('city', ''))
@@ -26,6 +30,9 @@ def load_records(module, user, selected, query='', filters=None):
         from .portals import catalog
         return catalog(query, category=filters.get('category', ''),
                        sort=filters.get('sort', 'featured'))['records']
+    if module == 'radar':
+        from ..cadu_radar.repository import list_opportunities
+        return list_opportunities(selected['client_id'])
     if module == 'docs':
         from .docs import list_documents
         return list_documents(selected['client_id'], user['id'])

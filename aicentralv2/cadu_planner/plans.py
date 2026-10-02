@@ -32,6 +32,13 @@ def _require_available():
         raise BadRequest('Aplique a migration do Planner antes de criar planos.')
 
 
+def _cobuild_available():
+    result = repository.rows("""SELECT COUNT(*) = 4 AS available FROM information_schema.columns
+                                 WHERE table_schema = 'public' AND table_name = 'cadu_planner_plans'
+                                   AND column_name IN ('revision', 'workbench', 'source', 'opportunity_id')""")
+    return bool(result and result[0]['available'])
+
+
 def _allocations_available():
     result = repository.rows("SELECT to_regclass('public.cadu_planner_channel_allocations') IS NOT NULL AS available")
     return bool(result and result[0]['available'])
@@ -68,13 +75,18 @@ def create_plan(client_id, actor_id, payload, context):
         raise BadRequest('Objetivo inválido.')
     plan_id = str(uuid4())
     briefing = _clean_briefing(payload.get('briefing') or {})
+    # Marca e projeto já foram validados contra o inventário do cliente pela rota.
+    project_ref = str(payload.get('project_ref') or '')[:120] or None
+    brand_ref = str(payload.get('brand_ref') or '')[:120] or None
     first_planner_use = False
     with get_db() as conn, conn.cursor() as cur:
         cur.execute('''INSERT INTO cadu_planner_plans
-             (id, client_id, created_by, title, objective, advertiser_name, campaign_name, briefing)
-             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)''',
+             (id, client_id, created_by, title, objective, advertiser_name, campaign_name, briefing,
+              project_ref, brand_ref)
+             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
             (plan_id, client_id, actor_id, title, objective or None,
-             _clean_label(payload.get('advertiser_name')), _clean_label(payload.get('campaign_name')), Json(briefing)))
+             _clean_label(payload.get('advertiser_name')), _clean_label(payload.get('campaign_name')), Json(briefing),
+             project_ref, brand_ref))
         if _user_notifications_available():
             cur.execute('''INSERT INTO cadu_planner_user_notifications (client_id, user_id)
                            VALUES (%s, %s) ON CONFLICT DO NOTHING RETURNING user_id''', (client_id, actor_id))
@@ -93,9 +105,11 @@ def create_plan(client_id, actor_id, payload, context):
 
 def get_plan(client_id, actor_id, plan_id):
     _require_available()
-    rows = repository.rows('''SELECT id, title, objective, status, advertiser_name, campaign_name, briefing,
-                                      share_enabled, share_token,
-                                      created_at, updated_at FROM cadu_planner_plans
+    cobuild = _cobuild_available()
+    extra = ', revision, workbench, source, opportunity_id' if cobuild else ''
+    rows = repository.rows(f'''SELECT id, title, objective, status, advertiser_name, campaign_name, briefing,
+                                      share_enabled, share_token, project_ref, brand_ref,
+                                      created_at, updated_at{extra} FROM cadu_planner_plans
                                 WHERE id = %s AND client_id = %s AND archived_at IS NULL''',
                            (str(plan_id), client_id))
     if not rows:
@@ -119,6 +133,12 @@ def get_plan(client_id, actor_id, plan_id):
     except Exception:
         plan['review_history'] = []
     plan['readiness'] = readiness(plan)
+    plan.setdefault('revision', 0)
+    plan.setdefault('workbench', {})
+    plan.setdefault('source', 'manual')
+    from . import workbench
+    from .proposals import pending_by_section
+    plan['workbench_overview'] = workbench.overview(plan, pending_by_section(plan['id']) if cobuild else {})
     return plan
 
 
@@ -211,9 +231,33 @@ def update_briefing(client_id, actor_id, plan_id, payload, *, expected_updated_a
                      RETURNING id''', (Json(briefing), _clean_label(payload.get('advertiser_name')),
                                        _clean_label(payload.get('campaign_name')), str(plan['id']),
                                        expected_updated_at, expected_updated_at))
-        if not cur.fetchone():
+        updated = cur.fetchone()
+        if updated and _cobuild_available():
+            # Edição manual: as seções tocadas passam a ser do usuário, e a revisão
+            # sobe para invalidar propostas feitas sobre o briefing antigo.
+            from . import workbench
+            state = plan
+            for section in _edited_sections(plan, briefing, payload):
+                state = {**state, 'workbench': workbench.mark_edited(state, section)}
+            cur.execute('''UPDATE cadu_planner_plans SET workbench = %s, revision = revision + 1
+                            WHERE id = %s''', (Json(state.get('workbench') or {}), str(plan['id'])))
+        if not updated:
             raise Conflict('O plano foi alterado enquanto a revisão estava em andamento. Atualize a página e tente novamente.')
     return get_plan(client_id, actor_id, plan_id)
+
+
+# Campo do briefing → seção do workbench que ele preenche.
+_BRIEFING_SECTIONS = {'notes': 'briefing', 'period': 'briefing', 'kpis': 'objetivo',
+                      'geography': 'pracas', 'budget': 'verba'}
+
+
+def _edited_sections(plan, briefing, payload):
+    before = plan.get('briefing') or {}
+    sections = {section for key, section in _BRIEFING_SECTIONS.items() if before.get(key) != briefing.get(key)}
+    for key in ('advertiser_name', 'campaign_name'):
+        if (plan.get(key) or None) != _clean_label(payload.get(key)):
+            sections.add('briefing')
+    return sorted(sections)
 
 
 def save_allocations(client_id, actor_id, plan_id, payload):

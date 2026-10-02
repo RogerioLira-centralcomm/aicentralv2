@@ -3,18 +3,29 @@ import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {CaduBadge} from '../cadu-design-system/components/CaduBadge.jsx';
 import {CaduDialog} from '../cadu-design-system/components/CaduDialog.jsx';
 import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.jsx';
-import {CaduPageHeader} from '../cadu-design-system/components/CaduPageHeader.jsx';
 import {CaduSelectField, CaduTextAreaField} from '../cadu-design-system/components/CaduField.jsx';
 import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {PlannerPanel} from './PlannerUi.jsx';
-import {MODULE_LABELS, OBJECTIVES, moduleUrl} from './api.js';
+import {CaduPanel, SectionRail} from './PlanWorkbench.jsx';
+import {MODULE_LABELS, OBJECTIVES, moduleUrl, objectiveLabel} from './api.js';
+import {PlannerHeader} from './PlannerHeader.jsx';
 import {planStatusLabel, planStatusTone} from './PlansPages.jsx';
 
 const BRIEFING_FIELDS = [['advertiser_name', 'Anunciante'], ['campaign_name', 'Campanha'], ['budget', 'Investimento'], ['period', 'Período'], ['geography', 'Praça'], ['kpis', 'KPIs']];
 const QUOTE_SCOPES = [['full_operation', 'Operação completa'], ['media_inventory', 'Inventário de mídia'], ['specific_channels', 'Canais específicos']];
 const QUOTE_STATUS = {requested: 'Solicitada', in_review: 'Em análise', needs_information: 'Precisa de informações', proposal_available: 'Proposta disponível', approved: 'Aprovada', closed: 'Encerrada'};
 const ADD_MODULES = ['canais', 'audiencias', 'formatos', 'interativos', 'portais', 'places'];
+// Which page block holds each workbench section.
+const SECTION_BLOCK = {briefing: 'direcao', objetivo: 'direcao', pracas: 'direcao', audiencias: 'composicao',
+  canais: 'composicao', formatos: 'composicao', verba: 'distribuicao', criativos: 'criativos'};
+const KIND_ORDER = ['audiencias', 'canais', 'formatos', 'interativos', 'portais', 'places'];
+
+function addUrl(urls, module, planId) {
+  const url = new URL(moduleUrl(urls, module), window.location.origin);
+  url.searchParams.set('plan', planId);
+  return url.pathname + url.search;
+}
 
 function QuoteDialog({onClose, onSubmit, busy}) {
   return <CaduDialog className="planner-dialog" closeOnBackdrop onClose={onClose}>{({titleId}) => <form onSubmit={onSubmit}>
@@ -30,6 +41,8 @@ export function PlanDetail({boot, request, plan, setPlan, toggle, notify}) {
   const [allocationDraft, setAllocationDraft] = useState({});
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [busy, setBusy] = useState('');
+  const overview = plan?.workbench_overview;
+  const [active, setActive] = useState(overview?.next || 'briefing');
   if (!plan) return <CaduEmptyState title="Plano indisponível" description="Ele pode ter sido removido ou você não tem acesso."/>;
 
   const briefing = plan.briefing || {};
@@ -37,6 +50,7 @@ export function PlanDetail({boot, request, plan, setPlan, toggle, notify}) {
   const channels = items.filter(item => item.kind === 'canais');
   const readiness = plan.readiness || {checks: []};
   const lastQuote = (plan.quote_requests || [])[0];
+  const pending = (readiness.checks || []).filter(check => !check.complete).length;
   const run = async (key, action) => {
     setBusy(key);
     try { await action(); } catch (error) { notify({tone: 'error', message: error.message}); } finally { setBusy(''); }
@@ -82,55 +96,77 @@ export function PlanDetail({boot, request, plan, setPlan, toggle, notify}) {
       notify({message: 'Pedido enviado ao time comercial.'});
     });
   };
+  const selectSection = key => {
+    setActive(key);
+    document.getElementById(`bloco-${SECTION_BLOCK[key]}`)?.scrollIntoView({behavior: 'smooth', block: 'start'});
+  };
+  const grouped = KIND_ORDER.map(kind => [kind, items.filter(item => item.kind === kind)]).filter(([, list]) => list.length);
   const draftValue = (key, field) => allocationDraft[key]?.[field] ?? plan.allocation_by_channel?.[key]?.[field] ?? '';
   const setDraft = (key, field, value) => setAllocationDraft(current => ({...current, [key]: {...current[key], [field]: value}}));
 
   return <>
-    <CaduPageHeader
-      back={{href: boot.urls.plans, label: 'Planos de mídia'}}
-      title={plan.title}
-      description={[plan.advertiser_name || 'Campanha em definição', plan.campaign_name].filter(Boolean).join(' · ')}
+    <PlannerHeader crumbs={[['Planos', boot.urls.plans]]} title={plan.title}
+      description={[plan.advertiser_name, plan.objective && objectiveLabel(plan.objective), briefing.period, briefing.geography].filter(Boolean).join(' · ') || 'Defina a direção da campanha para começar.'}
       meta={<><CaduBadge tone={planStatusTone(plan)}>{planStatusLabel(plan)}</CaduBadge>{lastQuote && <CaduBadge tone="brand">Proposta: {QUOTE_STATUS[lastQuote.status] || lastQuote.status}</CaduBadge>}</>}
       actions={<>
-        <CaduButton variant="secondary" loading={busy === 'share'} onClick={share}>Publicar plano</CaduButton>
-        {readiness.ready && <CaduButton variant="secondary" onClick={() => setQuoteOpen(true)}>Solicitar proposta</CaduButton>}
-        <CaduButton loading={busy === 'status'} onClick={toggleStatus}>{plan.status === 'ready' ? 'Reabrir' : 'Marcar pronto'}</CaduButton>
-      </>}
-    />
-    <div className="planner-detail">
-      <PlannerPanel title="Direção da campanha" description="O que orienta as escolhas de mídia.">
-        <form className="planner-fields" onSubmit={saveBriefing}>
-          <CaduSelectField label="Objetivo" name="objective" defaultValue={briefing.objective ?? plan.objective ?? ''} options={OBJECTIVES.map(([value, label]) => ({value, label}))}/>
-          {BRIEFING_FIELDS.map(([name, label]) => <CaduInput key={name} label={label} name={name} defaultValue={plan[name] || briefing[name] || ''}/>)}
-          <CaduTextAreaField className="is-wide" label="Notas" name="notes" rows={3} defaultValue={briefing.notes || ''}/>
-          <div className="planner-fields__actions"><CaduButton type="submit" variant="secondary" loading={busy === 'briefing'}>Salvar direção</CaduButton></div>
-        </form>
-      </PlannerPanel>
-      <div className="planner-detail__side">
+        <CaduButton variant="secondary" loading={busy === 'share'} onClick={share}><Icon name="link" size={16}/>Copiar link</CaduButton>
+        <CaduButton variant="secondary" disabled={!readiness.ready} title={readiness.ready ? undefined : 'Complete o checklist para pedir proposta'}
+          onClick={() => setQuoteOpen(true)}>Solicitar proposta</CaduButton>
+        <CaduButton loading={busy === 'status'} disabled={plan.status !== 'ready' && !readiness.ready}
+          title={plan.status !== 'ready' && !readiness.ready ? `Faltam ${pending} ${pending === 1 ? 'item' : 'itens'} do checklist` : undefined}
+          onClick={toggleStatus}>{plan.status === 'ready' ? 'Reabrir plano' : 'Marcar como pronto'}</CaduButton>
+      </>}/>
+    <div className="planner-workbench">
+      <SectionRail overview={overview} active={active} onSelect={selectSection}/>
+      <div className="planner-workbench__main">
+        <PlannerPanel className={`planner-block${SECTION_BLOCK[active] === 'direcao' ? ' is-active' : ''}`} title="Direção da campanha" description="Briefing, objetivo, KPIs e praças que orientam as escolhas de mídia.">
+          <span id="bloco-direcao" className="planner-anchor"/>
+          <form key={String(plan.updated_at)} className="planner-fields" onSubmit={saveBriefing}>
+            <CaduSelectField label="Objetivo" name="objective" defaultValue={briefing.objective ?? plan.objective ?? ''} options={OBJECTIVES.map(([value, label]) => ({value, label}))}/>
+            {BRIEFING_FIELDS.map(([name, label]) => <CaduInput key={name} label={label} name={name} defaultValue={plan[name] || briefing[name] || ''}/>)}
+            <CaduTextAreaField className="is-wide" label="Notas" name="notes" rows={3} defaultValue={briefing.notes || ''}/>
+            <div className="planner-fields__actions"><CaduButton type="submit" variant="secondary" loading={busy === 'briefing'}>Salvar direção</CaduButton></div>
+          </form>
+        </PlannerPanel>
+        <PlannerPanel className={`planner-block${SECTION_BLOCK[active] === 'composicao' ? ' is-active' : ''}`} title="Composição" description={`${items.length} ${items.length === 1 ? 'referência' : 'referências'} no plano`}>
+          <span id="bloco-composicao" className="planner-anchor"/>
+          {grouped.length ? grouped.map(([kind, list]) => <div key={kind} className="planner-composition">
+            <h3>{MODULE_LABELS[kind] || kind}<small>{list.length}</small></h3>
+            <ul className="planner-items">{list.map(item => <li key={`${item.kind}:${item.resource_id}`}>
+              <span><a href={`${moduleUrl(boot.urls, item.kind)}/${encodeURIComponent(item.resource_id)}`}><strong>{item.snapshot?.name || item.resource_id}</strong></a>
+                <small>{[item.snapshot?.category, item.snapshot?.audience].filter(Boolean).join(' · ')}</small></span>
+              <button type="button" className="planner-text-action" onClick={() => toggle(item.kind, item.resource_id)}>Remover</button>
+            </li>)}</ul>
+          </div>) : <p className="planner-muted">Ainda não há referências neste plano. Explore as vitrines; o que você adicionar entra direto aqui.</p>}
+          <div className="planner-add-links">{ADD_MODULES.map(module => <a key={module} href={addUrl(boot.urls, module, plan.id)}><Icon name="plus" size={14}/>{MODULE_LABELS[module]}</a>)}</div>
+        </PlannerPanel>
+        <PlannerPanel className={`planner-block${SECTION_BLOCK[active] === 'distribuicao' ? ' is-active' : ''}`} title="Verba e distribuição" description="Valor e participação de cada canal escolhido.">
+          <span id="bloco-distribuicao" className="planner-anchor"/>
+          {channels.length > 0 ? <>
+            <div className="planner-allocation">{channels.map(item => {
+              const key = String(item.resource_id);
+              const name = item.snapshot?.name || key;
+              return <div className="planner-allocation__row" key={key}>
+                <strong>{name}</strong>
+                <CaduInput size="sm" aria-label={`Investimento em ${name}`} inputMode="decimal" placeholder="Investimento" value={draftValue(key, 'investment')} onChange={event => setDraft(key, 'investment', event.target.value)}/>
+                <CaduInput size="sm" aria-label={`Participação de ${name}`} inputMode="decimal" placeholder="% do plano" value={draftValue(key, 'weight')} onChange={event => setDraft(key, 'weight', event.target.value)}/>
+              </div>;
+            })}</div>
+            <CaduButton variant="secondary" loading={busy === 'allocations'} onClick={saveAllocations}>Salvar distribuição</CaduButton>
+          </> : <p className="planner-muted">Escolha ao menos um canal para distribuir a verba.</p>}
+        </PlannerPanel>
+        <PlannerPanel className={`planner-block${SECTION_BLOCK[active] === 'criativos' ? ' is-active' : ''}`} title="Sistema criativo" description="Big idea, mensagens por etapa e a matriz de peças por canal.">
+          <span id="bloco-criativos" className="planner-anchor"/>
+          <p className="planner-muted">O Cadu vai montar a matriz criativa com você a partir dos canais e formatos escolhidos, pronta para seguir ao Studio.</p>
+        </PlannerPanel>
+      </div>
+      <div className="planner-workbench__side">
+        <CaduPanel boot={boot} request={request} plan={plan} setPlan={setPlan} notify={notify} active={active}/>
         <PlannerPanel title={readiness.ready ? 'Pronto para revisão' : 'Checklist do plano'}>
           <ul className="planner-checklist">{(readiness.checks || []).map(check => <li key={check.label} className={check.complete ? 'is-complete' : ''}>
             <span aria-hidden="true">{check.complete ? <Icon name="check" size={14}/> : null}</span>{check.label}
           </li>)}</ul>
         </PlannerPanel>
-        <PlannerPanel title="Composição" description={`${items.length} ${items.length === 1 ? 'referência' : 'referências'} no plano`}>
-          {items.length ? <ul className="planner-items">{items.map(item => <li key={`${item.kind}:${item.resource_id}`}>
-            <span><strong>{item.snapshot?.name || item.resource_id}</strong><small>{MODULE_LABELS[item.kind] || item.kind}</small></span>
-            <CaduButton variant="link" size="sm" onClick={() => toggle(item.kind, item.resource_id)}>Remover</CaduButton>
-          </li>)}</ul> : <p className="planner-muted">Ainda não há referências neste plano.</p>}
-          <div className="planner-add-links">{ADD_MODULES.map(module => <a key={module} href={moduleUrl(boot.urls, module)}><Icon name="plus" size={14}/>{MODULE_LABELS[module]}</a>)}</div>
-        </PlannerPanel>
-        {channels.length > 0 && <PlannerPanel title="Distribuição do investimento" description="Valor e participação de cada canal escolhido.">
-          <div className="planner-allocation">{channels.map(item => {
-            const key = String(item.resource_id);
-            const name = item.snapshot?.name || key;
-            return <div className="planner-allocation__row" key={key}>
-              <strong>{name}</strong>
-              <CaduInput size="sm" aria-label={`Investimento em ${name}`} inputMode="decimal" placeholder="Investimento" value={draftValue(key, 'investment')} onChange={event => setDraft(key, 'investment', event.target.value)}/>
-              <CaduInput size="sm" aria-label={`Participação de ${name}`} inputMode="decimal" placeholder="% do plano" value={draftValue(key, 'weight')} onChange={event => setDraft(key, 'weight', event.target.value)}/>
-            </div>;
-          })}</div>
-          <CaduButton variant="secondary" loading={busy === 'allocations'} onClick={saveAllocations}>Salvar distribuição</CaduButton>
-        </PlannerPanel>}
       </div>
     </div>
     {quoteOpen && <QuoteDialog busy={busy === 'quote'} onClose={() => setQuoteOpen(false)} onSubmit={submitQuote}/>}

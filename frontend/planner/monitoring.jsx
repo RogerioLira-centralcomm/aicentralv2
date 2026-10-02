@@ -2,10 +2,12 @@ import React, {useEffect, useRef, useState} from 'react';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {CaduBadge} from '../cadu-design-system/components/CaduBadge.jsx';
 import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.jsx';
-import {CaduPageHeader} from '../cadu-design-system/components/CaduPageHeader.jsx';
+import {PlannerHeader} from './PlannerHeader.jsx';
 import {CaduSelectField} from '../cadu-design-system/components/CaduField.jsx';
 import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {PlannerNotice, PlannerPanel} from './PlannerUi.jsx';
+import {MetricTiles} from './details/DetailLayout.jsx';
+import {Icon} from '../cadu-design-system/components/Icon.jsx';
 
 const SITE_TYPES = [
   ['campaign', 'Landing page de campanha'],
@@ -127,8 +129,18 @@ export function MonitorPage({request}) {
   const selectedHealth = site?.health_checks?.[0];
 
   return <>
-    <CaduPageHeader title="Sites e funis" description="Mapeie jornadas por URL e acompanhe visitas, conversões e disponibilidade."
-      actions={<CaduButton variant={showSetup ? 'secondary' : 'primary'} onClick={() => {setShowSetup(!showSetup);setAnalysis(null);setError('');}}>{showSetup ? 'Fechar cadastro' : 'Adicionar site'}</CaduButton>}/>
+    <PlannerHeader title={site ? site.name : 'Sites e funis'}
+      crumbs={site ? [['Sites e funis', null]] : null}
+      meta={site ? <CaduBadge tone="neutral">{typeLabel}</CaduBadge> : null}
+      description={site ? <a href={site.entry_url} target="_blank" rel="noreferrer">{site.entry_url}</a> : 'Mapeie jornadas por URL e acompanhe visitas, conversões e disponibilidade.'}
+      actions={<>
+        {sites.length > 1 && <label className="ph-context__field"><Icon name="browser" size={16}/><span className="planner-sr-only">Site acompanhado</span>
+          <select value={siteId} onChange={e => {setSiteId(e.target.value);setNotice('');}}>
+            {sites.map(item => <option key={item.id} value={item.id}>{item.name} · {item.domain}</option>)}
+          </select></label>}
+        {site && <CaduButton variant="secondary" onClick={() => window.open(site.test_url, '_blank', 'noopener,noreferrer')}><Icon name="external" size={16}/>Abrir teste</CaduButton>}
+        <CaduButton variant={showSetup ? 'secondary' : 'primary'} onClick={() => {setShowSetup(!showSetup);setAnalysis(null);setError('');}}>{showSetup ? 'Fechar cadastro' : <><Icon name="plus" size={16}/>Adicionar site</>}</CaduButton>
+      </>}/>
 
     <PlannerNotice notice={error ? {tone: 'error', message: error} : notice ? {message: notice} : null} onDismiss={() => { setError(''); setNotice(''); }}/>
 
@@ -158,23 +170,13 @@ export function MonitorPage({request}) {
     </PlannerPanel>}
 
     {sites.length > 0 ? <>
-      <div className="monitor-site-switcher">
-        <CaduSelectField label="Site acompanhado" value={siteId} onChange={e => {setSiteId(e.target.value);setNotice('');}} options={sites.map(item => ({value: item.id, label: `${item.name} · ${item.domain}`}))}/>
-        <span>Dados atualizados a cada 15 segundos</span>
-      </div>
-
       {site && <>
-        <section className="monitor-site-heading">
-          <div><CaduBadge tone="neutral">{typeLabel}</CaduBadge><h2>{site.name}</h2><a href={site.entry_url} target="_blank" rel="noreferrer">{site.entry_url}</a></div>
-          <CaduButton variant="secondary" onClick={() => window.open(site.test_url, '_blank', 'noopener,noreferrer')}>Abrir teste em nova aba</CaduButton>
-        </section>
-
-        <section className="monitor-metrics" aria-label="Métricas do site">
-          <article className="monitor-metric"><span>Pessoas online</span><strong key={metrics.online_now || 0}>{Number(metrics.online_now || 0).toLocaleString('pt-BR')}</strong><small>últimos 5 minutos</small></article>
-          <article className="monitor-metric"><span>Pessoas únicas</span><strong key={metrics.visitors_24h || 0}>{Number(metrics.visitors_24h || 0).toLocaleString('pt-BR')}</strong><small>últimas 24 horas</small></article>
-          <article className="monitor-metric"><span>Páginas recebidas</span><strong key={metrics.page_views_24h || 0}>{Number(metrics.page_views_24h || 0).toLocaleString('pt-BR')}</strong><small>últimas 24 horas</small></article>
-          <article className="monitor-metric is-conversion"><span>Conversões</span><strong key={metrics.conversions_24h || 0}>{Number(metrics.conversions_24h || 0).toLocaleString('pt-BR')}</strong><small>{Number(metrics.conversion_rate || 0).toLocaleString('pt-BR')}% · últimas 24 horas</small></article>
-        </section>
+        <MetricTiles items={[
+          {label: 'Pessoas online', value: Number(metrics.online_now || 0).toLocaleString('pt-BR'), hint: 'Últimos 5 minutos'},
+          {label: 'Pessoas únicas', value: Number(metrics.visitors_24h || 0).toLocaleString('pt-BR'), hint: 'Últimas 24 horas'},
+          {label: 'Páginas recebidas', value: Number(metrics.page_views_24h || 0).toLocaleString('pt-BR'), hint: 'Últimas 24 horas'},
+          {label: 'Conversões', value: Number(metrics.conversions_24h || 0).toLocaleString('pt-BR'), hint: `Taxa de ${Number(metrics.conversion_rate || 0).toLocaleString('pt-BR')}% · atualiza a cada 15 s`},
+        ]}/>
 
         <div className="monitor-columns">
           <PlannerPanel title="Disponibilidade" description="Verificação automática da URL configurada." actions={<span className={'health-state ' + (selectedHealth?.status || 'waiting')}><i />{healthLabel(selectedHealth?.status)}</span>}>

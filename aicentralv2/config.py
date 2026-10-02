@@ -119,6 +119,10 @@ class Config:
 	# das migrações e verificações de produção.
 	CADU_FAMILY_ENABLED = os.getenv('CADU_FAMILY_ENABLED', '0').lower() in ('true', '1', 'yes', 'on')
 	CADU_FAMILY_WRITES_ENABLED = os.getenv('CADU_FAMILY_WRITES_ENABLED', '0').lower() in ('true', '1', 'yes', 'on')
+	# Planner co-construído com o Cadu e Radar de Oportunidades. Ficam fechados
+	# até as migrações add_cadu_planner_cobuild/add_cadu_radar e os proposers.
+	CADU_PLANNER_COBUILD_ENABLED = os.getenv('CADU_PLANNER_COBUILD_ENABLED', '0').lower() in ('true', '1', 'yes', 'on')
+	CADU_RADAR_ENABLED = os.getenv('CADU_RADAR_ENABLED', '0').lower() in ('true', '1', 'yes', 'on')
 	# The provider/settings check remains the final gate. Chat is a released
 	# Cadu surface and must not stay disabled merely because an environment
 	# omitted this legacy rollout flag.

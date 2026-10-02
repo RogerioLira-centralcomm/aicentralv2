@@ -3,7 +3,7 @@ import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {CaduBadge} from '../cadu-design-system/components/CaduBadge.jsx';
 import {CaduDialog} from '../cadu-design-system/components/CaduDialog.jsx';
 import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.jsx';
-import {CaduPageHeader} from '../cadu-design-system/components/CaduPageHeader.jsx';
+import {PlannerHeader} from './PlannerHeader.jsx';
 import {CaduSelectField, CaduTextAreaField} from '../cadu-design-system/components/CaduField.jsx';
 import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
@@ -60,14 +60,18 @@ function DocumentView({boot, request, notify, document: initial, startEditing, o
   });
 
   return <>
-    <CaduPageHeader back={{href: boot.urls.docs, label: 'Docs'}} title={doc.title || 'Documento'}
-      meta={<><CaduBadge tone="neutral">{typeLabel(doc.type)}</CaduBadge>{doc.share_enabled && <CaduBadge tone="brand">Público</CaduBadge>}{doc.updated_at && <span className="planner-muted">Atualizado em {doc.updated_at}</span>}</>}
-      actions={canWrite ? <>
-        {editing ? <CaduButton loading={busy === 'save'} onClick={save}>Salvar alterações</CaduButton> : <CaduButton variant="secondary" onClick={() => setEditing(true)}>Editar</CaduButton>}
-        <CaduButton variant="secondary" loading={busy === 'review'} onClick={review}>Revisar</CaduButton>
+    <PlannerHeader crumbs={[['Docs', boot.urls.docs]]} title={doc.title || 'Documento'}
+      meta={<><CaduBadge tone="neutral">{typeLabel(doc.type)}</CaduBadge>{doc.share_enabled && <CaduBadge tone="brand">Público</CaduBadge>}</>}
+      description={doc.updated_at ? `Atualizado em ${doc.updated_at}` : null}
+      actions={canWrite ? (editing ? <>
+        <CaduButton variant="secondary" onClick={() => { setHtml(doc.html || ''); setEditing(false); }}>Cancelar</CaduButton>
+        <CaduButton loading={busy === 'save'} onClick={save}>Salvar alterações</CaduButton>
+      </> : <>
         <CaduButton variant="secondary" loading={busy === 'duplicate'} onClick={duplicate}>Duplicar</CaduButton>
-        <CaduButton variant="secondary" loading={busy === 'share'} onClick={share}>{doc.share_enabled ? 'Despublicar' : 'Compartilhar'}</CaduButton>
-      </> : null}/>
+        <CaduButton variant="secondary" loading={busy === 'share'} onClick={share}><Icon name="link" size={16}/>{doc.share_enabled ? 'Despublicar' : 'Copiar link público'}</CaduButton>
+        <CaduButton variant="secondary" loading={busy === 'review'} onClick={review}><Icon name="compose" size={16}/>Revisar com o Cadu</CaduButton>
+        <CaduButton onClick={() => setEditing(true)}>Editar</CaduButton>
+      </>) : null}/>
     <PlannerPanel>
       {editing ? <div className="planner-doc-editor">
         <CaduInput label="Título" value={doc.title || ''} onChange={event => setDoc({...doc, title: event.target.value})}/>
@@ -103,12 +107,17 @@ export function DocsPage({boot, request, notify}) {
 
   if (open) return <DocumentView key={open.document.id} boot={boot} request={request} notify={notify} document={open.document} startEditing={open.editing} onChange={changed}/>;
   return <>
-    <CaduPageHeader title="Docs" description="Briefings, propostas e apresentações do cliente." actions={boot.writesEnabled ? <CaduButton onClick={() => setCreating(true)}>Criar documento</CaduButton> : null}/>
-    {documents.length ? <div className="planner-list">{documents.map(item => <button type="button" className="planner-plan-row" key={item.id} onClick={() => openDoc(item)}>
-      <span className="planner-plan-row__icon" aria-hidden="true"><Icon name="file" size={18}/></span>
-      <span className="planner-plan-row__copy"><strong>{item.title}</strong><small>{typeLabel(item.type)}{item.updated_at ? ` · ${item.updated_at}` : ''}</small></span>
-      <span className="planner-plan-row__go" aria-hidden="true">Abrir</span>
-    </button>)}</div> : <PlannerPanel className="planner-panel--flush"><CaduEmptyState title="Nenhum documento ainda" description="Crie um briefing ou uma proposta para compartilhar com o cliente." action={boot.writesEnabled ? <CaduButton onClick={() => setCreating(true)}>Criar documento</CaduButton> : null}/></PlannerPanel>}
+    <PlannerHeader title="Docs" description={documents.length ? `${documents.length} ${documents.length === 1 ? 'documento' : 'documentos'}` : 'Briefings, propostas e apresentações do cliente.'}
+      actions={boot.writesEnabled ? <CaduButton onClick={() => setCreating(true)}><Icon name="plus" size={16}/>Novo documento</CaduButton> : null}/>
+    {documents.length ? <div className="pl-table pl-table--docs" role="table" aria-label="Documentos">
+      <div className="pl-table__row pl-table__head" role="row"><span role="columnheader">Documento</span><span role="columnheader">Tipo</span><span role="columnheader">Acesso</span><span role="columnheader">Atualizado</span></div>
+      {documents.map(item => <button type="button" className="pl-table__row" role="row" key={item.id} onClick={() => openDoc(item)}>
+        <span role="cell" className="pl-table__name pl-table__with-icon"><Icon name="file" size={18}/><strong>{item.title}</strong></span>
+        <span role="cell">{typeLabel(item.type)}</span>
+        <span role="cell">{item.share_enabled ? <CaduBadge tone="brand">Link público</CaduBadge> : <span className="pl-table__muted">Privado</span>}</span>
+        <span role="cell" className="pl-table__muted">{item.updated_at || '—'}</span>
+      </button>)}
+    </div> : <PlannerPanel className="planner-panel--flush"><CaduEmptyState title="Nenhum documento ainda" description="Crie um briefing ou uma proposta para compartilhar com o cliente." action={boot.writesEnabled ? <CaduButton onClick={() => setCreating(true)}>Criar documento</CaduButton> : null}/></PlannerPanel>}
     {creating && <CreateDocDialog busy={busy} onClose={() => setCreating(false)} onCreate={create}/>}
   </>;
 }

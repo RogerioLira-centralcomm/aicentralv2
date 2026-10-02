@@ -26,7 +26,7 @@ import {setActiveClient} from './shell/useApi.js';
 import {Chart, amount, money, platformName} from './shell/media.jsx';
 import {Overview} from './hubs/overview/Overview.jsx';
 import {MediaOverview} from './hubs/media/MediaOverview.jsx';
-import {MediaPerformance} from './hubs/media/MediaPerformance.jsx';
+import {GoogleAds} from './hubs/media/GoogleAds.jsx';
 import {MediaCreatives} from './hubs/media/MediaCreatives.jsx';
 import {Contents} from './hubs/journey/Contents.jsx';
 import {JourneyOverview} from './hubs/journey/JourneyOverview.jsx';
@@ -1375,7 +1375,7 @@ function App() {
       overview: () => <Overview data={data}/>,
       media: () => <MediaOverview data={data}/>,
       campaigns: () => <Campaigns data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} />,
-      performance: () => <MediaPerformance/>,
+      'google-ads': () => <GoogleAds data={data}/>,
       creatives: () => <MediaCreatives data={data}/>,
       content: () => <Contents/>,
       monitor: () => <Monitor data={data} save={save} busy={busy} />,

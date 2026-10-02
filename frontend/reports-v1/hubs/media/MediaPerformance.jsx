@@ -14,10 +14,11 @@ const BIDDING = {MAXIMIZE_CONVERSIONS: 'Maximizar conversões', MAXIMIZE_CONVERS
 const status = value => {const [label, tone] = STATUS[value] || [value || '—', 'gray']; return label === '—' ? '—' : <span className={`rs-badge is-${tone}`}>{label}</span>;};
 
 /** "O que está funcionando dentro das campanhas?" — the Google Ads detail the engine already collects every day. */
-export function MediaPerformance() {
+export function MediaPerformance({views: allowed, hideSettings = false} = {}) {
+  const views = allowed ? VIEWS.filter(([key]) => allowed.includes(key)) : VIEWS;
   const {period} = useReportsContext();
   const [state, retry] = useApi(apiUrl('/media/performance', {start_date: period.start, end_date: period.end}));
-  const [view, setView] = useState('ad_groups');
+  const [view, setView] = useState(views[0][0]);
   if (state.error) return <ErrorState message={state.error} onRetry={retry}/>;
   if (state.loading && !state.body) return <LoadingState rows={8}/>;
   const body = state.body;
@@ -41,12 +42,12 @@ export function MediaPerformance() {
     devices: [{key: 'device', label: 'Dispositivo', render: row => DEVICE[row.device] || row.device}],
   }[view];
   return <div className="rs-stack">
-    <Section title="Detalhe do Google Ads" description="Ordenado por investimento no período; clique no cabeçalho para reordenar"
-      action={<div className="rs-segmented" role="group" aria-label="Detalhe">{VIEWS.map(([key, label]) => <button type="button" key={key} aria-pressed={view === key} onClick={() => setView(key)}>{label}</button>)}</div>}>
+    <Section title={hideSettings ? 'Grupos, páginas e dispositivos' : 'Detalhe do Google Ads'} description="Ordenado por investimento no período; clique no cabeçalho para reordenar"
+      action={<div className="rs-segmented" role="group" aria-label="Detalhe">{views.map(([key, label]) => <button type="button" key={key} aria-pressed={view === key} onClick={() => setView(key)}>{label}</button>)}</div>}>
       <DataTable key={view} label={VIEWS.find(([key]) => key === view)[1]} rows={body[view] || []} rowKey={(row, index) => index}
         empty={<p className="rs-muted">Sem dados desta visão no período.</p>} columns={[...lead, ...metrics]}/>
     </Section>
-    {body.settings.length > 0 && <Section title="Configuração das campanhas" description="Orçamento diário e estratégia de lance no último envio do script">
+    {!hideSettings && body.settings.length > 0 && <Section title="Configuração das campanhas" description="Orçamento diário e estratégia de lance no último envio do script">
       <DataTable label="Configuração das campanhas" rows={body.settings} rowKey={(row, index) => index} limit={20} columns={[
         {key: 'campaign_name', label: 'Campanha'},
         {key: 'status', label: 'Status', sortable: false, render: row => status(row.status)},

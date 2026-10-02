@@ -7,7 +7,7 @@ export const APP_BASE = '/connect/app';
 export const HUBS = {
   media: {
     title: 'Mídia', description: 'Investimento, alcance e resultado das campanhas.',
-    tabs: [['media', 'Visão geral'], ['media/campaigns', 'Campanhas'], ['media/performance', 'Desempenho'], ['media/creatives', 'Criativos'], ['media/data', 'Dados']],
+    tabs: [['media', 'Visão geral'], ['media/campaigns', 'Campanhas'], ['media/google-ads', 'Google Ads'], ['media/creatives', 'Criativos'], ['media/data', 'Dados']],
   },
   journey: {
     title: 'Site & Jornada', description: 'O que as pessoas fazem depois que chegam ao site.',
@@ -23,7 +23,7 @@ export const ROUTES = {
   overview: {page: 'overview', nav: 'overview', title: 'Visão geral', description: 'Saúde dos dados, resultados e próxima ação.', period: true},
   media: {page: 'media', nav: 'media', hub: 'media', period: true},
   'media/campaigns': {page: 'campaigns', nav: 'media', hub: 'media', period: true},
-  'media/performance': {page: 'performance', nav: 'media', hub: 'media', period: true},
+  'media/google-ads': {page: 'google-ads', nav: 'media', hub: 'media', period: true},
   'media/creatives': {page: 'creatives', nav: 'media', hub: 'media'},
   'media/data': {page: 'monitor', nav: 'media', hub: 'media'},
   journey: {page: 'journey', nav: 'journey', hub: 'journey', period: true},
@@ -74,6 +74,8 @@ export function resolveRoute(pathname = location.pathname) {
 export function legacyRedirect(href = location.href) {
   const url = new URL(href, location.origin);
   const parts = segments(url.pathname);
+  // Mídia → Desempenho became the Google Ads area.
+  if (parts[0] === 'media' && parts[1] === 'performance') {url.pathname = `${APP_BASE}/media/google-ads`; return `${url.pathname}${url.search}${url.hash}`;}
   if (!parts.length) {url.pathname = `${APP_BASE}/overview`; return `${url.pathname}${url.search}${url.hash}`;}
   if (isFlowEntity(parts) || ROUTES[parts.slice(0, 2).join('/')] || (ROUTES[parts[0]] && !LEGACY[parts[0]])) return '';
   const target = LEGACY[parts[0]];

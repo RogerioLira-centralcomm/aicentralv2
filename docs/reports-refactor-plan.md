@@ -135,6 +135,24 @@ Correções de organização feitas no caminho: detalhe de campanha usava `.repo
 - **Navegação em Sankey**: os 10 caminhos mais comuns aparecem como fluxo entre páginas, acima da tabela.
 - **Relatórios**: situação Publicado (link público ativo) ou Em edição, com contagem, além de busca e campanha.
 
+### Mídia → Google Ads (antes "Desempenho")
+
+Área própria para o Google Ads, porque os dados do motor v2 são específicos da plataforma. `/connect/app/media/performance` redireciona para `/media/google-ads`.
+
+- **Resumo e ações**: investimento, conversões, CPA, valor/ROAS e cliques contra o período anterior; **ações recomendadas em ordem de execução** (o que trava a conta primeiro, depois maior impacto em R$), cada uma com objeto, números, ação concreta e link para a visão certa; investimento e conversões por dia; saúde da coleta por conta (última execução, conjuntos cortados ou com erro).
+- **Termos de pesquisa**: cada termo com a ação (Negativar, Virar palavra-chave, Revisar, Já negativado, Excluído, Manter) decidida em `term_action`; seleção e **exportação CSV para o Google Ads Editor** (negativas de campanha exata ou de frase; palavras-chave exatas por grupo) e cópia em notação `[exata]`/`"frase"`.
+- **Palavras-chave**: Índice de Qualidade colorido, custo, conversões, CPA, CTR, CPC.
+- **Palavras negativas**: inventário por nível (campanha, grupo, lista compartilhada com campanhas vinculadas), conflitos com palavras-chave ativas, removidas nos últimos 30 dias.
+- **Campanhas**: estratégia de lance, orçamento diário, uso do orçamento, resultado do período.
+- **Grupos, páginas e dispositivos**: detalhe que já existia.
+- **Regras** (`reports_google_ads_rules.py`, limites visíveis em "Como decidimos"): script parado (>48 h), negativa bloqueando palavra-chave ativa, coleta incompleta, termo para negativar (≥10 cliques, 0 conversão, não coberto), palavra-chave com gasto sem conversão (≥30 cliques), campanha sem conversão, campanha que converte limitada pelo orçamento (≥95% do orçamento com CPA ≤ conta), termo que converte para virar palavra-chave (≥2 conversões), Índice de Qualidade ≤4, dispositivo com CPA ≥2× a conta, negativas desatualizadas (>7 dias — termos para negativar não são sugeridos sem elas).
+- **Alertas**: as ações de prioridade alta e média aparecem no topo da central de Alertas, com link para o objeto no Google Ads.
+- Endpoints: `GET /google-ads/summary`, `/google-ads/search-terms`, `/google-ads/keywords`, `/google-ads/negatives`.
+
+**Meta e demais plataformas** terão áreas separadas, alimentadas por prints e, no futuro, por extensão do Chrome; não entram na área Google Ads.
+
+**Limites do script hoje** (registrados para a próxima versão do motor): não coleta ações de conversão separadas, parcela de impressões, anúncios/RSA, recursos, geografia, horário, públicos nem negativas de conta e de Performance Max; envia os últimos 8 dias a cada execução.
+
 ### Pendências que dependem de modelo novo
 
 - **Criativos com desempenho por anúncio**: o motor Google Ads não coleta anúncios; quando coletar, a aba ganha a tabela de peças e o botão passa a partir da peça vencedora.

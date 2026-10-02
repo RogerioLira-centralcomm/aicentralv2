@@ -2,6 +2,8 @@ import React, {useCallback, useEffect, useState} from 'react';
 import {Empty, integer, json, reportUrl} from './reportsCommon.jsx';
 import {ReportsNativeSelect} from './ReportsNativeSelect.jsx';
 import './alerts-center.css';
+import {apiUrl, useApi} from './shell/useApi.js';
+import {useReportsContext} from './shell/context.js';
 
 const SEVERITY = {high: 'Prioridade alta', medium: 'Prioridade média', low: 'Prioridade baixa'};
 const dash = '—';
@@ -61,6 +63,25 @@ function AlertCard({alert, userId, choices, busy, onAct, client}) {
   </li>;
 }
 
+const GADS_SEVERITY = {high: ['Alta', 'error'], medium: ['Média', 'warning']};
+
+/** Google Ads findings computed from the data the script sends; each one opens the object in Mídia → Google Ads. */
+function GoogleAdsAlerts() {
+  const {period} = useReportsContext();
+  const [state] = useApi(apiUrl('/google-ads/summary', {start_date: period.start, end_date: period.end}));
+  const items = (state.body?.recommendations || []).filter(item => item.severity !== 'low');
+  if (!state.body?.ready || !items.length) return null;
+  const href = link => reportUrl('media/google-ads', {view: link?.tab || 'overview', filter: link?.filter || ''});
+  return <article className="reports-panel alerts-gads"><div className="reports-panel-head"><h2>Google Ads</h2><span>{items.length} {items.length === 1 ? 'ação' : 'ações'} de prioridade alta ou média</span></div>
+    <ul className="rs-list">{items.slice(0, 6).map(item => <li key={item.id}>
+      <span className={`rs-badge is-${GADS_SEVERITY[item.severity][1]}`}>{GADS_SEVERITY[item.severity][0]}</span>
+      <span className="rs-list__copy"><strong>{item.title}: {item.object.label}</strong><small>{item.object.campaign ? `${item.object.campaign} · ` : ''}{item.summary}</small></span>
+      <a className="reports-inline-link" href={href(item.link)}>Abrir</a>
+    </li>)}</ul>
+    {items.length > 6 && <a className="reports-inline-link" href={reportUrl('media/google-ads')}>Ver as {items.length} ações</a>}
+  </article>;
+}
+
 export function AlertsCenter({data}) {
   const client = data.client.client_id;
   const [status, setStatus] = useState('active');
@@ -83,6 +104,7 @@ export function AlertsCenter({data}) {
       {[['active', 'Ativos'], ['resolved', 'Resolvidos']].map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={status === key} className={status === key ? 'is-active' : ''} onClick={() => setStatus(key)}>{label}</button>)}
     </div>
     {state.error && <div className="reports-error" role="alert">{state.error}</div>}
+    {status === 'active' && <GoogleAdsAlerts/>}
     {state.loading && !body && <div className="reports-loading" role="status">Carregando alertas…</div>}
     {body && !body.alerts.length && <Empty message={status === 'active' ? 'Nenhum alerta ativo. O monitor confirma cada problema antes de avisar.' : 'Nenhum alerta resolvido ainda.'}/>}
     {body?.alerts.length > 0 && <ul className="alerts-list">{body.alerts.map(alert => <AlertCard key={alert.id} alert={alert} userId={body.user_id} choices={body.silence_choices} busy={busy} onAct={act} client={client}/>)}</ul>}

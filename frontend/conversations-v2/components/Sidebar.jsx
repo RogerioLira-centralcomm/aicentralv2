@@ -4,7 +4,7 @@ import {request} from '../lib/api';
 import {conversationDisplayTitle} from '../lib/conversationPresentation.mjs';
 import {workspaceMobileDestinationItems, workspaceMobileSolutionItems} from '../../cadu-design-system/workspaceSolutions';
 import {CaduSolutionSwitcher} from '../../cadu-design-system/components/WorkspaceSelectors';
-import {VisualIdentity} from '../../cadu-design-system/components/VisualIdentity';
+import {SidebarAccount} from '../../cadu-design-system/components/SidebarAccount';
 import {DockUsageRing} from '../../cadu-design-system/components/CaduDock';
 import {Icon} from '../../cadu-design-system/components/Icon';
 import {useWorkspaceNotifications} from '../../cadu-design-system/components/WorkspaceNotifications';
@@ -20,14 +20,6 @@ function contextLabel(item, projects, brands) {
 
 function NavIcon({name}) {
   return <span className={`cv-nav-icon is-${name}`} aria-hidden="true"/>;
-}
-
-function UsageMiniChart({percent}) {
-  const value = Math.max(0, Math.min(100, Number(percent) || 0));
-  const formatted = new Intl.NumberFormat('pt-BR', {maximumFractionDigits:1}).format(value);
-  return <span className="cv-usage-mini" role="img" aria-label={`Utilização de créditos: ${formatted}%`} title="Créditos e consumo">
-    <span>{formatted}%</span><i aria-hidden="true"><b style={{width:`${value}%`}}/></i>
-  </span>;
 }
 
 function SidebarTitle({children, className = ''}) {
@@ -117,7 +109,7 @@ function ConversationActionsMenu({item, projects, sections, panel, setPanel, ren
   </div>;
 }
 
-export function Sidebar({conversations, conversationSections = [], projects = [], brands = [], activeProjectRef = '', activeBrandRef = '', artifactOpen = false, pluginsPageOpen = false, navUrls = {}, historyEndpoint = '', solutions = [], logo, user = {}, usagePercent = 0, activeId, currentTitle = '', onOpen, onOpenLibrary, onOpenResource, onOpenLibraryRef, onOpenBrandArtifact, onOpenPlugins, onClosePlugins, onNewConversation, onProjectChange, onCreateProject, onConversationAction, onCreateConversationSection, open, onOpenSidebar, onClose, loading, historyError = '', onRetryHistory, historyHasMore = false, onLoadMoreHistory, openingId}) {
+export function Sidebar({conversations, conversationSections = [], projects = [], brands = [], activeProjectRef = '', activeBrandRef = '', artifactOpen = false, pluginsPageOpen = false, navUrls = {}, historyEndpoint = '', solutions = [], logo, user = {}, usagePercent = 0, agencyName = '', activeId, currentTitle = '', onOpen, onOpenLibrary, onOpenResource, onOpenLibraryRef, onOpenBrandArtifact, onOpenPlugins, onClosePlugins, onNewConversation, onProjectChange, onCreateProject, onConversationAction, onCreateConversationSection, open, onOpenSidebar, onClose, loading, historyError = '', onRetryHistory, historyHasMore = false, onLoadMoreHistory, openingId}) {
   const sidebarRef = useRef(null);
   const previousFocus = useRef(null);
   const [showAllRecent, setShowAllRecent] = useState(false);
@@ -441,7 +433,7 @@ export function Sidebar({conversations, conversationSections = [], projects = []
         {!selectedBrandRef && conversationSections.map(section => { const items = customSectionConversations(section); return items.length ? <section className="cv-nav-group cv-section-conversations" key={section.id}><header><SidebarTitle>{section.name}</SidebarTitle></header>{conversationList(items, true)}</section> : null; })}
         {!selectedBrandRef && <section className={`cv-nav-group cv-personal-recent${recentCollapsed ? ' is-collapsed' : ''}`}><header><button type="button" className="cv-personal-recent__toggle" aria-expanded={!recentCollapsed} onClick={() => setRecentCollapsed(value => !value)}><span>Recentes</span><NavIcon name="chevron"/></button></header>{!recentCollapsed && <>{conversationList(standard.slice(0, showAllRecent ? undefined : 5), true)}{(standard.length > 5 || historyHasMore) && <button type="button" className="cv-project-tree__more" disabled={loading} onClick={() => { if (!showAllRecent) { setShowAllRecent(true); if (standard.length <= 5 || historyHasMore) onLoadMoreHistory?.(); } else if (historyHasMore) onLoadMoreHistory?.(); else setShowAllRecent(false); }}>{loading && conversations.length ? 'Carregando…' : !showAllRecent && standard.length > 5 ? 'Mostrar mais' : historyHasMore ? 'Carregar mais conversas' : 'Mostrar menos'}</button>}{loading && !conversations.length && <div className="cv-recent-loading" aria-label="Carregando conversas"><i/><i/><i/></div>}{!loading && historyError && <div className="cv-history-error" role="alert"><p>{historyError}</p><button type="button" onClick={onRetryHistory}>Tentar novamente</button></div>}{!loading && !historyError && !standard.length && <p>Nenhuma conversa recente.</p>}</>}</section>}
       </div>
-      <footer className="cv-chat-sidebar-footer">{navUrls.profile ? <a href={navUrls.profile} aria-label={`Perfil de ${user.name || 'usuário'}`}><VisualIdentity src={workspaceUserPhoto(user)} initials={user.name} label={user.name} imageAlt={`Foto de ${user.name || 'usuário'}`}/><span>{user.name || 'Perfil'}</span></a> : <button type="button" aria-label={`Abrir perfil de ${user.name || 'usuário'}`}><VisualIdentity src={workspaceUserPhoto(user)} initials={user.name} label={user.name} imageAlt={`Foto de ${user.name || 'usuário'}`}/><span>{user.name || 'Perfil'}</span></button>}<UsageMiniChart percent={usagePercent}/></footer>
+      <footer className="cv-chat-sidebar-footer"><SidebarAccount userName={user.name} agencyName={user.agencyName || agencyName} avatar={workspaceUserPhoto(user)} profileUrl={navUrls.profile} creditsUrl={navUrls.credits || navUrls.usage} usagePercent={usagePercent}/></footer>
       </div>
       </>}
     </aside>

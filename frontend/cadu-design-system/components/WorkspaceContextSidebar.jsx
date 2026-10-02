@@ -1,7 +1,7 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {Icon} from './Icon';
 import {CaduSolutionSwitcher} from './WorkspaceSelectors';
-import {VisualIdentity} from './VisualIdentity';
+import {SidebarAccount, useCreditUsage} from './SidebarAccount';
 import {entityHref, entityIdentity, entityLabel, groupWorkspaceProjects} from '../workspaceEntities.mjs';
 import {workspaceUserPhoto} from '../workspaceIdentity.mjs';
 import {workspaceSolutionItems} from '../workspaceSolutions';
@@ -78,11 +78,8 @@ export function WorkspaceContextSidebar({mode = 'home', preferenceKey = mode, bo
   const items = HOME_ITEMS;
   const recentFiles = useMemo(() => resources.filter(item => item?.href || item?.url).slice(0, 3), [resources]);
   const userName = String(bootstrap.user?.name || '').trim();
-  const firstName = userName.split(/\s+/)[0] || 'Conta';
   const initialUsage = bootstrap.usagePercent ?? bootstrap.home?.usagePercent ?? bootstrap.account?.position?.usage_percentage;
-  const [usagePercent, setUsagePercent] = useState(() => initialUsage !== undefined && initialUsage !== null && initialUsage !== '' && Number.isFinite(Number(initialUsage)) ? Number(initialUsage) : null);
-  const usageLabel = usagePercent === null ? '' : `${new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 0}).format(usagePercent)}%`;
-  const usageHigh = usagePercent !== null && usagePercent >= 80;
+  const usagePercent = useCreditUsage(initialUsage, bootstrap.endpoints?.creditSummary || undefined);
   const creditsHref = links.creditos || links.credits || links.uso || links.usage || '';
 
   useEffect(() => {
@@ -120,11 +117,7 @@ export function WorkspaceContextSidebar({mode = 'home', preferenceKey = mode, bo
     </section>}
     {mode === 'home' && !brands.length && <p className="cadu-ds-context-sidebar__empty">Nenhuma marca disponível.</p>}
     <footer className="cadu-ds-context-sidebar__footer">
-      <a className={`cadu-ds-context-sidebar__profile${active === 'conta' ? ' is-active' : ''}`} href={links.perfil || links.profile || links.agencia || links.home || '/workspace/app'} aria-current={active === 'conta' ? 'page' : undefined} aria-label={`Abrir conta de ${userName || firstName}`} title={userName || firstName}>
-        <VisualIdentity src={workspaceUserPhoto(bootstrap.user)} fallbackSrc={bootstrap.user?.photoFallback || avatarBadgeSource(bootstrap.user)} initials={userName || firstName} label={userName || firstName} imageAlt={`Foto de ${userName || firstName}`} className="cadu-ds-context-sidebar__avatar"/>
-        <span className="cadu-ds-context-sidebar__profile-text"><strong>{firstName}</strong>{agencyName && <small>{agencyName}</small>}</span>
-      </a>
-      {usageLabel && creditsHref && <a className={`cadu-ds-context-sidebar__usage${usageHigh ? ' is-high' : ''}`} href={creditsHref} aria-label={`Créditos: ${usageLabel} usados no mês`} title="Créditos e consumo"><span>{usageLabel}</span><i aria-hidden="true"><b style={{width:`${Math.min(100, usagePercent)}%`}}/></i></a>}
+      <SidebarAccount userName={userName} agencyName={agencyName} avatar={workspaceUserPhoto(bootstrap.user)} fallbackAvatar={bootstrap.user?.photoFallback || avatarBadgeSource(bootstrap.user)} profileUrl={links.perfil || links.profile || links.agencia || links.home || '/workspace/app'} creditsUrl={creditsHref} usagePercent={usagePercent} active={active === 'conta'}/>
     </footer>
   </aside>;
 }

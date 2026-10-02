@@ -1862,46 +1862,6 @@ body.portal--workspace .cadu-ds-home-workarea {
   border-top:1px solid var(--cadu-line);
 }
 
-.cadu-ds-context-sidebar__profile {
-  display:flex;
-  min-width:0;
-  flex:1 1 auto;
-  align-items:center;
-  gap:8px;
-  color:var(--cadu-ink);
-  font-size:11px;
-  font-weight:650;
-  text-decoration:none;
-}
-
-.cadu-ds-context-sidebar__avatar {
-  width:30px;
-  height:30px;
-  flex:0 0 30px;
-  border-radius:50%;
-}
-
-.cadu-ds-context-sidebar__profile > span:last-child {
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-}
-.cadu-ds-context-sidebar__profile-text { display:grid; min-width:0; gap:1px; }
-.cadu-ds-context-sidebar__profile-text strong { overflow:hidden; font-size:12px; font-weight:650; text-overflow:ellipsis; white-space:nowrap; }
-.cadu-ds-context-sidebar__profile-text small { overflow:hidden; color:var(--cadu-muted); font-size:10.5px; font-weight:500; text-overflow:ellipsis; white-space:nowrap; }
-
-.cadu-ds-context-sidebar__usage {
-  flex:0 0 auto;
-  color:var(--cadu-muted);
-  font-size:11px;
-  font-variant-numeric:tabular-nums;
-  cursor:default;
-  white-space:nowrap;
-}
-
-.cadu-ds-context-sidebar__profile:hover { color:var(--cadu-accent-strong); }
-
-.cadu-ds-context-sidebar__profile:focus-visible { outline:2px solid var(--cadu-accent); outline-offset:2px; }
 
 .cadu-ds-solution-switcher__portal nav.cadu-ds-solution-switcher__overlay {
   position:fixed;
@@ -2122,9 +2082,6 @@ body.portal--workspace .cadu-ds-home-workarea {
 }
 
 .cadu-ds-context-sidebar.is-collapsed .cadu-ds-context-sidebar__footer { justify-content:center; padding-right:0; padding-left:0; }
-.cadu-ds-context-sidebar.is-collapsed .cadu-ds-context-sidebar__profile { flex:0 0 auto; }
-.cadu-ds-context-sidebar.is-collapsed .cadu-ds-context-sidebar__profile > span:last-child,
-.cadu-ds-context-sidebar.is-collapsed .cadu-ds-context-sidebar__usage { display:none; }
 
 /* Home widgets behave like movable work surfaces, not a fixed dashboard grid. */
 body.portal--workspace .cadu-ds-home-widgets__grid {

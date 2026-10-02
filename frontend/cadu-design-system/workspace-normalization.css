@@ -1,7 +1,6 @@
 /* Workspace page normalization. Kept behind the CADU skin so the sibling
    Conversations surface retains its own dark layout and interaction styles. */
 [data-cadu-skin="workspace"] .cadu-ds-home-workarea { --workspace-page-width: 1240px; }
-[data-cadu-skin="workspace"] .cadu-ds-context-sidebar__avatar img { padding:0; border-radius:50%; object-fit:cover; }
 [data-cadu-skin="workspace"] .cadu-ds-mobile-navigation nav[aria-label="Seções da conta"] { border-top:1px solid var(--cadu-line); }
 [data-cadu-skin="workspace"] .cadu-ds-mobile-navigation nav[aria-label="Seções da conta"] a[aria-current="page"] { background:var(--cadu-accent-soft); color:var(--cadu-accent-strong); }
 [data-cadu-skin="workspace"] .untitled-catalog-page,

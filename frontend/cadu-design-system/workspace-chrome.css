@@ -394,9 +394,8 @@ body.portal--workspace .cadu-ds-context-sidebar .cadu-ds-context-sidebar__fade {
 
 /* Footer, as in Reports: photo + name/agency (opens Conta) and credit use beside it. */
 body.portal--workspace .cadu-ds-context-sidebar__footer { gap:0; padding-top:10px; }
-body.portal--workspace .cadu-ds-context-sidebar__avatar { width:32px; height:32px; flex:0 0 32px; overflow:hidden; border-radius:50%; }
 /* The base identity pads and contains images for logos; a person's photo fills the circle. */
-body.portal--workspace :is(.cadu-ds-context-sidebar__avatar, .cadu-ds-account-menu__avatar) img { padding:0; border-radius:50%; object-fit:cover; object-position:center; }
+body.portal--workspace  .cadu-ds-account-menu__avatar img { padding:0; border-radius:50%; object-fit:cover; object-position:center; }
 
 body.portal--workspace .cadu-ds-context-sidebar__group-note { display:block; padding:5px 8px; color:var(--cadu-muted); font-size:11.5px; font-weight:500; }
 
@@ -432,16 +431,6 @@ body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-page-header>.cadu
 body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-page-header { display:flex; align-items:center; gap:16px; padding:8px 0 20px; }
 body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-page-header h1 { margin:0; font-size:28px; line-height:1.15; }
 
-body.portal--workspace .cadu-ds-context-sidebar__profile { padding:4px 6px; border-radius:8px; }
-body.portal--workspace .cadu-ds-context-sidebar__profile:hover,
-body.portal--workspace .cadu-ds-context-sidebar__profile.is-active { background:var(--cadu-surface); }
-body.portal--workspace .cadu-ds-context-sidebar__usage { display:flex; flex:none; align-items:center; gap:6px; padding:6px; border-radius:8px; color:var(--cadu-muted); font-size:10px; font-variant-numeric:tabular-nums; text-decoration:none; cursor:pointer; }
-body.portal--workspace .cadu-ds-context-sidebar__usage:hover { background:var(--cadu-surface); color:var(--cadu-accent-strong); }
-body.portal--workspace .cadu-ds-context-sidebar__usage > i { display:block; width:27px; height:4px; overflow:hidden; border-radius:99px; background:var(--cadu-line); }
-body.portal--workspace .cadu-ds-context-sidebar__usage > i > b { display:block; height:100%; border-radius:inherit; background:var(--cadu-accent); }
-body.portal--workspace .cadu-ds-context-sidebar__usage.is-high { color:#b54708; }
-body.portal--workspace .cadu-ds-context-sidebar__usage.is-high > i > b { background:#f79009; }
-body.portal--workspace .cadu-ds-context-sidebar.is-collapsed .cadu-ds-context-sidebar__usage { display:none; }
 /* Collapse control: the same bordered square as Reports and Planner. */
 @media (min-width:761px) {
   body.portal--workspace .cadu-ds-context-sidebar:not(.is-collapsed) .cadu-ds-context-sidebar__toggle { display:grid; width:26px; height:26px; flex:0 0 26px; place-items:center; padding:0; border:1px solid var(--cadu-line); border-radius:8px; background:var(--cadu-surface); color:var(--cadu-muted); font-size:18px; line-height:1; }
@@ -468,3 +457,6 @@ body.portal--workspace .cadu-ds-home-workarea > .cadu-ds-home-content > * { widt
 body.portal--workspace .cadu-ds-home-workarea > .cadu-ds-home-content .cadu-ds-home-intro { max-width:none; margin:0 auto 22px; text-align:center; }
 body.portal--workspace .cadu-ds-home-workarea > .cadu-ds-home-content .cadu-ds-home-intro h1 { max-width:none; margin:0; text-align:center; }
 body.portal--workspace .cadu-ds-home-workarea > .cadu-ds-home-content .cadu-ds-home-resume { display:flex; justify-content:center; gap:10px; margin-top:14px; padding:0; text-align:center; }
+
+/* Footer tokens for the shared SidebarAccount inside the Workspace rail. */
+.cadu-ds-context-sidebar { --cadu-account-ink:var(--cadu-ink); --cadu-account-muted:var(--cadu-muted); --cadu-account-hover:var(--cadu-surface); --cadu-account-track:var(--cadu-line); --cadu-account-fill:var(--cadu-accent); }

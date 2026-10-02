@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-app-sidebar.css') }}?v=3">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-product-switch.css') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-nav-compact.css') }}?v=1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-sidebar-account.css') }}?v=1">
   {% if product == 'workspace' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-family.css') }}?v=1">{% endif %}
   {% if product == 'workspace' and not user and module == 'inicio' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-public.css') }}?v=1">{% endif %}
   {% block product_styles %}{% endblock %}
@@ -80,8 +81,16 @@
     {% endif %}
     <div class="family-sidebar-account">
       {% include 'cadu/_theme_control.html' %}
-      {% set credit_meter_class = 'family-sidebar-credits' %}{% set credit_meter_href = product_url('workspace', '/workspace/app/creditos') %}{% include 'cadu/_credit_meter.html' %}
-      <a class="family-sidebar-user" href="{{ product_url('workspace', '/workspace/app/conta?section=perfil') }}"><span>{% set avatar_photo=(perfil_contato or {}).get('foto_url') or session.get('user_photo_url') %}{% set avatar_badge=(perfil_contato or {}).get('cadu_avatar_badge') %}{% set avatar_alt='Foto de ' ~ user.name %}{% include 'cadu/_user_avatar_image.html' %}</span><strong>{{ user.name }}</strong><small>{{ session.get('user_email', 'Configurações da conta') }}</small></a>
+      {% set credit_total = cadu_nav_credit.get('monthly', 0) | int if cadu_nav_credit and cadu_nav_credit.get('configured') else 0 %}
+      {% set credit_usage = ((((credit_total - (cadu_nav_credit.get('available', 0) | int)) * 100 / credit_total) | round(1)) if credit_total else none) %}
+      {% set avatar_photo=(perfil_contato or {}).get('foto_url') or session.get('user_photo_url') %}
+      <div class="cadu-sidebar-account">
+        <a class="cadu-sidebar-account__profile" href="{{ product_url('workspace', '/workspace/app/conta?section=perfil') }}" aria-label="Abrir conta de {{ user.name }}" title="{{ user.name }}">
+          <span class="cadu-sidebar-account__avatar">{% set avatar_badge=(perfil_contato or {}).get('cadu_avatar_badge') %}{% set avatar_alt='Foto de ' ~ user.name %}{% include 'cadu/_user_avatar_image.html' %}</span>
+          <span class="cadu-sidebar-account__text"><strong>{{ (user.name or 'Conta').split()[0] if (user.name or '').strip() else 'Conta' }}</strong>{% if selected and selected.client_name %}<small>{{ selected.client_name }}</small>{% endif %}</span>
+        </a>
+        {% if credit_usage is not none %}<a class="cadu-sidebar-account__usage{% if credit_usage >= 80 %} is-high{% endif %}" href="{{ product_url('workspace', '/workspace/app/creditos') }}" aria-label="Créditos: {{ credit_usage }}% usados no mês" title="Créditos e consumo"><span>{{ ('%g' % credit_usage)|replace('.', ',') }}%</span><i aria-hidden="true"><b style="width:{{ [credit_usage, 100]|min }}%"></b></i></a>{% endif %}
+      </div>
     </div>
   </aside>
 {% endif %}
@@ -101,5 +110,6 @@
   ] %}
   {% include 'cadu_workspace/conversations/panel.html' %}
 {% endif %}
+<script src="{{ url_for('static', filename='js/cadu-sidebar-account.js') }}?v=1" defer></script>
 {% block product_scripts %}{% endblock %}
 </body></html>

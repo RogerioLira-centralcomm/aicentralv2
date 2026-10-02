@@ -259,15 +259,6 @@
 .reports-main .reports-event-tabs{padding:0;border:0;border-bottom:1px solid var(--color-border-secondary);border-radius:0;background:transparent}
 
 /* Media data: status becomes a strip above the forms; one column, no lonely side card. */
-.reports-main .reports-media-layout{grid-template-columns:1fr}
-.reports-main .reports-media-sidebar{display:block}
-.reports-main .reports-media-status .reports-panel-head{display:none}
-.reports-main .reports-content .reports-media-status{padding:0;overflow:hidden}
-.reports-main .reports-media-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0}
-.reports-main .reports-media-kpi{display:grid;gap:4px;padding:20px 24px;border:0;border-left:1px solid var(--color-border-secondary);background:transparent}
-.reports-main .reports-media-kpi:first-child{border-left:0}
-.reports-main .reports-media-kpi__label{color:var(--color-text-quaternary);font-size:14px;font-weight:500;text-transform:none;letter-spacing:0}
-.reports-main .reports-media-kpi__value{color:var(--color-text-primary);font-size:30px;font-weight:600;line-height:38px}
 
 /* Super Tag aligns with the header edge; the header already explains the page. */
 .reports-main .st-page{max-width:none;margin:0;padding:0 0 40px}

@@ -1,5 +1,6 @@
 import {Flow} from './FlowsPage.jsx';
 import {ImportsPage} from './ImportsPage.jsx';
+import {MediaData} from './MediaData.jsx';
 import {CAMPAIGN_STATUS, ClientsAccounts, Status as CampaignStatus, channelLabel} from './ClientsAccounts.jsx';
 import {ReportsRelationships} from './ReportsRelationships.jsx';
 import {SharedReports} from './SharedReports.jsx';
@@ -28,7 +29,6 @@ import {Chart, amount, money, platformName} from './shell/media.jsx';
 import {Overview} from './hubs/overview/Overview.jsx';
 import {MediaOverview} from './hubs/media/MediaOverview.jsx';
 import {GoogleAds} from './hubs/media/GoogleAds.jsx';
-import {GoogleAdsHowItWorks} from './hubs/media/GoogleAdsHowItWorks.jsx';
 import {MediaCreatives} from './hubs/media/MediaCreatives.jsx';
 import {Contents} from './hubs/journey/Contents.jsx';
 import {JourneyOverview} from './hubs/journey/JourneyOverview.jsx';
@@ -49,8 +49,6 @@ import './shell/shell.css';
 import './reports-ui.css';
 
 const ACCESS_ROLE_LABELS = {viewer: 'Visualização', member: 'Operação', admin: 'Administração de dados'};
-const validGoogleAdsAccountId = value => /^(?:\d{10}|\d{3}-\d{3}-\d{4})$/.test(String(value || '').trim());
-const sourceHealth = item => item.revoked_at ? 'Revogada' : !item.last_used_at ? 'Aguardando primeiro envio' : item.source_kind === 'google_ads_script' && Date.now() - new Date(item.last_used_at).getTime() > 48 * 3600 * 1000 ? 'Sem envio há 48 h' : 'Ativa';
 const rootElement = document.getElementById('cadu-reports-v1-root');
 document.documentElement.dataset.caduSkin = 'reports';
 
@@ -382,130 +380,6 @@ function Links({data, save, busy}) {
     {editing && <article className="reports-panel reports-span-three"><div className="reports-panel-head"><h2>Associar link à operação</h2><span>Decisão do usuário · {editing.final_url}</span></div>{suggestion && <p className="reports-suggestion">{suggestion.suggestion ? <>Sugestão: <strong>{suggestion.suggestion.name}</strong> · {suggestion.model === 'exact_id' ? 'ID externo exato' : suggestion.model === 'exact_name' ? 'nome exato' : `concentração ${Math.round((suggestion.confidence || 0) * 100)}%`}. Confirme antes de salvar.</> : (suggestion.reason || 'Nenhuma campanha sugerida.')}{suggestion.page_role && <span className="reports-suggestion-role">Tipo provável de página: {({landing: 'entrada', form: 'formulário', thank_you: 'obrigado', content: 'conteúdo', unknown: 'indefinido'})[suggestion.page_role] || suggestion.page_role}.</span>}</p>}<form className="reports-form" onSubmit={confirm}><label>Campanha<ReportsNativeSelect value={campaignId} onChange={event => {setCampaignId(event.target.value); setReportId('');}}><option value="">Sem campanha · limpar associação</option>{data.campaigns.map(item => <option key={item.id} value={item.id}>{item.account_name} · {item.name}</option>)}</ReportsNativeSelect></label><label>Relatório (opcional)<ReportsNativeSelect value={reportId} disabled={!campaignId} onChange={event => setReportId(event.target.value)}><option value="">Sem relatório</option>{availableReports.map(item => <option key={item.id} value={item.id}>{item.campaign_name}</option>)}</ReportsNativeSelect></label>{data.client.role !== 'viewer' && <ReportsActionButton type="submit" disabled={busy}>Confirmar associação</ReportsActionButton>}</form>{history && <div className="reports-association-history"><h3>Decisões anteriores</h3>{history.length ? history.map((item, index) => <p key={`${item.decided_at}-${index}`}>{shortDate(item.decided_at)} · {item.action === 'clear' ? 'Associação removida' : `Campanha #${item.campaign_id}${item.report_id ? ` · relatório #${item.report_id}` : ''}`} · usuário #{item.decided_by}</p>) : <p>Nenhuma decisão anterior.</p>}</div>}</article>}
   </section>
   </>;
-}
-
-function Monitor({data, save, busy}) {
-  const [keys, setKeys] = useState([]);
-  const [runs, setRuns] = useState([]);
-  const [label, setLabel] = useState('Google Ads · monitoramento');
-  const [sourceKind, setSourceKind] = useState('google_ads_script');
-  const [managerAccountId, setManagerAccountId] = useState('');
-  const [accountIds, setAccountIds] = useState([]);
-  const [script, setScript] = useState('');
-  const [generatedKind, setGeneratedKind] = useState('google_ads_script');
-  const [localError, setLocalError] = useState('');
-  const [revokeId, setRevokeId] = useState('');
-  const managers = data.accounts.filter(account => account.platform === 'google_ads' && account.account_kind === 'manager' && account.status !== 'disabled' && validGoogleAdsAccountId(account.external_id));
-  const advertisers = data.accounts.filter(account => account.platform === 'google_ads' && account.account_kind === 'advertiser' && account.status !== 'disabled' && validGoogleAdsAccountId(account.external_id));
-  const invalidGoogleAdsAccounts = data.accounts.filter(account => account.platform === 'google_ads' && account.status !== 'disabled' && !validGoogleAdsAccountId(account.external_id));
-  const children = advertisers.filter(account => String(account.parent_account_id || '') === managerAccountId);
-  const directAdvertisers = advertisers.filter(account => !account.parent_account_id);
-  const hasUsableManagerSetup = managers.some(manager => advertisers.some(account => String(account.parent_account_id || '') === String(manager.id)));
-  const invalidIntegrationAccounts = managerAccountId
-    ? invalidGoogleAdsAccounts.filter(account => account.account_kind === 'advertiser' && String(account.parent_account_id || '') === managerAccountId)
-    : directAdvertisers.length || hasUsableManagerSetup ? [] : invalidGoogleAdsAccounts.filter(account =>
-      (account.account_kind === 'advertiser' && !account.parent_account_id) ||
-      (account.account_kind === 'manager' && data.accounts.some(child => child.account_kind === 'advertiser' && child.status !== 'disabled' && String(child.parent_account_id || '') === String(account.id))));
-  const formatGoogleId = value => String(value).replace(/^(\d{3})(\d{3})(\d{4})$/, '$1-$2-$3');
-  const reload = () => json(`/connect/api/v2/reports/ingest-keys?client_id=${data.client.client_id}`).then(value => {setKeys(value.keys); setRuns(value.runs || []);});
-  useEffect(() => {reload().catch(failure => setLocalError(failure.message));}, [data.client.client_id]);
-  const create = async event => {
-    event.preventDefault();
-    try {
-      let template = '';
-      if (sourceKind === 'google_ads_script') {
-        const response = await fetch('/static/cadu_connect/google-ads-engine-v2.js', {credentials: 'same-origin'});
-        if (!response.ok) throw new Error('Não foi possível carregar o script do Google Ads.');
-        template = await response.text();
-      }
-      const selectedIds = accountIds;
-      const created = await save('/ingest-keys', {label, source_kind: sourceKind, manager_account_id: managerAccountId ? managers.find(item => String(item.id) === managerAccountId)?.external_id : '', account_ids: sourceKind === 'google_ads_script' ? selectedIds : []}, false);
-      if (sourceKind === 'google_ads_script') {
-        const scriptIds = created.allowed_account_ids.map(formatGoogleId);
-        setScript(template.replace('__CADU_INGEST_URL__', `${location.origin}/connect/api/v1/reports/ingest/google-ads/v2`).replace('__CADU_API_KEY__', created.token).replace('__CADU_ACCOUNT_IDS__', JSON.stringify(scriptIds)));
-      } else {
-        setScript(`POST ${location.origin}/connect/api/v1/reports/ingest/conversions\nAuthorization: Bearer ${created.token}\nContent-Type: application/json\n\n${JSON.stringify({events: [{external_event_id: 'pedido-123', visitor_id: 'UUID recebido de window.CaduSuperTag.getVisitorId()', kind: 'sale', occurred_at: new Date().toISOString(), value_micros: 129000000, currency: 'BRL'}]}, null, 2)}`);
-      }
-      setGeneratedKind(sourceKind);
-      await reload();
-    } catch (failure) {setLocalError(failure.message);}
-  };
-  const revoke = async id => {
-    try {await save(`/ingest-keys/${id}/revoke`, {}, false); await reload(); setRevokeId('');} catch (failure) {setLocalError(failure.message);}
-  };
-  return <section className="reports-media-data-page">
-    <div className="reports-media-container">
-      <div className="reports-media-layout">
-        <aside className="reports-media-sidebar">
-          <div className="reports-panel reports-media-status">
-            <div className="reports-panel-head"><h2>Status</h2></div>
-            <div className="reports-media-kpis">
-              <div className="reports-media-kpi">
-                <span className="reports-media-kpi__label">Fontes conectadas</span>
-                <strong className="reports-media-kpi__value">{keys.length}</strong>
-              </div>
-              <div className="reports-media-kpi">
-                <span className="reports-media-kpi__label">Últimos envios</span>
-                <strong className="reports-media-kpi__value">{runs.length}</strong>
-              </div>
-            </div>
-          </div>
-        </aside>
-        <main className="reports-media-main">
-          <article className="reports-panel reports-media-connect">
-            <div className="reports-panel-head"><h2>Conectar fonte</h2><GoogleAdsHowItWorks/></div>
-            <p>Google Ads envia campanhas e métricas. O webhook recebe conversões confirmadas pelo CRM sem dados pessoais.</p>
-            {data.client.role !== 'viewer' && <form className="reports-form" onSubmit={create}>
-              <label>Fonte
-                <ReportsNativeSelect value={sourceKind} onChange={event => {setSourceKind(event.target.value); setLabel(event.target.value === 'conversion_webhook' ? 'CRM · conversões' : 'Google Ads · monitoramento');}}>
-                  <option value="google_ads_script">Google Ads Script</option>
-                  <option value="conversion_webhook">CRM / conversões</option>
-                </ReportsNativeSelect>
-              </label>
-              <label>Nome da instalação
-                <ReportsFieldInput required maxLength="120" value={label} onChange={event => setLabel(event.target.value)} />
-              </label>
-              {sourceKind === 'google_ads_script' && <>
-                <label>MCC / conta gerente
-                  <ReportsNativeSelect value={managerAccountId} onChange={event => {setManagerAccountId(event.target.value); setAccountIds([]);}}>
-                    <option value="">Instalação direta em uma conta anunciante</option>
-                    {managers.map(item => <option key={item.id} value={item.id}>{item.name} · {formatGoogleId(item.external_id)}</option>)}
-                  </ReportsNativeSelect>
-                </label>
-                {managerAccountId ? <fieldset className="reports-account-picker"><legend>Contas anunciantes autorizadas</legend>{children.length ? children.map(item => <label key={item.id} className="reports-checkbox"><ReportsFieldInput type="checkbox" checked={accountIds.includes(item.external_id)} onChange={event => setAccountIds(event.target.checked ? [...accountIds, item.external_id] : accountIds.filter(id => id !== item.external_id))} />{item.name} · {formatGoogleId(item.external_id)}</label>) : <small>Cadastre anunciantes válidos e associe-os a esta MCC na área Contas.</small>}</fieldset> : <label>Conta anunciante
-                  <ReportsNativeSelect value={accountIds[0] || ''} onChange={event => setAccountIds(event.target.value ? [event.target.value] : [])}>
-                    <option value="">Selecione a conta que receberá os dados</option>
-                    {directAdvertisers.map(item => <option key={item.id} value={item.external_id}>{item.name} · {formatGoogleId(item.external_id)}</option>)}
-                  </ReportsNativeSelect>
-                  <small>Use o ID de cliente Google Ads com 10 dígitos. Para várias contas, cadastre uma MCC e associe os anunciantes em Contas.</small>
-                </label>}
-              </>}
-              <ReportsActionButton disabled={busy || (sourceKind === 'google_ads_script' && (!accountIds.length || (managerAccountId && !children.length)))} type="submit">Gerar integração</ReportsActionButton>
-              {sourceKind === 'google_ads_script' && invalidIntegrationAccounts.length > 0 && <p className="reports-integration-hint" role="status">{invalidIntegrationAccounts.length} conta(s) vinculada(s) sem ID de 10 dígitos. Corrija a conta em Clientes e contas para gerar a integração.</p>}
-            </form>}
-            {localError && <p className="reports-error">{localError}</p>}
-          </article>
-          {script && <article className="reports-panel reports-media-script">
-            <div className="reports-panel-head">
-              <h2>{generatedKind === 'conversion_webhook' ? 'Contrato do webhook' : 'Script gerado'}</h2>
-              <span>Copie agora: a chave não será mostrada novamente</span>
-            </div>
-            <ReportsTextArea className="reports-code" readOnly value={script} aria-label="Código da integração" />
-            <ReportsActionButton className="reports-copy" onClick={() => navigator.clipboard.writeText(script)}>Copiar</ReportsActionButton>
-          </article>}
-          <article className="reports-panel reports-media-keys">
-            <div className="reports-panel-head"><h2>Chaves de ingestão</h2><span>{keys.length} criadas</span></div>
-            {keys.length ? <div className="reports-table-wrap"><table className="cadu-table"><thead><tr><th>Nome</th><th>Fonte</th><th>MCC / contas permitidas</th><th>Último envio</th><th>Estado</th><th></th></tr></thead><tbody>{keys.map(item => <tr key={item.id}><td>{item.label}</td><td>{item.source_kind === 'conversion_webhook' ? 'CRM' : 'Google Ads'}</td><td>{item.source_kind === 'google_ads_script' ? <>{item.manager_external_id ? `MCC ${formatGoogleId(item.manager_external_id)} · ` : ''}{item.allowed_account_ids?.length ? item.allowed_account_ids.map(formatGoogleId).join(', ') : item.bound_account_id || 'Vincula no primeiro envio'}</> : '—'}</td><td>{shortDate(item.last_used_at)}</td><td>{sourceHealth(item)}</td><td>{!item.revoked_at && data.client.role !== 'viewer' && <ReportsActionButton className="reports-text-button" disabled={busy} onClick={() => setRevokeId(item.id)}>Revogar</ReportsActionButton>}</td></tr>)}</tbody></table></div> : <Empty message="Gere uma chave para conectar uma fonte." />}
-          </article>
-          <article className="reports-panel reports-media-runs">
-            <div className="reports-panel-head"><h2>Últimos envios</h2><span>{runs.length} lotes</span></div>
-            {runs.length ? <div className="reports-table-wrap"><table className="cadu-table"><thead><tr><th>Recebido</th><th>Período</th><th>Linhas</th><th>Estado</th></tr></thead><tbody>{runs.map(item => <tr key={item.id}><td>{shortDate(item.created_at)}</td><td>{shortDate(item.period_start)} – {shortDate(item.period_end)}</td><td>{integer(item.record_count)}</td><td>{item.status === 'completed' ? 'Concluído' : item.status}</td></tr>)}</tbody></table></div> : <Empty message="Os lotes recebidos aparecerão aqui." />}
-          </article>
-        </main>
-      </div>
-    </div>
-    <ReportsConfirmDialog open={Boolean(revokeId)} title="Revogar chave de ingestão" description="O script que usa esta chave deixará de enviar dados. Os envios anteriores permanecem no histórico." confirmLabel="Revogar chave" busy={busy} onCancel={() => setRevokeId('')} onConfirm={() => revoke(revokeId)} />
-  </section>;
 }
 
 function Access({data, save, busy}) {
@@ -950,7 +824,7 @@ function App() {
       'google-ads': () => <GoogleAds data={data}/>,
       creatives: () => <MediaCreatives data={data}/>,
       content: () => <Contents/>,
-      monitor: () => <Monitor data={data} save={save} busy={busy} />,
+      monitor: () => <MediaData data={data} save={save} busy={busy}/>,
       journey: () => <JourneyOverview data={data}/>,
       flow: () => <Flow data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} />,
       pages: () => <PageDetail data={data} />,

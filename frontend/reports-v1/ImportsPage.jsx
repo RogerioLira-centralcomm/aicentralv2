@@ -53,7 +53,7 @@ function Progress({done, total}) {
 }
 
 function Callout({tone = 'gray', title, children}) {
-  const tones = {gray: 'bg-secondary_subtle ring-secondary', warning: 'bg-warning-primary ring-warning_subtle', error: 'bg-error-primary ring-error_subtle', brand: 'bg-brand-primary ring-brand_alt'};
+  const tones = {gray: 'bg-secondary_subtle ring-secondary', warning: 'bg-warning-primary ring-secondary', error: 'bg-error-primary ring-error_subtle', brand: 'bg-brand-primary ring-brand_alt'};
   return <div className={`rounded-lg p-4 ring-1 ring-inset ${tones[tone]}`}>
     {title && <p className="text-sm font-semibold text-primary">{title}</p>}
     <div className="mt-1 text-sm text-secondary">{children}</div>
@@ -124,7 +124,7 @@ export function ImportsPage({data, reloadBootstrap, focusLibrary = false}) {
   return <div className="untitled-scope flex flex-col gap-6">
     <ReportsTabs label="Importações" items={tabs} value={view} onChange={value => {setView(value); setDetail(null);}}/>
     {error && <p role="alert" className="rounded-lg bg-error-primary px-4 py-3 text-sm text-error-primary ring-1 ring-error_subtle">{error}</p>}
-    {note && <p role="status" className="rounded-lg bg-success-primary px-4 py-3 text-sm text-success-primary ring-1 ring-success_subtle">{note}</p>}
+    {note && <p role="status" className="rounded-lg bg-success-primary px-4 py-3 text-sm text-success-primary ring-1 ring-secondary">{note}</p>}
     {view === 'files' && !detail && <>
       <UploadCard data={data} ready={ready} canEdit={canEdit} busy={busy} run={run} onUploaded={async result => {
         setNote(result.duplicate ? 'Este arquivo já foi importado para este cliente.' : `${number(result.applied_count || 0)} de ${number(result.row_count || 0)} linhas prontas para reconciliação.`);

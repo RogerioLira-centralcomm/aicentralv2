@@ -133,17 +133,23 @@ def register(bp):
 
     @bp.get('/app')
     @bp.get('/app/<section>')
+    @bp.get('/app/<section>/<path:rest>')
     @bp.get('/app/flows/<uuid:flow_id>')
     @bp.get('/app/flows/<uuid:flow_id>/monitor')
     @bp.get('/app/flows/new')
     @bp.get('/app/supertag/sites/<uuid:site_id>')
     @login_required
-    def reports_v1_app(section=None, site_id=None, flow_id=None):
+    def reports_v1_app(section=None, rest=None, site_id=None, flow_id=None):
+        # Product areas of the SPA; the old first-level sections stay valid and are redirected by the client.
+        nested = {'media', 'journey', 'tools', 'settings'}
         if section and section not in {
-            'overview', 'customers', 'accounts', 'campaigns', 'reports', 'imports',
-            'monitor', 'supertag', 'flow', 'flows', 'events', 'links', 'access',
-            'data-library', 'conversions', 'pages', 'alerts',
+            'overview', 'media', 'journey', 'reports', 'alerts', 'data-sources', 'supertag', 'events',
+            'imports', 'tools', 'settings',
+            'customers', 'accounts', 'campaigns', 'monitor', 'flow', 'flows', 'links', 'access',
+            'data-library', 'conversions', 'pages',
         }:
+            abort(404)
+        if rest and (section not in nested or rest.count('/') > 1 or len(rest) > 200):
             abort(404)
         selected = reports_access.resolve(request.args.get('client_id'))
         if request.args.get('client_id'):
@@ -157,6 +163,9 @@ def register(bp):
     @login_required_api
     def reports_v1_bootstrap():
         selected = _selection()
+        # Switching client from the header refetches the bootstrap; remember the choice like the page route does.
+        if request.args.get('client_id'):
+            session['reports_client_id'] = selected['client_id']
         session.setdefault('family_csrf', secrets.token_urlsafe(32))
         clients = [{'id': int(item['id']), 'name': item['name'],
                     'kind': item.get('kind', 'centralcomm')}

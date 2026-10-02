@@ -22,6 +22,9 @@ export const formatDay = iso => {
   return `${day} ${MONTHS[month - 1]} ${year}`;
 };
 
+/** "2 set" — compact axis labels. */
+export const dayLabel = iso => formatDay(iso).replace(/ \d{4}$/, '');
+
 /** "1–30 set 2026", "2 set – 1 out 2026" or, across years, both years. */
 export function formatRange(start, end) {
   if (!start || !end) return '—';

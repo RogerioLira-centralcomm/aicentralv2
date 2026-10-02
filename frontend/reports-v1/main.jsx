@@ -17,7 +17,20 @@ import {AccessCard, InstallCard, InstallGuide, InstallStatus, LinkedFlows, Recen
 import './supertag-workspace.css';
 import {PageDetail} from './PageDetail.jsx';
 import {AlertsCenter} from './AlertsCenter.jsx';
-import {REPORT_FILTER_DEFAULTS, REPORT_PAGE_META, ReportsFilterBar, ReportsPageHeader} from './PageChrome.jsx';
+import {REPORT_FILTER_DEFAULTS, ReportsFilterBar} from './PageChrome.jsx';
+import {APP_BASE, HUBS, applyLegacyRedirect, navigate, navigateOnClick, resolveRoute, useLocationKey} from './shell/routes.js';
+import {ReportsContext, periodFilters, readPeriod, writePeriod} from './shell/context.js';
+import {ContextSelector, PageHeader} from './shell/PageHeader.jsx';
+import {LoadingState} from './shell/primitives.jsx';
+import {setActiveClient} from './shell/useApi.js';
+import {Chart, amount, money, platformName} from './shell/media.jsx';
+import {Overview} from './hubs/overview/Overview.jsx';
+import {MediaOverview} from './hubs/media/MediaOverview.jsx';
+import {JourneyOverview} from './hubs/journey/JourneyOverview.jsx';
+import {Navigation} from './hubs/journey/Navigation.jsx';
+import {Conversions} from './hubs/journey/Conversions.jsx';
+import {DataSources} from './hubs/data-sources/DataSources.jsx';
+import './shell/shell.css';
 import {CheckCircle, FilterLines, Plus, RefreshCw01, SearchLg} from '@untitledui/icons';
 import {dropClientFromUrl, flowEditorId, reportUrl, shortDate, integer, decimal, json, Empty, Kpi} from './reportsCommon.jsx';
 import '../cadu-design-system/tokens.css';
@@ -26,53 +39,14 @@ import './flow-workspace.css';
 import './reports-refinement.css';
 import '../cadu-design-system/primitives.css';
 
-const SECTIONS = [
-  ['overview', 'Visão geral', '◫'], ['customers','Clientes e anunciantes','◎'], ['accounts', 'Contas', '▤'],
-  ['campaigns', 'Campanhas', '◎'], ['reports', 'Relatórios', '▥'],
-  ['imports', 'Importações', '⇧'], ['monitor', 'Dados de mídia', '⌘'],
-  ['supertag', 'Super Tag', '</>'], ['flow', 'Fluxos', '◇'], ['pages', 'Páginas', '▭'], ['alerts', 'Alertas', '!'],
-  ['events', 'Eventos', '◉'], ['links', 'Link Tester', '↗'],
-  ['access', 'Acessos', '♙'],
-];
 const ACCESS_ROLE_LABELS = {viewer: 'Visualização', member: 'Operação', admin: 'Administração de dados'};
-const SECTION_ALIASES = {'data-library': 'imports', conversions: 'events', flows: 'flow'};
-const reportSection = () => {
-  const parts = location.pathname.split('/').filter(Boolean);
-  return parts[0] === 'connect' && parts[1] === 'app' ? parts[2] || 'overview' : 'overview';
-};
-const money = (micros, currency) => micros == null || !currency ? '—' : new Intl.NumberFormat('pt-BR', {style: 'currency', currency}).format(micros / 1_000_000);
-const amount = (value, currency) => value == null || !currency ? '—' : new Intl.NumberFormat('pt-BR', {style: 'currency', currency}).format(Number(value));
-const platformName = value => ({manual:'Manual',google_ads: 'Google Ads', meta_ads: 'Meta Ads', microsoft_ads: 'Microsoft Ads', other: 'Outra'})[value||'manual'] || String(value).replaceAll('_', ' ');
 const validGoogleAdsAccountId = value => /^(?:\d{10}|\d{3}-\d{3}-\d{4})$/.test(String(value || '').trim());
 const sourceHealth = item => item.revoked_at ? 'Revogada' : !item.last_used_at ? 'Aguardando primeiro envio' : item.source_kind === 'google_ads_script' && Date.now() - new Date(item.last_used_at).getTime() > 48 * 3600 * 1000 ? 'Sem envio há 48 h' : 'Ativa';
 const rootElement = document.getElementById('cadu-reports-v1-root');
 document.documentElement.dataset.caduSkin = 'reports';
 
 
-function Chart({type = 'bar', labels, values, height = 260, horizontal = false}) {
-  const host = useRef(null);
-  useEffect(() => {
-    if (!host.current || !window.ApexCharts || !values?.length) return undefined;
-    const chart = new window.ApexCharts(host.current, {
-    chart: {type, height, toolbar: {show: false}, animations: {enabled: false}, fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Arial, sans-serif'},
-      series: [{name: 'Total', data: values}],
-      colors: ['#175cd3'],
-      dataLabels: {enabled: false},
-      grid: {borderColor: '#eaecf0', strokeDashArray: 0},
-      stroke: {curve: 'smooth', width: type === 'area' ? 2 : 1},
-      fill: {type: 'gradient', gradient: {shadeIntensity: 0, opacityFrom: 0.1, opacityTo: 0, stops: [0, 90, 100]}},
-      markers: {size: 0, hover: {size: 4}},
-      plotOptions: {bar: {horizontal, borderRadius: 5, columnWidth: '44%'}},
-      xaxis: {categories: labels, labels: {style: {colors: '#64748b'}}},
-      yaxis: {labels: {style: {colors: '#667085'}}, forceNiceScale: true},
-      tooltip: {theme: 'light'},
-      legend: {show: false},
-    });
-    chart.render();
-    return () => chart.destroy();
-  }, [type, height, horizontal, JSON.stringify(labels), JSON.stringify(values)]);
-  return values?.length ? <div ref={host} className="reports-chart" /> : <Empty message="O gráfico aparece quando houver dados para esta seleção." />;
-}
+
 
 
 
@@ -198,120 +172,6 @@ function FlowSuggestionConfidence({suggestion}) {
 }
 
 
-function OverviewSetup({data, sites, sources, imported}) {
-  const activeSource = sources?.find(source => source.source_kind === 'google_ads_script' && !source.revoked_at);
-  const sourceRegistered = Boolean(activeSource);
-  const campaignRegistered = data.campaigns.length > 0;
-  const activeSite = sites?.find(site => site.enabled && !site.revoked_at && Number(site.events_30d) > 0);
-  const siteRegistered = sites?.some(site => site.enabled && !site.revoked_at);
-  const nextAction = imported?.conflicts
-    ? {title:'Revise os dados importados', description:'Há valores divergentes que precisam de confirmação antes de aparecerem nos relatórios.', label:'Revisar importações', href:reportUrl('imports')}
-    : sources === null
-      ? {title:'Confira os dados de mídia', description:'Não conseguimos confirmar o estado da integração. Verifique as fontes conectadas e os últimos envios.', label:'Ver fontes de dados', href:reportUrl('monitor')}
-      : !sourceRegistered
-      ? {title:'Comece pelos dados de mídia', description:'Conecte uma fonte de mídia para acompanhar impressões, cliques e investimento aqui.', label:'Conectar fonte de mídia', href:reportUrl('monitor')}
-      : !campaignRegistered
-        ? {title:'Organize as campanhas deste cliente', description:'A conta já está cadastrada. Associe uma campanha para reunir seus resultados.', label:'Adicionar campanha', href:reportUrl('campaigns')}
-        : {title:'Aguardando os primeiros dados de mídia', description:'As contas e campanhas estão cadastradas. Confira o envio de dados para preencher esta visão.', label:'Ver fontes de dados', href:reportUrl('monitor')};
-  const steps = [
-    {label:'Fonte de mídia', detail:activeSource?.last_used_at ? 'Dados recebidos' : sourceRegistered ? 'Conectada; aguardando envio' : sources ? 'Nenhuma fonte conectada' : 'Verificar integração', done:sourceRegistered, href:reportUrl('monitor')},
-    {label:'Site e eventos', detail:activeSite ? 'Eventos recebidos' : siteRegistered ? 'Site cadastrado; aguardando eventos' : sites ? 'Nenhum site conectado' : 'Verificar instalação', done:Boolean(activeSite), href:reportUrl('supertag')},
-    {label:'Campanhas', detail:campaignRegistered ? `${data.campaigns.length} cadastrada${data.campaigns.length === 1 ? '' : 's'}` : 'Nenhuma campanha cadastrada', done:campaignRegistered, href:reportUrl('campaigns')},
-  ];
-  return <section className="reports-overview-setup" aria-labelledby="reports-overview-next-title">
-    <div className="reports-overview-setup__next">
-      <span className="reports-overview-setup__eyebrow">Próxima ação</span>
-      <h2 id="reports-overview-next-title">{nextAction.title}</h2>
-      <p>{nextAction.description}</p>
-      <div className="reports-overview-setup__actions"><UntitledButton color="primary" size="sm" href={nextAction.href}>{nextAction.label}</UntitledButton><UntitledButton color="tertiary" size="sm" href={reportUrl('imports')}>Enviar arquivo</UntitledButton></div>
-    </div>
-    <div className="reports-overview-setup__progress" aria-label="Preparação do Reports">
-      <div className="reports-overview-setup__progress-heading"><h3>Preparação</h3><span>{steps.filter(step => step.done).length} de {steps.length} prontos</span></div>
-      <ol>{steps.map((step, index) => <li key={step.label}><a href={step.href} aria-label={`${step.label}: ${step.detail}. ${step.done ? 'Ver' : 'Configurar'}`}><span className={`reports-overview-setup__step-icon${step.done ? ' is-done' : ''}`} aria-hidden="true">{step.done ? <CheckCircle size={18}/> : index + 1}</span><span className="reports-overview-setup__step-copy"><strong>{step.label}</strong><small>{step.detail}</small></span><span className="reports-overview-setup__step-arrow" aria-hidden="true">→</span></a></li>)}</ol>
-    </div>
-  </section>;
-}
-
-function Overview({data, setupData, metrics, imported, sites, sources, loading, loadFailed, filters, onFiltersChange, onRefresh}) {
-  const [query, setQuery] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
-  const [tablePage, setTablePage] = useState(1);
-  const accounts = new Map(data.accounts.map(account => [String(account.id), account]));
-  const campaigns = data.campaigns.filter(campaign => {
-    const account = accounts.get(String(campaign.account_id));
-    const searchText = `${campaign.name} ${campaign.external_id} ${account?.name || ''}`.toLocaleLowerCase();
-    return (!filters.platform || campaign.platform === filters.platform) &&
-      (!filters.account || String(campaign.account_id) === filters.account) &&
-      (!filters.campaign || String(campaign.id) === filters.campaign) &&
-      (!query || searchText.includes(query.trim().toLocaleLowerCase()));
-  });
-  const pageSize = 10;
-  const pageCount = Math.max(1, Math.ceil(campaigns.length / pageSize));
-  const visibleCampaigns = campaigns.slice((tablePage - 1) * pageSize, tablePage * pageSize);
-  const activeFilterCount = [filters.platform, filters.account, filters.campaign].filter(Boolean).length;
-  useEffect(() => setTablePage(1), [query, filters.platform, filters.account, filters.campaign]);
-  const chartMetrics = metrics?.days?.length ? metrics : imported?.days?.length ? imported : metrics;
-  const days = chartMetrics?.days || [];
-  const hasMetrics = days.length > 0;
-  const sourceLabel = chartMetrics?.source === 'export' ? 'Arquivo importado' : chartMetrics?.source === 'google_ads_script' ? 'Google Ads Script' : 'Dados de mídia';
-  const periodOptions = [['90', '90 dias'], ['30', '30 dias'], ['7', '7 dias']];
-  const setPeriod = period => {
-    const end = new Date();
-    const start = new Date(end);
-    start.setDate(start.getDate() - Number(period) + 1);
-    const iso = value => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
-    onFiltersChange({period, startDate: iso(start), endDate: iso(end)});
-  };
-  const latestMetrics = days.at(-1) || {};
-  const totals = chartMetrics?.totals || {};
-  const investment = chartMetrics?.source === 'export'
-    ? amount(totals.cost, chartMetrics.currency)
-    : money(totals.cost_micros, chartMetrics?.currency);
-  const campaignHref = id => reportUrl('campaigns', {client_id:data.client.client_id, campaign_id:id});
-  if (loading) return <div className="reports-overview-loading" role="status">Carregando dados de mídia…</div>;
-  if (loadFailed) return <section className="reports-overview-loading" role="alert"><h2>Não foi possível carregar a visão geral</h2><p>Confira a conexão e tente novamente.</p><UntitledButton color="secondary" size="sm" onPress={onRefresh}>Tentar novamente</UntitledButton></section>;
-  if (!hasMetrics) return <OverviewSetup data={setupData || data} sites={sites} sources={sources} imported={imported}/>;
-  return <>
-    <div className="reports-page-hero">
-      <div className="reports-page-hero__inner">
-        <div className="reports-page-hero__copy">
-          <div className="reports-page-hero__eyebrow">Resultados operacionais</div>
-          <h1>Visão geral</h1>
-          <p>Dados de mídia, atividade do site e campanhas em um só lugar.</p>
-        </div>
-      </div>
-    </div>
-    <div className="reports-dashboard">
-    <section className="reports-dashboard-kpis" aria-label="Resumo de mídia">
-      <Kpi label="Impressões" value={hasMetrics ? integer(totals.impressions) : '—'} detail="No período selecionado" />
-      <Kpi label="Cliques" value={hasMetrics ? integer(totals.clicks) : '—'} detail="No período selecionado" />
-      <Kpi label="Investimento" value={hasMetrics ? investment : '—'} detail={hasMetrics ? `Moeda: ${chartMetrics?.currency || 'indisponível'}` : 'Aguardando dados de mídia'} />
-    </section>
-    <section className="reports-dashboard-traffic" aria-labelledby="reports-traffic-title">
-      <div className="reports-dashboard-traffic__heading">
-        <div><h2 id="reports-traffic-title">Impressões da mídia</h2><p>{chartMetrics?.period_days || Number(filters.period) || 30} dias · {sourceLabel}</p></div>
-        <div className="reports-dashboard-period" role="group" aria-label="Período do gráfico">
-          {periodOptions.map(([value, label]) => <ReportsActionButton type="button" key={value} className={filters.period === value ? 'is-active' : ''} aria-pressed={filters.period === value} onClick={() => setPeriod(value)}>{label}</ReportsActionButton>)}
-        </div>
-      </div>
-      {hasMetrics && <div className="reports-dashboard-chart-summary"><strong>{integer(chartMetrics?.totals?.impressions)}</strong><span>impressões no período</span><span className="reports-dashboard-chart-summary__secondary">{integer(chartMetrics?.totals?.clicks)} cliques</span></div>}
-      {hasMetrics ? <Chart type="area" height={300} labels={days.map(item => shortDate(item.date))} values={days.map(item => Number(item.impressions || 0))} /> : <div className="reports-dashboard-empty"><span aria-hidden="true" className="reports-dashboard-empty__icon">↗</span><div><strong>{imported?.conflicts ? 'Revise os dados importados' : 'Conecte seus dados de mídia'}</strong><p>{imported?.conflicts ? 'Os valores em conflito ficam fora do gráfico até serem revisados.' : 'Assim que a primeira importação ou integração chegar, a evolução das campanhas aparece neste gráfico.'}</p><a href={reportUrl(imported?.conflicts ? 'imports' : 'monitor')}>{imported?.conflicts ? 'Revisar importações' : 'Conectar fonte'}</a>{!imported?.conflicts && <a href={reportUrl('imports')}>Enviar arquivo</a>}</div></div>}
-      {hasMetrics && <div className="reports-dashboard-chart-foot"><span>{shortDate(days[0]?.date)}</span><span>{shortDate(latestMetrics.date)}</span></div>}
-    </section>
-    <section className="reports-dashboard-activity" aria-labelledby="reports-campaign-list-title">
-      <div className="reports-dashboard-activity__heading"><div><h2 id="reports-campaign-list-title">Campanhas acompanhadas</h2><p>{campaigns.length} {campaigns.length === 1 ? 'campanha' : 'campanhas'} neste cliente</p></div></div>
-      {data.campaigns.length > 0 && <div className="reports-dashboard-table-tools"><div className="reports-dashboard-search"><SearchLg size={16} aria-hidden="true"/><ReportsFieldInput type="search" placeholder="Buscar campanha" value={query} onChange={event => setQuery(event.target.value)} aria-label="Buscar campanhas" /></div><ReportsActionButton type="button" className={showFilters ? 'is-active' : ''} aria-expanded={showFilters} onClick={() => setShowFilters(value => !value)}><FilterLines size={16} aria-hidden="true"/>Filtros{activeFilterCount > 0 && <small>{activeFilterCount}</small>}</ReportsActionButton>{showFilters && <div className="reports-dashboard-filter-panel"><div className="reports-dashboard-filter-panel__heading"><div><strong>Filtrar campanhas</strong><span>Escolha os dados que deseja consultar</span></div>{activeFilterCount > 0 && <ReportsActionButton type="button" onClick={() => onFiltersChange({platform: '', account: '', campaign: ''})}>Limpar filtros</ReportsActionButton>}</div><div className="reports-dashboard-filter-fields">
-        <label>Plataforma<ReportsNativeSelect value={filters.platform} onChange={event => onFiltersChange({platform: event.target.value, account: '', campaign: ''})}><option value="">Todas as plataformas</option>{[...new Set(data.accounts.map(item => item.platform))].map(platform => <option key={platform} value={platform}>{platformName(platform)}</option>)}</ReportsNativeSelect></label>
-        <label>Conta<ReportsNativeSelect value={filters.account} onChange={event => onFiltersChange({account: event.target.value, campaign: ''})}><option value="">Todas as contas</option>{data.accounts.filter(item => item.account_kind === 'advertiser' && (!filters.platform || item.platform === filters.platform)).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</ReportsNativeSelect></label>
-        <label>Campanha<ReportsNativeSelect value={filters.campaign} onChange={event => onFiltersChange({campaign: event.target.value})}><option value="">Todas as campanhas</option>{data.campaigns.filter(item => (!filters.platform || item.platform === filters.platform) && (!filters.account || String(item.account_id) === filters.account)).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</ReportsNativeSelect></label>
-      </div></div>}<ReportsActionButton type="button" className="reports-dashboard-refresh" aria-label="Atualizar campanhas" onClick={onRefresh}><RefreshCw01 size={16} aria-hidden="true"/>Atualizar</ReportsActionButton></div>}
-      {data.campaigns.length ? <div className="reports-dashboard-table-wrap"><table className="reports-dashboard-table"><thead><tr><th>Campanha</th><th>Conta</th><th>Plataforma</th><th>Status</th><th>ID da campanha</th></tr></thead><tbody>{visibleCampaigns.map(campaign => {const status = ({ENABLED:'Ativa',PAUSED:'Pausada',REMOVED:'Removida',active:'Ativa',paused:'Pausada',disabled:'Desativada'})[campaign.status] || 'Não informado'; return <tr key={campaign.id}><td><a href={campaignHref(campaign.id)}>{campaign.name}</a></td><td>{accounts.get(String(campaign.account_id))?.name || '—'}</td><td>{platformName(campaign.platform)}</td><td><span className={`reports-dashboard-status ${campaign.status === 'PAUSED' || campaign.status === 'paused' ? 'is-paused' : ''}`}>{status}</span></td><td>{campaign.external_id || '—'}</td></tr>;})}</tbody></table>{!campaigns.length && <div className="reports-dashboard-table-empty"><strong>Nenhuma campanha corresponde à busca ou aos filtros.</strong><ReportsActionButton color="link-color" type="button" onClick={() => {setQuery('');onFiltersChange({platform:'',account:'',campaign:''});}}>Limpar filtros</ReportsActionButton></div>}</div> : <div className="reports-dashboard-table-empty"><strong>Adicione uma campanha para acompanhar seus resultados.</strong><UntitledButton color="link-color" size="sm" href={reportUrl('campaigns')}>Adicionar campanha</UntitledButton></div>}
-      {campaigns.length > pageSize && <nav className="reports-dashboard-pagination" aria-label="Paginação de campanhas"><ReportsActionButton type="button" disabled={tablePage <= 1} onClick={() => setTablePage(value => Math.max(1, value - 1))}>← Anterior</ReportsActionButton><span>Página {tablePage} de {pageCount}</span><ReportsActionButton type="button" disabled={tablePage >= pageCount} onClick={() => setTablePage(value => Math.min(pageCount, value + 1))}>Próxima →</ReportsActionButton></nav>}
-    </section>
-  </div>
-  </>;
-}
-
 function CustomerSelect({data,value,onChange}) {return <label>Cliente / anunciante<ReportsNativeSelect value={value} onChange={e=>onChange(e.target.value)}><option value="">Operação própria</option>{(data.customers||[]).filter(c=>c.status==='active').map(c=><option value={c.id} key={c.id}>{c.name}</option>)}</ReportsNativeSelect></label>;}
 
 function Accounts({data, save, busy}) {
@@ -327,15 +187,6 @@ function Accounts({data, save, busy}) {
     catch (_) { /* Global error banner shows the failure. */ }
   };
   return <>
-    <div className="reports-page-hero">
-      <div className="reports-page-hero__inner">
-        <div className="reports-page-hero__copy">
-          <div className="reports-page-hero__eyebrow">Operação de mídia</div>
-          <h1>Contas</h1>
-          <p>Organize as contas de mídia vinculadas a este cliente.</p>
-        </div>
-      </div>
-    </div>
     <section className="reports-accounts-page">
     <header className="reports-accounts-heading"><div><p>{data.client.client_name || `Cliente ${data.client.client_id}`} <span>·</span> {integer(data.accounts.length)} {data.accounts.length === 1 ? 'conta' : 'contas'}</p></div><div className="reports-accounts-heading__actions"><UntitledButton className="reports-account-connect" color="tertiary" href={reportUrl('monitor')}>Conectar fonte</UntitledButton>{data.client.role!=='viewer'&&<UntitledButton className="reports-account-add" onPress={()=>setCreateOpen(true)}>Adicionar conta</UntitledButton>}</div></header>
     <div className="reports-accounts-layout">
@@ -368,10 +219,13 @@ function AccountRow({item, data, save, busy}) {
   return <tr className={editing?'reports-account-row is-editing':'reports-account-row'} onKeyDown={event => {if (editing && event.key === 'Escape') {event.preventDefault();cancel();}}}><td>{editing?<ReportsFieldInput form={formId} className="reports-account-field" aria-label={`Nome da conta ${item.external_id}`} value={draft.name} onChange={event => setDraft({...draft, name: event.target.value})} required maxLength="240" />:<><strong>{item.name}</strong><ReportsRelationships data={data} kind="account" id={item.id} name={item.name}/></>}</td><td>{platformName(item.platform)}</td><td>{editing?<ReportsFieldInput form={formId} className="reports-account-field" aria-label={`ID externo ${item.external_id}`} value={draft.external_id} onChange={event => setDraft({...draft, external_id: event.target.value})} required maxLength="160" />:item.external_id}</td><td>{item.account_kind === 'manager' ? 'Gerente' : 'Anunciante'}</td><td>{editing&&item.account_kind==='advertiser'?<ReportsNativeSelect form={formId} className="reports-account-field" aria-label={`Gerente da conta ${item.external_id}`} value={draft.parent_account_id} onChange={event => setDraft({...draft, parent_account_id: event.target.value})}><option value="">Sem gerente</option>{managers.map(manager => <option key={manager.id} value={manager.id}>{manager.name}</option>)}</ReportsNativeSelect>:data.accounts.find(parent => parent.id === item.parent_account_id)?.name || '—'}</td><td>{editing?<ReportsNativeSelect form={formId} className="reports-account-field" aria-label={`Estado da conta ${item.external_id}`} value={draft.status} onChange={event => setDraft({...draft, status: event.target.value})}><option value="active">Ativa</option><option value="paused">Pausada</option><option value="disabled">Desativada</option></ReportsNativeSelect>:({active:'Ativa',paused:'Pausada',disabled:'Desativada'})[item.status]||item.status}</td><td>{data.client.role!=='viewer'&&(editing?<form id={formId} className="reports-account-row__actions" onSubmit={update}><UntitledButton size="xs" type="submit" isDisabled={busy} isLoading={busy}>Salvar</UntitledButton></form>:<UntitledButton className="reports-account-edit" size="xs" color="link-color" onPress={()=>{setSaved(false);setEditing(true);}}>Editar</UntitledButton>)}{saved&&<span className="reports-account-saved" role="status">Salva</span>}</td></tr>;
 }
 
+/** Campaign detail lives at /media/campaigns/<id>; ?campaign_id= from older links is still understood. */
+const campaignIdFromUrl = () => resolveRoute().entity || new URLSearchParams(location.search).get('campaign_id') || '';
+
 function Campaigns({data, save, busy, filters, refreshRevision}) {
   const [form, setForm] = useState({customer_id:'',account_id: '', external_id: '', name: '', objective: '', channel_type: ''});
   const [createOpen, setCreateOpen] = useState(false);
-  const [campaignId, setCampaignId] = useState(new URLSearchParams(location.search).get('campaign_id') || '');
+  const [campaignId, setCampaignId] = useState(campaignIdFromUrl);
   const [campaignDetail, setCampaignDetail] = useState(null);
   const [detailError, setDetailError] = useState('');
   const [tab, setTab] = useState(() => {
@@ -391,13 +245,13 @@ function Campaigns({data, save, busy, filters, refreshRevision}) {
       .catch(error => {if(live)setDetailError(error.message);});
     return () => {live=false;};
   }, [campaignId, data.client.client_id]);
-  useEffect(()=>{const sync=()=>{const params=new URLSearchParams(location.search);setCampaignId(params.get('campaign_id')||'');const current=params.get('campaign_tab')||'overview';setTab(current==='metrics'?'performance':current);};addEventListener('popstate',sync);return()=>removeEventListener('popstate',sync);},[]);
+  useEffect(()=>{const sync=()=>{const params=new URLSearchParams(location.search);setCampaignId(campaignIdFromUrl());const current=params.get('campaign_tab')||'overview';setTab(current==='metrics'?'performance':current);};addEventListener('popstate',sync);return()=>removeEventListener('popstate',sync);},[]);
   const campaignUrl = ({id = campaignId, view = ''} = {}) => {
     const url = new URL(location.href);
     url.searchParams.delete('client_id');
-    if (id) url.searchParams.set('campaign_id', String(id)); else url.searchParams.delete('campaign_id');
+    url.searchParams.delete('campaign_id');
     if (view) url.searchParams.set('campaign_tab', view); else url.searchParams.delete('campaign_tab');
-    url.pathname = '/connect/app/campaigns';
+    url.pathname = `${APP_BASE}/media/campaigns${id ? `/${encodeURIComponent(id)}` : ''}`;
     url.hash = '';
     return url;
   };
@@ -407,17 +261,8 @@ function Campaigns({data, save, busy, filters, refreshRevision}) {
   const submit = async event => {event.preventDefault(); try {await save('/campaigns', form); setForm({...form, external_id: '', name: '', objective: '', channel_type: ''}); setCreateOpen(false);} catch (_) { /* Global error banner shows the failure. */ }};
   if (campaignId) return <CampaignDetail data={data} detail={campaignDetail} error={detailError} tab={tab} setTab={changeCampaignTab} close={closeCampaign} filters={filters} refreshRevision={refreshRevision} save={save} busy={busy} updateDetail={setCampaignDetail} />;
   return <>
-    <div className="reports-page-hero">
-      <div className="reports-page-hero__inner">
-        <div className="reports-page-hero__copy">
-          <div className="reports-page-hero__eyebrow">Operação de mídia</div>
-          <h1>Campanhas</h1>
-          <p>Consulte campanhas, identifique sua origem e abra os resultados detalhados.</p>
-        </div>
-      </div>
-    </div>
     <section className="reports-campaigns-page reports-campaigns-list-page"><article className="reports-panel"><div className="reports-panel-head reports-panel-head--actions"><div className="reports-list-head-actions"><span>{visibleCampaigns.length} de {data.campaigns.length}</span>{data.client.role !== 'viewer' && <ReportsActionButton className="reports-campaign-add" onClick={() => setCreateOpen(true)} color="primary">Adicionar campanha</ReportsActionButton>}</div></div>
-    {visibleCampaigns.length ? <div className="reports-table-wrap"><table><thead><tr><th>Campanha</th><th>Conta</th><th>Plataforma</th><th>Tipo</th><th>ID externo</th><th>Projeto Workspace (opcional)</th><th>Status</th></tr></thead><tbody>{visibleCampaigns.map(item => <tr key={item.id}><td><ReportsActionButton type="button" className="reports-campaign-open" onClick={()=>openCampaign(item)}><strong>{item.name}</strong><small>Abrir detalhes ↗</small></ReportsActionButton></td><td>{item.account_name||'Sem conta de mídia'}</td><td>{item.platform||'Manual'}</td><td>{item.channel_type || item.objective || '—'}</td><td>{item.external_id}</td><td><ReportsRelationships data={data} kind="campaign" id={item.id} name={item.name}/></td><td>{({ENABLED:'Ativa',PAUSED:'Pausada',REMOVED:'Removida',unknown:'Não informado'})[item.status] || item.status}</td></tr>)}</tbody></table></div> : <Empty message={data.campaigns.length ? 'Nenhuma campanha corresponde aos filtros desta página.' : 'Nenhuma campanha ainda. Adicione uma ou sincronize uma conta de mídia.'} />}</article>
+    {visibleCampaigns.length ? <div className="reports-table-wrap"><table><thead><tr><th>Campanha</th><th>Conta</th><th>Plataforma</th><th>Tipo</th><th>ID externo</th><th>Projeto Workspace (opcional)</th><th>Status</th></tr></thead><tbody>{visibleCampaigns.map(item => <tr key={item.id}><td><ReportsActionButton type="button" className="reports-campaign-open" onClick={()=>openCampaign(item)}><strong>{item.name}</strong><small>Abrir detalhes ↗</small></ReportsActionButton></td><td>{item.account_name||'Sem conta de mídia'}</td><td>{platformName(item.platform)}</td><td>{item.channel_type || item.objective || '—'}</td><td>{item.external_id}</td><td><ReportsRelationships data={data} kind="campaign" id={item.id} name={item.name}/></td><td>{({ENABLED:'Ativa',PAUSED:'Pausada',REMOVED:'Removida',unknown:'Não informado'})[item.status] || item.status}</td></tr>)}</tbody></table></div> : <Empty message={data.campaigns.length ? 'Nenhuma campanha corresponde aos filtros desta página.' : 'Nenhuma campanha ainda. Adicione uma ou sincronize uma conta de mídia.'} />}</article>
     <ReportsDrawer open={createOpen} onOpenChange={setCreateOpen} onDiscard={()=>setForm({customer_id:'',account_id:'',external_id:'',name:'',objective:'',channel_type:''})} title="Adicionar campanha" description="Crie uma campanha manual ou associe uma conta de mídia." context={data.client.client_name}>{data.client.role==='viewer'?<Empty message="Seu acesso permite consultar as campanhas, sem cadastrar ou editar."/>:<form className="reports-form" onSubmit={submit}>
       <CustomerSelect data={data} value={form.customer_id} onChange={value=>setForm({...form,customer_id:value,account_id:''})}/>
       <label>Conta de mídia (opcional)<ReportsNativeSelect value={form.account_id} onChange={event=>setForm({...form,account_id:event.target.value})}><option value="">Campanha manual</option>{accounts.filter(a=>String(a.customer_id||'')===form.customer_id).map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</ReportsNativeSelect></label>
@@ -638,15 +483,7 @@ function Reports({data, save, busy}) {
       await refresh(detail.report.id); setReviewSource(null); setReviewNote(''); setTypeSafeReview(null);
     } catch (failure) {setDetailError(failure.message);}
   };
-  return <><div className="reports-page-hero">
-      <div className="reports-page-hero__inner">
-        <div className="reports-page-hero__copy">
-          <div className="reports-page-hero__eyebrow">Operação de mídia</div>
-          <h1>Relatórios</h1>
-          <p>Crie e consulte relatórios de mídia deste cliente.</p>
-        </div>
-      </div>
-    </div><section className="reports-report-library"><article className="reports-panel"><div className="reports-panel-head reports-panel-head--actions"><div className="reports-list-head-actions"><span>{data.reports.length} relatórios</span>{data.client.role !== 'viewer' && <ReportsActionButton className="reports-report-create" color="primary" onClick={() => setCreateOpen(true)}>Criar relatório</ReportsActionButton>}</div></div><div className="reports-grid reports-grid--three">{data.reports.length ? data.reports.map(item => <a className="reports-panel reports-report-card" key={item.id} href={reportUrl('reports')} onClick={event => open(event, item.id)}><span>Relatório · v{item.revision}</span><h2>{item.campaign_name}</h2><p>{item.project_ref || 'Sem projeto associado'}</p><small>Atualizado em {shortDate(item.updated_at)}</small></a>) : <Empty message="Nenhum relatório ainda. Crie um independente ou associado a uma campanha." />}</div></article><ReportsDrawer open={createOpen} onOpenChange={setCreateOpen} onDiscard={()=>setForm({campaign_name:'',media_campaign_id:''})} title="Criar relatório" description="O relatório pertence a este cliente; a campanha é opcional." context={data.client.client_name}>{data.client.role !== 'viewer' && <form className="reports-form" onSubmit={submit}><label>Nome<ReportsFieldInput required maxLength="200" value={form.campaign_name} onChange={event => setForm({...form, campaign_name: event.target.value})} placeholder="Ex.: Resultado de setembro" /></label><label>Campanha (opcional)<ReportsNativeSelect value={form.media_campaign_id} onChange={event => setForm({...form, media_campaign_id: event.target.value})}><option value="">Sem campanha vinculada</option>{data.campaigns.map(item => <option key={item.id} value={item.id}>{item.account_name} · {item.name}</option>)}</ReportsNativeSelect></label><ReportsActionButton type="submit" disabled={busy}>Criar relatório</ReportsActionButton></form>}</ReportsDrawer></section>
+  return <><section className="reports-report-library"><article className="reports-panel"><div className="reports-panel-head reports-panel-head--actions"><div className="reports-list-head-actions"><span>{data.reports.length} relatórios</span>{data.client.role !== 'viewer' && <ReportsActionButton className="reports-report-create" color="primary" onClick={() => setCreateOpen(true)}>Criar relatório</ReportsActionButton>}</div></div><div className="reports-grid reports-grid--three">{data.reports.length ? data.reports.map(item => <a className="reports-panel reports-report-card" key={item.id} href={reportUrl('reports')} onClick={event => open(event, item.id)}><span>Relatório · v{item.revision}</span><h2>{item.campaign_name}</h2><p>{item.project_ref || 'Sem projeto associado'}</p><small>Atualizado em {shortDate(item.updated_at)}</small></a>) : <Empty message="Nenhum relatório ainda. Crie um independente ou associado a uma campanha." />}</div></article><ReportsDrawer open={createOpen} onOpenChange={setCreateOpen} onDiscard={()=>setForm({campaign_name:'',media_campaign_id:''})} title="Criar relatório" description="O relatório pertence a este cliente; a campanha é opcional." context={data.client.client_name}>{data.client.role !== 'viewer' && <form className="reports-form" onSubmit={submit}><label>Nome<ReportsFieldInput required maxLength="200" value={form.campaign_name} onChange={event => setForm({...form, campaign_name: event.target.value})} placeholder="Ex.: Resultado de setembro" /></label><label>Campanha (opcional)<ReportsNativeSelect value={form.media_campaign_id} onChange={event => setForm({...form, media_campaign_id: event.target.value})}><option value="">Sem campanha vinculada</option>{data.campaigns.map(item => <option key={item.id} value={item.id}>{item.account_name} · {item.name}</option>)}</ReportsNativeSelect></label><ReportsActionButton type="submit" disabled={busy}>Criar relatório</ReportsActionButton></form>}</ReportsDrawer></section>
     {detailError && <p className="reports-error" role="alert">{detailError}</p>}
     {detail && <section className="reports-detail-layout" aria-label="Detalhe do relatório"><div className="reports-detail-main"><article className="reports-panel"><div className="reports-panel-head"><h2>{detail.report.campaign_name}</h2><span>Versão {detail.report.revision} · {shortDate(detail.report.updated_at)}</span></div><form className="reports-form" onSubmit={update}><label>Objetivo<ReportsTextArea disabled={data.client.role === 'viewer'} maxLength="2000" rows="3" value={draft.objective || ''} onChange={event => edit('objective', event.target.value)} /></label><label>Metas<ReportsTextArea disabled={data.client.role === 'viewer'} maxLength="4000" rows="3" value={draft.goals || ''} onChange={event => edit('goals', event.target.value)} /></label><label>Notas de gestão<ReportsTextArea disabled={data.client.role === 'viewer'} maxLength="8000" rows="4" value={draft.management_notes || ''} onChange={event => edit('management_notes', event.target.value)} /></label><div className="reports-form-pair"><label>Início<ReportsFieldInput disabled={data.client.role === 'viewer'} type="date" value={draft.start_date || ''} onChange={event => edit('start_date', event.target.value)} /></label><label>Fim<ReportsFieldInput disabled={data.client.role === 'viewer'} type="date" value={draft.end_date || ''} onChange={event => edit('end_date', event.target.value)} /></label><label>Cor<ReportsFieldInput disabled={data.client.role === 'viewer'} type="color" value={draft.accent || '#1767c5'} onChange={event => edit('accent', event.target.value)} /></label></div>{data.client.role !== 'viewer' && <><label>Nota desta versão<ReportsFieldInput required maxLength="2000" value={note} onChange={event => setNote(event.target.value)} placeholder="O que mudou neste relatório?" /></label><ReportsActionButton type="submit" disabled={busy}>Salvar atualização</ReportsActionButton></>}</form></article>
       <article className="reports-panel"><div className="reports-panel-head"><h2>Fontes e evidências</h2><span>{detail.sources.length} fontes</span></div>{detail.sources.length ? detail.sources.map(item => <div className="reports-row" key={item.id}><span>{item.original_name} · {item.supplier || 'Fornecedor não informado'} · {item.status === 'reviewed' ? 'Revisada' : 'Aguardando revisão'}</span><ReportsActionButton className="reports-inline-link" type="button" onClick={() => openReview(item)}>Revisar ↗</ReportsActionButton><a className="reports-inline-link" href={`/connect/relatorios/${detail.report.id}/fontes/${item.id}`} target="_blank" rel="noopener noreferrer">Abrir print ↗</a></div>) : <Empty message="As fontes recebidas aparecerão aqui." />}<div className="reports-form-pair"><label>Prints<ReportsFieldInput type="file" multiple accept="image/png,image/jpeg,image/webp" id="report-source-files" /></label><label>Origem<ReportsFieldInput maxLength="200" id="report-source-supplier" placeholder="Ex.: Meta Ads" /></label><label>Início<ReportsFieldInput type="date" id="report-source-start" /></label><label>Fim<ReportsFieldInput type="date" id="report-source-end" /></label></div>{data.client.role !== 'viewer' && <ReportsActionButton type="button" disabled={busy} onClick={async () => {const files=document.getElementById('report-source-files')?.files;if(!files?.length)return;const payload=new FormData();Array.from(files).forEach(file=>payload.append('prints',file));payload.append('supplier',document.getElementById('report-source-supplier')?.value||'');payload.append('period_start',document.getElementById('report-source-start')?.value||'');payload.append('period_end',document.getElementById('report-source-end')?.value||'');payload.append('_csrf',data.csrf);try{const response=await fetch(`/connect/relatorios/${detail.report.id}/fontes`,{method:'POST',body:payload,credentials:'same-origin'});if(!response.ok)throw new Error(`Falha HTTP ${response.status}`);await refresh(detail.report.id);}catch(failure){setDetailError(failure.message);}}}>Receber fontes</ReportsActionButton>}</article>
@@ -675,15 +512,7 @@ function Links({data, save, busy}) {
   const showHistory = async run => {choose(run); try {const body = await json(`/connect/api/v2/reports/link-tests/${run.id}/association-history?client_id=${data.client.client_id}`); setHistory(body.history);} catch (_) { /* Global error banner shows the failure. */ }};
   const selectedCampaign = data.campaigns.find(item => String(item.id) === campaignId);
   const availableReports = data.reports.filter(item => !item.media_campaign_id || String(item.media_campaign_id) === campaignId).filter(item => !item.account_id || item.account_id === selectedCampaign?.account_id);
-  return <><div className="reports-page-hero">
-      <div className="reports-page-hero__inner">
-        <div className="reports-page-hero__copy">
-          <div className="reports-page-hero__eyebrow">Mensuração</div>
-          <h1>Link Tester</h1>
-          <p>Verifique destinos e associe links às campanhas corretas.</p>
-        </div>
-      </div>
-    </div><section className="reports-grid reports-grid--three"><article className="reports-panel"><div className="reports-panel-head"><h2>Testar destino</h2><span>Link Tester</span></div><form className="reports-form" onSubmit={submit}>
+  return <><section className="reports-grid reports-grid--three"><article className="reports-panel"><div className="reports-panel-head"><h2>Testar destino</h2><span>Link Tester</span></div><form className="reports-form" onSubmit={submit}>
     <label>URL<ReportsFieldInput required type="url" maxLength="2048" value={form.url} onChange={event => setForm({...form, url: event.target.value})} placeholder="https://exemplo.com/pagina?utm_source=..." /></label>
     <label>Análise<ReportsNativeSelect value={form.mode} onChange={event => setForm({...form, mode: event.target.value})}><option value="destination">Destino e redirecionamentos</option><option value="media">Medição de mídia</option><option value="agentic">Presença para agentes</option></ReportsNativeSelect></label>
     <ReportsActionButton type="submit" disabled={busy}>Analisar link</ReportsActionButton>
@@ -744,15 +573,6 @@ function Monitor({data, save, busy}) {
     try {await save(`/ingest-keys/${id}/revoke`, {}, false); await reload(); setRevokeId('');} catch (failure) {setLocalError(failure.message);}
   };
   return <section className="reports-media-data-page">
-    <div className="reports-media-hero">
-      <div className="reports-media-hero__inner">
-        <div className="reports-media-hero__copy">
-          <div className="reports-media-hero__eyebrow">Conectar dados</div>
-          <h1>Dados de mídia</h1>
-          <p>Receba campanhas, métricas e conversões de suas fontes de anúncios e CRM.</p>
-        </div>
-      </div>
-    </div>
     <div className="reports-media-container">
       <div className="reports-media-layout">
         <aside className="reports-media-sidebar">
@@ -855,15 +675,7 @@ function Access({data, save, busy}) {
   };
   const activeUsers = users.filter(user => user.role && !user.revoked_at);
   const visibleUsers = activeUsers.filter(user => `${user.name} ${user.email || ''}`.toLocaleLowerCase('pt-BR').includes(accessQuery.trim().toLocaleLowerCase('pt-BR')));
-  return <><div className="reports-page-hero">
-      <div className="reports-page-hero__inner">
-        <div className="reports-page-hero__copy">
-          <div className="reports-page-hero__eyebrow">Administração</div>
-          <h1>Acessos</h1>
-          <p>Gerencie quem pode consultar e operar os dados deste cliente.</p>
-        </div>
-      </div>
-    </div><section className="reports-access-page">
+  return <><section className="reports-access-page">
     <ReportsDrawer open={grantOpen} onOpenChange={setGrantOpen} onDiscard={()=>{setUserId('');setRole('viewer');setExclusive(false);setLocalError('');}} title="Conceder acesso" description="Defina quem pode consultar ou operar os dados deste cliente." context={data.client.client_name}>
       <p>Defina o acesso à conta principal do Reports. Compartilhamentos restritos são feitos no site ou fluxo.</p>
       {localError && <p className="reports-error" role="alert">{localError}</p>}
@@ -1168,15 +980,6 @@ function Events({data, filters, initialKind = 'all', refreshRevision}) {
   const copyEvent = async () => {try {await navigator.clipboard.writeText(customSnippet);setCopied(true);window.setTimeout(()=>setCopied(false),1800);} catch (_) {setError('Não foi possível copiar o código.');}};
   const timeAgo = value => {const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000)); return minutes < 60 ? `há ${minutes} min` : minutes < 1440 ? `há ${Math.floor(minutes / 60)} h` : `há ${Math.floor(minutes / 1440)} d`;};
   return <>
-    <div className="reports-page-hero">
-      <div className="reports-page-hero__inner">
-        <div className="reports-page-hero__copy">
-          <div className="reports-page-hero__eyebrow">Mensuração</div>
-          <h1>Eventos</h1>
-          <p>Explore a atividade recebida e prepare eventos personalizados.</p>
-        </div>
-      </div>
-    </div>
     <section className="reports-events-layout"><article className="reports-panel reports-events-main"><div className="reports-panel-head"><div><h2>Atividade recebida</h2><p>Veja as interações recebidas pela Super Tag e prepare eventos personalizados.</p></div><a className="reports-inline-link" href={reportUrl('flow')}>Abrir Fluxos ↗</a></div>
       <ReportsTabs className="reports-event-tabs" label="Tipos de evento" items={[{id:'all',label:'Todos os eventos'},{id:'standard',label:'Padrão'},{id:'custom',label:'Personalizados'},{id:'conversion',label:'Conversões'}]} value={kindFilter} onChange={setKindFilter} />
       <div className="reports-event-filters"><ReportsFieldInput type="search" aria-label="Buscar eventos" placeholder="Buscar evento ou página…" value={query} onChange={event=>setQuery(event.target.value)}/><ReportsNativeSelect aria-label="Filtrar fonte" value={sourceFilter} onChange={event=>setSourceFilter(event.target.value)}><option value="all">Todas as fontes</option>{sources.map(source=><option key={source}>{source}</option>)}</ReportsNativeSelect><ReportsActionButton type="button" onClick={loadEvents}><RefreshCw01 size={16} aria-hidden="true"/>Atualizar</ReportsActionButton></div>
@@ -1438,15 +1241,7 @@ function Imports({data, reloadBootstrap, focusLibrary = false}) {
     {id:'conflicts',label:'Divergências',count:conflicts.length || undefined},
     {id:'ranges',label:'Períodos importados',count:rangeSnapshots.length || undefined},
   ];
-  return <><div className="reports-page-hero">
-      <div className="reports-page-hero__inner">
-        <div className="reports-page-hero__copy">
-          <div className="reports-page-hero__eyebrow">Operação de mídia</div>
-          <h1>Importações</h1>
-          <p>Envie arquivos e revise os dados antes de incluí-los nos relatórios.</p>
-        </div>
-      </div>
-    </div><section className={`reports-imports-page is-${importsView}`}>
+  return <><section className={`reports-imports-page is-${importsView}`}>
     <ReportsTabs className="reports-imports-tabs" label="Etapas de importação" items={tabItems} value={importsView} onChange={setImportsView} />
     {error && <p className="reports-error reports-imports-alert" role="alert">{error}</p>}
     {note && <p className="reports-success reports-imports-alert" role="status">{note}</p>}
@@ -1468,65 +1263,66 @@ function Imports({data, reloadBootstrap, focusLibrary = false}) {
   </>;
 }
 
-function App() {
-  const [section, setSection] = useState(reportSection);
+const reportIcons = {overview:'home', media:'analysis', journey:'branch', reports:'file', alerts:'alert', 'data-sources':'plugin', supertag:'pulse', events:'calendar', imports:'download', links:'link', customers:'users', accounts:'table', access:'folder'};
+const NAV_GROUPS = [
+  ['', [['overview', 'Visão geral', 'overview']]],
+  ['Análise', [['media', 'Mídia', 'media'], ['journey', 'Site & Jornada', 'journey'], ['reports', 'Relatórios', 'reports'], ['alerts', 'Alertas', 'alerts']]],
+  ['Dados', [['data-sources', 'Fontes de dados', 'data-sources'], ['supertag', 'Super Tag', 'supertag'], ['events', 'Eventos', 'events'], ['imports', 'Importações', 'imports']]],
+  ['Ferramentas', [['links', 'Link Tester', 'tools/link-tester']]],
+  ['Configurações', [['customers', 'Clientes', 'settings/clients'], ['accounts', 'Contas e conexões', 'settings/accounts'], ['access', 'Acessos', 'settings/access']]],
+];
 
-  const requestedSection = SECTION_ALIASES[section] || section;
-  const pageSection = REPORT_PAGE_META[requestedSection] ? requestedSection : 'overview';
+// Sections that older links addressed as #section?params.
+const LEGACY_HASHES = new Set(['overview', 'customers', 'accounts', 'campaigns', 'reports', 'imports', 'monitor', 'supertag', 'flow', 'flows', 'pages', 'alerts', 'events', 'conversions', 'links', 'access', 'data-library']);
+
+function App() {
+  const locationKey = useLocationKey();
+  const route = useMemo(() => resolveRoute(), [locationKey]);
+  const pageSection = route.page;
   const [data, setData] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
-  const [accountsView, setAccountsView] = useState(() => new URLSearchParams(location.search).get('view') === 'management');
+  const accountsView = pageSection === 'accounts' && new URLSearchParams(location.search).get('view') === 'management';
   const isFlowEditor = Boolean(flowEditorId())&&(!/\/monitor\/?$/.test(location.pathname)||Boolean(data?.features?.flows_workspace_v2));
-  const [metrics, setMetrics] = useState(null);
-  const [importedMetrics, setImportedMetrics] = useState(null);
-  const [overviewSites, setOverviewSites] = useState(null);
-  const [overviewSources, setOverviewSources] = useState(null);
-  const [overviewLoading, setOverviewLoading] = useState(true);
-  const [overviewFailed, setOverviewFailed] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const dateToday = new Date();
-  const dateStart = new Date(dateToday); dateStart.setDate(dateStart.getDate() - 29);
-  const isoDate = value => `${value.getFullYear()}-${String(value.getMonth()+1).padStart(2,'0')}-${String(value.getDate()).padStart(2,'0')}`;
-  const [filtersByPage, setFiltersByPage] = useState(() => {
-    const initial = {...REPORT_FILTER_DEFAULTS, period: '30', startDate: isoDate(dateStart), endDate: isoDate(dateToday)};
-    return Object.fromEntries(['overview', 'campaigns', 'flow', 'events'].map(page => [page, {...initial}]));
-  });
-  const filters = filtersByPage[pageSection] || REPORT_FILTER_DEFAULTS;
-  const updateFilters = changes => setFiltersByPage(current => ({
-    ...current,
-    [pageSection]: {...(current[pageSection] || REPORT_FILTER_DEFAULTS), ...changes},
-  }));
+  const [period, setPeriodState] = useState(readPeriod);
+  const setPeriod = range => {setPeriodState(range); writePeriod(range);};
+  // Platform/account/campaign filters stay per page; the period is one for the whole app.
+  const [filtersByPage, setFiltersByPage] = useState({});
+  const filters = {...REPORT_FILTER_DEFAULTS, ...(filtersByPage[pageSection] || {}), ...periodFilters(period)};
+  const updateFilters = ({period: preset, startDate, endDate, ...changes}) => {
+    if (startDate && endDate) setPeriod({start: startDate, end: endDate});
+    if (Object.keys(changes).length) setFiltersByPage(current => ({...current, [pageSection]: {...(current[pageSection] || {}), ...changes}}));
+  };
   const [refreshRevision, setRefreshRevision] = useState(0);
-  const clientId = new URLSearchParams(location.search).get('client_id');
-  const load = async () => {
-    try {setData(await json(`/connect/api/v2/reports/bootstrap${clientId ? `?client_id=${encodeURIComponent(clientId)}` : ''}`)); setError(''); dropClientFromUrl();}
-    catch (failure) {setError(failure.message);}
+  const load = async (clientId = new URLSearchParams(location.search).get('client_id')) => {
+    try {
+      const body = await json(`/connect/api/v2/reports/bootstrap${clientId ? `?client_id=${encodeURIComponent(clientId)}` : ''}`);
+      setActiveClient(body.client?.client_id);
+      setData(body); setError(''); dropClientFromUrl();
+    } catch (failure) {setError(failure.message);}
+  };
+  /** Changes the analysed client in place: same page, same period, data reloaded. */
+  const switchClient = async clientId => {
+    if (String(clientId) === String(data?.client?.client_id)) return;
+    setFiltersByPage({});
+    await load(clientId);
   };
   useEffect(() => {
     const legacySection = location.hash.slice(1).split('?')[0];
-    if (REPORT_PAGE_META[SECTION_ALIASES[legacySection] || legacySection]) {
+    if (LEGACY_HASHES.has(legacySection)) {
       const legacyParams = Object.fromEntries(new URLSearchParams(location.hash.split('?')[1] || ''));
       location.replace(reportUrl(legacySection, legacyParams));
       return undefined;
     }
     const syncRoute = () => {
-      const url = new URL(location.href);
-      const requested = reportSection();
-      const nextSection = REPORT_PAGE_META[SECTION_ALIASES[requested] || requested] ? requested : 'overview';
-      if (nextSection !== requested) {
-        url.pathname = `/connect/app/${nextSection}`;
-        history.replaceState(history.state, '', url);
-      }
-      if (nextSection !== 'campaigns' && (url.searchParams.has('campaign_id') || url.searchParams.has('campaign_tab'))) {
-        url.searchParams.delete('campaign_id');
-        url.searchParams.delete('campaign_tab');
-        history.replaceState(history.state, '', url);
-      }
-      setSection(nextSection);
-      setAccountsView(url.searchParams.get('view') === 'management' && nextSection === 'accounts');
+      applyLegacyRedirect();
+      const query = new URLSearchParams(location.search);
+      // Links between pages don't carry the period; keep the current one in the new URL.
+      if (['period', 'days', 'start_date', 'end_date'].some(key => query.has(key))) setPeriodState(readPeriod());
+      else setPeriodState(current => {writePeriod(current); return current;});
       window.scrollTo(0, 0);
     };
     load();
@@ -1534,75 +1330,68 @@ function App() {
     addEventListener('popstate', syncRoute);
     return () => {removeEventListener('popstate', syncRoute);};
   }, []);
-  useEffect(() => {
-    if (!data?.ready || data.shared || pageSection !== 'overview') return undefined;
-    let cancelled = false;
-    setOverviewLoading(true);
-    setOverviewFailed(false);
-    setMetrics(null);
-    setImportedMetrics(null);
-    setOverviewSites(null);
-    setOverviewSources(null);
-    const params = new URLSearchParams({client_id: String(data.client.client_id), days: filters.period, start_date: filters.startDate, end_date: filters.endDate});
-    if (filters.platform) params.set('platform', filters.platform);
-    if (filters.account) params.set('account_id', filters.account);
-    if (filters.campaign) params.set('campaign_id', filters.campaign);
-    Promise.allSettled([
-      json(`/connect/api/v2/reports/metrics?${params}`),
-      json(`/connect/api/v2/reports/import-metrics?${params}`),
-      json(`/connect/api/v2/reports/supertag/sites?client_id=${encodeURIComponent(data.client.client_id)}`),
-      json(`/connect/api/v2/reports/ingest-keys?client_id=${encodeURIComponent(data.client.client_id)}`),
-    ]).then(([media, imported, sites, sources]) => {
-      if (cancelled) return;
-      setMetrics(media.status === 'fulfilled' ? media.value : null);
-      setImportedMetrics(imported.status === 'fulfilled' ? imported.value : null);
-      setOverviewSites(sites.status === 'fulfilled' ? sites.value.sites || [] : null);
-      setOverviewSources(sources.status === 'fulfilled' ? sources.value.keys || [] : null);
-      setOverviewFailed(media.status === 'rejected' && imported.status === 'rejected');
-      setOverviewLoading(false);
-    });
-    return () => {cancelled = true;};
-  }, [data?.client?.client_id, data?.ready, pageSection, filters.platform, filters.account, filters.campaign, filters.period, filters.startDate, filters.endDate, refreshRevision]);
   const save = async (path, payload, reload = true, method = 'POST') => {
     setBusy(true); setError('');
     try {
       const result = await json(`/connect/api/v2/reports${path}`, {method, headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf}, body: JSON.stringify({...payload, client_id: data.client.client_id})});
-      if (reload) await load();
+      if (reload) await load(data.client.client_id);
       return result;
     } catch (failure) {if(!path.startsWith('/flow/'))setError(failure.message); throw failure;} finally {setBusy(false);}
   };
-  const selected = useMemo(() => {
-    if (!data) return null;
-    const accounts = data.accounts.filter(item => (!filters.platform || item.platform === filters.platform) && (!filters.account || String(item.id) === filters.account));
-    const ids = new Set(accounts.map(item => item.id));
-    return {...data, accounts, campaigns: data.campaigns.filter(item => ((!item.account_id&&!filters.account&&!filters.platform)||ids.has(item.account_id)) && (!filters.campaign || String(item.id) === filters.campaign))};
-  }, [data, filters]);
-  const reportIcons = {overview:'home',customers:'users',accounts:'table',campaigns:'plan',reports:'analysis',imports:'download',monitor:'pulse',supertag:'plugin',flow:'branch',pages:'browser',alerts:'alert',events:'calendar',links:'link',access:'folder'};
-  const navItems = ids => SECTIONS.filter(([id]) => ids.includes(id) && (id !== 'access' || data?.can_manage_access)).map(([id,title]) => ({id,label:title,icon:reportIcons[id],href:reportUrl(id==='flow'?'flows':id)}));
+  const groups = NAV_GROUPS.map(([label, items]) => ({label, items: items
+    .filter(([id]) => id !== 'access' || data?.can_manage_access)
+    .map(([id, title, path]) => ({id, label: title, icon: reportIcons[id], href: `${APP_BASE}/${path}`}))}));
   const solutionUrls={workspace:rootElement.dataset.workspaceUrl,planner:rootElement.dataset.plannerUrl,studio:rootElement.dataset.studioUrl,connect:location.pathname+location.search,skills:rootElement.dataset.skillsUrl};
   const solutionIcons={workspace:'/static/images/cadu/products/cadu-icon.png',planner:'/static/images/cadu/products/planner-icon.png',studio:'/static/images/cadu/products/studio-icon.png',connect:'/static/images/cadu/products/connect-icon.png',skills:'/static/images/cadu/products/skills-icon.png'};
-  const onRefresh = () => {setRefreshRevision(value => value + 1); load();};
-  const headerTitle = section === 'data-library' ? 'Biblioteca de dados' : undefined;
-  const headerDescription = section === 'data-library' ? 'Consulte os campos personalizados e os dados preservados dos arquivos.' : undefined;
+  const onRefresh = () => {setRefreshRevision(value => value + 1); load(data?.client?.client_id);};
+  const context = useMemo(() => ({period, setPeriod, switchClient}), [period, data?.client?.client_id]);
   if(data?.shared)return <SharedReports key={data.client.client_id} data={data}/>;
-  const showAccountsView = accountsView && pageSection === 'accounts' && data?.ready;
-  return <div data-cadu-skin="reports" className={`reports-shell reports-shell--${pageSection}${isFlowEditor?' reports-shell--flow-editor':''}${showAccountsView ? ' reports-shell--accounts-view' : ''}`}>
-    {!isFlowEditor && !showAccountsView && <SolutionSidebar solution="Reports" userName={rootElement.dataset.userName||'Minha conta'} accountLabel={rootElement.dataset.agencyName||'Agência'} userAvatar={rootElement.dataset.userAvatar||''} creditsUrl={rootElement.dataset.creditsUrl} profileUrl={rootElement.dataset.profileUrl} accent="#175cd3" storageKey="reports-sidebar" active={pageSection} activeSolutionId="connect" solutionLogo={solutionIcons.connect} solutionUrls={solutionUrls} solutionIcons={solutionIcons} groups={[{label:'',items:navItems(['overview'])},{label:'Operação de mídia',items:navItems(['customers','accounts','campaigns','reports','imports','monitor'])},{label:'Mensuração',items:navItems(['supertag','flow','pages','alerts','events','links'])},{label:'Administração',items:navItems(['access'])}]} />}
+  const showAccountsView = accountsView && data?.ready;
+  const hub = route.hub ? HUBS[route.hub] : null;
+  const library = pageSection === 'imports' && new URLSearchParams(location.search).get('view') === 'library';
+  const header = hub ? {title: hub.title, description: hub.description, tabs: hub.tabs}
+    : {title: library ? 'Biblioteca de dados' : route.title, description: library ? 'Campos personalizados e dados preservados dos arquivos importados.' : route.description};
+  const showFilterBar = data?.ready && !isFlowEditor && (pageSection === 'campaigns' && !route.entity && !new URLSearchParams(location.search).get('campaign_id')
+    || pageSection === 'events' || (pageSection === 'flow' && new URLSearchParams(location.search).get('flow_view') === 'monitor'));
+  const clientKey = data?.client?.client_id;
+  const page = !data ? <LoadingState rows={4} label="Carregando Reports…"/>
+    : !data.ready ? <Empty message="A base de Reports V1 ainda precisa da migração de dados." />
+    : {
+      overview: () => <Overview data={data}/>,
+      media: () => <MediaOverview data={data}/>,
+      campaigns: () => <Campaigns data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} />,
+      monitor: () => <Monitor data={data} save={save} busy={busy} />,
+      journey: () => <JourneyOverview data={data}/>,
+      flow: () => <Flow data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} />,
+      pages: () => <PageDetail data={data} />,
+      navigation: () => <Navigation/>,
+      conversions: () => <Conversions/>,
+      reports: () => <Reports data={data} save={save} busy={busy} />,
+      alerts: () => <AlertsCenter data={data} />,
+      'data-sources': () => <DataSources data={data}/>,
+      supertag: () => <SuperTag data={data} />,
+      events: () => <Events data={data} filters={filters} refreshRevision={refreshRevision} />,
+      imports: () => <Imports data={data} reloadBootstrap={() => load(data.client.client_id)} focusLibrary={library} />,
+      links: () => <Links data={data} save={save} busy={busy} />,
+      customers: () => <ReportsCustomers data={data} save={save} busy={busy}/>,
+      accounts: () => <Accounts data={data} save={save} busy={busy} />,
+      access: () => data.can_manage_access ? <Access data={data} save={save} busy={busy} /> : <Empty message="Seu acesso não permite administrar usuários do Reports neste cliente." />,
+    }[pageSection]();
+  return <ReportsContext.Provider value={context}><div data-cadu-skin="reports" className={`reports-shell reports-shell--${pageSection}${isFlowEditor?' reports-shell--flow-editor':''}${showAccountsView ? ' reports-shell--accounts-view' : ''}`}>
+    {!isFlowEditor && !showAccountsView && <SolutionSidebar solution="Reports" userName={rootElement.dataset.userName||'Minha conta'} accountLabel={rootElement.dataset.agencyName||'Agência'} userAvatar={rootElement.dataset.userAvatar||''} creditsUrl={rootElement.dataset.creditsUrl} profileUrl={rootElement.dataset.profileUrl} accent="#175cd3" storageKey="reports-sidebar" active={route.nav} activeSolutionId="connect" solutionLogo={solutionIcons.connect} solutionUrls={solutionUrls} solutionIcons={solutionIcons} groups={groups} onNavigate={navigateOnClick} />}
     <main className="reports-main">
       {showAccountsView ? (
-        <AccountsManagementView data={data} selectedCustomer={selectedCustomer} setSelectedCustomer={setSelectedCustomer} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} selectedCampaign={selectedCampaign} setSelectedCampaign={setSelectedCampaign} save={save} busy={busy} onExit={() => setAccountsView(false)} />
+        <AccountsManagementView data={data} selectedCustomer={selectedCustomer} setSelectedCustomer={setSelectedCustomer} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} selectedCampaign={selectedCampaign} setSelectedCampaign={setSelectedCampaign} save={save} busy={busy} onExit={() => navigate(`${APP_BASE}/settings/accounts`)} />
       ) : (
         <>
-          {data && !isFlowEditor && <ReportsPageHeader page={pageSection} clients={data.clients} client={data.client}
-            titleOverride={headerTitle} descriptionOverride={headerDescription}
-            onAction={pageSection === 'overview' ? {label: 'Biblioteca de dados', onClick: () => {location.assign(reportUrl('data-library'));}} : undefined} />}
-          {data?.ready && !isFlowEditor && (['campaigns', 'events'].includes(pageSection) || (pageSection === 'flow' && new URLSearchParams(location.search).get('flow_view') === 'monitor')) && <ReportsFilterBar
-            data={data} filters={filters} onChange={updateFilters} onRefresh={onRefresh} />}
-          <div className="reports-content">{error && <div className="reports-error" role="alert">{error}</div>}{!data ? <div className="reports-loading" role="status">Carregando Reports…</div> : !data.ready ? <Empty message="A base de Reports V1 ainda precisa da migração de dados." /> : pageSection === 'pages' ? <PageDetail data={data} /> : pageSection === 'alerts' ? <AlertsCenter data={data} /> : pageSection === 'customers' ? <ReportsCustomers data={data} save={save} busy={busy}/> : pageSection === 'accounts' ? <Accounts data={data} save={save} busy={busy} /> : pageSection === 'campaigns' ? <Campaigns data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} /> : pageSection === 'reports' ? <Reports data={data} save={save} busy={busy} /> : pageSection === 'supertag' ? <SuperTag data={data} /> : pageSection === 'links' ? <Links data={data} save={save} busy={busy} /> : pageSection === 'imports' ? <Imports data={data} reloadBootstrap={load} focusLibrary={section === 'data-library'} /> : pageSection === 'monitor' ? <Monitor data={data} save={save} busy={busy} /> : pageSection === 'flow' ? <Flow data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} /> : pageSection === 'events' ? <Events key={section} data={data} filters={filters} initialKind={section === 'conversions' ? 'conversion' : 'all'} refreshRevision={refreshRevision} /> : pageSection === 'access' ? data.can_manage_access ? <Access data={data} save={save} busy={busy} /> : <Empty message="Seu acesso não permite administrar usuários do Reports neste cliente." /> : <Overview data={selected} setupData={data} metrics={metrics} imported={importedMetrics} sites={overviewSites} sources={overviewSources} loading={overviewLoading} loadFailed={overviewFailed} filters={filters} onFiltersChange={updateFilters} onRefresh={onRefresh} />}</div>
+          {data && !isFlowEditor && <PageHeader {...header} activeTab={route.path}
+            context={<ContextSelector clients={data.clients} client={data.client} showPeriod={Boolean(route.period) && !(pageSection === 'pages' && new URLSearchParams(location.search).get('site_id'))}/>}/>}
+          {showFilterBar && <ReportsFilterBar data={data} filters={filters} onChange={updateFilters} onRefresh={onRefresh} />}
+          <div className="reports-content">{error && <div className="reports-error" role="alert">{error}</div>}<React.Fragment key={`${clientKey}:${route.path}`}>{page}</React.Fragment></div>
         </>
       )}
     </main>
-  </div>;
+  </div></ReportsContext.Provider>;
 }
 
 class ReportsErrorBoundary extends React.Component {

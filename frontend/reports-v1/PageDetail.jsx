@@ -2,7 +2,8 @@ import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {Empty, integer, json, reportUrl} from './reportsCommon.jsx';
 import {ReportsNativeSelect} from './ReportsNativeSelect.jsx';
 import {sankeyLayout} from './sankeyLayout.js';
-import {DomainsOverview} from './DomainsOverview.jsx';
+import {PagesList} from './hubs/journey/PagesList.jsx';
+import {periodDays, useReportsContext} from './shell/context.js';
 import './page-detail.css';
 
 const PERIODS = [7, 14, 30, 60, 90];
@@ -355,7 +356,10 @@ export function PageDetail({data}) {
   const query = new URLSearchParams(location.search);
   const siteId = query.get('site_id') || '';
   const path = query.get('path') || '';
-  const [days, setDays] = useState(() => PERIODS.includes(Number(query.get('days'))) ? Number(query.get('days')) : 30);
+  const {period} = useReportsContext();
+  // The page view keeps rolling windows; it opens on the one closest to the period chosen in the header.
+  const [days, setDays] = useState(() => PERIODS.includes(Number(query.get('days'))) ? Number(query.get('days'))
+    : PERIODS.reduce((best, item) => Math.abs(item - periodDays(period)) < Math.abs(best - periodDays(period)) ? item : best, 30));
   const [state, setState] = useState({loading: true, error: '', body: null});
   const client = data.client.client_id;
   useEffect(() => {
@@ -376,7 +380,7 @@ export function PageDetail({data}) {
   const body = state.body;
   const sources = useMemo(() => (body?.sources || []).map(item => ({key: item.platform, label: item.label, sessions: item.sessions, converted: item.converted_sessions})), [body]);
   const devices = useMemo(() => (body?.devices || []).map(item => ({key: item.device, label: item.label, sessions: item.sessions, converted: item.converted_sessions})), [body]);
-  if (!siteId || !path) return <DomainsOverview data={data}/>;
+  if (!siteId || !path) return <PagesList/>;
   if (state.loading) return <div className="reports-loading" role="status">Carregando página…</div>;
   if (state.error) return <div className="reports-error" role="alert">{state.error} <a className="reports-inline-link" href={reportUrl('pages')}>Escolher outra página</a></div>;
   const m = body.metrics;

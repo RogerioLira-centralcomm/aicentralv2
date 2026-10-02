@@ -32,9 +32,12 @@ test('global filters only show on flows while following results, not on the list
   assert.doesNotMatch(main, /\['campaigns', 'flow', 'events'\]\.includes\(pageSection\)/);
 });
 
-test('sidebar groups do not repeat a single item as its own label and icons are distinct', () => {
-  assert.match(main, /\{label:'',items:navItems\(\['overview'\]\)\}/);
-  assert.match(main, /customers:'users',accounts:'table'/);
+test('sidebar groups product areas, not every screen, and icons are distinct', () => {
+  assert.match(main, /\['', \[\['overview', 'Visão geral', 'overview'\]\]\]/);
+  assert.match(main, /\['Análise', \[\['media', 'Mídia', 'media'\], \['journey', 'Site & Jornada', 'journey'\]/);
+  assert.match(main, /customers:'users', accounts:'table'/);
+  const icons = main.match(/const reportIcons = (\{[^}]+\})/)[1].match(/:'([a-z]+)'/g);
+  assert.equal(new Set(icons).size, icons.length);
 });
 
 test('page header has one canonical definition and the brand row is compact', () => {
@@ -109,7 +112,9 @@ test('site discovery runs one bounded batch per click and the explorer never lis
 
 test('editor feedback messages are shown and dead editor code is gone', () => {
   assert.match(main, /<FlowToast message=\{flowLayoutNote\}/);
-  for (const dead of ['associatePageCampaign', 'verifyInstall', 'visibleSitePages', 'scannedPageCount', 'discoveryLoadedId']) {
+  for (const dead of ['associatePageCampaign', 'visibleSitePages', 'scannedPageCount', 'discoveryLoadedId']) {
     assert.doesNotMatch(main, new RegExp(dead), dead);
   }
+  // The Super Tag page has its own verifyInstall (install check); only the old editor helper is dead.
+  assert.doesNotMatch(read('frontend/reports-v1/FlowsPage.jsx'), /verifyInstall/);
 });

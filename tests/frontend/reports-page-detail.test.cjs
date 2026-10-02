@@ -88,6 +88,8 @@ async function main() {
       grid: {size: 10, peak: 40, total: 60, cells: Array.from({length: 10}, (_, y) => Array.from({length: 10}, (_, x) => x === 4 && y === 2 ? 40 : 0))},
       document: {columns: 10, rows: 20, peak: 30, total: 30, coverage: 50, median_height: 5400, cells: Array.from({length: 20}, (_, y) => Array.from({length: 10}, (_, x) => x === 3 && y === 7 ? 30 : 0))},
       notes: ['Nota 1.', 'Nota 2.', 'Nota 3.']}});
+    if (name === '/journey/navigation') return route.fulfill({json: {totals: {sessions: 100, views: 140, single_page_sessions: 20}, paths: [], origins: [],
+      pages: [{site_id: siteId, host: 'exemplo.com.br', path: '/lp/verao', views: 140, visitors: 90, entries: 80, exits: 50, single_page: 20, conversions: 4, avg_active_seconds: 42, exit_rate: 35.7}]}});
     if (name === '/supertag/sites') return route.fulfill({json: {sites: [{id: siteId, label: 'Site principal', allowed_host: 'exemplo.com.br'}]}});
     if (name === `/supertag/sites/${siteId}/events`) return route.fulfill({json: {pages: [{page_path: '/lp/verao', views: 140, conversions: 4}]}});
     return route.fulfill({json: {}});
@@ -152,10 +154,14 @@ async function main() {
   await page.waitForTimeout(300);
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'sem rolagem horizontal no celular');
 
+  // The old address lands on Site & Jornada → Páginas, a table of every page that opens the page view.
   await page.goto(`${base}/connect/app/pages`);
-  await page.getByText('Escolha uma página').waitFor();
+  await page.getByRole('heading', {name: 'Páginas'}).waitFor();
+  assert.match(page.url(), /\/connect\/app\/journey\/pages/, 'endereço antigo redireciona');
   await page.getByRole('link', {name: '/lp/verao'}).waitFor();
-  assert.ok((await page.getByRole('link', {name: '/lp/verao'}).getAttribute('href')).includes('site_id=' + siteId), 'o seletor liga à página escolhida');
+  const href = await page.getByRole('link', {name: '/lp/verao'}).getAttribute('href');
+  assert.ok(href.includes('site_id=' + siteId) && href.startsWith('/connect/app/journey/pages'), 'a lista liga à página escolhida');
+  assert.equal(await page.locator('h1').count(), 1, 'um único título na página');
   assert.deepEqual(errors, [], 'sem erros de JavaScript');
   await browser.close();
   server.close();

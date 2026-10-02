@@ -108,8 +108,12 @@ function DomainCard({domain, range}) {
 }
 
 /** Overview of Páginas: one block per monitored domain, built the way an analytics home reads. */
-export function DomainsOverview({data}) {
-  const [range, setRange] = useState(initialRange);
+export function DomainsOverview({data, range: controlledRange, onRangeChange}) {
+  // Inside Site & Jornada the period comes from the header; standalone, the block keeps its own picker.
+  const [ownRange, setOwnRange] = useState(initialRange);
+  const controlled = Boolean(controlledRange);
+  const range = controlledRange || ownRange;
+  const setRange = onRangeChange || setOwnRange;
   const [state, setState] = useState({loading: true, error: '', body: null});
   const client = data.client.client_id;
   useEffect(() => {
@@ -118,18 +122,20 @@ export function DomainsOverview({data}) {
     json(`/connect/api/v2/reports/pages/domains?${new URLSearchParams({client_id: client, start_date: range.start, end_date: range.end})}`)
       .then(body => {if (active) setState({loading: false, error: '', body});})
       .catch(failure => {if (active) setState({loading: false, error: failure.message, body: null});});
-    const url = new URL(location.href);
-    url.searchParams.delete('days'); url.searchParams.set('start_date', range.start); url.searchParams.set('end_date', range.end);
-    history.replaceState(null, '', `${url.pathname}${url.search}`);
+    if (!controlled) {
+      const url = new URL(location.href);
+      url.searchParams.delete('days'); url.searchParams.set('start_date', range.start); url.searchParams.set('end_date', range.end);
+      history.replaceState(null, '', `${url.pathname}${url.search}`);
+    }
     return () => {active = false;};
-  }, [client, range.start, range.end]);
+  }, [client, range.start, range.end, controlled]);
   const domains = state.body?.domains || [];
   return <div className="do-page">
     <div className="do-toolbar">
       <div><h2>Resumo por domínio</h2><p>{domains.length ? `${domains.length} ${domains.length === 1 ? 'domínio monitorado' : 'domínios monitorados'} · ${formatRange(range.start, range.end)}` : 'Visitas, origem e páginas de cada site com a Super Tag.'}</p></div>
       <div className="do-toolbar__side">
         {domains.length > 1 && <nav className="do-jump" aria-label="Ir para o domínio">{domains.map(domain => <a key={domain.site_id} href={`#dominio-${domain.site_id}`}>{domain.host}</a>)}</nav>}
-        <ReportsDateRange value={range} onChange={setRange}/>
+        {!controlled && <ReportsDateRange value={range} onChange={setRange}/>}
       </div>
     </div>
     {state.error && <div className="reports-error" role="alert">{state.error}</div>}

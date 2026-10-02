@@ -1,16 +1,18 @@
 import React from 'react';
 import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.jsx';
+import {sectionPath} from './shell/routes.js';
 
 // Helpers shared by the Reports entry (main.jsx) and its pages.
 export const flowEditorId = () => location.pathname.match(/^\/connect\/app\/flows\/([0-9a-f-]{36})(?:\/monitor)?\/?$/i)?.[1] || '';
 export const reportUrl = (section, params = {}, siteId = '') => {
-  const url = new URL(`/connect/app/${section}${siteId ? `/sites/${encodeURIComponent(siteId)}` : ''}`, location.origin);
+  // Old section names ('campaigns', 'pages', 'flow'…) resolve to their place in the new navigation.
+  const url = new URL(`/connect/app/${sectionPath(section === 'flow' ? 'flows' : section)}${siteId ? `/sites/${encodeURIComponent(siteId)}` : ''}`, location.origin);
   // The signed-in session already knows the active client; keeping it out of the address bar keeps links short and shareable.
   Object.entries(params).forEach(([key, value]) => {if (key !== 'client_id' && value != null && value !== '') url.searchParams.set(key, String(value));});
   return `${url.pathname}${url.search}`;
 };
 export const flowEditorUrl = id => reportUrl(`flows/${encodeURIComponent(id)}`);
-/** The bootstrap call persists the chosen client in the session; after that the parameter is only noise in the URL. */
+/** The page route and the bootstrap call persist the chosen client in the session; after that the parameter is only noise in the URL. */
 export const dropClientFromUrl = () => {
   const url = new URL(location.href);
   if (!url.searchParams.has('client_id')) return;

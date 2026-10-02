@@ -11,7 +11,7 @@ function CreditsLink({percent, href}) {
   return <a className="cadu-solution-sidebar__usage" href={href} aria-label={`Créditos e consumo: utilização de ${formatted}%`} title="Créditos e consumo"><span>{formatted}%</span><i aria-hidden="true"><b style={{width:`${value}%`}}/></i></a>;
 }
 
-export function SolutionSidebar({solution, icon, accent, groups = [], active, storageKey, footer, solutionUrls = {}, solutionIcons = {}, solutionLogo, activeSolutionId, userName = 'Minha conta', accountLabel, userAvatar = '', creditsUrl, profileUrl}) {
+export function SolutionSidebar({solution, icon, accent, groups = [], active, storageKey, footer, solutionUrls = {}, solutionIcons = {}, solutionLogo, activeSolutionId, userName = 'Minha conta', accountLabel, userAvatar = '', creditsUrl, profileUrl, onNavigate}) {
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(storageKey) === 'collapsed'; } catch (_) { return false; }
   });
@@ -42,7 +42,7 @@ export function SolutionSidebar({solution, icon, accent, groups = [], active, st
     <nav className="cadu-solution-sidebar__nav" aria-label={`Seções do ${solution}`}>
       {groups.map(group => <section className="cadu-solution-sidebar__group" key={group.label}>
         {group.label && <span className="cadu-solution-sidebar__group-label">{group.label}</span>}
-        {group.items.map(item => <a key={item.id} href={item.href} className={active === item.id ? 'is-active' : ''} aria-current={active === item.id ? 'page' : undefined} title={collapsed ? item.label : undefined} onClick={() => setMobileOpen(false)}><Icon name={item.icon || 'file'} size={17}/><span>{item.label}</span></a>)}
+        {group.items.map(item => <a key={item.id} href={item.href} className={active === item.id ? 'is-active' : ''} aria-current={active === item.id ? 'page' : undefined} title={collapsed ? item.label : undefined} onClick={event => {setMobileOpen(false); onNavigate?.(event, item.href);}}><Icon name={item.icon || 'file'} size={17}/><span>{item.label}</span></a>)}
       </section>)}
     </nav>
     <footer className="cadu-solution-sidebar__footer">

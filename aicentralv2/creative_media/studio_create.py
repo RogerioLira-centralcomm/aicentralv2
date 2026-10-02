@@ -733,18 +733,43 @@ def create_image(payload, modeling, client_id, user_id):
         if not image:
             raise ValueError("O gerador não devolveu uma imagem.")
         fmt = result.get("output_format") or "png"
-        try:
-            if mask and primary:
+        if mask and primary:
+            try:
                 image, fmt = compose_inside_mask(image, primary["data"], mask), "png"
-            elif width and height:
-                # A composition mask is drawn on the provider canvas with the final frame marked, so trim exactly to it.
-                image = fit_generated_output(image, width, height, fmt, max_trim=0.5 if mask_specs(raw_references) else None)
+            except Exception as error:
+                setattr(error, "studio_phase", "image_storage")
+                raise
+        return result, image, fmt
+
+    def fit_to(raw, fmt, target_w, target_h):
+        """One generation serves every delivery size (1x and 2x)."""
+        if mask or not (target_w and target_h):
+            return raw
+        try:
+            # A composition mask is drawn on the provider canvas with the final frame marked, so trim exactly to it.
+            return fit_generated_output(raw, target_w, target_h, fmt, max_trim=0.5 if mask_specs(raw_references) else None)
         except Exception as error:
             setattr(error, "studio_phase", "image_storage")
             raise
-        return result, image, fmt
 
-    provider, encoded, output_format = render(technical_prompt)
+    def finish(fitted, fmt):
+        """Logo and code-set typography on top of a fitted image; returns (piece, base, layers)."""
+        piece, piece_layers = fitted, None
+        if brand_logo and not mask:
+            piece = apply_brand_logo(piece, fmt, brand_logo, logo_corner, rect=next((spec["zones"]["logo"] for spec in mask_specs(raw_references) if "logo" in spec["zones"]), None))
+        base = piece
+        if composed:
+            from . import banner_compose
+            palette = clean_palette(data.get("requested_palette")) or list((data.get("brand_context") or {}).get("palette") or [])
+            image, piece_layers = banner_compose.render_text_layers(
+                banner_compose.decode(piece), mask_specs(raw_references)[0], copy_headline, copy_cta,
+                data.get("brand_context") or {}, palette,
+            )
+            piece = banner_compose.encode(image, "png")
+        return piece, base, piece_layers
+
+    provider, raw, output_format = render(technical_prompt)
+    encoded = fit_to(raw, output_format, width, height)
     if sizing and not mask and MARGIN_QA_ENABLED:
         # Elements the model drew outside the safe frame get one corrected attempt (charged once).
         safe = safe_frame(raw_references, int(width), int(height))
@@ -752,24 +777,23 @@ def create_image(payload, modeling, client_id, user_id):
         logger.info("Studio margin check request=%s edges=%s", request_id, ",".join(edges) or "none")
         if edges:
             logger.info("Studio margin check failed edges=%s; regenerating once", ",".join(edges))
-            provider, encoded, output_format = render(technical_prompt + "\n" + margin_correction(edges, safe))
-    layers = None
+            provider, raw, output_format = render(technical_prompt + "\n" + margin_correction(edges, safe))
+            encoded = fit_to(raw, output_format, width, height)
+    image_url_2x, file_kb, file_kb_2x = None, None, None
     try:
-        if brand_logo and not mask:
-            encoded = apply_brand_logo(encoded, output_format, brand_logo, logo_corner, rect=next((spec["zones"]["logo"] for spec in mask_specs(raw_references) if "logo" in spec["zones"]), None))
-        base_encoded = encoded
-        if composed:
-            from . import banner_compose
-            palette = clean_palette(data.get("requested_palette")) or list((data.get("brand_context") or {}).get("palette") or [])
-            image, layers = banner_compose.render_text_layers(
-                banner_compose.decode(encoded), mask_specs(raw_references)[0], copy_headline, copy_cta,
-                data.get("brand_context") or {}, palette,
-            )
-            encoded, output_format = banner_compose.encode(image, "png"), "png"
-        image_url = modeling.storage.save_generated_base64(
-            encoded, output_format
-        )
+        from .export import save_sibling, smallest_encoding
+        budget = sizing["weight_budget_kb"] if sizing else None
+        piece, base_encoded, layers = finish(encoded, output_format)
+        # Masked edits stay lossless PNG: the same file is edited again and again.
+        piece, delivered_format, file_kb = (piece, output_format, None) if mask else smallest_encoding(piece, budget)
+        image_url = modeling.storage.save_generated_base64(piece, delivered_format)
+        if sizing and sizing.get("delivery_2x") and not mask:
+            # Display units ship a 2x for high-density screens, cut from the same generation.
+            piece_2x, _, _ = finish(fit_to(raw, output_format, *sizing["delivery_2x"]), output_format)
+            piece_2x, format_2x, file_kb_2x = smallest_encoding(piece_2x, budget)
+            image_url_2x = save_sibling(image_url, "@2x", piece_2x, format_2x)
         if layers is not None:
+            from . import banner_compose
             banner_compose.save_layers(image_url, base_encoded, layers, mask_specs(raw_references)[0])
     except Exception as error:
         setattr(error, "studio_phase", "image_storage")
@@ -810,6 +834,9 @@ def create_image(payload, modeling, client_id, user_id):
         "remaining_credits": remaining,
         "masked": bool(mask),
         **({"layers": layers, "composed": True} if layers is not None else {}),
+        **({"image_url_2x": image_url_2x} if image_url_2x else {}),
+        "file_kb": file_kb,
+        **({"file_kb_2x": file_kb_2x} if file_kb_2x else {}),
     }
 
 

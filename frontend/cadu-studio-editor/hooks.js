@@ -40,3 +40,21 @@ export function useAssetBytes(url) {
   }, [url]);
   return bytes;
 }
+
+const sizeCache = new Map();
+
+// Natural pixel size of an image URL (null while loading or when it cannot be read).
+export function useImageDimensions(url) {
+  const [size, setSize] = useState(() => (url ? sizeCache.get(url) ?? null : null));
+  useEffect(() => {
+    if (!url) { setSize(null); return undefined; }
+    if (sizeCache.has(url)) { setSize(sizeCache.get(url)); return undefined; }
+    let active = true;
+    const image = new Image();
+    image.onload = () => { const value = {width: image.naturalWidth, height: image.naturalHeight}; sizeCache.set(url, value); if (active) setSize(value); };
+    image.onerror = () => { sizeCache.set(url, null); if (active) setSize(null); };
+    image.src = url;
+    return () => { active = false; };
+  }, [url]);
+  return size;
+}

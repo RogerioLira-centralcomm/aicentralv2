@@ -655,7 +655,9 @@ def create_image(payload, modeling, client_id, user_id):
     if logo_corner:
         prompt = strip_logo_clauses(prompt)
     requested_palette = clean_palette(data.get("requested_palette"))
-    provider_size = provider_canvas(aspect_ratio)
+    from .size_plan import plan as size_plan
+    sizing = size_plan(width, height, provider_quality) if width and height else None
+    provider_size = sizing["generation"] if sizing else provider_canvas(aspect_ratio)
     layout_lines = composition_layout_lines(references, mask, provider_size)
     product_visibility_line = (
         "PRODUCT VISIBILITY CHECK: If the briefing requests a product, make it a deliberate, recognizable foreground subject with enough scale and light to be clearly visible. Do not hide it behind hands, bodies, crops or depth-of-field blur. If bottles or packages are requested, show the requested quantity visibly and keep their labels facing the camera when the briefing asks for labels."
@@ -671,7 +673,7 @@ def create_image(payload, modeling, client_id, user_id):
     )
     technical_prompt = "\n".join(line for line in [
         *layout_lines,
-        crop_safe_zone_line(aspect_ratio, width, height),
+        crop_safe_zone_line(aspect_ratio, width, height, provider_size),
         reserved_band_line(),
         "MANDATORY BRIEFING FIDELITY: Preserve every concrete requirement in the user briefing, especially named products, packaging, people, setting, action, copy and requested format. A composition reference is only a layout guide; it must never replace the requested subject or product.",
         "VISIBLE TEXT LIMIT: render only the literal copy written in the briefing (for example the headline and the button) plus the official logo. Do not add subheadlines, bullet lists, icon captions, statistics, percentages, labelled charts, badges, dates or small print that the user did not write. Keep the layout clean with one clear focal point.",
@@ -706,6 +708,7 @@ def create_image(payload, modeling, client_id, user_id):
             resolution=provider_resolution,
             model=IMAGE_MODEL,
             max_input_references=MAX_IMAGE_REFERENCES,
+            size=f"{provider_size[0]}x{provider_size[1]}" if sizing else None,
         )
     except Exception as error:
         setattr(error, "studio_phase", "image_provider")
@@ -1254,7 +1257,7 @@ def references_with_provider_masks(references, provider_size):
     return result
 
 
-def crop_safe_zone_line(aspect_ratio, width, height):
+def crop_safe_zone_line(aspect_ratio, width, height, provider_size=None):
     """Tell the model which bands are trimmed when the provider ratio differs from the delivery size."""
     from ..creative_modeling_generation import normalize_image_aspect_ratio
     if not (width and height):
@@ -1263,7 +1266,7 @@ def crop_safe_zone_line(aspect_ratio, width, height):
     # Pixel sizes the OpenAI image route actually returns for each ratio.
     provider_pixels = {"1:1": (1, 1), "4:3": (3, 2), "16:9": (3, 2), "3:4": (2, 3), "9:16": (2, 3)}
     try:
-        ratio_width, ratio_height = provider_pixels.get(provider_ratio) or (float(part) for part in provider_ratio.split(":", 1))
+        ratio_width, ratio_height = provider_size or provider_pixels.get(provider_ratio) or (float(part) for part in provider_ratio.split(":", 1))
         generated, target = ratio_width / ratio_height, width / height
     except (TypeError, ValueError, ZeroDivisionError):
         return "SAFE MARGIN: keep all text, logos, CTA and key subjects at least 8% away from every edge; only background may reach the edge."

@@ -477,6 +477,7 @@ class CreativeGenerationClient:
         background="opaque",
         model=None,
         max_input_references=2,
+        size=None,
     ):
         raw_references = list(input_references or [])
         try:
@@ -499,6 +500,7 @@ class CreativeGenerationClient:
             input_references=raw_references,
             max_input_references=reference_limit,
             http_client=self.http,
+            size=size,
         )
         result.setdefault("actual_cost_usd", _usage_cost(result.get("usage")))
         metadata = result.get("response_metadata")
@@ -510,6 +512,7 @@ class CreativeGenerationClient:
             "provider_aspect_ratio": provider_aspect_ratio,
             "quality": quality,
             "resolution": resolution,
+            "requested_size": size or "",
             "route": result.get("provider_route") or "unknown",
         })
         return result

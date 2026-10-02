@@ -3,6 +3,8 @@ import os
 import json
 import base64
 import logging
+import re
+import time
 import requests
 from urllib.parse import urljoin
 from typing import Dict, Any, List, Optional
@@ -676,7 +678,35 @@ _OPENAI_IMAGE_SIZES = {
 }
 
 
-def _openai_generate_image(payload, *, image_model, output_format, timeout, http_client=requests):
+_SIZE_PATTERN = re.compile(r"^\d{2,4}x\d{2,4}$")
+OPENAI_RATE_RETRIES = 2
+
+
+def _openai_size(payload, size=None):
+    """Exact size when the caller planned one (gpt-image-2 accepts free sizes), else the ratio table."""
+    if size and _SIZE_PATTERN.match(str(size)):
+        return str(size)
+    return _OPENAI_IMAGE_SIZES.get(str(payload.get("aspect_ratio") or "16:9"), "1536x1024")
+
+
+def _post_with_rate_retry(http_client, url, **kwargs):
+    """The organization has a per-minute image quota: wait and retry on 429 before giving up."""
+    response = None
+    for attempt in range(OPENAI_RATE_RETRIES + 1):
+        response = http_client.post(url, **kwargs)
+        if getattr(response, "status_code", 200) != 429 or attempt == OPENAI_RATE_RETRIES:
+            return response
+        try:
+            delay = float(response.headers.get("retry-after") or 0)
+        except (TypeError, ValueError, AttributeError):
+            delay = 0
+        delay = min(20.0, delay or 12.0 * (attempt + 1))
+        logger.info("OpenAI image quota reached; retrying in %.0fs", delay)
+        time.sleep(delay)
+    return response
+
+
+def _openai_generate_image(payload, *, image_model, output_format, timeout, http_client=requests, size=None):
     key = resolve_openai_api_key()
     if not key:
         raise OpenRouterError("OpenAI não está configurada.")
@@ -684,12 +714,13 @@ def _openai_generate_image(payload, *, image_model, output_format, timeout, http
     body = {
         "model": openai_model_slug(image_model) or "gpt-image-2",
         "prompt": payload.get("prompt") or "",
-        "size": _OPENAI_IMAGE_SIZES.get(ratio, "1536x1024"),
+        "size": _openai_size(payload, size),
         "quality": payload.get("quality") or "high",
         "output_compression": 100,
     }
     try:
-        response = http_client.post(
+        response = _post_with_rate_retry(
+            http_client,
             OPENAI_IMAGE_URL,
             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
             json=body,
@@ -723,7 +754,7 @@ def _openai_generate_image(payload, *, image_model, output_format, timeout, http
 
 def _openai_edit_image(
     payload, *, image_model, output_format, timeout, input_references,
-    http_client=requests,
+    http_client=requests, size=None,
 ):
     key = resolve_openai_api_key()
     if not key:
@@ -740,18 +771,19 @@ def _openai_edit_image(
     if not files:
         return _openai_generate_image(
             payload, image_model=image_model, output_format=output_format,
-            timeout=timeout, http_client=http_client,
+            timeout=timeout, http_client=http_client, size=size,
         )
     ratio = str(payload.get("aspect_ratio") or "16:9")
     body = {
         "model": openai_model_slug(image_model) or "gpt-image-2",
         "prompt": payload.get("prompt") or "",
-        "size": _OPENAI_IMAGE_SIZES.get(ratio, "1536x1024"),
+        "size": _openai_size(payload, size),
         "quality": payload.get("quality") or "high",
         "output_compression": 100,
     }
     try:
-        response = http_client.post(
+        response = _post_with_rate_retry(
+            http_client,
             OPENAI_IMAGE_EDIT_URL,
             headers={"Authorization": f"Bearer {key}"},
             data=body,
@@ -929,8 +961,12 @@ def generate_image(
     input_references=None,
     max_input_references: int = 2,
     http_client=None,
+    size: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Gera imagem com OpenAI direta e OpenRouter como rotas redundantes."""
+    """Gera imagem com OpenAI direta e OpenRouter como rotas redundantes.
+
+    ``size`` ("WxH") pede um tamanho exato à OpenAI; a rota OpenRouter continua pelo ``aspect_ratio``.
+    """
     client = http_client or requests
     payload = build_image_payload(
         prompt,
@@ -955,11 +991,12 @@ def generate_image(
                     timeout=timeout,
                     input_references=payload.get("input_references"),
                     http_client=client,
+                    size=size,
                 )
             else:
                 result = _openai_generate_image(
                     payload, image_model=image_model, output_format=output_format,
-                    timeout=timeout, http_client=client,
+                    timeout=timeout, http_client=client, size=size,
                 )
             result["provider_route"] = "openai"
             return result

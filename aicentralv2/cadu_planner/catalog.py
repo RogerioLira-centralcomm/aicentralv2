@@ -342,10 +342,10 @@ def format_profile(kind, value):
                                    FROM cadu_canais
                                   WHERE is_active = TRUE AND slug = ANY(%s)
                                ORDER BY ordem NULLS LAST, nome LIMIT 12''',
-                              ([slug, slug.replace('_', '-')],)) if slug else []
+                              (list({slug, slug.replace('_', '-'), *repository.FORMAT_PLATFORM_CHANNELS.get(slug, [])}),)) if slug else []
     for channel in record['channels']:
         channel['logo_path'] = _channel_logo(channel.get('slug'), channel.get('logo_path'))
-    record['platform_logo'] = repository._platform_logo(slug, '')
+    record['platform_logo'] = repository.platform_logo_by_slug(slug, '')
     return record
 
 

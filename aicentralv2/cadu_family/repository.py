@@ -990,7 +990,15 @@ FORMAT_PLATFORM_LOGOS = {
 }
 
 
-def _platform_logo(slug, stored):
+# Format platform slug -> slugs of the cadu_canais rows where those formats run.
+FORMAT_PLATFORM_CHANNELS = {
+    'cnn': ['cnn-brasil'], 'g1': ['g1-globo'], 'linkedin_ads': ['linkedin'], 'meta_ads': ['instagram'],
+    'spotify_ads': ['spotify'], 'tiktok_ads': ['tiktok'], 'google_ads': ['youtube'],
+    'programatica_iab': ['google-dv360', 'amazon-ads'],
+}
+
+
+def platform_logo_by_slug(slug, stored):
     from ..crm_v3_canais import _resolver_logo
     if slug == 'meta_ads':
         return '/static/images/creative-viewers/facebook.svg'
@@ -1033,7 +1041,7 @@ def _decorate_format(record):
     """Expose one safe creative link and its editorial segment when present."""
     family, order = FORMAT_FAMILIES.get(str(record.get('format_type') or '').lower(), FORMAT_FAMILY_OTHER)
     record['family'], record['family_order'] = family, order
-    record['platform_logo'] = _platform_logo(str(record.get('platform_slug') or ''), record.get('platform_logo'))
+    record['platform_logo'] = platform_logo_by_slug(str(record.get('platform_slug') or ''), record.get('platform_logo'))
     extras = record.pop('extras', None) or {}
     if isinstance(extras, str):
         try:

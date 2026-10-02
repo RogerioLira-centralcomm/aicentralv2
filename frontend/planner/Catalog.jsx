@@ -61,16 +61,8 @@ function cardChips(kind, item, eyebrow) {
 }
 
 const VISUAL_KINDS = new Set(['audiencias', 'places']);
-// Platform logos served by the Planner itself (the legacy /assets_images path is not).
-const PLATFORM_LOGOS = {
-  google_ads: '/static/images/canais/google-ads.png', tiktok_ads: '/static/images/canais/tiktok.png',
-  dv360: '/static/images/canais/google-dv360.svg', the_trade_desk: '/static/images/canais/the-trade-desk.png',
-  interativos: '/static/images/canais/interativos.svg', kwai_ads: '/static/images/canais/kwai.svg',
-};
-
+/** The API resolves the logo that exists in the app; anything else falls back to an icon. */
 export function platformLogo(item) {
-  const slug = String(item.platform_slug || item.plataforma_slug || '').replace(/-/g, '_');
-  if (PLATFORM_LOGOS[slug]) return PLATFORM_LOGOS[slug];
   const logo = item.platform_logo || '';
   return logo.startsWith('/static/') || /^https?:/.test(logo) ? logo : '';
 }

@@ -56,3 +56,17 @@ def test_platform_logos_resolve_to_files_that_exist():
         logo = repository.platform_logo_by_name(name)
         assert logo and (static / logo.lstrip('/')).is_file(), name
     assert repository.platform_logo_by_name('Plataforma desconhecida') == ''
+
+
+def test_format_platforms_link_to_channels_with_logos():
+    from pathlib import Path
+    from aicentralv2.crm_v3_canais import _resolver_logo
+    static = Path(repository.__file__).resolve().parents[1]
+    for platform, slugs in repository.FORMAT_PLATFORM_CHANNELS.items():
+        assert slugs, platform
+        for slug in slugs:
+            logo = _resolver_logo(slug, '')
+            assert logo and (static / logo.lstrip('/')).is_file(), (platform, slug)
+    for platform in repository.FORMAT_PLATFORM_LOGOS:
+        logo = repository.platform_logo_by_slug(platform, '')
+        assert logo and (static / logo.lstrip('/')).is_file(), platform

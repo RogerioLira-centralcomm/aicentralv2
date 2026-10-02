@@ -890,3 +890,9 @@ a.planner-portal { padding: var(--sp-3) var(--sp-4); gap: var(--sp-4); }
 .pd-rail__item > .logo-tile { grid-row: 1 / 3; }
 .planner-card__identity .logo-tile--xs { width: 24px; height: 24px; }
 @media (max-width: 720px) { .logo-tile--lg, .ph__leading .logo-tile--lg { width: 40px; height: 40px; } }
+
+/* Title first: the plan chip and actions wrap below instead of squeezing the title. */
+.ph { flex-wrap: wrap; row-gap: var(--sp-2); }
+.ph__copy { flex: 1 1 280px; }
+.ph-plan { max-width: 200px; }
+@media (min-width: 1280px) { .ph-plan { max-width: 260px; } }

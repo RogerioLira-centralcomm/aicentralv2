@@ -28,3 +28,14 @@ class WorkspaceMapTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class OriginBreakdownTests(unittest.TestCase):
+    def test_organic_search_keeps_one_line_per_engine(self):
+        from aicentralv2.cadu_connect.reports_journey import _by_platform
+        rows = [{'origin': 'ref:www.google.com.br', 'sessions': 5, 'converted': 1}, {'origin': 'ref:www.bing.com', 'sessions': 2, 'converted': 0},
+                {'origin': 'ref:google.com', 'sessions': 3, 'converted': 1}, {'origin': 'utm:instagram|verao', 'sessions': 4, 'converted': 2}]
+        result = {item['platform']: item for item in _by_platform(rows, 'sessions', 'converted')}
+        self.assertEqual(result['organic']['sessions'], 10)
+        self.assertEqual([(e['engine'], e['sessions'], e['converted']) for e in result['organic']['engines']], [('google', 8, 2), ('bing', 2, 0)])
+        self.assertTrue(all('engines' not in item for key, item in result.items() if key != 'organic'))

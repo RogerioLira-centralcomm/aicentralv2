@@ -82,7 +82,10 @@ export function Navigation() {
     </div>
     <Section title="Origem das visitas" description="Primeiro contato de cada sessão">
       <Async state={state} onRetry={retry} isEmpty={value => !value.origins.length} empty={<p className="rs-muted">Sem origem identificada.</p>}>
-        {value => <ul className="rs-bars">{value.origins.map(item => <li key={item.platform}><span>{item.label}</span><i><b style={{width: `${Math.max(2, item.sessions * 100 / (sessions || 1))}%`}}/></i><strong>{number(item.sessions)}</strong></li>)}</ul>}
+        {value => <ul className="rs-bars">{value.origins.flatMap(item => [
+          <li key={item.platform}><span>{item.label}</span><i><b style={{width: `${Math.max(2, item.sessions * 100 / (sessions || 1))}%`}}/></i><strong>{number(item.sessions)}</strong></li>,
+          ...(item.engines || []).map(engine => <li key={`${item.platform}:${engine.engine}`} className="rs-bars__sub"><span>{engine.label}</span><i><b style={{width: `${Math.max(2, engine.sessions * 100 / (sessions || 1))}%`}}/></i><strong>{number(engine.sessions)}</strong></li>),
+        ])}</ul>}
       </Async>
     </Section>
   </div>;

@@ -26,7 +26,7 @@ export function measurementHint(node){
   return 'Nó visual, sem medição.';
 }
 
-export function FlowInspector({sitePages,onSplitSegment,node,nodes=[],groups=[],activity=[],journeyMetric=null,integrationsUrl='',readOnly,onChange,onConnect,onCreateGroup,onRemove,onClose,onGestureStart,onGestureEnd}) {
+export function FlowInspector({sitePages,onSplitSegment,node,config=null,host='',flowName='',nodes=[],groups=[],activity=[],journeyMetric=null,integrationsUrl='',readOnly,onChange,onConnect,onCreateGroup,onRemove,onClose,onGestureStart,onGestureEnd}) {
   if(!node)return null;
   const block=flowBlockFor(node);
   const planned=isPlanned(node);
@@ -44,7 +44,7 @@ export function FlowInspector({sitePages,onSplitSegment,node,nodes=[],groups=[],
       {node.type==='source'&&<>
         <label>Público<ReportsFieldInput disabled={readOnly} maxLength="80" value={node.segment?.name||''} placeholder="Ex.: Remarketing 30 dias" onChange={event=>onChange('segment',{...(node.segment||{}),name:event.target.value})}/></label>
         <label>Tipo<ReportsNativeSelect disabled={readOnly} value={node.segment?.kind||'prospeccao'} onChange={event=>onChange('segment',{...(node.segment||{}),kind:event.target.value})}>{SEGMENT_KINDS.map(([value,label])=><option key={value} value={value}>{label}</option>)}</ReportsNativeSelect></label>
-        <FlowSourceTracking node={node} nodes={nodes} readOnly={readOnly} onChange={onChange} metric={journeyMetric}/>
+        <FlowSourceTracking node={node} nodes={nodes} config={config} host={host} flowName={flowName} readOnly={readOnly} onChange={onChange} metric={journeyMetric}/>
         {!readOnly&&onSplitSegment&&<UntitledButton type="button" color="secondary" size="sm" onPress={()=>onSplitSegment(node.id)}>Criar outro público deste canal</UntitledButton>}
       </>}
       {node.type!=='note'&&<details className="flow-inspector__more" open={node.type==='conversion'||undefined}><summary>Mais opções</summary>

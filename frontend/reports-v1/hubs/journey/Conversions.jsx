@@ -26,6 +26,8 @@ export function Conversions() {
     description="Marque a página de obrigado como conversão em um fluxo, envie eventos personalizados ou conecte o CRM para ver conversões aqui."
     action={<div className="rs-actions"><ReportsActionButton color="primary" size="sm" href={reportUrl('flows')}>Abrir Fluxos</ReportsActionButton><ReportsActionButton color="secondary" size="sm" href={reportUrl('events')}>Ver eventos</ReportsActionButton></div>}/>;
   const originSessions = body.origins.reduce((sum, item) => sum + item.sessions, 0);
+  // Organic search reads per engine, so Google and Bing conversion rates can be compared.
+  const originRows = body.origins.flatMap(item => item.engines?.length ? item.engines.map(engine => ({...engine, platform: `${item.platform}:${engine.engine}`, label: `${engine.label} · busca orgânica`})) : [item]);
   return <div className="rs-stack">
     <MetricGroup label="Resumo de conversões" items={[
       {label: 'Conversões', value: number(totals.conversion), detail: 'Observadas no site'},
@@ -48,7 +50,7 @@ export function Conversions() {
         ]}/>
     </Section>
     <Section title="Origem das sessões que convertem" description="Primeiro contato da sessão e taxa de conversão">
-      <DataTable label="Conversão por origem" rows={body.origins} rowKey={row => row.platform} initialSort={{key: 'converted', dir: 'desc'}} columns={[
+      <DataTable label="Conversão por origem" rows={originRows} rowKey={row => row.platform} initialSort={{key: 'converted', dir: 'desc'}} columns={[
         {key: 'label', label: 'Origem'},
         {key: 'sessions', label: 'Sessões', numeric: true, render: row => number(row.sessions)},
         {key: 'share', label: 'Das visitas', numeric: true, sort: row => row.sessions, render: row => percent(row.sessions, originSessions)},

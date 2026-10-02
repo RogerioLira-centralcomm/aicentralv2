@@ -10,11 +10,15 @@
 .flow-tracking__engines input,.flow-repeat-source__engines input{width:16px;height:16px;margin:0;accent-color:var(--color-bg-brand-solid)}
 .flow-tracking__engines small,.flow-repeat-source__engines small{margin-left:auto;color:var(--color-text-quaternary);font-size:11px}
 .flow-tracking__engines b{margin-left:auto;color:var(--color-text-primary);font-size:12px;font-variant-numeric:tabular-nums}
-.flow-tracking__note{margin:0;color:var(--color-text-tertiary);font-size:12px;line-height:1.45}
-.flow-tracking__warning{margin:0;padding:8px 10px;border:1px solid var(--color-border-secondary);border-radius:8px;background:var(--color-bg-warning-primary);color:var(--color-text-warning-primary);font-size:12px;line-height:1.45}
+.flow-tracking .flow-tracking__note,.reports-main .flow-tracking p.flow-tracking__note{margin:0;color:var(--color-text-tertiary);font-size:12px;line-height:1.45}
+.flow-tracking .flow-tracking__warning,.reports-main .flow-tracking p.flow-tracking__warning{margin:0;padding:8px 10px;border:1px solid var(--color-border-secondary);border-radius:8px;background:var(--color-bg-warning-primary);color:var(--color-text-warning-primary);font-size:12px;line-height:1.45}
 .flow-repeat-source{width:min(100%,480px)}
 .flow-repeat-source__engines{margin-top:16px}
 .flow-repeat-source__engines legend{margin-bottom:8px;color:var(--color-text-secondary);font-size:13px;font-weight:600}
 .flow-repeat-source .cadu-ds-confirm__dialog>p+div,.flow-repeat-source .cadu-ds-confirm__dialog>p+fieldset{margin-top:16px}
 .flow-repeat-source code{padding:0 4px;border-radius:4px;background:var(--color-bg-secondary);font-size:12px}
 .flow-repeat-source__note{margin-top:12px!important}
+.flow-tracking__link{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px}
+.flow-tracking__link{align-items:start}
+.flow-tracking__link code{display:-webkit-box;overflow:hidden;padding:6px 8px;border-radius:6px;background:var(--color-bg-secondary);color:var(--color-text-secondary);font-size:11px;line-height:16px;word-break:break-all;-webkit-line-clamp:4;-webkit-box-orient:vertical}
+.flow-tracking__link small{grid-column:1/-1;color:var(--color-text-tertiary);font-size:11px;line-height:16px}

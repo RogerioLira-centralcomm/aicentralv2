@@ -6,7 +6,7 @@ Jornada tab agree. They only aggregate what is already collected; no new pipelin
 from flask import jsonify
 
 from ..auth import login_required_api
-from .reports_flow_metrics import PLATFORM_LABELS, origin_platform
+from .reports_flow_metrics import PLATFORM_LABELS, origin_platform, parse_origin, search_engine_for_host, search_engine_label
 from .reports_page_identity import sql_normalized_path
 from .reports_pages import EVENT_TABLE, _window
 from .reports_v1 import _column_exists, _rows, _selection
@@ -126,6 +126,7 @@ _CRM_SQL = '''SELECT conversion_kind AS kind,COUNT(*)::bigint AS total
 
 
 def _by_platform(rows, *fields):
+    """Sessions per platform; organic search also keeps one line per engine (Google, Bing…)."""
     out = {}
     for row in rows:
         platform = origin_platform(row.get('origin'))
@@ -133,6 +134,15 @@ def _by_platform(rows, *fields):
                                            **{field: 0 for field in fields}})
         for field in fields:
             bucket[field] += int(row.get(field) or 0)
+        if platform == 'organic':
+            engine = search_engine_for_host(parse_origin(row.get('origin'))[1]) or 'other'
+            line = bucket.setdefault('engines', {}).setdefault(engine, {'engine': engine, 'label': search_engine_label(engine) if engine != 'other' else 'Outros buscadores',
+                                                                      **{field: 0 for field in fields}})
+            for field in fields:
+                line[field] += int(row.get(field) or 0)
+    for bucket in out.values():
+        if 'engines' in bucket:
+            bucket['engines'] = sorted(bucket['engines'].values(), key=lambda item: -item[fields[0]])
     return sorted(out.values(), key=lambda item: -item[fields[0]])
 
 

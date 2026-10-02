@@ -64,7 +64,7 @@
   font-weight: 400;
   line-height: 20px;
 }
-.reports-main .reports-content .reports-panel p {
+.reports-main .reports-content .reports-panel p:not(.flow-inspector p) {
   font-size: 14px;
   line-height: 20px;
 }

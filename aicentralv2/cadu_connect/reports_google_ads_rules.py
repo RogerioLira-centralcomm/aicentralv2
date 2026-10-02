@@ -81,11 +81,34 @@ def _num(value):
     return float(value or 0)
 
 
-def _item(rule, key, obj, summary, action, impact_kind='cost', impact=0.0, evidence=(), link=None):
+def _item(rule, key, obj, summary, action, impact_kind='cost', impact=0.0, evidence=(), link=None, proposal=None):
     meta = _RULE[rule]
     return {'id': f'{rule}:{key}', 'rule': rule, 'severity': meta['severity'], 'title': meta['title'], 'object': obj,
             'summary': summary, 'action': action, 'impact': {'kind': impact_kind, 'value': round(float(impact), 2)},
-            'evidence': list(evidence), 'link': link}
+            'evidence': list(evidence), 'link': link, 'proposal': proposal}
+
+
+def _proposal(op, account_id, target, label, params=None, expect=None):
+    """The change the Ações script can apply for a recommendation; the Reports validates it again before queueing."""
+    return {'op': op, 'account_id': account_id, 'target': {k: str(v) for k, v in target.items() if v not in (None, '')},
+            'params': params or {}, 'expect': expect or {}, 'label': label}
+
+
+def _campaign_pause(campaign, label):
+    if campaign.get('status') != 'ENABLED':
+        return None
+    return _proposal('campaign.pause', campaign['account_id'], {'campaign_id': campaign['campaign_external_id']},
+                     f"{label} “{campaign['campaign_name']}”", expect={'status': 'ENABLED'})
+
+
+def _budget(campaign, amount):
+    """New daily budget for a campaign with its own budget; shared budgets are changed in the shared library."""
+    budget = campaign.get('budget')
+    if not budget or campaign.get('budget_shared') or amount <= 0 or round(amount, 2) == round(float(budget), 2):
+        return None
+    return _proposal('campaign.set_budget', campaign['account_id'], {'campaign_id': campaign['campaign_external_id']},
+                     f"Orçamento diário de “{campaign['campaign_name']}”: {_br(float(budget))} → {_br(amount)}",
+                     params={'amount': round(amount, 2)}, expect={'budget_micros': int(round(float(budget) * 1e6))})
 
 
 def _age_hours(value, now):
@@ -163,7 +186,12 @@ def build_recommendations(*, accounts, campaigns, terms, keywords, devices, nega
                            {'kind': 'keyword', 'label': keyword['keyword_text'], 'campaign': keyword['campaign_name'], 'ad_group': keyword['ad_group_name']},
                            f"A negativa “{negative['keyword_text']}” ({negative['match_type'].lower()}, {scope}) cobre esta palavra-chave.",
                            'Remova ou restrinja a negativa, ou pause a palavra-chave se o bloqueio for intencional.',
-                           'cost', _num(keyword.get('cost')), [('Negativa', negative['keyword_text']), ('Nível', negative['level'])], {'tab': 'negatives'}))
+                           'cost', _num(keyword.get('cost')), [('Negativa', negative['keyword_text']), ('Nível', negative['level'])], {'tab': 'negatives'},
+                           _proposal('negative.remove', negative['account_id'],
+                                     {'level': negative['level'], 'campaign_id': negative.get('campaign_external_id'),
+                                      'ad_group_id': negative.get('ad_group_external_id'), 'shared_set_id': negative.get('shared_set_external_id')},
+                                     f"Remover a negativa “{negative['keyword_text']}” de {scope}",
+                                     params={'text': negative['keyword_text'], 'match_type': negative['match_type']})))
 
     candidates = []
     for term in terms:
@@ -175,20 +203,32 @@ def build_recommendations(*, accounts, campaigns, terms, keywords, devices, nega
                                {'kind': 'search_term', 'label': term['search_term'], 'campaign': term['campaign_name'], 'ad_group': term['ad_group_name']},
                                f"{_num(term['conversions']):.0f} conversões com {int(term['clicks'])} cliques, ainda sem palavra-chave própria.",
                                'Adicione como palavra-chave de correspondência exata neste grupo para controlar lance e anúncio.',
-                               'conversions', _num(term['conversions']), link={'tab': 'search_terms', 'filter': 'add_keyword'}))
+                               'conversions', _num(term['conversions']), link={'tab': 'search_terms', 'filter': 'add_keyword'},
+                               proposal=_proposal('keyword.add', term['account_id'],
+                                                  {'ad_group_id': term['ad_group_external_id'], 'campaign_id': term['campaign_external_id']},
+                                                  f"Adicionar [{term['search_term']}] em “{term['ad_group_name']}”",
+                                                  params={'text': term['search_term'], 'match_type': 'EXACT'})))
     for term in sorted(candidates, key=lambda row: -_num(row.get('cost')))[:MAX_PER_RULE]:
         items.append(_item('negative_candidate', f"{term['account_id']}:{term['ad_group_external_id']}:{term['term_hash']}",
                            {'kind': 'search_term', 'label': term['search_term'], 'campaign': term['campaign_name'], 'ad_group': term['ad_group_name']},
                            f"{int(term['clicks'])} cliques e nenhuma conversão.",
                            'Negative como correspondência exata na campanha (ou frase, se a intenção inteira não serve).',
-                           'cost', _num(term.get('cost')), link={'tab': 'search_terms', 'filter': 'negate'}))
+                           'cost', _num(term.get('cost')), link={'tab': 'search_terms', 'filter': 'negate'},
+                           proposal=_proposal('negative.add', term['account_id'], {'level': 'campaign', 'campaign_id': term['campaign_external_id']},
+                                              f"Negativar [{term['search_term']}] em “{term['campaign_name']}”",
+                                              params={'text': term['search_term'], 'match_type': 'EXACT'})))
 
     for keyword in sorted((k for k in keywords if int(k.get('clicks') or 0) >= MIN_KEYWORD_CLICKS and _num(k.get('conversions')) == 0),
                           key=lambda row: -_num(row.get('cost')))[:MAX_PER_RULE]:
         items.append(_item('keyword_waste', f"{keyword['account_id']}:{keyword['criterion_external_id']}",
                            {'kind': 'keyword', 'label': keyword['keyword_text'], 'campaign': keyword['campaign_name'], 'ad_group': keyword['ad_group_name']},
                            f"{int(keyword['clicks'])} cliques, nenhuma conversão.", 'Revise os termos que ela aciona; restrinja a correspondência ou pause.',
-                           'cost', _num(keyword.get('cost')), link={'tab': 'keywords'}))
+                           'cost', _num(keyword.get('cost')), link={'tab': 'keywords'},
+                           proposal=_proposal('keyword.pause', keyword['account_id'],
+                                              {'ad_group_id': keyword['ad_group_external_id'], 'keyword_id': keyword['criterion_external_id'],
+                                               'campaign_id': keyword.get('campaign_external_id')},
+                                              f"Pausar a palavra-chave “{keyword['keyword_text']}” em “{keyword['ad_group_name']}”",
+                                              expect={'status': 'ENABLED'}) if keyword.get('status') == 'ENABLED' else None))
     for keyword in sorted((k for k in keywords if k.get('quality_score') and int(k['quality_score']) <= LOW_QUALITY_SCORE and int(k.get('clicks') or 0) >= MIN_TERM_CLICKS),
                           key=lambda row: -_num(row.get('cost')))[:MAX_PER_RULE]:
         items.append(_item('low_quality_score', f"{keyword['account_id']}:{keyword['criterion_external_id']}",
@@ -209,7 +249,8 @@ def build_recommendations(*, accounts, campaigns, terms, keywords, devices, nega
             items.append(_item('budget_limited', f"{campaign['account_id']}:{campaign['campaign_external_id']}",
                                {'kind': 'campaign', 'label': campaign['campaign_name']},
                                f'Gasto médio de {cost / active_days:.2f} por dia para um orçamento de {budget:.2f}; custo por conversão {cost / conversions:.2f}.'.replace('.', ','),
-                               'Aumente o orçamento diário ou redistribua de campanhas sem conversão.', 'conversions', conversions, link={'tab': 'campaigns'}))
+                               'Aumente o orçamento diário ou redistribua de campanhas sem conversão.', 'conversions', conversions, link={'tab': 'campaigns'},
+                               proposal=_budget(campaign, budget * 1.2)))
 
     for device in devices:
         clicks, conversions, cost = int(device.get('clicks') or 0), _num(device.get('conversions')), _num(device.get('cost'))
@@ -245,26 +286,30 @@ def goal_recommendations(campaigns):
         daily_budget = campaign.get('budget')
         if goal.get('flight_ended') and _num(pacing.get('last3_cost')) > 0:
             items.append(_item('flight_ended', key, obj, f"A meta terminava em {goal['flight_end']} e a campanha gastou {_br(_num(pacing['last3_cost']))} nos últimos 3 dias.",
-                               'Pause a campanha ou atualize a data final da meta.', 'cost', _num(pacing['last3_cost']), link={'tab': 'campaigns'}))
+                               'Pause a campanha ou atualize a data final da meta.', 'cost', _num(pacing['last3_cost']), link={'tab': 'campaigns'},
+                               proposal=_campaign_pause(campaign, 'Pausar')))
         total_cap = _num(goal.get('total_budget_cap')) or None
         if total_cap and _num(pacing.get('flight_cost')) >= total_cap:
             items.append(_item('cap_reached', f'{key}:total', obj, f"Gasto total {_br(_num(pacing['flight_cost']))} para um teto de {_br(total_cap)}.",
-                               'Pause a campanha ou aprove um teto maior com o cliente.', 'cost', _num(pacing['flight_cost']) - total_cap, link={'tab': 'campaigns'}))
+                               'Pause a campanha ou aprove um teto maior com o cliente.', 'cost', _num(pacing['flight_cost']) - total_cap, link={'tab': 'campaigns'},
+                               proposal=_campaign_pause(campaign, 'Pausar')))
         if cap and mtd >= cap:
             items.append(_item('cap_reached', key, obj, f'Gasto do mês {_br(mtd)} para um teto de {_br(cap)}.',
-                               'Pause a campanha ou reduza o orçamento diário até o próximo mês.', 'cost', mtd - cap, link={'tab': 'campaigns'}))
+                               'Pause a campanha ou reduza o orçamento diário até o próximo mês.', 'cost', mtd - cap, link={'tab': 'campaigns'},
+                               proposal=_campaign_pause(campaign, 'Pausar')))
         elif cap and days_left and projected > cap * PACING_OVER:
             suggested = max(0.0, (cap - mtd) / days_left)
             items.append(_item('pacing_over', key, obj, f'Projeção de {_br(projected)} para um teto de {_br(cap)} ({_br(mtd)} gastos, {days_left} dias restantes).',
                                f"Reduza o orçamento diário{f' de {_br(daily_budget)}' if daily_budget else ''} para {_br(suggested)}.",
-                               'cost', projected - cap, link={'tab': 'campaigns'}))
+                               'cost', projected - cap, link={'tab': 'campaigns'}, proposal=_budget(campaign, suggested)))
         target_cpa = _num(goal.get('target_cpa')) or None
         cost, conversions = _num(campaign.get('cost')), _num(campaign.get('conversions'))
         cpa = cost / conversions if conversions else None
         if cap and days_left and projected < cap * PACING_UNDER and conversions > 0 and (target_cpa is None or (cpa or 0) <= target_cpa):
             suggested = (cap - mtd) / days_left
             items.append(_item('pacing_under', key, obj, f'Projeção de {_br(projected)} para um teto de {_br(cap)}; CPA de {_br(cpa)}.',
-                               f'Pode subir o orçamento diário para até {_br(suggested)} e usar o teto do mês.', 'conversions', conversions, link={'tab': 'campaigns'}))
+                               f'Pode subir o orçamento diário para até {_br(suggested)} e usar o teto do mês.', 'conversions', conversions, link={'tab': 'campaigns'},
+                               proposal=_budget(campaign, suggested)))
         if target_cpa:
             if conversions >= MIN_GOAL_CONVERSIONS and cpa > target_cpa * CPA_TOLERANCE:
                 items.append(_item('cpa_above_target', key, obj, f'CPA de {_br(cpa)} para uma meta de {_br(target_cpa)}.',

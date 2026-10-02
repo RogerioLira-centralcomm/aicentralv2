@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {AlertTriangle, Check, Copy01, Database01} from '@untitledui/icons';
+import {AlertTriangle, Check, Copy01, Database01, Download01} from '@untitledui/icons';
 import {Button} from '../cadu-design-system/untitled-kit/button.tsx';
 import {Badge, BadgeWithDot} from '../cadu-design-system/untitled-kit/badges.tsx';
 import {Card, TD, TH} from './ReportsBlocks.jsx';
@@ -14,14 +14,61 @@ import {integer, json, shortDate} from './reportsCommon.jsx';
 const validGoogleAdsAccountId = value => /^(?:\d{10}|\d{3}-\d{3}-\d{4})$/.test(String(value || '').trim());
 const formatGoogleId = value => String(value).replace(/^(\d{3})(\d{3})(\d{4})$/, '$1-$2-$3');
 const SOURCES = {
-  google_ads_script: {label: 'Google Ads Script', short: 'Google Ads', name: 'Google Ads · monitoramento', description: 'Campanhas e métricas diárias, enviadas por um script instalado na conta ou MCC.'},
+  google_ads_script: {label: 'Google Ads Script', short: 'Google Ads · Leitura', name: 'Google Ads · monitoramento', description: 'Dois scripts na conta ou MCC: Leitura (métricas, diário) e Ações (aplica as mudanças aprovadas, de hora em hora).'},
   conversion_webhook: {label: 'CRM / conversões', short: 'CRM', name: 'CRM · conversões', description: 'Vendas e leads confirmados pelo CRM, sem dados pessoais.'},
 };
+// Listed in the keys table only; generated together with the Leitura script.
+const KEY_KINDS = {...SOURCES, google_ads_actions: {short: 'Google Ads · Ações'}};
+const SCRIPT_KINDS = {google_ads_script: true, google_ads_actions: true};
+const SCRIPTS = {
+  read: {file: '/static/cadu_connect/google-ads-engine-v2.js', title: 'Leitura', schedule: 'diariamente', kind: 'google_ads_script'},
+  actions: {file: '/static/cadu_connect/google-ads-actions.js', title: 'Acoes', schedule: 'de hora em hora', kind: 'google_ads_actions'},
+};
+
+/** Name used for the .txt file and suggested for the script in Google Ads: product, script, account and version. */
+export function scriptName(kind, accountLabel, version) {
+  return `Cadu_GoogleAds_${SCRIPTS[kind].title}_${accountLabel}_v${version}`;
+}
+const versionOf = template => (template.match(/engineVersion:\s*'([^']+)'/) || [])[1] || '0';
+function downloadText(text, name) {
+  const url = URL.createObjectURL(new Blob([text], {type: 'text/plain;charset=utf-8'}));
+  const link = Object.assign(document.createElement('a'), {href: url, download: `${name}.txt`});
+  document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+}
+async function template(kind) {
+  const response = await fetch(SCRIPTS[kind].file, {credentials: 'same-origin', cache: 'no-store'});
+  if (!response.ok) throw new Error('Não foi possível carregar o script do Google Ads.');
+  return response.text();
+}
+
+/** One generated script: suggested name, download as .txt and copy. */
+function ScriptCard({item}) {
+  const [copied, setCopied] = useState('');
+  const copy = async (value, what) => {try {await navigator.clipboard.writeText(value); setCopied(what);} catch {setCopied('');}};
+  return <Card title={`Script de ${item.kind === 'read' ? 'Leitura' : 'Ações'} · v${item.version}`}
+    badge={<Badge type="pill-color" size="sm" color="warning">Baixe ou copie agora</Badge>}
+    description={item.kind === 'read'
+      ? 'Lê métricas, termos e negativas e envia ao Reports. Nunca altera a conta. Agende diariamente.'
+      : `Aplica as mudanças aprovadas no Reports (pausar, ativar, negativar, palavras-chave, lance e orçamento até ±${item.limits.max_budget_change_pct}%/±${item.limits.max_cpc_change_pct}%). Agende de hora em hora.`}
+    actions={<div className="flex flex-wrap gap-2">
+      <Button size="md" color="primary" iconLeading={Download01} onPress={() => downloadText(item.text, item.name)}>Baixar .txt</Button>
+      <Button size="md" color="secondary" iconLeading={copied === 'code' ? Check : Copy01} onPress={() => copy(item.text, 'code')}>{copied === 'code' ? 'Copiado' : 'Copiar código'}</Button>
+    </div>}>
+    <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-secondary_subtle px-3 py-2 text-sm ring-1 ring-secondary ring-inset">
+      <span className="text-tertiary">Nome no Google Ads:</span>
+      <code className="font-mono text-xs font-semibold text-primary">{item.name}</code>
+      <Button size="sm" color="link-color" onPress={() => copy(item.name, 'name')}>{copied === 'name' ? 'Copiado' : 'Copiar nome'}</Button>
+      <span className="ml-auto text-xs text-tertiary">Ferramentas › Scripts › + › cole o código › Programar: {SCRIPTS[item.kind].schedule}</span>
+    </div>
+    <pre aria-label={`Código do script de ${item.kind === 'read' ? 'Leitura' : 'Ações'}`} className="max-h-64 overflow-auto rounded-lg bg-secondary p-4 font-mono text-xs leading-5 whitespace-pre text-secondary ring-1 ring-secondary ring-inset">{item.text}</pre>
+  </Card>;
+}
 
 /** Health of an ingestion key, in the words the user acts on. */
 function health(item) {
   if (item.revoked_at) return ['Revogada', 'gray'];
-  if (!item.last_used_at) return ['Aguardando primeiro envio', 'brand'];
+  if (!item.last_used_at) return [item.source_kind === 'google_ads_actions' ? 'Aguardando primeira execução' : 'Aguardando primeiro envio', 'brand'];
+  if (item.source_kind === 'google_ads_actions' && Date.now() - new Date(item.last_used_at).getTime() > 3 * 3600 * 1000) return ['Sem execução há 3 h', 'warning'];
   if (item.source_kind === 'google_ads_script' && Date.now() - new Date(item.last_used_at).getTime() > 48 * 3600 * 1000) return ['Sem envio há 48 h', 'warning'];
   return ['Ativa', 'success'];
 }
@@ -36,6 +83,9 @@ export function MediaData({data, save, busy}) {
   const [managerAccountId, setManagerAccountId] = useState('');
   const [accountIds, setAccountIds] = useState([]);
   const [script, setScript] = useState('');
+  const [scripts, setScripts] = useState([]);
+  const [withActions, setWithActions] = useState(true);
+  const [limits, setLimits] = useState({max_budget_change_pct: '30', max_cpc_change_pct: '30'});
   const [generatedKind, setGeneratedKind] = useState('google_ads_script');
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
@@ -66,28 +116,50 @@ export function MediaData({data, save, busy}) {
   }, [data.accounts]);
   const choose = kind => {setSourceKind(kind); setLabel(SOURCES[kind].name);};
   const toggle = id => setAccountIds(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id]);
+  const managerExternalId = managerAccountId ? managers.find(item => String(item.id) === managerAccountId)?.external_id : '';
+  /** Leitura (and, by default, Ações) for the same accounts: one key each, named after the account and the version. */
+  const createGoogle = async () => {
+    const kinds = withActions ? ['read', 'actions'] : ['read'];
+    const templates = await Promise.all(kinds.map(template));
+    const accountLabel = managerExternalId ? `MCC-${formatGoogleId(managerExternalId)}` : formatGoogleId(accountIds[0]);
+    const today = new Date().toLocaleDateString('pt-BR');
+    const generated = [];
+    for (const [index, kind] of kinds.entries()) {
+      const created = await save('/ingest-keys', {label: kind === 'read' ? label : `${label} · Ações`, source_kind: SCRIPTS[kind].kind,
+        manager_account_id: managerExternalId, account_ids: accountIds, limits: kind === 'actions' ? limits : undefined}, false);
+      const version = versionOf(templates[index]);
+      const name = scriptName(kind, accountLabel, version);
+      const accounts = created.allowed_account_ids.map(formatGoogleId);
+      const title = `${name} · ${managerExternalId ? `MCC ${formatGoogleId(managerExternalId)} · contas ${accounts.join(', ')}` : `conta ${accounts.join(', ')}`} · gerado em ${today}`;
+      let text = templates[index].replace('__CADU_INGEST_URL__', `${location.origin}/connect/api/gads`).replace('__CADU_API_KEY__', created.token)
+        .replace('__CADU_ACCOUNT_IDS__', JSON.stringify(accounts));
+      text = kind === 'actions'
+        ? text.replace('__CADU_SCRIPT_TITLE__', title).replace('__CADU_MAX_BUDGET_PCT__', String(created.limits.max_budget_change_pct))
+          .replace('__CADU_MAX_CPC_PCT__', String(created.limits.max_cpc_change_pct))
+        : `// ${title}\n${text}`;
+      generated.push({kind, name, version, text, limits: created.limits || {}});
+    }
+    setScripts(generated); setScript('');
+  };
   const create = async event => {
     event.preventDefault(); setError('');
     try {
-      let template = '';
-      if (google) {
-        const response = await fetch('/static/cadu_connect/google-ads-engine-v2.js', {credentials: 'same-origin'});
-        if (!response.ok) throw new Error('Não foi possível carregar o script do Google Ads.');
-        template = await response.text();
+      if (google) await createGoogle();
+      else {
+        const created = await save('/ingest-keys', {label, source_kind: sourceKind, account_ids: []}, false);
+        setScript(`POST ${location.origin}/connect/api/v1/reports/ingest/conversions\nAuthorization: Bearer ${created.token}\nContent-Type: application/json\n\n${JSON.stringify({events: [{external_event_id: 'pedido-123', visitor_id: 'UUID recebido de window.CaduSuperTag.getVisitorId()', kind: 'sale', occurred_at: new Date().toISOString(), value_micros: 129000000, currency: 'BRL'}]}, null, 2)}`);
+        setScripts([]);
       }
-      const created = await save('/ingest-keys', {label, source_kind: sourceKind, manager_account_id: managerAccountId ? managers.find(item => String(item.id) === managerAccountId)?.external_id : '', account_ids: google ? accountIds : []}, false);
-      setScript(google
-        ? template.replace('__CADU_INGEST_URL__', `${location.origin}/connect/api/v1/reports/ingest/google-ads/v2`).replace('__CADU_API_KEY__', created.token).replace('__CADU_ACCOUNT_IDS__', JSON.stringify(created.allowed_account_ids.map(formatGoogleId)))
-        : `POST ${location.origin}/connect/api/v1/reports/ingest/conversions\nAuthorization: Bearer ${created.token}\nContent-Type: application/json\n\n${JSON.stringify({events: [{external_event_id: 'pedido-123', visitor_id: 'UUID recebido de window.CaduSuperTag.getVisitorId()', kind: 'sale', occurred_at: new Date().toISOString(), value_micros: 129000000, currency: 'BRL'}]}, null, 2)}`);
       setGeneratedKind(sourceKind); setCopied(false);
       await reload();
-    } catch (failure) {setError(failure.message);}
+    } catch (failure) {setError(failure.message); await reload().catch(() => {});}
   };
   const copy = async () => {try {await navigator.clipboard.writeText(script); setCopied(true);} catch {setCopied(false);}};
   const revoke = async id => {
     try {await save(`/ingest-keys/${id}/revoke`, {}, false); await reload(); setRevokeId('');} catch (failure) {setError(failure.message);}
   };
-  const disabled = busy || (google && (!accountIds.length || (managerAccountId && !children.length)));
+  const badLimit = withActions && Object.values(limits).some(value => !(Number(String(value).replace(',', '.')) >= 1 && Number(String(value).replace(',', '.')) <= 100));
+  const disabled = busy || (google && (!accountIds.length || (managerAccountId && !children.length) || badLimit));
 
   return <div className="untitled-scope flex flex-col gap-6">
     <dl className="grid gap-px overflow-hidden rounded-xl bg-border-secondary shadow-xs ring-1 ring-secondary sm:grid-cols-4">
@@ -128,17 +200,32 @@ export function MediaData({data, save, busy}) {
             {managerAccountId ? 'Nenhuma conta anunciante ligada a esta MCC.' : usableManager ? 'Suas contas estão ligadas a uma MCC: escolha a MCC em “Onde o script será instalado”.' : 'Nenhuma conta anunciante Google Ads com ID válido.'} Cadastre em <a className="font-semibold text-brand-secondary hover:underline" href={`${APP_BASE}/settings/accounts`}>Clientes e contas</a>.
           </p>}
         </fieldset>}
+        {google && <fieldset className="flex flex-col gap-3 rounded-xl p-4 ring-1 ring-secondary ring-inset">
+          <label className="flex cursor-pointer items-start gap-3">
+            <input type="checkbox" className="mt-1 size-4 accent-brand-600" checked={withActions} onChange={event => setWithActions(event.target.checked)}/>
+            <span><span className="block text-sm font-semibold text-primary">Também gerar o script de Ações</span>
+              <span className="mt-0.5 block text-sm text-tertiary">Aplica no Google Ads as mudanças que vocês aprovarem no Reports: pausar e ativar, negativar, adicionar palavras-chave, lances e orçamento. Roda de hora em hora; a escrita pode ser desligada no próprio script.</span></span>
+          </label>
+          {withActions && <div className="grid gap-4 sm:grid-cols-2 sm:pl-7">
+            <ReportsFieldInput label="Teto de variação do orçamento (%)" inputMode="decimal" value={limits.max_budget_change_pct} onChange={event => setLimits(current => ({...current, max_budget_change_pct: event.target.value}))} hint="Padrão 30%. Mudanças maiores são limitadas a este teto."/>
+            <ReportsFieldInput label="Teto de variação do lance (%)" inputMode="decimal" value={limits.max_cpc_change_pct} onChange={event => setLimits(current => ({...current, max_cpc_change_pct: event.target.value}))} hint="Padrão 30%. Vale para o CPC máximo das palavras-chave."/>
+          </div>}
+        </fieldset>}
         {google && blocking.length > 0 && <div role="status" className="flex items-start gap-3 rounded-lg bg-warning-primary px-4 py-3 ring-1 ring-secondary ring-inset">
           <AlertTriangle size={20} className="shrink-0 text-fg-warning-primary"/>
           <p className="text-sm text-warning-primary">{blocking.length} conta(s) sem ID de 10 dígitos. <a className="font-semibold underline" href={`${APP_BASE}/settings/accounts`}>Corrija em Clientes e contas</a> para incluí-las.</p>
         </div>}
         <div className="flex items-center justify-end gap-3 border-t border-secondary pt-5">
           {google && <span className="text-sm text-tertiary">{accountIds.length ? `${accountIds.length} conta(s) selecionada(s)` : 'Escolha ao menos uma conta'}</span>}
-          <Button type="submit" size="md" color="primary" isDisabled={disabled} isLoading={busy}>{google ? 'Gerar script' : 'Gerar chave do webhook'}</Button>
+          <Button type="submit" size="md" color="primary" isDisabled={disabled} isLoading={busy}>{google ? (withActions ? 'Gerar os 2 scripts' : 'Gerar script de Leitura') : 'Gerar chave do webhook'}</Button>
         </div>
       </form>
     </Card>}
 
+    {scripts.length > 0 && <div className="flex flex-col gap-4">
+      <p role="status" className="rounded-lg bg-warning-primary px-4 py-3 text-sm text-warning-primary ring-1 ring-secondary ring-inset">As chaves dentro dos scripts não serão mostradas de novo. Baixe os arquivos .txt agora e instale cada script com o nome sugerido.</p>
+      {scripts.map(item => <ScriptCard key={item.kind} item={item}/>)}
+    </div>}
     {script && <Card title={generatedKind === 'conversion_webhook' ? 'Contrato do webhook' : 'Script gerado'}
       badge={<Badge type="pill-color" size="sm" color="warning">Copie agora</Badge>}
       description={generatedKind === 'conversion_webhook' ? 'Envie as conversões neste formato. A chave não será mostrada de novo.' : 'Cole em Ferramentas › Scripts da conta ou MCC e agende a execução diária. A chave não será mostrada de novo.'}
@@ -152,8 +239,8 @@ export function MediaData({data, save, busy}) {
         <tbody>{keys.map(item => {
           const [state, color] = health(item);
           return <tr key={item.id} className={item.revoked_at ? 'opacity-60' : 'hover:bg-primary_hover'}>
-            <td className={TD}><p className="font-medium text-primary">{item.label}</p><p className="text-xs text-tertiary">{SOURCES[item.source_kind]?.short || item.source_kind}</p></td>
-            <td className={TD}>{item.source_kind === 'google_ads_script' ? <div className="flex flex-col gap-0.5">
+            <td className={TD}><p className="font-medium text-primary">{item.label}</p><p className="text-xs text-tertiary">{KEY_KINDS[item.source_kind]?.short || item.source_kind}</p></td>
+            <td className={TD}>{item.source_kind in SCRIPT_KINDS ? <div className="flex flex-col gap-0.5">
               {item.manager_external_id && <span className="text-xs text-tertiary">MCC <span className="font-mono">{formatGoogleId(item.manager_external_id)}</span></span>}
               <span className="font-mono text-xs text-secondary">{item.allowed_account_ids?.length ? item.allowed_account_ids.map(formatGoogleId).join(', ') : (item.bound_account_id ? formatGoogleId(item.bound_account_id) : 'Vincula no primeiro envio')}</span>
             </div> : <span className="text-quaternary">—</span>}</td>

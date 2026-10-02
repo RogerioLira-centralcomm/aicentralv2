@@ -9,7 +9,7 @@ instalações antigas; novas chaves geram o v2.
 | Peça | Arquivo |
 |---|---|
 | Script (cole em Ferramentas > Scripts) | `aicentralv2/static/cadu_connect/google-ads-engine-v2.js` |
-| Endpoint | `POST /connect/api/v1/reports/ingest/google-ads/v2` em `aicentralv2/cadu_connect/reports_ingest_v2.py` |
+| Endpoint | `POST /connect/api/gads` e `GET /connect/api/gads/plan` em `aicentralv2/cadu_connect/reports_ingest_v2.py` (o endereço longo `/connect/api/v1/reports/ingest/google-ads/v2` segue aceito para scripts já instalados) |
 | Tabelas | `migrations/add_reports_google_ads_engine_v2.sql` |
 | Gerador no Reports | `frontend/reports-v1/main.jsx` (já aponta para o v2) |
 | Testes | `tests/test_reports_ingest_v2.py`, `tests/test_google_ads_engine_v2_js.py` (+ `tests/js/`) |

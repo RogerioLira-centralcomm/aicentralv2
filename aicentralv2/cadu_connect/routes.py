@@ -19,7 +19,7 @@ bp = Blueprint("cadu_connect", __name__, url_prefix="/connect")
 
 @bp.errorhandler(HTTPException)
 def reports_api_error(error):
-    if request.path.startswith(('/connect/api/v1/reports/','/connect/api/v2/reports/')):
+    if request.path.startswith(('/connect/api/v1/reports/','/connect/api/v2/reports/','/connect/api/gads')):
         return jsonify(error=error.description,message=error.description,
                        code=getattr(error,'flow_code',f'http_{error.code}'),
                        field_errors=getattr(error,'field_errors',{}),
@@ -45,6 +45,8 @@ from .reports_creatives import register as register_reports_creatives
 register_reports_creatives(bp)
 from .reports_google_ads import register as register_reports_google_ads
 register_reports_google_ads(bp)
+from .reports_google_ads_actions import register as register_reports_google_ads_actions
+register_reports_google_ads_actions(bp)
 from .reports_alerts import register as register_reports_alerts
 register_reports_alerts(bp)
 from .reports_page_captures import register as register_reports_page_captures

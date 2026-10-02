@@ -388,7 +388,7 @@ SNAPSHOT_DATASETS = {name for name, spec in DATASETS.items() if spec[2]}
 # Envelope: authentication, account scope and run bookkeeping
 # ---------------------------------------------------------------------------
 
-def _authenticate():
+def _authenticate(source_kind='google_ads_script'):
     if request.content_length is not None and request.content_length > MAX_BODY_BYTES:
         abort(413)
     raw = request.get_data(cache=True)
@@ -400,8 +400,8 @@ def _authenticate():
         abort(401)
     keys = _rows('''SELECT id,client_id,allowed_account_ids,bound_account_id,manager_external_id
             FROM cadu_reports_ingest_keys
-            WHERE token_hash=%s AND source_kind='google_ads_script' AND revoked_at IS NULL FOR UPDATE''',
-                 (hashlib.sha256(token.encode()).hexdigest(),))
+            WHERE token_hash=%s AND source_kind=%s AND revoked_at IS NULL FOR UPDATE''',
+                 (hashlib.sha256(token.encode()).hexdigest(), source_kind))
     if not keys:
         abort(401)
     return keys[0]
@@ -530,6 +530,8 @@ def collection_plan(today, oldest):
 
 
 def register(bp):
+    # /api/gads is the short address handed out in new scripts; the long one keeps installed scripts working.
+    @bp.get('/api/gads/plan')
     @bp.get('/api/v1/reports/ingest/google-ads/v2/plan')
     def reports_ingest_v2_plan():
         """Tells the script which dates to read for one account (engine 2.1+). Same key and scope rules as the ingest."""
@@ -551,6 +553,7 @@ def register(bp):
         return jsonify(ranges=collection_plan(date.today(), oldest), history_days=HISTORY_DAYS, recent_days=RECENT_DAYS,
                        oldest=oldest.isoformat() if oldest else None)
 
+    @bp.post('/api/gads')
     @bp.post('/api/v1/reports/ingest/google-ads/v2')
     def reports_ingest_google_ads_v2():
         key = _authenticate()

@@ -361,6 +361,7 @@ fi
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_column_maps_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_column_suggestions_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_google_ads_engine_v2.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_google_ads_actions.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_alerts_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_public_shares.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_cobuild.sql

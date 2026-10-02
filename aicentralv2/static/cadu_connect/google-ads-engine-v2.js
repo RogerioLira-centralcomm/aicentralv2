@@ -22,7 +22,7 @@ var CADU = {
   apiKey: '__CADU_API_KEY__',
   accountIds: __CADU_ACCOUNT_IDS__, // Obrigatório em MCC; emitido para este cliente.
 
-  engineVersion: '2.1.0',
+  engineVersion: '2.1.1',
   schemaVersion: 2,
   windowDays: 14,                   // Janela recente quando o Reports não responde ao plano (conversões chegam atrasadas).
   // O Reports devolve o plano de datas: a janela recente + a próxima fatia do histórico (até 13 meses), uma por execução.
@@ -538,7 +538,11 @@ var Engine = {
       var url = CADU.endpoint + '/plan?account_id=' + encodeURIComponent(ctx.account.id) +
         (ctx.managerId ? '&manager_account_id=' + encodeURIComponent(ctx.managerId) : '');
       var response = UrlFetchApp.fetch(url, {method: 'get', headers: {Authorization: 'Bearer ' + CADU.apiKey}, muteHttpExceptions: true});
-      if (response.getResponseCode() !== 200) return fallback;
+      if (response.getResponseCode() !== 200) {
+        Logger.log(ctx.account.id + ': plano recusado (HTTP ' + response.getResponseCode() + '), usando a janela recente · ' +
+          response.getContentText().slice(0, 160));
+        return fallback;
+      }
       var plan = JSON.parse(response.getContentText());
       var ranges = (plan.ranges || []).filter(function (range) { return /^\d{4}-\d{2}-\d{2}$/.test(range.since) && /^\d{4}-\d{2}-\d{2}$/.test(range.until); });
       if (!ranges.length) return fallback;

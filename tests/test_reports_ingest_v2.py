@@ -204,3 +204,23 @@ def test_chunk_retention_only_removes_unreferenced_old_batches():
         assert f'FROM {table} t WHERE t.last_run_id=r.id' in sql
     assert 'NOT EXISTS' in sql and 'summary' not in sql
     db.commit.assert_called_once()
+
+
+def test_short_address_reaches_the_same_ingest(client):
+    assert client.post('/connect/api/gads', json=envelope('device_metrics', records=[])).status_code == 401
+    db = FakeDb()
+    with mock.patch.object(v2, '_rows', db.rows), mock.patch.object(v2, 'get_db', return_value=mock.Mock()):
+        response = client.post('/connect/api/gads', json=envelope('campaign_settings', records=[], snapshot={'id': 's', 'final': True}),
+                               headers={'Authorization': 'Bearer tok'})
+    assert response.status_code != 404
+
+
+@pytest.mark.parametrize('path', ['/connect/api/gads/plan', '/connect/api/v1/reports/ingest/google-ads/v2/plan'])
+def test_plan_answers_on_both_addresses(client, path):
+    db = FakeDb()
+    oldest = datetime.date.today() - datetime.timedelta(days=13)
+    rows = lambda sql, params=(): [{'oldest': oldest}] if 'LEAST' in sql else db.rows(sql, params)
+    with mock.patch.object(v2, '_rows', rows), mock.patch.object(v2, 'get_db', return_value=mock.Mock()):
+        response = client.get(path + '?account_id=655-001-2913', headers={'Authorization': 'Bearer tok'})
+    assert response.status_code == 200
+    assert [item['kind'] for item in response.get_json()['ranges']] == ['recent', 'backfill']

@@ -1,5 +1,6 @@
 """Scoped, idempotent Google Ads Script ingestion for Reports."""
 import hashlib
+import json
 import re
 import secrets
 import uuid
@@ -11,7 +12,7 @@ from flask import abort, jsonify, request, session
 from ..auth import login_required_api
 from ..cadu_family import context
 from ..db import get_db
-from .reports_v1 import _ready, _rows, _selection, _write_guard
+from .reports_v1 import _column_exists, _ready, _rows, _selection, _write_guard
 
 
 MAX_BODY_BYTES = 1_000_000
@@ -159,6 +160,22 @@ def _webhook_event(value):
             'kind': kind, 'occurred_at': occurred_at, 'value_micros': value_micros, 'currency': currency}
 
 
+def _action_limits(value):
+    """Budget and bid change ceilings (percent) for the Ações script; 30% unless the user picks another value."""
+    value = value if isinstance(value, dict) else {}
+    limits = {}
+    for key in ('max_budget_change_pct', 'max_cpc_change_pct'):
+        raw = value.get(key, 30)
+        try:
+            number = float(str(raw).replace(',', '.'))
+        except (TypeError, ValueError):
+            abort(400, description='Limite de variação inválido.')
+        if not 1 <= number <= 100:
+            abort(400, description='O limite de variação deve ficar entre 1% e 100%.')
+        limits[key] = round(number, 1)
+    return limits
+
+
 def register(bp):
     @bp.get('/api/v2/reports/ingest-keys')
     @login_required_api
@@ -188,11 +205,14 @@ def register(bp):
             abort(503)
         label = _text(payload.get('label'), 'Nome da chave', 120)
         source_kind = payload.get('source_kind', 'google_ads_script')
-        if source_kind not in ('google_ads_script', 'conversion_webhook'):
+        if source_kind not in ('google_ads_script', 'google_ads_actions', 'conversion_webhook'):
             abort(400, description='Tipo de integração inválido.')
-        allowed_accounts = _account_allowlist(payload.get('account_ids')) if source_kind == 'google_ads_script' else []
+        # Leitura and Ações are two scripts for the same accounts; both follow the same account rules.
+        google = source_kind in ('google_ads_script', 'google_ads_actions')
+        limits = _action_limits(payload.get('limits')) if source_kind == 'google_ads_actions' else {}
+        allowed_accounts = _account_allowlist(payload.get('account_ids')) if google else []
         manager_external_id = None
-        if source_kind == 'google_ads_script' and payload.get('manager_account_id'):
+        if google and payload.get('manager_account_id'):
             manager_external_id = _google_id(payload.get('manager_account_id'), 'ID da MCC', account=True)
             managers = _rows('''SELECT id FROM cadu_reports_accounts WHERE client_id=%s
                 AND platform='google_ads' AND external_id=%s AND account_kind='manager' AND status <> 'disabled' ''',
@@ -209,14 +229,16 @@ def register(bp):
                 (selected['client_id'], manager_external_id, allowed_accounts))
             if {row['external_id'] for row in advertisers} != set(allowed_accounts):
                 abort(400, description='Todos os anunciantes selecionados precisam estar vinculados a esta MCC.')
-        elif source_kind == 'google_ads_script' and len(allowed_accounts) > 1:
+        elif google and len(allowed_accounts) > 1:
             abort(400, description='Sem MCC, gere uma chave para uma conta anunciante por vez.')
-        elif source_kind == 'google_ads_script' and allowed_accounts:
+        elif google and allowed_accounts:
             known = _rows('''SELECT external_id FROM cadu_reports_accounts WHERE client_id=%s AND platform='google_ads' AND account_kind='advertiser'
                 AND status <> 'disabled' AND external_id=ANY(%s)''',
                 (selected['client_id'], allowed_accounts))
             if {row['external_id'] for row in known} != set(allowed_accounts):
                 abort(400, description='Cadastre a conta anunciante no Reports antes de gerar o script.')
+        if source_kind == 'google_ads_actions' and not _column_exists('cadu_reports_ingest_keys', 'limits'):
+            abort(503, description='Aplique a migração add_reports_google_ads_actions.sql para gerar o script de Ações.')
         token = secrets.token_urlsafe(32)
         key_id = str(uuid.uuid4())
         _rows('''INSERT INTO cadu_reports_ingest_keys
@@ -224,8 +246,10 @@ def register(bp):
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id''',
                 (key_id, selected['client_id'], label,
                  hashlib.sha256(token.encode()).hexdigest(), source_kind, allowed_accounts, session['user_id'], manager_external_id))
+        if limits:
+            _rows('UPDATE cadu_reports_ingest_keys SET limits=%s::jsonb WHERE id=%s RETURNING id', (json.dumps(limits), key_id))
         get_db().commit()
-        return jsonify(id=key_id, token=token, label=label, source_kind=source_kind,
+        return jsonify(id=key_id, token=token, label=label, source_kind=source_kind, limits=limits,
                        allowed_account_ids=allowed_accounts, manager_account_id=manager_external_id), 201
 
     @bp.post('/api/v2/reports/ingest-keys/<key_id>/revoke')

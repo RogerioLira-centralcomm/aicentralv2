@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 from flask import abort, jsonify, request
 
 from ..auth import login_required_api
+from .reports_google_ads_actions import recommendation_actions
 from .reports_google_ads_rules import RULES, build_recommendations, keyword_conflicts, term_action
 from ..db import get_db
 from .reports_v1 import _column_exists, _rows, _selection, _write_guard
@@ -348,6 +349,10 @@ def register(bp):
         devices = _money(_rows(_DEVICES_SQL, scope))
         recommendations = build_recommendations(accounts=accounts, campaigns=campaigns, terms=terms, keywords=keywords,
                                                 devices=devices, negatives=negatives, totals=totals)
+        # What already happened to each recommendation through the Ações script (queued, applied, undone).
+        queued = recommendation_actions(scope['client'], [item['id'] for item in recommendations if item.get('proposal')])
+        for item in recommendations:
+            item['queued'] = queued.get(item['id'])
         for account in accounts:
             for key in ('last_run_at', 'negatives_at'):
                 account[key] = account[key].isoformat() if account.get(key) else None

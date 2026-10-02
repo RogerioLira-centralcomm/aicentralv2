@@ -44,6 +44,12 @@ export function Overview({data}) {
             const share = summary.totals.cost ? (item.cost || 0) / summary.totals.cost : summary.totals.impressions ? item.impressions / summary.totals.impressions : 0;
             return <li key={item.platform}><span>{item.label}</span><i><b style={{width: `${Math.max(2, share * 100)}%`}}/></i><strong>{item.cost != null ? currency(item.cost, summary.currency) : compact(item.impressions)}</strong></li>;
           })}</ul>}
+        {summary && <ul className="rs-kv rs-kv--spaced">
+          <li><span>CTR</span><strong>{percent(totals.clicks, totals.impressions)}</strong></li>
+          <li><span>Custo por clique</span><strong>{totals.cost != null && totals.clicks ? currency(totals.cost / totals.clicks, summary.currency) : '—'}</strong></li>
+          <li><span>Conversões da plataforma</span><strong>{number(totals.conversions)}</strong></li>
+          <li><span>Custo por conversão</span><strong>{totals.cost != null && totals.conversions ? currency(totals.cost / totals.conversions, summary.currency) : '—'}</strong></li>
+        </ul>}
       </Section>
       <Section title="Site & Jornada" description="Visitas por dia em todos os domínios" action={more(reportUrl('journey'), 'Abrir Site & Jornada')}>
         <Async state={domains} onRetry={retryDomains} isEmpty={body => !body.domains.length}

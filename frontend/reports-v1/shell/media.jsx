@@ -23,6 +23,7 @@ export function Chart({type = 'bar', labels, values, height = 260, horizontal = 
       xaxis: {categories: labels, tickPlacement: 'on', tickAmount: Math.min(6, Math.max(1, (labels?.length || 1) - 1)), labels: {rotate: 0, hideOverlappingLabels: true, style: {colors: '#667085', fontSize: '12px'}}, axisBorder: {show: false}, axisTicks: {show: false}},
       yaxis: {labels: {style: {colors: '#667085', fontSize: '12px'}, formatter: value => new Intl.NumberFormat('pt-BR', {notation: 'compact', maximumFractionDigits: 1}).format(value)}, forceNiceScale: true},
       tooltip: {theme: 'light'},
+      responsive: [{breakpoint: 640, options: {xaxis: {tickAmount: Math.min(3, Math.max(1, (labels?.length || 1) - 1))}}}],
       legend: {show: false},
     });
     chart.render();

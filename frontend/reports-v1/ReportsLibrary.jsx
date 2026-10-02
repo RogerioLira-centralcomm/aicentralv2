@@ -22,9 +22,9 @@ export function ReportsLibrary({data, save, busy}) {
   useEffect(() => {setDetail(null); setError('');}, [data.client.client_id]);
   const open = async reportId => {
     setError('');
-    try {setDetail(await json(`${API}/workspaces/${reportId}?client_id=${data.client.client_id}`));} catch (failure) {setError(failure.message);}
+    try {setDetail(await json(`${API}/workspaces/${reportId}`));} catch (failure) {setError(failure.message);}
   };
-  const refresh = async () => setDetail(await json(`${API}/workspaces/${detail.report.id}?client_id=${data.client.client_id}`));
+  const refresh = async () => setDetail(await json(`${API}/workspaces/${detail.report.id}`));
   return <div className="untitled-scope flex flex-col gap-6">
     {error && <Alert>{error}</Alert>}
     {detail ? <ReportDetail key={detail.report.id} data={data} save={save} busy={busy} detail={detail} refresh={refresh} onBack={() => setDetail(null)} setError={setError}/>
@@ -105,7 +105,7 @@ function ReportDetail({data, save, busy, detail, refresh, onBack, setError}) {
   };
   const planNext = async () => {
     setPlanning(true);
-    await run(async () => setPlan((await json(`${API}/workspaces/${detail.report.id}/plan`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf}, body: JSON.stringify({client_id: data.client.client_id})})).plan));
+    await run(async () => setPlan((await json(`${API}/workspaces/${detail.report.id}/plan`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf}, body: JSON.stringify({})})).plan));
     setPlanning(false);
   };
   const incorporate = () => {
@@ -262,7 +262,7 @@ function ReviewDrawer({source, data, detail, busy, viewer, refresh, setError, on
     event.preventDefault();
     try {
       const payload = {revision: detail.report.revision, note, metrics: metrics.map(item => ({name: item.name, value: item.raw, unit: item.unit, definition: item.definition, scope: item.scope, evidence: item.evidence}))};
-      await json(`/connect/relatorios/${detail.report.id}/fontes/${source.id}/revisar?client_id=${data.client.client_id}`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf}, body: JSON.stringify(payload)});
+      await json(`/connect/relatorios/${detail.report.id}/fontes/${source.id}/revisar`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf}, body: JSON.stringify(payload)});
       await refresh(); onClose(); setError('');
     } catch (failure) {setError(failure.message);}
   };

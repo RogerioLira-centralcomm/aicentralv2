@@ -12,7 +12,7 @@ export function useSitePages({clientId,csrf,host='',query='',enabled=true,deboun
     let current=true;
     setState(previous=>({...previous,loading:true}));
     const timer=setTimeout(()=>{
-      json(`${base}?client_id=${clientId}${host?`&host=${encodeURIComponent(host)}`:''}&q=${encodeURIComponent(query.trim())}`)
+      json(`${base}?${host?`host=${encodeURIComponent(host)}&`:''}q=${encodeURIComponent(query.trim())}`)
         .then(result=>{if(current)setState({hosts:result.hosts||[],host:result.host||'',pages:result.pages||[],notice:result.notice||'',loading:false,pageCount:result.page_count||0,truncated:Boolean(result.truncated)});})
         .catch(failure=>{if(current)setState(previous=>({...previous,loading:false,notice:failure.message||'Não foi possível buscar as páginas.'}));});
     },debounce);
@@ -25,13 +25,13 @@ export function useSitePages({clientId,csrf,host='',query='',enabled=true,deboun
     if(!missing.length)return undefined;
     missing.forEach(page=>asked.current.add(`${page.host}${page.path}`));
     let current=true;
-    json(`${base}/titles`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({client_id:clientId,host:activeHost,paths:missing.map(page=>page.path)})})
+    json(`${base}/titles`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({host:activeHost,paths:missing.map(page=>page.path)})})
       .then(result=>{if(!current)return;const byPath=new Map((result.pages||[]).map(page=>[page.path,page]));
         setState(previous=>({...previous,pages:previous.pages.map(page=>byPath.get(page.path)?.title?{...page,title:byPath.get(page.path).title}:page)}));})
       .catch(()=>{});
     return()=>{current=false;};
   },[pages,activeHost,enabled,clientId,csrf]);
-  const refresh=useCallback(()=>json(`${base}/refresh`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({client_id:clientId,host:activeHost})}),[clientId,csrf,activeHost]);
+  const refresh=useCallback(()=>json(`${base}/refresh`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({host:activeHost})}),[clientId,csrf,activeHost]);
   return {...state,refresh};
 }
 

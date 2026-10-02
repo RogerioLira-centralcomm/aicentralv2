@@ -51,7 +51,7 @@ import {layoutFlow} from './flowLayout.js';
 import {FLOW_STAGES, FLOW_GRID, alignConfigToGrid, alignToGrid, placeNodeInStage, stageAtX, stageX} from './flowStages.js';
 import {useFlowHistory} from './useFlowHistory.js';
 import {useFlowPolling} from './useFlowPolling.js';
-import {withUnmappedOrigins} from './flowOrigins.js';
+import {withUnmappedOrigins,wireNewNodes} from './flowOrigins.js';
 import {SearchLg} from '@untitledui/icons';
 import {flowEditorId, reportUrl, flowEditorUrl, shortDate, integer, decimal, json, Empty, FLOW_CHANNELS, Kpi} from './reportsCommon.jsx';
 
@@ -60,7 +60,7 @@ const FLOW_CARD_HEIGHT = 184;
 
 
 export function Flow(props) {
-  useEffect(() => {const query=new URLSearchParams(location.search);if(!flowEditorId()&&query.get('flow_view')==='edit'&&query.get('flow_id'))location.replace(flowEditorUrl(query.get('flow_id'),props.data.client.client_id));}, [props.data.client.client_id]);
+  useEffect(() => {const query=new URLSearchParams(location.search);if(!flowEditorId()&&query.get('flow_view')==='edit'&&query.get('flow_id'))location.replace(flowEditorUrl(query.get('flow_id')));}, [props.data.client.client_id]);
   const [supported, setSupported] = useState(() => window.matchMedia('(min-width: 768px)').matches);
   const [linkCopied, setLinkCopied] = useState(false);
   useEffect(() => {
@@ -193,7 +193,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   const reload = () => {
     const sequence = ++requestSequence.current;
     const scope = liveScope;
-    const params = new URLSearchParams({client_id: String(data.client.client_id), days: filters.period,
+    const params = new URLSearchParams({days: filters.period,
       start_date: filters.startDate, end_date: filters.endDate, view:workspaceV2&&flowView==='monitor'?'edit':flowView});
     if (selectedFlowId) params.set('flow_id', selectedFlowId);
     if(flowView==='monitor'&&analysisRevision)params.set('revision',analysisRevision);
@@ -211,16 +211,29 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   useEffect(()=>{
     if(flowView!=='monitor'||!selectedFlowId)return;
     let cancelled=false;
-    json(`/connect/api/v2/reports/flow/flows/${selectedFlowId}/versions?client_id=${data.client.client_id}`)
+    json(`/connect/api/v2/reports/flow/flows/${selectedFlowId}/versions`)
       .then(result=>{if(!cancelled)setMonitorVersions(result.versions);})
       .catch(()=>{if(!cancelled)setMonitorVersions([]);});
     return()=>{cancelled=true;};
   },[selectedFlowId,flowView,data.client.client_id,refreshRevision]);
   const loadDiscoveries = async flowId => {
     if (!flowId) {setDiscovery({run:null,pages:[]});return;}
-    const result=await json(`/connect/api/v2/reports/flow/flows/${flowId}/discoveries?client_id=${data.client.client_id}`);
+    const result=await json(`/connect/api/v2/reports/flow/flows/${flowId}/discoveries`);
     if(liveEditorRef.current?.id===flowId)setDiscovery(result);
   };
+  // New origins and pages wire themselves: loose origins join the entry page and sit together beside it.
+  const wiringRef = useRef({flowId: '', ids: null});
+  useEffect(() => {
+    const ids = new Set(flowConfig.nodes.map(node => node.id));
+    const previous = wiringRef.current;
+    wiringRef.current = {flowId: selectedFlowId, ids};
+    if (readOnly || editorMode !== 'edit' || !previous.ids || previous.flowId !== selectedFlowId || !previous.ids.size || ![...previous.ids].some(id => ids.has(id))) return;
+    const {config: wired, wired: count} = wireNewNodes(flowConfig, previous.ids);
+    if (!count) return;
+    wiringRef.current = {flowId: selectedFlowId, ids};
+    setFlowConfig(wired);
+    setFlowLayoutNote(`${count === 1 ? 'Origem conectada' : `${count} origens conectadas`} à página de entrada. Ajuste ou remova a conexão se não fizer sentido.`);
+  }, [flowConfig.nodes, selectedFlowId]);
   useEffect(() => {reload().catch(failure => setLocalError(failure.message));}, [data.client.client_id, filters.period, filters.startDate, filters.endDate, filters.platform, filters.account, filters.campaign, selectedFlowId,flowView,refreshRevision,analysisRevision]);
   useEffect(() => {if(flowView!=='edit')return;loadDiscoveries(selectedFlowId).catch(failure => {if(failure.status===409){setDiscovery({run:null,pages:[]});return;}setLocalError(failure.message);});}, [selectedFlowId,data.client.client_id]);
   useEffect(() => {const found = flow.flows.find(item => item.id === selectedFlowId); if (found && flowInitializedRef.current !== selectedFlowId) {const loaded=alignConfigToGrid(found.config||{nodes:[],edges:[]});setFlowName(found.name); setFlowConfig(loaded);flowHistory.reset(loaded);copiedNodesRef.current=null; revisionRef.current=found.draft_revision;savedSnapshotRef.current=JSON.stringify({name:found.name,config:loaded});flowInitializedRef.current=selectedFlowId;setVersions(null);setVersionComparison(null);setPageSuggestions({});setVersionMessage('');}}, [selectedFlowId, flow.flows]);
@@ -241,7 +254,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
     return()=>{stopped=true;window.clearTimeout(timer);document.removeEventListener('visibilitychange',visibility);};
   }, [liveScope]);
   const chooseFlow = id => {if(commandLock.current)return;setSelectedFlowId(id);const url=new URL(location.href);if(id)url.searchParams.set('flow_id',id);else url.searchParams.delete('flow_id');history.replaceState(null,'',url);};
-  const openFlow = (item, view) => {if(view==='edit'){const url=new URL(flowEditorUrl(item.id,data.client.client_id),location.origin);url.searchParams.set('modo','editar');location.assign(url);}else location.assign(reportUrl(`flows/${item.id}/monitor`,{client_id:data.client.client_id}));};
+  const openFlow = (item, view) => {if(view==='edit'){const url=new URL(flowEditorUrl(item.id),location.origin);url.searchParams.set('modo','editar');location.assign(url);}else location.assign(reportUrl(`flows/${item.id}/monitor`));};
   // Pages in the flow, counting a group of similar pages once.
   const pageSlots=config=>new Set(config.nodes.filter(node=>['page','form','conversion','error'].includes(node.type)).map(node=>node.groupId||node.id)).size;
   const pageLimitReached=config=>{if(pageSlots(config)<MAX_FLOW_PAGES)return false;setFlowLayoutNote(`O fluxo já tem ${MAX_FLOW_PAGES} páginas. Agrupe páginas parecidas ou remova uma antes de adicionar outra.`);return true;};
@@ -350,7 +363,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
         setFlow(current=>({...current,flows:current.flows.map(item=>item.id===snapshot.id?{...item,...result.flow}:item)}));
         setEditorSaveState('saved');setLastSavedAt(Date.now());
         return result.flow.draft_revision;
-      } catch(failure){setSaveFailure(failure.details||null);setEditorSaveState('error');if(failure.details?.node_ids?.length){setSelectedNodeIds(failure.details.node_ids);setSelectedNodeId(failure.details.node_ids[0]);setInspectorOpen(true);}setLocalError(failure.message);if(failure.status===409){setDraftConflict(true);json(`/connect/api/v2/reports/flow?client_id=${data.client.client_id}&flow_id=${snapshot.id}&view=edit`).then(result=>setRemoteRevision(result.flows.find(item=>item.id===snapshot.id)?.draft_revision??null)).catch(()=>{});}return false;}
+      } catch(failure){setSaveFailure(failure.details||null);setEditorSaveState('error');if(failure.details?.node_ids?.length){setSelectedNodeIds(failure.details.node_ids);setSelectedNodeId(failure.details.node_ids[0]);setInspectorOpen(true);}setLocalError(failure.message);if(failure.status===409){setDraftConflict(true);json(`/connect/api/v2/reports/flow?flow_id=${snapshot.id}&view=edit`).then(result=>setRemoteRevision(result.flows.find(item=>item.id===snapshot.id)?.draft_revision??null)).catch(()=>{});}return false;}
       finally{editorSavingRef.current=false;}
     })();
     savePromiseRef.current=pending;
@@ -359,7 +372,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   const resolveDraftConflict = async overwrite => {
     const snapshot = {...liveEditorRef.current};
     try {
-      const result = await json(`/connect/api/v2/reports/flow?client_id=${data.client.client_id}&flow_id=${selectedFlowId}&view=edit`);
+      const result = await json(`/connect/api/v2/reports/flow?flow_id=${selectedFlowId}&view=edit`);
       const latest = result.flows.find(item=>item.id===selectedFlowId);
       if(!latest)throw new Error('O fluxo não está mais disponível para este cliente.');
       if(overwrite){
@@ -375,13 +388,13 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   const leaveEditor = async () => {
     if(draftConflict)return;
     if(editorDirty && !await saveFlow())return;
-    location.assign(reportUrl('flows',{client_id:data.client.client_id}));
+    location.assign(reportUrl('flows'));
   };
   const openPublication = async () => {
     if(!selectedFlowId||publicationBusy)return;
     setPublishedConfig(null);setPublicationNote('');
     if(selectedFlow?.published_revision)try{
-      const result=await json(`/connect/api/v2/reports/flow/flows/${selectedFlowId}/versions/${selectedFlow.published_revision}?client_id=${data.client.client_id}`);
+      const result=await json(`/connect/api/v2/reports/flow/flows/${selectedFlowId}/versions/${selectedFlow.published_revision}`);
       setPublishedConfig(result.version.config);
     }catch(failure){setLocalError(`Não foi possível comparar com a publicação atual: ${failure.message}`);return;}
     setPublicationOpen(true);
@@ -406,8 +419,8 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
       setPublicationOpen(false);setPlanVersionsKey(value=>value+1);setVersionMessage(`Plano v${result.version.revision} publicado para aprovação. A medição não foi alterada.`);
     }catch(failure){setLocalError(failure.message);}finally{setPublicationBusy(false);}
   };
-  const loadVersions = async () => {try{const result=await json(`/connect/api/v2/reports/flow/flows/${selectedFlowId}/versions?client_id=${data.client.client_id}`);setVersions(result.versions);}catch(failure){setLocalError(failure.message);}};
-  const compareVersion = async revision => {try{const result=await json(`/connect/api/v2/reports/flow/flows/${selectedFlowId}/versions/${revision}?client_id=${data.client.client_id}`);setVersionComparison({revision,...flowChangeSummary(result.version.config,flowConfig)});}catch(failure){setLocalError(failure.message);}};
+  const loadVersions = async () => {try{const result=await json(`/connect/api/v2/reports/flow/flows/${selectedFlowId}/versions`);setVersions(result.versions);}catch(failure){setLocalError(failure.message);}};
+  const compareVersion = async revision => {try{const result=await json(`/connect/api/v2/reports/flow/flows/${selectedFlowId}/versions/${revision}`);setVersionComparison({revision,...flowChangeSummary(result.version.config,flowConfig)});}catch(failure){setLocalError(failure.message);}};
   const restoreVersion = async revision => {
     if(!window.confirm('Restaurar esta versão como rascunho? A publicação atual continuará ativa.')||!startCommand())return;
     try{
@@ -504,7 +517,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   useEffect(()=>{
     if((editorMode!=='journey'&&(flowView!=='monitor'||workspaceV2))||!selectedFlowId)return;
     let cancelled=false;setJourneyLoading(true);setJourneyError('');
-    json(`/connect/api/v2/reports/flow/flows/${selectedFlowId}/journey?client_id=${data.client.client_id}&days=${journeyDays}`)
+    json(`/connect/api/v2/reports/flow/flows/${selectedFlowId}/journey?days=${journeyDays}`)
       .then(result=>{if(!cancelled)setJourneyData(result);})
       .catch(failure=>{if(!cancelled)setJourneyError(failure.message);})
       .finally(()=>{if(!cancelled)setJourneyLoading(false);});
@@ -519,7 +532,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
     setEditorMode('journey');
   },[flowView,selectedFlow?.id,selectedFlow?.status,workspaceV2]);
   const monitoring=flowView==='edit'&&editorMode==='journey'&&selectedFlow?.status==='published'&&!workspaceV2;
-  const liveFeed=useFlowPolling(monitoring?`/connect/api/v2/reports/flow/flows/${selectedFlowId}/live?client_id=${data.client.client_id}&identity=all`:null,{interval:6000,enabled:monitoring});
+  const liveFeed=useFlowPolling(monitoring?`/connect/api/v2/reports/flow/flows/${selectedFlowId}/live?identity=all`:null,{interval:6000,enabled:monitoring});
   const journeyView=useMemo(()=>editorMode==='journey'&&journeyData?.status==='ready'?withUnmappedOrigins(journeyData):null,[editorMode,journeyData]);
   // "Organizar" while monitoring only moves the cards on screen; the draft and the publication stay as they are.
   const [journeyLayout,setJourneyLayout]=useState(null);
@@ -544,6 +557,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
     if(issue.action==='add_conversion'){addNode('conversion');setValidationOpen(false);return;}
     if(issue.action==='confirm_goal'){setBlueprintOpen(true);setValidationOpen(false);return;}
     if(issue.action==='check_supertag'){location.assign(reportUrl('supertag'));return;}
+    if(issue.code==='cycle_without_condition')canvasFlowRef.current?.showReturns?.();
     const edge=flowConfig.edges.find(item=>item.id===issue.edgeId);
     const ids=edge?[edge.from,edge.to]:issue.nodeId?[issue.nodeId]:[];
     if(ids.length){setSelectedNodeId(issue.nodeId||ids[0]);setInspectorOpen(true);revealNode(issue.nodeId||ids[0]);}
@@ -608,9 +622,9 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
     });
   };
   const mappedSitePages = flowConfig.nodes.filter(node => node.discoveryPageId).length;
-  if(workspaceV2&&flowView==='monitor'&&selectedFlow)return <FlowMonitorWorkspace csrf={data.csrf} flow={selectedFlow} client={data.client} versions={monitorVersions} filters={filters} baseConfig={selectedFlow.config} onEdit={()=>location.assign(flowEditorUrl(selectedFlowId,data.client.client_id))} onBack={()=>location.assign(reportUrl('flows',{client_id:data.client.client_id}))}/>;
+  if(workspaceV2&&flowView==='monitor'&&selectedFlow)return <FlowMonitorWorkspace csrf={data.csrf} flow={selectedFlow} client={data.client} versions={monitorVersions} filters={filters} baseConfig={selectedFlow.config} onEdit={()=>location.assign(flowEditorUrl(selectedFlowId))} onBack={()=>location.assign(reportUrl('flows'))}/>;
   return <>
-    {flowView==='monitor'&&<a className="reports-flow-return" href={reportUrl('flows',{client_id:data.client.client_id})}>← Voltar aos fluxos</a>}
+    {flowView==='monitor'&&<a className="reports-flow-return" href={reportUrl('flows')}>← Voltar aos fluxos</a>}
     {localError&&flowView!=='edit'&&<div className="reports-error" role="alert">{localError}</div>}
     <FlowToast message={versionMessage} onDismiss={()=>setVersionMessage('')}/>
     <FlowToast message={flowLayoutNote} onDismiss={()=>setFlowLayoutNote('')}/>
@@ -623,7 +637,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
     {flowView==='edit'&&(selectedFlow?<>
       <section className={`reports-panel reports-flow-builder is-${editorMode}${workspaceV2?' is-workspace-v2':''}`} {...(commandBusy?{inert:'','aria-busy':true}:{})}>
         <header className="reports-flow-topbar reports-flow-editor-topbar">
-          <div className="reports-flow-editor-identity"><FlowSolutionSwitcher/><a href={reportUrl('flows',{client_id:data.client.client_id})} aria-label="Voltar aos fluxos" onClick={event=>{event.preventDefault();leaveEditor();}}>← Fluxos</a><span aria-hidden="true">/</span><input aria-label="Nome do fluxo" value={flowName} readOnly={readOnly} onChange={event=>setFlowName(event.target.value)} maxLength="120"/><small>{selectedFlow?.status==='published'?`Publicado v${selectedFlow.published_revision}`:'Rascunho'}</small>{planWithoutSite&&<span className="reports-flow-plan-only">Plano sem site{!readOnly&&<ReportsActionButton color="link-color" size="sm" onClick={()=>setConnectSiteOpen(true)}>Conectar site</ReportsActionButton>}</span>}<details className={`reports-flow-save-state is-${editorSaveState}`}><summary role="status">{editorSaveState==='error'?'Falha ao salvar':editorSaveState==='saving'?'Salvando…':editorDirty?'Alterações pendentes':selectedFlow?.status==='published'&&Number(selectedFlow.draft_revision)>Number(selectedFlow.published_revision)?'Alterações não publicadas':savedAgo(lastSavedAt,statusClock)}</summary><div>{localError||'Rascunho salvo'}<small>Revisão do rascunho: {revisionRef.current}</small>{saveFailure?.request_id&&<small>Referência: {saveFailure.request_id}</small>}{saveFailure?.node_ids?.map(id=><ReportsActionButton key={id} onClick={()=>{setSelectedNodeId(id);revealNode(id);}}>Localizar {flowConfig.nodes.find(n=>n.id===id)?.title||'nó'}</ReportsActionButton>)}{localError&&<ReportsActionButton onClick={saveFlow}>Tentar salvar novamente</ReportsActionButton>}</div></details></div>
+          <div className="reports-flow-editor-identity"><FlowSolutionSwitcher/><a href={reportUrl('flows')} aria-label="Voltar aos fluxos" onClick={event=>{event.preventDefault();leaveEditor();}}>← Fluxos</a><span aria-hidden="true">/</span><input aria-label="Nome do fluxo" value={flowName} readOnly={readOnly} onChange={event=>setFlowName(event.target.value)} maxLength="120"/><small>{selectedFlow?.status==='published'?`Publicado v${selectedFlow.published_revision}`:'Rascunho'}</small>{planWithoutSite&&<span className="reports-flow-plan-only">Plano sem site{!readOnly&&<ReportsActionButton color="link-color" size="sm" onClick={()=>setConnectSiteOpen(true)}>Conectar site</ReportsActionButton>}</span>}<details className={`reports-flow-save-state is-${editorSaveState}`}><summary role="status">{editorSaveState==='error'?'Falha ao salvar':editorSaveState==='saving'?'Salvando…':editorDirty?'Alterações pendentes':selectedFlow?.status==='published'&&Number(selectedFlow.draft_revision)>Number(selectedFlow.published_revision)?'Alterações não publicadas':savedAgo(lastSavedAt,statusClock)}</summary><div>{localError||'Rascunho salvo'}<small>Revisão do rascunho: {revisionRef.current}</small>{saveFailure?.request_id&&<small>Referência: {saveFailure.request_id}</small>}{saveFailure?.node_ids?.map(id=><ReportsActionButton key={id} onClick={()=>{setSelectedNodeId(id);revealNode(id);}}>Localizar {flowConfig.nodes.find(n=>n.id===id)?.title||'nó'}</ReportsActionButton>)}{localError&&<ReportsActionButton onClick={saveFlow}>Tentar salvar novamente</ReportsActionButton>}</div></details></div>
           <div className="reports-flow-editor-modes" role="group" aria-label="Modo do fluxo"><button type="button" aria-current={editorMode==='edit'?'page':undefined} onClick={()=>{setEditorMode('edit');setSimulatedPath([]);}}>Editar</button><button type="button" aria-current={editorMode==='review'?'page':undefined} onClick={()=>{closeTools();setEditorMode('review');setSimulatedPath([]);}}>Revisão</button><button type="button" aria-current={editorMode==='journey'?'page':undefined} onClick={()=>workspaceV2?openFlow(selectedFlow,'monitor'):setEditorMode('journey')} disabled={selectedFlow?.status!=='published'} title={selectedFlow?.status!=='published'?'Publique o fluxo para acompanhar a jornada':undefined}>Monitorar</button></div>
           <div className="reports-flow-actions"><ReportsActionButton aria-label="Desfazer" title="Desfazer" shortcut="⌘Z" onClick={flowHistory.undo} disabled={!flowHistory.canUndo||readOnly}><FlipBackward size={16}/></ReportsActionButton><ReportsActionButton aria-label="Refazer" title="Refazer" shortcut="⌘⇧Z" onClick={flowHistory.redo} disabled={!flowHistory.canRedo||readOnly}><FlipForward size={16}/></ReportsActionButton>{snippet(selectedFlow)?<ReportsActionButton onClick={()=>copy(snippet(selectedFlow))}>Copiar Super Tag</ReportsActionButton>:null}<ReportsActionButton className="reports-flow-issues-button" aria-label={`${pendingIssues.length} problemas ou avisos no fluxo`} onClick={()=>setValidationOpen(value=>!value)}>{pendingIssues.length?plural(pendingIssues.length,'pendência','pendências'):plannedSteps?plural(plannedSteps,'passo planejado','passos planejados'):'Pronto'}</ReportsActionButton><ReportsActionButton color="primary" className="reports-flow-publish" onClick={openPublication} disabled={!selectedFlowId||busy||!flowConfig.nodes.length||readOnly} aria-describedby={blockingIssues.length?'flow-publish-blocked':undefined}>{selectedFlow?.status==='published'?'Publicar alterações':'Publicar'}</ReportsActionButton>{blockingIssues.length>0&&<button type="button" id="flow-publish-blocked" className="reports-flow-publish-hint" aria-label={`Resolva ${plural(blockingIssues.length,'pendência bloqueante','pendências bloqueantes')} para publicar`} title={`Resolva ${plural(blockingIssues.length,'pendência bloqueante','pendências bloqueantes')} para publicar`} onClick={()=>setValidationOpen(true)}>{`Ver ${plural(blockingIssues.length,'bloqueio','bloqueios')}`}</button>}<details className="reports-flow-extra-actions"><summary aria-label="Mais ações">⋯</summary><div><ReportsActionButton onClick={()=>setEditorMode('simulate')} disabled={!flowConfig.nodes.length}>Simular</ReportsActionButton><ReportsActionButton onClick={()=>autoArrange('free')}>Organizar livre</ReportsActionButton><ReportsActionButton onClick={loadVersions}>Histórico</ReportsActionButton><ReportsActionButton onClick={()=>downloadFlowSvg(flowConfig,flowName||'fluxo')}>Exportar SVG</ReportsActionButton><ReportsActionButton onClick={()=>downloadFlowPng(flowConfig,flowName||'fluxo').catch(failure=>setLocalError(failure.message))}>Exportar PNG</ReportsActionButton>{!snippet(selectedFlow)&&<ReportsActionButton onClick={()=>selectedFlow?.revoked_at?location.assign(reportUrl('supertag')):copy(flowFallbackSnippet(selectedFlow))} disabled={(!flowFallbackSnippet(selectedFlow)&&!selectedFlow?.revoked_at)||data.client.role==='viewer'}>{selectedFlow?.revoked_at?'Conectar Super Tag':'Copiar snippet'}</ReportsActionButton>}</div></details></div>
         </header>
@@ -667,13 +681,13 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
           {blueprintOpen&&<FlowBlueprint key={`${data.client.client_id}:${selectedFlowId}`} flowId={selectedFlowId} clientId={data.client.client_id} csrf={data.csrf} domain={selectedFlow.allowed_host} config={flowConfig} onPreview={setBlueprintPreview} onApply={next=>{if(readOnly)throw new Error('Volte à edição para aplicar a proposta.');setFlowConfig(syncGroups(next));}} onClose={()=>{setBlueprintOpen(false);setBlueprintPreview({nodes:[],edges:[]});}}/>}
           {mediaOpen&&<FlowMediaPanel config={flowConfig} host={selectedFlow?.allowed_host||''} flowName={flowName} readOnly={readOnly} onChange={next=>{if(!readOnly)setFlowConfig(next);}} onSelectNode={id=>{setMediaOpen(false);setSelectedNodeId(id);revealNode(id);}} onClose={()=>setMediaOpen(false)}/>}
           {forecastOpen&&<FlowForecastPanel config={flowConfig} scenario={forecastScenario} onScenarioChange={setForecastScenario} readOnly={readOnly} onChange={next=>{if(!readOnly)setFlowConfig(next);}} onClose={()=>setForecastOpen(false)}/>}
-          {planOpen&&<FlowPlanPanel onSaveTemplate={async template=>{await save('/flow/templates',{...template,config:flowConfig},false);}} versionsUrl={selectedFlowId?`/connect/api/v2/reports/flow/flows/${selectedFlowId}/plan-versions?client_id=${data.client.client_id}`:''} versionsKey={planVersionsKey} config={flowConfig} name={flowName} host={selectedFlow?.allowed_host} readOnly={readOnly} onChange={next=>{if(!readOnly)setFlowConfig(next);}} onSelectNode={id=>{setPlanOpen(false);setSelectedNodeId(id);revealNode(id);}} onClose={()=>setPlanOpen(false)}/>}
-          {sourcePickerOpen&&<FlowSourcePicker config={flowConfig} campaigns={data.campaigns||[]} onApply={next=>{if(!readOnly)guardSources(next);}} onClose={()=>setSourcePickerOpen(false)}/>}
+          {planOpen&&<FlowPlanPanel onSaveTemplate={async template=>{await save('/flow/templates',{...template,config:flowConfig},false);}} versionsUrl={selectedFlowId?`/connect/api/v2/reports/flow/flows/${selectedFlowId}/plan-versions`:''} versionsKey={planVersionsKey} config={flowConfig} name={flowName} host={selectedFlow?.allowed_host} readOnly={readOnly} onChange={next=>{if(!readOnly)setFlowConfig(next);}} onSelectNode={id=>{setPlanOpen(false);setSelectedNodeId(id);revealNode(id);}} onClose={()=>setPlanOpen(false)}/>}
+          {sourcePickerOpen&&<FlowSourcePicker config={flowConfig} campaigns={data.campaigns||[]} detected={(journeyShown||journeyData)?.origin_landings||[]} onApply={next=>{if(!readOnly)guardSources(next);}} onClose={()=>setSourcePickerOpen(false)}/>}
           {flowConfig.nodes.length===0&&!probeOpen&&!blueprintOpen&&!sourcePickerOpen&&<div className="reports-flow-empty-guide" role="status"><strong>Por onde a jornada começa?</strong><p>Comece pelas campanhas e canais que trazem pessoas a {selectedFlow.allowed_host}, ou deixe o teste ler a página inicial e propor o caminho até a conversão.</p><div><ReportsActionButton color="primary" disabled={readOnly} onClick={()=>setSourcePickerOpen(true)}>Começar pela origem</ReportsActionButton><ReportsActionButton color="secondary" disabled={readOnly} onClick={()=>setProbeOpen(true)}>Testar conversão</ReportsActionButton><ReportsActionButton color="tertiary" onClick={()=>{setPaletteMode('site');panelLayout.openExplorer();}}>Explorar páginas</ReportsActionButton></div></div>}
           <FlowCanvas forecast={forecastLayer} inspectorOpen={inspectorOpen} onNavigationModeChange={setNavigationOnly} ghostNodes={blueprintPreview.nodes} ghostEdges={blueprintPreview.edges} previewContext={{flowId:selectedFlowId,clientId:data.client.client_id,csrf:data.csrf,canCapture:!readOnly,revision:editorMode==='journey'?journeyData?.revision:null}} config={editorMode==='journey'&&journeyData?.config?(journeyShown?.config||journeyData.config):flowConfig} journey={editorMode==='journey'?(journeyShown||journeyData):null} siteHost={selectedFlow?.allowed_host||''} live={liveSnapshot} liveScope={`${selectedFlowId}:${journeyData?.revision}`} fitKey={`${editorMode}:${selectedFlowId}:${editorMode==='journey'?`${journeyData?.revision}:${journeyView?.config?.nodes?.length}:${journeyLayout?'arranged':''}`:''}`} fitMonitor={editorMode==='journey'} setConfig={setFlowConfig} selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId} onAddNode={(item,point,source)=>addNode(item.type,item,point,source)} onGestureStart={flowHistory.begin} onGestureEnd={flowHistory.end} onInsertEdge={insertOnEdge} onSelectedIdsChange={setSelectedNodeIds} onDuplicateSelection={duplicateSelection} readOnly={readOnly||editorMode!=='edit'} simulatedPath={simulatedPath} snapToGrid={snapToGrid} fitOnMount onOrganize={readOnly?undefined:autoArrange} onReady={instance=>{canvasFlowRef.current=instance;}} onZoomChange={setCanvasZoom}/>
 
           {repeatSource&&<FlowRepeatedSource key={repeatSource.nodes[0].id} pending={repeatSource} onResolve={resolveRepeatedSource} onCancel={cancelRepeatedSource}/>}
-          {inspectorOpen&&<FlowInspector sitePages={sitePagesProps} onSplitSegment={splitSegment} config={flowConfig} host={selectedFlow?.allowed_host||''} flowName={flowName} nodes={flowConfig.nodes} onConnect={(from,to)=>setFlowConfig(current=>current.edges.some(edge=>edge.from===from&&edge.to===to)?current:{...current,edges:[...current.edges,{id:crypto.randomUUID(),from,to,variant:'direct',label:'Próximo'}]})} onCreateGroup={name=>setFlowConfig(current=>groupNodes(current,[selectedNodeId],name))} groups={[...new Set((flowConfig.groups||[]).map(g=>g.name))]} integrationsUrl={reportUrl('monitor',{client_id:data.client.client_id})} node={(editorMode==='journey'&&journeyData?.config?(journeyShown?.config||journeyData.config):flowConfig).nodes.find(item=>item.id===selectedNodeId)} activity={flow.events} onGestureStart={flowHistory.begin} onGestureEnd={flowHistory.end} journeyMetric={editorMode==='journey'?(journeyShown||journeyData)?.nodes?.find(item=>item.id===selectedNodeId):null} readOnly={readOnly||editorMode!=='edit'} onChange={updateNode} onClose={()=>setInspectorOpen(false)} onRemove={()=>{setFlowConfig(current=>({...current,nodes:current.nodes.filter(item=>item.id!==selectedNodeId),edges:current.edges.filter(edge=>edge.from!==selectedNodeId&&edge.to!==selectedNodeId)}));setSelectedNodeId('');setInspectorOpen(false);}}/>}
+          {inspectorOpen&&<FlowInspector sitePages={sitePagesProps} flowId={selectedFlowId} clientName={data.client.name||data.client.client_name||data.client.nome||''} onSplitSegment={splitSegment} config={flowConfig} host={selectedFlow?.allowed_host||''} flowName={flowName} nodes={flowConfig.nodes} onConnect={(from,to)=>setFlowConfig(current=>current.edges.some(edge=>edge.from===from&&edge.to===to)?current:{...current,edges:[...current.edges,{id:crypto.randomUUID(),from,to,variant:'direct',label:'Próximo'}]})} onCreateGroup={name=>setFlowConfig(current=>groupNodes(current,[selectedNodeId],name))} groups={[...new Set((flowConfig.groups||[]).map(g=>g.name))]} integrationsUrl={reportUrl('monitor')} node={(editorMode==='journey'&&journeyData?.config?(journeyShown?.config||journeyData.config):flowConfig).nodes.find(item=>item.id===selectedNodeId)} activity={flow.events} onGestureStart={flowHistory.begin} onGestureEnd={flowHistory.end} journeyMetric={editorMode==='journey'?(journeyShown||journeyData)?.nodes?.find(item=>item.id===selectedNodeId):null} readOnly={readOnly||editorMode!=='edit'} onChange={updateNode} onClose={()=>setInspectorOpen(false)} onRemove={()=>{setFlowConfig(current=>({...current,nodes:current.nodes.filter(item=>item.id!==selectedNodeId),edges:current.edges.filter(edge=>edge.from!==selectedNodeId&&edge.to!==selectedNodeId)}));setSelectedNodeId('');setInspectorOpen(false);}}/>}
         </div>
         {editorMode==='review'&&<FlowReviewPage config={flowConfig} host={selectedFlow?.allowed_host||''} flowName={flowName} readOnly={readOnly} onChange={next=>{if(!readOnly)setFlowConfig(next);}} onSelectNode={id=>{setEditorMode('edit');setSelectedNodeId(id);setTimeout(()=>canvasFlowRef.current?.fitView({nodes:[{id}],padding:.6,duration:200}),150);}}/>}
         {editorMode==='simulate'&&<FlowSimulator config={flowConfig} onPathChange={setSimulatedPath} onClose={()=>{setEditorMode('edit');setSimulatedPath([]);}}/>}

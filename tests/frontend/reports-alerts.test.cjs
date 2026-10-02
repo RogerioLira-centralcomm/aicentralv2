@@ -67,7 +67,7 @@ async function main() {
   await page.getByRole('button', {name: 'Reconhecer'}).click();
   await page.getByText('Reconhecido em').waitFor();
   assert.equal(posts[0].csrf, 'csrf-alertas', 'ações enviam o token CSRF');
-  assert.equal(posts[0].body.client_id, clientId);
+  assert.equal(posts[0].body.client_id, undefined, 'o cliente vem da sessão, não do corpo');
   await page.getByRole('button', {name: 'Assumir'}).click();
   await page.getByText('responsável: Ana').waitFor();
   assert.equal(posts[1].body.assign, true);

@@ -32,7 +32,7 @@ export function EventsPage({data, filters, initialKind = 'all', refreshRevision}
   useEffect(() => setKind(initialKind), [initialKind]);
   useEffect(() => {
     const current = ++requestVersion.current;
-    const params = new URLSearchParams({client_id: String(data.client.client_id), days: filters.period, start_date: filters.startDate, end_date: filters.endDate});
+    const params = new URLSearchParams({days: filters.period, start_date: filters.startDate, end_date: filters.endDate});
     if (filters.platform) params.set('platform', filters.platform);
     if (filters.account) params.set('account_id', filters.account);
     if (filters.campaign) params.set('campaign_id', filters.campaign);

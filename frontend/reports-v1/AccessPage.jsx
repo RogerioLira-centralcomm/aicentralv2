@@ -26,7 +26,7 @@ export function AccessPage({data, save, busy}) {
   const [exclusive, setExclusive] = useState(false);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
-  const reload = () => json(`/connect/api/v2/reports/access?client_id=${data.client.client_id}`).then(value => setUsers(value.users || []));
+  const reload = () => json(`/connect/api/v2/reports/access`).then(value => setUsers(value.users || []));
   useEffect(() => {reload().catch(failure => setError(failure.message));}, [data.client.client_id]);
   const start = (user = null) => {
     setError(''); setUserId(user ? String(user.id) : ''); setRole(user?.role && !user.revoked_at ? user.role : 'viewer'); setExclusive(Boolean(user?.reports_only)); setOpen(true);

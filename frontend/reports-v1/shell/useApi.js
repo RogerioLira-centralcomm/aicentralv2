@@ -18,13 +18,22 @@ export function useApi(url) {
   return [state, retry];
 }
 
-// The session already knows the client, but sending it explicitly keeps two tabs on different clients consistent.
+// The API reads the client from the session. The session is shared by every tab, so a tab that switches client
+// tells the others, which reload on the new client instead of reading or writing it while showing the old one.
 let activeClient = '';
-export const setActiveClient = id => {activeClient = id ? String(id) : '';};
+let clientChannel = null;
+try {
+  clientChannel = new BroadcastChannel('cadu-reports-client');
+  clientChannel.onmessage = event => {if (activeClient && String(event.data) !== activeClient) location.reload();};
+} catch {clientChannel = null;}
+export const setActiveClient = id => {
+  const next = id ? String(id) : '';
+  if (next && next !== activeClient) clientChannel?.postMessage(next);
+  activeClient = next;
+};
 
 export const apiUrl = (path, params = {}) => {
   const query = new URLSearchParams();
-  if (activeClient) query.set('client_id', activeClient);
   Object.entries(params).forEach(([key, value]) => {if (value != null && value !== '') query.set(key, String(value));});
   return `/connect/api/v2/reports${path}${query.size ? `?${query}` : ''}`;
 };

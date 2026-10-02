@@ -19,7 +19,11 @@ export function FlowPagePicker({node,readOnly,clientId,csrf,hosts=[],notice='',d
   const external=initial===OTHER||!hosts.length;
   const search=useSitePages({clientId,csrf,host:external?'':initial,query,enabled:!external&&open});
   useEffect(()=>{setActive(0);},[query,search.pages.length]);
-  const choose=page=>{onPick({host:page.host,path:page.path,name:pageLabel(page)});setQuery('');setOpen(false);};
+  // A page can exist on the site without being in the sitemap (a thank-you page, for instance): let the typed path stand.
+  const typed=query.trim().replace(/\s+/g,'-').replace(/^(?!\/)/,'/');
+  const customPath=query.trim()&&!/^https?:/i.test(query.trim())&&!search.pages.some(page=>page.path===typed)?typed:'';
+  const options=customPath?[...search.pages,{host:initial,path:customPath,custom:true}]:search.pages;
+  const choose=page=>{onPick({host:page.host,path:page.path,name:page.custom?'':pageLabel(page)});setQuery('');setOpen(false);};
   const commitUrl=value=>{
     const parsed=parsePageUrl(value);
     if(parsed.error){setUrlError(parsed.error);return;}
@@ -42,14 +46,14 @@ export function FlowPagePicker({node,readOnly,clientId,csrf,hosts=[],notice='',d
         value={open?query:(node.path&&(node.host||initial)===initial?node.path:'')} placeholder="Buscar pelo nome ou endereço" onFocus={()=>{setOpen(true);setQuery('');}}
         onBlur={()=>setTimeout(()=>setOpen(false),140)} onChange={event=>{setQuery(event.target.value);setOpen(true);}}
         onKeyDown={event=>{
-          if(event.key==='ArrowDown'){event.preventDefault();setActive(value=>Math.min(search.pages.length-1,value+1));}
+          if(event.key==='ArrowDown'){event.preventDefault();setActive(value=>Math.min(options.length-1,value+1));}
           else if(event.key==='ArrowUp'){event.preventDefault();setActive(value=>Math.max(0,value-1));}
-          else if(event.key==='Enter'&&open&&search.pages[active]){event.preventDefault();choose(search.pages[active]);}
+          else if(event.key==='Enter'&&open&&options[active]){event.preventDefault();choose(options[active]);}
           else if(event.key==='Escape'){setOpen(false);}
         }}/></label>
       {open&&<ul className="flow-page-picker__list" id={listId} role="listbox" aria-label="Páginas do site">
-        {search.pages.map((page,index)=><li key={page.path} role="option" aria-selected={index===active}><button type="button" tabIndex={-1} className={index===active?'is-active':''} onMouseDown={event=>event.preventDefault()} onClick={()=>choose(page)}><strong>{pageLabel(page)}</strong><small>{page.path}</small></button></li>)}
-        {!search.pages.length&&<li className="flow-page-picker__empty">{search.loading?'Buscando…':search.notice||'Nenhuma página encontrada. Mude a busca ou use outro domínio.'}</li>}
+        {options.map((page,index)=><li key={page.path} role="option" aria-selected={index===active}><button type="button" tabIndex={-1} className={index===active?'is-active':''} onMouseDown={event=>event.preventDefault()} onClick={()=>choose(page)}><strong>{page.custom?`Usar ${page.path}`:pageLabel(page)}</strong><small>{page.custom?'Fora do sitemap: usar este endereço mesmo assim':page.path}</small></button></li>)}
+        {!options.length&&<li className="flow-page-picker__empty">{search.loading?'Buscando…':search.notice||'Nenhuma página encontrada. Mude a busca ou use outro domínio.'}</li>}
       </ul>}
     </div>
     {search.truncated&&open&&<small>Mostrando parte do sitemap; refine a busca.</small>}

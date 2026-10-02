@@ -43,13 +43,13 @@ function Avatar({name, logo, size = 'md'}) {
 /** Workspace links for this client: brands per customer, projects per campaign. Optional everywhere. */
 function useWorkspaceMap(clientId) {
   const [map, setMap] = useState(null);
-  const load = () => json(`${API}/workspace/map?client_id=${clientId}`).then(setMap).catch(() => setMap({available: false}));
+  const load = () => json(`${API}/workspace/map`).then(setMap).catch(() => setMap({available: false}));
   useEffect(() => {load();}, [clientId]);
   return [map, load];
 }
 
 function send(data, path, method, payload = {}) {
-  return json(`${API}${path}?client_id=${data.client.client_id}`, {method, headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf}, body: JSON.stringify({...payload, client_id: data.client.client_id})});
+  return json(`${API}${path}`, {method, headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf}, body: JSON.stringify({...payload})});
 }
 
 /** Clients, their Workspace brands, media accounts and campaigns in one place, as a hierarchy. */

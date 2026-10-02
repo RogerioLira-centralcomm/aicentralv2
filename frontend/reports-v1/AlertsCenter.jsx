@@ -28,7 +28,7 @@ function History({alertId, client}) {
   const [events, setEvents] = useState(null);
   useEffect(() => {
     let active = true;
-    json(`/connect/api/v2/reports/alerts/${alertId}/events?client_id=${client}`).then(body => { if (active) setEvents(body.events); }).catch(() => { if (active) setEvents([]); });
+    json(`/connect/api/v2/reports/alerts/${alertId}/events`).then(body => { if (active) setEvents(body.events); }).catch(() => { if (active) setEvents([]); });
     return () => { active = false; };
   }, [alertId, client]);
   if (!events) return <p className="alerts-note" role="status">Carregando histórico…</p>;
@@ -89,13 +89,13 @@ export function AlertsCenter({data}) {
   const [status, setStatus] = useState('active');
   const [state, setState] = useState({loading: true, error: '', body: null});
   const [busy, setBusy] = useState(false);
-  const load = useCallback(() => json(`/connect/api/v2/reports/alerts?client_id=${client}&status=${status}`)
+  const load = useCallback(() => json(`/connect/api/v2/reports/alerts?status=${status}`)
     .then(body => setState({loading: false, error: '', body})).catch(failure => setState({loading: false, error: failure.message, body: null})), [client, status]);
   useEffect(() => { setState(current => ({...current, loading: true})); load(); }, [load]);
   const act = async (alert, action, body) => {
     setBusy(true);
     try {
-      await json(`/connect/api/v2/reports/alerts/${alert.id}/${action}`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf}, body: JSON.stringify({client_id: client, ...body})});
+      await json(`/connect/api/v2/reports/alerts/${alert.id}/${action}`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf}, body: JSON.stringify({...body})});
       await load();
     } catch (failure) { setState(current => ({...current, error: failure.message})); }
     setBusy(false);

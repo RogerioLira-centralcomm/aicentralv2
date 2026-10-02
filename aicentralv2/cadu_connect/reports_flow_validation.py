@@ -31,6 +31,7 @@ def is_measured(node):
             and node_status(node) in ('ready', 'live') and has_real_path(node))
 PAGE_TYPES = {'page', 'form', 'conversion', 'error'}
 # A flow follows a few pages that matter; the explorer is where the rest of the site lives.
+FLOW_GOALS = ('conversion', 'time', 'reach', 'navigation')
 MAX_FLOW_PAGES = 6
 DETAILS = {
     'no_conversion': ('Sem conversão definida, não será possível medir a conclusão desta jornada.', 'add_conversion'),
@@ -81,7 +82,9 @@ def validate_flow_config(config, allowed_host=''):
             outgoing[edge['from']].append(edge['to'])
             incoming[edge['to']].append(edge['from'])
     # Institutional sites are read by engagement (time, depth, exits); a conversion is optional there.
-    engagement = config.get('site_kind') == 'institucional'
+    # A saved goal wins; older institutional sites read as navigation, everything else as conversion.
+    goal = config.get('goal') if config.get('goal') in FLOW_GOALS else ('navigation' if config.get('site_kind') == 'institucional' else 'conversion')
+    engagement = goal != 'conversion'
     conversions = [node for node in nodes if node.get('type') == 'conversion']
     if not engagement and not conversions:
         issues.append({'severity': 'error', 'code': 'no_conversion',

@@ -9,6 +9,9 @@ import {ReportsFieldInput} from './ReportsFieldInput.jsx';
 import {ReportsTextArea} from './ReportsTextArea.jsx';
 import {flowBlockFor} from './flowBlockRegistry.js';
 import {SPEC_FIELDS,hasRealPath,isPlanned} from './flowLifecycle.js';
+import {flowGoal,goalById} from './flowGoals.js';
+import {FlowBriefingDialog} from './FlowBriefingDialog.jsx';
+import {PAGE_TYPE_LABELS,ROLE_LABELS,recommend} from './flowBriefing.js';
 import {FlowPagePicker} from './FlowPagePicker.jsx';
 import {SEGMENT_KINDS} from './flowMedia.js';
 import {FlowSourceTracking} from './FlowSourceTracking.jsx';
@@ -26,20 +29,27 @@ export function measurementHint(node){
   return 'Nó visual, sem medição.';
 }
 
-export function FlowInspector({sitePages,onSplitSegment,node,config=null,host='',flowName='',nodes=[],groups=[],activity=[],journeyMetric=null,integrationsUrl='',readOnly,onChange,onConnect,onCreateGroup,onRemove,onClose,onGestureStart,onGestureEnd}) {
+export function FlowInspector({sitePages,onSplitSegment,node,config=null,host='',flowName='',nodes=[],groups=[],activity=[],journeyMetric=null,integrationsUrl='',flowId='',clientName='',readOnly,onChange,onConnect,onCreateGroup,onRemove,onClose,onGestureStart,onGestureEnd}) {
   if(!node)return null;
   const block=flowBlockFor(node);
   const planned=isPlanned(node);
   const spec=node.spec||{};
   const observed=activity.find(item=>eventMatchesNode(item,node));
   const pageLike=block.trackable&&node.type!=='note';
+  const rec=recommend(node);
+  const currentType=node.pageTypeStatus==='unresolved'?'unresolved':node.pageType||'other';
+  const currentStage=editableStage(node);
+  const currentRole=node.role||(node.type==='conversion'?'conversion':'none');
+  const differs=['page','form','conversion','error'].includes(node.type)&&(currentType!==rec.pageType||currentStage!==rec.stage||currentRole!==rec.role);
+  const tag=(value,wanted)=>value===wanted?' · Recomendado':'';
   const chip=node.type==='note'?null:!block.trackable?null:planned?['Planejada · fora da medição','']:!hasRealPath(node)?['Falta a URL','is-warn']:journeyMetric?.sessions>0||observed?['Recebendo dados','is-ok']:['URL definida',''];
   return <ReportsPanelShell compact className="reports-node-settings flow-inspector" title={node.title||block.label} onClose={onClose} closeLabel="Fechar propriedades" footer={!readOnly&&<UntitledButton type="button" color="tertiary-destructive" size="sm" className="flow-inspector__remove" onPress={onRemove}>Remover</UntitledButton>}>
     <div className="flow-inspector__body" onFocus={onGestureStart} onBlur={onGestureEnd}>
       <div className="flow-inspector__kind"><span>{block.category}</span>{chip&&<em className={chip[1]} aria-live="polite">{chip[0]}</em>}</div>
       <label>Nome<ReportsFieldInput disabled={readOnly} value={node.title||''} maxLength="60" onChange={event=>onChange('title',event.target.value)}/></label>
       {node.type==='note'&&<NoteEditor node={node} readOnly={readOnly} onChange={onChange}/>}
-      {pageLike&&<PageSource node={node} spec={spec} planned={planned} readOnly={readOnly} onChange={onChange} sitePages={sitePages} integrationsUrl={integrationsUrl}/>}
+      {config&&['page','form','conversion','event'].includes(node.type)&&<p className="flow-inspector__goal-hint"><strong>Objetivo: {goalById(flowGoal(config)).label}.</strong> {node.type==='conversion'?(flowGoal(config)==='conversion'?'Esta é a meta do fluxo. Defina o nome do evento ou a página de obrigado para ela ser medida.':'Opcional neste objetivo: use só se houver uma ação a registrar.'):goalById(flowGoal(config)).page}</p>}
+      {pageLike&&<PageSource node={node} spec={spec} planned={planned} readOnly={readOnly} onChange={onChange} sitePages={sitePages} integrationsUrl={integrationsUrl} config={config} host={host} flowName={flowName} flowId={flowId} clientName={clientName}/>}
       {['event','conversion'].includes(node.type)&&<label>Nome do evento{node.type==='conversion'?' (opcional)':''}<ReportsFieldInput disabled={readOnly} value={node.event_name||''} placeholder="lead_enviado" onChange={event=>onChange('event_name',event.target.value)}/>{node.event_name&&<small>{measurementHint(node)}</small>}</label>}
       {node.type==='source'&&<>
         <label>Público<ReportsFieldInput disabled={readOnly} maxLength="80" value={node.segment?.name||''} placeholder="Ex.: Remarketing 30 dias" onChange={event=>onChange('segment',{...(node.segment||{}),name:event.target.value})}/></label>
@@ -48,16 +58,17 @@ export function FlowInspector({sitePages,onSplitSegment,node,config=null,host=''
         {!readOnly&&onSplitSegment&&<UntitledButton type="button" color="secondary" size="sm" onPress={()=>onSplitSegment(node.id)}>Criar outro público deste canal</UntitledButton>}
       </>}
       {node.type!=='note'&&<details className="flow-inspector__more" open={node.type==='conversion'||undefined}><summary>Mais opções</summary>
+        {!readOnly&&differs&&<UntitledButton type="button" color="secondary" size="sm" onPress={()=>{onChange('pageType',rec.pageType);onChange('stage',rec.stage);onChange('role',rec.role);}}>Aplicar recomendados</UntitledButton>}
         {node.type==='source'&&<label>Origem de tráfego<ReportsFieldInput disabled={readOnly} value={node.source||block.source||''} onChange={event=>onChange('source',event.target.value)}/></label>}
         {node.type==='source'&&<label>Como encontrar o público<ReportsTextArea disabled={readOnly} maxLength="500" rows={2} value={node.segment?.description||''} placeholder="Interesses, palavras-chave, lista ou regra" onChange={event=>onChange('segment',{...(node.segment||{}),description:event.target.value})}/></label>}
-        {['page','form','conversion','error'].includes(node.type)&&<label>Tipo de página<ReportsNativeSelect disabled={readOnly} value={node.pageTypeStatus==='unresolved'?'unresolved':node.pageType||'other'} onChange={event=>onChange('pageType',event.target.value)}>{node.pageTypeStatus==='unresolved'&&<option value="unresolved" disabled>Não definido</option>}{[['home','Home'],['service','Serviço'],['institutional','Institucional'],['contact','Contato'],['case','Case'],['content','Conteúdo'],['other','Outro']].map(([value,label])=><option key={value} value={value}>{label}</option>)}</ReportsNativeSelect></label>}
-        {node.type!=='source'&&<label>Etapa<ReportsNativeSelect disabled={readOnly} value={editableStage(node)} onChange={event=>onChange('stage',event.target.value)}>{node.stage==='source'&&node.type!=='page'&&<option value="source" disabled>Origem (posição antiga)</option>}{FLOW_STAGES.filter(stage=>stage.id!=='source').map(stage=><option key={stage.id} value={stage.id}>{stage.label}</option>)}</ReportsNativeSelect></label>}
+        {['page','form','conversion','error'].includes(node.type)&&<label>Tipo de página<ReportsNativeSelect disabled={readOnly} value={node.pageTypeStatus==='unresolved'?'unresolved':node.pageType||'other'} onChange={event=>onChange('pageType',event.target.value)}>{node.pageTypeStatus==='unresolved'&&<option value="unresolved" disabled>Não definido</option>}{Object.entries(PAGE_TYPE_LABELS).map(([value,label])=><option key={value} value={value}>{label}{tag(value,rec.pageType)}</option>)}</ReportsNativeSelect></label>}
+        {node.type!=='source'&&<label>Etapa<ReportsNativeSelect disabled={readOnly} value={editableStage(node)} onChange={event=>onChange('stage',event.target.value)}>{node.stage==='source'&&node.type!=='page'&&<option value="source" disabled>Origem (posição antiga)</option>}{FLOW_STAGES.filter(stage=>stage.id!=='source').map(stage=><option key={stage.id} value={stage.id}>{stage.label}{tag(stage.id,rec.stage)}</option>)}</ReportsNativeSelect></label>}
         {!readOnly&&nodes.length>1&&<label>Conectar a<ReportsNativeSelect value="" onChange={event=>{if(event.target.value)onConnect?.(node.id,event.target.value);}}><option value="">Escolha o destino</option>{nodes.filter(item=>item.id!==node.id).map(item=><option key={item.id} value={item.id}>{item.title}</option>)}</ReportsNativeSelect></label>}
         <label>Grupo<ReportsFieldInput list="flow-existing-groups" disabled={readOnly} value={node.pageGroup||''} placeholder="Ex.: Aquisição" onChange={event=>onChange('pageGroup',event.target.value)}/><datalist id="flow-existing-groups">{groups.map(name=><option key={name} value={name}/>)}</datalist></label>
         {node.pageGroup&&!groups.includes(node.pageGroup)&&<UntitledButton color="tertiary" size="sm" isDisabled={readOnly} onPress={()=>onCreateGroup(node.pageGroup)}>Criar grupo “{node.pageGroup}”</UntitledButton>}
         <Switch className="flow-inspector-toggle" isDisabled={readOnly} isSelected={Boolean(node.isEntry)} onChange={value=>onChange('isEntry',value)}><span className="flow-toggle-track"/>Ponto de entrada</Switch>
         <Switch className="flow-inspector-toggle" isDisabled={readOnly} isSelected={Boolean(node.locked)} onChange={value=>onChange('locked',value)}><span className="flow-toggle-track"/>Fixar ordem vertical</Switch>
-        <label>Função na jornada<ReportsNativeSelect disabled={readOnly} value={node.role||(node.type==='conversion'?'conversion':'none')} onChange={event=>onChange('role',event.target.value)}>{[['none','Não definida'],['entry','Entrada'],['institutional','Institucional'],['offer','Oferta'],['content','Conteúdo'],['intent','Intenção'],['form','Formulário'],['checkout','Finalização de compra'],['conversion','Confirmação'],['legal','Página legal'],['error','Erro']].map(([value,label])=><option key={value} value={value}>{label}</option>)}</ReportsNativeSelect></label>
+        <label>Função na jornada<ReportsNativeSelect disabled={readOnly} value={node.role||(node.type==='conversion'?'conversion':'none')} onChange={event=>onChange('role',event.target.value)}>{Object.entries(ROLE_LABELS).map(([value,label])=><option key={value} value={value}>{label}{tag(value,rec.role)}</option>)}</ReportsNativeSelect></label>
         <label>Descrição<ReportsTextArea disabled={readOnly} value={node.description||''} maxLength="500" rows={2} onChange={event=>onChange('description',event.target.value)}/></label>
         {node.type==='form'&&(node.fields||[]).length>0&&<p className="flow-inspector__fields"><strong>Campos observados:</strong> {node.fields.map(field=>field.label||field.name).join(', ')}</p>}
         {block.category==='Segmentação e CRM'&&integrationsUrl&&<a href={integrationsUrl}>Webhook de conversões do cliente ↗</a>}
@@ -87,7 +98,8 @@ function NoteEditor({node,readOnly,onChange}){
   </>;
 }
 
-function PageSource({node,spec,planned,readOnly,onChange,sitePages,integrationsUrl}){
+function PageSource({node,spec,planned,readOnly,onChange,sitePages,integrationsUrl,config,host,flowName,flowId,clientName}){
+  const [briefOpen,setBriefOpen]=useState(false);
   const installed=sitePages?.hosts||[];
   const covered=host=>installed.some(root=>{const base=root.replace(/^www\./,'');return host===base||host.endsWith(`.${base}`)||host===root;});
   const needsTag=!planned&&node.host&&installed.length>0&&!covered(node.host);
@@ -99,7 +111,6 @@ function PageSource({node,spec,planned,readOnly,onChange,sitePages,integrationsU
     onChange('path',parsed.path);onChange('host',parsed.host);
   };
   const setSpec=(field,value)=>onChange('spec',{...spec,[field]:value});
-  const more=SPEC_FIELDS.filter(([field])=>!['goal','owner','due_date','suggested_path'].includes(field));
   return <>
     <div className="flow-inspector__mode" role="radiogroup" aria-label="Situação da página">
       <button type="button" role="radio" aria-checked={!planned} disabled={readOnly} onClick={()=>setMode(false)}>Já existe</button>
@@ -107,11 +118,7 @@ function PageSource({node,spec,planned,readOnly,onChange,sitePages,integrationsU
     </div>
     <FlowPagePicker node={node} readOnly={readOnly} planned={planned} clientId={sitePages?.clientId} csrf={sitePages?.csrf} hosts={sitePages?.hosts||[]} notice={sitePages?.notice||''} defaultHost={sitePages?.defaultHost||''} onPick={pick} onUrl={setUrl}/>
     {needsTag&&<small className="flow-inspector__tag-note">Outro domínio: instale a Super Tag em <strong>{node.host}</strong> para medir esta página.{integrationsUrl&&<> <a href={integrationsUrl}>Instalar ↗</a></>}</small>}
-    {planned&&<div className="flow-inspector__brief">
-      <label>O que a página precisa ter<ReportsTextArea disabled={readOnly} rows={2} maxLength="500" value={spec.goal||''} placeholder="Objetivo, oferta e chamada principal" onChange={event=>setSpec('goal',event.target.value)}/></label>
-      <div className="flow-inspector__pair"><label>Responsável<ReportsFieldInput disabled={readOnly} maxLength="120" value={spec.owner||''} onChange={event=>setSpec('owner',event.target.value)}/></label>
-        <label>Prazo<ReportsFieldInput disabled={readOnly} type="date" value={spec.due_date||''} onChange={event=>setSpec('due_date',event.target.value)}/></label></div>
-      <details><summary>Briefing completo · {more.filter(([field])=>spec[field]).length}/{more.length}</summary>{more.map(([field,label,kind,limit])=><label key={field}>{label}{kind==='textarea'?<ReportsTextArea disabled={readOnly} rows={3} maxLength={limit} value={spec[field]||''} onChange={event=>setSpec(field,event.target.value)}/>:<ReportsFieldInput disabled={readOnly} maxLength={limit} value={spec[field]||''} onChange={event=>setSpec(field,event.target.value)}/>}</label>)}</details>
-    </div>}
+    {planned&&!readOnly&&<UntitledButton type="button" color="secondary" size="sm" onPress={()=>setBriefOpen(true)}>{Object.values(spec).some(Boolean)?'Abrir briefing':'Gerar briefing'}</UntitledButton>}
+    {planned&&<FlowBriefingDialog open={briefOpen} node={node} config={config} clientId={sitePages?.clientId} csrf={sitePages?.csrf} flowId={flowId} clientName={clientName} host={host} flowName={flowName} readOnly={readOnly} onSave={next=>onChange('spec',{...spec,...next})} onClose={()=>setBriefOpen(false)}/>}
   </>;
 }

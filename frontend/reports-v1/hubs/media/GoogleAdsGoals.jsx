@@ -64,7 +64,7 @@ export function GoalDrawer({campaign, data, money, onClose, onSaved}) {
     setState({saving: true, error: ''});
     try {
       await json(`/connect/api/v2/reports/google-ads/goals/${campaign.campaign_id}`, {method: 'PUT', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf},
-        body: JSON.stringify({...form, client_id: data.client.client_id})});
+        body: JSON.stringify({...form})});
       onSaved();
     } catch (failure) {setState({saving: false, error: failure.message});}
   };

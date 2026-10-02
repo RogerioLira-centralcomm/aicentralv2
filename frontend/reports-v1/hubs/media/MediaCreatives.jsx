@@ -42,7 +42,7 @@ export function MediaCreatives({data}) {
     const tab = window.open('', '_blank');
     try {
       const result = await json('/connect/api/v2/reports/creatives/studio', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf},
-        body: JSON.stringify({client_id: data.client.client_id, campaign_id: Number(campaignId), prompt, brand_ref: brandRef, project_ref: projectRef, format, request_id: crypto.randomUUID?.()})});
+        body: JSON.stringify({campaign_id: Number(campaignId), prompt, brand_ref: brandRef, project_ref: projectRef, format, request_id: crypto.randomUUID?.()})});
       if (tab) tab.location.href = result.studio_url; else window.location.assign(result.studio_url);
       retrySessions();
     } catch (failure) {tab?.close(); setError(failure.message);} finally {setSending(false);}

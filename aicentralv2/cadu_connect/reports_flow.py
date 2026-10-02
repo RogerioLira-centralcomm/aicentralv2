@@ -720,6 +720,8 @@ def _normalize_flow_config(config, allowed_host):
         result['tags'] = _normalize_flow_tags(config['tags'])
     if result.get('site_kind') not in (None, 'landing', 'institucional', 'multipagina', 'ecommerce'):
         abort(400, description='Tipo de site inválido.')
+    if result.get('goal') not in (None, 'conversion', 'time', 'reach', 'navigation'):
+        abort(400, description='Objetivo do fluxo inválido.')
     try:
         encoded = json.dumps(result, ensure_ascii=False, allow_nan=False).encode('utf-8')
     except (ValueError, TypeError, RecursionError):
@@ -1664,6 +1666,23 @@ def register(bp):
             (key_path,identifiers,selected['client_id'],flow['tag_id']))
         get_db().commit()
         return jsonify(translation_key=key_path,page_ids=identifiers)
+
+    @bp.post('/api/v2/reports/flow/flows/<flow_id>/pages/briefing')
+    @login_required_api
+    def reports_flow_page_briefing(flow_id):
+        from .reports_flow_briefing import BriefingError, generate
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            abort(400)
+        selected = _selection(payload)
+        flow = _flow_row(flow_id, selected)
+        pages = _rows("""SELECT title,path_prefix,evidence FROM cadu_reports_flow_discovered_pages
+            WHERE tag_id=%s AND client_id=%s ORDER BY path_prefix LIMIT 15""",
+            (flow['tag_id'], selected['client_id']))
+        try:
+            return jsonify(spec=generate(payload.get('context'), pages))
+        except BriefingError as exc:
+            return jsonify(error=str(exc)), 503
 
     @bp.post('/api/v2/reports/flow/flows/<flow_id>/discoveries/<page_id>/suggest')
     @login_required_api

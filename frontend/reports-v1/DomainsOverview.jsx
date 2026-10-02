@@ -119,7 +119,7 @@ export function DomainsOverview({data, range: controlledRange, onRangeChange}) {
   useEffect(() => {
     let active = true;
     setState(current => ({...current, loading: true, error: ''}));
-    json(`/connect/api/v2/reports/pages/domains?${new URLSearchParams({client_id: client, start_date: range.start, end_date: range.end})}`)
+    json(`/connect/api/v2/reports/pages/domains?${new URLSearchParams({start_date: range.start, end_date: range.end})}`)
       .then(body => {if (active) setState({loading: false, error: '', body});})
       .catch(failure => {if (active) setState({loading: false, error: failure.message, body: null});});
     if (!controlled) {

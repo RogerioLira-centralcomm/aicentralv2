@@ -85,7 +85,7 @@ function AssociationDrawer({run, data, save, busy, canEdit, onClose}) {
     if (!run) return;
     setCampaignId(run.media_campaign_id ? String(run.media_campaign_id) : ''); setReportId(run.report_workspace_id ? String(run.report_workspace_id) : '');
     setSuggestion(null); setHistory(null);
-    json(`/connect/api/v2/reports/link-tests/${run.id}/association-history?client_id=${data.client.client_id}`).then(body => setHistory(body.history || [])).catch(() => setHistory([]));
+    json(`/connect/api/v2/reports/link-tests/${run.id}/association-history`).then(body => setHistory(body.history || [])).catch(() => setHistory([]));
   }, [run]);
   const selected = data.campaigns.find(item => String(item.id) === campaignId);
   const reports = data.reports.filter(item => !item.media_campaign_id || String(item.media_campaign_id) === campaignId).filter(item => !item.account_id || item.account_id === selected?.account_id);

@@ -1,3 +1,4 @@
+import {isEngagementFlow} from './flowGoals.js';
 // Kept free of imports: the parity test loads this file on its own.
 const measured=new Set(['page','form','event','conversion','whatsapp','error']);
 export const MEASURED_TYPES=measured;
@@ -46,7 +47,7 @@ export function flowValidation(config,allowedHost='') {
   const pagePaths=new Map();
   const sourceKeys=new Set(),searchEngines=new Set();
   // Institutional sites are read by engagement (time, depth, exits); a conversion is optional there.
-  const engagement=config.site_kind==='institucional';
+  const engagement=isEngagementFlow(config);
   const conversions=nodes.filter(node=>node.type==='conversion');
   if(!engagement&&!conversions.length)issues.push({severity:'error',code:'no_conversion',message:'Defina um nó de Conversão antes de publicar.'});
   else if(!engagement&&nodes.some(isMeasured)&&conversions.every(node=>['planned','in_production'].includes(nodeStatus(node))))issues.push({severity:'warning',code:'planned_conversion',message:'Todas as conversões estão planejadas; a medição não registrará conclusões.'});

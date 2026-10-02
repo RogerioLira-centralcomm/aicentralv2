@@ -103,7 +103,7 @@ function Suggestions({siteId, path, days, client}) {
   useEffect(() => {
     let active = true;
     setState({loading: true, error: '', body: null});
-    json(`/connect/api/v2/reports/pages/suggestions?${new URLSearchParams({client_id: client, site_id: siteId, path, days})}`)
+    json(`/connect/api/v2/reports/pages/suggestions?${new URLSearchParams({site_id: siteId, path, days})}`)
       .then(body => { if (active) setState({loading: false, error: '', body}); })
       .catch(failure => { if (active) setState({loading: false, error: failure.message, body: null}); });
     return () => { active = false; };
@@ -158,7 +158,7 @@ function ConversionMap({siteId, path, days, client}) {
   useEffect(() => {
     let active = true;
     setState({loading: true, error: '', body: null});
-    json(`/connect/api/v2/reports/pages/conversion-map?${new URLSearchParams({client_id: client, site_id: siteId, path, days})}`)
+    json(`/connect/api/v2/reports/pages/conversion-map?${new URLSearchParams({site_id: siteId, path, days})}`)
       .then(body => { if (active) setState({loading: false, error: '', body}); })
       .catch(failure => { if (active) setState({loading: false, error: failure.message, body: null}); });
     return () => { active = false; };
@@ -211,7 +211,7 @@ function CaptureHeat({siteId, path, device, document: doc, metrics, canEdit, cli
   const [intensity, setIntensity] = useState(70);
   const [state, setState] = useState({loading: true, error: '', body: null});
   const [starting, setStarting] = useState(false);
-  const query = new URLSearchParams({client_id: client, site_id: siteId, path, device});
+  const query = new URLSearchParams({site_id: siteId, path, device});
   const load = useCallback(() => json(`/connect/api/v2/reports/pages/capture?${query}`)
     .then(body => setState({loading: false, error: '', body})).catch(failure => setState({loading: false, error: failure.message, body: null})),
   [siteId, path, device, client]);
@@ -226,7 +226,7 @@ function CaptureHeat({siteId, path, device, document: doc, metrics, canEdit, cli
     setStarting(true);
     try {
       const body = await json('/connect/api/v2/reports/pages/capture', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf},
-        body: JSON.stringify({client_id: client, site_id: siteId, path, device})});
+        body: JSON.stringify({site_id: siteId, path, device})});
       setState({loading: false, error: '', body});
     } catch (failure) { setState(current => ({...current, error: failure.message})); }
     setStarting(false);
@@ -272,7 +272,7 @@ function Interactions({siteId, path, days, client, metrics, canEdit, csrf}) {
   useEffect(() => {
     let active = true;
     setState(current => ({...current, loading: true, error: ''}));
-    json(`/connect/api/v2/reports/pages/interactions?${new URLSearchParams({client_id: client, site_id: siteId, path, days, device})}`)
+    json(`/connect/api/v2/reports/pages/interactions?${new URLSearchParams({site_id: siteId, path, days, device})}`)
       .then(body => { if (active) setState({loading: false, error: '', body}); })
       .catch(failure => { if (active) setState({loading: false, error: failure.message, body: null}); });
     return () => { active = false; };
@@ -325,7 +325,7 @@ function PagePicker({data}) {
   const [error, setError] = useState('');
   const client = data.client.client_id;
   useEffect(() => {
-    json(`/connect/api/v2/reports/supertag/sites?client_id=${client}`).then(value => {
+    json(`/connect/api/v2/reports/supertag/sites`).then(value => {
       const list = (value.sites || []).filter(site => !site.revoked_at);
       setSites(list);
       if (list.length === 1) setSiteId(list[0].id);
@@ -335,7 +335,7 @@ function PagePicker({data}) {
     if (!siteId) { setPages(null); return undefined; }
     let active = true;
     setPages(null);
-    json(`/connect/api/v2/reports/supertag/sites/${siteId}/events?client_id=${client}`)
+    json(`/connect/api/v2/reports/supertag/sites/${siteId}/events`)
       .then(value => { if (active) setPages(value.pages || []); }).catch(failure => { if (active) setError(failure.message); });
     return () => { active = false; };
   }, [siteId, client]);
@@ -366,7 +366,7 @@ export function PageDetail({data}) {
     if (!siteId || !path) return undefined;
     let active = true;
     setState({loading: true, error: '', body: null});
-    json(`/connect/api/v2/reports/pages/overview?${new URLSearchParams({client_id: client, site_id: siteId, path, days})}`)
+    json(`/connect/api/v2/reports/pages/overview?${new URLSearchParams({site_id: siteId, path, days})}`)
       .then(body => { if (active) setState({loading: false, error: '', body}); })
       .catch(failure => { if (active) setState({loading: false, error: failure.message, body: null}); });
     return () => { active = false; };

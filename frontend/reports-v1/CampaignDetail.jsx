@@ -41,7 +41,7 @@ export function CampaignDetail({data, detail, error, tab, setTab, close, filters
   useEffect(() => {
     if (!campaignId) return undefined;
     let active = true;
-    const params = new URLSearchParams({client_id: String(data.client.client_id), campaign_id: String(campaignId), days: filters.period, start_date: filters.startDate, end_date: filters.endDate});
+    const params = new URLSearchParams({campaign_id: String(campaignId), days: filters.period, start_date: filters.startDate, end_date: filters.endDate});
     Promise.all([json(`${API}/metrics?${params}`), json(`${API}/flow?${params}`)])
       .then(([metrics, flow]) => {if (active) {setChannelData(metrics); setFlowData(flow); setAnalysisError('');}})
       .catch(failure => {if (active) setAnalysisError(failure.message);});
@@ -249,7 +249,7 @@ function Settings({data, campaign, statusLabel, save, busy, updateDetail}) {
     event.preventDefault();
     try {
       await save(`/campaigns/${campaign.id}`, form, true, 'PATCH');
-      updateDetail(await json(`${API}/campaigns/${campaign.id}?client_id=${data.client.client_id}`));
+      updateDetail(await json(`${API}/campaigns/${campaign.id}`));
       setNotice('Campanha atualizada.'); setError('');
     } catch (failure) {setError(failure.message); setNotice('');}
   };

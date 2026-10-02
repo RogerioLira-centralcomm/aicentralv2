@@ -19,7 +19,7 @@ export function FlowConnectSite({open, clientId, onConnect, onClose}) {
     const current = ++sequence.current;
     setChecking(true); setCheck(null); setError('');
     try {
-      const result = await json(`/connect/api/v2/reports/supertag/site-check?client_id=${clientId}&url=${encodeURIComponent(value)}`);
+      const result = await json(`/connect/api/v2/reports/supertag/site-check?url=${encodeURIComponent(value)}`);
       if (current === sequence.current) setCheck({...result, verifiedUrl: value});
     } catch (failure) {
       if (current === sequence.current) setCheck({error: failure.message});

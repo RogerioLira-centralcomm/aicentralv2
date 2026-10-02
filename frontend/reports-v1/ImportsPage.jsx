@@ -53,12 +53,11 @@ export function ImportsPage({data, reloadBootstrap, focusLibrary = false}) {
   const activeClientRef = useRef(String(data.client.client_id));
   activeClientRef.current = String(data.client.client_id);
   const canEdit = data.client.role !== 'viewer';
-  const query = `client_id=${data.client.client_id}`;
 
   const refresh = async () => {
     const clientId = String(data.client.client_id);
     const [body, pending, ranges] = await Promise.all([
-      json(`${API}/imports?client_id=${clientId}`), json(`${API}/import-conflicts?client_id=${clientId}`), json(`${API}/import-ranges?client_id=${clientId}`),
+      json(`${API}/imports`), json(`${API}/import-conflicts`), json(`${API}/import-ranges`),
     ]);
     if (activeClientRef.current !== clientId) return;
     setReady(body.ready); setItems(body.imports || []);
@@ -75,7 +74,7 @@ export function ImportsPage({data, reloadBootstrap, focusLibrary = false}) {
   const open = async id => {
     const clientId = String(data.client.client_id);
     try {
-      const result = await json(`${API}/imports/${id}?client_id=${clientId}`);
+      const result = await json(`${API}/imports/${id}`);
       if (activeClientRef.current !== clientId) return;
       setDetail(result); setView('files'); setError('');
     } catch (failure) {if (activeClientRef.current === clientId) setError(failure.message);}
@@ -104,7 +103,7 @@ export function ImportsPage({data, reloadBootstrap, focusLibrary = false}) {
       <FilesTable items={items} onOpen={open}/>
     </>}
     {view === 'files' && detail && <FileDetail detail={detail} data={data} canEdit={canEdit} busy={busy} run={run} setBusy={setBusy} setError={setError} onBack={() => setDetail(null)} onChanged={afterChange}
-      onExtract={() => run(async () => {await json(`${API}/imports/${detail.import_file.id}/extract?${query}`, {method: 'POST', headers: {'X-CSRF-Token': data.csrf}}); await open(detail.import_file.id); await refresh();})}/>}
+      onExtract={() => run(async () => {await json(`${API}/imports/${detail.import_file.id}/extract`, {method: 'POST', headers: {'X-CSRF-Token': data.csrf}}); await open(detail.import_file.id); await refresh();})}/>}
     {view === 'conflicts' && <Conflicts conflicts={conflicts} data={data} canEdit={canEdit} busy={busy} run={run} onResolved={async () => {await refresh(); await reloadBootstrap();}}/>}
     {view === 'ranges' && <Ranges snapshots={rangeSnapshots} onOpen={open}/>}
     {view === 'metrics' && <CustomMetrics metrics={customMetrics}/>}
@@ -133,7 +132,7 @@ function UploadCard({data, ready, canEdit, busy, run, onUploaded}) {
       if (platform) payload.append('platform_hint', platform);
       if (currency) payload.append('currency_hint', currency.toUpperCase());
       payload.append('date_order', dateOrder);
-      const result = await json(`${API}/imports?client_id=${data.client.client_id}`, {method: 'POST', headers: {'X-CSRF-Token': data.csrf}, body: payload});
+      const result = await json(`${API}/imports`, {method: 'POST', headers: {'X-CSRF-Token': data.csrf}, body: payload});
       clear();
       await onUploaded(result);
     });
@@ -250,7 +249,7 @@ function PrintReview({detail, data, canEdit, onCheck}) {
   const scopes = detail.visual?.result?.scopes || [];
   return <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
     <section className="overflow-hidden rounded-xl bg-primary shadow-xs ring-1 ring-secondary lg:sticky lg:top-4">
-      <img className="block w-full" src={`${API}/imports/${detail.import_file.id}/image?client_id=${data.client.client_id}`} alt={`Print enviado: ${detail.import_file.original_name}`}/>
+      <img className="block w-full" src={`${API}/imports/${detail.import_file.id}/image`} alt={`Print enviado: ${detail.import_file.original_name}`}/>
     </section>
     <div className="flex flex-col gap-4">
       {!detail.visual ? <Callout title="Print recebido">A leitura com IA consome créditos Cadu e só sugere valores com evidência. Nada é confirmado sem a sua conferência.</Callout>
@@ -307,7 +306,7 @@ function RowDrawer({row, detail, data, busy, run, onClose, onSaved}) {
     run(async () => {
       const payload = Object.fromEntries([...IDENTITY, ['metric_date'], ...METRICS, ['note']].map(([key]) => [key, String(draft[key] || '')]));
       payload.create_campaign = Boolean(draft.create_campaign);
-      await json(`${API}/imports/${detail.import_file.id}/rows/${row.id}/resolve?client_id=${data.client.client_id}`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf}, body: JSON.stringify(payload)});
+      await json(`${API}/imports/${detail.import_file.id}/rows/${row.id}/resolve`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf}, body: JSON.stringify(payload)});
       onClose(); await onSaved();
     });
   };
@@ -342,7 +341,7 @@ function ColumnMappingDrawer({open, detail, data, busy, setBusy, setError, onClo
     const requestedKey = evidenceKey;
     setBusy(true); setError('');
     try {
-      const value = await json(`${API}/imports/${detail.import_file.id}/suggest-columns?client_id=${data.client.client_id}`, {method: 'POST', headers: {'X-CSRF-Token': data.csrf}});
+      const value = await json(`${API}/imports/${detail.import_file.id}/suggest-columns`, {method: 'POST', headers: {'X-CSRF-Token': data.csrf}});
       if (requestedKey === evidenceKeyRef.current && value.suggestion?.result?.evidence_fingerprint === detail.column_evidence_fingerprint) setLocalSuggestion({key: requestedKey, value: value.suggestion});
     } catch (failure) {setError(failure.message);} finally {setBusy(false);}
   };
@@ -350,7 +349,7 @@ function ColumnMappingDrawer({open, detail, data, busy, setBusy, setError, onClo
     event.preventDefault(); setBusy(true); setError('');
     try {
       const chosen = Object.fromEntries(Object.entries(mapping).filter(([, header]) => header));
-      await json(`${API}/imports/${detail.import_file.id}/map-columns?client_id=${data.client.client_id}`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf},
+      await json(`${API}/imports/${detail.import_file.id}/map-columns`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf},
         body: JSON.stringify({mapping: chosen, platform_hint: platformHint, currency_hint: currencyHint, date_order: dateOrder, note})});
       onClose(); await onSaved();
     } catch (failure) {setError(failure.message);} finally {setBusy(false);}
@@ -406,7 +405,7 @@ function PrintDrawer({scope: active, detail, data, busy, run, onClose, onSaved})
   useEffect(() => {
     let live = true;
     if (!active || !draft.platform || !draft.external_account_id || !draft.external_campaign_id) {setMatch(null); return () => {live = false;};}
-    const params = new URLSearchParams({client_id: String(data.client.client_id), platform: draft.platform, account_id: draft.external_account_id, campaign_id: draft.external_campaign_id});
+    const params = new URLSearchParams({platform: draft.platform, account_id: draft.external_account_id, campaign_id: draft.external_campaign_id});
     fetch(`${API}/imports/${detail.import_file.id}/campaign-match?${params}`, {credentials: 'same-origin'})
       .then(response => response.ok ? response.json() : Promise.reject(new Error('Falha ao verificar campanha')))
       .then(value => {if (live) {setMatch(value.match); setCreateCampaign(value.match?.state === 'missing');}})
@@ -419,7 +418,7 @@ function PrintDrawer({scope: active, detail, data, busy, run, onClose, onSaved})
     run(async () => {
       const {metric_date, period_start, period_end, ...shared} = draft;
       const payload = daily ? {...shared, metric_date, create_campaign: createCampaign} : {...shared, period_start, period_end, create_campaign: createCampaign};
-      await json(`${API}/imports/${detail.import_file.id}/visual/${active.index}/${daily ? 'confirm' : 'range'}?client_id=${data.client.client_id}`,
+      await json(`${API}/imports/${detail.import_file.id}/visual/${active.index}/${daily ? 'confirm' : 'range'}`,
         {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf}, body: JSON.stringify(payload)});
       onClose(); await onSaved();
     });
@@ -451,7 +450,7 @@ function Conflicts({conflicts, data, canEdit, busy, run, onResolved}) {
       const submit = event => {
         event.preventDefault();
         run(async () => {
-          await json(`${API}/import-conflicts/${conflict.campaign_id}/${conflict.metric_date}/${conflict.metric_key}/resolve?client_id=${data.client.client_id}`,
+          await json(`${API}/import-conflicts/${conflict.campaign_id}/${conflict.metric_date}/${conflict.metric_key}/resolve`,
             {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf}, body: JSON.stringify({observation_id: choices[key] || conflict.candidates[0]?.id, note: reasons[key] || ''})});
           await onResolved();
           setChoices(current => {const next = {...current}; delete next[key]; return next;});

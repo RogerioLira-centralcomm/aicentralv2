@@ -23,7 +23,7 @@ export function SharedReports({data}) {
     const timeout = setTimeout(() => {timedOut = true; controller.abort();}, 15000);
     async function load() {
       try {
-        const response = await fetch(`/connect/api/v2/reports/shared/resources?client_id=${data.client.client_id}`, {signal: controller.signal});
+        const response = await fetch(`/connect/api/v2/reports/shared/resources`, {signal: controller.signal});
         if (!response.ok) throw new Error('Não foi possível consultar seus acessos.');
         const result = await response.json();
         if (!Array.isArray(result.flows) || !Array.isArray(result.sites)) throw new Error('Não foi possível carregar os recursos compartilhados.');

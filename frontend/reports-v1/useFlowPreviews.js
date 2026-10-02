@@ -1,7 +1,7 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 
 export function useFlowPreviews({flowId,clientId,csrf,canCapture=false,revision}={}) {
-  const url=flowId&&clientId?`/connect/api/v2/reports/flow/flows/${flowId}/previews?client_id=${clientId}${revision?`&revision=${revision}`:''}`:null;
+  const url=flowId&&clientId?`/connect/api/v2/reports/flow/flows/${flowId}/previews${revision?`?revision=${revision}`:''}`:null;
   const [state,setState]=useState({url:null,items:{},available:true,error:null});
   const [refresh,setRefresh]=useState(0);
   const requestedCapture=useRef(null);

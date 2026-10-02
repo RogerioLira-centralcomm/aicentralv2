@@ -25,6 +25,8 @@ const state = {
       probabilities: {cost: 0.9}},
   ], omitted_count: 0}},
   calls: [],
+  // Mirrors the server: the bootstrap call with ?client_id= picks the client; every other call reads it from the session.
+  sessionClient: clientId,
 };
 
 function response(res, body, status = 200, type = 'application/json; charset=utf-8') {
@@ -63,17 +65,22 @@ async function main() {
   page.on('pageerror', error => errors.push(error.message));
   await page.route('**/workspace/api/creditos/resumo', route => route.fulfill({json: {monthly_usage_percentage: 88.3}}));
   await page.route('**/static/cadu_connect/google-ads-engine-v2.js', route => route.fulfill({body: 'var CADU={endpoint:"__CADU_INGEST_URL__",apiKey:"__CADU_API_KEY__",accountIds:__CADU_ACCOUNT_IDS__};', contentType: 'text/javascript'}));
-  await page.route('**/connect/api/v1/reports/**', async route => {
+  await page.route('**/connect/api/v2/reports/**', async route => {
     const request = route.request();
     const url = new URL(request.url());
-    const pathName = url.pathname.replace('/connect/api/v1/reports', '');
+    const pathName = url.pathname.replace('/connect/api/v2/reports', '');
     const method = request.method();
     let body = {};
     try { body = request.postDataJSON() || {}; } catch (_) { /* GET or non-JSON request */ }
-    state.calls.push({path: pathName, method, client_id: body.client_id || url.searchParams.get('client_id') || null, body});
+    if (pathName === '/bootstrap' && url.searchParams.get('client_id')) state.sessionClient = Number(url.searchParams.get('client_id'));
+    if (pathName !== '/bootstrap') {
+      assert.equal(body.client_id ?? url.searchParams.get('client_id'), null, `${method} ${pathName} não envia client_id; o cliente vem da sessão`);
+    }
+    const sessionClient = state.sessionClient;
+    state.calls.push({path: pathName, method, client_id: sessionClient, body});
 
     if (pathName === '/bootstrap' && method === 'GET') {
-      const id = Number(url.searchParams.get('client_id')) || clientId;
+      const id = sessionClient;
       const client = id === newClientId
         ? {client_id: newClientId, organization_id: organizationId, client_name: 'Cliente criado na interface', role: 'admin', client_kind: 'reports'}
         : {client_id: clientId, organization_id: organizationId, client_name: 'Cliente de interface', role: 'admin', client_kind: 'reports'};
@@ -138,7 +145,7 @@ async function main() {
       return route.fulfill({json: {site: state.supertagSites[0]}});
     }
     if (pathName === '/link-tests' && method === 'POST') {
-      assert.equal(body.client_id, newClientId, 'a análise de link mantém o client_id Reports selecionado');
+      assert.equal(sessionClient, newClientId, 'a análise de link mantém o client_id Reports selecionado');
       assert.equal(body.url, 'https://example.test/landing?utm_source=google');
       assert.equal(body.mode, 'destination');
       return route.fulfill({json: {result: {kind: 'destination', score: 95,
@@ -146,13 +153,13 @@ async function main() {
         final_url: 'https://example.test/landing?utm_source=google', alerts: []}}});
     }
     if (pathName === '/clients' && method === 'POST') {
-      assert.equal(body.client_id, clientId, 'cliente Reports atual acompanha a criação');
+      assert.equal(sessionClient, clientId, 'cliente Reports atual acompanha a criação');
       assert.equal(body.name, 'Cliente criado na interface');
       state.clients.push({id: newClientId, name: body.name, kind: 'reports'});
       return route.fulfill({status: 201, json: {client: {id: newClientId, name: body.name}}});
     }
     if (pathName === '/accounts' && method === 'POST') {
-      assert.equal(body.client_id, newClientId, 'a conta usa o cliente Reports recém-criado');
+      assert.equal(sessionClient, newClientId, 'a conta usa o cliente Reports recém-criado');
       const account = {id: 41, platform: body.platform, external_id: body.platform === 'google_ads' ? body.external_id.replaceAll('-', '') : body.external_id, name: body.name,
         parent_account_id: null, account_kind: body.account_kind, status: 'active'};
       state.accounts.push(account);
@@ -161,7 +168,7 @@ async function main() {
       return route.fulfill({status: 201, json: {account}});
     }
     if (pathName === '/campaigns' && method === 'POST') {
-      assert.equal(body.client_id, newClientId, 'a campanha usa o mesmo cliente Reports');
+      assert.equal(sessionClient, newClientId, 'a campanha usa o mesmo cliente Reports');
       assert.equal(Number(body.account_id), 41, 'a campanha aponta para a conta do cliente');
       const campaign = {id: 77, account_id: 41, external_id: body.external_id, name: body.name,
         status: 'ENABLED', account_name: 'Conta de teste', platform: 'google_ads', channel_type: body.channel_type || ''};
@@ -181,7 +188,7 @@ async function main() {
       return route.fulfill({json: {run: null, pages: [state.discoveryPage]}});
     }
     if (pathName === '/flow/flows' && method === 'POST') {
-      assert.equal(body.client_id, newClientId, 'o fluxo usa o mesmo cliente Reports');
+      assert.equal(sessionClient, newClientId, 'o fluxo usa o mesmo cliente Reports');
       const flow = makeFlow();
       flow.name = body.name;
       flow.allowed_host = body.allowed_host;
@@ -189,7 +196,7 @@ async function main() {
       return route.fulfill({status: 201, json: {flow, tag: {id: flow.tag_id}, tag_urls: {}}});
     }
     if (pathName === `/flow/flows/${state.flows[0]?.id}/discoveries/page-ui-1/select` && method === 'POST') {
-      assert.equal(body.client_id, newClientId);
+      assert.equal(sessionClient, newClientId);
       assert.equal(Number(body.campaign_id), 77, 'etapa do fluxo associa campanha do mesmo cliente');
       state.discoveryPage.campaign_id = 77;
       state.discoveryPage.selected_kind = body.selection === 'conversion' ? 'conversion' : 'page';
@@ -200,12 +207,12 @@ async function main() {
       return route.fulfill({json: {flow: state.flows[0]}});
     }
     if (pathName === `/flow/flows/${state.flows[0]?.id}/monitor` && method === 'PATCH') {
-      assert.equal(body.client_id, newClientId);
+      assert.equal(sessionClient, newClientId);
       state.flows[0].monitor_enabled = body.enabled;
       return route.fulfill({json: {flow: state.flows[0]}});
     }
     if (pathName === `/flow/flows/${state.flows[0]?.id}/monitor/check` && method === 'POST') {
-      assert.equal(body.client_id, newClientId);
+      assert.equal(sessionClient, newClientId);
       await new Promise(resolve => setTimeout(resolve, 350));
       return route.fulfill({json: {check: {status: 'online', pages: []}}});
     }

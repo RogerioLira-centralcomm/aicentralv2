@@ -5,6 +5,7 @@ import {ReportsFieldInput} from './ReportsFieldInput.jsx';
 import {buildProductionSheet, productionSheetCsv, productionSheetHtml} from './flowProductionSheet.js';
 import {FLOW_STRATEGIES} from './flowStrategies.js';
 import {json} from './reportsCommon.jsx';
+import {FLOW_GOALS,flowGoal,goalById} from './flowGoals.js';
 
 export const MAX_FLOW_TAGS = 12;
 export const normalizeFlowTag = value => value.replace(/\s+/g, ' ').trim().slice(0, 40);
@@ -46,12 +47,20 @@ export function FlowPlanPanel({config, name, host, readOnly, onChange, onSelectN
     onChange({...config, tags: [...tags, tag]});
     setDraftTag('');
   };
+  const goal = flowGoal(config);
   const percent = sheet.progress.total ? Math.round(sheet.progress.done / sheet.progress.total * 100) : 0;
   return <ReportsPanelShell compact className="flow-blueprint-panel flow-plan-panel" title="Plano e produção" onClose={onClose}
     footer={<div className="flow-plan-panel__exports">
       <Button color="secondary" disabled={!sheet.sections.length} onClick={() => download(productionSheetCsv(sheet), 'text/csv;charset=utf-8', `folha-de-producao-${fileName(name)}.csv`)}>Exportar CSV</Button>
       <Button color="secondary" disabled={!sheet.sections.length} onClick={() => download(productionSheetHtml(sheet, {name, host}), 'text/html;charset=utf-8', `folha-de-producao-${fileName(name)}.html`)}>Baixar para imprimir</Button>
     </div>}>
+    <section className="flow-plan-panel__goal" aria-label="Objetivo do fluxo">
+      <h3>Objetivo do fluxo</h3>
+      <div className="flow-plan-panel__goals" role="radiogroup" aria-label="O que é sucesso neste fluxo">
+        {FLOW_GOALS.map(item => <button key={item.id} type="button" role="radio" aria-checked={goal === item.id} disabled={readOnly} className={goal === item.id ? 'is-active' : ''} onClick={() => onChange({...config, goal: item.id})}><strong>{item.label}</strong><small>{item.summary}</small></button>)}
+      </div>
+      <div className="flow-plan-panel__how"><strong>Como acompanhar</strong><ul>{goalById(goal).setup.map(line => <li key={line}>{line}</li>)}</ul></div>
+    </section>
     <section className="flow-plan-panel__progress" aria-label="Progresso da produção">
       <div><strong>{sheet.progress.done} de {sheet.progress.total}</strong><span>passos prontos para medir</span></div>
       <div className="flow-plan-panel__bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-label="Passos prontos"><span style={{width: `${percent}%`}}/></div>

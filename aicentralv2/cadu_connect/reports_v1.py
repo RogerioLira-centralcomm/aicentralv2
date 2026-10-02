@@ -8,7 +8,7 @@ import uuid
 from datetime import date, datetime, timedelta, timezone
 from difflib import SequenceMatcher
 from urllib.parse import parse_qs, urlparse
-from flask import abort, jsonify, make_response, render_template, request, session
+from flask import abort, jsonify, make_response, redirect, render_template, request, session
 
 from ..auth import login_required, login_required_api
 from ..db import get_db
@@ -142,6 +142,10 @@ def register(bp):
     def reports_v1_app(section=None, rest=None, site_id=None, flow_id=None):
         # Product areas of the SPA; the old first-level sections stay valid and are redirected by the client.
         nested = {'media', 'journey', 'tools', 'settings'}
+        # Older builds opened a new flow at /flows/<id>&testar=1 (no "?"); send it to the editor with a real query.
+        legacy = re.fullmatch(r'([0-9a-fA-F-]{36})&([\w=&-]{0,200})', rest or '') if section == 'flows' else None
+        if legacy:
+            return redirect(f"{request.path.rsplit('/', 1)[0]}/{legacy.group(1)}?{legacy.group(2)}")
         if section and section not in {
             'overview', 'media', 'journey', 'reports', 'alerts', 'data-sources', 'supertag', 'events',
             'imports', 'tools', 'settings',

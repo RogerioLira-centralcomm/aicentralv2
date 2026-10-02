@@ -353,9 +353,9 @@ def build_proposal(kind, evidence, path='/', outcome=None):
     if form and not any('form' in event.lower() or 'lead' in event.lower() or 'submit' in event.lower() for event in evidence['media']['events']):
         warnings.append('O formulário não dispara evento de conversão identificável.')
     if outcome is None:
-        warnings.append('A confirmação do envio não foi verificada; a análise não envia o formulário.')
+        warnings.append('A confirmação do envio ainda não foi testada: não se sabe o que acontece depois de enviar o formulário.')
     elif outcome['type'] in ('no_confirmation_signal', 'redirect'):
-        warnings.append('Sem página ou mensagem de obrigado: a conversão não fica visível para a medição.')
+        warnings.append('Depois do envio não houve página de obrigado nem mensagem de sucesso: a conversão não fica visível para a medição.')
     nodes = []
     if kind == 'landing':
         page = _node('page', 'Landing page', path, stage='entry', entry=True, description='Página de entrada observada pelo teste.')
@@ -565,12 +565,14 @@ def _submit_with_browser(url, form_index, allowed_host):
                     field.select_option(index=1 if field.locator('option').count() > 1 else 0)
                 else:
                     field.fill(str(value))
+            filled = [{'label': (field['label'] or field['name'])[:60], 'value': fake['values'][field['name']]}
+                      for field in form['fields'] if field['name'] in fake['values'] and not isinstance(fake['values'][field['name']], bool)]
             before = page.url
             fired_before = set(tags_from_requests(urls))
             scope.locator('[type=submit], button:not([type])').first.click(timeout=8000)
             page.wait_for_timeout(5000)
             return {'outcome': classify_outcome(before, page.url, page.inner_text('body')[:4000]),
-                    'network_hosts': sorted(host for host in hosts if host)[:60], 'submitted': True,
+                    'network_hosts': sorted(host for host in hosts if host)[:60], 'submitted': True, 'filled': filled,
                     'fired_on_submit': [name for name in tags_from_requests(urls) if name not in fired_before]}
         finally:
             browser.close()

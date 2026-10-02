@@ -106,7 +106,7 @@ export function MediaData({data, save, busy}) {
   const lastRun = runs[0]?.created_at;
   const attention = active.filter(item => health(item)[1] === 'warning').length;
 
-  const reload = () => json(`/connect/api/v2/reports/ingest-keys?client_id=${data.client.client_id}`).then(value => {setKeys(value.keys || []); setRuns(value.runs || []);});
+  const reload = () => json(`/connect/api/v2/reports/ingest-keys`).then(value => {setKeys(value.keys || []); setRuns(value.runs || []);});
   useEffect(() => {reload().catch(failure => setError(failure.message));}, [data.client.client_id]);
   // Accounts that only exist under an MCC: start from that MCC instead of an empty direct list.
   useEffect(() => {

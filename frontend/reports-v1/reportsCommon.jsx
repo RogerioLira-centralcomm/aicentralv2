@@ -11,7 +11,7 @@ export const reportUrl = (section, params = {}, siteId = '') => {
   Object.entries(params).forEach(([key, value]) => {if (key !== 'client_id' && value != null && value !== '') url.searchParams.set(key, String(value));});
   return `${url.pathname}${url.search}`;
 };
-export const flowEditorUrl = id => reportUrl(`flows/${encodeURIComponent(id)}`);
+export const flowEditorUrl = (id, params = {}) => reportUrl(`flows/${encodeURIComponent(id)}`, params);
 /** The page route and the bootstrap call persist the chosen client in the session; after that the parameter is only noise in the URL. */
 export const dropClientFromUrl = () => {
   const url = new URL(location.href);

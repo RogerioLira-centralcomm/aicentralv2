@@ -65,7 +65,7 @@ function Campaigns({data, save, busy, filters, refreshRevision}) {
   useEffect(() => {
     let live = true;
     if (!campaignId) {setCampaignDetail(null); return () => {live=false;};}
-    json(`/connect/api/v2/reports/campaigns/${campaignId}?client_id=${data.client.client_id}`)
+    json(`/connect/api/v2/reports/campaigns/${campaignId}`)
       .then(value => {if(live){setCampaignDetail(value);setDetailError('');}})
       .catch(error => {if(live)setDetailError(error.message);});
     return () => {live=false;};
@@ -162,7 +162,7 @@ function App() {
   const save = async (path, payload, reload = true, method = 'POST') => {
     setBusy(true); setError('');
     try {
-      const result = await json(`/connect/api/v2/reports${path}`, {method, headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf}, body: JSON.stringify({...payload, client_id: data.client.client_id})});
+      const result = await json(`/connect/api/v2/reports${path}`, {method, headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf}, body: JSON.stringify({...payload})});
       if (reload) await load(data.client.client_id);
       return result;
     } catch (failure) {if(!path.startsWith('/flow/'))setError(failure.message); throw failure;} finally {setBusy(false);}

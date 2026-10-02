@@ -161,8 +161,6 @@
 .rs-search>:not(svg){flex:1}
 
 /* Event list: the name opens the detail drawer. */
-.reports-event-open{text-align:left}
-.reports-event-open:hover strong{color:var(--color-text-brand-secondary);text-decoration:underline}
 .rs-drawer-body .rs-section{padding:16px;border-radius:10px}
 .rs-drawer-body .rs-metrics{--rs-metric-count:3}
 .rs-drawer-body .rs-metric{padding:14px 16px}
@@ -244,9 +242,6 @@
 
 /* Panel heads: title 16px, side text muted 13px. */
 .reports-main .reports-content .reports-panel-head{align-items:flex-start;gap:12px}
-.reports-main .reports-event-filters button{min-height:40px;padding:0 14px;border:1px solid var(--color-border-primary)!important;border-radius:8px;background:var(--color-bg-primary)!important;color:var(--color-text-secondary)!important;font-size:14px;font-weight:600;box-shadow:0 1px 2px #1018280d}.reports-main .reports-event-filters button:hover{background:var(--color-bg-secondary)!important}
-.reports-main .reports-event-copy{min-height:36px;padding:0 14px;border:0;border-radius:8px;background:var(--color-bg-brand-solid);color:var(--color-text-white);font-size:14px;font-weight:600}
-.reports-main .reports-event-copy:hover{background:var(--color-bg-brand-solid_hover)}
 
 /* Filter bar: one quiet row aligned to the content edge. */
 .reports-main .reports-filter-bar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;margin:0 0 20px;padding:0;border:0;background:transparent}
@@ -256,7 +251,6 @@
 .reports-main .reports-filter-bar__actions{display:flex;align-items:center;gap:8px}
 
 /* Tabs inside pages (events, imports, alerts) share the underline style of the header tabs. */
-.reports-main .reports-event-tabs{padding:0;border:0;border-bottom:1px solid var(--color-border-secondary);border-radius:0;background:transparent}
 
 /* Media data: status becomes a strip above the forms; one column, no lonely side card. */
 
@@ -266,7 +260,6 @@
 /* Accounts / clients: inline helpers read as links, not grey blocks. */
 .reports-main .reports-content .reports-panel .reports-form + .reports-table-wrap{margin-top:20px}
 .reports-main .st-topbar{justify-content:flex-end;padding:0;margin:0}
-.reports-main .reports-event-filters{grid-template-columns:minmax(200px,1fr) minmax(160px,.45fr)}
 .rs-kv--spaced{margin-top:20px}
 
 /* Clientes: the add form is one row, not a full-width field over a stacked button. */

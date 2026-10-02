@@ -3,6 +3,7 @@ import {ImportsPage} from './ImportsPage.jsx';
 import {MediaData} from './MediaData.jsx';
 import {AccessPage} from './AccessPage.jsx';
 import {LinkTester} from './LinkTester.jsx';
+import {EventsPage} from './EventsPage.jsx';
 import {CAMPAIGN_STATUS, ClientsAccounts, Status as CampaignStatus, channelLabel} from './ClientsAccounts.jsx';
 import {ReportsRelationships} from './ReportsRelationships.jsx';
 import {SharedReports} from './SharedReports.jsx';
@@ -37,7 +38,6 @@ import {JourneyOverview} from './hubs/journey/JourneyOverview.jsx';
 import {Navigation} from './hubs/journey/Navigation.jsx';
 import {Conversions} from './hubs/journey/Conversions.jsx';
 import {DataSources} from './hubs/data-sources/DataSources.jsx';
-import {EventDetail} from './hubs/data/EventDetail.jsx';
 import {CheckCircle, FilterLines, Plus, RefreshCw01, SearchLg} from '@untitledui/icons';
 import {dropClientFromUrl, flowEditorId, reportUrl, shortDate, integer, decimal, json, Empty, Kpi} from './reportsCommon.jsx';
 import '../cadu-design-system/tokens.css';
@@ -603,59 +603,6 @@ function SuperTag({data}) {
   </section>;
 }
 
-function Events({data, filters, initialKind = 'all', refreshRevision}) {
-  const [result, setResult] = useState({events: [], event_summary: {}});
-  const [query, setQuery] = useState('');
-  const [kindFilter, setKindFilter] = useState(initialKind);
-  useEffect(() => setKindFilter(initialKind), [initialKind]);
-  const [sourceFilter, setSourceFilter] = useState('all');
-  const [newEventName, setNewEventName] = useState('');
-  const [openEvent, setOpenEvent] = useState(null);
-  const [copied, setCopied] = useState(false);
-  const [error, setError] = useState('');
-  const requestVersion = useRef(0);
-  const loadEvents = () => {
-    const currentRequest = ++requestVersion.current;
-    const params = new URLSearchParams({client_id: String(data.client.client_id), days: filters.period, start_date: filters.startDate, end_date: filters.endDate});
-    if (filters.platform) params.set('platform', filters.platform);
-    if (filters.account) params.set('account_id', filters.account);
-    if (filters.campaign) params.set('campaign_id', filters.campaign);
-    json(`/connect/api/v2/reports/flow/events?${params}`).then(value => {
-      if (currentRequest === requestVersion.current) {setResult(value); setError('');}
-    }).catch(failure => {if (currentRequest === requestVersion.current) setError(failure.message);});
-  };
-  useEffect(() => {
-    loadEvents();
-    return () => {requestVersion.current += 1;};
-  }, [data.client.client_id, filters.period, filters.startDate, filters.endDate, filters.platform, filters.account, filters.campaign, refreshRevision]);
-  const allEvents = result.events || [];
-  const sources = [...new Set(allEvents.map(item => item.source_label))];
-  const visible = allEvents.filter(item => {
-    const term = query.trim().toLowerCase();
-    const searchMatch = !term || `${item.event_name} ${item.page_path} ${item.source_label}`.toLowerCase().includes(term);
-    const typeMatch = kindFilter === 'all' || (kindFilter === 'custom' ? item.event_kind === 'custom_event' : kindFilter === 'conversion' ? item.event_kind === 'conversion' : item.event_kind !== 'custom_event' && item.event_kind !== 'conversion');
-    return searchMatch && typeMatch && (sourceFilter === 'all' || item.source_label === sourceFilter);
-  });
-  const summary = result.event_summary || {};
-  const health = summary.total ? Math.round(Number(summary.attributed || 0) / Number(summary.total) * 100) : 0;
-  const normalizedEventName = newEventName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/[\s-]+/g, '_').replace(/[^a-z0-9_]/g, '').replace(/^[^a-z]+/, '').slice(0, 80) || 'lead_qualified';
-  const customSnippet = `window.CaduSuperTag && window.CaduSuperTag.trackEvent('${normalizedEventName}');`;
-  const copyEvent = async () => {try {await navigator.clipboard.writeText(customSnippet);setCopied(true);window.setTimeout(()=>setCopied(false),1800);} catch (_) {setError('Não foi possível copiar o código.');}};
-  const timeAgo = value => {const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000)); return minutes < 60 ? `há ${minutes} min` : minutes < 1440 ? `há ${Math.floor(minutes / 60)} h` : `há ${Math.floor(minutes / 1440)} d`;};
-  return <>
-    <section className="reports-events-layout"><article className="reports-panel reports-events-main"><div className="reports-panel-head"><div><h2>Atividade recebida</h2><p>Veja as interações recebidas pela Super Tag e prepare eventos personalizados.</p></div><a className="reports-inline-link" href={reportUrl('flow')}>Abrir Fluxos ↗</a></div>
-      <ReportsTabs className="reports-event-tabs" label="Tipos de evento" items={[{id:'all',label:'Todos os eventos'},{id:'standard',label:'Padrão'},{id:'custom',label:'Personalizados'},{id:'conversion',label:'Conversões'}]} value={kindFilter} onChange={setKindFilter} />
-      <div className="reports-event-filters"><ReportsFieldInput type="search" aria-label="Buscar eventos" placeholder="Buscar evento ou página…" value={query} onChange={event=>setQuery(event.target.value)}/><ReportsNativeSelect aria-label="Filtrar fonte" value={sourceFilter} onChange={event=>setSourceFilter(event.target.value)}><option value="all">Todas as fontes</option>{sources.map(source=><option key={source}>{source}</option>)}</ReportsNativeSelect></div>
-      {error&&<div className="reports-error" role="alert">{error}</div>}
-      <div className="reports-table-wrap"><table className="cadu-table reports-events-table"><thead><tr><th>Evento</th><th>Tipo</th><th>Fonte / Página</th><th>Última ocorrência</th><th>Mapeamento</th></tr></thead><tbody>{visible.map((item,index)=><tr key={`${item.event_kind}:${item.event_name}:${item.page_path}:${item.source_label}:${index}`}><td><span className="reports-event-icon">{item.event_kind==='conversion'?'✓':item.event_kind==='form_submit'?'▤':item.event_kind==='whatsapp_click'?'◉':item.event_kind==='custom_event'?'✳':'⌖'}</span><span><ReportsActionButton color="link-color" size="sm" className="reports-event-open" onClick={() => setOpenEvent(item)}><strong>{item.event_name}</strong></ReportsActionButton><small>{item.page_path}</small></span></td><td><span className={`reports-event-type ${item.event_kind==='custom_event'?'is-custom':item.event_kind==='conversion'?'is-conversion':''}`}>{item.event_kind==='custom_event'?'Personalizado':item.event_kind==='conversion'?'Conversão':'Automático'}</span></td><td>{item.source_label}<small>{item.total} ocorrências · {item.page_path}</small></td><td>{timeAgo(item.last_occurred_at)}<small>{shortDate(item.last_occurred_at)}</small></td><td><span className={`reports-event-status ${Number(item.mapped)>0?'is-mapped':''}`}><i/>{Number(item.mapped)>0?'URL mapeada':'Sem etapa'}</span></td></tr>)}</tbody></table>{!visible.length&&<Empty message="Nenhum evento corresponde aos filtros. A atividade aparecerá quando a tag enviar eventos." />}</div>
-      <div className="reports-events-foot">Mostrando {visible.length} de {integer(result.event_group_count ?? allEvents.length)} combinações de evento, página e origem · {shortDate(filters.startDate)} – {shortDate(filters.endDate)}{Number(result.event_group_count)>allEvents.length?' · exibindo as 300 mais recentes':''}</div>
-    </article><aside className="reports-events-side"><article className="reports-panel"><div className="reports-panel-head"><h2>Resumo de eventos</h2><span>{shortDate(filters.startDate)} – {shortDate(filters.endDate)}</span></div><div className="reports-event-kpis"><Kpi label="Ocorrências" value={integer(summary.total)} detail="No intervalo selecionado"/><Kpi label="Envios de formulário" value={integer(summary.form_submissions)} detail="Sem registrar valores enviados"/><Kpi label="Conversões" value={integer(summary.conversions)} detail="Páginas de conversão mapeadas"/><Kpi label="Origem identificada" value={`${health}%`} detail="UTM ou domínio de referência"/></div><p className="reports-event-health">{health>=80?'Boa atribuição das origens':health?'Algumas visitas não têm UTM ou referência':'Aguardando os primeiros eventos'}</p></article>
-      <article className="reports-panel"><div className="reports-panel-head"><h2>Adicionar evento personalizado</h2><span>Usa a Super Tag compartilhada</span></div><p>Gere uma chamada para marcar ações específicas do site, como lead qualificado ou início de checkout.</p><label className="reports-event-name">Nome do evento<ReportsFieldInput value={newEventName} onChange={event=>setNewEventName(event.target.value)} maxLength={120} placeholder="lead_qualified"/></label><code className="reports-event-snippet">{customSnippet}</code><ReportsActionButton className="reports-event-copy" type="button" onClick={copyEvent}>{copied?'Copiado':'Copiar código'}</ReportsActionButton><small>Instale a Super Tag e chame este código no momento da ação; use um identificador genérico, sem nome, e-mail, telefone ou outros dados pessoais.</small></article>
-      <article className="reports-panel reports-event-help"><h2>Melhores resultados</h2><p>Use nomes consistentes e marque a URL de obrigado como conversão em Fluxos. Cliques de WhatsApp são detectados automaticamente por links wa.me e api.whatsapp.com.</p><a className="reports-inline-link" href={reportUrl('flow')}>Configurar páginas e conversões ↗</a></article></aside></section>
-    <EventDetail event={openEvent} rows={allEvents} onClose={() => setOpenEvent(null)}/>
-  </>;
-}
-
 const reportIcons = {overview:'home', media:'analysis', journey:'branch', reports:'file', alerts:'alert', 'data-sources':'plugin', supertag:'pulse', events:'calendar', imports:'download', links:'link', customers:'users', accounts:'table', access:'folder'};
 const NAV_GROUPS = [
   ['', [['overview', 'Visão geral', 'overview']]],
@@ -761,7 +708,7 @@ function App() {
       alerts: () => <AlertsCenter data={data} />,
       'data-sources': () => <DataSources data={data}/>,
       supertag: () => <SuperTag data={data} />,
-      events: () => <Events data={data} filters={filters} refreshRevision={refreshRevision} />,
+      events: () => <EventsPage data={data} filters={filters} refreshRevision={refreshRevision} />,
       imports: () => <ImportsPage data={data} reloadBootstrap={() => load(data.client.client_id)} focusLibrary={library} />,
       links: () => <LinkTester data={data} save={save} busy={busy}/>,
       accounts: () => <ClientsAccounts data={data} save={save} busy={busy} reload={() => load(data.client.client_id)}/>,

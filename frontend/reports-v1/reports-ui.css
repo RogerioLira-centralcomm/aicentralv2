@@ -3,22 +3,139 @@
    Screen files keep only what is specific to their content. */
 
 /* Table card: the table runs edge to edge; header, toolbar and footer share one 16/24 rhythm. */
-.reports-main .reports-panel:has(> .reports-table-wrap) {
+.reports-main .reports-content .reports-panel:not(.reports-flow-builder):has(> .reports-table-wrap) {
   padding: 0;
   overflow: hidden;
 }
-.reports-main .reports-panel:has(> .reports-table-wrap) > :not(.reports-table-wrap) {
+.reports-main .reports-content .reports-panel:not(.reports-flow-builder):has(> .reports-table-wrap) > :not(.reports-table-wrap) {
   margin: 0;
   padding: 16px 24px;
 }
-.reports-main .reports-panel:has(> .reports-table-wrap) > :not(.reports-table-wrap):first-child {
+.reports-main .reports-content .reports-panel:not(.reports-flow-builder):has(> .reports-table-wrap) > :not(.reports-table-wrap):first-child {
   border-bottom: 1px solid var(--color-border-secondary);
 }
-.reports-main .reports-panel:has(> .reports-table-wrap) > .reports-table-wrap {
+.reports-main .reports-content .reports-panel:not(.reports-flow-builder):has(> .reports-table-wrap) > .reports-table-wrap {
   width: 100%;
   margin: 0;
   overflow-x: auto;
 }
-.reports-main .reports-panel:has(> .reports-table-wrap) > .reports-table-wrap + :not(.reports-table-wrap) {
+.reports-main .reports-content .reports-panel:not(.reports-flow-builder):has(> .reports-table-wrap) > .reports-table-wrap + :not(.reports-table-wrap) {
   border-top: 1px solid var(--color-border-secondary);
+}
+
+/* Card: one surface for every Reports block. Cards inside cards are flat sections. */
+.reports-main .reports-content .reports-panel:not(.reports-flow-builder) {
+  padding: 20px 24px;
+  border: 1px solid var(--color-border-secondary);
+  border-radius: 12px;
+  background: var(--color-bg-primary);
+  box-shadow: var(--shadow-xs);
+}
+.reports-main .reports-content .reports-panel .reports-panel:not(.reports-flow-builder) {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Card header: title and supporting text left, actions right, one 16px gap below. */
+.reports-main .reports-content .reports-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 16px;
+}
+.reports-main .reports-content .reports-panel-head :is(h2, h3),
+.reports-main .reports-content .reports-panel > :is(h2, h3) {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+  letter-spacing: 0;
+}
+.reports-main .reports-content .reports-panel-head :is(p, small),
+.reports-main .reports-content .reports-panel-head > span {
+  margin: 2px 0 0;
+  color: var(--color-text-tertiary);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+.reports-main .reports-content .reports-panel p {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+/* Button group (Untitled): one border, dividers between options, the pressed option on a soft fill. */
+.rs-segmented {
+  display: inline-flex;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--color-border-primary);
+  border-radius: 8px;
+  background: var(--color-bg-primary);
+  box-shadow: var(--shadow-xs);
+  scrollbar-width: none;
+}
+.rs-segmented > button {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-left: 1px solid var(--color-border-primary);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.rs-segmented > button:first-child { border-left: 0; }
+.rs-segmented > button:hover { background: var(--color-bg-primary_hover); }
+.rs-segmented > button:is([aria-pressed="true"], .is-active) { background: var(--color-bg-active); color: var(--color-text-primary); }
+.rs-segmented > button:focus-visible { outline: 2px solid var(--color-border-brand); outline-offset: -2px; }
+.rs-segmented > button small { color: var(--color-text-quaternary); font-size: 12px; font-weight: 500; }
+.rs-segmented--sm > button { min-height: 32px; padding: 0 10px; font-size: 12px; }
+
+/* Field (Untitled): the label sits above its control, 14/500 secondary text, 6px apart.
+   Only labels that wrap a kit control match, so checkbox, radio and option-card labels keep their own layout.
+   Dense side panels (inspector, compact drawers) use the 12px step of the same scale. */
+.reports-main label:has(> :is(.cadu-untitled-field, .cadu-untitled-select, .cadu-untitled-textarea, .cadu-ds-select)) {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+.reports-main :is(.reports-panel-shell.is-compact, .flow-inspector, .reports-node-settings, .flow-blueprint-panel) label:has(> :is(.cadu-untitled-field, .cadu-untitled-select, .cadu-untitled-textarea, .cadu-ds-select)) {
+  gap: 4px;
+  font-size: 12px;
+  line-height: 18px;
+}
+.reports-main label:has(> :is(.cadu-untitled-field, .cadu-untitled-select, .cadu-untitled-textarea, .cadu-ds-select)) > small {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 18px;
+}
+.reports-main :is(.reports-panel-shell.is-compact, .flow-inspector, .reports-node-settings, .flow-blueprint-panel) [data-label] {
+  font-size: 12px;
+  line-height: 18px;
+}
+/* Inline fields (pager size, monitor interval) keep label and control on one line. */
+.reports-main :is(.fli-pager, .reports-monitor-controls) label:has(> :is(.cadu-untitled-field, .cadu-untitled-select, .cadu-ds-select)) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
 }

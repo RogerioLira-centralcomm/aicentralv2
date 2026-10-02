@@ -1,15 +1,10 @@
-.rdr-trigger{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 14px;border:1px solid var(--color-border-primary);border-radius:8px;background:var(--color-bg-primary);color:var(--color-text-secondary);font:inherit;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 1px 2px rgba(16,24,40,.05)}
-.rdr-trigger:hover{background:var(--color-bg-secondary)}.rdr-trigger[data-focus-visible]{outline:0;box-shadow:0 0 0 4px #d1e0ff;border-color:var(--color-border-brand)}
-.rdr-trigger svg{color:var(--color-text-quaternary)}.rdr-caret{transform:rotate(90deg)}
 .rdr-popover{z-index:2000;font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--color-text-primary);border:1px solid var(--color-border-secondary);border-radius:12px;background:var(--color-bg-primary);box-shadow:0 20px 24px -4px rgba(16,24,40,.08),0 8px 8px -4px rgba(16,24,40,.03)}
 .rdr-dialog{outline:0}
 .rdr-body{display:flex}
 .rdr-presets{display:grid;align-content:start;gap:2px;margin:0;padding:16px 12px;list-style:none;border-right:1px solid var(--color-border-secondary);min-width:168px}
-.rdr-presets button{width:100%;padding:8px 12px;border:0;border-radius:8px;background:none;color:var(--color-text-secondary);font:inherit;font-size:14px;font-weight:500;text-align:left;cursor:pointer}
-.rdr-presets button:hover{background:var(--color-bg-secondary)}.rdr-presets button.is-active{background:var(--color-bg-brand-primary);color:var(--color-text-brand-secondary)}
 .rdr-calendar{padding:16px 20px}
 .rdr-calendar header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.rdr-calendar header h2{margin:0;font-size:15px;font-weight:600;text-transform:capitalize}
+.rdr-calendar header h2{margin:0;font-size:15px;font-weight:600}.rdr-calendar header h2::first-letter{text-transform:uppercase}
 .rdr-calendar header button{display:grid;place-items:center;width:32px;height:32px;border:0;border-radius:8px;background:none;color:var(--color-text-quaternary);cursor:pointer}
 .rdr-calendar header button:hover{background:var(--color-bg-tertiary)}.rdr-calendar header button[data-disabled]{opacity:.35;cursor:default}
 .rdr-calendar table{border-collapse:separate;border-spacing:0 2px}
@@ -19,16 +14,14 @@
 .rdr-calendar [data-outside-month]{display:none}
 .rdr-calendar [data-disabled]{color:var(--color-text-quaternary);cursor:default}
 .rdr-calendar [role=gridcell] div:hover:not([data-selected]):not([data-disabled]){background:var(--color-bg-tertiary)}
-.rdr-calendar [data-selected]{background:var(--color-bg-brand-primary);border-radius:0}
+/* The range reads as one band; only its ends are rounded. */
+.rdr-calendar [role=gridcell] [data-selected]{background:var(--color-bg-brand-primary);border-radius:0}
 .rdr-calendar [data-selection-start],.rdr-calendar [data-selection-end]{background:var(--color-bg-brand-solid)!important;color:var(--color-text-white)!important;font-weight:600}
-.rdr-calendar [data-selection-start]{border-radius:20px 0 0 20px}.rdr-calendar [data-selection-end]{border-radius:0 20px 20px 0}
-.rdr-calendar [data-selection-start][data-selection-end]{border-radius:20px}
-.rdr-calendar [data-focus-visible]{box-shadow:0 0 0 3px #d1e0ff}
+.rdr-calendar [role=gridcell] [data-selection-start]{border-radius:20px 0 0 20px}.rdr-calendar [role=gridcell] [data-selection-end]{border-radius:0 20px 20px 0}
+.rdr-calendar [role=gridcell] [data-selection-start][data-selection-end]{border-radius:20px}
+.rdr-calendar [data-focus-visible]{box-shadow:0 0 0 3px var(--color-border-brand_alt)}
 .rdr-dialog footer{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 20px;border-top:1px solid var(--color-border-secondary)}
 .rdr-fields{display:flex;align-items:center;gap:8px;color:var(--color-text-quaternary)}
 .rdr-fields span{padding:8px 14px;border:1px solid var(--color-border-primary);border-radius:8px;color:var(--color-text-primary);font-size:14px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
 .rdr-actions{display:flex;gap:8px}
-.rdr-secondary,.rdr-primary{min-height:40px;padding:0 16px;border-radius:8px;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
-.rdr-secondary{border:1px solid var(--color-border-primary);background:var(--color-bg-primary);color:var(--color-text-secondary)}.rdr-primary{border:1px solid var(--color-border-brand);background:var(--color-bg-brand-solid);color:var(--color-text-white)}
-.rdr-primary:hover{background:var(--color-bg-brand-solid_hover)}.rdr-secondary:hover{background:var(--color-bg-secondary)}
 @media(max-width:700px){.rdr-body{flex-direction:column}.rdr-presets{grid-template-columns:repeat(2,1fr);border-right:0;border-bottom:1px solid var(--color-border-secondary)}.rdr-dialog footer{flex-direction:column;align-items:stretch}}

@@ -29,7 +29,7 @@ export function FlowSitePages({clientId,csrf,nodes,readOnly,onAdd,onAdded,onLoca
         return <li key={key} className={existing?'is-mapped':''}>
           <label><input type="checkbox" disabled={readOnly||Boolean(existing)} checked={Boolean(existing)||picked.has(key)} onChange={()=>toggle(key)}/>
             <span><strong>{pageLabel(page)}</strong><small>{page.path}</small></span></label>
-          {existing&&<button type="button" className="flow-site-pages__locate" onClick={()=>onLocate(existing.id)}>No mapa</button>}
+          {existing&&<Button color="link-color" size="sm" className="flow-site-pages__locate" onClick={()=>onLocate(existing.id)}>No mapa</Button>}
         </li>;})}
       {!catalog.pages.length&&<li className="flow-site-pages__empty">{catalog.loading?'Buscando…':catalog.hosts.length?'Nenhuma página encontrada.':'Cole a URL da página no inspetor.'}</li>}
     </ul>

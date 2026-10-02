@@ -15,6 +15,9 @@
 /* Untitled tables assume Tailwind's preflight table reset; Reports has no preflight, so only that piece is applied. */
 @layer base {
   table { border-collapse: collapse; border-spacing: 0; text-indent: 0; border-color: inherit; }
+  /* The preflight pieces kit controls rely on, scoped to React Aria elements so legacy markup keeps its look. */
+  :where([data-rac]), :where([data-rac])::before, :where([data-rac])::after { box-sizing: border-box; border: 0 solid; }
+  :where(button[data-rac], a[data-rac]) { margin: 0; padding: 0; background-color: transparent; color: inherit; font: inherit; text-decoration: none; }
 }
 
 /* Static tables (no sorting, arbitrary cells) share the Untitled table spec: gray header, 44px rows,

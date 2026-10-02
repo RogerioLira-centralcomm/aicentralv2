@@ -94,10 +94,10 @@
 .rs-badge.is-error,.rs-badge.is-high{border-color:var(--color-border-error_subtle);background:var(--rs-error-soft);color:var(--rs-error)}
 
 /* Segmented control and search */
-.rs-segmented{display:inline-flex;border:1px solid var(--color-border-primary);border-radius:8px;overflow:hidden;box-shadow:0 1px 2px #1018280d}
-.rs-segmented button{padding:8px 14px;border:0;border-left:1px solid var(--color-border-primary);background:var(--color-bg-primary);color:var(--rs-text);font:inherit;font-size:14px;font-weight:600;line-height:20px;cursor:pointer;white-space:nowrap}
-.rs-segmented button:first-child{border-left:0}
-.rs-segmented button[aria-pressed="true"]{background:var(--rs-soft);color:var(--rs-ink)}
+
+
+
+
 .rs-search{position:relative;display:flex;align-items:center}
 
 .rs-search input{min-width:220px}
@@ -150,7 +150,7 @@
   .rs-bars li{grid-template-columns:minmax(80px,110px) minmax(0,1fr) auto}
   .rs-search{width:100%;min-width:0}
   .rs-search input{width:100%;min-width:0}
-  .rs-segmented{max-width:100%;overflow-x:auto}
+  
 }
 
 /* Buttons inside the new blocks: Untitled sm size, no link underline. */
@@ -159,15 +159,15 @@
 .rs-search>:not(svg){flex:1}
 
 /* Event list: the name opens the detail drawer. */
-.reports-event-open{padding:0;border:0;background:none;color:var(--rs-ink,var(--color-text-primary));font:inherit;text-align:left;cursor:pointer}
+.reports-event-open{text-align:left}
 .reports-event-open:hover strong{color:var(--color-text-brand-secondary);text-decoration:underline}
 .rs-drawer-body .rs-section{padding:16px;border-radius:10px}
 .rs-drawer-body .rs-metrics{--rs-metric-count:3}
 .rs-drawer-body .rs-metric{padding:14px 16px}
 .rs-drawer-body .rs-metric__value{font-size:22px;line-height:30px}
 .rs-section__head{flex-wrap:wrap}
-.rs-segmented{max-width:100%;overflow-x:auto;scrollbar-width:none}
-.rs-segmented button{flex:none}
+
+
 
 /* Drawers render in a portal outside the shell: carry the type and links with them. */
 .rs-drawer{font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif}
@@ -185,7 +185,6 @@
 .rs-field{display:grid;gap:6px;min-width:0}
 .rs-field>span{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--rs-text);font-size:14px;font-weight:500}
 .rs-field-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-.rs-link-button{padding:0;border:0;background:none;color:var(--rs-brand);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
 .rs-error-inline{margin:0;color:var(--rs-error);font-size:14px}
 .rs-creative__signals{padding:16px 20px;border-radius:12px;background:var(--rs-soft);border:1px solid var(--rs-line)}
 .rs-creative__signals h3{margin:0 0 12px;color:var(--rs-ink);font-size:14px;font-weight:600}
@@ -234,20 +233,15 @@
 .reports-main .rs-header{background:var(--r-bg,var(--color-bg-secondary))}
 
 /* Surfaces */
-.reports-main .reports-content .reports-panel,
 .reports-main .reports-content .reports-kpi{border:1px solid var(--color-border-secondary);border-radius:12px;box-shadow:none;background:var(--color-bg-primary)}
-.reports-main .reports-content .reports-panel{padding:20px 24px}
 
 /* No card inside a card: inner panels, KPI tiles and tables become flat. */
-.reports-main .reports-panel .reports-panel{padding:0;border:0;border-radius:0;background:transparent}
 .reports-main .reports-panel .reports-kpi{border:0;border-radius:8px;background:var(--color-bg-secondary);box-shadow:none}
 .reports-main .reports-panel .reports-table-wrap,
 .reports-main .reports-content .reports-table-wrap{border:0;border-top:1px solid var(--color-border-secondary);border-radius:0;background:transparent;box-shadow:none}
 
 /* Panel heads: title 16px, side text muted 13px. */
-.reports-main .reports-content .reports-panel-head{align-items:flex-start;gap:12px;margin-bottom:16px}
-.reports-main .reports-content .reports-panel-head h2,.reports-main .reports-content .reports-panel-head h3{color:var(--color-text-primary);font-size:16px;font-weight:600;line-height:24px;letter-spacing:0}
-.reports-main .reports-content .reports-panel-head>span,.reports-main .reports-content .reports-panel-head>small{color:var(--color-text-quaternary);font-size:13px}
+.reports-main .reports-content .reports-panel-head{align-items:flex-start;gap:12px}
 
 /* Buttons and contrast */
 .reports-main .reports-filter-bar__refresh,
@@ -260,7 +254,7 @@
 .reports-main .reports-filter-bar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;margin:0 0 20px;padding:0;border:0;background:transparent}
 .reports-main .reports-filter-bar__heading{display:none}
 .reports-main .reports-filter-bar__fields{display:flex;flex:1;flex-wrap:wrap;gap:12px;min-width:0}
-.reports-main .reports-filter-bar__fields label{display:grid;flex:1 1 180px;gap:6px;max-width:260px;color:var(--color-text-secondary);font-size:14px;font-weight:500;text-transform:none;letter-spacing:0}
+.reports-main .reports-filter-bar__fields label{display:grid;flex:1 1 180px;gap:6px;max-width:260px;text-transform:none;letter-spacing:0}
 .reports-main .reports-filter-bar__actions{display:flex;align-items:center;gap:8px}
 
 /* Tabs inside pages (events, imports, alerts) share the underline style of the header tabs. */
@@ -338,7 +332,8 @@
 .alerts-gads .rs-list li{align-items:center}
 .alerts-gads .rs-list__copy{flex:1}
 @media (max-width:760px){.ga-actions li{grid-template-columns:28px minmax(0,1fr)}.ga-actions__impact{grid-column:2;justify-items:start;text-align:left}}
-.rs-actions>label,.rs-actions>.cadu-untitled-field,.rs-actions>div:has(>select){width:auto;flex:none}
+.rs-actions>.cadu-untitled-field,.rs-actions>div:has(>select){width:auto;flex:none}
+.rs-actions>label{width:auto;flex:none}
 .rs-actions select{width:auto;min-width:170px}
 .reports-main .reports-ui-button svg{flex:none}
 .reports-main .reports-ui-button:has(svg){gap:6px}

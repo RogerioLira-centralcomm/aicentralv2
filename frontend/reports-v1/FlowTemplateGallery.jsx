@@ -45,14 +45,14 @@ function ModelDetail({item, preview, canCreate, onUse, onClose}) {
           <h2>{item.title}</h2>
           <p>{item.summary}</p>
         </div>
-        <button type="button" className="ftg-close" onClick={onClose} aria-label="Fechar">×</button>
+        <ReportsActionButton color="tertiary" size="sm" className="ftg-close" onClick={onClose} aria-label="Fechar">×</ReportsActionButton>
       </header>
       <div className="ftg-detail__body">
         <section className="ftg-stage" aria-label="Diagrama do modelo">
           <div className="ftg-stage__tools" role="group" aria-label="Zoom">
-            <button type="button" onClick={() => step(-1)} disabled={zoom === ZOOMS[0]} aria-label="Reduzir"><Minus size={16}/></button>
+            <ReportsActionButton color="secondary" size="sm" onClick={() => step(-1)} disabled={zoom === ZOOMS[0]} aria-label="Reduzir"><Minus size={16}/></ReportsActionButton>
             <span>{zoom}%</span>
-            <button type="button" onClick={() => step(1)} disabled={zoom === ZOOMS.at(-1)} aria-label="Ampliar"><Plus size={16}/></button>
+            <ReportsActionButton color="secondary" size="sm" onClick={() => step(1)} disabled={zoom === ZOOMS.at(-1)} aria-label="Ampliar"><Plus size={16}/></ReportsActionButton>
           </div>
           <div className="ftg-stage__canvas"><img src={preview} alt={`Diagrama do modelo ${item.title}`} style={{width: `${zoom}%`}}/></div>
         </section>
@@ -111,7 +111,7 @@ export function FlowTemplateGallery({canCreate, onUse, teamTemplates = [], onUse
       <div className="ftg-grid">{team.map(item => <ModelCard key={item.key} item={item} preview={previews[item.key]} canCreate={canCreate} onOpen={setOpened} onUse={use} onDelete={remove}/>)}</div></section>}
     <section aria-label="Modelos do Reports">
       <div className="ftg-toolbar">
-        <div className="ftg-segmented" role="group" aria-label="Etapa do funil">
+        <div className="rs-segmented ftg-segmented" role="group" aria-label="Etapa do funil">
           <button type="button" aria-pressed={!funnel} onClick={() => setFunnel('')}>Todos <small>{count('')}</small></button>
           {FUNNEL_STAGES.map(stage => <button key={stage.id} type="button" aria-pressed={funnel === stage.id} onClick={() => setFunnel(stage.id)} title={stage.hint}>{stage.label} <small>{count(stage.id)}</small></button>)}
         </div>

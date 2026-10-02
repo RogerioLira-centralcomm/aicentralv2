@@ -1,3 +1,4 @@
+import {ReportsActionButton} from './ReportsActionButton.jsx';
 import React,{useEffect,useRef} from 'react';
 
 export function FlowToast({message,onDismiss}) {
@@ -9,5 +10,5 @@ export function FlowToast({message,onDismiss}) {
     return()=>window.clearTimeout(timer);
   },[message]);
   if(!message)return null;
-  return <div className="flow-toast-root" aria-live="polite" aria-atomic="false"><div className="flow-toast" role="status"><span>{message}</span><button type="button" aria-label="Fechar mensagem" onClick={onDismiss}>×</button></div></div>;
+  return <div className="flow-toast-root" aria-live="polite" aria-atomic="false"><div className="flow-toast" role="status"><span>{message}</span><ReportsActionButton color="tertiary" size="sm" aria-label="Fechar mensagem" onClick={onDismiss}>×</ReportsActionButton></div></div>;
 }

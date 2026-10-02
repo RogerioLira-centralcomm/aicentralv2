@@ -44,7 +44,7 @@ export function FlowReviewPage({config, host, flowName, readOnly, onChange, onSe
         <div key={label} className="flow-review__stat"><span>{label}</span><strong>{done}<small>/{total}</small></strong>
           <div className="flow-review__bar" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent(done, total)}><span style={{width: `${percent(done, total)}%`}}/></div></div>)}
       <div className="flow-review__actions">
-        <div className="flow-review__filters" role="group" aria-label="Filtrar canais">{FILTERS.map(([id, label]) => <button key={id} type="button" aria-pressed={filter === id} onClick={() => setFilter(id)}>{label}</button>)}</div>
+        <div className="rs-segmented rs-segmented--sm flow-review__filters" role="group" aria-label="Filtrar canais">{FILTERS.map(([id, label]) => <button key={id} type="button" aria-pressed={filter === id} onClick={() => setFilter(id)}>{label}</button>)}</div>
         <Button color="secondary" disabled={!rows.length} onClick={exportCsv}>Exportar CSV</Button>
       </div>
     </header>

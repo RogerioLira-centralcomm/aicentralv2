@@ -59,7 +59,7 @@ export function FlowCatalog({items=[],nodes=[],onAdd,onAddGroup,onLocate,onLinkT
 
   return <div className="flow-catalog">
     <label className="flow-catalog-search"><ReportsFieldInput leading={<SearchLg size={16} aria-hidden="true" className="ml-3 shrink-0 text-fg-quaternary"/>} size="sm" aria-label="Buscar páginas" placeholder="Buscar título, caminho ou idioma" value={query} onChange={event=>{setQuery(event.target.value);setPages({});}}/></label>
-    <div className="flow-catalog-filters">{FILTERS.map(([id,label])=><button key={id} type="button" aria-pressed={filter===id} onClick={()=>{setFilter(id);setPages({});}}>{label}</button>)}</div>
+    <div className="rs-segmented rs-segmented--sm flow-catalog-filters" role="group" aria-label="Filtrar páginas">{FILTERS.map(([id,label])=><button key={id} type="button" aria-pressed={filter===id} onClick={()=>{setFilter(id);setPages({});}}>{label}</button>)}</div>
     <small className="flow-catalog-count">{plural(rows.length,'página','páginas')}{sections.groups.length>0&&` · ${plural(sections.groups.length,'grupo','grupos')}`}</small>
     {preview&&<section className="flow-catalog-group-preview" aria-label="Confirmar grupo">
       <strong>{preview.title}: {plural(Math.min(preview.pages.length,CATALOG_GROUP_ADD_LIMIT),'página','páginas')}?</strong>

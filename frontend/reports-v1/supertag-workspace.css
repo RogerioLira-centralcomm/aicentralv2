@@ -66,8 +66,7 @@
 .st-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;align-items:stretch}
 .st-code{position:relative;padding:14px 48px 14px 14px;border:1px solid var(--color-border-secondary);border-radius:8px;background:var(--color-bg-secondary)}
 .st-code code{display:block;font-size:12px;line-height:1.6;color:var(--color-text-secondary);overflow-wrap:anywhere;white-space:pre-wrap}
-.st-code button{position:absolute;top:8px;right:8px;display:grid;place-items:center;width:32px;height:32px;border:1px solid var(--color-border-primary);border-radius:8px;background:var(--color-bg-primary);color:var(--color-text-secondary);cursor:pointer}
-.st-code button:hover{background:var(--color-bg-secondary)}
+.st-code button{position:absolute;top:8px;right:8px;display:grid;place-items:center;width:32px}
 .st-install__actions{display:flex;gap:8px;flex-wrap:wrap}
 .st-flow-name{display:inline-flex;align-items:center;gap:10px}
 .st-flow-name svg{color:var(--color-text-quaternary)}
@@ -85,9 +84,9 @@
 
 .st-flows .reports-ui-button{white-space:nowrap}
 .st-flows{overflow-x:auto}
-.st-segmented{display:inline-flex;gap:2px;padding:3px;border:1px solid var(--color-border-secondary);border-radius:10px;background:var(--color-bg-secondary);justify-self:start}
-.st-segmented button{border:0;border-radius:7px;background:none;color:var(--color-text-tertiary);font:inherit;font-weight:600;cursor:pointer}
-.st-segmented button.is-active{background:var(--color-bg-primary);color:var(--color-text-primary);box-shadow:0 1px 2px rgba(16,24,40,.08)}
+
+
+
 .st-settings .reports-danger-button{justify-self:start;width:auto}
 .st-grid--wide{grid-template-columns:1fr}
 .st-access{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
@@ -117,11 +116,11 @@
 .st-summary__metrics>div:first-child{border-left:0}
 .st-summary__metrics dd{font-size:18px;line-height:26px}
 .st-summary__metrics small{color:var(--color-text-quaternary);font-size:12px;line-height:16px}
-.st-site:focus-visible,.st-segmented button:focus-visible,.st-code button:focus-visible{outline:0;box-shadow:0 0 0 4px #d1e0ff;border-color:var(--color-border-brand)}
+.st-site:focus-visible{outline:0;box-shadow:0 0 0 4px var(--color-border-brand_alt);border-color:var(--color-border-brand)}
 @media(max-width:900px){.st-summary__metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.st-summary__metrics>div:nth-child(3){border-left:0}.st-summary__metrics>div:nth-child(n+3){border-top:1px solid var(--color-border-secondary)}}
 @media(max-width:500px){.st-summary__metrics{grid-template-columns:1fr}.st-summary__metrics>div{border-left:0;border-top:1px solid var(--color-border-secondary)}.st-summary__metrics>div:first-child{border-top:0}}
-.st-segmented{flex-wrap:nowrap;max-width:100%}
-.st-segmented button{padding:6px 9px;font-size:12px;white-space:nowrap}
+
+
 .st-page,.st-layout>*,.st-main>*,.st-grid>*{min-width:0}
 @media(max-width:1100px){.st-layout,.st-grid,.st-grid--wide{grid-template-columns:minmax(0,1fr)}}
 .st-summary h2{overflow-wrap:anywhere;min-width:0}.st-summary__identity>div{min-width:0}

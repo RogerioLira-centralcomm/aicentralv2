@@ -44,7 +44,7 @@ export function GoalsSection({campaigns, money, onEdit}) {
             {goal.target_roas != null && <div><dt>ROAS</dt><dd>{campaign.roas != null ? campaign.roas.toLocaleString('pt-BR') : '—'} <span>meta {Number(goal.target_roas).toLocaleString('pt-BR')}</span></dd></div>}
             {goal.target_conversions_month != null && <div><dt>Conversões no mês</dt><dd className={campaign.pacing.projected_conversions < goal.target_conversions_month * 0.9 ? 'ga-strong' : ''}>{number(campaign.pacing.mtd_conversions)} <span>projeção {number(campaign.pacing.projected_conversions)} de {number(goal.target_conversions_month)}</span></dd></div>}
           </dl>
-          <button type="button" className="rs-link-button" onClick={() => onEdit(campaign)}>Editar meta</button>
+          <ReportsActionButton color="link-color" size="sm" className="rs-link-button" onClick={() => onEdit(campaign)}>Editar meta</ReportsActionButton>
         </li>;
       })}</ul>}
   </Section>;

@@ -1,3 +1,5 @@
+import {ReportsActionButton} from './ReportsActionButton.jsx';
+import {CaduTabs} from '../cadu-design-system/components/CaduTabs.jsx';
 import React, {useCallback, useEffect, useState} from 'react';
 import {Empty, integer, json, reportUrl} from './reportsCommon.jsx';
 import {ReportsNativeSelect} from './ReportsNativeSelect.jsx';
@@ -48,16 +50,16 @@ function AlertCard({alert, userId, choices, busy, onAct, client}) {
     <p className="alerts-meta">{alert.site_label} · {alert.allowed_host} · visto pela primeira vez em {when(alert.first_seen_at)} · {integer(alert.occurrences)} {alert.occurrences === 1 ? 'verificação' : 'verificações'}
       {alert.assigned_name ? ` · responsável: ${alert.assigned_name}` : ' · sem responsável'}</p>
     <div className="alerts-actions">
-      {live && alert.status === 'open' && <button type="button" disabled={busy} onClick={() => onAct(alert, 'acknowledge', {})}>Reconhecer</button>}
-      {live && <button type="button" disabled={busy} onClick={() => onAct(alert, 'assign', {assign: !mine})}>{mine ? 'Liberar' : 'Assumir'}</button>}
+      {live && alert.status === 'open' && <ReportsActionButton color="secondary" size="sm" disabled={busy} onClick={() => onAct(alert, 'acknowledge', {})}>Reconhecer</ReportsActionButton>}
+      {live && <ReportsActionButton color="secondary" size="sm" disabled={busy} onClick={() => onAct(alert, 'assign', {assign: !mine})}>{mine ? 'Liberar' : 'Assumir'}</ReportsActionButton>}
       {live && alert.status !== 'silenced' && <span className="alerts-snooze"><ReportsNativeSelect value={hours} onChange={event => setHours(event.target.value)} aria-label="Duração do silêncio">
         {choices.map(item => <option key={item} value={item}>{item === 168 ? '7 dias' : item === 24 ? '24 horas' : `${item} hora`}</option>)}</ReportsNativeSelect>
-        <button type="button" disabled={busy} onClick={() => onAct(alert, 'silence', {hours: Number(hours)})}>Silenciar</button></span>}
-      {live && alert.status === 'silenced' && <button type="button" disabled={busy} onClick={() => onAct(alert, 'unsilence', {})}>Remover silêncio</button>}
-      {alert.page_path && <a className="reports-inline-link" href={reportUrl('pages', {site_id: alert.site_id, path: alert.page_path})}>Ver página</a>}
-      {alert.page_path && <a className="reports-inline-link" href={reportUrl('journey/navigation')}>Ver navegação</a>}
-      <a className="reports-inline-link" href={reportUrl('supertag', {}, alert.site_id)}>Ver coleta do site</a>
-      <button type="button" className="alerts-link" aria-expanded={history} onClick={() => setHistory(value => !value)}>{history ? 'Ocultar histórico' : 'Histórico'}</button>
+        <ReportsActionButton color="secondary" size="sm" disabled={busy} onClick={() => onAct(alert, 'silence', {hours: Number(hours)})}>Silenciar</ReportsActionButton></span>}
+      {live && alert.status === 'silenced' && <ReportsActionButton color="secondary" size="sm" disabled={busy} onClick={() => onAct(alert, 'unsilence', {})}>Remover silêncio</ReportsActionButton>}
+      {alert.page_path && <ReportsActionButton color="link-color" size="sm" className="reports-inline-link" href={reportUrl('pages', {site_id: alert.site_id, path: alert.page_path})}>Ver página</ReportsActionButton>}
+      {alert.page_path && <ReportsActionButton color="link-color" size="sm" className="reports-inline-link" href={reportUrl('journey/navigation')}>Ver navegação</ReportsActionButton>}
+      <ReportsActionButton color="link-color" size="sm" className="reports-inline-link" href={reportUrl('supertag', {}, alert.site_id)}>Ver coleta do site</ReportsActionButton>
+      <ReportsActionButton color="link-color" size="sm" className="alerts-link" aria-expanded={history} onClick={() => setHistory(value => !value)}>{history ? 'Ocultar histórico' : 'Histórico'}</ReportsActionButton>
     </div>
     {history && <History alertId={alert.id} client={client}/>}
   </li>;
@@ -76,9 +78,9 @@ function GoogleAdsAlerts() {
     <ul className="rs-list">{items.slice(0, 6).map(item => <li key={item.id}>
       <span className={`rs-badge is-${GADS_SEVERITY[item.severity][1]}`}>{GADS_SEVERITY[item.severity][0]}</span>
       <span className="rs-list__copy"><strong>{item.title}: {item.object.label}</strong><small>{item.object.campaign ? `${item.object.campaign} · ` : ''}{item.summary}</small></span>
-      <a className="reports-inline-link" href={href(item.link)}>Abrir</a>
+      <ReportsActionButton color="link-color" size="sm" className="reports-inline-link" href={href(item.link)}>Abrir</ReportsActionButton>
     </li>)}</ul>
-    {items.length > 6 && <a className="reports-inline-link" href={reportUrl('media/google-ads')}>Ver as {items.length} ações</a>}
+    {items.length > 6 && <ReportsActionButton color="link-color" size="sm" className="reports-inline-link" href={reportUrl('media/google-ads')}>Ver as {items.length} ações</ReportsActionButton>}
   </article>;
 }
 
@@ -100,9 +102,7 @@ export function AlertsCenter({data}) {
   };
   const body = state.body;
   return <div className="alerts-center">
-    <div className="alerts-tabs" role="tablist" aria-label="Estado dos alertas">
-      {[['active', 'Ativos'], ['resolved', 'Resolvidos']].map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={status === key} className={status === key ? 'is-active' : ''} onClick={() => setStatus(key)}>{label}</button>)}
-    </div>
+    <CaduTabs label="Estado dos alertas" value={status} onChange={setStatus} items={[{id: 'active', label: 'Ativos'}, {id: 'resolved', label: 'Resolvidos'}]}/>
     {state.error && <div className="reports-error" role="alert">{state.error}</div>}
     {status === 'active' && <GoogleAdsAlerts/>}
     {state.loading && !body && <div className="reports-loading" role="status">Carregando alertas…</div>}

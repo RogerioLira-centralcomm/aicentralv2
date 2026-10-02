@@ -59,7 +59,7 @@ export function FlowPlanPanel({config, name, host, readOnly, onChange, onSelectN
     </section>
     <section className="flow-plan-panel__tags" aria-label="Etiquetas do fluxo">
       <h3>Etiquetas</h3>
-      <div className="flow-plan-panel__chips">{tags.map(tag => <span key={tag} className="flow-plan-panel__chip">{tag}{!readOnly && <button type="button" aria-label={`Remover etiqueta ${tag}`} onClick={() => onChange({...config, tags: tags.filter(item => item !== tag)})}>×</button>}</span>)}{!tags.length && <small>Use etiquetas para encontrar planos por objetivo, canal ou equipe.</small>}</div>
+      <div className="flow-plan-panel__chips">{tags.map(tag => <span key={tag} className="flow-plan-panel__chip">{tag}{!readOnly && <Button color="tertiary" size="sm" aria-label={`Remover etiqueta ${tag}`} onClick={() => onChange({...config, tags: tags.filter(item => item !== tag)})}>×</Button>}</span>)}{!tags.length && <small>Use etiquetas para encontrar planos por objetivo, canal ou equipe.</small>}</div>
       {!readOnly && tags.length < MAX_FLOW_TAGS && <form className="flow-plan-panel__tag-form" onSubmit={event => {event.preventDefault(); addTag();}}>
         <ReportsFieldInput aria-label="Nova etiqueta" placeholder="Ex.: Black Friday, Leads, Equipe A" maxLength="40" value={draftTag} onChange={event => setDraftTag(event.target.value)}/>
         <Button type="submit" color="secondary" disabled={!normalizeFlowTag(draftTag)}>Adicionar</Button>

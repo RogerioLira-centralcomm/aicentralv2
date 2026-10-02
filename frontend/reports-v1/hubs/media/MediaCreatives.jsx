@@ -74,7 +74,7 @@ export function MediaCreatives({data}) {
             </div>
             <div className="rs-field"><span>Formato</span><div className="rs-segmented" role="group" aria-label="Formato">{body.formats.map(item => <button type="button" key={item.key} aria-pressed={format === item.key} onClick={() => setFormat(item.key)}>{item.label}</button>)}</div></div>
             <div className="rs-field"><span>Ângulo</span><div className="rs-segmented" role="group" aria-label="Ângulo">{body.angles.map(item => <button type="button" key={item.key} aria-pressed={angle === item.key} onClick={() => setAngle(item.key)}>{item.label}</button>)}</div></div>
-            <label className="rs-field"><span>Briefing {edited && <button type="button" className="rs-link-button" onClick={() => {setEdited(false); setPrompt(body.prompt);}}>Restaurar sugestão</button>}</span>
+            <label className="rs-field"><span>Briefing {edited && <ReportsActionButton color="link-color" size="sm" className="rs-link-button" onClick={() => {setEdited(false); setPrompt(body.prompt);}}>Restaurar sugestão</ReportsActionButton>}</span>
               <ReportsTextArea rows={9} maxLength={4000} value={prompt} onChange={event => {setPrompt(event.target.value); setEdited(true);}} aria-label="Briefing do criativo"/></label>
             {error && <p className="rs-error-inline" role="alert">{error}</p>}
             <div className="rs-actions">

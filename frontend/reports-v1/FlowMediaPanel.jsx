@@ -40,13 +40,13 @@ export function SourceMedia({node, config, host, flowName, readOnly, onMediaChan
         <ReportsNativeSelect aria-label="Formato" disabled={readOnly} value={item.format} onChange={event => setCreative(item.id, {format: event.target.value})}>{CREATIVE_FORMATS.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</ReportsNativeSelect>
         <ReportsNativeSelect aria-label="Situação" disabled={readOnly} value={item.status} onChange={event => setCreative(item.id, {status: event.target.value})}>{CREATIVE_STATUSES.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</ReportsNativeSelect>
         <ReportsFieldInput aria-label="Mensagem principal" disabled={readOnly} maxLength="500" placeholder="Mensagem principal" value={item.message || ''} onChange={event => setCreative(item.id, {message: event.target.value})}/>
-        {!readOnly && <button type="button" className="flow-media-remove" aria-label={`Remover ${item.name}`} onClick={() => update({creatives: creatives.filter(entry => entry.id !== item.id)})}>×</button>}
+        {!readOnly && <Button color="tertiary" size="sm" className="flow-media-remove" aria-label={`Remover ${item.name}`} onClick={() => update({creatives: creatives.filter(entry => entry.id !== item.id)})}>×</Button>}
       </div>)}
       {!readOnly && creatives.length < LIMITS.creatives && <Button color="secondary" onClick={() => update({creatives: [...creatives, {id: newId(), name: `Criativo ${creatives.length + 1}`, format: CREATIVE_FORMATS[0][0], status: 'rascunho'}]})}>Adicionar criativo</Button>}
     </section>
     <section aria-label="Setup da plataforma"><h4>Setup da plataforma <small>{progress.setup.done}/{progress.setup.total}</small></h4>
       {setup.map(item => <div key={item.id} className="flow-media-check"><label><input type="checkbox" disabled={readOnly} checked={item.done} onChange={event => update({setup: setup.map(entry => entry.id === item.id ? {...entry, done: event.target.checked} : entry)})}/><span>{item.text}</span></label>
-        {!readOnly && <button type="button" className="flow-media-remove" aria-label={`Remover ${item.text}`} onClick={() => update({setup: setup.filter(entry => entry.id !== item.id)})}>×</button>}</div>)}
+        {!readOnly && <Button color="tertiary" size="sm" className="flow-media-remove" aria-label={`Remover ${item.text}`} onClick={() => update({setup: setup.filter(entry => entry.id !== item.id)})}>×</Button>}</div>)}
       {!readOnly && setup.length < LIMITS.setup && <form className="flow-media-add" onSubmit={event => {event.preventDefault(); const text = setupDraft.replace(/\s+/g, ' ').trim().slice(0, 200); if (!text) return; update({setup: [...setup, {id: newId(), text, done: false}]}); setSetupDraft('');}}>
         <ReportsFieldInput aria-label="Novo item de setup" placeholder="Novo item de setup" maxLength="200" value={setupDraft} onChange={event => setSetupDraft(event.target.value)}/><Button type="submit" color="secondary" disabled={!setupDraft.trim()}>Adicionar</Button></form>}
     </section>

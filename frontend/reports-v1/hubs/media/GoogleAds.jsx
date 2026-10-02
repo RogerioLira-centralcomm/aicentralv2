@@ -67,10 +67,10 @@ function Recommendations({items, money, onOpen, rules}) {
       <div className="ga-actions__impact">
         {item.impact.kind === 'cost' && item.impact.value > 0 && <><strong>{money(item.impact.value)}</strong><small>em jogo</small></>}
         {item.impact.kind === 'conversions' && <><strong>{number(item.impact.value)}</strong><small>conversões</small></>}
-        {item.link && item.link.tab !== 'overview' && <button type="button" className="rs-link-button" onClick={() => onOpen(item.link)}>Abrir<ArrowRight size={14} aria-hidden="true"/></button>}
+        {item.link && item.link.tab !== 'overview' && <ReportsActionButton color="link-color" size="sm" className="rs-link-button" onClick={() => onOpen(item.link)}>Abrir<ArrowRight size={14} aria-hidden="true"/></ReportsActionButton>}
       </div>
     </li>)}</ol>
-    <button type="button" className="rs-link-button ga-rules-toggle" aria-expanded={showRules} onClick={() => setShowRules(value => !value)}>{showRules ? 'Ocultar critérios' : 'Como decidimos'}</button>
+    <ReportsActionButton color="link-color" size="sm" className="rs-link-button ga-rules-toggle" aria-expanded={showRules} onClick={() => setShowRules(value => !value)}>{showRules ? 'Ocultar critérios' : 'Como decidimos'}</ReportsActionButton>
     {showRules && <dl className="ga-rules">{rules.map(rule => <div key={rule.rule}><dt>{badge(SEVERITY[rule.severity])} {rule.title}</dt><dd>{rule.when}</dd></div>)}</dl>}
   </>;
 }
@@ -127,7 +127,7 @@ function Campaigns({body, money, onEditGoal}) {
       {key: 'conversions', label: 'Conversões', numeric: true, render: row => <>{number(row.conversions)}{delta(row.conversions, row.previous?.conversions)}</>},
       {key: 'cpa', label: 'CPA', numeric: true, sort: row => row.cpa ?? Infinity, render: row => <>{row.cpa != null ? money(row.cpa) : '—'}{row.goal?.target_cpa != null ? <small className="rs-cell-sub">meta {money(row.goal.target_cpa)}</small> : delta(row.cpa, row.previous?.cpa, true)}</>},
       {key: 'roas', label: 'ROAS', numeric: true, sort: row => row.roas || 0, render: row => row.roas != null ? row.roas.toLocaleString('pt-BR') : '—'},
-      {key: 'goal', label: 'Meta', sortable: false, render: row => row.campaign_id && body.goals_ready ? <button type="button" className="rs-link-button" onClick={() => onEditGoal(row)}>{row.goal ? (OBJECTIVES.find(([key]) => key === (row.goal.objective || ''))?.[1] || 'Editar') : 'Definir'}</button> : '—'},
+      {key: 'goal', label: 'Meta', sortable: false, render: row => row.campaign_id && body.goals_ready ? <ReportsActionButton color="link-color" size="sm" className="rs-link-button" onClick={() => onEditGoal(row)}>{row.goal ? (OBJECTIVES.find(([key]) => key === (row.goal.objective || ''))?.[1] || 'Editar') : 'Definir'}</ReportsActionButton> : '—'},
     ]}/>
   </Section>;
 }

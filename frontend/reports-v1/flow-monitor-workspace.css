@@ -49,6 +49,6 @@
 .flow-monitor-workspace .react-flow__handle{opacity:0;pointer-events:none}
 .flow-live-audience>p,.flow-live-audience>small{font-size:11px;line-height:1.5;color:var(--color-text-tertiary);margin:0}
 .flow-audience-totals{display:grid;gap:8px;font-size:12px}.flow-audience-totals b{font-variant-numeric:tabular-nums;font-size:17px;margin-right:5px}
-.flow-live-audience>label{display:grid;gap:6px;font-size:12px}
+.flow-live-audience>label{display:grid;gap:6px}
 .flow-audience-session{border-bottom:1px solid var(--color-border-secondary);padding:8px 0}
 .flow-audience-session summary{cursor:pointer;list-style:none;display:grid;gap:4px}.flow-audience-session ol{padding-left:18px}.flow-audience-session li{padding:5px 0}.flow-audience-session li span,.flow-audience-session li time{display:block;font-size:11px}

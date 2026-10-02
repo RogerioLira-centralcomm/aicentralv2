@@ -1,3 +1,4 @@
+import {CaduTabs} from '../cadu-design-system/components/CaduTabs.jsx';
 import React, {useEffect, useRef, useState} from 'react';
 import {ReportsActionButton} from './ReportsActionButton.jsx';
 import {ReportsDrawer} from './ReportsDrawer.jsx';
@@ -65,10 +66,7 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
   return <>
     {localError&&<div className="reports-error" role="alert">{localError}</div>}
     <section className="reports-flow-index">
-      <div className="reports-flow-index__views" role="tablist" aria-label="Fluxos e modelos">
-        <button type="button" role="tab" aria-selected={indexView==='flows'} onClick={()=>setIndexView('flows')}>Fluxos <small>{flows.length}</small></button>
-        <button type="button" role="tab" aria-selected={indexView==='models'} onClick={()=>setIndexView('models')}>Modelos <small>{FLOW_STRATEGIES.length}</small></button>
-      </div>
+      <CaduTabs className="reports-flow-index__views" label="Fluxos e modelos" value={indexView} onChange={setIndexView} items={[{id:'flows',label:'Fluxos',count:flows.length},{id:'models',label:'Modelos',count:FLOW_STRATEGIES.length}]}/>
       {indexView==='models'?<FlowTemplateGallery canCreate={data.client.role!=='viewer'} onUse={startFromTemplate} teamTemplates={teamTemplates} onUseTeam={startFromTeamTemplate} onDeleteTeam={deleteTeamTemplate}/>:<>
       <div className="reports-flow-index__tools">
         <ReportsFieldInput type="search" aria-label="Buscar fluxo" placeholder="Buscar por nome ou domínio" value={flowQuery} onChange={event=>setFlowQuery(event.target.value)}/>

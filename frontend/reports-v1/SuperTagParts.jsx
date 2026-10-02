@@ -127,7 +127,7 @@ export function InstallStatus({site, hasEvents, verify, verifying, onVerify, onC
 export function InstallGuide() {
   const [method, setMethod] = useState('html');
   return <section className="st-card st-guide"><header><div><h3>Onde instalar</h3><p>Uma vez só, em todas as páginas do site.</p></div></header>
-    <div className="st-segmented" role="group" aria-label="Forma de instalação">{[['html', 'No site'], ['gtm', 'Google Tag Manager'], ['cms', 'WordPress']].map(([id, label]) => <button key={id} type="button" className={method === id ? 'is-active' : ''} aria-pressed={method === id} onClick={() => setMethod(id)}>{label}</button>)}</div>
+    <div className="rs-segmented st-segmented" role="group" aria-label="Forma de instalação">{[['html', 'No site'], ['gtm', 'Google Tag Manager'], ['cms', 'WordPress']].map(([id, label]) => <button key={id} type="button" className={method === id ? 'is-active' : ''} aria-pressed={method === id} onClick={() => setMethod(id)}>{label}</button>)}</div>
     {method === 'html' && <ol><li>Abra o modelo (layout) que todas as páginas compartilham, normalmente o arquivo do cabeçalho.</li><li>Cole o código dentro de <code>&lt;head&gt;</code>, antes de <code>&lt;/head&gt;</code>. Não coloque no rodapé nem em páginas avulsas.</li><li>Publique o site e abra uma página. A tag aparece na aba Rede do navegador como <code>supertag.js</code>.</li></ol>}
     {method === 'gtm' && <ol><li>No Google Tag Manager, crie uma tag do tipo <strong>HTML personalizado</strong> e cole o código inteiro, com as marcas <code>&lt;script&gt;</code>.</li><li>Em <strong>Acionamento</strong>, escolha <strong>Initialization – All Pages</strong>. Assim a tag carrega antes das outras e não perde a primeira visita.</li><li>Em <strong>Configurações de consentimento</strong>, deixe <strong>Nenhum consentimento adicional necessário</strong>. A Super Tag espera a decisão do visitante por conta própria.</li><li>Use <strong>Visualizar</strong> para testar e depois <strong>Enviar</strong> para publicar o contêiner.</li></ol>}
     {method === 'cms' && <ol><li><strong>WordPress:</strong> use um plugin de cabeçalho e rodapé (como o WPCode) e cole o código na área <strong>Header</strong>.</li><li><strong>Wix, Webflow, Shopify e similares:</strong> procure <strong>Código personalizado</strong> nas configurações do site, aplique a todas as páginas e posicione em <strong>Head</strong>.</li><li>Se você já usa o GTM nesse site, prefira a instalação pelo GTM.</li></ol>}
@@ -137,7 +137,7 @@ export function InstallGuide() {
 
 export function InstallCard({site, onCopy, onDownload, onEmail}) {
   return <section className="st-card st-install"><header><div><h3>Instalação da Super Tag</h3><p>Copie o código e cole em <code>&lt;head&gt;</code> do seu site.</p></div></header>
-    <div className="st-code"><code>{site.snippet}</code><button type="button" aria-label="Copiar código" onClick={onCopy}><Copy01 size={16} aria-hidden="true"/></button></div>
+    <div className="st-code"><code>{site.snippet}</code><ReportsActionButton color="secondary" size="sm" aria-label="Copiar código" onClick={onCopy}><Copy01 size={16} aria-hidden="true"/></ReportsActionButton></div>
     <div className="st-install__actions">
       <ReportsActionButton color="primary" iconLeading={Copy01} onClick={onCopy}>Copiar código</ReportsActionButton>
       <ReportsActionButton color="secondary" iconLeading={Download01} onClick={onDownload}>Baixar arquivo</ReportsActionButton>

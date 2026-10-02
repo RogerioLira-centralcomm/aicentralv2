@@ -1,3 +1,5 @@
+import {ReportsActionButton} from './ReportsActionButton.jsx';
+import {ReportsTabs} from './ReportsTabs.jsx';
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {Empty, integer, json, reportUrl} from './reportsCommon.jsx';
 import {ReportsNativeSelect} from './ReportsNativeSelect.jsx';
@@ -237,16 +239,15 @@ function CaptureHeat({siteId, path, device, document: doc, metrics, canEdit, cli
     {body && !ready && <div className="page-detail-capture-empty">
       <p>{body.status === 'capturing' ? 'Capturando a página… isso leva cerca de um minuto.' : body.status === 'failed' ? (body.message || 'A captura falhou.') : 'Ainda não há captura desta página neste dispositivo.'}</p>
       {body.status !== 'capturing' && (!body.available ? <p className="page-detail-note">A captura depende da integração Firecrawl, que não está configurada neste ambiente.</p>
-        : canEdit ? <><button type="button" className="page-detail-button" disabled={starting} onClick={capture}>Capturar a página</button>
+        : canEdit ? <><ReportsActionButton color="secondary" size="sm" className="page-detail-button" disabled={starting} onClick={capture}>Capturar a página</ReportsActionButton>
           <p className="page-detail-note">A captura usa créditos do provedor e só acontece quando você pede.</p></>
         : <p className="page-detail-note">Peça a alguém com permissão de edição para capturar a página.</p>)}
     </div>}
     {ready && <>
       <div className="page-detail-capture-tools">
-        <div className="page-detail-views" role="tablist" aria-label="Camada do calor">
-          {[['clicks', 'Cliques'], ['scroll', 'Rolagem']].map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={mode === key} className={mode === key ? 'is-active' : ''} onClick={() => setMode(key)}>{label}</button>)}</div>
+        <ReportsTabs className="page-detail-views" label="Camada do calor" value={mode} onChange={setMode} items={[{id: 'clicks', label: 'Cliques'}, {id: 'scroll', label: 'Rolagem'}]}/>
         <label className="page-detail-inline">Intensidade<input type="range" min="10" max="100" value={intensity} aria-label="Intensidade do calor" onChange={event => setIntensity(Number(event.target.value))}/></label>
-        {canEdit && body.status !== 'capturing' && <button type="button" className="page-detail-button is-quiet" disabled={starting} onClick={capture}>Capturar de novo</button>}
+        {canEdit && body.status !== 'capturing' && <ReportsActionButton color="tertiary" size="sm" className="page-detail-button is-quiet" disabled={starting} onClick={capture}>Capturar de novo</ReportsActionButton>}
       </div>
       {body.status === 'failed' && <p className="page-detail-warning" role="note">{body.message} Mostrando a captura anterior.</p>}
       <div className="page-detail-capture-stage" style={{aspectRatio: `${body.width} / ${body.height}`, '--intensity': intensity / 100}}>
@@ -287,8 +288,7 @@ function Interactions({siteId, path, days, client, metrics, canEdit, csrf}) {
       {body.mixed_layouts && <p className="page-detail-warning" role="note">Esta página tem cliques de mais de um tipo de dispositivo. Os layouts são diferentes: escolha um dispositivo para ler o mapa com segurança.</p>}
       {!body.reliable && <p className="page-detail-warning" role="note">Poucos cliques ({number(body.clicks)}): a distribuição varia muito com amostras pequenas.</p>}
       <div className="page-detail-interactions">
-        <div><div className="page-detail-views" role="tablist" aria-label="Área do mapa">
-          {[['screen', 'Primeira tela'], ['page', 'Página inteira'], ['capture', 'Sobre a captura']].map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={view === key} className={view === key ? 'is-active' : ''} onClick={() => setView(key)}>{label}</button>)}</div>
+        <div><ReportsTabs className="page-detail-views" label="Área do mapa" value={view} onChange={setView} items={[{id: 'screen', label: 'Primeira tela'}, {id: 'page', label: 'Página inteira'}, {id: 'capture', label: 'Sobre a captura'}]}/>
           <h3>{view === 'screen' ? 'Onde clicam · primeira tela' : view === 'page' ? 'Onde clicam · página inteira' : 'Calor sobre a página'}</h3>
           {view === 'screen' ? <ClickGrid grid={body.grid}/> : view === 'page' ? <DocumentGrid document={body.document}/>
             : device === 'all' ? <Empty message="Escolha um dispositivo (celular, tablet ou computador) para sobrepor o calor à captura da página."/>

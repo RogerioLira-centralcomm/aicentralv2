@@ -145,3 +145,39 @@ def test_system_one_uses_the_configured_model(post, _configuration, _api_key):
     typesafe_service.system_one("state", QUESTION)
 
     assert post.call_args.kwargs["json"]["model"] == "jev-custom"
+
+
+@patch("aicentralv2.services.typesafe_service.resolve_typesafe_api_key", return_value="secret")
+@patch("aicentralv2.services.typesafe_service.get_configuration", return_value={})
+def test_timeouts_that_use_up_the_deadline_raise_a_typesafe_error(_configuration, _api_key):
+    import requests
+
+    clock = [0.0]
+
+    def slow_post(*_args, **_kwargs):
+        clock[0] += 31  # each timeout burns half of the 60 s deadline
+        raise requests.Timeout("slow")
+
+    with patch.object(typesafe_service.time, "monotonic", lambda: clock[0]), \
+            patch.object(typesafe_service.time, "sleep", lambda _seconds: None), \
+            patch.object(typesafe_service.requests, "post", slow_post):
+        with pytest.raises(typesafe_service.TypeSafeError, match="Não foi possível conectar"):
+            typesafe_service.system_one({"a": 1}, {"q": {"type": "noul", "instructions": "x"}})
+
+
+def test_retry_waits_never_go_past_the_deadline():
+    with patch.object(typesafe_service.time, "monotonic", lambda: 59.0):
+        assert typesafe_service._bounded_delay(4.0, deadline=60.0) == 1.0
+        assert typesafe_service._bounded_delay(4.0, deadline=58.0) == 0.0
+
+
+@pytest.mark.parametrize("value", [1.5, -0.1, float("nan"), float("inf"), True])
+def test_a_noul_outside_zero_to_one_or_not_finite_is_rejected(value):
+    assert typesafe_service._valid_answer({"type": "noul", "noul": value}, "noul") is False
+
+
+def test_valid_noul_score_and_choice_answers_are_accepted():
+    assert typesafe_service._valid_answer({"type": "noul", "noul": 0.97}, "noul")
+    assert typesafe_service._valid_answer({"type": "score", "score": 7}, "score")
+    assert typesafe_service._valid_answer({"type": "choice", "choice": "a"}, "choice")
+    assert not typesafe_service._valid_answer({"type": "score", "score": float("nan")}, "score")

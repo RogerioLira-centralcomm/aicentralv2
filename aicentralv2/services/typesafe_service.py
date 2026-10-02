@@ -2,6 +2,7 @@
 
 import json
 import logging
+import math
 import time
 
 import requests
@@ -63,6 +64,8 @@ def system_one(state, questions, *, model=None, timeout=30, attempts=3):
         raise TypeSafeError("O modelo TypeSafe configurado é inválido.")
     max_attempts = max(1, min(MAX_ATTEMPTS, attempts))
     deadline = time.monotonic() + TOTAL_DEADLINE_SECONDS
+    # Stays None when every attempt failed before a response (timeouts that used up the deadline).
+    response = None
     for attempt in range(max_attempts):
         remaining = deadline - time.monotonic()
         if attempt and remaining <= 0:
@@ -81,15 +84,17 @@ def system_one(state, questions, *, model=None, timeout=30, attempts=3):
             logger.warning("TypeSafe request failed (%s) on attempt %d", type(exc).__name__, attempt + 1)
             if attempt == max_attempts - 1:
                 raise TypeSafeError("Não foi possível conectar à API TypeSafe.") from exc
-            time.sleep(_typesafe_retry_delay(None, attempt))
+            time.sleep(_bounded_delay(_typesafe_retry_delay(None, attempt), deadline))
             continue
         except requests.RequestException as exc:
             raise TypeSafeError("Não foi possível conectar à API TypeSafe.") from exc
         if response.status_code not in RETRYABLE_STATUS or attempt == max_attempts - 1:
             break
         logger.warning("TypeSafe returned HTTP %d on attempt %d; retrying", response.status_code, attempt + 1)
-        time.sleep(_typesafe_retry_delay(response.headers.get("Retry-After"), attempt))
+        time.sleep(_bounded_delay(_typesafe_retry_delay(response.headers.get("Retry-After"), attempt), deadline))
 
+    if response is None:
+        raise TypeSafeError("Não foi possível conectar à API TypeSafe.")
     if response.status_code in (401, 403):
         raise TypeSafeError("A API TypeSafe não aceitou a credencial configurada.")
     if response.status_code == 429:
@@ -121,10 +126,18 @@ def system_one(state, questions, *, model=None, timeout=30, attempts=3):
     return result
 
 
+def _bounded_delay(delay, deadline):
+    """Never sleep past the total deadline."""
+    return max(0.0, min(delay, deadline - time.monotonic()))
+
+
 def _valid_answer(answer, expected_type):
     if not isinstance(answer, dict) or answer.get("type") != expected_type:
         return False
     value = answer.get(expected_type)
     if expected_type == "choice":
         return isinstance(value, str) and bool(value)
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        return False
+    # A noul is a probability: the same 0..1 range the integration health check enforces.
+    return 0 <= value <= 1 if expected_type == "noul" else True

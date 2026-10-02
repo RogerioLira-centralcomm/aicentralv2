@@ -121,6 +121,10 @@ restore_generated_file "aicentralv2/static/cadu_workspace/conversations/react/ap
 restore_generated_file "aicentralv2/static/cadu_workspace/conversations/react/app.js"
 restore_generated_file "aicentralv2/static/cadu_connect/react/app.css"
 restore_generated_file "aicentralv2/static/cadu_connect/react/app.js"
+restore_generated_file "aicentralv2/static/cadu_connect/react/untitled.css"
+restore_generated_file "aicentralv2/static/cadu_workspace/untitled/workspace-kit.css"
+restore_generated_file "aicentralv2/static/cadu_planner/react/app.css"
+restore_generated_file "aicentralv2/static/cadu_planner/react/app.js"
 git pull origin main >> "$DEPLOY_LOG" 2>&1
 # Renormalizar line endings apos pull
 git checkout -- . 2>/dev/null || true

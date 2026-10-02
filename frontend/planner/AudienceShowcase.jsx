@@ -29,7 +29,7 @@ function writeUrl(filters) {
 }
 
 /** One row of mutually exclusive choices with live counts ("Todos" clears it). */
-function FacetChips({label, items, value, total, onChange}) {
+export function FacetChips({label, items, value, total, onChange}) {
   if (!items.length) return null;
   return <div className="aud-facet" role="group" aria-label={label}>
     <span className="aud-facet__label">{label}</span>

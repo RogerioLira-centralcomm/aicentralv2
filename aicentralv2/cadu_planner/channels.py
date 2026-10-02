@@ -6,16 +6,9 @@ from urllib.parse import urlparse
 
 from werkzeug.exceptions import NotFound
 
+from ..crm_v3_canais import _resolver_logo
 from ..db import get_db
 
-
-_LOGOS = {
-    'prime-video': 'prime-video.svg', 'globoplay': 'globoplay.png',
-    'g1-globo': 'g1-globo.svg', 'sbt': 'sbt.png', 'uol': 'uol.png',
-    'r7': 'r7.png', 'spotify': 'spotify.svg', 'deezer': 'deezer.png',
-    'tiktok': 'tiktok.png', 'twitch': 'twitch.svg', 'waze': 'waze.png',
-    'ifood': 'ifood.svg', 'eletromidia': 'eletromidia.svg',
-}
 
 _CHANNEL_CONCEPTS = {
     'prime-video': [{
@@ -61,8 +54,7 @@ def detail(channel_id):
         raise NotFound('Canal indisponível.')
     channel = records[0]
     slug = str(channel.get('slug') or '').lower()
-    logo = _LOGOS.get(slug)
-    channel['logo_url'] = f'/static/images/canais/{logo}' if logo else _safe_media_url(channel.get('logo_path'))
+    channel['logo_url'] = _channel_logo(slug, channel.get('logo_path'))
     channel['hero_image_url'] = _safe_media_url(channel.get('imagem_path')) or _safe_media_url(channel.get('og_image_path'))
     channel['gallery'] = [url for url in (channel.get('imagens') or []) if _safe_media_url(url)]
     channel['demografia'] = channel.get('demografia') or {}
@@ -71,12 +63,17 @@ def detail(channel_id):
     return channel
 
 
+def _channel_logo(slug, stored):
+    """Curated logo by slug; the stored path is the legacy /assets_images one the app does not serve."""
+    return _safe_media_url(_resolver_logo(slug, stored))
+
+
 def decorate_logos(records):
-    """Catalog lists carry logo_path only; use the curated logo when a channel has one."""
+    """Catalog lists carry logo_path only; swap it for the logo that actually exists."""
     for record in records or []:
-        logo = _LOGOS.get(str(record.get('slug') or '').lower())
-        if logo:
-            record['logo_path'] = f'/static/images/canais/{logo}'
+        logo = _channel_logo(str(record.get('slug') or '').lower(), record.get('logo_path'))
+        if logo or 'logo_path' in record:
+            record['logo_path'] = logo
     return records
 
 

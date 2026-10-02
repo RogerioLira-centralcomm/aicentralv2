@@ -855,7 +855,7 @@ def catalog(module, query='', category='', platform='', sort='relevant', format_
                          AND (%s = '' OR f.plataforma_slug = %s)
                          AND (%s = '' OR f.tipo = %s)
                          AND (%s = '' OR LOWER(COALESCE(NULLIF(TRIM(f.categoria_criativa), ''), NULLIF(TRIM(f.dados_extras ->> 'segmento'), ''), NULLIF(f.tipo, ''), 'Geral')) = LOWER(%s))
-                    ORDER BY p.ordem NULLS LAST, f.ordem, f.nome LIMIT 100''',
+                    ORDER BY p.ordem NULLS LAST, f.ordem, f.nome LIMIT 400''',
                     (search, search, search, search, search, search, module == 'interativos',
                      platform, platform, format_type, format_type, segment, segment))
         return [_decorate_format(record) for record in records]
@@ -972,8 +972,36 @@ def channel_catalog_facets():
     return {'categories': [row['value'] for row in categories], 'platforms': [], 'types': [], 'segments': []}
 
 
+# Creative `tipo` values grouped the way a media planner browses them: (label, order).
+FORMAT_FAMILIES = {
+    'display': ('Display', 1), 'rich-media': ('Rich media e interativo', 2), 'interactive': ('Rich media e interativo', 2),
+    'video': ('Vídeo', 3), 'ctv': ('CTV e streaming', 4), 'audio': ('Áudio', 5), 'native': ('Nativo', 6),
+    'social': ('Social e conversação', 7), 'conversational': ('Social e conversação', 7), 'lead-gen': ('Social e conversação', 7),
+    'search': ('Performance e commerce', 8), 'ecommerce': ('Performance e commerce', 8), 'automated': ('Performance e commerce', 8),
+}
+FORMAT_FAMILY_OTHER = ('DOOH, e-mail e outros', 9)
+
+# Format platform slug -> the channel logo that exists in the app (the stored /assets_images path is not served).
+FORMAT_PLATFORM_LOGOS = {
+    'cnn': 'cnn-brasil', 'g1': 'g1-globo', 'google_ads': 'google-ads', 'infomoney': 'infomoney', 'linkedin_ads': 'linkedin',
+    'netflix': 'netflix', 'prime_video': 'prime-video', 'programatica_iab': 'the-trade-desk', 'sbt': 'sbt',
+    'spotify_ads': 'spotify', 'tiktok_ads': 'tiktok', 'interativos': 'interativos',
+}
+
+
+def _platform_logo(slug, stored):
+    from ..crm_v3_canais import _resolver_logo
+    if slug == 'meta_ads':
+        return '/static/images/creative-viewers/facebook.svg'
+    resolved = _resolver_logo(FORMAT_PLATFORM_LOGOS.get(slug, slug.replace('_', '-')), '')
+    return resolved or (stored if str(stored or '').startswith(('/static/', 'http')) else '')
+
+
 def _decorate_format(record):
     """Expose one safe creative link and its editorial segment when present."""
+    family, order = FORMAT_FAMILIES.get(str(record.get('format_type') or '').lower(), FORMAT_FAMILY_OTHER)
+    record['family'], record['family_order'] = family, order
+    record['platform_logo'] = _platform_logo(str(record.get('platform_slug') or ''), record.get('platform_logo'))
     extras = record.pop('extras', None) or {}
     if isinstance(extras, str):
         try:

@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 from werkzeug.exceptions import BadRequest, NotFound
 
 from ..cadu_family import repository
+from .channels import _channel_logo
 
 KINDS = {'canais', 'formatos', 'audiencias', 'interativos'}
 
@@ -337,11 +338,14 @@ def format_profile(kind, value):
     """Formato ou interativo com os canais onde ele pode rodar."""
     record = detail(kind, value)
     slug = str(record.get('plataforma_slug') or '')
-    record['channels'] = rows('''SELECT id, nome AS name, categoria AS category, logo_path
+    record['channels'] = rows('''SELECT id, slug, nome AS name, categoria AS category, logo_path
                                    FROM cadu_canais
                                   WHERE is_active = TRUE AND slug = ANY(%s)
                                ORDER BY ordem NULLS LAST, nome LIMIT 12''',
                               ([slug, slug.replace('_', '-')],)) if slug else []
+    for channel in record['channels']:
+        channel['logo_path'] = _channel_logo(channel.get('slug'), channel.get('logo_path'))
+    record['platform_logo'] = repository._platform_logo(slug, '')
     return record
 
 

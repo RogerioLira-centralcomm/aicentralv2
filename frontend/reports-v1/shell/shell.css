@@ -122,6 +122,8 @@
 
 /* Content area aligned with the header. */
 .reports-main>.reports-content{padding-top:0}
+/* Content follows the header's width instead of a centered 1280px column. */
+.reports-shell:not(.reports-shell--flow) .reports-content{max-width:none;margin-inline:0}
 
 @media (max-width:1100px){
   .rs-metrics{grid-template-columns:repeat(min(3,var(--rs-metric-count,4)),minmax(0,1fr))}

@@ -220,7 +220,7 @@
    Buttons follow the brand: primary blue, secondary white with border, tertiary transparent. */
 
 /* Solid white header: nothing from the page shows through when the content scrolls under it. */
-.reports-main .rs-header{background:#fff;box-shadow:0 0 0 100vmax #fff;clip-path:inset(0 -100vmax)}
+.reports-main .rs-header{margin-inline:calc(-1 * var(--reports-gutter,0px));padding-inline:var(--reports-gutter,0px);background:#fff}
 
 /* Surfaces */
 .reports-main .reports-content .reports-kpi{border:1px solid var(--color-border-secondary);border-radius:12px;box-shadow:none;background:var(--color-bg-primary)}

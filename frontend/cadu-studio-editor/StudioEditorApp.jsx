@@ -376,7 +376,7 @@ export default function StudioEditorApp({bootstrap}) {
     setMode('select');
     return exported;
   };
-  const runEdition = async instruction => {
+  const runEdition = async (instruction, {backgroundRemoval = false} = {}) => {
     if (!asset) { fileInput.current?.click(); return; }
     const effectivePrompt = String(instruction || prompt).trim();
     if (!effectivePrompt || generating) return;
@@ -385,11 +385,11 @@ export default function StudioEditorApp({bootstrap}) {
     setAgentMessages(current => [...current, {id: makeId(), role: 'user', text: effectivePrompt}, {id: makeId(), role: 'assistant', text: 'Preparando a nova versão…'}]);
     
     try {
-      const data = await requestEdition({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, asset, prompt: effectivePrompt, director: {...director, instruction: makeDirectorInstruction(effectivePrompt, director)}, format, outputSize, quality, mask: editMask, crop, clientId, references, globalReferenceIds: selectedGlobalReferences, brand: project?.brand_context});
+      const data = await requestEdition({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, asset, prompt: effectivePrompt, director: {...director, instruction: makeDirectorInstruction(effectivePrompt, director)}, format, outputSize, quality, mask: editMask, crop, clientId, references, globalReferenceIds: selectedGlobalReferences, brand: project?.brand_context, backgroundRemoval});
       if (data.noop || data.mode === 'noop') { setAgentMessages(current => [...current.slice(0, -1), {id: makeId(), role: 'assistant', text: data.preview || 'Qual parte da peça você quer alterar?'}]); return; }
       const url = data.image_url || data.png_data_url;
       if (!url) throw new Error(data.preview || 'A geração não devolveu uma imagem.');
-      const nextVersion = {id: makeId(), name: `V${versions.length + 1}`, url, dataUrl: url, status: 'new', parentUrl: asset.url};
+      const nextVersion = {id: makeId(), name: backgroundRemoval ? `${asset.name || 'Peça'} · sem fundo` : `V${versions.length + 1}`, url, dataUrl: url, status: 'new', parentUrl: asset.url};
       setVersions(current => [nextVersion, ...current]); setAsset(nextVersion); setSelectedId(nextVersion.id); setMask(null); setCrop(null);
       setAgentMessages(current => [...current.slice(0, -1), {id: makeId(), role: 'assistant', text: 'Criei uma nova versão. Você pode revisar no palco ou pedir outro ajuste.'}]);
       
@@ -407,7 +407,8 @@ export default function StudioEditorApp({bootstrap}) {
     await runEdition(instruction);
   };
   const removeBackground = async () => {
-    await runEdition('Remova completamente o fundo da imagem e entregue o elemento principal recortado, preservando bordas, transparências, sombras naturais, proporções e identidade visual.');
+    // Real transparency: the server asks for a flat chroma background and keys it out into an alpha channel.
+    await runEdition('Remova o fundo e mantenha o elemento principal recortado, com bordas limpas.', {backgroundRemoval: true});
   };
   const newSession = async () => {
     if (generating || status === 'saving') return;

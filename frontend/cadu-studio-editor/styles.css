@@ -717,3 +717,7 @@ details.se-chat-content > summary .se-chat-last { order:3; flex-basis:100%; marg
 .se-confirm span { display:flex; justify-content:flex-end; gap:6px; }
 .se-confirm button { height:28px; padding:0 12px; border:1px solid rgba(255,255,255,.16); border-radius:7px; background:transparent; color:#e6ebf0; cursor:pointer; font:inherit; font-size:11.5px; font-weight:650; }
 .se-confirm button.is-danger { border-color:transparent; background:#e5484d; color:#fff; }
+
+/* Transparent pieces show a checkerboard behind them on the stage only (it is never part of the file). */
+.se-stage.has-asset .se-artboard { background-color:#c9ced4; background-image:linear-gradient(45deg,#e9ecef 25%,transparent 25%),linear-gradient(-45deg,#e9ecef 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#e9ecef 75%),linear-gradient(-45deg,transparent 75%,#e9ecef 75%); background-size:20px 20px; background-position:0 0,0 10px,10px -10px,-10px 0; }
+.se-vrow__main img { background-color:#c9ced4; background-image:linear-gradient(45deg,#e9ecef 25%,transparent 25%),linear-gradient(-45deg,#e9ecef 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#e9ecef 75%),linear-gradient(-45deg,transparent 75%,#e9ecef 75%); background-size:10px 10px; background-position:0 0,0 5px,5px -5px,-5px 0; }

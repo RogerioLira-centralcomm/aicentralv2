@@ -107,7 +107,7 @@ function publicImageUrl(value) {
   try { const url = new URL(raw, window.location.origin); return /^https?:$/.test(url.protocol) ? url.href : ''; } catch { return ''; }
 }
 
-export function requestEdition({apiRoot, csrf, asset, prompt, director, format, outputSize, quality = 'draft', mask, crop, clientId, sessionId, references, globalReferenceIds, brand, aspectHint}) {
+export function requestEdition({apiRoot, csrf, asset, prompt, director, format, outputSize, quality = 'draft', mask, crop, clientId, sessionId, references, globalReferenceIds, brand, aspectHint, backgroundRemoval = false}) {
   const sourceUrl = publicImageUrl(asset?.url || asset?.dataUrl);
   if (!sourceUrl) throw new Error('Aguarde a imagem terminar de carregar no Studio antes de gerar.');
   const selection = mask?.bounds ? {role: 'marked_region', bbox_px: mask.bounds, instruction: 'Apply the requested change only inside the marked region. Preserve the source image outside it.'} : crop?.bounds ? {role: 'crop', bbox_px: crop.bounds, instruction: 'Use the selected crop as the composition frame. Preserve the content inside it and rebalance only when required by the requested output format.'} : undefined;
@@ -126,6 +126,8 @@ export function requestEdition({apiRoot, csrf, asset, prompt, director, format, 
     aspect_ratio: format,
     // Format of the source piece: when it differs from aspect_ratio the server recomposes instead of editing in place.
     aspect_hint: aspectHint || undefined,
+    // Server paints a chroma background and keys it out into a real alpha channel (GPT Image has no transparency).
+    background_removal: backgroundRemoval || undefined,
     output_width: outputSize?.width || undefined,
     output_height: outputSize?.height || undefined,
     quality,

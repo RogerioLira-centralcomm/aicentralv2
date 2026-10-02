@@ -4821,3 +4821,71 @@ class ReframePromptTest(unittest.TestCase):
 
         self.assertIn("Keep the same composition, crop", prompt)
         self.assertNotIn("Recompose the attached finished advertisement", prompt)
+
+
+class BackgroundRemovalTest(unittest.TestCase):
+    def _green_piece(self):
+        import io
+        from PIL import Image, ImageDraw
+        image = Image.new("RGB", (400, 500), (6, 248, 12))
+        draw = ImageDraw.Draw(image)
+        draw.ellipse((120, 120, 280, 440), fill=(200, 140, 110))
+        draw.rectangle((50, 30, 350, 90), fill=(20, 90, 60))  # headline block
+        buffer = io.BytesIO()
+        image.save(buffer, "PNG")
+        return buffer.getvalue()
+
+    def test_chroma_background_becomes_real_transparency_and_the_subject_stays_opaque(self):
+        import io
+        from PIL import Image
+        from aicentralv2.creative_format_lab.chroma_key import chroma_key_png, has_real_transparency
+
+        keyed = Image.open(io.BytesIO(chroma_key_png(self._green_piece())))
+
+        self.assertEqual(keyed.mode, "RGBA")
+        self.assertEqual(keyed.getchannel("A").getpixel((5, 5)), 0, "fundo transparente de verdade")
+        self.assertEqual(keyed.getchannel("A").getpixel((200, 280)), 255, "pessoa opaca")
+        self.assertEqual(keyed.getchannel("A").getpixel((200, 60)), 255, "texto opaco")
+
+    def test_remove_background_asks_for_chroma_and_delivers_an_alpha_png(self):
+        import base64
+        import io
+        from PIL import Image
+        from aicentralv2.creative_format_lab.swap import swap_reference
+
+        prompts = []
+
+        def image_callable(prompt, **kwargs):
+            prompts.append(prompt)
+            return self._green_piece()
+
+        result = swap_reference({
+            "reference": "data:image/png;base64," + base64.b64encode(self._green_piece()).decode(),
+            "instruction": "Remova o fundo e mantenha o elemento principal recortado.",
+            "background_removal": True, "aspect_ratio": "4:5", "confirm_conflicts": True,
+        }, image_callable=image_callable)
+
+        self.assertIn("pure green #00FF00", prompts[0])
+        self.assertNotIn("checkerboard", prompts[0].split("no checkerboard")[0])
+        png = base64.b64decode(result["png_data_url"].split(",", 1)[1])
+        image = Image.open(io.BytesIO(png))
+        self.assertEqual(image.mode, "RGBA")
+        self.assertEqual(image.getchannel("A").getpixel((2, 2)), 0)
+
+    def test_an_image_without_a_keyable_background_is_refused_instead_of_faked(self):
+        import base64
+        import io
+        from PIL import Image
+        from aicentralv2.creative_format_lab.swap import swap_reference
+
+        def image_callable(prompt, **kwargs):
+            buffer = io.BytesIO()
+            Image.new("RGB", (300, 300), (240, 240, 240)).save(buffer, "PNG")
+            return buffer.getvalue()
+
+        with self.assertRaisesRegex(ValueError, "separar o fundo"):
+            swap_reference({
+                "reference": "data:image/png;base64," + base64.b64encode(self._green_piece()).decode(),
+                "instruction": "Remova o fundo.", "background_removal": True, "aspect_ratio": "4:5",
+                "confirm_conflicts": True,
+            }, image_callable=image_callable)

@@ -52,6 +52,12 @@ const STILL='/static/images/cadu/brand-icons/studio-192.png';
   assert.match(body.payload.reference,/studio-192\.png$/);
   assert.deepEqual(rejected,[],'nenhuma chamada recusada por token de segurança');
   await page.screenshot({path:ARTIFACTS+'/editor-flow.png'});
+  // Remover fundo pede recorte de verdade ao servidor (fundo chapado + alpha), não um xadrez desenhado.
+  const before=calls.filter(c=>c.path.endsWith('/studio/tasks')).length;
+  await page.getByRole('button',{name:'Remover fundo'}).click();
+  await page.locator('.se-vrow__copy b',{hasText:'sem fundo'}).first().waitFor({timeout:15000});
+  const removal=JSON.parse(calls.filter(c=>c.path.endsWith('/studio/tasks'))[before].body).payload;
+  assert.equal(removal.background_removal,true);
   assert.deepEqual(errors,[]);
   console.log('PASS Editor: upload salvo na biblioteca, edição enviada como tarefa com marca e referência, nova versão no palco, token do Studio aceito em todas as chamadas');
   await browser.close();

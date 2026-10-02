@@ -465,6 +465,16 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
             "A later typesetting pass will replace headline, price, quota and CTAs. Prefer a clean field behind the type.",
             "Do not invent a new offer, number or Portuguese line. If type must stay, clone it — do not add zeros to prices or quotas (199,90 not 1999,90; 1700 not 17000).",
         ]
+    elif payload.get("background_removal"):
+        from .chroma_key import CHROMA_HEX
+        lines = [
+            "Recreate the attached image with its main subject exactly as it is: same pose, proportions, colors, "
+            "details, product, every visible line of text spelled exactly and the logo with its exact geometry.",
+            f"Replace EVERYTHING that is background with one perfectly flat, uniform pure green {CHROMA_HEX}: no gradient, "
+            "no texture, no shadow, no checkerboard, no pattern, no frame and no other element on it.",
+            "Keep crisp, clean edges around the subject. Do not use that green anywhere on the subject itself.",
+            "Do not draw a transparency checkerboard; the green background will be removed afterwards.",
+        ]
     elif reframe:
         lines = reframe_lines(match_aspect_ratio(payload.get("aspect_hint")), resolve_aspect_ratio(payload)) + lines[1:]
     elif alter:
@@ -1211,6 +1221,13 @@ def swap_reference(payload=None, *, brand=None, image_callable=None):
     if not png:
         raise ValueError("O GPT Image 2 não devolveu o still.")
     png = resize_output_png(png, payload)
+    if payload.get("background_removal"):
+        # The model painted the background chroma green; turn it into a real alpha channel.
+        from .chroma_key import chroma_key_png, has_real_transparency
+        keyed = chroma_key_png(png)
+        if not has_real_transparency(keyed):
+            raise ValueError("Não foi possível separar o fundo desta peça. Tente marcar a região do elemento antes de remover o fundo.")
+        png = keyed
     still = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
     if mode == "recrop" and typeset_patches(payload):
         painted = typeset_reference(

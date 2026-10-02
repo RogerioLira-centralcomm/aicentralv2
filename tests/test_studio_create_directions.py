@@ -468,3 +468,71 @@ def test_mask_must_belong_to_the_declared_primary_image():
         assert "não pertence à imagem principal" in str(error)
     else:
         raise AssertionError("A máscara de outra imagem deveria ser rejeitada.")
+
+
+def _png_b64(image):
+    import base64
+    import io
+    buffer = io.BytesIO()
+    image.save(buffer, "PNG")
+    return base64.b64encode(buffer.getvalue()).decode("ascii")
+
+
+def _decode(encoded):
+    import base64
+    import io
+    from PIL import Image
+    return Image.open(io.BytesIO(base64.b64decode(encoded))).convert("RGBA")
+
+
+def test_applied_logo_stays_whole_and_inside_the_margins():
+    from PIL import Image
+    logo = Image.new("RGBA", (300, 80), (10, 90, 60, 255))
+    canvas = Image.new("RGB", (1080, 1350), (245, 245, 240))
+
+    result = _decode(studio_create.apply_brand_logo(_png_b64(canvas), "png", logo, "bottom-right"))
+
+    assert result.size == (1080, 1350)
+    changed = [
+        (x, y) for y in range(0, 1350, 3) for x in range(0, 1080, 3)
+        if result.getpixel((x, y))[:3] != (245, 245, 240)
+    ]
+    assert changed, "o logo foi aplicado"
+    xs, ys = [p[0] for p in changed], [p[1] for p in changed]
+    margin = round(min(1080, 1350) * studio_create.LOGO_MARGIN_RATIO)
+    assert max(xs) <= 1080 - margin + 3 and max(ys) <= 1350 - margin + 3, "nada encosta nas bordas direita e inferior"
+    assert min(ys) > 1350 * 0.8, "fica no canto inferior"
+
+
+def test_applied_logo_gets_a_plate_only_when_contrast_is_low():
+    from PIL import Image
+    logo = Image.new("RGBA", (300, 80), (10, 90, 60, 255))
+
+    on_light = _decode(studio_create.apply_brand_logo(_png_b64(Image.new("RGB", (1080, 1350), (245, 245, 240))), "png", logo))
+    on_dark = _decode(studio_create.apply_brand_logo(_png_b64(Image.new("RGB", (1080, 1350), (12, 80, 56))), "png", logo))
+
+    plate_probe = (1080 - 76 - 216 - 8, 1350 - 76 - 58 - 8)  # just outside the logo, inside a plate
+    assert on_light.getpixel(plate_probe)[:3] == (245, 245, 240), "fundo claro não recebe placa"
+    assert on_dark.getpixel(plate_probe)[:3] != (12, 80, 56), "fundo parecido com o logo recebe placa"
+
+
+def test_logo_corner_follows_the_selected_composition_mask():
+    assert studio_create.logo_position([{"url": "/static/images/cadu/studio/references/square-300x300/square-mask-01.webp"}]) == "top-left"
+    assert studio_create.logo_position([{"url": "/static/images/cadu/studio/references/feed/feed-mask-09.webp"}]) == "bottom-right"
+    assert studio_create.logo_position([]) == "bottom-right"
+
+
+def test_identity_guard_tells_the_model_not_to_draw_the_logo_when_the_studio_applies_it():
+    brand = {"name": "Cemig", "logo_url": "/static/uploads/creative_references/logo.webp", "palette": ["#0F6C58"]}
+
+    text = studio_create.brand_identity_guard(brand, logo_corner="bottom-right")
+
+    assert "applies the official Cemig logo after generation" in text
+    assert "do NOT draw any logo" in text
+    assert "OFFICIAL COLORS: #0F6C58" in text
+
+
+def test_remote_logo_falls_back_to_the_model_reference():
+    app = Flask(__name__)
+    with app.app_context():
+        assert studio_create.load_brand_logo({"logo_url": "https://cdn.example.com/logo.png"}) is None

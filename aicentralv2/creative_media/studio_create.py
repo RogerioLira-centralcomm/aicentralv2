@@ -193,6 +193,8 @@ def clean_context(raw, count):
         "creation_intent": creation_intent,
         "references": references,
         "reference_mode": reference_mode(references),
+        # When set, the Studio itself applies the official logo after generation, in this corner.
+        "logo_corner": logo_position(references) if creation_intent == "branded_creative" and load_brand_logo(brand_context) is not None else "",
         "brand_context": brand_context if brand_context.get("name") and creation_intent == "branded_creative" else {},
     }
 
@@ -252,7 +254,7 @@ def brand_identity_readiness(brand_context):
     }
 
 
-def brand_identity_guard(raw_brand, visual_reference=False, creation_intent="branded_creative", editing=False):
+def brand_identity_guard(raw_brand, visual_reference=False, creation_intent="branded_creative", editing=False, logo_corner=""):
     brand = raw_brand if isinstance(raw_brand, dict) else {}
     if editing:
         # A masked edit changes one region; it must not stamp a new logo onto the piece.
@@ -286,7 +288,13 @@ def brand_identity_guard(raw_brand, visual_reference=False, creation_intent="bra
     ]
     fonts = [item for item in fonts if item]
     lines = ["BRAND IDENTITY (mandatory for this branded piece):"]
-    if logo:
+    if logo and logo_corner:
+        lines.append(
+            f"- LOGO: the Studio applies the official {name} logo after generation in the {logo_corner.replace('-', ' ')} corner. "
+            f"Keep that corner clean and calm (plain background, no text, no objects, no faces), leaving about 24% of the width and 14% of the height free there, "
+            "and do NOT draw any logo, wordmark, monogram, brand name or lookalike anywhere in the image."
+        )
+    elif logo:
         lines.append(
             f"- LOGO: the image labelled as the official logo of {name} must appear exactly once, reproduced faithfully "
             "(same shapes, letters and colors; no redraw, recolor, outline, 3D or distortion), fully inside the safe margin, "
@@ -440,7 +448,7 @@ Responda somente JSON no formato {{\"directions\":[{{\"title\":\"...\",\"summary
 REVISÃO DO BRIEFING: antes de escrever cada prompt, harmonize o pedido do usuário com o contexto do Studio. Preserve a intenção, anunciante, produto, público, cenário, ação, texto literal, preço, volume, logo solicitado e restrições explícitas. Corrija apenas ambiguidades, contradições, ordem e instruções técnicas; não troque o produto, não remova requisitos concretos e não invente benefícios, ofertas ou identidade visual. Se o usuário informar explicitamente uma marca, preço, volume, slogan ou pedido de logo, isso é requisito obrigatório e deve aparecer no prompt final exatamente como informado.
 ORDEM OBRIGATÓRIA DO PROMPT FINAL: escreva um único parágrafo corrido, em linguagem natural, com no máximo 130 palavras, cobrindo nesta ordem: objetivo da peça; assunto principal visível; pessoas e ação; cenário, praça ou contexto cultural brasileiro e atmosfera; composição e posição de cada zona; uso das referências; luz, materiais e paleta; texto literal e onde fica. Não numere nem rotule as partes, não repita o formato e não escreva instruções técnicas: o Studio já envia formato, margens e regras de marca. MENOS É MAIS: uma ideia visual forte e um único foco por peça. TEXTO VISÍVEL: na arte entram somente os textos literais que o usuário escreveu (por exemplo, título e botão) e o logo oficial. Não acrescente subtítulos, listas, ícones com frases, números, porcentagens, gráficos com rótulos, selos, datas ou microtextos que o usuário não pediu. Se o usuário não informou texto algum, peça só uma área livre para a assinatura.
 FORMATO É CONTROLADO PELO STUDIO: o campo contexto.format, contexto.format_key, contexto.width e contexto.height é a fonte de verdade do output selecionado na interface. Se o texto do pedido mencionar outra dimensão ou proporção, trate isso apenas como descrição do pedido e ignore a dimensão conflitante. Nunca escreva 300x300, 1080x1080 ou outra medida no prompt final quando o formato selecionado for diferente. Não repita o formato nem as dimensões no prompt final: o Studio já os envia ao gerador.
-MARCA E PROJETO: contexto.creation_intent define o escopo. Em "branded_creative", quando contexto.brand_context existir, use-o como fonte de verdade para nome, logo, paleta, tipografia, ativos, elementos obrigatórios e elementos proibidos; aplique os ativos aprovados na peça. Tipografia pode trazer família aprovada ou somente uma classificação observada; não invente o nome de uma fonte proprietária quando houver apenas classificação. Em "neutral_asset", ignore integralmente a identidade do projeto: a solicitação é um fundo, página, textura, cena ou elemento reutilizável, não uma peça de marca. Referências de composição continuam sendo apenas guias de posição e hierarquia. Se contexto.requested_palette tiver cores, aplique-as apenas nesta peça como escolha explícita do briefing: elas não sobrescrevem nem passam a ser apresentadas como cores oficiais da marca. Avalie logo e cores separadamente em contexto.brand_context.readiness. LOGO: quando houver logo oficial (has_logo=true, ele chega como imagem anexada com o rótulo \"logo oficial\"), o prompt final DEVE dizer explicitamente onde o logo oficial entra (canto, assinatura ou lockup), em tamanho legível, uma única vez, reproduzido exatamente como fornecido, nunca encostado na borda: com a base do logo a pelo menos 10% da altura acima da borda inferior e o lado a pelo menos 8% da largura da borda lateral; nunca peça para reservar área vazia no lugar dele. Sem logo oficial, nunca invente logotipo, monograma, inicial, símbolo ou wordmark: reserve uma área limpa para aplicação posterior. CORES: quando houver paleta oficial, cite os hexadecimais no prompt final e diga onde aparecem (fundo, formas, tipografia, CTA); uma paleta temática do briefing (por exemplo, rosa de Outubro Rosa) pode conduzir o clima, mas as cores oficiais precisam continuar reconhecíveis. Sem paleta oficial mas com logo, use as cores visíveis do próprio logo como acentos, sem chamá-las de paleta oficial. Sem logo e sem cores, não invente identidade. TIPOGRAFIA: quando brand_context.fonts existir, indique a direção tipográfica para os textos visíveis. O título de cada direção deve citar a marca. EXCEÇÃO DE REMIX: quando contexto.reference_mode for "visual_remix" ou "user_visual_reference", a imagem anexada pelo usuário é a evidência visual prioritária. Extraia dela apenas características observáveis — paleta, materiais, luz, tratamento do assunto e linguagem da peça — sem dizer que são cores ou logo oficiais do projeto e sem exigir identidade ausente.
+MARCA E PROJETO: contexto.creation_intent define o escopo. Em "branded_creative", quando contexto.brand_context existir, use-o como fonte de verdade para nome, logo, paleta, tipografia, ativos, elementos obrigatórios e elementos proibidos; aplique os ativos aprovados na peça. Tipografia pode trazer família aprovada ou somente uma classificação observada; não invente o nome de uma fonte proprietária quando houver apenas classificação. Em "neutral_asset", ignore integralmente a identidade do projeto: a solicitação é um fundo, página, textura, cena ou elemento reutilizável, não uma peça de marca. Referências de composição continuam sendo apenas guias de posição e hierarquia. Se contexto.requested_palette tiver cores, aplique-as apenas nesta peça como escolha explícita do briefing: elas não sobrescrevem nem passam a ser apresentadas como cores oficiais da marca. Avalie logo e cores separadamente em contexto.brand_context.readiness. LOGO: quando houver logo oficial (has_logo=true, ele chega como imagem anexada com o rótulo \"logo oficial\"), o prompt final DEVE dizer explicitamente onde o logo oficial entra (canto, assinatura ou lockup), em tamanho legível, uma única vez, reproduzido exatamente como fornecido, nunca encostado na borda: com a base do logo a pelo menos 10% da altura acima da borda inferior e o lado a pelo menos 8% da largura da borda lateral. EXCEÇÃO: quando contexto.logo_corner estiver preenchido (bottom-right ou top-left), o próprio Studio aplica o logo oficial depois da geração nesse canto; então NÃO peça para desenhar o logo no prompt final, e sim para manter esse canto limpo e calmo, sem texto, objetos ou rostos, e para não criar nenhum logo, marca ou nome de marca na imagem; nunca peça para reservar área vazia no lugar dele. Sem logo oficial, nunca invente logotipo, monograma, inicial, símbolo ou wordmark: reserve uma área limpa para aplicação posterior. CORES: quando houver paleta oficial, cite os hexadecimais no prompt final e diga onde aparecem (fundo, formas, tipografia, CTA); uma paleta temática do briefing (por exemplo, rosa de Outubro Rosa) pode conduzir o clima, mas as cores oficiais precisam continuar reconhecíveis. Sem paleta oficial mas com logo, use as cores visíveis do próprio logo como acentos, sem chamá-las de paleta oficial. Sem logo e sem cores, não invente identidade. TIPOGRAFIA: quando brand_context.fonts existir, indique a direção tipográfica para os textos visíveis. O título de cada direção deve citar a marca. EXCEÇÃO DE REMIX: quando contexto.reference_mode for "visual_remix" ou "user_visual_reference", a imagem anexada pelo usuário é a evidência visual prioritária. Extraia dela apenas características observáveis — paleta, materiais, luz, tratamento do assunto e linguagem da peça — sem dizer que são cores ou logo oficiais do projeto e sem exigir identidade ausente.
 
 REFERÊNCIAS — você receberá as imagens selecionadas como blocos visuais no mesmo turno. Inspecione seus pixels antes de escrever cada direção; não deduza a composição apenas pelo nome ou URL. Trate cada item do contexto como contrato, nunca como decoração. Itens com source="global" são máscaras protegidas de composição do Studio: diagramas anotados em que só o retângulo interno, dentro da guia SAFE MARGIN, é a peça; título, legenda e coluna de camadas ao redor são documentação. Use-as como planta estrutural, extraindo ordem de camadas, zona do produto/assunto, faixa de headline, área de preço ou CTA, margens seguras, alinhamento, respiro e relação entre foreground e background. Reproduza essa arquitetura espacial na peça final com o conteúdo do briefing, sem copiar o template, sem usar o objeto fictício da máscara como produto, sem alterar o arquivo e sem colocá-lo na biblioteca do usuário. Quando houver máscara global, o prompt final deve REPRODUZIR a máscara fielmente, sem reinterpretar: se o assunto principal está centralizado na máscara, ele fica centralizado; se o título está centralizado no alto, ele fica centralizado no alto; só mude a posição de uma zona se o briefing exigir. Descreva em texto a posição de cada zona (por exemplo, "metade esquerda: cena da TV; metade direita: título e texto; canto inferior direito: CTA") e, se a máscara tiver zona LOGO, posicionar o logo oficial nela. Respeite a guia SAFE MARGIN da máscara: título, textos, logo e botão ficam dentro dela, com respiro das bordas; só o fundo vai até a borda. Para cada global, devolva no reference_plan um layout com subject_zone, headline_zone, support_zone, safe_margin, layer_order e alignment, descrevendo posições relativas observadas na imagem. Itens com source="user" ou source="project" são referências de produção: aplique na imagem criada o conteúdo visual útil, como produto, pessoa, embalagem, identidade, textura, cenário ou objeto, preservando os detalhes relevantes quando a intenção indicar. Quando reference_mode="visual_remix", una a imagem do usuário e a máscara global: a imagem do usuário define a linguagem visual e a máscara global define a estrutura, zonas e respiro. Gere uma nova peça coerente, não uma cópia literal, e não transforme cores vistas no anexo em identidade oficial. Não confunda uma referência global de composição com uma imagem-base do usuário. Quando reference_mode="briefing_only", não mencione referências visuais, não invente uma reference_plan e crie uma direção original baseada somente no briefing, canal e formato. O prompt final deve mencionar como cada referência será usada somente quando houver referência selecionada e respeitar o role declarado.
 
@@ -514,10 +522,14 @@ def create_image(payload, modeling, client_id, user_id):
         clean_direction_reference(item, index)
         for index, item in enumerate(raw_references[:MAX_IMAGE_REFERENCES]) if isinstance(item, dict)
     ])
+    # The model redraws logos and tends to hug the edge. When the official logo file
+    # is readable, the Studio applies it after generation instead of sending it as a reference.
+    brand_logo = load_brand_logo(data.get("brand_context")) if creation_intent == "branded_creative" and not data.get("mask") else None
+    logo_corner = logo_position(raw_references) if brand_logo is not None else ""
     try:
         provider_source_references = (
             references_with_brand_logo(raw_references, data.get("brand_context"))
-            if creation_intent == "branded_creative" and not data.get("mask") else raw_references
+            if creation_intent == "branded_creative" and not data.get("mask") and brand_logo is None else raw_references
         )
         references = normalize_image_references(provider_source_references, modeling.storage)
     except Exception as error:
@@ -613,6 +625,11 @@ def create_image(payload, modeling, client_id, user_id):
         if supplied_logo and not mask else
         "SAFE AREA CHECK: Keep all requested logos, brand marks, headline text and product packaging fully inside the selected format with visible breathing room on every side. Never place a logo partially outside the frame or crop it at the top, bottom or side. If no official logo asset is supplied, leave a clean intentional logo-safe area instead of generating a guessed mark."
     )
+    if logo_corner:
+        identity_safe_area = (
+            f"LOGO ZONE: leave the {logo_corner.replace('-', ' ')} corner clean for the official logo that is applied afterwards; "
+            "do not draw any logo or brand name in the image, and keep headline text and the button out of that corner."
+        )
     requested_palette = clean_palette(data.get("requested_palette"))
     layout_lines = composition_layout_lines(references, mask)
     technical_prompt = "\n".join([
@@ -622,7 +639,7 @@ def create_image(payload, modeling, client_id, user_id):
         "MANDATORY BRIEFING FIDELITY: Preserve every concrete requirement in the user briefing, especially named products, packaging, people, setting, action, copy and requested format. A composition reference is only a layout guide; it must never replace the requested subject or product.",
         "VISIBLE TEXT LIMIT: render only the literal copy written in the briefing (for example the headline and the button) plus the official logo. Do not add subheadlines, bullet lists, icon captions, statistics, percentages, labelled charts, badges, dates or small print that the user did not write. Keep the layout clean with one clear focal point.",
         "MANDATORY COMMERCIAL FACTS: Any advertiser name, brand name, product name, price, currency, package volume, slogan or logo request explicitly present in the user briefing must remain in the creative instruction exactly as provided. Do not silently drop Reserva, R$ 599, 50 ml, 1 Million or any other named fact.",
-        brand_identity_guard(data.get("brand_context"), visual_reference=visual_reference, creation_intent=creation_intent, editing=bool(mask)),
+        brand_identity_guard(data.get("brand_context"), visual_reference=visual_reference, creation_intent=creation_intent, editing=bool(mask), logo_corner=logo_corner),
         f"REQUESTED CREATIVE PALETTE: {', '.join(requested_palette)}. Use these colors for this piece's campaign mood only; they are not a claim about official brand identity and must not erase the official brand colors or logo." if requested_palette else "REQUESTED CREATIVE PALETTE: none.",
         prompt,
         "\nREFERENCE CONTRACT:",
@@ -665,6 +682,8 @@ def create_image(payload, modeling, client_id, user_id):
             output_format = "png"
         elif width and height:
             encoded = fit_generated_output(encoded, width, height, output_format)
+        if brand_logo is not None and not mask:
+            encoded = apply_brand_logo(encoded, output_format, brand_logo, logo_corner)
         image_url = modeling.storage.save_generated_base64(
             encoded, output_format
         )
@@ -922,6 +941,89 @@ def composition_layout_lines(references, mask=""):
         "If the wireframe marks a LOGO zone, the official logo goes there. "
         "Never render the wireframe's grey placeholders, numbers, labels, sample words such as HEADLINE, LOGO or CTA, guide lines or its placeholder product (bottle, jar or box).",
     ]
+
+
+LOGO_WIDTH_RATIO = 0.20
+LOGO_HEIGHT_RATIO = 0.085
+LOGO_MARGIN_RATIO = 0.07
+
+
+def logo_position(references):
+    """Square display masks put the brand mark top-left; everything else bottom-right."""
+    urls = [str(item.get("url") or item.get("data") or "") for item in references or [] if isinstance(item, dict)]
+    return "top-left" if any("square-mask" in url for url in urls) else "bottom-right"
+
+
+def load_brand_logo(raw_brand):
+    """Open the official logo from the Studio's own static files, or None when it cannot be read."""
+    logo = official_logo_reference(raw_brand)
+    if not logo:
+        return None
+    from pathlib import Path
+    from flask import current_app, has_app_context
+    from ..creative_modeling_storage import studio_owned_static_path
+    path_value = studio_owned_static_path(logo["url"])
+    if not path_value or not has_app_context():
+        return None
+    static_root = Path(current_app.static_folder).resolve()
+    path = (static_root / path_value.removeprefix("/static/")).resolve()
+    try:
+        path.relative_to(static_root)
+        image = Image.open(path)
+        image.load()
+    except (ValueError, OSError):
+        return None
+    image = image.convert("RGBA")
+    # Logo files often carry transparent padding; trim it so margins are measured from the artwork.
+    box = image.getchannel("A").point(lambda value: 255 if value > 8 else 0).getbbox()
+    return image.crop(box) if box else image
+
+
+def _mean_luminance(image, mask=None):
+    gray = image.convert("L")
+    if mask is None:
+        histogram = gray.histogram()
+        total = sum(histogram) or 1
+        return sum(index * count for index, count in enumerate(histogram)) / total / 255
+    pixels, weights = gray.tobytes(), mask.tobytes()
+    weight = sum(1 for value in weights if value > 128) or 1
+    return sum(luma for luma, alpha in zip(pixels, weights) if alpha > 128) / weight / 255
+
+
+def apply_brand_logo(encoded, output_format, logo, position="bottom-right"):
+    """Place the official logo whole, away from the edges, with a plate when contrast is low."""
+    try:
+        content = base64.b64decode(str(encoded or ""), validate=True)
+        canvas = Image.open(io.BytesIO(content))
+        canvas.load()
+    except (binascii.Error, OSError, ValueError, TypeError) as exc:
+        raise ValueError("A imagem retornada não pôde receber o logo.") from exc
+    canvas = canvas.convert("RGBA")
+    width, height = canvas.size
+    scale = min(width * LOGO_WIDTH_RATIO / logo.width, height * LOGO_HEIGHT_RATIO / logo.height)
+    mark = logo.resize((max(1, round(logo.width * scale)), max(1, round(logo.height * scale))), Image.Resampling.LANCZOS)
+    margin = round(min(width, height) * LOGO_MARGIN_RATIO)
+    left = margin if position.endswith("left") else width - margin - mark.width
+    top = margin if position.startswith("top") else height - margin - mark.height
+    region = canvas.crop((left, top, left + mark.width, top + mark.height))
+    logo_luma = _mean_luminance(mark.convert("RGB"), mark.getchannel("A"))
+    if abs(_mean_luminance(region.convert("RGB")) - logo_luma) < 0.4:
+        pad = round(mark.height * 0.22)
+        plate = Image.new("RGBA", (mark.width + pad * 2, mark.height + pad * 2), (0, 0, 0, 0))
+        from PIL import ImageDraw
+        fill = (255, 255, 255, 238) if logo_luma < 0.55 else (11, 18, 25, 238)
+        ImageDraw.Draw(plate).rounded_rectangle((0, 0, plate.width - 1, plate.height - 1), radius=pad, fill=fill)
+        canvas.alpha_composite(plate, (max(0, left - pad), max(0, top - pad)))
+    canvas.alpha_composite(mark, (left, top))
+    normalized = str(output_format or "png").lower()
+    output = io.BytesIO()
+    if normalized in {"jpg", "jpeg"}:
+        canvas.convert("RGB").save(output, "JPEG", quality=92)
+    elif normalized == "webp":
+        canvas.save(output, "WEBP", quality=92)
+    else:
+        canvas.save(output, "PNG")
+    return base64.b64encode(output.getvalue()).decode("ascii")
 
 
 def reserved_band_line():

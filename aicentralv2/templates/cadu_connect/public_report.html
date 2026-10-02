@@ -1,1 +1,72 @@
-{% extends 'cadu_portals/base.html' %}{% block title %}{{ report.campaign_name }}{% endblock %}{% block product_id %}connect{% endblock %}{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/connect-system.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/connect-public-report.css') }}">{% endblock %}{% block navigation %}{% endblock %}{% block content %}<main class="cr-public"><header><p>Relatório de campanha</p><h1>{{ report.campaign_name }}</h1><span>{{ report.document.project_name }}{% if report.document.brand_name %} · {{ report.document.brand_name }}{% endif %}</span></header><section><h2>Objetivo</h2><p>{{ report.document.objective or 'Objetivo não informado.' }}</p><h2>Metas</h2><p>{{ report.document.goals or 'Metas não informadas.' }}</p><h2>Contexto de gestão</h2><p>{{ report.document.management_notes or 'Sem observações públicas.' }}</p></section><footer>Versão {{ report.revision }} · Atualizado em {{ report.updated_at }}</footer></main>{% endblock %}
+{% extends 'cadu_portals/base.html' %}
+{% block title %}{{ report.campaign_name }}{% endblock %}
+{% block product_id %}connect{% endblock %}
+{% block meta %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/connect-system.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/connect-public-report.css') }}">{% endblock %}
+{% block navigation %}{% endblock %}
+{% macro money(value, code) %}{% if value is none or not code %}—{% else %}{{ 'R$' if code == 'BRL' else 'US$' if code == 'USD' else code }} {{ '{:,.2f}'.format(value).replace(',', 'X').replace('.', ',').replace('X', '.') }}{% endif %}{% endmacro %}
+{% macro br(day) %}{{ day[8:10] }}/{{ day[5:7] }}/{{ day[0:4] }}{% endmacro %}
+{% macro num(value) %}{% if value is none %}—{% else %}{{ '{:,.0f}'.format(value).replace(',', '.') }}{% endif %}{% endmacro %}
+{% macro pct(value) %}{% if value is none %}—{% else %}{{ ('%.1f' % value).replace('.', ',') }}%{% endif %}{% endmacro %}
+{% macro delta(now, before, inverse=false) %}{% if now is not none and before %}{% set change = (now - before) * 100 / before %}{% if change|abs >= 0.5 %}<small class="{{ 'is-good' if (change < 0 if inverse else change > 0) else 'is-bad' }}">{{ '▲' if change > 0 else '▼' }} {{ ('%.1f' % (change|abs)).replace('.', ',') }}%</small>{% else %}<small>estável</small>{% endif %}{% endif %}{% endmacro %}
+{% block content %}
+{% set doc = report.document or {} %}
+{% set results = snapshot.results if snapshot else none %}
+{% set journey = snapshot.journey if snapshot else none %}
+<main class="cr-public">
+  <header>
+    <p>{{ 'Relatório do fluxo' if doc.scope == 'flow' else 'Relatório de campanha' }}</p>
+    <h1>{{ report.campaign_name }}</h1>
+    <span>{% if doc.scope == 'flow' %}Fluxo {{ doc.flow_name }}{% else %}{{ doc.project_name }}{% if doc.brand_name %} · {{ doc.brand_name }}{% endif %}{% endif %}{% if results %} · {{ br(results.period.start) }} a {{ br(results.period.end) }}{% endif %}</span>
+  </header>
+
+  {% if results and results.totals %}{% set t = results.totals %}{% set p = results.previous or {} %}{% set cur = results.currency %}
+  <section class="cr-results">
+    <h2>Resultados</h2>
+    <dl class="cr-kpis">
+      <div><dt>Investimento</dt><dd>{{ money(t.cost, cur) }}</dd>{{ delta(t.cost, p.cost) }}</div>
+      <div><dt>Impressões</dt><dd>{{ num(t.impressions) }}</dd>{{ delta(t.impressions, p.impressions) }}</div>
+      <div><dt>Cliques</dt><dd>{{ num(t.clicks) }}</dd>{{ delta(t.clicks, p.clicks) }}</div>
+      <div><dt>CTR</dt><dd>{{ pct(t.ctr) }}</dd>{{ delta(t.ctr, p.ctr) }}</div>
+      <div><dt>Conversões</dt><dd>{{ num(t.conversions) }}</dd>{{ delta(t.conversions, p.conversions) }}</div>
+      {% if t.roas is not none %}<div><dt>ROAS</dt><dd>{{ ('%.2f' % t.roas).replace('.', ',') }}</dd>{{ delta(t.roas, p.roas) }}</div>
+      {% else %}<div><dt>CPA</dt><dd>{{ money(t.cpa, cur) }}</dd>{{ delta(t.cpa, p.cpa, true) }}</div>{% endif %}
+    </dl>
+    <p class="cr-note">Comparado ao período anterior de mesma duração ({{ br(results.period.previous_start) }} a {{ br(results.period.previous_end) }}).</p>
+
+    {% if journey and journey.entries is not none %}
+    <h2>Da mídia à conversão</h2>
+    {% set stages = [('Impressões', t.impressions, 'Mídia'), ('Cliques', t.clicks, 'Mídia'), ('Entradas no fluxo', journey.entries, 'Site'), ('Conversões do fluxo', journey.conversions, 'Site')] %}
+    {% set top = [t.impressions or 0, 1]|max %}
+    <ol class="cr-funnel">{% for label, value, source in stages %}
+      <li><span>{{ label }}<small>{{ source }}</small></span><span class="cr-bar"><i style="width: {{ [2, 100 * (value or 0) / top]|max }}%"></i></span><strong>{{ num(value) }}{% if not loop.first and stages[loop.index0 - 1][1] %}<small>{{ pct(100 * (value or 0) / stages[loop.index0 - 1][1]) }} da etapa anterior</small>{% endif %}</strong></li>
+    {% endfor %}</ol>
+    <dl class="cr-kpis cr-kpis--3">
+      <div><dt>Custo por entrada</dt><dd>{{ money(t.cost / journey.entries, cur) if journey.entries else '—' }}</dd></div>
+      <div><dt>Custo por conversão do fluxo</dt><dd>{{ money(t.cost / journey.conversions, cur) if journey.conversions else '—' }}</dd></div>
+      <div><dt>Clique → entrada</dt><dd>{{ pct(100 * journey.entries / t.clicks) if t.clicks else '—' }}</dd></div>
+    </dl>
+    {% if journey.steps %}<table class="cr-table"><thead><tr><th>Etapa</th><th>Sessões</th></tr></thead><tbody>{% for step in journey.steps %}<tr><td>{{ step.name }}</td><td>{{ num(step.sessions) }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+    {% endif %}
+
+    {% if results.campaigns %}
+    <h2>{{ 'Campanha' if results.campaigns|length == 1 else 'Campanhas' }}</h2>
+    <div class="cr-scroll"><table class="cr-table"><thead><tr><th>Campanha</th><th>Investimento</th><th>Cliques</th><th>CTR</th><th>Conversões</th><th>CPA</th></tr></thead><tbody>
+      {% for row in results.campaigns %}<tr><td>{{ row.name }}</td><td>{{ money(row.cost, cur) }}</td><td>{{ num(row.clicks) }}</td><td>{{ pct(row.ctr) }}</td><td>{{ num(row.conversions) }}</td><td>{{ money(row.cpa, cur) }}</td></tr>{% endfor %}
+    </tbody></table></div>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  <section>
+    <h2>Objetivo</h2><p>{{ doc.objective or 'Objetivo não informado.' }}</p>
+    <h2>Metas</h2><p>{{ doc.goals or 'Metas não informadas.' }}</p>
+    {% if doc.management_notes %}<h2>Contexto de gestão</h2><p>{{ doc.management_notes }}</p>{% endif %}
+  </section>
+
+  <footer>
+    Versão {{ report.revision }}{% if snapshot %} · publicada em {{ report.updated_at.strftime('%d/%m/%Y %H:%M') if report.updated_at and report.updated_at.strftime else report.updated_at }}{% else %} · atualizado em {{ report.updated_at }}{% endif %}
+    {% if versions|length > 1 %}<nav aria-label="Versões publicadas">Outras versões: {% for revision in versions %}{% if revision != report.revision %}<a href="?v={{ revision }}">v{{ revision }}</a>{% if revision == latest %} (atual){% endif %} {% endif %}{% endfor %}{% if report.revision != latest %}<a href="{{ request.path }}">ver a atual</a>{% endif %}</nav>{% endif %}
+  </footer>
+</main>
+{% endblock %}

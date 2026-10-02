@@ -116,6 +116,78 @@ def _redact_ai_text(value, limit):
     return re.sub(r'(?<!\w)\+?\d[\d\s().-]{7,}\d(?!\w)', '[redacted]', text)
 
 
+def _workspace_results(client_id, media_campaign_id, document):
+    """Media results of a report's campaigns (one campaign, or the campaigns feeding its flow) in the report period."""
+    ids = [media_campaign_id] if media_campaign_id else \
+        [item.get('id') for item in document.get('flow_campaigns') or [] if isinstance(item, dict)]
+    ids = [int(value) for value in ids if str(value or '').isdigit()]
+    try:
+        end = date.fromisoformat(document['end_date']) if document.get('end_date') else date.today() - timedelta(days=1)
+        start = date.fromisoformat(document['start_date']) if document.get('start_date') else end - timedelta(days=29)
+    except ValueError:
+        raise ValueError('Período do relatório inválido.')
+    end = min(end, date.today())
+    if start > end:
+        start = end
+    days = (end - start).days + 1
+    previous = (start - timedelta(days=days), start - timedelta(days=1))
+    period = {'start': start.isoformat(), 'end': end.isoformat(), 'previous_start': previous[0].isoformat(),
+              'previous_end': previous[1].isoformat(), 'defaulted': not (document.get('start_date') and document.get('end_date'))}
+    if not ids:
+        return {'period': period, 'currency': None, 'totals': None, 'previous': None, 'campaigns': [], 'daily': []}
+    sums = '''SUM(m.impressions)::bigint AS impressions,SUM(m.clicks)::bigint AS clicks,
+        SUM(m.cost_micros)::bigint AS cost_micros,SUM(m.conversions)::numeric AS conversions,
+        SUM(m.conversion_value_micros)::bigint AS value_micros'''
+    where = 'm.client_id=%s AND m.campaign_id = ANY(%s) AND m.metric_date BETWEEN %s AND %s'
+    scope = (client_id, ids)
+
+    def shape(row):
+        impressions, clicks = int(row.get('impressions') or 0), int(row.get('clicks') or 0)
+        cost = round((row.get('cost_micros') or 0) / 1e6, 2)
+        conversions = float(row.get('conversions') or 0)
+        value = round((row.get('value_micros') or 0) / 1e6, 2)
+        return {'impressions': impressions, 'clicks': clicks, 'cost': cost, 'conversions': round(conversions, 2),
+                'conversion_value': value, 'ctr': round(100 * clicks / impressions, 2) if impressions else None,
+                'cpc': round(cost / clicks, 2) if clicks else None, 'cpa': round(cost / conversions, 2) if conversions else None,
+                'roas': round(value / cost, 2) if cost and value else None}
+
+    totals = shape(_rows(f'SELECT {sums} FROM cadu_reports_campaign_daily_metrics m WHERE {where}', (*scope, start, end))[0])
+    before = shape(_rows(f'SELECT {sums} FROM cadu_reports_campaign_daily_metrics m WHERE {where}', (*scope, *previous))[0])
+    per_campaign = _rows(f'''SELECT c.id,c.name,c.external_id,c.status,a.platform,{sums}
+        FROM cadu_reports_campaigns c LEFT JOIN cadu_reports_accounts a ON a.id=c.account_id
+        LEFT JOIN cadu_reports_campaign_daily_metrics m ON m.campaign_id=c.id AND m.metric_date BETWEEN %s AND %s
+        WHERE c.client_id=%s AND c.id = ANY(%s) GROUP BY c.id,a.platform ORDER BY SUM(m.cost_micros) DESC NULLS LAST''',
+        (start, end, *scope))
+    daily = _rows(f'''SELECT m.metric_date AS date,{sums} FROM cadu_reports_campaign_daily_metrics m WHERE {where}
+        GROUP BY m.metric_date ORDER BY m.metric_date''', (*scope, start, end))
+    currencies = _rows('''SELECT DISTINCT COALESCE(a.currency,'') AS currency FROM cadu_reports_campaigns c
+        JOIN cadu_reports_accounts a ON a.id=c.account_id WHERE c.client_id=%s AND c.id = ANY(%s)''', scope)
+    codes = {row['currency'] for row in currencies if row['currency']}
+    # Accounts without a currency are read as BRL; mixed currencies return null so costs are not added up wrongly.
+    currency = codes.pop() if len(codes) == 1 else 'BRL' if not codes else None
+    return {'period': period, 'currency': currency, 'totals': totals, 'previous': before,
+            'campaigns': [{'id': row['id'], 'name': row['name'], 'external_id': row['external_id'], 'status': row['status'],
+                           'platform': row['platform'] or '', **shape(row)} for row in per_campaign],
+            'daily': [{'date': row['date'].isoformat(), **shape(row)} for row in daily]}
+
+
+def _published_ready():
+    return _column_exists('cadu_connect_report_workspaces', 'published_revision')
+
+
+def _journey_summary(value):
+    """Flow journey numbers sent with a publication: only counts and step names, nothing personal."""
+    if not isinstance(value, dict):
+        return None
+    def count(item):
+        return int(item) if isinstance(item, (int, float)) and not isinstance(item, bool) and 0 <= item < 10**12 else None
+    funnel = value.get('funnel') if isinstance(value.get('funnel'), dict) else {}
+    steps = [{'name': str(step.get('name') or '')[:120], 'sessions': count(step.get('sessions'))}
+             for step in (value.get('steps') or [])[:40] if isinstance(step, dict)]
+    return {'entries': count(funnel.get('entries')), 'conversions': count(funnel.get('conversions')),
+            'steps': [step for step in steps if step['name'] and step['sessions'] is not None]}
+
+
 def register(bp):
     @bp.get('/public/link-tests/<token>')
     def reports_v1_public_link_test(token):
@@ -204,8 +276,10 @@ def register(bp):
         published_sql = ('''EXISTS (SELECT 1 FROM cadu_connect_report_public_links l WHERE l.report_id=w.id
                 AND l.revoked_at IS NULL AND (l.expires_at IS NULL OR l.expires_at > NOW()))''' if links_ready else 'FALSE')
         reports = (_rows(f'''SELECT w.id,w.campaign_name,w.project_ref,w.account_id,w.media_campaign_id,
-                w.document->>'flow_id' AS flow_id,w.document->>'flow_name' AS flow_name,w.revision,w.updated_at,{published_sql} AS published FROM cadu_connect_report_workspaces w
-                WHERE w.client_id=%s ORDER BY w.updated_at DESC LIMIT 60''', params)
+                w.document->>'flow_id' AS flow_id,w.document->>'flow_name' AS flow_name,w.revision,
+                {'w.pinned,w.published_revision,' if _published_ready() else 'FALSE AS pinned,NULL::int AS published_revision,'}
+                {'(SELECT l.expires_at FROM cadu_connect_report_public_links l WHERE l.report_id=w.id AND l.revoked_at IS NULL) AS link_expires_at,' if links_ready else 'NULL AS link_expires_at,'},w.updated_at,{published_sql} AS published FROM cadu_connect_report_workspaces w
+                WHERE w.client_id=%s ORDER BY {'w.pinned DESC,' if _published_ready() else ''}w.updated_at DESC LIMIT 60''', params)
             if reports_ready else [])
         link_tests_ready = _rows("SELECT to_regclass('public.cadu_reports_link_test_runs') IS NOT NULL AS ready")[0]['ready']
         link_tests = (_rows('''SELECT r.id,r.mode,r.original_url,r.final_url,r.score,r.status_label,r.public_token,
@@ -578,18 +652,34 @@ def register(bp):
             WHERE id=%s AND client_id=%s''', params)
         if not found:
             abort(404)
-        versions = _rows('''SELECT revision,note,created_by,created_at
+        ready = _published_ready()
+        versions = _rows(f'''SELECT revision,note,created_by,created_at{',published_at' if ready else ''}
             FROM cadu_connect_report_workspace_versions WHERE report_id=%s
             ORDER BY revision DESC LIMIT 30''', (report_id,))
+        extra = _rows('SELECT published_revision,pinned FROM cadu_connect_report_workspaces WHERE id=%s', (report_id,))[0] if ready else {}
+        found[0].update(published_revision=extra.get('published_revision'), pinned=bool(extra.get('pinned')))
         sources = _rows('''SELECT id,original_name,supplier,period_start,period_end,status,created_at
             FROM cadu_connect_report_sources WHERE report_id=%s
             ORDER BY created_at DESC LIMIT 100''', (report_id,))
-        published = _rows('''SELECT token,expires_at,created_at
+        published = _rows(f'''SELECT token,expires_at,created_at{',password_hash IS NOT NULL AS protected' if ready else ''}
             FROM cadu_connect_report_public_links
             WHERE report_id=%s AND revoked_at IS NULL
                 AND (expires_at IS NULL OR expires_at > NOW())''', (report_id,))
         return jsonify(report=found[0], versions=versions, sources=sources,
                        public_link=published[0] if published else None)
+
+    @bp.get('/api/v2/reports/workspaces/<int:report_id>/results')
+    @login_required_api
+    def reports_v1_workspace_results(report_id):
+        selected = _selection()
+        found = _rows('''SELECT media_campaign_id,document FROM cadu_connect_report_workspaces
+            WHERE id=%s AND client_id=%s''', (report_id, selected['client_id']))
+        if not found:
+            abort(404)
+        try:
+            return jsonify(_workspace_results(selected['client_id'], found[0]['media_campaign_id'], found[0]['document'] or {}))
+        except ValueError as exc:
+            abort(400, description=str(exc))
 
     @bp.post('/api/v2/reports/workspaces/<int:report_id>/plan')
     @login_required_api
@@ -712,6 +802,7 @@ def register(bp):
     @bp.post('/api/v2/reports/workspaces/<int:report_id>/publish')
     @login_required_api
     def reports_v1_publish_workspace(report_id):
+        """Publishes the current revision: freezes document + results, keeps the main link and its token."""
         payload = request.get_json(silent=True)
         if not isinstance(payload, dict):
             abort(400)
@@ -723,20 +814,68 @@ def register(bp):
             abort(400, description='Prazo inválido.')
         if days not in (0, 7, 30, 90):
             abort(400, description='Prazo inválido.')
-        if not _rows('''SELECT id FROM cadu_connect_report_workspaces
-            WHERE id=%s AND client_id=%s''',
-            (report_id, selected['client_id'])):
+        password = payload.get('password')
+        if password is not None and (not isinstance(password, str) or (password and not 6 <= len(password) <= 128)):
+            abort(400, description='A senha deve ter de 6 a 128 caracteres.')
+        report = _rows('''SELECT id,media_campaign_id,document,revision FROM cadu_connect_report_workspaces
+            WHERE id=%s AND client_id=%s FOR UPDATE''', (report_id, selected['client_id']))
+        if not report:
             abort(404)
-        token = secrets.token_urlsafe(32)
+        report = report[0]
         expires = None if days == 0 else datetime.now(timezone.utc) + timedelta(days=days)
-        _rows('''INSERT INTO cadu_connect_report_public_links
-            (report_id,token,expires_at,created_by,revoked_at)
-            VALUES (%s,%s,%s,%s,NULL)
-            ON CONFLICT (report_id) DO UPDATE SET token=EXCLUDED.token,
-                expires_at=EXCLUDED.expires_at,created_by=EXCLUDED.created_by,revoked_at=NULL
-            RETURNING report_id''', (report_id, token, expires, session['user_id']))
+        current = _rows('SELECT token,revoked_at FROM cadu_connect_report_public_links WHERE report_id=%s', (report_id,))
+        # The main link keeps its address across publications; a revoked one gets a new token.
+        token = current[0]['token'] if current and current[0]['revoked_at'] is None else secrets.token_urlsafe(32)
+        if _published_ready():
+            document = report['document'] or {}
+            try:
+                results = _workspace_results(selected['client_id'], report['media_campaign_id'], document)
+            except ValueError as exc:
+                abort(400, description=str(exc))
+            snapshot = {'document': document, 'results': results, 'journey': _journey_summary(payload.get('journey')),
+                        'published_at': datetime.now(timezone.utc).isoformat()}
+            frozen = json.dumps(snapshot, default=str)
+            if not _rows('''UPDATE cadu_connect_report_workspace_versions SET snapshot=%s::jsonb,published_at=NOW(),published_by=%s
+                WHERE report_id=%s AND revision=%s RETURNING revision''', (frozen, session['user_id'], report_id, report['revision'])):
+                _rows('''INSERT INTO cadu_connect_report_workspace_versions
+                    (report_id,revision,document,note,created_by,snapshot,published_at,published_by)
+                    VALUES (%s,%s,%s::jsonb,%s,%s,%s::jsonb,NOW(),%s) RETURNING revision''',
+                      (report_id, report['revision'], json.dumps(report['document'] or {}), 'Versão publicada.',
+                       session['user_id'], frozen, session['user_id']))
+            _rows('UPDATE cadu_connect_report_workspaces SET published_revision=%s WHERE id=%s RETURNING id', (report['revision'], report_id))
+            from werkzeug.security import generate_password_hash
+            # None keeps the current password, '' removes it, a value replaces it.
+            password_sql = '' if password is None else ',password_hash=EXCLUDED.password_hash'
+            _rows(f'''INSERT INTO cadu_connect_report_public_links (report_id,token,expires_at,created_by,revoked_at,password_hash)
+                VALUES (%s,%s,%s,%s,NULL,%s)
+                ON CONFLICT (report_id) DO UPDATE SET token=EXCLUDED.token,expires_at=EXCLUDED.expires_at,
+                    created_by=EXCLUDED.created_by,revoked_at=NULL{password_sql}
+                RETURNING report_id''', (report_id, token, expires, session['user_id'],
+                                           generate_password_hash(password) if password else None))
+        else:
+            _rows('''INSERT INTO cadu_connect_report_public_links (report_id,token,expires_at,created_by,revoked_at)
+                VALUES (%s,%s,%s,%s,NULL)
+                ON CONFLICT (report_id) DO UPDATE SET token=EXCLUDED.token,expires_at=EXCLUDED.expires_at,
+                    created_by=EXCLUDED.created_by,revoked_at=NULL
+                RETURNING report_id''', (report_id, token, expires, session['user_id']))
         get_db().commit()
-        return jsonify(public_url=f'/connect/r/{token}', expires_at=expires)
+        return jsonify(public_url=f'/connect/r/{token}', expires_at=expires, revision=report['revision'])
+
+    @bp.post('/api/v2/reports/workspaces/<int:report_id>/pin')
+    @login_required_api
+    def reports_v1_pin_workspace(report_id):
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict) or not isinstance(payload.get('pinned'), bool):
+            abort(400)
+        selected = _selection(payload)
+        _write_guard(selected)
+        if not _published_ready():
+            abort(503, description='Aplique add_reports_published_versions_v1.sql.')
+        if not _rows('''UPDATE cadu_connect_report_workspaces SET pinned=%s WHERE id=%s AND client_id=%s RETURNING id''',
+                     (payload['pinned'], report_id, selected['client_id'])):
+            abort(404)
+        get_db().commit()
+        return jsonify(pinned=payload['pinned'])
 
     @bp.post('/api/v2/reports/workspaces/<int:report_id>/unpublish')
     @login_required_api

@@ -41,11 +41,40 @@ def register(bp, rows):
         get_db().commit()
         return redirect(url_for('cadu_connect.report_library', report_id=report_id, revoked=1))
 
-    @bp.get('/r/<token>')
+    @bp.route('/r/<token>', methods=['GET', 'POST'])
     def public_report(token):
+        """Main link shows the latest published version; ?v=N shows an older published one. Optional password."""
         if not token or len(token) > 96: abort(404)
-        found = rows('''SELECT w.campaign_name,w.revision,w.updated_at,w.document,l.expires_at
+        frozen = bool(rows("""SELECT 1 FROM information_schema.columns WHERE table_schema='public'
+            AND table_name='cadu_connect_report_workspaces' AND column_name='published_revision'"""))
+        found = rows(f'''SELECT w.id,w.campaign_name,w.revision,w.updated_at,w.document,l.expires_at
+                {',w.published_revision,l.password_hash' if frozen else ''}
             FROM cadu_connect_report_public_links l JOIN cadu_connect_report_workspaces w ON w.id=l.report_id
             WHERE l.token=%s AND l.revoked_at IS NULL AND (l.expires_at IS NULL OR l.expires_at > NOW())''', (token,))
         if not found: abort(404)
-        return render_template('cadu_connect/public_report.html', report=found[0]), 200, {'Cache-Control': 'private, no-store'}
+        report = dict(found[0])
+        headers = {'Cache-Control': 'private, no-store', 'X-Robots-Tag': 'noindex'}
+        if frozen and report.get('password_hash'):
+            from werkzeug.security import check_password_hash
+            granted = session.setdefault('report_links', [])
+            if token not in granted:
+                error = ''
+                if request.method == 'POST':
+                    if check_password_hash(report['password_hash'], request.form.get('password', '')):
+                        session['report_links'] = [*granted[-19:], token]
+                        return redirect(request.full_path.rstrip('?'))
+                    error = 'Senha incorreta.'
+                return render_template('cadu_connect/public_report_password.html', title=report['campaign_name'], error=error), 200 if not error else 401, headers
+        snapshot, versions = None, []
+        if frozen and report.get('published_revision'):
+            versions = [row['revision'] for row in rows('''SELECT revision FROM cadu_connect_report_workspace_versions
+                WHERE report_id=%s AND published_at IS NOT NULL ORDER BY revision DESC LIMIT 30''', (report['id'],))]
+            wanted = request.args.get('v', type=int) or report['published_revision']
+            if wanted not in versions: abort(404)
+            version = rows('''SELECT revision,snapshot,published_at FROM cadu_connect_report_workspace_versions
+                WHERE report_id=%s AND revision=%s''', (report['id'], wanted))[0]
+            snapshot = version['snapshot'] or {}
+            report.update(document=snapshot.get('document') or report['document'], revision=version['revision'],
+                          updated_at=version['published_at'])
+        return render_template('cadu_connect/public_report.html', report=report, snapshot=snapshot, versions=versions,
+                               latest=report.get('published_revision'), token=token), 200, headers

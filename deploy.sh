@@ -356,6 +356,7 @@ fi
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_visual_runs_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_projection_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_projection_decisions_v1.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_published_versions_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_range_snapshots_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_custom_values_v1.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_custom_dimensions_v1.sql

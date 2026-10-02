@@ -8,12 +8,13 @@ import {ReportsNativeSelect} from './ReportsNativeSelect.jsx';
 import {ReportsTextArea} from './ReportsTextArea.jsx';
 import {Alert, Callout, Card, DateField, DrawerActions, EmptyNote} from './ReportsBlocks.jsx';
 import {json, shortDate} from './reportsCommon.jsx';
+import {ReportResults} from './ReportResults.jsx';
 import {createFromGoogle, loadUnlinkedGoogleCampaigns} from './GoogleCampaignLinks.jsx';
 
 const API = '/connect/api/v2/reports';
 const EMPTY_METRIC = {name: '', raw: '', unit: 'count', definition: '', scope: '', evidence: ''};
 const UNITS = [['count', 'Quantidade'], ['BRL', 'R$'], ['USD', 'US$'], ['percent', '%'], ['seconds', 'Segundos']];
-const KINDS = [['all', 'Todos'], ['published', 'Publicados'], ['draft', 'Em edição']];
+const KINDS = [['all', 'Todos'], ['pinned', 'Principais'], ['published', 'Publicados'], ['draft', 'Em edição']];
 
 /** Saved reports: a library of cards, then one report with document, sources, assistant and publication. */
 export function ReportsLibrary({data, save, busy}) {
@@ -41,8 +42,8 @@ function Library({data, onOpen, onCreate}) {
   const term = query.trim().toLocaleLowerCase();
   const visible = data.reports.filter(item => (!term || `${item.campaign_name} ${item.project_ref || ''}`.toLocaleLowerCase().includes(term))
     && (!campaign || (campaign === 'none' ? !item.media_campaign_id && !item.flow_id : campaign.startsWith('flow:') ? item.flow_id === campaign.slice(5) : String(item.media_campaign_id) === campaign))
-    && (kind === 'all' || (kind === 'published') === Boolean(item.published)));
-  const counts = {all: data.reports.length, published: data.reports.filter(item => item.published).length, draft: data.reports.filter(item => !item.published).length};
+    && (kind === 'all' || (kind === 'pinned' ? item.pinned : (kind === 'published') === Boolean(item.published))));
+  const counts = {all: data.reports.length, pinned: data.reports.filter(item => item.pinned).length, published: data.reports.filter(item => item.published).length, draft: data.reports.filter(item => !item.published).length};
   const campaignName = id => data.campaigns.find(item => String(item.id) === String(id))?.name;
   const flows = [...new Map(data.reports.filter(item => item.flow_id).map(item => [item.flow_id, item.flow_name])).entries()];
   const scopeLabel = item => item.flow_id ? `Fluxo · ${item.flow_name || 'sem nome'}` : campaignName(item.media_campaign_id) || 'Sem campanha';
@@ -64,7 +65,7 @@ function Library({data, onOpen, onCreate}) {
       className="flex flex-col gap-2 rounded-xl bg-primary p-5 text-left shadow-xs ring-1 ring-secondary transition duration-100 ring-inset hover:bg-primary_hover hover:ring-primary">
       <div className="flex items-center justify-between gap-2">
         <BadgeWithDot type="pill-color" size="sm" color={item.published ? 'success' : 'gray'}>{item.published ? 'Publicado' : 'Em edição'}</BadgeWithDot>
-        <span className="text-xs text-tertiary">v{item.revision}</span>
+        <span className="text-xs text-tertiary">{item.pinned ? '★ ' : ''}v{item.revision}{item.published && item.published_revision && item.revision > item.published_revision ? ` · publicada v${item.published_revision}` : ''}</span>
       </div>
       <h3 className="text-md font-semibold text-primary">{item.campaign_name}</h3>
       <p className="text-sm text-tertiary">{scopeLabel(item)}{item.project_ref ? ' · com projeto' : ''}</p>
@@ -121,44 +122,20 @@ function CreateDrawer({open, data, save, busy, onClose}) {
   </ReportsDrawer>;
 }
 
-/** Flow-scoped report: the journey of the flow in the report period, plus the media feeding it. */
-function FlowJourneyCard({document}) {
-  const [state, setState] = useState({loading: true});
-  const params = new URLSearchParams(document.start_date && document.end_date ? {start_date: document.start_date, end_date: document.end_date} : {days: '30'});
-  useEffect(() => {
-    let live = true;
-    json(`${API}/flow/flows/${document.flow_id}/journey?${params}`).then(body => live && setState({body})).catch(failure => live && setState({error: failure.message}));
-    return () => {live = false;};
-  }, [document.flow_id, document.start_date, document.end_date]);
-  const body = state.body;
-  const labels = Object.fromEntries((body?.config?.nodes || []).map(node => [node.id, node.title || node.label || node.name || node.id]));
-  const steps = (body?.nodes || []).filter(node => node.sessions != null);
-  const pct = value => value == null ? '—' : `${value.toLocaleString('pt-BR')}%`;
-  return <Card title={`Jornada · ${document.flow_name}`} description={`${body?.scope ? `${shortDate(body.scope.from)} – ${shortDate(body.scope.to)}` : 'Últimos 30 dias'} · Super Tag do fluxo. Mídia: ${(document.flow_campaigns || []).map(item => item.name).join(', ') || 'nenhuma campanha ligada ao fluxo'}.`}>
-    {state.loading ? <p className="text-sm text-tertiary">Carregando a jornada…</p>
-      : state.error ? <Alert>{state.error}</Alert>
-      : body.status !== 'ready' ? <EmptyNote title="Jornada indisponível">Publique o fluxo para medir a jornada.</EmptyNote>
-      : <div className="flex flex-col gap-4">
-        <dl className="grid gap-px overflow-hidden rounded-lg bg-border-secondary ring-1 ring-secondary sm:grid-cols-3">
-          {[['Entradas', body.funnel?.entries], ['Conversões', body.funnel?.conversions], ['Taxa', pct(body.funnel?.rate)]].map(([term, value]) =>
-            <div key={term} className="bg-primary px-4 py-3"><dt className="text-sm text-tertiary">{term}</dt><dd className="text-xl font-semibold text-primary tabular-nums">{typeof value === 'number' ? value.toLocaleString('pt-BR') : value ?? '—'}</dd></div>)}
-        </dl>
-        {steps.length ? <table className="w-full text-sm"><thead><tr><th className="py-2 text-left font-medium text-tertiary">Etapa</th><th className="py-2 text-right font-medium text-tertiary">Sessões</th></tr></thead>
-          <tbody>{steps.map(node => <tr key={node.id} className="border-t border-secondary"><td className="py-2 text-primary">{labels[node.id]}</td><td className="py-2 text-right tabular-nums">{node.sessions.toLocaleString('pt-BR')}</td></tr>)}</tbody></table>
-          : <p className="text-sm text-tertiary">{body.collection?.status === 'no_data' ? 'Nenhum evento da Super Tag no período.' : 'Nenhuma etapa medida.'}</p>}
-      </div>}
-  </Card>;
-}
-
 function ReportDetail({data, save, busy, detail, refresh, onBack, setError}) {
   const viewer = data.client.role === 'viewer';
   const [draft, setDraft] = useState(detail.report.document || {});
   const [note, setNote] = useState('');
   const [expiresDays, setExpiresDays] = useState('30');
+  const [password, setPassword] = useState('');
+  const [protect, setProtect] = useState(false);
+  const [journey, setJourney] = useState(null);
+  const [copied, setCopied] = useState(false);
   const [plan, setPlan] = useState(null);
   const [planning, setPlanning] = useState(false);
   const [reviewSource, setReviewSource] = useState(null);
   useEffect(() => {setDraft(detail.report.document || {});}, [detail.report.revision]);
+  useEffect(() => {setProtect(Boolean(detail.public_link?.protected));}, [detail.public_link?.protected]);
   const edit = (field, value) => {setDraft(current => ({...current, [field]: value})); if (field === 'objective' || field === 'goals') setPlan(null);};
   const run = async action => {try {await action(); setError('');} catch (failure) {setError(failure.message);}};
   const update = event => {
@@ -178,7 +155,17 @@ function ReportDetail({data, save, busy, detail, refresh, onBack, setError}) {
     setDraft(current => ({...current, management_notes: [current.management_notes, addition].filter(Boolean).join('\n\n')}));
     setPlan(null);
   };
-  const publish = () => run(async () => {await save(`/workspaces/${detail.report.id}/publish`, {expires_days: Number(expiresDays)}, false); await refresh();});
+  // Password: undefined keeps the current one, '' removes it, a value replaces it.
+  const publish = () => run(async () => {
+    const secret = protect ? (password || undefined) : (detail.public_link?.protected ? '' : undefined);
+    await save(`/workspaces/${detail.report.id}/publish`, {expires_days: Number(expiresDays), password: secret, journey}, false);
+    setPassword(''); await refresh();
+  });
+  const pin = () => run(async () => {await save(`/workspaces/${detail.report.id}/pin`, {pinned: !detail.report.pinned}); await refresh();});
+  const publicUrl = token => `${location.origin}/connect/r/${token}`;
+  const copyLink = async () => {try {await navigator.clipboard.writeText(publicUrl(detail.public_link.token)); setCopied(true); setTimeout(() => setCopied(false), 2000);} catch {setCopied(false);}};
+  const publishedRevision = detail.report.published_revision;
+  const pending = publishedRevision ? detail.report.revision > publishedRevision : true;
   const unpublish = () => run(async () => {await save(`/workspaces/${detail.report.id}/unpublish`, {}, false); await refresh();});
   const link = detail.public_link;
 
@@ -190,11 +177,14 @@ function ReportDetail({data, save, busy, detail, refresh, onBack, setError}) {
           <BadgeWithDot type="pill-color" size="sm" color={link ? 'success' : 'gray'}>{link ? 'Publicado' : 'Privado'}</BadgeWithDot></div>
         <p className="mt-0.5 text-sm text-tertiary">Versão {detail.report.revision} · atualizado em {shortDate(detail.report.updated_at)} · {detail.sources.length} {detail.sources.length === 1 ? 'fonte' : 'fontes'}</p>
       </div>
-      {link && <Button size="md" color="secondary" href={`/connect/r/${link.token}`} target="_blank" rel="noopener noreferrer" iconTrailing={ArrowUpRight}>Abrir link público</Button>}
+      <div className="flex flex-wrap gap-2">
+        {!viewer && <Button size="md" color={detail.report.pinned ? 'secondary' : 'tertiary'} isDisabled={busy} onPress={pin}>{detail.report.pinned ? '★ Principal' : '☆ Marcar como principal'}</Button>}
+        {link && <Button size="md" color="secondary" href={`/connect/r/${link.token}`} target="_blank" rel="noopener noreferrer" iconTrailing={ArrowUpRight}>Abrir link público</Button>}
+      </div>
     </section>
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
       <div className="flex min-w-0 flex-col gap-6">
-        {detail.report.document?.scope === 'flow' && <FlowJourneyCard document={detail.report.document}/>}
+        <ReportResults report={detail.report} onJourney={setJourney}/>
         <Card title="Documento" description="O que o relatório comunica. Cada atualização vira uma versão.">
           <form className="flex flex-col gap-5" onSubmit={update}>
             <ReportsTextArea label="Objetivo" disabled={viewer} maxLength={2000} rows={3} value={draft.objective || ''} onChange={event => edit('objective', event.target.value)}/>
@@ -222,19 +212,34 @@ function ReportDetail({data, save, busy, detail, refresh, onBack, setError}) {
             <Button className="mt-3" size="sm" color="link-color" onPress={incorporate}>Incorporar às notas</Button>
           </Callout></div>}
         </Card>
-        <Card title="Publicação" badge={<Badge type="pill-color" size="sm" color={link ? 'success' : 'gray'}>{link ? 'Link ativo' : 'Privado'}</Badge>}>
-          {link ? <div className="flex flex-col gap-3">
-            <p className="text-sm text-secondary">{link.expires_at ? `Disponível até ${shortDate(link.expires_at)}.` : 'Disponível sem data de expiração.'}</p>
-            {!viewer && <Button size="sm" color="secondary-destructive" isDisabled={busy} onPress={unpublish}>Revogar link</Button>}
-          </div> : viewer ? <p className="text-sm text-tertiary">Ainda não publicado.</p> : <div className="flex items-end gap-3">
-            <div className="flex-1"><ReportsNativeSelect label="Validade do link" value={expiresDays} onChange={event => setExpiresDays(event.target.value)}>
-              <option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option><option value="0">Sem expiração</option>
-            </ReportsNativeSelect></div>
-            <Button size="md" color="primary" isDisabled={busy} onPress={publish}>Publicar</Button>
-          </div>}
+        <Card title="Publicação" badge={<Badge type="pill-color" size="sm" color={link ? (pending ? 'warning' : 'success') : 'gray'}>{link ? (pending ? 'Alterações não publicadas' : `v${publishedRevision} publicada`) : 'Privado'}</Badge>}
+          description={link ? 'O link principal mostra sempre a última versão publicada. Editar não muda o que o cliente vê até publicar de novo.' : 'Publicar congela esta versão, com os resultados do período, num link para o cliente.'}>
+          <div className="flex flex-col gap-4">
+            {link && <div className="flex flex-col gap-2 rounded-lg bg-secondary_subtle p-3 ring-1 ring-secondary ring-inset">
+              <span className="text-xs font-medium text-tertiary">Link principal{link.protected ? ' · protegido por senha' : ''}</span>
+              <code className="truncate text-xs text-secondary">{publicUrl(link.token)}</code>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" color="secondary" onPress={copyLink}>{copied ? 'Copiado' : 'Copiar link'}</Button>
+                <Button size="sm" color="tertiary" href={`/connect/r/${link.token}`} target="_blank" rel="noopener noreferrer" iconTrailing={ArrowUpRight}>Abrir</Button>
+              </div>
+              <span className="text-xs text-tertiary">{link.expires_at ? `Disponível até ${shortDate(link.expires_at)}.` : 'Sem data de expiração.'}</span>
+            </div>}
+            {!viewer && <>
+              <ReportsNativeSelect label="Validade do link" value={expiresDays} onChange={event => setExpiresDays(event.target.value)}>
+                <option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option><option value="0">Sem expiração</option>
+              </ReportsNativeSelect>
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-secondary"><input type="checkbox" className="size-4 accent-brand-600" checked={protect} onChange={event => setProtect(event.target.checked)}/>Proteger com senha</label>
+              {protect && <ReportsFieldInput label={link?.protected ? 'Nova senha (deixe vazio para manter)' : 'Senha'} type="password" minLength={6} maxLength={128} value={password} onChange={event => setPassword(event.target.value)} hint="Envie a senha ao cliente por outro canal."/>}
+              <Button size="md" color="primary" isDisabled={busy || (protect && !link?.protected && password.length < 6) || (Boolean(password) && password.length < 6)} onPress={publish}>
+                {!link ? `Publicar v${detail.report.revision}` : pending ? `Publicar v${detail.report.revision}` : 'Atualizar validade e senha'}</Button>
+              {link && <Button size="sm" color="secondary-destructive" isDisabled={busy} onPress={unpublish}>Revogar link</Button>}
+            </>}
+            {viewer && !link && <p className="text-sm text-tertiary">Ainda não publicado.</p>}
+          </div>
           <h3 className="mt-5 border-t border-secondary pt-4 text-sm font-semibold text-primary">Versões</h3>
           <ol className="mt-2 flex max-h-64 flex-col gap-2 overflow-y-auto">{detail.versions.map(item => <li key={item.revision} className="text-sm text-secondary">
-            <span className="font-medium text-primary">v{item.revision}</span> · {item.note} <span className="text-xs text-tertiary">· {shortDate(item.created_at)}</span>
+            <span className="font-medium text-primary">v{item.revision}</span>{item.published_at && <span className="ml-1 rounded bg-success-primary px-1.5 text-xs text-success-primary">publicada</span>} · {item.note} <span className="text-xs text-tertiary">· {shortDate(item.created_at)}</span>
+            {item.published_at && link && <a className="ml-1 text-xs font-semibold text-brand-secondary hover:underline" href={`/connect/r/${link.token}?v=${item.revision}`} target="_blank" rel="noopener noreferrer">abrir</a>}
           </li>)}{!detail.versions.length && <li className="text-sm text-tertiary">Nenhuma versão anterior.</li>}</ol>
         </Card>
       </aside>

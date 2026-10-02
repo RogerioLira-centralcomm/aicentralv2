@@ -8549,6 +8549,12 @@ def update_brand_identity(brand_id):
     if not existing_brand:
         abort(404)
     data = _workspace_brand_form()
+    if 'fonts' in data['profile']:
+        # The form only knows family names; keep font files uploaded from Workspace or Studio.
+        from ..creative_media.brand_fonts import keep_font_files
+        data['profile']['fonts'] = keep_font_files(
+            data['profile']['fonts'], (existing_brand.get('brand_profile') or {}).get('fonts'),
+        )
     # Visual identity is evidence-driven. This administrative endpoint never
     # accepts palette changes, even if a caller submits hidden/manual fields.
     data['primary_color'] = existing_brand.get('primary_color')
@@ -8614,6 +8620,31 @@ def upload_brand_assets(brand_id):
     except Exception:
         current_app.logger.exception('Não foi possível enviar ativos para a marca %s', brand_id)
         abort(503, description='Não foi possível enviar os ativos agora. Tente novamente.')
+    return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id), code=303)
+
+
+@bp.post('/workspace/app/marcas/<int:brand_id>/fontes')
+@login_required
+def upload_brand_font(brand_id):
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    _workspace_team_admin()
+    client_id = int(session.get('cliente_id') or 0)
+    if not _workspace_brand(client_id, brand_id):
+        abort(404)
+    upload = request.files.get('font')
+    if not upload or not upload.filename:
+        abort(400, description='Escolha o arquivo da fonte.')
+    try:
+        from ..creative_media.brand_fonts import save_brand_font
+        saved = save_brand_font(brand_id, upload, request.form.get('role') or 'display')
+    except ValueError as exc:
+        abort(400, description=str(exc))
+    except Exception:
+        current_app.logger.exception('Não foi possível enviar a fonte da marca %s', brand_id)
+        abort(503, description='Não foi possível enviar a fonte agora. Tente novamente.')
+    if request.accept_mimetypes.best == 'application/json':
+        return jsonify({'ok': True, 'font': saved})
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id), code=303)
 
 

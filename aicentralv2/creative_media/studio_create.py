@@ -668,7 +668,11 @@ def create_image(payload, modeling, client_id, user_id):
     from .size_plan import plan as size_plan
     sizing = size_plan(width, height, provider_quality) if width and height else None
     provider_size = sizing["generation"] if sizing else provider_canvas(aspect_ratio)
-    layout_lines = composition_layout_lines(references, mask, provider_size)
+    # Banners beyond 3:1 get the visual from the model and the typography from the Studio.
+    from .banner_compose import extract_copy
+    copy_headline, copy_cta = extract_copy(data.get("original_prompt") or prompt)
+    composed = bool(sizing and sizing["strategy"] == "composed" and not mask and mask_specs(raw_references) and copy_headline)
+    layout_lines = composition_layout_lines(references, mask, provider_size, composed)
     product_visibility_line = (
         "PRODUCT VISIBILITY CHECK: If the briefing requests a product, make it a deliberate, recognizable foreground subject with enough scale and light to be clearly visible. Do not hide it behind hands, bodies, crops or depth-of-field blur. If bottles or packages are requested, show the requested quantity visibly and keep their labels facing the camera when the briefing asks for labels."
         if re.search(r"produto|product|embalag|garraf|frasco|bottle|package|pote\b|caixa", prompt, re.IGNORECASE) else ""
@@ -682,6 +686,7 @@ def create_image(payload, modeling, client_id, user_id):
         if visual_reference else ""
     )
     technical_prompt = "\n".join(line for line in [
+        *(["TEXT-FREE IMAGE (overrides every other instruction about copy): this image must contain no words, letters, numbers, buttons or logos. Ignore any request below to render a headline, CTA or brand name: the Studio typesets them afterwards."] if composed else []),
         *layout_lines,
         crop_safe_zone_line(aspect_ratio, width, height, provider_size),
         reserved_band_line(),
@@ -706,7 +711,7 @@ def create_image(payload, modeling, client_id, user_id):
         f"Output aspect ratio: {aspect_ratio}.",
         *([f"FINAL LOGO CHECK: the image must contain no logo, wordmark, monogram or brand name of any company; the {logo_corner.replace('-', ' ')} corner stays plain background."] if logo_corner else []),
         *(["FINAL LOGO CHECK: this composition has no logo; the image must contain no logo, wordmark, monogram or brand name."] if logo_free else []),
-        *([final_layout_check(references, provider_size)] if layout_lines else []),
+        *([final_layout_check(references, provider_size, composed)] if layout_lines else []),
     ] if line)
     provider_references = provider_image_references(references_with_provider_masks(references, provider_size), mask)
     def render(prompt_text):
@@ -748,12 +753,24 @@ def create_image(payload, modeling, client_id, user_id):
         if edges:
             logger.info("Studio margin check failed edges=%s; regenerating once", ",".join(edges))
             provider, encoded, output_format = render(technical_prompt + "\n" + margin_correction(edges, safe))
+    layers = None
     try:
         if brand_logo and not mask:
             encoded = apply_brand_logo(encoded, output_format, brand_logo, logo_corner, rect=next((spec["zones"]["logo"] for spec in mask_specs(raw_references) if "logo" in spec["zones"]), None))
+        base_encoded = encoded
+        if composed:
+            from . import banner_compose
+            palette = clean_palette(data.get("requested_palette")) or list((data.get("brand_context") or {}).get("palette") or [])
+            image, layers = banner_compose.render_text_layers(
+                banner_compose.decode(encoded), mask_specs(raw_references)[0], copy_headline, copy_cta,
+                data.get("brand_context") or {}, palette,
+            )
+            encoded, output_format = banner_compose.encode(image, "png"), "png"
         image_url = modeling.storage.save_generated_base64(
             encoded, output_format
         )
+        if layers is not None:
+            banner_compose.save_layers(image_url, base_encoded, layers, mask_specs(raw_references)[0])
     except Exception as error:
         setattr(error, "studio_phase", "image_storage")
         raise
@@ -792,6 +809,7 @@ def create_image(payload, modeling, client_id, user_id):
         "charged_credits": int(charged.get("tokens_cobrados") or 0),
         "remaining_credits": remaining,
         "masked": bool(mask),
+        **({"layers": layers, "composed": True} if layers is not None else {}),
     }
 
 
@@ -991,7 +1009,7 @@ def image_mime(value):
     return "image/png"
 
 
-def composition_layout_lines(references, mask="", provider_size=None):
+def composition_layout_lines(references, mask="", provider_size=None, text_free=False):
     """Lead the prompt with the selected wireframe so it is not lost at the end."""
     if mask:
         return []
@@ -1002,7 +1020,7 @@ def composition_layout_lines(references, mask="", provider_size=None):
     from . import ad_masks
     spec = ad_masks.spec_from_url(references[index - 1].get("data"))
     if spec:
-        return [ad_masks.layout_contract(spec, index, provider_size)]
+        return [ad_masks.layout_contract(spec, index, provider_size, text_free)]
     return [
         f"LAYOUT (binding, highest priority after the briefing): IMAGE {index} is an annotated layout wireframe, not artwork. "
         "Only the large inner rectangle inside its SAFE MARGIN guide is the ad canvas; the title, legend, layer-order column and notes around it are documentation and must not appear. "
@@ -1058,12 +1076,12 @@ def assert_masks_fit_format(references, width, height):
                 )
 
 
-def final_layout_check(references, provider_size=None):
+def final_layout_check(references, provider_size=None, text_free=False):
     from . import ad_masks
     for item in references:
         spec = ad_masks.spec_from_url(item.get("data") or item.get("url")) if item.get("source") == "global" else None
         if spec:
-            return ad_masks.final_check(spec, provider_size)
+            return ad_masks.final_check(spec, provider_size, text_free)
     return "FINAL LAYOUT CHECK: the composition must match the wireframe zones described at the top; if it does not, recompose before finishing."
 
 

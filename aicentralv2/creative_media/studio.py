@@ -285,6 +285,7 @@ def register_studio_routes(blueprint):
     blueprint.add_url_rule('/api/format-lab/studio/audio/transcriptions', view_func=studio_audio_transcriptions, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/brand-palette/suggest', view_func=studio_brand_palette_suggest, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/brand-palette', view_func=studio_brand_palette, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/brand-fonts', view_func=studio_brand_font, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/personal-assets', view_func=studio_personal_assets, methods=['DELETE'])
     blueprint.add_url_rule('/api/format-lab/studio/project-contexts', view_func=studio_project_contexts, methods=['GET'])
     blueprint.add_url_rule('/api/format-lab/studio/projects/<ident>', view_func=studio_project, methods=['GET', 'POST'])
@@ -760,6 +761,25 @@ def studio_brand_palette_suggest():
             'suggested': True,
             'charged_credits': int(charged.get('tokens_cobrados') or 0),
         })
+
+    return execute(run)
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_brand_font():
+    """Upload a brand font from the Studio; it lands on the same brand profile Workspace uses."""
+    execute, json_body, ok, service = _http()
+
+    def run():
+        client_id = request.form.get('client_id')
+        _scope(client_id)
+        _assert_project_brand_access(request.form.get('project_id'), client_id)
+        upload = request.files.get('font')
+        if not upload or not upload.filename:
+            raise ValueError('Escolha o arquivo da fonte.')
+        from .brand_fonts import save_brand_font
+        return ok(save_brand_font(int(client_id), upload, request.form.get('role') or 'display'))
 
     return execute(run)
 

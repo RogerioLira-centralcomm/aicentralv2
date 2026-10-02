@@ -261,7 +261,10 @@ def build_spec(format_key, family, logo="bottom-right", cta=True):
     for name, (fx, fy, fw, fh) in layout.items():
         if fw <= 0 or fh <= 0 or (name == "cta" and not cta):
             continue
-        if name == "cta" and klass != "wide":
+        if name == "cta" and width / height < 0.45:
+            # Skyscrapers are too narrow for a short pill: the button spans the safe width.
+            fx, fw, fy, fh = 0.0, 1.0, fy + fh * (1 - CTA_SCALE_H) / 2, fh * CTA_SCALE_H
+        elif name == "cta" and klass != "wide":
             # Keep the button compact: about 70% of the drawn size, anchored where it was drawn.
             new_w, new_h = fw * CTA_SCALE_W, fh * CTA_SCALE_H
             fx = fx + (fw - new_w) / 2 if 0.4 <= fx + fw / 2 <= 0.6 else fx
@@ -426,10 +429,12 @@ def zone_lines(spec, frame=(0.0, 0.0, 1.0, 1.0)):
     return lines
 
 
-def final_check(spec, provider_size=None):
+def final_check(spec, provider_size=None, text_free=False):
     """Closing reminder that repeats the zone coordinates; models weigh the end of the prompt heavily."""
     frame = provider_frame(spec, provider_size)
     zones = "; ".join(line.removeprefix("- ") for line in zone_lines(spec, frame))
+    if text_free:
+        return f"FINAL CHECK: the image contains no text, button or logo at all; these zones stay calm and empty for typography: {zones}."
     return f"FINAL LAYOUT CHECK: before finishing, verify the zones exactly: {zones}. If any element is elsewhere, recompose."
 
 
@@ -441,7 +446,7 @@ def safe_line(spec, frame):
     )
 
 
-def layout_contract(spec, image_index=1, provider_size=None):
+def layout_contract(spec, image_index=1, provider_size=None, text_free=False):
     """Text that makes a model treat the wireframe as binding geometry (not artwork)."""
     has_cta, has_logo = "cta" in spec["zones"], "logo" in spec["zones"]
     frame = provider_frame(spec, provider_size)
@@ -463,6 +468,13 @@ def layout_contract(spec, image_index=1, provider_size=None):
     ]
     if spec.get("notes"):
         lines.append(spec["notes"])
+    if text_free:
+        lines.append(
+            "TEXT-FREE VISUAL: render no text, letters, numbers, button, pill or logo anywhere. The HEADLINE and CTA zones "
+            "must be calm, low-detail background (soft gradient, sky, wall, out-of-focus area) with good contrast: the Studio "
+            "sets the typography and the button there afterwards."
+        )
+        return "\n".join(lines)
     lines.append(
         "Render a solid, high-contrast CTA button with a readable label inside the CTA zone." if has_cta
         else "There is NO call-to-action button: do not draw any button, arrow or action label."

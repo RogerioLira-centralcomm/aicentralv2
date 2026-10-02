@@ -58,6 +58,8 @@ def _fonts(value):
             "style": str(raw.get("style") or "").strip()[:32],
             "source": source,
             "confidence": confidence,
+            # Uploaded font file (Workspace or Studio); only our own upload folder is trusted.
+            **({"file_url": str(raw["file_url"])[:300]} if str(raw.get("file_url") or "").startswith("/static/uploads/brand_fonts/") else {}),
         })
     return fonts
 

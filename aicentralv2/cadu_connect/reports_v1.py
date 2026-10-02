@@ -681,6 +681,27 @@ def register(bp):
         except ValueError as exc:
             abort(400, description=str(exc))
 
+    @bp.get('/api/v2/reports/workspaces/<int:report_id>/versions/<int:revision>')
+    @login_required_api
+    def reports_v1_workspace_version(report_id, revision):
+        """One version and what changed against another (default: the one before; ?against=N)."""
+        selected = _selection()
+        if not _rows('SELECT id FROM cadu_connect_report_workspaces WHERE id=%s AND client_id=%s', (report_id, selected['client_id'])):
+            abort(404)
+        ready = _published_ready()
+        columns = 'revision,document,note,created_at' + (',published_at' if ready else '')
+        version = _rows(f'SELECT {columns} FROM cadu_connect_report_workspace_versions WHERE report_id=%s AND revision=%s',
+                        (report_id, revision))
+        if not version:
+            abort(404)
+        against = request.args.get('against', type=int)
+        other = _rows(f'''SELECT {columns} FROM cadu_connect_report_workspace_versions WHERE report_id=%s AND revision {'=' if against else '<'} %s
+            ORDER BY revision DESC LIMIT 1''', (report_id, against or revision))
+        from .report_blocks import version_changes
+        base = other[0] if other else None
+        return jsonify(version=version[0], against=base and {key: base[key] for key in base if key != 'document'},
+                       changes=version_changes(base['document'] if base else {}, version[0]['document']))
+
     @bp.post('/api/v2/reports/workspaces/<int:report_id>/plan')
     @login_required_api
     def reports_v1_plan_workspace(report_id):
@@ -766,9 +787,16 @@ def register(bp):
         changes = payload['document']
         allowed = {'objective': 2000, 'goals': 4000, 'management_notes': 8000,
                    'start_date': 10, 'end_date': 10, 'accent': 7}
-        if not changes or set(changes) - set(allowed):
+        if not changes or set(changes) - set(allowed) - {'blocks'}:
             abort(400, description='Envie apenas os campos editáveis do contexto.')
         document = dict(current['document'] or {})
+        changes = dict(changes)
+        if 'blocks' in changes:
+            from .report_blocks import validate_blocks
+            try:
+                document['blocks'] = validate_blocks(changes.pop('blocks'))
+            except ValueError as exc:
+                abort(400, description=str(exc))
         for field, value in changes.items():
             if not isinstance(value, str) or len(value) > allowed[field]:
                 abort(400, description=f'{field} inválido.')

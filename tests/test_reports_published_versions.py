@@ -18,6 +18,38 @@ class JourneySummaryTests(unittest.TestCase):
         self.assertEqual(summary, {'entries': None, 'conversions': None, 'steps': []})
 
 
+class ReportBlocksTests(unittest.TestCase):
+    def test_default_blocks_hide_funnel_outside_flow_reports(self):
+        from aicentralv2.cadu_connect.report_blocks import default_blocks
+        self.assertTrue(next(b for b in default_blocks({}) if b['type'] == 'funnel')['hidden'])
+        self.assertFalse(next(b for b in default_blocks({'scope': 'flow'}) if b['type'] == 'funnel')['hidden'])
+
+    def test_validate_blocks(self):
+        from aicentralv2.cadu_connect.report_blocks import validate_blocks
+        clean = validate_blocks([{'type': 'results', 'id': 'whatever', 'title': '  Números  '},
+                                 {'type': 'recommendations', 'id': 'rec-1', 'text': ' Subir lance ', 'hidden': False}])
+        self.assertEqual(clean[0], {'id': 'results', 'type': 'results', 'title': 'Números', 'hidden': False})
+        self.assertEqual(clean[1]['text'], 'Subir lance')
+        for bad in ([], [{'type': 'script'}], [{'type': 'results'}, {'type': 'results'}],
+                    [{'type': 'text', 'id': 'A B'}], [{'type': 'text', 'id': 'x', 'text': 'y' * 8001}],
+                    [{'type': 'text', 'id': 'x', 'hidden': 'no'}]):
+            with self.assertRaises(ValueError):
+                validate_blocks(bad)
+
+    def test_saved_blocks_get_missing_builtins_hidden(self):
+        from aicentralv2.cadu_connect.report_blocks import blocks_of
+        blocks = blocks_of({'blocks': [{'id': 'goals', 'type': 'goals', 'title': 'Metas', 'hidden': False}]})
+        self.assertEqual(blocks[0]['type'], 'goals')
+        self.assertTrue(all(block['hidden'] for block in blocks[1:]))
+
+    def test_version_changes(self):
+        from aicentralv2.cadu_connect.report_blocks import version_changes
+        changes = version_changes({'objective': 'A'}, {'objective': 'B', 'blocks': [{'id': 'n-1', 'type': 'next_steps', 'title': 'Próximos', 'text': 'Testar'}]})
+        kinds = {change['kind'] for change in changes}
+        self.assertIn('field', kinds)
+        self.assertIn('added', kinds)
+
+
 class PublicTemplateTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -27,7 +59,9 @@ class PublicTemplateTests(unittest.TestCase):
     def render(self, **context):
         from flask import render_template
         with self.app.test_request_context('/connect/r/token'):
-            return render_template('cadu_connect/public_report.html', token='token', **context)
+            from aicentralv2.cadu_connect.report_blocks import blocks_of
+            blocks = [block for block in blocks_of(context['report']['document']) if not block.get('hidden')]
+            return render_template('cadu_connect/public_report.html', token='token', blocks=blocks, **context)
 
     def test_frozen_flow_report_shows_results_funnel_and_versions(self):
         snapshot = {'document': {'scope': 'flow', 'flow_name': 'Lead', 'objective': 'Leads'},
@@ -45,6 +79,15 @@ class PublicTemplateTests(unittest.TestCase):
                            snapshot=None, versions=[], latest=None)
         self.assertIn('Objetivo X', html)
         self.assertNotIn('Resultados', html)
+
+    def test_blocks_follow_order_and_visibility(self):
+        document = {'objective': 'Obj', 'goals': 'Meta secreta', 'blocks': [
+            {'id': 'rec-1', 'type': 'recommendations', 'title': 'O que fazer', 'text': 'Subir orçamento', 'hidden': False},
+            {'id': 'objective', 'type': 'objective', 'title': 'Objetivo', 'hidden': False},
+            {'id': 'goals', 'type': 'goals', 'title': 'Metas', 'hidden': True}]}
+        html = self.render(report={'campaign_name': 'R', 'revision': 2, 'updated_at': 'x', 'document': document}, snapshot=None, versions=[], latest=None)
+        self.assertLess(html.index('Subir orçamento'), html.index('Obj'))
+        self.assertNotIn('Meta secreta', html)
 
     def test_password_page(self):
         from flask import render_template

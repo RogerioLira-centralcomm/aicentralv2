@@ -20,9 +20,11 @@
     <span>{% if doc.scope == 'flow' %}Fluxo {{ doc.flow_name }}{% else %}{{ doc.project_name }}{% if doc.brand_name %} · {{ doc.brand_name }}{% endif %}{% endif %}{% if results %} · {{ br(results.period.start) }} a {{ br(results.period.end) }}{% endif %}</span>
   </header>
 
-  {% if results and results.totals %}{% set t = results.totals %}{% set p = results.previous or {} %}{% set cur = results.currency %}
+  {% set t = results.totals if results else none %}{% set p = (results.previous if results else none) or {} %}{% set cur = results.currency if results else none %}
+  {% for block in blocks %}
+  {% if block.type == 'results' and t %}
   <section class="cr-results">
-    <h2>Resultados</h2>
+    <h2>{{ block.title }}</h2>
     <dl class="cr-kpis">
       <div><dt>Investimento</dt><dd>{{ money(t.cost, cur) }}</dd>{{ delta(t.cost, p.cost) }}</div>
       <div><dt>Impressões</dt><dd>{{ num(t.impressions) }}</dd>{{ delta(t.impressions, p.impressions) }}</div>
@@ -33,9 +35,10 @@
       {% else %}<div><dt>CPA</dt><dd>{{ money(t.cpa, cur) }}</dd>{{ delta(t.cpa, p.cpa, true) }}</div>{% endif %}
     </dl>
     <p class="cr-note">Comparado ao período anterior de mesma duração ({{ br(results.period.previous_start) }} a {{ br(results.period.previous_end) }}).</p>
-
-    {% if journey and journey.entries is not none %}
-    <h2>Da mídia à conversão</h2>
+  </section>
+  {% elif block.type == 'funnel' and t and journey and journey.entries is not none %}
+  <section>
+    <h2>{{ block.title }}</h2>
     {% set stages = [('Impressões', t.impressions, 'Mídia'), ('Cliques', t.clicks, 'Mídia'), ('Entradas no fluxo', journey.entries, 'Site'), ('Conversões do fluxo', journey.conversions, 'Site')] %}
     {% set top = [t.impressions or 0, 1]|max %}
     <ol class="cr-funnel">{% for label, value, source in stages %}
@@ -47,22 +50,21 @@
       <div><dt>Clique → entrada</dt><dd>{{ pct(100 * journey.entries / t.clicks) if t.clicks else '—' }}</dd></div>
     </dl>
     {% if journey.steps %}<table class="cr-table"><thead><tr><th>Etapa</th><th>Sessões</th></tr></thead><tbody>{% for step in journey.steps %}<tr><td>{{ step.name }}</td><td>{{ num(step.sessions) }}</td></tr>{% endfor %}</tbody></table>{% endif %}
-    {% endif %}
-
-    {% if results.campaigns %}
-    <h2>{{ 'Campanha' if results.campaigns|length == 1 else 'Campanhas' }}</h2>
+  </section>
+  {% elif block.type == 'campaigns' and results and results.campaigns %}
+  <section>
+    <h2>{{ block.title }}</h2>
     <div class="cr-scroll"><table class="cr-table"><thead><tr><th>Campanha</th><th>Investimento</th><th>Cliques</th><th>CTR</th><th>Conversões</th><th>CPA</th></tr></thead><tbody>
       {% for row in results.campaigns %}<tr><td>{{ row.name }}</td><td>{{ money(row.cost, cur) }}</td><td>{{ num(row.clicks) }}</td><td>{{ pct(row.ctr) }}</td><td>{{ num(row.conversions) }}</td><td>{{ money(row.cpa, cur) }}</td></tr>{% endfor %}
     </tbody></table></div>
-    {% endif %}
   </section>
+  {% elif block.type in ('objective', 'goals', 'notes') %}
+  {% set value = doc.objective if block.type == 'objective' else doc.goals if block.type == 'goals' else doc.management_notes %}
+  {% if value %}<section><h2>{{ block.title }}</h2><p class="cr-text">{{ value }}</p></section>{% endif %}
+  {% elif block.text %}
+  <section><h2>{{ block.title }}</h2><p class="cr-text">{{ block.text }}</p></section>
   {% endif %}
-
-  <section>
-    <h2>Objetivo</h2><p>{{ doc.objective or 'Objetivo não informado.' }}</p>
-    <h2>Metas</h2><p>{{ doc.goals or 'Metas não informadas.' }}</p>
-    {% if doc.management_notes %}<h2>Contexto de gestão</h2><p>{{ doc.management_notes }}</p>{% endif %}
-  </section>
+  {% endfor %}
 
   <footer>
     Versão {{ report.revision }}{% if snapshot %} · publicada em {{ report.updated_at.strftime('%d/%m/%Y %H:%M') if report.updated_at and report.updated_at.strftime else report.updated_at }}{% else %} · atualizado em {{ report.updated_at }}{% endif %}

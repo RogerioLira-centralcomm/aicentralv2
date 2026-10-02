@@ -6,3 +6,4 @@
 .cr-public footer nav{margin-top:6px}.cr-public footer a{color:#26716d;margin-right:6px}
 .cr-public--lock section{max-width:420px;margin:12vh auto 0}.cr-public--lock h1{font-size:28px;letter-spacing:-.03em}.cr-lock{display:flex;flex-direction:column;gap:8px;margin-top:18px}.cr-lock input{padding:10px 12px;border:1px solid #c5d6d1;border-radius:10px;font-size:15px}.cr-lock button{padding:11px 14px;border:0;border-radius:10px;background:#26716d;color:#fff;font-weight:700;cursor:pointer}.cr-error{color:#b42318!important}
 @media (max-width:560px){.cr-funnel li{grid-template-columns:1fr 90px}.cr-bar{grid-column:1/-1;grid-row:2}}
+.cr-public .cr-text{white-space:pre-line}

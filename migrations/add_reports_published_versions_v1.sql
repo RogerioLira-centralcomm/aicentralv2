@@ -8,3 +8,6 @@ ALTER TABLE cadu_connect_report_workspaces ADD COLUMN IF NOT EXISTS pinned BOOLE
 ALTER TABLE cadu_connect_report_public_links ADD COLUMN IF NOT EXISTS password_hash TEXT;
 CREATE INDEX IF NOT EXISTS cadu_connect_report_versions_published_idx
     ON cadu_connect_report_workspace_versions (report_id, revision) WHERE published_at IS NOT NULL;
+-- Senha do link: tentativas erradas bloqueiam por 15 minutos depois de 5 erros.
+ALTER TABLE cadu_connect_report_public_links ADD COLUMN IF NOT EXISTS failed_attempts INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE cadu_connect_report_public_links ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;

@@ -48,7 +48,7 @@ def register(bp, rows):
         frozen = bool(rows("""SELECT 1 FROM information_schema.columns WHERE table_schema='public'
             AND table_name='cadu_connect_report_workspaces' AND column_name='published_revision'"""))
         found = rows(f'''SELECT w.id,w.campaign_name,w.revision,w.updated_at,w.document,l.expires_at
-                {',w.published_revision,l.password_hash' if frozen else ''}
+                {',w.published_revision,l.password_hash,l.locked_until > NOW() AS locked' if frozen else ''}
             FROM cadu_connect_report_public_links l JOIN cadu_connect_report_workspaces w ON w.id=l.report_id
             WHERE l.token=%s AND l.revoked_at IS NULL AND (l.expires_at IS NULL OR l.expires_at > NOW())''', (token,))
         if not found: abort(404)
@@ -59,12 +59,23 @@ def register(bp, rows):
             granted = session.setdefault('report_links', [])
             if token not in granted:
                 error = ''
-                if request.method == 'POST':
+                if request.method == 'POST' and report.get('locked'):
+                    error = 'Muitas tentativas. Tente de novo em 15 minutos.'
+                elif request.method == 'POST':
                     if check_password_hash(report['password_hash'], request.form.get('password', '')):
+                        rows('UPDATE cadu_connect_report_public_links SET failed_attempts=0,locked_until=NULL WHERE token=%s RETURNING id', (token,))
+                        get_db().commit()
                         session['report_links'] = [*granted[-19:], token]
                         return redirect(request.full_path.rstrip('?'))
+                    # Five wrong passwords lock the link for 15 minutes, for everyone (the counter lives on the link).
+                    rows('''UPDATE cadu_connect_report_public_links SET
+                            failed_attempts=CASE WHEN failed_attempts >= 4 THEN 0 ELSE failed_attempts + 1 END,
+                            locked_until=CASE WHEN failed_attempts >= 4 THEN NOW() + INTERVAL '15 minutes' ELSE locked_until END
+                        WHERE token=%s RETURNING id''', (token,))
+                    get_db().commit()
                     error = 'Senha incorreta.'
-                return render_template('cadu_connect/public_report_password.html', title=report['campaign_name'], error=error), 200 if not error else 401, headers
+                status = 429 if report.get('locked') and request.method == 'POST' else 401 if error else 200
+                return render_template('cadu_connect/public_report_password.html', title=report['campaign_name'], error=error), status, headers
         snapshot, versions = None, []
         if frozen and report.get('published_revision'):
             versions = [row['revision'] for row in rows('''SELECT revision FROM cadu_connect_report_workspace_versions
@@ -76,5 +87,7 @@ def register(bp, rows):
             snapshot = version['snapshot'] or {}
             report.update(document=snapshot.get('document') or report['document'], revision=version['revision'],
                           updated_at=version['published_at'])
+        from .report_blocks import blocks_of
         return render_template('cadu_connect/public_report.html', report=report, snapshot=snapshot, versions=versions,
+                               blocks=[block for block in blocks_of(report['document']) if not block.get('hidden')],
                                latest=report.get('published_revision'), token=token), 200, headers

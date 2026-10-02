@@ -9,6 +9,7 @@ import {ReportsTextArea} from './ReportsTextArea.jsx';
 import {Alert, Callout, Card, DateField, DrawerActions, EmptyNote} from './ReportsBlocks.jsx';
 import {json, shortDate} from './reportsCommon.jsx';
 import {ReportResults} from './ReportResults.jsx';
+import {ReportBlocksEditor, blocksOf} from './ReportBlocksEditor.jsx';
 import {createFromGoogle, loadUnlinkedGoogleCampaigns} from './GoogleCampaignLinks.jsx';
 
 const API = '/connect/api/v2/reports';
@@ -125,6 +126,8 @@ function CreateDrawer({open, data, save, busy, onClose}) {
 function ReportDetail({data, save, busy, detail, refresh, onBack, setError}) {
   const viewer = data.client.role === 'viewer';
   const [draft, setDraft] = useState(detail.report.document || {});
+  const [blocks, setBlocks] = useState(() => blocksOf(detail.report.document));
+  const [compare, setCompare] = useState(null);
   const [note, setNote] = useState('');
   const [expiresDays, setExpiresDays] = useState('30');
   const [password, setPassword] = useState('');
@@ -134,14 +137,14 @@ function ReportDetail({data, save, busy, detail, refresh, onBack, setError}) {
   const [plan, setPlan] = useState(null);
   const [planning, setPlanning] = useState(false);
   const [reviewSource, setReviewSource] = useState(null);
-  useEffect(() => {setDraft(detail.report.document || {});}, [detail.report.revision]);
+  useEffect(() => {setDraft(detail.report.document || {}); setBlocks(blocksOf(detail.report.document));}, [detail.report.revision]);
   useEffect(() => {setProtect(Boolean(detail.public_link?.protected));}, [detail.public_link?.protected]);
   const edit = (field, value) => {setDraft(current => ({...current, [field]: value})); if (field === 'objective' || field === 'goals') setPlan(null);};
   const run = async action => {try {await action(); setError('');} catch (failure) {setError(failure.message);}};
   const update = event => {
     event.preventDefault();
     run(async () => {
-      await save(`/workspaces/${detail.report.id}/document`, {revision: detail.report.revision, update_note: note, document: Object.fromEntries(['objective', 'goals', 'management_notes', 'start_date', 'end_date', 'accent'].map(field => [field, draft[field] || '']))});
+      await save(`/workspaces/${detail.report.id}/document`, {revision: detail.report.revision, update_note: note, document: {...Object.fromEntries(['objective', 'goals', 'management_notes', 'start_date', 'end_date', 'accent'].map(field => [field, draft[field] || ''])), blocks}});
       await refresh(); setNote('');
     });
   };
@@ -166,6 +169,10 @@ function ReportDetail({data, save, busy, detail, refresh, onBack, setError}) {
   const copyLink = async () => {try {await navigator.clipboard.writeText(publicUrl(detail.public_link.token)); setCopied(true); setTimeout(() => setCopied(false), 2000);} catch {setCopied(false);}};
   const publishedRevision = detail.report.published_revision;
   const pending = publishedRevision ? detail.report.revision > publishedRevision : true;
+  const saved = detail.report.document || {};
+  const dirty = ['objective', 'goals', 'management_notes', 'start_date', 'end_date', 'accent'].some(field => (draft[field] || '') !== (saved[field] || ''))
+    || JSON.stringify(blocks) !== JSON.stringify(blocksOf(saved));
+  const openCompare = revision => run(async () => setCompare(await json(`${API}/workspaces/${detail.report.id}/versions/${revision}`)));
   const unpublish = () => run(async () => {await save(`/workspaces/${detail.report.id}/unpublish`, {}, false); await refresh();});
   const link = detail.public_link;
 
@@ -185,11 +192,10 @@ function ReportDetail({data, save, busy, detail, refresh, onBack, setError}) {
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
       <div className="flex min-w-0 flex-col gap-6">
         <ReportResults report={detail.report} onJourney={setJourney}/>
-        <Card title="Documento" description="O que o relatório comunica. Cada atualização vira uma versão.">
+        <Card title="Documento" badge={dirty ? <Badge type="pill-color" size="sm" color="warning">Não salvo</Badge> : null}
+          description="Blocos na ordem em que aparecem para o cliente. Oculte o que não deve ir no link; cada salvamento vira uma versão, e o cliente só vê depois de publicar.">
           <form className="flex flex-col gap-5" onSubmit={update}>
-            <ReportsTextArea label="Objetivo" disabled={viewer} maxLength={2000} rows={3} value={draft.objective || ''} onChange={event => edit('objective', event.target.value)}/>
-            <ReportsTextArea label="Metas" disabled={viewer} maxLength={4000} rows={3} value={draft.goals || ''} onChange={event => edit('goals', event.target.value)}/>
-            <ReportsTextArea label="Notas de gestão" disabled={viewer} maxLength={8000} rows={5} value={draft.management_notes || ''} onChange={event => edit('management_notes', event.target.value)}/>
+            <ReportBlocksEditor blocks={blocks} onChange={setBlocks} draft={draft} onField={edit} disabled={viewer}/>
             <div className="grid gap-4 sm:grid-cols-[1fr_1fr_120px]">
               <DateField label="Início" disabled={viewer} value={draft.start_date || ''} onChange={event => edit('start_date', event.target.value)}/>
               <DateField label="Fim" disabled={viewer} value={draft.end_date || ''} onChange={event => edit('end_date', event.target.value)}/>
@@ -230,7 +236,8 @@ function ReportDetail({data, save, busy, detail, refresh, onBack, setError}) {
               </ReportsNativeSelect>
               <label className="flex cursor-pointer items-center gap-2 text-sm text-secondary"><input type="checkbox" className="size-4 accent-brand-600" checked={protect} onChange={event => setProtect(event.target.checked)}/>Proteger com senha</label>
               {protect && <ReportsFieldInput label={link?.protected ? 'Nova senha (deixe vazio para manter)' : 'Senha'} type="password" minLength={6} maxLength={128} value={password} onChange={event => setPassword(event.target.value)} hint="Envie a senha ao cliente por outro canal."/>}
-              <Button size="md" color="primary" isDisabled={busy || (protect && !link?.protected && password.length < 6) || (Boolean(password) && password.length < 6)} onPress={publish}>
+              {dirty && <p className="text-sm text-warning-primary">Salve o documento antes de publicar: alterações não salvas não entram na versão.</p>}
+              <Button size="md" color="primary" isDisabled={busy || dirty || (protect && !link?.protected && password.length < 6) || (Boolean(password) && password.length < 6)} onPress={publish}>
                 {!link ? `Publicar v${detail.report.revision}` : pending ? `Publicar v${detail.report.revision}` : 'Atualizar validade e senha'}</Button>
               {link && <Button size="sm" color="secondary-destructive" isDisabled={busy} onPress={unpublish}>Revogar link</Button>}
             </>}
@@ -239,11 +246,22 @@ function ReportDetail({data, save, busy, detail, refresh, onBack, setError}) {
           <h3 className="mt-5 border-t border-secondary pt-4 text-sm font-semibold text-primary">Versões</h3>
           <ol className="mt-2 flex max-h-64 flex-col gap-2 overflow-y-auto">{detail.versions.map(item => <li key={item.revision} className="text-sm text-secondary">
             <span className="font-medium text-primary">v{item.revision}</span>{item.published_at && <span className="ml-1 rounded bg-success-primary px-1.5 text-xs text-success-primary">publicada</span>} · {item.note} <span className="text-xs text-tertiary">· {shortDate(item.created_at)}</span>
+            {item.revision > 1 && <button type="button" className="ml-1 text-xs font-semibold text-brand-secondary hover:underline" onClick={() => openCompare(item.revision)}>comparar</button>}
             {item.published_at && link && <a className="ml-1 text-xs font-semibold text-brand-secondary hover:underline" href={`/connect/r/${link.token}?v=${item.revision}`} target="_blank" rel="noopener noreferrer">abrir</a>}
           </li>)}{!detail.versions.length && <li className="text-sm text-tertiary">Nenhuma versão anterior.</li>}</ol>
         </Card>
       </aside>
     </div>
+    <ReportsDrawer open={Boolean(compare)} onOpenChange={value => {if (!value) setCompare(null);}} title={compare ? `v${compare.version.revision} comparada à v${compare.against?.revision ?? '—'}` : ''}
+      description={compare?.version.note || ''} context={detail.report.campaign_name}>
+      {compare && <div className="untitled-scope flex flex-col gap-4">
+        {compare.changes.length ? compare.changes.map((change, index) => <div key={index} className="rounded-lg p-3 ring-1 ring-secondary ring-inset">
+          <p className="text-sm font-semibold text-primary">{change.label} <span className="text-xs font-normal text-tertiary">{({field: 'alterado', block: 'alterado', added: 'bloco novo', removed: 'bloco removido', visibility: 'visibilidade', order: 'reordenado'})[change.kind]}</span></p>
+          {change.before && <p className="mt-2 rounded bg-error-primary px-2 py-1 text-sm whitespace-pre-line text-error-primary line-through decoration-1">{change.before}</p>}
+          {change.after && <p className="mt-1 rounded bg-success-primary px-2 py-1 text-sm whitespace-pre-line text-success-primary">{change.after}</p>}
+        </div>) : <p className="text-sm text-tertiary">Sem diferenças no texto ou nos blocos.</p>}
+      </div>}
+    </ReportsDrawer>
     <ReviewDrawer source={reviewSource} data={data} detail={detail} busy={busy} viewer={viewer} refresh={refresh} setError={setError} onClose={() => setReviewSource(null)}/>
   </>;
 }

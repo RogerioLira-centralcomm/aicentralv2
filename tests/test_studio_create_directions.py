@@ -504,16 +504,24 @@ def test_applied_logo_stays_whole_and_inside_the_margins():
     assert min(ys) > 1350 * 0.8, "fica no canto inferior"
 
 
-def test_applied_logo_gets_a_plate_only_when_contrast_is_low():
+def test_applied_logo_turns_flat_instead_of_getting_a_plate_when_contrast_is_low():
     from PIL import Image
     logo = Image.new("RGBA", (300, 80), (10, 90, 60, 255))
+    logo.paste((0, 0, 0, 0), (0, 0, 300, 24))  # real transparency, as in a logo with an alpha channel
+    logo.paste((0, 0, 0, 0), (0, 56, 300, 80))
+    logo.paste((10, 90, 60, 255), (0, 24, 300, 56))
+    logo = logo.crop((0, 24, 300, 56))
+    logo.paste((0, 0, 0, 0), (0, 0, 300, 4))
 
     on_light = _decode(studio_create.apply_brand_logo(_png_b64(Image.new("RGB", (1080, 1350), (245, 245, 240))), "png", logo))
     on_dark = _decode(studio_create.apply_brand_logo(_png_b64(Image.new("RGB", (1080, 1350), (12, 80, 56))), "png", logo))
 
-    plate_probe = (1080 - 76 - 216 - 8, 1350 - 76 - 58 - 8)  # just outside the logo, inside a plate
+    plate_probe = (1080 - 76 - 216 - 8, 1350 - 76 - 58 - 8)  # just outside the logo
+    logo_probe = (1080 - 76 - 20, 1350 - 76 - 12)  # inside the logo
     assert on_light.getpixel(plate_probe)[:3] == (245, 245, 240), "fundo claro não recebe placa"
-    assert on_dark.getpixel(plate_probe)[:3] != (12, 80, 56), "fundo parecido com o logo recebe placa"
+    assert on_light.getpixel(logo_probe)[:3] == (10, 90, 60), "fundo claro mantém a cor do logo"
+    assert on_dark.getpixel(plate_probe)[:3] == (12, 80, 56), "sem placa nem brilho atrás do logo"
+    assert on_dark.getpixel(logo_probe)[:3] == (255, 255, 255), "fundo parecido vira logo branco liso"
 
 
 def test_logo_corner_follows_the_selected_composition_mask():
@@ -623,3 +631,10 @@ def test_a_feed_mask_is_accepted_for_a_feed_piece_and_leads_the_prompt():
     assert "SAFE AREA CHECK" not in prompt, "a margem aparece uma vez, não repetida"
     assert prompt.count("SAFE MARGIN") <= 3
     assert len(prompt) < 4300
+
+
+def test_opaque_logo_is_never_flattened_into_a_block():
+    from PIL import Image
+    logo = Image.new("RGBA", (300, 80), (10, 90, 60, 255))  # fully opaque artwork
+    result = _decode(studio_create.apply_brand_logo(_png_b64(Image.new("RGB", (1080, 1350), (12, 80, 56))), "png", logo))
+    assert result.getpixel((1080 - 76 - 20, 1350 - 76 - 20))[:3] == (10, 90, 60)

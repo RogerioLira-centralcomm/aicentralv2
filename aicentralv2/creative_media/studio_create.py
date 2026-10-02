@@ -177,6 +177,8 @@ def clean_context(raw, count):
         },
     }
     brand_context["readiness"] = brand_identity_readiness(brand_context)
+    if mask_logo_policy(references) == "none":
+        brand_context = brand_without_logo(brand_context)
     if creation_intent == "branded_creative":
         references = references_with_brand_logo(references, brand_context)
     return {key: text(data.get(key), limit) for key, limit in (("project_name", 120), ("brand", 120), ("brief", 1800), ("objective", 300), ("audience", 300), ("purpose", 24), ("format", 24))} | {
@@ -254,7 +256,7 @@ def brand_identity_readiness(brand_context):
     }
 
 
-def brand_identity_guard(raw_brand, visual_reference=False, creation_intent="branded_creative", editing=False, logo_corner=""):
+def brand_identity_guard(raw_brand, visual_reference=False, creation_intent="branded_creative", editing=False, logo_corner="", logo_free=False):
     brand = raw_brand if isinstance(raw_brand, dict) else {}
     if editing:
         # A masked edit changes one region; it must not stamp a new logo onto the piece.
@@ -288,7 +290,11 @@ def brand_identity_guard(raw_brand, visual_reference=False, creation_intent="bra
     ]
     fonts = [item for item in fonts if item]
     lines = ["BRAND IDENTITY (mandatory for this branded piece):"]
-    if logo and logo_corner:
+    if logo_free:
+        lines.append(
+            "- LOGO: this composition carries no logo. Do not draw any logo, wordmark, monogram, initials or brand name anywhere in the image."
+        )
+    elif logo and logo_corner:
         lines.append(
             f"- LOGO: the Studio applies the official {name} logo after generation in the {logo_corner.replace('-', ' ')} corner. "
             f"Keep that corner clean and calm (plain background, no text, no objects, no faces), leaving about 24% of the width and 14% of the height free there, "
@@ -366,6 +372,16 @@ def references_with_brand_logo(raw_references, raw_brand):
     return [*references, logo]
 
 
+def _director_image_url(raw):
+    """Public URL for the director; local development hosts get the pixels embedded instead."""
+    from ..creative_modeling_storage import public_studio_asset_url
+    public = public_studio_asset_url(raw)
+    try:
+        return _provider_reference_value(raw if str(raw).startswith("/static/") else public)
+    except ValueError:
+        return public
+
+
 def direction_user_content(request, context):
     """Send stored references as URLs so the director can inspect their pixels."""
     from ..creative_modeling_storage import public_studio_asset_url
@@ -403,7 +419,7 @@ def direction_user_content(request, context):
             f"source={reference.get('source', 'user')}; role={reference.get('role', 'reference')}. "
             "Inspecione os pixels e aplique o contrato descrito no contexto."
         )})
-        blocks.append({"type": "image_url", "image_url": {"url": public_studio_asset_url(url)}})
+        blocks.append({"type": "image_url", "image_url": {"url": _director_image_url(url)}})
     logo = official_logo_reference(context.get("brand_context"))
     if logo and not any(
         str(reference.get("url") or "") == logo["url"]
@@ -414,7 +430,7 @@ def direction_user_content(request, context):
             "inspecione os pixels, preserve o desenho e use-o apenas como identidade da peça. "
             "Não redesenhe, simplifique ou substitua esta marca."
         )})
-        blocks.append({"type": "image_url", "image_url": {"url": public_studio_asset_url(logo["url"])}})
+        blocks.append({"type": "image_url", "image_url": {"url": _director_image_url(logo["url"])}})
     return blocks
 
 
@@ -522,6 +538,9 @@ def create_image(payload, modeling, client_id, user_id):
         clean_direction_reference(item, index)
         for index, item in enumerate(raw_references[:MAX_IMAGE_REFERENCES]) if isinstance(item, dict)
     ])
+    logo_free = mask_logo_policy(raw_references) == "none"
+    if logo_free:
+        data["brand_context"] = brand_without_logo(data.get("brand_context"))
     # The model redraws logos and tends to hug the edge. When the official logo file
     # is readable, the Studio applies it after generation instead of sending it as a reference.
     brand_logo = load_brand_logos(data.get("brand_context")) if creation_intent == "branded_creative" and not data.get("mask") else None
@@ -636,7 +655,8 @@ def create_image(payload, modeling, client_id, user_id):
     if logo_corner:
         prompt = strip_logo_clauses(prompt)
     requested_palette = clean_palette(data.get("requested_palette"))
-    layout_lines = composition_layout_lines(references, mask)
+    provider_size = provider_canvas(aspect_ratio)
+    layout_lines = composition_layout_lines(references, mask, provider_size)
     product_visibility_line = (
         "PRODUCT VISIBILITY CHECK: If the briefing requests a product, make it a deliberate, recognizable foreground subject with enough scale and light to be clearly visible. Do not hide it behind hands, bodies, crops or depth-of-field blur. If bottles or packages are requested, show the requested quantity visibly and keep their labels facing the camera when the briefing asks for labels."
         if re.search(r"produto|product|embalag|garraf|frasco|bottle|package|pote\b|caixa", prompt, re.IGNORECASE) else ""
@@ -656,7 +676,7 @@ def create_image(payload, modeling, client_id, user_id):
         "MANDATORY BRIEFING FIDELITY: Preserve every concrete requirement in the user briefing, especially named products, packaging, people, setting, action, copy and requested format. A composition reference is only a layout guide; it must never replace the requested subject or product.",
         "VISIBLE TEXT LIMIT: render only the literal copy written in the briefing (for example the headline and the button) plus the official logo. Do not add subheadlines, bullet lists, icon captions, statistics, percentages, labelled charts, badges, dates or small print that the user did not write. Keep the layout clean with one clear focal point.",
         "MANDATORY COMMERCIAL FACTS: Any advertiser name, brand name, product name, price, currency, package volume, slogan or logo request explicitly present in the user briefing must remain in the creative instruction exactly as provided. Do not silently drop any named fact.",
-        brand_identity_guard(data.get("brand_context"), visual_reference=visual_reference, creation_intent=creation_intent, editing=bool(mask), logo_corner=logo_corner),
+        brand_identity_guard(data.get("brand_context"), visual_reference=visual_reference, creation_intent=creation_intent, editing=bool(mask), logo_corner=logo_corner, logo_free=logo_free),
         f"REQUESTED CREATIVE PALETTE: {', '.join(requested_palette)}. Use these colors for this piece's campaign mood only; they are not a claim about official brand identity and must not erase the official brand colors or logo." if requested_palette else "REQUESTED CREATIVE PALETTE: none.",
         prompt,
         "\nREFERENCE CONTRACT:",
@@ -673,9 +693,10 @@ def create_image(payload, modeling, client_id, user_id):
         f"Creative direction exploration intensity: {direction_intensity}/100.",
         f"Output aspect ratio: {aspect_ratio}.",
         *([f"FINAL LOGO CHECK: the image must contain no logo, wordmark, monogram or brand name of any company; the {logo_corner.replace('-', ' ')} corner stays plain background."] if logo_corner else []),
+        *(["FINAL LOGO CHECK: this composition has no logo; the image must contain no logo, wordmark, monogram or brand name."] if logo_free else []),
         *(["FINAL LAYOUT CHECK: the composition must match the wireframe zones described at the top; if it does not, recompose before finishing."] if layout_lines else []),
     ] if line)
-    provider_references = provider_image_references(references, mask)
+    provider_references = provider_image_references(references_with_provider_masks(references, provider_size), mask)
     try:
         provider = modeling.generator.generate_image(
             technical_prompt,
@@ -698,9 +719,10 @@ def create_image(payload, modeling, client_id, user_id):
             encoded = compose_inside_mask(encoded, primary["data"], mask)
             output_format = "png"
         elif width and height:
-            encoded = fit_generated_output(encoded, width, height, output_format)
+            # A composition mask is drawn on the provider canvas with the final frame marked, so trim exactly to it.
+            encoded = fit_generated_output(encoded, width, height, output_format, max_trim=0.5 if mask_specs(raw_references) else None)
         if brand_logo and not mask:
-            encoded = apply_brand_logo(encoded, output_format, brand_logo, logo_corner)
+            encoded = apply_brand_logo(encoded, output_format, brand_logo, logo_corner, rect=next((spec["zones"]["logo"] for spec in mask_specs(raw_references) if "logo" in spec["zones"]), None))
         image_url = modeling.storage.save_generated_base64(
             encoded, output_format
         )
@@ -941,7 +963,7 @@ def image_mime(value):
     return "image/png"
 
 
-def composition_layout_lines(references, mask=""):
+def composition_layout_lines(references, mask="", provider_size=None):
     """Lead the prompt with the selected wireframe so it is not lost at the end."""
     if mask:
         return []
@@ -949,6 +971,10 @@ def composition_layout_lines(references, mask=""):
     if not indexes:
         return []
     index = indexes[0]
+    from . import ad_masks
+    spec = ad_masks.spec_from_url(references[index - 1].get("data"))
+    if spec:
+        return [ad_masks.layout_contract(spec, index, provider_size)]
     return [
         f"LAYOUT (binding, highest priority after the briefing): IMAGE {index} is an annotated layout wireframe, not artwork. "
         "Only the large inner rectangle inside its SAFE MARGIN guide is the ad canvas; the title, legend, layer-order column and notes around it are documentation and must not appear. "
@@ -956,14 +982,14 @@ def composition_layout_lines(references, mask=""):
         "headline block, support text and CTA, and the same margins. Fill each zone with the briefing's content. "
         "Keep headline, text, logo, CTA and the main subject inside that same dashed guide; only background and full-bleed imagery may reach the edge. "
         "If the wireframe marks a LOGO zone, the official logo goes there. "
-        "FULL BLEED: the artwork must fill the whole canvas edge to edge as ONE continuous picture. Do not draw solid-colour bands, bars, panels or blocks along any edge to hold text or to complete the layout; "
+        "FULL BLEED: the artwork must fill the whole canvas edge to edge as ONE continuous picture. Do not draw full-width solid-colour bands, bars or panels along any edge to hold text or to complete the layout (this does NOT apply to the CTA button: keep it a solid, fully opaque, high-contrast pill with a clearly readable label in a brand accent color); "
         "the text zone is part of the photograph (calm area of the scene), never a separate flat strip. "
         "Never render the wireframe's grey placeholders, numbers, labels, sample words such as HEADLINE, LOGO or CTA, guide lines or its placeholder product (bottle, jar or box).",
     ]
 
 
-LOGO_WIDTH_RATIO = 0.20
-LOGO_HEIGHT_RATIO = 0.085
+LOGO_WIDTH_RATIO = 0.16
+LOGO_HEIGHT_RATIO = 0.07
 LOGO_MARGIN_RATIO = 0.07
 LOGO_CORNER_EDGE_LIMIT = 9.0
 LOGO_MIN_CONTRAST = 0.3
@@ -989,6 +1015,14 @@ def assert_masks_fit_format(references, width, height):
         return
     for item in references or []:
         url = str(item.get("url") or item.get("data") or "") if isinstance(item, dict) else ""
+        from . import ad_masks
+        spec = ad_masks.spec_from_url(url)
+        if spec:
+            if abs(spec["width"] / spec["height"] - output_ratio) > 0.02:
+                raise ValueError(
+                    "A composição escolhida é de outro formato. Escolha uma composição deste formato ou remova a seleção."
+                )
+            continue
         for prefix, ratio in GLOBAL_MASK_RATIOS.items():
             if url.startswith(prefix) and abs(ratio - output_ratio) > 0.02:
                 raise ValueError(
@@ -996,8 +1030,31 @@ def assert_masks_fit_format(references, width, height):
                 )
 
 
+def mask_specs(references):
+    from . import ad_masks
+    urls = [str(item.get("url") or item.get("data") or "") for item in references or [] if isinstance(item, dict)]
+    return [spec for spec in (ad_masks.spec_from_url(url) for url in urls) if spec]
+
+
+def mask_logo_policy(references):
+    """'none' when a selected composition mask is drawn without logo space."""
+    return "none" if any(spec["logo"] == "none" for spec in mask_specs(references)) else ""
+
+
+def brand_without_logo(raw_brand):
+    brand = dict(raw_brand) if isinstance(raw_brand, dict) else {}
+    brand.pop("logo_url", None)
+    assets = dict(brand.get("assets")) if isinstance(brand.get("assets"), dict) else {}
+    assets["logo"], assets["logos"] = [], []
+    brand["assets"] = assets
+    return brand
+
+
 def logo_position(references):
     """Square display masks put the brand mark top-left; everything else bottom-right."""
+    for spec in mask_specs(references):
+        if spec["logo"] != "none":
+            return spec["logo"]
     urls = [str(item.get("url") or item.get("data") or "") for item in references or [] if isinstance(item, dict)]
     return "top-left" if any("square-mask" in url for url in urls) else "bottom-right"
 
@@ -1067,7 +1124,7 @@ def strip_logo_clauses(prompt):
     return " ".join(kept).strip() or str(prompt or "")
 
 
-def clean_logo_corner(canvas, position):
+def clean_logo_corner(canvas, position, rect=None):
     """Blur the logo's corner when the model drew something there anyway.
 
     The corner was asked to stay plain. If its edge density is high, lettering or a lookalike
@@ -1080,6 +1137,10 @@ def clean_logo_corner(canvas, position):
     at_left, at_top = position.endswith("left"), position.startswith("top")
     left = 0 if at_left else width - zone_w
     top = 0 if at_top else height - zone_h
+    if rect:  # the slot sits inside the safe frame, not on the border: look around it
+        zone_w, zone_h = round(rect[2] * width * 1.5), round(rect[3] * height * 2.2)
+        left = max(0, min(width - zone_w, round((rect[0] + rect[2] / 2) * width - zone_w / 2)))
+        top = max(0, min(height - zone_h, round((rect[1] + rect[3] / 2) * height - zone_h / 2)))
     box = (left, top, left + zone_w, top + zone_h)
     region = canvas.crop(box).convert("RGB")
     edges = region.convert("L").filter(ImageFilter.FIND_EDGES)
@@ -1092,12 +1153,21 @@ def clean_logo_corner(canvas, position):
     feather = Image.new("L", region.size, 0)
     x0, x1 = (0, region.width - soft) if at_left else (soft, region.width)
     y0, y1 = (0, region.height - soft) if at_top else (soft, region.height)
+    if rect:
+        x0, x1, y0, y1 = soft, region.width - soft, soft, region.height - soft
     feather.paste(255, (x0, y0, x1, y1))
     canvas.paste(softened, box[:2], feather.filter(ImageFilter.GaussianBlur(radius=soft / 2)))
     return True
 
 
-def apply_brand_logo(encoded, output_format, logo, position="bottom-right"):
+def _mono_logo(logo, color):
+    """Same artwork, flat single color, original transparency."""
+    flat = Image.new("RGBA", logo.size, (*color, 255))
+    flat.putalpha(logo.getchannel("A"))
+    return flat
+
+
+def apply_brand_logo(encoded, output_format, logo, position="bottom-right", rect=None):
     """Place the official logo whole, away from the edges.
 
     `logo` may be a list of variants: the one with the best contrast against the spot wins, and a
@@ -1113,29 +1183,35 @@ def apply_brand_logo(encoded, output_format, logo, position="bottom-right"):
         raise ValueError("A imagem retornada não pôde receber o logo.") from exc
     canvas = canvas.convert("RGBA")
     width, height = canvas.size
-    if clean_logo_corner(canvas, position):
+    if clean_logo_corner(canvas, position, rect):
         logger.info("Studio logo corner had model-drawn content and was softened before the official logo")
     margin = round(min(width, height) * LOGO_MARGIN_RATIO)
+    slot_w, slot_h = (rect[2] * width, rect[3] * height) if rect else (width * LOGO_WIDTH_RATIO, height * LOGO_HEIGHT_RATIO)
 
     def placed(candidate):
-        scale = min(width * LOGO_WIDTH_RATIO / candidate.width, height * LOGO_HEIGHT_RATIO / candidate.height)
+        scale = min(slot_w / candidate.width, slot_h / candidate.height)
         mark = candidate.resize((max(1, round(candidate.width * scale)), max(1, round(candidate.height * scale))), Image.Resampling.LANCZOS)
-        left = margin if position.endswith("left") else width - margin - mark.width
-        top = margin if position.startswith("top") else height - margin - mark.height
+        if rect:  # flush to the corner of the slot, which is the corner of the safe frame
+            left = round(rect[0] * width) if position.endswith("left") else round((rect[0] + rect[2]) * width) - mark.width
+            top = round(rect[1] * height) if position.startswith("top") else round((rect[1] + rect[3]) * height) - mark.height
+        else:
+            left = margin if position.endswith("left") else width - margin - mark.width
+            top = margin if position.startswith("top") else height - margin - mark.height
         region = canvas.crop((left, top, left + mark.width, top + mark.height)).convert("RGB")
         luma = _mean_luminance(mark.convert("RGB"), mark.getchannel("A"))
         return mark, left, top, luma, abs(_mean_luminance(region) - luma)
 
-    mark, left, top, logo_luma, contrast = max((placed(item) for item in variants), key=lambda item: item[4])
-    if contrast < LOGO_MIN_CONTRAST:
-        # No variant reads on this picture: darken or lighten a soft glow behind it instead of a hard box.
-        pad = round(mark.height * 0.9)
-        glow = Image.new("RGBA", (mark.width + pad * 2, mark.height + pad * 2), (0, 0, 0, 0))
-        from PIL import ImageDraw
-        fill = (255, 255, 255, 150) if logo_luma < 0.55 else (11, 18, 25, 150)
-        ImageDraw.Draw(glow).ellipse((pad * 0.4, pad * 0.4, glow.width - pad * 0.4, glow.height - pad * 0.4), fill=fill)
-        glow = glow.filter(ImageFilter.GaussianBlur(radius=pad / 2))
-        canvas.alpha_composite(glow, (left - pad, top - pad)) if left - pad >= 0 and top - pad >= 0 else canvas.alpha_composite(glow.crop((max(0, pad - left), max(0, pad - top), glow.width, glow.height)), (max(0, left - pad), max(0, top - pad)))
+    # Official variants win whenever one reads; otherwise fall back to a flat white or dark version
+    # of the same artwork (the usual negative/positive logo), never a box or haze behind it.
+    alpha = variants[0].getchannel("A").tobytes()
+    transparent = sum(1 for value in alpha if value < 250) / max(1, len(alpha))
+    # A flat recolor only makes sense when the artwork has real transparency; an opaque
+    # rectangle would just become a solid block.
+    mono = [_mono_logo(variants[0], (255, 255, 255)), _mono_logo(variants[0], (11, 18, 25))] if transparent > 0.05 else []
+    best = max((placed(item) for item in variants), key=lambda item: item[4])
+    if best[4] < LOGO_MIN_CONTRAST:
+        best = max([best, *(placed(item) for item in mono)], key=lambda item: item[4])
+    mark, left, top = best[0], best[1], best[2]
     canvas.alpha_composite(mark, (left, top))
     normalized = str(output_format or "png").lower()
     output = io.BytesIO()
@@ -1154,6 +1230,28 @@ def reserved_band_line():
         "RESERVED EDGE BANDS: keep the outer 8% of the canvas on every side free of logo, text, buttons and faces; "
         "only background, light and texture may live there."
     )
+
+
+def provider_canvas(aspect_ratio):
+    """Pixel shape the OpenAI image route returns for a ratio, or None when unknown."""
+    from ..creative_modeling_generation import normalize_image_aspect_ratio
+    return {"1:1": (1024, 1024), "4:3": (1536, 1024), "16:9": (1536, 1024), "3:4": (1024, 1536), "9:16": (1024, 1536)}.get(
+        normalize_image_aspect_ratio(aspect_ratio)
+    )
+
+
+def references_with_provider_masks(references, provider_size):
+    """Draw each served composition mask on the provider canvas, so zones survive the final trim."""
+    import base64 as _b64
+    from . import ad_masks
+    result = []
+    for item in references:
+        spec = ad_masks.spec_from_url(item.get("data")) if item.get("source") == "global" else None
+        if spec and provider_size:
+            png = ad_masks.render_mask(spec, longest_side=1536, provider_size=provider_size)
+            item = {**item, "data": "data:image/png;base64," + _b64.b64encode(png).decode("ascii")}
+        result.append(item)
+    return result
 
 
 def crop_safe_zone_line(aspect_ratio, width, height):
@@ -1184,10 +1282,10 @@ def crop_safe_zone_line(aspect_ratio, width, height):
     )
 
 
-MAX_TRIM_PER_SIDE = 0.04
+MAX_TRIM_PER_SIDE = 0.11
 
 
-def _fit_without_losing_content(image, width, height):
+def _fit_without_losing_content(image, width, height, max_trim=None):
     """Fit the provider output to the delivery size without cutting copy or logos.
 
     Providers return a few fixed sizes (e.g. 1024x1536 for portrait), so a 4:5
@@ -1195,17 +1293,18 @@ def _fit_without_losing_content(image, width, height):
     any remaining difference is filled with a blurred extension of the image.
     """
     from PIL import ImageFilter
+    max_trim = MAX_TRIM_PER_SIDE if max_trim is None else max_trim
     image = image.convert("RGB") if image.mode not in {"RGB", "RGBA"} else image
     source_ratio, target_ratio = image.width / image.height, width / height
     if abs(source_ratio - target_ratio) < 0.005:
         return image.resize((width, height), Image.Resampling.LANCZOS)
     if source_ratio < target_ratio:
         # Taller than the target: trim top/bottom up to the limit.
-        keep = max(image.width / target_ratio, image.height * (1 - 2 * MAX_TRIM_PER_SIDE))
+        keep = max(image.width / target_ratio, image.height * (1 - 2 * max_trim))
         top = (image.height - keep) / 2
         trimmed = image.crop((0, round(top), image.width, round(top + keep)))
     else:
-        keep = max(image.height * target_ratio, image.width * (1 - 2 * MAX_TRIM_PER_SIDE))
+        keep = max(image.height * target_ratio, image.width * (1 - 2 * max_trim))
         left = (image.width - keep) / 2
         trimmed = image.crop((round(left), 0, round(left + keep), image.height))
     background = ImageOps.fit(trimmed, (width, height), method=Image.Resampling.LANCZOS)
@@ -1215,12 +1314,12 @@ def _fit_without_losing_content(image, width, height):
     return background
 
 
-def fit_generated_output(encoded, width, height, output_format="png"):
+def fit_generated_output(encoded, width, height, output_format="png", max_trim=None):
     try:
         content = base64.b64decode(str(encoded or ""), validate=True)
         image = ImageOps.exif_transpose(Image.open(io.BytesIO(content)))
         image.load()
-        fitted = _fit_without_losing_content(image, int(width), int(height))
+        fitted = _fit_without_losing_content(image, int(width), int(height), max_trim)
         normalized = str(output_format or "png").lower()
         if normalized in {"jpg", "jpeg"}:
             fitted = fitted.convert("RGB")

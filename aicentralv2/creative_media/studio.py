@@ -237,6 +237,22 @@ def _assert_project_brand_access(project_id, client_id):
 
 def _studio_reference_masks():
     """Return the shared low-resolution composition references for Studio V2."""
+    from . import ad_masks
+    pilot = []
+    for spec in ad_masks.served_specs():
+        ratio = ad_masks.ratio_label(spec['width'], spec['height'])
+        pilot.append({
+            'id': 'layout-' + spec['id'].replace(':', '-'),
+            'label': f"{spec['format_label']} · {spec['family_label']} · {'sem logo' if spec['logo'] == 'none' else 'com logo'} · {'com CTA' if spec['cta'] else 'sem CTA'}",
+            'role': 'composition',
+            'group': spec['format'],
+            'concept': 'composition-layout',
+            'format': ratio,
+            'width': spec['width'],
+            'height': spec['height'],
+            'exact_size': True,
+            'url': url_for('static', filename=f"images/cadu/studio/references/layouts/{ad_masks.mask_filename(spec)}"),
+        })
     references = [
         {
             'id': f'feed-mask-{index:02d}',
@@ -254,6 +270,7 @@ def _studio_reference_masks():
         }
         for index in range(1, 11)
     ]
+    references = [*pilot, *references]
     references.extend(
         {
             'id': f'square-mask-{index:02d}',

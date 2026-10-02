@@ -30,8 +30,6 @@
 .reports-main .reports-node-settings h3{color:var(--color-text-primary);font-size:14px;font-weight:600}
 .reports-main .reports-node-settings p{color:var(--color-text-quaternary);font-size:12px;line-height:1.45}
 .reports-main .reports-node-settings label{gap:6px}
-.reports-main .reports-node-settings .reports-danger-button{border-color:var(--color-border-error_subtle)!important;background:var(--color-bg-primary)!important;color:var(--color-text-error-primary)!important}
-.reports-main .reports-node-settings .reports-danger-button:hover{background:var(--color-bg-error-primary)!important}
 
 @media(max-width:1250px){.reports-main .reports-flow-topbar{align-items:flex-start;flex-direction:column}.reports-main .reports-flow-actions{max-width:100%;justify-content:flex-start}}
 @media(max-width:1100px){.reports-main .reports-flow-designer{grid-template-columns:190px minmax(0,1fr)}.reports-main .reports-node-settings{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid var(--color-border-secondary);border-left:0}}
@@ -74,11 +72,8 @@
 .reports-flow-ai-confidence{display:block;margin:4px 0;color:var(--color-text-quaternary);font-size:11px;line-height:1.45}
 
 /* Site-first navigation and grouped funnel workspace. */
-.reports-site-tabs{display:flex;gap:8px;margin-bottom:24px;padding-bottom:12px;border-bottom:1px solid var(--color-border-secondary)}
-.reports-site-tabs .is-active{background:var(--color-bg-brand-primary);color:var(--color-text-brand-secondary)}
 .reports-flow-group{position:absolute;pointer-events:none;border:1px solid var(--color-border-primary);border-radius:12px;background:#f0f4f855;box-sizing:border-box}
 .reports-flow-group.is-selected{border-color:var(--color-border-brand_alt)}
-@media(max-width:767px){.reports-site-tabs{flex-wrap:wrap}}
 
 /* Compact controls stay at screen scale while the document zooms. */
 .reports-editor-controls{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0 12px}
@@ -464,4 +459,3 @@
 .flow-forecast-table thead th{color:var(--color-text-tertiary);font-weight:600}
 
 /* Shell layout rules keyed to the portal body class (set by the server template). */
-.reports-main:has(.reports-supertag-page){padding-top:0}

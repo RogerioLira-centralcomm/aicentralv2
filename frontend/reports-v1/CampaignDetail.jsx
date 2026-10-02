@@ -6,7 +6,7 @@ import {ReportsFieldInput} from './ReportsFieldInput.jsx';
 import {ReportsNativeSelect} from './ReportsNativeSelect.jsx';
 import {ReportsTabs} from './ReportsTabs.jsx';
 import {FlowPlatformLogo} from './FlowPlatformLogo.jsx';
-import {Alert, Callout, Card, EmptyNote, TD, TH} from './ReportsBlocks.jsx';
+import {Alert, Callout, Card, DataTable as Table, EmptyNote, Stats} from './ReportsBlocks.jsx';
 import {CAMPAIGN_STATUS, channelLabel} from './ClientsAccounts.jsx';
 import {Chart, amount, money, platformName} from './shell/media.jsx';
 import {decimal, integer, json, reportUrl, shortDate} from './reportsCommon.jsx';
@@ -18,16 +18,6 @@ const METRIC_LABELS = {impressions: 'Impressões', clicks: 'Cliques', cost: 'Inv
 const CRM_STEPS = {lead: 'Lead', qualified_lead: 'Lead qualificado', sale: 'Venda'};
 const money_ = key => key === 'cost' || key === 'conversion_value';
 
-function Stats({items}) {
-  return <dl className={`grid gap-px overflow-hidden rounded-xl bg-border-secondary shadow-xs ring-1 ring-secondary sm:grid-cols-2 ${items.length > 3 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
-    {items.map(([label, value, detail]) => <div key={label} className="min-w-0 bg-primary px-5 py-4">
-      <dt className="text-sm font-medium text-tertiary">{label}</dt>
-      <dd className="mt-1 truncate text-display-xs font-semibold text-primary tabular-nums" title={String(value)}>{value}</dd>
-      {detail && <p className="mt-1 truncate text-xs text-tertiary">{detail}</p>}
-    </div>)}
-  </dl>;
-}
-
 function Toolbar({query, setQuery, placeholder, sources, source, setSource, metric, setMetric}) {
   return <div className="flex flex-wrap items-center gap-3 border-b border-secondary px-6 py-3">
     <div className="w-full max-w-80"><ReportsFieldInput size="sm" type="search" aria-label={placeholder} placeholder={placeholder} value={query} onChange={event => setQuery(event.target.value)}
@@ -37,23 +27,6 @@ function Toolbar({query, setQuery, placeholder, sources, source, setSource, metr
     {setMetric && <div className="w-48"><ReportsNativeSelect size="sm" aria-label="Métrica" value={metric} onChange={event => setMetric(event.target.value)}>
       <option value="all">Todas as métricas</option>{Object.entries(METRIC_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</ReportsNativeSelect></div>}
   </div>;
-}
-
-function Table({columns, rows, rowKey, minWidth = 720, page = 50}) {
-  const [limit, setLimit] = useState(page);
-  const shown = rows.slice(0, limit);
-  return <>
-    <div className="overflow-x-auto"><table className="w-full" style={{minWidth}}>
-      <thead><tr>{columns.map(([label, , align]) => <th key={label} className={`${TH} ${align === 'right' ? 'text-right' : ''}`}>{label}</th>)}</tr></thead>
-      <tbody>{shown.map((row, index) => <tr key={rowKey(row, index)} className="hover:bg-primary_hover">
-        {columns.map(([label, render, align]) => <td key={label} className={`${TD} ${align === 'right' ? 'text-right tabular-nums' : ''}`}>{render(row)}</td>)}
-      </tr>)}</tbody>
-    </table></div>
-    {rows.length > limit && <div className="flex items-center justify-between gap-3 px-6 py-3">
-      <span className="text-xs text-tertiary">{shown.length.toLocaleString('pt-BR')} de {rows.length.toLocaleString('pt-BR')} linhas</span>
-      <Button size="sm" color="secondary" onPress={() => setLimit(limit + page)}>Mostrar mais {Math.min(page, rows.length - limit)}</Button>
-    </div>}
-  </>;
 }
 
 /** One media campaign: performance, traffic it brings, what happens on the site and the CRM, sources and settings. */

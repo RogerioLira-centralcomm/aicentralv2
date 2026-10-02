@@ -249,7 +249,6 @@
 
 /* Accounts / clients: inline helpers read as links, not grey blocks. */
 .reports-main .reports-content .reports-panel .reports-form + .reports-table-wrap{margin-top:20px}
-.reports-main .st-topbar{justify-content:flex-end;padding:0;margin:0}
 .rs-kv--spaced{margin-top:20px}
 
 /* Clientes: the add form is one row, not a full-width field over a stacked button. */

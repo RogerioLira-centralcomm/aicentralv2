@@ -26,8 +26,12 @@ SWAP_READ_MAX_TOKENS = int(os.getenv("CREATIVE_FORMAT_SWAP_READ_MAX_TOKENS", "40
 OCR_MAX_SIDE = 1280
 OCR_MAX_BYTES = 400_000
 OCR_JPEG_QUALITY = 82
-SWAP_ESTIMATE_USD = 0.22
-SWAP_DRAFT_ESTIMATE_USD = 0.14
+# An edit is one image generation, so it costs what a creation costs: the cost catalog's per-generation
+# value (Studio's single source), for every quality.
+from ..creative_media.studio_costs import image_generation_usd as _catalog_image_usd
+
+SWAP_ESTIMATE_USD = float(_catalog_image_usd())
+SWAP_DRAFT_ESTIMATE_USD = SWAP_ESTIMATE_USD
 TYPE_ONLY = {"headline", "secondary", "cta", "price"}
 SCENE_VARIANT_NOTES = {
     2: (

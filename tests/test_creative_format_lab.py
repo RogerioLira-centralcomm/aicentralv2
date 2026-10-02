@@ -3176,7 +3176,10 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
         )
         self.assertIn("identidade visual", preview["preview"])
         self.assertEqual(preview["quality"], "production")
-        self.assertNotEqual(quote_swap({"quality": "draft"})["estimated_cost_usd"], quote_swap()["estimated_cost_usd"])
+        # An edit is one image generation: every quality is quoted at the catalog's per-generation cost.
+        from aicentralv2.creative_media.studio_costs import image_generation_usd
+        self.assertEqual(quote_swap({"quality": "draft"})["estimated_cost_usd"], float(image_generation_usd()))
+        self.assertEqual(quote_swap()["estimated_cost_usd"], float(image_generation_usd()))
 
     def test_prompt_override_nao_reescreve_o_texto(self):
         prompt = build_optimized_prompt({"prompt_override": "Manter as pessoas e só trocar o CTA."})

@@ -636,3 +636,19 @@ details.se-brand-content > .se-brand-label { margin-top:8px; }
 .se-rail-foot > a:hover,.se-rail-foot > button:hover { background:rgba(255,255,255,.04); color:#fff; }
 .se-rail-foot i { color:#7f8b97; font-style:normal; font-size:16px; }
 @media (prefers-reduced-motion:reduce) { .se-rail-block__body { animation:none; } .se-rail-block__toggle > i { transition:none; } }
+
+/* File size sits right after width × height in the toolbar. */
+.se-toolbar .se-filesize { display:inline-flex; flex:none; align-items:center; width:auto; height:28px; margin:0 10px 0 6px; padding:0 9px; font-style:normal; border-radius:7px; background:rgba(255,255,255,.06); color:#c3ccd5; font-size:11px; font-weight:600; white-space:nowrap; font-variant-numeric:tabular-nums; }
+
+/* Brand panel: real vertical rhythm (the collapsible section had lost its grid and everything touched). */
+details.se-brand-content[open],details.se-delivery-content[open] { display:grid; gap:10px; align-content:start; }
+details.se-brand-content > :not(summary),details.se-delivery-content > :not(summary) { margin:0; }
+details.se-brand-content > .se-brand-label { margin-top:6px; color:#8e9aa6; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; }
+details.se-brand-content > .se-brand-swatches { display:flex; flex-wrap:wrap; gap:8px; padding:2px 0 4px; }
+.se-brand-swatches i { width:30px; height:30px; border-radius:8px; border:1px solid rgba(255,255,255,.18); }
+details.se-brand-content > .se-brand-empty { color:#8e9aa6; font-size:12px; line-height:1.5; }
+details.se-brand-content > .se-type-preview { padding:8px 10px; border-radius:8px; background:rgba(255,255,255,.04); color:#e1e6eb; font-size:13px; font-weight:600; }
+details.se-brand-content > .se-text-button { justify-self:start; margin-top:2px; padding:4px 0; }
+details.se-delivery-content > label { display:grid; gap:8px; margin:0; color:#8e9aa6; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; }
+details.se-delivery-content .se-format-options { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; letter-spacing:0; text-transform:none; }
+details.se-panel-section[open] > summary { margin-bottom:4px; }

@@ -250,14 +250,15 @@ def test_trocr_editor_uses_the_react_workspace_assets():
     assert "trocr-editor.css" not in template
 
 
-def test_edit_quote_comes_from_the_swap_estimate_and_grows_with_quality():
+def test_edit_quote_is_one_image_generation_at_the_catalog_price_for_every_quality():
     from aicentralv2.creative_format_lab.swap import quote_swap
+    from aicentralv2.creative_media.studio_costs import image_credits
     base = {'instruction': 'Troque o fundo', 'aspect_ratio': '4:5', 'reference': 'studio-editor'}
 
     draft = quote_swap({**base, 'quality': 'draft'})['estimated_tokens']
     high = quote_swap({**base, 'quality': 'high'})['estimated_tokens']
 
-    assert draft > 0 and high > draft
+    assert draft == high == image_credits(0), "uma edição custa o mesmo que uma criação"
 
 
 def test_edit_quote_route_is_registered_for_the_editor():

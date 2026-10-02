@@ -38,6 +38,12 @@ const good={id:'v2',name:'Peça',url:STILL,dataUrl:STILL,status:'draft'};
       assert.equal(rail.open.length,1,`uma seção aberta por vez (${where}): ${rail.open}`);
       if(label==='vazio')assert.ok(/Imagens/.test(rail.open[0]),`sem peça, a seção aberta é a das imagens (${where}): ${rail.open}`);
       if(label==='peça válida')assert.equal(rail.open[0],'Versões',`com peça, a seção aberta é a das versões (${where})`);
+      if(label==='peça válida'){
+        const size=await page.locator('.se-filesize').innerText();
+        assert.match(size,/^\d+([.,]\d+)? (KB|MB)$/,`tamanho do arquivo ao lado de largura e altura (${where}): ${size}`);
+        const box=await page.evaluate(()=>{const f=document.querySelector('.se-filesize').getBoundingClientRect(),h=document.querySelector('input[aria-label="Altura"]').getBoundingClientRect(),q=document.querySelector('.se-output-picker').getBoundingClientRect();return {afterHeight:f.left>=h.right-1,beforeQuality:f.right<=q.left+1,visible:f.width>20&&f.height>10}});
+        assert.deepEqual(box,{afterHeight:true,beforeQuality:true,visible:true},`tamanho do arquivo sem sobrepor os campos (${where})`);
+      }
       if(label==='vazio'){
         assert.equal(await page.locator('.se-upload-stage').count(),1,`palco vazio mostra a área para soltar imagem (${where})`);
         assert.equal(await page.locator('.se-stage-broken').count(),0,'sem peça falsa de "Imagem de referência"');

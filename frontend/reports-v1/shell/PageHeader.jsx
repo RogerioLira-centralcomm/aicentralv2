@@ -1,19 +1,37 @@
 import React from 'react';
 import {ChevronRight} from '@untitledui/icons';
+import {platformName} from './media.jsx';
 import {ReportsNativeSelect} from '../ReportsNativeSelect.jsx';
 import {ReportsDateRange} from '../ReportsDateRange.jsx';
 import {APP_BASE, navigateOnClick} from './routes.js';
 import {useReportsContext} from './context.js';
 
 /** Client and period, kept in the header so the analysed context changes without leaving the page. */
-export function ContextSelector({clients = [], client, showPeriod}) {
-  const {period, setPeriod, switchClient} = useReportsContext();
+export function ContextSelector({clients = [], client, showPeriod, accounts, campaigns, sites}) {
+  const {period, setPeriod, switchClient, scope, setScope} = useReportsContext();
+  const sources = (accounts || []).filter(item => item.status !== 'disabled');
+  const scoped = (campaigns || []).filter(item => !scope.account || String(item.account_id) === scope.account);
   return <div className="rs-context" aria-label="Contexto da análise">
     {clients.length > 1 ? <label className="rs-context__client"><span className="reports-sr-only">Cliente</span>
       <ReportsNativeSelect value={client?.client_id ?? ''} onChange={event => switchClient(event.target.value)} aria-label="Cliente">
         {clients.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
       </ReportsNativeSelect></label>
-      : client?.client_name ? <span className="rs-context__name" title="Cliente">{client.client_name}</span> : null}
+      : null}
+    {accounts && sources.length > 0 && <label className="rs-context__client"><span className="reports-sr-only">Fonte de dados</span>
+      <ReportsNativeSelect value={scope.account} onChange={event => setScope({...scope, account: event.target.value, campaign: ''})} aria-label="Fonte de dados">
+        <option value="">Todas as fontes</option>
+        {sources.map(item => <option key={item.id} value={item.id}>{item.name || item.external_id} · {platformName(item.platform)}</option>)}
+      </ReportsNativeSelect></label>}
+    {campaigns && (campaigns.length > 0) && <label className="rs-context__client"><span className="reports-sr-only">Campanha</span>
+      <ReportsNativeSelect value={scope.campaign} onChange={event => setScope({...scope, account: scope.account || String(campaigns.find(item => String(item.id) === event.target.value)?.account_id || ''), campaign: event.target.value})} aria-label="Campanha">
+        <option value="">Todas as campanhas</option>
+        {scoped.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+      </ReportsNativeSelect></label>}
+    {sites && sites.length > 0 && <label className="rs-context__client"><span className="reports-sr-only">Site</span>
+      <ReportsNativeSelect value={scope.site} onChange={event => setScope({...scope, site: event.target.value})} aria-label="Site">
+        {sites.length > 1 && <option value="">Todos os sites</option>}
+        {sites.map(item => <option key={item.id} value={item.id}>{item.allowed_host || item.label}</option>)}
+      </ReportsNativeSelect></label>}
     {showPeriod && period && <ReportsDateRange value={period} onChange={setPeriod}/>}
   </div>;
 }

@@ -3,7 +3,9 @@
 Both endpoints use the same window and event table as the Páginas domain overview, so the numbers of every Site &
 Jornada tab agree. They only aggregate what is already collected; no new pipeline is involved.
 """
-from flask import jsonify
+import uuid
+
+from flask import abort, jsonify, request
 
 from ..auth import login_required_api
 from .reports_flow_metrics import PLATFORM_LABELS, origin_platform, parse_origin, search_engine_for_host, search_engine_label
@@ -186,9 +188,18 @@ def register(bp):
             views = int(page['views']) or 1
             page['exit_rate'] = round(int(page['exits']) * 100 / views, 1)
             page['site_id'] = str(page['site_id'])
+        origins_sql = _NAV_ORIGINS_SQL
+        site_raw = request.args.get('site_id', '').strip()
+        if site_raw:
+            try:
+                scope['site'] = str(uuid.UUID(site_raw))
+            except ValueError:
+                abort(400, description='Site inválido.')
+            # Origins of the chosen site only; the page list is narrowed by the screen.
+            origins_sql = _NAV_ORIGINS_SQL.replace("AND e.event_kind='page_view'", "AND e.event_kind='page_view' AND e.site_id=%(site)s::uuid", 1)
         return jsonify(window=_window_json(since, until, days), totals=totals, pages=pages,
                        paths=_rows(_NAV_PATHS_SQL, scope),
-                       origins=_by_platform(_rows(_NAV_ORIGINS_SQL, scope), 'sessions'))
+                       origins=_by_platform(_rows(origins_sql, scope), 'sessions'))
 
     @bp.get('/api/v2/reports/journey/conversions')
     @login_required_api

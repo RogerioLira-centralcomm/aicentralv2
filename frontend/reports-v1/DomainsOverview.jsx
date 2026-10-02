@@ -108,7 +108,7 @@ function DomainCard({domain, range}) {
 }
 
 /** Overview of Páginas: one block per monitored domain, built the way an analytics home reads. */
-export function DomainsOverview({data, range: controlledRange, onRangeChange}) {
+export function DomainsOverview({data, range: controlledRange, onRangeChange, siteId = ''}) {
   // Inside Site & Jornada the period comes from the header; standalone, the block keeps its own picker.
   const [ownRange, setOwnRange] = useState(initialRange);
   const controlled = Boolean(controlledRange);
@@ -129,7 +129,7 @@ export function DomainsOverview({data, range: controlledRange, onRangeChange}) {
     }
     return () => {active = false;};
   }, [client, range.start, range.end, controlled]);
-  const domains = state.body?.domains || [];
+  const domains = (state.body?.domains || []).filter(item => !siteId || item.site_id === siteId);
   return <div className="do-page">
     <div className="do-toolbar">
       <div><h2>Resumo por domínio</h2><p>{domains.length ? `${domains.length} ${domains.length === 1 ? 'domínio monitorado' : 'domínios monitorados'} · ${formatRange(range.start, range.end)}` : 'Visitas, origem e páginas de cada site com a Super Tag.'}</p></div>

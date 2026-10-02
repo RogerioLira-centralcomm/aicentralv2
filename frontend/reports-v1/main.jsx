@@ -17,10 +17,10 @@ import {PageDetail} from './PageDetail.jsx';
 import {AlertsCenter} from './AlertsCenter.jsx';
 import {REPORT_FILTER_DEFAULTS, ReportsFilterBar} from './PageChrome.jsx';
 import {APP_BASE, HUBS, applyLegacyRedirect, navigateOnClick, resolveRoute, useLocationKey} from './shell/routes.js';
-import {ReportsContext, periodFilters, readPeriod, writePeriod} from './shell/context.js';
+import {ReportsContext, periodFilters, readPeriod, readSavedScope, readScope, initialScope, initialSite, saveScope, writePeriod, writeScope} from './shell/context.js';
 import {ContextSelector, PageHeader} from './shell/PageHeader.jsx';
 import {LoadingState} from './shell/primitives.jsx';
-import {setActiveClient} from './shell/useApi.js';
+import {apiUrl, setActiveClient, useApi} from './shell/useApi.js';
 import {platformName} from './shell/media.jsx';
 import {Overview} from './hubs/overview/Overview.jsx';
 import {MediaOverview} from './hubs/media/MediaOverview.jsx';
@@ -118,6 +118,8 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [period, setPeriodState] = useState(readPeriod);
   const setPeriod = range => {setPeriodState(range); writePeriod(range);};
+  const [scope, setScopeState] = useState(readScope);
+  const setScope = next => {setScopeState(next); if (data?.client?.client_id) saveScope(data.client.client_id, next);};
   // Platform/account/campaign filters stay per page; the period is one for the whole app.
   const [filtersByPage, setFiltersByPage] = useState({});
   const filters = {...REPORT_FILTER_DEFAULTS, ...(filtersByPage[pageSection] || {}), ...periodFilters(period)};
@@ -137,6 +139,7 @@ function App() {
   const switchClient = async clientId => {
     if (String(clientId) === String(data?.client?.client_id)) return;
     setFiltersByPage({});
+    setScopeState({account: '', campaign: '', site: ''});
     await load(clientId);
   };
   useEffect(() => {
@@ -172,8 +175,28 @@ function App() {
     .map(([id, title, path]) => ({id, label: title, icon: reportIcons[id], href: `${APP_BASE}/${path}`}))}));
   const solutionUrls={workspace:rootElement.dataset.workspaceUrl,planner:rootElement.dataset.plannerUrl,studio:rootElement.dataset.studioUrl,connect:location.pathname+location.search,skills:rootElement.dataset.skillsUrl};
   const solutionIcons={workspace:'/static/images/cadu/products/cadu-icon.png',planner:'/static/images/cadu/products/planner-icon.png',studio:'/static/images/cadu/products/studio-icon.png',connect:'/static/images/cadu/products/connect-icon.png',skills:'/static/images/cadu/products/skills-icon.png'};
+  // Once a client's data is in: reopen the last source/campaign used, or the only one there is.
+  useEffect(() => {
+    if (!data?.ready || !data.client?.client_id) return;
+    const next = initialScope({urlScope: readScope(), saved: readSavedScope(data.client.client_id), accounts: data.accounts || [], campaigns: data.campaigns || []});
+    setScopeState(current => ({...next, site: current.site}));
+  }, [data?.client?.client_id, data?.ready]);
+  const siteRoute = Boolean(data?.ready) && route.scope === 'site';
+  const [siteList] = useApi(siteRoute ? apiUrl('/supertag/sites', {for_client: data?.client?.client_id}) : '');
+  const sites = (siteList.body?.sites || []).filter(item => !item.revoked_at);
+  useEffect(() => {
+    if (!siteList.body) return;
+    const site = initialSite({urlSite: readScope().site, savedSite: readSavedScope(data.client.client_id)?.site, sites});
+    setScopeState(current => ({...current, site}));
+  }, [siteList.body]);
+  // The selection lives in the address only on the screens it applies to, so shared links keep it and other pages stay clean.
+  useEffect(() => {
+    if (!data?.ready) return;
+    writeScope(route.scope === true ? {account: scope.account, campaign: scope.campaign, site: ''}
+      : route.scope === 'site' ? {account: '', campaign: '', site: scope.site} : {account: '', campaign: '', site: ''});
+  }, [scope, locationKey, data?.ready]);
   const onRefresh = () => {setRefreshRevision(value => value + 1); load(data?.client?.client_id);};
-  const context = useMemo(() => ({period, setPeriod, switchClient}), [period, data?.client?.client_id]);
+  const context = useMemo(() => ({period, setPeriod, switchClient, scope, setScope}), [period, scope, data?.client?.client_id]);
   if(data?.shared)return <SharedReports key={data.client.client_id} data={data}/>;
   const hub = route.hub ? HUBS[route.hub] : null;
   const library = pageSection === 'imports' && new URLSearchParams(location.search).get('view') === 'library';
@@ -192,7 +215,7 @@ function App() {
       creatives: () => <MediaCreatives data={data}/>,
       content: () => <Contents/>,
       monitor: () => <MediaData data={data} save={save} busy={busy}/>,
-      journey: () => <JourneyOverview data={data}/>,
+      journey: () => <JourneyOverview data={data} sites={sites}/>,
       flow: () => <Flow data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} />,
       pages: () => <PageDetail data={data} />,
       navigation: () => <Navigation/>,
@@ -212,7 +235,7 @@ function App() {
     <main className="reports-main">
       <>
           {data && !isFlowEditor && <PageHeader {...header} activeTab={route.path}
-            context={<ContextSelector clients={data.clients} client={data.client} showPeriod={Boolean(route.period) && !(pageSection === 'pages' && new URLSearchParams(location.search).get('site_id'))}/>}/>}
+            context={<ContextSelector clients={data.clients} client={data.client} accounts={route.scope === true ? data.accounts : undefined} campaigns={route.scope === true ? data.campaigns : undefined} sites={route.scope === 'site' ? sites : undefined} showPeriod={Boolean(route.period) && !(pageSection === 'pages' && new URLSearchParams(location.search).get('site_id'))}/>}/>}
           {showFilterBar && <ReportsFilterBar data={data} filters={filters} onChange={updateFilters} onRefresh={onRefresh} />}
           <div className="reports-content">{error && <div className="reports-error" role="alert">{error}</div>}<React.Fragment key={`${clientKey}:${route.path}`}>{page}</React.Fragment></div>
       </>

@@ -2,20 +2,20 @@
 :root{--rs-ink:var(--color-text-primary);--rs-text:var(--color-text-secondary);--rs-muted:var(--color-text-tertiary);--rs-line:var(--color-border-secondary);--rs-soft:var(--color-bg-secondary);--rs-brand:var(--color-text-brand-secondary);--rs-brand-soft:var(--color-bg-brand-primary);--rs-success:var(--color-text-success-primary);--rs-success-soft:var(--color-bg-success-primary);--rs-warning:var(--color-text-warning-primary);--rs-warning-soft:var(--color-bg-warning-primary);--rs-error:var(--color-text-error-primary);--rs-error-soft:var(--color-bg-error-primary)}
 
 /* Header — the only h1 of the page. */
-.rs-header{position:sticky;top:0;z-index:30;margin:0 0 20px;background:var(--color-bg-primary);border-bottom:1px solid var(--rs-line)}
+.rs-header{position:sticky;top:0;z-index:30;margin:0 0 20px;background:#fff}
 .rs-header__row{box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:64px;padding:10px 0}
 .rs-header__copy{min-width:0}
 .rs-header h1{margin:0;color:var(--rs-ink);font-size:20px;font-weight:600;line-height:28px;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rs-header__copy>p{margin:2px 0 0;color:var(--rs-muted);font-size:14px;line-height:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rs-header__actions{display:flex;flex:none;align-items:center;gap:8px}
+.rs-header__actions{display:flex;flex:0 1 auto;min-width:0;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px}
 .rs-header--tabs .rs-header__row{min-height:60px;padding-bottom:4px}
 .rs-crumbs{display:flex;align-items:center;gap:6px;margin:0 0 2px;padding:0;list-style:none;color:var(--rs-muted);font-size:13px}
 .rs-crumbs li{display:flex;align-items:center;gap:6px}
 .rs-crumbs a{color:var(--rs-muted);text-decoration:none}
 .rs-crumbs a:hover{color:var(--rs-ink)}
 
-.rs-context{display:flex;align-items:center;gap:8px}
-.rs-context__client select{max-width:220px}
+.rs-context{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;min-width:0}
+.rs-context__client select{max-width:200px;text-overflow:ellipsis}
 .rs-context__name{display:inline-flex;align-items:center;height:40px;padding:0 12px;border:1px solid var(--color-border-primary);border-radius:8px;color:var(--rs-text);font-size:14px;font-weight:600;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rs-context .rdr-trigger{height:40px}
 
@@ -219,8 +219,8 @@
    One surface per block: 1px #eaecf0, 12px radius, no shadow. Anything inside a block is flat.
    Buttons follow the brand: primary blue, secondary white with border, tertiary transparent. */
 
-/* Header blends with the page instead of forming a white strip. */
-.reports-main .rs-header{background:var(--r-bg,var(--color-bg-secondary))}
+/* Solid white header: nothing from the page shows through when the content scrolls under it. */
+.reports-main .rs-header{background:#fff;box-shadow:0 0 0 100vmax #fff;clip-path:inset(0 -100vmax)}
 
 /* Surfaces */
 .reports-main .reports-content .reports-kpi{border:1px solid var(--color-border-secondary);border-radius:12px;box-shadow:none;background:var(--color-bg-primary)}

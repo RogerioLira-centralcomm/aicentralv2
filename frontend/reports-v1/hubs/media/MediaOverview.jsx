@@ -13,8 +13,8 @@ const STATUS = {ENABLED: 'Ativa', PAUSED: 'Pausada', REMOVED: 'Removida', active
 
 /** "Como está minha operação de mídia?" — totals, the daily curve, channels and the campaigns to open next. */
 export function MediaOverview({data}) {
-  const {period} = useReportsContext();
-  const media = useMedia(period);
+  const {period, scope} = useReportsContext();
+  const media = useMedia(period, scope);
   const [series, setSeries] = useState('impressions');
   if (media.loading) return <div className="rs-stack"><LoadingState rows={2}/><LoadingState rows={6}/></div>;
   if (media.error) return <ErrorState message={media.error} onRetry={media.retry}/>;
@@ -24,7 +24,8 @@ export function MediaOverview({data}) {
     action={<div className="rs-actions"><ReportsActionButton color="primary" size="sm" href={reportUrl('media/data')}>Conectar fonte</ReportsActionButton><ReportsActionButton color="secondary" size="sm" href={reportUrl('imports')}>Enviar arquivo</ReportsActionButton></div>}/>;
   const {totals} = summary;
   const money = value => currency(value, summary.currency);
-  const campaigns = data.campaigns.filter(item => ['ENABLED', 'active'].includes(item.status)).slice(0, 6);
+  const campaigns = data.campaigns.filter(item => ['ENABLED', 'active'].includes(item.status)
+    && (!scope.account || String(item.account_id) === scope.account) && (!scope.campaign || String(item.id) === scope.campaign)).slice(0, 6);
   return <div className="rs-stack">
     <MetricGroup label="Resumo de mídia" items={[
       {label: 'Investimento', value: compactCurrency(totals.cost, summary.currency), detail: summary.origin},

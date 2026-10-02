@@ -35,8 +35,8 @@ export function mediaSummary(metrics, imported) {
 }
 
 /** Script metrics and imported metrics for the period, loaded side by side. */
-export function useMedia(period) {
-  const query = periodQuery(period);
+export function useMedia(period, scope = {}) {
+  const query = {...periodQuery(period), account_id: scope.account, campaign_id: scope.campaign};
   const [metrics, retryMetrics] = useApi(apiUrl('/metrics', query));
   const [imported, retryImported] = useApi(apiUrl('/import-metrics', query));
   const loading = metrics.loading || imported.loading;

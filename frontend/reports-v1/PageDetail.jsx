@@ -206,8 +206,9 @@ function DocumentGrid({document: doc}) {
 
 const SCROLL_BANDS = [['scroll_25', '0–25%'], ['scroll_50', '25–50%'], ['scroll_75', '50–75%'], ['scroll_100', '75–100%']];
 
-function CaptureHeat({siteId, path, device, document: doc, metrics, canEdit, client, csrf}) {
-  const [mode, setMode] = useState('clicks');
+function CaptureHeat({siteId, path, device, document: doc, metrics, canEdit, client, csrf, mode: controlledMode, onModeChange}) {
+  const [ownMode, setOwnMode] = useState('clicks');
+  const mode = controlledMode || ownMode, setMode = onModeChange || setOwnMode;
   const [intensity, setIntensity] = useState(70);
   const [state, setState] = useState({loading: true, error: '', body: null});
   const [starting, setStarting] = useState(false);
@@ -245,7 +246,7 @@ function CaptureHeat({siteId, path, device, document: doc, metrics, canEdit, cli
     </div>}
     {ready && <>
       <div className="page-detail-capture-tools">
-        <ReportsTabs className="page-detail-views" label="Camada do calor" value={mode} onChange={setMode} items={[{id: 'clicks', label: 'Cliques'}, {id: 'scroll', label: 'Rolagem'}]}/>
+        {!controlledMode && <ReportsTabs className="page-detail-views" label="Camada do calor" value={mode} onChange={setMode} items={[{id: 'clicks', label: 'Cliques'}, {id: 'scroll', label: 'Rolagem'}]}/>}
         <label className="page-detail-inline">Intensidade<input type="range" min="10" max="100" value={intensity} aria-label="Intensidade do calor" onChange={event => setIntensity(Number(event.target.value))}/></label>
         {canEdit && body.status !== 'capturing' && <ReportsActionButton color="tertiary" size="sm" className="page-detail-button is-quiet" disabled={starting} onClick={capture}>Capturar de novo</ReportsActionButton>}
       </div>
@@ -263,6 +264,19 @@ function CaptureHeat({siteId, path, device, document: doc, metrics, canEdit, cli
         {' '}Se a página mudou depois da captura, o calor pode não coincidir com o desenho: capture de novo.</p>
     </>}
   </div>;
+}
+
+/** Screenshot of one page on one device with the click or scroll heat on top; used by Site & Jornada. */
+export function PageVisual({siteId, path, device, days, metrics, canEdit, client, csrf, mode}) {
+  const [state, setState] = useState({loading: true, body: null});
+  useEffect(() => {
+    let active = true;
+    setState({loading: true, body: null});
+    json(`/connect/api/v2/reports/pages/interactions?${new URLSearchParams({site_id: siteId, path, days, device})}`)
+      .then(body => {if (active) setState({loading: false, body});}).catch(() => {if (active) setState({loading: false, body: null});});
+    return () => {active = false;};
+  }, [siteId, path, days, device, client]);
+  return <CaptureHeat siteId={siteId} path={path} device={device} document={state.body?.document} metrics={metrics || {}} canEdit={canEdit} client={client} csrf={csrf} mode={mode} onModeChange={() => {}}/>;
 }
 
 function Interactions({siteId, path, days, client, metrics, canEdit, csrf}) {

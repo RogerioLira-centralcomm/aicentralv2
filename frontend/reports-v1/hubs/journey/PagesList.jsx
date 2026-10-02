@@ -12,11 +12,11 @@ const seconds = value => value == null ? '—' : value < 60 ? `${Number(value).t
 
 /** "Quais páginas funcionam melhor?" — every monitored URL with entries, exits and conversions; a row opens the page. */
 export function PagesList() {
-  const {period} = useReportsContext();
+  const {period, scope} = useReportsContext();
   const [state, retry] = useApi(apiUrl('/journey/navigation', {start_date: period.start, end_date: period.end}));
   const [query, setQuery] = useState('');
   const [host, setHost] = useState('');
-  const pages = state.body?.pages || [];
+  const pages = (state.body?.pages || []).filter(item => !scope.site || item.site_id === scope.site);
   const hosts = useMemo(() => [...new Set(pages.map(item => item.host))], [pages]);
   const visible = pages.filter(item => (!host || item.host === host) && (!query || item.path.toLowerCase().includes(query.trim().toLowerCase())));
   return <Section title="Páginas" description={pages.length ? `${pages.length} páginas com visitas no período${pages.length === 100 ? ' (as 100 mais vistas)' : ''}` : 'URLs reais do site, com visitas e resultado'}

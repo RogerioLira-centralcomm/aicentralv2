@@ -21,14 +21,14 @@ export const HUBS = {
  */
 export const ROUTES = {
   overview: {page: 'overview', nav: 'overview', title: 'Visão geral', description: 'Saúde dos dados, resultados e próxima ação.', period: true},
-  media: {page: 'media', nav: 'media', hub: 'media', period: true},
+  media: {page: 'media', nav: 'media', hub: 'media', period: true, scope: true},
   'media/campaigns': {page: 'campaigns', nav: 'media', hub: 'media', period: true},
   'media/google-ads': {page: 'google-ads', nav: 'media', hub: 'media', period: true},
   'media/creatives': {page: 'creatives', nav: 'media', hub: 'media'},
   'media/data': {page: 'monitor', nav: 'media', hub: 'media'},
-  journey: {page: 'journey', nav: 'journey', hub: 'journey', period: true},
+  journey: {page: 'journey', nav: 'journey', hub: 'journey', period: true, scope: 'site'},
   'journey/flows': {page: 'flow', nav: 'journey', hub: 'journey'},
-  'journey/pages': {page: 'pages', nav: 'journey', hub: 'journey', period: true},
+  'journey/pages': {page: 'pages', nav: 'journey', hub: 'journey', period: true, scope: 'site'},
   'journey/content': {page: 'content', nav: 'journey', hub: 'journey', period: true},
   'journey/navigation': {page: 'navigation', nav: 'journey', hub: 'journey', period: true},
   'journey/conversions': {page: 'conversions', nav: 'journey', hub: 'journey', period: true},

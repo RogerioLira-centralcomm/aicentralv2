@@ -348,19 +348,25 @@ body.planner-react {
 .planner-workbench__main, .planner-workbench__side { display: grid; gap: 16px; min-width: 0; }
 .planner-workbench__main .planner-panel + .planner-panel, .planner-workbench__side .planner-panel + .planner-panel { margin-top: 0; }
 .planner-workbench__side { position: sticky; top: 24px; }
-.planner-rail { position: sticky; top: 24px; display: grid; gap: 14px; }
-.planner-rail ol { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
-.planner-rail__item { display: flex; width: 100%; align-items: center; gap: 10px; padding: 8px 10px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.planner-rail__item:hover { background: var(--planner-soft); }
-.planner-rail__item.is-active { background: var(--color-bg-brand-primary, #ecfdf3); }
-.planner-rail__item:focus-visible { outline: 2px solid var(--color-border-brand, var(--cadu-accent)); outline-offset: -2px; }
-.planner-rail__dot { display: grid; width: 20px; height: 20px; flex: 0 0 20px; place-items: center; border: 1.5px solid var(--color-border-primary, #d0d5dd); border-radius: 50%; }
-.planner-rail__item:is(.is-aceita, .is-editada) .planner-rail__dot { border-color: transparent; background: var(--color-bg-brand-solid, var(--cadu-accent)); color: #fff; }
-.planner-rail__item.is-proposta .planner-rail__dot { border-color: var(--color-border-brand, var(--cadu-accent)); border-style: dashed; }
-.planner-rail__item.is-travada .planner-rail__dot { background: var(--color-bg-tertiary, #f2f4f7); }
+.planner-rail { position: sticky; top: 24px; display: grid; gap: 12px; }
+.planner-rail .planner-progress i { height: 4px; }
+.planner-rail .planner-progress small { color: var(--planner-subtle); }
+.planner-rail ol { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.planner-rail__item { display: flex; width: 100%; align-items: center; gap: 10px; padding: 6px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--planner-muted); font: inherit; text-align: left; cursor: pointer; transition: background 120ms ease, color 120ms ease; }
+.planner-rail__item:hover { background: var(--planner-soft); color: var(--planner-ink); }
+.planner-rail__item.is-active { background: var(--planner-soft); color: var(--planner-ink); }
+.planner-rail__item:focus-visible { outline: 2px solid var(--planner-brand); outline-offset: -2px; }
+/* Small, quiet state marks: an outline ring, a filled dot when done, dashed when Cadu proposed. */
+.planner-rail__dot { display: grid; width: 14px; height: 14px; flex: 0 0 14px; place-items: center; border: 1.5px solid var(--color-border-primary, #d0d5dd); border-radius: 50%; color: #fff; }
+.planner-rail__dot svg { width: 8px; height: 8px; }
+.planner-rail__item:is(.is-aceita, .is-editada) .planner-rail__dot { border-color: transparent; background: var(--planner-brand-mid); }
+.planner-rail__item.is-proposta .planner-rail__dot { border-color: var(--planner-brand); border-style: dashed; }
+.planner-rail__item.is-travada .planner-rail__dot { border-color: transparent; background: var(--planner-tone-4); }
+.planner-rail__item.is-active .planner-rail__dot { box-shadow: 0 0 0 3px var(--planner-brand-soft); }
 .planner-rail__copy { display: grid; min-width: 0; }
-.planner-rail__copy strong { font-size: 13px; font-weight: 600; }
-.planner-rail__copy small { color: var(--planner-muted); font-size: 12px; }
+.planner-rail__copy strong { overflow: hidden; font-size: 13px; font-weight: 500; line-height: 18px; text-overflow: ellipsis; white-space: nowrap; }
+.planner-rail__item.is-active .planner-rail__copy strong { font-weight: 600; }
+.planner-rail__copy small { color: var(--planner-subtle); font-size: 11px; line-height: 16px; }
 .planner-block { position: relative; scroll-margin-top: 24px; transition: border-color 160ms ease, box-shadow 160ms ease; }
 .planner-block.is-active { border-color: var(--color-border-brand, #75e0a7); box-shadow: 0 0 0 3px var(--color-bg-brand-primary, #ecfdf3); }
 .planner-anchor { position: absolute; top: -24px; }

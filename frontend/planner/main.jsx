@@ -90,7 +90,7 @@ function App({boot}) {
   const active = creating ? 'novo-plano' : boot.module;
   const urls = boot.urls;
   return <div className={`planner-shell${publicView ? ' is-public' : ''}`}>
-    {!publicView && <SolutionSidebar solution="Planner" accent="var(--cadu-accent)" storageKey="planner-sidebar" active={active}
+    {!publicView && <SolutionSidebar solution="Planner" accent="var(--cadu-accent)" storageKey="planner-sidebar" active={active} autoCollapse={boot.view === 'plan-detail'}
       activeSolutionId="planner" solutionLogo={SOLUTION_ICONS.planner} solutionIcons={SOLUTION_ICONS}
       solutionUrls={{workspace: urls.workspace, planner: urls.home, studio: urls.studio, connect: urls.reports, skills: urls.skills}}
       groups={sidebarGroups(urls)} userName={boot.user?.name || 'Minha conta'} accountLabel={boot.clientName || undefined}

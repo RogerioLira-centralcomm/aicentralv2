@@ -11,8 +11,10 @@ function CreditsLink({percent, href}) {
   return <a className="cadu-solution-sidebar__usage" href={href} aria-label={`Créditos e consumo: utilização de ${formatted}%`} title="Créditos e consumo"><span>{formatted}%</span><i aria-hidden="true"><b style={{width:`${value}%`}}/></i></a>;
 }
 
-export function SolutionSidebar({solution, icon, accent, groups = [], active, storageKey, footer, solutionUrls = {}, solutionIcons = {}, solutionLogo, activeSolutionId, userName = 'Minha conta', accountLabel, userAvatar = '', creditsUrl, profileUrl, onNavigate}) {
+export function SolutionSidebar({solution, icon, accent, groups = [], active, storageKey, footer, solutionUrls = {}, solutionIcons = {}, solutionLogo, activeSolutionId, userName = 'Minha conta', accountLabel, userAvatar = '', creditsUrl, profileUrl, onNavigate, autoCollapse = false}) {
+  // autoCollapse: focused pages (e.g. a plan) open collapsed without touching the saved preference.
   const [collapsed, setCollapsed] = useState(() => {
+    if (autoCollapse) return true;
     try { return localStorage.getItem(storageKey) === 'collapsed'; } catch (_) { return false; }
   });
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -26,9 +28,11 @@ export function SolutionSidebar({solution, icon, accent, groups = [], active, st
   };
   const hideTooltip = () => setTooltip(null);
   const solutions = workspaceSolutionItems({urls:{solutions:solutionUrls}, solutionIcons});
-  useEffect(() => {
-    try { localStorage.setItem(storageKey, collapsed ? 'collapsed' : 'open'); } catch (_) { /* preference is optional */ }
-  }, [collapsed, storageKey]);
+  // Only a click is a preference; an automatic collapse must not leak into other pages.
+  const toggleCollapsed = () => setCollapsed(value => {
+    try { localStorage.setItem(storageKey, value ? 'open' : 'collapsed'); } catch (_) { /* preference is optional */ }
+    return !value;
+  });
   useEffect(() => {
     let current = true;
     const refresh = () => fetch('/workspace/api/creditos/resumo', {credentials:'same-origin', headers:{Accept:'application/json'}})
@@ -43,7 +47,7 @@ export function SolutionSidebar({solution, icon, accent, groups = [], active, st
   return <aside className={`cadu-solution-sidebar${collapsed ? ' is-collapsed' : ''}${mobileOpen ? ' is-mobile-open' : ''}`} style={{'--solution-accent': accent}} aria-label={`Navegação do ${solution}`}>
     <header className="cadu-solution-sidebar__header">
       <div className="cadu-solution-sidebar__switcher"><CaduSolutionSwitcher logo={solutionLogo} solutions={solutions} activeId={activeSolutionId} showActiveLabel={!collapsed} overlay overlayAccent={accent}/></div>
-      <button type="button" className="cadu-solution-sidebar__toggle" onClick={() => {hideTooltip(); if (matchMedia('(max-width: 760px)').matches) setMobileOpen(value => !value); else setCollapsed(value => !value);}} aria-label={mobileOpen ? 'Fechar navegação' : collapsed ? 'Expandir navegação' : 'Recolher navegação'} aria-expanded={matchMedia('(max-width: 760px)').matches ? mobileOpen : !collapsed}>
+      <button type="button" className="cadu-solution-sidebar__toggle" onClick={() => {hideTooltip(); if (matchMedia('(max-width: 760px)').matches) setMobileOpen(value => !value); else toggleCollapsed();}} aria-label={mobileOpen ? 'Fechar navegação' : collapsed ? 'Expandir navegação' : 'Recolher navegação'} aria-expanded={matchMedia('(max-width: 760px)').matches ? mobileOpen : !collapsed}>
         <span className="cadu-solution-sidebar__toggle-mobile">{mobileOpen ? 'Fechar' : 'Menu'}</span><span className="cadu-solution-sidebar__toggle-desktop" aria-hidden="true">{collapsed ? '›' : '‹'}</span>
       </button>
     </header>

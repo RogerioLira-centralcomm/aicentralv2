@@ -500,6 +500,9 @@ def studio_create_directions():
         # Use the same image contract as the director: selected references plus
         # the official logo, limited to three visual inputs.
         estimate_context = studio_create.clean_context(data.get('context'), count)
+        studio_create.assert_masks_fit_format(
+            estimate_context.get('references'), estimate_context.get('width'), estimate_context.get('height'),
+        )
         reference_count = len(estimate_context.get('references') or [])
         studio_create.assert_available(client_id, user_id, count, reference_count)
         history = _creation_history()

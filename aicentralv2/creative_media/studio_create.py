@@ -609,6 +609,8 @@ def create_image(payload, modeling, client_id, user_id):
     height = integer(data.get("height"), 0)
     if bool(width) != bool(height):
         raise ValueError("Informe largura e altura do formato.")
+    if width and height:
+        assert_masks_fit_format(raw_references, width, height)
     if (width and not 120 <= width <= 7680) or (height and not 80 <= height <= 7680):
         raise ValueError("Dimensões do formato fora do limite permitido.")
     supplied_logo = official_logo_reference(data.get("brand_context")) if creation_intent == "branded_creative" else None
@@ -623,7 +625,7 @@ def create_image(payload, modeling, client_id, user_id):
         "LOGO CHECK: Before finishing, verify the supplied official logo is present once, unaltered, legible and fully inside the frame with breathing room. "
         "Keep headline text, product and packaging fully inside the selected format as well."
         if supplied_logo and not mask else
-        "SAFE AREA CHECK: Keep all requested logos, brand marks, headline text and product packaging fully inside the selected format with visible breathing room on every side. Never place a logo partially outside the frame or crop it at the top, bottom or side. If no official logo asset is supplied, leave a clean intentional logo-safe area instead of generating a guessed mark."
+        ""
     )
     if logo_corner:
         identity_safe_area = (
@@ -634,25 +636,36 @@ def create_image(payload, modeling, client_id, user_id):
         prompt = strip_logo_clauses(prompt)
     requested_palette = clean_palette(data.get("requested_palette"))
     layout_lines = composition_layout_lines(references, mask)
-    technical_prompt = "\n".join([
+    product_visibility_line = (
+        "PRODUCT VISIBILITY CHECK: If the briefing requests a product, make it a deliberate, recognizable foreground subject with enough scale and light to be clearly visible. Do not hide it behind hands, bodies, crops or depth-of-field blur. If bottles or packages are requested, show the requested quantity visibly and keep their labels facing the camera when the briefing asks for labels."
+        if re.search(r"produto|product|embalag|garraf|frasco|bottle|package|pote\b|caixa", prompt, re.IGNORECASE) else ""
+    )
+    global_composition_line = (
+        "GLOBAL COMPOSITION CHECK: When a global composition mask is supplied, treat its spatial architecture as binding: preserve the indicated subject/product zone, background field, headline band, support/price/CTA band, layer order, alignment and safe margins. Replace only the mask's placeholder subject with the product and facts from the briefing. Do not center or resize the product arbitrarily if that changes the reference hierarchy."
+        if any(isinstance(item, dict) and item.get("source") == "global" for item in references) and not layout_lines else ""
+    )
+    visual_remix_line = (
+        "VISUAL REMIX CHECK: When a user-supplied visual reference is present, make its observable visual language materially visible in the new piece. Combine it with the global mask's layout rather than choosing one reference and ignoring the other. Do not call the reference palette official brand colors or fabricate a brand mark from it."
+        if visual_reference else ""
+    )
+    technical_prompt = "\n".join(line for line in [
         *layout_lines,
         crop_safe_zone_line(aspect_ratio, width, height),
         reserved_band_line(),
         "MANDATORY BRIEFING FIDELITY: Preserve every concrete requirement in the user briefing, especially named products, packaging, people, setting, action, copy and requested format. A composition reference is only a layout guide; it must never replace the requested subject or product.",
         "VISIBLE TEXT LIMIT: render only the literal copy written in the briefing (for example the headline and the button) plus the official logo. Do not add subheadlines, bullet lists, icon captions, statistics, percentages, labelled charts, badges, dates or small print that the user did not write. Keep the layout clean with one clear focal point.",
-        "MANDATORY COMMERCIAL FACTS: Any advertiser name, brand name, product name, price, currency, package volume, slogan or logo request explicitly present in the user briefing must remain in the creative instruction exactly as provided. Do not silently drop Reserva, R$ 599, 50 ml, 1 Million or any other named fact.",
+        "MANDATORY COMMERCIAL FACTS: Any advertiser name, brand name, product name, price, currency, package volume, slogan or logo request explicitly present in the user briefing must remain in the creative instruction exactly as provided. Do not silently drop any named fact.",
         brand_identity_guard(data.get("brand_context"), visual_reference=visual_reference, creation_intent=creation_intent, editing=bool(mask), logo_corner=logo_corner),
         f"REQUESTED CREATIVE PALETTE: {', '.join(requested_palette)}. Use these colors for this piece's campaign mood only; they are not a claim about official brand identity and must not erase the official brand colors or logo." if requested_palette else "REQUESTED CREATIVE PALETTE: none.",
         prompt,
         "\nREFERENCE CONTRACT:",
         *(role_lines or ["No image reference was supplied; create an original image."]),
-        "DIRECTOR REFERENCE PLAN:",
-        *(plan_lines or ["Apply the reference contract directly and preserve the declared source boundaries."]),
+        *(["DIRECTOR REFERENCE PLAN:", *plan_lines] if plan_lines else []),
         edit_guard,
-        "PRODUCT VISIBILITY CHECK: If the briefing requests a product, make it a deliberate, recognizable foreground subject with enough scale and light to be clearly visible. Do not hide it behind hands, bodies, crops or depth-of-field blur. If bottles or packages are requested, show the requested quantity visibly and keep their labels facing the camera when the briefing asks for labels.",
+        product_visibility_line,
         identity_safe_area,
-        "GLOBAL COMPOSITION CHECK: When a global composition mask is supplied, treat its spatial architecture as binding: preserve the indicated subject/product zone, background field, headline band, support/price/CTA band, layer order, alignment and safe margins. Replace only the mask's placeholder subject with the product and facts from the briefing. Do not center or resize the product arbitrarily if that changes the reference hierarchy.",
-        "VISUAL REMIX CHECK: When a user-supplied visual reference is present, make its observable visual language materially visible in the new piece. Combine it with the global mask's layout rather than choosing one reference and ignoring the other. Do not call the reference palette official brand colors or fabricate a brand mark from it.",
+        global_composition_line,
+        visual_remix_line,
         "FORMAT AUTHORITY: The selected Studio format below overrides any conflicting dimension written in the user briefing. Compose and deliver only in this selected format.",
         f"Output channel: {channel or 'unspecified'}.",
         f"Requested output dimensions: {width}x{height}px." if width and height else "Requested output dimensions: use the selected aspect ratio.",
@@ -660,7 +673,7 @@ def create_image(payload, modeling, client_id, user_id):
         f"Output aspect ratio: {aspect_ratio}.",
         *([f"FINAL LOGO CHECK: the image must contain no logo, wordmark, monogram or brand name of any company; the {logo_corner.replace('-', ' ')} corner stays plain background."] if logo_corner else []),
         *(["FINAL LAYOUT CHECK: the composition must match the wireframe zones described at the top; if it does not, recompose before finishing."] if layout_lines else []),
-    ])
+    ] if line)
     provider_references = provider_image_references(references, mask)
     try:
         provider = modeling.generator.generate_image(
@@ -940,7 +953,7 @@ def composition_layout_lines(references, mask=""):
         "Only the large inner rectangle inside its SAFE MARGIN guide is the ad canvas; the title, legend, layer-order column and notes around it are documentation and must not appear. "
         "Rebuild that inner rectangle's zone geometry in the final ad: the same split between image area and text area, the same position and relative size of the main subject, "
         "headline block, support text and CTA, and the same margins. Fill each zone with the briefing's content. "
-        "SAFE MARGIN (binding): the dashed SAFE MARGIN guide marks where content may live. Every headline, text line, logo, CTA and the main subject's important parts must sit inside it, about 8-10% in from each canvas edge; only background, texture and full-bleed imagery may extend to the edge. "
+        "Keep headline, text, logo, CTA and the main subject inside that same dashed guide; only background and full-bleed imagery may reach the edge. "
         "If the wireframe marks a LOGO zone, the official logo goes there. "
         "Never render the wireframe's grey placeholders, numbers, labels, sample words such as HEADLINE, LOGO or CTA, guide lines or its placeholder product (bottle, jar or box).",
     ]
@@ -950,6 +963,33 @@ LOGO_WIDTH_RATIO = 0.20
 LOGO_HEIGHT_RATIO = 0.085
 LOGO_MARGIN_RATIO = 0.07
 LOGO_CORNER_EDGE_LIMIT = 9.0
+
+
+# Aspect ratio (width / height) of each shared composition-mask family.
+GLOBAL_MASK_RATIOS = {
+    "/static/images/cadu/studio/references/feed/": 1080 / 1350,
+    "/static/images/cadu/studio/references/square-300x300/": 1.0,
+    "/static/images/cadu/studio/references/iab-300x250/": 300 / 250,
+}
+
+
+def assert_masks_fit_format(references, width, height):
+    """A composition mask only guides the format it was drawn for.
+
+    Sending a 4:5 feed wireframe for a 1:1 or 16:9 piece makes the model force the wrong
+    layout, so refuse it with a clear message instead of generating (and charging) a bad piece.
+    """
+    try:
+        output_ratio = float(width) / float(height)
+    except (TypeError, ValueError, ZeroDivisionError):
+        return
+    for item in references or []:
+        url = str(item.get("url") or item.get("data") or "") if isinstance(item, dict) else ""
+        for prefix, ratio in GLOBAL_MASK_RATIOS.items():
+            if url.startswith(prefix) and abs(ratio - output_ratio) > 0.02:
+                raise ValueError(
+                    "A composição escolhida é de outro formato. Escolha uma composição deste formato ou remova a seleção."
+                )
 
 
 def logo_position(references):

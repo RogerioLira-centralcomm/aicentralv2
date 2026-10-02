@@ -563,3 +563,63 @@ def test_a_busy_logo_corner_is_softened_and_a_plain_one_is_left_alone():
 
     assert studio_create.clean_logo_corner(busy.convert("RGBA"), "bottom-right") is True
     assert studio_create.clean_logo_corner(plain.convert("RGBA"), "bottom-right") is False
+
+
+def _fake_modeling(captured, generated):
+    class Generator:
+        def generate_image(self, prompt, references, **kwargs):
+            captured.update(prompt=prompt, references=references, kwargs=kwargs)
+            return {"b64_json": generated, "model": "test-image", "output_format": "png"}
+
+    return SimpleNamespace(
+        generator=Generator(),
+        storage=SimpleNamespace(save_generated_base64=lambda *_args: "/result.png"),
+        _estimate=lambda *_args: .01,
+        _charge_studio_call=lambda **_kwargs: {},
+        _credits_crm_id=lambda value: value,
+        credit_ledger=SimpleNamespace(assert_available=lambda *_args: 1000, available=lambda *_args: 988),
+    )
+
+
+def test_a_feed_mask_is_refused_for_a_square_piece_before_any_provider_call():
+    captured = {}
+    modeling = _fake_modeling(captured, image_data("blue").split(",", 1)[1])
+    app = Flask(__name__, static_folder=str(Path(__file__).parents[1] / "aicentralv2" / "static"))
+
+    with app.app_context():
+        try:
+            studio_create.create_image({
+                "prompt": "Banner quadrado.", "request_id": "image-request-wrong-mask",
+                "width": 1080, "height": 1080, "aspect_ratio": "1:1",
+                "references": [{"url": "/static/images/cadu/studio/references/feed/feed-mask-04.webp", "role": "composition", "source": "global"}],
+            }, modeling, 10, 20)
+        except ValueError as error:
+            assert "outro formato" in str(error)
+        else:
+            raise AssertionError("A máscara de outro formato deveria ser recusada.")
+    assert captured == {}
+
+
+def test_a_feed_mask_is_accepted_for_a_feed_piece_and_leads_the_prompt():
+    captured = {}
+    modeling = _fake_modeling(captured, image_data("blue").split(",", 1)[1])
+    app = Flask(__name__, static_folder=str(Path(__file__).parents[1] / "aicentralv2" / "static"))
+    app.config["STUDIO_URL"] = "https://studio.centralcomm.media"
+
+    with app.app_context():
+        studio_create.create_image({
+            "prompt": "Banner de feed.", "request_id": "image-request-right-mask",
+            "width": 1080, "height": 1350, "aspect_ratio": "4:5",
+            "references": [{"url": "/static/images/cadu/studio/references/feed/feed-mask-04.webp", "role": "composition", "source": "global"}],
+        }, modeling, 10, 20)
+
+    assert captured["prompt"].startswith("LAYOUT (binding")
+    assert "SAFE MARGIN" in captured["prompt"]
+    assert len(captured["references"]) == 1
+    prompt = captured["prompt"]
+    assert "Reserva" not in prompt and "R$ 599" not in prompt, "exemplos de outra marca não vazam para o gerador"
+    assert "VISUAL REMIX CHECK" not in prompt, "sem imagem do usuário não há verificação de remix"
+    assert "PRODUCT VISIBILITY CHECK" not in prompt, "sem produto no briefing não há verificação de produto"
+    assert "SAFE AREA CHECK" not in prompt, "a margem aparece uma vez, não repetida"
+    assert prompt.count("SAFE MARGIN") <= 3
+    assert len(prompt) < 4300

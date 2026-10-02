@@ -16,7 +16,8 @@
       data-editor-url="{{ studio_url('modelagem_trocar') }}"
       data-video-url="{{ studio_url('modelagem_video') }}"
       data-format-catalog='{{ (mc_format_catalog|default([]))|tojson }}'
-      data-reference-masks='{{ (mc_reference_masks|default([]))|tojson }}'>
+      data-reference-masks='{{ (mc_reference_masks|default([]))|tojson }}'
+      data-image-credits='{{ (mc_image_credits|default({}))|tojson }}'>
   {% set mc_page = 'criar' %}{% include "cadu_studio/_context_bar.html" %}
   <div class="studio-v2__body">
     <aside class="studio-rail" id="referenceRail" aria-label="Referências">
@@ -87,4 +88,4 @@
   </dialog>
 </main>
 {% endblock %}
-{% block portal_scripts %}<script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script><script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=9" defer></script><script src="{{ url_for('static', filename='js/cadu-studio-create-v2.js') }}?v=40" defer></script>{% endblock %}
+{% block portal_scripts %}<script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script><script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=9" defer></script><script src="{{ url_for('static', filename='js/cadu-studio-create-v2.js') }}?v=41" defer></script>{% endblock %}

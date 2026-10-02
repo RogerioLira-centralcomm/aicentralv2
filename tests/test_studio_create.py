@@ -37,12 +37,12 @@ def test_create_screen_exposes_unified_visual_workspace():
     assert 'id="composerFeedback"' in html
     assert 'id="resultsView"' in html
     assert 'href="/static/css/cadu-studio-create-v2.css?v=44"' in html
-    assert 'src="/static/js/cadu-studio-create-v2.js?v=40"' in html
+    assert 'src="/static/js/cadu-studio-create-v2.js?v=41"' in html
     assert 'data-group="variations"><button class="is-selected" type="button">1</button><button type="button">2</button><button type="button">4</button>' in html
     assert "Inclui direção criativa e revisão final do prompt" in html
     assert "A peça gerada terá uma estrutura similar" in html
     assert "Formatos para Social" in html
-    assert 'src="/static/js/cadu-studio-create-v2.js?v=40"' in html
+    assert 'src="/static/js/cadu-studio-create-v2.js?v=41"' in html
     assert 'id="brandLogoDialog"' in html
     assert 'id="brandPaletteDialog"' in html
     assert 'aria-describedby="referencePreviewDescription"' in html
@@ -81,7 +81,7 @@ def test_create_v2_keeps_manual_review_and_progress_recoverable():
     assert 'state.originalPrompt' in source
     assert 'Requisitos obrigatórios do briefing original do usuário' in source
     assert 'const activeReferenceCount' in source
-    assert 'referenceCount * 220' in source
+    assert 'imageCostTable' in source and 'referenceCount * 220' not in source
     assert '.reference-card .reference-check i' in styles
     assert 'height:100dvh' in styles
     assert '.reference-preview-frame{min-height:0;margin:0;padding:0;border:0' in styles

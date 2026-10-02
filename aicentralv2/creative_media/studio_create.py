@@ -524,12 +524,13 @@ def create_image(payload, modeling, client_id, user_id):
     ])
     # The model redraws logos and tends to hug the edge. When the official logo file
     # is readable, the Studio applies it after generation instead of sending it as a reference.
-    brand_logo = load_brand_logo(data.get("brand_context")) if creation_intent == "branded_creative" and not data.get("mask") else None
-    logo_corner = logo_position(raw_references) if brand_logo is not None else ""
+    brand_logo = load_brand_logos(data.get("brand_context")) if creation_intent == "branded_creative" and not data.get("mask") else None
+    brand_logo = brand_logo or None
+    logo_corner = logo_position(raw_references) if brand_logo else ""
     try:
         provider_source_references = (
             references_with_brand_logo(raw_references, data.get("brand_context"))
-            if creation_intent == "branded_creative" and not data.get("mask") and brand_logo is None else raw_references
+            if creation_intent == "branded_creative" and not data.get("mask") and not brand_logo else raw_references
         )
         references = normalize_image_references(provider_source_references, modeling.storage)
     except Exception as error:
@@ -698,7 +699,7 @@ def create_image(payload, modeling, client_id, user_id):
             output_format = "png"
         elif width and height:
             encoded = fit_generated_output(encoded, width, height, output_format)
-        if brand_logo is not None and not mask:
+        if brand_logo and not mask:
             encoded = apply_brand_logo(encoded, output_format, brand_logo, logo_corner)
         image_url = modeling.storage.save_generated_base64(
             encoded, output_format
@@ -955,6 +956,8 @@ def composition_layout_lines(references, mask=""):
         "headline block, support text and CTA, and the same margins. Fill each zone with the briefing's content. "
         "Keep headline, text, logo, CTA and the main subject inside that same dashed guide; only background and full-bleed imagery may reach the edge. "
         "If the wireframe marks a LOGO zone, the official logo goes there. "
+        "FULL BLEED: the artwork must fill the whole canvas edge to edge as ONE continuous picture. Do not draw solid-colour bands, bars, panels or blocks along any edge to hold text or to complete the layout; "
+        "the text zone is part of the photograph (calm area of the scene), never a separate flat strip. "
         "Never render the wireframe's grey placeholders, numbers, labels, sample words such as HEADLINE, LOGO or CTA, guide lines or its placeholder product (bottle, jar or box).",
     ]
 
@@ -963,6 +966,7 @@ LOGO_WIDTH_RATIO = 0.20
 LOGO_HEIGHT_RATIO = 0.085
 LOGO_MARGIN_RATIO = 0.07
 LOGO_CORNER_EDGE_LIMIT = 9.0
+LOGO_MIN_CONTRAST = 0.3
 
 
 # Aspect ratio (width / height) of each shared composition-mask family.
@@ -998,15 +1002,11 @@ def logo_position(references):
     return "top-left" if any("square-mask" in url for url in urls) else "bottom-right"
 
 
-def load_brand_logo(raw_brand):
-    """Open the official logo from the Studio's own static files, or None when it cannot be read."""
-    logo = official_logo_reference(raw_brand)
-    if not logo:
-        return None
+def _open_trimmed_logo(url):
     from pathlib import Path
     from flask import current_app, has_app_context
     from ..creative_modeling_storage import studio_owned_static_path
-    path_value = studio_owned_static_path(logo["url"])
+    path_value = studio_owned_static_path(url)
     if not path_value or not has_app_context():
         return None
     static_root = Path(current_app.static_folder).resolve()
@@ -1021,6 +1021,25 @@ def load_brand_logo(raw_brand):
     # Logo files often carry transparent padding; trim it so margins are measured from the artwork.
     box = image.getchannel("A").point(lambda value: 255 if value > 8 else 0).getbbox()
     return image.crop(box) if box else image
+
+
+def load_brand_logos(raw_brand):
+    """Open every readable official logo variant from the Studio's own static files (first = primary)."""
+    brand = raw_brand if isinstance(raw_brand, dict) else {}
+    assets = brand.get("assets") if isinstance(brand.get("assets"), dict) else {}
+    urls = []
+    for candidate in [brand.get("logo_url"), *(assets.get("logo") or [])]:
+        url = text(candidate, 500)
+        if url.startswith("/static/") and url not in urls:
+            urls.append(url)
+    images = [image for image in (_open_trimmed_logo(url) for url in urls) if image is not None]
+    return images
+
+
+def load_brand_logo(raw_brand):
+    """The primary official logo, or None when it cannot be read."""
+    logos = load_brand_logos(raw_brand)
+    return logos[0] if logos else None
 
 
 def _mean_luminance(image, mask=None):
@@ -1079,7 +1098,13 @@ def clean_logo_corner(canvas, position):
 
 
 def apply_brand_logo(encoded, output_format, logo, position="bottom-right"):
-    """Place the official logo whole, away from the edges, with a plate when contrast is low."""
+    """Place the official logo whole, away from the edges.
+
+    `logo` may be a list of variants: the one with the best contrast against the spot wins, and a
+    plate is only a last resort when no variant reads on the picture.
+    """
+    variants = list(logo) if isinstance(logo, (list, tuple)) else [logo]
+    logo = variants[0]
     try:
         content = base64.b64decode(str(encoded or ""), validate=True)
         canvas = Image.open(io.BytesIO(content))
@@ -1090,20 +1115,27 @@ def apply_brand_logo(encoded, output_format, logo, position="bottom-right"):
     width, height = canvas.size
     if clean_logo_corner(canvas, position):
         logger.info("Studio logo corner had model-drawn content and was softened before the official logo")
-    scale = min(width * LOGO_WIDTH_RATIO / logo.width, height * LOGO_HEIGHT_RATIO / logo.height)
-    mark = logo.resize((max(1, round(logo.width * scale)), max(1, round(logo.height * scale))), Image.Resampling.LANCZOS)
     margin = round(min(width, height) * LOGO_MARGIN_RATIO)
-    left = margin if position.endswith("left") else width - margin - mark.width
-    top = margin if position.startswith("top") else height - margin - mark.height
-    region = canvas.crop((left, top, left + mark.width, top + mark.height))
-    logo_luma = _mean_luminance(mark.convert("RGB"), mark.getchannel("A"))
-    if abs(_mean_luminance(region.convert("RGB")) - logo_luma) < 0.4:
-        pad = round(mark.height * 0.22)
-        plate = Image.new("RGBA", (mark.width + pad * 2, mark.height + pad * 2), (0, 0, 0, 0))
+
+    def placed(candidate):
+        scale = min(width * LOGO_WIDTH_RATIO / candidate.width, height * LOGO_HEIGHT_RATIO / candidate.height)
+        mark = candidate.resize((max(1, round(candidate.width * scale)), max(1, round(candidate.height * scale))), Image.Resampling.LANCZOS)
+        left = margin if position.endswith("left") else width - margin - mark.width
+        top = margin if position.startswith("top") else height - margin - mark.height
+        region = canvas.crop((left, top, left + mark.width, top + mark.height)).convert("RGB")
+        luma = _mean_luminance(mark.convert("RGB"), mark.getchannel("A"))
+        return mark, left, top, luma, abs(_mean_luminance(region) - luma)
+
+    mark, left, top, logo_luma, contrast = max((placed(item) for item in variants), key=lambda item: item[4])
+    if contrast < LOGO_MIN_CONTRAST:
+        # No variant reads on this picture: darken or lighten a soft glow behind it instead of a hard box.
+        pad = round(mark.height * 0.9)
+        glow = Image.new("RGBA", (mark.width + pad * 2, mark.height + pad * 2), (0, 0, 0, 0))
         from PIL import ImageDraw
-        fill = (255, 255, 255, 238) if logo_luma < 0.55 else (11, 18, 25, 238)
-        ImageDraw.Draw(plate).rounded_rectangle((0, 0, plate.width - 1, plate.height - 1), radius=pad, fill=fill)
-        canvas.alpha_composite(plate, (max(0, left - pad), max(0, top - pad)))
+        fill = (255, 255, 255, 150) if logo_luma < 0.55 else (11, 18, 25, 150)
+        ImageDraw.Draw(glow).ellipse((pad * 0.4, pad * 0.4, glow.width - pad * 0.4, glow.height - pad * 0.4), fill=fill)
+        glow = glow.filter(ImageFilter.GaussianBlur(radius=pad / 2))
+        canvas.alpha_composite(glow, (left - pad, top - pad)) if left - pad >= 0 and top - pad >= 0 else canvas.alpha_composite(glow.crop((max(0, pad - left), max(0, pad - top), glow.width, glow.height)), (max(0, left - pad), max(0, top - pad)))
     canvas.alpha_composite(mark, (left, top))
     normalized = str(output_format or "png").lower()
     output = io.BytesIO()

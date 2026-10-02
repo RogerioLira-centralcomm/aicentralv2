@@ -495,3 +495,22 @@ body:has(#cadu-studio-editor-root) > .cadu-family-footer { display:none; }
 .se-asset-grid button[draggable] { cursor:grab; }
 .se-asset-grid button[draggable]:active { cursor:grabbing; }
 .se-stage.is-asset-over::after { content:'Solte para abrir no palco'; position:absolute; inset:12px; z-index:4; display:grid; place-items:center; border:2px dashed rgba(124,92,255,.7); border-radius:14px; background:rgba(8,13,18,.72); color:#e9e3ff; font-size:15px; font-weight:700; pointer-events:none; animation:se-notice-in .16s ease-out both; }
+
+/* Right panel: suggestions, reason for a disabled generate, collapsible sections. */
+.se-suggestions { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0 2px; }
+.se-suggestions button { padding:5px 10px; border:1px solid rgba(255,255,255,.1); border-radius:999px; background:transparent; color:#c3cbd3; cursor:pointer; font:inherit; font-size:11px; transition:border-color .16s ease,background .16s ease,color .16s ease; }
+.se-suggestions button:hover { border-color:rgba(124,92,255,.55); background:rgba(124,92,255,.1); color:#fff; }
+.se-composer footer { display:grid; gap:6px; }
+.se-generate-hint { color:#8e9aa6; font-size:11px; text-align:center; }
+details.se-panel-section > summary { display:flex; align-items:center; justify-content:space-between; cursor:pointer; list-style:none; }
+details.se-panel-section > summary::-webkit-details-marker { display:none; }
+details.se-panel-section > summary::after { content:'›'; color:#7f8b97; font-size:16px; transform:rotate(90deg); transition:transform .16s ease; }
+details.se-panel-section:not([open]) > summary::after { transform:rotate(0); }
+details.se-panel-section > summary h2 { margin:0; }
+details.se-panel-section[open] > summary { margin-bottom:10px; }
+.se-composer .se-suggestions { display:flex; flex-direction:row; flex-wrap:wrap; }
+.se-composer .se-suggestions button { width:auto; }
+.se-composer footer .se-generate-hint { display:block; width:100%; text-align:center; }
+details.se-brand-content > :not(summary) { display:block; }
+details.se-brand-content > .se-brand-swatches { display:flex; }
+details.se-brand-content > .se-brand-label { margin-top:8px; }

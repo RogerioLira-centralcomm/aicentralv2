@@ -1,7 +1,9 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {StudioModal} from './StudioModal';
 
-export function StudioComposer({value, onChange, director, onDirectorChange, onGenerate, onAttach, references, onRemoveReference, mask, format, generating, disabled, estimateLabel, messages = []}) {
+const EDIT_SUGGESTIONS = [['Trocar o fundo', 'Troque o fundo mantendo o logo, o título e o assunto principal.'], ['Remover textos extras', 'Remova os textos pequenos e selos, mantendo só o título, o botão e o logo.'], ['Cores da marca', 'Aplique as cores oficiais da marca na peça, sem mudar a composição.'], ['Título legível', 'Deixe o título mais legível, com mais contraste e respiro.']];
+
+export function StudioComposer({value, onChange, director, onDirectorChange, onGenerate, onAttach, references, onRemoveReference, mask, format, generating, disabled, disabledReason = '', estimateLabel, messages = []}) {
   const textarea = useRef(null);
   const [droppedFile, setDroppedFile] = useState(null);
   const [dragging, setDragging] = useState(false);
@@ -44,6 +46,7 @@ export function StudioComposer({value, onChange, director, onDirectorChange, onG
       <textarea value={director?.objective || ''} onChange={event => onDirectorChange({...director, objective: event.target.value})} placeholder="Ex.: dê prioridade ao produto e use as referências apenas para textura e linguagem visual." maxLength="700" disabled={disabled || generating}/>
       <div>{[['identity','Identidade'],['copy','Textos'],['layout','Composição'],['people','Pessoas']].map(([key,label]) => <label key={key}><input type="checkbox" checked={Boolean(director?.preserve?.includes(key))} onChange={event => onDirectorChange({...director, preserve: event.target.checked ? [...(director?.preserve || []), key] : (director?.preserve || []).filter(item => item !== key)})}/>{label}</label>)}</div>
     </details>
-    <footer><button className="se-generate" type="submit" disabled={disabled || generating || !value.trim()}>{generating ? 'Gerando edição…' : `Gerar edição · ${estimateLabel}`}</button></footer>
+    {!disabled && !generating && !value.trim() && <div className="se-suggestions" aria-label="Sugestões de edição">{EDIT_SUGGESTIONS.map(([label, text]) => <button type="button" key={label} title={text} onClick={() => { onChange(text); textarea.current?.focus(); }}>{label}</button>)}</div>}
+    <footer><button className="se-generate" type="submit" disabled={disabled || generating || !value.trim()}>{generating ? 'Gerando edição…' : `Gerar edição · ${estimateLabel}`}</button>{!generating && (disabled || !value.trim()) && <small className="se-generate-hint" role="status">{disabledReason || 'Descreva a edição para gerar.'}</small>}</footer>
   </form>{dragging && <div className="se-drop-overlay" aria-hidden="true"><strong>Solte a imagem</strong><span>Você escolhe o que fazer em seguida</span></div>}{droppedFile && <StudioModal title="Como usar esta imagem?" onClose={() => setDroppedFile(null)}><div className="se-drop-choice"><p><strong>{droppedFile.name}</strong> não será aplicada até você escolher.</p><button type="button" onClick={() => chooseDrop('reference')} disabled={disabled}><span>Usar como referência</span><small>Mantém a peça e a sessão atuais. A imagem acompanha apenas a próxima geração.</small></button><button type="button" className="is-primary" onClick={() => chooseDrop('replace')}><span>Começar uma nova peça</span><small>Salva este rascunho e inicia outra sessão com a imagem arrastada.</small></button></div></StudioModal>}</>;
 }

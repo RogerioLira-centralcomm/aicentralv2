@@ -113,14 +113,28 @@ Mantidos sem mudança: `/connect/app/flows/<uuid>`, `/flows/<uuid>/monitor`, `/f
 
 Untitled UI: botões, tabs, modal e campos vêm do kit via wrappers existentes; sem shadcn, sem nova lib.
 
-## 9. Plano de migração
+## 9. Plano de migração e estado
 
-1. **Fase 1 (esta rodada)** — shell, sidebar, rotas e redirects, contexto, header único, tabs. Nenhuma página removida.
-2. **Fase 2 (esta rodada)** — Visão geral (saúde + próxima ação + resumo), hub Mídia (Visão geral, Campanhas, Dados).
-3. **Fase 3 (esta rodada)** — hub Site & Jornada (Visão geral, Fluxos, Páginas, Navegação, Conversões).
-4. **Fase 4** — Conteúdos (catálogo de páginas por papel/template), Navegação com Sankey cliente-wide.
-5. **Fase 5** — Fontes de dados completa (status/volume/erros por fonte), Super Tag com tabs (Instalação, Domínios, Diagnóstico), Eventos com detalhe, Importações criando fontes.
-6. **Fase 6** — Relatórios (dashboards/recorrentes/exportados), Alertas ligados a objetos, Configurações. Mídia → Canais, Criativos, Desempenho (exigem endpoints sobre `cadu_reports_gads_*`; não há tabela de criativos).
+| Fase | Entrega | Estado |
+|---|---|---|
+| 1 | Shell, sidebar por áreas, rotas + redirects, contexto (cliente/período), cabeçalho único, tabs | Feito |
+| 2 | Visão geral (resumo, mídia, site, alertas, saúde dos dados); Mídia: Visão geral, Campanhas, Dados | Feito |
+| 3 | Site & Jornada: Visão geral, Fluxos (sem mudança de motor), Páginas (lista + detalhe), Navegação, Conversões | Feito |
+| 4 | Conteúdos (seções do site com alcance, influência na conversão e campanhas pagas que levam até lá); Mídia → Desempenho (grupos, palavras-chave, termos, páginas de destino, dispositivos, configuração das campanhas) | Feito |
+| 5 | Fontes de dados (Mídia, Site, Arquivos, Negócio com status e atualização); Eventos com detalhe em painel lateral; Super Tag e Importações na camada Dados | Feito |
+| 6 | Relatórios com busca e filtro por campanha; Alertas ligados aos objetos (página, navegação, coleta do site); Link Tester em Ferramentas; Clientes, Contas e conexões e Acessos em Configurações | Feito |
+
+Endpoints novos: `GET /journey/navigation`, `GET /journey/conversions`, `GET /journey/content`, `GET /media/performance` (todos sobre tabelas já existentes; nenhuma migração).
+
+Correções de organização feitas no caminho: detalhe de campanha usava `.reports-span-four` sem definição (cabeçalho e abas presos numa célula da grade) e um card envolvendo os cards; aba "Mapa de calor" (placeholder) escondida; CSS dos heroes removido.
+
+### Pendências conscientes
+
+- **Mídia → Criativos**: não há tabela nem endpoint de criativos; a aba só entra quando o motor coletar anúncios. Canais está na Visão geral de Mídia (tabela por plataforma) para não duplicar.
+- **Conteúdo como entidade própria** (relacionar manualmente com campanhas, criativos e URLs) exige tabela nova; hoje o conteúdo é a seção do site.
+- **Super Tag com tabs** (Instalação, Domínios, Diagnóstico): a tela já é mestre-detalhe por site com os dois estágios; reorganizar em tabs fica para quando houver mais de uma visão por site.
+- **Relatórios por categoria** (dashboards, recorrentes, exportados): o modelo de relatório não guarda tipo; os filtros atuais cobrem busca e campanha.
+- **Navegação em Sankey** cliente-wide: as tabelas de caminhos cobrem a leitura; o Sankey da página continua no detalhe de cada página.
 
 ## 10. Riscos identificados
 

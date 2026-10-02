@@ -95,6 +95,30 @@ _CONV_ORIGINS_SQL = f'''
     FROM firsts f LEFT JOIN converted c ON c.site_id=f.site_id AND c.session_id=f.session_id
     GROUP BY f.origin'''
 
+# Conteúdos: a site section (first path segment) is the editorial unit until content gets its own entity.
+_SECTION = "CASE WHEN {path}='/' THEN '/' ELSE '/'||SPLIT_PART(LTRIM({path},'/'),'/',1) END"
+_CONTENT_SQL = f'''WITH ev AS (
+        SELECT e.site_id,s.allowed_host AS host,{_PATH} AS path,e.session_id,e.visitor_id,e.event_kind
+        {_SCOPE} AND e.event_kind IN ('page_view','conversion')
+    ), converted AS (SELECT DISTINCT site_id,session_id FROM ev WHERE event_kind='conversion'
+    ), sections AS (
+        SELECT site_id,host,{_SECTION.format(path='path')} AS section,path,session_id,visitor_id FROM ev WHERE event_kind='page_view'
+    ), ranked AS (
+        SELECT site_id,section,path,ROW_NUMBER() OVER (PARTITION BY site_id,section ORDER BY COUNT(*) DESC) AS rn
+        FROM sections GROUP BY site_id,section,path
+    )
+    SELECT x.site_id,x.host,x.section,COUNT(*)::bigint AS views,COUNT(DISTINCT x.session_id)::bigint AS sessions,
+        COUNT(DISTINCT x.visitor_id)::bigint AS visitors,COUNT(DISTINCT x.path)::int AS pages,
+        COUNT(DISTINCT x.session_id) FILTER (WHERE c.session_id IS NOT NULL)::bigint AS converted_sessions,
+        (SELECT r.path FROM ranked r WHERE r.site_id=x.site_id AND r.section=x.section AND r.rn=1) AS top_path
+    FROM sections x LEFT JOIN converted c ON c.site_id=x.site_id AND c.session_id=x.session_id
+    GROUP BY x.site_id,x.host,x.section ORDER BY views DESC LIMIT 60'''
+_CONTENT_PAID_SQL = f'''SELECT l.page_host AS host,{_SECTION.format(path="NULLIF(RTRIM(LOWER(l.page_path),'/'),'')")} AS section,
+        ARRAY_AGG(DISTINCT l.campaign_name) AS campaigns,SUM(l.clicks)::bigint AS clicks,SUM(l.cost_micros)::bigint AS cost_micros
+    FROM cadu_reports_gads_landing_page_daily l
+    WHERE l.client_id=%(client)s AND l.metric_date>=%(since)s::date AND l.metric_date<%(until)s::date
+    GROUP BY 1,2'''
+
 _CRM_SQL = '''SELECT conversion_kind AS kind,COUNT(*)::bigint AS total
     FROM cadu_reports_external_conversions
     WHERE client_id=%(client)s AND occurred_at>=%(since)s AND occurred_at<%(until)s
@@ -116,7 +140,28 @@ def _window_json(since, until, days):
     return {'days': days, 'since': since, 'until': until, 'timezone': 'America/Sao_Paulo'}
 
 
+def _bare_host(host):
+    return (host or '').lower().removeprefix('www.')
+
+
 def register(bp):
+    @bp.get('/api/v2/reports/journey/content')
+    @login_required_api
+    def reports_journey_content():
+        """Sections of each site with reach, conversion influence and the paid campaigns that land on them."""
+        selected = _selection()
+        since, until, days = _window()
+        scope = {'client': selected['client_id'], 'since': since, 'until': until}
+        sections = _rows(_CONTENT_SQL, scope)
+        paid_ready = _rows("SELECT to_regclass('public.cadu_reports_gads_landing_page_daily') IS NOT NULL AS ready")[0]['ready']
+        paid = {(_bare_host(row['host']), row['section'] or '/'): row for row in (_rows(_CONTENT_PAID_SQL, scope) if paid_ready else [])}
+        for row in sections:
+            row['site_id'] = str(row['site_id'])
+            match = paid.get((_bare_host(row['host']), row['section']))
+            row['campaigns'] = sorted(match['campaigns'])[:5] if match else []
+            row['paid_clicks'] = int(match['clicks']) if match else 0
+        return jsonify(window=_window_json(since, until, days), sections=sections)
+
     @bp.get('/api/v2/reports/journey/navigation')
     @login_required_api
     def reports_journey_navigation():

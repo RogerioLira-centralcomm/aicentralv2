@@ -61,7 +61,8 @@ async function main() {
   await page.getByRole('heading', {name: 'Página indisponível'}).first().waitFor();
   const text = await page.locator('.alerts-center').innerText();
   for (const expected of ['Prioridade alta', 'falhou em 3 verificações', 'Falhas seguidas', '503', 'sem responsável', 'E-mail desativado neste ambiente', 'Quando um alerta abre']) assert.ok(text.includes(expected), `a central deve mostrar "${expected}"`);
-  assert.ok((await page.getByRole('link', {name: 'Abrir a página'}).getAttribute('href')).includes('site_id=site-1'), 'liga ao detalhe da página');
+  assert.ok((await page.getByRole('link', {name: 'Ver página'}).getAttribute('href')).includes('site_id=site-1'), 'liga ao detalhe da página');
+  assert.ok((await page.getByRole('link', {name: 'Ver coleta do site'}).getAttribute('href')).includes('/supertag/sites/site-1'), 'liga à coleta do site');
 
   await page.getByRole('button', {name: 'Reconhecer'}).click();
   await page.getByText('Reconhecido em').waitFor();

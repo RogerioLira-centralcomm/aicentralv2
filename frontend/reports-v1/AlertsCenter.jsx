@@ -52,7 +52,9 @@ function AlertCard({alert, userId, choices, busy, onAct, client}) {
         {choices.map(item => <option key={item} value={item}>{item === 168 ? '7 dias' : item === 24 ? '24 horas' : `${item} hora`}</option>)}</ReportsNativeSelect>
         <button type="button" disabled={busy} onClick={() => onAct(alert, 'silence', {hours: Number(hours)})}>Silenciar</button></span>}
       {live && alert.status === 'silenced' && <button type="button" disabled={busy} onClick={() => onAct(alert, 'unsilence', {})}>Remover silêncio</button>}
-      {alert.page_path && <a className="reports-inline-link" href={reportUrl('pages', {site_id: alert.site_id, path: alert.page_path})}>Abrir a página</a>}
+      {alert.page_path && <a className="reports-inline-link" href={reportUrl('pages', {site_id: alert.site_id, path: alert.page_path})}>Ver página</a>}
+      {alert.page_path && <a className="reports-inline-link" href={reportUrl('journey/navigation')}>Ver navegação</a>}
+      <a className="reports-inline-link" href={reportUrl('supertag', {}, alert.site_id)}>Ver coleta do site</a>
       <button type="button" className="alerts-link" aria-expanded={history} onClick={() => setHistory(value => !value)}>{history ? 'Ocultar histórico' : 'Histórico'}</button>
     </div>
     {history && <History alertId={alert.id} client={client}/>}

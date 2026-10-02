@@ -1,5 +1,5 @@
 /* Reports shell: one compact page header, tabs for the second level and the shared analytic blocks (Untitled UI scale). */
-.reports-main{--rs-ink:#101828;--rs-text:#344054;--rs-muted:#667085;--rs-line:#eaecf0;--rs-soft:#f9fafb;--rs-brand:#175cd3;--rs-brand-soft:#eff8ff;--rs-success:#067647;--rs-success-soft:#ecfdf3;--rs-warning:#b54708;--rs-warning-soft:#fffaeb;--rs-error:#b42318;--rs-error-soft:#fef3f2}
+:root{--rs-ink:#101828;--rs-text:#344054;--rs-muted:#667085;--rs-line:#eaecf0;--rs-soft:#f9fafb;--rs-brand:#175cd3;--rs-brand-soft:#eff8ff;--rs-success:#067647;--rs-success-soft:#ecfdf3;--rs-warning:#b54708;--rs-warning-soft:#fffaeb;--rs-error:#b42318;--rs-error-soft:#fef3f2}
 
 /* Header — the only h1 of the page. */
 .rs-header{position:sticky;top:0;z-index:30;margin:0 0 20px;background:#fff;border-bottom:1px solid var(--rs-line)}
@@ -171,3 +171,24 @@
 .reports-main :is(.rs-section__head,.rs-empty,.rs-actions,.rs-error) .reports-ui-button{flex:none;min-height:36px;height:36px;padding:0 14px;border-radius:8px;font-size:14px;font-weight:600;line-height:20px;text-decoration:none;white-space:nowrap}
 .rs-search svg{z-index:1}
 .rs-search>:not(svg){flex:1}
+
+/* Event list: the name opens the detail drawer. */
+.reports-event-open{padding:0;border:0;background:none;color:var(--rs-ink,#101828);font:inherit;text-align:left;cursor:pointer}
+.reports-event-open:hover strong{color:#175cd3;text-decoration:underline}
+.rs-drawer-body .rs-section{padding:16px;border-radius:10px}
+.rs-drawer-body .rs-metrics{--rs-metric-count:3}
+.rs-drawer-body .rs-metric{padding:14px 16px}
+.rs-drawer-body .rs-metric__value{font-size:22px;line-height:30px}
+.rs-section__head{flex-wrap:wrap}
+.rs-segmented{max-width:100%;overflow-x:auto;scrollbar-width:none}
+.rs-segmented button{flex:none}
+
+/* Drawers render in a portal outside the shell: carry the type and links with them. */
+.rs-drawer{font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif}
+.rs-drawer .rs-actions{justify-content:flex-end;gap:16px}
+
+/* Campaign detail: full-width rows were referenced but never defined; no card around the cards. */
+.reports-span-four{grid-column:1/-1}
+.reports-main .reports-campaign-detail{padding:0;border:0;background:none;box-shadow:none;gap:16px}
+.reports-main .reports-campaign-crumb{display:flex;align-items:center;gap:8px;font-size:14px}
+.reports-main .reports-campaign-tabs{padding:4px 8px}

@@ -39,6 +39,8 @@ from .reports_pages import register as register_reports_pages
 register_reports_pages(bp)
 from .reports_journey import register as register_reports_journey
 register_reports_journey(bp)
+from .reports_media_performance import register as register_reports_media_performance
+register_reports_media_performance(bp)
 from .reports_alerts import register as register_reports_alerts
 register_reports_alerts(bp)
 from .reports_page_captures import register as register_reports_page_captures

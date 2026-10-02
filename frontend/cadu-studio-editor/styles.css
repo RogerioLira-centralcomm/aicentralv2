@@ -655,3 +655,22 @@ details.se-panel-section[open] > summary { margin-bottom:4px; }
 
 .se-reference-chip.is-global { box-shadow:0 0 0 1px rgba(124,92,255,.7); }
 .se-reference-chip.is-global::after { content:'G'; position:absolute; left:2px; bottom:2px; width:12px; height:12px; border-radius:50%; background:#7c5cff; color:#fff; font-size:8px; font-weight:800; line-height:12px; text-align:center; }
+
+/* Format tools: one-to-one adaptation menu and desdobramento. */
+.se-format-tools { margin-left:6px; }
+.se-adapt { position:relative; display:inline-flex; }
+.se-toolbar .se-adapt { width:auto; height:auto; margin:0; background:transparent; }
+.se-adapt-menu { position:absolute; top:calc(100% + 6px); left:0; z-index:20; display:grid; min-width:220px; padding:6px; border:1px solid rgba(255,255,255,.12); border-radius:10px; background:#141f29; box-shadow:0 16px 40px rgba(0,0,0,.45); }
+.se-toolbar .se-adapt-menu { width:auto; height:auto; margin:0; }
+.se-adapt-menu button { display:flex !important; align-items:center; justify-content:space-between; gap:12px; width:100%; padding:9px 10px !important; border-radius:7px; text-align:left; }
+.se-adapt-menu button b { font-size:12px; font-weight:650; color:#eef2f6; }
+.se-adapt-menu button small { color:#9aa5b1; font-size:11px; white-space:nowrap; }
+.se-generating__actions { display:flex; justify-content:center; gap:8px; margin-top:10px; }
+.se-generating__actions button { min-height:32px; padding:0 14px; border:1px solid rgba(255,255,255,.2); border-radius:8px; background:rgba(255,255,255,.06); color:#fff; cursor:pointer; font:inherit; font-size:12px; font-weight:650; }
+.se-generating__actions button:first-child { border-color:transparent; background:#7c5cff; }
+
+@media (min-width:901px) {
+  .se-toolbar { overflow:visible; flex-wrap:wrap; row-gap:4px; }
+  .se-toolbar > .se-tool-group { flex:none; margin-right:0; }
+  .se-toolbar > .se-format-tools { margin-right:auto; }
+}

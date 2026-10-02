@@ -4795,3 +4795,29 @@ class EditImageCallableLimitTest(unittest.TestCase):
         run("Troque o CTA.", input_references=["base", "ref-1", "ref-2"], aspect_ratio="4:5")
 
         self.assertEqual(calls, [["base", "ref-1", "ref-2"]])
+
+
+class ReframePromptTest(unittest.TestCase):
+    def test_a_change_of_frame_recomposes_instead_of_keeping_the_same_crop(self):
+        from aicentralv2.creative_format_lab.swap import build_optimized_prompt
+
+        prompt = build_optimized_prompt({
+            "reference": "data:image/png;base64,AAAA", "instruction": "Adapte para 9:16",
+            "aspect_ratio": "9:16", "aspect_hint": "16:9",
+        })
+
+        self.assertTrue(prompt.startswith("Recompose the attached finished advertisement from a 16:9 frame into a 9:16 frame."))
+        self.assertNotIn("Keep the same composition, crop", prompt)
+        self.assertNotIn("Do not redesign the layout", prompt)
+        self.assertIn("at least 8% away from every edge", prompt)
+
+    def test_an_edit_in_the_same_frame_keeps_the_original_composition(self):
+        from aicentralv2.creative_format_lab.swap import build_optimized_prompt
+
+        prompt = build_optimized_prompt({
+            "reference": "data:image/png;base64,AAAA", "instruction": "Troque o CTA",
+            "aspect_ratio": "4:5", "aspect_hint": "4:5",
+        })
+
+        self.assertIn("Keep the same composition, crop", prompt)
+        self.assertNotIn("Recompose the attached finished advertisement", prompt)

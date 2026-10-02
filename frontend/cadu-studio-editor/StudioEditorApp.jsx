@@ -2,7 +2,7 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {acceptStudioSessionAsset, attachStudioSessionProject, continueStudioSession, createStudioSession, finalizeStudioSession, finalizeStudioSessionOnExit, listStudioSessions, loadProjectContexts, loadProjectCreationHistory, loadStudioLibrary, readStudioSession, requestEdition as requestEditorEdition, requestQuote, saveStudioSession, uploadStudioAsset} from './api';
 import {StudioComposer} from './components/StudioComposer';
 import {StudioModal} from './components/StudioModal';
-import {FORMATS, readFile} from './shared';
+import {ADAPT_INSTRUCTION, FORMAT_LABELS, FORMATS, imageSize, nearestFormat, readFile} from './shared';
 import {LeftRail} from './components/LeftRail';
 import {StudioTopbar} from './components/StudioTopbar';
 import {BrandPanel} from './components/BrandPanel';
@@ -62,6 +62,7 @@ export default function StudioEditorApp({bootstrap}) {
   const [previousAssets, setPreviousAssets] = useState([]);
   const [shelfLoading, setShelfLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [assetFormat, setAssetFormat] = useState('');
   const [estimate, setEstimate] = useState(null);
   const [quoteState, setQuoteState] = useState('idle');
   const [notice, setNotice] = useState('');
@@ -414,40 +415,66 @@ export default function StudioEditorApp({bootstrap}) {
       studioSessionRef.current = next; setStudioSession(next); setStatus('synced'); setNotice('Nova sessão aberta a partir da peça final.');
     } catch (error) { setNotice(error.message || 'Não foi possível continuar esta sessão.'); }
   };
-  const queueExpansion = async ({count, formats, completed = 0, base: storedBase} = {}) => {
-    const base = storedBase || selected || asset;
+  // One new version from the piece on the stage, in another frame. The server recomposes it (same elements,
+  // text and logo) instead of editing in place, because the source format travels as aspectHint.
+  const generateInFormat = async (base, targetFormat, name) => {
+    const natural = await imageSize(base.url || base.dataUrl).catch(() => null);
+    const sourceFormat = natural ? nearestFormat(natural.width, natural.height) : '';
+    const data = await requestEdition({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, asset: base, prompt: ADAPT_INSTRUCTION(targetFormat), format: targetFormat, outputSize: outputSizeFor(targetFormat), quality, mask: null, crop: null, clientId, references: [], globalReferenceIds: [], brand: project?.brand_context, aspectHint: sourceFormat});
+    const url = data.image_url || data.png_data_url;
+    if (!url) throw new Error(data.preview || `A peça em ${targetFormat} não foi gerada.`);
+    const next = {id: makeId(), name, url, dataUrl: url, status: 'new', parentUrl: base.url, format: targetFormat};
+    setVersions(current => [next, ...current]);
+    return next;
+  };
+  const adaptFormat = async targetFormat => {
+    const base = asset;
     if (!base || generating) return;
     setGenerating(true);
-    queueControl.current = {pause: false, cancel: false};
-    setBatchProgress({status: 'running', total: count, completed, formats, base});
+    setBatchProgress({status: 'running', total: 1, completed: 0, formats: [targetFormat], base, kind: 'adapt'});
     try {
-      for (let index = completed; index < count; index += 1) {
-        if (queueControl.current.cancel) { setBatchProgress({status: 'cancelled', total: count, completed: index, formats, base}); setNotice('Fila cancelada. As peças já geradas seguem na revisão.'); return; }
-        if (queueControl.current.pause) { setBatchProgress({status: 'paused', total: count, completed: index, formats, base}); setNotice('Fila pausada. Retome quando quiser.'); return; }
-        const targetFormat = formats[index % formats.length];
-        setNotice(`Gerando peça ${index + 1} de ${count} em ${targetFormat}…`);
-        setBatchProgress({status: 'running', total: count, completed: index, formats, base});
-        const instruction = prompt.trim() || `Adapte este criativo para ${targetFormat}, preservando a marca, o produto e a hierarquia visual.`;
-        const data = await requestEdition({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, asset: base, prompt: instruction, format: targetFormat, outputSize: outputSizeFor(targetFormat), mask: null, clientId, references: [], globalReferenceIds: selectedGlobalReferences, brand: project?.brand_context});
-        const url = data.image_url || data.png_data_url;
-        if (!url) throw new Error(data.preview || `A peça ${index + 1} não foi gerada.`);
-        const next = {id: makeId(), name: `Desdobramento ${index + 1} · ${targetFormat}`, url, dataUrl: url, status: 'new'};
-        setVersions(current => [next, ...current]);
-        setBatchProgress({status: 'running', total: count, completed: index + 1, formats, base});
+      const next = await generateInFormat(base, targetFormat, FORMAT_LABELS[targetFormat] || targetFormat);
+      setAsset(next); setSelectedId(next.id); setMask(null); setCrop(null);
+      setBatchProgress(null);
+    } catch (error) {
+      setBatchProgress(null);
+      setNotice(error.message || 'Não foi possível adaptar esta peça.');
+    } finally { setGenerating(false); }
+  };
+  // Desdobramento: one piece per chosen format, always from the same base and with a fixed adaptation
+  // instruction (never the edit text in the composer, never the global references).
+  useEffect(() => {
+    let active = true;
+    if (!asset?.url) { setAssetFormat(''); return undefined; }
+    imageSize(asset.url).then(size => { if (active && size) setAssetFormat(nearestFormat(size.width, size.height)); }).catch(() => {});
+    return () => { active = false; };
+  }, [asset?.url]);
+  const queueExpansion = async ({formats, completed = 0, base: storedBase} = {}) => {
+    const base = storedBase || selected || asset;
+    const list = [...new Set(formats || [])];
+    if (!base || generating || !list.length) return;
+    setGenerating(true);
+    queueControl.current = {pause: false, cancel: false};
+    setBatchProgress({status: 'running', total: list.length, completed, formats: list, base});
+    try {
+      for (let index = completed; index < list.length; index += 1) {
+        if (queueControl.current.cancel) { setBatchProgress(null); setNotice('Desdobramento cancelado. As peças já geradas seguem nas versões.'); return; }
+        if (queueControl.current.pause) { setBatchProgress({status: 'paused', total: list.length, completed: index, formats: list, base}); return; }
+        setBatchProgress({status: 'running', total: list.length, completed: index, formats: list, base});
+        await generateInFormat(base, list[index], `Desdobramento · ${FORMAT_LABELS[list[index]] || list[index]}`);
       }
-      setBatchProgress({status: 'completed', total: count, completed: count, formats, base});
-      setNotice(`${count} peças entraram na revisão, sempre derivadas da peça-base.`);
-    } catch (error) { setBatchProgress(current => current ? {...current, status: 'failed', failedIndex: current.completed} : current); setNotice(error.message || 'A fila foi interrompida nesta peça. Retome para tentar novamente.'); }
+      setBatchProgress(null);
+    } catch (error) { setBatchProgress(current => current ? {...current, status: 'failed', failedIndex: current.completed} : current); setNotice(error.message || 'O desdobramento parou nesta peça. Retome para tentar de novo.'); }
     finally { setGenerating(false); }
   };
-  const pauseQueue = () => { queueControl.current.pause = true; setNotice('A fila será pausada ao concluir a peça atual.'); };
-  const cancelQueue = () => { queueControl.current.cancel = true; if (!generating && batchProgress) setBatchProgress(current => current ? {...current, status: 'cancelled'} : current); setNotice(generating ? 'A fila será cancelada ao concluir a peça atual.' : 'Fila cancelada.'); };
-  const resumeQueue = () => { if (!batchProgress?.base || !batchProgress?.formats?.length) { setNotice('Não foi possível localizar a peça-base desta fila.'); return; } queueExpansion({count: batchProgress.total, formats: batchProgress.formats, completed: batchProgress.failedIndex ?? batchProgress.completed, base: batchProgress.base}); };
-  const quoteExpansion = useCallback(async ({count, formats}) => {
-    const instruction = prompt.trim() || 'Adaptar este criativo, preservando marca, produto e hierarquia visual.';
-    const quotes = await Promise.all(formats.map(formatOption => requestQuote({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, prompt: instruction, format: formatOption, quality})));
-    return quotes.reduce((total, quote, index) => total + (Number(quote.estimated_tokens || 0) * (Math.floor(count / formats.length) + (index < count % formats.length ? 1 : 0))), 0);
-  }, [bootstrap.apiRoot, bootstrap.csrf, prompt, quality]);
+  const pauseQueue = () => { queueControl.current.pause = true; };
+  const cancelQueue = () => { queueControl.current.cancel = true; if (!generating) setBatchProgress(null); };
+  const resumeQueue = () => { if (!batchProgress?.base || !batchProgress?.formats?.length) { setNotice('Não foi possível localizar a peça-base desta fila.'); return; } queueExpansion({formats: batchProgress.formats, completed: batchProgress.failedIndex ?? batchProgress.completed, base: batchProgress.base}); };
+  // Cost of a desdobramento: one edit per format, at the same price as any edit.
+  const quoteExpansion = useCallback(async ({formats}) => {
+    const quotes = await Promise.all(formats.map(formatOption => requestQuote({apiRoot: bootstrap.apiRoot, csrf: bootstrap.csrf, prompt: ADAPT_INSTRUCTION(formatOption), format: formatOption, quality})));
+    return quotes.reduce((total, quote) => total + Number(quote.estimated_tokens || 0), 0);
+  }, [bootstrap.apiRoot, bootstrap.csrf, quality]);
   const openHistory = async () => {
     setHistoryOpen(true);
     if (!clientId) return;
@@ -527,5 +554,5 @@ export default function StudioEditorApp({bootstrap}) {
     if (valid.length !== selectedGlobalReferences.length) setSelectedGlobalReferences(valid);
   }, [brandReferenceUrls.length, selectedGlobalReferences]);
   const composer = <StudioComposer onPromptFocus={concludeMask} value={prompt} onChange={setPrompt} director={director} onDirectorChange={setDirector} onGenerate={generate} onAttach={() => referenceInput.current?.click()} references={references} onRemoveReference={index => setReferences(current => current.filter((_, itemIndex) => itemIndex !== index))} globalReferences={globalReferenceChips} onRemoveGlobalReference={id => setSelectedGlobalReferences(current => current.filter(item => item !== id))} mask={mask ? {...mask, onClear: () => { maskRef.current?.clear(); setMask(null); }} : null} format={format} generating={generating} disabled={!asset || readOnly} disabledReason={readOnly ? 'Sessão finalizada. Use Continuar para editar de novo.' : !asset ? 'Abra uma imagem no palco para editar.' : ''} estimateLabel={estimateLabel} messages={agentMessages}/>;
-  return <div className={`se-app ${readOnly ? 'is-read-only' : ''}`}><StudioTopbar links={links} projects={projects} project={project} onProjectChange={changeProject} bootstrap={bootstrap} sessionName={studioSession?.title || asset?.name || 'Nova sessão de edição'} onHistory={openHistory} onNewSession={newSession}/><div className="se-layout"><LeftRail versions={versions} selectedId={selectedId} filter={railFilter} onFilter={setRailFilter} onSelect={selectVersion} onApprove={approve} onSetBase={setBase} onRemove={removeVersion} onUpload={() => fileInput.current?.click()} onNewSession={newSession} onHistory={openHistory} onRestoreSession={restoreSession} sessions={sessionHistory} activeSessionId={studioSession?.id || ''} readOnly={readOnly} libraryUrl={links.library} project={project} libraryAssets={libraryAssets} previousAssets={previousAssets} shelfLoading={shelfLoading} onSelectAsset={selectShelfAsset}/><main className="se-main"><CanvasWorkspace onDropAsset={selectShelfAsset} generating={generating} asset={asset} mode={mode} setMode={setMode} mask={mask} crop={crop} maskRef={maskRef} onMaskChange={setMask} onCropChange={setCrop} onUpload={() => fileInput.current?.click()} format={format} outputSize={outputSize} onOutputSizeChange={setOutputSize} zoom={zoom} onZoomChange={setZoom} quality={quality} onQualityChange={setQuality} onRemoveBackground={removeBackground} onUndo={undo} onRedo={redo} canUndo={historyState.undo} canRedo={historyState.redo}/>{notice && <div className="se-notice" role="status">{notice}<button type="button" onClick={() => setNotice('')} aria-label="Fechar aviso">×</button></div>}</main><BrandPanel format={format} setFormat={setFormat} status={status} project={project} selectedGlobalReferences={selectedGlobalReferences} onGlobalReferencesChange={setSelectedGlobalReferences} batchProgress={batchProgress} onPauseQueue={pauseQueue} onCancelQueue={cancelQueue} onResumeQueue={resumeQueue} readOnly={readOnly} onHistory={openHistory} onFinalize={finalize} onContinue={continueEditing} onExpand={() => setExpandOpen(true)} composer={composer}/></div><input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={upload}/><input ref={referenceInput} type="file" accept="image/png,image/jpeg,image/webp" hidden multiple onChange={addReference}/>{historyOpen && <StudioModal title="Sessões e versões" onClose={() => setHistoryOpen(false)}><div className="se-history-dialog"><p>{studioSession ? 'Sessão atual sincronizada com o Studio.' : 'Versões locais desta mesa.'}</p>{versions.map(item => <button type="button" key={item.id} onClick={() => { selectVersion(item.id); setHistoryOpen(false); }}><img src={item.url} alt=""/><span>{item.name}</span><small>{item.status === 'approved' ? 'Aprovada' : 'Em edição'}</small></button>)}{sessionHistory.length > 0 && <><p>Outras sessões</p>{sessionHistory.filter(item => item.id !== studioSession?.id).map(item => <button type="button" className="se-history-session" key={item.id} onClick={() => restoreSession(item.id)}><span>{item.title || 'Mesa sem título'}</span><small>{item.status === 'finalized' ? 'Finalizada' : 'Em andamento'}</small></button>)}</>}</div></StudioModal>}{conflictOpen && <StudioModal title="Alteração em outra aba" onClose={() => setConflictOpen(false)}><div className="se-conflict-dialog"><p>Esta sessão foi atualizada em outra aba antes do seu último salvamento. Escolha a versão que deve continuar.</p><button type="button" onClick={resolveConflictWithRemote}><strong>Restaurar versão do Studio</strong><span>Descarta alterações desta aba e abre a última versão sincronizada.</span></button><button type="button" onClick={duplicateLocalSession}><strong>Duplicar minha mesa local</strong><span>Preserva suas alterações em uma nova sessão independente.</span></button></div></StudioModal>}{expandOpen && <ExpandDialog asset={selected || asset} onQuote={quoteExpansion} onQueue={queueExpansion} onClose={() => setExpandOpen(false)}/>}</div>;
+  return <div className={`se-app ${readOnly ? 'is-read-only' : ''}`}><StudioTopbar links={links} projects={projects} project={project} onProjectChange={changeProject} bootstrap={bootstrap} sessionName={studioSession?.title || asset?.name || 'Nova sessão de edição'} onHistory={openHistory} onNewSession={newSession}/><div className="se-layout"><LeftRail versions={versions} selectedId={selectedId} filter={railFilter} onFilter={setRailFilter} onSelect={selectVersion} onApprove={approve} onSetBase={setBase} onRemove={removeVersion} onUpload={() => fileInput.current?.click()} onNewSession={newSession} onHistory={openHistory} onRestoreSession={restoreSession} sessions={sessionHistory} activeSessionId={studioSession?.id || ''} readOnly={readOnly} libraryUrl={links.library} project={project} libraryAssets={libraryAssets} previousAssets={previousAssets} shelfLoading={shelfLoading} onSelectAsset={selectShelfAsset}/><main className="se-main"><CanvasWorkspace onDropAsset={selectShelfAsset} generating={generating} onAdapt={adaptFormat} onExpand={() => setExpandOpen(true)} onQuote={quoteExpansion} batchProgress={batchProgress} onPauseQueue={pauseQueue} onCancelQueue={cancelQueue} onResumeQueue={resumeQueue} asset={asset} mode={mode} setMode={setMode} mask={mask} crop={crop} maskRef={maskRef} onMaskChange={setMask} onCropChange={setCrop} onUpload={() => fileInput.current?.click()} format={format} outputSize={outputSize} onOutputSizeChange={setOutputSize} zoom={zoom} onZoomChange={setZoom} quality={quality} onQualityChange={setQuality} onRemoveBackground={removeBackground} onUndo={undo} onRedo={redo} canUndo={historyState.undo} canRedo={historyState.redo}/>{notice && <div className="se-notice" role="status">{notice}<button type="button" onClick={() => setNotice('')} aria-label="Fechar aviso">×</button></div>}</main><BrandPanel format={format} setFormat={setFormat} status={status} project={project} selectedGlobalReferences={selectedGlobalReferences} onGlobalReferencesChange={setSelectedGlobalReferences} batchProgress={batchProgress} onPauseQueue={pauseQueue} onCancelQueue={cancelQueue} onResumeQueue={resumeQueue} readOnly={readOnly} onHistory={openHistory} onFinalize={finalize} onContinue={continueEditing} onExpand={() => setExpandOpen(true)} composer={composer}/></div><input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={upload}/><input ref={referenceInput} type="file" accept="image/png,image/jpeg,image/webp" hidden multiple onChange={addReference}/>{historyOpen && <StudioModal title="Sessões e versões" onClose={() => setHistoryOpen(false)}><div className="se-history-dialog"><p>{studioSession ? 'Sessão atual sincronizada com o Studio.' : 'Versões locais desta mesa.'}</p>{versions.map(item => <button type="button" key={item.id} onClick={() => { selectVersion(item.id); setHistoryOpen(false); }}><img src={item.url} alt=""/><span>{item.name}</span><small>{item.status === 'approved' ? 'Aprovada' : 'Em edição'}</small></button>)}{sessionHistory.length > 0 && <><p>Outras sessões</p>{sessionHistory.filter(item => item.id !== studioSession?.id).map(item => <button type="button" className="se-history-session" key={item.id} onClick={() => restoreSession(item.id)}><span>{item.title || 'Mesa sem título'}</span><small>{item.status === 'finalized' ? 'Finalizada' : 'Em andamento'}</small></button>)}</>}</div></StudioModal>}{conflictOpen && <StudioModal title="Alteração em outra aba" onClose={() => setConflictOpen(false)}><div className="se-conflict-dialog"><p>Esta sessão foi atualizada em outra aba antes do seu último salvamento. Escolha a versão que deve continuar.</p><button type="button" onClick={resolveConflictWithRemote}><strong>Restaurar versão do Studio</strong><span>Descarta alterações desta aba e abre a última versão sincronizada.</span></button><button type="button" onClick={duplicateLocalSession}><strong>Duplicar minha mesa local</strong><span>Preserva suas alterações em uma nova sessão independente.</span></button></div></StudioModal>}{expandOpen && <ExpandDialog asset={selected || asset} sourceFormat={assetFormat} onQuote={quoteExpansion} onQueue={queueExpansion} onClose={() => setExpandOpen(false)}/>}</div>;
 }

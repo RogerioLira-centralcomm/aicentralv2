@@ -443,6 +443,9 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
     preserve = _token_list(payload.get("preserve"), PRESERVE_LABELS)
     alter = _token_list(payload.get("alter"), ALTER_LABELS)
     recrop = swap_mode(payload) == "recrop"
+    # A change of frame without new type (horizontal <-> vertical, square -> story...) is a
+    # recomposition. The generic edit opening ("keep the same composition and crop") contradicts it.
+    reframe = needs_recrop(payload) and not recrop
     composition_reference = has_composition_reference(payload)
     lines = [
         "Edit the attached advertising reference. Keep the same composition, crop, hierarchy and number of frames.",
@@ -462,6 +465,8 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
             "A later typesetting pass will replace headline, price, quota and CTAs. Prefer a clean field behind the type.",
             "Do not invent a new offer, number or Portuguese line. If type must stay, clone it — do not add zeros to prices or quotas (199,90 not 1999,90; 1700 not 17000).",
         ]
+    elif reframe:
+        lines = reframe_lines(match_aspect_ratio(payload.get("aspect_hint")), resolve_aspect_ratio(payload)) + lines[1:]
     elif alter:
         lines.insert(
             1,
@@ -771,6 +776,22 @@ def swap_risk(payload=None, read=None):
             "reason": "Cartela com elenco. O Image 2 costuma embaralhar os selos. Clone o tipo da referência e só reescreva o item marcado — ou use decompose.",
         }
     return {"level": "ok", "reason": ""}
+
+
+def reframe_lines(source, target):
+    """Instruction for adapting a finished piece to another frame, one to one."""
+    return [
+        f"Recompose the attached finished advertisement from a {source} frame into a {target} frame. "
+        "This is the same piece in a new format, not a new design.",
+        "Keep every element of the source: the same people, product, scene, headline and every visible line of text "
+        "spelled exactly as in the source, the same CTA, the same logo with its exact geometry and colors, "
+        "and the same photography, lighting and color grade.",
+        "Rearrange the layout for the new proportion: move and resize the blocks so the hierarchy still reads first "
+        "headline, then subject, then CTA; extend the background naturally where the frame grows; never squeeze, "
+        "stretch, crop or cut off text, logo, product or faces.",
+        "Keep text, logo, CTA and faces at least 8% away from every edge of the new frame.",
+        "Do not add any new text, offer, number, logo, effect or frame that is not in the source.",
+    ]
 
 
 def needs_recrop(payload=None):

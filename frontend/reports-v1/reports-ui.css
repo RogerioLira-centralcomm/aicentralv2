@@ -1,0 +1,24 @@
+/* Reports UI primitives, Untitled UI v8 spec, tokens only.
+   One definition per primitive; imported last so it settles the earlier layered refinements.
+   Screen files keep only what is specific to their content. */
+
+/* Table card: the table runs edge to edge; header, toolbar and footer share one 16/24 rhythm. */
+.reports-main .reports-panel:has(> .reports-table-wrap) {
+  padding: 0;
+  overflow: hidden;
+}
+.reports-main .reports-panel:has(> .reports-table-wrap) > :not(.reports-table-wrap) {
+  margin: 0;
+  padding: 16px 24px;
+}
+.reports-main .reports-panel:has(> .reports-table-wrap) > :not(.reports-table-wrap):first-child {
+  border-bottom: 1px solid var(--color-border-secondary);
+}
+.reports-main .reports-panel:has(> .reports-table-wrap) > .reports-table-wrap {
+  width: 100%;
+  margin: 0;
+  overflow-x: auto;
+}
+.reports-main .reports-panel:has(> .reports-table-wrap) > .reports-table-wrap + :not(.reports-table-wrap) {
+  border-top: 1px solid var(--color-border-secondary);
+}

@@ -1,13 +1,13 @@
 """Deterministic live presence and direct transitions; no inferred people counts."""
 from datetime import timedelta
 from .reports_flow_matching import match_flow_node, normalize_host, normalize_path
-from .reports_flow_metrics import PLATFORM_LABELS, node_platform, origin_platform
+from .reports_flow_metrics import PLATFORM_LABELS, origin_platform, resolve_source, sources_by_platform
 
 
 def _event_origin(event):
     """Same encoding the journey query uses, so live and journey agree on where a session came from."""
     if event.get('utm_source'):
-        return f"utm:{str(event['utm_source']).lower()}"
+        return f"utm:{str(event['utm_source']).lower()}|{str(event.get('utm_campaign') or '').lower()}"
     if event.get('referrer_host'):
         return f"ref:{str(event['referrer_host']).lower()}"
     return None
@@ -21,10 +21,7 @@ def build_live_snapshot(events, nodes, edges, now, session_limit=100):
     edges_by_pair = {}
     for edge in edges:
         edges_by_pair.setdefault((edge["from"], edge["to"]), []).append(edge)
-    sources_by_platform = {}
-    for node in nodes:
-        if node.get('type') == 'source':
-            sources_by_platform.setdefault(node_platform(node), []).append(node)
+    sources = sources_by_platform(nodes)
     # Events are ordered by occurrence, with stable ingestion-ID tie breaking.
     for event in sorted(events, key=lambda e: (e['occurred_at'], int(e['id']))):
         session = event['session_id']
@@ -38,10 +35,13 @@ def build_live_snapshot(events, nodes, edges, now, session_limit=100):
         if session not in previous and current and kind == 'page_view':
             # A session's first mapped page is the passage from its origin: the source node when the
             # flow has one, otherwise the "other origins" lane the monitor draws for unmapped traffic.
-            platform = origin_platform(_event_origin(event))
-            targets = sources_by_platform.get(platform, [])
+            origin = _event_origin(event)
+            platform = origin_platform(origin)
+            targets = sources.get(platform, [])
+            claimed = resolve_source(origin, targets)
             hit = False
-            for source in targets:
+            # Only the origin that can claim the session lights up; ambiguous traffic is not drawn on every node.
+            for source in [claimed] if claimed else []:
                 for edge in edges_by_pair.get((source['id'], current), []):
                     hit = True
                     edge_activity[edge['id']] = event['occurred_at'].isoformat()

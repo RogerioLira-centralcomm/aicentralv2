@@ -1,16 +1,34 @@
 /* Untitled UI v8 utilities for the Reports entry. No Tailwind preflight. */
 @import "tailwindcss/theme.css";
 @import "tailwindcss/utilities.css";
-@import "./theme.css";
+/* static: every token is emitted, so legacy screens can use any semantic token by var(). */
+@import "./theme.css" theme(static);
 @import "./typography.css";
 @plugin "tailwindcss-react-aria-components";
 @plugin "tailwindcss-animate";
-@source "../../../cadu-design-system/untitled-kit/button.tsx";
-@source "../../../cadu-design-system/untitled-kit/input.tsx";
-@source "../../../cadu-design-system/untitled-kit/textarea.tsx";
-@source "../../../cadu-design-system/untitled-kit/native-select.tsx";
-@source "../../../cadu-design-system/untitled-kit/modal.tsx";
-@source "../../main.jsx";
+/* Every Reports screen and every shared Cadu wrapper is scanned, so any Untitled class used there exists. */
+@source "../../../cadu-design-system/untitled-kit/*.tsx";
+@source "../../../cadu-design-system/components/Cadu*.jsx";
+@source "../../*.jsx";
+@source "../../shell/*.jsx";
+@source "../../hubs/**/*.jsx";
+/* Untitled tables assume Tailwind's preflight table reset; Reports has no preflight, so only that piece is applied. */
+@layer base {
+  table { border-collapse: collapse; border-spacing: 0; text-indent: 0; border-color: inherit; }
+}
+
+/* Static tables (no sorting, arbitrary cells) share the Untitled table spec: gray header, 44px rows,
+   12/14px type and row dividers. Sortable data tables use the Table component (DataTable). */
+@layer components {
+  .cadu-table { @apply w-full text-left text-sm; }
+  .cadu-table thead th { @apply h-11 bg-secondary px-4 py-2 text-xs font-semibold whitespace-nowrap text-quaternary first:pl-6 last:pr-6; }
+  .cadu-table tbody td { @apply h-11 border-t border-secondary px-4 py-2.5 align-middle text-tertiary first:pl-6 first:font-medium first:text-primary last:pr-6; }
+  .cadu-table tbody tr { @apply transition-colors hover:bg-primary_hover; }
+  .cadu-table td a { @apply text-primary no-underline hover:text-brand-secondary hover:underline; }
+  .cadu-table td small { @apply block text-xs font-normal text-tertiary; }
+  .cadu-table .is-numeric, .cadu-table td[data-numeric] { @apply text-right tabular-nums; }
+}
+
 @utility transition-inherit-all {
   transition-property: inherit;
   transition-duration: inherit;

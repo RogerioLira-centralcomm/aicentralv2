@@ -98,7 +98,7 @@ function DomainCard({domain, range}) {
           <header className="do-card__sub"><h3>Dispositivos</h3></header><Bars rows={domain.devices.map(item => ({key: item.device, label: item.label, sessions: item.sessions}))} empty="Sem dados de dispositivo."/></article>
       </div>
       <article className="do-card"><header><h3>Páginas mais vistas</h3><span>Abra uma página para ver cliques, rolagem e origem</span></header>
-        {domain.top_pages.length ? <div className="do-table-wrap"><table><thead><tr><th>Página</th><th>Visualizações</th><th>Sessões</th><th>Conversões</th><th>Tempo ativo</th></tr></thead><tbody>
+        {domain.top_pages.length ? <div className="do-table-wrap"><table className="cadu-table"><thead><tr><th>Página</th><th>Visualizações</th><th>Sessões</th><th>Conversões</th><th>Tempo ativo</th></tr></thead><tbody>
           {domain.top_pages.map(page => <tr key={page.path}><td><a href={link(page.path)}>{page.path}</a></td>
             <td><span className="do-inline-bar"><i style={{width: `${Math.max(4, 100 * page.views / maxViews)}%`}}/><b>{integer(page.views)}</b></span></td>
             <td>{integer(page.sessions)}</td><td>{integer(page.conversions)}</td><td>{seconds(page.avg_active_seconds)}</td></tr>)}</tbody></table></div> : <p className="do-muted">Nenhuma página vista no período.</p>}

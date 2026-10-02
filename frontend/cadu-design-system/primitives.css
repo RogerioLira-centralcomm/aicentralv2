@@ -17,7 +17,7 @@
 .cadu-ds-drawer--lg { width: min(100%, 640px); }
 .cadu-ds-drawer__dialog { display: flex; height: 100%; flex-direction: column; outline: 0; }
 .cadu-ds-drawer__dialog > .cadu-ds-panel { flex: 1; min-height: 0; border: 0; border-radius: 0; }
-.cadu-ds-confirm { width: min(100%, 440px); max-height: min(90dvh, 640px); overflow: auto; border-radius: 14px; background: var(--color-bg-primary, #fff); box-shadow: 0 16px 48px rgba(16, 24, 40, .18); outline: 0; }
+.cadu-ds-confirm { font-family: var(--cadu-font-sans, Inter, system-ui, sans-serif); width: min(100%, 440px); max-height: min(90dvh, 640px); overflow: auto; border-radius: 14px; background: var(--color-bg-primary, #fff); box-shadow: 0 16px 48px rgba(16, 24, 40, .18); outline: 0; }
 .cadu-ds-confirm__dialog { padding: 24px; outline: 0; }
 .cadu-ds-confirm h2 { margin: 0 0 8px; color: var(--color-text-primary, #101828); font-size: 18px; font-weight: 600; letter-spacing: -.01em; }
 .cadu-ds-confirm p { margin: 0; color: var(--color-text-tertiary, #475467); font-size: 14px; line-height: 1.55; }
@@ -125,3 +125,13 @@
   outline: 0;
   box-shadow: inset 0 0 0 2px var(--color-border-brand, var(--cadu-accent, #175cd3)) !important;
 }
+
+/* Tooltip (Untitled UI): dark solid surface, 12px label, optional shortcut */
+.cadu-ds-tooltip { font-family: var(--cadu-font-sans, Inter, system-ui, sans-serif); z-index: var(--cadu-z-tooltip, 80); display: inline-flex; align-items: center; gap: 8px; max-width: 280px; padding: 6px 10px; border-radius: 8px; background: var(--color-bg-primary-solid); color: var(--color-text-white); font-size: 12px; font-weight: 600; line-height: 18px; box-shadow: var(--shadow-lg, 0 12px 16px -4px rgba(10, 13, 18, .08)); pointer-events: none; }
+.cadu-ds-tooltip[data-entering] { animation: cadu-ds-fade-in 120ms ease-out; }
+.cadu-ds-tooltip[data-exiting] { animation: cadu-ds-fade-out 80ms ease-in; }
+.cadu-ds-tooltip__arrow svg { display: block; fill: var(--color-bg-primary-solid); }
+.cadu-ds-tooltip[data-placement="bottom"] .cadu-ds-tooltip__arrow svg { transform: rotate(180deg); }
+.cadu-ds-tooltip[data-placement="right"] .cadu-ds-tooltip__arrow svg { transform: rotate(90deg); }
+.cadu-ds-tooltip[data-placement="left"] .cadu-ds-tooltip__arrow svg { transform: rotate(-90deg); }
+.cadu-ds-tooltip__kbd { padding: 0 5px; border: 1px solid rgb(255 255 255 / .24); border-radius: 4px; color: rgb(255 255 255 / .72); font: inherit; font-weight: 500; }

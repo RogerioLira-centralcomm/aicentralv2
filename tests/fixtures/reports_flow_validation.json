@@ -425,5 +425,208 @@
     },
     "expected_errors": [],
     "expected_warnings": []
+  },
+  {
+    "name": "instagram_repetido_mesma_utm",
+    "config": {
+      "nodes": [
+        {
+          "id": "ig1",
+          "type": "source",
+          "kind": "traffic.instagram",
+          "source": "instagram",
+          "title": "Instagram",
+          "stage": "source"
+        },
+        {
+          "id": "ig2",
+          "type": "source",
+          "kind": "traffic.instagram",
+          "source": "instagram",
+          "title": "Instagram",
+          "stage": "source"
+        },
+        {
+          "id": "fim",
+          "type": "conversion",
+          "title": "Compra",
+          "path": "/obrigado",
+          "stage": "conversion"
+        }
+      ],
+      "edges": [
+        {
+          "id": "e1",
+          "from": "ig1",
+          "to": "fim"
+        },
+        {
+          "id": "e2",
+          "from": "ig2",
+          "to": "fim"
+        }
+      ]
+    },
+    "expected_errors": [
+      "duplicate_source_utm:ig2"
+    ],
+    "expected_warnings": []
+  },
+  {
+    "name": "instagram_repetido_utm_distinta",
+    "config": {
+      "nodes": [
+        {
+          "id": "ig1",
+          "type": "source",
+          "kind": "traffic.instagram",
+          "source": "instagram",
+          "title": "Instagram",
+          "stage": "source",
+          "media": {
+            "utm": {
+              "campaign": "lancamento"
+            }
+          }
+        },
+        {
+          "id": "ig2",
+          "type": "source",
+          "kind": "traffic.instagram",
+          "source": "instagram",
+          "title": "Instagram",
+          "stage": "source",
+          "media": {
+            "utm": {
+              "campaign": "remarketing"
+            }
+          }
+        },
+        {
+          "id": "fim",
+          "type": "conversion",
+          "title": "Compra",
+          "path": "/obrigado",
+          "stage": "conversion"
+        }
+      ],
+      "edges": [
+        {
+          "id": "e1",
+          "from": "ig1",
+          "to": "fim"
+        },
+        {
+          "id": "e2",
+          "from": "ig2",
+          "to": "fim"
+        }
+      ]
+    },
+    "expected_errors": [],
+    "expected_warnings": []
+  },
+  {
+    "name": "buscador_repetido",
+    "config": {
+      "nodes": [
+        {
+          "id": "b1",
+          "type": "source",
+          "kind": "traffic.organic_search",
+          "source": "organic",
+          "title": "Busca",
+          "stage": "source",
+          "search_engines": [
+            "google"
+          ]
+        },
+        {
+          "id": "b2",
+          "type": "source",
+          "kind": "traffic.organic_search",
+          "source": "organic",
+          "title": "Busca",
+          "stage": "source",
+          "search_engines": [
+            "bing",
+            "google"
+          ]
+        },
+        {
+          "id": "fim",
+          "type": "conversion",
+          "title": "Compra",
+          "path": "/obrigado",
+          "stage": "conversion"
+        }
+      ],
+      "edges": [
+        {
+          "id": "e1",
+          "from": "b1",
+          "to": "fim"
+        },
+        {
+          "id": "e2",
+          "from": "b2",
+          "to": "fim"
+        }
+      ]
+    },
+    "expected_errors": [
+      "duplicate_search_engine:b2"
+    ],
+    "expected_warnings": []
+  },
+  {
+    "name": "buscadores_distintos",
+    "config": {
+      "nodes": [
+        {
+          "id": "b1",
+          "type": "source",
+          "kind": "traffic.organic_search",
+          "source": "organic",
+          "title": "Busca",
+          "stage": "source",
+          "search_engines": [
+            "google"
+          ]
+        },
+        {
+          "id": "b2",
+          "type": "source",
+          "kind": "traffic.organic_search",
+          "source": "organic",
+          "title": "Busca",
+          "stage": "source",
+          "search_engines": [
+            "bing"
+          ]
+        },
+        {
+          "id": "fim",
+          "type": "conversion",
+          "title": "Compra",
+          "path": "/obrigado",
+          "stage": "conversion"
+        }
+      ],
+      "edges": [
+        {
+          "id": "e1",
+          "from": "b1",
+          "to": "fim"
+        },
+        {
+          "id": "e2",
+          "from": "b2",
+          "to": "fim"
+        }
+      ]
+    },
+    "expected_errors": [],
+    "expected_warnings": []
   }
 ]

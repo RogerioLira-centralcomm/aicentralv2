@@ -26,13 +26,25 @@ const details={
   too_many_pages:['Com muitas páginas o fluxo deixa de mostrar o caminho principal.','reduce_pages'],
   planned_step:['Este passo fica fora da medição até ter uma página no ar.','link_page'],
   planned_conversion:['A medição não registrará conclusões enquanto a conversão estiver planejada.','link_page'],
+  duplicate_source_utm:['As visitas das duas origens chegam iguais e não poderão ser separadas nos relatórios.','set_utm_campaign'],
+  duplicate_search_engine:['O mesmo buscador em duas origens divide as visitas de forma arbitrária.','choose_search_engines'],
 };
+export const isSearchSource=node=>node?.type==='source'&&(node.kind==='traffic.organic_search'||node.source==='organic');
+// What the Super Tag can tell apart: UTM source, UTM campaign and the linked client campaign.
+export function sourceTrafficKey(node){
+  const utm=node?.media?.utm||{};
+  const source=utm.source||node?.source||String(node?.kind||'').split('.').slice(1).join('.');
+  return [String(source).toLowerCase(),String(utm.campaign||'').toLowerCase(),String(node?.campaign_id||'')].join('|');
+}
+// Engines a search origin covers; an origin without a choice covers every engine.
+export const searchEnginesOf=node=>Array.isArray(node?.search_engines)&&node.search_engines.length?node.search_engines:['*'];
 
 export function flowValidation(config,allowedHost='') {
   const nodes=config.nodes||[],edges=config.edges||[];
   const issues=[];
   const connected=new Set(edges.flatMap(edge=>[edge.from,edge.to]));
   const pagePaths=new Map();
+  const sourceKeys=new Set(),searchEngines=new Set();
   // Institutional sites are read by engagement (time, depth, exits); a conversion is optional there.
   const engagement=config.site_kind==='institucional';
   const conversions=nodes.filter(node=>node.type==='conversion');
@@ -47,6 +59,15 @@ export function flowValidation(config,allowedHost='') {
       const key=`${node.host||allowedHost}:${node.path}`;
       if(pagePaths.has(key))issues.push({severity:'error',code:'duplicate_page',nodeId:node.id,message:`A URL ${node.path} já está em outra página do fluxo.`});
       else pagePaths.set(key,node.id);
+    }
+    if(isSearchSource(node)){
+      const engines=searchEnginesOf(node);
+      if(engines.some(engine=>searchEngines.has(engine))||(searchEngines.size&&engines.includes('*'))||searchEngines.has('*'))issues.push({severity:'error',code:'duplicate_search_engine',nodeId:node.id,message:`${node.title||'Esta busca'} repete um buscador de outra origem de busca.`});
+      engines.forEach(engine=>searchEngines.add(engine));
+    }else if(node.type==='source'){
+      const key=sourceTrafficKey(node);
+      if(sourceKeys.has(key))issues.push({severity:'error',code:'duplicate_source_utm',nodeId:node.id,message:`${node.title||'Esta origem'} repete a origem e a campanha UTM de outra origem; defina uma utm_campaign própria.`});
+      sourceKeys.add(key);
     }
     if(node.type!=='note'&&nodes.length>1&&!connected.has(node.id))issues.push({severity:'warning',code:'orphan',nodeId:node.id,message:`${node.title||'Um nó'} está sem conexões.`});
   }

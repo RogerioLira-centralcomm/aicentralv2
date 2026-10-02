@@ -11,6 +11,7 @@ import {flowBlockFor} from './flowBlockRegistry.js';
 import {SPEC_FIELDS,hasRealPath,isPlanned} from './flowLifecycle.js';
 import {FlowPagePicker} from './FlowPagePicker.jsx';
 import {SEGMENT_KINDS} from './flowMedia.js';
+import {FlowSourceTracking} from './FlowSourceTracking.jsx';
 
 // How the Super Tag counts this step; tells the person whether the site needs any change.
 export function measurementHint(node){
@@ -43,6 +44,7 @@ export function FlowInspector({sitePages,onSplitSegment,node,nodes=[],groups=[],
       {node.type==='source'&&<>
         <label>Público<ReportsFieldInput disabled={readOnly} maxLength="80" value={node.segment?.name||''} placeholder="Ex.: Remarketing 30 dias" onChange={event=>onChange('segment',{...(node.segment||{}),name:event.target.value})}/></label>
         <label>Tipo<ReportsNativeSelect disabled={readOnly} value={node.segment?.kind||'prospeccao'} onChange={event=>onChange('segment',{...(node.segment||{}),kind:event.target.value})}>{SEGMENT_KINDS.map(([value,label])=><option key={value} value={value}>{label}</option>)}</ReportsNativeSelect></label>
+        <FlowSourceTracking node={node} nodes={nodes} readOnly={readOnly} onChange={onChange} metric={journeyMetric}/>
         {!readOnly&&onSplitSegment&&<UntitledButton type="button" color="secondary" size="sm" onPress={()=>onSplitSegment(node.id)}>Criar outro público deste canal</UntitledButton>}
       </>}
       {node.type!=='note'&&<details className="flow-inspector__more" open={node.type==='conversion'||undefined}><summary>Mais opções</summary>

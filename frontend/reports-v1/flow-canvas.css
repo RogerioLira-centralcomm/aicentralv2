@@ -1,6 +1,6 @@
 .flow-react-canvas{position:relative;width:100%;height:100%;background:var(--color-bg-secondary)}
 .flow-react-canvas .react-flow__renderer{background:transparent}
-.flow-react-canvas .react-flow__node{width:auto;border:0;background:transparent}
+.flow-react-canvas .react-flow__node{border:0;background:transparent}
 .flow-shape-label{display:flex;align-items:center;justify-content:center;width:100%;min-height:35px;margin:0 0 7px;font-size:12px;font-weight:600;line-height:1.25}
 .flow-shape-label>span{display:-webkit-box;overflow:hidden;max-width:156px;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
 .flow-shape-label>input{width:100%;min-height:28px;padding:3px 6px;border:1px solid var(--color-border-brand);border-radius:5px;background:var(--color-bg-primary);font:inherit;text-align:center;outline:none}
@@ -8,13 +8,13 @@
 .flow-react-canvas .react-flow__edge-textbg{fill:var(--color-bg-primary)}
 .flow-edge-actions{position:absolute;z-index:5;display:flex;align-items:center;gap:3px;min-height:25px;padding:2px 4px;border:1px solid var(--color-border-secondary);border-radius:6px;background:var(--color-bg-primary);box-shadow:var(--shadow-sm);opacity:0;pointer-events:none;transition:opacity .12s}
 .flow-edge-actions.is-visible,.flow-edge-actions:focus-within{opacity:1;pointer-events:all}
-.flow-edge-actions span{max-width:90px;overflow:hidden;color:var(--color-text-secondary);font-size:10px;text-overflow:ellipsis;white-space:nowrap}
+.flow-edge-actions span{overflow:hidden;color:var(--color-text-secondary);font-size:10px;text-overflow:ellipsis;white-space:nowrap}
 .flow-edge-actions span:empty{display:none}
 .flow-edge-actions button{display:grid;width:20px;height:20px;place-items:center;border:0;border-radius:4px;background:transparent;color:var(--color-text-secondary);font-size:16px;line-height:1;cursor:pointer}
 .flow-edge-actions button:hover,.flow-edge-actions button:focus-visible{background:var(--color-bg-brand-secondary);color:var(--color-text-brand-secondary);outline:0}
 .flow-react-canvas .react-flow__attribution{font-size:9px;opacity:.55}
-.flow-minimap-toggle{position:absolute;bottom:18px;left:18px;z-index:8;padding:6px 9px;border:1px solid var(--color-border-secondary);border-radius:6px;background:var(--color-bg-primary);color:var(--color-text-secondary);font-size:11px;cursor:pointer}
-.flow-react-canvas .react-flow__minimap{bottom:52px;right:18px;left:auto;width:170px;height:110px;border:1px solid var(--color-border-secondary);border-radius:8px;background:var(--color-bg-primary);box-shadow:var(--shadow-lg)}
+.flow-minimap-toggle{position:absolute;z-index:8;padding:6px 9px;border-radius:6px;background:var(--color-bg-primary);color:var(--color-text-secondary);cursor:pointer}
+.flow-react-canvas .react-flow__minimap{border:1px solid var(--color-border-secondary);border-radius:8px;background:var(--color-bg-primary)}
 .has-inspector .flow-react-canvas .react-flow__minimap{right:390px}
 @media(max-width:900px){.has-inspector .flow-react-canvas .react-flow__minimap{display:none}}
 .flow-react-canvas :is(button,input,summary,[tabindex]):focus-visible,.reports-flow-validation :is(button,summary):focus-visible{outline:2px solid var(--color-border-brand);outline-offset:2px}
@@ -49,7 +49,7 @@
 .reports-flow-validation li{display:grid;gap:3px;padding:8px 10px;border-left:3px solid var(--color-border-secondary);border-radius:6px;background:var(--color-bg-secondary);line-height:1.4}
 .reports-flow-validation li.is-error{border-left-color:var(--color-border-error)}
 .reports-flow-validation li.is-warning{border-left-color:var(--color-border-warning)}
-.reports-flow-validation li.is-info{border-left-color:var(--color-border-brand,#84adff)}
+.reports-flow-validation li.is-info{border-left-color:var(--color-border-brand,var(--color-border-brand_alt))}
 .reports-flow-validation li>span{color:var(--color-text-primary);font-size:12px;font-weight:600}
 .reports-flow-validation li small{color:var(--color-text-tertiary);font-size:11px}
 .reports-flow-validation li button{justify-self:start;min-height:24px;margin-top:4px;padding:2px 10px;border:1px solid var(--color-border-primary);border-radius:6px;background:var(--color-bg-primary);color:var(--color-text-secondary);font:inherit;font-size:11px;font-weight:600;text-decoration:none;cursor:pointer}
@@ -96,7 +96,7 @@
 .flow-group-node>strong{font-size:13px}.flow-group-node>small{margin-left:12px;color:var(--color-text-tertiary);font-size:11px}
 
 .flow-page-capture{display:block;width:100%;height:100%;object-fit:cover;object-position:top;border-radius:6px;pointer-events:none}
-.flow-view-policy{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:7;display:flex;align-items:center;gap:8px;background:var(--color-bg-primary);padding:4px 8px;border:1px solid var(--color-border-secondary);border-radius:12px;font-size:11px;white-space:nowrap}
+.flow-view-policy{position:absolute;top:12px;z-index:7;display:flex;align-items:center;gap:8px;border-radius:12px;font-size:11px;white-space:nowrap}
 .flow-react-canvas .react-flow__node-toolbar button{width:28px;height:28px;padding:4px;border:0!important;box-shadow:none!important}
 .flow-react-canvas .react-flow__node{transition:none!important;filter:none!important;backdrop-filter:none!important}
 .flow-react-canvas button:focus:not(:focus-visible){outline:none;box-shadow:none}
@@ -121,7 +121,7 @@
 .fnode.is-tone-neutral .fnode__icon{background:var(--color-bg-tertiary);color:var(--color-fg-tertiary)}
 .fnode__icon .reports-flow-brand-mark{width:18px;height:18px;object-fit:contain}
 .fnode__kind{min-width:0;overflow:hidden;color:var(--color-text-tertiary);font-size:11px;font-weight:600;letter-spacing:.02em;text-overflow:ellipsis;text-transform:uppercase;white-space:nowrap}
-.fnode__warn{display:grid;flex:none;place-items:center;width:16px;height:16px;margin-left:auto;border-radius:50%;background:var(--color-bg-warning-solid);color:#fff;font-size:11px;font-weight:700}
+.fnode__warn{display:grid;flex:none;place-items:center;width:16px;height:16px;margin-left:auto;border-radius:50%;background:var(--color-bg-warning-solid);color:var(--color-text-white);font-size:11px;font-weight:700}
 .fnode.is-planned{border-style:dashed;border-color:var(--color-border-primary);background:var(--color-bg-secondary)}
 .fnode.is-planned .fnode__capture{opacity:.55}
 .fnode__status{flex:none;margin-left:auto;padding:1px 8px;border:1px dashed var(--color-border-primary);border-radius:999px;color:var(--color-text-secondary);font-size:11px;font-weight:600;white-space:nowrap}
@@ -147,7 +147,7 @@
 .react-flow__handle.connectingfrom,.react-flow__handle.connectionindicator:hover{opacity:1!important}
 .flow-react-canvas.is-connecting .fnode .react-flow__handle:not(.is-aux){opacity:1}
 .flow-react-canvas .react-flow__node{width:auto}
-.flow-journey-summary{position:absolute;top:54px;left:50%;z-index:7;display:flex;flex-wrap:wrap;justify-content:center;gap:4px 16px;max-width:calc(100% - 32px);padding:8px 16px;transform:translateX(-50%);border:1px solid var(--color-border-secondary);border-radius:999px;background:var(--color-bg-primary);box-shadow:var(--shadow-sm);color:var(--color-text-secondary);font-size:12px}
+.flow-journey-summary{position:absolute;left:50%;z-index:7;display:flex;flex-wrap:wrap;justify-content:center;gap:4px 16px;max-width:calc(100% - 32px);padding:8px 16px;transform:translateX(-50%);border:1px solid var(--color-border-secondary);border-radius:999px;background:var(--color-bg-primary);box-shadow:var(--shadow-sm);color:var(--color-text-secondary);font-size:12px}
 .flow-journey-summary b{color:var(--color-text-primary);font-variant-numeric:tabular-nums}
 .flow-probe-panel .flow-probe-block{display:grid;gap:6px;padding:12px 0;border-top:1px solid var(--color-border-secondary)}
 .flow-probe-panel h3{margin:0;color:var(--color-text-secondary);font-size:12px;font-weight:600}
@@ -175,9 +175,9 @@
 .fnode__time{flex:1 0 100%;color:var(--color-text-tertiary);font-size:11px}
 .fnode__note{color:var(--color-text-tertiary);font-size:11px;line-height:1.4}
 /* Nota e checklist: anotação do plano, sem medição */
-.fnote{position:relative;display:grid;gap:6px;width:232px;padding:12px 14px;border:1px solid var(--color-border-warning-subtle,#fedf89);border-radius:4px 14px 14px 14px;background:var(--color-bg-warning-primary,#fffaeb);color:var(--color-text-primary);box-shadow:0 1px 2px rgb(16 24 40/.06)}
+.fnote{position:relative;display:grid;gap:6px;width:232px;padding:12px 14px;border:1px solid var(--color-border-warning-subtle,var(--color-border-secondary));border-radius:4px 14px 14px 14px;background:var(--color-bg-warning-primary,var(--color-bg-warning-primary));color:var(--color-text-primary);box-shadow:0 1px 2px rgb(16 24 40/.06)}
 .fnote.is-selected{outline:2px solid var(--color-border-brand);outline-offset:2px}
-.fnote__head{display:flex;align-items:center;justify-content:space-between;color:var(--color-text-warning-primary,#b54708);font-size:11px;font-weight:600;letter-spacing:.02em;text-transform:uppercase}
+.fnote__head{display:flex;align-items:center;justify-content:space-between;color:var(--color-text-warning-primary,var(--color-text-warning-primary));font-size:11px;font-weight:600;letter-spacing:.02em;text-transform:uppercase}
 .fnote__head small{color:inherit;font-size:11px;text-transform:none}
 .fnote__text{margin:0;color:var(--color-text-secondary);font-size:12px;line-height:1.45;white-space:pre-wrap;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden}
 .fnote__checklist{display:grid;gap:2px;margin:0;padding:0;list-style:none;color:var(--color-text-secondary);font-size:12px}
@@ -186,9 +186,9 @@
 .fnote__more{color:var(--color-text-tertiary)}
 .fnote .flow-shape-label{text-align:left;justify-content:flex-start;font-size:14px;font-weight:600}
 /* Camada Previsão: números de plano, sempre com aparência de estimativa */
-.fnode__forecast{display:flex;align-items:baseline;gap:6px;padding:4px 8px;border:1px dashed var(--color-border-brand,#84adff);border-radius:8px;background:var(--color-bg-brand-primary,#eff8ff);color:var(--color-text-brand-secondary,#175cd3);font-size:11px}
+.fnode__forecast{display:flex;align-items:baseline;gap:6px;padding:4px 8px;border:1px dashed var(--color-border-brand,var(--color-border-brand_alt));border-radius:8px;background:var(--color-bg-brand-primary,var(--color-bg-brand-primary));color:var(--color-text-brand-secondary,var(--color-text-brand-secondary));font-size:11px}
 .fnode__forecast b{font-size:13px}
-.flow-edge-actions.is-forecast>span{border:1px dashed var(--color-border-brand,#84adff);background:var(--color-bg-brand-primary,#eff8ff);color:var(--color-text-brand-secondary,#175cd3)}
+.flow-edge-actions.is-forecast>span{border:1px dashed var(--color-border-brand,var(--color-border-brand_alt));background:var(--color-bg-brand-primary,var(--color-bg-brand-primary));color:var(--color-text-brand-secondary,var(--color-text-brand-secondary))}
 .fnode__segment{justify-self:start;padding:1px 8px;border-radius:999px;background:var(--color-bg-secondary);color:var(--color-text-secondary);font-size:11px;font-weight:500}
 
 /* Page cards never show an empty hole: a wireframe stands in until the capture exists, and the site's own icon leads the card. */
@@ -203,3 +203,8 @@
 /* Passage markers stay small and brief: they confirm a real event arrived, they do not count visitors. */
 .flow-transition-dot{filter:drop-shadow(0 0 3px color-mix(in srgb,var(--color-fg-brand-primary) 70%,transparent))}
 @media(prefers-reduced-motion:reduce){.flow-transition-dot,.flow-operational-dot{display:none}}
+.fnode__engines{display:flex;flex-wrap:wrap;gap:4px}
+.fnode__engines em{display:inline-flex;gap:4px;align-items:center;padding:1px 6px;border:1px solid var(--color-border-secondary);border-radius:6px;background:var(--color-bg-primary);color:var(--color-text-secondary);font-size:11px;font-style:normal;font-weight:500;line-height:18px}
+.fnode__engines b{color:var(--color-text-primary);font-weight:600;font-variant-numeric:tabular-nums}
+.flow-traffic-dots circle{pointer-events:none}
+@media (prefers-reduced-motion:reduce){.flow-traffic-dots{display:none}}

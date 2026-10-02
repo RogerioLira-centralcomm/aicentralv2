@@ -1,5 +1,7 @@
 import React, {useMemo, useState} from 'react';
 import {AlertCircle, ArrowDown, ArrowUp, RefreshCw01} from '@untitledui/icons';
+import {Table} from '../../cadu-design-system/untitled-kit/table.tsx';
+import {cx} from '../../cadu-design-system/untitled-kit/utils/cx';
 import {ReportsActionButton} from '../ReportsActionButton.jsx';
 import {navigateOnClick} from './routes.js';
 
@@ -36,6 +38,7 @@ export function AppLink({href, children, className}) {
  * Analytic table: sortable headers, numbers aligned right, optional row link.
  * columns: [{key, label, numeric, render(row), sort(row)}]
  */
+/** Untitled UI table: React Aria sorting and keyboard navigation, 44px rows for dense media reports. */
 export function DataTable({columns, rows, rowKey = (row, index) => index, empty, initialSort, label, limit}) {
   const [sort, setSort] = useState(initialSort || null);
   const sorted = useMemo(() => {
@@ -50,13 +53,27 @@ export function DataTable({columns, rows, rowKey = (row, index) => index, empty,
   }, [rows, sort, columns]);
   if (!rows.length) return empty || null;
   const visible = limit ? sorted.slice(0, limit) : sorted;
-  const toggle = key => setSort(current => current?.key === key ? {key, dir: current.dir === 'asc' ? 'desc' : 'asc'} : {key, dir: columns.find(item => item.key === key)?.numeric ? 'desc' : 'asc'});
-  return <div className="rs-table-wrap"><table className="rs-table" aria-label={label}>
-    <thead><tr>{columns.map(column => <th key={column.key} className={column.numeric ? 'is-numeric' : ''} aria-sort={sort?.key === column.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}>
-      {column.sortable === false ? column.label : <button type="button" onClick={() => toggle(column.key)}>{column.label}{sort?.key === column.key && (sort.dir === 'asc' ? <ArrowUp size={12} aria-hidden="true"/> : <ArrowDown size={12} aria-hidden="true"/>)}</button>}
-    </th>)}</tr></thead>
-    <tbody>{visible.map((row, index) => <tr key={rowKey(row, index)}>{columns.map(column => <td key={column.key} className={column.numeric ? 'is-numeric' : ''}>{column.render ? column.render(row) : row[column.key] ?? '—'}</td>)}</tr>)}</tbody>
-  </table></div>;
+  // A new column starts in its natural order: numbers from the largest, text from A.
+  const changeSort = descriptor => {
+    const key = String(descriptor.column);
+    setSort(current => current?.key === key
+      ? {key, dir: current.dir === 'asc' ? 'desc' : 'asc'}
+      : {key, dir: columns.find(item => item.key === key)?.numeric ? 'desc' : 'asc'});
+  };
+  const align = column => column.numeric ? 'text-right tabular-nums' : '';
+  return <div className="rs-table-wrap">
+    <Table aria-label={label} size="sm" sortDescriptor={sort ? {column: sort.key, direction: sort.dir === 'asc' ? 'ascending' : 'descending'} : undefined} onSortChange={changeSort}>
+      <Table.Header>{columns.map((column, index) => <Table.Head key={column.key} id={column.key} isRowHeader={index === 0} allowsSorting={column.sortable !== false}
+        label={typeof column.label === 'string' ? column.label : undefined} className={cx('px-4 first:pl-6 last:pr-6', column.numeric && '[&>div]:justify-end')}>
+        {typeof column.label === 'string' ? null : <span className="text-xs font-semibold whitespace-nowrap text-quaternary">{column.label}</span>}
+      </Table.Head>)}</Table.Header>
+      <Table.Body>{visible.map((row, index) => <Table.Row key={rowKey(row, index)} id={`${index}`} className="h-11">
+        {columns.map((column, cell) => <Table.Cell key={column.key} className={cx('px-4 py-2.5 first:pl-6 last:pr-6', cell === 0 && 'font-medium text-primary', align(column))}>
+          {column.render ? column.render(row) : row[column.key] ?? '—'}
+        </Table.Cell>)}
+      </Table.Row>)}</Table.Body>
+    </Table>
+  </div>;
 }
 
 export function LoadingState({rows = 3, label = 'Carregando…'}) {

@@ -47,7 +47,7 @@ export function SiteSidebar({sites, loading, query, onQuery, selectedId, clientI
   const showLabels = groups.length > 1;
   return <aside className="st-sites" aria-label="Sites de medição">
     <header><div><h2>Sites</h2><p>{sites.length} {sites.length === 1 ? 'site conectado' : 'sites conectados'}</p></div></header>
-    <label className="st-search"><SearchLg size={16} aria-hidden="true"/><ReportsFieldInput aria-label="Buscar site" placeholder="Buscar site…" value={query} onChange={event => onQuery(event.target.value)}/></label>
+    <label className="st-search"><ReportsFieldInput leading={<SearchLg size={16} aria-hidden="true" className="ml-3 shrink-0 text-fg-quaternary"/>} aria-label="Buscar site" placeholder="Buscar site…" value={query} onChange={event => onQuery(event.target.value)}/></label>
     <nav aria-label="Lista de sites">
       {loading && <p className="st-muted" role="status">Carregando sites…</p>}
       {!loading && groups.map(group => <div className="st-group" key={group.id}>
@@ -151,9 +151,9 @@ export function RecentEvents({summary}) {
   const rows = [...(summary || [])].sort((a, b) => Number(b.total) - Number(a.total));
   const total = rows.reduce((sum, row) => sum + Number(row.total), 0);
   return <section className="st-card st-events"><header><div><h3>Eventos recentes</h3></div><span>Últimos 30 dias</span></header>
-    {rows.length ? <table><thead><tr><th>Evento</th><th>Total</th></tr></thead><tbody>
-      {rows.map(row => <tr key={row.event_kind}><td><strong>{EVENT_LABELS[row.event_kind] || row.event_kind}</strong><code>{row.event_kind}</code></td><td>{integer(row.total)}</td></tr>)}
-      <tr className="st-total"><td>Total de eventos</td><td>{integer(total)}</td></tr></tbody></table>
+    {rows.length ? <table className="cadu-table"><thead><tr><th>Evento</th><th className="is-numeric">Total</th></tr></thead><tbody>
+      {rows.map(row => <tr key={row.event_kind}><td><strong>{EVENT_LABELS[row.event_kind] || row.event_kind}</strong><code className="block font-mono text-xs font-normal text-tertiary">{row.event_kind}</code></td><td className="is-numeric">{integer(row.total)}</td></tr>)}
+      <tr className="bg-secondary font-semibold"><td>Total de eventos</td><td className="is-numeric text-primary">{integer(total)}</td></tr></tbody></table>
       : <p className="st-muted">Os eventos aparecem aqui depois do consentimento e da primeira visita.</p>}
   </section>;
 }
@@ -162,12 +162,12 @@ export function LinkedFlows({flows, site, clientId}) {
   const host = value => String(value || '').replace(/^www\./, '');
   const linked = flows.filter(item => host(item.allowed_host) === host(site.allowed_host));
   return <section className="st-card st-flows"><header><div><h3>Fluxos vinculados</h3><p>Fluxos que usam os dados deste site.</p></div><span>{linked.length} {linked.length === 1 ? 'fluxo' : 'fluxos'}</span></header>
-    {linked.length ? <table><thead><tr><th>Fluxo</th><th>Status</th><th>Atualizado</th><th/></tr></thead><tbody>
+    {linked.length ? <table className="cadu-table"><thead><tr><th>Fluxo</th><th>Status</th><th>Atualizado</th><th/></tr></thead><tbody>
       {linked.map(item => <tr key={item.id}>
         <td><span className="st-flow-name"><GitBranch01 size={18} aria-hidden="true"/><strong>{item.name}</strong></span></td>
         <td><StatusBadge tone={item.status === 'published' ? 'success' : 'gray'}>{item.status === 'published' ? 'Publicado' : 'Rascunho'}</StatusBadge></td>
-        <td>{longDate(item.updated_at)}</td>
-        <td><ReportsActionButton color="secondary" iconTrailing={ArrowUpRight} href={reportUrl('flow', {client_id: clientId, flow_id: item.id, flow_view: item.status === 'published' ? 'monitor' : 'edit'})}>Abrir</ReportsActionButton></td>
+        <td className="whitespace-nowrap">{longDate(item.updated_at)}</td>
+        <td className="text-right whitespace-nowrap"><ReportsActionButton color="secondary" iconTrailing={ArrowUpRight} href={reportUrl('flow', {client_id: clientId, flow_id: item.id, flow_view: item.status === 'published' ? 'monitor' : 'edit'})}>Abrir</ReportsActionButton></td>
       </tr>)}</tbody></table>
       : <p className="st-muted">Nenhum fluxo usa este site ainda.</p>}
     <footer><ReportsActionButton color="link-color" iconTrailing={ChevronRight} href={reportUrl('flow', {client_id: clientId, site_host: site.allowed_host, flow_view: 'create'})}>Criar fluxo neste site</ReportsActionButton></footer>

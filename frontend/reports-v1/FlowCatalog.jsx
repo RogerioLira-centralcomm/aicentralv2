@@ -1,3 +1,6 @@
+import {ReportsNativeSelect} from './ReportsNativeSelect.jsx';
+import {ReportsFieldInput} from './ReportsFieldInput.jsx';
+import {CaduTooltip} from '../cadu-design-system/components/CaduTooltip.jsx';
 import React,{useMemo,useState} from 'react';
 import {SearchLg, Plus, MarkerPin01, ChevronRight, ChevronLeft} from '@untitledui/icons';
 import {ReportsActionButton as Button} from './ReportsActionButton.jsx';
@@ -23,13 +26,13 @@ export function FlowCatalog({items=[],nodes=[],onAdd,onAddGroup,onLocate,onLinkT
   const toggle=key=>{setOpen(current=>current===key?null:key);setMenu(null);};
 
   const pageRow=page=><li className="flow-catalog-row" key={page.canonical_url}>
-    <span className="flow-catalog-row__text"><strong tabIndex={0}>{page.title_clean}</strong><small>{page.path_prefix} · {(page.locale||'pt').toUpperCase()}</small><span role="tooltip" className="flow-catalog-tooltip">{page.title}<br/>{page.canonical_url}</span></span>
+    <span className="flow-catalog-row__text"><CaduTooltip placement="right" label={<>{page.title}<br/>{page.canonical_url}</>}><strong tabIndex={0}>{page.title_clean}</strong></CaduTooltip><small>{page.path_prefix} · {(page.locale||'pt').toUpperCase()}</small></span>
     <Button color="tertiary" size="sm" disabled={disabled} aria-label={page.node?'Localizar nó':'Adicionar página'} onClick={()=>page.node?onLocate(page.node.id):onAdd(page)}>{page.node?<MarkerPin01 size={16}/>:<Plus size={16}/>}</Button>
     <Button color="tertiary" size="sm" aria-label={`Mais ações para ${page.title_clean}`} aria-expanded={menu===page.id} onClick={()=>setMenu(current=>current===page.id?null:page.id)}>⋯</Button>
     {menu===page.id&&<div className="flow-catalog-row__menu">
       {translationsFor(page).length>1&&<Button color="tertiary" size="sm" disabled={disabled} onClick={()=>setPreview({title:'Reunir traduções',pages:translationsFor(page)})}>Reunir traduções</Button>}
       {onClassify&&<><Button color="tertiary" size="sm" disabled={disabled||Boolean(classifying)} onClick={()=>onClassify(page)}>{classifying===String(page.id)?'Analisando…':'Sugerir função com IA'}</Button><small>Consome 1 análise · limite de 50 por cliente/24 h.</small>{suggestions[page.id]&&<FlowSuggestionReview key={suggestions[page.id].suggestion_id} page={page} review={suggestions[page.id]} disabled={disabled} onApply={onAcceptSuggestion}/>}</>}
-      {onLinkTranslation&&<label>Vincular tradução<select defaultValue="" onChange={event=>{const target=items.find(item=>String(item.id)===event.target.value);if(target){onLinkTranslation(page,target);event.target.value='';}}}><option value="">Selecione uma página</option>{items.filter(item=>item.id!==page.id&&item.locale!==page.locale).map(item=><option key={item.id} value={item.id}>{item.title_clean} · {(item.locale||'pt').toUpperCase()}</option>)}</select></label>}
+      {onLinkTranslation&&<label>Vincular tradução<ReportsNativeSelect size="sm" defaultValue="" onChange={event=>{const target=items.find(item=>String(item.id)===event.target.value);if(target){onLinkTranslation(page,target);event.target.value='';}}}><option value="">Selecione uma página</option>{items.filter(item=>item.id!==page.id&&item.locale!==page.locale).map(item=><option key={item.id} value={item.id}>{item.title_clean} · {(item.locale||'pt').toUpperCase()}</option>)}</ReportsNativeSelect></label>}
     </div>}
   </li>;
 
@@ -55,7 +58,7 @@ export function FlowCatalog({items=[],nodes=[],onAdd,onAddGroup,onLocate,onLinkT
   </li>;
 
   return <div className="flow-catalog">
-    <label className="flow-catalog-search"><SearchLg size={16}/><input aria-label="Buscar páginas" placeholder="Buscar título, caminho ou idioma" value={query} onChange={event=>{setQuery(event.target.value);setPages({});}}/></label>
+    <label className="flow-catalog-search"><ReportsFieldInput leading={<SearchLg size={16} aria-hidden="true" className="ml-3 shrink-0 text-fg-quaternary"/>} size="sm" aria-label="Buscar páginas" placeholder="Buscar título, caminho ou idioma" value={query} onChange={event=>{setQuery(event.target.value);setPages({});}}/></label>
     <div className="flow-catalog-filters">{FILTERS.map(([id,label])=><button key={id} type="button" aria-pressed={filter===id} onClick={()=>{setFilter(id);setPages({});}}>{label}</button>)}</div>
     <small className="flow-catalog-count">{plural(rows.length,'página','páginas')}{sections.groups.length>0&&` · ${plural(sections.groups.length,'grupo','grupos')}`}</small>
     {preview&&<section className="flow-catalog-group-preview" aria-label="Confirmar grupo">

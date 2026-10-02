@@ -44,7 +44,26 @@ DETAILS = {
     'too_many_pages': ('Com muitas páginas o fluxo deixa de mostrar o caminho principal.', 'reduce_pages'),
     'planned_step': ('Este passo fica fora da medição até ter uma página no ar.', 'link_page'),
     'planned_conversion': ('A medição não registrará conclusões enquanto a conversão estiver planejada.', 'link_page'),
+    'duplicate_source_utm': ('As visitas das duas origens chegam iguais e não poderão ser separadas nos relatórios.', 'set_utm_campaign'),
+    'duplicate_search_engine': ('O mesmo buscador em duas origens divide as visitas de forma arbitrária.', 'choose_search_engines'),
 }
+
+
+def is_search_source(node):
+    return node.get('type') == 'source' and (node.get('kind') == 'traffic.organic_search' or node.get('source') == 'organic')
+
+
+def source_traffic_key(node):
+    """What the Super Tag can tell apart: UTM source, UTM campaign and the linked client campaign."""
+    utm = (node.get('media') or {}).get('utm') or {}
+    source = utm.get('source') or node.get('source') or str(node.get('kind') or '').partition('.')[2]
+    return (str(source).lower(), str(utm.get('campaign') or '').lower(), str(node.get('campaign_id') or ''))
+
+
+def search_engines_of(node):
+    """Engines a search origin covers; an origin without a choice covers every engine."""
+    engines = node.get('search_engines')
+    return set(engines) if isinstance(engines, list) and engines else {'*'}
 
 
 def validate_flow_config(config, allowed_host=''):
@@ -55,6 +74,8 @@ def validate_flow_config(config, allowed_host=''):
     outgoing = {node['id']: [] for node in nodes}
     incoming = {node['id']: [] for node in nodes}
     page_paths = set()
+    source_keys = set()
+    search_engines = set()
     for edge in edges:
         if edge.get('from') in outgoing and edge.get('to') in incoming:
             outgoing[edge['from']].append(edge['to'])
@@ -87,6 +108,18 @@ def validate_flow_config(config, allowed_host=''):
                 issues.append({'severity': 'error', 'code': 'duplicate_page', 'node_id': node_id,
                                'message': f"A URL {node['path']} já está em outra página do fluxo."})
             page_paths.add(key)
+        if is_search_source(node):
+            engines = search_engines_of(node)
+            if engines & search_engines or (search_engines and '*' in engines) or '*' in search_engines:
+                issues.append({'severity': 'error', 'code': 'duplicate_search_engine', 'node_id': node_id,
+                               'message': f"{node.get('title') or 'Esta busca'} repete um buscador de outra origem de busca."})
+            search_engines |= engines
+        elif node.get('type') == 'source':
+            key = source_traffic_key(node)
+            if key in source_keys:
+                issues.append({'severity': 'error', 'code': 'duplicate_source_utm', 'node_id': node_id,
+                               'message': f"{node.get('title') or 'Esta origem'} repete a origem e a campanha UTM de outra origem; defina uma utm_campaign própria."})
+            source_keys.add(key)
         if node.get('type') != 'note' and len(nodes) > 1 and not incoming[node_id] and not outgoing[node_id]:
             issues.append({'severity': 'warning', 'code': 'orphan', 'node_id': node_id,
                            'message': f"{node.get('title') or 'Um nó'} está sem conexões."})

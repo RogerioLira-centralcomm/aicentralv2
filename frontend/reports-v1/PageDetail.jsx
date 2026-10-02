@@ -53,7 +53,7 @@ function Scroll({metrics}) {
 }
 
 function Table({head, rows, empty}) {
-  return rows.length ? <div className="reports-table-wrap"><table><thead><tr>{head.map(item => <th key={item}>{item}</th>)}</tr></thead>
+  return rows.length ? <div className="reports-table-wrap"><table className="cadu-table"><thead><tr>{head.map(item => <th key={item}>{item}</th>)}</tr></thead>
     <tbody>{rows.map((row, index) => <tr key={index}>{row.map((cell, i) => <td key={i}>{cell}</td>)}</tr>)}</tbody></table></div> : <Empty message={empty}/>;
 }
 

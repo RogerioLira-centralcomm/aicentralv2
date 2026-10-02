@@ -5,6 +5,7 @@ import {FlowLiveAudience} from './FlowLiveAudience.jsx';
 import {FlowSolutionSwitcher,FlowNavbarAccount} from './FlowNavbarAccount.jsx';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {FlowCanvas} from './FlowCanvas.jsx';
+import {withUnmappedOrigins} from './flowOrigins.js';
 import {ReportsActionButton as Button} from './ReportsActionButton.jsx';
 import {ReportsFieldInput} from './ReportsFieldInput.jsx';
 import {ReportsNativeSelect} from './ReportsNativeSelect.jsx';
@@ -41,7 +42,9 @@ export function FlowMonitorWorkspace({flow,client,csrf,versions=[],filters,baseC
   const journey=useFlowPolling(`/connect/api/v2/reports/flow/flows/${flow.id}/journey?${params}`,{interval:60000,enabled:!paused});
   const live=useFlowPolling(`/connect/api/v2/reports/flow/flows/${flow.id}/live?client_id=${client.client_id}&identity=${audienceFilter}`,{enabled:!paused});
   const historical=Boolean(revision&&Number(revision)!==Number(live.data?.revision??flow.published_revision));
-  const config=journey.data?.config||baseConfig||{nodes:[],edges:[]};
+  // Visits no drawn origin can claim (no UTM match, another engine) appear as read-only origins on the map.
+  const view=useMemo(()=>journey.data?.status==='ready'?withUnmappedOrigins(journey.data):journey.data,[journey.data]);
+  const config=view?.config||baseConfig||{nodes:[],edges:[]};
   const graphKey=JSON.stringify([flow.id,journey.data?.revision,config.nodes?.map(n=>[n.id,n.x,n.y]),config.edges]);
   const keyRef=useRef(graphKey);keyRef.current=graphKey;
   const document=useMemo(()=>fitGroups({...config,nodes:(config.nodes||[]).map(node=>({...node,...(positions?.key===graphKey?positions.map[node.id]:null)}))}),[config,positions,graphKey]);
@@ -50,7 +53,7 @@ export function FlowMonitorWorkspace({flow,client,csrf,versions=[],filters,baseC
   const liveReady=ready&&compatible&&live.fresh&&!historical&&!paused&&!live.error&&live.data?.status==='ready';
   useEffect(()=>{if(!revision&&live.fresh&&journey.data?.revision!=null&&!compatible)journey.retry();},[revision,live.fresh,live.data?.revision,journey.data?.revision,compatible,journey.retry]);
   const operational=liveReady&&live.data?.tracking_health?.status==='healthy';
-  const metrics=useMemo(()=>ready?{...journey.data,nodes:journey.data.nodes.map(n=>({...n,sessions:journey.data.collection?.status==='no_data'?null:n.sessions,events:journey.data.collection?.status==='no_data'?null:n.events,presence:liveReady?live.data?.node_presence?.[n.id]:null}))}:null,[ready,journey.data,liveReady,live.data]);
+  const metrics=useMemo(()=>ready?{...view,nodes:view.nodes.map(n=>({...n,sessions:view.collection?.status==='no_data'?null:n.sessions,events:view.collection?.status==='no_data'?null:n.events,presence:liveReady?live.data?.node_presence?.[n.id]:null}))}:null,[ready,view,liveReady,live.data]);
   const displayMetrics=useMemo(()=>metrics&&layer!=='volume'?{...metrics,edges:[]}:metrics,[metrics,layer]);
   const node=selection?.type==='node'?document.nodes.find(n=>n.id===selection.id):null;
   const edge=selection?.type==='edge'?document.edges.find(e=>e.id===selection.id):null;

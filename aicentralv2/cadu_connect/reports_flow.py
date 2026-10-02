@@ -22,7 +22,7 @@ from .reports_flow_schema import DEFAULT_KINDS, to_v3
 from .reports_flow_validation import MAX_FLOW_PAGES, validate_flow_config
 from .reports_flow_lifecycle import NODE_STATUSES, is_measured, measured_nodes, node_status, normalize_forecast, normalize_media, normalize_segment, normalize_spec
 from .reports_flow_stage import normalize_stage
-from .reports_flow_metrics import apply_engagement, apply_session_bounds, edge_observation, origin_landings, origin_summary
+from .reports_flow_metrics import SEARCH_ENGINE_IDS, apply_engagement, apply_session_bounds, edge_observation, origin_landings, origin_summary
 
 MAX_TAG_EVENTS_PER_MINUTE = 1200
 MAX_DISCOVERY_PAGES = 60
@@ -648,6 +648,12 @@ def _normalize_flow_config(config, allowed_host):
                 item['segment'] = segment
             if media:
                 item['media'] = media
+            engines = node.get('search_engines')
+            if engines is not None:
+                if not isinstance(engines, list) or any(engine not in SEARCH_ENGINE_IDS for engine in engines):
+                    abort(400, description='Buscador inválido.')
+                if engines:
+                    item['search_engines'] = [engine for engine in SEARCH_ENGINE_IDS if engine in engines]
         forecast = normalize_forecast(node.get('forecast'), {'source': ('visits', 'cost'), 'conversion': ('value',)}.get(node_type, ()))
         if forecast:
             item['forecast'] = forecast
@@ -1337,7 +1343,7 @@ def register(bp):
         generated_at = datetime.now(timezone.utc)
         if selected_flow and not selected_flow.get('historical_view') and selected_flow['status'] == 'published':
             from .reports_flow_live import build_live_snapshot
-            recent = _rows(f"""SELECT id,session_id,page_host,page_path,event_kind,
+            recent = _rows(f"""SELECT id,session_id,page_host,page_path,event_kind,referrer_host,utm_source,utm_campaign,
                     {"event_name" if has_event_name else "NULL::text"} AS event_name,occurred_at
                 FROM cadu_reports_flow_events
                 WHERE client_id=%s AND tag_id=%s AND flow_revision=%s
@@ -2150,7 +2156,7 @@ def register(bp):
         # Keep unmapped visits in the sequence. Match IDs were frozen at ingestion.
         visits_cte="""WITH visits AS (
             SELECT e.id,e.session_id,e.occurred_at,s.node_id,
-                COALESCE('utm:'||NULLIF(LOWER(e.utm_source),''),'ref:'||NULLIF(LOWER(e.referrer_host),'')) AS origin
+                COALESCE('utm:'||NULLIF(LOWER(e.utm_source),'')||'|'||COALESCE(LOWER(e.utm_campaign),''),'ref:'||NULLIF(LOWER(e.referrer_host),'')) AS origin
             FROM cadu_reports_flow_events e
             LEFT JOIN cadu_reports_flow_steps s ON s.id=e.step_id
               AND s.client_id=e.client_id
@@ -2253,7 +2259,7 @@ def register(bp):
             FROM visits WHERE node_id IS NOT NULL GROUP BY session_id
         ) SELECT first_node,last_node,origin,COUNT(*)::bigint AS sessions
           FROM bounds GROUP BY first_node,last_node,origin""", tuple(scope))
-        apply_session_bounds(config, nodes, edges, bounds, measured_ids)
+        unattributed = apply_session_bounds(config, nodes, edges, bounds, measured_ids)
         # Engagement, for sites read by attention rather than a single conversion:
         # active time per page (page_leave carries it) and distinct pages per session.
         active = _rows("""SELECT s.node_id,AVG(e.duration_ms)::bigint AS avg_active_ms,COUNT(*)::bigint AS leaves
@@ -2283,7 +2289,7 @@ def register(bp):
                                    'source':'Super Tag deste fluxo'},
                        scope={'from':start.isoformat(),'to':end.isoformat(),'revision':revision,
                               'account_id':request.args.get('account_id'),'campaign_id':request.args.get('campaign_id'),'platform':platform},
-                       nodes=nodes, edges=edges, origins=origins, origin_landings=landings, engagement=engagement, suggestions=suggestions,group_nodes=group_nodes,group_edges=group_edges,
+                       nodes=nodes, edges=edges, origins=origins, origin_landings=landings, unattributed_origins=unattributed, engagement=engagement, suggestions=suggestions,group_nodes=group_nodes,group_edges=group_edges,
                        funnel={'entries': entries, 'conversions': conversions,
                                'rate': round(100 * conversions / entries, 1) if entries else None})
 

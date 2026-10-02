@@ -13,6 +13,9 @@ const server=http.createServer((req,res)=>{const pathname=new URL(req.url,'http:
  const page=await browser.newPage({viewport:{width:1440,height:900}}),errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.route('**/connect/api/v2/reports/**',route=>{const pathname=new URL(route.request().url()).pathname;let data={};if(pathname.endsWith('/bootstrap'))data={ready:true,features:{flows_workspace_v2:true},client:{client_id:1,role:'admin',client_name:'Teste'},clients:[],accounts:[],campaigns:[],reports:[],link_tests:[],workspace_projects:[],csrf:'test'};else if(pathname.endsWith('/flow'))data={flows:[flow],activity:[],events:[],tags:[],steps:[],tag_urls:{},supertag_sites:[],canvas_nodes:[],canvas_edges:[]};else if(pathname.endsWith('/discoveries'))data={run:{status:'completed',created_at:'2026-09-30T12:00:00Z'},pages:items,catalog:items,summary};else if(pathname.endsWith('/readiness'))data={tracking_ready:true,issues:[]};return route.fulfill({json:data});});
  await page.goto(`http://127.0.0.1:${server.address().port}/connect/app/flows/${id}?client_id=1`);
+ // Editing opens on the map; the site explorer only opens on request.
+ await page.locator('.reports-flow-canvas').waitFor();assert.equal(await page.locator('.reports-flow-designer.has-palette').count(),0);
+ await page.getByRole('button',{name:'Páginas do site'}).click();
  await page.locator('.flow-site-advanced summary').click();await page.getByText('539 páginas verificadas · 0 no fluxo').waitFor();
  assert.equal(await page.getByText('/cases/*',{exact:false}).count(),1);
  const cases=page.locator('.flow-catalog-section__head',{hasText:'/cases/*'});

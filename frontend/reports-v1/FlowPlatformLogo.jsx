@@ -2,7 +2,7 @@ import React from 'react';
 
 export const FLOW_PLATFORMS = {
   google: {label: 'Google Ads', logo: '/static/images/canais/google-ads.png'},
-  organic: {label: 'Google orgânico', logo: '/static/images/cadu/technology-logos/google.svg'},
+  organic: {label: 'Busca orgânica', logo: '/static/images/cadu/technology-logos/google.svg'},
   youtube: {label: 'YouTube Ads', logo: '/static/images/creative-viewers/youtube.svg'},
   facebook: {label: 'Facebook Ads', logo: '/static/images/creative-viewers/facebook.svg'},
   instagram: {label: 'Instagram Ads', logo: '/static/images/creative-viewers/instagram.svg'},

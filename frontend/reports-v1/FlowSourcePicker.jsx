@@ -3,6 +3,7 @@ import {ReportsPanelShell} from './ReportsPanelShell.jsx';
 import {ReportsActionButton as Button} from './ReportsActionButton.jsx';
 import {ReportsFieldInput} from './ReportsFieldInput.jsx';
 import {stageX} from './flowStages.js';
+import {utmSlug} from './flowSourceIdentity.js';
 
 // Channels a flow can start from without a registered campaign. Kinds match flowBlockRegistry.
 const CHANNELS=[
@@ -24,7 +25,7 @@ export function FlowSourcePicker({config,campaigns=[],onApply,onClose}) {
   const toggle=key=>setPicked(current=>{const next=new Set(current);next.has(key)?next.delete(key):next.add(key);return next;});
   const apply=()=>{
     const sources=[...picked].map(key=>{
-      if(key.startsWith('c:')){const campaign=campaigns.find(item=>`c:${item.id}`===key);const [kind,source]=CAMPAIGN_PLATFORMS[campaign.platform]||['traffic.referral','referral'];return {kind,source,title:campaign.name,campaign_id:campaign.id};}
+      if(key.startsWith('c:')){const campaign=campaigns.find(item=>`c:${item.id}`===key);const [kind,source]=CAMPAIGN_PLATFORMS[campaign.platform]||['traffic.referral','referral'];return {kind,source,title:campaign.name,campaign_id:campaign.id,media:{utm:{campaign:utmSlug(campaign.name)}}};}
       const channel=CHANNELS.find(item=>`s:${item.source}`===key);return {kind:channel.kind,source:channel.source,title:channel.title};
     });
     const count=config.nodes.filter(node=>node.type==='source').length;
@@ -32,7 +33,8 @@ export function FlowSourcePicker({config,campaigns=[],onApply,onClose}) {
     onApply({...config,nodes:[...config.nodes,...nodes]});
     onClose();
   };
-  const row=(key,title,detail)=><label key={key} className="flow-source-picker__row"><input type="checkbox" disabled={existing.has(key)} checked={existing.has(key)||picked.has(key)} onChange={()=>toggle(key)}/><span><b>{title}</b>{detail&&<small>{detail}</small>}</span>{existing.has(key)&&<small>no fluxo</small>}</label>;
+  // A client campaign enters once; a channel can repeat, and the map then asks how to tell the two apart.
+  const row=(key,title,detail)=>{const locked=key.startsWith('c:')&&existing.has(key);return <label key={key} className="flow-source-picker__row"><input type="checkbox" disabled={locked} checked={locked||picked.has(key)} onChange={()=>toggle(key)}/><span><b>{title}</b>{detail&&<small>{detail}</small>}</span>{existing.has(key)&&<small>no fluxo</small>}</label>;};
   return <ReportsPanelShell compact className="flow-blueprint-panel flow-source-picker" title="Campanhas do cliente" onClose={onClose}
     footer={<Button color="primary" disabled={!picked.size} onClick={apply}>{picked.size?`Adicionar ${picked.size} ${picked.size===1?'origem':'origens'}`:'Escolha as origens'}</Button>}>
     {campaigns.length>0&&<section className="flow-probe-block"><h3>Campanhas do cliente</h3>

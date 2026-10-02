@@ -1,16 +1,9 @@
 /* Flow list: table card with a sticky header, quiet rows and a pager, in the Untitled table style. */
-.reports-main .reports-flow-index__panel{padding:0;overflow:hidden;border:1px solid #eaecf0;border-radius:12px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+.reports-main .reports-flow-index__panel{padding:0;overflow:hidden;border:1px solid var(--color-border-secondary);border-radius:12px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
 .reports-main .reports-flow-index__panel .reports-table-wrap{border:0;border-radius:0;max-height:none}
-.reports-main .reports-flow-table{width:100%;border-collapse:separate;border-spacing:0}
-.reports-main .reports-flow-table thead th{position:sticky;top:0;z-index:1;padding:12px 20px;background:#f9fafb;border-bottom:1px solid #eaecf0;color:#475467;font-size:12px;font-weight:500;text-align:left;white-space:nowrap}
-.reports-main .reports-flow-table td{padding:16px 20px;border-bottom:1px solid #eaecf0;vertical-align:middle;font-size:14px}
-.reports-main .reports-flow-table tbody tr:last-child td{border-bottom:0}
-.reports-main .reports-flow-table tbody tr:hover{background:#fcfcfd}
-.reports-main .reports-flow-table td:first-child strong{display:block;color:#101828;font-weight:600}
-.reports-main .reports-flow-table td:first-child small{display:block;margin-top:2px;color:#667085;font-size:12px}
-.reports-main .reports-flow-table td.reports-flow-table__actions{display:table-cell;text-align:right;white-space:nowrap}.reports-main .reports-flow-table__actions>*{margin-left:6px}
+.reports-main .reports-flow-table{width:100%;border-collapse:separate;border-spacing:0}.reports-main .reports-flow-table__actions>*{margin-left:6px}
 .reports-main .reports-flow-index__tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
-.reports-main .reports-flow-index__count{margin-left:auto;color:#667085;font-size:13px}
-.fli-pager{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:12px;padding:12px 4px;color:#475467;font-size:13px}
+.reports-main .reports-flow-index__count{margin-left:auto;color:var(--color-text-quaternary);font-size:13px}
+.fli-pager{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:12px;padding:12px 4px;color:var(--color-text-tertiary);font-size:13px}
 .fli-pager label{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}.fli-pager label select{min-width:72px}
 .fli-pager>div{display:flex;gap:8px}

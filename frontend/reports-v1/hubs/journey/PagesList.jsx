@@ -22,7 +22,7 @@ export function PagesList() {
   return <Section title="Páginas" description={pages.length ? `${pages.length} páginas com visitas no período${pages.length === 100 ? ' (as 100 mais vistas)' : ''}` : 'URLs reais do site, com visitas e resultado'}
     action={pages.length > 0 && <div className="rs-toolbar">
       {hosts.length > 1 && <div className="rs-segmented" role="group" aria-label="Domínio"><button type="button" aria-pressed={!host} onClick={() => setHost('')}>Todos</button>{hosts.map(item => <button type="button" key={item} aria-pressed={host === item} onClick={() => setHost(item)}>{item}</button>)}</div>}
-      <label className="rs-search"><SearchLg size={16} aria-hidden="true"/><ReportsFieldInput type="search" placeholder="Buscar página" value={query} onChange={event => setQuery(event.target.value)} aria-label="Buscar página"/></label>
+      <label className="rs-search"><ReportsFieldInput leading={<SearchLg size={16} aria-hidden="true" className="ml-3 shrink-0 text-fg-quaternary"/>} type="search" placeholder="Buscar página" value={query} onChange={event => setQuery(event.target.value)} aria-label="Buscar página"/></label>
     </div>}>
     <Async state={state} onRetry={retry} rows={8} isEmpty={body => !body.pages.length}
       empty={<EmptyState title="Nenhuma visita registrada no período" description="As páginas aparecem aqui quando a Super Tag recebe visitas. Confira a instalação ou escolha outro período." action={<ReportsActionButton color="secondary" size="sm" href={reportUrl('supertag')}>Ver Super Tag</ReportsActionButton>}/>}>

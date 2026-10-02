@@ -3,7 +3,7 @@
 .csu-navbar :is(a,button,input):focus-visible{outline:2px solid var(--csu-focus);outline-offset:2px}
 .csu-navbar__identity{display:flex;align-items:center;flex:none;min-width:0}
 .csu-brand{display:flex;align-items:center;gap:7px;color:var(--csu-text);text-decoration:none;font-size:13px}
-.csu-brand img{width:28px;height:28px;border-radius:8px}.csu-brand strong{font-size:15px;letter-spacing:-.02em}.csu-brand span{color:var(--csu-muted)}
+.csu-brand img{box-sizing:border-box;width:35px;height:35px;padding:6px;border-radius:10px;background:#fff;object-fit:contain}.csu-brand strong{font-size:15px;letter-spacing:-.02em}.csu-brand span{color:var(--csu-muted)}
 .csu-navbar__nav{display:flex;align-items:stretch;align-self:stretch;gap:2px;min-width:0;overflow-x:auto;scrollbar-width:none}
 .csu-navbar__nav::-webkit-scrollbar{display:none}
 .csu-navbar__nav a{display:grid;place-items:center;padding:0 11px;color:var(--csu-text-soft);text-decoration:none;font-size:13px;font-weight:600;white-space:nowrap;transition:color var(--csu-fast) var(--csu-ease),box-shadow var(--csu-fast) var(--csu-ease)}

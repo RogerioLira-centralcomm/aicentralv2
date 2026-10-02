@@ -105,7 +105,7 @@ export default function StudioNavbar({active, links = {}, projects = [], project
   const Root = embedded ? 'div' : 'header';
   return <Root className={`csu-navbar${embedded ? ' csu-navbar--embedded' : ''}`}>
     {identity !== false && <div className="csu-navbar__identity">{identity || <a className="csu-brand" href={links.home || '#'}>
-      <img src="/static/images/cadu/brand-icons/studio-192.png" alt=""/><strong>Cadu</strong><span>Studio</span></a>}</div>}
+      <img src="/static/images/cadu/products/studio-icon.png" alt=""/><strong>Cadu</strong><span>Studio</span></a>}</div>}
     <nav className="csu-navbar__nav" aria-label="Ferramentas do Studio">
       {STUDIO_SECTIONS.filter(([key]) => links[key]).map(([key, label]) =>
         <a key={key} href={links[key]} aria-current={key === active ? 'page' : undefined}>{label}</a>)}

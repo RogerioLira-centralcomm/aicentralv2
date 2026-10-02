@@ -3,7 +3,7 @@ import {StudioModal} from './StudioModal';
 
 const EDIT_SUGGESTIONS = [['Trocar o fundo', 'Troque o fundo mantendo o logo, o título e o assunto principal.'], ['Remover textos extras', 'Remova os textos pequenos e selos, mantendo só o título, o botão e o logo.'], ['Cores da marca', 'Aplique as cores oficiais da marca na peça, sem mudar a composição.'], ['Título legível', 'Deixe o título mais legível, com mais contraste e respiro.']];
 
-export function StudioComposer({value, onChange, director, onDirectorChange, onGenerate, onAttach, references, onRemoveReference, globalReferences = [], onRemoveGlobalReference = () => {}, mask, format, generating, disabled, disabledReason = '', estimateLabel, messages = []}) {
+export function StudioComposer({onPromptFocus = () => {}, value, onChange, director, onDirectorChange, onGenerate, onAttach, references, onRemoveReference, globalReferences = [], onRemoveGlobalReference = () => {}, mask, format, generating, disabled, disabledReason = '', estimateLabel, messages = []}) {
   const textarea = useRef(null);
   const [droppedFile, setDroppedFile] = useState(null);
   const [dragging, setDragging] = useState(false);
@@ -34,7 +34,7 @@ export function StudioComposer({value, onChange, director, onDirectorChange, onG
   };
   return <><form className={`se-composer ${dragging ? 'is-dragging' : ''}`} onSubmit={event => { event.preventDefault(); onGenerate(); }}>
     {messages.length > 0 && <div className="se-agent-thread" aria-live="polite">{messages.slice(-4).map(message => <p key={message.id} className={`is-${message.role}`}>{message.text}</p>)}</div>}
-    <textarea id="studio-editor-prompt" ref={textarea} value={value} onChange={event => onChange(event.target.value)} placeholder="Diga ao Cadu o que fazer nesta peça…" maxLength="2000" disabled={disabled || generating} aria-label="Mensagem para o Cadu"/>
+    <textarea id="studio-editor-prompt" ref={textarea} value={value} onFocus={() => onPromptFocus()} onChange={event => onChange(event.target.value)} placeholder="Diga ao Cadu o que fazer nesta peça…" maxLength="2000" disabled={disabled || generating} aria-label="Mensagem para o Cadu"/>
     <div className="se-composer__context">
       {mask && <span className="se-chip">Região marcada <button type="button" onClick={mask.onClear} aria-label="Remover região marcada">×</button></span>}
       <span className="se-chip">Formato {format}</span>

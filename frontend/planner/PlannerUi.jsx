@@ -3,6 +3,19 @@ import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 
 /** One status line at the top of the page; errors stay until dismissed. */
+/**
+ * Every logo in the Planner (cards, details, rails, filters) sits in the same
+ * tile: white, hairline border, proportional radius and inner margin, image
+ * contained — so wordmarks and app icons read as one family.
+ */
+export function LogoTile({src, name = '', icon = 'plan', size = 'sm', color}) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [src]);
+  return <span className={`logo-tile logo-tile--${size}`} style={color ? {'--logo-tile-color': color} : undefined} role={name ? 'img' : undefined} aria-label={name || undefined}>
+    {src && !failed ? <img src={src} alt="" loading="lazy" onError={() => setFailed(true)}/> : <Icon name={icon} size={size === 'lg' ? 24 : size === 'xs' ? 12 : 18}/>}
+  </span>;
+}
+
 export function PlannerNotice({notice, onDismiss}) {
   if (!notice) return null;
   return <div className={`planner-notice planner-notice--${notice.tone || 'success'}`} role={notice.tone === 'error' ? 'alert' : 'status'}>

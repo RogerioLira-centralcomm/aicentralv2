@@ -808,7 +808,7 @@ def catalog(module, query='', category='', platform='', sort='relevant', format_
         platform = platform.strip()[:100] if isinstance(platform, str) else ''
         sort = sort if sort in {'relevant', 'name'} else 'relevant'
         ordering = 'a.nome, a.id' if sort == 'name' else 'COALESCE(a.relevancia_score, 0) DESC, a.nome, a.id'
-        return rows('''SELECT a.id, a.nome AS name, COALESCE(a.descricao_curta, a.descricao) AS description,
+        return decorate_audiences(rows('''SELECT a.id, a.nome AS name, COALESCE(a.descricao_curta, a.descricao) AS description,
                              a.publico_estimado AS audience, a.imagem_url AS image_url,
                              a.perfil_socioeconomico, a.propensao_compra, a.tamanho,
                              a.id_audiencia_plataforma AS platform_audience_id,
@@ -824,7 +824,7 @@ def catalog(module, query='', category='', platform='', sort='relevant', format_
                          AND (%s = '' OR c.nome = %s)
                          AND (%s = '' OR p.nome = %s)
                     ORDER BY ''' + ordering + ''' LIMIT 100''',
-                    (search, search, search, search, search, category, category, platform, platform))
+                    (search, search, search, search, search, category, category, platform, platform)))
     if module == 'canais':
         category = category.strip()[:100] if isinstance(category, str) else ''
         return rows('''SELECT id, slug, nome AS name, descricao AS description, categoria AS category,
@@ -921,10 +921,11 @@ def audience_search(query='', category='', platform='', subcategory='', sort='re
             'SELECT ' + column + ' AS value, COUNT(*) AS n ' + where(*skip)
             + ' AND ' + column + ' IS NOT NULL GROUP BY 1 ORDER BY 2 DESC, 1', params)]
 
+    decorate_audiences(records)
     return {
         'records': records, 'total': total, 'limit': limit, 'offset': offset,
         'facets': {
-            'platforms': facet('p.nome', 'platform'),
+            'platforms': decorate_audiences(facet('p.nome', 'platform')),
             'categories': facet('c.nome', 'category', 'subcategory'),
             'subcategories': facet('s.nome', 'subcategory') if category else [],
         },
@@ -995,6 +996,37 @@ def _platform_logo(slug, stored):
         return '/static/images/creative-viewers/facebook.svg'
     resolved = _resolver_logo(FORMAT_PLATFORM_LOGOS.get(slug, slug.replace('_', '-')), '')
     return resolved or (stored if str(stored or '').startswith(('/static/', 'http')) else '')
+
+
+# Audience platform names (cadu_audiencias_plataformas.nome) -> channel logo slug.
+AUDIENCE_PLATFORM_LOGOS = {
+    'programática': 'the-trade-desk', 'programatica': 'the-trade-desk', 'serasa': 'experian-portal',
+    'g1 / globo.com': 'g1-globo', 'prime video': 'prime-video', 'cnn brasil': 'cnn-brasil', 'netflix': 'netflix',
+    'sbt': 'sbt', 'infomoney': 'infomoney', 'spotify ads': 'spotify', 'google ads': 'google-ads', 'tiktok ads': 'tiktok',
+    'linkedin ads': 'linkedin', 'deezer': 'deezer', 'amazon music': 'amazon-music', 'globoplay': 'globoplay',
+    'paramount+': 'paramount-plus', 'kwai': 'kwai', 'samsung tv plus': 'samsung-tv-plus', 'telegram': 'telegram',
+    'eletromidia': 'eletromidia', 'twitch': 'twitch', 'waze': 'waze', 'disney+': 'disney-plus', 'max (hbo)': 'hbo-max', 'uber': 'uber',
+}
+
+
+def platform_logo_by_name(name):
+    """Logo that exists in the app for an audience platform name ('' when unknown)."""
+    from ..crm_v3_canais import _resolver_logo
+    key = str(name or '').strip().lower()
+    if key == 'meta ads':
+        return '/static/images/creative-viewers/facebook.svg'
+    slug = AUDIENCE_PLATFORM_LOGOS.get(key)
+    return _resolver_logo(slug, '') if slug else ''
+
+
+def decorate_audiences(records):
+    """Give every audience (and facet) the logo of the platform it is bought on."""
+    for record in records or []:
+        name = record.get('platform') or record.get('value')
+        logo = platform_logo_by_name(name)
+        if logo:
+            record['platform_logo' if 'value' not in record else 'logo'] = logo
+    return records
 
 
 def _decorate_format(record):

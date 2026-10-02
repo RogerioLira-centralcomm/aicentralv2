@@ -253,7 +253,7 @@ def related_audiences(audience, limit=6):
     except (TypeError, ValueError):
         limit = 6
     limit = max(1, min(limit, 8))
-    return rows('''SELECT a.id, a.nome AS name, a.publico_estimado AS audience,
+    return repository.decorate_audiences(rows('''SELECT a.id, a.nome AS name, a.publico_estimado AS audience,
                                      COALESCE(p.nome, NULLIF(TRIM(a.fonte), ''), 'Portais') AS channel,
                                      COALESCE(p.nome, NULLIF(TRIM(a.fonte), ''), 'Portais') AS platform,
                                      c.nome AS category
@@ -265,7 +265,7 @@ def related_audiences(audience, limit=6):
                             ORDER BY (a.categoria_id = %s) DESC, (a.plataforma_id = %s) DESC, a.nome
                                LIMIT %s''',
                            (audience['id'], audience.get('category_id'), audience.get('platform_id'),
-                            audience.get('category_id'), audience.get('platform_id'), limit))
+                            audience.get('category_id'), audience.get('platform_id'), limit)))
 
 
 def audience_facets():
@@ -356,4 +356,5 @@ def audience_profile(value):
                                  'platform_id': record.get('plataforma_id')})
     projected = client_projection('audiencias', record)
     projected['related'] = related
+    projected['platform_logo'] = repository.platform_logo_by_name(record.get('channel'))
     return projected

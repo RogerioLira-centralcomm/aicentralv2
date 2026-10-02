@@ -6,6 +6,7 @@ import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {CatalogCard, itemKey, useDebounced} from './Catalog.jsx';
 import {ActivePlanChip, PlannerHeader} from './PlannerHeader.jsx';
+import {LogoTile} from './PlannerUi.jsx';
 
 const PAGE = 48;
 const SORTS = [['relevant', 'Mais relevantes'], ['size', 'Maior público'], ['name', 'Nome (A–Z)']];
@@ -36,7 +37,7 @@ export function FacetChips({label, items, value, total, onChange}) {
     <div className="aud-facet__chips">
       <button type="button" className="aud-chip" aria-pressed={!value} onClick={() => onChange('')}>Todos<span>{number(total)}</span></button>
       {items.map(item => <button key={item.value} type="button" className="aud-chip" aria-pressed={value === item.value}
-        onClick={() => onChange(value === item.value ? '' : item.value)}>{item.value}<span>{number(item.count)}</span></button>)}
+        onClick={() => onChange(value === item.value ? '' : item.value)}>{item.logo && <LogoTile src={item.logo} size="xs"/>}{item.value}<span>{number(item.count)}</span></button>)}
     </div>
   </div>;
 }

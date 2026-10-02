@@ -58,12 +58,12 @@ export function AudienceDetail({boot, selection}) {
     {id: 'uso', label: 'Como usar no plano', hidden: !fieldsOf(byTitle[NARRATIVE_GROUP]).length, render: () => <Narrative group={byTitle[NARRATIVE_GROUP]}/>},
     {id: 'parecidas', label: 'Audiências parecidas', count: related.length, hidden: !related.length, wide: true,
       render: () => <Rail items={related.map(item => ({
-        href: `${moduleUrl(boot.urls, 'audiencias')}/${item.id}`, title: item.name, icon: 'users',
+        href: `${moduleUrl(boot.urls, 'audiencias')}/${item.id}`, title: item.name, icon: 'users', logo: item.platform_logo,
         subtitle: [item.platform, item.audience].filter(Boolean).join(' · '),
       }))}/>},
   ];
 
-  return <DetailLayout boot={boot} selection={selection} kind="audiencias" record={audience} icon="users"
+  return <DetailLayout boot={boot} selection={selection} kind="audiencias" record={{...audience, logo_url: audience.platform_logo}} icon="users"
     eyebrow={[audience.category, audience.subcategory].filter(Boolean).join(' · ') || 'Audiência'}
     media={audience.image_url ? {type: 'image', src: audience.image_url} : null}
     metrics={[

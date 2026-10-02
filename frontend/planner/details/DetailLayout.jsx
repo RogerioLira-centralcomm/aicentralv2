@@ -1,8 +1,7 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {CaduBadge} from '../../cadu-design-system/components/CaduBadge.jsx';
 import {Icon} from '../../cadu-design-system/components/Icon.jsx';
-import {VisualIdentity} from '../../cadu-design-system/components/VisualIdentity.jsx';
-import {SelectionButton} from '../PlannerUi.jsx';
+import {LogoTile, SelectionButton} from '../PlannerUi.jsx';
 import {ActivePlanChip, PlannerHeader} from '../PlannerHeader.jsx';
 import {MODULE_LABELS, moduleUrl} from '../api.js';
 
@@ -38,11 +37,8 @@ export function DetailMark({record, icon, size = 'lg'}) {
   const [failed, setFailed] = useState(false);
   const logo = record.logo_url || record.logo_path || record.platform_logo || '';
   const cover = !logo && record.hero_image_url && !failed;
-  return <span className={`planner-mark planner-mark--${size}`} style={record.cor ? {'--planner-mark-color': record.cor} : undefined}>
-    {logo ? <VisualIdentity src={logo} initials={record.name} label={record.name} imageTreatment="brand"/>
-      : cover ? <img src={record.hero_image_url} alt="" onError={() => setFailed(true)}/>
-        : <Icon name={icon} size={size === 'lg' ? 26 : 16}/>}
-  </span>;
+  if (!logo && cover) return <span className={`planner-mark planner-mark--${size}`}><img src={record.hero_image_url} alt="" onError={() => setFailed(true)}/></span>;
+  return <LogoTile src={logo} name={record.name} icon={icon} size={size} color={record.cor}/>;
 }
 
 /** Key numbers as report-style tiles: one value, one label, the source when it matters. */
@@ -80,7 +76,7 @@ export function Rail({items, empty}) {
   if (!items?.length) return empty ? <p className="planner-muted">{empty}</p> : null;
   return <div className="pd-rail" role="list">{items.map(item => <a key={item.href} role="listitem" className="pd-rail__item" href={item.href}>
     {item.image ? <span className="pd-rail__media"><img src={item.image} alt="" loading="lazy"/></span>
-      : <span className="pd-rail__mark">{item.logo ? <VisualIdentity src={item.logo} initials={item.title} label={item.title} imageTreatment="brand"/> : <Icon name={item.icon || 'plan'} size={18}/>}</span>}
+      : <LogoTile src={item.logo} name={item.title} icon={item.icon || 'plan'} size="sm"/>}
     <strong>{item.title}</strong>
     {item.subtitle && <small>{item.subtitle}</small>}
   </a>)}</div>;

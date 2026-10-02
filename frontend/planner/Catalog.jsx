@@ -5,8 +5,7 @@ import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.js
 import {CaduSelectField} from '../cadu-design-system/components/CaduField.jsx';
 import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
-import {VisualIdentity} from '../cadu-design-system/components/VisualIdentity.jsx';
-import {PlannerPanel, SelectionButton} from './PlannerUi.jsx';
+import {LogoTile, PlannerPanel, SelectionButton} from './PlannerUi.jsx';
 import {MODULE_LABELS, moduleUrl} from './api.js';
 import {ActivePlanChip, PlannerHeader} from './PlannerHeader.jsx';
 
@@ -79,9 +78,7 @@ export function platformLogo(item) {
 function CardMark({kind, item}) {
   const logo = kind === 'canais' ? (item.logo_path || item.logo_url || '') : platformLogo(item);
   const label = kind === 'canais' ? item.name : (item.platform || item.name);
-  return <span className="planner-mark planner-mark--sm" style={item.cor ? {'--planner-mark-color': item.cor} : undefined}>
-    {logo ? <VisualIdentity src={logo} initials={label} label={label} imageTreatment="brand"/> : <Icon name={KIND_ICON[kind] || 'plan'} size={18}/>}
-  </span>;
+  return <LogoTile src={logo} name={label} icon={KIND_ICON[kind] || 'plan'} color={item.cor}/>;
 }
 
 const InPlan = () => <span className="planner-card__inplan"><Icon name="check" size={12}/>No plano</span>;
@@ -102,7 +99,8 @@ export function CatalogCard({kind, item, urls, selected}) {
       {selected && <InPlan/>}
     </span>}
     <span className="planner-card__body">
-      {visual ? (eyebrow && <span className="planner-card__eyebrow">{eyebrow}</span>)
+      {visual ? (item.platform_logo ? <span className="planner-card__identity"><LogoTile src={item.platform_logo} name={item.platform} size="xs"/><span className="planner-card__eyebrow">{[item.platform, item.category].filter(Boolean).join(' · ')}</span></span>
+        : eyebrow && <span className="planner-card__eyebrow">{eyebrow}</span>)
         : <span className="planner-card__identity"><CardMark kind={kind} item={item}/><span className="planner-card__eyebrow">{eyebrow}</span>{selected && <InPlan/>}</span>}
       <strong className="planner-card__title">{item.name}</strong>
       <span className="planner-card__text">{item.description || item.purpose || 'Referência para apoiar as decisões do plano.'}</span>
@@ -115,10 +113,9 @@ export function CatalogCard({kind, item, urls, selected}) {
 }
 
 function PortalRow({item, urls, selected}) {
-  const [faviconFailed, setFaviconFailed] = useState(false);
   const pages = Number(item.discovered_pages_count);
   return <a className={`planner-portal${selected ? ' is-selected' : ''}`} href={catalogDetailUrl(urls, 'portais', item)}>
-    <span className="planner-portal__favicon">{faviconFailed ? <Icon name="browser" size={18}/> : <img src={`https://${item.domain}/favicon.ico`} alt="" loading="lazy" onError={() => setFaviconFailed(true)}/>}</span>
+    <LogoTile src={item.domain ? `https://${item.domain}/favicon.ico` : ''} name={item.name} icon="browser" size="md"/>
     <span className="planner-portal__main">
       <span className="planner-portal__title"><strong>{item.name}</strong>{item.featured_rank && <CaduBadge tone="brand">Destaque</CaduBadge>}{selected && <InPlan/>}</span>
       <small>{item.domain} · {item.description || 'Veículo editorial independente.'}</small>

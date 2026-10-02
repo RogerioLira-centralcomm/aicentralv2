@@ -45,7 +45,7 @@ export function ChannelDetail({boot, selection}) {
       </li>)}</ul>},
     {id: 'formatos', label: 'Formatos', count: formats.length, wide: true,
       render: () => <Rail empty="Ainda não há formatos cadastrados para este canal." items={formats.map(format => ({
-        href: `${moduleUrl(boot.urls, 'formatos')}/${format.id}`, title: format.name, icon: 'table',
+        href: `${moduleUrl(boot.urls, 'formatos')}/${format.id}`, title: format.name, icon: 'table', logo: channel.logo_url,
         subtitle: [format.format_type, format.dimensions].filter(Boolean).join(' · '),
       }))}/>},
     {id: 'exemplos', label: 'Exemplos', count: examples.length, hidden: !examples.length, wide: true,

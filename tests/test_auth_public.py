@@ -29,9 +29,13 @@ class AuthPublicLayoutTests(unittest.TestCase):
         self.assertIn("100svh", css)
         self.assertIn("--auth-kb", css)
         self.assertIn("@media (max-width: 720px)", css)
-        self.assertIn(".cadu-auth-visual, .cadu-auth-signup-rail { display: none; }", css)
+        self.assertIn(".cadu-auth-caption { display: none; }", css)
+        self.assertIn("cadu-auth-slide", css)
+        self.assertIn("(prefers-reduced-motion: reduce)", app)
+        # Auth screens carry no measurement script or consent banner.
+        self.assertNotIn("public_analytics", base)
+        self.assertNotIn("cadu-consent", css)
         self.assertIn("inputMode: 'email'", app)
-        self.assertIn("cadu-auth-mobile-tools", app)
         self.assertIn("cadu-auth-noscript", base)
         self.assertIn("cadu-auth-transition", app)
         self.assertNotIn(".cadu-auth-flashes { position: fixed", css)
@@ -85,7 +89,7 @@ class AuthPublicLayoutTests(unittest.TestCase):
         self.assertIn("'formAction'", signup)
         self.assertIn('id="confirm_password"', app)
         self.assertIn('Nome completo', app)
-        self.assertIn("Ferramentas incluídas no Cadu", app)
+        self.assertIn("Ferramentas incluídas", app)
         for tool in ("Workspace", "Planner", "Studio", "Reports", "Skills"):
             self.assertIn(tool, app)
 

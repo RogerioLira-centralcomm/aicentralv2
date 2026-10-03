@@ -5,22 +5,11 @@
   to { opacity: 1; }
 }
 
-@keyframes cadu-auth-visual-enter {
-  from { opacity: .72; }
-  to { opacity: 1; }
-}
 
 .cadu-auth-card {
   animation: cadu-auth-content-enter 420ms ease-out backwards;
 }
 
-.cadu-auth-visual {
-  animation: cadu-auth-visual-enter 620ms ease-out backwards;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .cadu-auth-card,
-  .cadu-auth-visual {
-    animation: none;
-  }
+  .cadu-auth-card { animation: none; }
 }

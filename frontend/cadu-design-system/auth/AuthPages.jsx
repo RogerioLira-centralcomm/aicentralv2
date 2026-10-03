@@ -63,7 +63,7 @@ export function Signup({bootstrap}) {
 export function ForgotPassword({bootstrap}) {
   const copy = copyFor(bootstrap);
   const form = useAuthForm({email: ''}, {email: value => validateEmail(value)});
-  if (bootstrap.requestSent) return <AuthFrame bootstrap={{...bootstrap, messages: []}} visual={false}>
+  if (bootstrap.requestSent) return <AuthFrame bootstrap={{...bootstrap, messages: []}}>
     <section className="cadu-auth-result" role="status">
       <span className="cadu-auth-result-icon"><Mail01 size={26} aria-hidden="true"/></span>
       <PageHeading title="Verifique seu email" description="Se houver uma conta ativa para esse endereço, o link para criar uma nova senha chegará em alguns minutos." />
@@ -72,7 +72,7 @@ export function ForgotPassword({bootstrap}) {
       <Button href={bootstrap.formAction} size="md" color="link-gray" iconLeading={ArrowLeft}>Tentar outro email</Button>
     </section>
   </AuthFrame>;
-  return <AuthFrame bootstrap={bootstrap} visual={false}>
+  return <AuthFrame bootstrap={bootstrap}>
     <PageHeading title="Recupere seu acesso" description={copy.forgotDescription} />
     <form action={bootstrap.formAction} method="POST" onSubmit={form.handleSubmit} className="cadu-auth-form" noValidate>
       <AuthField id="email" label={copy.forgotLabel} icon={Mail01} placeholder={copy.forgotPlaceholder} autoComplete="username" {...EMAIL_INPUT} enterKeyHint="send" {...form.bind('email')} />
@@ -87,7 +87,7 @@ export function ResetPassword({bootstrap}) {
     password: validateNewPassword,
     confirm_password: (value, all) => validateConfirmation(all.password, value),
   });
-  return <AuthFrame bootstrap={bootstrap} visual={false}>
+  return <AuthFrame bootstrap={bootstrap}>
     <PageHeading title="Crie uma nova senha" description={`Olá, ${bootstrap.userName || 'tudo bem'}. Use pelo menos 8 caracteres para proteger sua conta.`} />
     <form action={bootstrap.formAction} method="POST" onSubmit={form.handleSubmit} className="cadu-auth-form" noValidate>
       <PasswordField id="password" label="Nova senha" icon={Lock01} placeholder="Crie uma senha" autoComplete="new-password" enterKeyHint="next" {...form.bind('password')} />

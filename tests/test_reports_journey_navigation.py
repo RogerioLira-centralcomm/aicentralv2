@@ -244,6 +244,10 @@ def test_channels_route_filters_by_site_and_aggregates_totals(app):
 
     def fake_rows(sql, params=()):
         seen.append((sql, params))
+        if "'covered'" in sql:
+            return [{'dimension': 'os', 'value': 'iOS', 'sessions': 12, 'converted_sessions': 2},
+                    {'dimension': 'resolution', 'value': '390x844', 'sessions': 12, 'converted_sessions': 2},
+                    {'dimension': 'covered', 'value': 'all', 'sessions': 20, 'converted_sessions': 0}]
         if 'GROUP BY origin,device' in sql:
             return [{'origin': 'direct', 'device': 'mobile', 'sessions': 30, 'converted_sessions': 3}]
         if 'GROUP BY origin,campaign' in sql or 'GROUP BY origin,site_id' in sql:
@@ -260,10 +264,11 @@ def test_channels_route_filters_by_site_and_aggregates_totals(app):
     body = response.get_json()
     assert response.status_code == 200 and bad.status_code == 400
     assert body['totals'] == {'sessions': 40, 'converted_sessions': 4, 'conversion_rate': 10.0}
-    assert body['quality']['low_sample'] is False and len(body['channels']) == len(journey.ORIGIN_GROUPS) and len(seen) == 4
+    assert body['quality']['low_sample'] is False and len(body['channels']) == len(journey.ORIGIN_GROUPS) and len(seen) == 5
     for sql, params in seen:
         assert 'AND e.site_id=%(site)s::uuid' in sql and '{site}' not in sql and params['site'] == SITE
     assert body['channels'][0]['devices'][0]['label'] == 'Celular'
+    assert body['tech']['coverage'] == 50.0 and body['tech']['os'][0]['value'] == 'iOS' and body['tech']['resolution'][0]['value'] == '390×844'
 
 
 def test_conversion_pattern_collapses_ids_uuids_and_long_hashes_only():
@@ -312,3 +317,17 @@ def test_conversion_groups_route_runs_three_queries_on_one_site(app):
     for sql, params in seen:
         assert '{site}' not in sql and '@NAME@' not in sql and 'COALESCE(NULLIF(e.event_name' in sql
         assert 'AND e.site_id=%(site)s::uuid' in sql and params['site'] == SITE
+
+
+def test_tech_rows_report_coverage_and_rates_over_the_sessions_that_carry_data():
+    rows = [{'dimension': 'os', 'value': 'Android', 'sessions': 30, 'converted_sessions': 3},
+            {'dimension': 'os', 'value': 'iOS', 'sessions': 10, 'converted_sessions': 0},
+            {'dimension': 'browser', 'value': 'Chrome', 'sessions': 40, 'converted_sessions': 3},
+            {'dimension': 'resolution', 'value': '412x915', 'sessions': 5, 'converted_sessions': 1},
+            {'dimension': 'covered', 'value': 'all', 'sessions': 40, 'converted_sessions': 0}]
+    out = journey.tech_rows(rows, 100)
+    assert out['coverage'] == 40.0 and out['sessions'] == 40
+    assert [item['value'] for item in out['os']] == ['Android', 'iOS'] and out['os'][0]['share'] == 75.0 and out['os'][0]['conversion_rate'] == 10.0
+    assert out['os'][1]['conversion_rate'] == 0.0 and out['resolution'][0]['value'] == '412×915' and out['resolution'][0]['conversion_rate'] is None
+    empty = journey.tech_rows([{'dimension': 'covered', 'value': 'all', 'sessions': 0, 'converted_sessions': 0}], 50)
+    assert empty['coverage'] == 0.0 and empty['os'] == [] and empty['browser'] == [] and empty['resolution'] == []

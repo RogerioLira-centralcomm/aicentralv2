@@ -36,6 +36,7 @@ DEVICE_SQL = ("CASE WHEN {width} IS NULL OR {width}<=0 THEN 'unknown' WHEN {widt
               "WHEN {width}<1024 THEN 'tablet' ELSE 'desktop' END")
 CHANNEL_CAMPAIGNS = 5       # campaigns kept per channel
 CHANNEL_LANDINGS = 3        # landing pages kept per channel
+TECH_LIMIT = 8              # rows kept per technology dimension
 ROLE_MIN_VIEWS = 5          # a page needs this many views before it is given a role
 
 # Origin of a session, read from its first page view. The groups answer "where did this visit come from?" without
@@ -207,10 +208,10 @@ _NAV_PAGE_ORIGINS_SQL = _VIEWS_CTE + '''
 # Channels: one row per session with the origin, campaign, device class and landing page of its first view.
 _CHANNELS_CTE = f'''WITH ev AS (
     SELECT e.site_id,s.allowed_host AS site_host,e.session_id,e.event_kind,{_PATH} AS path,e.occurred_at,e.id,
-        e.referrer_host,e.attribution,e.viewport_width
+        e.referrer_host,e.attribution,e.viewport_width,e.event_data
     {_SCOPE} AND e.event_kind IN ('page_view','conversion') {{site}}
 ), firsts AS (
-    SELECT DISTINCT ON (site_id,session_id) site_id,session_id,site_host,path,referrer_host,attribution,viewport_width
+    SELECT DISTINCT ON (site_id,session_id) site_id,session_id,site_host,path,referrer_host,attribution,viewport_width,event_data
     FROM ev WHERE event_kind='page_view' ORDER BY site_id,session_id,occurred_at,id
 ), stats AS (
     SELECT site_id,session_id,COUNT(*) FILTER (WHERE event_kind='page_view') AS length,BOOL_OR(event_kind='conversion') AS converted
@@ -218,7 +219,10 @@ _CHANNELS_CTE = f'''WITH ev AS (
 ), chan AS (
     SELECT f.site_id,f.site_host AS host,f.path,{origin_group_sql()} AS origin,
         LOWER(BTRIM(COALESCE(f.attribution->>'utm_campaign',''))) AS campaign,
-        {DEVICE_SQL.format(width='f.viewport_width')} AS device,t.length,t.converted
+        {DEVICE_SQL.format(width='f.viewport_width')} AS device,t.length,t.converted,
+        NULLIF(f.event_data->>'os','') AS os,NULLIF(f.event_data->>'browser','') AS browser,
+        CASE WHEN f.event_data->>'sw' ~ '^[0-9]{{1,5}}$' AND f.event_data->>'sh' ~ '^[0-9]{{1,5}}$'
+            THEN (f.event_data->>'sw')||'x'||(f.event_data->>'sh') END AS resolution
     FROM firsts f JOIN stats t ON t.site_id=f.site_id AND t.session_id=f.session_id
 )'''
 _CHANNELS_SUMMARY_SQL = _CHANNELS_CTE + '''
@@ -232,6 +236,16 @@ _CHANNELS_DEVICES_SQL = _CHANNELS_CTE + '''
 _CHANNELS_CAMPAIGNS_SQL = _CHANNELS_CTE + '''
     SELECT origin,campaign,COUNT(*)::bigint AS sessions,COUNT(*) FILTER (WHERE converted)::bigint AS converted_sessions
     FROM chan WHERE campaign<>'' GROUP BY origin,campaign'''
+# Technology of the session's first view; sessions from before the tag update carry none, so coverage is reported too.
+_CHANNELS_TECH_SQL = _CHANNELS_CTE + '''
+    SELECT 'os' AS dimension,os AS value,COUNT(*)::bigint AS sessions,COUNT(*) FILTER (WHERE converted)::bigint AS converted_sessions
+    FROM chan WHERE os IS NOT NULL GROUP BY os
+    UNION ALL
+    SELECT 'browser',browser,COUNT(*)::bigint,COUNT(*) FILTER (WHERE converted)::bigint FROM chan WHERE browser IS NOT NULL GROUP BY browser
+    UNION ALL
+    SELECT 'resolution',resolution,COUNT(*)::bigint,COUNT(*) FILTER (WHERE converted)::bigint FROM chan WHERE resolution IS NOT NULL GROUP BY resolution
+    UNION ALL
+    SELECT 'covered','all',COUNT(*) FILTER (WHERE os IS NOT NULL)::bigint,0 FROM chan'''
 _CHANNELS_LANDINGS_SQL = _CHANNELS_CTE + '''
     SELECT origin,site_id,host,path,COUNT(*)::bigint AS sessions,COUNT(*) FILTER (WHERE converted)::bigint AS converted_sessions
     FROM chan GROUP BY origin,site_id,host,path'''
@@ -634,6 +648,19 @@ def conversion_groups(groups, origins, previous):
     return out
 
 
+def tech_rows(rows, total_sessions):
+    """System, browser and screen size of the sessions that carry them, with the share of sessions covered by the collection."""
+    covered = sum(int(row['sessions']) for row in rows if row['dimension'] == 'covered')
+    out = {'coverage': pct(covered, total_sessions), 'sessions': covered}
+    for dimension in ('os', 'browser', 'resolution'):
+        lines = sorted((row for row in rows if row['dimension'] == dimension), key=lambda row: (-int(row['sessions']), str(row['value'])))
+        out[dimension] = [{'value': row['value'].replace('x', '×') if dimension == 'resolution' else row['value'],
+                           'sessions': int(row['sessions']), 'share': pct(int(row['sessions']), covered),
+                           'converted_sessions': int(row['converted_sessions']),
+                           'conversion_rate': _rate(int(row['converted_sessions']), int(row['sessions']))} for row in lines[:TECH_LIMIT]]
+    return out
+
+
 def path_sequences(rows, sessions):
     """Most common whole visits (2 to SEQUENCE_DEPTH pages) with their share of sessions and conversion."""
     out = []
@@ -757,7 +784,8 @@ def register(bp):
                                 _rows(narrow(_CHANNELS_CAMPAIGNS_SQL), scope), _rows(narrow(_CHANNELS_LANDINGS_SQL), scope))
         sessions = sum(item['sessions'] for item in channels)
         converted = sum(item['converted_sessions'] for item in channels)
-        return jsonify(window=_window_json(since, until, days), channels=channels,
+        tech = tech_rows(_rows(narrow(_CHANNELS_TECH_SQL), scope), sessions)
+        return jsonify(window=_window_json(since, until, days), channels=channels, tech=tech,
                        totals={'sessions': sessions, 'converted_sessions': converted, 'conversion_rate': _rate(converted, sessions)},
                        quality={'min_sessions': MIN_SESSIONS, 'rate_min_base': RATE_MIN_BASE, 'low_sample': sessions < MIN_SESSIONS})
 

@@ -13,13 +13,24 @@ const pct = (value, digits = 1) => `${Number(value).toLocaleString('pt-BR', {max
 const rate = (value, base, minimum) => value == null
   ? <span className="rs-muted" title={`Base pequena (${number(base)}); a taxa aparece a partir de ${minimum}.`}>—</span> : pct(value);
 
+/** One technology dimension (system, browser or screen size) with its share and conversion over the sessions that carry it. */
+function TechTable({label, rows, minimum}) {
+  return <DataTable label={label} rows={rows} rowKey={row => row.value} initialSort={{key: 'sessions', dir: 'desc'}} empty={<p className="rs-muted">Sem dados.</p>} columns={[
+    {key: 'value', label, sort: row => row.value},
+    {key: 'sessions', label: 'Sessões', numeric: true, render: row => number(row.sessions)},
+    {key: 'share', label: 'Parte', numeric: true, render: row => pct(row.share, 0)},
+    {key: 'conversion_rate', label: 'Conversão', numeric: true, sort: row => row.conversion_rate ?? -1, render: row => row.conversion_rate == null && row.converted_sessions
+      ? <span title="Base pequena para taxa">{number(row.converted_sessions)}</span> : rate(row.conversion_rate, row.sessions, minimum)},
+  ]}/>;
+}
+
 /** "De onde vêm as visitas?" — every origin group with volume, conversion, devices, campaigns and the pages people land on. */
 export function Channels() {
   const {period, scope} = useReportsContext();
   const [state, retry] = useApi(apiUrl('/journey/channels', {start_date: period.start, end_date: period.end, site_id: scope.site || undefined}));
   if (state.error) return <ErrorState message={state.error} onRetry={retry}/>;
   if (state.loading && !state.body) return <div className="rs-stack"><LoadingState rows={2}/><LoadingState rows={6}/></div>;
-  const {channels, totals, quality} = state.body;
+  const {channels, totals, quality, tech} = state.body;
   if (!totals.sessions) return <EmptyState title="Sem visitas no período" description="Os canais aparecem quando a Super Tag recebe visitas. Confira a instalação ou escolha outro período."/>;
   const minimum = quality.rate_min_base;
   const active = channels.filter(item => item.sessions > 0);
@@ -56,6 +67,14 @@ export function Channels() {
         <dl className="rs-chan__defs">{active.map(item => <React.Fragment key={item.origin}><dt>{item.label}</dt><dd>{item.hint}</dd></React.Fragment>)}</dl>
       </Section>
     </div>
+    <Section title="Tecnologia" description={tech.sessions ? `Sistema, navegador e tamanho de tela de ${number(tech.sessions)} sessões (${pct(tech.coverage, 0)} do total)` : 'Sistema, navegador e tamanho de tela'}>
+      {tech.sessions ? <div className="rs-grid rs-grid--3 rs-chan__tech">
+        <TechTable label="Sistema" rows={tech.os} minimum={minimum}/>
+        <TechTable label="Navegador" rows={tech.browser} minimum={minimum}/>
+        <TechTable label="Tela" rows={tech.resolution} minimum={minimum}/>
+      </div> : <p className="rs-muted">Ainda sem dados. A coleta começa quando o site passa a carregar a Super Tag atualizada; visitas anteriores não trazem essas informações.</p>}
+      {tech.sessions > 0 && tech.coverage < 100 && <p className="rs-muted rs-chan__more">Sessões anteriores à atualização da Super Tag não entram nestas tabelas.</p>}
+    </Section>
     <Section title="Detalhe por canal" description="Aparelhos, campanhas e páginas de entrada de cada origem">
       <div className="rs-chan__cards">{active.map(item => <article key={item.origin} className="rs-chan__card" aria-label={item.label}>
         <header><strong>{item.label}</strong><span>{number(item.sessions)} {item.sessions === 1 ? 'sessão' : 'sessões'}</span></header>

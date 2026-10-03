@@ -172,3 +172,7 @@
 .rs-chan__list li>:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rs-chan__more{margin:0;font-size:13px}
 @media (max-width:640px){.rs-chan__defs{grid-template-columns:1fr}}
+
+.rs-chan__tech{gap:12px}
+.rs-chan__tech>*{min-width:0}
+.rs-chan__tech .rs-table-wrap{width:100%;margin:0}

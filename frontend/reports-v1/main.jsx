@@ -52,6 +52,8 @@ document.documentElement.dataset.caduSkin = 'reports';
 
 
 
+const campaignIdFromUrl = () => resolveRoute().entity || new URLSearchParams(location.search).get('campaign_id') || '';
+
 function Campaigns({data, save, busy, filters, refreshRevision}) {
   const [campaignId, setCampaignId] = useState(campaignIdFromUrl);
   const [campaignDetail, setCampaignDetail] = useState(null);

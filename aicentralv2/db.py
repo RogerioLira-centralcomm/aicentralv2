@@ -127,6 +127,23 @@ def get_db_config():
 
 # ==================== CONEXÃO ====================
 
+def recuperar_transacao_falha():
+    """Desfaz a transação da requisição quando uma consulta anterior a deixou abortada.
+
+    A conexão usa autocommit=False: depois de um erro, toda consulta seguinte falha até um
+    rollback. Consultas "opcionais" que engolem o erro (créditos, preferências) deixavam o
+    perfil e a foto sem carregar na mesma requisição. Sem erro pendente, não faz nada.
+    """
+    try:
+        conn = g.get('db')
+        if conn is not None and not conn.closed and conn.info.transaction_status == psycopg.pq.TransactionStatus.INERROR:
+            conn.rollback()
+            return True
+    except Exception:
+        current_app.logger.warning('Não foi possível recuperar a transação do banco', exc_info=True)
+    return False
+
+
 def get_db():
     """
     Obtém conexão com o banco de dados

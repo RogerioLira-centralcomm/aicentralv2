@@ -261,7 +261,7 @@ def create_app(config_class=Config):
     # Tornar config acessível nos templates
     @app.context_processor
     def inject_config():
-        from flask import session
+        from flask import request, session
         from .erp_page_context import resolve_page_context
         from .product_domains import product_url
         
@@ -272,6 +272,9 @@ def create_app(config_class=Config):
         cadu_nav_credit = None
         if 'user_id' in session:
             try:
+                # Uma consulta anterior da mesma requisição pode ter abortado a transação.
+                if db.recuperar_transacao_falha():
+                    app.logger.warning('Transação abortada recuperada antes de carregar o perfil (%s)', request.path)
                 contato = db.obter_contato_por_id(session['user_id'])
                 perfil_contato = contato
                 # A foto definida no cadastro é a fonte principal. Quando a
@@ -310,6 +313,8 @@ def create_app(config_class=Config):
             APP_CONFIG=app.config,
             is_centralcomm_user=is_cc_user,
             perfil_contato=perfil_contato,
+            # Fonte única do avatar nos shells do Workspace: foto do cadastro, foto da sessão, foto do Google.
+            workspace_user_avatar=(perfil_contato or {}).get('foto_url') or session.get('user_photo_url') or session.get('google_picture') or '',
             perfil_google=perfil_google,
             cadu_nav_credit=cadu_nav_credit,
             cx_page_context=resolve_page_context(),
@@ -389,6 +394,8 @@ def create_app(config_class=Config):
         register_studio_product_routes(studio_product_bp)
         from .creative_analyzer import register_product_routes as register_creative_analyzer_product
         register_creative_analyzer_product(studio_product_bp)
+        from .creative_lab.routes import register_lab_routes
+        register_lab_routes(studio_product_bp, app)
         app.register_blueprint(studio_product_bp)
 
         register_creative_modeling_routes(parametros_bp)

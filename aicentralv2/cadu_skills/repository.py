@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import json
 import math
 import os
@@ -376,6 +377,13 @@ def credit_position(client_id: int) -> dict:
                 "monthly_usage_percentage": round(min(100, (lot_used * 100) / lot_granted), 1) if lot_granted else 0,
             }
     except Exception:
+        # Antes o erro era engolido sem rastro e a transação ficava abortada para o resto da requisição.
+        logging.getLogger(__name__).warning("Não foi possível ler a posição de créditos do cliente %s", client_id, exc_info=True)
+        try:
+            from ..db import recuperar_transacao_falha
+            recuperar_transacao_falha()
+        except Exception:
+            pass
         return {"available": 0, "monthly": 0, "configured": False, "monthly_limit": 0, "monthly_used": 0, "monthly_usage_percentage": 0}
 
 

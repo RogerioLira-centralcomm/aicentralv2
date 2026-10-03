@@ -181,6 +181,10 @@ def _download(image_url):
     return bytes(content)
 
 
+# The capture opens the page as a visitor from Brazil with a Portuguese browser, so sites that pick the language from
+# the visitor's country or Accept-Language show the same version the client's audience sees (not the English one).
+CAPTURE_LOCATION = {'country': 'BR', 'languages': ['pt-BR', 'pt']}
+
 def _run_capture(app, store, key, url, allowed_host, device, lock, actor=None):
     previous = current_state(store, key)
     try:
@@ -193,7 +197,7 @@ def _run_capture(app, store, key, url, allowed_host, device, lock, actor=None):
                 raise ValueError('Página indisponível para captura.')
             width, height = DEVICES[device]
             data = reports_ai.firecrawl_scrape('page_capture', checked['checked_url'], call=_firecrawl_scrape, actor=actor, formats=[{'type': 'screenshot', 'fullPage': True, 'viewport': {'width': width, 'height': height}}],
-                                     timeout_s=60, max_age_ms=0)
+                                     timeout_s=60, max_age_ms=0, location=CAPTURE_LOCATION)
             image_url = data.get('screenshot')
             if isinstance(image_url, dict):
                 image_url = image_url.get('url') or image_url.get('imageUrl')

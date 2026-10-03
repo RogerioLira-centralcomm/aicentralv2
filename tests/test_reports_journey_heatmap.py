@@ -137,18 +137,6 @@ def test_devices_keep_a_fixed_order_with_zeros():
         ('desktop', 70.0, 0.4), ('mobile', 30.0, 0.2), ('tablet', 0.0, None)]
 
 
-def test_insights_only_with_enough_clicks_and_each_one_from_a_number():
-    summary = journey.heat_summary({'views': 100, 'sessions': 80, 'clicks': 40, 'scroll_25': 60, 'scroll_50': 20})
-    elements = journey.heat_elements([{'element_id': None, 'label': 'Request a proposal', 'kind': 'button', 'clicks': 10}], 40)
-    zones = journey.heat_zones(journey.heat_grid([{'cx': 1, 'cy': 1, 'clicks': 39}, {'cx': 1, 'cy': 100, 'clicks': 1}]))
-    devices = journey.heat_devices([{'device': 'mobile', 'views': 30, 'clicks': 6}, {'device': 'desktop', 'views': 70, 'clicks': 28}])
-    assert journey.heat_insights(summary, elements, zones, devices) == [
-        '“Request a proposal” concentra 25% de todos os cliques da página.',
-        '75% das pessoas não passam da metade da página.',
-        'Só 2,5% dos cliques acontecem na metade de baixo da página.',
-        'No celular há 50% menos cliques por visualização que no computador.']
-    assert journey.heat_insights({**summary, 'clicks': 5}, elements, zones, devices) == []
-
 
 def test_detail_route_reads_one_page_on_one_device_in_the_period(app):
     seen = []
@@ -171,7 +159,7 @@ def test_detail_route_reads_one_page_on_one_device_in_the_period(app):
     body = response.get_json()
     assert response.status_code == 200 and body['summary']['clicks'] == 4 and body['summary']['scroll_25'] == 80.0
     assert body['heat']['points'] == [[2, 3, 4]] and body['positioned_share'] == 100.0
-    assert body['elements']['items'][0]['label'] == 'Comprar' and body['insights'] == []
+    assert body['elements']['items'][0]['label'] == 'Comprar'
     for sql, params in seen:
         assert '%(path)s' in sql and 'e.site_id=%(site)s::uuid' in sql and '{device}' not in sql
         assert params['path'] == '/lp' and params['site'] == SITE and params['client'] == 174
@@ -187,10 +175,3 @@ def test_detail_route_rejects_invalid_input(app, query):
     with mock.patch.object(journey, '_rows', lambda *args: []), \
          mock.patch.object(journey, '_selection', return_value={'client_id': 174, 'role': 'admin', 'user_id': 1}):
         assert client.get(DETAIL + query).status_code == 400
-
-
-def test_no_scroll_insight_when_scroll_was_not_measured():
-    summary = journey.heat_summary({'views': 100, 'sessions': 80, 'clicks': 40})
-    elements = journey.heat_elements([], 40)
-    zones = journey.heat_zones(journey.heat_grid([]))
-    assert not any('metade da página' in text for text in journey.heat_insights(summary, elements, zones, journey.heat_devices([])))

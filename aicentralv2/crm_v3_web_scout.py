@@ -388,8 +388,11 @@ def _firecrawl_scrape(
     timeout_s: Optional[int] = None,
     only_main_content: bool = False,
     max_age_ms: int = 3_600_000,
+    location: Optional[dict] = None,
 ) -> Dict[str, Any]:
     """Chama Firecrawl /v2/scrape e devolve `data` bruto.
+
+    `location` ({country, languages}) escolhe o país do proxy e o idioma do navegador da captura.
 
     Lança RuntimeError com mensagem amigável em caso de falha (chave
     ausente, HTTP != 2xx, timeout). Timeout, conexão e HTTP 5xx recebem
@@ -413,6 +416,8 @@ def _firecrawl_scrape(
         "maxAge": max_age_ms,
         "storeInCache": True,
     }
+    if location:
+        payload["location"] = location
     endpoint = _firecrawl_url()
     last_error = None
     for attempt in range(1, FIRECRAWL_MAX_ATTEMPTS + 1):

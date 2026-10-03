@@ -304,8 +304,6 @@ def heatmap_pages(rows):
 
 HEAT_COLUMNS, HEAT_ROWS = 40, 120       # whole-document click grid of the heatmap: ~32 px columns at 1280 px, ~25 px rows on a 3000 px page
 TOP_ELEMENTS = 10
-INSIGHT_MIN_CLICKS = 20                 # below this no sentence is written: the sample would speak louder than the page
-INSIGHT_MIN_VIEWS = 20
 ZONES = (('Topo', '0–25%'), ('Meio alto', '25–50%'), ('Meio baixo', '50–75%'), ('Fim', '75–100%'))
 DEVICE_CLASSES = (('desktop', 'Computador'), ('mobile', 'Celular'), ('tablet', 'Tablet'))
 ELEMENT_KIND_LABELS = {'link': 'Link', 'button': 'Botão', 'icon': 'Ícone', 'image': 'Imagem', 'element': 'Elemento'}
@@ -392,35 +390,6 @@ def heat_devices(rows):
         out.append({'device': key, 'label': label, 'views': views, 'clicks': clicks, 'share': pct(views, views_total),
                     'clicks_per_view': round(clicks / views, 2) if views else None})
     return out
-
-
-def _pct_text(value):
-    return f'{value:.1f}'.replace('.', ',').removesuffix(',0') + '%'
-
-
-def heat_insights(summary, elements, zones, devices):
-    """Up to four plain sentences, each one read straight from a number on the screen; none with a small sample."""
-    if summary['clicks'] < INSIGHT_MIN_CLICKS:
-        return []
-    out = []
-    top = elements['items'][0] if elements['items'] else None
-    if top and top['share'] is not None and top['share'] >= 15:
-        out.append(f'“{top["label"]}” concentra {_pct_text(top["share"])} de todos os cliques da página.')
-    # No scroll event at all means scroll was not measured (switch off or old tag), not that nobody scrolled.
-    reach = summary.get('scroll_50') if summary.get('scroll_25') else None
-    if reach is not None and summary['sessions'] >= INSIGHT_MIN_VIEWS:
-        out.append(f'{_pct_text(round(100 - reach, 1))} das pessoas não passam da metade da página.')
-    lower = sum(zone['clicks'] for zone in zones[2:])
-    positioned = sum(zone['clicks'] for zone in zones)
-    if positioned >= INSIGHT_MIN_CLICKS and pct(lower, positioned) < 10:
-        out.append(f'Só {_pct_text(pct(lower, positioned))} dos cliques acontecem na metade de baixo da página.')
-    rates = {item['device']: item for item in devices}
-    desktop, mobile = rates['desktop'], rates['mobile']
-    if desktop['views'] >= INSIGHT_MIN_VIEWS and mobile['views'] >= INSIGHT_MIN_VIEWS and desktop['clicks_per_view']:
-        change = round((mobile['clicks_per_view'] - desktop['clicks_per_view']) / desktop['clicks_per_view'] * 100)
-        if abs(change) >= 15:
-            out.append(f'No celular há {abs(change)}% {"menos" if change < 0 else "mais"} cliques por visualização que no computador.')
-    return out[:4]
 
 
 def heat_summary(row):
@@ -628,7 +597,7 @@ def register(bp):
     @bp.get('/api/v2/reports/journey/heatmap-detail')
     @login_required_api
     def reports_journey_heatmap_detail():
-        """One page on one device in the period: fine click grid, zones, most clicked elements, device split and insights.
+        """One page on one device in the period: fine click grid, zones, most clicked elements and device split.
 
         Same window and device split as heatmap-pages, so the side panel and the numbers above the capture agree.
         """
@@ -646,11 +615,9 @@ def register(bp):
         summary = heat_summary((_rows(_HEAT_SUMMARY_SQL.replace('{device}', on_device), scope) or [{}])[0])
         grid = heat_grid(_rows(_HEAT_GRID_SQL.replace('{device}', on_device), scope))
         elements = heat_elements(_rows(_HEAT_ELEMENTS_SQL.replace('{device}', on_device), scope), summary['clicks'])
-        zones = heat_zones(grid)
-        devices = heat_devices(_rows(_HEAT_DEVICES_SQL, scope))
         return jsonify(window=_window_json(since, until, days), device=device, page={'site_id': site, 'path': path},
-                       summary=summary, heat=grid, positioned_share=pct(grid['total'], summary['clicks']), zones=zones,
-                       elements=elements, devices=devices, insights=heat_insights(summary, elements, zones, devices))
+                       summary=summary, heat=grid, positioned_share=pct(grid['total'], summary['clicks']), zones=heat_zones(grid),
+                       elements=elements, devices=heat_devices(_rows(_HEAT_DEVICES_SQL, scope)))
 
     @bp.get('/api/v2/reports/journey/heatmap-pages')
     @login_required_api

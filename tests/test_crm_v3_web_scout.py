@@ -314,3 +314,16 @@ class WebScoutRoutesTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_firecrawl_location_is_sent_only_when_asked():
+    from unittest import mock
+    from aicentralv2 import crm_v3_web_scout as scout
+    response = mock.Mock(status_code=200, ok=True)
+    response.json.return_value = {'success': True, 'data': {'screenshot': 'x'}}
+    with mock.patch('aicentralv2.services.integration_credentials.resolve_firecrawl_api_key', return_value='k'), \
+         mock.patch.object(scout.requests, 'post', return_value=response) as post:
+        scout._firecrawl_scrape('https://a.test/', formats=['screenshot'], location={'country': 'BR', 'languages': ['pt-BR']})
+        scout._firecrawl_scrape('https://a.test/', formats=['screenshot'])
+    assert post.call_args_list[0].kwargs['json']['location'] == {'country': 'BR', 'languages': ['pt-BR']}
+    assert 'location' not in post.call_args_list[1].kwargs['json']

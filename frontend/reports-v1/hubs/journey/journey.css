@@ -24,11 +24,11 @@
 }
 
 /* Heatmap: one control bar, the capture framed as a browser window and a side panel with the reading of the page. */
-.rs-heatmap{display:grid;gap:16px}
-.rs-heatmap>.rs-section__head{margin-bottom:0}
-.rs-heatmap__controls{display:flex;flex-wrap:wrap;align-items:flex-start;gap:12px 16px;padding-bottom:16px;border-bottom:1px solid var(--rs-line)}
+.rs-heatmap{display:grid;gap:16px;min-width:0}
+.rs-heatmap__controls{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 20px}
+.rs-heatmap__details{margin-left:auto;padding-bottom:9px}
 .rs-heatmap__control{display:grid;gap:6px;min-width:0}
-.rs-heatmap__control--page{flex:1 1 200px;max-width:320px}
+.rs-heatmap__control--page{flex:1 1 240px;max-width:380px}
 /* Segmented control: the chosen option is a white pill in brand colour (the design-system tabs only underline it). */
 .rs-heatmap .reports-tabs{flex-wrap:nowrap;gap:2px;padding:3px;border:0;border-radius:8px;background:var(--color-bg-secondary)}
 .rs-heatmap .reports-tabs>button{min-height:34px;padding:0 10px!important;border-radius:6px;color:var(--rs-text);font-size:13px}
@@ -48,13 +48,16 @@
 .rs-heatmap__picker li button:hover,.rs-heatmap__picker li button.is-active{background:var(--rs-soft)}
 .rs-heatmap__picker li[aria-selected=true] button{font-weight:600}
 .rs-heatmap__picker-empty{padding:10px;color:var(--rs-muted);font-size:13px}
-.rs-heatmap__kpis{display:flex;gap:16px;margin:0;padding:0 16px;border-inline:1px solid var(--rs-line);align-self:stretch;align-items:center}
-.rs-heatmap__kpis div{display:flex;flex-direction:column-reverse}
-.rs-heatmap__kpis dd{margin:0;color:var(--rs-ink);font-size:22px;font-weight:600;line-height:28px;font-variant-numeric:tabular-nums}
-.rs-heatmap__kpis dt{color:var(--rs-muted);font-size:13px}
-.rs-heatmap__intensity{flex:1 1 120px;min-width:120px;max-width:200px}
-.rs-heatmap__intensity input{width:100%;accent-color:var(--rs-brand)}
-.rs-heatmap__scale{display:flex;justify-content:space-between;color:var(--rs-muted);font-size:12px}
+.rs-heatmap__kpis{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 12px;padding:16px 0 0}
+.rs-heatmap__kpis div{display:grid;gap:2px;min-width:0;padding:10px 12px;border-radius:8px;background:var(--rs-soft)}
+.rs-heatmap__kpis dt{color:var(--rs-muted);font-size:12px}
+.rs-heatmap__kpis dd{margin:0;overflow:hidden;color:var(--rs-ink);font-size:22px;font-weight:600;line-height:28px;font-variant-numeric:tabular-nums;text-overflow:ellipsis;white-space:nowrap}
+/* Ambos: scroll reach as markers on the right edge, over the click heat. */
+.rs-heatmap__marks{position:absolute;inset:0 0 0 auto;width:0;margin:0;padding:0;list-style:none;pointer-events:none}
+.rs-heatmap__marks li{position:absolute;right:8px;transform:translateY(-100%);padding-bottom:3px}
+.rs-heatmap__marks li:last-child{transform:translateY(calc(-100% - 4px))}
+.rs-heatmap__marks b{display:block;padding:2px 6px;border-radius:6px;background:#ffffffeb;color:#101828;font-size:11px;font-weight:600;white-space:nowrap;box-shadow:0 1px 3px #10182833}
+.rs-heatmap__stage.has-marks::after{content:"";position:absolute;top:0;right:4px;bottom:0;border-right:2px dashed #ffffff99;pointer-events:none}
 .rs-heatmap__layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,300px);gap:16px;align-items:start}
 .rs-heatmap__frame{display:grid;gap:8px;min-width:0;margin:0;padding:8px;border:1px solid var(--rs-line);border-radius:12px;background:var(--rs-soft)}
 .rs-heatmap__chrome{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:6px 8px 6px 12px;border:1px solid var(--rs-line);border-radius:8px;background:var(--color-bg-primary,#fff);font-size:12px}
@@ -73,7 +76,6 @@
 .rs-heatmap__side{display:grid;gap:0;min-width:0;padding:4px 16px;border:1px solid var(--rs-line);border-radius:12px;background:var(--color-bg-primary,#fff)}
 .rs-heatmap__side>section{display:grid;gap:10px;padding:16px 0}
 .rs-heatmap__side>section+section{border-top:1px solid var(--rs-line)}
-.rs-heatmap__side-tabs{margin-top:12px}
 .rs-heatmap__side h3{margin:0;color:var(--rs-ink);font-size:14px;font-weight:600;line-height:20px}
 .rs-heatmap__table{width:100%;border-collapse:collapse;font-size:13px}
 .rs-heatmap__table th,.rs-heatmap__table td{padding:6px 0;text-align:right;font-weight:400;font-variant-numeric:tabular-nums}
@@ -98,13 +100,10 @@
 .rs-heatmap__bars--devices button:focus-visible{outline:2px solid var(--rs-brand);outline-offset:0}
 .rs-heatmap__note{display:flex;align-items:flex-start;gap:6px;margin:0;padding:8px 10px;border-radius:8px;background:var(--rs-soft);color:var(--rs-text);font-size:12px;line-height:18px}
 .rs-heatmap__note svg{flex:none;margin-top:2px;color:var(--rs-muted)}
-.rs-heatmap__insights{display:grid;gap:10px;margin:0;padding:0;list-style:none;color:var(--rs-text);font-size:13px;line-height:19px}
-.rs-heatmap__insights li{position:relative;padding-left:16px}
-.rs-heatmap__insights li::before{content:"";position:absolute;left:2px;top:7px;width:6px;height:6px;border-radius:50%;background:var(--rs-brand)}
 @media (max-width:1100px){.rs-heatmap__layout{grid-template-columns:1fr}}
 @media (max-width:720px){
   .rs-heatmap__control--page{max-width:none;flex-basis:100%}
-  .rs-heatmap__kpis{padding:0;border:0}
+  .rs-heatmap__details{margin-left:0;padding-bottom:0}
 }
 
 /* Navegação: origin selector on top, three compact columns, then exits and whole paths. */

@@ -120,6 +120,7 @@ def test_a_successful_capture_is_stored_and_asks_the_provider_for_the_full_page_
     assert state['status'] == 'ready' and state['device'] == 'mobile' and state['width'] == 720 and store.image_file('k1') is not None
     options = scraper.call_args.kwargs['formats'][0]
     assert options['fullPage'] is True and options['viewport']['width'] == 390 and scraper.call_args.kwargs['max_age_ms'] == 0
+    assert scraper.call_args.kwargs['location'] == {'country': 'BR', 'languages': ['pt-BR', 'pt']}
 
 
 @pytest.mark.parametrize('kwargs', [

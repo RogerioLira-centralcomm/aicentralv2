@@ -7,18 +7,33 @@ import {friendlyAgo} from '../../friendlyDates.js';
 import {reportUrl} from '../../reportsCommon.jsx';
 import {useReportsContext} from '../../shell/context.js';
 import {apiUrl, useApi} from '../../shell/useApi.js';
-import {AppLink, Async, EmptyState, Section} from '../../shell/primitives.jsx';
-import {number} from '../shared.jsx';
+import {AppLink, Async, EmptyState} from '../../shell/primitives.jsx';
+import {compact, number} from '../shared.jsx';
 import './journey.css';
 
 // Celular groups phones and tablets (viewport < 1024 px) over the phone capture; Computador is >= 1024 px.
 const DEVICES = [{id: 'desktop', label: 'Computador'}, {id: 'mobile', label: 'Celular'}];
-const LAYERS = [{id: 'clicks', label: 'Cliques'}, {id: 'scroll', label: 'Rolagem'}];
+const LAYERS = [{id: 'both', label: 'Ambos'}, {id: 'clicks', label: 'Cliques'}, {id: 'scroll', label: 'Rolagem'}];
 const PANELS = [{id: 'elements', label: 'Cliques'}, {id: 'zones', label: 'Zonas'}];
 const SCROLL_STEPS = [['scroll_25', '25%'], ['scroll_50', '50%'], ['scroll_75', '75%'], ['scroll_100', '100%']];
 const SCROLL_BANDS = [['scroll_25', '0–25%'], ['scroll_50', '25–50%'], ['scroll_75', '50–75%'], ['scroll_100', '75–100%']];
 const pageKey = page => `${page.site_id}${page.path}`;
 const pageName = path => path === '/' ? '/ · Página inicial' : path;
+// Up to 9.999 the exact number; above it the short form (12,3 mil · 1,2 mi), with the exact one in the tooltip.
+const big = value => value != null && Math.abs(value) >= 10000 ? compact(value) : number(value);
+const HEAT_GAIN = 0.6;
+// Page, device and map live in the address, so a heatmap can be shared and survives a reload.
+const readView = () => {
+  const query = new URLSearchParams(location.search);
+  return {path: query.get('path') || '', device: DEVICES.some(item => item.id === query.get('device')) ? query.get('device') : 'desktop',
+    mode: LAYERS.some(item => item.id === query.get('map')) ? query.get('map') : 'both'};
+};
+const writeView = ({path, device, mode}) => {
+  const url = new URL(location.href);
+  [['path', path], ['device', device === 'desktop' ? '' : device], ['map', mode === 'both' ? '' : mode]].forEach(([key, value]) =>
+    value ? url.searchParams.set(key, value) : url.searchParams.delete(key));
+  history.replaceState(history.state, '', `${url.pathname}${url.search}${url.hash}`);
+};
 const share = value => value == null ? '—' : `${Number(value).toLocaleString('pt-BR', {maximumFractionDigits: 1})}%`;
 
 /** Searchable page selector: path plus views and clicks of the period on the chosen device. */
@@ -71,7 +86,7 @@ const PALETTE = (() => {
 })();
 
 /** Smooth click heat over the capture: one soft spot per grid cell, summed, then coloured by the heat scale. */
-function HeatCanvas({heat, width, height, intensity}) {
+function HeatCanvas({heat, width, height}) {
   const ref = useRef(null);
   useEffect(() => {
     const canvas = ref.current;
@@ -82,7 +97,7 @@ function HeatCanvas({heat, width, height, intensity}) {
     context.clearRect(0, 0, W, H);
     const cellW = W / heat.columns, cellH = H / heat.rows;
     const radius = Math.max(cellW, cellH) * 1.6;
-    const gain = 0.35 + intensity * 1.3;
+    const gain = 0.35 + HEAT_GAIN * 1.3;
     heat.points.forEach(([x, y, value]) => {
       const cx = (x + 0.5) * cellW, cy = (y + 0.5) * cellH;
       const gradient = context.createRadialGradient(cx, cy, 0, cx, cy, radius);
@@ -101,12 +116,12 @@ function HeatCanvas({heat, width, height, intensity}) {
       pixels[index] = Math.min(210, 40 + alpha);
     }
     context.putImageData(image, 0, 0);
-  }, [heat, width, height, intensity]);
+  }, [heat, width, height]);
   return <canvas ref={ref} className="rs-heatmap__canvas" aria-hidden="true"/>;
 }
 
 /** The capture framed as a browser window, with the click heat or the scroll bands on top. */
-function CaptureStage({page, device, mode, intensity, detail, canEdit, client, csrf, costTokens}) {
+function CaptureStage({page, device, mode, detail, canEdit, client, csrf, costTokens}) {
   const {state, starting, capture, ready} = usePageCapture({siteId: page.site_id, path: page.path, device, client, csrf});
   const body = state.body;
   const address = `https://${page.host}${page.path}`;
@@ -131,13 +146,15 @@ function CaptureStage({page, device, mode, intensity, detail, canEdit, client, c
     </div>}
     {ready && <>
       {body.status === 'failed' && <p className="page-detail-warning" role="note">{body.message} Mostrando a captura anterior.</p>}
-      <div className="rs-heatmap__stage" style={{aspectRatio: `${body.width} / ${body.height}`}}>
+      <div className={`rs-heatmap__stage${mode === 'both' ? ' has-marks' : ''}`} style={{aspectRatio: `${body.width} / ${body.height}`}}>
         <img src={body.image_url} alt={`Captura da página ${page.path} no ${device === 'mobile' ? 'celular' : 'computador'}`}/>
-        {mode === 'clicks' && detail?.heat?.total > 0 && <HeatCanvas heat={detail.heat} width={body.width} height={body.height} intensity={intensity}/>}
-        {mode === 'scroll' && <div className="page-detail-overlay page-detail-overlay--bands" aria-hidden="true" style={{'--intensity': 0.35 + intensity * 0.6}}>{SCROLL_BANDS.map(([key, label]) =>
+        {mode !== 'scroll' && detail?.heat?.total > 0 && <HeatCanvas heat={detail.heat} width={body.width} height={body.height}/>}
+        {mode === 'both' && <ol className="rs-heatmap__marks" aria-label="Alcance da rolagem">{SCROLL_STEPS.map(([key, label]) =>
+          <li key={key} style={{top: `${parseInt(label, 10)}%`}}><b>{label} · {share(summary[key])}</b></li>)}</ol>}
+        {mode === 'scroll' && <div className="page-detail-overlay page-detail-overlay--bands" aria-hidden="true" style={{'--intensity': 0.7}}>{SCROLL_BANDS.map(([key, label]) =>
           <i key={key} style={{'--heat': (summary[key] ?? 0) / 100}} data-empty={summary[key] ? undefined : ''}><b>{label} · {share(summary[key])}</b></i>)}</div>}
       </div>
-      {mode === 'clicks' && detail && <p className="rs-heatmap__muted">{detail.heat.total
+      {mode !== 'scroll' && detail && <p className="rs-heatmap__muted">{detail.heat.total
         ? `${number(detail.heat.total)} de ${number(detail.summary.clicks)} cliques têm posição na página inteira e aparecem no calor.`
         : 'Ainda não há cliques com posição na página inteira para sobrepor.'} Se a página mudou depois da captura, o calor pode não coincidir com o desenho.</p>}
     </>}
@@ -152,8 +169,12 @@ function Bar({value}) {
 function SidePanel({detail, onDevice, detailHref}) {
   const [panel, setPanel] = useState('elements');
   if (!detail) return <aside className="rs-heatmap__side" aria-busy="true"><div className="reports-loading" role="status">Carregando os números da página…</div></aside>;
-  const {elements, zones, devices, insights, summary} = detail;
+  const {elements, zones, devices, summary} = detail;
   return <aside className="rs-heatmap__side" aria-label="Resumo da página">
+    <dl className="rs-heatmap__kpis">
+      <div title={`${number(summary.views)} visualizações`}><dt>Visualizações</dt><dd>{big(summary.views)}</dd></div>
+      <div title={`${number(summary.clicks)} cliques`}><dt>Cliques</dt><dd>{big(summary.clicks)}</dd></div>
+    </dl>
     <ReportsTabs className="rs-heatmap__side-tabs" label="Detalhe dos cliques" value={panel} onChange={setPanel} items={PANELS}/>
     {panel === 'elements' ? <section>
       <h3>Elementos mais clicados</h3>
@@ -161,7 +182,7 @@ function SidePanel({detail, onDevice, detailHref}) {
         <thead><tr><th scope="col">Elemento</th><th scope="col">Cliques</th><th scope="col">% dos cliques</th></tr></thead>
         <tbody>{elements.items.slice(0, 5).map((item, index) => <tr key={`${item.element_id || ''}${item.label}${item.kind || ''}`}>
           <th scope="row"><span className="rs-heatmap__rank">{index + 1}</span><span className="rs-heatmap__element" title={item.label}>{item.label}{item.kind_label && <small>{item.kind_label}</small>}</span></th>
-          <td>{number(item.clicks)}</td><td>{share(item.share)}</td>
+          <td title={number(item.clicks)}>{big(item.clicks)}</td><td>{share(item.share)}</td>
         </tr>)}</tbody>
       </table> : <p className="rs-heatmap__muted">Os cliques desta página ainda não têm nome. Eles passam a ter quando os visitantes carregarem a Super Tag atualizada.</p>}
       {elements.items.length > 0 && elements.unnamed_clicks > 0 && <p className="rs-heatmap__muted">{share(elements.unnamed_share)} dos cliques ainda não têm nome (tag antiga em cache).</p>}
@@ -190,29 +211,23 @@ function SidePanel({detail, onDevice, detailHref}) {
       })}</ul>
       <p className="rs-heatmap__muted">Parcela das visualizações da página. No heatmap, Celular inclui tablets.</p>
     </section>
-    <section>
-      <h3>Insights</h3>
-      {insights.length ? <ul className="rs-heatmap__insights">{insights.map(text => <li key={text}>{text}</li>)}</ul>
-        : <p className="rs-heatmap__muted">Com {number(summary.clicks)} cliques ainda não dá para tirar conclusões seguras sobre esta página.</p>}
-    </section>
   </aside>;
 }
 
 /** Site & Jornada → Heatmap: one page of the site in the header, one device at a time, the heat over the capture and its reading. */
 export function Heatmap({data}) {
   const {period, scope} = useReportsContext();
-  const [device, setDevice] = useState('desktop');
-  const [mode, setMode] = useState('clicks');
-  const [intensity, setIntensity] = useState(0.6);
-  const [chosen, setChosen] = useState('');
+  const [view, setView] = useState(readView);
+  const {device, mode} = view;
   const [state, retry] = useApi(apiUrl('/journey/heatmap-pages', {start_date: period.start, end_date: period.end, device, site_id: scope.site}));
   const pages = state.body?.device === device ? state.body.pages : [];
-  const page = pages.find(item => pageKey(item) === chosen) || pages[0];
+  const page = pages.find(item => item.path === view.path) || pages[0];
+  const update = patch => setView(current => ({...current, ...patch}));
+  useEffect(() => {if (page) writeView({...view, path: page.path});}, [page?.path, device, mode]);
   const [detailState] = useApi(page ? apiUrl('/journey/heatmap-detail', {start_date: period.start, end_date: period.end, device, site_id: page.site_id, path: page.path}) : null);
-  const detail = detailState.body?.device === device && detailState.body.page?.path === page?.path ? detailState.body : null;
+  const detail = detailState.body?.device === device && detailState.body.page?.path === page?.path && detailState.body.page?.site_id === page?.site_id ? detailState.body : null;
   const option = DEVICES.find(item => item.id === device);
-  const totals = detail?.summary || page;
-  return <Section className="rs-heatmap" title="Heatmap" description="Veja onde as pessoas clicam e até onde rolam nas suas páginas.">
+  return <div className="rs-heatmap">
     <Async state={state.body?.device === device || state.error ? state : {...state, body: null, loading: true}} onRetry={retry} rows={4}
       isEmpty={body => !body.pages.length}
       empty={<EmptyState title={`Sem páginas com visitas e cliques no ${option.label.toLowerCase()}`}
@@ -221,26 +236,18 @@ export function Heatmap({data}) {
         <div className="rs-heatmap__controls">
           <div className="rs-heatmap__control rs-heatmap__control--page">
             <span className="rs-heatmap__label">Página</span>
-            <PagePicker pages={pages} value={page} onChange={setChosen}/>
-            <AppLink className="rs-heatmap__link" href={reportUrl('pages', {site_id: page.site_id, path: page.path})}>Ver detalhes da página <ArrowRight size={14} aria-hidden="true"/></AppLink>
+            <PagePicker pages={pages} value={page} onChange={key => update({path: pages.find(item => pageKey(item) === key)?.path || ''})}/>
           </div>
-          <dl className="rs-heatmap__kpis">
-            <div><dd>{number(totals.views)}</dd><dt>visualizações</dt></div>
-            <div><dd>{number(totals.clicks)}</dd><dt>cliques</dt></div>
-          </dl>
-          <div className="rs-heatmap__control"><span className="rs-heatmap__label">Dispositivo</span><ReportsTabs label="Dispositivo" value={device} onChange={setDevice} items={DEVICES}/></div>
-          <div className="rs-heatmap__control"><span className="rs-heatmap__label">Tipo de mapa</span><ReportsTabs label="Tipo de mapa" value={mode} onChange={setMode} items={LAYERS}/></div>
-          <label className="rs-heatmap__control rs-heatmap__intensity"><span className="rs-heatmap__label">Intensidade</span>
-            <input type="range" min="0" max="1" step="0.05" value={intensity} aria-label="Intensidade do calor" onChange={event => setIntensity(Number(event.target.value))}/>
-            <span className="rs-heatmap__scale" aria-hidden="true"><span>Baixa</span><span>Alta</span></span>
-          </label>
+          <div className="rs-heatmap__control"><span className="rs-heatmap__label">Dispositivo</span><ReportsTabs label="Dispositivo" value={device} onChange={value => update({device: value})} items={DEVICES}/></div>
+          <div className="rs-heatmap__control"><span className="rs-heatmap__label">Tipo de mapa</span><ReportsTabs label="Tipo de mapa" value={mode} onChange={value => update({mode: value})} items={LAYERS}/></div>
+          <AppLink className="rs-heatmap__link rs-heatmap__details" href={reportUrl('pages', {site_id: page.site_id, path: page.path})}>Ver detalhes da página <ArrowRight size={14} aria-hidden="true"/></AppLink>
         </div>
         <div className="rs-heatmap__layout">
-          <CaptureStage key={`${pageKey(page)}:${device}`} page={page} device={device} mode={mode} intensity={intensity} detail={detail}
+          <CaptureStage key={`${pageKey(page)}:${device}`} page={page} device={device} mode={mode} detail={detail}
             canEdit={data.client.role !== 'viewer'} client={data.client.client_id} csrf={data.csrf} costTokens={state.body.cost_tokens}/>
-          <SidePanel detail={detail} onDevice={setDevice} detailHref={reportUrl('pages', {site_id: page.site_id, path: page.path})}/>
+          <SidePanel detail={detail} onDevice={value => update({device: value})} detailHref={reportUrl('pages', {site_id: page.site_id, path: page.path})}/>
         </div>
       </>}
     </Async>
-  </Section>;
+  </div>;
 }

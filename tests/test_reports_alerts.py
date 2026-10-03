@@ -225,6 +225,8 @@ def test_a_channel_is_flagged_only_when_it_bounces_far_more_than_the_others_on_t
     assert [item['subject_key'] for item in found] == ['google_ads|/lp'] and found[0]['severity'] == 'low' and found[0]['page_path'] == '/lp'
     assert 'Google Ads' in found[0]['summary'] and '80%' in found[0]['summary']
     assert channel_entry_findings([entry('google_ads', 40, 32), entry('direct', 30, 24)], LABELS) == []   # weak for everyone: no channel is blamed
+    assert channel_entry_findings([entry('unknown', 40, 38), entry('direct', 30, 3)], LABELS) == []       # unknown is not a channel
+    assert [item['subject_key'] for item in channel_entry_findings([entry('google_ads', 40, 32), entry('direct', 30, 9), entry('unknown', 200, 5)], LABELS)] == ['google_ads|/lp']   # nor a yardstick
     assert channel_entry_findings([entry('google_ads', 19, 19), entry('direct', 30, 3)], LABELS) == []    # channel sample too small
     assert channel_entry_findings([entry('google_ads', 40, 38), entry('direct', 19, 1)], LABELS) == []    # yardstick too small
     assert channel_entry_findings([entry('google_ads', 40, 20), entry('direct', 30, 3)], LABELS) == []    # 50% is under the 60% floor

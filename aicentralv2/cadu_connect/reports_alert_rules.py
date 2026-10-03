@@ -118,6 +118,8 @@ def channel_entry_findings(rows, labels):
     is weak for everyone is not blamed on one channel."""
     by_path = {}
     for row in rows:
+        if row['origin'] == 'unknown':     # the real landing was not captured, so it is neither a channel nor a fair yardstick
+            continue
         by_path.setdefault(row['path'], []).append(row)
     found = []
     for path, lines in by_path.items():

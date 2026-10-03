@@ -10,7 +10,8 @@ import {flowBlockRegistry} from './flowBlockRegistry.js';
 import {FLOW_STRATEGIES, buildStrategyConfig, defaultStrategyChannels, instantiateTemplate} from './flowStrategies.js';
 import {FlowTemplateGallery} from './FlowTemplateGallery.jsx';
 import {Empty, flowEditorUrl, json, reportUrl} from './reportsCommon.jsx';
-import {friendlyDateTime} from './friendlyDates.js';
+import {friendlyAgo, friendlyDateTime} from './friendlyDates.js';
+import {COLLECTION_DAYS, flowCollection, flowItemCount, flowResults, formatRate} from './flowCollection.js';
 import './flows-index.css';
 
 /** Flow list and creation: the entry screen of Fluxos. Owns its own form state; the editor never reads it. */
@@ -53,11 +54,7 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
   const flowTags=item=>Array.isArray(item.config?.tags)?item.config.tags:[];
   const allTags=[...new Set(flows.flatMap(flowTags))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
   const visibleFlows=flows.filter(item=>(!flowTagFilter||flowTags(item).includes(flowTagFilter))&&(flowStatusFilter==='all'||(flowStatusFilter==='published'?item.status==='published':item.status!=='published'))&&`${item.name} ${item.allowed_host}`.toLocaleLowerCase('pt-BR').includes(flowQuery.trim().toLocaleLowerCase('pt-BR')));
-  const [pageSize,setPageSize]=useState(12);const [pageIndex,setPageIndex]=useState(0);
-  const pageCount=Math.max(1,Math.ceil(visibleFlows.length/pageSize));const safePage=Math.min(pageIndex,pageCount-1);
-  const pagedFlows=visibleFlows.slice(safePage*pageSize,(safePage+1)*pageSize);
-  useEffect(()=>{setPageIndex(0);},[flowQuery,flowStatusFilter,flowTagFilter,pageSize]);
-  const flowMonitorLabel=item=>item.monitor_enabled?({online:'Online',degraded:'Com falhas',offline:'Offline',checking:'Verificando',unknown:'Aguardando checagem'})[item.monitor_status]||'Ativo':'Não ativado';
+  const monitorLabel=item=>item.monitor_enabled?({online:'Online',degraded:'Com falhas',offline:'Offline',checking:'Verificando',unknown:'Aguardando checagem'})[item.monitor_status]||'Ativo':'';
   const flowUpdatedLabel=value=>friendlyDateTime(value);
   const flowCreateHint=!strategyReady?'Escolha uma estratégia e ao menos um canal.':planWithoutSite?'O plano será criado sem site. Conecte o site quando for medir.':!flowHost.trim()?'Informe a URL do site e valide o domínio.':!flowSiteCheck?'Valide o domínio para continuar.':flowSiteCheck.error?'Corrija o domínio para continuar.':superTagForFlow({allowed_host:flowSiteCheck.host})?'A Super Tag deste domínio já existe e será reutilizada.':'A Super Tag será criada automaticamente para este domínio.';
   const siteCheckSequence=useRef(0);
@@ -76,15 +73,17 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
         {data.client.role!=='viewer'&&<ReportsActionButton color="primary" className="reports-flow-index__new" onClick={()=>setFlowCreateOpen(true)}>Novo fluxo</ReportsActionButton>}
       </div>
       <article className="reports-panel reports-flow-index__panel">
-        {visibleFlows.length?<div className="reports-table-wrap"><table className="cadu-table reports-flow-table"><thead><tr><th>Fluxo</th><th>Estado</th><th>Coleta</th><th>Próxima ação</th><th>Atualizado</th><th><span className="reports-sr-only">Ações</span></th></tr></thead><tbody>{pagedFlows.map(item=>{const next=flowNextAction(item);return <tr key={item.id}>
-          <td><strong>{item.name}</strong><small>{item.allowed_host||'Sem site · plano'}{item.campaign_names?` · ${item.campaign_names}`:''}</small>{flowTags(item).length>0&&<span className="reports-flow-tags">{flowTags(item).map(tag=><span key={tag}>{tag}</span>)}</span>}</td>
+        {visibleFlows.length?<div className="reports-table-wrap"><table className="cadu-table reports-flow-table"><thead><tr><th>Fluxo</th><th>Estado</th><th>Coleta</th><th className="text-right" title={`Sessões que entraram no fluxo nos últimos ${COLLECTION_DAYS} dias`}>Entradas</th><th className="text-right" title={`Conversões nos últimos ${COLLECTION_DAYS} dias`}>Conversão</th><th>Próxima ação</th><th>Atualizado</th><th><span className="reports-sr-only">Ações</span></th></tr></thead><tbody>{visibleFlows.map(item=>{const next=flowNextAction(item);const collection=flowCollection(item);const results=flowResults(item);const items=flowItemCount(item);return <tr key={item.id}>
+          <td><strong>{item.name}</strong><small>{plural(items,'item','itens')} · {item.allowed_host||'sem site · plano'}{item.campaign_names?` · ${item.campaign_names}`:''}</small>{flowTags(item).length>0&&<span className="reports-flow-tags">{flowTags(item).map(tag=><span key={tag}>{tag}</span>)}</span>}</td>
           <td><span className={`reports-status-badge is-${item.status==='published'?'published':'draft'}`} title={item.flow_code}>{item.status==='published'?'Publicado':'Rascunho'}</span></td>
-          <td>{flowMonitorLabel(item)}</td>
+          <td><span className={`reports-collection is-${collection.tone}`} title={collection.hint}>{collection.label}</span>{collection.lastEventAt&&<small className="reports-flow-table__sub">último evento {friendlyAgo(collection.lastEventAt)}</small>}{monitorLabel(item)&&<small className="reports-flow-table__sub">Disponibilidade: {monitorLabel(item)}</small>}</td>
+          <td className="text-right reports-flow-table__num">{results.hasData?<strong>{results.entries.toLocaleString('pt-BR')}</strong>:'—'}</td>
+          <td className="text-right reports-flow-table__num">{results.hasData?<><strong>{results.conversions.toLocaleString('pt-BR')}</strong><small className="reports-flow-table__sub">{formatRate(results.rate)} das entradas</small></>:'—'}</td>
           <td><button type="button" className={`reports-flow-next is-${next.tone}`} onClick={()=>openFlow(item,next.view)}>{next.label}</button></td>
           <td>{flowUpdatedLabel(item.updated_at)}</td>
           <td className="reports-flow-table__actions text-right whitespace-nowrap"><ReportsActionButton color="tertiary" onClick={()=>openFlow(item,'edit')}>Editar</ReportsActionButton>{item.status==='published'&&<ReportsActionButton color="tertiary" onClick={()=>openFlow(item,'monitor')}>Monitorar</ReportsActionButton>}</td>
         </tr>;})}</tbody></table></div>:<Empty message={flows.length?'Nenhum fluxo corresponde à busca.':'Nenhum fluxo ainda. Comece por um modelo pronto ou crie um fluxo do zero.'}/>}
-      </article>{visibleFlows.length>0&&<footer className="fli-pager"><label>Mostrando <ReportsNativeSelect aria-label="Itens por página" value={String(pageSize)} onChange={event=>setPageSize(Number(event.target.value))}>{[12,25,50].map(size=><option key={size} value={size}>{size}</option>)}</ReportsNativeSelect> por página</label><span>{safePage*pageSize+1}–{Math.min(visibleFlows.length,(safePage+1)*pageSize)} de {visibleFlows.length}</span><div><ReportsActionButton color="secondary" disabled={safePage===0} onClick={()=>setPageIndex(safePage-1)}>Anterior</ReportsActionButton><ReportsActionButton color="secondary" disabled={safePage>=pageCount-1} onClick={()=>setPageIndex(safePage+1)}>Próxima</ReportsActionButton></div></footer>}</>}
+      </article></>}
     </section>
     <ReportsDrawer open={flowCreateOpen} onOpenChange={setFlowCreateOpen} onDiscard={()=>{setFlowName('');setFlowCustomerId('');setFlowCampaignId('');}} title="Novo fluxo" description="Comece por uma estratégia pronta ou pelo teste da página inicial do site." context={data.client.client_name}>
       {localError&&<div className="reports-error" role="alert">{localError}</div>}

@@ -820,6 +820,31 @@ SITE_REQUIRED_ENDPOINTS = frozenset({
 })
 
 
+
+FLOW_STATS_DAYS = 30
+EMPTY_FLOW_STATS = {'events': 0, 'sessions': 0, 'entry_sessions': 0, 'converted_sessions': 0, 'conversions': 0,
+                    'last_event_at': None, 'days': FLOW_STATS_DAYS}
+
+
+def _with_flow_stats(flows, params):
+    """Attach to every flow what its tag actually received in the last 30 days: the list shows data, not just configuration."""
+    tag_ids = [str(item['tag_id']) for item in flows if item.get('tag_id')]
+    found = {}
+    if tag_ids:
+        for row in _rows('''SELECT e.tag_id::text AS tag_id,
+                COUNT(*)::bigint AS events,
+                COUNT(DISTINCT e.session_id) FILTER (WHERE e.event_kind IN ('page_view','conversion'))::bigint AS sessions,
+                COUNT(DISTINCT e.session_id) FILTER (WHERE e.event_kind IN ('page_view','conversion') AND s.is_entry)::bigint AS entry_sessions,
+                COUNT(DISTINCT e.session_id) FILTER (WHERE e.event_kind='conversion')::bigint AS converted_sessions,
+                COUNT(*) FILTER (WHERE e.event_kind='conversion')::bigint AS conversions,
+                MAX(e.occurred_at) AS last_event_at
+            FROM cadu_reports_flow_events e LEFT JOIN cadu_reports_flow_steps s ON s.id=e.step_id
+            WHERE e.client_id=%s AND e.tag_id = ANY(%s::uuid[])
+                AND e.occurred_at > NOW() - (%s * INTERVAL '1 day')
+            GROUP BY e.tag_id''', (*params, tag_ids, FLOW_STATS_DAYS)):
+            found[row['tag_id']] = {**row, 'days': FLOW_STATS_DAYS}
+    return [{**item, 'stats': found.get(str(item.get('tag_id')), EMPTY_FLOW_STATS)} for item in flows]
+
 def register(bp):
     @bp.before_request
     def _plan_without_site_guard():
@@ -1119,6 +1144,7 @@ def register(bp):
             FROM cadu_reports_flow_registry f LEFT JOIN cadu_reports_site_tags t ON t.id=f.tag_id
             WHERE f.client_id=%s ORDER BY f.created_at DESC''', params)
         flows = [{**item, 'config': to_v3(item['config'])} for item in flows]
+        flows = _with_flow_stats(flows, params)
         activity = _rows(scoped_events + '''SELECT e.tag_id,e.page_path,
             COUNT(*) FILTER (WHERE e.event_kind IN ('page_view','conversion','error_view')) AS views,
             COUNT(*) FILTER (WHERE e.event_kind='form_submit') AS form_submissions,

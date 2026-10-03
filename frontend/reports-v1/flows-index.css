@@ -7,3 +7,12 @@
 .fli-pager{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:12px;padding:12px 4px;color:var(--color-text-tertiary);font-size:13px}
 .fli-pager label{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}.fli-pager label select{min-width:72px}
 .fli-pager>div{display:flex;gap:8px}
+
+.reports-main .reports-flow-table__num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.reports-main .reports-flow-table__sub{display:block;margin-top:2px;color:var(--color-text-tertiary);font-size:12px;font-weight:400}
+.reports-collection{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500}
+.reports-collection::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.reports-collection.is-ok{color:var(--color-text-success-primary)}
+.reports-collection.is-warn{color:var(--color-text-warning-primary,#b54708)}
+.reports-collection.is-bad{color:var(--color-text-error-primary,#b42318)}
+.reports-collection.is-muted{color:var(--color-text-tertiary)}

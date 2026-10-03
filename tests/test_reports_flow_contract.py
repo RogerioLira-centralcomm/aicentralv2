@@ -38,3 +38,21 @@ class FlowContractTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def test_flow_list_carries_what_each_tag_received(monkeypatch):
+    from aicentralv2.cadu_connect import reports_flow
+
+    seen = {}
+
+    def fake_rows(sql, params=()):
+        seen["params"] = params
+        return [{"tag_id": "t-1", "events": 12, "sessions": 5, "entry_sessions": 4, "converted_sessions": 1,
+                 "conversions": 2, "last_event_at": "2026-10-03T10:00:00"}]
+
+    monkeypatch.setattr(reports_flow, "_rows", fake_rows)
+    flows = reports_flow._with_flow_stats([{"tag_id": "t-1"}, {"tag_id": "t-2"}, {"tag_id": None}], (7,))
+    assert flows[0]["stats"]["events"] == 12 and flows[0]["stats"]["days"] == 30
+    assert flows[1]["stats"]["events"] == 0 and flows[1]["stats"]["last_event_at"] is None
+    assert flows[2]["stats"]["conversions"] == 0
+    assert seen["params"] == (7, ["t-1", "t-2"], 30)

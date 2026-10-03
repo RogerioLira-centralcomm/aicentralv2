@@ -199,6 +199,25 @@ def execute_run(client_id: int, run_id: int) -> None:
         repository.update_run(run_id, status="failed", finished_at="now", error={"message": f"{type(exc).__name__}: {str(exc)[:300]}"})
         return
 
+    try:
+        _store_result(client_id, run_id, run, spec, plan, by_ref, result)
+    except Exception as exc:
+        log.exception("Lab run %s could not store its result", run_id)
+        from ..db import get_db
+        get_db().rollback()
+        repository.update_run(run_id, status="failed", finished_at="now", actual_cost_usd=result.get("cost_usd"),
+                              latency_ms=result.get("latency_ms"),
+                              error={"message": f"Resultado recebido, mas não gravado: {type(exc).__name__}: {str(exc)[:300]}"})
+        return
+    try:
+        evaluation.evaluate_run(client_id, run_id)
+    except Exception:
+        log.warning("Lab evaluation failed for run %s", run_id, exc_info=True)
+        from ..db import get_db
+        get_db().rollback()
+
+
+def _store_result(client_id, run_id, run, spec, plan, by_ref, result):
     raw_bytes = base64.b64decode(result["b64"])
     raw_bytes, cropped = fit_to_ratio(raw_bytes, spec["aspect_ratio"])
     if cropped:
@@ -221,12 +240,6 @@ def execute_run(client_id: int, run_id: int) -> None:
                           actual_cost_usd=result["cost_usd"], cost_source=result["cost_source"], usage=result["usage"],
                           provider_request_id=(result.get("request_id") or "")[:160] or None,
                           output_file_id=final["file_id"], thumb_file_id=final["thumb_file_id"], request_summary=summary)
-    try:
-        evaluation.evaluate_run(client_id, run_id)
-    except Exception:
-        log.warning("Lab evaluation failed for run %s", run_id, exc_info=True)
-        from ..db import get_db
-        get_db().rollback()
 
 
 def run_sequence(client_id: int, run_ids: list[int]) -> None:

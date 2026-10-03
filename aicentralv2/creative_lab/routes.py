@@ -198,12 +198,17 @@ def api_brief():
     data = request.get_json(silent=True) or {}
     client_id = current_client_id()
     brand = None
-    if data.get("brand_id"):
-        snapshot = brands.brand_snapshot(client_id, int(data["brand_id"]))
-        brand = brands.payload_fields(snapshot, data.get("payload_policy") or "verified_and_probable")
     anatomy = None
-    if data.get("ref_id"):
-        anatomy = repository.get_reference(client_id, int(data["ref_id"])).get("anatomy")
+    try:
+        if data.get("brand_id"):
+            snapshot = brands.brand_snapshot(client_id, int(data["brand_id"]))
+            brand = brands.payload_fields(snapshot, data.get("payload_policy") or "verified_and_probable")
+        if data.get("ref_id"):
+            anatomy = repository.get_reference(client_id, int(data["ref_id"])).get("anatomy")
+    except LookupError as exc:
+        return _error(str(exc), 404)
+    except (TypeError, ValueError):
+        return _error("Marca ou peça inválida.")
     if not str(data.get("idea") or "").strip() and not anatomy:
         return _error("Escreva a ideia ou escolha uma peça real analisada.")
     try:

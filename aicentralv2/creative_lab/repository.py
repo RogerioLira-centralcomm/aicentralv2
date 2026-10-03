@@ -184,12 +184,17 @@ def claim_run(run_id: int) -> bool:
     return claimed
 
 
+# Queued runs wait their turn behind a sequential worker; only orphans (worker lost on restart) expire.
+STALE_QUEUED_SECONDS = 6 * 3600
+
+
 def fail_stale_runs():
     with get_db().cursor() as cursor:
         cursor.execute(
             f"""UPDATE cx_lab_runs SET status = 'failed', finished_at = NOW(),
                        error = jsonb_build_object('message', 'A geração não terminou em {STALE_RUN_SECONDS // 60} minutos.')
-                 WHERE status IN ('queued', 'running') AND created_at < NOW() - INTERVAL '{STALE_RUN_SECONDS} seconds'"""
+                 WHERE (status = 'running' AND COALESCE(started_at, created_at) < NOW() - INTERVAL '{STALE_RUN_SECONDS} seconds')
+                    OR (status = 'queued' AND created_at < NOW() - INTERVAL '{STALE_QUEUED_SECONDS} seconds')"""
         )
     _commit()
 

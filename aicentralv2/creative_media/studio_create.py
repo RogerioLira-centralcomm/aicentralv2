@@ -589,8 +589,11 @@ def create_image(payload, modeling, client_id, user_id):
     provider_quality, provider_resolution, billing_fidelity = quality_map.get(
         requested_quality, ("medium", "1K", "draft"),
     )
-    from .studio_costs import image_generation_usd_with_references
-    estimate = image_generation_usd_with_references(len(references))
+    from .size_plan import plan as early_size_plan
+    from .studio_costs import image_estimate_usd
+    early_width, early_height = integer(data.get("width"), 0), integer(data.get("height"), 0)
+    early_sizing = early_size_plan(early_width, early_height, provider_quality) if early_width and early_height else None
+    estimate = image_estimate_usd(provider_quality, early_sizing["generation"] if early_sizing else provider_canvas(aspect_ratio), len(references))
     from ..cadu_tool_billing import cost_token_equivalent
     credits, actor = credit_context(modeling, client_id, user_id)
     try:

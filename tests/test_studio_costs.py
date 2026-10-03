@@ -62,3 +62,18 @@ def test_agent_steps_are_not_converted_as_media():
     )
 
     assert charged["media_tokens"] is None
+
+
+def test_an_image_is_charged_by_the_tokens_it_used_not_by_the_flat_catalog_price():
+    usage = {"input_tokens": 700, "input_tokens_details": {"text_tokens": 500, "image_tokens": 200}, "output_tokens": 1584}
+    cost = studio_costs.usage_cost_usd(usage)
+    assert abs(cost - 0.05162) < 1e-6
+    assert studio_costs.media_tokens_for_cost(cost) == 5162
+    assert studio_costs.usage_cost_usd({}) is None
+    assert studio_costs.usage_cost_usd({"input_tokens": 10}) is None
+
+
+def test_the_desk_estimate_follows_quality_and_is_near_five_thousand_credits_for_standard():
+    table = studio_costs.image_credits_by_quality()
+    assert 4000 <= table["padrão"] <= 6000
+    assert table["econômica"] < table["padrão"] < table["alta"]

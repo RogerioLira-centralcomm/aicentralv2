@@ -17,9 +17,10 @@ from .creative_media.studio import _studio_reference_masks
 
 
 def _studio_image_credits():
-    """Credits one image generation is worth and the share each extra reference adds (catalog cost)."""
-    from .creative_media.studio_costs import REFERENCE_IMAGE_COST_FACTOR, image_credits
-    return {'image': image_credits(0), 'reference_factor': float(REFERENCE_IMAGE_COST_FACTOR)}
+    """Credits one image is worth by quality at the typical size and the share each extra reference adds (token pricing)."""
+    from .creative_media.studio_costs import image_credits_by_quality, reference_share
+    by_quality = image_credits_by_quality()
+    return {'image': by_quality['padrão'], 'by_quality': by_quality, 'reference_factor': round(reference_share(), 3)}
 from .creative_format_lab.swap_routes import register_trocr_routes
 from .creative_modeling_generation import OpenRouterError
 from .creative_format_registry import catalog_entries

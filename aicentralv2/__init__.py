@@ -394,8 +394,6 @@ def create_app(config_class=Config):
         register_studio_product_routes(studio_product_bp)
         from .creative_analyzer import register_product_routes as register_creative_analyzer_product
         register_creative_analyzer_product(studio_product_bp)
-        from .creative_lab.routes import register_lab_routes
-        register_lab_routes(studio_product_bp, app)
         app.register_blueprint(studio_product_bp)
 
         register_creative_modeling_routes(parametros_bp)

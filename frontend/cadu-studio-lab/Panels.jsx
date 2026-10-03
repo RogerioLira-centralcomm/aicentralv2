@@ -19,7 +19,7 @@ export function ModelsView({state, api, onNotes}) {
       return <article key={model.model_key} className="lab-model">
         <header>
           <div><h3>{model.label}</h3><small className="lab-mono">{model.provider_model_id}</small></div>
-          <Badge kind={model.status === 'available' ? 'is-succeeded' : 'is-failed'}>{model.status === 'available' ? 'Disponível' : 'Indisponível'}</Badge>
+          <Badge kind={model.status === 'available' ? 'is-succeeded' : 'is-failed'}>{model.status === 'available' ? 'Disponível' : model.capabilities?.retired ? 'Fora do recorte' : 'Indisponível'}</Badge>
         </header>
         <div className="lab-model__stats">
           <div><small>Nota média</small><ScorePill score={stats.score}/></div>
@@ -222,6 +222,7 @@ function sentParams(model, tier) {
 function differences(model) {
   const caps = model.capabilities || {};
   const items = [];
+  if (model.capabilities?.retired) return [['bad', model.capabilities.reason]];
   if (model.status !== 'available') return [['bad', 'Indisponível no catálogo']];
   if (model.provider === 'openrouter') items.push(['warn', 'Rota diferente: o Studio chama a OpenAI direto; OpenRouter é só a reserva']);
   if (model.provider === 'openrouter') items.push(['warn', 'Sem tamanho exato: usa a proporção mais próxima e recorta (o Studio pede o tamanho final)']);

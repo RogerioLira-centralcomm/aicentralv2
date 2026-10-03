@@ -151,6 +151,8 @@ def preview(client_id: int, data: dict, user_id: int | None) -> dict:
     for model_key in data.get("models") or list(catalog.manifests()):
         manifest = catalog.manifest(model_key)
         caps = catalog.capabilities(model_key, cat)
+        if caps.get("retired"):
+            raise ValueError(f"{manifest['label']} está fora do recorte de testes: {caps['reason']}")
         plan = adapter.plan(spec, manifest, caps, [{k: ref[k] for k in ("ref_id", "role", "label")} for ref in spec["references"]])
         prompt = adapter.model_prompt(spec["director_prompt"], plan, manifest)
         plans.append({"model_key": model_key, "plan": plan, "model_prompt": prompt,
@@ -277,7 +279,7 @@ def _store_result(client_id, run_id, run, spec, plan, by_ref, result):
                     "composer": composer, "provider_model": result.get("model"), "cropped_to_format": cropped,
                     "output_size": [raw["width"], raw["height"]]})
     if studio:
-        summary["studio"] = {key: result.get(key) for key in ("pipeline", "mask_id", "mockup", "calls", "dropped_references", "delivered")}
+        summary["studio"] = {key: result.get(key) for key in ("pipeline", "mask_id", "mockup", "calls", "dropped_references", "delivered", "review")}
         summary["composer"] = "studio_logo"
         repository.update_run(run_id, model_prompt=result["prompt"])
     repository.update_run(run_id, status="succeeded", finished_at="now", latency_ms=result["latency_ms"],

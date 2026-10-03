@@ -91,6 +91,8 @@ def _pricing(endpoints) -> list[dict]:
 def capabilities(model_key: str, data: dict | None = None) -> dict:
     """What the catalog says this model accepts, normalized for the adapter."""
     item = manifest(model_key)
+    if item.get("retired"):
+        return {"available": False, "retired": True, "reason": item["retired"]}
     data = data or catalog()
     entry = data.get("models", {}).get(item["catalog_id"])
     if not entry:

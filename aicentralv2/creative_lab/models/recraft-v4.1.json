@@ -2,6 +2,7 @@
   "model_key": "recraft-v4.1",
   "label": "Recraft V4.1",
   "group": "specialist",
+  "retired": "Fora do recorte: nota 28 e texto errado na amostra de 03/10; ilustração não é pedida no Studio. O Lab agora compara só GPT Image 2 e 2.5.",
   "provider": "openrouter",
   "provider_model_id": "recraft/recraft-v4.1",
   "catalog_id": "recraft/recraft-v4.1",

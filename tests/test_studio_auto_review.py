@@ -1,3 +1,4 @@
+import itertools
 from types import SimpleNamespace
 
 from aicentralv2.creative_media import studio_create, studio_review
@@ -5,12 +6,14 @@ from aicentralv2.creative_media import studio_create, studio_review
 from tests.test_studio_create_directions import image_data
 
 
-def _modeling(calls, saved):
-    colors = iter(["blue", "green", "red"])
+def _modeling(calls, saved, sent=None):
+    sent = [] if sent is None else sent
+    colors = itertools.cycle(["blue", "green", "red"])
 
     class Generator:
         def generate_image(self, prompt, references, **kwargs):
             calls.append(prompt)
+            sent.append(list(references or []))
             return {"b64_json": image_data(next(colors)).split(",", 1)[1], "model": "test-image", "output_format": "png"}
 
     class Storage:
@@ -42,11 +45,18 @@ APPROVED = {"reviewed": True, "approved": True, "score": 80, "reason": "", "reas
 
 
 def test_rejected_first_version_triggers_a_second_with_the_fix(monkeypatch):
-    calls, saved = [], []
-    _verdicts(monkeypatch, REJECTED, APPROVED)
-    result = _generate(_modeling(calls, saved))
+    calls, saved, sent = [], [], []
+    rejected = {**REJECTED, "observation": {"visible_text": ["Saiba mas"], "unrequested_elements": ["selo"]},
+                "required_text": ["Saiba mais"]}
+    _verdicts(monkeypatch, rejected, APPROVED)
+    result = _generate(_modeling(calls, saved, sent))
     assert len(calls) == 2
-    assert "REVIEW FIX" in calls[1] and "REVIEW FIX" not in calls[0]
+    # The fix edits the first image: it goes first among the references, and the prompt names what to change.
+    assert calls[1].startswith("EDIT THE FIRST IMAGE") and "EDIT THE FIRST IMAGE" not in calls[0]
+    assert '"Saiba mas"' in calls[1] and '"Saiba mais"' in calls[1]
+    # Never ask the editor to delete what the reviewer listed as extra: it removed scene props and copy in tests.
+    assert "selo" not in calls[1] and "Do not delete, add or reword any text" in calls[1]
+    assert sent[1] and sent[1][0].startswith("data:image/") and result["review"]["fix"] == "edit"
     assert result["review"]["retried"] and result["review"]["delivered"] == "second"
     assert result["review"]["reason_text"] == "o texto saiu diferente do pedido"
 
@@ -61,9 +71,11 @@ def test_approved_first_version_is_delivered_without_retry(monkeypatch):
 
 def test_worse_second_version_keeps_the_first(monkeypatch):
     calls, saved = [], []
-    _verdicts(monkeypatch, {**REJECTED, "score": 50}, {**REJECTED, "score": 20})
+    _verdicts(monkeypatch, {**REJECTED, "score": 50}, {**REJECTED, "score": 20}, {**REJECTED, "score": 30})
     result = _generate(_modeling(calls, saved))
-    assert len(calls) == 2 and result["review"]["delivered"] == "first"
+    # Every edit starts from the best version so far and the best one is delivered.
+    assert len(calls) == studio_review.MAX_ATTEMPTS == 3 and result["review"]["delivered"] == "first"
+    assert [item["best"] for item in result["review"]["attempts"][1:]] == [False, False]
 
 
 def test_unavailable_reviewer_never_blocks_delivery(monkeypatch):
@@ -106,3 +118,81 @@ def test_judge_rejects_only_objective_failures():
     assert studio_review.judge(unsure, {}, {}, [])["approved"]
     wrong_text = studio_review.judge({"overall": 70}, {"visible_text": ["Saiba mas"]}, {"text": {"all_exact": False}}, ["Saiba mais"])
     assert wrong_text["reason"] == "text_mismatch"
+
+
+def test_official_logo_is_never_an_added_element():
+    assert studio_review._is_brand_mark("CEMIG brand mark (top right)", "Cemig")
+    assert studio_review._is_brand_mark("Cemig logo", "Cemig")
+    assert not studio_review._is_brand_mark("WhatsApp icon", "Cemig")
+    assert "never list it" in studio_review.eyes_instruction("Cemig", "composed", True)
+
+
+def test_lab_refines_until_the_target_score_within_five_versions(monkeypatch):
+    calls, saved = [], []
+    scores = [{**APPROVED, "score": value} for value in (60, 72, 70, 91)]
+    _verdicts(monkeypatch, *scores)
+    modeling = _modeling(calls, saved)
+    modeling.review_attempts, modeling.refine_target = 5, 90
+    result = _generate(modeling)
+    assert len(calls) == 4 and result["review"]["delivered_version"] == 4 and result["review"]["score"] == 91
+
+
+def test_margin_violation_rejects_and_costs_points():
+    observation = {"visible_text": ["Chame agora"], "boxes": [
+        {"kind": "cta", "label": "Chame agora", "box": [60, 80, 97, 93]},
+        {"kind": "face", "label": "rosto", "box": [0, 10, 40, 90]}]}
+    verdict = studio_review.judge({"overall": 80}, observation, {}, [])
+    assert verdict["reason"] == "margin" and verdict["score"] == 70
+    assert verdict["margin"] == ["Chame agora (right)"]
+    prompt = studio_review.edit_prompt({**verdict, "observation": observation}, "6:5")
+    assert "Chame agora (right)" in prompt and "8% from every edge" in prompt
+
+
+def test_edits_chain_from_the_latest_version_and_the_best_score_is_delivered(monkeypatch):
+    calls, saved, sent = [], [], []
+    scores = [{**APPROVED, "score": value} for value in (60, 80, 70, 75, 72)]
+    _verdicts(monkeypatch, *scores)
+    modeling = _modeling(calls, saved, sent)
+    modeling.review_attempts, modeling.refine_target = 5, 90
+    result = _generate(modeling)
+    assert len(calls) == 5 and result["review"]["delivered_version"] == 2 and result["review"]["score"] == 80
+    # Version 4 edits version 3 (the latest), not version 2 (the best).
+    assert sent[3][0] != sent[2][0]
+
+
+def test_edit_prompt_follows_what_the_piece_has():
+    observation = {"improvements": ["Make the CTA button larger", "Move the logo up", "Increase headline contrast"]}
+    bare = studio_review.edit_prompt({"observation": observation, "piece": {"palette": ["#C4FF3F"], "logo_mode": "none", "has_cta": False}})
+    assert "CTA button larger" not in bare and "Move the logo" not in bare and "headline contrast" in bare
+    assert "do not add any button" in bare and "do not add any logo" in bare and "#C4FF3F" in bare
+    full = studio_review.edit_prompt({"observation": observation, "piece": {"palette": ["#C4FF3F"], "logo_mode": "composed", "has_cta": True}})
+    assert "CTA button larger" in full and "applied afterwards" in full and "CTA button)" in full
+    assert "no CTA" in studio_review.eyes_instruction("Cemig", "composed", False)
+
+
+def test_reframe_factor_brings_every_box_inside_the_safe_margin():
+    observation = {"boxes": [{"kind": "cta", "box": [2, 80, 30, 93]}, {"kind": "face", "box": [0, 0, 50, 100]}]}
+    factor = studio_review.reframe_factor(observation)
+    # The CTA's left edge at 2% sits 48% from the centre; 42% is needed, so the picture shrinks to ~0.86.
+    assert 0.85 <= factor <= 0.875 and 50 - 48 * factor >= 8
+    assert studio_review.reframe_factor({"boxes": [{"kind": "cta", "box": [20, 20, 80, 80]}]}) is None
+
+
+def test_margin_rejection_is_fixed_by_shrinking_and_outpainting(monkeypatch):
+    calls, saved, sent = [], [], []
+    margin = {**REJECTED, "reason": "margin", "margin": ["CTA (left)"],
+              "observation": {"boxes": [{"kind": "cta", "label": "CTA", "box": [2, 80, 30, 93]}]}}
+    _verdicts(monkeypatch, margin, APPROVED)
+    result = _generate(_modeling(calls, saved, sent))
+    assert calls[1].startswith("OUTPAINT THE BORDER") and len(sent[1]) == 1
+    assert result["review"]["delivered_version"] == 2
+
+
+def test_shrink_into_border_keeps_the_canvas_and_paints_the_edge_color():
+    import base64, io
+    from PIL import Image
+    image = Image.new("RGB", (200, 100), "#123456")
+    out = io.BytesIO(); image.save(out, "PNG")
+    url = studio_create.shrink_into_border(base64.b64encode(out.getvalue()).decode(), 0.8)
+    result = Image.open(io.BytesIO(base64.b64decode(url.split(",", 1)[1])))
+    assert result.size == (200, 100) and result.getpixel((1, 1)) == (0x12, 0x34, 0x56)

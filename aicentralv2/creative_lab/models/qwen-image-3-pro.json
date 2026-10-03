@@ -2,6 +2,7 @@
   "model_key": "qwen-image-3-pro",
   "label": "Qwen Image 3 Pro",
   "group": "production",
+  "retired": "Fora do recorte: 110 s por peça e 18/29 concluídas na amostra de 03/10. O Lab agora compara só GPT Image 2 e 2.5.",
   "provider": "openrouter",
   "provider_model_id": "qwen/qwen-image-3-pro",
   "catalog_id": "qwen/qwen-image-3-pro",

@@ -343,3 +343,6 @@ body:has(#cadu-studio-lab-root) > .cadu-family-footer { display: none; }
 .lab-rec { border: 1px solid var(--csu-line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 6px; }
 .lab-rec header { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
 .lab-rec p { margin: 0; font-size: 13px; }
+
+.lab-attempts ol { margin: 4px 0 8px; padding-left: 18px; display: grid; gap: 4px; }
+.lab-attempts li.is-delivered strong { color: var(--csu-accent); }

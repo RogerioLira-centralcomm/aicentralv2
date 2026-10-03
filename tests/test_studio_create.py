@@ -293,3 +293,28 @@ def test_editor_audio_and_navbar_bundles_are_versioned_by_content():
         html = (templates / name).read_text()
         assert "static_fingerprint(" in html, name
         assert "react/app.css') }}?v=1" not in html and "app.js') }}?v=1" not in html, name
+
+
+def test_director_routes_start_with_haiku_on_openrouter_and_fall_back_to_openai():
+    from aicentralv2.creative_media import studio_create
+    routes = studio_create.director_routes()
+    assert routes[0] == ("openrouter", "anthropic/claude-haiku-4.5")
+    assert ("openai", "gpt-5-nano") in routes and len(routes) == len(set(routes))
+
+
+def test_director_prompt_is_never_cut_mid_word():
+    from aicentralv2.creative_media.studio_create import whole_words
+    long = "Primeira frase completa. " * 20 + "palavracomprida final"
+    cut = whole_words(long, 120)
+    assert cut.endswith(".") and len(cut) <= 120
+    assert whole_words("um dois três quatro", 12) == "um dois"
+    assert whole_words("curto", 50) == "curto"
+
+
+def test_playbook_lists_the_exact_copy_unless_the_image_is_text_free():
+    from aicentralv2.creative_media import studio_playbook
+    briefing = "Título: Sua conta de luz\nTexto de apoio: NO WHATSAPP · 2ª via sem sair de casa.\nBotão: Chame agora"
+    copy = ["Sua conta de luz", *studio_playbook.support_copy(briefing), "Chame agora"]
+    lines = studio_playbook.prompt_lines(copy, text_free=False)
+    assert '"NO WHATSAPP"\n"2ª via sem sair de casa."' in lines[0] and "DO NOT ADD" in lines[-1]
+    assert not any("EXACT COPY" in line for line in studio_playbook.prompt_lines(copy, text_free=True))

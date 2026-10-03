@@ -1,8 +1,10 @@
 """Revisor automático do Studio: olha a imagem pronta e diz se ela pode ser entregue.
 
-Usa o mesmo método do Lab: medidas por código (texto exato, paleta), um observador de visão e perguntas
-tipadas ao TypeSafe. Só falhas objetivas rejeitam a imagem. Se o revisor falhar, a imagem é entregue como
-está (fail-open): o revisor nunca bloqueia o usuário.
+O TypeSafe não enxerga imagem (lê o base64 como texto), então a revisão tem dois passos: um olho rápido
+(Haiku 4.5 com um relatório mínimo — texto, logo, extras, corte; ~3 s) e o TypeSafe, que julga esse
+relatório mais as medidas por código (texto exato, paleta) em ~0,3 s. Só falhas objetivas rejeitam a
+imagem; a correção é uma edição da própria imagem, não uma nova variação. Se o revisor falhar, a imagem
+é entregue como está (fail-open): o revisor nunca bloqueia o usuário.
 """
 
 from __future__ import annotations
@@ -12,6 +14,7 @@ import io
 import json
 import logging
 import os
+import re
 import time
 
 from PIL import Image
@@ -20,13 +23,18 @@ logger = logging.getLogger(__name__)
 
 ENABLED = os.getenv("STUDIO_AUTO_REVIEW", "1").strip().lower() not in {"0", "false", "off", "no"}
 MIN_SCORE = int(os.getenv("STUDIO_AUTO_REVIEW_MIN_SCORE", "0") or 0)
-# Segunda versão só começa se a primeira ainda estiver dentro deste orçamento (segundos desde o início do pedido).
-RETRY_BUDGET_SECONDS = float(os.getenv("STUDIO_AUTO_REVIEW_RETRY_BUDGET", "150") or 150)
 OBSERVER_TIMEOUT = 45
 TYPESAFE_TIMEOUT = 30
 CONFIDENCE = 0.6
+# Versions per piece: version 1 from the Studio prompt, the rest are edits of the best one. The Studio only goes on
+# while the reviewer rejects; the Lab (``modeling.refine_target``) also goes on while the score is below the target.
+MAX_ATTEMPTS = max(1, int(os.getenv("STUDIO_AUTO_REVIEW_MAX_ATTEMPTS", "3") or 3))
+# Text, CTA and logo closer than this to an edge break the 8% safe margin. The eyes estimate boxes within ~±2%,
+# and a 1-2% miss is not worth another generation: only elements clearly at the edge reject the piece.
+MARGIN_LIMIT = 5.0
 # Falhas que o usuário percebe de imediato e que uma nova tentativa costuma resolver.
 REJECT_FAILURES = {"text_rendering", "logo_redrawn", "cropped_content", "identity_changed", "reference_ignored"}
+MARGIN_KINDS = {"headline", "text", "cta", "logo"}
 REASONS = {
     "text_rendering": "o texto saiu diferente do pedido",
     "logo_redrawn": "o logo foi redesenhado",
@@ -35,6 +43,7 @@ REASONS = {
     "reference_ignored": "a referência enviada foi ignorada",
     "text_mismatch": "o texto saiu diferente do pedido",
     "cropped": "algo importante foi cortado na borda",
+    "margin": "texto, botão ou logo encostado na borda (fora da margem de 8%)",
     "forbidden": "apareceu um elemento proibido pela marca",
     "low_score": "a nota geral ficou abaixo do mínimo",
 }
@@ -46,9 +55,130 @@ CORRECTIONS = {
     "cropped": "REVIEW FIX: the previous attempt cut content at the edge. Keep text, faces, product and logo fully inside an 8% safe margin.",
     "identity_changed": "REVIEW FIX: the previous attempt altered the product or person. Reproduce the supplied reference faithfully; do not redesign it.",
     "reference_ignored": "REVIEW FIX: the previous attempt ignored a supplied reference. Use every supplied image according to its declared role.",
+    "margin": "REVIEW FIX: the previous attempt placed text, button or logo too close to the edge. Keep them at least 8% away from every edge.",
     "forbidden": "REVIEW FIX: the previous attempt showed an element the brand forbids. Remove it and keep the scene clean.",
     "low_score": "REVIEW FIX: the previous attempt was weak. Use one clear focal point, a clean layout and the brand colors.",
 }
+
+
+_EYES_FIELDS = (
+    '{"visible_text": [every text line exactly as written, accents and punctuation kept],\n'
+    ' "scene": "one sentence: main subject, setting and layout",\n'
+    ' "hero": "the element the eye reads first", "reading_order": [elements in reading order],\n'
+    ' "logo": {"count": number of logos or brand marks, "looks_redrawn": true if a logo looks invented or distorted},\n'
+    ' "unrequested_elements": [icons, badges, seals, UI screens or graphic add-ons that look added; not props of the scene],\n'
+    ' "cut_off": [text, face, product or logo cut by the frame edge],\n'
+    ' "defects": [visible rendering defects: garbled letters, broken hands, artifacts],\n'
+    ' "boxes": [{"kind": "headline|text|cta|logo|face|product", "label": "short", "box": [left, top, right, bottom] '
+    'as percent of the canvas width and height, 0-100}]'
+)
+_IMPROVEMENTS = (
+    ',\n "improvements": [up to 4 concrete edits that would make this a better professional ad, most important first: '
+    'CTA button design (solid shape, padding, legible label, contrast), hierarchy, contrast, clutter. Imperative, '
+    'specific, about size, style or color. Never change the wording of the copy, never move the layout, never remove required text.]'
+)
+
+
+def eyes_system(refine: bool = False) -> str:
+    """The eyes' report. The improvement list costs ~3 s more, so only the Lab's refinement asks for it."""
+    return ("You are a senior art director inspecting a finished ad image. Reply with JSON only, no prose:\n"
+            + _EYES_FIELDS + (_IMPROVEMENTS if refine else "") + "}")
+
+
+EYES_SYSTEM = eyes_system()
+EDIT_FIXES = {
+    "text_rendering": "TEXT: replace the wrong text so each string reads exactly as listed below, same position, size and style.",
+    "text_mismatch": "TEXT: replace the wrong text so each string reads exactly as listed below, same position, size and style.",
+    "logo_redrawn": "LOGO: remove every drawn logo, wordmark or brand mark; leave that area as clean background (the official logo is applied afterwards).",
+    "cropped_content": "MARGIN: move or shrink the elements cut by the frame edge so they sit fully inside an 8% safe margin; extend the background to fill.",
+    "cropped": "MARGIN: move or shrink the elements cut by the frame edge so they sit fully inside an 8% safe margin; extend the background to fill.",
+    "margin": "MARGIN: bring the elements listed below inside the 8% safe margin.",
+    "identity_changed": "IDENTITY: restore the product or person to match the supplied reference exactly.",
+    "reference_ignored": "REFERENCE: bring the supplied reference into the piece according to its role.",
+    "forbidden": "REMOVE the element the brand forbids and fill the area with the surrounding background.",
+    "low_score": "CLEAN UP: remove clutter and keep one clear focal point.",
+}
+
+
+def eyes_instruction(brand_name: str, logo_mode: str = "none", has_cta: bool = False) -> str:
+    """What this piece is supposed to have, so the eyes neither flag the official logo nor ask for a CTA or logo
+    that the briefing does not include."""
+    parts = [f"Inspect this ad for the brand {brand_name}." if brand_name else "Inspect this ad."]
+    if logo_mode != "none" and brand_name:
+        parts.append(f"Its official {brand_name} logo is expected: count it in `logo` but never list it in `unrequested_elements`.")
+    elif logo_mode == "none":
+        parts.append("This piece has no logo by design: do not suggest adding one.")
+    parts.append("It has a CTA button." if has_cta else "This piece has no CTA button by design: do not suggest adding one.")
+    return " ".join(parts)
+
+
+def _is_brand_mark(item: str, brand_name: str) -> bool:
+    text = str(item or "").casefold()
+    return bool(brand_name) and brand_name.casefold() in text and any(word in text for word in ("logo", "mark", "wordmark", "marca"))
+
+
+def margin_violations(observation: dict) -> list[str]:
+    """Text, CTA and logo boxes that sit closer than MARGIN_LIMIT percent to an edge."""
+    found = []
+    for item in observation.get("boxes") or []:
+        if not isinstance(item, dict) or str(item.get("kind") or "") not in MARGIN_KINDS:
+            continue
+        try:
+            left, top, right, bottom = (float(value) for value in item.get("box") or [])
+        except (TypeError, ValueError):
+            continue
+        sides = [side for side, near in (("left", left < MARGIN_LIMIT), ("top", top < MARGIN_LIMIT),
+                                         ("right", right > 100 - MARGIN_LIMIT), ("bottom", bottom > 100 - MARGIN_LIMIT)) if near]
+        if sides:
+            found.append(f"{item.get('label') or item.get('kind')} ({', '.join(sides)})")
+    return found
+
+
+SAFE_MARGIN = 8.0
+
+
+def reframe_factor(observation: dict) -> float | None:
+    """How much to shrink the picture so every text, CTA and logo box clears the 8% safe margin (None: nothing to do)."""
+    factor = 1.0
+    for item in observation.get("boxes") or []:
+        if not isinstance(item, dict) or str(item.get("kind") or "") not in MARGIN_KINDS:
+            continue
+        try:
+            left, top, right, bottom = (float(value) for value in item.get("box") or [])
+        except (TypeError, ValueError):
+            continue
+        for edge in (left, top, 100 - right, 100 - bottom):
+            if edge < SAFE_MARGIN:
+                factor = min(factor, (50 - SAFE_MARGIN) / (50 - max(0.0, edge)))
+    return None if factor >= 0.999 else max(0.8, round(factor - 0.01, 3))
+
+
+def reframe_prompt(aspect_ratio: str = "") -> str:
+    return ("OUTPAINT THE BORDER. The first image is a finished ad scaled down and centred on a plain border band. Fill ONLY "
+            "that border so the background continues seamlessly (same colors, gradients, textures, light and scene). Do not "
+            "change, move, redraw or add anything inside the central picture; put no text, logo, button or object in the border."
+            + (f" Keep the same canvas and aspect ratio ({aspect_ratio})." if aspect_ratio else ""))
+
+
+def max_attempts(modeling) -> int:
+    return max(1, int(getattr(modeling, "review_attempts", 0) or MAX_ATTEMPTS))
+
+
+def wants_another(verdict: dict, modeling) -> bool:
+    """Another version when the reviewer rejects, or, while refining, until the score reaches the target."""
+    if not verdict.get("reviewed"):
+        return False
+    if not verdict.get("approved"):
+        return True
+    target = getattr(modeling, "refine_target", None)
+    return bool(target) and (verdict.get("score") or 0) < target
+
+
+def attempt_entry(version: int, verdict: dict, source: str) -> dict:
+    observation = verdict.get("observation") or {}
+    return {"version": version, "source": source, "score": verdict.get("score"), "approved": verdict.get("approved"),
+            "reason": verdict.get("reason") or "", "margin": verdict.get("margin") or [],
+            "improvements": list(observation.get("improvements") or [])[:4], "seconds": verdict.get("seconds")}
 
 
 def enabled(modeling) -> bool:
@@ -73,22 +203,28 @@ def judge(scores: dict, observation: dict, measurements: dict, required_text: li
     reason = ""
     visible = observation.get("visible_text")
     text = (measurements or {}).get("text") or {}
-    if required_text and visible and text.get("all_exact") is False:
+    # Letters, accents and digits must match; a period the observer did not transcribe is not a rejection.
+    if required_text and visible and (text.get("letters_exact") if "letters_exact" in text else text.get("all_exact")) is False:
         reason = "text_mismatch"
     elif failure in REJECT_FAILURES and confidence >= CONFIDENCE:
         reason = failure
     elif (scores.get("cropped") or 0) >= CONFIDENCE:
         reason = "cropped"
+    elif margin_violations(observation):
+        reason = "margin"
     elif (scores.get("forbidden_present") or 0) >= CONFIDENCE:
         reason = "forbidden"
     elif MIN_SCORE and overall is not None and overall < MIN_SCORE:
         reason = "low_score"
-    return {"approved": not reason, "score": overall, "failure": reason or (failure if failure != "none" else ""),
-            "reason": reason, "reason_text": REASONS.get(reason, "")}
+    margin = margin_violations(observation)
+    # A broken safe margin costs 10 points, so a refined version that fixes it wins the comparison.
+    score = None if overall is None else max(0, overall - (10 if margin else 0))
+    return {"approved": not reason, "score": score, "failure": reason or (failure if failure != "none" else ""),
+            "reason": reason, "reason_text": REASONS.get(reason, ""), "margin": margin}
 
 
 def review(*, image_b64: str, prompt: str, required_text: list[str], palette: list[str], brand_name: str = "",
-           forbidden: list[str] | None = None) -> dict:
+           forbidden: list[str] | None = None, logo_mode: str = "none", has_cta: bool = False, refine: bool = False) -> dict:
     """Review one finished image. Never raises: any problem returns ``reviewed: False`` (deliver as is)."""
     started = time.monotonic()
     try:
@@ -101,13 +237,16 @@ def review(*, image_b64: str, prompt: str, required_text: list[str], palette: li
                 "must_include_text": required_text, "aspect_ratio": f"{image.width}:{image.height}"}
         measurements = {"size": [image.width, image.height], "palette": evaluation.palette_check(image, palette)}
         result = chat_completion(
-            [{"role": "system", "content": evaluation.observer_system()},
-             {"role": "user", "content": [{"type": "text", "text": evaluation.observer_instruction(spec, [])},
+            [{"role": "system", "content": eyes_system(refine)},
+             {"role": "user", "content": [{"type": "text", "text": eyes_instruction(brand_name, logo_mode, has_cta)},
                                           {"type": "image_url", "image_url": {"url": data_url}}]}],
             model=evaluation.OBSERVER_MODEL, max_tokens=4000, response_format={"type": "json_object"},
             timeout=OBSERVER_TIMEOUT, provider="openrouter")
         text = message_text(result.get("message") or {})
         observation = json.loads(text[text.find("{"):text.rfind("}") + 1])
+        # The official logo is never an "added element", even when the eyes list it as one.
+        observation["unrequested_elements"] = [item for item in observation.get("unrequested_elements") or []
+                                               if not _is_brand_mark(item, brand_name)]
         measurements["text"] = evaluation.text_check(required_text, observation.get("visible_text") or [])
         state = {
             "brief": {"task": "generate", "instruction": spec["instruction"], "must_include_text": required_text,
@@ -117,11 +256,14 @@ def review(*, image_b64: str, prompt: str, required_text: list[str], palette: li
             "measurements": {"text": measurements["text"], "palette": measurements["palette"]},
         }
         questions = evaluation._questions(spec, bool(brand_name or palette), False)
-        questions.pop("prompt_drift", None)
+        for key in ("prompt_drift", "completeness"):
+            questions.pop(key, None)
         answers = system_one(state, questions, timeout=TYPESAFE_TIMEOUT, attempts=1)["answers"]
         scores = evaluation._summarize(answers)
         verdict = judge(scores, observation, measurements, required_text)
-        verdict.update({"reviewed": True, "seconds": round(time.monotonic() - started, 1)})
+        verdict.update({"reviewed": True, "seconds": round(time.monotonic() - started, 1), "observation": observation,
+                        "required_text": list(required_text), "piece": {"palette": list(palette or [])[:5], "logo_mode": logo_mode,
+                                                                         "has_cta": bool(has_cta), "brand_name": brand_name}})
         return verdict
     except Exception:
         logger.warning("Studio auto review unavailable; delivering without it", exc_info=True)
@@ -133,11 +275,66 @@ def correction(verdict: dict) -> str:
     return CORRECTIONS.get(verdict.get("reason") or "", CORRECTIONS["low_score"])
 
 
+def edit_prompt(verdict: dict, aspect_ratio: str = "") -> str:
+    """The editor's instruction for the next version: fix what the reviewer found on the best image so far and
+    apply its top improvements, keeping everything else (including every piece of text) as it is."""
+    reason = verdict.get("reason") or ""
+    observation = verdict.get("observation") or {}
+    lines = [
+        "EDIT THE FIRST IMAGE. It is a finished ad being refined. Keep the composition, people, product, colors, "
+        "lighting, typography style and every correct element as they are. Any other image supplied is a reference only.",
+    ]
+    if reason:
+        lines.append("FIX FIRST: " + EDIT_FIXES.get(reason, EDIT_FIXES["low_score"]))
+    required = [item for item in verdict.get("required_text") or [] if item]
+    if reason in {"text_rendering", "text_mismatch"} and required:
+        seen = [item for item in observation.get("visible_text") or [] if item]
+        if seen:
+            lines.append("The image currently reads: " + " / ".join(f'"{item}"' for item in seen[:8]) + ".")
+        lines.append("These strings must read exactly (letter by letter, accents included):\n" + "\n".join(f'"{item}"' for item in required))
+    margin = verdict.get("margin") or []
+    if margin:
+        lines.append("Too close to the edge now: " + "; ".join(margin[:5]) + ". Move them inward so every text, button and "
+                     "logo sits at least 8% from every edge; scale that group down slightly if needed and extend the background.")
+    if reason in {"cropped", "cropped_content"} and observation.get("cut_off"):
+        lines.append("Cut by the edge now: " + "; ".join(str(item) for item in observation["cut_off"][:5]) + ".")
+    piece = verdict.get("piece") or {}
+    palette = [item for item in piece.get("palette") or [] if item]
+    if palette:
+        lines.append("BRAND COLORS: keep the official colors " + ", ".join(palette) + " clearly visible in the graphic "
+                     "elements (background fields, headline accent" + (", CTA button" if piece.get("has_cta") else "") + ").")
+    if piece.get("logo_mode") == "composed":
+        lines.append("LOGO: draw no logo or brand mark; the official logo is applied afterwards, keep its corner calm.")
+    elif piece.get("logo_mode") == "in_image":
+        lines.append("LOGO: keep the official logo exactly as it is (shape, letters, colors), fully inside the safe margin.")
+    else:
+        lines.append("There is no logo in this piece: do not add any logo, wordmark or brand mark.")
+    if piece and not piece.get("has_cta"):
+        lines.append("There is no CTA in this piece: do not add any button or call to action.")
+    improvements = [str(item) for item in observation.get("improvements") or [] if item]
+    if piece and not piece.get("has_cta"):
+        improvements = [item for item in improvements if not re.search(r"\b(cta|button|botão|call to action)\b", item, re.I)]
+    if piece.get("logo_mode", "none") == "none" and piece:
+        improvements = [item for item in improvements if not re.search(r"\blogo\b", item, re.I)]
+    improvements = improvements[:3]
+    if improvements:
+        lines.append("THEN IMPROVE, in this order:\n" + "\n".join(f"{index}. {item}" for index, item in enumerate(improvements, 1)))
+    lines.append("Do not delete, add or reword any text other than what is listed above; every other text stays exactly as it is.")
+    if aspect_ratio:
+        lines.append(f"Keep the same canvas and aspect ratio ({aspect_ratio}).")
+    return "\n".join(lines)
+
+
 def prefer_second(first: dict, second: dict) -> bool:
-    """Keep the new version unless the reviewer is sure it is worse than the first."""
+    """Whether ``second`` becomes the version to deliver: approved beats rejected, then the higher score
+    (a tie goes to the newer version); an unreviewed version never replaces a reviewed one."""
     if not second.get("reviewed"):
+        return not first.get("reviewed")
+    if not first.get("reviewed"):
         return True
-    if second.get("approved"):
-        return True
+    if bool(second.get("approved")) != bool(first.get("approved")):
+        return bool(second.get("approved"))
     a, b = first.get("score"), second.get("score")
-    return b is not None and a is not None and b >= a
+    if b is None:
+        return False
+    return a is None or b >= a

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from aicentralv2.creative_lab import adapter, brands, evaluation, studio_bridge
+from aicentralv2.creative_lab import adapter, brands, catalog, evaluation, studio_bridge
 from aicentralv2.creative_lab.catalog import MODELS_DIR
 
 
@@ -143,7 +143,7 @@ def test_payload_policy_filters_by_audit_status():
 
 def test_text_check_is_exact_and_detects_lost_accents():
     result = evaluation.text_check(["Mídia que chega."], ["Midia que chega."])
-    assert result["items"][0] == {"text": "Mídia que chega.", "exact": False, "accent_lost": True}
+    assert result["items"][0] == {"text": "Mídia que chega.", "exact": False, "accent_lost": True, "letters_exact": False}
     assert evaluation.text_check(["Fale com a gente"], ["FALE COM A GENTE"])["all_exact"] is True
 
 
@@ -155,6 +155,33 @@ def test_palette_check_measures_distance_to_brand_colors():
     half = Image.new("RGB", (64, 64), "#FFFFFF")
     half.paste(Image.new("RGB", (64, 16), "#4FFF82"), (0, 0))
     assert evaluation.palette_check(half, ["#4FFF82"])["coverage_total"] == 0.25
+
+
+def test_palette_v2_counts_a_brand_accent_on_a_photo_and_penalizes_foreign_colors():
+    # A dark photo with a small lime CTA: brand-correct even though the brand color covers 6% of the area.
+    ad = Image.new("RGB", (100, 100), "#0A1410")
+    ad.paste(Image.new("RGB", (40, 15), "#C4FF3F"), (30, 80))
+    good = evaluation.palette_check(ad, ["#041E18", "#C4FF3F", "#FFFFFF"])
+    assert good["accents_present"] == ["#C4FF3F"] and good["adherence"] == 1.0
+    # The same layout dominated by a saturated red the brand does not use.
+    off = Image.new("RGB", (100, 100), "#D01818")
+    off.paste(Image.new("RGB", (40, 15), "#C4FF3F"), (30, 80))
+    bad = evaluation.palette_check(off, ["#041E18", "#C4FF3F", "#FFFFFF"])
+    assert bad["foreign_share"] > 0.9 and bad["adherence"] <= 0.4
+    missing = evaluation.palette_check(Image.new("RGB", (50, 50), "#0A1410"), ["#041E18", "#C4FF3F"])
+    assert missing["adherence"] == 0.0
+
+
+def test_text_check_letters_ignore_dropped_punctuation_but_not_accents():
+    assert evaluation.text_check(["Mídia que chega."], ["Mídia que", "chega"])["letters_exact"] is True
+    assert evaluation.text_check(["+20% EXTRA"], ["20 EXTRA"])["letters_exact"] is False
+    assert evaluation.text_check(["Mídia que chega."], ["Midia que chega"])["letters_exact"] is False
+
+
+def test_retired_models_are_unavailable_and_cannot_be_queued():
+    caps = catalog.capabilities("qwen-image-3-pro", {"models": {}, "endpoints": {}})
+    assert caps["available"] is False and caps["retired"] is True
+    assert catalog.capabilities("recraft-v4.1", {"models": {}, "endpoints": {}})["retired"] is True
 
 
 def test_summary_combines_typed_answers():
@@ -323,6 +350,9 @@ def test_studio_bridge_runs_the_real_create_image_with_the_chosen_model(monkeypa
 
     monkeypatch.setattr(connector, "call", fake_call)
     monkeypatch.setattr(lab_catalog, "manifest", manifest)
+    from aicentralv2.creative_media import studio_review
+    monkeypatch.setattr(studio_review, "review", lambda **_kwargs: {"reviewed": True, "approved": True, "score": 95,
+                                                                    "reason": "", "reason_text": ""})
     monkeypatch.setattr(lab_catalog, "capabilities", lambda key, cat=None: CAPS[key])
     app = Flask(__name__, static_folder=str((Path(__file__).resolve().parent.parent / "aicentralv2" / "static")))
     mask = studio_bridge.pick_mask("feed-4x5", "foto-texto-base")

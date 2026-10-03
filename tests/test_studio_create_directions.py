@@ -74,7 +74,9 @@ def test_create_returns_requested_number_of_safe_directions():
     assert len(result["directions"]) == 3
     assert provider_result["model"] == "test"
     assert captured["max_tokens"] == 4_000 + 3 * 1_200
-    assert captured["reasoning"] == {"effort": "low"}
+    # Haiku leads on OpenRouter without a reasoning budget; GPT-5 fallbacks keep reasoning effort low.
+    assert (captured["provider"], captured["model"]) == studio_create.director_routes()[0]
+    assert "reasoning" not in captured
 
 
 def test_direction_director_receives_reference_pixels_without_base64():
@@ -499,8 +501,8 @@ def test_applied_logo_stays_whole_and_inside_the_margins():
     ]
     assert changed, "o logo foi aplicado"
     xs, ys = [p[0] for p in changed], [p[1] for p in changed]
-    margin = round(min(1080, 1350) * studio_create.LOGO_MARGIN_RATIO)
-    assert max(xs) <= 1080 - margin + 3 and max(ys) <= 1350 - margin + 3, "nada encosta nas bordas direita e inferior"
+    margin_x, margin_y = round(1080 * studio_create.LOGO_MARGIN_RATIO), round(1350 * studio_create.LOGO_MARGIN_RATIO)
+    assert max(xs) <= 1080 - margin_x + 3 and max(ys) <= 1350 - margin_y + 3, "8% de margem em cada eixo"
     assert min(ys) > 1350 * 0.8, "fica no canto inferior"
 
 
@@ -516,8 +518,9 @@ def test_applied_logo_turns_flat_instead_of_getting_a_plate_when_contrast_is_low
     on_light = _decode(studio_create.apply_brand_logo(_png_b64(Image.new("RGB", (1080, 1350), (245, 245, 240))), "png", logo))
     on_dark = _decode(studio_create.apply_brand_logo(_png_b64(Image.new("RGB", (1080, 1350), (12, 80, 56))), "png", logo))
 
-    plate_probe = (1080 - 76 - 216 - 8, 1350 - 76 - 58 - 8)  # just outside the logo
-    logo_probe = (1080 - 76 - 20, 1350 - 76 - 12)  # inside the logo
+    mx, my = round(1080 * studio_create.LOGO_MARGIN_RATIO), round(1350 * studio_create.LOGO_MARGIN_RATIO)
+    plate_probe = (1080 - mx - 216 - 8, 1350 - my - 58 - 8)  # just outside the logo
+    logo_probe = (1080 - mx - 20, 1350 - my - 12)  # inside the logo
     assert on_light.getpixel(plate_probe)[:3] == (245, 245, 240), "fundo claro não recebe placa"
     assert on_light.getpixel(logo_probe)[:3] == (10, 90, 60), "fundo claro mantém a cor do logo"
     assert on_dark.getpixel(plate_probe)[:3] == (12, 80, 56), "sem placa nem brilho atrás do logo"
@@ -637,4 +640,5 @@ def test_opaque_logo_is_never_flattened_into_a_block():
     from PIL import Image
     logo = Image.new("RGBA", (300, 80), (10, 90, 60, 255))  # fully opaque artwork
     result = _decode(studio_create.apply_brand_logo(_png_b64(Image.new("RGB", (1080, 1350), (12, 80, 56))), "png", logo))
-    assert result.getpixel((1080 - 76 - 20, 1350 - 76 - 20))[:3] == (10, 90, 60)
+    mx, my = round(1080 * studio_create.LOGO_MARGIN_RATIO), round(1350 * studio_create.LOGO_MARGIN_RATIO)
+    assert result.getpixel((1080 - mx - 20, 1350 - my - 20))[:3] == (10, 90, 60)

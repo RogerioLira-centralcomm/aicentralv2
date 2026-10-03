@@ -130,7 +130,8 @@ export default function Matrix({state, blind, onOpen, onRunScenario, busyScenari
   const runGroups = useMemo(() => groupRuns(state.runs), [state.runs]);
   const rowGroups = useMemo(() => buildRows(state), [state]);
   const [closed, setClosed] = useState(() => new Set());
-  const models = state.models;
+  // Retired models keep their history in the other tabs but leave the live matrix.
+  const models = state.models.filter(model => !model.capabilities?.retired);
   const brandsById = Object.fromEntries(state.brands.map(brand => [brand.id, brand]));
   const columns = `minmax(210px, 1.3fr) repeat(${models.length}, minmax(118px, 1fr))`;
   const toggle = label => setClosed(current => { const next = new Set(current); if (next.has(label)) next.delete(label); else next.add(label); return next; });

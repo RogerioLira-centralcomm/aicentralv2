@@ -202,6 +202,12 @@ class _Generator:
 class LabModeling:
     """The slice of CreativeModelingService that the Studio pipelines touch."""
 
+    # The Lab refines every Studio-pipeline piece: version 1 from the Studio prompt, then up to four edits of the
+    # best version, each fixing what the reviewer found, until the score reaches the target.
+    auto_review = True
+    review_attempts = 5
+    refine_target = 90
+
     def __init__(self, model_key: str):
         self.capture = _Capture()
         self.storage = _Storage(self.capture)
@@ -301,7 +307,8 @@ def run_create(*, model_key: str, spec: dict, snapshot: dict, plan: dict, by_ref
     if width and height:
         payload.update({"width": width, "height": height})
     started = time.monotonic()
-    studio_create.create_image(payload, modeling, client_id, user_id or 0)
+    created = studio_create.create_image(payload, modeling, client_id, user_id or 0)
     return _finish(modeling, {"pipeline": "studio_create", "wall_ms": round((time.monotonic() - started) * 1000),
+                              "review": (created or {}).get("review"),
                               "mask_id": mask["id"] if mask else None, "mockup": plan.get("mockup"),
                               "delivered": [width, height] if width else None})

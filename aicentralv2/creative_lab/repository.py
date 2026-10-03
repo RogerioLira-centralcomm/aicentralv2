@@ -228,6 +228,7 @@ def _run_view(row: dict, evaluations: list[dict], ratings: list[dict]) -> dict:
         "experiment_title": row["experiment_title"], "instruction": row.get("instruction"), "task": row["task"], "brand_id": row["brand_id"],
         "model_key": row["model_key"], "provider": row["provider"], "provider_model_id": row["provider_model_id"],
         "profile_version": row["profile_version"], "attempt": row["attempt"], "status": row["status"],
+        "created_by": row.get("created_by"),
         "adaptation_plan": row["adaptation_plan"], "model_prompt": row["model_prompt"],
         "request_summary": row["request_summary"], "latency_ms": row["latency_ms"],
         "estimated_cost_usd": float(row["estimated_cost_usd"]) if row["estimated_cost_usd"] is not None else None,

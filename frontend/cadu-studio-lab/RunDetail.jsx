@@ -70,6 +70,22 @@ function Evaluation({run}) {
   </div>;
 }
 
+const ATTEMPT_SOURCE = {studio_prompt: 'prompt do Studio', edit: 'edição', reframe: 'reenquadramento'};
+
+function Attempts({review}) {
+  const attempts = review?.attempts || [];
+  if (!attempts.length) return null;
+  return <div className="lab-attempts">
+    <h4>Refinamento · entregue a versão {review.delivered_version || 1}</h4>
+    <ol>{attempts.map(item => <li key={item.version} className={item.version === review.delivered_version ? 'is-delivered' : ''}>
+      <strong>v{item.version}</strong> · {ATTEMPT_SOURCE[item.source] || item.source || 'falhou'}
+      {item.score != null && <> · nota {item.score}</>}{item.reason ? <> · {item.reason}</> : item.approved ? ' · aprovada' : ''}
+      {(item.margin || []).length > 0 && <small className="lab-muted"> · margem: {item.margin.join('; ')}</small>}
+      {(item.improvements || []).length > 0 && <small className="lab-muted"> · pediu: {item.improvements.join(' / ')}</small>}
+    </li>)}</ol>
+  </div>;
+}
+
 function Plan({run}) {
   const plan = run.adaptation_plan || {};
   const groups = [['sent', 'Enviadas como imagem'], ['converted_to_text', 'Viraram texto'], ['post_processed', 'Pós-processadas'], ['dropped', 'Descartadas']];
@@ -77,7 +93,8 @@ function Plan({run}) {
   return <div className="lab-plan">
     <p><strong>{plan.summary}</strong></p>
     {plan.pipeline === 'studio' && <p>Pipeline do Studio · mockup {plan.mockup?.effective === 'image' ? 'enviado como imagem' : plan.mockup?.effective === 'text' ? 'descrito em texto' : 'desligado'}
-      {plan.mockup?.degraded ? ' (o modelo não aceita a imagem)' : ''}{run.request_summary?.studio?.calls > 1 ? ` · ${run.request_summary.studio.calls} chamadas (correção de margem)` : ''}</p>}
+      {plan.mockup?.degraded ? ' (o modelo não aceita a imagem)' : ''}{run.request_summary?.studio?.calls > 1 ? ` · ${run.request_summary.studio.calls} chamadas` : ''}</p>}
+    <Attempts review={run.request_summary?.studio?.review}/>
     {plan.blocked && <p className="lab-alert">{plan.blocked}</p>}
     <div className="lab-plan__grid">
       {groups.map(([key, label]) => <div key={key} className="lab-plan__col">

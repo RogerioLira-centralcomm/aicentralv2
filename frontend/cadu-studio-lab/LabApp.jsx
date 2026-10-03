@@ -91,7 +91,7 @@ export default function LabApp({bootstrap}) {
           <div><dt>Gerações</dt><dd>{done.length}<small>/{runs.length}</small></dd></div>
           <div><dt>Gasto</dt><dd>{usd(spent)}</dd></div>
           <div><dt>Tempo médio</dt><dd>{seconds(latencies.length ? latencies.reduce((a, b) => a + b, 0) / latencies.length : null)}</dd></div>
-          <div><dt>Modelos</dt><dd>{state.models.length}</dd></div>
+          <div><dt>Modelos</dt><dd>{state.models.filter(model => !model.capabilities?.retired).length}</dd></div>
         </dl>
       </header>
       <nav className="lab-tabs" role="tablist" aria-label="Seções do Lab">

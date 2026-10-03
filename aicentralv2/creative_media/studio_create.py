@@ -15,12 +15,15 @@ from uuid import uuid4
 from PIL import Image, ImageFilter, ImageOps
 
 from ..creative_modeling_generation import OpenRouterError, _json_content
-from . import studio_review
+from . import studio_playbook, studio_review
 
 logger = logging.getLogger(__name__)
 
 MODEL = os.getenv("CREATIVE_STUDIO_DIRECTION_MODEL", "openai/gpt-5-nano")
-DIRECTOR_MODEL = os.getenv("CREATIVE_STUDIO_DIRECTOR_MODEL", MODEL.removeprefix("openai/"))
+# Haiku 4.5 (OpenRouter) writes the direction; GPT-5 nano on OpenAI and gpt-4o-mini on OpenRouter are the fallbacks.
+DIRECTOR_MODEL = os.getenv("CREATIVE_STUDIO_DIRECTOR_MODEL", "anthropic/claude-haiku-4.5")
+DIRECTOR_FALLBACK_MODEL = os.getenv("CREATIVE_STUDIO_DIRECTOR_FALLBACK_MODEL", MODEL.removeprefix("openai/"))
+DIRECTION_PROMPT_CHARS = 1600
 DIRECTION_TOKEN_BASE = 4000
 DIRECTION_TOKENS_PER_ITEM = 1200
 REDUNDANCY_MODEL = os.getenv("CREATIVE_STUDIO_DIRECTION_FALLBACK_MODEL", "openai/gpt-4o-mini")
@@ -75,12 +78,12 @@ def create(payload, text_callable):
     ]
     response = None
     raw = None
-    provider_used = ""
+    provider_used = model_used = ""
     errors = []
     # The first call is direct OpenAI. OpenRouter is a true redundancy path,
     # not a synthetic direction: both providers must satisfy the same JSON
     # contract before the request can continue to generation.
-    for provider, model in (("openai", DIRECTOR_MODEL), ("openrouter", REDUNDANCY_MODEL)):
+    for provider, model in director_routes():
         try:
             response = text_callable(
                 messages,
@@ -89,14 +92,14 @@ def create(payload, text_callable):
                 # GPT-5 reasoning consumes this same budget; a tight cap returns an empty answer.
                 max_tokens=DIRECTION_TOKEN_BASE + count * DIRECTION_TOKENS_PER_ITEM,
                 temperature=.45,
-                reasoning={"effort": "low"},
+                **({"reasoning": {"effort": "low"}} if "gpt-5" in model else {}),
                 response_format={"type": "json_object"},
             )
             content = response.get("message", {}).get("content") if isinstance(response, dict) else response
             raw = content if isinstance(content, dict) else _json_content(content)
             if not isinstance(raw, dict) or not isinstance(raw.get("directions"), list):
                 raise OpenRouterError("O provedor não devolveu o contrato de direções.")
-            provider_used = provider
+            provider_used, model_used = provider, model
             break
         except (OpenRouterError, ValueError, KeyError, TypeError, AttributeError) as error:
             errors.append(f"{provider}: {error}")
@@ -118,7 +121,7 @@ def create(payload, text_callable):
     for item in raw.get("directions", []) if isinstance(raw, dict) else []:
         if not isinstance(item, dict):
             continue
-        title, prompt = text(item.get("title"), 90), text(item.get("prompt"), 900)
+        title, prompt = text(item.get("title"), 90), whole_words(item.get("prompt"), DIRECTION_PROMPT_CHARS)
         if title and prompt:
             reference_plan = []
             for reference in item.get("reference_plan", []) if isinstance(item.get("reference_plan"), list) else []:
@@ -141,7 +144,17 @@ def create(payload, text_callable):
             break
     if not items:
         raise ValueError("O agente não devolveu direções utilizáveis. Tente novamente.")
-    return {"directions": items, "count": len(items), "model": str(response.get("model") or (DIRECTOR_MODEL if provider_used == "openai" else REDUNDANCY_MODEL)), "provider": provider_used}, response
+    return {"directions": items, "count": len(items), "model": str(response.get("model") or model_used), "provider": provider_used}, response
+
+
+def director_routes():
+    """(provider, model) in order: OpenRouter for ``vendor/model`` ids, OpenAI direct for bare GPT ids."""
+    routes = []
+    for model in (DIRECTOR_MODEL, DIRECTOR_FALLBACK_MODEL, REDUNDANCY_MODEL):
+        route = ("openrouter" if "/" in model else "openai", model)
+        if model and route not in routes:
+            routes.append(route)
+    return routes
 
 
 def clean_context(raw, count):
@@ -483,7 +496,7 @@ REFERÊNCIAS — você receberá as imagens selecionadas como blocos visuais no 
 Para Display, trate o formato IAB informado como uma unidade publicitária final — não o transforme em pôster ou interface. Para CTV, trate como still cinematográfico 16:9. Para social, preserve área segura e leitura no feed. Escreva uma cena específica, não adjetivos vagos como “moderno”, “bonito” ou “impactante”. Prefira detalhes observáveis: lugar, hora, enquadramento, distância de câmera, gesto, textura e espaço para copy.
 
 Use a marca, briefing, referências e ativos do contexto como fonte de verdade. Cada substantivo concreto do briefing é obrigatório: anunciante, produto, embalagem, pessoas, cenário, ação, mensagem, preço, volume e formato não podem ser omitidos ou substituídos por uma cena genérica. Se o briefing pede produto visível, descreva-o como assunto principal em primeiro plano, com escala, luz e enquadramento suficientes para ser reconhecível. Mantenha todo logo, texto, embalagem e elemento de marca inteiro dentro da margem segura do formato; nunca corte, encoste ou esconda esses elementos na borda. Se o usuário pediu um logo mas nenhum ativo oficial está disponível, mantenha no prompt a instrução de reservar uma área limpa e identifique a marca que deverá ser aplicada posteriormente. Não invente dados comerciais além dos que o usuário informou. Se não houver texto literal aprovado, peça espaço reservado para a assinatura, sem fabricar tipografia. Todo texto publicitário visível deve ser português do Brasil; se a renderização textual não for confiável, instrua a manter a área livre para composição posterior. Não inclua marca d'água, interface de plataforma, mockup de dashboard ou logos de terceiros. Não use pessoas identificáveis sem necessidade. Preserve briefing, marca, canal e formato.
- Antes de devolver cada direção, faça uma revisão final como agente GPT-5 nano: confirme que o prompt está fiel ao pedido, respeita todas as exclusões explícitas, usa cada referência conforme seu source e role, não inventa informações e está pronto para ser enviado ao GPT Image 2. O campo "prompt" deve ser a instrução final revisada para o processador de imagem, sem comentários sobre esta revisão. Inclua também "reference_plan" como uma lista curta de objetos {{"label":"...","source":"global|user|project","use":"...","layout":{{"subject_zone":"...","headline_zone":"...","support_zone":"...","safe_margin":"...","layer_order":"...","alignment":"..."}}}} para tornar a decisão de cada referência auditável. O campo layout é obrigatório para source="global" e opcional para os demais."""
+ Antes de devolver cada direção, faça uma revisão final como diretor: confirme que o prompt está fiel ao pedido, respeita todas as exclusões explícitas, usa cada referência conforme seu source e role, não inventa informações e está pronto para ser enviado ao gerador de imagem. O campo "prompt" deve ser a instrução final revisada para o processador de imagem, sem comentários sobre esta revisão. Inclua também "reference_plan" como uma lista curta de objetos {{"label":"...","source":"global|user|project","use":"...","layout":{{"subject_zone":"...","headline_zone":"...","support_zone":"...","safe_margin":"...","layer_order":"...","alignment":"..."}}}} para tornar a decisão de cada referência auditável. O campo layout é obrigatório para source="global" e opcional para os demais."""
 
 
 def credit_context(modeling, client_id, user_id):
@@ -530,7 +543,6 @@ def charge(provider_result, client_id, user_id, count, project_id, run_id=None,
 
 def create_image(payload, modeling, client_id, user_id):
     """Generate one Studio still with explicit reference roles and mask-safe composition."""
-    started_at = time.monotonic()
     data = payload if isinstance(payload, dict) else {}
     prompt = clean_prompt(data.get("prompt"), 4000)
     if not prompt:
@@ -700,8 +712,10 @@ def create_image(payload, modeling, client_id, user_id):
         "VISIBLE TEXT LIMIT: render only the literal copy written in the briefing (for example the headline and the button) plus the official logo. Do not add subheadlines, bullet lists, icon captions, statistics, percentages, labelled charts, badges, dates or small print that the user did not write. Keep the layout clean with one clear focal point.",
         "MANDATORY COMMERCIAL FACTS: Any advertiser name, brand name, product name, price, currency, package volume, slogan or logo request explicitly present in the user briefing must remain in the creative instruction exactly as provided. Do not silently drop any named fact.",
         brand_identity_guard(data.get("brand_context"), visual_reference=visual_reference, creation_intent=creation_intent, editing=bool(mask), logo_corner=logo_corner, logo_free=logo_free),
-        f"REQUESTED CREATIVE PALETTE: {', '.join(requested_palette)}. Use these colors for this piece's campaign mood only; they are not a claim about official brand identity and must not erase the official brand colors or logo." if requested_palette else "REQUESTED CREATIVE PALETTE: none.",
+        f"REQUESTED CREATIVE PALETTE: {', '.join(requested_palette)}. Use these colors for this piece's campaign mood only; they are not a claim about official brand identity and must not erase the official brand colors or logo." if requested_palette else "",
         prompt,
+        *studio_playbook.prompt_lines(
+            [copy_headline, *studio_playbook.support_copy(data.get("original_prompt") or ""), copy_cta], text_free=composed),
         "\nREFERENCE CONTRACT:",
         *(role_lines or ["No image reference was supplied; create an original image."]),
         *(["DIRECTOR REFERENCE PLAN:", *plan_lines] if plan_lines else []),
@@ -720,11 +734,11 @@ def create_image(payload, modeling, client_id, user_id):
         *([final_layout_check(references, provider_size, composed)] if layout_lines else []),
     ] if line)
     provider_references = provider_image_references(references_with_provider_masks(references, provider_size), mask)
-    def render(prompt_text):
+    def render(prompt_text, references=None):
         try:
             result = modeling.generator.generate_image(
                 prompt_text,
-                provider_references,
+                provider_references if references is None else references,
                 aspect_ratio=aspect_ratio,
                 quality=provider_quality,
                 resolution=provider_resolution,
@@ -787,38 +801,78 @@ def create_image(payload, modeling, client_id, user_id):
             encoded = fit_to(raw, output_format, width, height)
     review_info = None
     if not mask and studio_review.enabled(modeling):
+        required_text = [item for item in (copy_headline, *studio_playbook.support_copy(data.get("original_prompt") or ""), copy_cta) if item]
         review_args = dict(
             prompt=data.get("original_prompt") or prompt,
-            required_text=[item for item in (copy_headline, copy_cta) if item],
+            required_text=required_text,
             palette=clean_palette(data.get("requested_palette")) or list((data.get("brand_context") or {}).get("palette") or []),
             brand_name=str((data.get("brand_context") or {}).get("name") or ""),
             forbidden=list((data.get("brand_context") or {}).get("forbidden_elements") or []),
+            # The official logo is either set by the Studio after generation, drawn by the model from the reference, or absent.
+            logo_mode="none" if logo_free or creation_intent != "branded_creative" else "composed" if brand_logo
+            else "in_image" if any(item.get("role") == "identity" or "logo" in str(item.get("label") or "").lower()
+                                   for item in raw_references if isinstance(item, dict)) else "none",
+            has_cta=bool(copy_cta),
+            refine=bool(getattr(modeling, "refine_target", None)),
         )
-        try:
-            first = studio_review.review(image_b64=finish(encoded, output_format)[0], **review_args)
-        except Exception:
-            logger.warning("Studio review preview failed request=%s", request_id, exc_info=True)
-            first = {"reviewed": False, "approved": True, "score": None, "reason": "", "reason_text": ""}
-        review_info = {"reviewed": first["reviewed"], "approved": first["approved"], "retried": False,
-                       "score": first.get("score"), "reason": first.get("reason"), "reason_text": first.get("reason_text"),
-                       "delivered": "first"}
-        logger.info("Studio auto review request=%s reviewed=%s approved=%s reason=%s score=%s",
-                    request_id, first["reviewed"], first["approved"], first.get("reason") or "-", first.get("score"))
-        if first["reviewed"] and not first["approved"] and time.monotonic() - started_at < studio_review.RETRY_BUDGET_SECONDS:
-            review_info["retried"] = True
+
+        def reviewed(candidate_encoded, candidate_format):
             try:
-                # The rejected attempt is not charged: only the delivered generation is billed (as with the margin check).
-                provider_2, raw_2, format_2 = render(technical_prompt + "\n" + studio_review.correction(first))
-                encoded_2 = fit_to(raw_2, format_2, width, height)
-                second = studio_review.review(image_b64=finish(encoded_2, format_2)[0], **review_args)
-                review_info["second_score"] = second.get("score")
-                if studio_review.prefer_second(first, second):
-                    provider, raw, output_format, encoded = provider_2, raw_2, format_2, encoded_2
-                    review_info["delivered"] = "second"
-                    review_info["approved"] = bool(second.get("approved"))
+                return studio_review.review(image_b64=finish(candidate_encoded, candidate_format)[0], **review_args)
             except Exception:
-                logger.warning("Studio second version failed request=%s; delivering the first", request_id, exc_info=True)
-                review_info["retry_failed"] = True
+                logger.warning("Studio review failed request=%s", request_id, exc_info=True)
+                return {"reviewed": False, "approved": True, "score": None, "reason": "", "reason_text": ""}
+
+        # Version 1 comes from the Studio prompt; every further version is an edit of the best one so far that
+        # fixes what the reviewer found (and, when refining, what it would improve). Only the delivered version is billed.
+        attempts = studio_review.max_attempts(modeling)
+        best = {"provider": provider, "raw": raw, "format": output_format, "encoded": encoded, "verdict": reviewed(encoded, output_format), "version": 1}
+        first_verdict = best["verdict"]
+        log = [studio_review.attempt_entry(1, first_verdict, "studio_prompt")]
+        logger.info("Studio auto review request=%s version=1 approved=%s reason=%s score=%s",
+                    request_id, best["verdict"]["approved"], best["verdict"].get("reason") or "-", best["verdict"].get("score"))
+        version, latest = 1, best
+        while version < attempts and studio_review.wants_another(latest["verdict"], modeling):
+            version += 1
+            try:
+                # Each edit starts from the latest version (the chain keeps what was already fixed); the best is delivered.
+                # A broken safe margin is a layout problem that prompt edits do not move: shrink the picture by code
+                # and let the model only outpaint the border.
+                # Once per chain: shrinking again compounds and softens the copy.
+                factor = (studio_review.reframe_factor(latest["verdict"].get("observation") or {})
+                          if latest["verdict"].get("reason") == "margin" and not any(item.get("source") == "reframe" for item in log) else None)
+                if factor:
+                    base = compact_provider_reference(shrink_into_border(latest["raw"], factor))
+                    provider_n, raw_n, format_n = render(studio_review.reframe_prompt(aspect_ratio), [base])
+                else:
+                    base = compact_provider_reference(f"data:image/{latest['format'] or 'png'};base64,{latest['raw']}")
+                    provider_n, raw_n, format_n = render(studio_review.edit_prompt(latest["verdict"], aspect_ratio),
+                                                         [base, *provider_references[:MAX_IMAGE_REFERENCES - 1]])
+                encoded_n = fit_to(raw_n, format_n, width, height)
+                verdict_n = reviewed(encoded_n, format_n)
+            except Exception:
+                logger.warning("Studio version %s failed request=%s; keeping version %s", version, request_id, best["version"], exc_info=True)
+                log.append({"version": version, "failed": True})
+                break
+            latest = {"provider": provider_n, "raw": raw_n, "format": format_n, "encoded": encoded_n, "verdict": verdict_n, "version": version}
+            better = studio_review.prefer_second(best["verdict"], verdict_n)
+            log.append({**studio_review.attempt_entry(version, verdict_n, "reframe" if factor else "edit"), "best": better})
+            logger.info("Studio auto review request=%s version=%s approved=%s reason=%s score=%s best=%s",
+                        request_id, version, verdict_n["approved"], verdict_n.get("reason") or "-", verdict_n.get("score"), better)
+            if better:
+                best = latest
+        provider, raw, output_format, encoded = best["provider"], best["raw"], best["format"], best["encoded"]
+        final = best["verdict"]
+        # ``reason`` explains why version 1 was not delivered as is; the delivered version's state is in the rest.
+        review_info = {"reviewed": final["reviewed"], "approved": final["approved"], "retried": version > 1,
+                       "score": final.get("score"), "reason": first_verdict.get("reason"), "reason_text": first_verdict.get("reason_text"),
+                       "final_reason": final.get("reason") or "",
+                       "delivered": "first" if best["version"] == 1 else "second" if best["version"] == 2 else f"v{best['version']}",
+                       "delivered_version": best["version"], "attempts": log, **({"fix": "edit"} if version > 1 else {})}
+        if len(log) > 1 and log[1].get("score") is not None:
+            review_info["second_score"] = log[1]["score"]
+        if any(item.get("failed") for item in log):
+            review_info["retry_failed"] = True
     image_url_2x, file_kb, file_kb_2x = None, None, None
     try:
         from .export import save_sibling, smallest_encoding
@@ -1104,7 +1158,8 @@ def composition_layout_lines(references, mask="", provider_size=None, text_free=
 
 LOGO_WIDTH_RATIO = 0.16
 LOGO_HEIGHT_RATIO = 0.07
-LOGO_MARGIN_RATIO = 0.07
+# The official logo honours the 8% safe margin on each axis (8% of the width at the sides, of the height top/bottom).
+LOGO_MARGIN_RATIO = 0.08
 LOGO_CORNER_EDGE_LIMIT = 9.0
 LOGO_MIN_CONTRAST = 0.3
 
@@ -1203,6 +1258,22 @@ def _open_trimmed_logo(url):
     return image.crop(box) if box else image
 
 
+def shrink_into_border(encoded, factor):
+    """The picture scaled by ``factor`` and centred on its own canvas, the border painted with the median edge color
+    (a neutral start for the model to outpaint). Returns a PNG data URL."""
+    image = Image.open(io.BytesIO(base64.b64decode(encoded))).convert("RGB")
+    width, height = image.size
+    edge = [image.getpixel((x, y)) for x in range(0, width, max(1, width // 40)) for y in (0, height - 1)]
+    edge += [image.getpixel((x, y)) for y in range(0, height, max(1, height // 40)) for x in (0, width - 1)]
+    fill = tuple(sorted(channel)[len(channel) // 2] for channel in zip(*edge))
+    canvas = Image.new("RGB", (width, height), fill)
+    small = image.resize((max(1, round(width * factor)), max(1, round(height * factor))), Image.Resampling.LANCZOS)
+    canvas.paste(small, ((width - small.width) // 2, (height - small.height) // 2))
+    out = io.BytesIO()
+    canvas.save(out, "PNG")
+    return "data:image/png;base64," + base64.b64encode(out.getvalue()).decode("ascii")
+
+
 def load_brand_logos(raw_brand):
     """Open every readable official logo variant from the Studio's own static files (first = primary)."""
     brand = raw_brand if isinstance(raw_brand, dict) else {}
@@ -1210,6 +1281,9 @@ def load_brand_logos(raw_brand):
     urls = []
     for candidate in [brand.get("logo_url"), *(assets.get("logo") or [])]:
         url = text(candidate, 500)
+        # The Lab and some briefs carry the Studio's own absolute URL; its /static/ path is the same file.
+        if url.startswith(("https://", "http://")) and "/static/" in url:
+            url = "/static/" + url.split("/static/", 1)[1].split("?", 1)[0]
         if url.startswith("/static/") and url not in urls:
             urls.append(url)
     images = [image for image in (_open_trimmed_logo(url) for url in urls) if image is not None]
@@ -1308,7 +1382,7 @@ def apply_brand_logo(encoded, output_format, logo, position="bottom-right", rect
     width, height = canvas.size
     if clean_logo_corner(canvas, position, rect):
         logger.info("Studio logo corner had model-drawn content and was softened before the official logo")
-    margin = round(min(width, height) * LOGO_MARGIN_RATIO)
+    margin_x, margin_y = round(width * LOGO_MARGIN_RATIO), round(height * LOGO_MARGIN_RATIO)
     slot_w, slot_h = (rect[2] * width, rect[3] * height) if rect else (width * LOGO_WIDTH_RATIO, height * LOGO_HEIGHT_RATIO)
 
     def placed(candidate):
@@ -1318,8 +1392,8 @@ def apply_brand_logo(encoded, output_format, logo, position="bottom-right", rect
             left = round(rect[0] * width) if position.endswith("left") else round((rect[0] + rect[2]) * width) - mark.width
             top = round(rect[1] * height) if position.startswith("top") else round((rect[1] + rect[3]) * height) - mark.height
         else:
-            left = margin if position.endswith("left") else width - margin - mark.width
-            top = margin if position.startswith("top") else height - margin - mark.height
+            left = margin_x if position.endswith("left") else width - margin_x - mark.width
+            top = margin_y if position.startswith("top") else height - margin_y - mark.height
         region = canvas.crop((left, top, left + mark.width, top + mark.height)).convert("RGB")
         luma = _mean_luminance(mark.convert("RGB"), mark.getchannel("A"))
         return mark, left, top, luma, abs(_mean_luminance(region) - luma)
@@ -1583,6 +1657,16 @@ def integer(value, default=0):
 
 def text(value, limit):
     return " ".join(str(value or "").split())[:limit]
+
+
+def whole_words(value, limit):
+    """Like ``text`` but never cuts a word: ends at the last full sentence, else the last full word."""
+    clean = " ".join(str(value or "").split())
+    if len(clean) <= limit:
+        return clean
+    cut = clean[:limit]
+    sentence = max(cut.rfind(". "), cut.rfind("! "), cut.rfind("? "))
+    return cut[:sentence + 1] if sentence >= limit * 0.6 else cut[:cut.rfind(" ")].rstrip(",;:")
 
 
 def clean_prompt(value, limit):

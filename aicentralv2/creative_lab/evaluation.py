@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import time
 import unicodedata
@@ -24,7 +25,8 @@ from . import files, repository
 
 log = logging.getLogger(__name__)
 
-OBSERVER_MODEL = "openai/gpt-5-mini"
+# Haiku 4.5 is the cheapest Claude that reads images; the Studio's auto reviewer uses the same observer.
+OBSERVER_MODEL = os.getenv("CREATIVE_REVIEW_MODEL", "anthropic/claude-haiku-4.5")
 FAILURES = {
     "none": "No meaningful failure: the image satisfies the brief.",
     "text_rendering": "Required text is misspelled, missing, duplicated, loses accents or has extra words.",
@@ -75,15 +77,26 @@ def _normalize(text: str, *, accents: bool = True) -> str:
     return re.sub(r"\s+", " ", value).strip()
 
 
+_PUNCTUATION = re.compile(r"[.,;:!?…\"'“”‘’«»()\-–—]+")
+
+
+def _letters(text: str) -> str:
+    """Letters, digits, accents and symbols such as % and R$; punctuation an observer may drop is ignored."""
+    return re.sub(r"\s+", " ", _PUNCTUATION.sub(" ", _normalize(text))).strip()
+
+
 def text_check(required: list[str], visible: list[str]) -> dict:
     joined = _normalize(" ".join(visible or []))
     loose = _normalize(" ".join(visible or []), accents=False)
+    letters = _letters(" ".join(visible or []))
     items = []
     for string in required or []:
         exact = _normalize(string) in joined
         accent_lost = not exact and _normalize(string, accents=False) in loose
-        items.append({"text": string, "exact": exact, "accent_lost": accent_lost})
-    return {"items": items, "all_exact": all(item["exact"] for item in items) if items else None}
+        items.append({"text": string, "exact": exact, "accent_lost": accent_lost,
+                      "letters_exact": exact or (bool(_letters(string)) and _letters(string) in letters)})
+    return {"items": items, "all_exact": all(item["exact"] for item in items) if items else None,
+            "letters_exact": all(item["letters_exact"] for item in items) if items else None}
 
 
 def _rgb(hex_value: str):
@@ -91,7 +104,36 @@ def _rgb(hex_value: str):
     return tuple(int(value[index:index + 2], 16) for index in (0, 2, 4))
 
 
+def _lab(rgb) -> tuple[float, float, float]:
+    """sRGB (0-255) to CIE L*a*b* (D65), for color distances that match what people see."""
+    def linear(channel):
+        value = channel / 255
+        return value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+    r, g, b = (linear(channel) for channel in rgb)
+    x = (0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047
+    y = 0.2126 * r + 0.7152 * g + 0.0722 * b
+    z = (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883
+
+    def f(value):
+        return value ** (1 / 3) if value > 0.008856 else 7.787 * value + 16 / 116
+    fx, fy, fz = f(x), f(y), f(z)
+    return 116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)
+
+
+def _delta_e(first, second) -> float:
+    return sum((a - b) ** 2 for a, b in zip(first, second)) ** 0.5
+
+
+PALETTE_NEAR = 20        # ΔE76 within which a pixel counts as a brand color
+PALETTE_FOREIGN = 35     # a saturated pixel this far from every brand color is off-brand
+PALETTE_PRESENT = 0.01   # share of the canvas for a brand color to count as present
+CHROMA_MIN = 15          # below this a color is a neutral (black, white, grey, near-black greens)
+
+
 def palette_check(image: Image.Image, palette: list[str]) -> dict:
+    """Brand color presence, not area: real ads carry the brand in the CTA, a band or the headline, while the
+    photo fills most of the canvas. Adherence = one brand accent clearly present (0.7) up to all of the first three
+    (1.0), minus a penalty when saturated colors foreign to the brand dominate."""
     small = image.convert("RGB").copy()
     small.thumbnail((160, 160))
     quantized = small.quantize(colors=6, method=Image.Quantize.MEDIANCUT)
@@ -103,25 +145,41 @@ def palette_check(image: Image.Image, palette: list[str]) -> dict:
         rgb = tuple(raw_palette[index * 3:index * 3 + 3])
         dominant.append({"hex": "#%02X%02X%02X" % rgb, "share": round(count / total, 3)})
     result = {"dominant": dominant}
-    if palette:
-        distances = []
-        for brand_hex in palette[:4]:
-            brand = _rgb(brand_hex)
-            best = min(sum((a - b) ** 2 for a, b in zip(brand, _rgb(item["hex"]))) ** 0.5 for item in dominant)
-            distances.append({"hex": brand_hex, "distance": round(best, 1)})
-        result["brand_distances"] = distances
-        # Real ads paint large flat fields in brand colors: measure how much of the area is brand color.
-        colors = small.getcolors(small.width * small.height) or []
-        pixels = sum(count for count, _ in colors) or 1
-        coverage = []
-        for brand_hex in palette[:5]:
-            brand = _rgb(brand_hex)
-            near = sum(count for count, pixel in colors if sum((a - b) ** 2 for a, b in zip(pixel, brand)) <= 55 ** 2)
-            coverage.append({"hex": brand_hex, "share": round(near / pixels, 3)})
-        total = min(1.0, sum(item["share"] for item in coverage))
-        result["brand_coverage"] = coverage
-        result["coverage_total"] = round(total, 3)
-        result["adherence"] = round(min(1.0, total / 0.45), 3)
+    if not palette:
+        return result
+    brand = [(item, _lab(_rgb(item))) for item in palette[:6]]
+    result["brand_distances"] = [
+        {"hex": hex_value, "distance": round(min(_delta_e(lab, _lab(_rgb(item["hex"]))) for item in dominant), 1)}
+        for hex_value, lab in brand[:4]]
+    colors = [(count, _lab(pixel)) for count, pixel in (small.getcolors(small.width * small.height) or [])]
+    pixels = sum(count for count, _ in colors) or 1
+    coverage, near_any, foreign = [], [0] * len(colors), 0
+    for hex_value, lab in brand:
+        share = 0
+        for position, (count, pixel) in enumerate(colors):
+            if _delta_e(pixel, lab) <= PALETTE_NEAR:
+                share += count
+                near_any[position] = 1
+        chroma = (lab[1] ** 2 + lab[2] ** 2) ** 0.5
+        coverage.append({"hex": hex_value, "share": round(share / pixels, 3), "accent": chroma >= CHROMA_MIN})
+    for position, (count, pixel) in enumerate(colors):
+        if not near_any[position] and (pixel[1] ** 2 + pixel[2] ** 2) ** 0.5 >= CHROMA_MIN * 2 and \
+                all(_delta_e(pixel, lab) > PALETTE_FOREIGN for _, lab in brand):
+            foreign += count
+    accents = [item for item in coverage if item["accent"]][:3] or coverage[:3]
+    present = [item for item in accents if item["share"] >= PALETTE_PRESENT]
+    spread = (len(present) - 1) / (len(accents) - 1) if len(accents) > 1 else 1.0
+    presence = 0.7 + 0.3 * spread if present else 0.0
+    foreign_share = foreign / pixels
+    penalty = min(0.6, max(0.0, foreign_share - 0.15) * 1.2)
+    result.update({
+        "method": "lab-presence-v2",
+        "brand_coverage": coverage,
+        "coverage_total": round(min(1.0, sum(item["share"] for item in coverage)), 3),
+        "accents_present": [item["hex"] for item in present],
+        "foreign_share": round(foreign_share, 3),
+        "adherence": round(max(0.0, presence - penalty), 3),
+    })
     return result
 
 

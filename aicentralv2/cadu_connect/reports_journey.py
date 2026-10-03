@@ -256,6 +256,39 @@ _NAV_SEQUENCES_SQL = _VIEWS_CTE + ''', steps AS (
     FROM journeys GROUP BY site_id,host,pages ORDER BY sessions DESC,converted_sessions DESC,pages LIMIT %(sequences)s'''
 
 _CONVERSION_KINDS = ('conversion', 'form_submit', 'whatsapp_click')
+
+# Conversion groups: URLs that differ only by an id (/pedido/123/obrigado, /pedido/456/obrigado) are one page pattern.
+# A path segment made only of digits, a uuid or a long hex string becomes "*". Same session counts once per group.
+CONVERSION_PATTERN = ("REGEXP_REPLACE({path},'/([0-9]+|[0-9a-f]{{8}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{12}}|[0-9a-f]{{16,}})(?=/|$)','/*','g')"
+                      .format(path="LOWER(path)"))
+_CONV_GROUP_CTE = ("""WITH ev AS (
+    SELECT e.site_id,s.allowed_host AS host,e.session_id,e.event_kind,@PATH@ AS path,e.occurred_at,e.id,e.referrer_host,e.attribution,@NAME@ AS name
+    @SCOPE@ AND e.event_kind IN ('page_view','conversion','form_submit','whatsapp_click') {site}
+), firsts AS (
+    SELECT DISTINCT ON (site_id,session_id) site_id,session_id,host AS site_host,referrer_host,attribution
+    FROM ev WHERE event_kind='page_view' ORDER BY site_id,session_id,occurred_at,id
+), conv AS (
+    SELECT site_id,host,session_id,event_kind AS kind,name,path,occurred_at,id,@PATTERN@ AS pattern
+    FROM ev WHERE event_kind IN ('conversion','form_submit','whatsapp_click')
+)""").replace('@PATH@', _PATH).replace('@SCOPE@', _SCOPE).replace('@PATTERN@', CONVERSION_PATTERN)
+_CONV_GROUPS_TOTAL_SQL = _CONV_GROUP_CTE + """
+    SELECT site_id,host,kind,name,pattern,COUNT(*)::bigint AS conversions,COUNT(DISTINCT session_id)::bigint AS sessions,
+        COUNT(DISTINCT path)::int AS pages,(MODE() WITHIN GROUP (ORDER BY path)) AS example_path,MAX(occurred_at) AS last_at
+    FROM conv GROUP BY site_id,host,kind,name,pattern ORDER BY conversions DESC,pattern LIMIT 60"""
+_CONV_GROUPS_ORIGINS_SQL = _CONV_GROUP_CTE + """, sess AS (
+    SELECT site_id,session_id,@ORIGIN@ AS origin FROM firsts
+)
+    SELECT c.site_id,c.kind,c.name,c.pattern,x.origin,COUNT(DISTINCT c.session_id)::bigint AS sessions
+    FROM conv c JOIN sess x ON x.site_id=c.site_id AND x.session_id=c.session_id GROUP BY c.site_id,c.kind,c.name,c.pattern,x.origin""".replace('@ORIGIN@', origin_group_sql())
+_CONV_GROUPS_PREVIOUS_SQL = _CONV_GROUP_CTE + """
+    SELECT c.site_id,c.kind,c.name,c.pattern,prev.pattern AS from_pattern,COUNT(DISTINCT c.session_id)::bigint AS sessions
+    FROM conv c JOIN LATERAL (
+        SELECT @P@ AS pattern FROM ev p
+        WHERE p.event_kind='page_view' AND p.site_id=c.site_id AND p.session_id=c.session_id AND p.path<>c.path
+            AND (p.occurred_at,p.id)<(c.occurred_at,c.id) ORDER BY p.occurred_at DESC,p.id DESC LIMIT 1
+    ) prev ON true GROUP BY c.site_id,c.kind,c.name,c.pattern,prev.pattern""".replace('@P@', CONVERSION_PATTERN.replace('LOWER(path)', 'LOWER(p.path)'))
+
+
 # Custom names come from event_name when the column exists; older databases group by kind only.
 _CONV_GROUPS_SQL = f'''
     SELECT e.event_kind AS kind,{{name}} AS name,s.allowed_host AS host,
@@ -572,6 +605,31 @@ def channel_rows(summary, devices, campaigns, landings):
     return out
 
 
+def conversion_groups(groups, origins, previous):
+    """Conversion events grouped by page pattern: volume, share, where the sessions came from and the page they left before."""
+    total = sum(int(row.get('conversions') or 0) for row in groups)
+    key = lambda row: (str(row['site_id']), row['kind'], row['name'], row['pattern'])
+    by_origin, by_previous = {}, {}
+    for row in origins:
+        by_origin.setdefault(key(row), []).append(row)
+    for row in previous:
+        by_previous.setdefault(key(row), []).append(row)
+    out = []
+    for row in groups:
+        conversions, sessions = int(row.get('conversions') or 0), int(row.get('sessions') or 0)
+        lines = sorted(by_origin.get(key(row), []), key=lambda item: (-int(item['sessions']), item['origin']))[:3]
+        before = sorted(by_previous.get(key(row), []), key=lambda item: (-int(item['sessions']), item['from_pattern']))[:3]
+        out.append({'site_id': str(row['site_id']), 'host': row['host'], 'kind': row['kind'],
+                    'name': None if row['name'] == row['kind'] else row['name'], 'pattern': row['pattern'],
+                    'grouped': int(row.get('pages') or 0) > 1, 'pages': int(row.get('pages') or 0),
+                    'example_path': row.get('example_path'), 'conversions': conversions, 'sessions': sessions,
+                    'share': pct(conversions, total), 'last_at': row.get('last_at'),
+                    'origins': [{'origin': item['origin'], 'label': ORIGIN_LABELS.get(item['origin'], item['origin']),
+                                 'sessions': int(item['sessions']), 'share': pct(int(item['sessions']), sessions)} for item in lines],
+                    'from_pages': [{'pattern': item['from_pattern'], 'sessions': int(item['sessions'])} for item in before]})
+    return out
+
+
 def path_sequences(rows, sessions):
     """Most common whole visits (2 to SEQUENCE_DEPTH pages) with their share of sessions and conversion."""
     out = []
@@ -698,6 +756,22 @@ def register(bp):
         return jsonify(window=_window_json(since, until, days), channels=channels,
                        totals={'sessions': sessions, 'converted_sessions': converted, 'conversion_rate': _rate(converted, sessions)},
                        quality={'min_sessions': MIN_SESSIONS, 'rate_min_base': RATE_MIN_BASE, 'low_sample': sessions < MIN_SESSIONS})
+
+    @bp.get('/api/v2/reports/journey/conversion-groups')
+    @login_required_api
+    def reports_journey_conversion_groups():
+        """Conversions grouped automatically by page pattern (ids collapse into *), with origin and the page visited before."""
+        selected = _selection()
+        since, until, days = _window()
+        site = _site_param()
+        scope = {'client': selected['client_id'], 'since': since, 'until': until, 'site': site}
+        name = ("COALESCE(NULLIF(e.event_name,''),e.event_kind)" if _column_exists(EVENT_TABLE, 'event_name') else 'e.event_kind')
+        narrow = (lambda sql: sql.replace('{site}', 'AND e.site_id=%(site)s::uuid' if site else '').replace('@NAME@', name))
+        groups = conversion_groups(_rows(narrow(_CONV_GROUPS_TOTAL_SQL), scope), _rows(narrow(_CONV_GROUPS_ORIGINS_SQL), scope),
+                                   _rows(narrow(_CONV_GROUPS_PREVIOUS_SQL), scope))
+        return jsonify(window=_window_json(since, until, days), groups=groups,
+                       totals={'conversions': sum(item['conversions'] for item in groups), 'groups': len(groups),
+                               'merged': sum(1 for item in groups if item['grouped'])})
 
     @bp.get('/api/v2/reports/journey/conversions')
     @login_required_api

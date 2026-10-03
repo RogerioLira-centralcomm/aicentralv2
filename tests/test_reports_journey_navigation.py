@@ -264,3 +264,51 @@ def test_channels_route_filters_by_site_and_aggregates_totals(app):
     for sql, params in seen:
         assert 'AND e.site_id=%(site)s::uuid' in sql and '{site}' not in sql and params['site'] == SITE
     assert body['channels'][0]['devices'][0]['label'] == 'Celular'
+
+
+def test_conversion_pattern_collapses_ids_uuids_and_long_hashes_only():
+    import re
+    pattern = journey.CONVERSION_PATTERN
+    assert '%' not in pattern and 'LOWER(path)' in pattern
+    regex = re.search(r"'(/\(.*?\)\(\?=/\|\$\))'", pattern).group(1)
+    sub = lambda path: re.sub(regex, '/*', path.lower())
+    assert sub('/pedido/123/obrigado') == '/pedido/*/obrigado'
+    assert sub('/pedido/9f1c2b3a-1111-2222-3333-444455556666/ok') == '/pedido/*/ok'
+    assert sub('/r/0123456789abcdef0123') == '/r/*'
+    assert sub('/obrigado') == '/obrigado' and sub('/blog/2024-guia') == '/blog/2024-guia' and sub('/') == '/'
+    assert sub('/cafe/deadbeef') == '/cafe/deadbeef'                 # short hex words stay
+
+
+def test_conversion_groups_merge_variants_with_origin_and_previous_page():
+    group = {'site_id': uuid.UUID(SITE), 'host': 'exemplo.com.br', 'kind': 'conversion', 'name': 'conversion', 'pattern': '/pedido/*/obrigado',
+             'conversions': 30, 'sessions': 28, 'pages': 12, 'example_path': '/pedido/7/obrigado', 'last_at': None}
+    single = {**group, 'kind': 'whatsapp_click', 'name': 'Clique no botão', 'pattern': '/contato', 'conversions': 10, 'sessions': 9,
+              'pages': 1, 'example_path': '/contato'}
+    key = {'site_id': uuid.UUID(SITE), 'kind': 'conversion', 'name': 'conversion', 'pattern': '/pedido/*/obrigado'}
+    origins = [{**key, 'origin': 'direct', 'sessions': 7}, {**key, 'origin': 'google_ads', 'sessions': 21}]
+    previous = [{**key, 'from_pattern': '/carrinho', 'sessions': 20}, {**key, 'from_pattern': '/', 'sessions': 3}]
+    out = journey.conversion_groups([group, single], origins, previous)
+    assert out[0]['grouped'] is True and out[0]['pages'] == 12 and out[0]['share'] == 75.0 and out[0]['name'] is None
+    assert [item['origin'] for item in out[0]['origins']] == ['google_ads', 'direct'] and out[0]['origins'][0]['share'] == 75.0
+    assert [item['pattern'] for item in out[0]['from_pages']] == ['/carrinho', '/']
+    assert out[1]['grouped'] is False and out[1]['name'] == 'Clique no botão' and out[1]['origins'] == [] and out[1]['from_pages'] == []
+
+
+def test_conversion_groups_route_runs_three_queries_on_one_site(app):
+    seen = []
+
+    def fake_rows(sql, params=()):
+        seen.append((sql, params))
+        return []
+
+    client = app.test_client()
+    with client.session_transaction() as session:
+        session['user_id'] = 1
+    with mock.patch.object(journey, '_rows', fake_rows), mock.patch.object(journey, '_column_exists', return_value=True), \
+         mock.patch.object(journey, '_selection', return_value={'client_id': 174, 'role': 'admin', 'user_id': 1}):
+        response = client.get(f'/connect/api/v2/reports/journey/conversion-groups?site_id={SITE}&{PERIOD}')
+    assert response.status_code == 200 and response.get_json()['totals'] == {'conversions': 0, 'groups': 0, 'merged': 0}
+    assert len(seen) == 3
+    for sql, params in seen:
+        assert '{site}' not in sql and '@NAME@' not in sql and 'COALESCE(NULLIF(e.event_name' in sql
+        assert 'AND e.site_id=%(site)s::uuid' in sql and params['site'] == SITE

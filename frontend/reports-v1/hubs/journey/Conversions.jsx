@@ -7,7 +7,7 @@ import {friendlyDateTime} from '../../friendlyDates.js';
 import {useReportsContext} from '../../shell/context.js';
 import {apiUrl, useApi} from '../../shell/useApi.js';
 import {Chart} from '../../shell/media.jsx';
-import {DataTable, EmptyState, ErrorState, LoadingState, MetricGroup, Section} from '../../shell/primitives.jsx';
+import {AppLink, DataTable, EmptyState, ErrorState, LoadingState, MetricGroup, Section} from '../../shell/primitives.jsx';
 import {number, percent} from '../shared.jsx';
 
 const KIND = {conversion: 'Conversão', form_submit: 'Formulário enviado', whatsapp_click: 'WhatsApp'};
@@ -21,6 +21,7 @@ export function Conversions() {
   const range = {start_date: period.start, end_date: period.end, site_id: scope.site || undefined};
   const [state, retry] = useApi(apiUrl('/journey/conversions', range));
   const [leadsState, retryLeads] = useApi(apiUrl('/supertag/leads', range));
+  const [groupsState] = useApi(apiUrl('/journey/conversion-groups', range));
   if (state.error) return <ErrorState message={state.error} onRetry={retry}/>;
   if (state.loading && !state.body) return <div className="rs-stack"><LoadingState rows={2}/><LoadingState rows={6}/></div>;
   const body = state.body;
@@ -47,6 +48,7 @@ export function Conversions() {
     {body.daily.length > 1 && <Section title="Conversões por dia" description="Conversões observadas pela Super Tag">
       <Chart type="bar" height={220} labels={body.daily.map(item => dayLabel(item.day))} values={body.daily.map(item => Number(item.conversions))}/>
     </Section>}
+    <ConversionGroups state={groupsState}/>
     <Section title="Onde acontecem" description="Por tipo, nome do evento e página">
       <DataTable label="Conversões por página" rows={body.groups} rowKey={row => `${row.kind}${row.name}${row.host}${row.path}`} initialSort={{key: 'total', dir: 'desc'}}
         empty={<p className="rs-muted">Nenhum evento de conversão no site neste período.</p>} columns={[
@@ -68,6 +70,28 @@ export function Conversions() {
       ]}/>
     </Section>
   </div>;
+}
+
+// Conversion pages grouped on their own: URLs that differ only by an id are one group.
+function ConversionGroups({state}) {
+  const groups = state.body?.groups || [];
+  if (state.error || !groups.length) return null;
+  const {totals} = state.body;
+  return <Section title="Grupos de conversão" description={`${totals.groups} ${totals.groups === 1 ? 'grupo' : 'grupos'} de páginas e eventos${totals.merged ? ` · ${totals.merged} reúnem várias URLs` : ''}`}>
+    <DataTable label="Grupos de conversão" rows={groups} rowKey={row => `${row.site_id}${row.kind}${row.name}${row.pattern}`} initialSort={{key: 'conversions', dir: 'desc'}} columns={[
+      {key: 'pattern', label: 'Grupo', render: row => <><span className="rs-path" title={`${row.host}${row.pattern}`}>{row.pattern}</span>
+        <small className="rs-cell-sub">{KIND[row.kind] || row.kind}{row.name ? ` · ${row.name}` : ''}{row.grouped ? ` · ${row.pages} URLs` : ''}</small></>},
+      {key: 'conversions', label: 'Conversões', numeric: true, render: row => number(row.conversions)},
+      {key: 'sessions', label: 'Sessões', numeric: true, render: row => number(row.sessions)},
+      {key: 'share', label: 'Participação', numeric: true, render: row => `${Number(row.share).toLocaleString('pt-BR', {maximumFractionDigits: 0})}%`},
+      {key: 'origins', label: 'Origem principal', sortable: false, render: row => row.origins.length ? <span title={row.origins.map(item => `${item.label}: ${number(item.sessions)} sessões`).join('\n')}>{row.origins[0].label} <span className="rs-muted">{Number(row.origins[0].share).toLocaleString('pt-BR', {maximumFractionDigits: 0})}%</span></span> : '—'},
+      {key: 'from_pages', label: 'Vêm de', sortable: false, render: row => row.from_pages.length ? <span className="rs-path" title={row.from_pages.map(item => `${item.pattern}: ${number(item.sessions)} sessões`).join('\n')}>{row.from_pages[0].pattern}</span> : '—'},
+      {key: 'flow', label: <span className="sr-only">Ação</span>, sortable: false, render: row => {
+        const from = row.from_pages[0]?.pattern;
+        return from && !from.includes('*') && row.example_path && !row.grouped ? <AppLink className="rs-link" href={reportUrl('flows', {site_host: row.host, caminho: JSON.stringify([from, row.example_path])})}>Criar fluxo<span className="sr-only"> a partir deste caminho</span></AppLink> : null;
+      }},
+    ]}/>
+  </Section>;
 }
 
 const origin = lead => lead.utm_source ? `${lead.utm_source}${lead.utm_medium ? ` / ${lead.utm_medium}` : ''}` : lead.referrer_host || 'Direto';

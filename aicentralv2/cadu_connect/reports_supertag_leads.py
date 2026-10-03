@@ -582,7 +582,7 @@ def register(bp):
             abort(404)
         found = _rows(f'''SELECT l.display_name_enc,l.email_enc,l.phone_enc,l.fields_enc FROM {LEADS_TABLE} l
             JOIN cadu_reports_supertag_sites s ON s.id=l.site_id
-            WHERE l.id=%s AND s.client_id=%s AND l.expires_at>NOW()''', (str(lead_id), selected['client_id']))
+            WHERE l.id=%s AND s.client_id=%s AND s.revoked_at IS NULL AND l.expires_at>NOW()''', (str(lead_id), selected['client_id']))
         if not found:
             abort(404)
         row = found[0]

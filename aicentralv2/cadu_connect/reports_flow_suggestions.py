@@ -2,8 +2,9 @@
 import hashlib
 import json
 import uuid
-from flask import abort, session
+from flask import abort, has_request_context, session
 from ..db import get_db
+from . import reports_ai
 from .reports_v1 import _rows
 from .reports_typesafe import suggest_flow_page_role, FLOW_PAGE_PROMPT_VERSION
 from ..services.typesafe_service import TypeSafeError
@@ -15,6 +16,9 @@ def evidence_hash(page):
 
 
 def suggest(flow, page, selected, actor_id=None):
+    # Who pays is settled before anything is reserved or sent: the job may run outside a request (blueprint worker).
+    payer = {**selected, 'user_id': selected.get('user_id') or actor_id or (session.get('user_id') if has_request_context() else None)}
+    actor = reports_ai.actor_for(payer)
     digest = evidence_hash(page)
     scope = (selected['client_id'],)
     # This transaction lock protects both the cache lookup and daily reservation.
@@ -46,7 +50,7 @@ def suggest(flow, page, selected, actor_id=None):
         (suggestion_id,flow['id'],*scope,page['id'],flow['draft_revision'],digest,actor_id if actor_id is not None else session['user_id']))
     get_db().commit()  # Never hold a DB lock during the network request.
     try:
-        result = suggest_flow_page_role(page)
+        result = suggest_flow_page_role(page, actor=actor)
     except TypeSafeError:
         _rows("UPDATE cadu_reports_flow_suggestions SET status='failed' WHERE id=%s RETURNING id",(suggestion_id,))
         get_db().commit()

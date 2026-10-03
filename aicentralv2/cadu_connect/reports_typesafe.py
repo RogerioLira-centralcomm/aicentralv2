@@ -271,7 +271,7 @@ FLOW_PAGE_TYPES = {
 }
 
 
-def suggest_flow_page_role(page):
+def suggest_flow_page_role(page, *, actor=None):
     """Judge a server-selected page; never invent IDs or claim a conversion occurred."""
     if not isinstance(page, dict):
         raise ValueError('Página inválida.')
@@ -298,7 +298,7 @@ def suggest_flow_page_role(page):
     }}
     # A single short retry handles transient provider throttling without an
     # unbounded wait; system_one caps its Retry-After backoff.
-    evaluation = reports_ai.typesafe('flow_page_role', state, questions, call=system_one, timeout=12, attempts=2)
+    evaluation = reports_ai.typesafe('flow_page_role', state, questions, call=system_one, actor=actor, timeout=12, attempts=2)
     answer = validate_choice(evaluation, 'page_role', FLOW_PAGE_ROLES, 'papel da página')
     page_type = validate_choice(evaluation, 'page_type', FLOW_PAGE_TYPES, 'tipo de página')
     return {'role': answer['choice'], 'probabilities': answer['probabilities'],

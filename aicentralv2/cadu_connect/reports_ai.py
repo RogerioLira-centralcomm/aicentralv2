@@ -25,7 +25,8 @@ def actor_for(selected=None):
         selected = g.get('reports_selected') or reports_access.resolve()
     if selected.get('access_scope') == 'shared' or selected.get('role') == 'viewer':
         abort(403, description='Seu acesso não permite usar IA neste cliente.')
-    return CreditActor.from_values(selected['client_id'], selected.get('user_id') or session.get('user_id'))
+    user_id = selected.get('user_id') or (session.get('user_id') if has_request_context() else None)
+    return CreditActor.from_values(selected['client_id'], user_id)
 
 
 def _authorize(actor, estimate=1):

@@ -164,7 +164,7 @@ def test_edit_prompt_follows_what_the_piece_has():
     observation = {"improvements": ["Make the CTA button larger", "Move the logo up", "Increase headline contrast"]}
     bare = studio_review.edit_prompt({"observation": observation, "piece": {"palette": ["#C4FF3F"], "logo_mode": "none", "has_cta": False}})
     assert "CTA button larger" not in bare and "Move the logo" not in bare and "headline contrast" in bare
-    assert "do not add any button" in bare and "do not add any logo" in bare and "#C4FF3F" in bare
+    assert "Do not add any button" in bare and "do not add any logo" in bare and "#C4FF3F" in bare
     full = studio_review.edit_prompt({"observation": observation, "piece": {"palette": ["#C4FF3F"], "logo_mode": "composed", "has_cta": True}})
     assert "CTA button larger" in full and "applied afterwards" in full and "CTA button)" in full
     assert "no CTA" in studio_review.eyes_instruction("Cemig", "composed", False)
@@ -196,3 +196,12 @@ def test_shrink_into_border_keeps_the_canvas_and_paints_the_edge_color():
     url = studio_create.shrink_into_border(base64.b64encode(out.getvalue()).decode(), 0.8)
     result = Image.open(io.BytesIO(base64.b64decode(url.split(",", 1)[1])))
     assert result.size == (200, 100) and result.getpixel((1, 1)) == (0x12, 0x34, 0x56)
+
+
+def test_text_free_banner_edits_never_ask_for_text():
+    verdict = {"reason": "text_mismatch", "required_text": ["Saiba mais"],
+               "observation": {"visible_text": ["Saiba"], "improvements": ["Make the headline bolder", "Warmer light"]},
+               "piece": {"palette": [], "logo_mode": "composed", "has_cta": True, "text_free": True}}
+    prompt = studio_review.edit_prompt(verdict)
+    assert "TEXT-FREE IMAGE" in prompt and '"Saiba mais"' not in prompt
+    assert "headline bolder" not in prompt and "Warmer light" in prompt

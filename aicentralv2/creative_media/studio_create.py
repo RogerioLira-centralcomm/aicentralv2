@@ -801,7 +801,9 @@ def create_image(payload, modeling, client_id, user_id):
             encoded = fit_to(raw, output_format, width, height)
     review_info = None
     if not mask and studio_review.enabled(modeling):
-        required_text = [item for item in (copy_headline, *studio_playbook.support_copy(data.get("original_prompt") or ""), copy_cta) if item]
+        # A composed banner only gets the headline and the CTA (typeset by code); the support line is never in it.
+        support = [] if composed else studio_playbook.support_copy(data.get("original_prompt") or "")
+        required_text = [item for item in (copy_headline, *support, copy_cta) if item]
         review_args = dict(
             prompt=data.get("original_prompt") or prompt,
             required_text=required_text,
@@ -814,6 +816,7 @@ def create_image(payload, modeling, client_id, user_id):
                                    for item in raw_references if isinstance(item, dict)) else "none",
             has_cta=bool(copy_cta),
             refine=bool(getattr(modeling, "refine_target", None)),
+            text_free=composed,
         )
 
         def reviewed(candidate_encoded, candidate_format):

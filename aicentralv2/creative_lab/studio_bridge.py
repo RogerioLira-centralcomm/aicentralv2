@@ -277,7 +277,7 @@ def _finish(modeling: LabModeling, extra: dict) -> dict:
             "latency_ms": sum(call["latency_ms"] for call in capture.calls), "usage": usage, "cost_usd": cost,
             "cost_source": sources.pop() if len(sources) == 1 else ("mixed" if sources else None),
             "request_id": capture.calls[-1].get("request_id"), "model": capture.calls[-1].get("model"),
-            "prompt": capture.calls[-1]["prompt"], "calls": len(capture.calls),
+            "prompt": capture.calls[0]["prompt"], "calls": len(capture.calls),
             "dropped_references": capture.dropped_references, **extra}
 
 

@@ -224,7 +224,8 @@ def judge(scores: dict, observation: dict, measurements: dict, required_text: li
 
 
 def review(*, image_b64: str, prompt: str, required_text: list[str], palette: list[str], brand_name: str = "",
-           forbidden: list[str] | None = None, logo_mode: str = "none", has_cta: bool = False, refine: bool = False) -> dict:
+           forbidden: list[str] | None = None, logo_mode: str = "none", has_cta: bool = False, refine: bool = False,
+           text_free: bool = False) -> dict:
     """Review one finished image. Never raises: any problem returns ``reviewed: False`` (deliver as is)."""
     started = time.monotonic()
     try:
@@ -263,7 +264,8 @@ def review(*, image_b64: str, prompt: str, required_text: list[str], palette: li
         verdict = judge(scores, observation, measurements, required_text)
         verdict.update({"reviewed": True, "seconds": round(time.monotonic() - started, 1), "observation": observation,
                         "required_text": list(required_text), "piece": {"palette": list(palette or [])[:5], "logo_mode": logo_mode,
-                                                                         "has_cta": bool(has_cta), "brand_name": brand_name}})
+                                                                         "has_cta": bool(has_cta), "brand_name": brand_name,
+                                                                         "text_free": bool(text_free)}})
         return verdict
     except Exception:
         logger.warning("Studio auto review unavailable; delivering without it", exc_info=True)
@@ -284,10 +286,14 @@ def edit_prompt(verdict: dict, aspect_ratio: str = "") -> str:
         "EDIT THE FIRST IMAGE. It is a finished ad being refined. Keep the composition, people, product, colors, "
         "lighting, typography style and every correct element as they are. Any other image supplied is a reference only.",
     ]
-    if reason:
+    piece = verdict.get("piece") or {}
+    if reason and not (piece.get("text_free") and reason in {"text_rendering", "text_mismatch"}):
         lines.append("FIX FIRST: " + EDIT_FIXES.get(reason, EDIT_FIXES["low_score"]))
+    if piece.get("text_free"):
+        # The base is the text-free picture; headline and CTA are typeset by the Studio afterwards.
+        lines.append("TEXT-FREE IMAGE: the image must contain no words, letters, numbers, buttons or logos.")
     required = [item for item in verdict.get("required_text") or [] if item]
-    if reason in {"text_rendering", "text_mismatch"} and required:
+    if reason in {"text_rendering", "text_mismatch"} and required and not piece.get("text_free"):
         seen = [item for item in observation.get("visible_text") or [] if item]
         if seen:
             lines.append("The image currently reads: " + " / ".join(f'"{item}"' for item in seen[:8]) + ".")
@@ -298,20 +304,21 @@ def edit_prompt(verdict: dict, aspect_ratio: str = "") -> str:
                      "logo sits at least 8% from every edge; scale that group down slightly if needed and extend the background.")
     if reason in {"cropped", "cropped_content"} and observation.get("cut_off"):
         lines.append("Cut by the edge now: " + "; ".join(str(item) for item in observation["cut_off"][:5]) + ".")
-    piece = verdict.get("piece") or {}
     palette = [item for item in piece.get("palette") or [] if item]
     if palette:
         lines.append("BRAND COLORS: keep the official colors " + ", ".join(palette) + " clearly visible in the graphic "
                      "elements (background fields, headline accent" + (", CTA button" if piece.get("has_cta") else "") + ").")
-    if piece.get("logo_mode") == "composed":
+    if piece.get("logo_mode") == "composed" or piece.get("text_free"):
         lines.append("LOGO: draw no logo or brand mark; the official logo is applied afterwards, keep its corner calm.")
     elif piece.get("logo_mode") == "in_image":
         lines.append("LOGO: keep the official logo exactly as it is (shape, letters, colors), fully inside the safe margin.")
     else:
         lines.append("There is no logo in this piece: do not add any logo, wordmark or brand mark.")
-    if piece and not piece.get("has_cta"):
-        lines.append("There is no CTA in this piece: do not add any button or call to action.")
+    if piece and (not piece.get("has_cta") or piece.get("text_free")):
+        lines.append("Do not add any button or call to action to the image.")
     improvements = [str(item) for item in observation.get("improvements") or [] if item]
+    if piece.get("text_free"):
+        improvements = [item for item in improvements if not re.search(r"\b(text|headline|copy|font|cta|button|botão|t[íi]tulo)\b", item, re.I)]
     if piece and not piece.get("has_cta"):
         improvements = [item for item in improvements if not re.search(r"\b(cta|button|botão|call to action)\b", item, re.I)]
     if piece.get("logo_mode", "none") == "none" and piece:

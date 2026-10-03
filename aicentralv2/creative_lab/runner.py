@@ -152,7 +152,9 @@ def preview(client_id: int, data: dict, user_id: int | None) -> dict:
         manifest = catalog.manifest(model_key)
         caps = catalog.capabilities(model_key, cat)
         if caps.get("retired"):
-            raise ValueError(f"{manifest['label']} está fora do recorte de testes: {caps['reason']}")
+            # A page opened before the model left the cut may still send it: skip it instead of aborting the test.
+            log.info("Lab skips retired model %s for experiment %s", model_key, experiment_id)
+            continue
         plan = adapter.plan(spec, manifest, caps, [{k: ref[k] for k in ("ref_id", "role", "label")} for ref in spec["references"]])
         prompt = adapter.model_prompt(spec["director_prompt"], plan, manifest)
         plans.append({"model_key": model_key, "plan": plan, "model_prompt": prompt,
@@ -186,6 +188,8 @@ def queue_models(client_id: int, experiment_id: int, model_keys: list[str], user
                    "estimate": estimate, "reference_hashes": [ref["sha256"][:16] for ref in spec["references"]]}
         run_ids.append(repository.create_run(experiment_id, manifest=manifest, adaptation=plan, prompt=prompt,
                                              estimate=estimate, request_summary=summary, user_id=user_id))
+    if not run_ids:
+        raise ValueError("Nenhum dos modelos escolhidos está no recorte de testes (GPT Image 2 e 2.5).")
     if start:
         start_worker(client_id, run_ids)
     return run_ids

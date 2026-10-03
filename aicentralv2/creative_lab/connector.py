@@ -8,6 +8,7 @@ provider directly. Only pure helpers from the production module are reused.
 from __future__ import annotations
 
 import base64
+import json
 import time
 
 import requests
@@ -16,6 +17,7 @@ from ..services import openrouter_service as production
 
 OPENROUTER_IMAGE_URL = "https://openrouter.ai/api/v1/images"
 TIMEOUT = 240
+DEADLINE = 300  # wall-clock cap per call: ``timeout`` only bounds each socket read, so keep-alive bytes could hold a call open forever
 
 
 class ProviderError(RuntimeError):
@@ -53,6 +55,17 @@ def _blocked(text: str) -> bool:
         return False
 
 
+def _post_with_deadline(url: str, *, headers: dict, payload: dict) -> tuple[int, bytes, dict]:
+    started = time.monotonic()
+    with requests.post(url, headers=headers, json=payload, timeout=(15, TIMEOUT), stream=True) as response:
+        chunks = []
+        for chunk in response.iter_content(chunk_size=65536):
+            chunks.append(chunk)
+            if time.monotonic() - started > DEADLINE:
+                raise requests.Timeout(f"sem resposta completa em {DEADLINE}s")
+        return response.status_code, b"".join(chunks), dict(response.headers)
+
+
 def call_openrouter(*, model_id: str, prompt: str, parameters: dict, references: list[str], pricing: list[dict]) -> dict:
     payload = {"model": model_id, "prompt": prompt, "n": 1, **parameters}
     if references:
@@ -65,15 +78,20 @@ def call_openrouter(*, model_id: str, prompt: str, parameters: dict, references:
     }
     started = time.monotonic()
     try:
-        response = requests.post(OPENROUTER_IMAGE_URL, headers=headers, json=payload, timeout=TIMEOUT)
+        status_code, body, response_headers = _post_with_deadline(OPENROUTER_IMAGE_URL, headers=headers, payload=payload)
+    except requests.Timeout as exc:
+        raise ProviderError(f"O OpenRouter não respondeu a tempo ({DEADLINE}s).") from exc
     except requests.RequestException as exc:
         raise ProviderError(f"Falha de rede no OpenRouter ({type(exc).__name__}).") from exc
     latency = round((time.monotonic() - started) * 1000)
-    if response.status_code >= 400:
-        detail = response.text[:600]
-        raise ProviderError(f"OpenRouter HTTP {response.status_code}", status=response.status_code,
-                            blocked=_blocked(detail) or response.status_code == 451, detail=detail)
-    data = response.json()
+    if status_code >= 400:
+        detail = body.decode("utf-8", "replace")[:600]
+        raise ProviderError(f"OpenRouter HTTP {status_code}", status=status_code,
+                            blocked=_blocked(detail) or status_code == 451, detail=detail)
+    try:
+        data = json.loads(body)
+    except ValueError as exc:
+        raise ProviderError("O OpenRouter devolveu uma resposta inválida.", detail=body[:400].decode("utf-8", "replace")) from exc
     first = (data.get("data") or [{}])[0] or {}
     encoded = first.get("b64_json")
     if not encoded and first.get("url"):
@@ -87,7 +105,7 @@ def call_openrouter(*, model_id: str, prompt: str, parameters: dict, references:
     cost, source = (float(reported), "provider") if isinstance(reported, (int, float)) else (_cost_from_usage(usage, pricing), "catalog_tokens")
     return {"b64": encoded, "latency_ms": latency, "usage": usage, "cost_usd": cost,
             "cost_source": source if cost is not None else None,
-            "request_id": data.get("id") or response.headers.get("x-request-id"),
+            "request_id": data.get("id") or response_headers.get("x-request-id"),
             "model": data.get("model") or model_id}
 
 

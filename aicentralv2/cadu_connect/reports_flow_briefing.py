@@ -3,6 +3,7 @@ import json
 import re
 
 from ..services.openrouter_service import OpenRouterError, chat_completion
+from . import reports_ai
 
 FIELDS = {'goal': 500, 'suggested_path': 500, 'headline': 200, 'content': 2000, 'cta': 200,
           'references': 2000, 'notes': 2000}
@@ -68,7 +69,7 @@ def generate(raw_context, site_pages):
             'Use o nome da marca e o tom do site. Se pagina.spec já tiver um campo preenchido, mantenha a intenção dele.')},
     ]
     try:
-        response = chat_completion(messages, max_tokens=1400, temperature=0.4, timeout=60,
+        response = reports_ai.chat('flow_briefing', messages, call=chat_completion, max_tokens=1400, temperature=0.4, timeout=60,
                                    response_format={'type': 'json_object'})
     except OpenRouterError as exc:
         raise BriefingError(str(exc) or 'A IA não respondeu.') from exc

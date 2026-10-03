@@ -59,6 +59,7 @@ def resolve(client_id=None):
                          OR EXISTS(SELECT 1 FROM cadu_reports_site_grants g WHERE g.site_id=f.site_id AND g.client_id=f.client_id AND g.user_id=%s))''',(match[1],client_id,selected['user_id'],selected['user_id']))
                     allowed=bool(cursor.fetchone())
             if not allowed: abort(403, description='Este acesso está limitado aos recursos compartilhados.')
+    g.reports_selected = selected  # the account this request works in; AI billing reads it so it never guesses another one
     return selected
 
 

@@ -23,6 +23,7 @@ from flask import abort, current_app, jsonify, request, send_file
 from PIL import Image
 
 from ..auth import login_required_api
+from . import reports_ai
 from .reports_flow import _safe_path
 from .reports_page_identity import canonical_page
 from .reports_v1 import _rows, _selection, _write_guard
@@ -180,7 +181,7 @@ def _download(image_url):
     return bytes(content)
 
 
-def _run_capture(app, store, key, url, allowed_host, device, lock):
+def _run_capture(app, store, key, url, allowed_host, device, lock, actor=None):
     previous = current_state(store, key)
     try:
         with app.app_context():
@@ -191,7 +192,7 @@ def _run_capture(app, store, key, url, allowed_host, device, lock):
             if checked['status'] != 'online':
                 raise ValueError('Página indisponível para captura.')
             width, height = DEVICES[device]
-            data = _firecrawl_scrape(checked['checked_url'], formats=[{'type': 'screenshot', 'fullPage': True, 'viewport': {'width': width, 'height': height}}],
+            data = reports_ai.firecrawl_scrape('page_capture', checked['checked_url'], call=_firecrawl_scrape, actor=actor, formats=[{'type': 'screenshot', 'fullPage': True, 'viewport': {'width': width, 'height': height}}],
                                      timeout_s=60, max_age_ms=0)
             image_url = data.get('screenshot')
             if isinstance(image_url, dict):
@@ -210,7 +211,7 @@ def _run_capture(app, store, key, url, allowed_host, device, lock):
         _slots.release()
 
 
-def schedule(store, key, url, allowed_host, device):
+def schedule(store, key, url, allowed_host, device, actor=None):
     """Start a capture in the background. Returns 'started', 'busy' (already running or too soon) or 'full'."""
     if not _slots.acquire(blocking=False):
         return 'full'
@@ -226,7 +227,7 @@ def schedule(store, key, url, allowed_host, device):
             return 'busy'
         store.prune(RETENTION_DAYS)
         store.write_state(key, {**state, 'status': 'capturing', 'updated': time.time(), 'device': device})
-        _pool.submit(_run_capture, current_app._get_current_object(), store, key, url, allowed_host, device, lock)
+        _pool.submit(_run_capture, current_app._get_current_object(), store, key, url, allowed_host, device, lock, actor)
         return 'started'
     except Exception:
         lock.release()
@@ -293,7 +294,7 @@ def register(bp):
         if not resolve_firecrawl_api_key():
             abort(503, description='A captura de páginas depende da integração Firecrawl, que não está configurada.')
         store = get_store()
-        outcome = schedule(store, key, url, host, device)
+        outcome = schedule(store, key, url, host, device, actor=reports_ai.actor_for(selected))
         if outcome == 'full':
             abort(429, description='Há capturas em andamento. Tente de novo em instantes.')
         body = _describe(store, key, site_id, safe, device, selected['client_id'], True)

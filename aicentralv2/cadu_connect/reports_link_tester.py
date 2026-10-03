@@ -16,6 +16,8 @@ from time import monotonic
 from urllib.parse import parse_qs, urljoin, urlparse
 
 import requests
+
+from . import reports_ai
 from werkzeug.exceptions import BadRequest
 
 MAX_REDIRECTS, TIMEOUT_SECONDS, MAX_HTML_BYTES = 5, 8, 1_000_000
@@ -97,7 +99,7 @@ def _rendered_page(url):
     """Use the configured renderer for JavaScript evidence without making it mandatory."""
     try:
         from ..crm_v3_web_scout import _firecrawl_scrape
-        data = _firecrawl_scrape(url, formats=['html', 'screenshot'], timeout_s=30)
+        data = reports_ai.firecrawl_scrape('link_tester_render', url, call=_firecrawl_scrape, formats=['html', 'screenshot'], timeout_s=30)
     except Exception:
         return {'html': '', 'screenshot': None, 'source': 'http'}
     screenshot = data.get('screenshot')

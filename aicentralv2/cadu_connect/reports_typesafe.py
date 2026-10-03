@@ -4,6 +4,7 @@ import math
 import re
 
 from ..services.typesafe_service import TypeSafeError, system_one
+from . import reports_ai
 
 
 PLAN_PROMPT_VERSION = 'reports-next-action-v2'
@@ -162,7 +163,7 @@ def suggest_report_plan(document, metrics, *, reviewed_source_count=0):
         },
         'criteria': {key: value['title'] for key, value in catalog.items()},
     }}
-    evaluation = system_one(state, questions)
+    evaluation = reports_ai.typesafe('report_plan', state, questions, call=system_one)
     answer = validate_choice(evaluation, 'next_action', catalog, 'plano')
     action = answer['choice']
     return {
@@ -226,7 +227,7 @@ def review_source_metrics(metrics, *, source_context=None):
             },
             'criteria': options,
         }
-    evaluation = system_one(state, questions)
+    evaluation = reports_ai.typesafe('metrics_review', state, questions, call=system_one)
     judgments = []
     for index, metric in enumerate(clean):
         answer = validate_choice(evaluation, f'm{index}', options, 'evidência')
@@ -297,7 +298,7 @@ def suggest_flow_page_role(page):
     }}
     # A single short retry handles transient provider throttling without an
     # unbounded wait; system_one caps its Retry-After backoff.
-    evaluation = system_one(state, questions, timeout=12, attempts=2)
+    evaluation = reports_ai.typesafe('flow_page_role', state, questions, call=system_one, timeout=12, attempts=2)
     answer = validate_choice(evaluation, 'page_role', FLOW_PAGE_ROLES, 'papel da página')
     page_type = validate_choice(evaluation, 'page_type', FLOW_PAGE_TYPES, 'tipo de página')
     return {'role': answer['choice'], 'probabilities': answer['probabilities'],

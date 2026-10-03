@@ -13,6 +13,7 @@ from urllib.parse import urlparse, urlencode
 import requests
 from PIL import Image
 from flask import abort, current_app, jsonify, request, send_file
+from . import reports_ai
 from .reports_flow_schema import to_v3
 from ..auth import login_required_api
 from .reports_v1 import _selection, _write_guard, _rows
@@ -55,7 +56,7 @@ def _write(root, key, state):
     temporary.replace(root / f'{key}.json')
 
 
-def _capture(app, root, key, url, allowed_host, lock):
+def _capture(app, root, key, url, allowed_host, lock, actor=None):
     previous = _state(root, key)
     try:
         with app.app_context():
@@ -67,7 +68,7 @@ def _capture(app, root, key, url, allowed_host, lock):
             checked = _check_page({'host': parsed.hostname, 'path': parsed.path}, allowed_host)
             if checked['status'] != 'online':
                 raise ValueError('Página indisponível para captura.')
-            data = _firecrawl_scrape(checked['checked_url'], formats=[{'type':'screenshot','fullPage':False,'viewport':{'width':1440,'height':900}}], timeout_s=35, max_age_ms=0)
+            data = reports_ai.firecrawl_scrape('flow_preview', checked['checked_url'], call=_firecrawl_scrape, actor=actor, formats=[{'type':'screenshot','fullPage':False,'viewport':{'width':1440,'height':900}}], timeout_s=35, max_age_ms=0)
             image_url = data.get('screenshot')
             if isinstance(image_url, dict):
                 image_url = image_url.get('url') or image_url.get('imageUrl')
@@ -99,7 +100,7 @@ def _capture(app, root, key, url, allowed_host, lock):
         _slots.release()
 
 
-def _schedule(root, key, url, host, force=False):
+def _schedule(root, key, url, host, force=False, actor=None):
     if not _slots.acquire(blocking=False):
         return False
     lock = open(root / f'{key}.lock','a')
@@ -109,7 +110,7 @@ def _schedule(root, key, url, host, force=False):
         if state['status']=='capturing' or (state['status']!='missing' and not force) or (force and time.time()-state.get('updated',0)<30):
             lock.close();_slots.release();return state['status']=='capturing'
         _write(root,key,{**state,'status':'capturing','updated':time.time()})
-        _pool.submit(_capture,current_app._get_current_object(),root,key,url,host,lock)
+        _pool.submit(_capture,current_app._get_current_object(),root,key,url,host,lock,actor)
         return True
     except BlockingIOError:
         lock.close();_slots.release()
@@ -156,7 +157,7 @@ def register(bp):
             available = bool(resolve_firecrawl_api_key())
             if available and not flow.get('revoked_at'):
                 url = targets[node_id]
-                scheduled = _schedule(root,_key(selected,url),url,flow['allowed_host'],force=True)
+                scheduled = _schedule(root,_key(selected,url),url,flow['allowed_host'],force=True,actor=reports_ai.actor_for(selected))
                 if not scheduled:
                     abort(429,description='Aguarde as capturas em andamento e tente novamente em 30 segundos.')
         items = {}

@@ -12,7 +12,7 @@ from flask import abort, jsonify, make_response, redirect, render_template, requ
 
 from ..auth import login_required, login_required_api
 from ..db import get_db
-from . import reports_access
+from . import reports_access, reports_ai
 from .report_rules import planned_phase
 
 
@@ -1172,7 +1172,7 @@ def register(bp):
             }
         from ..services.typesafe_service import TypeSafeError, system_one
         try:
-            evaluation = system_one(state, questions)
+            evaluation = reports_ai.typesafe('link_campaign_match', state, questions, call=system_one, selected=selected)
             answer = evaluation['answers'].get('campaign')
             role_answer = evaluation['answers'].get('page_role')
             def validate_choice(value, options, label):

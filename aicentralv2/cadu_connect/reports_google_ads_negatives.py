@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from .reports_page_suggestions import negative_covers
 from ..services.openrouter_service import OpenRouterError, chat_completion
+from . import reports_ai
 
 REMOVE_MAX = 20
 REVIEW_MAX = 50
@@ -197,7 +198,7 @@ def _review_batch(context, batch):
             'com uma entrada por negativa.')},
     ]
     try:
-        response = chat_completion(messages, max_tokens=2600, temperature=0.2, timeout=60, response_format={'type': 'json_object'})
+        response = reports_ai.chat('google_ads_negatives_review', messages, call=chat_completion, max_tokens=2600, temperature=0.2, timeout=60, response_format={'type': 'json_object'})
     except OpenRouterError as exc:
         raise ReviewError(str(exc) or 'A IA não respondeu.') from exc
     data = _json((response.get('message') or {}).get('content'))

@@ -59,7 +59,7 @@ def _post_with_deadline(url: str, *, headers: dict, payload: dict) -> tuple[int,
     started = time.monotonic()
     with requests.post(url, headers=headers, json=payload, timeout=(15, TIMEOUT), stream=True) as response:
         chunks = []
-        for chunk in response.iter_content(chunk_size=65536):
+        for chunk in response.iter_content(chunk_size=4096):
             chunks.append(chunk)
             if time.monotonic() - started > DEADLINE:
                 raise requests.Timeout(f"sem resposta completa em {DEADLINE}s")

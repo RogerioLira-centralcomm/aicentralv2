@@ -156,3 +156,62 @@ export function ProposalsView({state}) {
     </tr>)}</tbody>
   </table>;
 }
+
+const STUDIO_MODEL = 'gpt-image-2';
+const STUDIO_REFS = 3;
+const TIERS = [['draft', 'Econômica'], ['standard', 'Padrão'], ['high', 'Alta']];
+
+function sentParams(model, tier) {
+  const caps = model.capabilities || {};
+  const mapped = model.quality_map?.[tier] || {};
+  const parts = [];
+  if (model.provider === 'openai_direct') return mapped.quality ? `quality ${mapped.quality}` : 'sem controle';
+  if (caps.qualities?.length && mapped.quality) parts.push(`quality ${mapped.quality}`);
+  if (caps.resolutions?.length && mapped.resolution) parts.push(`resolution ${mapped.resolution}`);
+  return parts.join(' · ') || 'sem controle (preço fixo)';
+}
+
+function differences(model) {
+  const caps = model.capabilities || {};
+  const items = [];
+  if (model.status !== 'available') return [['bad', 'Indisponível no catálogo']];
+  if (model.provider === 'openrouter') items.push(['warn', 'Rota diferente: o Studio chama a OpenAI direto; OpenRouter é só a reserva']);
+  if (model.provider === 'openrouter') items.push(['warn', 'Sem tamanho exato: usa a proporção mais próxima e recorta (o Studio pede o tamanho final)']);
+  const refs = caps.max_references ?? 0;
+  if (refs < 1) items.push(['bad', 'Não aceita imagem de referência: máscara e referências viram texto']);
+  else if (refs < STUDIO_REFS) items.push(['warn', `Aceita ${refs} referência(s); o Studio manda até ${STUDIO_REFS} (máscara + 2). O excesso vira texto ou é descartado`]);
+  if (!Object.keys(model.quality_map?.standard || {}).length) items.push(['warn', 'Sem controle de qualidade: "Padrão" e "Alta" geram igual']);
+  if ((model.prompt_profile?.max_chars || 0) < 3800) items.push(['warn', `Prompt limitado a ${model.prompt_profile.max_chars} car.; o Studio envia mais, então o texto é reduzido`]);
+  if (model.reference_policy?.logo !== 'composer_overlay') items.push(['warn', 'Logo enviado ao modelo; o Studio aplica o logo depois']);
+  if (!items.length) items.push(['ok', model.provider_model_id === STUDIO_MODEL ? 'Igual ao Studio' : 'Só o modelo muda; parâmetros iguais ao Studio']);
+  return items;
+}
+
+export function ParametersView({state}) {
+  return <div className="lab-params">
+    <p className="lab-muted">Uma linha por modelo: o que o Lab envia comparado ao que o Studio envia hoje. Só valem para decidir produção os testes em “Pipeline do Studio”, e as diferenças em amarelo ou vermelho precisam ser aceitas antes de trocar o modelo do Studio.</p>
+    <table className="lab-table">
+      <thead><tr><th>Modelo</th><th>Rota</th>{TIERS.map(([, label]) => <th key={label}>{label}</th>)}<th>Tamanho</th><th>Referências</th><th>Prompt</th><th>Diferenças em relação ao Studio</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Studio hoje</strong><br/><small className="lab-mono">{STUDIO_MODEL}</small></td>
+          <td>OpenAI direto</td><td>quality low · 1K</td><td>quality medium · 1K</td><td>quality high · 2K</td>
+          <td>exato (ex.: 1536×864)</td><td>até {STUDIO_REFS} (máscara + 2)</td><td>até 3800 car.</td>
+          <td><small className="lab-muted">Referência da comparação</small></td>
+        </tr>
+        {state.models.map(model => {
+          const caps = model.capabilities || {};
+          return <tr key={model.model_key}>
+            <td><strong>{model.label}</strong><br/><small className="lab-mono">{model.provider_model_id}</small></td>
+            <td>{model.provider === 'openai_direct' ? 'OpenAI direto' : `OpenRouter${caps.providers?.length ? ` → ${caps.providers.join(', ')}` : ''}`}</td>
+            {TIERS.map(([tier]) => <td key={tier}>{sentParams(model, tier)}</td>)}
+            <td>{model.provider === 'openai_direct' ? 'exato' : `proporção: ${(caps.aspect_ratios || []).filter(item => item !== 'auto').length} opções, recorte no fim`}</td>
+            <td>{caps.max_references ?? '—'}</td>
+            <td>até {model.prompt_profile?.max_chars} car.</td>
+            <td><ul className="lab-diff">{differences(model).map(([kind, text]) => <li key={text}><Badge kind={kind === 'ok' ? 'is-succeeded' : kind === 'bad' ? 'is-failed' : 'is-warn'}>{kind === 'ok' ? 'ok' : kind === 'bad' ? 'bloqueia' : 'difere'}</Badge> {text}</li>)}</ul></td>
+          </tr>;
+        })}
+      </tbody>
+    </table>
+  </div>;
+}

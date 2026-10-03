@@ -336,3 +336,5 @@ body:has(#cadu-studio-lab-root) > .cadu-family-footer { display: none; }
 .lab-format-chip.is-studio { background: var(--csu-accent-soft); color: var(--csu-accent-text); }
 .lab-plan-mockup { margin: 2px 0 6px; font-size: 12px; color: var(--csu-text-soft); }
 .lab-plan-mockup.is-warn { color: var(--csu-warn); }
+.lab-params { display: grid; gap: 12px; }
+.lab-diff { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }

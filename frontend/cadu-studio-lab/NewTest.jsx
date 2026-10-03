@@ -136,11 +136,14 @@ export default function NewTest({state, api, onCreated, seed}) {
     setBusy('scenario'); setError('');
     try {
       const data = await api.post(`/scenarios/${key}/prepare`, {});
-      setForm({...EMPTY_FORM, ...data.form, scenario_key: '', brief: {...EMPTY_FORM.brief, ...(scenario?.brief || {})},
-        formats: scenario?.formats || EMPTY_FORM.formats, title: `${scenario?.title || ''} (variação)`});
+      const filled = {...EMPTY_FORM, ...data.form, scenario_key: '', brief: {...EMPTY_FORM.brief, ...(scenario?.brief || {})},
+        formats: scenario?.formats || EMPTY_FORM.formats, title: `${scenario?.title || ''} (variação)`};
+      setForm(filled);
       setDirector(''); setPreview(null); onCreated?.(null);
+      setBusy(''); await runPreview(filled);
     } catch (exc) { setError(exc.message); } finally { setBusy(''); }
   };
+  const quickKey = (state.scenarios.find(item => item.key === 'v2-cemig-whatsapp') || state.scenarios.find(item => !item.reserved) || {}).key;
   const writeBrief = async () => {
     setBusy('brief'); setError(''); setRationale('');
     try {
@@ -162,12 +165,15 @@ export default function NewTest({state, api, onCreated, seed}) {
   const toggleFormat = key => set({formats: form.formats.includes(key) ? form.formats.filter(item => item !== key) : [...form.formats, key]});
   const hasBrief = Boolean(form.brief.archetype || Object.values(form.brief.copy || {}).some(Boolean) || form.task === 'edit');
   const studio = form.pipeline === 'studio' && form.task === 'generate';
-  const payload = () => ({...form, pipeline: studio ? 'studio' : 'raw', brief: {...form.brief, format_key: form.formats[0]},
-    mockup: {...form.mockup, id: form.formats.length === 1 ? form.mockup.id : ''},
-    director_prompt: studio ? undefined : (director || undefined), models, instruction: form.instruction || idea});
-  const runPreview = async () => {
+  const payload = (current = form) => {
+    const isStudio = current.pipeline === 'studio' && current.task === 'generate';
+    return {...current, pipeline: isStudio ? 'studio' : 'raw', brief: {...current.brief, format_key: current.formats[0]},
+      mockup: {...current.mockup, id: current.formats.length === 1 ? current.mockup.id : ''},
+      director_prompt: isStudio ? undefined : (director || undefined), models, instruction: current.instruction || idea};
+  };
+  const runPreview = async (current = form) => {
     setBusy('preview'); setError('');
-    try { const data = await api.post('/preview', payload()); setPreview(data); if (!director) setDirector(data.spec.director_prompt); }
+    try { const data = await api.post('/preview', payload(current)); setPreview(data); if (!director) setDirector(data.spec.director_prompt); }
     catch (exc) { setError(exc.message); } finally { setBusy(''); }
   };
   const create = async () => {
@@ -182,10 +188,13 @@ export default function NewTest({state, api, onCreated, seed}) {
   const ready = (form.instruction || idea || hasBrief) && models.length && form.formats.length;
 
   return <div className="lab-new">
-    <Section title="1 · Ideia, marca e formatos" aside={<select value="" onChange={event => loadScenario(event.target.value)} aria-label="Partir de um cenário" disabled={busy === 'scenario'}>
+    <Section title="1 · Ideia, marca e formatos" aside={<span className="lab-row">
+      <button type="button" className="lab-btn is-small" onClick={() => loadScenario(quickKey)} disabled={!quickKey || busy === 'scenario' || busy === 'preview'}
+        title="Preenche marca, briefing, formatos e modelos com um cenário pronto e já calcula o plano e o custo. Nada é gerado até você clicar em Gerar.">
+        {busy === 'scenario' || busy === 'preview' ? 'Preenchendo…' : 'Teste rápido (preencher tudo)'}</button><select value="" onChange={event => loadScenario(event.target.value)} aria-label="Partir de um cenário" disabled={busy === 'scenario'}>
       <option value="">Partir de um cenário…</option>
       {state.scenarios.filter(item => !item.reserved).map(item => <option key={item.key} value={item.key}>{item.group.split(' ')[0]} · {item.title}</option>)}
-    </select>}>
+    </select></span>}>
       <div className="lab-form">
         <div className="lab-segmented" role="group" aria-label="Tarefa">
           <button type="button" aria-pressed={form.task === 'generate'} onClick={() => set({task: 'generate', pipeline: 'studio'})}>Criar anúncio</button>
@@ -274,7 +283,7 @@ export default function NewTest({state, api, onCreated, seed}) {
         <span><strong>{model.label}</strong><small>{model.capabilities.max_references} ref. · {model.provider === 'openai_direct' ? 'direto' : 'OpenRouter'}</small></span>
       </label>)}</div>
       <div className="lab-row">
-        <button type="button" className="lab-btn is-ghost" onClick={runPreview} disabled={busy === 'preview' || !ready}>Ver plano e custo</button>
+        <button type="button" className="lab-btn is-ghost" onClick={() => runPreview()} disabled={busy === 'preview' || !ready}>Ver plano e custo</button>
         <button type="button" className="lab-btn" onClick={create} disabled={busy === 'create' || !preview}>
           Gerar um a um ({models.length} modelo(s) × {form.formats.length} formato(s))</button>
         {preview && <span className="lab-muted">estimado {usd(total)}{preview.plans.some(item => item.estimate.variable) ? ' · variável por token' : ''}</span>}

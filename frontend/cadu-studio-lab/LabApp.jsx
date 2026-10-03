@@ -3,12 +3,12 @@ import StudioNavbar from '../cadu-studio-ui/StudioNavbar';
 import Matrix from './Matrix';
 import LiveQueue from './LiveQueue';
 import NewTest, {EMPTY_FORM} from './NewTest';
-import {ModelsView, ProposalsView, ReferencesView, ScenariosNotes} from './Panels';
+import {ModelsView, ParametersView, ProposalsView, ReferencesView, ScenariosNotes} from './Panels';
 import RunDetail from './RunDetail';
 import {MockupsView} from './Mockups';
 import {createApi, seconds, usd} from './ui';
 
-const TABS = [['matrix', 'Matriz ao vivo'], ['new', 'Novo teste'], ['mockups', 'Mockups'], ['references', 'Peças e referências'], ['models', 'Modelos'], ['scenarios', 'Cenários'], ['proposals', 'Propostas']];
+const TABS = [['matrix', 'Matriz ao vivo'], ['new', 'Novo teste'], ['mockups', 'Mockups'], ['references', 'Peças e referências'], ['models', 'Modelos'], ['params', 'Parâmetros vs Studio'], ['scenarios', 'Cenários'], ['proposals', 'Propostas']];
 
 function readTab() {
   try { return localStorage.getItem('cadu-lab-tab') || 'matrix'; } catch (_error) { return 'matrix'; }
@@ -108,6 +108,7 @@ export default function LabApp({bootstrap}) {
       {tab === 'new' && <NewTest state={state} api={api} seed={seed} onCreated={data => { load(); if (data?.run_ids) { setSeed(null); setTab('matrix'); } }}/>}
       {tab === 'mockups' && <MockupsView state={state} onUse={useMockup}/>}
       {tab === 'models' && <ModelsView state={state} api={api} onNotes={setNotes}/>}
+      {tab === 'params' && <ParametersView state={state}/>}
       {tab === 'scenarios' && <ScenariosNotes state={state} api={api} onNotes={setNotes}/>}
       {tab === 'references' && <ReferencesView state={state} api={api} onChanged={load} onSeedBrief={seedBrief}/>}
       {tab === 'proposals' && <ProposalsView state={state}/>}

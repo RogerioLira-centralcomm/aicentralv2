@@ -25,7 +25,11 @@ export function ContextSelector({clients = [], client, showPeriod, accounts, cam
     {campaigns && (campaigns.length > 0) && <label className="rs-context__client"><span className="reports-sr-only">Campanha</span>
       <ReportsNativeSelect value={scope.campaign} onChange={event => setScope({...scope, account: scope.account || String(campaigns.find(item => String(item.id) === event.target.value)?.account_id || ''), campaign: event.target.value})} aria-label="Campanha">
         <option value="">Todas as campanhas</option>
-        {scoped.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+        {scope.account || sources.length < 2 ? scoped.map(item => <option key={item.id} value={item.id}>{item.name}</option>)
+          : sources.map(source => {
+            const own = scoped.filter(item => item.account_id === source.id);
+            return own.length ? <optgroup key={source.id} label={`${source.name || source.external_id} · ${platformName(source.platform)}`}>{own.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</optgroup> : null;
+          }).concat(scoped.filter(item => !sources.some(source => source.id === item.account_id)).map(item => <option key={item.id} value={item.id}>{item.name}</option>))}
       </ReportsNativeSelect></label>}
     {sites && sites.length > 0 && <label className="rs-context__client"><span className="reports-sr-only">Site</span>
       <ReportsNativeSelect value={scope.site} onChange={event => setScope({...scope, site: event.target.value})} aria-label="Site">

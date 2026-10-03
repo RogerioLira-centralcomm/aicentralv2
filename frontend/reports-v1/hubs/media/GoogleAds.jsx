@@ -25,6 +25,8 @@ const badge = ([label, tone]) => <span className={`rs-badge is-${tone}`}>{label}
 const COMPARE = {previous: 'vs período anterior', year: 'vs mesmo período do ano anterior'};
 const change = (now, before) => before ? (Number(now || 0) - Number(before)) * 100 / Number(before) : null;
 const LIVE = ['approved', 'sent', 'applied'];
+// The header's source/campaign choice travels with every Google Ads request.
+const narrow = scope => ({scope_account: scope.account, scope_campaign: scope.campaign});
 const ACTION_ORDER = ['negate', 'add_keyword', 'review', 'covered', 'excluded', 'added', 'keep'];
 // A recommendation is settled once its change is waiting, being applied or applied; anything else can be approved again.
 const liveAction = (actions, item) => actions.byRecommendation.get(item.id) || item.queued || null;
@@ -70,31 +72,59 @@ function Proposal({item, actions, onApply}) {
   </div>;
 }
 
-function Recommendations({items, money, onOpen, rules, actions, onApply}) {
-  const [showRules, setShowRules] = useState(false);
-  if (!items.length) return <EmptyState title="Nenhuma ação pendente" description="As regras não encontraram desperdício, conflito ou oportunidade com os dados deste período."/>;
-  return <>
-    <ol className="ga-actions">{items.map((item, index) => <li key={item.id}>
-      <span className="ga-actions__order">{index + 1}</span>
-      <div className="ga-actions__body">
-        <div className="ga-actions__head">{badge(SEVERITY[item.severity])}<strong>{item.title}</strong>
-          <span className="ga-actions__object">{item.object.label}{item.object.campaign ? ` · ${item.object.campaign}` : ''}{item.object.ad_group ? ` › ${item.object.ad_group}` : ''}</span></div>
-        <p>{item.summary} <b>{item.action}</b></p>
-        <Proposal item={item} actions={actions} onApply={onApply}/>
-      </div>
-      <div className="ga-actions__impact">
-        {item.impact.kind === 'cost' && item.impact.value > 0 && <><strong>{money(item.impact.value)}</strong><small>em jogo</small></>}
-        {item.impact.kind === 'conversions' && <><strong>{number(item.impact.value)}</strong><small>conversões</small></>}
-        {item.link && item.link.tab !== 'overview' && <ReportsActionButton color="link-color" size="sm" className="rs-link-button" onClick={() => onOpen(item.link)}>Abrir<ArrowRight size={14} aria-hidden="true"/></ReportsActionButton>}
-      </div>
-    </li>)}</ol>
-    <ReportsActionButton color="link-color" size="sm" className="rs-link-button ga-rules-toggle" aria-expanded={showRules} onClick={() => setShowRules(value => !value)}>{showRules ? 'Ocultar critérios' : 'Como decidimos'}</ReportsActionButton>
-    {showRules && <dl className="ga-rules">{rules.map(rule => <div key={rule.rule}><dt>{badge(SEVERITY[rule.severity])} {rule.title}</dt><dd>{rule.when}</dd></div>)}</dl>}
-  </>;
+const SHOWN = 6;
+
+/** One recommendation as a card: what is wrong, what to do, and the change ready to apply. Impact in money only. */
+function ActionCard({item, money, onOpen, actions, onApply}) {
+  const [label, tone] = SEVERITY[item.severity];
+  const open = item.link && item.link.tab !== 'overview' ? item.link : null;
+  return <article className={`ga-card is-${tone}`}>
+    <header className="ga-card__head">{badge([label, tone])}
+      {item.impact.kind === 'cost' && item.impact.value > 0 && <span className="ga-card__impact">{money(item.impact.value)} em jogo</span>}</header>
+    <h3>{item.title}</h3>
+    <p className="ga-card__object">{item.object.label}{item.object.campaign ? ` · ${item.object.campaign}` : ''}{item.object.ad_group ? ` › ${item.object.ad_group}` : ''}</p>
+    <p>{item.summary} <b>{item.action}</b></p>
+    <footer className="ga-card__foot">
+      <Proposal item={item} actions={actions} onApply={onApply}/>
+      {open && <ReportsActionButton color="link-color" size="sm" className="rs-link-button" onClick={() => onOpen(open)}>Abrir<ArrowRight size={14} aria-hidden="true"/></ReportsActionButton>}
+    </footer>
+  </article>;
 }
 
-function Overview({body, money, onOpen, onEditGoal, actions, onApply}) {
-  const pending = body.recommendations.filter(item => item.proposal && !LIVE.includes(liveAction(actions, item)?.status));
+function ActionCenter({items, money, onOpen, rules, actions, onApply, onSeeAll}) {
+  const [showRules, setShowRules] = useState(false);
+  const [all, setAll] = useState(false);
+  const pending = items.filter(item => item.proposal && !LIVE.includes(liveAction(actions, item)?.status));
+  const count = severity => items.filter(item => item.severity === severity).length;
+  const waiting = actions.waiting;
+  const visible = all ? items : items.slice(0, SHOWN);
+  return <Section title="Central de ações" description="O que travar ou desperdiçar verba vem primeiro, depois metas e oportunidades. As que têm mudança pronta podem ser aplicadas direto no Google Ads."
+    action={<div className="rs-actions">
+      {waiting > 0 && <ReportsActionButton color="secondary" size="sm" onClick={onSeeAll}>Fila de ações · {waiting}</ReportsActionButton>}
+      {actions.canEdit && pending.length > 1 && <ReportsActionButton color="primary" size="sm" onClick={() => onApply(pending.map(proposalOf))} iconLeading={Zap}>Aplicar {pending.length} mudanças</ReportsActionButton>}
+    </div>}>
+    {!items.length ? <EmptyState title="Nenhuma ação pendente" description="As regras não encontraram desperdício, conflito ou oportunidade com os dados deste período."/> : <>
+      <ul className="ga-center__summary" aria-label="Resumo por prioridade">
+        {['high', 'medium', 'low'].map(severity => <li key={severity} className={`is-${SEVERITY[severity][1]}`}><strong>{count(severity)}</strong><span>prioridade {SEVERITY[severity][0].toLowerCase()}</span></li>)}
+        <li><strong>{pending.length}</strong><span>com mudança pronta</span></li>
+      </ul>
+      <div className="ga-cards">{visible.map(item => <ActionCard key={item.id} item={item} money={money} onOpen={onOpen} actions={actions} onApply={onApply}/>)}</div>
+      <div className="ga-center__more">
+        {items.length > SHOWN && <ReportsActionButton color="link-color" size="sm" className="rs-link-button" aria-expanded={all} onClick={() => setAll(value => !value)}>{all ? 'Mostrar menos' : `Ver as ${items.length - SHOWN} restantes`}</ReportsActionButton>}
+        <ReportsActionButton color="link-color" size="sm" className="rs-link-button" aria-expanded={showRules} onClick={() => setShowRules(value => !value)}>{showRules ? 'Ocultar critérios' : 'Como decidimos'}</ReportsActionButton>
+      </div>
+      {showRules && <dl className="ga-rules">{rules.map(rule => <div key={rule.rule}><dt>{badge(SEVERITY[rule.severity])} {rule.title}</dt><dd>{rule.when}</dd></div>)}</dl>}
+    </>}
+  </Section>;
+}
+
+/** Period comparison lives next to the numbers it changes, not in the tab bar. */
+function CompareSelect({value, onChange}) {
+  return <label className="ga-compare"><span>Comparar com</span><ReportsNativeSelect value={value} onChange={event => onChange(event.target.value)}>
+    <option value="previous">Período anterior</option><option value="year">Mesmo período do ano anterior</option></ReportsNativeSelect></label>;
+}
+
+function Overview({body, money, onOpen, onEditGoal, actions, onApply, compare, onCompare}) {
   const {totals, previous} = body;
   const label = COMPARE[body.compare?.mode] || COMPARE.previous;
   // Each day is compared with the day at the same distance from the start of the comparison window.
@@ -104,6 +134,7 @@ function Overview({body, money, onOpen, onEditGoal, actions, onApply}) {
   const series = key => [{name: formatRange(body.period.start, body.period.end), data: body.daily.map(item => Number(item[key] || 0))},
     {name: formatRange(body.compare.start, body.compare.end), data: body.daily.map(item => Number(before.get(shift(item.date))?.[key] || 0))}];
   return <div className="rs-stack">
+    <div className="ga-head"><h2>Resumo do período</h2><CompareSelect value={compare} onChange={onCompare}/></div>
     <MetricGroup label="Resumo do Google Ads" changeLabel={label} items={[
       {label: 'Investimento', value: money(totals.cost), change: change(totals.cost, previous.cost)},
       {label: 'Conversões', value: number(totals.conversions), change: change(totals.conversions, previous.conversions)},
@@ -111,18 +142,15 @@ function Overview({body, money, onOpen, onEditGoal, actions, onApply}) {
       {label: 'Valor das conversões', value: totals.conversion_value ? money(totals.conversion_value) : '—', detail: totals.roas ? `ROAS ${totals.roas.toLocaleString('pt-BR')}` : 'Sem valor informado'},
       {label: 'Cliques', value: number(totals.clicks), detail: `CTR ${totals.ctr != null ? `${totals.ctr.toLocaleString('pt-BR')}%` : '—'} · CPC ${totals.cpc != null ? money(totals.cpc) : '—'}`},
     ]}/>
-    <Section title="Próximos passos" description="Em ordem de execução: o que trava a conta primeiro, depois metas e o maior impacto em reais. As que têm mudança pronta podem ser aplicadas direto no Google Ads."
-      action={actions.canEdit && pending.length > 1 && <ReportsActionButton color="primary" size="sm" onClick={() => onApply(pending.map(proposalOf))} iconLeading={Zap}>Aplicar {pending.length} mudanças</ReportsActionButton>}>
-      <Recommendations items={body.recommendations} money={money} onOpen={onOpen} rules={body.rules} actions={actions} onApply={onApply}/>
-    </Section>
+    <ActionCenter items={body.recommendations} money={money} onOpen={onOpen} rules={body.rules} actions={actions} onApply={onApply} onSeeAll={() => onOpen({tab: 'actions'})}/>
     {body.goals_ready && <GoalsSection campaigns={body.campaigns} money={money} onEdit={onEditGoal}/>}
-    <div className="rs-grid rs-grid--2">
-      <Section title="Investimento por dia" description={`Período atual ${label.replace('vs ', 'e ')}`}>
-        <Chart type="area" height={220} labels={body.daily.map(item => dayLabel(item.date))} series={series('cost')}/>
-      </Section>
-      <Section title="Conversões por dia" description="Conversões informadas pelo Google Ads">
-        <Chart type="area" height={220} labels={body.daily.map(item => dayLabel(item.date))} series={series('conversions')}/>
-      </Section>
+    <div className="rs-grid rs-grid--3">
+      <Section title="Investimento" description="Gasto diário"><Chart type="area" height={200} labels={body.daily.map(item => dayLabel(item.date))} series={series('cost')}/></Section>
+      <Section title="Conversões" description="Informadas pelo Google Ads"><Chart type="area" height={200} labels={body.daily.map(item => dayLabel(item.date))} series={series('conversions')}/></Section>
+      <Section title="Impressões" description="Quantas vezes os anúncios apareceram"><Chart type="area" height={200} labels={body.daily.map(item => dayLabel(item.date))} series={series('impressions')}/></Section>
+      <Section title="Cliques" description="Cliques nos anúncios"><Chart type="area" height={200} labels={body.daily.map(item => dayLabel(item.date))} series={series('clicks')}/></Section>
+      <Section title="CTR" description="Cliques ÷ impressões, em %"><Chart type="area" height={200} labels={body.daily.map(item => dayLabel(item.date))} series={series('ctr')}/></Section>
+      <Section title="CPC médio" description="Custo por clique"><Chart type="area" height={200} labels={body.daily.map(item => dayLabel(item.date))} series={series('cpc')}/></Section>
     </div>
     <Section title="Saúde da coleta" description="Cada execução diária relê os últimos 14 dias e busca mais 45 dias do passado, até 13 meses de histórico">
       <AccountHealth accounts={body.accounts}/>
@@ -137,8 +165,8 @@ const delta = (now, before, inverse = false) => {
   return <small className={`rs-cell-sub ${good ? 'ga-up' : 'ga-down'}`}>{value >= 0 ? '+' : ''}{value.toLocaleString('pt-BR', {maximumFractionDigits: 0})}%</small>;
 };
 
-function Campaigns({body, money, onEditGoal}) {
-  return <Section title="Campanhas" description={`Configuração do Google Ads, meta da equipe e resultado do período (variação ${COMPARE[body.compare?.mode] || COMPARE.previous})`}>
+function Campaigns({body, money, onEditGoal, compare, onCompare}) {
+  return <Section title="Campanhas" action={<CompareSelect value={compare} onChange={onCompare}/>} description={`Configuração do Google Ads, meta da equipe e resultado do período (variação ${COMPARE[body.compare?.mode] || COMPARE.previous})`}>
     <DataTable label="Campanhas" rows={body.campaigns} rowKey={row => `${row.account_id}:${row.campaign_external_id}`} initialSort={{key: 'cost', dir: 'desc'}} columns={[
       {key: 'campaign_name', label: 'Campanha', render: row => <span className="ga-camp"><strong>{row.campaign_name}</strong><small className="rs-cell-sub">{row.status && row.status !== 'ENABLED' ? `${(STATUS[row.status] || [row.status])[0]} · ` : ''}{BIDDING[row.bidding_strategy_type] || row.bidding_strategy_type || '—'}</small></span>},
       {key: 'budget', label: 'Orçamento/dia', numeric: true, render: row => row.budget != null ? <>{money(row.budget)}<small className={`rs-cell-sub${row.budget_usage >= 95 ? ' ga-strong' : ''}`}>{row.budget_usage != null ? `uso ${row.budget_usage.toLocaleString('pt-BR')}%` : ''}{row.budget_shared ? ' · compartilhado' : ''}</small></> : '—'},
@@ -153,7 +181,8 @@ function Campaigns({body, money, onEditGoal}) {
 }
 
 function SearchTerms({period, initialFilter, actions, onApply}) {
-  const [state, retry] = useApi(apiUrl('/google-ads/search-terms', {start_date: period.start, end_date: period.end}));
+  const {scope: media} = useReportsContext();
+  const [state, retry] = useApi(apiUrl('/google-ads/search-terms', {start_date: period.start, end_date: period.end, ...narrow(media)}));
   const [filter, setFilter] = useState(initialFilter || 'all');
   const [match, setMatch] = useState('EXACT');
   const [selected, setSelected] = useState(() => new Set());
@@ -215,7 +244,7 @@ function SearchTerms({period, initialFilter, actions, onApply}) {
 }
 
 function Keywords({period}) {
-  const [state, retry] = useApi(apiUrl('/google-ads/keywords', {start_date: period.start, end_date: period.end}));
+  const [state, retry] = useApi(apiUrl('/google-ads/keywords', {start_date: period.start, end_date: period.end, ...narrow(useReportsContext().scope)}));
   if (state.error) return <ErrorState message={state.error} onRetry={retry}/>;
   if (state.loading && !state.body) return <LoadingState rows={8}/>;
   const money = value => currency(value, state.body.currency);
@@ -245,7 +274,7 @@ function finalVerdict(row, review, minimum) {
 }
 
 function Negatives({period, actions, onApply}) {
-  const query = {start_date: period.start, end_date: period.end};
+  const query = {start_date: period.start, end_date: period.end, ...narrow(useReportsContext().scope)};
   const [state, retry] = useApi(apiUrl('/google-ads/negatives', query));
   const [scope, setScope] = useState('');
   const [selected, setSelected] = useState(() => new Set());
@@ -321,7 +350,7 @@ function Negatives({period, actions, onApply}) {
 
 /** "O Google Ads está bem aproveitado?" — the engine v2 data as an optimized Google Ads report. */
 export function GoogleAds({data}) {
-  const {period} = useReportsContext();
+  const {period, scope} = useReportsContext();
   const initial = new URLSearchParams(location.search);
   const [view, setView] = useState(VIEWS.some(([key]) => key === initial.get('view')) ? initial.get('view') : 'overview');
   const [termFilter, setTermFilter] = useState(initial.get('filter') || '');
@@ -329,7 +358,7 @@ export function GoogleAds({data}) {
   const [editing, setEditing] = useState(null);
   const [applying, setApplying] = useState(null);
   const actions = useGoogleAdsActions(data);
-  const [state, retry] = useApi(apiUrl('/google-ads/summary', {start_date: period.start, end_date: period.end, compare}));
+  const [state, retry] = useApi(apiUrl('/google-ads/summary', {start_date: period.start, end_date: period.end, compare, ...narrow(scope)}));
   const changeCompare = value => {
     setCompare(value);
     const url = new URL(location.href); value === 'previous' ? url.searchParams.delete('compare') : url.searchParams.set('compare', value);
@@ -352,15 +381,13 @@ export function GoogleAds({data}) {
   return <div className="rs-stack">
     <div className="ga-bar">
       <nav className="ga-views" aria-label="Google Ads">{VIEWS.map(([key, label]) => <button type="button" key={key} aria-current={view === key ? 'page' : undefined} onClick={() => go(key)}>{label}{counts[key] ? <span>{counts[key]}</span> : null}</button>)}</nav>
-      {['overview', 'campaigns'].includes(view) && <label className="ga-compare"><span>Comparar com</span><ReportsNativeSelect value={compare} onChange={event => changeCompare(event.target.value)}>
-        <option value="previous">Período anterior</option><option value="year">Mesmo período do ano anterior</option></ReportsNativeSelect></label>}
     </div>
-    {view === 'overview' && <Overview body={body} money={money} onOpen={link => go(link.tab, link.filter || '')} onEditGoal={setEditing} actions={actions} onApply={setApplying}/>}
+    {view === 'overview' && <Overview body={body} money={money} onOpen={link => go(link.tab, link.filter || '')} onEditGoal={setEditing} actions={actions} onApply={setApplying} compare={compare} onCompare={changeCompare}/>}
     {view === 'actions' && <ActionsView actions={actions}/>}
     {view === 'search_terms' && <SearchTerms key={termFilter} period={period} initialFilter={termFilter} actions={actions} onApply={setApplying}/>}
     {view === 'keywords' && <Keywords period={period}/>}
     {view === 'negatives' && <Negatives period={period} actions={actions} onApply={setApplying}/>}
-    {view === 'campaigns' && <Campaigns body={body} money={money} onEditGoal={setEditing}/>}
+    {view === 'campaigns' && <Campaigns body={body} money={money} onEditGoal={setEditing} compare={compare} onCompare={changeCompare}/>}
     {editing && <GoalDrawer key={editing.campaign_external_id} campaign={editing} data={data} money={money} onClose={() => setEditing(null)} onSaved={() => {setEditing(null); retry();}}/>}
     {view === 'details' && <MediaPerformance views={['ad_groups', 'landing_pages', 'devices']} hideSettings/>}
     {applying && <ApplyDialog items={applying} actions={actions} onClose={() => setApplying(null)}/>}

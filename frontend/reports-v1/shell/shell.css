@@ -32,6 +32,7 @@
 .rs-stack{display:grid;gap:20px;min-width:0}
 .rs-grid{display:grid;gap:20px;min-width:0}
 .rs-grid--2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.rs-grid--3{grid-template-columns:repeat(3,minmax(0,1fr))}
 .rs-section{min-width:0;padding:20px 24px;border:1px solid var(--rs-line);border-radius:12px;background:var(--color-bg-primary)}
 .rs-section__head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
 .rs-section__head h2{margin:0;color:var(--rs-ink);font-size:16px;font-weight:600;line-height:24px}
@@ -131,8 +132,9 @@
   .rs-metric:nth-child(3n+1){border-left:0}
   .rs-metric:nth-child(n+4){border-top:1px solid var(--rs-line)}
 }
+@media (max-width:1280px){.rs-grid--3{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:900px){
-  .rs-grid--2{grid-template-columns:1fr}
+  .rs-grid--2,.rs-grid--3{grid-template-columns:1fr}
   .rs-header__row{flex-wrap:wrap;align-items:flex-start}
   .rs-header__actions{width:100%;justify-content:flex-start;flex-wrap:wrap}
 }
@@ -310,8 +312,6 @@
 .reports-main .reports-ui-button:has(svg){gap:6px}
 
 /* Google Ads: comparison, goals and pace */
-.ga-bar{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
-.ga-bar .ga-views{min-width:0}
 .ga-compare{display:flex;align-items:center;gap:8px;color:var(--color-text-tertiary);font-size:14px;font-weight:500;white-space:nowrap}
 .ga-up{color:var(--color-text-success-primary)!important}.ga-down{color:var(--color-text-error-primary)!important}
 .rs-muted-sm{color:var(--color-text-quaternary);font-size:13px}
@@ -364,9 +364,27 @@
 .ga-how__list b{color:var(--color-text-secondary)}
 .ga-how__foot{display:flex;justify-content:flex-end}
 @media (max-width:760px){.ga-how__body{padding:20px}.ga-how__steps,.ga-how__rules{grid-template-columns:1fr}}
-.ga-bar{flex-direction:column;align-items:stretch}
-.ga-bar .ga-views{flex:none}
-.ga-compare{align-self:flex-end}
-.ga-compare select{min-width:250px}
+.ga-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.ga-head h2{margin:0;color:var(--color-text-primary);font-size:16px;font-weight:600}
+.ga-compare select{min-width:230px}
+@media (max-width:760px){.ga-compare{width:100%}.ga-compare select{flex:1;min-width:0}.ga-compare span{flex:none}}
+/* Central de ações */
+.ga-center__summary{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px;padding:0;list-style:none}
+.ga-center__summary li{display:flex;align-items:baseline;gap:6px;padding:6px 12px;border-radius:999px;background:var(--color-bg-secondary);color:var(--color-text-tertiary);font-size:13px}
+.ga-center__summary strong{color:var(--color-text-primary);font-size:16px;font-weight:600}
+.ga-center__summary .is-error strong{color:var(--color-text-error-primary)}
+.ga-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px}
+.ga-card{display:flex;flex-direction:column;gap:6px;min-width:0;padding:16px;border:1px solid var(--color-border-secondary);border-left-width:3px;border-radius:12px;background:var(--color-bg-primary)}
+.ga-card.is-error{border-left-color:var(--color-text-error-primary)}.ga-card.is-warning{border-left-color:var(--color-text-warning-primary,#dc6803)}
+.ga-card__head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ga-card__impact{color:var(--color-text-secondary);font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.ga-card h3{margin:2px 0 0;color:var(--color-text-primary);font-size:15px;font-weight:600;line-height:22px}
+.ga-card p{margin:0;color:var(--color-text-tertiary);font-size:14px;line-height:20px}
+.ga-card p b{color:var(--color-text-secondary);font-weight:600}
+.ga-card .ga-card__object{color:var(--color-text-quaternary);font-size:13px;overflow-wrap:anywhere}
+.ga-card__foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-top:auto;padding-top:10px}
+.ga-card__foot .gaa-proposal{flex:1;min-width:0}
+.ga-center__more{display:flex;flex-wrap:wrap;gap:16px;margin-top:12px}
+@media (max-width:760px){.ga-cards{grid-template-columns:1fr}}
 .ga-camp{display:grid;gap:2px;min-width:180px}
 .ga-pace{min-width:150px}

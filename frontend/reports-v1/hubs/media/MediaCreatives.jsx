@@ -7,6 +7,7 @@ import {json, reportUrl} from '../../reportsCommon.jsx';
 import {friendlyDateTime} from '../../friendlyDates.js';
 import {apiUrl, useApi} from '../../shell/useApi.js';
 import {platformName} from '../../shell/media.jsx';
+import {useReportsContext} from '../../shell/context.js';
 import {DataTable, EmptyState, ErrorState, LoadingState, Section} from '../../shell/primitives.jsx';
 
 const STATUS = {draft: ['Rascunho', 'gray'], active: ['Em criação', 'warning'], ready: ['Pronto', 'success'], finalized: ['Finalizado', 'success'], finalizing: ['Finalizando', 'warning'], failed: ['Falhou', 'error'], cancelled: ['Cancelado', 'gray'], archived: ['Arquivado', 'gray']};
@@ -18,8 +19,11 @@ const ACTIVE = ['ENABLED', 'active'];
  * and credits are handled.
  */
 export function MediaCreatives({data}) {
-  const campaigns = [...data.campaigns].sort((a, b) => Number(ACTIVE.includes(b.status)) - Number(ACTIVE.includes(a.status)));
-  const [campaignId, setCampaignId] = useState(() => new URLSearchParams(location.search).get('campaign') || String(campaigns[0]?.id || ''));
+  const {scope} = useReportsContext();
+  // The header's source/campaign narrows which campaigns can be picked here.
+  const campaigns = data.campaigns.filter(item => (!scope.account || String(item.account_id) === scope.account) && (!scope.campaign || String(item.id) === scope.campaign)).sort((a, b) => Number(ACTIVE.includes(b.status)) - Number(ACTIVE.includes(a.status)));
+  const [campaignId, setCampaignId] = useState(() => new URLSearchParams(location.search).get('campaign') || scope.campaign || String(campaigns[0]?.id || ''));
+  useEffect(() => {if (scope.campaign) setCampaignId(scope.campaign); else if (!campaigns.some(item => String(item.id) === campaignId)) setCampaignId(String(campaigns[0]?.id || ''));}, [scope.account, scope.campaign]);
   const [format, setFormat] = useState('feed');
   const [angle, setAngle] = useState('benefit');
   const [context, retryContext] = useApi(campaignId ? apiUrl(`/creatives/campaigns/${campaignId}`, {format, angle}) : '');

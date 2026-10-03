@@ -23,7 +23,11 @@ TERMS_LIMIT = 500
 REMOVED_DAYS = 30
 _M = '''SUM(x.impressions)::bigint AS impressions,SUM(x.clicks)::bigint AS clicks,SUM(x.cost_micros)::bigint AS cost_micros,
     SUM(x.conversions)::numeric AS conversions,SUM(x.conversion_value_micros)::bigint AS value_micros'''
-_P = 'x.client_id=%(client)s AND x.metric_date BETWEEN %(start)s AND %(end)s'
+# Optional narrowing to one media account / one campaign (header selector); both params are None when everything is wanted.
+_AF = '(%(account)s::int IS NULL OR {t}account_id=%(account)s)'
+_CF = '(%(campaign)s::text IS NULL OR {t}campaign_external_id::text=%(campaign)s)'
+_SCOPE_X = _AF.format(t='x.') + ' AND ' + _CF.format(t='x.')
+_P = 'x.client_id=%(client)s AND x.metric_date BETWEEN %(start)s AND %(end)s AND ' + _SCOPE_X
 
 _ACCOUNTS_SQL = '''SELECT a.id,a.name,a.external_id,a.currency,a.status,
         (SELECT r.created_at FROM cadu_reports_source_runs r WHERE r.client_id=a.client_id AND r.source_kind=%(summary)s
@@ -38,6 +42,7 @@ _ACCOUNTS_SQL = '''SELECT a.id,a.name,a.external_id,a.currency,a.status,
                 AND regexp_replace(r.metadata->>'account_id','\\D','','g')=regexp_replace(a.external_id,'\\D','','g'))) AS negatives_at
     FROM cadu_reports_accounts a
     WHERE a.client_id=%(client)s AND a.platform='google_ads' AND a.account_kind='advertiser' AND a.status<>'disabled'
+        AND (%(account)s::int IS NULL OR a.id=%(account)s)
     ORDER BY a.name'''
 
 _CAMPAIGNS_SQL = f'''SELECT x.account_id,x.campaign_external_id,
@@ -47,7 +52,8 @@ _CAMPAIGNS_SQL = f'''SELECT x.account_id,x.campaign_external_id,
     GROUP BY x.account_id,x.campaign_external_id'''
 _SETTINGS_SQL = '''SELECT account_id,campaign_external_id,campaign_name,status,serving_status,channel_type,
         bidding_strategy_type,budget_micros,budget_shared{targets}
-    FROM cadu_reports_gads_campaign_settings WHERE client_id=%(client)s AND removed_at IS NULL'''
+    FROM cadu_reports_gads_campaign_settings WHERE client_id=%(client)s AND removed_at IS NULL
+        AND ''' + _AF.format(t='') + ' AND ' + _CF.format(t='')
 # Month-to-date and recent pace per campaign, independent of the period on screen.
 _PACING_SQL = '''SELECT x.account_id,x.campaign_external_id,
         SUM(x.cost_micros) FILTER (WHERE x.metric_date>=%(month_start)s)::bigint AS mtd_cost_micros,
@@ -96,9 +102,11 @@ _NEGATIVES_SQL = '''SELECT n.id,n.account_id,n.level,n.campaign_external_id,n.ca
         n.first_seen_at,n.last_seen_at,n.removed_at
     FROM cadu_reports_gads_negative_keywords n
     WHERE n.client_id=%(client)s AND (n.removed_at IS NULL OR n.removed_at > NOW() - INTERVAL '30 days')
+        AND ''' + _AF.format(t='n.') + ' AND ' + _CF.format(t='n.') + '''
     ORDER BY n.removed_at NULLS FIRST,n.level,n.shared_set_name,n.campaign_name,n.keyword_text'''
 _CURRENCY_SQL = '''SELECT DISTINCT COALESCE(currency,'') AS currency FROM cadu_reports_accounts
-    WHERE client_id=%(client)s AND platform='google_ads' AND account_kind='advertiser' AND status<>'disabled' '''
+    WHERE client_id=%(client)s AND platform='google_ads' AND account_kind='advertiser' AND status<>'disabled'
+        AND (%(account)s::int IS NULL OR id=%(account)s) '''
 
 _UNLINKED_SQL = '''SELECT s.account_id,a.name AS account_name,s.campaign_external_id,s.campaign_name,s.status,s.channel_type,
         s.bidding_strategy_type,s.last_seen
@@ -164,13 +172,31 @@ def _comparison(start, end, mode):
     return start - timedelta(days=span), start - timedelta(days=1)
 
 
+def _narrowing(client_id):
+    """(account id, campaign external id) from ?scope_account / ?scope_campaign, checked against the client; (None, None) = all."""
+    account, campaign = request.args.get('scope_account', ''), request.args.get('scope_campaign', '')
+    if campaign.isdigit():
+        row = _rows('SELECT account_id,external_id FROM cadu_reports_campaigns WHERE id=%s AND client_id=%s AND account_id IS NOT NULL',
+                    (int(campaign), client_id))
+        if not row:
+            abort(404, description='Campanha não encontrada para este cliente.')
+        return row[0]['account_id'], str(row[0]['external_id'])
+    if account.isdigit():
+        if not _rows('SELECT 1 FROM cadu_reports_accounts WHERE id=%s AND client_id=%s', (int(account), client_id)):
+            abort(404, description='Fonte de dados não encontrada para este cliente.')
+        return int(account), None
+    return None, None
+
+
 def _scope():
     selected = _selection()
     start, end = _period()
     mode = request.args.get('compare') if request.args.get('compare') in ('previous', 'year') else 'previous'
     before_start, before_end = _comparison(start, end, mode)
+    account, campaign = _narrowing(selected['client_id'])
     return selected, {'client': selected['client_id'], 'start': start, 'end': end, 'summary': SUMMARY_KIND, 'chunk': CHUNK_KIND,
-                      'compare': mode}, {'client': selected['client_id'], 'start': before_start, 'end': before_end}
+                      'compare': mode, 'account': account, 'campaign': campaign}, \
+        {'client': selected['client_id'], 'start': before_start, 'end': before_end, 'account': account, 'campaign': campaign}
 
 
 def _currency(scope):

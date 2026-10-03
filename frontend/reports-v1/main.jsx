@@ -198,6 +198,15 @@ function App() {
     writeScope(route.scope === true ? {account: scope.account, campaign: scope.campaign, site: ''}
       : route.scope === 'site' ? {account: '', campaign: '', site: scope.site} : {account: '', campaign: '', site: ''});
   }, [scope, locationKey, data?.ready]);
+  // Google Ads only reads Google sources: Meta or imported accounts never appear (nor stay selected) there.
+  const scopeAccounts = route.path === 'media/google-ads' ? (data?.accounts || []).filter(item => item.platform === 'google_ads') : data?.accounts;
+  const scopeCampaigns = route.path === 'media/google-ads' ? (data?.campaigns || []).filter(item => scopeAccounts.some(account => account.id === item.account_id)) : data?.campaigns;
+  useEffect(() => {
+    if (route.path !== 'media/google-ads' || !data?.ready) return;
+    const foreign = (scope.account && !scopeAccounts.some(item => String(item.id) === scope.account))
+      || (scope.campaign && !scopeCampaigns.some(item => String(item.id) === scope.campaign));
+    if (foreign) setScope({...scope, account: '', campaign: ''});
+  }, [route.path, scope.account, scope.campaign, data?.ready]);
   const onRefresh = () => {setRefreshRevision(value => value + 1); load(data?.client?.client_id);};
   const context = useMemo(() => ({period, setPeriod, switchClient, scope, setScope}), [period, scope, data?.client?.client_id]);
   if(data?.shared)return <SharedReports key={data.client.client_id} data={data}/>;
@@ -238,7 +247,7 @@ function App() {
     <main className="reports-main">
       <>
           {data && !isFlowEditor && <PageHeader {...header} activeTab={route.path}
-            context={<ContextSelector clients={data.clients} client={data.client} accounts={route.scope === true ? data.accounts : undefined} campaigns={route.scope === true ? data.campaigns : undefined} sites={route.scope === 'site' ? sites : undefined} showPeriod={Boolean(route.period) && !(pageSection === 'pages' && new URLSearchParams(location.search).get('site_id'))}/>}/>}
+            context={<ContextSelector clients={data.clients} client={data.client} accounts={route.scope === true ? scopeAccounts : undefined} campaigns={route.scope === true ? scopeCampaigns : undefined} sites={route.scope === 'site' ? sites : undefined} showPeriod={Boolean(route.period) && !(pageSection === 'pages' && new URLSearchParams(location.search).get('site_id'))}/>}/>}
           {showFilterBar && <ReportsFilterBar data={data} filters={filters} onChange={updateFilters} onRefresh={onRefresh} />}
           <div className="reports-content">{error && <div className="reports-error" role="alert">{error}</div>}<React.Fragment key={`${clientKey}:${route.path}`}>{page}</React.Fragment></div>
       </>

@@ -8,7 +8,7 @@ import RunDetail from './RunDetail';
 import {MockupsView} from './Mockups';
 import {createApi, seconds, usd} from './ui';
 
-const TABS = [['matrix', 'Matriz ao vivo'], ['new', 'Novo teste'], ['mockups', 'Mockups'], ['references', 'Peças e referências'], ['models', 'Modelos'], ['params', 'Parâmetros vs Studio'], ['scenarios', 'Cenários'], ['proposals', 'Propostas']];
+const TABS = [['matrix', 'Matriz ao vivo'], ['new', 'Novo teste'], ['mockups', 'Mockups'], ['references', 'Peças e referências'], ['models', 'Modelos'], ['params', 'Parâmetros vs Studio'], ['scenarios', 'Cenários'], ['proposals', 'Recomendações']];
 
 function readTab() {
   try { return localStorage.getItem('cadu-lab-tab') || 'matrix'; } catch (_error) { return 'matrix'; }
@@ -96,7 +96,7 @@ export default function LabApp({bootstrap}) {
       </header>
       <nav className="lab-tabs" role="tablist" aria-label="Seções do Lab">
         {TABS.map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)}>
-          {label}{key === 'proposals' && state.proposals.length ? <span className="lab-count">{state.proposals.length}</span> : null}
+          {label}
         </button>)}
         <span className="lab-tabs__spacer"/>
         {active && <span className="lab-live"><i className="lab-spinner" aria-hidden="true"/> gerando…</span>}

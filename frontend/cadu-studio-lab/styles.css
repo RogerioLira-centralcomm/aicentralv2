@@ -338,3 +338,8 @@ body:has(#cadu-studio-lab-root) > .cadu-family-footer { display: none; }
 .lab-plan-mockup.is-warn { color: var(--csu-warn); }
 .lab-params { display: grid; gap: 12px; }
 .lab-diff { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.lab-recs { display: grid; gap: 16px; }
+.lab-rec-list { display: grid; gap: 10px; }
+.lab-rec { border: 1px solid var(--csu-line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 6px; }
+.lab-rec header { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.lab-rec p { margin: 0; font-size: 13px; }

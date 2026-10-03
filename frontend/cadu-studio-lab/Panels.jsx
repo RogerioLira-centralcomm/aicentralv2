@@ -141,20 +141,68 @@ export function ReferencesView({state, api, onChanged, onSeedBrief}) {
   </div>;
 }
 
+const ADJUSTMENT = {
+  'prompt_profile.structure': ['Cores da marca no início do prompt', 'A paleta sai errada em quase todos os modelos, inclusive nos melhores. Subir hex e nome das cores para a primeira linha do prompt.', 'Studio (diretor) e Lab'],
+  'prompt_profile.text_rule': ['Cada texto em uma linha própria', 'O texto sai errado com frequência. Separar cada frase em uma linha e informar a contagem de palavras; se persistir, escrever o texto por código (Composer).', 'Studio (prompt do diretor) e Lab'],
+  'prompt_profile.max_chars': ['Prompt mais curto, com lista do que evitar', 'Prompts longos geram elementos extras. Encurtar e reforçar o que não deve aparecer.', 'Studio (prompt do diretor)'],
+  'reference_policy.order': ['Máscara de layout como primeira imagem', 'A composição ficou fraca. Enviar a referência de layout primeiro ou descrever as posições em texto.', 'Studio e Lab'],
+  'prompt_profile.preamble': ['Reforçar o que não pode mudar', 'Identidade ou áreas preservadas foram alteradas. Reforçar a preservação no início do prompt.', 'Lab (edição)'],
+};
+
+function modelRows(state) {
+  const base = modelStats(state.runs, 'gpt-image-2--openai');
+  return state.models.map(model => {
+    const stats = modelStats(state.runs, model.model_key);
+    const total = stats.n + stats.failed;
+    const avgCost = stats.n ? stats.cost / stats.n : null;
+    const baseCost = base.n ? base.cost / base.n : null;
+    return {model, stats, rate: total ? stats.n / total : null, avgCost,
+      dCost: avgCost != null && baseCost ? (avgCost / baseCost - 1) : null,
+      dScore: stats.score != null && base.score != null ? stats.score - base.score : null};
+  });
+}
+
 export function ProposalsView({state}) {
-  if (!state.proposals.length) return <p className="lab-muted">Nenhuma proposta ainda. Elas surgem quando o TypeSafe aponta a mesma falha com confiança ≥ 50%.</p>;
-  const models = Object.fromEntries(state.models.map(model => [model.model_key, model.label]));
-  return <table className="lab-table">
-    <thead><tr><th>Modelo</th><th>Falha</th><th>Mudança no manifesto</th><th>Por quê</th><th>Evidências</th><th>Status</th></tr></thead>
-    <tbody>{state.proposals.map(item => <tr key={item.id}>
-      <td>{models[item.model_key] || item.model_key} <small className="lab-muted">v{item.from_version}</small></td>
-      <td>{FAILURE_LABEL[item.failure] || item.failure}</td>
-      <td className="lab-mono lab-tiny">{JSON.stringify(item.change)}</td>
-      <td>{item.rationale}</td>
-      <td>{item.evidence} <small className="lab-muted">#{(item.evidence_run_ids || []).join(', #')}</small></td>
-      <td><Badge kind="is-warn">{item.status === 'pending_review' ? 'Aguarda revisão' : item.status}</Badge></td>
-    </tr>)}</tbody>
-  </table>;
+  const rows = modelRows(state);
+  const studioDone = state.runs.filter(run => run.status === 'succeeded' && run.adaptation_plan?.pipeline === 'studio').length;
+  const studioFailed = state.runs.filter(run => run.status === 'failed' && run.adaptation_plan?.pipeline === 'studio').length;
+  const groups = {};
+  for (const item of state.proposals) {
+    const key = Object.keys(item.change || {})[0] || item.failure;
+    const group = groups[key] || (groups[key] = {key, failure: item.failure, models: [], evidence: 0});
+    group.models.push(state.models.find(model => model.model_key === item.model_key)?.label || item.model_key);
+    group.evidence += item.evidence || 0;
+  }
+  const list = Object.values(groups).sort((a, b) => b.evidence - a.evidence);
+  return <div className="lab-recs">
+    <Section title="Onde os testes chegaram">
+      {studioDone === 0 && <p className="lab-alert">Nenhum teste no <strong>Pipeline do Studio</strong> terminou{studioFailed ? ` (${studioFailed} falharam)` : ''}. Todos os números abaixo vêm do <strong>Modelo direto</strong>: servem para escolher candidatos, mas não bastam para trocar o modelo do Studio.</p>}
+      <table className="lab-table">
+        <thead><tr><th>Modelo</th><th>Nota TypeSafe</th><th>vs gpt-image-2 (OpenAI)</th><th>Custo médio</th><th>vs gpt-image-2</th><th>Tempo</th><th>Concluídas</th><th>Falha mais comum</th></tr></thead>
+        <tbody>{rows.map(({model, stats, rate, avgCost, dCost, dScore}) => <tr key={model.model_key}>
+          <td><strong>{model.label}</strong></td>
+          <td><ScorePill score={stats.score}/></td>
+          <td>{dScore == null ? '—' : dScore === 0 ? 'igual' : `${dScore > 0 ? '+' : ''}${dScore} pontos`}</td>
+          <td>{usd(avgCost)}</td>
+          <td>{dCost == null ? '—' : Math.abs(dCost) < 0.02 ? 'igual' : `${dCost > 0 ? '+' : ''}${Math.round(dCost * 100)}%`}</td>
+          <td>{seconds(stats.latency)}</td>
+          <td>{stats.n}/{stats.n + stats.failed}{rate != null && rate < 0.7 ? ' ⚠' : ''}</td>
+          <td>{stats.topFailure ? `${FAILURE_LABEL[stats.topFailure[0]] || stats.topFailure[0]} (${stats.topFailure[1]}×)` : '—'}</td>
+        </tr>)}</tbody>
+      </table>
+    </Section>
+    <Section title="Ajustes sugeridos pelos testes" aside={<small className="lab-muted">agrupados: a mesma mudança aparece uma vez, com os modelos afetados</small>}>
+      {!list.length && <p className="lab-muted">Nenhum ajuste ainda. Eles surgem quando o TypeSafe aponta a mesma falha com confiança ≥ 50%.</p>}
+      <div className="lab-rec-list">{list.map(group => {
+        const [title, text, where] = ADJUSTMENT[group.key] || [FAILURE_LABEL[group.failure] || group.failure, group.key, 'Lab'];
+        return <article key={group.key} className="lab-rec">
+          <header><strong>{title}</strong><Badge kind="is-warn">{group.evidence} evidência(s)</Badge></header>
+          <p>{text}</p>
+          <small className="lab-muted">Vale para: {group.models.join(', ')} · Onde aplicar: {where} · Nada é aplicado sem sua revisão</small>
+        </article>;
+      })}</div>
+    </Section>
+  </div>;
 }
 
 const STUDIO_MODEL = 'gpt-image-2';

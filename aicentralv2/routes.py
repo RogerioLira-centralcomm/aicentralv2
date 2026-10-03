@@ -1573,8 +1573,12 @@ def init_routes(app):
                     expires = datetime.utcnow() + timedelta(hours=1)
                     token_saved = db.atualizar_reset_token(email, reset_token, expires)
                     from aicentralv2.product_domains import is_centralx_request, product_url
-                    # Whoever asked from CentralX gets the link back on CentralX, so the whole recovery stays there.
-                    reset_link = product_url('centralx' if is_centralx_request() else 'auth', url_for('reset_password', token=reset_token))
+                    # An internal account that asked from CentralX gets the link back on CentralX, so the whole
+                    # recovery stays there. Any other address keeps the shared auth host: the CentralX login
+                    # only accepts @centralcomm.media, so a client would finish the reset on a door that is closed to them.
+                    from aicentralv2.auth import LOGIN_EMAIL_DOMAIN
+                    internal = is_centralx_request() and email.endswith('@' + LOGIN_EMAIL_DOMAIN)
+                    reset_link = product_url('centralx' if internal else 'auth', url_for('reset_password', token=reset_token))
                     
                     if token_saved:
                         send_password_reset_email(

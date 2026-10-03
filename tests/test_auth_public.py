@@ -141,6 +141,11 @@ class CentralxAccessScreensTests(unittest.TestCase):
             self.assertIn("'product': 'centralx' if is_centralx_host else 'cadu'", template, name)
             self.assertIn("images/cc_logo.png", template, name)
 
+    def test_link_de_redefinicao_so_vai_para_o_centralx_com_email_corporativo(self):
+        routes = (ROOT / "aicentralv2" / "routes.py").read_text(encoding="utf-8")
+        self.assertIn("internal = is_centralx_request() and email.endswith('@' + LOGIN_EMAIL_DOMAIN)", routes)
+        self.assertIn("product_url('centralx' if internal else 'auth'", routes)
+
     def test_servidor_renderiza_centralx_no_dominio_interno(self):
         from urllib.parse import urlparse
         from tests.shared_app import get_app

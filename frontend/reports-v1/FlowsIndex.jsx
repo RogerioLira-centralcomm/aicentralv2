@@ -1,3 +1,6 @@
+import {Edit01, BarChart01} from '@untitledui/icons';
+import {useReportsContext} from './shell/context.js';
+import {DataTable, EmptyState, Section} from './shell/primitives.jsx';
 import {CaduTabs} from '../cadu-design-system/components/CaduTabs.jsx';
 import React, {useEffect, useRef, useState} from 'react';
 import {ReportsActionButton} from './ReportsActionButton.jsx';
@@ -16,10 +19,9 @@ import './flows-index.css';
 
 /** Flow list and creation: the entry screen of Fluxos. Owns its own form state; the editor never reads it. */
 export function FlowsIndex({data, flows, supertagSites, save, busy}) {
+  const {scope}=useReportsContext();
   const [flowHost, setFlowHost] = useState(()=>new URLSearchParams(location.search).get('site_host')||'');
   const [flowCreateOpen,setFlowCreateOpen]=useState(()=>Boolean(new URLSearchParams(location.search).get('site_host')));
-  const [flowQuery,setFlowQuery]=useState('');
-  const [flowStatusFilter,setFlowStatusFilter]=useState('all');
   const [flowTagFilter,setFlowTagFilter]=useState('');
   const [indexView,setIndexView]=useState(()=>new URLSearchParams(location.search).get('modelos')==='1'?'models':'flows');
   const [flowSiteCheck, setFlowSiteCheck] = useState(null);
@@ -56,7 +58,16 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
   const openFlow = (item, view) => {if(view==='edit'){const url=new URL(flowEditorUrl(item.id),location.origin);url.searchParams.set('modo','editar');location.assign(url);}else location.assign(reportUrl(`flows/${item.id}/monitor`));};
   const flowTags=item=>Array.isArray(item.config?.tags)?item.config.tags:[];
   const allTags=[...new Set(flows.flatMap(flowTags))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-  const visibleFlows=flows.filter(item=>(!flowTagFilter||flowTags(item).includes(flowTagFilter))&&(flowStatusFilter==='all'||(flowStatusFilter==='published'?item.status==='published':item.status!=='published'))&&`${item.name} ${item.allowed_host}`.toLocaleLowerCase('pt-BR').includes(flowQuery.trim().toLocaleLowerCase('pt-BR')));
+  const normalizeHost=value=>String(value||'').toLowerCase().replace(/^www\./,'');
+  const scopedHost=normalizeHost(supertagSites.find(site=>String(site.id)===scope.site)?.allowed_host);
+  const visibleFlows=flows.filter(item=>(!flowTagFilter||flowTags(item).includes(flowTagFilter))&&(!scopedHost||normalizeHost(item.allowed_host)===scopedHost));
+  const publishedFlows=visibleFlows.filter(item=>item.status==='published');
+  const draftFlows=visibleFlows.filter(item=>item.status!=='published');
+  const flowIdentity=item=><><strong title={item.flow_code}>{item.name}</strong><small className="rs-cell-sub">{[plural(flowItemCount(item),'item','itens'),item.allowed_host||'sem site · plano',item.campaign_names,...flowTags(item)].filter(Boolean).join(' · ')}</small></>;
+  const flowIconActions=(item,monitor)=><>
+    <ReportsActionButton color="tertiary" size="sm" tooltip="Editar fluxo" aria-label={`Editar ${item.name}`} onClick={()=>openFlow(item,'edit')}><Edit01 size={16} aria-hidden="true"/></ReportsActionButton>
+    {monitor&&<ReportsActionButton color="tertiary" size="sm" tooltip="Monitorar fluxo" aria-label={`Monitorar ${item.name}`} onClick={()=>openFlow(item,'monitor')}><BarChart01 size={16} aria-hidden="true"/></ReportsActionButton>}
+  </>;
   const monitorLabel=item=>item.monitor_enabled?({online:'Online',degraded:'Com falhas',offline:'Offline',checking:'Verificando',unknown:'Aguardando checagem'})[item.monitor_status]||'Ativo':'';
   const flowUpdatedLabel=value=>friendlyDateTime(value);
   const flowCreateHint=!strategyReady?'Escolha uma estratégia e ao menos um canal.':planWithoutSite?'O plano será criado sem site. Conecte o site quando for medir.':!flowHost.trim()?'Informe a URL do site e valide o domínio.':!flowSiteCheck?'Valide o domínio para continuar.':flowSiteCheck.error?'Corrija o domínio para continuar.':superTagForFlow({allowed_host:flowSiteCheck.host})?'A Super Tag deste domínio já existe e será reutilizada.':'A Super Tag será criada automaticamente para este domínio.';
@@ -69,24 +80,32 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
       <CaduTabs className="reports-flow-index__views" label="Fluxos e modelos" value={indexView} onChange={setIndexView} items={[{id:'flows',label:'Fluxos',count:flows.length},{id:'models',label:'Modelos',count:FLOW_STRATEGIES.length}]}/>
       {indexView==='models'?<FlowTemplateGallery canCreate={data.client.role!=='viewer'} onUse={startFromTemplate} teamTemplates={teamTemplates} onUseTeam={startFromTeamTemplate} onDeleteTeam={deleteTeamTemplate}/>:<>
       <div className="reports-flow-index__tools">
-        <ReportsFieldInput type="search" aria-label="Buscar fluxo" placeholder="Buscar por nome ou domínio" value={flowQuery} onChange={event=>setFlowQuery(event.target.value)}/>
-        <ReportsNativeSelect aria-label="Estado do fluxo" value={flowStatusFilter} onChange={event=>setFlowStatusFilter(event.target.value)}><option value="all">Todos os estados</option><option value="published">Publicados</option><option value="draft">Rascunhos</option></ReportsNativeSelect>
         {allTags.length>0&&<ReportsNativeSelect aria-label="Etiqueta" value={flowTagFilter} onChange={event=>setFlowTagFilter(event.target.value)}><option value="">Todas as etiquetas</option>{allTags.map(tag=><option key={tag} value={tag}>{tag}</option>)}</ReportsNativeSelect>}
         <span className="reports-flow-index__count">{plural(visibleFlows.length,'fluxo','fluxos')}</span>
         {data.client.role!=='viewer'&&<ReportsActionButton color="primary" className="reports-flow-index__new" onClick={()=>setFlowCreateOpen(true)}>Novo fluxo</ReportsActionButton>}
       </div>
-      <article className="reports-panel reports-flow-index__panel">
-        {visibleFlows.length?<div className="reports-table-wrap"><table className="cadu-table reports-flow-table"><thead><tr><th>Fluxo</th><th>Estado</th><th>Coleta</th><th className="text-right" title={`Sessões que entraram no fluxo nos últimos ${COLLECTION_DAYS} dias`}>Entradas</th><th className="text-right" title={`Conversões nos últimos ${COLLECTION_DAYS} dias`}>Conversão</th><th>Próxima ação</th><th>Atualizado</th><th><span className="reports-sr-only">Ações</span></th></tr></thead><tbody>{visibleFlows.map(item=>{const next=flowNextAction(item);const collection=flowCollection(item);const results=flowResults(item);const items=flowItemCount(item);return <tr key={item.id}>
-          <td><strong>{item.name}</strong><small>{plural(items,'item','itens')} · {item.allowed_host||'sem site · plano'}{item.campaign_names?` · ${item.campaign_names}`:''}</small>{flowTags(item).length>0&&<span className="reports-flow-tags">{flowTags(item).map(tag=><span key={tag}>{tag}</span>)}</span>}</td>
-          <td><span className={`reports-status-badge is-${item.status==='published'?'published':'draft'}`} title={item.flow_code}>{item.status==='published'?'Publicado':'Rascunho'}</span></td>
-          <td><span className={`reports-collection is-${collection.tone}`} title={collection.hint}>{collection.label}</span>{collection.lastEventAt&&<small className="reports-flow-table__sub">último evento {friendlyAgo(collection.lastEventAt)}</small>}{monitorLabel(item)&&<small className="reports-flow-table__sub">Disponibilidade: {monitorLabel(item)}</small>}</td>
-          <td className="text-right reports-flow-table__num">{results.hasData?<strong>{results.entries.toLocaleString('pt-BR')}</strong>:'—'}</td>
-          <td className="text-right reports-flow-table__num">{results.hasData?<><strong>{results.conversions.toLocaleString('pt-BR')}</strong><small className="reports-flow-table__sub">{formatRate(results.rate)} das entradas</small></>:'—'}</td>
-          <td><button type="button" className={`reports-flow-next is-${next.tone}`} onClick={()=>openFlow(item,next.view)}>{next.label}</button></td>
-          <td>{flowUpdatedLabel(item.updated_at)}</td>
-          <td className="reports-flow-table__actions text-right whitespace-nowrap"><ReportsActionButton color="tertiary" onClick={()=>openFlow(item,'edit')}>Editar</ReportsActionButton>{item.status==='published'&&<ReportsActionButton color="tertiary" onClick={()=>openFlow(item,'monitor')}>Monitorar</ReportsActionButton>}</td>
-        </tr>;})}</tbody></table></div>:<Empty message={flows.length?'Nenhum fluxo corresponde à busca.':'Nenhum fluxo ainda. Comece por um modelo pronto ou crie um fluxo do zero.'}/>}
-      </article></>}
+      <div className="rs-stack">
+        <Section title="Publicados" description="Fluxos medindo agora, com coleta, entradas e conversão dos últimos dias">
+          <DataTable label="Fluxos publicados" rows={publishedFlows} rowKey={row=>row.id} initialSort={{key:'updated',dir:'desc'}}
+            empty={<EmptyState title={flows.length?'Nenhum fluxo publicado neste site':'Nenhum fluxo ainda'} description={flows.length?'Publique um rascunho para começar a medir.':'Comece por um modelo pronto ou crie um fluxo do zero.'}/>}
+            columns={[
+              {key:'name',label:'Fluxo',render:row=><>{flowIdentity(row)}</>},
+              {key:'collection',label:'Coleta',sort:row=>flowCollection(row).label,render:row=>{const collection=flowCollection(row);const parts=[collection.lastEventAt&&`último evento ${friendlyAgo(collection.lastEventAt)}`,monitorLabel(row)].filter(Boolean);return <><span className={`reports-collection is-${collection.tone}`} title={collection.hint}>{collection.label}</span><small className="rs-cell-sub">{parts.join(' · ')||'\u00a0'}</small></>;}},
+              {key:'entries',label:'Entradas',numeric:true,sort:row=>flowResults(row).entries,render:row=>{const results=flowResults(row);return results.hasData?<><strong>{results.entries.toLocaleString('pt-BR')}</strong><small className="rs-cell-sub">últimos {COLLECTION_DAYS} dias</small></>:'—';}},
+              {key:'conversions',label:'Conversão',numeric:true,sort:row=>flowResults(row).conversions,render:row=>{const results=flowResults(row);return results.hasData?<><strong>{results.conversions.toLocaleString('pt-BR')}</strong><small className="rs-cell-sub">{formatRate(results.rate)} das entradas</small></>:'—';}},
+              {key:'updated',label:'Atualizado',sort:row=>String(row.updated_at||''),render:row=><><strong>{flowUpdatedLabel(row.updated_at)}</strong><small className="rs-cell-sub">{friendlyAgo(row.updated_at)}</small></>},
+              {key:'actions',label:<span className="reports-sr-only">Ações</span>,sortable:false,render:row=><span className="reports-flow-table__actions">{flowIconActions(row,true)}</span>},
+            ]}/>
+        </Section>
+        {draftFlows.length>0&&<Section title="Rascunhos e arquivados" description="Planos e fluxos ainda sem medição, esperando a sua revisão">
+          <DataTable label="Rascunhos e arquivados" rows={draftFlows} rowKey={row=>row.id} initialSort={{key:'updated',dir:'desc'}} columns={[
+            {key:'name',label:'Fluxo',render:row=>flowIdentity(row)},
+            {key:'next',label:'Próxima ação',sortable:false,render:row=>{const next=flowNextAction(row);return <button type="button" className={`reports-flow-next is-${next.tone}`} onClick={()=>openFlow(row,next.view)}>{next.label}</button>;}},
+            {key:'updated',label:'Atualizado',sort:row=>String(row.updated_at||''),render:row=><><strong>{flowUpdatedLabel(row.updated_at)}</strong><small className="rs-cell-sub">{friendlyAgo(row.updated_at)}</small></>},
+            {key:'actions',label:<span className="reports-sr-only">Ações</span>,sortable:false,render:row=><span className="reports-flow-table__actions">{flowIconActions(row,false)}</span>},
+          ]}/>
+        </Section>}
+      </div></>}
     </section>
     <ReportsDrawer open={flowCreateOpen} onOpenChange={setFlowCreateOpen} onDiscard={()=>{setFlowName('');setFlowCustomerId('');setFlowCampaignId('');}} title="Novo fluxo" description="Comece por uma estratégia pronta ou pelo teste da página inicial do site." context={data.client.client_name}>
       {localError&&<div className="reports-error" role="alert">{localError}</div>}

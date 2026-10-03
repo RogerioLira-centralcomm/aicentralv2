@@ -16,3 +16,8 @@
 .reports-collection.is-warn{color:var(--color-text-warning-primary,#b54708)}
 .reports-collection.is-bad{color:var(--color-text-error-primary,#b42318)}
 .reports-collection.is-muted{color:var(--color-text-tertiary)}
+
+/* Flow lists use the shared hub table: icon actions sit on the right edge and two-line cells share one rhythm. */
+.reports-main .rs-section .reports-flow-table__actions{display:flex;justify-content:flex-end;gap:2px}
+.reports-main .rs-section .reports-flow-table__actions>*{margin-left:0}
+.reports-main .rs-section td .reports-collection+.rs-cell-sub{margin-top:2px}

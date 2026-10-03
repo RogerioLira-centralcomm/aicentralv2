@@ -9,15 +9,20 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const main = ['main.jsx','FlowsPage.jsx','FlowsIndex.jsx','reportsCommon.jsx'].map(file=>read(`frontend/reports-v1/${file}`)).join('\n');
 const css = read('frontend/reports-v1/reports-refinement.css');
 
-test('flow list is a searchable table with one primary action and creation in a drawer', () => {
-  assert.match(main, /className="reports-flow-table"/);
+test('flow list splits published flows from drafts, follows the header site and keeps creation in a drawer', () => {
+  assert.match(main, /label="Fluxos publicados"/);
+  assert.match(main, /label="Rascunhos e arquivados"/);
   assert.match(main, /Novo fluxo/);
   assert.match(main, /<ReportsDrawer open=\{flowCreateOpen\}/);
-  assert.match(main, /aria-label="Buscar fluxo"/);
-  assert.match(main, /aria-label="Estado do fluxo"/);
+  assert.match(main, /scope\.site/);
+  assert.match(main, /aria-label=\{`Editar \$\{item\.name\}`\}/);
+  assert.doesNotMatch(main, /aria-label="Buscar fluxo"/);
+  assert.doesNotMatch(main, /aria-label="Estado do fluxo"/);
+  assert.doesNotMatch(main, /<th>Estado<\/th>/);
   assert.doesNotMatch(main, /reports-flow-index-heading/);
   assert.doesNotMatch(main, /Criar fluxo e Super Tag/);
   assert.doesNotMatch(main, /reports-flow-index-layout/);
+  assert.match(read('frontend/reports-v1/shell/routes.js'), /'journey\/flows': \{[^}]*scope: 'site'/);
 });
 
 test('the create button explains why it is disabled and internal codes stay out of the row', () => {

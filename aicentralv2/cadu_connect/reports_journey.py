@@ -396,6 +396,11 @@ def _site_param():
         abort(400, description='Site inválido.')
 
 
+def _one_site(sql, site):
+    """Narrows a query built on ``_SCOPE`` to one site."""
+    return sql.replace(_SCOPE, _SCOPE + ' AND e.site_id=%(site)s::uuid') if site else sql
+
+
 def _by_platform(rows, *fields):
     """Sessions per platform; organic search also keeps one line per engine (Google, Bing…)."""
     out = {}
@@ -432,8 +437,9 @@ def register(bp):
         """Sections of each site with reach, conversion influence and the paid campaigns that land on them."""
         selected = _selection()
         since, until, days = _window()
-        scope = {'client': selected['client_id'], 'since': since, 'until': until}
-        sections = _rows(_CONTENT_SQL, scope)
+        site = _site_param()
+        scope = {'client': selected['client_id'], 'since': since, 'until': until, 'site': site}
+        sections = _rows(_one_site(_CONTENT_SQL, site), scope)
         paid_ready = _rows("SELECT to_regclass('public.cadu_reports_gads_landing_page_daily') IS NOT NULL AS ready")[0]['ready']
         paid = {(_bare_host(row['host']), row['section'] or '/'): row for row in (_rows(_CONTENT_PAID_SQL, scope) if paid_ready else [])}
         for row in sections:
@@ -480,15 +486,16 @@ def register(bp):
         """Conversions observed on the site (by type, page and origin) next to the ones confirmed by the CRM."""
         selected = _selection()
         since, until, days = _window()
-        scope = {'client': selected['client_id'], 'since': since, 'until': until}
+        site = _site_param()
+        scope = {'client': selected['client_id'], 'since': since, 'until': until, 'site': site}
         name = ("COALESCE(NULLIF(e.event_name,''),e.event_kind)" if _column_exists(EVENT_TABLE, 'event_name')
                 else 'e.event_kind')
-        groups = _rows(_CONV_GROUPS_SQL.format(name=name), scope)
-        daily = [{**row, 'day': row['day'].isoformat()} for row in _rows(_CONV_DAILY_SQL, scope)]
+        groups = _rows(_one_site(_CONV_GROUPS_SQL.format(name=name), site), scope)
+        daily = [{**row, 'day': row['day'].isoformat()} for row in _rows(_one_site(_CONV_DAILY_SQL, site), scope)]
         totals = {kind: sum(int(row['total']) for row in groups if row['kind'] == kind) for kind in _CONVERSION_KINDS}
         crm_ready = _rows("SELECT to_regclass('public.cadu_reports_external_conversions') IS NOT NULL AS ready")[0]['ready']
         return jsonify(window=_window_json(since, until, days), totals=totals, groups=groups, daily=daily,
-                       origins=_by_platform(_rows(_CONV_ORIGINS_SQL, scope), 'sessions', 'converted'),
+                       origins=_by_platform(_rows(_one_site(_CONV_ORIGINS_SQL, site), scope), 'sessions', 'converted'),
                        confirmed=_rows(_CRM_SQL, scope) if crm_ready else [])
 
     @bp.get('/api/v2/reports/journey/heatmap-pages')

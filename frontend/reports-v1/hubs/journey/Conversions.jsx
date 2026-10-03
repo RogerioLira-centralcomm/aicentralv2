@@ -17,9 +17,10 @@ const STEP = {page_view: 'Página', form_submit: 'Formulário', conversion: 'Con
 
 /** Conversions as the site observed them (type, page, origin), next to what the CRM confirmed. Connects media and behaviour. */
 export function Conversions() {
-  const {period} = useReportsContext();
-  const [state, retry] = useApi(apiUrl('/journey/conversions', {start_date: period.start, end_date: period.end}));
-  const [leadsState, retryLeads] = useApi(apiUrl('/supertag/leads', {start_date: period.start, end_date: period.end}));
+  const {period, scope} = useReportsContext();
+  const range = {start_date: period.start, end_date: period.end, site_id: scope.site || undefined};
+  const [state, retry] = useApi(apiUrl('/journey/conversions', range));
+  const [leadsState, retryLeads] = useApi(apiUrl('/supertag/leads', range));
   if (state.error) return <ErrorState message={state.error} onRetry={retry}/>;
   if (state.loading && !state.body) return <div className="rs-stack"><LoadingState rows={2}/><LoadingState rows={6}/></div>;
   const body = state.body;

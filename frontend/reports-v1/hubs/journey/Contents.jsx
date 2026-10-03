@@ -12,8 +12,8 @@ const sectionName = path => path === '/' ? 'Página inicial' : path.slice(1).rep
  * reach, sessions that converted after seeing it, and the paid campaigns that send people there.
  */
 export function Contents() {
-  const {period} = useReportsContext();
-  const [state, retry] = useApi(apiUrl('/journey/content', {start_date: period.start, end_date: period.end}));
+  const {period, scope} = useReportsContext();
+  const [state, retry] = useApi(apiUrl('/journey/content', {start_date: period.start, end_date: period.end, site_id: scope.site || undefined}));
   if (state.error) return <ErrorState message={state.error} onRetry={retry}/>;
   if (state.loading && !state.body) return <div className="rs-stack"><LoadingState rows={2}/><LoadingState rows={6}/></div>;
   const sections = state.body.sections;

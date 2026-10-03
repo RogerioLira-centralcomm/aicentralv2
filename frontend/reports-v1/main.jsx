@@ -195,10 +195,17 @@ function App() {
     setScopeState(current => ({...current, site}));
   }, [siteList.body]);
   // Screens that always show one site (Super Tag) open on the busiest one when nothing was chosen yet.
+  // Functional update: the site picked above (URL, old path or saved) in the same pass wins over this fallback.
   useEffect(() => {
     if (!route.siteRequired || scope.site || !sites.length) return;
-    setScope({...scope, site: (sites.find(item => Number(item.events_30d) > 0) || sites[0]).id});
+    const busiest = (sites.find(item => Number(item.events_30d) > 0) || sites[0]).id;
+    setScopeState(current => current.site ? current : {...current, site: busiest});
   }, [route.path, siteList.body, scope.site]);
+  // In-app links that carry ?scope_site= (alerts, overview) pick that site; read it before the URL is rewritten below.
+  useEffect(() => {
+    const urlSite = readScope().site;
+    if (route.scope === 'site' && urlSite && urlSite !== scope.site) setScopeState(current => ({...current, site: urlSite}));
+  }, [locationKey]);
   // The selection lives in the address only on the screens it applies to, so shared links keep it and other pages stay clean.
   useEffect(() => {
     if (!data?.ready) return;

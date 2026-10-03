@@ -120,7 +120,8 @@ export function MediaData({data, save, busy}) {
     : direct.length || usableManager ? [] : invalid.filter(account => (account.account_kind === 'advertiser' && !account.parent_account_id)
       || (account.account_kind === 'manager' && data.accounts.some(child => child.account_kind === 'advertiser' && child.status !== 'disabled' && String(child.parent_account_id || '') === String(account.id))));
   // The header's source narrows the keys to the ones allowed (or bound) to that account.
-  const ofAccount = item => !scopedAccount || [...(item.allowed_account_ids || []), item.bound_account_id].map(digits).includes(digits(scopedAccount.external_id));
+  const ofAccount = item => !scopedAccount || (Boolean(digits(scopedAccount.external_id))
+    && [...(item.allowed_account_ids || []), item.bound_account_id].map(digits).includes(digits(scopedAccount.external_id)));
   const scopedKeys = keys.filter(ofAccount);
   const active = scopedKeys.filter(item => !item.revoked_at);
   const connected = keys.some(item => !item.revoked_at);

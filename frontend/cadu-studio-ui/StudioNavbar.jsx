@@ -62,12 +62,13 @@ export function ProjectPicker({projects = [], projectId = '', onChange, loading 
     if (!open) return;
     if (event.key === 'ArrowDown') { event.preventDefault(); setCursor(index => Math.min(options.length - 1, index + 1)); }
     if (event.key === 'ArrowUp') { event.preventDefault(); setCursor(index => Math.max(0, index - 1)); }
-    if (event.key === 'Home') { event.preventDefault(); setCursor(0); }
-    if (event.key === 'End') { event.preventDefault(); setCursor(Math.max(0, options.length - 1)); }
+    // In the search box Home/End keep moving the caret.
+    if (event.key === 'Home' && event.target.tagName !== 'INPUT') { event.preventDefault(); setCursor(0); }
+    if (event.key === 'End' && event.target.tagName !== 'INPUT') { event.preventDefault(); setCursor(Math.max(0, options.length - 1)); }
     if (event.key === 'Enter' && options[cursor]) { event.preventDefault(); choose(options[cursor]); }
   };
   const label = loading ? 'Carregando projetos…' : current ? current.name : projects.length ? 'Escolher projeto' : 'Nenhum projeto com marca';
-  return <div className="csu-project" ref={root} onBlur={event => { if (open && !root.current?.contains(event.relatedTarget)) setOpen(false); }}>
+  return <div className="csu-project" ref={root} onBlur={event => { if (open && event.relatedTarget && !root.current?.contains(event.relatedTarget)) setOpen(false); }}>
     <button type="button" className="csu-project__trigger" ref={trigger} aria-haspopup="listbox" aria-expanded={open} aria-controls={listId}
       aria-label={`Projeto e marca: ${current ? `${current.name} · ${current.brandName}` : label}`}
       disabled={loading || (!projects.length && !allowQuick)} onClick={() => setOpen(value => !value)} onKeyDown={onKeyDown}>

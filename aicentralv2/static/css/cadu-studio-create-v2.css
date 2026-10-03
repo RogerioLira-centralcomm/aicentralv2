@@ -686,3 +686,6 @@ body.portal--studio:has(.studio-v2) > main#content > .studio-v2,.studio-v2 .stud
 .studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-grid[data-count="2"] .result-card{height:auto;align-self:center;justify-self:stretch;width:100%}
 .studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-grid[data-count="2"] .result-media{flex:none;height:auto;width:100%}
 .studio-v2:is([data-state="generated"],[data-state="results_ready"]) .results-grid[data-count="2"]{align-content:center}
+
+.studio-v2 .result-review{margin:0;font-size:12px;color:#f0c674;line-height:1.35}
+.studio-v2:is([data-state="generated"],[data-state="results_ready"]) .result-card .result-review{display:block;flex:1 1 100%}

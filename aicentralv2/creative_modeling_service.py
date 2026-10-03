@@ -980,6 +980,8 @@ def _public_catalog(collection, nav_rows, token):
 
 
 class CreativeModelingService:
+    auto_review = True
+
     def __init__(
         self, repository=None, generator=None, storage=None, brand_analyzer=None,
         credit_ledger=None,

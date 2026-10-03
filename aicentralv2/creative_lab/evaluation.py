@@ -125,7 +125,7 @@ def palette_check(image: Image.Image, palette: list[str]) -> dict:
     return result
 
 
-def _observer_messages(spec: dict, references: list[dict], output_file_id: int) -> list[dict]:
+def observer_instruction(spec: dict, references: list[dict]) -> str:
     ref_lines = [f"IMAGE {index + 2}: {ref['role']} reference — {ref.get('label') or ''}" for index, ref in enumerate(references)]
     instruction = (
         "Inspect IMAGE 1, a generated advertising image, and compare it with the reference images.\n"
@@ -144,12 +144,21 @@ def _observer_messages(spec: dict, references: list[dict], output_file_id: int) 
         "cut_off (array of text, faces, product or logo cut by the canvas edge), "
         "layout_kind (ad_layout|photo_with_text|atmospheric_scene)."
     )
+    return instruction
+
+
+def observer_system() -> str:
+    return ("You are a meticulous visual QA inspector for advertising images. "
+            "Report only what you can see. Output JSON only.")
+
+
+def _observer_messages(spec: dict, references: list[dict], output_file_id: int) -> list[dict]:
+    instruction = observer_instruction(spec, references)
     content = [{"type": "text", "text": instruction},
                {"type": "image_url", "image_url": {"url": files.jpeg_data_url(output_file_id)}}]
     for ref in references:
         content.append({"type": "image_url", "image_url": {"url": files.jpeg_data_url(ref["file_id"], side=512)}})
-    return [{"role": "system", "content": "You are a meticulous visual QA inspector for advertising images. "
-                                          "Report only what you can see. Output JSON only."},
+    return [{"role": "system", "content": observer_system()},
             {"role": "user", "content": content}]
 
 

@@ -12,7 +12,8 @@ max_requests = 1000
 max_requests_jitter = 100
 
 # Timeout
-timeout = 120
+# O Studio gera a imagem, o revisor automático avalia e, se rejeitar, gera outra versão.
+timeout = 300
 graceful_timeout = 30
 keepalive = 5
 

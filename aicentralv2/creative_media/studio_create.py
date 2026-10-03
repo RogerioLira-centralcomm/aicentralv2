@@ -8,12 +8,14 @@ import json
 import logging
 import os
 import re
+import time
 from decimal import Decimal
 from uuid import uuid4
 
 from PIL import Image, ImageFilter, ImageOps
 
 from ..creative_modeling_generation import OpenRouterError, _json_content
+from . import studio_review
 
 logger = logging.getLogger(__name__)
 
@@ -528,6 +530,7 @@ def charge(provider_result, client_id, user_id, count, project_id, run_id=None,
 
 def create_image(payload, modeling, client_id, user_id):
     """Generate one Studio still with explicit reference roles and mask-safe composition."""
+    started_at = time.monotonic()
     data = payload if isinstance(payload, dict) else {}
     prompt = clean_prompt(data.get("prompt"), 4000)
     if not prompt:
@@ -779,6 +782,40 @@ def create_image(payload, modeling, client_id, user_id):
             logger.info("Studio margin check failed edges=%s; regenerating once", ",".join(edges))
             provider, raw, output_format = render(technical_prompt + "\n" + margin_correction(edges, safe))
             encoded = fit_to(raw, output_format, width, height)
+    review_info = None
+    if not mask and studio_review.enabled(modeling):
+        review_args = dict(
+            prompt=data.get("original_prompt") or prompt,
+            required_text=[item for item in (copy_headline, copy_cta) if item],
+            palette=clean_palette(data.get("requested_palette")) or list((data.get("brand_context") or {}).get("palette") or []),
+            brand_name=str((data.get("brand_context") or {}).get("name") or ""),
+            forbidden=list((data.get("brand_context") or {}).get("forbidden_elements") or []),
+        )
+        try:
+            first = studio_review.review(image_b64=finish(encoded, output_format)[0], **review_args)
+        except Exception:
+            logger.warning("Studio review preview failed request=%s", request_id, exc_info=True)
+            first = {"reviewed": False, "approved": True, "score": None, "reason": "", "reason_text": ""}
+        review_info = {"reviewed": first["reviewed"], "approved": first["approved"], "retried": False,
+                       "score": first.get("score"), "reason": first.get("reason"), "reason_text": first.get("reason_text"),
+                       "delivered": "first"}
+        logger.info("Studio auto review request=%s reviewed=%s approved=%s reason=%s score=%s",
+                    request_id, first["reviewed"], first["approved"], first.get("reason") or "-", first.get("score"))
+        if first["reviewed"] and not first["approved"] and time.monotonic() - started_at < studio_review.RETRY_BUDGET_SECONDS:
+            review_info["retried"] = True
+            try:
+                # The rejected attempt is not charged: only the delivered generation is billed (as with the margin check).
+                provider_2, raw_2, format_2 = render(technical_prompt + "\n" + studio_review.correction(first))
+                encoded_2 = fit_to(raw_2, format_2, width, height)
+                second = studio_review.review(image_b64=finish(encoded_2, format_2)[0], **review_args)
+                review_info["second_score"] = second.get("score")
+                if studio_review.prefer_second(first, second):
+                    provider, raw, output_format, encoded = provider_2, raw_2, format_2, encoded_2
+                    review_info["delivered"] = "second"
+                    review_info["approved"] = bool(second.get("approved"))
+            except Exception:
+                logger.warning("Studio second version failed request=%s; delivering the first", request_id, exc_info=True)
+                review_info["retry_failed"] = True
     image_url_2x, file_kb, file_kb_2x = None, None, None
     try:
         from .export import save_sibling, smallest_encoding
@@ -833,6 +870,7 @@ def create_image(payload, modeling, client_id, user_id):
         "charged_credits": int(charged.get("tokens_cobrados") or 0),
         "remaining_credits": remaining,
         "masked": bool(mask),
+        **({"review": review_info} if review_info else {}),
         **({"layers": layers, "composed": True} if layers is not None else {}),
         **({"image_url_2x": image_url_2x} if image_url_2x else {}),
         "file_kb": file_kb,

@@ -905,14 +905,15 @@ def register(bp):
         scope = {'client': selected['client_id'], 'since': since, 'until': until, 'site': site, 'customer': None}
         narrow = (lambda sql: sql.replace('{site}', 'AND e.site_id=%(site)s::uuid' if site else ''))
         attribution = attribution_rows(_rows(narrow(_ATTRIBUTION_SQL), scope))
-        summary = {row['origin']: row for row in _rows(narrow(_CHANNELS_SUMMARY_SQL), scope)}
-        google = summary.get('google_ads', {})
         cost = None
         if _rows("SELECT to_regclass('public.cadu_reports_campaign_daily_metrics') IS NOT NULL AS ready")[0]['ready']:
             customer = None
             if site:
                 found = _rows('SELECT customer_id FROM cadu_reports_supertag_sites WHERE id=%(site)s::uuid AND client_id=%(client)s', scope)
                 customer = found[0]['customer_id'] if found else None
+            # Spend belongs to the client, so its sessions are those of every site of that client, not only the chosen one.
+            sessions_sql = (_CHANNELS_SUMMARY_SQL.replace('{site}', 'AND s.customer_id=%(customer)s') if customer else narrow(_CHANNELS_SUMMARY_SQL))
+            google = next((row for row in _rows(sessions_sql, {**scope, 'customer': customer}) if row['origin'] == 'google_ads'), {})
             cost = ads_cost((_rows(_ADS_COST_SQL.replace('{customer}', ' AND c.customer_id=%(customer)s' if customer else ''),
                                    {**scope, 'customer': customer}) or [{}])[0],
                             int(google.get('sessions') or 0), int(google.get('converted_sessions') or 0))

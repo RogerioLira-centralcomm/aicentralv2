@@ -404,3 +404,5 @@ def test_attribution_route_scopes_cost_to_the_site_customer(app):
     assert 'c.customer_id=%(customer)s' in spend[0][0] and spend[0][1]['customer'] == 9
     assert 'c.customer_id' not in spend[1][0] and account['cost']['scope'] == 'account'
     assert all('{site}' not in sql and '{customer}' not in sql for sql, _ in seen)
+    sessions_queries = [(sql, params) for sql, params in seen if 'GROUP BY origin' in sql and 'cost_micros' not in sql]
+    assert any('AND s.customer_id=%(customer)s' in sql and params['customer'] == 9 for sql, params in sessions_queries)

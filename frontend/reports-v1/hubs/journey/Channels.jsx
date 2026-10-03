@@ -47,7 +47,7 @@ function AdsCost({state}) {
   const cost = state.body?.cost;
   if (state.error || !cost || (!cost.spend && !cost.clicks && !cost.mixed_currencies)) return null;
   const money = value => value == null ? '—' : Number(value).toLocaleString('pt-BR', {style: 'currency', currency: cost.currency || 'BRL'});
-  return <Section title="Custo do Google Ads" description={cost.scope === 'customer' ? 'Investimento das campanhas do cliente deste site contra as sessões que chegaram do Google Ads' : 'Investimento de todas as contas Google Ads contra as sessões que chegaram do Google Ads; escolha um site com cliente para separar'}>
+  return <Section title="Custo do Google Ads" description={cost.scope === 'customer' ? 'Investimento das campanhas do cliente deste site contra as sessões do Google Ads em todos os sites do cliente' : 'Investimento de todas as contas Google Ads contra as sessões que chegaram do Google Ads; escolha um site com cliente para separar'}>
     <MetricGroup label="Custo do Google Ads" items={[
       {label: 'Investimento', value: cost.mixed_currencies ? 'Moedas mistas' : money(cost.spend), detail: `${number(cost.clicks)} cliques`},
       {label: 'Custo por clique', value: money(cost.cost_per_click)},

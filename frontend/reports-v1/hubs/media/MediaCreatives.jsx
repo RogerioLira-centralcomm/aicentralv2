@@ -17,9 +17,8 @@ const ACTIVE = ['ENABLED', 'active'];
 const dash = value => (value === null || value === undefined ? '—' : number(value));
 
 /** One row per Google Ads account of the client, most work first: where to spend the next hour of the day. */
-function AccountsPortfolio({period}) {
+function AccountsPortfolio({portfolio: [state, retry]}) {
   const {scope, setScope} = useReportsContext();
-  const [state, retry] = useApi(apiUrl('/assets/portfolio', {start_date: period.start, end_date: period.end}));
   if (state.error) return <ErrorState message={state.error} onRetry={retry}/>;
   if (state.loading && !state.body) return <LoadingState rows={4}/>;
   const body = state.body;
@@ -41,9 +40,8 @@ function AccountsPortfolio({period}) {
 }
 
 /** What can be worked on in the scope in focus, by kind of asset: Google Ads is texts, keywords and terms as much as images. */
-function AssetTypes({period, onPick}) {
+function AssetTypes({portfolio: [state], onPick}) {
   const {scope} = useReportsContext();
-  const [state] = useApi(apiUrl('/assets/portfolio', {start_date: period.start, end_date: period.end}));
   const rows = (state.body?.accounts || []).filter(row => !scope.account || String(row.id) === scope.account);
   const total = key => rows.reduce((sum, row) => sum + (row[key] || 0), 0);
   const adsKnown = rows.length > 0 && rows.every(row => row.weak_ads !== null);
@@ -70,6 +68,8 @@ function AssetTypes({period, onPick}) {
  */
 export function MediaCreatives({data}) {
   const {scope, period} = useReportsContext();
+  // One portfolio request feeds both the account table and the asset cards.
+  const portfolio = useApi(apiUrl('/assets/portfolio', {start_date: period.start, end_date: period.end}));
   const [mode, setMode] = useState(() => (new URLSearchParams(location.search).get('campaign') ? 'generate' : ''));
   // The header's source/campaign narrows which campaigns can be picked here.
   const campaigns = data.campaigns.filter(item => (!scope.account || String(item.account_id) === scope.account) && (!scope.campaign || String(item.id) === scope.campaign)).sort((a, b) => Number(ACTIVE.includes(b.status)) - Number(ACTIVE.includes(a.status)));
@@ -174,8 +174,8 @@ export function MediaCreatives({data}) {
     </Section>}
   </div>;
   return <div className="rs-stack">
-    <AccountsPortfolio period={period}/>
-    <AssetTypes period={period} onPick={() => setMode(current => current || 'have')}/>
-    {studio}
+    <AccountsPortfolio portfolio={portfolio}/>
+    <AssetTypes portfolio={portfolio} onPick={() => {setMode(''); document.getElementById('creative-studio')?.scrollIntoView({behavior: 'smooth'});}}/>
+    <div id="creative-studio">{studio}</div>
   </div>;
 }

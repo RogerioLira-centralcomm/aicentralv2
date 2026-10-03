@@ -22,7 +22,7 @@ from .studio_auth import studio_or_admin_required_api
 from .studio_csrf import studio_csrf_required
 from .storage import media_root
 from .transcode import ffmpeg_available
-from ..creative_modeling_storage import ClientLogoStorage
+from ..creative_modeling_storage import ClientLogoStorage, CreativeAssetStorage
 
 logger = logging.getLogger(__name__)
 
@@ -928,7 +928,7 @@ def studio_library_sessions():
         history = _creation_history()
         user_id = session.get('user_id')
         personal_assets = history.personal_assets(client_id, user_id) if history and user_id else []
-        storage = ClientLogoStorage()
+        storage = CreativeAssetStorage()
         personal_assets = [asset for asset in personal_assets if not str(asset.get('image_url') or '').startswith('/static/') or storage.absolute_public_path(asset.get('image_url')) is not None]
         return ok({
             'client_id': client_id,

@@ -4145,7 +4145,18 @@ def _workspace_continuity_feed(client_id: int, projects: list[dict], user: dict,
                                      project_ref=str(conversation.get('project_ref') or '')),
                      'conversationId': str(conversation.get('id')), 'projectRef': str(conversation.get('project_ref') or ''),
                      'previewUrl': '', 'visualColor': str(project.get('thumbnail_color') or project.get('cor') or '#176b5e')})
-    feed.sort(key=lambda item: item.get('updatedAt') or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    def feed_time(item):
+        # Sources mix timezone-aware, naive (stored as UTC) and ISO-string timestamps.
+        value = item.get('updatedAt')
+        if isinstance(value, str):
+            try:
+                value = datetime.fromisoformat(value)
+            except ValueError:
+                value = None
+        if not isinstance(value, datetime):
+            return datetime.min.replace(tzinfo=timezone.utc)
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    feed.sort(key=feed_time, reverse=True)
     # Keep enough history for the compact sidebar to decide whether it has a
     # meaningful five-conversation fallback, while the home widgets still
     # render only their own small slices.

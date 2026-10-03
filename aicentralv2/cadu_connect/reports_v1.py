@@ -213,7 +213,7 @@ def register(bp):
     @login_required
     def reports_v1_app(section=None, rest=None, site_id=None, flow_id=None):
         # Product areas of the SPA; the old first-level sections stay valid and are redirected by the client.
-        nested = {'media', 'journey', 'tools', 'settings'}
+        nested = {'media', 'journey', 'tools', 'settings', 'data-sources'}
         # Older builds opened a new flow at /flows/<id>&testar=1 (no "?"); send it to the editor with a real query.
         legacy = re.fullmatch(r'([0-9a-fA-F-]{36})&([\w=&-]{0,200})', rest or '') if section == 'flows' else None
         if legacy:

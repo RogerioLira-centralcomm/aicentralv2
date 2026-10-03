@@ -25,7 +25,7 @@ const initialSearch = () => {try {return (new URLSearchParams(location.search).g
 export function PagesList() {
   const {period, scope} = useReportsContext();
   const [origin, setOrigin] = useOrigin();
-  const [state, retry] = useApi(apiUrl('/journey/navigation', {start_date: period.start, end_date: period.end, origin: origin || undefined}));
+  const [state, retry] = useApi(apiUrl('/journey/navigation', {start_date: period.start, end_date: period.end, site_id: scope.site || undefined, origin: origin || undefined}));
   const [query, setQuery] = useState(initialSearch);
   const [host, setHost] = useState('');
   const pages = (state.body?.pages || []).filter(item => !scope.site || item.site_id === scope.site);

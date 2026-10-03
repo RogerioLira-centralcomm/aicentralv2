@@ -196,7 +196,7 @@ def test_route_requires_login(app):
 def test_page_role_reads_the_dominant_behaviour_and_needs_a_base():
     role = lambda **item: journey.page_role({'views': 10, 'entries': 0, 'exits': 0, 'conversions': 0, 'converted_sessions': 0, **item})
     assert role(conversions=1, entries=9) == 'conversion'          # conversion wins over entry
-    assert role(converted_sessions=2) == 'conversion'
+    assert role(converted_sessions=2, entries=6) == 'entry'        # a session that converted elsewhere does not make this a conversion page
     assert role(entries=5) == 'entry' and role(exits=6) == 'exit' and role(entries=2, exits=2) == 'transit'
     assert role(views=4, entries=4) is None                       # below ROLE_MIN_VIEWS
 

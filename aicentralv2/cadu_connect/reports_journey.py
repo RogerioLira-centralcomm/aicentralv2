@@ -520,7 +520,7 @@ def page_role(item):
     views, entries, exits = item['views'], item['entries'], item['exits']
     if views < ROLE_MIN_VIEWS:
         return None
-    if item['conversions'] or item['converted_sessions']:
+    if item['conversions']:   # the page itself fired the conversion; sessions that merely passed through it do not count
         return 'conversion'
     if entries * 2 >= views:
         return 'entry'

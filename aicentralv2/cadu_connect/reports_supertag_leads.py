@@ -85,6 +85,10 @@ def conversion_name(value):
         return None
     if not isinstance(value, str):
         abort(400, description='Nome da conversão inválido.')
+    if NAME_RULE.fullmatch(value.strip()):
+        # Already a valid event name (rules saved before, e.g. "Lead_Site"): keep it, or re-saving the list would rename
+        # the conversion and split its history.
+        return value.strip()
     plain = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore').decode()
     slug = re.sub(r'[^A-Za-z0-9_]+', '_', plain.strip()).strip('_').lower()[:80]
     if not slug:

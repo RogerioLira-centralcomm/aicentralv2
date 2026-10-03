@@ -155,4 +155,5 @@ def test_rule_helpers():
     with Flask(__name__).test_request_context('/'):
         assert leads.conversion_name('  Página de Obrigado! ') == 'pagina_de_obrigado'
         assert leads.conversion_name('') is None
+        assert leads.conversion_name('Lead_Site') == 'Lead_Site', 'nome já salvo não pode mudar ao salvar de novo'
         assert leads.conversion_path('obrigado/') == '/obrigado/'

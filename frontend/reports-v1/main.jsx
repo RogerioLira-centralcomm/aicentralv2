@@ -265,7 +265,7 @@ function App() {
       pages: () => <PageDetail data={data} />,
       navigation: () => <Navigation/>,
       conversions: () => <Conversions/>,
-      heatmap: () => <Heatmap data={data} sites={sites}/>,
+      heatmap: () => <Heatmap data={data}/>,
       reports: () => <ReportsLibrary data={data} save={save} busy={busy}/>,
       alerts: () => <AlertsCenter data={data} />,
       'data-sources': () => <DataSources data={data}/>,

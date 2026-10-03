@@ -42,7 +42,18 @@ EVENT_KINDS = {'page_view', 'page_leave', 'heartbeat', 'click', 'whatsapp_click'
 ENHANCED_KEYS = ('page_changes', 'scroll', 'clicks', 'outbound', 'contacts', 'downloads', 'forms', 'video')
 ENHANCED_BY_KIND = {'scroll_depth': 'scroll', 'click': 'clicks', 'outbound_click': 'outbound', 'contact_click': 'contacts',
                     'whatsapp_click': 'contacts', 'file_download': 'downloads', 'form_submit': 'forms', 'video': 'video'}
-CLICK_DATA = {'x', 'y', 'element_id', 'dx', 'dy', 'dh'}
+CLICK_DATA = {'x', 'y', 'element_id', 'dx', 'dy', 'dh', 'el_label', 'el_kind'}
+ELEMENT_KINDS = ('link', 'button', 'icon', 'image', 'element')
+# The tag already drops labels that look like personal data; the server enforces the same rule for any client.
+_PERSONAL_LABEL = re.compile(r'@|\d[\d .()/-]{6,}\d|\d{4,}')
+
+
+def clean_element_label(value):
+    """Readable name of a clicked element (<= 80 chars, one line) or None when empty or it looks like personal data."""
+    if not isinstance(value, str):
+        abort(400, description='Nome de elemento inválido.')
+    text = ' '.join(''.join(char if char.isprintable() else ' ' for char in value).split())[:80]
+    return text if text and not _PERSONAL_LABEL.search(text) else None
 SITE_CHECK_MAX_BYTES = 256_000
 
 
@@ -325,6 +336,12 @@ def _event(raw, site):
             if not isinstance(element_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,80}', element_id):
                 abort(400, description='Identificador de elemento inválido.')
             clean_data['element_id'] = element_id
+        if 'el_kind' in data:
+            if data['el_kind'] not in ELEMENT_KINDS:
+                abort(400, description='Tipo de elemento inválido.')
+            clean_data['el_kind'] = data['el_kind']
+        if 'el_label' in data and (label := clean_element_label(data['el_label'])):
+            clean_data['el_label'] = label
         # Contract v2: position inside the whole document (per-mille of its width/height) and the document height in px.
         # All three travel together or not at all; tags without them keep working and only feed the first-screen map.
         document = {key: data.get(key) for key in ('dx', 'dy', 'dh') if key in data}

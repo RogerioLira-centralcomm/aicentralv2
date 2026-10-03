@@ -451,12 +451,41 @@
     }
   }
 
+  // Short readable name of the clicked element for the heatmap ranking: its accessible name, visible text, image alt
+  // or, for icon links, the destination. Anything that looks like personal data (e-mail, phone, document) is dropped.
+  function elementLabel(target) {
+    var text = target.getAttribute('aria-label') || '';
+    if (!text.trim()) text = target.innerText || target.textContent || '';
+    if (!text.trim()) {
+      var image = target.querySelector && target.querySelector('img[alt]');
+      text = (image && image.getAttribute('alt')) || target.getAttribute('title') || '';
+    }
+    if (!text.trim() && target.tagName === 'A') {
+      try {
+        var url = new URL(target.getAttribute('href') || '', location.href);
+        if (/^https?:$/.test(url.protocol)) text = bareHost(url.hostname) !== bareHost(location.hostname) ? bareHost(url.hostname) : url.pathname;
+      } catch (_) { text = ''; }
+    }
+    text = text.replace(/\s+/g, ' ').trim();
+    if (!text || /@|\d[\d .()/-]{6,}\d|\d{4,}/.test(text)) return undefined;
+    return text.length > 60 ? text.slice(0, 59) + '…' : text;
+  }
+
+  function elementKind(target) {
+    var visibleText = (target.innerText || target.textContent || '').trim();
+    if (!visibleText && target.querySelector && target.querySelector('img')) return 'image';
+    if (!visibleText) return 'icon';
+    return target.tagName === 'A' ? 'link' : target.tagName === 'BUTTON' || target.getAttribute('role') === 'button' ? 'button' : 'element';
+  }
+
   function clickPosition(eventObject, target) {
     var size = viewport();
     var doc = documentBox();
     var data = {x: Math.max(0, Math.min(1000, Math.round(eventObject.clientX / Math.max(size.width, 1) * 1000))),
       y: Math.max(0, Math.min(1000, Math.round(eventObject.clientY / Math.max(size.height, 1) * 1000))),
-      element_id: elementId(target)};
+      element_id: elementId(target), el_kind: elementKind(target)};
+    var label = elementLabel(target);
+    if (label) data.el_label = label;
     if (doc) {
       // Position inside the whole page, so clicks made at different scroll offsets land in the same place.
       data.dx = Math.max(0, Math.min(1000, Math.round((eventObject.clientX + doc.scrollX) / doc.width * 1000)));

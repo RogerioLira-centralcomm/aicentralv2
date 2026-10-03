@@ -48,6 +48,8 @@ async function main() {
     const data = await run(browser, file);
     // The link sits at (400..500, 2400..2440) of a 3000 px page; the click lands at (450, 2420) in the document.
     assert.equal(data.element_id, 'cta-fundo', `${file}: identifica o elemento`);
+    assert.equal(data.el_label, 'Comprar', `${file}: nome legível do elemento`);
+    assert.equal(data.el_kind, 'link', `${file}: tipo do elemento`);
     assert.equal(data.dh, 3000, `${file}: altura do documento`);
     assert.equal(data.dx, Math.round(450 / 800 * 1000), `${file}: posição horizontal no documento`);
     assert.equal(data.dy, Math.round(2420 / 3000 * 1000), `${file}: posição vertical no documento, não no viewport`);

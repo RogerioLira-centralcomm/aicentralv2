@@ -106,3 +106,84 @@ def test_the_click_layer_of_celular_uses_the_same_device_split_as_the_page_list(
     assert 'handheld' in DEVICES
     assert reports_pages._DEVICE_SQL['handheld'] == journey.HEATMAP_DEVICES['mobile']
     assert reports_pages._DEVICE_SQL['desktop'] == journey.HEATMAP_DEVICES['desktop']
+
+
+DETAIL = '/connect/api/v2/reports/journey/heatmap-detail'
+
+
+def test_heat_grid_is_sparse_and_ignores_cells_outside_the_page():
+    grid = journey.heat_grid([{'cx': 3, 'cy': 5, 'clicks': 4}, {'cx': 3, 'cy': 5, 'clicks': 1}, {'cx': 40, 'cy': 1, 'clicks': 9},
+                              {'cx': 39, 'cy': 119, 'clicks': 2}])
+    assert grid['points'] == [[3, 5, 5], [39, 119, 2]] and grid['peak'] == 5 and grid['total'] == 7
+    zones = journey.heat_zones(grid)
+    assert [zone['clicks'] for zone in zones] == [5, 0, 0, 2] and zones[0]['share'] == 71.4
+
+
+def test_elements_group_marked_ids_and_names_and_count_unnamed_clicks():
+    rows = [{'element_id': 'cta', 'label': None, 'kind': 'button', 'clicks': 3},
+            {'element_id': 'cta', 'label': 'Fale conosco', 'kind': 'button', 'clicks': 2},
+            {'element_id': None, 'label': 'Instagram', 'kind': 'icon', 'clicks': 4},
+            {'element_id': None, 'label': 'Instagram', 'kind': 'link', 'clicks': 1},
+            {'element_id': None, 'label': None, 'kind': 'link', 'clicks': 10}]
+    elements = journey.heat_elements(rows, 20)
+    assert [(item['label'], item['clicks'], item['kind_label']) for item in elements['items']] == [
+        ('Fale conosco', 5, 'Botão'), ('Instagram', 4, 'Ícone'), ('Instagram', 1, 'Link')]
+    assert elements['items'][0]['share'] == 25.0 and elements['unnamed_clicks'] == 10 and elements['unnamed_share'] == 50.0
+
+
+def test_devices_keep_a_fixed_order_with_zeros():
+    devices = journey.heat_devices([{'device': 'mobile', 'views': 30, 'clicks': 6}, {'device': 'desktop', 'views': 70, 'clicks': 28}])
+    assert [(item['device'], item['share'], item['clicks_per_view']) for item in devices] == [
+        ('desktop', 70.0, 0.4), ('mobile', 30.0, 0.2), ('tablet', 0.0, None)]
+
+
+def test_insights_only_with_enough_clicks_and_each_one_from_a_number():
+    summary = journey.heat_summary({'views': 100, 'sessions': 80, 'clicks': 40, 'scroll_25': 60, 'scroll_50': 20})
+    elements = journey.heat_elements([{'element_id': None, 'label': 'Request a proposal', 'kind': 'button', 'clicks': 10}], 40)
+    zones = journey.heat_zones(journey.heat_grid([{'cx': 1, 'cy': 1, 'clicks': 39}, {'cx': 1, 'cy': 100, 'clicks': 1}]))
+    devices = journey.heat_devices([{'device': 'mobile', 'views': 30, 'clicks': 6}, {'device': 'desktop', 'views': 70, 'clicks': 28}])
+    assert journey.heat_insights(summary, elements, zones, devices) == [
+        '“Request a proposal” concentra 25% de todos os cliques da página.',
+        '75% das pessoas não passam da metade da página.',
+        'Só 2,5% dos cliques acontecem na metade de baixo da página.',
+        'No celular há 50% menos cliques por visualização que no computador.']
+    assert journey.heat_insights({**summary, 'clicks': 5}, elements, zones, devices) == []
+
+
+def test_detail_route_reads_one_page_on_one_device_in_the_period(app):
+    seen = []
+
+    def fake_rows(sql, params=()):
+        seen.append((sql, params))
+        if 'AS cx' in sql:
+            return [{'cx': 2, 'cy': 3, 'clicks': 4}]
+        if 'el_label' in sql:
+            return [{'element_id': None, 'label': 'Comprar', 'kind': 'button', 'clicks': 4}]
+        if 'AS device' in sql:
+            return [{'device': 'mobile', 'views': 9, 'clicks': 4}]
+        return [{'views': 9, 'sessions': 5, 'clicks': 4, 'scroll_25': 4, 'scroll_50': 2, 'scroll_75': 1, 'scroll_100': 0}]
+    client = app.test_client()
+    with client.session_transaction() as session:
+        session['user_id'] = 1
+    with mock.patch.object(journey, '_rows', fake_rows), \
+         mock.patch.object(journey, '_selection', return_value={'client_id': 174, 'role': 'admin', 'user_id': 1}):
+        response = client.get(f'{DETAIL}?device=mobile&site_id={SITE}&path=/lp&start_date=2026-09-01&end_date=2026-09-30')
+    body = response.get_json()
+    assert response.status_code == 200 and body['summary']['clicks'] == 4 and body['summary']['scroll_25'] == 80.0
+    assert body['heat']['points'] == [[2, 3, 4]] and body['positioned_share'] == 100.0
+    assert body['elements']['items'][0]['label'] == 'Comprar' and body['insights'] == []
+    for sql, params in seen:
+        assert '%(path)s' in sql and 'e.site_id=%(site)s::uuid' in sql and '{device}' not in sql
+        assert params['path'] == '/lp' and params['site'] == SITE and params['client'] == 174
+    assert sum('AND (e.viewport_width<1024)' in sql for sql, _ in seen) == 3      # every query but the device split
+
+
+@pytest.mark.parametrize('query', [f'?site_id={SITE}', '?path=/lp', f'?site_id={SITE}&path=lp', f'?site_id={SITE}&path=/a b',
+                                   f'?site_id={SITE}&path=/lp&device=tablet'])
+def test_detail_route_rejects_invalid_input(app, query):
+    client = app.test_client()
+    with client.session_transaction() as session:
+        session['user_id'] = 1
+    with mock.patch.object(journey, '_rows', lambda *args: []), \
+         mock.patch.object(journey, '_selection', return_value={'client_id': 174, 'role': 'admin', 'user_id': 1}):
+        assert client.get(DETAIL + query).status_code == 400

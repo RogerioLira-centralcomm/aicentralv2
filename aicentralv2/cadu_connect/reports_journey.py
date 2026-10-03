@@ -302,6 +302,132 @@ def heatmap_pages(rows):
     return sorted(out, key=lambda item: (-item['clicks'], -item['views'], item['path']))
 
 
+HEAT_COLUMNS, HEAT_ROWS = 40, 120       # whole-document click grid of the heatmap: ~32 px columns at 1280 px, ~25 px rows on a 3000 px page
+TOP_ELEMENTS = 10
+INSIGHT_MIN_CLICKS = 20                 # below this no sentence is written: the sample would speak louder than the page
+INSIGHT_MIN_VIEWS = 20
+ZONES = (('Topo', '0–25%'), ('Meio alto', '25–50%'), ('Meio baixo', '50–75%'), ('Fim', '75–100%'))
+DEVICE_CLASSES = (('desktop', 'Computador'), ('mobile', 'Celular'), ('tablet', 'Tablet'))
+ELEMENT_KIND_LABELS = {'link': 'Link', 'button': 'Botão', 'icon': 'Ícone', 'image': 'Imagem', 'element': 'Elemento'}
+
+_ONE_PAGE = f"{_SCOPE} AND e.site_id=%(site)s::uuid AND {_PATH}=%(path)s"
+_HEAT_SUMMARY_SQL = f'''SELECT COUNT(*) FILTER (WHERE e.event_kind='page_view')::bigint AS views,
+        COUNT(DISTINCT e.session_id) FILTER (WHERE e.event_kind='page_view')::bigint AS sessions,
+        COUNT(*) FILTER (WHERE e.event_kind IN ('click','whatsapp_click'))::bigint AS clicks,
+        COUNT(DISTINCT e.session_id) FILTER (WHERE e.event_kind='scroll_depth' AND {_DEPTH}>=25)::bigint AS scroll_25,
+        COUNT(DISTINCT e.session_id) FILTER (WHERE e.event_kind='scroll_depth' AND {_DEPTH}>=50)::bigint AS scroll_50,
+        COUNT(DISTINCT e.session_id) FILTER (WHERE e.event_kind='scroll_depth' AND {_DEPTH}>=75)::bigint AS scroll_75,
+        COUNT(DISTINCT e.session_id) FILTER (WHERE e.event_kind='scroll_depth' AND {_DEPTH}>=100)::bigint AS scroll_100
+    {_ONE_PAGE} AND e.event_kind IN ('page_view','click','whatsapp_click','scroll_depth') AND ({{device}})'''
+_HEAT_GRID_SQL = f'''SELECT FLOOR((e.event_data->>'dx')::numeric*{HEAT_COLUMNS}/1001)::int AS cx,
+        FLOOR((e.event_data->>'dy')::numeric*{HEAT_ROWS}/1001)::int AS cy, COUNT(*)::bigint AS clicks
+    {_ONE_PAGE} AND e.event_kind IN ('click','whatsapp_click') AND ({{device}})
+        AND e.event_data->>'dx' ~ '^[0-9]{{1,4}}$' AND e.event_data->>'dy' ~ '^[0-9]{{1,4}}$'
+    GROUP BY 1,2'''
+_HEAT_ELEMENTS_SQL = f'''SELECT e.event_data->>'element_id' AS element_id,e.event_data->>'el_label' AS label,
+        e.event_data->>'el_kind' AS kind,COUNT(*)::bigint AS clicks
+    {_ONE_PAGE} AND e.event_kind IN ('click','whatsapp_click') AND ({{device}})
+    GROUP BY 1,2,3'''
+_HEAT_DEVICES_SQL = f'''SELECT CASE WHEN e.viewport_width<768 THEN 'mobile' WHEN e.viewport_width<1024 THEN 'tablet'
+        ELSE 'desktop' END AS device,
+        COUNT(*) FILTER (WHERE e.event_kind='page_view')::bigint AS views,
+        COUNT(*) FILTER (WHERE e.event_kind IN ('click','whatsapp_click'))::bigint AS clicks
+    {_ONE_PAGE} AND e.event_kind IN ('page_view','click','whatsapp_click') AND e.viewport_width IS NOT NULL
+    GROUP BY 1'''
+
+
+def heat_grid(rows):
+    """Sparse whole-document grid: [column, row, clicks] for every non-empty cell, the peak and the total."""
+    cells = {}
+    for row in rows:
+        x, y = int(row['cx']), int(row['cy'])
+        if 0 <= x < HEAT_COLUMNS and 0 <= y < HEAT_ROWS:
+            cells[(x, y)] = cells.get((x, y), 0) + int(row['clicks'])
+    points = [[x, y, value] for (x, y), value in sorted(cells.items())]
+    return {'columns': HEAT_COLUMNS, 'rows': HEAT_ROWS, 'points': points,
+            'peak': max(cells.values(), default=0), 'total': sum(cells.values())}
+
+
+def heat_zones(grid):
+    """Clicks in each quarter of the page height, so the zones and the scroll reach read on the same scale."""
+    per_zone = [0] * len(ZONES)
+    for _, y, value in grid['points']:
+        per_zone[min(y * len(ZONES) // grid['rows'], len(ZONES) - 1)] += value
+    return [{'label': label, 'range': span, 'clicks': clicks, 'share': pct(clicks, grid['total'])}
+            for (label, span), clicks in zip(ZONES, per_zone)]
+
+
+def heat_elements(rows, total_clicks):
+    """Most clicked elements: a marked element (data-cadu-element) by its id, any other by its name and type.
+
+    Clicks without a name (older tags, or a name dropped as personal data) are only counted, never guessed.
+    """
+    groups, unnamed = {}, 0
+    for row in rows:
+        clicks = int(row['clicks'])
+        element_id, label, kind = row.get('element_id'), (row.get('label') or '').strip(), row.get('kind')
+        if not element_id and not label:
+            unnamed += clicks
+            continue
+        key = ('id', element_id) if element_id else ('label', label, kind)
+        item = groups.setdefault(key, {'element_id': element_id, 'label': label or element_id, 'kind': kind, 'clicks': 0})
+        item['clicks'] += clicks
+        if label and item['label'] == element_id:
+            item['label'] = label
+    items = sorted(groups.values(), key=lambda item: (-item['clicks'], item['label']))
+    for item in items:
+        item['kind_label'] = ELEMENT_KIND_LABELS.get(item['kind'])
+        item['share'] = pct(item['clicks'], total_clicks)
+    return {'items': items[:TOP_ELEMENTS], 'named': len(items), 'unnamed_clicks': unnamed, 'unnamed_share': pct(unnamed, total_clicks)}
+
+
+def heat_devices(rows):
+    """Views and clicks of the page on each device class, in a fixed order and with zeros."""
+    by_device = {row['device']: row for row in rows}
+    views_total = sum(int(row['views'] or 0) for row in rows)
+    out = []
+    for key, label in DEVICE_CLASSES:
+        row = by_device.get(key, {})
+        views, clicks = int(row.get('views') or 0), int(row.get('clicks') or 0)
+        out.append({'device': key, 'label': label, 'views': views, 'clicks': clicks, 'share': pct(views, views_total),
+                    'clicks_per_view': round(clicks / views, 2) if views else None})
+    return out
+
+
+def _pct_text(value):
+    return f'{value:.1f}'.replace('.', ',').removesuffix(',0') + '%'
+
+
+def heat_insights(summary, elements, zones, devices):
+    """Up to four plain sentences, each one read straight from a number on the screen; none with a small sample."""
+    if summary['clicks'] < INSIGHT_MIN_CLICKS:
+        return []
+    out = []
+    top = elements['items'][0] if elements['items'] else None
+    if top and top['share'] is not None and top['share'] >= 15:
+        out.append(f'“{top["label"]}” concentra {_pct_text(top["share"])} de todos os cliques da página.')
+    reach = summary.get('scroll_50')
+    if reach is not None and summary['sessions'] >= INSIGHT_MIN_VIEWS:
+        out.append(f'{_pct_text(round(100 - reach, 1))} das pessoas não passam da metade da página.')
+    lower = sum(zone['clicks'] for zone in zones[2:])
+    positioned = sum(zone['clicks'] for zone in zones)
+    if positioned >= INSIGHT_MIN_CLICKS and pct(lower, positioned) < 10:
+        out.append(f'Só {_pct_text(pct(lower, positioned))} dos cliques acontecem na metade de baixo da página.')
+    rates = {item['device']: item for item in devices}
+    desktop, mobile = rates['desktop'], rates['mobile']
+    if desktop['views'] >= INSIGHT_MIN_VIEWS and mobile['views'] >= INSIGHT_MIN_VIEWS and desktop['clicks_per_view']:
+        change = round((mobile['clicks_per_view'] - desktop['clicks_per_view']) / desktop['clicks_per_view'] * 100)
+        if abs(change) >= 15:
+            out.append(f'No celular há {abs(change)}% {"menos" if change < 0 else "mais"} cliques por visualização que no computador.')
+    return out[:4]
+
+
+def heat_summary(row):
+    sessions = int(row.get('sessions') or 0)
+    return {'views': int(row.get('views') or 0), 'sessions': sessions, 'clicks': int(row.get('clicks') or 0),
+            **{f'scroll_{depth}': pct(int(row.get(f'scroll_{depth}') or 0), sessions) for depth in (25, 50, 75, 100)}}
+
+
 def _rate(part, base):
     """Percent of a base big enough to mean something; None below RATE_MIN_BASE (the count is still shown)."""
     return pct(part, base) if base >= RATE_MIN_BASE else None
@@ -497,6 +623,33 @@ def register(bp):
         return jsonify(window=_window_json(since, until, days), totals=totals, groups=groups, daily=daily,
                        origins=_by_platform(_rows(_one_site(_CONV_ORIGINS_SQL, site), scope), 'sessions', 'converted'),
                        confirmed=_rows(_CRM_SQL, scope) if crm_ready else [])
+
+    @bp.get('/api/v2/reports/journey/heatmap-detail')
+    @login_required_api
+    def reports_journey_heatmap_detail():
+        """One page on one device in the period: fine click grid, zones, most clicked elements, device split and insights.
+
+        Same window and device split as heatmap-pages, so the side panel and the numbers above the capture agree.
+        """
+        selected = _selection()
+        since, until, days = _window()
+        device = request.args.get('device', 'desktop')
+        if device not in HEATMAP_DEVICES:
+            abort(400, description='Escolha computador ou celular.')
+        site = _site_param()
+        path = request.args.get('path', '')
+        if not site or not path.startswith('/') or len(path) > 500 or re.search(r'\s', path):
+            abort(400, description='Informe o site e o caminho da página.')
+        scope = {'client': selected['client_id'], 'since': since, 'until': until, 'site': site, 'path': path}
+        on_device = HEATMAP_DEVICES[device]
+        summary = heat_summary((_rows(_HEAT_SUMMARY_SQL.replace('{device}', on_device), scope) or [{}])[0])
+        grid = heat_grid(_rows(_HEAT_GRID_SQL.replace('{device}', on_device), scope))
+        elements = heat_elements(_rows(_HEAT_ELEMENTS_SQL.replace('{device}', on_device), scope), summary['clicks'])
+        zones = heat_zones(grid)
+        devices = heat_devices(_rows(_HEAT_DEVICES_SQL, scope))
+        return jsonify(window=_window_json(since, until, days), device=device, page={'site_id': site, 'path': path},
+                       summary=summary, heat=grid, positioned_share=pct(grid['total'], summary['clicks']), zones=zones,
+                       elements=elements, devices=devices, insights=heat_insights(summary, elements, zones, devices))
 
     @bp.get('/api/v2/reports/journey/heatmap-pages')
     @login_required_api

@@ -36,7 +36,7 @@ export const ROUTES = {
   'journey/content': {page: 'content', nav: 'journey', hub: 'journey', period: true, scope: 'site'},
   'journey/navigation': {page: 'navigation', nav: 'journey', hub: 'journey', period: true, scope: 'site'},
   'journey/conversions': {page: 'conversions', nav: 'journey', hub: 'journey', period: true, scope: 'site'},
-  'journey/heatmap': {page: 'heatmap', nav: 'journey', hub: 'journey', period: true, scope: 'site'},
+  'journey/heatmap': {page: 'heatmap', nav: 'journey', hub: 'journey', period: true, scope: 'site', siteRequired: true},
   reports: {page: 'reports', nav: 'reports', title: 'Relatórios', description: 'Análises salvas e entregáveis prontos para distribuir.'},
   alerts: {page: 'alerts', nav: 'alerts', title: 'Alertas', description: 'O que precisa da sua atenção, com responsável e histórico.'},
   'data-sources': {page: 'data-sources', nav: 'data-sources', hub: 'data'},

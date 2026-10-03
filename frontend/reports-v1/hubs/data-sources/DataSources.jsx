@@ -21,8 +21,10 @@ export function DataSources({data}) {
   const [files, retryFiles] = useApi(apiUrl('/imports'));
   const [working, setWorking] = useState('');
   const [error, setError] = useState('');
-  const customer = readCustomer();
   const customers = (data.customers || []).filter(item => item.status !== 'archived');
+  // A ?customer= left over from another account matches nobody: read it as "all", like the header picker does.
+  const requested = readCustomer();
+  const customer = requested === ALL_CUSTOMERS || requested === NO_CUSTOMER || customers.some(item => String(item.id) === requested) ? requested : ALL_CUSTOMERS;
   const canEdit = data.client.role !== 'viewer';
   const current = customers.find(item => String(item.id) === customer);
   const nameOf = id => customers.find(item => item.id === id)?.name;

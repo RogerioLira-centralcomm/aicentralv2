@@ -479,7 +479,7 @@ function AccountDrawer({open, account, data, save, reload, busy, customerId, cus
   </ReportsDrawer>;
 }
 
-const emptyCampaign = customerId => ({customer_id: String(customerId || ''), account_id: '', name: '', external_id: '', objective: '', channel_type: '', project: ''});
+const emptyCampaign = customerId => ({customer_id: String(customerId || ''), account_id: '', name: '', external_id: '', objective: '', channel_type: '', tags: '', project: ''});
 
 function CampaignDrawer({open, campaign, data, save, reload, busy, customerId, customers, workspace, brandRefs, onClose, onLinksChanged}) {
   const [form, setForm] = useState(emptyCampaign(customerId));
@@ -487,7 +487,8 @@ function CampaignDrawer({open, campaign, data, save, reload, busy, customerId, c
   useEffect(() => {
     if (!open) return;
     setError('');
-    setForm(campaign ? {customer_id: String(campaign.customer_id || ''), account_id: String(campaign.account_id || ''), name: campaign.name, external_id: campaign.external_id || '', objective: campaign.objective || '', channel_type: campaign.channel_type || '', project: ''} : emptyCampaign(customerId));
+    const tags = campaign?.metadata?.tags || [];
+    setForm(campaign ? {customer_id: String(campaign.customer_id || ''), account_id: String(campaign.account_id || ''), name: campaign.name, external_id: campaign.external_id || '', objective: campaign.objective || '', channel_type: campaign.channel_type || '', tags: tags.join(', '), project: ''} : emptyCampaign(customerId));
   }, [open, campaign, customerId]);
   const set = patch => setForm(previous => ({...previous, ...patch}));
   const advertisers = data.accounts.filter(item => item.account_kind === 'advertiser' && item.status !== 'disabled' && String(item.customer_id || '') === form.customer_id);
@@ -500,7 +501,8 @@ function CampaignDrawer({open, campaign, data, save, reload, busy, customerId, c
   const submit = async event => {
     event.preventDefault();
     try {
-      const payload = {name: form.name, objective: form.objective, channel_type: form.channel_type, account_id: form.account_id || null, external_id: form.external_id};
+      const tags = form.tags.split(',').map(tag => tag.trim()).filter(Boolean);
+      const payload = {name: form.name, objective: form.objective, channel_type: form.channel_type, account_id: form.account_id || null, external_id: form.external_id, tags};
       const result = campaign ? await save(`/campaigns/${campaign.id}`, payload, false, 'PATCH') : await save('/campaigns', {...payload, customer_id: form.customer_id || null}, false);
       const id = campaign?.id || result.campaign?.id;
       if (id && form.project === 'new') await send(data, `/workspace/campaign/${id}/create-project`, 'POST', {name: form.name, idempotency_key: crypto.randomUUID()});
@@ -528,6 +530,7 @@ function CampaignDrawer({open, campaign, data, save, reload, busy, customerId, c
         <ReportsFieldInput label="Objetivo" maxLength={160} value={form.objective} onChange={event => set({objective: event.target.value})} placeholder="Ex.: leads"/>
         <ReportsFieldInput label="Tipo de canal" maxLength={64} value={form.channel_type} onChange={event => set({channel_type: event.target.value})} placeholder="Ex.: pesquisa, social"/>
       </div>
+      <ReportsFieldInput label="Tags" value={form.tags} onChange={event => set({tags: event.target.value})} placeholder="Separe por vírgula: marca-a, outono, urgente" hint="Organize campanhas em grupos personalizados."/>
       {workspace && !campaign && <ReportsNativeSelect label="Projeto do Workspace" value={form.project} onChange={event => set({project: event.target.value})} hint="Opcional. Você também pode associar depois, direto na lista.">
         <option value="">Não associar agora</option>
         <option value="new">Criar projeto com o nome da campanha</option>

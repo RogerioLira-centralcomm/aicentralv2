@@ -266,7 +266,7 @@ def register(bp):
         campaign_project_select = 'NULL::text AS workspace_project_name'
         campaigns = _rows(f'''SELECT c.id,c.customer_id,c.origin,c.account_id,c.external_id,c.name,c.status,c.objective,
                 {optional_campaign_fields}
-                {campaign_project_select},a.name AS account_name,a.platform
+                {campaign_project_select},c.metadata,a.name AS account_name,a.platform
             FROM cadu_reports_campaigns c LEFT JOIN cadu_reports_accounts a ON a.id=c.account_id
             {campaign_project_join}
                 WHERE c.client_id=%s ORDER BY a.name,c.name''', params)
@@ -426,21 +426,25 @@ def register(bp):
         name = _required_text(payload, 'name', 240)
         objective = payload.get('objective')
         channel_type = payload.get('channel_type')
+        tags = payload.get('tags', [])
         if objective is not None and not isinstance(objective, str):
             abort(400, description='Objetivo inválido.')
         if channel_type is not None and not isinstance(channel_type, str):
             abort(400, description='Tipo de canal inválido.')
+        if not isinstance(tags, list) or not all(isinstance(tag, str) for tag in tags):
+            abort(400, description='Tags deve ser uma lista de strings.')
         objective = ' '.join((objective or '').split())[:160] or None
         channel_type = ' '.join((channel_type or '').split())[:64] or None
+        metadata = {'tags': tags} if tags else {}
         created = _rows('''INSERT INTO cadu_reports_campaigns
-                (client_id,account_id,external_id,name,objective,channel_type,customer_id,origin)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                (client_id,account_id,external_id,name,objective,channel_type,customer_id,origin,metadata)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 ON CONFLICT (account_id,external_id)
                 DO UPDATE SET name=EXCLUDED.name,objective=COALESCE(EXCLUDED.objective,cadu_reports_campaigns.objective),
                     channel_type=COALESCE(EXCLUDED.channel_type,cadu_reports_campaigns.channel_type),updated_at=NOW()
                 RETURNING id,account_id,external_id,name,status,objective,channel_type''',
                 (selected['client_id'], account_id, external_id, name,
-                 objective, channel_type,customer_id,origin))
+                 objective, channel_type,customer_id,origin,json.dumps(metadata)))
         get_db().commit()
         return jsonify(campaign=created[0]), 201
 
@@ -468,17 +472,21 @@ def register(bp):
         name = _required_text(payload, 'name', 240)
         objective = payload.get('objective')
         channel_type = payload.get('channel_type')
+        tags = payload.get('tags', [])
         if objective is not None and not isinstance(objective, str):
             abort(400, description='Objetivo inválido.')
         if channel_type is not None and not isinstance(channel_type, str):
             abort(400, description='Tipo de canal inválido.')
+        if not isinstance(tags, list) or not all(isinstance(tag, str) for tag in tags):
+            abort(400, description='Tags deve ser uma lista de strings.')
         objective = ' '.join((objective or '').split())[:160] or None
         channel_type = ' '.join((channel_type or '').split())[:64] or None
+        metadata = {'tags': tags} if tags else {}
         updated = _rows('''UPDATE cadu_reports_campaigns
-            SET name=%s,objective=%s,channel_type=%s,account_id=%s,external_id=%s,origin=%s,updated_at=NOW()
+            SET name=%s,objective=%s,channel_type=%s,account_id=%s,external_id=%s,origin=%s,metadata=%s,updated_at=NOW()
             WHERE id=%s AND client_id=%s
-            RETURNING id,name,objective,channel_type,status,updated_at,account_id,external_id,origin''',
-            (name, objective, channel_type, account_id,external_id,origin,campaign_id,
+            RETURNING id,name,objective,channel_type,status,updated_at,account_id,external_id,origin,metadata''',
+            (name, objective, channel_type, account_id,external_id,origin,json.dumps(metadata),campaign_id,
              selected['client_id']))
         if not updated:
             abort(404, description='Campanha não encontrada neste cliente.')

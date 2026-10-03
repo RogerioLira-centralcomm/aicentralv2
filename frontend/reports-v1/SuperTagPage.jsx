@@ -626,23 +626,35 @@ function LeadCapture({site, disabled, onUpdate}) {
 
 function InstallDrawer({open, data, onClose, onCreated}) {
   const [host, setHost] = useState('');
-  const [label, setLabel] = useState('Site principal');
+  const [label, setLabel] = useState('');
+  const [labelWasEdited, setLabelWasEdited] = useState(false);
+  const [customerId, setCustomerId] = useState('');
   const [check, setCheck] = useState(null);
   const [checking, setChecking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  useEffect(() => {if (open) {setHost(''); setLabel('Site principal'); setCheck(null); setError('');}}, [open]);
+  useEffect(() => {if (open) {setHost(''); setLabel(''); setLabelWasEdited(false); setCustomerId(''); setCheck(null); setError('');}}, [open]);
   const verify = async () => {
     if (!host.trim()) return;
     setChecking(true); setCheck(null); setError('');
-    try {const result = await json(`${API}/site-check?url=${encodeURIComponent(host.trim())}`); setCheck(result); if (result.title && label === 'Site principal') setLabel(result.title.slice(0, 120));}
+    try {const result = await json(`${API}/site-check?url=${encodeURIComponent(host.includes('://') ? host : `https://${host}`)}`); setCheck(result); if (result.title && !labelWasEdited) setLabel(result.title.slice(0, 120));}
     catch (failure) {setCheck({error: failure.message});} finally {setChecking(false);}
+  };
+  const handleHostChange = (value) => {
+    setHost(value);
+    setCheck(null);
+  };
+  const handleLabelChange = (value) => {
+    setLabel(value);
+    setLabelWasEdited(true);
   };
   const submit = async event => {
     event.preventDefault(); setBusy(true); setError('');
     try {
       const checkedHost = new URL(host.includes('://') ? host : `https://${host}`).host;
-      const result = await json(`${API}/sites`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf}, body: JSON.stringify({label, allowed_host: checkedHost})});
+      const payload = {label: label || checkedHost, allowed_host: checkedHost};
+      if (customerId) payload.customer_id = customerId;
+      const result = await json(`${API}/sites`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf}, body: JSON.stringify(payload)});
       if (check?.favicon) faviconCache.set(checkedHost, check.favicon);
       await onCreated(result.site);
     } catch (failure) {setError(failure.message);} finally {setBusy(false);}
@@ -651,7 +663,7 @@ function InstallDrawer({open, data, onClose, onCreated}) {
     <form className="untitled-scope flex flex-col gap-5" onSubmit={submit}>
       {error && <Alert>{error}</Alert>}
       <div className="flex items-end gap-3">
-        <div className="flex-1"><ReportsFieldInput label="Endereço do site" required type="url" value={host} onChange={event => {setHost(event.target.value); setCheck(null);}} placeholder="https://www.exemplo.com.br"/></div>
+        <div className="flex-1"><ReportsFieldInput label="Endereço do site" required type="url" value={host} onChange={event => handleHostChange(event.target.value)} placeholder="www.exemplo.com.br ou exemplo.com.br"/></div>
         <Button type="button" size="md" color="secondary" isDisabled={!host.trim() || checking} isLoading={checking} onPress={verify}>Verificar</Button>
       </div>
       {check && (check.error ? <Callout tone="error" title="Não foi possível acessar o site">{check.error}</Callout>
@@ -660,7 +672,10 @@ function InstallDrawer({open, data, onClose, onCreated}) {
           <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-primary">{check.title || check.host || 'Site encontrado'}</p><p className="text-xs text-tertiary">{check.host}{check.status ? ` · HTTP ${check.status}` : ''}</p></div>
           <BadgeWithDot type="pill-color" size="sm" color="success">Respondeu</BadgeWithDot>
         </div>)}
-      <ReportsFieldInput label="Nome desta instalação" required maxLength={120} value={label} onChange={event => setLabel(event.target.value)} placeholder={check?.title || 'Site principal'}/>
+      <ReportsFieldInput label="Nome desta instalação" required maxLength={120} value={label} onChange={event => handleLabelChange(event.target.value)} placeholder={check?.title || 'Será preenchido automaticamente'}/>
+      <ReportsNativeSelect label="Cliente / anunciante" value={customerId} onChange={event => setCustomerId(event.target.value)}>
+        <option value="">Sem cliente</option>{(data.customers || []).filter(item => item.status !== 'archived').map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+      </ReportsNativeSelect>
       <p className="text-sm text-tertiary">A coleta começa na primeira visita. O aviso de cookies e a política de privacidade continuam sendo do site.</p>
       <DrawerActions onCancel={onClose} busy={busy} label="Criar instalação" disabled={!check || Boolean(check.error)}/>
     </form>

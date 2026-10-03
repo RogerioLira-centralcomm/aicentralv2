@@ -62,10 +62,13 @@ function Campaigns({data, save, busy, filters, refreshRevision}) {
     const current = new URLSearchParams(location.search).get('campaign_tab') || 'overview';
     return current === 'metrics' ? 'performance' : current;
   });
-  const visibleCampaigns = data.campaigns.filter(item =>
-    (!filters.platform || item.platform === filters.platform) &&
-    (!filters.account || String(item.account_id) === filters.account) &&
-    (!filters.campaign || String(item.id) === filters.campaign));
+  const visibleCampaigns = data.campaigns.filter(item => {
+    if (filters.platform && item.platform !== filters.platform) return false;
+    if (filters.account && String(item.account_id) !== filters.account) return false;
+    if (filters.campaign && String(item.id) !== filters.campaign) return false;
+    if (filters.tags && !(item.tags || []).includes(filters.tags)) return false;
+    return true;
+  });
   useEffect(() => {
     let live = true;
     if (!campaignId) {setCampaignDetail(null); return () => {live=false;};}
@@ -93,10 +96,11 @@ function Campaigns({data, save, busy, filters, refreshRevision}) {
     <article className="reports-panel">
     <div className="reports-panel-head"><div><h2>Campanhas <small>{visibleCampaigns.length} de {data.campaigns.length}</small></h2><p>Abra uma campanha para ver desempenho, criativos e jornada.</p></div>
       <UntitledButton size="sm" color="secondary" href={`${APP_BASE}/settings/accounts`}>Gerenciar em Clientes e contas</UntitledButton></div>
-    {visibleCampaigns.length ? <div className="reports-table-wrap"><table className="cadu-table"><thead><tr><th>Campanha</th><th>Conta</th><th>Tipo</th><th>Status</th></tr></thead><tbody>{visibleCampaigns.map(item => <tr key={item.id}>
+    {visibleCampaigns.length ? <div className="reports-table-wrap"><table className="cadu-table"><thead><tr><th>Campanha</th><th>Conta</th><th>Tipo</th><th>Tags</th><th>Status</th></tr></thead><tbody>{visibleCampaigns.map(item => <tr key={item.id}>
       <td><a className="reports-campaign-link" href={campaignUrl({id: item.id}).pathname} onClick={event => {event.preventDefault(); openCampaign(item);}}><strong>{item.name}</strong><small>{item.external_id ? `ID ${item.external_id}` : 'Campanha manual'}</small></a></td>
       <td><span className="reports-cell-stack"><span>{item.account_name || 'Sem conta de mídia'}</span><small>{platformName(item.platform)}</small></span></td>
       <td>{channelLabel(item.channel_type || item.objective) || '—'}</td>
+      <td><div style={{display: 'flex', gap: '4px', flexWrap: 'wrap'}}>{(item.tags || []).map(tag => <span key={tag} style={{display: 'inline-flex', alignItems: 'center', padding: '2px 8px', fontSize: '12px', backgroundColor: '#f0f0f0', borderRadius: '4px', color: '#666'}}>{tag}</span>)}</div></td>
       <td><CampaignStatus map={CAMPAIGN_STATUS} value={item.status}/></td></tr>)}</tbody></table></div>
       : <Empty message={data.campaigns.length ? 'Nenhuma campanha corresponde aos filtros desta página.' : 'Nenhuma campanha ainda. Cadastre em Clientes e contas ou sincronize uma conta de mídia.'} />}
   </article></section>;

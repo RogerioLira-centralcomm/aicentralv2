@@ -4,7 +4,7 @@ import {Button as UntitledButton} from '../cadu-design-system/untitled-kit/butto
 import {FilterLines, RefreshCw01} from '@untitledui/icons';
 
 export const REPORT_FILTER_DEFAULTS = Object.freeze({
-  platform: '', account: '', campaign: '', period: '30', startDate: '', endDate: '',
+  platform: '', account: '', campaign: '', tags: '', period: '30', startDate: '', endDate: '',
 });
 
 export const REPORT_PAGE_META = {
@@ -56,26 +56,29 @@ export function ReportsPageHeader({page, clients = [], client, onAction, titleOv
 
 export function ReportsFilterBar({data, filters, onChange, onRefresh}) {
   const platforms = [...new Set((data?.accounts || []).map(item => item.platform))];
-  const accounts = (data?.accounts || []).filter(item => item.account_kind === 'advertiser' &&
-    (!filters.platform || item.platform === filters.platform));
+  const accounts = (data?.accounts || []).filter(item => item.account_kind === 'advertiser');
   const campaigns = (data?.campaigns || []).filter(item =>
     (!filters.platform || item.platform === filters.platform) &&
     (!filters.account || String(item.account_id) === filters.account));
-  const activeCount = [filters.platform, filters.account, filters.campaign].filter(Boolean).length;
-  const clearFilters = () => onChange({platform: '', account: '', campaign: ''});
+  const allCampaignTags = [...new Set((data?.campaigns || []).flatMap(item => item.tags || []))].sort();
+  const activeCount = [filters.platform, filters.account, filters.campaign, filters.tags].filter(Boolean).length;
+  const clearFilters = () => onChange({platform: '', account: '', campaign: '', tags: ''});
 
   return <section className="reports-filter-bar" aria-label="Filtros da página">
-    <div className="reports-filter-bar__heading"><span className="reports-filter-bar__icon" aria-hidden="true"><FilterLines size={16}/></span><div><strong>Filtros</strong><small>O período fica no topo da página</small></div></div>
+    <div className="reports-filter-bar__heading"><span className="reports-filter-bar__icon" aria-hidden="true"><FilterLines size={16}/></span><div><strong>Filtros</strong><small>Cliente, período e tags no topo</small></div></div>
     <div className="reports-filter-bar__fields">
-    <label><span>Plataforma</span><ReportsNativeSelect value={filters.platform} onChange={event => onChange({platform: event.target.value, account: '', campaign: ''})}>
+    <label><span>Plataforma</span><ReportsNativeSelect value={filters.platform} onChange={event => onChange({platform: event.target.value})}>
       <option value="">Todas</option>{platforms.map(value => <option key={value} value={value}>{{google_ads:'Google Ads',meta_ads:'Meta Ads',microsoft_ads:'Microsoft Ads',other:'Outra'}[value] || value.replaceAll('_',' ')}</option>)}
     </ReportsNativeSelect></label>
-    <label><span>Conta</span><ReportsNativeSelect value={filters.account} onChange={event => onChange({account: event.target.value, campaign: ''})}>
+    <label><span>Conta</span><ReportsNativeSelect value={filters.account} onChange={event => onChange({account: event.target.value})}>
       <option value="">Todas</option>{accounts.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
     </ReportsNativeSelect></label>
     <label><span>Campanha</span><ReportsNativeSelect value={filters.campaign} onChange={event => onChange({campaign: event.target.value})}>
       <option value="">Todas</option>{campaigns.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
     </ReportsNativeSelect></label>
+    {allCampaignTags.length > 0 && <label><span>Tag</span><ReportsNativeSelect value={filters.tags} onChange={event => onChange({tags: event.target.value})}>
+      <option value="">Todas</option>{allCampaignTags.map(tag => <option key={tag} value={tag}>{tag}</option>)}
+    </ReportsNativeSelect></label>}
     </div>
     <div className="reports-filter-bar__actions">{activeCount > 0 && <><span className="reports-filter-bar__count">{activeCount} {activeCount === 1 ? 'filtro ativo' : 'filtros ativos'}</span><UntitledButton size="sm" color="tertiary" onPress={clearFilters}>Limpar</UntitledButton></>}<UntitledButton size="md" color="secondary" iconLeading={RefreshCw01} onPress={onRefresh}>Atualizar</UntitledButton></div>
   </section>;

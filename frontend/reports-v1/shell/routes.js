@@ -28,7 +28,7 @@ export const ROUTES = {
   media: {page: 'media', nav: 'media', hub: 'media', period: true, scope: true},
   'media/campaigns': {page: 'campaigns', nav: 'media', hub: 'media', period: true},
   'media/google-ads': {page: 'google-ads', nav: 'media', hub: 'media', period: true, scope: true},
-  'media/creatives': {page: 'creatives', nav: 'media', hub: 'media', scope: true},
+  'media/creatives': {page: 'creatives', nav: 'media', hub: 'media', period: true, scope: true},
   journey: {page: 'journey', nav: 'journey', hub: 'journey', period: true, scope: 'site'},
   'journey/flows': {page: 'flow', nav: 'journey', hub: 'journey'},
   'journey/pages': {page: 'pages', nav: 'journey', hub: 'journey', period: true, scope: 'site'},

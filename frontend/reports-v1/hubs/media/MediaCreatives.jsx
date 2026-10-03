@@ -9,9 +9,59 @@ import {apiUrl, useApi} from '../../shell/useApi.js';
 import {platformName} from '../../shell/media.jsx';
 import {useReportsContext} from '../../shell/context.js';
 import {DataTable, EmptyState, ErrorState, LoadingState, Section} from '../../shell/primitives.jsx';
+import {currency, number} from '../shared.jsx';
 
 const STATUS = {draft: ['Rascunho', 'gray'], active: ['Em criação', 'warning'], ready: ['Pronto', 'success'], finalized: ['Finalizado', 'success'], finalizing: ['Finalizando', 'warning'], failed: ['Falhou', 'error'], cancelled: ['Cancelado', 'gray'], archived: ['Arquivado', 'gray']};
 const ACTIVE = ['ENABLED', 'active'];
+
+const dash = value => (value === null || value === undefined ? '—' : number(value));
+
+/** One row per Google Ads account of the client, most work first: where to spend the next hour of the day. */
+function AccountsPortfolio({period}) {
+  const {scope, setScope} = useReportsContext();
+  const [state, retry] = useApi(apiUrl('/assets/portfolio', {start_date: period.start, end_date: period.end}));
+  if (state.error) return <ErrorState message={state.error} onRetry={retry}/>;
+  if (state.loading && !state.body) return <LoadingState rows={4}/>;
+  const body = state.body;
+  if (!body?.ready || !body.accounts.length) return null;
+  const money = value => currency(value, body.currency);
+  return <Section title="Contas por prioridade" description={`Quem precisa de trabalho primeiro. Índice = ${body.formula}.`}>
+    <DataTable label="Contas do Google Ads" rows={body.accounts} rowKey={row => row.id} initialSort={{key: 'gap', dir: 'desc'}} columns={[
+      {key: 'name', label: 'Conta', render: row => <><strong>{row.name}</strong>{String(row.id) === scope.account && <span className="rs-badge is-low"> Em foco</span>}
+        <small className="rs-cell-sub">{row.collection_problems.length ? `Coleta com problema: ${row.collection_problems.join(', ')}` : row.last_run_at ? `Lida ${friendlyDateTime(row.last_run_at)}` : 'Sem leitura'}</small></>},
+      {key: 'cost', label: 'Investimento', numeric: true, render: row => money(row.cost)},
+      {key: 'waste_cost', label: 'Desperdício em termos', numeric: true, render: row => <>{money(row.waste_cost)}<small className="rs-cell-sub">{row.waste_terms} termos</small></>},
+      {key: 'opportunities', label: 'Termos para virar palavra', numeric: true, render: row => number(row.opportunities)},
+      {key: 'low_quality_keywords', label: 'Índice de Qualidade ≤ 4', numeric: true, render: row => number(row.low_quality_keywords)},
+      {key: 'weak_ads', label: 'Anúncios fracos', numeric: true, sort: row => row.weak_ads ?? -1, render: row => row.weak_ads === null ? <span className="rs-muted" title="Atualize o script de Leitura para a versão 2.2.0 para coletar os anúncios.">sem coleta</span> : number(row.weak_ads)},
+      {key: 'gap', label: 'Prioridade', numeric: true, render: row => <>{number(row.gap)}<small className="rs-cell-sub">{row.high} alta · {row.medium} média · {row.low} baixa</small></>},
+      {key: 'open', label: '', sortable: false, render: row => <ReportsActionButton color="link-color" size="sm" className="rs-link-button" onClick={() => setScope({...scope, account: String(row.id), campaign: ''})}>Focar</ReportsActionButton>},
+    ]}/>
+  </Section>;
+}
+
+/** What can be worked on in the scope in focus, by kind of asset: Google Ads is texts, keywords and terms as much as images. */
+function AssetTypes({period, onPick}) {
+  const {scope} = useReportsContext();
+  const [state] = useApi(apiUrl('/assets/portfolio', {start_date: period.start, end_date: period.end}));
+  const rows = (state.body?.accounts || []).filter(row => !scope.account || String(row.id) === scope.account);
+  const total = key => rows.reduce((sum, row) => sum + (row[key] || 0), 0);
+  const adsKnown = rows.length > 0 && rows.every(row => row.weak_ads !== null);
+  const money = value => currency(value, state.body?.currency);
+  const link = view => reportUrl('media/google-ads', {view});
+  const cards = [
+    {key: 'ads', title: 'Anúncios de pesquisa', detail: adsKnown ? `${number(rows.reduce((sum, row) => sum + row.weak_ads, 0))} anúncios com força fraca` : 'A coleta de anúncios chega com o script de Leitura 2.2.0.', tone: adsKnown ? '' : 'is-pending'},
+    {key: 'keywords', title: 'Palavras-chave', detail: `${number(total('low_quality_keywords'))} com Índice de Qualidade ≤ 4 · ${number(total('opportunities'))} termos para virar palavra`, href: link('keywords')},
+    {key: 'terms', title: 'Termos e negativas', detail: `${money(total('waste_cost'))} em ${number(total('waste_terms'))} termos sem conversão`, href: link('search_terms')},
+    {key: 'media', title: 'Imagem e vídeo', detail: 'Crie ou envie peças pelo Studio, com marca e projeto.', onClick: onPick},
+  ];
+  return <Section title="O que trabalhar" description={scope.account ? 'Na conta em foco.' : 'Em todas as contas do cliente.'}>
+    <div className="rs-asset-types">{cards.map(card => card.href
+      ? <a key={card.key} className="rs-asset-type" href={card.href}><strong>{card.title}</strong><span>{card.detail}</span></a>
+      : card.onClick ? <button type="button" key={card.key} className="rs-asset-type" onClick={card.onClick}><strong>{card.title}</strong><span>{card.detail}</span></button>
+        : <div key={card.key} className={`rs-asset-type ${card.tone || ''}`}><strong>{card.title}</strong><span>{card.detail}</span></div>)}</div>
+  </Section>;
+}
 
 /**
  * "Que peça criar para cada campanha?" — the brief comes from what the campaign shows (intent that converts,
@@ -19,7 +69,8 @@ const ACTIVE = ['ENABLED', 'active'];
  * and credits are handled.
  */
 export function MediaCreatives({data}) {
-  const {scope} = useReportsContext();
+  const {scope, period} = useReportsContext();
+  const [mode, setMode] = useState(() => (new URLSearchParams(location.search).get('campaign') ? 'generate' : ''));
   // The header's source/campaign narrows which campaigns can be picked here.
   const campaigns = data.campaigns.filter(item => (!scope.account || String(item.account_id) === scope.account) && (!scope.campaign || String(item.id) === scope.campaign)).sort((a, b) => Number(ACTIVE.includes(b.status)) - Number(ACTIVE.includes(a.status)));
   const [campaignId, setCampaignId] = useState(() => new URLSearchParams(location.search).get('campaign') || (/^\d+$/.test(scope.campaign) ? scope.campaign : '') || String(campaigns[0]?.id || ''));
@@ -55,12 +106,21 @@ export function MediaCreatives({data}) {
       retrySessions();
     } catch (failure) {tab?.close(); setError(failure.message);} finally {setSending(false);}
   };
-  if (!campaigns.length) return <EmptyState title="Nenhuma campanha cadastrada" description="Os briefings de criativo partem dos dados de uma campanha. Cadastre ou importe campanhas primeiro."
-    action={<ReportsActionButton color="secondary" size="sm" href={reportUrl('media/campaigns')}>Ver campanhas</ReportsActionButton>}/>;
   const brand = body?.brands.find(item => item.ref === brandRef);
   const signals = body?.signals;
-  return <div className="rs-stack">
-    <Section title="Criar com o Studio" description="O briefing nasce dos dados da campanha. A direção, a geração e os créditos ficam no Studio.">
+  const studio = !campaigns.length
+    ? <EmptyState title="Nenhuma campanha cadastrada" description="Os briefings de criativo partem dos dados de uma campanha. Cadastre ou importe campanhas primeiro."
+      action={<ReportsActionButton color="secondary" size="sm" href={reportUrl('media/campaigns')}>Ver campanhas</ReportsActionButton>}/>
+    : !mode ? <Section title="Imagem e vídeo" description="Você já tem as peças ou quer gerar novas?">
+      <div className="rs-asset-types">
+        <button type="button" className="rs-asset-type" onClick={() => setMode('have')}><strong>Já tenho os criativos</strong><span>Veja o que já foi enviado ao Studio e abra para continuar.</span></button>
+        <button type="button" className="rs-asset-type" onClick={() => setMode('generate')}><strong>Quero gerar</strong><span>O briefing nasce dos dados da campanha e abre no Studio.</span></button>
+      </div></Section>
+    : <div className="rs-stack">
+    <div className="rs-actions"><div className="rs-segmented" role="group" aria-label="Imagem e vídeo">
+      <button type="button" aria-pressed={mode === 'have'} onClick={() => setMode('have')}>Já tenho os criativos</button>
+      <button type="button" aria-pressed={mode === 'generate'} onClick={() => setMode('generate')}>Quero gerar</button></div></div>
+    {mode === 'generate' && <Section title="Criar com o Studio" description="O briefing nasce dos dados da campanha. A direção, a geração e os créditos ficam no Studio.">
       <div className="rs-creative">
         <div className="rs-creative__form">
           <label className="rs-field"><span>Campanha</span>
@@ -101,8 +161,8 @@ export function MediaCreatives({data}) {
           </dl>}
         </aside>
       </div>
-    </Section>
-    <Section title="Criações enviadas ao Studio" description="Sessões abertas a partir do Reports, com a imagem mais recente quando já foi gerada">
+    </Section>}
+    {mode === 'have' && <Section title="Criações enviadas ao Studio" description="Sessões abertas a partir do Reports, com a imagem mais recente quando já foi gerada">
       {sessions.error ? <ErrorState message={sessions.error} onRetry={retrySessions}/> : !sessions.body ? <LoadingState rows={3}/> :
         <DataTable label="Criações enviadas ao Studio" rows={sessions.body.sessions} rowKey={row => row.id}
           empty={<p className="rs-muted">Nenhuma criação ainda. Escolha uma campanha acima e abra o briefing no Studio.</p>} columns={[
@@ -111,6 +171,11 @@ export function MediaCreatives({data}) {
             {key: 'created_at', label: 'Criada', render: row => friendlyDateTime(row.created_at)},
             {key: 'open', label: '', sortable: false, render: row => <a className="rs-link" href={row.studio_url} target="_blank" rel="noopener">Abrir no Studio<ArrowUpRight size={14} aria-hidden="true"/></a>},
           ]}/>}
-    </Section>
+    </Section>}
+  </div>;
+  return <div className="rs-stack">
+    <AccountsPortfolio period={period}/>
+    <AssetTypes period={period} onPick={() => setMode(current => current || 'have')}/>
+    {studio}
   </div>;
 }

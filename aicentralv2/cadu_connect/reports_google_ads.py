@@ -311,6 +311,49 @@ def _day_value(payload, key):
         abort(400, description=f'Data inválida em {key}.')
 
 
+def _analysis(scope, previous_scope):
+    """Everything the Google Ads summary and the per-account portfolio read, for one (possibly narrowed) scope."""
+    accounts = _accounts(scope)
+    totals = _money(_rows(_TOTALS_SQL, scope))[0]
+    previous = _money(_rows(_TOTALS_SQL, previous_scope))[0]
+    targets = _column_exists('cadu_reports_gads_campaign_settings', 'target_cpa_micros')
+    settings = {(row['account_id'], row['campaign_external_id']): row for row in
+                _rows(_SETTINGS_SQL.format(targets=',target_cpa_micros,target_roas' if targets else ''), scope)}
+    campaigns = _money(_rows(_CAMPAIGNS_SQL, scope))
+    before = {(row['account_id'], row['campaign_external_id']): row for row in _money(_rows(_CAMPAIGNS_SQL, previous_scope))}
+    for campaign in campaigns:
+        setting = settings.pop((campaign['account_id'], campaign['campaign_external_id']), {})
+        campaign.update({key: setting.get(key) for key in ('status', 'serving_status', 'channel_type', 'bidding_strategy_type', 'budget_shared')})
+        campaign['target_cpa'] = round(setting['target_cpa_micros'] / 1e6, 2) if setting.get('target_cpa_micros') else None
+        campaign['target_roas'] = float(setting['target_roas']) if setting.get('target_roas') else None
+        prior = before.get((campaign['account_id'], campaign['campaign_external_id']))
+        campaign['previous'] = {key: prior.get(key) for key in ('cost', 'clicks', 'conversions', 'cpa', 'roas')} if prior else None
+        campaign['budget'] = round(setting['budget_micros'] / 1e6, 2) if setting.get('budget_micros') is not None else None
+        campaign['daily_spend'] = round(campaign['cost'] / campaign['active_days'], 2) if campaign['cost'] is not None and campaign['active_days'] else None
+        campaign['budget_usage'] = round(campaign['daily_spend'] * 100 / campaign['budget'], 1) if campaign.get('daily_spend') and campaign['budget'] else None
+    # Enabled campaigns with no spend in the period still belong in the list.
+    for setting in settings.values():
+        if setting.get('status') == 'ENABLED':
+            campaigns.append({'account_id': setting['account_id'], 'campaign_external_id': setting['campaign_external_id'],
+                              'campaign_name': setting['campaign_name'], 'impressions': 0, 'clicks': 0, 'cost': 0, 'conversions': 0,
+                              'conversion_value': 0, 'ctr': None, 'cpc': None, 'cpa': None, 'roas': None, 'active_days': 0,
+                              'status': setting['status'], 'serving_status': setting['serving_status'], 'channel_type': setting['channel_type'],
+                              'bidding_strategy_type': setting['bidding_strategy_type'], 'budget_shared': setting['budget_shared'],
+                              'budget': round(setting['budget_micros'] / 1e6, 2) if setting.get('budget_micros') is not None else None,
+                              'daily_spend': None, 'budget_usage': None})
+    campaigns.sort(key=lambda row: -(row['cost'] or 0))
+    _attach_goals(scope, campaigns)
+    negatives = [row for row in _rows(_NEGATIVES_SQL, scope) if row['removed_at'] is None]
+    known = _known(accounts)
+    terms = _terms(scope, negatives, known)
+    keywords = _money(_rows(_KEYWORDS_SQL, scope))
+    devices = _money(_rows(_DEVICES_SQL, scope))
+    recommendations = build_recommendations(accounts=accounts, campaigns=campaigns, terms=terms, keywords=keywords,
+                                            devices=devices, negatives=negatives, totals=totals)
+    return {'accounts': accounts, 'totals': totals, 'previous': previous, 'campaigns': campaigns, 'negatives': negatives,
+            'terms': terms, 'keywords': keywords, 'devices': devices, 'recommendations': recommendations}
+
+
 def register(bp):
     @bp.put('/api/v2/reports/google-ads/goals/<int:campaign_id>')
     @login_required_api
@@ -399,43 +442,9 @@ def register(bp):
         selected, scope, previous_scope = _scope()
         if not _ready():
             return _empty(scope['start'], scope['end'])
-        accounts = _accounts(scope)
-        totals = _money(_rows(_TOTALS_SQL, scope))[0]
-        previous = _money(_rows(_TOTALS_SQL, previous_scope))[0]
-        targets = _column_exists('cadu_reports_gads_campaign_settings', 'target_cpa_micros')
-        settings = {(row['account_id'], row['campaign_external_id']): row for row in
-                    _rows(_SETTINGS_SQL.format(targets=',target_cpa_micros,target_roas' if targets else ''), scope)}
-        campaigns = _money(_rows(_CAMPAIGNS_SQL, scope))
-        before = {(row['account_id'], row['campaign_external_id']): row for row in _money(_rows(_CAMPAIGNS_SQL, previous_scope))}
-        for campaign in campaigns:
-            setting = settings.pop((campaign['account_id'], campaign['campaign_external_id']), {})
-            campaign.update({key: setting.get(key) for key in ('status', 'serving_status', 'channel_type', 'bidding_strategy_type', 'budget_shared')})
-            campaign['target_cpa'] = round(setting['target_cpa_micros'] / 1e6, 2) if setting.get('target_cpa_micros') else None
-            campaign['target_roas'] = float(setting['target_roas']) if setting.get('target_roas') else None
-            prior = before.get((campaign['account_id'], campaign['campaign_external_id']))
-            campaign['previous'] = {key: prior.get(key) for key in ('cost', 'clicks', 'conversions', 'cpa', 'roas')} if prior else None
-            campaign['budget'] = round(setting['budget_micros'] / 1e6, 2) if setting.get('budget_micros') is not None else None
-            campaign['daily_spend'] = round(campaign['cost'] / campaign['active_days'], 2) if campaign['cost'] is not None and campaign['active_days'] else None
-            campaign['budget_usage'] = round(campaign['daily_spend'] * 100 / campaign['budget'], 1) if campaign.get('daily_spend') and campaign['budget'] else None
-        # Enabled campaigns with no spend in the period still belong in the list.
-        for setting in settings.values():
-            if setting.get('status') == 'ENABLED':
-                campaigns.append({'account_id': setting['account_id'], 'campaign_external_id': setting['campaign_external_id'],
-                                  'campaign_name': setting['campaign_name'], 'impressions': 0, 'clicks': 0, 'cost': 0, 'conversions': 0,
-                                  'conversion_value': 0, 'ctr': None, 'cpc': None, 'cpa': None, 'roas': None, 'active_days': 0,
-                                  'status': setting['status'], 'serving_status': setting['serving_status'], 'channel_type': setting['channel_type'],
-                                  'bidding_strategy_type': setting['bidding_strategy_type'], 'budget_shared': setting['budget_shared'],
-                                  'budget': round(setting['budget_micros'] / 1e6, 2) if setting.get('budget_micros') is not None else None,
-                                  'daily_spend': None, 'budget_usage': None})
-        campaigns.sort(key=lambda row: -(row['cost'] or 0))
-        _attach_goals(scope, campaigns)
-        negatives = [row for row in _rows(_NEGATIVES_SQL, scope) if row['removed_at'] is None]
-        known = _known(accounts)
-        terms = _terms(scope, negatives, known)
-        keywords = _money(_rows(_KEYWORDS_SQL, scope))
-        devices = _money(_rows(_DEVICES_SQL, scope))
-        recommendations = build_recommendations(accounts=accounts, campaigns=campaigns, terms=terms, keywords=keywords,
-                                                devices=devices, negatives=negatives, totals=totals)
+        analysis = _analysis(scope, previous_scope)
+        accounts, totals, previous = analysis['accounts'], analysis['totals'], analysis['previous']
+        campaigns, terms, recommendations = analysis['campaigns'], analysis['terms'], analysis['recommendations']
         # What already happened to each recommendation through the Ações script (queued, applied, undone).
         queued = recommendation_actions(scope['client'], [item['id'] for item in recommendations if item.get('proposal')])
         for item in recommendations:

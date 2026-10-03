@@ -388,3 +388,12 @@
 @media (max-width:760px){.ga-cards{grid-template-columns:1fr}}
 .ga-camp{display:grid;gap:2px;min-width:180px}
 .ga-pace{min-width:150px}
+
+/* Mídia → Criativos: tipos de ativo */
+.rs-asset-types{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.rs-asset-type{display:grid;gap:4px;align-content:start;padding:16px;border:1px solid var(--color-border-secondary);border-radius:12px;background:var(--color-bg-primary);color:inherit;font:inherit;text-align:left;text-decoration:none;cursor:pointer}
+.rs-asset-type strong{color:var(--color-text-primary);font-size:15px;font-weight:600}
+.rs-asset-type span{color:var(--color-text-tertiary);font-size:14px;line-height:20px}
+a.rs-asset-type:hover,button.rs-asset-type:hover{background:var(--color-bg-secondary)}
+div.rs-asset-type{cursor:default}
+.rs-asset-type.is-pending{border-style:dashed;background:var(--color-bg-secondary)}

@@ -45,6 +45,8 @@ from .reports_creatives import register as register_reports_creatives
 register_reports_creatives(bp)
 from .reports_google_ads import register as register_reports_google_ads
 register_reports_google_ads(bp)
+from .reports_assets import register as register_reports_assets
+register_reports_assets(bp)
 from .reports_google_ads_actions import register as register_reports_google_ads_actions
 register_reports_google_ads_actions(bp)
 from .reports_alerts import register as register_reports_alerts

@@ -280,11 +280,15 @@ _CONV_GROUPS_ORIGINS_SQL = _CONV_GROUP_CTE + """, sess AS (
 )
     SELECT c.site_id,c.kind,c.name,c.pattern,x.origin,COUNT(DISTINCT c.session_id)::bigint AS sessions
     FROM conv c JOIN sess x ON x.site_id=c.site_id AND x.session_id=c.session_id GROUP BY c.site_id,c.kind,c.name,c.pattern,x.origin""".replace('@ORIGIN@', origin_group_sql())
-_CONV_GROUPS_PREVIOUS_SQL = _CONV_GROUP_CTE + """
+# The lateral lookup only scans page views of sessions that converted, not every event of the period.
+_CONV_GROUPS_PREVIOUS_SQL = _CONV_GROUP_CTE + """, pv AS (
+    SELECT p.site_id,p.session_id,p.path,p.occurred_at,p.id FROM ev p
+    WHERE p.event_kind='page_view' AND EXISTS (SELECT 1 FROM conv c WHERE c.site_id=p.site_id AND c.session_id=p.session_id)
+)
     SELECT c.site_id,c.kind,c.name,c.pattern,prev.pattern AS from_pattern,COUNT(DISTINCT c.session_id)::bigint AS sessions
     FROM conv c JOIN LATERAL (
-        SELECT @P@ AS pattern FROM ev p
-        WHERE p.event_kind='page_view' AND p.site_id=c.site_id AND p.session_id=c.session_id AND p.path<>c.path
+        SELECT @P@ AS pattern FROM pv p
+        WHERE p.site_id=c.site_id AND p.session_id=c.session_id AND p.path<>c.path
             AND (p.occurred_at,p.id)<(c.occurred_at,c.id) ORDER BY p.occurred_at DESC,p.id DESC LIMIT 1
     ) prev ON true GROUP BY c.site_id,c.kind,c.name,c.pattern,prev.pattern""".replace('@P@', CONVERSION_PATTERN.replace('LOWER(path)', 'LOWER(p.path)'))
 

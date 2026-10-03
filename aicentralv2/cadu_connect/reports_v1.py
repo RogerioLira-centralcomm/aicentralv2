@@ -270,6 +270,8 @@ def register(bp):
             FROM cadu_reports_campaigns c LEFT JOIN cadu_reports_accounts a ON a.id=c.account_id
             {campaign_project_join}
                 WHERE c.client_id=%s ORDER BY a.name,c.name''', params)
+        for campaign in campaigns:
+            campaign['tags'] = campaign.get('metadata', {}).get('tags', []) if isinstance(campaign.get('metadata'), dict) else []
         reports_ready = _rows("SELECT to_regclass('public.cadu_connect_report_workspaces') IS NOT NULL AS ready")[0]['ready']
         # A report is "published" while it has an active public link; the list groups by it.
         links_ready = reports_ready and _rows("SELECT to_regclass('public.cadu_connect_report_public_links') IS NOT NULL AS ready")[0]['ready']

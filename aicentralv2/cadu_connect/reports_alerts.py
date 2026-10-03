@@ -14,7 +14,8 @@ from flask import abort, current_app, jsonify, request, session
 
 from ..auth import login_required_api
 from ..db import get_db
-from .reports_alert_rules import RULES, collection_absent_findings, conversion_drop_findings, page_down_findings
+from .reports_alert_rules import (RULES, campaign_page_findings, channel_entry_findings, collection_absent_findings, conversion_drop_findings,
+                                  page_down_findings, tech_conversion_findings)
 from .reports_page_identity import sql_normalized_path
 from .reports_v1 import _rows, _selection, _write_guard
 
@@ -113,6 +114,33 @@ _TOP_PAGES_SQL = f'''
     GROUP BY 1 ORDER BY views DESC LIMIT {TOP_PAGES_FOR_DROP}'''
 
 
+# Insights read the last 7 days of sessions with the same session table the Canais tab uses ({site} is filled in by evaluate_insights).
+_INSIGHT_ENTRY_SQL = '''
+    SELECT origin,path,COUNT(*)::bigint AS sessions,COUNT(*) FILTER (WHERE length=1)::bigint AS single_page FROM chan GROUP BY origin,path'''
+_INSIGHT_TECH_SQL = '''
+    SELECT 'device' AS kind,device AS value,COUNT(*)::bigint AS sessions,COUNT(*) FILTER (WHERE converted)::bigint AS converted
+    FROM chan WHERE device<>'unknown' GROUP BY device
+    UNION ALL
+    SELECT 'resolution',resolution,COUNT(*)::bigint,COUNT(*) FILTER (WHERE converted)::bigint FROM chan WHERE resolution IS NOT NULL GROUP BY resolution
+    UNION ALL
+    SELECT 'overall','all',COUNT(*)::bigint,COUNT(*) FILTER (WHERE converted)::bigint FROM chan'''
+_INSIGHT_CAMPAIGN_SQL = '''
+    SELECT campaign,path,COUNT(*)::bigint AS sessions,COUNT(*) FILTER (WHERE length=1)::bigint AS single_page,
+        COUNT(*) FILTER (WHERE converted)::bigint AS converted
+    FROM chan WHERE campaign<>'' GROUP BY campaign,path'''
+
+
+def evaluate_insights(site, now):
+    """Advisory rules (severity low, never e-mailed) over the last 7 days of sessions of one site."""
+    from .reports_journey import _CHANNELS_CTE, DEVICE_LABELS, ORIGIN_LABELS
+    cte = _CHANNELS_CTE.replace('{site}', 'AND e.site_id=%(site)s::uuid')
+    params = {'client': site['client_id'], 'since': now - timedelta(days=7), 'until': now, 'site': site['id']}
+    tech = _rows(cte + _INSIGHT_TECH_SQL, params)
+    sync_findings(site, 'channel_entry_exit', channel_entry_findings(_rows(cte + _INSIGHT_ENTRY_SQL, params), ORIGIN_LABELS), now)
+    sync_findings(site, 'device_conversion_low', tech_conversion_findings(tech, DEVICE_LABELS), now)
+    sync_findings(site, 'campaign_weak_page', campaign_page_findings(_rows(cte + _INSIGHT_CAMPAIGN_SQL, params), tech), now)
+
+
 def evaluate_site(site, heavy=False, now=None):
     now = now or datetime.now(timezone.utc)
     checks = _rows(_CHECKS_SQL, (site['id'], site['client_id']))
@@ -128,6 +156,13 @@ def evaluate_site(site, heavy=False, now=None):
             previous = window_metrics(site['id'], row['path'], now - timedelta(days=14), now - timedelta(days=7))[0]
             pages.append({'path': row['path'], 'current': current, 'previous': previous})
         sync_findings(site, 'conversion_drop', conversion_drop_findings(pages), now)
+        # Committed first: a failing insight query must not undo the incident rules just synced.
+        get_db().commit()
+        try:
+            evaluate_insights(site, now)
+        except Exception:
+            get_db().rollback()
+            current_app.logger.exception('Falha ao avaliar insights do site %s', site['id'])
 
 
 def evaluate_all(heavy=False):

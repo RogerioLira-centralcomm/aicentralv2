@@ -10,6 +10,13 @@ CONSECUTIVE_FAILURES = 2
 SILENT_AFTER_HOURS = 6
 MIN_BASELINE_EVENTS = 50
 CONVERSION_DROP_PERCENT = 30.0
+INSIGHT_MIN_SESSIONS = 20       # sessions behind one (channel, page) or (campaign, page) reading
+INSIGHT_OTHERS_MIN = 20         # sessions of the other channels on the same page, the yardstick for a channel reading
+INSIGHT_BOUNCE_PERCENT = 60.0   # share of sessions that leave without a second page
+INSIGHT_BOUNCE_GAP = 20.0       # points above the other channels on the same page
+INSIGHT_MIN_CONVERTED = 5       # the site needs this many converted sessions before "below average" means anything
+INSIGHT_BELOW_RATIO = 0.5       # conversion under this share of the site average
+INSIGHT_PER_RULE = 10           # findings kept per insight rule, busiest first
 RULES = {
     'page_down': {'severity': 'high', 'title': 'Página indisponível',
                   'when': f'A página falhou em {CONSECUTIVE_FAILURES} verificações seguidas do monitor.'},
@@ -18,6 +25,15 @@ RULES = {
     'conversion_drop': {'severity': 'low', 'title': 'Queda na conversão da página',
                         'when': f'Queda relativa de {CONVERSION_DROP_PERCENT:.0f}% ou mais na taxa de conversão da sessão, '
                                 f'7 dias contra os 7 anteriores, com ao menos {MIN_RELIABLE_SESSIONS} sessões nos dois.'},
+    'channel_entry_exit': {'severity': 'low', 'title': 'Canal entra e sai sem ver outra página',
+                           'when': f'Ao menos {INSIGHT_MIN_SESSIONS} sessões de um canal entram por uma página e {INSIGHT_BOUNCE_PERCENT:.0f}% ou mais saem sem ver outra, '
+                                   f'{INSIGHT_BOUNCE_GAP:.0f} pontos acima dos demais canais na mesma página (que somam ao menos {INSIGHT_OTHERS_MIN} sessões), 7 dias.'},
+    'device_conversion_low': {'severity': 'low', 'title': 'Aparelho ou tela converte abaixo da média',
+                              'when': f'Ao menos {MIN_RELIABLE_SESSIONS} sessões num tipo de aparelho ou tamanho de tela, com conversão abaixo de '
+                                      f'{INSIGHT_BELOW_RATIO * 100:.0f}% da média do site, que tem ao menos {INSIGHT_MIN_CONVERTED} sessões convertidas, 7 dias.'},
+    'campaign_weak_page': {'severity': 'low', 'title': 'Campanha leva a uma página fraca',
+                           'when': f'Ao menos {INSIGHT_MIN_SESSIONS} sessões de uma campanha (utm_campaign) entram por uma página onde {INSIGHT_BOUNCE_PERCENT:.0f}% ou mais saem sem ver outra '
+                                   f'e a conversão fica abaixo de {INSIGHT_BELOW_RATIO * 100:.0f}% da média do site, 7 dias.'},
 }
 
 
@@ -85,3 +101,96 @@ def conversion_drop_findings(pages):
              {'label': 'Variação relativa', 'value': round(100 * (a - b) / b, 1), 'unit': 'percent'},
              {'label': 'Sessões atuais', 'value': now['sessions'], 'unit': 'count'}], page_path=page['path']))
     return findings
+
+
+def _subject(*parts):
+    return '|'.join(str(part) for part in parts)[:520]
+
+
+def _busiest(findings):
+    return [item for _, item in sorted(findings, key=lambda pair: -pair[0])[:INSIGHT_PER_RULE]]
+
+
+def channel_entry_findings(rows, labels):
+    """rows: [{origin, path, sessions, single_page}] — sessions that entered each page, by origin group.
+
+    A channel is flagged on a page when it bounces much more than the other channels do on that same page, so a page that
+    is weak for everyone is not blamed on one channel."""
+    by_path = {}
+    for row in rows:
+        by_path.setdefault(row['path'], []).append(row)
+    found = []
+    for path, lines in by_path.items():
+        total = sum(int(line['sessions']) for line in lines)
+        total_single = sum(int(line['single_page']) for line in lines)
+        for line in lines:
+            sessions, single = int(line['sessions']), int(line['single_page'])
+            others, others_single = total - sessions, total_single - single
+            if sessions < INSIGHT_MIN_SESSIONS or others < INSIGHT_OTHERS_MIN:
+                continue
+            bounce, baseline = 100 * single / sessions, 100 * others_single / others
+            if bounce < INSIGHT_BOUNCE_PERCENT or bounce - baseline < INSIGHT_BOUNCE_GAP:
+                continue
+            label = labels.get(line['origin'], line['origin'])
+            found.append((sessions, _finding(
+                'channel_entry_exit', _subject(line['origin'], path),
+                f'{label} entra por {path} e {bounce:.0f}% das sessões saem sem ver outra página; nos demais canais são {baseline:.0f}%.',
+                [{'label': 'Canal', 'value': label, 'unit': 'text'}, {'label': 'Sessões do canal na página', 'value': sessions, 'unit': 'count'},
+                 {'label': 'Saem sem ver outra página', 'value': round(bounce, 1), 'unit': 'percent'},
+                 {'label': 'Demais canais', 'value': round(baseline, 1), 'unit': 'percent'}], page_path=path)))
+    return _busiest(found)
+
+
+def _site_rate(rows):
+    overall = next((row for row in rows if row.get('kind') == 'overall'), None)
+    if not overall or int(overall['converted']) < INSIGHT_MIN_CONVERTED or int(overall['sessions']) < MIN_RELIABLE_SESSIONS:
+        return None
+    return 100 * int(overall['converted']) / int(overall['sessions'])
+
+
+def tech_conversion_findings(rows, labels):
+    """rows: [{kind: device|resolution|overall, value, sessions, converted}]; labels maps device classes to names."""
+    average = _site_rate(rows)
+    if average is None:
+        return []
+    found = []
+    for row in rows:
+        if row.get('kind') not in ('device', 'resolution'):
+            continue
+        sessions, converted = int(row['sessions']), int(row['converted'])
+        if sessions < MIN_RELIABLE_SESSIONS:
+            continue
+        rate = 100 * converted / sessions
+        if rate >= average * INSIGHT_BELOW_RATIO:
+            continue
+        name = labels.get(row['value'], row['value']) if row['kind'] == 'device' else str(row['value']).replace('x', '×')
+        what = 'O aparelho' if row['kind'] == 'device' else 'A tela'
+        found.append((sessions, _finding(
+            'device_conversion_low', _subject(row['kind'], row['value']),
+            f'{what} {name} converte {rate:.1f}% das sessões, abaixo da metade da média do site ({average:.1f}%).',
+            [{'label': 'Aparelho ou tela', 'value': name, 'unit': 'text'}, {'label': 'Sessões', 'value': sessions, 'unit': 'count'},
+             {'label': 'Conversão', 'value': round(rate, 1), 'unit': 'percent'}, {'label': 'Média do site', 'value': round(average, 1), 'unit': 'percent'}])))
+    return _busiest(found)
+
+
+def campaign_page_findings(rows, overall):
+    """rows: [{campaign, path, sessions, single_page, converted}]; overall: the tech rows, only for the site conversion average."""
+    average = _site_rate(overall)
+    if average is None:
+        return []
+    found = []
+    for row in rows:
+        sessions, single, converted = int(row['sessions']), int(row['single_page']), int(row['converted'])
+        if sessions < INSIGHT_MIN_SESSIONS:
+            continue
+        bounce, rate = 100 * single / sessions, 100 * converted / sessions
+        if bounce < INSIGHT_BOUNCE_PERCENT or rate >= average * INSIGHT_BELOW_RATIO:
+            continue
+        found.append((sessions, _finding(
+            'campaign_weak_page', _subject(row['campaign'], row['path']),
+            f"A campanha {row['campaign']} leva {sessions} sessões a {row['path']}, onde {bounce:.0f}% saem sem ver outra página e {rate:.1f}% convertem.",
+            [{'label': 'Campanha', 'value': row['campaign'], 'unit': 'text'}, {'label': 'Sessões na página', 'value': sessions, 'unit': 'count'},
+             {'label': 'Saem sem ver outra página', 'value': round(bounce, 1), 'unit': 'percent'},
+             {'label': 'Conversão', 'value': round(rate, 1), 'unit': 'percent'}, {'label': 'Média do site', 'value': round(average, 1), 'unit': 'percent'}],
+            page_path=row['path'])))
+    return _busiest(found)

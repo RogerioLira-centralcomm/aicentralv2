@@ -7,7 +7,8 @@ from flask import Blueprint, Flask
 
 from aicentralv2.cadu_connect import reports_alerts as alerts
 from aicentralv2.cadu_connect.reports_alert_rules import (
-    CONSECUTIVE_FAILURES, RULES, collection_absent_findings, conversion_drop_findings, page_down_findings)
+    CONSECUTIVE_FAILURES, RULES, campaign_page_findings, channel_entry_findings, collection_absent_findings, conversion_drop_findings,
+    page_down_findings, tech_conversion_findings)
 
 NOW = datetime.datetime(2026, 10, 1, 12, 0, tzinfo=datetime.timezone.utc)
 
@@ -62,7 +63,8 @@ def test_conversion_drop_requires_reliable_samples_and_a_big_relative_fall():
 
 
 def test_every_rule_documents_its_condition():
-    assert set(RULES) == {'page_down', 'collection_absent', 'conversion_drop'}
+    assert set(RULES) == {'page_down', 'collection_absent', 'conversion_drop', 'channel_entry_exit', 'device_conversion_low', 'campaign_weak_page'}
+    assert all(RULES[key]['severity'] == 'low' for key in ('channel_entry_exit', 'device_conversion_low', 'campaign_weak_page'))   # advisory, never e-mailed
     assert all(item['when'] and item['title'] and item['severity'] for item in RULES.values())
 
 
@@ -206,3 +208,76 @@ def test_listing_rejects_unknown_status_and_needs_login():
     alerts.register(bp)
     app.register_blueprint(bp)
     assert app.test_client().get('/connect/api/v2/reports/alerts').status_code == 401
+
+
+# ------------------------------------------------------------------------------------------------ insights
+
+LABELS = {'google_ads': 'Google Ads', 'direct': 'Direto'}
+
+
+def entry(origin, sessions, single, path='/lp'):
+    return {'origin': origin, 'path': path, 'sessions': sessions, 'single_page': single}
+
+
+def test_a_channel_is_flagged_only_when_it_bounces_far_more_than_the_others_on_the_same_page():
+    rows = [entry('google_ads', 40, 32), entry('direct', 30, 9), entry('social', 10, 9)]        # ads 80% vs others 45%
+    found = channel_entry_findings(rows, LABELS)
+    assert [item['subject_key'] for item in found] == ['google_ads|/lp'] and found[0]['severity'] == 'low' and found[0]['page_path'] == '/lp'
+    assert 'Google Ads' in found[0]['summary'] and '80%' in found[0]['summary']
+    assert channel_entry_findings([entry('google_ads', 40, 32), entry('direct', 30, 24)], LABELS) == []   # weak for everyone: no channel is blamed
+    assert channel_entry_findings([entry('google_ads', 19, 19), entry('direct', 30, 3)], LABELS) == []    # channel sample too small
+    assert channel_entry_findings([entry('google_ads', 40, 38), entry('direct', 19, 1)], LABELS) == []    # yardstick too small
+    assert channel_entry_findings([entry('google_ads', 40, 20), entry('direct', 30, 3)], LABELS) == []    # 50% is under the 60% floor
+
+
+def tech(kind, value, sessions, converted):
+    return {'kind': kind, 'value': value, 'sessions': sessions, 'converted': converted}
+
+
+def test_device_and_screen_flag_under_half_the_site_average_with_enough_sessions():
+    rows = [tech('overall', 'all', 200, 20), tech('device', 'mobile', 100, 2), tech('device', 'desktop', 100, 18),
+            tech('resolution', '360x640', 40, 0), tech('resolution', '390x844', 20, 0)]          # site average 10%
+    found = tech_conversion_findings(rows, {'mobile': 'Celular', 'desktop': 'Computador'})
+    assert {item['subject_key'] for item in found} == {'device|mobile', 'resolution|360x640'}
+    by = {item['subject_key']: item for item in found}
+    assert 'Celular' in by['device|mobile']['summary'] and '360×640' in by['resolution|360x640']['summary']
+    assert tech_conversion_findings([tech('overall', 'all', 200, 4), tech('device', 'mobile', 100, 0)], {}) == []   # average rests on 4 conversions
+    assert tech_conversion_findings([tech('device', 'mobile', 100, 0)], {}) == []                                     # no overall row
+
+
+def test_campaign_page_needs_high_bounce_low_conversion_and_a_site_average():
+    overall = [tech('overall', 'all', 300, 30)]                                                     # 10%
+    row = {'campaign': 'verao', 'path': '/lp', 'sessions': 40, 'single_page': 30, 'converted': 1}
+    found = campaign_page_findings([row, {**row, 'campaign': 'ok', 'converted': 6}, {**row, 'campaign': 'curta', 'sessions': 19},
+                                    {**row, 'campaign': 'engaja', 'single_page': 10}], overall)
+    assert [item['subject_key'] for item in found] == ['verao|/lp'] and found[0]['page_path'] == '/lp'
+    assert campaign_page_findings([row], [tech('overall', 'all', 300, 3)]) == []
+
+
+def test_insights_keep_only_the_busiest_findings_and_cap_the_subject_key():
+    rows = [entry('google_ads', 30 + index, 30 + index, path=f'/p{index}') for index in range(15)] + [entry('direct', 40, 1, path=f'/p{index}') for index in range(15)]
+    found = channel_entry_findings(rows, LABELS)
+    assert len(found) == 10 and found[0]['subject_key'] == 'google_ads|/p14'
+    long_path = '/' + 'a' * 499
+    assert len(channel_entry_findings([entry('google_ads', 40, 40, path=long_path), entry('direct', 40, 1, path=long_path)], LABELS)[0]['subject_key']) <= 520
+
+
+def test_evaluate_insights_syncs_each_rule_over_seven_days_of_one_site():
+    site = {'id': str(uuid.uuid4()), 'client_id': 7, 'label': 'Site'}
+    seen, synced = [], []
+
+    def fake_rows(sql, params=()):
+        seen.append((sql, params))
+        if "'overall'" in sql:
+            return [tech('overall', 'all', 200, 20), tech('device', 'mobile', 100, 2)]
+        if 'GROUP BY origin,path' in sql:
+            return [entry('google_ads', 40, 32), entry('direct', 30, 9)]
+        return []
+
+    with mock.patch.object(alerts, '_rows', fake_rows), mock.patch.object(alerts, 'sync_findings', lambda s, rule, findings, now: synced.append((rule, findings))):
+        alerts.evaluate_insights(site, NOW)
+    assert [rule for rule, _ in synced] == ['channel_entry_exit', 'device_conversion_low', 'campaign_weak_page']
+    assert len(synced[0][1]) == 1 and len(synced[1][1]) == 1 and synced[2][1] == []
+    for sql, params in seen:
+        assert 'AND e.site_id=%(site)s::uuid' in sql and '{site}' not in sql and params['site'] == site['id'] and params['client'] == 7
+        assert params['until'] - params['since'] == datetime.timedelta(days=7)

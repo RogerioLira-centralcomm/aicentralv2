@@ -42,7 +42,8 @@ export const periodFilters = range => ({period: periodBucket(range), startDate: 
 export function readScope(search = location.search) {
   const query = new URLSearchParams(search);
   return {account: /^\d+$/.test(query.get('scope_account') || '') ? query.get('scope_account') : '',
-    campaign: /^\d+$/.test(query.get('scope_campaign') || '') ? query.get('scope_campaign') : '',
+    // A plain id is a registered campaign; "account:google id" is a Google Ads campaign nobody registered (Google Ads tab only).
+    campaign: /^\d+(:\d+)?$/.test(query.get('scope_campaign') || '') ? query.get('scope_campaign') : '',
     site: /^[0-9a-f-]{36}$/i.test(query.get('scope_site') || '') ? query.get('scope_site') : ''};
 }
 
@@ -76,7 +77,7 @@ export function saveScope(clientId, scope) {
 export function initialScope({urlScope, saved, accounts, campaigns}) {
   const sources = accounts.filter(item => item.status !== 'disabled');
   const valid = scope => (!scope.account || sources.some(item => String(item.id) === scope.account))
-    && (!scope.campaign || campaigns.some(item => String(item.id) === scope.campaign));
+    && (!scope.campaign || /^\d+:\d+$/.test(scope.campaign) || campaigns.some(item => String(item.id) === scope.campaign));
   if ((urlScope.account || urlScope.campaign) && valid(urlScope)) return urlScope;
   if (saved && valid(saved)) return saved;
   if (campaigns.length === 1) return {account: String(campaigns[0].account_id || ''), campaign: String(campaigns[0].id)};

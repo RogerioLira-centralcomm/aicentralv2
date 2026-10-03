@@ -4,6 +4,7 @@ Reads only what the script already stores (cadu_reports_gads_*, campaign daily m
 Amounts come in micros and are returned in currency units; a client mixing currencies gets costs as null.
 """
 import calendar
+import re
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from zoneinfo import ZoneInfo
@@ -108,6 +109,19 @@ _CURRENCY_SQL = '''SELECT DISTINCT COALESCE(currency,'') AS currency FROM cadu_r
     WHERE client_id=%(client)s AND platform='google_ads' AND account_kind='advertiser' AND status<>'disabled'
         AND (%(account)s::int IS NULL OR id=%(account)s) '''
 
+# Every campaign the Google Ads scripts have seen (registered or not) with the ids the selector needs.
+_SCOPE_INDEX_SQL = '''SELECT s.account_id,s.campaign_external_id::text AS campaign_external_id,s.campaign_name,s.status,
+        (SELECT c.id FROM cadu_reports_campaigns c WHERE c.client_id=%(client)s AND c.account_id=s.account_id
+            AND c.external_id=s.campaign_external_id::text LIMIT 1) AS linked_id
+    FROM (SELECT DISTINCT ON (account_id,campaign_external_id) account_id,campaign_external_id,campaign_name,status
+        FROM (SELECT account_id,campaign_external_id,campaign_name,status,0 AS rank
+                FROM cadu_reports_gads_campaign_settings WHERE client_id=%(client)s AND removed_at IS NULL
+            UNION ALL SELECT account_id,campaign_external_id,(ARRAY_AGG(campaign_name ORDER BY metric_date DESC))[1],NULL,1
+                FROM cadu_reports_gads_ad_group_daily WHERE client_id=%(client)s GROUP BY account_id,campaign_external_id) u
+        ORDER BY account_id,campaign_external_id,rank) s
+    JOIN cadu_reports_accounts a ON a.id=s.account_id AND a.client_id=%(client)s AND a.platform='google_ads' AND a.status<>'disabled'
+    ORDER BY (s.status='ENABLED') DESC NULLS LAST,s.campaign_name'''
+
 _UNLINKED_SQL = '''SELECT s.account_id,a.name AS account_name,s.campaign_external_id,s.campaign_name,s.status,s.channel_type,
         s.bidding_strategy_type,s.last_seen
     FROM (SELECT DISTINCT ON (account_id,campaign_external_id) account_id,campaign_external_id,campaign_name,status,channel_type,
@@ -175,6 +189,12 @@ def _comparison(start, end, mode):
 def _narrowing(client_id):
     """(account id, campaign external id) from ?scope_account / ?scope_campaign, checked against the client; (None, None) = all."""
     account, campaign = request.args.get('scope_account', ''), request.args.get('scope_campaign', '')
+    # A campaign the scripts saw but nobody registered is picked as "<account id>:<Google campaign id>".
+    native = re.fullmatch(r'(\d{1,12}):(\d{1,20})', campaign)
+    if native:
+        if not _rows("SELECT 1 FROM cadu_reports_accounts WHERE id=%s AND client_id=%s AND platform='google_ads'", (int(native[1]), client_id)):
+            abort(404, description='Campanha não encontrada para este cliente.')
+        return int(native[1]), native[2]
     if campaign.isdigit():
         row = _rows('SELECT account_id,external_id FROM cadu_reports_campaigns WHERE id=%s AND client_id=%s AND account_id IS NOT NULL',
                     (int(campaign), client_id))
@@ -357,6 +377,20 @@ def register(bp):
             row['campaign_external_id'] = str(row['campaign_external_id'])
             row['last_seen'] = row['last_seen'].isoformat() if row.get('last_seen') else None
         return jsonify(campaigns=rows)
+
+    @bp.get('/api/v2/reports/google-ads/scope')
+    @login_required_api
+    def reports_google_ads_scope():
+        """Sources (Google Ads advertiser accounts) and campaigns for the header selector, registered or not."""
+        selected = _selection()
+        if not _ready():
+            return jsonify(accounts=[], campaigns=[])
+        accounts = [{'id': row['id'], 'name': row['name'], 'external_id': row['external_id'], 'platform': 'google_ads', 'status': row['status']}
+                    for row in _rows(_ACCOUNTS_SQL, {'client': selected['client_id'], 'summary': SUMMARY_KIND, 'chunk': CHUNK_KIND, 'account': None})]
+        campaigns = [{'id': f"{row['account_id']}:{row['campaign_external_id']}", 'account_id': row['account_id'], 'name': row['campaign_name'],
+                      'status': row['status'], 'linked_id': row['linked_id']}
+                     for row in _rows(_SCOPE_INDEX_SQL, {'client': selected['client_id']})]
+        return jsonify(accounts=accounts, campaigns=campaigns)
 
     @bp.get('/api/v2/reports/google-ads/summary')
     @login_required_api

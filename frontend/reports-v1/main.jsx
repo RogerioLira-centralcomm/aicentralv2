@@ -198,15 +198,31 @@ function App() {
     writeScope(route.scope === true ? {account: scope.account, campaign: scope.campaign, site: ''}
       : route.scope === 'site' ? {account: '', campaign: '', site: scope.site} : {account: '', campaign: '', site: ''});
   }, [scope, locationKey, data?.ready]);
-  // Google Ads only reads Google sources: Meta or imported accounts never appear (nor stay selected) there.
-  const scopeAccounts = route.path === 'media/google-ads' ? (data?.accounts || []).filter(item => item.platform === 'google_ads') : data?.accounts;
-  const scopeCampaigns = route.path === 'media/google-ads' ? (data?.campaigns || []).filter(item => scopeAccounts.some(account => account.id === item.account_id)) : data?.campaigns;
+  // Source and campaign lists follow the page: Google Ads lists what its scripts saw (registered or not),
+  // the other Mídia pages list registered campaigns. Managers (MCC) hold no metrics, so they are never a source.
+  const googleRoute = route.path === 'media/google-ads';
+  const [googleScope] = useApi(googleRoute && data?.ready ? apiUrl('/google-ads/scope', {client_id: data?.client?.client_id}) : '');
+  const scopeAccounts = googleRoute ? (googleScope.body?.accounts || []) : (data?.accounts || []).filter(item => item.account_kind !== 'manager');
+  const scopeCampaigns = googleRoute ? (googleScope.body?.campaigns || []) : (data?.campaigns || []);
+  // A choice made on one page is carried to the other: map it to the same campaign there, or clear it when there is none.
   useEffect(() => {
-    if (route.path !== 'media/google-ads' || !data?.ready) return;
-    const foreign = (scope.account && !scopeAccounts.some(item => String(item.id) === scope.account))
-      || (scope.campaign && !scopeCampaigns.some(item => String(item.id) === scope.campaign));
-    if (foreign) setScope({...scope, account: '', campaign: ''});
-  }, [route.path, scope.account, scope.campaign, data?.ready]);
+    if (!data?.ready || route.scope !== true || (googleRoute && !googleScope.body)) return;
+    const composite = /^\d+:\d+$/.test(scope.campaign);
+    let next = scope;
+    if (googleRoute && scope.campaign && !composite) {
+      const known = (data.campaigns || []).find(item => String(item.id) === scope.campaign);
+      const target = known && known.account_id ? `${known.account_id}:${known.external_id}` : '';
+      next = {...scope, account: target ? String(known.account_id) : '', campaign: target};
+    } else if (!googleRoute && composite) {
+      const linked = scopeCampaigns.find(item => String(item.id) === scope.campaign);
+      next = {...scope, campaign: linked ? String(linked.id) : ''};
+      if (!linked) next.account = scope.account;
+    }
+    const accountOk = !next.account || scopeAccounts.some(item => String(item.id) === next.account);
+    const campaignOk = !next.campaign || scopeCampaigns.some(item => String(item.id) === next.campaign);
+    if (!accountOk || !campaignOk) next = {...next, account: accountOk ? next.account : '', campaign: ''};
+    if (next.account !== scope.account || next.campaign !== scope.campaign) setScope(next);
+  }, [route.path, scope.account, scope.campaign, data?.ready, googleScope.body, data?.campaigns]);
   const onRefresh = () => {setRefreshRevision(value => value + 1); load(data?.client?.client_id);};
   const context = useMemo(() => ({period, setPeriod, switchClient, scope, setScope}), [period, scope, data?.client?.client_id]);
   if(data?.shared)return <SharedReports key={data.client.client_id} data={data}/>;

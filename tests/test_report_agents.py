@@ -35,7 +35,7 @@ class ReviewTests(unittest.TestCase):
         self.assertEqual(report_agents.review_findings(document={}, results=results, journey=None, duplicate_days=[], unlinked_campaigns=[]), [])
 
     def test_prioritize_skips_single_finding(self):
-        self.assertIsNone(report_agents.prioritize([{'code': 'a', 'severity': 'high', 'title': 'A', 'evidence': ''}]))
+        self.assertEqual(report_agents.prioritize([{'code': 'a', 'severity': 'high', 'title': 'A', 'evidence': ''}]), {'status': 'skipped'})
 
 
 class WriterTests(unittest.TestCase):

@@ -12,7 +12,7 @@ MAX_PLAN_METRICS = 40
 MAX_REVIEW_METRICS = 30
 
 
-def record_run(report_id, source_id, operation, result, user_id):
+def record_run(report_id, source_id, operation, result, user_id, status='succeeded'):
     """Store model/usage telemetry without persisting prompts or metric content."""
     from ..db import get_db
     connection = None
@@ -27,7 +27,7 @@ def record_run(report_id, source_id, operation, result, user_id):
                 (report_id,source_id,created_by,operation,model,usage,status)
                 VALUES (%s,%s,%s,%s,%s,%s::jsonb,%s)''',
                 (report_id, source_id, user_id, operation, result.get('model'),
-                 json.dumps(result.get('usage') or {}), 'succeeded'))
+                 json.dumps(result.get('usage') or {}), status))
         connection.commit()
     except Exception:
         if connection is not None:

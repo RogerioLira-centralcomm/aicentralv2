@@ -804,12 +804,16 @@ def register(bp):
                 findings = report_agents.review_findings(document=document, results=results, journey=journey,
                                                          duplicate_days=sorted(set(duplicate_days)), unlinked_campaigns=unlinked)
                 priority = report_agents.prioritize(findings)
-                if priority:
-                    record_run(report_id, None, 'agent_review', priority, session['user_id'])
-                return jsonify(findings=findings, fix_first=priority and priority['code'], prompt_version=report_agents.REVIEW_PROMPT_VERSION)
+                if priority['status'] != 'skipped':
+                    record_run(report_id, None, 'agent_review', priority, session['user_id'],
+                               'succeeded' if priority['status'] == 'ok' else 'failed')
+                return jsonify(findings=findings, fix_first=priority.get('code'),
+                               typesafe={key: priority[key] for key in ('status', 'reason', 'confidence', 'model') if key in priority},
+                               prompt_version=report_agents.REVIEW_PROMPT_VERSION)
             result = report_agents.draft_version(document, results, journey) if kind == 'draft' \
                 else report_agents.suggest_metrics(document, results, journey)
         except report_agents.AgentError as exc:
+            record_run(report_id, None, f'agent_{kind}', {}, session['user_id'], 'failed')
             return jsonify(error=str(exc)), 422
         record_run(report_id, None, f'agent_{kind}', result, session['user_id'])
         result.pop('usage', None)

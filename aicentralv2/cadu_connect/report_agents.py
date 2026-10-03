@@ -99,9 +99,9 @@ def review_findings(*, document, results, journey, duplicate_days, unlinked_camp
 
 
 def prioritize(findings):
-    """TypeSafe picks which finding to fix first; None when there is nothing to choose or the judge is unavailable."""
+    """TypeSafe picks which finding to fix first. Always says what happened: ok, skipped (fewer than 2) or unavailable."""
     if len(findings) < 2:
-        return None
+        return {'status': 'skipped'}
     from ..services.typesafe_service import TypeSafeError, system_one
     from .reports_typesafe import validate_choice
     catalog = {item['code']: item['title'] for item in findings}
@@ -117,10 +117,10 @@ def prioritize(findings):
     try:
         evaluation = system_one(state, questions)
         answer = validate_choice(evaluation, 'fix_first', catalog, 'revisão')
-    except (TypeSafeError, ValueError):
-        return None
-    return {'code': answer['choice'], 'confidence': answer['confidence'], 'model': evaluation.get('model'),
-            'usage': evaluation.get('usage')}
+    except (TypeSafeError, ValueError) as exc:
+        return {'status': 'unavailable', 'reason': str(exc)}
+    return {'status': 'ok', 'code': answer['choice'], 'confidence': answer['confidence'],
+            'model': evaluation.get('model'), 'usage': evaluation.get('usage')}
 
 
 # ---------------------------------------------------------------- shared LLM call

@@ -40,6 +40,8 @@ export function ReportAgents({report, csrf, document, journey, onApplyDraft, onA
     {error && <p role="alert" className="mt-3 text-sm text-error-primary">{error}</p>}
 
     {review && <div className="mt-4 flex flex-col gap-2 border-t border-secondary pt-4">
+      {review.typesafe?.status === 'unavailable' && <p className="rounded-lg bg-warning-primary px-3 py-2 text-xs text-warning-primary">Prioridade automática indisponível (TypeSafe): {review.typesafe.reason}. Os pontos abaixo seguem pela gravidade.</p>}
+      {review.typesafe?.status === 'ok' && <p className="text-xs text-tertiary">Prioridade escolhida pelo TypeSafe ({review.typesafe.model}, concentração {Math.round(review.typesafe.confidence * 100)}%).</p>}
       <p className="text-sm font-semibold text-primary">{review.findings.length ? `${review.findings.length} ponto(s) nos dados` : 'Nenhum problema encontrado nos dados deste período.'}</p>
       {review.findings.map(item => <div key={item.code} className={`rounded-lg p-3 ring-1 ring-inset ${review.fix_first === item.code ? 'ring-2 ring-brand' : 'ring-secondary'}`}>
         <div className="flex flex-wrap items-center gap-2"><Badge type="pill-color" size="sm" color={SEVERITY[item.severity][1]}>{SEVERITY[item.severity][0]}</Badge>

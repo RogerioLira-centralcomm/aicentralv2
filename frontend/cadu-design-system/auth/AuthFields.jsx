@@ -56,7 +56,9 @@ const NOTICE_ICON = {error: AlertCircle, success: CheckCircle, warning: AlertCir
 
 /** Server messages (flash) shown above the form. The login failure text is kept deliberately vague. */
 export function FlashMessages({messages = []}) {
+  // Arriving here through a redirect is the normal way in, not a mistake: never greet the user with that notice.
   const readable = messages
+    .filter(([, message]) => !String(message).startsWith('Por favor, faça login para acessar'))
     .map(([category, message]) => [category, message === 'Email ou senha incorretos.' ? 'Não foi possível entrar. Confira seu email e sua senha e tente novamente.' : message])
     .filter((entry, index, all) => all.findIndex(item => item[0] === entry[0] && item[1] === entry[1]) === index);
   if (!readable.length) return null;

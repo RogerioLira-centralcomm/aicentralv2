@@ -32,6 +32,7 @@ class AuthPublicLayoutTests(unittest.TestCase):
         self.assertIn(".cadu-auth-caption { display: none; }", css)
         self.assertIn("cadu-auth-slide", css)
         self.assertIn("(prefers-reduced-motion: reduce)", app)
+        self.assertIn("Por favor, faça login para acessar", app)
         # Auth screens carry no measurement script or consent banner.
         self.assertNotIn("public_analytics", base)
         self.assertNotIn("cadu-consent", css)

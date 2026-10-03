@@ -356,3 +356,182 @@ def test_purge_removes_expired_leads():
     with mock.patch.object(purge.psycopg, 'connect', return_value=connection):
         purge.main()
     assert any('DELETE FROM cadu_reports_supertag_leads' in sql and 'expires_at <= NOW()' in sql for sql in executed)
+
+
+# ---------------------------------------------------------------- dedupe per (site, session, conversion) in 5 min
+
+def stored(item, at=None, derived_from=None):
+    return {'event_id': item[0], 'session_id': item[4], 'event_name': item[6], 'page_path': item[7],
+            'occurred_at': at or item[13], 'derived_from': derived_from}
+
+
+def explicit_conversion(session, name='lead', path='/obrigado', at=NOW):
+    item = prepared(kind='conversion', path=path, session=session, name=name)
+    return item[:13] + (at,)
+
+
+def test_dedupe_keeps_the_explicit_conversion_over_the_rule_in_the_same_batch():
+    session = str(uuid.uuid4())
+    explicit = explicit_conversion(session, name='pagina_obrigado', path='/contato')
+    derived = leads.derive_conversions(site(), [prepared(session=session)])
+    kept, dropped = leads.dedupe_conversions(derived + [explicit])
+    assert kept == [explicit] and dropped == derived
+    # trackConversion fired on the thank-you page itself is the same conversion, whatever its name.
+    same_page = explicit_conversion(session, name='lead')
+    kept, dropped = leads.dedupe_conversions(derived + [same_page])
+    assert kept == [same_page] and dropped == derived
+
+
+def test_dedupe_window_is_five_minutes_and_first_stored_wins():
+    session = str(uuid.uuid4())
+    first = explicit_conversion(session, at=NOW - timedelta(minutes=4))
+    again = explicit_conversion(session)
+    assert leads.dedupe_conversions([again], [stored(first)]) == ([], [again])
+    old = explicit_conversion(session, at=NOW - timedelta(minutes=6))
+    assert leads.dedupe_conversions([again], [stored(old)]) == ([again], [])
+    # A later batch of an earlier event (out of order) is a duplicate too.
+    late = explicit_conversion(session, at=NOW - timedelta(minutes=3))
+    assert leads.dedupe_conversions([late], [stored(again)]) == ([], [late])
+
+
+def test_different_conversion_names_or_sessions_keep_counting():
+    session = str(uuid.uuid4())
+    lead, purchase = explicit_conversion(session, 'lead', '/a'), explicit_conversion(session, 'compra', '/b')
+    other_session = explicit_conversion(str(uuid.uuid4()), 'lead', '/a')
+    kept, dropped = leads.dedupe_conversions([lead, purchase, other_session])
+    assert len(kept) == 3 and dropped == []
+    # A form rule on another page and a thank-you page of the same session are different conversions.
+    form = leads.derive_conversions(site({'conversion_rules': [{'type': 'valid_form'}]}),
+                                    [prepared('form_submit', '/contato', session=session, data={'valid': True})])
+    assert leads.dedupe_conversions(form, [stored(lead)])[0] == form
+
+
+def _collect(app, events, existing_events=(), conversions=()):
+    """Posts a batch; the database answers with the given stored events (by id) and stored conversions."""
+    db = FakeDb()
+    calls = []
+
+    def answer(sql, params=()):
+        calls.append((sql, params))
+        if 'RETURNING event_count' in sql:
+            return [{'event_count': 1}]
+        if 'to_regclass' in sql:
+            return [{'ready': True}]
+        if sql.lstrip().startswith('SELECT event_id FROM cadu_reports_supertag_events'):
+            return [{'event_id': event_id} for event_id in existing_events]
+        if "event_kind='conversion'" in sql and "'derived_from' AS derived_from" in sql:
+            return list(conversions)
+        return []
+    with mock.patch.object(reports_supertag, '_site_by_public_id', return_value=site()), \
+            mock.patch.object(reports_supertag, 'get_db', return_value=db), \
+            mock.patch.object(reports_supertag, '_fanout_flow_events'), \
+            mock.patch.object(reports_supertag, '_rows', side_effect=answer), \
+            mock.patch.object(leads, '_rows', side_effect=answer):
+        response = app.test_client().post('/connect/public/supertag/v1/pub/collect', headers={'Origin': 'https://example.test'},
+                                          data=json.dumps({'events': events}), content_type='text/plain')
+    inserted = db.executemany_calls[0][1] if db.executemany_calls else []
+    return response, inserted, calls
+
+
+def test_thank_you_page_after_an_explicit_conversion_in_another_batch_counts_once(app):
+    session = str(uuid.uuid4())
+    explicit_at = datetime.now(timezone.utc) - timedelta(minutes=1)
+    already = {'event_id': str(uuid.uuid4()), 'session_id': session, 'event_name': 'lead', 'page_path': '/obrigado',
+               'occurred_at': explicit_at, 'derived_from': None}
+    response, inserted, _ = _collect(app, [raw_event(path='/obrigado', session_id=session)], conversions=[already])
+    assert response.status_code == 202
+    body = response.get_json()
+    assert body['conversions'] == 0 and body['deduped'] == 1 and body['accepted'] == 1
+    assert [row[5] for row in inserted] == ['page_view']
+
+
+def test_explicit_conversion_after_the_rule_in_another_batch_is_not_stored(app):
+    session = str(uuid.uuid4())
+    derived_at = datetime.now(timezone.utc) - timedelta(minutes=2)
+    already = {'event_id': str(uuid.uuid4()), 'session_id': session, 'event_name': 'pagina_obrigado',
+               'page_path': '/obrigado', 'occurred_at': derived_at, 'derived_from': 'page_view'}
+    explicit = raw_event('conversion', '/obrigado', session_id=session, event_name='pagina_obrigado')
+    other = raw_event('conversion', '/obrigado', session_id=session, event_name='compra')
+    with mock.patch.object(leads, 'confirm_leads') as confirm:
+        response, inserted, _ = _collect(app, [explicit, other], conversions=[already])
+    body = response.get_json()
+    assert response.status_code == 202 and body['deduped'] == 1 and body['accepted'] == 1 and body['rejected'] == 0
+    # Named by the site with another name, compra counts even on the thank-you page.
+    assert [row[6] for row in inserted] == ['compra']
+    # The duplicate still happened: it may confirm a pending lead.
+    assert {item[6] for item in confirm.call_args[0][1]} == {'pagina_obrigado', 'compra'}
+
+
+def test_same_conversion_outside_the_window_counts_again(app):
+    session = str(uuid.uuid4())
+    old = {'event_id': str(uuid.uuid4()), 'session_id': session, 'event_name': 'lead', 'page_path': '/obrigado',
+           'occurred_at': datetime.now(timezone.utc) - timedelta(minutes=6), 'derived_from': None}
+    response, inserted, _ = _collect(app, [raw_event('conversion', '/obrigado', session_id=session, event_name='lead')],
+                                     conversions=[old])
+    assert response.get_json()['deduped'] == 0 and [row[5] for row in inserted] == ['conversion']
+
+
+def test_resending_the_same_batch_neither_duplicates_nor_fails(app):
+    session = str(uuid.uuid4())
+    page = raw_event(path='/obrigado', session_id=session)
+    explicit = raw_event('conversion', '/obrigado', session_id=session, event_name='lead')
+    first, inserted, _ = _collect(app, [page, explicit])
+    assert first.get_json()['conversions'] == 0 and [row[5] for row in inserted] == ['page_view', 'conversion']
+    stored_conversion = {'event_id': explicit['event_id'], 'session_id': session, 'event_name': 'lead',
+                         'page_path': '/obrigado', 'occurred_at': inserted[1][13], 'derived_from': None}
+    again, inserted, _ = _collect(app, [page, explicit], existing_events=[page['event_id'], explicit['event_id']],
+                                  conversions=[stored_conversion])
+    assert again.status_code == 202 and again.get_json()['conversions'] == 0 and again.get_json()['deduped'] == 0
+    # ON CONFLICT DO NOTHING absorbs the resent rows; no new derived conversion is created.
+    assert all(row[0] in (page['event_id'], explicit['event_id']) for row in inserted)
+
+
+def test_batches_of_one_session_are_serialized_before_the_event_locks(app):
+    session = str(uuid.uuid4())
+    _, _, calls = _collect(app, [raw_event(path='/obrigado', session_id=session), raw_event(session_id=session)])
+    locks = [params[1] for sql, params in calls if 'pg_advisory_xact_lock' in sql]
+    assert locks[0] == f'session:{session}' and len(locks) == 3
+    assert not any(key.startswith('session:') for key in locks[1:])
+
+
+def test_pending_lead_is_still_confirmed_by_the_thank_you_page(app):
+    session = str(uuid.uuid4())
+    response, _, calls = _collect(app, [raw_event(path='/obrigado', session_id=session)])
+    assert response.get_json()['conversions'] == 1
+    update = next(params for sql, params in calls if 'UPDATE cadu_reports_supertag_leads' in sql)
+    assert update[1] == 'rule' and update[3] == session
+
+
+def test_backfill_skips_a_conversion_already_counted_in_the_window():
+    from scripts import backfill_reports_supertag_conversions as backfill
+    session = str(uuid.uuid4())
+    page = {'event_id': uuid.uuid4(), 'site_id': SITE_ID, 'client_id': 7, 'visitor_id': None, 'session_id': session,
+            'event_kind': 'page_view', 'event_name': None, 'page_path': '/obrigado', 'referrer_host': None,
+            'attribution': '{}', 'event_data': '{}', 'viewport_width': 1, 'viewport_height': 1,
+            'occurred_at': NOW, 'expires_at': NOW + timedelta(days=90)}
+    explicit = dict(page, event_id=uuid.uuid4(), event_kind='conversion', event_name='lead', page_path='/contato',
+                    occurred_at=NOW - timedelta(minutes=10))
+    form_page = dict(page, event_id=uuid.uuid4(), event_kind='page_view', page_path='/obrigado-2',
+                     session_id=str(uuid.uuid4()))
+    lead_same_name = dict(explicit, event_id=uuid.uuid4(), session_id=form_page['session_id'],
+                          event_name='pagina_obrigado', occurred_at=NOW - timedelta(minutes=2))
+    rows = [explicit, page, lead_same_name, form_page]
+    executed = []
+    cursor = mock.MagicMock()
+    cursor.__enter__.return_value = cursor
+    cursor.execute.side_effect = lambda sql, params=(): executed.append((sql, params))
+    cursor.fetchone.side_effect = [{'id': SITE_ID, 'client_id': 7, 'config': {}}, {'ready': False}]
+    recheck = [{'session_id': form_page['session_id'], 'event_name': 'pagina_obrigado', 'page_path': '/contato',
+                'occurred_at': lead_same_name['occurred_at'], 'derived_from': None}]
+    cursor.fetchall.side_effect = [rows, recheck]
+    cursor.rowcount = 1
+    connection = mock.MagicMock()
+    connection.cursor.return_value = cursor
+    with mock.patch.object(backfill.psycopg, 'connect', return_value=connection), \
+            mock.patch('sys.argv', ['backfill', '--site', 'pub', '--apply']):
+        backfill.main()
+    inserts = [params for sql, params in executed if 'INSERT INTO cadu_reports_supertag_events' in sql]
+    # The first session converts on /obrigado (the explicit lead was 10 min earlier); the second one already had
+    # pagina_obrigado 2 min before, so its thank-you page is not counted again.
+    assert [(params[4], params[7]) for params in inserts] == [(session, '/obrigado')]
+    assert any('pg_advisory_xact_lock' in sql and params[1] == f'session:{session}' for sql, params in executed)

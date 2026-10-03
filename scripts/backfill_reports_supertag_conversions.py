@@ -8,7 +8,8 @@ Run only on request. Dry run by default (prints what would be created); ``--appl
 Uses the same rules as the collector (aicentralv2.cadu_connect.reports_supertag_leads): the saved
 ``config.conversion_rules`` or, when there are none, the default thank-you page rules. Derived ids are
 ``uuid5(site, source_event_id)``, so running it twice never duplicates; a thank-you page already converted in a
-session is skipped. Pending leads of those sessions are confirmed as well.
+session is skipped, and so is a conversion with the same name (or a trackConversion on the same page) in the same
+session within 5 minutes, exactly as the collector does. Pending leads of those sessions are confirmed as well.
 """
 import argparse
 import json
@@ -21,7 +22,13 @@ from psycopg.rows import dict_row
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from aicentralv2.cadu_connect.reports_supertag_leads import (  # noqa: E402
-    CONFIRM_SKEW, CONFIRM_WINDOW, derive_conversions)
+    CONFIRM_SKEW, CONFIRM_WINDOW, DEDUPE_WINDOW, dedupe_conversions, derive_conversions)
+
+
+def _stored_conversions(rows):
+    return [{'session_id': str(r['session_id']), 'event_name': r['event_name'], 'page_path': r['page_path'],
+             'occurred_at': r['occurred_at'], 'derived_from': json.loads(r['event_data'] or '{}').get('derived_from')}
+            for r in rows if r['event_kind'] == 'conversion']
 
 
 def main():
@@ -57,15 +64,32 @@ def main():
                          r['event_data'], r['viewport_width'], r['viewport_height'], r['occurred_at']) for r in rows]
             expires = {str(r['event_id']): r['expires_at'] for r in rows}
             already = {(str(r['session_id']), r['page_path']) for r in rows if r['event_kind'] == 'conversion'
-                       and json.loads(r['event_data'] or '{}').get('derived_from') == 'page_view'}
+                       and json.loads(r['event_data'] or '{}').get('derived_from', 'page_view') == 'page_view'}
             source = [item for item in prepared if item[5] != 'conversion']
-            derived = derive_conversions(site, source + [item for item in prepared if item[5] == 'conversion'], already)
-            print(f'{len(rows)} eventos lidos; {len(derived)} conversões derivadas a criar.')
+            stored_ids = {item[0] for item in prepared}
+            derived = [item for item in derive_conversions(site, source + [item for item in prepared if item[5] == 'conversion'], already)
+                       if item[0] not in stored_ids]
+            derived, dropped = dedupe_conversions(derived, _stored_conversions(rows))
+            print(f'{len(rows)} eventos lidos; {len(derived)} conversões derivadas a criar '
+                  f'({len(dropped)} ignoradas: mesma conversão na sessão em até 5 min).')
             for item in derived[:20]:
                 print(f'  {item[13]:%Y-%m-%d %H:%M}  {item[6]:<22} {item[7]}')
             if not args.apply:
                 print('Simulação: nada foi gravado. Use --apply para gravar.')
                 return
+            # Same lock as the collector (sorted sessions): a batch arriving now waits, and the stored conversions are
+            # read again under the lock before writing.
+            for session_id in sorted({str(item[4]) for item in derived}):
+                cursor.execute('SELECT pg_advisory_xact_lock(hashtext(%s),hashtext(%s))', (site['id'], f'session:{session_id}'))
+            if derived:
+                cursor.execute('''SELECT event_id,session_id,event_name,page_path,occurred_at,
+                        event_data->>'derived_from' AS derived_from
+                    FROM cadu_reports_supertag_events
+                    WHERE site_id=%s AND session_id = ANY(%s::uuid[]) AND event_kind='conversion'
+                        AND occurred_at BETWEEN %s AND %s''',
+                    (site['id'], sorted({str(item[4]) for item in derived}),
+                     min(item[13] for item in derived) - DEDUPE_WINDOW, max(item[13] for item in derived) + DEDUPE_WINDOW))
+                derived, _late = dedupe_conversions(derived, cursor.fetchall())
             created = 0
             for item in derived:
                 source_id = json.loads(item[10])['source_event_id']

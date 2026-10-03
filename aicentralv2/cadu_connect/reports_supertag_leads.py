@@ -14,6 +14,11 @@ Conversion rules
     rules apply. The derived event id is ``uuid5(site_id, source_event_id)``, so retries never double count; a
     thank-you page reloaded in the same session counts once.
 
+    Derived and explicit (trackConversion) conversions are also deduplicated per (site, session, conversion name)
+    in a 5 minute window, across batches: the first one stored wins (inside one batch, the explicit one). A
+    thank-you page rule is also skipped when a trackConversion (any name) was already sent on that page. The collector
+    serializes the batches of a session with an advisory lock, so two concurrent batches cannot both pass.
+
 Leads
     A valid form submit sends name/e-mail/phone (and the extra fields the site listed in ``config.form_capture``) to
     ``/lead``. Values are encrypted with Fernet (SUPERTAG_LEADS_KEY, or a key derived from SECRET_KEY with its own
@@ -49,6 +54,8 @@ TEXTAREA_LIMIT = 2000
 CONFIRM_WINDOW = timedelta(minutes=30)
 # A beacon for the lead and the batch with the thank-you page may arrive in any order.
 CONFIRM_SKEW = timedelta(minutes=2)
+# The same conversion of one session (thank-you page + trackConversion, two batches, a resend) counts once in 5 min.
+DEDUPE_WINDOW = timedelta(minutes=5)
 SUGGESTION_PATTERN = r'(obrigad|thank|sucesso|confirmac)'
 DEFAULT_CONVERSION_RULES = tuple(
     {'type': 'path', 'match': 'segment', 'value': stem, 'name': 'pagina_obrigado'}
@@ -233,14 +240,76 @@ def derive_conversions(site, prepared, converted_pages=frozenset()):
 
 
 def converted_pages(site_id, prepared):
+    """(session, path) already converted by the thank-you page rule or by a trackConversion sent on that page, as
+    derive_conversions does inside one batch."""
     sessions = sorted({str(item[4]) for item in prepared if item[5] == 'page_view'})
     if not sessions:
         return set()
     rows = _rows('''SELECT session_id,page_path FROM cadu_reports_supertag_events
         WHERE site_id=%s AND session_id = ANY(%s::uuid[]) AND event_kind='conversion'
-            AND event_data->>'derived_from'='page_view' AND occurred_at>=NOW()-INTERVAL '2 days' ''',
+            AND COALESCE(event_data->>'derived_from','page_view')='page_view'
+            AND occurred_at>=NOW()-INTERVAL '2 days' ''',
         (site_id, sessions))
     return {(str(row['session_id']), row['page_path']) for row in rows}
+
+
+def conversion_origin(data_json):
+    """'explicit' for trackConversion, otherwise the kind the rule derived it from (page_view, form_submit...)."""
+    try:
+        data = json.loads(data_json or '{}') if isinstance(data_json, str) else (data_json or {})
+    except ValueError:
+        data = {}
+    return data.get('derived_from') or 'explicit'
+
+
+def _same_conversion(candidate, other):
+    """A new conversion is the same as another one of its session close in time when it has the same name. A
+    thank-you page conversion (rule) is also the same as a trackConversion already sent on that page, whatever its
+    name (pagina_obrigado x lead). Never the other way around: conversions the site names itself always count when
+    their names differ."""
+    session_a, name_a, path_a, origin_a, at_a = candidate
+    session_b, name_b, path_b, origin_b, at_b = other
+    if session_a != session_b or abs(at_a - at_b) > DEDUPE_WINDOW:
+        return False
+    if name_a == name_b:
+        return True
+    return origin_a == 'page_view' and origin_b == 'explicit' and path_a == path_b
+
+
+def dedupe_conversions(candidates, existing=()):
+    """Split new conversion events into (kept, dropped).
+
+    A conversion is dropped when its session already has the same conversion (see ``_same_conversion``)
+    within DEDUPE_WINDOW, stored before (``existing``: rows with session_id, event_name, page_path, occurred_at,
+    derived_from) or kept earlier in this call. Explicit conversions are judged first, so inside one batch the
+    trackConversion wins over the rule; across batches the first one stored wins.
+    """
+    accepted = [(str(row['session_id']), row['event_name'], row['page_path'], row.get('derived_from') or 'explicit',
+                 row['occurred_at']) for row in existing]
+    ordered = sorted(candidates, key=lambda item: (conversion_origin(item[10]) != 'explicit', item[13]))
+    kept, dropped = [], []
+    for item in ordered:
+        key = (str(item[4]), item[6], item[7], conversion_origin(item[10]), item[13])
+        if any(_same_conversion(key, other) for other in accepted):
+            dropped.append(item)
+            continue
+        accepted.append(key)
+        kept.append(item)
+    return kept, dropped
+
+
+def recent_conversions(site_id, candidates):
+    """Stored conversions of the candidates' sessions around their time (the window on both sides: batches of one
+    session may arrive out of order)."""
+    if not candidates:
+        return []
+    sessions = sorted({str(item[4]) for item in candidates})
+    since = min(item[13] for item in candidates) - DEDUPE_WINDOW
+    until = max(item[13] for item in candidates) + DEDUPE_WINDOW
+    return _rows('''SELECT event_id,session_id,event_name,page_path,occurred_at,event_data->>'derived_from' AS derived_from
+        FROM cadu_reports_supertag_events
+        WHERE site_id=%s AND session_id = ANY(%s::uuid[]) AND event_kind='conversion'
+            AND occurred_at BETWEEN %s AND %s''', (site_id, sessions, since, until))
 
 
 def confirm_leads(site_id, conversions):

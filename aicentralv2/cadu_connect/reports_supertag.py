@@ -886,6 +886,11 @@ def register(bp):
             retention_days = DEFAULT_RETENTION_DAYS
         conn = get_db()
         try:
+            # Sessions first, then events, each in sorted order: every batch takes the locks in the same order. The
+            # session lock serializes two batches of one session, so the conversion dedupe below sees the other one.
+            for session_id in sorted({str(item[4]) for item in prepared}):
+                _rows('SELECT pg_advisory_xact_lock(hashtext(%s),hashtext(%s))',
+                      (str(site['id']), f'session:{session_id}'))
             for event_id in sorted(str(item[0]) for item in prepared):
                 _rows('SELECT pg_advisory_xact_lock(hashtext(%s),hashtext(%s))',
                       (str(site['id']), event_id))
@@ -917,13 +922,21 @@ def register(bp):
             if not ip_quota:
                 abort(429, description='Limite temporário de envio atingido para esta origem.')
             derived = leads.derive_conversions(site, new_events, leads.converted_pages(site['id'], new_events))
+            # Same conversion of the same session within 5 min (thank-you page + trackConversion, another batch):
+            # only the first one is stored; the others are counted as deduped and the batch still answers 202.
+            candidates = [item for item in new_events if item[5] == 'conversion'] + derived
+            kept, dropped = leads.dedupe_conversions(candidates, leads.recent_conversions(site['id'], candidates))
+            dropped_ids = {str(item[0]) for item in dropped}
+            derived = [item for item in derived if str(item[0]) not in dropped_ids]
+            stored = [item for item in prepared if str(item[0]) not in dropped_ids]
+            new_events = [item for item in new_events if str(item[0]) not in dropped_ids]
             with conn.cursor() as cursor:
                 cursor.executemany('''INSERT INTO cadu_reports_supertag_events
                     (event_id,site_id,client_id,visitor_id,session_id,event_kind,event_name,page_path,referrer_host,attribution,event_data,viewport_width,viewport_height,occurred_at,expires_at)
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s::jsonb,%s,%s,%s,
                         NOW() + (%s * INTERVAL '1 day'))
                     ON CONFLICT (site_id,event_id) DO NOTHING''',
-                    [(*event, retention_days) for event in prepared + derived])
+                    [(*event, retention_days) for event in stored + derived])
                 session_rollup = {}
                 for event in prepared:
                     session_id, visitor_id, occurred_at = event[4], event[3] or event[4], event[13]
@@ -953,12 +966,15 @@ def register(bp):
                     [(site['id'], str(session_id), str(visitor_id), digest, started, latest, campaign, retention_days)
                      for session_id, (visitor_id, digest, started, latest, campaign) in session_rollup.items()])
             _fanout_flow_events(site, new_events, parsed.hostname.lower().rstrip('.'))
-            leads.confirm_leads(site['id'], [item for item in new_events if item[5] == 'conversion'] + derived)
+            # A deduped conversion still happened: it may confirm a lead the stored one is too far from.
+            leads.confirm_leads(site['id'], kept + dropped)
             conn.commit()
         except Exception:
             conn.rollback()
             raise
-        return jsonify(accepted=len(prepared), rejected=rejected, conversions=len(derived)), 202
+        dropped_explicit = sum(1 for item in dropped if leads.conversion_origin(item[10]) == 'explicit')
+        return jsonify(accepted=len(prepared) - dropped_explicit, rejected=rejected, conversions=len(derived),
+                       deduped=len(dropped)), 202
 
     @bp.get('/api/v2/reports/supertag/sites/<uuid:site_id>/events')
     @login_required_api

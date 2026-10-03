@@ -505,7 +505,9 @@ class CreativeGenerationClient:
         if result.get("actual_cost_usd") in (None, ""):
             from .creative_media.studio_costs import usage_cost_usd
             # OpenAI direct reports tokens, not a cost: price them instead of falling back to the flat catalog worst case.
-            result["actual_cost_usd"] = _usage_cost(result.get("usage")) or usage_cost_usd(result.get("usage"))
+            result["actual_cost_usd"] = _usage_cost(result.get("usage"))
+            if result["actual_cost_usd"] is None and "gpt-image" in str(result.get("model") or image_model):
+                result["actual_cost_usd"] = usage_cost_usd(result.get("usage"))
         metadata = result.get("response_metadata")
         if not isinstance(metadata, dict):
             metadata = {}

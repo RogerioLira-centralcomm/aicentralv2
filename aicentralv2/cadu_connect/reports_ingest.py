@@ -493,13 +493,19 @@ def register(bp):
                 FROM cadu_reports_campaign_daily_metrics m ''' + joins + '''
                 WHERE m.client_id=%s AND m.metric_date >= %s AND m.metric_date < %s
                 ''' + filters + ''' GROUP BY a.platform ORDER BY cost_micros DESC''', tuple(params))
+        campaigns = _rows('''SELECT c.id,c.name,a.platform,SUM(m.impressions)::bigint AS impressions,
+                SUM(m.clicks)::bigint AS clicks,SUM(m.cost_micros)::bigint AS cost_micros,
+                SUM(m.conversions)::numeric AS conversions,MAX(m.metric_date) AS last_date
+                FROM cadu_reports_campaign_daily_metrics m ''' + joins + '''
+                WHERE m.client_id=%s AND m.metric_date >= %s AND m.metric_date < %s
+                ''' + filters + ''' GROUP BY c.id,c.name,a.platform ORDER BY cost_micros DESC NULLS LAST''', tuple(params))
         currencies = _rows('''SELECT DISTINCT COALESCE(a.currency,'') AS currency
                 FROM cadu_reports_campaign_daily_metrics m ''' + joins + '''
                 WHERE m.client_id=%s AND m.metric_date >= %s AND m.metric_date < %s
                 ''' + filters, tuple(params))
         currency = currencies[0]['currency'] if len(currencies) == 1 and currencies[0]['currency'] else None
         if not currency:
-            for row in daily + platforms:
+            for row in daily + platforms + campaigns:
                 row['cost_micros'] = None
         totals = {field: sum(row[field] or 0 for row in daily) for field in
                   ('impressions', 'clicks', 'cost_micros', 'conversions')}
@@ -517,6 +523,6 @@ def register(bp):
                 LEFT JOIN cadu_reports_accounts a ON a.id=c.account_id
                 WHERE x.client_id=%s AND x.occurred_at >= %s AND x.occurred_at < %s
                 ''' + filters, tuple(params))[0]['total']
-        return jsonify(days=daily, totals=totals, by_platform=platforms, period_days=period_days,
+        return jsonify(days=daily, totals=totals, by_platform=platforms, by_campaign=campaigns, period_days=period_days,
                        currency=currency, source='google_ads_script',
                        observed_conversions=observed, confirmed_conversions=confirmed)

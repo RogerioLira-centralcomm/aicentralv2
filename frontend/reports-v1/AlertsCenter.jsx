@@ -19,7 +19,7 @@ const SKIP_REASON = {disabled: 'envio de e-mail desativado', cooldown: 'já avis
 
 function statusText(alert) {
   if (alert.status === 'resolved') return `Resolvido ${alert.resolution === 'auto' ? 'automaticamente' : ''} em ${when(alert.resolved_at)}`;
-  if (alert.status === 'silenced') return `Silenciado até ${when(alert.silenced_until)}`;
+  if (alert.status === 'silenced') return alert.silenced_until ? `Silenciado até ${when(alert.silenced_until)}` : 'Silenciado sem prazo';
   if (alert.status === 'acknowledged') return `Reconhecido em ${when(alert.acknowledged_at)}`;
   return 'Aberto';
 }
@@ -34,7 +34,7 @@ function History({alertId, client}) {
   if (!events) return <p className="alerts-note" role="status">Carregando histórico…</p>;
   return <ol className="alerts-history" aria-label="Histórico do alerta">{events.map((item, index) => <li key={index}>
     <b>{EVENT_LABEL[item.kind] || item.kind}</b>{item.kind === 'notification_skipped' && item.detail?.reason ? ` · ${SKIP_REASON[item.detail.reason] || item.detail.reason}` : ''}
-    {item.kind === 'silenced' && item.detail?.hours ? ` · por ${item.detail.hours === 168 ? '7 dias' : `${item.detail.hours} h`}` : ''}
+    {item.kind === 'silenced' && item.detail?.permanent ? ' · sem prazo' : item.kind === 'silenced' && item.detail?.hours ? ` · por ${item.detail.hours === 168 ? '7 dias' : `${item.detail.hours} h`}` : ''}
     {item.actor_name ? ` · ${item.actor_name}` : ''}<small>{when(item.created_at)}</small></li>)}</ol>;
 }
 
@@ -53,8 +53,8 @@ function AlertCard({alert, userId, choices, busy, onAct, client}) {
       {live && alert.status === 'open' && <ReportsActionButton color="secondary" size="sm" disabled={busy} onClick={() => onAct(alert, 'acknowledge', {})}>Reconhecer</ReportsActionButton>}
       {live && <ReportsActionButton color="secondary" size="sm" disabled={busy} onClick={() => onAct(alert, 'assign', {assign: !mine})}>{mine ? 'Liberar' : 'Assumir'}</ReportsActionButton>}
       {live && alert.status !== 'silenced' && <span className="alerts-snooze"><ReportsNativeSelect value={hours} onChange={event => setHours(event.target.value)} aria-label="Duração do silêncio">
-        {choices.map(item => <option key={item} value={item}>{item === 168 ? '7 dias' : item === 24 ? '24 horas' : `${item} hora`}</option>)}</ReportsNativeSelect>
-        <ReportsActionButton color="secondary" size="sm" disabled={busy} onClick={() => onAct(alert, 'silence', {hours: Number(hours)})}>Silenciar</ReportsActionButton></span>}
+        {choices.map(item => <option key={item} value={item}>{item === 168 ? '7 dias' : item === 24 ? '24 horas' : `${item} hora`}</option>)}<option value="permanent">Sem prazo</option></ReportsNativeSelect>
+        <ReportsActionButton color="secondary" size="sm" disabled={busy} onClick={() => onAct(alert, 'silence', hours === 'permanent' ? {permanent: true} : {hours: Number(hours)})}>Silenciar</ReportsActionButton></span>}
       {live && alert.status === 'silenced' && <ReportsActionButton color="secondary" size="sm" disabled={busy} onClick={() => onAct(alert, 'unsilence', {})}>Remover silêncio</ReportsActionButton>}
       {alert.page_path && <ReportsActionButton color="link-color" size="sm" className="reports-inline-link" href={reportUrl('pages', {site_id: alert.site_id, path: alert.page_path})}>Ver página</ReportsActionButton>}
       {alert.page_path && <ReportsActionButton color="link-color" size="sm" className="reports-inline-link" href={reportUrl('journey/navigation')}>Ver navegação</ReportsActionButton>}

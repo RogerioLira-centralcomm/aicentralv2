@@ -251,9 +251,14 @@ def register(bp):
     @login_required_api
     def reports_alert_silence(alert_id):
         def handler(alert, payload, selected):
+            # Permanent: silenced with no end date ("não recomendar mais"). It still auto-resolves when the problem goes away.
+            if payload.get('permanent') is True:
+                _rows("UPDATE cadu_reports_alerts SET status='silenced',silenced_until=NULL WHERE id=%s RETURNING id", (alert['id'],))
+                _log(alert['id'], 'silenced', session['user_id'], {'permanent': True})
+                return
             hours = payload.get('hours')
             if hours not in SILENCE_CHOICES_HOURS:
-                abort(400, description='Escolha silenciar por 1 hora, 24 horas ou 7 dias.')
+                abort(400, description='Escolha silenciar por 1 hora, 24 horas, 7 dias ou sem prazo.')
             until = datetime.now(timezone.utc) + timedelta(hours=hours)
             _rows("UPDATE cadu_reports_alerts SET status='silenced',silenced_until=%s WHERE id=%s RETURNING id", (until, alert['id']))
             _log(alert['id'], 'silenced', session['user_id'], {'hours': hours})

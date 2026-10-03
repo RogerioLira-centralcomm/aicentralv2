@@ -1,21 +1,22 @@
-import {dayLabel, formatRange} from '../../friendlyDates.js';
-import React, {useState} from 'react';
+import React from 'react';
 import {ArrowRight} from '@untitledui/icons';
 import {ReportsActionButton} from '../../ReportsActionButton.jsx';
 import {reportUrl} from '../../reportsCommon.jsx';
 import {useReportsContext} from '../../shell/context.js';
-import {Chart, platformName} from '../../shell/media.jsx';
+import {platformName} from '../../shell/media.jsx';
+import {apiUrl, useApi} from '../../shell/useApi.js';
+import {TrendGrid, daySeries} from '../../shell/TrendGrid.jsx';
 import {AppLink, DataTable, EmptyState, ErrorState, LoadingState, MetricGroup, Section} from '../../shell/primitives.jsx';
 import {compact, compactCurrency, currency, number, percent, useMedia} from '../shared.jsx';
 
-const SERIES = [['impressions', 'Impressões'], ['clicks', 'Cliques'], ['cost', 'Investimento'], ['conversions', 'Conversões']];
 const STATUS = {ENABLED: 'Ativa', PAUSED: 'Pausada', REMOVED: 'Removida', active: 'Ativa', paused: 'Pausada', disabled: 'Desativada'};
 
 /** "Como está minha operação de mídia?" — totals, the daily curve, channels and the campaigns to open next. */
 export function MediaOverview({data}) {
   const {period, scope} = useReportsContext();
   const media = useMedia(period, scope);
-  const [series, setSeries] = useState('impressions');
+  // Same comparison the Visão geral uses: the previous window of equal length, daily, for the dashed line.
+  const [compare] = useApi(apiUrl('/overview/compare', {start_date: period.start, end_date: period.end, account_id: scope.account, campaign_id: scope.campaign}));
   if (media.loading) return <div className="rs-stack"><LoadingState rows={2}/><LoadingState rows={6}/></div>;
   if (media.error) return <ErrorState message={media.error} onRetry={media.retry}/>;
   const summary = media.summary;
@@ -26,6 +27,14 @@ export function MediaOverview({data}) {
   const money = value => currency(value, summary.currency);
   const campaigns = data.campaigns.filter(item => ['ENABLED', 'active'].includes(item.status)
     && (!scope.account || String(item.account_id) === scope.account) && (!scope.campaign || String(item.id) === scope.campaign)).slice(0, 6);
+  const previous = compare.body?.previous_daily?.media || [];
+  const trend = [
+    {key: 'cost', title: 'Investimento por dia', field: 'cost', format: money, total: compactCurrency(totals.cost, summary.currency), skip: totals.cost == null},
+    {key: 'impressions', title: 'Impressões por dia', field: 'impressions', format: number, total: compact(totals.impressions)},
+    {key: 'clicks', title: 'Cliques por dia', field: 'clicks', format: number, total: compact(totals.clicks)},
+    {key: 'conversions', title: 'Conversões por dia', field: 'conversions', format: number, total: number(totals.conversions)},
+  ].filter(item => !item.skip).map(item => ({...item, points: daySeries(period.start, period.end, summary.days, item.field),
+    previous: previous.map(row => row[item.field] == null ? null : Number(row[item.field]))}));
   return <div className="rs-stack">
     <MetricGroup label="Resumo de mídia" items={[
       {label: 'Investimento', value: compactCurrency(totals.cost, summary.currency), detail: summary.origin},
@@ -34,10 +43,7 @@ export function MediaOverview({data}) {
       {label: 'Conversões', value: number(totals.conversions), detail: summary.confirmed ? `${number(summary.confirmed)} confirmadas no CRM` : 'Informadas pela plataforma'},
       {label: 'CPA', value: totals.cost != null && totals.conversions ? money(totals.cost / totals.conversions) : '—', detail: 'Investimento por conversão'},
     ]}/>
-    <Section title="Desempenho ao longo do tempo" description={formatRange(period.start, period.end)}
-      action={<div className="rs-segmented" role="group" aria-label="Métrica do gráfico">{SERIES.map(([key, label]) => <button type="button" key={key} aria-pressed={series === key} onClick={() => setSeries(key)}>{label}</button>)}</div>}>
-      <Chart type="area" height={260} labels={summary.days.map(item => dayLabel(item.date))} values={summary.days.map(item => Number(item[series] || 0))}/>
-    </Section>
+    <TrendGrid title="Tendência diária das campanhas" description="Contra o período anterior de mesma duração" charts={trend} columns={trend.length === 4 ? 2 : 3}/>
     <Section title="Canais" description="Resultado por plataforma no período">
       <DataTable label="Canais" rows={summary.platforms} rowKey={row => row.platform} initialSort={{key: 'cost', dir: 'desc'}} columns={[
         {key: 'label', label: 'Canal'},

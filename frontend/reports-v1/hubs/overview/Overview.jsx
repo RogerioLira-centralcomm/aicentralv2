@@ -1,11 +1,12 @@
-import {addDays, dayLabel, formatDay, formatRange, friendlyAgo, toIsoDay} from '../../friendlyDates.js';
-import React, {useMemo} from 'react';
+import {formatDay, formatRange, friendlyAgo} from '../../friendlyDates.js';
+import React, {useMemo, useState} from 'react';
 import {AlertCircle, AlertTriangle, ArrowDown, ArrowRight, ArrowUp, CheckCircle, InfoCircle} from '@untitledui/icons';
 import {ReportsActionButton} from '../../ReportsActionButton.jsx';
-import {reportUrl} from '../../reportsCommon.jsx';
+import {json, reportUrl} from '../../reportsCommon.jsx';
 import {useReportsContext} from '../../shell/context.js';
 import {apiUrl, useApi} from '../../shell/useApi.js';
-import {Chart} from '../../shell/media.jsx';
+import {platformName} from '../../shell/media.jsx';
+import {TrendAside, TrendGrid, daySeries} from '../../shell/TrendGrid.jsx';
 import {AppLink, EmptyState, LoadingState, Section} from '../../shell/primitives.jsx';
 import {SourceHealth, compact, compactCurrency, currency, number, siteTotals, useMedia} from '../shared.jsx';
 import {OverviewSetup} from './OverviewSetup.jsx';
@@ -24,7 +25,7 @@ const METRICS = [
   {key: 'clicks', label: 'Cliques', get: w => w.media?.clicks},
   {key: 'ctr', label: 'CTR', rate: true, get: w => ratio(w.media?.clicks, w.media?.impressions)},
   {key: 'cpc', label: 'Custo por clique', money: true, tone: 'inverse', get: w => ratio(w.media?.cost, w.media?.clicks)},
-  {key: 'conversions', label: 'Conversões (mídia)', get: w => w.media?.conversions},
+  {key: 'conversions', label: 'Conversões (campanhas)', get: w => w.media?.conversions},
   {key: 'cpa', label: 'Custo por conversão', money: true, tone: 'inverse', get: w => ratio(w.media?.cost, w.media?.conversions)},
   {key: 'sessions', label: 'Visitas no site', get: w => w.site?.sessions},
   {key: 'site_conversions', label: 'Conversões no site', get: w => w.site?.conversions},
@@ -59,36 +60,17 @@ function Delta({metric, value, suffix}) {
   </small>;
 }
 
-/** Every day of the window, in order, with the matching value (0 when nothing happened that day). */
-function daySeries(start, end, rows, field) {
-  const values = new Map((rows || []).map(row => [toIsoDay(row.date), row[field]]));
-  const out = [];
-  for (let day = start; day <= end; day = addDays(day, 1)) out.push({date: day, value: values.has(day) ? Number(values.get(day) || 0) : 0});
-  return out;
-}
-
-/** Data freshness and the alert monitor merged into one list, worst first. */
-function collectAlerts(alerts, sources, sites, conflicts) {
-  const items = (alerts || []).map(alert => ({
-    key: `alert-${alert.id}`, severity: alert.severity, title: alert.title,
+/**
+ * Open monitor alerts, worst first. Acknowledged or silenced ones stay in the Central de alertas; data freshness is
+ * shown once, in Saúde dos dados, instead of being repeated here as an alert.
+ */
+function collectAlerts(alerts, conflicts) {
+  const items = (alerts || []).filter(alert => alert.status === 'open').map(alert => ({
+    key: `alert-${alert.id}`, id: alert.id, severity: alert.severity, title: alert.title,
     detail: [alert.allowed_host, alert.page_path].filter(Boolean).join(' · ') || alert.summary,
     href: alert.page_path ? reportUrl('pages', {site_id: alert.site_id, path: alert.page_path}) : reportUrl('supertag', {scope_site: alert.site_id}),
     action: alert.page_path ? 'Ver página' : 'Ver coleta',
   }));
-  (sources || []).filter(item => !item.revoked_at).forEach(item => {
-    const label = item.label || (item.source_kind === 'google_ads_script' ? 'Google Ads' : 'Webhook de conversões');
-    const stale = item.last_used_at && Date.now() - Date.parse(item.last_used_at) > 48 * 3600e3;
-    if (stale) items.push({key: `source-${item.id}`, severity: 'medium', title: `${label} sem enviar dados`, detail: `Último envio ${friendlyAgo(item.last_used_at)}`, href: reportUrl('data-sources'), action: 'Ver fonte'});
-    else if (!item.last_used_at) items.push({key: `source-${item.id}`, severity: 'low', title: `${label} aguardando o primeiro envio`, detail: 'Fonte conectada, sem dados ainda', href: reportUrl('data-sources'), action: 'Ver fonte'});
-  });
-  (sites || []).filter(item => !item.revoked_at && item.enabled).forEach(item => {
-    const host = item.allowed_host || item.label;
-    const stale = item.last_event_at && Date.now() - Date.parse(item.last_event_at) > 24 * 3600e3;
-    // The monitor already raises "Super Tag sem enviar eventos" for this site: do not say it twice.
-    if (stale && !(alerts || []).some(alert => alert.rule === 'collection_absent' && alert.site_id === item.id)) {
-      items.push({key: `site-${item.id}`, severity: 'medium', title: 'Site sem eventos recentes', detail: `${host} · último evento ${friendlyAgo(item.last_event_at)}`, href: reportUrl('supertag', {}, item.id), action: 'Ver coleta'});
-    } else if (!item.last_event_at) items.push({key: `site-${item.id}`, severity: 'low', title: 'Site aguardando eventos', detail: `${host} · confira a instalação da Super Tag`, href: reportUrl('supertag', {}, item.id), action: 'Ver coleta'});
-  });
   if (conflicts) items.push({key: 'conflicts', severity: 'medium', title: `${number(conflicts)} ${conflicts === 1 ? 'valor divergente' : 'valores divergentes'} nas importações`, detail: 'Revise antes de usar nos relatórios', href: reportUrl('imports'), action: 'Revisar'});
   const rank = {high: 0, medium: 1, low: 2};
   return items.sort((a, b) => (rank[a.severity] ?? 3) - (rank[b.severity] ?? 3));
@@ -96,20 +78,26 @@ function collectAlerts(alerts, sources, sites, conflicts) {
 
 const SEVERITY = {high: {label: 'Alta', icon: AlertCircle}, medium: {label: 'Média', icon: AlertTriangle}, low: {label: 'Baixa', icon: InfoCircle}};
 
-function AlertsPanel({items, loading}) {
+function AlertsPanel({items, loading, onAct, busy}) {
   const shown = items.slice(0, 5);
   return <Section className="ov-alerts" title="Alertas" id="ov-alerts"
-    description={loading ? 'Verificando…' : items.length ? `${items.length} ${items.length === 1 ? 'ponto pede' : 'pontos pedem'} atenção` : 'Monitor e fontes de dados'}
+    description={loading ? 'Verificando…' : items.length ? `${items.length} ${items.length === 1 ? 'ponto pede' : 'pontos pedem'} atenção` : 'Monitor do site e importações'}
     action={more(reportUrl('alerts'), 'Central de alertas')}>
     {loading ? <LoadingState rows={2}/> : !items.length
-      ? <p className="ov-allgood"><CheckCircle size={16} aria-hidden="true"/>Tudo certo: nenhum alerta aberto e todas as fontes em dia.</p>
+      ? <p className="ov-allgood"><CheckCircle size={16} aria-hidden="true"/>Nenhum alerta pendente. Os lidos e silenciados ficam na Central de alertas.</p>
       : <ul className="ov-alert-list">{shown.map(item => {
         const meta = SEVERITY[item.severity] || SEVERITY.low;
         const Icon = meta.icon;
         return <li key={item.key} className={`is-${item.severity}`}>
           <Icon size={16} className="ov-alert-list__icon" aria-hidden="true"/>
           <span className="ov-alert-list__copy"><strong><span className="reports-sr-only">Severidade {meta.label.toLowerCase()}: </span>{item.title}</strong>{item.detail && <small>{item.detail}</small>}</span>
-          <AppLink className="ov-alert-list__action" href={item.href}>{item.action}<span className="reports-sr-only">: {item.title}</span></AppLink>
+          <span className="ov-alert-list__actions">
+            <AppLink className="ov-alert-list__action" href={item.href}>{item.action}<span className="reports-sr-only">: {item.title}</span></AppLink>
+            {item.id && <>
+              <button type="button" className="ov-alert-list__dismiss" disabled={busy === item.id} onClick={() => onAct(item, 'acknowledge', {})}>Marcar como lido<span className="reports-sr-only">: {item.title}</span></button>
+              <button type="button" className="ov-alert-list__dismiss" disabled={busy === item.id} onClick={() => onAct(item, 'silence', {permanent: true})} title="Silencia sem prazo. Some daqui e da contagem; fica na Central de alertas e se resolve sozinho quando o problema acabar">Não recomendar<span className="reports-sr-only">: {item.title}</span></button>
+            </>}
+          </span>
         </li>;
       })}</ul>}
     {items.length > shown.length && <p className="ov-alerts__more">{more(reportUrl('alerts'), `Ver todos os ${items.length}`)}</p>}
@@ -153,33 +141,93 @@ function RollingTable({compare, code}) {
   </Section>;
 }
 
-function TrendCard({title, total, points, previous, format, href}) {
-  const labels = points.map(item => dayLabel(item.date));
-  const series = [{name: 'Período', data: points.map(item => item.value)}];
-  const comparable = previous?.length === points.length && previous.some(value => value);
-  if (comparable) series.push({name: 'Anterior', data: previous});
-  return <article className="ov-chart">
-    <header><h3>{title}</h3>{href ? <AppLink className="ov-chart__total" href={href}>{total}</AppLink> : <span className="ov-chart__total">{total}</span>}</header>
-    <Chart type="area" height={150} labels={labels} series={series} dash={comparable ? [0, 4] : undefined} colors={['#175cd3', '#98a2b3']} format={format} legend={false}/>
-  </article>;
+const RUNNING = new Set(['ENABLED', 'active']);
+const FLOW_MONITOR = {online: ['Online', 'is-success'], degraded: ['Com falhas', 'is-warning'], offline: ['Offline', 'is-error']};
+
+/** Campaigns running for this client, with what each one spent in the period; running without spend is flagged. */
+function CampaignsCard({campaigns, spend, code, loading}) {
+  const byId = new Map((spend || []).map(item => [String(item.id), item]));
+  const running = campaigns.filter(item => RUNNING.has(item.status)).map(item => ({...item, metrics: byId.get(String(item.id)) || null}))
+    .sort((a, b) => Number(b.metrics?.cost ?? b.metrics?.clicks ?? -1) - Number(a.metrics?.cost ?? a.metrics?.clicks ?? -1));
+  const idle = running.filter(item => !item.metrics?.impressions).length;
+  return <Section title="Campanhas em execução" description={loading ? 'Carregando…' : running.length ? `${running.length} ${running.length === 1 ? 'ativa' : 'ativas'}${idle ? ` · ${idle} sem entrega no período` : ''}` : 'Nenhuma campanha ativa'}
+    action={more(reportUrl('media/campaigns'), 'Campanhas')}>
+    {loading ? <LoadingState rows={3}/> : !running.length ? <p className="rs-muted">Cadastre ou reative campanhas em Mídia › Campanhas.</p>
+      : <ul className="ov-list">{running.slice(0, 5).map(item => <li key={item.id}>
+        <span className="ov-list__copy"><AppLink href={reportUrl('campaigns', {campaign_id: item.id})}>{item.name}</AppLink><small>{platformName(item.platform)}{item.account_name ? ` · ${item.account_name}` : ''}</small></span>
+        {item.metrics?.impressions ? <strong>{item.metrics.cost != null ? compactCurrency(item.metrics.cost, code) : `${compact(item.metrics.clicks)} cliques`}</strong> : <span className="rs-badge is-warning">Sem entrega</span>}
+      </li>)}</ul>}
+    {running.length > 5 && <p className="ov-list__more">{more(reportUrl('media/campaigns'), `Ver as ${running.length}`)}</p>}
+  </Section>;
 }
 
-/** Status of the whole ecosystem: the headline numbers, rolling comparisons, daily trends, alerts and data freshness. */
+/** Each site with the Super Tag: visits in the period and whether events are still arriving. */
+function SitesCard({domains, sites, loading}) {
+  const live = (sites || []).filter(item => !item.revoked_at);
+  const visits = new Map((domains || []).map(item => [String(item.site_id), item.metrics.sessions]));
+  const state = item => {
+    if (!item.enabled) return ['Pausado', ''];
+    if (!item.last_event_at) return ['Aguardando', 'is-low'];
+    return Date.now() - Date.parse(item.last_event_at) > 24 * 3600e3 ? ['Sem eventos', 'is-warning'] : ['Coletando', 'is-success'];
+  };
+  return <Section title="Sites e Super Tag" description={loading ? 'Carregando…' : live.length ? `${live.length} ${live.length === 1 ? 'site conectado' : 'sites conectados'}` : 'Nenhum site conectado'}
+    action={more(reportUrl('journey'), 'Site & Jornada')}>
+    {loading ? <LoadingState rows={3}/> : !live.length ? <p className="rs-muted">Instale a Super Tag para acompanhar visitas e conversões.</p>
+      : <ul className="ov-list">{live.slice(0, 5).map(item => {
+        const [label, tone] = state(item);
+        return <li key={item.id}>
+          <span className="ov-list__copy"><AppLink href={reportUrl('journey', {scope_site: item.id})}>{item.allowed_host || item.label}</AppLink>
+            <small>{number(visits.get(String(item.id)) || 0)} visitas{item.last_event_at ? ` · último evento ${friendlyAgo(item.last_event_at)}` : ''}</small></span>
+          <span className={`rs-badge ${tone}`}>{label}</span>
+        </li>;
+      })}</ul>}
+  </Section>;
+}
+
+/** Published flows (with their monitor) and drafts still being built. */
+function FlowsCard({state}) {
+  const flows = state.body?.flows || [];
+  const published = flows.filter(item => item.status === 'published');
+  const drafts = flows.length - published.length;
+  return <Section title="Fluxos" description={state.loading && !state.body ? 'Carregando…' : flows.length ? `${published.length} ${published.length === 1 ? 'publicado' : 'publicados'} · ${drafts} ${drafts === 1 ? 'rascunho' : 'rascunhos'}` : 'Nenhum fluxo criado'}
+    action={more(reportUrl('journey/flows'), 'Fluxos')}>
+    {state.loading && !state.body ? <LoadingState rows={3}/> : state.error ? <p className="rs-muted">Fluxos indisponíveis agora.</p>
+      : !published.length ? <p className="rs-muted">{drafts ? 'Publique um rascunho para começar a medir a jornada.' : 'Crie um fluxo para medir a jornada entre anúncio, site e conversão.'}</p>
+      : <ul className="ov-list">{published.slice(0, 5).map(item => {
+        const [label, tone] = item.monitor_enabled ? FLOW_MONITOR[item.monitor_status] || ['Verificando', 'is-low'] : ['Sem monitor', ''];
+        return <li key={item.id}>
+          <span className="ov-list__copy"><AppLink href={reportUrl('journey/flows', {flow_id: item.id})}>{item.name}</AppLink><small>{item.allowed_host || 'Sem site'}{item.campaign_names ? ` · ${item.campaign_names}` : ''}</small></span>
+          <span className={`rs-badge ${tone}`}>{label}</span>
+        </li>;
+      })}</ul>}
+  </Section>;
+}
+
+/** The client at a glance: headline numbers, daily trend of campaigns and site, what is running (campaigns, sites, flows), alerts and data health. */
 export function Overview({data}) {
   const {period} = useReportsContext();
   const media = useMedia(period);
   const [domains] = useApi(apiUrl('/pages/domains', {start_date: period.start, end_date: period.end}));
   const [compareState] = useApi(apiUrl('/overview/compare', {start_date: period.start, end_date: period.end}));
-  const [alerts] = useApi(apiUrl('/alerts'));
+  const [alerts, retryAlerts] = useApi(apiUrl('/alerts'));
   const [sites] = useApi(apiUrl('/supertag/sites'));
   const [sources] = useApi(apiUrl('/ingest-keys'));
+  const [flows] = useApi(apiUrl('/flow', {view: 'edit'}));
+  const [busy, setBusy] = useState('');
+  const [actionError, setActionError] = useState('');
   const site = domains.body ? siteTotals(domains.body.domains) : null;
   const summary = media.summary;
   const compare = compareState.body;
   const code = summary?.currency || compare?.currency || null;
   const settled = !media.loading && !domains.loading;
-  const alertItems = useMemo(() => collectAlerts(alerts.body?.alerts, sources.body?.keys, sites.body?.sites, media.conflicts),
-    [alerts.body, sources.body, sites.body, media.conflicts]);
+  const alertItems = useMemo(() => collectAlerts(alerts.body?.alerts, media.conflicts), [alerts.body, media.conflicts]);
+  const act = async (item, action, body) => {
+    setBusy(item.id); setActionError('');
+    try {
+      await json(`/connect/api/v2/reports/alerts/${item.id}/${action}`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf}, body: JSON.stringify(body)});
+      retryAlerts();
+    } catch (failure) {setActionError(failure.message);} finally {setBusy('');}
+  };
   // Onboarding stays until there is something to read in either media or the site.
   if (settled && !summary && !site?.sessions) return <div className="rs-stack">
     <OverviewSetup data={data} sites={sites.body?.sites ?? (sites.error ? null : [])} sources={sources.body?.keys ?? (sources.error ? null : [])} imported={media.conflicts ? {conflicts: media.conflicts} : null}/>
@@ -190,9 +238,9 @@ export function Overview({data}) {
   const previousMedia = compare?.previous_daily?.media || [];
   const previousSite = compare?.previous_daily?.site || [];
   const mediaCharts = summary ? [
-    {key: 'cost', title: 'Investimento por dia', field: 'cost', format: money, metric: byKey.cost, skip: summary.totals.cost == null},
+    {key: 'cost', title: 'Investimento em campanhas por dia', field: 'cost', format: money, metric: byKey.cost, skip: summary.totals.cost == null},
     {key: 'clicks', title: 'Cliques por dia', field: 'clicks', format: integer, metric: byKey.clicks},
-    {key: 'conversions', title: 'Conversões (mídia) por dia', field: 'conversions', format: integer, metric: byKey.conversions},
+    {key: 'conversions', title: 'Conversões (campanhas) por dia', field: 'conversions', format: integer, metric: byKey.conversions},
   ].filter(item => !item.skip).map(item => ({...item, href: reportUrl('media'), points: daySeries(period.start, period.end, summary.days, item.field),
     previous: previousMedia.map(row => row[item.field] == null ? null : Number(row[item.field])), total: formatValue(item.metric, item.metric.get(current), code)})) : [];
   const siteCharts = current.site ? [
@@ -204,32 +252,34 @@ export function Overview({data}) {
   const platforms = summary?.platforms || [];
   return <div className="rs-stack ov-page">
     {!settled ? <LoadingState rows={2}/> : <KpiStrip current={current} compare={compare} code={code} loading={compareState.loading && !compare}/>}
-    <div className="ov-row">
-      {compare ? <RollingTable compare={compare} code={code}/> : <Section className="ov-rolling" title="7 dias × 30 dias">
-        {compareState.error ? <p className="rs-muted">Não foi possível calcular os comparativos agora.</p> : <LoadingState rows={3}/>}
-      </Section>}
-      <AlertsPanel items={alertItems} loading={alerts.loading || sources.loading || sites.loading}/>
-    </div>
-    {charts.length > 0 && <section className="ov-charts" aria-label="Tendência diária no período">
-      <header className="ov-charts__head"><h2>Tendência diária</h2><span><i className="ov-key"/>Período <i className="ov-key is-previous"/>Período anterior</span></header>
-      <div className="ov-grid3">{charts.map(item => <TrendCard key={item.key} {...item}/>)}
-        {platforms.length > 0 && <article className="ov-chart">
-          <header><h3>Investimento por canal</h3>{more(reportUrl('media'), 'Mídia')}</header>
-          <ul className="rs-bars ov-bars">{platforms.slice(0, 5).map(item => {
-            const share = summary.totals.cost ? (item.cost || 0) / summary.totals.cost : summary.totals.impressions ? item.impressions / summary.totals.impressions : 0;
-            return <li key={item.platform}><span>{item.label}</span><i><b style={{width: `${Math.max(2, share * 100)}%`}}/></i><strong>{item.cost != null ? compactCurrency(item.cost, summary.currency) : compact(item.impressions)}</strong></li>;
-          })}</ul>
-        </article>}
-      </div>
-    </section>}
+    <TrendGrid description="Campanhas e site, contra o período anterior de mesma duração" charts={charts}>
+      {platforms.length > 0 && <TrendAside title="Investimento por canal" action={more(reportUrl('media'), 'Mídia')}>
+        <ul className="rs-bars">{platforms.slice(0, 5).map(item => {
+          const share = summary.totals.cost ? (item.cost || 0) / summary.totals.cost : summary.totals.impressions ? item.impressions / summary.totals.impressions : 0;
+          return <li key={item.platform}><span>{item.label}</span><i><b style={{width: `${Math.max(2, share * 100)}%`}}/></i><strong>{item.cost != null ? compactCurrency(item.cost, summary.currency) : compact(item.impressions)}</strong></li>;
+        })}</ul>
+      </TrendAside>}
+    </TrendGrid>
     {!summary && settled && <EmptyState title="Sem dados de mídia neste período" description="Conecte uma fonte ou envie um arquivo para ver investimento e resultados." action={<ReportsActionButton color="secondary" size="sm" href={reportUrl('media/data')}>Conectar fonte</ReportsActionButton>}/>}
-    <div className="ov-grid3 ov-grid3--cards">
-      {domains.body?.domains?.length > 0 && <Section title="Sites" description="Visitas no período" action={more(reportUrl('journey'), 'Site & Jornada')}>
-        <ul className="rs-kv ov-kv">{domains.body.domains.slice(0, 4).map(domain => <li key={domain.site_id}><span>{domain.host}</span><strong>{number(domain.metrics.sessions)}</strong></li>)}</ul>
-      </Section>}
+    <div className="ov-grid3">
+      <CampaignsCard campaigns={data.campaigns || []} spend={summary?.campaigns} code={code} loading={media.loading}/>
+      <SitesCard domains={domains.body?.domains} sites={sites.body?.sites} loading={sites.loading && !sites.body}/>
+      <FlowsCard state={flows}/>
+    </div>
+    <div className="ov-row ov-row--even">
+      <div className="ov-alerts-wrap">
+        {actionError && <div className="reports-error" role="alert">{actionError}</div>}
+        <AlertsPanel items={alertItems} loading={alerts.loading && !alerts.body} onAct={act} busy={busy}/>
+      </div>
       <Section className="ov-health" title="Saúde dos dados" description="Última atualização de cada fonte" action={more(reportUrl('data-sources'), 'Fontes')}>
         {sources.loading || sites.loading ? <LoadingState rows={2}/> : <SourceHealth sources={sources.body?.keys} sites={sites.body?.sites} conflicts={media.conflicts}/>}
       </Section>
     </div>
+    <details className="ov-more">
+      <summary>Comparar últimos 7 × 30 dias</summary>
+      {compare ? <RollingTable compare={compare} code={code}/> : <Section className="ov-rolling" title="7 dias × 30 dias">
+        {compareState.error ? <p className="rs-muted">Não foi possível calcular os comparativos agora.</p> : <LoadingState rows={3}/>}
+      </Section>}
+    </details>
   </div>;
 }

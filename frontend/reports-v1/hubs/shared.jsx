@@ -30,6 +30,7 @@ export function mediaSummary(metrics, imported) {
     origin: exported ? 'Arquivos importados' : 'Google Ads Script', currency: source.currency || null,
     totals, days: (source.days || []).map(item => row(item, exported)),
     platforms: (source.by_platform || []).map(item => ({...row(item, exported), label: platformName(item.platform)})),
+    campaigns: exported ? [] : (source.by_campaign || []).map(item => row(item, false)),
     observed: metrics?.observed_conversions, confirmed: metrics?.confirmed_conversions,
   };
 }
@@ -51,7 +52,10 @@ export function useMedia(period, scope = {}) {
 /** Sum of every monitored domain for the period: the site totals used by the overview and Site & Jornada. */
 export function siteTotals(domains = []) {
   const sum = key => domains.reduce((total, item) => total + Number(item.metrics?.[key] || 0), 0);
-  const previous = domains.every(item => item.previous) ? domains.reduce((total, item) => total + Number(item.previous.sessions || 0), 0) : null;
+  const comparable = domains.length > 0 && domains.every(item => item.previous);
+  const previousSum = key => comparable ? domains.reduce((total, item) => total + Number(item.previous[key] || 0), 0) : null;
+  const change = (current, before) => before ? (current - before) * 100 / before : null;
+  const previous = previousSum('sessions');
   const sessions = sum('sessions');
   const days = new Map();
   domains.forEach(domain => (domain.daily || []).forEach(day => {
@@ -60,7 +64,10 @@ export function siteTotals(domains = []) {
   }));
   return {
     sessions, visitors: sum('visitors'), views: sum('views'), conversions: sum('conversions'), formSubmits: sum('form_submits'),
-    sessionsChange: previous ? (sessions - previous) * 100 / previous : null,
+    sessionsChange: change(sessions, previous),
+    visitorsChange: change(sum('visitors'), previousSum('visitors')),
+    viewsChange: change(sum('views'), previousSum('views')),
+    conversionsChange: change(sum('conversions'), previousSum('conversions')),
     daily: [...days.values()].sort((a, b) => a.date.localeCompare(b.date)),
   };
 }

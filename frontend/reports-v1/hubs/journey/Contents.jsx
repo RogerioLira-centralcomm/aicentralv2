@@ -5,7 +5,7 @@ import {apiUrl, useApi} from '../../shell/useApi.js';
 import {AppLink, DataTable, EmptyState, ErrorState, LoadingState, MetricGroup, Section} from '../../shell/primitives.jsx';
 import {number, percent} from '../shared.jsx';
 
-const sectionName = path => path === '/' ? 'Página inicial' : path.slice(1).replace(/[-_]+/g, ' ').replace(/^./, letter => letter.toUpperCase());
+export const sectionName = path => path === '/' ? 'Página inicial' : path.slice(1).replace(/[-_]+/g, ' ').replace(/^./, letter => letter.toUpperCase());
 
 /**
  * "Quais conteúdos influenciam comportamento e conversão?" — each site section is read as one content:

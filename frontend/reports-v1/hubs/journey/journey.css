@@ -9,6 +9,14 @@
 .rs-journey-overview .rs-section{padding:14px 16px}
 .rs-journey-overview .rs-section__head{margin-bottom:10px}
 .rs-journey-overview .rs-grid--2{gap:12px}
+.rs-journey-overview__main{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:12px;align-items:start}
+.rs-journey-overview__main>.rs-section,.rs-journey-overview .rs-grid--2>.rs-section{min-width:0}
+.rs-journey-overview .rs-path{max-width:220px}
+.rs-share{display:inline-flex;align-items:center;gap:8px;min-width:120px}
+.rs-share i{flex:1;height:6px;border-radius:999px;background:var(--color-bg-tertiary);overflow:hidden}
+.rs-share b{display:block;height:100%;border-radius:inherit;background:var(--rs-brand)}
+.rs-share span{min-width:44px;font-variant-numeric:tabular-nums;text-align:right}
+@media (max-width:900px){.rs-journey-overview__main{grid-template-columns:1fr}}
 @media (max-width:560px){
   .rs-journey-overview>.rs-metrics,.rs-nav>.rs-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
   .rs-journey-overview .rs-metric:nth-child(odd),.rs-nav>.rs-metrics .rs-metric:nth-child(odd){border-left:0}

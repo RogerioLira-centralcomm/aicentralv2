@@ -167,6 +167,31 @@ def test_actions_change_state_and_write_the_history(client):
     assert post(client, 'unsilence', status='open')[0].status_code == 409
 
 
+def test_permanent_silence_has_no_end_date_and_is_logged(client):
+    response, updates = post(client, 'silence', {'permanent': True})
+    assert response.status_code == 200
+    update = next(params for verb, params in updates if verb == 'UPDATE')
+    assert update == (ALERT_ID,)
+    log = next(params for verb, params in updates if verb == 'INSERT')
+    assert '"permanent": true' in log[-1]
+    assert post(client, 'silence', {'permanent': 'yes'})[0].status_code == 400
+
+
+def test_a_permanent_silence_survives_new_findings():
+    now = datetime.datetime.now(datetime.timezone.utc)
+    current = {'id': ALERT_ID, 'subject_key': 'site', 'status': 'silenced', 'silenced_until': None}
+    calls = []
+
+    def rows(sql, params=()):
+        calls.append((sql, params))
+        return [current] if sql.startswith('SELECT * FROM cadu_reports_alerts') else []
+    finding = {'subject_key': 'site', 'severity': 'high', 'title': 't', 'summary': 's', 'evidence': [], 'page_path': None}
+    with mock.patch.object(alerts, '_rows', rows):
+        alerts.sync_findings({'id': 'x', 'client_id': 7}, 'collection_absent', [finding], now)
+    update = next(params for sql, params in calls if sql.lstrip().startswith('UPDATE'))
+    assert update[-3:-1] == ('silenced', 'silenced')
+
+
 def test_resolved_missing_and_viewer_are_rejected(client):
     assert post(client, 'acknowledge', status='resolved')[0].status_code == 409
     assert post(client, 'acknowledge', found=False)[0].status_code == 404

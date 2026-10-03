@@ -10,6 +10,7 @@ import {ReportsNativeSelect} from './ReportsNativeSelect.jsx';
 import {FlowPlatformLogo} from './FlowPlatformLogo.jsx';
 import {platformName} from './shell/media.jsx';
 import {json} from './reportsCommon.jsx';
+import {FlowConnectSite} from './FlowConnectSite.jsx';
 import {APP_BASE} from './shell/routes.js';
 
 const API = '/connect/api/v2/reports';
@@ -162,6 +163,7 @@ export function ClientsAccounts({data, save, busy, reload}) {
           showClient={selected === ALL} customers={customers}
           onEditAccount={account => setDrawer({kind: 'account', account})} onEditCampaign={campaign => setDrawer({kind: 'campaign', campaign})}/>
       </section>
+      <SitesSection data={data} current={current} selected={selected} customers={customers} canEdit={canEdit} onError={setError}/>
     </div>
 
     <CustomerDrawer open={drawer?.kind === 'customer'} customer={drawer?.customer} data={data} save={save} reload={reload} busy={busy} workspace={workspace} freeBrands={freeBrands}
@@ -170,6 +172,57 @@ export function ClientsAccounts({data, save, busy, reload}) {
     <CampaignDrawer open={drawer?.kind === 'campaign'} campaign={drawer?.campaign} data={data} save={save} reload={reload} busy={busy} customerId={current?.id || ''} customers={customers}
       workspace={workspace} brandRefs={current ? brandsOf(current.id).map(brand => brand.ref) : []} onClose={() => setDrawer(null)} onLinksChanged={reloadMap}/>
   </div>;
+}
+
+/** Super Tag sites of this client, with the ones not yet assigned to any client; new sites are created already linked to it. */
+function SitesSection({data, current, selected, customers, canEdit, onError}) {
+  const [sites, setSites] = useState(null);
+  const [version, setVersion] = useState(0);
+  const [connecting, setConnecting] = useState(false);
+  const [working, setWorking] = useState('');
+  useEffect(() => {
+    let live = true;
+    json(`${API}/supertag/sites`).then(value => {if (live) setSites((value.sites || []).filter(site => !site.revoked_at));})
+      .catch(failure => {if (live) {setSites([]); onError(failure.message);}});
+    return () => {live = false;};
+  }, [version]);
+  const nameOf = id => customers.find(item => item.id === id)?.name || '';
+  const visible = (sites || []).filter(site => selected === ALL || (selected === NONE ? !site.customer_id : String(site.customer_id || '') === selected));
+  const unassigned = current ? (sites || []).filter(site => !site.customer_id) : [];
+  const connect = async host => {
+    await send(data, '/supertag/sites', 'POST', {label: host, allowed_host: host, ...(current ? {customer_id: current.id} : {})});
+    setConnecting(false); setVersion(value => value + 1);
+  };
+  const assign = async site => {
+    setWorking(site.id);
+    try {await send(data, `/supertag/sites/${site.id}`, 'PATCH', {customer_id: current.id}); setVersion(value => value + 1);}
+    catch (failure) {onError(failure.message);} finally {setWorking('');}
+  };
+  const row = (site, action) => <li key={site.id} className="flex items-center gap-3 px-6 py-3">
+    <span className="min-w-0 flex-1">
+      <span className="block truncate text-sm font-semibold text-primary">{site.allowed_host}</span>
+      <span className="block truncate text-xs text-tertiary">{site.label !== site.allowed_host ? `${site.label} · ` : ''}{site.last_event_at ? `Último evento em ${new Date(site.last_event_at).toLocaleDateString('pt-BR')} · ${plural(Number(site.events_30d) || 0, 'evento', 'eventos')} em 30 dias` : 'Sem eventos recebidos'}{selected === ALL && site.customer_id ? ` · ${nameOf(site.customer_id)}` : ''}</span>
+    </span>
+    {action || (site.enabled ? <BadgeWithDot type="pill-color" size="sm" color="success">Ativo</BadgeWithDot> : <BadgeWithDot type="pill-color" size="sm" color="gray">Desativado</BadgeWithDot>)}
+  </li>;
+  return <section className="overflow-hidden rounded-xl bg-primary shadow-xs ring-1 ring-secondary" aria-label="Sites">
+    <header className="flex flex-wrap items-start justify-between gap-4 border-b border-secondary px-6 py-5">
+      <div className="min-w-60 flex-1">
+        <div className="flex items-center gap-2"><h2 className="text-lg font-semibold text-primary">Sites</h2>{sites && <Badge type="pill-color" size="sm" color="brand">{plural(visible.length, 'site', 'sites')}</Badge>}</div>
+        <p className="mt-0.5 text-sm text-tertiary">Domínios com a Super Tag instalada{current ? ` para ${current.name}` : ''}.</p>
+      </div>
+      {canEdit && <Button size="md" color="primary" iconLeading={Plus} onPress={() => setConnecting(true)}>Site</Button>}
+    </header>
+    {sites === null ? <p className="px-6 py-5 text-sm text-tertiary">Carregando sites…</p>
+      : visible.length ? <ul className="divide-y divide-secondary">{visible.map(site => row(site))}</ul>
+        : <p className="px-6 py-5 text-sm text-tertiary">{current ? 'Nenhum site ligado a este cliente ainda.' : 'Nenhum site encontrado.'}</p>}
+    {canEdit && unassigned.length > 0 && <div className="border-t border-secondary bg-secondary">
+      <h3 className="px-6 pt-4 text-xs font-semibold text-tertiary">Sites sem cliente</h3>
+      <ul className="divide-y divide-secondary">{unassigned.map(site => row(site,
+        <Button size="sm" color="secondary" isDisabled={working === site.id} onPress={() => assign(site)}>Ligar a {current.name}</Button>))}</ul>
+    </div>}
+    <FlowConnectSite open={connecting} clientId={data.client.client_id} data={null} onConnect={connect} onClose={() => setConnecting(false)}/>
+  </section>;
 }
 
 function ClientItem({active, name, meta, icon, onPress}) {

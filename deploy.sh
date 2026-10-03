@@ -370,6 +370,7 @@ fi
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_supertag_enhanced_events.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_google_ads_actions.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_reports_alerts_v1.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_supertag_site_customer.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_public_shares.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_cobuild.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_radar.sql

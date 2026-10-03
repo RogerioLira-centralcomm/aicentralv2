@@ -22,7 +22,7 @@ from ..cadu_workspace.brand_site_inspector import (
     normalize_public_url,
 )
 from .reports_flow import _campaign_match, _host_allowed, _safe_path
-from .reports_v1 import _rows, _selection, _write_guard
+from .reports_v1 import _customer_id, _rows, _selection, _write_guard
 from . import reports_supertag_leads as leads
 
 # Browsers cap first-party cookies at ~400 days, so the identifier stops at 395; event retention has no such cap.
@@ -725,7 +725,7 @@ def register(bp):
     def supertag_sites():
         selected = _selection()
         params = (selected['client_id'],)
-        sites = _rows('''SELECT s.id,s.public_id,s.label,s.allowed_host,s.enabled,s.config,
+        sites = _rows('''SELECT s.id,s.public_id,s.label,s.allowed_host,s.enabled,s.config,s.customer_id,
                 s.config_version,s.created_at,s.updated_at,s.revoked_at,
                 COUNT(e.id)::bigint AS events_30d,
                 COUNT(e.id) FILTER (WHERE e.event_kind='conversion')::bigint AS conversions_30d,
@@ -745,7 +745,7 @@ def register(bp):
     @login_required_api
     def supertag_site_create():
         payload = request.get_json(silent=True) or {}
-        if not isinstance(payload, dict) or set(payload) - {'label', 'allowed_host', 'client_id'} or not {'label', 'allowed_host'} <= set(payload):
+        if not isinstance(payload, dict) or set(payload) - {'label', 'allowed_host', 'client_id', 'customer_id'} or not {'label', 'allowed_host'} <= set(payload):
             abort(400, description='Informe o nome da instalação e o domínio permitido.')
         selected = _selection(payload)
         _write_guard(selected)
@@ -753,7 +753,11 @@ def register(bp):
         if not label:
             abort(400, description='Informe o nome da instalação.')
         host = _host(payload['allowed_host'])
+        customer_id = _customer_id(selected, payload.get('customer_id'))
         site, created = ensure_supertag_site(selected, host, label)
+        if customer_id and (created or not site.get('customer_id')):
+            _rows('UPDATE cadu_reports_supertag_sites SET customer_id=%s,updated_at=NOW() WHERE id=%s', (customer_id, str(site['id'])))
+        site['customer_id'] = customer_id or site.get('customer_id')
         get_db().commit()
         base = _base_url()
         site['script_url'] = f'{base}/v1/supertag.js'
@@ -765,11 +769,11 @@ def register(bp):
         payload = request.get_json(silent=True) or {}
         if not isinstance(payload, dict) or set(payload) - {'label', 'allowed_host', 'visibility_enabled', 'audience_days', 'retention_days',
                                                          'conversion_rules', 'conversion_defaults', 'form_capture', 'enhanced',
-                                                         'client_id'}:
+                                                         'client_id', 'customer_id'}:
             abort(400, description='Configuração da Super Tag inválida.')
         selected = _selection(payload)
         _write_guard(selected)
-        found = _rows('''SELECT id,label,allowed_host,config,config_version FROM cadu_reports_supertag_sites
+        found = _rows('''SELECT id,label,allowed_host,config,config_version,customer_id FROM cadu_reports_supertag_sites
             WHERE id=%s AND client_id=%s AND revoked_at IS NULL FOR UPDATE''',
             (str(site_id), selected['client_id']))
         if not found:
@@ -777,6 +781,7 @@ def register(bp):
         current = found[0]
         label = ' '.join(str(payload.get('label', current['label']) or '').split())[:120]
         host = _host(payload.get('allowed_host', current['allowed_host']))
+        customer_id = _customer_id(selected, payload['customer_id']) if 'customer_id' in payload else current.get('customer_id')
         config = dict(current['config'] or {})
         # Consent is the website's job; old keys are dropped on the next save.
         config.pop('consent_mode', None)
@@ -804,9 +809,9 @@ def register(bp):
                 abort(400, description='Escolha a retenção dos eventos entre 30 dias e 5 anos.')
             config['retention_days'] = payload['retention_days']
         updated = _rows('''UPDATE cadu_reports_supertag_sites SET label=%s,allowed_host=%s,
-            config=%s::jsonb,config_version=config_version+1,updated_at=NOW()
-            WHERE id=%s RETURNING id,public_id,label,allowed_host,enabled,config,config_version,created_at,updated_at,revoked_at''',
-            (label, host, json.dumps(config), str(site_id)))[0]
+            config=%s::jsonb,config_version=config_version+1,customer_id=%s,updated_at=NOW()
+            WHERE id=%s RETURNING id,public_id,label,allowed_host,customer_id,enabled,config,config_version,created_at,updated_at,revoked_at''',
+            (label, host, json.dumps(config), customer_id, str(site_id)))[0]
         get_db().commit()
         base = _base_url()
         updated['script_url'] = f'{base}/v1/supertag.js'

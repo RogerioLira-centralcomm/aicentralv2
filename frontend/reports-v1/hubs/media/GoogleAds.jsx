@@ -20,7 +20,7 @@ const MATCH = {EXACT: 'Exata', PHRASE: 'Frase', BROAD: 'Ampla'};
 const LEVEL = {campaign: 'Campanha', ad_group: 'Grupo de anúncios', shared_list: 'Lista compartilhada'};
 const BIDDING = {MAXIMIZE_CONVERSIONS: 'Maximizar conversões', MAXIMIZE_CONVERSION_VALUE: 'Maximizar valor', TARGET_CPA: 'CPA desejado', TARGET_ROAS: 'ROAS desejado', MANUAL_CPC: 'CPC manual', TARGET_SPEND: 'Maximizar cliques', TARGET_IMPRESSION_SHARE: 'Parcela de impressões'};
 const STATUS = {ENABLED: ['Ativa', 'success'], PAUSED: ['Pausada', 'gray'], REMOVED: ['Removida', 'error']};
-const DATASET = {campaign_metrics: 'campanhas', campaign_settings: 'configurações', ad_group_metrics: 'grupos', device_metrics: 'dispositivos', landing_page_metrics: 'páginas de destino', keyword_metrics: 'palavras-chave', search_term_metrics: 'termos de pesquisa', negative_keywords: 'negativas'};
+const DATASET = {campaign_metrics: 'campanhas', campaign_settings: 'configurações', ad_group_metrics: 'grupos', device_metrics: 'dispositivos', landing_page_metrics: 'páginas de destino', keyword_metrics: 'palavras-chave', search_term_metrics: 'termos de pesquisa', negative_keywords: 'negativas', ads: 'anúncios', ad_metrics: 'métricas dos anúncios', asset_performance: 'títulos e descrições', impression_share_metrics: 'parcela de impressões', conversion_action_metrics: 'conversões por ação'};
 const badge = ([label, tone]) => <span className={`rs-badge is-${tone}`}>{label}</span>;
 const COMPARE = {previous: 'vs período anterior', year: 'vs mesmo período do ano anterior'};
 const change = (now, before) => before ? (Number(now || 0) - Number(before)) * 100 / Number(before) : null;

@@ -32,6 +32,10 @@ MAX_SUMMARY_BYTES = 20_000
 MATCH_TYPES = ('EXACT', 'PHRASE', 'BROAD')
 DEVICES = ('MOBILE', 'DESKTOP', 'TABLET', 'CONNECTED_TV', 'OTHER', 'UNKNOWN', 'UNSPECIFIED')
 SUMMARY_STATUSES = ('ok', 'error', 'skipped', 'truncated', 'empty')
+AD_STRENGTHS = ('PENDING', 'NO_ADS', 'POOR', 'AVERAGE', 'GOOD', 'EXCELLENT', 'UNSPECIFIED', 'UNKNOWN')
+RATINGS = ('BELOW_AVERAGE', 'AVERAGE', 'ABOVE_AVERAGE', 'UNSPECIFIED', 'UNKNOWN')
+PERFORMANCE_LABELS = ('PENDING', 'LEARNING', 'LOW', 'GOOD', 'BEST', 'UNSPECIFIED', 'UNKNOWN')
+MAX_ASSET_TEXTS = 30
 
 
 # ---------------------------------------------------------------------------
@@ -134,7 +138,12 @@ def _norm_keyword_metrics(value):
            'keyword_text': _text(value.get('keyword_text'), 'Palavra-chave'),
            'match_type': match_type,
            'keyword_status': _enum_text(value.get('keyword_status'), 'Estado da palavra-chave'),
-           'quality_score': quality, 'metric_date': _metric_date(value.get('date')), **_metrics(value)}
+           'quality_score': quality, 'metric_date': _metric_date(value.get('date')), **_metrics(value),
+           # Engine 2.2: Quality Score components and bid; absent (None) on older scripts or when the API refuses them.
+           'expected_ctr': _optional_enum(value.get('expected_ctr'), RATINGS, 'CTR esperado'),
+           'ad_relevance': _optional_enum(value.get('ad_relevance'), RATINGS, 'Relevância do anúncio'),
+           'landing_page_experience': _optional_enum(value.get('landing_page_experience'), RATINGS, 'Experiência na página'),
+           'cpc_bid_micros': None if value.get('cpc_bid_micros') in (None, '') else _count(value.get('cpc_bid_micros'), 'Lance')}
     return (row['ad_group_external_id'], row['criterion_external_id'], row['metric_date']), row
 
 
@@ -224,6 +233,98 @@ def _norm_negative_keyword(value):
     return (fingerprint,), row
 
 
+def _optional_enum(value, allowed, name):
+    """An enum the API may leave out: None when absent, 'UNKNOWN' when it is a value this version does not know."""
+    if value in (None, ''):
+        return None
+    raw = _enum_text(value, name, limit=24)
+    return raw if raw in allowed else 'UNKNOWN'
+
+
+def _share(value, name):
+    """A 0..1 ratio, or None when Google reports no value."""
+    if value in (None, ''):
+        return None
+    if isinstance(value, bool):
+        abort(400, description=f'{name} inválido.')
+    try:
+        number = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        abort(400, description=f'{name} inválido.')
+    if not number.is_finite() or number < 0 or number > 1:
+        abort(400, description=f'{name} fora do limite.')
+    return number.quantize(Decimal('0.000001'))
+
+
+def _ad_texts(value, name):
+    """Headlines/descriptions of a responsive ad: a bounded list of {text, pinned}."""
+    if value in (None, ''):
+        return []
+    if not isinstance(value, list) or len(value) > MAX_ASSET_TEXTS:
+        abort(400, description=f'{name} inválidos.')
+    clean = []
+    for item in value:
+        item = _require_dict(item)
+        clean.append({'text': _text(item.get('text'), name, 400), 'pinned': str(item.get('pinned') or '')[:24]})
+    return clean
+
+
+def _norm_ads(value):
+    value = _require_dict(value)
+    raw_url = str(value.get('final_url') or '').strip()
+    row = {**_entity(value, 'campaign'), **_entity(value, 'ad_group'),
+           'ad_external_id': _google_id(value.get('ad_id'), 'ID do anúncio'),
+           'ad_type': _enum_text(value.get('ad_type'), 'Tipo de anúncio', limit=48),
+           'status': _enum_text(value.get('status'), 'Estado do anúncio'),
+           'ad_strength': _optional_enum(value.get('ad_strength'), AD_STRENGTHS, 'Força do anúncio'),
+           'approval_status': _enum_text(value.get('approval_status'), 'Aprovação', limit=32) if value.get('approval_status') else None,
+           'final_url': raw_url[:2000] if re.match(r'https?://', raw_url, re.I) else None,
+           'headlines': _ad_texts(value.get('headlines'), 'Títulos'), 'descriptions': _ad_texts(value.get('descriptions'), 'Descrições'),
+           'path1': str(value.get('path1') or '')[:30] or None, 'path2': str(value.get('path2') or '')[:30] or None}
+    return (row['ad_external_id'],), row
+
+
+def _norm_ad_metrics(value):
+    value = _require_dict(value)
+    row = {**_entity(value, 'campaign'), 'ad_group_external_id': _google_id(value.get('ad_group_id'), 'ID de grupo'),
+           'ad_external_id': _google_id(value.get('ad_id'), 'ID do anúncio'),
+           'metric_date': _metric_date(value.get('date')), **_metrics(value)}
+    return (row['ad_external_id'], row['metric_date']), row
+
+
+def _norm_asset_performance(value):
+    value = _require_dict(value)
+    field = _enum_text(value.get('field_type'), 'Tipo de ativo', limit=24)
+    row = {'campaign_external_id': _google_id(value.get('campaign_id'), 'ID de campanha'),
+           'ad_group_external_id': _google_id(value.get('ad_group_id'), 'ID de grupo'),
+           'ad_external_id': _google_id(value.get('ad_id'), 'ID do anúncio'),
+           'asset_external_id': _google_id(value.get('asset_id'), 'ID do ativo'), 'field_type': field,
+           'asset_text': str(value.get('text') or '')[:400],
+           'performance_label': _optional_enum(value.get('performance_label'), PERFORMANCE_LABELS, 'Desempenho do ativo'),
+           'enabled': value.get('enabled') is not False}
+    return (row['ad_external_id'], row['asset_external_id'], field), row
+
+
+def _norm_impression_share(value):
+    value = _require_dict(value)
+    row = {**_entity(value, 'campaign'), 'metric_date': _metric_date(value.get('date')),
+           'search_impression_share': _share(value.get('search_impression_share'), 'Parcela de impressões'),
+           'budget_lost': _share(value.get('budget_lost'), 'Parcela perdida por orçamento'),
+           'rank_lost': _share(value.get('rank_lost'), 'Parcela perdida por classificação'),
+           'top_impression_share': _share(value.get('top_impression_share'), 'Parcela no topo'),
+           'absolute_top_impression_share': _share(value.get('absolute_top_impression_share'), 'Parcela na primeira posição')}
+    return (row['campaign_external_id'], row['metric_date']), row
+
+
+def _norm_conversion_action(value):
+    value = _require_dict(value)
+    name = _text(value.get('action_name'), 'Ação de conversão', 240)
+    row = {**_entity(value, 'campaign'), 'action_name': name, 'action_hash': hashlib.md5(name.lower().encode()).hexdigest(),
+           'metric_date': _metric_date(value.get('date')), 'conversions': _decimal(value.get('conversions'), 'Conversões'),
+           'conversion_value_micros': _count(value.get('conversion_value_micros'), 'Valor de conversão')}
+    return (row['campaign_external_id'], row['action_hash'], row['metric_date']), row
+
+
 # ---------------------------------------------------------------------------
 # Writers. Each upserts one validated row and is safe to replay.
 # ---------------------------------------------------------------------------
@@ -248,10 +349,19 @@ def _write_ad_group(row, ctx):
                  ('ad_group_external_id', 'metric_date'), row, ctx)
 
 
+def _keyword_components_ready():
+    """The component columns arrive with add_reports_google_ads_engine_v22.sql; older databases keep working without them."""
+    return bool(_rows("""SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='cadu_reports_gads_keyword_daily'
+        AND column_name='expected_ctr') AS ready""")[0]['ready'])
+
+
 def _write_keyword(row, ctx):
+    if 'keyword_components' not in ctx:
+        ctx['keyword_components'] = _keyword_components_ready()
+    extra = ('expected_ctr', 'ad_relevance', 'landing_page_experience', 'cpc_bid_micros') if ctx['keyword_components'] else ()
     _write_daily('cadu_reports_gads_keyword_daily',
                  ('campaign_external_id', 'campaign_name', 'ad_group_external_id', 'ad_group_name', 'criterion_external_id',
-                  'keyword_text', 'match_type', 'keyword_status', 'quality_score', 'metric_date'),
+                  'keyword_text', 'match_type', 'keyword_status', 'quality_score', *extra, 'metric_date'),
                  ('ad_group_external_id', 'criterion_external_id', 'metric_date'), row, ctx)
 
 
@@ -345,6 +455,86 @@ def _finalize_negatives(ctx):
           (ctx['account_pk'], ctx['snapshot_id']))
 
 
+def _write_ad(row, ctx):
+    _rows('''INSERT INTO cadu_reports_gads_ads
+            (client_id,account_id,ad_external_id,campaign_external_id,campaign_name,ad_group_external_id,ad_group_name,ad_type,
+             status,ad_strength,approval_status,final_url,headlines,descriptions,path1,path2,snapshot_id,last_run_id)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s::jsonb,%s,%s,%s,%s)
+        ON CONFLICT (account_id,ad_external_id) DO UPDATE SET
+            campaign_external_id=EXCLUDED.campaign_external_id,campaign_name=EXCLUDED.campaign_name,
+            ad_group_external_id=EXCLUDED.ad_group_external_id,ad_group_name=EXCLUDED.ad_group_name,ad_type=EXCLUDED.ad_type,
+            status=EXCLUDED.status,ad_strength=EXCLUDED.ad_strength,approval_status=EXCLUDED.approval_status,
+            final_url=EXCLUDED.final_url,headlines=EXCLUDED.headlines,descriptions=EXCLUDED.descriptions,
+            path1=EXCLUDED.path1,path2=EXCLUDED.path2,snapshot_id=EXCLUDED.snapshot_id,last_run_id=EXCLUDED.last_run_id,
+            removed_at=NULL,updated_at=NOW()
+        RETURNING account_id''',
+          (ctx['client_id'], ctx['account_pk'], row['ad_external_id'], row['campaign_external_id'], row['campaign_name'],
+           row['ad_group_external_id'], row['ad_group_name'], row['ad_type'], row['status'], row['ad_strength'],
+           row['approval_status'], row['final_url'], json.dumps(row['headlines']), json.dumps(row['descriptions']),
+           row['path1'], row['path2'], ctx['snapshot_id'], ctx['run_id']))
+
+
+def _write_ad_metrics(row, ctx):
+    _write_daily('cadu_reports_gads_ad_daily',
+                 ('campaign_external_id', 'campaign_name', 'ad_group_external_id', 'ad_external_id', 'metric_date'),
+                 ('ad_external_id', 'metric_date'), row, ctx)
+
+
+def _write_asset_performance(row, ctx):
+    _rows('''INSERT INTO cadu_reports_gads_asset_performance
+            (client_id,account_id,ad_external_id,asset_external_id,field_type,campaign_external_id,ad_group_external_id,
+             asset_text,performance_label,enabled,snapshot_id,last_run_id)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ON CONFLICT (account_id,ad_external_id,asset_external_id,field_type) DO UPDATE SET
+            campaign_external_id=EXCLUDED.campaign_external_id,ad_group_external_id=EXCLUDED.ad_group_external_id,
+            asset_text=EXCLUDED.asset_text,performance_label=EXCLUDED.performance_label,enabled=EXCLUDED.enabled,
+            snapshot_id=EXCLUDED.snapshot_id,last_run_id=EXCLUDED.last_run_id,removed_at=NULL,updated_at=NOW()
+        RETURNING account_id''',
+          (ctx['client_id'], ctx['account_pk'], row['ad_external_id'], row['asset_external_id'], row['field_type'],
+           row['campaign_external_id'], row['ad_group_external_id'], row['asset_text'], row['performance_label'],
+           row['enabled'], ctx['snapshot_id'], ctx['run_id']))
+
+
+def _write_impression_share(row, ctx):
+    _rows('''INSERT INTO cadu_reports_gads_impression_share_daily
+            (client_id,account_id,campaign_external_id,campaign_name,metric_date,search_impression_share,budget_lost,rank_lost,
+             top_impression_share,absolute_top_impression_share,last_run_id)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ON CONFLICT (account_id,campaign_external_id,metric_date) DO UPDATE SET campaign_name=EXCLUDED.campaign_name,
+            search_impression_share=EXCLUDED.search_impression_share,budget_lost=EXCLUDED.budget_lost,rank_lost=EXCLUDED.rank_lost,
+            top_impression_share=EXCLUDED.top_impression_share,absolute_top_impression_share=EXCLUDED.absolute_top_impression_share,
+            last_run_id=EXCLUDED.last_run_id,updated_at=NOW()
+        RETURNING account_id''',
+          (ctx['client_id'], ctx['account_pk'], row['campaign_external_id'], row['campaign_name'], row['metric_date'],
+           row['search_impression_share'], row['budget_lost'], row['rank_lost'], row['top_impression_share'],
+           row['absolute_top_impression_share'], ctx['run_id']))
+
+
+def _write_conversion_action(row, ctx):
+    _rows('''INSERT INTO cadu_reports_gads_conversion_action_daily
+            (client_id,account_id,campaign_external_id,campaign_name,action_name,action_hash,metric_date,conversions,
+             conversion_value_micros,last_run_id)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ON CONFLICT (account_id,campaign_external_id,action_hash,metric_date) DO UPDATE SET campaign_name=EXCLUDED.campaign_name,
+            action_name=EXCLUDED.action_name,conversions=EXCLUDED.conversions,
+            conversion_value_micros=EXCLUDED.conversion_value_micros,last_run_id=EXCLUDED.last_run_id,updated_at=NOW()
+        RETURNING account_id''',
+          (ctx['client_id'], ctx['account_pk'], row['campaign_external_id'], row['campaign_name'], row['action_name'],
+           row['action_hash'], row['metric_date'], row['conversions'], row['conversion_value_micros'], ctx['run_id']))
+
+
+def _finalize_ads(ctx):
+    _rows('''UPDATE cadu_reports_gads_ads SET removed_at=NOW()
+        WHERE account_id=%s AND removed_at IS NULL AND snapshot_id <> %s RETURNING account_id''',
+          (ctx['account_pk'], ctx['snapshot_id']))
+
+
+def _finalize_asset_performance(ctx):
+    _rows('''UPDATE cadu_reports_gads_asset_performance SET removed_at=NOW()
+        WHERE account_id=%s AND removed_at IS NULL AND snapshot_id <> %s RETURNING account_id''',
+          (ctx['account_pk'], ctx['snapshot_id']))
+
+
 def _write_campaign_metrics(row, ctx):
     campaign = _rows('''INSERT INTO cadu_reports_campaigns (client_id,account_id,external_id,name,status,channel_type)
         VALUES (%s,%s,%s,%s,%s,%s)
@@ -380,6 +570,12 @@ DATASETS = {
     'landing_page_metrics': (_norm_landing_page_metrics, _write_landing_page, None),
     'campaign_settings': (_norm_campaign_settings, _write_campaign_settings, _finalize_settings),
     'negative_keywords': (_norm_negative_keyword, _write_negative, _finalize_negatives),
+    # Engine 2.2
+    'ads': (_norm_ads, _write_ad, _finalize_ads),
+    'ad_metrics': (_norm_ad_metrics, _write_ad_metrics, None),
+    'asset_performance': (_norm_asset_performance, _write_asset_performance, _finalize_asset_performance),
+    'impression_share_metrics': (_norm_impression_share, _write_impression_share, None),
+    'conversion_action_metrics': (_norm_conversion_action, _write_conversion_action, None),
 }
 SNAPSHOT_DATASETS = {name for name, spec in DATASETS.items() if spec[2]}
 
@@ -626,13 +822,18 @@ def register(bp):
 CHUNK_RETENTION_DAYS = 30
 _RUN_REFERENCES = ('cadu_reports_campaign_daily_metrics', 'cadu_reports_gads_ad_group_daily', 'cadu_reports_gads_keyword_daily',
                    'cadu_reports_gads_search_term_daily', 'cadu_reports_gads_device_daily', 'cadu_reports_gads_campaign_settings',
-                   'cadu_reports_gads_negative_keywords', 'cadu_reports_gads_landing_page_daily')
+                   'cadu_reports_gads_negative_keywords', 'cadu_reports_gads_landing_page_daily', 'cadu_reports_gads_ads',
+                   'cadu_reports_gads_ad_daily', 'cadu_reports_gads_asset_performance',
+                   'cadu_reports_gads_impression_share_daily', 'cadu_reports_gads_conversion_action_daily')
 
 
 def prune_chunk_runs(days=CHUNK_RETENTION_DAYS):
     """Delete old per-batch idempotency rows that no data row still points to (``last_run_id``). Summaries are kept."""
-    unreferenced = ' AND '.join(f'NOT EXISTS (SELECT 1 FROM {table} t WHERE t.last_run_id=r.id)' for table in _RUN_REFERENCES)
     cursor = get_db().cursor()
+    # Tables from newer migrations may not exist yet on an older database.
+    cursor.execute("SELECT name FROM unnest(%s::text[]) AS name WHERE to_regclass('public.' || name) IS NOT NULL", (list(_RUN_REFERENCES),))
+    present = [row['name'] if isinstance(row, dict) else row[0] for row in cursor.fetchall()]
+    unreferenced = ' AND '.join(f'NOT EXISTS (SELECT 1 FROM {table} t WHERE t.last_run_id=r.id)' for table in present) or 'TRUE'
     cursor.execute(
         f"DELETE FROM cadu_reports_source_runs r WHERE r.source_kind=%s AND r.created_at < NOW() - make_interval(days => %s) AND {unreferenced}",
         (CHUNK_SOURCE_KIND, int(days)))

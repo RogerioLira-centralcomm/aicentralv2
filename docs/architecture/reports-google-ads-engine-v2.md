@@ -29,10 +29,22 @@ contas autorizadas e vínculo da conta seguem as mesmas regras de confiança.
 | `landing_page_metrics` | diário | `cadu_reports_gads_landing_page_daily` | campanha + hash da URL final + data (guarda `page_host`/`page_path` para cruzar com a Super Tag) |
 | `campaign_settings` | snapshot | `cadu_reports_gads_campaign_settings` | campanha (orçamento, lances, veiculação) |
 | `negative_keywords` | snapshot | `cadu_reports_gads_negative_keywords` | impressão digital de nível + escopo + texto + correspondência |
+| `ads` | snapshot | `cadu_reports_gads_ads` | anúncio (tipo, status, aprovação, força, URL final, títulos/descrições do anúncio responsivo) |
+| `ad_metrics` | diário | `cadu_reports_gads_ad_daily` | anúncio + data |
+| `asset_performance` | snapshot | `cadu_reports_gads_asset_performance` | anúncio + ativo + tipo (nota da Google para cada título/descrição) |
+| `impression_share_metrics` | diário | `cadu_reports_gads_impression_share_daily` | campanha + data (parcela de impressões, perdida por orçamento/classificação, topo) |
+| `conversion_action_metrics` | diário | `cadu_reports_gads_conversion_action_daily` | campanha + ação de conversão + data |
 | `run_summary` | heartbeat | `cadu_reports_source_runs` | uma por conta por execução |
 
 Negativas cobrem três níveis: campanha, grupo de anúncios e lista compartilhada (com as campanhas vinculadas em
 `attached_campaign_ids`).
+
+Engine **2.2.0** (migration `add_reports_google_ads_engine_v22.sql`): os cinco últimos conjuntos acima e, em
+`keyword_metrics`, os componentes do Índice de Qualidade (`expected_ctr`, `ad_relevance`, `landing_page_experience`) e o
+lance (`cpc_bid_micros`). Cada coletor novo falha sozinho (conta sem anúncios de pesquisa, campo recusado pela versão da
+API) e o de palavras-chave volta para a consulta básica. O servidor aceita scripts 2.1 (sem os campos novos) e bancos sem a
+migration (as colunas de componentes só são gravadas quando existem). Quem já instalou o script precisa colar a versão 2.2.0
+para começar a receber os novos dados.
 
 ## Contrato
 
@@ -66,8 +78,8 @@ Cada requisição: `schema_version: 2`, `run_key`, `account {id,name,currency,ti
 
 ## Fora do escopo desta versão
 
-Anúncios (`ad_group_ad`), geografia, relação palavra-chave → página (o Google Ads só expõe página por campanha/grupo, não por palavra), conversões por ação, parcela de impressões e extensões. Cada um é um coletor
-novo seguindo os quatro passos acima. Nenhuma tela do Reports consome ainda as tabelas `cadu_reports_gads_*`.
+Geografia, dados demográficos e de público, extensões/ativos de anúncio (sitelinks, frases de destaque, imagens), grupos de recursos de Performance Max e relação palavra-chave → página (o Google Ads só expõe página por campanha/grupo, não por palavra). Cada um é um coletor
+novo seguindo os quatro passos acima. As telas já consomem as tabelas até `negative_keywords`; anúncios, ativos, parcela de impressões e conversões por ação são coletados e guardados, e ainda não têm tela.
 
 ## Retenção
 

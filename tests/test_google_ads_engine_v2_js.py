@@ -27,7 +27,8 @@ def test_every_dataset_is_sent_and_a_summary_closes_the_run():
     grouped = by_dataset(result)
     assert result['thrown'] is None
     assert set(grouped) == {'campaign_metrics', 'campaign_settings', 'device_metrics', 'landing_page_metrics', 'search_term_metrics',
-                            'negative_keywords', 'run_summary'}
+                            'negative_keywords', 'ads', 'ad_metrics', 'asset_performance', 'impression_share_metrics',
+                            'conversion_action_metrics', 'run_summary'}
     assert result['calls'][-1]['dataset'] == 'run_summary'
     assert all(call['schema_version'] == 2 and call['run_key'] == 'uuid-1' for call in result['calls'])
     summary = {item['name']: item for item in grouped['run_summary'][0]['summary']['datasets']}
@@ -81,3 +82,29 @@ def test_landing_pages_carry_the_final_url_per_campaign_and_day():
     record = by_dataset(run('happy'))['landing_page_metrics'][0]['records'][0]
     assert record['final_url'].startswith('https://exemplo.com.br/lp/verao/') and record['campaign_id'] == '1'
     assert record['date'] == '2026-10-01' and record['cost_micros'] == 2000000
+
+
+def test_ads_carry_the_text_strength_and_approval_of_each_responsive_ad():
+    ad = by_dataset(run('happy'))['ads'][0]
+    assert ad['snapshot'] == {'id': 'uuid-1:ads', 'final': True}
+    record = ad['records'][0]
+    assert record['ad_id'] == '7' and record['ad_strength'] == 'POOR' and record['approval_status'] == 'APPROVED'
+    assert record['headlines'] == [{'text': 'Título', 'pinned': 'HEADLINE_1'}] and record['descriptions'] == [{'text': 'Descrição', 'pinned': ''}]
+    assert record['final_url'] == 'https://exemplo.com.br/'
+
+
+def test_asset_performance_impression_share_and_conversion_actions_are_collected():
+    grouped = by_dataset(run('happy'))
+    assert grouped['asset_performance'][0]['records'][0]['performance_label'] == 'LOW'
+    share = grouped['impression_share_metrics'][0]['records'][0]
+    assert share['search_impression_share'] == 0.42 and share['budget_lost'] == 0.3 and share['rank_lost'] is None
+    action = grouped['conversion_action_metrics'][0]['records'][0]
+    assert action['action_name'] == 'Lead' and action['conversions'] == 2 and action['conversion_value_micros'] == 20000000
+    assert grouped['ad_metrics'][0]['records'][0]['ad_id'] == '7'
+
+
+def test_keywords_fall_back_to_the_basic_query_when_quality_components_are_refused():
+    result = run('keyword_fallback')
+    record = by_dataset(result)['keyword_metrics'][0]['records'][0]
+    assert result['thrown'] is None and record['quality_score'] == 4 and record['expected_ctr'] is None
+    assert any('componentes do Índice de Qualidade indisponíveis' in line for line in result['logs'])

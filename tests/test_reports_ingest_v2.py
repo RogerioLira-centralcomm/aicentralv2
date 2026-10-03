@@ -195,15 +195,92 @@ def test_campaign_metrics_reuse_the_v1_record_contract(client):
 
 def test_chunk_retention_only_removes_unreferenced_old_batches():
     db = mock.Mock()
-    db.cursor.return_value.rowcount = 3
+    cursor = db.cursor.return_value
+    cursor.rowcount = 3
+    cursor.fetchall.return_value = [{'name': table} for table in v2._RUN_REFERENCES]
     with mock.patch.object(v2, 'get_db', return_value=db):
         assert v2.prune_chunk_runs(30) == 3
-    sql, params = db.cursor.return_value.execute.call_args[0]
+    sql, params = cursor.execute.call_args[0]
     assert params == (v2.CHUNK_SOURCE_KIND, 30)
     for table in v2._RUN_REFERENCES:
         assert f'FROM {table} t WHERE t.last_run_id=r.id' in sql
     assert 'NOT EXISTS' in sql and 'summary' not in sql
     db.commit.assert_called_once()
+
+
+def test_chunk_retention_skips_tables_a_database_has_not_migrated_yet():
+    db = mock.Mock()
+    cursor = db.cursor.return_value
+    cursor.rowcount = 0
+    cursor.fetchall.return_value = [{'name': 'cadu_reports_gads_keyword_daily'}]
+    with mock.patch.object(v2, 'get_db', return_value=db):
+        v2.prune_chunk_runs(30)
+    sql = cursor.execute.call_args[0][0]
+    assert 'cadu_reports_gads_keyword_daily t' in sql and 'cadu_reports_gads_ads t' not in sql
+
+
+def test_ad_keeps_text_strength_and_approval_and_is_keyed_by_ad():
+    key, row = v2._norm_ads({
+        'campaign_id': '1', 'campaign_name': 'C', 'ad_group_id': '2', 'ad_group_name': 'G', 'ad_id': '77',
+        'ad_type': 'responsive_search_ad', 'status': 'enabled', 'ad_strength': 'poor', 'approval_status': 'approved',
+        'final_url': 'https://exemplo.com.br/', 'headlines': [{'text': 'Título', 'pinned': 'HEADLINE_1'}],
+        'descriptions': [{'text': 'Descrição'}], 'path1': 'loja'})
+    assert key == ('77',) and row['ad_strength'] == 'POOR' and row['approval_status'] == 'APPROVED'
+    assert row['headlines'] == [{'text': 'Título', 'pinned': 'HEADLINE_1'}] and row['descriptions'] == [{'text': 'Descrição', 'pinned': ''}]
+    assert v2._norm_ads({'campaign_id': '1', 'campaign_name': 'C', 'ad_group_id': '2', 'ad_group_name': 'G', 'ad_id': '78',
+                         'final_url': 'javascript:alert(1)'})[1]['final_url'] is None
+    with pytest.raises(BadRequest):
+        v2._norm_ads({'campaign_id': '1', 'campaign_name': 'C', 'ad_group_id': '2', 'ad_group_name': 'G', 'ad_id': '79',
+                      'headlines': [{'text': 'x'}] * 31})
+
+
+def test_unknown_ad_strength_is_bucketed_not_rejected():
+    row = v2._norm_ads({'campaign_id': '1', 'campaign_name': 'C', 'ad_group_id': '2', 'ad_group_name': 'G', 'ad_id': '7',
+                        'ad_strength': 'SUPERB'})[1]
+    assert row['ad_strength'] == 'UNKNOWN'
+
+
+def test_ad_metrics_and_asset_performance_keys():
+    key, row = v2._norm_ad_metrics({'campaign_id': '1', 'campaign_name': 'C', 'ad_group_id': '2', 'ad_id': '7', 'date': TODAY, **METRICS})
+    assert key == ('7', datetime.date.today()) and row['clicks'] == 2
+    key, row = v2._norm_asset_performance({'campaign_id': '1', 'ad_group_id': '2', 'ad_id': '7', 'asset_id': '11', 'text': 'Compre agora',
+                                           'field_type': 'headline', 'performance_label': 'low', 'enabled': True})
+    assert key == ('7', '11', 'HEADLINE') and row['performance_label'] == 'LOW'
+
+
+def test_impression_share_accepts_missing_values_and_rejects_out_of_range():
+    base = {'campaign_id': '1', 'campaign_name': 'C', 'date': TODAY}
+    row = v2._norm_impression_share({**base, 'search_impression_share': 0.42, 'budget_lost': None})[1]
+    assert str(row['search_impression_share']) == '0.420000' and row['budget_lost'] is None and row['rank_lost'] is None
+    with pytest.raises(BadRequest):
+        v2._norm_impression_share({**base, 'search_impression_share': 1.4})
+
+
+def test_conversion_action_hash_ignores_case():
+    base = {'campaign_id': '1', 'campaign_name': 'C', 'date': TODAY, 'conversions': 2, 'conversion_value_micros': 5}
+    one = v2._norm_conversion_action({**base, 'action_name': 'Lead Site'})
+    two = v2._norm_conversion_action({**base, 'action_name': 'lead site'})
+    assert one[0] == two[0] and one[1]['conversions'] == 2
+
+
+def test_keyword_quality_components_are_optional_for_older_scripts():
+    base = {'campaign_id': '1', 'campaign_name': 'C', 'ad_group_id': '2', 'ad_group_name': 'G', 'criterion_id': '5',
+            'keyword_text': 'sapato', 'match_type': 'EXACT', 'keyword_status': 'ENABLED', 'quality_score': 4, 'date': TODAY, **METRICS}
+    old = v2._norm_keyword_metrics(base)[1]
+    assert old['expected_ctr'] is None and old['cpc_bid_micros'] is None
+    new = v2._norm_keyword_metrics({**base, 'expected_ctr': 'below_average', 'ad_relevance': 'AVERAGE',
+                                    'landing_page_experience': 'ABOVE_AVERAGE', 'cpc_bid_micros': 1200000})[1]
+    assert new['expected_ctr'] == 'BELOW_AVERAGE' and new['cpc_bid_micros'] == 1200000
+
+
+def test_new_datasets_are_accepted_by_the_endpoint(client):
+    db = FakeDb()
+    ad = {'campaign_id': '1', 'campaign_name': 'C', 'ad_group_id': '2', 'ad_group_name': 'G', 'ad_id': '7', 'ad_type': 'RESPONSIVE_SEARCH_AD',
+          'status': 'ENABLED', 'headlines': [{'text': 'A'}], 'descriptions': []}
+    response, _ = post(client, db, envelope('ads', records=[ad], snapshot={'id': 's', 'final': True}))
+    assert response.status_code == 200 and response.get_json()['records'] == 1
+    assert any('cadu_reports_gads_ads' in sql for sql, _ in db.statements)
+    assert any('SET removed_at=NOW()' in sql and 'cadu_reports_gads_ads' in sql for sql, _ in db.statements)
 
 
 def test_short_address_reaches_the_same_ingest(client):

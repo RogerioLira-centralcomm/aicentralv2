@@ -22,7 +22,7 @@ var CADU = {
   apiKey: '__CADU_API_KEY__',
   accountIds: __CADU_ACCOUNT_IDS__, // Obrigatório em MCC; emitido para este cliente.
 
-  engineVersion: '2.1.1',
+  engineVersion: '2.2.0',
   schemaVersion: 2,
   windowDays: 14,                   // Janela recente quando o Reports não responde ao plano (conversões chegam atrasadas).
   // O Reports devolve o plano de datas: a janela recente + a próxima fatia do histórico (até 13 meses), uma por execução.
@@ -40,7 +40,13 @@ var CADU = {
     landing_page_metrics:{enabled: true, maxRows: 20000},
     keyword_metrics:     {enabled: true, maxRows: 20000},
     search_term_metrics: {enabled: true, maxRows: 30000},
-    negative_keywords:   {enabled: true, maxRows: 30000}
+    negative_keywords:   {enabled: true, maxRows: 30000},
+    // Engine 2.2: anúncios e o que a Google mede sobre eles. Cada um falha sozinho (conta sem anúncios de pesquisa, campo recusado).
+    ads:                 {enabled: true, maxRows: 20000},
+    ad_metrics:          {enabled: true, maxRows: 30000},
+    asset_performance:   {enabled: true, maxRows: 30000},
+    impression_share_metrics: {enabled: true, maxRows: 20000},
+    conversion_action_metrics: {enabled: true, maxRows: 30000}
   }
 };
 
@@ -275,28 +281,43 @@ var COLLECTORS = {
   keyword_metrics: {
     kind: 'daily',
     collect: function (ctx, cfg) {
-      var records = [];
-      var query = 'SELECT campaign.id, campaign.name, ad_group.id, ad_group.name, ad_group_criterion.criterion_id, ' +
+      var base = 'SELECT campaign.id, campaign.name, ad_group.id, ad_group.name, ad_group_criterion.criterion_id, ' +
         'ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group_criterion.status, ' +
-        'ad_group_criterion.quality_info.quality_score, segments.date, ' + METRIC_FIELDS +
-        ' FROM keyword_view WHERE ' + Gaql.between(ctx) + ' AND ad_group_criterion.negative = FALSE' +
-        ' ORDER BY metrics.cost_micros DESC';
-      var result = Gaql.each(query, cfg.maxRows, function (row) {
-        var record = Util.metrics(row);
-        var quality = Util.get(row, 'adGroupCriterion.qualityInfo.qualityScore');
-        record.campaign_id = String(row.campaign.id);
-        record.campaign_name = row.campaign.name;
-        record.ad_group_id = String(row.adGroup.id);
-        record.ad_group_name = row.adGroup.name;
-        record.criterion_id = String(row.adGroupCriterion.criterionId);
-        record.keyword_text = row.adGroupCriterion.keyword.text;
-        record.match_type = row.adGroupCriterion.keyword.matchType;
-        record.keyword_status = row.adGroupCriterion.status;
-        record.quality_score = quality === null ? null : Util.number(quality);
-        record.date = row.segments.date;
-        records.push(record);
-      });
-      return {records: records, truncated: result.truncated};
+        'ad_group_criterion.quality_info.quality_score, segments.date, ' + METRIC_FIELDS;
+      // Componentes do Índice de Qualidade (engine 2.2); se a conta ou a versão da API recusar, cai para a consulta básica.
+      var components = ', ad_group_criterion.quality_info.search_predicted_ctr, ad_group_criterion.quality_info.creative_quality_score, ' +
+        'ad_group_criterion.quality_info.post_click_quality_score, ad_group_criterion.effective_cpc_bid_micros';
+      var where = ' FROM keyword_view WHERE ' + Gaql.between(ctx) + ' AND ad_group_criterion.negative = FALSE ORDER BY metrics.cost_micros DESC';
+      var read = function (query) {
+        var records = [];
+        var result = Gaql.each(query, cfg.maxRows, function (row) {
+          var record = Util.metrics(row);
+          var quality = Util.get(row, 'adGroupCriterion.qualityInfo.qualityScore');
+          record.campaign_id = String(row.campaign.id);
+          record.campaign_name = row.campaign.name;
+          record.ad_group_id = String(row.adGroup.id);
+          record.ad_group_name = row.adGroup.name;
+          record.criterion_id = String(row.adGroupCriterion.criterionId);
+          record.keyword_text = row.adGroupCriterion.keyword.text;
+          record.match_type = row.adGroupCriterion.keyword.matchType;
+          record.keyword_status = row.adGroupCriterion.status;
+          record.quality_score = quality === null ? null : Util.number(quality);
+          record.expected_ctr = Util.get(row, 'adGroupCriterion.qualityInfo.searchPredictedCtr');
+          record.ad_relevance = Util.get(row, 'adGroupCriterion.qualityInfo.creativeQualityScore');
+          record.landing_page_experience = Util.get(row, 'adGroupCriterion.qualityInfo.postClickQualityScore');
+          var bid = Util.get(row, 'adGroupCriterion.effectiveCpcBidMicros');
+          record.cpc_bid_micros = bid === null ? null : Util.number(bid);
+          record.date = row.segments.date;
+          records.push(record);
+        });
+        return {records: records, truncated: result.truncated};
+      };
+      try {
+        return read(base + components + where);
+      } catch (error) {
+        Logger.log(ctx.account.id + ' · keyword_metrics: componentes do Índice de Qualidade indisponíveis (' + String(error).slice(0, 120) + ')');
+        return read(base + where);
+      }
     }
   },
 
@@ -387,6 +408,132 @@ var COLLECTORS = {
         });
 
       return {records: records, truncated: truncated};
+    }
+  },
+
+  /**
+   * Anúncios (estado atual): tipo, status, aprovação, força do anúncio e, nos anúncios responsivos de pesquisa, os textos.
+   * É a base para dizer quais grupos não têm um anúncio forte e o que já foi escrito.
+   */
+  ads: {
+    kind: 'snapshot',
+    collect: function (ctx, cfg) {
+      var records = [];
+      var query = 'SELECT campaign.id, campaign.name, ad_group.id, ad_group.name, ad_group_ad.ad.id, ad_group_ad.ad.type, ' +
+        'ad_group_ad.status, ad_group_ad.ad_strength, ad_group_ad.policy_summary.approval_status, ad_group_ad.ad.final_urls, ' +
+        'ad_group_ad.ad.responsive_search_ad.headlines, ad_group_ad.ad.responsive_search_ad.descriptions, ' +
+        'ad_group_ad.ad.responsive_search_ad.path1, ad_group_ad.ad.responsive_search_ad.path2 ' +
+        'FROM ad_group_ad WHERE ad_group_ad.status != "REMOVED" AND ad_group.status != "REMOVED" AND campaign.status != "REMOVED"';
+      var texts = function (list) {
+        return (list || []).map(function (item) {
+          return {text: Util.text(item.text), pinned: Util.text(item.pinnedField || '')};
+        });
+      };
+      var result = Gaql.each(query, cfg.maxRows, function (row) {
+        var ad = row.adGroupAd.ad;
+        var rsa = ad.responsiveSearchAd || {};
+        var urls = ad.finalUrls || [];
+        records.push({
+          campaign_id: String(row.campaign.id), campaign_name: row.campaign.name,
+          ad_group_id: String(row.adGroup.id), ad_group_name: row.adGroup.name,
+          ad_id: String(ad.id), ad_type: Util.text(ad.type),
+          status: Util.text(row.adGroupAd.status),
+          ad_strength: Util.get(row, 'adGroupAd.adStrength'),
+          approval_status: Util.get(row, 'adGroupAd.policySummary.approvalStatus'),
+          final_url: urls.length ? Util.text(urls[0]).slice(0, 2000) : null,
+          headlines: texts(rsa.headlines), descriptions: texts(rsa.descriptions),
+          path1: Util.get(rsa, 'path1'), path2: Util.get(rsa, 'path2')
+        });
+      });
+      return {records: records, truncated: result.truncated};
+    }
+  },
+
+  ad_metrics: {
+    kind: 'daily',
+    collect: function (ctx, cfg) {
+      var records = [];
+      var query = 'SELECT campaign.id, campaign.name, ad_group.id, ad_group_ad.ad.id, segments.date, ' + METRIC_FIELDS +
+        ' FROM ad_group_ad WHERE ' + Gaql.between(ctx) + ' AND ad_group_ad.status != "REMOVED" ORDER BY metrics.cost_micros DESC';
+      var result = Gaql.each(query, cfg.maxRows, function (row) {
+        var record = Util.metrics(row);
+        record.campaign_id = String(row.campaign.id);
+        record.campaign_name = row.campaign.name;
+        record.ad_group_id = String(row.adGroup.id);
+        record.ad_id = String(row.adGroupAd.ad.id);
+        record.date = row.segments.date;
+        records.push(record);
+      });
+      return {records: records, truncated: result.truncated};
+    }
+  },
+
+  /** Nota que a Google dá a cada título/descrição de um anúncio responsivo (BAIXO, BOM, MELHOR...). */
+  asset_performance: {
+    kind: 'snapshot',
+    collect: function (ctx, cfg) {
+      var records = [];
+      var query = 'SELECT campaign.id, ad_group.id, ad_group_ad.ad.id, asset.id, asset.text_asset.text, ' +
+        'ad_group_ad_asset_view.field_type, ad_group_ad_asset_view.performance_label, ad_group_ad_asset_view.enabled ' +
+        'FROM ad_group_ad_asset_view WHERE ad_group_ad_asset_view.field_type IN ("HEADLINE", "DESCRIPTION") ' +
+        'AND ad_group_ad.status != "REMOVED"';
+      var result = Gaql.each(query, cfg.maxRows, function (row) {
+        records.push({
+          campaign_id: String(row.campaign.id), ad_group_id: String(row.adGroup.id),
+          ad_id: String(row.adGroupAd.ad.id), asset_id: String(row.asset.id),
+          text: Util.text(Util.get(row, 'asset.textAsset.text')),
+          field_type: Util.text(row.adGroupAdAssetView.fieldType),
+          performance_label: Util.get(row, 'adGroupAdAssetView.performanceLabel'),
+          enabled: row.adGroupAdAssetView.enabled === true
+        });
+      });
+      return {records: records, truncated: result.truncated};
+    }
+  },
+
+  /** Parcela de impressões por campanha e dia: quanto se perde por orçamento e por classificação. */
+  impression_share_metrics: {
+    kind: 'daily',
+    collect: function (ctx, cfg) {
+      var records = [];
+      var query = 'SELECT campaign.id, campaign.name, segments.date, metrics.search_impression_share, ' +
+        'metrics.search_budget_lost_impression_share, metrics.search_rank_lost_impression_share, ' +
+        'metrics.search_top_impression_share, metrics.search_absolute_top_impression_share ' +
+        'FROM campaign WHERE ' + Gaql.between(ctx) + ' AND campaign.advertising_channel_type = "SEARCH"';
+      var share = function (value) {
+        return value === null || value === undefined || value === '' || !isFinite(Number(value)) ? null : Number(value);
+      };
+      var result = Gaql.each(query, cfg.maxRows, function (row) {
+        records.push({
+          campaign_id: String(row.campaign.id), campaign_name: row.campaign.name, date: row.segments.date,
+          search_impression_share: share(Util.get(row, 'metrics.searchImpressionShare')),
+          budget_lost: share(Util.get(row, 'metrics.searchBudgetLostImpressionShare')),
+          rank_lost: share(Util.get(row, 'metrics.searchRankLostImpressionShare')),
+          top_impression_share: share(Util.get(row, 'metrics.searchTopImpressionShare')),
+          absolute_top_impression_share: share(Util.get(row, 'metrics.searchAbsoluteTopImpressionShare'))
+        });
+      });
+      return {records: records, truncated: result.truncated};
+    }
+  },
+
+  /** Conversões por ação de conversão (lead, compra, clique no telefone...), por campanha e dia. */
+  conversion_action_metrics: {
+    kind: 'daily',
+    collect: function (ctx, cfg) {
+      var records = [];
+      var query = 'SELECT campaign.id, campaign.name, segments.conversion_action_name, segments.date, ' +
+        'metrics.conversions, metrics.conversions_value FROM campaign WHERE ' + Gaql.between(ctx) + ' AND metrics.conversions > 0';
+      var result = Gaql.each(query, cfg.maxRows, function (row) {
+        records.push({
+          campaign_id: String(row.campaign.id), campaign_name: row.campaign.name,
+          action_name: Util.text(Util.get(row, 'segments.conversionActionName')),
+          date: row.segments.date,
+          conversions: Util.number(Util.get(row, 'metrics.conversions')),
+          conversion_value_micros: Util.toMicros(Util.get(row, 'metrics.conversionsValue'))
+        });
+      });
+      return {records: records, truncated: result.truncated};
     }
   }
 };

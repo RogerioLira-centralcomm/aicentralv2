@@ -14,12 +14,26 @@ const metrics = {impressions: '5', clicks: '1', costMicros: '2000000', conversio
 
 function iterator(rows) { let i = 0; return {hasNext: () => i < rows.length, next: () => rows[i++]}; }
 const failingDataset = scenario === 'dataset_error' ? 'keyword_view' : null;
+const noQualityComponents = scenario === 'keyword_fallback';
 const manyTerms = scenario === 'chunking';
 function search(query) {
   if (failingDataset && query.includes(failingDataset)) throw new Error('Field not valid');
+  if (query.includes('FROM ad_group_ad_asset_view')) return iterator([{campaign: {id: 1}, adGroup: {id: 2}, adGroupAd: {ad: {id: 7}},
+    asset: {id: 11, textAsset: {text: 'Compre agora'}}, adGroupAdAssetView: {fieldType: 'HEADLINE', performanceLabel: 'LOW', enabled: true}}]);
+  if (query.includes('FROM ad_group_ad WHERE ad_group_ad.status')) return iterator([{campaign: {id: 1, name: 'C'}, adGroup: {id: 2, name: 'G'},
+    adGroupAd: {status: 'ENABLED', adStrength: 'POOR', policySummary: {approvalStatus: 'APPROVED'}, ad: {id: 7, type: 'RESPONSIVE_SEARCH_AD',
+      finalUrls: ['https://exemplo.com.br/'], responsiveSearchAd: {headlines: [{text: 'Título', pinnedField: 'HEADLINE_1'}], descriptions: [{text: 'Descrição'}], path1: 'loja'}}}}]);
+  if (query.includes('FROM ad_group_ad WHERE segments.date')) return iterator([{campaign: {id: 1, name: 'C'}, adGroup: {id: 2},
+    adGroupAd: {ad: {id: 7}}, segments: {date: day}, metrics}]);
+  if (query.includes('search_impression_share')) return iterator([{campaign: {id: 1, name: 'C'}, segments: {date: day},
+    metrics: {searchImpressionShare: 0.42, searchBudgetLostImpressionShare: 0.3, searchRankLostImpressionShare: null}}]);
+  if (query.includes('segments.conversion_action_name')) return iterator([{campaign: {id: 1, name: 'C'}, segments: {date: day, conversionActionName: 'Lead'},
+    metrics: {conversions: 2, conversionsValue: 20}}]);
   if (query.includes('FROM landing_page_view')) return iterator([{campaign: {id: 1, name: 'C'},
     landingPageView: {unexpandedFinalUrl: 'https://exemplo.com.br/lp/verao/?utm_campaign=x'}, segments: {date: day}, metrics}]);
-  if (query.includes('FROM keyword_view')) return iterator([]);
+  if (noQualityComponents && query.includes('search_predicted_ctr')) throw new Error('Unrecognized field');
+  if (query.includes('FROM keyword_view')) return scenario === 'keyword_fallback' ? iterator([{campaign: {id: 1, name: 'C'}, adGroup: {id: 2, name: 'G'},
+    adGroupCriterion: {criterionId: 5, keyword: {text: 'sapato', matchType: 'EXACT'}, status: 'ENABLED', qualityInfo: {qualityScore: 4}}, segments: {date: day}, metrics}]) : iterator([]);
   if (query.includes('FROM search_term_view')) {
     const n = manyTerms ? 650 : 1;
     return iterator(Array.from({length: n}, (_, i) => ({campaign: {id: 1, name: 'C'}, adGroup: {id: 2, name: 'G'},

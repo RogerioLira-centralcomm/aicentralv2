@@ -143,8 +143,19 @@ export function requestEdition({apiRoot, csrf, asset, prompt, director, format, 
   };
   return postJson(`${apiRoot}/format-lab/studio/tasks`, csrf, {kind: 'image_edit', client_id: clientId, session_id: sessionId || undefined, payload}).then(async task => {
     const deadline = Date.now() + 5 * 60 * 1000;
+    let failures = 0;
     while (Date.now() < deadline) {
-      const current = await getJson(`${apiRoot}/format-lab/studio/tasks/${encodeURIComponent(task.id)}?${new URLSearchParams({client_id: clientId || ''})}`);
+      let current;
+      try {
+        current = await getJson(`${apiRoot}/format-lab/studio/tasks/${encodeURIComponent(task.id)}?${new URLSearchParams({client_id: clientId || ''})}`);
+        failures = 0;
+      } catch (error) {
+        // The edition keeps running on the server: a dropped request must not discard it. Give up only after repeated failures.
+        failures += 1;
+        if (failures >= 4) throw error;
+        await new Promise(resolve => window.setTimeout(resolve, 2000));
+        continue;
+      }
       if (current.status === 'ready') return current.result;
       if (current.status === 'failed') throw new Error(current.error || 'Não foi possível concluir esta edição.');
       await new Promise(resolve => window.setTimeout(resolve, 1400));

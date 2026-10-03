@@ -20,6 +20,7 @@ export async function resetJobCenter(){
   if(brand)await refresh(true);
 }
 async function refresh(initial=false){
+  clearTimeout(timer);
   const ticket=++request,client=brand;
   try{
     const result=await get(`${studioApi}/jobs?client_id=${encodeURIComponent(client)}`);

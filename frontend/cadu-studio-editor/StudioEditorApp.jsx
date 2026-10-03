@@ -17,6 +17,17 @@ const formatTokens = value => {
   const tokens = Math.max(0, Math.round(Number(value) || 0));
   return tokens >= 1000 ? `~${(tokens / 1000).toLocaleString('pt-BR', {maximumFractionDigits: 1})} mil tokens` : `~${tokens.toLocaleString('pt-BR')} tokens`;
 };
+// Pieces uploaded in this browser live in the draft as data URLs, which can pass the localStorage quota.
+// A full draft is tried first; without room, the heavy images are left out so the text and choices still persist.
+const withoutDataUrls = draft => {
+  const light = item => item && String(item.url || item.dataUrl || '').startsWith('data:') ? {...item, url: '', dataUrl: ''} : item;
+  return {...draft, asset: light(draft.asset), versions: (draft.versions || []).filter(item => !String(item.url || '').startsWith('data:')), mask: null};
+};
+function persistDraft(key, draft) {
+  for (const candidate of [draft, withoutDataUrls(draft)]) {
+    try { localStorage.setItem(key, JSON.stringify(candidate)); return; } catch (_error) { /* quota or private mode: try the lighter draft */ }
+  }
+}
 const makeId = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
 const makeDirectorInstruction = (prompt, director) => {
   // Items the request asks to change are released from "Preservar" for this edit; the rest stays locked.
@@ -102,6 +113,7 @@ export default function StudioEditorApp({bootstrap}) {
   const lastEditorSnapshot = useRef('');
   const restoringHistory = useRef(false);
   const recordedGenerations = useRef(new Set());
+  const saveChain = useRef(Promise.resolve());
   const [historyState, setHistoryState] = useState({undo: false, redo: false});
   const requestEdition = useCallback(args => requestEditorEdition({...args, sessionId: studioSessionRef.current?.id || ''}), []);
   const selected = versions.find(item => item.id === selectedId) || versions[0] || null;
@@ -172,7 +184,10 @@ export default function StudioEditorApp({bootstrap}) {
     setHistoryState({undo: true, redo: false});
   }, [crop, format, mask, references, selectedGlobalReferences, selectedId]);
 
-  useEffect(() => { const timer = window.setTimeout(() => localStorage.setItem(storageKey, JSON.stringify({asset, versions, selectedId, prompt, format, outputSize, quality, zoom, mask, crop, selectedGlobalReferences, agentMessages})), 450); return () => window.clearTimeout(timer); }, [asset, versions, selectedId, prompt, format, outputSize, quality, zoom, mask, crop, selectedGlobalReferences, agentMessages, storageKey]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => persistDraft(storageKey, {asset, versions, selectedId, prompt, format, outputSize, quality, zoom, mask, crop, selectedGlobalReferences, agentMessages}), 450);
+    return () => window.clearTimeout(timer);
+  }, [asset, versions, selectedId, prompt, format, outputSize, quality, zoom, mask, crop, selectedGlobalReferences, agentMessages, storageKey]);
   useEffect(() => {
     if (!asset || !clientId || studioSessionRef.current?.status === 'finalized') { setStatus(studioSessionRef.current?.status === 'finalized' ? 'synced' : 'local'); return undefined; }
     let disposed = false;
@@ -183,7 +198,7 @@ export default function StudioEditorApp({bootstrap}) {
       references: references.map(item => ({id: item.id, name: item.name, assetId: item.assetId || '', url: String(item.dataUrl || '').startsWith('data:') ? '' : item.dataUrl})).filter(item => item.url),
       director: {objective: director.objective || '', preserve: director.preserve || []}, estimate: estimate || {}, selected_global_references: selectedGlobalReferences, batch_progress: batchProgress, agent_messages: agentMessages.slice(-12),
     };
-    const timer = window.setTimeout(async () => {
+    const save = async () => {
       setStatus('saving');
       try {
         let next = studioSessionRef.current;
@@ -200,7 +215,9 @@ export default function StudioEditorApp({bootstrap}) {
           if (String(error.message || '').includes('outra aba')) { setConflictOpen(true); setNotice('Esta mesa foi alterada em outra aba. Escolha qual versão manter.'); } else setNotice(`Não foi possível sincronizar este rascunho: ${error.message || 'erro desconhecido'}`);
         }
       }
-    }, 700);
+    };
+    // One save at a time: a second one that starts while the session is still being created must patch it, not create another.
+    const timer = window.setTimeout(() => { saveChain.current = saveChain.current.then(save, save); }, 700);
     return () => { disposed = true; window.clearTimeout(timer); };
   }, [asset, agentMessages, batchProgress, bootstrap.apiRoot, bootstrap.csrf, clientId, crop?.bounds, director, estimate, format, mask?.bounds, outputSize, project?.id, prompt, references, selectedGlobalReferences, selectedId, versions]);
   useEffect(() => {
@@ -557,7 +574,7 @@ export default function StudioEditorApp({bootstrap}) {
       const restoredAsset = restoredVersions.find(item => item.id === editor.selected_id) || restoredVersions[0] || null;
       if (!restoredAsset) throw new Error('Esta sessão ainda não tem uma peça recuperável.');
       studioSessionRef.current = next; setStudioSession(next); setVersions(restoredVersions); setAsset(restoredAsset); setSelectedId(restoredAsset.id);
-      setPrompt(next.optimized_prompt || next.original_prompt || ''); setFormat(editor.format || '4:5'); setOutputSize(editor.output_size || outputSizeFor(editor.format || '4:5')); setMask(null); setCrop(editor.crop_bounds ? {bounds: editor.crop_bounds} : null); setReferences((editor.references || []).filter(item => item.url).map(item => ({...item, dataUrl: item.url}))); setDirector({open: false, objective: editor.director?.objective || '', preserve: editor.director?.preserve || ['identity', 'copy', 'layout']}); setSelectedGlobalReferences(editor.selected_global_references || []); setAgentMessages(editor.agent_messages || []); setBatchProgress(editor.batch_progress || null);
+      setPrompt(next.optimized_prompt || next.original_prompt || ''); setFormat(editor.format || '4:5'); setOutputSize(editor.output_size || outputSizeFor(editor.format || '4:5')); setMask(null); setCrop(editor.crop_bounds ? {bounds: editor.crop_bounds} : null); setDirector({open: false, objective: editor.director?.objective || '', preserve: editor.director?.preserve || ['identity', 'copy', 'layout']}); setBatchProgress(editor.batch_progress || null);
       // Each session brings its own conversation and reference choice; nothing carries over from the previous one.
       setAgentMessages(Array.isArray(editor.agent_messages) ? editor.agent_messages : []);
       setSelectedGlobalReferences(Array.isArray(editor.selected_global_references) ? editor.selected_global_references.slice(0, 2) : []);

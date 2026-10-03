@@ -33,7 +33,12 @@ export function CanvasWorkspace({onAdapt = () => {}, onExpand = () => {}, onQuot
     onDragLeave: event => { if (!event.currentTarget.contains(event.relatedTarget)) setAssetOver(false); },
     onDrop: event => { if (!isAssetDrag(event)) return; event.preventDefault(); setAssetOver(false); try { onDropAsset(JSON.parse(event.dataTransfer.getData(ASSET_DRAG_TYPE))); } catch (_) {} },
   };
-  useEffect(() => { if (asset?.url) imageSize(asset.url).then(setSize); }, [asset?.url]);
+  useEffect(() => {
+    if (!asset?.url) return undefined;
+    let active = true;
+    imageSize(asset.url).then(next => { if (active) setSize(next); });
+    return () => { active = false; };
+  }, [asset?.url]);
   const cropBounds = crop?.bounds || [Math.round(size.width * .16), Math.round(size.height * .12), Math.round(size.width * .68), Math.round(size.height * .76)];
   const applyCrop = () => { onCropChange({bounds: cropBounds}); setMode('select'); };
   const cropStyle = {left: `${(cropBounds[0] / size.width) * 100}%`, top: `${(cropBounds[1] / size.height) * 100}%`, width: `${(cropBounds[2] / size.width) * 100}%`, height: `${(cropBounds[3] / size.height) * 100}%`};

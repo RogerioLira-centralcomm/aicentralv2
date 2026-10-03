@@ -1,20 +1,21 @@
+/* Opacity only, and no fill-mode that keeps a transform: a transformed ancestor of an input makes iOS Safari
+   misplace the caret and jump the page when the keyboard opens. */
 @keyframes cadu-auth-content-enter {
-  from { opacity: 0; transform: translate3d(0, 14px, 0); }
-  to { opacity: 1; transform: translate3d(0, 0, 0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes cadu-auth-visual-enter {
-  from { opacity: .72; transform: scale(1.018); }
-  to { opacity: 1; transform: scale(1); }
+  from { opacity: .72; }
+  to { opacity: 1; }
 }
 
 .cadu-auth-card {
-  animation: cadu-auth-content-enter 620ms cubic-bezier(.22, .7, .24, 1) both;
+  animation: cadu-auth-content-enter 420ms ease-out backwards;
 }
 
 .cadu-auth-visual {
-  animation: cadu-auth-visual-enter 820ms cubic-bezier(.22, .7, .24, 1) both;
-  transform-origin: center;
+  animation: cadu-auth-visual-enter 620ms ease-out backwards;
 }
 
 @media (prefers-reduced-motion: reduce) {

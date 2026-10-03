@@ -1361,6 +1361,12 @@ def init_routes(app):
 
     # ==================== LOGIN ====================
     
+    @app.context_processor
+    def inject_centralx_host():
+        """Access screens speak CentralX (internal) or Cadu depending on the host that received the request."""
+        from aicentralv2.product_domains import is_centralx_request
+        return {'is_centralx_host': is_centralx_request()}
+
     @app.route('/login', methods=['GET', 'POST'])
     def login():
         """Página de login"""
@@ -1555,7 +1561,8 @@ def init_routes(app):
             email = normalize_login_email(request.form.get('email', ''))
 
             if not email:
-                flash('Informe o email cadastrado no Cadu.', 'error')
+                from aicentralv2.product_domains import is_centralx_request
+                flash('Informe o email cadastrado no CentralX.' if is_centralx_request() else 'Informe o email cadastrado no Cadu.', 'error')
                 return render_template('forgot_password_tailwind.html')
 
             contato = db.obter_contato_por_email(email)
@@ -1565,8 +1572,9 @@ def init_routes(app):
                     reset_token = secrets.token_urlsafe(32)
                     expires = datetime.utcnow() + timedelta(hours=1)
                     token_saved = db.atualizar_reset_token(email, reset_token, expires)
-                    from aicentralv2.product_domains import product_url
-                    reset_link = product_url('auth', url_for('reset_password', token=reset_token))
+                    from aicentralv2.product_domains import is_centralx_request, product_url
+                    # Whoever asked from CentralX gets the link back on CentralX, so the whole recovery stays there.
+                    reset_link = product_url('centralx' if is_centralx_request() else 'auth', url_for('reset_password', token=reset_token))
                     
                     if token_saved:
                         send_password_reset_email(

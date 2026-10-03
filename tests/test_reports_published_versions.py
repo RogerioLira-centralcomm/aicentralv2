@@ -53,8 +53,8 @@ class ReportBlocksTests(unittest.TestCase):
 class PublicTemplateTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        from aicentralv2 import create_app
-        cls.app = create_app()
+        from tests.shared_app import get_app
+        cls.app = get_app()
 
     def render(self, **context):
         from flask import render_template

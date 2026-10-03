@@ -3,6 +3,9 @@ import {resolve} from 'node:path';
 
 export default defineConfig({
   publicDir: false,
+  // The Untitled kit ships TSX modules: the automatic JSX runtime keeps them renderable next to our JSX.
+  esbuild: {jsx: 'automatic'},
+  resolve: {dedupe: ['react', 'react-dom']},
   build: {
     emptyOutDir: true,
     cssCodeSplit: false,

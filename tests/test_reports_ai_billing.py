@@ -9,6 +9,12 @@ class Ledger:
     def __init__(self, balance=100):
         self.balance, self.authorized, self.charged = balance, [], []
 
+    priced = True
+
+    def ensure_priced(self, client_id):
+        if not self.priced:
+            raise ValueError('Preço comercial de Tokens Cadu indisponível para este cliente.')
+
     def authorize(self, actor, estimate=1):
         self.authorized.append(actor)
         if self.balance < estimate:
@@ -107,3 +113,11 @@ def test_priority_review_degrades_when_credits_are_out(monkeypatch):
     findings = [{'code': 'a', 'severity': 'high', 'title': 'A', 'evidence': ''}, {'code': 'b', 'severity': 'low', 'title': 'B', 'evidence': ''}]
     result = report_agents.prioritize(findings)
     assert result['status'] == 'unavailable' and 'IA' in result['reason']
+
+
+def test_client_without_token_price_is_refused_before_the_paid_call(ledger):
+    ledger.priced = False
+    called = []
+    with pytest.raises(Conflict):
+        reports_ai.chat('flow_briefing', [], call=lambda messages, **kw: called.append(1) or {'usage': {}}, selected=selected())
+    assert not called and not ledger.charged

@@ -91,6 +91,10 @@ class CaduCreditConnector:
         """Valida saldo antes de iniciar uma chamada paga."""
         return self.ledger.assert_available(actor.client_id, max(1, int(estimated_tokens or 0)))
 
+    def ensure_priced(self, client_id: int) -> None:
+        """Raises ValueError when the client has no commercial token price, so a call is refused instead of running unbilled."""
+        commercial_token_price_brl(int(client_id))
+
     def balance(self, client_id: int) -> int:
         return self.ledger.available(int(client_id))
 

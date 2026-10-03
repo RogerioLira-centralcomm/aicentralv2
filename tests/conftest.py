@@ -5,6 +5,9 @@ class FakeCredits:
     """Stands in for the credit connector in Reports tests; records what would have been debited."""
     charges = []
 
+    def ensure_priced(self, client_id):
+        return None
+
     def authorize(self, actor, estimate=1):
         return 10 ** 9
 

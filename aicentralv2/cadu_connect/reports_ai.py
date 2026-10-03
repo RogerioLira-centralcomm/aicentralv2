@@ -29,11 +29,19 @@ def actor_for(selected=None):
     return CreditActor.from_values(selected['client_id'], user_id)
 
 
+NO_PRICE = 'Este cliente não tem preço de tokens configurado no plano; a IA fica indisponível até o plano ser ajustado.'
+
+
 def _authorize(actor, estimate=1):
+    """Refuses before the paid call when there is no balance or no token price (a call that cannot be debited must not run)."""
+    credits = CaduCreditConnector()
     try:
-        CaduCreditConnector().authorize(actor, estimate)
+        credits.ensure_priced(actor.client_id)
+        credits.authorize(actor, estimate)
     except InsufficientToolCredits as exc:
         abort(409, description=str(exc))
+    except ValueError:
+        abort(409, description=NO_PRICE)
 
 
 def _charge(label, call):
@@ -84,6 +92,8 @@ def firecrawl_scrape(stage, url, *, call=None, selected=None, actor=None, metada
         credits.authorize_firecrawl(actor, 'scrape', pages=1)
     except InsufficientToolCredits as exc:
         abort(409, description=str(exc))
+    except ValueError:
+        abort(409, description=NO_PRICE)
     data = call(url, **options)
     run_id = str(uuid.uuid4())
     _charge(f'{stage} cliente {actor.client_id}', lambda: credits.charge_firecrawl(

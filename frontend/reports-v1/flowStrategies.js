@@ -265,6 +265,41 @@ export function buildStrategyConfig(strategy, channelKinds = defaultStrategyChan
   return {schema_version: 3, site_kind: strategy.siteKind, strategy_id: strategy.id, nodes, edges};
 }
 
+/** A path observed in Site & Jornada becomes a draft: one page per distinct path, connected in visit order. */
+export function buildPathConfig(paths, host = '') {
+  const ids = new Map();
+  const nodes = [];
+  for (const path of paths) {
+    if (ids.has(path)) continue;
+    const id = crypto.randomUUID();
+    ids.set(path, id);
+    nodes.push({id, type: 'page', kind: 'page.generic', title: path === '/' ? 'Página inicial' : path, stage: nodes.length ? 'exploration' : 'entry',
+      origin: 'journey', path, ...(host ? {host} : {}), pageType: 'other'});
+  }
+  const seen = new Set();
+  const edges = [];
+  for (let index = 1; index < paths.length; index++) {
+    const from = ids.get(paths[index - 1]), to = ids.get(paths[index]);
+    if (from === to || seen.has(`${from}>${to}`)) continue;
+    seen.add(`${from}>${to}`);
+    edges.push({id: crypto.randomUUID(), from, to, variant: 'direct', label: 'Próximo'});
+  }
+  // One column per page in the order of its first visit; returns to an earlier page stay connections, not new columns.
+  arrangeByDepth(nodes, nodes.slice(1).map((node, index) => ({from: nodes[index].id, to: node.id})));
+  return {schema_version: 3, nodes, edges};
+}
+
+/** Paths sent by "Criar fluxo a partir deste caminho": a JSON list of 2 to 10 site paths in ?caminho=. */
+export function readPathSeed(search) {
+  try {
+    const raw = JSON.parse(new URLSearchParams(search).get('caminho') || 'null');
+    const paths = Array.isArray(raw) ? raw.filter(path => typeof path === 'string' && /^\/[^\s?#]{0,300}$/.test(path)).slice(0, 10) : [];
+    return paths.length >= 2 ? paths : [];
+  } catch {
+    return [];
+  }
+}
+
 /** A team template becomes a new plan: every node and connection gets a fresh identifier. */
 export function instantiateTemplate(config) {
   const ids = new Map((config.nodes || []).map(node => [node.id, crypto.randomUUID()]));

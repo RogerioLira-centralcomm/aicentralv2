@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {FLOW_STRATEGIES, buildStrategyConfig, defaultStrategyChannels} from '../../frontend/reports-v1/flowStrategies.js';
+import {FLOW_STRATEGIES, buildPathConfig, buildStrategyConfig, defaultStrategyChannels, readPathSeed} from '../../frontend/reports-v1/flowStrategies.js';
 import {flowValidation, MAX_FLOW_PAGES, isPlanned} from '../../frontend/reports-v1/flowValidation.js';
 
 const measured = new Set(['page', 'form', 'event', 'conversion', 'whatsapp', 'error']);
@@ -67,4 +67,18 @@ test('todo plano nasce alinhado à grade e com as colunas centradas na mesma lin
   assert.deepEqual(aligned.nodes.map(node => [node.x, node.y]), [[80, 240], [420, 340]]);
   assert.deepEqual(aligned.groups[0].bounds, {x: 20, y: 20, width: 300, height: 100});
   assert.equal(alignConfigToGrid(aligned), aligned);
+});
+
+test('caminho observado em Navegação vira rascunho com uma página por endereço, na ordem da visita', () => {
+  const seed = readPathSeed(`?site_host=exemplo.com.br&caminho=${encodeURIComponent(JSON.stringify(['/', '/contato', '/', 'sem-barra', '/obrigado']))}`);
+  assert.deepEqual(seed, ['/', '/contato', '/', '/obrigado']);
+  assert.deepEqual(readPathSeed('?caminho=lixo'), []);
+  assert.deepEqual(readPathSeed(`?caminho=${encodeURIComponent('["/"]')}`), [], 'um caminho precisa de duas páginas');
+  const config = buildPathConfig(seed, 'exemplo.com.br');
+  assert.deepEqual(config.nodes.map(node => node.path), ['/', '/contato', '/obrigado']);
+  assert(config.nodes.every(node => node.type === 'page' && node.host === 'exemplo.com.br' && node.origin === 'journey'));
+  assert.equal(config.nodes[0].stage, 'entry');
+  assert.equal(config.edges.length, 3, '/ → /contato, /contato → / e / → /obrigado');
+  const x = Object.fromEntries(config.nodes.map(node => [node.path, node.x]));
+  assert(x['/'] < x['/contato'] && x['/contato'] < x['/obrigado'], 'colunas seguem a primeira visita');
 });

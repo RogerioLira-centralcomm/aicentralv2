@@ -7,7 +7,7 @@ import {ReportsNativeSelect} from './ReportsNativeSelect.jsx';
 import {plural} from './flowFeedback.js';
 import {flowNextAction} from './flowNextAction.js';
 import {flowBlockRegistry} from './flowBlockRegistry.js';
-import {FLOW_STRATEGIES, buildStrategyConfig, defaultStrategyChannels, instantiateTemplate} from './flowStrategies.js';
+import {FLOW_STRATEGIES, buildPathConfig, buildStrategyConfig, defaultStrategyChannels, instantiateTemplate, readPathSeed} from './flowStrategies.js';
 import {FlowTemplateGallery} from './FlowTemplateGallery.jsx';
 import {Empty, flowEditorUrl, json, reportUrl} from './reportsCommon.jsx';
 import {friendlyAgo, friendlyDateTime} from './friendlyDates.js';
@@ -28,7 +28,9 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
   const [flowCustomerId,setFlowCustomerId]=useState('');
   const [flowCampaignId,setFlowCampaignId]=useState('');
   const [flowName, setFlowName] = useState('');
-  const [flowStart,setFlowStart]=useState('strategy');
+  // "Criar fluxo a partir deste caminho" (Site & Jornada → Navegação) arrives with ?site_host=&caminho=[...].
+  const [pathSeed]=useState(()=>readPathSeed(location.search));
+  const [flowStart,setFlowStart]=useState(()=>pathSeed.length?'path':'strategy');
   const [strategyId,setStrategyId]=useState('');
   const [strategyChannels,setStrategyChannels]=useState([]);
   const [teamTemplates,setTeamTemplates]=useState([]);
@@ -42,6 +44,7 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
   const deleteTeamTemplate=async item=>{if(!window.confirm(`Excluir o modelo “${item.name}”? Os fluxos criados a partir dele continuam iguais.`))return;try{await save(`/flow/templates/${item.id}`,{},false,'DELETE');await loadTeamTemplates();}catch(failure){setLocalError(failure.message);}};
   const toggleChannel=kind=>setStrategyChannels(current=>current.includes(kind)?current.filter(item=>item!==kind):[...current,kind]);
   const fromStrategy=flowStart==='strategy';
+  const fromPath=flowStart==='path'&&pathSeed.length>0;
   const strategyReady=!fromStrategy||Boolean(teamTemplate)||(strategy&&strategyChannels.length>0);
   const planWithoutSite=fromStrategy&&!flowHost.trim();
   const [localError,setLocalError]=useState('');
@@ -59,7 +62,7 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
   const flowCreateHint=!strategyReady?'Escolha uma estratégia e ao menos um canal.':planWithoutSite?'O plano será criado sem site. Conecte o site quando for medir.':!flowHost.trim()?'Informe a URL do site e valide o domínio.':!flowSiteCheck?'Valide o domínio para continuar.':flowSiteCheck.error?'Corrija o domínio para continuar.':superTagForFlow({allowed_host:flowSiteCheck.host})?'A Super Tag deste domínio já existe e será reutilizada.':'A Super Tag será criada automaticamente para este domínio.';
   const siteCheckSequence=useRef(0);
   const checkFlowSite = async () => {const url=flowHost.trim();if(!url)return;const sequence=++siteCheckSequence.current;setFlowSiteChecking(true);setFlowSiteCheck(null);setLocalError('');try{const result=await json(`/connect/api/v2/reports/supertag/site-check?url=${encodeURIComponent(url)}`);if(sequence===siteCheckSequence.current)setFlowSiteCheck({...result,verifiedUrl:url});}catch(failure){if(sequence===siteCheckSequence.current)setFlowSiteCheck({error:failure.message});}finally{if(sequence===siteCheckSequence.current)setFlowSiteChecking(false);}};
-  const newFlow = async event => {event.preventDefault(); try {if(!planWithoutSite&&(!flowSiteCheck||flowSiteCheck.error||flowSiteCheck.verifiedUrl!==flowHost.trim()))throw new Error('Verifique o domínio atual antes de criar o fluxo.');if(fromStrategy&&!strategyReady)throw new Error('Escolha uma estratégia e ao menos um canal.');const name=flowName||(fromStrategy?(teamTemplate||strategy).name:flowSiteCheck.title||flowSiteCheck.host);const config=fromStrategy?(teamTemplate?instantiateTemplate(teamTemplate.config):buildStrategyConfig(strategy,strategyChannels)):{nodes:[],edges:[],...(flowSiteKind?{site_kind:flowSiteKind}:{})};const result = await save('/flow/flows', planWithoutSite?{name, plan_only:true, customer_id:flowCustomerId||null,campaign_id:flowCampaignId||null,config}:{name, allowed_host: flowSiteCheck.host, customer_id:flowCustomerId||null,campaign_id:flowCampaignId||null,config}, false);location.assign(flowEditorUrl(result.flow.id,fromStrategy?{}:{testar:1}));} catch (failure) {setLocalError(failure.message);}};
+  const newFlow = async event => {event.preventDefault(); try {if(!planWithoutSite&&(!flowSiteCheck||flowSiteCheck.error||flowSiteCheck.verifiedUrl!==flowHost.trim()))throw new Error('Verifique o domínio atual antes de criar o fluxo.');if(fromStrategy&&!strategyReady)throw new Error('Escolha uma estratégia e ao menos um canal.');const name=flowName||(fromStrategy?(teamTemplate||strategy).name:fromPath?`Caminho ${pathSeed[0]} → ${pathSeed[pathSeed.length-1]}`.slice(0,120):flowSiteCheck.title||flowSiteCheck.host);const config=fromStrategy?(teamTemplate?instantiateTemplate(teamTemplate.config):buildStrategyConfig(strategy,strategyChannels)):fromPath?{...buildPathConfig(pathSeed,flowSiteCheck.host),...(flowSiteKind?{site_kind:flowSiteKind}:{})}:{nodes:[],edges:[],...(flowSiteKind?{site_kind:flowSiteKind}:{})};const result = await save('/flow/flows', planWithoutSite?{name, plan_only:true, customer_id:flowCustomerId||null,campaign_id:flowCampaignId||null,config}:{name, allowed_host: flowSiteCheck.host, customer_id:flowCustomerId||null,campaign_id:flowCampaignId||null,config}, false);location.assign(flowEditorUrl(result.flow.id,fromStrategy||fromPath?{}:{testar:1}));} catch (failure) {setLocalError(failure.message);}};
   return <>
     {localError&&<div className="reports-error" role="alert">{localError}</div>}
     <section className="reports-flow-index">
@@ -90,7 +93,8 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
       {data.client.role!=='viewer'?<form className="reports-form reports-flow-new" onSubmit={newFlow}>
         <fieldset className="reports-flow-start"><legend>Ponto de partida</legend>
           <label className="reports-flow-start__option"><input type="radio" name="flow-start" value="strategy" checked={fromStrategy} onChange={()=>setFlowStart('strategy')}/><span><strong>Estratégia pronta</strong><small>Um plano completo por objetivo, com os passos a criar. Não exige páginas no ar.</small></span></label>
-          <label className="reports-flow-start__option"><input type="radio" name="flow-start" value="probe" checked={!fromStrategy} onChange={()=>setFlowStart('probe')}/><span><strong>Testar a página inicial</strong><small>Lê o site e propõe o caminho a partir do que já existe.</small></span></label>
+          {pathSeed.length>0&&<label className="reports-flow-start__option"><input type="radio" name="flow-start" value="path" checked={fromPath} onChange={()=>setFlowStart('path')}/><span><strong>Caminho observado</strong><small>{pathSeed.join(' → ')}</small></span></label>}
+          <label className="reports-flow-start__option"><input type="radio" name="flow-start" value="probe" checked={flowStart==='probe'} onChange={()=>setFlowStart('probe')}/><span><strong>Testar a página inicial</strong><small>Lê o site e propõe o caminho a partir do que já existe.</small></span></label>
         </fieldset>
         {fromStrategy&&<section className="reports-flow-strategies" aria-label="Estratégias">
           <div className="reports-flow-strategies__list" role="radiogroup" aria-label="Estratégia">{teamTemplates.map(item=><button key={item.id} type="button" role="radio" aria-checked={`team:${item.id}`===strategyId} className={`reports-flow-strategy is-team${`team:${item.id}`===strategyId?' is-selected':''}`} onClick={()=>{setStrategyId(`team:${item.id}`);setStrategyChannels([]);}}><strong>{item.name}</strong><small>{[item.sector,'Modelo do time'].filter(Boolean).join(' · ')}</small>{item.description&&<span>{item.description}</span>}</button>)}{FLOW_STRATEGIES.map(item=><button key={item.id} type="button" role="radio" aria-checked={item.id===strategyId} className={`reports-flow-strategy${item.id===strategyId?' is-selected':''}`} onClick={()=>chooseStrategy(item)}><strong>{item.name}</strong><small>{item.objective}</small><span>{item.summary}</span></button>)}</div>

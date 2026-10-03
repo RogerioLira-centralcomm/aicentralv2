@@ -20,7 +20,7 @@ a { color: var(--cadu-accent-strong); }
 .cadu-auth-backdrop { position: fixed; inset: 0; z-index: 0; background: #0b1f1c; }
 .cadu-auth-slide { position: absolute; inset: 0; background: center / cover no-repeat; opacity: 0; transition: opacity 1.4s ease; }
 .cadu-auth-slide.is-active { opacity: 1; }
-.cadu-auth-backdrop-shade { position: absolute; inset: 0; background: linear-gradient(100deg, rgba(5,28,25,.78) 0%, rgba(5,28,25,.42) 55%, rgba(5,28,25,.62) 100%), linear-gradient(180deg, rgba(5,28,25,.45), rgba(5,28,25,0) 30%, rgba(5,28,25,.7)); }
+.cadu-auth-backdrop-shade { position: absolute; inset: 0; background: linear-gradient(100deg, rgba(4,20,24,.82) 0%, rgba(4,20,24,.5) 38%, rgba(4,20,24,.12) 70%), linear-gradient(180deg, rgba(4,20,24,.4), rgba(4,20,24,0) 28%, rgba(4,20,24,0) 62%, rgba(4,20,24,.72)); }
 .cadu-auth-header, .cadu-auth-main, .cadu-auth-chips { position: relative; z-index: 1; }
 .cadu-auth-header { display: flex; flex: none; align-items: center; min-height: 64px; padding: env(safe-area-inset-top, 0px) max(clamp(20px, 4vw, 56px), env(safe-area-inset-right, 0px)) 0 max(clamp(20px, 4vw, 56px), env(safe-area-inset-left, 0px)); }
 .cadu-auth-brand { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; color: #fff; font-size: 15px; font-weight: 750; letter-spacing: -.025em; text-decoration: none; }
@@ -28,7 +28,7 @@ a { color: var(--cadu-accent-strong); }
 .cadu-auth-main { display: flex; flex: 1; min-height: 0; align-items: center; justify-content: flex-start; padding: 8px clamp(20px, 6vw, 96px) 24px; }
 .cadu-auth-card { width: min(100%, 440px); max-height: calc(100svh - 96px - var(--auth-kb, 0px)); overflow-y: auto; overscroll-behavior: contain; padding: clamp(22px, 3.2vh, 36px) clamp(22px, 3vw, 36px); border: 1px solid rgba(255,255,255,.55); border-radius: 22px; background: rgba(255,255,255,.95); box-shadow: 0 30px 80px rgba(2,16,14,.45); }
 .is-keyboard-open .cadu-auth-main { align-items: flex-start; }
-.cadu-auth-caption { position: fixed; z-index: 1; right: clamp(24px, 6vw, 96px); bottom: clamp(28px, 7vh, 72px); display: grid; gap: 10px; width: min(380px, 34vw); color: #fff; pointer-events: none; }
+.cadu-auth-caption { position: fixed; z-index: 1; right: clamp(24px, 6vw, 96px); bottom: clamp(28px, 7vh, 72px); display: grid; gap: 10px; width: min(380px, 34vw); color: #fff; text-shadow: 0 2px 18px rgba(0,0,0,.45); pointer-events: none; }
 .cadu-auth-caption span { color: #c8f36a; font-size: 12px; font-weight: 760; letter-spacing: .02em; }
 .cadu-auth-caption strong { font-size: clamp(22px, 2.6vw, 38px); letter-spacing: -.05em; line-height: 1.06; text-wrap: balance; animation: cadu-auth-caption-in .9s ease backwards; }
 .cadu-auth-caption i { display: flex; gap: 6px; }

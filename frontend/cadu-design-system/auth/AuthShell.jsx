@@ -19,11 +19,11 @@ function Brand({bootstrap}) {
 
 const SLIDES = {
   cadu: [
-    {image: '/static/images/cadu/public-people/cadu-login-v1.jpg', kicker: 'Workspace', text: 'Cada cliente com o contexto por perto.'},
-    {image: '/static/images/cadu/public-people/cadu-reports-detail-v1.jpg', kicker: 'Reports', text: 'Relatórios com dados reais, prontos para o cliente.'},
-    {image: '/static/images/cadu/public-people/cadu-planner-session-v1.jpg', kicker: 'Planner', text: 'Planos e cenários que a equipe constrói junta.'},
-    {image: '/static/images/cadu/public-people/cadu-studio-detail-v1.jpg', kicker: 'Studio', text: 'Criação e análise sem trocar de ferramenta.'},
-    {image: '/static/images/cadu/public-people/cadu-connected-sources-v1.jpg', kicker: 'Fontes conectadas', text: 'Google Ads, site e CRM falando a mesma língua.'},
+    {image: '/static/images/cadu/auth-slides/reports.webp', kicker: 'Reports', text: 'Relatórios com dados reais, prontos para o cliente.'},
+    {image: '/static/images/cadu/auth-slides/studio.webp', kicker: 'Studio', text: 'Peças para todos os formatos, da mesma direção criativa.'},
+    {image: '/static/images/cadu/auth-slides/campanhas.webp', kicker: 'Planner', text: 'Campanhas que nascem de um plano, não de planilhas soltas.'},
+    {image: '/static/images/cadu/auth-slides/criacao.webp', kicker: 'Workspace', text: 'Cada cliente com marca, briefing e contexto por perto.'},
+    {image: '/static/images/cadu/auth-slides/resultados.webp', kicker: 'Resultados', text: 'O que funcionou volta para o próximo plano.'},
   ],
   centralx: [
     {image: '/static/images/centralx-login-city-v1.png', kicker: 'CentralX', text: 'O acesso interno da CentralComm.'},

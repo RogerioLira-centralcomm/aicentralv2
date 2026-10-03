@@ -60,7 +60,7 @@ export function ReportsFilterBar({data, filters, onChange, onRefresh}) {
   const campaigns = (data?.campaigns || []).filter(item =>
     (!filters.platform || item.platform === filters.platform) &&
     (!filters.account || String(item.account_id) === filters.account));
-  const allCampaignTags = [...new Set((data?.campaigns || []).flatMap(item => item.tags || []))].sort();
+  const allCampaignTags = [...new Set((data?.campaigns || []).flatMap(item => item.metadata?.tags || []))].sort();
   const activeCount = [filters.platform, filters.account, filters.campaign, filters.tags].filter(Boolean).length;
   const clearFilters = () => onChange({platform: '', account: '', campaign: '', tags: ''});
 

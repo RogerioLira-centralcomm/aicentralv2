@@ -11,7 +11,7 @@ export const HUBS = {
   },
   journey: {
     title: 'Site & Jornada', description: 'O que as pessoas fazem depois que chegam ao site.',
-    tabs: [['journey', 'Visão geral'], ['journey/flows', 'Fluxos'], ['journey/pages', 'Páginas'], ['journey/content', 'Conteúdos'], ['journey/navigation', 'Navegação'], ['journey/conversions', 'Conversões'], ['journey/heatmap', 'Heatmap']],
+    tabs: [['journey', 'Visão geral'], ['journey/flows', 'Fluxos'], ['journey/pages', 'Páginas'], ['journey/content', 'Conteúdos'], ['journey/channels', 'Canais'], ['journey/navigation', 'Navegação'], ['journey/conversions', 'Conversões'], ['journey/heatmap', 'Heatmap']],
   },
   data: {
     title: 'Fontes de dados', description: 'De onde vêm os dados de mídia, site, CRM e arquivos deste cliente.',
@@ -34,6 +34,7 @@ export const ROUTES = {
   'journey/flows': {page: 'flow', nav: 'journey', hub: 'journey', scope: 'site'},
   'journey/pages': {page: 'pages', nav: 'journey', hub: 'journey', period: true, scope: 'site'},
   'journey/content': {page: 'content', nav: 'journey', hub: 'journey', period: true, scope: 'site'},
+  'journey/channels': {page: 'channels', nav: 'journey', hub: 'journey', period: true, scope: 'site'},
   'journey/navigation': {page: 'navigation', nav: 'journey', hub: 'journey', period: true, scope: 'site'},
   'journey/conversions': {page: 'conversions', nav: 'journey', hub: 'journey', period: true, scope: 'site'},
   'journey/heatmap': {page: 'heatmap', nav: 'journey', hub: 'journey', period: true, scope: 'site', siteRequired: true},

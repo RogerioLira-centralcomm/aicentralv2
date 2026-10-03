@@ -31,7 +31,7 @@ export function Contents() {
     ]}/>
     <Section title="Conteúdos" description="Seções do site com alcance, conversão das sessões que passaram por elas e campanhas que levam até lá">
       <DataTable label="Conteúdos" rows={sections} rowKey={row => `${row.site_id}${row.section}`} initialSort={{key: 'views', dir: 'desc'}} columns={[
-        {key: 'section', label: 'Conteúdo', render: row => <><strong>{sectionName(row.section)}</strong><small className="rs-cell-sub">{hosts.size > 1 ? `${row.host} · ` : ''}{row.section === '/' ? '/' : `${row.section}/…`} · {row.pages} {row.pages === 1 ? 'página' : 'páginas'}</small></>},
+        {key: 'section', label: 'Conteúdo', render: row => <><strong>{sectionName(row.section)}</strong><small className="rs-cell-sub">{hosts.size > 1 ? `${row.host} · ` : ''}{row.section === '/' ? '/' : `${row.section}/…`} · {row.section === '/' || row.pages < 2 ? `${row.pages} ${row.pages === 1 ? 'página' : 'páginas'}` : <AppLink className="rs-link" href={reportUrl('journey/pages', {busca: `${row.section}`})}>{row.pages} páginas</AppLink>}</small></>},
         {key: 'views', label: 'Visualizações', numeric: true, render: row => number(row.views)},
         {key: 'visitors', label: 'Usuários', numeric: true, render: row => number(row.visitors)},
         {key: 'share', label: 'Alcance', numeric: true, sort: row => row.sessions, render: row => percent(row.sessions, sessions)},

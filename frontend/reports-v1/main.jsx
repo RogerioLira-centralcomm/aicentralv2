@@ -29,6 +29,7 @@ import {GoogleAds} from './hubs/media/GoogleAds.jsx';
 import {MediaCreatives} from './hubs/media/MediaCreatives.jsx';
 import {Contents} from './hubs/journey/Contents.jsx';
 import {JourneyOverview} from './hubs/journey/JourneyOverview.jsx';
+import {Channels} from './hubs/journey/Channels.jsx';
 import {Navigation} from './hubs/journey/Navigation.jsx';
 import {Conversions} from './hubs/journey/Conversions.jsx';
 import {Heatmap} from './hubs/journey/Heatmap.jsx';
@@ -267,6 +268,7 @@ function App() {
       journey: () => <JourneyOverview data={data}/>,
       flow: () => <Flow data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} />,
       pages: () => <PageDetail data={data} />,
+      channels: () => <Channels/>,
       navigation: () => <Navigation/>,
       conversions: () => <Conversions/>,
       heatmap: () => <Heatmap data={data}/>,

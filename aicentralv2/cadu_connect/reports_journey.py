@@ -28,6 +28,16 @@ _SCOPE = f'''FROM {EVENT_TABLE} e JOIN cadu_reports_supertag_sites s ON s.id=e.s
     WHERE s.client_id=%(client)s AND s.revoked_at IS NULL AND e.expires_at>NOW()
         AND e.occurred_at>=%(since)s AND e.occurred_at<%(until)s'''
 
+# Device class from the viewport width of the first view (the tag does not collect the user agent): phone < 768 px,
+# tablet < 1024 px (the same line the heatmap uses between phone and desktop), desktop above; no width = unknown.
+CHANNEL_DEVICES = ('mobile', 'tablet', 'desktop', 'unknown')
+DEVICE_LABELS = {'mobile': 'Celular', 'tablet': 'Tablet', 'desktop': 'Computador', 'unknown': 'Não identificado'}
+DEVICE_SQL = ("CASE WHEN {width} IS NULL OR {width}<=0 THEN 'unknown' WHEN {width}<768 THEN 'mobile' "
+              "WHEN {width}<1024 THEN 'tablet' ELSE 'desktop' END")
+CHANNEL_CAMPAIGNS = 5       # campaigns kept per channel
+CHANNEL_LANDINGS = 3        # landing pages kept per channel
+ROLE_MIN_VIEWS = 5          # a page needs this many views before it is given a role
+
 # Origin of a session, read from its first page view. The groups answer "where did this visit come from?" without
 # mixing two very different cases: Direto (no campaign tag, no click id and no referrer at all) and Origem desconhecida
 # (the first view we have was referred by the site itself, so the real landing — and its origin — was not captured:
@@ -156,7 +166,7 @@ _SESSIONS_CTE = f'''WITH ev AS (
 
 # Page views in order inside each kept session; the first is the entry, the last the exit.
 _VIEWS_CTE = _SESSIONS_CTE + ''', views AS (
-    SELECT v.site_id,v.site_host AS host,v.session_id,v.visitor_id,v.path,x.length,x.converted,
+    SELECT v.site_id,v.site_host AS host,v.session_id,v.visitor_id,v.path,x.length,x.converted,x.origin,
         ROW_NUMBER() OVER w AS position,LEAD(v.path) OVER w AS next_path,LAG(v.path) OVER w AS prev_path
     FROM ev v JOIN scoped x ON x.site_id=v.site_id AND x.session_id=v.session_id
     WHERE v.event_kind='page_view'
@@ -188,6 +198,43 @@ _NAV_PAGES_SQL = _VIEWS_CTE + ''', outcomes AS (
         ROUND(o.avg_active_ms/1000,1) AS avg_active_seconds
     FROM pages p LEFT JOIN outcomes o ON o.site_id=p.site_id AND o.path=p.path
     ORDER BY p.views DESC,p.path LIMIT %(pages)s'''
+
+# Sessions that saw each page, by the origin group of the session: the "where do its visitors come from" split.
+_NAV_PAGE_ORIGINS_SQL = _VIEWS_CTE + '''
+    SELECT site_id,path,origin,COUNT(DISTINCT session_id)::bigint AS sessions
+    FROM views GROUP BY site_id,path,origin'''
+
+# Channels: one row per session with the origin, campaign, device class and landing page of its first view.
+_CHANNELS_CTE = f'''WITH ev AS (
+    SELECT e.site_id,s.allowed_host AS site_host,e.session_id,e.event_kind,{_PATH} AS path,e.occurred_at,e.id,
+        e.referrer_host,e.attribution,e.viewport_width
+    {_SCOPE} AND e.event_kind IN ('page_view','conversion') {{site}}
+), firsts AS (
+    SELECT DISTINCT ON (site_id,session_id) site_id,session_id,site_host,path,referrer_host,attribution,viewport_width
+    FROM ev WHERE event_kind='page_view' ORDER BY site_id,session_id,occurred_at,id
+), stats AS (
+    SELECT site_id,session_id,COUNT(*) FILTER (WHERE event_kind='page_view') AS length,BOOL_OR(event_kind='conversion') AS converted
+    FROM ev GROUP BY site_id,session_id
+), chan AS (
+    SELECT f.site_id,f.site_host AS host,f.path,{origin_group_sql()} AS origin,
+        LOWER(BTRIM(COALESCE(f.attribution->>'utm_campaign',''))) AS campaign,
+        {DEVICE_SQL.format(width='f.viewport_width')} AS device,t.length,t.converted
+    FROM firsts f JOIN stats t ON t.site_id=f.site_id AND t.session_id=f.session_id
+)'''
+_CHANNELS_SUMMARY_SQL = _CHANNELS_CTE + '''
+    SELECT origin,COUNT(*)::bigint AS sessions,SUM(length)::bigint AS views,
+        COUNT(*) FILTER (WHERE length=1)::bigint AS single_page_sessions,
+        COUNT(*) FILTER (WHERE converted)::bigint AS converted_sessions
+    FROM chan GROUP BY origin'''
+_CHANNELS_DEVICES_SQL = _CHANNELS_CTE + '''
+    SELECT origin,device,COUNT(*)::bigint AS sessions,COUNT(*) FILTER (WHERE converted)::bigint AS converted_sessions
+    FROM chan GROUP BY origin,device'''
+_CHANNELS_CAMPAIGNS_SQL = _CHANNELS_CTE + '''
+    SELECT origin,campaign,COUNT(*)::bigint AS sessions,COUNT(*) FILTER (WHERE converted)::bigint AS converted_sessions
+    FROM chan WHERE campaign<>'' GROUP BY origin,campaign'''
+_CHANNELS_LANDINGS_SQL = _CHANNELS_CTE + '''
+    SELECT origin,site_id,host,path,COUNT(*)::bigint AS sessions,COUNT(*) FILTER (WHERE converted)::bigint AS converted_sessions
+    FROM chan GROUP BY origin,site_id,host,path'''
 
 _NAV_PATHS_SQL = _VIEWS_CTE + '''
     SELECT host,path AS from_path,next_path AS to_path,COUNT(DISTINCT (site_id,session_id))::bigint AS sessions
@@ -468,6 +515,63 @@ def navigation_pages(rows, totals):
     return out
 
 
+def page_role(item):
+    """What the page does in a visit: converts, opens visits, closes them or just passes people along. None on a small base."""
+    views, entries, exits = item['views'], item['entries'], item['exits']
+    if views < ROLE_MIN_VIEWS:
+        return None
+    if item['conversions'] or item['converted_sessions']:
+        return 'conversion'
+    if entries * 2 >= views:
+        return 'entry'
+    if exits * 2 >= views:
+        return 'exit'
+    return 'transit'
+
+
+def attach_page_origins(pages, rows):
+    """Adds `origins` (sessions of the page by origin group, biggest first) and the page's role."""
+    by_page = {}
+    for row in rows:
+        by_page.setdefault((str(row['site_id']), row['path']), []).append(row)
+    for page in pages:
+        lines = sorted(by_page.get((page['site_id'], page['path']), []), key=lambda row: -int(row['sessions']))
+        total = sum(int(row['sessions']) for row in lines)
+        page['origins'] = [{'origin': row['origin'], 'label': ORIGIN_LABELS.get(row['origin'], row['origin']),
+                            'sessions': int(row['sessions']), 'share': pct(int(row['sessions']), total)} for row in lines[:3]]
+        page['role'] = page_role(page)
+    return pages
+
+
+def channel_rows(summary, devices, campaigns, landings):
+    """One entry per origin group (fixed order, zeros kept): volume, conversion, device split, campaigns and landing pages."""
+    total = sum(int(row.get('sessions') or 0) for row in summary)
+    by_origin = {row['origin']: row for row in summary}
+    out = []
+    for group in ORIGIN_GROUPS:
+        row = by_origin.get(group, {})
+        sessions = int(row.get('sessions') or 0)
+        converted, single = int(row.get('converted_sessions') or 0), int(row.get('single_page_sessions') or 0)
+        mine = lambda rows: [item for item in rows if item.get('origin') == group]
+        device_lines = {item['device']: item for item in mine(devices)}
+        out.append({
+            'origin': group, 'label': ORIGIN_LABELS[group], 'hint': ORIGIN_HINTS[group], 'sessions': sessions,
+            'share': pct(sessions, total), 'converted_sessions': converted, 'conversion_rate': _rate(converted, sessions),
+            'views_per_session': round(int(row.get('views') or 0) / sessions, 1) if sessions else None,
+            'single_page_rate': _rate(single, sessions),
+            'devices': [{'device': device, 'label': DEVICE_LABELS[device], 'sessions': int(device_lines[device]['sessions']),
+                         'share': pct(int(device_lines[device]['sessions']), sessions)}
+                        for device in CHANNEL_DEVICES if device in device_lines],
+            'campaigns': [{'name': item['campaign'], 'sessions': int(item['sessions']), 'converted_sessions': int(item['converted_sessions']),
+                           'conversion_rate': _rate(int(item['converted_sessions']), int(item['sessions']))}
+                          for item in sorted(mine(campaigns), key=lambda item: (-int(item['sessions']), item['campaign']))[:CHANNEL_CAMPAIGNS]],
+            'landings': [{'site_id': str(item['site_id']), 'host': item['host'], 'path': item['path'], 'sessions': int(item['sessions']),
+                          'converted_sessions': int(item['converted_sessions'])}
+                         for item in sorted(mine(landings), key=lambda item: (-int(item['sessions']), item['path']))[:CHANNEL_LANDINGS]],
+        })
+    return out
+
+
 def path_sequences(rows, sessions):
     """Most common whole visits (2 to SEQUENCE_DEPTH pages) with their share of sessions and conversion."""
     out = []
@@ -565,7 +669,8 @@ def register(bp):
         previous = None
         if previous_since >= datetime.now(since.tzinfo) - timedelta(days=RETENTION_DAYS):
             previous = navigation_totals(_rows(narrow(_NAV_SUMMARY_SQL), {**scope, 'since': previous_since, 'until': previous_until}), origin)
-        pages = navigation_pages(_rows(narrow(_NAV_PAGES_SQL), scope), totals)
+        pages = attach_page_origins(navigation_pages(_rows(narrow(_NAV_PAGES_SQL), scope), totals),
+                                    _rows(narrow(_NAV_PAGE_ORIGINS_SQL), scope))
         groups = origin_groups(summary)
         return jsonify(window=_window_json(since, until, days),
                        previous_window=_window_json(previous_since, previous_until, days) if previous else None,
@@ -575,6 +680,24 @@ def register(bp):
                        quality={'min_sessions': MIN_SESSIONS, 'rate_min_base': RATE_MIN_BASE, 'low_sample': totals['sessions'] < MIN_SESSIONS},
                        pages=pages, paths=_rows(narrow(_NAV_PATHS_SQL), scope),
                        sequences=path_sequences(_rows(narrow(_NAV_SEQUENCES_SQL), scope), totals['sessions']))
+
+    @bp.get('/api/v2/reports/journey/channels')
+    @login_required_api
+    def reports_journey_channels():
+        """Where visits come from: per origin group, sessions, conversion, device split, campaigns and landing pages."""
+        selected = _selection()
+        since, until, days = _window()
+        site = _site_param()
+        scope = {'client': selected['client_id'], 'since': since, 'until': until, 'site': site}
+        narrow = (lambda sql: sql.replace('{site}', 'AND e.site_id=%(site)s::uuid' if site else ''))
+        summary = _rows(narrow(_CHANNELS_SUMMARY_SQL), scope)
+        channels = channel_rows(summary, _rows(narrow(_CHANNELS_DEVICES_SQL), scope),
+                                _rows(narrow(_CHANNELS_CAMPAIGNS_SQL), scope), _rows(narrow(_CHANNELS_LANDINGS_SQL), scope))
+        sessions = sum(item['sessions'] for item in channels)
+        converted = sum(item['converted_sessions'] for item in channels)
+        return jsonify(window=_window_json(since, until, days), channels=channels,
+                       totals={'sessions': sessions, 'converted_sessions': converted, 'conversion_rate': _rate(converted, sessions)},
+                       quality={'min_sessions': MIN_SESSIONS, 'rate_min_base': RATE_MIN_BASE, 'low_sample': sessions < MIN_SESSIONS})
 
     @bp.get('/api/v2/reports/journey/conversions')
     @login_required_api

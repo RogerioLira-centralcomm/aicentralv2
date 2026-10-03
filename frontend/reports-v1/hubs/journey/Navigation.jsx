@@ -1,4 +1,4 @@
-import React, {useMemo, useState} from 'react';
+import React, {useMemo} from 'react';
 import {sankeyLayout} from '../../sankeyLayout.js';
 import {ArrowRight} from '@untitledui/icons';
 import {reportUrl} from '../../reportsCommon.jsx';
@@ -6,6 +6,7 @@ import {useReportsContext} from '../../shell/context.js';
 import {apiUrl, useApi} from '../../shell/useApi.js';
 import {AppLink, DataTable, EmptyState, ErrorState, LoadingState, MetricGroup, Section} from '../../shell/primitives.jsx';
 import {number, percent} from '../shared.jsx';
+import {OriginPicker, useOrigin} from './origin.jsx';
 import './journey.css';
 
 /** Short definitions shown as header tooltips and, for keyboard and screen readers, in "Como ler estas métricas". */
@@ -28,9 +29,6 @@ const rate = (value, base, minimum) => value == null
   ? <span className="rs-muted rs-nav__dash" title={`Base pequena (${number(base)}); a taxa aparece a partir de ${minimum}.`}>—</span>
   : `${Number(value).toLocaleString('pt-BR', {maximumFractionDigits: 1})}%`;
 const ratio = (part, total, minimum) => Number(total) >= minimum ? percent(part, total) : '—';
-// Same keys as ORIGIN_GROUPS in reports_journey.py: an unknown ?origem= would make the API answer 400 and hide the picker.
-const ORIGINS = ['direct', 'google_ads', 'organic', 'social', 'referral', 'other', 'unknown'];
-const readOrigin = () => {try {const value = new URLSearchParams(location.search).get('origem') || ''; return ORIGINS.includes(value) ? value : '';} catch {return '';}};
 
 /** Most common steps as two columns of pages: where the visit was and where it went next. */
 function PathsSankey({paths, sessions}) {
@@ -58,25 +56,10 @@ function PathsSankey({paths, sessions}) {
 
 const pageLink = (row, path = row.path) => <AppLink className="rs-path" href={reportUrl('pages', {site_id: row.site_id, path})}>{path}</AppLink>;
 
-/** Origin selector: every group with its sessions; Direto and Origem desconhecida always show, even at zero. */
-function OriginPicker({groups, value, onChange, total}) {
-  return <div className="rs-nav__origins">
-    <div className="rs-segmented rs-segmented--sm" role="group" aria-label="Origem das sessões">
-      <button type="button" aria-pressed={!value} onClick={() => onChange('')}>Todas <small>{number(total)}</small></button>
-      {groups.filter(item => item.sessions > 0 || ['direct', 'unknown'].includes(item.origin) || item.origin === value).map(item =>
-        <button type="button" key={item.origin} aria-pressed={value === item.origin} title={item.hint} onClick={() => onChange(item.origin)}>{item.label} <small>{number(item.sessions)}</small></button>)}
-    </div>
-  </div>;
-}
-
 /** "Como os usuários se movimentam?" — where visits start, move next and leave, by origin. Modelling stays in Fluxos. */
 export function Navigation() {
   const {period, scope} = useReportsContext();
-  const [origin, setOriginState] = useState(readOrigin);
-  const setOrigin = value => {
-    setOriginState(value);
-    try {const url = new URL(location.href); if (value) url.searchParams.set('origem', value); else url.searchParams.delete('origem'); history.replaceState(history.state, '', url);} catch {/* address bar is a convenience */}
-  };
+  const [origin, setOrigin] = useOrigin();
   const [state, retry] = useApi(apiUrl('/journey/navigation', {start_date: period.start, end_date: period.end, site_id: scope.site, origin: origin || undefined}));
   if (state.error) return <ErrorState message={state.error} onRetry={retry}/>;
   if (state.loading && !state.body) return <div className="rs-stack"><LoadingState rows={2}/><LoadingState rows={6}/></div>;

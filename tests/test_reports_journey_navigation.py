@@ -133,6 +133,9 @@ def fake_rows_for(seen):
         if 'GROUP BY origin' in sql:
             first = not any('GROUP BY origin' in earlier for earlier, _ in seen[:-1])
             return summary(direct=30, unknown=10) if first else summary(direct=20)
+        if 'GROUP BY site_id,path,origin' in sql:
+            return [{'site_id': uuid.UUID(SITE), 'path': '/', 'origin': 'direct', 'sessions': 30},
+                    {'site_id': uuid.UUID(SITE), 'path': '/', 'origin': 'google_ads', 'sessions': 10}]
         if 'AS from_path' in sql:
             return [{'host': 'exemplo.com.br', 'from_path': '/', 'to_path': '/contato', 'sessions': 8}]
         if 'continued' in sql:
@@ -161,8 +164,10 @@ def test_route_returns_origins_totals_previous_pages_and_sequences(app):
     assert body['previous_window']['since'] and body['origin'] is None
     assert [item['origin'] for item in body['origin_groups']] == list(journey.ORIGIN_GROUPS)
     assert [item['platform'] for item in body['origins']] == ['direct', 'unknown']   # kept for the overview tab
+    assert body['pages'][0]['role'] == 'conversion' and [item['origin'] for item in body['pages'][0]['origins']] == ['direct', 'google_ads']
+    assert body['pages'][0]['origins'][0]['share'] == 75.0
     assert body['pages'][0]['bounce_rate'] == 25.0 and body['sequences'][0]['share'] == 20.0 and body['paths'][0]['to_path'] == '/contato'
-    assert len(seen) == 5
+    assert len(seen) == 6
     for sql, params in seen:
         assert '{site}' not in sql and '%(site)s' not in sql and params['client'] == 174 and params['origin'] is None
     previous = [params for sql, params in seen if 'GROUP BY origin' in sql][1]
@@ -186,3 +191,76 @@ def test_route_rejects_invalid_input(app, query):
 
 def test_route_requires_login(app):
     assert app.test_client().get(URL).status_code == 401
+
+
+def test_page_role_reads_the_dominant_behaviour_and_needs_a_base():
+    role = lambda **item: journey.page_role({'views': 10, 'entries': 0, 'exits': 0, 'conversions': 0, 'converted_sessions': 0, **item})
+    assert role(conversions=1, entries=9) == 'conversion'          # conversion wins over entry
+    assert role(converted_sessions=2) == 'conversion'
+    assert role(entries=5) == 'entry' and role(exits=6) == 'exit' and role(entries=2, exits=2) == 'transit'
+    assert role(views=4, entries=4) is None                       # below ROLE_MIN_VIEWS
+
+
+def test_attach_page_origins_keeps_the_top_three_with_their_share():
+    pages = [{'site_id': SITE, 'path': '/', 'views': 10, 'entries': 6, 'exits': 0, 'conversions': 0, 'converted_sessions': 0},
+             {'site_id': SITE, 'path': '/vazia', 'views': 10, 'entries': 0, 'exits': 0, 'conversions': 0, 'converted_sessions': 0}]
+    rows = [{'site_id': uuid.UUID(SITE), 'path': '/', 'origin': origin, 'sessions': count}
+            for origin, count in (('social', 1), ('direct', 5), ('google_ads', 3), ('organic', 1))]
+    out = journey.attach_page_origins(pages, rows)
+    assert [item['origin'] for item in out[0]['origins']] == ['direct', 'google_ads', 'social'] and out[0]['origins'][0]['share'] == 50.0
+    assert out[0]['origins'][0]['label'] == 'Direto' and out[0]['role'] == 'entry'
+    assert out[1]['origins'] == []
+
+
+def test_device_sql_splits_phone_tablet_desktop_and_unknown():
+    sql = journey.DEVICE_SQL.format(width='x')
+    assert '{' not in sql and '%' not in sql
+    for device in journey.CHANNEL_DEVICES:
+        assert f"'{device}'" in sql
+    assert set(journey.DEVICE_LABELS) == set(journey.CHANNEL_DEVICES)
+
+
+def test_channel_rows_list_every_origin_with_devices_campaigns_and_landings():
+    summary = [{'origin': 'google_ads', 'sessions': 40, 'views': 100, 'single_page_sessions': 10, 'converted_sessions': 4},
+               {'origin': 'direct', 'sessions': 10, 'views': 10, 'single_page_sessions': 10, 'converted_sessions': 0}]
+    devices = [{'origin': 'google_ads', 'device': 'desktop', 'sessions': 10, 'converted_sessions': 4},
+               {'origin': 'google_ads', 'device': 'mobile', 'sessions': 30, 'converted_sessions': 0}]
+    campaigns = [{'origin': 'google_ads', 'campaign': f'c{index}', 'sessions': index, 'converted_sessions': 0} for index in range(1, 8)]
+    landings = [{'origin': 'google_ads', 'site_id': uuid.UUID(SITE), 'host': 'exemplo.com.br', 'path': path, 'sessions': count, 'converted_sessions': 1}
+                for path, count in (('/a', 5), ('/b', 20), ('/c', 10), ('/d', 1))]
+    out = journey.channel_rows(summary, devices, campaigns, landings)
+    assert [item['origin'] for item in out] == list(journey.ORIGIN_GROUPS)
+    ads = next(item for item in out if item['origin'] == 'google_ads')
+    assert ads['share'] == 80.0 and ads['conversion_rate'] == 10.0 and ads['views_per_session'] == 2.5 and ads['single_page_rate'] == 25.0
+    assert [item['device'] for item in ads['devices']] == ['mobile', 'desktop'] and ads['devices'][0]['share'] == 75.0
+    assert [item['name'] for item in ads['campaigns']] == ['c7', 'c6', 'c5', 'c4', 'c3']
+    assert [item['path'] for item in ads['landings']] == ['/b', '/c', '/a'] and ads['landings'][0]['site_id'] == SITE
+    empty = next(item for item in out if item['origin'] == 'social')
+    assert empty['sessions'] == 0 and empty['conversion_rate'] is None and empty['views_per_session'] is None and empty['devices'] == []
+
+
+def test_channels_route_filters_by_site_and_aggregates_totals(app):
+    seen = []
+
+    def fake_rows(sql, params=()):
+        seen.append((sql, params))
+        if 'GROUP BY origin,device' in sql:
+            return [{'origin': 'direct', 'device': 'mobile', 'sessions': 30, 'converted_sessions': 3}]
+        if 'GROUP BY origin,campaign' in sql or 'GROUP BY origin,site_id' in sql:
+            return []
+        return summary(direct=30, unknown=10)
+
+    client = app.test_client()
+    with client.session_transaction() as session:
+        session['user_id'] = 1
+    with mock.patch.object(journey, '_rows', fake_rows), \
+         mock.patch.object(journey, '_selection', return_value={'client_id': 174, 'role': 'admin', 'user_id': 1}):
+        response = client.get(f'/connect/api/v2/reports/journey/channels?site_id={SITE}&{PERIOD}')
+        bad = client.get('/connect/api/v2/reports/journey/channels?site_id=nope')
+    body = response.get_json()
+    assert response.status_code == 200 and bad.status_code == 400
+    assert body['totals'] == {'sessions': 40, 'converted_sessions': 4, 'conversion_rate': 10.0}
+    assert body['quality']['low_sample'] is False and len(body['channels']) == len(journey.ORIGIN_GROUPS) and len(seen) == 4
+    for sql, params in seen:
+        assert 'AND e.site_id=%(site)s::uuid' in sql and '{site}' not in sql and params['site'] == SITE
+    assert body['channels'][0]['devices'][0]['label'] == 'Celular'

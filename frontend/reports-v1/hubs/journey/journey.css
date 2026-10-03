@@ -142,5 +142,33 @@
 @media (max-width:640px){.rs-nav__defs dl{grid-template-columns:1fr}.rs-nav__defs dd{margin-bottom:6px}}
 /* Narrow columns: tighter cells so every column fits without clipping. */
 .rs-nav__grid .rs-table-wrap :is(th,td){padding-left:8px!important;padding-right:8px!important}
+/* The shared table bleeds 24px past its card; these cards pad 16px, so match it or the last column is clipped. */
+.rs-nav .rs-table-wrap,.rs-chan .rs-table-wrap{width:calc(100% + 32px);margin-left:-16px;margin-right:-16px}
 .rs-nav__grid .rs-path{max-width:150px}
 @media (max-width:640px){.rs-nav .rs-path{max-width:180px}.rs-nav__grid .rs-path{max-width:130px}}
+
+/* Páginas: role badge and origin picker above the table. */
+.rs-pages__origin{margin-bottom:12px}
+.rs-role{display:inline-block;padding:1px 8px;border-radius:999px;background:var(--rs-soft);color:var(--rs-text);font-size:12px;font-weight:600;line-height:18px;cursor:help;white-space:nowrap}
+.rs-role--conversion{background:var(--rs-success-soft,#ecfdf3);color:var(--rs-success,#067647)}
+.rs-role--entry{background:var(--rs-brand-soft,#eff4ff);color:var(--rs-brand,#175cd3)}
+.rs-role--exit{background:var(--rs-warning-soft);color:var(--rs-text)}
+
+/* Canais: channel table, definitions and one card per origin. */
+.rs-chan{gap:12px}
+.rs-chan .rs-section{padding:14px 16px;min-width:0}
+.rs-chan .rs-section__head{margin-bottom:10px}
+.rs-chan__actions{display:inline-flex;gap:12px;white-space:nowrap}
+.rs-chan__defs{display:grid;grid-template-columns:minmax(110px,150px) minmax(0,1fr);gap:6px 12px;margin:0;font-size:13px}
+.rs-chan__defs dt{color:var(--rs-ink);font-weight:600}
+.rs-chan__defs dd{margin:0;color:var(--rs-muted)}
+.rs-chan__cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.rs-chan__card{min-width:0;padding:12px 14px;border:1px solid var(--rs-line);border-radius:10px}
+.rs-chan__card header{display:flex;justify-content:space-between;gap:8px;margin-bottom:6px;color:var(--rs-ink)}
+.rs-chan__card header span{color:var(--rs-muted);font-size:12px}
+.rs-chan__card h3{margin:10px 0 4px;color:var(--rs-muted);font-size:12px;font-weight:600;text-transform:none}
+.rs-chan__list{display:grid;gap:2px;margin:0;padding:0;list-style:none;font-size:13px}
+.rs-chan__list li{display:flex;justify-content:space-between;gap:8px;min-width:0}
+.rs-chan__list li>:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rs-chan__more{margin:0;font-size:13px}
+@media (max-width:640px){.rs-chan__defs{grid-template-columns:1fr}}

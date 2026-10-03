@@ -140,7 +140,7 @@ export default function NewTest({state, api, onCreated, seed}) {
         formats: scenario?.formats || EMPTY_FORM.formats, title: `${scenario?.title || ''} (variação)`};
       setForm(filled);
       setDirector(''); setPreview(null); onCreated?.(null);
-      setBusy(''); await runPreview(filled);
+      setBusy(''); await runPreview(filled, '');
     } catch (exc) { setError(exc.message); } finally { setBusy(''); }
   };
   const quickKey = (state.scenarios.find(item => item.key === 'v2-cemig-whatsapp') || state.scenarios.find(item => !item.reserved) || {}).key;
@@ -165,15 +165,15 @@ export default function NewTest({state, api, onCreated, seed}) {
   const toggleFormat = key => set({formats: form.formats.includes(key) ? form.formats.filter(item => item !== key) : [...form.formats, key]});
   const hasBrief = Boolean(form.brief.archetype || Object.values(form.brief.copy || {}).some(Boolean) || form.task === 'edit');
   const studio = form.pipeline === 'studio' && form.task === 'generate';
-  const payload = (current = form) => {
+  const payload = (current = form, directorText = director) => {
     const isStudio = current.pipeline === 'studio' && current.task === 'generate';
     return {...current, pipeline: isStudio ? 'studio' : 'raw', brief: {...current.brief, format_key: current.formats[0]},
       mockup: {...current.mockup, id: current.formats.length === 1 ? current.mockup.id : ''},
-      director_prompt: isStudio ? undefined : (director || undefined), models, instruction: current.instruction || idea};
+      director_prompt: isStudio ? undefined : (directorText || undefined), models, instruction: current.instruction || idea};
   };
-  const runPreview = async (current = form) => {
+  const runPreview = async (current = form, directorText = director) => {
     setBusy('preview'); setError('');
-    try { const data = await api.post('/preview', payload(current)); setPreview(data); if (!director) setDirector(data.spec.director_prompt); }
+    try { const data = await api.post('/preview', payload(current, directorText)); setPreview(data); if (!directorText) setDirector(data.spec.director_prompt); }
     catch (exc) { setError(exc.message); } finally { setBusy(''); }
   };
   const create = async () => {

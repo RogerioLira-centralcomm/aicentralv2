@@ -11,7 +11,7 @@ import {GoogleAdsHowItWorks} from './hubs/media/GoogleAdsHowItWorks.jsx';
 import {APP_BASE} from './shell/routes.js';
 import {useReportsContext} from './shell/context.js';
 import {integer, json, shortDate} from './reportsCommon.jsx';
-import {UnlinkedGoogleCampaigns} from './GoogleCampaignLinks.jsx';
+import {UnlinkedGoogleCampaigns, loadUnlinkedGoogleCampaigns} from './GoogleCampaignLinks.jsx';
 
 const validGoogleAdsAccountId = value => /^(?:\d{10}|\d{3}-\d{3}-\d{4})$/.test(String(value || '').trim());
 const formatGoogleId = value => String(value).replace(/^(\d{3})(\d{3})(\d{4})$/, '$1-$2-$3');
@@ -89,6 +89,7 @@ function health(item) {
 export function MediaData({data, save, busy}) {
   const [keys, setKeys] = useState([]);
   const [runs, setRuns] = useState([]);
+  const [unlinkedCampaigns, setUnlinkedCampaigns] = useState([]);
   const [sourceKind, setSourceKind] = useState('google_ads_script');
   const [label, setLabel] = useState(SOURCES.google_ads_script.name);
   const [managerAccountId, setManagerAccountId] = useState('');
@@ -131,6 +132,7 @@ export function MediaData({data, save, busy}) {
 
   const reload = () => json(`/connect/api/v2/reports/ingest-keys`).then(value => {setKeys(value.keys || []); setRuns(value.runs || []); setLoaded(true);});
   useEffect(() => {reload().catch(failure => setError(failure.message));}, [data.client.client_id]);
+  useEffect(() => {loadUnlinkedGoogleCampaigns().then(setUnlinkedCampaigns).catch(() => setUnlinkedCampaigns([]));}, [runs.length]);
   // Accounts that only exist under an MCC: start from that MCC instead of an empty direct list.
   useEffect(() => {
     if (managerAccountId || direct.length) return;
@@ -265,11 +267,6 @@ export function MediaData({data, save, busy}) {
       </form>
     </Card>}
 
-    {canEdit && <Card title={<span className="flex items-center gap-3"><span className="flex size-7 items-center justify-center rounded-full bg-brand-solid text-sm font-semibold text-white">3</span>Instale e acompanhe o primeiro envio</span>}
-      description={generated ? (generatedKind === 'conversion_webhook' ? 'Envie as conversões no formato abaixo. O primeiro lote aparece em Últimos envios.' : 'Cole cada script em Ferramentas › Scripts da conta ou MCC e agende: Leitura diariamente, Ações de hora em hora.')
-        : googleKeys.length ? (receiving ? `Recebendo dados · último envio ${shortDate(lastRun)}.` : 'Script gerado, aguardando o primeiro envio. Rode o script uma vez no Google Ads para testar.') : 'Gere a fonte acima; o código e as instruções aparecem aqui.'}>
-      {!generated && <p className="text-sm text-tertiary">{receiving ? 'Tudo certo. Confira abaixo as campanhas que ainda precisam de cadastro.' : 'Nada a instalar ainda.'}</p>}
-    </Card>}
     {scripts.length > 0 && <div className="flex flex-col gap-4">
       <p role="status" className="rounded-lg bg-warning-primary px-4 py-3 text-sm text-warning-primary ring-1 ring-secondary ring-inset">As chaves dentro dos scripts não serão mostradas de novo. Baixe os arquivos .txt agora e instale cada script com o nome sugerido.</p>
       {scripts.map(item => <ScriptCard key={item.kind} item={item}/>)}
@@ -281,10 +278,9 @@ export function MediaData({data, save, busy}) {
       <pre aria-label="Código da integração" className="max-h-80 overflow-auto rounded-lg bg-secondary p-4 font-mono text-xs leading-5 whitespace-pre text-secondary ring-1 ring-secondary ring-inset">{script}</pre>
     </Card>}
 
-    {googleKeys.length > 0 && <div className="flex flex-col gap-3">
+    {unlinkedCampaigns.length > 0 && <div className="flex flex-col gap-3">
       <Step n={4} title="Ligue as campanhas do Google Ads">Os relatórios saem por campanha: cada campanha recebida pelo script precisa existir no Reports com o mesmo ID.</Step>
-      <UnlinkedGoogleCampaigns save={save} busy={busy} clientId={data.client.client_id} revision={runs.length}
-        emptyMessage={receiving ? 'Todas as campanhas recebidas já estão cadastradas.' : 'As campanhas aparecem aqui depois do primeiro envio do script de Leitura.'}/>
+      <UnlinkedGoogleCampaigns save={save} busy={busy} clientId={data.client.client_id} revision={runs.length}/>
     </div>}
 
     <Card flush title="Chaves de ingestão" badge={<Badge type="pill-color" size="sm" color="gray">{scopedKeys.length}</Badge>}

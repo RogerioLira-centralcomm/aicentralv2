@@ -122,7 +122,7 @@ _HEALTH_SQL = '''
 
 _DEVICE_SQL = {
     'all': 'TRUE', 'mobile': 'e.viewport_width<768', 'tablet': 'e.viewport_width>=768 AND e.viewport_width<1024',
-    'desktop': 'e.viewport_width>=1024',
+    'desktop': 'e.viewport_width>=1024', 'handheld': 'e.viewport_width<1024',
 }
 _INTERACTION_BASE = f'''
     FROM {EVENT_TABLE} e

@@ -11,7 +11,7 @@ export const HUBS = {
   },
   journey: {
     title: 'Site & Jornada', description: 'O que as pessoas fazem depois que chegam ao site.',
-    tabs: [['journey', 'Visão geral'], ['journey/flows', 'Fluxos'], ['journey/pages', 'Páginas'], ['journey/content', 'Conteúdos'], ['journey/navigation', 'Navegação'], ['journey/conversions', 'Conversões']],
+    tabs: [['journey', 'Visão geral'], ['journey/flows', 'Fluxos'], ['journey/pages', 'Páginas'], ['journey/content', 'Conteúdos'], ['journey/navigation', 'Navegação'], ['journey/conversions', 'Conversões'], ['journey/heatmap', 'Heatmap']],
   },
   data: {
     title: 'Fontes de dados', description: 'De onde vêm os dados de mídia, site, CRM e arquivos deste cliente.',
@@ -35,6 +35,7 @@ export const ROUTES = {
   'journey/content': {page: 'content', nav: 'journey', hub: 'journey', period: true},
   'journey/navigation': {page: 'navigation', nav: 'journey', hub: 'journey', period: true},
   'journey/conversions': {page: 'conversions', nav: 'journey', hub: 'journey', period: true},
+  'journey/heatmap': {page: 'heatmap', nav: 'journey', hub: 'journey', period: true, scope: 'site'},
   reports: {page: 'reports', nav: 'reports', title: 'Relatórios', description: 'Análises salvas e entregáveis prontos para distribuir.'},
   alerts: {page: 'alerts', nav: 'alerts', title: 'Alertas', description: 'O que precisa da sua atenção, com responsável e histórico.'},
   'data-sources': {page: 'data-sources', nav: 'data-sources', hub: 'data'},

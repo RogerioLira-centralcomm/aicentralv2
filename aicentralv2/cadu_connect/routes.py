@@ -41,6 +41,8 @@ from .reports_journey import register as register_reports_journey
 register_reports_journey(bp)
 from .reports_media_performance import register as register_reports_media_performance
 register_reports_media_performance(bp)
+from .reports_overview import register as register_reports_overview
+register_reports_overview(bp)
 from .reports_creatives import register as register_reports_creatives
 register_reports_creatives(bp)
 from .reports_google_ads import register as register_reports_google_ads

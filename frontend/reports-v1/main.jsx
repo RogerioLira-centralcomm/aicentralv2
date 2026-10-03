@@ -31,6 +31,7 @@ import {Contents} from './hubs/journey/Contents.jsx';
 import {JourneyOverview} from './hubs/journey/JourneyOverview.jsx';
 import {Navigation} from './hubs/journey/Navigation.jsx';
 import {Conversions} from './hubs/journey/Conversions.jsx';
+import {Heatmap} from './hubs/journey/Heatmap.jsx';
 import {DataSources} from './hubs/data-sources/DataSources.jsx';
 import {dropClientFromUrl, flowEditorId, reportUrl, json, Empty} from './reportsCommon.jsx';
 import '../cadu-design-system/tokens.css';
@@ -243,11 +244,12 @@ function App() {
       creatives: () => <MediaCreatives data={data}/>,
       content: () => <Contents/>,
       monitor: () => <MediaData data={data} save={save} busy={busy}/>,
-      journey: () => <JourneyOverview data={data} sites={sites}/>,
+      journey: () => <JourneyOverview data={data}/>,
       flow: () => <Flow data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} />,
       pages: () => <PageDetail data={data} />,
       navigation: () => <Navigation/>,
       conversions: () => <Conversions/>,
+      heatmap: () => <Heatmap data={data} sites={sites}/>,
       reports: () => <ReportsLibrary data={data} save={save} busy={busy}/>,
       alerts: () => <AlertsCenter data={data} />,
       'data-sources': () => <DataSources data={data}/>,

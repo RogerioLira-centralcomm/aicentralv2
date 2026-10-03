@@ -170,10 +170,11 @@ def test_schedule_gives_up_when_every_slot_is_busy(app, tmp_path):
 
 
 # ---- routes ----------------------------------------------------------------------------------------------------------
-def routes(app, role='admin', firecrawl='key', site=True):
+def routes(app, role='admin', firecrawl='key', site=True, balance=None):
     def rows(sql, params=()):
         return [{'id': SITE, 'allowed_host': 'exemplo.com.br'}] if site else []
     return mock.patch.object(captures, '_rows', rows), \
+        mock.patch.object(captures, 'ensure_balance', side_effect=balance), \
         mock.patch.object(captures, '_selection', return_value={'client_id': 7, 'role': role, 'user_id': 1}), \
         mock.patch('aicentralv2.services.integration_credentials.resolve_firecrawl_api_key', return_value=firecrawl), \
         mock.patch.object(captures, '_write_guard', side_effect=lambda s: (_ for _ in ()).throw(__import__('werkzeug').exceptions.Forbidden()) if s['role'] == 'viewer' else None)
@@ -227,6 +228,14 @@ def test_start_route_schedules_and_reports_busy(app):
         assert call(app, 'POST', body).status_code == 200
     with mock.patch.object(captures, 'schedule', return_value='full'):
         assert call(app, 'POST', body).status_code == 429
+
+
+def test_start_route_refuses_up_front_when_credits_are_short(app):
+    from werkzeug.exceptions import Conflict
+    body = {'site_id': SITE, 'path': '/lp', 'device': 'desktop'}
+    with mock.patch.object(captures, 'schedule') as scheduled:
+        response = call(app, 'POST', body, balance=Conflict('Saldo insuficiente.'))
+    assert response.status_code == 409 and not scheduled.called
 
 
 def test_image_route_is_private_and_404_without_a_capture(app, tmp_path):

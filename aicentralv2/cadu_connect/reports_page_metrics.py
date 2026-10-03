@@ -12,7 +12,7 @@ DICTIONARY = [
     {'key': 'sessions', 'label': 'Sessões', 'unit': 'count', 'source': 'Super Tag',
      'definition': 'Sessões distintas com ao menos uma visualização desta página na janela.'},
     {'key': 'visitors', 'label': 'Visitantes únicos', 'unit': 'count', 'source': 'Super Tag',
-     'definition': 'Visitantes distintos (cookie) que viram a página. Estimativa: depende de consentimento e do cookie.'},
+     'definition': 'Visitantes distintos (cookie) que viram a página. Estimativa: depende do cookie do navegador (limpezas e navegação anônima contam como novos).'},
     {'key': 'views', 'label': 'Visualizações', 'unit': 'count', 'source': 'Super Tag',
      'definition': 'Total de eventos de visualização da página, incluindo recargas.'},
     {'key': 'entrances', 'label': 'Entradas', 'unit': 'count', 'source': 'Super Tag',
@@ -134,7 +134,8 @@ def breakdown(groups, key_of, limit=None):
 
 GRID_SIZE = 10
 MIN_RELIABLE_CLICKS = 30
-DEVICES = ('all', 'mobile', 'tablet', 'desktop')
+# 'handheld' = phones and tablets together (< 1024 px): the Celular view of Site & Jornada → Heatmap.
+DEVICES = ('all', 'mobile', 'tablet', 'desktop', 'handheld')
 
 
 def build_grid(rows):

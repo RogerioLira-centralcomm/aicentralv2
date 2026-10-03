@@ -1,0 +1,87 @@
+/* Visão geral: compact cards in the Super Tag domain style (soft strip, big number, change chip), theme tokens only. */
+.ov-page{gap:16px}
+
+/* KPI strip */
+.ov-kpis{display:grid;gap:6px}
+.ov-kpis__row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));border:1px solid var(--color-border-secondary);border-radius:12px;overflow:hidden;background:var(--color-bg-primary);box-shadow:0 1px 2px rgba(16,24,40,.05)}
+.ov-kpi{display:grid;gap:2px;align-content:start;min-width:0;padding:12px 16px;border-left:1px solid var(--color-border-secondary);margin-left:-1px}
+.ov-kpi__label{color:var(--color-text-tertiary);font-size:12px;font-weight:500;line-height:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ov-kpi__value{color:var(--color-text-primary);font-size:22px;font-weight:600;line-height:30px;letter-spacing:-.01em;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ov-kpis__note{margin:0;color:var(--color-text-quaternary);font-size:12px;line-height:18px}
+
+/* Change chip: green = better, red = worse, gray = neutral or no base. */
+.ov-delta{display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:600;line-height:18px;white-space:nowrap}
+.ov-delta em{margin-left:2px;color:var(--color-text-quaternary);font-style:normal;font-weight:400}
+.ov-delta.is-good{color:var(--color-text-success-primary)}
+.ov-delta.is-bad{color:var(--color-text-error-primary)}
+.ov-delta.is-neutral{color:var(--color-text-secondary)}
+.ov-delta.is-none{color:var(--color-text-quaternary);font-weight:400}
+
+/* Compact sections on this page */
+.ov-page .rs-section{padding:14px 16px;border-radius:12px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+.ov-page .rs-section__head{margin-bottom:10px;gap:12px}
+.ov-page .rs-section__head h2{font-size:15px;line-height:22px}
+.ov-page .rs-section__head p{font-size:13px;line-height:18px}
+
+/* 7 × 30 next to the alerts */
+.ov-row{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:16px;align-items:start}
+.ov-rolling__wrap{overflow-x:auto}
+.ov-rolling__table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+.ov-rolling__table th,.ov-rolling__table td{padding:7px 10px;border-top:1px solid var(--color-border-secondary);text-align:right;white-space:nowrap}
+.ov-rolling__table thead th{border-top:0;padding-top:0;color:var(--color-text-quaternary);font-size:12px;font-weight:500}
+.ov-rolling__table th:first-child{padding-left:0;text-align:left}
+.ov-rolling__table td:last-child{padding-right:0}
+.ov-rolling__table tbody th{color:var(--color-text-secondary);font-weight:500}
+.ov-rolling__table td{color:var(--color-text-primary);font-weight:600}
+.ov-rolling__table thead th:nth-child(4),.ov-rolling__table td:nth-child(4){border-left:1px solid var(--color-border-secondary)}
+
+/* Alerts */
+.ov-alert-list{display:grid;margin:0;padding:0;list-style:none}
+.ov-alert-list li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start;gap:10px;padding:8px 0;border-top:1px solid var(--color-border-secondary)}
+.ov-alert-list li:first-child{border-top:0;padding-top:0}
+.ov-alert-list__icon{margin-top:2px}
+.ov-alert-list li.is-high .ov-alert-list__icon{color:var(--color-fg-error-primary,var(--color-text-error-primary))}
+.ov-alert-list li.is-medium .ov-alert-list__icon{color:var(--color-fg-warning-primary,var(--color-text-warning-primary))}
+.ov-alert-list li.is-low .ov-alert-list__icon{color:var(--color-fg-quaternary,var(--color-text-quaternary))}
+.ov-alert-list__copy{display:grid;gap:1px;min-width:0}
+.ov-alert-list__copy strong{color:var(--color-text-primary);font-size:13px;font-weight:600;line-height:18px}
+.ov-alert-list__copy small{color:var(--color-text-tertiary);font-size:12px;line-height:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ov-alert-list__action{color:var(--color-text-brand-secondary);font-size:12px;font-weight:600;line-height:18px;text-decoration:none;white-space:nowrap}
+.ov-alert-list__action:hover{text-decoration:underline}
+.ov-alerts__more{margin:8px 0 0}
+.ov-allgood{display:flex;align-items:center;gap:8px;margin:0;color:var(--color-text-tertiary);font-size:13px;line-height:18px}
+.ov-allgood svg{flex:none;color:var(--color-fg-success-primary,var(--color-text-success-primary))}
+
+/* Trends: 3 per row */
+.ov-charts{display:grid;gap:10px}
+.ov-charts__head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ov-charts__head h2{margin:0;color:var(--color-text-primary);font-size:15px;font-weight:600;line-height:22px}
+.ov-charts__head span{display:inline-flex;align-items:center;gap:6px;color:var(--color-text-tertiary);font-size:12px}
+.ov-key{display:inline-block;width:14px;height:0;border-top:2px solid #175cd3}
+.ov-key.is-previous{margin-left:8px;border-top:2px dashed #98a2b3}
+.ov-grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;min-width:0}
+.ov-chart{display:grid;gap:4px;align-content:start;min-width:0;padding:12px 14px 4px;border:1px solid var(--color-border-secondary);border-radius:12px;background:var(--color-bg-primary);box-shadow:0 1px 2px rgba(16,24,40,.05)}
+.ov-chart>header{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.ov-chart h3{margin:0;color:var(--color-text-secondary);font-size:13px;font-weight:600;line-height:18px}
+.ov-chart__total{color:var(--color-text-primary);font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;text-decoration:none;white-space:nowrap}
+a.ov-chart__total:hover{color:var(--color-text-brand-secondary)}
+.ov-chart .reports-chart{margin:0 -6px}
+.ov-bars{gap:10px;padding:8px 0 12px}
+.ov-bars li{grid-template-columns:minmax(70px,110px) minmax(0,1fr) auto;font-size:13px}
+.ov-kv{margin:0}
+.ov-kv li{padding:7px 0;font-size:13px}
+.ov-kv li:first-child{border-top:0;padding-top:0}
+.ov-kv span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ov-grid3--cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+.ov-page .rs-empty{padding:16px}
+
+@media (max-width:1100px){
+  .ov-row{grid-template-columns:1fr}
+  .ov-grid3{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:760px){
+  .ov-grid3,.ov-grid3--cards{grid-template-columns:1fr}
+  .ov-kpis__row{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ov-kpi{border-top:1px solid var(--color-border-secondary);margin-top:-1px}
+  .ov-kpi__value{font-size:20px;line-height:28px}
+}

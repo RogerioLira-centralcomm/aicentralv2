@@ -206,7 +206,15 @@ function DocumentGrid({document: doc}) {
 
 const SCROLL_BANDS = [['scroll_25', '0–25%'], ['scroll_50', '25–50%'], ['scroll_75', '50–75%'], ['scroll_100', '75–100%']];
 
-function CaptureHeat({siteId, path, device, document: doc, metrics, canEdit, client, csrf, mode: controlledMode, onModeChange}) {
+const NO_CREDITS = 'Saldo de tokens insuficiente para capturar.';
+
+/**
+ * Capture of one page on one device with the click or scroll heat on top.
+ * `variant="heatmap"` (Site & Jornada → Heatmap) swaps the explanatory texts for a single "Capturar · N tokens" button.
+ */
+function CaptureHeat({siteId, path, device, document: doc, metrics, canEdit, client, csrf, mode: controlledMode, onModeChange, costTokens, variant}) {
+  const compact = variant === 'heatmap';
+  const captureLabel = (again = false) => `${again ? 'Capturar de novo' : compact ? 'Capturar' : 'Capturar a página'}${compact && costTokens ? ` · ${costTokens.toLocaleString('pt-BR')} tokens` : ''}`;
   const [ownMode, setOwnMode] = useState('clicks');
   const mode = controlledMode || ownMode, setMode = onModeChange || setOwnMode;
   const [intensity, setIntensity] = useState(70);
@@ -229,26 +237,27 @@ function CaptureHeat({siteId, path, device, document: doc, metrics, canEdit, cli
       const body = await json('/connect/api/v2/reports/pages/capture', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf},
         body: JSON.stringify({site_id: siteId, path, device})});
       setState({loading: false, error: '', body});
-    } catch (failure) { setState(current => ({...current, error: failure.message})); }
+    } catch (failure) { setState(current => ({...current, error: failure.status === 409 ? NO_CREDITS : failure.message})); }
     setStarting(false);
   };
   const body = state.body;
   const ready = body?.image_url && (body.status === 'ready' || body.status === 'failed');
-  return <div className="page-detail-capture">
+  return <div className={`page-detail-capture${compact ? ` page-detail-capture--${device}` : ''}`}>
     {state.error && <div className="reports-error" role="alert">{state.error}</div>}
     {state.loading && <div className="reports-loading" role="status">Verificando captura…</div>}
     {body && !ready && <div className="page-detail-capture-empty">
-      <p>{body.status === 'capturing' ? 'Capturando a página… isso leva cerca de um minuto.' : body.status === 'failed' ? (body.message || 'A captura falhou.') : 'Ainda não há captura desta página neste dispositivo.'}</p>
-      {body.status !== 'capturing' && (!body.available ? <p className="page-detail-note">A captura depende da integração Firecrawl, que não está configurada neste ambiente.</p>
-        : canEdit ? <><ReportsActionButton color="secondary" size="sm" className="page-detail-button" disabled={starting} onClick={capture}>Capturar a página</ReportsActionButton>
-          <p className="page-detail-note">A captura usa créditos do provedor e só acontece quando você pede.</p></>
+      {compact && body.status !== 'capturing' && body.status !== 'failed' && <strong>Sem captura desta página</strong>}
+      <p>{body.status === 'capturing' ? 'Capturando a página… isso leva cerca de um minuto.' : body.status === 'failed' ? (body.message || 'A captura falhou.') : compact ? 'Capture a página para ver o calor sobre ela.' : 'Ainda não há captura desta página neste dispositivo.'}</p>
+      {body.status !== 'capturing' && (!body.available ? <p className="page-detail-note">{compact ? 'Captura indisponível neste ambiente (Firecrawl não configurado).' : 'A captura depende da integração Firecrawl, que não está configurada neste ambiente.'}</p>
+        : canEdit ? <><ReportsActionButton color={compact ? 'primary' : 'secondary'} size="sm" className="page-detail-button" disabled={starting} onClick={capture}>{captureLabel()}</ReportsActionButton>
+          {!compact && <p className="page-detail-note">A captura usa créditos do provedor e só acontece quando você pede.</p>}</>
         : <p className="page-detail-note">Peça a alguém com permissão de edição para capturar a página.</p>)}
     </div>}
     {ready && <>
       <div className="page-detail-capture-tools">
         {!controlledMode && <ReportsTabs className="page-detail-views" label="Camada do calor" value={mode} onChange={setMode} items={[{id: 'clicks', label: 'Cliques'}, {id: 'scroll', label: 'Rolagem'}]}/>}
         <label className="page-detail-inline">Intensidade<input type="range" min="10" max="100" value={intensity} aria-label="Intensidade do calor" onChange={event => setIntensity(Number(event.target.value))}/></label>
-        {canEdit && body.status !== 'capturing' && <ReportsActionButton color="tertiary" size="sm" className="page-detail-button is-quiet" disabled={starting} onClick={capture}>Capturar de novo</ReportsActionButton>}
+        {canEdit && body.status !== 'capturing' && <ReportsActionButton color="tertiary" size="sm" className="page-detail-button is-quiet" disabled={starting} onClick={capture}>{captureLabel(true)}</ReportsActionButton>}
       </div>
       {body.status === 'failed' && <p className="page-detail-warning" role="note">{body.message} Mostrando a captura anterior.</p>}
       <div className="page-detail-capture-stage" style={{aspectRatio: `${body.width} / ${body.height}`, '--intensity': intensity / 100}}>
@@ -261,22 +270,26 @@ function CaptureHeat({siteId, path, device, document: doc, metrics, canEdit, cli
       <p className="page-detail-note">Captura de {dateTime((body.captured_at || 0) * 1000)}. {mode === 'scroll'
         ? 'Cada faixa mostra a % das sessões que chegaram até o fim dela.'
         : doc?.total ? `Calor de ${number(doc.total)} cliques com posição na página inteira, em faixas proporcionais à altura.` : 'Ainda não há cliques com posição na página inteira para sobrepor.'}
-        {' '}Se a página mudou depois da captura, o calor pode não coincidir com o desenho: capture de novo.</p>
+        {compact ? '' : ' Se a página mudou depois da captura, o calor pode não coincidir com o desenho: capture de novo.'}</p>
     </>}
   </div>;
 }
 
-/** Screenshot of one page on one device with the click or scroll heat on top; used by Site & Jornada. */
-export function PageVisual({siteId, path, device, days, metrics, canEdit, client, csrf, mode}) {
+/**
+ * Screenshot of one page on one device with the click or scroll heat on top; used by Site & Jornada → Heatmap.
+ * `heatDevice` is the device class of the clicks (e.g. 'handheld' = phones and tablets over the phone capture).
+ */
+export function PageVisual({siteId, path, device, heatDevice = device, days, metrics, canEdit, client, csrf, mode, costTokens, variant}) {
   const [state, setState] = useState({loading: true, body: null});
   useEffect(() => {
     let active = true;
     setState({loading: true, body: null});
-    json(`/connect/api/v2/reports/pages/interactions?${new URLSearchParams({site_id: siteId, path, days, device})}`)
+    json(`/connect/api/v2/reports/pages/interactions?${new URLSearchParams({site_id: siteId, path, days, device: heatDevice})}`)
       .then(body => {if (active) setState({loading: false, body});}).catch(() => {if (active) setState({loading: false, body: null});});
     return () => {active = false;};
-  }, [siteId, path, days, device, client]);
-  return <CaptureHeat siteId={siteId} path={path} device={device} document={state.body?.document} metrics={metrics || {}} canEdit={canEdit} client={client} csrf={csrf} mode={mode} onModeChange={() => {}}/>;
+  }, [siteId, path, days, heatDevice, client]);
+  return <CaptureHeat siteId={siteId} path={path} device={device} document={state.body?.document} metrics={metrics || {}} canEdit={canEdit} client={client} csrf={csrf} mode={mode} onModeChange={() => {}}
+    costTokens={costTokens} variant={variant}/>;
 }
 
 function Interactions({siteId, path, days, client, metrics, canEdit, csrf}) {

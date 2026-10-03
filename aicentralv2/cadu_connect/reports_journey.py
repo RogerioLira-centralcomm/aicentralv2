@@ -8,6 +8,7 @@ import uuid
 from flask import abort, jsonify, request
 
 from ..auth import login_required_api
+from .reports_page_metrics import pct
 from .reports_flow_metrics import PLATFORM_LABELS, origin_platform, parse_origin, search_engine_for_host, search_engine_label
 from .reports_page_identity import sql_normalized_path
 from .reports_pages import EVENT_TABLE, _window
@@ -127,6 +128,48 @@ _CRM_SQL = '''SELECT conversion_kind AS kind,COUNT(*)::bigint AS total
     GROUP BY conversion_kind'''
 
 
+# Heatmap: one device class at a time. Celular groups phones and tablets (viewport < 1024 px), because the capture taken
+# for it is the phone layout and tablets are too few to deserve a tab of their own; Computador is >= 1024 px. Events
+# without a viewport width are left out (no device to place them on).
+HEATMAP_DEVICES = {'desktop': 'e.viewport_width>=1024', 'mobile': 'e.viewport_width<1024'}
+_DEPTH = "CASE WHEN e.event_data->>'depth' ~ '^[0-9]{1,3}$' THEN (e.event_data->>'depth')::int END"
+_HEATMAP_PAGES_SQL = f'''SELECT * FROM (
+    SELECT e.site_id,s.allowed_host AS host,{_PATH} AS path,
+        COUNT(*) FILTER (WHERE e.event_kind='page_view')::bigint AS views,
+        COUNT(DISTINCT e.session_id) FILTER (WHERE e.event_kind='page_view')::bigint AS sessions,
+        COUNT(*) FILTER (WHERE e.event_kind IN ('click','whatsapp_click'))::bigint AS clicks,
+        COUNT(DISTINCT e.session_id) FILTER (WHERE e.event_kind='scroll_depth' AND {_DEPTH}>=25)::bigint AS scroll_25,
+        COUNT(DISTINCT e.session_id) FILTER (WHERE e.event_kind='scroll_depth' AND {_DEPTH}>=50)::bigint AS scroll_50,
+        COUNT(DISTINCT e.session_id) FILTER (WHERE e.event_kind='scroll_depth' AND {_DEPTH}>=75)::bigint AS scroll_75,
+        COUNT(DISTINCT e.session_id) FILTER (WHERE e.event_kind='scroll_depth' AND {_DEPTH}>=100)::bigint AS scroll_100
+    {_SCOPE} AND e.event_kind IN ('page_view','click','whatsapp_click','scroll_depth') AND ({{device}}) {{site}}
+    GROUP BY e.site_id,s.allowed_host,{_PATH}) pages
+    WHERE views>0 AND clicks>0
+    ORDER BY clicks DESC,views DESC,path LIMIT %(pages)s'''
+
+
+def heatmap_pages(rows):
+    """Pages with both views and clicks on the device; the scroll reach is a share of the sessions that viewed the page."""
+    out = []
+    for row in rows:
+        views, clicks, sessions = int(row.get('views') or 0), int(row.get('clicks') or 0), int(row.get('sessions') or 0)
+        if views <= 0 or clicks <= 0:
+            continue
+        out.append({'site_id': str(row['site_id']), 'host': row['host'], 'path': row['path'], 'views': views, 'sessions': sessions,
+                    'clicks': clicks, **{f'scroll_{depth}': pct(int(row.get(f'scroll_{depth}') or 0), sessions) for depth in (25, 50, 75, 100)}})
+    return sorted(out, key=lambda item: (-item['clicks'], -item['views'], item['path']))
+
+
+def _site_param():
+    raw = request.args.get('site_id', '').strip()
+    if not raw:
+        return None
+    try:
+        return str(uuid.UUID(raw))
+    except ValueError:
+        abort(400, description='Site inválido.')
+
+
 def _by_platform(rows, *fields):
     """Sessions per platform; organic search also keeps one line per engine (Google, Bing…)."""
     out = {}
@@ -217,3 +260,20 @@ def register(bp):
         return jsonify(window=_window_json(since, until, days), totals=totals, groups=groups, daily=daily,
                        origins=_by_platform(_rows(_CONV_ORIGINS_SQL, scope), 'sessions', 'converted'),
                        confirmed=_rows(_CRM_SQL, scope) if crm_ready else [])
+
+    @bp.get('/api/v2/reports/journey/heatmap-pages')
+    @login_required_api
+    def reports_journey_heatmap_pages():
+        """Pages of the period with views and clicks on one device class, most clicked first, plus the price of a capture."""
+        from .reports_page_captures import capture_cost_tokens
+        selected = _selection()
+        since, until, days = _window()
+        device = request.args.get('device', 'desktop')
+        if device not in HEATMAP_DEVICES:
+            abort(400, description='Escolha computador ou celular.')
+        site = _site_param()
+        scope = {'client': selected['client_id'], 'since': since, 'until': until, 'pages': PAGES_LIMIT, 'site': site}
+        sql = _HEATMAP_PAGES_SQL.replace('{device}', HEATMAP_DEVICES[device]).replace(
+            '{site}', 'AND e.site_id=%(site)s::uuid' if site else '')
+        return jsonify(window=_window_json(since, until, days), device=device, pages=heatmap_pages(_rows(sql, scope)),
+                       cost_tokens=capture_cost_tokens(selected['client_id']))

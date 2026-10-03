@@ -211,6 +211,34 @@ def _run_capture(app, store, key, url, allowed_host, device, lock, actor=None):
         _slots.release()
 
 
+def capture_cost_tokens(client_id):
+    """Cadu tokens one capture (one Firecrawl scrape) costs this client, or None when it cannot be priced.
+
+    Shown next to the capture button; a client without a token price (or any pricing failure) must never break the screen.
+    """
+    try:
+        from ..cadu_credit_connector import CaduCreditConnector
+        return int(CaduCreditConnector().estimate_firecrawl_tokens('scrape', client_id=int(client_id), pages=1)) or None
+    except Exception:
+        current_app.logger.info('Custo da captura indisponível para o cliente %s', client_id, exc_info=True)
+        return None
+
+
+def ensure_balance(actor):
+    """Refuse up front (409) when the client cannot pay for one capture, instead of failing a minute later in the background.
+
+    Any other pricing problem is left to the capture itself, exactly as before.
+    """
+    from ..cadu_credit_connector import CaduCreditConnector
+    from ..cadu_tool_billing import InsufficientToolCredits
+    try:
+        CaduCreditConnector().authorize_firecrawl(actor, 'scrape', pages=1)
+    except InsufficientToolCredits as exc:
+        abort(409, description=str(exc) or 'Saldo de tokens insuficiente para capturar.')
+    except Exception:
+        current_app.logger.info('Verificação de saldo da captura indisponível', exc_info=True)
+
+
 def schedule(store, key, url, allowed_host, device, actor=None):
     """Start a capture in the background. Returns 'started', 'busy' (already running or too soon) or 'full'."""
     if not _slots.acquire(blocking=False):
@@ -293,8 +321,10 @@ def register(bp):
         from ..services.integration_credentials import resolve_firecrawl_api_key
         if not resolve_firecrawl_api_key():
             abort(503, description='A captura de páginas depende da integração Firecrawl, que não está configurada.')
+        actor = reports_ai.actor_for(selected)
+        ensure_balance(actor)
         store = get_store()
-        outcome = schedule(store, key, url, host, device, actor=reports_ai.actor_for(selected))
+        outcome = schedule(store, key, url, host, device, actor=actor)
         if outcome == 'full':
             abort(429, description='Há capturas em andamento. Tente de novo em instantes.')
         body = _describe(store, key, site_id, safe, device, selected['client_id'], True)

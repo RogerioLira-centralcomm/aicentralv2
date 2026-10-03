@@ -329,7 +329,9 @@ def _missing(client_id: int, scenario_key: str, model_keys: list[str]):
         )
         rows = cursor.fetchall()
     done = {model for row in rows for model in (row["done"] or [])}
-    missing = [model for model in (model_keys or list(catalog.manifests())) if model not in done]
+    # Models out of the test cut never count as missing, so a scenario does not re-queue them.
+    pool = model_keys or [key for key, item in catalog.manifests().items() if not item.get("retired")]
+    missing = [model for model in pool if model not in done and not catalog.manifest(model).get("retired")]
     return (rows[0]["id"] if rows else None), missing
 
 

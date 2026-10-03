@@ -56,3 +56,13 @@ def test_flow_list_carries_what_each_tag_received(monkeypatch):
     assert flows[1]["stats"]["events"] == 0 and flows[1]["stats"]["last_event_at"] is None
     assert flows[2]["stats"]["conversions"] == 0
     assert seen["params"] == (7, ["t-1", "t-2"], 30)
+
+
+def test_both_flow_list_queries_carry_stats_and_monitor_fields():
+    # The list screen loads view=create, a different query from the monitor view; both must feed the same columns.
+    import inspect
+    from aicentralv2.cadu_connect import reports_flow
+
+    source = inspect.getsource(reports_flow)
+    assert source.count("_with_flow_stats(") >= 3          # definition + create/edit branch + main branch
+    assert source.count("f.monitor_enabled,f.monitor_interval_minutes,f.monitor_status,f.monitor_checked_at") >= 2

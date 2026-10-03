@@ -1015,6 +1015,7 @@ def register(bp):
                  selected_flow['published_revision'] if selected_flow else None))
             flows = _rows('''SELECT f.id,f.site_id,f.flow_code,f.name,f.status,f.customer_id,f.campaign_id,f.draft_config AS config,f.draft_revision,f.published_revision,f.tag_id,
                     t.label AS tag_label,COALESCE(t.allowed_host,'') AS allowed_host,t.public_key,t.revoked_at,f.created_at,f.updated_at,f.published_at,
+                    f.monitor_enabled,f.monitor_interval_minutes,f.monitor_status,f.monitor_checked_at,
                     (SELECT STRING_AGG(DISTINCT c.name, ' · ' ORDER BY c.name)
                         FROM cadu_reports_flow_steps s
                         JOIN cadu_reports_campaigns c ON c.id=s.campaign_id
@@ -1028,7 +1029,7 @@ def register(bp):
             from .reports_supertag import _supertag_snippet
             for site in supertag_sites:
                 site['snippet'] = _supertag_snippet(site)
-            flows = [{**item, 'config': to_v3(item['config'])} for item in flows]
+            flows = _with_flow_stats([{**item, 'config': to_v3(item['config'])} for item in flows], params)
             return jsonify(tags=tags,steps=steps,flows=flows,events=[],event_group_count=0,
                 event_summary={},tag_urls=_client_tag_urls(selected['client_id'],),activity=[],
                 online=0,conversions=0,site_pages=[],page_transitions=[],confirmed=[],period_days=days,

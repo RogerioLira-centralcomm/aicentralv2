@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {AlertTriangle, ArrowUpRight, BarChart01, CheckCircle, ChevronRight, Code01, Copy01, Download01, GitBranch01, Plus, RefreshCw01, SearchLg, Send01, ShieldTick} from '@untitledui/icons';
+import {AlertTriangle, ArrowUpRight, BarChart01, CheckCircle, ChevronRight, Code01, Copy01, Download01, GitBranch01, Plus, RefreshCw01, SearchLg, Send01, Target04, Trash01} from '@untitledui/icons';
 import {Button} from '../cadu-design-system/untitled-kit/button.tsx';
 import {Badge, BadgeWithDot} from '../cadu-design-system/untitled-kit/badges.tsx';
 import {CaduTooltip} from '../cadu-design-system/components/CaduTooltip.jsx';
@@ -62,7 +62,7 @@ function Favicon({site, size = 'md'}) {
   </span>;
 }
 
-/** Super Tag: the sites that send consented activity, how each one is installed and what it measures. */
+/** Super Tag: the sites that send activity, how each one is installed and what it measures. */
 export function SuperTagPage({data}) {
   const [sites, setSites] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -139,7 +139,7 @@ export function SuperTagPage({data}) {
   };
   const email = () => {
     const subject = encodeURIComponent(`Instalação da Super Tag no site ${selected.allowed_host}`);
-    const body = encodeURIComponent(`Olá!\n\nPor favor, instale a Super Tag no site ${selected.allowed_host}.\n\nCole este código antes de </head> ou pelo gerenciador de tags:\n\n${selected.snippet}\n\nDepois de publicar, avise para validarmos o primeiro envio. A coleta respeita o consentimento configurado.\n`);
+    const body = encodeURIComponent(`Olá!\n\nPor favor, instale a Super Tag no site ${selected.allowed_host}.\n\nCole este código antes de </head> ou pelo gerenciador de tags:\n\n${selected.snippet}\n\nDepois de publicar, avise para validarmos o primeiro envio.\n`);
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
   };
   const tabs = [{id: 'overview', label: 'Visão geral'}, ...(hasEvents ? [{id: 'activity', label: 'Atividade'}] : []), {id: 'install', label: 'Instalação'},
@@ -153,7 +153,7 @@ export function SuperTagPage({data}) {
       {error && <Alert>{error}</Alert>}
       {notice && <Alert tone="success">{notice}</Alert>}
       {!selected && !loading && <Card><EmptyNote title={sites.length ? 'Escolha um site' : canEdit ? 'Conecte seu primeiro site' : 'Nenhum site conectado'}>
-        {sites.length ? 'Selecione um site na lista para ver instalação, eventos e fluxos.' : canEdit ? 'Instale a Super Tag para acompanhar visitas e eventos consentidos.' : 'Os sites autorizados para este cliente aparecem aqui.'}
+        {sites.length ? 'Selecione um site na lista para ver instalação, eventos e fluxos.' : canEdit ? 'Instale a Super Tag para acompanhar visitas, eventos e conversões.' : 'Os sites autorizados para este cliente aparecem aqui.'}
         {!sites.length && canEdit && <span className="mt-4 block"><Button size="md" color="primary" iconLeading={Plus} onPress={() => setInstallOpen(true)}>Conectar site</Button></span>}
       </EmptyNote></Card>}
       {selected && <>
@@ -219,7 +219,7 @@ function SiteHeader({site, hasEvents, flowsCount}) {
       <Button size="md" color="secondary" iconTrailing={ArrowUpRight} href={`https://${site.allowed_host}`} target="_blank" rel="noopener noreferrer">Visitar site</Button>
     </div>
     <dl className="grid gap-px border-t border-secondary bg-border-secondary sm:grid-cols-2 lg:grid-cols-4">
-      {[['Eventos · 30 dias', integer(site.events_30d || 0), hasEvents ? 'Aceitos pelo coletor' : 'Nenhum evento consentido'], ['Último evento', last ? relativeTime(last) : 'Nenhum ainda', last ? longDate(last) : 'Aguardando a primeira visita'],
+      {[['Eventos · 30 dias', integer(site.events_30d || 0), hasEvents ? 'Aceitos pelo coletor' : 'Nenhum evento recebido'], ['Último evento', last ? relativeTime(last) : 'Nenhum ainda', last ? longDate(last) : 'Aguardando a primeira visita'],
         ['Fluxos vinculados', flowsCount == null ? '—' : integer(flowsCount), 'Usam os dados deste site'], ['Instalação', hasEvents ? 'Verificada' : 'Pendente', hasEvents ? 'Confirmada pelos eventos' : 'Verifique o código no site']].map(([label, value, hint]) =>
         <div key={label} className="bg-primary px-6 py-4"><dt className="text-sm font-medium text-tertiary">{label}</dt><dd className="mt-1 text-lg font-semibold text-primary tabular-nums">{value}</dd><p className="text-xs text-tertiary">{hint}</p></div>)}
     </dl>
@@ -235,8 +235,8 @@ function checks({site, verify, hasEvents}) {
   else if (verify) code = ['Não encontrado no HTML', 'error'];
   return [
     {id: 'code', icon: Code01, title: 'Código instalado', hint: 'O código da Super Tag precisa estar em todas as páginas.', state: code, done: ['Instalado', 'Código implementado no site']},
-    {id: 'consent', icon: ShieldTick, title: 'Consentimento', hint: 'O aviso de cookies precisa liberar a coleta.', state: hasEvents ? ['Coleta autorizada', 'success'] : ['Sem evidência recente', 'error'], done: ['Consentimento ativo', 'Coleta autorizada pelos visitantes']},
-    {id: 'receiving', icon: BarChart01, title: 'Recebimento', hint: 'Os eventos chegam depois dos itens acima.', state: hasEvents ? [`${integer(site.events_30d)} eventos`, 'success'] : ['Nenhum evento no período', 'error'], done: ['Eventos recebidos', 'Dados chegando normalmente']},
+    {id: 'receiving', icon: BarChart01, title: 'Recebendo eventos', hint: 'A primeira visita com o código instalado já envia eventos.', state: hasEvents ? [`${integer(site.events_30d)} eventos`, 'success'] : site.last_event_at ? [`Último ${relativeTime(site.last_event_at)}`, 'warning'] : ['Nenhum evento ainda', 'error'], done: ['Recebendo eventos', site.last_event_at ? `Último evento ${relativeTime(site.last_event_at)}` : 'Dados chegando normalmente']},
+    {id: 'conversions', icon: Target04, title: 'Conversões', hint: 'Página de obrigado, formulário válido ou evento personalizado.', state: Number(site.conversions_30d) > 0 ? [`${integer(site.conversions_30d)} em 30 dias`, 'success'] : ['Nenhuma ainda', 'gray'], done: [Number(site.conversions_30d) > 0 ? `${integer(site.conversions_30d)} conversões` : 'Conversões', Number(site.conversions_30d) > 0 ? 'Nos últimos 30 dias' : 'Confira as regras em Configurações']},
   ];
 }
 
@@ -251,7 +251,7 @@ function InstallStatus({site, hasEvents, verify, verifying, onVerify, onCopy, on
   return <section aria-label="Verificação da instalação" className="overflow-hidden rounded-xl bg-primary shadow-xs ring-1 ring-secondary">
     <header className="flex items-start gap-3 border-b border-secondary bg-warning-primary px-6 py-4">
       <AlertTriangle size={20} aria-hidden="true" className="mt-0.5 shrink-0 text-fg-warning-primary"/>
-      <div><h3 className="text-md font-semibold text-primary">Coleta precisa de verificação</h3><p className="text-sm text-secondary">Nenhum evento consentido chegou neste período. Isso não confirma falha na instalação.</p></div>
+      <div><h3 className="text-md font-semibold text-primary">Coleta precisa de verificação</h3><p className="text-sm text-secondary">Nenhum evento chegou neste período. Isso não confirma falha na instalação.</p></div>
     </header>
     <ul>{rows.map(row => <li key={row.id} className="flex flex-wrap items-center gap-3 border-b border-secondary px-6 py-3">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-lg ring-1 ring-secondary"><row.icon size={18} aria-hidden="true" className="text-fg-quaternary"/></span>
@@ -283,7 +283,7 @@ function InstallGuide() {
   const code = text => <code className="rounded bg-secondary px-1 font-mono text-xs">{text}</code>;
   const steps = {
     html: [<>Abra o modelo (layout) que todas as páginas compartilham, normalmente o cabeçalho.</>, <>Cole o código dentro de {code('<head>')}, antes de {code('</head>')}. Não use o rodapé nem páginas avulsas.</>, <>Publique e abra uma página. A tag aparece na aba Rede do navegador como {code('supertag.js')}.</>],
-    gtm: [<>Crie uma tag <strong>HTML personalizado</strong> e cole o código inteiro, com {code('<script>')}.</>, <>Acionamento: <strong>Initialization – All Pages</strong>, para não perder a primeira visita.</>, <>Consentimento: <strong>Nenhum consentimento adicional necessário</strong>. A Super Tag espera a decisão do visitante sozinha.</>, <>Teste em <strong>Visualizar</strong> e publique com <strong>Enviar</strong>.</>],
+    gtm: [<>Crie uma tag <strong>HTML personalizado</strong> e cole o código inteiro, com {code('<script>')}.</>, <>Acionamento: <strong>Initialization – All Pages</strong>, para não perder a primeira visita.</>, <>Consentimento: <strong>Nenhum consentimento adicional necessário</strong>. O aviso de cookies e a política são do site; para respeitar uma recusa, dispare {code("cadu:consent")} com {code('analytics: false')}.</>, <>Teste em <strong>Visualizar</strong> e publique com <strong>Enviar</strong>.</>],
     cms: [<><strong>WordPress:</strong> use um plugin de cabeçalho e rodapé (como o WPCode) e cole na área <strong>Header</strong>.</>, <><strong>Wix, Webflow, Shopify:</strong> em <strong>Código personalizado</strong>, aplique a todas as páginas, posição <strong>Head</strong>.</>, <>Se o site já usa GTM, prefira instalar pelo GTM.</>],
   };
   return <Card title="Onde instalar" description="Uma vez só, em todas as páginas do site.">
@@ -339,7 +339,7 @@ function Activity({detail}) {
         : <EmptyNote title="Nenhuma sessão ainda"/>}
     </Card>
     <Card flush title="Mapas de interação" badge={<Badge type="pill-color" size="sm" color="gray">{detail.heatmap?.length || 0}</Badge>}
-      description="Cliques agrupados em grade de 5% da tela. Para visibilidade, marque elementos com data-cadu-track e data-cadu-element. Textos e valores de formulário não são lidos.">
+      description="Cliques agrupados em grade de 5% da tela. Para visibilidade, marque elementos com data-cadu-track e data-cadu-element. Textos da página não são lidos.">
       {detail.heatmap?.length ? <DataTable minWidth={640} rowKey={(row, index) => `${row.event_kind}:${row.element_id}:${index}`} rows={detail.heatmap.slice(0, 30)} columns={[
         ['Tipo', row => EVENT_LABELS[row.event_kind] || row.event_kind], ['Elemento', row => <span className="font-mono text-xs">{row.element_id || '—'}</span>], ['Posição', cell], ['Ocorrências', row => integer(row.total), 'right']]}/>
         : <EmptyNote title="Sem agregados ainda"/>}
@@ -348,7 +348,7 @@ function Activity({detail}) {
       {detail.branding?.cohorts?.length ? <DataTable minWidth={640} rowKey={row => `${row.campaign_scope}:${row.cohort_week}`} rows={detail.branding.cohorts} columns={[
         ['Semana', row => shortDate(row.cohort_week)], ['Campanha', row => row.campaign_scope || <span className="text-tertiary">Sem campanha</span>], ['Visitantes', row => integer(row.visitors), 'right'],
         ['Retornaram', row => integer(row.returned_7d), 'right'], ['Taxa', row => Number(row.visitors) ? `${Math.round(100 * Number(row.returned_7d) / Number(row.visitors))}%` : '—', 'right']]}/>
-        : <EmptyNote title="Ainda sem semanas completas">Aparecem após sete dias de visitas consentidas.</EmptyNote>}
+        : <EmptyNote title="Ainda sem semanas completas">Aparecem após sete dias de visitas.</EmptyNote>}
     </Card>
   </>;
 }
@@ -368,8 +368,8 @@ function LinkedFlows({linked, site}) {
 function Settings({data, site, busy, canEdit, onUpdate, onRevoke}) {
   const config = site.config || {};
   const disabled = busy || !canEdit;
-  const consent = config.consent_mode || 'auto';
   return <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div className="flex flex-col gap-6">
     <Card title="Coleta" description="Valem para todas as páginas deste site. Mudanças entram na próxima visita.">
       <div className="flex flex-col gap-5">
         <div className="grid gap-4 sm:grid-cols-2">
@@ -378,19 +378,20 @@ function Settings({data, site, busy, canEdit, onUpdate, onRevoke}) {
           <ReportsNativeSelect label="Retenção dos eventos" hint="Por quanto tempo os eventos ficam guardados." disabled={disabled} value={config.retention_days || 365} onChange={event => onUpdate({retention_days: Number(event.target.value)})}>
             {RETENTION_DAYS.map(([days, name]) => <option key={days} value={days}>{name}</option>)}</ReportsNativeSelect>
         </div>
-        <ReportsNativeSelect label="Consentimento" disabled={disabled} value={consent} onChange={event => onUpdate({consent_mode: event.target.value})}
-          hint={consent === 'manual' ? 'A Super Tag nunca mostra aviso. Informe a decisão com o evento cadu:consent.' : 'Lê o aviso de cookies do site (OneTrust, Cookiebot, Google Consent Mode e similares). Só mostra o próprio se não encontrar nenhum.'}>
-          <option value="auto">Automático</option><option value="manual">Integrado ao meu aviso</option></ReportsNativeSelect>
         <label className="flex cursor-pointer items-start gap-3 rounded-lg p-4 ring-1 ring-secondary ring-inset">
           <input type="checkbox" className="mt-0.5 size-4 accent-brand-600" disabled={disabled} checked={config.visibility_enabled !== false} onChange={event => onUpdate({visibility_enabled: event.target.checked})}/>
           <span><span className="block text-sm font-semibold text-primary">Medir visibilidade de elementos marcados</span><span className="block text-sm text-tertiary">Registra quando um elemento com data-cadu-track aparece na tela.</span></span>
         </label>
+        <p className="text-sm text-tertiary">O aviso de cookies e a política de privacidade são do site. A Super Tag coleta desde a primeira visita e para só com uma recusa explícita: {'window.CaduSuperTag.setConsent(false)'} ou o evento cadu:consent com analytics: false.</p>
       </div>
     </Card>
+    <ConversionRules site={site} disabled={disabled} onUpdate={onUpdate}/>
+    </div>
     <div className="flex flex-col gap-6">
-      <Card title="Associar visita a um usuário" description="Chame depois do login ou do envio do formulário, com consentimento concedido.">
+      <LeadCapture site={site} disabled={disabled} onUpdate={onUpdate}/>
+      <Card title="Associar visita a um usuário" description="Para login ou formulários feitos em JavaScript, que não disparam o envio comum.">
         <pre className="rounded-lg bg-secondary p-4 font-mono text-xs leading-5 break-all whitespace-pre-wrap text-secondary ring-1 ring-secondary ring-inset">{'window.CaduSuperTag?.identify({ name: usuario.nome, email: usuario.email });'}</pre>
-        <p className="mt-3 text-sm text-tertiary">Aceita também telefone. E-mail e telefone são protegidos por HMAC; valores de formulário nunca são lidos sozinhos. A associação expira com a retenção.</p>
+        <p className="mt-3 text-sm text-tertiary">Aceita também telefone. O contato fica cifrado, aparece em Quem converteu e expira com a retenção.</p>
       </Card>
       <Card title="Acesso ao monitoramento" description="Quem pode ver os dados deste site na plataforma." actions={<ReportsRelationships data={data} kind="site" id={site.id} name={site.label}/>}/>
       {canEdit && !site.revoked_at && <Card title="Revogar instalação" description="Interrompe a coleta neste domínio. Os dados recebidos ficam no Reports.">
@@ -398,6 +399,91 @@ function Settings({data, site, busy, canEdit, onUpdate, onRevoke}) {
       </Card>}
     </div>
   </div>;
+}
+
+const RULE_TYPES = [['path:exact', 'Página exata'], ['path:prefix', 'Página que começa com'], ['valid_form', 'Formulário válido'], ['event_name', 'Evento personalizado']];
+const ruleLabel = rule => rule.type === 'path' ? `${rule.match === 'exact' ? 'Página' : rule.match === 'segment' ? 'Caminho com o trecho' : 'Página que começa com'} ${rule.value}`
+  : rule.type === 'valid_form' ? `Formulário válido${rule.form_id ? ` (${rule.form_id})` : ''}` : `Evento ${rule.value}`;
+
+/** What counts as a conversion on this site. Rules are applied when the events arrive, so every screen agrees. */
+function ConversionRules({site, disabled, onUpdate}) {
+  const [state, setState] = useState(null);
+  const [error, setError] = useState('');
+  const [kind, setKind] = useState('path:exact');
+  const [value, setValue] = useState('');
+  const [name, setName] = useState('');
+  useEffect(() => {
+    let active = true; setError('');
+    json(`${API}/sites/${site.id}/conversion-rules`).then(body => {if (active) setState(body);}).catch(failure => {if (active) setError(failure.message);});
+    return () => {active = false;};
+  }, [site.id, site.config_version]);
+  const rules = state?.rules || [];
+  const save = next => onUpdate({conversion_rules: next});
+  const add = () => {
+    const [type, match] = kind.split(':');
+    const rule = type === 'path' ? {type, match, value: value.trim()} : type === 'valid_form' ? {type, ...(value.trim() ? {form_id: value.trim()} : {})} : {type, value: value.trim()};
+    if (name.trim()) rule.name = name.trim();
+    save([...rules, rule]); setValue(''); setName('');
+  };
+  const needsValue = kind !== 'valid_form';
+  return <Card title="Conversões" description="O que conta como conversão neste site. Vale para os eventos que chegarem a partir de agora.">
+    {error && <Alert>{error}</Alert>}
+    {!state && !error && <p role="status" className="text-sm text-tertiary">Carregando regras…</p>}
+    {state && <div className="flex flex-col gap-4">
+      {!rules.length && <label className="flex cursor-pointer items-start gap-3 rounded-lg p-4 ring-1 ring-secondary ring-inset">
+        <input type="checkbox" className="mt-0.5 size-4 accent-brand-600" disabled={disabled} checked={state.conversion_defaults} onChange={event => onUpdate({conversion_defaults: event.target.checked})}/>
+        <span><span className="block text-sm font-semibold text-primary">Página de obrigado automática</span>
+          <span className="block text-sm text-tertiary">Sem regras salvas, páginas cujo caminho tem um trecho começando por obrigad, thank, sucesso ou confirmac contam como conversão. Ao salvar uma regra, só as regras salvas valem.</span></span>
+      </label>}
+      {rules.length > 0 && <ul className="flex flex-col divide-y divide-secondary rounded-lg ring-1 ring-secondary ring-inset">{rules.map((rule, index) =>
+        <li key={`${rule.type}${rule.value || rule.form_id || ''}${index}`} className="flex items-center justify-between gap-3 px-4 py-2.5">
+          <span className="min-w-0"><span className="block truncate text-sm font-medium text-primary">{ruleLabel(rule)}</span><span className="block font-mono text-xs text-tertiary">{rule.name || (rule.type === 'event_name' ? rule.value : rule.type === 'valid_form' ? 'formulario_enviado' : 'pagina_obrigado')}</span></span>
+          {!disabled && <CaduTooltip label="Remover regra"><Button size="sm" color="tertiary" iconLeading={Trash01} aria-label={`Remover ${ruleLabel(rule)}`} onPress={() => save(rules.filter((_, position) => position !== index))}/></CaduTooltip>}
+        </li>)}</ul>}
+      {state.suggestions?.length > 0 && <div className="flex flex-col gap-2">
+        <p className="text-sm font-semibold text-primary">Sugestões</p>
+        <p className="text-xs text-tertiary">Páginas visitadas que parecem de obrigado. Aceite para contar só elas.</p>
+        {state.suggestions.map(item => <div key={item.path} className="flex items-center justify-between gap-3 rounded-lg px-4 py-2 ring-1 ring-secondary ring-inset">
+          <span className="min-w-0"><span className="block truncate font-mono text-xs text-primary">{item.path}</span><span className="text-xs text-tertiary">{integer(item.views)} visitas · 90 dias</span></span>
+          {!disabled && <Button size="sm" color="secondary" iconLeading={Plus} onPress={() => save([...rules, item.rule])}>Usar</Button>}
+        </div>)}
+      </div>}
+      {!disabled && <div className="flex flex-col gap-3 rounded-lg p-4 ring-1 ring-secondary ring-inset">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <ReportsNativeSelect label="Tipo de regra" value={kind} onChange={event => setKind(event.target.value)}>{RULE_TYPES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</ReportsNativeSelect>
+          <ReportsFieldInput label={kind.startsWith('path') ? 'Caminho' : kind === 'valid_form' ? 'data-cadu-form (opcional)' : 'Nome do evento'} value={value} onChange={event => setValue(event.target.value)}
+            placeholder={kind.startsWith('path') ? '/obrigado' : kind === 'valid_form' ? 'contato' : 'lead_enviado'}/>
+        </div>
+        <ReportsFieldInput label="Nome da conversão (opcional)" value={name} onChange={event => setName(event.target.value)} placeholder="pagina_obrigado"/>
+        <span><Button size="sm" color="secondary" iconLeading={Plus} isDisabled={needsValue && !value.trim()} onPress={add}>Adicionar regra</Button></span>
+      </div>}
+    </div>}
+  </Card>;
+}
+
+/** Who converted: which contact data a valid form sends, and when the lead counts as confirmed. */
+function LeadCapture({site, disabled, onUpdate}) {
+  const capture = site.config?.form_capture || {};
+  const [fields, setFields] = useState((capture.fields || []).join(', '));
+  useEffect(() => {setFields((site.config?.form_capture?.fields || []).join(', '));}, [site.id, site.config_version]);
+  const list = fields.split(',').map(item => item.trim()).filter(Boolean);
+  return <Card title="Quem converteu" description="Contatos de formulários válidos, cifrados e com a mesma retenção dos eventos.">
+    <div className="flex flex-col gap-4">
+      <label className="flex cursor-pointer items-start gap-3 rounded-lg p-4 ring-1 ring-secondary ring-inset">
+        <input type="checkbox" className="mt-0.5 size-4 accent-brand-600" disabled={disabled} checked={capture.enabled !== false} onChange={event => onUpdate({form_capture: {enabled: event.target.checked}})}/>
+        <span><span className="block text-sm font-semibold text-primary">Capturar nome, e-mail e telefone</span>
+          <span className="block text-sm text-tertiary">Detectados pelo tipo e pelo nome do campo. Senha, cartão, CPF/CNPJ/RG, tokens, campos ocultos e armadilhas anti-robô nunca são lidos; use data-cadu-ignore para excluir um campo.</span></span>
+      </label>
+      <ReportsNativeSelect label="Lead confirmado quando" disabled={disabled} value={capture.confirm || 'conversion'} onChange={event => onUpdate({form_capture: {confirm: event.target.value}})}
+        hint="Sem confirmação, o lead aparece como pendente.">
+        <option value="conversion">Chega a conversão da mesma sessão (até 30 min)</option><option value="valid_submit">O formulário é enviado válido</option></ReportsNativeSelect>
+      <div className="flex flex-col gap-2">
+        <ReportsFieldInput label="Campos extras (atributo name)" disabled={disabled} value={fields} onChange={event => setFields(event.target.value)} placeholder="empresa, interesse, cidade"/>
+        <p className="text-xs text-tertiary">Até 20 campos, separados por vírgula. Campos sensíveis são recusados.</p>
+        {!disabled && <span><Button size="sm" color="secondary" isDisabled={list.join(',') === (capture.fields || []).join(',')} onPress={() => onUpdate({form_capture: {fields: list}})}>Salvar campos</Button></span>}
+      </div>
+    </div>
+  </Card>;
 }
 
 function InstallDrawer({open, data, onClose, onCreated}) {
@@ -437,7 +523,7 @@ function InstallDrawer({open, data, onClose, onCreated}) {
           <BadgeWithDot type="pill-color" size="sm" color="success">Respondeu</BadgeWithDot>
         </div>)}
       <ReportsFieldInput label="Nome desta instalação" required maxLength={120} value={label} onChange={event => setLabel(event.target.value)} placeholder={check?.title || 'Site principal'}/>
-      <p className="text-sm text-tertiary">Os eventos só são coletados depois do consentimento do visitante.</p>
+      <p className="text-sm text-tertiary">A coleta começa na primeira visita. O aviso de cookies e a política de privacidade continuam sendo do site.</p>
       <DrawerActions onCancel={onClose} busy={busy} label="Criar instalação" disabled={!check || Boolean(check.error)}/>
     </form>
   </ReportsDrawer>;

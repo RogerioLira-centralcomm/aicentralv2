@@ -29,7 +29,7 @@ def _read(path):
     except (OSError,ValueError):abort(404,description='Montagem não encontrada nesta conta.')
 
 def observations(flow, client_id):
-    """Only aggregate consented site data. Never return visitor identities."""
+    """Only aggregate site data. Never return visitor identities."""
     if not flow.get('site_id'):return {'pages':[], 'transitions':[], 'sources':[]}
     _rows("SELECT set_config('statement_timeout','8000',true)")
     scope=(client_id,flow['site_id'])

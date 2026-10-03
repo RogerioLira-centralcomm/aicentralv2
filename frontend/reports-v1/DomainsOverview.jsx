@@ -84,7 +84,7 @@ function DomainCard({domain, range}) {
       <div><h2 id={`dominio-titulo-${domain.site_id}`}>{domain.host}</h2><p>{domain.label}{domain.last_event_at ? ` · último evento ${friendlyAgo(domain.last_event_at)}` : ' · sem eventos ainda'}</p></div>
       <ReportsActionButton color="secondary" iconTrailing={ArrowUpRight} href={reportUrl('supertag', {}, domain.site_id)}>Instalação</ReportsActionButton>
     </header>
-    {empty ? <div className="do-empty"><strong>Sem visitas neste período</strong><p>Os números aparecem quando a Super Tag receber eventos consentidos neste domínio. Tente um período maior ou confira a instalação.</p></div> : <>
+    {empty ? <div className="do-empty"><strong>Sem visitas neste período</strong><p>Os números aparecem quando a Super Tag receber eventos neste domínio. Tente um período maior ou confira a instalação.</p></div> : <>
       <div className="do-stats">
         <Stat label="Sessões" value={integer(m.sessions)} change={change.sessions}/>
         <Stat label="Visitantes únicos" value={integer(m.visitors)} change={change.visitors}/>

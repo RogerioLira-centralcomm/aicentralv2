@@ -19,18 +19,17 @@ async function run(browser, file) {
     return route.fulfill({contentType: 'text/html', body: `<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0}.tall{height:3000px;position:relative}a{position:absolute;left:400px;top:2400px;width:100px;height:40px;display:block}</style></head>
       <body><div class="tall"><a href="/x" data-cadu-element="cta-fundo">Comprar</a></div>
       <script>document.addEventListener("click", function (e) { e.preventDefault(); });</script>
-      <script async src="https://example.test/tag.js" data-cadu-site="doc-ui" data-cadu-config="${base}/config.json" data-cadu-consent="manual"></script></body></html>`});
+      <script async src="https://example.test/tag.js" data-cadu-site="doc-ui" data-cadu-config="${base}/config.json"></script></body></html>`});
   });
-  await page.route(`${base}/config.json`, route => route.fulfill({headers: cors, json: {site_id: 'doc-ui', config_version: 1, consent_required: false, consent_mode: 'auto', visibility_enabled: false, audience_days: 90}}));
+  await page.route(`${base}/config.json`, route => route.fulfill({headers: cors, json: {site_id: 'doc-ui', config_version: 1, visibility_enabled: false, audience_days: 90}}));
   await page.route(`${base}/collect`, route => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({status: 204, headers: cors});
     for (const item of JSON.parse(route.request().postData()).events) { if (process.env.DEBUG_TAG) console.log('EVENT', item.kind, JSON.stringify(item.data)); if (item.kind === 'click') clicks.push(item); }
     return route.fulfill({status: 202, headers: cors, json: {accepted: 1}});
   });
-  await page.route(`${base}/consent`, route => route.fulfill({status: 204, headers: cors}));
   await page.goto('https://example.test/');
   await page.waitForFunction(() => window.CaduSuperTag);
-  await page.evaluate(() => window.CaduSuperTag.setConsent(true));
+  // Collects by default: no consent call is needed.
   await page.waitForTimeout(500);
   await page.evaluate(() => window.scrollTo(0, 2200));
   await page.waitForTimeout(200);

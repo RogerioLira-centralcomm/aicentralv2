@@ -157,7 +157,7 @@ def build_suggestions(ctx):
             [_count('Cliques no Google Ads', paid_clicks), _count('Sessões do Google na Super Tag', google_sessions),
              _percent('Sessões ÷ cliques', round(100 * google_sessions / paid_clicks, 1))],
             'Cliques e sessões não são a mesma coisa, mas uma diferença grande costuma indicar UTM ausente, redirecionamento que perde parâmetros, '
-            'página lenta ou visitantes que não aceitam o consentimento.',
+            'página lenta, bloqueadores de script ou a Super Tag ausente na página de destino.',
             anchor='origem-paga'))
 
     unstable = bool(latest) and (any(item.get('status') != 'online' for item in timeline[:10])

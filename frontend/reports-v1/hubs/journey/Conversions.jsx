@@ -1,7 +1,8 @@
 import {dayLabel} from '../../friendlyDates.js';
-import React from 'react';
+import React, {useState} from 'react';
 import {ReportsActionButton} from '../../ReportsActionButton.jsx';
-import {reportUrl} from '../../reportsCommon.jsx';
+import {ReportsConfirmDialog} from '../../ReportsConfirmDialog.jsx';
+import {json, reportUrl} from '../../reportsCommon.jsx';
 import {friendlyDateTime} from '../../friendlyDates.js';
 import {useReportsContext} from '../../shell/context.js';
 import {apiUrl, useApi} from '../../shell/useApi.js';
@@ -11,30 +12,37 @@ import {number, percent} from '../shared.jsx';
 
 const KIND = {conversion: 'Conversão', form_submit: 'Formulário enviado', whatsapp_click: 'WhatsApp'};
 const CRM = {lead: 'Leads', qualified_lead: 'Leads qualificados', sale: 'Vendas'};
+const CONFIRMATION = {rule: 'Página de obrigado ou regra', conversion: 'Conversão registrada pelo site', valid_submit: 'Formulário válido'};
+const STEP = {page_view: 'Página', form_submit: 'Formulário', conversion: 'Conversão'};
 
 /** Conversions as the site observed them (type, page, origin), next to what the CRM confirmed. Connects media and behaviour. */
 export function Conversions() {
   const {period} = useReportsContext();
   const [state, retry] = useApi(apiUrl('/journey/conversions', {start_date: period.start, end_date: period.end}));
+  const [leadsState, retryLeads] = useApi(apiUrl('/supertag/leads', {start_date: period.start, end_date: period.end}));
   if (state.error) return <ErrorState message={state.error} onRetry={retry}/>;
   if (state.loading && !state.body) return <div className="rs-stack"><LoadingState rows={2}/><LoadingState rows={6}/></div>;
   const body = state.body;
   const totals = body.totals;
   const confirmed = body.confirmed || [];
   const crmTotal = confirmed.reduce((sum, item) => sum + Number(item.total), 0);
-  if (!body.groups.length && !crmTotal) return <EmptyState title="Nenhuma conversão no período"
-    description="Marque a página de obrigado como conversão em um fluxo, envie eventos personalizados ou conecte o CRM para ver conversões aqui."
-    action={<div className="rs-actions"><ReportsActionButton color="primary" size="sm" href={reportUrl('flows')}>Abrir Fluxos</ReportsActionButton><ReportsActionButton color="secondary" size="sm" href={reportUrl('events')}>Ver eventos</ReportsActionButton></div>}/>;
+  const leads = leadsState.body?.leads || [];
+  if (!body.groups.length && !crmTotal && !leads.length && !leadsState.loading) return <EmptyState title="Nenhuma conversão no período"
+    description="Com a Super Tag instalada, páginas de obrigado (caminho com obrigad, thank, sucesso ou confirmac) já contam como conversão. Para contar outra página, um formulário válido ou um evento, crie a regra nas Configurações da Super Tag. Também dá para conectar o CRM."
+    action={<div className="rs-actions"><ReportsActionButton color="primary" size="sm" href={reportUrl('supertag')}>Regras de conversão</ReportsActionButton><ReportsActionButton color="secondary" size="sm" href={reportUrl('events')}>Ver eventos</ReportsActionButton></div>}/>;
   const originSessions = body.origins.reduce((sum, item) => sum + item.sessions, 0);
   // Organic search reads per engine, so Google and Bing conversion rates can be compared.
   const originRows = body.origins.flatMap(item => item.engines?.length ? item.engines.map(engine => ({...engine, platform: `${item.platform}:${engine.engine}`, label: `${engine.label} · busca orgânica`})) : [item]);
+  const leadTotals = leadsState.body?.totals;
   return <div className="rs-stack">
     <MetricGroup label="Resumo de conversões" items={[
       {label: 'Conversões', value: number(totals.conversion), detail: 'Observadas no site'},
+      {label: 'Leads', value: leadTotals ? number(leadTotals.leads) : '—', detail: leadTotals ? `${number(leadTotals.confirmed)} confirmados · ${number(leadTotals.pending)} pendentes` : 'Quem enviou formulário'},
       {label: 'Formulários enviados', value: number(totals.form_submit)},
       {label: 'Cliques no WhatsApp', value: number(totals.whatsapp_click)},
       {label: 'Confirmadas no CRM', value: number(crmTotal), detail: confirmed.length ? confirmed.map(item => `${number(item.total)} ${CRM[item.kind]?.toLowerCase() || item.kind}`).join(' · ') : 'Sem webhook de conversões'},
     ]}/>
+    <LeadsSection state={leadsState} retry={retryLeads}/>
     {body.daily.length > 1 && <Section title="Conversões por dia" description="Conversões observadas pela Super Tag">
       <Chart type="bar" height={220} labels={body.daily.map(item => dayLabel(item.day))} values={body.daily.map(item => Number(item.conversions))}/>
     </Section>}
@@ -59,4 +67,75 @@ export function Conversions() {
       ]}/>
     </Section>
   </div>;
+}
+
+const origin = lead => lead.utm_source ? `${lead.utm_source}${lead.utm_medium ? ` / ${lead.utm_medium}` : ''}` : lead.referrer_host || 'Direto';
+
+/** Who converted: the contact each valid form sent, its session origin and the pages visited before. */
+function LeadsSection({state, retry}) {
+  const [revealed, setRevealed] = useState({});
+  const [journeyFor, setJourneyFor] = useState('');
+  const [removing, setRemoving] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  if (state.error) return <Section title="Quem converteu"><ErrorState message={state.error} onRetry={retry}/></Section>;
+  if (state.loading && !state.body) return <Section title="Quem converteu"><LoadingState rows={3}/></Section>;
+  const body = state.body;
+  if (!body) return null;
+  const description = 'Contatos de formulários válidos e de identify(). Confirmado quando a conversão da mesma sessão chega em até 30 minutos.';
+  if (!body.ready) return <Section title="Quem converteu" description={description}><p className="rs-muted">A tabela de contatos ainda não foi criada neste ambiente (migração pendente).</p></Section>;
+  const reveal = async lead => {
+    setError('');
+    try {const contact = await json(apiUrl(`/supertag/leads/${lead.id}/contact`)); setRevealed(current => ({...current, [lead.id]: contact}));}
+    catch (failure) {setError(failure.message);}
+  };
+  const remove = async () => {
+    setBusy(true); setError('');
+    try {
+      await json(apiUrl(`/supertag/leads/${removing.id}`), {method: 'DELETE', headers: {'X-CSRF-Token': body.csrf || ''}});
+      setRemoving(null); retry();
+    } catch (failure) {setError(failure.message);} finally {setBusy(false);}
+  };
+  const selected = body.leads.find(item => item.id === journeyFor);
+  return <Section title="Quem converteu" description={description}>
+    {error && <div className="rs-error" role="alert"><div><strong>Não foi possível concluir</strong><p>{error}</p></div></div>}
+    <DataTable label="Quem converteu" rows={body.leads} rowKey={row => row.id} initialSort={{key: 'submitted_at', dir: 'desc'}}
+      empty={<p className="rs-muted">Nenhum contato neste período. Formulários válidos enviam nome, e-mail e telefone automaticamente; campos extras são escolhidos nas Configurações da Super Tag.</p>}
+      columns={[
+        {key: 'submitted_at', label: 'Data e hora', render: row => friendlyDateTime(row.submitted_at)},
+        {key: 'name', label: 'Nome', render: row => (revealed[row.id]?.name ?? row.name) || <span className="rs-muted">—</span>},
+        {key: 'contact', label: 'Contato', sortable: false, render: row => {
+          const full = revealed[row.id];
+          const email = full ? full.email : row.email, phone = full ? full.phone : row.phone;
+          return <span className="flex flex-col gap-0.5">
+            {email && <span>{email}</span>}{phone && <span>{phone}</span>}{!email && !phone && <span className="rs-muted">—</span>}
+            {body.can_reveal && !full && (row.email || row.phone) && <button type="button" className="text-left text-xs font-semibold text-brand-secondary" onClick={() => reveal(row)}>Revelar</button>}
+          </span>;
+        }},
+        {key: 'fields', label: 'Campos extras', sortable: false, render: row => {
+          const fields = revealed[row.id]?.fields || row.fields || {};
+          const entries = Object.entries(fields);
+          return entries.length ? <span className="flex flex-col gap-0.5 text-xs">{entries.map(([key, value]) => <span key={key}><strong>{key}:</strong> {value}</span>)}</span> : <span className="rs-muted">—</span>;
+        }},
+        {key: 'page_path', label: 'Página do formulário', render: row => <span className="rs-path" title={`${row.host}${row.page_path}`}>{row.source === 'identify' ? `${row.page_path} · identify` : row.page_path}</span>},
+        {key: 'status', label: 'Status', render: row => row.status === 'confirmed'
+          ? <span title={CONFIRMATION[row.confirmation] || ''}>Confirmado</span> : <span className="rs-muted" title="Sem conversão da mesma sessão em até 30 min">Pendente</span>},
+        {key: 'origin', label: 'Origem da sessão', sort: origin, render: origin},
+        {key: 'campaign', label: 'Campanha', render: row => row.campaign || <span className="rs-muted">—</span>},
+        {key: 'actions', label: '', sortable: false, render: row => <span className="flex gap-3 whitespace-nowrap">
+          <button type="button" className="text-xs font-semibold text-brand-secondary" aria-expanded={journeyFor === row.id} onClick={() => setJourneyFor(current => current === row.id ? '' : row.id)}>{journeyFor === row.id ? 'Ocultar jornada' : 'Ver jornada'}</button>
+          {body.can_reveal && <button type="button" className="text-xs font-semibold text-error-primary" onClick={() => setRemoving(row)}>Apagar</button>}
+        </span>},
+      ]}/>
+    {selected && <div className="rs-card mt-3 p-4" aria-live="polite">
+      <p className="text-sm font-semibold text-primary">Jornada da sessão · {selected.host}</p>
+      {selected.journey.length ? <ol className="mt-2 flex flex-col gap-1 text-sm">{selected.journey.map((step, index) => <li key={index} className="flex gap-3">
+        <span className="w-28 shrink-0 text-xs text-tertiary">{friendlyDateTime(step.at)}</span>
+        <span className="w-24 shrink-0 text-xs font-semibold">{STEP[step.kind] || step.kind}</span>
+        <span className="rs-path">{step.path}{step.kind === 'conversion' && step.name ? ` · ${step.name}` : ''}</span>
+      </li>)}</ol> : <p className="rs-muted mt-2">Os eventos desta sessão já expiraram ou ainda não chegaram.</p>}
+    </div>}
+    <ReportsConfirmDialog open={Boolean(removing)} title="Apagar contato" description="O contato e os campos deste envio são apagados de vez. A conversão continua contada." confirmLabel="Apagar contato" busy={busy}
+      onCancel={() => setRemoving(null)} onConfirm={remove}/>
+  </Section>;
 }

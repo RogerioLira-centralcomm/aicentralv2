@@ -1,4 +1,4 @@
-"""Delete expired Super Tag events and old rate-limit buckets in bounded batches."""
+"""Delete expired Super Tag events, leads and old rate-limit buckets in bounded batches."""
 import os
 
 import psycopg
@@ -35,6 +35,10 @@ def main():
                 WHERE expires_at <= NOW() ''')
             cursor.execute('''DELETE FROM cadu_reports_supertag_known_visitors
                 WHERE expires_at <= NOW() ''')
+            cursor.execute("SELECT to_regclass('public.cadu_reports_supertag_leads') IS NOT NULL")
+            if cursor.fetchone()[0]:
+                cursor.execute('''DELETE FROM cadu_reports_supertag_leads
+                    WHERE expires_at <= NOW() ''')
         connection.commit()
     finally:
         connection.close()

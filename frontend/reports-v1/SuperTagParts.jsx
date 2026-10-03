@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {AlertTriangle, ArrowUpRight, CheckCircle, ChevronRight, Code01, Copy01, Download01, GitBranch01, SearchLg, Send01, ShieldTick, BarChart01, Plus, RefreshCw01, Users01} from '@untitledui/icons';
+import {AlertTriangle, ArrowUpRight, CheckCircle, ChevronRight, Code01, Copy01, Download01, GitBranch01, SearchLg, Send01, BarChart01, Plus, RefreshCw01, Target04, Users01} from '@untitledui/icons';
 import {ReportsActionButton} from './ReportsActionButton.jsx';
 import {ReportsFieldInput} from './ReportsFieldInput.jsx';
 import {ReportsTabs} from './ReportsTabs.jsx';
@@ -73,7 +73,7 @@ export function SiteSummary({site, flowsCount, hasEvents, renderFavicon}) {
   const events = Number(site.events_30d || 0);
   const last = site.last_event_at;
   const metrics = [
-    {label: 'Eventos · 30 dias', value: integer(events), hint: hasEvents ? 'Eventos aceitos pelo coletor' : 'Nenhum evento consentido'},
+    {label: 'Eventos · 30 dias', value: integer(events), hint: hasEvents ? 'Eventos aceitos pelo coletor' : 'Nenhum evento recebido'},
     {label: 'Último evento', value: last ? relativeTime(last) : 'Nenhum ainda', hint: last ? longDate(last) : 'Aguardando a primeira visita'},
     {label: 'Fluxos vinculados', value: flowsCount == null ? '—' : integer(flowsCount), hint: 'Usam os dados deste site'},
     {label: 'Instalação', value: hasEvents ? 'Verificada' : 'Pendente', hint: hasEvents ? 'Confirmada pelos eventos' : 'Verifique o código no site'},
@@ -96,12 +96,12 @@ function checkRows({site, verify, hasEvents}) {
   else if (verify && !verify.reachable) code = {tone: 'error', label: 'O site não respondeu'};
   else if (verify?.gtm_detected) code = {tone: 'warning', label: 'GTM detectado · confirme no contêiner'};
   else if (verify) code = {tone: 'error', label: 'Não encontrado no HTML'};
-  const consent = hasEvents ? {tone: 'success', label: 'Coleta autorizada'} : {tone: 'error', label: 'Sem evidência recente'};
-  const receiving = hasEvents ? {tone: 'success', label: `${integer(events)} eventos`} : {tone: 'error', label: 'Nenhum evento no período'};
+  const receiving = hasEvents ? {tone: 'success', label: `${integer(events)} eventos`} : site.last_event_at ? {tone: 'warning', label: `Último ${relativeTime(site.last_event_at)}`} : {tone: 'error', label: 'Nenhum evento ainda'};
+  const conversions = Number(site.conversions_30d) > 0 ? {tone: 'success', label: `${integer(site.conversions_30d)} em 30 dias`} : {tone: 'gray', label: 'Nenhuma ainda'};
   return [
     {id: 'code', icon: Code01, title: 'Código instalado', hint: hasEvents ? 'O código está implementado no site.' : 'Verifique se o código da Super Tag está presente no seu site.', ...code, doneTitle: 'Instalado', doneHint: 'Código implementado no site'},
-    {id: 'consent', icon: ShieldTick, title: 'Consentimento', hint: 'Confirme se o consentimento de cookies está sendo coletado corretamente.', ...consent, doneTitle: 'Consentimento ativo', doneHint: 'Coleta autorizada pelos usuários'},
-    {id: 'receiving', icon: BarChart01, title: 'Recebimento', hint: 'Aguarde a chegada dos eventos após a validação dos itens acima.', ...receiving, doneTitle: 'Eventos recebidos', doneHint: 'Dados sendo coletados normalmente'},
+    {id: 'receiving', icon: BarChart01, title: 'Recebendo eventos', hint: 'A primeira visita com o código instalado já envia eventos.', ...receiving, doneTitle: 'Recebendo eventos', doneHint: 'Dados sendo coletados normalmente'},
+    {id: 'conversions', icon: Target04, title: 'Conversões', hint: 'Página de obrigado, formulário válido ou evento personalizado.', ...conversions, doneTitle: 'Conversões', doneHint: conversions.label},
   ];
 }
 
@@ -113,7 +113,7 @@ export function InstallStatus({site, hasEvents, verify, verifying, onVerify, onC
     <ol>{rows.map(row => <li key={row.id}><span className="st-stage-mark"><CheckCircle size={20} aria-hidden="true"/></span><strong>{row.doneTitle}</strong><small>{row.doneHint}</small></li>)}</ol>
   </section>;
   return <section className="st-card st-verify" aria-label="Verificação da instalação">
-    <header><span className="st-verify__alert"><AlertTriangle size={22} aria-hidden="true"/></span><div><h3>Coleta precisa de verificação</h3><p>Nenhum evento consentido foi recebido neste período. Isso não confirma falha na instalação.</p></div></header>
+    <header><span className="st-verify__alert"><AlertTriangle size={22} aria-hidden="true"/></span><div><h3>Coleta precisa de verificação</h3><p>Nenhum evento foi recebido neste período. Isso não confirma falha na instalação.</p></div></header>
     <ul>{rows.map(row => <li key={row.id}><span className="st-verify__icon"><row.icon size={20} aria-hidden="true"/></span><div><strong>{row.title}</strong><small>{row.hint}</small></div><StatusBadge tone={row.tone}>{row.label}</StatusBadge></li>)}</ul>
     <footer>
       <ReportsActionButton color="primary" iconLeading={RefreshCw01} onClick={onVerify} disabled={verifying}>{verifying ? 'Verificando…' : 'Verificar instalação'}</ReportsActionButton>
@@ -129,7 +129,7 @@ export function InstallGuide() {
   return <section className="st-card st-guide"><header><div><h3>Onde instalar</h3><p>Uma vez só, em todas as páginas do site.</p></div></header>
     <div className="rs-segmented st-segmented" role="group" aria-label="Forma de instalação">{[['html', 'No site'], ['gtm', 'Google Tag Manager'], ['cms', 'WordPress']].map(([id, label]) => <button key={id} type="button" className={method === id ? 'is-active' : ''} aria-pressed={method === id} onClick={() => setMethod(id)}>{label}</button>)}</div>
     {method === 'html' && <ol><li>Abra o modelo (layout) que todas as páginas compartilham, normalmente o arquivo do cabeçalho.</li><li>Cole o código dentro de <code>&lt;head&gt;</code>, antes de <code>&lt;/head&gt;</code>. Não coloque no rodapé nem em páginas avulsas.</li><li>Publique o site e abra uma página. A tag aparece na aba Rede do navegador como <code>supertag.js</code>.</li></ol>}
-    {method === 'gtm' && <ol><li>No Google Tag Manager, crie uma tag do tipo <strong>HTML personalizado</strong> e cole o código inteiro, com as marcas <code>&lt;script&gt;</code>.</li><li>Em <strong>Acionamento</strong>, escolha <strong>Initialization – All Pages</strong>. Assim a tag carrega antes das outras e não perde a primeira visita.</li><li>Em <strong>Configurações de consentimento</strong>, deixe <strong>Nenhum consentimento adicional necessário</strong>. A Super Tag espera a decisão do visitante por conta própria.</li><li>Use <strong>Visualizar</strong> para testar e depois <strong>Enviar</strong> para publicar o contêiner.</li></ol>}
+    {method === 'gtm' && <ol><li>No Google Tag Manager, crie uma tag do tipo <strong>HTML personalizado</strong> e cole o código inteiro, com as marcas <code>&lt;script&gt;</code>.</li><li>Em <strong>Acionamento</strong>, escolha <strong>Initialization – All Pages</strong>. Assim a tag carrega antes das outras e não perde a primeira visita.</li><li>Em <strong>Configurações de consentimento</strong>, deixe <strong>Nenhum consentimento adicional necessário</strong>. O aviso de cookies é do site; para respeitar uma recusa, dispare <code>cadu:consent</code> com <code>analytics: false</code>.</li><li>Use <strong>Visualizar</strong> para testar e depois <strong>Enviar</strong> para publicar o contêiner.</li></ol>}
     {method === 'cms' && <ol><li><strong>WordPress:</strong> use um plugin de cabeçalho e rodapé (como o WPCode) e cole o código na área <strong>Header</strong>.</li><li><strong>Wix, Webflow, Shopify e similares:</strong> procure <strong>Código personalizado</strong> nas configurações do site, aplique a todas as páginas e posicione em <strong>Head</strong>.</li><li>Se você já usa o GTM nesse site, prefira a instalação pelo GTM.</li></ol>}
     <p className="st-guide__warn">Instale a Super Tag uma única vez. No site e também no GTM, as visitas são contadas em dobro.</p>
   </section>;
@@ -154,7 +154,7 @@ export function RecentEvents({summary}) {
     {rows.length ? <table className="cadu-table"><thead><tr><th>Evento</th><th className="is-numeric">Total</th></tr></thead><tbody>
       {rows.map(row => <tr key={row.event_kind}><td><strong>{EVENT_LABELS[row.event_kind] || row.event_kind}</strong><code className="block font-mono text-xs font-normal text-tertiary">{row.event_kind}</code></td><td className="is-numeric">{integer(row.total)}</td></tr>)}
       <tr className="bg-secondary font-semibold"><td>Total de eventos</td><td className="is-numeric text-primary">{integer(total)}</td></tr></tbody></table>
-      : <p className="st-muted">Os eventos aparecem aqui depois do consentimento e da primeira visita.</p>}
+      : <p className="st-muted">Os eventos aparecem aqui depois da primeira visita.</p>}
   </section>;
 }
 

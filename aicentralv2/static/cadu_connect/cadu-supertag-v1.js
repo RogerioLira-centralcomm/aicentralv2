@@ -1,4 +1,7 @@
-/* Cadu Super Tag v1: consent-gated, first-party, batched measurement. */
+/* Cadu Super Tag v1: first-party, batched measurement.
+ * Consent belongs to the website (its banner and privacy policy); the tag collects by default and only stops on an
+ * explicit opt-out: CaduSuperTag.setConsent(false) or a `cadu:consent` event with {analytics: false}.
+ * Technical safety is fixed: no query string, hash or e-mail in paths, never passwords, cards or documents. */
 (function () {
   'use strict';
   var script = document.currentScript;
@@ -14,11 +17,12 @@
   endpointUrl.search = '';
   endpointUrl.hash = '';
   var endpoint = endpointUrl.href;
-  var consentUrl = endpoint.replace(/\/collect$/, '/consent');
   var identifyUrl = endpoint.replace(/\/collect$/, '/identify');
-  var consentMode = script.getAttribute('data-cadu-consent') || 'auto';
+  var leadUrl = endpoint.replace(/\/collect$/, '/lead');
+  var cookieName = 'cadu_stg_' + siteId.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 24);
+  var optOutKey = cookieName + '_optout';
   var config = null;
-  var consented = false;
+  var optedOut = false;
   var started = false;
   var buffer = [];
   var maxBuffer = 100;
@@ -41,13 +45,8 @@
   var observers = [];
   var listenersInstalled = false;
   var visibilityDomReadyScheduled = false;
-  var consentUi = null;
-  var consentState = 'unknown';
   var activeController = null;
-  var hasConsentManager = false;
-  var consentResolved = false;
-  var tcfBound = false;
-  var cookieName = 'cadu_stg_' + siteId.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 24);
+  try { optedOut = localStorage.getItem(optOutKey) === '1'; } catch (_) { /* Storage may be blocked. */ }
 
   function readCookie(name) {
     var prefix = name + '=';
@@ -118,126 +117,6 @@
     catch (_) { return ''; }
   }
 
-  function existingConsent() {
-    try {
-      if (window.__tcfapi) {
-        hasConsentManager = true;
-        if (tcfBound) return true;
-        tcfBound = true;
-        window.__tcfapi('addEventListener', 2, function (tcData, success) {
-          if (success && tcData && (tcData.eventStatus === 'tcloaded' || tcData.eventStatus === 'useractioncomplete')) {
-            setConsent(!!(tcData.purpose && tcData.purpose.consents && tcData.purpose.consents[1]));
-            consentResolved = true;
-          }
-        });
-        return true;
-      }
-      if (window.OnetrustActiveGroups != null) {
-        hasConsentManager = true;
-        consentResolved = true;
-        setConsent(String(window.OnetrustActiveGroups).split(',').indexOf('C0002') !== -1);
-        return true;
-      }
-      if (window.Cookiebot && window.Cookiebot.consent) {
-        hasConsentManager = true;
-        consentResolved = true;
-        setConsent(!!window.Cookiebot.consent.statistics);
-        return true;
-      }
-      var consent = document.cookie.split('; ').find(function (part) { return part.indexOf('cadu_consent=') === 0; });
-      if (consent) { setConsent(consent.slice('cadu_consent='.length) === 'granted'); return true; }
-      var stored = localStorage.getItem('cadu_analytics_consent');
-      if (stored === 'granted' || stored === 'denied') { setConsent(stored === 'granted'); return true; }
-    } catch (_) { /* CMP APIs and storage may be unavailable. */ }
-    return false;
-  }
-
-  // Google Consent Mode: CMPs that talk to gtag/GTM push consent commands to dataLayer. An 'update' is the
-  // visitor's answer; a 'default' only tells us a CMP is expected, so we must wait instead of asking twice.
-  function readGoogleConsent() {
-    var layer = window.dataLayer, answer, declared = false;
-    if (!layer || !layer.length) return {declared: false};
-    for (var i = 0; i < layer.length; i++) {
-      var item = layer[i];
-      if (!item || item[0] !== 'consent' || !item[2]) continue;
-      declared = true;
-      if (item[1] === 'update' && item[2].analytics_storage) answer = item[2].analytics_storage;
-    }
-    return {declared: declared, answer: answer};
-  }
-
-  var CMP_BANNERS = '#onetrust-banner-sdk,#CybotCookiebotDialog,#cookiebanner,#cookie-law-info-bar,#cmplz-cookiebanner-container,.cmplz-cookiebanner,.cky-consent-container,#iubenda-cs-banner,#usercentrics-root,#didomi-host,#truste-consent-track,.osano-cm-window,#cookie-notice,#moove_gdpr_cookie_info_bar,.cc-window,.cc_banner,#sp-cc,#cookiescript_injected,[id*="cookie-banner" i],[class*="cookie-banner" i],[id*="cookie-consent" i],[class*="cookie-consent" i],[id*="cookieconsent" i],[class*="cookieconsent" i],[id*="lgpd" i],[class*="lgpd" i],[aria-label*="cookies" i],[aria-label*="privacidade" i]';
-
-  function foreignBannerVisible() {
-    try {
-      var nodes = document.querySelectorAll(CMP_BANNERS);
-      for (var i = 0; i < nodes.length; i++) {
-        if (consentUi && (nodes[i] === consentUi || consentUi.contains(nodes[i]))) continue;
-        var box = nodes[i].getBoundingClientRect();
-        if (box.width > 0 && box.height > 0) return true;
-      }
-    } catch (_) { /* Selector support varies. */ }
-    return false;
-  }
-
-  function detectLateConsent() {
-    if (existingConsent()) return true;
-    var google = readGoogleConsent();
-    if (google.declared) hasConsentManager = true;
-    if (google.answer) { setConsent(google.answer === 'granted'); return true; }
-    return false;
-  }
-
-  // CMPs often load after this script (GTM, deferred plugins). Keep looking before asking, and never ask while
-  // another banner is on screen: the visitor would see two prompts for the same decision.
-  function showConsentPromptDeferred() {
-    var tries = 0;
-    (function wait() {
-      tries += 1;
-      if (consentState !== 'unknown' || consentMode === 'manual') return;
-      detectLateConsent();
-      if (consentState !== 'unknown') return;
-      if (!hasConsentManager && !consentResolved && tries >= 5 && !foreignBannerVisible()) { showConsentPrompt(); return; }
-      if (tries < 60) window.setTimeout(wait, 1000);
-    })();
-  }
-
-  // Answers given after load through Google Consent Mode (the visitor accepts on the site's own banner).
-  function watchGoogleConsent() {
-    var tries = 0, timer = window.setInterval(function () {
-      tries += 1;
-      var answer = readGoogleConsent().answer;
-      if (answer) {
-        var granted = answer === 'granted';
-        if (granted !== consented || consentState === 'unknown') setConsent(granted);
-      }
-      if (tries >= 600) window.clearInterval(timer);
-    }, 1000);
-  }
-
-  function showConsentPrompt() {
-    if (consentUi || consentState !== 'unknown' || !document.body) return;
-    consentUi = document.createElement('aside');
-    consentUi.setAttribute('role', 'dialog');
-    consentUi.setAttribute('aria-label', 'Preferências de privacidade');
-    consentUi.style.cssText = 'position:fixed;z-index:2147483647;bottom:16px;left:16px;max-width:380px;padding:16px;background:#fff;color:#18212f;border:1px solid #d7dce2;border-radius:12px;box-shadow:0 8px 32px #0003;font:14px/1.45 system-ui,sans-serif';
-    var message = document.createElement('p');
-    message.textContent = 'Podemos usar dados de navegação anônimos para melhorar este site?';
-    message.style.margin = '0 0 12px'; consentUi.appendChild(message);
-    [['Aceitar analytics', true], ['Recusar', false]].forEach(function (choice) {
-      var button = document.createElement('button');
-      button.type = 'button'; button.textContent = choice[0];
-      button.style.cssText = 'margin-right:8px;padding:8px 12px;border:1px solid #667085;border-radius:7px;background:#fff;color:#18212f;cursor:pointer';
-      button.addEventListener('click', function () {
-        fetch(consentUrl, {method:'POST',mode:'cors',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({analytics:choice[1]})}).catch(function () {});
-        try { localStorage.setItem('cadu_analytics_consent', choice[1] ? 'granted' : 'denied'); } catch (_) { /* Optional persistence. */ }
-        consentUi.remove(); consentUi = null; setConsent(choice[1]);
-      });
-      consentUi.appendChild(button);
-    });
-    document.body.appendChild(consentUi);
-  }
-
   function viewport() {
     return {width: Math.min(window.innerWidth || 0, 10000), height: Math.min(window.innerHeight || 0, 10000)};
   }
@@ -251,50 +130,76 @@
     return {width: width, height: height, scrollX: window.pageXOffset || 0, scrollY: window.pageYOffset || 0};
   }
 
-  function event(kind, data, name, pathOverride) {
-    if (!started || !consented || buffer.length >= maxBuffer) return false;
+  // Returns the event id, so a form submit can link the lead it captures to its own event.
+  function pushEvent(kind, data, name, pathOverride) {
+    if (!started || optedOut || buffer.length >= maxBuffer) return null;
     if (kind !== 'heartbeat' && kind !== 'page_leave') {
       if (freshSessionIfIdle() && kind !== 'page_view') trackPage();
       lastMeaningfulAt = Date.now();
       try { sessionStorage.setItem(cookieName + '_active_at', String(lastMeaningfulAt)); } catch (_) { /* Optional persistence. */ }
     }
     var size = viewport();
-    buffer.push({event_id: crypto.randomUUID(), visitor_id: visitorId, session_id: sessionId,
+    var id = crypto.randomUUID();
+    buffer.push({event_id: id, visitor_id: visitorId, session_id: sessionId,
       kind: kind, event_name: name || undefined, path: pathOverride || location.pathname || '/', referrer_host: referrerHost(),
       attribution: attributionForSession(), data: data || {}, viewport_width: size.width,
-      viewport_height: size.height, occurred_at: new Date().toISOString(), consent: 'granted'});
+      viewport_height: size.height, occurred_at: new Date().toISOString()});
     if (buffer.length >= 10) flush(false);
+    return id;
+  }
+
+  function event(kind, data, name, pathOverride) {
+    return pushEvent(kind, data, name, pathOverride) !== null;
+  }
+
+  function idsOf(batch) {
+    var ids = Object.create(null);
+    batch.forEach(function (item) { ids[item.event_id] = true; });
+    return ids;
+  }
+
+  // Removes by id, never by position: a beacon may have emptied the buffer while a fetch was still on its way.
+  function removeSent(ids) {
+    buffer = buffer.filter(function (item) { return !ids[item.event_id]; });
+  }
+
+  function beaconAll() {
+    // Leaving the page: everything goes out now, including what an unfinished fetch carries (repeated ids are ignored).
+    while (buffer.length) {
+      var batch = buffer.slice(0, 25);
+      try {
+        if (!navigator.sendBeacon(endpoint, new Blob([JSON.stringify({events: batch})], {type: 'text/plain;charset=UTF-8'}))) return false;
+      } catch (_) { return false; }
+      removeSent(idsOf(batch));
+    }
     return true;
   }
 
   function flush(beacon) {
-    if (!consented || !buffer.length || flushInFlight) return;
+    if (optedOut || !buffer.length) return;
+    if (beacon && navigator.sendBeacon && beaconAll()) return;
+    if (flushInFlight) return;
     var batch = buffer.slice(0, 25);
-    var body = JSON.stringify({events: batch});
-    if (beacon && navigator.sendBeacon) {
-      try {
-        if (navigator.sendBeacon(endpoint, new Blob([body], {type: 'text/plain;charset=UTF-8'}))) {
-          buffer.splice(0, batch.length);
-          return;
-        }
-      } catch (_) { /* Use fetch fallback below. */ }
-    }
+    var ids = idsOf(batch);
     flushInFlight = true;
     activeController = typeof AbortController !== 'undefined' ? new AbortController() : null;
     fetch(endpoint, {method: 'POST', mode: 'cors', keepalive: true,
       signal: activeController ? activeController.signal : undefined,
-      headers: {'Content-Type': 'text/plain;charset=UTF-8'}, body: body})
-      .then(function (response) { if (response.ok) buffer.splice(0, batch.length); })
+      headers: {'Content-Type': 'text/plain;charset=UTF-8'}, body: JSON.stringify({events: batch})})
+      .then(function (response) {
+        // A 4xx (other than 429) will never be accepted: drop the batch instead of resending it forever.
+        if (response.ok || (response.status >= 400 && response.status < 500 && response.status !== 429)) removeSent(ids);
+      })
       .catch(function () {})
       .finally(function () {
         activeController = null;
         flushInFlight = false;
-        if (consented && buffer.length >= 10) flush(false);
+        if (!optedOut && buffer.length >= 10) flush(false);
       });
   }
 
   function trackPage() {
-    if (!started || !consented) return;
+    if (!started || optedOut) return;
     freshSessionIfIdle();
     var path = location.pathname || '/';
     if (location.hash && path === lastPath) path += location.hash.slice(0, 120);
@@ -317,7 +222,7 @@
   }
 
   function resumeActivePage() {
-    if (started && consented && lastPath && !pageActiveSince && document.visibilityState === 'visible') {
+    if (started && !optedOut && lastPath && !pageActiveSince && document.visibilityState === 'visible') {
       pageActiveSince = Date.now();
     }
   }
@@ -345,7 +250,7 @@
         visibilityDomReadyScheduled = true;
         document.addEventListener('DOMContentLoaded', function () {
           visibilityDomReadyScheduled = false;
-          if (started && consented) observeMarkedElements();
+          if (started && !optedOut) observeMarkedElements();
         }, {once: true});
       }
       return;
@@ -367,8 +272,93 @@
     observers.push(observer);
   }
 
+  // Who converted: name, e-mail and phone found in a valid form, plus extra fields the site chose by name.
+  // Passwords, cards, documents (CPF/CNPJ/RG), tokens, hidden fields and honeypots are never read.
+  var BLOCKED_TYPES = /^(password|hidden|file|submit|button|reset|image)$/i;
+  var BLOCKED_AUTOCOMPLETE = /(^|\s)(cc-[a-z-]+|current-password|new-password|one-time-code)(\s|$)/i;
+  var BLOCKED_NAME = /senha|pass|card|cartao|cartão|cvv|cvc|token|captcha|csrf|cpf|cnpj|(^|[^a-z])rg($|[^a-z])/i;
+  var DOCUMENT_VALUE = /^\s*(\d{3}\.?\d{3}\.?\d{3}-?\d{2}|\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2})\s*$/;
+  var MAX_LEAD_FIELDS = 20;
+
+  function fieldKey(field) {
+    return field.getAttribute('name') || field.id || '';
+  }
+
+  function looksHidden(field) {
+    if (field.closest('[aria-hidden="true"],[data-cadu-ignore]')) return true;
+    var box = field.getBoundingClientRect();
+    if (!box.width || !box.height) return true;
+    var pageWidth = Math.max(document.documentElement.scrollWidth || 0, window.innerWidth || 0);
+    if (box.right <= 0 || box.left >= pageWidth || box.bottom + (window.pageYOffset || 0) <= 0) return true;
+    var style = window.getComputedStyle ? window.getComputedStyle(field) : null;
+    return !!style && (style.visibility === 'hidden' || style.display === 'none' || Number(style.opacity) === 0);
+  }
+
+  function contactKind(field) {
+    var auto = (field.getAttribute('autocomplete') || '').toLowerCase();
+    var type = (field.getAttribute('type') || '').toLowerCase();
+    var key = fieldKey(field).toLowerCase();
+    if (/(^|\s)email(\s|$)/.test(auto) || type === 'email' || /e-?mail/.test(key)) return 'email';
+    if (/(^|\s)tel(-national)?(\s|$)/.test(auto) || type === 'tel' || /(^|[^a-z])(tel|telefone|fone|phone|celular|whats|whatsapp|mobile)/.test(key)) return 'phone';
+    if (/(^|\s)(name|given-name|family-name)(\s|$)/.test(auto)) return 'name';
+    if (!/company|empresa|user|login|organiza/.test(key) && /(^|[^a-z])(nome|name|fullname|sobrenome)([^a-z]|$)/.test(key)) return 'name';
+    return '';
+  }
+
+  function readLead(form) {
+    var capture = (config && config.form_capture) || {};
+    if (capture.enabled === false) return null;
+    var extras = Array.isArray(capture.fields) ? capture.fields : [];
+    var lead = {name: '', email: '', phone: '', fields: {}};
+    var count = 0;
+    var elements = form.elements ? Array.prototype.slice.call(form.elements) : [];
+    for (var i = 0; i < elements.length && count < MAX_LEAD_FIELDS; i++) {
+      var field = elements[i];
+      if (!/^(INPUT|SELECT|TEXTAREA)$/.test(field.tagName) || field.disabled) continue;
+      var type = (field.getAttribute('type') || '').toLowerCase();
+      if (BLOCKED_TYPES.test(type) || BLOCKED_AUTOCOMPLETE.test(field.getAttribute('autocomplete') || '')) continue;
+      var key = fieldKey(field);
+      if (BLOCKED_NAME.test(key) || BLOCKED_NAME.test(field.id || '')) continue;
+      if ((type === 'checkbox' || type === 'radio') && !field.checked) continue;
+      if (looksHidden(field)) continue;
+      var value = String(field.value || '').trim().slice(0, field.tagName === 'TEXTAREA' ? 2000 : 200);
+      if (!value) continue;
+      var kind = contactKind(field);
+      if (kind === 'phone') {
+        if (!lead.phone) { lead.phone = value.slice(0, 40); count += 1; }
+        continue;
+      }
+      if (DOCUMENT_VALUE.test(value) || /\d{13,19}/.test(value.replace(/[\s.-]/g, ''))) continue;
+      if (kind === 'email') {
+        if (!lead.email) { lead.email = value.slice(0, 254); count += 1; }
+      } else if (kind === 'name') {
+        lead.name = (lead.name ? lead.name + ' ' + value : value).slice(0, 200);
+        count += 1;
+      } else if (key && extras.indexOf(key) !== -1 && !Object.prototype.hasOwnProperty.call(lead.fields, key)) {
+        lead.fields[key] = value;
+        count += 1;
+      }
+    }
+    return lead.name || lead.email || lead.phone || Object.keys(lead.fields).length ? lead : null;
+  }
+
+  function sendLead(form, eventId, formId) {
+    var lead;
+    try { lead = readLead(form); } catch (_) { return; }
+    if (!lead) return;
+    var body = JSON.stringify({event_id: eventId, visitor_id: visitorId, session_id: sessionId, form_id: formId || undefined,
+      path: location.pathname || '/', occurred_at: new Date().toISOString(),
+      name: lead.name, email: lead.email, phone: lead.phone, fields: lead.fields});
+    // A beacon survives the redirect to the thank-you page.
+    try {
+      if (navigator.sendBeacon && navigator.sendBeacon(leadUrl, new Blob([body], {type: 'text/plain;charset=UTF-8'}))) return;
+    } catch (_) { /* Use fetch below. */ }
+    fetch(leadUrl, {method: 'POST', mode: 'cors', keepalive: true, credentials: 'omit',
+      headers: {'Content-Type': 'text/plain;charset=UTF-8'}, body: body}).catch(function () {});
+  }
+
   function start() {
-    if (!config || !consented || started) return;
+    if (!config || optedOut || started) return;
     started = true;
     visitorId = readCookie(cookieName) || crypto.randomUUID();
     writeCookie(visitorId, config.audience_days || 365);
@@ -409,10 +399,16 @@
         var form = eventObject.target;
         if (!form || form.tagName !== 'FORM' || form.closest('[data-cadu-ignore]')) return;
         var id = form.getAttribute('data-cadu-form');
-        event('form_submit', id && /^[A-Za-z0-9_-]{1,80}$/.test(id) ? {form_id: id} : {});
+        var valid = typeof form.checkValidity === 'function' ? form.checkValidity() : true;
+        var data = {valid: valid};
+        if (id && /^[A-Za-z0-9_-]{1,80}$/.test(id)) data.form_id = id;
+        var eventId = pushEvent('form_submit', data);
+        if (eventId && valid) sendLead(form, eventId, data.form_id);
+        // The page usually navigates right after a submit.
+        flush(true);
       }, true);
       window.addEventListener('scroll', function () {
-        if (!started || !consented) return;
+        if (!started || optedOut) return;
         var doc = document.documentElement;
         var max = Math.max(doc.scrollHeight - window.innerHeight, 1);
         var percent = Math.min(100, Math.floor((window.scrollY || 0) / max * 4 + 1) * 25);
@@ -434,59 +430,65 @@
     }
     flushTimer = window.setInterval(function () { flush(false); }, 5000);
     heartbeatTimer = window.setInterval(function () {
-      if (started && consented && document.visibilityState === 'visible') event('heartbeat');
+      if (started && !optedOut && document.visibilityState === 'visible') event('heartbeat');
     }, 30000);
     observeMarkedElements();
   }
 
+  function stop() {
+    started = false;
+    buffer = [];
+    lastPath = '';
+    activePath = '';
+    pageActiveSince = 0;
+    pageActiveDuration = 0;
+    visitorId = null;
+    sessionId = null;
+    sessionAttribution = null;
+    lastMeaningfulAt = 0;
+    try { sessionStorage.removeItem(cookieName + '_session'); } catch (_) { /* Storage may be blocked. */ }
+    try { sessionStorage.removeItem(cookieName + '_campaign'); } catch (_) { /* Storage may be blocked. */ }
+    try { sessionStorage.removeItem(cookieName + '_attribution'); } catch (_) { /* Storage may be blocked. */ }
+    try { sessionStorage.removeItem(cookieName + '_active_at'); } catch (_) { /* Storage may be blocked. */ }
+    if (flushTimer) window.clearInterval(flushTimer);
+    if (heartbeatTimer) window.clearInterval(heartbeatTimer);
+    if (activeController) activeController.abort();
+    flushTimer = 0;
+    heartbeatTimer = 0;
+    observers.forEach(function (observer) { observer.disconnect(); });
+    observers = [];
+    document.cookie = cookieName + '=; Max-Age=0; Path=/; SameSite=Lax' +
+      (location.protocol === 'https:' ? '; Secure' : '');
+  }
+
+  // Explicit opt-out only: false/'denied' stops and remembers it on this browser; true/'granted' resumes.
   function setConsent(value) {
-    consented = value === true || value === 'granted';
-    consentResolved = true;
-    consentState = consented ? 'granted' : 'denied';
-    if (consentUi) { consentUi.remove(); consentUi = null; }
-    if (consented) start();
-    else {
-      started = false;
-      buffer = [];
-      lastPath = '';
-      activePath = '';
-      pageActiveSince = 0;
-      pageActiveDuration = 0;
-      visitorId = null;
-      sessionId = null;
-      sessionAttribution = null;
-      lastMeaningfulAt = 0;
-      try { sessionStorage.removeItem(cookieName + '_session'); } catch (_) { /* Storage may be blocked. */ }
-      try { sessionStorage.removeItem(cookieName + '_campaign'); } catch (_) { /* Storage may be blocked. */ }
-      try { sessionStorage.removeItem(cookieName + '_attribution'); } catch (_) { /* Storage may be blocked. */ }
-      try { sessionStorage.removeItem(cookieName + '_active_at'); } catch (_) { /* Storage may be blocked. */ }
-      if (flushTimer) window.clearInterval(flushTimer);
-      if (heartbeatTimer) window.clearInterval(heartbeatTimer);
-      if (activeController) activeController.abort();
-      flushTimer = 0;
-      heartbeatTimer = 0;
-      observers.forEach(function (observer) { observer.disconnect(); });
-      observers = [];
-      document.cookie = cookieName + '=; Max-Age=0; Path=/; SameSite=Lax' +
-        (location.protocol === 'https:' ? '; Secure' : '');
+    if (value === true || value === 'granted') {
+      optedOut = false;
+      try { localStorage.removeItem(optOutKey); } catch (_) { /* Storage may be blocked. */ }
+      start();
+    } else if (value === false || value === 'denied') {
+      optedOut = true;
+      try { localStorage.setItem(optOutKey, '1'); } catch (_) { /* Storage may be blocked. */ }
+      stop();
     }
   }
 
   window.CaduSuperTag = Object.freeze({
     setConsent: setConsent,
     trackPage: trackPage,
-    getVisitorId: function () { return consented ? visitorId : null; },
-    getSessionId: function () { return consented ? sessionId : null; },
+    getVisitorId: function () { return optedOut ? null : visitorId; },
+    getSessionId: function () { return optedOut ? null : sessionId; },
     identify: function (identity) {
-      if (!started || !consented || !identity || typeof identity !== 'object') return Promise.resolve(false);
+      if (!started || optedOut || !identity || typeof identity !== 'object') return Promise.resolve(false);
       if (freshSessionIfIdle()) trackPage();
       var name = typeof identity.name === 'string' ? identity.name.trim().slice(0, 120) : '';
       var email = typeof identity.email === 'string' ? identity.email.trim().slice(0, 254) : '';
       var phone = typeof identity.phone === 'string' ? identity.phone.trim().slice(0, 40) : '';
       if (!email && !phone) return Promise.resolve(false);
-      return fetch(identifyUrl, {method:'POST', mode:'cors', credentials:'omit',
+      return fetch(identifyUrl, {method:'POST', mode:'cors', credentials:'omit', keepalive: true,
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({visitor_id:visitorId,session_id:sessionId,name:name,email:email,phone:phone,campaign:currentCampaignScope(),consent:'granted'})
+        body:JSON.stringify({visitor_id:visitorId,session_id:sessionId,name:name,email:email,phone:phone,campaign:currentCampaignScope(),path:location.pathname || '/'})
       }).then(function (response) { return response.ok; }).catch(function () { return false; });
     },
     trackEvent: function (name) {
@@ -502,20 +504,12 @@
     var detail = eventObject && eventObject.detail;
     if (detail && Object.prototype.hasOwnProperty.call(detail, 'analytics')) setConsent(detail.analytics);
   });
-  existingConsent();
-  watchGoogleConsent();
-  window.addEventListener('cadu:consent', function () { hasConsentManager = true; });
-  window.addEventListener('CookiebotOnAccept', function () { hasConsentManager = true; consentResolved = true; setConsent(!!(window.Cookiebot && window.Cookiebot.consent && window.Cookiebot.consent.statistics)); });
-  window.addEventListener('CookiebotOnDecline', function () { hasConsentManager = true; consentResolved = true; setConsent(false); });
-  window.addEventListener('OneTrustGroupsUpdated', function () { hasConsentManager = true; consentResolved = true; setConsent(String(window.OnetrustActiveGroups || '').split(',').indexOf('C0002') !== -1); });
   fetch(configUrl, {mode: 'cors', credentials: 'omit', cache: 'force-cache'})
     .then(function (response) { if (!response.ok) throw new Error('config'); return response.json(); })
     .then(function (value) {
       if (value.site_id !== siteId) return;
       config = value;
-      consentMode = value.consent_mode || consentMode;
-      if (consented) start();
-      else if (consentMode !== 'manual' && !hasConsentManager && !consentResolved) showConsentPromptDeferred(false);
+      start();
     })
     .catch(function () {});
 })();

@@ -15,7 +15,7 @@ export const REPORT_PAGE_META = {
   reports: {title: 'Relatórios', description: 'Crie e consulte relatórios de mídia deste cliente.'},
   imports: {title: 'Importações', description: 'Envie arquivos e revise os dados antes de incluí-los nos relatórios.'},
   monitor: {title: 'Dados de mídia', description: 'Conecte fontes e acompanhe os envios recebidos.'},
-  supertag: {title: 'Super Tag', description: 'Instale uma única tag para medir atividade consentida no site.'},
+  supertag: {title: 'Super Tag', description: 'Instale uma única tag para medir visitas, eventos e conversões no site.'},
   pages: {title: 'Páginas', description: 'Números, origem paga, interação e saúde de cada página monitorada.'},
   alerts: {title: 'Alertas', description: 'Problemas confirmados nas páginas e na coleta, com responsável e histórico.'},
   flow: {title: 'Fluxos', description: 'Desenhe jornadas do site e acompanhe cada etapa.'},

@@ -132,7 +132,7 @@ async function main() {
       assert.deepEqual(body, {label: 'Site de teste', allowed_host: 'example.test'},
         'o cadastro da Super Tag envia somente o contrato aceito pela API');
       const site = {id: 'site-ui-1', public_id: 'public-ui-1', label: body.label,
-        allowed_host: body.allowed_host, enabled: true, config: {consent_mode: 'auto', audience_days: 90, retention_days: 90},
+        allowed_host: body.allowed_host, enabled: true, config: {audience_days: 90, retention_days: 90},
         snippet: '<script data-cadu-site="public-ui-1"></script>'};
       state.supertagSites.push(site);
       return route.fulfill({status: 201, json: {site}});
@@ -253,13 +253,13 @@ async function main() {
     }
     return route.fulfill({status: 200, contentType: 'text/html', body: `<!doctype html><html><head><meta charset="utf-8"></head><body>
       <script async src="https://example.test/static/cadu_connect/cadu-supertag-v1.js"
-        data-cadu-site="public-ui" data-cadu-config="${publicTagBase}/config.json" data-cadu-consent="manual"></script>
+        data-cadu-site="public-ui" data-cadu-config="${publicTagBase}/config.json"></script>
       </body></html>`});
   });
   await page.route(`${publicTagBase}/config.json`, route => {
     publicTagCalls.push({url: route.request().url(), method: route.request().method(), headers: route.request().headers()});
     return route.fulfill({status: 200, headers: corsHeaders,
-      json: {site_id: 'public-ui', config_version: 2, consent_required: true, consent_mode: 'auto',
+      json: {site_id: 'public-ui', config_version: 2,
         visibility_enabled: true, audience_days: 90}});
   });
   await page.route(`${publicTagBase}/consent`, async route => {
@@ -423,18 +423,19 @@ async function main() {
 
     await page.goto('https://example.test/');
     const collectResponse = page.waitForResponse(response => response.url() === `${publicTagBase}/collect`);
-    await page.getByRole('button', {name: 'Aceitar analytics'}).click();
+    // Consent belongs to the website: the tag collects without a banner of its own.
+    await page.waitForFunction(() => window.CaduSuperTag && window.CaduSuperTag.getSessionId());
+    assert.equal(await page.getByRole('button', {name: 'Aceitar analytics'}).count(), 0, 'a tag não mostra aviso de consentimento');
     await page.evaluate(() => window.CaduSuperTag.trackConversion('test_conversion'));
     await collectResponse;
-    const consentCall = publicTagCalls.find(item => item.method === 'POST' && item.body?.includes('analytics'));
-    assert.ok(consentCall, 'a escolha de consentimento é confirmada no endpoint público');
-    const collectedEvents = JSON.parse(publicTagCalls.find(item => item.body?.includes('events'))?.body || '{"events":[]}').events;
-    assert.ok(collectedEvents.some(item => item.kind === 'page_view'), `a tag envia visualização após consentimento: ${JSON.stringify(publicTagCalls)}`);
+    assert.ok(!publicTagCalls.some(item => item.url.endsWith('/consent')), 'a tag não chama o endpoint de consentimento');
+    const collectedEvents = publicTagCalls.filter(item => item.body?.includes('events')).flatMap(item => JSON.parse(item.body).events);
+    assert.ok(collectedEvents.some(item => item.kind === 'page_view'), `a tag envia visualização sem etapa de consentimento: ${JSON.stringify(publicTagCalls)}`);
     assert.ok(collectedEvents.some(item => item.kind === 'conversion' && item.event_name === 'test_conversion'),
       'a tag envia conversões próprias');
 
     assert.deepEqual(errors, [], `erros JavaScript de interface: ${errors.join('; ')}`);
-    process.stdout.write('Reports UI e Super Tag: cadastros, links, fluxos, monitoramento, consentimento CORS e coleta de conversão passaram.\n');
+    process.stdout.write('Reports UI e Super Tag: cadastros, links, fluxos, monitoramento, coleta sem consentimento próprio e conversão passaram.\n');
   } finally {
     await browser.close();
     await new Promise(resolve => server.close(resolve));

@@ -12,7 +12,7 @@ from urllib.parse import urljoin, urlparse
 
 import urllib3
 from flask import abort, current_app, jsonify, make_response, request, session
-from werkzeug.exceptions import BadRequest
+from werkzeug.exceptions import BadRequest, HTTPException
 
 from ..auth import login_required_api
 from ..db import get_db
@@ -23,6 +23,7 @@ from ..cadu_workspace.brand_site_inspector import (
 )
 from .reports_flow import _campaign_match, _host_allowed, _safe_path
 from .reports_v1 import _rows, _selection, _write_guard
+from . import reports_supertag_leads as leads
 
 # Browsers cap first-party cookies at ~400 days, so the identifier stops at 395; event retention has no such cap.
 AUDIENCE_DAYS_CHOICES = (30, 60, 90, 180, 365, 395)
@@ -89,8 +90,7 @@ def _supertag_snippet(site):
     public_id = site['public_id']
     return (f'<script async src="{base}/v1/supertag.js" '
             f'data-cadu-site="{public_id}" '
-            f'data-cadu-config="{base}/connect/public/supertag/v1/{public_id}/config.json" '
-            f'data-cadu-consent="auto"></script>')
+            f'data-cadu-config="{base}/connect/public/supertag/v1/{public_id}/config.json"></script>')
 
 
 def ensure_supertag_site(selected, host, label):
@@ -115,8 +115,8 @@ def ensure_supertag_site(selected, host, label):
             config_version,created_at,updated_at,revoked_at''',
         (str(uuid.uuid4()), selected['client_id'], public_id,
          label[:120], host,
-         json.dumps({'consent_required': True, 'consent_mode': 'auto', 'audience_days': 90,
-                     'retention_days': 90, 'visibility_enabled': True}), session.get('user_id')))[0]
+         json.dumps({'audience_days': 90, 'retention_days': 90, 'visibility_enabled': True}),
+         session.get('user_id')))[0]
     site['snippet'] = _supertag_snippet(site)
     return site, True
 
@@ -129,7 +129,7 @@ def _flow_listens_to(flow, site, nodes, page_host):
 
 
 def _fanout_flow_events(site, prepared, page_host):
-    """Mirror consented Super Tag events into published flows on the same site."""
+    """Mirror Super Tag events into published flows on the same site."""
     flow_rows = _rows('''SELECT f.id,f.client_id,f.site_id,f.flow_code,f.config,t.id AS tag_id,t.allowed_host
         FROM cadu_reports_flow_registry f JOIN cadu_reports_site_tags t ON t.id=f.tag_id
         WHERE f.client_id=%s AND f.status='published' AND t.revoked_at IS NULL''',
@@ -156,7 +156,7 @@ def _fanout_flow_events(site, prepared, page_host):
                             'form_submit', 'custom_event', 'conversion'}:
                 continue
             # The Flow schema requires a visitor id; when audience identity is absent,
-            # preserve session-level aggregation instead of dropping consented events.
+            # preserve session-level aggregation instead of dropping events.
             flow_visitor_id = visitor_id or session_id
             quota = _rows('''INSERT INTO cadu_reports_flow_rate_limits (tag_id,bucket_start,event_count)
                 VALUES (%s,date_trunc('minute',NOW()),1)
@@ -205,12 +205,11 @@ def _site_by_public_id(public_id):
 
 
 def _event(raw, site):
+    # `consent` is still accepted (and ignored) because cached copies of the old tag keep sending it.
     if not isinstance(raw, dict) or set(raw) - {
             'event_id', 'visitor_id', 'session_id', 'kind', 'event_name', 'path', 'referrer_host',
             'attribution', 'data', 'viewport_width', 'viewport_height', 'occurred_at', 'consent'}:
         abort(400, description='Evento fora do contrato público da Super Tag.')
-    if raw.get('consent') != 'granted':
-        abort(403, description='Consentimento de analytics não confirmado.')
     kind = raw.get('kind')
     if kind not in EVENT_KINDS:
         abort(400, description='Tipo de evento inválido.')
@@ -229,7 +228,7 @@ def _event(raw, site):
     allowed_data = {
         'click': {'x', 'y', 'element_id', 'dx', 'dy', 'dh'}, 'whatsapp_click': {'x', 'y', 'element_id', 'dx', 'dy', 'dh'},
         'visibility': {'element_id', 'ratio'}, 'scroll_depth': {'depth'},
-        'form_submit': {'form_id'}, 'custom_event': set(), 'conversion': set(), 'page_view': set(),
+        'form_submit': {'form_id', 'valid'}, 'custom_event': set(), 'conversion': set(), 'page_view': set(),
         'page_leave': {'duration_ms'}, 'heartbeat': set(),
     }[kind]
     if set(data) - allowed_data:
@@ -284,6 +283,10 @@ def _event(raw, site):
             if not isinstance(form_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,80}', form_id):
                 abort(400, description='Identificador de formulário inválido.')
             clean_data['form_id'] = form_id
+        if 'valid' in data:
+            if not isinstance(data['valid'], bool):
+                abort(400, description='Validade do formulário inválida.')
+            clean_data['valid'] = data['valid']
     try:
         occurred_at = datetime.fromisoformat(str(raw.get('occurred_at', '')).replace('Z', '+00:00'))
         if occurred_at.tzinfo is None:
@@ -339,7 +342,7 @@ def _known_identity_digest(site, campaign_scope, kind, value):
 
 
 def _branding_metrics(site_id):
-    """Aggregate consented sessions without exposing contact or IP identifiers."""
+    """Aggregate sessions without exposing contact or IP identifiers."""
     rows = _rows('''WITH session_events AS (
             SELECT session_id,
                 COUNT(*) FILTER (WHERE event_kind='page_view')::bigint AS page_views,
@@ -511,11 +514,14 @@ def register(bp):
         if request.method == 'OPTIONS':
             return ('', 204)
         payload = request.get_json(silent=True) or {}
-        allowed = {'visitor_id', 'session_id', 'name', 'email', 'phone', 'campaign', 'consent'}
+        # `consent` stays accepted (and ignored) for cached copies of the old tag.
+        allowed = {'visitor_id', 'session_id', 'name', 'email', 'phone', 'campaign', 'consent', 'path'}
         if not isinstance(payload, dict) or set(payload) - allowed:
             abort(400, description='Dados de identificação fora do contrato da Super Tag.')
-        if payload.get('consent') != 'granted':
-            abort(403, description='Consentimento de analytics não confirmado.')
+        identify_path = payload.get('path') or '/'
+        if not isinstance(identify_path, str) or not identify_path.startswith('/') or '?' in identify_path \
+                or '#' in identify_path or len(identify_path) > 1000:
+            abort(400, description='Caminho da página inválido.')
         visitor_id = _uuid(payload.get('visitor_id'), 'Visitante')
         session_id = _uuid(payload.get('session_id'), 'Sessão')
         name = payload.get('name') or ''
@@ -576,6 +582,12 @@ def register(bp):
             (site['id'], session_id, campaign_scope, visitor_id, identity['id'], retention_days))
         _rows('''UPDATE cadu_reports_supertag_sessions SET ip_digest=NULL
             WHERE site_id=%s AND session_id=%s''', (site['id'], session_id))
+        # The readable contact also goes to "Quem converteu", encrypted and with the same retention.
+        lead_name, lead_email, lead_phone = leads.clean_contact(name, email, phone)
+        leads.store_lead(site, source='identify', source_event_id=leads.identify_source_event(site['id'], session_id, identity_digest),
+                         session_id=session_id, visitor_id=visitor_id, form_id=None,
+                         page_path=_safe_path(identify_path)[:500], submitted_at=datetime.now(timezone.utc),
+                         name=lead_name, email=lead_email, phone=lead_phone, fields={})
         get_db().commit()
         return jsonify(identified=True), 200
 
@@ -597,10 +609,7 @@ def register(bp):
         base = _base_url()
         for site in sites:
             site['script_url'] = f'{base}/v1/supertag.js'
-            site['snippet'] = (f'<script async src="{site["script_url"]}" '
-                f'data-cadu-site="{site["public_id"]}" '
-                f'data-cadu-config="{base}/connect/public/supertag/v1/{site["public_id"]}/config.json" '
-                f'data-cadu-consent="{(site.get("config") or {}).get("consent_mode", "auto")}"></script>')
+            site['snippet'] = _supertag_snippet(site)
         return jsonify(sites=sites)
 
     @bp.post('/api/v2/reports/supertag/sites')
@@ -625,7 +634,8 @@ def register(bp):
     @login_required_api
     def supertag_site_update(site_id):
         payload = request.get_json(silent=True) or {}
-        if not isinstance(payload, dict) or set(payload) - {'label', 'allowed_host', 'visibility_enabled', 'audience_days', 'retention_days', 'consent_mode', 'client_id'}:
+        if not isinstance(payload, dict) or set(payload) - {'label', 'allowed_host', 'visibility_enabled', 'audience_days', 'retention_days',
+                                                         'conversion_rules', 'conversion_defaults', 'form_capture', 'client_id'}:
             abort(400, description='Configuração da Super Tag inválida.')
         selected = _selection(payload)
         _write_guard(selected)
@@ -638,10 +648,17 @@ def register(bp):
         label = ' '.join(str(payload.get('label', current['label']) or '').split())[:120]
         host = _host(payload.get('allowed_host', current['allowed_host']))
         config = dict(current['config'] or {})
-        if 'consent_mode' in payload:
-            if payload['consent_mode'] not in ('auto', 'manual'):
-                abort(400, description='Escolha o modo de consentimento disponível.')
-            config['consent_mode'] = payload['consent_mode']
+        # Consent is the website's job; old keys are dropped on the next save.
+        config.pop('consent_mode', None)
+        config.pop('consent_required', None)
+        if 'conversion_rules' in payload:
+            config['conversion_rules'] = leads.validate_conversion_rules(payload['conversion_rules'])
+        if 'conversion_defaults' in payload:
+            if not isinstance(payload['conversion_defaults'], bool):
+                abort(400, description='Informe se as regras automáticas de página de obrigado ficam ativas.')
+            config['conversion_defaults'] = payload['conversion_defaults']
+        if 'form_capture' in payload:
+            config['form_capture'] = {**(config.get('form_capture') or {}), **leads.validate_form_capture(payload['form_capture'])}
         if 'visibility_enabled' in payload:
             if not isinstance(payload['visibility_enabled'], bool):
                 abort(400, description='Informe se a coleta de visibilidade está ativa.')
@@ -661,9 +678,7 @@ def register(bp):
         get_db().commit()
         base = _base_url()
         updated['script_url'] = f'{base}/v1/supertag.js'
-        updated['snippet'] = (f'<script async src="{updated["script_url"]}" data-cadu-site="{updated["public_id"]}" '
-            f'data-cadu-config="{base}/connect/public/supertag/v1/{updated["public_id"]}/config.json" '
-            f'data-cadu-consent="{config.get("consent_mode", "auto")}"></script>')
+        updated['snippet'] = _supertag_snippet(updated)
         return jsonify(site=updated)
 
     @bp.post('/api/v2/reports/supertag/sites/<uuid:site_id>/revoke')
@@ -689,8 +704,8 @@ def register(bp):
         if parsed.scheme not in ('https', 'http') or not _host_allowed(parsed.hostname or '', site['allowed_host']):
             abort(403)
         response = make_response(jsonify(site_id=site['public_id'], config_version=site['config_version'],
-            consent_required=True, consent_mode=(site.get('config') or {}).get('consent_mode', 'auto'),
             visibility_enabled=(site.get('config') or {}).get('visibility_enabled', True),
+            form_capture=leads.public_form_capture(site.get('config')),
             audience_days=(site.get('config') or {}).get('audience_days', DEFAULT_AUDIENCE_DAYS)))
         response.headers['Cache-Control'] = 'public, max-age=300, stale-while-revalidate=3600'
         response.set_etag(f'{site["public_id"]}:{site["config_version"]}')
@@ -698,6 +713,7 @@ def register(bp):
 
     @bp.route('/public/supertag/v1/<public_id>/consent', methods=['POST', 'OPTIONS'])
     def supertag_public_consent(public_id):
+        """Kept for cached copies of the old tag: acknowledges the choice and stores nothing."""
         site = _site_by_public_id(public_id)
         request._supertag_allowed_host = site['allowed_host']
         origin = request.headers.get('Origin') or ''
@@ -707,9 +723,8 @@ def register(bp):
         if request.method == 'OPTIONS':
             return ('', 204)
         payload = request.get_json(silent=True) or {}
-        if not isinstance(payload, dict) or set(payload) != {'analytics'} or not isinstance(payload['analytics'], bool):
-            abort(400, description='Informe uma escolha válida para analytics.')
-        response = make_response(jsonify(analytics=payload['analytics']))
+        analytics = payload.get('analytics') if isinstance(payload, dict) else None
+        response = make_response(jsonify(analytics=analytics if isinstance(analytics, bool) else None))
         response.headers['Cache-Control'] = 'no-store'
         return response
 
@@ -737,7 +752,18 @@ def register(bp):
         parsed = urlparse(origin)
         if parsed.scheme not in ('https', 'http') or not _host_allowed(parsed.hostname or '', site['allowed_host']):
             abort(403)
-        prepared = [_event(item, site) for item in events]
+        # One bad event must not poison the batch: it is dropped and counted, the rest is stored, and the answer
+        # stays 202 so the tag never resends the same batch forever.
+        prepared, rejected = [], 0
+        for item in events:
+            try:
+                prepared.append(_event(item, site))
+            except HTTPException as exc:
+                if exc.code != 400:
+                    raise
+                rejected += 1
+        if not prepared:
+            return jsonify(accepted=0, rejected=rejected), 202
         ip_digest = _ip_digest()
         retention_days = (site.get('config') or {}).get('retention_days', DEFAULT_RETENTION_DAYS)
         if isinstance(retention_days, bool) or retention_days not in RETENTION_DAYS_CHOICES:
@@ -774,13 +800,14 @@ def register(bp):
                 RETURNING event_count''', (site['id'], ip_digest, len(prepared), MAX_IP_EVENTS_PER_MINUTE))
             if not ip_quota:
                 abort(429, description='Limite temporário de envio atingido para esta origem.')
+            derived = leads.derive_conversions(site, new_events, leads.converted_pages(site['id'], new_events))
             with conn.cursor() as cursor:
                 cursor.executemany('''INSERT INTO cadu_reports_supertag_events
                     (event_id,site_id,client_id,visitor_id,session_id,event_kind,event_name,page_path,referrer_host,attribution,event_data,viewport_width,viewport_height,occurred_at,expires_at)
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s::jsonb,%s,%s,%s,
                         NOW() + (%s * INTERVAL '1 day'))
                     ON CONFLICT (site_id,event_id) DO NOTHING''',
-                    [(*event, retention_days) for event in prepared])
+                    [(*event, retention_days) for event in prepared + derived])
                 session_rollup = {}
                 for event in prepared:
                     session_id, visitor_id, occurred_at = event[4], event[3] or event[4], event[13]
@@ -810,11 +837,12 @@ def register(bp):
                     [(site['id'], str(session_id), str(visitor_id), digest, started, latest, campaign, retention_days)
                      for session_id, (visitor_id, digest, started, latest, campaign) in session_rollup.items()])
             _fanout_flow_events(site, new_events, parsed.hostname.lower().rstrip('.'))
+            leads.confirm_leads(site['id'], [item for item in new_events if item[5] == 'conversion'] + derived)
             conn.commit()
         except Exception:
             conn.rollback()
             raise
-        return jsonify(accepted=len(prepared)), 202
+        return jsonify(accepted=len(prepared), rejected=rejected, conversions=len(derived)), 202
 
     @bp.get('/api/v2/reports/supertag/sites/<uuid:site_id>/events')
     @login_required_api
@@ -935,3 +963,5 @@ def register(bp):
         return jsonify(site=site[0], summary=summary, pages=pages, sessions=sessions,
                        known_sessions=known_sessions, heatmap=heatmap,
                        branding=_branding_metrics(str(site_id)))
+
+    leads.register(bp)

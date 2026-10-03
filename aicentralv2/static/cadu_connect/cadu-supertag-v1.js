@@ -1,4 +1,6 @@
 /* Cadu Super Tag v1: first-party, batched measurement.
+ * Install with one line: <script async src=".../v1/supertag.js" data-cadu-site="ID"></script>. Everything else (enhanced
+ * measurement switches, form capture, retention) comes from the site's config.json, edited in the Reports panel.
  * Consent belongs to the website (its banner and privacy policy); the tag collects by default and only stops on an
  * explicit opt-out: CaduSuperTag.setConsent(false) or a `cadu:consent` event with {analytics: false}.
  * Technical safety is fixed: no query string, hash or e-mail in paths, never passwords, cards or documents. */
@@ -6,8 +8,18 @@
   'use strict';
   var script = document.currentScript;
   var siteId = script && script.getAttribute('data-cadu-site');
-  var configUrl = script && script.getAttribute('data-cadu-config');
-  if (!siteId || !configUrl || !window.crypto || !window.crypto.randomUUID) return;
+  if (!siteId || !/^[A-Za-z0-9_-]{1,64}$/.test(siteId) || !window.crypto || !window.crypto.randomUUID) return;
+  // Old snippets carry data-cadu-config; the one-line snippet lets the tag find the config next to its own URL.
+  var configUrl = script.getAttribute('data-cadu-config') || defaultConfigUrl();
+  if (!configUrl) return;
+
+  function defaultConfigUrl() {
+    var source;
+    try { source = new URL(script.src, location.href); } catch (_) { return ''; }
+    var prefix = source.pathname.replace(/\/(?:v1\/supertag|static\/cadu_connect\/cadu-supertag-v1(?:\.min)?)\.js$/, '');
+    if (prefix === source.pathname) prefix = '';
+    return source.origin + prefix + '/connect/public/supertag/v1/' + siteId + '/config.json';
+  }
 
   var parsedConfigUrl;
   try { parsedConfigUrl = new URL(configUrl, location.href); } catch (_) { return; }
@@ -130,6 +142,39 @@
     return {width: width, height: height, scrollX: window.pageXOffset || 0, scrollY: window.pageYOffset || 0};
   }
 
+  // Enhanced measurement switches from config.enhanced; a missing key (or an old config) means on.
+  function measures(key) {
+    var enhanced = config && config.enhanced;
+    return !enhanced || typeof enhanced !== 'object' || enhanced[key] !== false;
+  }
+
+  var DOWNLOAD_EXT = /\.(pdf|docx?|xlsx?|xlsm|pptx?|pps|csv|txt|rtf|odt|ods|odp|epub|zip|rar|7z|gz|tgz|tar|exe|msi|dmg|pkg|apk|key|mp3|wav|wma|m4a|mp4|mpe?g|mov|avi|wmv)$/i;
+  var WHATSAPP = /^whatsapp:|(?:^|\/\/)(?:wa\.me|api\.whatsapp\.com|web\.whatsapp\.com|chat\.whatsapp\.com)(?:[\/:?#]|$)/i;
+
+  function bareHost(host) { return String(host || '').toLowerCase().replace(/^www\./, ''); }
+
+  // What a link is, from its href alone. Only the kind, the host and the file extension ever leave the browser:
+  // never the path, the query string, the phone number or the e-mail address.
+  function classifyLink(anchor) {
+    var href = anchor && anchor.getAttribute('href');
+    if (!href) return null;
+    var raw = href.trim();
+    if (/^tel:/i.test(raw)) return {type: 'contact', channel: 'phone'};
+    if (/^mailto:/i.test(raw)) return {type: 'contact', channel: 'email'};
+    if (WHATSAPP.test(raw)) return {type: 'contact', channel: 'whatsapp'};
+    var url;
+    try { url = new URL(raw, location.href); } catch (_) { return null; }
+    if (!/^https?:$/.test(url.protocol)) return null;
+    if (WHATSAPP.test('//' + url.hostname + '/')) return {type: 'contact', channel: 'whatsapp'};
+    var external = bareHost(url.hostname) !== bareHost(location.hostname);
+    var ext = url.pathname.match(DOWNLOAD_EXT);
+    if (ext || anchor.hasAttribute('download')) {
+      var found = ext ? ext[1].toLowerCase() : (url.pathname.match(/\.([a-z0-9]{1,8})$/i) || [])[1];
+      return {type: 'download', ext: found ? found.toLowerCase() : '', host: external ? url.hostname.toLowerCase() : ''};
+    }
+    return external ? {type: 'outbound', host: url.hostname.toLowerCase()} : null;
+  }
+
   // Returns the event id, so a form submit can link the lead it captures to its own event.
   function pushEvent(kind, data, name, pathOverride) {
     if (!started || optedOut || buffer.length >= maxBuffer) return null;
@@ -196,6 +241,15 @@
         flushInFlight = false;
         if (!optedOut && buffer.length >= 10) flush(false);
       });
+  }
+
+  function trackHistoryPage() {
+    if (measures('page_changes')) trackPage();
+  }
+
+  // pushState/replaceState also run for filters, query strings and scroll-spy hashes: only a new path is a new page.
+  function onHistoryApi() {
+    if ((location.pathname || '/') !== activePath) trackHistoryPage();
   }
 
   function trackPage() {
@@ -357,6 +411,60 @@
       headers: {'Content-Type': 'text/plain;charset=UTF-8'}, body: body}).catch(function () {});
   }
 
+  // Embedded HTML5 <video>: start, 25/50/75% and complete, once per element and page view.
+  var videoState = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
+  function onVideo(eventObject) {
+    var media = eventObject.target;
+    if (!videoState || !started || optedOut || !media || media.tagName !== 'VIDEO' || !measures('video')) return;
+    if (media.closest && media.closest('[data-cadu-ignore]')) return;
+    var state = videoState.get(media);
+    if (!state || state.page !== lastPath) { state = {page: lastPath, started: false, progress: 0, done: false}; videoState.set(media, state); }
+    if (eventObject.type === 'play' && !state.started) {
+      state.started = true;
+      event('video', {action: 'start'});
+    } else if (eventObject.type === 'timeupdate' && media.duration > 0 && isFinite(media.duration)) {
+      var percent = media.currentTime / media.duration * 100;
+      var mark = percent >= 75 ? 75 : percent >= 50 ? 50 : percent >= 25 ? 25 : 0;
+      if (mark > state.progress && state.started) {
+        state.progress = mark;
+        event('video', {action: 'progress', percent: mark});
+      }
+    } else if (eventObject.type === 'ended' && !state.done) {
+      state.done = true;
+      event('video', {action: 'complete'});
+    }
+  }
+
+  function clickPosition(eventObject, target) {
+    var size = viewport();
+    var doc = documentBox();
+    var data = {x: Math.max(0, Math.min(1000, Math.round(eventObject.clientX / Math.max(size.width, 1) * 1000))),
+      y: Math.max(0, Math.min(1000, Math.round(eventObject.clientY / Math.max(size.height, 1) * 1000))),
+      element_id: elementId(target)};
+    if (doc) {
+      // Position inside the whole page, so clicks made at different scroll offsets land in the same place.
+      data.dx = Math.max(0, Math.min(1000, Math.round((eventObject.clientX + doc.scrollX) / doc.width * 1000)));
+      data.dy = Math.max(0, Math.min(1000, Math.round((eventObject.clientY + doc.scrollY) / doc.height * 1000)));
+      data.dh = doc.height;
+    }
+    return data;
+  }
+
+  // gtag-style parameters: only a numeric value and a currency code travel; anything else is ignored.
+  function eventParams(params) {
+    var data = {};
+    if (!params || typeof params !== 'object') return data;
+    var value = params.value;
+    if (typeof value === 'string' && /^\d+(?:[.,]\d+)?$/.test(value.trim())) value = Number(value.trim().replace(',', '.'));
+    if (typeof value === 'number' && isFinite(value) && value >= 0 && value <= 1e9) data.value = Math.round(value * 100) / 100;
+    if (typeof params.currency === 'string' && /^[A-Za-z]{3}$/.test(params.currency)) data.currency = params.currency.toUpperCase();
+    return data;
+  }
+
+  function validName(name) {
+    return typeof name === 'string' && /^[A-Za-z][A-Za-z0-9_]{0,79}$/.test(name);
+  }
+
   function start() {
     if (!config || optedOut || started) return;
     started = true;
@@ -373,6 +481,7 @@
     trackPage();
     if (!listenersInstalled) {
       listenersInstalled = true;
+      // One delegated listener detects everything: no data-cadu-* attribute is needed on links or buttons.
       document.addEventListener('click', function (eventObject) {
         var target = eventObject.target && eventObject.target.closest ?
           eventObject.target.closest('a,button,[role="button"],[data-cadu-element]') : null;
@@ -380,22 +489,26 @@
         var now = Date.now();
         if (now - lastClickAt < 250) return;
         lastClickAt = now;
-        var href = target.getAttribute('href') || '';
-        var kind = /(?:wa\.me|api\.whatsapp\.com)/i.test(href) ? 'whatsapp_click' : 'click';
-        var size = viewport();
-        var doc = documentBox();
-        var data = {x: Math.max(0, Math.min(1000, Math.round(eventObject.clientX / Math.max(size.width, 1) * 1000))),
-          y: Math.max(0, Math.min(1000, Math.round(eventObject.clientY / Math.max(size.height, 1) * 1000))),
-          element_id: elementId(target)};
-        if (doc) {
-          // Position inside the whole page, so clicks made at different scroll offsets land in the same place.
-          data.dx = Math.max(0, Math.min(1000, Math.round((eventObject.clientX + doc.scrollX) / doc.width * 1000)));
-          data.dy = Math.max(0, Math.min(1000, Math.round((eventObject.clientY + doc.scrollY) / doc.height * 1000)));
-          data.dh = doc.height;
+        var link = classifyLink(target.closest('a[href]'));
+        var contacts = measures('contacts');
+        if (link && link.type === 'contact' && link.channel === 'whatsapp' && contacts) {
+          // WhatsApp keeps its own kind, which also feeds the click map.
+          event('whatsapp_click', clickPosition(eventObject, target));
+        } else if (measures('clicks')) {
+          event('click', clickPosition(eventObject, target));
         }
-        event(kind, data);
+        if (!link) return;
+        if (link.type === 'contact' && link.channel !== 'whatsapp' && contacts) event('contact_click', {channel: link.channel});
+        else if (link.type === 'outbound' && measures('outbound')) event('outbound_click', {link_host: link.host});
+        else if (link.type === 'download' && measures('downloads')) {
+          var file = {};
+          if (link.ext) file.file_ext = link.ext;
+          if (link.host) file.link_host = link.host;
+          event('file_download', file);
+        }
       }, true);
       document.addEventListener('submit', function (eventObject) {
+        if (!measures('forms')) return;
         var form = eventObject.target;
         if (!form || form.tagName !== 'FORM' || form.closest('[data-cadu-ignore]')) return;
         var id = form.getAttribute('data-cadu-form');
@@ -408,7 +521,7 @@
         flush(true);
       }, true);
       window.addEventListener('scroll', function () {
-        if (!started || optedOut) return;
+        if (!started || optedOut || !measures('scroll')) return;
         var doc = document.documentElement;
         var max = Math.max(doc.scrollHeight - window.innerHeight, 1);
         var percent = Math.min(100, Math.floor((window.scrollY || 0) / max * 4 + 1) * 25);
@@ -417,11 +530,24 @@
           event('scroll_depth', {depth: percent});
         }
       }, {passive: true});
-      window.addEventListener('popstate', trackPage);
-      window.addEventListener('hashchange', trackPage);
+      // Single-page apps: history changes count as page views (the same path is never counted twice).
+      window.addEventListener('popstate', trackHistoryPage);
+      window.addEventListener('hashchange', trackHistoryPage);
       if (window.navigation && window.navigation.addEventListener) {
-        window.navigation.addEventListener('navigatesuccess', trackPage);
+        window.navigation.addEventListener('navigatesuccess', trackHistoryPage);
       }
+      ['pushState', 'replaceState'].forEach(function (method) {
+        var original = window.history && window.history[method];
+        if (typeof original !== 'function') return;
+        try {
+          window.history[method] = function () {
+            var result = original.apply(this, arguments);
+            window.setTimeout(onHistoryApi, 0);
+            return result;
+          };
+        } catch (_) { /* A frozen history object keeps working without SPA page views. */ }
+      });
+      ['play', 'timeupdate', 'ended'].forEach(function (type) { document.addEventListener(type, onVideo, true); });
       window.addEventListener('pagehide', function () { leaveCurrentPage(); flush(true); });
       document.addEventListener('visibilitychange', function () {
         if (document.visibilityState === 'hidden') pauseActivePage();
@@ -491,13 +617,20 @@
         body:JSON.stringify({visitor_id:visitorId,session_id:sessionId,name:name,email:email,phone:phone,campaign:currentCampaignScope(),path:location.pathname || '/'})
       }).then(function (response) { return response.ok; }).catch(function () { return false; });
     },
-    trackEvent: function (name) {
-      if (typeof name !== 'string' || !/^[A-Za-z][A-Za-z0-9_]{0,79}$/.test(name)) return false;
-      return event('custom_event', {}, name);
+    // gtag-style: event('lead_enviado', {value: 120, currency: 'BRL'}); {conversion: true} counts it as a conversion.
+    // 'page_view' records the current page (for SPAs that route on their own).
+    event: function (name, params) {
+      if (name === 'page_view') { trackPage(); return started && !optedOut; }
+      if (!validName(name)) return false;
+      return event(params && params.conversion === true ? 'conversion' : 'custom_event', eventParams(params), name);
     },
-    trackConversion: function (name) {
-      if (typeof name !== 'string' || !/^[A-Za-z][A-Za-z0-9_]{0,79}$/.test(name)) return false;
-      return event('conversion', {}, name);
+    trackEvent: function (name, params) {
+      if (!validName(name)) return false;
+      return event('custom_event', eventParams(params), name);
+    },
+    trackConversion: function (name, params) {
+      if (!validName(name)) return false;
+      return event('conversion', eventParams(params), name);
     }
   });
   window.addEventListener('cadu:consent', function (eventObject) {

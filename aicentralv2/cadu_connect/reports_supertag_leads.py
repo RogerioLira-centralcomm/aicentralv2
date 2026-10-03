@@ -523,14 +523,14 @@ def lead_row(row, can_reveal):
 def register(bp):
     @bp.route('/public/supertag/v1/<public_id>/lead', methods=['POST', 'OPTIONS'])
     def supertag_public_lead(public_id):
-        from .reports_supertag import MAX_IP_EVENTS_PER_MINUTE, _ip_digest, _site_by_public_id
+        from .reports_supertag import MAX_IP_EVENTS_PER_MINUTE, _ip_digest, _site_by_public_id, enhanced_settings
         site = _site_by_public_id(public_id)
         _origin_guard(site)
         if request.method == 'OPTIONS':
             return ('', 204)
         # The tag reads config.json with cache: 'force-cache', so a browser may keep an old "enabled" copy: the
-        # server is what enforces a capture turned off.
-        if not public_form_capture(site.get('config'))['enabled']:
+        # server is what enforces a capture (or the form measurement it rides on) turned off.
+        if not public_form_capture(site.get('config'))['enabled'] or not enhanced_settings(site.get('config'))['forms']:
             return jsonify(accepted=0), 202
         lead = _lead_payload(site)
         if not (lead['name'] or lead['email'] or lead['phone'] or lead['fields']):

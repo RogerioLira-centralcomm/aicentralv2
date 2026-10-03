@@ -14,7 +14,19 @@ import {decimal, integer, json, reportUrl, shortDate} from './reportsCommon.jsx'
 
 const API = '/connect/api/v2/reports/supertag';
 const EVENT_LABELS = {page_view: 'Visualização de página', page_leave: 'Saída de página', click: 'Clique', whatsapp_click: 'Clique no WhatsApp', form_submit: 'Envio de formulário',
-  visibility: 'Elemento visível', scroll_depth: 'Rolagem', custom_event: 'Evento personalizado', conversion: 'Conversão', heartbeat: 'Tempo ativo'};
+  visibility: 'Elemento visível', scroll_depth: 'Rolagem', custom_event: 'Evento personalizado', conversion: 'Conversão', heartbeat: 'Tempo ativo',
+  outbound_click: 'Link para outro site', file_download: 'Download', contact_click: 'Clique em telefone ou e-mail', video: 'Vídeo'};
+/** Enhanced measurement, like a GA4 data stream: detected on their own, one switch each, all on by default. */
+const MEASUREMENTS = [
+  ['page_changes', 'Troca de página sem recarregar', 'Conta uma nova página quando o endereço muda sem recarregar (sites em React, Vue e similares).'],
+  ['scroll', 'Rolagem', 'Quanto da página foi visto: 25%, 50%, 75% e 100%.'],
+  ['clicks', 'Mapa de cliques', 'Onde as pessoas clicam em links e botões.'],
+  ['outbound', 'Links para outros sites', 'Registra só o domínio de destino.'],
+  ['contacts', 'WhatsApp, telefone e e-mail', 'Cliques em links de contato. O número e o endereço não são enviados.'],
+  ['downloads', 'Downloads', 'PDF, planilhas, documentos, ZIP e outros arquivos.'],
+  ['forms', 'Envio de formulário', 'Envios válidos e inválidos. Desligado, Quem converteu deixa de receber contatos de formulários.'],
+  ['video', 'Vídeos', 'Início, 25%, 50%, 75% e fim de vídeos publicados no próprio site. Vídeos do YouTube não entram.'],
+];
 const AUDIENCE_DAYS = [[30, '30 dias'], [60, '60 dias'], [90, '90 dias'], [180, '6 meses'], [365, '1 ano'], [395, '13 meses (máximo do navegador)']];
 const RETENTION_DAYS = [[30, '30 dias'], [60, '60 dias'], [90, '90 dias'], [180, '6 meses'], [365, '1 ano'], [730, '2 anos'], [1095, '3 anos'], [1825, '5 anos']];
 const seconds = value => value == null ? '—' : `${decimal(value)} s`;
@@ -167,7 +179,7 @@ export function SuperTagPage({data}) {
         {tab === 'activity' && hasEvents && detail && <Activity detail={detail}/>}
         {tab === 'install' && <div className="grid items-start gap-6 xl:grid-cols-2">{install}<InstallGuide/></div>}
         {tab === 'flows' && <LinkedFlows linked={linked} site={selected}/>}
-        {tab === 'settings' && <Settings data={data} site={selected} busy={busy} canEdit={canEdit} onUpdate={update} onRevoke={() => setRevokeOpen(true)}/>}
+        {tab === 'settings' && <Settings data={data} site={selected} busy={busy} canEdit={canEdit} onUpdate={update} onCopy={() => copy(selected.snippet)} onRevoke={() => setRevokeOpen(true)}/>}
       </>}
     </div>
     <InstallDrawer open={installOpen} data={data} onClose={() => setInstallOpen(false)} onCreated={async site => {await load(); location.assign(reportUrl('supertag', {}, site.id));}}/>
@@ -268,7 +280,7 @@ function InstallStatus({site, hasEvents, verify, verifying, onVerify, onCopy, on
 }
 
 function InstallCard({site, onCopy, onDownload, onEmail}) {
-  return <Card title="Código da Super Tag" description="Cole dentro de <head>, em todas as páginas. O código não contém credenciais.">
+  return <Card title="Código da Super Tag" description="Uma linha, colada dentro de <head> em todas as páginas. O que medir se ajusta em Configurações, sem mexer no site.">
     <pre className="max-h-48 overflow-auto rounded-lg bg-secondary p-4 font-mono text-xs leading-5 break-all whitespace-pre-wrap text-secondary ring-1 ring-secondary ring-inset">{site.snippet}</pre>
     <div className="mt-4 flex flex-wrap gap-3">
       <Button size="md" color="primary" iconLeading={Copy01} onPress={onCopy}>Copiar código</Button>
@@ -365,11 +377,32 @@ function LinkedFlows({linked, site}) {
   </Card>;
 }
 
-function Settings({data, site, busy, canEdit, onUpdate, onRevoke}) {
+/** What the tag measures on its own. Saved here, read by the tag from its config: nothing changes on the site. */
+function Measurement({site, disabled, onUpdate, onCopy}) {
+  const saved = site.config?.enhanced || {};
+  return <Card title="Medição" description="A tag detecta tudo sozinha, sem marcar nada no site. Mudanças valem a partir das próximas visitas.">
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-2 rounded-lg bg-secondary p-2 pl-3 ring-1 ring-secondary ring-inset">
+        <code className="min-w-0 flex-1 truncate font-mono text-xs text-secondary" title={site.snippet}>{site.snippet}</code>
+        <CaduTooltip label="Copiar código"><Button size="sm" color="secondary" iconLeading={Copy01} aria-label="Copiar código da Super Tag" onPress={onCopy}/></CaduTooltip>
+      </div>
+      <ul className="flex flex-col divide-y divide-secondary rounded-lg ring-1 ring-secondary ring-inset">{MEASUREMENTS.map(([key, title, hint]) =>
+        <li key={key}><label className="flex cursor-pointer items-start gap-3 px-4 py-3">
+          <input type="checkbox" role="switch" className="mt-0.5 size-4 accent-brand-600" disabled={disabled} checked={saved[key] !== false}
+            onChange={event => onUpdate({enhanced: {[key]: event.target.checked}})}/>
+          <span><span className="block text-sm font-semibold text-primary">{title}</span><span className="block text-sm text-tertiary">{hint}</span></span>
+        </label></li>)}</ul>
+      <p className="text-sm text-tertiary">Para eventos próprios: {'CaduSuperTag.event(\'lead_enviado\', {value: 100, currency: \'BRL\'})'}. Com {'conversion: true'}, conta como conversão.</p>
+    </div>
+  </Card>;
+}
+
+function Settings({data, site, busy, canEdit, onUpdate, onCopy, onRevoke}) {
   const config = site.config || {};
   const disabled = busy || !canEdit;
   return <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
     <div className="flex flex-col gap-6">
+    <Measurement site={site} disabled={disabled} onUpdate={onUpdate} onCopy={onCopy}/>
     <Card title="Coleta" description="Valem para todas as páginas deste site. Mudanças entram na próxima visita.">
       <div className="flex flex-col gap-5">
         <div className="grid gap-4 sm:grid-cols-2">

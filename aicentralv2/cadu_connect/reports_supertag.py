@@ -35,7 +35,14 @@ MAX_BATCH_BYTES = 32 * 1024
 MAX_SITE_EVENTS_PER_MINUTE = 10_000
 MAX_IP_EVENTS_PER_MINUTE = 1_000
 EVENT_KINDS = {'page_view', 'page_leave', 'heartbeat', 'click', 'whatsapp_click', 'form_submit',
-               'visibility', 'scroll_depth', 'custom_event', 'conversion'}
+               'visibility', 'scroll_depth', 'custom_event', 'conversion',
+               'outbound_click', 'file_download', 'contact_click', 'video'}
+# Enhanced measurement, like a GA4 data stream: one switch per automatic event family, all on by default (and for
+# configs saved before the switches existed). `page_changes` only steers the tag (SPA page views look like any other).
+ENHANCED_KEYS = ('page_changes', 'scroll', 'clicks', 'outbound', 'contacts', 'downloads', 'forms', 'video')
+ENHANCED_BY_KIND = {'scroll_depth': 'scroll', 'click': 'clicks', 'outbound_click': 'outbound', 'contact_click': 'contacts',
+                    'whatsapp_click': 'contacts', 'file_download': 'downloads', 'form_submit': 'forms', 'video': 'video'}
+CLICK_DATA = {'x', 'y', 'element_id', 'dx', 'dy', 'dh'}
 SITE_CHECK_MAX_BYTES = 256_000
 
 
@@ -86,11 +93,35 @@ def _uuid(value, field, *, optional=False):
 
 
 def _supertag_snippet(site):
-    base = _base_url()
-    public_id = site['public_id']
-    return (f'<script async src="{base}/v1/supertag.js" '
-            f'data-cadu-site="{public_id}" '
-            f'data-cadu-config="{base}/connect/public/supertag/v1/{public_id}/config.json"></script>')
+    """One line, like GA4: the tag finds its config next to its own URL. Old snippets with data-cadu-config still work."""
+    return f'<script async src="{_base_url()}/v1/supertag.js" data-cadu-site="{site["public_id"]}"></script>'
+
+
+def enhanced_settings(config):
+    """Every switch resolved to a bool; a missing key (or a config older than the switches) means on."""
+    saved = (config or {}).get('enhanced')
+    saved = saved if isinstance(saved, dict) else {}
+    return {key: saved.get(key) is not False for key in ENHANCED_KEYS}
+
+
+def validate_enhanced(value):
+    if not isinstance(value, dict) or not value or set(value) - set(ENHANCED_KEYS) or \
+            any(not isinstance(item, bool) for item in value.values()):
+        abort(400, description='Medição aprimorada inválida: use ligado ou desligado para cada item.')
+    return dict(value)
+
+
+def _event_params(data, clean_data):
+    """Optional numeric value and currency of CaduSuperTag.event(name, {value, currency}); nothing else."""
+    if 'value' in data:
+        value = data['value']
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= value <= 1_000_000_000:
+            abort(400, description='Valor do evento inválido.')
+        clean_data['value'] = round(float(value), 2)
+    if 'currency' in data:
+        if not isinstance(data['currency'], str) or not re.fullmatch(r'[A-Z]{3}', data['currency']):
+            abort(400, description='Moeda do evento inválida.')
+        clean_data['currency'] = data['currency']
 
 
 def ensure_supertag_site(selected, host, label):
@@ -226,13 +257,24 @@ def _event(raw, site):
     if not isinstance(data, dict):
         abort(400, description='Metadados do evento inválidos.')
     allowed_data = {
-        'click': {'x', 'y', 'element_id', 'dx', 'dy', 'dh'}, 'whatsapp_click': {'x', 'y', 'element_id', 'dx', 'dy', 'dh'},
+        'click': CLICK_DATA, 'whatsapp_click': CLICK_DATA,
         'visibility': {'element_id', 'ratio'}, 'scroll_depth': {'depth'},
-        'form_submit': {'form_id', 'valid'}, 'custom_event': set(), 'conversion': set(), 'page_view': set(),
-        'page_leave': {'duration_ms'}, 'heartbeat': set(),
+        'form_submit': {'form_id', 'valid'}, 'custom_event': {'value', 'currency'}, 'conversion': {'value', 'currency'},
+        'page_view': set(), 'page_leave': {'duration_ms'}, 'heartbeat': set(),
+        'outbound_click': {'link_host'}, 'file_download': {'file_ext', 'link_host'}, 'contact_click': {'channel'},
+        'video': {'action', 'percent'},
     }[kind]
     if set(data) - allowed_data:
         abort(400, description='Metadados não permitidos. Valores de campos não podem ser enviados.')
+    # A switch turned off in the panel wins over a tag that still runs with a cached config: the event is dropped
+    # (counted as rejected). A WhatsApp click without the contacts switch still feeds the click map as a plain click.
+    enhanced = enhanced_settings(site.get('config'))
+    switch = ENHANCED_BY_KIND.get(kind)
+    if switch and not enhanced[switch]:
+        if kind == 'whatsapp_click' and enhanced['clicks']:
+            kind = 'click'
+        else:
+            abort(400, description='Medição desativada para este site.')
     clean_data = {}
     if kind in ('click', 'whatsapp_click'):
         for axis in ('x', 'y'):
@@ -287,6 +329,38 @@ def _event(raw, site):
             if not isinstance(data['valid'], bool):
                 abort(400, description='Validade do formulário inválida.')
             clean_data['valid'] = data['valid']
+    elif kind in ('custom_event', 'conversion'):
+        _event_params(data, clean_data)
+    elif kind in ('outbound_click', 'file_download'):
+        # Only the host of the link: never its path, query string or fragment.
+        link_host = data.get('link_host')
+        if link_host is not None:
+            if not isinstance(link_host, str) or len(link_host) > 253 or '@' in link_host:
+                abort(400, description='Destino do link inválido.')
+            clean_data['link_host'] = _host(link_host)
+        elif kind == 'outbound_click':
+            abort(400, description='Informe o domínio do link externo.')
+        if kind == 'file_download' and data.get('file_ext') is not None:
+            if not isinstance(data['file_ext'], str) or not re.fullmatch(r'[a-z0-9]{1,8}', data['file_ext']):
+                abort(400, description='Tipo de arquivo inválido.')
+            clean_data['file_ext'] = data['file_ext']
+    elif kind == 'contact_click':
+        # The channel only: the number or address of the link never leaves the browser.
+        if data.get('channel') not in ('phone', 'email', 'whatsapp'):
+            abort(400, description='Canal de contato inválido.')
+        clean_data['channel'] = data['channel']
+    elif kind == 'video':
+        action, percent = data.get('action'), data.get('percent')
+        if action not in ('start', 'progress', 'complete'):
+            abort(400, description='Ação de vídeo inválida.')
+        if action == 'progress':
+            if isinstance(percent, bool) or percent not in (25, 50, 75):
+                abort(400, description='Progresso do vídeo inválido.')
+            clean_data = {'action': action, 'percent': percent}
+        elif percent is not None:
+            abort(400, description='Progresso só vale para a ação progress.')
+        else:
+            clean_data = {'action': action}
     try:
         occurred_at = datetime.fromisoformat(str(raw.get('occurred_at', '')).replace('Z', '+00:00'))
         if occurred_at.tzinfo is None:
@@ -635,7 +709,8 @@ def register(bp):
     def supertag_site_update(site_id):
         payload = request.get_json(silent=True) or {}
         if not isinstance(payload, dict) or set(payload) - {'label', 'allowed_host', 'visibility_enabled', 'audience_days', 'retention_days',
-                                                         'conversion_rules', 'conversion_defaults', 'form_capture', 'client_id'}:
+                                                         'conversion_rules', 'conversion_defaults', 'form_capture', 'enhanced',
+                                                         'client_id'}:
             abort(400, description='Configuração da Super Tag inválida.')
         selected = _selection(payload)
         _write_guard(selected)
@@ -659,6 +734,8 @@ def register(bp):
             config['conversion_defaults'] = payload['conversion_defaults']
         if 'form_capture' in payload:
             config['form_capture'] = {**(config.get('form_capture') or {}), **leads.validate_form_capture(payload['form_capture'])}
+        if 'enhanced' in payload:
+            config['enhanced'] = {**enhanced_settings(config), **validate_enhanced(payload['enhanced'])}
         if 'visibility_enabled' in payload:
             if not isinstance(payload['visibility_enabled'], bool):
                 abort(400, description='Informe se a coleta de visibilidade está ativa.')
@@ -706,6 +783,7 @@ def register(bp):
         response = make_response(jsonify(site_id=site['public_id'], config_version=site['config_version'],
             visibility_enabled=(site.get('config') or {}).get('visibility_enabled', True),
             form_capture=leads.public_form_capture(site.get('config')),
+            enhanced=enhanced_settings(site.get('config')),
             audience_days=(site.get('config') or {}).get('audience_days', DEFAULT_AUDIENCE_DAYS)))
         response.headers['Cache-Control'] = 'public, max-age=300, stale-while-revalidate=3600'
         response.set_etag(f'{site["public_id"]}:{site["config_version"]}')

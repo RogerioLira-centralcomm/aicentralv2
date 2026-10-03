@@ -176,3 +176,6 @@
 .rs-chan__tech{gap:12px}
 .rs-chan__tech>*{min-width:0}
 .rs-chan__tech .rs-table-wrap{width:100%;margin:0}
+
+.rs-chan__up{color:var(--rs-success)}
+.rs-chan__down{color:var(--rs-error)}

@@ -264,10 +264,11 @@ def test_channels_route_filters_by_site_and_aggregates_totals(app):
     body = response.get_json()
     assert response.status_code == 200 and bad.status_code == 400
     assert body['totals'] == {'sessions': 40, 'converted_sessions': 4, 'conversion_rate': 10.0}
-    assert body['quality']['low_sample'] is False and len(body['channels']) == len(journey.ORIGIN_GROUPS) and len(seen) == 5
+    assert body['quality']['low_sample'] is False and len(body['channels']) == len(journey.ORIGIN_GROUPS) and len(seen) == 6
     for sql, params in seen:
         assert 'AND e.site_id=%(site)s::uuid' in sql and '{site}' not in sql and params['site'] == SITE
     assert body['channels'][0]['devices'][0]['label'] == 'Celular'
+    assert body['previous_window']['until'] and body['channels'][0]['previous_sessions'] == 30 and body['channels'][0]['sessions_change'] == 0.0
     assert body['tech']['coverage'] == 50.0 and body['tech']['os'][0]['value'] == 'iOS' and body['tech']['resolution'][0]['value'] == '390×844'
 
 
@@ -331,3 +332,75 @@ def test_tech_rows_report_coverage_and_rates_over_the_sessions_that_carry_data()
     assert out['os'][1]['conversion_rate'] == 0.0 and out['resolution'][0]['value'] == '412×915' and out['resolution'][0]['conversion_rate'] is None
     empty = journey.tech_rows([{'dimension': 'covered', 'value': 'all', 'sessions': 0, 'converted_sessions': 0}], 50)
     assert empty['coverage'] == 0.0 and empty['os'] == [] and empty['browser'] == [] and empty['resolution'] == []
+
+
+def test_channel_changes_need_a_usable_base_in_both_periods():
+    channels = journey.channel_rows([{'origin': 'direct', 'sessions': 40, 'views': 40, 'single_page_sessions': 0, 'converted_sessions': 8},
+                                     {'origin': 'social', 'sessions': 12, 'views': 12, 'single_page_sessions': 0, 'converted_sessions': 1}], [], [], [])
+    before = [{'origin': 'direct', 'sessions': 20, 'converted_sessions': 2}, {'origin': 'social', 'sessions': 4, 'converted_sessions': 0}]
+    out = {item['origin']: item for item in journey.channel_changes(channels, before)}
+    assert out['direct']['sessions_change'] == 100.0 and out['direct']['previous_sessions'] == 20
+    assert out['direct']['conversion_rate_change'] == 10.0               # 20% now against 10% before
+    assert out['social']['sessions_change'] is None and out['social']['conversion_rate_change'] is None    # previous base too small
+    assert out['organic']['previous_sessions'] == 0 and out['organic']['sessions_change'] is None
+
+
+def test_attribution_credits_first_last_and_assists_and_keeps_totals():
+    rows = [{'first_origin': 'social', 'last_origin': 'google_ads', 'touched': ['direct', 'google_ads', 'organic', 'social'], 'conversions': 3},
+            {'first_origin': 'google_ads', 'last_origin': 'google_ads', 'touched': ['google_ads'], 'conversions': 5},
+            {'first_origin': 'direct', 'last_origin': 'direct', 'touched': ['direct'], 'conversions': 2}]
+    out = journey.attribution_rows(rows)
+    assert out['conversions'] == 10
+    by = {item['origin']: item for item in out['channels']}
+    assert (by['google_ads']['first_touch'], by['google_ads']['last_touch'], by['google_ads']['assisted']) == (5, 8, 0)
+    assert (by['social']['first_touch'], by['social']['last_touch'], by['social']['assisted']) == (3, 0, 0)
+    assert (by['organic']['first_touch'], by['organic']['last_touch'], by['organic']['assisted']) == (0, 0, 3)
+    assert by['direct']['assisted'] == 3 and by['direct']['first_touch'] == 2 and by['google_ads']['last_share'] == 80.0
+    assert 'referral' not in by and journey.attribution_rows([]) == {'conversions': 0, 'channels': []}
+
+
+def test_ads_cost_divides_spend_by_clicks_sessions_and_converted_sessions():
+    cost = journey.ads_cost({'cost_micros': 1500_000000, 'clicks': 600, 'impressions': 9000, 'currencies': ['BRL']}, 300, 15)
+    assert cost['spend'] == 1500.0 and cost['currency'] == 'BRL' and cost['cost_per_click'] == 2.5
+    assert cost['cost_per_session'] == 5.0 and cost['cost_per_converted_session'] == 100.0 and cost['sessions_per_click'] == 0.5
+    none = journey.ads_cost({'cost_micros': 100_000000, 'clicks': 10, 'currencies': ['BRL']}, 0, 0)
+    assert none['cost_per_session'] is None and none['cost_per_converted_session'] is None
+    mixed = journey.ads_cost({'cost_micros': 100_000000, 'clicks': 10, 'currencies': ['BRL', 'USD']}, 5, 1)
+    assert mixed['spend'] is None and mixed['mixed_currencies'] is True and mixed['cost_per_converted_session'] is None
+    assert journey.ads_cost(None, 5, 1)['spend'] is None
+
+
+def test_attribution_sql_has_no_leftover_tokens_and_keeps_the_site_slot():
+    sql = journey._ATTRIBUTION_SQL
+    assert '@' not in sql and sql.count('{site}') == 1 and "NOT IN ('direct','unknown')" in sql
+    assert '%' not in sql.replace('%(', '')
+
+
+def test_attribution_route_scopes_cost_to_the_site_customer(app):
+    seen = []
+
+    def fake_rows(sql, params=()):
+        seen.append((sql, params))
+        if 'to_regclass' in sql:
+            return [{'ready': True}]
+        if 'SELECT customer_id FROM' in sql:
+            return [{'customer_id': 9}]
+        if 'cost_micros' in sql:
+            return [{'cost_micros': 500_000000, 'clicks': 100, 'impressions': 1000, 'currencies': ['BRL']}]
+        if 'GROUP BY first_origin' in sql:
+            return [{'first_origin': 'google_ads', 'last_origin': 'google_ads', 'touched': ['google_ads'], 'conversions': 4}]
+        return [{'origin': 'google_ads', 'sessions': 50, 'views': 90, 'single_page_sessions': 10, 'converted_sessions': 4}]
+
+    client = app.test_client()
+    with client.session_transaction() as session:
+        session['user_id'] = 1
+    with mock.patch.object(journey, '_rows', fake_rows), \
+         mock.patch.object(journey, '_selection', return_value={'client_id': 174, 'role': 'admin', 'user_id': 1}):
+        body = client.get(f'/connect/api/v2/reports/journey/attribution?site_id={SITE}&{PERIOD}').get_json()
+        account = client.get(f'/connect/api/v2/reports/journey/attribution?{PERIOD}').get_json()
+    assert body['attribution']['conversions'] == 4 and body['cost']['scope'] == 'customer'
+    assert body['cost']['cost_per_converted_session'] == 125.0 and body['cost']['cost_per_session'] == 10.0
+    spend = [(sql, params) for sql, params in seen if 'cost_micros' in sql]
+    assert 'c.customer_id=%(customer)s' in spend[0][0] and spend[0][1]['customer'] == 9
+    assert 'c.customer_id' not in spend[1][0] and account['cost']['scope'] == 'account'
+    assert all('{site}' not in sql and '{customer}' not in sql for sql, _ in seen)

@@ -246,6 +246,41 @@ _CHANNELS_TECH_SQL = _CHANNELS_CTE + '''
     SELECT 'resolution',resolution,COUNT(*)::bigint,COUNT(*) FILTER (WHERE converted)::bigint FROM chan WHERE resolution IS NOT NULL GROUP BY resolution
     UNION ALL
     SELECT 'covered','all',COUNT(*) FILTER (WHERE os IS NOT NULL)::bigint,0 FROM chan'''
+# Attribution: each converting session is credited by the visitor's sessions up to it in the window. First touch = the
+# earliest session's origin; last touch = the latest session that was not Direto/Origem desconhecida (the converting
+# session's own origin when every touch was direct); assisted = origins in the path that got neither credit. A visitor
+# without an id counts as one session. Sessions older than the period are not seen, so long paths are cut at its start.
+_ATTRIBUTION_SQL = ("""WITH ev AS (
+    SELECT e.site_id,s.allowed_host AS site_host,e.session_id,e.visitor_id,e.event_kind,e.occurred_at,e.id,e.referrer_host,e.attribution
+    @SCOPE@ AND e.event_kind IN ('page_view','conversion') {site}
+), firsts AS (
+    SELECT DISTINCT ON (site_id,session_id) site_id,session_id,visitor_id,site_host,referrer_host,attribution,occurred_at AS started_at
+    FROM ev WHERE event_kind='page_view' ORDER BY site_id,session_id,occurred_at,id
+), converted AS (
+    SELECT DISTINCT site_id,session_id FROM ev WHERE event_kind='conversion'
+), sess AS (
+    SELECT f.site_id,f.session_id,f.started_at,COALESCE(f.visitor_id::text,f.session_id::text) AS vkey,
+        @ORIGIN@ AS origin,(c.session_id IS NOT NULL) AS converted
+    FROM firsts f LEFT JOIN converted c ON c.site_id=f.site_id AND c.session_id=f.session_id
+), paths AS (
+    SELECT c.site_id,c.session_id,c.origin AS own_origin,
+        (ARRAY_AGG(t.origin ORDER BY t.started_at,t.session_id))[1] AS first_origin,
+        (ARRAY_AGG(t.origin ORDER BY t.started_at DESC,t.session_id DESC) FILTER (WHERE t.origin NOT IN ('direct','unknown')))[1] AS last_indirect,
+        ARRAY_AGG(DISTINCT t.origin) AS touched
+    FROM sess c JOIN sess t ON t.site_id=c.site_id AND t.vkey=c.vkey AND t.started_at<=c.started_at
+    WHERE c.converted GROUP BY c.site_id,c.session_id,c.origin
+)
+SELECT first_origin,COALESCE(last_indirect,own_origin) AS last_origin,touched,COUNT(*)::bigint AS conversions
+FROM paths GROUP BY first_origin,COALESCE(last_indirect,own_origin),touched""").replace('@SCOPE@', _SCOPE).replace('@ORIGIN@', origin_group_sql())
+
+# Google Ads spend of the period (campaign metrics already synced), narrowed to the site's client when it has one.
+_ADS_COST_SQL = """SELECT SUM(m.cost_micros)::bigint AS cost_micros,SUM(m.clicks)::bigint AS clicks,SUM(m.impressions)::bigint AS impressions,
+        ARRAY_REMOVE(ARRAY_AGG(DISTINCT COALESCE(a.currency,'')),'') AS currencies
+    FROM cadu_reports_campaign_daily_metrics m JOIN cadu_reports_campaigns c ON c.id=m.campaign_id
+        JOIN cadu_reports_accounts a ON a.id=c.account_id
+    WHERE m.client_id=%(client)s AND a.platform='google_ads' AND m.metric_date>=%(since)s::date AND m.metric_date<%(until)s::date{customer}"""
+
+
 _CHANNELS_LANDINGS_SQL = _CHANNELS_CTE + '''
     SELECT origin,site_id,host,path,COUNT(*)::bigint AS sessions,COUNT(*) FILTER (WHERE converted)::bigint AS converted_sessions
     FROM chan GROUP BY origin,site_id,host,path'''
@@ -661,6 +696,56 @@ def tech_rows(rows, total_sessions):
     return out
 
 
+def channel_changes(channels, previous_summary):
+    """Adds the previous period to every channel: sessions, their change and the conversion-rate change in points.
+    A change needs a usable base (RATE_MIN_BASE sessions) in both periods."""
+    before = {row['origin']: row for row in previous_summary}
+    for channel in channels:
+        row = before.get(channel['origin'], {})
+        sessions, converted = int(row.get('sessions') or 0), int(row.get('converted_sessions') or 0)
+        usable = sessions >= RATE_MIN_BASE and channel['sessions'] >= RATE_MIN_BASE
+        rate_before = _rate(converted, sessions)
+        channel['previous_sessions'] = sessions
+        channel['sessions_change'] = _change(channel['sessions'], sessions) if usable else None
+        channel['conversion_rate_change'] = (round(channel['conversion_rate'] - rate_before, 1)
+                                             if usable and channel['conversion_rate'] is not None and rate_before is not None else None)
+    return channels
+
+
+def attribution_rows(rows):
+    """Credits per origin group: first touch, last non-direct touch and assists, with shares of all conversions."""
+    first, last, assisted = {}, {}, {}
+    total = 0
+    for row in rows:
+        count = int(row['conversions'])
+        total += count
+        first[row['first_origin']] = first.get(row['first_origin'], 0) + count
+        last[row['last_origin']] = last.get(row['last_origin'], 0) + count
+        for origin in set(row.get('touched') or []) - {row['first_origin'], row['last_origin']}:
+            assisted[origin] = assisted.get(origin, 0) + count
+    out = []
+    for group in ORIGIN_GROUPS:
+        values = (first.get(group, 0), last.get(group, 0), assisted.get(group, 0))
+        if any(values):
+            out.append({'origin': group, 'label': ORIGIN_LABELS[group], 'first_touch': values[0], 'last_touch': values[1], 'assisted': values[2],
+                        'first_share': pct(values[0], total), 'last_share': pct(values[1], total)})
+    return {'conversions': total, 'channels': out}
+
+
+def ads_cost(row, sessions, converted_sessions):
+    """Spend of Google Ads against the site sessions that came from it. Money only when one currency is involved."""
+    row = row or {}
+    currencies = list(row.get('currencies') or [])
+    micros, clicks = row.get('cost_micros'), int(row.get('clicks') or 0)
+    spend = round(int(micros) / 1e6, 2) if micros is not None and len(currencies) <= 1 else None
+    per = lambda value, base: round(value / base, 2) if value is not None and base else None
+    return {'spend': spend, 'currency': currencies[0] if len(currencies) == 1 else None, 'mixed_currencies': len(currencies) > 1,
+            'clicks': clicks, 'impressions': int(row.get('impressions') or 0), 'sessions': sessions, 'converted_sessions': converted_sessions,
+            'cost_per_click': per(spend, clicks), 'cost_per_session': per(spend, sessions),
+            'cost_per_converted_session': per(spend, converted_sessions),
+            'sessions_per_click': round(sessions / clicks, 2) if clicks else None}
+
+
 def path_sequences(rows, sessions):
     """Most common whole visits (2 to SEQUENCE_DEPTH pages) with their share of sessions and conversion."""
     out = []
@@ -785,7 +870,12 @@ def register(bp):
         sessions = sum(item['sessions'] for item in channels)
         converted = sum(item['converted_sessions'] for item in channels)
         tech = tech_rows(_rows(narrow(_CHANNELS_TECH_SQL), scope), sessions)
+        previous_since, previous_until = previous_window(since, until)
+        previous = previous_since >= datetime.now(since.tzinfo) - timedelta(days=RETENTION_DAYS)
+        if previous:
+            channel_changes(channels, _rows(narrow(_CHANNELS_SUMMARY_SQL), {**scope, 'since': previous_since, 'until': previous_until}))
         return jsonify(window=_window_json(since, until, days), channels=channels, tech=tech,
+                       previous_window=_window_json(previous_since, previous_until, days) if previous else None,
                        totals={'sessions': sessions, 'converted_sessions': converted, 'conversion_rate': _rate(converted, sessions)},
                        quality={'min_sessions': MIN_SESSIONS, 'rate_min_base': RATE_MIN_BASE, 'low_sample': sessions < MIN_SESSIONS})
 
@@ -804,6 +894,31 @@ def register(bp):
         return jsonify(window=_window_json(since, until, days), groups=groups,
                        totals={'conversions': sum(item['conversions'] for item in groups), 'groups': len(groups),
                                'merged': sum(1 for item in groups if item['grouped'])})
+
+    @bp.get('/api/v2/reports/journey/attribution')
+    @login_required_api
+    def reports_journey_attribution():
+        """First touch, last non-direct touch and assists per origin, plus Google Ads spend against the sessions it brought."""
+        selected = _selection()
+        since, until, days = _window()
+        site = _site_param()
+        scope = {'client': selected['client_id'], 'since': since, 'until': until, 'site': site, 'customer': None}
+        narrow = (lambda sql: sql.replace('{site}', 'AND e.site_id=%(site)s::uuid' if site else ''))
+        attribution = attribution_rows(_rows(narrow(_ATTRIBUTION_SQL), scope))
+        summary = {row['origin']: row for row in _rows(narrow(_CHANNELS_SUMMARY_SQL), scope)}
+        google = summary.get('google_ads', {})
+        cost = None
+        if _rows("SELECT to_regclass('public.cadu_reports_campaign_daily_metrics') IS NOT NULL AS ready")[0]['ready']:
+            customer = None
+            if site:
+                found = _rows('SELECT customer_id FROM cadu_reports_supertag_sites WHERE id=%(site)s::uuid AND client_id=%(client)s', scope)
+                customer = found[0]['customer_id'] if found else None
+            cost = ads_cost((_rows(_ADS_COST_SQL.replace('{customer}', ' AND c.customer_id=%(customer)s' if customer else ''),
+                                   {**scope, 'customer': customer}) or [{}])[0],
+                            int(google.get('sessions') or 0), int(google.get('converted_sessions') or 0))
+            cost['scope'] = 'customer' if customer else 'account'
+        return jsonify(window=_window_json(since, until, days), attribution=attribution, cost=cost,
+                       quality={'min_sessions': MIN_SESSIONS, 'rate_min_base': RATE_MIN_BASE})
 
     @bp.get('/api/v2/reports/journey/conversions')
     @login_required_api

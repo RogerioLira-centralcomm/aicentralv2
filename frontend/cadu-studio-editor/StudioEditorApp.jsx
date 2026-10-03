@@ -19,9 +19,11 @@ const formatTokens = value => {
 };
 // Pieces uploaded in this browser live in the draft as data URLs, which can pass the localStorage quota.
 // A full draft is tried first; without room, the heavy images are left out so the text and choices still persist.
+const isDataUrl = value => String(value || '').startsWith('data:');
 const withoutDataUrls = draft => {
-  const light = item => item && String(item.url || item.dataUrl || '').startsWith('data:') ? {...item, url: '', dataUrl: ''} : item;
-  return {...draft, asset: light(draft.asset), versions: (draft.versions || []).filter(item => !String(item.url || '').startsWith('data:')), mask: null};
+  const versions = (draft.versions || []).filter(item => !isDataUrl(item.url));
+  const asset = draft.asset && !isDataUrl(draft.asset.url) ? draft.asset : null;
+  return {...draft, asset, versions, selectedId: versions.some(item => item.id === draft.selectedId) ? draft.selectedId : '', mask: null};
 };
 function persistDraft(key, draft) {
   for (const candidate of [draft, withoutDataUrls(draft)]) {

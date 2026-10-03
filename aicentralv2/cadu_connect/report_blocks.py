@@ -5,7 +5,7 @@ text blocks carry their own text. Documents without blocks get the default order
 """
 import re
 
-DATA_BLOCKS = {'results': 'Resultados', 'funnel': 'Da mídia à conversão', 'campaigns': 'Campanhas'}
+DATA_BLOCKS = {'results': 'Resultados', 'funnel': 'Da mídia à conversão', 'metrics': 'Métricas', 'campaigns': 'Campanhas'}
 FIELD_BLOCKS = {'objective': 'Objetivo', 'goals': 'Metas', 'notes': 'Contexto de gestão'}
 TEXT_TYPES = {'text': 'Texto', 'recommendations': 'Recomendações', 'next_steps': 'Próximos passos'}
 BUILTIN = {**DATA_BLOCKS, **FIELD_BLOCKS}
@@ -16,7 +16,8 @@ MAX_TEXT = 8000
 def default_blocks(document=None):
     document = document if isinstance(document, dict) else {}
     flow = document.get('scope') == 'flow'
-    return [{'id': key, 'type': key, 'title': title, 'hidden': key == 'funnel' and not flow}
+    return [{'id': key, 'type': key, 'title': title,
+             'hidden': (key == 'funnel' and not flow) or (key == 'metrics' and not document.get('metrics'))}
             for key, title in BUILTIN.items()]
 
 

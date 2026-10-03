@@ -35,7 +35,7 @@ function Funnel({stages}) {
 }
 
 /** Results at the top of a report: real media numbers for its campaign(s) and, for a flow, the journey in one funnel. */
-export function ReportResults({report, onJourney}) {
+export function ReportResults({report, onJourney, onTotals}) {
   const document = report.document || {};
   const flow = document.scope === 'flow' && document.flow_id;
   const [media, setMedia] = useState({loading: true});
@@ -46,6 +46,7 @@ export function ReportResults({report, onJourney}) {
     json(`${API}/workspaces/${report.id}/results`).then(body => {
       if (!live) return;
       setMedia({body});
+      onTotals?.(body.totals);
       if (flow) json(`${API}/flow/flows/${document.flow_id}/journey?${new URLSearchParams({start_date: body.period.start, end_date: body.period.end})}`)
         .then(value => {
           if (!live) return;

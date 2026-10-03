@@ -89,6 +89,14 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertLess(html.index('Subir orçamento'), html.index('Obj'))
         self.assertNotIn('Meta secreta', html)
 
+    def test_metrics_block_shows_value_and_target(self):
+        document = {'metrics': [{'id': 'cpl'}], 'blocks': [{'id': 'metrics', 'type': 'metrics', 'title': 'Indicadores', 'hidden': False}]}
+        snapshot = {'document': document, 'results': None, 'journey': None,
+                    'metrics': [{'name': 'Custo por lead', 'unit': 'BRL', 'result': 40.0, 'target': 30.0, 'status': 'missed', 'definition': 'Custo ÷ leads'}]}
+        html = self.render(report={'campaign_name': 'R', 'revision': 1, 'updated_at': 'x', 'document': document}, snapshot=snapshot, versions=[1], latest=1)
+        for text in ('Indicadores', 'Custo por lead', 'R$ 40,00', 'Fora da meta', 'R$ 30,00', 'Custo ÷ leads'):
+            self.assertIn(text, html)
+
     def test_password_page(self):
         from flask import render_template
         with self.app.test_request_context('/connect/r/token'):

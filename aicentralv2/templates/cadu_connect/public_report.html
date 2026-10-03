@@ -6,6 +6,7 @@
 {% block navigation %}{% endblock %}
 {% macro money(value, code) %}{% if value is none or not code %}—{% else %}{{ 'R$' if code == 'BRL' else 'US$' if code == 'USD' else code }} {{ '{:,.2f}'.format(value).replace(',', 'X').replace('.', ',').replace('X', '.') }}{% endif %}{% endmacro %}
 {% macro br(day) %}{{ day[8:10] }}/{{ day[5:7] }}/{{ day[0:4] }}{% endmacro %}
+{% macro metric_value(value, unit) %}{% if value is none %}—{% elif unit in ('BRL', 'USD') %}{{ money(value, unit) }}{% elif unit == 'percent' %}{{ pct(value) }}{% elif unit == 'ratio' %}{{ ('%.2f' % value).replace('.', ',') }}{% else %}{{ ('{:,.2f}'.format(value) if value % 1 else '{:,.0f}'.format(value)).replace(',', 'X').replace('.', ',').replace('X', '.') }}{% endif %}{% endmacro %}
 {% macro num(value) %}{% if value is none %}—{% else %}{{ '{:,.0f}'.format(value).replace(',', '.') }}{% endif %}{% endmacro %}
 {% macro pct(value) %}{% if value is none %}—{% else %}{{ ('%.1f' % value).replace('.', ',') }}%{% endif %}{% endmacro %}
 {% macro delta(now, before, inverse=false) %}{% if now is not none and before %}{% set change = (now - before) * 100 / before %}{% if change|abs >= 0.5 %}<small class="{{ 'is-good' if (change < 0 if inverse else change > 0) else 'is-bad' }}">{{ '▲' if change > 0 else '▼' }} {{ ('%.1f' % (change|abs)).replace('.', ',') }}%</small>{% else %}<small>estável</small>{% endif %}{% endif %}{% endmacro %}
@@ -50,6 +51,15 @@
       <div><dt>Clique → entrada</dt><dd>{{ pct(100 * journey.entries / t.clicks) if t.clicks else '—' }}</dd></div>
     </dl>
     {% if journey.steps %}<table class="cr-table"><thead><tr><th>Etapa</th><th>Sessões</th></tr></thead><tbody>{% for step in journey.steps %}<tr><td>{{ step.name }}</td><td>{{ num(step.sessions) }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+  </section>
+  {% elif block.type == 'metrics' and snapshot and snapshot.metrics %}
+  <section>
+    <h2>{{ block.title }}</h2>
+    <dl class="cr-kpis cr-metrics">{% for metric in snapshot.metrics %}
+      <div><dt>{{ metric.name }}</dt><dd>{{ metric_value(metric.result, metric.unit) }}</dd>
+        {% if metric.target is not none %}<small class="{{ 'is-good' if metric.status == 'met' else 'is-bad' if metric.status == 'missed' else '' }}">{{ 'Meta atingida' if metric.status == 'met' else 'Fora da meta' if metric.status == 'missed' else 'Meta' }}: {{ metric_value(metric.target, metric.unit) }}</small>{% endif %}
+        {% if metric.definition %}<small>{{ metric.definition }}</small>{% endif %}</div>
+    {% endfor %}</dl>
   </section>
   {% elif block.type == 'campaigns' and results and results.campaigns %}
   <section>

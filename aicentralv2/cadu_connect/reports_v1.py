@@ -702,6 +702,60 @@ def register(bp):
         return jsonify(version=version[0], against=base and {key: base[key] for key in base if key != 'document'},
                        changes=version_changes(base['document'] if base else {}, version[0]['document']))
 
+    def _metrics_catalog_ready():
+        return _rows("SELECT to_regclass('public.cadu_reports_custom_metrics') IS NOT NULL AS ready")[0]['ready']
+
+    @bp.get('/api/v2/reports/custom-metrics')
+    @login_required_api
+    def reports_v1_custom_metrics():
+        """The client's saved metrics, to reuse in any report."""
+        selected = _selection()
+        from .report_metrics import VARIABLES
+        if not _metrics_catalog_ready():
+            return jsonify(ready=False, metrics=[], variables=VARIABLES)
+        metrics = _rows('''SELECT id,name,definition,kind,formula,unit,direction,target::float AS target,updated_at
+            FROM cadu_reports_custom_metrics WHERE client_id=%s AND archived_at IS NULL ORDER BY lower(name)''', (selected['client_id'],))
+        return jsonify(ready=True, metrics=metrics, variables=VARIABLES)
+
+    @bp.post('/api/v2/reports/custom-metrics')
+    @login_required_api
+    def reports_v1_save_custom_metric():
+        """Saves (or updates by name) a metric in the client's catalogue. Manual values stay in the report, not here."""
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            abort(400)
+        selected = _selection(payload)
+        _write_guard(selected)
+        if not _metrics_catalog_ready():
+            abort(503, description='Aplique add_reports_custom_metrics_v1.sql.')
+        from .report_metrics import validate_metric
+        try:
+            metric = validate_metric({**(payload.get('metric') or {}), 'value': (payload.get('metric') or {}).get('value', 0)})
+        except ValueError as exc:
+            abort(400, description=str(exc))
+        saved = _rows('''INSERT INTO cadu_reports_custom_metrics (client_id,name,definition,kind,formula,unit,direction,target,created_by)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ON CONFLICT (client_id, lower(name)) WHERE archived_at IS NULL DO UPDATE SET definition=EXCLUDED.definition,kind=EXCLUDED.kind,
+                formula=EXCLUDED.formula,unit=EXCLUDED.unit,direction=EXCLUDED.direction,target=EXCLUDED.target,updated_at=NOW()
+            RETURNING id,name''', (selected['client_id'], metric['name'], metric['definition'], metric['kind'], metric.get('formula'),
+                                  metric['unit'], metric['direction'], metric['target'], session['user_id']))
+        get_db().commit()
+        return jsonify(metric=saved[0]), 201
+
+    @bp.post('/api/v2/reports/custom-metrics/<int:metric_id>/archive')
+    @login_required_api
+    def reports_v1_archive_custom_metric(metric_id):
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            abort(400)
+        selected = _selection(payload)
+        _write_guard(selected)
+        if not _rows('''UPDATE cadu_reports_custom_metrics SET archived_at=NOW() WHERE id=%s AND client_id=%s AND archived_at IS NULL
+            RETURNING id''', (metric_id, selected['client_id'])):
+            abort(404)
+        get_db().commit()
+        return jsonify(archived=True)
+
     @bp.post('/api/v2/reports/workspaces/<int:report_id>/plan')
     @login_required_api
     def reports_v1_plan_workspace(report_id):
@@ -787,10 +841,16 @@ def register(bp):
         changes = payload['document']
         allowed = {'objective': 2000, 'goals': 4000, 'management_notes': 8000,
                    'start_date': 10, 'end_date': 10, 'accent': 7}
-        if not changes or set(changes) - set(allowed) - {'blocks'}:
+        if not changes or set(changes) - set(allowed) - {'blocks', 'metrics'}:
             abort(400, description='Envie apenas os campos editáveis do contexto.')
         document = dict(current['document'] or {})
         changes = dict(changes)
+        if 'metrics' in changes:
+            from .report_metrics import validate_metrics
+            try:
+                document['metrics'] = validate_metrics(changes.pop('metrics'))
+            except ValueError as exc:
+                abort(400, description=str(exc))
         if 'blocks' in changes:
             from .report_blocks import validate_blocks
             try:
@@ -860,7 +920,10 @@ def register(bp):
                 results = _workspace_results(selected['client_id'], report['media_campaign_id'], document)
             except ValueError as exc:
                 abort(400, description=str(exc))
-            snapshot = {'document': document, 'results': results, 'journey': _journey_summary(payload.get('journey')),
+            journey = _journey_summary(payload.get('journey'))
+            from .report_metrics import compute
+            snapshot = {'document': document, 'results': results, 'journey': journey,
+                        'metrics': compute(document.get('metrics'), results.get('totals'), journey),
                         'published_at': datetime.now(timezone.utc).isoformat()}
             frozen = json.dumps(snapshot, default=str)
             if not _rows('''UPDATE cadu_connect_report_workspace_versions SET snapshot=%s::jsonb,published_at=NOW(),published_by=%s

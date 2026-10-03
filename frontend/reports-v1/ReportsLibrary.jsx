@@ -10,6 +10,8 @@ import {Alert, Callout, Card, DateField, DrawerActions, EmptyNote} from './Repor
 import {json, shortDate} from './reportsCommon.jsx';
 import {ReportResults} from './ReportResults.jsx';
 import {ReportBlocksEditor, blocksOf} from './ReportBlocksEditor.jsx';
+import {ReportMetricsEditor} from './ReportMetricsEditor.jsx';
+import {baseValues} from './reportMetrics.js';
 import {createFromGoogle, loadUnlinkedGoogleCampaigns} from './GoogleCampaignLinks.jsx';
 
 const API = '/connect/api/v2/reports';
@@ -128,6 +130,8 @@ function ReportDetail({data, save, busy, detail, refresh, onBack, setError}) {
   const [draft, setDraft] = useState(detail.report.document || {});
   const [blocks, setBlocks] = useState(() => blocksOf(detail.report.document));
   const [compare, setCompare] = useState(null);
+  const [metrics, setMetrics] = useState(() => detail.report.document?.metrics || []);
+  const [totals, setTotals] = useState(null);
   const [note, setNote] = useState('');
   const [expiresDays, setExpiresDays] = useState('30');
   const [password, setPassword] = useState('');
@@ -137,14 +141,14 @@ function ReportDetail({data, save, busy, detail, refresh, onBack, setError}) {
   const [plan, setPlan] = useState(null);
   const [planning, setPlanning] = useState(false);
   const [reviewSource, setReviewSource] = useState(null);
-  useEffect(() => {setDraft(detail.report.document || {}); setBlocks(blocksOf(detail.report.document));}, [detail.report.revision]);
+  useEffect(() => {setDraft(detail.report.document || {}); setBlocks(blocksOf(detail.report.document)); setMetrics(detail.report.document?.metrics || []);}, [detail.report.revision]);
   useEffect(() => {setProtect(Boolean(detail.public_link?.protected));}, [detail.public_link?.protected]);
   const edit = (field, value) => {setDraft(current => ({...current, [field]: value})); if (field === 'objective' || field === 'goals') setPlan(null);};
   const run = async action => {try {await action(); setError('');} catch (failure) {setError(failure.message);}};
   const update = event => {
     event.preventDefault();
     run(async () => {
-      await save(`/workspaces/${detail.report.id}/document`, {revision: detail.report.revision, update_note: note, document: {...Object.fromEntries(['objective', 'goals', 'management_notes', 'start_date', 'end_date', 'accent'].map(field => [field, draft[field] || ''])), blocks}});
+      await save(`/workspaces/${detail.report.id}/document`, {revision: detail.report.revision, update_note: note, document: {...Object.fromEntries(['objective', 'goals', 'management_notes', 'start_date', 'end_date', 'accent'].map(field => [field, draft[field] || ''])), blocks, metrics}});
       await refresh(); setNote('');
     });
   };
@@ -171,7 +175,7 @@ function ReportDetail({data, save, busy, detail, refresh, onBack, setError}) {
   const pending = publishedRevision ? detail.report.revision > publishedRevision : true;
   const saved = detail.report.document || {};
   const dirty = ['objective', 'goals', 'management_notes', 'start_date', 'end_date', 'accent'].some(field => (draft[field] || '') !== (saved[field] || ''))
-    || JSON.stringify(blocks) !== JSON.stringify(blocksOf(saved));
+    || JSON.stringify(blocks) !== JSON.stringify(blocksOf(saved)) || JSON.stringify(metrics) !== JSON.stringify(saved.metrics || []);
   const openCompare = revision => run(async () => setCompare(await json(`${API}/workspaces/${detail.report.id}/versions/${revision}`)));
   const unpublish = () => run(async () => {await save(`/workspaces/${detail.report.id}/unpublish`, {}, false); await refresh();});
   const link = detail.public_link;
@@ -191,11 +195,12 @@ function ReportDetail({data, save, busy, detail, refresh, onBack, setError}) {
     </section>
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
       <div className="flex min-w-0 flex-col gap-6">
-        <ReportResults report={detail.report} onJourney={setJourney}/>
+        <ReportResults report={detail.report} onJourney={setJourney} onTotals={setTotals}/>
         <Card title="Documento" badge={dirty ? <Badge type="pill-color" size="sm" color="warning">Não salvo</Badge> : null}
           description="Blocos na ordem em que aparecem para o cliente. Oculte o que não deve ir no link; cada salvamento vira uma versão, e o cliente só vê depois de publicar.">
           <form className="flex flex-col gap-5" onSubmit={update}>
-            <ReportBlocksEditor blocks={blocks} onChange={setBlocks} draft={draft} onField={edit} disabled={viewer}/>
+            <ReportBlocksEditor blocks={blocks} onChange={setBlocks} draft={draft} onField={edit} disabled={viewer}
+              metricsSlot={<ReportMetricsEditor metrics={metrics} onChange={next => {setMetrics(next); if (next.length && blocks.find(block => block.type === 'metrics')?.hidden && !metrics.length) setBlocks(blocks.map(block => block.type === 'metrics' ? {...block, hidden: false} : block));}} values={baseValues(totals, journey)} disabled={viewer} save={save} csrf={data.csrf}/>}/>
             <div className="grid gap-4 sm:grid-cols-[1fr_1fr_120px]">
               <DateField label="Início" disabled={viewer} value={draft.start_date || ''} onChange={event => edit('start_date', event.target.value)}/>
               <DateField label="Fim" disabled={viewer} value={draft.end_date || ''} onChange={event => edit('end_date', event.target.value)}/>

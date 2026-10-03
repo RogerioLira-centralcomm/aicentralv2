@@ -4,12 +4,12 @@ import {Button} from '../cadu-design-system/untitled-kit/button.tsx';
 import {ReportsTextArea} from './ReportsTextArea.jsx';
 
 // Same catalogue as aicentralv2/cadu_connect/report_blocks.py.
-const DATA = {results: 'Resultados', funnel: 'Da mídia à conversão', campaigns: 'Campanhas'};
+const DATA = {results: 'Resultados', funnel: 'Da mídia à conversão', metrics: 'Métricas', campaigns: 'Campanhas'};
 const FIELDS = {objective: ['Objetivo', 'objective', 2000], goals: ['Metas', 'goals', 4000], notes: ['Contexto de gestão', 'management_notes', 8000]};
 const TEXT = {text: 'Texto', recommendations: 'Recomendações', next_steps: 'Próximos passos'};
 
 export const defaultBlocks = document => [...Object.entries(DATA), ...Object.entries(FIELDS).map(([key, [title]]) => [key, title])]
-  .map(([key, title]) => ({id: key, type: key, title, hidden: key === 'funnel' && document?.scope !== 'flow'}));
+  .map(([key, title]) => ({id: key, type: key, title, hidden: (key === 'funnel' && document?.scope !== 'flow') || (key === 'metrics' && !document?.metrics?.length)}));
 
 /** Saved blocks, plus any built-in block the saved list predates (added hidden), as the server does. */
 export const blocksOf = document => {
@@ -20,7 +20,7 @@ export const blocksOf = document => {
 };
 
 /** Report blocks: order, title, visibility and text. Data blocks are filled from the period; field blocks edit the classic fields. */
-export function ReportBlocksEditor({blocks, onChange, draft, onField, disabled}) {
+export function ReportBlocksEditor({blocks, onChange, draft, onField, disabled, metricsSlot}) {
   const set = (index, patch) => onChange(blocks.map((block, at) => at === index ? {...block, ...patch} : block));
   const move = (index, step) => {
     const next = [...blocks]; const target = index + step;
@@ -43,7 +43,8 @@ export function ReportBlocksEditor({blocks, onChange, draft, onField, disabled})
             {TEXT[block.type] && <Button size="sm" color="tertiary-destructive" iconLeading={Trash01} aria-label="Remover bloco" onPress={() => onChange(blocks.filter((_, at) => at !== index))}/>}
           </>}
         </div>
-        {DATA[block.type] && <p className="px-2 text-sm text-tertiary">{block.type === 'results' ? 'KPIs de mídia e comparação com o período anterior.' : block.type === 'funnel' ? 'Mídia → entradas → conversões do fluxo. Só aparece em relatórios por fluxo.' : 'Tabela por campanha.'} Preenchido ao publicar.</p>}
+        {block.type === 'metrics' && metricsSlot}
+        {DATA[block.type] && block.type !== 'metrics' && <p className="px-2 text-sm text-tertiary">{block.type === 'results' ? 'KPIs de mídia e comparação com o período anterior.' : block.type === 'funnel' ? 'Mídia → entradas → conversões do fluxo. Só aparece em relatórios por fluxo.' : 'Tabela por campanha.'} Preenchido ao publicar.</p>}
         {field && <ReportsTextArea aria-label={field[0]} disabled={disabled} maxLength={field[2]} rows={3} value={draft[field[1]] || ''} onChange={event => onField(field[1], event.target.value)}/>}
         {TEXT[block.type] && <ReportsTextArea aria-label={block.title} disabled={disabled} maxLength={8000} rows={4} value={block.text || ''} onChange={event => set(index, {text: event.target.value})}/>}
       </div>;

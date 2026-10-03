@@ -149,6 +149,21 @@
     return {width: Math.min(window.innerWidth || 0, 10000), height: Math.min(window.innerHeight || 0, 10000)};
   }
 
+  // Screen size, pixel ratio and orientation travel with the page view; system and browser are read from the request on the server.
+  function screenData() {
+    var data = {};
+    try {
+      var screenBox = window.screen;
+      if (screenBox && screenBox.width > 0 && screenBox.height > 0) {
+        data.sw = Math.min(Math.max(Math.round(screenBox.width), 1), 10000);
+        data.sh = Math.min(Math.max(Math.round(screenBox.height), 1), 10000);
+      }
+      if (window.devicePixelRatio > 0) data.dpr = Math.min(Math.max(window.devicePixelRatio, 0.5), 10);
+      data.orient = (window.innerHeight || 0) >= (window.innerWidth || 0) ? 'portrait' : 'landscape';
+    } catch (_) { /* Optional context. */ }
+    return data;
+  }
+
   function documentBox() {
     var root = document.documentElement, body = document.body;
     if (!root || !body) return null;
@@ -281,7 +296,7 @@
     pageActiveSince = document.visibilityState === 'visible' ? Date.now() : 0;
     seenVisibility = Object.create(null);
     lastScrollDepth = 0;
-    event('page_view', {}, undefined, activePath);
+    event('page_view', screenData(), undefined, activePath);
     observeMarkedElements();
   }
 

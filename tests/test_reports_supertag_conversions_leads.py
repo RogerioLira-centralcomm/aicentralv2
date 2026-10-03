@@ -264,6 +264,12 @@ def test_valid_submit_option_counts_the_lead_directly(app):
     assert insert[11] == 'valid_submit' and insert[10] is not None
 
 
+def test_lead_is_not_stored_when_capture_is_disabled_even_if_an_old_tag_sends_it(app):
+    response, insert = _post_lead(app, _lead_body(), {'form_capture': {'enabled': False}})
+    assert response.status_code == 202 and response.get_json() == {'accepted': 0}
+    assert insert is None
+
+
 def test_lead_from_foreign_origin_or_with_unknown_keys_is_refused(app):
     with mock.patch.object(reports_supertag, '_site_by_public_id', return_value=site()):
         client = app.test_client()

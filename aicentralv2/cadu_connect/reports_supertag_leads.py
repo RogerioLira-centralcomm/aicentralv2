@@ -528,6 +528,10 @@ def register(bp):
         _origin_guard(site)
         if request.method == 'OPTIONS':
             return ('', 204)
+        # The tag reads config.json with cache: 'force-cache', so a browser may keep an old "enabled" copy: the
+        # server is what enforces a capture turned off.
+        if not public_form_capture(site.get('config'))['enabled']:
+            return jsonify(accepted=0), 202
         lead = _lead_payload(site)
         if not (lead['name'] or lead['email'] or lead['phone'] or lead['fields']):
             return jsonify(accepted=0), 202

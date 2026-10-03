@@ -7,7 +7,7 @@ import {friendlyAgo} from '../../friendlyDates.js';
 import {reportUrl} from '../../reportsCommon.jsx';
 import {useReportsContext} from '../../shell/context.js';
 import {apiUrl, useApi} from '../../shell/useApi.js';
-import {AppLink, Async, EmptyState} from '../../shell/primitives.jsx';
+import {AppLink, Async, EmptyState, ErrorState} from '../../shell/primitives.jsx';
 import {compact, number} from '../shared.jsx';
 import './journey.css';
 
@@ -166,8 +166,9 @@ function Bar({value}) {
 }
 
 /** Side panel: most clicked elements or zones, scroll reach, device split and the plain-language reading. */
-function SidePanel({detail, onDevice, detailHref}) {
+function SidePanel({detail, error, onRetry, onDevice, detailHref}) {
   const [panel, setPanel] = useState('elements');
+  if (!detail && error) return <aside className="rs-heatmap__side"><ErrorState message={error} onRetry={onRetry}/></aside>;
   if (!detail) return <aside className="rs-heatmap__side" aria-busy="true"><div className="reports-loading" role="status">Carregando os números da página…</div></aside>;
   const {elements, zones, devices, summary} = detail;
   return <aside className="rs-heatmap__side" aria-label="Resumo da página">
@@ -224,7 +225,7 @@ export function Heatmap({data}) {
   const page = pages.find(item => item.path === view.path) || pages[0];
   const update = patch => setView(current => ({...current, ...patch}));
   useEffect(() => {if (page) writeView({...view, path: page.path});}, [page?.path, device, mode]);
-  const [detailState] = useApi(page ? apiUrl('/journey/heatmap-detail', {start_date: period.start, end_date: period.end, device, site_id: page.site_id, path: page.path}) : null);
+  const [detailState, retryDetail] = useApi(page ? apiUrl('/journey/heatmap-detail', {start_date: period.start, end_date: period.end, device, site_id: page.site_id, path: page.path}) : null);
   const detail = detailState.body?.device === device && detailState.body.page?.path === page?.path && detailState.body.page?.site_id === page?.site_id ? detailState.body : null;
   const option = DEVICES.find(item => item.id === device);
   return <div className="rs-heatmap">
@@ -245,7 +246,7 @@ export function Heatmap({data}) {
         <div className="rs-heatmap__layout">
           <CaptureStage key={`${pageKey(page)}:${device}`} page={page} device={device} mode={mode} detail={detail}
             canEdit={data.client.role !== 'viewer'} client={data.client.client_id} csrf={data.csrf} costTokens={state.body.cost_tokens}/>
-          <SidePanel detail={detail} onDevice={value => update({device: value})} detailHref={reportUrl('pages', {site_id: page.site_id, path: page.path})}/>
+          <SidePanel detail={detail} error={detailState.error} onRetry={retryDetail} onDevice={value => update({device: value})} detailHref={reportUrl('pages', {site_id: page.site_id, path: page.path})}/>
         </div>
       </>}
     </Async>

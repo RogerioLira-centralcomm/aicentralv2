@@ -33,6 +33,9 @@ export function ProjectPicker({projects = [], projectId = '', onChange, loading 
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
   const root = useRef(null);
+  const trigger = useRef(null);
+  const listRef = useRef(null);
+  const wasOpen = useRef(false);
   const listId = useId();
   useDismiss(open, setOpen, root);
   const options = useMemo(() => {
@@ -43,17 +46,29 @@ export function ProjectPicker({projects = [], projectId = '', onChange, loading 
   const current = (allowQuick && !projectId) ? {name: quickLabel, brandName: 'sem projeto', quick: true}
     : projects.find(item => String(item.id) === String(projectId));
   useEffect(() => { if (open) setCursor(Math.max(0, options.findIndex(item => String(item.id) === String(projectId)))); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  const searchable = projects.length > 6;
+  const activeId = open && options[cursor] ? `${listId}-option-${cursor}` : undefined;
+  // Real focus moves into the list (or its search box) so assistive technology follows the highlighted option;
+  // it returns to the trigger when the list closes.
+  useEffect(() => {
+    if (open && !searchable) listRef.current?.focus({preventScroll: true});
+    if (!open && wasOpen.current && root.current?.contains(document.activeElement)) trigger.current?.focus();
+    wasOpen.current = open;
+  }, [open, searchable]);
+  useEffect(() => { if (activeId) document.getElementById(activeId)?.scrollIntoView?.({block: 'nearest'}); }, [activeId]);
   const choose = item => { setOpen(false); setQuery(''); if (String(item.id) !== String(projectId)) onChange?.(String(item.id)); };
   const onKeyDown = event => {
     if (!open && ['ArrowDown', 'Enter', ' '].includes(event.key)) { event.preventDefault(); setOpen(true); return; }
     if (!open) return;
     if (event.key === 'ArrowDown') { event.preventDefault(); setCursor(index => Math.min(options.length - 1, index + 1)); }
     if (event.key === 'ArrowUp') { event.preventDefault(); setCursor(index => Math.max(0, index - 1)); }
+    if (event.key === 'Home') { event.preventDefault(); setCursor(0); }
+    if (event.key === 'End') { event.preventDefault(); setCursor(Math.max(0, options.length - 1)); }
     if (event.key === 'Enter' && options[cursor]) { event.preventDefault(); choose(options[cursor]); }
   };
   const label = loading ? 'Carregando projetos…' : current ? current.name : projects.length ? 'Escolher projeto' : 'Nenhum projeto com marca';
-  return <div className="csu-project" ref={root}>
-    <button type="button" className="csu-project__trigger" aria-haspopup="listbox" aria-expanded={open} aria-controls={listId}
+  return <div className="csu-project" ref={root} onBlur={event => { if (open && !root.current?.contains(event.relatedTarget)) setOpen(false); }}>
+    <button type="button" className="csu-project__trigger" ref={trigger} aria-haspopup="listbox" aria-expanded={open} aria-controls={listId}
       aria-label={`Projeto e marca: ${current ? `${current.name} · ${current.brandName}` : label}`}
       disabled={loading || (!projects.length && !allowQuick)} onClick={() => setOpen(value => !value)} onKeyDown={onKeyDown}>
       <span className={`csu-project__chip${current?.quick ? ' is-quick' : ''}`} aria-hidden="true">{current?.quick ? '⚡' : initials(current?.brandName)}</span>
@@ -61,10 +76,10 @@ export function ProjectPicker({projects = [], projectId = '', onChange, loading 
       <span className="csu-caret" aria-hidden="true"/>
     </button>
     {open && <div className="csu-popover csu-project__popover">
-      {(projects.length > 6) && <input className="csu-project__search" autoFocus value={query} placeholder="Buscar projeto ou marca" aria-label="Buscar projeto ou marca"
+      {searchable && <input className="csu-project__search" autoFocus role="combobox" aria-expanded="true" aria-autocomplete="list" aria-controls={listId} aria-activedescendant={activeId} value={query} placeholder="Buscar projeto ou marca" aria-label="Buscar projeto ou marca"
         onChange={event => { setQuery(event.target.value); setCursor(0); }} onKeyDown={onKeyDown}/>}
-      <ul id={listId} role="listbox" aria-label="Projetos">
-        {options.map((item, index) => <li key={item.id || 'quick'} role="option" aria-selected={String(item.id) === String(projectId)}
+      <ul id={listId} role="listbox" aria-label="Projetos" ref={listRef} tabIndex={-1} aria-activedescendant={activeId} onKeyDown={onKeyDown}>
+        {options.map((item, index) => <li key={item.id || 'quick'} id={`${listId}-option-${index}`} role="option" aria-selected={String(item.id) === String(projectId)}
           className={index === cursor ? 'is-cursor' : ''} onMouseEnter={() => setCursor(index)} onClick={() => choose(item)}>
           <span className={`csu-project__chip${item.quick ? ' is-quick' : ''}`} aria-hidden="true">{item.quick ? '⚡' : initials(item.brandName)}</span>
           <span className="csu-project__copy"><strong>{item.name}</strong><small>{item.brandName}{item.extraBrands ? ` +${item.extraBrands}` : ''}</small></span>
@@ -75,12 +90,20 @@ export function ProjectPicker({projects = [], projectId = '', onChange, loading 
   </div>;
 }
 
+const compactTokens = value => {
+  const tokens = Math.max(0, Math.round(Number(value) || 0));
+  if (tokens >= 1e6) return `${(tokens / 1e6).toLocaleString('pt-BR', {maximumFractionDigits: 1})} mi`;
+  if (tokens >= 1e3) return `${(tokens / 1e3).toLocaleString('pt-BR', {maximumFractionDigits: 1})} mil`;
+  return tokens.toLocaleString('pt-BR');
+};
+
 export function CreditMeter({href, usagePercent, available}) {
   if (usagePercent == null && available == null) return null;
   const usage = Math.max(0, Math.min(100, Math.round(Number(usagePercent || 0))));
   const tone = usage >= 90 ? ' is-critical' : usage >= 70 ? ' is-warning' : '';
-  return <a className={`csu-credits${tone}`} href={href || '#'} aria-label={`${usage}% dos créditos usados. Ver consumo e créditos.`}>
-    <small>Créditos</small>
+  const balance = available != null && available !== '' && Number.isFinite(Number(available)) ? compactTokens(available) : '';
+  return <a className={`csu-credits${tone}`} href={href || '#'} aria-label={`${usage}% dos créditos usados${balance ? `, saldo de ${balance} tokens` : ''}. Ver consumo e créditos.`}>
+    <small>{balance ? `Saldo ${balance}` : 'Créditos'}</small>
     <strong>{usage}% <span>usado</span></strong>
     <i aria-hidden="true"><b style={{width: `${usage}%`}}/></i>
   </a>;

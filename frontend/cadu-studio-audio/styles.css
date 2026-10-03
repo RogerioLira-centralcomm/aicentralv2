@@ -26,3 +26,5 @@ body:has(#cadu-studio-audio-root)>#content{width:100%;max-width:none;min-height:
 @media(min-width:701px) and (max-width:940px){.au-block{grid-template-columns:90px minmax(0,1fr)}.au-block-name{overflow-wrap:anywhere}.au-agent-input{display:grid;grid-template-columns:minmax(0,1fr)}.au-agent-input textarea{width:100%;height:54px}.au-agent-input button{justify-self:end}.au-timeline{overflow-x:auto}.au-timeline-grid{min-width:900px;grid-template-columns:160px minmax(0,1fr)}.au-timeline-head,.au-timeline-help{min-width:900px}.au-track-label input{font-size:11px}}
 
 .au-project-error{max-width:180px;overflow:hidden;color:#d3b591;font-size:10px;text-overflow:ellipsis;white-space:nowrap}
+
+.au-badge{display:inline-flex;align-items:center;padding:3px 9px;border:1px solid var(--csu-warn,#e0a03a);border-radius:999px;color:var(--csu-warn,#e0a03a);font-size:11.5px;font-weight:700;white-space:nowrap}

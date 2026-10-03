@@ -34,6 +34,11 @@ const projects=[
   await trigger.click();
   const list=page.getByRole('listbox',{name:'Projetos'});
   assert.deepEqual(await list.getByRole('option').allTextContents(),['⚡Criação rápidasem projeto','CLançamento VerãoCentralcomm','ACBlack FridayAurora Cosméticos +1']);
+  const firstActive=await list.getAttribute('aria-activedescendant');
+  assert.ok(firstActive,'a lista informa a opção ativa a leitores de tela');
+  assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('role')),'listbox','o foco entra na lista ao abrir');
+  await page.keyboard.press('ArrowDown');
+  assert.notEqual(await list.getAttribute('aria-activedescendant'),firstActive,'a seta muda a opção ativa anunciada');
   await list.getByRole('option',{name:/Black Friday/}).click();
   assert.equal(await page.locator('#mcCaduProject').inputValue(),'p2');
   await page.waitForFunction(()=>window.McCaduContext?.projectId==='p2');

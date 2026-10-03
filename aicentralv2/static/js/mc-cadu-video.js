@@ -1181,6 +1181,8 @@ async function refreshQuote() {
   }
 }
 
+const VIDEO_CONFIRM_TOKENS = 100000;
+
 async function generate() {
   const singleImage = state.generationMode === "single_image";
   if (singleImage && !state.selectedSceneId) {
@@ -1203,8 +1205,13 @@ async function generate() {
   updateGenerateEnabled();
   setStatus("Cotando…");
   try {
-    await quoteAnimate(body);
+    const confirmedQuote = await quoteAnimate(body);
     if (version !== state.requestVersion) throw new Error("O projeto mudou. Confira o custo atualizado antes de gerar.");
+    // A long or high-resolution clip costs hundreds of thousands of credits: the person confirms the amount first.
+    const estimated = Number(confirmedQuote?.estimated_tokens || 0);
+    if (estimated >= VIDEO_CONFIRM_TOKENS && !window.confirm(`Este vídeo deve consumir cerca de ${estimated.toLocaleString("pt-BR")} créditos. Gerar mesmo assim?`)) {
+      throw new Error("Geração cancelada. Nenhum crédito foi usado.");
+    }
     await persistProject();
     const job = await submitAnimate(body);
     state.jobId = job.job_id || job.public_id || "";

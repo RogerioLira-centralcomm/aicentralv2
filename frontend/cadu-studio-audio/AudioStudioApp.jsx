@@ -32,7 +32,7 @@ function Topbar({bootstrap, projects, project, projectLoading, projectError, onP
   return <StudioNavbar active="audio" links={bootstrap.links || {}} user={bootstrap.user} projects={options} projectId={project?.id ? String(project.id) : ''}
     projectsLoading={projectLoading} allowQuick quickLabel="Sessão pessoal" onProjectChange={onProjectChange}
     credits={{available: bootstrap.credits, usagePercent: bootstrap.usagePercent}}
-    actions={<>{projectError && <small className="au-project-error" role="status">{projectError}</small>}<button type="button" className="csu-button csu-button--primary" onClick={onExport}>Exportar áudio</button></>}/>;
+    actions={<><span className="au-badge" title="As faixas, o roteiro e a campanha são exemplos; a renderização e o débito de tokens ainda não estão conectados.">Protótipo · dados de exemplo</span>{projectError && <small className="au-project-error" role="status">{projectError}</small>}<button type="button" className="csu-button csu-button--primary" onClick={onExport}>Exportar áudio</button></>}/>;
 }
 
 function Timeline({tracks, setTracks, playhead, setPlayhead, selectedClip, setSelectedClip, onSplit, onSeparate}) {

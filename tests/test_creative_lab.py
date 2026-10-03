@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from aicentralv2.creative_lab import adapter, brands, evaluation
+from aicentralv2.creative_lab import adapter, brands, evaluation, studio_bridge
 from aicentralv2.creative_lab.catalog import MODELS_DIR
 
 
@@ -230,3 +230,110 @@ def test_fit_to_ratio_center_crops_only_when_needed():
     assert info["to"] == [900, 900] and Image.open(io.BytesIO(cropped)).size == (900, 900)
     same, none = fit_to_ratio(buffer.getvalue(), "4:3")
     assert none is None and same == buffer.getvalue()
+
+
+# -- Studio pipeline and mockups ------------------------------------------------------------------------------
+
+def studio_spec(mode="image", **overrides):
+    mask = studio_bridge.pick_mask("feed-4x5", "foto-texto-base")
+    return spec(pipeline="studio", mockup={"id": mask["id"], "family": mask["family"], "mode": mode}, **overrides)
+
+
+def test_mockup_catalog_serves_every_studio_mask():
+    catalog_view = studio_bridge.mockup_catalog()
+    assert len(catalog_view["masks"]) == 95
+    assert {item["format"] for item in catalog_view["masks"]} >= {"feed-4x5", "story-9x16", "iab-300x250"}
+    assert all(item["url"].startswith("/static/images/cadu/studio/references/layouts/") for item in catalog_view["masks"])
+
+
+def test_pick_mask_falls_back_to_a_served_family():
+    assert studio_bridge.pick_mask("feed-4x5", "foto-texto-base")["family"] == "foto-texto-base"
+    assert studio_bridge.pick_mask("iab-300x250", "familia-que-nao-existe")["format"] == "iab-300x250"
+    assert studio_bridge.pick_mask("formato-desconhecido") is None
+
+
+def test_studio_plan_sends_the_mockup_as_an_image_when_the_model_takes_it():
+    plan = adapter.plan(studio_spec("image"), manifest("gpt-image-2--openrouter"), CAPS["gpt-image-2--openrouter"], REFS)
+    assert plan["pipeline"] == "studio"
+    assert plan["mockup"]["effective"] == "image" and not plan["mockup"]["degraded"]
+
+
+def test_studio_plan_mockup_takes_the_only_slot_of_a_one_reference_model():
+    plan = adapter.plan(studio_spec("image"), manifest("recraft-v4.1"), CAPS["recraft-v4.1"], REFS)
+    assert plan["mockup"]["effective"] == "image"
+    assert plan["sent"] == []                      # person and product no longer fit
+    assert {ref["role"] for ref in plan["converted_to_text"] + plan["dropped"]} >= {"PERSON", "PRODUCT"}
+
+
+def test_studio_plan_degrades_the_mockup_to_text_for_models_without_references():
+    caps = {**CAPS["recraft-v4.1"], "max_references": 0}
+    plan = adapter.plan(studio_spec("image"), manifest("recraft-v4.1"), caps, [])
+    assert plan["mockup"] == {"id": plan["mockup"]["id"], "requested": "image", "effective": "text", "degraded": True}
+
+
+def test_studio_plan_without_mockup_keeps_every_slot_for_references():
+    plan = adapter.plan(studio_spec("none"), manifest("gpt-image-2--openrouter"), CAPS["gpt-image-2--openrouter"], REFS)
+    assert plan["mockup"]["effective"] == "none" and len(plan["sent"]) == 2
+
+
+def test_studio_never_sends_more_than_three_images():
+    refs = [{"ref_id": index, "role": "PRODUCT", "label": f"P{index}"} for index in range(1, 7)]
+    plan = adapter.plan(studio_spec("image"), manifest("gpt-image-2--openrouter"), CAPS["gpt-image-2--openrouter"], refs)
+    assert len(plan["sent"]) == 2                  # three slots minus the mockup
+
+
+def test_text_contract_describes_the_mask_zones_without_mentioning_an_input_image():
+    mask = studio_bridge.pick_mask("feed-4x5", "foto-texto-base")
+    text = studio_bridge.text_contract(mask)
+    assert "HEADLINE" in text and "SAFE FRAME" in text and "IMAGE 1" not in text
+
+
+def test_clean_mockup_only_applies_to_studio_generation():
+    from aicentralv2.creative_lab import runner
+    brief = {"format_key": "feed-4x5"}
+    assert runner._clean_mockup({"mode": "image"}, brief, "raw", "generate")["mode"] == "none"
+    assert runner._clean_mockup({"mode": "image"}, brief, "studio", "edit")["mode"] == "none"
+    cleaned = runner._clean_mockup({"mode": "text", "family": "split"}, brief, "studio", "generate")
+    assert cleaned["mode"] == "text" and cleaned["id"].startswith("feed-4x5:")
+    assert runner._clean_mockup({"mode": "none"}, brief, "studio", "generate") == {"id": "", "family": "", "mode": "none"}
+
+
+def test_v3_scenarios_compare_the_same_brief_with_and_without_mockup():
+    from aicentralv2.creative_lab import scenarios
+    v3 = [item for item in scenarios.scenarios() if item["key"].startswith("v3-")]
+    assert v3 and all(item["pipeline"] == "studio" for item in v3)
+    cemig = {item["mockup"]["mode"] for item in v3 if "cemig" in item["key"]}
+    assert cemig == {"image", "text", "none"}
+    assert not any(item["key"] == "mockup-enriquecido" for item in scenarios.scenarios())
+
+
+def test_studio_bridge_runs_the_real_create_image_with_the_chosen_model(monkeypatch):
+    import base64
+    import io
+    from flask import Flask
+    from aicentralv2.creative_lab import catalog as lab_catalog, connector
+    seen = {}
+
+    def fake_call(provider, **kwargs):
+        seen.update(kwargs)
+        out = io.BytesIO()
+        Image.new("RGB", (1024, 1536), (30, 80, 140)).save(out, "PNG")
+        return {"b64": base64.b64encode(out.getvalue()).decode(), "latency_ms": 10, "usage": {}, "cost_usd": 0.05,
+                "cost_source": "provider", "request_id": "r", "model": "fake"}
+
+    monkeypatch.setattr(connector, "call", fake_call)
+    monkeypatch.setattr(lab_catalog, "manifest", manifest)
+    monkeypatch.setattr(lab_catalog, "capabilities", lambda key, cat=None: CAPS[key])
+    app = Flask(__name__, static_folder=str((Path(__file__).resolve().parent.parent / "aicentralv2" / "static")))
+    mask = studio_bridge.pick_mask("feed-4x5", "foto-texto-base")
+    base = {"task": "generate", "aspect_ratio": "4:5", "quality": "standard", "logo_mode": "none", "instruction": "Anúncio",
+            "brief": {"format_key": "feed-4x5"}}
+    for mode, expected_refs in (("image", 1), ("text", 0)):
+        plan = {"sent": [], "converted_to_text": [], "mockup": {"id": mask["id"], "requested": mode, "effective": mode}}
+        with app.app_context():
+            result = studio_bridge.run_create(model_key="gpt-image-2--openrouter", spec=base, snapshot={}, plan=plan, by_ref={},
+                                              direction={"prompt": "Cena", "reference_plan": []}, files_module=None,
+                                              client_id=174, user_id=1)
+        assert len(seen["references"]) == expected_refs
+        assert result["delivered"] == [1080, 1350] and result["cost_usd"] == 0.05
+        assert Image.open(io.BytesIO(base64.b64decode(result["b64"]))).size == (1080, 1350)

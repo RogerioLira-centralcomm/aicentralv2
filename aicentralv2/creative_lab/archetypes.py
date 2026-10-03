@@ -15,6 +15,8 @@ FORMATS = {
     "wide-16x9": {"label": "Horizontal 16:9", "ratio": "16:9", "size": [1920, 1080], "family": "wide"},
     "iab-300x250": {"label": "IAB 300×250", "ratio": "6:5", "size": [600, 500], "family": "square"},
     "iab-300x600": {"label": "IAB 300×600", "ratio": "1:2", "size": [600, 1200], "family": "tall"},
+    "linkedin-1200x627": {"label": "LinkedIn 1.91:1", "ratio": "16:9", "size": [1200, 627], "family": "wide"},
+    "display-300x300": {"label": "Display 300×300", "ratio": "1:1", "size": [600, 600], "family": "square"},
 }
 
 # Zones per format family. Percentages of the canvas, top-to-bottom reading order.

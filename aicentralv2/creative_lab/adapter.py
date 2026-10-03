@@ -222,14 +222,28 @@ def plan(spec: dict, manifest: dict, caps: dict, references: list[dict]) -> dict
             continue
         candidates.append(ref)
     candidates.sort(key=lambda ref: (order.get(ref["role"], 99), references.index(ref)))
+    slots = max_refs
+    if spec.get("pipeline") == "studio":
+        # The Studio sends at most three images, and its composition mask (the "mockup") takes the first slot.
+        slots = min(slots, 3)
+        mockup = spec.get("mockup") or {}
+        requested = mockup.get("mode") if mockup.get("id") and spec["task"] == "generate" else "none"
+        effective = "none"
+        if requested == "image" and slots >= 1:
+            effective, slots = "image", slots - 1
+        elif requested in ("image", "text"):
+            effective = "text"
+        result["pipeline"] = "studio"
+        result["mockup"] = {"id": mockup.get("id") or None, "requested": requested, "effective": effective,
+                            "degraded": requested == "image" and effective == "text"}
     for ref in candidates:
-        if len(result["sent"]) < max_refs:
+        if len(result["sent"]) < slots:
             result["sent"].append({**ref, "how": "native_input_reference", "order": len(result["sent"]) + 1})
         elif policy.get("overflow") == "describe_in_prompt" and ref["role"] != "BASE":
             result["converted_to_text"].append({**ref, "how": "described_in_prompt",
-                                                "reason": f"o modelo aceita {max_refs} referência(s)"})
+                                                "reason": f"o modelo aceita {slots} referência(s)"})
         else:
-            result["dropped"].append({**ref, "reason": f"o modelo aceita {max_refs} referência(s)"})
+            result["dropped"].append({**ref, "reason": f"o modelo aceita {slots} referência(s)"})
 
     params = result["parameters"]
     requested_ratio = spec["aspect_ratio"]

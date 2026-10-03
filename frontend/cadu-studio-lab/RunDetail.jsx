@@ -76,6 +76,8 @@ function Plan({run}) {
   const params = plan.parameters || {};
   return <div className="lab-plan">
     <p><strong>{plan.summary}</strong></p>
+    {plan.pipeline === 'studio' && <p>Pipeline do Studio · mockup {plan.mockup?.effective === 'image' ? 'enviado como imagem' : plan.mockup?.effective === 'text' ? 'descrito em texto' : 'desligado'}
+      {plan.mockup?.degraded ? ' (o modelo não aceita a imagem)' : ''}{run.request_summary?.studio?.calls > 1 ? ` · ${run.request_summary.studio.calls} chamadas (correção de margem)` : ''}</p>}
     {plan.blocked && <p className="lab-alert">{plan.blocked}</p>}
     <div className="lab-plan__grid">
       {groups.map(([key, label]) => <div key={key} className="lab-plan__col">

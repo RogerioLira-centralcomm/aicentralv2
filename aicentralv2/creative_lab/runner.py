@@ -16,7 +16,7 @@ from PIL import Image
 
 from ..creative_media.studio_create import apply_brand_logo
 from ..services.openrouter_service import _download_reference_bytes
-from . import adapter, brands, catalog, connector, evaluation, files, repository
+from . import adapter, brands, catalog, connector, evaluation, files, repository, studio_bridge
 
 log = logging.getLogger(__name__)
 _lock = threading.Lock()
@@ -57,8 +57,10 @@ def build_spec(client_id: int, data: dict, user_id: int | None) -> tuple[dict, d
     fmt = format_info(brief.get("format_key")) if brief else None
     aspect = fmt["ratio"] if fmt else str(data.get("aspect_ratio") or "1:1")
     must = _clean_list(data.get("must_include_text"), 8, 160) or (adapter.copy_strings(brief) if brief else [])
+    pipeline = "studio" if data.get("pipeline") == "studio" else "raw"
+    mockup = _clean_mockup(data.get("mockup"), brief, pipeline, task)
     spec = {
-        "spec_version": 2 if brief else 1, "task": task, "brief": brief, "objective": str(data.get("objective") or "")[:120],
+        "spec_version": 3 if pipeline == "studio" else 2 if brief else 1, "pipeline": pipeline, "mockup": mockup, "task": task, "brief": brief, "objective": str(data.get("objective") or "")[:120],
         "instruction": str(data.get("instruction") or "").strip()[:1500],
         "must_include_text": must,
         "avoid": _clean_list(data.get("avoid")), "preserve": _clean_list(data.get("preserve")),
@@ -72,9 +74,28 @@ def build_spec(client_id: int, data: dict, user_id: int | None) -> tuple[dict, d
         spec["instruction"] = " · ".join(adapter.copy_strings(brief)[:3]) or brief.get("offer") or ""
     if not spec["instruction"]:
         raise ValueError("Escreva a instrução do teste.")
-    spec["director_prompt"] = str(data.get("director_prompt") or "").strip() or adapter.director_prompt(spec, brand_payload)
-    spec["director_source"] = "manual" if data.get("director_prompt") else ("template_v2" if adapter.has_brief(spec) else "template_v1")
+    spec["director_prompt"] = str(data.get("director_prompt") or "").strip() or (
+        studio_bridge.briefing_text(spec) if pipeline == "studio" else adapter.director_prompt(spec, brand_payload))
+    spec["director_source"] = ("manual" if data.get("director_prompt") else "studio_director" if pipeline == "studio"
+                               else "template_v2" if adapter.has_brief(spec) else "template_v1")
     return spec, snapshot
+
+
+def _clean_mockup(raw, brief: dict, pipeline: str, task: str) -> dict:
+    """The composition mask (mockup) of a Studio-pipeline test: off, as an image, or described in words."""
+    if pipeline != "studio" or task != "generate":
+        return {"id": "", "family": "", "mode": "none"}
+    raw = raw if isinstance(raw, dict) else {}
+    mode = raw.get("mode") if raw.get("mode") in studio_bridge.MOCKUP_MODES else "image"
+    if mode == "none":
+        return {"id": "", "family": str(raw.get("family") or ""), "mode": "none"}
+    format_key = (brief or {}).get("format_key")
+    mask = studio_bridge.get_mask(str(raw.get("id") or ""))
+    if not mask or mask["format"] != studio_bridge.mask_format(format_key):
+        mask = studio_bridge.pick_mask(format_key, str(raw.get("family") or ""))
+    if not mask:
+        return {"id": "", "family": str(raw.get("family") or ""), "mode": "none"}
+    return {"id": mask["id"], "family": mask["family"], "mode": mode}
 
 
 BRIEF_TEXT = ("objective", "audience", "offer", "archetype", "format_key")
@@ -186,10 +207,13 @@ def execute_run(client_id: int, run_id: int) -> None:
     caps = catalog.capabilities(run["model_key"])
     by_ref = {ref["ref_id"]: ref for ref in spec["references"]}
     try:
-        references = [files.provider_data_url(by_ref[ref["ref_id"]]["file_id"]) for ref in plan["sent"]]
-        result = connector.call(manifest["provider"], model_id=manifest["provider_model_id"], prompt=run["model_prompt"],
-                                parameters=plan["parameters"]["applied"], references=references,
-                                pricing=caps.get("pricing") or [])
+        if plan.get("pipeline") == "studio":
+            result = _run_studio(client_id, run, experiment, spec, plan, by_ref)
+        else:
+            references = [files.provider_data_url(by_ref[ref["ref_id"]]["file_id"]) for ref in plan["sent"]]
+            result = connector.call(manifest["provider"], model_id=manifest["provider_model_id"], prompt=run["model_prompt"],
+                                    parameters=plan["parameters"]["applied"], references=references,
+                                    pricing=caps.get("pricing") or [])
     except connector.ProviderError as exc:
         repository.update_run(run_id, status="blocked" if exc.blocked else "failed", finished_at="now",
                               error={"message": str(exc), "status": exc.status, "detail": (exc.detail or "")[:600]})
@@ -217,14 +241,30 @@ def execute_run(client_id: int, run_id: int) -> None:
         get_db().rollback()
 
 
+def _run_studio(client_id, run, experiment, spec, plan, by_ref):
+    """The Studio's own pipeline for this run's model. The director's direction is asked once per experiment."""
+    snapshot = experiment.get("brand_snapshot") or {}
+    direction = spec.get("studio_direction")
+    if not direction:
+        direction = studio_bridge.direct(spec, snapshot)
+        spec["studio_direction"] = direction
+        repository.update_experiment_spec(experiment["id"], spec)
+    return studio_bridge.run_create(model_key=run["model_key"], spec=spec, snapshot=snapshot, plan=plan, by_ref=by_ref,
+                                    direction=direction, files_module=files, client_id=client_id,
+                                    user_id=run.get("created_by"))
+
+
 def _store_result(client_id, run_id, run, spec, plan, by_ref, result):
+    studio = plan.get("pipeline") == "studio"
     raw_bytes = base64.b64decode(result["b64"])
-    raw_bytes, cropped = fit_to_ratio(raw_bytes, spec["aspect_ratio"])
-    if cropped:
-        result["b64"] = base64.b64encode(raw_bytes).decode("ascii")
+    cropped = None
+    if not studio:
+        raw_bytes, cropped = fit_to_ratio(raw_bytes, spec["aspect_ratio"])
+        if cropped:
+            result["b64"] = base64.b64encode(raw_bytes).decode("ascii")
     raw = files.store_image(client_id, raw_bytes, kind="output")
     final, composer = raw, None
-    logos = [ref for ref in plan.get("post_processed", []) if ref["role"] == "LOGO"]
+    logos = [] if studio else [ref for ref in plan.get("post_processed", []) if ref["role"] == "LOGO"]
     if logos:
         try:
             encoded = apply_brand_logo(result["b64"], "png", _logo_image(by_ref[logos[0]["ref_id"]]["file_id"]), "bottom-right")
@@ -236,6 +276,10 @@ def _store_result(client_id, run_id, run, spec, plan, by_ref, result):
     summary.update({"raw_file_id": raw["file_id"], "raw_token": raw["token"], "output_file_id": final["file_id"],
                     "composer": composer, "provider_model": result.get("model"), "cropped_to_format": cropped,
                     "output_size": [raw["width"], raw["height"]]})
+    if studio:
+        summary["studio"] = {key: result.get(key) for key in ("pipeline", "mask_id", "mockup", "calls", "dropped_references", "delivered")}
+        summary["composer"] = "studio_logo"
+        repository.update_run(run_id, model_prompt=result["prompt"])
     repository.update_run(run_id, status="succeeded", finished_at="now", latency_ms=result["latency_ms"],
                           actual_cost_usd=result["cost_usd"], cost_source=result["cost_source"], usage=result["usage"],
                           provider_request_id=(result.get("request_id") or "")[:160] or None,
@@ -314,7 +358,8 @@ def run_scenario(client_id: int, key: str, model_keys: list[str], user_id: int |
                                                has_person=ref.get("has_person", False), user_id=user_id)
         refs.append({"ref_id": stored["ref_id"], "role": ref["role"], "label": ref["label"]})
     data = {field: item.get(field) for field in ("task", "brand_id", "aspect_ratio", "quality", "objective", "instruction",
-                                                 "must_include_text", "preserve", "alter", "logo_mode", "payload_policy")}
+                                                 "must_include_text", "preserve", "alter", "logo_mode", "payload_policy",
+                                                 "pipeline", "mockup")}
     brief = dict(item.get("brief") or {})
     if format_key:
         brief["format_key"] = format_key

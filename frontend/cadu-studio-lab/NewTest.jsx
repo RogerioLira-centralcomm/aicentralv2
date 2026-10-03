@@ -1,4 +1,5 @@
 import React, {useEffect, useState} from 'react';
+import {PipelinePicker, MOCKUP_MODE_LABEL} from './Mockups';
 import {Badge, READINESS_LABEL, ROLES, ROLE_LABEL, Section, Swatches, Thumb, usd} from './ui';
 
 const COPY_FIELDS = [
@@ -15,6 +16,7 @@ export const EMPTY_FORM = {
   scenario_key: '', title: '', task: 'generate', brand_id: '', aspect_ratio: '1:1', quality: 'standard', objective: 'paid social ad',
   instruction: '', must_include_text: [], preserve: [], alter: '', logo_mode: 'composer', payload_policy: 'verified_and_probable', references: [],
   brief: {archetype: '', audience: '', offer: '', copy: {}, casting: [], devices: []}, formats: ['feed-1x1'],
+  pipeline: 'studio', mockup: {mode: 'image', family: '', id: ''},
 };
 const FIELD_STATUS = {verified: 'is-succeeded', probable: 'is-warn', partial: 'is-warn', needs_review: 'is-warn'};
 const lines = value => String(value || '').split('\n').map(item => item.trim()).filter(Boolean);
@@ -159,8 +161,10 @@ export default function NewTest({state, api, onCreated, seed}) {
   };
   const toggleFormat = key => set({formats: form.formats.includes(key) ? form.formats.filter(item => item !== key) : [...form.formats, key]});
   const hasBrief = Boolean(form.brief.archetype || Object.values(form.brief.copy || {}).some(Boolean) || form.task === 'edit');
-  const payload = () => ({...form, brief: {...form.brief, format_key: form.formats[0]}, director_prompt: director || undefined, models,
-    instruction: form.instruction || idea});
+  const studio = form.pipeline === 'studio' && form.task === 'generate';
+  const payload = () => ({...form, pipeline: studio ? 'studio' : 'raw', brief: {...form.brief, format_key: form.formats[0]},
+    mockup: {...form.mockup, id: form.formats.length === 1 ? form.mockup.id : ''},
+    director_prompt: studio ? undefined : (director || undefined), models, instruction: form.instruction || idea});
   const runPreview = async () => {
     setBusy('preview'); setError('');
     try { const data = await api.post('/preview', payload()); setPreview(data); if (!director) setDirector(data.spec.director_prompt); }
@@ -184,8 +188,8 @@ export default function NewTest({state, api, onCreated, seed}) {
     </select>}>
       <div className="lab-form">
         <div className="lab-segmented" role="group" aria-label="Tarefa">
-          <button type="button" aria-pressed={form.task === 'generate'} onClick={() => set({task: 'generate'})}>Criar anúncio</button>
-          <button type="button" aria-pressed={form.task === 'edit'} onClick={() => set({task: 'edit', logo_mode: 'none'})}>Reformatar / editar peça</button>
+          <button type="button" aria-pressed={form.task === 'generate'} onClick={() => set({task: 'generate', pipeline: 'studio'})}>Criar anúncio</button>
+          <button type="button" aria-pressed={form.task === 'edit'} onClick={() => set({task: 'edit', logo_mode: 'none', pipeline: 'raw'})}>Reformatar / editar peça</button>
         </div>
         <label>Marca<select value={form.brand_id || ''} onChange={event => set({brand_id: event.target.value ? Number(event.target.value) : ''})}>
           <option value="">Sem marca</option>
@@ -212,6 +216,10 @@ export default function NewTest({state, api, onCreated, seed}) {
     </Section>
 
     {brand && <Section title={`2 · Marca: ${brand.name}`}><BrandPanel brand={brand} onImport={importAsset} importing={busy.startsWith('asset-') ? Number(busy.slice(6)) : null}/></Section>}
+
+    <Section title="Pipeline e mockup" aside={<small className="lab-muted">cada peça do Studio é uma variável: ligue ou desligue por teste</small>}>
+      <PipelinePicker state={state} form={form} set={set}/>
+    </Section>
 
     {form.task === 'generate' && <Section title="3 · Briefing estruturado" aside={<button type="button" className="lab-btn" onClick={writeBrief} disabled={busy === 'brief' || (!idea && !form.brief.source_ref_id)}>
       {busy === 'brief' ? 'Escrevendo…' : 'Escrever briefing com IA'}</button>}>
@@ -272,15 +280,21 @@ export default function NewTest({state, api, onCreated, seed}) {
         {preview && <span className="lab-muted">estimado {usd(total)}{preview.plans.some(item => item.estimate.variable) ? ' · variável por token' : ''}</span>}
       </div>
       {error && <p className="lab-alert">{error}</p>}
-      {preview && <>
+      {preview && studio && <div className="lab-director"><small className="lab-label">Briefing que o diretor do Studio recebe (a direção é gerada na primeira execução e congelada para todos os modelos)</small>
+        <pre>{preview.spec.director_prompt}</pre></div>}
+      {preview && !studio && <>
         <label className="lab-director">Director Prompt de {state.formats?.find(item => item.key === form.formats[0])?.label || form.formats[0]} (editável; com vários formatos, cada um recebe o próprio diagrama)
           <textarea rows={12} value={director} onChange={event => { setDirector(event.target.value); }}/>
         </label>
+      </>}
+      {preview && <>
         <div className="lab-plans">{preview.plans.map(item => {
           const model = state.models.find(other => other.model_key === item.model_key);
           return <article key={item.model_key} className={`lab-plan-card${item.plan.blocked ? ' is-blocked' : ''}`}>
             <header><strong>{model?.label}</strong><span>{usd(item.estimate.usd)}{item.estimate.variable ? '*' : ''}</span></header>
             <p>{item.plan.blocked || item.plan.summary}</p>
+            {item.plan.mockup && <p className={item.plan.mockup.degraded ? 'lab-plan-mockup is-warn' : 'lab-plan-mockup'}>
+              Mockup: {MOCKUP_MODE_LABEL[item.plan.mockup.effective]}{item.plan.mockup.degraded ? ' (o modelo não aceita a imagem; vai em texto)' : ''}</p>}
             <ul>
               {item.plan.sent.map(ref => <li key={`s${ref.ref_id}`}>Imagem {ref.order}: {ROLE_LABEL[ref.role]}</li>)}
               {item.plan.converted_to_text.map(ref => <li key={`t${ref.ref_id}`} className="is-warn">{ROLE_LABEL[ref.role]} → texto</li>)}

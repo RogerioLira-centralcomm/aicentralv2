@@ -7,7 +7,7 @@ import logging
 from flask import jsonify, make_response, render_template, request, session
 
 from ..creative_media.studio_csrf import get_or_create_token, studio_csrf_required
-from . import archetypes, brands, catalog, evaluation, intelligence, repository, runner, scenarios
+from . import archetypes, brands, catalog, evaluation, intelligence, repository, runner, scenarios, studio_bridge
 from .access import current_client_id, lab_enabled, lab_required
 
 log = logging.getLogger(__name__)
@@ -49,6 +49,7 @@ def api_state():
         "notes": repository.list_notes(client_id),
         "proposals": repository.list_proposals(),
         **archetypes.catalog_view(),
+        "mockups": studio_bridge.mockup_catalog(),
         "catalog_fetched_at": catalog.catalog().get("fetched_at"),
     })
 
@@ -134,7 +135,7 @@ def api_prepare_scenario(key):
             log.warning("Scenario %s asset %s unavailable", key, ref["asset_id"], exc_info=True)
             return _error(f"Imagem {ref['asset_id']} da marca indisponível: {str(exc)[:160]}")
     form = {key_: item.get(key_) for key_ in ("task", "brand_id", "aspect_ratio", "quality", "objective", "instruction",
-                                              "must_include_text", "preserve", "alter", "logo_mode")}
+                                              "must_include_text", "preserve", "alter", "logo_mode", "pipeline", "mockup")}
     form.update({"scenario_key": item["key"], "title": item["title"], "references": refs, "avoid": [],
                  "payload_policy": "verified_and_probable"})
     return jsonify({"form": form})

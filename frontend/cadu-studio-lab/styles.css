@@ -319,3 +319,20 @@ body:has(#cadu-studio-lab-root) > .cadu-family-footer { display: none; }
   .lab-section > header select { min-width: 0; width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .lab-spinner { animation: none; } .lab-thumb.is-action { transition: none; } }
+
+/* Mockups (composition masks of the Studio) */
+.lab-mask { display: inline-flex; padding: 3px; border: 1px solid var(--csu-line); border-radius: var(--csu-radius-sm); background: #fff; }
+.lab-mask img { display: block; max-width: 100%; object-fit: contain; }
+.lab-mask.is-action { cursor: pointer; }
+.lab-mask.is-on { border-color: var(--csu-accent); box-shadow: 0 0 0 2px var(--csu-accent-soft); }
+.lab-mask-row { display: flex; flex-wrap: wrap; gap: 14px; }
+.lab-mask-row figure { display: grid; justify-items: start; gap: 4px; margin: 0; }
+.lab-mask-row figcaption { display: grid; font-size: 12px; }
+.lab-mask-row figcaption small { color: var(--csu-muted); }
+.lab-mockups__formats { margin-top: 10px; }
+.lab-mask-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }
+.lab-mask-card { display: flex; gap: 12px; padding: 10px; border: 1px solid var(--csu-line); border-radius: var(--csu-radius); background: var(--csu-surface); }
+.lab-mask-card > div:last-child { display: grid; align-content: start; gap: 6px; min-width: 0; }
+.lab-format-chip.is-studio { background: var(--csu-accent-soft); color: var(--csu-accent-text); }
+.lab-plan-mockup { margin: 2px 0 6px; font-size: 12px; color: var(--csu-text-soft); }
+.lab-plan-mockup.is-warn { color: var(--csu-warn); }

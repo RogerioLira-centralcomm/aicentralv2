@@ -9,6 +9,7 @@ from __future__ import annotations
 
 V1 = "v1 · briefing livre"
 V2 = "v2 · briefing estruturado"
+V3 = "v3 · pipeline do Studio"
 
 SCENARIOS = [
     {
@@ -203,16 +204,51 @@ SCENARIOS = [
         "variable": "Uma peça quadrada vira dois formatos altos.",
         "hypothesis": "Consistência entre formatos derivados da mesma base.",
     },
-    {
-        "key": "mockup-enriquecido", "group": V2,
-        "title": "Mockup enriquecido",
-        "task": "generate", "brand_id": None, "aspect_ratio": "4:5", "quality": "standard",
-        "objective": "", "instruction": "", "must_include_text": [], "references": [], "logo_mode": "composer",
-        "reserved": True,
-        "variable": "Estratégia D do Reference Test.",
-        "hypothesis": "Reservado: falta definir o que é um mockup enriquecido (ex.: mockup com produto e logo pré-compostos).",
-    },
 ]
+
+
+# -- v3: the Studio's own pipeline (director, composition mask, logo, fit) with the mockup as the variable ------------
+
+MOCKUP_LABEL = {
+    "image": "mockup como imagem",
+    "text": "mockup só em texto",
+    "none": "sem mockup",
+}
+MOCKUP_VARIABLE = {
+    "image": "O pipeline do Studio como está: o mockup (máscara de composição) vai ao modelo como imagem de referência, com o contrato de zonas no prompt.",
+    "text": "As mesmas zonas do mockup, só descritas em palavras (modelos que não aceitam imagem de referência ou que a ignoram).",
+    "none": "Diretor, logo e ajuste de formato do Studio, mas sem mockup: o modelo compõe o layout sozinho.",
+}
+MOCKUP_HYPOTHESIS = {
+    "image": "Quanto o mockup melhora a obediência de layout (zonas, margens, logo) em cada modelo, e quem o ignora ou o desenha na peça.",
+    "text": "Se a descrição em texto basta para o modelo respeitar as zonas; é o plano B para os modelos sem referência.",
+    "none": "Linha de base: o que o modelo faz sozinho. A diferença para as outras duas linhas é o ganho real do mockup.",
+}
+V3_BASES = (
+    # (base scenario, formats, family per mockup, modes)
+    ("v2-cemig-whatsapp", "Cemig", ["feed-1x1", "story-9x16", "iab-300x250"], "foto-texto-base", ("image", "text", "none")),
+    ("v2-centralcomm-ritmo", "Centralcomm", ["feed-1x1", "story-9x16", "iab-300x250"], "tipografico", ("image", "text", "none")),
+    ("v2-reserva-semana-cliente", "Reserva", ["feed-4x5", "iab-300x250"], "faixa-inferior", ("image", "none")),
+)
+
+
+def _v3_scenarios() -> list[dict]:
+    by_key = {item["key"]: item for item in SCENARIOS}
+    items = []
+    for base_key, brand_label, formats, family, modes in V3_BASES:
+        base = by_key[base_key]
+        for mode in modes:
+            items.append({
+                **{field: base[field] for field in ("task", "brand_id", "quality", "objective", "instruction", "references", "logo_mode", "brief")},
+                "key": f"v3-{base_key[3:]}-{mode}", "group": f"{V3} · {brand_label}",
+                "title": f"{brand_label} · {MOCKUP_LABEL[mode]}", "formats": formats,
+                "pipeline": "studio", "mockup": {"mode": mode, "family": family},
+                "variable": MOCKUP_VARIABLE[mode], "hypothesis": MOCKUP_HYPOTHESIS[mode],
+            })
+    return items
+
+
+SCENARIOS.extend(_v3_scenarios())
 
 
 def scenarios(include_reserved: bool = True) -> list[dict]:

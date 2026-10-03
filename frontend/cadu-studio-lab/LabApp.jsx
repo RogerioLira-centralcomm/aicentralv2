@@ -5,9 +5,10 @@ import LiveQueue from './LiveQueue';
 import NewTest, {EMPTY_FORM} from './NewTest';
 import {ModelsView, ProposalsView, ReferencesView, ScenariosNotes} from './Panels';
 import RunDetail from './RunDetail';
+import {MockupsView} from './Mockups';
 import {createApi, seconds, usd} from './ui';
 
-const TABS = [['matrix', 'Matriz ao vivo'], ['new', 'Novo teste'], ['references', 'Peças e referências'], ['models', 'Modelos'], ['scenarios', 'Cenários'], ['proposals', 'Propostas']];
+const TABS = [['matrix', 'Matriz ao vivo'], ['new', 'Novo teste'], ['mockups', 'Mockups'], ['references', 'Peças e referências'], ['models', 'Modelos'], ['scenarios', 'Cenários'], ['proposals', 'Propostas']];
 
 function readTab() {
   try { return localStorage.getItem('cadu-lab-tab') || 'matrix'; } catch (_error) { return 'matrix'; }
@@ -67,6 +68,11 @@ export default function LabApp({bootstrap}) {
       references: [{ref_id: ref.ref_id, role: 'COMPOSITION', label: ref.label}]});
     setTab('new');
   };
+  const useMockup = mask => {
+    const labFormat = (state.formats || []).find(item => item.key === mask.format || (mask.format === 'youtube-16x9' && item.key === 'wide-16x9'));
+    setSeed({...EMPTY_FORM, pipeline: 'studio', formats: [labFormat?.key || EMPTY_FORM.formats[0]], mockup: {mode: 'image', family: mask.family, id: mask.id}});
+    setTab('new');
+  };
   const regenerate = async run => {
     try { await api.post(`/experiments/${run.experiment_id}/runs`, {models: [run.model_key]}); setOpenRunId(null); await refreshRuns(); }
     catch (exc) { setError(exc.message); }
@@ -100,6 +106,7 @@ export default function LabApp({bootstrap}) {
       {tab === 'matrix' && <LiveQueue runs={runs} models={state.models} formats={state.formats || []} blind={blind} onOpen={run => setOpenRunId(run.run_id)}/>}
       {tab === 'matrix' && <Matrix state={state} blind={blind} onOpen={run => setOpenRunId(run.run_id)} onRunScenario={runScenario} busyScenario={busyScenario}/>}
       {tab === 'new' && <NewTest state={state} api={api} seed={seed} onCreated={data => { load(); if (data?.run_ids) { setSeed(null); setTab('matrix'); } }}/>}
+      {tab === 'mockups' && <MockupsView state={state} onUse={useMockup}/>}
       {tab === 'models' && <ModelsView state={state} api={api} onNotes={setNotes}/>}
       {tab === 'scenarios' && <ScenariosNotes state={state} api={api} onNotes={setNotes}/>}
       {tab === 'references' && <ReferencesView state={state} api={api} onChanged={load} onSeedBrief={seedBrief}/>}

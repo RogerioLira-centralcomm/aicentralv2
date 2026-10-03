@@ -1,4 +1,5 @@
 import React, {useMemo, useState} from 'react';
+import {MaskThumb, MOCKUP_MODE_LABEL, maskFor} from './Mockups';
 import {Badge, FAILURE_LABEL, ROLE_LABEL, ScorePill, StatusBadge, Thumb, seconds, usd} from './ui';
 
 export const ratioCss = ratio => {
@@ -64,7 +65,7 @@ export function buildRows(state) {
   return groups;
 }
 
-function ScenarioHead({row, brand, references, notesCount, onRun, busy}) {
+function ScenarioHead({row, brand, references, notesCount, onRun, busy, mask}) {
   const {scenario, format} = row;
   if (row.adHoc) return <div className="lab-matrix__scenario">
     <div className="lab-matrix__title"><Badge kind={row.adHoc.task === 'edit' ? 'is-edit' : 'is-generate'}>{row.adHoc.task === 'edit' ? 'Editar' : 'Gerar'}</Badge><strong>{row.adHoc.title}</strong></div>
@@ -72,6 +73,7 @@ function ScenarioHead({row, brand, references, notesCount, onRun, busy}) {
   </div>;
   if (!row.first) return <div className="lab-matrix__scenario is-sub">
     <span className="lab-format-chip">↳ {format?.label}</span>
+    {mask && <MaskThumb mask={mask} size={46}/>}
     <button type="button" className="lab-btn is-ghost is-small" onClick={() => onRun(row.formatKey)} disabled={busy}>Gerar faltantes</button>
   </div>;
   const inputs = scenario.references.map(ref => ({...ref, stored: references.find(item => item.source === 'brand_asset' && item.source_ref === String(ref.asset_id))}));
@@ -83,6 +85,8 @@ function ScenarioHead({row, brand, references, notesCount, onRun, busy}) {
     </div>
     <small className="lab-muted">{brand?.name || 'Sem marca'} · {format ? `${row.span} formato(s)` : scenario.aspect_ratio}{scenario.logo_mode === 'native' ? ' · logo nativo' : ''}</small>
     {format && <span className="lab-format-chip">{format.label}</span>}
+    {scenario.pipeline === 'studio' && <span className="lab-format-chip is-studio">Studio · {MOCKUP_MODE_LABEL[scenario.mockup?.mode || 'none']}</span>}
+    {mask && <MaskThumb mask={mask} size={52}/>}
     <p className="lab-matrix__variable">{scenario.variable}</p>
     {copy.length > 0 && <p className="lab-matrix__copy">“{copy.slice(0, 3).join(' · ')}”</p>}
     <div className="lab-matrix__inputs">
@@ -150,6 +154,7 @@ export default function Matrix({state, blind, onOpen, onRunScenario, busyScenari
           <ScenarioHead row={row} brand={brandsById[row.scenario?.brand_id ?? row.adHoc?.brand_id]} references={state.references}
             notesCount={scenarioKey ? state.notes.filter(note => note.scope === 'scenario' && note.scope_key === scenarioKey).length : 0}
             busy={busyScenario === row.key || busyScenario === scenarioKey}
+            mask={row.scenario?.pipeline === 'studio' && row.scenario.mockup?.mode !== 'none' ? maskFor(state.mockups, row.formatKey, row.scenario.mockup?.family) : null}
             onRun={formatKey => row.scenario && onRunScenario(row.scenario, formatKey, formatKey ? missingFor(`${scenarioKey}@${formatKey}`) : models)}/>
           {models.map(model => <Cell key={model.model_key} runs={runGroups[`${row.key}|${model.model_key}`]}
             ratio={ratioCss(row.ratio)} blind={blind} onOpen={onOpen}/>)}

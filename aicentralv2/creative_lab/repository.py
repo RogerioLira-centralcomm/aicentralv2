@@ -123,6 +123,12 @@ def create_experiment(client_id: int, *, scenario_key: str, title: str, task: st
     return experiment_id
 
 
+def update_experiment_spec(experiment_id: int, spec: dict):
+    with get_db().cursor() as cursor:
+        cursor.execute("UPDATE cx_lab_experiments SET spec = %s WHERE id = %s", (Json(spec), experiment_id))
+    _commit()
+
+
 def get_experiment(client_id: int, experiment_id: int) -> dict:
     with get_db().cursor() as cursor:
         cursor.execute("SELECT * FROM cx_lab_experiments WHERE client_id = %s AND id = %s", (client_id, experiment_id))

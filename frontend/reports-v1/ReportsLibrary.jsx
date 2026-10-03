@@ -11,6 +11,7 @@ import {json, shortDate} from './reportsCommon.jsx';
 import {ReportResults} from './ReportResults.jsx';
 import {ReportBlocksEditor, blocksOf} from './ReportBlocksEditor.jsx';
 import {ReportMetricsEditor} from './ReportMetricsEditor.jsx';
+import {ReportAgents} from './ReportAgents.jsx';
 import {baseValues} from './reportMetrics.js';
 import {createFromGoogle, loadUnlinkedGoogleCampaigns} from './GoogleCampaignLinks.jsx';
 
@@ -176,6 +177,21 @@ function ReportDetail({data, save, busy, detail, refresh, onBack, setError}) {
   const saved = detail.report.document || {};
   const dirty = ['objective', 'goals', 'management_notes', 'start_date', 'end_date', 'accent'].some(field => (draft[field] || '') !== (saved[field] || ''))
     || JSON.stringify(blocks) !== JSON.stringify(blocksOf(saved)) || JSON.stringify(metrics) !== JSON.stringify(saved.metrics || []);
+  // Draft accepted from the writer agent: goes into the editor unsaved, with a suggested version note.
+  const applyAgentDraft = ({changes, added, summary}) => {
+    let next = blocks;
+    for (const change of changes) {
+      if (change.type === 'notes') edit('management_notes', change.after);
+      else next = next.map(block => block.id === change.id ? {...block, text: change.after} : block);
+    }
+    next = [...next, ...added.map(block => ({...block, hidden: false, id: `${block.id}-${Date.now().toString(36)}`.slice(0, 40)}))];
+    setBlocks(next);
+    setNote(current => current || `Nova versão proposta pelo redator${summary ? `: ${summary}` : ''}`.slice(0, 2000));
+  };
+  const addAgentMetrics = list => {
+    setMetrics(current => [...current, ...list.map(({why, preview, ...metric}) => ({...metric, target: metric.target ?? ''}))]);
+    setBlocks(current => current.map(block => block.type === 'metrics' ? {...block, hidden: false} : block));
+  };
   const openCompare = revision => run(async () => setCompare(await json(`${API}/workspaces/${detail.report.id}/versions/${revision}`)));
   const unpublish = () => run(async () => {await save(`/workspaces/${detail.report.id}/unpublish`, {}, false); await refresh();});
   const link = detail.public_link;
@@ -223,6 +239,8 @@ function ReportDetail({data, save, busy, detail, refresh, onBack, setError}) {
             <Button className="mt-3" size="sm" color="link-color" onPress={incorporate}>Incorporar às notas</Button>
           </Callout></div>}
         </Card>
+        {!viewer && <ReportAgents report={detail.report} csrf={data.csrf} journey={journey} onApplyDraft={applyAgentDraft} onAddMetrics={addAgentMetrics}
+          document={{...Object.fromEntries(['objective', 'goals', 'management_notes', 'start_date', 'end_date'].map(field => [field, draft[field] || ''])), blocks, metrics}}/>}
         <Card title="Publicação" badge={<Badge type="pill-color" size="sm" color={link ? (pending ? 'warning' : 'success') : 'gray'}>{link ? (pending ? 'Alterações não publicadas' : `v${publishedRevision} publicada`) : 'Privado'}</Badge>}
           description={link ? 'O link principal mostra sempre a última versão publicada. Editar não muda o que o cliente vê até publicar de novo.' : 'Publicar congela esta versão, com os resultados do período, num link para o cliente.'}>
           <div className="flex flex-col gap-4">

@@ -756,6 +756,65 @@ def register(bp):
         get_db().commit()
         return jsonify(archived=True)
 
+    @bp.post('/api/v2/reports/workspaces/<int:report_id>/agents/<kind>')
+    @login_required_api
+    def reports_v1_workspace_agent(report_id, kind):
+        """Report agents on demand: review (data problems), draft (next version text), metrics (formula suggestions).
+        Nothing is written: the editor shows the proposal and the person accepts it."""
+        if kind not in ('review', 'draft', 'metrics'):
+            abort(404)
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            abort(400)
+        selected = _selection(payload)
+        _write_guard(selected)
+        if selected['role'] == 'viewer':
+            abort(403, description='Os agentes exigem acesso de operação ou administração.')
+        found = _rows('''SELECT id,media_campaign_id,document FROM cadu_connect_report_workspaces
+            WHERE id=%s AND client_id=%s''', (report_id, selected['client_id']))
+        if not found:
+            abort(404)
+        document = found[0]['document'] or {}
+        # Unsaved edits travel with the request so the agents read what the person is looking at.
+        draft = payload.get('document')
+        if isinstance(draft, dict):
+            document = {**document, **{key: draft[key] for key in ('objective', 'goals', 'management_notes', 'start_date', 'end_date', 'blocks', 'metrics')
+                                       if key in draft}}
+        try:
+            results = _workspace_results(selected['client_id'], found[0]['media_campaign_id'], document)
+        except ValueError as exc:
+            abort(400, description=str(exc))
+        journey = _journey_summary(payload.get('journey'))
+        from . import report_agents
+        from .reports_typesafe import record_run
+        try:
+            if kind == 'review':
+                ids = [row['id'] for row in results.get('campaigns') or []]
+                duplicate_days = [row['metric_date'].isoformat() for row in _rows('''SELECT metric_date FROM cadu_reports_campaign_daily_metrics
+                    WHERE client_id=%s AND campaign_id = ANY(%s) AND metric_date BETWEEN %s AND %s
+                    GROUP BY campaign_id,metric_date HAVING COUNT(DISTINCT source_kind) > 1 ORDER BY metric_date LIMIT 60''',
+                    (selected['client_id'], ids, results['period']['start'], results['period']['end']))] if ids else []
+                unlinked = []
+                try:
+                    from .reports_google_ads import _UNLINKED_SQL, _ready as gads_ready
+                    if gads_ready():
+                        unlinked = _rows(_UNLINKED_SQL, {'client': selected['client_id']})
+                except Exception:
+                    get_db().rollback()
+                findings = report_agents.review_findings(document=document, results=results, journey=journey,
+                                                         duplicate_days=sorted(set(duplicate_days)), unlinked_campaigns=unlinked)
+                priority = report_agents.prioritize(findings)
+                if priority:
+                    record_run(report_id, None, 'agent_review', priority, session['user_id'])
+                return jsonify(findings=findings, fix_first=priority and priority['code'], prompt_version=report_agents.REVIEW_PROMPT_VERSION)
+            result = report_agents.draft_version(document, results, journey) if kind == 'draft' \
+                else report_agents.suggest_metrics(document, results, journey)
+        except report_agents.AgentError as exc:
+            return jsonify(error=str(exc)), 422
+        record_run(report_id, None, f'agent_{kind}', result, session['user_id'])
+        result.pop('usage', None)
+        return jsonify(result)
+
     @bp.post('/api/v2/reports/workspaces/<int:report_id>/plan')
     @login_required_api
     def reports_v1_plan_workspace(report_id):

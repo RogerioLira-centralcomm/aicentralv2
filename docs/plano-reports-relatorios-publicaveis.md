@@ -82,3 +82,14 @@ Todos rodam pelo TypeSafe, com saída validada. **Nenhum escreve direto**: tudo 
 3. **Métricas personalizadas:** valem para o cliente todo ou por relatório? Recomendo catálogo do cliente, escolhido por relatório.
 4. **Agente revisor:** roda automaticamente a cada envio do script, ou só quando alguém clica "Revisar dados"? Recomendo sob demanda primeiro.
 5. **Migrações:** as migrações recentes ainda não foram aplicadas no banco remoto. Quem aplica e quando?
+
+## 6. Status (2026-10-03)
+
+| Fase | Commit | Observações |
+| --- | --- | --- |
+| A | `46aeea63a` | Link principal estável, `?v=N`, senha opcional, Principais. Decisões: link segue a última publicação; senha definida pelo usuário. |
+| B | `a77425419` | Blocos, rascunho/publicado, comparar versões, bloqueio de 15 min após 5 senhas erradas. |
+| C | `c72fd095f` | Métricas por relatório (fórmula ou manual) e catálogo do cliente. **Pendente:** métrica vinda de arquivo importado. |
+| D | este commit | Agentes sob demanda: revisor (checagens determinísticas + TypeSafe escolhe o que corrigir primeiro), redator (proposta por bloco) e sugestor de métricas (validadas pelo mesmo parser). |
+
+Migrações no deploy: `add_reports_published_versions_v1.sql`, `add_reports_custom_metrics_v1.sql`.

@@ -28,7 +28,9 @@ const rate = (value, base, minimum) => value == null
   ? <span className="rs-muted rs-nav__dash" title={`Base pequena (${number(base)}); a taxa aparece a partir de ${minimum}.`}>—</span>
   : `${Number(value).toLocaleString('pt-BR', {maximumFractionDigits: 1})}%`;
 const ratio = (part, total, minimum) => Number(total) >= minimum ? percent(part, total) : '—';
-const readOrigin = () => {try {return new URLSearchParams(location.search).get('origem') || '';} catch {return '';}};
+// Same keys as ORIGIN_GROUPS in reports_journey.py: an unknown ?origem= would make the API answer 400 and hide the picker.
+const ORIGINS = ['direct', 'google_ads', 'organic', 'social', 'referral', 'other', 'unknown'];
+const readOrigin = () => {try {const value = new URLSearchParams(location.search).get('origem') || ''; return ORIGINS.includes(value) ? value : '';} catch {return '';}};
 
 /** Most common steps as two columns of pages: where the visit was and where it went next. */
 function PathsSankey({paths, sessions}) {

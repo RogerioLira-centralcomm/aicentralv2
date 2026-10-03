@@ -40,7 +40,7 @@ export const ROUTES = {
   'journey/heatmap': {page: 'heatmap', nav: 'journey', hub: 'journey', period: true, scope: 'site', siteRequired: true},
   reports: {page: 'reports', nav: 'reports', title: 'Relatórios', description: 'Análises salvas e entregáveis prontos para distribuir.'},
   alerts: {page: 'alerts', nav: 'alerts', title: 'Alertas', description: 'O que precisa da sua atenção, com responsável e histórico.'},
-  'data-sources': {page: 'data-sources', nav: 'data-sources', hub: 'data'},
+  'data-sources': {page: 'data-sources', nav: 'data-sources', hub: 'data', customers: true},
   'data-sources/connect': {page: 'monitor', nav: 'data-sources', hub: 'data', scope: 'account'},
   // Super Tag always shows one site: the header picks it, there is no "all sites" view.
   supertag: {page: 'supertag', nav: 'data-sources', hub: 'data', scope: 'site', siteRequired: true},

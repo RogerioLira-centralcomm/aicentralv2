@@ -287,7 +287,7 @@ function App() {
     <main className="reports-main">
       <>
           {data && !isFlowEditor && <PageHeader {...header} activeTab={route.path}
-            context={<ContextSelector clients={data.clients} client={data.client} accounts={route.scope === true || route.scope === 'account' ? scopeAccounts : undefined} campaigns={route.scope === true ? scopeCampaigns : undefined} sites={route.scope === 'site' ? sites : undefined} siteRequired={Boolean(route.siteRequired)} alwaysClient={route.page === 'overview' || route.hub === 'data'} showPeriod={Boolean(route.period) && !(pageSection === 'pages' && new URLSearchParams(location.search).get('site_id'))}/>}/>}
+            context={<ContextSelector clients={data.clients} customers={route.customers ? data.customers : undefined} client={data.client} accounts={route.scope === true || route.scope === 'account' ? scopeAccounts : undefined} campaigns={route.scope === true ? scopeCampaigns : undefined} sites={route.scope === 'site' ? sites : undefined} siteRequired={Boolean(route.siteRequired)} alwaysClient={route.page === 'overview' || route.hub === 'data'} showPeriod={Boolean(route.period) && !(pageSection === 'pages' && new URLSearchParams(location.search).get('site_id'))}/>}/>}
           {showFilterBar && <ReportsFilterBar data={data} filters={filters} onChange={updateFilters} onRefresh={onRefresh} />}
           <div className="reports-content">{error && <div className="reports-error" role="alert">{error}</div>}<React.Fragment key={`${clientKey}:${route.path}`}>{page}</React.Fragment></div>
       </>

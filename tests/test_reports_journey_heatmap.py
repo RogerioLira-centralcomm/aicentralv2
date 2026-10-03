@@ -187,3 +187,10 @@ def test_detail_route_rejects_invalid_input(app, query):
     with mock.patch.object(journey, '_rows', lambda *args: []), \
          mock.patch.object(journey, '_selection', return_value={'client_id': 174, 'role': 'admin', 'user_id': 1}):
         assert client.get(DETAIL + query).status_code == 400
+
+
+def test_no_scroll_insight_when_scroll_was_not_measured():
+    summary = journey.heat_summary({'views': 100, 'sessions': 80, 'clicks': 40})
+    elements = journey.heat_elements([], 40)
+    zones = journey.heat_zones(journey.heat_grid([]))
+    assert not any('metade da página' in text for text in journey.heat_insights(summary, elements, zones, journey.heat_devices([])))

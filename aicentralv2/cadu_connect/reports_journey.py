@@ -406,7 +406,8 @@ def heat_insights(summary, elements, zones, devices):
     top = elements['items'][0] if elements['items'] else None
     if top and top['share'] is not None and top['share'] >= 15:
         out.append(f'“{top["label"]}” concentra {_pct_text(top["share"])} de todos os cliques da página.')
-    reach = summary.get('scroll_50')
+    # No scroll event at all means scroll was not measured (switch off or old tag), not that nobody scrolled.
+    reach = summary.get('scroll_50') if summary.get('scroll_25') else None
     if reach is not None and summary['sessions'] >= INSIGHT_MIN_VIEWS:
         out.append(f'{_pct_text(round(100 - reach, 1))} das pessoas não passam da metade da página.')
     lower = sum(zone['clicks'] for zone in zones[2:])

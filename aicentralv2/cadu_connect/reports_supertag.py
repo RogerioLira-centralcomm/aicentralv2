@@ -178,7 +178,7 @@ def ensure_supertag_site(selected, host, label):
     canonical_host = host[4:] if host.startswith('www.') else host
     _rows('SELECT pg_advisory_xact_lock(hashtext(%s),hashtext(%s))',
           (f"reports-supertag:{selected['client_id']}", canonical_host))
-    candidates = _rows('''SELECT id,client_id,public_id,label,allowed_host,enabled,config,
+    candidates = _rows('''SELECT id,client_id,customer_id,public_id,label,allowed_host,enabled,config,
             config_version,created_at,updated_at,revoked_at
         FROM cadu_reports_supertag_sites WHERE client_id=%s
             AND enabled=TRUE AND revoked_at IS NULL ORDER BY created_at DESC''',
@@ -755,6 +755,8 @@ def register(bp):
         host = _host(payload['allowed_host'])
         customer_id = _customer_id(selected, payload.get('customer_id'))
         site, created = ensure_supertag_site(selected, host, label)
+        if customer_id and site.get('customer_id') and site['customer_id'] != customer_id:
+            abort(409, description='Esse domínio já está ligado a outro cliente.')
         if customer_id and (created or not site.get('customer_id')):
             _rows('UPDATE cadu_reports_supertag_sites SET customer_id=%s,updated_at=NOW() WHERE id=%s', (customer_id, str(site['id'])))
         site['customer_id'] = customer_id or site.get('customer_id')

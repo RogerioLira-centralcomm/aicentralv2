@@ -104,6 +104,7 @@ def prioritize(findings):
         return {'status': 'skipped'}
     from ..services.typesafe_service import TypeSafeError, system_one
     from .reports_typesafe import validate_choice
+    from werkzeug.exceptions import HTTPException
     from . import reports_ai
     catalog = {item['code']: item['title'] for item in findings}
     state = {'findings': [{'code': item['code'], 'severity': item['severity'], 'title': item['title'],
@@ -118,6 +119,9 @@ def prioritize(findings):
     try:
         evaluation = reports_ai.typesafe('report_review_priority', state, questions, call=system_one)
         answer = validate_choice(evaluation, 'fix_first', catalog, 'revisão')
+    except HTTPException as exc:
+        # No balance or no permission to spend credits: the rule-based findings still reach the person.
+        return {'status': 'unavailable', 'reason': exc.description or 'A priorização por IA não está disponível.'}
     except (TypeSafeError, ValueError) as exc:
         return {'status': 'unavailable', 'reason': str(exc)}
     return {'status': 'ok', 'code': answer['choice'], 'confidence': answer['confidence'],

@@ -98,3 +98,12 @@ def test_firecrawl_is_billed_as_one_page(ledger):
                                        selected=selected(client=5)) == {'screenshot': 'x'}
     charge = ledger.charged[0]
     assert charge['actor'].client_id == 5 and charge['pages'] == 1 and charge['operation'] == 'scrape'
+
+
+def test_priority_review_degrades_when_credits_are_out(monkeypatch):
+    """The rule-based findings must still reach the person when the AI step cannot be paid for."""
+    from aicentralv2.cadu_connect import report_agents
+    monkeypatch.setattr(reports_ai, 'actor_for', lambda selected=None: (_ for _ in ()).throw(Forbidden('Seu acesso não permite usar IA neste cliente.')))
+    findings = [{'code': 'a', 'severity': 'high', 'title': 'A', 'evidence': ''}, {'code': 'b', 'severity': 'low', 'title': 'B', 'evidence': ''}]
+    result = report_agents.prioritize(findings)
+    assert result['status'] == 'unavailable' and 'IA' in result['reason']

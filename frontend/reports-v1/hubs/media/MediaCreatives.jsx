@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {ArrowUpRight, Image01} from '@untitledui/icons';
 import {ReportsActionButton} from '../../ReportsActionButton.jsx';
 import {ReportsNativeSelect} from '../../ReportsNativeSelect.jsx';
@@ -22,8 +22,12 @@ export function MediaCreatives({data}) {
   const {scope} = useReportsContext();
   // The header's source/campaign narrows which campaigns can be picked here.
   const campaigns = data.campaigns.filter(item => (!scope.account || String(item.account_id) === scope.account) && (!scope.campaign || String(item.id) === scope.campaign)).sort((a, b) => Number(ACTIVE.includes(b.status)) - Number(ACTIVE.includes(a.status)));
-  const [campaignId, setCampaignId] = useState(() => new URLSearchParams(location.search).get('campaign') || scope.campaign || String(campaigns[0]?.id || ''));
-  useEffect(() => {if (scope.campaign) setCampaignId(scope.campaign); else if (!campaigns.some(item => String(item.id) === campaignId)) setCampaignId(String(campaigns[0]?.id || ''));}, [scope.account, scope.campaign]);
+  const [campaignId, setCampaignId] = useState(() => new URLSearchParams(location.search).get('campaign') || (/^\d+$/.test(scope.campaign) ? scope.campaign : '') || String(campaigns[0]?.id || ''));
+  // A deep link (?campaign=) wins on open; afterwards the header selection drives the pick.
+  const deepLink = useRef(Boolean(new URLSearchParams(location.search).get('campaign')));
+  useEffect(() => {
+    if (deepLink.current) {deepLink.current = false; return;}
+    if (/^\d+$/.test(scope.campaign)) setCampaignId(scope.campaign); else if (!campaigns.some(item => String(item.id) === campaignId)) setCampaignId(String(campaigns[0]?.id || ''));}, [scope.account, scope.campaign]);
   const [format, setFormat] = useState('feed');
   const [angle, setAngle] = useState('benefit');
   const [context, retryContext] = useApi(campaignId ? apiUrl(`/creatives/campaigns/${campaignId}`, {format, angle}) : '');

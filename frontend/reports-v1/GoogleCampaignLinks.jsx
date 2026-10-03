@@ -19,10 +19,10 @@ export const createFromGoogle = (save, row, reload = true) => save('/campaigns',
 }, reload);
 
 /** Google Ads campaigns the script already sends but that have no Reports campaign yet: create them with the real ids. */
-export function UnlinkedGoogleCampaigns({save, busy, clientId, revision, emptyMessage = ''}) {
+export function UnlinkedGoogleCampaigns({save, busy, clientId, revision, emptyMessage = '', onCountChange}) {
   const [rows, setRows] = useState([]);
   const [error, setError] = useState('');
-  const load = () => loadUnlinkedGoogleCampaigns().then(value => {setRows(value); setError('');}).catch(failure => setError(failure.message));
+  const load = () => loadUnlinkedGoogleCampaigns().then(value => {setRows(value); setError(''); onCountChange?.(value.length);}).catch(failure => {setError(failure.message); onCountChange?.(0);});
   useEffect(() => {load();}, [clientId, revision]);
   const create = async list => {
     // Only the last one reloads the page data, so the new campaigns show up in the list below at once.

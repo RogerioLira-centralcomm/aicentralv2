@@ -11,7 +11,7 @@ import {GoogleAdsHowItWorks} from './hubs/media/GoogleAdsHowItWorks.jsx';
 import {APP_BASE} from './shell/routes.js';
 import {useReportsContext} from './shell/context.js';
 import {integer, json, shortDate} from './reportsCommon.jsx';
-import {UnlinkedGoogleCampaigns, loadUnlinkedGoogleCampaigns} from './GoogleCampaignLinks.jsx';
+import {UnlinkedGoogleCampaigns} from './GoogleCampaignLinks.jsx';
 
 const validGoogleAdsAccountId = value => /^(?:\d{10}|\d{3}-\d{3}-\d{4})$/.test(String(value || '').trim());
 const formatGoogleId = value => String(value).replace(/^(\d{3})(\d{3})(\d{4})$/, '$1-$2-$3');
@@ -89,7 +89,7 @@ function health(item) {
 export function MediaData({data, save, busy}) {
   const [keys, setKeys] = useState([]);
   const [runs, setRuns] = useState([]);
-  const [unlinkedCampaigns, setUnlinkedCampaigns] = useState([]);
+  const [unlinkedCampaignsCount, setUnlinkedCampaignsCount] = useState(0);
   const [sourceKind, setSourceKind] = useState('google_ads_script');
   const [label, setLabel] = useState(SOURCES.google_ads_script.name);
   const [managerAccountId, setManagerAccountId] = useState('');
@@ -132,7 +132,6 @@ export function MediaData({data, save, busy}) {
 
   const reload = () => json(`/connect/api/v2/reports/ingest-keys`).then(value => {setKeys(value.keys || []); setRuns(value.runs || []); setLoaded(true);});
   useEffect(() => {reload().catch(failure => setError(failure.message));}, [data.client.client_id]);
-  useEffect(() => {loadUnlinkedGoogleCampaigns().then(setUnlinkedCampaigns).catch(() => setUnlinkedCampaigns([]));}, [runs.length]);
   // Accounts that only exist under an MCC: start from that MCC instead of an empty direct list.
   useEffect(() => {
     if (managerAccountId || direct.length) return;
@@ -278,9 +277,9 @@ export function MediaData({data, save, busy}) {
       <pre aria-label="Código da integração" className="max-h-80 overflow-auto rounded-lg bg-secondary p-4 font-mono text-xs leading-5 whitespace-pre text-secondary ring-1 ring-secondary ring-inset">{script}</pre>
     </Card>}
 
-    {unlinkedCampaigns.length > 0 && <div className="flex flex-col gap-3">
+    {unlinkedCampaignsCount > 0 && <div className="flex flex-col gap-3">
       <Step n={4} title="Ligue as campanhas do Google Ads">Os relatórios saem por campanha: cada campanha recebida pelo script precisa existir no Reports com o mesmo ID.</Step>
-      <UnlinkedGoogleCampaigns save={save} busy={busy} clientId={data.client.client_id} revision={runs.length}/>
+      <UnlinkedGoogleCampaigns save={save} busy={busy} clientId={data.client.client_id} revision={runs.length} onCountChange={setUnlinkedCampaignsCount}/>
     </div>}
 
     <Card flush title="Chaves de ingestão" badge={<Badge type="pill-color" size="sm" color="gray">{scopedKeys.length}</Badge>}

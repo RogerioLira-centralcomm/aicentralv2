@@ -11,7 +11,7 @@ from html import unescape
 from urllib.parse import urljoin, urlparse
 
 import urllib3
-from flask import abort, current_app, jsonify, make_response, request, session
+from flask import abort, current_app, has_request_context, jsonify, make_response, request, session
 from werkzeug.exceptions import BadRequest, HTTPException
 
 from ..auth import login_required_api
@@ -24,6 +24,7 @@ from ..cadu_workspace.brand_site_inspector import (
 from .reports_flow import _campaign_match, _host_allowed, _safe_path
 from .reports_v1 import _customer_id, _rows, _selection, _write_guard
 from . import reports_supertag_leads as leads
+from . import reports_tech as tech
 
 # Browsers cap first-party cookies at ~400 days, so the identifier stops at 395; event retention has no such cap.
 AUDIENCE_DAYS_CHOICES = (30, 60, 90, 180, 365, 395)
@@ -309,7 +310,7 @@ def _event(raw, site):
         'click': CLICK_DATA, 'whatsapp_click': CLICK_DATA,
         'visibility': {'element_id', 'ratio'}, 'scroll_depth': {'depth'},
         'form_submit': {'form_id', 'valid'}, 'custom_event': {'value', 'currency'}, 'conversion': {'value', 'currency'},
-        'page_view': set(), 'page_leave': {'duration_ms'}, 'heartbeat': set(),
+        'page_view': {'sw', 'sh', 'dpr', 'orient'}, 'page_leave': {'duration_ms'}, 'heartbeat': set(),
         'outbound_click': {'link_host'}, 'file_download': {'file_ext', 'link_host'}, 'contact_click': {'channel'},
         'video': {'action', 'percent'},
     }[kind]
@@ -357,6 +358,24 @@ def _event(raw, site):
             if isinstance(height, bool) or not isinstance(height, (int, float)) or not 1 <= height <= 100000:
                 abort(400, description='Altura do documento inválida.')
             clean_data['dh'] = int(height)
+    elif kind == 'page_view':
+        # Screen size and pixel ratio are optional (old tags send none); system and browser come from the header, never the raw string.
+        for key in ('sw', 'sh'):
+            if key in data:
+                value = data[key]
+                if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= tech.SCREEN_MAX:
+                    abort(400, description='Tamanho de tela inválido.')
+                clean_data[key] = value
+        if 'dpr' in data:
+            value = data['dpr']
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0.5 <= value <= 10:
+                abort(400, description='Densidade de pixels inválida.')
+            clean_data['dpr'] = round(float(value), 2)
+        if 'orient' in data:
+            if data['orient'] not in tech.ORIENTATIONS:
+                abort(400, description='Orientação inválida.')
+            clean_data['orient'] = data['orient']
+        clean_data['os'], clean_data['browser'] = tech.tech_from_user_agent(request.headers.get('User-Agent') if has_request_context() else None)
     elif kind == 'visibility':
         element_id = data.get('element_id')
         ratio = data.get('ratio')

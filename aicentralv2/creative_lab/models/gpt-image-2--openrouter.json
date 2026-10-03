@@ -1,0 +1,64 @@
+{
+  "model_key": "gpt-image-2--openrouter",
+  "label": "GPT Image 2 · OpenRouter",
+  "group": "production",
+  "provider": "openrouter",
+  "provider_model_id": "openai/gpt-image-2",
+  "catalog_id": "openai/gpt-image-2",
+  "adapter": "openai",
+  "quality_map": {
+    "draft": {
+      "quality": "low"
+    },
+    "standard": {
+      "quality": "medium"
+    },
+    "high": {
+      "quality": "high"
+    }
+  },
+  "fixed_params": {
+    "background": "opaque"
+  },
+  "reference_policy": {
+    "order": [
+      "BASE",
+      "COMPOSITION",
+      "PRODUCT",
+      "PERSON",
+      "STYLE",
+      "LOGO"
+    ],
+    "logo": "composer_overlay",
+    "overflow": "describe_in_prompt"
+  },
+  "prompt_profile": {
+    "language": "en",
+    "max_chars": 3800,
+    "structure": [
+      "task",
+      "subject",
+      "composition",
+      "references",
+      "text_exact",
+      "brand",
+      "avoid"
+    ],
+    "text_rule": "quote_exact_strings",
+    "preamble": "You are rendering a finished advertising image. Follow the brief literally; never add text, logos or people that were not requested."
+  },
+  "notes": [
+    "Baseline da produção (o Studio usa este modelo via OpenAI direto).",
+    "Cobrança por token: o custo cresce com a área e com cada referência (in-img US$ 8/M tokens).",
+    "OpenRouter só aceita aspect_ratio em enum (sem 4:5); tamanho livre só no direto.",
+    "Sem fundo transparente (background só auto/opaque).",
+    "output_compression só é aceito com output_format jpeg/webp no endpoint do OpenRouter (HTTP 400 em png) — removido do manifesto em 2026-10-03."
+  ],
+  "passthrough": {},
+  "profile_version": 1,
+  "tasks": {
+    "generate": true,
+    "edit": true
+  },
+  "known_failure_modes": []
+}

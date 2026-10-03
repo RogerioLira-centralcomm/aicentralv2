@@ -1,0 +1,61 @@
+{
+  "model_key": "gpt-image-2--openai",
+  "label": "GPT Image 2 · OpenAI direto",
+  "group": "production",
+  "provider": "openai_direct",
+  "provider_model_id": "gpt-image-2",
+  "catalog_id": "openai/gpt-image-2",
+  "adapter": "openai",
+  "quality_map": {
+    "draft": {
+      "quality": "low"
+    },
+    "standard": {
+      "quality": "medium"
+    },
+    "high": {
+      "quality": "high"
+    }
+  },
+  "fixed_params": {},
+  "reference_policy": {
+    "order": [
+      "BASE",
+      "COMPOSITION",
+      "PRODUCT",
+      "PERSON",
+      "STYLE",
+      "LOGO"
+    ],
+    "logo": "composer_overlay",
+    "overflow": "describe_in_prompt"
+  },
+  "prompt_profile": {
+    "language": "en",
+    "max_chars": 3800,
+    "structure": [
+      "task",
+      "subject",
+      "composition",
+      "references",
+      "text_exact",
+      "brand",
+      "avoid"
+    ],
+    "text_rule": "quote_exact_strings",
+    "preamble": "You are rendering a finished advertising image. Follow the brief literally; never add text, logos or people that were not requested."
+  },
+  "notes": [
+    "Mesma rota da produção (images/generations e images/edits).",
+    "Aceita size livre (WxH): o Lab manda o tamanho exato do ratio pedido.",
+    "Com referência, vira images/edits (multipart) — comparar com o OpenRouter, que manda input_references.",
+    "Cota da organização por minuto: 429 é esperado em lote."
+  ],
+  "passthrough": {},
+  "profile_version": 1,
+  "tasks": {
+    "generate": true,
+    "edit": true
+  },
+  "known_failure_modes": []
+}

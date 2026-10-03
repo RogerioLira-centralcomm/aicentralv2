@@ -1,0 +1,226 @@
+"""Test scenarios: data, not code. Each one isolates one variable and says what it should reveal.
+
+References point at approved Workspace brand assets (``asset_id``) so every scenario runs on the
+brand's own material. A scenario runs on every model, one generation at a time; the grid compares the
+same scenario across models, so nothing is repeated with a different name.
+"""
+
+from __future__ import annotations
+
+V1 = "v1 · briefing livre"
+V2 = "v2 · briefing estruturado"
+
+SCENARIOS = [
+    {
+        "key": "marca-so-texto", "group": V1,
+        "title": "Marca só por texto",
+        "task": "generate", "brand_id": 25, "aspect_ratio": "1:1", "quality": "standard",
+        "objective": "paid social ad",
+        "instruction": "Anúncio institucional da Centralcomm para redes sociais: fundo escuro, sensação de tecnologia de mídia, headline grande e um botão.",
+        "must_include_text": ["Mídia que chega.", "Fale com a gente"],
+        "references": [], "logo_mode": "composer",
+        "variable": "Sem nenhuma imagem: só a auditoria da marca em texto (paleta, diretriz, proibidos).",
+        "hypothesis": "Mede quanto da identidade o modelo reconstrói a partir do texto auditado e se o PT-BR sai exato (acento, ponto final).",
+    },
+    {
+        "key": "logo-nativo", "group": V1,
+        "title": "Logo como referência nativa",
+        "task": "generate", "brand_id": 31, "aspect_ratio": "3:4", "quality": "standard",
+        "objective": "institutional social post",
+        "instruction": "Post institucional da Cemig divulgando o autoatendimento Cemig Atende Web, com celular em destaque e a marca no topo.",
+        "must_include_text": ["Sua conta de luz na palma da mão"],
+        "references": [{"asset_id": 265, "role": "LOGO", "label": "Logo Cemig"}], "logo_mode": "native",
+        "variable": "O logo vai para o modelo como imagem (não é aplicado depois pelo Composer).",
+        "hypothesis": "Revela quem copia o logo fielmente e quem redesenha — decide se o Composer continua obrigatório por modelo.",
+    },
+    {
+        "key": "produto-packshot", "group": V1,
+        "title": "Produto + logo depois",
+        "task": "generate", "brand_id": 7, "aspect_ratio": "3:4", "quality": "standard",
+        "objective": "product ad",
+        "instruction": "Anúncio do tênis R-Broox da Reserva em calçada urbana ao entardecer, o tênis é o herói da peça.",
+        "must_include_text": ["Pisa leve."],
+        "references": [{"asset_id": 26, "role": "PRODUCT", "label": "Tênis R-Broox"},
+                       {"asset_id": 29, "role": "LOGO", "label": "Logo Reserva"}], "logo_mode": "composer",
+        "variable": "Uma referência de produto; o logo é aplicado pelo Composer depois.",
+        "hypothesis": "Fidelidade de produto (forma, cores, 'R' lateral) com uma única referência.",
+    },
+    {
+        "key": "pessoa-produto", "group": V1,
+        "title": "Pessoa + produto",
+        "task": "generate", "brand_id": 4, "aspect_ratio": "3:4", "quality": "standard",
+        "objective": "jewelry campaign ad",
+        "instruction": "Campanha Vivara: a modelo da referência usando o colar de ouro da referência, luz suave de estúdio, fundo neutro quente.",
+        "must_include_text": ["Brilho que é seu"],
+        "references": [{"asset_id": 176, "role": "PERSON", "label": "Modelo Vivara", "has_person": True},
+                       {"asset_id": 177, "role": "PRODUCT", "label": "Colar de ouro"},
+                       {"asset_id": 6, "role": "LOGO", "label": "Logo Vivara"}], "logo_mode": "composer",
+        "variable": "Duas referências nativas (pessoa e produto); quem aceita só 1 converte o produto em texto.",
+        "hypothesis": "Identidade da pessoa × fidelidade do produto quando competem; expõe o limite de referências do Recraft.",
+    },
+    {
+        "key": "editar-texto", "group": V1,
+        "title": "Editar só o texto",
+        "task": "edit", "brand_id": 7, "aspect_ratio": "3:4", "quality": "standard",
+        "objective": "edit an existing ad",
+        "instruction": "Trocar a oferta de 20% para 30%. Nada mais muda.",
+        "must_include_text": ["Boas vindas", "com 30% OFF"],
+        "preserve": ["the person (face, hair, clothes, pose)", "layout and typography style", "background", "every other text"],
+        "alter": "Change the offer text '20%OFF' to '30%OFF' in the same typeface, size and position.",
+        "references": [{"asset_id": 194, "role": "BASE", "label": "Peça Boas-vindas 20%", "has_person": True}], "logo_mode": "none",
+        "variable": "Edição cirúrgica de um número numa peça real com pessoa.",
+        "hypothesis": "Caso do Trocr: o modelo troca só o número ou redesenha a peça inteira?",
+    },
+    {
+        "key": "editar-cenario", "group": V1,
+        "title": "Editar o cenário",
+        "task": "edit", "brand_id": 7, "aspect_ratio": "3:4", "quality": "standard",
+        "objective": "edit an existing ad",
+        "instruction": "Levar o modelo para uma rua de São Paulo à noite, com luzes de neon desfocadas; pessoa e roupa idênticas.",
+        "must_include_text": [],
+        "preserve": ["the person's identity, face, skin tone and pose", "the knitted t-shirt, its color and texture", "framing of the person"],
+        "alter": "Replace the background with a blurred São Paulo street at night with soft neon bokeh. Remove the words 'TONS TERROSOS'.",
+        "references": [{"asset_id": 196, "role": "BASE", "label": "Modelo tons terrosos", "has_person": True}], "logo_mode": "none",
+        "variable": "Edição ampla (fundo) preservando identidade.",
+        "hypothesis": "Preservação de identidade com mudança grande de luz — onde modelos 'trocam' o rosto.",
+    },
+    {
+        "key": "estilo-referencia", "group": V1,
+        "title": "Estilo de outra peça",
+        "task": "generate", "brand_id": 25, "aspect_ratio": "16:9", "quality": "standard",
+        "objective": "connected TV ad frame",
+        "instruction": "Frame de anúncio para CTV da Centralcomm sobre mídia programática, no mesmo estilo visual da referência (escuro, verde neon, pessoa em destaque).",
+        "must_include_text": ["Sua mídia, em todas as telas."],
+        "references": [{"asset_id": 217, "role": "STYLE", "label": "Site Centralcomm (estilo)", "has_person": True},
+                       {"asset_id": 197, "role": "LOGO", "label": "Símbolo Centralcomm"}], "logo_mode": "composer",
+        "variable": "Referência de estilo (não de conteúdo) + ratio 16:9.",
+        "hypothesis": "Quem copia a peça em vez de herdar o estilo; quem ignora a referência.",
+    },
+    {
+        "key": "v2-cemig-whatsapp", "group": V2,
+        "title": "Cemig no WhatsApp · desdobramento",
+        "task": "generate", "brand_id": 31, "quality": "standard", "objective": "service awareness ad",
+        "formats": ["feed-1x1", "story-9x16", "wide-16x9", "iab-300x250", "iab-300x600"],
+        "instruction": "", "references": [], "logo_mode": "composer",
+        "brief": {
+            "archetype": "recorte-chamada", "audience": "Clientes residenciais da Cemig que perdem tempo com atendimento",
+            "offer": "Atendimento da Cemig pelo WhatsApp (2ª via, religação, falta de energia)",
+            "copy": {"kicker": "CEMIG ATENDE", "headline": "Sua conta de luz", "highlight": "NO WHATSAPP",
+                     "support": "2ª via, religação e falta de energia sem sair de casa.", "cta": "Chame agora"},
+            "casting": ["Mulher negra de 35 anos, cabelo cacheado preso, camiseta lisa verde-clara, sentada no sofá segurando o celular, sorriso tranquilo, olhando para a câmera"],
+            "devices": ["cápsulas arredondadas em verde-lima como marcadores", "faixa inferior verde-escura com a marca"],
+        },
+        "variable": "Mesmo briefing estruturado em 5 formatos (feed, story, 16:9, 300×250, 300×600).",
+        "hypothesis": "Quem diagrama por formato (zonas, herói, assinatura) e quem só estica a mesma imagem; quanto o recorte para IAB destrói.",
+    },
+    {
+        "key": "v2-centralcomm-ritmo", "group": V2,
+        "title": "Centralcomm · ritmo tipográfico",
+        "task": "generate", "brand_id": 25, "quality": "standard", "objective": "agency positioning ad",
+        "formats": ["feed-1x1", "story-9x16", "iab-300x250"],
+        "instruction": "", "references": [], "logo_mode": "composer",
+        "brief": {
+            "archetype": "tipografico-faixa", "audience": "Diretores de marketing que contratam mídia em várias frentes",
+            "copy": {"headline": "PROGRAMÁTICA. CTV. PERFORMANCE. PUBLISHERS.", "highlight": "UMA OPERAÇÃO SÓ.",
+                     "tagline": "Centralcomm. Mídia que chega."},
+            "casting": [], "devices": ["linhas curtas empilhadas alternando branco e verde neon", "aba sólida amarela no canto superior esquerdo"],
+        },
+        "variable": "Peça só tipográfica (aprendida de Gov. Minas e Uhuru) — sem foto para o modelo enfeitar.",
+        "hypothesis": "Sem cena, sobra só diagramação e texto: mede tipografia pura e respeito à paleta.",
+    },
+    {
+        "key": "v2-reserva-semana-cliente", "group": V2,
+        "title": "Reserva · foto em faixa + oferta",
+        "task": "generate", "brand_id": 7, "quality": "standard", "objective": "retail offer display ad",
+        "formats": ["feed-4x5", "iab-300x250"],
+        "instruction": "",
+        "references": [{"asset_id": 196, "role": "PERSON", "label": "Modelo Reserva", "has_person": True},
+                       {"asset_id": 29, "role": "LOGO", "label": "Logo Reserva"}], "logo_mode": "composer",
+        "brief": {
+            "archetype": "foto-faixa-bloco", "audience": "Clientes da Reserva na semana do cliente",
+            "offer": "Semana do Cliente: +20% extra em todo o outlet com cupom (copy da peça real da marca)",
+            "copy": {"kicker": "SEMANA DO CLIENTE", "headline": "Outlet com", "highlight": "+20% EXTRA",
+                     "support": "Use o cupom DIADOCLIENTE.", "cta": "COMPRAR AGORA"},
+            "casting": ["O modelo da referência, mesma roupa, recortado do peito para cima, olhando para a câmera"],
+            "devices": ["corte reto entre a faixa de foto e o bloco preto", "botão retangular branco com texto preto"],
+        },
+        "variable": "Arquétipo MaxMilhas (foto em faixa + bloco) com a pessoa real da marca.",
+        "hypothesis": "Pessoa de referência + oferta herói + bloco chapado: identidade × hierarquia.",
+    },
+    {
+        "key": "v2-vivara-story", "group": V2,
+        "title": "Vivara · story com recorte e produto",
+        "task": "generate", "brand_id": 4, "quality": "standard", "objective": "jewelry story ad",
+        "formats": ["story-9x16"],
+        "instruction": "",
+        "references": [{"asset_id": 176, "role": "PERSON", "label": "Modelo Vivara", "has_person": True},
+                       {"asset_id": 177, "role": "PRODUCT", "label": "Colar de ouro"},
+                       {"asset_id": 6, "role": "LOGO", "label": "Logo Vivara"}], "logo_mode": "composer",
+        "brief": {
+            "archetype": "recorte-chamada", "audience": "Mulheres 25–45 que presenteiam a si mesmas",
+            "copy": {"kicker": "VIVARA", "headline": "Brilho que é seu", "support": "Colares em ouro para todos os dias.",
+                     "cta": "Descubra na loja"},
+            "casting": ["A modelo da referência usando o colar da referência, ombros à mostra, luz suave, olhando para a câmera"],
+            "devices": ["fundo chapado bege-rosado da marca", "fio dourado fino como divisor"],
+        },
+        "variable": "Story (zonas de UI) + 2 referências que competem (pessoa e produto).",
+        "hypothesis": "Zonas seguras do story e fidelidade de produto quando o elenco também vem de referência.",
+    },
+    {
+        "key": "v2-reformatar-vertical-horizontal", "group": V2,
+        "title": "Reformatar: vertical → horizontal",
+        "task": "edit", "brand_id": 5, "quality": "standard", "objective": "format adaptation",
+        "formats": ["wide-16x9"],
+        "instruction": "Adaptar a peça vertical da Rede D'Or para 16:9 sem perder texto, pessoa nem assinatura.",
+        "references": [{"asset_id": 13, "role": "BASE", "label": "Rede D'Or · vaga (vertical)", "has_person": True}],
+        "logo_mode": "none",
+        "brief": {"copy": {"headline": "Seu talento pode fazer parte do cuidado que transforma vidas",
+                           "support": "Conheça as oportunidades de carreira na Rede D'Or"}},
+        "variable": "Peça real vertical → 16:9: o modelo precisa estender o fundo e reposicionar o texto.",
+        "hypothesis": "Desdobramento por edição: quem mantém texto e rosto e quem redesenha a peça.",
+    },
+    {
+        "key": "v2-reformatar-horizontal-vertical", "group": V2,
+        "title": "Reformatar: horizontal → vertical",
+        "task": "edit", "brand_id": 7, "quality": "standard", "objective": "format adaptation",
+        "formats": ["story-9x16"],
+        "instruction": "Adaptar o banner horizontal da Reserva para story 9:16.",
+        "references": [{"asset_id": 189, "role": "BASE", "label": "Reserva · banner outlet (horizontal)", "has_person": True}],
+        "logo_mode": "none",
+        "brief": {"copy": {"headline": "+20% extra", "support": "EM TODO O OUTLET"}},
+        "variable": "Peça real horizontal → story: o texto sai do lado e vai para cima/baixo da pessoa.",
+        "hypothesis": "O caso mais difícil do desdobramento: o canvas muda de orientação.",
+    },
+    {
+        "key": "v2-reformatar-quadrado-vertical", "group": V2,
+        "title": "Reformatar: quadrado → story e 300×600",
+        "task": "edit", "brand_id": 5, "quality": "standard", "objective": "format adaptation",
+        "formats": ["story-9x16", "iab-300x600"],
+        "instruction": "Adaptar a peça 1:1 da Rede D'Or para story e half-page.",
+        "references": [{"asset_id": 14, "role": "BASE", "label": "Rede D'Or · como se candidatar (1:1)", "has_person": True}],
+        "logo_mode": "none",
+        "brief": {"copy": {"headline": "Entenda como se candidatar a vagas na Rede D'Or"}},
+        "variable": "Uma peça quadrada vira dois formatos altos.",
+        "hypothesis": "Consistência entre formatos derivados da mesma base.",
+    },
+    {
+        "key": "mockup-enriquecido", "group": V2,
+        "title": "Mockup enriquecido",
+        "task": "generate", "brand_id": None, "aspect_ratio": "4:5", "quality": "standard",
+        "objective": "", "instruction": "", "must_include_text": [], "references": [], "logo_mode": "composer",
+        "reserved": True,
+        "variable": "Estratégia D do Reference Test.",
+        "hypothesis": "Reservado: falta definir o que é um mockup enriquecido (ex.: mockup com produto e logo pré-compostos).",
+    },
+]
+
+
+def scenarios(include_reserved: bool = True) -> list[dict]:
+    return [item for item in SCENARIOS if include_reserved or not item.get("reserved")]
+
+
+def scenario(key: str) -> dict:
+    for item in SCENARIOS:
+        if item["key"] == key:
+            return item
+    raise KeyError(f"Cenário desconhecido: {key}")

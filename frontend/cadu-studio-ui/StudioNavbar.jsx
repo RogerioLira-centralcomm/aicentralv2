@@ -11,6 +11,8 @@ export const STUDIO_SECTIONS = [
   ['audio', 'Áudio'],
   ['analyzer', 'Analisar'],
   ['library', 'Biblioteca'],
+  // Only present in `links` for organizations allowed into the Creative Lab.
+  ['lab', 'Lab'],
 ];
 
 const initials = name => String(name || 'C').trim().split(/\s+/).slice(0, 2).map(part => part[0] || '').join('').toUpperCase() || 'C';

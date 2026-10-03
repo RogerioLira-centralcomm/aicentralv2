@@ -1,0 +1,61 @@
+{
+  "model_key": "qwen-image-3-pro",
+  "label": "Qwen Image 3 Pro",
+  "group": "production",
+  "provider": "openrouter",
+  "provider_model_id": "qwen/qwen-image-3-pro",
+  "catalog_id": "qwen/qwen-image-3-pro",
+  "adapter": "qwen",
+  "quality_map": {
+    "draft": {
+      "resolution": "1K"
+    },
+    "standard": {
+      "resolution": "1K"
+    },
+    "high": {
+      "resolution": "2K"
+    }
+  },
+  "fixed_params": {},
+  "reference_policy": {
+    "order": [
+      "BASE",
+      "PRODUCT",
+      "PERSON",
+      "COMPOSITION",
+      "STYLE",
+      "LOGO"
+    ],
+    "logo": "composer_overlay",
+    "overflow": "describe_in_prompt"
+  },
+  "prompt_profile": {
+    "language": "en",
+    "max_chars": 1800,
+    "structure": [
+      "task",
+      "subject",
+      "composition",
+      "references",
+      "text_exact",
+      "brand",
+      "avoid"
+    ],
+    "text_rule": "quote_exact_strings",
+    "preamble": "Commercial advertising photograph. Render every quoted string exactly, letter by letter."
+  },
+  "notes": [
+    "Preço por imagem: US$ 0,04 (1K) / 0,075 (2K) + US$ 0,003 por referência.",
+    "Até 4 referências e seed (reprodutível).",
+    "Forte em texto pequeno (10px, segundo o fornecedor) — testar PT-BR com acento.",
+    "Único da shortlist com 4:5 e 4:1/1:4 nativos."
+  ],
+  "passthrough": {},
+  "profile_version": 1,
+  "tasks": {
+    "generate": true,
+    "edit": true
+  },
+  "known_failure_modes": []
+}

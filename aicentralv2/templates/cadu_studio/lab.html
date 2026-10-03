@@ -1,0 +1,28 @@
+{% extends "cadu_portals/base.html" %}
+{% block title %}Cadu Studio Lab{% endblock %}
+{% block product_id %}studio{% endblock %}
+{% block navigation %}{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_studio/lab/react/app.css') }}?v={{ static_fingerprint('cadu_studio/lab/react/app.css') if static_fingerprint is defined else 0 }}">{% endblock %}
+{% block content %}
+<div id="cadu-studio-lab-root"><noscript>Ative o JavaScript para usar o Lab.</noscript></div>
+<script id="cadu-studio-lab-bootstrap" type="application/json">{{ {
+  'apiRoot': '/lab/api',
+  'csrf': lab_csrf,
+  'user': {'name': session.get('user_name', 'Minha conta'), 'email': session.get('user_email', ''), 'avatar': session.get('user_photo_url', '')},
+  'links': {
+    'home': studio_url('modelagem_criativos'),
+    'create': studio_url('modelagem_criar'),
+    'editor': studio_url('modelagem_trocar'),
+    'videos': studio_url('modelagem_video'),
+    'audio': product_url('studio', '/audio'),
+    'analyzer': product_url('studio', '/analyzer'),
+    'library': studio_url('modelagem_criativos') ~ '#studioLibrary',
+    'lab': product_url('studio', '/lab'),
+    'credits': product_url('workspace', '/workspace/app/creditos'),
+    'profile': product_url('workspace', '/workspace/app/conta?section=perfil'),
+    'workspace': product_url('workspace', '/workspace/app'),
+    'logout': product_url('auth', '/logout')
+  }
+}|tojson }}</script>
+{% endblock %}
+{% block portal_scripts %}<script type="module" src="{{ url_for('static', filename='cadu_studio/lab/react/app.js') }}?v={{ static_fingerprint('cadu_studio/lab/react/app.js') if static_fingerprint is defined else 0 }}"></script>{% endblock %}

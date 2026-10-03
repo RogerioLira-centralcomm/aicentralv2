@@ -1,0 +1,55 @@
+{
+  "model_key": "recraft-v4.1",
+  "label": "Recraft V4.1",
+  "group": "specialist",
+  "provider": "openrouter",
+  "provider_model_id": "recraft/recraft-v4.1",
+  "catalog_id": "recraft/recraft-v4.1",
+  "adapter": "recraft",
+  "quality_map": {
+    "draft": {},
+    "standard": {},
+    "high": {}
+  },
+  "fixed_params": {},
+  "reference_policy": {
+    "order": [
+      "BASE",
+      "STYLE",
+      "COMPOSITION",
+      "PRODUCT",
+      "PERSON",
+      "LOGO"
+    ],
+    "logo": "composer_overlay",
+    "overflow": "describe_in_prompt"
+  },
+  "prompt_profile": {
+    "language": "en",
+    "max_chars": 1000,
+    "structure": [
+      "task",
+      "subject",
+      "composition",
+      "references",
+      "text_exact",
+      "brand",
+      "avoid"
+    ],
+    "text_rule": "quote_exact_strings",
+    "preamble": "Design-forward advertising visual with clean typography."
+  },
+  "passthrough": {},
+  "notes": [
+    "Preço fixo US$ 0,035 por imagem; não há botão de qualidade.",
+    "Só 1 referência: num teste com produto + pessoa, a segunda vira texto no prompt.",
+    "Passthrough style / controls / text_layout — onde dá para ajustar o 'sistema' além do prompt.",
+    "Ratios limitados: 1:1, 4:3, 3:4, 16:9, 9:16."
+  ],
+  "profile_version": 1,
+  "tasks": {
+    "generate": true,
+    "edit": true
+  },
+  "known_failure_modes": []
+}

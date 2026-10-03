@@ -11,6 +11,7 @@
     <a href="{{ product_url('studio', '/audio') }}"{% if mc_page == 'audio' %} class="is-current" aria-current="page"{% endif %}>Áudio</a>
     <a href="{{ studio_url('modelagem_criativos') }}#studioLibrary"{% if mc_page == 'hub' %} class="is-current" aria-current="page"{% endif %}>Biblioteca</a>
     <a href="{{ product_url('studio', '/analyzer') }}"{% if mc_page == 'analyzer' %} class="is-current" aria-current="page"{% endif %}>Analyzer</a>
+    {% if studio_lab_enabled is defined and studio_lab_enabled() %}<a href="{{ product_url('studio', '/lab') }}">Lab</a>{% endif %}
   </nav>
   <div class="mc-cadu-meta">
     <label class="mc-cadu-project" for="mcCaduProject"><span>Projeto e marca</span><select id="mcCaduProject" aria-label="Projeto ativo" disabled><option value="">Carregando projetos…</option></select></label>
@@ -34,6 +35,7 @@
     'audio': product_url('studio', '/audio'),
     'analyzer': product_url('studio', '/analyzer'),
     'library': studio_url('modelagem_criativos') ~ '#studioLibrary',
+    'lab': product_url('studio', '/lab') if studio_lab_enabled is defined and studio_lab_enabled() else None,
     'credits': product_url('workspace', '/workspace/app/creditos'),
     'profile': product_url('workspace', '/workspace/app/conta?section=perfil'),
     'workspace': product_url('workspace', '/workspace/app'),

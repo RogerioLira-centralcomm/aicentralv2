@@ -1,0 +1,61 @@
+{
+  "model_key": "gpt-image-2.5-sunburst--openai",
+  "label": "GPT Image 2.5 Sunburst · OpenAI direto",
+  "group": "production",
+  "provider": "openai_direct",
+  "provider_model_id": "gpt-image-2.5-sunburst",
+  "catalog_id": "openai/gpt-image-2.5-sunburst",
+  "adapter": "openai",
+  "quality_map": {
+    "draft": {
+      "quality": "low"
+    },
+    "standard": {
+      "quality": "medium"
+    },
+    "high": {
+      "quality": "high"
+    }
+  },
+  "fixed_params": {},
+  "reference_policy": {
+    "order": [
+      "BASE",
+      "COMPOSITION",
+      "PRODUCT",
+      "PERSON",
+      "STYLE",
+      "LOGO"
+    ],
+    "logo": "composer_overlay",
+    "overflow": "describe_in_prompt"
+  },
+  "prompt_profile": {
+    "language": "en",
+    "max_chars": 3800,
+    "structure": [
+      "task",
+      "subject",
+      "composition",
+      "references",
+      "text_exact",
+      "brand",
+      "avoid"
+    ],
+    "text_rule": "quote_exact_strings",
+    "preamble": "You are rendering a finished advertising image. Follow the brief literally; never add text, logos or people that were not requested."
+  },
+  "notes": [
+    "Mesmo modelo do OpenRouter, pela conta OpenAI direta (confirmado em /v1/models em 2026-10-03; snapshot gpt-image-2.5-sunburst-2026-09-08).",
+    "Tamanho livre (WxH) e images/edits multipart com referência — mesma rota do Studio em produção.",
+    "Comparar com a rota OpenRouter: latência, custo e tratamento de referências.",
+    "Qualidade vai até xhigh/max; o Lab usa medium no padrão."
+  ],
+  "passthrough": {},
+  "profile_version": 1,
+  "tasks": {
+    "generate": true,
+    "edit": true
+  },
+  "known_failure_modes": []
+}

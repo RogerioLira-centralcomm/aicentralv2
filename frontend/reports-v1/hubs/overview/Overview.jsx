@@ -144,18 +144,21 @@ function RollingTable({compare, code}) {
 const RUNNING = new Set(['ENABLED', 'active']);
 const FLOW_MONITOR = {online: ['Online', 'is-success'], degraded: ['Com falhas', 'is-warning'], offline: ['Offline', 'is-error']};
 
-/** Campaigns running for this client, with what each one spent in the period; running without spend is flagged. */
+/**
+ * Campaigns running for this client, with what each one spent in the period; running without delivery is flagged.
+ * `spend` is null when per-campaign numbers are unknown (imported files, failed load): then nothing is flagged.
+ */
 function CampaignsCard({campaigns, spend, code, loading}) {
   const byId = new Map((spend || []).map(item => [String(item.id), item]));
   const running = campaigns.filter(item => RUNNING.has(item.status)).map(item => ({...item, metrics: byId.get(String(item.id)) || null}))
     .sort((a, b) => Number(b.metrics?.cost ?? b.metrics?.clicks ?? -1) - Number(a.metrics?.cost ?? a.metrics?.clicks ?? -1));
-  const idle = running.filter(item => !item.metrics?.impressions).length;
+  const idle = spend ? running.filter(item => !item.metrics?.impressions).length : 0;
   return <Section title="Campanhas em execução" description={loading ? 'Carregando…' : running.length ? `${running.length} ${running.length === 1 ? 'ativa' : 'ativas'}${idle ? ` · ${idle} sem entrega no período` : ''}` : 'Nenhuma campanha ativa'}
     action={more(reportUrl('media/campaigns'), 'Campanhas')}>
     {loading ? <LoadingState rows={3}/> : !running.length ? <p className="rs-muted">Cadastre ou reative campanhas em Mídia › Campanhas.</p>
       : <ul className="ov-list">{running.slice(0, 5).map(item => <li key={item.id}>
         <span className="ov-list__copy"><AppLink href={reportUrl('campaigns', {campaign_id: item.id})}>{item.name}</AppLink><small>{platformName(item.platform)}{item.account_name ? ` · ${item.account_name}` : ''}</small></span>
-        {item.metrics?.impressions ? <strong>{item.metrics.cost != null ? compactCurrency(item.metrics.cost, code) : `${compact(item.metrics.clicks)} cliques`}</strong> : <span className="rs-badge is-warning">Sem entrega</span>}
+        {item.metrics?.impressions ? <strong>{item.metrics.cost != null ? compactCurrency(item.metrics.cost, code) : `${compact(item.metrics.clicks)} cliques`}</strong> : spend ? <span className="rs-badge is-warning">Sem entrega</span> : null}
       </li>)}</ul>}
     {running.length > 5 && <p className="ov-list__more">{more(reportUrl('media/campaigns'), `Ver as ${running.length}`)}</p>}
   </Section>;
@@ -262,7 +265,7 @@ export function Overview({data}) {
     </TrendGrid>
     {!summary && settled && <EmptyState title="Sem dados de mídia neste período" description="Conecte uma fonte ou envie um arquivo para ver investimento e resultados." action={<ReportsActionButton color="secondary" size="sm" href={reportUrl('media/data')}>Conectar fonte</ReportsActionButton>}/>}
     <div className="ov-grid3">
-      <CampaignsCard campaigns={data.campaigns || []} spend={summary?.campaigns} code={code} loading={media.loading}/>
+      <CampaignsCard campaigns={data.campaigns || []} spend={summary && summary.origin === 'Google Ads Script' ? summary.campaigns : null} code={code} loading={media.loading}/>
       <SitesCard domains={domains.body?.domains} sites={sites.body?.sites} loading={sites.loading && !sites.body}/>
       <FlowsCard state={flows}/>
     </div>

@@ -21,7 +21,8 @@ export const HUBS = {
 
 /**
  * path → page. `page` is the key App renders; `nav` is the sidebar item kept active;
- * `period` shows the global period picker in the header.
+ * `period` shows the global period picker in the header; `scope` adds the header picker
+ * (true: source + campaign, 'account': source only, 'site': Super Tag site).
  */
 export const ROUTES = {
   overview: {page: 'overview', nav: 'overview', title: 'Visão geral', description: 'Saúde dos dados, resultados e próxima ação.', period: true},
@@ -39,8 +40,9 @@ export const ROUTES = {
   reports: {page: 'reports', nav: 'reports', title: 'Relatórios', description: 'Análises salvas e entregáveis prontos para distribuir.'},
   alerts: {page: 'alerts', nav: 'alerts', title: 'Alertas', description: 'O que precisa da sua atenção, com responsável e histórico.'},
   'data-sources': {page: 'data-sources', nav: 'data-sources', hub: 'data'},
-  'data-sources/connect': {page: 'monitor', nav: 'data-sources', hub: 'data'},
-  supertag: {page: 'supertag', nav: 'data-sources', hub: 'data'},
+  'data-sources/connect': {page: 'monitor', nav: 'data-sources', hub: 'data', scope: 'account'},
+  // Super Tag always shows one site: the header picks it, there is no "all sites" view.
+  supertag: {page: 'supertag', nav: 'data-sources', hub: 'data', scope: 'site', siteRequired: true},
   events: {page: 'events', nav: 'data-sources', hub: 'data', period: true},
   imports: {page: 'imports', nav: 'data-sources', hub: 'data'},
   'tools/link-tester': {page: 'links', nav: 'links', title: 'Link Tester', description: 'Verifique destinos e associe links às campanhas certas.'},

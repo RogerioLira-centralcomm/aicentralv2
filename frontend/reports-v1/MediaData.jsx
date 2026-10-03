@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {AlertTriangle, Check, Copy01, Database01, Download01} from '@untitledui/icons';
+import {AlertTriangle, Check, ChevronUp, Copy01, Database01, Download01, Plus} from '@untitledui/icons';
 import {Button} from '../cadu-design-system/untitled-kit/button.tsx';
 import {Badge, BadgeWithDot} from '../cadu-design-system/untitled-kit/badges.tsx';
 import {Card, TD, TH} from './ReportsBlocks.jsx';
@@ -9,11 +9,13 @@ import {ReportsConfirmDialog} from './ReportsConfirmDialog.jsx';
 import {FlowPlatformLogo} from './FlowPlatformLogo.jsx';
 import {GoogleAdsHowItWorks} from './hubs/media/GoogleAdsHowItWorks.jsx';
 import {APP_BASE} from './shell/routes.js';
+import {useReportsContext} from './shell/context.js';
 import {integer, json, shortDate} from './reportsCommon.jsx';
 import {UnlinkedGoogleCampaigns} from './GoogleCampaignLinks.jsx';
 
 const validGoogleAdsAccountId = value => /^(?:\d{10}|\d{3}-\d{3}-\d{4})$/.test(String(value || '').trim());
 const formatGoogleId = value => String(value).replace(/^(\d{3})(\d{3})(\d{4})$/, '$1-$2-$3');
+const digits = value => String(value || '').replace(/\D/g, '');
 const SOURCES = {
   google_ads_script: {label: 'Google Ads Script', short: 'Google Ads · Leitura', name: 'Google Ads · monitoramento', description: 'Dois scripts na conta ou MCC: Leitura (métricas, diário) e Ações (aplica as mudanças aprovadas, de hora em hora).'},
   conversion_webhook: {label: 'CRM / conversões', short: 'CRM', name: 'CRM · conversões', description: 'Vendas e leads confirmados pelo CRM, sem dados pessoais.'},
@@ -100,6 +102,11 @@ export function MediaData({data, save, busy}) {
   const [error, setError] = useState('');
   const [revokeId, setRevokeId] = useState('');
   const [keyFilter, setKeyFilter] = useState('active');
+  const [loaded, setLoaded] = useState(false);
+  // null: follow the data (open only while nothing is connected); true/false: the user's choice.
+  const [formOpen, setFormOpen] = useState(null);
+  const {scope} = useReportsContext();
+  const scopedAccount = scope.account ? data.accounts.find(item => String(item.id) === scope.account) : null;
   const canEdit = data.client.role !== 'viewer';
   const google = sourceKind === 'google_ads_script';
   const managers = data.accounts.filter(account => account.platform === 'google_ads' && account.account_kind === 'manager' && account.status !== 'disabled' && validGoogleAdsAccountId(account.external_id));
@@ -112,11 +119,16 @@ export function MediaData({data, save, busy}) {
     ? invalid.filter(account => account.account_kind === 'advertiser' && String(account.parent_account_id || '') === managerAccountId)
     : direct.length || usableManager ? [] : invalid.filter(account => (account.account_kind === 'advertiser' && !account.parent_account_id)
       || (account.account_kind === 'manager' && data.accounts.some(child => child.account_kind === 'advertiser' && child.status !== 'disabled' && String(child.parent_account_id || '') === String(account.id))));
-  const active = keys.filter(item => !item.revoked_at);
+  // The header's source narrows the keys to the ones allowed (or bound) to that account.
+  const ofAccount = item => !scopedAccount || [...(item.allowed_account_ids || []), item.bound_account_id].map(digits).includes(digits(scopedAccount.external_id));
+  const scopedKeys = keys.filter(ofAccount);
+  const active = scopedKeys.filter(item => !item.revoked_at);
+  const connected = keys.some(item => !item.revoked_at);
+  const showForm = formOpen ?? (loaded && !connected);
   const lastRun = runs[0]?.created_at;
   const attention = active.filter(item => health(item)[1] === 'warning').length;
 
-  const reload = () => json(`/connect/api/v2/reports/ingest-keys`).then(value => {setKeys(value.keys || []); setRuns(value.runs || []);});
+  const reload = () => json(`/connect/api/v2/reports/ingest-keys`).then(value => {setKeys(value.keys || []); setRuns(value.runs || []); setLoaded(true);});
   useEffect(() => {reload().catch(failure => setError(failure.message));}, [data.client.client_id]);
   // Accounts that only exist under an MCC: start from that MCC instead of an empty direct list.
   useEffect(() => {
@@ -124,6 +136,12 @@ export function MediaData({data, save, busy}) {
     const withAccounts = managers.filter(manager => advertisers.some(account => String(account.parent_account_id || '') === String(manager.id)));
     if (withAccounts.length === 1) setManagerAccountId(String(withAccounts[0].id));
   }, [data.accounts]);
+  // A Google Ads account picked in the header starts the form on that account (and its MCC).
+  useEffect(() => {
+    if (!scopedAccount || scopedAccount.platform !== 'google_ads' || scopedAccount.account_kind !== 'advertiser' || !validGoogleAdsAccountId(scopedAccount.external_id)) return;
+    setManagerAccountId(scopedAccount.parent_account_id ? String(scopedAccount.parent_account_id) : '');
+    setAccountIds([scopedAccount.external_id]);
+  }, [scope.account, data.accounts]);
   const choose = kind => {setSourceKind(kind); setLabel(SOURCES[kind].name);};
   const toggle = id => setAccountIds(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id]);
   const managerExternalId = managerAccountId ? managers.find(item => String(item.id) === managerAccountId)?.external_id : '';
@@ -174,7 +192,7 @@ export function MediaData({data, save, busy}) {
     : !accountIds.length ? (managerAccountId ? 'Marque ao menos uma conta da MCC.' : 'Escolha a conta que receberá os dados.')
     : badLimit ? 'Os tetos de variação devem ficar entre 1% e 100%.' : !label.trim() ? 'Dê um nome à instalação.' : '';
   const disabled = busy || Boolean(reason);
-  const shownKeys = keys.filter(item => keyFilter === 'all' || (keyFilter === 'active' ? !item.revoked_at : item.revoked_at));
+  const shownKeys = scopedKeys.filter(item => keyFilter === 'all' || (keyFilter === 'active' ? !item.revoked_at : item.revoked_at));
   const generated = scripts.length > 0 || Boolean(script);
   const googleKeys = active.filter(item => item.source_kind === 'google_ads_script');
   const receiving = googleKeys.some(item => item.last_used_at);
@@ -186,7 +204,11 @@ export function MediaData({data, save, busy}) {
     </dl>
     {error && <p role="alert" className="rounded-lg bg-error-primary px-4 py-3 text-sm text-error-primary ring-1 ring-error_subtle">{error}</p>}
 
-    {canEdit && <Card title="Conectar fonte" description="Cada fonte recebe uma chave própria. Você pode revogar a qualquer momento." actions={<GoogleAdsHowItWorks/>}>
+    {canEdit && !showForm && <Card title="Conectar fonte"
+      description={loaded ? `${integer(keys.filter(item => !item.revoked_at).length)} chave(s) ativa(s) neste cliente. Gere outra só para uma nova conta, MCC ou CRM.` : 'Carregando conexões…'}
+      actions={<><GoogleAdsHowItWorks/><Button size="md" color="secondary" iconLeading={Plus} isDisabled={!loaded} onPress={() => setFormOpen(true)}>Conectar nova fonte</Button></>}/>}
+    {canEdit && showForm && <Card title="Conectar fonte" description="Cada fonte recebe uma chave própria. Você pode revogar a qualquer momento."
+      actions={<><GoogleAdsHowItWorks/>{connected && <Button size="md" color="tertiary" iconLeading={ChevronUp} onPress={() => setFormOpen(false)}>Recolher</Button>}</>}>
       <form className="flex flex-col gap-6" onSubmit={create}>
         <Step n={1} title="Escolha a fonte"/>
         <div role="radiogroup" aria-label="Fonte" className="grid gap-3 sm:grid-cols-2">
@@ -264,8 +286,9 @@ export function MediaData({data, save, busy}) {
         emptyMessage={receiving ? 'Todas as campanhas recebidas já estão cadastradas.' : 'As campanhas aparecem aqui depois do primeiro envio do script de Leitura.'}/>
     </div>}
 
-    <Card flush title="Chaves de ingestão" badge={<Badge type="pill-color" size="sm" color="gray">{keys.length}</Badge>} description="Cada instalação usa a própria chave. Revogar interrompe os envios; o histórico fica."
-      actions={keys.length > 0 && <div className="rs-segmented" role="group" aria-label="Chaves">{[['active', `Ativas · ${active.length}`], ['revoked', `Revogadas · ${keys.length - active.length}`], ['all', 'Todas']].map(([key, text]) =>
+    <Card flush title="Chaves de ingestão" badge={<Badge type="pill-color" size="sm" color="gray">{scopedKeys.length}</Badge>}
+      description={scopedAccount ? `Chaves autorizadas para ${scopedAccount.name || formatGoogleId(scopedAccount.external_id)}. Revogar interrompe os envios; o histórico fica.` : 'Cada instalação usa a própria chave. Revogar interrompe os envios; o histórico fica.'}
+      actions={scopedKeys.length > 0 && <div className="rs-segmented" role="group" aria-label="Chaves">{[['active', `Ativas · ${active.length}`], ['revoked', `Revogadas · ${scopedKeys.length - active.length}`], ['all', 'Todas']].map(([key, text]) =>
         <button type="button" key={key} aria-pressed={keyFilter === key} onClick={() => setKeyFilter(key)}>{text}</button>)}</div>}>
       {shownKeys.length ? <div className="overflow-x-auto"><table className="w-full min-w-[760px]">
         <thead><tr><th className={TH}>Instalação</th><th className={TH}>Contas permitidas</th><th className={TH}>Último envio</th><th className={TH}>Estado</th><th className={TH}><span className="sr-only">Ações</span></th></tr></thead>
@@ -282,10 +305,10 @@ export function MediaData({data, save, busy}) {
             <td className={`${TD} text-right`}>{!item.revoked_at && canEdit && <Button size="sm" color="link-destructive" isDisabled={busy} onPress={() => setRevokeId(item.id)}>Revogar</Button>}</td>
           </tr>;
         })}</tbody>
-      </table></div> : <div className="px-6 py-10 text-center"><p className="text-md font-semibold text-primary">{keys.length ? 'Nenhuma chave neste filtro' : 'Nenhuma fonte conectada'}</p><p className="mt-1 text-sm text-tertiary">Gere um script do Google Ads ou uma chave de webhook acima.</p></div>}
+      </table></div> : <div className="px-6 py-10 text-center"><p className="text-md font-semibold text-primary">{scopedKeys.length ? 'Nenhuma chave neste filtro' : scopedAccount && keys.length ? 'Nenhuma chave para esta conta' : 'Nenhuma fonte conectada'}</p><p className="mt-1 text-sm text-tertiary">{scopedAccount && keys.length && !scopedKeys.length ? 'Escolha “Todas as fontes” no cabeçalho para ver as demais chaves do cliente.' : 'Gere um script do Google Ads ou uma chave de webhook acima.'}</p></div>}
     </Card>
 
-    <Card flush title="Últimos envios" badge={<Badge type="pill-color" size="sm" color="gray">{runs.length}</Badge>} description="Lotes recebidos das fontes conectadas.">
+    <Card flush title="Últimos envios" badge={<Badge type="pill-color" size="sm" color="gray">{runs.length}</Badge>} description={scopedAccount ? 'Lotes recebidos de todas as fontes do cliente: o envio não informa a conta.' : 'Lotes recebidos das fontes conectadas.'}>
       {runs.length ? <div className="overflow-x-auto"><table className="w-full min-w-[560px]">
         <thead><tr><th className={TH}>Recebido</th><th className={TH}>Período</th><th className={`${TH} text-right`}>Linhas</th><th className={TH}>Estado</th></tr></thead>
         <tbody>{runs.map(item => <tr key={item.id} className="hover:bg-primary_hover">

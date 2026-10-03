@@ -72,7 +72,7 @@ function collectAlerts(alerts, sources, sites, conflicts) {
   const items = (alerts || []).map(alert => ({
     key: `alert-${alert.id}`, severity: alert.severity, title: alert.title,
     detail: [alert.allowed_host, alert.page_path].filter(Boolean).join(' · ') || alert.summary,
-    href: alert.page_path ? reportUrl('pages', {site_id: alert.site_id, path: alert.page_path}) : reportUrl('supertag', {}, alert.site_id),
+    href: alert.page_path ? reportUrl('pages', {site_id: alert.site_id, path: alert.page_path}) : reportUrl('supertag', {scope_site: alert.site_id}),
     action: alert.page_path ? 'Ver página' : 'Ver coleta',
   }));
   (sources || []).filter(item => !item.revoked_at).forEach(item => {

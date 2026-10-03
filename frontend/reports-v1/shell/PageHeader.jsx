@@ -7,12 +7,12 @@ import {APP_BASE, navigateOnClick} from './routes.js';
 import {useReportsContext} from './context.js';
 
 /** Client and period, kept in the header so the analysed context changes without leaving the page. */
-export function ContextSelector({clients = [], client, showPeriod, accounts, campaigns, sites}) {
+export function ContextSelector({clients = [], client, showPeriod, accounts, campaigns, sites, siteRequired = false, alwaysClient = false}) {
   const {period, setPeriod, switchClient, scope, setScope} = useReportsContext();
   const sources = (accounts || []).filter(item => item.status !== 'disabled');
   const scoped = (campaigns || []).filter(item => !scope.account || String(item.account_id) === scope.account);
   return <div className="rs-context" aria-label="Contexto da análise">
-    {clients.length > 1 ? <label className="rs-context__client"><span className="reports-sr-only">Cliente</span>
+    {clients.length > 1 || (alwaysClient && clients.length) ? <label className="rs-context__client"><span className="reports-sr-only">Cliente</span>
       <ReportsNativeSelect value={client?.client_id ?? ''} onChange={event => switchClient(event.target.value)} aria-label="Cliente">
         {clients.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
       </ReportsNativeSelect></label>
@@ -33,7 +33,7 @@ export function ContextSelector({clients = [], client, showPeriod, accounts, cam
       </ReportsNativeSelect></label>}
     {sites && sites.length > 0 && <label className="rs-context__client"><span className="reports-sr-only">Site</span>
       <ReportsNativeSelect value={scope.site} onChange={event => setScope({...scope, site: event.target.value})} aria-label="Site">
-        {sites.length > 1 && <option value="">Todos os sites</option>}
+        {sites.length > 1 && !siteRequired && <option value="">Todos os sites</option>}
         {sites.map(item => <option key={item.id} value={item.id}>{item.allowed_host || item.label}</option>)}
       </ReportsNativeSelect></label>}
     {showPeriod && period && <ReportsDateRange value={period} onChange={setPeriod}/>}

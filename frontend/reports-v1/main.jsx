@@ -190,13 +190,20 @@ function App() {
   const sites = (siteList.body?.sites || []).filter(item => !item.revoked_at);
   useEffect(() => {
     if (!siteList.body) return;
-    const site = initialSite({urlSite: readScope().site, savedSite: readSavedScope(data.client.client_id)?.site, sites});
+    // Old Super Tag links carry the site in the path (/supertag/sites/<id>); the header picker takes it from there.
+    const site = initialSite({urlSite: readScope().site || (route.page === 'supertag' ? route.entity : ''), savedSite: readSavedScope(data.client.client_id)?.site, sites});
     setScopeState(current => ({...current, site}));
   }, [siteList.body]);
+  // Screens that always show one site (Super Tag) open on the busiest one when nothing was chosen yet.
+  useEffect(() => {
+    if (!route.siteRequired || scope.site || !sites.length) return;
+    setScope({...scope, site: (sites.find(item => Number(item.events_30d) > 0) || sites[0]).id});
+  }, [route.path, siteList.body, scope.site]);
   // The selection lives in the address only on the screens it applies to, so shared links keep it and other pages stay clean.
   useEffect(() => {
     if (!data?.ready) return;
     writeScope(route.scope === true ? {account: scope.account, campaign: scope.campaign, site: ''}
+      : route.scope === 'account' ? {account: scope.account, campaign: '', site: ''}
       : route.scope === 'site' ? {account: '', campaign: '', site: scope.site} : {account: '', campaign: '', site: ''});
   }, [scope, locationKey, data?.ready]);
   // Source and campaign lists follow the page: Google Ads lists what its scripts saw (registered or not),
@@ -265,7 +272,7 @@ function App() {
     <main className="reports-main">
       <>
           {data && !isFlowEditor && <PageHeader {...header} activeTab={route.path}
-            context={<ContextSelector clients={data.clients} client={data.client} accounts={route.scope === true ? scopeAccounts : undefined} campaigns={route.scope === true ? scopeCampaigns : undefined} sites={route.scope === 'site' ? sites : undefined} showPeriod={Boolean(route.period) && !(pageSection === 'pages' && new URLSearchParams(location.search).get('site_id'))}/>}/>}
+            context={<ContextSelector clients={data.clients} client={data.client} accounts={route.scope === true || route.scope === 'account' ? scopeAccounts : undefined} campaigns={route.scope === true ? scopeCampaigns : undefined} sites={route.scope === 'site' ? sites : undefined} siteRequired={Boolean(route.siteRequired)} alwaysClient={route.page === 'overview' || route.hub === 'data'} showPeriod={Boolean(route.period) && !(pageSection === 'pages' && new URLSearchParams(location.search).get('site_id'))}/>}/>}
           {showFilterBar && <ReportsFilterBar data={data} filters={filters} onChange={updateFilters} onRefresh={onRefresh} />}
           <div className="reports-content">{error && <div className="reports-error" role="alert">{error}</div>}<React.Fragment key={`${clientKey}:${route.path}`}>{page}</React.Fragment></div>
       </>

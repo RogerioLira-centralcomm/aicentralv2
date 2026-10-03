@@ -58,7 +58,7 @@ function AlertCard({alert, userId, choices, busy, onAct, client}) {
       {live && alert.status === 'silenced' && <ReportsActionButton color="secondary" size="sm" disabled={busy} onClick={() => onAct(alert, 'unsilence', {})}>Remover silêncio</ReportsActionButton>}
       {alert.page_path && <ReportsActionButton color="link-color" size="sm" className="reports-inline-link" href={reportUrl('pages', {site_id: alert.site_id, path: alert.page_path})}>Ver página</ReportsActionButton>}
       {alert.page_path && <ReportsActionButton color="link-color" size="sm" className="reports-inline-link" href={reportUrl('journey/navigation')}>Ver navegação</ReportsActionButton>}
-      <ReportsActionButton color="link-color" size="sm" className="reports-inline-link" href={reportUrl('supertag', {}, alert.site_id)}>Ver coleta do site</ReportsActionButton>
+      <ReportsActionButton color="link-color" size="sm" className="reports-inline-link" href={reportUrl('supertag', {scope_site: alert.site_id})}>Ver coleta do site</ReportsActionButton>
       <ReportsActionButton color="link-color" size="sm" className="alerts-link" aria-expanded={history} onClick={() => setHistory(value => !value)}>{history ? 'Ocultar histórico' : 'Histórico'}</ReportsActionButton>
     </div>
     {history && <History alertId={alert.id} client={client}/>}

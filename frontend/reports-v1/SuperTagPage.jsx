@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {AlertTriangle, ArrowUpRight, BarChart01, CheckCircle, ChevronRight, Code01, Copy01, Download01, GitBranch01, Plus, RefreshCw01, SearchLg, Send01, Target04, Trash01} from '@untitledui/icons';
+import {AlertTriangle, ArrowUpRight, BarChart01, CheckCircle, ChevronRight, Code01, Copy01, Download01, GitBranch01, Plus, RefreshCw01, Send01, Target04, Trash01} from '@untitledui/icons';
 import {Button} from '../cadu-design-system/untitled-kit/button.tsx';
 import {Badge, BadgeWithDot} from '../cadu-design-system/untitled-kit/badges.tsx';
 import {CaduTooltip} from '../cadu-design-system/components/CaduTooltip.jsx';
@@ -11,6 +11,7 @@ import {ReportsConfirmDialog} from './ReportsConfirmDialog.jsx';
 import {ReportsRelationships} from './ReportsRelationships.jsx';
 import {Alert, Callout, Card, DataTable, DrawerActions, EmptyNote, Stats} from './ReportsBlocks.jsx';
 import {decimal, integer, json, reportUrl, shortDate} from './reportsCommon.jsx';
+import {useReportsContext} from './shell/context.js';
 
 const API = '/connect/api/v2/reports/supertag';
 const EVENT_LABELS = {page_view: 'Visualização de página', page_leave: 'Saída de página', click: 'Clique', whatsapp_click: 'Clique no WhatsApp', form_submit: 'Envio de formulário',
@@ -75,15 +76,15 @@ function Favicon({site, size = 'md'}) {
   </span>;
 }
 
-/** Super Tag: the sites that send activity, how each one is installed and what it measures. */
+/** Super Tag: the site picked in the header, how it is installed and what it measures. */
 export function SuperTagPage({data}) {
+  const {scope} = useReportsContext();
+  const selectedId = scope.site;
   const [sites, setSites] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState(() => location.pathname.match(/^\/connect\/app\/supertag\/sites\/([0-9a-f-]{36})(?:\/monitor)?\/?$/i)?.[1] || '');
   const [tab, setTabState] = useState(() => new URLSearchParams(location.search).get(TAB_PARAM) || 'overview');
   const [method, setMethod] = useState('html');
   const [flows, setFlows] = useState([]);
-  const [query, setQuery] = useState('');
   const [detailLoading, setDetailLoading] = useState(false);
   const [detail, setDetail] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -105,16 +106,17 @@ export function SuperTagPage({data}) {
   const load = async () => {
     const value = await json(`${API}/sites`);
     setSites(value.sites || []);
-    if (!selectedId || !(value.sites || []).some(item => item.id === selectedId)) setSelectedId('');
   };
+  // The site now lives in the header (?scope_site=); old /supertag/sites/<id> addresses become the plain page.
+  useEffect(() => {
+    if (!/\/supertag\/sites\//.test(location.pathname)) return;
+    history.replaceState(history.state, '', `${reportUrl('supertag')}${location.search}${location.hash}`);
+  }, []);
   useEffect(() => {
     let active = true;
     setSites([]); setLoading(true);
     json(`${API}/sites`).then(value => {
-      if (!active) return;
-      const next = value.sites || [];
-      setSites(next);
-      setSelectedId(current => current && !next.some(item => item.id === current) ? '' : current);
+      if (active) setSites(value.sites || []);
     }).catch(failure => {if (active) setError(failure.message);}).finally(() => {if (active) setLoading(false);});
     return () => {active = false;};
   }, [data.client.client_id]);
@@ -142,7 +144,7 @@ export function SuperTagPage({data}) {
   });
   const revoke = () => run(async () => {
     await json(`${API}/sites/${selectedId}/revoke`, {method: 'POST', headers: {'X-CSRF-Token': data.csrf}, body: JSON.stringify({})});
-    setRevokeOpen(false); setSelectedId(''); await load(); location.assign(reportUrl('supertag'));
+    setRevokeOpen(false); location.assign(reportUrl('supertag'));
   });
   const copy = async value => {
     try {await navigator.clipboard.writeText(value); setNotice('Código copiado.');} catch (_) {setNotice('Não foi possível copiar. Selecione o código e copie.');}
@@ -172,21 +174,19 @@ export function SuperTagPage({data}) {
   const tabs = [{id: 'overview', label: 'Visão geral'}, ...(hasEvents ? [{id: 'activity', label: 'Atividade'}] : []), {id: 'measurement', label: 'Medição'},
     {id: 'conversions', label: 'Conversões', count: rulesCount || undefined}, {id: 'identity', label: 'Identificação'}, {id: 'install', label: 'Instalação'},
     {id: 'flows', label: 'Fluxos', count: linked.length || undefined}, {id: 'settings', label: 'Configurações'}];
-  const active = sites.filter(site => Number(site.events_30d) > 0).length;
   const current = tabs.some(item => item.id === tab) ? tab : 'overview';
   const disabled = busy || !canEdit;
 
-  return <div className="untitled-scope grid items-start gap-6 lg:grid-cols-[288px_minmax(0,1fr)]">
-    <SiteList sites={sites} loading={loading} query={query} onQuery={setQuery} selectedId={selectedId} canAdd={canEdit} onAdd={() => setInstallOpen(true)} active={active}/>
+  return <div className="untitled-scope">
     <div className="flex min-w-0 flex-col gap-6">
       {error && <Alert>{error}</Alert>}
       {notice && <Alert tone="success">{notice}</Alert>}
       {!selected && !loading && <Card><EmptyNote title={sites.length ? 'Escolha um site' : canEdit ? 'Conecte seu primeiro site' : 'Nenhum site conectado'}>
-        {sites.length ? 'Selecione um site na lista para ver instalação, eventos e fluxos.' : canEdit ? 'Instale a Super Tag para acompanhar visitas, eventos e conversões.' : 'Os sites autorizados para este cliente aparecem aqui.'}
+        {sites.length ? 'Escolha o site no seletor do cabeçalho para ver instalação, eventos e fluxos.' : canEdit ? 'Instale a Super Tag para acompanhar visitas, eventos e conversões.' : 'Os sites autorizados para este cliente aparecem aqui.'}
         {!sites.length && canEdit && <span className="mt-4 block"><Button size="md" color="primary" iconLeading={Plus} onPress={() => setInstallOpen(true)}>Conectar site</Button></span>}
       </EmptyNote></Card>}
       {selected && <>
-        <SiteHeader site={selected} hasEvents={hasEvents} flowsCount={detailLoading ? null : linked.length}/>
+        <SiteHeader site={selected} hasEvents={hasEvents} flowsCount={detailLoading ? null : linked.length} onAdd={canEdit ? () => setInstallOpen(true) : null}/>
         <ReportsTabs label="Áreas do site" value={current} onChange={setTab} items={tabs}/>
         {detailLoading && <p role="status" className="text-sm text-tertiary">Carregando dados do site…</p>}
         {current === 'overview' && <>
@@ -211,44 +211,12 @@ export function SuperTagPage({data}) {
         {current === 'settings' && <Settings data={data} site={selected} busy={busy} canEdit={canEdit} onUpdate={update} onRevoke={() => setRevokeOpen(true)}/>}
       </>}
     </div>
-    <InstallDrawer open={installOpen} data={data} onClose={() => setInstallOpen(false)} onCreated={async site => {await load(); location.assign(reportUrl('supertag', {}, site.id));}}/>
+    <InstallDrawer open={installOpen} data={data} onClose={() => setInstallOpen(false)} onCreated={site => location.assign(reportUrl('supertag', {scope_site: site.id}))}/>
     <ReportsConfirmDialog open={revokeOpen} title="Revogar Super Tag" description="A coleta neste domínio será interrompida. Os dados já recebidos permanecem no Reports." confirmLabel="Revogar instalação" busy={busy} onCancel={() => setRevokeOpen(false)} onConfirm={revoke}/>
   </div>;
 }
 
-function SiteList({sites, loading, query, onQuery, selectedId, canAdd, onAdd, active}) {
-  const visible = sites.filter(site => `${site.label} ${site.allowed_host}`.toLowerCase().includes(query.toLowerCase()));
-  const groups = [['Coleta ativa', visible.filter(site => siteState(site)[1] === 'success')], ['Precisam de atenção', visible.filter(site => siteState(site)[1] !== 'success')]].filter(([, items]) => items.length);
-  return <aside className="flex flex-col overflow-hidden rounded-xl bg-primary shadow-xs ring-1 ring-secondary lg:sticky lg:top-4" aria-label="Sites de medição">
-    <header className="flex items-center justify-between gap-3 border-b border-secondary px-4 py-3">
-      <div><div className="flex items-center gap-2"><h2 className="text-md font-semibold text-primary">Sites</h2><Badge type="pill-color" size="sm" color="gray">{sites.length}</Badge></div>
-        {sites.length > 0 && <p className="text-xs text-tertiary">{active ? `${active} com coleta ativa` : 'Nenhum com coleta ativa'}</p>}</div>
-      {canAdd && <CaduTooltip label="Conectar site"><Button size="sm" color="secondary" iconLeading={Plus} aria-label="Conectar site" onPress={onAdd}/></CaduTooltip>}
-    </header>
-    {sites.length > 5 && <div className="px-3 pt-3"><ReportsFieldInput size="sm" aria-label="Buscar site" placeholder="Buscar site" value={query} onChange={event => onQuery(event.target.value)}
-      leading={<SearchLg size={16} aria-hidden="true" className="ml-3 shrink-0 text-fg-quaternary"/>}/></div>}
-    <nav className="flex max-h-[calc(100vh-220px)] flex-col gap-3 overflow-y-auto p-2" aria-label="Lista de sites">
-      {loading && <p role="status" className="px-2 py-3 text-sm text-tertiary">Carregando sites…</p>}
-      {!loading && groups.map(([label, items]) => <div key={label} className="flex flex-col gap-0.5">
-        {groups.length > 1 && <p className="px-2.5 pt-1 pb-1 text-xs font-semibold text-tertiary">{label}</p>}
-        {items.map(site => {
-          const [state, color] = siteState(site);
-          const on = site.id === selectedId;
-          return <a key={site.id} href={reportUrl('supertag', {}, site.id)} aria-current={on ? 'page' : undefined}
-            className={`flex items-center gap-3 rounded-md px-2.5 py-2 outline-focus-ring focus-visible:outline-2 ${on ? 'bg-secondary ring-1 ring-secondary ring-inset' : 'hover:bg-primary_hover'}`}>
-            <Favicon site={site}/>
-            <span className="min-w-0 flex-1"><span className={`block truncate text-sm font-semibold ${on ? 'text-primary' : 'text-secondary'}`}>{site.allowed_host}</span>
-              <span className="flex items-center gap-1 text-xs text-tertiary"><span className={`size-1.5 rounded-full ${({success: 'bg-fg-success-secondary', warning: 'bg-fg-warning-secondary', error: 'bg-fg-error-secondary', gray: 'bg-fg-quaternary'})[color]}`}/>{state}</span></span>
-            <CaduTooltip label="Eventos nos últimos 30 dias"><span className="text-xs font-medium text-tertiary tabular-nums">{integer(site.events_30d || 0)}</span></CaduTooltip>
-          </a>;
-        })}
-      </div>)}
-      {!loading && sites.length > 0 && !visible.length && <p className="px-2 py-3 text-sm text-tertiary">Nenhum site corresponde à busca.</p>}
-    </nav>
-  </aside>;
-}
-
-function SiteHeader({site, hasEvents, flowsCount}) {
+function SiteHeader({site, hasEvents, flowsCount, onAdd}) {
   const [state, color] = siteState(site);
   const last = site.last_event_at;
   return <section className="overflow-hidden rounded-xl bg-primary shadow-xs ring-1 ring-secondary">
@@ -257,7 +225,10 @@ function SiteHeader({site, hasEvents, flowsCount}) {
         <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h2 className="truncate text-xl font-semibold text-primary">{site.allowed_host}</h2><BadgeWithDot type="pill-color" size="sm" color={color}>{state}</BadgeWithDot></div>
           <p className="text-sm text-tertiary">{site.label}</p></div>
       </div>
-      <Button size="md" color="secondary" iconTrailing={ArrowUpRight} href={`https://${site.allowed_host}`} target="_blank" rel="noopener noreferrer">Visitar site</Button>
+      <div className="flex flex-wrap gap-3">
+        <Button size="md" color="secondary" iconTrailing={ArrowUpRight} href={`https://${site.allowed_host}`} target="_blank" rel="noopener noreferrer">Visitar site</Button>
+        {onAdd && <Button size="md" color="secondary" iconLeading={Plus} onPress={onAdd}>Conectar site</Button>}
+      </div>
     </div>
     <dl className="grid gap-px border-t border-secondary bg-border-secondary sm:grid-cols-2 lg:grid-cols-4">
       {[['Eventos · 30 dias', integer(site.events_30d || 0), hasEvents ? 'Aceitos pelo coletor' : 'Nenhum evento recebido'], ['Último evento', last ? relativeTime(last) : 'Nenhum ainda', last ? longDate(last) : 'Aguardando a primeira visita'],

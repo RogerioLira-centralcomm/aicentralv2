@@ -92,9 +92,47 @@ def _uuid(value, field, *, optional=False):
         abort(400, description=f'{field} inválido.')
 
 
+def _snippet_title(site):
+    """Name shown in the HTML comments around the snippet. A comment cannot hold "--" nor end in "-", and "<"/">" are
+    dropped so a pasted label never breaks the comment or the page around it."""
+    host = str(site.get('allowed_host') or '')
+    label = ' '.join(str(site.get('label') or '').split())
+    name = f'{label} ({host})' if label and host and label.casefold() != host.casefold() else (label or host)
+    name = re.sub(r'[<>\x00-\x1f]', '', name)
+    while '--' in name:
+        name = name.replace('--', '-')
+    name = name.strip(' -')[:120].rstrip(' -')
+    return f'Cadu Super Tag · {name}' if name else 'Cadu Super Tag'
+
+
+def _wrap_snippet(site, body):
+    return f'<!-- {_snippet_title(site)} -->\n{body}\n<!-- End Cadu Super Tag -->'
+
+
 def _supertag_snippet(site):
-    """One line, like GA4: the tag finds its config next to its own URL. Old snippets with data-cadu-config still work."""
-    return f'<script async src="{_base_url()}/v1/supertag.js" data-cadu-site="{site["public_id"]}"></script>'
+    """One tag, like GA4: the tag finds its config next to its own URL. Old snippets with data-cadu-config still work."""
+    return _wrap_snippet(site, f'<script async src="{_base_url()}/v1/supertag.js" data-cadu-site="{site["public_id"]}"></script>')
+
+
+def _supertag_gtm_snippet(site):
+    """Custom HTML for Google Tag Manager: the same tag, injected by a tiny ES5 loader (GTM's editor rejects newer syntax).
+    The id travels in data-cadu-site and in ?id= so the tag finds itself even if GTM rewrites the element."""
+    public_id = site['public_id']
+    source = f'{_base_url()}/v1/supertag.js?id={public_id}'
+    loader = ('<script>\n(function (d) {\n'
+              "  var s = d.createElement('script');\n"
+              '  s.async = true;\n'
+              f"  s.src = '{source}';\n"
+              f"  s.setAttribute('data-cadu-site', '{public_id}');\n"
+              "  (d.head || d.getElementsByTagName('head')[0]).appendChild(s);\n"
+              '})(document);\n</script>')
+    return _wrap_snippet(site, loader)
+
+
+def _with_snippets(site):
+    site['snippet'] = _supertag_snippet(site)
+    site['snippet_gtm'] = _supertag_gtm_snippet(site)
+    return site
 
 
 def enhanced_settings(config):
@@ -136,7 +174,7 @@ def ensure_supertag_site(selected, host, label):
         (selected['client_id'],))
     site = next((item for item in candidates if _host_allowed(host, item['allowed_host'])), None)
     if site:
-        site['snippet'] = _supertag_snippet(site)
+        _with_snippets(site)
         return site, False
     public_id = secrets.token_urlsafe(18).replace('-', 'a').replace('_', 'b')[:24]
     site = _rows('''INSERT INTO cadu_reports_supertag_sites
@@ -148,7 +186,7 @@ def ensure_supertag_site(selected, host, label):
          label[:120], host,
          json.dumps({'audience_days': 90, 'retention_days': 90, 'visibility_enabled': True}),
          session.get('user_id')))[0]
-    site['snippet'] = _supertag_snippet(site)
+    _with_snippets(site)
     return site, True
 
 
@@ -683,7 +721,7 @@ def register(bp):
         base = _base_url()
         for site in sites:
             site['script_url'] = f'{base}/v1/supertag.js'
-            site['snippet'] = _supertag_snippet(site)
+            _with_snippets(site)
         return jsonify(sites=sites)
 
     @bp.post('/api/v2/reports/supertag/sites')
@@ -755,7 +793,7 @@ def register(bp):
         get_db().commit()
         base = _base_url()
         updated['script_url'] = f'{base}/v1/supertag.js'
-        updated['snippet'] = _supertag_snippet(updated)
+        _with_snippets(updated)
         return jsonify(site=updated)
 
     @bp.post('/api/v2/reports/supertag/sites/<uuid:site_id>/revoke')

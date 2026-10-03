@@ -107,13 +107,18 @@ def test_invalid_submit_never_converts():
 
 
 @pytest.mark.parametrize('rules', [
-    [{'type': 'path', 'match': 'exact', 'value': 'sem-barra'}],
-    [{'type': 'path', 'match': 'exact', 'value': '/a?b=1'}],
+    [{'type': 'path', 'match': 'exact', 'value': '/contato/ana@example.com'}],
+    [{'type': 'path', 'match': 'exact', 'value': '/com espaço'}],
+    [{'type': 'path', 'match': 'exact', 'value': '   '}],
+    [{'type': 'path', 'match': 'segment', 'value': 'a/b'}],
+    [{'type': 'path', 'match': 'segment', 'value': 'x'}],
     [{'type': 'path', 'match': 'contains', 'value': '/a'}],
     [{'type': 'event_name', 'value': '1x'}],
     [{'type': 'valid_form', 'extra': True}],
     [{'type': 'unknown'}],
-    [{'type': 'path', 'value': '/a', 'name': 'com espaço'}],
+    [{'type': 'path', 'value': '/a', 'name': '1_conversao'}],
+    [{'type': 'event_name', 'value': 'lead-enviado'}],
+    [{'type': 'valid_form', 'form_id': 'form contato'}],
     [{'type': 'event_name', 'value': 'a'}] * 21,
 ])
 def test_invalid_rules_are_refused(rules, app):

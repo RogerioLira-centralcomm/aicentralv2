@@ -4,7 +4,7 @@ from uuid import uuid4
 from datetime import date
 
 from flask import Blueprint, current_app, jsonify, redirect, render_template, request, session, url_for
-from werkzeug.exceptions import HTTPException
+from werkzeug.exceptions import HTTPException, default_exceptions
 
 from ..auth import login_required, login_required_api
 from ..cadu_skills.repository import customization_targets
@@ -17,15 +17,33 @@ from .repository import accounts_for_workspace_context, campaigns_for_client, fi
 bp = Blueprint("cadu_connect", __name__, url_prefix="/connect")
 
 
+REPORTS_API_PREFIXES = ('/connect/api/v1/reports/', '/connect/api/v2/reports/', '/connect/api/gads')
+
+
+def _app_error_handler(error):
+    """The app handler registered for this exact status (the uniform error pages), which used to answer before ours."""
+    by_class = current_app.error_handler_spec.get(None, {}).get(error.code, {})
+    return next((by_class[cls] for cls in type(error).__mro__ if cls in by_class), None)
+
+
 @bp.errorhandler(HTTPException)
 def reports_api_error(error):
-    if request.path.startswith(('/connect/api/v1/reports/','/connect/api/v2/reports/','/connect/api/gads')):
+    if request.path.startswith(REPORTS_API_PREFIXES):
         return jsonify(error=error.description,message=error.description,
                        code=getattr(error,'flow_code',f'http_{error.code}'),
                        field_errors=getattr(error,'field_errors',{}),
                        node_ids=getattr(error,'node_ids',[]),edge_ids=getattr(error,'edge_ids',[]),
                        request_id=str(uuid4())), error.code
-    return error
+    handler = _app_error_handler(error)
+    return handler(error) if handler else error
+
+
+# Flask looks up handlers registered for the exact status code (blueprint, then app) before any class handler, so the
+# app-wide error pages (registered per code: 400, 403, 404…) used to answer Reports API calls with a generic HTML page
+# and the front only saw "Falha HTTP 400". Registering this handler per code too makes the Reports JSON win; other
+# /connect paths are handed back to the app's handler above. 500 stays with the app (logged, no internal detail).
+for _code in sorted(code for code in default_exceptions if code != 500):
+    bp.register_error_handler(_code, reports_api_error)
 
 from .report_workspace import register as register_report_workspace
 register_report_workspace(bp)

@@ -27,6 +27,7 @@ import hmac
 import json
 import os
 import re
+import unicodedata
 import uuid
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
@@ -78,44 +79,73 @@ def leads_ready():
 
 # ---------------------------------------------------------------- conversion rules
 
+def conversion_name(value):
+    """The label of a derived conversion, written by people ("Lead do site") and stored as an event name (lead_do_site)."""
+    if value in (None, ''):
+        return None
+    if not isinstance(value, str):
+        abort(400, description='Nome da conversão inválido.')
+    plain = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore').decode()
+    slug = re.sub(r'[^A-Za-z0-9_]+', '_', plain.strip()).strip('_').lower()[:80]
+    if not slug:
+        return None
+    if not NAME_RULE.fullmatch(slug):
+        abort(400, description='O nome da conversão precisa começar por uma letra (ex.: lead_site).')
+    return slug
+
+
+def conversion_path(value):
+    """A page address as people paste it ("obrigado", "/obrigado?x=1", "https://site.com.br/obrigado") becomes /obrigado."""
+    raw = value.strip()
+    if re.match(r'(?i)^https?://', raw):
+        raw = urlparse(raw).path or '/'
+    raw = re.split(r'[?#]', raw, maxsplit=1)[0].strip()
+    if not raw.startswith('/'):
+        raw = f'/{raw}'
+    if '@' in raw or len(raw) > 200 or re.search(r'\s', raw):
+        abort(400, description='Endereço da página inválido: use só o caminho, como /obrigado (sem espaços nem e-mail, até 200 caracteres).')
+    return raw
+
+
 def validate_conversion_rules(value):
     if not isinstance(value, list) or len(value) > MAX_RULES:
-        abort(400, description=f'Informe até {MAX_RULES} regras de conversão.')
+        abort(400, description=f'Cada site aceita até {MAX_RULES} regras de conversão.')
     clean = []
     for rule in value:
         if not isinstance(rule, dict) or rule.get('type') not in ('path', 'valid_form', 'event_name'):
-            abort(400, description='Regra de conversão inválida.')
+            abort(400, description='Tipo de regra de conversão desconhecido.')
         kind = rule['type']
         allowed = {'path': {'type', 'match', 'value', 'name'}, 'valid_form': {'type', 'form_id', 'name'},
                    'event_name': {'type', 'value', 'name'}}[kind]
         if set(rule) - allowed:
             abort(400, description='Regra de conversão com campos desconhecidos.')
-        name = rule.get('name') or None
-        if name is not None and (not isinstance(name, str) or not NAME_RULE.fullmatch(name)):
-            abort(400, description='Nome da conversão: letras, números e _ (começando por letra).')
+        name = conversion_name(rule.get('name'))
         item = {'type': kind}
         if kind == 'path':
             match = rule.get('match') or 'prefix'
             raw = rule.get('value')
-            if match not in ('exact', 'prefix', 'segment') or not isinstance(raw, str):
-                abort(400, description='Informe o caminho e como ele deve ser comparado.')
-            raw = raw.strip()
+            if match not in ('exact', 'prefix', 'segment') or not isinstance(raw, str) or not raw.strip():
+                abort(400, description='Informe o endereço da página e como ele deve ser comparado.')
             if match == 'segment':
+                raw = raw.strip().strip('/')
                 if not re.fullmatch(r'[A-Za-z0-9_.-]{2,60}', raw):
-                    abort(400, description='Trecho do caminho inválido.')
-            elif not raw.startswith('/') or '?' in raw or '#' in raw or '@' in raw or len(raw) > 200:
-                abort(400, description='O caminho começa com / e não leva ?, # nem e-mail.')
+                    abort(400, description='Trecho do endereço: de 2 a 60 letras sem acento, números, ponto, _ ou -, sem barras (ex.: obrigad).')
+            else:
+                raw = conversion_path(raw)
             item.update(match=match, value=raw)
         elif kind == 'valid_form':
             form_id = rule.get('form_id') or None
+            if isinstance(form_id, str):
+                form_id = form_id.strip() or None
             if form_id is not None and (not isinstance(form_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,80}', form_id)):
-                abort(400, description='Identificador de formulário inválido.')
+                abort(400, description='Identificador do formulário: o valor de data-cadu-form, com letras sem acento, números, _ ou - (até 80).')
             if form_id:
                 item['form_id'] = form_id
         else:
             raw = rule.get('value')
+            raw = raw.strip() if isinstance(raw, str) else raw
             if not isinstance(raw, str) or not NAME_RULE.fullmatch(raw):
-                abort(400, description='Nome de evento inválido.')
+                abort(400, description='Nome do evento: o mesmo usado em CaduSuperTag.event(), com letras sem acento, números e _, começando por letra.')
             item['value'] = raw
         if name:
             item['name'] = name

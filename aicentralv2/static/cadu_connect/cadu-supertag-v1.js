@@ -6,8 +6,24 @@
  * Technical safety is fixed: no query string, hash or e-mail in paths, never passwords, cards or documents. */
 (function () {
   'use strict';
+  // document.currentScript also points to a tag injected by a loader (Google Tag Manager's custom HTML). If a loader
+  // ever runs us without it, or without the attribute, the tag looks for its own <script> and for ?id= in its URL.
+  var tagSource = /\/(?:v1\/supertag|cadu-supertag-v1(?:\.min)?)\.js(?:[?#]|$)/;
   var script = document.currentScript;
-  var siteId = script && script.getAttribute('data-cadu-site');
+  if (!script || !script.getAttribute('data-cadu-site')) script = findOwnScript() || script;
+  var siteId = script && (script.getAttribute('data-cadu-site') || siteFromSource(script.src));
+
+  function findOwnScript() {
+    var candidates = document.querySelectorAll('script[data-cadu-site][src]');
+    for (var index = 0; index < candidates.length; index++) {
+      if (tagSource.test(candidates[index].src)) return candidates[index];
+    }
+    return null;
+  }
+
+  function siteFromSource(src) {
+    try { return new URL(src, location.href).searchParams.get('id') || ''; } catch (_) { return ''; }
+  }
   if (!siteId || !/^[A-Za-z0-9_-]{1,64}$/.test(siteId) || !window.crypto || !window.crypto.randomUUID) return;
   // Old snippets carry data-cadu-config; the one-line snippet lets the tag find the config next to its own URL.
   var configUrl = script.getAttribute('data-cadu-config') || defaultConfigUrl();

@@ -97,11 +97,11 @@ def test_invalid_switches_are_refused(value, app):
 
 # ---------------------------------------------------------------- snippet
 
-def test_snippet_is_one_line_with_only_the_site_id(app):
+def test_snippet_is_one_tag_with_only_the_site_id(app):
     with app.test_request_context('/'):
         snippet = reports_supertag._supertag_snippet({'public_id': 'abc123'})
-    assert snippet == '<script async src="https://reports.example.test/v1/supertag.js" data-cadu-site="abc123"></script>'
-    assert 'data-cadu-config' not in snippet and '\n' not in snippet
+    assert snippet.splitlines()[1] == '<script async src="https://reports.example.test/v1/supertag.js" data-cadu-site="abc123"></script>'
+    assert 'data-cadu-config' not in snippet and len(snippet.splitlines()) == 3
 
 
 # ---------------------------------------------------------------- new event kinds

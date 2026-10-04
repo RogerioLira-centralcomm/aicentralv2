@@ -207,48 +207,121 @@ SCENARIOS = [
 ]
 
 
-# -- v3: the Studio's own pipeline (director, composition mask, logo, fit) with the mockup as the variable ------------
+# -- v3: the Studio's own pipeline (director, composition mask, logo, fit) with real brand assets ----------------------
+#
+# Every v3 scenario carries what the Studio really receives from a brand: approved reference photos (person, product
+# or style) AND the official logo, applied afterwards by code. A test without references or logo says nothing about
+# the Studio, so those older scenarios (v1/v2) stay only as history. The mockup is the variable: the same briefing
+# with the composition mask sent as an image, and without it.
 
-MOCKUP_LABEL = {
-    "image": "mockup como imagem",
-    "text": "mockup só em texto",
-    "none": "sem mockup",
-}
+MOCKUP_LABEL = {"image": "mockup como imagem", "text": "mockup só em texto", "none": "sem mockup"}
 MOCKUP_VARIABLE = {
-    "image": "O pipeline do Studio como está: o mockup (máscara de composição) vai ao modelo como imagem de referência, com o contrato de zonas no prompt.",
-    "text": "As mesmas zonas do mockup, só descritas em palavras (modelos que não aceitam imagem de referência ou que a ignoram).",
-    "none": "Diretor, logo e ajuste de formato do Studio, mas sem mockup: o modelo compõe o layout sozinho.",
+    "image": "O Studio como está hoje: a máscara de composição vai ao modelo como imagem e o contrato de zonas entra no prompt.",
+    "text": "As mesmas zonas, só descritas em palavras.",
+    "none": "Linha de base: o mesmo diretor, as mesmas referências e o logo por código, mas sem máscara; o modelo compõe sozinho.",
 }
 MOCKUP_HYPOTHESIS = {
-    "image": "Quanto o mockup melhora a obediência de layout (zonas, margens, logo) em cada modelo, e quem o ignora ou o desenha na peça.",
-    "text": "Se a descrição em texto basta para o modelo respeitar as zonas; é o plano B para os modelos sem referência.",
-    "none": "Linha de base: o que o modelo faz sozinho. A diferença para as outras duas linhas é o ganho real do mockup.",
+    "image": "Com as referências reais, quanto da identidade (rosto, produto, paleta) e da zona do logo cada modelo preserva.",
+    "text": "Se a descrição em texto basta quando o modelo não aceita a imagem da máscara.",
+    "none": "O ganho real da máscara: a diferença desta linha para a de mockup como imagem.",
 }
-V3_BASES = (
-    # (base scenario, formats, family per mockup, modes)
-    ("v2-cemig-whatsapp", "Cemig", ["feed-1x1", "story-9x16", "iab-300x250"], "foto-texto-base", ("image", "text", "none")),
-    ("v2-centralcomm-ritmo", "Centralcomm", ["feed-1x1", "story-9x16", "iab-300x250"], "tipografico", ("image", "text", "none")),
-    ("v2-reserva-semana-cliente", "Reserva", ["feed-4x5", "iab-300x250"], "faixa-inferior", ("image", "none")),
-)
 
 
-def _v3_scenarios() -> list[dict]:
-    by_key = {item["key"]: item for item in SCENARIOS}
+def _v3(stem, brand_label, family, formats, modes, *, learning, **fields):
     items = []
-    for base_key, brand_label, formats, family, modes in V3_BASES:
-        base = by_key[base_key]
-        for mode in modes:
-            items.append({
-                **{field: base[field] for field in ("task", "brand_id", "quality", "objective", "instruction", "references", "logo_mode", "brief")},
-                "key": f"v3-{base_key[3:]}-{mode}", "group": f"{V3} · {brand_label}",
-                "title": f"{brand_label} · {MOCKUP_LABEL[mode]}", "formats": formats,
-                "pipeline": "studio", "mockup": {"mode": mode, "family": family},
-                "variable": MOCKUP_VARIABLE[mode], "hypothesis": MOCKUP_HYPOTHESIS[mode],
-            })
+    for mode in modes:
+        items.append({
+            "task": "generate", "quality": "standard", "logo_mode": "composer", **fields,
+            "key": f"v3-{stem}-{mode}", "group": f"{V3} · {brand_label}",
+            "title": f"{brand_label} · {MOCKUP_LABEL[mode]}", "formats": formats,
+            "pipeline": "studio", "mockup": {"mode": mode, "family": family},
+            "variable": f"{learning} {MOCKUP_VARIABLE[mode]}", "hypothesis": MOCKUP_HYPOTHESIS[mode],
+        })
     return items
 
 
-SCENARIOS.extend(_v3_scenarios())
+V3_SCENARIOS = [
+    *_v3(
+        "vivara-pessoa-colar", "Vivara", "foto-texto-base", ["feed-4x5", "story-9x16", "iab-300x600"], ("image", "none"),
+        learning="Pessoa e produto reais competem pela atenção do modelo.",
+        brand_id=4, objective="jewelry campaign ad",
+        instruction=("Anúncio de joia da Vivara. A modelo da referência (rosto, cabelo e tom de pele idênticos) usa o colar de ouro da referência "
+                     "(forma, comprimento e acabamento idênticos), em luz suave de estúdio sobre fundo chapado bege-rosado. "
+                     "Só o texto da copy, escrito exatamente; o logo oficial é aplicado depois, então nenhuma marca é desenhada."),
+        references=[{"asset_id": 176, "role": "PERSON", "label": "Modelo Vivara", "has_person": True},
+                    {"asset_id": 177, "role": "PRODUCT", "label": "Colar de ouro"},
+                    {"asset_id": 6, "role": "LOGO", "label": "Logo Vivara"}],
+        brief={
+            "archetype": "recorte-chamada", "audience": "Mulheres de 25 a 45 anos que presenteiam a si mesmas",
+            "copy": {"kicker": "VIVARA", "headline": "Brilho que é seu", "support": "Colares em ouro para todos os dias.", "cta": "Descubra na loja"},
+            "casting": ["A modelo da referência, ombros à mostra, o colar da referência em primeiro plano e legível, olhando para a câmera, expressão serena"],
+            "devices": ["fundo chapado bege-rosado da marca", "fio dourado fino separando a chamada", "área limpa no canto para o logo"],
+        },
+    ),
+    *_v3(
+        "reserva-tenis-heroi", "Reserva · tênis", "produto-destaque", ["feed-4x5", "story-9x16", "iab-300x250"], ("image", "none"),
+        learning="Uma única referência de produto precisa sair idêntica (forma, cores, o R lateral).",
+        brand_id=7, objective="product ad",
+        instruction=("Anúncio do tênis R-Broox da Reserva. O tênis da referência é o herói da peça, idêntico ao original (forma, cores, solado e o R lateral), "
+                     "numa calçada urbana ao entardecer, sem pessoas. Headline e botão com o texto exato da copy; o logo oficial é aplicado depois."),
+        references=[{"asset_id": 26, "role": "PRODUCT", "label": "Tênis R-Broox"},
+                    {"asset_id": 29, "role": "LOGO", "label": "Logo Reserva"}],
+        brief={
+            "archetype": "recorte-chamada", "audience": "Clientes da Reserva que procuram tênis para o dia a dia na cidade",
+            "copy": {"headline": "Pisa leve.", "support": "Tênis R-Broox", "cta": "Ver na loja"},
+            "casting": [],
+            "devices": ["tênis grande em primeiro plano, ocupando o terço central", "calçada em desfoque suave ao fundo", "área limpa no canto para o logo"],
+        },
+    ),
+    *_v3(
+        "reserva-semana-cliente", "Reserva · oferta", "split", ["feed-4x5", "iab-300x250"], ("image", "none"),
+        learning="Pessoa real da marca + oferta como herói + bloco chapado: identidade contra hierarquia.",
+        brand_id=7, objective="retail offer display ad",
+        instruction=("Peça de varejo da Reserva para a Semana do Cliente. O modelo da referência (mesmo rosto, roupa e pose), recortado do peito para cima, "
+                     "ocupa a faixa de foto; ao lado, um bloco preto chapado traz a oferta. O número +20% EXTRA é o herói. Texto exato; o logo é aplicado depois."),
+        references=[{"asset_id": 196, "role": "PERSON", "label": "Modelo Reserva", "has_person": True},
+                    {"asset_id": 29, "role": "LOGO", "label": "Logo Reserva"}],
+        brief={
+            "archetype": "foto-faixa-bloco", "audience": "Clientes da Reserva na Semana do Cliente",
+            "offer": "Semana do Cliente: +20% extra em todo o outlet com o cupom DIADOCLIENTE (copy da peça real da marca)",
+            "copy": {"kicker": "SEMANA DO CLIENTE", "headline": "Outlet com", "highlight": "+20% EXTRA", "support": "Use o cupom DIADOCLIENTE.", "cta": "COMPRAR AGORA"},
+            "casting": ["O modelo da referência, mesma roupa, recortado do peito para cima, olhando para a câmera"],
+            "devices": ["corte reto entre a faixa de foto e o bloco preto", "botão retangular branco com texto preto", "área limpa no canto para o logo"],
+        },
+    ),
+    *_v3(
+        "centralcomm-estilo-site", "Centralcomm", "foto-texto-base", ["feed-1x1", "story-9x16", "iab-300x250"], ("image", "none"),
+        learning="A referência é de estilo (escuro, verde neon, pessoa em destaque), não de conteúdo: o modelo herda a linguagem sem copiar a peça.",
+        brand_id=25, objective="agency positioning ad",
+        instruction=("Anúncio de posicionamento da Centralcomm, na mesma linguagem visual da referência de estilo (fundo escuro, verde neon, pessoa em destaque), "
+                     "sem copiar a peça nem o texto dela. Headline e assinatura exatas; o logo oficial é aplicado depois."),
+        references=[{"asset_id": 217, "role": "STYLE", "label": "Site Centralcomm (estilo)", "has_person": True},
+                    {"asset_id": 197, "role": "LOGO", "label": "Símbolo Centralcomm"}],
+        brief={
+            "archetype": "ritmo-tipografico", "audience": "Diretores de marketing que contratam mídia em várias frentes",
+            "copy": {"headline": "Sua mídia, em todas as telas.", "tagline": "Centralcomm. Mídia que chega.", "cta": "Fale com a gente"},
+            "casting": ["Uma pessoa em destaque no estilo da referência, sem repetir a mesma pose nem o mesmo enquadramento"],
+            "devices": ["linhas curtas empilhadas alternando branco e verde neon", "aba sólida amarela no canto superior esquerdo", "área limpa no canto para o logo"],
+        },
+    ),
+    *_v3(
+        "cemig-atende-web", "Cemig", "foto-texto-base", ["feed-1x1", "story-9x16", "iab-300x250"], ("image", "none"),
+        learning="Marca com pouco material (logo e captura do site): o que o modelo faz com uma única referência de estilo.",
+        brand_id=31, objective="service awareness ad",
+        instruction=("Post de serviço da Cemig divulgando o autoatendimento Cemig Atende Web: um celular em destaque mostrando a conta de luz, "
+                     "na linguagem visual da referência de estilo (a captura do site da Cemig). Texto exato; o logo oficial é aplicado depois."),
+        references=[{"asset_id": 270, "role": "STYLE", "label": "Site Cemig (estilo)"},
+                    {"asset_id": 265, "role": "LOGO", "label": "Logo Cemig"}],
+        brief={
+            "archetype": "recorte-chamada", "audience": "Clientes residenciais da Cemig que perdem tempo com atendimento",
+            "copy": {"kicker": "CEMIG ATENDE WEB", "headline": "Sua conta de luz", "highlight": "NA PALMA DA MÃO", "cta": "Acesse agora"},
+            "casting": [],
+            "devices": ["celular grande em primeiro plano com a conta de luz na tela, sem números inventados", "cores da marca em campos chapados", "área limpa no canto para o logo"],
+        },
+    ),
+]
+
+SCENARIOS.extend(V3_SCENARIOS)
 
 
 def scenarios(include_reserved: bool = True) -> list[dict]:

@@ -330,9 +330,23 @@ def test_v3_scenarios_compare_the_same_brief_with_and_without_mockup():
     from aicentralv2.creative_lab import scenarios
     v3 = [item for item in scenarios.scenarios() if item["key"].startswith("v3-")]
     assert v3 and all(item["pipeline"] == "studio" for item in v3)
-    cemig = {item["mockup"]["mode"] for item in v3 if "cemig" in item["key"]}
-    assert cemig == {"image", "text", "none"}
+    modes = {}
+    for item in v3:
+        modes.setdefault(item["key"].rsplit("-", 1)[0], set()).add(item["mockup"]["mode"])
+    assert all(found == {"image", "none"} for found in modes.values())
     assert not any(item["key"] == "mockup-enriquecido" for item in scenarios.scenarios())
+
+
+def test_every_v3_scenario_carries_real_references_and_the_official_logo():
+    from aicentralv2.creative_lab import scenarios
+    for item in (item for item in scenarios.scenarios() if item["key"].startswith("v3-")):
+        roles = [ref["role"] for ref in item["references"]]
+        assert "LOGO" in roles, f"{item['key']} não leva o logo oficial"
+        assert any(role in {"PERSON", "PRODUCT", "STYLE", "COMPOSITION"} for role in roles), f"{item['key']} não leva referência real"
+        assert item["instruction"].strip(), f"{item['key']} não tem a narrativa da peça"
+        for format_key in item["formats"]:
+            mask = studio_bridge.pick_mask(format_key, item["mockup"]["family"])
+            assert mask and mask["logo"] != "none", f"{item['key']} em {format_key} não reserva zona para o logo"
 
 
 def test_studio_bridge_runs_the_real_create_image_with_the_chosen_model(monkeypatch):

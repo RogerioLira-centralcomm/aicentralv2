@@ -274,7 +274,7 @@ V3_SCENARIOS = [
         },
     ),
     *_v3(
-        "reserva-semana-cliente", "Reserva · oferta", "split", ["feed-4x5", "iab-300x250"], ("image", "none"),
+        "reserva-oferta", "Reserva · oferta", "split", ["feed-4x5", "iab-300x250"], ("image", "none"),
         learning="Pessoa real da marca + oferta como herói + bloco chapado: identidade contra hierarquia.",
         brand_id=7, objective="retail offer display ad",
         instruction=("Peça de varejo da Reserva para a Semana do Cliente. O modelo da referência (mesmo rosto, roupa e pose), recortado do peito para cima, "

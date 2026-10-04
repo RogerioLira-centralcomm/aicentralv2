@@ -219,8 +219,8 @@ def render_text_layers(image, spec, headline, cta, brand_context, palette, suppo
     if cta and "cta" in zones:
         x, y, w, h = _px(zones["cta"], canvas.size)
         if spec.get("class") != "wide":
-            # A button under ~8.5% of the height reads as a label, not a button: grow it upwards inside its zone.
-            minimum = round(canvas.height * 0.085)
+            # A button under ~8.5% of the short side reads as a label, not a button: grow it upwards inside its zone.
+            minimum = round(min(canvas.size) * 0.085)
             if h < minimum:
                 y, h = max(0, y - (minimum - h)), minimum
         fill = accent_color(palette)
@@ -230,6 +230,11 @@ def render_text_layers(image, spec, headline, cta, brand_context, palette, suppo
         pad = max(4, round(h * 0.18))
         # The whole label always shows: the pill may grow up to the safe frame (or the panel), then the font shrinks.
         limit_right = round((panel_right if panel_right else safe_right) * canvas.width)
+        if "logo" in zones:
+            # Never grow under the official logo on the same row.
+            lx, ly, lw, lh = _px(zones["logo"], canvas.size)
+            if ly < y + h and y < ly + lh and lx > x:
+                limit_right = min(limit_right, lx - max(4, round(canvas.width * 0.02)))
         room_w = max(w, limit_right - x)
         cap = round(headline_size * 0.75) if headline_size else h - pad * 2  # never louder than the headline
         size = max(7, min(h - pad * 2, cap))

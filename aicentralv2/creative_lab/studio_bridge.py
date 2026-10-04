@@ -303,8 +303,8 @@ def run_create(*, model_key: str, spec: dict, snapshot: dict, plan: dict, by_ref
         "creation_intent": "branded_creative" if snapshot and spec.get("logo_mode") != "none" else "neutral_asset",
         "brand_context": brand, "references": _reference_items(spec, plan, by_ref, mask, files_module),
         "channel": "", "direction_intensity": 70,
-        # "Mockup off" is a test variable in the Lab: keep the Studio from picking its default display layout.
-        **({"auto_mask": False} if (plan.get("mockup") or {}).get("requested") == "none" else {}),
+        # The mockup mode is a Lab test variable (off, image or text): the Studio's default display layout stays out of it.
+        **({"auto_mask": False} if (plan.get("mockup") or {}).get("requested") else {}),
     }
     if width and height:
         payload.update({"width": width, "height": height})

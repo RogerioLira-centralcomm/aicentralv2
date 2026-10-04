@@ -357,3 +357,18 @@ def test_composer_sets_support_under_the_headline_and_a_legible_cta():
     assert kinds["cta"]["box"][3] * 250 >= 250 * 0.085 - 1
     x, y, w, h = kinds["cta"]["box"]
     assert x >= 0.06 and y + h <= 0.94, "CTA dentro da margem segura"
+
+
+def test_cta_never_grows_under_the_logo_and_tall_units_keep_a_modest_button():
+    from PIL import Image
+    from aicentralv2.creative_media import ad_masks, banner_compose
+    band = next(item for item in ad_masks.served_specs() if item["id"] == "iab-300x250:faixa-inferior:bottom-right:cta")
+    _, layers = banner_compose.render_text_layers(Image.new("RGB", (300, 250), "white"), band, "Título", "Peça já o seu cartão de crédito agora",
+                                                  {}, ["#041E18"])
+    cta = next(layer for layer in layers if layer["type"] == "cta")
+    assert cta["box"][0] + cta["box"][2] <= band["zones"]["logo"][0] and cta["text"] == "Peça já o seu cartão de crédito agora"
+    tall = next(item for item in ad_masks.served_specs() if item["format"] == "iab-300x600" and item["cta"])
+    _, tall_layers = banner_compose.render_text_layers(Image.new("RGB", (300, 600), "white"), tall, "Título", "Saiba mais", {}, ["#041E18"])
+    # The button never grows past the larger of its zone and 8.5% of the short side (300 px here, not 600).
+    height_px = next(layer for layer in tall_layers if layer["type"] == "cta")["box"][3] * 600
+    assert height_px <= max(tall["zones"]["cta"][3] * 600, 300 * 0.085) + 1

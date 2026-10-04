@@ -255,8 +255,9 @@ def direct(spec: dict, snapshot: dict) -> dict:
         item = position_layouts.get(layout["position"])
         if item:
             # The director writes the scene for this layout (who and what, light, mood), not its own composition.
-            briefing += ("\nLayout da peça (já definido, não reposicione nada): " + item["label"] + ". "
-                         + " ".join(item["scene"]))
+            # Before the copy: after "Botão:" it would be read as part of the button on a flattened briefing.
+            briefing = ("Layout da peça (já definido, não reposicione nada): " + item["label"] + ". "
+                        + " ".join(item["scene"]) + "\n" + briefing)
     result, _response = studio_create.create({"prompt": briefing, "count": 1, "context": context}, _text_callable())
     direction = result["directions"][0]
     return {"title": direction["title"], "prompt": direction["prompt"], "reference_plan": direction.get("reference_plan") or [],

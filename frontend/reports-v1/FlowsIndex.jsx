@@ -1,4 +1,4 @@
-import {Edit01, BarChart01} from '@untitledui/icons';
+import {Edit01, BarChart01, Plus} from '@untitledui/icons';
 import {useReportsContext} from './shell/context.js';
 import {DataTable, EmptyState, Section} from './shell/primitives.jsx';
 import {CaduTabs} from '../cadu-design-system/components/CaduTabs.jsx';
@@ -16,6 +16,31 @@ import {Empty, flowEditorUrl, json, reportUrl} from './reportsCommon.jsx';
 import {friendlyAgo, friendlyDateTime} from './friendlyDates.js';
 import {COLLECTION_DAYS, flowCollection, flowItemCount, flowResults, formatRate} from './flowCollection.js';
 import './flows-index.css';
+
+
+const EXAMPLE_STEPS=[['Anúncio',1240],['Landing page',812],['Formulário',214],['Obrigado',86]];
+
+/** Empty state of a site with no flow yet: what a flow is, how it works and what its result looks like. */
+function FirstFlow({canCreate,onCreate,onModels,siteLabel}){
+  const top=EXAMPLE_STEPS[0][1];
+  return <section className="reports-first-flow" aria-label="Primeiro fluxo">
+    <div className="reports-first-flow__copy">
+      <h2>{siteLabel?`Meça o caminho até a conversão em ${siteLabel}`:'Meça o caminho até a conversão'}</h2>
+      <p>Um fluxo desenha as etapas que uma pessoa percorre, do anúncio ao resultado, e mostra onde ela avança ou desiste.</p>
+      <ol>
+        <li><strong>Desenhe</strong><span>Parta de um modelo pronto ou monte as etapas do zero.</span></li>
+        <li><strong>Publique</strong><span>A Super Tag do site começa a contar as passagens.</span></li>
+        <li><strong>Acompanhe</strong><span>Veja entradas, conversões e a etapa que mais perde gente.</span></li>
+      </ol>
+      {canCreate?<div className="reports-first-flow__actions"><ReportsActionButton color="primary" iconLeading={Plus} onClick={onCreate}>Criar primeiro fluxo</ReportsActionButton><ReportsActionButton color="secondary" onClick={onModels}>Ver modelos</ReportsActionButton></div>:<small>Seu acesso permite acompanhar fluxos existentes.</small>}
+    </div>
+    <figure className="reports-first-flow__example" aria-label="Exemplo de resultado">
+      <figcaption><strong>Exemplo de resultado</strong><small>Ilustrativo · captação de leads</small></figcaption>
+      <ul>{EXAMPLE_STEPS.map(([label,value])=><li key={label}><span>{label}</span><i><b style={{width:`${Math.max(4,value*100/top)}%`}}/></i><strong>{value.toLocaleString('pt-BR')}</strong></li>)}</ul>
+      <p><strong>6,9%</strong> das entradas converteram. A maior perda está entre a landing page e o formulário.</p>
+    </figure>
+  </section>;
+}
 
 /** Flow list and creation: the entry screen of Fluxos. Owns its own form state; the editor never reads it. */
 export function FlowsIndex({data, flows, supertagSites, save, busy}) {
@@ -35,14 +60,16 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
   const [flowStart,setFlowStart]=useState(()=>pathSeed.length?'path':'strategy');
   const [strategyId,setStrategyId]=useState('');
   const [strategyChannels,setStrategyChannels]=useState([]);
+  const [pickerOpen,setPickerOpen]=useState(false);
   const [teamTemplates,setTeamTemplates]=useState([]);
   const loadTeamTemplates=()=>json(`/connect/api/v2/reports/flow/templates`).then(result=>setTeamTemplates(result.templates||[])).catch(()=>setTeamTemplates([]));
   useEffect(()=>{loadTeamTemplates();},[data.client.client_id]);
   const teamTemplate=strategyId.startsWith('team:')?teamTemplates.find(item=>`team:${item.id}`===strategyId):null;
   const strategy=FLOW_STRATEGIES.find(item=>item.id===strategyId);
-  const chooseStrategy=item=>{setStrategyId(item.id);setStrategyChannels(defaultStrategyChannels(item));};
+  const chooseStrategy=item=>{setStrategyId(item.id);setStrategyChannels(defaultStrategyChannels(item));setPickerOpen(false);};
   const startFromTemplate=item=>{setFlowStart('strategy');chooseStrategy(item);setFlowCreateOpen(true);};
-  const startFromTeamTemplate=item=>{setFlowStart('strategy');setStrategyId(`team:${item.id}`);setStrategyChannels([]);setFlowCreateOpen(true);};
+  const chooseTeam=item=>{setStrategyId(`team:${item.id}`);setStrategyChannels([]);setPickerOpen(false);};
+  const startFromTeamTemplate=item=>{setFlowStart('strategy');chooseTeam(item);setFlowCreateOpen(true);};
   const deleteTeamTemplate=async item=>{if(!window.confirm(`Excluir o modelo “${item.name}”? Os fluxos criados a partir dele continuam iguais.`))return;try{await save(`/flow/templates/${item.id}`,{},false,'DELETE');await loadTeamTemplates();}catch(failure){setLocalError(failure.message);}};
   const toggleChannel=kind=>setStrategyChannels(current=>current.includes(kind)?current.filter(item=>item!==kind):[...current,kind]);
   const fromStrategy=flowStart==='strategy';
@@ -60,6 +87,7 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
   const allTags=[...new Set(flows.flatMap(flowTags))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
   const normalizeHost=value=>String(value||'').toLowerCase().replace(/^www\./,'');
   const scopedHost=normalizeHost(supertagSites.find(site=>String(site.id)===scope.site)?.allowed_host);
+  const scopedFlows=flows.filter(item=>!scopedHost||normalizeHost(item.allowed_host)===scopedHost);
   const visibleFlows=flows.filter(item=>(!flowTagFilter||flowTags(item).includes(flowTagFilter))&&(!scopedHost||normalizeHost(item.allowed_host)===scopedHost));
   const publishedFlows=visibleFlows.filter(item=>item.status==='published');
   const draftFlows=visibleFlows.filter(item=>item.status!=='published');
@@ -73,21 +101,22 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
   const flowCreateHint=!strategyReady?'Escolha uma estratégia e ao menos um canal.':planWithoutSite?'O plano será criado sem site. Conecte o site quando for medir.':!flowHost.trim()?'Informe a URL do site e valide o domínio.':!flowSiteCheck?'Valide o domínio para continuar.':flowSiteCheck.error?'Corrija o domínio para continuar.':superTagForFlow({allowed_host:flowSiteCheck.host})?'A Super Tag deste domínio já existe e será reutilizada.':'A Super Tag será criada automaticamente para este domínio.';
   const siteCheckSequence=useRef(0);
   const checkFlowSite = async () => {const url=flowHost.trim();if(!url)return;const sequence=++siteCheckSequence.current;setFlowSiteChecking(true);setFlowSiteCheck(null);setLocalError('');try{const fullUrl = url.includes('://') ? url : `https://${url}`;const result=await json(`/connect/api/v2/reports/supertag/site-check?url=${encodeURIComponent(fullUrl)}`);if(sequence===siteCheckSequence.current)setFlowSiteCheck({...result,verifiedUrl:url});}catch(failure){if(sequence===siteCheckSequence.current)setFlowSiteCheck({error:failure.message});}finally{if(sequence===siteCheckSequence.current)setFlowSiteChecking(false);}};
-  const newFlow = async event => {event.preventDefault(); try {if(!planWithoutSite&&(!flowSiteCheck||flowSiteCheck.error||flowSiteCheck.verifiedUrl!==flowHost.trim()))throw new Error('Verifique o domínio atual antes de criar o fluxo.');if(fromStrategy&&!strategyReady)throw new Error('Escolha uma estratégia e ao menos um canal.');const name=flowName||(fromStrategy?(teamTemplate||strategy).name:fromPath?`Caminho ${pathSeed[0]} → ${pathSeed[pathSeed.length-1]}`.slice(0,120):flowSiteCheck.title||flowSiteCheck.host);const config=fromStrategy?(teamTemplate?instantiateTemplate(teamTemplate.config):buildStrategyConfig(strategy,strategyChannels)):fromPath?{...buildPathConfig(pathSeed,flowSiteCheck.host),...(flowSiteKind?{site_kind:flowSiteKind}:{})}:{nodes:[],edges:[],...(flowSiteKind?{site_kind:flowSiteKind}:{})};const result = await save('/flow/flows', planWithoutSite?{name, plan_only:true, customer_id:flowCustomerId||null,campaign_id:flowCampaignId||null,config}:{name, allowed_host: flowSiteCheck.host, customer_id:flowCustomerId||null,campaign_id:flowCampaignId||null,config}, false);location.assign(flowEditorUrl(result.flow.id,fromStrategy||fromPath?{}:{testar:1}));} catch (failure) {setLocalError(failure.message);}};
+  const newFlow = async event => {event?.preventDefault?.(); try {if(!planWithoutSite&&(!flowSiteCheck||flowSiteCheck.error||flowSiteCheck.verifiedUrl!==flowHost.trim()))throw new Error('Verifique o domínio atual antes de criar o fluxo.');if(fromStrategy&&!strategyReady)throw new Error('Escolha uma estratégia e ao menos um canal.');const name=flowName||(fromStrategy?(teamTemplate||strategy).name:fromPath?`Caminho ${pathSeed[0]} → ${pathSeed[pathSeed.length-1]}`.slice(0,120):flowSiteCheck.title||flowSiteCheck.host);const config=fromStrategy?(teamTemplate?instantiateTemplate(teamTemplate.config):buildStrategyConfig(strategy,strategyChannels)):fromPath?{...buildPathConfig(pathSeed,flowSiteCheck.host),...(flowSiteKind?{site_kind:flowSiteKind}:{})}:{nodes:[],edges:[],...(flowSiteKind?{site_kind:flowSiteKind}:{})};const result = await save('/flow/flows', planWithoutSite?{name, plan_only:true, customer_id:flowCustomerId||null,campaign_id:flowCampaignId||null,config}:{name, allowed_host: flowSiteCheck.host, customer_id:flowCustomerId||null,campaign_id:flowCampaignId||null,config}, false);location.assign(flowEditorUrl(result.flow.id,fromStrategy||fromPath?{}:{testar:1}));} catch (failure) {setLocalError(failure.message);}};
   return <>
     {localError&&<div className="reports-error" role="alert">{localError}</div>}
     <section className="reports-flow-index">
-      <CaduTabs className="reports-flow-index__views" label="Fluxos e modelos" value={indexView} onChange={setIndexView} items={[{id:'flows',label:'Fluxos',count:flows.length},{id:'models',label:'Modelos',count:FLOW_STRATEGIES.length}]}/>
-      {indexView==='models'?<FlowTemplateGallery canCreate={data.client.role!=='viewer'} onUse={startFromTemplate} teamTemplates={teamTemplates} onUseTeam={startFromTeamTemplate} onDeleteTeam={deleteTeamTemplate}/>:<>
-      <div className="reports-flow-index__tools">
-        {allTags.length>0&&<ReportsNativeSelect aria-label="Etiqueta" value={flowTagFilter} onChange={event=>setFlowTagFilter(event.target.value)}><option value="">Todas as etiquetas</option>{allTags.map(tag=><option key={tag} value={tag}>{tag}</option>)}</ReportsNativeSelect>}
-        <span className="reports-flow-index__count">{plural(visibleFlows.length,'fluxo','fluxos')}</span>
-        {data.client.role!=='viewer'&&<ReportsActionButton color="primary" className="reports-flow-index__new" onClick={()=>setFlowCreateOpen(true)}>Novo fluxo</ReportsActionButton>}
+      <div className="reports-flow-index__bar">
+        <CaduTabs className="reports-flow-index__views" label="Fluxos e modelos" value={indexView} onChange={setIndexView} items={[{id:'flows',label:'Fluxos',count:scopedFlows.length},{id:'models',label:'Modelos',count:FLOW_STRATEGIES.length+teamTemplates.length}]}/>
+        {data.client.role!=='viewer'&&<ReportsActionButton color="primary" size="sm" className="reports-flow-index__new" iconLeading={Plus} onClick={()=>setFlowCreateOpen(true)}>Novo fluxo</ReportsActionButton>}
       </div>
-      <div className="rs-stack">
+      {indexView==='models'?<FlowTemplateGallery canCreate={data.client.role!=='viewer'} onUse={startFromTemplate} teamTemplates={teamTemplates} onUseTeam={startFromTeamTemplate} onDeleteTeam={deleteTeamTemplate}/>:<>
+      {allTags.length>0&&<div className="reports-flow-index__tools">
+        <ReportsNativeSelect aria-label="Etiqueta" value={flowTagFilter} onChange={event=>setFlowTagFilter(event.target.value)}><option value="">Todas as etiquetas</option>{allTags.map(tag=><option key={tag} value={tag}>{tag}</option>)}</ReportsNativeSelect>
+      </div>}
+      {scopedFlows.length===0?<FirstFlow canCreate={data.client.role!=='viewer'} onCreate={()=>setFlowCreateOpen(true)} onModels={()=>setIndexView('models')} siteLabel={supertagSites.find(site=>String(site.id)===scope.site)?.allowed_host}/>:<div className="rs-stack">
         <Section title="Publicados" description="Fluxos medindo agora, com coleta, entradas e conversão dos últimos dias">
           <DataTable label="Fluxos publicados" rows={publishedFlows} rowKey={row=>row.id} initialSort={{key:'updated',dir:'desc'}}
-            empty={<EmptyState title={flows.length?'Nenhum fluxo publicado neste site':'Nenhum fluxo ainda'} description={flows.length?'Publique um rascunho para começar a medir.':'Comece por um modelo pronto ou crie um fluxo do zero.'}/>}
+            empty={<EmptyState title="Nenhum fluxo publicado" description="Abra um rascunho, revise os passos e publique para começar a medir."/>}
             columns={[
               {key:'name',label:'Fluxo',render:row=><>{flowIdentity(row)}</>},
               {key:'collection',label:'Coleta',sort:row=>flowCollection(row).label,render:row=>{const collection=flowCollection(row);const parts=[collection.lastEventAt&&`último evento ${friendlyAgo(collection.lastEventAt)}`,monitorLabel(row)].filter(Boolean);return <><span className={`reports-collection is-${collection.tone}`} title={collection.hint}>{collection.label}</span><small className="rs-cell-sub">{parts.join(' · ')||'\u00a0'}</small></>;}},
@@ -105,9 +134,10 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
             {key:'actions',label:<span className="reports-sr-only">Ações</span>,sortable:false,render:row=><span className="reports-flow-table__actions">{flowIconActions(row,false)}</span>},
           ]}/>
         </Section>}
-      </div></>}
+      </div>}</>}
     </section>
-    <ReportsDrawer open={flowCreateOpen} onOpenChange={setFlowCreateOpen} onDiscard={()=>{setFlowName('');setFlowCustomerId('');setFlowCampaignId('');}} title="Novo fluxo" description="Comece por uma estratégia pronta ou pelo teste da página inicial do site." context={data.client.client_name}>
+    <ReportsDrawer open={flowCreateOpen} onOpenChange={setFlowCreateOpen} onDiscard={()=>{setFlowName('');setFlowCustomerId('');setFlowCampaignId('');}} title="Novo fluxo" description="Comece por uma estratégia pronta ou pelo teste da página inicial do site." context={data.client.client_name}
+      footer={data.client.role!=='viewer'?<div className="reports-flow-new__footer"><p id="flow-create-hint">{flowCreateHint}</p><ReportsActionButton color="primary" disabled={busy||flowSiteChecking||(!planWithoutSite&&(!flowSiteCheck||Boolean(flowSiteCheck.error)))||!strategyReady} aria-describedby="flow-create-hint" onClick={newFlow}>{fromStrategy?'Criar plano':'Criar fluxo'}</ReportsActionButton></div>:undefined}>
       {localError&&<div className="reports-error" role="alert">{localError}</div>}
       {data.client.role!=='viewer'?<form className="reports-form reports-flow-new" onSubmit={newFlow}>
         <fieldset className="reports-flow-start"><legend>Ponto de partida</legend>
@@ -116,7 +146,8 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
           <label className="reports-flow-start__option"><input type="radio" name="flow-start" value="probe" checked={flowStart==='probe'} onChange={()=>setFlowStart('probe')}/><span><strong>Testar a página inicial</strong><small>Lê o site e propõe o caminho a partir do que já existe.</small></span></label>
         </fieldset>
         {fromStrategy&&<section className="reports-flow-strategies" aria-label="Estratégias">
-          <div className="reports-flow-strategies__list" role="radiogroup" aria-label="Estratégia">{teamTemplates.map(item=><button key={item.id} type="button" role="radio" aria-checked={`team:${item.id}`===strategyId} className={`reports-flow-strategy is-team${`team:${item.id}`===strategyId?' is-selected':''}`} onClick={()=>{setStrategyId(`team:${item.id}`);setStrategyChannels([]);}}><strong>{item.name}</strong><small>{[item.sector,'Modelo do time'].filter(Boolean).join(' · ')}</small>{item.description&&<span>{item.description}</span>}</button>)}{FLOW_STRATEGIES.map(item=><button key={item.id} type="button" role="radio" aria-checked={item.id===strategyId} className={`reports-flow-strategy${item.id===strategyId?' is-selected':''}`} onClick={()=>chooseStrategy(item)}><strong>{item.name}</strong><small>{item.objective}</small><span>{item.summary}</span></button>)}</div>
+          {(strategy||teamTemplate)&&!pickerOpen?<div className="reports-flow-chosen"><div><small>{teamTemplate?'Modelo do time':'Estratégia escolhida'}</small><strong>{(teamTemplate||strategy).name}</strong><span>{teamTemplate?.description||strategy?.summary}</span></div><ReportsActionButton color="secondary" size="sm" onClick={()=>setPickerOpen(true)}>Trocar</ReportsActionButton></div>
+          :<div className="reports-flow-strategies__list" role="radiogroup" aria-label="Estratégia">{teamTemplates.map(item=><button key={item.id} type="button" role="radio" aria-checked={`team:${item.id}`===strategyId} className={`reports-flow-strategy is-team${`team:${item.id}`===strategyId?' is-selected':''}`} onClick={()=>chooseTeam(item)}><strong>{item.name}</strong><small>{[item.sector,'Modelo do time'].filter(Boolean).join(' · ')}</small></button>)}{FLOW_STRATEGIES.map(item=><button key={item.id} type="button" role="radio" aria-checked={item.id===strategyId} className={`reports-flow-strategy${item.id===strategyId?' is-selected':''}`} onClick={()=>chooseStrategy(item)}><strong>{item.name}</strong><small>{item.objective}</small></button>)}</div>}
           {teamTemplate&&<p className="reports-flow-team-note">{(teamTemplate.config.nodes||[]).length} passos do modelo do time. Canais, públicos, briefs e taxas vêm do modelo; endereços, prazos, verba e aprovações começam vazios.</p>}
           {strategy&&<fieldset className="reports-flow-strategy__channels"><legend>Canais deste plano</legend>{strategy.channels.map(([kind])=><label key={kind}><input type="checkbox" checked={strategyChannels.includes(kind)} onChange={()=>toggleChannel(kind)}/>{flowBlockRegistry[kind]?.label||kind}</label>)}<small>{strategy.steps.length} passos planejados, cada um com a especificação do que precisa ser criado.</small></fieldset>}
         </section>}
@@ -128,7 +159,6 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
           <label>Cliente / anunciante<ReportsNativeSelect value={flowCustomerId} onChange={event=>{setFlowCustomerId(event.target.value);setFlowCampaignId('');}}><option value="">Sem anunciante</option>{(data.customers||[]).filter(item=>item.status==='active').map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</ReportsNativeSelect></label>
           <label>Campanha<ReportsNativeSelect value={flowCampaignId} onChange={event=>setFlowCampaignId(event.target.value)}><option value="">Sem campanha</option>{(data.campaigns||[]).filter(item=>!flowCustomerId||String(item.customer_id)===flowCustomerId).map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</ReportsNativeSelect></label>
         </details>
-        <div className="reports-flow-new__actions"><p id="flow-create-hint">{flowCreateHint}</p><ReportsActionButton type="submit" color="primary" disabled={busy||flowSiteChecking||(!planWithoutSite&&(!flowSiteCheck||Boolean(flowSiteCheck.error)))||!strategyReady} aria-describedby="flow-create-hint">{fromStrategy?'Criar plano':'Criar fluxo'}</ReportsActionButton></div>
       </form>:<Empty message="Seu acesso permite acompanhar fluxos existentes."/>}
     </ReportsDrawer>
   </>;

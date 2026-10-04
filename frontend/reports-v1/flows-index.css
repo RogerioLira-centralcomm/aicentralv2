@@ -21,3 +21,42 @@
 .reports-main .rs-section .reports-flow-table__actions{display:flex;justify-content:flex-end;gap:2px}
 .reports-main .rs-section .reports-flow-table__actions>*{margin-left:0}
 .reports-main .rs-section td .reports-collection+.rs-cell-sub{margin-top:2px}
+
+/* Tabs and the primary action share one row. */
+.reports-main .reports-flow-index__bar{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--color-border-secondary)}
+.reports-main .reports-flow-index__bar .reports-flow-index__views{margin-bottom:0;border-bottom:0}
+.reports-main .reports-flow-index__bar .reports-flow-index__new{flex:none}
+
+/* Empty state of a site without flows. */
+.reports-first-flow{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(280px,1fr);gap:32px;padding:28px;border:1px solid var(--color-border-secondary);border-radius:12px;background:var(--color-bg-primary)}
+.reports-first-flow h2{margin:0;color:var(--color-text-primary);font-size:20px;font-weight:600;line-height:28px}
+.reports-first-flow__copy>p{max-width:520px;margin:8px 0 0;color:var(--color-text-tertiary);font-size:14px;line-height:20px}
+.reports-first-flow ol{display:grid;gap:12px;margin:20px 0 0;padding:0;list-style:none;counter-reset:step}
+.reports-first-flow li{display:grid;grid-template-columns:28px minmax(0,1fr);column-gap:12px;counter-increment:step}
+.reports-first-flow ol li::before{content:counter(step);grid-row:span 2;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--color-bg-brand-primary);color:var(--color-text-brand-secondary);font-size:13px;font-weight:600}
+.reports-first-flow ol li strong{color:var(--color-text-primary);font-size:14px}
+.reports-first-flow ol li span{color:var(--color-text-tertiary);font-size:14px;line-height:20px}
+.reports-first-flow__actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}
+.reports-first-flow__example{display:grid;align-content:start;gap:14px;margin:0;padding:20px;border-radius:12px;background:var(--color-bg-secondary)}
+.reports-first-flow__example figcaption{display:grid;gap:2px}
+.reports-first-flow__example figcaption strong{color:var(--color-text-primary);font-size:14px}
+.reports-first-flow__example figcaption small{color:var(--color-text-quaternary);font-size:12px}
+.reports-first-flow__example ul{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.reports-first-flow__example li{display:grid;grid-template-columns:96px minmax(0,1fr) auto;align-items:center;gap:10px;font-size:13px;color:var(--color-text-secondary)}
+.reports-first-flow__example li i{height:8px;border-radius:999px;background:var(--color-bg-tertiary);overflow:hidden}
+.reports-first-flow__example li b{display:block;height:100%;border-radius:inherit;background:var(--color-bg-brand-solid)}
+.reports-first-flow__example li strong{color:var(--color-text-primary);font-variant-numeric:tabular-nums}
+.reports-first-flow__example p{margin:0;color:var(--color-text-tertiary);font-size:13px;line-height:18px}
+.reports-first-flow__example p strong{color:var(--color-text-primary)}
+@media(max-width:900px){.reports-first-flow{grid-template-columns:1fr;padding:20px}}
+
+/* New-flow drawer: short picker, chosen strategy collapsed, action always visible in the footer. */
+.reports-flow-strategies__list{display:grid;grid-template-columns:1fr;gap:6px;max-height:280px;overflow-y:auto;padding-right:4px}
+.reports-flow-strategy{grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;padding:10px 12px;text-align:left}
+.reports-flow-chosen{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px;border:1px solid var(--color-border-brand);border-radius:10px;background:var(--color-bg-brand-primary)}
+.reports-flow-chosen>div{display:grid;gap:2px;min-width:0}
+.reports-flow-chosen small{color:var(--color-text-brand-secondary);font-size:11px;font-weight:600;letter-spacing:.02em;text-transform:uppercase}
+.reports-flow-chosen strong{color:var(--color-text-primary);font-size:14px}
+.reports-flow-chosen span{color:var(--color-text-tertiary);font-size:13px;line-height:18px}
+.reports-flow-new__footer{display:grid;gap:10px;width:100%}
+.reports-flow-new__footer p{margin:0;color:var(--color-text-tertiary);font-size:12px;line-height:1.45}

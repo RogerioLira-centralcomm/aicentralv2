@@ -23,17 +23,36 @@ const formatter = new Intl.DateTimeFormat('pt-BR', {day: '2-digit', month: 'shor
 export const shortDate = value => value ? formatter.format(new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value)) : '—';
 export const integer = value => new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 0}).format(value || 0);
 export const decimal = value => new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 1}).format(value || 0);
+// A GET that fails with a server error or a dropped connection (a worker still warming up, a deploy in progress) is tried again
+// before the screen shows an error; a hard refresh was the only way to recover from it. Writes are never repeated.
+const RETRY_STATUS = new Set([500, 502, 503, 504]);
+const RETRY_WAIT_MS = [400, 1200];
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 export async function json(url, options = {}) {
-  const response = await fetch(url, {credentials: 'same-origin', ...options});
-  let body = {};
-  try { body = await response.json(); } catch (_) { /* The response may be an HTML error page. */ }
-  if (!response.ok) {
-    const failure = new Error(body.error || body.description || `Falha HTTP ${response.status}`);
-    failure.status = response.status;
-    failure.details = body;
-    throw failure;
+  const idempotent = !options.method || String(options.method).toUpperCase() === 'GET';
+  for (let attempt = 0; ; attempt += 1) {
+    let response;
+    try {
+      response = await fetch(url, {credentials: 'same-origin', ...options});
+    } catch (networkFailure) {
+      if (!idempotent || attempt >= RETRY_WAIT_MS.length) throw networkFailure;
+      await wait(RETRY_WAIT_MS[attempt]);
+      continue;
+    }
+    if (!response.ok && idempotent && RETRY_STATUS.has(response.status) && attempt < RETRY_WAIT_MS.length) {
+      await wait(RETRY_WAIT_MS[attempt]);
+      continue;
+    }
+    let body = {};
+    try { body = await response.json(); } catch (_) { /* The response may be an HTML error page. */ }
+    if (!response.ok) {
+      const failure = new Error(body.error || body.description || `Falha HTTP ${response.status}`);
+      failure.status = response.status;
+      failure.details = body;
+      throw failure;
+    }
+    return body;
   }
-  return body;
 }
 export function Empty({message}) { return <CaduEmptyState className="reports-empty reports-empty-state" description={message}/>; }
 export const FLOW_CHANNELS = [

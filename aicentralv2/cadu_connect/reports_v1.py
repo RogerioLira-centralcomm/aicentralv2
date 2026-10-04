@@ -233,7 +233,10 @@ def register(bp):
         agency = _rows('''SELECT COALESCE(NULLIF(nome_fantasia,''),NULLIF(razao_social,'')) AS name
             FROM tbl_cliente WHERE id_cliente=%s AND status=TRUE''',
             (selected['client_id'],))
-        return render_template('cadu_connect/app_v1.html', agency_name=agency[0]['name'] if agency else '')
+        # The shell names the current bundle (?v=); a cached copy would keep pointing a returning visitor at an old one.
+        response = make_response(render_template('cadu_connect/app_v1.html', agency_name=agency[0]['name'] if agency else ''))
+        response.headers['Cache-Control'] = 'no-store'
+        return response
 
     @bp.get('/api/v2/reports/bootstrap')
     @login_required_api

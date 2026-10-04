@@ -169,7 +169,11 @@ def edited_copy(raw, briefing: str, budget: dict) -> dict | None:
     keeps_offer = not re.search(r"\d|%", original) or bool(re.search(r"\d|%", headline))
     headline = headline if headline and keeps_offer and from_briefing(headline, briefing) else ""
     if headline:
-        headline, support = with_offer(headline, support, budget.get("apoio_max_linhas", 0))
+        # The offer is untouchable in every copy field: a briefing line with a number/%/price that the edit dropped
+        # comes back (it becomes the hero; measured: the director cut "+20% EXTRA" from the support of a 300×250).
+        kept_text = " ".join([headline, *support]).casefold()
+        lost = [line for line in support_copy(briefing) if _OFFER.search(line) and line.casefold() not in kept_text]
+        headline, support = with_offer(headline, [*lost, *support], budget.get("apoio_max_linhas", 0))
     copy = {
         # The offer number is what sells: an edit that dropped it is refused (the Studio falls back to the briefing).
         "headline": headline,
@@ -228,7 +232,23 @@ def ad_craft_line(*, text_free: bool) -> str:
 def scene_only(prompt: str, copy: list[str]) -> str:
     """Drop the sentences of a scene prompt that quote the copy (the model would paint them on a text-free piece)."""
     strings = [item.casefold() for item in copy if item and len(item) >= 3]
-    words = re.compile(r"\b(t[ií]tulo|headline|bot[aã]o|cta|texto|slogan|chamada|logo)\b", re.I)
+    # The offer numbers too ("+20%", "R$ 99"): a sentence that names the number makes the model paint it.
+    numbers = {match.group(0) for item in copy if item for match in re.finditer(r"\d[\d.,]*\s*%?", item)}
+    words = re.compile(r"\b(t[ií]tulo|headline|bot[aã]o|cta|texto|slogan|chamada|logo|cupom|oferta)\b", re.I)
     sentences = re.split(r"(?<=[.!?;])\s+", str(prompt or ""))
-    kept = [item for item in sentences if not words.search(item) and not any(text in item.casefold() for text in strings)]
+    kept = [item for item in sentences if not words.search(item) and not any(text in item.casefold() for text in strings)
+            and not any(number.strip() in item for number in numbers)]
+    return " ".join(kept) if kept else prompt
+
+
+_PLACEMENT = re.compile(
+    r"\b(à esquerda|a esquerda|à direita|a direita|no centro|centralizad\w*|no topo|na base|no canto|metade|terço|"
+    r"lado (esquerdo|direito)|left|right|centered|centre|center|top|bottom|corner|half|third|composi[çc][ãa]o|composition|layout|zona|zone)\b",
+    re.I)
+
+
+def without_placement(prompt: str) -> str:
+    """Drop the sentences that place things on the canvas (the layout by position decides placement)."""
+    sentences = re.split(r"(?<=[.!?;])\s+", str(prompt or ""))
+    kept = [item for item in sentences if not _PLACEMENT.search(item)]
     return " ".join(kept) if kept else prompt

@@ -461,3 +461,10 @@ def test_composer_makes_the_offer_the_hero_and_keeps_copy_order():
     headline = next(layer for layer in layers if layer["type"] == "headline")
     assert headline["hero"] == "+20% EXTRA" and headline["size_px"] >= 2 * headline["kicker_size_px"]
     assert headline["text"] == "OUTLET COM +20% EXTRA"  # as drawn: the reviewer checks what is on the piece
+
+
+def test_an_offer_the_director_cut_from_the_support_comes_back_as_the_hero():
+    from aicentralv2.creative_media.studio_playbook import copy_budget, edited_copy
+    briefing = "Título: Outlet com\nTexto de apoio: +20% EXTRA · Use o cupom DIADOCLIENTE.\nBotão: Comprar agora"
+    copy = edited_copy({"headline": "Outlet com", "support": [], "cta": "Comprar agora"}, briefing, copy_budget(300, 250))
+    assert copy["headline"] == "Outlet com +20% EXTRA"

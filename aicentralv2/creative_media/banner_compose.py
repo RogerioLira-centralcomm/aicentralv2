@@ -101,6 +101,24 @@ def ground_color(palette, image=None):
     return darkest[0] if darkest else (17, 24, 39)
 
 
+def brand_dark(palette):
+    """The brand's darkest color when it is dark enough to set copy on a light ground."""
+    colors = [rgb for rgb in (_hex(value) for value in palette or []) if rgb and _luma(rgb) < 0.3]
+    return min(colors, key=_luma) if colors else None
+
+
+def readable(color, backdrop, target=3.0):
+    """The brand accent, darkened or lightened (same hue) until it reads on the backdrop (WCAG 3:1 for large type)."""
+    if _contrast(color, backdrop) >= target:
+        return color
+    toward = (0, 0, 0) if _luma(backdrop) > 0.5 else (255, 255, 255)
+    for step in range(1, 11):
+        mix = tuple(round(c + (t - c) * step / 10) for c, t in zip(color, toward))
+        if _contrast(mix, backdrop) >= target:
+            return mix
+    return toward
+
+
 def _region_luma(image, box):
     region = image.crop(box).convert("L").resize((24, 24))
     data = list(region.getdata())
@@ -209,6 +227,26 @@ def _mirror(spec):
         x, y, w, h = zones["cta"]
         zones["cta"] = (zones["headline"][0], y, w, h)
     return {**spec, "id": spec["id"] + ":espelhado", "zones": zones, "mirrored": True}
+
+
+def mirror_position(spec):
+    """A layout by position flipped left-right, logo included (its corner flips too)."""
+    zones = {name: (round(1 - x - w, 4), y, w, h) for name, (x, y, w, h) in spec["zones"].items()}
+    if "headline" in zones and "cta" in zones:
+        x, y, w, h = zones["cta"]
+        zones["cta"] = (zones["headline"][0], y, w, h)
+    flip = {"bottom-left": "bottom-right", "bottom-right": "bottom-left", "top-left": "top-right", "top-right": "top-left"}
+    return {**spec, "id": spec["id"] + ":espelhado", "zones": zones, "logo": flip.get(spec.get("logo"), spec.get("logo")),
+            "mirrored": True}
+
+
+def place_position(image, spec):
+    """A layout by position stays as designed, unless the model put the subject on the copy side: then the mirror."""
+    here = busyness(image, spec)
+    if here <= CALM_LIMIT:
+        return spec
+    mirrored = mirror_position(spec)
+    return mirrored if busyness(image, mirrored) + 0.03 < here else spec
 
 
 def _with_logo(candidate, spec):
@@ -435,8 +473,11 @@ def render_text_layers(image, spec, headline, cta, brand_context, palette, suppo
             light_text = luma <= 0.5
             color = (255, 255, 255) if light_text else (17, 24, 39)
             _gradient_scrim(canvas, (x, y, x + w, y + h), light_text)
-        accent = accent_color(palette)
-        hero_color = accent if _contrast(accent, ground or ((17, 24, 39) if color == (255, 255, 255) else (255, 255, 255))) >= 3 else color
+        backdrop = ground or ((17, 24, 39) if color == (255, 255, 255) else (255, 255, 255))
+        if color != (255, 255, 255):
+            # Dark copy is the brand's own dark, not a generic navy.
+            color = brand_dark(palette) or color
+        hero_color = readable(accent_color(palette), backdrop)
         kicker, hero = split_offer(headline)
         hero_first = bool(hero) and offer_first(headline)
         draw = ImageDraw.Draw(canvas)

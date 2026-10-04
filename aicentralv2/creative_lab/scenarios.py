@@ -372,7 +372,10 @@ V5_SCENARIOS = [
     _v5("cemig-servico", "Cemig", "produto-diagonal", **_CEMIG_SERVICO,
         learning="O celular como produto herói cruzando a diagonal, texto no campo chapado.",
         hypothesis="A diagonal dá movimento e separa texto e imagem sem caixa."),
-    _v5("cemig-servico", "Cemig", "tipografico-selo", **_CEMIG_SERVICO,
+    _v5("cemig-servico", "Cemig", "tipografico-selo", **{**_CEMIG_SERVICO, "instruction": (
+            "Peça de serviço da Cemig só com tipografia e forma: sem foto, sem celular, sem pessoas. Fundo chapado da marca "
+            "e um selo redondo vazio. Texto exato; o logo oficial é aplicado depois."),
+            "references": [{"asset_id": 265, "role": "LOGO", "label": "Logo Cemig"}]},
         learning="Sem foto: tipografia grande e um selo da marca.",
         hypothesis="Quando não há pessoa nem produto forte, a peça vive de tipografia e forma."),
 ]

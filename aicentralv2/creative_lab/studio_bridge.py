@@ -248,7 +248,16 @@ def direct(spec: dict, snapshot: dict) -> dict:
         "references": [],
         "typeset_social": bool(LabModeling.typeset_social),
     }
-    result, _response = studio_create.create({"prompt": briefing_text(spec), "count": 1, "context": context}, _text_callable())
+    briefing = briefing_text(spec)
+    layout = spec.get("layout") or ({"position": LabModeling.position_layout} if LabModeling.position_layout else {})
+    if layout.get("position"):
+        from ..creative_media import position_layouts
+        item = position_layouts.get(layout["position"])
+        if item:
+            # The director writes the scene for this layout (who and what, light, mood), not its own composition.
+            briefing += ("\nLayout da peça (já definido, não reposicione nada): " + item["label"] + ". "
+                         + " ".join(item["scene"]))
+    result, _response = studio_create.create({"prompt": briefing, "count": 1, "context": context}, _text_callable())
     direction = result["directions"][0]
     return {"title": direction["title"], "prompt": direction["prompt"], "reference_plan": direction.get("reference_plan") or [],
             "copy": direction.get("copy"),
@@ -316,6 +325,14 @@ def run_create(*, model_key: str, spec: dict, snapshot: dict, plan: dict, by_ref
             f"{ref['role']}: {ref.get('label') or 'reference'}" for ref in plan["converted_to_text"])
     modeling = LabModeling(model_key)
     brand = brand_context(snapshot, spec.get("brand_payload")) if snapshot else {}
+    logo_ref = next((ref for ref in spec.get("references") or [] if ref.get("role") == "LOGO"), None)
+    if brand and not brand.get("logo_url") and logo_ref and files_module is not None:
+        # The brand record has no logo URL but the test carries the official logo: the Studio composes that one.
+        try:
+            brand["logo_url"] = files_module.provider_data_url(logo_ref["file_id"])
+            brand["assets"] = {**(brand.get("assets") or {}), "logo": [brand["logo_url"]]}
+        except Exception:
+            log.warning("Lab logo reference could not be embedded", exc_info=True)
     payload = {
         "request_id": uuid.uuid4().hex, "prompt": prompt, "original_prompt": briefing_text(spec),
         "reference_plan": direction.get("reference_plan") or [], "aspect_ratio": ratio, "copy": direction.get("copy"),

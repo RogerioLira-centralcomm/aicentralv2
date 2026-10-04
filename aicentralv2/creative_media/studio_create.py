@@ -761,7 +761,10 @@ def create_image(payload, modeling, client_id, user_id):
         copy_headline, support_copy = studio_playbook.with_offer(copy_headline, studio_playbook.support_copy(briefing),
                                                                  budget["apoio_max_linhas"]) if copy_headline else (
             copy_headline, studio_playbook.support_copy(briefing)[:budget["apoio_max_linhas"]])
-    layout_lines = (position_layouts.words(position_id, text_free=composed) if position_spec
+    layout_lines = (position_layouts.words(position_id, text_free=composed,
+                                           palette=clean_palette(data.get("requested_palette"))
+                                           or list((data.get("brand_context") or {}).get("palette") or []))
+                    if position_spec
                     else composition_layout_lines(references, mask, provider_size, composed))
     product_visibility_line = (
         "PRODUCT VISIBILITY CHECK: If the briefing requests a product, make it a deliberate, recognizable foreground subject with enough scale and light to be clearly visible. Do not hide it behind hands, bodies, crops or depth-of-field blur. If bottles or packages are requested, show the requested quantity visibly and keep their labels facing the camera when the briefing asks for labels."
@@ -779,6 +782,9 @@ def create_image(payload, modeling, client_id, user_id):
     # blocks make the model add extras). A piece
     # whose copy the Studio typesets gets no copy rules at all: they only tempt the model to write.
     scene = studio_playbook.scene_only(prompt, [copy_headline, *support_copy, copy_cta]) if composed else prompt
+    if position_spec:
+        # The layout by position owns placement: the director's own placement sentences would contradict it.
+        scene = studio_playbook.without_placement(scene)
     technical_prompt = "\n".join(line for line in [
         *(["TEXT-FREE IMAGE (overrides every other instruction about copy): this image must contain no words, letters, numbers, buttons or logos. Ignore any request below to render a headline, CTA or brand name: the Studio typesets them afterwards."] if composed else []),
         *layout_lines,
@@ -852,8 +858,10 @@ def create_image(payload, modeling, client_id, user_id):
         if composed:
             from . import banner_compose
             # The copy goes where this picture is calm (or on the painted band), not where the model was told to leave room.
-            # A layout by position is the design itself: it is not swapped after the scene.
-            layout = position_spec or banner_compose.choose_layout(banner_compose.decode(fitted).convert("RGB"), mask_specs(raw_references)[0])
+            # A layout by position is the design itself: only mirrored when the model put the subject on the copy side.
+            picture = banner_compose.decode(fitted).convert("RGB")
+            layout = (banner_compose.place_position(picture, position_spec) if position_spec
+                      else banner_compose.choose_layout(picture, mask_specs(raw_references)[0]))
             chosen_layout["spec"] = layout
 
         def with_logo(encoded_image, encoded_format):
@@ -1460,17 +1468,25 @@ def _open_trimmed_logo(url):
     from pathlib import Path
     from flask import current_app, has_app_context
     from ..creative_modeling_storage import studio_owned_static_path
-    path_value = studio_owned_static_path(url)
-    if not path_value or not has_app_context():
-        return None
-    static_root = Path(current_app.static_folder).resolve()
-    path = (static_root / path_value.removeprefix("/static/")).resolve()
-    try:
-        path.relative_to(static_root)
-        image = Image.open(path)
-        image.load()
-    except (ValueError, OSError):
-        return None
+    if str(url).startswith("data:image/"):
+        # An embedded logo (the Lab's LOGO reference when the brand record has no logo URL).
+        try:
+            image = Image.open(io.BytesIO(base64.b64decode(str(url).split(",", 1)[1])))
+            image.load()
+        except (ValueError, OSError, IndexError):
+            return None
+    else:
+        path_value = studio_owned_static_path(url)
+        if not path_value or not has_app_context():
+            return None
+        static_root = Path(current_app.static_folder).resolve()
+        path = (static_root / path_value.removeprefix("/static/")).resolve()
+        try:
+            path.relative_to(static_root)
+            image = Image.open(path)
+            image.load()
+        except (ValueError, OSError):
+            return None
     image = image.convert("RGBA")
     # Logo files often carry transparent padding; trim it so margins are measured from the artwork.
     box = image.getchannel("A").point(lambda value: 255 if value > 8 else 0).getbbox()
@@ -1499,11 +1515,12 @@ def load_brand_logos(raw_brand):
     assets = brand.get("assets") if isinstance(brand.get("assets"), dict) else {}
     urls = []
     for candidate in [brand.get("logo_url"), *(assets.get("logo") or [])]:
-        url = text(candidate, 500)
+        raw_value = str(candidate or "")
+        url = raw_value if raw_value.startswith("data:image/") else text(candidate, 500)
         # The Lab and some briefs carry the Studio's own absolute URL; its /static/ path is the same file.
         if url.startswith(("https://", "http://")) and "/static/" in url:
             url = "/static/" + url.split("/static/", 1)[1].split("?", 1)[0]
-        if url.startswith("/static/") and url not in urls:
+        if (url.startswith("/static/") or url.startswith("data:image/")) and url not in urls:
             urls.append(url)
     images = [image for image in (_open_trimmed_logo(url) for url in urls) if image is not None]
     return images

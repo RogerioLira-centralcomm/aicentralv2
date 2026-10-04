@@ -106,15 +106,27 @@ def spec(layout_id: str) -> dict | None:
             "zones": dict(item["zones"]), "positions": True}
 
 
-def words(layout_id: str, text_free: bool = True) -> list[str]:
-    """The layout for the image model: positions and relations, in plain words (binding)."""
+def brand_colors(palette) -> dict:
+    """The colors a position layout names: a deep brand ground (high contrast for white copy) and the accent shape."""
+    from .banner_compose import accent_color, ground_color
+    ground = ground_color(palette)
+    accent = accent_color(palette)
+    return {"ground": "#%02X%02X%02X" % ground, "accent": "#%02X%02X%02X" % accent}
+
+
+def words(layout_id: str, text_free: bool = True, palette=None) -> list[str]:
+    """The layout for the image model: positions and relations, in plain words (binding), with the brand colors named
+    (left to itself the model picks the safest pale tone and the brand disappears)."""
     item = get(layout_id)
     if not item:
         return []
+    colors = brand_colors(palette or [])
+    scene = [line.replace("the brand's ground color", f"the brand's deep ground color {colors['ground']}")
+             .replace("the brand accent color", f"the brand accent color {colors['accent']}") for line in item["scene"]]
     return [
         f"LAYOUT BY POSITION (binding, {item['label']}): the attached sketch shows where each element goes, as shapes; "
         "it is a placement guide, not artwork to copy (no grey, no outlines, no hatching in the final image).",
-        *item["scene"],
+        *scene,
         "Leave the copy area completely empty: the Studio sets the headline, the button and the logo there afterwards."
         if text_free else "Set the copy inside the empty copy area.",
     ]

@@ -209,6 +209,7 @@ class LabModeling:
     refine_target = 90
     # Draft (low quality, structure only) + finishing edit at the requested quality.
     two_pass = False  # measured: same score at twice the cost (A/B of 6 scenarios, 2026-10-03)
+    typeset_social = None  # None follows the Studio (CREATIVE_STUDIO_SOCIAL_TYPESET); the A/B sets True/False
 
     def __init__(self, model_key: str):
         self.capture = _Capture()
@@ -243,6 +244,7 @@ def direct(spec: dict, snapshot: dict) -> dict:
            if mask_format(brief.get("format_key")) else {}),
         "brand_context": brand_context(snapshot, spec.get("brand_payload")) if snapshot else {},
         "references": [],
+        "typeset_social": bool(LabModeling.typeset_social),
     }
     result, _response = studio_create.create({"prompt": briefing_text(spec), "count": 1, "context": context}, _text_callable())
     direction = result["directions"][0]

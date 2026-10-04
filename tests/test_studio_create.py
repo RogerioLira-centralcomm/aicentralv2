@@ -349,7 +349,7 @@ def test_composer_sets_support_under_the_headline_and_a_legible_cta():
     assert banner_compose.SUPPORT_MIN_PX <= kinds["support"]["size_px"] < kinds["headline"]["size_px"]
     # The side panel is painted in the brand's darkest color, whatever the model drew there.
     px, py, pw, ph = spec["zones"]["panel"]
-    assert image.getpixel((round((px + 0.01) * 300), round((py + ph - 0.03) * 250)))[:3] == (0x04, 0x1E, 0x18)
+    assert image.getpixel((round(px * 300) + 2, round(py * 250) + 2))[:3] == (0x04, 0x1E, 0x18)
     band = next(item for item in ad_masks.served_specs() if item["id"] == "iab-300x250:faixa-inferior:bottom-right:cta")
     _, tight = banner_compose.render_text_layers(busy, band, "Sua conta de luz", "Chame agora", {}, ["#041E18"],
                                                  support=["NO WHATSAPP", "2ª via sem sair de casa."])
@@ -448,3 +448,16 @@ def test_a_long_button_is_never_cut_to_a_lone_verb():
     from aicentralv2.creative_media.studio_playbook import _trim_words
     assert _trim_words("Fale com a gente", 3) == "Fale com a gente"
     assert _trim_words("Comprar agora no site", 3) == "Comprar agora"
+
+
+def test_composer_makes_the_offer_the_hero_and_keeps_copy_order():
+    from PIL import Image
+    from aicentralv2.creative_media import ad_masks, banner_compose
+    assert banner_compose.split_offer("Outlet com +20% EXTRA") == ("Outlet com", "+20% EXTRA")
+    assert banner_compose.split_offer("Semana +20% EXTRA no outlet") == ("Semana +20% EXTRA no outlet", "")
+    spec = next(item for item in ad_masks.served_specs() if item["id"] == "iab-300x600:faixa-inferior:bottom-right:cta")
+    _, layers = banner_compose.render_text_layers(Image.new("RGB", (300, 600), "white"), spec, "Outlet com +20% EXTRA",
+                                                  "Comprar agora", {}, ["#000000", "#A56E45", "#C99A3C"])
+    headline = next(layer for layer in layers if layer["type"] == "headline")
+    assert headline["hero"] == "+20% EXTRA" and headline["size_px"] >= 2 * headline["kicker_size_px"]
+    assert headline["text"] == "OUTLET COM +20% EXTRA"  # as drawn: the reviewer checks what is on the piece

@@ -201,28 +201,205 @@ def busyness(image, spec):
     return max(scores) if scores else 0.0
 
 
+def _mirror(spec):
+    """The same layout flipped left-right (the model often puts the subject on the other side)."""
+    zones = {name: (round(1 - x - w, 4), y, w, h) for name, (x, y, w, h) in spec["zones"].items() if name != "logo"}
+    if "headline" in zones and "cta" in zones:
+        # Copy stays left-aligned: the button starts where the headline starts, not flush to the right.
+        x, y, w, h = zones["cta"]
+        zones["cta"] = (zones["headline"][0], y, w, h)
+    return {**spec, "id": spec["id"] + ":espelhado", "zones": zones, "mirrored": True}
+
+
+def _with_logo(candidate, spec):
+    """A candidate's copy zones with the original logo slot (the logo is applied there), or None when they collide."""
+    zones = {name: rect for name, rect in candidate["zones"].items() if name != "logo"}
+    if "logo" in spec["zones"]:
+        logo = spec["zones"]["logo"]
+        if any(_overlaps(zones[name], logo) for name in ("headline", "cta") if name in zones):
+            return None
+        zones["logo"] = logo
+    return {**candidate, "zones": zones, "logo": spec["logo"]}
+
+
+def _overlaps(a, b):
+    return a[0] < b[0] + b[2] and b[0] < a[0] + a[2] and a[1] < b[1] + b[3] and b[1] < a[1] + a[3]
+
+
 def choose_layout(image, spec):
     """Place the copy where the generated picture is calm, instead of trusting the model to keep the zone free.
 
-    A layout with a painted panel always reads, so it stays. Otherwise, when the copy zones fall on a busy area, the
-    sibling layout of the same format (same logo corner and CTA) whose copy zones are calmest is used; with no calm
-    option, the bottom band (painted by code) carries the copy.
+    Candidates are the format's layouts with the same CTA need, as drawn and mirrored, each keeping the original
+    logo slot. A layout without panel scores the busyness under its copy; a layout with panel scores what the panel
+    would cover (it must not hide the subject). The requested layout wins whenever it is calm enough.
     """
     from . import ad_masks
-    if "panel" in spec["zones"]:
-        # A painted panel always reads, but not over the subject: a side panel on a face hides the photo.
-        if _zone_busyness(image, spec["zones"]["panel"]) <= PANEL_LIMIT:
-            return spec
-    elif busyness(image, spec) <= CALM_LIMIT:
+
+    def score(item):
+        if "panel" in item["zones"]:
+            return _zone_busyness(image, item["zones"]["panel"]) - (PANEL_LIMIT - CALM_LIMIT)
+        return busyness(image, item)
+
+    if score(spec) <= CALM_LIMIT:
         return spec
-    siblings = [item for item in ad_masks.served_specs() if item["format"] == spec["format"] and item["logo"] == spec["logo"]
-                and item["cta"] == spec["cta"] and "headline" in item["zones"] and item["id"] != spec["id"]]
-    open_ones = sorted(((busyness(image, item), item) for item in siblings if "panel" not in item["zones"]), key=lambda pair: pair[0])
-    if open_ones and open_ones[0][0] <= CALM_LIMIT:
-        return open_ones[0][1]
-    panels = sorted(((_zone_busyness(image, item["zones"]["panel"]), item) for item in siblings if "panel" in item["zones"]),
-                    key=lambda pair: (pair[1]["family"] != "faixa-inferior" or pair[0] > PANEL_LIMIT, pair[0]))
-    return panels[0][1] if panels else spec
+    pool = [item for item in ad_masks.served_specs() if item["format"] == spec["format"] and "headline" in item["zones"]
+            and (item["cta"] or not spec["cta"])]
+    candidates = []
+    for item in pool + [_mirror(item) for item in pool]:
+        hybrid = _with_logo(item, spec)
+        if hybrid is not None:
+            candidates.append((score(hybrid), hybrid))
+    if not candidates:
+        return spec
+    best_score, best = min(candidates, key=lambda pair: pair[0])
+    return best if best_score < score(spec) else spec
+
+
+_OFFER_SPAN = re.compile(r"((?:R\$\s*)?[+-]?\d[\d.,]*\s*%?(?:\s*(?:OFF|EXTRA|DE DESCONTO|MAIS|GR[ÁA]TIS))?)", re.I)
+
+
+def split_offer(headline):
+    """'Outlet com +20% EXTRA' -> ('Outlet com', '+20% EXTRA'): the offer is the hero of the piece."""
+    text = " ".join(str(headline or "").split())
+    match = _OFFER_SPAN.search(text)
+    if not match or len(match.group(1).strip()) < 2:
+        return text, ""
+    hero = match.group(1).strip()
+    before, after = text[:match.start()].strip(), text[match.end():].strip()
+    if before and after:
+        return text, ""  # an offer in the middle of a sentence stays in the sentence: never reorder the copy
+    return (before, hero) if before else (after, hero)
+
+
+def offer_first(headline):
+    """True when the headline opens with the offer ('50% OFF em tudo'): the hero is drawn above the rest."""
+    text = " ".join(str(headline or "").split())
+    match = _OFFER_SPAN.search(text)
+    return bool(match) and not text[:match.start()].strip()
+
+
+def _contrast(first, second):
+    def lum(rgb):
+        values = []
+        for channel in rgb:
+            value = channel / 255
+            values.append(value / 12.92 if value <= 0.03928 else ((value + 0.055) / 1.055) ** 2.4)
+        return 0.2126 * values[0] + 0.7152 * values[1] + 0.0722 * values[2]
+    a, b = sorted((lum(first), lum(second)), reverse=True)
+    return (a + 0.05) / (b + 0.05)
+
+
+def _flat(image, box):
+    """A clean field: little tone variation and almost no edges, measured at full resolution (averaging hides grain)."""
+    region = image.convert("L").crop(box)
+    edges = region.filter(ImageFilter.FIND_EDGES)
+    return ImageStat.Stat(region).stddev[0] / 255 < 0.05 and ImageStat.Stat(edges).mean[0] / 255 < 0.02
+
+
+def _mean_color(image, box):
+    stat = ImageStat.Stat(image.convert("RGB").crop(box).resize((16, 16)))
+    return tuple(round(value) for value in stat.mean[:3])
+
+
+def _flush(spec, box, size):
+    """Extend a panel to the canvas edge on each side where it reaches the safe frame."""
+    left, top, sw, sh = spec.get("safe") or (0.08, 0.08, 0.84, 0.84)
+    x0, y0, x1, y1 = box
+    tol_x, tol_y = size[0] * 0.012, size[1] * 0.012
+    if x0 <= left * size[0] + tol_x:
+        x0 = 0
+    if x1 >= (left + sw) * size[0] - tol_x:
+        x1 = size[0]
+    if y0 <= top * size[1] + tol_y:
+        y0 = 0
+    if y1 >= (top + sh) * size[1] - tol_y:
+        y1 = size[1]
+    return (x0, y0, x1, y1)
+
+
+def _gradient_scrim(canvas, box, light_text):
+    x0, y0, x1, y1 = box
+    pad = round((y1 - y0) * 0.35)
+    overlay = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    top, bottom = max(0, y0 - pad), min(canvas.height, y1 + pad)
+    tone = (8, 12, 20) if light_text else (255, 255, 255)
+    for row in range(top, bottom):
+        middle = 1 - abs((row - (top + bottom) / 2) / max(1, (bottom - top) / 2))
+        draw.line((0, row, canvas.width, row), fill=tone + (round(150 * min(1, middle * 1.6)),))
+    canvas.alpha_composite(overlay)
+
+
+def _font(info, size):
+    return ImageFont.truetype(str(info["path"]), max(6, int(size)))
+
+
+def _stack(draw, display, body, kicker, hero, support, width, height, wide, hero_first=False):
+    """Kicker (caps), hero offer (~2.3x) and support, scaled together to fill the zone without overflowing."""
+    display_font = display if display.get("source") != "fallback" else {**display, "path": _MONTSERRAT_BOLD or display["path"]}
+    kicker_text = kicker.upper() if kicker else ""
+    regular = resolve_font({}, "body", bold=False)
+
+    def build(base):
+        lines, cursor = [], 0.0
+        sizes = {"kicker": 0, "hero": 0}
+
+        def add_kicker():
+            nonlocal cursor
+            size = base if hero else base * 1.35
+            font = _font(display_font, size)
+            for text in _wrap(draw, kicker_text, font, width):
+                lines.append({"text": text, "font": font, "y": cursor, "role": "kicker"})
+                cursor += size * 1.05
+            sizes["kicker"] = round(size)
+
+        def add_hero():
+            nonlocal cursor
+            size = base * (2.3 if kicker_text else 2.6)
+            font = _font(display_font, size)
+            for text in _wrap(draw, hero, font, width):
+                lines.append({"text": text, "font": font, "y": cursor, "role": "hero"})
+                cursor += size * 1.0
+            sizes["hero"] = round(size)
+
+        for part in (("hero", "kicker") if hero_first else ("kicker", "hero")):
+            if part == "kicker" and kicker_text:
+                add_kicker()
+            elif part == "hero" and hero:
+                add_hero()
+        support_y, support_size = cursor, 0
+        if support:
+            size = max(SUPPORT_MIN_PX, base * 0.55)
+            font = _font(regular, size)
+            cursor += size * 0.4
+            support_y = cursor
+            for text in _wrap(draw, support, font, width):
+                lines.append({"text": text, "font": font, "y": cursor, "role": "support"})
+                cursor += size * 1.2
+            support_size = round(size)
+        widest = max((draw.textlength(line["text"], font=line["font"]) for line in lines), default=0)
+        return lines, cursor, widest, sizes, support_y, support_size
+
+    low, high, best = 4.0, float(height), None
+    for _ in range(18):
+        base = (low + high) / 2
+        lines, total, widest, sizes, support_y, support_size = build(base)
+        too_many = sum(1 for line in lines if line["role"] in ("kicker", "hero")) > (2 if wide else 4)
+        if total <= height and widest <= width and not too_many:
+            best, low = (lines, total, sizes, support_y, support_size), base
+        else:
+            high = base
+    if best is None or (support and best[4] < SUPPORT_MIN_PX):
+        if support:
+            return _stack(draw, display, body, kicker, hero, "", width, height, wide, hero_first)
+        best = (build(6)[0], build(6)[1], build(6)[3], 0, 0)
+    lines, total, sizes, support_y, support_size = best
+    return {"lines": lines, "height": total, "kicker_size": sizes["kicker"], "hero_size": sizes["hero"],
+            "support_size": support_size, "support_y": support_y, "support_text": support if support_size else "",
+            "support_family": regular["family"]}
+
+
+_MONTSERRAT_BOLD = next(iter(sorted((Path(__file__).resolve().parents[1] / "static" / "fonts" / "brand").glob("Montserrat-Bold.ttf"))), None)
 
 
 def render_text_layers(image, spec, headline, cta, brand_context, palette, support=None):
@@ -237,64 +414,57 @@ def render_text_layers(image, spec, headline, cta, brand_context, palette, suppo
     safe_right = 1 - spec["zones"].get("headline", (0.067,))[0] if spec.get("zones") else 0.93
     ground, panel_right = None, None
     if "panel" in zones and (headline or cta):
-        # The text panel is painted by code in the brand's ground color: contrast and layout no longer depend on the
-        # model leaving that area calm (it often puts the subject there).
-        ground = ground_color(palette, canvas)
         px, py, pw, ph = _px(zones["panel"], canvas.size)
-        radius = max(4, round(min(canvas.size) * 0.03))
-        ImageDraw.Draw(canvas).rounded_rectangle((px, py, px + pw, py + ph), radius=radius, fill=ground + (255,))
+        if _flat(canvas, (px, py, px + pw, py + ph)):
+            # The model already left a clean field there: the copy goes straight onto it, nothing painted over it.
+            ground = _mean_color(canvas, (px, py, px + pw, py + ph))
+        else:
+            # A brand-color field, square and flush to the edges it reaches (a floating rounded card reads as a template).
+            ground = ground_color(palette, canvas)
+            ImageDraw.Draw(canvas).rectangle(_flush(spec, (px, py, px + pw, py + ph), canvas.size), fill=ground + (255,))
         panel_right = zones["panel"][0] + zones["panel"][2]
     if headline and "headline" in zones:
         x, y, w, h = _px(zones["headline"], canvas.size)
         wide = spec["class"] == "wide"
-        narrow = spec["width"] / spec["height"] < 0.45
         luma, contrast = _busy(canvas, (x, y, x + w, y + h))
-        light_ground = luma > 0.55
-        color = (17, 24, 39) if light_ground else (255, 255, 255)
-        # A mid-tone or busy picture behind the copy gets a scrim, so the text never fights the image.
+        if ground is not None:
+            luma, contrast = _luma(ground), 0.0
+        color = (17, 24, 39) if luma > 0.55 else (255, 255, 255)
         if ground is None and (contrast > 0.16 or 0.38 < luma < 0.62):
-            pad = max(4, round(min(canvas.size) * 0.02))
+            # A soft gradient behind the copy (not a box): the picture stays, the text reads.
             light_text = luma <= 0.5
             color = (255, 255, 255) if light_text else (17, 24, 39)
-            _scrim(canvas, (x - pad, y - pad, x + w + pad, y + h + pad), light_text, radius=pad * 2)
+            _gradient_scrim(canvas, (x, y, x + w, y + h), light_text)
+        accent = accent_color(palette)
+        hero_color = accent if _contrast(accent, ground or ((17, 24, 39) if color == (255, 255, 255) else (255, 255, 255))) >= 3 else color
+        kicker, hero = split_offer(headline)
+        hero_first = bool(hero) and offer_first(headline)
         draw = ImageDraw.Draw(canvas)
-        head_h = round(h * 0.64) if support_text else h
-        font, lines, size = _fit(draw, headline, display["path"], w, head_h, max_lines=2 if wide else 5 if narrow else 3)
-        headline_size = size
-        total = size * 1.08 * len(lines)
-        top = y + (head_h - total) / 2 if wide else y
-        for index, line in enumerate(lines):
-            draw.text((x, top + index * size * 1.08), line, font=font, fill=color)
+        block = _stack(draw, display, body, kicker, hero, support_text if renders_support(spec) else "", w, h, wide,
+                       hero_first=hero_first)
+        top = y + (h - block["height"]) / 2 if wide else y
+        for line in block["lines"]:
+            fill = hero_color if line["role"] == "hero" else color
+            draw.text((x, top + line["y"]), line["text"], font=line["font"], fill=fill)
+        headline_size = block["hero_size"] or block["kicker_size"]
         layers.append({
-            "type": "headline", "text": headline, "box": list(zones["headline"]),
-            "font_family": display["family"], "font_source": display["source"], "size_px": size,
-            "color": "#%02x%02x%02x" % color, "align": "left",
+            # The copy as drawn (the kicker in caps is a typographic choice; the words are the client's).
+            "type": "headline", "text": " ".join(item for item in ((hero, kicker.upper()) if hero_first else (kicker.upper(), hero)) if item),
+            "box": list(zones["headline"]),
+            "font_family": display["family"], "font_source": display["source"], "size_px": headline_size,
+            "kicker_size_px": block["kicker_size"], "hero": hero,
+            "lines": [line["text"] for line in block["lines"] if line["role"] in ("kicker", "hero")],
+            "color": "#%02x%02x%02x" % color, "hero_color": "#%02x%02x%02x" % hero_color, "align": "left",
         })
-        if support_text:
-            body_regular = resolve_font(brand_context, "body", bold=False)
-            support_top = round(top + total + size * 0.25)
-            room = y + h - support_top
-            # Legible or absent: all support strings, else only the first one, never below SUPPORT_MIN_PX.
-            minimum = max(SUPPORT_MIN_PX, round(canvas.height * 0.036))
-            fitted = None
-            for candidate in (support_text, support_text.split("\n")[0]):
-                if room < minimum:
-                    break
-                attempt = _fit(draw, candidate, body_regular["path"], w, room, max_lines=4, line_gap=1.15,
-                               max_size=round(size * 0.6))
-                if attempt[2] >= minimum and "\n".join(attempt[1]).replace("\n", " ").split() == candidate.split():
-                    fitted, support_text = attempt, candidate
-                    break
-            if fitted:
-                s_font, s_lines, s_size = fitted
-                for index, line in enumerate(s_lines):
-                    draw.text((x, support_top + index * s_size * 1.15), line, font=s_font, fill=color)
-                layers.append({
-                    "type": "support", "text": support_text, "box": [zones["headline"][0], support_top / canvas.height,
-                                                                     zones["headline"][2], room / canvas.height],
-                    "font_family": body_regular["family"], "font_source": body_regular["source"], "size_px": s_size,
-                    "color": "#%02x%02x%02x" % color, "align": "left",
-                })
+        if block["support_size"]:
+            layers.append({
+                "type": "support", "text": block["support_text"],
+                "lines": [line["text"] for line in block["lines"] if line["role"] == "support"],
+                "box": [zones["headline"][0], (top + block["support_y"]) / canvas.height, zones["headline"][2],
+                        (block["height"] - block["support_y"]) / canvas.height],
+                "font_family": block["support_family"], "font_source": "studio", "size_px": block["support_size"],
+                "color": "#%02x%02x%02x" % color, "align": "left",
+            })
     draw = ImageDraw.Draw(canvas)
     if cta and "cta" in zones:
         x, y, w, h = _px(zones["cta"], canvas.size)

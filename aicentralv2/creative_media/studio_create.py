@@ -77,7 +77,8 @@ def create(payload, text_callable):
     context["orcamento_de_texto"] = budget
     messages = [
         {"role": "system", "content": system_prompt(count) + "\n\n" + studio_playbook.budget_instruction(
-            budget, context.get("width"), context.get("height"), typeset=display_typeset(context.get("width"), context.get("height")))},
+            budget, context.get("width"), context.get("height"),
+            typeset=display_typeset(context.get("width"), context.get("height"), bool(context.get("typeset_social")) or SOCIAL_TYPESET))},
         {"role": "user", "content": direction_user_content(request, context)},
     ]
     response = None
@@ -235,6 +236,7 @@ def clean_context(raw, count):
         "iab_formats": [text(item, 32) for item in data.get("formats", []) if text(item, 32)][:6],
         "direction_intensity": max(0, min(integer(data.get("direction_intensity"), 70), 100)),
         "format_key": text(data.get("format_key"), 80),
+        "typeset_social": data.get("typeset_social") is True,
         "width": integer(data.get("width"), 0),
         "height": integer(data.get("height"), 0),
         "requested_directions": count,
@@ -595,7 +597,10 @@ def create_image(payload, modeling, client_id, user_id):
     creation_intent = str(data.get("creation_intent") or "branded_creative").strip().lower()
     if creation_intent not in {"branded_creative", "neutral_asset"}:
         creation_intent = "branded_creative"
-    auto_mask = display_mask_reference(data, raw_references, integer(data.get("width"), 0), integer(data.get("height"), 0), creation_intent)
+    typeset_social = getattr(modeling, "typeset_social", None)
+    typeset_social = SOCIAL_TYPESET if typeset_social is None else bool(typeset_social)
+    auto_mask = display_mask_reference(data, raw_references, integer(data.get("width"), 0), integer(data.get("height"), 0),
+                                       creation_intent, social=typeset_social)
     if auto_mask:
         raw_references = [*raw_references, auto_mask]
     visual_reference = uses_user_visual_reference([
@@ -735,7 +740,7 @@ def create_image(payload, modeling, client_id, user_id):
     if director_copy:
         # The director already fitted the briefing's copy to this size (cuts only, checked against the briefing).
         copy_headline, copy_cta = director_copy["headline"], director_copy["cta"]
-    composed = bool(sizing and (sizing["strategy"] == "composed" or display_typeset(width, height))
+    composed = bool(sizing and (sizing["strategy"] == "composed" or display_typeset(width, height, typeset_social))
                     and not mask and mask_specs(raw_references) and "headline" in mask_specs(raw_references)[0]["zones"]
                     and copy_headline)
     if director_copy:
@@ -864,7 +869,15 @@ def create_image(payload, modeling, client_id, user_id):
         support = support_copy if not composed or _compose.renders_support(mask_specs(raw_references)[0]) else []
         required_text = [item for item in (copy_headline, *support, copy_cta) if item]
         review_args = dict(
-            prompt=data.get("original_prompt") or prompt,
+            # The piece is judged against what it is meant to carry: the director's scene and the copy fitted to this
+            # size, not the raw briefing (whose excess the director cut on purpose for small formats).
+            prompt="\n".join(line for line in [
+                scene,
+                ("Texto final da peça: " + " / ".join(item for item in (copy_headline, *support_copy, copy_cta) if item))
+                if copy_headline else "",
+                f"Formato: {width}x{height}px." if width and height else "",
+            ] if line) or data.get("original_prompt") or prompt,
+            allowed_text=" ".join(item for item in (data.get("original_prompt") or "", prompt) if item),
             required_text=required_text,
             palette=clean_palette(data.get("requested_palette")) or list((data.get("brand_context") or {}).get("palette") or []),
             brand_name=str((data.get("brand_context") or {}).get("name") or ""),
@@ -887,7 +900,9 @@ def create_image(payload, modeling, client_id, user_id):
                     args["required_text"] = []
                 if piece_layers is not None:
                     # Typeset copy: require exactly what the composer drew (a support line may not fit the zone).
-                    args["required_text"] = [line for layer in piece_layers for line in str(layer.get("text") or "").split("\n") if line]
+                    # Line by line, as drawn: the eyes transcribe visual lines, so a three-line headline is three strings.
+                    args["required_text"] = [line for layer in piece_layers
+                                             for line in (layer.get("lines") or str(layer.get("text") or "").split("\n")) if line]
                 return studio_review.review(image_b64=piece_b64, **args)
             except Exception:
                 logger.warning("Studio review failed request=%s", request_id, exc_info=True)
@@ -1357,21 +1372,27 @@ DISPLAY_TYPESET = os.getenv("CREATIVE_STUDIO_DISPLAY_TYPESET", "1") == "1"
 DISPLAY_FAMILIES = ("faixa-inferior", "foto-texto-base", "split", "texto-central")
 
 
-def display_format(width, height):
+# Feeds, stories and LinkedIn with the copy typeset by code too: off in the Studio until the Lab's A/B shows the gain.
+SOCIAL_TYPESET = os.getenv("CREATIVE_STUDIO_SOCIAL_TYPESET", "0") == "1"
+SOCIAL_TYPESET_FORMATS = {"feed-4x5", "feed-1x1", "story-9x16", "linkedin-1200x627"}
+
+
+def display_format(width, height, social=False):
     from . import ad_masks
-    return next((key for key, value in ad_masks.FORMATS.items()
-                 if value[3] == "iab" and (value[1], value[2]) == (int(width or 0), int(height or 0))), None)
+    size = (int(width or 0), int(height or 0))
+    return next((key for key, value in ad_masks.FORMATS.items() if (value[1], value[2]) == size
+                 and (value[3] == "iab" or (social and key in SOCIAL_TYPESET_FORMATS))), None)
 
 
-def display_typeset(width, height):
-    return DISPLAY_TYPESET and display_format(width, height) is not None
+def display_typeset(width, height, social=False):
+    return DISPLAY_TYPESET and display_format(width, height, social) is not None
 
 
-def display_mask_reference(data, raw_references, width, height, creation_intent):
+def display_mask_reference(data, raw_references, width, height, creation_intent, social=False):
     """The default composition mask for a display unit with copy, when none was picked (None otherwise)."""
     from . import ad_masks
     from .banner_compose import extract_copy
-    if not display_typeset(width, height) or data.get("mask") or mask_specs(raw_references) or data.get("auto_mask") is False:
+    if not display_typeset(width, height, social) or data.get("mask") or mask_specs(raw_references) or data.get("auto_mask") is False:
         return None
     if len([item for item in raw_references if isinstance(item, dict)]) >= MAX_IMAGE_REFERENCES:
         return None
@@ -1380,7 +1401,7 @@ def display_mask_reference(data, raw_references, width, height, creation_intent)
         return None
     brand = data.get("brand_context") if isinstance(data.get("brand_context"), dict) else {}
     has_logo = creation_intent == "branded_creative" and bool(brand.get("logo_url") or (brand.get("assets") or {}).get("logo"))
-    options = [spec for spec in ad_masks.served_specs() if spec["format"] == display_format(width, height)]
+    options = [spec for spec in ad_masks.served_specs() if spec["format"] == display_format(width, height, social)]
     # The bottom band works whatever the model does with the picture (tested: a side panel covered the subject
     # the model put there, and copy over the photo fought it), so it leads; a support line goes in only if legible.
     def rank(spec):

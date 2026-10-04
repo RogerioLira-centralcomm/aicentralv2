@@ -258,6 +258,8 @@ def judge(scores: dict, observation: dict, measurements: dict, required_text: li
     elif allowed_text is not None and invented_numbers(observation, allowed_text + " " + " ".join(required_text)):
         reason = "invented_data"
     elif (piece or {}).get("text_free") and required_text and stray_text(observation, required_text, (piece or {}).get("brand_name", "")):
+        # Words only: the eyes' boxes are too rough to tell our text from the model's by position (measured: false
+        # positives in 2 of 6 clean pieces).
         reason = "stray_text"
     elif (scores.get("forbidden_present") or 0) >= CONFIDENCE:
         reason = "forbidden"
@@ -272,7 +274,7 @@ def judge(scores: dict, observation: dict, measurements: dict, required_text: li
 
 def review(*, image_b64: str, prompt: str, required_text: list[str], palette: list[str], brand_name: str = "",
            forbidden: list[str] | None = None, logo_mode: str = "none", has_cta: bool = False, refine: bool = False,
-           text_free: bool = False) -> dict:
+           text_free: bool = False, allowed_text: str | None = None) -> dict:
     """Review one finished image. Never raises: any problem returns ``reviewed: False`` (deliver as is)."""
     started = time.monotonic()
     try:
@@ -310,7 +312,9 @@ def review(*, image_b64: str, prompt: str, required_text: list[str], palette: li
         scores = evaluation._summarize(answers)
         piece = {"palette": list(palette or [])[:5], "logo_mode": logo_mode, "has_cta": bool(has_cta),
                  "brand_name": brand_name, "text_free": bool(text_free)}
-        verdict = judge(scores, observation, measurements, required_text, piece, allowed_text=prompt)
+        # Numbers are checked against everything the request wrote (the raw briefing too), not only the edited brief.
+        verdict = judge(scores, observation, measurements, required_text, piece,
+                        allowed_text=prompt + " " + (allowed_text or ""))
         verdict.update({"reviewed": True, "seconds": round(time.monotonic() - started, 1), "observation": observation,
                         "required_text": list(required_text), "piece": piece})
         return verdict

@@ -695,7 +695,8 @@ def create_image(payload, modeling, client_id, user_id):
     from .banner_compose import extract_copy
     copy_headline, copy_cta = extract_copy(data.get("original_prompt") or prompt)
     composed = bool(sizing and (sizing["strategy"] == "composed" or display_typeset(width, height))
-                    and not mask and mask_specs(raw_references) and copy_headline)
+                    and not mask and mask_specs(raw_references) and "headline" in mask_specs(raw_references)[0]["zones"]
+                    and copy_headline)
     support_copy = studio_playbook.support_copy(data.get("original_prompt") or "")
     layout_lines = composition_layout_lines(references, mask, provider_size, composed)
     product_visibility_line = (

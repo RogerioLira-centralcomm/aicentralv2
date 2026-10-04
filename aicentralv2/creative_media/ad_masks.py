@@ -241,6 +241,10 @@ def _logo_rect(width, height, corner, safe):
     left, top, right, bottom = safe
     if layout_class(width, height) == "wide":
         w, h = 0.16, 0.45
+    elif width / height < 0.45:
+        # Skyscrapers: the usual share of the height made a tall, narrow slot; logos are wide, so keep it 2.4:1.
+        w = 0.30
+        h = w * width / 2.4 / height
     else:
         w, h = LOGO_WIDTH, LOGO_HEIGHT
     w, h = min(w, 0.4), min(h, 0.4)
@@ -253,13 +257,57 @@ def _intersects(a, b):
     return a[0] < b[0] + b[2] and b[0] < a[0] + a[2] and a[1] < b[1] + b[3] and b[1] < a[1] + a[3]
 
 
+def _settle_panel(zones, logo_rect, corner, width, height):
+    """Keep copy and logo inside the text panel with breathing room; returns the (maybe moved) logo slot.
+
+    The logo slot is flush to the safe-frame corner and so is the panel, so the logo used to sit on the panel's
+    edge, half in and half out. When the logo corner falls on the panel it moves inside it, padded; headline and
+    CTA whose centre is in the panel are clamped to its inner area (the skyscraper CTA used to overflow it).
+    """
+    panel = zones.get("panel")
+    if not panel:
+        return logo_rect
+    pad = 0.035 * min(width, height)
+    pad_x, pad_y = pad / width, pad / height
+    px, py, pw, ph = panel
+    for name in ("headline", "cta"):
+        if name not in zones:
+            continue
+        x, y, w, h = zones[name]
+        if px <= x + w / 2 <= px + pw and py <= y + h / 2 <= py + ph:
+            nx, ny = max(x, px + pad_x), max(y, py + pad_y)
+            nr, nb = min(x + w, px + pw - pad_x), min(y + h, py + ph - pad_y)
+            zones[name] = (nx, ny, max(0.02, nr - nx), max(0.02, nb - ny))
+    if not logo_rect or not _intersects(logo_rect, panel):
+        return logo_rect
+    lw, lh = min(logo_rect[2], pw - 2 * pad_x), min(logo_rect[3], ph - 2 * pad_y)
+    lx = px + pw - pad_x - lw if corner.endswith("right") else px + pad_x
+    ly = py + ph - pad_y - lh if corner.startswith("bottom") else py + pad_y
+    moved = (lx, ly, lw, lh)
+    gap = pad_x / 2
+    for name in ("headline", "cta"):
+        if name in zones and _intersects(zones[name], moved):
+            # Beside the logo when at least half the width is left; otherwise _clear_logo moves it off the logo.
+            x, y, w, h = zones[name]
+            if corner.endswith("right"):
+                narrow = (x, y, lx - gap - x, h)
+            else:
+                start = lx + lw + gap
+                narrow = (start, y, x + w - start, h)
+            if narrow[2] >= w * 0.5:
+                zones[name] = narrow
+    return moved
+
+
 def _clear_logo(zone_name, rect, logo, corner, gap=0.012):
     """Move or trim a zone so the logo corner stays calm."""
     if not logo or not _intersects(rect, logo):
         return rect
     x, y, w, h = rect
-    if zone_name == "panel":
-        return rect  # the logo space sits on top of the flat panel
+    if zone_name in {"panel", "subject"}:
+        # The logo sits on top of the flat panel or on a calm corner of the picture; cutting the picture short
+        # left an empty strip under it.
+        return rect
     if corner.startswith("bottom"):
         if zone_name == "subject":
             return (x, y, w, max(0.05, logo[1] - gap - y))
@@ -298,8 +346,10 @@ def build_spec(format_key, family, logo="bottom-right", cta=True):
             new_w, new_h = fw * CTA_SCALE_W, fh * CTA_SCALE_H
             fx = fx + (fw - new_w) / 2 if 0.4 <= fx + fw / 2 <= 0.6 else fx
             fy, fw, fh = fy + (fh - new_h) / 2, new_w, new_h
-        rect = (left + fx * sw, top + fy * sh, fw * sw, fh * sh)
-        zones[name] = _clear_logo(name, rect, logo_rect, logo)
+        zones[name] = (left + fx * sw, top + fy * sh, fw * sw, fh * sh)
+    logo_rect = _settle_panel(zones, logo_rect, logo, width, height)
+    for name in list(zones):
+        zones[name] = _clear_logo(name, zones[name], logo_rect, logo)
     if logo_rect:
         zones["logo"] = logo_rect
     return {
@@ -433,9 +483,17 @@ def render_mask(spec, longest_side=1200, provider_size=None):
         if x1 - x0 > 8 and y1 - y0 > 6:
             draw.rectangle((x0 + inset_x, y0 + inset_y, x1 - inset_x, y1 - inset_y), fill=235)
     if "logo" in zones:
-        box = _px(size, zones["logo"])
-        draw.rounded_rectangle(box, radius=max(2, (box[3] - box[1]) // 6), fill=255)
-        _dashed_rect(draw, box, _INK, line * 2, max(4, round(longest_side / 150)))
+        # A placeholder, not a hole: dashed outline and a small mark (disc + wordmark bar) on whatever is beneath.
+        x0, y0, x1, y1 = _px(size, zones["logo"])
+        _dashed_rect(draw, (x0, y0, x1, y1), _INK, line * 2, max(4, round(longest_side / 150)))
+        h = y1 - y0
+        if x1 - x0 > 10 and h > 6:
+            mark = max(3, round(h * 0.42))
+            cy, cx = (y0 + y1) // 2, x0 + round((x1 - x0) * 0.22)
+            draw.ellipse((cx - mark // 2, cy - mark // 2, cx + mark // 2, cy + mark // 2), fill=_INK)
+            bar_end = x1 - round((x1 - x0) * 0.16)
+            if bar_end > cx + mark + 1:
+                draw.rectangle((cx + mark, cy - max(1, mark // 4), bar_end, cy + max(1, mark // 4)), fill=_INK)
     _dashed_rect(draw, _px(size, _mapped(spec["safe"], frame)), _SAFE, line, max(4, round(longest_side / 120)))
     output = io.BytesIO()
     canvas.save(output, "PNG", optimize=True)
@@ -554,6 +612,45 @@ _COMPACT = (
     ("compacto-logo-esquerda", TL, True),
 )
 
+# Display sets by shape, every layout visually distinct in that shape (checked side by side): in a vertical unit
+# "split" repeats the bottom band and "texto-direita" pushes the copy into a narrow right column.
+_DISPLAY_SQUARE = (
+    ("foto-texto-base", BR, True),
+    ("foto-texto-topo", NONE, True),
+    ("faixa-inferior", BR, True),
+    ("split", BR, True),
+    ("cartao-flutuante", BR, True),
+    ("assunto-na-base", BR, True),
+    ("tipografico", BR, True),
+    ("texto-central", NONE, True),
+    ("produto-destaque", BR, False),
+    ("texto-direita", NONE, False),
+    ("minimalista", NONE, False),
+)
+_DISPLAY_VERTICAL = (
+    ("foto-texto-base", BR, True),
+    ("foto-texto-topo", NONE, True),
+    ("faixa-inferior", BR, True),
+    ("cartao-flutuante", BR, True),
+    ("assunto-na-base", BR, True),
+    ("tipografico", BR, True),
+    ("texto-central", NONE, True),
+    ("produto-destaque", BR, False),
+    ("minimalista", NONE, False),
+)
+_DISPLAY_LANDSCAPE = (
+    ("foto-texto-base", BR, True),
+    ("foto-texto-topo", NONE, True),
+    ("faixa-inferior", BR, True),
+    ("split", BR, True),
+    ("cartao-flutuante", BR, True),
+    ("assunto-na-base", BR, True),
+    ("tipografico", BR, True),
+    ("texto-central", NONE, True),
+    ("produto-destaque", BR, False),
+    ("minimalista", NONE, False),
+)
+
 _NARROW = (
     ("foto-texto-base", BR, True),
     ("foto-texto-topo", NONE, True),
@@ -580,9 +677,9 @@ MASK_SETS = {
         ("texto-direita", BR, False),
         ("minimalista", NONE, False),
     ),
-    "iab-300x250": _DISPLAY,
-    "display-300x300": _DISPLAY,
-    "iab-300x600": _DISPLAY,
+    "iab-300x250": _DISPLAY_SQUARE,
+    "display-300x300": _DISPLAY_SQUARE,
+    "iab-300x600": _DISPLAY_VERTICAL,
     "iab-160x600": _NARROW,
     "iab-970x250": (
         ("foto-texto-base", BR, True),
@@ -595,13 +692,13 @@ MASK_SETS = {
     ),
     "iab-728x90": _COMPACT,
     "iab-320x50": _COMPACT,
-    "iab-336x280": _DISPLAY,
-    "display-250x250": _DISPLAY,
-    "display-200x200": _DISPLAY,
-    "display-180x150": _DISPLAY,
-    "display-240x400": _DISPLAY,
-    "interstitial-320x480": _DISPLAY,
-    "interstitial-480x320": _DISPLAY,
+    "iab-336x280": _DISPLAY_SQUARE,
+    "display-250x250": _DISPLAY_SQUARE,
+    "display-200x200": _DISPLAY_SQUARE,
+    "display-180x150": _DISPLAY_SQUARE,
+    "display-240x400": _DISPLAY_VERTICAL,
+    "interstitial-320x480": _DISPLAY_VERTICAL,
+    "interstitial-480x320": _DISPLAY_LANDSCAPE,
     "iab-300x1050": _NARROW,
     "iab-120x600": _NARROW,
     "display-120x240": _NARROW,

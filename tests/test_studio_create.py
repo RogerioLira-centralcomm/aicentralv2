@@ -384,3 +384,12 @@ def test_every_ad_size_is_accepted_and_small_display_units_get_code_typesetting(
     data = {"original_prompt": "Título: Conta no app\nBotão: Baixe já"}
     for width, height in [(320, 50), (300, 50), (468, 60), (970, 90), (336, 280), (300, 1050), (120, 600)]:
         assert studio_create.display_mask_reference(data, [], width, height, "neutral_asset"), (width, height)
+
+
+def test_new_formats_do_not_steal_existing_aliases():
+    from collections import Counter
+    from aicentralv2 import creative_format_registry as registry
+    names = Counter(name for item in registry.catalog_entries() for name in [item["format_key"], *item["aliases"]])
+    assert not [name for name, count in names.items() if count > 1]
+    assert registry.entry("iab-wide-skyscraper")["width"] == 160
+    assert registry.entry("iab-120x600")["width"] == 120

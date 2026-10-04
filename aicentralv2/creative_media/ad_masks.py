@@ -61,7 +61,7 @@ REGISTRY_KEYS = {
     "iab-320x50": "iab-mobile",
     "iab-336x280": "iab-large-rectangle", "display-250x250": "display-250x250", "display-200x200": "display-200x200",
     "display-180x150": "display-180x150", "display-240x400": "display-240x400", "iab-300x1050": "iab-portrait",
-    "iab-120x600": "iab-wide-skyscraper", "display-120x240": "display-120x240", "iab-970x90": "iab-large-leaderboard",
+    "iab-120x600": "iab-skyscraper-120", "display-120x240": "display-120x240", "iab-970x90": "iab-large-leaderboard",
     "iab-468x60": "iab-full-banner", "iab-234x60": "iab-half-banner", "iab-320x100": "iab-large-mobile",
     "iab-300x50": "iab-mobile-300", "display-300x100": "display-300x100",
     "interstitial-320x480": "interstitial-320x480", "interstitial-480x320": "interstitial-480x320",

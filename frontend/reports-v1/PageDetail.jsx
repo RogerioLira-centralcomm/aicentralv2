@@ -1,6 +1,6 @@
 import {ReportsActionButton} from './ReportsActionButton.jsx';
 import {ReportsTabs} from './ReportsTabs.jsx';
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Empty, integer, json, reportUrl} from './reportsCommon.jsx';
 import {ReportsNativeSelect} from './ReportsNativeSelect.jsx';
 import {sankeyLayout} from './sankeyLayout.js';
@@ -209,7 +209,7 @@ const SCROLL_BANDS = [['scroll_25', '0–25%'], ['scroll_50', '25–50%'], ['scr
 export const NO_CREDITS = 'Saldo de tokens insuficiente para capturar.';
 
 /** Capture (screenshot) of one page on one device: loads it, polls while it is being taken and starts a new one on demand. */
-export function usePageCapture({siteId, path, device, client, csrf}) {
+export function usePageCapture({siteId, path, device, client, csrf, auto = false}) {
   const [state, setState] = useState({loading: true, error: '', body: null});
   const [starting, setStarting] = useState(false);
   const load = useCallback(() => json(`/connect/api/v2/reports/pages/capture?${new URLSearchParams({site_id: siteId, path, device})}`)
@@ -232,6 +232,14 @@ export function usePageCapture({siteId, path, device, client, csrf}) {
     setStarting(false);
   };
   const body = state.body;
+  // Only a page that was never captured is taken on its own (once per page and device); an existing capture is reused, never redone.
+  const autoTried = useRef('');
+  useEffect(() => {
+    const key = `${siteId}${path}:${device}`;
+    if (!auto || starting || !body || body.status !== 'missing' || body.available === false || autoTried.current === key) return;
+    autoTried.current = key;
+    capture();
+  }, [auto, starting, body, siteId, path, device]);
   return {state, starting, capture, ready: Boolean(body?.image_url && (body.status === 'ready' || body.status === 'failed'))};
 }
 

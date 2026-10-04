@@ -85,23 +85,31 @@ const PALETTE = (() => {
   return context.getImageData(0, 0, 256, 1).data;
 })();
 
-/** Smooth click heat over the capture: one soft spot per grid cell, summed, then coloured by the heat scale. */
+const heatColor = amount => {
+  const offset = Math.round(Math.max(0, Math.min(1, amount)) * 255) * 4;
+  return PALETTE ? `rgb(${PALETTE[offset]},${PALETTE[offset + 1]},${PALETTE[offset + 2]})` : '#ef4444';
+};
+
+/** Click heat over the capture: tight soft spots (a fixed ~16 px reach, not a grid cell) summed and coloured by the heat scale, with a crisp dot at each clicked spot. */
 function HeatCanvas({heat, width, height}) {
   const ref = useRef(null);
   useEffect(() => {
     const canvas = ref.current;
     const context = canvas?.getContext('2d', {willReadFrequently: true});
     if (!context || !PALETTE) return;
-    const W = 480, H = Math.max(1, Math.min(4800, Math.round(W * height / width)));
+    const W = 720, H = Math.max(1, Math.min(8000, Math.round(W * height / width)));
     canvas.width = W; canvas.height = H;
     context.clearRect(0, 0, W, H);
     const cellW = W / heat.columns, cellH = H / heat.rows;
-    const radius = Math.max(cellW, cellH) * 1.6;
-    const gain = 0.35 + HEAT_GAIN * 1.3;
+    const radius = 22 * W / 720 * 1.1;
+    const many = heat.points.length > 1500;
     heat.points.forEach(([x, y, value]) => {
       const cx = (x + 0.5) * cellW, cy = (y + 0.5) * cellH;
+      // sqrt keeps one-off clicks visible next to the hot spots instead of vanishing against the peak.
+      const strength = Math.min(1, Math.sqrt(value / heat.peak) * 0.85 + 0.15);
       const gradient = context.createRadialGradient(cx, cy, 0, cx, cy, radius);
-      gradient.addColorStop(0, `rgba(0,0,0,${Math.min(1, value / heat.peak * gain)})`);
+      gradient.addColorStop(0, `rgba(0,0,0,${strength * 0.9})`);
+      gradient.addColorStop(0.45, `rgba(0,0,0,${strength * 0.45})`);
       gradient.addColorStop(1, 'rgba(0,0,0,0)');
       context.fillStyle = gradient;
       context.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
@@ -110,19 +118,42 @@ function HeatCanvas({heat, width, height}) {
     const pixels = image.data;
     for (let index = 3; index < pixels.length; index += 4) {
       const alpha = pixels[index];
-      if (!alpha) continue;
-      const offset = alpha * 4;
+      if (alpha < 6) {pixels[index] = 0; continue;}
+      const offset = Math.min(255, Math.round(alpha * 1.15)) * 4;
       pixels[index - 3] = PALETTE[offset]; pixels[index - 2] = PALETTE[offset + 1]; pixels[index - 1] = PALETTE[offset + 2];
-      pixels[index] = Math.min(210, 40 + alpha);
+      pixels[index] = Math.min(235, 35 + alpha * 1.1);
     }
     context.putImageData(image, 0, 0);
+    if (!many) heat.points.forEach(([x, y, value]) => {
+      const cx = (x + 0.5) * cellW, cy = (y + 0.5) * cellH;
+      context.beginPath();
+      context.arc(cx, cy, 3 + Math.min(3, Math.sqrt(value) * 0.6), 0, Math.PI * 2);
+      context.fillStyle = heatColor(0.55 + 0.45 * value / heat.peak);
+      context.fill();
+      context.lineWidth = 1.5;
+      context.strokeStyle = 'rgba(255,255,255,.95)';
+      context.stroke();
+    });
   }, [heat, width, height]);
   return <canvas ref={ref} className="rs-heatmap__canvas" aria-hidden="true"/>;
 }
 
+/** Scroll reach over the capture: a smooth heat gradient down the page (hot where almost everyone reached, cold where few did), with a line and a label at each quarter. */
+function ScrollOverlay({summary, full}) {
+  const reach = [100, summary.scroll_25, summary.scroll_50, summary.scroll_75, summary.scroll_100];
+  if (reach.slice(1).every(value => value == null)) return null;
+  const stops = reach.map((value, index) => `${heatColor((value ?? 0) / 100)} ${index * 25}%`).join(',');
+  return <div className={`rs-heatmap__scroll${full ? ' is-full' : ''}`} aria-hidden="true">
+    <i className="rs-heatmap__scroll-fill" style={{background: `linear-gradient(to bottom,${stops})`}}/>
+    {SCROLL_STEPS.map(([key, label]) => <span key={key} className="rs-heatmap__scroll-line" style={{top: `${parseInt(label, 10)}%`}}>
+      <b>{label} chegaram · {share(summary[key])}</b>
+    </span>)}
+  </div>;
+}
+
 /** The capture framed as a browser window, with the click heat or the scroll bands on top. */
 function CaptureStage({page, device, mode, detail, canEdit, client, csrf, costTokens}) {
-  const {state, starting, capture, ready} = usePageCapture({siteId: page.site_id, path: page.path, device, client, csrf});
+  const {state, starting, capture, ready} = usePageCapture({siteId: page.site_id, path: page.path, device, client, csrf, auto: canEdit});
   const body = state.body;
   const address = `https://${page.host}${page.path}`;
   const cost = costTokens ? `${costTokens.toLocaleString('pt-BR')} tokens` : '';
@@ -139,20 +170,17 @@ function CaptureStage({page, device, mode, detail, canEdit, client, csrf, costTo
     {state.error && <div className="reports-error" role="alert">{state.error}</div>}
     {state.loading && <div className="rs-heatmap__placeholder" role="status">Verificando captura…</div>}
     {body && !ready && <div className="rs-heatmap__placeholder">
-      <strong>{body.status === 'capturing' ? 'Capturando a página…' : body.status === 'failed' ? 'A captura falhou' : 'Sem captura desta página'}</strong>
+      <strong>{body.status === 'capturing' || (starting && body.status === 'missing') ? 'Capturando a página…' : body.status === 'failed' ? 'A captura falhou' : 'Sem captura desta página'}</strong>
       <p>{body.status === 'capturing' ? 'Isso leva cerca de um minuto.' : body.status === 'failed' ? (body.message || 'Tente de novo.') : 'Capture a página para ver o calor sobre ela.'}</p>
       {body.status !== 'capturing' && (!body.available ? <p className="rs-heatmap__muted">Captura indisponível neste ambiente (Firecrawl não configurado).</p>
         : canEdit ? captureButton('Capturar a página') : <p className="rs-heatmap__muted">Peça a alguém com permissão de edição para capturar a página.</p>)}
     </div>}
     {ready && <>
       {body.status === 'failed' && <p className="page-detail-warning" role="note">{body.message} Mostrando a captura anterior.</p>}
-      <div className={`rs-heatmap__stage${mode === 'both' ? ' has-marks' : ''}`} style={{aspectRatio: `${body.width} / ${body.height}`}}>
+      <div className={`rs-heatmap__stage rs-heatmap__stage--${mode}`} style={{aspectRatio: `${body.width} / ${body.height}`}}>
         <img src={body.image_url} alt={`Captura da página ${page.path} no ${device === 'mobile' ? 'celular' : 'computador'}`}/>
+        {mode !== 'clicks' && <ScrollOverlay summary={summary} full={mode === 'scroll'}/>}
         {mode !== 'scroll' && detail?.heat?.total > 0 && <HeatCanvas heat={detail.heat} width={body.width} height={body.height}/>}
-        {mode === 'both' && <ol className="rs-heatmap__marks" aria-label="Alcance da rolagem">{SCROLL_STEPS.map(([key, label]) =>
-          <li key={key} style={{top: `${parseInt(label, 10)}%`}}><b>{label} · {share(summary[key])}</b></li>)}</ol>}
-        {mode === 'scroll' && <div className="page-detail-overlay page-detail-overlay--bands" aria-hidden="true" style={{'--intensity': 0.7}}>{SCROLL_BANDS.map(([key, label]) =>
-          <i key={key} style={{'--heat': (summary[key] ?? 0) / 100}} data-empty={summary[key] ? undefined : ''}><b>{label} · {share(summary[key])}</b></i>)}</div>}
       </div>
       {mode !== 'scroll' && detail && <p className="rs-heatmap__muted">{detail.heat.total
         ? `${number(detail.heat.total)} de ${number(detail.summary.clicks)} cliques têm posição na página inteira e aparecem no calor.`

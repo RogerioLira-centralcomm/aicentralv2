@@ -435,7 +435,7 @@ def heatmap_pages(rows):
     return sorted(out, key=lambda item: (-item['clicks'], -item['views'], item['path']))
 
 
-HEAT_COLUMNS, HEAT_ROWS = 40, 120       # whole-document click grid of the heatmap: ~32 px columns at 1280 px, ~25 px rows on a 3000 px page
+HEAT_COLUMNS, HEAT_ROWS = 100, 300     # whole-document click grid of the heatmap: ~13 px columns at 1280 px, ~10 px rows on a 3000 px page
 TOP_ELEMENTS = 10
 ZONES = (('Topo', '0–25%'), ('Meio alto', '25–50%'), ('Meio baixo', '50–75%'), ('Fim', '75–100%'))
 DEVICE_CLASSES = (('desktop', 'Computador'), ('mobile', 'Celular'), ('tablet', 'Tablet'))

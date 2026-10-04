@@ -112,9 +112,9 @@ DETAIL = '/connect/api/v2/reports/journey/heatmap-detail'
 
 
 def test_heat_grid_is_sparse_and_ignores_cells_outside_the_page():
-    grid = journey.heat_grid([{'cx': 3, 'cy': 5, 'clicks': 4}, {'cx': 3, 'cy': 5, 'clicks': 1}, {'cx': 40, 'cy': 1, 'clicks': 9},
-                              {'cx': 39, 'cy': 119, 'clicks': 2}])
-    assert grid['points'] == [[3, 5, 5], [39, 119, 2]] and grid['peak'] == 5 and grid['total'] == 7
+    grid = journey.heat_grid([{'cx': 3, 'cy': 5, 'clicks': 4}, {'cx': 3, 'cy': 5, 'clicks': 1}, {'cx': journey.HEAT_COLUMNS, 'cy': 1, 'clicks': 9},
+                              {'cx': journey.HEAT_COLUMNS - 1, 'cy': journey.HEAT_ROWS - 1, 'clicks': 2}])
+    assert grid['points'] == [[3, 5, 5], [journey.HEAT_COLUMNS - 1, journey.HEAT_ROWS - 1, 2]] and grid['peak'] == 5 and grid['total'] == 7
     zones = journey.heat_zones(grid)
     assert [zone['clicks'] for zone in zones] == [5, 0, 0, 2] and zones[0]['share'] == 71.4
 

@@ -405,6 +405,8 @@ div.rs-asset-type{cursor:default}
 .rs-picker__trigger>svg{flex:none;color:var(--rs-muted)}
 .rs-picker__name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rs-picker__avatar{display:inline-flex;flex:none;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;background:var(--rs-brand-soft);color:var(--rs-brand);font-size:11px;font-weight:700}
+.rs-picker__avatar.has-logo{overflow:hidden;background:#fff;box-shadow:inset 0 0 0 1px var(--rs-line)}
+.rs-picker__avatar.has-logo img{width:100%;height:100%;padding:3px;object-fit:contain}
 .rs-picker__avatar.is-muted{background:var(--rs-soft);color:var(--rs-muted)}
 .rs-picker__popover{width:280px;max-width:calc(100vw - 24px);border:1px solid var(--rs-line);border-radius:12px;background:var(--color-bg-primary);box-shadow:0 12px 24px -4px rgba(16,24,40,.12),0 4px 8px -2px rgba(16,24,40,.06)}
 .rs-picker__dialog{outline:none;padding:6px}

@@ -1,13 +1,18 @@
 import React, {useState} from 'react';
-import {Dialog, DialogTrigger, Popover} from 'react-aria-components';
+import {Button, Dialog, DialogTrigger, Popover} from 'react-aria-components';
 import {Check, ChevronDown, SearchLg} from '@untitledui/icons';
 
 const initials = name => String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase();
-const Badge = ({name, muted}) => <span aria-hidden="true" className={`rs-picker__avatar${muted ? ' is-muted' : ''}`}>{muted ? '·' : initials(name)}</span>;
+// A linked brand's logo replaces the initials; a logo that fails to load falls back to them.
+function Badge({name, muted, logo}) {
+  const [broken, setBroken] = useState(false);
+  if (logo && !muted && !broken) return <span aria-hidden="true" className="rs-picker__avatar has-logo"><img src={logo} alt="" onError={() => setBroken(true)}/></span>;
+  return <span aria-hidden="true" className={`rs-picker__avatar${muted ? ' is-muted' : ''}`}>{muted ? '·' : initials(name)}</span>;
+}
 
 /**
  * Friendly chooser for clients: avatar, name, optional detail line and a search box once the list grows.
- * `items` are {id, name, meta}; `allLabel` adds a leading option for "no filter" and `extra` more fixed options (e.g. Sem cliente).
+ * `items` are {id, name, meta, logo}; `allLabel` adds a leading option for "no filter" and `extra` more fixed options (e.g. Sem cliente).
  */
 export function EntityPicker({label, value, items, onChange, allLabel, allValue = '', extra = [], searchAfter = 6}) {
   const [query, setQuery] = useState('');
@@ -16,11 +21,11 @@ export function EntityPicker({label, value, items, onChange, allLabel, allValue 
   const shown = items.filter(item => !needle || `${item.name} ${item.meta || ''}`.toLowerCase().includes(needle));
   const current = [...fixed, ...items].find(item => String(item.id) === String(value)) || fixed[0] || items[0];
   return <DialogTrigger onOpenChange={open => {if (!open) setQuery('');}}>
-    <button type="button" className="rs-picker__trigger" aria-label={`${label}: ${current?.name || ''}`} aria-haspopup="dialog">
-      <Badge name={current?.name} muted={current?.fixed}/>
+    <Button className="rs-picker__trigger" aria-label={`${label}: ${current?.name || ''}`}>
+      <Badge name={current?.name} muted={current?.fixed} logo={current?.logo}/>
       <span className="rs-picker__name">{current?.name || label}</span>
       <ChevronDown size={16} aria-hidden="true"/>
-    </button>
+    </Button>
     <Popover placement="bottom end" className="rs-picker__popover">
       <Dialog aria-label={label} className="rs-picker__dialog">
         {({close}) => <>
@@ -31,7 +36,7 @@ export function EntityPicker({label, value, items, onChange, allLabel, allValue 
               const selected = String(item.id) === String(value);
               return <li key={`${item.fixed ? 'f' : 'i'}${item.id}`} role="option" aria-selected={selected}>
                 <button type="button" className={selected ? 'is-selected' : undefined} onClick={() => {onChange(String(item.id)); close();}}>
-                  <Badge name={item.name} muted={item.fixed}/>
+                  <Badge name={item.name} muted={item.fixed} logo={item.logo}/>
                   <span className="rs-picker__text"><strong>{item.name}</strong>{item.meta && <small>{item.meta}</small>}</span>
                   {selected && <Check size={16} aria-hidden="true"/>}
                 </button>

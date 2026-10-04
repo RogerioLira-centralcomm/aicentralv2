@@ -67,16 +67,18 @@ export function DataTable({columns, rows, rowKey = (row, index) => index, empty,
         label={typeof column.label === 'string' ? column.label : undefined} className={cx('px-4 first:pl-6 last:pr-6', column.numeric && '[&>div]:justify-end')}>
         {typeof column.label === 'string' ? null : <span className="text-xs font-semibold whitespace-nowrap text-quaternary">{column.label}</span>}
       </Table.Head>)}</Table.Header>
-      <Table.Body>{visible.map((row, index) => {
+      <Table.Body>{(seen => visible.map((row, index) => {
         // The id follows the row's own key, not its position: React Aria throws when a row keeps its key but its id changes,
         // which happened whenever the data was reordered (sorting) or replaced (another site).
-        const key = String(rowKey(row, index));
+        let key = String(rowKey(row, index));
+        if (seen.has(key)) key = `${key}#${index}`;
+        seen.add(key);
         return <Table.Row key={key} id={key} className="h-11">
         {columns.map((column, cell) => <Table.Cell key={column.key} className={cx('px-4 py-2.5 first:pl-6 last:pr-6', cell === 0 && 'font-medium text-primary', align(column))}>
           {column.render ? column.render(row) : row[column.key] ?? '—'}
         </Table.Cell>)}
       </Table.Row>;
-      })}</Table.Body>
+      }))(new Set())}</Table.Body>
     </Table>
   </div>;
 }

@@ -90,7 +90,7 @@ const heatColor = amount => {
   return PALETTE ? `rgb(${PALETTE[offset]},${PALETTE[offset + 1]},${PALETTE[offset + 2]})` : '#ef4444';
 };
 
-/** Click heat over the capture: tight soft spots (a fixed ~16 px reach, not a grid cell) summed and coloured by the heat scale, with a crisp dot at each clicked spot. */
+/** Click heat over the capture: wide gaussian-like spots summed and coloured by the heat scale; the soft edge fades into the page. */
 function HeatCanvas({heat, width, height}) {
   const ref = useRef(null);
   useEffect(() => {
@@ -101,16 +101,14 @@ function HeatCanvas({heat, width, height}) {
     canvas.width = W; canvas.height = H;
     context.clearRect(0, 0, W, H);
     const cellW = W / heat.columns, cellH = H / heat.rows;
-    const radius = 22 * W / 720 * 1.1;
-    const many = heat.points.length > 1500;
+    const radius = 46;
     heat.points.forEach(([x, y, value]) => {
       const cx = (x + 0.5) * cellW, cy = (y + 0.5) * cellH;
       // sqrt keeps one-off clicks visible next to the hot spots instead of vanishing against the peak.
-      const strength = Math.min(1, Math.sqrt(value / heat.peak) * 0.85 + 0.15);
+      const strength = Math.min(1, Math.sqrt(value / heat.peak) * 0.8 + 0.2) * 0.75;
       const gradient = context.createRadialGradient(cx, cy, 0, cx, cy, radius);
-      gradient.addColorStop(0, `rgba(0,0,0,${strength * 0.9})`);
-      gradient.addColorStop(0.45, `rgba(0,0,0,${strength * 0.45})`);
-      gradient.addColorStop(1, 'rgba(0,0,0,0)');
+      [[0, 1], [0.15, 0.82], [0.3, 0.55], [0.5, 0.28], [0.7, 0.1], [0.88, 0.025], [1, 0]].forEach(([stop, level]) =>
+        gradient.addColorStop(stop, `rgba(0,0,0,${strength * level})`));
       context.fillStyle = gradient;
       context.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
     });
@@ -118,22 +116,12 @@ function HeatCanvas({heat, width, height}) {
     const pixels = image.data;
     for (let index = 3; index < pixels.length; index += 4) {
       const alpha = pixels[index];
-      if (alpha < 6) {pixels[index] = 0; continue;}
-      const offset = Math.min(255, Math.round(alpha * 1.15)) * 4;
+      if (!alpha) continue;
+      const offset = Math.min(255, Math.round(alpha * 1.25)) * 4;
       pixels[index - 3] = PALETTE[offset]; pixels[index - 2] = PALETTE[offset + 1]; pixels[index - 1] = PALETTE[offset + 2];
-      pixels[index] = Math.min(235, 35 + alpha * 1.1);
+      pixels[index] = Math.min(225, alpha * 1.7);
     }
     context.putImageData(image, 0, 0);
-    if (!many) heat.points.forEach(([x, y, value]) => {
-      const cx = (x + 0.5) * cellW, cy = (y + 0.5) * cellH;
-      context.beginPath();
-      context.arc(cx, cy, 3 + Math.min(3, Math.sqrt(value) * 0.6), 0, Math.PI * 2);
-      context.fillStyle = heatColor(0.55 + 0.45 * value / heat.peak);
-      context.fill();
-      context.lineWidth = 1.5;
-      context.strokeStyle = 'rgba(255,255,255,.95)';
-      context.stroke();
-    });
   }, [heat, width, height]);
   return <canvas ref={ref} className="rs-heatmap__canvas" aria-hidden="true"/>;
 }
@@ -157,7 +145,7 @@ function CaptureStage({page, device, mode, detail, canEdit, client, csrf, costTo
   const body = state.body;
   const address = `https://${page.host}${page.path}`;
   const cost = costTokens ? `${costTokens.toLocaleString('pt-BR')} tokens` : '';
-  const captureButton = label => <ReportsActionButton color={ready ? 'secondary' : 'primary'} size="sm" disabled={starting} onClick={capture}
+  const captureButton = label => <ReportsActionButton color={ready ? 'tertiary' : 'primary'} size="sm" disabled={starting} onClick={capture}
     title={cost ? `A captura custa ${cost}` : undefined} iconLeading={RefreshCw01}>{label}{cost && !ready ? ` · ${cost}` : ''}</ReportsActionButton>;
   const summary = detail?.summary || page;
   return <figure className={`rs-heatmap__frame rs-heatmap__frame--${device}`}>

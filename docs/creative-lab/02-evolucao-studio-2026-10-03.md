@@ -34,6 +34,12 @@ descartado. **Regra da casa:** toda mudança no fluxo de geração passa primeir
 | Uma chamada, prompt enxuto + layout pela cena + revisor de números | 71,8 | 4/6 | US$ 0,041 |
 | Idem, simulando o Studio (até 3 versões) | 78,3 | — | ~US$ 0,045 |
 | Texto por código também em feeds e stories (11 cenários, pares completos) | +9,8 nos sociais | — | — |
+| Compositor com oferta-herói, simulando o Studio (7 pares, 2026-10-04) | 73,7 | 7/8 | US$ 0,054 |
+| Idem + texto por código em feeds e stories | 75,7 | 9/9 | US$ 0,044 |
+
+Com o compositor novo a Reserva 300×250 foi a 82 (texto exato 0,96). O ganho do texto por código nos sociais caiu
+para +2 (era puxado por um story que tinha ido a 36): dentro do ruído, por isso a chave segue desligada até uma
+rodada completa (rodar com `--workers 1`, o limite da OpenAI derrubou 4 de 22 execuções).
 
 Ruído: a mesma peça varia ±10 pontos entre rodadas; decisões só com vários cenários e, de preferência, mais de uma
 rodada.

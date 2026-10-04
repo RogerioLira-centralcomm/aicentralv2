@@ -129,12 +129,16 @@ function Cell({runs, ratio, blind, onOpen}) {
 export default function Matrix({state, blind, onOpen, onRunScenario, busyScenario}) {
   const runGroups = useMemo(() => groupRuns(state.runs), [state.runs]);
   const rowGroups = useMemo(() => buildRows(state), [state]);
-  const [closed, setClosed] = useState(() => new Set());
+  // Groups with something queued or running stay open; idle ones fold away (the first idle group stays open when nothing is active).
+  // A group the person opened or closed by hand keeps that choice.
+  const [manual, setManual] = useState({});
   // Retired models keep their history in the other tabs but leave the live matrix.
   const models = state.models.filter(model => !model.capabilities?.retired);
   const brandsById = Object.fromEntries(state.brands.map(brand => [brand.id, brand]));
   const columns = `minmax(210px, 1.3fr) repeat(${models.length}, minmax(118px, 1fr))`;
-  const toggle = label => setClosed(current => { const next = new Set(current); if (next.has(label)) next.delete(label); else next.add(label); return next; });
+  const activeLabels = new Set(rowGroups.filter(group => group.rows.some(row => models.some(model => runGroups[`${row.key}|${model.model_key}`]?.some(run => ['queued', 'running'].includes(run.status))))).map(group => group.label));
+  const isOpen = label => manual[label] ?? (activeLabels.size ? activeLabels.has(label) : label === rowGroups[0]?.label);
+  const toggle = label => setManual(current => ({...current, [label]: !isOpen(label)}));
   const missingFor = (rowKey) => models.filter(model => !runGroups[`${rowKey}|${model.model_key}`]?.some(run => run.status === 'succeeded'));
   return <div className="lab-matrix" role="table" aria-label="Cenários por modelo">
     <div className="lab-matrix__row is-head" role="row" style={{gridTemplateColumns: columns}}>
@@ -146,10 +150,10 @@ export default function Matrix({state, blind, onOpen, onRunScenario, busyScenari
       </div>)}
     </div>
     {rowGroups.map(group => <React.Fragment key={group.label}>
-      <button type="button" className="lab-matrix__group" aria-expanded={!closed.has(group.label)} onClick={() => toggle(group.label)}>
-        <span aria-hidden="true">{closed.has(group.label) ? '▸' : '▾'}</span> {group.label} <small className="lab-muted">{group.rows.length} linha(s)</small>
+      <button type="button" className="lab-matrix__group" aria-expanded={isOpen(group.label)} onClick={() => toggle(group.label)}>
+        <span aria-hidden="true">{isOpen(group.label) ? '▾' : '▸'}</span> {group.label} <small className="lab-muted">{group.rows.length} linha(s)</small>
       </button>
-      {!closed.has(group.label) && group.rows.map(row => {
+      {isOpen(group.label) && group.rows.map(row => {
         const scenarioKey = row.scenario?.key;
         return <div key={row.key} className={`lab-matrix__row${row.scenario?.reserved ? ' is-reserved' : ''}${row.first ? '' : ' is-sub'}`} role="row" style={{gridTemplateColumns: columns}}>
           <ScenarioHead row={row} brand={brandsById[row.scenario?.brand_id ?? row.adHoc?.brand_id]} references={state.references}

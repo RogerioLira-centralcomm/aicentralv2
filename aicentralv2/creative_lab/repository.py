@@ -190,6 +190,62 @@ def claim_run(run_id: int) -> bool:
     return claimed
 
 
+def next_queued(client_id: int) -> int | None:
+    """The run to execute next: the newest experiment first (a new test jumps the line), its models in order."""
+    with get_db().cursor() as cursor:
+        cursor.execute(
+            """SELECT r.id FROM cx_lab_runs r JOIN cx_lab_experiments e ON e.id = r.experiment_id
+                WHERE e.client_id = %s AND r.status = 'queued' ORDER BY e.id DESC, r.id ASC LIMIT 1""",
+            (client_id,),
+        )
+        row = cursor.fetchone()
+    return row["id"] if row else None
+
+
+def pending_counts(client_id: int) -> dict:
+    with get_db().cursor() as cursor:
+        cursor.execute(
+            """SELECT count(*) FILTER (WHERE r.status = 'queued') AS queued,
+                      count(*) FILTER (WHERE r.status = 'running') AS running
+                 FROM cx_lab_runs r JOIN cx_lab_experiments e ON e.id = r.experiment_id
+                WHERE e.client_id = %s AND r.status IN ('queued', 'running')""",
+            (client_id,),
+        )
+        row = cursor.fetchone()
+    return {"queued": int(row["queued"] or 0), "running": int(row["running"] or 0)}
+
+
+def unevaluated_runs(client_id: int, *, older_than_seconds: int = 90) -> list[int]:
+    """Finished generations whose evaluation never ran (the worker was lost between the two steps)."""
+    with get_db().cursor() as cursor:
+        cursor.execute(
+            """SELECT r.id FROM cx_lab_runs r JOIN cx_lab_experiments e ON e.id = r.experiment_id
+                WHERE e.client_id = %s AND r.status = 'succeeded' AND r.output_file_id IS NOT NULL
+                  AND r.finished_at < NOW() - make_interval(secs => %s)
+                  AND NOT EXISTS (SELECT 1 FROM cx_lab_evaluations v WHERE v.run_id = r.id AND v.kind = 'typesafe')
+                ORDER BY r.id DESC LIMIT 5""",
+            (client_id, older_than_seconds),
+        )
+        return [row["id"] for row in cursor.fetchall()]
+
+
+def cancel_queued(client_id: int, experiment_ids: list[int] | None = None) -> int:
+    """Interrupt runs that have not started. Running ones finish; nothing is deleted."""
+    with get_db().cursor() as cursor:
+        cursor.execute(
+            """UPDATE cx_lab_runs r SET status = 'skipped', finished_at = NOW(),
+                      error = jsonb_build_object('message', 'Interrompida antes de começar.')
+                 FROM cx_lab_experiments e
+                WHERE e.id = r.experiment_id AND e.client_id = %s AND r.status = 'queued'
+                  AND (%s::int[] IS NULL OR r.experiment_id = ANY(%s::int[]))
+                RETURNING r.id""",
+            (client_id, experiment_ids, experiment_ids),
+        )
+        count = len(cursor.fetchall())
+    _commit()
+    return count
+
+
 # Queued runs wait their turn behind a sequential worker; only orphans (worker lost on restart) expire.
 STALE_QUEUED_SECONDS = 6 * 3600
 

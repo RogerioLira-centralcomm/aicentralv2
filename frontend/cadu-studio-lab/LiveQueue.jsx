@@ -13,16 +13,25 @@ function useNow(active) {
 }
 
 /** What is happening right now: the generation in progress, the queue and the latest results. */
-export default function LiveQueue({runs, models, formats, blind, onOpen}) {
+export default function LiveQueue({runs, models, formats, blind, onOpen, onCancel}) {
   const label = key => (blind ? 'Modelo oculto' : models.find(model => model.model_key === key)?.label || key);
   const formatLabel = run => formats.find(item => item.key === run.format_key)?.label || run.aspect_ratio || '';
   const running = runs.filter(run => run.status === 'running');
   const queued = runs.filter(run => run.status === 'queued').sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
-  const recent = runs.filter(run => ['succeeded', 'failed', 'blocked'].includes(run.status) && run.finished_at)
+  // Only generations that produced an image are results; errors are counted apart so they do not fill the strip.
+  const recent = runs.filter(run => run.status === 'succeeded' && run.finished_at)
     .sort((a, b) => (b.finished_at || '').localeCompare(a.finished_at || '')).slice(0, 8);
+  const lastHour = Date.now() - 3600 * 1000;
+  const recentFailures = runs.filter(run => ['failed', 'blocked'].includes(run.status) && run.finished_at && new Date(run.finished_at).getTime() > lastHour).length;
+  const [cancelling, setCancelling] = useState(false);
+  const cancel = async () => {
+    if (!onCancel || cancelling || !window.confirm(`Interromper as ${queued.length} gerações que ainda não começaram? As que já estão gerando terminam normalmente.`)) return;
+    setCancelling(true);
+    try { await onCancel(); } finally { setCancelling(false); }
+  };
   const now = useNow(running.length > 0);
   const evaluating = runs.filter(run => run.status === 'succeeded' && !run.typesafe).length;
-  if (!running.length && !queued.length && !recent.length) return null;
+  if (!running.length && !queued.length && !recent.length && !recentFailures) return null;
   return <section className="lab-live-panel" aria-label="Acompanhamento ao vivo">
     <div className="lab-live-panel__now">
       <small className="lab-muted">Agora</small>
@@ -39,19 +48,20 @@ export default function LiveQueue({runs, models, formats, blind, onOpen}) {
       }) : <p className="lab-muted">{queued.length ? 'Iniciando…' : 'Nada gerando.'}{evaluating ? ` ${evaluating} em avaliação.` : ''}</p>}
     </div>
     <div className="lab-live-panel__queue">
-      <small className="lab-muted">Na fila · {queued.length}</small>
+      <small className="lab-muted">Na fila · {queued.length}{onCancel && queued.length > 0 && <button type="button" className="lab-btn is-ghost is-small lab-live-panel__cancel" onClick={cancel} disabled={cancelling}>{cancelling ? 'Interrompendo…' : 'Interromper fila'}</button>}</small>
       <ol>{queued.slice(0, 4).map(run => <li key={run.run_id}>{label(run.model_key)} <span className="lab-muted">· {run.experiment_title} · {formatLabel(run)}</span></li>)}</ol>
       {queued.length > 4 && <small className="lab-muted">+{queued.length - 4} depois</small>}
     </div>
     <div className="lab-live-panel__recent">
-      <small className="lab-muted">Últimos resultados</small>
+      <small className="lab-muted">Últimos resultados{recentFailures > 0 ? ` · ${recentFailures} com erro na última hora` : ''}</small>
+      {!recent.length && <p className="lab-muted">Nenhuma geração concluída ainda.</p>}
       <div className="lab-live-panel__strip">
         {recent.map(run => <figure key={run.run_id}>
           <Thumb src={run.thumb_url} ratio={ratioCss(run.aspect_ratio)} status={run.status} onClick={() => onOpen(run)} alt={label(run.model_key)}/>
           <figcaption>
             <ScorePill score={run.typesafe?.scores?.overall}/>
             <small title={run.experiment_title}>{blind ? '' : label(run.model_key)}</small>
-            <small className="lab-muted">{run.status === 'succeeded' ? (FAILURE_LABEL[run.typesafe?.primary_failure] || 'avaliando') : 'falhou'}</small>
+            <small className="lab-muted">{FAILURE_LABEL[run.typesafe?.primary_failure] || 'avaliando'}</small>
           </figcaption>
         </figure>)}
       </div>

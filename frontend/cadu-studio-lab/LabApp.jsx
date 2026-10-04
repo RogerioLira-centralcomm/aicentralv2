@@ -73,6 +73,9 @@ export default function LabApp({bootstrap}) {
     setSeed({...EMPTY_FORM, pipeline: 'studio', formats: [labFormat?.key || EMPTY_FORM.formats[0]], mockup: {mode: 'image', family: mask.family, id: mask.id}});
     setTab('new');
   };
+  const cancelQueue = async () => {
+    try { await api.post('/runs/cancel', {}); await load(); } catch (exc) { setError(exc.message); }
+  };
   const regenerate = async run => {
     try { await api.post(`/experiments/${run.experiment_id}/runs`, {models: [run.model_key]}); setOpenRunId(null); await refreshRuns(); }
     catch (exc) { setError(exc.message); }
@@ -103,7 +106,7 @@ export default function LabApp({bootstrap}) {
         <label className="lab-check"><input type="checkbox" checked={blind} onChange={event => setBlind(event.target.checked)}/> Avaliação cega</label>
       </nav>
       {error && <p className="lab-alert" role="alert">{error}</p>}
-      {tab === 'matrix' && <LiveQueue runs={runs} models={state.models} formats={state.formats || []} blind={blind} onOpen={run => setOpenRunId(run.run_id)}/>}
+      {tab === 'matrix' && <LiveQueue runs={runs} models={state.models} formats={state.formats || []} blind={blind} onOpen={run => setOpenRunId(run.run_id)} onCancel={cancelQueue}/>}
       {tab === 'matrix' && <Matrix state={state} blind={blind} onOpen={run => setOpenRunId(run.run_id)} onRunScenario={runScenario} busyScenario={busyScenario}/>}
       {tab === 'new' && <NewTest state={state} api={api} seed={seed} onCreated={data => { load(); if (data?.run_ids) { setSeed(null); setTab('matrix'); } }}/>}
       {tab === 'mockups' && <MockupsView state={state} onUse={useMockup}/>}

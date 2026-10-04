@@ -20,6 +20,7 @@ from . import adapter, brands, catalog, connector, evaluation, files, repository
 
 log = logging.getLogger(__name__)
 _lock = threading.Lock()
+_worker_running = False
 
 POLICIES = ("verified_only", "verified_and_probable", "all")
 
@@ -306,16 +307,73 @@ def run_sequence(client_id: int, run_ids: list[int]) -> None:
                 pass
 
 
-def start_worker(client_id: int, run_ids: list[int]) -> None:
-    if not run_ids:
-        return
+def _drain(client_id: int) -> None:
+    """Run what is queued, newest experiment first, then evaluate generations that were left unevaluated."""
+    seen: set[int] = set()
+    while True:
+        run_id = repository.next_queued(client_id)
+        if run_id is not None and run_id not in seen:
+            seen.add(run_id)
+            run_sequence(client_id, [run_id])
+            continue
+        pending = [item for item in repository.unevaluated_runs(client_id) if item not in seen]
+        if not pending:
+            return
+        seen.add(pending[0])
+        try:
+            evaluation.evaluate_run(client_id, pending[0])
+        except Exception:
+            log.warning("Lab evaluation of run %s failed", pending[0], exc_info=True)
+            try:
+                from ..db import get_db
+                get_db().rollback()
+            except Exception:
+                pass
+
+
+def start_worker(client_id: int, run_ids: list[int] | None = None) -> None:
+    """Make sure one worker is draining the queue. ``run_ids`` is kept for callers; the queue itself decides the order.
+
+    The queue lives in the database, so a restart that kills the thread loses nothing: the next call (including
+    the page's own refresh) starts a new worker.
+    """
+    global _worker_running
     app = current_app._get_current_object()
+    with _lock:
+        if _worker_running:
+            return
+        _worker_running = True
 
     def work():
-        with _lock, app.app_context():
-            run_sequence(client_id, run_ids)
+        global _worker_running
+        try:
+            with app.app_context():
+                while True:
+                    _drain(client_id)
+                    with _lock:
+                        # A run queued while the worker was finishing must not be left behind.
+                        if repository.next_queued(client_id) is None:
+                            _worker_running = False
+                            return
+        except Exception:
+            log.exception("Lab worker stopped")
+            with _lock:
+                _worker_running = False
 
-    threading.Thread(target=work, name=f"creative-lab-{run_ids[0]}", daemon=True).start()
+    threading.Thread(target=work, name=f"creative-lab-{client_id}", daemon=True).start()
+
+
+def resume_if_orphaned(client_id: int) -> bool:
+    """Called when the page loads: queued work with nobody running it (server restarted) gets a worker again."""
+    counts = repository.pending_counts(client_id)
+    if counts["running"] or not (counts["queued"] or repository.unevaluated_runs(client_id)):
+        return False
+    start_worker(client_id)
+    return True
+
+
+def interrupt(client_id: int, experiment_ids: list[int] | None = None) -> int:
+    return repository.cancel_queued(client_id, experiment_ids)
 
 
 def _missing(client_id: int, scenario_key: str, model_keys: list[str]):

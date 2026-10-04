@@ -40,6 +40,8 @@ def lab_page():
 def api_state():
     client_id = current_client_id()
     repository.fail_stale_runs()
+    # The queue lives in the database: after a server restart the page itself brings the worker back.
+    runner.resume_if_orphaned(client_id)
     return jsonify({
         "models": catalog.models_view(),
         "scenarios": scenarios.scenarios(),
@@ -258,8 +260,18 @@ def api_queue_runs(experiment_id):
 
 
 @lab_required
+@studio_csrf_required
+def api_cancel_queue():
+    """Interrupt every run that has not started (or only those of the given experiments)."""
+    data = request.get_json(silent=True) or {}
+    ids = [int(item) for item in data.get("experiment_ids") or []] or None
+    return jsonify({"cancelled": runner.interrupt(current_client_id(), ids)})
+
+
+@lab_required
 def api_runs():
     repository.fail_stale_runs()
+    runner.resume_if_orphaned(current_client_id())
     return jsonify({"runs": repository.list_runs(current_client_id())})
 
 
@@ -337,6 +349,7 @@ def register_lab_routes(blueprint, app=None):
         ("/lab/api/experiments", "studio_lab_experiments", api_create_experiment, ["POST"]),
         ("/lab/api/experiments/<int:experiment_id>/runs", "studio_lab_queue", api_queue_runs, ["POST"]),
         ("/lab/api/runs", "studio_lab_runs", api_runs, ["GET"]),
+        ("/lab/api/runs/cancel", "studio_lab_cancel_queue", api_cancel_queue, ["POST"]),
         ("/lab/api/runs/<int:run_id>", "studio_lab_run", api_run, ["GET"]),
         ("/lab/api/runs/<int:run_id>/evaluate", "studio_lab_evaluate", api_evaluate, ["POST"]),
         ("/lab/api/runs/<int:run_id>/rating", "studio_lab_rate", api_rate, ["POST"]),

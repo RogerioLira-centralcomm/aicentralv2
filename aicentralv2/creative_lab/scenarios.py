@@ -323,6 +323,62 @@ V3_SCENARIOS = [
 
 SCENARIOS.extend(V3_SCENARIOS)
 
+V5 = "v5 · referências por posição"
+
+
+def _v5(stem, brand_label, layout, *, learning, hypothesis, **fields):
+    """One 300×250 row: the same briefing laid out by position (elements and relations) instead of a box mask."""
+    from ..creative_media import position_layouts
+    item = position_layouts.get(layout)
+    return {
+        "task": "generate", "quality": "standard", "logo_mode": "composer", **fields,
+        "key": f"v5-{stem}-{layout}", "group": f"{V5} · {brand_label}",
+        "title": f"{brand_label} · {item['label']}", "formats": ["iab-300x250"],
+        "pipeline": "studio", "mockup": {"mode": "none", "family": "foto-texto-base"},
+        "layout": {"position": layout, "sketch": True},
+        "variable": f"{learning} Layout por posição: {item['label']} (aprendido de {item['learned_from']}).",
+        "hypothesis": hypothesis,
+    }
+
+
+_RESERVA_OFERTA = dict(
+    brand_id=7, objective="retail offer display ad",
+    instruction=("Peça de varejo da Reserva para a Semana do Cliente com o modelo da referência (mesmo rosto e roupa). "
+                 "O número +20% EXTRA é o herói. Texto exato; o logo é aplicado depois."),
+    references=[{"asset_id": 196, "role": "PERSON", "label": "Modelo Reserva", "has_person": True},
+                {"asset_id": 29, "role": "LOGO", "label": "Logo Reserva"}],
+    brief={"archetype": "oferta-heroi", "audience": "Clientes da Reserva na Semana do Cliente",
+           "copy": {"headline": "Outlet com", "highlight": "+20% EXTRA", "support": "Use o cupom DIADOCLIENTE.", "cta": "Comprar agora"},
+           "casting": ["O modelo da referência, mesma roupa, olhando para a câmera"], "devices": []},
+)
+_CEMIG_SERVICO = dict(
+    brand_id=31, objective="service awareness ad",
+    instruction=("Peça de serviço da Cemig: a conta de luz pelo celular, sem sair de casa. Um celular em destaque com a tela "
+                 "em formas abstratas (sem números). Texto exato; o logo oficial é aplicado depois."),
+    references=[{"asset_id": 270, "role": "STYLE", "label": "Site Cemig (estilo)"},
+                {"asset_id": 265, "role": "LOGO", "label": "Logo Cemig"}],
+    brief={"archetype": "recorte-chamada", "audience": "Clientes residenciais da Cemig",
+           "copy": {"headline": "Sua conta de luz", "highlight": "NA PALMA DA MÃO", "cta": "Acesse agora"},
+           "casting": [], "devices": []},
+)
+
+V5_SCENARIOS = [
+    _v5("reserva-oferta", "Reserva", "pessoa-circulo", **_RESERVA_OFERTA,
+        learning="Pessoa recortada sobre a forma da marca, oferta ao lado do rosto.",
+        hypothesis="Sai do quadrado: a pessoa sobrepõe o círculo e a borda, a oferta lidera a leitura."),
+    _v5("reserva-oferta", "Reserva", "faixa-foto-bloco", **_RESERVA_OFERTA,
+        learning="O esquema do MaxMilhas: foto em faixa com corte seco e bloco de cor com a oferta.",
+        hypothesis="Uma forma clássica de display pequeno, sem painel pintado por cima da foto."),
+    _v5("cemig-servico", "Cemig", "produto-diagonal", **_CEMIG_SERVICO,
+        learning="O celular como produto herói cruzando a diagonal, texto no campo chapado.",
+        hypothesis="A diagonal dá movimento e separa texto e imagem sem caixa."),
+    _v5("cemig-servico", "Cemig", "tipografico-selo", **_CEMIG_SERVICO,
+        learning="Sem foto: tipografia grande e um selo da marca.",
+        hypothesis="Quando não há pessoa nem produto forte, a peça vive de tipografia e forma."),
+]
+
+SCENARIOS.extend(V5_SCENARIOS)
+
 
 def scenarios(include_reserved: bool = True) -> list[dict]:
     return [item for item in SCENARIOS if include_reserved or not item.get("reserved")]

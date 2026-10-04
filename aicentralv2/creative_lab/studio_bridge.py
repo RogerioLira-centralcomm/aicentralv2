@@ -210,6 +210,8 @@ class LabModeling:
     # Draft (low quality, structure only) + finishing edit at the requested quality.
     two_pass = False  # measured: same score at twice the cost (A/B of 6 scenarios, 2026-10-03)
     typeset_social = None  # None follows the Studio (CREATIVE_STUDIO_SOCIAL_TYPESET); the A/B sets True/False
+    position_layout = None  # an A/B may force a layout by position on any scenario (v5)
+    position_sketch = True
 
     def __init__(self, model_key: str):
         self.capture = _Capture()
@@ -289,10 +291,20 @@ def _finish(modeling: LabModeling, extra: dict) -> dict:
             "dropped_references": capture.dropped_references, **extra}
 
 
+def _position(spec: dict) -> dict:
+    """The v5 layout by position of this test (or the one an A/B forces), as Studio payload fields."""
+    layout = spec.get("layout") or ({"position": LabModeling.position_layout, "sketch": LabModeling.position_sketch}
+                                    if LabModeling.position_layout else {})
+    if not layout.get("position"):
+        return {}
+    return {"position_layout": layout["position"], "position_sketch": layout.get("sketch") is not False}
+
+
 def run_create(*, model_key: str, spec: dict, snapshot: dict, plan: dict, by_ref: dict, direction: dict, files_module,
                client_id: int, user_id: int | None) -> dict:
     """The Studio's ``create_image`` for one model: mask, references, logo composed afterwards, fit to the format."""
-    mask = get_mask((plan.get("mockup") or {}).get("id") or "")
+    # A layout by position replaces the box mask entirely (v5): never send both.
+    mask = None if _position(spec) else get_mask((plan.get("mockup") or {}).get("id") or "")
     fmt = mask_format((spec.get("brief") or {}).get("format_key"))
     width, height = (mask["width"], mask["height"]) if mask else ((ad_masks.FORMATS[fmt][1], ad_masks.FORMATS[fmt][2]) if fmt else (0, 0))
     ratio = ad_masks.ratio_label(width, height) if width else spec["aspect_ratio"]
@@ -313,6 +325,7 @@ def run_create(*, model_key: str, spec: dict, snapshot: dict, plan: dict, by_ref
         "channel": "", "direction_intensity": 70,
         # The mockup mode is a Lab test variable (off, image or text): the Studio's default display layout stays out of it.
         **({"auto_mask": False} if (plan.get("mockup") or {}).get("requested") else {}),
+        **_position(spec),
     }
     if width and height:
         payload.update({"width": width, "height": height})

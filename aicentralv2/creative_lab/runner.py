@@ -69,6 +69,11 @@ def build_spec(client_id: int, data: dict, user_id: int | None) -> tuple[dict, d
         "quality": data.get("quality") if data.get("quality") in ("draft", "standard", "high") else "standard",
         "logo_mode": logo_mode, "payload_policy": policy, "brand_payload": brand_payload, "references": references,
     }
+    layout = data.get("layout") if isinstance(data.get("layout"), dict) else {}
+    from ..creative_media import position_layouts
+    if pipeline == "studio" and position_layouts.get(layout.get("position")):
+        # v5: the piece is laid out by position (elements and relations); the sketch goes as the reference image.
+        spec["layout"] = {"position": layout["position"], "sketch": layout.get("sketch") is not False}
     if not spec["instruction"] and task == "edit" and fmt:
         spec["instruction"] = f"Reformatar a peça para {fmt['label']}"
     if not spec["instruction"] and brief:
@@ -425,7 +430,7 @@ def run_scenario(client_id: int, key: str, model_keys: list[str], user_id: int |
         refs.append({"ref_id": stored["ref_id"], "role": ref["role"], "label": ref["label"]})
     data = {field: item.get(field) for field in ("task", "brand_id", "aspect_ratio", "quality", "objective", "instruction",
                                                  "must_include_text", "preserve", "alter", "logo_mode", "payload_policy",
-                                                 "pipeline", "mockup")}
+                                                 "pipeline", "mockup", "layout")}
     brief = dict(item.get("brief") or {})
     if format_key:
         brief["format_key"] = format_key

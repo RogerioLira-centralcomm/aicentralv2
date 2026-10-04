@@ -599,10 +599,21 @@ def create_image(payload, modeling, client_id, user_id):
         creation_intent = "branded_creative"
     typeset_social = getattr(modeling, "typeset_social", None)
     typeset_social = SOCIAL_TYPESET if typeset_social is None else bool(typeset_social)
-    auto_mask = display_mask_reference(data, raw_references, integer(data.get("width"), 0), integer(data.get("height"), 0),
-                                       creation_intent, social=typeset_social)
+    # Lab v5: a layout by position (elements and relations) replaces the box mask; its sketch is the reference image.
+    from . import position_layouts
+    position_id = str(data.get("position_layout") or "")
+    position_spec = position_layouts.spec(position_id) if position_id else None
+    if position_spec and data.get("position_sketch", True) is not False and \
+            len([item for item in raw_references if isinstance(item, dict)]) < MAX_IMAGE_REFERENCES:
+        raw_references = [*raw_references, {"id": f"position-{position_id}", "url": position_layouts.sketch_data_url(position_id),
+                                            "role": "composition", "source": "global", "label": f"Posições · {position_spec['family_label']}"}]
+    auto_mask = None if position_spec else display_mask_reference(
+        data, raw_references, integer(data.get("width"), 0), integer(data.get("height"), 0), creation_intent, social=typeset_social)
     if auto_mask:
         raw_references = [*raw_references, auto_mask]
+
+    def layout_specs():
+        return [position_spec] if position_spec else mask_specs(raw_references)
     visual_reference = uses_user_visual_reference([
         clean_direction_reference(item, index)
         for index, item in enumerate(raw_references[:MAX_IMAGE_REFERENCES]) if isinstance(item, dict)
@@ -614,7 +625,7 @@ def create_image(payload, modeling, client_id, user_id):
     # is readable, the Studio applies it after generation instead of sending it as a reference.
     brand_logo = load_brand_logos(data.get("brand_context")) if creation_intent == "branded_creative" and not data.get("mask") else None
     brand_logo = brand_logo or None
-    logo_corner = logo_position(raw_references) if brand_logo else ""
+    logo_corner = (position_spec["logo"] if position_spec else logo_position(raw_references)) if brand_logo else ""
     try:
         provider_source_references = (
             references_with_brand_logo(raw_references, data.get("brand_context"))
@@ -740,8 +751,8 @@ def create_image(payload, modeling, client_id, user_id):
     if director_copy:
         # The director already fitted the briefing's copy to this size (cuts only, checked against the briefing).
         copy_headline, copy_cta = director_copy["headline"], director_copy["cta"]
-    composed = bool(sizing and (sizing["strategy"] == "composed" or display_typeset(width, height, typeset_social))
-                    and not mask and mask_specs(raw_references) and "headline" in mask_specs(raw_references)[0]["zones"]
+    composed = bool(sizing and (position_spec or sizing["strategy"] == "composed" or display_typeset(width, height, typeset_social))
+                    and not mask and layout_specs() and "headline" in layout_specs()[0]["zones"]
                     and copy_headline)
     if director_copy:
         support_copy = director_copy["support"]
@@ -750,7 +761,8 @@ def create_image(payload, modeling, client_id, user_id):
         copy_headline, support_copy = studio_playbook.with_offer(copy_headline, studio_playbook.support_copy(briefing),
                                                                  budget["apoio_max_linhas"]) if copy_headline else (
             copy_headline, studio_playbook.support_copy(briefing)[:budget["apoio_max_linhas"]])
-    layout_lines = composition_layout_lines(references, mask, provider_size, composed)
+    layout_lines = (position_layouts.words(position_id, text_free=composed) if position_spec
+                    else composition_layout_lines(references, mask, provider_size, composed))
     product_visibility_line = (
         "PRODUCT VISIBILITY CHECK: If the briefing requests a product, make it a deliberate, recognizable foreground subject with enough scale and light to be clearly visible. Do not hide it behind hands, bodies, crops or depth-of-field blur. If bottles or packages are requested, show the requested quantity visibly and keep their labels facing the camera when the briefing asks for labels."
         if re.search(r"produto|product|embalag|garraf|frasco|bottle|package|pote\b|caixa", prompt, re.IGNORECASE) else ""
@@ -840,13 +852,14 @@ def create_image(payload, modeling, client_id, user_id):
         if composed:
             from . import banner_compose
             # The copy goes where this picture is calm (or on the painted band), not where the model was told to leave room.
-            layout = banner_compose.choose_layout(banner_compose.decode(fitted).convert("RGB"), mask_specs(raw_references)[0])
+            # A layout by position is the design itself: it is not swapped after the scene.
+            layout = position_spec or banner_compose.choose_layout(banner_compose.decode(fitted).convert("RGB"), mask_specs(raw_references)[0])
             chosen_layout["spec"] = layout
 
         def with_logo(encoded_image, encoded_format):
             if not (brand_logo and not mask):
                 return encoded_image
-            specs = [layout] if layout else mask_specs(raw_references)
+            specs = [layout] if layout else layout_specs()
             rect = next((spec["zones"]["logo"] for spec in specs if "logo" in spec["zones"]), None)
             return apply_brand_logo(encoded_image, encoded_format, brand_logo, logo_corner, rect=rect)
 
@@ -866,7 +879,7 @@ def create_image(payload, modeling, client_id, user_id):
     if review_enabled:
         # A composed piece carries the support line only where the layout has room for it (not in wide strips).
         from . import banner_compose as _compose
-        support = support_copy if not composed or _compose.renders_support(mask_specs(raw_references)[0]) else []
+        support = support_copy if not composed or _compose.renders_support(layout_specs()[0]) else []
         required_text = [item for item in (copy_headline, *support, copy_cta) if item]
         review_args = dict(
             # The piece is judged against what it is meant to carry: the director's scene and the copy fitted to this
@@ -1019,7 +1032,7 @@ def create_image(payload, modeling, client_id, user_id):
             image_url_2x = save_sibling(image_url, "@2x", piece_2x, format_2x)
         if layers is not None:
             from . import banner_compose
-            banner_compose.save_layers(image_url, base_encoded, layers, chosen_layout["spec"] or mask_specs(raw_references)[0])
+            banner_compose.save_layers(image_url, base_encoded, layers, chosen_layout["spec"] or layout_specs()[0])
         # The finished picture (provider canvas, before logo and code typography): the base of further variations.
         try:
             variation_base_url = None if mask else save_sibling(image_url, "@base", raw, output_format)

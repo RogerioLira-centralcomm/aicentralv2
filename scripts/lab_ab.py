@@ -96,13 +96,17 @@ def main():
         base = studio_bridge.LabModeling
         for name, overrides in arms:
             # One class per arm, set before the director runs (it reads the arm's settings) and never swapped mid-batch.
+            # "_spec" (optional) replaces briefing fields of every scenario for this arm (e.g. a v5 instruction).
+            spec_fields = overrides.pop("_spec", {}) if isinstance(overrides, dict) else {}
             studio_bridge.LabModeling = type("Modeling" + name, (base,), {"review_attempts": args.attempts,
                                                                          "refine_target": None, **overrides})
             jobs = []
             for run_id in [int(item) for item in args.runs.split(",")]:
                 run = repository.get_run(args.client, run_id)
                 exp = repository.get_experiment(args.client, run["experiment_id"])
-                spec, snap, plan = exp["spec"], exp["brand_snapshot"] or {}, run["adaptation_plan"]
+                spec, snap, plan = dict(exp["spec"]), exp["brand_snapshot"] or {}, run["adaptation_plan"]
+                for key, value in spec_fields.get(str(run_id), spec_fields.get("*", {})).items():
+                    spec[key] = {**(spec.get(key) or {}), **value} if isinstance(value, dict) and isinstance(spec.get(key), dict) else value
                 by_ref = {ref["ref_id"]: ref for ref in spec["references"]}
                 direction = studio_bridge.direct(spec, snap)
                 jobs.append((run_id, name, direction, spec, snap, plan, by_ref, run["created_by"]))

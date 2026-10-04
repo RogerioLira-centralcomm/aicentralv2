@@ -264,3 +264,18 @@ def test_scene_prompt_of_a_typeset_piece_loses_the_sentences_that_quote_the_copy
     from aicentralv2.creative_media.studio_playbook import scene_only
     scene = "Homem com camiseta bege em estúdio. Título Outlet com +20% EXTRA no topo. Luz suave."
     assert scene_only(scene, ["Outlet com +20% EXTRA"]) == "Homem com camiseta bege em estúdio. Luz suave."
+
+
+def test_a_layout_by_position_is_used_as_is_and_its_sketch_goes_to_the_model(monkeypatch):
+    from aicentralv2.creative_media import banner_compose, export
+    monkeypatch.setattr(export, "save_sibling", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(banner_compose, "save_layers", lambda *_args, **_kwargs: None)
+    calls, saved, sent = [], [], []
+    _verdicts(monkeypatch, APPROVED)
+    modeling = _modeling(calls, saved, sent)
+    result = studio_create.create_image({"prompt": "Cena da campanha.", "original_prompt": "Título: Outlet com +20% EXTRA\nBotão: Comprar agora",
+                                         "aspect_ratio": "6:5", "width": 300, "height": 250, "position_layout": "pessoa-circulo",
+                                         "request_id": "review-request-pos"}, modeling, 10, 20)
+    assert "LAYOUT BY POSITION" in calls[0] and "TEXT-FREE IMAGE" in calls[0]
+    assert any(str(item).startswith("data:image/png") for item in sent[0]), "the sketch goes embedded"
+    assert result

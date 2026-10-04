@@ -1,4 +1,4 @@
-import {flowBlockRegistry} from './flowBlockRegistry.js';
+import {flowBlockRegistry, flowPaletteGroups} from './flowBlockRegistry.js';
 import {FLOW_GRID} from './flowStages.js';
 import {defaultMedia, isPaidPlatform} from './flowMedia.js';
 
@@ -232,11 +232,20 @@ const DEFAULT_SEGMENTS = {
 };
 const segmentFor = platform => DEFAULT_SEGMENTS[platform] || (isPaidPlatform(platform) ? {name: 'Público de prospecção', kind: 'prospeccao'} : null);
 
-export const defaultStrategyChannels = strategy => strategy.channels.filter(([, selected]) => selected).map(([kind]) => kind);
+// Search and direct traffic arrive without any UTM, so every plan measures them whatever the strategy lists.
+export const ALWAYS_CHANNELS = Object.freeze(['traffic.organic_search', 'traffic.direct']);
+
+/** Every channel a plan can start from, grouped as the palette groups them. */
+export const CHANNEL_GROUPS = Object.freeze(['Tráfego pago', 'Tráfego orgânico', 'Comunicação']
+  .map(category => [category, (flowPaletteGroups.find(([name]) => name === category)?.[1] || []).map(({kind, label}) => ({kind, label}))]));
+
+export const defaultStrategyChannels = strategy => [...new Set([...strategy.channels.filter(([, selected]) => selected).map(([kind]) => kind), ...ALWAYS_CHANNELS])];
 
 /** Builds an editable v2 flow document from a strategy and the channels the planner keeps. */
 export function buildStrategyConfig(strategy, channelKinds = defaultStrategyChannels(strategy)) {
-  const chosen = strategy.channels.map(([kind]) => kind).filter(kind => channelKinds.includes(kind));
+  const own = strategy.channels.map(([kind]) => kind);
+  const extra = CHANNEL_GROUPS.flatMap(([, items]) => items.map(item => item.kind)).filter(kind => !own.includes(kind));
+  const chosen = [...own, ...extra].filter(kind => channelKinds.includes(kind));
   const ids = {};
   const nodes = [];
   for (const kind of chosen) {
@@ -256,11 +265,16 @@ export function buildStrategyConfig(strategy, channelKinds = defaultStrategyChan
     if (step.condition) node.condition = {...step.condition};
     nodes.push(node);
   }
-  const paid = chosen.filter(kind => kind.startsWith('traffic.') && !strategy.links.some(([from]) => from === kind));
+  // Channels the strategy does not wire by name enter where its paid traffic enters.
+  const entry = (strategy.links.find(([from]) => from === '@paid') || strategy.links.find(([from]) => flowBlockRegistry[from]?.type === 'source'))?.[1];
+  const links = !entry || strategy.links.some(([from]) => from === '@paid') ? strategy.links : [...strategy.links, ['@paid', entry, null, null]];
+  const loose = chosen.filter(kind => !strategy.links.some(([from]) => from === kind));
   // Rates are planning references, so the forecast starts filled; the planner adjusts them to the campaign.
-  const edges = strategy.links.flatMap(([from, to, label, rate]) => (from === '@paid' ? paid : [from]).filter(key => ids[key] && ids[to])
-    .map(key => ({id: crypto.randomUUID(), from: ids[key], to: ids[to], variant: 'direct', label: label || 'Próximo',
-      ...(rate == null ? {} : {forecast: {rate}})})));
+  const edges = links.flatMap(([from, to, label, rate]) => (from === '@paid' ? loose : [from]).filter(key => ids[key] && ids[to])
+    .map(key => {
+      const planned = rate != null && (from !== '@paid' || own.includes(key));
+      return {id: crypto.randomUUID(), from: ids[key], to: ids[to], variant: 'direct', label: label || 'Próximo', ...(planned ? {forecast: {rate}} : {})};
+    }));
   arrangeByDepth(nodes, edges);
   return {schema_version: 3, site_kind: strategy.siteKind, strategy_id: strategy.id, nodes, edges};
 }

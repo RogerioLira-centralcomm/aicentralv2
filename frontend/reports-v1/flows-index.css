@@ -60,3 +60,27 @@
 .reports-flow-chosen span{color:var(--color-text-tertiary);font-size:13px;line-height:18px}
 .reports-flow-new__footer{display:grid;gap:10px;width:100%}
 .reports-flow-new__footer p{margin:0;color:var(--color-text-tertiary);font-size:12px;line-height:1.45}
+
+/* New-flow drawer: each start option is one card; the chosen strategy and its channels live inside the first card. */
+.cadu-ds-drawer .reports-form.reports-flow-new .reports-flow-start{gap:10px}
+.cadu-ds-drawer .reports-form.reports-flow-new .reports-flow-start__card{display:grid;gap:12px;padding:14px;border:1px solid var(--color-border-secondary);border-radius:10px;background:var(--color-bg-primary)}
+.cadu-ds-drawer .reports-form.reports-flow-new .reports-flow-start__card.is-selected{border-color:var(--color-border-brand);background:var(--color-bg-brand-primary)}
+.cadu-ds-drawer .reports-form.reports-flow-new label.reports-flow-start__option,
+.cadu-ds-drawer .reports-form.reports-flow-new label.reports-flow-start__option:has(input:checked){display:grid;grid-template-columns:16px minmax(0,1fr);column-gap:12px;row-gap:0;align-items:start;padding:0;border:0;background:none}
+.cadu-ds-drawer .reports-form.reports-flow-new label.reports-flow-start__option>input{grid-column:1;margin:3px 0 0}
+.cadu-ds-drawer .reports-form.reports-flow-new label.reports-flow-start__option>span{grid-column:2}
+.cadu-ds-drawer .reports-form.reports-flow-new .reports-flow-strategies{gap:12px;padding-left:28px}
+.cadu-ds-drawer .reports-form.reports-flow-new .reports-flow-chosen{border-color:var(--color-border-secondary);background:var(--color-bg-primary)}
+.cadu-ds-drawer .reports-form.reports-flow-new .reports-flow-channels{display:grid;gap:12px;margin:0;padding:12px;border:1px solid var(--color-border-secondary);border-radius:10px;background:var(--color-bg-primary)}
+.reports-flow-channels legend{padding:0;color:var(--color-text-secondary);font-size:14px;font-weight:600}
+.reports-flow-channels>p,.reports-flow-channels>small{margin:0;color:var(--color-text-tertiary);font-size:12px;line-height:1.45}
+.reports-flow-channels__group{display:grid;gap:6px}
+.reports-flow-channels__group>strong{color:var(--color-text-quaternary);font-size:12px;font-weight:600}
+.reports-flow-channels__group>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px}
+.cadu-ds-drawer .reports-form.reports-flow-new .reports-flow-channels__group label{display:flex;flex-direction:row;align-items:center;gap:8px;font-size:14px;font-weight:400}
+.reports-flow-channels__group label.is-locked{color:var(--color-text-primary);font-weight:500}
+.reports-flow-channels__group label em{margin-left:auto;color:var(--color-text-brand-secondary);font-size:11px;font-style:normal;font-weight:600}
+.cadu-ds-drawer .reports-form.reports-flow-new .reports-flow-new__links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;margin:0;padding:0;border:0}
+.reports-flow-new__links legend{margin-bottom:8px;padding:0;color:var(--color-text-secondary);font-size:14px;font-weight:600}
+.reports-flow-new__links legend small{margin-left:6px;color:var(--color-text-tertiary);font-weight:400}
+@media(max-width:560px){.reports-flow-channels__group>div,.cadu-ds-drawer .reports-form.reports-flow-new .reports-flow-new__links{grid-template-columns:1fr}.cadu-ds-drawer .reports-form.reports-flow-new .reports-flow-strategies{padding-left:0}}

@@ -490,6 +490,69 @@ FORMATS = (
     ),
 )
 
+
+def _display_unit(key, label, width, height, geometry, density, cousin, *, devices=("desktop", "mobile"),
+                  zones=("in_feed",), aliases=(), siblings=()):
+    """Every remaining IAB / portal display size: the Studio is an ad studio and accepts all of them."""
+    compact = density == "compact"
+    return _fmt(
+        key, label=label, width=width, height=height,
+        family="compact-display" if compact else "standard-display", density=density,
+        geometry_family=geometry, iab_cousin=cousin,
+        channels=("portal", "programmatic"), devices=devices, placement_zones=zones,
+        viewer_types=("portal", "isolated"),
+        required=("logo", "headline", "cta") if width * height >= 6000 else ("logo",),
+        optional=() if compact else ("product", "lifestyle"),
+        forbidden=PORTAL_FORBIDDEN + (("product", "lifestyle", "legal") if compact else ()),
+        aliases=aliases,
+        recomposition={
+            "preserve": ["logo", "headline", "cta"],
+            "drop_when_compact": ["product", "support", "legal", "lifestyle"] if compact else ["support", "legal"],
+            "siblings": list(siblings),
+        },
+    )
+
+
+# IAB fixed sizes and the usual Brazilian portal units beyond the core set above.
+FORMATS = FORMATS + (
+    _display_unit("iab-large-rectangle", "Large rectangle", 336, 280, "rectangle", "standard", "large_rectangle",
+                  aliases=("iab-336x280", "large-rectangle"), siblings=("iab-medium",)),
+    _display_unit("display-250x250", "Square 250", 250, 250, "square_1x1", "standard", "square",
+                  aliases=("square-250",), siblings=("display-300x300", "iab-medium")),
+    _display_unit("display-200x200", "Small square", 200, 200, "square_1x1", "standard", "small_square",
+                  aliases=("small-square",), siblings=("display-250x250",)),
+    _display_unit("display-180x150", "Rectangle 180", 180, 150, "rectangle", "standard", "rectangle",
+                  aliases=("iab-rectangle",), siblings=("iab-medium",)),
+    _display_unit("display-125x125", "Button 125", 125, 125, "square_1x1", "compact", "button",
+                  aliases=("button-125",), siblings=("display-200x200",)),
+    _display_unit("display-240x400", "Vertical rectangle", 240, 400, "half_page", "standard", "vertical_rectangle",
+                  aliases=("vertical-rectangle",), siblings=("iab-halfpage",)),
+    _display_unit("iab-portrait", "Portrait 300×1050", 300, 1050, "half_page", "standard", "portrait",
+                  devices=("desktop",), zones=("rail",), aliases=("iab-300x1050", "portrait-1050"), siblings=("iab-halfpage",)),
+    _display_unit("iab-wide-skyscraper", "Skyscraper 120", 120, 600, "half_page", "standard", "skyscraper",
+                  devices=("desktop",), zones=("rail",), aliases=("iab-120x600",), siblings=("iab-skyscraper",)),
+    _display_unit("display-120x240", "Vertical banner", 120, 240, "half_page", "standard", "vertical_banner",
+                  zones=("rail",), aliases=("vertical-banner",), siblings=("iab-wide-skyscraper",)),
+    _display_unit("iab-large-leaderboard", "Large leaderboard", 970, 90, "wide_banner", "compact", "large_leaderboard",
+                  devices=("desktop",), zones=("leaderboard",), aliases=("iab-970x90", "super-leaderboard"), siblings=("iab-leaderboard",)),
+    _display_unit("iab-full-banner", "Full banner", 468, 60, "wide_banner", "compact", "full_banner",
+                  zones=("leaderboard",), aliases=("iab-468x60", "full-banner"), siblings=("iab-leaderboard",)),
+    _display_unit("iab-half-banner", "Half banner", 234, 60, "wide_banner", "compact", "half_banner",
+                  aliases=("iab-234x60", "half-banner"), siblings=("iab-full-banner",)),
+    _display_unit("iab-large-mobile", "Large mobile banner", 320, 100, "wide_banner", "compact", "large_mobile_banner",
+                  devices=("mobile",), zones=("sticky",), aliases=("iab-320x100",), siblings=("iab-mobile",)),
+    _display_unit("iab-mobile-300", "Mobile banner 300", 300, 50, "wide_banner", "compact", "mobile_banner",
+                  devices=("mobile",), zones=("sticky",), aliases=("iab-300x50",), siblings=("iab-mobile",)),
+    _display_unit("display-300x100", "Banner 300×100", 300, 100, "wide_banner", "compact", "banner_300x100",
+                  devices=("mobile",), zones=("sticky",), aliases=("banner-300x100",), siblings=("iab-large-mobile",)),
+    _display_unit("display-88x31", "Micro bar", 88, 31, "wide_banner", "compact", "micro_bar",
+                  aliases=("micro-bar", "iab-88x31"), siblings=()),
+    _display_unit("interstitial-320x480", "Intersticial mobile", 320, 480, "portrait_4x5", "standard", "mobile_interstitial",
+                  devices=("mobile",), aliases=("mobile-interstitial",), siblings=("interstitial-480x320",)),
+    _display_unit("interstitial-480x320", "Intersticial horizontal", 480, 320, "landscape_social", "standard", "mobile_interstitial_landscape",
+                  devices=("mobile",), aliases=("mobile-interstitial-landscape",), siblings=("interstitial-320x480",)),
+)
+
 # Slugs de CTV de veículo (DB) — sem zona de portal.
 _CTV_VEHICLE = (
     "netflix-pause-banner",

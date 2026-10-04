@@ -21,7 +21,9 @@ MAX_SIDE = 3840
 TARGET_PIXELS = {"low": 1_500_000, "medium": 1_500_000, "high": 3_000_000}
 # Initial-load weight budget for display units; social formats are just kept as small as possible.
 DISPLAY_WEIGHT_KB = 150
-DISPLAY_SIZES = {(300, 250), (300, 300), (300, 600), (160, 600), (970, 250), (728, 90), (320, 50), (336, 280), (320, 100)}
+DISPLAY_SIZES = {(300, 250), (300, 300), (300, 600), (160, 600), (970, 250), (728, 90), (320, 50), (336, 280), (320, 100),
+                 (250, 250), (200, 200), (180, 150), (125, 125), (240, 400), (300, 1050), (120, 600), (120, 240),
+                 (970, 90), (468, 60), (234, 60), (300, 50), (300, 100), (88, 31), (320, 480), (480, 320)}
 
 
 def generation_size(width, height, quality="medium", floor=None):

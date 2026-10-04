@@ -372,3 +372,15 @@ def test_cta_never_grows_under_the_logo_and_tall_units_keep_a_modest_button():
     # The button never grows past the larger of its zone and 8.5% of the short side (300 px here, not 600).
     height_px = next(layer for layer in tall_layers if layer["type"] == "cta")["box"][3] * 600
     assert height_px <= max(tall["zones"]["cta"][3] * 600, 300 * 0.085) + 1
+
+
+def test_every_ad_size_is_accepted_and_small_display_units_get_code_typesetting():
+    from aicentralv2 import creative_format_registry as registry
+    from aicentralv2.creative_media import studio_create
+    sizes = {(item["width"], item["height"]) for item in registry.catalog_entries()}
+    for size in [(320, 50), (300, 50), (468, 60), (88, 31), (300, 1050), (120, 600), (336, 280), (970, 90)]:
+        assert size in sizes
+        assert min(size) >= studio_create.MIN_SIDE_PX
+    data = {"original_prompt": "Título: Conta no app\nBotão: Baixe já"}
+    for width, height in [(320, 50), (300, 50), (468, 60), (970, 90), (336, 280), (300, 1050), (120, 600)]:
+        assert studio_create.display_mask_reference(data, [], width, height, "neutral_asset"), (width, height)

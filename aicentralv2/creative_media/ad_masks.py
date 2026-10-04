@@ -34,6 +34,22 @@ FORMATS = {
     "iab-970x250": ("IAB 970×250", 970, 250, "iab"),
     "iab-728x90": ("IAB 728×90", 728, 90, "iab"),
     "iab-320x50": ("IAB 320×50", 320, 50, "iab"),
+    "iab-336x280": ("IAB 336×280", 336, 280, "iab"),
+    "display-250x250": ("Display 250×250", 250, 250, "iab"),
+    "display-200x200": ("Display 200×200", 200, 200, "iab"),
+    "display-180x150": ("Display 180×150", 180, 150, "iab"),
+    "display-240x400": ("Display 240×400", 240, 400, "iab"),
+    "iab-300x1050": ("IAB 300×1050", 300, 1050, "iab"),
+    "iab-120x600": ("IAB 120×600", 120, 600, "iab"),
+    "display-120x240": ("Display 120×240", 120, 240, "iab"),
+    "iab-970x90": ("IAB 970×90", 970, 90, "iab"),
+    "iab-468x60": ("IAB 468×60", 468, 60, "iab"),
+    "iab-234x60": ("IAB 234×60", 234, 60, "iab"),
+    "iab-320x100": ("IAB 320×100", 320, 100, "iab"),
+    "iab-300x50": ("IAB 300×50", 300, 50, "iab"),
+    "display-300x100": ("Display 300×100", 300, 100, "iab"),
+    "interstitial-320x480": ("Intersticial 320×480", 320, 480, "iab"),
+    "interstitial-480x320": ("Intersticial 480×320", 480, 320, "iab"),
 }
 
 # Entry in the Studio format registry that defines each format's required/forbidden elements.
@@ -43,6 +59,12 @@ REGISTRY_KEYS = {
     "iab-300x250": "iab-medium", "display-300x300": "display-300x300", "iab-300x600": "iab-halfpage",
     "iab-160x600": "iab-skyscraper", "iab-970x250": "iab-billboard", "iab-728x90": "iab-leaderboard",
     "iab-320x50": "iab-mobile",
+    "iab-336x280": "iab-large-rectangle", "display-250x250": "display-250x250", "display-200x200": "display-200x200",
+    "display-180x150": "display-180x150", "display-240x400": "display-240x400", "iab-300x1050": "iab-portrait",
+    "iab-120x600": "iab-wide-skyscraper", "display-120x240": "display-120x240", "iab-970x90": "iab-large-leaderboard",
+    "iab-468x60": "iab-full-banner", "iab-234x60": "iab-half-banner", "iab-320x100": "iab-large-mobile",
+    "iab-300x50": "iab-mobile-300", "display-300x100": "display-300x100",
+    "interstitial-320x480": "interstitial-320x480", "interstitial-480x320": "interstitial-480x320",
 }
 
 # Extra rules that go into the written contract, from the format's platform constraints.
@@ -51,6 +73,8 @@ FORMAT_NOTES = {
     "youtube-16x9": "This placement uses the headline only: do not draw any button, pill, price or call-to-action.",
     "iab-728x90": "Compact banner: use only a calm, plain background image; no product, no people, no small print.",
     "iab-320x50": "Compact banner: use only a calm, plain background image; no product, no people, no small print.",
+    **{key: "Compact banner: use only a calm, plain background image; no product, no people, no small print."
+       for key in ("iab-970x90", "iab-468x60", "iab-234x60", "iab-320x100", "iab-300x50", "display-300x100")},
 }
 
 # Providers only accept a few ratios; formats beyond this spread are generated at the closest
@@ -525,6 +549,15 @@ _COMPACT = (
     ("compacto-logo-esquerda", TL, True),
 )
 
+_NARROW = (
+    ("foto-texto-base", BR, True),
+    ("foto-texto-topo", NONE, True),
+    ("produto-destaque", BR, True),
+    ("texto-central", NONE, False),
+    ("faixa-inferior", BR, True),
+    ("minimalista", NONE, False),
+)
+
 # format -> (family, logo, cta) set. YouTube in-feed forbids a CTA and the compact banners carry no
 # product or people (creative_format_registry); every format has at least five clearly different layouts.
 MASK_SETS = {
@@ -545,14 +578,7 @@ MASK_SETS = {
     "iab-300x250": _DISPLAY,
     "display-300x300": _DISPLAY,
     "iab-300x600": _DISPLAY,
-    "iab-160x600": (
-        ("foto-texto-base", BR, True),
-        ("foto-texto-topo", NONE, True),
-        ("produto-destaque", BR, True),
-        ("texto-central", NONE, False),
-        ("faixa-inferior", BR, True),
-        ("minimalista", NONE, False),
-    ),
+    "iab-160x600": _NARROW,
     "iab-970x250": (
         ("foto-texto-base", BR, True),
         ("foto-texto-topo", NONE, True),
@@ -564,6 +590,22 @@ MASK_SETS = {
     ),
     "iab-728x90": _COMPACT,
     "iab-320x50": _COMPACT,
+    "iab-336x280": _DISPLAY,
+    "display-250x250": _DISPLAY,
+    "display-200x200": _DISPLAY,
+    "display-180x150": _DISPLAY,
+    "display-240x400": _DISPLAY,
+    "interstitial-320x480": _DISPLAY,
+    "interstitial-480x320": _DISPLAY,
+    "iab-300x1050": _NARROW,
+    "iab-120x600": _NARROW,
+    "display-120x240": _NARROW,
+    "iab-970x90": _COMPACT,
+    "iab-468x60": _COMPACT,
+    "iab-234x60": _COMPACT,
+    "iab-320x100": _COMPACT,
+    "iab-300x50": _COMPACT,
+    "display-300x100": _COMPACT,
 }
 
 

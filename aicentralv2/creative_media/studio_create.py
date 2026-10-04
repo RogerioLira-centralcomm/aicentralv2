@@ -29,6 +29,7 @@ DIRECTION_TOKENS_PER_ITEM = 1200
 REDUNDANCY_MODEL = os.getenv("CREATIVE_STUDIO_DIRECTION_FALLBACK_MODEL", "openai/gpt-4o-mini")
 IMAGE_MODEL = os.getenv("CREATIVE_STUDIO_IMAGE_MODEL", "openai/gpt-image-2")
 MAX_IMAGE_REFERENCES = 3
+MIN_SIDE_PX = 16
 REFERENCE_DIRECTION_TOKENS = 180
 REFERENCE_IMAGE_COST_FACTOR = Decimal("0.12")
 IMAGE_ROLES = {
@@ -662,8 +663,9 @@ def create_image(payload, modeling, client_id, user_id):
         raise ValueError("Informe largura e altura do formato.")
     if width and height:
         assert_masks_fit_format(raw_references, width, height)
-    if (width and not 120 <= width <= 7680) or (height and not 80 <= height <= 7680):
-        raise ValueError("Dimensões do formato fora do limite permitido.")
+    # Every ad size is accepted, down to the 88x31 micro bar and the 320x50 / 300x50 mobile banners.
+    if (width and not MIN_SIDE_PX <= width <= 7680) or (height and not MIN_SIDE_PX <= height <= 7680):
+        raise ValueError(f"Dimensões do formato fora do limite permitido ({MIN_SIDE_PX} a 7680 px por lado).")
     supplied_logo = official_logo_reference(data.get("brand_context")) if creation_intent == "branded_creative" else None
     identity_safe_area = (
         "NEUTRAL ASSET CHECK: Do not reserve space for a logo, headline, price, product packshot or brand lockup unless the user explicitly asks for that element."

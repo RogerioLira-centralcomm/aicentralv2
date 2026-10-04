@@ -138,11 +138,16 @@ def stray_text(observation: dict, required_text: list[str], brand_name: str = ""
     """Words in the picture that the Studio did not typeset (the model painted copy on a text-free piece)."""
     from ..creative_lab.evaluation import _letters
     known = _letters(" ".join([*required_text, brand_name]))
+    brand_tokens = {token for token in _letters(brand_name).split() if len(token) >= 3}
     stray = []
     for line in observation.get("visible_text") or []:
         letters = _letters(str(line))
-        if len(letters.replace(" ", "")) >= 3 and letters not in known:
-            stray.append(str(line))
+        if len(letters.replace(" ", "")) < 3 or letters in known:
+            continue
+        # The official logo's own wordmark ("CEMIG ATENDE", "centralcomm.media") is not stray copy.
+        if len(letters.split()) <= 3 and any(token in letters.replace(" ", "") for token in brand_tokens):
+            continue
+        stray.append(str(line))
     return stray
 
 

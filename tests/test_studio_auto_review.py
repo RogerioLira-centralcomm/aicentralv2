@@ -255,7 +255,7 @@ def test_text_the_studio_did_not_typeset_rejects_a_text_free_piece():
     piece = {"text_free": True, "logo_mode": "composed", "brand_name": "Reserva"}
     verdict = studio_review.judge({"overall": 80}, observation, {}, ["Outlet com +20% EXTRA", "COMPRAR AGORA"], piece)
     assert verdict["reason"] == "stray_text"
-    clean = studio_review.judge({"overall": 80}, {"visible_text": ["Outlet com +20% EXTRA", "COMPRAR AGORA", "RESERVA"]}, {},
+    clean = studio_review.judge({"overall": 80}, {"visible_text": ["Outlet com +20% EXTRA", "COMPRAR AGORA", "RESERVA", "reserva.com.br"]}, {},
                                 ["Outlet com +20% EXTRA", "COMPRAR AGORA"], piece)
     assert clean["approved"]
 

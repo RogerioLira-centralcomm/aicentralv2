@@ -30,6 +30,22 @@ RULES = [
         "note": "Elementos não pedidos (ícones, selos, telas com texto). Proibir explicitamente no fim do prompt.",
     },
     {
+        "id": "abstract-screens",
+        "failure": "invented_data",
+        "evidence": {"sample": "lab-ab-2026-10-03", "count": 1, "of": 12},
+        "status": "applied",
+        "applies_to": "image_prompt + reviewer",
+        "note": "O modelo inventou conta e consumo na tela do celular (R$ 184,90, 289 kWh). Telas só com formas; revisor rejeita número fora do pedido.",
+    },
+    {
+        "id": "ad-craft",
+        "failure": "extra_elements / composition",
+        "evidence": {"sample": "lab-2026-10-03 + ab-2026-10-03", "count": 30, "of": 134},
+        "status": "applied",
+        "applies_to": "image_prompt",
+        "note": "Uma cena só, foco único, área do texto calma, luz comercial, cor da marca na cena: o que separou as peças aprovadas das rejeitadas.",
+    },
+    {
         "id": "brand-colors-first",
         "failure": "palette_off",
         "evidence": {"sample": "lab-2026-10-03", "count": 58, "of": 122},
@@ -64,8 +80,9 @@ def prompt_lines(copy: list[str], *, text_free: bool) -> list[str]:
         lines.append("EXACT COPY (render letter by letter, accents, numbers and punctuation included; each string on its own "
                      "line; write nothing else):\n" + "\n".join(f'"{item}"' for item in strings))
     if applied("no-extra-elements"):
-        lines.append("DO NOT ADD: icons, badges, seals, stickers, extra buttons, phone or app screens with readable text, "
-                     "charts, captions or decorative words that the briefing did not ask for.")
+        lines.append("DO NOT ADD: icons, badges, seals, stickers, extra buttons, charts, captions or decorative words that the "
+                     "briefing did not ask for. Phone, laptop and app screens show only abstract interface shapes: no "
+                     "readable words, numbers, prices, dates or charts on any screen.")
     return lines
 
 
@@ -163,15 +180,19 @@ def edited_copy(raw, briefing: str, budget: dict) -> dict | None:
     return copy if copy["headline"] else None
 
 
-def budget_instruction(budget: dict, width: int, height: int) -> str:
+def budget_instruction(budget: dict, width: int, height: int, typeset: bool = False) -> str:
     """The budget in plain numbers, for the director to count against."""
     size = f"{width}x{height}" if width and height else "este formato"
     support = ("sem texto de apoio" if not budget["apoio_max_linhas"] else
                f"no máximo {budget['apoio_max_linhas']} linha(s) de apoio com até {budget['apoio_max_palavras_por_linha']} palavras cada "
                "(cada item separado por · no pedido é uma linha; escolha as mais importantes)")
     cta = "sem botão" if not budget["cta_max_palavras"] else f"botão com até {budget['cta_max_palavras']} palavras"
-    return (f"ORÇAMENTO DE TEXTO DE {size} ({budget['tamanho']}): título com no máximo {budget['titulo_max_palavras']} palavras; "
+    text = (f"ORÇAMENTO DE TEXTO DE {size} ({budget['tamanho']}): título com no máximo {budget['titulo_max_palavras']} palavras; "
             f"{support}; {cta}. Conte as palavras de cada campo de \"copy\" antes de responder e corte o que passar.")
+    if typeset:
+        text += (" NESTE FORMATO O STUDIO APLICA O TEXTO E O LOGO POR CÓDIGO: o campo \"prompt\" descreve só a imagem (cena, "
+                 "sujeito, luz, cores e uma área calma para o texto) e não cita nenhum título, frase, botão, preço ou logo.")
+    return text
 
 
 def fits(copy: dict | None, budget: dict) -> bool:
@@ -190,3 +211,24 @@ def copy_fit_messages(briefing: str, budget: dict, width: int, height: int, prev
         user += (f"\n\nSua resposta anterior tinha {len(previous.get('headline', '').split())} palavras no título "
                  f"({previous.get('headline', '')}); o máximo é {budget['titulo_max_palavras']}. Corte mais.")
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+
+
+def ad_craft_line(*, text_free: bool) -> str:
+    """How an ad picture is built (learned from the Lab's approved vs rejected pieces), in one line."""
+    if not applied("ad-craft"):
+        return ""
+    copy_area = ("Keep the copy area of the layout calm and empty: plain background there, no subject, hands, phones or "
+                 "objects crossing it." if text_free else
+                 "Give the copy a calm, high-contrast area so it reads at a glance.")
+    return ("AD CRAFT: one focal subject, sharp and well lit with natural commercial light; a clean background with "
+            "breathing room; the brand colors living in the wardrobe, props or background accents; nothing decorative "
+            "the brief did not ask for. " + copy_area)
+
+
+def scene_only(prompt: str, copy: list[str]) -> str:
+    """Drop the sentences of a scene prompt that quote the copy (the model would paint them on a text-free piece)."""
+    strings = [item.casefold() for item in copy if item and len(item) >= 3]
+    words = re.compile(r"\b(t[ií]tulo|headline|bot[aã]o|cta|texto|slogan|chamada|logo)\b", re.I)
+    sentences = re.split(r"(?<=[.!?;])\s+", str(prompt or ""))
+    kept = [item for item in sentences if not words.search(item) and not any(text in item.casefold() for text in strings)]
+    return " ".join(kept) if kept else prompt

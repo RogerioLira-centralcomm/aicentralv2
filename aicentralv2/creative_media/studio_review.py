@@ -34,6 +34,7 @@ MAX_ATTEMPTS = max(1, int(os.getenv("STUDIO_AUTO_REVIEW_MAX_ATTEMPTS", "3") or 3
 MARGIN_LIMIT = 5.0
 # Falhas que o usuário percebe de imediato e que uma nova tentativa costuma resolver.
 REJECT_FAILURES = {"text_rendering", "logo_redrawn", "cropped_content", "identity_changed", "reference_ignored"}
+_NUMBER = re.compile(r"\d[\d.,]*")
 MARGIN_KINDS = {"headline", "text", "cta", "logo"}
 REASONS = {
     "text_rendering": "o texto saiu diferente do pedido",
@@ -44,6 +45,8 @@ REASONS = {
     "text_mismatch": "o texto saiu diferente do pedido",
     "cropped": "algo importante foi cortado na borda",
     "margin": "texto, botão ou logo encostado na borda (fora da margem de 8%)",
+    "invented_data": "apareceram números ou preços que o pedido não tem",
+    "stray_text": "a imagem trouxe texto além do que o Studio aplica (texto repetido)",
     "forbidden": "apareceu um elemento proibido pela marca",
     "low_score": "a nota geral ficou abaixo do mínimo",
 }
@@ -93,6 +96,8 @@ EDIT_FIXES = {
     "cropped_content": "MARGIN: move or shrink the elements cut by the frame edge so they sit fully inside an 8% safe margin; extend the background to fill.",
     "cropped": "MARGIN: move or shrink the elements cut by the frame edge so they sit fully inside an 8% safe margin; extend the background to fill.",
     "margin": "MARGIN: bring the elements listed below inside the 8% safe margin.",
+    "invented_data": "REMOVE every number, price, date or data line that is not in the copy; screens show only abstract interface shapes.",
+    "stray_text": "REMOVE every word, letter, number, button and logo painted in the picture; fill those areas with the surrounding background.",
     "identity_changed": "IDENTITY: restore the product or person to match the supplied reference exactly.",
     "reference_ignored": "REFERENCE: bring the supplied reference into the piece according to its role.",
     "forbidden": "REMOVE the element the brand forbids and fill the area with the surrounding background.",
@@ -115,6 +120,30 @@ def eyes_instruction(brand_name: str, logo_mode: str = "none", has_cta: bool = F
 def _is_brand_mark(item: str, brand_name: str) -> bool:
     text = str(item or "").casefold()
     return bool(brand_name) and brand_name.casefold() in text and any(word in text for word in ("logo", "mark", "wordmark", "marca"))
+
+
+def invented_numbers(observation: dict, allowed_text: str) -> list[str]:
+    """Visible numbers (prices, kWh, dates on a phone screen) that the request never wrote."""
+    allowed = {re.sub(r"[.,]", "", item) for item in _NUMBER.findall(allowed_text or "")}
+    found = []
+    for line in observation.get("visible_text") or []:
+        for number in _NUMBER.findall(str(line)):
+            if re.sub(r"[.,]", "", number) not in allowed:
+                found.append(str(line))
+                break
+    return found
+
+
+def stray_text(observation: dict, required_text: list[str], brand_name: str = "") -> list[str]:
+    """Words in the picture that the Studio did not typeset (the model painted copy on a text-free piece)."""
+    from ..creative_lab.evaluation import _letters
+    known = _letters(" ".join([*required_text, brand_name]))
+    stray = []
+    for line in observation.get("visible_text") or []:
+        letters = _letters(str(line))
+        if len(letters.replace(" ", "")) >= 3 and letters not in known:
+            stray.append(str(line))
+    return stray
 
 
 def code_placed(piece: dict | None) -> set[str]:
@@ -203,7 +232,8 @@ def _jpeg_data_url(encoded: str, side: int = 768) -> tuple[Image.Image, str]:
     return image, "data:image/jpeg;base64," + base64.b64encode(out.getvalue()).decode("ascii")
 
 
-def judge(scores: dict, observation: dict, measurements: dict, required_text: list[str], piece: dict | None = None) -> dict:
+def judge(scores: dict, observation: dict, measurements: dict, required_text: list[str], piece: dict | None = None,
+          allowed_text: str | None = None) -> dict:
     """Pure verdict from the evaluation: ``approved`` plus the objective reason when rejected."""
     overall = scores.get("overall")
     failure = (scores.get("primary_failure") or {}).get("choice") or ""
@@ -220,6 +250,10 @@ def judge(scores: dict, observation: dict, measurements: dict, required_text: li
         reason = "cropped"
     elif margin_violations(observation, code_placed(piece)):
         reason = "margin"
+    elif allowed_text is not None and invented_numbers(observation, allowed_text + " " + " ".join(required_text)):
+        reason = "invented_data"
+    elif (piece or {}).get("text_free") and required_text and stray_text(observation, required_text, (piece or {}).get("brand_name", "")):
+        reason = "stray_text"
     elif (scores.get("forbidden_present") or 0) >= CONFIDENCE:
         reason = "forbidden"
     elif MIN_SCORE and overall is not None and overall < MIN_SCORE:
@@ -271,7 +305,7 @@ def review(*, image_b64: str, prompt: str, required_text: list[str], palette: li
         scores = evaluation._summarize(answers)
         piece = {"palette": list(palette or [])[:5], "logo_mode": logo_mode, "has_cta": bool(has_cta),
                  "brand_name": brand_name, "text_free": bool(text_free)}
-        verdict = judge(scores, observation, measurements, required_text, piece)
+        verdict = judge(scores, observation, measurements, required_text, piece, allowed_text=prompt)
         verdict.update({"reviewed": True, "seconds": round(time.monotonic() - started, 1), "observation": observation,
                         "required_text": list(required_text), "piece": piece})
         return verdict
@@ -310,6 +344,10 @@ def edit_prompt(verdict: dict, aspect_ratio: str = "") -> str:
     if margin:
         lines.append("Too close to the edge now: " + "; ".join(margin[:5]) + ". Move them inward so every text, button and "
                      "logo sits at least 8% from every edge; scale that group down slightly if needed and extend the background.")
+    if reason == "invented_data":
+        invented = [str(item) for item in observation.get("visible_text") or [] if _NUMBER.search(str(item))]
+        if invented:
+            lines.append("Invented data visible now: " + " / ".join(f'"{item}"' for item in invented[:5]) + ".")
     if reason in {"cropped", "cropped_content"} and observation.get("cut_off"):
         lines.append("Cut by the edge now: " + "; ".join(str(item) for item in observation["cut_off"][:5]) + ".")
     palette = [item for item in piece.get("palette") or [] if item]

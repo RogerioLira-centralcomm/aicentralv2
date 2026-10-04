@@ -76,7 +76,8 @@ def create(payload, text_callable):
     budget = studio_playbook.copy_budget(context.get("width"), context.get("height"))
     context["orcamento_de_texto"] = budget
     messages = [
-        {"role": "system", "content": system_prompt(count) + "\n\n" + studio_playbook.budget_instruction(budget, context.get("width"), context.get("height"))},
+        {"role": "system", "content": system_prompt(count) + "\n\n" + studio_playbook.budget_instruction(
+            budget, context.get("width"), context.get("height"), typeset=display_typeset(context.get("width"), context.get("height")))},
         {"role": "user", "content": direction_user_content(request, context)},
     ]
     response = None
@@ -757,17 +758,20 @@ def create_image(payload, modeling, client_id, user_id):
         "VISUAL REMIX CHECK: When a user-supplied visual reference is present, make its observable visual language materially visible in the new piece. Combine it with the global mask's layout rather than choosing one reference and ignoring the other. Do not call the reference palette official brand colors or fabricate a brand mark from it."
         if visual_reference else ""
     )
+    # One call: the binding layout (when a mask is used), then the scene, then short rules (the Lab showed long rule
+    # blocks make the model add extras). A piece
+    # whose copy the Studio typesets gets no copy rules at all: they only tempt the model to write.
+    scene = studio_playbook.scene_only(prompt, [copy_headline, *support_copy, copy_cta]) if composed else prompt
     technical_prompt = "\n".join(line for line in [
         *(["TEXT-FREE IMAGE (overrides every other instruction about copy): this image must contain no words, letters, numbers, buttons or logos. Ignore any request below to render a headline, CTA or brand name: the Studio typesets them afterwards."] if composed else []),
         *layout_lines,
+        scene,
+        studio_playbook.ad_craft_line(text_free=composed),
         crop_safe_zone_line(aspect_ratio, width, height, provider_size),
-        reserved_band_line(),
-        "MANDATORY BRIEFING FIDELITY: Preserve every concrete requirement in the user briefing, especially named products, packaging, people, setting, action, copy and requested format. A composition reference is only a layout guide; it must never replace the requested subject or product.",
-        "VISIBLE TEXT LIMIT: render only the literal copy written in the briefing (for example the headline and the button) plus the official logo. Do not add subheadlines, bullet lists, icon captions, statistics, percentages, labelled charts, badges, dates or small print that the user did not write. Keep the layout clean with one clear focal point.",
-        "MANDATORY COMMERCIAL FACTS: Any advertiser name, brand name, product name, price, currency, package volume, slogan or logo request explicitly present in the user briefing must remain in the creative instruction exactly as provided. Do not silently drop any named fact.",
+        "BRIEF FIDELITY: keep every concrete element of the brief (product, packaging, people, setting, action); a composition reference only guides placement and never replaces the requested subject.",
+        *([] if composed else ["VISIBLE TEXT: only the literal copy below and the official logo; no subheadlines, lists, statistics, badges, dates or small print the brief did not write."]),
         brand_identity_guard(data.get("brand_context"), visual_reference=visual_reference, creation_intent=creation_intent, editing=bool(mask), logo_corner=logo_corner, logo_free=logo_free),
         f"REQUESTED CREATIVE PALETTE: {', '.join(requested_palette)}. Use these colors for this piece's campaign mood only; they are not a claim about official brand identity and must not erase the official brand colors or logo." if requested_palette else "",
-        prompt,
         *studio_playbook.prompt_lines([copy_headline, *support_copy, copy_cta], text_free=composed),
         "\nREFERENCE CONTRACT:",
         *(role_lines or ["No image reference was supplied; create an original image."]),
@@ -777,11 +781,8 @@ def create_image(payload, modeling, client_id, user_id):
         identity_safe_area,
         global_composition_line,
         visual_remix_line,
-        "FORMAT AUTHORITY: The selected Studio format below overrides any conflicting dimension written in the user briefing. Compose and deliver only in this selected format.",
-        f"Output channel: {channel or 'unspecified'}.",
-        f"Requested output dimensions: {width}x{height}px." if width and height else "Requested output dimensions: use the selected aspect ratio.",
-        f"Creative direction exploration intensity: {direction_intensity}/100.",
-        f"Output aspect ratio: {aspect_ratio}.",
+        (f"FORMAT: {width}x{height}px ({aspect_ratio}){', channel ' + channel if channel else ''}; this format overrides any size written in the brief."
+         if width and height else f"FORMAT: aspect ratio {aspect_ratio}{', channel ' + channel if channel else ''}; this format overrides any size written in the brief."),
         *([f"FINAL LOGO CHECK: the image must contain no logo, wordmark, monogram or brand name of any company; the {logo_corner.replace('-', ' ')} corner stays plain background."] if logo_corner else []),
         *(["FINAL LOGO CHECK: this composition has no logo; the image must contain no logo, wordmark, monogram or brand name."] if logo_free else []),
         *([final_layout_check(references, provider_size, composed)] if layout_lines else []),
@@ -825,23 +826,31 @@ def create_image(payload, modeling, client_id, user_id):
             setattr(error, "studio_phase", "image_storage")
             raise
 
+    chosen_layout = {"spec": None}
+
     def finish(fitted, fmt):
         """Logo and code-set typography on top of a fitted image; returns (piece, base, layers)."""
         piece_layers = None
+        layout = None
+        if composed:
+            from . import banner_compose
+            # The copy goes where this picture is calm (or on the painted band), not where the model was told to leave room.
+            layout = banner_compose.choose_layout(banner_compose.decode(fitted).convert("RGB"), mask_specs(raw_references)[0])
+            chosen_layout["spec"] = layout
 
         def with_logo(encoded_image, encoded_format):
             if not (brand_logo and not mask):
                 return encoded_image
-            rect = next((spec["zones"]["logo"] for spec in mask_specs(raw_references) if "logo" in spec["zones"]), None)
+            specs = [layout] if layout else mask_specs(raw_references)
+            rect = next((spec["zones"]["logo"] for spec in specs if "logo" in spec["zones"]), None)
             return apply_brand_logo(encoded_image, encoded_format, brand_logo, logo_corner, rect=rect)
 
         base = with_logo(fitted, fmt)
         piece = base
         if composed:
-            from . import banner_compose
             palette = clean_palette(data.get("requested_palette")) or list((data.get("brand_context") or {}).get("palette") or [])
             image, piece_layers = banner_compose.render_text_layers(
-                banner_compose.decode(fitted), mask_specs(raw_references)[0], copy_headline, copy_cta,
+                banner_compose.decode(fitted), layout, copy_headline, copy_cta,
                 data.get("brand_context") or {}, palette, support=support_copy,
             )
             # The logo goes last: the composer paints the text panel, which would otherwise cover it.
@@ -995,7 +1004,7 @@ def create_image(payload, modeling, client_id, user_id):
             image_url_2x = save_sibling(image_url, "@2x", piece_2x, format_2x)
         if layers is not None:
             from . import banner_compose
-            banner_compose.save_layers(image_url, base_encoded, layers, mask_specs(raw_references)[0])
+            banner_compose.save_layers(image_url, base_encoded, layers, chosen_layout["spec"] or mask_specs(raw_references)[0])
         # The finished picture (provider canvas, before logo and code typography): the base of further variations.
         try:
             variation_base_url = None if mask else save_sibling(image_url, "@base", raw, output_format)

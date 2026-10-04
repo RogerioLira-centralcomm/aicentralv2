@@ -208,7 +208,7 @@ class LabModeling:
     review_attempts = 5
     refine_target = 90
     # Draft (low quality, structure only) + finishing edit at the requested quality.
-    two_pass = True
+    two_pass = False  # measured: same score at twice the cost (A/B of 6 scenarios, 2026-10-03)
 
     def __init__(self, model_key: str):
         self.capture = _Capture()

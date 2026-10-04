@@ -237,3 +237,30 @@ def test_variation_edits_a_finished_piece_and_skips_the_draft(monkeypatch):
                                          "request_id": "variation-1"}, modeling, 10, 20)
     assert len(calls) == 1 and calls[0].startswith("VARIATION OF THE FIRST IMAGE") and result["passes"] == ["variation"]
     assert studio_create.variation_reference({"variation_base": "https://evil.example/x.png"}, modeling) is None
+
+
+def test_numbers_the_request_never_wrote_reject_the_piece():
+    observation = {"visible_text": ["Sua conta de luz", "R$ 184,90", "289 kWh", "Chame agora"]}
+    verdict = studio_review.judge({"overall": 80}, observation, {}, ["Sua conta de luz", "Chame agora"],
+                                  allowed_text="Título: Sua conta de luz Botão: Chame agora")
+    assert verdict["reason"] == "invented_data"
+    offer = {"visible_text": ["Outlet com +20% EXTRA"]}
+    assert studio_review.judge({"overall": 80}, offer, {}, [], allowed_text="Título: Outlet com +20% EXTRA")["approved"]
+    prompt = studio_review.edit_prompt({**verdict, "observation": observation})
+    assert "R$ 184,90" in prompt and "abstract interface shapes" in prompt
+
+
+def test_text_the_studio_did_not_typeset_rejects_a_text_free_piece():
+    observation = {"visible_text": ["Outlet com +20% EXTRA", "Outlet com", "COMPRAR AGORA", "Use o cupom DIADOCLIENTE"]}
+    piece = {"text_free": True, "logo_mode": "composed", "brand_name": "Reserva"}
+    verdict = studio_review.judge({"overall": 80}, observation, {}, ["Outlet com +20% EXTRA", "COMPRAR AGORA"], piece)
+    assert verdict["reason"] == "stray_text"
+    clean = studio_review.judge({"overall": 80}, {"visible_text": ["Outlet com +20% EXTRA", "COMPRAR AGORA", "RESERVA"]}, {},
+                                ["Outlet com +20% EXTRA", "COMPRAR AGORA"], piece)
+    assert clean["approved"]
+
+
+def test_scene_prompt_of_a_typeset_piece_loses_the_sentences_that_quote_the_copy():
+    from aicentralv2.creative_media.studio_playbook import scene_only
+    scene = "Homem com camiseta bege em estúdio. Título Outlet com +20% EXTRA no topo. Luz suave."
+    assert scene_only(scene, ["Outlet com +20% EXTRA"]) == "Homem com camiseta bege em estúdio. Luz suave."

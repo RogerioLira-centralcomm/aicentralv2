@@ -73,8 +73,10 @@ def create(payload, text_callable):
     if not request:
         raise ValueError("Descreva a direção que deseja criar.")
     context = clean_context(data.get("context"), count)
+    budget = studio_playbook.copy_budget(context.get("width"), context.get("height"))
+    context["orcamento_de_texto"] = budget
     messages = [
-        {"role": "system", "content": system_prompt(count)},
+        {"role": "system", "content": system_prompt(count) + "\n\n" + studio_playbook.budget_instruction(budget, context.get("width"), context.get("height"))},
         {"role": "user", "content": direction_user_content(request, context)},
     ]
     response = None
@@ -140,12 +142,42 @@ def create(payload, text_callable):
                     if layout_contract:
                         entry["layout"] = layout_contract
                     reference_plan.append(entry)
-            items.append({"title": title, "summary": text(item.get("summary") or item.get("rationale"), 220) or "Direção baseada no briefing do projeto.", "prompt": prompt, "reference_plan": reference_plan[:4]})
+            edited = studio_playbook.edited_copy(item.get("copy"), request, budget)
+            if not studio_playbook.fits(edited, budget) and studio_playbook._briefing_headline(request):
+                edited = fit_copy(request, budget, context, text_callable) or edited
+            items.append({"title": title, "summary": text(item.get("summary") or item.get("rationale"), 220) or "Direção baseada no briefing do projeto.", "prompt": prompt, "reference_plan": reference_plan[:4],
+                          **({"copy": edited} if edited else {})})
         if len(items) == count:
             break
     if not items:
         raise ValueError("O agente não devolveu direções utilizáveis. Tente novamente.")
     return {"directions": items, "count": len(items), "model": str(response.get("model") or model_used), "provider": provider_used}, response
+
+
+def fit_copy(request, budget, context, text_callable, attempts=2):
+    """The director's copy review: cut the briefing's copy to the size's budget (only when the direction did not)."""
+    best, previous = None, None
+    for _ in range(attempts):
+        for provider, model in director_routes()[:2]:
+            try:
+                response = text_callable(
+                    studio_playbook.copy_fit_messages(request, budget, context.get("width"), context.get("height"), previous),
+                    model=model, provider=provider, max_tokens=600, temperature=.2,
+                    **({"reasoning": {"effort": "low"}} if "gpt-5" in model else {}),
+                    response_format={"type": "json_object"},
+                )
+                content = response.get("message", {}).get("content") if isinstance(response, dict) else response
+                raw = content if isinstance(content, dict) else _json_content(content)
+                break
+            except (OpenRouterError, ValueError, KeyError, TypeError, AttributeError):
+                raw = None
+        candidate = studio_playbook.edited_copy(raw, request, budget)
+        if studio_playbook.fits(candidate, budget):
+            return candidate
+        if candidate and (not best or len(candidate["headline"].split()) < len(best["headline"].split())):
+            best = candidate
+        previous = candidate or (raw if isinstance(raw, dict) else None)
+    return best
 
 
 def director_routes():
@@ -497,7 +529,9 @@ REFERÊNCIAS — você receberá as imagens selecionadas como blocos visuais no 
 Para Display, trate o formato IAB informado como uma unidade publicitária final — não o transforme em pôster ou interface. Para CTV, trate como still cinematográfico 16:9. Para social, preserve área segura e leitura no feed. Escreva uma cena específica, não adjetivos vagos como “moderno”, “bonito” ou “impactante”. Prefira detalhes observáveis: lugar, hora, enquadramento, distância de câmera, gesto, textura e espaço para copy.
 
 Use a marca, briefing, referências e ativos do contexto como fonte de verdade. Cada substantivo concreto do briefing é obrigatório: anunciante, produto, embalagem, pessoas, cenário, ação, mensagem, preço, volume e formato não podem ser omitidos ou substituídos por uma cena genérica. Se o briefing pede produto visível, descreva-o como assunto principal em primeiro plano, com escala, luz e enquadramento suficientes para ser reconhecível. Mantenha todo logo, texto, embalagem e elemento de marca inteiro dentro da margem segura do formato; nunca corte, encoste ou esconda esses elementos na borda. Se o usuário pediu um logo mas nenhum ativo oficial está disponível, mantenha no prompt a instrução de reservar uma área limpa e identifique a marca que deverá ser aplicada posteriormente. Não invente dados comerciais além dos que o usuário informou. Se não houver texto literal aprovado, peça espaço reservado para a assinatura, sem fabricar tipografia. Todo texto publicitário visível deve ser português do Brasil; se a renderização textual não for confiável, instrua a manter a área livre para composição posterior. Não inclua marca d'água, interface de plataforma, mockup de dashboard ou logos de terceiros. Não use pessoas identificáveis sem necessidade. Preserve briefing, marca, canal e formato.
- Antes de devolver cada direção, faça uma revisão final como diretor: confirme que o prompt está fiel ao pedido, respeita todas as exclusões explícitas, usa cada referência conforme seu source e role, não inventa informações e está pronto para ser enviado ao gerador de imagem. O campo "prompt" deve ser a instrução final revisada para o processador de imagem, sem comentários sobre esta revisão. Inclua também "reference_plan" como uma lista curta de objetos {{"label":"...","source":"global|user|project","use":"...","layout":{{"subject_zone":"...","headline_zone":"...","support_zone":"...","safe_margin":"...","layer_order":"...","alignment":"..."}}}} para tornar a decisão de cada referência auditável. O campo layout é obrigatório para source="global" e opcional para os demais."""
+ Antes de devolver cada direção, faça uma revisão final como diretor: confirme que o prompt está fiel ao pedido, respeita todas as exclusões explícitas, usa cada referência conforme seu source e role, não inventa informações e está pronto para ser enviado ao gerador de imagem. O campo "prompt" deve ser a instrução final revisada para o processador de imagem, sem comentários sobre esta revisão. Inclua também "reference_plan" como uma lista curta de objetos {{"label":"...","source":"global|user|project","use":"...","layout":{{"subject_zone":"...","headline_zone":"...","support_zone":"...","safe_margin":"...","layer_order":"...","alignment":"..."}}}} para tornar a decisão de cada referência auditável. O campo layout é obrigatório para source="global" e opcional para os demais.
+
+TEXTO DA PEÇA (você edita, pensando na peça e não só no pedido): contexto.orcamento_de_texto diz quanto texto cabe neste tamanho. Devolva em cada direção o campo "copy": {{"headline":"...","support":["..."],"cta":"..."}} com o texto final que vai na arte. Use somente palavras do pedido, na mesma ordem e grafia (acentos, números, %, cupom): você pode cortar palavras, trechos e linhas inteiras para caber no orçamento, mas nunca reescrever, traduzir, abreviar nem inventar. Ordem de corte (corte primeiro o que vem antes): palavras de ligação > nome da marca (o logo já a identifica) > detalhes e prazos > benefício. Número, %, preço, cupom e o nome da oferta nunca saem do título. Se o pedido já cabe, repita-o como está. Sem título no pedido, devolva "copy": null. Apoio além de apoio_max_linhas e CTA quando cta_max_palavras for 0 ficam de fora. O prompt da direção descreve apenas este texto editado, nunca o excedente."""
 
 
 def credit_context(modeling, client_id, user_id):
@@ -694,10 +728,17 @@ def create_image(payload, modeling, client_id, user_id):
     # Banners beyond 3:1 get the visual from the model and the typography from the Studio.
     from .banner_compose import extract_copy
     copy_headline, copy_cta = extract_copy(data.get("original_prompt") or prompt)
+    briefing = data.get("original_prompt") or ""
+    budget = studio_playbook.copy_budget(width, height)
+    director_copy = studio_playbook.edited_copy(data.get("copy"), briefing, budget) if briefing else None
+    if director_copy:
+        # The director already fitted the briefing's copy to this size (cuts only, checked against the briefing).
+        copy_headline, copy_cta = director_copy["headline"], director_copy["cta"]
     composed = bool(sizing and (sizing["strategy"] == "composed" or display_typeset(width, height))
                     and not mask and mask_specs(raw_references) and "headline" in mask_specs(raw_references)[0]["zones"]
                     and copy_headline)
-    support_copy = studio_playbook.support_copy(data.get("original_prompt") or "")
+    support_copy = (director_copy["support"] if director_copy
+                    else studio_playbook.support_copy(briefing)[:budget["apoio_max_linhas"]])
     layout_lines = composition_layout_lines(references, mask, provider_size, composed)
     product_visibility_line = (
         "PRODUCT VISIBILITY CHECK: If the briefing requests a product, make it a deliberate, recognizable foreground subject with enough scale and light to be clearly visible. Do not hide it behind hands, bodies, crops or depth-of-field blur. If bottles or packages are requested, show the requested quantity visibly and keep their labels facing the camera when the briefing asks for labels."

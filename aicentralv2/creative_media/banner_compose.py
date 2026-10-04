@@ -19,8 +19,10 @@ from PIL import Image, ImageDraw, ImageFont, ImageStat
 
 from .brand_fonts import resolve_font
 
-_HEADLINE = re.compile(r"(?:t[ií]tulo|headline|chamada)\s*:\s*(.+?)(?=\s*(?:bot[aã]o|cta|button)\s*:|\n|$)", re.I | re.S)
-_CTA = re.compile(r"(?:bot[aã]o|cta|button)\s*:\s*(.+?)(?=\s*(?:t[ií]tulo|headline|chamada)\s*:|\n|$)", re.I | re.S)
+# Each label ends at the next one or at a line break: briefings also arrive flattened to a single line.
+_LABELS = r"(?:t[ií]tulo|headline|chamada|texto de apoio|apoio|subt[ií]tulo|bot[aã]o|cta|button)\s*:"
+_HEADLINE = re.compile(r"(?:t[ií]tulo|headline|chamada)\s*:\s*(.+?)(?=\s*" + _LABELS + r"|\n|$)", re.I | re.S)
+_CTA = re.compile(r"(?:bot[aã]o|cta|button)\s*:\s*(.+?)(?=\s*" + _LABELS + r"|\n|$)", re.I | re.S)
 
 
 def extract_copy(text):

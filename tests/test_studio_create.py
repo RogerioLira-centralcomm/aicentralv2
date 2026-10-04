@@ -393,3 +393,43 @@ def test_new_formats_do_not_steal_existing_aliases():
     assert not [name for name, count in names.items() if count > 1]
     assert registry.entry("iab-wide-skyscraper")["width"] == 160
     assert registry.entry("iab-120x600")["width"] == 120
+
+
+def test_copy_budget_shrinks_with_the_piece():
+    from aicentralv2.creative_media.studio_playbook import copy_budget
+    assert copy_budget(88, 31)["tamanho"] == "micro" and copy_budget(88, 31)["cta_max_palavras"] == 0
+    assert copy_budget(320, 50)["tamanho"] == "faixa" and copy_budget(728, 90)["apoio_max_linhas"] == 0
+    assert copy_budget(300, 250)["tamanho"] == "pequeno" and copy_budget(300, 250)["apoio_max_linhas"] == 0
+    assert copy_budget(300, 600)["tamanho"] == "medio" and copy_budget(300, 600)["apoio_max_linhas"] == 1
+    assert copy_budget(1080, 1350)["tamanho"] == "grande" and copy_budget(0, 0)["tamanho"] == "grande"
+
+
+def test_director_copy_is_kept_only_when_it_cuts_the_briefing():
+    from aicentralv2.creative_media.studio_playbook import copy_budget, edited_copy
+    briefing = "Título: Outlet com +20% EXTRA em toda a loja\nTexto de apoio: Use o cupom DIADOCLIENTE · Frete grátis\nBotão: Comprar agora"
+    kept = edited_copy({"headline": "Outlet +20% EXTRA", "support": ["Use o cupom DIADOCLIENTE · Frete grátis"], "cta": "Comprar agora"},
+                       briefing, copy_budget(300, 600))
+    assert kept == {"headline": "Outlet +20% EXTRA", "support": ["Use o cupom DIADOCLIENTE"], "cta": "Comprar agora"}
+    long_cta = edited_copy({"headline": "Outlet +20% EXTRA", "cta": "Comprar agora em toda a loja"}, briefing + " em toda a loja",
+                           copy_budget(300, 250))
+    assert long_cta["cta"] == "Comprar agora"
+    invented = edited_copy({"headline": "Mega liquidação imperdível", "cta": "Aproveite"}, briefing, copy_budget(300, 250))
+    assert invented is None
+    no_cta = edited_copy({"headline": "Outlet +20%", "cta": "Comprar agora"}, briefing, copy_budget(88, 31))
+    assert no_cta["cta"] == "" and no_cta["support"] == []
+
+
+def test_director_copy_that_drops_the_offer_number_is_refused():
+    from aicentralv2.creative_media.studio_playbook import copy_budget, edited_copy
+    briefing = "Título: Semana do Cliente Reserva com +20% EXTRA\nBotão: Comprar agora"
+    assert edited_copy({"headline": "Semana do Cliente Reserva", "cta": "Comprar agora"}, briefing, copy_budget(300, 250)) is None
+    assert edited_copy({"headline": "Semana do Cliente +20% EXTRA", "cta": "Comprar agora"}, briefing,
+                       copy_budget(300, 250))["headline"] == "Semana do Cliente +20% EXTRA"
+
+
+def test_copy_labels_read_the_same_on_one_line_or_many():
+    from aicentralv2.creative_media.banner_compose import extract_copy
+    from aicentralv2.creative_media.studio_playbook import support_copy
+    flat = "Anúncio. Título: Sua conta de luz no WhatsApp Texto de apoio: 2ª via · Religação Botão: Chame agora"
+    assert extract_copy(flat) == ("Sua conta de luz no WhatsApp", "Chame agora")
+    assert support_copy(flat) == ["2ª via", "Religação"]

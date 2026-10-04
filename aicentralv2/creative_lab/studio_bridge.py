@@ -236,12 +236,16 @@ def direct(spec: dict, snapshot: dict) -> dict:
     context = {
         "brief": briefing_text(spec)[:1800], "objective": spec.get("objective") or "", "format": spec.get("aspect_ratio") or "",
         "format_key": brief.get("format_key") or "", "creation_intent": "branded_creative" if snapshot else "neutral_asset",
+        # The size lets the director fit the copy to the piece (copy budget).
+        **(dict(zip(("width", "height"), ad_masks.FORMATS[mask_format(brief.get("format_key"))][1:3]))
+           if mask_format(brief.get("format_key")) else {}),
         "brand_context": brand_context(snapshot, spec.get("brand_payload")) if snapshot else {},
         "references": [],
     }
     result, _response = studio_create.create({"prompt": briefing_text(spec), "count": 1, "context": context}, _text_callable())
     direction = result["directions"][0]
     return {"title": direction["title"], "prompt": direction["prompt"], "reference_plan": direction.get("reference_plan") or [],
+            "copy": direction.get("copy"),
             "model": result.get("model"), "provider": result.get("provider")}
 
 
@@ -298,7 +302,7 @@ def run_create(*, model_key: str, spec: dict, snapshot: dict, plan: dict, by_ref
     brand = brand_context(snapshot, spec.get("brand_payload")) if snapshot else {}
     payload = {
         "request_id": uuid.uuid4().hex, "prompt": prompt, "original_prompt": briefing_text(spec),
-        "reference_plan": direction.get("reference_plan") or [], "aspect_ratio": ratio,
+        "reference_plan": direction.get("reference_plan") or [], "aspect_ratio": ratio, "copy": direction.get("copy"),
         "quality": QUALITY_TO_STUDIO.get(spec.get("quality"), "padrão"),
         "creation_intent": "branded_creative" if snapshot and spec.get("logo_mode") != "none" else "neutral_asset",
         "brand_context": brand, "references": _reference_items(spec, plan, by_ref, mask, files_module),

@@ -253,8 +253,8 @@ body.reports-flow-editor-active .reports-flow-builder{height:calc(100dvh - 210px
 .reports-main .reports-page-header h1{overflow:hidden;margin:0;color:var(--ui-ink);font-size:17px;font-weight:600;line-height:1.3;letter-spacing:-.025em;text-overflow:ellipsis;white-space:nowrap}
 .reports-main .reports-page-header__actions{flex:none;justify-content:flex-end;gap:8px;width:auto}
 .reports-main .reports-page-header__actions button{min-height:34px}
-.reports-main .reports-client-select{min-width:0;max-width:220px}
-.reports-main .reports-client-select select{max-width:100%}
+.reports-main .reports-client-select{min-width:0;max-width:380px}
+.reports-main .reports-client-select select{max-width:100%;font-size:14px;font-weight:500}
 .reports-content [id]{scroll-margin-top:72px}
 @media(max-width:760px){
   .reports-main{padding-top:0}

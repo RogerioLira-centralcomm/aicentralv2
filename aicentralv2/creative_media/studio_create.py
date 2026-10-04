@@ -559,6 +559,9 @@ def create_image(payload, modeling, client_id, user_id):
     creation_intent = str(data.get("creation_intent") or "branded_creative").strip().lower()
     if creation_intent not in {"branded_creative", "neutral_asset"}:
         creation_intent = "branded_creative"
+    auto_mask = display_mask_reference(data, raw_references, integer(data.get("width"), 0), integer(data.get("height"), 0), creation_intent)
+    if auto_mask:
+        raw_references = [*raw_references, auto_mask]
     visual_reference = uses_user_visual_reference([
         clean_direction_reference(item, index)
         for index, item in enumerate(raw_references[:MAX_IMAGE_REFERENCES]) if isinstance(item, dict)
@@ -689,7 +692,9 @@ def create_image(payload, modeling, client_id, user_id):
     # Banners beyond 3:1 get the visual from the model and the typography from the Studio.
     from .banner_compose import extract_copy
     copy_headline, copy_cta = extract_copy(data.get("original_prompt") or prompt)
-    composed = bool(sizing and sizing["strategy"] == "composed" and not mask and mask_specs(raw_references) and copy_headline)
+    composed = bool(sizing and (sizing["strategy"] == "composed" or display_typeset(width, height))
+                    and not mask and mask_specs(raw_references) and copy_headline)
+    support_copy = studio_playbook.support_copy(data.get("original_prompt") or "")
     layout_lines = composition_layout_lines(references, mask, provider_size, composed)
     product_visibility_line = (
         "PRODUCT VISIBILITY CHECK: If the briefing requests a product, make it a deliberate, recognizable foreground subject with enough scale and light to be clearly visible. Do not hide it behind hands, bodies, crops or depth-of-field blur. If bottles or packages are requested, show the requested quantity visibly and keep their labels facing the camera when the briefing asks for labels."
@@ -714,8 +719,7 @@ def create_image(payload, modeling, client_id, user_id):
         brand_identity_guard(data.get("brand_context"), visual_reference=visual_reference, creation_intent=creation_intent, editing=bool(mask), logo_corner=logo_corner, logo_free=logo_free),
         f"REQUESTED CREATIVE PALETTE: {', '.join(requested_palette)}. Use these colors for this piece's campaign mood only; they are not a claim about official brand identity and must not erase the official brand colors or logo." if requested_palette else "",
         prompt,
-        *studio_playbook.prompt_lines(
-            [copy_headline, *studio_playbook.support_copy(data.get("original_prompt") or ""), copy_cta], text_free=composed),
+        *studio_playbook.prompt_lines([copy_headline, *support_copy, copy_cta], text_free=composed),
         "\nREFERENCE CONTRACT:",
         *(role_lines or ["No image reference was supplied; create an original image."]),
         *(["DIRECTOR REFERENCE PLAN:", *plan_lines] if plan_lines else []),
@@ -774,18 +778,25 @@ def create_image(payload, modeling, client_id, user_id):
 
     def finish(fitted, fmt):
         """Logo and code-set typography on top of a fitted image; returns (piece, base, layers)."""
-        piece, piece_layers = fitted, None
-        if brand_logo and not mask:
-            piece = apply_brand_logo(piece, fmt, brand_logo, logo_corner, rect=next((spec["zones"]["logo"] for spec in mask_specs(raw_references) if "logo" in spec["zones"]), None))
-        base = piece
+        piece_layers = None
+
+        def with_logo(encoded_image, encoded_format):
+            if not (brand_logo and not mask):
+                return encoded_image
+            rect = next((spec["zones"]["logo"] for spec in mask_specs(raw_references) if "logo" in spec["zones"]), None)
+            return apply_brand_logo(encoded_image, encoded_format, brand_logo, logo_corner, rect=rect)
+
+        base = with_logo(fitted, fmt)
+        piece = base
         if composed:
             from . import banner_compose
             palette = clean_palette(data.get("requested_palette")) or list((data.get("brand_context") or {}).get("palette") or [])
             image, piece_layers = banner_compose.render_text_layers(
-                banner_compose.decode(piece), mask_specs(raw_references)[0], copy_headline, copy_cta,
-                data.get("brand_context") or {}, palette,
+                banner_compose.decode(fitted), mask_specs(raw_references)[0], copy_headline, copy_cta,
+                data.get("brand_context") or {}, palette, support=support_copy,
             )
-            piece = banner_compose.encode(image, "png")
+            # The logo goes last: the composer paints the text panel, which would otherwise cover it.
+            piece = with_logo(banner_compose.encode(image, "png"), "png")
         return piece, base, piece_layers
 
     provider, raw, output_format = render(technical_prompt)
@@ -801,8 +812,9 @@ def create_image(payload, modeling, client_id, user_id):
             encoded = fit_to(raw, output_format, width, height)
     review_info = None
     if not mask and studio_review.enabled(modeling):
-        # A composed banner only gets the headline and the CTA (typeset by code); the support line is never in it.
-        support = [] if composed else studio_playbook.support_copy(data.get("original_prompt") or "")
+        # A composed piece carries the support line only where the layout has room for it (not in wide strips).
+        from . import banner_compose as _compose
+        support = support_copy if not composed or _compose.renders_support(mask_specs(raw_references)[0]) else []
         required_text = [item for item in (copy_headline, *support, copy_cta) if item]
         review_args = dict(
             prompt=data.get("original_prompt") or prompt,
@@ -821,7 +833,12 @@ def create_image(payload, modeling, client_id, user_id):
 
         def reviewed(candidate_encoded, candidate_format):
             try:
-                return studio_review.review(image_b64=finish(candidate_encoded, candidate_format)[0], **review_args)
+                piece_b64, _base, piece_layers = finish(candidate_encoded, candidate_format)
+                args = dict(review_args)
+                if piece_layers is not None:
+                    # Typeset copy: require exactly what the composer drew (a support line may not fit the zone).
+                    args["required_text"] = [line for layer in piece_layers for line in str(layer.get("text") or "").split("\n") if line]
+                return studio_review.review(image_b64=piece_b64, **args)
             except Exception:
                 logger.warning("Studio review failed request=%s", request_id, exc_info=True)
                 return {"reviewed": False, "approved": True, "score": None, "reason": "", "reason_text": ""}
@@ -1209,6 +1226,48 @@ def final_layout_check(references, provider_size=None, text_free=False):
         if spec:
             return ad_masks.final_check(spec, provider_size, text_free)
     return "FINAL LAYOUT CHECK: the composition must match the wireframe zones described at the top; if it does not, recompose before finishing."
+
+
+# Display units get their headline, support line and CTA typeset by code (exact text, brand font, safe margin).
+DISPLAY_TYPESET = os.getenv("CREATIVE_STUDIO_DISPLAY_TYPESET", "1") == "1"
+# Layout used when the person did not pick a composition: a calm band carries the copy over the picture.
+DISPLAY_FAMILIES = ("faixa-inferior", "foto-texto-base", "split", "texto-central")
+
+
+def display_format(width, height):
+    from . import ad_masks
+    return next((key for key, value in ad_masks.FORMATS.items()
+                 if value[3] == "iab" and (value[1], value[2]) == (int(width or 0), int(height or 0))), None)
+
+
+def display_typeset(width, height):
+    return DISPLAY_TYPESET and display_format(width, height) is not None
+
+
+def display_mask_reference(data, raw_references, width, height, creation_intent):
+    """The default composition mask for a display unit with copy, when none was picked (None otherwise)."""
+    from . import ad_masks
+    from .banner_compose import extract_copy
+    if not display_typeset(width, height) or data.get("mask") or mask_specs(raw_references) or data.get("auto_mask") is False:
+        return None
+    if len([item for item in raw_references if isinstance(item, dict)]) >= MAX_IMAGE_REFERENCES:
+        return None
+    headline, cta = extract_copy(data.get("original_prompt") or data.get("prompt") or "")
+    if not headline:
+        return None
+    brand = data.get("brand_context") if isinstance(data.get("brand_context"), dict) else {}
+    has_logo = creation_intent == "branded_creative" and bool(brand.get("logo_url") or (brand.get("assets") or {}).get("logo"))
+    options = [spec for spec in ad_masks.served_specs() if spec["format"] == display_format(width, height)]
+    # The bottom band works whatever the model does with the picture (tested: a side panel covered the subject
+    # the model put there, and copy over the photo fought it), so it leads; a support line goes in only if legible.
+    def rank(spec):
+        family = DISPLAY_FAMILIES.index(spec["family"]) if spec["family"] in DISPLAY_FAMILIES else len(DISPLAY_FAMILIES)
+        return (spec["cta"] != bool(cta), (spec["logo"] != "none") != has_logo, family)
+    if not options:
+        return None
+    spec = min(options, key=rank)
+    return {"id": f"auto-mask-{spec['id']}", "url": ad_masks.MASK_URL_PREFIX + ad_masks.mask_filename(spec),
+            "role": "composition", "source": "global", "label": f"Composição · {spec['family_label']}"}
 
 
 def mask_specs(references):

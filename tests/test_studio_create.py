@@ -318,3 +318,42 @@ def test_playbook_lists_the_exact_copy_unless_the_image_is_text_free():
     lines = studio_playbook.prompt_lines(copy, text_free=False)
     assert '"NO WHATSAPP"\n"2ª via sem sair de casa."' in lines[0] and "DO NOT ADD" in lines[-1]
     assert not any("EXACT COPY" in line for line in studio_playbook.prompt_lines(copy, text_free=True))
+
+
+def test_display_unit_without_composition_gets_the_default_band_layout():
+    from aicentralv2.creative_media import ad_masks, studio_create
+    data = {"original_prompt": "Título: Sua conta de luz\nBotão: Chame agora",
+            "brand_context": {"logo_url": "/static/uploads/logo.webp"}}
+    reference = studio_create.display_mask_reference(data, [], 300, 250, "branded_creative")
+    spec = ad_masks.spec_from_url(reference["url"])
+    assert spec["format"] == "iab-300x250" and spec["family"] == "faixa-inferior" and spec["cta"] and spec["logo"] != "none"
+    no_cta = studio_create.display_mask_reference({"original_prompt": "Título: Só título"}, [], 300, 250, "neutral_asset")
+    assert ad_masks.spec_from_url(no_cta["url"])["cta"] is False
+    with_support = studio_create.display_mask_reference({**data, "original_prompt": data["original_prompt"] + "\nTexto de apoio: NO WHATSAPP"},
+                                                        [], 300, 250, "branded_creative")
+    assert ad_masks.spec_from_url(with_support["url"])["family"] == "faixa-inferior"
+    assert studio_create.display_mask_reference(data, [], 1080, 1350, "branded_creative") is None
+    assert studio_create.display_mask_reference({**data, "auto_mask": False}, [], 300, 250, "branded_creative") is None
+    assert studio_create.display_mask_reference({"original_prompt": "sem cópia"}, [], 300, 250, "branded_creative") is None
+
+
+def test_composer_sets_support_under_the_headline_and_a_legible_cta():
+    from PIL import Image
+    from aicentralv2.creative_media import ad_masks, banner_compose
+    spec = next(item for item in ad_masks.served_specs() if item["id"] == "iab-300x250:split:bottom-right:cta")
+    busy = Image.effect_noise((300, 250), 90).convert("RGB")
+    image, layers = banner_compose.render_text_layers(busy, spec, "Sua conta de luz", "Chame agora", {}, ["#0F6C58", "#041E18"],
+                                                      support=["NO WHATSAPP", "2ª via sem sair de casa."])
+    kinds = {layer["type"]: layer for layer in layers}
+    assert set(kinds) == {"headline", "support", "cta"} and kinds["cta"]["text"] == "Chame agora"
+    assert banner_compose.SUPPORT_MIN_PX <= kinds["support"]["size_px"] < kinds["headline"]["size_px"]
+    # The side panel is painted in the brand's darkest color, whatever the model drew there.
+    px, py, pw, ph = spec["zones"]["panel"]
+    assert image.getpixel((round((px + 0.01) * 300), round((py + ph - 0.03) * 250)))[:3] == (0x04, 0x1E, 0x18)
+    band = next(item for item in ad_masks.served_specs() if item["id"] == "iab-300x250:faixa-inferior:bottom-right:cta")
+    _, tight = banner_compose.render_text_layers(busy, band, "Sua conta de luz", "Chame agora", {}, ["#041E18"],
+                                                 support=["NO WHATSAPP", "2ª via sem sair de casa."])
+    assert all(layer["size_px"] >= banner_compose.SUPPORT_MIN_PX for layer in tight if layer["type"] == "support")
+    assert kinds["cta"]["box"][3] * 250 >= 250 * 0.085 - 1
+    x, y, w, h = kinds["cta"]["box"]
+    assert x >= 0.06 and y + h <= 0.94, "CTA dentro da margem segura"

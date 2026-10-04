@@ -269,7 +269,7 @@ def studio_spec(mode="image", **overrides):
 
 def test_mockup_catalog_serves_every_studio_mask():
     catalog_view = studio_bridge.mockup_catalog()
-    assert len(catalog_view["masks"]) == len(ad_masks.served_specs()) == 199
+    assert len(catalog_view["masks"]) == len(ad_masks.served_specs()) == 210
     assert {item["format"] for item in catalog_view["masks"]} >= {"feed-4x5", "story-9x16", "iab-300x250"}
     assert all(item["url"].startswith("/static/images/cadu/studio/references/layouts/") for item in catalog_view["masks"])
 

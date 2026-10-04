@@ -108,6 +108,7 @@ def test_every_format_has_at_least_five_distinct_layouts_with_and_without_logo_a
         assert len({spec["id"] for spec in specs}) >= 5, key
         assert len({tuple(sorted(spec["zones"].items())) for spec in specs}) >= 5, key
         assert any(spec["logo"] == "none" for spec in specs), key
-        if key != "youtube-16x9":
+        # YouTube in-feed forbids a CTA; the 88x31 micro bar has no room for one (headline and logo only).
+        if key not in {"youtube-16x9", "display-88x31"}:
             assert any(spec["cta"] for spec in specs) and any(not spec["cta"] for spec in specs), key
     assert len(ad_masks.served_specs()) >= 88

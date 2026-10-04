@@ -523,7 +523,7 @@ FORMATS = FORMATS + (
                   aliases=("small-square",), siblings=("display-250x250",)),
     _display_unit("display-180x150", "Rectangle 180", 180, 150, "rectangle", "standard", "rectangle",
                   aliases=("iab-rectangle",), siblings=("iab-medium",)),
-    _display_unit("display-125x125", "Button 125", 125, 125, "square_1x1", "compact", "button",
+    _display_unit("display-125x125", "Button 125", 125, 125, "square_1x1", "standard", "button",
                   aliases=("button-125",), siblings=("display-200x200",)),
     _display_unit("display-240x400", "Vertical rectangle", 240, 400, "half_page", "standard", "vertical_rectangle",
                   aliases=("vertical-rectangle",), siblings=("iab-halfpage",)),

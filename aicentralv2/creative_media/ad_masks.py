@@ -50,6 +50,8 @@ FORMATS = {
     "display-300x100": ("Display 300×100", 300, 100, "iab"),
     "interstitial-320x480": ("Intersticial 320×480", 320, 480, "iab"),
     "interstitial-480x320": ("Intersticial 480×320", 480, 320, "iab"),
+    "display-125x125": ("Display 125×125", 125, 125, "iab"),
+    "display-88x31": ("Micro bar 88×31", 88, 31, "iab"),
 }
 
 # Entry in the Studio format registry that defines each format's required/forbidden elements.
@@ -65,6 +67,7 @@ REGISTRY_KEYS = {
     "iab-468x60": "iab-full-banner", "iab-234x60": "iab-half-banner", "iab-320x100": "iab-large-mobile",
     "iab-300x50": "iab-mobile-300", "display-300x100": "display-300x100",
     "interstitial-320x480": "interstitial-320x480", "interstitial-480x320": "interstitial-480x320",
+    "display-125x125": "display-125x125", "display-88x31": "display-88x31",
 }
 
 # Extra rules that go into the written contract, from the format's platform constraints.
@@ -75,6 +78,8 @@ FORMAT_NOTES = {
     "iab-320x50": "Compact banner: use only a calm, plain background image; no product, no people, no small print.",
     **{key: "Compact banner: use only a calm, plain background image; no product, no people, no small print."
        for key in ("iab-970x90", "iab-468x60", "iab-234x60", "iab-320x100", "iab-300x50", "display-300x100")},
+    "display-88x31": "Micro bar: a flat brand-color background only; the Studio sets the short headline and the logo.",
+    "display-125x125": "Tiny button: one simple subject and a plain background; the Studio sets the copy.",
 }
 
 # Providers only accept a few ratios; formats beyond this spread are generated at the closest
@@ -606,6 +611,22 @@ MASK_SETS = {
     "iab-320x100": _COMPACT,
     "iab-300x50": _COMPACT,
     "display-300x100": _COMPACT,
+    # Tiny units: only the layouts whose headline stays at 9 px or more (and a button only where it fits).
+    "display-125x125": (
+        ("foto-texto-base", BR, True),
+        ("foto-texto-topo", NONE, True),
+        ("faixa-inferior", BR, True),
+        ("texto-central", NONE, True),
+        ("produto-destaque", BR, False),
+        ("tipografico", NONE, True),
+    ),
+    "display-88x31": (
+        ("compacto", BR, False),
+        ("compacto", NONE, False),
+        ("compacto-central", NONE, False),
+        ("compacto-logo-esquerda", TL, False),
+        ("texto-central", BR, False),
+    ),
 }
 
 

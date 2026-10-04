@@ -74,10 +74,10 @@ def prompt_lines(copy: list[str], *, text_free: bool) -> list[str]:
 COPY_BUDGETS = (
     # (name, test, headline words, support lines, words per support line, CTA words)
     ("micro", lambda w, h: w * h < 8000 or min(w, h) < 40, 4, 0, 0, 0),
-    ("faixa", lambda w, h: max(w, h) / min(w, h) >= 3 and min(w, h) < 130, 6, 0, 0, 2),
-    ("pequeno", lambda w, h: w * h < 90_000, 6, 0, 0, 3),
-    ("medio", lambda w, h: w * h < 260_000, 8, 1, 10, 3),
-    ("grande", lambda w, h: True, 10, 2, 14, 4),
+    ("faixa", lambda w, h: max(w, h) / min(w, h) >= 3 and min(w, h) < 130, 6, 0, 0, 3),
+    ("pequeno", lambda w, h: w * h < 90_000, 6, 0, 0, 4),
+    ("medio", lambda w, h: w * h < 260_000, 8, 1, 10, 4),
+    ("grande", lambda w, h: True, 10, 2, 14, 5),
 )
 
 
@@ -104,15 +104,30 @@ def from_briefing(text: str, briefing: str, share: float = 0.8) -> bool:
 
 
 _DANGLING = {"a", "o", "as", "os", "e", "de", "do", "da", "dos", "das", "em", "no", "na", "nos", "nas", "para", "pra",
-             "com", "por", "pelo", "pela", "ao", "à", "um", "uma"}
+             "com", "por", "pelo", "pela", "ao", "à", "um", "uma", "todo", "toda", "todos", "todas", "seu", "sua"}
 
 
 def _trim_words(text: str, limit: int) -> str:
-    """First ``limit`` words, never ending on a preposition or article."""
+    """First ``limit`` words, never ending on a preposition or article, never a lone verb ("Fale com a gente" stays)."""
     words = text.split()[:limit]
     while len(words) > 1 and words[-1].casefold() in _DANGLING:
         words.pop()
+    if len(words) < 2 < len(text.split()):
+        return text  # a button cut to one word says nothing: keep the briefing's own (short) button
     return " ".join(words)
+
+
+_OFFER = re.compile(r"\d|%|R\$", re.I)
+
+
+def with_offer(headline: str, support: list[str], room: int) -> tuple[str, list[str]]:
+    """The offer never leaves the piece: a support line with a number/%/price that has no room goes into the headline."""
+    kept, offers = [], []
+    for index, line in enumerate(support):
+        (kept if index < room or not _OFFER.search(line) else offers).append(line)
+    kept = kept[:room]
+    extra = [line for line in offers if line.casefold() not in headline.casefold()]
+    return (" ".join([headline, *extra]).strip(), kept)
 
 
 def _briefing_headline(briefing: str) -> str:
@@ -129,13 +144,18 @@ def edited_copy(raw, briefing: str, budget: dict) -> dict | None:
     # Each "·"-separated item is its own line; a line over the word budget is dropped whole, never cut mid-phrase.
     lines = [" ".join(part.split()) for item in (raw.get("support") or []) for part in str(item or "").split("·") if part.strip()]
     per_line = budget.get("apoio_max_palavras_por_linha", 0)
-    support = [line[:160] for line in lines if from_briefing(line, briefing) and len(line.split()) <= per_line]
+    # An offer line (number, %, price) is exempt from the word limit: it may still go into the headline.
+    support = [line[:160] for line in lines if from_briefing(line, briefing)
+               and (len(line.split()) <= per_line or _OFFER.search(line))]
     cta_words = budget.get("cta_max_palavras", 0)
     original = _briefing_headline(briefing)
     keeps_offer = not re.search(r"\d|%", original) or bool(re.search(r"\d|%", headline))
+    headline = headline if headline and keeps_offer and from_briefing(headline, briefing) else ""
+    if headline:
+        headline, support = with_offer(headline, support, budget.get("apoio_max_linhas", 0))
     copy = {
         # The offer number is what sells: an edit that dropped it is refused (the Studio falls back to the briefing).
-        "headline": headline if headline and keeps_offer and from_briefing(headline, briefing) else "",
+        "headline": headline,
         "support": support[:budget.get("apoio_max_linhas", 0)],
         # A long button keeps its verb phrase: "Comprar agora no site" -> "Comprar agora".
         "cta": _trim_words(cta, cta_words) if cta and cta_words and from_briefing(cta, briefing) else "",

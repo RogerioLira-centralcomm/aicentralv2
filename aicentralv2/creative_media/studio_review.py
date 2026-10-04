@@ -117,11 +117,19 @@ def _is_brand_mark(item: str, brand_name: str) -> bool:
     return bool(brand_name) and brand_name.casefold() in text and any(word in text for word in ("logo", "mark", "wordmark", "marca"))
 
 
-def margin_violations(observation: dict) -> list[str]:
+def code_placed(piece: dict | None) -> set[str]:
+    """Kinds the Studio draws itself, inside the safe area by construction: never re-measured by the eyes."""
+    piece = piece or {}
+    kinds = {"headline", "text", "cta"} if piece.get("text_free") else set()
+    return kinds | ({"logo"} if piece.get("logo_mode") == "composed" else set())
+
+
+def margin_violations(observation: dict, ignore: set[str] | None = None) -> list[str]:
     """Text, CTA and logo boxes that sit closer than MARGIN_LIMIT percent to an edge."""
     found = []
+    kinds = MARGIN_KINDS - (ignore or set())
     for item in observation.get("boxes") or []:
-        if not isinstance(item, dict) or str(item.get("kind") or "") not in MARGIN_KINDS:
+        if not isinstance(item, dict) or str(item.get("kind") or "") not in kinds:
             continue
         try:
             left, top, right, bottom = (float(value) for value in item.get("box") or [])
@@ -195,7 +203,7 @@ def _jpeg_data_url(encoded: str, side: int = 768) -> tuple[Image.Image, str]:
     return image, "data:image/jpeg;base64," + base64.b64encode(out.getvalue()).decode("ascii")
 
 
-def judge(scores: dict, observation: dict, measurements: dict, required_text: list[str]) -> dict:
+def judge(scores: dict, observation: dict, measurements: dict, required_text: list[str], piece: dict | None = None) -> dict:
     """Pure verdict from the evaluation: ``approved`` plus the objective reason when rejected."""
     overall = scores.get("overall")
     failure = (scores.get("primary_failure") or {}).get("choice") or ""
@@ -210,13 +218,13 @@ def judge(scores: dict, observation: dict, measurements: dict, required_text: li
         reason = failure
     elif (scores.get("cropped") or 0) >= CONFIDENCE:
         reason = "cropped"
-    elif margin_violations(observation):
+    elif margin_violations(observation, code_placed(piece)):
         reason = "margin"
     elif (scores.get("forbidden_present") or 0) >= CONFIDENCE:
         reason = "forbidden"
     elif MIN_SCORE and overall is not None and overall < MIN_SCORE:
         reason = "low_score"
-    margin = margin_violations(observation)
+    margin = margin_violations(observation, code_placed(piece))
     # A broken safe margin costs 10 points, so a refined version that fixes it wins the comparison.
     score = None if overall is None else max(0, overall - (10 if margin else 0))
     return {"approved": not reason, "score": score, "failure": reason or (failure if failure != "none" else ""),
@@ -261,11 +269,11 @@ def review(*, image_b64: str, prompt: str, required_text: list[str], palette: li
             questions.pop(key, None)
         answers = system_one(state, questions, timeout=TYPESAFE_TIMEOUT, attempts=1)["answers"]
         scores = evaluation._summarize(answers)
-        verdict = judge(scores, observation, measurements, required_text)
+        piece = {"palette": list(palette or [])[:5], "logo_mode": logo_mode, "has_cta": bool(has_cta),
+                 "brand_name": brand_name, "text_free": bool(text_free)}
+        verdict = judge(scores, observation, measurements, required_text, piece)
         verdict.update({"reviewed": True, "seconds": round(time.monotonic() - started, 1), "observation": observation,
-                        "required_text": list(required_text), "piece": {"palette": list(palette or [])[:5], "logo_mode": logo_mode,
-                                                                         "has_cta": bool(has_cta), "brand_name": brand_name,
-                                                                         "text_free": bool(text_free)}})
+                        "required_text": list(required_text), "piece": piece})
         return verdict
     except Exception:
         logger.warning("Studio auto review unavailable; delivering without it", exc_info=True)
@@ -345,3 +353,44 @@ def prefer_second(first: dict, second: dict) -> bool:
     if b is None:
         return False
     return a is None or b >= a
+
+
+# -- two passes: a cheap structure draft, our partial review, then the finishing edit --------------------------
+
+DRAFT_HEADER = (
+    "DRAFT PASS (structure only): compose the scene, the main subject and where it sits, the setting, the light and "
+    "the base palette. Do NOT render any text, letters, numbers or buttons and no small details; keep the text and "
+    "logo areas calm. A second pass finishes the piece on top of this draft."
+)
+
+
+def finish_prompt(partial: dict | None, aspect_ratio: str = "") -> str:
+    """The second call: edit the approved structure draft into the finished piece, with the partial review's fixes."""
+    lines = ["EDIT THE FIRST IMAGE. It is the structure draft of this ad. Keep its composition, the subject and its "
+             "placement, the setting, the light and the palette; finish it at full quality and complete everything the "
+             "draft left out, following the full instructions below. Any other image supplied is a reference only."]
+    verdict = partial or {}
+    observation = verdict.get("observation") or {}
+    fixes = []
+    if verdict.get("reason") and verdict["reason"] not in {"text_rendering", "text_mismatch"}:
+        fixes.append(EDIT_FIXES.get(verdict["reason"], EDIT_FIXES["low_score"]))
+    if verdict.get("margin"):
+        fixes.append("Keep every text, button and logo at least 8% from every edge: " + "; ".join(verdict["margin"][:4]) + ".")
+    if observation.get("cut_off"):
+        fixes.append("Bring fully inside the frame: " + "; ".join(str(item) for item in observation["cut_off"][:4]) + ".")
+    if observation.get("unrequested_elements"):
+        fixes.append("Remove what the brief did not ask for: " + "; ".join(str(item) for item in observation["unrequested_elements"][:4]) + ".")
+    fixes += [str(item) for item in (observation.get("improvements") or [])[:3]]
+    if fixes:
+        lines.append("FIX WHILE FINISHING (found by the review of the draft):\n" + "\n".join(f"- {item}" for item in fixes))
+    if aspect_ratio:
+        lines.append(f"Keep the same canvas and aspect ratio ({aspect_ratio}).")
+    return "\n".join(lines)
+
+
+def variation_prompt(aspect_ratio: str = "") -> str:
+    """Another variation made from a finished piece: same campaign, a clearly different take."""
+    return ("VARIATION OF THE FIRST IMAGE. It is a finished ad of this campaign. Create a clearly different take of it: "
+            "change the camera angle, the pose or the arrangement of the scene, while keeping the brand, the palette, the "
+            "layout zones, the subject's identity and every piece of copy exactly as written. Any other image supplied is "
+            "a reference only." + (f" Keep the canvas and aspect ratio ({aspect_ratio})." if aspect_ratio else ""))

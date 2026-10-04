@@ -368,6 +368,7 @@ def test_studio_bridge_runs_the_real_create_image_with_the_chosen_model(monkeypa
     from aicentralv2.creative_media import studio_review
     monkeypatch.setattr(studio_review, "review", lambda **_kwargs: {"reviewed": True, "approved": True, "score": 95,
                                                                     "reason": "", "reason_text": ""})
+    monkeypatch.setattr(studio_bridge.LabModeling, "two_pass", False)  # this test is about the single-call references
     monkeypatch.setattr(lab_catalog, "capabilities", lambda key, cat=None: CAPS[key])
     app = Flask(__name__, static_folder=str((Path(__file__).resolve().parent.parent / "aicentralv2" / "static")))
     mask = studio_bridge.pick_mask("feed-4x5", "foto-texto-base")

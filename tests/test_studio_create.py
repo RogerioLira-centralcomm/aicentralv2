@@ -433,3 +433,18 @@ def test_copy_labels_read_the_same_on_one_line_or_many():
     flat = "Anúncio. Título: Sua conta de luz no WhatsApp Texto de apoio: 2ª via · Religação Botão: Chame agora"
     assert extract_copy(flat) == ("Sua conta de luz no WhatsApp", "Chame agora")
     assert support_copy(flat) == ["2ª via", "Religação"]
+
+
+def test_the_offer_line_moves_into_the_headline_when_there_is_no_room_for_support():
+    from aicentralv2.creative_media.studio_playbook import copy_budget, edited_copy, with_offer
+    assert with_offer("Outlet com", ["+20% EXTRA", "Use o cupom DIADOCLIENTE"], 0) == ("Outlet com +20% EXTRA", [])
+    assert with_offer("Outlet com", ["+20% EXTRA", "Frete grátis"], 1) == ("Outlet com", ["+20% EXTRA"])
+    briefing = "Título: Outlet com\nTexto de apoio: +20% EXTRA · Use o cupom DIADOCLIENTE\nBotão: Fale com a gente"
+    copy = edited_copy({"headline": "Outlet com", "support": ["+20% EXTRA"], "cta": "Fale com a gente"}, briefing, copy_budget(300, 250))
+    assert copy["headline"] == "Outlet com +20% EXTRA" and copy["cta"] == "Fale com a gente"
+
+
+def test_a_long_button_is_never_cut_to_a_lone_verb():
+    from aicentralv2.creative_media.studio_playbook import _trim_words
+    assert _trim_words("Fale com a gente", 3) == "Fale com a gente"
+    assert _trim_words("Comprar agora no site", 3) == "Comprar agora"

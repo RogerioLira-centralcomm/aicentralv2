@@ -207,6 +207,8 @@ class LabModeling:
     auto_review = True
     review_attempts = 5
     refine_target = 90
+    # Draft (low quality, structure only) + finishing edit at the requested quality.
+    two_pass = True
 
     def __init__(self, model_key: str):
         self.capture = _Capture()

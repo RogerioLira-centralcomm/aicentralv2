@@ -737,8 +737,13 @@ def create_image(payload, modeling, client_id, user_id):
     composed = bool(sizing and (sizing["strategy"] == "composed" or display_typeset(width, height))
                     and not mask and mask_specs(raw_references) and "headline" in mask_specs(raw_references)[0]["zones"]
                     and copy_headline)
-    support_copy = (director_copy["support"] if director_copy
-                    else studio_playbook.support_copy(briefing)[:budget["apoio_max_linhas"]])
+    if director_copy:
+        support_copy = director_copy["support"]
+    else:
+        # No director copy: same rules by code — support to the budget, the offer line kept in the headline.
+        copy_headline, support_copy = studio_playbook.with_offer(copy_headline, studio_playbook.support_copy(briefing),
+                                                                 budget["apoio_max_linhas"]) if copy_headline else (
+            copy_headline, studio_playbook.support_copy(briefing)[:budget["apoio_max_linhas"]])
     layout_lines = composition_layout_lines(references, mask, provider_size, composed)
     product_visibility_line = (
         "PRODUCT VISIBILITY CHECK: If the briefing requests a product, make it a deliberate, recognizable foreground subject with enough scale and light to be clearly visible. Do not hide it behind hands, bodies, crops or depth-of-field blur. If bottles or packages are requested, show the requested quantity visibly and keep their labels facing the camera when the briefing asks for labels."
@@ -782,13 +787,13 @@ def create_image(payload, modeling, client_id, user_id):
         *([final_layout_check(references, provider_size, composed)] if layout_lines else []),
     ] if line)
     provider_references = provider_image_references(references_with_provider_masks(references, provider_size), mask)
-    def render(prompt_text, references=None):
+    def render(prompt_text, references=None, quality=None):
         try:
             result = modeling.generator.generate_image(
                 prompt_text,
                 provider_references if references is None else references,
                 aspect_ratio=aspect_ratio,
-                quality=provider_quality,
+                quality=quality or provider_quality,
                 resolution=provider_resolution,
                 model=IMAGE_MODEL,
                 max_input_references=MAX_IMAGE_REFERENCES,
@@ -843,19 +848,8 @@ def create_image(payload, modeling, client_id, user_id):
             piece = with_logo(banner_compose.encode(image, "png"), "png")
         return piece, base, piece_layers
 
-    provider, raw, output_format = render(technical_prompt)
-    encoded = fit_to(raw, output_format, width, height)
-    if sizing and not mask and MARGIN_QA_ENABLED:
-        # Elements the model drew outside the safe frame get one corrected attempt (charged once).
-        safe = safe_frame(raw_references, int(width), int(height))
-        edges = margin_violations(encoded, safe, getattr(modeling.generator, "text_callable", None))
-        logger.info("Studio margin check request=%s edges=%s", request_id, ",".join(edges) or "none")
-        if edges:
-            logger.info("Studio margin check failed edges=%s; regenerating once", ",".join(edges))
-            provider, raw, output_format = render(technical_prompt + "\n" + margin_correction(edges, safe))
-            encoded = fit_to(raw, output_format, width, height)
-    review_info = None
-    if not mask and studio_review.enabled(modeling):
+    review_enabled = not mask and studio_review.enabled(modeling)
+    if review_enabled:
         # A composed piece carries the support line only where the layout has room for it (not in wide strips).
         from . import banner_compose as _compose
         support = support_copy if not composed or _compose.renders_support(mask_specs(raw_references)[0]) else []
@@ -875,10 +869,13 @@ def create_image(payload, modeling, client_id, user_id):
             text_free=composed,
         )
 
-        def reviewed(candidate_encoded, candidate_format):
+        def reviewed(candidate_encoded, candidate_format, structure=False):
             try:
                 piece_b64, _base, piece_layers = finish(candidate_encoded, candidate_format)
                 args = dict(review_args)
+                if structure:
+                    # The draft has no copy yet (unless the Studio typesets it): judge only its structure.
+                    args["required_text"] = []
                 if piece_layers is not None:
                     # Typeset copy: require exactly what the composer drew (a support line may not fit the zone).
                     args["required_text"] = [line for layer in piece_layers for line in str(layer.get("text") or "").split("\n") if line]
@@ -887,6 +884,52 @@ def create_image(payload, modeling, client_id, user_id):
                 logger.warning("Studio review failed request=%s", request_id, exc_info=True)
                 return {"reviewed": False, "approved": True, "score": None, "reason": "", "reason_text": ""}
 
+    # Two image calls instead of one: a cheap low-quality draft of the structure only (short prompt), our partial
+    # review of it, then the finishing edit at the requested quality that completes the piece with the review's fixes.
+    # A further variation skips the draft and edits a finished piece of the same request.
+    base_palette = clean_palette(data.get("requested_palette")) or list((data.get("brand_context") or {}).get("palette") or [])
+    draft_prompt = "\n".join(line for line in [
+        studio_review.DRAFT_HEADER,
+        *layout_lines,
+        crop_safe_zone_line(aspect_ratio, width, height, provider_size),
+        prompt,
+        f"BASE PALETTE: {', '.join(base_palette)}." if base_palette else "",
+        "\nREFERENCE CONTRACT:",
+        *(role_lines or ["No image reference was supplied; create an original image."]),
+        product_visibility_line,
+        global_composition_line,
+        f"Output aspect ratio: {aspect_ratio}.",
+        *([final_layout_check(references, provider_size, composed)] if layout_lines else []),
+    ] if line)
+    variation_base = variation_reference(data, modeling)
+    passes = []
+    if variation_base and not mask:
+        provider, raw, output_format = render(studio_review.variation_prompt(aspect_ratio) + "\n\n" + technical_prompt,
+                                              [compact_provider_reference(variation_base), *provider_references[:MAX_IMAGE_REFERENCES - 1]])
+        passes = ["variation"]
+    elif (TWO_PASS if getattr(modeling, "two_pass", None) is None else modeling.two_pass) and not mask:
+        _draft_provider, draft_raw, draft_format = render(draft_prompt, quality=DRAFT_QUALITY)
+        partial = reviewed(fit_to(draft_raw, draft_format, width, height), draft_format, structure=True) if review_enabled else None
+        logger.info("Studio draft request=%s reviewed=%s reason=%s", request_id, bool(partial and partial.get("reviewed")),
+                    (partial or {}).get("reason") or "-")
+        draft_base = compact_provider_reference(f"data:image/{draft_format or 'png'};base64,{draft_raw}")
+        provider, raw, output_format = render(studio_review.finish_prompt(partial, aspect_ratio) + "\n\n" + technical_prompt,
+                                              [draft_base, *provider_references[:MAX_IMAGE_REFERENCES - 1]])
+        passes = ["draft", "finish"]
+    else:
+        provider, raw, output_format = render(technical_prompt)
+    encoded = fit_to(raw, output_format, width, height)
+    if sizing and not mask and MARGIN_QA_ENABLED:
+        # Elements the model drew outside the safe frame get one corrected attempt (charged once).
+        safe = safe_frame(raw_references, int(width), int(height))
+        edges = margin_violations(encoded, safe, getattr(modeling.generator, "text_callable", None))
+        logger.info("Studio margin check request=%s edges=%s", request_id, ",".join(edges) or "none")
+        if edges:
+            logger.info("Studio margin check failed edges=%s; regenerating once", ",".join(edges))
+            provider, raw, output_format = render(technical_prompt + "\n" + margin_correction(edges, safe))
+            encoded = fit_to(raw, output_format, width, height)
+    review_info = None
+    if review_enabled:
         # Version 1 comes from the Studio prompt; every further version is an edit of the best one so far that
         # fixes what the reviewer found (and, when refining, what it would improve). Only the delivered version is billed.
         attempts = studio_review.max_attempts(modeling)
@@ -937,7 +980,7 @@ def create_image(payload, modeling, client_id, user_id):
             review_info["second_score"] = log[1]["score"]
         if any(item.get("failed") for item in log):
             review_info["retry_failed"] = True
-    image_url_2x, file_kb, file_kb_2x = None, None, None
+    image_url_2x, file_kb, file_kb_2x, variation_base_url = None, None, None, None
     try:
         from .export import save_sibling, smallest_encoding
         budget = sizing["weight_budget_kb"] if sizing else None
@@ -953,6 +996,12 @@ def create_image(payload, modeling, client_id, user_id):
         if layers is not None:
             from . import banner_compose
             banner_compose.save_layers(image_url, base_encoded, layers, mask_specs(raw_references)[0])
+        # The finished picture (provider canvas, before logo and code typography): the base of further variations.
+        try:
+            variation_base_url = None if mask else save_sibling(image_url, "@base", raw, output_format)
+        except Exception:
+            # Only a convenience for further variations: never blocks the delivery.
+            logger.warning("Studio variation base not saved request=%s", request_id, exc_info=True)
     except Exception as error:
         setattr(error, "studio_phase", "image_storage")
         raise
@@ -994,6 +1043,8 @@ def create_image(payload, modeling, client_id, user_id):
         **({"review": review_info} if review_info else {}),
         **({"layers": layers, "composed": True} if layers is not None else {}),
         **({"image_url_2x": image_url_2x} if image_url_2x else {}),
+        **({"variation_base": variation_base_url} if variation_base_url else {}),
+        "passes": passes,
         "file_kb": file_kb,
         **({"file_kb_2x": file_kb_2x} if file_kb_2x else {}),
     }
@@ -1270,6 +1321,25 @@ def final_layout_check(references, provider_size=None, text_free=False):
         if spec:
             return ad_masks.final_check(spec, provider_size, text_free)
     return "FINAL LAYOUT CHECK: the composition must match the wireframe zones described at the top; if it does not, recompose before finishing."
+
+
+# The image is made in two calls: a low-quality structure draft (always low, whatever the requested quality) and the
+# finishing edit at the requested quality. CREATIVE_STUDIO_TWO_PASS=0 goes back to a single call.
+# Off in the Studio until the Lab's A/B shows the gain; the Lab turns it on per run (LabModeling.two_pass).
+TWO_PASS = os.getenv("CREATIVE_STUDIO_TWO_PASS", "0") == "1"
+DRAFT_QUALITY = "low"
+
+
+def variation_reference(data, modeling):
+    """A finished piece of this request to vary from (only the Studio's own generated files), as a data URL."""
+    url = str(data.get("variation_base") or "").split("?", 1)[0]
+    if not url.startswith("/static/uploads/creative_generated/") or ".." in url:
+        return None
+    try:
+        return modeling.storage.generated_as_data_url(url)
+    except Exception:
+        logger.warning("Studio variation base unavailable url=%s", url, exc_info=True)
+        return None
 
 
 # Display units get their headline, support line and CTA typeset by code (exact text, brand font, safe margin).

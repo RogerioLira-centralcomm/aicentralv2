@@ -205,3 +205,35 @@ def test_text_free_banner_edits_never_ask_for_text():
     prompt = studio_review.edit_prompt(verdict)
     assert "TEXT-FREE IMAGE" in prompt and '"Saiba mais"' not in prompt
     assert "headline bolder" not in prompt and "Warmer light" in prompt
+
+
+def test_two_pass_drafts_at_low_quality_then_finishes_on_the_draft(monkeypatch):
+    calls, saved, sent, qualities = [], [], [], []
+    verdicts = [{**APPROVED, "score": 70, "observation": {"unrequested_elements": ["selo"], "cut_off": []}}, APPROVED]
+    _verdicts(monkeypatch, *verdicts)
+    modeling = _modeling(calls, saved, sent)
+    original = modeling.generator.generate_image
+
+    def tracked(prompt, references, **kwargs):
+        qualities.append(kwargs.get("quality"))
+        return original(prompt, references, **kwargs)
+
+    modeling.generator.generate_image = tracked
+    modeling.two_pass = True
+    result = _generate(modeling)
+    assert len(calls) == 2 and qualities[0] == "low"
+    assert calls[0].startswith("DRAFT PASS") and "EDIT THE FIRST IMAGE" in calls[1] and "selo" in calls[1]
+    assert sent[1][0].startswith("data:image/") and result["passes"] == ["draft", "finish"]
+
+
+def test_variation_edits_a_finished_piece_and_skips_the_draft(monkeypatch):
+    calls, saved, sent = [], [], []
+    _verdicts(monkeypatch, APPROVED)
+    modeling = _modeling(calls, saved, sent)
+    modeling.two_pass = True
+    modeling.storage.generated_as_data_url = lambda url: "data:image/png;base64," + image_data("blue").split(",", 1)[1]
+    result = studio_create.create_image({"prompt": "Anúncio com botão Saiba mais.", "aspect_ratio": "1:1",
+                                         "variation_base": "/static/uploads/creative_generated/a@base.png",
+                                         "request_id": "variation-1"}, modeling, 10, 20)
+    assert len(calls) == 1 and calls[0].startswith("VARIATION OF THE FIRST IMAGE") and result["passes"] == ["variation"]
+    assert studio_create.variation_reference({"variation_base": "https://evil.example/x.png"}, modeling) is None

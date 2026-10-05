@@ -9,7 +9,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Iterable
 
-from ..cadu_mcp_catalog import module_for_tool, normalize_modules
+from ..cadu_mcp_catalog import ALL_MODULES, module_for_tool, normalize_modules
 from . import auth
 
 PENDING, DONE, FAILED = "pendente", "concluida", "falhou"
@@ -17,7 +17,8 @@ PENDING, DONE, FAILED = "pendente", "concluida", "falhou"
 
 def tools_for_grant(public_tools: Iterable[str], scopes, modules) -> list[str]:
     principal = SimpleNamespace(scopes=tuple(scopes or ()))
-    enabled = set(normalize_modules(modules))
+    # A grant without a module list loads every module at runtime (see auth.authenticate).
+    enabled = set(normalize_modules(modules, default=ALL_MODULES))
     return sorted(
         name for name in public_tools
         if module_for_tool(name) in enabled and auth.has_scope(principal, auth.required_scope(name))

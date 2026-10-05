@@ -464,7 +464,7 @@ def public_rpc():
                 arguments.pop("brand_ref", None)
             if name.startswith("brands."):
                 arguments.pop("brand_ref", None)
-            if name in PUBLIC_WRITE_TOOLS and arguments.get("request_id") is not None:
+            if (name in PUBLIC_WRITE_TOOLS or name == "operations.get") and arguments.get("request_id") is not None:
                 arguments["request_id"] = usage.idempotency_uuid(principal.client_id, arguments["request_id"])
             if name in PUBLIC_WRITE_TOOLS and "request_id" not in arguments:
                 # JSON-RPC ids may be numbers or arbitrary strings. Command

@@ -121,3 +121,10 @@ def test_consent_offers_paid_generation_unchecked_and_never_by_default():
     default_line = re.search(r"set default_scopes = \[(.*?)\]", template).group(1)
     assert "media:generate" not in default_line
     assert "'media:generate':" in template  # has a readable label on the consent screen
+
+
+def test_grant_without_modules_counts_tools_from_every_module():
+    scopes = ["projects:read", "resources:read", "brands:write", "projects:content_write"]
+    everything = diagnosis.tools_for_grant(PUBLIC_TOOLS, scopes, None)
+    marketing_only = diagnosis.tools_for_grant(PUBLIC_TOOLS, scopes, ["marketing"])
+    assert len(everything) > len(marketing_only)

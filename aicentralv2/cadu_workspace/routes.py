@@ -6443,6 +6443,7 @@ def project_detail(project_id, project_view='overview'):
                 'updatedAt': item.get('created_at'), 'href': str(item.get('preview_url') or ''),
             })
         artifact_items.sort(key=lambda item: str(item.get('updatedAt') or ''), reverse=True)
+        artifact_hrefs = {item['artifactId']: item['href'] for item in artifact_items if item.get('artifactId')}
         project_resources = [
             item for item in project.get('resources') or []
             if str(item.get('source_system') or '') not in {'planner_docs', 'external_reference'}
@@ -6541,9 +6542,16 @@ def project_detail(project_id, project_view='overview'):
                              'kind': 'Análise criativa', 'status': str(item.get('status') or ''),
                              'href': product_url('studio', f"/analyzer/{item.get('public_id')}")} for item in project.get('creative_analyses') or []]),
             'resources': [{'id': str(item.get('id') or item.get('resource_id') or item.get('title')), 'title': str(item.get('title') or 'Recurso'),
-                           'kind': str(item.get('category') or item.get('resource_type') or 'Recurso'),
+                           'kind': (workspace_artifact_labels.get(str(item.get('category') or '').lower(), (None, None))[1]
+                                    if item.get('source_system') == 'cadu_workspace_artifacts'
+                                    else str(item.get('category') or item.get('resource_type') or 'Recurso')) or 'Documento',
                            'resourceType': str(item.get('resource_type') or ''), 'mime': str(item.get('mime_type') or ''),
-                           'locator': str(item.get('locator') or ''), 'status': str(item.get('status') or '')} for item in project_resources],
+                           'locator': str(item.get('locator') or ''),
+                           'href': (artifact_hrefs.get(str(item.get('source_id') or '')) or '')
+                                   if item.get('source_system') == 'cadu_workspace_artifacts' else '',
+                           'status': (status_labels.get(str(item.get('status') or ''), 'Salvo')
+                                      if item.get('source_system') == 'cadu_workspace_artifacts'
+                                      else str(item.get('status') or ''))} for item in project_resources],
             'resourceRegistryAvailable': bool(project.get('resource_registry_available')),
             'memory': [{'id': str(item.get('id')), 'kind': str(item.get('kind') or 'Memória'),
                         'summary': str(item.get('summary') or '')} for item in (project.get('memory') or {}).get('confirmed', [])],

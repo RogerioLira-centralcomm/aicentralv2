@@ -385,7 +385,7 @@ def test_studio_bridge_runs_the_real_create_image_with_the_chosen_model(monkeypa
         assert Image.open(io.BytesIO(base64.b64decode(result["b64"]))).size == (1080, 1350)
 
 
-def test_a_remote_svg_logo_is_accepted_only_when_asked_and_only_if_it_is_inert():
+def test_a_remote_svg_logo_comes_back_as_a_png_and_only_if_it_is_inert():
     import pytest
     from unittest.mock import patch
     from aicentralv2.services import openrouter_service as service
@@ -400,12 +400,28 @@ def test_a_remote_svg_logo_is_accepted_only_when_asked_and_only_if_it_is_inert()
         def raise_for_status(self):
             return None
 
+    def client(body):
+        return type("C", (), {"get": staticmethod(lambda *a, **k: Response(body))})
+
     clean = b'<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4"/></svg>'
     dirty = b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
+    with patch("aicentralv2.creative_modeling_storage._validated_public_asset_url", lambda url: url), \
+            patch("aicentralv2.creative_media.svg_raster.rasterize", lambda content, width=1200: b"\x89PNG-fake"):
+        assert service._download_reference_bytes("https://x.test/l.svg", http_client=client(clean)) == (b"\x89PNG-fake", "image/png")
+        with pytest.raises(service.OpenRouterError):
+            service._download_reference_bytes("https://x.test/l.svg", http_client=client(clean), allow_svg=False)
     with patch("aicentralv2.creative_modeling_storage._validated_public_asset_url", lambda url: url):
-        got, mime = service._download_reference_bytes("https://x.test/l.svg", http_client=type("C", (), {"get": staticmethod(lambda *a, **k: Response(clean))}), allow_svg=True)
-        assert mime == "image/svg+xml" and got == clean
         with pytest.raises(service.OpenRouterError):
-            service._download_reference_bytes("https://x.test/l.svg", http_client=type("C", (), {"get": staticmethod(lambda *a, **k: Response(clean))}))
-        with pytest.raises(service.OpenRouterError):
-            service._download_reference_bytes("https://x.test/l.svg", http_client=type("C", (), {"get": staticmethod(lambda *a, **k: Response(dirty))}), allow_svg=True)
+            service._download_reference_bytes("https://x.test/l.svg", http_client=client(dirty))
+
+
+def test_svg_raster_accepts_only_inert_svg():
+    import pytest
+    from aicentralv2.creative_media import svg_raster
+    clean = b'<svg xmlns="http://www.w3.org/2000/svg"><rect width="4" height="4"/></svg>'
+    assert svg_raster.is_inert(clean) and not svg_raster.is_inert(b"\x89PNG\r\n")
+    for dirty in (b"<svg><script>1</script></svg>", b'<svg onload="x()"></svg>', b"<!DOCTYPE svg [<!ENTITY a 'b'>]><svg/>",
+                  b"<svg><foreignObject/></svg>"):
+        assert not svg_raster.is_inert(dirty)
+        with pytest.raises(ValueError):
+            svg_raster.rasterize(dirty)

@@ -855,7 +855,7 @@ def _reference_bytes(item, index: int, *, http_client=requests) -> tuple[bytes, 
     return content, mime, f"ref{index}.{ext}"
 
 
-def _download_reference_bytes(url, *, http_client=requests, max_bytes=5 * 1024 * 1024, allow_svg=False):
+def _download_reference_bytes(url, *, http_client=requests, max_bytes=5 * 1024 * 1024, allow_svg=True):
     from ..creative_modeling_storage import _validated_public_asset_url
 
     current = _validated_public_asset_url(url)
@@ -897,10 +897,15 @@ def _download_reference_bytes(url, *, http_client=requests, max_bytes=5 * 1024 *
         "image/jpeg": bytes(content).startswith(b"\xff\xd8\xff"),
         "image/jpg": bytes(content).startswith(b"\xff\xd8\xff"),
         "image/webp": bytes(content).startswith(b"RIFF") and bytes(content)[8:12] == b"WEBP",
-        # An SVG is XML text: the caller rasterizes it, never serves it (no scripts, no external references).
-        "image/svg+xml": b"<svg" in bytes(content[:4096]).lower()
-        and not re.search(rb"<\s*(script|foreignobject)\b|\bon[a-z]+\s*=|<!\s*entity\b", bytes(content), re.I),
+        "image/svg+xml": False,  # handled below: an SVG never leaves here as SVG
     }
+    if mime == "image/svg+xml":
+        # Logos and marks are often SVG: they come back as a transparent PNG, so every caller gets pixels.
+        from ..creative_media import svg_raster
+        try:
+            return svg_raster.rasterize(bytes(content)), "image/png"
+        except (ValueError, RuntimeError) as exc:
+            raise OpenRouterError(f"O SVG remoto não pôde ser convertido: {exc}") from exc
     if not content or not signatures.get(mime):
         raise OpenRouterError("O conteúdo remoto não corresponde a uma imagem válida.")
     return bytes(content), "image/jpeg" if mime == "image/jpg" else mime

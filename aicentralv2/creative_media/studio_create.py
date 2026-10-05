@@ -1479,7 +1479,7 @@ def _open_trimmed_logo(url, palette=None):
             content = base64.b64decode(str(url).split(",", 1)[1])
             image = _rasterize_svg(content) if _is_svg(content) else Image.open(io.BytesIO(content))
             image.load()
-        except (ValueError, OSError, IndexError):
+        except (ValueError, OSError, IndexError, RuntimeError):
             return None
     else:
         path_value = studio_owned_static_path(url)
@@ -1492,7 +1492,7 @@ def _open_trimmed_logo(url, palette=None):
             content = path.read_bytes() if str(path).lower().endswith(".svg") else b""
             image = _rasterize_svg(content) if content else Image.open(path)
             image.load()
-        except (ValueError, OSError):
+        except (ValueError, OSError, RuntimeError):
             return None
     image = _without_flat_background(image.convert("RGBA"), palette=palette)
     # Logo files often carry transparent padding; trim it so margins are measured from the artwork.
@@ -1501,14 +1501,14 @@ def _open_trimmed_logo(url, palette=None):
 
 
 def _is_svg(content):
-    return b"<svg" in bytes(content[:4096]).lower()
+    from . import svg_raster
+    return svg_raster.is_svg(content)
 
 
 def _rasterize_svg(content, width=1200):
-    """An SVG logo as a transparent PNG (the Studio composes logos from pixels). CairoSVG is in requirements.txt and
-    needs the system Cairo library; without it the logo is simply not composed. External references are not fetched."""
-    import cairosvg
-    return Image.open(io.BytesIO(cairosvg.svg2png(bytestring=bytes(content), output_width=width, unsafe=False)))
+    """An SVG logo as a transparent PNG (the Studio composes logos from pixels); see ``svg_raster`` for the guards."""
+    from . import svg_raster
+    return Image.open(io.BytesIO(svg_raster.rasterize(content, width)))
 
 
 def _without_flat_background(image, tolerance=40, palette=None):

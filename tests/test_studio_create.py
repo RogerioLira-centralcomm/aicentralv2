@@ -555,3 +555,11 @@ def test_an_svg_logo_is_rasterized_and_never_sent_to_the_model_as_a_reference():
         logo = studio_create._open_trimmed_logo("data:image/svg+xml;base64," + base64.b64encode(svg).decode())
     assert logo is not None and logo.size == (40, 10)
     assert studio_create.official_logo_reference({"logo_url": "https://studio.example/static/x/logo.svg"}) is None
+
+
+def test_a_highlight_the_director_mangled_is_restored_in_place_not_repeated():
+    from aicentralv2.creative_media.studio_playbook import copy_budget, edited_copy
+    briefing = "Título: Sabor que junta gente\nDestaque: 2 POR R$ 9\nBotão: Aproveite"
+    copy = edited_copy({"headline": "Sabor que junta gente 2 POR R 9", "support": [], "cta": "Aproveite"}, briefing,
+                       copy_budget(300, 600))
+    assert copy["headline"] == "Sabor que junta gente 2 POR R$ 9"

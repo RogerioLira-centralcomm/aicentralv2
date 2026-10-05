@@ -46,11 +46,7 @@ def build_spec(client_id: int, data: dict, user_id: int | None) -> tuple[dict, d
         raise ValueError("Editar exige uma imagem-base (papel BASE).")
     if logo_mode != "none" and snapshot.get("logo_url") and not any(ref["role"] == "LOGO" for ref in references):
         try:
-            content, mime = _download_reference_bytes(snapshot["logo_url"], max_bytes=8 * 1024 * 1024, allow_svg=True)
-            if mime == "image/svg+xml":
-                # The Studio composes logos from pixels: an SVG logo is stored as a transparent PNG.
-                import cairosvg
-                content = cairosvg.svg2png(bytestring=content, output_width=1200, unsafe=False)
+            content, _mime = _download_reference_bytes(snapshot["logo_url"], max_bytes=8 * 1024 * 1024)
             logo = repository.save_reference(client_id, content, role="LOGO", label=f"Logo {snapshot['name']}",
                                              source="brand_asset", source_ref="logo_url", brand_id=brand_id, user_id=user_id)
             references.append({"ref_id": logo["ref_id"], "role": "LOGO", "label": logo["label"],

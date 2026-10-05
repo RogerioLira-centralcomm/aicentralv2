@@ -28,6 +28,9 @@ def sha256(payload: bytes) -> str:
 
 
 def open_image(payload: bytes) -> Image.Image:
+    from ..creative_media import svg_raster
+    if svg_raster.is_svg(payload):
+        payload = svg_raster.rasterize(payload)  # an SVG reference is stored as pixels, never as SVG
     image = Image.open(io.BytesIO(payload))
     image.load()
     image = ImageOps.exif_transpose(image)

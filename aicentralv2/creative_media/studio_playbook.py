@@ -161,8 +161,23 @@ def _offer_in(line: str, headline: str) -> bool:
     return bool(match) and len(match.group(1).strip()) > 1 and match.group(1).strip().casefold() in headline.casefold()
 
 
+def _restore_exact(text: str, original: str) -> str:
+    """The briefing's phrase back where the edit mangled it (a lost symbol: "R$ 9" -> "R 9", "+20%" -> "20"), in
+    place: the sale price the director "corrected" is the one the client wrote."""
+    if not original or original in text:
+        return text
+    pattern = "".join(r"\s*" if char.isspace() else (re.escape(char) + "?" if char in "$%+-ªº." else re.escape(char))
+                      for char in original.strip())
+    match = re.search(pattern, text, re.I)
+    return text[:match.start()] + original + text[match.end():] if match else text
+
+
 def protect(headline: str, support: list[str], briefing: str, room: int) -> tuple[str, list[str]]:
     """Offer and highlight never leave the piece: what the edit dropped comes back into the headline."""
+    for line in [*support_copy(briefing), highlight_copy(briefing)]:
+        if line and _OFFER.search(line):
+            headline = _restore_exact(headline, line)
+            support = [_restore_exact(item, line) for item in support]
     kept_text = " ".join([headline, *support]).casefold()
     lost = [line for line in support_copy(briefing) if _OFFER.search(line) and line.casefold() not in kept_text
             and not _offer_in(line, kept_text)]

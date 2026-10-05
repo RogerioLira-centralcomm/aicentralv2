@@ -155,7 +155,7 @@ def brand_snapshot(client_id: int, brand_id: int) -> dict:
         assets = []
         for asset in cursor.fetchall():
             url = asset_public_url(asset["path"])
-            if url and not url.lower().split("?")[0].endswith(".svg"):  # pickable references are pixels (PIL imports them)
+            if url:  # SVG assets too: importing one stores it as pixels (svg_raster)
                 assets.append({"asset_id": asset["id"], "role": asset["role"], "url": url,
                                "is_primary": asset["is_primary"], "width": asset["width"], "height": asset["height"]})
         cursor.execute(

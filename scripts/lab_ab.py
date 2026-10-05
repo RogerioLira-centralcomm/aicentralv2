@@ -116,7 +116,7 @@ def main():
                 exp = repository.get_experiment(args.client, run["experiment_id"])
                 spec, snap, plan = dict(exp["spec"]), exp["brand_snapshot"] or {}, run["adaptation_plan"]
                 if brand_id:
-                    snap, plan = _brand_snapshot(args.client, int(brand_id)), {**plan, "sent": [], "converted_to_text": []}
+                    snap, plan = _brand_snapshot(args.client, int(brand_id)), {**plan, "sent": [], "converted_to_text": [], "mockup": {}}
                     spec["brand_payload"] = __import__("aicentralv2.creative_lab.brands", fromlist=["x"]).payload_fields(snap)
                     spec["references"] = []
                 for key, value in spec_fields.get(str(run_id), spec_fields.get("*", {})).items():

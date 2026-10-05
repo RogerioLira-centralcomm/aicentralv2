@@ -156,7 +156,19 @@
     const results = [];
     const startedAt = Date.now();
     const elapsedLabel = () => { const seconds = Math.floor((Date.now() - startedAt) / 1000); return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`; };
-    const generationTimer = window.setInterval(() => { if (!$('#reviewLoading').hidden) $('#creationProgressTime').textContent = elapsedLabel(); }, 1000);
+    // The server does one request per image: the stages follow the pipeline's usual pace (scene, then text/button/logo by
+    // code, then the automatic review, which may ask for another version), never a made-up percentage.
+    const generationStages = [
+      [0, 'Compondo a cena', 'A direção criativa já foi aplicada. O modelo de imagem está criando a cena.'],
+      [20, 'Aplicando texto, botão e logo', 'Colocando o texto, o botão e o logo oficial da marca na imagem.'],
+      [30, 'Revisão automática', 'Um revisor confere texto, logo, margens e fidelidade ao briefing.'],
+      [50, 'Refinando a imagem', 'Se o revisor pede ajustes, uma nova versão é gerada a partir da anterior. Isso leva um pouco mais.'],
+      [90, 'Finalizando', 'Está demorando mais que o normal. A imagem ainda está sendo finalizada; não feche esta página.']
+    ];
+    let currentImage = 0;
+    let imageStartedAt = Date.now();
+    const currentStage = () => { const seconds = (Date.now() - imageStartedAt) / 1000; return generationStages.filter(item => seconds >= item[0]).pop(); };
+    const generationTimer = window.setInterval(() => { if ($('#reviewLoading').hidden) return; $('#creationProgressTime').textContent = elapsedLabel(); const stage = currentStage(); $('#reviewLoadingText').textContent = stage[2]; $('#creationProgressStep').textContent = `Imagem ${currentImage + 1} de ${state.variations} · ${stage[1]}`; }, 1000);
     const minimumVariationMs = 7000;
     button.disabled = true;
     hideComposerFeedback();
@@ -164,7 +176,9 @@
     try {
       for (let index = 0; index < state.variations; index += 1) {
         const variationStartedAt = Date.now();
-        setCreationProgress({ title: state.variations === 1 ? 'Criando sua imagem' : 'Criando suas variações', description: 'A direção criativa já foi aplicada. Agora estamos compondo e finalizando a imagem. Um revisor automático confere o resultado e, se rejeitar, gera outra versão, o que pode levar mais um pouco.', step: `Imagem ${index + 1} de ${state.variations}`, time: elapsedLabel() });
+        currentImage = index;
+        imageStartedAt = Date.now();
+        setCreationProgress({ title: state.variations === 1 ? 'Criando sua imagem' : 'Criando suas variações', description: generationStages[0][2], step: `Imagem ${index + 1} de ${state.variations} · ${generationStages[0][1]}`, time: elapsedLabel() });
         const generationPrompt = [prompt, state.originalPrompt && state.originalPrompt !== prompt ? `Requisitos obrigatórios do briefing original do usuário: ${state.originalPrompt}` : ''].filter(Boolean).join('\n\n');
         // Variations after the first are made from the first finished piece (same campaign, a different take).
         results.push(await createImage(generationPrompt, index > 0 ? results[0]?.variation_base || '' : ''));

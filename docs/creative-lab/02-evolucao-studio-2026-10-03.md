@@ -86,7 +86,7 @@ título e CTA.
 ## Layouts por posição (v5): cobertura por formato (2026-10-05)
 
 `position_layouts.py` tem 29 layouts: 300×250 (4 comerciais + 3 institucionais), 300×600 (4 + 2), 160×600 (4 + 2),
-728×90 (3 comerciais + 2 institucionais) e 970×250 (3 comerciais + 3 institucionais, com retrato dividido). Comerciais:
+728×90 (2 comerciais + 2 institucionais) e 970×250 (3 comerciais + 3 institucionais, com retrato dividido). Comerciais:
 pessoa-circulo, produto-diagonal, faixa-foto-bloco, tipografico-selo; institucionais (sem botão): manifesto-foto-plena,
 assinatura-centro, retrato-dividido. `for_format` devolve a versão do formato, ou `""` quando não existe (a
 composição padrão roda; nunca o layout de outro tamanho).

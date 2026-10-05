@@ -530,3 +530,11 @@ def test_a_logo_badge_in_a_brand_color_keeps_its_square():
     ImageDraw.Draw(badge).rectangle((50, 80, 150, 120), fill=(255, 255, 255, 255))
     assert _without_flat_background(badge, palette=["#D22828"]) is badge
     assert _without_flat_background(badge, palette=["#000000"]).getpixel((2, 2))[3] == 0
+
+
+def test_a_support_line_that_repeats_the_headline_is_dropped():
+    from aicentralv2.creative_media.studio_playbook import copy_budget, edited_copy
+    briefing = "Título: Sabor que junta gente\nDestaque: 2 POR R$ 9\nBotão: Aproveite"
+    copy = edited_copy({"headline": "Sabor que junta gente 2 POR R$ 9", "support": ["2 POR R$ 9"], "cta": "Aproveite"},
+                       briefing, copy_budget(300, 600))
+    assert copy["headline"] == "Sabor que junta gente 2 POR R$ 9" and copy["support"] == []

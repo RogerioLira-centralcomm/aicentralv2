@@ -167,6 +167,9 @@ def protect(headline: str, support: list[str], briefing: str, room: int) -> tupl
     lost = [line for line in support_copy(briefing) if _OFFER.search(line) and line.casefold() not in kept_text
             and not _offer_in(line, kept_text)]
     headline, support = with_offer(headline, [*lost, *support], room)
+    # A support line that only repeats what the headline already says is dropped (the director wrote the offer in both).
+    spoken = set(re.findall(r"\w+", headline.casefold()))
+    support = [line for line in support if not set(re.findall(r"\w+", line.casefold())) <= spoken]
     highlight = highlight_copy(briefing)
     if highlight and highlight.casefold() not in headline.casefold():
         # The highlight is the hero, never a support line (a 300×600 has room for one support line and the director

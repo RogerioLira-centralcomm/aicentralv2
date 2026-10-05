@@ -468,3 +468,36 @@ def test_an_offer_the_director_cut_from_the_support_comes_back_as_the_hero():
     briefing = "Título: Outlet com\nTexto de apoio: +20% EXTRA · Use o cupom DIADOCLIENTE.\nBotão: Comprar agora"
     copy = edited_copy({"headline": "Outlet com", "support": [], "cta": "Comprar agora"}, briefing, copy_budget(300, 250))
     assert copy["headline"] == "Outlet com +20% EXTRA"
+
+
+def test_the_highlight_is_protected_and_does_not_count_against_the_budget():
+    from aicentralv2.creative_media.studio_playbook import copy_budget, edited_copy, fits
+    briefing = "Título: Sua conta de luz\nDestaque: NA PALMA DA MÃO\nBotão: Acesse agora"
+    copy = edited_copy({"headline": "Sua conta de luz", "support": [], "cta": "Acesse agora"}, briefing, copy_budget(300, 250))
+    assert copy["headline"] == "Sua conta de luz NA PALMA DA MÃO"
+    assert fits(copy, copy_budget(300, 250), briefing) and not fits(copy, copy_budget(300, 250))
+
+
+def test_an_offer_already_in_the_headline_is_not_glued_in_again():
+    from aicentralv2.creative_media.studio_playbook import copy_budget, edited_copy
+    briefing = "Título: Outlet com\nTexto de apoio: +20% EXTRA · Use o cupom DIADOCLIENTE.\nBotão: Comprar agora"
+    copy = edited_copy({"headline": "Outlet +20% EXTRA", "support": ["+20% EXTRA Use o cupom DIADOCLIENTE."],
+                        "cta": "Comprar agora"}, briefing, copy_budget(300, 250))
+    assert copy["headline"] == "Outlet +20% EXTRA"
+
+
+def test_a_capital_highlight_closing_the_headline_is_the_hero():
+    from aicentralv2.creative_media.banner_compose import split_offer
+    assert split_offer("Sua conta de luz NA PALMA DA MÃO") == ("Sua conta de luz", "NA PALMA DA MÃO")
+    assert split_offer("SEMANA DO CLIENTE") == ("SEMANA DO CLIENTE", "")
+
+
+def test_an_opaque_logo_loses_its_flat_background_and_keeps_the_artwork():
+    from PIL import Image, ImageDraw
+    from aicentralv2.creative_media.studio_create import _without_flat_background
+    logo = Image.new("RGBA", (200, 100), (71, 112, 76, 255))
+    ImageDraw.Draw(logo).rectangle((40, 30, 160, 70), fill=(10, 10, 10, 255))
+    keyed = _without_flat_background(logo)
+    assert keyed.getpixel((2, 2))[3] == 0 and keyed.getpixel((100, 50))[3] == 255
+    photo = Image.effect_noise((200, 100), 80).convert("RGBA")
+    assert _without_flat_background(photo) is photo

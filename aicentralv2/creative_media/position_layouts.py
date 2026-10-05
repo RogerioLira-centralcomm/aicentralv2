@@ -67,8 +67,10 @@ LAYOUTS = {
             "The bottom 54% is a flat solid field in the brand's ground color, edge to edge, with nothing drawn on it: "
             "the copy, the button and the logo go there.",
         ],
+        # The block is painted by the Studio when the model lets the photo run past the cut (measured: it went to ~55%
+        # and the headline sat on the photo).
         "zones": {"headline": (0.067, 0.50, 0.62, 0.28), "cta": (0.067, 0.81, 0.30, 0.09), "logo": (0.773, 0.85, 0.16, 0.07),
-                  "subject": (0.0, 0.0, 1.0, 0.46)},
+                  "subject": (0.0, 0.0, 1.0, 0.46), "panel": (0.0, 0.46, 1.0, 0.54)},
         "logo": "bottom-right", "cta": True,
         "sketch": {"background": "ground", "band": 0.46, "silhouette": (0.70, 0.04, 0.16, 0.42)},
     },
@@ -79,11 +81,13 @@ LAYOUTS = {
         "scene": [
             "No photograph. A flat solid background in the brand's ground color with a subtle grain, edge to edge.",
             "One small solid tab in a secondary brand color at the top-left corner, about 12% wide.",
-            "The right third (64% to 92% across) holds a round seal area that stays empty: a plain circle of a lighter "
-            "brand tone, about 34% of the height, centred at 78% across and 42% down.",
+            "The right third (64% to 92% across) holds one round seal: a flat solid circle in the brand accent color, "
+            "about 34% of the height, centred at 78% across and 42% down, with nothing inside it (the Studio sets the "
+            "highlight in it).",
             "Everything else is plain: the copy is set by the Studio.",
         ],
-        "zones": {"headline": (0.067, 0.16, 0.56, 0.52), "cta": (0.067, 0.74, 0.30, 0.10), "logo": (0.773, 0.85, 0.16, 0.07)},
+        "zones": {"headline": (0.067, 0.16, 0.52, 0.52), "cta": (0.067, 0.74, 0.30, 0.10), "logo": (0.773, 0.85, 0.16, 0.07),
+                  "seal": (0.638, 0.25, 0.283, 0.34)},
         "logo": "bottom-right", "cta": True,
         "sketch": {"background": "ground", "tab": True, "seal": (0.78, 0.42, 0.17)},
     },

@@ -29,3 +29,14 @@ def test_v5_rows_are_300x250_with_a_layout_by_position():
     rows = [item for item in scenarios.scenarios() if item["key"].startswith("v5-")]
     assert len(rows) == 4
     assert all(item["formats"] == ["iab-300x250"] and position_layouts.get(item["layout"]["position"]) for item in rows)
+
+
+def test_the_seal_layout_sets_the_hero_inside_the_seal():
+    from aicentralv2.creative_media import banner_compose
+    spec = position_layouts.spec("tipografico-selo")
+    _, layers = banner_compose.render_text_layers(Image.new("RGB", (1200, 1000), (10, 60, 45)), spec,
+                                                  "Sua conta de luz NA PALMA DA MÃO", "Acesse agora", {},
+                                                  ["#00A859", "#B5D334", "#0B3D2E"])
+    headline = next(layer for layer in layers if layer["type"] == "headline")
+    assert headline["hero_box"] == list(spec["zones"]["seal"])
+    assert " ".join(headline["lines"]).endswith("DA MÃO") and "SUA" in headline["lines"]

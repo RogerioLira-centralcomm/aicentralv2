@@ -12,7 +12,7 @@ import time
 from decimal import Decimal
 from uuid import uuid4
 
-from PIL import Image, ImageFilter, ImageOps
+from PIL import Image, ImageDraw, ImageFilter, ImageOps
 
 from ..creative_modeling_generation import OpenRouterError, _json_content
 from . import studio_playbook, studio_review
@@ -145,7 +145,7 @@ def create(payload, text_callable):
                         entry["layout"] = layout_contract
                     reference_plan.append(entry)
             edited = studio_playbook.edited_copy(item.get("copy"), request, budget)
-            if not studio_playbook.fits(edited, budget) and studio_playbook._briefing_headline(request):
+            if not studio_playbook.fits(edited, budget, request) and studio_playbook._briefing_headline(request):
                 edited = fit_copy(request, budget, context, text_callable) or edited
             items.append({"title": title, "summary": text(item.get("summary") or item.get("rationale"), 220) or "Direção baseada no briefing do projeto.", "prompt": prompt, "reference_plan": reference_plan[:4],
                           **({"copy": edited} if edited else {})})
@@ -174,7 +174,7 @@ def fit_copy(request, budget, context, text_callable, attempts=2):
             except (OpenRouterError, ValueError, KeyError, TypeError, AttributeError):
                 raw = None
         candidate = studio_playbook.edited_copy(raw, request, budget)
-        if studio_playbook.fits(candidate, budget):
+        if studio_playbook.fits(candidate, budget, request):
             return candidate
         if candidate and (not best or len(candidate["headline"].split()) < len(best["headline"].split())):
             best = candidate
@@ -758,8 +758,8 @@ def create_image(payload, modeling, client_id, user_id):
         support_copy = director_copy["support"]
     else:
         # No director copy: same rules by code — support to the budget, the offer line kept in the headline.
-        copy_headline, support_copy = studio_playbook.with_offer(copy_headline, studio_playbook.support_copy(briefing),
-                                                                 budget["apoio_max_linhas"]) if copy_headline else (
+        copy_headline, support_copy = studio_playbook.protect(copy_headline, studio_playbook.support_copy(briefing),
+                                                              briefing, budget["apoio_max_linhas"]) if copy_headline else (
             copy_headline, studio_playbook.support_copy(briefing)[:budget["apoio_max_linhas"]])
     layout_lines = (position_layouts.words(position_id, text_free=composed,
                                            palette=clean_palette(data.get("requested_palette"))
@@ -921,9 +921,11 @@ def create_image(payload, modeling, client_id, user_id):
                     args["required_text"] = []
                 if piece_layers is not None:
                     # Typeset copy: require exactly what the composer drew (a support line may not fit the zone).
-                    # Line by line, as drawn: the eyes transcribe visual lines, so a three-line headline is three strings.
+                    # Whole phrases as drawn (kicker in caps, hero, support, button): found whether the eyes transcribe
+                    # a wrapped title as one line or several (measured: word-per-line strings scored text 0.04).
                     args["required_text"] = [line for layer in piece_layers
-                                             for line in (layer.get("lines") or str(layer.get("text") or "").split("\n")) if line]
+                                             for line in (layer.get("phrases") or layer.get("lines")
+                                                          or str(layer.get("text") or "").split("\n")) if line]
                 return studio_review.review(image_b64=piece_b64, **args)
             except Exception:
                 logger.warning("Studio review failed request=%s", request_id, exc_info=True)
@@ -1487,10 +1489,37 @@ def _open_trimmed_logo(url):
             image.load()
         except (ValueError, OSError):
             return None
-    image = image.convert("RGBA")
+    image = _without_flat_background(image.convert("RGBA"))
     # Logo files often carry transparent padding; trim it so margins are measured from the artwork.
     box = image.getchannel("A").point(lambda value: 255 if value > 8 else 0).getbbox()
     return image.crop(box) if box else image
+
+
+def _without_flat_background(image, tolerance=40):
+    """An opaque logo on a flat color (a JPEG/WebP with the brand square behind the wordmark) loses that color where it
+    touches the edges, so it is set as artwork, not as a colored square. Logos with real transparency stay as they are."""
+    if image.getchannel("A").getextrema()[0] < 250:
+        return image
+    rgb = image.convert("RGB")
+    width, height = rgb.size
+    step_x, step_y = max(1, width // 40), max(1, height // 40)
+    border = [rgb.getpixel((x, y)) for x in range(0, width, step_x) for y in (0, height - 1)]
+    border += [rgb.getpixel((x, y)) for y in range(0, height, step_y) for x in (0, width - 1)]
+    ground = tuple(sorted(channel)[len(channel) // 2] for channel in zip(*border))
+    near = [sum(abs(a - b) for a, b in zip(pixel, ground)) <= tolerance for pixel in border]
+    if sum(near) < 0.9 * len(near):
+        return image  # a photo or a busy edge: not a flat background
+    distance = Image.new("L", rgb.size)
+    distance.putdata([255 if sum(abs(a - b) for a, b in zip(pixel, ground)) <= tolerance else 0 for pixel in rgb.getdata()])
+    for seed in ((0, 0), (width - 1, 0), (0, height - 1), (width - 1, height - 1)):
+        if distance.getpixel(seed) == 255:
+            ImageDraw.floodfill(distance, seed, 128)
+    alpha = distance.point(lambda value: 0 if value == 128 else 255)
+    if alpha.getextrema() == (0, 0):
+        return image
+    keyed = image.copy()
+    keyed.putalpha(alpha)
+    return keyed
 
 
 def shrink_into_border(encoded, factor):

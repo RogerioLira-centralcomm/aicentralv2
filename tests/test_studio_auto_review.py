@@ -279,3 +279,11 @@ def test_a_layout_by_position_is_used_as_is_and_its_sketch_goes_to_the_model(mon
     assert "LAYOUT BY POSITION" in calls[0] and "TEXT-FREE IMAGE" in calls[0]
     assert any(str(item).startswith("data:image/png") for item in sent[0]), "the sketch goes embedded"
     assert result
+
+
+def test_required_copy_follows_the_transcription_and_the_wordmark_is_not_extra_text():
+    from aicentralv2.creative_media.studio_review import as_transcribed
+    required = ["SUA CONTA DE LUZ", "NA PALMA DA MÃO", "Acesse agora"]
+    visible = ["SUA CONTA DE LUZ", "NA", "PALMA DA MÃO", "Acesse agora", "CEMIG"]
+    assert as_transcribed(required, visible, "Cemig") == (visible[:4], visible[:4])
+    assert as_transcribed(["OUTLET COM", "+20% EXTRA"], ["OUTLET.COM", "+20% EXTRA"], "Reserva")[0] == ["OUTLET COM", "+20% EXTRA"]

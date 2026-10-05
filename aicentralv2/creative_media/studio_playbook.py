@@ -56,8 +56,15 @@ RULES = [
 ]
 
 
-_SUPPORT = re.compile(r"(?:texto de apoio|apoio|subt[ií]tulo)\s*:\s*(.+?)(?=\s*(?:t[ií]tulo|headline|chamada|bot[aã]o|cta|button)\s*:|\n|$)",
+_SUPPORT = re.compile(r"(?:texto de apoio|apoio|subt[ií]tulo)\s*:\s*(.+?)(?=\s*(?:t[ií]tulo|headline|chamada|destaque|bot[aã]o|cta|button)\s*:|\n|$)",
                       re.I)
+_HIGHLIGHT = re.compile(r"destaque\s*:\s*(.+?)(?=\s*(?:t[ií]tulo|headline|chamada|texto de apoio|apoio|bot[aã]o|cta|button)\s*:|\n|$)", re.I)
+
+
+def highlight_copy(briefing: str) -> str:
+    """The literal highlight written as "Destaque: ..." in the briefing (the phrase the piece is about)."""
+    match = _HIGHLIGHT.search(briefing or "")
+    return " ".join(match.group(1).split()).strip("\"“”'") if match else ""
 
 
 def support_copy(briefing: str) -> list[str]:
@@ -143,8 +150,27 @@ def with_offer(headline: str, support: list[str], room: int) -> tuple[str, list[
     for index, line in enumerate(support):
         (kept if index < room or not _OFFER.search(line) else offers).append(line)
     kept = kept[:room]
-    extra = [line for line in offers if line.casefold() not in headline.casefold()]
+    extra = [line for line in offers if line.casefold() not in headline.casefold() and not _offer_in(line, headline)]
     return (" ".join([headline, *extra]).strip(), kept)
+
+
+def _offer_in(line: str, headline: str) -> bool:
+    """True when the line's offer ("+20% EXTRA") is already in the headline: the line is not glued in a second time."""
+    from .banner_compose import _OFFER_SPAN
+    match = _OFFER_SPAN.search(line)
+    return bool(match) and len(match.group(1).strip()) > 1 and match.group(1).strip().casefold() in headline.casefold()
+
+
+def protect(headline: str, support: list[str], briefing: str, room: int) -> tuple[str, list[str]]:
+    """Offer and highlight never leave the piece: what the edit dropped comes back into the headline."""
+    kept_text = " ".join([headline, *support]).casefold()
+    lost = [line for line in support_copy(briefing) if _OFFER.search(line) and line.casefold() not in kept_text
+            and not _offer_in(line, kept_text)]
+    headline, support = with_offer(headline, [*lost, *support], room)
+    highlight = highlight_copy(briefing)
+    if highlight and highlight.casefold() not in " ".join([headline, *support]).casefold():
+        headline = f"{headline} {highlight}".strip()
+    return headline, support
 
 
 def _briefing_headline(briefing: str) -> str:
@@ -169,11 +195,10 @@ def edited_copy(raw, briefing: str, budget: dict) -> dict | None:
     keeps_offer = not re.search(r"\d|%", original) or bool(re.search(r"\d|%", headline))
     headline = headline if headline and keeps_offer and from_briefing(headline, briefing) else ""
     if headline:
-        # The offer is untouchable in every copy field: a briefing line with a number/%/price that the edit dropped
-        # comes back (it becomes the hero; measured: the director cut "+20% EXTRA" from the support of a 300×250).
-        kept_text = " ".join([headline, *support]).casefold()
-        lost = [line for line in support_copy(briefing) if _OFFER.search(line) and line.casefold() not in kept_text]
-        headline, support = with_offer(headline, [*lost, *support], budget.get("apoio_max_linhas", 0))
+        # Offer and highlight are untouchable in every copy field: a briefing line with a number/%/price, or the
+        # "Destaque:", that the edit dropped comes back (it becomes the hero; measured: the director cut "+20% EXTRA"
+        # from the support and "NA PALMA DA MÃO" from the title of a 300×250).
+        headline, support = protect(headline, support, briefing, budget.get("apoio_max_linhas", 0))
     copy = {
         # The offer number is what sells: an edit that dropped it is refused (the Studio falls back to the briefing).
         "headline": headline,
@@ -199,8 +224,15 @@ def budget_instruction(budget: dict, width: int, height: int, typeset: bool = Fa
     return text
 
 
-def fits(copy: dict | None, budget: dict) -> bool:
-    return bool(copy) and len(copy["headline"].split()) <= budget["titulo_max_palavras"]
+def fits(copy: dict | None, budget: dict, briefing: str = "") -> bool:
+    """The headline within the budget; the protected highlight does not count (it is set as the hero)."""
+    if not copy:
+        return False
+    words = len(copy["headline"].split())
+    highlight = highlight_copy(briefing)
+    if highlight and highlight.casefold() in copy["headline"].casefold():
+        words -= len(highlight.split())
+    return words <= budget["titulo_max_palavras"]
 
 
 def copy_fit_messages(briefing: str, budget: dict, width: int, height: int, previous: dict | None = None) -> list[dict]:

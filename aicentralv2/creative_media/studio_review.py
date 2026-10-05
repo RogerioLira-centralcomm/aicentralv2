@@ -122,6 +122,29 @@ def _is_brand_mark(item: str, brand_name: str) -> bool:
     return bool(brand_name) and brand_name.casefold() in text and any(word in text for word in ("logo", "mark", "wordmark", "marca"))
 
 
+def as_transcribed(required: list[str], visible: list[str], brand_name: str = "") -> tuple[list[str], list[str]]:
+    """The required copy segmented the way the eyes transcribed it, and the visible text without the brand's wordmark.
+
+    The judge compares string lists: "SUA CONTA DE LUZ" against ["SUA", "CONTA", "DE LUZ"] (or the reverse) reads as
+    wrong text even when every letter is there (measured: 0.04 on correct pieces). When the visible items spell the
+    required copy in order, those items become the required strings; otherwise the copy stays as drawn. The official
+    logo is applied by the Studio and its name is not extra text.
+    """
+    from ..creative_lab.evaluation import _normalize
+    brand = _normalize(brand_name)
+    shown = [item for item in visible or [] if not (brand and _normalize(item) == brand)]
+    words = _normalize(" ".join(required or [])).split()
+    aligned, cursor = [], 0
+    for item in shown:
+        piece = _normalize(item).split()
+        if piece and words[cursor:cursor + len(piece)] == piece:
+            aligned.append(item)
+            cursor += len(piece)
+    if required and cursor == len(words):
+        return aligned, shown
+    return list(required or []), shown
+
+
 def invented_numbers(observation: dict, allowed_text: str) -> list[str]:
     """Visible numbers (prices, kWh, dates on a phone screen) that the request never wrote."""
     allowed = {re.sub(r"[.,]", "", item) for item in _NUMBER.findall(allowed_text or "")}
@@ -298,11 +321,12 @@ def review(*, image_b64: str, prompt: str, required_text: list[str], palette: li
         observation["unrequested_elements"] = [item for item in observation.get("unrequested_elements") or []
                                                if not _is_brand_mark(item, brand_name)]
         measurements["text"] = evaluation.text_check(required_text, observation.get("visible_text") or [])
+        judged_text, shown = as_transcribed(required_text, observation.get("visible_text") or [], brand_name)
         state = {
-            "brief": {"task": "generate", "instruction": spec["instruction"], "must_include_text": required_text,
+            "brief": {"task": "generate", "instruction": spec["instruction"], "must_include_text": judged_text,
                       "aspect_ratio": spec["aspect_ratio"]},
             "brand": {"name": brand_name, "palette": palette, "forbidden_elements": forbidden or []} if (brand_name or palette) else None,
-            "model_prompt": prompt[:3000], "observation": observation,
+            "model_prompt": prompt[:3000], "observation": {**observation, "visible_text": shown},
             "measurements": {"text": measurements["text"], "palette": measurements["palette"]},
         }
         questions = evaluation._questions(spec, bool(brand_name or palette), False)

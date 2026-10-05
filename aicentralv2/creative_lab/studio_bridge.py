@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import re
 import time
 import uuid
 
@@ -129,9 +130,15 @@ def briefing_text(spec: dict) -> str:
         parts.append(f"Público: {brief['audience']}")
     if copy.get("headline"):
         parts.append(f"Título: {copy['headline']}")
-    extras = [copy[key] for key in ("highlight", "support") if copy.get(key)]
-    if extras:
-        parts.append("Texto de apoio: " + " · ".join(extras))
+    if copy.get("highlight"):
+        # An offer highlight ("+20% EXTRA") is a support line the Studio keeps by rule; a phrase ("NA PALMA DA MÃO")
+        # is the "Destaque:", protected the same way and set as the hero.
+        if re.search(r"\d|%|R\$", copy["highlight"]):
+            parts.append("Texto de apoio: " + " · ".join(item for item in (copy["highlight"], copy.get("support")) if item))
+        else:
+            parts.append(f"Destaque: {copy['highlight']}")
+    if copy.get("support") and not (copy.get("highlight") and re.search(r"\d|%|R\$", copy["highlight"])):
+        parts.append(f"Texto de apoio: {copy['support']}")
     if copy.get("cta"):
         parts.append(f"Botão: {copy['cta']}")
     return "\n".join(part for part in parts if part)

@@ -20,7 +20,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageStat
 from .brand_fonts import resolve_font
 
 # Each label ends at the next one or at a line break: briefings also arrive flattened to a single line.
-_LABELS = r"(?:t[ií]tulo|headline|chamada|texto de apoio|apoio|subt[ií]tulo|bot[aã]o|cta|button)\s*:"
+_LABELS = r"(?:t[ií]tulo|headline|chamada|destaque|texto de apoio|apoio|subt[ií]tulo|bot[aã]o|cta|button)\s*:"
 _HEADLINE = re.compile(r"(?:t[ií]tulo|headline|chamada)\s*:\s*(.+?)(?=\s*" + _LABELS + r"|\n|$)", re.I | re.S)
 _CTA = re.compile(r"(?:bot[aã]o|cta|button)\s*:\s*(.+?)(?=\s*" + _LABELS + r"|\n|$)", re.I | re.S)
 
@@ -301,12 +301,24 @@ def split_offer(headline):
     text = " ".join(str(headline or "").split())
     match = _OFFER_SPAN.search(text)
     if not match or len(match.group(1).strip()) < 2:
-        return text, ""
+        return _split_caps(text)
     hero = match.group(1).strip()
     before, after = text[:match.start()].strip(), text[match.end():].strip()
     if before and after:
         return text, ""  # an offer in the middle of a sentence stays in the sentence: never reorder the copy
     return (before, hero) if before else (after, hero)
+
+
+_CAPS_TAIL = re.compile(r"^(.*?[a-zà-ÿ].*?)\s+((?:[A-ZÀ-Þ0-9][A-ZÀ-Þ0-9'’!?.,-]*\s*){2,})$")
+
+
+def _split_caps(text):
+    """'Sua conta de luz NA PALMA DA MÃO' -> ('Sua conta de luz', 'NA PALMA DA MÃO'): a highlight in capitals that
+    closes the headline (the briefing's "Destaque:") is the hero when there is no offer number."""
+    match = _CAPS_TAIL.match(text)
+    if not match or len(match.group(2).replace(" ", "")) < 4:
+        return text, ""
+    return match.group(1).strip(), match.group(2).strip()
 
 
 def offer_first(headline):
@@ -440,6 +452,33 @@ def _stack(draw, display, body, kicker, hero, support, width, height, wide, hero
 _MONTSERRAT_BOLD = next(iter(sorted((Path(__file__).resolve().parents[1] / "static" / "fonts" / "brand").glob("Montserrat-Bold.ttf"))), None)
 
 
+def _seal_hero(canvas, draw, zone, hero, display, palette):
+    """The hero set inside the layout's seal: centred, in the square inscribed in the circle, readable on its tone."""
+    x, y, w, h = _px(zone, canvas.size)
+    side = min(w, h) * 0.70
+    left, top = x + (w - side) / 2, y + (h - side) / 2
+    seal_color = _mean_color(canvas, (round(left), round(top), round(left + side), round(top + side)))
+    color = readable(accent_color(palette), seal_color)
+    if _contrast(color, seal_color) < 3:
+        color = (17, 24, 39) if _luma(seal_color) > 0.5 else (255, 255, 255)
+    font_info = display if display.get("source") != "fallback" else {**display, "path": _MONTSERRAT_BOLD or display["path"]}
+    best = None
+    for size in range(round(side / 2), 6, -1):
+        font = _font(font_info, size)
+        lines = _wrap(draw, hero, font, side)
+        if len(lines) <= 3 and all(draw.textlength(line, font=font) <= side for line in lines) and len(lines) * size * 1.02 <= side:
+            best = (size, font, lines)
+            break
+    if best is None:
+        return None
+    size, font, lines = best
+    cursor = top + (side - len(lines) * size * 1.02) / 2
+    for line in lines:
+        draw.text((left + (side - draw.textlength(line, font=font)) / 2, cursor), line, font=font, fill=color)
+        cursor += size * 1.02
+    return {"lines": lines, "size": size, "color": color}
+
+
 def render_text_layers(image, spec, headline, cta, brand_context, palette, support=None):
     """Draw headline, support and CTA into the mask zones; returns (image, layers)."""
     canvas = image.convert("RGBA")
@@ -481,8 +520,9 @@ def render_text_layers(image, spec, headline, cta, brand_context, palette, suppo
         kicker, hero = split_offer(headline)
         hero_first = bool(hero) and offer_first(headline)
         draw = ImageDraw.Draw(canvas)
-        block = _stack(draw, display, body, kicker, hero, support_text if renders_support(spec) else "", w, h, wide,
-                       hero_first=hero_first)
+        seal = _seal_hero(canvas, draw, zones.get("seal"), hero, display, palette) if hero and kicker and "seal" in zones else None
+        block = _stack(draw, display, body, kicker, "" if seal else hero, support_text if renders_support(spec) else "",
+                       w, h, wide, hero_first=hero_first)
         top = y + (h - block["height"]) / 2 if wide else y
         for line in block["lines"]:
             fill = hero_color if line["role"] == "hero" else color
@@ -494,8 +534,12 @@ def render_text_layers(image, spec, headline, cta, brand_context, palette, suppo
             "box": list(zones["headline"]),
             "font_family": display["family"], "font_source": display["source"], "size_px": headline_size,
             "kicker_size_px": block["kicker_size"], "hero": hero,
-            "lines": [line["text"] for line in block["lines"] if line["role"] in ("kicker", "hero")],
-            "color": "#%02x%02x%02x" % color, "hero_color": "#%02x%02x%02x" % hero_color, "align": "left",
+            "lines": [line["text"] for line in block["lines"] if line["role"] in ("kicker", "hero")] + (seal["lines"] if seal else []),
+            "color": "#%02x%02x%02x" % color, "hero_color": "#%02x%02x%02x" % (seal["color"] if seal else hero_color),
+            "align": "left", **({"hero_box": list(zones["seal"]), "hero_size_px": seal["size"]} if seal else {}),
+            # Whole phrases for the reviewer: the eyes transcribe a wrapped title as one line or as several, and a
+            # phrase is found in either (a word-per-line list reads as broken text to the judge).
+            "phrases": [item for item in ((hero, kicker.upper()) if hero_first else (kicker.upper(), hero)) if item],
         })
         if block["support_size"]:
             layers.append({
@@ -503,6 +547,7 @@ def render_text_layers(image, spec, headline, cta, brand_context, palette, suppo
                 "lines": [line["text"] for line in block["lines"] if line["role"] == "support"],
                 "box": [zones["headline"][0], (top + block["support_y"]) / canvas.height, zones["headline"][2],
                         (block["height"] - block["support_y"]) / canvas.height],
+                "phrases": [item for item in block["support_text"].split("\n") if item],
                 "font_family": block["support_family"], "font_source": "studio", "size_px": block["support_size"],
                 "color": "#%02x%02x%02x" % color, "align": "left",
             })

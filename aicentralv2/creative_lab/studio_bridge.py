@@ -314,7 +314,10 @@ def _position(spec: dict) -> dict:
                                     if LabModeling.position_layout else {})
     if not layout.get("position"):
         return {}
-    return {"position_layout": layout["position"], "position_sketch": layout.get("sketch") is not False}
+    from ..creative_media import position_layouts
+    # The same idea in the test's format: "pessoa-circulo" in a 300×600 is its half-page version.
+    position = position_layouts.for_format(layout["position"], (spec.get("brief") or {}).get("format_key") or "")
+    return {"position_layout": position, "position_sketch": layout.get("sketch") is not False}
 
 
 def run_create(*, model_key: str, spec: dict, snapshot: dict, plan: dict, by_ref: dict, direction: dict, files_module,
@@ -334,7 +337,8 @@ def run_create(*, model_key: str, spec: dict, snapshot: dict, plan: dict, by_ref
     modeling = LabModeling(model_key)
     brand = brand_context(snapshot, spec.get("brand_payload")) if snapshot else {}
     logo_ref = next((ref for ref in spec.get("references") or [] if ref.get("role") == "LOGO"), None)
-    if brand and logo_ref and files_module is not None:
+    logo_free = spec.get("logo_mode") == "none"
+    if brand and logo_ref and files_module is not None and not logo_free:
         # The test carries the official logo: the Studio composes that file (the brand record's URL may be missing or
         # live only on the production disk, and then the logo went to the model as a fourth image and the run failed).
         try:
@@ -346,9 +350,13 @@ def run_create(*, model_key: str, spec: dict, snapshot: dict, plan: dict, by_ref
         "request_id": uuid.uuid4().hex, "prompt": prompt, "original_prompt": briefing_text(spec),
         "reference_plan": direction.get("reference_plan") or [], "aspect_ratio": ratio, "copy": direction.get("copy"),
         "quality": QUALITY_TO_STUDIO.get(spec.get("quality"), "padrão"),
-        "creation_intent": "branded_creative" if snapshot and spec.get("logo_mode") != "none" else "neutral_asset",
+        # A v5 piece without logo is still the brand's piece (colors, type): only the signature is left out.
+        "creation_intent": "branded_creative" if snapshot and (spec.get("logo_mode") != "none" or _position(spec))
+        else "neutral_asset",
+        **({"logo_free": True} if logo_free and _position(spec) else {}),
         "brand_context": brand,
-        "references": _reference_items(spec, plan, by_ref, mask, files_module, logo_composed=bool(brand.get("logo_url"))),
+        "references": _reference_items(spec, plan, by_ref, mask, files_module,
+                                       logo_composed=bool(brand.get("logo_url")) or logo_free),
         "channel": "", "direction_intensity": 70,
         # The mockup mode is a Lab test variable (off, image or text): the Studio's default display layout stays out of it.
         **({"auto_mask": False} if (plan.get("mockup") or {}).get("requested") else {}),

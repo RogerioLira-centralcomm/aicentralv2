@@ -393,6 +393,27 @@ def _font(info, size):
     return ImageFont.truetype(str(info["path"]), max(6, int(size)))
 
 
+def _balanced(draw, text, font, width):
+    """Word wrap with even lines: the narrowest measure that keeps the same line count (no lone word on the last
+    line — "PARA QUEM BRILHA EM / VOCÊ" becomes "PARA QUEM / BRILHA EM VOCÊ")."""
+    lines = _wrap(draw, text, font, width)
+    if len(lines) < 2:
+        return lines
+    # Among the measures that keep the line count, the one whose lines are most alike (the narrowest one can strand a
+    # short word on the first line: "O / FUTURO / DA MÍDIA").
+    best, best_spread = lines, None
+    for step in range(25):
+        measure = width * (1 - 0.65 * step / 24)
+        candidate = _wrap(draw, text, font, measure)
+        if len(candidate) != len(lines):
+            continue
+        lengths = [draw.textlength(line, font=font) for line in candidate]
+        spread = max(lengths) - min(lengths)
+        if best_spread is None or spread < best_spread - 0.5:
+            best, best_spread = candidate, spread
+    return best
+
+
 def _line_length(draw, line):
     extra = line.get("gap", 0) * draw.textlength(" ", font=line["font"]) * line["text"].count(" ")
     return draw.textlength(line["text"], font=line["font"]) + extra
@@ -426,7 +447,7 @@ def _stack(draw, display, body, kicker, hero, support, width, height, wide, hero
             # "LEVE DO" over a photo was read as "ULTRA 90,").
             size = max(base, kicker_min) if hero else base * 1.35
             font = _font(display_font, size)
-            for text in _wrap(draw, kicker_text, font, width):
+            for text in _balanced(draw, kicker_text, font, width):
                 # Caps set small close their word gaps ("OUTLET COM" was read as "OUTLET.COM"): an en space opens them.
                 lines.append({"text": text, "font": font, "y": cursor, "role": "kicker", "gap": 1.0 if hero else 0.0})
                 cursor += size * 1.05
@@ -436,7 +457,7 @@ def _stack(draw, display, body, kicker, hero, support, width, height, wide, hero
             nonlocal cursor
             size = base * (2.3 if kicker_text else 2.6)
             font = _font(display_font, size)
-            for text in _wrap(draw, hero, font, width):
+            for text in _balanced(draw, hero, font, width):
                 lines.append({"text": text, "font": font, "y": cursor, "role": "hero"})
                 cursor += size * 1.0
             sizes["hero"] = round(size)
@@ -463,7 +484,14 @@ def _stack(draw, display, body, kicker, hero, support, width, height, wide, hero
     for _ in range(18):
         base = (low + high) / 2
         lines, total, widest, sizes, support_y, support_size = build(base)
-        too_many = sum(1 for line in lines if line["role"] in ("kicker", "hero")) > (2 if wide else 4)
+        # Up to two kicker lines and three hero lines: a long offer ("10% OFF NA 1ª COMPRA") may take three lines at
+        # hero size instead of shrinking to the kicker's size (a total cap of four flattened the hierarchy).
+        counts = {role: sum(1 for line in lines if line["role"] == role) for role in ("kicker", "hero")}
+        too_many = (counts["kicker"] + counts["hero"] > 2) if wide else (counts["kicker"] > (2 if hero else 4) or counts["hero"] > 3)
+        # No line that is a lone short word ("O", "UMA", "NA"): a designer sets the type a little smaller instead.
+        stranded = any(len(line["text"].split()) == 1 and len(line["text"]) <= 3 for line in lines
+                       if line["role"] in ("kicker", "hero")) and len(f"{kicker} {hero}".split()) > 1
+        too_many = too_many or stranded
         if total <= height and widest <= width and not too_many:
             best, low = (lines, total, sizes, support_y, support_size), base
         else:
@@ -519,8 +547,10 @@ def _seal_hero(canvas, draw, zone, hero, display, palette):
     best = None
     for size in range(round(side / 2), 6, -1):
         font = _font(font_info, size)
-        lines = _wrap(draw, hero, font, side)
-        if len(lines) <= 3 and all(draw.textlength(line, font=font) <= side for line in lines) and len(lines) * size * 1.02 <= side:
+        lines = _balanced(draw, hero, font, side)
+        stranded = len(lines) > 1 and any(" " not in line and len(line) <= 3 for line in lines)
+        if len(lines) <= 3 and not stranded and all(draw.textlength(line, font=font) <= side for line in lines) \
+                and len(lines) * size * 1.02 <= side:
             best = (size, font, lines)
             break
     if best is None:
@@ -577,10 +607,13 @@ def render_text_layers(image, spec, headline, cta, brand_context, palette, suppo
         seal = _seal_hero(canvas, draw, zones.get("seal"), hero, display, palette) if hero and kicker and "seal" in zones else None
         block = _stack(draw, display, body, kicker, "" if seal else hero, support_text if renders_support(spec) else "",
                        w, h, wide, hero_first=hero_first, kicker_min=round(min(canvas.size) * 0.044))
-        top = y + (h - block["height"]) / 2 if wide else y
+        centered = spec.get("align") == "center"
+        top = y + (h - block["height"]) / 2 if wide or centered else y
         for line in block["lines"]:
             fill = hero_color if line["role"] == "hero" else color
-            _draw_line(draw, (x, top + line["y"]), line, fill)
+            # A centred statement (institutional signature) sets each line on the zone's axis.
+            left = x + (w - _line_length(draw, line)) / 2 if centered else x
+            _draw_line(draw, (left, top + line["y"]), line, fill)
         headline_size = block["hero_size"] or block["kicker_size"]
         layers.append({
             # The copy as drawn (the kicker in caps is a typographic choice; the words are the client's).
@@ -590,7 +623,7 @@ def render_text_layers(image, spec, headline, cta, brand_context, palette, suppo
             "kicker_size_px": block["kicker_size"], "hero": hero,
             "lines": [line["text"] for line in block["lines"] if line["role"] in ("kicker", "hero")] + (seal["lines"] if seal else []),
             "color": "#%02x%02x%02x" % color, "hero_color": "#%02x%02x%02x" % (seal["color"] if seal else hero_color),
-            "align": "left", **({"hero_box": list(zones["seal"]), "hero_size_px": seal["size"]} if seal else {}),
+            "align": "center" if centered else "left", **({"hero_box": list(zones["seal"]), "hero_size_px": seal["size"]} if seal else {}),
             # Whole phrases for the reviewer: the eyes transcribe a wrapped title as one line or as several, and a
             # phrase is found in either (a word-per-line list reads as broken text to the judge).
             "phrases": [item for item in ((hero, kicker.upper()) if hero_first else (kicker.upper(), hero)) if item],
@@ -631,10 +664,12 @@ def render_text_layers(image, spec, headline, cta, brand_context, palette, suppo
         cap = round(headline_size * 0.42) if headline_size else round(h * 0.40)  # quieter than the headline
         legible = round(min(canvas.size) * 0.044)  # ~11 px on a 300×250: small, never squinting
         size = max(7, min(max(round(h * 0.40), legible), max(cap, legible)))
-        font = ImageFont.truetype(str(body["path"]), size)
+        # Regular weight: the button is a quiet invitation, the headline carries the weight (bold read heavy).
+        label_font = resolve_font(brand_context, "body", bold=False)
+        font = ImageFont.truetype(str(label_font["path"]), size)
         while size > 7 and draw.textlength(cta, font=font) + size * 2.6 > room_w:
             size -= 1
-            font = ImageFont.truetype(str(body["path"]), size)
+            font = ImageFont.truetype(str(label_font["path"]), size)
         label = cta
         text_w = draw.textlength(label, font=font)
         pad_x = round(size * 1.3)
@@ -650,7 +685,7 @@ def render_text_layers(image, spec, headline, cta, brand_context, palette, suppo
         draw.text((left + (pill_w - text_w) / 2, y + (h - (bbox[3] - bbox[1])) / 2 - bbox[1]), label, font=font, fill=ink)
         layers.append({
             "type": "cta", "text": label, "box": [left / canvas.width, y / canvas.height, pill_w / canvas.width, h / canvas.height],
-            "font_family": body["family"], "font_source": body["source"], "size_px": size,
+            "font_family": label_font["family"], "font_source": label_font["source"], "size_px": size,
             "color": "#%02x%02x%02x" % ink, "fill": "#%02x%02x%02x" % fill,
         })
     return canvas, layers

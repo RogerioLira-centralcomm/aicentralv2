@@ -513,3 +513,11 @@ def test_a_capital_highlight_with_an_offer_is_the_hero_and_the_title_stays_whole
     assert split_offer("Leve do primeiro ao último passo 10% OFF NA 1ª COMPRA") == (
         "Leve do primeiro ao último passo", "10% OFF NA 1ª COMPRA")
     assert split_offer("Joias para o Dia das Mães ATÉ 30% OFF") == ("Joias para o Dia das Mães", "ATÉ 30% OFF")
+
+
+def test_the_highlight_leaves_the_support_and_becomes_the_hero():
+    from aicentralv2.creative_media.studio_playbook import copy_budget, edited_copy
+    briefing = "Título: Para quem brilha em você\nDestaque: DIA DAS MÃES\nBotão: Ver coleção"
+    copy = edited_copy({"headline": "Para quem brilha em você", "support": ["DIA DAS MÃES"], "cta": "Ver coleção"},
+                       briefing, copy_budget(300, 600))
+    assert copy["headline"] == "Para quem brilha em você DIA DAS MÃES" and copy["support"] == []

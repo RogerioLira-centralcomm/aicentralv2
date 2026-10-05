@@ -10,12 +10,13 @@ def test_every_layout_keeps_copy_inside_the_safe_frame_and_has_a_sketch():
     for layout_id in position_layouts.LAYOUTS:
         spec = position_layouts.spec(layout_id)
         left, top, width, height = spec["safe"]
-        for name in ("headline", "cta", "logo"):
+        for name in [name for name in ("headline", "cta", "logo") if name in spec["zones"]]:
             x, y, w, h = spec["zones"][name]
             assert x >= left - 0.002 and y >= top - 0.002, (layout_id, name)
             assert x + w <= left + width + 0.002 and y + h <= top + height + 0.002, (layout_id, name)
         sketch = Image.open(io.BytesIO(position_layouts.render_sketch(layout_id)))
-        assert sketch.size == (1200, 1000)
+        item = position_layouts.get(layout_id)
+        assert max(sketch.size) == 1200 and abs(sketch.size[0] / sketch.size[1] - item["width"] / item["height"]) < 0.01
         assert position_layouts.sketch_path(layout_id).is_file(), "sketch PNG committed for the Studio to serve"
 
 
@@ -39,7 +40,8 @@ def test_the_seal_layout_sets_the_hero_inside_the_seal():
                                                   ["#00A859", "#B5D334", "#0B3D2E"])
     headline = next(layer for layer in layers if layer["type"] == "headline")
     assert headline["hero_box"] == list(spec["zones"]["seal"])
-    assert " ".join(headline["lines"]).endswith("DA MÃO") and "SUA" in headline["lines"]
+    assert " ".join(headline["lines"]).endswith("DA MÃO") and headline["lines"][0].startswith("SUA")
+    assert not any(len(line) <= 3 and " " not in line for line in headline["lines"]), "no lone short word"
 
 
 def test_layouts_with_a_painted_block_or_a_seal_are_never_mirrored():
@@ -48,3 +50,10 @@ def test_layouts_with_a_painted_block_or_a_seal_are_never_mirrored():
     for layout_id in ("faixa-foto-bloco", "tipografico-selo"):
         spec = position_layouts.spec(layout_id)
         assert banner_compose.place_position(busy, spec) is spec
+
+
+def test_a_layout_has_its_half_page_version():
+    assert position_layouts.for_format("pessoa-circulo", "iab-300x600") == "pessoa-circulo-300x600"
+    assert position_layouts.for_format("pessoa-circulo", "iab-300x250") == "pessoa-circulo"
+    spec = position_layouts.spec("faixa-foto-bloco-300x600")
+    assert spec["class"] == "vertical" and spec["format_label"] == "IAB 300×600" and spec["height"] == 600

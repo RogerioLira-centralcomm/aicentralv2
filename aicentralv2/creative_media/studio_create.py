@@ -618,7 +618,10 @@ def create_image(payload, modeling, client_id, user_id):
         clean_direction_reference(item, index)
         for index, item in enumerate(raw_references[:MAX_IMAGE_REFERENCES]) if isinstance(item, dict)
     ])
-    logo_free = mask_logo_policy(raw_references) == "none"
+    # No logo: a mask drawn without one, a layout by position without one, or a piece the request signs elsewhere
+    # (institutional teaser, campaign without signature).
+    logo_free = (mask_logo_policy(raw_references) == "none" or bool(position_spec and position_spec["logo"] == "none")
+                 or bool(data.get("logo_free")))
     if logo_free:
         data["brand_context"] = brand_without_logo(data.get("brand_context"))
     # The model redraws logos and tends to hug the edge. When the official logo file
@@ -1654,7 +1657,9 @@ def apply_brand_logo(encoded, output_format, logo, position="bottom-right", rect
         scale = min(slot_w / candidate.width, slot_h / candidate.height)
         mark = candidate.resize((max(1, round(candidate.width * scale)), max(1, round(candidate.height * scale))), Image.Resampling.LANCZOS)
         if rect:  # flush to the corner of the slot, which is the corner of the safe frame
-            left = round(rect[0] * width) if position.endswith("left") else round((rect[0] + rect[2]) * width) - mark.width
+            left = (round(rect[0] * width) if position.endswith("left") else
+                    round((rect[0] + rect[2] / 2) * width - mark.width / 2) if position.endswith("center") else
+                    round((rect[0] + rect[2]) * width) - mark.width)
             top = round(rect[1] * height) if position.startswith("top") else round((rect[1] + rect[3]) * height) - mark.height
         else:
             left = margin_x if position.endswith("left") else width - margin_x - mark.width

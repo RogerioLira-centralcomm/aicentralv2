@@ -168,7 +168,11 @@ def protect(headline: str, support: list[str], briefing: str, room: int) -> tupl
             and not _offer_in(line, kept_text)]
     headline, support = with_offer(headline, [*lost, *support], room)
     highlight = highlight_copy(briefing)
-    if highlight and highlight.casefold() not in " ".join([headline, *support]).casefold():
+    if highlight and highlight.casefold() not in headline.casefold():
+        # The highlight is the hero, never a support line (a 300×600 has room for one support line and the director
+        # put "DIA DAS MÃES" there: it came out small and the seal stayed empty).
+        support = [line for line in support if line.casefold() != highlight.casefold()
+                   and highlight.casefold() not in line.casefold()]
         headline = f"{headline} {highlight}".strip()
     return headline, support
 

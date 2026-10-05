@@ -303,9 +303,12 @@ _OFFER_SPAN = re.compile(r"((?:R\$\s*)?[+-]?\d[\d.,]*\s*%?(?:\s*(?:OFF|EXTRA|DE 
 def split_offer(headline):
     """'Outlet com +20% EXTRA' -> ('Outlet com', '+20% EXTRA'): the offer is the hero of the piece."""
     text = " ".join(str(headline or "").split())
+    kicker, caps = _split_caps(text)
+    if caps:
+        return kicker, caps  # the highlight in capitals closes the title: it is the hero, offer or not
     match = _OFFER_SPAN.search(text)
     if not match or len(match.group(1).strip()) < 2:
-        return _split_caps(text)
+        return text, ""
     hero = match.group(1).strip()
     before, after = text[:match.start()].strip(), text[match.end():].strip()
     if before and after:
@@ -314,7 +317,7 @@ def split_offer(headline):
 
 
 # Three capital words or more: "Conta PJ do BDMG" keeps its acronym in the sentence, "NA PALMA DA MÃO" is a highlight.
-_CAPS_WORD = r"[A-ZÀ-Þ0-9][A-ZÀ-Þ0-9'’!?.,-]*"
+_CAPS_WORD = r"(?:R\$|[A-ZÀ-Þ0-9+])[A-ZÀ-Þ0-9'’!?.,%ªº$+-]*"
 _CAPS_TAIL = re.compile(r"^(.*?[a-zà-ÿ].*?)\s+(" + _CAPS_WORD + r"(?:\s+" + _CAPS_WORD + r"){2,})$")
 
 
@@ -407,7 +410,7 @@ def _draw_line(draw, position, line, fill):
         x += draw.textlength(word, font=line["font"]) + space
 
 
-def _stack(draw, display, body, kicker, hero, support, width, height, wide, hero_first=False):
+def _stack(draw, display, body, kicker, hero, support, width, height, wide, hero_first=False, kicker_min=0):
     """Kicker (caps), hero offer (~2.3x) and support, scaled together to fill the zone without overflowing."""
     display_font = display if display.get("source") != "fallback" else {**display, "path": _MONTSERRAT_BOLD or display["path"]}
     kicker_text = kicker.upper() if kicker else ""
@@ -419,7 +422,9 @@ def _stack(draw, display, body, kicker, hero, support, width, height, wide, hero
 
         def add_kicker():
             nonlocal cursor
-            size = base if hero else base * 1.35
+            # Never below a legible size: when room is short the hero gives way, not the title (measured: an 8 px
+            # "LEVE DO" over a photo was read as "ULTRA 90,").
+            size = max(base, kicker_min) if hero else base * 1.35
             font = _font(display_font, size)
             for text in _wrap(draw, kicker_text, font, width):
                 # Caps set small close their word gaps ("OUTLET COM" was read as "OUTLET.COM"): an en space opens them.
@@ -465,7 +470,7 @@ def _stack(draw, display, body, kicker, hero, support, width, height, wide, hero
             high = base
     if best is None or (support and best[4] < SUPPORT_MIN_PX):
         if support:
-            return _stack(draw, display, body, kicker, hero, "", width, height, wide, hero_first)
+            return _stack(draw, display, body, kicker, hero, "", width, height, wide, hero_first, kicker_min)
         best = (build(6)[0], build(6)[1], build(6)[3], 0, 0)
     lines, total, sizes, support_y, support_size = best
     return {"lines": lines, "height": total, "kicker_size": sizes["kicker"], "hero_size": sizes["hero"],
@@ -505,9 +510,11 @@ def _seal_hero(canvas, draw, zone, hero, display, palette):
     side = min(w, h) * 0.74
     left, top = x + (w - side) / 2, y + (h - side) / 2
     seal_color = _mean_color(canvas, (round(left), round(top), round(left + side), round(top + side)))
-    color = readable(accent_color(palette), seal_color)
-    if _contrast(color, seal_color) < 3:
-        color = (17, 24, 39) if _luma(seal_color) > 0.5 else (255, 255, 255)
+    # A seal reads like a sticker: the brand's dark (or ink) on a light seal, white on a dark one (a second brand hue
+    # on the seal, gold on neon green, measured weak).
+    color = (brand_dark(palette) or (17, 24, 39)) if _luma(seal_color) > 0.45 else (255, 255, 255)
+    if _contrast(color, seal_color) < 4.5:
+        color = (17, 24, 39) if _luma(seal_color) > 0.45 else (255, 255, 255)
     font_info = display if display.get("source") != "fallback" else {**display, "path": _MONTSERRAT_BOLD or display["path"]}
     best = None
     for size in range(round(side / 2), 6, -1):
@@ -569,7 +576,7 @@ def render_text_layers(image, spec, headline, cta, brand_context, palette, suppo
         draw = ImageDraw.Draw(canvas)
         seal = _seal_hero(canvas, draw, zones.get("seal"), hero, display, palette) if hero and kicker and "seal" in zones else None
         block = _stack(draw, display, body, kicker, "" if seal else hero, support_text if renders_support(spec) else "",
-                       w, h, wide, hero_first=hero_first)
+                       w, h, wide, hero_first=hero_first, kicker_min=round(min(canvas.size) * 0.044))
         top = y + (h - block["height"]) / 2 if wide else y
         for line in block["lines"]:
             fill = hero_color if line["role"] == "hero" else color

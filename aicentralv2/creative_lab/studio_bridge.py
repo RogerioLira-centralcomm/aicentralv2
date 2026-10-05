@@ -131,13 +131,10 @@ def briefing_text(spec: dict) -> str:
     if copy.get("headline"):
         parts.append(f"Título: {copy['headline']}")
     if copy.get("highlight"):
-        # An offer highlight ("+20% EXTRA") is a support line the Studio keeps by rule; a phrase ("NA PALMA DA MÃO")
-        # is the "Destaque:", protected the same way and set as the hero.
-        if re.search(r"\d|%|R\$", copy["highlight"]):
-            parts.append("Texto de apoio: " + " · ".join(item for item in (copy["highlight"], copy.get("support")) if item))
-        else:
-            parts.append(f"Destaque: {copy['highlight']}")
-    if copy.get("support") and not (copy.get("highlight") and re.search(r"\d|%|R\$", copy["highlight"])):
+        # The highlight ("+20% EXTRA", "NA PALMA DA MÃO") is the "Destaque:": protected, outside the title's word
+        # budget and set as the hero (as support, "10% OFF NA 1ª COMPRA" ate the title of a 300×250 down to "Leve").
+        parts.append(f"Destaque: {copy['highlight']}")
+    if copy.get("support"):
         parts.append(f"Texto de apoio: {copy['support']}")
     if copy.get("cta"):
         parts.append(f"Botão: {copy['cta']}")
@@ -272,12 +269,15 @@ def direct(spec: dict, snapshot: dict) -> dict:
             "model": result.get("model"), "provider": result.get("provider")}
 
 
-def _reference_items(spec: dict, plan: dict, by_ref: dict, mask: dict | None, files_module) -> list[dict]:
+def _reference_items(spec: dict, plan: dict, by_ref: dict, mask: dict | None, files_module,
+                     logo_composed: bool = False) -> list[dict]:
     items = []
     if mask and plan.get("mockup", {}).get("effective") == "image":
         items.append({"id": "lab-mockup", "url": mask_url(mask), "role": "composition", "source": "global",
                       "label": f"Mockup · {mask['family_label']}"})
     for ref in plan["sent"]:
+        if logo_composed and ref["role"] == "LOGO":
+            continue  # applied by the Studio after generation: it would only take an image slot (and get redrawn)
         stored = by_ref[ref["ref_id"]]
         role = ROLE_TO_STUDIO.get(ref["role"], "reference")
         items.append({"id": f"lab-ref-{ref['ref_id']}", "url": files_module.provider_data_url(stored["file_id"]),
@@ -334,8 +334,9 @@ def run_create(*, model_key: str, spec: dict, snapshot: dict, plan: dict, by_ref
     modeling = LabModeling(model_key)
     brand = brand_context(snapshot, spec.get("brand_payload")) if snapshot else {}
     logo_ref = next((ref for ref in spec.get("references") or [] if ref.get("role") == "LOGO"), None)
-    if brand and not brand.get("logo_url") and logo_ref and files_module is not None:
-        # The brand record has no logo URL but the test carries the official logo: the Studio composes that one.
+    if brand and logo_ref and files_module is not None:
+        # The test carries the official logo: the Studio composes that file (the brand record's URL may be missing or
+        # live only on the production disk, and then the logo went to the model as a fourth image and the run failed).
         try:
             brand["logo_url"] = files_module.provider_data_url(logo_ref["file_id"])
             brand["assets"] = {**(brand.get("assets") or {}), "logo": [brand["logo_url"]]}
@@ -346,7 +347,8 @@ def run_create(*, model_key: str, spec: dict, snapshot: dict, plan: dict, by_ref
         "reference_plan": direction.get("reference_plan") or [], "aspect_ratio": ratio, "copy": direction.get("copy"),
         "quality": QUALITY_TO_STUDIO.get(spec.get("quality"), "padrão"),
         "creation_intent": "branded_creative" if snapshot and spec.get("logo_mode") != "none" else "neutral_asset",
-        "brand_context": brand, "references": _reference_items(spec, plan, by_ref, mask, files_module),
+        "brand_context": brand,
+        "references": _reference_items(spec, plan, by_ref, mask, files_module, logo_composed=bool(brand.get("logo_url"))),
         "channel": "", "direction_intensity": 70,
         # The mockup mode is a Lab test variable (off, image or text): the Studio's default display layout stays out of it.
         **({"auto_mask": False} if (plan.get("mockup") or {}).get("requested") else {}),

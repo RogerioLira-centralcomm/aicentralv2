@@ -506,3 +506,10 @@ def test_an_opaque_logo_loses_its_flat_background_and_keeps_the_artwork():
 def test_a_short_acronym_at_the_end_is_not_a_hero():
     from aicentralv2.creative_media.banner_compose import split_offer
     assert split_offer("Conta digital do BDMG PJ") == ("Conta digital do BDMG PJ", "")
+
+
+def test_a_capital_highlight_with_an_offer_is_the_hero_and_the_title_stays_whole():
+    from aicentralv2.creative_media.banner_compose import split_offer
+    assert split_offer("Leve do primeiro ao último passo 10% OFF NA 1ª COMPRA") == (
+        "Leve do primeiro ao último passo", "10% OFF NA 1ª COMPRA")
+    assert split_offer("Joias para o Dia das Mães ATÉ 30% OFF") == ("Joias para o Dia das Mães", "ATÉ 30% OFF")

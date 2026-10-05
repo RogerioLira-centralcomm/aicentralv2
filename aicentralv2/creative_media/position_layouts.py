@@ -32,7 +32,8 @@ LAYOUTS = {
             "about 80% of the canvas height, partly cut by the right and bottom edges.",
             "The person, photographed as a clean studio cut-out, stands in front of the circle on the right half "
             "(from 52% to 100% across, never left of 50%), cropped by the bottom edge at the waist, head at about 12–45% down, facing the "
-            "camera; shoulders overlap the circle edge.",
+            "camera; shoulders overlap the circle edge. A worn product from the references (necklace, watch, glasses) is "
+            "large, sharp and well lit on the person: it is part of the offer.",
             "The left half (8% to 50% across) is plain background with nothing on it: the copy goes there.",
         ],
         "zones": {"headline": (0.067, 0.10, 0.38, 0.50), "cta": (0.067, 0.66, 0.30, 0.10), "logo": (0.067, 0.84, 0.18, 0.08),
@@ -64,6 +65,8 @@ LAYOUTS = {
         "scene": [
             "The top 46% of the canvas is a lifestyle photograph with a hard straight bottom edge; the subject's face "
             "or the product sits in the right half of that band, never cut by its bottom edge.",
+            "Frame a person from the chest up with the whole head inside the band and clear space above the hair (never "
+            "cut by the top edge); a worn product (necklace, watch, glasses) stays visible inside the band.",
             "The bottom 54% is a flat solid field in the brand's ground color, edge to edge, with nothing drawn on it: "
             "the copy, the button and the logo go there.",
         ],

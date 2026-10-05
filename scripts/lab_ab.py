@@ -48,20 +48,9 @@ def _capture_components():
 
 
 def _brand_snapshot(client_id: int, brand_id: int) -> dict:
-    """The brand's snapshot with its logo as a data URL (the record points at the production disk)."""
-    import urllib.request
+    """The brand's snapshot; its logo stays a public URL (the Studio downloads it, SVG included)."""
     from aicentralv2.creative_lab import brands
     snap = brands.brand_snapshot(client_id, brand_id)
-    url = snap.get("logo_url") or ""
-    if url.startswith(("https://", "http://")):
-        try:
-            with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "CentralX-Lab/1.0"}),
-                                        timeout=20) as response:
-                content, kind = response.read(4_000_000), response.headers.get_content_type()
-            snap["logo_url"] = f"data:{kind};base64," + base64.b64encode(content).decode("ascii")
-        except Exception as exc:  # the piece runs without logo; say so
-            print(f"# logo da marca {brand_id} indisponível: {exc}", flush=True)
-            snap["logo_url"] = ""
     return snap
 
 

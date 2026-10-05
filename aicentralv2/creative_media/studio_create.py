@@ -1560,6 +1560,26 @@ def shrink_into_border(encoded, factor):
     return "data:image/png;base64," + base64.b64encode(out.getvalue()).decode("ascii")
 
 
+_EXTERNAL_LOGOS: dict[str, str] = {}
+
+
+def _external_logo_data_url(url):
+    """The logo of an external address as a PNG data URL (an SVG is rasterized there); "" when it cannot be had.
+
+    Only successes are remembered, so a failed download is tried again on the next piece."""
+    if url in _EXTERNAL_LOGOS:
+        return _EXTERNAL_LOGOS[url]
+    try:
+        from ..services.openrouter_service import _download_reference_bytes
+        content, _mime = _download_reference_bytes(url, max_bytes=8 * 1024 * 1024)
+    except Exception:  # the piece goes without a logo rather than failing
+        return ""
+    if len(_EXTERNAL_LOGOS) >= 64:
+        _EXTERNAL_LOGOS.clear()
+    _EXTERNAL_LOGOS[url] = "data:image/png;base64," + base64.b64encode(content).decode("ascii")
+    return _EXTERNAL_LOGOS[url]
+
+
 def load_brand_logos(raw_brand):
     """Open every readable official logo variant from the Studio's own static files (first = primary)."""
     brand = raw_brand if isinstance(raw_brand, dict) else {}
@@ -1571,6 +1591,9 @@ def load_brand_logos(raw_brand):
         # The Lab and some briefs carry the Studio's own absolute URL; its /static/ path is the same file.
         if url.startswith(("https://", "http://")) and "/static/" in url:
             url = "/static/" + url.split("/static/", 1)[1].split("?", 1)[0]
+        elif url.startswith(("https://", "http://")):
+            # A brand whose official logo lives on its own site (often SVG): fetched once by the safe downloader.
+            url = _external_logo_data_url(url)
         if (url.startswith("/static/") or url.startswith("data:image/")) and url not in urls:
             urls.append(url)
     palette = brand.get("palette") if isinstance(brand.get("palette"), list) else []

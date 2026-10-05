@@ -563,3 +563,38 @@ def test_a_highlight_the_director_mangled_is_restored_in_place_not_repeated():
     copy = edited_copy({"headline": "Sabor que junta gente 2 POR R 9", "support": [], "cta": "Aproveite"}, briefing,
                        copy_budget(300, 600))
     assert copy["headline"] == "Sabor que junta gente 2 POR R$ 9"
+
+
+def test_a_logo_on_the_brands_own_site_is_downloaded_and_composed(monkeypatch):
+    import io
+
+    from PIL import Image
+
+    from aicentralv2.creative_media import studio_create
+
+    buffer = io.BytesIO()
+    Image.new("RGBA", (40, 10), (200, 0, 0, 255)).save(buffer, format="PNG")
+    calls = []
+
+    def fake_download(url, **kwargs):
+        calls.append(url)
+        return buffer.getvalue(), "image/png"
+
+    monkeypatch.setattr("aicentralv2.services.openrouter_service._download_reference_bytes", fake_download)
+    monkeypatch.setattr(studio_create, "_EXTERNAL_LOGOS", {})
+    brand = {"logo_url": "https://brand.example/logo.svg", "palette": ["#C80000"]}
+    assert studio_create.load_brand_logos(brand)
+    assert studio_create.load_brand_logos(brand)
+    assert calls == ["https://brand.example/logo.svg"]  # downloaded once
+
+
+def test_an_external_logo_that_fails_to_download_is_skipped_and_retried(monkeypatch):
+    from aicentralv2.creative_media import studio_create
+
+    def broken(url, **kwargs):
+        raise OSError("403")
+
+    monkeypatch.setattr("aicentralv2.services.openrouter_service._download_reference_bytes", broken)
+    monkeypatch.setattr(studio_create, "_EXTERNAL_LOGOS", {})
+    assert studio_create.load_brand_logos({"logo_url": "https://brand.example/logo.svg"}) == []
+    assert studio_create._EXTERNAL_LOGOS == {}

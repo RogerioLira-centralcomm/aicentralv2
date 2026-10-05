@@ -461,6 +461,7 @@ def list_projects(context: RequestContext, arguments: dict) -> dict:
             )
             directions = {f"ci:{row['id']}": project_context_service._snapshot(row) for row in rows}
         except Exception:
+            current_app.logger.warning("Direção dos projetos indisponível no MCP", exc_info=True)
             directions = {}
     enriched = []
     for row in records:
@@ -481,7 +482,11 @@ def list_projects(context: RequestContext, arguments: dict) -> dict:
         selected = attach_summaries(context.client_id, selected)
     except Exception:
         # The project directory remains available during additive migrations.
-        pass
+        current_app.logger.warning("Resumos de projeto indisponíveis no MCP", exc_info=True)
+        try:
+            get_db().rollback()
+        except Exception:
+            pass
     return {"projects": selected}
 
 

@@ -4510,3 +4510,23 @@ body.portal--workspace .cadu-ds-project-triage>article{gap:9px;padding:11px 0;bo
 .cadu-ds-brand-audit-dialog :is(input:not([type=checkbox]):not([type=radio]),select,textarea) { min-height:40px; border-radius:8px; }
 @media(max-width:700px){.cadu-ds-brand-audit-dialog{width:calc(100vw - 20px);max-height:calc(100dvh - 20px);padding:18px}.cadu-ds-brand-audit-dialog .cadu-ds-brand-audit-dialog__columns{grid-template-columns:1fr}.cadu-ds-brand-audit-dialog .cadu-ds-brand-audit-dialog__footer{bottom:-18px}}
 @media(max-width:560px){.cadu-ds-project-task-editor{padding:18px}.cadu-ds-project-task-editor>footer{bottom:-18px;margin:12px -18px -18px;padding:14px 18px}.cadu-ds-project-task-editor>div{grid-template-columns:1fr}}
+
+.cadu-ds-agents__lead { margin:8px 0 0; color:var(--cadu-muted); font-size:12px; }
+.cadu-ds-agents__clients { display:flex; flex-wrap:wrap; gap:6px; margin-top:14px; }
+.cadu-ds-agents__clients button { min-height:34px; padding:8px 12px; border:1px solid var(--cadu-line); border-radius:8px; background:var(--cadu-surface); color:var(--cadu-ink); font-size:11px; font-weight:700; cursor:pointer; }
+.cadu-ds-agents__clients button.is-active { border-color:var(--cadu-accent-strong); background:var(--cadu-accent-soft); color:var(--cadu-accent-strong); }
+.cadu-ds-agents__panel { display:grid; gap:10px; margin-top:12px; padding:14px; border:1px solid var(--cadu-line); border-radius:10px; }
+.cadu-ds-agents__command { margin:0; padding:10px 12px; overflow-x:auto; border-radius:8px; background:var(--cadu-surface-2, rgba(127,127,127,.12)); font-size:11px; white-space:pre-wrap; word-break:break-all; }
+.cadu-ds-agents__steps { margin:0; padding-left:18px; color:var(--cadu-muted); font-size:11px; line-height:1.6; }
+.cadu-ds-agents__subtitle { margin:20px 0 0; font-size:12px; color:var(--cadu-ink); }
+.cadu-ds-agents__diagnosis { display:grid; margin:10px 0; padding:0; list-style:none; border-top:1px solid var(--cadu-line); }
+.cadu-ds-agents__diagnosis li { display:grid; grid-template-columns:28px minmax(0,1fr) auto; align-items:center; gap:12px; min-height:52px; border-bottom:1px solid var(--cadu-line); }
+.cadu-ds-agents__diagnosis i { display:grid; width:24px; height:24px; place-items:center; border-radius:50%; background:var(--cadu-line); font-style:normal; font-weight:800; font-size:12px; }
+.cadu-ds-agents__diagnosis li[data-status="concluida"] i { background:var(--cadu-accent-soft); color:var(--cadu-accent-strong); }
+.cadu-ds-agents__diagnosis li[data-status="falhou"] i { background:#fde7e7; color:#b42318; }
+.cadu-ds-agents__diagnosis div { display:grid; gap:2px; min-width:0; }
+.cadu-ds-agents__diagnosis b { font-size:12px; color:var(--cadu-ink); }
+.cadu-ds-agents__diagnosis small,.cadu-ds-agents__diagnosis em { color:var(--cadu-muted); font-size:10px; font-style:normal; }
+.cadu-ds-agents__modules { display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:6px; font-size:10px; color:var(--cadu-muted); }
+.cadu-ds-agents__legacy { margin-top:16px; font-size:10px; }
+@media (max-width:640px) { .cadu-ds-agents__diagnosis li { grid-template-columns:28px minmax(0,1fr); } .cadu-ds-agents__diagnosis em { grid-column:2; } }

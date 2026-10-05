@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from time import monotonic
-from uuid import uuid4
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from psycopg.types.json import Json
 
@@ -150,6 +150,18 @@ def cost_disclosure(tool_name: str) -> dict:
     if tool_name in DEFAULT_ONE_CREDIT_TOOLS:
         return {"mode": "default", "credits": 1, "unit": "créditos Cadu"}
     raise ValueError(f"Ferramenta MCP sem tarifa definida: {tool_name}")
+
+
+def idempotency_uuid(client_id: int, value) -> str:
+    """Agents pick their own request ids; tools require a UUID, so keep UUIDs and derive one from the rest.
+
+    The derivation is stable per account and value, so a retry with the same id stays idempotent.
+    """
+    raw = str(value).strip()
+    try:
+        return str(UUID(raw))
+    except ValueError:
+        return str(uuid5(NAMESPACE_URL, f"cadu-mcp:{int(client_id)}:{raw}"))
 
 
 def new_request_id(value=None) -> str:

@@ -14,12 +14,13 @@ from flask import Blueprint, abort, current_app, jsonify, redirect, render_templ
 from werkzeug.exceptions import HTTPException
 
 from ..auth import login_required
+from ..db import get_db
 from ..cadu_family import repository
 from ..cadu_tool_billing import InsufficientToolCredits
 from ..cadu_workspace.agent_v2.contracts import RequestContext
 from ..cadu_workspace.mcp.registry import ToolError, load_builtin_tools
 from ..product_domains import product_url
-from . import auth, oauth, usage
+from . import auth, diagnosis, guidance, oauth, usage
 from ..cadu_mcp_catalog import ALL_MODULES, DEFAULT_MODULES, TOOL_MODULES, module_for_tool, normalize_modules
 from ..cadu_workspace.mcp import context_runtime
 
@@ -92,6 +93,8 @@ PUBLIC_TOOLS = frozenset({
     "media.list_jobs",
     "media.get_job",
     "media.start_studio_session",
+    "media.generate_image",
+    "media.edit_image",
     "media.creation_capabilities",
     "planner.list_plans",
     "planner.search_catalog",
@@ -186,6 +189,8 @@ PUBLIC_WRITE_TOOLS = frozenset({
     "context.update",
     "context.close",
     "media.start_studio_session",
+    "media.generate_image",
+    "media.edit_image",
     "account.update_profile",
     "account.update_agency",
     "account.invite_team_member",
@@ -230,6 +235,8 @@ PUBLIC_WRITE_TOOLS = frozenset({
 # still receive an execution receipt, but must not promise generic recovery.
 RECOVERABLE_OPERATION_TOOLS = frozenset({
     "intent.execute",
+    "media.generate_image",
+    "media.edit_image",
     "account.update_profile",
     "account.update_agency",
     "account.invite_team_member",
@@ -318,7 +325,7 @@ def _public_catalog(principal, exposure: str = "customer_agent") -> list[dict]:
         tools = [item for item in tools if not item["name"].startswith("context.")]
     for item in tools:
         if item["name"] in PUBLIC_TOOLS and (item["name"].startswith(("projects.", "artifacts.", "resources.")) or
-                                             item["name"] == "media.start_studio_session" or
+                                             item["name"] in {"media.start_studio_session", "media.generate_image", "media.edit_image"} or
                                              item["name"] in {"workspace.get_project_context", "workspace.search_project_content"}):
             item["inputSchema"] = deepcopy(item["inputSchema"])
             item["inputSchema"].setdefault("properties", {})["project_ref"] = {
@@ -431,16 +438,9 @@ def public_rpc():
                 "protocolVersion": params.get("protocolVersion") if isinstance(params.get("protocolVersion"), str) else PROTOCOL_VERSION,
                 "capabilities": {"tools": {"listChanged": False}},
                 "serverInfo": {"name": "cadu", "title": "Cadu", "version": "1.0.0",
-                               "description": "Projetos, marcas e documentos da sua conta Cadu.",
+                               "description": guidance.SERVER_DESCRIPTION,
                                "icons": _mcp_icons()},
-                "instructions": (
-                    "O Cadu conecta projetos, marcas, biblioteca, mídia, documentos e dados Google. "
-                    "Use diretamente a ferramenta mais específica para pedidos claros; interprete intenção apenas "
-                    "quando o pedido estiver ambíguo ou exigir uma ação composta. O projeto escolhido na conexão "
-                    "é o padrão; informe project_ref somente para outro projeto. Contextos persistentes são opcionais. "
-                    "Use apenas os módulos ativados nesta conexão. Confira evidências e escopos indisponíveis ao pesquisar; "
-                    "confirme ações externas ou irreversíveis antes de executá-las."
-                ),
+                "instructions": guidance.SERVER_INSTRUCTIONS,
             }
         elif method == "tools/list":
             result = {"tools": _public_catalog(principal)}
@@ -457,12 +457,15 @@ def public_rpc():
             if not isinstance(arguments, dict):
                 raise ValueError("Os argumentos da ferramenta precisam ser um objeto.")
             arguments = dict(arguments)
-            if name.startswith(("projects.", "artifacts.", "resources.")) or name in {"workspace.get_project_context", "workspace.search_project_content", "media.start_studio_session"}:
+            if name.startswith(("projects.", "artifacts.", "resources.")) or name in {"workspace.get_project_context", "workspace.search_project_content", "media.start_studio_session",
+                                                                  "media.generate_image", "media.edit_image"}:
                 arguments.pop("project_ref", None)
             if name == "media.start_studio_session":
                 arguments.pop("brand_ref", None)
             if name.startswith("brands."):
                 arguments.pop("brand_ref", None)
+            if name in PUBLIC_WRITE_TOOLS and arguments.get("request_id") is not None:
+                arguments["request_id"] = usage.idempotency_uuid(principal.client_id, arguments["request_id"])
             if name in PUBLIC_WRITE_TOOLS and "request_id" not in arguments:
                 # JSON-RPC ids may be numbers or arbitrary strings. Command
                 # idempotency uses a separate UUID that remains portable.
@@ -490,6 +493,8 @@ def public_rpc():
                 if name in {"projects.prepare_source_upload", "resources.add", "brands.prepare_logo_upload", "brands.prepare_asset_upload"} and isinstance(value, dict) and value.get("upload_url"):
                     value = {**value, "upload_url": product_url(
                         "workspace", f"{PUBLIC_MCP_PATH}/{'brand-uploads' if name.startswith('brands.') else 'uploads'}")}
+                if name == "media.creation_capabilities" and isinstance(value, dict):
+                    value = guidance.external_media_capabilities(value, auth.has_scope(principal, "media:generate"))
                 usage.charge_credits(
                     client_id=principal.client_id, user_id=principal.user_id,
                     tool_name=name, idempotency_key=f"{principal.key_id}:{tool_request_id}",
@@ -519,6 +524,12 @@ def public_rpc():
                           "isError": False, "_meta": {"cadu/creditCost": reported_cost or credit_cost,
                                                        "cadu/creditCostMode": usage.cost_disclosure(name)["mode"]}}
             except Exception as exc:
+                if not isinstance(exc, (ToolError, InsufficientToolCredits, ValueError)):
+                    current_app.logger.exception("Falha inesperada em tools/call", extra={"tool_name": name})
+                try:
+                    get_db().rollback()  # a poisoned transaction would also break the failure record
+                except Exception:
+                    pass
                 usage.record(
                     key_id=principal.key_id, credential_type=principal.credential_type,
                     client_id=principal.client_id, user_id=principal.user_id,
@@ -545,6 +556,12 @@ def public_rpc():
         }}))
     except ValueError as exc:
         return _headers(jsonify(_error(request_id, -32602, str(exc)))), 400
+    except HTTPException:
+        raise
+    except Exception:
+        # Already logged with its traceback; never leak internals to the host.
+        return _headers(jsonify(_error(request_id, -32603, "Erro interno ao executar a ferramenta. Tente novamente.",
+                                       {"retryable": True}))), 500
     return _headers(jsonify({"jsonrpc": "2.0", "id": request_id, "result": result}))
 
 
@@ -798,12 +815,45 @@ def _session_scope() -> tuple[int, int]:
     return int(session.get("cliente_id") or 0), int(session.get("user_id") or 0)
 
 
+@bp.get("/app/agents/state")
+@login_required
+def agents_state():
+    """Connection state for the React Integrações screen; never includes secrets."""
+    client_id, user_id = _session_scope()
+    if auth.accessible_client(user_id=user_id, client_id=client_id) is None:
+        abort(403, description="Este login não tem acesso a este cliente.")
+    grants = oauth.list_grants(client_id=client_id, user_id=user_id)
+    public_grants = [{
+        "id": grant["id"], "clientName": grant.get("client_name") or "Aplicativo", "logoUri": grant.get("logo_uri") or "",
+        "status": grant.get("status"), "scopes": list(grant.get("scopes") or []),
+        "modules": list(normalize_modules(grant.get("modules"), default=ALL_MODULES)),
+        "defaultProjectRef": grant.get("default_project_ref") or "",
+        "consentedAt": grant["consented_at"].isoformat() if grant.get("consented_at") else None,
+        "lastUsedAt": grant["last_used_at"].isoformat() if grant.get("last_used_at") else None,
+    } for grant in grants]
+    return jsonify({
+        "endpoint": product_url("workspace", PUBLIC_MCP_PATH),
+        "metadataUrl": product_url("workspace", "/.well-known/cadu-mcp-public"),
+        "oauthReady": bool(oauth.available()),
+        "legacyKeysReady": bool(auth._available()),
+        "grants": public_grants,
+        "modules": [{"id": module, "label": TOOL_MODULES.get(module, module)} for module in ALL_MODULES],
+        "diagnosis": diagnosis.diagnose(
+            oauth_ready=bool(oauth.available()),
+            grants=[dict(grant, scopes=grant.get("scopes") or [], modules=grant.get("modules")) for grant in grants],
+            public_tools=PUBLIC_TOOLS,
+        ),
+    })
+
+
 @bp.get("/app/agents")
 @bp.get("/workspace/app/integracoes/agents")
 @login_required
 def agents_page():
     if request.path != "/app/agents":
         return redirect("/app/agents", code=308)
+    if request.args.get("legacy") != "1":
+        return redirect("/integracoes#agentes", code=302)
     session.setdefault("family_csrf", secrets.token_urlsafe(32))
     client_id, user_id = _session_scope()
     active_client = auth.accessible_client(user_id=user_id, client_id=client_id)
@@ -867,6 +917,8 @@ def create_agent_key():
         requested_scopes = list(requested_scopes) + ["account:write"]
     if str(data.get("scope_credit_purchase") or "").lower() in {"1", "true", "on", "yes"}:
         requested_scopes = list(requested_scopes) + ["credits:purchase"]
+    if str(data.get("scope_media_generate") or "").lower() in {"1", "true", "on", "yes"}:
+        requested_scopes = list(requested_scopes) + ["media:generate"]
     try:
         key = auth.create_key(
             client_id=client_id, user_id=user_id,

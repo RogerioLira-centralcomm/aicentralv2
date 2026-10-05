@@ -40,7 +40,10 @@
     'googleDisconnect': url_for('cadu_workspace.google_workspace_disconnect'),
     'googleResourceBase': '/integracoes/google/resources',
     'googleMeetArtifactBase': '/integracoes/google/meet/artifacts',
-    'agentConnect': '/app/agents'
+    'agentConnect': '/integracoes#agentes',
+    'agentState': '/app/agents/state',
+    'agentGrantBase': '/app/agents/grants',
+    'agentLegacy': '/app/agents?legacy=1'
   }
 }|tojson }}</script>
 {% endblock %}

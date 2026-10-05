@@ -6,7 +6,7 @@ import logging
 import mimetypes
 import zipfile
 from functools import wraps
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 from flask import Blueprint, abort, current_app, jsonify, make_response, redirect, render_template, request, send_file, session, url_for
 from werkzeug.utils import secure_filename
@@ -129,6 +129,18 @@ def _workspace_brand_ids():
         return {int(row["id"]) for row in cursor.fetchall()}
 
 
+def _workspace_login_for(destination: str) -> str:
+    """Send a signed-out visitor through the Workspace login and back to the exact Studio page.
+
+    Sessions are shared across the product hosts, and the login only follows `next` to a configured
+    product host, so a link from an agent keeps its session, brand and project after signing in.
+    """
+    home = workspace_public_url()
+    if not home.startswith("http"):
+        return home  # local mounts have no separate Workspace host
+    return f"{home.rstrip('/')}/login?{urlencode({'next': destination})}"
+
+
 def studio_or_admin_required(view):
     """Cadu Studio has its own login; CentralX keeps the internal guard."""
     @wraps(view)
@@ -138,7 +150,7 @@ def studio_or_admin_required(view):
             and not session.get("user_id")
             and (_studio_client_scope() or _workspace_brand_scope())
         ):
-            return redirect(workspace_public_url(), code=302)
+            return redirect(_workspace_login_for(request.url), code=302)
         guard = login_required if (_studio_client_scope() or _workspace_brand_scope()) else admin_required
         return guard(view)(*args, **kwargs)
     return wrapped

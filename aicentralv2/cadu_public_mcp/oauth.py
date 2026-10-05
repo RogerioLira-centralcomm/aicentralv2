@@ -21,6 +21,9 @@ from ..db import get_db
 from .auth import CLIENT_SCOPES, DEFAULT_SCOPES, PublicMcpAuthError, accessible_client, normalize_scopes
 
 
+OPTIONAL_CONSENT_SCOPES = frozenset({"media:generate"})
+
+
 ISSUER_PATH = ""
 ACCESS_PREFIX = "cadu_oauth_at_"
 REFRESH_PREFIX = "cadu_oauth_rt_"
@@ -223,6 +226,9 @@ def validate_authorization_request(values) -> dict:
         raise OAuthError("invalid_scope", str(exc)) from exc
     if not scopes:
         raise OAuthError("invalid_scope", "Informe ao menos uma permissão.")
+    # Paid generation is always offered at consent, unchecked, even when the host did not ask for it:
+    # most hosts request only default scopes, and the person must be able to opt in on this screen.
+    scopes = tuple(sorted(set(scopes) | OPTIONAL_CONSENT_SCOPES))
     return {
         "client": client,
         "client_id": client_id,

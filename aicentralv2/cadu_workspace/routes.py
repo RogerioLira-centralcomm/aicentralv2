@@ -3667,7 +3667,7 @@ def _attach_project_identity(client_id: int, projects: list[dict], *, brands: Op
                     """SELECT DISTINCT ON (projeto_id) projeto_id, id
                          FROM cadu_docs_client_images
                         WHERE id_cliente = %s AND ativo = true
-                          AND projeto_id = ANY(%s::uuid[])
+                          AND projeto_id::text = ANY(%s::text[])
                           AND file_bytes IS NOT NULL
                           AND octet_length(file_bytes) > 0
                           AND LOWER(COALESCE(mime, '')) IN

@@ -21,7 +21,7 @@ KEY_PREFIX = "cadu_mcp_"
 CLIENT_TYPES = ("gpt", "codex", "cursor", "vscode", "generic")
 CLIENT_SCOPES = ("resources:read", "projects:read", "projects:content_write", "projects:write", "brands:write",
                  "artifacts:write", "account:read", "account:write", "credits:read",
-                 "credits:purchase",
+                 "credits:purchase", "media:generate",
                  "google:read", "google:write", "contexts:read", "contexts:write", "operations:read",
                  "offline_access")
 DEFAULT_SCOPES = frozenset(("resources:read", "projects:read", "projects:content_write", "account:read", "credits:read", "google:read", "contexts:read", "contexts:write", "operations:read"))
@@ -87,6 +87,7 @@ def normalize_scopes(scopes=None, *, allow_writes: bool = False) -> tuple[str, .
         values.discard("artifacts:write")
         values.discard("account:write")
         values.discard("credits:purchase")
+        values.discard("media:generate")
         values.discard("google:write")
         values.discard("contexts:write")
     return tuple(sorted(values))
@@ -249,7 +250,11 @@ def required_scope(tool_name: str) -> str:
         return "contexts:write"
     if name.startswith("context."):
         return "contexts:read"
-    if name in {"media.start_studio_session", "media.generate_image", "media.edit_image", "media.plan_video"}:
+    if name in {"media.generate_image", "media.edit_image"}:
+        # Paid generation: the person grants this at consent, off by default. A boolean sent by
+        # the agent is not proof that the person approved the spend; the scope is.
+        return "media:generate"
+    if name in {"media.start_studio_session", "media.plan_video"}:
         return "projects:content_write"
     if name.startswith("credits."):
         if name == "credits.purchase_package":

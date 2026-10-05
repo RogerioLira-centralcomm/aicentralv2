@@ -28,9 +28,16 @@ def family_table_available(name):
 
 
 def rows(sql, params=()):
-    with get_db().cursor() as cur:
-        cur.execute(sql, params)
-        return [dict(row) for row in cur.fetchall()]
+    connection = get_db()
+    try:
+        with connection.cursor() as cur:
+            cur.execute(sql, params)
+            return [dict(row) for row in cur.fetchall()]
+    except Exception:
+        # A failed statement aborts the transaction; callers that swallow the
+        # error must not leave the shared connection unusable for the next query.
+        connection.rollback()
+        raise
 
 
 def actor(user_id):

@@ -41,50 +41,55 @@ def project_summaries(client_id: int, records: list[dict]) -> dict[str, dict]:
     refs = [f"ci:{value}" for value in project_ids]
     for ref in refs:
         summaries[ref]  # Keep a stable zero-filled contract for empty projects.
-    with get_db().cursor() as cursor:
-        if (_relation_exists(cursor, "cadu_ci_projeto_arquivos")
-                and _column_exists(cursor, "cadu_ci_projeto_arquivos", "purpose")):
-            cursor.execute("""SELECT projeto_id::text AS project_id,
-                       COUNT(*) FILTER (WHERE purpose = 'knowledge_source') AS knowledge_sources,
-                       COUNT(*) FILTER (WHERE purpose = 'project_attachment') AS attachments
-                  FROM cadu_ci_projeto_arquivos
-                 WHERE id_cliente = %s AND projeto_id = ANY(%s::uuid[])
-              GROUP BY projeto_id""", (client_id, project_ids))
-            for row in cursor.fetchall():
-                summary = summaries[f"ci:{row['project_id']}"]
-                summary["knowledge_sources"] = int(row["knowledge_sources"] or 0)
-                summary["attachments"] = int(row["attachments"] or 0)
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            if (_relation_exists(cursor, "cadu_ci_projeto_arquivos")
+                    and _column_exists(cursor, "cadu_ci_projeto_arquivos", "purpose")):
+                cursor.execute("""SELECT projeto_id::text AS project_id,
+                           COUNT(*) FILTER (WHERE purpose = 'knowledge_source') AS knowledge_sources,
+                           COUNT(*) FILTER (WHERE purpose = 'project_attachment') AS attachments
+                      FROM cadu_ci_projeto_arquivos
+                     WHERE id_cliente = %s AND projeto_id::text = ANY(%s::text[])
+                  GROUP BY projeto_id""", (client_id, project_ids))
+                for row in cursor.fetchall():
+                    summary = summaries[f"ci:{row['project_id']}"]
+                    summary["knowledge_sources"] = int(row["knowledge_sources"] or 0)
+                    summary["attachments"] = int(row["attachments"] or 0)
 
-        for table, field in (
-            ("cadu_workspace_artifacts", "artifacts"),
-            ("cadu_planner_plans", "media_plans"),
-            ("cadu_connect_report_workspaces", "reports"),
-        ):
-            if not _relation_exists(cursor, table):
-                continue
-            if field=='reports':
-                from ..cadu_connect.reports_access import can_read_all
-                if not can_read_all(client_id):continue
-            extra = " AND archived_at IS NULL" if table == "cadu_planner_plans" else ""
-            cursor.execute(f"""SELECT project_ref, COUNT(*) AS total FROM {table}
-                                WHERE client_id = %s AND project_ref = ANY(%s){extra}
-                             GROUP BY project_ref""", (client_id, refs))
-            for row in cursor.fetchall():
-                summaries[row["project_ref"]][field] = int(row["total"])
+            for table, field in (
+                ("cadu_workspace_artifacts", "artifacts"),
+                ("cadu_planner_plans", "media_plans"),
+                ("cadu_connect_report_workspaces", "reports"),
+            ):
+                if not _relation_exists(cursor, table):
+                    continue
+                if field=='reports':
+                    from ..cadu_connect.reports_access import can_read_all
+                    if not can_read_all(client_id):continue
+                extra = " AND archived_at IS NULL" if table == "cadu_planner_plans" else ""
+                cursor.execute(f"""SELECT project_ref, COUNT(*) AS total FROM {table}
+                                    WHERE client_id = %s AND project_ref = ANY(%s){extra}
+                                 GROUP BY project_ref""", (client_id, refs))
+                for row in cursor.fetchall():
+                    summaries[row["project_ref"]][field] = int(row["total"])
 
-        if _relation_exists(cursor, "cx_studio_projects") and _relation_exists(cursor, "cx_studio_project_items"):
-            cursor.execute("""SELECT 'ci:' || sp.document->>'external_project_id' AS project_ref,
-                       COUNT(*) FILTER (WHERE item.kind = 'image') AS studio_images,
-                       COUNT(*) FILTER (WHERE item.kind = 'video') AS studio_videos
-                  FROM cx_studio_projects sp
-             LEFT JOIN cx_studio_project_items item ON item.project_id = sp.id
-                 WHERE sp.client_id = %s
-                   AND sp.document->>'external_project_id' = ANY(%s)
-              GROUP BY sp.document->>'external_project_id'""", (client_id, project_ids))
-            for row in cursor.fetchall():
-                summary = summaries[row["project_ref"]]
-                summary["studio_images"] = int(row["studio_images"] or 0)
-                summary["studio_videos"] = int(row["studio_videos"] or 0)
+            if _relation_exists(cursor, "cx_studio_projects") and _relation_exists(cursor, "cx_studio_project_items"):
+                cursor.execute("""SELECT 'ci:' || (sp.document->>'external_project_id') AS project_ref,
+                           COUNT(*) FILTER (WHERE item.kind = 'image') AS studio_images,
+                           COUNT(*) FILTER (WHERE item.kind = 'video') AS studio_videos
+                      FROM cx_studio_projects sp
+                 LEFT JOIN cx_studio_project_items item ON item.project_id = sp.id
+                     WHERE sp.client_id = %s
+                       AND sp.document->>'external_project_id' = ANY(%s)
+                  GROUP BY sp.document->>'external_project_id'""", (client_id, project_ids))
+                for row in cursor.fetchall():
+                    summary = summaries[row["project_ref"]]
+                    summary["studio_images"] = int(row["studio_images"] or 0)
+                    summary["studio_videos"] = int(row["studio_videos"] or 0)
+    except Exception:
+        connection.rollback()
+        raise
     return summaries
 
 

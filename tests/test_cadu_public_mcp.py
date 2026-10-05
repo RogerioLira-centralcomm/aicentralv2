@@ -51,7 +51,7 @@ def test_credit_purchase_uses_a_distinct_explicit_scope():
 
 
 def test_public_tool_modules_cover_the_whole_public_surface_and_start_with_marketing():
-    assert len(PUBLIC_TOOLS) == 98
+    assert len(PUBLIC_TOOLS) == 100
     assert len({name.split(".", 1)[0] for name in PUBLIC_TOOLS}) == 15
     assert set(DEFAULT_MODULES) == {"marketing"}
     assert set(ALL_MODULES) == set(TOOL_MODULES)
@@ -395,19 +395,29 @@ def test_public_create_brand_contract_requires_market_seed_and_accepts_optional_
     assert {"official_logo_url", "reference_urls"} <= set(definition["inputSchema"]["properties"])
 
 
-def test_paid_studio_generation_is_not_exposed_to_external_agents():
+def test_paid_image_generation_needs_the_scope_the_person_grants_at_consent():
     context = RequestContext(
         client_id=12, user_id=7, conversation_id=None, surface="workspace",
         capabilities=("workspace", "studio"),
     )
-    external_names = {item["name"] for item in load_builtin_tools().list(context, "customer_agent")}
     internal_names = {item["name"] for item in load_builtin_tools().list(context, "internal")}
+    assert {"media.generate_image", "media.edit_image", "media.plan_video"} <= internal_names
+    assert "media.plan_video" not in PUBLIC_TOOLS  # video planning stays in the Studio flow
 
-    paid_studio_tools = {"media.generate_image", "media.edit_image", "media.plan_video"}
-    assert paid_studio_tools.isdisjoint(PUBLIC_TOOLS)
-    assert paid_studio_tools.isdisjoint(external_names)
-    assert paid_studio_tools <= internal_names
-    assert "media.creation_capabilities" in external_names
+    def visible(scopes):
+        principal = PublicMcpPrincipal(key_id="key", client_id=12, user_id=7, client_type="codex", label="Teste",
+                                       scopes=tuple(scopes), context=context)
+        with patch("aicentralv2.cadu_public_mcp.routes.auth.can_purchase_credits", return_value=False):
+            return {item["name"] for item in _public_catalog(principal)}
+
+    default = visible(DEFAULT_SCOPES)
+    granted = visible(DEFAULT_SCOPES | {"media:generate"})
+    paid = {"media.generate_image", "media.edit_image"}
+    assert paid.isdisjoint(default) and "media.start_studio_session" in default
+    assert paid <= granted
+    assert required_scope("media.generate_image") == "media:generate"
+    assert "media:generate" not in DEFAULT_SCOPES
+    assert "media:generate" not in normalize_scopes(["media:generate"], allow_writes=False)
 
 
 def test_public_brand_audit_can_target_brand_ref_independently_of_project():

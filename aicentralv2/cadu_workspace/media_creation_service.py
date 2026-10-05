@@ -24,12 +24,21 @@ from .agent_v2.contracts import RequestContext
 from .mcp.registry import ToolInputError
 
 
-def _studio_url(client_id: int, session_id: str, source_url: str = "") -> str:
-    path = "/imagem" if source_url else "/criar"
+def studio_session_url(path: str, client_id: int, session_id: str, project_ref: str = "", source_url: str = "") -> str:
+    """Studio link that opens on the right page with the session, brand and Workspace project selected.
+
+    The Studio reads `project_id` (the Workspace project id) and `creative_client_id` (the brand) from the URL.
+    """
     params = {"studio_session_id": session_id, "creative_client_id": client_id}
+    if str(project_ref or "").startswith("ci:"):
+        params["project_id"] = str(project_ref)[3:]
     if source_url:
         params["source"] = source_url
     return product_url("studio", f"{path}?{urlencode(params)}")
+
+
+def _studio_url(client_id: int, session_id: str, source_url: str = "", project_ref: str = "") -> str:
+    return studio_session_url("/imagem" if source_url else "/criar", client_id, session_id, project_ref, source_url)
 
 
 def _index_generated_image(context: RequestContext, request_id: str, prompt: str,
@@ -94,7 +103,7 @@ def generate_studio_image(context: RequestContext, arguments: dict) -> dict:
         history.fail_image(request_id, personal_client_id, str(error))
         raise
     session_id = session["id"]
-    studio_url = _studio_url(studio_client_id, session_id, source_url)
+    studio_url = _studio_url(studio_client_id, session_id, source_url, context.project_ref or "")
     try:
         brand_context = (select_brand_logo(build_brand_context(modeling.get_client(studio_client_id)), None)
                          if brand_id else {})

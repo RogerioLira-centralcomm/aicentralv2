@@ -13,6 +13,13 @@ from ..registry import ToolForbidden, ToolInputError, register_tool
 from urllib.parse import urlencode
 
 
+def _rollback_quietly() -> None:
+    try:
+        get_db().rollback()
+    except Exception:
+        pass
+
+
 _CREATION_CONTRACTS = {
     "image": {"required": ["request_id", "confirmed", "confirmed_cost", "prompt"],
               "optional": ["brand_id", "aspect_ratio", "quality", "index_in_project"],
@@ -48,8 +55,8 @@ _CREATION_CONTRACTS = {
     }, "additionalProperties": False},
 )
 def creation_capabilities(context: RequestContext, arguments: dict) -> dict:
-    from ...creative_media import studio_create
-    from ...creative_modeling_service import CreativeModelingService
+    from ....creative_media import studio_create
+    from ....creative_modeling_service import CreativeModelingService
     from ....cadu_tool_billing import cost_token_equivalent
 
     quality = str(arguments.get("quality") or "padrão").lower()
@@ -57,7 +64,7 @@ def creation_capabilities(context: RequestContext, arguments: dict) -> dict:
     fidelity = {"econômica": "draft", "padrão": "draft", "alta": "publish"}.get(quality, "draft")
     estimate = None
     try:
-        from ...creative_media.studio_costs import image_credits as catalog_image_credits
+        from ....creative_media.studio_costs import image_credits as catalog_image_credits
         image_credits = catalog_image_credits(reference_count)
         estimate = {
             "unit": "credits", "estimated_total": 1100 + studio_create.estimated_tokens(1, reference_count) + image_credits,
@@ -70,6 +77,7 @@ def creation_capabilities(context: RequestContext, arguments: dict) -> dict:
             "note": "Estimativa conservadora do Studio; a cobrança final usa o consumo real dos provedores e pode variar.",
         }
     except Exception:
+        current_app.logger.warning("Estimativa de créditos do Studio indisponível", exc_info=True)
         estimate = {"status": "unavailable", "note": "Não foi possível calcular a estimativa de créditos do Studio."}
     return {"operations": _CREATION_CONTRACTS, "session_tool": "media.start_studio_session",
             "generation_available_via_mcp": ["image", "image_edit"],
@@ -86,11 +94,11 @@ def creation_capabilities(context: RequestContext, arguments: dict) -> dict:
 @register_tool(
     name="media.generate_image", capability="workspace", effect="write",
     description=("Gera uma imagem no Cadu Studio com cobrança real de créditos, resultado persistido e repetição idempotente. "
-                 "Operação paga: só pode ser chamada pelo agente interno após confirmação humana do custo apresentado."),
-    # A boolean sent by an external MCP client is not proof that the user saw
-    # the estimate and approved this generation. Paid Studio calls stay behind
-    # the internal application flow, which owns the confirmation interaction.
-    exposures=("internal",),
+                 "Operação paga: mostre à pessoa o custo estimado (media.creation_capabilities) e só chame depois que ela aprovar."),
+    # A boolean sent by an external agent is not proof that the person approved the spend. External
+    # agents only see this tool when the connection holds the `media:generate` scope, which the person
+    # grants at consent; without it the Studio session link is the way to create.
+    exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "required": ["request_id", "confirmed", "confirmed_cost", "prompt"],
                   "properties": {"request_id": {"type": "string", "minLength": 36, "maxLength": 36},
                                  "confirmed": {"type": "boolean", "enum": [True]},
@@ -134,8 +142,8 @@ def generate_image(context: RequestContext, arguments: dict) -> dict:
     name="media.edit_image", capability="workspace", effect="write",
     description=("Edita uma imagem no Studio preservando a imagem base fora do pedido. "
                  "Usa otimização de prompt, diretor criativo e geração cobrada; retorna a imagem e o link da sessão. "
-                 "Operação paga: só pode ser chamada pelo agente interno após confirmação humana do custo apresentado."),
-    exposures=("internal",),
+                 "Operação paga: mostre à pessoa o custo estimado (media.creation_capabilities) e só chame depois que ela aprovar."),
+    exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "required": ["request_id", "confirmed", "confirmed_cost", "prompt", "source_url"],
                   "properties": {"request_id": {"type": "string", "minLength": 36, "maxLength": 36},
                                  "confirmed": {"type": "boolean", "enum": [True]},
@@ -310,8 +318,9 @@ def get_media_job(context: RequestContext, arguments: dict) -> dict:
 
 @register_tool(
     name="media.start_studio_session", capability="workspace", effect="write",
-    description=("Cria uma sessão retomável de imagem, anúncio ou vídeo no Studio e devolve seu link. "
-                 "Não gera mídia nem consome créditos; a direção, aprovação e geração ocorrem no Studio."),
+    description=("Caminho para criar imagem, anúncio, edição de imagem ou vídeo: abre uma sessão retomável no Studio com "
+                 "marca e briefing já preenchidos e devolve studio_url. Leia a marca antes (brands.get_context) e escreva o prompt "
+                 "completo. Não gera mídia nem consome créditos; a direção, aprovação e geração ocorrem no Studio."),
     exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "required": ["kind", "prompt"], "properties": {
         "kind": {"type": "string", "enum": ["image", "ad", "image_edit", "video", "video_edit"]},
@@ -352,6 +361,7 @@ def start_studio_session(context: RequestContext, arguments: dict) -> dict:
     try:
         brand_id = _current_brand_id(context, arguments.get("brand_id"))
     except Exception:
+        _rollback_quietly()
         if arguments.get("brand_id") or context.brand_ref:
             raise
     if brand_id is not None:
@@ -398,8 +408,9 @@ def start_studio_session(context: RequestContext, arguments: dict) -> dict:
         created = store.create(studio_client_id, context.user_id, payload)
     path = {"image": "/criar", "ad": "/criar", "image_edit": "/imagem",
             "video": "/video", "video_edit": "/video"}[kind]
-    query = urlencode({"studio_session_id": created["id"], "creative_client_id": studio_client_id})
-    return {"session_id": created["id"], "studio_url": product_url("studio", f"{path}?{query}"),
+    from ...media_creation_service import studio_session_url
+    return {"session_id": created["id"],
+            "studio_url": studio_session_url(path, studio_client_id, created["id"], context.project_ref or "", ""),
             "creative_client_id": studio_client_id,
             "status": created.get("status"), "destination": "project_pending_link" if context.project_ref else "personal",
             "project_ref": context.project_ref, "generation_status": "not_started", "indexed": False,

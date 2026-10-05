@@ -83,6 +83,18 @@ def _validate(value: Any, schema: dict[str, Any], path: str = "arguments") -> No
         raise ToolInputError(f"{path} possui valor inválido.")
 
 
+def _clamp_page_limits(arguments: dict[str, Any], schema: dict[str, Any]) -> None:
+    """Agents often ask for more rows than a tool serves; serve the maximum instead of failing.
+
+    Only the page-size argument is relaxed. Every other bound is still enforced.
+    """
+    spec = (schema.get("properties") or {}).get("limit")
+    value = arguments.get("limit")
+    if (isinstance(spec, dict) and "maximum" in spec and isinstance(value, int)
+            and not isinstance(value, bool) and value > spec["maximum"]):
+        arguments["limit"] = spec["maximum"]
+
+
 @dataclass(frozen=True)
 class ToolDefinition:
     name: str
@@ -182,6 +194,7 @@ class ToolRegistry:
                     raise ToolForbidden("Você não pode alterar este projeto.")
         if not isinstance(arguments, dict):
             raise ToolInputError("Os argumentos da ferramenta precisam ser um objeto.")
+        _clamp_page_limits(arguments, tool.input_schema)
         _validate(arguments, tool.input_schema)
         return tool
 

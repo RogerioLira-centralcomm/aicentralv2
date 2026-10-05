@@ -383,3 +383,29 @@ def test_studio_bridge_runs_the_real_create_image_with_the_chosen_model(monkeypa
         assert len(seen["references"]) == expected_refs
         assert result["delivered"] == [1080, 1350] and result["cost_usd"] == 0.05
         assert Image.open(io.BytesIO(base64.b64decode(result["b64"]))).size == (1080, 1350)
+
+
+def test_a_remote_svg_logo_is_accepted_only_when_asked_and_only_if_it_is_inert():
+    import pytest
+    from unittest.mock import patch
+    from aicentralv2.services import openrouter_service as service
+
+    class Response:
+        status_code = 200
+
+        def __init__(self, body):
+            self.headers = {"content-type": "image/svg+xml"}
+            self.content = body
+
+        def raise_for_status(self):
+            return None
+
+    clean = b'<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4"/></svg>'
+    dirty = b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
+    with patch("aicentralv2.creative_modeling_storage._validated_public_asset_url", lambda url: url):
+        got, mime = service._download_reference_bytes("https://x.test/l.svg", http_client=type("C", (), {"get": staticmethod(lambda *a, **k: Response(clean))}), allow_svg=True)
+        assert mime == "image/svg+xml" and got == clean
+        with pytest.raises(service.OpenRouterError):
+            service._download_reference_bytes("https://x.test/l.svg", http_client=type("C", (), {"get": staticmethod(lambda *a, **k: Response(clean))}))
+        with pytest.raises(service.OpenRouterError):
+            service._download_reference_bytes("https://x.test/l.svg", http_client=type("C", (), {"get": staticmethod(lambda *a, **k: Response(dirty))}), allow_svg=True)

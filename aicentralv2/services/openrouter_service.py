@@ -855,7 +855,7 @@ def _reference_bytes(item, index: int, *, http_client=requests) -> tuple[bytes, 
     return content, mime, f"ref{index}.{ext}"
 
 
-def _download_reference_bytes(url, *, http_client=requests, max_bytes=5 * 1024 * 1024):
+def _download_reference_bytes(url, *, http_client=requests, max_bytes=5 * 1024 * 1024, allow_svg=False):
     from ..creative_modeling_storage import _validated_public_asset_url
 
     current = _validated_public_asset_url(url)
@@ -880,7 +880,7 @@ def _download_reference_bytes(url, *, http_client=requests, max_bytes=5 * 1024 *
     if response is None:
         raise OpenRouterError("Não foi possível baixar a referência de imagem.")
     mime = ((getattr(response, "headers", {}) or {}).get("content-type") or "").split(";", 1)[0].lower()
-    if mime not in {"image/png", "image/jpeg", "image/jpg", "image/webp"}:
+    if mime not in {"image/png", "image/jpeg", "image/jpg", "image/webp"} | ({"image/svg+xml"} if allow_svg else set()):
         raise OpenRouterError("A referência remota não é PNG, JPG ou WEBP.")
     content = bytearray()
     if hasattr(response, "iter_content"):
@@ -897,6 +897,9 @@ def _download_reference_bytes(url, *, http_client=requests, max_bytes=5 * 1024 *
         "image/jpeg": bytes(content).startswith(b"\xff\xd8\xff"),
         "image/jpg": bytes(content).startswith(b"\xff\xd8\xff"),
         "image/webp": bytes(content).startswith(b"RIFF") and bytes(content)[8:12] == b"WEBP",
+        # An SVG is XML text: the caller rasterizes it, never serves it (no scripts, no external references).
+        "image/svg+xml": b"<svg" in bytes(content[:4096]).lower()
+        and not re.search(rb"<\s*(script|foreignobject)\b|\bon[a-z]+\s*=|<!\s*entity\b", bytes(content), re.I),
     }
     if not content or not signatures.get(mime):
         raise OpenRouterError("O conteúdo remoto não corresponde a uma imagem válida.")

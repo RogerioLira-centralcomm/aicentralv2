@@ -131,10 +131,6 @@ def _identity_fields(cursor, client_id: int, brand_id: int) -> dict:
     } for row in cursor.fetchall()}
 
 
-def role_is_logo(asset) -> bool:
-    return str(asset.get("role") or "") == "logo"
-
-
 def brand_snapshot(client_id: int, brand_id: int) -> dict:
     with get_db().cursor() as cursor:
         cursor.execute(
@@ -159,7 +155,7 @@ def brand_snapshot(client_id: int, brand_id: int) -> dict:
         assets = []
         for asset in cursor.fetchall():
             url = asset_public_url(asset["path"])
-            if url and (role_is_logo(asset) or not url.lower().split("?")[0].endswith(".svg")):
+            if url and not url.lower().split("?")[0].endswith(".svg"):  # pickable references are pixels (PIL imports them)
                 assets.append({"asset_id": asset["id"], "role": asset["role"], "url": url,
                                "is_primary": asset["is_primary"], "width": asset["width"], "height": asset["height"]})
         cursor.execute(

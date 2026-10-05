@@ -6744,6 +6744,8 @@ def project_report_link_api(project_id, kind, resource_id):
     if not _workspace_api_csrf():
         return jsonify({'error': 'Atualize a página e tente novamente.'}), 403
     client_id, user_id = int(session.get('cliente_id') or 0), int(session.get('user_id') or 0)
+    if not family_repository.project_user_can_view(client_id, f'ci:{project_id}', user_id):
+        return jsonify({'error': 'Você não tem acesso a este projeto.'}), 403
     _editable_workspace_project(client_id, project_id)
     from . import project_reports_service
     try:

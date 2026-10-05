@@ -117,7 +117,10 @@ def _pinned_get(url: str, addresses: set[str], *, accept: str):
         # Allow CDN/proxy endpoints (different IP but global) when domain remains valid
         if peer and ip_address(peer).is_global:
             return _PinnedResponse(response, pool)
-        if peer not in addresses:
+        # No socket to read: a short reply (e.g. a CDN's 403 to robots) released the connection already. The pool only
+        # ever dials the validated address, so this is not another host — the status is reported as it is instead of
+        # "endereço não corresponde" (measured on nike.com.br).
+        if peer and peer not in addresses:
             response.release_conn()
             pool.close()
             raise BadRequest("O endereço conectado não corresponde ao destino público validado.")

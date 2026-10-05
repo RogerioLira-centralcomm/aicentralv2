@@ -250,12 +250,273 @@ LAYOUTS.update({
 })
 
 
+# Leaderboard (728×90), billboard (970×250) and skyscraper (160×600): the same ideas fitted to the shape. A banner
+# 90 px high is one line of reading — logo, statement, button, picture at the end —, the billboard is the 300×250 piece
+# stretched sideways (copy left, picture right), the skyscraper is the half page narrowed (copy on top, picture below).
+LAYOUTS.update({
+    # ---- 970×250 -----------------------------------------------------------------------------------------------
+    "produto-diagonal-970x250": {
+        "label": "Produto herói cruzando uma diagonal (billboard)",
+        "learned_from": "BDMG 300×600 (divisão diagonal foto/produto) em formato largo",
+        "format": "iab-970x250", "width": 970, "height": 250,
+        "scene": [
+            "The background is split by one bold straight diagonal running from 60% across at the top to 48% across "
+            "at the bottom: left of it a flat solid field in the brand's ground color, right of it a soft, "
+            "out-of-focus photographic setting.",
+            "The product is the hero: large, sharp, in three-quarter view, on the right side and crossing the diagonal, "
+            "about 30% of the canvas width and 75% of its height, its lowest point at about 88% down.",
+            "The left 45% (3.5% to 46% across) is plain flat color with nothing on it: the copy goes there.",
+        ],
+        "zones": {"headline": (0.035, 0.12, 0.42, 0.50), "cta": (0.035, 0.68, 0.15, 0.14), "logo": (0.84, 0.82, 0.125, 0.10),
+                  "subject": (0.50, 0.10, 0.36, 0.78)},
+        "logo": "bottom-right", "cta": True,
+        "sketch": {"background": "ground", "diagonal": (0.60, 0.48), "product": (0.72, 0.52, 0.12, 0.30)},
+    },
+    "faixa-foto-bloco-970x250": {
+        "label": "Foto em faixa lateral com corte seco + bloco de cor (billboard)",
+        "learned_from": "MaxMilhas 300×250 virado de lado",
+        "format": "iab-970x250", "width": 970, "height": 250,
+        "scene": [
+            "The right 38% of the canvas is a lifestyle photograph with a hard straight vertical left edge; the "
+            "subject's face or the product sits in the middle of that band, never cut by its left edge.",
+            "Frame a person from the chest up with the whole head inside the band and clear space above the hair; a "
+            "worn product (necklace, watch, glasses) stays visible inside the band.",
+            "The left 62% is a flat solid field in the brand's ground color, edge to edge, with nothing drawn on it: "
+            "the copy, the button and the logo go there.",
+        ],
+        "zones": {"logo": (0.035, 0.08, 0.12, 0.10), "headline": (0.035, 0.24, 0.54, 0.42), "cta": (0.035, 0.70, 0.15, 0.14),
+                  "subject": (0.62, 0.0, 0.38, 1.0), "panel": (0.0, 0.0, 0.62, 1.0)},
+        "logo": "top-left", "cta": True,
+        "sketch": {"background": "ground", "photo_right": 0.38, "silhouette": (0.81, 0.10, 0.07, 0.90)},
+    },
+    "tipografico-selo-970x250": {
+        "label": "Tipográfico com selo da oferta (billboard)",
+        "learned_from": "Governo de Minas · Carnaval (tipográfico), BDMG (selo circular)",
+        "format": "iab-970x250", "width": 970, "height": 250,
+        "scene": [
+            "No photograph. A flat solid background in the brand's ground color with a subtle grain, edge to edge.",
+            "One small solid tab in a secondary brand color at the top-left corner, about 4% wide.",
+            "The right side holds one round seal: a flat solid circle in the brand accent color, about 60% of the "
+            "height, centred at 82% across and 50% down, with nothing inside it (the Studio sets the highlight in it).",
+            "Everything else is plain: the copy is set by the Studio.",
+        ],
+        "zones": {"headline": (0.035, 0.16, 0.62, 0.46), "cta": (0.035, 0.70, 0.14, 0.14), "logo": (0.84, 0.83, 0.125, 0.09),
+                  "seal": (0.743, 0.20, 0.155, 0.60)},
+        "logo": "bottom-right", "cta": True,
+        "sketch": {"background": "ground", "tab": True, "seal": (0.82, 0.50, 0.30)},
+    },
+    "manifesto-foto-plena-970x250": {
+        "label": "Manifesto sobre foto plena (billboard)",
+        "learned_from": "Campanhas institucionais de energia e varejo: uma frase sobre a imagem, assinatura no canto",
+        "format": "iab-970x250", "width": 970, "height": 250,
+        "scene": [
+            "One full-bleed photograph edge to edge, cinematic and calm, with a single clear subject in the right half.",
+            "The lower-left area (3.5% to 58% across, 48% to 92% down) is the quietest part of the photo: soft shadow, "
+            "sky, wall or out-of-focus ground, darker than the rest, with nothing on it: the statement goes there.",
+        ],
+        "zones": {"headline": (0.035, 0.50, 0.55, 0.38), "logo": (0.84, 0.80, 0.125, 0.12),
+                  "subject": (0.50, 0.0, 0.50, 0.70)},
+        "logo": "bottom-right", "cta": False,
+        "sketch": {"background": "photo", "silhouette": (0.76, 0.08, 0.06, 0.62)},
+    },
+    "assinatura-centro-970x250": {
+        "label": "Frase centralizada com assinatura (billboard)",
+        "learned_from": "Peças tipográficas institucionais (Governo de Minas, campanhas de marca)",
+        "format": "iab-970x250", "width": 970, "height": 250,
+        "scene": [
+            "No photograph. A flat solid background in the brand's ground color with a subtle grain, edge to edge.",
+            "One thin straight line in the brand accent color, centred across at about 70% down, about 8% wide.",
+            "Everything else is plain: the statement and the signature are set by the Studio.",
+        ],
+        "zones": {"headline": (0.12, 0.14, 0.76, 0.50), "logo": (0.43, 0.76, 0.14, 0.14)},
+        "logo": "bottom-center", "cta": False, "align": "center",
+        "sketch": {"background": "ground", "rule": (0.50, 0.70, 0.04)},
+    },
+    "retrato-dividido-970x250": {
+        "label": "Retrato dividido: foto e frase lado a lado (billboard)",
+        "learned_from": "Campanhas de moda e joalheria em meio-a-meio",
+        "format": "iab-970x250", "width": 970, "height": 250,
+        "scene": [
+            "The canvas is split by one hard vertical edge at 34% across.",
+            "The left part (0% to 34%) is a portrait photograph: the person framed from the chest up, the whole head "
+            "inside with space above the hair, looking at the camera; a worn product from the references (necklace, "
+            "watch, glasses) is large, sharp and well lit.",
+            "The right part (34% to 100%) is a flat solid field in the brand's ground color with nothing drawn on it: "
+            "the statement goes there.",
+        ],
+        "zones": {"headline": (0.40, 0.14, 0.52, 0.52), "logo": (0.40, 0.76, 0.14, 0.14),
+                  "subject": (0.0, 0.0, 0.34, 1.0), "panel": (0.34, 0.0, 0.66, 1.0)},
+        "logo": "bottom-left", "cta": False,
+        "sketch": {"background": "ground", "split_v": 0.34, "silhouette": (0.17, 0.10, 0.07, 0.90)},
+    },
+    # ---- 728×90 ------------------------------------------------------------------------------------------------
+    "faixa-foto-bloco-728x90": {
+        "label": "Foto na ponta com corte seco + bloco de cor (leaderboard)",
+        "learned_from": "MaxMilhas 300×250 em faixa",
+        "format": "iab-728x90", "width": 728, "height": 90,
+        "scene": [
+            "The right 24% of the canvas is a lifestyle photograph with a hard straight vertical left edge; a face or "
+            "the product sits in the middle of it, never cut by its left edge.",
+            "Frame only a face (head and shoulders) or the product, large and sharp, with space around it.",
+            "The left 76% is a flat solid field in the brand's ground color, edge to edge, with nothing drawn on it: "
+            "the logo, the copy and the button go there, in one line.",
+        ],
+        "zones": {"logo": (0.035, 0.12, 0.10, 0.76), "headline": (0.155, 0.12, 0.40, 0.76), "cta": (0.58, 0.28, 0.16, 0.44),
+                  "subject": (0.76, 0.0, 0.24, 1.0), "panel": (0.0, 0.0, 0.76, 1.0)},
+        "logo": "left", "cta": True,
+        "sketch": {"background": "ground", "photo_right": 0.24, "silhouette": (0.88, 0.06, 0.05, 0.94)},
+    },
+    "tipografico-selo-728x90": {
+        "label": "Tipográfico com selo da oferta (leaderboard)",
+        "learned_from": "Governo de Minas · Carnaval (tipográfico), BDMG (selo circular)",
+        "format": "iab-728x90", "width": 728, "height": 90,
+        "scene": [
+            "No photograph. A flat solid background in the brand's ground color with a subtle grain, edge to edge.",
+            "At the right end one round seal: a flat solid circle in the brand accent color, about 84% of the height, "
+            "centred at 90% across and 50% down, with nothing inside it (the Studio sets the highlight in it).",
+            "Everything else is plain: the copy is set by the Studio.",
+        ],
+        "zones": {"logo": (0.035, 0.12, 0.10, 0.76), "headline": (0.155, 0.12, 0.42, 0.76), "cta": (0.60, 0.28, 0.15, 0.44),
+                  "seal": (0.848, 0.08, 0.104, 0.84)},
+        "logo": "left", "cta": True,
+        "sketch": {"background": "ground", "seal": (0.90, 0.50, 0.42)},
+    },
+    "manifesto-foto-plena-728x90": {
+        "label": "Manifesto sobre foto plena (leaderboard)",
+        "learned_from": "Campanhas institucionais: uma frase sobre a imagem, assinatura na ponta",
+        "format": "iab-728x90", "width": 728, "height": 90,
+        "scene": [
+            "One full-bleed photograph edge to edge, calm and wide, with the interest on the right third.",
+            "The left 65% is the quietest part of the photo: soft shadow, sky or out-of-focus ground, darker than the "
+            "rest, with nothing on it: the statement goes there, in one or two lines.",
+        ],
+        "zones": {"headline": (0.035, 0.14, 0.62, 0.72), "logo": (0.84, 0.18, 0.125, 0.64),
+                  "subject": (0.66, 0.0, 0.34, 1.0)},
+        "logo": "right", "cta": False,
+        "sketch": {"background": "photo", "silhouette": (0.74, 0.08, 0.05, 0.92)},
+    },
+    "assinatura-centro-728x90": {
+        "label": "Frase centralizada com assinatura (leaderboard)",
+        "learned_from": "Peças tipográficas institucionais (Governo de Minas, campanhas de marca)",
+        "format": "iab-728x90", "width": 728, "height": 90,
+        "scene": [
+            "No photograph. A flat solid background in the brand's ground color with a subtle grain, edge to edge.",
+            "Everything is plain: the statement and the signature are set by the Studio.",
+        ],
+        "zones": {"logo": (0.035, 0.18, 0.12, 0.64), "headline": (0.22, 0.14, 0.56, 0.72)},
+        "logo": "left", "cta": False, "align": "center",
+        "sketch": {"background": "ground"},
+    },
+    # ---- 160×600 -----------------------------------------------------------------------------------------------
+    "pessoa-circulo-160x600": {
+        "label": "Pessoa recortada sobre círculo da marca (arranha-céu)",
+        "learned_from": "TIM Pré e Sebrae em arranha-céu: chamada em cima, recorte embaixo",
+        "format": "iab-160x600", "width": 160, "height": 600,
+        "scene": [
+            "Flat solid background in the brand's ground color, edge to edge, no texture, no scenery.",
+            "A solid circle in the brand accent color, centred at 50% across and 78% down, its diameter about 100% of "
+            "the canvas width, cut by the bottom edge.",
+            "The person, photographed as a clean studio cut-out, stands in front of the circle in the lower half (head "
+            "at about 52–64% down, centred across), cropped by the bottom edge at the chest, facing the camera.",
+            "The top 46% of the canvas is plain background with nothing on it: the logo, the copy and the button go there.",
+        ],
+        "zones": {"logo": (0.08, 0.035, 0.55, 0.04), "headline": (0.08, 0.10, 0.84, 0.26), "cta": (0.08, 0.38, 0.84, 0.05),
+                  "subject": (0.0, 0.48, 1.0, 0.52)},
+        "logo": "top-left", "cta": True,
+        "sketch": {"background": "ground", "circle": (0.50, 0.78, 0.1333), "silhouette": (0.50, 0.50, 0.32, 0.50)},
+    },
+    "produto-diagonal-160x600": {
+        "label": "Produto herói cruzando uma diagonal (arranha-céu)",
+        "learned_from": "BDMG 300×600 (divisão diagonal foto/produto)",
+        "format": "iab-160x600", "width": 160, "height": 600,
+        "scene": [
+            "The background is split by one bold straight diagonal running from 46% down at the left edge to 58% down "
+            "at the right edge: above it a flat solid field in the brand's ground color, below it a soft, "
+            "out-of-focus photographic setting.",
+            "The product is the hero: sharp, in three-quarter view, centred across in the lower half and crossing the "
+            "diagonal, about 85% of the canvas width, its lowest point at about 88% down.",
+            "The top area (2% to 46% down) is plain flat color with nothing on it: the copy goes there.",
+        ],
+        "zones": {"headline": (0.08, 0.05, 0.84, 0.28), "cta": (0.08, 0.36, 0.84, 0.05), "logo": (0.45, 0.925, 0.47, 0.04),
+                  "subject": (0.04, 0.48, 0.92, 0.42)},
+        "logo": "bottom-right", "cta": True,
+        "sketch": {"background": "ground", "diagonal_h": (0.46, 0.58), "product": (0.50, 0.70, 0.42, 0.09)},
+    },
+    "faixa-foto-bloco-160x600": {
+        "label": "Foto em faixa com corte seco + bloco de cor (arranha-céu)",
+        "learned_from": "MaxMilhas meia página",
+        "format": "iab-160x600", "width": 160, "height": 600,
+        "scene": [
+            "The top 54% of the canvas is a lifestyle photograph with a hard straight bottom edge; the subject sits "
+            "centred in it, never cut by its bottom edge.",
+            "Frame a person from the chest up with the whole head inside the band and clear space above the hair; a "
+            "worn product (necklace, watch, glasses) stays visible inside the band.",
+            "The bottom 46% is a flat solid field in the brand's ground color, edge to edge, with nothing drawn on it: "
+            "the copy, the button and the logo go there.",
+        ],
+        "zones": {"headline": (0.08, 0.575, 0.84, 0.22), "cta": (0.08, 0.82, 0.84, 0.05), "logo": (0.08, 0.915, 0.55, 0.045),
+                  "subject": (0.0, 0.0, 1.0, 0.54), "panel": (0.0, 0.54, 1.0, 0.46)},
+        "logo": "bottom-left", "cta": True,
+        "sketch": {"background": "ground", "band": 0.54, "silhouette": (0.50, 0.06, 0.30, 0.48)},
+    },
+    "tipografico-selo-160x600": {
+        "label": "Tipográfico com selo da oferta (arranha-céu)",
+        "learned_from": "Governo de Minas · Carnaval (tipográfico), BDMG (selo circular)",
+        "format": "iab-160x600", "width": 160, "height": 600,
+        "scene": [
+            "No photograph. A flat solid background in the brand's ground color with a subtle grain, edge to edge.",
+            "One round seal: a flat solid circle in the brand accent color, its diameter about 84% of the canvas "
+            "width, centred at 50% across and 60% down, with nothing inside it (the Studio sets the highlight in it).",
+            "Everything else is plain: the copy is set by the Studio.",
+        ],
+        "zones": {"headline": (0.08, 0.06, 0.84, 0.40), "seal": (0.08, 0.488, 0.84, 0.224), "cta": (0.08, 0.82, 0.84, 0.05),
+                  "logo": (0.08, 0.90, 0.55, 0.045)},
+        "logo": "bottom-left", "cta": True,
+        "sketch": {"background": "ground", "seal": (0.50, 0.60, 0.112)},
+    },
+    "manifesto-foto-plena-160x600": {
+        "label": "Manifesto sobre foto plena (arranha-céu)",
+        "learned_from": "Campanhas institucionais em meia página",
+        "format": "iab-160x600", "width": 160, "height": 600,
+        "scene": [
+            "One full-bleed photograph edge to edge, cinematic and calm, with a single clear subject in the upper half.",
+            "The lower part (60% to 96% down) is the quietest part of the photo: soft shadow, ground or out-of-focus "
+            "surface, darker than the rest, with nothing on it: the statement goes there.",
+        ],
+        "zones": {"headline": (0.08, 0.62, 0.84, 0.26), "logo": (0.08, 0.915, 0.55, 0.045),
+                  "subject": (0.0, 0.0, 1.0, 0.58)},
+        "logo": "bottom-left", "cta": False,
+        "sketch": {"background": "photo", "silhouette": (0.50, 0.08, 0.30, 0.48)},
+    },
+    "assinatura-centro-160x600": {
+        "label": "Frase centralizada com assinatura (arranha-céu)",
+        "learned_from": "Peças tipográficas institucionais em meia página",
+        "format": "iab-160x600", "width": 160, "height": 600,
+        "scene": [
+            "No photograph. A flat solid background in the brand's ground color with a subtle grain, edge to edge.",
+            "One thin straight line in the brand accent color, centred across at about 79% down, about 30% wide.",
+            "Everything else is plain: the statement and the signature are set by the Studio.",
+        ],
+        "zones": {"headline": (0.08, 0.22, 0.84, 0.46), "logo": (0.18, 0.84, 0.64, 0.06)},
+        "logo": "bottom-center", "cta": False, "align": "center",
+        "sketch": {"background": "ground", "rule": (0.50, 0.79, 0.15)},
+    },
+})
+
+
 def for_format(layout_id: str, format_key: str) -> str:
-    """The layout's version for a format ('pessoa-circulo' in a 300×600 -> 'pessoa-circulo-300x600')."""
+    """The layout's version for a format ('pessoa-circulo' in a 300×600 -> 'pessoa-circulo-300x600').
+
+    "" when the layout has no version for that format (measured and dropped: a cut-out person or a product in a
+    970×250 or 728×90 band scored 35–65 over several rounds)."""
     from . import ad_masks
     fmt = ad_masks.FORMATS.get(format_key)
     sized = f"{layout_id}-{fmt[1]}x{fmt[2]}" if fmt else ""
-    return sized if sized in LAYOUTS else layout_id
+    if sized in LAYOUTS:
+        return sized
+    base = LAYOUTS.get(layout_id)
+    # A layout drawn for another size does not fit this one: no layout here (the Studio's standard composition runs).
+    return "" if fmt and base and base["format"] != format_key else layout_id
 
 
 def get(layout_id: str | None) -> dict | None:
@@ -330,6 +591,8 @@ def render_sketch(layout_id: str, longest_side: int = 1200) -> bytes:
         draw.rectangle((0, 0, W, round(H * sketch["band"])), fill=(176, 176, 172))
     if sketch.get("background") == "photo":
         draw.rectangle((0, 0, W, H), fill=(176, 176, 172))
+    if "photo_right" in sketch:
+        draw.rectangle((round(W * (1 - sketch["photo_right"])), 0, W, H), fill=(176, 176, 172))
     if "split_v" in sketch:
         draw.rectangle((0, 0, round(W * sketch["split_v"]), H), fill=(176, 176, 172))
     if "rule" in sketch:

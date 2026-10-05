@@ -16,7 +16,8 @@ def test_every_layout_keeps_copy_inside_the_safe_frame_and_has_a_sketch():
             assert x + w <= left + width + 0.002 and y + h <= top + height + 0.002, (layout_id, name)
         sketch = Image.open(io.BytesIO(position_layouts.render_sketch(layout_id)))
         item = position_layouts.get(layout_id)
-        assert max(sketch.size) == 1200 and abs(sketch.size[0] / sketch.size[1] - item["width"] / item["height"]) < 0.01
+        scale = 1200 / max(item["width"], item["height"])
+        assert max(sketch.size) == 1200 and all(abs(got - want * scale) <= 1 for got, want in zip(sketch.size, (item["width"], item["height"])))
         assert position_layouts.sketch_path(layout_id).is_file(), "sketch PNG committed for the Studio to serve"
 
 
@@ -57,3 +58,38 @@ def test_a_layout_has_its_half_page_version():
     assert position_layouts.for_format("pessoa-circulo", "iab-300x250") == "pessoa-circulo"
     spec = position_layouts.spec("faixa-foto-bloco-300x600")
     assert spec["class"] == "vertical" and spec["format_label"] == "IAB 300×600" and spec["height"] == 600
+
+
+def test_every_standard_format_has_its_layouts_and_a_missing_one_is_empty_not_a_wrong_size():
+    commercial = ("pessoa-circulo", "produto-diagonal", "faixa-foto-bloco", "tipografico-selo")
+    institutional = ("manifesto-foto-plena", "assinatura-centro")
+    dropped = {("pessoa-circulo", "iab-970x250"), ("pessoa-circulo", "iab-728x90"), ("produto-diagonal", "iab-728x90")}
+    for fmt in ("iab-300x600", "iab-160x600", "iab-728x90", "iab-970x250"):
+        for base in (*commercial, *institutional):
+            sized = position_layouts.for_format(base, fmt)
+            if (base, fmt) in dropped:
+                assert sized == "", (base, fmt)
+                continue
+            assert sized != base and position_layouts.get(sized)["format"] == fmt, (base, fmt)
+            assert position_layouts.get(sized)["cta"] == (base in commercial), sized
+    assert position_layouts.for_format("retrato-dividido", "iab-970x250") == "retrato-dividido-970x250"
+    assert position_layouts.for_format("retrato-dividido", "iab-300x600") == ""
+
+
+def test_the_director_reads_the_layout_of_the_format_and_never_loses_the_copy_to_the_cap(monkeypatch):
+    from aicentralv2.creative_lab import studio_bridge
+
+    seen = {}
+
+    def fake_create(payload, text_callable):
+        seen["prompt"] = payload["prompt"]
+        return {"directions": [{"title": "t", "prompt": "p", "copy": None}], "model": "m", "provider": "p"}, {}
+
+    monkeypatch.setattr(studio_bridge.studio_create, "create", fake_create)
+    spec = {"instruction": "Peça da Vivara.", "aspect_ratio": "1:3.75",
+            "brief": {"format_key": "iab-160x600", "copy": {"headline": "Joias que contam histórias", "highlight": "ATÉ 30% OFF",
+                                                              "cta": "Compre agora"}}}
+    monkeypatch.setattr(studio_bridge.LabModeling, "position_layout", "pessoa-circulo")
+    studio_bridge.direct(spec, {})
+    assert "arranha-céu" in seen["prompt"] and "Botão: Compre agora" in seen["prompt"]
+    assert len(seen["prompt"]) <= studio_bridge.DIRECTOR_PROMPT_CHARS

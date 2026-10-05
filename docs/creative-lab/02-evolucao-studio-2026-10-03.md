@@ -83,6 +83,25 @@ paralelos).
 quadrado 11, vertical 9, horizontal 10, compactos 5, micro 5). Logo sempre inteiro e com respiro; painéis contêm
 título e CTA.
 
+## Layouts por posição (v5): cobertura por formato (2026-10-05)
+
+`position_layouts.py` tem 29 layouts: 300×250 (4 comerciais + 3 institucionais), 300×600 (4 + 2), 160×600 (4 + 2),
+728×90 (3 comerciais + 2 institucionais) e 970×250 (3 comerciais + 3 institucionais, com retrato dividido). Comerciais:
+pessoa-circulo, produto-diagonal, faixa-foto-bloco, tipografico-selo; institucionais (sem botão): manifesto-foto-plena,
+assinatura-centro, retrato-dividido. `for_format` devolve a versão do formato, ou `""` quando não existe (a
+composição padrão roda; nunca o layout de outro tamanho).
+
+Medição (GPT Image 2.5, 1 versão, ruído ±10–15; 18 peças × 2 rodadas, marcas Vivara, TIM, Reserva, Cemig):
+970×250 tipográfico-selo 79–85, assinatura 74, manifesto 69–73, produto-diagonal 69–76, faixa 62–69;
+728×90 faixa 73–80, manifesto 71–72, selo 65–73; 160×600 assinatura 80–81, faixa 60–75, manifesto 72, pessoa-circulo
+68–69, produto-diagonal 49–61, selo 61–64.
+**Removidos por não se sustentarem** em várias rodadas (35–65): pessoa-circulo 970×250 e 728×90, produto-diagonal
+728×90 (recorte de pessoa ou produto numa faixa fina: o modelo invade a área do texto). Duas tentativas de refinar a
+redação não deram ganho medido e foram desfeitas.
+
+Corrigido no caminho: o diretor do Lab lia o texto do layout de 300×250 em qualquer formato, e o prefixo do layout
+estourava os 1200 caracteres do pedido, cortando o "Botão:" (peças sem botão).
+
 ## Pendências
 
 - Ligar `CREATIVE_STUDIO_SOCIAL_TYPESET` depois do A/B com o compositor novo.

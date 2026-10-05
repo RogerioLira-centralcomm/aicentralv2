@@ -239,6 +239,9 @@ def _text_callable():
     return chat_completion
 
 
+DIRECTOR_PROMPT_CHARS = 1200  # studio_create.create reads this much of the request
+
+
 def direct(spec: dict, snapshot: dict) -> dict:
     """The Studio director's direction for this briefing, asked once and frozen so every model gets the same one."""
     brief = spec.get("brief") or {}
@@ -256,12 +259,18 @@ def direct(spec: dict, snapshot: dict) -> dict:
     layout = spec.get("layout") or ({"position": LabModeling.position_layout} if LabModeling.position_layout else {})
     if layout.get("position"):
         from ..creative_media import position_layouts
-        item = position_layouts.get(layout["position"])
+        item = position_layouts.get(position_layouts.for_format(layout["position"], brief.get("format_key") or ""))
         if item:
             # The director writes the scene for this layout (who and what, light, mood), not its own composition.
             # Before the copy: after "Botão:" it would be read as part of the button on a flattened briefing.
-            briefing = ("Layout da peça (já definido, não reposicione nada): " + item["label"] + ". "
-                        + " ".join(item["scene"]) + "\n" + briefing)
+            prefix = ("Layout da peça (já definido, não reposicione nada): " + item["label"] + ". "
+                      + " ".join(item["scene"]))
+            # The director reads 1200 characters of the request: the layout gives way, never the copy (a cut "Botão:"
+            # left Vivara's banners without button).
+            room = max(0, DIRECTOR_PROMPT_CHARS - len(briefing) - 1)
+            if len(prefix) > room:
+                prefix = prefix[:room].rsplit(" ", 1)[0] if room else ""
+            briefing = (prefix + "\n" + briefing) if prefix else briefing
     result, _response = studio_create.create({"prompt": briefing, "count": 1, "context": context}, _text_callable())
     direction = result["directions"][0]
     return {"title": direction["title"], "prompt": direction["prompt"], "reference_plan": direction.get("reference_plan") or [],
@@ -317,6 +326,8 @@ def _position(spec: dict) -> dict:
     from ..creative_media import position_layouts
     # The same idea in the test's format: "pessoa-circulo" in a 300×600 is its half-page version.
     position = position_layouts.for_format(layout["position"], (spec.get("brief") or {}).get("format_key") or "")
+    if not position:
+        return {}  # no version of this layout for the format: the Studio's standard composition runs
     return {"position_layout": position, "position_sketch": layout.get("sketch") is not False}
 
 

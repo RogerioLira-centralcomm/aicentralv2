@@ -242,6 +242,10 @@ def mirror_position(spec):
 
 def place_position(image, spec):
     """A layout by position stays as designed, unless the model put the subject on the copy side: then the mirror."""
+    if "panel" in spec["zones"] or "seal" in spec["zones"]:
+        # The copy sits on a block the Studio paints (calm by construction), or the hero goes into a seal the model
+        # drew on this side: mirroring would only move the copy away from it.
+        return spec
     here = busyness(image, spec)
     if here <= CALM_LIMIT:
         return spec
@@ -309,7 +313,9 @@ def split_offer(headline):
     return (before, hero) if before else (after, hero)
 
 
-_CAPS_TAIL = re.compile(r"^(.*?[a-zà-ÿ].*?)\s+((?:[A-ZÀ-Þ0-9][A-ZÀ-Þ0-9'’!?.,-]*\s*){2,})$")
+# Three capital words or more: "Conta PJ do BDMG" keeps its acronym in the sentence, "NA PALMA DA MÃO" is a highlight.
+_CAPS_WORD = r"[A-ZÀ-Þ0-9][A-ZÀ-Þ0-9'’!?.,-]*"
+_CAPS_TAIL = re.compile(r"^(.*?[a-zà-ÿ].*?)\s+(" + _CAPS_WORD + r"(?:\s+" + _CAPS_WORD + r"){2,})$")
 
 
 def _split_caps(text):

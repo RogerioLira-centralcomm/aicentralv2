@@ -40,3 +40,11 @@ def test_the_seal_layout_sets_the_hero_inside_the_seal():
     headline = next(layer for layer in layers if layer["type"] == "headline")
     assert headline["hero_box"] == list(spec["zones"]["seal"])
     assert " ".join(headline["lines"]).endswith("DA MÃO") and "SUA" in headline["lines"]
+
+
+def test_layouts_with_a_painted_block_or_a_seal_are_never_mirrored():
+    from aicentralv2.creative_media import banner_compose
+    busy = Image.effect_noise((1200, 1000), 120).convert("RGB")
+    for layout_id in ("faixa-foto-bloco", "tipografico-selo"):
+        spec = position_layouts.spec(layout_id)
+        assert banner_compose.place_position(busy, spec) is spec

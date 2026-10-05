@@ -501,3 +501,8 @@ def test_an_opaque_logo_loses_its_flat_background_and_keeps_the_artwork():
     assert keyed.getpixel((2, 2))[3] == 0 and keyed.getpixel((100, 50))[3] == 255
     photo = Image.effect_noise((200, 100), 80).convert("RGBA")
     assert _without_flat_background(photo) is photo
+
+
+def test_a_short_acronym_at_the_end_is_not_a_hero():
+    from aicentralv2.creative_media.banner_compose import split_offer
+    assert split_offer("Conta digital do BDMG PJ") == ("Conta digital do BDMG PJ", "")

@@ -246,8 +246,51 @@ export function paintSceneCards() {
   }).join("");
 }
 
+const PURPOSE_OPTIONS = Object.entries(PURPOSE);
+const TRANSITION_OPTIONS = [["cut", "Corte direto"], ["cross dissolve", "Dissolver"], ["fade through black", "Passar pelo preto"], ["slide left", "Deslizar à esquerda"], ["wipe right", "Revelar à direita"]];
+const options = (list, current) => list.map(([value, label]) => `<option value="${value}" ${value === current ? "selected" : ""}>${label}</option>`).join("");
+
+// Rascunho do diretor: cartões de texto sem imagem. "Escolher peça" liga uma peça da biblioteca à cena.
+export function paintDraft() {
+  const list = $("mcVideoDraft");
+  if (!list) return;
+  const draft = state.draft || {};
+  const loading = draft.status === "loading";
+  if ($("mcVideoDraftBtn")) {
+    $("mcVideoDraftBtn").disabled = loading || !state.clientId;
+    $("mcVideoDraftBtn").textContent = loading ? "Montando…" : (draft.beats?.length ? "Montar de novo" : "Montar storyboard");
+  }
+  if ($("mcVideoBriefing") && document.activeElement !== $("mcVideoBriefing")) $("mcVideoBriefing").value = draft.briefing || "";
+  if ($("mcVideoDraftStatus")) {
+    const warnings = (draft.warnings || []).map(escapeHtml).join(" ");
+    $("mcVideoDraftStatus").innerHTML = draft.error ? escapeHtml(draft.error) : (warnings || (draft.beats?.length
+      ? `Rascunho com ${draft.beats.length} cenas. Edite o texto e escolha uma peça da biblioteca para cada cena.` : ""));
+  }
+  // Não recria os campos enquanto a pessoa digita neles.
+  if (list.contains(document.activeElement) && /^(TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
+  const last = (draft.beats || []).length - 1;
+  list.innerHTML = (draft.beats || []).map((beat, index) => {
+    const id = escapeHtml(beat.id);
+    const picking = state.pickDraftId === beat.id;
+    return `<li class="mc-draft-card ${picking ? "is-replacing" : ""}" data-draft="${id}">
+      <header><strong>Cena ${index + 1}</strong>
+        <select data-draft-field="purpose" data-id="${id}" aria-label="Função da cena ${index + 1}">${options(PURPOSE_OPTIONS, beat.purpose)}</select></header>
+      <label><span>Visual</span><textarea data-draft-field="visual" data-id="${id}" rows="3" maxlength="400">${escapeHtml(beat.visual)}</textarea></label>
+      <label><span>Movimento</span><textarea data-draft-field="motion" data-id="${id}" rows="2" maxlength="400">${escapeHtml(beat.motion)}</textarea></label>
+      <label><span>Fala</span><textarea data-draft-field="spoken" data-id="${id}" rows="2" maxlength="300">${escapeHtml(beat.spoken)}</textarea></label>
+      <label><span>Transição para a próxima</span><select data-draft-field="transition" data-id="${id}">${options(TRANSITION_OPTIONS, beat.transition)}</select></label>
+      <span class="mc-scene-card-actions">
+        <button type="button" data-draft-action="up" data-id="${id}" ${index === 0 ? "disabled" : ""} aria-label="Subir cena ${index + 1}">↑</button>
+        <button type="button" data-draft-action="down" data-id="${id}" ${index === last ? "disabled" : ""} aria-label="Descer cena ${index + 1}">↓</button>
+        <button type="button" data-draft-action="pick" data-id="${id}" aria-pressed="${picking}">${picking ? "Escolha na biblioteca…" : "Escolher peça"}</button>
+        <button type="button" data-draft-action="remove" data-id="${id}">Excluir</button>
+      </span></li>`;
+  }).join("") + (draft.beats?.length ? `<li class="mc-draft-footer"><button type="button" class="mc-cadu-video-ghost" data-draft-action="discard">Descartar rascunho</button></li>` : "");
+}
+
 export function paintProps() {
   paintSceneCards();
+  paintDraft();
   const count = state.scenes.length;
   if ($("mcVideoSceneCount")) $("mcVideoSceneCount").textContent = String(count);
   const index = state.scenes.findIndex((item) => item.id === state.selectedSceneId);

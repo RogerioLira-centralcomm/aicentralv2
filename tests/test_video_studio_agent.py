@@ -157,3 +157,43 @@ def test_voice_prompt_keeps_narrator_direction_when_the_script_is_long():
 def test_voice_prompt_does_not_repeat_a_script_already_in_the_direction():
     from aicentralv2.creative_media.studio_agent import _voice_prompt
     assert _voice_prompt("Narre: Chegou o Cadu.", "Chegou o Cadu.") == "Narre: Chegou o Cadu."
+
+
+class StudioStoryboardEndpointTest(unittest.TestCase):
+    def _call(self, payload, complete):
+        from aicentralv2.creative_media import studio
+
+        app = Flask(__name__)
+        app.secret_key = "test"
+        modeling = Mock()
+        modeling._credits_crm_id.return_value = 174
+        modeling.get_client.return_value = {"name": "Cemig"}
+        http = (lambda fn: fn(), lambda: payload, lambda data: data, lambda: modeling)
+        view = studio.studio_agent_storyboard.__wrapped__.__wrapped__
+        with app.test_request_context("/studio/agent/storyboard", method="POST"):
+            session["user_id"] = 32
+            with patch.object(studio, "_http", return_value=http), patch.object(studio, "_scope"), \
+                 patch("aicentralv2.services.cadu_ai_connector.CaduAIConnector.complete", side_effect=complete) as mocked:
+                try:
+                    return view(), mocked
+                except ValueError as error:
+                    return error, mocked
+
+    def test_monta_beats_e_cobra_o_pagador_com_chave_idempotente(self):
+        beats = [{"purpose": p, "visual": "Família na sala", "motion": "push-in", "hold": "logo",
+                  "transition": "cut", "spoken": ""} for p in ("hook", "offer", "end")]
+        result, mocked = self._call(
+            {"client_id": 31, "request_id": "r1", "briefing": "Internet fibra para famílias, 500 mega.", "duration": 15},
+            lambda *a, **k: {"message": {"content": {"beats": beats}}})
+        self.assertEqual(len(result["beats"]), 3)
+        call = mocked.call_args.kwargs
+        self.assertEqual((call["client_id"], call["user_id"]), (174, 32))
+        self.assertEqual(call["idempotency_key"], "studio:storyboard:r1")
+        self.assertEqual(call["stage"], "video_storyboard")
+
+    def test_saldo_insuficiente_chega_ao_usuario(self):
+        def broke(*a, **k):
+            raise ValueError("Saldo insuficiente.")
+        result, _ = self._call({"client_id": 31, "request_id": "r2", "briefing": "Internet fibra para famílias."}, broke)
+        self.assertIsInstance(result, ValueError)
+        self.assertIn("Saldo insuficiente", str(result))

@@ -9,6 +9,7 @@ import {
   paintAll,
   paintCanvas,
   paintClips,
+  paintDraft,
   paintLibrary,
   paintProps,
   paintQuote,
@@ -32,7 +33,7 @@ import {
   syncAudioMode,
   upsertWorkspaceSpend,
 } from "./cadu-video/state.js";
-import { scriptText } from "./cadu-video/utils.js";
+import { newId, scriptText } from "./cadu-video/utils.js";
 
 let quoteTimer = null;
 let saveTimer = null;
@@ -283,8 +284,17 @@ function bindUi() {
   document.getElementById("mcVideoSuggestNarration")?.addEventListener("click", () => suggestNarration("guided"));
   document.getElementById("mcVideoSuggestVoiceover")?.addEventListener("click", () => suggestNarration("voiceover"));
   document.getElementById("mcVideoSceneCards")?.addEventListener("click", onSceneCardClick);
+  document.getElementById("mcVideoDraftBtn")?.addEventListener("click", buildDraft);
+  document.getElementById("mcVideoBriefing")?.addEventListener("input", (event) => {
+    state.draft.briefing = event.target.value;
+    markDirty();
+  });
+  const draftList = document.getElementById("mcVideoDraft");
+  draftList?.addEventListener("click", onDraftClick);
+  draftList?.addEventListener("input", onDraftField);
+  draftList?.addEventListener("change", onDraftField);
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && state.replaceSceneId) cancelReplace();
+    if (event.key === "Escape" && (state.replaceSceneId || state.pickDraftId)) cancelReplace();
   });
   ["mcVideoBeatTransition", "mcVideoBeatPurpose", "mcVideoBeatVisual", "mcVideoBeatMotion", "mcVideoBeatHold", "mcVideoBeatSpoken"]
     .forEach((id) => {
@@ -462,6 +472,16 @@ function applyProject(project) {
   state.activeClipId = project.active_clip_id || state.activeClipId;
   state.selectedSceneId = project.selected_scene_id || state.selectedSceneId;
   if (project.script && Array.isArray(project.script.beats)) state.script = project.script;
+  const savedDraft = project.storyboard_draft;
+  if (savedDraft && typeof savedDraft === "object") {
+    state.draft = {
+      briefing: String(savedDraft.briefing || ""),
+      beats: Array.isArray(savedDraft.beats) ? savedDraft.beats : [],
+      warnings: Array.isArray(savedDraft.warnings) ? savedDraft.warnings : [],
+      status: "idle",
+      error: "",
+    };
+  }
   if (project.audio && typeof project.audio === "object") {
     state.audio = normalizeAudioState(project.audio);
   }
@@ -491,6 +511,7 @@ function projectPayload() {
       quality: state.quality,
       scene_ids: state.scenes.map((item) => item.id),
       script: state.script,
+      storyboard_draft: { briefing: state.draft.briefing, beats: state.draft.beats, warnings: state.draft.warnings },
       audio: state.audio,
       edit: state.edit,
       composition:state.composition,
@@ -802,8 +823,9 @@ function moveScene(id, delta) {
 }
 
 function cancelReplace() {
-  if (!state.replaceSceneId) return;
+  if (!state.replaceSceneId && !state.pickDraftId) return;
   state.replaceSceneId = "";
+  state.pickDraftId = "";
   setStatus("");
   paintProps();
 }
@@ -850,6 +872,113 @@ function onSceneCardClick(event) {
   }
 }
 
+async function buildDraft() {
+  const briefing = String(state.draft.briefing || "").trim();
+  if (!state.clientId) return;
+  if (briefing.length < 10) {
+    state.draft.error = "Descreva o vídeo em pelo menos uma frase.";
+    paintDraft();
+    return;
+  }
+  if (state.draft.status === "loading") return;
+  if (state.draft.beats.length && !window.confirm("Montar de novo substitui o rascunho atual. Continuar?")) return;
+  const clientId = state.clientId;
+  state.draft.status = "loading";
+  state.draft.error = "";
+  paintDraft();
+  try {
+    const data = await post(`${studioApi}/agent/storyboard`, {
+      client_id: clientId,
+      briefing,
+      duration: state.duration,
+      aspect_ratio: state.aspectRatio,
+      request_id: newId(),
+    });
+    if (clientId !== state.clientId) return;
+    state.draft.beats = data.beats || [];
+    state.draft.warnings = data.warnings || [];
+    state.draft.status = "ready";
+    state.pickDraftId = "";
+    markDirty();
+  } catch (error) {
+    if (clientId !== state.clientId) return;
+    state.draft.status = "idle";
+    state.draft.error = error.message;
+  }
+  paintDraft();
+}
+
+function onDraftField(event) {
+  const field = event.target.closest("[data-draft-field]");
+  if (!field) return;
+  const beat = state.draft.beats.find((row) => row.id === field.getAttribute("data-id"));
+  if (!beat) return;
+  beat[field.getAttribute("data-draft-field")] = field.value;
+  markDirty();
+}
+
+function onDraftClick(event) {
+  const button = event.target.closest("[data-draft-action]");
+  if (!button) return;
+  const action = button.getAttribute("data-draft-action");
+  const id = button.getAttribute("data-id");
+  const beats = state.draft.beats;
+  const index = beats.findIndex((row) => row.id === id);
+  if (action === "discard") {
+    if (!window.confirm("Descartar o rascunho do storyboard?")) return;
+    state.draft.beats = [];
+    state.draft.warnings = [];
+    state.pickDraftId = "";
+  } else if (action === "up" || action === "down") {
+    const to = index + (action === "up" ? -1 : 1);
+    if (index < 0 || to < 0 || to >= beats.length) return;
+    const [row] = beats.splice(index, 1);
+    beats.splice(to, 0, row);
+  } else if (action === "remove") {
+    if (index < 0) return;
+    beats.splice(index, 1);
+    if (state.pickDraftId === id) state.pickDraftId = "";
+  } else if (action === "pick") {
+    state.replaceSceneId = "";
+    state.pickDraftId = state.pickDraftId === id ? "" : id;
+    if (state.pickDraftId) {
+      state.libTab = "still";
+      setStatus("Escolha na biblioteca a peça desta cena. Esc cancela.");
+    }
+  }
+  paintAll();
+  markDirty();
+}
+
+// A peça escolhida vira cena e leva o roteiro do rascunho; o beat passa a ser chaveado pelo ID da cena.
+function useDraftBeat(draftId, item) {
+  const index = state.draft.beats.findIndex((row) => row.id === draftId);
+  if (index < 0 || item.broken) return;
+  if (state.scenes.some((scene) => scene.id === item.id)) {
+    setStatus("Essa peça já está na sequência. Escolha outra.");
+    return;
+  }
+  if (state.scenes.length >= 30) {
+    setStatus("O clipe aceita no máximo 30 cenas.");
+    return;
+  }
+  const [draftBeat] = state.draft.beats.splice(index, 1);
+  state.scenes.push(item);
+  state.selectedSceneId = item.id;
+  if (state.scenes.length === 1) state.generationMode = "single_image";
+  else if (state.scenes.length === 2) state.generationMode = "storyboard";
+  if (state.generationMode === "single_image") adoptSelectedAspect(item);
+  alignBeatsToScenes();
+  const { id: _ignored, ...fields } = draftBeat;
+  Object.assign(ensureBeat(item.id), fields);
+  state.pickDraftId = "";
+  state.previewMode = "scene";
+  setStatus(`Peça ligada à cena ${state.scenes.length}; faltam ${state.draft.beats.length} no rascunho.`);
+  paintAll();
+  markDirty();
+  scheduleQuote();
+}
+
 function moveSelectedScene(delta) {
   const from = state.scenes.findIndex((item) => item.id === state.selectedSceneId);
   const to = from + delta;
@@ -877,6 +1006,10 @@ function onLibraryClick(event) {
   }
   const item = state.library.find((row) => row.id === id);
   if (!item || item.broken) return;
+  if (state.pickDraftId) {
+    useDraftBeat(state.pickDraftId, item);
+    return;
+  }
   if (state.replaceSceneId && !state.scenes.some((row) => row.id === state.replaceSceneId)) {
     state.replaceSceneId = "";
   }

@@ -130,12 +130,16 @@ export const state = {
   dirty: false,
   dragSceneId: "",
   replaceSceneId: "",
+  pickDraftId: "",
+  draft: { briefing: "", beats: [], warnings: [], status: "idle", error: "" },
 };
 
 export function resetProjectFields() {
   state.clipEdits={};state.aspectExplicit=false;state.aspectPending=null;state.composition=null;
   state.scenes = [];
   state.script = null;
+  state.draft = { briefing: "", beats: [], warnings: [], status: "idle", error: "" };
+  state.pickDraftId = "";
   state.ocrFailed = false;
   state.activeClipId = "";
   state.selectedSceneId = "";

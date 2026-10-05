@@ -90,7 +90,15 @@ def plan_storyboard(briefing, *, duration=8, aspect_ratio="16:9", brand=None, sc
 def _brand(brand):
     if not isinstance(brand, dict):
         return {}
-    return {key: str(brand.get(key))[:300] for key in ("name", "tone", "colors", "audience") if brand.get(key)}
+    palette = brand.get("palette")
+    colors = ", ".join(str(item) for item in palette[:5]) if isinstance(palette, list) else brand.get("colors")
+    found = {
+        "name": brand.get("name"),
+        "tone": brand.get("tone") or brand.get("tone_of_voice"),
+        "colors": colors,
+        "audience": brand.get("audience") or brand.get("target_audience"),
+    }
+    return {key: str(value)[:300] for key, value in found.items() if value}
 
 
 def _normalize(raw, briefing, duration, target):

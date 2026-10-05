@@ -60,3 +60,16 @@ def test_briefing_vazio_ou_curto_e_recusado(briefing):
 def test_sem_cenas_suficientes_levanta_erro_claro():
     with pytest.raises(ValueError, match="cenas suficientes"):
         plan_storyboard(BRIEF, text_callable=fake([beat("hook")]))
+
+
+def test_contexto_real_da_marca_chega_ao_diretor():
+    seen = {}
+
+    def model(messages, **options):
+        seen["user"] = messages[1]["content"]
+        return {"message": {"content": {"beats": [beat("hook"), beat("beat"), beat("end")]}}}
+
+    plan_storyboard(BRIEF, duration=15, text_callable=model, brand={
+        "name": "Cemig", "tone_of_voice": "próximo", "palette": ["#00a", "#fff"], "target_audience": "famílias", "logo": "x"})
+    assert "próximo" in seen["user"] and "#00a" in seen["user"] and "famílias" in seen["user"]
+    assert "logo" not in seen["user"]

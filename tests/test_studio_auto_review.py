@@ -287,3 +287,9 @@ def test_required_copy_follows_the_transcription_and_the_wordmark_is_not_extra_t
     visible = ["SUA CONTA DE LUZ", "NA", "PALMA DA MÃO", "Acesse agora", "CEMIG"]
     assert as_transcribed(required, visible, "Cemig") == (visible[:4], visible[:4])
     assert as_transcribed(["OUTLET COM", "+20% EXTRA"], ["OUTLET.COM", "+20% EXTRA"], "Reserva")[0] == ["OUTLET COM", "+20% EXTRA"]
+
+
+def test_required_copy_aligns_in_any_order_the_eyes_read_it():
+    from aicentralv2.creative_media.studio_review import as_transcribed
+    visible = ["SUA", "CONTA", "DE LUZ", "Acesse agora", "NA", "PALMA", "DA MÃO"]
+    assert as_transcribed(["SUA CONTA DE LUZ", "NA PALMA DA MÃO", "Acesse agora"], visible)[0] == visible

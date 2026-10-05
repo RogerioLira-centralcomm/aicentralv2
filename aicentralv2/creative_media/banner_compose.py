@@ -390,6 +390,23 @@ def _font(info, size):
     return ImageFont.truetype(str(info["path"]), max(6, int(size)))
 
 
+def _line_length(draw, line):
+    extra = line.get("gap", 0) * draw.textlength(" ", font=line["font"]) * line["text"].count(" ")
+    return draw.textlength(line["text"], font=line["font"]) + extra
+
+
+def _draw_line(draw, position, line, fill):
+    """A line of copy; ``gap`` widens each word space by that many spaces (small caps close their gaps)."""
+    if not line.get("gap"):
+        draw.text(position, line["text"], font=line["font"], fill=fill)
+        return
+    x, y = position
+    space = draw.textlength(" ", font=line["font"]) * (1 + line["gap"])
+    for word in line["text"].split(" "):
+        draw.text((x, y), word, font=line["font"], fill=fill)
+        x += draw.textlength(word, font=line["font"]) + space
+
+
 def _stack(draw, display, body, kicker, hero, support, width, height, wide, hero_first=False):
     """Kicker (caps), hero offer (~2.3x) and support, scaled together to fill the zone without overflowing."""
     display_font = display if display.get("source") != "fallback" else {**display, "path": _MONTSERRAT_BOLD or display["path"]}
@@ -405,7 +422,8 @@ def _stack(draw, display, body, kicker, hero, support, width, height, wide, hero
             size = base if hero else base * 1.35
             font = _font(display_font, size)
             for text in _wrap(draw, kicker_text, font, width):
-                lines.append({"text": text, "font": font, "y": cursor, "role": "kicker"})
+                # Caps set small close their word gaps ("OUTLET COM" was read as "OUTLET.COM"): an en space opens them.
+                lines.append({"text": text, "font": font, "y": cursor, "role": "kicker", "gap": 1.0 if hero else 0.0})
                 cursor += size * 1.05
             sizes["kicker"] = round(size)
 
@@ -433,7 +451,7 @@ def _stack(draw, display, body, kicker, hero, support, width, height, wide, hero
                 lines.append({"text": text, "font": font, "y": cursor, "role": "support"})
                 cursor += size * 1.2
             support_size = round(size)
-        widest = max((draw.textlength(line["text"], font=line["font"]) for line in lines), default=0)
+        widest = max((_line_length(draw, line) for line in lines), default=0)
         return lines, cursor, widest, sizes, support_y, support_size
 
     low, high, best = 4.0, float(height), None
@@ -458,10 +476,33 @@ def _stack(draw, display, body, kicker, hero, support, width, height, wide, hero
 _MONTSERRAT_BOLD = next(iter(sorted((Path(__file__).resolve().parents[1] / "static" / "fonts" / "brand").glob("Montserrat-Bold.ttf"))), None)
 
 
+def _drawn_seal(canvas, box):
+    """The seal where the model actually drew it: the blob of the zone's centre color around the zone (measured: the
+    circle came out ~4% off the zone and the centred hero looked misplaced)."""
+    x, y, w, h = box
+    cx, cy = x + w // 2, y + h // 2
+    seed = canvas.getpixel((cx, cy))[:3]
+    margin_x, margin_y = w // 3, h // 3
+    left, top = max(0, x - margin_x), max(0, y - margin_y)
+    right, bottom = min(canvas.width, x + w + margin_x), min(canvas.height, y + h + margin_y)
+    area = canvas.crop((left, top, right, bottom)).convert("RGB")
+    mask = Image.new("L", area.size)
+    mask.putdata([255 if _distance(pixel, seed) < 45 else 0 for pixel in area.getdata()])
+    found = mask.getbbox()
+    if not found:
+        return box
+    fx, fy, fx2, fy2 = found
+    fw, fh = fx2 - fx, fy2 - fy
+    # A real seal: about as tall as wide, between half and 1.5x the zone; anything else keeps the zone.
+    if not (0.5 * min(w, h) <= min(fw, fh) and max(fw, fh) <= 1.5 * max(w, h) and 0.75 <= fw / max(1, fh) <= 1.33):
+        return box
+    return (left + fx, top + fy, fw, fh)
+
+
 def _seal_hero(canvas, draw, zone, hero, display, palette):
     """The hero set inside the layout's seal: centred, in the square inscribed in the circle, readable on its tone."""
-    x, y, w, h = _px(zone, canvas.size)
-    side = min(w, h) * 0.70
+    x, y, w, h = _drawn_seal(canvas, _px(zone, canvas.size))
+    side = min(w, h) * 0.74
     left, top = x + (w - side) / 2, y + (h - side) / 2
     seal_color = _mean_color(canvas, (round(left), round(top), round(left + side), round(top + side)))
     color = readable(accent_color(palette), seal_color)
@@ -532,7 +573,7 @@ def render_text_layers(image, spec, headline, cta, brand_context, palette, suppo
         top = y + (h - block["height"]) / 2 if wide else y
         for line in block["lines"]:
             fill = hero_color if line["role"] == "hero" else color
-            draw.text((x, top + line["y"]), line["text"], font=line["font"], fill=fill)
+            _draw_line(draw, (x, top + line["y"]), line, fill)
         headline_size = block["hero_size"] or block["kicker_size"]
         layers.append({
             # The copy as drawn (the kicker in caps is a typographic choice; the words are the client's).
@@ -569,6 +610,8 @@ def render_text_layers(image, spec, headline, cta, brand_context, palette, suppo
         if ground is not None and _distance(fill, ground) < 60:
             fill = (255, 255, 255) if _luma(ground) < 0.5 else (17, 24, 39)
         ink = (17, 24, 39) if _luma(fill) > 0.55 else (255, 255, 255)
+        # Designer proportions: the label ~38% of the button height, horizontal padding ~1.3x the label size, the
+        # button no taller than ~2.5x its label (a fat pill with shouting text reads as a template).
         pad = max(4, round(h * 0.18))
         # The whole label always shows: the pill may grow up to the safe frame (or the panel), then the font shrinks.
         limit_right = round((panel_right if panel_right else safe_right) * canvas.width)
@@ -578,20 +621,26 @@ def render_text_layers(image, spec, headline, cta, brand_context, palette, suppo
             if ly < y + h and y < ly + lh and lx > x:
                 limit_right = min(limit_right, lx - max(4, round(canvas.width * 0.02)))
         room_w = max(w, limit_right - x)
-        cap = round(headline_size * 0.75) if headline_size else h - pad * 2  # never louder than the headline
-        size = max(7, min(h - pad * 2, cap))
+        cap = round(headline_size * 0.42) if headline_size else round(h * 0.40)  # quieter than the headline
+        legible = round(min(canvas.size) * 0.044)  # ~11 px on a 300×250: small, never squinting
+        size = max(7, min(max(round(h * 0.40), legible), max(cap, legible)))
         font = ImageFont.truetype(str(body["path"]), size)
-        while size > 7 and draw.textlength(cta, font=font) + pad * 4 > room_w:
+        while size > 7 and draw.textlength(cta, font=font) + size * 2.6 > room_w:
             size -= 1
             font = ImageFont.truetype(str(body["path"]), size)
         label = cta
         text_w = draw.textlength(label, font=font)
-        pill_w = min(room_w, round(text_w + pad * 4))
+        pad_x = round(size * 1.3)
+        pill_w = min(room_w, round(text_w + pad_x * 2))
+        pill_h = min(h, max(round(size * 2.4), round(min(canvas.size) * 0.085)))
+        y += (h - pill_h) // 2
+        h = pill_h
         center = abs((zones["cta"][0] + zones["cta"][2] / 2) - 0.5) < 0.1
         left = x + (w - pill_w) // 2 if center and pill_w <= w else x
         draw.rounded_rectangle((left, y, left + pill_w, y + h), radius=h // 2, fill=fill)
-        ascent, descent = font.getmetrics()
-        draw.text((left + (pill_w - text_w) / 2, y + (h - (ascent + descent)) / 2), label, font=font, fill=ink)
+        # Optical centre: the letters' own box, not the font's ascent/descent (which sits the label high).
+        bbox = draw.textbbox((0, 0), label, font=font)
+        draw.text((left + (pill_w - text_w) / 2, y + (h - (bbox[3] - bbox[1])) / 2 - bbox[1]), label, font=font, fill=ink)
         layers.append({
             "type": "cta", "text": label, "box": [left / canvas.width, y / canvas.height, pill_w / canvas.width, h / canvas.height],
             "font_family": body["family"], "font_source": body["source"], "size_px": size,

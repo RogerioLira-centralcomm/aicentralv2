@@ -31,14 +31,14 @@ LAYOUTS = {
             "A large solid circle in the brand accent color, centred at about 74% across and 58% down, its diameter "
             "about 80% of the canvas height, partly cut by the right and bottom edges.",
             "The person, photographed as a clean studio cut-out, stands in front of the circle on the right half "
-            "(from 48% to 100% across), cropped by the bottom edge at the waist, head at about 12–45% down, facing the "
+            "(from 52% to 100% across, never left of 50%), cropped by the bottom edge at the waist, head at about 12–45% down, facing the "
             "camera; shoulders overlap the circle edge.",
             "The left half (8% to 50% across) is plain background with nothing on it: the copy goes there.",
         ],
-        "zones": {"headline": (0.067, 0.10, 0.40, 0.50), "cta": (0.067, 0.66, 0.30, 0.10), "logo": (0.067, 0.84, 0.18, 0.08),
-                  "subject": (0.48, 0.10, 0.52, 0.90)},
+        "zones": {"headline": (0.067, 0.10, 0.38, 0.50), "cta": (0.067, 0.66, 0.30, 0.10), "logo": (0.067, 0.84, 0.18, 0.08),
+                  "subject": (0.52, 0.10, 0.48, 0.90)},
         "logo": "bottom-left", "cta": True,
-        "sketch": {"background": "ground", "circle": (0.74, 0.58, 0.40), "silhouette": (0.74, 0.12, 0.26, 0.88)},
+        "sketch": {"background": "ground", "circle": (0.74, 0.58, 0.40), "silhouette": (0.77, 0.12, 0.24, 0.88)},
     },
     "produto-diagonal": {
         "label": "Produto herói cruzando uma diagonal",
@@ -81,15 +81,15 @@ LAYOUTS = {
         "scene": [
             "No photograph. A flat solid background in the brand's ground color with a subtle grain, edge to edge.",
             "One small solid tab in a secondary brand color at the top-left corner, about 12% wide.",
-            "The right third (64% to 92% across) holds one round seal: a flat solid circle in the brand accent color, "
-            "about 34% of the height, centred at 78% across and 42% down, with nothing inside it (the Studio sets the "
+            "The right third (61% to 95% across) holds one round seal: a flat solid circle in the brand accent color, "
+            "about 40% of the height, centred at 78% across and 42% down, with nothing inside it (the Studio sets the "
             "highlight in it).",
             "Everything else is plain: the copy is set by the Studio.",
         ],
         "zones": {"headline": (0.067, 0.16, 0.52, 0.52), "cta": (0.067, 0.74, 0.30, 0.10), "logo": (0.773, 0.85, 0.16, 0.07),
-                  "seal": (0.638, 0.25, 0.283, 0.34)},
+                  "seal": (0.613, 0.22, 0.333, 0.40)},
         "logo": "bottom-right", "cta": True,
-        "sketch": {"background": "ground", "tab": True, "seal": (0.78, 0.42, 0.17)},
+        "sketch": {"background": "ground", "tab": True, "seal": (0.78, 0.42, 0.20)},
     },
 }
 
@@ -125,7 +125,9 @@ def words(layout_id: str, text_free: bool = True, palette=None) -> list[str]:
     if not item:
         return []
     colors = brand_colors(palette or [])
-    scene = [line.replace("the brand's ground color", f"the brand's deep ground color {colors['ground']}")
+    # The model drifts to black when it reads "deep" (measured: Reserva's brown ground came out black): name the tone.
+    scene = [line.replace("the brand's ground color", f"the brand's deep ground color {colors['ground']} (that exact "
+                          "colored tone, not black, not grey)")
              .replace("the brand accent color", f"the brand accent color {colors['accent']}") for line in item["scene"]]
     return [
         f"LAYOUT BY POSITION (binding, {item['label']}): the attached sketch shows where each element goes, as shapes; "

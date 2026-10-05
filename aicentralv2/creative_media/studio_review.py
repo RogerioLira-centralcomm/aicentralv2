@@ -133,16 +133,26 @@ def as_transcribed(required: list[str], visible: list[str], brand_name: str = ""
     from ..creative_lab.evaluation import _normalize
     brand = _normalize(brand_name)
     shown = [item for item in visible or [] if not (brand and _normalize(item) == brand)]
-    words = _normalize(" ".join(required or [])).split()
-    aligned, cursor = [], 0
-    for item in shown:
-        piece = _normalize(item).split()
-        if piece and words[cursor:cursor + len(piece)] == piece:
-            aligned.append(item)
-            cursor += len(piece)
-    if required and cursor == len(words):
-        return aligned, shown
-    return list(required or []), shown
+    items = [_normalize(item).split() for item in shown]
+    used: set[int] = set()
+    for phrase in required or []:
+        # Each phrase is spelled by consecutive visible items, in any order among phrases (the eyes read by position:
+        # title, button, then the seal on the right).
+        words = _normalize(phrase).split()
+        for start in range(len(items)):
+            taken, cursor, index = [], 0, start
+            while index < len(items) and index not in used and items[index] and words[cursor:cursor + len(items[index])] == items[index]:
+                taken.append(index)
+                cursor += len(items[index])
+                index += 1
+                if cursor == len(words):
+                    break
+            if words and cursor == len(words):
+                used.update(taken)
+                break
+        else:
+            return list(required or []), shown
+    return [shown[index] for index in sorted(used)], shown
 
 
 def invented_numbers(observation: dict, allowed_text: str) -> list[str]:

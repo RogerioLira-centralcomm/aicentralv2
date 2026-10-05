@@ -425,3 +425,15 @@ def test_svg_raster_accepts_only_inert_svg():
         assert not svg_raster.is_inert(dirty)
         with pytest.raises(ValueError):
             svg_raster.rasterize(dirty)
+
+
+def test_an_svg_upload_without_cairo_is_a_clean_value_error():
+    import pytest
+    from unittest.mock import patch
+    from aicentralv2.creative_lab import files
+
+    def missing(content, width=1200):
+        raise RuntimeError("CairoSVG indisponível")
+
+    with patch("aicentralv2.creative_media.svg_raster.rasterize", missing), pytest.raises(ValueError):
+        files.open_image(b'<svg xmlns="http://www.w3.org/2000/svg"/>')

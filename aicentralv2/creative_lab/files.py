@@ -30,7 +30,10 @@ def sha256(payload: bytes) -> str:
 def open_image(payload: bytes) -> Image.Image:
     from ..creative_media import svg_raster
     if svg_raster.is_svg(payload):
-        payload = svg_raster.rasterize(payload)  # an SVG reference is stored as pixels, never as SVG
+        try:
+            payload = svg_raster.rasterize(payload)  # an SVG reference is stored as pixels, never as SVG
+        except RuntimeError as exc:  # no Cairo on this server: a clear 400, not a 500
+            raise ValueError(str(exc)) from exc
     image = Image.open(io.BytesIO(payload))
     image.load()
     image = ImageOps.exif_transpose(image)

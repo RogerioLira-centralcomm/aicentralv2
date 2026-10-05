@@ -35,17 +35,24 @@ await page.waitForFunction(()=>document.querySelector('#mcVideoDraft .mc-draft-e
 let state1=await page.evaluate(async()=>{const {state}=await import('/static/js/cadu-video/state.js');return {scenes:state.scenes.map(s=>s.id),draft:state.draft.beats.map(b=>b.id),req:state.draft.beats[0].request_id,err:state.draft.beats[0].error,gen:state.draft.generating};});
 console.log(JSON.stringify(state1));
 assert.deepEqual(state1.scenes,['p1']); assert.deepEqual(state1.draft,['beat-2','beat-3']); assert.match(state1.err,/Saldo/); assert.equal(state1.gen,false);
-// tentar de novo: reaproveita o mesmo request_id e termina as duas
-const retriedId=state1.req; failOn=0;
+// tentar de novo sem editar: reaproveita o mesmo request_id (a segunda falha também chega ao servidor)
+failOn=3;
+await page.click('#mcVideoDraftGenerate');
+while(images.length<3)await new Promise(r=>setTimeout(r,50));
+await page.waitForFunction(()=>!document.querySelector('#mcVideoDraftStop:not([hidden])'));
+assert.equal(images.length,3); assert.equal(images[1].request_id,images[2].request_id);
+// editar o visual muda o pedido: o id antigo seria recusado pelo servidor, então nasce um novo
+await page.fill('[data-draft="beat-2"] [data-draft-field="visual"]','Roteador em destaque na mesa');
+failOn=0;
 await page.click('#mcVideoDraftGenerate');
 await page.waitForFunction(()=>document.querySelectorAll('#mcVideoDraft .mc-draft-card').length===0);
+assert.notEqual(images[3].request_id,images[2].request_id);
 const final=await page.evaluate(async()=>{const {state,beatFor}=await import('/static/js/cadu-video/state.js');return {scenes:state.scenes.map(s=>s.id),spoken:state.scenes.map(s=>beatFor(s.id)?.spoken),anchor:state.draft.anchorUrl};});
 console.log(JSON.stringify(final)); console.log(JSON.stringify(images.map(i=>({req:i.request_id.length,anchor:i.anchor_url,index:i.index,total:i.total,aspect:i.aspect_ratio,run:i.run_id}))));
-assert.deepEqual(final.scenes,['p1','p3','p4']); assert.deepEqual(final.spoken,['Olá','500 mega','Fale com a gente']);
+assert.deepEqual(final.scenes,['p1','p4','p5']); assert.deepEqual(final.spoken,['Olá','500 mega','Fale com a gente']);
 assert.equal(images[0].anchor_url,'');
 assert.ok(images.slice(1).every(i=>i.anchor_url.includes('prime-video.svg?n=1')));
-assert.equal(images.length,4); // 1 ok + 1 falha + 2 ao tentar de novo
-assert.equal(images[1].request_id,images[2].request_id); // a repetição reaproveita o pedido
+assert.equal(images.length,5); // 1 ok + 2 falhas + 2 ok depois da edição
 assert.ok(images.every(i=>i.aspect_ratio==='16:9')); // o formato escolhido não muda com a 1ª imagem
 await page.screenshot({path:ARTIFACTS+'/draft-images.png',fullPage:true});
 assert.deepEqual(errors,[]);

@@ -991,8 +991,13 @@ async function generateDraftImages(ids) {
       const beat = draft.beats[index];
       beat.error = "";
       beat.generating = true;
-      // O mesmo request_id é mantido no rascunho: repetir após queda de rede reaproveita a imagem já paga.
-      beat.request_id ||= newId();
+      // O mesmo request_id é mantido enquanto o pedido for idêntico: repetir após queda de rede reaproveita a imagem
+      // já paga. Se o conteúdo mudou (texto editado, referência de estilo, posição), o servidor recusaria o id antigo.
+      const requestKey = JSON.stringify([beat.visual, beat.hold, state.aspectRatio, draft.anchorUrl || "", state.scenes.length, state.scenes.length + draft.beats.length]);
+      if (!beat.request_id || beat.request_key !== requestKey) {
+        beat.request_id = newId();
+        beat.request_key = requestKey;
+      }
       paintDraft();
       try {
         const data = await post(`${studioApi}/agent/storyboard/image`, {

@@ -4091,6 +4091,13 @@ def _workspace_project_plans(client_id: int, project_id: str) -> list[dict]:
         return []
 
 
+def _sortable_moment(value) -> datetime:
+    """Order mixed naive/aware timestamps; naive database values are treated as UTC."""
+    if not isinstance(value, datetime):
+        return datetime.min.replace(tzinfo=timezone.utc)
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+
 def _project_recent_activity(project: dict) -> list[dict]:
     """A chronological, factual timeline assembled from the dossier records."""
     activity = []
@@ -4112,7 +4119,7 @@ def _project_recent_activity(project: dict) -> list[dict]:
         activity.append({'title': 'Plano atualizado', 'detail': item.get('title') or 'Plano sem título', 'at': item.get('updated_at')})
     for item in project.get('creative_analyses', [])[:3]:
         activity.append({'title': 'Criativo analisado', 'detail': item.get('original_name') or 'Criativo', 'at': item.get('created_at')})
-    recent_links = sorted(project.get('links', []), key=lambda item: item.get('created_at') or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    recent_links = sorted(project.get('links', []), key=lambda item: _sortable_moment(item.get('created_at')), reverse=True)
     for item in recent_links[:4]:
         timeline = item.get('timeline') or {}
         activity.append({
@@ -4122,7 +4129,7 @@ def _project_recent_activity(project: dict) -> list[dict]:
             'actor_id': item.get('actor_id'), 'actor_name': item.get('actor_name'),
             'origin': item.get('origin'), 'resource_url': item.get('url'),
         })
-    activity.sort(key=lambda item: item.get('at') or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    activity.sort(key=lambda item: _sortable_moment(item.get('at')), reverse=True)
     return activity[:10]
 
 

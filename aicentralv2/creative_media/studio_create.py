@@ -1428,7 +1428,8 @@ def auto_position(width, height, briefing, references=None, enabled=None):
     if not format_key:
         return ""
     from . import position_layouts
-    return position_layouts.choose(format_key, str(briefing or ""))
+    # The director reads the first 1200 characters of the request: both steps decide on the same text.
+    return position_layouts.choose(format_key, str(briefing or "")[:1200])
 
 
 def display_format(width, height, social=False):

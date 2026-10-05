@@ -122,3 +122,10 @@ def test_the_studio_picks_a_layout_only_with_the_flag_and_never_over_a_chosen_ma
     url = ad_masks.MASK_URL_PREFIX + served["id"].replace(":", "__") + ".png"
     assert ad_masks.spec_from_url(url)
     assert studio_create.auto_position(served["width"], served["height"], briefing, [{"url": url}]) == ""
+
+
+def test_both_steps_decide_on_the_first_1200_characters(monkeypatch):
+    from aicentralv2.creative_media import studio_create
+
+    briefing = "Título: Semana do cliente\nBotão: Compre\n" + "x" * 1200 + "\nUma mulher sorrindo."
+    assert studio_create.auto_position(300, 250, briefing, enabled=True) == "faixa-foto-bloco"  # not pessoa-circulo

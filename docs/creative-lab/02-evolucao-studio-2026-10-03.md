@@ -102,6 +102,15 @@ redação não deram ganho medido e foram desfeitas.
 Corrigido no caminho: o diretor do Lab lia o texto do layout de 300×250 em qualquer formato, e o prefixo do layout
 estourava os 1200 caracteres do pedido, cortando o "Botão:" (peças sem botão).
 
+### A/B da regra de layout por posição (2026-10-05)
+
+`CREATIVE_STUDIO_POSITION_LAYOUTS` (regra `position_layouts.choose`) contra a composição padrão: 12 cenários (6 marcas,
+300×250, 300×600, 160×600, 728×90, 970×250; comerciais e institucionais), 2 rodadas, até 3 versões, GPT Image 2.5.
+**Sem ganho: 70,3 (padrão) contra 69,1 (regra), 17/24 aprovadas nos dois lados.** Por cenário: melhora em 970×250 e
+728×90 (Vivara +8 e +4, Rede D'Or +8, TIM 0) e onde a base é fraca (Centralcomm +8, TIM 300×250 +7); piora onde a
+base já é boa (Cemig manifesto −15 e −8, Reserva selo 300×250 −12, Vivara pessoa-círculo 300×250 −11). Decisão: a
+chave **segue desligada**. Hipótese a medir: ligar só em 970×250 e 728×90 (4 cenários, +5 em média, amostra pequena).
+
 ## Pendências
 
 - Ligar `CREATIVE_STUDIO_SOCIAL_TYPESET` depois do A/B com o compositor novo.

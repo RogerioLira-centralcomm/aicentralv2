@@ -129,3 +129,13 @@ def test_both_steps_decide_on_the_first_1200_characters(monkeypatch):
 
     briefing = "Título: Semana do cliente\nBotão: Compre\n" + "x" * 1200 + "\nUma mulher sorrindo."
     assert studio_create.auto_position(300, 250, briefing, enabled=True) == "faixa-foto-bloco"  # not pessoa-circulo
+
+
+def test_editing_the_persons_own_picture_never_gets_a_layout():
+    from aicentralv2.creative_media import studio_create
+
+    briefing = "Título: Semana do cliente\nBotão: Compre"
+    assert studio_create.auto_position(300, 250, briefing, [{"role": "primary", "url": "/static/uploads/x.png"}],
+                                       enabled=True) == ""
+    assert studio_create.auto_position(300, 250, briefing, [{"role": "insert", "url": "/static/uploads/x.png"}],
+                                       enabled=True) == "faixa-foto-bloco"

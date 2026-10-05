@@ -1421,9 +1421,12 @@ POSITION_LAYOUTS = os.getenv("CREATIVE_STUDIO_POSITION_LAYOUTS", "0") == "1"
 def auto_position(width, height, briefing, references=None, enabled=None):
     """The layout by position the rule picks for this display unit and briefing ("" = standard composition).
 
-    Never when the person picked a composition mask, and only for IAB sizes that have a version of the layout."""
+    Never when the person picked a composition mask or is editing a picture of their own (primary reference), and
+    only for IAB sizes that have a version of the layout."""
     if not (POSITION_LAYOUTS if enabled is None else enabled) or mask_specs(references):
         return ""
+    if any(isinstance(item, dict) and item.get("role") == "primary" for item in references or []):
+        return ""  # an edit of the person's own picture keeps that picture's composition
     format_key = display_format(width, height)
     if not format_key:
         return ""

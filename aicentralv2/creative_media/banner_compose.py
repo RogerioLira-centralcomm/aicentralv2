@@ -60,6 +60,12 @@ def accent_color(palette):
         current = saturation * (1 - abs(lightness - 0.5))
         if current > score:
             best, score = rgb, current
+    if best is not None and _saturation(best) < 0.12:
+        # A neutral palette (black + off-white) has no accent hue: the accent is its lightest tone, which is what
+        # stands out on the dark grounds these brands use (the dark one was invisible: black hero, black button).
+        lights = sorted((rgb for rgb in (_hex(value) for value in palette or []) if rgb), key=_luma, reverse=True)
+        if lights and _luma(lights[0]) > 0.8:
+            return lights[0]
     return best or (17, 24, 39)
 
 
@@ -614,7 +620,10 @@ def render_text_layers(image, spec, headline, cta, brand_context, palette, suppo
             light_text = luma <= 0.5
             color = (255, 255, 255) if light_text else (17, 24, 39)
             _gradient_scrim(canvas, (x, y, x + w, y + h), light_text)
-        backdrop = ground or ((17, 24, 39) if color == (255, 255, 255) else (255, 255, 255))
+        # The real backdrop of the copy: the picture's own mean color there (a red hero against an assumed navy
+        # was measured on a blue photo: 1.3:1).
+        backdrop = ground or _mean_color(canvas, (x, y, x + w, y + h)) or (
+            (17, 24, 39) if color == (255, 255, 255) else (255, 255, 255))
         if color != (255, 255, 255):
             # Dark copy is the brand's own dark, not a generic navy.
             color = brand_dark(palette) or color
@@ -665,8 +674,9 @@ def render_text_layers(image, spec, headline, cta, brand_context, palette, suppo
             if h < minimum:
                 y, h = max(0, y - (minimum - h)), minimum
         fill = accent_color(palette)
-        if ground is not None and _distance(fill, ground) < 60:
-            fill = (255, 255, 255) if _luma(ground) < 0.5 else (17, 24, 39)
+        surface = ground if ground is not None else _mean_color(canvas, (x, y, x + w, y + h))
+        if surface is not None and _distance(fill, surface) < 60:
+            fill = (255, 255, 255) if _luma(surface) < 0.5 else (17, 24, 39)
         ink = (17, 24, 39) if _luma(fill) > 0.55 else (255, 255, 255)
         # Designer proportions: the label ~38% of the button height, horizontal padding ~1.3x the label size, the
         # button no taller than ~2.5x its label (a fat pill with shouting text reads as a template).

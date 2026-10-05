@@ -4542,3 +4542,8 @@ body.portal--workspace .cadu-ds-project-triage>article{gap:9px;padding:11px 0;bo
 .cadu-ds-project-reports-picker{list-style:none;margin:10px 0 0;padding:0;max-height:260px;overflow:auto;display:grid;gap:6px}
 .cadu-ds-project-reports-picker li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 12px;border:1px solid currentColor;border-radius:10px;border-color:rgba(127,127,127,.3)}
 body.portal--workspace .cadu-ds-project-reports-row>a{display:grid;grid-template-columns:28px minmax(0,1fr) 14px;gap:12px;align-items:center;min-height:62px;border-bottom:1px solid var(--cadu-line);color:var(--cadu-ink);text-decoration:none}
+
+.cadu-ds-confirm__dialog{display:grid;gap:10px;width:min(420px,calc(100vw - 32px));padding:24px}
+.cadu-ds-confirm__dialog h2{margin:0;font-size:18px;color:var(--cadu-ink)}
+.cadu-ds-confirm__dialog p{margin:0;color:var(--cadu-muted);font-size:14px;line-height:1.5}
+.cadu-ds-confirm__actions{display:flex;justify-content:flex-end;gap:10px;margin-top:10px}

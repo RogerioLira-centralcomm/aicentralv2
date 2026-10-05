@@ -26,7 +26,7 @@ def test_account_team_keeps_php_backed_actions_and_confirmation_ui():
         assert endpoint in component
     for action in ('/papel', '/status', '/reenviar', '/cancelar'):
         assert action in component
-    assert 'window.confirm' in component
+    assert 'CaduConfirmDialog' in component and 'window.confirm' not in component
 
 
 def test_account_profile_is_identity_only_and_keeps_emails_out_of_the_page():

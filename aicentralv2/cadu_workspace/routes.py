@@ -2720,7 +2720,7 @@ def _institutional_brand_campaign(brand_id: int, brand: dict) -> dict:
     profile = brand.get('brand_profile') or {}
     name = str(brand.get('name') or 'Marca').strip()
     summary = str(profile.get('brand_summary') or profile.get('positioning') or '').strip()
-    audience = str(profile.get('target_audience') or '').strip()
+    audience = _profile_text(profile.get('target_audience'))
     return {
         'id': f'institutional-{brand_id}', 'name': f'Campanha institucional {name}',
         'type': 'institutional', 'status': 'opportunity',
@@ -3407,11 +3407,38 @@ def _project_brand_guidance(brand: dict) -> dict:
     }
 
 
+def _profile_text(value) -> str:
+    """Flatten structured brand-profile values (lists of {label, value, ...}) into readable text."""
+    if value is None:
+        return ''
+    if isinstance(value, str):
+        text = value.strip()
+        if text[:1] in '[{':
+            try:
+                return _profile_text(json.loads(text))
+            except ValueError:
+                try:
+                    import ast
+                    return _profile_text(ast.literal_eval(text))
+                except (ValueError, SyntaxError):
+                    return text
+        return text
+    if isinstance(value, dict):
+        for key in ('label', 'value', 'text', 'name', 'title'):
+            if value.get(key):
+                return str(value[key]).strip()
+        return ''
+    if isinstance(value, (list, tuple, set)):
+        parts = [_profile_text(item) for item in value]
+        return '; '.join(part for part in parts if part)
+    return str(value).strip()
+
+
 def _fill_empty_project_identity_from_brand(client_id: int, brand_id: int, profile: dict) -> None:
     """Seed linked projects from approved brand context without overwriting edits."""
-    audience = str(profile.get('target_audience') or '').strip()
-    tone = str(profile.get('tone_of_voice') or '').strip()
-    positioning = str(profile.get('positioning') or profile.get('brand_summary') or '').strip()
+    audience = _profile_text(profile.get('target_audience'))
+    tone = _profile_text(profile.get('tone_of_voice'))
+    positioning = _profile_text(profile.get('positioning') or profile.get('brand_summary'))
     if not any((audience, tone, positioning)):
         return
     try:
@@ -4495,9 +4522,9 @@ def _workspace_project(client_id: int, project_id: str) -> Optional[dict]:
         brand_profile = project['brands'][0].get('brand_profile') or {}
         if not brand_profile:
             brand_profile = (_brand_review_pack(project['brands'][0]).get('analysis') or {})
-        project['publico'] = project.get('publico') or brand_profile.get('target_audience') or ''
-        project['tom_de_voz'] = project.get('tom_de_voz') or brand_profile.get('tone_of_voice') or ''
-        project['posicionamento'] = project.get('posicionamento') or brand_profile.get('positioning') or brand_profile.get('brand_summary') or ''
+        project['publico'] = project.get('publico') or _profile_text(brand_profile.get('target_audience'))
+        project['tom_de_voz'] = project.get('tom_de_voz') or _profile_text(brand_profile.get('tone_of_voice'))
+        project['posicionamento'] = project.get('posicionamento') or _profile_text(brand_profile.get('positioning') or brand_profile.get('brand_summary'))
     project['brand_guidance'] = [_project_brand_guidance(brand) for brand in project['brands']]
     try:
         with get_db().cursor() as cursor:
@@ -4599,6 +4626,29 @@ def _workspace_project(client_id: int, project_id: str) -> Optional[dict]:
             project['creative_analyses'] = [dict(row) for row in cursor.fetchall()]
     except Exception:
         project['creative_analyses'] = []
+    try:
+        with get_db().cursor() as cursor:
+            cursor.execute(
+                """SELECT DISTINCT ON (a.id) a.id::text AS id, a.title, a.kind, a.asset_url, a.status, a.created_at
+                     FROM cx_studio_sessions s
+                     JOIN cx_studio_assets a ON a.deleted_at IS NULL
+                      AND a.status IN ('working', 'accepted', 'final')
+                      AND a.kind IN ('image', 'video')
+                      AND (a.id = s.active_asset_id OR a.id IN (
+                            SELECT sa.asset_id FROM cx_studio_session_assets sa
+                             WHERE sa.session_id = s.id AND sa.role IN ('attempt', 'accepted', 'final')))
+                    WHERE s.metadata->>'workspace_project_ref' = %s
+                 ORDER BY a.id, a.created_at DESC""",
+                (f'ci:{project_id}',),
+            )
+            project['studio_assets'] = sorted((dict(row) for row in cursor.fetchall()),
+                                              key=lambda row: row['created_at'], reverse=True)[:60]
+    except Exception:
+        try:
+            get_db().rollback()
+        except Exception:
+            pass
+        project['studio_assets'] = []
     project['links'] = _workspace_project_links(client_id, project_id)
     project['memory'] = _workspace_project_memory(client_id, project_id)
     project['plans'] = _workspace_project_plans(client_id, project_id)
@@ -6482,6 +6532,11 @@ def project_detail(project_id, project_view='overview'):
                            [{'id': f"image:{item.get('id')}", 'title': str(item.get('title') or 'Imagem do projeto'),
                              'kind': 'Criação visual', 'status': 'Prévia disponível' if item.get('preview_url') else 'Registro visual',
                              'href': str(item.get('preview_url') or '')} for item in project.get('images') or []] +
+                           [{'id': f"studio:{item.get('id')}", 'title': str(item.get('title') or 'Criação do Studio'),
+                             'kind': 'Vídeo' if item.get('kind') == 'video' else 'Imagem', 'status': str(item.get('status') or ''),
+                             'createdAt': item.get('created_at'),
+                             'previewUrl': str(item.get('asset_url') or '') if item.get('kind') == 'image' else '',
+                             'href': str(item.get('asset_url') or '')} for item in project.get('studio_assets') or []] +
                            [{'id': f"analysis:{item.get('public_id')}", 'title': str(item.get('original_name') or 'Criativo analisado'),
                              'kind': 'Análise criativa', 'status': str(item.get('status') or ''),
                              'href': product_url('studio', f"/analyzer/{item.get('public_id')}")} for item in project.get('creative_analyses') or []]),
@@ -6534,7 +6589,7 @@ def project_detail(project_id, project_view='overview'):
                 } for item in project_members],
             },
         }
-        allowed_project_views = {'overview', 'direction', 'tasks', 'activity', 'files', 'library', 'indexing', 'conversations', 'deliveries', 'views'}
+        allowed_project_views = {'overview', 'direction', 'tasks', 'files', 'library', 'indexing', 'conversations', 'deliveries', 'views'}
         project_view = project_view if project_view in allowed_project_views else 'overview'
         return render_template(
             'cadu_workspace/project_detail_react.html', project_data=project_data,

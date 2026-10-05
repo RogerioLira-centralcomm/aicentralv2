@@ -200,7 +200,7 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(project, /new Date\(draft\.starts_at\)\.toISOString\(\)/);
   assert.match(project, /startsAt:item\.occurredAt \|\| ''/);
   assert.match(project, /Referência/);
-  assert.match(project, /\{id:'activity', label:'Atividade'/);
+  assert.doesNotMatch(project, /\{id:'activity', label:'Atividade'/);
   assert.match(project, /\{id:'tasks', label:'Tarefas'/);
   assert.doesNotMatch(project, /title:'Links principais'/);
   assert.match(project, /<b title=\{project\.name\}>\{project\.name\}<\/b>/);

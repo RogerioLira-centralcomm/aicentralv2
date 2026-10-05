@@ -173,7 +173,7 @@
         client_id:state.clientId, project_id:state.projectId || '', studio_type:'create',
         title:$('studioWorkspaceName').value || 'Mesa sem título', original_prompt:state.originalPrompt,
         optimized_prompt:state.optimizedPrompt, prompt_language:state.promptLanguage,
-        prompt_version:'studio-create-v1', metadata:{workspace:remoteWorkspace()},
+        prompt_version:'studio-create-v1', workspace_project_id:new URLSearchParams(location.search).get('project_id') || '', metadata:{workspace:remoteWorkspace()},
       }),
     }).then((session) => { updateSession(session); return state.sessionId; }).finally(() => { state.sessionCreating = null; });
     return state.sessionCreating;

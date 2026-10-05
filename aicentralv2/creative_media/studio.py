@@ -1409,6 +1409,22 @@ def studio_sessions():
         data = json_body()
         client_id = data.get('client_id') or session.get('cliente_id')
         store = _session_store(client_id)
+        # The ref is server-derived: only a project of the signed-in workspace
+        # client may be recorded, so a payload can never tag a foreign project.
+        metadata = dict(data.get('metadata') or {}) if isinstance(data.get('metadata'), dict) else {}
+        metadata.pop('workspace_project_ref', None)
+        workspace_project_id = str(data.pop('workspace_project_id', '') or '').strip()
+        if workspace_project_id:
+            try:
+                from ..db import get_db
+                with get_db().cursor() as cursor:
+                    cursor.execute('SELECT 1 FROM cadu_ci_projetos WHERE id::text = %s AND id_cliente = %s',
+                                   (workspace_project_id, int(session.get('cliente_id') or 0)))
+                    if cursor.fetchone():
+                        metadata['workspace_project_ref'] = f'ci:{workspace_project_id}'
+            except Exception:
+                logger.exception('Studio session could not be linked to the workspace project')
+        data['metadata'] = metadata
         try:
             created = store.create(client_id, user_id, data)
             # A mesa de edição fica aberta por padrão. O primeiro salvamento

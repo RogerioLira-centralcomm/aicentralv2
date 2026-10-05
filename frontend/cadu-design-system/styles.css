@@ -4530,3 +4530,5 @@ body.portal--workspace .cadu-ds-project-triage>article{gap:9px;padding:11px 0;bo
 .cadu-ds-agents__modules { display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:6px; font-size:10px; color:var(--cadu-muted); }
 .cadu-ds-agents__legacy { margin-top:16px; font-size:10px; }
 @media (max-width:640px) { .cadu-ds-agents__diagnosis li { grid-template-columns:28px minmax(0,1fr); } .cadu-ds-agents__diagnosis em { grid-column:2; } }
+
+.cadu-ds-project-explorer__visual-item p.is-context-text{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}

@@ -1424,6 +1424,10 @@ def studio_sessions():
                         metadata['workspace_project_ref'] = f'ci:{workspace_project_id}'
             except Exception:
                 logger.exception('Studio session could not be linked to the workspace project')
+                try:
+                    get_db().rollback()
+                except Exception:
+                    pass
         data['metadata'] = metadata
         try:
             created = store.create(client_id, user_id, data)

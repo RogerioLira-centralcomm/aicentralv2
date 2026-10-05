@@ -293,3 +293,9 @@ def test_required_copy_aligns_in_any_order_the_eyes_read_it():
     from aicentralv2.creative_media.studio_review import as_transcribed
     visible = ["SUA", "CONTA", "DE LUZ", "Acesse agora", "NA", "PALMA", "DA MÃO"]
     assert as_transcribed(["SUA CONTA DE LUZ", "NA PALMA DA MÃO", "Acesse agora"], visible)[0] == visible
+
+
+def test_a_sign_read_apart_from_its_number_is_the_same_offer():
+    from aicentralv2.creative_media.studio_review import as_transcribed
+    required, shown = as_transcribed(["+20GB DE BÔNUS"], ["+ 20GB DE", "BÔNUS"])
+    assert shown == ["+20GB DE", "BÔNUS"] and required == ["+20GB DE", "BÔNUS"]

@@ -423,7 +423,7 @@ def _balanced(draw, text, font, width):
 def _sign_gap(line):
     """Room after a leading + or - before a number: "+20GB" set tight was read as "120GB" (an offer six times larger)."""
     text = line["text"]
-    return round(line["font"].size * 0.14) if len(text) > 1 and text[0] in "+-" and text[1].isdigit() else 0
+    return round(line["font"].size * 0.07) if len(text) > 1 and text[0] in "+-" and text[1].isdigit() else 0
 
 
 def _line_length(draw, line):

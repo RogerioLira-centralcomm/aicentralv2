@@ -132,7 +132,9 @@ def as_transcribed(required: list[str], visible: list[str], brand_name: str = ""
     """
     from ..creative_lab.evaluation import _normalize
     brand = _normalize(brand_name)
-    shown = [item for item in visible or [] if not (brand and _normalize(item) == brand)]
+    # "+ 20GB" and "+20GB" are the same offer: the eyes put a space after a sign that is set tight (or the reverse).
+    visible = [re.sub(r"(?<![\w])([+\-−])\s+(?=\d)", r"\1", str(item)) for item in visible or []]
+    shown = [item for item in visible if not (brand and _normalize(item) == brand)]
     items = [_normalize(item).split() for item in shown]
     used: set[int] = set()
     for phrase in required or []:

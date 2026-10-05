@@ -131,6 +131,10 @@ def _identity_fields(cursor, client_id: int, brand_id: int) -> dict:
     } for row in cursor.fetchall()}
 
 
+def role_is_logo(asset) -> bool:
+    return str(asset.get("role") or "") == "logo"
+
+
 def brand_snapshot(client_id: int, brand_id: int) -> dict:
     with get_db().cursor() as cursor:
         cursor.execute(
@@ -155,7 +159,7 @@ def brand_snapshot(client_id: int, brand_id: int) -> dict:
         assets = []
         for asset in cursor.fetchall():
             url = asset_public_url(asset["path"])
-            if url and not url.lower().split("?")[0].endswith(".svg"):
+            if url and (role_is_logo(asset) or not url.lower().split("?")[0].endswith(".svg")):
                 assets.append({"asset_id": asset["id"], "role": asset["role"], "url": url,
                                "is_primary": asset["is_primary"], "width": asset["width"], "height": asset["height"]})
         cursor.execute(
@@ -168,8 +172,11 @@ def brand_snapshot(client_id: int, brand_id: int) -> dict:
     profile = dict(row.get("brand_profile") or {})
     logo_path = row.get("logo_upload_path") or row.get("logo_url") or ""
     logo_url = asset_public_url(logo_path)
+    # An SVG logo stays: the Studio rasterizes it (CairoSVG) to compose it; a raster logo of the brand wins when it has one.
     if logo_url.lower().split("?")[0].endswith(".svg"):
-        logo_url = ""
+        raster = next((item["url"] for item in assets if item["role"] == "logo"
+                       and not item["url"].lower().split("?")[0].endswith(".svg")), "")
+        logo_url = raster or logo_url
     if not logo_url:
         logo_url = next((item["url"] for item in assets if item["role"] == "logo"), "")
     snapshot = {

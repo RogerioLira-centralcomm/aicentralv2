@@ -538,3 +538,20 @@ def test_a_support_line_that_repeats_the_headline_is_dropped():
     copy = edited_copy({"headline": "Sabor que junta gente 2 POR R$ 9", "support": ["2 POR R$ 9"], "cta": "Aproveite"},
                        briefing, copy_budget(300, 600))
     assert copy["headline"] == "Sabor que junta gente 2 POR R$ 9" and copy["support"] == []
+
+
+def test_an_svg_logo_is_rasterized_and_never_sent_to_the_model_as_a_reference():
+    import base64
+    import io
+    import sys
+    import types
+    from PIL import Image
+    from aicentralv2.creative_media import studio_create
+    svg = b'<svg xmlns="http://www.w3.org/2000/svg" width="40" height="10"><rect width="40" height="10"/></svg>'
+    png = io.BytesIO()
+    Image.new("RGBA", (40, 10), (0, 0, 0, 255)).save(png, "PNG")
+    fake = types.SimpleNamespace(svg2png=lambda bytestring, output_width, unsafe: png.getvalue())
+    with patch.dict(sys.modules, {"cairosvg": fake}):
+        logo = studio_create._open_trimmed_logo("data:image/svg+xml;base64," + base64.b64encode(svg).decode())
+    assert logo is not None and logo.size == (40, 10)
+    assert studio_create.official_logo_reference({"logo_url": "https://studio.example/static/x/logo.svg"}) is None

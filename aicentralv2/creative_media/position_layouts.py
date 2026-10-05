@@ -30,16 +30,17 @@ LAYOUTS = {
             "Flat solid background in the brand's ground color, edge to edge, no texture, no scenery.",
             "A large solid circle in the brand accent color, centred at about 74% across and 58% down, its diameter "
             "about 80% of the canvas height, partly cut by the right and bottom edges.",
-            "The person, photographed as a clean studio cut-out, stands in front of the circle on the right half "
-            "(from 52% to 100% across, never left of 50%), cropped by the bottom edge at the waist, head at about 12–45% down, facing the "
-            "camera; shoulders overlap the circle edge. A worn product from the references (necklace, watch, glasses) is "
-            "large, sharp and well lit on the person: it is part of the offer.",
+            "The person, photographed as a clean studio cut-out, stands in front of the circle on the right half, "
+            "occupying only from 56% to 94% across: the whole head and both shoulders inside the canvas with at least 6% "
+            "of free space to the right edge, head at about 16–46% down, cropped by the bottom edge at the waist, facing "
+            "the camera; shoulders overlap the circle edge. Anything the person holds or wears (a bottle, a necklace, a "
+            "watch, glasses) stays inside that same 56%–94% column, large, sharp and well lit: it is part of the offer.",
             "The left half (8% to 50% across) is plain background with nothing on it: the copy goes there.",
         ],
         "zones": {"headline": (0.067, 0.10, 0.38, 0.50), "cta": (0.067, 0.66, 0.30, 0.10), "logo": (0.067, 0.84, 0.18, 0.08),
-                  "subject": (0.52, 0.10, 0.48, 0.90)},
+                  "subject": (0.56, 0.12, 0.38, 0.88)},
         "logo": "bottom-left", "cta": True,
-        "sketch": {"background": "ground", "circle": (0.74, 0.58, 0.40), "silhouette": (0.77, 0.12, 0.24, 0.88)},
+        "sketch": {"background": "ground", "circle": (0.74, 0.58, 0.40), "silhouette": (0.75, 0.16, 0.19, 0.84)},
     },
     "produto-diagonal": {
         "label": "Produto herói cruzando uma diagonal",

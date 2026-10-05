@@ -388,7 +388,7 @@ def official_logo_reference(raw_brand):
     candidates = [brand.get("logo_url"), *(assets.get("logo") or [])]
     for candidate in candidates:
         url = text(candidate, 500)
-        if url.startswith(("https://", "http://", "/static/")):
+        if url.startswith(("https://", "http://", "/static/")) and not url.lower().split("?")[0].endswith(".svg"):
             return {
                 "id": "brand:official-logo",
                 "url": url,
@@ -1476,7 +1476,8 @@ def _open_trimmed_logo(url, palette=None):
     if str(url).startswith("data:image/"):
         # An embedded logo (the Lab's LOGO reference when the brand record has no logo URL).
         try:
-            image = Image.open(io.BytesIO(base64.b64decode(str(url).split(",", 1)[1])))
+            content = base64.b64decode(str(url).split(",", 1)[1])
+            image = _rasterize_svg(content) if _is_svg(content) else Image.open(io.BytesIO(content))
             image.load()
         except (ValueError, OSError, IndexError):
             return None
@@ -1488,7 +1489,8 @@ def _open_trimmed_logo(url, palette=None):
         path = (static_root / path_value.removeprefix("/static/")).resolve()
         try:
             path.relative_to(static_root)
-            image = Image.open(path)
+            content = path.read_bytes() if str(path).lower().endswith(".svg") else b""
+            image = _rasterize_svg(content) if content else Image.open(path)
             image.load()
         except (ValueError, OSError):
             return None
@@ -1496,6 +1498,17 @@ def _open_trimmed_logo(url, palette=None):
     # Logo files often carry transparent padding; trim it so margins are measured from the artwork.
     box = image.getchannel("A").point(lambda value: 255 if value > 8 else 0).getbbox()
     return image.crop(box) if box else image
+
+
+def _is_svg(content):
+    return b"<svg" in bytes(content[:4096]).lower()
+
+
+def _rasterize_svg(content, width=1200):
+    """An SVG logo as a transparent PNG (the Studio composes logos from pixels). CairoSVG is in requirements.txt and
+    needs the system Cairo library; without it the logo is simply not composed. External references are not fetched."""
+    import cairosvg
+    return Image.open(io.BytesIO(cairosvg.svg2png(bytestring=bytes(content), output_width=width, unsafe=False)))
 
 
 def _without_flat_background(image, tolerance=40, palette=None):

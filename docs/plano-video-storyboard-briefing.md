@@ -64,3 +64,21 @@ prompt pede para não citá-las. Segunda rodada com o prompt final: `gpt-5-mini`
 
 Pendente da fase 1: endpoint `agent/storyboard` com cobrança de texto, e rascunho editável no Vídeo (beats sem
 imagem, ainda não ligados a cenas). Leitura humana das cenas deve confirmar o arco antes de ativar no Studio.
+
+## Medição das imagens por cena no Lab (2026-10-05)
+
+Storyboard de telecom (3 cenas, 16:9) do `gpt-5-mini`; `gpt-image-2` via OpenRouter pela ponte do Lab (`LabModeling`,
+cobrança simulada, nenhuma marca debitada). Cena 1 sem referência; cenas 2 e 3 com a cena 1 como referência de estilo
+(`role: style`), igual ao endpoint `agent/storyboard/image`.
+
+- **Consistência:** boa. Mesma família (mesmas roupas e rostos), mesma sala, sofá e roteador nas três cenas, com
+  enquadramentos diferentes (aberto, roteador em primeiro plano, retrato final). A cena 3 saiu mais escura e quente
+  que as anteriores (efeito do refinamento do Lab para ganhar contraste).
+- **Custo por chamada de imagem (provedor):** US$ 0,044 a 0,054 (1 referência a 2 referências).
+- **Chamadas por cena:** o Lab refina até 5 versões por cena (`review_attempts = 5`, `refine_target = 90`); o Studio de
+  produção faz no máximo 3 (`STUDIO_AUTO_REVIEW_MAX_ATTEMPTS`) e para quando a revisão aprova. Custo de produção por
+  cena: 1 chamada se aprovar de primeira, até ~3 se o revisor rejeitar.
+- **Limitação da medição:** o script somou só a última chamada de cada cena (US$ 0,152 no total), então o gasto real do
+  teste é maior (cerca de 15 chamadas). Não há número confiável de custo por cena; medir de novo somando todas as
+  chamadas antes de afirmar um custo ao usuário.
+- **Não exercitado:** cobrança real de uma marca (ledger), registro no histórico e entrada na biblioteca do Vídeo.

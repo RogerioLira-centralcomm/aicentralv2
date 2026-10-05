@@ -197,3 +197,79 @@ class StudioStoryboardEndpointTest(unittest.TestCase):
         result, _ = self._call({"client_id": 31, "request_id": "r2", "briefing": "Internet fibra para famílias."}, broke)
         self.assertIsInstance(result, ValueError)
         self.assertIn("Saldo insuficiente", str(result))
+
+
+class StudioStoryboardImageEndpointTest(unittest.TestCase):
+    def _call(self, payload, *, claim=None, owned=("/static/a.png",), create=None, library=None):
+        from aicentralv2.creative_media import studio, studio_create
+
+        app = Flask(__name__)
+        app.secret_key = "test"
+        modeling = Mock()
+        modeling.add_format_lab_swap_library_still.side_effect = library or (lambda *a, **k: {"id": "lib-1", "run_id": "run-1"})
+        history = Mock()
+        history.claim_image.return_value = claim or {"state": "claimed"}
+        history.owned_image_urls.return_value = set(owned)
+        create = create or Mock(return_value={"image_url": "/static/new.png", "charged_credits": 120})
+        http = (lambda fn: fn(), lambda: payload, lambda data: data, lambda: modeling)
+        view = studio.studio_storyboard_image.__wrapped__.__wrapped__
+        with app.test_request_context("/studio/agent/storyboard/image", method="POST"):
+            session["user_id"] = 32
+            with patch.object(studio, "_http", return_value=http), patch.object(studio, "_scope"), \
+                 patch.object(studio, "_creation_history", return_value=history), \
+                 patch.object(studio_create, "create_image", create):
+                try:
+                    return view(), create, history, modeling
+                except (ValueError, RuntimeError) as error:
+                    return error, create, history, modeling
+
+    BEAT = {"visual": "Família na sala com o roteador", "hold": "logo da marca"}
+
+    def test_gera_a_imagem_limpa_e_entrega_a_cena_da_biblioteca(self):
+        out, create, history, modeling = self._call(
+            {"client_id": 31, "request_id": "req-12345678", "beat": self.BEAT, "index": 1, "total": 3, "aspect_ratio": "9:16"})
+        self.assertEqual((out["scene_id"], out["run_id"], out["charged_credits"]), ("lib-1", "run-1", 120))
+        request = create.call_args.args[0]
+        self.assertEqual(request["creation_intent"], "neutral_asset")
+        self.assertEqual(request["references"], [])
+        self.assertIn("Família na sala", request["prompt"])
+        self.assertIn("Sem texto", request["prompt"])
+        self.assertEqual(create.call_args.args[2:], (31, 32))
+
+    def test_primeira_imagem_aprovada_vira_referencia_de_estilo(self):
+        _, create, _, _ = self._call(
+            {"client_id": 31, "request_id": "req-12345678", "beat": self.BEAT, "index": 1, "total": 3, "anchor_url": "/static/a.png"})
+        reference = create.call_args.args[0]["references"][0]
+        self.assertEqual((reference["url"], reference["role"]), ("/static/a.png", "style"))
+
+    def test_referencia_de_outra_marca_e_recusada_antes_de_cobrar(self):
+        out, create, _, _ = self._call(
+            {"client_id": 31, "request_id": "req-12345678", "beat": self.BEAT, "anchor_url": "/static/outra.png"})
+        self.assertIsInstance(out, ValueError)
+        create.assert_not_called()
+
+    def test_dry_run_so_informa_o_custo(self):
+        out, create, _, _ = self._call({"client_id": 31, "dry_run": True})
+        self.assertIn("credits_per_image", out)
+        create.assert_not_called()
+
+    def test_clique_repetido_nao_gera_nem_cobra_de_novo(self):
+        out, create, _, _ = self._call(
+            {"client_id": 31, "request_id": "req-12345678", "beat": self.BEAT}, claim={"state": "pending"})
+        self.assertIsInstance(out, ValueError)
+        create.assert_not_called()
+        out, create, _, _ = self._call(
+            {"client_id": 31, "request_id": "req-12345678", "beat": self.BEAT},
+            claim={"state": "completed", "result": {"image_url": "/static/new.png", "scene_id": "lib-9", "run_id": "r"}})
+        self.assertEqual((out["scene_id"], out["replayed"]), ("lib-9", True))
+        create.assert_not_called()
+
+    def test_falha_na_biblioteca_depois_de_pago_fecha_a_geracao(self):
+        def broken(*a, **k):
+            raise RuntimeError("biblioteca fora do ar")
+        out, _, history, _ = self._call(
+            {"client_id": 31, "request_id": "req-12345678", "beat": self.BEAT}, library=broken)
+        self.assertIsInstance(out, RuntimeError)
+        # concluída antes da falha: o retry reencontra a imagem paga em vez de ficar preso em "pendente"
+        history.complete_image.assert_called_once()
+        history.fail_image.assert_not_called()

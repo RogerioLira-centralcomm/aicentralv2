@@ -269,10 +269,18 @@ export function paintDraft() {
   // Não recria os campos enquanto a pessoa digita neles.
   if (list.contains(document.activeElement) && /^(TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
   const last = (draft.beats || []).length - 1;
+  const busy = Boolean(draft.generating);
+  if ($("mcVideoDraftImages")) $("mcVideoDraftImages").hidden = !(draft.beats || []).length;
+  if ($("mcVideoDraftGenerate")) {
+    $("mcVideoDraftGenerate").disabled = busy || !state.clientId;
+    $("mcVideoDraftGenerate").textContent = busy ? "Gerando imagens…" : `Gerar imagens das cenas (${(draft.beats || []).length})`;
+  }
+  if ($("mcVideoDraftStop")) $("mcVideoDraftStop").hidden = !busy;
   list.innerHTML = (draft.beats || []).map((beat, index) => {
     const id = escapeHtml(beat.id);
     const picking = state.pickDraftId === beat.id;
     return `<li class="mc-draft-card ${picking ? "is-replacing" : ""}" data-draft="${id}">
+      ${beat.error ? `<p class="mc-draft-error" role="alert">${escapeHtml(beat.error)}</p>` : ""}
       <header><strong>Cena ${index + 1}</strong>
         <select data-draft-field="purpose" data-id="${id}" aria-label="Função da cena ${index + 1}">${options(PURPOSE_OPTIONS, beat.purpose)}</select></header>
       <label><span>Visual</span><textarea data-draft-field="visual" data-id="${id}" rows="3" maxlength="400">${escapeHtml(beat.visual)}</textarea></label>
@@ -282,7 +290,8 @@ export function paintDraft() {
       <span class="mc-scene-card-actions">
         <button type="button" data-draft-action="up" data-id="${id}" ${index === 0 ? "disabled" : ""} aria-label="Subir cena ${index + 1}">↑</button>
         <button type="button" data-draft-action="down" data-id="${id}" ${index === last ? "disabled" : ""} aria-label="Descer cena ${index + 1}">↓</button>
-        <button type="button" data-draft-action="pick" data-id="${id}" aria-pressed="${picking}">${picking ? "Escolha na biblioteca…" : "Escolher peça"}</button>
+        <button type="button" data-draft-action="generate" data-id="${id}" ${busy ? "disabled" : ""}>${beat.generating ? "Gerando…" : "Gerar imagem"}</button>
+        <button type="button" data-draft-action="pick" data-id="${id}" aria-pressed="${picking}" ${busy ? "disabled" : ""}>${picking ? "Escolha na biblioteca…" : "Escolher peça"}</button>
         <button type="button" data-draft-action="remove" data-id="${id}">Excluir</button>
       </span></li>`;
   }).join("") + (draft.beats?.length ? `<li class="mc-draft-footer"><button type="button" class="mc-cadu-video-ghost" data-draft-action="discard">Descartar rascunho</button></li>` : "");

@@ -151,3 +151,23 @@ def _clip(value, limit):
     elif isinstance(value, list):
         value = ", ".join(str(item) for item in value if item)
     return re.sub(r"\s+", " ", str(value or "")).strip()[:limit]
+
+
+SCENE_ASPECTS = {"1:1", "4:5", "9:16", "16:9", "4:3", "3:4", "21:9"}
+
+
+def scene_image_prompt(beat, index, total, *, anchored=False):
+    """Prompt de uma cena do storyboard: imagem limpa, sem texto; marca e textos entram depois, por código."""
+    beat = beat if isinstance(beat, dict) else {}
+    visual = _clip(beat.get("visual"), 400)
+    if not visual:
+        raise ValueError("A cena precisa de uma descrição visual para gerar a imagem.")
+    parts = [f"Cena {int(index) + 1} de {int(total)} de um vídeo publicitário. Fotografia realista, composição para vídeo.", visual]
+    hold = _clip(beat.get("hold"), 300)
+    if hold:
+        parts.append(f"Manter: {hold}.")
+    if anchored:
+        parts.append("Mantenha a mesma identidade visual da imagem de referência: mesmas pessoas, produto, paleta, luz e estilo, "
+                     "mas mostre esta nova cena; não copie o enquadramento nem o texto da referência.")
+    parts.append("Sem texto, sem logotipo e sem marca-d'água na imagem.")
+    return " ".join(parts)

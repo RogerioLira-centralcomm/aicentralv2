@@ -289,6 +289,8 @@ function bindUi() {
     state.draft.briefing = event.target.value;
     markDirty();
   });
+  document.getElementById("mcVideoDraftGenerate")?.addEventListener("click", generateAllDraftImages);
+  document.getElementById("mcVideoDraftStop")?.addEventListener("click", () => { state.draft.stopRequested = true; });
   const draftList = document.getElementById("mcVideoDraft");
   draftList?.addEventListener("click", onDraftClick);
   draftList?.addEventListener("input", onDraftField);
@@ -476,8 +478,10 @@ function applyProject(project) {
   if (savedDraft && typeof savedDraft === "object") {
     state.draft = {
       briefing: String(savedDraft.briefing || ""),
-      beats: Array.isArray(savedDraft.beats) ? savedDraft.beats : [],
+      beats: Array.isArray(savedDraft.beats) ? savedDraft.beats.map((beat) => ({ ...beat, generating: false })) : [],
       warnings: Array.isArray(savedDraft.warnings) ? savedDraft.warnings : [],
+      anchorUrl: String(savedDraft.anchor_url || ""),
+      runId: String(savedDraft.run_id || ""),
       status: "idle",
       error: "",
     };
@@ -511,7 +515,7 @@ function projectPayload() {
       quality: state.quality,
       scene_ids: state.scenes.map((item) => item.id),
       script: state.script,
-      storyboard_draft: { briefing: state.draft.briefing, beats: state.draft.beats, warnings: state.draft.warnings },
+      storyboard_draft: { briefing: state.draft.briefing, beats: state.draft.beats, warnings: state.draft.warnings, anchor_url: state.draft.anchorUrl || "", run_id: state.draft.runId || "" },
       audio: state.audio,
       edit: state.edit,
       composition:state.composition,
@@ -897,6 +901,8 @@ async function buildDraft() {
     if (clientId !== state.clientId) return;
     state.draft.beats = data.beats || [];
     state.draft.warnings = data.warnings || [];
+    state.draft.anchorUrl = "";
+    state.draft.runId = "";
     state.draft.status = "ready";
     state.pickDraftId = "";
     markDirty();
@@ -938,6 +944,9 @@ function onDraftClick(event) {
     if (index < 0) return;
     beats.splice(index, 1);
     if (state.pickDraftId === id) state.pickDraftId = "";
+  } else if (action === "generate") {
+    generateDraftImages([id]);
+    return;
   } else if (action === "pick") {
     state.replaceSceneId = "";
     state.pickDraftId = state.pickDraftId === id ? "" : id;
@@ -948,6 +957,75 @@ function onDraftClick(event) {
   }
   paintAll();
   markDirty();
+}
+
+async function generateAllDraftImages() {
+  await generateDraftImages(state.draft.beats.map((beat) => beat.id));
+}
+
+// Gera em ordem, uma por vez: a 1ª imagem vira a referência de estilo das seguintes. Para no primeiro erro.
+async function generateDraftImages(ids) {
+  const draft = state.draft;
+  const clientId = state.clientId;
+  if (!clientId || draft.generating || !ids.length) return;
+  if (state.scenes.length + ids.length > 30) {
+    setStatus("O clipe aceita no máximo 30 cenas.");
+    return;
+  }
+  let credits = null;
+  try {
+    credits = (await post(`${studioApi}/agent/storyboard/image`, { client_id: clientId, dry_run: true })).credits_per_image;
+  } catch (_) { /* a confirmação segue sem o valor */ }
+  const price = credits ? `cerca de ${Number(credits).toLocaleString("pt-BR")} créditos cada (total ≈ ${(credits * ids.length).toLocaleString("pt-BR")})` : "créditos reais de imagem";
+  if (!window.confirm(`Gerar ${ids.length} ${ids.length === 1 ? "imagem" : "imagens"}? Vai usar ${price}. Cada imagem é cobrada ao ficar pronta e você pode parar a qualquer momento.`)) return;
+  // O formato foi decidido antes de gerar; a primeira imagem não pode trocá-lo para o das seguintes.
+  state.aspectExplicit = true;
+  draft.generating = true;
+  draft.stopRequested = false;
+  paintDraft();
+  try {
+    for (const id of ids) {
+      if (draft.stopRequested || clientId !== state.clientId) break;
+      const index = draft.beats.findIndex((row) => row.id === id);
+      if (index < 0) continue;
+      const beat = draft.beats[index];
+      beat.error = "";
+      beat.generating = true;
+      // O mesmo request_id é mantido no rascunho: repetir após queda de rede reaproveita a imagem já paga.
+      beat.request_id ||= newId();
+      paintDraft();
+      try {
+        const data = await post(`${studioApi}/agent/storyboard/image`, {
+          client_id: clientId,
+          request_id: beat.request_id,
+          beat: { visual: beat.visual, hold: beat.hold },
+          index: state.scenes.length,
+          total: state.scenes.length + draft.beats.length,
+          aspect_ratio: state.aspectRatio,
+          anchor_url: draft.anchorUrl || "",
+          run_id: draft.runId || "",
+          title: `Cena ${state.scenes.length + 1}`,
+        });
+        if (clientId !== state.clientId) break;
+        draft.anchorUrl ||= data.image_url;
+        draft.runId ||= data.run_id;
+        const items = await loadLibrary();
+        const item = (items || state.library).find((row) => row.id === data.scene_id);
+        if (!item) throw new Error("A imagem foi gerada, mas não apareceu na biblioteca. Recarregue o Studio.");
+        beat.generating = false;
+        useDraftBeat(id, item);
+      } catch (error) {
+        beat.generating = false;
+        beat.error = error.message;
+        break;
+      }
+    }
+  } finally {
+    draft.generating = false;
+    draft.stopRequested = false;
+    paintAll();
+    markDirty();
+  }
 }
 
 // A peça escolhida vira cena e leva o roteiro do rascunho; o beat passa a ser chaveado pelo ID da cena.

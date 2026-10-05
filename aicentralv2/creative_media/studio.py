@@ -279,6 +279,7 @@ def register_studio_routes(blueprint):
     blueprint.add_url_rule('/api/format-lab/studio/csrf', view_func=studio_csrf, methods=['GET'])
     blueprint.add_url_rule('/api/format-lab/studio/agent/narration', view_func=studio_agent_narration, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/agent/storyboard', view_func=studio_agent_storyboard, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/agent/storyboard/image', view_func=studio_storyboard_image, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/projects', view_func=studio_projects, methods=['GET', 'POST'])
     blueprint.add_url_rule('/api/format-lab/studio/library-sessions', view_func=studio_library_sessions, methods=['GET'])
     blueprint.add_url_rule('/api/format-lab/studio/reference-uploads', view_func=studio_reference_uploads, methods=['POST'])
@@ -902,6 +903,95 @@ def studio_agent_storyboard():
             aspect_ratio=data.get('aspect_ratio') or '16:9', brand=brand,
             scene_count=data.get('scene_count'), text_callable=metered,
         ))
+
+    return execute(run)
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_storyboard_image():
+    """Gera a imagem de UMA cena do rascunho e a põe na biblioteca do Vídeo. Cobra créditos reais."""
+    from . import studio_create
+    from .studio_storyboard import SCENE_ASPECTS, scene_image_prompt
+    from .studio_costs import image_credits_by_quality
+    execute, json_body, ok, service = _http()
+
+    def run():
+        data = json_body()
+        client_id = data.get('client_id')
+        _scope(client_id)
+        if data.get('dry_run') is True:
+            return ok({'credits_per_image': image_credits_by_quality().get('padrão')})
+        user_id = session.get('user_id')
+        if not user_id:
+            raise ValueError('Entre novamente para gerar a imagem.')
+        aspect = str(data.get('aspect_ratio') or '16:9')
+        if aspect not in SCENE_ASPECTS:
+            raise ValueError('Formato de imagem inválido.')
+        anchor = str(data.get('anchor_url') or '').strip()
+        prompt = scene_image_prompt(data.get('beat'), int(data.get('index') or 0), int(data.get('total') or 1), anchored=bool(anchor))
+        request_id = studio_create.image_request_id(data)
+        history = _creation_history()
+        if anchor and history and anchor not in history.owned_image_urls(client_id, [anchor]):
+            raise ValueError('A imagem de referência não pertence a esta marca.')
+        request = {
+            'prompt': prompt, 'aspect_ratio': aspect, 'creation_intent': 'neutral_asset', 'quality': 'Padrão',
+            'request_id': request_id, 'auto_mask': False, 'logo_free': True,
+            'references': [{'url': anchor, 'role': 'style', 'source': 'user', 'label': 'Estilo da primeira cena'}] if anchor else [],
+        }
+        request_hash = hashlib.sha256(json.dumps(request, ensure_ascii=False, sort_keys=True).encode('utf-8')).hexdigest()
+        modeling = service()
+        result = None
+        claim = history.claim_image(request_id, request_hash, client_id, user_id, '', prompt) if history else None
+        if claim:
+            if claim['state'] == 'pending':
+                raise ValueError('Esta imagem já está sendo gerada. Aguarde alguns segundos.')
+            if claim['state'] == 'completed':
+                result = dict(claim.get('result') or {})
+                result['replayed'] = True
+        if result is None:
+            try:
+                result = studio_create.create_image(request, modeling, int(client_id), int(user_id))
+            except Exception as error:
+                if history:
+                    try:
+                        history.fail_image(request_id, client_id, str(error))
+                    except Exception:
+                        logger.exception('Storyboard image failure could not be recorded for %s', request_id)
+                raise
+        title = str(data.get('title') or 'Cena do storyboard')[:120]
+
+        def sync_history(register):
+            # A imagem já foi paga: falha de histórico nunca vira erro nem pede nova cobrança.
+            if not history:
+                return
+            try:
+                if register:
+                    history.register_asset(client_id, user_id, '', 'image', 'studio_storyboard', request_id, title,
+                                           result['image_url'], {'aspect_ratio': aspect})
+                history.complete_image(request_id, client_id, result)
+            except Exception:
+                logger.exception('Storyboard image history sync failed for %s', request_id)
+                try:
+                    history.connection.rollback()
+                except Exception:
+                    logger.exception('Storyboard image history rollback failed')
+
+        if not result.get('replayed'):
+            sync_history(True)
+        scene_id, run_id = result.get('scene_id') or '', result.get('run_id') or str(data.get('run_id') or '')
+        if not scene_id:
+            added = modeling.add_format_lab_swap_library_still({
+                'client_id': client_id, 'image_url': result['image_url'], 'name': title, 'aspect_ratio': aspect,
+                **({'run_id': run_id} if run_id else {'new_run': True}),
+            }, user_id)
+            scene_id, run_id = str(added.get('id') or ''), str(added.get('run_id') or run_id)
+            result.update({'scene_id': scene_id, 'run_id': run_id})
+            sync_history(False)
+        return ok({
+            'image_url': result['image_url'], 'scene_id': scene_id, 'run_id': run_id,
+            'charged_credits': int(result.get('charged_credits') or 0), 'replayed': bool(result.get('replayed')),
+        })
 
     return execute(run)
 

@@ -588,13 +588,19 @@ def test_a_logo_on_the_brands_own_site_is_downloaded_and_composed(monkeypatch):
     assert calls == ["https://brand.example/logo.svg"]  # downloaded once
 
 
-def test_an_external_logo_that_fails_to_download_is_skipped_and_retried(monkeypatch):
+def test_an_external_logo_that_fails_to_download_is_skipped_without_hammering_the_host(monkeypatch):
     from aicentralv2.creative_media import studio_create
 
+    calls = []
+
     def broken(url, **kwargs):
+        calls.append(url)
         raise OSError("403")
 
     monkeypatch.setattr("aicentralv2.services.openrouter_service._download_reference_bytes", broken)
     monkeypatch.setattr(studio_create, "_EXTERNAL_LOGOS", {})
-    assert studio_create.load_brand_logos({"logo_url": "https://brand.example/logo.svg"}) == []
-    assert studio_create._EXTERNAL_LOGOS == {}
+    monkeypatch.setattr(studio_create, "_EXTERNAL_LOGO_FAILURES", {})
+    brand = {"logo_url": "https://brand.example/logo.svg"}
+    assert studio_create.load_brand_logos(brand) == []
+    assert studio_create.load_brand_logos(brand) == []
+    assert len(calls) == 1

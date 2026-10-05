@@ -1561,19 +1561,26 @@ def shrink_into_border(encoded, factor):
 
 
 _EXTERNAL_LOGOS: dict[str, str] = {}
+_EXTERNAL_LOGO_FAILURES: dict[str, float] = {}
+_EXTERNAL_LOGO_RETRY_SECONDS = 300
 
 
 def _external_logo_data_url(url):
     """The logo of an external address as a PNG data URL (an SVG is rasterized there); "" when it cannot be had.
 
-    Only successes are remembered, so a failed download is tried again on the next piece."""
+    A failure is remembered for a few minutes (a piece asks for its logo several times and a dead host would
+    cost a timeout each), then tried again."""
     if url in _EXTERNAL_LOGOS:
         return _EXTERNAL_LOGOS[url]
+    if time.monotonic() - _EXTERNAL_LOGO_FAILURES.get(url, -_EXTERNAL_LOGO_RETRY_SECONDS) < _EXTERNAL_LOGO_RETRY_SECONDS:
+        return ""
     try:
         from ..services.openrouter_service import _download_reference_bytes
         content, _mime = _download_reference_bytes(url, max_bytes=8 * 1024 * 1024)
     except Exception:  # the piece goes without a logo rather than failing
+        _EXTERNAL_LOGO_FAILURES[url] = time.monotonic()
         return ""
+    _EXTERNAL_LOGO_FAILURES.pop(url, None)
     if len(_EXTERNAL_LOGOS) >= 64:
         _EXTERNAL_LOGOS.clear()
     _EXTERNAL_LOGOS[url] = "data:image/png;base64," + base64.b64encode(content).decode("ascii")

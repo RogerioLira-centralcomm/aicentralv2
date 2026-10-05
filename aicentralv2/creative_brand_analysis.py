@@ -990,6 +990,20 @@ _STYLESHEET_RE = re.compile(r"<link[^>]+(?:rel=[\"'][^\"']*stylesheet[^\"']*|typ
 _STYLESHEET_HREF_RE = re.compile(r"href=[\"']([^\"']+)[\"']", re.I)
 
 
+# Framework stylesheets and their default palettes are not the brand: a self-hosted bootstrap.min.css made Bootstrap's
+# "danger" and "info" (#DC3545, #17A2B8) the most frequent colors of BDMG's site.
+_FRAMEWORK_SHEET_RE = re.compile(r"(?:bootstrap|tailwind|foundation|bulma|materiali[sz]e|font-?awesome|fontawesome|"
+                                 r"swiper|slick|owl\.carousel|animate|normalize|jquery[-.]ui|select2|vendor)[^/]*\.css",
+                                 re.I)
+_FRAMEWORK_COLORS = frozenset({
+    # Bootstrap 4
+    "#007BFF", "#6C757D", "#28A745", "#17A2B8", "#FFC107", "#DC3545", "#F8F9FA", "#343A40", "#6610F2", "#6F42C1",
+    "#E83E8C", "#FD7E14", "#20C997",
+    # Bootstrap 5
+    "#0D6EFD", "#198754", "#0DCAF0", "#212529", "#D63384", "#DEE2E6", "#CED4DA", "#ADB5BD", "#495057", "#E9ECEF",
+})
+
+
 def _css_color_evidence(url, *, max_stylesheets=8):
     """Collect recurring colors from first-party HTML/CSS as evidence only.
 
@@ -1014,6 +1028,8 @@ def _css_color_evidence(url, *, max_stylesheets=8):
         stylesheet_url = urljoin(url, href)
         sheet_host = (urlparse(stylesheet_url).hostname or "").lower()
         if not stylesheet_url.startswith(("http://", "https://")) or sheet_host != host:
+            continue
+        if _FRAMEWORK_SHEET_RE.search(urlparse(stylesheet_url).path):
             continue
         if any(item[0] == stylesheet_url for item in sources):
             continue
@@ -1040,11 +1056,14 @@ def _css_color_evidence(url, *, max_stylesheets=8):
         for color in colors:
             if color in {"#000000", "#FFFFFF"}:
                 continue
-            entry = counts.setdefault(color, {"hex": color, "occurrences": 0, "source_urls": []})
+            entry = counts.setdefault(color, {"hex": color, "occurrences": 0, "source_urls": [],
+                                              **({"framework_default": True} if color in _FRAMEWORK_COLORS else {})})
             entry["occurrences"] += 1
             if source_url not in entry["source_urls"]:
                 entry["source_urls"].append(source_url)
-    return sorted(counts.values(), key=lambda item: (-item["occurrences"], item["hex"]))[:24]
+    # A framework default (inlined in the site's own CSS) stays as evidence, after every other color.
+    return sorted(counts.values(), key=lambda item: (bool(item.get("framework_default")), -item["occurrences"],
+                                                     item["hex"]))[:24]
 
 
 def _firecrawl_image_search(domain, *, deep=False, brand_name=None):

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import base64
 import io
+import re
 from pathlib import Path
 
 from PIL import Image, ImageDraw
@@ -517,6 +518,44 @@ def for_format(layout_id: str, format_key: str) -> str:
     base = LAYOUTS.get(layout_id)
     # A layout drawn for another size does not fit this one: no layout here (the Studio's standard composition runs).
     return "" if fmt and base and base["format"] != format_key else layout_id
+
+
+_PERSON = re.compile(r"\b(pessoa|mulher|homem|modelo|crian[çc]a|retrato|casal|fam[íi]lia|atleta|m[ée]dic[oa]|jovem|"
+                     r"person|woman|man|people|portrait)\b", re.I)
+_PRODUCT = re.compile(r"(produto|smartphone|celular|aparelho|t[êe]nis|garrafa|embalag|notebook|carro|product|phone|"
+                      r"bottle|package)", re.I)
+_OFFER_LINE = re.compile(r"^(?:Título|Destaque):.*(?:\d|%|\$)", re.I | re.M)
+
+
+def choose(format_key: str, briefing: str) -> str:
+    """The layout for a briefing in a format, or "" (the Studio's standard composition runs).
+
+    Without a button the piece is institutional (a statement over a photo); with one, an offer without person or
+    product is typographic with the offer in a seal, a product crosses a diagonal, a person sits on the brand's
+    circle, anything else is a photo band over a color block. A format without that layout falls back to the photo
+    band, then the seal."""
+    from .banner_compose import extract_copy
+    headline, cta = extract_copy(briefing)
+    if not headline:
+        return ""
+    if not cta:
+        candidates = ["manifesto-foto-plena", "assinatura-centro"]
+    else:
+        person, product = bool(_PERSON.search(briefing)), bool(_PRODUCT.search(briefing))
+        offer = bool(_OFFER_LINE.search(briefing))
+        first = ("tipografico-selo" if offer and not person and not product else "produto-diagonal" if product
+                 else "pessoa-circulo" if person else "faixa-foto-bloco")
+        candidates = [first, "faixa-foto-bloco", "tipografico-selo"]
+    return next((sized for sized in (for_format(item, format_key) for item in candidates) if sized), "")
+
+
+def director_note(layout_id: str, room: int) -> str:
+    """What the director reads about a layout (label and scene), cut to ``room`` characters — never the copy."""
+    item = get(layout_id)
+    if not item or room <= 0:
+        return ""
+    note = "Layout da peça (já definido, não reposicione nada): " + item["label"] + ". " + " ".join(item["scene"])
+    return note if len(note) <= room else note[:room].rsplit(" ", 1)[0]
 
 
 def get(layout_id: str | None) -> dict | None:

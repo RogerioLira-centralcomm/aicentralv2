@@ -215,6 +215,7 @@ class LabModeling:
     two_pass = False  # measured: same score at twice the cost (A/B of 6 scenarios, 2026-10-03)
     typeset_social = None  # None follows the Studio (CREATIVE_STUDIO_SOCIAL_TYPESET); the A/B sets True/False
     position_layout = None  # an A/B may force a layout by position on any scenario (v5)
+    position_auto = False  # an A/B arm may let the Studio's rule pick the layout for each briefing
     position_sketch = True
 
     def __init__(self, model_key: str):
@@ -256,21 +257,15 @@ def direct(spec: dict, snapshot: dict) -> dict:
         "typeset_social": bool(LabModeling.typeset_social),
     }
     briefing = briefing_text(spec)
-    layout = spec.get("layout") or ({"position": LabModeling.position_layout} if LabModeling.position_layout else {})
-    if layout.get("position"):
+    sized = _layout_id(spec)
+    if sized:
         from ..creative_media import position_layouts
-        item = position_layouts.get(position_layouts.for_format(layout["position"], brief.get("format_key") or ""))
-        if item:
-            # The director writes the scene for this layout (who and what, light, mood), not its own composition.
-            # Before the copy: after "Botão:" it would be read as part of the button on a flattened briefing.
-            prefix = ("Layout da peça (já definido, não reposicione nada): " + item["label"] + ". "
-                      + " ".join(item["scene"]))
-            # The director reads 1200 characters of the request: the layout gives way, never the copy (a cut "Botão:"
-            # left Vivara's banners without button).
-            room = max(0, DIRECTOR_PROMPT_CHARS - len(briefing) - 1)
-            if len(prefix) > room:
-                prefix = prefix[:room].rsplit(" ", 1)[0] if room else ""
-            briefing = (prefix + "\n" + briefing) if prefix else briefing
+        # The director writes the scene for this layout (who and what, light, mood), not its own composition.
+        # Before the copy: after "Botão:" it would be read as part of the button on a flattened briefing. The
+        # director reads 1200 characters of the request: the layout gives way, never the copy (a cut "Botão:"
+        # left Vivara's banners without button).
+        note = position_layouts.director_note(sized, DIRECTOR_PROMPT_CHARS - len(briefing) - 1)
+        briefing = (note + "\n" + briefing) if note else briefing
     result, _response = studio_create.create({"prompt": briefing, "count": 1, "context": context}, _text_callable())
     direction = result["directions"][0]
     return {"title": direction["title"], "prompt": direction["prompt"], "reference_plan": direction.get("reference_plan") or [],
@@ -317,18 +312,27 @@ def _finish(modeling: LabModeling, extra: dict) -> dict:
             "dropped_references": capture.dropped_references, **extra}
 
 
+def _layout_id(spec: dict) -> str:
+    """The layout by position (sized for the test's format) this test runs with: the scenario's, the one an A/B forces,
+    or — in an ``position_auto`` arm — the one the Studio's own rule picks for the briefing. "" when there is none."""
+    from ..creative_media import position_layouts
+    brief = spec.get("brief") or {}
+    format_key = brief.get("format_key") or ""
+    layout = spec.get("layout") or ({"position": LabModeling.position_layout} if LabModeling.position_layout else {})
+    if layout.get("position"):
+        # The same idea in the test's format: "pessoa-circulo" in a 300×600 is its half-page version.
+        return position_layouts.for_format(layout["position"], format_key)
+    return position_layouts.choose(format_key, briefing_text(spec)) if LabModeling.position_auto else ""
+
+
 def _position(spec: dict) -> dict:
     """The v5 layout by position of this test (or the one an A/B forces), as Studio payload fields."""
-    layout = spec.get("layout") or ({"position": LabModeling.position_layout, "sketch": LabModeling.position_sketch}
-                                    if LabModeling.position_layout else {})
-    if not layout.get("position"):
-        return {}
-    from ..creative_media import position_layouts
-    # The same idea in the test's format: "pessoa-circulo" in a 300×600 is its half-page version.
-    position = position_layouts.for_format(layout["position"], (spec.get("brief") or {}).get("format_key") or "")
+    position = _layout_id(spec)
     if not position:
-        return {}  # no version of this layout for the format: the Studio's standard composition runs
-    return {"position_layout": position, "position_sketch": layout.get("sketch") is not False}
+        return {}  # no layout for this test or format: the Studio's standard composition runs
+    layout = spec.get("layout") or {}
+    sketch = layout.get("sketch", LabModeling.position_sketch if LabModeling.position_layout else True)
+    return {"position_layout": position, "position_sketch": sketch is not False}
 
 
 def run_create(*, model_key: str, spec: dict, snapshot: dict, plan: dict, by_ref: dict, direction: dict, files_module,

@@ -93,3 +93,32 @@ def test_the_director_reads_the_layout_of_the_format_and_never_loses_the_copy_to
     studio_bridge.direct(spec, {})
     assert "arranha-céu" in seen["prompt"] and "Botão: Compre agora" in seen["prompt"]
     assert len(seen["prompt"]) <= studio_bridge.DIRECTOR_PROMPT_CHARS
+
+
+def test_the_rule_picks_by_button_offer_product_and_person_and_falls_back_by_format():
+    pick = position_layouts.choose
+    base = "Peça da marca.\nTítulo: Semana do cliente\n"
+    assert pick("iab-300x250", base + "Botão: Compre") == "faixa-foto-bloco"
+    assert pick("iab-300x250", base + "Destaque: 20% OFF\nBotão: Compre") == "tipografico-selo"
+    assert pick("iab-300x250", "Foto de um smartphone.\n" + base + "Botão: Compre") == "produto-diagonal"
+    assert pick("iab-300x250", "Uma mulher sorrindo.\n" + base + "Botão: Compre") == "pessoa-circulo"
+    assert pick("iab-300x250", base) == "manifesto-foto-plena"
+    assert pick("iab-728x90", "Uma mulher sorrindo.\n" + base + "Botão: Compre") == "faixa-foto-bloco-728x90"
+    assert pick("iab-160x600", "Uma mulher sorrindo.\n" + base + "Botão: Compre") == "pessoa-circulo-160x600"
+    assert pick("iab-300x250", "Peça sem copy") == "" and pick("iab-320x50", base + "Botão: Compre") == ""
+
+
+def test_the_studio_picks_a_layout_only_with_the_flag_and_never_over_a_chosen_mask(monkeypatch):
+    from aicentralv2.creative_media import studio_create
+
+    briefing = "Título: Semana do cliente\nBotão: Compre"
+    assert studio_create.auto_position(300, 250, briefing) == ""  # flag off by default
+    assert studio_create.auto_position(300, 250, briefing, enabled=True) == "faixa-foto-bloco"
+    assert studio_create.auto_position(1080, 1080, briefing, enabled=True) == ""  # a feed is not a display unit
+    monkeypatch.setattr(studio_create, "POSITION_LAYOUTS", True)
+    assert studio_create.auto_position(300, 600, briefing) == "faixa-foto-bloco-300x600"
+    from aicentralv2.creative_media import ad_masks
+    served = ad_masks.served_specs()[0]
+    url = ad_masks.MASK_URL_PREFIX + served["id"].replace(":", "__") + ".png"
+    assert ad_masks.spec_from_url(url)
+    assert studio_create.auto_position(served["width"], served["height"], briefing, [{"url": url}]) == ""

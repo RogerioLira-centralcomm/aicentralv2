@@ -73,6 +73,13 @@ def create(payload, text_callable):
     if not request:
         raise ValueError("Descreva a direção que deseja criar.")
     context = clean_context(data.get("context"), count)
+    layout_id = ("" if request.startswith("Layout da peça") else  # the Lab bridge already wrote it
+                 auto_position(context.get("width"), context.get("height"), request, context.get("references")))
+    if layout_id:
+        # The director writes the scene for the layout the image step will use (the same rule picks it there).
+        from . import position_layouts
+        note = position_layouts.director_note(layout_id, 1000)
+        request = (note + "\n" + request) if note else request
     budget = studio_playbook.copy_budget(context.get("width"), context.get("height"))
     context["orcamento_de_texto"] = budget
     messages = [
@@ -602,6 +609,10 @@ def create_image(payload, modeling, client_id, user_id):
     # Lab v5: a layout by position (elements and relations) replaces the box mask; its sketch is the reference image.
     from . import position_layouts
     position_id = str(data.get("position_layout") or "")
+    if not position_id and not data.get("mask") and data.get("auto_mask") is not False:
+        position_id = auto_position(integer(data.get("width"), 0), integer(data.get("height"), 0),
+                                    data.get("original_prompt") or prompt, raw_references,
+                                    enabled=getattr(modeling, "position_auto", None))
     position_spec = position_layouts.spec(position_id) if position_id else None
     if position_spec and data.get("position_sketch", True) is not False and \
             len([item for item in raw_references if isinstance(item, dict)]) < MAX_IMAGE_REFERENCES:
@@ -1401,6 +1412,23 @@ DISPLAY_FAMILIES = ("faixa-inferior", "foto-texto-base", "split", "texto-central
 # Feeds, stories and LinkedIn with the copy typeset by code too: off in the Studio until the Lab's A/B shows the gain.
 SOCIAL_TYPESET = os.getenv("CREATIVE_STUDIO_SOCIAL_TYPESET", "0") == "1"
 SOCIAL_TYPESET_FORMATS = {"feed-4x5", "feed-1x1", "story-9x16", "linkedin-1200x627"}
+
+
+# Layouts by position (Lab v5) chosen by the Studio itself for display units: off until the Lab's A/B shows the gain.
+POSITION_LAYOUTS = os.getenv("CREATIVE_STUDIO_POSITION_LAYOUTS", "0") == "1"
+
+
+def auto_position(width, height, briefing, references=None, enabled=None):
+    """The layout by position the rule picks for this display unit and briefing ("" = standard composition).
+
+    Never when the person picked a composition mask, and only for IAB sizes that have a version of the layout."""
+    if not (POSITION_LAYOUTS if enabled is None else enabled) or mask_specs(references):
+        return ""
+    format_key = display_format(width, height)
+    if not format_key:
+        return ""
+    from . import position_layouts
+    return position_layouts.choose(format_key, str(briefing or ""))
 
 
 def display_format(width, height, social=False):

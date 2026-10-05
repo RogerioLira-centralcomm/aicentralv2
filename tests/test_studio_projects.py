@@ -65,3 +65,25 @@ class ProjectRoutesTest(unittest.TestCase):
                 self.assertEqual(client.post(f'{url}/{ident}', json=edit, headers=headers).status_code, 409)
                 self.assertEqual(client.get(f'{url}/{ident}?client_id=10&revision=1').json['data']['document']['name'], 'Campanha')
                 self.assertEqual(client.get(f'{url}/{ident}?client_id=11').status_code, 400)
+
+
+class ProjectWithoutRevisionRowTest(unittest.TestCase):
+    """O seletor do Studio cria o projeto sem linha em cx_studio_project_revisions."""
+
+    def test_read_usa_o_documento_do_projeto_quando_nao_ha_revisao(self):
+        from aicentralv2.creative_media.studio_projects import PostgresProjectRepository
+
+        answers = [{'revision': 1}, None, {'document': {'name': 'Marca'}, 'updated_at': 5.0}]
+
+        class Cursor:
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def execute(self, *a, **k): pass
+            def fetchone(self): return answers.pop(0)
+
+        class Conn:
+            def cursor(self): return Cursor()
+
+        saved = PostgresProjectRepository(Conn()).read(31, 'abc')
+        self.assertEqual(saved['document'], {'name': 'Marca'})
+        self.assertEqual(saved['revision'], 1)

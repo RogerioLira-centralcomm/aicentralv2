@@ -32,7 +32,7 @@ import {
   syncAudioMode,
   upsertWorkspaceSpend,
 } from "./cadu-video/state.js";
-import { parseScript, scriptText } from "./cadu-video/utils.js";
+import { scriptText } from "./cadu-video/utils.js";
 
 let quoteTimer = null;
 let saveTimer = null;
@@ -282,12 +282,9 @@ function bindUi() {
   });
   document.getElementById("mcVideoSuggestNarration")?.addEventListener("click", () => suggestNarration("guided"));
   document.getElementById("mcVideoSuggestVoiceover")?.addEventListener("click", () => suggestNarration("voiceover"));
-  document.getElementById("mcVideoScript")?.addEventListener("change", (event) => {
-    state.script = parseScript(event.target.value, state.script, state.scenes);
-    alignBeatsToScenes();
-    markDirty();
-    scheduleQuote();
-    paintAll();
+  document.getElementById("mcVideoSceneCards")?.addEventListener("click", onSceneCardClick);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && state.replaceSceneId) cancelReplace();
   });
   ["mcVideoBeatTransition", "mcVideoBeatPurpose", "mcVideoBeatVisual", "mcVideoBeatMotion", "mcVideoBeatHold", "mcVideoBeatSpoken"]
     .forEach((id) => {
@@ -508,19 +505,28 @@ function projectPayload() {
   };
 }
 
+// Só o que entra na cotação do Seedance; corte, volume e efeitos da edição não mudam o preço.
+function quoteSignature() {
+  return JSON.stringify([
+    state.generationMode, state.selectedSceneId, state.scenes.map((item) => item.id), state.duration, state.seed,
+    state.quality, state.aspectRatio, state.aspectExplicit, state.script, state.audio, state.motion,
+  ]);
+}
+
 function markDirty() {
   recordStudioChange();
   paintStudio();
   state.dirty = true;
   state.saveStatus = "pending";
+  paintSaveStatus();
+  scheduleSave();
+  if (state.quoteSignature === quoteSignature() && state.quoteStatus !== "idle") return;
   state.quote = null;
   state.quoteError = "";
   state.quoteStatus = "idle";
   state.requestVersion += 1;
-  paintSaveStatus();
   paintQuote();
   updateGenerateEnabled();
-  scheduleSave();
   scheduleQuote();
 }
 
@@ -783,6 +789,66 @@ function stepScene(delta) {
   selectScene(state.scenes[next].id);
 }
 
+function moveScene(id, delta) {
+  const from = state.scenes.findIndex((item) => item.id === id);
+  const to = from + delta;
+  if (from < 0 || to < 0 || to >= state.scenes.length) return;
+  const [scene] = state.scenes.splice(from, 1);
+  state.scenes.splice(to, 0, scene);
+  alignBeatsToScenes();
+  paintAll();
+  markDirty();
+  scheduleQuote();
+}
+
+function cancelReplace() {
+  if (!state.replaceSceneId) return;
+  state.replaceSceneId = "";
+  setStatus("");
+  paintProps();
+}
+
+// A cena troca de imagem e mantém o roteiro: o beat é re-chaveado para o novo ID.
+function replaceScene(oldId, item) {
+  const index = state.scenes.findIndex((row) => row.id === oldId);
+  if (index < 0 || item.broken) return;
+  if (state.scenes.some((row) => row.id === item.id)) {
+    setStatus("Essa peça já está na sequência. Escolha outra.");
+    return;
+  }
+  const beat = state.script?.beats?.find((row) => row.id === oldId);
+  state.scenes.splice(index, 1, item);
+  if (beat) beat.id = item.id;
+  if (state.selectedSceneId === oldId) state.selectedSceneId = item.id;
+  state.replaceSceneId = "";
+  alignBeatsToScenes();
+  setStatus(`Cena ${index + 1} trocada; roteiro mantido.`);
+  paintAll();
+  markDirty();
+  scheduleQuote();
+}
+
+function onSceneCardClick(event) {
+  const button = event.target.closest("[data-card-action]");
+  if (!button) return;
+  const id = button.getAttribute("data-id");
+  const action = button.getAttribute("data-card-action");
+  if (action === "select") return selectScene(id);
+  if (action === "up") return moveScene(id, -1);
+  if (action === "down") return moveScene(id, 1);
+  if (action === "remove") {
+    state.selectedSceneId = id;
+    return removeSelectedScene();
+  }
+  if (action === "replace") {
+    if (state.replaceSceneId === id) return cancelReplace();
+    state.replaceSceneId = id;
+    state.libTab = "still";
+    setStatus("Escolha na biblioteca a peça que entra no lugar desta cena. Esc cancela.");
+    paintAll();
+  }
+}
+
 function moveSelectedScene(delta) {
   const from = state.scenes.findIndex((item) => item.id === state.selectedSceneId);
   const to = from + delta;
@@ -810,6 +876,10 @@ function onLibraryClick(event) {
   }
   const item = state.library.find((row) => row.id === id);
   if (!item || item.broken) return;
+  if (state.replaceSceneId) {
+    replaceScene(state.replaceSceneId, item);
+    return;
+  }
   if (button.getAttribute("data-action") === "select" || state.scenes.some((scene) => scene.id === item.id)) {
     selectScene(item.id);
     return;
@@ -1004,6 +1074,7 @@ function applyLibrary(items) {
 function removeSelectedScene() {
   if (!state.selectedSceneId) return;
   state.scenes = state.scenes.filter((item) => item.id !== state.selectedSceneId);
+  state.replaceSceneId = "";
   state.selectedSceneId = state.scenes[0]?.id || "";
   if (state.scenes.length === 1) {
     state.generationMode = "single_image";
@@ -1060,10 +1131,6 @@ async function buildScript() {
 }
 
 function planBody() {
-  const scriptNode = document.getElementById("mcVideoScript");
-  if (scriptNode?.value) {
-    state.script = parseScript(scriptNode.value, state.script, state.scenes) || state.script;
-  }
   alignBeatsToScenes();
   const audio = syncAudioMode({ ...state.audio });
   if (audio.narration_mode === "voiceover" && !audio.script) {
@@ -1158,6 +1225,7 @@ async function refreshQuote() {
   }
   const request = ++quoteRequest;
   const version = state.requestVersion;
+  state.quoteSignature = quoteSignature();
   state.quoteStatus = "loading";
   paintQuote();
   updateGenerateEnabled();

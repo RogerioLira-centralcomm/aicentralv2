@@ -1,0 +1,46 @@
+const {chromium,ensureEditorFixture,FIXTURE,ARTIFACTS}=require('./studio-browser.cjs');
+ensureEditorFixture();
+const fs=require('fs'),assert=require('node:assert/strict');
+(async()=>{
+const browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+await page.route('http://studio.test/**',async route=>{
+const url=new URL(route.request().url()),path=url.pathname;
+if(path==='/')return route.fulfill({contentType:'text/html',body:fs.readFileSync(FIXTURE+'/index.html','utf8')});
+if(path.startsWith('/static/'))return route.fulfill({path:'aicentralv2'+path});
+if(path==='/clip.mp4')return route.fulfill({path:FIXTURE+'/clip.mp4',contentType:'video/mp4'});
+let data={};
+if(path.endsWith('/swap/library'))data={items:url.searchParams.get('media')==='video'?[{id:'clip1',name:'Teste horizontal',video_url:'/clip.mp4'}]:[]};
+if(path.endsWith('/clips'))data={items:[]};
+if(path.endsWith('/sounds'))data={items:JSON.parse(fs.readFileSync('aicentralv2/static/audio/studio/catalog.json'))};
+if(path.endsWith('/projects'))data=route.request().method()==='POST'?{id:'project',revision:1,document:JSON.parse(route.request().postData()).document}:{items:[]};
+if(path.endsWith('/video-project'))data={project:{active_clip_id:'clip1'}};
+if(path.endsWith('/inspect')||path.endsWith('/tasks'))data={has_audio:true,waveform:[.3,.8,.2],frames:Array.from({length:8},(_,i)=>({time:i*.3,url:'/static/images/canais/prime-video.svg'}))};
+if(path.endsWith('/capabilities'))data={model:'seedance',durations:[4,8],qualities:{draft:'720p',production:'720p'},skills:{}};
+return route.fulfill({json:{success:true,data}});
+});
+await page.goto('http://studio.test/?client=1&clip=clip1');
+await page.waitForFunction(()=>document.querySelector('#mcSwapVideo').videoWidth===320);
+const result=await page.evaluate(async()=>{
+  const {state}=await import('/static/js/cadu-video/state.js');
+  const {paintProps}=await import('/static/js/cadu-video/render.js');
+  const img='/static/images/canais/prime-video.svg';
+  state.scenes=[1,2,3].map(n=>({id:'s'+n,name:'Cena '+n,thumb_url:img,image_url:img}));
+  state.script={beats:[{id:'s1',purpose:'hook',visual:'Abertura forte',spoken:'fala 1'},{id:'s2',purpose:'beat',visual:'Meio',spoken:'fala 2'},{id:'s3',purpose:'end',visual:'Fecho',spoken:'fala 3'}]};
+  state.selectedSceneId='s2';
+  paintProps();
+  const cards=()=>[...document.querySelectorAll('#mcVideoSceneCards .mc-scene-card')].map(n=>n.dataset.card+':'+n.querySelector('em')?.textContent);
+  const before=cards();
+  document.querySelector('[data-card="s3"] [data-card-action="up"]').click();
+  await new Promise(r=>setTimeout(r,50));
+  return {before,after:cards(),readonly:document.getElementById('mcVideoScript').readOnly,scriptText:document.getElementById('mcVideoScript').value.slice(0,60)};
+});
+console.log(JSON.stringify(result));
+assert.deepEqual(result.before,['s1:“fala 1”','s2:“fala 2”','s3:“fala 3”']);
+assert.deepEqual(result.after,['s1:“fala 1”','s3:“fala 3”','s2:“fala 2”']);
+assert.equal(result.readonly,true);
+await page.screenshot({path:ARTIFACTS+'/scene-cards.png',fullPage:true});
+assert.deepEqual(errors,[]);
+console.log('PASS cartões: reordenar mantém falas; roteiro só leitura');
+await browser.close();
+})();

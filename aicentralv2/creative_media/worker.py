@@ -229,6 +229,10 @@ class AnimateWorker:
             submitted = self.video["submit"](plan.get("prompt") or "", **kwargs)
             plan["model"] = fallback
             plan["model_fallback"] = True
+            # O modelo reserva entrega só até FALLBACK_MAX_DURATION; a validação final compara com a duração entregue.
+            if kwargs["duration"] != plan.get("duration"):
+                plan["requested_duration"] = plan.get("duration")
+                plan["duration"] = kwargs["duration"]
             self.repository.update_job(job_id, plan_json=plan)
             return submitted
 
@@ -437,6 +441,8 @@ class AnimateWorker:
             "end_card_asset_id": "",
             "duration": plan.get("duration"),
             "has_audio": metadata["has_audio"],
+            "audio_missing": bool(plan.get("generate_audio")) and not metadata["has_audio"],
+            "requested_duration": plan.get("requested_duration"),
             "width": width,
             "height": height,
             "aspect_ratio": piece,

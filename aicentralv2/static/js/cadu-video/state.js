@@ -129,6 +129,7 @@ export const state = {
   saving: false,
   dirty: false,
   dragSceneId: "",
+  replaceSceneId: "",
 };
 
 export function resetProjectFields() {

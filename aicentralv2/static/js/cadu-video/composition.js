@@ -319,8 +319,10 @@ export async function exportComposition(preview=false){
   $('mcStudioExportFormat').dataset.busy='1';$('mcStudioExportFormat').disabled=true;
   rendering=true;if(preview)showProcessing({job_id:`export:${id}`,kind:'export',title:preview?'Preparando prévia':'Renderizando montagem',background_supported:false,status:'queued',message:'Salvando a sequência…',preview_images:c.items.map(row=>asset(row)?.thumb_url||asset(row)?.poster_url||asset(row)?.image_url).filter(Boolean),plan:{aspect_ratio:state.aspectRatio,duration:compositionDuration()},ui_stages:[{id:'queued',label:'Na fila'},{id:'rendering',label:'Compondo cenas, áudio e legendas'},{id:'ready',label:'Pronto'}]});
   try{
-    await post(`${base}/composition/exports`,{client_id:client,request_id:id,composition,delivery});
+    // Sem resposta (rede caiu): o pedido pode ter sido gravado; o request_id é idempotente, então seguimos acompanhando.
+    await post(`${base}/composition/exports`,{client_id:client,request_id:id,composition,delivery}).catch(error=>{if(error.status)throw error;notify('Conexão instável. Verificando se a renderização foi recebida…');});
     updateProcessing({job_id:`export:${id}`,status:'queued',background_supported:true});
+    let failures=0;
     const poll=async()=>{
       if(client!==state.clientId){rendering=false;delete $('mcStudioExportFormat').dataset.busy;refresh();return;}
       try{
@@ -333,7 +335,11 @@ export async function exportComposition(preview=false){
           if(result.status==='ready'&&snapshot===fingerprint()){comp().preview_url=url;comp().preview_valid=true;comp().preview_signature=snapshot;dirty();paintComposition();paintCompositionCanvas();}
           return;
         }
-      }catch(error){if(!preview)updateDownload({id,status:'failed'});notify(`Acompanhamento interrompido: ${error.message}. Consulte Renderizações.`);rendering=false;delete $('mcStudioExportFormat').dataset.busy;refresh();return;}
+        failures=0;
+      }catch(error){
+        failures+=1;
+        if(failures>=8||/não encontrado/.test(error.message)){if(!preview)updateDownload({id,status:'failed'});notify(`Acompanhamento interrompido: ${error.message}. Consulte Renderizações.`);rendering=false;delete $('mcStudioExportFormat').dataset.busy;refresh();return;}
+      }
       setTimeout(poll,3000);
     };poll();
   }catch(error){if(!preview)updateDownload({id,status:'failed'});rendering=false;delete $('mcStudioExportFormat').dataset.busy;refresh();updateProcessing({job_id:`export:${id}`,status:'failed',error:error.message});}

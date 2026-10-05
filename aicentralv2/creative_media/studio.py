@@ -1130,6 +1130,7 @@ def studio_project_contexts():
             studio_id = str(row['id']) if row else str(uuid.uuid4())
             if not row:
                 cursor.execute("INSERT INTO cx_studio_projects (id, client_id, name, revision, document) VALUES (%s,%s,%s,1,%s)", (studio_id, client_id, str(project.get('nome') or 'Projeto sem nome')[:120], Json({'external_project_id': external_id, 'brief': str(project.get('descricao') or project.get('instrucoes') or ''), 'brand_name': str(project.get('brand_name') or '')})))
+                cursor.execute("INSERT INTO cx_studio_project_revisions (project_id, revision, document) SELECT id, revision, document FROM cx_studio_projects WHERE id=%s", (studio_id,))
             brand_context = {}
             try:
                 from ..creative_format_lab.brand_context import build_brand_context

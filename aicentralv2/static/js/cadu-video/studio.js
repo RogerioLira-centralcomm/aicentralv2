@@ -253,8 +253,17 @@ async function exportEdit(){
     await post(`${base}/exports`,{client_id:client,clip_id:state.activeClipId,edit:{...state.edit,output_ratio:state.aspectRatio},request_id:id,delivery});
     updateProcessing({job_id:`export:${id}`,kind:"export",status:"queued",background_supported:true,message:"Edição salva. Aguardando processamento."});
     if(client===brand)pollExport(id,client);
-  }catch(error){updateDownload({id,status:'failed'});sessionStorage.removeItem(`cadu-export:${client}`);if(client===brand){exporting=false;paintStudio();status(error.message);updateProcessing({job_id:`export:${id}`,status:'failed',error:error.message});}}
+  }catch(error){
+    if(!error.status){
+      // Sem resposta do servidor: o pedido pode ter sido gravado. O mesmo request_id é idempotente, então só acompanhamos.
+      status('Conexão instável. Verificando se a exportação foi recebida…');
+      if(client===brand)pollExport(id,client);
+      return;
+    }
+    updateDownload({id,status:'failed'});sessionStorage.removeItem(`cadu-export:${client}`);if(client===brand){exporting=false;paintStudio();status(error.message);updateProcessing({job_id:`export:${id}`,status:'failed',error:error.message});}
+  }
 }
+let pollErrors=0;
 async function pollExport(id,client){
   if(client!==brand)return;
   try{
@@ -270,6 +279,16 @@ async function pollExport(id,client){
       status(result.status==='ready'?`Download iniciado: ${result.filename||'criativo'}.`:result.error);return;
     }
     status('Exportando corte e mixagem. Você pode continuar editando.');
-  }catch(error){if(client===brand)status(`Não foi possível acompanhar a exportação: ${error.message}`);}
+    pollErrors=0;
+  }catch(error){
+    // "não encontrado" = o pedido nunca chegou ao servidor; erros repetidos encerram a espera em vez de travar o editor.
+    pollErrors+=1;
+    if(client===brand&&(/não encontrado/.test(error.message)||pollErrors>=8)){
+      exporting=false;pollErrors=0;sessionStorage.removeItem(`cadu-export:${client}`);updateDownload({id,status:'failed'});paintStudio();
+      status(/não encontrado/.test(error.message)?'A exportação não chegou ao servidor. Tente exportar novamente.':`Não foi possível acompanhar a exportação: ${error.message}. Consulte Renderizações.`);
+      return;
+    }
+    if(client===brand)status(`Reconectando para acompanhar a exportação… (${error.message})`);
+  }
   if(client===brand)pollTimer=setTimeout(()=>pollExport(id,client),4000);
 }

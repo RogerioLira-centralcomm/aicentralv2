@@ -180,6 +180,15 @@ function paintPurge() {
   if ($("mcVideoPurgeBroken")) $("mcVideoPurgeBroken").hidden = !broken;
 }
 
+// Avisos do que o provedor entregou de fato, para ninguém descobrir só na exportação.
+function clipNotes(item) {
+  const notes = [];
+  const asked = Number(item.requested_duration || 0), got = Number(item.duration || 0);
+  if (asked && got && asked > got) notes.push({ label: `Pedido ${asked}s`, title: `O modelo de reserva entregou só ${Math.round(got)}s dos ${asked}s pedidos.` });
+  if (item.audio_missing) notes.push({ label: "Sem áudio", title: "Você pediu áudio, mas o provedor entregou o vídeo sem faixa de som." });
+  return notes;
+}
+
 export function paintClips() {
   const list = $("mcVideoClips");
   if (!list) return;
@@ -197,6 +206,7 @@ export function paintClips() {
         ${poster ? `<img loading="lazy" decoding="async" src="${escapeHtml(poster)}" alt="">` : `<span class="mc-cadu-video-clip-ph"></span>`}
         <strong>${escapeHtml(item.name || "Clipe")}</strong>
         ${seconds ? `<small>${Math.round(seconds)}s</small>` : ""}
+        ${clipNotes(item).map((note) => `<em class="mc-cadu-video-clip-note" title="${escapeHtml(note.title)}">${escapeHtml(note.label)}</em>`).join("")}
       </button>
       <button type="button" class="mc-cadu-video-delete" data-clip="${escapeHtml(item.id)}" data-action="delete">Apagar</button>
     </li>`;
@@ -206,7 +216,38 @@ export function paintClips() {
   }
 }
 
+const PURPOSE = { hook: "Abertura", beat: "Desenvolvimento", offer: "Oferta", proof: "Prova", end: "Fechamento" };
+
+// Um cartão por cena: o beat (visual, fala, função) fica sempre à vista e as ações trabalham por ID.
+export function paintSceneCards() {
+  const list = $("mcVideoSceneCards");
+  if (!list) return;
+  const last = state.scenes.length - 1;
+  list.innerHTML = state.scenes.map((scene, index) => {
+    const beat = beatFor(scene.id) || {};
+    const thumb = scene.thumb_url || scene.image_url || "";
+    const replacing = state.replaceSceneId === scene.id;
+    const active = scene.id === state.selectedSceneId;
+    const id = escapeHtml(scene.id);
+    return `<li class="mc-scene-card ${active ? "is-active" : ""} ${replacing ? "is-replacing" : ""}" data-card="${id}">
+      <button type="button" class="mc-scene-card-main" data-card-action="select" data-id="${id}">
+        ${thumb ? `<img loading="lazy" decoding="async" src="${escapeHtml(thumb)}" alt="">` : `<span class="mc-cadu-video-block-ph"></span>`}
+        <span><small>Cena ${index + 1} · ${PURPOSE[beat.purpose] || "Desenvolvimento"}</small>
+        <strong>${escapeHtml(beat.visual || scene.name || "Sem descrição")}</strong>
+        ${beat.spoken ? `<em>“${escapeHtml(beat.spoken)}”</em>` : ""}</span>
+      </button>
+      <span class="mc-scene-card-actions">
+        <button type="button" data-card-action="up" data-id="${id}" aria-label="Subir cena ${index + 1}" ${index === 0 ? "disabled" : ""}>↑</button>
+        <button type="button" data-card-action="down" data-id="${id}" aria-label="Descer cena ${index + 1}" ${index === last ? "disabled" : ""}>↓</button>
+        <button type="button" data-card-action="replace" data-id="${id}" aria-pressed="${replacing}" title="Trocar a imagem desta cena por outra peça da biblioteca">${replacing ? "Escolha na biblioteca…" : "Trocar imagem"}</button>
+        <button type="button" data-card-action="remove" data-id="${id}" aria-label="Excluir cena ${index + 1}">Excluir</button>
+      </span>
+    </li>`;
+  }).join("");
+}
+
 export function paintProps() {
+  paintSceneCards();
   const count = state.scenes.length;
   if ($("mcVideoSceneCount")) $("mcVideoSceneCount").textContent = String(count);
   const index = state.scenes.findIndex((item) => item.id === state.selectedSceneId);

@@ -123,6 +123,13 @@ class PostgresProjectRepository:
                  WHERE project_id=%s AND revision=%s
             ''', (ident, target))
             saved = cursor.fetchone()
+            if not saved and target == project['revision']:
+                # Projetos criados pelo seletor do Studio nascem sem linha de revisão; o documento da própria linha é a versão atual.
+                cursor.execute('''
+                    SELECT document, EXTRACT(EPOCH FROM updated_at) AS updated_at
+                      FROM cx_studio_projects WHERE id=%s AND client_id=%s
+                ''', (ident, int(client_id)))
+                saved = cursor.fetchone()
             if not saved:
                 raise ValueError('Revisão não encontrada.')
             return {'id': str(ident), 'revision': target, 'latest_revision': project['revision'],

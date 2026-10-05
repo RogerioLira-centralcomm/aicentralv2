@@ -768,6 +768,27 @@ class TrocrAnimateDisplayTest(unittest.TestCase):
         self.assertEqual(direction["orientation"], "square")
         self.assertIn("aprovado", direction["beats"][0]["job"])
 
+    def test_fallback_reduz_a_duracao_do_plano_para_o_que_o_modelo_entrega(self):
+        from aicentralv2.services.openrouter_service import OpenRouterError
+        from aicentralv2.creative_media.settings import FALLBACK_MAX_DURATION
+
+        plan = {"model": "bytedance/seedance-2.5", "duration": 15, "prompt": "p", "plan_hash": "h"}
+        repo = MemoryMediaRepository()
+        job = repo.create_job({"plan_json": plan, "plan_hash": "h", "quote_json": {}})
+        calls = []
+
+        def submit(_prompt, **kwargs):
+            calls.append(kwargs)
+            if len(calls) == 1:
+                raise OpenRouterError("a imagem parece ter uma pessoa real.")
+            return {"id": "x", "status": "pending"}
+
+        worker = AnimateWorker(repo, video={"submit": submit})
+        worker._submit(job["public_id"], plan, None, None)
+        self.assertEqual(calls[1]["duration"], FALLBACK_MAX_DURATION)
+        self.assertEqual(plan["duration"], FALLBACK_MAX_DURATION)
+        self.assertEqual(plan["requested_duration"], 15)
+
     def test_worker_cai_no_fallback_quando_seedance_barra_pessoa_real(self):
         from io import BytesIO
         from PIL import Image

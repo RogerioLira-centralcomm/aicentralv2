@@ -6597,7 +6597,7 @@ def project_detail(project_id, project_view='overview'):
                 } for item in project_members],
             },
         }
-        allowed_project_views = {'overview', 'direction', 'tasks', 'files', 'library', 'indexing', 'conversations', 'deliveries', 'views'}
+        allowed_project_views = {'overview', 'direction', 'tasks', 'files', 'library', 'indexing', 'conversations', 'deliveries', 'reports', 'views'}
         project_view = project_view if project_view in allowed_project_views else 'overview'
         return render_template(
             'cadu_workspace/project_detail_react.html', project_data=project_data,
@@ -6720,6 +6720,43 @@ def project_tasks_api(project_id):
         return jsonify({'error': 'Você não tem acesso a este projeto.'}), 403
     from .project_task_service import list_tasks
     return jsonify(list_tasks(resolve_request_context(surface='workspace', project_ref=project_ref)))
+
+
+@bp.get('/workspace/api/projetos/<project_id>/relatorios')
+@login_required
+def project_reports_api(project_id):
+    client_id, user_id = int(session.get('cliente_id') or 0), int(session.get('user_id') or 0)
+    project_ref = f'ci:{project_id}'
+    if not family_repository.project_user_can_view(client_id, project_ref, user_id):
+        return jsonify({'error': 'Você não tem acesso a este projeto.'}), 403
+    from . import project_reports_service
+    try:
+        return jsonify(project_reports_service.list_project_reports(
+            client_id, project_ref, url_for('cadu_connect.reports_v1_app') + '#reports'))
+    except Exception:
+        current_app.logger.exception('Não foi possível listar relatórios do projeto %s', project_id)
+        return jsonify({'error': 'Não foi possível carregar os relatórios agora.'}), 503
+
+
+@bp.route('/workspace/api/projetos/<project_id>/relatorios/<kind>/<resource_id>', methods=['POST', 'DELETE'])
+@login_required
+def project_report_link_api(project_id, kind, resource_id):
+    if not _workspace_api_csrf():
+        return jsonify({'error': 'Atualize a página e tente novamente.'}), 403
+    client_id, user_id = int(session.get('cliente_id') or 0), int(session.get('user_id') or 0)
+    _editable_workspace_project(client_id, project_id)
+    from . import project_reports_service
+    try:
+        found = project_reports_service.set_link(client_id, f'ci:{project_id}', user_id, kind, resource_id,
+                                                 linked=request.method == 'POST')
+    except ValueError as error:
+        return jsonify({'error': str(error)}), 400
+    except Exception:
+        current_app.logger.exception('Não foi possível atualizar o vínculo de relatório do projeto %s', project_id)
+        return jsonify({'error': 'Não foi possível salvar o vínculo agora.'}), 503
+    if not found:
+        return jsonify({'error': 'Item não encontrado nos Reports desta conta.'}), 404
+    return jsonify({'saved': True})
 
 
 @bp.get('/workspace/api/projetos/<project_id>/buscar')

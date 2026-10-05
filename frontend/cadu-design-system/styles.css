@@ -4532,3 +4532,13 @@ body.portal--workspace .cadu-ds-project-triage>article{gap:9px;padding:11px 0;bo
 @media (max-width:640px) { .cadu-ds-agents__diagnosis li { grid-template-columns:28px minmax(0,1fr); } .cadu-ds-agents__diagnosis em { grid-column:2; } }
 
 .cadu-ds-project-explorer__visual-item p.is-context-text{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+
+.cadu-ds-project-reports-block{margin:24px 0}
+.cadu-ds-project-reports-block>header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.cadu-ds-project-reports-block>header h2{margin:0;font-size:16px}
+.cadu-ds-project-reports-block>header small{opacity:.7;flex:1}
+.cadu-ds-project-reports-row{display:flex;align-items:center;gap:8px}
+.cadu-ds-project-reports-row>a{flex:1}
+.cadu-ds-project-reports-picker{list-style:none;margin:10px 0 0;padding:0;max-height:260px;overflow:auto;display:grid;gap:6px}
+.cadu-ds-project-reports-picker li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 12px;border:1px solid currentColor;border-radius:10px;border-color:rgba(127,127,127,.3)}
+body.portal--workspace .cadu-ds-project-reports-row>a{display:grid;grid-template-columns:28px minmax(0,1fr) 14px;gap:12px;align-items:center;min-height:62px;border-bottom:1px solid var(--cadu-line);color:var(--cadu-ink);text-decoration:none}

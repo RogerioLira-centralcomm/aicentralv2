@@ -697,6 +697,47 @@ function ProjectDeliveriesPage({project, onStartConversation}) {
   return <section><ProjectPageIntro title="Artefatos e entregas" detail="Tudo o que foi produzido neste projeto." action={<CaduButton type="button" onClick={onStartConversation}>Criar no projeto</CaduButton>}/>{items.length ? <div className="cadu-ds-project-delivery-list">{items.map(item => <a key={item.id} href={item.href || '#'}><ProjectIcon name={artifactIconName(item.kind)}/><span><b>{item.title}</b><small>{item.detail || item.status || item.kind}</small></span><i>›</i></a>)}</div> : <div className="cadu-ds-project-quiet-empty"><ProjectStateIllustration name="deliveries-empty" alt="Área preparada para receber artefatos e entregas"/><h2>Nenhuma entrega ainda</h2><p>Crie com o Cadu e salve o resultado no projeto.</p><button type="button" onClick={onStartConversation}>Começar uma conversa</button></div>}</section>;
 }
 
+const REPORT_KINDS = [['campaign', 'Campanhas', 'Campanhas do Reports ligadas a este projeto.'], ['site', 'Sites', 'Sites monitorados pelo Reports.'], ['flow', 'Fluxos', 'Fluxos de jornada acompanhados no Reports.']];
+
+function ProjectReportsPage({urls, csrfToken, canEdit}) {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+  const [busyKey, setBusyKey] = useState('');
+  const [picker, setPicker] = useState('');
+  const load = async () => {
+    try {
+      const response = await fetch(urls.reportsApi, {credentials: 'same-origin', headers: {Accept: 'application/json'}});
+      const value = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(value.error || 'Não foi possível carregar os relatórios.');
+      setData(value); setError('');
+    } catch (loadError) { setError(loadError.message); }
+  };
+  useEffect(() => { load(); }, []);
+  const toggle = async (item, linked) => {
+    setBusyKey(`${item.kind}:${item.id}`); setError('');
+    try {
+      const response = await fetch(`${urls.reportLinkBase}/${item.kind}/${item.id}`, {method: linked ? 'POST' : 'DELETE', credentials: 'same-origin', headers: {Accept: 'application/json', 'X-CSRF-Token': csrfToken}});
+      const value = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(value.error || 'Não foi possível salvar o vínculo.');
+      setPicker(''); await load();
+    } catch (saveError) { setError(saveError.message); }
+    finally { setBusyKey(''); }
+  };
+  const reports = data?.reports || [];
+  return <section><ProjectPageIntro title="Relatórios" detail="Campanhas, sites e relatórios ligados a este projeto."/>
+    {error && <p className="cadu-ds-project-upload-error" role="alert">{error}</p>}
+    {!data && !error && <p>Carregando relatórios…</p>}
+    {data && !data.available_module && <div className="cadu-ds-project-quiet-empty"><h2>Reports indisponível</h2><p>O módulo Reports ainda não está ativo nesta conta.</p></div>}
+    {data?.available_module && <>
+      <div className="cadu-ds-project-reports-block"><header><h2>Relatórios do projeto</h2></header>{reports.length ? <div className="cadu-ds-project-delivery-list">{reports.map(item => <a key={item.id} href={item.href}><ProjectIcon name="analysis"/><span><b>{item.title}</b><small>Revisão {item.revision}{item.updatedAt ? ` · atualizado em ${new Intl.DateTimeFormat('pt-BR').format(new Date(item.updatedAt))}` : ''}</small></span><i>›</i></a>)}</div> : <p>Nenhum relatório criado para este projeto.</p>}</div>
+      {REPORT_KINDS.map(([kind, label, hint]) => { const linked = data.linked?.[kind] || []; const available = data.available?.[kind] || []; return <div key={kind} className="cadu-ds-project-reports-block"><header><h2>{label}</h2><small>{hint}</small>{canEdit && <button type="button" disabled={!available.length} onClick={() => setPicker(picker === kind ? '' : kind)}>{available.length ? 'Vincular' : 'Nada para vincular'}</button>}</header>
+        {linked.length ? <div className="cadu-ds-project-delivery-list">{linked.map(item => <div key={item.id} className="cadu-ds-project-reports-row"><a href={item.href}><ProjectIcon name="analysis"/><span><b>{item.title}</b></span><i>›</i></a>{canEdit && <button type="button" disabled={busyKey === `${kind}:${item.id}`} onClick={() => toggle(item, false)}>Desvincular</button>}</div>)}</div> : <p>Nenhum item vinculado.</p>}
+        {picker === kind && <ul className="cadu-ds-project-reports-picker">{available.map(item => <li key={item.id}><span>{item.title}</span><button type="button" disabled={busyKey === `${kind}:${item.id}`} onClick={() => toggle(item, true)}>Vincular</button></li>)}</ul>}
+      </div>; })}
+    </>}
+  </section>;
+}
+
 function ProjectViewsPage({onStartConversation}) {
   return <section><ProjectPageIntro title="Visualizações" detail="Leituras dos dados conectados ao projeto."/><div className="cadu-ds-project-quiet-empty"><ProjectStateIllustration name="views-empty" alt="Blocos de dados formando uma visualização do projeto"/><h2>Crie uma visualização</h2><p>Descreva a leitura de prazos, campanhas ou resultados que você precisa.</p><button type="button" onClick={onStartConversation}>Descrever visualização</button></div></section>;
 }
@@ -863,6 +904,7 @@ export function WorkspaceProject({bootstrap}) {
     {id:'indexing', label:'Indexação', icon:'history', href:sectionLinks.indexing, count:(project.files || []).filter(item => ['error','failed'].includes(item.status)).length},
     {id:'conversations', label:'Conversas', icon:'conversation', href:sectionLinks.conversations},
     {id:'deliveries', label:'Artefatos e entregas', icon:'external', href:sectionLinks.deliveries},
+    {id:'reports', label:'Relatórios', icon:'analysis', href:sectionLinks.reports},
     {id:'views', label:'Visualizações', icon:'analysis', href:sectionLinks.views},
   ];
   const savedProjectLinks = projectLinksPinned.filter(item => /^https?:\/\//i.test(item.url || ''))
@@ -916,6 +958,7 @@ export function WorkspaceProject({bootstrap}) {
         {projectView === 'indexing' && <><ProjectPageIntro title="Indexação" detail="Fontes e estado da indexação."/><ProjectIndexingSection files={project.files || []} onReview={() => setDialog('source-upload')} onAddLink={() => setDialog('link')}/></>}
         {projectView === 'conversations' && <><ProjectPageIntro title="Conversas" detail="Histórico deste projeto." action={<CaduButton type="button" onClick={startConversation}>Nova conversa</CaduButton>}/><ProjectMemorySection project={project} reviewBase={projectLinks.reviewMemoryBase} csrfToken={bootstrap.csrf || csrf()} canEdit={canEdit}/><ProjectContinuitySection project={project} onStartConversation={startConversation}/></>}
         {projectView === 'deliveries' && <ProjectDeliveriesPage project={project} onStartConversation={startConversation}/>}
+        {projectView === 'reports' && <ProjectReportsPage urls={projectLinks} csrfToken={bootstrap.csrf} canEdit={canEdit}/>}
         {projectView === 'views' && <ProjectViewsPage onStartConversation={startConversation}/>}
         {project.status === 'arquivado' && <aside className="cadu-ds-project-notice"><b>Este projeto está arquivado.</b><span>O contexto permanece disponível para consulta. Para reativar, use Mais ações.</span></aside>}
         </section>

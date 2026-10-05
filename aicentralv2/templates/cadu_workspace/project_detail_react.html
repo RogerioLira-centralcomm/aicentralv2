@@ -38,6 +38,7 @@
       'indexing': url_for('cadu_workspace.clean_project_section', project_id=project_data.id, project_view='indexing'),
       'conversations': url_for('cadu_workspace.clean_project_section', project_id=project_data.id, project_view='conversations'),
       'deliveries': url_for('cadu_workspace.clean_project_section', project_id=project_data.id, project_view='deliveries'),
+      'reports': url_for('cadu_workspace.clean_project_section', project_id=project_data.id, project_view='reports'),
       'views': url_for('cadu_workspace.clean_project_section', project_id=project_data.id, project_view='views')
     },
     'conversation': url_for('cadu_workspace.conversations', project_ref='ci:' ~ project_data.id, history='1'),
@@ -56,6 +57,8 @@
     'importUrl': url_for('cadu_workspace.import_project_url', project_id=project_data.id),
     'createLink': url_for('cadu_workspace.create_project_link', project_id=project_data.id),
     'tasks': url_for('cadu_workspace.project_tasks_api', project_id=project_data.id),
+    'reportsApi': url_for('cadu_workspace.project_reports_api', project_id=project_data.id),
+    'reportLinkBase': url_for('cadu_workspace.project_reports_api', project_id=project_data.id),
     'tasksBatch': url_for('cadu_workspace.create_project_tasks_api', project_id=project_data.id),
     'initialTaskList': url_for('cadu_workspace.create_initial_project_task_list_api', project_id=project_data.id),
     'orderLinks': url_for('cadu_workspace.reorder_project_links_api', project_id=project_data.id),

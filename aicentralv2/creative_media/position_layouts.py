@@ -181,15 +181,16 @@ LAYOUTS.update({
         "learned_from": "Campanhas institucionais de energia e varejo: uma frase sobre a imagem, assinatura no canto",
         "format": "iab-300x250", "width": 300, "height": 250,
         "scene": [
-            "One full-bleed photograph edge to edge, cinematic and calm, with a single clear subject in the upper "
-            "right two thirds.",
+            "One full-bleed photograph edge to edge, cinematic and calm, with a single clear focal point in the upper "
+            "right two thirds (a landscape, an object or a scene that fits the briefing; no people unless the briefing "
+            "asks for them).",
             "The lower-left area (8% to 70% across, 55% to 92% down) is the quietest part of the photo: soft shadow, "
             "sky, wall or out-of-focus ground, darker than the rest, with nothing on it: the statement goes there.",
         ],
         "zones": {"headline": (0.067, 0.56, 0.62, 0.32), "logo": (0.773, 0.85, 0.16, 0.07),
                   "subject": (0.30, 0.0, 0.70, 0.60)},
         "logo": "bottom-right", "cta": False,
-        "sketch": {"background": "photo", "silhouette": (0.68, 0.08, 0.17, 0.50)},
+        "sketch": {"background": "photo", "focus": (0.68, 0.28, 0.20, 0.20)},
     },
     "assinatura-centro": {
         "label": "Frase centralizada com assinatura",
@@ -226,14 +227,14 @@ LAYOUTS.update({
         "learned_from": "Campanhas institucionais em meia página",
         "format": "iab-300x600", "width": 300, "height": 600,
         "scene": [
-            "One full-bleed photograph edge to edge, cinematic and calm, with a single clear subject in the upper half.",
+            "One full-bleed photograph edge to edge, cinematic and calm, with a single clear focal point in the upper half (a landscape, an object or a scene that fits the briefing; no people unless the briefing asks for them).",
             "The lower part (58% to 96% down) is the quietest part of the photo: soft shadow, ground or out-of-focus "
             "surface, darker than the rest, with nothing on it: the statement goes there.",
         ],
         "zones": {"headline": (0.08, 0.60, 0.84, 0.26), "logo": (0.70, 0.905, 0.22, 0.045),
                   "subject": (0.0, 0.0, 1.0, 0.56)},
         "logo": "bottom-right", "cta": False,
-        "sketch": {"background": "photo", "silhouette": (0.50, 0.08, 0.22, 0.46)},
+        "sketch": {"background": "photo", "focus": (0.50, 0.28, 0.30, 0.16)},
     },
     "assinatura-centro-300x600": {
         "label": "Frase centralizada com assinatura (vertical)",
@@ -311,14 +312,14 @@ LAYOUTS.update({
         "learned_from": "Campanhas institucionais de energia e varejo: uma frase sobre a imagem, assinatura no canto",
         "format": "iab-970x250", "width": 970, "height": 250,
         "scene": [
-            "One full-bleed photograph edge to edge, cinematic and calm, with a single clear subject in the right half.",
+            "One full-bleed photograph edge to edge, cinematic and calm, with a single clear focal point in the right half (a landscape, an object or a scene that fits the briefing; no people unless the briefing asks for them).",
             "The lower-left area (3.5% to 58% across, 48% to 92% down) is the quietest part of the photo: soft shadow, "
             "sky, wall or out-of-focus ground, darker than the rest, with nothing on it: the statement goes there.",
         ],
         "zones": {"headline": (0.035, 0.50, 0.55, 0.38), "logo": (0.84, 0.80, 0.125, 0.12),
                   "subject": (0.50, 0.0, 0.50, 0.70)},
         "logo": "bottom-right", "cta": False,
-        "sketch": {"background": "photo", "silhouette": (0.76, 0.08, 0.06, 0.62)},
+        "sketch": {"background": "photo", "focus": (0.76, 0.34, 0.16, 0.26)},
     },
     "assinatura-centro-970x250": {
         "label": "Frase centralizada com assinatura (billboard)",
@@ -387,14 +388,14 @@ LAYOUTS.update({
         "learned_from": "Campanhas institucionais: uma frase sobre a imagem, assinatura na ponta",
         "format": "iab-728x90", "width": 728, "height": 90,
         "scene": [
-            "One full-bleed photograph edge to edge, calm and wide, with the interest on the right third.",
+            "One full-bleed photograph edge to edge, calm and wide, with the interest on the right third (a landscape, an object or a scene that fits the briefing; no people unless the briefing asks for them).",
             "The left 65% is the quietest part of the photo: soft shadow, sky or out-of-focus ground, darker than the "
             "rest, with nothing on it: the statement goes there, in one or two lines.",
         ],
         "zones": {"headline": (0.035, 0.14, 0.62, 0.72), "logo": (0.84, 0.18, 0.125, 0.64),
                   "subject": (0.66, 0.0, 0.34, 1.0)},
         "logo": "right", "cta": False,
-        "sketch": {"background": "photo", "silhouette": (0.74, 0.08, 0.05, 0.92)},
+        "sketch": {"background": "photo", "focus": (0.82, 0.50, 0.12, 0.34)},
     },
     "assinatura-centro-728x90": {
         "label": "Frase centralizada com assinatura (leaderboard)",
@@ -480,14 +481,14 @@ LAYOUTS.update({
         "learned_from": "Campanhas institucionais em meia página",
         "format": "iab-160x600", "width": 160, "height": 600,
         "scene": [
-            "One full-bleed photograph edge to edge, cinematic and calm, with a single clear subject in the upper half.",
+            "One full-bleed photograph edge to edge, cinematic and calm, with a single clear focal point in the upper half (a landscape, an object or a scene that fits the briefing; no people unless the briefing asks for them).",
             "The lower part (60% to 96% down) is the quietest part of the photo: soft shadow, ground or out-of-focus "
             "surface, darker than the rest, with nothing on it: the statement goes there.",
         ],
         "zones": {"headline": (0.08, 0.62, 0.84, 0.26), "logo": (0.08, 0.915, 0.55, 0.045),
                   "subject": (0.0, 0.0, 1.0, 0.58)},
         "logo": "bottom-left", "cta": False,
-        "sketch": {"background": "photo", "silhouette": (0.50, 0.08, 0.30, 0.48)},
+        "sketch": {"background": "photo", "focus": (0.50, 0.28, 0.40, 0.16)},
     },
     "assinatura-centro-160x600": {
         "label": "Frase centralizada com assinatura (arranha-céu)",
@@ -520,20 +521,26 @@ def for_format(layout_id: str, format_key: str) -> str:
     return "" if fmt and base and base["format"] != format_key else layout_id
 
 
-_PERSON = re.compile(r"\b(pessoa|mulher|homem|modelo|crian[çc]a|retrato|casal|fam[íi]lia|atleta|m[ée]dic[oa]|jovem|"
-                     r"person|woman|man|people|portrait)\b", re.I)
-_PRODUCT = re.compile(r"(produto|smartphone|celular|aparelho|t[êe]nis|garrafa|embalag|notebook|carro|product|phone|"
-                      r"bottle|package)", re.I)
+_PERSON = re.compile(r"\b(pessoa|mulher|homem|modelo|crian[çc]a|retrato|casal|fam[íi]lia|atleta|m[ée]dic[oa]|jovem|equipe|"
+                     r"person|woman|man|people|portrait|team)\b", re.I)
+_PRODUCT = re.compile(r"(produto|smartphone|celular|aparelho|notebook|carro|garrafa|embalag|product|phone|bottle|package)", re.I)
+# Worn things the picture must show: a jewel or a watch fits a chest-up photo band; footwear and clothes do not fit any
+# layout by position (the cut-out hides the feet, the band cuts the legs): the standard composition runs.
+_WORN_SMALL = re.compile(r"(colar|joia|joias|brinco|anel|rel[óo]gio|[óo]culos|necklace|jewel|watch|glasses)", re.I)
+_GARMENT = re.compile(r"(t[êe]nis|cal[çc]ado|sapato|camiseta|camisa|vestido|jaqueta|roupa|cal[çc]a|bermuda|sneaker|shoe)", re.I)
+_NEGATED = re.compile(r"\b(sem|nenhum[ao]?|without)\s+(foto|fotos|imagem|pessoa|pessoas|produto|produtos|modelo|people|person|photo)"
+                      r"\b[^.\n]*", re.I)
 _OFFER_LINE = re.compile(r"^(?:Título|Destaque):.*(?:\d|%|\$)", re.I | re.M)
 
 
 def choose(format_key: str, briefing: str) -> str:
     """The layout for a briefing in a format, or "" (the Studio's standard composition runs).
 
-    Without a button the piece is institutional (a statement over a photo); with one, an offer without person or
-    product is typographic with the offer in a seal, a product crosses a diagonal, a person sits on the brand's
-    circle, anything else is a photo band over a color block. A format without that layout falls back to the photo
-    band, then the seal."""
+    Without a button the piece is institutional (a statement over a photo). With one: footwear and clothes get no
+    layout; an offer without person or product is typographic with the offer in a seal; a person with a jewel or a
+    watch is a photo band; a person is on the brand's circle; a product crosses a diagonal; anything else is a photo
+    band over a color block. A format without that layout falls back to the photo band, then the seal. What the
+    briefing excludes ("sem foto de pessoa") does not count."""
     from .banner_compose import extract_copy
     headline, cta = extract_copy(briefing)
     if not headline:
@@ -541,10 +548,14 @@ def choose(format_key: str, briefing: str) -> str:
     if not cta:
         candidates = ["manifesto-foto-plena", "assinatura-centro"]
     else:
-        person, product = bool(_PERSON.search(briefing)), bool(_PRODUCT.search(briefing))
+        text = _NEGATED.sub(" ", briefing)
+        if _GARMENT.search(text):
+            return ""
+        person, product = bool(_PERSON.search(text)), bool(_PRODUCT.search(text))
         offer = bool(_OFFER_LINE.search(briefing))
-        first = ("tipografico-selo" if offer and not person and not product else "produto-diagonal" if product
-                 else "pessoa-circulo" if person else "faixa-foto-bloco")
+        first = ("tipografico-selo" if offer and not person and not product
+                 else "faixa-foto-bloco" if person and _WORN_SMALL.search(text)
+                 else "pessoa-circulo" if person else "produto-diagonal" if product else "faixa-foto-bloco")
         candidates = [first, "faixa-foto-bloco", "tipografico-selo"]
     return next((sized for sized in (for_format(item, format_key) for item in candidates) if sized), "")
 
@@ -661,6 +672,9 @@ def render_sketch(layout_id: str, longest_side: int = 1200) -> bytes:
         shoulders = head_cy + head_r * 1.2
         draw.rounded_rectangle((W * (cx - half_w), shoulders, W * (cx + half_w), H * (top + height)),
                                radius=round(half_w * W * 0.5), fill=subject_tone)
+    if "focus" in sketch:
+        cx, cy, rw, rh = sketch["focus"]
+        draw.ellipse((W * (cx - rw), H * (cy - rh), W * (cx + rw), H * (cy + rh)), fill=shape_tone)
     if "product" in sketch:
         cx, cy, rw, rh = sketch["product"]
         draw.ellipse((W * (cx - rw), H * (cy - rh), W * (cx + rw), H * (cy + rh)), fill=subject_tone)

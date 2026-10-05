@@ -139,3 +139,20 @@ def test_editing_the_persons_own_picture_never_gets_a_layout():
                                        enabled=True) == ""
     assert studio_create.auto_position(300, 250, briefing, [{"role": "insert", "url": "/static/uploads/x.png"}],
                                        enabled=True) == "faixa-foto-bloco"
+
+
+def test_the_rule_ignores_what_the_briefing_excludes_and_leaves_footwear_to_the_standard_composition():
+    pick = position_layouts.choose
+    head = "Título: Semana do Cliente\nDestaque: +20% EXTRA\nBotão: Aproveite"
+    assert pick("iab-300x250", "Peça tipográfica, sem foto de pessoa.\n" + head) == "tipografico-selo"
+    assert pick("iab-300x600", "Um homem sorrindo, tênis esportivo visível.\n" + head) == ""
+    assert pick("iab-300x250", "Uma mulher sorrindo com um colar de ouro.\nTítulo: Joias\nBotão: Compre") == "faixa-foto-bloco"
+    assert pick("iab-300x250", "Uma equipe reunida.\nTítulo: Agência\nBotão: Fale") == "pessoa-circulo"
+
+
+def test_institutional_references_ask_for_a_focal_point_never_a_person():
+    for layout_id, item in position_layouts.LAYOUTS.items():
+        if item["cta"] or not layout_id.startswith("manifesto"):
+            continue
+        assert "silhouette" not in item["sketch"], layout_id
+        assert "no people unless the briefing asks" in " ".join(item["scene"]), layout_id

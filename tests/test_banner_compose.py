@@ -40,3 +40,10 @@ def test_uploaded_font_files_survive_profile_rewrites_and_reach_the_studio():
 def test_font_resolution_falls_back_to_a_licensed_neutral_font():
     resolved = brand_fonts.resolve_font({"fonts": [{"family": "Fonte Inexistente", "role": "display"}]})
     assert resolved["source"] == "fallback" and resolved["path"].is_file()
+
+
+def test_without_button_is_not_a_button_whose_text_is_the_rest_of_the_sentence():
+    briefing = "Peça institucional da Cemig, sem botão: um amanhecer sobre montanhas.\nTítulo: Energia que move Minas"
+    assert banner_compose.extract_copy(briefing) == ("Energia que move Minas", "")
+    assert banner_compose.extract_copy("Peça sem CTA: só a frase.\nTítulo: Olá") == ("Olá", "")
+    assert banner_compose.extract_copy("Título: Olá\nBotão: Saiba mais")[1] == "Saiba mais"

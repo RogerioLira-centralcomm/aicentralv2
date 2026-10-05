@@ -46,3 +46,21 @@ Briefing (texto + marca + duração + proporção)
 - Compatibilidade: projetos salvos com `script.beats` ligados por posição precisam migrar para ID
   estável sem perder falas.
 - "Criar próxima imagem" (Trocr) fica como atalho secundário, não como fluxo principal.
+
+## Medição do diretor no Lab (2026-10-05)
+
+`scripts/lab_storyboard.py`: 4 briefings (telecom 15 s, varejo 15 s, institucional 8 s, lançamento 30 s) em 3 modelos,
+só texto, custo de centavos.
+
+| Modelo | Tempo médio | Resultado |
+|---|---|---|
+| `openai/gpt-5-nano` | ~13 s | Descartado: devolveu o visual como objeto, escreveu "produo", fala curta que perdeu a oferta |
+| `openai/gpt-5-mini` | ~9 s | **Escolhido.** Visual concreto e consistente com a marca em todas as cenas, oferta falada completa |
+| `anthropic/claude-haiku-4.5` | ~15 s | Bom e comparável, ~5× mais caro; fica como reserva |
+
+Todos abriram com hook, fecharam com end/offer, sem repetir cenas e dentro do orçamento de fala. Os "números
+inventados" da 1ª rodada eram a proporção citada no visual (`1:1`, `16:9`); a checagem ignora proporções e o
+prompt pede para não citá-las. Segunda rodada com o prompt final: `gpt-5-mini` sem nenhum aviso nos 4 briefings.
+
+Pendente da fase 1: endpoint `agent/storyboard` com cobrança de texto, e rascunho editável no Vídeo (beats sem
+imagem, ainda não ligados a cenas). Leitura humana das cenas deve confirmar o arco antes de ativar no Studio.

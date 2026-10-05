@@ -47,6 +47,24 @@ def _capture_components():
     evaluation._summarize = summarize
 
 
+def _brand_snapshot(client_id: int, brand_id: int) -> dict:
+    """The brand's snapshot with its logo as a data URL (the record points at the production disk)."""
+    import urllib.request
+    from aicentralv2.creative_lab import brands
+    snap = brands.brand_snapshot(client_id, brand_id)
+    url = snap.get("logo_url") or ""
+    if url.startswith(("https://", "http://")):
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "CentralX-Lab/1.0"}),
+                                        timeout=20) as response:
+                content, kind = response.read(4_000_000), response.headers.get_content_type()
+            snap["logo_url"] = f"data:{kind};base64," + base64.b64encode(content).decode("ascii")
+        except Exception as exc:  # the piece runs without logo; say so
+            print(f"# logo da marca {brand_id} indisponível: {exc}", flush=True)
+            snap["logo_url"] = ""
+    return snap
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--runs", required=True, help="Lab run ids, comma separated (their experiments are reused)")
@@ -98,6 +116,9 @@ def main():
             # One class per arm, set before the director runs (it reads the arm's settings) and never swapped mid-batch.
             # "_spec" (optional) replaces briefing fields of every scenario for this arm (e.g. a v5 instruction).
             spec_fields = overrides.pop("_spec", {}) if isinstance(overrides, dict) else {}
+            # "_brand" (optional): run the scenario for another brand of the client — its profile read from the
+            # brand record (read only), its official logo loaded in memory, and none of the scenario's own images.
+            brand_id = overrides.pop("_brand", None) if isinstance(overrides, dict) else None
             studio_bridge.LabModeling = type("Modeling" + name, (base,), {"review_attempts": args.attempts,
                                                                          "refine_target": None, **overrides})
             jobs = []
@@ -105,6 +126,10 @@ def main():
                 run = repository.get_run(args.client, run_id)
                 exp = repository.get_experiment(args.client, run["experiment_id"])
                 spec, snap, plan = dict(exp["spec"]), exp["brand_snapshot"] or {}, run["adaptation_plan"]
+                if brand_id:
+                    snap, plan = _brand_snapshot(args.client, int(brand_id)), {**plan, "sent": [], "converted_to_text": []}
+                    spec["brand_payload"] = __import__("aicentralv2.creative_lab.brands", fromlist=["x"]).payload_fields(snap)
+                    spec["references"] = []
                 for key, value in spec_fields.get(str(run_id), spec_fields.get("*", {})).items():
                     spec[key] = {**(spec.get(key) or {}), **value} if isinstance(value, dict) and isinstance(spec.get(key), dict) else value
                 by_ref = {ref["ref_id"]: ref for ref in spec["references"]}

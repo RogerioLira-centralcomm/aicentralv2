@@ -1469,7 +1469,7 @@ def logo_position(references):
     return "top-left" if any("square-mask" in url for url in urls) else "bottom-right"
 
 
-def _open_trimmed_logo(url):
+def _open_trimmed_logo(url, palette=None):
     from pathlib import Path
     from flask import current_app, has_app_context
     from ..creative_modeling_storage import studio_owned_static_path
@@ -1492,15 +1492,16 @@ def _open_trimmed_logo(url):
             image.load()
         except (ValueError, OSError):
             return None
-    image = _without_flat_background(image.convert("RGBA"))
+    image = _without_flat_background(image.convert("RGBA"), palette=palette)
     # Logo files often carry transparent padding; trim it so margins are measured from the artwork.
     box = image.getchannel("A").point(lambda value: 255 if value > 8 else 0).getbbox()
     return image.crop(box) if box else image
 
 
-def _without_flat_background(image, tolerance=40):
-    """An opaque logo on a flat color (a JPEG/WebP with the brand square behind the wordmark) loses that color where it
-    touches the edges, so it is set as artwork, not as a colored square. Logos with real transparency stay as they are."""
+def _without_flat_background(image, tolerance=40, palette=None):
+    """An opaque logo on a flat color (a JPEG/WebP export with a stray square behind the wordmark) loses that color where
+    it touches the edges, so it is set as artwork, not as a colored square. Logos with real transparency stay as they
+    are, and so does a badge in one of the brand's own colors (a red square with the name inside is the logo)."""
     if image.getchannel("A").getextrema()[0] < 250:
         return image
     rgb = image.convert("RGB")
@@ -1512,6 +1513,11 @@ def _without_flat_background(image, tolerance=40):
     near = [sum(abs(a - b) for a, b in zip(pixel, ground)) <= tolerance for pixel in border]
     if sum(near) < 0.9 * len(near):
         return image  # a photo or a busy edge: not a flat background
+    from .banner_compose import _hex
+    brand = [rgb for rgb in (_hex(item.get("hex") if isinstance(item, dict) else item) for item in palette or []) if rgb]
+    neutral = max(ground) - min(ground) < 18  # white, grey or black: an export background, never a badge
+    if not neutral and any(sum(abs(a - b) for a, b in zip(ground, color)) <= 60 for color in brand):
+        return image
     distance = Image.new("L", rgb.size)
     distance.putdata([255 if sum(abs(a - b) for a, b in zip(pixel, ground)) <= tolerance else 0 for pixel in rgb.getdata()])
     for seed in ((0, 0), (width - 1, 0), (0, height - 1), (width - 1, height - 1)):
@@ -1554,7 +1560,8 @@ def load_brand_logos(raw_brand):
             url = "/static/" + url.split("/static/", 1)[1].split("?", 1)[0]
         if (url.startswith("/static/") or url.startswith("data:image/")) and url not in urls:
             urls.append(url)
-    images = [image for image in (_open_trimmed_logo(url) for url in urls) if image is not None]
+    palette = brand.get("palette") if isinstance(brand.get("palette"), list) else []
+    images = [image for image in (_open_trimmed_logo(url, palette) for url in urls) if image is not None]
     return images
 
 

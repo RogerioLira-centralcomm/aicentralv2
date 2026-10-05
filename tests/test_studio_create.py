@@ -521,3 +521,12 @@ def test_the_highlight_leaves_the_support_and_becomes_the_hero():
     copy = edited_copy({"headline": "Para quem brilha em você", "support": ["DIA DAS MÃES"], "cta": "Ver coleção"},
                        briefing, copy_budget(300, 600))
     assert copy["headline"] == "Para quem brilha em você DIA DAS MÃES" and copy["support"] == []
+
+
+def test_a_logo_badge_in_a_brand_color_keeps_its_square():
+    from PIL import Image, ImageDraw
+    from aicentralv2.creative_media.studio_create import _without_flat_background
+    badge = Image.new("RGBA", (200, 200), (210, 40, 40, 255))
+    ImageDraw.Draw(badge).rectangle((50, 80, 150, 120), fill=(255, 255, 255, 255))
+    assert _without_flat_background(badge, palette=["#D22828"]) is badge
+    assert _without_flat_background(badge, palette=["#000000"]).getpixel((2, 2))[3] == 0

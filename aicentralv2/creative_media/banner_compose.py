@@ -431,7 +431,8 @@ def _draw_line(draw, position, line, fill):
         x += draw.textlength(word, font=line["font"]) + space
 
 
-def _stack(draw, display, body, kicker, hero, support, width, height, wide, hero_first=False, kicker_min=0):
+def _stack(draw, display, body, kicker, hero, support, width, height, wide, hero_first=False, kicker_min=0,
+           strict=True):
     """Kicker (caps), hero offer (~2.3x) and support, scaled together to fill the zone without overflowing."""
     display_font = display if display.get("source") != "fallback" else {**display, "path": _MONTSERRAT_BOLD or display["path"]}
     kicker_text = kicker.upper() if kicker else ""
@@ -490,7 +491,7 @@ def _stack(draw, display, body, kicker, hero, support, width, height, wide, hero
         too_many = (counts["kicker"] + counts["hero"] > 2) if wide else (counts["kicker"] > (2 if hero else 4) or counts["hero"] > 3)
         # No line that is a lone short word ("O", "UMA", "NA"): a designer sets the type a little smaller instead.
         stranded = any(len(line["text"].split()) == 1 and len(line["text"]) <= 3 for line in lines
-                       if line["role"] in ("kicker", "hero")) and len(f"{kicker} {hero}".split()) > 1
+                       if line["role"] in ("kicker", "hero")) and len(f"{kicker} {hero}".split()) > 1 and strict
         too_many = too_many or stranded
         if total <= height and widest <= width and not too_many:
             best, low = (lines, total, sizes, support_y, support_size), base
@@ -498,7 +499,12 @@ def _stack(draw, display, body, kicker, hero, support, width, height, wide, hero
             high = base
     if best is None or (support and best[4] < SUPPORT_MIN_PX):
         if support:
-            return _stack(draw, display, body, kicker, hero, "", width, height, wide, hero_first, kicker_min)
+            return _stack(draw, display, body, kicker, hero, "", width, height, wide, hero_first, kicker_min, strict)
+        # Tiny units: a lone short word, then a smaller kicker, before the 6 px emergency size.
+        if strict:
+            return _stack(draw, display, body, kicker, hero, "", width, height, wide, hero_first, kicker_min, False)
+        if kicker_min:
+            return _stack(draw, display, body, kicker, hero, "", width, height, wide, hero_first, 0, False)
         best = (build(6)[0], build(6)[1], build(6)[3], 0, 0)
     lines, total, sizes, support_y, support_size = best
     return {"lines": lines, "height": total, "kicker_size": sizes["kicker"], "hero_size": sizes["hero"],

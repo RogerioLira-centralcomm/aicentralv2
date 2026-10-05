@@ -22,7 +22,7 @@ _MARKETING_TOOLS = frozenset({
     "context.update", "context.close", "operations.get",
     "projects.list_sources", "projects.search_knowledge", "projects.get_source_chunks",
     "projects.inspect_link", "projects.ingestion_status", "projects.list_resources",
-    "projects.inspect_file_support", "projects.classify_intake",
+    "projects.inspect_file_support", "projects.classify_intake", "projects.prepare_source_upload",
     "workspace.get_project_context", "workspace.search_project_content",
     "brands.list", "brands.get_context", "brands.inspect_site", "brands.list_assets",
     "artifacts.list", "artifacts.describe_types", "artifacts.get", "artifacts.create_draft",
@@ -38,7 +38,7 @@ def module_for_tool(name: str) -> str:
     if name in _MARKETING_TOOLS:
         return "marketing"
     prefix = name.partition(".")[0]
-    if prefix == "resources" or name in {"projects.prepare_source_upload", "projects.reindex_source"}:
+    if prefix == "resources" or name == "projects.reindex_source":
         return "library"
     if prefix == "media":
         return "media"

@@ -19,3 +19,13 @@ def test_cotacao_nao_relê_o_texto_livre_por_posicao():
 def test_trocar_imagem_mantem_o_roteiro_da_cena():
     replace = JS.split("function replaceScene(", 1)[1].split("\n}\n", 1)[0]
     assert "beat.id = item.id" in replace
+
+
+def test_modo_trocar_nao_prende_a_biblioteca_quando_a_cena_some():
+    click = JS.split("function onLibraryClick(", 1)[1].split("\n}\n", 1)[0]
+    assert "!state.scenes.some((row) => row.id === state.replaceSceneId)" in click
+
+
+def test_trocar_a_unica_cena_adota_a_proporcao_da_nova_imagem():
+    replace = JS.split("function replaceScene(", 1)[1].split("\n}\n", 1)[0]
+    assert "adoptSelectedAspect(item)" in replace

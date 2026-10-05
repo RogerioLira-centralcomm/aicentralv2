@@ -821,6 +821,7 @@ function replaceScene(oldId, item) {
   if (beat) beat.id = item.id;
   if (state.selectedSceneId === oldId) state.selectedSceneId = item.id;
   state.replaceSceneId = "";
+  if (state.scenes.length === 1) adoptSelectedAspect(item);
   alignBeatsToScenes();
   setStatus(`Cena ${index + 1} trocada; roteiro mantido.`);
   paintAll();
@@ -876,6 +877,9 @@ function onLibraryClick(event) {
   }
   const item = state.library.find((row) => row.id === id);
   if (!item || item.broken) return;
+  if (state.replaceSceneId && !state.scenes.some((row) => row.id === state.replaceSceneId)) {
+    state.replaceSceneId = "";
+  }
   if (state.replaceSceneId) {
     replaceScene(state.replaceSceneId, item);
     return;

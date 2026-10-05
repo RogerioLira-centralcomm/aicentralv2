@@ -47,3 +47,4 @@ def test_without_button_is_not_a_button_whose_text_is_the_rest_of_the_sentence()
     assert banner_compose.extract_copy(briefing) == ("Energia que move Minas", "")
     assert banner_compose.extract_copy("Peça sem CTA: só a frase.\nTítulo: Olá") == ("Olá", "")
     assert banner_compose.extract_copy("Título: Olá\nBotão: Saiba mais")[1] == "Saiba mais"
+    assert banner_compose.extract_copy("Título: Olá\nassem Botão: Saiba mais")[1] == "Saiba mais"

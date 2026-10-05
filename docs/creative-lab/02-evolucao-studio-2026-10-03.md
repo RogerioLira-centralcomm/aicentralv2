@@ -111,6 +111,13 @@ estourava os 1200 caracteres do pedido, cortando o "Botão:" (peças sem botão)
 base já é boa (Cemig manifesto −15 e −8, Reserva selo 300×250 −12, Vivara pessoa-círculo 300×250 −11). Decisão: a
 chave **segue desligada**. Hipótese a medir: ligar só em 970×250 e 728×90 (4 cenários, +5 em média, amostra pequena).
 
+Rodada 2, com a regra e as referências corrigidas (negação "sem foto de pessoa", calçado e roupa sem layout, joia em faixa de
+foto, institucionais com ponto focal e sem silhueta, e `extract_copy` que lia "sem botão: …" como botão): **72,5 contra
+70,3** nos mesmos 12 cenários (24 peças por lado). O ganho de +2,2 fica dentro do ruído (≈1,3 desvio), então **não
+autoriza ligar a chave**. Nenhum cenário perde mais de 6 pontos (Vivara 300×250 −5,5, Vivara 728×90 −4,5, Reserva 160×600
+−4,5); ganham TIM 970×250 (+9,5), Centralcomm (+15,5), Vivara 970×250 (+12,5), Reserva 300×600 (+3,5). Próximo passo: uma
+rodada nova com cenários inéditos (5–6 marcas) antes de decidir.
+
 ## Pendências
 
 - Ligar `CREATIVE_STUDIO_SOCIAL_TYPESET` depois do A/B com o compositor novo.

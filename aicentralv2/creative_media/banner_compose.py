@@ -414,13 +414,25 @@ def _balanced(draw, text, font, width):
     return best
 
 
+def _sign_gap(line):
+    """Room after a leading + or - before a number: "+20GB" set tight was read as "120GB" (an offer six times larger)."""
+    text = line["text"]
+    return round(line["font"].size * 0.14) if len(text) > 1 and text[0] in "+-" and text[1].isdigit() else 0
+
+
 def _line_length(draw, line):
     extra = line.get("gap", 0) * draw.textlength(" ", font=line["font"]) * line["text"].count(" ")
-    return draw.textlength(line["text"], font=line["font"]) + extra
+    return draw.textlength(line["text"], font=line["font"]) + extra + _sign_gap(line)
 
 
 def _draw_line(draw, position, line, fill):
     """A line of copy; ``gap`` widens each word space by that many spaces (small caps close their gaps)."""
+    sign = _sign_gap(line)
+    if sign:
+        draw.text(position, line["text"][0], font=line["font"], fill=fill)
+        x = position[0] + draw.textlength(line["text"][0], font=line["font"]) + sign
+        line = {**line, "text": line["text"][1:]}
+        position = (x, position[1])
     if not line.get("gap"):
         draw.text(position, line["text"], font=line["font"], fill=fill)
         return

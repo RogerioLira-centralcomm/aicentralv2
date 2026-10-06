@@ -156,6 +156,12 @@ def _send_brand_approval_email(brand: dict, pack: dict, client_id: int, brand_id
 
 from .brand_ref import BrandRefConverter
 bp = Blueprint("cadu_workspace", __name__)
+
+
+@bp.record_once
+def _register_product_flags(state):
+    from ..product_flags import register_product_flags
+    register_product_flags(state.app)
 # Apps parciais (testes, workers) que só registram o Workspace também enxergam a chave de Skills.
 bp.add_app_template_global(skills_enabled, "skills_enabled")
 bp.add_app_template_global(visible_solutions, "visible_solutions")

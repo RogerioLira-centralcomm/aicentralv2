@@ -25,5 +25,12 @@ def visible_solutions(items, key=None):
 
 
 def register_product_flags(app):
+    """Publica as chaves nos templates. Idempotente.
+
+    ``create_app`` chama uma vez; os blueprints que renderizam o shell da
+    família (Workspace, Connect) também chamam via ``record_once`` para que
+    apps parciais (testes, ferramentas) que só registram o blueprint
+    renderizem os mesmos templates.
+    """
     app.jinja_env.globals["skills_enabled"] = skills_enabled
     app.jinja_env.globals["visible_solutions"] = visible_solutions

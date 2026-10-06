@@ -55,6 +55,7 @@ def _app():
     agent_api_bp = Blueprint("cadu_agent_v2", __name__)
     agent_api_bp.add_url_rule("/api/messages", "conversation_message", lambda: "messages")
     agent_api_bp.add_url_rule("/api/uploads", "upload", lambda: "uploads")
+    agent_api_bp.add_url_rule("/api/audio", "transcribe_voice_input", lambda: "audio")
     app.register_blueprint(agent_api_bp)
     family_api_bp = Blueprint("cadu_family", __name__)
     family_api_bp.add_url_rule("/api/context", "get_context", lambda: "context")

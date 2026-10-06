@@ -16,6 +16,8 @@ def test_create_screen_exposes_unified_visual_workspace():
     )
     app.secret_key = "test"
     app.config.update(STUDIO_URL="https://studio.test")
+    from aicentralv2.product_flags import register_product_flags
+    register_product_flags(app)
     app.context_processor(lambda: {
         "product_url": lambda product, path="/": f"https://{product}.test{path}",
         "studio_url": lambda endpoint, **values: f"/{endpoint}",

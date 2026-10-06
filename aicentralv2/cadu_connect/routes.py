@@ -17,6 +17,12 @@ from .repository import accounts_for_workspace_context, campaigns_for_client, fi
 bp = Blueprint("cadu_connect", __name__, url_prefix="/connect")
 
 
+@bp.record_once
+def _register_product_flags(state):
+    from ..product_flags import register_product_flags
+    register_product_flags(state.app)
+
+
 REPORTS_API_PREFIXES = ('/connect/api/v1/reports/', '/connect/api/v2/reports/', '/connect/api/gads')
 
 

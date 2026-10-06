@@ -19,6 +19,7 @@ class WorkspaceEnterpriseOnboardingTests(TestCase):
         self.assertNotIn('CREATE TABLE IF NOT EXISTS tbl_cliente', migration)
         self.assertNotIn('INSERT INTO tbl_cliente', migration)
 
+    @mock.patch.dict("os.environ", {"CADU_SKILLS_ENABLED": "true"})
     def test_agencia_exibe_que_o_client_id_atual_continua_canonico(self):
         client = _app().test_client()
         with client.session_transaction() as session:

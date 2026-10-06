@@ -24,7 +24,7 @@
       <small>{{ session.get('user_email', '') }}</small>
       <a href="{{ product_url('workspace', '/workspace/app') }}">Abrir Workspace</a>
       <a href="{{ product_url('workspace', '/workspace/app/creditos') }}">Créditos e consumo{% if cadu_nav_credit and cadu_nav_credit.configured %}<span>{{ cadu_nav_credit.available }} disponíveis</span>{% endif %}</a>
-      <a href="{{ product_url('workspace', '/workspace/minhas-skills') }}">Minhas skills</a>
+      {% if skills_enabled() %}<a href="{{ product_url('workspace', '/workspace/minhas-skills') }}">Minhas skills</a>{% endif %}
       <a href="{{ product_url('auth', '/logout') }}">Sair</a>
     </div>
   </details>

@@ -1,4 +1,4 @@
-const urls = {home: '/home', projects: '/projetos', brands: '/marcas', newConversation: '/conversas', conversations: '/conversas', docs: '/arquivos', agency: '/conta/agencia', profile: '/conta/perfil', usage: '/conta/uso', credits: '/conta/creditos', creditos: '/conta/creditos', solutions: {workspace: '/home', planner: '#', studio: '#', connect: '#', skills: '#'}};
+const urls = {home: '/home', projects: '/projetos', brands: '/marcas', newConversation: '/conversas', conversations: '/conversas', docs: '/arquivos', agency: '/conta/agencia', profile: '/conta/perfil', usage: '/conta/uso', credits: '/conta/creditos', creditos: '/conta/creditos', solutions: {workspace: '/home', planner: '#', studio: '#', connect: '#'}};
 const sidebar = {
   agency: {name: 'CENTRALCOMM'},
   brands: [{id: 'b1', name: 'Nike', detailUrl: '/marca-vazia', projects: []}, {id: 'b2', name: 'Cemig', detailUrl: '#', projects: [{id: 'p1', name: 'Cemig', href: '/projeto'}]}],

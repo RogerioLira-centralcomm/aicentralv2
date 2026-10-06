@@ -12,6 +12,7 @@ from aicentralv2.services.cadu_growth_email_templates import (
 )
 
 
+@patch.dict("os.environ", {"CADU_SKILLS_ENABLED": "true"})  # inclui o modelo de Skills
 class CaduGrowthEmailTemplateTests(unittest.TestCase):
     def setUp(self):
         self.app = Flask(

@@ -59,6 +59,28 @@ EDITORIAL_CONTENT.update({
 
 
 @bp.before_request
+def hide_skills_product_for_launch():
+    """Skills fica fora do lançamento: páginas públicas respondem 404.
+
+    Mantém gestão interna (CentralX), APIs, ícones e links de entrega já
+    emitidos (/s/<token>), que dependem dos mesmos dados. Ligue com
+    CADU_SKILLS_ENABLED=true.
+    """
+    from ..product_flags import skills_enabled
+    if skills_enabled():
+        return None
+    path = request.path
+    if (
+        path.startswith("/skills/gestao")
+        or path.startswith("/skills/api/")
+        or path.startswith("/skills/assets/")
+        or path.startswith("/skills/s/")
+    ):
+        return None
+    abort(404)
+
+
+@bp.before_request
 def prepare_shared_cadu_chat():
     """Keep the shared Cadu panel usable from authenticated Skills pages."""
     # Gestão de skills é operação interna da CentralX. Ela não pertence ao

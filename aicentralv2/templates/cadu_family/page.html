@@ -105,9 +105,8 @@
   {% set conversation_profile_label = 'O Cadu usa o contexto que está ativo nesta área.' %}
   {% set conversation_actions = [
     {'label': 'Workspace', 'href': product_url('workspace', '/workspace/app')},
-    {'label': 'Planner', 'href': url_for('cadu_family.page', product='planner', module='inicio')},
-    {'label': 'Skills', 'href': product_url('skills')}
-  ] %}
+    {'label': 'Planner', 'href': url_for('cadu_family.page', product='planner', module='inicio')}
+  ] + ([{'label': 'Skills', 'href': product_url('skills')}] if skills_enabled() else []) %}
   {% include 'cadu_workspace/conversations/panel.html' %}
 {% endif %}
 <script src="{{ url_for('static', filename='js/cadu-sidebar-account.js') }}?v=1" defer></script>

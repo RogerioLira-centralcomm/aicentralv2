@@ -32,6 +32,7 @@ from ..auth import login_required, login_url
 from ..cadu_family import repository as family_repository
 from ..cadu_connect.repository import accounts_for_workspace_context
 from ..cadu_credit_connector import CaduCreditConnector
+from ..product_flags import skills_enabled, visible_solutions
 from ..cadu_skills.repository import CaduCreditUnavailable, charge_project_rag, credit_position, list_customizations
 from ..db import close_db, get_db
 from ..product_domains import product_url, workspace_public_url
@@ -155,6 +156,9 @@ def _send_brand_approval_email(brand: dict, pack: dict, client_id: int, brand_id
 
 from .brand_ref import BrandRefConverter
 bp = Blueprint("cadu_workspace", __name__)
+# Apps parciais (testes, workers) que só registram o Workspace também enxergam a chave de Skills.
+bp.add_app_template_global(skills_enabled, "skills_enabled")
+bp.add_app_template_global(visible_solutions, "visible_solutions")
 # Must be recorded before the first route so `<brand:brand_id>` resolves in any app that mounts this blueprint.
 bp.record_once(lambda state: state.app.url_map.converters.setdefault('brand', BrandRefConverter))
 
@@ -5017,6 +5021,18 @@ PUBLIC_ARTICLES = {
     },
 }
 
+def _public_solutions():
+    if skills_enabled():
+        return PUBLIC_SOLUTIONS
+    return {slug: item for slug, item in PUBLIC_SOLUTIONS.items() if slug != "skills"}
+
+
+def _public_articles():
+    if skills_enabled():
+        return PUBLIC_ARTICLES
+    return {slug: item for slug, item in PUBLIC_ARTICLES.items() if item.get("product") != "Skills"}
+
+
 LEGAL_PAGES = {
     "privacidade": {
         "title": "Política de privacidade",
@@ -5076,6 +5092,8 @@ def product_entry(product):
     if product == 'cadu':
         return redirect(url_for('cadu_workspace.index'), code=301)
     item = PRODUCT_ENTRIES.get(product)
+    if product == "skills" and not skills_enabled():
+        item = None
     if not item:
         abort(404)
     entry = dict(zip(("name", "eyebrow", "title", "description"), item))
@@ -5436,12 +5454,12 @@ def public_design_system():
 
 @bp.get('/workspace/solucoes/<solution>')
 def public_solution(solution):
-    content = PUBLIC_SOLUTIONS.get(solution)
+    content = _public_solutions().get(solution)
     if not content:
         abort(404)
     return render_template(
         'cadu_workspace/public_solution.html', solution=solution, content=content,
-        solutions=PUBLIC_SOLUTIONS,
+        solutions=_public_solutions(),
         canonical=product_url('workspace', f'/workspace/solucoes/{solution}'),
         description=content['lead'],
         analytics_page_type='solution', analytics_content_group='solutions',
@@ -5452,12 +5470,12 @@ def public_solution(solution):
 
 @bp.get('/workspace/conteudos/<slug>')
 def public_article(slug):
-    article = PUBLIC_ARTICLES.get(slug)
+    article = _public_articles().get(slug)
     if not article:
         abort(404)
     return render_template(
         'cadu_workspace/public_article.html', slug=slug, article=article,
-        articles=PUBLIC_ARTICLES,
+        articles=_public_articles(),
         canonical=product_url('workspace', f'/workspace/conteudos/{slug}'),
         description=article['summary'],
         analytics_page_type='content', analytics_content_group='guides',
@@ -10445,12 +10463,16 @@ def update_team_member_role(contact_id):
 
 @bp.get("/workspace/agentes")
 def agents():
+    if not skills_enabled():
+        return redirect(url_for("cadu_workspace.dashboard"), code=302)
     return redirect(url_for("cadu_skills.agents"), code=302)
 
 
 @bp.get("/workspace/minhas-skills")
 @login_required
 def my_skills():
+    if not skills_enabled():
+        abort(404)
     return render_template(
         "cadu_workspace/my_skills.html",
         customizations=list_customizations(client_id=int(session.get("cliente_id") or 0)),
@@ -10476,8 +10498,8 @@ def robots():
 def sitemap():
     _workspace_host_only()
     paths = ["/", "/workspace/como-funciona", "/workspace/planos", "/workspace/ajuda", "/workspace/contato", "/privacidade", "/termos"]
-    paths.extend(f"/workspace/solucoes/{slug}" for slug in PUBLIC_SOLUTIONS)
-    paths.extend(f"/workspace/conteudos/{slug}" for slug in PUBLIC_ARTICLES)
+    paths.extend(f"/workspace/solucoes/{slug}" for slug in _public_solutions())
+    paths.extend(f"/workspace/conteudos/{slug}" for slug in _public_articles())
     lastmod = '2026-09-22'
     urls = "".join(f"<url><loc>{product_url('workspace', path)}</loc><lastmod>{lastmod}</lastmod></url>" for path in paths)
     return Response(f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>', mimetype="application/xml")
@@ -10498,12 +10520,12 @@ def llms():
         f"- [Política de privacidade]({product_url('workspace', '/privacidade')})",
         f"- [Termos de serviço]({product_url('workspace', '/termos')})", "",
         "## Soluções", "",
-        *[f"- [{item['name']}]({product_url('workspace', f'/workspace/solucoes/{slug}')})" for slug, item in PUBLIC_SOLUTIONS.items()], "",
+        *[f"- [{item['name']}]({product_url('workspace', f'/workspace/solucoes/{slug}')})" for slug, item in _public_solutions().items()], "",
         "## Guias práticos", "",
-        *[f"- [{item['title']}]({product_url('workspace', f'/workspace/conteudos/{slug}')})" for slug, item in PUBLIC_ARTICLES.items()], "",
-        "## Conteúdo público relacionado", "",
-        f"- [Agentes e capacidades]({product_url('skills', '/agentes')})",
-        f"- [Skills públicas testáveis]({product_url('skills')})", "",
+        *[f"- [{item['title']}]({product_url('workspace', f'/workspace/conteudos/{slug}')})" for slug, item in _public_articles().items()], "",
+        *(["## Conteúdo público relacionado", "",
+           f"- [Agentes e capacidades]({product_url('skills', '/agentes')})",
+           f"- [Skills públicas testáveis]({product_url('skills')})", ""] if skills_enabled() else []),
         "Áreas autenticadas", "",
         "Projetos, skills personalizadas, créditos, clientes, campanhas, contas, MCPs e relatórios são privados e não fazem parte do sitemap.", "",
     ]
@@ -10523,7 +10545,7 @@ def llms_full():
         '- Workspace: projetos, marcas, reuniões, arquivos, links, decisões e contexto para agentes.',
         '- Planner: objetivos, públicos, canais, formatos, cenários e investimento.',
         '- Studio: geração de imagens, edição avançada, variações, vídeo e Creative Analyzer.',
-        '- Skills: métodos especializados aplicados ao contexto do projeto.',
+        *(['- Skills: métodos especializados aplicados ao contexto do projeto.'] if skills_enabled() else []),
         '- Reports: campanhas, fontes, relatórios e aprendizados ligados ao próximo ciclo.', '',
         '## Integrações', '',
         '- Google Workspace: conexão disponível para arquivos, documentos e reuniões conforme autorização.',
@@ -10538,9 +10560,9 @@ def llms_full():
         f'- Visão geral: {product_url("workspace")}',
         f'- Planos: {product_url("workspace", "/workspace/planos")}',
         f'- Contato: {product_url("workspace", "/workspace/contato")}',
-        *[f'- {item["name"]}: {product_url("workspace", f"/workspace/solucoes/{slug}")}' for slug, item in PUBLIC_SOLUTIONS.items()], '',
+        *[f'- {item["name"]}: {product_url("workspace", f"/workspace/solucoes/{slug}")}' for slug, item in _public_solutions().items()], '',
         '## Guias', '',
-        *[f'- {item["title"]}: {product_url("workspace", f"/workspace/conteudos/{slug}")}' for slug, item in PUBLIC_ARTICLES.items()], '',
+        *[f'- {item["title"]}: {product_url("workspace", f"/workspace/conteudos/{slug}")}' for slug, item in _public_articles().items()], '',
         '## Políticas e contato', '',
         f'- Privacidade: {product_url("workspace", "/privacidade")}',
         f'- Termos: {product_url("workspace", "/termos")}',

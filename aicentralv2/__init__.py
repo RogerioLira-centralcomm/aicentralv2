@@ -259,6 +259,8 @@ def create_app(config_class=Config):
     app.jinja_env.globals['static_fingerprint'] = lambda relative_path: static_fingerprint(app.static_folder, relative_path)
     from .static_modules import register_static_helpers
     register_static_helpers(app)
+    from .product_flags import register_product_flags
+    register_product_flags(app)
 
     # Tornar config acessível nos templates
     @app.context_processor

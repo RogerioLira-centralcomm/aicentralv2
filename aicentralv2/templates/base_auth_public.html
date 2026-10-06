@@ -31,6 +31,7 @@
         ('skills','Skills','Especialistas de IA para o trabalho que não pode esperar.','Uma conversa para avançar a próxima entrega.','skills.png','skills-icon.png'),
         ('connect','Reports','Reúna dados de mídia para decidir com contexto.','Menos operação manual. Mais tempo para decidir.','connect.png','connect-icon.png')
       ] %}
+      {% set auth_products = visible_solutions(auth_products) %}
       {% for slug, name, description, impact, image, icon in auth_products %}
       {% if slug == active_product %}
       <div class="auth-product-scene is-active" data-auth-product-panel="{{ slug }}">

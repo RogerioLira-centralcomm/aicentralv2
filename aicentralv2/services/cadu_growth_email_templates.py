@@ -107,8 +107,16 @@ GROWTH_EMAIL_MODELS: Dict[str, Dict[str, str]] = {
 }
 
 
+def _visible_growth_models() -> Dict[str, Dict[str, Any]]:
+    """Skills fora do lançamento: o modelo com CTA para Skills some da suíte."""
+    from ..product_flags import skills_enabled
+    if skills_enabled():
+        return GROWTH_EMAIL_MODELS
+    return {key: model for key, model in GROWTH_EMAIL_MODELS.items() if model["product"] != "skills"}
+
+
 def list_growth_email_model_choices() -> List[Tuple[str, str]]:
-    return [(key, model["label"]) for key, model in GROWTH_EMAIL_MODELS.items()]
+    return [(key, model["label"]) for key, model in _visible_growth_models().items()]
 
 
 def _absolute_url(product: str, path: str) -> str:
@@ -127,7 +135,7 @@ def _format_body_html(text: str) -> Markup:
 
 
 def build_growth_email(model_key: str, *, body: str | None = None) -> Dict[str, Any]:
-    model = GROWTH_EMAIL_MODELS.get(model_key)
+    model = _visible_growth_models().get(model_key)
     if not model:
         raise KeyError(model_key)
     product = model["product"]
@@ -174,9 +182,10 @@ def _send_growth_test(app, cfg: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _selected_model_keys(model_keys: Iterable[str] | None) -> List[str]:
+    visible = _visible_growth_models()
     if model_keys is None:
-        return list(GROWTH_EMAIL_MODELS)
-    selected = list(dict.fromkeys(str(key) for key in model_keys if str(key) in GROWTH_EMAIL_MODELS))
+        return list(visible)
+    selected = list(dict.fromkeys(str(key) for key in model_keys if str(key) in visible))
     if not selected:
         raise ValueError("Selecione ao menos um modelo de e-mail válido.")
     return selected

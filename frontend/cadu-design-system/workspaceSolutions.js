@@ -32,12 +32,20 @@ export function workspaceMobileSolutionItems(urls = {}) {
     .map(([id, name, description]) => ({id, name, description, href: urls.solutions[id]}));
 }
 
-export function workspaceSolutionItems(bootstrap) {
-  return workspaceSolutions.map(([id, name, description]) => ({
-    id,
-    name,
-    description,
-    href: bootstrap.urls?.solutions?.[id],
-    icon: bootstrap.solutionIcons?.[id],
-  }));
+// Skills só aparece quando o servidor publica a URL dela (CADU_SKILLS_ENABLED=true).
+// Sem a chave, o bootstrap omite urls.solutions.skills e o item some de todo seletor.
+export function isSolutionAvailable(id, urls = {}) {
+  return id !== 'skills' || Boolean(urls.solutions?.skills);
+}
+
+export function workspaceSolutionItems(bootstrap = {}) {
+  return workspaceSolutions
+    .filter(([id]) => isSolutionAvailable(id, bootstrap.urls))
+    .map(([id, name, description]) => ({
+      id,
+      name,
+      description,
+      href: bootstrap.urls?.solutions?.[id],
+      icon: bootstrap.solutionIcons?.[id],
+    }));
 }

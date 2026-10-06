@@ -10,6 +10,7 @@
   {'id': 'reports', 'name': 'Reports', 'description': 'Relatórios e resultados', 'icon': url_for('static', filename='images/cadu/products/connect-icon.png')},
   {'id': 'skills', 'name': 'Skills', 'description': 'Recursos e automações', 'icon': url_for('static', filename='images/cadu/products/skills-icon.png')}
 ] %}
+{% set auth_tools = visible_solutions(auth_tools) %}
 {{ {
   'page': 'login',
   'product': 'centralx' if is_centralx_host else 'cadu',

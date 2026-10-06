@@ -26,7 +26,7 @@
     'plans': url_for('cadu_workspace.account_page', section='planos'), 'team': url_for('cadu_workspace.account_page', section='equipe'),
     'observability': url_for('cadu_agent_v2_lab.observability_page') if session.get('user_type') in ('admin', 'superadmin') and session.get('cliente_id')|int == 174 else '',
     'logout': product_url('auth','/logout'),
-    'solutions': {'workspace': url_for('cadu_workspace.dashboard'), 'planner': product_url('planner','/'), 'studio': product_url('studio','/'), 'connect': product_url('connect','/'), 'skills': product_url('skills','/')}
+    'solutions': visible_solutions({'workspace': url_for('cadu_workspace.dashboard'), 'planner': product_url('planner','/'), 'studio': product_url('studio','/'), 'connect': product_url('connect','/'), 'skills': product_url('skills','/')})
   },
   'solutionIcons': {'workspace': url_for('static', filename='images/cadu/products/cadu-icon.png'), 'planner': url_for('static', filename='images/cadu/products/planner-icon.png'), 'studio': url_for('static', filename='images/cadu/products/studio-icon.png'), 'connect': url_for('static', filename='images/cadu/products/connect-icon.png'), 'skills': url_for('static', filename='images/cadu/products/skills-icon.png')},
   'endpoints': {

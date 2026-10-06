@@ -36,12 +36,12 @@
             <a class="cadu-public-news-card is-featured" href="{{ url_for('cadu_workspace.public_page', page='como-funciona') }}"><img src="{{ url_for('static', filename='images/cadu/workspace-cards/projetos-v1.jpg') }}" alt="Projeto organizado no Workspace"><span>Guia</span><b>Como levar um briefing até a próxima decisão</b></a>
             <a class="cadu-public-news-card" href="{{ url_for('cadu_workspace.public_page', page='planos') }}"><img src="{{ url_for('static', filename='images/cadu/planner/planner-plan-board-v2.png') }}" alt="Quadro de planejamento do Planner"><span>Planejamento</span><b>O que um bom contexto muda no plano de mídia</b></a>
             <a class="cadu-public-news-card" href="{{ url_for('cadu_workspace.public_page', page='ajuda') }}"><img src="{{ url_for('static', filename='images/cadu/presentation/reports-dashboard-image2-v1.png') }}" alt="Dashboard de acompanhamento de campanha"><span>Operação</span><b>Decisão, entrega e histórico no mesmo fluxo</b></a>
-            <a class="cadu-public-news-card" href="{{ url_for('cadu_workspace.public_page', page='contato') }}"><img src="{{ url_for('static', filename='images/cadu/skills/skills-hero-worktable-v1.png') }}" alt="Mesa de trabalho com uma Skill aplicada"><span>Método</span><b>Quando uma Skill entra para destravar o trabalho</b></a>
+            {% if skills_enabled() %}<a class="cadu-public-news-card" href="{{ url_for('cadu_workspace.public_page', page='contato') }}"><img src="{{ url_for('static', filename='images/cadu/skills/skills-hero-worktable-v1.png') }}" alt="Mesa de trabalho com uma Skill aplicada"><span>Método</span><b>Quando uma Skill entra para destravar o trabalho</b></a>{% endif %}
           </div>
         </section>
         <div class="cadu-public-footer__top">
           <div class="cadu-public-footer__brand"><a href="{{ product_url('cadu') }}"><img src="{{ url_for('static', filename='images/cadu/products/cadu-icon.png') }}" alt="Cadu"><span>Cadu Media</span></a><p>Uma família de ambientes para transformar contexto em trabalho.</p></div>
-          <div><h2>Soluções</h2><nav aria-label="Soluções Cadu"><a href="{{ product_url('workspace') }}">Workspace</a><a href="{{ product_url('planner') }}">Planner</a><a href="{{ product_url('studio') }}">Studio</a><a href="{{ product_url('connect') }}">Reports</a><a href="{{ product_url('skills') }}">Skills</a></nav></div>
+          <div><h2>Soluções</h2><nav aria-label="Soluções Cadu"><a href="{{ product_url('workspace') }}">Workspace</a><a href="{{ product_url('planner') }}">Planner</a><a href="{{ product_url('studio') }}">Studio</a><a href="{{ product_url('connect') }}">Reports</a>{% if skills_enabled() %}<a href="{{ product_url('skills') }}">Skills</a>{% endif %}</nav></div>
           <div><h2>Explorar</h2><nav aria-label="Explorar o Workspace"><a href="{{ url_for('cadu_workspace.public_page', page='como-funciona') }}">Como funciona</a><a href="{{ url_for('cadu_workspace.public_page', page='planos') }}">Planos</a><a href="{{ url_for('cadu_workspace.public_page', page='contato') }}">Contato</a></nav></div>
           <div><h2>Políticas</h2><nav aria-label="Políticas"><a href="{{ url_for('cadu_workspace.public_page', page='ajuda') }}">Privacidade e dados</a><a href="{{ url_for('cadu_workspace.public_page', page='ajuda') }}">Acesso por papel</a><a href="{{ url_for('cadu_workspace.public_page', page='contato') }}">Falar com a equipe</a></nav></div>
         </div>
@@ -63,9 +63,8 @@
     <button type="button" class="cadu-conversation-launcher" id="conversation-open" aria-haspopup="dialog" aria-controls="conversation-panel" aria-expanded="false"><span aria-hidden="true">C</span> Falar com Cadu</button>
     {% set conversation_profile_label = 'O Cadu considera a organização, projetos e marcas da sua conta.' %}
     {% set conversation_actions = [
-      {'label': 'Projetos', 'href': url_for('cadu_workspace.projects')},
-      {'label': 'Skills', 'href': product_url('skills')}
-    ] %}
+      {'label': 'Projetos', 'href': url_for('cadu_workspace.projects')}
+    ] + ([{'label': 'Skills', 'href': product_url('skills')}] if skills_enabled() else []) %}
     {% include 'cadu_workspace/conversations/panel.html' %}
     <script defer src="{{ url_for('static', filename='cadu_workspace/conversations/stream.js') }}"></script>
     <script defer src="{{ url_for('static', filename='cadu_workspace/conversations/attachments.js') }}"></script>

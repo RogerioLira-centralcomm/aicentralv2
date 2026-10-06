@@ -29,6 +29,7 @@ def _app():
     return app
 
 
+@mock.patch.dict("os.environ", {"CADU_SKILLS_ENABLED": "true"})  # Skills fora do lançamento: o produto é testado ligado.
 class CaduSkillsTest(TestCase):
     @mock.patch("aicentralv2.cadu_skills.repository._db")
     def test_credit_position_reads_the_shared_token_lots(self, db):

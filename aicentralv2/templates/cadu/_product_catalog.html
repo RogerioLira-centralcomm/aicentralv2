@@ -7,6 +7,5 @@
   ('workspace', 'Workspace', 'cadu-icon.png'),
   ('planner', 'Planner', 'planner-icon.png'),
   ('studio', 'Studio', 'studio-icon.png'),
-  ('connect', 'Reports', 'connect-icon.png'),
-  ('skills', 'Skills', 'skills-icon.png')
-] %}
+  ('connect', 'Reports', 'connect-icon.png')
+] + ([('skills', 'Skills', 'skills-icon.png')] if skills_enabled() else []) %}

@@ -38,7 +38,7 @@
     'team': url_for('cadu_workspace.account_page', section='equipe'),
     'studioEditor': product_url('studio', '/studio/modelagem-criativos/imagem'),
     'logout': product_url('auth', '/logout'),
-    'solutions': {'workspace': url_for('cadu_workspace.dashboard'), 'planner': product_url('planner', '/'), 'studio': product_url('studio', '/'), 'connect': product_url('connect', '/'), 'skills': product_url('skills', '/')}
+    'solutions': visible_solutions({'workspace': url_for('cadu_workspace.dashboard'), 'planner': product_url('planner', '/'), 'studio': product_url('studio', '/'), 'connect': product_url('connect', '/'), 'skills': product_url('skills', '/')})
   },
   'solutionIcons': {'workspace': url_for('static', filename='images/cadu/products/cadu-icon.png'), 'planner': url_for('static', filename='images/cadu/products/planner-icon.png'), 'studio': url_for('static', filename='images/cadu/products/studio-icon.png'), 'connect': url_for('static', filename='images/cadu/products/connect-icon.png'), 'skills': url_for('static', filename='images/cadu/products/skills-icon.png')},
   'secondaryNav': secondary_nav,

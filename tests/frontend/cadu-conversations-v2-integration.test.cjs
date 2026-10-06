@@ -652,7 +652,7 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(template, /cadu-conversations-v2-root/);
   assert.match(template, /cadu-conversations-v2-bootstrap/);
   assert.match(template, /react\/app\.js/);
-  assert.match(template, /'solutions': \{'workspace'/);
+  assert.match(template, /'solutions': (visible_solutions\()?\{'workspace'/);
   assert.match(template, /'solutionIcons'/);
   assert.match(template, /react\/app\.css'\) }}\?v=\{\{ cadu_workspace_asset_version \}\}/);
   assert.match(template, /react\/app\.js'\) }}\?v=\{\{ cadu_workspace_asset_version \}\}/);

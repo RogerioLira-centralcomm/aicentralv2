@@ -399,6 +399,7 @@ class ProductPortalsTest(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.headers["Location"], "https://workspace.centralcomm.media/")
 
+    @mock.patch.dict("os.environ", {"CADU_SKILLS_ENABLED": "true"})
     def test_public_home_explains_the_five_products_in_workflow_order(self):
         client = _app().test_client()
         html = client.get("/workspace/", headers={"Host": "workspace.centralcomm.media"}).get_data(as_text=True)
@@ -411,6 +412,7 @@ class ProductPortalsTest(TestCase):
             self.assertIn(integration, html)
         self.assertIn("Como transformar um briefing em uma base viva", html)
 
+    @mock.patch.dict("os.environ", {"CADU_SKILLS_ENABLED": "true"})
     def test_public_catalog_has_solution_article_and_commercial_plan_pages(self):
         client = _app().test_client()
         headers = {"Host": "workspace.centralcomm.media"}

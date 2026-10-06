@@ -3912,8 +3912,7 @@ body.portal--workspace .cadu-ds-project-indexing { padding:25px 0; }
 body.portal--workspace .cadu-ds-project-indexing > header { display:flex; align-items:start; justify-content:space-between; gap:24px; }
 body.portal--workspace .cadu-ds-project-indexing h2 { margin:3px 0 7px; font-size:20px; }
 body.portal--workspace .cadu-ds-project-indexing header p { margin:0; color:var(--cadu-accent-strong); font-size:10px; font-weight:700; text-transform:uppercase; }
-body.portal--workspace .cadu-ds-project-indexing header span { color:var(--cadu-muted); font-size:11px; }
-body.portal--workspace .cadu-ds-project-indexing header button { padding:0; border:0; background:transparent; color:var(--cadu-accent-strong); font:inherit; font-size:11px; font-weight:700; }
+body.portal--workspace .cadu-ds-project-indexing header > div:first-child > span { color:var(--cadu-muted); font-size:11px; }
 body.portal--workspace .cadu-ds-project-indexing__summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:20px; margin-top:22px; }
 body.portal--workspace .cadu-ds-project-indexing__summary span { display:grid; gap:2px; }
 body.portal--workspace .cadu-ds-project-indexing__summary b { font-size:22px; }
@@ -4371,8 +4370,6 @@ body.portal--workspace .cadu-ds-entity-rail__index > a { justify-self:start; mar
 body.portal--workspace .cadu-ds-project-explorer__empty > div { display:flex; flex-wrap:wrap; justify-content:center; gap:14px; }
 body.portal--workspace .cadu-ds-project-explorer__empty > div button { font-weight:500; }
 body.portal--workspace .cadu-ds-project-indexing__actions { display:flex; gap:14px; }
-body.portal--workspace .cadu-ds-project-indexing__actions button { font-weight:500 !important; }
-body.portal--workspace .cadu-ds-project-indexing__actions button.is-primary { padding:7px 10px; border-radius:8px; background:var(--cadu-accent); color:var(--cadu-accent-ink,#fff); }
 body.portal--workspace .cadu-ds-project-indexing > header > div:first-child { display:grid; gap:4px; }
 body.portal--workspace .cadu-ds-project-indexing > header > div:first-child > small { color:var(--cadu-muted); font-size:10px; }
 body.portal--workspace .cadu-ds-project-indexing__summary b { font-weight:500; }

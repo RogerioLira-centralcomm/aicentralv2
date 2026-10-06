@@ -8,6 +8,9 @@
   button[data-rac], a[data-rac] { margin: 0; border: 0 solid; background-color: transparent; font: inherit; color: inherit; }
 }
 
+/* Regras legadas como `header span {color:muted}` atingiam o texto do botão e o deixavam ilegível. */
+button[data-rac] [data-text], a[data-rac] [data-text] { color: inherit !important; font-size: inherit !important; font-weight: inherit !important; letter-spacing: inherit !important; text-transform: none !important; }
+
 @source "./button.tsx";
 @source "./modal.tsx";
 @source "./input.tsx";

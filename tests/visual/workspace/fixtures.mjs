@@ -30,3 +30,9 @@ export const pages = {
   'projeto-vazio': {rootClass: 'cv-home-root cadu-project-root', bootstrap: {...base, projectMode: true, canEdit: true, canManageBrand: true, endpoints: {agentState: '/api/agent-state'}, sectionLinks: {}, projectLinks: {},
     project: {id: 'p1', name: 'Cemig', description: '', brand: null, files: [], resources: [], notes: [], links: [], tasks: [], reports: [], deliverables: [], conversations: [], members: [], context: {}, activity: []}}},
 };
+
+// Uma tela por visão do Projeto vazio: /projeto-direction, /projeto-tasks, ...
+for (const view of ['direction', 'tasks', 'files', 'library', 'indexing', 'conversations', 'deliveries', 'reports', 'views']) {
+  const source = pages['projeto-vazio'];
+  pages[`projeto-${view}`] = {...source, bootstrap: {...source.bootstrap, projectView: view}};
+}

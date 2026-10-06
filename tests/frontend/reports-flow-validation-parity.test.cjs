@@ -1,10 +1,12 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
-const source=fs.readFileSync(path.resolve(__dirname,'../../frontend/reports-v1/flowValidation.js'),'utf8');
+const {pathToFileURL}=require('node:url');
+// flowValidation.js passou a importar flowGoals.js; carrega pelo arquivo para resolver imports relativos.
+const modulePath=path.resolve(__dirname,'../../frontend/reports-v1/flowValidation.js');
 const cases=require('../fixtures/reports_flow_validation.json');
 (async()=>{
-  const {flowValidation}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+  const {flowValidation}=await import(pathToFileURL(modulePath).href);
   for(const item of cases){
     const issues=flowValidation(item.config);
     const keys=severity=>issues.filter(issue=>issue.severity===severity).map(issue=>issue.code+(issue.nodeId?':'+issue.nodeId:''));

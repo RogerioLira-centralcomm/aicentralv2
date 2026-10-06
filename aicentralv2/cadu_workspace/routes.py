@@ -2,6 +2,8 @@
 
 from pathlib import Path
 import calendar
+import copy
+import functools
 from datetime import date, datetime, timedelta, timezone
 from html import escape
 from io import BytesIO
@@ -24,7 +26,7 @@ from werkzeug.exceptions import HTTPException
 from markupsafe import Markup
 from psycopg.types.json import Json
 
-from flask import Blueprint, Response, abort, current_app, g, jsonify, redirect, render_template, request, send_file, session, url_for
+from flask import Blueprint, Response, abort, current_app, g, has_request_context, jsonify, redirect, render_template, request, send_file, session, url_for
 
 from ..auth import login_required, login_url
 from ..cadu_family import repository as family_repository
@@ -767,7 +769,7 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
     if brand_project_counts is None:
         brand_project_counts = {}
         try:
-            project_brand_links = family_repository.project_brand_links(client_id)
+            project_brand_links = _project_brand_links(client_id)
         except Exception:
             current_app.logger.warning('Não foi possível carregar contagens de vínculos de marcas do cliente %s', client_id, exc_info=True)
             project_brand_links = []
@@ -1495,6 +1497,39 @@ def _brand_seed_visual_url(value, website_url: str = '') -> str:
     return ''
 
 
+def _request_memo(function):
+    """Reuse a read within one GET request.
+
+    A page assembles its shell, catalog and detail from the same brand and project
+    reads; each used to hit the database again. Callers mutate the rows they get,
+    so every hit returns a deep copy. Writes (non-GET) are never cached, and
+    calls that inject their own data (``identity_*``) bypass the cache.
+    """
+    @functools.wraps(function)
+    def wrapper(*args, **kwargs):
+        injected = any(kwargs.get(name) is not None for name in ('identity_brands', 'identity_links'))
+        if injected or not has_request_context() or request.method != 'GET':
+            return function(*args, **kwargs)
+        store = g.__dict__.setdefault('_workspace_request_memo', {})
+        key = (function.__name__, args, tuple(sorted(kwargs.items())))
+        if key not in store:
+            store[key] = function(*args, **kwargs)
+        return copy.deepcopy(store[key])
+    return wrapper
+
+
+def _project_brand_links(client_id):
+    """Project-to-brand links, read once per GET request."""
+    if not has_request_context() or request.method != 'GET':
+        return family_repository.project_brand_links(client_id)
+    store = g.__dict__.setdefault('_workspace_request_memo', {})
+    key = ('project_brand_links', client_id)
+    if key not in store:
+        store[key] = family_repository.project_brand_links(client_id)
+    return copy.deepcopy(store[key])
+
+
+@_request_memo
 def _workspace_brands(client_id: int, query: str = "", *, raise_on_error: bool = False) -> list[dict]:
     """Read brand records owned by the active Workspace organization."""
     try:
@@ -3377,7 +3412,7 @@ def _run_brand_module_review_job(client_id, user_id, brand_id, job_id, module_id
 def _brand_linked_projects(client_id: int, brand_id: int) -> list[dict]:
     """Return only projects from this organization that explicitly use a brand."""
     try:
-        links = family_repository.project_brand_links(client_id)
+        links = _project_brand_links(client_id)
         project_refs = {
             str(item.get('project_ref') or '')
             for item in links
@@ -3444,7 +3479,7 @@ def _fill_empty_project_identity_from_brand(client_id: int, brand_id: int, profi
     try:
         project_ids = {
             str(link.get('project_ref') or '')[3:]
-            for link in family_repository.project_brand_links(client_id)
+            for link in _project_brand_links(client_id)
             if str(link.get('brand_ref') or '') == f'studio:{brand_id}'
             and str(link.get('project_ref') or '').startswith('ci:')
         }
@@ -3520,7 +3555,7 @@ def _brand_project_documents(brand: dict, analysis: dict) -> list[tuple[str, str
 def _sync_approved_brand_to_projects(client_id: int, user_id: int, brand_id: int, brand: dict, analysis: dict) -> None:
     """Reuse approved evidence in linked project dossiers without a new crawl."""
     try:
-        links = family_repository.project_brand_links(client_id)
+        links = _project_brand_links(client_id)
     except Exception:
         current_app.logger.exception('Não foi possível carregar vínculos da marca %s', brand_id)
         return
@@ -3576,6 +3611,7 @@ def _sync_approved_brand_to_projects(client_id: int, user_id: int, brand_id: int
             current_app.logger.exception('Não foi possível projetar a marca %s no projeto %s', brand_id, project_id)
 
 
+@_request_memo
 def _workspace_projects(client_id: int, query: str = "", status: str = "ativos", *, raise_on_error: bool = False,
                         identity_brands: Optional[list[dict]] = None,
                         identity_links: Optional[list[dict]] = None) -> list[dict]:
@@ -3709,7 +3745,7 @@ def _attach_project_identity(client_id: int, projects: list[dict], *, brands: Op
         # names match exactly, show the brand identity rather than an arbitrary
         # initial; the explicit link remains the source of truth when present.
         brands_by_name = {brand_key(brand.get('name')): brand for brand in brands if brand_key(brand.get('name'))}
-        project_brand_links = family_repository.project_brand_links(client_id) if project_brand_links is None else project_brand_links
+        project_brand_links = _project_brand_links(client_id) if project_brand_links is None else project_brand_links
         for link in project_brand_links:
             brand = brands_by_ref.get(str(link.get('brand_ref') or ''))
             if brand:
@@ -3753,7 +3789,7 @@ def _workspace_context_catalog(client_id: int) -> dict:
     brand_refs = {f"studio:{item['id']}" for item in brands if item.get('id') is not None}
     project_refs = {f"ci:{item['id']}" for item in projects if item.get('id') is not None}
     try:
-        raw_links = family_repository.project_brand_links(client_id)
+        raw_links = _project_brand_links(client_id)
     except Exception:
         current_app.logger.warning('Não foi possível carregar vínculos globais de contexto para o cliente %s', client_id, exc_info=True)
         raw_links = []
@@ -3895,7 +3931,7 @@ def _workspace_sidebar_payload(client_id: int) -> dict:
         current_app.logger.warning('Não foi possível carregar as marcas da sidebar do cliente %s', client_id, exc_info=True)
         all_brands = []
     try:
-        links = family_repository.project_brand_links(client_id)
+        links = _project_brand_links(client_id)
     except Exception:
         current_app.logger.warning('Não foi possível carregar os vínculos da sidebar do cliente %s', client_id, exc_info=True)
         links = []
@@ -4499,7 +4535,7 @@ def _workspace_project(client_id: int, project_id: str) -> Optional[dict]:
     if not project:
         return None
     try:
-        refs = family_repository.project_brand_links(client_id)
+        refs = _project_brand_links(client_id)
         linked = {str(item.get('brand_ref') or '') for item in refs if item.get('project_ref') == f'ci:{project_id}'}
         project['brands'] = [brand for brand in _workspace_brands(client_id) if f"studio:{brand['id']}" in linked]
     except Exception:
@@ -5474,7 +5510,7 @@ def dashboard():
     ).strip()
     brands = _workspace_brands(client_id)
     try:
-        project_brand_links = family_repository.project_brand_links(client_id)
+        project_brand_links = _project_brand_links(client_id)
     except Exception:
         current_app.logger.warning('Não foi possível carregar vínculos de marcas do cliente %s', client_id, exc_info=True)
         project_brand_links = []
@@ -7421,7 +7457,7 @@ def update_project_brands(project_id):
     if additive_brand_id and additive_brand_id not in valid_ids:
         abort(404)
     try:
-        existing = {str(item.get('brand_ref') or '') for item in family_repository.project_brand_links(client_id)
+        existing = {str(item.get('brand_ref') or '') for item in _project_brand_links(client_id)
                     if item.get('project_ref') == project_ref and str(item.get('brand_ref') or '').startswith('studio:')}
         if additive_brand_id:
             selected = existing | {f'studio:{additive_brand_id}'}
@@ -7484,7 +7520,7 @@ def import_project_brand(project_id):
             brand_id = int(cursor.fetchone()['id'])
         connection.commit()
         project_ref = f'ci:{project_id}'
-        for link in family_repository.project_brand_links(client_id):
+        for link in _project_brand_links(client_id):
             brand_ref = str(link.get('brand_ref') or '')
             if link.get('project_ref') == project_ref and brand_ref.startswith('studio:'):
                 family_repository.set_project_brand_link(client_id, session.get('user_id'), project_ref, brand_ref, False)

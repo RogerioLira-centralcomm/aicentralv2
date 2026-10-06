@@ -75,7 +75,7 @@ body.portal--workspace .cadu-ds-brand-audit-complete dl div:first-child {
 
 body.portal--workspace .cadu-ds-brand-audit-complete dt {
   color: var(--cadu-muted);
-  font-size: 9px;
+  font-size: 11px;
 }
 
 body.portal--workspace .cadu-ds-brand-audit-complete dd {
@@ -348,7 +348,7 @@ body.portal--workspace .cadu-ds-brand-audit-existing img {
 body.portal--workspace .cadu-ds-brand-audit-existing small {
   overflow: hidden;
   color: var(--cadu-muted);
-  font-size: 8px;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -358,7 +358,7 @@ body.portal--workspace .cadu-ds-brand-field-approval > strong { font-size:11px; 
 body.portal--workspace .cadu-ds-brand-field-approval > div { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px 14px; }
 body.portal--workspace .cadu-ds-brand-field-approval label { display:flex; align-items:center; gap:8px; min-height:34px; border-bottom:1px solid var(--cadu-line); font-size:10px; }
 body.portal--workspace .cadu-ds-brand-field-approval label span { flex:1; }
-body.portal--workspace .cadu-ds-brand-field-approval label small { color:var(--cadu-danger,#a34032); font-size:8px; }
+body.portal--workspace .cadu-ds-brand-field-approval label small { color:var(--cadu-danger,#a34032); font-size:11px; }
 body.portal--workspace .cadu-ds-brand-field-approval footer { display:flex; justify-content:flex-end; gap:8px; }
 @media(max-width:560px){body.portal--workspace .cadu-ds-brand-field-approval > div{grid-template-columns:1fr}}
 
@@ -380,7 +380,7 @@ body.portal--workspace .cadu-ds-brand-reliability dl { display: grid; grid-templ
 body.portal--workspace .cadu-ds-brand-reliability dl div { display: grid; gap: 3px; padding: 15px; background: var(--cadu-surface); }
 body.portal--workspace .cadu-ds-brand-reliability dt { color: var(--cadu-muted); font-size: 10px; }
 body.portal--workspace .cadu-ds-brand-reliability dd { margin: 0; color: var(--cadu-ink); font: 700 23px var(--cadu-font-sans); }
-body.portal--workspace .cadu-ds-brand-reliability small { color: var(--cadu-muted); font-size: 9px; }
+body.portal--workspace .cadu-ds-brand-reliability small { color: var(--cadu-muted); font-size: 11px; }
 
 body.portal--workspace .cadu-ds-brand-audit-history { margin-top:58px; }
 body.portal--workspace .cadu-ds-brand-audit-history > header p,
@@ -391,10 +391,10 @@ body.portal--workspace .cadu-ds-brand-audit-history > header h2 { margin-top:5px
 body.portal--workspace .cadu-ds-brand-audit-history > header span { display:block; margin-top:7px; color:var(--cadu-muted); font-size:12px; }
 body.portal--workspace .cadu-ds-brand-audit-table { margin-top:20px; overflow-x:auto; }
 body.portal--workspace .cadu-ds-brand-audit-table table { width:100%; border-collapse:collapse; font-size:11px; text-align:left; }
-body.portal--workspace .cadu-ds-brand-audit-table th { padding:8px 10px; border-bottom:1px solid var(--cadu-line); color:var(--cadu-muted); font-size:9px; font-weight:600; }
+body.portal--workspace .cadu-ds-brand-audit-table th { padding:8px 10px; border-bottom:1px solid var(--cadu-line); color:var(--cadu-muted); font-size:11px; font-weight:600; }
 body.portal--workspace .cadu-ds-brand-audit-table td { padding:11px 10px; border-bottom:1px solid color-mix(in srgb,var(--cadu-line) 62%,transparent); color:var(--cadu-muted-strong); vertical-align:top; }
 body.portal--workspace .cadu-ds-brand-audit-table td:first-child { white-space:nowrap; }
-body.portal--workspace .cadu-ds-brand-audit-table td > span { display:inline-block; padding:3px 6px; border-radius:999px; background:var(--cadu-surface-soft); font-size:9px; }
+body.portal--workspace .cadu-ds-brand-audit-table td > span { display:inline-block; padding:3px 6px; border-radius:999px; background:var(--cadu-surface-soft); font-size:11px; }
 body.portal--workspace .cadu-ds-brand-audit-table td > span.is-failed { color:var(--cadu-danger,#a34032); }
 body.portal--workspace .cadu-ds-brand-audit-table details { position:relative; margin:0; }
 body.portal--workspace .cadu-ds-brand-audit-table summary { color:var(--cadu-accent-strong); font-weight:600; white-space:nowrap; cursor:pointer; list-style:none; }
@@ -402,7 +402,7 @@ body.portal--workspace .cadu-ds-brand-audit-table summary::-webkit-details-marke
 body.portal--workspace .cadu-ds-brand-audit-table details > div { position:absolute; z-index:4; top:25px; right:0; width:min(430px,70vw); padding:16px; border:1px solid var(--cadu-line); border-radius:10px; background:var(--cadu-surface); box-shadow:0 16px 42px rgba(20,40,58,.15); }
 body.portal--workspace .cadu-ds-brand-audit-table dl { display:grid; gap:10px; margin:0; }
 body.portal--workspace .cadu-ds-brand-audit-table dl div { display:grid; gap:3px; }
-body.portal--workspace .cadu-ds-brand-audit-table dt { color:var(--cadu-muted); font-size:9px; }
+body.portal--workspace .cadu-ds-brand-audit-table dt { color:var(--cadu-muted); font-size:11px; }
 body.portal--workspace .cadu-ds-brand-audit-table dd { margin:0; color:var(--cadu-ink); line-height:1.45; }
 body.portal--workspace .cadu-ds-brand-audit-table ul { display:grid; gap:5px; margin:13px 0 0; padding:12px 0 0 16px; border-top:1px solid var(--cadu-line); }
 body.portal--workspace .cadu-ds-brand-audit-table a { color:var(--cadu-accent-strong); overflow-wrap:anywhere; }
@@ -551,7 +551,7 @@ body.portal--workspace .cadu-ds-brand-celebration__fireworks i:nth-child(3n + 1)
 @keyframes cadu-brand-celebration-mark { from { opacity:0; transform:translateY(22px) scale(.72) rotate(-6deg); } to { opacity:1; transform:none; } }
 @keyframes cadu-brand-celebration-exit { to { opacity:0; visibility:hidden; } }
 
-@media (min-width:901px) {
+@media (min-width:1025px) {
   body.portal--workspace .cadu-ds-entity-portal--brand:not(:has(.cadu-ds-brand-state--processing)) > .cadu-ds-entity-nav {
     position:fixed;
     z-index:12;
@@ -569,7 +569,7 @@ body.portal--workspace .cadu-ds-brand-celebration__fireworks i:nth-child(3n + 1)
 /* The workspace reserves 239px and 292px for its side rails. At common
    laptop widths the remaining brand canvas is too narrow for a 700px audit
    hero, so collapse that hero before its copy and actions start to collide. */
-@media (min-width:901px) and (max-width:1500px) {
+@media (min-width:1025px) and (max-width:1500px) {
   body.portal--workspace .cadu-ds-entity-portal--brand > .cadu-ds-brand-content {
     padding-right:clamp(24px,3vw,42px);
     padding-left:clamp(24px,3vw,42px);
@@ -603,7 +603,7 @@ body.portal--workspace .cadu-ds-brand-celebration__fireworks i:nth-child(3n + 1)
   }
 }
 
-@media (min-width:901px) and (max-width:1180px) {
+@media (min-width:1025px) and (max-width:1180px) {
   body.portal--workspace .cadu-ds-brand-content .cadu-ds-brand-state {
     grid-template-columns: minmax(0, 1fr);
     gap: 22px;
@@ -623,7 +623,7 @@ body.portal--workspace .cadu-ds-brand-celebration__fireworks i:nth-child(3n + 1)
   body.portal--workspace .cadu-ds-brand-celebration__fireworks { display:none; }
 }
 
-@media (max-width:900px) {
+@media (max-width:1024px) {
   body.portal--workspace .cadu-ds-brand-shell.is-audit_processing .cadu-ds-brand-content { padding:24px 20px 42px; }
   body.portal--workspace .cadu-ds-brand-shell.is-audit_processing .cadu-ds-brand-state { grid-template-columns:1fr; gap:36px; padding-top:42px; }
   body.portal--workspace .cadu-ds-brand-shell.is-audit_processing .cadu-ds-brand-state__visual { width:min(260px,76vw); justify-self:center; }
@@ -636,7 +636,7 @@ body.portal--workspace .cadu-ds-brand-celebration__fireworks i:nth-child(3n + 1)
   body.portal--workspace .cadu-ds-brand-celebration { inset:0; padding:24px; }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   body.portal--workspace .cadu-ds-brand-data-viewer,
   body.portal--workspace .cadu-ds-brand-data-viewer__header { max-width: none; }
 }
@@ -656,7 +656,7 @@ body.portal--workspace .cadu-ds-brand-celebration__fireworks i:nth-child(3n + 1)
 }
 
 /* Brand workspace: one continuous canvas with compact navigation. */
-@media (min-width:901px) {
+@media (min-width:1025px) {
   body.portal--workspace .cadu-ds-brand-workarea { grid-template-columns:64px minmax(0,1fr); }
   body.portal--workspace .cadu-ds-brand-workarea > .cadu-ds-entity-portal {
     position:relative;
@@ -720,7 +720,7 @@ body.portal--workspace .cadu-ds-brand-shell .cadu-ds-brand-library > aside img {
 
 /* Brand dossier frame: match the project navigation and use the full reading
    column. The right rail is the designer's quick-reference kit. */
-@media (min-width:901px) {
+@media (min-width:1025px) {
   body.portal--workspace .cadu-ds-brand-workarea > .cadu-ds-entity-portal--brand {
     grid-template-columns:var(--cadu-sidebar-width,239px) minmax(0,1fr) 292px;
   }
@@ -772,7 +772,7 @@ body.portal--workspace .cadu-ds-brand-designer-kit__identity > .cadu-ds-visual-i
 body.portal--workspace .cadu-ds-brand-designer-kit__identity > .cadu-ds-visual-identity img { width:100%; height:100%; padding:5px; box-sizing:border-box; object-fit:contain; }
 body.portal--workspace .cadu-ds-brand-designer-kit__identity > span { display:grid; min-width:0; gap:3px; }
 body.portal--workspace .cadu-ds-brand-designer-kit__identity b { overflow:hidden; font-size:13px; font-weight:700; text-overflow:ellipsis; white-space:nowrap; }
-body.portal--workspace .cadu-ds-brand-designer-kit__identity small { color:var(--cadu-muted); font-size:9px; }
+body.portal--workspace .cadu-ds-brand-designer-kit__identity small { color:var(--cadu-muted); font-size:11px; }
 body.portal--workspace .cadu-ds-brand-designer-kit__section { display:grid; gap:9px; padding-top:16px; border-top:1px solid var(--cadu-line); }
 body.portal--workspace .cadu-ds-brand-designer-kit__section > strong { font-size:10px; font-weight:700; }
 body.portal--workspace .cadu-ds-brand-designer-kit__palette { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
@@ -782,12 +782,12 @@ body.portal--workspace .cadu-ds-brand-designer-kit__palette i { width:20px; heig
 body.portal--workspace .cadu-ds-brand-designer-kit__palette span,
 body.portal--workspace .cadu-ds-brand-designer-kit__fonts div { display:grid; min-width:0; gap:1px; }
 body.portal--workspace .cadu-ds-brand-designer-kit__palette b,
-body.portal--workspace .cadu-ds-brand-designer-kit__fonts b { overflow:hidden; font-size:9px; font-weight:650; text-overflow:ellipsis; white-space:nowrap; }
+body.portal--workspace .cadu-ds-brand-designer-kit__fonts b { overflow:hidden; font-size:11px; font-weight:650; text-overflow:ellipsis; white-space:nowrap; }
 body.portal--workspace .cadu-ds-brand-designer-kit__palette small,
-body.portal--workspace .cadu-ds-brand-designer-kit__fonts small { overflow:hidden; color:var(--cadu-muted); font-size:8px; text-overflow:ellipsis; white-space:nowrap; }
+body.portal--workspace .cadu-ds-brand-designer-kit__fonts small { overflow:hidden; color:var(--cadu-muted); font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
 body.portal--workspace .cadu-ds-brand-designer-kit__fonts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px 12px; }
 
-@media (max-width:900px) {
+@media (max-width:1024px) {
   body.portal--workspace .cadu-ds-brand-data-viewer .cadu-ds-brand-atlas__columns { grid-template-columns:1fr; gap:12px; }
 }
 
@@ -848,7 +848,7 @@ body.portal--workspace .cadu-ds-brand-audit-site {
   padding:4px 0;
 }
 
-body.portal--workspace .cadu-ds-brand-audit-site small { color:var(--cadu-muted); font-size:9px; }
+body.portal--workspace .cadu-ds-brand-audit-site small { color:var(--cadu-muted); font-size:11px; }
 body.portal--workspace .cadu-ds-brand-audit-site b { overflow:hidden; font-size:12px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
 body.portal--workspace .cadu-ds-brand-audit-empty { margin:0; color:var(--cadu-muted); font-size:10px; line-height:1.5; }
 body.portal--workspace .cadu-ds-brand-audit-sources { padding-bottom:4px; }
@@ -860,11 +860,11 @@ body.portal--workspace .cadu-ds-brand-audit-sources__form input[type=url] { min-
 body.portal--workspace .cadu-ds-brand-audit-sources__exclude { display:flex; align-items:center; gap:7px; min-height:32px; font-weight:500; }
 body.portal--workspace .cadu-ds-brand-audit-sources__exclude input { width:auto; }
 body.portal--workspace .cadu-ds-brand-audit-sources__form > button { min-height:32px; padding:0 11px; border:0; border-radius:8px; background:var(--cadu-accent-soft); color:var(--cadu-accent-strong); font:650 10px var(--cadu-font-sans); cursor:pointer; }
-body.portal--workspace .cadu-ds-brand-audit-sources__form > small { grid-column:1/-1; color:var(--cadu-danger,#a34032); font-size:9px; }
+body.portal--workspace .cadu-ds-brand-audit-sources__form > small { grid-column:1/-1; color:var(--cadu-danger,#a34032); font-size:11px; }
 body.portal--workspace .cadu-ds-brand-audit-source-list { display:grid; gap:5px; margin-top:12px; }
-body.portal--workspace .cadu-ds-brand-audit-source-list > strong { color:var(--cadu-muted); font-size:9px; }
+body.portal--workspace .cadu-ds-brand-audit-source-list > strong { color:var(--cadu-muted); font-size:11px; }
 body.portal--workspace .cadu-ds-brand-audit-source-list > span { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:center; min-height:27px; padding:0 7px 0 9px; border-radius:7px; background:var(--cadu-surface-soft); }
-body.portal--workspace .cadu-ds-brand-audit-source-list b { overflow:hidden; font-size:9px; font-weight:550; text-overflow:ellipsis; white-space:nowrap; }
+body.portal--workspace .cadu-ds-brand-audit-source-list b { overflow:hidden; font-size:11px; font-weight:550; text-overflow:ellipsis; white-space:nowrap; }
 body.portal--workspace .cadu-ds-brand-audit-source-list button { width:22px; height:22px; padding:0; border:0; background:transparent; color:var(--cadu-muted); cursor:pointer; }
 body.portal--workspace .cadu-ds-brand-audit-source-list.is-excluded > span { color:var(--cadu-muted); text-decoration:line-through; }
 
@@ -912,7 +912,7 @@ body.portal--workspace .cadu-ds-brand-audit-uploads__files { display:grid; grid-
 body.portal--workspace .cadu-ds-brand-audit-uploads__files button { display:grid; min-width:0; gap:5px; padding:4px; border:1px solid var(--cadu-line); border-radius:8px; background:var(--cadu-surface); color:var(--cadu-muted); font:600 8px var(--cadu-font-sans); cursor:pointer; }
 body.portal--workspace .cadu-ds-brand-audit-uploads__files button.is-logo { border-color:var(--cadu-accent); color:var(--cadu-accent-strong); box-shadow:0 0 0 1px var(--cadu-accent); }
 body.portal--workspace .cadu-ds-brand-audit-uploads__files img { width:100%; height:48px; border-radius:5px; object-fit:contain; background:var(--cadu-surface-soft); }
-body.portal--workspace .cadu-ds-brand-audit-uploads__files small { overflow:hidden; color:var(--cadu-muted); font-size:7px; font-weight:400; text-overflow:ellipsis; white-space:nowrap; }
+body.portal--workspace .cadu-ds-brand-audit-uploads__files small { overflow:hidden; color:var(--cadu-muted); font-size:11px; font-weight:400; text-overflow:ellipsis; white-space:nowrap; }
 
 body.portal--workspace .cadu-ds-brand-audit-dialog .cadu-ds-brand-audit-dialog__scope { gap:10px; padding:22px 24px 26px; }
 body.portal--workspace .cadu-ds-brand-audit-dialog__scope > label { gap:7px; padding:12px; border:1px solid var(--cadu-line); border-radius:10px; background:var(--cadu-surface); cursor:pointer; }
@@ -920,8 +920,8 @@ body.portal--workspace .cadu-ds-brand-audit-dialog__scope > label.is-selected { 
 body.portal--workspace .cadu-ds-brand-audit-dialog__scope > label > span { display:grid; grid-template-columns:auto minmax(0,1fr) auto; }
 body.portal--workspace .cadu-ds-brand-audit-dialog__scope > label input { width:auto; }
 body.portal--workspace .cadu-ds-brand-audit-dialog__scope > label b { font-size:11px; }
-body.portal--workspace .cadu-ds-brand-audit-dialog__scope > label em { color:var(--cadu-muted); font-size:9px; font-style:normal; font-weight:500; }
-body.portal--workspace .cadu-ds-brand-audit-dialog__scope > label small { padding-left:22px; font-size:9px; font-weight:400; }
+body.portal--workspace .cadu-ds-brand-audit-dialog__scope > label em { color:var(--cadu-muted); font-size:11px; font-style:normal; font-weight:500; }
+body.portal--workspace .cadu-ds-brand-audit-dialog__scope > label small { padding-left:22px; font-size:11px; font-weight:400; }
 body.portal--workspace .cadu-ds-brand-audit-dialog__footer {
   display:flex;
   min-height:66px;
@@ -977,12 +977,12 @@ body.portal--workspace .cadu-ds-brand-audit-starting button:hover,
 body.portal--workspace .cadu-ds-brand-audit-starting button:focus-visible { color:var(--cadu-ink); text-decoration:underline; outline:0; }
 @keyframes cadu-brand-starting-spin { to { transform:rotate(360deg); } }
 
-@media(max-width:1000px) {
+@media(max-width:1024px) {
   body.portal--workspace .cadu-ds-brand-audit-dialog__columns { grid-template-columns:repeat(2,minmax(0,1fr)); }
   body.portal--workspace .cadu-ds-brand-audit-dialog__scope { grid-column:1/-1; border-top:1px solid var(--cadu-line); border-left:0!important; }
 }
 
-@media(max-width:700px) {
+@media(max-width:760px) {
   body.portal--workspace .cadu-ds-brand-audit-dialog { width:calc(100vw - 20px); max-height:calc(100dvh - 20px); }
   body.portal--workspace .cadu-ds-brand-audit-dialog > header { padding:18px 18px 14px; }
   body.portal--workspace .cadu-ds-brand-audit-dialog__columns { grid-template-columns:1fr; }
@@ -1014,7 +1014,7 @@ body.portal--workspace .cadu-ds-brand-responsive-management { display:none; }
 }
 
 /* Give the dossier a readable central column on laptop and tablet widths. */
-@media (min-width:901px) and (max-width:1800px) {
+@media (min-width:1025px) and (max-width:1800px) {
   body.portal--workspace .cadu-ds-brand-workarea > .cadu-ds-entity-portal--brand {
     grid-template-columns:var(--cadu-sidebar-width,239px) minmax(0,1fr);
   }

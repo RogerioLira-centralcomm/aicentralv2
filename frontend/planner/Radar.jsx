@@ -16,6 +16,34 @@ const VERDICTS = {confirmado: ['Confirmada', 'success'], parcial: ['Evidência p
 const STEP_STATUS = {pending: 'Aguardando', running: 'Em andamento', done: 'Concluída', failed: 'Falhou', skipped: 'Pulada'};
 const tokens = value => Number(value || 0).toLocaleString('pt-BR');
 
+/**
+ * Ideias de busca: cada lente vira um pedido completo, já com a marca. É o
+ * jeito mais rápido de o planejador pedir bem (tema + recorte), em vez de
+ * digitar só o nome da marca.
+ */
+const IDEAS = [
+  {id: 'datas', icon: 'calendar', label: 'Datas e sazonalidade', text: who => `datas comerciais, eventos e sazonalidade das próximas semanas que abrem espaço para ${who}`},
+  {id: 'concorrentes', icon: 'users', label: 'Concorrentes', text: who => `lançamentos, campanhas e movimentos recentes dos concorrentes de ${who}`},
+  {id: 'tendencias', icon: 'pulse', label: 'Tendências e buscas em alta', text: who => `assuntos e buscas em alta ligados ao setor de ${who}`},
+  {id: 'regulacao', icon: 'check', label: 'Regulação e governo', text: who => `mudanças de regra, decisões de governo e reguladores que afetam ${who}`},
+  {id: 'reputacao', icon: 'analysis', label: 'Reputação e imprensa', text: who => `o que a imprensa e o público estão falando sobre ${who}`},
+  {id: 'praca', icon: 'search', label: 'Notícias da praça', text: who => `fatos locais recentes em [sua praça] que dão gancho para ${who}`},
+];
+
+/** Ajuda curta para pedir bem; aberta até a primeira busca. */
+function RadarTips({open}) {
+  return <details className="radar-tips" open={open}>
+    <summary>Como pedir uma boa busca</summary>
+    <ul>
+      <li><strong>Tema + recorte.</strong> "Black Friday de eletrodomésticos em BH" rende mais que "Black Friday".</li>
+      <li><strong>Escolha a marca no topo.</strong> O Radar usa o perfil dela: público, concorrentes e posicionamento.</li>
+      <li><strong>Diga a praça</strong> quando a campanha for regional. A imprensa local entra na busca.</li>
+      <li><strong>Uma pergunta por busca.</strong> Temas misturados viram oportunidades genéricas.</li>
+      <li><strong>Janela:</strong> o Radar olha os últimos 30 a 60 dias e confere cada fato em mais de uma fonte.</li>
+    </ul>
+  </details>;
+}
+
 /** Organic × paid decision matrix, the Radar's main reading. */
 function Matrix({opportunities}) {
   const box = key => {
@@ -174,6 +202,12 @@ export function RadarPage({boot, request, notify, context}) {
           <CaduButton type="submit" loading={starting} disabled={!enabled || running || (focus.trim().length < 3 && !brand && !project)}>
             <Icon name="search" size={16}/>Buscar oportunidades</CaduButton>
         </div>
+        <div className="radar-ideas" role="group" aria-label="Ideias de busca">
+          {IDEAS.map(idea => <button key={idea.id} type="button" disabled={!enabled || running}
+            onClick={() => setFocus(idea.text(brand?.name || project?.name || 'a marca'))}>
+            <Icon name={idea.icon} size={14}/>{idea.label}</button>)}
+        </div>
+        {!brand && !project && enabled && <p className="radar-compose__hint">Escolha uma marca ou um projeto no topo: as ideias e a busca passam a usar o perfil dela.</p>}
         <p className="radar-compose__meta">
           {(brand || project) && <span>Contexto: {[brand?.name, project?.name].filter(Boolean).join(' · ')}</span>}
           {enabled ? <span>Cada busca reserva até {estimate ? tokens(estimate.estimated_tokens) : '…'} tokens dos seus créditos; você paga só o que usar.</span>
@@ -181,6 +215,8 @@ export function RadarPage({boot, request, notify, context}) {
         </p>
       </div>
     </form>
+
+    <RadarTips open={!run}/>
 
     {run ? <RunChain run={run}/> : <ol className="radar-how" aria-label="Como o Radar trabalha">
       <li><strong>Descobre e busca, em paralelo</strong><small>Perplexity e Firecrawl procuram sinais recentes por caminhos independentes.</small></li>
@@ -197,7 +233,11 @@ export function RadarPage({boot, request, notify, context}) {
           busy={planning === item.id} onPlan={createPlan}/>)}</div>
       </section>
     </>}
-    {run?.status === 'done' && !opportunities.length && <p className="planner-muted">A busca não encontrou oportunidades fortes o suficiente. Tente um tema mais específico.</p>}
+    {run?.status === 'done' && !opportunities.length && <div className="radar-empty-result">
+      <Illustration slot="radar-empty"/>
+      <div><strong>Nenhuma oportunidade forte desta vez.</strong>
+        <p className="planner-muted">Tente recortar mais: acrescente a praça, o período ou comece por uma das ideias de busca acima.</p></div>
+    </div>}
   </>;
 }
 

@@ -35,12 +35,14 @@ Cada placeholder carrega o próprio briefing de criação. Ele fica no `<desc>` 
 
 | Slot | Onde aparece | Tamanho exibido | Estilo | Briefing |
 |---|---|---|---|---|
-| `radar-scan` | Radar, enquanto a busca roda (cadeia de etapas) | 240×160 | 3D | Antena de radar verde sobre uma base de papel dobrado, varrendo um mapa com três pontos de sinal que acendem (notícia, busca, rede social como ícones simples). Ondas concêntricas em `#75E0A7` translúcido. |
-| `radar-empty` | Radar antes da primeira busca | 240×160 | 2D | Luneta apontada para um horizonte com nuvens e um pequeno brilho: "ainda não procuramos". |
+| `radar-scan` | Radar, enquanto a busca roda (cadeia de etapas) | 240×160 | **Arte final** (`static/images/planner/illustrations/radar-scan.webp`, flat editorial #1DBF73) | Mascote com binóculo ao lado da antena varrendo a cidade; notícia, busca e celular acendem. Prompt em `docs/prompts-radar-wizard-image-2-5.md`. |
+| `radar-empty` | Radar antes da primeira busca | 240×160 | **Arte final** (`radar-empty.webp`) | Mascote com luneta no morro, horizonte calmo e um brilho verde. |
 | `balance` | Balanceamento de mídia carregando | 200×140 | 3D | Balança de pratos em que cada prato tem blocos de cores diferentes (TV, celular, jornal, fone) se equilibrando. Um dos blocos desce suavemente para o lugar. |
 | `review` | Revisão final do plano (modal) | 200×140 | 2D | Prancheta com lista de checagem: três itens recebem um check verde e uma lupa fica sobre o último item. |
 | `plan-building` | Cadu montando ou recalculando o plano | 240×160 | 3D | Blocos de montar empilhando-se em degraus (briefing, audiência, canais, verba), com o último bloco descendo com um leve brilho verde. |
 | `time-saved` | Selo de tempo poupado (revisão e cabeçalho do plano) | 56×56 (lido a 18 px) | 2D | Ampulheta inclinada com a areia em `#17B26A` e um raio pequeno ao lado. Precisa ser legível a 18 px. |
+
+Cenas do wizard do Radar (`radar-1-marca` a `radar-5-revisao`, 900 px de largura) já estão em `static/images/planner/illustrations/` e entram no `RadarWizard.jsx` (fase 1 do plano v2).
 
 ## Ao criar um espaço novo
 

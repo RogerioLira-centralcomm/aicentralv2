@@ -937,6 +937,7 @@ a.planner-portal { padding: var(--sp-3) var(--sp-4); gap: var(--sp-4); }
 
 /* ---------- Ilustrações (placeholders com briefing de criação) ---------- */
 .ill { display: block; flex: none; max-width: 100%; height: auto; }
+.ill--art { border-radius: 16px; object-fit: cover; aspect-ratio: 3 / 2; }
 .ill__bg { fill: var(--planner-brand-soft); }
 .ill__ring { fill: none; stroke: var(--planner-brand-line); stroke-width: 2; }
 .ill__sweep { fill: var(--planner-tone-2); opacity: .55; transform-origin: 120px 92px; }
@@ -949,12 +950,14 @@ a.planner-portal { padding: var(--sp-3) var(--sp-4); gap: var(--sp-4); }
 .ill__tilt { transform-origin: 100px 52px; }
 @media (prefers-reduced-motion: no-preference) {
   .ill.is-busy .ill__sweep { animation: ill-spin 2.4s linear infinite; }
+  .ill--art.is-busy { animation: ill-breathe 2.4s ease-in-out infinite alternate; }
   .ill.is-busy .ill__dot { animation: ill-blink 1.8s ease-in-out infinite; }
   .ill.is-busy .ill__dot--late { animation-delay: .6s; }
   .ill.is-busy .ill__dot--later { animation-delay: 1.2s; }
   .ill.is-busy .ill__tilt { animation: ill-tilt 2.2s ease-in-out infinite alternate; }
   .ill.is-busy .ill__drop { animation: ill-drop 1.6s ease-in-out infinite; }
 }
+@keyframes ill-breathe { from { filter: saturate(.85); transform: scale(1); } to { filter: saturate(1.1); transform: scale(1.015); } }
 @keyframes ill-spin { to { transform: rotate(360deg); } }
 @keyframes ill-blink { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
 @keyframes ill-tilt { from { transform: rotate(-4deg); } to { transform: rotate(4deg); } }
@@ -1096,6 +1099,18 @@ a.planner-portal { padding: var(--sp-3) var(--sp-4); gap: var(--sp-4); }
 .radar-compose__body { display: grid; flex: 1; gap: var(--sp-2); min-width: 0; }
 .radar-compose label { font-size: 16px; font-weight: 600; }
 .radar-compose__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-3); }
+.radar-ideas { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); }
+.radar-ideas::-webkit-scrollbar { display: none; }
+.radar-ideas button { display: inline-flex; align-items: center; gap: 6px; flex: none; white-space: nowrap; padding: 6px 12px; border: 1px solid var(--planner-line); border-radius: 99px; background: var(--planner-surface); color: inherit; font-size: 13px; cursor: pointer; }
+.radar-ideas button:hover:not(:disabled) { border-color: var(--colors-brand-600, #079455); color: #067647; }
+.radar-ideas button:disabled { opacity: .5; cursor: default; }
+.radar-compose__hint { margin: 0; font-size: 13px; color: var(--planner-muted); }
+.radar-tips { margin-bottom: var(--sp-6); padding: var(--sp-4) var(--sp-6); border-radius: var(--planner-radius); background: var(--planner-soft); }
+.radar-tips summary { font-weight: 600; cursor: pointer; }
+.radar-tips ul { margin: var(--sp-3) 0 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; }
+.radar-empty-result { display: flex; align-items: center; gap: var(--sp-6); padding: var(--sp-6); border-radius: var(--planner-radius); background: var(--planner-soft); }
+.radar-empty-result p { margin: var(--sp-1) 0 0; }
 .radar-compose__meta { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); margin: 0; color: var(--planner-muted); font-size: 13px; }
 .radar-how { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-4); margin: 0; padding: 0; list-style: none; counter-reset: how; }
 .radar-how li { display: grid; gap: var(--sp-1); padding-top: var(--sp-3); box-shadow: inset 0 2px 0 var(--planner-brand-line); counter-increment: how; }

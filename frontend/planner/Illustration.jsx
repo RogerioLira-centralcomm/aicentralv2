@@ -14,11 +14,11 @@ const PALETTE = 'Paleta Cadu Planner: verde #067647 (principal), #079455, #17B26
 
 export const ILLUSTRATIONS = {
   'radar-scan': {
-    size: [240, 160], style: '3D',
+    size: [240, 160], style: '2D', art: 'radar-scan.webp',
     brief: `3D isométrico, estilo argila fosca: uma antena de radar verde sobre uma base de papel dobrado, varrendo um mapa com três pontos de sinal que acendem (notícia, busca, rede social como ícones simples). Ondas concêntricas em #75E0A7 translúcido. Uso: tela do Radar enquanto a busca roda. ${PALETTE}`,
   },
   'radar-empty': {
-    size: [240, 160], style: '2D',
+    size: [240, 160], style: '2D', art: 'radar-empty.webp',
     brief: `2D vetorial, traço fino 2px #067647 e preenchimentos chapados: luneta apontada para um horizonte com nuvens e um pequeno brilho. Transmite "ainda não procuramos". Uso: Radar sem oportunidades. ${PALETTE}`,
   },
   'balance': {
@@ -63,11 +63,17 @@ const shapes = {
   'time-saved': <><circle cx="28" cy="28" r="20" className="ill__soft"/><path d="M20 16 H36 L28 28 L36 40 H20 L28 28 Z" className="ill__solid"/></>,
 };
 
-/** Placeholder da ilustração `slot`; `busy` anima de leve (respeita movimento reduzido). */
+const ART = '/static/images/planner/illustrations/';
+
+/** Ilustração `slot`: a arte final quando existe, senão o placeholder; `busy` anima de leve (respeita movimento reduzido). */
 export function Illustration({slot, busy = false, className = ''}) {
   const spec = ILLUSTRATIONS[slot];
   if (!spec) return null;
   const [width, height] = spec.size;
+  if (spec.art) {
+    return <img className={`ill ill--art${busy ? ' is-busy' : ''} ${className}`} src={ART + spec.art} width={width} height={height}
+      alt="" aria-hidden="true" decoding="async" data-illustration-slot={slot}/>;
+  }
   return <svg className={`ill${busy ? ' is-busy' : ''} ${className}`} viewBox={`0 0 ${width} ${height}`} width={width} height={height}
     aria-hidden="true" focusable="false" data-illustration-slot={slot} data-illustration-style={spec.style} data-illustration-brief={spec.brief}>
     <desc>{`Placeholder ${slot} (${spec.style}). Briefing: ${spec.brief}`}</desc>

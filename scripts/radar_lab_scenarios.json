@@ -1,0 +1,38 @@
+[
+  {
+    "name": "cemig",
+    "brand_ref": "studio:31",
+    "project_ref": "ci:1e3b2924-cc9f-42ba-b288-b94a4c9d5d90",
+    "brand_name": "Cemig",
+    "sector": "Energia elétrica",
+    "site": "https://www.cemig.com.br",
+    "facts": ["Distribuidora e geradora de energia de Minas Gerais", "Clientes residenciais, empresas e rural"],
+    "focus": "conta de luz, bandeira tarifária, calor e consumo consciente no fim do ano",
+    "places": "Minas Gerais, Belo Horizonte",
+    "lenses": ["Sazonalidade e datas", "Regulação", "Reputação"],
+    "recency_days": 30
+  },
+  {
+    "name": "nike",
+    "brand_ref": "studio:50",
+    "brand_name": "Nike",
+    "sector": "Artigos esportivos",
+    "site": "https://www.nike.com.br",
+    "facts": ["Marca global de calçados e roupas esportivas"],
+    "focus": "corrida de rua, provas de fim de ano e São Silvestre",
+    "places": "São Paulo, Rio de Janeiro",
+    "lenses": ["Tendências e cultura", "Concorrência", "Sazonalidade e datas"],
+    "recency_days": 30
+  },
+  {
+    "name": "bomfim",
+    "brand_ref": "studio:52",
+    "brand_name": "Bomfim Cargas",
+    "sector": "Transporte e logística de cargas",
+    "facts": ["Transportadora rodoviária de cargas"],
+    "focus": "pico logístico de Black Friday e Natal, frete e estradas",
+    "places": "Minas Gerais, São Paulo",
+    "lenses": ["Sazonalidade e datas", "Lançamentos do setor", "Regulação"],
+    "recency_days": 30
+  }
+]

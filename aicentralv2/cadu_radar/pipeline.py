@@ -30,6 +30,7 @@ from psycopg.types.json import Json
 from werkzeug.exceptions import BadRequest
 
 from . import prompts, scoring, sources as source_base
+from .db import transaction
 from .contracts import QUADRANTS
 from .research import build_packet, check_url, citations, facts_from, json_loads, parse_date, python_read
 
@@ -138,7 +139,7 @@ def start_run(client_id, actor_id, *, focus='', brand_ref=None, project_ref=None
     # Sem saldo para o teto, o run nem começa (409 na rota).
     CaduCreditConnector().authorize(CreditActor.from_values(client_id, actor_id), estimate)
     run_id = str(uuid4())
-    with repository.get_db() as conn, conn.cursor() as cur:
+    with transaction() as cur:
         cur.execute('''INSERT INTO cadu_radar_runs (id, client_id, created_by, brand_ref, project_ref, status, steps, cost, focus,
                                                     params, trigger, watch_id, lease_until)
                        VALUES (%s, %s, %s, %s, %s, 'running', %s, %s, %s, %s, %s, %s, NOW() + make_interval(mins => %s))''',
@@ -203,7 +204,7 @@ def _finish(run_id, status, error=None):
 def _expire_dead_runs(client_id):
     """Um run cuja thread morreu (deploy, reinício) fica sem renovar o lease: vira falha em vez de travar a marca."""
     from ..cadu_family import repository
-    with repository.get_db() as conn, conn.cursor() as cur:
+    with transaction() as cur:
         cur.execute('''UPDATE cadu_radar_runs SET status = 'failed', finished_at = NOW(),
                               error = 'A busca foi interrompida. Rode de novo.'
                         WHERE client_id = %s AND status IN ('queued', 'running')

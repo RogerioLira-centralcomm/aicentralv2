@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import pytest
 from werkzeug.exceptions import BadRequest
 
-from aicentralv2.cadu_radar import watches
+from aicentralv2.cadu_radar import db as radar_db, watches
 
 
 def utc(day, hour):
@@ -56,17 +56,21 @@ class FakeCursor:
 
 
 class FakeConn:
+    """Conexão compartilhada de mentira: registra commit, rollback e, principalmente, se alguém a fechou."""
     def __init__(self, cursor):
-        self.cursor_ = cursor
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        return False
+        self.cursor_, self.commits, self.rollbacks, self.closed = cursor, 0, 0, False
 
     def cursor(self):
         return self.cursor_
+
+    def commit(self):
+        self.commits += 1
+
+    def rollback(self):
+        self.rollbacks += 1
+
+    def close(self):
+        self.closed = True
 
 
 def test_run_due_picks_with_skip_locked_reschedules_and_runs_inline(monkeypatch):
@@ -74,7 +78,8 @@ def test_run_due_picks_with_skip_locked_reschedules_and_runs_inline(monkeypatch)
     watch = {'id': 'w1', 'client_id': 5, 'owner_id': 8, 'focus': 'tema', 'brand_ref': 'studio:1', 'project_ref': None,
              'params': {}, 'frequency': 2}
     cursor = FakeCursor([watch])
-    monkeypatch.setattr(watches.repository, 'get_db', lambda: FakeConn(cursor))
+    conn = FakeConn(cursor)
+    monkeypatch.setattr(radar_db, 'get_db', lambda: conn)
     started = []
     monkeypatch.setattr(pipeline, 'start_run', lambda *args, **kwargs: started.append((args, kwargs)) or {'id': 'r1', 'status': 'done'})
     results = watches.run_due(3)
@@ -83,6 +88,7 @@ def test_run_due_picks_with_skip_locked_reschedules_and_runs_inline(monkeypatch)
     assert any(sql.startswith('UPDATE cadu_radar_watches SET next_run_at') for sql, _ in cursor.queries)
     (args, kwargs), = started
     assert args == (5, 8) and kwargs['background'] is False and kwargs['trigger'] == 'agendado' and kwargs['watch_id'] == 'w1'
+    assert not conn.closed and conn.commits >= 2  # o lock do SKIP LOCKED é liberado no commit
 
 
 def test_run_due_pauses_the_radar_when_credits_run_out(monkeypatch):
@@ -90,7 +96,8 @@ def test_run_due_pauses_the_radar_when_credits_run_out(monkeypatch):
     from aicentralv2.cadu_tool_billing import InsufficientToolCredits
     watch = {'id': 'w2', 'client_id': 5, 'owner_id': 8, 'focus': 'tema', 'brand_ref': None, 'project_ref': None, 'params': {}, 'frequency': 1}
     cursor = FakeCursor([watch])
-    monkeypatch.setattr(watches.repository, 'get_db', lambda: FakeConn(cursor))
+    conn = FakeConn(cursor)
+    monkeypatch.setattr(radar_db, 'get_db', lambda: conn)
 
     def broke(*args, **kwargs):
         raise InsufficientToolCredits('sem saldo')
@@ -98,3 +105,22 @@ def test_run_due_pauses_the_radar_when_credits_run_out(monkeypatch):
     monkeypatch.setattr(pipeline, 'start_run', broke)
     assert watches.run_due(3) == [{'watch': 'w2', 'status': 'sem_credito'}]
     assert any("status = 'sem_credito'" in sql for sql, _ in cursor.queries)
+
+
+def test_transaction_commits_and_never_closes_the_shared_connection(monkeypatch):
+    conn = FakeConn(FakeCursor([]))
+    monkeypatch.setattr(radar_db, 'get_db', lambda: conn)
+    with radar_db.transaction() as cur:
+        cur.execute('SELECT 1')
+    assert conn.commits == 1 and not conn.closed
+    with pytest.raises(RuntimeError), radar_db.transaction():
+        raise RuntimeError('falhou no meio')
+    assert conn.rollbacks == 1 and not conn.closed
+
+
+def test_radar_code_never_uses_the_shared_connection_as_a_context_manager():
+    """`with get_db() as conn` fecha a conexão da requisição (psycopg 3) e o resto da busca falha."""
+    from pathlib import Path
+    root = Path(radar_db.__file__).parent
+    offenders = [path.name for path in root.glob('*.py') if path.name != 'db.py' and 'get_db() as' in path.read_text()]
+    assert offenders == []

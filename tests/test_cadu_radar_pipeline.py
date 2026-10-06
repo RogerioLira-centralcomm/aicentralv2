@@ -195,21 +195,10 @@ def test_step_progress_concatenates_cost_as_jsonb(monkeypatch):
 
 
 def test_dead_run_expiry_also_covers_runs_without_a_lease(monkeypatch):
+    from aicentralv2.cadu_radar import db as radar_db
     spy = SqlSpy()
-
-    class Repo:
-        @staticmethod
-        def get_db():
-            class Ctx:
-                def __enter__(self_inner):
-                    return spy
-
-                def __exit__(self_inner, *args):
-                    return False
-            return Ctx()
-
-    from aicentralv2.cadu_family import repository
-    monkeypatch.setattr(repository, 'get_db', Repo.get_db)
+    spy.rollback = lambda: None
+    monkeypatch.setattr(radar_db, 'get_db', lambda: spy)
     pipeline._expire_dead_runs(5)
     sql, = spy.statements
     # Runs do pipeline antigo não têm lease: contam 20 minutos desde a criação em vez de travar a marca para sempre.

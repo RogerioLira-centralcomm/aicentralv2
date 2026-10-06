@@ -16,6 +16,7 @@ from werkzeug.exceptions import BadRequest, NotFound
 
 from ..cadu_family import repository
 from . import pipeline
+from .db import transaction
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +67,7 @@ def create_watch(client_id, owner_id, *, focus='', brand_ref=None, project_ref=N
     if active >= MAX_ACTIVE_PER_CLIENT:
         raise BadRequest(f'Seu limite é de {MAX_ACTIVE_PER_CLIENT} radares ativos. Pause um para criar outro.')
     watch_id = str(uuid4())
-    with repository.get_db() as conn, conn.cursor() as cur:
+    with transaction() as cur:
         cur.execute('''INSERT INTO cadu_radar_watches (id, client_id, owner_id, brand_ref, project_ref, name, focus, params,
                                                        frequency, min_score, status, next_run_at)
                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'ativo', %s)''',
@@ -103,14 +104,14 @@ def update_watch(client_id, watch_id, *, status=None, frequency=None):
         sets.append('next_run_at = %s')
         params.append(next_run_at(new_frequency))
     params.extend([str(watch_id), int(client_id)])
-    with repository.get_db() as conn, conn.cursor() as cur:
+    with transaction() as cur:
         cur.execute(f"UPDATE cadu_radar_watches SET {', '.join(sets)} WHERE id = %s AND client_id = %s", params)
     return get_watch(client_id, watch_id)
 
 
 def delete_watch(client_id, watch_id):
     get_watch(client_id, watch_id)
-    with repository.get_db() as conn, conn.cursor() as cur:
+    with transaction() as cur:
         # As consultas já feitas continuam no histórico, só perdem o vínculo.
         cur.execute('UPDATE cadu_radar_runs SET watch_id = NULL WHERE watch_id = %s', (str(watch_id),))
         cur.execute('DELETE FROM cadu_radar_watches WHERE id = %s AND client_id = %s', (str(watch_id), int(client_id)))
@@ -121,7 +122,7 @@ def run_due(limit=3):
     from ..cadu_tool_billing import InsufficientToolCredits
     results = []
     for _ in range(max(1, int(limit))):
-        with repository.get_db() as conn, conn.cursor() as cur:
+        with transaction() as cur:
             # Dois agendadores ao mesmo tempo não pegam o mesmo radar.
             cur.execute(f'''SELECT {COLUMNS} FROM cadu_radar_watches WHERE status = 'ativo' AND next_run_at <= NOW()
                             ORDER BY next_run_at LIMIT 1 FOR UPDATE SKIP LOCKED''')
@@ -137,11 +138,11 @@ def run_due(limit=3):
                                      trigger='agendado', watch_id=str(watch['id']))
             outcome['run'] = str(run['id'])
             outcome['status'] = run['status']
-            with repository.get_db() as conn, conn.cursor() as cur:
+            with transaction() as cur:
                 cur.execute('UPDATE cadu_radar_watches SET last_run_id = %s WHERE id = %s', (str(run['id']), str(watch['id'])))
         except InsufficientToolCredits:
             outcome['status'] = 'sem_credito'
-            with repository.get_db() as conn, conn.cursor() as cur:
+            with transaction() as cur:
                 cur.execute("UPDATE cadu_radar_watches SET status = 'sem_credito', next_run_at = NULL WHERE id = %s", (str(watch['id']),))
         except BadRequest as exc:
             outcome['status'] = f'pulado: {exc.description}'

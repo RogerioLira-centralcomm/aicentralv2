@@ -36,7 +36,7 @@ def create_plan(client_id, actor_id, opportunity_id, context):
     """Nasce um planejamento a partir da oportunidade: tese vira briefing, praças viram geografia."""
     from werkzeug.exceptions import NotFound
     from ..cadu_planner import plans
-    from ..db import get_db
+    from .db import transaction
     rows = repository.rows('''SELECT id, title, thesis, geo_scores, score_breakdown, brand_ref, project_ref, quadrant
                                 FROM cadu_radar_opportunities WHERE id = %s AND client_id = %s''',
                            (str(opportunity_id), int(client_id)))
@@ -53,7 +53,7 @@ def create_plan(client_id, actor_id, opportunity_id, context):
         'title': item['title'][:180], 'objective': objective,
         'briefing': {'notes': notes[:2000], 'geography': ', '.join(places)[:120]},
         'brand_ref': item.get('brand_ref'), 'project_ref': item.get('project_ref')}, context)
-    with get_db() as conn, conn.cursor() as cur:
+    with transaction() as cur:
         if plans._cobuild_available():
             cur.execute("UPDATE cadu_planner_plans SET source = 'radar', opportunity_id = %s WHERE id = %s",
                         (str(item['id']), str(plan['id'])))

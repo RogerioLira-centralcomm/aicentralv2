@@ -120,3 +120,9 @@
 .ph--filters .aud-bar { flex: 1 1 auto; min-width: 0; max-width: 900px; }
 .ph--filters .aud-bar__field { padding: 7px 14px; }
 @media (max-width: 1100px) { .ph--filters { flex-wrap: wrap; gap: 8px 16px; } .ph--filters .ph__actions { width: 100%; flex-wrap: wrap; } .ph--filters .aud-bar { max-width: none; width: 100%; } }
+
+/* Compact bar: 15% shorter (68 -> 58px), links laid out horizontally (icon beside label), no mega menu. */
+.pn__bar { min-height: 58px; }
+.pn__link { flex-direction: row; gap: 7px; padding: 0 12px; font-size: 13px; }
+.pn__panel { display: none; }
+@media (max-width: 1500px) { .pn__link { padding: 0 10px; } }

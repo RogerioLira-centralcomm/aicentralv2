@@ -469,3 +469,17 @@ body.portal--workspace .cadu-ds-context-sidebar.is-rail .cadu-sidebar-account__u
 
 .cadu-ds-context-sidebar.is-collapsed .cadu-ds-context-sidebar__solution { flex:0 0 auto; }
 .cadu-ds-context-sidebar.is-collapsed .cadu-ds-context-sidebar__solution .cadu-ds-solution-switcher summary { width:34px; height:34px; justify-content:center; padding:0; }
+
+/* Account between 761px and 1024px: the Conta nav becomes top tabs, forms and row actions stack. */
+@media (min-width:761px) and (max-width:1024px) {
+  html body.portal--workspace .cadu-ds-account-workarea > .cadu-ds-entity-portal--account { grid-template-columns:minmax(0,1fr); }
+  html body.portal--workspace .cadu-ds-entity-portal--account > .cadu-ds-entity-nav { display:block; width:auto; position:static; height:auto; overflow:visible; border-right:0; border-bottom:1px solid var(--cadu-line); }
+  html body.portal--workspace .cadu-ds-entity-portal--account > .cadu-ds-entity-nav > nav { display:flex; flex-wrap:wrap; }
+  html body.portal--workspace .cadu-ds-entity-portal--account > .cadu-ds-account-content { grid-column:1; }
+}
+@media (max-width:1024px) {
+  html body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-inline-form { display:flex; flex-wrap:wrap; align-items:flex-end; }
+  html body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-inline-form > :first-child { flex:1 1 100%; }
+  html body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-list > :is(article, a) { grid-template-columns:36px minmax(0,1fr) auto; }
+  html body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-list .cadu-ds-account-row-actions { grid-column:1/-1; flex-wrap:wrap; justify-content:flex-start; min-width:0; }
+}

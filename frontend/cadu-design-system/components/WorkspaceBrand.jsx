@@ -336,6 +336,10 @@ function reviewCopy(brand) {
   if (status === 'approved') return ['Identidade aprovada', 'Esta versão já orienta projetos e conversas vinculados à marca.'];
   if (status === 'queued' || status === 'running') { const mode = brand.reviewPack?.input?.analysis_mode === 'deep' ? 'profunda' : 'completa'; const time = mode === 'profunda' ? '6–12 minutos' : '3–8 minutos'; return ['Análise em andamento', `${brand.reviewPack?.message || 'Coleta e revisão em segundo plano.'} Estimativa total: ${time}. Você receberá um e-mail ao finalizar e o resultado aparecerá nesta página.`]; }
   if (status === 'failed') return ['Análise precisa ser repetida', brand.reviewPack?.error || 'A proposta não foi concluída.'];
+  const score = Math.round(Number(brand.readiness?.score) || 0);
+  const missing = brand.readiness?.missing || [];
+  const audited = status === 'completed' || (brand.auditHistory || []).some(item => ['completed', 'pending_approval', 'approved'].includes(item.status));
+  if (audited || score > 0) return [score >= 80 ? 'Base consolidada' : 'Base em construção', `${score ? `Cobertura de ${score}%. ` : ''}${missing.length ? `Para completar: ${missing.join(' · ')}.` : 'A base já orienta projetos e conversas vinculados à marca.'}`];
   return ['Análise ainda não iniciada', brand.websiteUrl ? 'Use o site e os ativos da marca para criar uma primeira proposta de identidade.' : 'Adicione o site oficial ou uma referência visual para criar uma primeira proposta de identidade.'];
 }
 

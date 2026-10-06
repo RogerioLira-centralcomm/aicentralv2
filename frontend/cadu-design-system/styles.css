@@ -4622,3 +4622,11 @@ body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-list small { font
   body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-metrics article { padding:16px; }
   body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-table :is(th,td) { padding:10px 12px; }
 }
+
+/* Legacy pages that belong to Conta (Observabilidade): closed rail + account sidebar, like the React Conta pages. */
+@media (min-width:761px) {
+  .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root .cadu-ds-entity-nav) { grid-template-columns:76px var(--cadu-sidebar-width,239px) minmax(0,1fr); }
+  .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root .cadu-ds-entity-nav) .cadu-workspace-legacy-chrome-root > .cadu-ds-context-sidebar { grid-column:1; grid-row:1; }
+  .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root .cadu-ds-entity-nav) .cadu-workspace-legacy-chrome-root > .cadu-ds-entity-nav { grid-column:2; grid-row:1; position:sticky; top:0; align-self:start; height:100dvh; overflow-y:auto; }
+  .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root .cadu-ds-entity-nav) > .workspace-app-main { grid-column:3; }
+}

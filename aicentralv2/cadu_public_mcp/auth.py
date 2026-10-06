@@ -254,7 +254,7 @@ def required_scope(tool_name: str) -> str:
         # Paid generation: the person grants this at consent, off by default. A boolean sent by
         # the agent is not proof that the person approved the spend; the scope is.
         return "media:generate"
-    if name in {"media.start_studio_session", "media.plan_video"}:
+    if name in {"media.start_studio_session", "media.plan_video", "media.prepare_edit_source_upload"}:
         return "projects:content_write"
     if name.startswith("credits."):
         if name == "credits.purchase_package":

@@ -317,6 +317,20 @@ def get_media_job(context: RequestContext, arguments: dict) -> dict:
 
 
 @register_tool(
+    name="media.prepare_edit_source_upload", capability="workspace", effect="draft",
+    description=("Prepara o envio de uma imagem que a pessoa quer editar (enviada no chat ou salva no computador). "
+                 "Envie o arquivo por POST multipart ao upload_url com os campos file e upload_token; a resposta traz source_url, "
+                 "que vai em media.edit_image ou media.start_studio_session (kind image_edit). Não gera mídia nem consome créditos."),
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "properties": {"request_id": {"type": "string", "maxLength": 160}},
+                  "additionalProperties": False},
+)
+def prepare_edit_source_upload(context: RequestContext, arguments: dict) -> dict:
+    from ...media_creation_service import prepare_edit_source_upload as prepare
+    return prepare(context)
+
+
+@register_tool(
     name="media.start_studio_session", capability="workspace", effect="write",
     description=("Caminho para criar imagem, anúncio, edição de imagem ou vídeo: abre uma sessão retomável no Studio com "
                  "marca e briefing já preenchidos e devolve studio_url. Leia a marca antes (brands.get_context) e escreva o prompt "

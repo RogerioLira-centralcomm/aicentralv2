@@ -204,3 +204,43 @@ def generate_studio_image(context: RequestContext, arguments: dict) -> dict:
     except Exception as error:
         history.fail_image(request_id, personal_client_id, str(error))
         raise
+
+
+EDIT_SOURCE_UPLOAD_MAX_AGE = 600
+
+
+def _edit_source_serializer():
+    from flask import current_app
+    from itsdangerous import URLSafeTimedSerializer
+    return URLSafeTimedSerializer(current_app.secret_key, salt="cadu-mcp-edit-source-v1")
+
+
+def prepare_edit_source_upload(context: RequestContext) -> dict:
+    """Authorize one upload of an image to edit; the file lands in Studio storage and returns its source_url."""
+    token = _edit_source_serializer().dumps({"client_id": context.client_id, "user_id": context.user_id})
+    return {"upload_token": token, "upload_url": "/workspace/mcp/media-uploads", "method": "POST",
+            "field": "file", "accepted": [".png", ".jpg", ".jpeg", ".webp"], "max_bytes": 5 * 1024 * 1024,
+            "expires_in": EDIT_SOURCE_UPLOAD_MAX_AGE,
+            "next": "Depois do envio, passe source_url a media.edit_image ou media.start_studio_session (kind image_edit)."}
+
+
+def save_edit_source_upload(context: RequestContext, token: str, uploaded) -> dict:
+    from itsdangerous import BadSignature, SignatureExpired
+    from werkzeug.exceptions import BadRequest
+    from ..creative_modeling_storage import CreativeAssetStorage
+
+    try:
+        claims = _edit_source_serializer().loads(str(token or ""), max_age=EDIT_SOURCE_UPLOAD_MAX_AGE)
+    except SignatureExpired as exc:
+        raise BadRequest("A autorização de upload expirou.") from exc
+    except BadSignature as exc:
+        raise BadRequest("Autorização de upload inválida.") from exc
+    if not isinstance(claims, dict) or (claims.get("client_id"), claims.get("user_id")) != (context.client_id, context.user_id):
+        raise BadRequest("A autorização de upload não pertence a este contexto.")
+    try:
+        saved = CreativeAssetStorage().save_reference(uploaded)
+    except ValueError as exc:
+        raise BadRequest(str(exc)) from exc
+    return {"status": "uploaded", "source_url": saved["asset_path"],
+            "preview_url": product_url("studio", saved["asset_path"]),
+            "mime_type": saved["mime_type"]}

@@ -15,6 +15,7 @@ PUBLIC_TOOL_COSTS = {
     "operations.get": 0,
     "media.creation_capabilities": 0,
     "media.start_studio_session": 0,
+    "media.prepare_edit_source_upload": 0,
     "media.list_jobs": 1,
     "media.get_job": 1,
     "media.generate_image": 0,

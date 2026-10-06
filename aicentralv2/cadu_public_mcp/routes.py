@@ -93,6 +93,7 @@ PUBLIC_TOOLS = frozenset({
     "media.list_jobs",
     "media.get_job",
     "media.start_studio_session",
+    "media.prepare_edit_source_upload",
     "media.generate_image",
     "media.edit_image",
     "media.creation_capabilities",
@@ -189,6 +190,7 @@ PUBLIC_WRITE_TOOLS = frozenset({
     "context.update",
     "context.close",
     "media.start_studio_session",
+    "media.prepare_edit_source_upload",
     "media.generate_image",
     "media.edit_image",
     "account.update_profile",
@@ -490,9 +492,9 @@ def public_rpc():
                         key: {**item, "upload_url": product_url("workspace", f"{PUBLIC_MCP_PATH}/brand-uploads")}
                         for key, item in nested.items() if isinstance(item, dict)
                     }}
-                if name in {"projects.prepare_source_upload", "resources.add", "brands.prepare_logo_upload", "brands.prepare_asset_upload"} and isinstance(value, dict) and value.get("upload_url"):
+                if name in {"projects.prepare_source_upload", "resources.add", "brands.prepare_logo_upload", "brands.prepare_asset_upload", "media.prepare_edit_source_upload"} and isinstance(value, dict) and value.get("upload_url"):
                     value = {**value, "upload_url": product_url(
-                        "workspace", f"{PUBLIC_MCP_PATH}/{'brand-uploads' if name.startswith('brands.') else 'uploads'}")}
+                        "workspace", f"{PUBLIC_MCP_PATH}/{'brand-uploads' if name.startswith('brands.') else 'media-uploads' if name.startswith('media.') else 'uploads'}")}
                 if name == "media.creation_capabilities" and isinstance(value, dict):
                     value = guidance.external_media_capabilities(value, auth.has_scope(principal, "media:generate"))
                 usage.charge_credits(
@@ -606,6 +608,24 @@ def public_upload_project_source():
     except HTTPException as exc:
         return jsonify(error=exc.description), exc.code
     return jsonify(source=value), 201
+
+
+@bp.post(f"{PUBLIC_MCP_PATH}/media-uploads")
+def public_upload_edit_source():
+    from ..cadu_workspace import media_creation_service
+
+    principal, error = _multipart_principal("media.prepare_edit_source_upload")
+    if error:
+        return error
+    uploaded = request.files.get("file")
+    if uploaded is None:
+        return jsonify(error="Envie a imagem no campo file."), 400
+    try:
+        value = media_creation_service.save_edit_source_upload(
+            principal.context, request.form.get("upload_token", ""), uploaded)
+    except HTTPException as exc:
+        return jsonify(error=exc.description), exc.code
+    return jsonify(**value), 201
 
 
 @bp.post(f"{PUBLIC_MCP_PATH}/brand-uploads")

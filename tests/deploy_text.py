@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def deploy_text(root=ROOT):
     root = Path(root)
     steps = [
-        f'"$VENV_PYTHON" {line.strip().lstrip("?")}'
+        f'"$VENV_PYTHON" {line.strip().lstrip("?~")}'
         for line in (root / "migrations" / "ORDER.txt").read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.strip().startswith("#")
     ]

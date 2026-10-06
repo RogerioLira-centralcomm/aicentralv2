@@ -1,5 +1,6 @@
 # Ordem de execução do deploy (lida por migrations/run_deploy_migrations.py).
 # Uma linha por passo: script e argumentos, relativos à raiz. '?' no início = opcional (ignora se o arquivo não existir).
+# '~' no início = histórico do Reports antes da v2 (com organization_id): pulado quando cadu_reports_schema_version tem a versão 2.
 migrations/run_add_tipo_comercial_to_cotacoes.py
 migrations/run_add_cotacao_grupo_plano.py
 migrations/run_add_cotacao_itens_especificos.py
@@ -104,51 +105,51 @@ migrations/run_sql_migration.py add_cadu_planner_channel_allocations.sql
 migrations/run_add_cadu_planner_client_flow.py
 migrations/run_sql_migration.py add_cadu_planner_review_history.sql
 migrations/run_sql_migration.py add_cadu_planner_docs_compat.sql
-migrations/run_sql_migration.py add_cadu_planner_link_test_runs.sql
-migrations/run_add_connect_report_workspace.py
-migrations/run_add_connect_report_sources.py
-migrations/run_add_connect_report_imports.py
-migrations/run_add_connect_report_reviews.py
-migrations/run_add_connect_report_ai_runs.py
-migrations/run_add_connect_report_public_links.py
-migrations/run_sql_migration.py add_reports_operations_v1.sql
-migrations/run_sql_migration.py add_reports_review_fixes_v1.sql
-migrations/run_sql_migration.py add_reports_native_clients_v1.sql
-migrations/run_sql_migration.py add_reports_workspace_project_links_v1.sql
-migrations/run_sql_migration.py add_reports_funnel_management_v1.sql
-migrations/run_sql_migration.py add_reports_flow_versions_v1.sql
-migrations/run_sql_migration.py add_reports_flow_integrity_v1.sql
-migrations/run_sql_migration.py add_reports_flow_site_mapping_v1.sql
-migrations/run_sql_migration.py add_reports_flow_discovery_resume_v1.sql
-migrations/run_sql_migration.py add_reports_site_journey_analytics.sql
+~migrations/run_sql_migration.py add_cadu_planner_link_test_runs.sql
+~migrations/run_add_connect_report_workspace.py
+~migrations/run_add_connect_report_sources.py
+~migrations/run_add_connect_report_imports.py
+~migrations/run_add_connect_report_reviews.py
+~migrations/run_add_connect_report_ai_runs.py
+~migrations/run_add_connect_report_public_links.py
+~migrations/run_sql_migration.py add_reports_operations_v1.sql
+~migrations/run_sql_migration.py add_reports_review_fixes_v1.sql
+~migrations/run_sql_migration.py add_reports_native_clients_v1.sql
+~migrations/run_sql_migration.py add_reports_workspace_project_links_v1.sql
+~migrations/run_sql_migration.py add_reports_funnel_management_v1.sql
+~migrations/run_sql_migration.py add_reports_flow_versions_v1.sql
+~migrations/run_sql_migration.py add_reports_flow_integrity_v1.sql
+~migrations/run_sql_migration.py add_reports_flow_site_mapping_v1.sql
+~migrations/run_sql_migration.py add_reports_flow_discovery_resume_v1.sql
+~migrations/run_sql_migration.py add_reports_site_journey_analytics.sql
 migrations/run_sql_migration.py add_reports_flow_page_identity_m2.sql
 scripts/backfill_reports_flow_page_identity.py
-migrations/run_sql_migration.py add_reports_flow_page_monitoring.sql
-migrations/run_sql_migration.py add_reports_supertag_v1.sql
-migrations/run_sql_migration.py add_reports_supertag_flow_lifecycle_events.sql
-migrations/run_sql_migration.py add_reports_flow_private_tags_v1.sql
+~migrations/run_sql_migration.py add_reports_flow_page_monitoring.sql
+~migrations/run_sql_migration.py add_reports_supertag_v1.sql
+~migrations/run_sql_migration.py add_reports_supertag_flow_lifecycle_events.sql
+~migrations/run_sql_migration.py add_reports_flow_private_tags_v1.sql
 migrations/run_sql_migration.py add_reports_flow_ownership_v1.sql
 migrations/run_sql_migration.py add_reports_flow_plan_versions_v1.sql
 migrations/run_sql_migration.py add_reports_flow_plan_only_v1.sql
 migrations/run_sql_migration.py add_reports_flow_templates_v1.sql
 migrations/run_sql_migration.py add_reports_flow_probe_runs_v1.sql
 migrations/run_sql_migration.py add_reports_site_pages_v1.sql
-migrations/run_sql_migration.py add_reports_supertag_known_visitors.sql
-migrations/run_sql_migration.py add_reports_link_associations_v1.sql
-migrations/run_sql_migration.py move_link_tester_to_reports_v1.sql
-migrations/run_sql_migration.py add_reports_universal_imports_v1.sql
-migrations/run_sql_migration.py add_reports_import_decisions_v1.sql
-migrations/run_sql_migration.py add_reports_import_visual_runs_v1.sql
-migrations/run_sql_migration.py add_reports_import_projection_v1.sql
-migrations/run_sql_migration.py add_reports_import_projection_decisions_v1.sql
+~migrations/run_sql_migration.py add_reports_supertag_known_visitors.sql
+~migrations/run_sql_migration.py add_reports_link_associations_v1.sql
+~migrations/run_sql_migration.py move_link_tester_to_reports_v1.sql
+~migrations/run_sql_migration.py add_reports_universal_imports_v1.sql
+~migrations/run_sql_migration.py add_reports_import_decisions_v1.sql
+~migrations/run_sql_migration.py add_reports_import_visual_runs_v1.sql
+~migrations/run_sql_migration.py add_reports_import_projection_v1.sql
+~migrations/run_sql_migration.py add_reports_import_projection_decisions_v1.sql
 migrations/run_sql_migration.py add_reports_published_versions_v1.sql
 migrations/run_sql_migration.py add_reports_custom_metrics_v1.sql
-migrations/run_sql_migration.py add_reports_import_range_snapshots_v1.sql
-migrations/run_sql_migration.py add_reports_import_custom_values_v1.sql
-migrations/run_sql_migration.py add_reports_import_custom_dimensions_v1.sql
-migrations/run_sql_migration.py add_reports_import_observation_dimensions_v1.sql
-migrations/run_sql_migration.py add_reports_import_column_maps_v1.sql
-migrations/run_sql_migration.py add_reports_import_column_suggestions_v1.sql
+~migrations/run_sql_migration.py add_reports_import_range_snapshots_v1.sql
+~migrations/run_sql_migration.py add_reports_import_custom_values_v1.sql
+~migrations/run_sql_migration.py add_reports_import_custom_dimensions_v1.sql
+~migrations/run_sql_migration.py add_reports_import_observation_dimensions_v1.sql
+~migrations/run_sql_migration.py add_reports_import_column_maps_v1.sql
+~migrations/run_sql_migration.py add_reports_import_column_suggestions_v1.sql
 migrations/run_sql_migration.py add_reports_google_ads_engine_v2.sql
 migrations/run_sql_migration.py add_reports_google_ads_engine_v22.sql
 migrations/run_sql_migration.py add_reports_supertag_leads.sql

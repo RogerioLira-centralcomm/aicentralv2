@@ -69,3 +69,40 @@ def test_link_tester_migrations_can_rerun_after_the_table_became_a_view():
     for name in ('add_cadu_planner_link_test_runs.sql', 'add_reports_link_associations_v1.sql'):
         sql = (ROOT / 'migrations' / name).read_text()
         assert "relkind FROM pg_class WHERE oid = to_regclass('cadu_planner_link_test_runs')) = 'v'" in sql, name
+
+
+def _runner():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('run_deploy_migrations', ROOT / 'migrations' / 'run_deploy_migrations.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _run_with_order(tmp_path, monkeypatch, *, v2_installed):
+    runner = _runner()
+    order = tmp_path / 'ORDER.txt'
+    order.write_text('migrations/a.py\n~migrations/legacy.py\n?~migrations/legacy_optional.py\nmigrations/b.py\n')
+    monkeypatch.setattr(runner, 'ORDER_FILE', order)
+    monkeypatch.setattr(runner, 'missing_files', lambda steps, root=None: [])
+    monkeypatch.setattr(runner, 'reports_v2_installed', lambda: v2_installed)
+    ran = []
+    monkeypatch.setattr(runner.subprocess, 'run', lambda cmd, cwd=None: ran.append(cmd[1]) or type('R', (), {'returncode': 0})())
+    assert runner.main([]) == 0
+    return ran
+
+
+def test_legacy_reports_steps_are_skipped_once_reports_v2_is_installed(tmp_path, monkeypatch):
+    assert _run_with_order(tmp_path, monkeypatch, v2_installed=True) == ['migrations/a.py', 'migrations/b.py']
+
+
+def test_legacy_reports_steps_run_when_reports_v2_is_not_installed(tmp_path, monkeypatch):
+    ran = _run_with_order(tmp_path, monkeypatch, v2_installed=False)
+    assert ran == ['migrations/a.py', 'migrations/legacy.py', 'migrations/legacy_optional.py', 'migrations/b.py']
+
+
+def test_every_legacy_step_exists_and_none_comes_after_the_post_v2_ones():
+    runner = _runner()
+    steps = runner.read_steps()
+    legacy = [step for step in steps if step['legacy']]
+    assert legacy and not runner.missing_files(legacy)

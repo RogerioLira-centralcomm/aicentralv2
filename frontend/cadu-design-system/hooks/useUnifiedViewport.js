@@ -3,8 +3,9 @@ import {useEffect, useState} from 'react';
 const PHONE_QUERY = '(max-width: 767px)';
 const TABLET_QUERY = '(min-width: 768px) and (max-width: 1199px)';
 const KEYBOARD_THRESHOLD = 120;
+const CHAT_QUERIES = {phone: PHONE_QUERY, tablet: TABLET_QUERY};
 
-function readViewport(baselineHeight = window.innerHeight) {
+function readViewport(baselineHeight = window.innerHeight, queries = CHAT_QUERIES) {
   const viewport = window.visualViewport;
   const visualHeight = Math.round(viewport?.height || window.innerHeight);
   const visualWidth = Math.round(viewport?.width || window.innerWidth);
@@ -12,8 +13,8 @@ function readViewport(baselineHeight = window.innerHeight) {
   const editable = document.activeElement?.matches?.('textarea, input:not([type="checkbox"]):not([type="radio"]), [contenteditable="true"]');
   const keyboardInset = Math.max(0, window.innerHeight - visualHeight - offsetTop, baselineHeight - visualHeight - offsetTop);
   return {
-    layout: window.matchMedia(PHONE_QUERY).matches ? 'phone' : window.matchMedia(TABLET_QUERY).matches ? 'tablet' : 'desktop',
-    isMobile: window.matchMedia(PHONE_QUERY).matches,
+    layout: window.matchMedia(queries.phone).matches ? 'phone' : window.matchMedia(queries.tablet).matches ? 'tablet' : 'desktop',
+    isMobile: window.matchMedia(queries.phone).matches,
     visualHeight,
     visualWidth,
     offsetTop,
@@ -23,13 +24,13 @@ function readViewport(baselineHeight = window.innerHeight) {
   };
 }
 
-export function useUnifiedViewport() {
-  const [state, setState] = useState(() => readViewport());
+export function useUnifiedViewport(queries = CHAT_QUERIES) {
+  const [state, setState] = useState(() => readViewport(undefined, queries));
   useEffect(() => {
     const root = document.documentElement;
     const viewport = window.visualViewport;
-    const phone = window.matchMedia(PHONE_QUERY);
-    const tablet = window.matchMedia(TABLET_QUERY);
+    const phone = window.matchMedia(queries.phone);
+    const tablet = window.matchMedia(queries.tablet);
     let frame = 0;
     let baselineHeight = viewport?.height || window.innerHeight;
     const sync = () => {
@@ -39,7 +40,7 @@ export function useUnifiedViewport() {
         const editable = active?.matches?.('textarea, input:not([type="checkbox"]):not([type="radio"]), [contenteditable="true"]');
         const height = viewport?.height || window.innerHeight;
         if (!editable) baselineHeight = height;
-        const next = readViewport(baselineHeight);
+        const next = readViewport(baselineHeight, queries);
         root.style.setProperty('--cv-visual-height', `${next.visualHeight}px`);
         root.style.setProperty('--cv-visual-width', `${next.visualWidth}px`);
         root.style.setProperty('--cv-visual-offset-top', `${next.offsetTop}px`);

@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Icon} from '../lib/icons';
+import {CaduButton} from '../../cadu-design-system/components/CaduButton';
 import {csrf, request, safeUrl} from '../lib/api';
 import {CaduDialog} from '../../cadu-design-system/components/CaduDialog';
 import {normalizeArtifactContent} from '../lib/artifactContent.mjs';
@@ -787,7 +788,7 @@ function RichDocumentArtifact({artifact, onChange, editing = false}) {
       <form onSubmit={applyUrl}>
         <header><div><h2>{urlRequest === 'image' ? 'Adicionar imagem' : 'Adicionar link'}</h2><p>Cole um endereço HTTPS válido.</p></div><button type="button" onClick={() => setUrlRequest(null)} aria-label="Fechar"><Icon name="close" size={18}/></button></header>
         <label>Endereço<input ref={urlInput} name="url" type="url" inputMode="url" required pattern="https://.*" placeholder="https://" autoComplete="url"/></label>
-        <footer><button type="button" onClick={() => setUrlRequest(null)}>Cancelar</button><button type="submit" className="is-primary">Adicionar</button></footer>
+        <footer><CaduButton variant="tertiary" size="sm" onClick={() => setUrlRequest(null)}>Cancelar</CaduButton><CaduButton variant="primary" size="sm" type="submit">Adicionar</CaduButton></footer>
       </form>
     </CaduDialog>}
   </article>;
@@ -937,7 +938,7 @@ function ResourceArtifact({artifact}) {
     <p className="cv-mb-0 cv-mt-2 cv-text-sm cv-leading-6 cv-text-[#819b97]">{content.detail || `${content.kind || 'Arquivo'} conectado a esta conversa.`}</p>
     <div className="cv-mt-6 cv-flex cv-flex-wrap cv-gap-2">
       {editor && <a href={editor} target="_blank" rel="noreferrer" className="cv-rounded-lg cv-bg-teal cv-px-4 cv-py-2.5 cv-text-xs cv-font-semibold cv-text-[#052522] cv-no-underline">{created ? 'Abrir documento editável' : 'Abrir arquivo'}</a>}
-      {!created && editableCopy && <button type="button" onClick={createCopy} disabled={creating} className="cv-rounded-lg cv-border cv-border-white/10 cv-bg-transparent cv-px-4 cv-py-2.5 cv-text-xs cv-font-semibold disabled:cv-opacity-50">{creating ? 'Preparando…' : 'Criar versão editável'}</button>}
+      {!created && editableCopy && <CaduButton variant="secondary" size="sm" onClick={createCopy} disabled={creating} loading={creating}>{creating ? 'Preparando…' : 'Criar versão editável'}</CaduButton>}
       {download && download !== editor && <a href={download} className="cv-rounded-lg cv-border cv-border-white/10 cv-px-4 cv-py-2.5 cv-text-xs cv-font-semibold cv-text-[#c4d5d2] cv-no-underline">Baixar</a>}
       {!editor && !editableCopy && !download && project && <a href={project} className="cv-rounded-lg cv-bg-teal cv-px-4 cv-py-2.5 cv-text-xs cv-font-semibold cv-text-[#052522] cv-no-underline">{content.project_link_label || 'Ver no projeto'}</a>}
     </div>
@@ -977,7 +978,7 @@ function LinkReaderArtifact({artifact, onRequestSummary, onSaveReference, onRequ
   if (embedded) return <article className="cv-link-embed cv-flex cv-h-full cv-min-h-0 cv-w-full cv-flex-col">
     <header className="cv-link-embed__bar">
       <span><Icon name="external" size={15}/><b>{artifact.title || domain}</b><small>{domain}</small><em className={`cv-source-read-state is-${readState.kind}`}>{readState.label}</em></span>
-      <div>{!isGoogle && !isMeeting && <button type="button" onClick={() => onRequestSummary?.(url)}>Resumir</button>}<button type="button" onClick={() => onSaveReference?.(url)}>Salvar referência</button><a href={url} target="_blank" rel="noreferrer">Abrir fora</a></div>
+      <div>{!isGoogle && !isMeeting && <CaduButton variant="secondary" size="sm" onClick={() => onRequestSummary?.(url)}>Resumir</CaduButton>}<CaduButton variant="secondary" size="sm" onClick={() => onSaveReference?.(url)}>Salvar referência</CaduButton><a href={url} target="_blank" rel="noreferrer">Abrir fora</a></div>
     </header>
     <iframe title={artifact.title || domain || 'Link público'} src={embedded} sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox" referrerPolicy="strict-origin-when-cross-origin" className="cv-link-embed__frame"/>
     <footer>Se o site bloquear a visualização incorporada, use “Abrir fora”.</footer>
@@ -992,9 +993,9 @@ function LinkReaderArtifact({artifact, onRequestSummary, onSaveReference, onRequ
     {isMeeting && <section className="cv-meeting-note cv-mt-6"><strong className="cv-block cv-text-sm">Reunião no projeto</strong><p className="cv-mb-0 cv-mt-1 cv-text-xs cv-leading-5 cv-text-[#99b4af]">Organize pauta, decisões e próximos passos. A participação automática em chamadas não é iniciada por este fluxo.</p></section>}
     <div className="cv-mt-6 cv-grid cv-gap-2">
       {url && <a href={url} target="_blank" rel="noreferrer" className="cv-rounded-lg cv-bg-teal cv-px-4 cv-py-2.5 cv-text-center cv-text-xs cv-font-semibold cv-text-[#052522] cv-no-underline">Abrir endereço original</a>}
-      {url && <button type="button" onClick={() => onSaveReference?.(url)} className="cv-rounded-lg cv-border cv-border-white/10 cv-bg-transparent cv-px-4 cv-py-2.5 cv-text-xs cv-font-semibold">Salvar como referência</button>}
-      {isMeeting && url && <button type="button" onClick={() => onRequestMeetingPlan?.(url)} className="cv-rounded-lg cv-border cv-border-white/10 cv-bg-transparent cv-px-4 cv-py-2.5 cv-text-xs cv-font-semibold">Preparar reunião</button>}
-      {!isGoogle && !isMeeting && url && <button type="button" onClick={() => onRequestSummary?.(url)} className="cv-rounded-lg cv-border cv-border-white/10 cv-bg-transparent cv-px-4 cv-py-2.5 cv-text-xs cv-font-semibold">Abrir e resumir</button>}
+      {url && <CaduButton variant="secondary" size="sm" onClick={() => onSaveReference?.(url)}>Salvar como referência</CaduButton>}
+      {isMeeting && url && <CaduButton variant="secondary" size="sm" onClick={() => onRequestMeetingPlan?.(url)}>Preparar reunião</CaduButton>}
+      {!isGoogle && !isMeeting && url && <CaduButton variant="secondary" size="sm" onClick={() => onRequestSummary?.(url)}>Abrir e resumir</CaduButton>}
     </div>
     <p className="cv-mb-0 cv-mt-4 cv-text-xs cv-leading-5 cv-text-[#71908b]">{isGoogle ? 'Você pode guardar o link mesmo sem integração. Para conteúdo privado, o Google poderá solicitar acesso.' : 'O conteúdo só será extraído depois de escolher “Abrir e resumir”.'}</p>
   </article>;

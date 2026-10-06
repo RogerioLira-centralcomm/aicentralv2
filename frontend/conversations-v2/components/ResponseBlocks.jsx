@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
 import {Icon} from '../lib/icons';
+import {CaduButton} from '../../cadu-design-system/components/CaduButton';
 import {safeUrl} from '../lib/api';
 import {checklistPrompt} from '../lib/responseModel.mjs';
 import {sourceDomain} from '../lib/sourceModel.mjs';
@@ -139,7 +140,7 @@ function QuestionsBlock({block, onPrompt, interactive = true}) {
           {showAnswer && <input id={`${id}-custom-answer`} disabled={!interactive} className="cv-inline-question-custom" value={customAnswer} onChange={event => setCustomAnswers(current => ({...current, [id]: event.target.value}))} placeholder={item.custom_placeholder || 'Escreva sua resposta…'} aria-label={`Resposta para ${item.question || item.title}`}/>}
         </fieldset>;
       })}
-      {interactive && <button type="button" disabled={!complete || !hasAnswer} onClick={submit} className="cv-inline-questions__submit">Responder e continuar</button>}
+      {interactive && <CaduButton variant="primary" size="sm" disabled={!complete || !hasAnswer} onClick={submit} className="cv-inline-questions__submit">Responder e continuar</CaduButton>}
     </section>;
   }
   return <section className="cv-inline-questions cv-mt-6">

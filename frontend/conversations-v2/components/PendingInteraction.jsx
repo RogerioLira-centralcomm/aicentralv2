@@ -1,5 +1,6 @@
 import React from 'react';
 import {Icon} from '../lib/icons';
+import {CaduButton} from '../../cadu-design-system/components/CaduButton';
 import {meaningfulResponseBlocks} from '../lib/responseModel.mjs';
 
 function normalizeQuestions(items) {
@@ -87,10 +88,10 @@ export function PendingInteraction({interaction, onPrompt, onDecision}) {
     ? onDecision(interaction.message, option.approved)
     : option.autoSubmit || !option.asContext ? onPrompt(option.prompt) : onPrompt('', {type: 'question', label: 'Respondendo', text: option.prompt});
   return <section className={`cv-pending-interaction ${interaction.kind === 'action' ? 'is-action' : ''}`} aria-label="Ação necessária">
-    <div className="cv-pending-interaction__heading">{interaction.kind === 'action' && <span className="cv-pending-interaction__app"><Icon name="pulse" size={13}/>{interaction.app || 'Terminal'}</span>}<span className="cv-pending-interaction__copy"><strong>{interaction.question}</strong>{interaction.detail && <i className={interaction.error ? 'is-error' : ''} role={interaction.error ? 'alert' : undefined}>{interaction.detail}</i>}</span>{freeform && <button type="button" className="cv-pending-interaction__respond" onClick={() => choose(interaction.options[0])}>Responder</button>}</div>
+    <div className="cv-pending-interaction__heading">{interaction.kind === 'action' && <span className="cv-pending-interaction__app"><Icon name="pulse" size={13}/>{interaction.app || 'Terminal'}</span>}<span className="cv-pending-interaction__copy"><strong>{interaction.question}</strong>{interaction.detail && <i className={interaction.error ? 'is-error' : ''} role={interaction.error ? 'alert' : undefined}>{interaction.detail}</i>}</span>{freeform && <CaduButton variant="secondary" size="sm" className="cv-pending-interaction__respond" onClick={() => choose(interaction.options[0])}>Responder</CaduButton>}</div>
     {interaction.kind === 'action' && interaction.brief && <details className="cv-pending-interaction__brief"><summary><span>Conferir brief do Studio</span><span>Ver detalhes</span></summary><p>{interaction.brief}</p></details>}
     {interaction.kind === 'action' && interaction.command && <details className="cv-pending-interaction__command"><summary><code>{interaction.command}</code><span>Expandir</span></summary><pre>{interaction.command}</pre></details>}
-    {!freeform && !!interaction.options.length && <div className="cv-pending-interaction__options">{interaction.kind === 'action' ? <><button type="button" className="is-decline" disabled={interaction.pending} onClick={() => choose(interaction.options.find(option => !option.approved))}>Negar <kbd>Esc</kbd></button><button type="button" className="is-approve" disabled={interaction.pending} onClick={() => choose(interaction.options.find(option => option.approved))}>{interaction.options.find(option => option.approved)?.label} <kbd>↵</kbd></button></> : interaction.options.map(option => <button key={option.id} className={option.recommended ? 'is-recommended' : ''} type="button" disabled={interaction.pending} onClick={() => choose(option)}><span><b>{option.label}</b>{option.detail && <small>{option.detail}</small>}</span>{option.recommended && <em>Recomendada</em>}<Icon name="chevron" size={14}/></button>)}</div>}
+    {!freeform && !!interaction.options.length && <div className="cv-pending-interaction__options">{interaction.kind === 'action' ? <><CaduButton variant="secondary" size="sm" className="is-decline" disabled={interaction.pending} onClick={() => choose(interaction.options.find(option => !option.approved))}>Negar <kbd>Esc</kbd></CaduButton><CaduButton variant="primary" size="sm" className="is-approve" disabled={interaction.pending} onClick={() => choose(interaction.options.find(option => option.approved))}>{interaction.options.find(option => option.approved)?.label} <kbd>↵</kbd></CaduButton></> : interaction.options.map(option => <button key={option.id} className={option.recommended ? 'is-recommended' : ''} type="button" disabled={interaction.pending} onClick={() => choose(option)}><span><b>{option.label}</b>{option.detail && <small>{option.detail}</small>}</span>{option.recommended && <em>Recomendada</em>}<Icon name="chevron" size={14}/></button>)}</div>}
   </section>;
 }
 
@@ -147,7 +148,7 @@ export function QuestionSteps({interaction, onPrompt}) {
         return <button key={option.id || index} ref={index === 0 ? firstOption : null} type="button" aria-pressed={selected} className={selected ? 'is-selected' : ''} onClick={() => {
           setAnswers(state => ({...state, [current.id]: value}));
           setCustomAnswers(state => ({...state, [current.id]: ''}));
-          window.requestAnimationFrame(() => continueButton.current?.focus({preventScroll: true}));
+          window.requestAnimationFrame(() => continueButton.current?.querySelector('.is-primary')?.focus({preventScroll: true}));
         }}>{label}</button>;
       })}</div>}
       {allowCustom && <input ref={answerInput} aria-label={`Sua resposta para: ${current.question}`} value={customAnswers[current.id] || ''}
@@ -155,10 +156,10 @@ export function QuestionSteps({interaction, onPrompt}) {
         onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && canContinue) { event.preventDefault(); continueStep(); } }}
         placeholder={current.custom_placeholder || (options.length ? 'Ou escreva outra resposta…' : 'Escreva sua resposta…')}/>}
     </fieldset>
-    <footer className="cv-question-steps__footer">
-      {step > 0 && <button type="button" className="is-back" onClick={() => setStep(value => Math.max(0, value - 1))}>Voltar</button>}
-      {current.required === false && <button type="button" className="is-back" onClick={() => { if (step < questions.length - 1) setStep(value => value + 1); else saveAnswers(); }}>Pular</button>}
-      <button ref={continueButton} type="button" className="is-primary" disabled={!canContinue} onClick={continueStep}>{step < questions.length - 1 ? 'Próxima pergunta' : 'Continuar'}</button>
+    <footer className="cv-question-steps__footer" ref={continueButton}>
+      {step > 0 && <CaduButton variant="tertiary" size="sm" className="is-back" onClick={() => setStep(value => Math.max(0, value - 1))}>Voltar</CaduButton>}
+      {current.required === false && <CaduButton variant="tertiary" size="sm" className="is-back" onClick={() => { if (step < questions.length - 1) setStep(value => value + 1); else saveAnswers(); }}>Pular</CaduButton>}
+      <CaduButton variant="primary" size="sm" className="is-primary" disabled={!canContinue} onClick={continueStep}>{step < questions.length - 1 ? 'Próxima pergunta' : 'Continuar'}</CaduButton>
     </footer>
   </section>;
 }

@@ -142,10 +142,13 @@ function PortalRow({item, urls, selected, onToggle}) {
 export function CatalogPage({boot, request, selection, notify}) {
   const kind = boot.module;
   const portalMode = kind === 'portais';
-  const fromUrl = key => (kind === 'canais' ? new URLSearchParams(window.location.search).get(key) || '' : '');
+  // Channels and places share the shelf layout: chips on top, state kept in the URL.
+  const shelf = kind === 'canais' || kind === 'places';
+  const fromUrl = key => (shelf ? new URLSearchParams(window.location.search).get(key) || '' : '');
   const [query, setQuery] = useState(() => fromUrl('q'));
   const [categories, setCategories] = useState([]);
   const [category, setCategory] = useState(() => fromUrl('categoria'));
+  const [city, setCity] = useState(() => fromUrl('cidade'));
   const [groupBy, setGroupBy] = useState('categoria');
   const [view, setViewState] = useState(() => { try { return window.localStorage.getItem('planner.canais.view') === 'lista' ? 'lista' : 'grade'; } catch { return 'grade'; } });
   const setView = value => { setViewState(value); try { window.localStorage.setItem('planner.canais.view', value); } catch { /* the choice just is not remembered */ } };
@@ -164,18 +167,19 @@ export function CatalogPage({boot, request, selection, notify}) {
   const [loading, setLoading] = useState(false);
   const search = useDebounced(query);
   useEffect(() => {
-    if (kind !== 'canais') return;
+    if (!shelf) return;
     const params = new URLSearchParams(window.location.search);
-    [['q', search], ['categoria', category]].forEach(([key, value]) => { if (value) params.set(key, value); else params.delete(key); });
+    [['q', search], ['categoria', category], ['cidade', city]].forEach(([key, value]) => { if (value) params.set(key, value); else params.delete(key); });
     const text = params.toString();
     window.history.replaceState(null, '', window.location.pathname + (text ? `?${text}` : ''));
-  }, [kind, search, category]);
+  }, [shelf, search, category, city]);
   // The first page arrives with the HTML (portals need the total, so they fetch).
-  const preloaded = useRef(Array.isArray(boot.records) && !portalMode && !(kind === 'canais' && (query || category)));
+  const preloaded = useRef(Array.isArray(boot.records) && !portalMode && !(shelf && (query || category || city)));
 
   useEffect(() => {
     if (preloaded.current) { preloaded.current = false; return undefined; }
     const params = new URLSearchParams({q: search, category: portalMode ? categories.join(',') : category});
+    if (kind === 'places' && city) params.set('city', city);
     if (portalMode) {
       params.set('limit', String(PORTAL_PAGE)); params.set('offset', String(offset));
       Object.entries(filters).forEach(([key, value]) => { if (value) params.set(key, value); });
@@ -194,7 +198,7 @@ export function CatalogPage({boot, request, selection, notify}) {
       .catch(error => { if (current && error.name !== 'AbortError') notify({tone: 'error', message: error.message}); })
       .finally(() => { if (current) setLoading(false); });
     return () => { current = false; controller.abort(); };
-  }, [request, notify, kind, portalMode, search, category, categories, filters, offset]);
+  }, [request, notify, kind, portalMode, search, category, city, categories, filters, offset]);
 
   const setFilter = (key, value) => { setFilters(current => ({...current, [key]: value, ...(key === 'scope' && value === 'nacional_premium' ? {uf: ''} : {})})); setOffset(0); };
   const toggleCategory = value => { setCategories(current => current.includes(value) ? current.filter(item => item !== value) : [...current, value]); setOffset(0); };
@@ -224,29 +228,32 @@ export function CatalogPage({boot, request, selection, notify}) {
       <CaduInput className="planner-toolbar__search" aria-label="Pesquisar referências" type="search" value={query} placeholder={portalMode ? 'Buscar por portal, domínio ou categoria' : 'Buscar por nome, descrição ou categoria'}
         leading={<span className="planner-toolbar__search-icon" aria-hidden="true"><Icon name="search" size={16}/></span>}
         onChange={event => { setQuery(event.target.value); setOffset(0); }}/>
-      {!portalMode && kind !== 'canais' && (boot.categories || []).length > 0 && <CaduSelectField className="planner-toolbar__category" aria-label="Categoria" value={category} onChange={event => { setCategory(event.target.value); setOffset(0); }}
+      {!portalMode && !shelf && (boot.categories || []).length > 0 && <CaduSelectField className="planner-toolbar__category" aria-label="Categoria" value={category} onChange={event => { setCategory(event.target.value); setOffset(0); }}
         options={[{value: '', label: 'Todas as categorias'}, ...boot.categories.map(value => ({value, label: value}))]}/>}
       <span className="planner-toolbar__count" aria-live="polite">{countLabel}</span>
     </div>
-    {kind === 'canais' && (boot.categories || []).length > 0 && <div className="planner-chipbar">
+    {shelf && (boot.categories || []).length > 0 && <div className="planner-chipbar">
       <div className="planner-segmented planner-chips" role="group" aria-label="Categoria">
         {[['', 'Todos', boot.records?.length || 0], ...boot.categories.map(value => [value, value, categoryCounts.get(value) || 0])].map(([value, label, count]) => <button key={value || 'all'} type="button" aria-pressed={category === value}
           className={category === value ? 'is-active' : ''} onClick={() => { setCategory(value); setOffset(0); }}>{label}{count > 0 && <span>{count}</span>}</button>)}
       </div>
       <div className="planner-chipbar__tools">
-        <details className="planner-multi planner-morefilters">
+        {kind === 'places' && (boot.cities || []).length > 0 && <CaduSelectField className="planner-chipbar__city" aria-label="Cidade" value={city}
+          onChange={event => { setCity(event.target.value); setOffset(0); }}
+          options={[{value: '', label: 'Todas as cidades'}, ...boot.cities.map(value => ({value, label: value}))]}/>}
+        {kind === 'canais' && <details className="planner-multi planner-morefilters">
           <summary><Icon name="list" size={14}/>Mais filtros{(more.measurable || more.formats) ? <b>{[more.measurable, more.formats].filter(Boolean).length}</b> : null}</summary>
           <div className="planner-multi__menu">
             <label><input type="checkbox" checked={more.measurable} onChange={event => setMore(current => ({...current, measurable: event.target.checked}))}/> Só canais mensuráveis</label>
             <label><input type="checkbox" checked={more.formats} onChange={event => setMore(current => ({...current, formats: event.target.checked}))}/> Só com formatos cadastrados</label>
           </div>
-        </details>
-        <div className="planner-segmented planner-viewtoggle" role="group" aria-label="Exibição">
+        </details>}
+        {kind === 'canais' && <div className="planner-segmented planner-viewtoggle" role="group" aria-label="Exibição">
           {[['grade', 'table', 'Grade'], ['lista', 'list', 'Lista']].map(([value, icon, label]) => <button key={value} type="button" aria-pressed={view === value}
             className={view === value ? 'is-active' : ''} onClick={() => setView(value)}><Icon name={icon} size={14}/>{label}</button>)}
-        </div>
+        </div>}
       </div>
-      {!category && <div className="planner-segmented planner-groupby" role="group" aria-label="Agrupar por">
+      {kind === 'canais' && !category && <div className="planner-segmented planner-groupby" role="group" aria-label="Agrupar por">
         <small>Agrupar por</small>
         {[['categoria', 'Categoria'], ['papel', 'Papel no plano']].map(([value, label]) => <button key={value} type="button" aria-pressed={groupBy === value}
           className={groupBy === value ? 'is-active' : ''} onClick={() => setGroupBy(value)}>{label}</button>)}
@@ -291,8 +298,8 @@ export function CatalogPage({boot, request, selection, notify}) {
             </Fragment>;
           });
         })()
-        : kind === 'places' ? <div className="planner-grid planner-grid--channels" aria-label="Locais disponíveis">{records.map(item => <PlaceCard key={itemKey(item)} item={item} urls={boot.urls}
-          selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>)}</div>
+        : kind === 'places' ? <><div className="planner-grid planner-grid--channels" aria-label="Locais disponíveis">{records.map(item => <PlaceCard key={itemKey(item)} item={item} urls={boot.urls}
+          selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>)}</div>{records.length > 0 && <PlanBanner urls={boot.urls}/>}</>
         : <div className="planner-grid" aria-label={`${MODULE_LABELS[kind]} disponíveis`}>{records.map(item => <CatalogCard key={itemKey(item)} kind={kind} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))}/>)}</div>}
     {kind === 'canais' && <PlanBar noun={['canal', 'canais']} count={selection.count(kind)} href={quoteUrl}
       chosen={records.filter(item => selection.isSelected(kind, itemKey(item))).map(item => ({key: itemKey(item), logo: item.logo_path, name: item.name}))}/>}

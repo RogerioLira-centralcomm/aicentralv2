@@ -1541,3 +1541,6 @@ a.planner-portal.planner-portal--wide { grid-template-columns: 40px minmax(200px
 
 /* Studio illustrations are marked as such; real photos are not. */
 .channel-card__illustration, .pd-carousel__tag { position: absolute; right: 10px; bottom: 10px; padding: 2px 9px; border-radius: 99px; background: rgba(16, 20, 24, .66); color: #fff; font-size: 11px; font-weight: 600; letter-spacing: .02em; backdrop-filter: blur(4px); }
+.planner-chipbar__city { width: 200px; }
+@media (max-width: 700px) { .planner-chipbar__city { width: 100%; } }
+.place-card .channel-card__stats dt { overflow: visible; white-space: normal; line-height: 1.15; }

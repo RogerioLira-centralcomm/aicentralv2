@@ -27,6 +27,7 @@
   'clientName': (selected.client_name if selected else ''),
   'categories': ((marketplace_facets if marketplace_facets is defined else none) or {}).get('categories') or [],
   'ufs': ((marketplace_facets if marketplace_facets is defined else none) or {}).get('ufs') or [],
+  'cities': ((marketplace_facets if marketplace_facets is defined else none) or {}).get('cities') or [],
   'csrf': csrf,
   'writesEnabled': cadu_family_writes_enabled|default(false),
   'features': planner_features|default({}),

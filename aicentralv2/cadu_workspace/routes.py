@@ -238,9 +238,9 @@ _ACCOUNT_SECTION_NEEDS = {
     'perfil': frozenset(),
     'agencia': frozenset({'people'}),
     'equipe': frozenset({'people', 'invites'}),
-    'planos': frozenset({'plan'}),
+    'planos': frozenset({'plan', 'movements'}),
     'uso': frozenset({'plan', 'people', 'movements', 'credit_additions', 'space'}),
-    'creditos': frozenset({'movements', 'purchases'}),
+    'creditos': frozenset({'plan', 'movements', 'purchases'}),
     'faturamento': frozenset(),
 }
 
@@ -595,7 +595,11 @@ def _workspace_integration_data(client_id: int, organization_id: int) -> dict:
         'configuration': {'configured': False, 'missing': [], 'redirect_uri': ''},
         'connect_url': google_workspace.connection_start_url(),
         'configured': False,
+        'enabled': google_workspace.workspace_enabled(),
     }
+    if not google['enabled']:
+        # Lançamento sem Google: não consulta conexões nem expõe o botão.
+        return {**_workspace_integration_base(accounts), 'google': google}
     try:
         connection = google_workspace.get_connection(client_id)
         google = {

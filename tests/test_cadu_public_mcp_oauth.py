@@ -177,7 +177,7 @@ def test_authorization_request_requires_pkce_s256_and_known_scopes():
     with patch("aicentralv2.cadu_public_mcp.oauth.load_client", return_value={"id": "internal"}):
         result = oauth.validate_authorization_request(values)
         # media:generate is always offered at consent (unchecked), so the person can opt in on that screen
-        assert result["scopes"] == ("media:generate", "projects:read")
+        assert result["scopes"] == ("artifacts:write", "brands:write", "media:generate", "projects:read")
         with pytest.raises(oauth.OAuthError, match="PKCE"):
             oauth.validate_authorization_request(values | {"code_challenge_method": "plain"})
         with pytest.raises(Exception, match="Escopo"):

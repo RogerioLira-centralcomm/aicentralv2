@@ -21,7 +21,7 @@ from ..db import get_db
 from .auth import CLIENT_SCOPES, DEFAULT_SCOPES, PublicMcpAuthError, accessible_client, normalize_scopes
 
 
-OPTIONAL_CONSENT_SCOPES = frozenset({"media:generate"})
+OPTIONAL_CONSENT_SCOPES = frozenset({"media:generate", "brands:write", "artifacts:write"})
 
 
 ISSUER_PATH = ""

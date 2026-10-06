@@ -49,7 +49,7 @@ def _charge(label, call):
     try:
         return call()
     except Exception:
-        logger.error('Falha ao debitar créditos de IA do Reports (%s)', label, exc_info=True)
+        logger.error('Falha ao debitar créditos de IA do Reports (%s); resposta já entregue, conciliar no ledger', label, exc_info=True)
         return None
 
 
@@ -61,7 +61,7 @@ def chat(stage, messages, *, call=None, selected=None, actor=None, metadata=None
     _authorize(actor)
     response = call(messages, **options)
     run_id = str(uuid.uuid4())
-    _charge(f'{stage} cliente {actor.client_id}', lambda: CaduCreditConnector().charge_provider(
+    _charge(f'{stage} cliente {actor.client_id} usuário {actor.user_id} chave reports-ai:{stage}:{run_id}', lambda: CaduCreditConnector().charge_provider(
         actor=actor, idempotency_key=f'reports-ai:{stage}:{run_id}', app=APP, stage=stage,
         provider_result=response, metadata={**(metadata or {}), 'billing_run_id': run_id, 'billing_class': 'text_agent'}))
     return response
@@ -75,7 +75,7 @@ def typesafe(stage, state, questions, *, call=None, selected=None, actor=None, m
     _authorize(actor)
     result = call(state, questions, **options)
     run_id = str(uuid.uuid4())
-    _charge(f'{stage} cliente {actor.client_id}', lambda: CaduCreditConnector().charge_provider(
+    _charge(f'{stage} cliente {actor.client_id} usuário {actor.user_id} chave reports-ai:{stage}:{run_id}', lambda: CaduCreditConnector().charge_provider(
         actor=actor, idempotency_key=f'reports-ai:{stage}:{run_id}', app=APP, stage=stage,
         provider_result={'usage': result.get('usage'), 'model': result.get('model')},
         metadata={**(metadata or {}), 'billing_run_id': run_id, 'billing_class': 'typesafe'}))
@@ -96,7 +96,7 @@ def firecrawl_scrape(stage, url, *, call=None, selected=None, actor=None, metada
         abort(409, description=NO_PRICE)
     data = call(url, **options)
     run_id = str(uuid.uuid4())
-    _charge(f'{stage} cliente {actor.client_id}', lambda: credits.charge_firecrawl(
+    _charge(f'{stage} cliente {actor.client_id} usuário {actor.user_id} chave reports-ai:{stage}:{run_id}', lambda: credits.charge_firecrawl(
         actor=actor, idempotency_key=f'reports-ai:{stage}:{run_id}', operation='scrape', pages=1, app=APP, stage=stage,
         metadata={**(metadata or {}), 'billing_run_id': run_id, 'url_host': str(url).split('/')[2] if '//' in str(url) else ''}))
     return data

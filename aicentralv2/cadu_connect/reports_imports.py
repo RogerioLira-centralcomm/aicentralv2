@@ -2,6 +2,7 @@
 import hashlib
 import io
 import json
+import logging
 import math
 import re
 import uuid
@@ -18,6 +19,8 @@ from .report_sources import prepare_image
 from .reports_import_parser import (ALIASES, FIELD_BY_HEADER, MAX_FILE_BYTES,
                                     normalized_header, normalized_platform, parse_record, read_export)
 from .reports_v1 import _rows, _selection, _write_guard
+
+logger = logging.getLogger(__name__)
 
 MAX_REQUEST_BYTES = 11 * 1024 * 1024
 COLUMN_SUGGESTION_PROMPT_VERSION = 'reports-import-column-choice-v2'
@@ -1346,16 +1349,23 @@ def register(bp):
             actor = CreditActor.from_values(selected['client_id'], session['user_id'])
             credits = CaduCreditConnector()
             try:
+                credits.ensure_priced(actor.client_id)
                 credits.authorize(actor, MAX_TOKENS * 12)
                 result, usage, model = extract_visual_result(
                     batch[0]['raw_bytes'], str(import_id), complete=chat_completion)
                 run_id = str(uuid.uuid4())
-                credits.charge_provider(
-                    actor=actor, idempotency_key=f'reports:import-visual:{run_id}',
-                    app='Cadu Reports', stage='extract_import_visual',
-                    provider_result={'usage': usage, 'model': model},
-                    metadata={'import_id': str(import_id), 'operation': 'visual_import_extraction'},
-                    margin_multiplier=1)
+                # A leitura já foi paga: falha de débito vira log de conciliação
+                # e não descarta o resultado.
+                try:
+                    credits.charge_provider(
+                        actor=actor, idempotency_key=f'reports:import-visual:{run_id}',
+                        app='Cadu Reports', stage='extract_import_visual',
+                        provider_result={'usage': usage, 'model': model},
+                        metadata={'import_id': str(import_id), 'operation': 'visual_import_extraction'},
+                        margin_multiplier=1)
+                except Exception:
+                    logger.error('Falha ao debitar leitura de print do Reports (cliente %s, usuário %s, importação %s, chave reports:import-visual:%s, usage %s)',
+                                 actor.client_id, actor.user_id, import_id, run_id, usage, exc_info=True)
             except InsufficientToolCredits as exc:
                 conn.rollback()
                 return jsonify(error=str(exc)), 409

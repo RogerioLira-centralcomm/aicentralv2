@@ -2,6 +2,7 @@
 import hashlib
 import ipaddress
 import json
+import logging
 import math
 import re
 import socket
@@ -11,6 +12,8 @@ from urllib.parse import urlparse, urlunparse
 from uuid import UUID, uuid4
 
 from flask import abort
+
+logger = logging.getLogger(__name__)
 
 
 SITE_TYPES = {'campaign', 'institutional', 'ecommerce', 'publisher', 'app', 'other'}
@@ -51,8 +54,15 @@ def normalize_site_url(value):
     return urlunparse(('https', host, path, '', '', '')), host
 
 
-def analyze_url(value):
-    """Inspect one public page, then ask TypeSafe for bounded suggestions."""
+TYPESAFE_ESTIMATE_TOKENS = 4000
+
+
+def analyze_url(value, *, actor=None):
+    """Inspect one public page, then ask TypeSafe for bounded suggestions.
+
+    With ``actor`` the TypeSafe call is authorized (price and balance) before
+    and debited after through the shared credit connector.
+    """
     from . import portals
 
     entry_url, host = normalize_site_url(value)
@@ -104,8 +114,31 @@ def analyze_url(value):
         },
     }
     from ..services.typesafe_service import TypeSafeError, system_one
+    credits = None
+    if actor is not None:
+        from ..cadu_credit_connector import CaduCreditConnector
+        from ..cadu_tool_billing import InsufficientToolCredits
+        credits = CaduCreditConnector()
+        try:
+            credits.ensure_priced(actor.client_id)
+            credits.authorize(actor, TYPESAFE_ESTIMATE_TOKENS)
+        except InsufficientToolCredits as exc:
+            abort(409, description=str(exc))
+        except ValueError:
+            abort(409, description='Este cliente não tem preço de tokens configurado; a sugestão automática fica indisponível.')
     try:
         result = system_one(state, questions, timeout=20)
+        if credits is not None:
+            run_id = str(uuid4())
+            try:
+                credits.charge_provider(
+                    actor=actor, idempotency_key=f'planner-monitor:analyze:{run_id}',
+                    app='Cadu Planner', stage='site_monitor_analyze',
+                    provider_result={'usage': result.get('usage'), 'model': result.get('model')},
+                    metadata={'domain': host, 'billing_run_id': run_id, 'billing_class': 'typesafe'})
+            except Exception:
+                logger.error('Falha ao debitar análise de site do Planner (cliente %s, usuário %s, chave planner-monitor:analyze:%s)',
+                             actor.client_id, actor.user_id, run_id, exc_info=True)
         answers = result['answers']
         site_answer = _validate_choice(answers.get('site_type'), set(questions['site_type']['criteria']), 'site_type')
         goal_answer = _validate_choice(answers.get('primary_goal'), set(questions['primary_goal']['criteria']), 'primary_goal')

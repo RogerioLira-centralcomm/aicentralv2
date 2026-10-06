@@ -687,13 +687,16 @@ def planner_portal_detail(portal_id):
 
 @bp.post('/api/planner/monitor/analyze')
 def planner_monitor_analyze():
+    from ..cadu_credit_connector import CreditActor
     from ..cadu_planner import site_monitoring
-    context.identity()
-    context.resolve()
+    user = context.identity()
+    # A análise usa IA paga (TypeSafe): exige papel de edição e debita o cliente.
+    selected = writable_context()
     data = request.get_json(silent=True) or {}
     if set(data) - {'entry_url'}:
         abort(400, description='Informe somente a URL inicial do site.')
-    return jsonify(analysis=site_monitoring.analyze_url(data.get('entry_url')))
+    actor = CreditActor.from_values(selected['client_id'], user['id'])
+    return jsonify(analysis=site_monitoring.analyze_url(data.get('entry_url'), actor=actor))
 
 
 @bp.get('/api/planner/monitor/sites')

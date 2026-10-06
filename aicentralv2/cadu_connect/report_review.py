@@ -1,4 +1,5 @@
 """Human-reviewed, source-bound metrics with immutable revision history."""
+import logging
 import json
 import re
 import secrets
@@ -13,6 +14,8 @@ from .report_rules import decimal_value, metric_change
 from .report_sources import authorized_report
 
 UNITS = ('count', 'BRL', 'USD', 'percent', 'seconds')
+
+logger = logging.getLogger(__name__)
 
 
 def parse_metrics(form):
@@ -89,9 +92,19 @@ def register(bp, rows):
             billing_run_id = str(uuid.uuid4())
             # A leitura é uma análise visual de IA, não OCR local. A reserva
             # cobre o teto da resposta aplicando a margem comercial de texto.
+            credits.ensure_priced(actor.client_id)
             credits.authorize(actor, MAX_EXTRACTION_TOKENS * 12)
             suggestion = extract_suggestion(source[0], report['document'], complete=chat_completion)
             usage, model = suggestion.pop('_usage', {}), suggestion.pop('_model', 'gpt-5-nano')
+        except InsufficientToolCredits as exc:
+            return jsonify(error=str(exc)), 409
+        except (ValueError, json.JSONDecodeError) as exc:
+            return jsonify(error=str(exc)), 422
+        except Exception:
+            return jsonify(error='Não foi possível gerar a sugestão agora. Revise manualmente ou tente novamente.'), 502
+        # A resposta já foi paga ao provedor: falha de débito é registrada para
+        # conciliação, nunca descarta a sugestão.
+        try:
             credits.charge_provider(
                 actor=actor,
                 # A new click means a new model execution and must be charged.
@@ -110,12 +123,9 @@ def register(bp, rows):
                 },
                 margin_multiplier=1,
             )
-        except InsufficientToolCredits as exc:
-            return jsonify(error=str(exc)), 409
-        except (ValueError, json.JSONDecodeError) as exc:
-            return jsonify(error=str(exc)), 422
         except Exception:
-            return jsonify(error='Não foi possível gerar a sugestão agora. Revise manualmente ou tente novamente.'), 502
+            logger.error('Falha ao debitar extração de métricas do Reports (cliente %s, usuário %s, relatório %s, fonte %s, chave reports:extract-metrics:%s, usage %s)',
+                         actor.client_id, actor.user_id, report_id, source_id, billing_run_id, usage, exc_info=True)
         try:
             if rows("SELECT to_regclass('public.cadu_connect_report_ai_runs') IS NOT NULL AS ready")[0]['ready']:
                 with get_db().cursor() as cur:

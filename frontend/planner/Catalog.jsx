@@ -104,6 +104,14 @@ export function CatalogCard({kind, item, urls, selected}) {
   </a>;
 }
 
+/** Todos: uma seção por categoria, na ordem do catálogo; com categoria escolhida, uma grade só. */
+function channelGroups(records, category) {
+  if (category) return [{title: '', items: records}];
+  const groups = new Map();
+  records.forEach(item => { const title = item.category || 'Outros'; if (!groups.has(title)) groups.set(title, []); groups.get(title).push(item); });
+  return [...groups].map(([title, items]) => ({title, items}));
+}
+
 const SCOPES = [['', 'Todos'], ['nacional_premium', 'Premium nacionais'], ['regional', 'Regionais']];
 const BULK_LIMIT = 200;
 
@@ -217,8 +225,10 @@ export function CatalogPage({boot, request, selection, notify}) {
     </div>}
     {!records.length && !loading ? <PlannerPanel className="planner-panel--flush"><CaduEmptyState title="Nenhuma referência encontrada" description="Ajuste a busca ou escolha outra categoria."/></PlannerPanel>
       : portalMode ? <div className="planner-list" aria-label="Portais disponíveis">{records.map(item => <PortalRow key={itemKey(item)} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))}/>)}</div>
-        : kind === 'canais' ? <div className="planner-grid planner-grid--channels" aria-label="Canais disponíveis">{records.map(item => <ChannelCard key={itemKey(item)} item={item} urls={boot.urls}
-          selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>)}</div>
+        : kind === 'canais' ? channelGroups(records, category).map(group => <section key={group.title || 'canais'} className="fmt-group" aria-label={group.title || 'Canais'}>
+          {group.title && <h2 className="fmt-group__title">{group.title}<span>{group.items.length}</span></h2>}
+          <div className="planner-grid planner-grid--channels">{group.items.map(item => <ChannelCard key={itemKey(item)} item={item} urls={boot.urls}
+            selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>)}</div></section>)
         : <div className="planner-grid" aria-label={`${MODULE_LABELS[kind]} disponíveis`}>{records.map(item => <CatalogCard key={itemKey(item)} kind={kind} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))}/>)}</div>}
     {portalMode && total > PORTAL_PAGE && <nav className="planner-pagination" aria-label="Páginas de portais">
       <CaduButton variant="secondary" disabled={!offset} onClick={() => setOffset(Math.max(0, offset - PORTAL_PAGE))}>Anterior</CaduButton>

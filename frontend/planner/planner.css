@@ -1184,7 +1184,7 @@ a.planner-portal.planner-portal--wide { grid-template-columns: 40px minmax(200px
 .planner-grid--channels { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
 .channel-card { cursor: pointer; }
 .channel-card:hover { transform: translateY(-2px); }
-.channel-card__photo { position: relative; display: block; aspect-ratio: 16 / 9; overflow: hidden; background: var(--planner-soft); }
+.channel-card__photo { position: relative; display: grid; place-items: center; aspect-ratio: 16 / 9; overflow: hidden; background: var(--planner-soft); }
 .channel-card__photo > img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .channel-card__photo .planner-card__inplan { position: absolute; top: 10px; right: 10px; box-shadow: 0 1px 2px rgba(16, 24, 40, .12); }
 .channel-card__badge { position: absolute; top: 10px; left: 10px; max-width: 70%; padding: 3px 9px; overflow: hidden; border-radius: 99px; background: rgba(255, 255, 255, .94); color: var(--color-text-secondary, #344054); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
@@ -1213,3 +1213,12 @@ a.planner-portal.planner-portal--wide { grid-template-columns: 40px minmax(200px
 .pd-formats small { color: var(--planner-muted); font-size: 12px; }
 .planner-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
 .planner-chips button { border-radius: 99px; }
+.channel-card__photo.is-logo { background: radial-gradient(circle at 50% 40%, #fff, var(--planner-soft)); color: var(--planner-subtle); }
+.channel-card__photo > img.channel-card__logo { width: auto; max-width: 56%; height: auto; max-height: 52%; object-fit: contain; }
+.channel-card__photo > img:not(.channel-card__logo) { grid-area: 1 / 1; }
+.channel-card__body .planner-card__title { margin-top: 2px; font-size: 16px; }
+.channel-card__metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.channel-card__metrics > div:first-child { grid-column: 1 / -1; }
+.channel-card__metrics > div:first-child dd { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.channel-card__actions .planner-selection-button { width: 100%; justify-content: center; }
+.planner-grid--channels + .fmt-group, .fmt-group + .fmt-group { margin-top: 28px; }

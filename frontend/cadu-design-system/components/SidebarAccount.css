@@ -4,18 +4,21 @@
 .cadu-sidebar-account__profile{display:flex;min-width:0;min-height:42px;align-items:center;gap:8px;padding:4px 6px;border-radius:8px;color:var(--account-ink)}
 a.cadu-sidebar-account__profile:hover,.cadu-sidebar-account__profile.is-active{background:var(--account-hover)}
 .cadu-sidebar-account__avatar{box-sizing:border-box;display:grid;width:32px;height:32px;min-width:32px;flex:0 0 32px;place-items:center;overflow:hidden;border-radius:50%}
+.cadu-sidebar-account__avatar.cadu-ds-visual-identity{padding:0;border:0;border-radius:50%;background:var(--account-track)}
 .cadu-sidebar-account__avatar img{display:block;width:100%;height:100%;padding:0;border-radius:50%;object-fit:cover;object-position:center}
 .cadu-sidebar-account__text{display:grid;min-width:0;gap:1px}
 .cadu-sidebar-account__text strong{overflow:hidden;font-size:12px;font-weight:650;line-height:1.25;text-overflow:ellipsis;white-space:nowrap}
 .cadu-sidebar-account__text small{overflow:hidden;color:var(--account-muted);font-size:10.5px;font-weight:500;line-height:1.25;text-overflow:ellipsis;white-space:nowrap}
-.cadu-sidebar-account__usage{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px;border-radius:8px;color:var(--account-muted);font-size:10px;font-variant-numeric:tabular-nums}
+.cadu-sidebar-account__usage{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:5px 8px;padding:7px 6px 6px;border-radius:8px;color:var(--account-muted);font-size:11px;line-height:1.2;font-variant-numeric:tabular-nums}
+.cadu-sidebar-account__usage-value{color:var(--account-ink);font-weight:650}
 .cadu-sidebar-account__usage:hover{background:var(--account-hover);color:var(--account-ink)}
-.cadu-sidebar-account__usage>i{display:block;width:60px;height:4px;overflow:hidden;border-radius:99px;background:var(--account-track)}
+.cadu-sidebar-account__usage>i{grid-column:1/-1;display:block;width:100%;height:4px;overflow:hidden;border-radius:99px;background:var(--account-track)}
 .cadu-sidebar-account__usage>i>b{display:block;height:100%;border-radius:inherit;background:var(--account-fill)}
-.cadu-sidebar-account__usage.is-high{color:#b54708}
+.cadu-sidebar-account__usage.is-high .cadu-sidebar-account__usage-value{color:var(--account-warn)}
 .cadu-sidebar-account__usage.is-high>i>b{background:var(--account-warn)}
 .cadu-sidebar-account__profile:focus-visible,.cadu-sidebar-account__usage:focus-visible{outline:2px solid var(--account-fill);outline-offset:2px}
 /* Collapsed rails keep only the photo. */
 .is-collapsed .cadu-sidebar-account{justify-items:center}
 .is-collapsed .cadu-sidebar-account__profile{width:auto;min-height:0;padding:3px}
-.is-collapsed .cadu-sidebar-account__text,.is-collapsed .cadu-sidebar-account__usage{display:none}
+.is-collapsed .cadu-sidebar-account__text,.is-collapsed .cadu-sidebar-account__usage{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:5px 8px;padding:7px 6px 6px;border-radius:8px;color:var(--account-muted);font-size:11px;line-height:1.2;font-variant-numeric:tabular-nums}
+.cadu-sidebar-account__usage-value{color:var(--account-ink);font-weight:650}

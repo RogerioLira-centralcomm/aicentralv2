@@ -95,8 +95,14 @@ class CaduCreditConnector:
         return self.ledger.assert_available(actor.client_id, max(1, int(estimated_tokens or 0)))
 
     def ensure_priced(self, client_id: int) -> None:
-        """Raises ValueError when the client has no commercial token price, so a call is refused instead of running unbilled."""
-        commercial_token_price_brl(int(client_id))
+        """Confirma que a chamada pode ser debitada antes de rodar.
+
+        Plano Free (preço 0) ou sem plano usa a taxa-base
+        ``CADU_USD_PER_CREDIT_TOKEN`` (decisão do dono: Free pode usar IA),
+        como em :meth:`charge_provider`. Só falha (ValueError) se nem a
+        taxa-base for válida; o saldo continua conferido em ``authorize``.
+        """
+        self._commercial_token_price_usd(int(client_id))
 
     def balance(self, client_id: int) -> int:
         return self.ledger.available(int(client_id))
@@ -118,12 +124,10 @@ class CaduCreditConnector:
         credits = firecrawl_credit_cost(operation, pages=pages, results=results)
         if client_id is None:
             return cost_token_equivalent(Decimal(credits) * firecrawl_usd_per_credit())
-        from .creative_modeling_fx import usd_brl_rate
-        price_brl = commercial_token_price_brl(client_id)
-        exchange, _source = usd_brl_rate()
+        # Mesmo preço comercial convertido para USD; Free/sem plano cai na taxa-base.
         return cost_token_equivalent(
-            Decimal(credits) * firecrawl_usd_per_credit() * Decimal(str(exchange)),
-            usd_per_credit_token=price_brl,
+            Decimal(credits) * firecrawl_usd_per_credit(),
+            usd_per_credit_token=self._commercial_token_price_usd(client_id),
         )
 
     def authorize_firecrawl(self, actor: CreditActor, operation: str, *, pages: int = 0, results: int = 0) -> int:

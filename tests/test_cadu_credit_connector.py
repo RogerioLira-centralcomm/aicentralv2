@@ -93,3 +93,46 @@ class FreePlanMediaChargeTest(TestCase):
         charge, price = self._charge()
         price.assert_called_once()
         self.assertEqual(charge.charged_tokens, 4000)  # US$0,04 / US$10 por milhão
+
+
+class FreePlanAiAccessTest(TestCase):
+    """Decisão do dono: plano Free (preço 0) usa IA pela taxa-base, com saldo conferido."""
+
+    def _no_price(self):
+        from unittest.mock import patch
+        return patch(
+            "aicentralv2.cadu_credit_connector.commercial_token_price_brl",
+            side_effect=ValueError("Preço comercial de Tokens Cadu indisponível para este cliente."),
+        )
+
+    def test_free_plan_is_priced_by_base_rate(self):
+        connector = CaduCreditConnector(Mock(spec=ToolTokenLedger, unsafe=True))
+        with self._no_price():
+            connector.ensure_priced(174)  # não levanta
+
+    def test_invalid_base_rate_still_refuses(self):
+        from unittest.mock import patch
+        connector = CaduCreditConnector(Mock(spec=ToolTokenLedger, unsafe=True))
+        with self._no_price(), patch.dict("os.environ", {"CADU_USD_PER_CREDIT_TOKEN": "0"}):
+            with self.assertRaises(ValueError):
+                connector.ensure_priced(174)
+
+    def test_free_plan_firecrawl_estimate_uses_base_rate(self):
+        connector = CaduCreditConnector(Mock(spec=ToolTokenLedger, unsafe=True))
+        with self._no_price():
+            self.assertEqual(connector.estimate_firecrawl_tokens('scrape', client_id=174),
+                             connector.estimate_firecrawl_tokens('scrape'))
+
+    def test_free_plan_reports_ai_still_checks_balance(self):
+        from unittest.mock import patch
+        from werkzeug.exceptions import Conflict
+        from aicentralv2.cadu_connect import reports_ai
+        from aicentralv2.cadu_tool_billing import InsufficientToolCredits
+        ledger = Mock(spec=ToolTokenLedger, unsafe=True)
+        ledger.assert_available.side_effect = InsufficientToolCredits("Saldo insuficiente.")
+        with self._no_price(), patch.object(reports_ai, "CaduCreditConnector",
+                                            lambda: CaduCreditConnector(ledger)):
+            with self.assertRaises(Conflict):
+                reports_ai._authorize(CreditActor(174, 32))
+            ledger.assert_available.side_effect = None
+            reports_ai._authorize(CreditActor(174, 32))  # Free com saldo: liberado

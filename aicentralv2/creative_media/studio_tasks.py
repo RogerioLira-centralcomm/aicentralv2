@@ -200,6 +200,16 @@ def run_task(root,ident):
         logging.getLogger(__name__).exception('Media task failed: %s',ident)
         message=str(error) if isinstance(error,ValueError) else 'Não foi possível processar a mídia. Confira o arquivo e tente novamente.'
         _write(path,{**row,'status':'failed','error':message[:300]})
+        from ..creative_modeling_repository import CreativeConflictError
+        if row['kind']=='image_edit' and work.get('recipient_email') and isinstance(error,CreativeConflictError):
+            # CreativeConflictError sai do provedor antes da cobrança (swap cobra só com a imagem em mãos).
+            try:
+                from ..services.cadu_product_emails import send_studio_generation_failed
+                from ..product_domains import product_url
+                send_studio_generation_failed(recipient_email=work['recipient_email'],recipient_name=work.get('recipient_name') or '',
+                                              kind='image',reason=message,url=product_url('studio','/studio'))
+            except Exception:
+                logging.getLogger(__name__).exception('Aviso de falha da edição %s não enviado',ident)
     finally:
         if row['kind']=='import' and source and source.exists():
             # Preserve the exact original upload, independent from the editing copy.

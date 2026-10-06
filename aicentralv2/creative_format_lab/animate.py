@@ -599,7 +599,58 @@ class AnimateService:
         return path, asset.get("mime_type") or "application/octet-stream"
 
     def _run(self, job_id):
-        self._worker().run(job_id)
+        try:
+            before = self.repository.get_job(job_id) or {}
+        except Exception:
+            before = {}
+        already_final = before.get("status") in {"ready", "failed", "cancelled"}
+        try:
+            row = self._worker().run(job_id)
+        except Exception as exc:
+            if not already_final:
+                self._notify_video_failed(job_id, exc)
+            raise
+        if not already_final and (row or {}).get("status") == "ready":
+            self._notify_video_ready(row)
+        return row
+
+    def _job_recipient(self, job):
+        """Pessoa que pediu o vídeo; sem e-mail conhecido, nada é enviado."""
+        from ..cadu_family import repository as family
+        person = family.actor(job.get("user_id")) if job.get("user_id") not in (None, "") else None
+        return (person or {}).get("email") or "", (person or {}).get("name") or ""
+
+    def _notify_video_ready(self, job):
+        try:
+            email, name = self._job_recipient(job)
+            if not email:
+                return
+            from ..product_domains import product_url
+            from ..services.cadu_product_emails import send_piece_ready
+            version = job.get("version_payload") if isinstance(job.get("version_payload"), dict) else {}
+            send_piece_ready(recipient_email=email, recipient_name=name, kind="video",
+                             title=str(version.get("name") or "Novo vídeo"), url=product_url("studio", "/studio"))
+        except Exception:
+            logger.exception("Aviso de vídeo pronto não enviado (%s)", job.get("public_id"))
+
+    def _notify_video_failed(self, job_id, exc):
+        try:
+            job = self.repository.get_job(job_id) or {}
+            version = job.get("version_payload")
+            if isinstance(version, dict) and version.get("master_asset_id"):
+                # O débito ocorre antes de gravar o master: não prometer saldo intacto.
+                logger.warning("Falha do vídeo %s após a cobrança; aviso de saldo não enviado", job_id)
+                return
+            email, name = self._job_recipient(job)
+            if not email:
+                return
+            from ..creative_media.worker import friendly_failure
+            from ..product_domains import product_url
+            from ..services.cadu_product_emails import send_studio_generation_failed
+            send_studio_generation_failed(recipient_email=email, recipient_name=name, kind="video",
+                                          reason=friendly_failure(exc), url=product_url("studio", "/studio"))
+        except Exception:
+            logger.exception("Aviso de falha do vídeo %s não enviado", job_id)
 
     def _worker(self):
         return AnimateWorker(

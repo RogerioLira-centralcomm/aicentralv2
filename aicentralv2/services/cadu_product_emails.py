@@ -277,3 +277,31 @@ WORKSPACE_ONBOARDING = (
     (22, "Acompanhe seus tokens", "Veja a franquia do plano e os pacotes extras antes de iniciar uma execução.", "Ver tokens", "/workspace/app/creditos"),
     (28, "Seu contexto está pronto", "Projetos, marcas e equipe agora acompanham o trabalho entre produtos.", "Abrir Workspace", "/workspace/app"),
 )
+
+
+def send_studio_generation_failed(*, recipient_email: str, recipient_name: str, kind: str = "video",
+                                  reason: str = "", refunded: bool = False, url: str = "") -> dict:
+    """Avisa a falha de uma geração do Studio deixando claro que o saldo não foi debitado.
+
+    Só é chamado quando nenhum débito ficou de pé: ou a cobrança nunca ocorreu
+    (vídeo cobra só depois de baixado) ou ``refunded`` confirma o estorno.
+    Nunca levanta exceção.
+    """
+    try:
+        if not recipient_email or not _enabled():
+            return {"success": True, "skipped": True}
+        label = "vídeo" if kind == "video" else "imagem"
+        balance_note = ("O valor debitado foi estornado e seu saldo de tokens está como antes."
+                        if refunded else "Seu saldo de tokens NÃO foi debitado por esta tentativa.")
+        detail = f" Motivo informado: {str(reason).strip()[:240]}" if str(reason or "").strip() else ""
+        title = f"A geração do seu {label} não foi concluída" if kind == "video" else "A geração da sua imagem não foi concluída"
+        return send_cadu_event(product="studio", event="studio.generation_failed", template="produto-atividade.html",
+            recipient=recipient_email, recipient_name=recipient_name or "Pessoa criadora", subject=title,
+            params={"BRAND": product_email_brand("studio"), "TITLE": title, "EYEBROW": "Geração não concluída",
+                    "DESCRIPTION": f"{balance_note}{detail} Você pode revisar e tentar de novo no Studio.",
+                    "DETAILS": [{"label": "Saldo", "value": "Estornado" if refunded else "Não debitado"}],
+                    "CTA_LABEL": "Abrir o Studio" if url else "", "CTA_URL": url})
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("Aviso de falha de geração do Studio não enviado")
+        return {"success": False, "error": "studio_generation_failed_email_failed"}

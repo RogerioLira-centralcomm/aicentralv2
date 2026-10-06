@@ -92,3 +92,83 @@ def test_brand_template_renders_details_and_optional_cta():
                                  cta_url="/x", cta_label="Abrir")
     assert "Recibo de compra" in html and "Agência" in html and "href" not in html
     assert "Auditoria de marca" in legacy and 'href="/x"' in legacy
+
+
+# ---- Studio: vídeo pronto e falha sem débito --------------------------------
+from aicentralv2.services import cadu_product_emails as pe  # noqa: E402
+
+
+def _run_pe(fn, svc, **kw):
+    with _app().app_context(), ExitStack() as stack:
+        stack.enter_context(mock.patch.object(pe, "_enabled", return_value=True))
+        stack.enter_context(mock.patch.object(pe, "product_email_brand", return_value=BRAND))
+        stack.enter_context(mock.patch.object(conn, "get_brevo_product_service", return_value=svc))
+        stack.enter_context(mock.patch.object(conn, "product_email_brand", return_value=BRAND))
+        stack.enter_context(mock.patch("aicentralv2.email_service.record_workspace_email_event"))
+        return fn(**kw)
+
+
+def test_generation_failed_states_balance_was_not_debited_or_refunded():
+    svc = mock.MagicMock(); svc.enviar_email_com_template.return_value = {"success": True}
+    _run_pe(pe.send_studio_generation_failed, svc, recipient_email="a@x.com", recipient_name="Ana",
+            kind="video", reason="Provedor recusou", url="/studio")
+    kw = svc.enviar_email_com_template.call_args.kwargs
+    assert "NÃO foi debitado" in kw["params"]["DESCRIPTION"] and "Provedor recusou" in kw["params"]["DESCRIPTION"]
+    assert kw["params"]["CADU_EVENT"] == "studio.generation_failed"
+    _run_pe(pe.send_studio_generation_failed, svc, recipient_email="a@x.com", recipient_name="Ana",
+            kind="image", refunded=True)
+    assert "estornado" in svc.enviar_email_com_template.call_args.kwargs["params"]["DESCRIPTION"]
+    broken = mock.MagicMock(); broken.enviar_email_com_template.side_effect = RuntimeError("down")
+    assert _run_pe(pe.send_studio_generation_failed, broken, recipient_email="a@x.com",
+                   recipient_name="A")["success"] is False
+
+
+class _Repo:
+    def __init__(self, before, after):
+        self.rows = [before, after]
+
+    def get_job(self, job_id):
+        return self.rows.pop(0) if len(self.rows) > 1 else self.rows[0]
+
+
+def _animate(before, after, outcome):
+    from aicentralv2.creative_format_lab.animate import AnimateService
+    service = AnimateService(store=mock.MagicMock(), repository=_Repo(before, after), spawn_job=lambda *a: None)
+    worker = mock.MagicMock()
+    if isinstance(outcome, Exception):
+        worker.run.side_effect = outcome
+    else:
+        worker.run.return_value = outcome
+    return service, worker
+
+
+def _drive(service, worker):
+    with _app().app_context(), \
+         mock.patch.object(service, "_worker", return_value=worker), \
+         mock.patch("aicentralv2.cadu_family.repository.actor", return_value={"email": "a@x.com", "name": "Ana"}), \
+         mock.patch("aicentralv2.product_domains.product_url", side_effect=lambda p, path="/": path), \
+         mock.patch.object(pe, "send_piece_ready") as ready, \
+         mock.patch.object(pe, "send_studio_generation_failed") as failed:
+        try:
+            service._run("job1")
+        except RuntimeError:
+            pass
+    return ready, failed
+
+
+def test_video_ready_notifies_once_with_existing_piece_ready_event():
+    ready_row = {"public_id": "job1", "status": "ready", "user_id": 7, "version_payload": {"name": "Clipe 8s"}}
+    ready, failed = _drive(*_animate({"status": "queued"}, ready_row, ready_row))
+    assert ready.call_args.kwargs["kind"] == "video" and ready.call_args.kwargs["title"] == "Clipe 8s"
+    assert not failed.called
+    ready, _ = _drive(*_animate(ready_row, ready_row, ready_row))  # job já pronto: não reenvia
+    assert not ready.called
+
+
+def test_video_failure_before_charge_warns_but_not_after_charge():
+    failed_row = {"public_id": "job1", "status": "failed", "user_id": 7, "version_payload": None}
+    _, failed = _drive(*_animate({"status": "queued"}, failed_row, RuntimeError("A geração falhou.")))
+    assert failed.call_args.kwargs["kind"] == "video" and "falhou" in failed.call_args.kwargs["reason"]
+    charged = {**failed_row, "version_payload": {"master_asset_id": "m1"}}
+    _, failed = _drive(*_animate({"status": "queued"}, charged, RuntimeError("persist")))
+    assert not failed.called

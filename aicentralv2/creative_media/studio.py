@@ -1160,6 +1160,29 @@ def studio_edit_quote():
     return execute(run)
 
 
+def _transcription_estimate_seconds(audio, allow_long: bool) -> float:
+    """Duração máxima plausível para reservar saldo antes de transcrever.
+
+    Ditado: teto curto. Arquivo: estima pelo tamanho (~16 KB/s, áudio
+    comprimido comum), limitado ao teto longo.
+    """
+    from ..cadu_workspace.voice_input_service import LONG_MAX_AUDIO_SECONDS, MAX_AUDIO_SECONDS
+    if not allow_long:
+        return float(MAX_AUDIO_SECONDS)
+    size = 0
+    try:
+        stream = audio.stream
+        position = stream.tell()
+        stream.seek(0, 2)
+        size = stream.tell()
+        stream.seek(position)
+    except Exception:
+        size = int(getattr(audio, 'content_length', 0) or 0)
+    if size <= 0:
+        return float(MAX_AUDIO_SECONDS)
+    return float(min(LONG_MAX_AUDIO_SECONDS, max(MAX_AUDIO_SECONDS, size / 16_000)))
+
+
 @studio_or_admin_required_api
 @studio_csrf_required
 def studio_audio_transcriptions():
@@ -1187,13 +1210,19 @@ def studio_audio_transcriptions():
         if not audio or len(request.files) != 1:
             raise ValueError('Envie um áudio por vez.')
         from werkzeug.exceptions import HTTPException
+        allow_long = request.form.get('source') == 'file'
+        payer = service()._credits_crm_id(client_id) or int(client_id)
+        # A5: bloqueia por saldo antes de pagar o provedor de transcrição.
+        CaduCreditConnector().authorize(
+            CreditActor.from_values(payer, int(user_id)),
+            transcription_credit_tokens(_transcription_estimate_seconds(audio, allow_long)),
+        )
         try:
-            result = transcribe_upload(audio, allow_long=request.form.get('source') == 'file')
+            result = transcribe_upload(audio, allow_long=allow_long)
         except HTTPException as error:
             raise ValueError(error.description or 'Não foi possível transcrever o áudio agora.') from error
         charged_credits = transcription_credit_tokens(result.get('duration'))
         request_key = str(request.headers.get('X-Idempotency-Key') or uuid.uuid4()).strip()[:180]
-        payer = service()._credits_crm_id(client_id) or int(client_id)
         charge = CaduCreditConnector().charge_provider(
             actor=CreditActor.from_values(payer, int(user_id)),
             idempotency_key=f'studio:voice-transcription:{client_id}:{request_key}',

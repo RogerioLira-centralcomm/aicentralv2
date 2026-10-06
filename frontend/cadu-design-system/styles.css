@@ -4597,9 +4597,3 @@ body.portal--workspace .cadu-ds-project-reports-row>a{display:grid;grid-template
   .workspace-solution-shell { grid-template-columns:minmax(0,1fr); }
   .workspace-solution-main { padding:16px 16px 40px; }
 }
-
-.workspace-solution-main--wide { max-width:1440px; }
-.workspace-solution-shell .cadu-ds-entity-portal--brand { display:grid; grid-template-columns:minmax(0,1fr) 280px; gap:32px; align-items:start; }
-.cadu-ds-brand-hero__actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:16px; }
-.cadu-ds-brand-hero__actions form { margin:0; }
-@media (max-width:1100px) { .workspace-solution-shell .cadu-ds-entity-portal--brand { grid-template-columns:minmax(0,1fr); } }

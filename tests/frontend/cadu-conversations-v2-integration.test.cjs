@@ -260,7 +260,7 @@ test('brand dossier uses the shared React dock and design-system dialogs', () =>
   const styles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/styles.css'), 'utf8');
   const base = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_portals/base.html'), 'utf8');
   assert.match(brand, /export function WorkspaceBrand/);
-  assert.match(brand, /<WorkspaceSidebar[^>]*sectionsLabel/);
+  assert.match(brand, /<WorkspaceContextSidebar[^>]*\brail\b/);
   assert.match(brand, /<CaduModal/);
   assert.match(brand, /IdentityDialog/);
   assert.match(brand, /LinkProjectsDialog/);

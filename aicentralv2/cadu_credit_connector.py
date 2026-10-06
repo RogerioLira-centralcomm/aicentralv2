@@ -6,6 +6,7 @@ contrato, independentemente de o consumo vir de Chat, Studio ou Planner.
 """
 from __future__ import annotations
 
+import logging
 import math
 import os
 from psycopg.types.json import Json
@@ -14,6 +15,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from .cadu_tool_billing import ToolCharge, ToolTokenLedger, charge_from_provider, cost_token_equivalent
+
+logger = logging.getLogger(__name__)
 
 
 # Firecrawl Standard: US$5 para 2.000 créditos. Mantemos configurável porque
@@ -155,7 +158,7 @@ class CaduCreditConnector:
             billing_metadata.setdefault("provider", provider)
         if isinstance(attempts, (list, tuple)) and attempts:
             billing_metadata.setdefault("provider_attempts", [str(item) for item in attempts if str(item).strip()])
-        if commercial_token_price_usd is None:
+        if commercial_token_price_usd is None and media_tokens is None:
             raw_cost = result.get("actual_cost_usd") or (result.get("usage") or {}).get("cost")
             if raw_cost:
                 commercial_token_price_usd = self._commercial_token_price_usd(actor.client_id)
@@ -176,9 +179,23 @@ class CaduCreditConnector:
         )
 
     def _commercial_token_price_usd(self, client_id: int) -> Decimal:
+        """Preço comercial do token em USD, com fallback na taxa-base.
+
+        Plano Free (preço 0) ou ausência de plano ativo não podem quebrar a
+        cobrança depois que o provedor já foi pago: cai na taxa-base
+        ``CADU_USD_PER_CREDIT_TOKEN``.
+        """
+        try:
+            price_brl = commercial_token_price_brl(client_id)
+        except ValueError:
+            logger.info("Cliente %s sem preço comercial; cobrança pela taxa-base.", client_id)
+            rate = Decimal(str(os.getenv("CADU_USD_PER_CREDIT_TOKEN", "0.00001")))
+            if rate <= 0:
+                raise ValueError("CADU_USD_PER_CREDIT_TOKEN deve ser maior que zero.")
+            return rate
         from .creative_modeling_fx import usd_brl_rate
         exchange, _source = usd_brl_rate()
-        return commercial_token_price_brl(client_id) / Decimal(str(exchange))
+        return price_brl / Decimal(str(exchange))
 
     def charge_tokens(
         self, *, actor: CreditActor, idempotency_key: str, app: str, stage: str,

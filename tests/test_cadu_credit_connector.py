@@ -64,3 +64,32 @@ class CreditConnectorTest(TestCase):
             estimated_credit_tokens(provider_tokens=25, margin_multiplier=12),
             300,
         )
+
+
+class FreePlanMediaChargeTest(TestCase):
+    """B1: plano Free (preço 0) ou sem plano não quebra cobrança já paga."""
+
+    def _charge(self, **kwargs):
+        from unittest.mock import patch
+        ledger = Mock(spec=ToolTokenLedger, unsafe=True)
+        connector = CaduCreditConnector(ledger)
+        with patch(
+            "aicentralv2.cadu_credit_connector.commercial_token_price_brl",
+            side_effect=ValueError("Preço comercial de Tokens Cadu indisponível para este cliente."),
+        ) as price:
+            connector.charge_provider(
+                actor=CreditActor(174, 32), idempotency_key='studio:img-1',
+                app='Studio', stage='imagem',
+                provider_result={'actual_cost_usd': 0.04}, **kwargs,
+            )
+        return ledger.charge.call_args.args[0], price
+
+    def test_media_tokens_skip_commercial_price(self):
+        charge, price = self._charge(media_tokens=4000)
+        price.assert_not_called()
+        self.assertEqual(charge.charged_tokens, 4000)
+
+    def test_free_or_missing_plan_falls_back_to_base_rate(self):
+        charge, price = self._charge()
+        price.assert_called_once()
+        self.assertEqual(charge.charged_tokens, 4000)  # US$0,04 / US$10 por milhão

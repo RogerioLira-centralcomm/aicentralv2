@@ -1261,3 +1261,57 @@ a.planner-portal.planner-portal--wide { grid-template-columns: 40px minmax(200px
 .channel-bar strong { color: #1dbf73; }
 .channel-bar a { display: inline-flex; align-items: center; gap: 4px; padding: 6px 14px; border-radius: 99px; background: #1dbf73; color: #101418; font-weight: 700; text-decoration: none; }
 .fmt-group:last-of-type:has(.planner-grid--channels) { margin-bottom: 76px; }
+
+/* Channel shelf, third pass: trio with icons, clear action, plan bar with logos, list view. */
+.channel-card__numbers, .channel-card__reach { display: none; }
+.channel-card__body .planner-card__text { min-height: 40px; margin-bottom: 4px; }
+.channel-card__stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 6px 0 0; padding: 10px 8px; border-radius: 10px; background: var(--planner-soft); }
+.channel-card__stats > div { display: flex; min-width: 0; align-items: center; gap: 6px; color: var(--planner-muted); }
+.channel-card__stats > div > span { display: flex; min-width: 0; flex-direction: column; }
+.channel-card__stats dt { overflow: hidden; color: var(--planner-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.channel-card__stats dd { margin: 0; overflow: hidden; color: var(--planner-ink, #101828); font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.channel-card__foot { display: flex; flex-direction: column; align-items: stretch; gap: 6px; margin: auto 0 0; padding: 14px 0 14px; border-top: 0; }
+.channel-card__foot .planner-selection-button { width: 100%; justify-content: center; border-color: var(--colors-brand-600, #079455); background: var(--planner-surface); color: var(--colors-brand-700, #067647); }
+.channel-card__foot .planner-selection-button:hover { background: var(--colors-brand-50, #ecfdf3); }
+.channel-card__foot .planner-selection-button.is-selected { border-color: var(--colors-brand-600, #079455); background: var(--colors-brand-600, #079455); color: #fff; }
+.channel-card__quote { position: relative; z-index: 2; align-self: center; color: var(--planner-muted); font-size: 12px; text-decoration: underline; text-underline-offset: 2px; }
+.channel-card__quote:hover { color: var(--colors-brand-700, #067647); }
+.channel-card__formats { align-self: center; color: var(--planner-subtle); font-size: 11px; }
+.channel-card__badge { background: rgba(16, 20, 24, .72); color: #fff; backdrop-filter: blur(4px); }
+.channel-card__measurable { position: absolute; top: 10px; right: 10px; padding: 3px 9px; border-radius: 99px; background: var(--colors-brand-600, #079455); color: #fff; font-size: 11px; font-weight: 700; }
+.channel-card__mark { position: absolute; bottom: 10px; left: 10px; display: grid; width: 40px; height: 40px; place-items: center; border-radius: 10px; background: #fff; box-shadow: 0 1px 4px rgba(16, 20, 24, .25); }
+.channel-card__mark > img { width: 70%; height: 70%; object-fit: contain; }
+.channel-card .planner-card__inplan { display: none; }
+.channel-card.is-selected { box-shadow: inset 0 0 0 2px var(--colors-brand-600, #079455); }
+
+.planner-chipbar__tools { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.planner-morefilters { position: relative; }
+.planner-morefilters summary { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border: 1px solid var(--planner-line); border-radius: 99px; background: var(--planner-surface); font-size: 13px; font-weight: 600; cursor: pointer; list-style: none; }
+.planner-morefilters summary b { display: inline-grid; min-width: 18px; height: 18px; place-items: center; border-radius: 99px; background: var(--colors-brand-600, #079455); color: #fff; font-size: 11px; }
+.planner-morefilters .planner-multi__menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 10; min-width: 240px; }
+.planner-viewtoggle button { display: inline-flex; align-items: center; gap: 6px; }
+
+.channel-list { display: grid; gap: 8px; }
+.channel-row { position: relative; display: grid; grid-template-columns: 48px minmax(150px, 1fr) minmax(0, 2fr) minmax(250px, 1.3fr) 190px; align-items: center; gap: 16px; padding: 12px 16px; border-radius: 12px; background: var(--planner-surface); box-shadow: 0 1px 2px rgba(16, 24, 40, .06); }
+.channel-row:hover { box-shadow: 0 6px 18px -8px rgba(16, 24, 40, .2); }
+.channel-row.is-selected { box-shadow: inset 0 0 0 2px var(--colors-brand-600, #079455); }
+.channel-row__main { display: flex; min-width: 0; flex-direction: column; }
+.channel-row__main small { color: var(--planner-muted); font-size: 12px; }
+.channel-row__text { display: -webkit-box; overflow: hidden; color: var(--planner-muted); font-size: 13px; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.channel-row .channel-card__stats { margin: 0; }
+.channel-row__actions { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 4px; }
+.channel-row__actions .planner-selection-button { width: 100%; justify-content: center; border-color: var(--colors-brand-600, #079455); color: var(--colors-brand-700, #067647); }
+.channel-row__actions .planner-selection-button.is-selected { background: var(--colors-brand-600, #079455); color: #fff; }
+.channel-row__actions .channel-card__quote { align-self: center; }
+
+/* Plan bar: sticky inside the content, so it respects the sidebar. */
+.channel-bar { position: sticky; bottom: 0; left: auto; z-index: 20; display: flex; align-items: center; gap: 14px; margin: 16px -4px 0; padding: 12px 16px; transform: none; border-radius: 14px 14px 0 0; background: var(--planner-surface, #fff); color: var(--planner-ink, #101828); box-shadow: 0 -8px 24px -12px rgba(16, 20, 24, .25); font-size: 15px; }
+.channel-bar strong { color: inherit; font-size: 16px; }
+.channel-bar__logos { display: flex; gap: 6px; }
+.channel-bar__more { color: var(--planner-muted); font-size: 13px; font-weight: 600; }
+.channel-bar__all { color: var(--planner-muted); font-size: 13px; text-decoration: underline; text-underline-offset: 2px; }
+.channel-bar__go { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; padding: 10px 20px; border-radius: 10px; background: var(--colors-brand-600, #079455); color: #fff; font-weight: 700; text-decoration: none; }
+.channel-bar a { background: none; padding: 0; color: inherit; }
+.channel-bar a.channel-bar__go { padding: 10px 20px; background: var(--colors-brand-600, #079455); color: #fff; }
+.fmt-group:last-of-type:has(.planner-grid--channels) { margin-bottom: 0; }
+@media (max-width: 1100px) { .channel-row { grid-template-columns: 48px 1fr 190px; } .channel-row__text, .channel-row .channel-card__stats { display: none; } }

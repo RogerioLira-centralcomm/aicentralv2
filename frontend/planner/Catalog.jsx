@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useContext, useEffect, useMemo, useRef, useState} from 'react';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.jsx';
 import {CaduSelectField} from '../cadu-design-system/components/CaduField.jsx';
@@ -7,7 +7,8 @@ import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {LogoTile, PlannerPanel, SelectionButton} from './PlannerUi.jsx';
 import {MODULE_LABELS, moduleUrl} from './api.js';
 import {ActivePlanChip, PlannerHeader} from './PlannerHeader.jsx';
-import {ChannelCard} from './ChannelCard.jsx';
+import {ChannelCard, ChannelRow} from './ChannelCard.jsx';
+import {PlannerChrome} from './PlannerHeader.jsx';
 
 const PORTAL_PAGE = 50;
 const DESCRIPTIONS = {
@@ -144,6 +145,9 @@ export function CatalogPage({boot, request, selection, notify}) {
   const [categories, setCategories] = useState([]);
   const [category, setCategory] = useState('');
   const [groupBy, setGroupBy] = useState('categoria');
+  const [view, setView] = useState('grade');
+  const [more, setMore] = useState({measurable: false, formats: false});
+  const {activePlan} = useContext(PlannerChrome);
   // Chip counts come from the full list that arrives with the page, not from the filtered one.
   const categoryCounts = useMemo(() => {
     const counts = new Map();
@@ -200,7 +204,9 @@ export function CatalogPage({boot, request, selection, notify}) {
     } catch (error) { notify({tone: 'error', message: error.message}); } finally { setBulkBusy(false); }
   }
 
-  const countLabel = loading ? 'Atualizando…' : portalMode ? `${number(total)} portais · página ${Math.floor(offset / PORTAL_PAGE) + 1}` : `${number(records.length)} ${records.length === 1 ? 'referência' : 'referências'}`;
+  const shown = kind === 'canais' ? records.filter(item => (!more.measurable || item.measurable) && (!more.formats || Number(item.formats_count) > 0)) : records;
+  const quoteUrl = activePlan ? `${boot.urls.plans}/${encodeURIComponent(activePlan.id)}` : boot.urls.plans;
+  const countLabel = loading ? 'Atualizando…' : portalMode ? `${number(total)} portais · página ${Math.floor(offset / PORTAL_PAGE) + 1}` : `${number(shown.length)} ${shown.length === 1 ? 'referência' : 'referências'}`;
 
   return <>
     <PlannerHeader title={MODULE_LABELS[kind]} description={DESCRIPTIONS[kind]} withContext actions={<ActivePlanChip/>}/>
@@ -216,6 +222,19 @@ export function CatalogPage({boot, request, selection, notify}) {
       <div className="planner-segmented planner-chips" role="group" aria-label="Categoria">
         {[['', 'Todos', boot.records?.length || 0], ...boot.categories.map(value => [value, value, categoryCounts.get(value) || 0])].map(([value, label, count]) => <button key={value || 'all'} type="button" aria-pressed={category === value}
           className={category === value ? 'is-active' : ''} onClick={() => { setCategory(value); setOffset(0); }}>{label}{count > 0 && <span>{count}</span>}</button>)}
+      </div>
+      <div className="planner-chipbar__tools">
+        <details className="planner-multi planner-morefilters">
+          <summary><Icon name="list" size={14}/>Mais filtros{(more.measurable || more.formats) ? <b>{[more.measurable, more.formats].filter(Boolean).length}</b> : null}</summary>
+          <div className="planner-multi__menu">
+            <label><input type="checkbox" checked={more.measurable} onChange={event => setMore(current => ({...current, measurable: event.target.checked}))}/> Só canais mensuráveis</label>
+            <label><input type="checkbox" checked={more.formats} onChange={event => setMore(current => ({...current, formats: event.target.checked}))}/> Só com formatos cadastrados</label>
+          </div>
+        </details>
+        <div className="planner-segmented planner-viewtoggle" role="group" aria-label="Exibição">
+          {[['grade', 'table', 'Grade'], ['lista', 'list', 'Lista']].map(([value, icon, label]) => <button key={value} type="button" aria-pressed={view === value}
+            className={view === value ? 'is-active' : ''} onClick={() => setView(value)}><Icon name={icon} size={14}/>{label}</button>)}
+        </div>
       </div>
       {!category && <div className="planner-segmented planner-groupby" role="group" aria-label="Agrupar por">
         <small>Agrupar por</small>
@@ -240,15 +259,25 @@ export function CatalogPage({boot, request, selection, notify}) {
     </div>}
     {!records.length && !loading ? <PlannerPanel className="planner-panel--flush"><CaduEmptyState title="Nenhuma referência encontrada" description="Ajuste a busca ou escolha outra categoria."/></PlannerPanel>
       : portalMode ? <div className="planner-list" aria-label="Portais disponíveis">{records.map(item => <PortalRow key={itemKey(item)} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))}/>)}</div>
-        : kind === 'canais' ? channelGroups(records, category, groupBy).map(group => <section key={group.title || 'canais'} className="fmt-group" aria-label={group.title || 'Canais'}>
+        : kind === 'canais' ? channelGroups(shown, category, groupBy).map(group => <section key={group.title || 'canais'} className="fmt-group" aria-label={group.title || 'Canais'}>
           {group.title && <h2 className="fmt-group__title">{group.title}<span>{group.items.length}</span></h2>}
-          <div className="planner-grid planner-grid--channels">{group.items.map(item => <ChannelCard key={itemKey(item)} item={item} urls={boot.urls}
-            selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>)}</div></section>)
+          <div className={view === 'lista' ? 'channel-list' : 'planner-grid planner-grid--channels'}>{group.items.map(item => {
+            const Tile = view === 'lista' ? ChannelRow : ChannelCard;
+            return <Tile key={itemKey(item)} item={item} urls={boot.urls} quoteUrl={quoteUrl}
+              selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>;
+          })}</div></section>)
         : <div className="planner-grid" aria-label={`${MODULE_LABELS[kind]} disponíveis`}>{records.map(item => <CatalogCard key={itemKey(item)} kind={kind} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))}/>)}</div>}
-    {kind === 'canais' && selection.count(kind) > 0 && <div className="channel-bar" role="status">
-      <span><strong>{selection.count(kind)}</strong> {selection.count(kind) === 1 ? 'canal' : 'canais'} no plano</span>
-      <a href={boot.urls.plans}>Revisar plano<Icon name="chevron" size={14}/></a>
-    </div>}
+    {kind === 'canais' && selection.count(kind) > 0 && (() => {
+      const chosen = records.filter(item => selection.isSelected(kind, itemKey(item)));
+      const total = selection.count(kind);
+      return <div className="channel-bar" role="status">
+        <strong>{total} {total === 1 ? 'canal' : 'canais'} no plano</strong>
+        <span className="channel-bar__logos">{chosen.slice(0, 5).map(item => <LogoTile key={itemKey(item)} src={item.logo_path} name={item.name} icon="share" size="sm"/>)}</span>
+        {total > 5 && <span className="channel-bar__more">+{total - 5}</span>}
+        <a className="channel-bar__all" href={quoteUrl}>Ver todos</a>
+        <a className="channel-bar__go" href={quoteUrl}>Revisar plano<Icon name="chevron" size={14}/></a>
+      </div>;
+    })()}
     {portalMode && total > PORTAL_PAGE && <nav className="planner-pagination" aria-label="Páginas de portais">
       <CaduButton variant="secondary" disabled={!offset} onClick={() => setOffset(Math.max(0, offset - PORTAL_PAGE))}>Anterior</CaduButton>
       <CaduButton variant="secondary" disabled={offset + records.length >= total} onClick={() => setOffset(offset + PORTAL_PAGE)}>Próxima</CaduButton>

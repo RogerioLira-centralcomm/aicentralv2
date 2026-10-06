@@ -836,7 +836,7 @@ def catalog(module, query='', category='', platform='', sort='relevant', format_
         category = category.strip()[:100] if isinstance(category, str) else ''
         return rows('''SELECT c.id, c.slug, c.nome AS name, c.descricao AS description, c.categoria AS category,
                              c.tipo, c.alcance AS audience, c.logo_path, c.cor, c.imagem_path, c.og_image_path, c.imagens,
-                             c.viewability, c.completion_rate, c.usuarios_unicos,
+                             c.viewability, c.completion_rate, c.usuarios_unicos, c.medicao,
                              (SELECT COUNT(*) FROM cadu_formatos f WHERE f.is_active IS TRUE
                                  AND f.plataforma_slug IN (c.slug, REPLACE(c.slug, '-', '_'))) AS formats_count
                         FROM cadu_canais c

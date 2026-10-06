@@ -111,6 +111,8 @@ def decorate_logos(records):
             record['role'] = (channel_roles({**record, 'categoria': record.get('category')}) or [{}])[0].get('role', '')
             for key in ('imagem_path', 'og_image_path', 'imagens'):
                 record.pop(key, None)
+            measure = record.pop('medicao', None)
+            record['measurable'] = bool(measure) and not re.match(r'^\s*(n[ãa]o informado|n/?d|-|—)\.?\s*$', str(measure), re.I) and str(measure).strip() not in ('[]', '{}')
             figure, rest = split_reach(record.get('audience'))
             record['reach_figure'] = figure
             record['reach_unit' if figure else 'reach_note'] = rest

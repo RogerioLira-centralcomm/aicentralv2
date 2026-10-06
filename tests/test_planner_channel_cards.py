@@ -51,3 +51,16 @@ class ReachSplitTest(TestCase):
         self.assertEqual((number['reach_figure'], number['reach_unit']), ('+50M', 'ouvintes'))
         self.assertEqual(phrase['reach_figure'], '')
         self.assertNotIn('reach_unit', phrase)
+
+
+class MeasurableTest(TestCase):
+    def test_measurable_comes_from_a_real_measurement_value_and_raw_column_is_dropped(self):
+        rows = [
+            {'id': 1, 'slug': 'a', 'name': 'A', 'category': 'X', 'logo_path': '', 'imagens': [], 'medicao': ['Pixel', 'Brand lift']},
+            {'id': 2, 'slug': 'b', 'name': 'B', 'category': 'X', 'logo_path': '', 'imagens': [], 'medicao': 'Não informado'},
+            {'id': 3, 'slug': 'c', 'name': 'C', 'category': 'X', 'logo_path': '', 'imagens': [], 'medicao': []},
+        ]
+        with patch.object(channels, '_channel_logo', return_value=''):
+            channels.decorate_logos(rows)
+        self.assertEqual([row['measurable'] for row in rows], [True, False, False])
+        self.assertTrue(all('medicao' not in row for row in rows))

@@ -37,3 +37,20 @@ def reports_ai_billing(request, monkeypatch):
     original = reports_ai.actor_for
     monkeypatch.setattr(reports_ai, 'actor_for', lambda selected=None: original(selected) if selected else CreditActor(1, 1))
     yield
+
+@pytest.fixture(autouse=True)
+def no_real_database(monkeypatch):
+    """A unit test must never open a connection to the database named in .env.
+
+    Tests that do not mock every read used to reach the real server (102 attempts in a
+    single Conta test file). The application swallows connection errors, so the tests
+    passed anyway, silently touching production. A test that patches ``psycopg.connect``
+    itself still wins, because its patch is applied after this one.
+    """
+    import psycopg
+
+    def refuse(*args, **kwargs):
+        raise RuntimeError('Teste tentou abrir conexão real com o banco; simule get_db/psycopg.connect.')
+
+    monkeypatch.setattr(psycopg, 'connect', refuse)
+    yield

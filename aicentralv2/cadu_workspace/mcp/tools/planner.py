@@ -40,7 +40,7 @@ _CATALOG_FIELDS = {
                 "scope", "uf", "monthly_visits", "avg_time_seconds", "metrics_period", "ads_txt_status",
                 "programmatic_status"),
     "places": ("id", "slug", "name", "code", "operator", "description", "category", "city", "audience",
-               "traffic", "traffic_label", "points", "public_url"),
+               "traffic", "traffic_label", "lat", "lng", "public_url"),
 }
 
 

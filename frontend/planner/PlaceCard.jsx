@@ -7,7 +7,7 @@ import {catalogDetailUrl} from './Catalog.jsx';
 export function PlaceCard({item, urls, selected, onToggle}) {
   const [failed, setFailed] = useState(false);
   const photo = item.image_url && !failed;
-  const stats = [['users', item.traffic_label || 'Movimento', item.traffic], ['pulse', 'Audiência', item.audience], ['plan', 'Pontos', item.points?.length ? String(item.points.length) : '']].filter(([, , value]) => value);
+  const stats = [['users', item.traffic_label || 'Movimento', item.traffic], ['pulse', 'Audiência', item.audience]].filter(([, , value]) => value);
   return <article className={`planner-card channel-card place-card${selected ? ' is-selected' : ''}`}>
     <a className="planner-card__hit" href={catalogDetailUrl(urls, 'places', item)} aria-label={`Ver ${item.name}`}/>
     <span className={`channel-card__photo${photo ? '' : ' is-logo'}`}>

@@ -121,3 +121,19 @@ class RetiredAndHiddenChannelsTest(TestCase):
         sql = (root / 'migrations' / 'deactivate_canal_waze.sql').read_text()
         self.assertIn("slug = 'waze'", sql)
         self.assertNotIn('DELETE', sql.upper())
+
+
+class PlaceIsOnePointTest(TestCase):
+    def test_place_exposes_its_position_and_no_sub_points(self):
+        from aicentralv2.cadu_planner import places
+        row = {'id': 1, 'slug': 's', 'title': 'T', 'geo': {'lat': -19.9, 'lng': -43.9}, 'points': [{'name': 'x'}], 'metrics': {}, 'media': {}}
+        projected = places._serialize(row)
+        self.assertNotIn('points', projected)
+        self.assertEqual((projected['lat'], projected['lng']), (-19.9, -43.9))
+        self.assertIn('maps?q=-19.9,-43.9', projected['map_url'])
+
+    def test_missing_or_invalid_coordinates_give_no_position(self):
+        from aicentralv2.cadu_planner import places
+        for geo in ({}, {'lat': None, 'lng': None}, {'lat': 200, 'lng': 10}, {'lat': 10}, {'lat': 'x', 'lng': 'y'}):
+            projected = places._serialize({'id': 1, 'slug': 's', 'title': 'T', 'geo': geo, 'metrics': {}, 'media': {}})
+            self.assertIsNone(projected['lat']); self.assertIsNone(projected['lng']); self.assertEqual(projected['map_url'], '')

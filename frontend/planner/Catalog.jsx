@@ -56,7 +56,7 @@ function keyFact(kind, item) {
 }
 
 function cardChips(kind, item, eyebrow) {
-  const values = kind === 'places' ? [item.city, item.points?.length && `${item.points.length} pontos`]
+  const values = kind === 'places' ? [item.city]
     : kind === 'audiencias' ? [item.platform, item.subcategory, item.perfil_socioeconomico && `Classe ${item.perfil_socioeconomico}`]
       : kind === 'canais' ? [] : [item.format_type, item.purpose];
   const seen = new Set([String(eyebrow || '').toLowerCase()]);
@@ -345,9 +345,6 @@ export function CatalogDetail({boot, selection}) {
       {item.markets?.length > 0 && <div><dt>Mercados</dt><dd>{listText(item.markets)}</dd></div>}
       {item.segments?.length > 0 && <div><dt>Segmentos</dt><dd>{listText(item.segments)}</dd></div>}
     </dl></PlannerPanel>}
-    {item.points?.length > 0 && <PlannerPanel title="Pontos de mídia" description={`${item.points.length} ${item.points.length === 1 ? 'ponto disponível' : 'pontos disponíveis'}`}>
-      <ul className="planner-items">{item.points.map(point => <li key={point.id || point.name}><span><strong>{point.name}</strong><small>{[point.kind, point.audience, listText(point.formats)].filter(Boolean).join(' · ')}</small></span></li>)}</ul>
-    </PlannerPanel>}
     {(item.data_groups || []).map(group => {
       const fields = (group.fields || []).filter(field => !field.is_empty && !field.is_structured);
       return fields.length ? <PlannerPanel key={group.title} title={group.title}><dl className="planner-facts">{fields.map(field => <div key={field.variable}><dt>{field.label}</dt><dd>{field.value}</dd></div>)}</dl></PlannerPanel> : null;

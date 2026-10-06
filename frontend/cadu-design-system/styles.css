@@ -1173,8 +1173,8 @@ body.portal--workspace:not(:has(.cv-conversations-shell)) .workspace-app-shell[d
 .cadu-ds-home-widgets__header { display:flex; align-items:flex-end; justify-content:space-between; gap:20px; padding-bottom:14px; border-bottom:1px solid var(--cadu-line); }
 .cadu-ds-home-widgets__eyebrow,.cadu-ds-home-widget__eyebrow { display:block; margin-bottom:6px; color:var(--cadu-muted); font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
 .cadu-ds-home-widgets__header h2 { margin:0; color:var(--cadu-ink); font-size:clamp(22px,2.3vw,30px); line-height:1.05; letter-spacing:-.04em; }
-.cadu-ds-home-widgets__customize,.cadu-ds-home-widget__action { border:0; background:transparent; color:var(--cadu-accent-strong,var(--cadu-accent)); cursor:pointer; font:inherit; font-size:12px; font-weight:700; text-decoration:none; white-space:nowrap; }
-.cadu-ds-home-widgets__customize:hover,.cadu-ds-home-widget__action:hover { color:var(--cadu-ink); text-decoration:underline; text-underline-offset:3px; }
+
+
 .cadu-ds-home-widgets__grid { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:14px; margin-top:14px; }
 .cadu-ds-home-widget { grid-column:span 6; min-width:0; padding:18px; border-top:1px solid var(--cadu-line); background:color-mix(in srgb,var(--cadu-surface) 88%,transparent); transition:background .18s ease,border-color .18s ease; animation:cadu-home-widget-in 240ms ease both; }
 .cadu-ds-home-widget:hover { border-color:color-mix(in srgb,var(--cadu-accent) 42%,var(--cadu-line)); background:var(--cadu-surface); }
@@ -1207,8 +1207,8 @@ body.portal--workspace:not(:has(.cv-conversations-shell)) .workspace-app-shell[d
 .cadu-ds-home-usage p { max-width:230px; margin:5px 0 0; color:var(--cadu-muted); font-size:11px; line-height:1.5; }
 .cadu-ds-home-widget-empty { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-top:18px; padding:16px 0 2px; border-top:1px dashed var(--cadu-line); }
 .cadu-ds-home-widget-empty p { margin:0; color:var(--cadu-muted); font-size:12px; line-height:1.5; }
-.cadu-ds-home-widget-empty :is(a,button) { flex:0 0 auto; border:0; background:transparent; color:var(--cadu-accent-strong,var(--cadu-accent)); cursor:pointer; font:inherit; font-size:11px; font-weight:700; text-decoration:none; }
-.cadu-ds-home-widget-empty :is(a,button):hover { text-decoration:underline; text-underline-offset:3px; }
+
+
 .cadu-ds-home-widget-settings { display:grid; place-items:center; width:100%; max-width:none; height:100%; max-height:none; margin:0; padding:16px; border:0; background:rgba(8,25,28,.38); }
 .cadu-ds-home-widget-settings::backdrop { background:rgba(8,25,28,.38); }
 .cadu-ds-home-widget-settings__panel { width:min(480px,100%); padding:24px; border:1px solid var(--cadu-line); background:var(--cadu-surface); box-shadow:0 24px 70px rgba(8,25,28,.22); }
@@ -1216,17 +1216,17 @@ body.portal--workspace:not(:has(.cv-conversations-shell)) .workspace-app-shell[d
 .cadu-ds-home-widget-settings__panel > header span { color:var(--cadu-accent-strong,var(--cadu-accent)); font-size:11px; font-weight:800; text-transform:uppercase; }
 .cadu-ds-home-widget-settings__panel h2 { margin:6px 0 5px; color:var(--cadu-ink); font-size:24px; letter-spacing:-.04em; }
 .cadu-ds-home-widget-settings__panel p { margin:0; color:var(--cadu-muted); font-size:12px; line-height:1.5; }
-.cadu-ds-home-widget-settings__panel > header > button { width:28px; height:28px; border:0; background:transparent; color:var(--cadu-muted); cursor:pointer; font-size:22px; }
+
 .cadu-ds-home-widget-settings__list { display:grid; gap:2px; margin-top:22px; }
 .cadu-ds-home-widget-settings__list > div { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid var(--cadu-line); }
 .cadu-ds-home-widget-settings__list label { display:flex; align-items:center; gap:10px; color:var(--cadu-ink); font-size:13px; }
 .cadu-ds-home-widget-settings__list input { accent-color:var(--cadu-accent); }
 .cadu-ds-home-widget-settings__list > div > div { display:flex; gap:4px; }
-.cadu-ds-home-widget-settings__list > div > div button { width:27px; height:27px; border:1px solid var(--cadu-line); background:transparent; color:var(--cadu-ink); cursor:pointer; }
-.cadu-ds-home-widget-settings__list > div > div button:disabled { cursor:not-allowed; opacity:.35; }
+
+
 .cadu-ds-home-widget-settings__panel > footer { display:flex; align-items:center; justify-content:flex-end; gap:10px; margin-top:22px; }
-.cadu-ds-home-widget-settings__panel > footer button { padding:9px 13px; border:1px solid var(--cadu-line); background:transparent; color:var(--cadu-ink); cursor:pointer; font:inherit; font-size:12px; }
-.cadu-ds-home-widget-settings__panel > footer button.is-primary { border-color:var(--cadu-accent); background:var(--cadu-accent); color:#062b26; font-weight:800; }
+
+
 .cadu-ds-home-widget-settings__status { flex:1; color:var(--cadu-muted); font-size:11px; }
 .cadu-ds-home-widget-settings__status.is-saving { color:#b26d19; }
 .cadu-ds-home-widget-settings__status.is-saved { color:var(--cadu-accent-strong,var(--cadu-accent)); }
@@ -1419,8 +1419,7 @@ body.portal--workspace .cadu-ds-dock:has(.cadu-ds-dock-avatar-button[aria-expand
    label remains readable for normal-size text and keyboard focus. */
 .cadu-ds-project-form footer .is-primary,
 .cadu-ds-project-form > .is-primary,
-.cadu-ds-brands-content > .is-primary,
-.cadu-ds-home-widget-settings__panel > footer button.is-primary {
+.cadu-ds-brands-content > .is-primary{
   border-color:var(--cadu-accent-strong);
   background:var(--cadu-accent-strong);
   color:var(--cadu-on-accent,#fff);
@@ -1611,21 +1610,9 @@ body.portal--workspace .cadu-ds-home-widgets__header h2 {
   color:var(--cadu-ink);
 }
 
-body.portal--workspace .cadu-ds-home-widgets__customize,
-body.portal--workspace .cadu-ds-home-widget__action {
-  min-height:32px;
-  padding:0 10px;
-  border-radius:9px;
-  background:var(--cadu-accent-soft);
-  color:var(--cadu-accent-strong);
-  text-decoration:none;
-}
 
-body.portal--workspace .cadu-ds-home-widgets__customize:hover,
-body.portal--workspace .cadu-ds-home-widget__action:hover {
-  background:#d6ebe6;
-  text-decoration:none;
-}
+
+
 
 body.portal--workspace .cadu-ds-home-widgets__grid {
   gap:18px;
@@ -2109,27 +2096,9 @@ body.portal--workspace .cadu-ds-home-widget > header:active {
   cursor:grabbing;
 }
 
-.cadu-ds-home-widget__collapse {
-  display:grid;
-  width:27px;
-  height:27px;
-  flex:0 0 27px;
-  place-items:center;
-  border:1px solid var(--cadu-line);
-  border-radius:8px;
-  background:transparent;
-  color:var(--cadu-muted);
-  cursor:pointer;
-  font-size:16px;
-  line-height:1;
-}
 
-.cadu-ds-home-widget__collapse:hover,
-.cadu-ds-home-widget__collapse:focus-visible {
-  border-color:var(--cadu-accent);
-  color:var(--cadu-accent-strong);
-  outline:0;
-}
+
+
 
 body.portal--workspace .cadu-ds-home-widget.is-collapsed {
   min-height:0;
@@ -4565,8 +4534,6 @@ body.portal--workspace .cadu-ds-project-reports-row>a{display:grid;grid-template
 /* Touch targets: icon-only buttons reach 44px on phones without changing the desktop size. */
 @media (max-width:760px) {
   .cadu-ds-brand-create-form>header button,
-  .cadu-ds-home-widget-settings__panel > header > button,
-  .cadu-ds-home-widget-settings__list > div > div button,
   .cadu-ds-purchase-modal__close { min-width:44px; min-height:44px; }
 }
 

@@ -177,3 +177,5 @@ migrations/run_sql_migration.py extend_cadu_project_external_resources.sql
 migrations/run_sql_migration.py add_brand_asset_html_roles.sql
 migrations/run_sql_migration.py add_cadu_link_reader_artifact.sql
 migrations/run_sql_migration.py add_parceiro_papel_contato_operacional.sql
+# Índices das leituras por projeto do Workspace (validados com EXPLAIN em Postgres 17 local; aditivo, idempotente, lock_timeout de 5 s).
+migrations/run_add_workspace_query_indexes.py

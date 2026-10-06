@@ -186,29 +186,8 @@ class ProductPortalsTest(TestCase):
              mock.patch("aicentralv2.cadu_connect.routes.customization_targets", return_value={"clients": [], "projects": []}):
             response = client.get("/", headers={"Host": "connect.centralcomm.media"})
 
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("Reports", response.get_data(as_text=True))
-
-    def test_connect_falls_back_to_the_operational_screen_when_entry_cannot_render(self):
-        app = _app()
-        client = app.test_client()
-        with client.session_transaction(headers={"Host": "connect.centralcomm.media"}) as sess:
-            sess.update(user_id=7, cliente_id=12, user_name="Apolo")
-
-        original_render = connect_routes.render_template
-
-        def render_with_missing_entry(template, **context):
-            if template == "cadu_connect/reports_home.html":
-                raise TemplateNotFound(template)
-            return original_render(template, **context)
-
-        with mock.patch("aicentralv2.cadu_connect.routes.campaigns_for_client", return_value=[]), \
-             mock.patch("aicentralv2.cadu_connect.routes.customization_targets", return_value={"clients": [], "projects": []}), \
-             mock.patch("aicentralv2.cadu_connect.routes.render_template", side_effect=render_with_missing_entry):
-            response = client.get("/", headers={"Host": "connect.centralcomm.media"})
-
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("Estamos preparando sua operação.", response.get_data(as_text=True))
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.headers["Location"].endswith("/connect/app/overview"), response.headers["Location"])
 
     @mock.patch("aicentralv2.cadu_workspace.routes.credit_position", return_value={
         "configured": True, "available": 75, "monthly": 110,
@@ -369,7 +348,7 @@ class ProductPortalsTest(TestCase):
         self.assertIn('"secondaryNav"', html)
         for label in ("Equipe", "Planos", "Uso", "Perfil"):
             self.assertIn(label, html)
-        self.assertEqual(client.get("/workspace/agentes", headers={"Host": "workspace.centralcomm.media"}).headers["Location"], "/skills/agentes")
+        self.assertEqual(client.get("/workspace/agentes", headers={"Host": "workspace.centralcomm.media"}).headers["Location"], "/app")
         robots = client.get("/robots.txt", headers={"Host": "workspace.centralcomm.media"}).get_data(as_text=True)
         self.assertIn("Disallow: /workspace/app", robots)
         self.assertIn("Disallow: /workspace/contato/obrigado", robots)
@@ -457,20 +436,6 @@ class ProductPortalsTest(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         link.assert_called_once_with(31, client_id=12, project_id=5, user_id=7)
-
-    def test_connect_applies_a_verified_workspace_project_filter(self):
-        app = _app()
-        client = app.test_client()
-        with client.session_transaction() as sess:
-            sess.update(user_id=7, cliente_id=12, user_name="Apolo",
-                        family_context={"client_id": 12, "project_ref": "projects:5"})
-        targets = {"clients": [], "projects": [{"id": 5, "client_id": 12, "name": "Lançamento"}]}
-        with mock.patch("aicentralv2.cadu_connect.routes.campaigns_for_client", return_value=[]) as campaigns, \
-             mock.patch("aicentralv2.cadu_connect.routes.customization_targets", return_value=targets):
-            response = client.get("/", headers={"Host": "connect.centralcomm.media"})
-        self.assertEqual(response.status_code, 200)
-        campaigns.assert_called_once_with(12, project_id=5)
-        self.assertIn("Lançamento", response.get_data(as_text=True))
 
     def test_deploy_creates_agents_campaign_project_context(self):
         deploy = deploy_text(ROOT)

@@ -559,9 +559,10 @@ def audit_status(context: RequestContext, brand_id) -> dict:
 def _audit_status_estimate(pack: dict, status: str) -> dict:
     """Custo estimado, para o agente confirmar antes de iniciar e para acompanhar depois.
 
-    Sem auditoria em andamento devolve as duas modalidades; com uma ativa, a estimativa gravada na fila.
+    Sempre traz as duas modalidades, para uma nova auditoria; com uma já criada, `current` traz a estimativa gravada.
     """
+    estimate = {"complete": _audit_estimate("complete"), "deep": _audit_estimate("deep")}
     saved = pack.get("input") if isinstance(pack.get("input"), dict) else {}
     if status != "not_started" and saved.get("estimated_credits") is not None:
-        return {key: saved.get(key) for key in ("estimated_tokens", "estimated_credits", "estimated_time")}
-    return {"complete": _audit_estimate("complete"), "deep": _audit_estimate("deep")}
+        estimate["current"] = {key: saved.get(key) for key in ("estimated_tokens", "estimated_credits", "estimated_time")}
+    return estimate

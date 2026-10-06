@@ -1,14 +1,23 @@
 import React from 'react';
 import {CaduEmptyState} from '../../cadu-design-system/components/CaduEmptyState.jsx';
 import {moduleUrl} from '../api.js';
+import {CaduBadge} from '../../cadu-design-system/components/CaduBadge.jsx';
+import {Icon} from '../../cadu-design-system/components/Icon.jsx';
 import {FormatPreview} from '../FormatPreview.jsx';
+import {SelectionButton} from '../PlannerUi.jsx';
+import {PlanSidebar} from './PlanSidebar.jsx';
 import {DemographyBars, DetailLayout, Facts, Rail, TagList, hasValue, listText} from './DetailLayout.jsx';
 
 // Percent fields are stored as bare numbers; never double the sign.
 const pct = value => (typeof value === 'number' || /^\s*\d+([.,]\d+)?\s*$/.test(String(value ?? ''))) && hasValue(value) ? `${value}%` : value;
 const date = value => value ? new Date(value).toLocaleDateString('pt-BR', {day: '2-digit', month: 'short', year: 'numeric'}) : '';
 
-export function ChannelDetail({boot, selection}) {
+// Icon per role: the card should say what the channel does before the text does.
+const ROLE_ICON = [[/captur|busca/i, 'search'], [/alcance|cobertura/i, 'pulse'], [/frequ|contexto/i, 'audio'], [/complement|conex|ativa/i, 'share'], [/convers|venda|perform/i, 'check']];
+const roleIcon = role => (ROLE_ICON.find(([pattern]) => pattern.test(role || '')) || [null, 'plan'])[1];
+const audienceSize = value => /^\s*[+≈~]?\d/.test(String(value || '')) ? `${String(value).trim()} de pessoas` : String(value || '');
+
+export function ChannelDetail({boot, selection, plan = null}) {
   const channel = boot.record;
   if (!channel) return <CaduEmptyState title="Canal indisponível" description="Ele pode ter saído do catálogo."/>;
   const formats = channel.formats || [];
@@ -31,11 +40,11 @@ export function ChannelDetail({boot, selection}) {
     ...concepts.map(concept => ({url: concept.image_url, caption: `${concept.title} · conceito`}))];
 
   const photos = [channel.hero_image_url, ...(channel.gallery || []).map(photo => photo.url)].filter((url, index, all) => url && all.indexOf(url) === index);
-  const heroMedia = photos.length > 1 ? {type: 'gallery', items: photos} : photos.length ? {type: 'image', src: photos[0]} : null;
+  const heroMedia = photos.length ? {type: 'carousel', items: photos} : null;
 
   const sections = [
     {id: 'papel', label: 'Papel no plano', hidden: !roles.length, hint: 'Como este canal costuma trabalhar num plano. O Cadu ajusta por campanha.',
-      render: () => <ul className="pd-roles">{roles.map(role => <li key={role.role}><strong>{role.role}</strong><span>{role.description}</span></li>)}</ul>},
+      render: () => <ul className="pd-roles">{roles.map(role => <li key={role.role}><Icon name={roleIcon(role.role)} size={22}/><span><strong>{role.role}</strong><small>{role.description}</small></span></li>)}</ul>},
     {id: 'publico', label: 'Quem está no canal', hidden: !hasValue(channel.demografia),
       render: () => <DemographyBars value={channel.demografia}/>},
     {id: 'diferenciais', label: 'Diferenciais', hidden: !hasValue(channel.diferenciais), render: () => <TagList value={channel.diferenciais}/>},
@@ -48,19 +57,24 @@ export function ChannelDetail({boot, selection}) {
         {item.quando && <p><span>Quando</span>{item.quando}</p>}
         {item.exemplo && <p><span>Exemplo</span>{item.exemplo}</p>}
       </li>)}</ul>},
-    {id: 'formatos', label: 'Formatos', count: formats.length, wide: true,
+    {id: 'formatos', label: 'Formatos', count: formats.length, wide: true, hint: 'Escolha o formato ideal para o seu objetivo.',
       render: () => formats.length ? <ul className="pd-formats">{formats.map(format => <li key={format.id}>
         <a href={`${moduleUrl(boot.urls, 'formatos')}/${format.id}`}>
           <FormatPreview dimensions={format.dimensions} name={format.name} compact/>
           <strong>{format.name}</strong>
           <small>{[format.format_type, format.dimensions].filter(Boolean).join(' · ')}</small>
-        </a></li>)}</ul> : <p className="planner-muted">Ainda não há formatos cadastrados para este canal.</p>},
+        </a>
+        <SelectionButton size="md" quiet selected={selection.isSelected('formatos', format.id)} onToggle={() => selection.toggle('formatos', format.id)}/>
+      </li>)}</ul> : <p className="planner-muted">Ainda não há formatos cadastrados para este canal.</p>},
     {id: 'audiencias', label: 'Audiências neste canal', count: audiences.length, hidden: !audiences.length, wide: true,
-      hint: 'Públicos que se compram neste canal.',
-      render: () => <Rail items={audiences.map(audience => ({
-        href: `${moduleUrl(boot.urls, 'audiencias')}/${audience.id}`, title: audience.name, icon: 'users', logo: channel.logo_url,
-        subtitle: [audience.category, audience.audience].filter(Boolean).join(' · '),
-      }))}/>},
+      hint: 'Segmente por interesses, comportamentos e contextos.',
+      render: () => <ul className="pd-audiences">{audiences.map(audience => <li key={audience.id}>
+        <a href={`${moduleUrl(boot.urls, 'audiencias')}/${audience.id}`}>
+          <strong>{audience.name}</strong>
+          <small>{[audience.category, audienceSize(audience.audience)].filter(Boolean).join(' · ')}</small>
+        </a>
+        <SelectionButton size="md" quiet selected={selection.isSelected('audiencias', audience.id)} onToggle={() => selection.toggle('audiencias', audience.id)}/>
+      </li>)}</ul>},
     {id: 'exemplos', label: 'Exemplos', count: examples.length, hidden: !examples.length, wide: true,
       hint: concepts.length ? 'Conceitos de ativação são demonstrações do formato, não campanhas reais.' : null,
       render: () => <div className="pd-gallery">{examples.map((item, index) => <figure key={item.url} className={index === 0 ? 'is-lead' : ''}>
@@ -78,12 +92,14 @@ export function ChannelDetail({boot, selection}) {
     eyebrow={[channel.categoria, channel.tipo].filter(Boolean).join(' · ') || 'Canal'}
     media={heroMedia}
     metrics={[
-      {label: 'Alcance', value: channel.alcance, hint: 'Declarado pelo canal'},
-      {label: 'Usuários únicos', value: channel.usuarios_unicos},
-      {label: 'Tempo médio', value: channel.tempo_medio},
-      {label: 'Viewability', value: pct(channel.viewability)},
-      {label: 'Taxa de conclusão', value: pct(channel.completion_rate)},
-      {label: 'Engajamento', value: pct(channel.taxa_engajamento)},
+      {icon: 'users', label: 'Alcance', value: channel.alcance, hint: 'Declarado pelo canal'},
+      {icon: 'users', label: 'Usuários únicos', value: channel.usuarios_unicos},
+      {icon: 'clock', label: 'Tempo médio', value: channel.tempo_medio},
+      {icon: 'pulse', label: 'Viewability', value: pct(channel.viewability)},
+      {icon: 'check', label: 'Taxa de conclusão', value: pct(channel.completion_rate)},
+      {icon: 'pulse', label: 'Engajamento', value: pct(channel.taxa_engajamento)},
     ]}
+    extraMeta={hasValue(channel.medicao) ? <CaduBadge tone="success">Mensurável</CaduBadge> : null}
+    aside={<PlanSidebar plan={plan} selection={selection} boot={boot} plansUrl={boot.urls.plans}/>}
     sections={sections}/>;
 }

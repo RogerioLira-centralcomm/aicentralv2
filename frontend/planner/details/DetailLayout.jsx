@@ -92,9 +92,33 @@ export function Gallery({photos, name}) {
   </figure>)}</div>;
 }
 
+/** One big photo with arrows and a thumbnail strip; works with a single photo too. */
+function HeroCarousel({photos, name}) {
+  const [index, setIndex] = useState(0);
+  const [broken, setBroken] = useState(() => new Set());
+  const list = photos.filter(src => !broken.has(src));
+  if (!list.length) return null;
+  const current = Math.min(index, list.length - 1);
+  const go = step => setIndex((current + step + list.length) % list.length);
+  const drop = src => setBroken(previous => new Set(previous).add(src));
+  return <div className="pd-carousel" aria-roledescription="carrossel" aria-label={`Fotos de ${name}`}>
+    <figure className="pd-carousel__stage">
+      <img src={list[current]} alt={`Foto ${current + 1} de ${list.length} de ${name}`} onError={() => drop(list[current])}/>
+      {list.length > 1 && <>
+        <button type="button" className="pd-carousel__nav is-prev" aria-label="Foto anterior" onClick={() => go(-1)}><Icon name="chevron" size={18}/></button>
+        <button type="button" className="pd-carousel__nav is-next" aria-label="Próxima foto" onClick={() => go(1)}><Icon name="chevron" size={18}/></button>
+      </>}
+    </figure>
+    {list.length > 1 && <ul className="pd-carousel__thumbs">{list.slice(0, 8).map((src, position) => <li key={src}>
+      <button type="button" className={position === current ? 'is-active' : ''} aria-label={`Ver foto ${position + 1}`} aria-current={position === current ? 'true' : undefined} onClick={() => setIndex(position)}>
+        <img src={src} alt="" loading="lazy" onError={() => drop(src)}/></button></li>)}</ul>}
+  </div>;
+}
+
 function HeroMedia({media, name}) {
   const [failed, setFailed] = useState(false);
   if (!media || failed) return null;
+  if (media.type === 'carousel') return <HeroCarousel photos={media.items || []} name={name}/>;
   if (media.type === 'gallery') {
     const photos = (media.items || []).filter(Boolean).slice(0, 3);
     if (!photos.length) return null;
@@ -109,7 +133,7 @@ function HeroMedia({media, name}) {
  * section index. The name lives only in the page header, the "add to plan"
  * action with the header actions; related items are links, never buttons.
  */
-export function DetailLayout({boot, selection, kind, record, icon = 'plan', eyebrow, metrics = [], sections = [], media = null}) {
+export function DetailLayout({boot, selection, kind, record, icon = 'plan', eyebrow, metrics = [], sections = [], media = null, aside = null, extraMeta = null}) {
   const id = record.id || record.slug;
   const visible = sections.filter(section => section && !section.hidden);
   const [current, setCurrent] = useState(visible[0]?.id);
@@ -130,14 +154,15 @@ export function DetailLayout({boot, selection, kind, record, icon = 'plan', eyeb
   return <article className="pd">
     <PlannerHeader crumbs={[[MODULE_LABELS[kind], moduleUrl(boot.urls, kind)]]} title={record.name}
       leading={<DetailMark record={record} icon={icon}/>}
-      meta={eyebrow ? <CaduBadge tone="neutral">{eyebrow}</CaduBadge> : null}
+      meta={eyebrow || extraMeta ? <>{eyebrow && <CaduBadge tone="neutral">{eyebrow}</CaduBadge>}{extraMeta}</> : null}
       actions={<><ActivePlanChip/>
         <SelectionButton size="md" selected={selection.isSelected(kind, id)} onToggle={() => selection.toggle(kind, id)}/></>}/>
+    <div className={`pd-shell${aside ? ' has-aside' : ''}`}><div className="pd-main">
     <section className={`pd-hero${media ? ' has-media' : ''}`} aria-label="Resumo">
       <div className="pd-hero__copy">
         <p>{record.description || 'Sem descrição publicada.'}</p>
         {shownMetrics.length > 0 && <dl className="pd-hero__metrics" style={{'--metric-count': Math.min(shownMetrics.length, 6)}}>{shownMetrics.map(item => <div key={item.label}>
-          <dt>{item.label}</dt><dd>{item.value}</dd>{item.hint && <small>{item.hint}</small>}
+          {item.icon && <Icon name={item.icon} size={18}/>}<dt>{item.label}</dt><dd>{item.value}</dd>{item.hint && <small>{item.hint}</small>}
         </div>)}</dl>}
       </div>
       <HeroMedia media={media} name={record.name}/>
@@ -151,6 +176,7 @@ export function DetailLayout({boot, selection, kind, record, icon = 'plan', eyeb
       <header><h2 id={`pd-${section.id}-title`}>{section.label}</h2>{section.hint && <p>{section.hint}</p>}</header>
       <div className="pd-section__body">{section.render()}</div>
     </section>)}</div>
+    </div>{aside && <aside className="pd-aside" aria-label="Seu plano">{aside}</aside>}</div>
   </article>;
 }
 

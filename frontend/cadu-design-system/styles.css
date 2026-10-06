@@ -4594,3 +4594,31 @@ body.portal--workspace .cadu-ds-project-reports-row>a{display:grid;grid-template
   body.portal--workspace .cadu-ds-catalog-workarea:has(> .cadu-ds-context-sidebar.is-rail) { display:grid; grid-template-columns:64px minmax(0,1fr); min-height:100dvh; }
   body.portal--workspace .cadu-ds-catalog-workarea > .untitled-catalog-page { grid-column:2; width:min(100%,1180px); margin-inline:auto; }
 }
+
+/* Account pages (Conta, Equipe, Plano, Uso, Créditos, Faturas, Integrações): one type and spacing scale.
+   Last on purpose: it replaces the older per-section sizes above (24-36px headings, 10-11px table text). */
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-section { padding-top:32px; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-section > header { gap:16px; align-items:flex-end; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-section h2,
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-story h2 { margin:0; font-size:18px; font-weight:600; line-height:1.35; letter-spacing:0; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-section > header small,
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-section > header span { font-size:13px; font-weight:500; letter-spacing:0; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-section header p,
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-section-copy { margin:8px 0 0; font-size:14px; line-height:1.5; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-table { margin-top:16px; border:1px solid var(--cadu-line); border-radius:10px; overflow-x:auto; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-table table { min-width:640px; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-table :is(th,td) { padding:12px 16px; font-size:13px; line-height:1.45; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-table th { font-size:12px; font-weight:600; letter-spacing:.04em; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-table td small { font-size:12px; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-metrics article { padding:20px 24px; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-metrics span { font-size:12px; font-weight:500; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-metrics strong { font-size:24px; font-weight:600; line-height:1.2; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-metrics p,
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-metrics a { font-size:13px; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-list b { font-size:14px; font-weight:600; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-list small { font-size:13px; }
+@media (max-width:760px) {
+  body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-section { padding-top:24px; }
+  body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-metrics article { padding:16px; }
+  body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-table :is(th,td) { padding:10px 12px; }
+}

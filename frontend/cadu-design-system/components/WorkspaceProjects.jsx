@@ -3,6 +3,7 @@ import {WorkspaceContextSidebar} from './WorkspaceContextSidebar';
 import {VisualIdentity} from './VisualIdentity';
 import {ProjectCreateDialog} from './ProjectCreateDialog';
 import {WorkspaceCatalog} from './WorkspaceCatalog';
+import {WorkspaceSidebar} from './WorkspaceSidebar';
 import {WorkspaceMobileChrome} from './WorkspaceMobileChrome';
 import {useWorkspaceViewport} from '../hooks/useWorkspaceViewport';
 
@@ -31,10 +32,10 @@ export function WorkspaceProjects({bootstrap}) {
     window.addEventListener('pagehide', remember);
     return () => { remember(); window.removeEventListener('pagehide', remember); };
   }, [query, bootstrap.query]);
-  return <div className="cadu-ds-home-shell cadu-ds-brands-shell cadu-ds-brands-shell--projects">
-    <main className="cadu-ds-home-main">
-      <div className="cadu-ds-home-workarea cadu-ds-catalog-workarea">
-        {isMobile ? <WorkspaceMobileChrome title="Projetos" links={bootstrap.urls} logo={bootstrap.caduMark} solutionIcons={bootstrap.solutionIcons} contextItems={projects.map(item => ({...item, detail:item.brandName || 'Projeto'}))}/> : <WorkspaceContextSidebar mode="home" preferenceKey="projects" bootstrap={bootstrap} links={bootstrap.urls} active="projetos" projects={projects} brands={bootstrap.brands || []}/>}
+  return <div className="workspace-solution-shell cadu-ds-brands-shell cadu-ds-brands-shell--projects" data-cadu-skin="workspace">
+    {isMobile ? <WorkspaceMobileChrome title="Projetos" links={bootstrap.urls} logo={bootstrap.caduMark} solutionIcons={bootstrap.solutionIcons} contextItems={projects.map(item => ({...item, detail:item.brandName || 'Projeto'}))}/> : <WorkspaceSidebar bootstrap={bootstrap} active="workspace:projects"/>}
+    <main className="workspace-solution-main">
+      <div className="cadu-ds-catalog-workarea">
         <WorkspaceCatalog title="Projetos" actionLabel="Novo projeto" actionSize="sm" onAction={() => setCreating(true)} error={bootstrap.catalogError} filters={[["ativos", "Ativos"], ["arquivados", "Arquivados"], ["todos", "Todos"]].map(([value, label]) => ({value, label, active: bootstrap.status === value, href: catalogHref(bootstrap.urls.projects, 'status', value, query)}))} query={query} onQueryChange={setQuery} searchRef={searchRef} queryLabel="Buscar projetos" countLabel={`${projects.length} projeto${projects.length === 1 ? '' : 's'}`} resultCount={projects.length} totalCount={(bootstrap.projects || []).length}><div className="untitled-catalog-list is-projects" aria-label="Lista de projetos"><div className="untitled-catalog-list__head" aria-hidden="true"><span>Projeto</span><span>Marca</span><span>Status</span><span>Fontes</span><span/></div>{projects.map(project => <a className="untitled-catalog-item" href={project.href} key={project.id}><span className="untitled-catalog-item__identity"><VisualIdentity src={project.previewUrl} initials={project.visualInitials} label={project.name} color={project.visualColor}/><span><b>{project.name}</b><small>{project.description || 'Contexto do projeto'}</small></span></span><span className="untitled-catalog-item__value" data-label="Marca">{project.brandName || 'Sem marca'}</span><span className={`untitled-catalog-item__status is-${project.status === 'arquivado' ? 'archived' : 'active'}`}>{project.status === 'arquivado' ? 'Arquivado' : 'Ativo'}</span><span className="untitled-catalog-item__metric"><small>Fontes</small><b>{project.sources || 0}</b></span><span className="untitled-catalog-item__chevron" aria-hidden="true">›</span></a>)}{!projects.length && <div className="untitled-catalog-empty"><b>{query.trim() ? 'Nenhum projeto corresponde à busca.' : bootstrap.status === 'arquivados' ? 'Nenhum projeto arquivado.' : 'Comece criando o primeiro projeto.'}</b>{!query.trim() && bootstrap.status !== 'arquivados' && <button type="button" onClick={() => setCreating(true)}>Criar projeto</button>}</div>}</div></WorkspaceCatalog>
       </div>
     </main>

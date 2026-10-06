@@ -378,6 +378,11 @@ def reconcile(client_id: int, project_ref: str, actor_id=None, *, include_archiv
                                 WHERE client_id=%s AND project_ref=%s AND last_seen_at < %s
                                   AND status <> 'archived'""", (client_id, project_ref, started_at))
             _rebuild_relations(cursor, client_id, project_ref)
+            if _relation(cursor, "cadu_project_resource_jobs"):
+                # A full reconciliation supersedes every event queued before it started.
+                cursor.execute("""UPDATE cadu_project_resource_jobs SET status='completed', finished_at=NOW()
+                                    WHERE client_id=%s AND project_ref=%s AND status='queued'
+                                      AND created_at <= %s""", (client_id, project_ref, started_at))
         connection.commit()
     except Exception:
         connection.rollback()
@@ -385,6 +390,37 @@ def reconcile(client_id: int, project_ref: str, actor_id=None, *, include_archiv
     return {"available": True, **list_resources(
         client_id, project_ref, reconcile_first=False, actor_id=actor_id, include_archived=include_archived,
     )}
+
+
+def reconcile_if_stale(client_id: int, project_ref: str, actor_id=None, *, max_age_seconds: int = 60,
+                       include_archived=False) -> dict:
+    """Serve the registry for a page view, reconciling only when it can be out of date.
+
+    Reconciling writes several rows per resource, so a page that is opened or polled
+    repeatedly must not do it every time. It runs when the registry is empty, when an
+    event is queued for the project (``notify_change``), or when the last pass is older
+    than ``max_age_seconds``; otherwise the stored registry is read as is.
+    """
+    with get_db().cursor() as cursor:
+        if not _relation(cursor, "cadu_project_resources"):
+            return list_resources(client_id, project_ref, reconcile_first=True, actor_id=actor_id,
+                                  include_archived=include_archived)
+        cursor.execute("""SELECT MAX(last_seen_at) >= NOW() - make_interval(secs => %s) AS fresh
+                            FROM cadu_project_resources
+                           WHERE client_id=%s AND project_ref=%s AND status <> 'archived'""",
+                       (max(1, int(max_age_seconds)), client_id, project_ref))
+        fresh = bool((cursor.fetchone() or {}).get("fresh"))
+        pending = False
+        if fresh and _relation(cursor, "cadu_project_resource_jobs"):
+            cursor.execute("""SELECT EXISTS (SELECT 1 FROM cadu_project_resource_jobs
+                                              WHERE client_id=%s AND project_ref=%s AND status='queued') AS pending""",
+                           (client_id, project_ref))
+            pending = bool((cursor.fetchone() or {}).get("pending"))
+    if not fresh or pending:
+        return list_resources(client_id, project_ref, reconcile_first=True, actor_id=actor_id,
+                              include_archived=include_archived)
+    return {"available": True, **list_resources(client_id, project_ref, reconcile_first=False, actor_id=actor_id,
+                                                include_archived=include_archived)}
 
 
 def list_resources(client_id: int, project_ref: str, *, reconcile_first=True, actor_id=None,

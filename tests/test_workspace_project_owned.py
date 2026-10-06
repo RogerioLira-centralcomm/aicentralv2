@@ -47,3 +47,38 @@ class ProjectOwnedTest(TestCase):
         app = Flask(__name__)
         with app.app_context(), mock.patch.object(workspace_routes, 'get_db', return_value=connection):
             self.assertFalse(workspace_routes._project_owned(12, 'x'))
+
+
+class EditableProjectQueuesReconciliationTest(TestCase):
+    def test_mutating_routes_queue_one_resource_event_through_the_editable_guard(self):
+        app = Flask(__name__)
+        app.config.update(SECRET_KEY='test', TESTING=True)
+        with app.test_request_context('/x', method='POST'):
+            from flask import session
+            session.update(user_id=7, cliente_id=12)
+            with mock.patch.object(workspace_routes, '_workspace_project', return_value={'id': 'p1', 'status': 'ativo'}), \
+                    mock.patch.object(workspace_routes.project_resource_service, 'notify_change') as notify:
+                project = workspace_routes._editable_workspace_project(12, 'p1')
+        self.assertEqual(project['id'], 'p1')
+        notify.assert_called_once_with(12, 'ci:p1', 'workspace_write', actor_id=7)
+
+    def test_a_failure_to_queue_never_blocks_the_edit(self):
+        app = Flask(__name__)
+        app.config.update(SECRET_KEY='test', TESTING=True)
+        with app.test_request_context('/x', method='POST'):
+            from flask import session
+            session.update(user_id=7, cliente_id=12)
+            with mock.patch.object(workspace_routes, '_workspace_project', return_value={'id': 'p1', 'status': 'ativo'}), \
+                    mock.patch.object(workspace_routes.project_resource_service, 'notify_change', side_effect=RuntimeError('db')):
+                self.assertEqual(workspace_routes._editable_workspace_project(12, 'p1')['id'], 'p1')
+
+    def test_archived_project_is_not_queued(self):
+        app = Flask(__name__)
+        app.config.update(SECRET_KEY='test', TESTING=True)
+        with app.test_request_context('/x', method='POST'):
+            from werkzeug.exceptions import Conflict
+            with mock.patch.object(workspace_routes, '_workspace_project', return_value={'id': 'p1', 'status': 'arquivado'}), \
+                    mock.patch.object(workspace_routes.project_resource_service, 'notify_change') as notify:
+                with self.assertRaises(Conflict):
+                    workspace_routes._editable_workspace_project(12, 'p1')
+        notify.assert_not_called()

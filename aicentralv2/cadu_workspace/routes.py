@@ -4705,8 +4705,8 @@ def _workspace_project(client_id: int, project_id: str) -> Optional[dict]:
         current_app.logger.exception('Não foi possível carregar tarefas do projeto %s', project_id)
         project['tasks'], project['tasks_available'] = [], False
     try:
-        from .project_resource_service import list_resources
-        registry = list_resources(client_id, f'ci:{project_id}', actor_id=session.get('user_id'))
+        from .project_resource_service import reconcile_if_stale
+        registry = reconcile_if_stale(client_id, f'ci:{project_id}', actor_id=session.get('user_id'))
         project['resources'] = registry.get('resources') or []
         project['resource_summary'] = registry.get('summary') or {}
         project['resource_registry_available'] = registry.get('available', True)
@@ -4744,6 +4744,12 @@ def _editable_workspace_project(client_id: int, project_id: str) -> dict:
         abort(404)
     if project.get('status') == 'arquivado':
         abort(409, description='Reative o projeto antes de alterar seu conteúdo.')
+    # Every mutating route passes through here: queue one coalesced event so the next
+    # page view reconciles the resource registry right away instead of waiting for its TTL.
+    try:
+        project_resource_service.notify_change(client_id, f'ci:{project_id}', 'workspace_write', actor_id=session.get('user_id'))
+    except Exception:
+        current_app.logger.exception('Não foi possível enfileirar a reconciliação do projeto %s', project_id)
     return project
 
 

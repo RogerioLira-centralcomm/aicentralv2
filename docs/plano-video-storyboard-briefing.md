@@ -100,3 +100,23 @@ No teste real no servidor o diretor recebeu as cores da marca (`#176b5e, #dcece6
 de números avisou "176, 5, 6" (falso positivo: eram dígitos do hex). O código hex também iria ao prompt da imagem, onde
 modelos de imagem podem desenhar as letras. Correção: o prompt pede cores em palavras e `plain_colors` troca qualquer hex
 por um nome em português ("verde-azulado escuro"). Medido no Lab com a marca real: avisos 4/4 → 0/4, nenhum hex restante.
+
+## Teste real no servidor (2026-10-06, cliente 174, marca Centralcomm, 3 cenas 16:9)
+
+Medido pelas linhas de cobrança (`cadu_tools_token_usage`), histórico e alocação do saldo; `scripts/storyboard_real_check.py`.
+
+| Etapa | Custo técnico | Cobrado (tokens) |
+|---|---|---|
+| Storyboard (texto, gpt-5-mini) | ~US$ 0,00 | 1.455 |
+| Cena 1 (sem referência) | US$ 0,0441 | 2.447 |
+| Cena 2 (referência de estilo) | US$ 0,0568 | 2.097 |
+| Cena 3 (referência de estilo) | US$ 0,0568 | 2.097 |
+| **Total** | US$ 0,158 (imagens) | **8.096** |
+
+- 1 chamada por imagem, sem tentativas extras de revisão no caminho do storyboard. Débito alocado no lote 288; 3 linhas em
+  `cx_studio_image_generations` e 3 ativos registrados no histórico da marca.
+- **Custo por cena de um storyboard: ~2.200 tokens de imagem + ~1.455 do texto, uma vez por storyboard.**
+- **Divergência a decidir:** a confirmação mostra ~4.977 tokens por imagem (custo a US$ 10/M, o preço-base); a cobrança foi
+  ~2.100–2.450. `media_tokens_for_cost` cobra o custo no preço-base **menos os tokens do provedor** (1.966 e 3.588), supondo
+  que já fossem cobrados à parte, mas `charge_from_provider` usa só `media_tokens` e não cobra esses tokens em outro lugar.
+  Ou a cobrança está ~45% abaixo da intenção (custo real a US$ 10/M), ou a estimativa mostrada está alta. Não alterado.

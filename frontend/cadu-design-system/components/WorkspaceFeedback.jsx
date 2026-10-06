@@ -3,7 +3,7 @@ import {CaduButton} from './CaduButton';
 import {VisualIdentity} from './VisualIdentity';
 import {workspaceUserPhoto} from '../workspaceIdentity.mjs';
 import {CaduDialog} from './CaduDialog';
-import {CaduModal} from './CaduModal';
+import {WorkspaceDrawer} from './WorkspaceDrawer';
 
 export function AgentActionDrop({action, onOpen, onDragStart}) {
   if (!action) return null;
@@ -30,7 +30,7 @@ export function ShortcutManagerDialog({open, items = [], onClose, onToggle, onRe
   const pinned = items.filter(item => item.pinned);
   const available = items.filter(item => !item.pinned);
   const row = item => <article key={item.id} draggable={item.pinned} onDragStart={() => setDraggedId(item.id)} onDragEnd={() => setDraggedId('')} onDragOver={event => item.pinned && event.preventDefault()} onDrop={() => dropOn(item)} className={item.pinned ? 'is-pinned' : ''}><span className="cadu-ds-shortcut-grid__handle" aria-hidden="true">{item.pinned ? '⋮⋮' : ''}</span><VisualIdentity src={item.logoUrl || item.previewUrl} initials={item.visualInitials || item.title} label={item.title} color={item.visualColor}/><span><b>{item.title}</b><small>{item.pinned ? 'Arraste para mudar a ordem' : 'Disponível para adicionar'}</small></span><button type="button" className={item.pinned ? 'is-danger' : ''} onClick={() => onToggle?.(item)}>{item.pinned ? 'Remover' : 'Adicionar'}</button></article>;
-  return <CaduModal className="cadu-ds-shortcut-dialog" label="Configurar dock" onClose={onClose}><header><div><h2>Configurar dock</h2><p>Defina a ordem de marcas e projetos e remova o que não precisa ficar à mão.</p></div><CaduButton variant="tertiary" type="button" onClick={onClose} aria-label="Fechar">×</CaduButton></header><section className="cadu-ds-shortcut-section"><header><b>Na dock</b><span>{pinned.length}</span></header><div className="cadu-ds-shortcut-grid">{pinned.length ? pinned.map(row) : <p>Nenhum atalho fixado.</p>}</div></section>{available.length > 0 && <section className="cadu-ds-shortcut-section"><header><b>Disponíveis</b><span>{available.length}</span></header><div className="cadu-ds-shortcut-grid">{available.map(row)}</div></section>}</CaduModal>;
+  return <WorkspaceDrawer title="Configurar dock" detail="Defina a ordem de marcas e projetos e remova o que não precisa ficar à mão." onClose={onClose}><section className="cadu-ds-shortcut-section"><header><b>Na dock</b><span>{pinned.length}</span></header><div className="cadu-ds-shortcut-grid">{pinned.length ? pinned.map(row) : <p>Nenhum atalho fixado.</p>}</div></section>{available.length > 0 && <section className="cadu-ds-shortcut-section"><header><b>Disponíveis</b><span>{available.length}</span></header><div className="cadu-ds-shortcut-grid">{available.map(row)}</div></section>}</WorkspaceDrawer>;
 }
 
 export function WorkspaceAccountMenu({open, onClose, user = {}, links = {}, projects = [], brands = [], usagePercent = 0, onManageShortcuts}) {

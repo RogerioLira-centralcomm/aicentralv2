@@ -1,6 +1,12 @@
+@layer theme, base, components, utilities;
 @import "tailwindcss/theme";
 @import "tailwindcss/utilities";
 @import "./theme.css";
+
+/* O kit é compilado sem preflight: sem isto o <button> nativo mostra a borda 2px outset do navegador. */
+@layer base {
+  button[data-rac], a[data-rac] { margin: 0; border: 0 solid; background-color: transparent; font: inherit; color: inherit; }
+}
 
 @source "./button.tsx";
 @source "./modal.tsx";

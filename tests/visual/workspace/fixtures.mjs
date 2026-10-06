@@ -23,4 +23,8 @@ export const pages = {
         {key: 'drive', name: 'Google Drive', description: 'Arquivos, pastas e links podem ser indexados e associados a projetos.', status: 'unavailable'},
         {key: 'calendar', name: 'Google Calendar', description: 'Eventos e agenda entram no contexto de reuniões e entregas.', status: 'unavailable'},
         {key: 'ga', name: 'Google Analytics', description: 'Propriedades e sinais de audiência podem alimentar o planejamento.', status: 'coming_soon'}]}}}}},
+  'home': {bootstrap: {...base, homeMode: true, endpoints: {}, home: {resume: [], recent: [], usagePercent: 90.6}, resources: [
+    {id: 'r1', title: '[CENTRAL] [D:CONTINUA] Plano', projectName: 'Media Hacks', href: '#'},
+    {id: 'r2', title: 'Media Hacks — Imersão', projectName: 'Media Hacks', href: '#'},
+    {id: 'r3', title: 'Dossiê do projeto', projectName: 'Netflix', href: '#'}]}},
 };

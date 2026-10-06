@@ -337,7 +337,7 @@ export function Sidebar({conversations, conversationSections = [], projects = []
       {isOpen && <div className="cv-project-tree__children">{items.slice(0, showAll ? undefined : 5).map(item => conversationList([item], true))}{items.length > 5 && <button type="button" className="cv-project-tree__more" onClick={() => setShowAllProjectConversations(current => ({...current, [ref]: !current[ref]}))}>{showAll ? 'Mostrar menos' : 'Mostrar mais'}</button>}{!items.length && <small>Sem chats</small>}</div>}
     </section>;
   };
-  const openIndex = ref => { if (ref || activeProjectRef) onOpenLibrary?.(true, ref || activeProjectRef); else setSpotlightError('Selecione um projeto para abrir os arquivos.'); };
+  const openIndex = ref => onOpenLibrary?.(true, ref || activeProjectRef || '');
   const startProjectConversation = async ref => {
     if (String(ref) !== String(activeProjectRef)) await onProjectChange?.(ref);
     onNewConversation?.();
@@ -403,7 +403,6 @@ export function Sidebar({conversations, conversationSections = [], projects = []
           <nav className="cv-mobile-navigation__library" aria-label="Biblioteca"><button type="button" onClick={() => onOpenLibrary?.(true, activeProjectRef)}><NavIcon name="file"/><span>Biblioteca</span></button></nav>
           {activeProject && projectDetailsUrl && <a className="cv-mobile-navigation__project-link" href={projectDetailsUrl} onClick={onClose}><NavIcon name="folder"/><span>{activeProject.name || activeProject.title}</span></a>}
           <div className="cv-sidebar-project-tools"><button type="button" title="Buscar no projeto" aria-label="Buscar no projeto" onClick={() => { setSpotlightQuery(''); setSpotlightOpen(true); }}><NavIcon name="search"/></button></div>
-          {!selectedBrandRef && !!automations.length && <section><h2>Automações</h2>{conversationList(automations.slice(0, 5))}</section>}
           {!selectedBrandRef && !!pinnedConversations.length && <section><h2>Fixadas</h2>{conversationList(pinnedConversations)}</section>}
           {!selectedBrandRef && conversationSections.map(section => { const items = customSectionConversations(section); return items.length ? <section key={section.id}><h2>{section.name}</h2>{conversationList(items)}</section> : null; })}
           {!selectedBrandRef && <section><h2>Chats recentes</h2>{conversationList(standard.slice(0, 5))}{standard.length > 5 && <button type="button" className="cv-mobile-navigation__more" onClick={event => { event.currentTarget.closest('section')?.classList.add('is-expanded'); }}>Ver todos</button>}{standard.length > 5 && <div className="cv-mobile-navigation__extra">{conversationList(standard.slice(5))}</div>}</section>}
@@ -423,7 +422,6 @@ export function Sidebar({conversations, conversationSections = [], projects = []
         <nav className="cv-sidebar-primary-nav" aria-label="Navegação principal">
           {navUrls.home && <a className="cv-nav-action" href={navUrls.home}><Icon name="home" size={17}/><span>Início</span></a>}
           <button className="cv-nav-action" type="button" onClick={onNewConversation}><Icon name="newChat" size={17}/><span>Novo chat</span></button>
-          <div className="cv-sidebar-primary-nav__scheduled"><button className="cv-nav-action" type="button" aria-expanded={automations.length > 0 ? showAllRecent : undefined} onClick={() => automations.length ? setShowAllRecent(value => !value) : null}><Icon name="clock" size={17}/><span>Agendado</span>{automations.length > 0 && <b>{automations.length}</b>}</button>{automations.length > 0 && showAllRecent && <div className="cv-sidebar-primary-nav__scheduled-items">{conversationList(automations)}</div>}</div>
           <button className={`cv-nav-action${pluginsPageOpen ? ' is-active' : ''}`} type="button" aria-current={pluginsPageOpen ? 'page' : undefined} onClick={pluginsPageOpen ? onClosePlugins : onOpenPlugins}><Icon name="plugin" size={17}/><span>Plugins</span></button>
           <button className="cv-nav-action" type="button" onClick={() => openIndex(activeProjectRef)}><Icon name="library" size={17}/><span>Arquivos</span></button>
         </nav>

@@ -525,6 +525,10 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         action = "compare_plan" if _has(text, r"\b(compar|versus|vs\.?|cen[aá]rios?)\b") else "analyze_plan"
         return IntentRoute("planner", action, "high" if action == "compare_plan" else "medium", "decision",
                            ("project", "media_plan"), ("planner.get_media_plan",))
+    # "Analise os relatórios revisados deste projeto" (botão Relatórios dos plugins).
+    if _has(text, r"\brelat[oó]rios\b|\brelat[oó]rio\s+revisad") and not _has(text, r"\b(?:anex\w*|em anexo)\b") and _has(text, r"\b(?:analis\w*|revis\w*|resum\w*|destaq\w*|leia|ler)\b"):
+        return IntentRoute("reports", "analyze_report", "medium", "analysis",
+                           ("project", "reports"), ("reports.get_report_metrics",))
     if _has(text, r"\b(relat[oó]rio|m[eé]trica|resultado|performance|agosto|campanha)\b") and (
             surface == "reports" or _has(text, r"\b(compare|comparar|resultado|performance|m[eé]trica)\b")):
         cross = _has(text, r"\bplano\b")

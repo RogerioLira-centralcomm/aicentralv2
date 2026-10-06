@@ -187,3 +187,23 @@ def test_plugin_success_badge_requires_the_selected_tool_chain_to_complete():
     assert _plugin_execution_succeeded(
         {"id": "meeting-copilot", "completion_tools": []}, route, [],
     )
+
+
+def test_every_plugin_button_prompt_selects_its_own_workflow(monkeypatch):
+    """The prompts the Plugins page puts in the composer must reach the matching workflow."""
+    import re
+    from pathlib import Path
+    from aicentralv2.cadu_workspace.agent_v2.router import route_request
+
+    monkeypatch.setattr(plugins, "get_plugin", lambda plugin_id: {"id": plugin_id, "name": plugin_id, "internal_tools": []})
+    source = Path(__file__).resolve().parents[1].joinpath("frontend/conversations-v2/lib/pluginPrompts.js").read_text()
+    prompts = dict(re.findall(r"'?([a-z-]+)'?:\s*'([^']+)'", source))
+    assert len(prompts) >= 18
+    request = RequestContext(client_id=1, user_id=1, conversation_id=None, surface="conversations",
+                             project_ref="ci:42", brand_ref="brand:7")
+    wrong = {}
+    for plugin_id, text in prompts.items():
+        selected, _tools, _missing = plugins.select(route_request(text), text, request)
+        if (selected or {}).get("id") != plugin_id:
+            wrong[plugin_id] = (selected or {}).get("id")
+    assert not wrong

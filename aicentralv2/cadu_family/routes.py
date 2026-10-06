@@ -232,6 +232,14 @@ def error(exc):
     return render_template('cadu_family/error.html', message=message), code
 
 
+@bp.errorhandler(403)
+def forbidden(exc):
+    """O tratador global de 403 devolve HTML e esconde o motivo; nas rotas da API o motivo vai em JSON."""
+    if '/api/' in request.path:
+        return jsonify(error=exc.description), 403
+    return render_template('errors/403.html'), 403
+
+
 @bp.get('/api/context')
 def get_context():
     selected = context.resolve()
@@ -911,7 +919,21 @@ def planner_radar_start():
         abort(403, description=str(exc))
     except InsufficientToolCredits as exc:
         abort(409, description=str(exc))
+    _radar_started_email(selected, user, run, payload)
     return jsonify(run=run), 202
+
+
+def _radar_started_email(selected, user, run, payload):
+    """E-mail "o que será feito", em segundo plano; nunca atrapalha a busca."""
+    from ..cadu_radar import notify
+    try:
+        names = {row['ref']: row['name'] for row in context.inventory(selected['client_id'])}
+        repeat = payload.get('repeat')
+        notify.run_started(user, concept=run.get('focus') or '', brand=names.get(run.get('brand_ref')), params=run.get('params'),
+                           estimated_tokens=run.get('estimated_tokens') or 0, repeat=repeat if repeat in (1, 2, 3) else None,
+                           run_url=planner_url('radar', run=run['id']), radars_url=planner_url('radares'))
+    except Exception:  # noqa: BLE001
+        current_app.logger.warning('Radar: não foi possível preparar o e-mail de início.', exc_info=True)
 
 
 @bp.get('/api/planner/radar/runs')
@@ -923,6 +945,34 @@ def planner_radar_runs():
         return jsonify(runs=[])
     return jsonify(runs=pipeline.list_runs(selected['client_id'], limit=request.args.get('limit', 30, type=int),
                                            watch_id=request.args.get('watch_id') or None))
+
+
+@bp.post('/api/planner/radar/brand-profile/research')
+def planner_radar_brand_research():
+    """Fluxo separado: pesquisa concorrentes, posicionamento e público da marca e PROPÕE; nada é gravado aqui."""
+    from ..cadu_radar import brand_profile, pipeline
+    selected = writable_context()
+    user = context.identity()
+    if not pipeline.enabled():
+        abort(403, description='O Radar ainda não está habilitado neste ambiente.')
+    brand_ref, _project = _planner_refs(selected['client_id'], (request.get_json(silent=True) or {}).get('brand_ref'))
+    try:
+        return jsonify(proposal=brand_profile.propose(selected['client_id'], user['id'], brand_ref))
+    except InsufficientToolCredits as exc:
+        abort(409, description=str(exc))
+
+
+@bp.post('/api/planner/radar/brand-profile')
+def planner_radar_brand_save():
+    """Grava o que o usuário aprovou, somando ao que a marca já tem (lista não repete; texto só troca se pedido)."""
+    from ..cadu_radar import brand_profile
+    selected = writable_context()
+    user = context.identity()
+    payload = request.get_json(silent=True) or {}
+    brand_ref, _project = _planner_refs(selected['client_id'], payload.get('brand_ref'))
+    return jsonify(brand_profile.save(selected['client_id'], user['id'], brand_ref, competitors=payload.get('competitors'),
+                                      positioning=payload.get('positioning'), target_audience=payload.get('target_audience'),
+                                      replace=payload.get('replace'), sources=payload.get('sources')))
 
 
 def _radar_watches_ready():

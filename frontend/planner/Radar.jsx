@@ -6,6 +6,13 @@ import {Illustration} from './Illustration.jsx';
 import {PlannerHeader} from './PlannerHeader.jsx';
 import {RADAR_DRAFT_KEY, RadarWizard} from './RadarWizard.jsx';
 
+// Etapas mostradas na hora do clique; as de verdade (com tokens e detalhes) chegam do servidor logo depois.
+const PENDING_STEPS = [
+  ['buzz', 'Procurando o que está em alta', 'O Perplexity busca o que está gerando buzz agora sobre o conceito.'],
+  ['check', 'Conferindo as fontes', 'Só entra o que tem data recente e link que abre.'],
+  ['angles', 'Montando os ângulos', 'Ideias para a marca falar do conceito aproveitando o buzz.'],
+  ['save', 'Organizando o resultado', 'O buzz e os ângulos ficam salvos para virar plano.'],
+].map(([key, label, hint], index) => ({key, label, hint, status: index === 0 ? 'running' : 'pending', tokens: 0, detail: '', parallel: false}));
 const STEP_STATUS = {pending: 'Aguardando', running: 'Em andamento', done: 'Concluída', failed: 'Falhou', skipped: 'Pulada'};
 const tokens = value => Number(value || 0).toLocaleString('pt-BR');
 
@@ -103,6 +110,7 @@ export function RadarPage({boot, request, notify, context}) {
   const [run, setRun] = useState(null);
   const [loading, setLoading] = useState(Boolean(runId));
   const [starting, setStarting] = useState(false);
+  const [pending, setPending] = useState({focus: ''});
   const [planning, setPlanning] = useState('');
   const poll = useRef(null);
 
@@ -131,10 +139,12 @@ export function RadarPage({boot, request, notify, context}) {
   }, []);
 
   const start = async fields => {
+    setPending({focus: fields.focus});
     setStarting(true);
     try {
       const {watch, ...body} = fields;
-      const data = await request('/radar/runs', {method: 'POST', body: JSON.stringify(body)});
+      // `repeat` só entra no e-mail "o que será feito"; o radar ativo em si é criado logo abaixo.
+      const data = await request('/radar/runs', {method: 'POST', body: JSON.stringify({...body, repeat: watch?.frequency || null})});
       let watchError = '';
       if (watch) {
         // O radar ativo é um extra: se falhar, a busca já começou e o aviso diz o que faltou.
@@ -167,7 +177,16 @@ export function RadarPage({boot, request, notify, context}) {
     return <PlannerHeader title="Radar" description="O que está em buzz agora e os ângulos para falar de um conceito."
       meta={<CaduBadge tone="brand">Em breve</CaduBadge>}/>;
   }
-  if (!runId && !run) return <RadarWizard boot={boot} request={request} busy={starting} onSubmit={start} context={context}/>;
+  if (!runId && !run) {
+    // Ao clicar em buscar a animação entra na hora, sem esperar a resposta; se falhar, o wizard volta com o rascunho.
+    return <>
+      <div hidden={starting}><RadarWizard boot={boot} request={request} busy={starting} onSubmit={start} context={context}/></div>
+      {starting && <>
+        <PlannerHeader title="Radar" description="O que está em buzz agora e os ângulos para falar de um conceito."/>
+        <RunChain run={{status: 'running', focus: pending.focus, tokens: 0, steps: PENDING_STEPS}}/>
+      </>}
+    </>;
+  }
   if (loading && !run) return <PlannerHeader title="Radar" description="Carregando a busca…"/>;
 
   const running = run?.status === 'running';

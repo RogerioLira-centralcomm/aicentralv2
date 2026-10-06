@@ -526,6 +526,28 @@ Somando com as duas rodadas anteriores no cenário Cemig, o F1 venceu ou empatou
 
 Hoje a reserva é fixa em 15.207 tokens. Para o cliente 174, o débito real do F1 é de cerca de 550 tokens.
 
+### Primeiro uso real: perfil da marca, e-mail e animação (2026-10-06)
+
+Ajustes pedidos depois de o usuário abrir o wizard em produção.
+
+- **Escolher a marca avança sozinho** para o passo do conceito. O projeto e a situação do perfil passaram para o passo 2.
+- **Completar o perfil da marca é um fluxo separado.** Quando faltam concorrentes, posicionamento ou público, o passo 2 mostra o aviso com "Completar perfil" (ou "Atualizar perfil", se estiver completo). O botão abre um fluxo próprio:
+  1. O Radar pesquisa na web (Perplexity, uns 40 tokens) e **propõe**. Nada é gravado.
+  2. O usuário revisa: concorrentes novos já vêm marcados, os que a marca já tem aparecem bloqueados, e o texto proposto é editável.
+  3. Ao salvar, a proposta é **somada** ao perfil: a lista de concorrentes não repete nem reescreve o que existe, e texto já preenchido só é trocado se o usuário marcar "Trocar o texto atual".
+  4. Cada atualização fica registrada no próprio perfil (`radar_enrichment.history`, até 10 entradas, e `field_provenance`), com as fontes usadas.
+  - Quem grava é o gravador oficial do perfil, que mescla só as chaves enviadas e nunca mexe em `design_system_ads`. A marca é validada contra o cliente antes.
+- **Ao clicar em buscar, a animação entra na hora**, sem esperar a resposta do servidor. Se falhar, o wizard volta com o rascunho e o motivo.
+- **E-mail "o que será feito":** assim que a busca começa, o usuário recebe um e-mail com as etapas, a janela, a praça, o custo reservado e o link para acompanhar. Se o radar for ativo, o e-mail diz também a frequência e os horários. O envio é em segundo plano e uma falha nunca derruba a busca. Buscas agendadas não mandam e-mail ainda: esse é o aviso de novidade, que faz parte dos alertas.
+
+**O 403 ao buscar em produção não era do Radar.** O Planner bloqueia toda gravação sem `CADU_FAMILY_WRITES_ENABLED=1` (`routes.py`, trava `protect`), e a trava foi apontada na auditoria `docs/auditoria-planner-reports.md`. Provas em produção:
+
+- `POST /familia/api/context` responde 200;
+- `radar/runs` e `radar/watches` respondem 403;
+- uma escrita contra um plano que não existe também responde 403.
+
+A flag precisa ser ligada no servidor. Havia ainda um segundo problema: o tratador global de 403 devolve uma página HTML e escondia o motivo. Agora as rotas da API devolvem o motivo em JSON, e a tela mostra a mensagem real.
+
 ### Simplificação: buzz e ângulos (2026-10-06, depois do primeiro uso real)
 
 O primeiro uso real mostrou que o Radar estava complicado demais para o que ele precisa fazer. O produto é simples: **ver o que está em buzz agora e os ângulos para falar de um conceito.** Esta seção **substitui** a descrição do pipeline e do wizard em "Radar v2 entregue em duas páginas", logo abaixo. As partes sobre as duas páginas, os radares ativos, o agendador e a migração continuam valendo.

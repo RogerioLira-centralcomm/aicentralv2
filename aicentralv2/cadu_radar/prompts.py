@@ -133,6 +133,14 @@ V1_5 = {
         '{{"angulos": [{{"titulo": "...", "gancho": "...", "por_que_agora": "...", "formatos": ["..."], "canais": ["..."], '
         '"janela": "...", "buzz": ["B1"]}}]}}',
         '{payload}'),
+    # Fluxo separado: completar o perfil da marca (concorrentes, posicionamento, público) com pesquisa na web.
+    'brand_profile': (
+        'Hoje é {today}. Você pesquisa marcas brasileiras para planejadores de mídia. Pesquise na web sobre a marca abaixo e '
+        'devolva SÓ o que as fontes sustentam: (1) até 6 concorrentes diretos no Brasil, cada um com o nome e uma frase dizendo '
+        'por que compete; (2) o posicionamento da marca em 1 ou 2 frases, como ela se apresenta ao mercado; (3) o público-alvo '
+        'principal em 1 ou 2 frases. Não repita o que já consta no perfil. Cite as URLs que usou. Responda só JSON: '
+        '{{"concorrentes": [{{"nome": "...", "motivo": "..."}}], "posicionamento": "...", "publico": "...", "fontes": ["url"]}}',
+        'Marca: {brand_name}\nSite: {site}\nSetor: {sector}\nJá consta no perfil: {known}'),
 }
 
 VERSIONS = {'1.0': V1_0, '1.5': V1_5}

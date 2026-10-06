@@ -4,6 +4,7 @@ import {CaduTextAreaField} from '../cadu-design-system/components/CaduField.jsx'
 import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {contextQuery} from './api.js';
+import {BrandProfileDialog} from './BrandProfileDialog.jsx';
 
 const ART = '/static/images/planner/illustrations/';
 export const RADAR_DRAFT_KEY = 'planner.radar.draft';
@@ -46,6 +47,8 @@ export function RadarWizard({boot, request, busy, onSubmit, context}) {
   });
   const [known, setKnown] = useState({loading: false, brand: null, project: null});
   const [estimate, setEstimate] = useState(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [refresh, setRefresh] = useState(0);
   const panel = useRef(null);
   const set = (key, value) => setData(current => ({...current, [key]: value}));
   const brands = boot.contextBar?.brands || [];
@@ -69,7 +72,7 @@ export function RadarWizard({boot, request, busy, onSubmit, context}) {
       .then(result => { if (current) setKnown({loading: false, brand: result.context?.brand || null, project: result.context?.project || null}); })
       .catch(() => { if (current) setKnown({loading: false, brand: null, project: null}); });
     return () => { current = false; };
-  }, [data.brand_ref, data.project_ref, request]);
+  }, [data.brand_ref, data.project_ref, request, refresh]);
 
   const go = next => { const bounded = Math.max(0, Math.min(STEPS.length - 1, next)); setStep(bounded); setReached(current => Math.max(current, bounded)); setVisited(current => new Set(current).add(bounded)); };
   const last = step === STEPS.length - 1;
@@ -115,27 +118,30 @@ export function RadarWizard({boot, request, busy, onSubmit, context}) {
           <div className="wizard__options wizard__options--scroll" role="radiogroup" aria-label="Marca">
             {brands.map(item => <button key={item.ref} type="button" role="radio" aria-checked={data.brand_ref === item.ref}
               className={`wiz-option${data.brand_ref === item.ref ? ' is-chosen' : ''}`}
-              onClick={() => setData(value => ({...value, brand_ref: item.ref, project_ref: ''}))}>
+              onClick={() => { setData(value => ({...value, brand_ref: item.ref, project_ref: ''})); go(1); }}>
               <span className="wiz-option__icon">{item.logo_url ? <img src={item.logo_url} alt="" width="26" height="26" style={{objectFit: 'contain'}}/> : <Icon name="library" size={22}/>}</span>
               <span><strong>{item.name}</strong></span><Icon name={data.brand_ref === item.ref ? 'check' : 'chevron'} size={18}/></button>)}
             <button type="button" role="radio" aria-checked={!data.brand_ref} className={`wiz-option${!data.brand_ref ? ' is-chosen' : ''}`}
-              onClick={() => setData(value => ({...value, brand_ref: '', project_ref: ''}))}>
+              onClick={() => { setData(value => ({...value, brand_ref: '', project_ref: ''})); go(1); }}>
               <span className="wiz-option__icon"><Icon name="search" size={22}/></span>
-              <span><strong>Sem marca</strong><small>Pesquisar só o tema que você escrever.</small></span>
+              <span><strong>Sem marca</strong><small>Pesquisar só o conceito que você escrever.</small></span>
               <Icon name={!data.brand_ref ? 'check' : 'chevron'} size={18}/></button>
           </div>
-          {projects.length > 0 && <div className="wizard__chips" aria-label="Projeto">
-            {projects.map(item => <button key={item.ref} type="button" className={data.project_ref === item.ref ? 'is-on' : ''}
-              onClick={() => set('project_ref', data.project_ref === item.ref ? '' : item.ref)}>{item.name}</button>)}
-          </div>}
-          {data.brand_ref && <p className="wizard__known" aria-live="polite">
-            {known.loading ? 'Lendo o perfil da marca…' : <>
-              {(known.brand?.fields || []).length > 0 && <span><b>O Radar já sabe:</b> {known.brand.fields.slice(0, 5).map(item => item.label).join(' · ')}.</span>}
-              {gaps.length > 0 && <span className="is-gap"> Faltam no perfil: {gaps.map(([, label]) => label).join(', ')}. O Radar funciona sem, mas acerta mais com eles.</span>}
-            </>}</p>}
         </>}
 
         {step === 1 && <>
+          {brand && <div className="wizard__brand-strip">
+            <p className="wizard__known" aria-live="polite">
+              {known.loading ? 'Lendo o perfil da marca…' : gaps.length > 0
+                ? <><b>{brand.name}</b>: faltam no perfil {gaps.map(([, label]) => label.toLowerCase()).join(' e ')}. O Radar funciona sem, mas acerta mais com eles.</>
+                : <><b>{brand.name}</b>: o perfil tem o que o Radar usa.</>}
+              {!known.loading && <button type="button" className="wizard__link" onClick={() => setProfileOpen(true)}>{gaps.length > 0 ? 'Completar perfil' : 'Atualizar perfil'}</button>}
+            </p>
+            {projects.length > 0 && <div className="wizard__chips" aria-label="Projeto">
+              {projects.map(item => <button key={item.ref} type="button" className={data.project_ref === item.ref ? 'is-on' : ''}
+                onClick={() => set('project_ref', data.project_ref === item.ref ? '' : item.ref)}>{item.name}</button>)}
+            </div>}
+          </div>}
           <CaduTextAreaField aria-label="Conceito" rows={3} value={data.focus} onChange={event => set('focus', event.target.value)} maxLength="240"
             placeholder={`Ex.: consumo consciente de energia no fim do ano, para ${who}`}/>
           <div className="wizard__chips" aria-label="Ideias para começar">
@@ -183,5 +189,6 @@ export function RadarWizard({boot, request, busy, onSubmit, context}) {
       <ol className="wizard__steps">{STEPS.map((item, index) => <li key={item.key} className={index === step ? 'is-current' : ''}>
         <button type="button" disabled={index > reached} onClick={() => go(index)}><b>{index + 1}</b>{item.label}</button></li>)}</ol>
     </main>
+    {profileOpen && brand && <BrandProfileDialog request={request} brand={brand} onClose={() => setProfileOpen(false)} onSaved={() => setRefresh(value => value + 1)}/>}
   </div>;
 }

@@ -20,7 +20,6 @@ def _serialize(row):
         "audience": ((row.get("metrics") or {}).get("addressable") or {}).get("label") or "",
         "traffic": ((row.get("metrics") or {}).get("passengers") or {}).get("label") or "",
         "traffic_label": row.get("traffic_label") or "Movimento",
-        "investment": ((row.get("investment") or {}).get("label") or ""),
         # The marketplace should show the curated photo library, not a stale
         # generated hero when real photos are available.
         "image_url": card_image or media.get("hero_url") or next((item.get("url") for item in media.get("images") or [] if item.get("url")), ""),

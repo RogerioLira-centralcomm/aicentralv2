@@ -64,3 +64,10 @@ class MeasurableTest(TestCase):
             channels.decorate_logos(rows)
         self.assertEqual([row['measurable'] for row in rows], [True, False, False])
         self.assertTrue(all('medicao' not in row for row in rows))
+
+
+class PlacesNoValueTest(TestCase):
+    def test_place_projection_carries_no_investment(self):
+        from aicentralv2.cadu_planner import places
+        row = {'id': 1, 'slug': 's', 'title': 'T', 'investment': {'label': 'R$ 10 mil a R$ 20 mil'}, 'metrics': {}, 'media': {}, 'points': []}
+        self.assertNotIn('investment', places._serialize(row))

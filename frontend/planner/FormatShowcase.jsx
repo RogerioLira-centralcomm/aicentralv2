@@ -38,6 +38,7 @@ const tally = (records, key) => {
  * video, CTV… — with search, channel filter and live counts per family.
  */
 export function FormatShowcase({boot, selection}) {
+  const kind = boot.module === 'interativos' ? 'interativos' : 'formatos';
   const all = Array.isArray(boot.records) ? boot.records : [];
   const {activePlan} = useContext(PlannerChrome);
   const [filters, setFilters] = useState(filtersFromUrl);
@@ -64,8 +65,8 @@ export function FormatShowcase({boot, selection}) {
   const clear = () => { const empty = {q: '', family: '', platform: ''}; writeUrl(empty); setFilters(empty); };
 
   return <>
-    <PlannerHeader title="Formatos" withContext actions={<ActivePlanChip/>}
-      description={`${number(visible.length)} ${visible.length === 1 ? 'formato' : 'formatos'} de mídia${active ? ' com estes filtros' : ''}, agrupados por família`}/>
+    <PlannerHeader title={kind === 'interativos' ? 'Interativos' : 'Formatos'} withContext actions={<ActivePlanChip/>}
+      description={`${number(visible.length)} ${kind === 'interativos' ? (visible.length === 1 ? 'formato interativo' : 'formatos interativos') : (visible.length === 1 ? 'formato' : 'formatos')} de mídia${active ? ' com estes filtros' : ''}, agrupados por família`}/>
     <section className="aud-filters" aria-label="Filtros de formatos">
       <div className="aud-filters__top fmt-filters__top">
         <CaduInput className="aud-filters__search" aria-label="Buscar formatos" type="search" value={filters.q}
@@ -87,11 +88,11 @@ export function FormatShowcase({boot, selection}) {
       : groups.map(group => <section key={group.family} className="fmt-group" aria-labelledby={`fmt-${group.items[0].family_order}`}>
         <h2 id={`fmt-${group.items[0].family_order}`} className="fmt-group__title">{group.family}<span>{number(group.items.length)}</span></h2>
         <div className="planner-grid planner-grid--formats" aria-label={`Formatos de ${group.family}`}>
-          {group.items.map(item => <FormatCard key={itemKey(item)} item={item} urls={boot.urls} selected={selection.isSelected('formatos', itemKey(item))}
-            onToggle={() => selection.toggle('formatos', itemKey(item))}/>)}
+          {group.items.map(item => <FormatCard key={itemKey(item)} kind={kind} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))}
+            onToggle={() => selection.toggle(kind, itemKey(item))}/>)}
         </div>
       </section>)}
-    <PlanBar noun={['formato', 'formatos']} count={selection.count('formatos')} href={activePlan ? `${boot.urls.plans}/${encodeURIComponent(activePlan.id)}` : boot.urls.plans}
-      chosen={all.filter(item => selection.isSelected('formatos', itemKey(item))).map(item => ({key: itemKey(item), logo: item.platform_logo, name: item.name}))}/>
+    <PlanBar noun={kind === 'interativos' ? ['interativo', 'interativos'] : ['formato', 'formatos']} count={selection.count(kind)} href={activePlan ? `${boot.urls.plans}/${encodeURIComponent(activePlan.id)}` : boot.urls.plans}
+      chosen={all.filter(item => selection.isSelected(kind, itemKey(item))).map(item => ({key: itemKey(item), logo: item.platform_logo, name: item.name}))}/>
   </>;
 }

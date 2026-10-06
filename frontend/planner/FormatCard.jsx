@@ -8,10 +8,10 @@ import {catalogDetailUrl} from './Catalog.jsx';
  * reference image when the catalog has one), its size and type, where it runs
  * and one clear action. No prices: media is quoted.
  */
-export function FormatCard({item, urls, selected, onToggle}) {
+export function FormatCard({item, urls, selected, onToggle, kind = 'formatos'}) {
   const places = item.runs_on || [];
   return <article className={`planner-card channel-card format-card${selected ? ' is-selected' : ''}`}>
-    <a className="planner-card__hit" href={catalogDetailUrl(urls, 'formatos', item)} aria-label={`Ver formato ${item.name}`}/>
+    <a className="planner-card__hit" href={catalogDetailUrl(urls, kind, item)} aria-label={`Ver formato ${item.name}`}/>
     <span className="format-card__stage">
       {item.image_url ? <img src={item.image_url} alt="" loading="lazy"/> : <FormatPreview dimensions={item.dimensions} name={item.name} type={item.format_type}/>}
     </span>

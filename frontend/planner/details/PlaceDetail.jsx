@@ -32,7 +32,6 @@ export function PlaceDetail({boot, selection}) {
     metrics={[
       {label: place.traffic_label || 'Movimento', value: place.traffic},
       {label: 'Audiência', value: place.audience},
-      {label: 'Investimento de referência', value: place.investment, hint: 'Valor final na proposta'},
       {label: 'Pontos de mídia', value: points.length || null},
     ]}
     sections={sections}/>;

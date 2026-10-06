@@ -82,7 +82,7 @@ function App({boot}) {
     if (boot.module === 'monitoramento') return <MonitorPage request={request}/>;
     if (boot.module === 'docs') return <DocsPage boot={boot} request={request} notify={notify}/>;
     if (boot.module === 'audiencias') return <AudienceShowcase boot={boot} request={request} selection={selection} notify={notify}/>;
-    if (boot.module === 'formatos') return <FormatShowcase boot={boot} selection={selection}/>;
+    if (boot.module === 'formatos' || boot.module === 'interativos') return <FormatShowcase boot={boot} selection={selection}/>;
     if (CATALOG_KINDS.includes(boot.module)) return <CatalogPage boot={boot} request={request} selection={selection} notify={notify}/>;
     return null;
   })();

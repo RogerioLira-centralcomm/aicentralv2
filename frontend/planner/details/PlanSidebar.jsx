@@ -24,7 +24,7 @@ export function PlanSidebar({plan, selection, boot, plansUrl}) {
       <span><a href={`${moduleUrl(boot.urls, item.kind)}/${encodeURIComponent(item.resource_id)}`}>{item.snapshot?.name || item.resource_id}</a>
         <small>{(KIND[item.kind] || [item.kind])[0]}{item.snapshot?.dimensions ? ` · ${item.snapshot.dimensions}` : ''}</small></span>
       <button type="button" aria-label={`Remover ${item.snapshot?.name || 'item'} do plano`} onClick={() => selection.toggle(item.kind, item.resource_id)}><Icon name="trash" size={16}/></button>
-    </li>)}</ul> : <p className="pd-plan__empty">Nada por aqui ainda. Adicione canais, formatos e audiências.</p>
+    </li>)}</ul> : <div className="pd-plan__blank"><img src="/static/images/planner/illustrations/mascote-prancheta.webp" alt="" loading="lazy"/><p className="pd-plan__empty">Nada por aqui ainda. Adicione canais, formatos e audiências.</p></div>
       : <p className="pd-plan__empty">Nenhum plano aberto. Abra ou crie um plano para guardar estas escolhas.</p>}
     <a className="pd-plan__go" href={href}>{plan ? 'Revisar plano' : 'Ver planos'}<Icon name="chevron" size={14}/></a>
     {items.length > 0 && <p className="pd-plan__totals"><strong>No plano</strong>{planCounts(items)}<small>O alcance e o valor saem da cotação, não de uma soma.</small></p>}

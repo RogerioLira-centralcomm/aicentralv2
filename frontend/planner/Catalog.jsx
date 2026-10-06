@@ -8,6 +8,7 @@ import {LogoTile, PlannerPanel, SelectionButton} from './PlannerUi.jsx';
 import {MODULE_LABELS, moduleUrl} from './api.js';
 import {ActivePlanChip, PlannerHeader} from './PlannerHeader.jsx';
 import {ChannelCard, ChannelRow} from './ChannelCard.jsx';
+import {PlaceCard} from './PlaceCard.jsx';
 import {PlanBar} from './PlanBar.jsx';
 import {PlanBanner, ShelfEmpty} from './PlannerPromo.jsx';
 import {PlannerChrome} from './PlannerHeader.jsx';
@@ -43,7 +44,7 @@ export function useDebounced(value, delay = 250) {
 // The one number that helps choose, shown at the card's foot.
 function keyFact(kind, item) {
   const audience = audienceLabel(item);
-  if (kind === 'places') return item.traffic ? `${item.traffic_label || 'Movimento'}: ${item.traffic}` : item.investment ? `Investimento ${item.investment}` : '';
+  if (kind === 'places') return item.traffic ? `${item.traffic_label || 'Movimento'}: ${item.traffic}` : '';
   if (kind === 'audiencias') {
     // The numeric size gives one consistent format ("86,6 mi"); the label is the fallback.
     const size = Number(item.audience_size);
@@ -125,19 +126,17 @@ function minutes(seconds) {
   return value >= 60 ? `${Math.floor(value / 60)}min ${String(Math.round(value % 60)).padStart(2, '0')}s` : `${Math.round(value)}s`;
 }
 
-function PortalRow({item, urls, selected}) {
+function PortalRow({item, urls, selected, onToggle}) {
   const visits = Number(item.monthly_visits);
   const region = item.scope === 'nacional_premium' ? 'Premium nacional' : item.uf ? `Regional · ${item.uf}` : '';
-  return <a className={`planner-portal planner-portal--wide${selected ? ' is-selected' : ''}`} href={catalogDetailUrl(urls, 'portais', item)}>
+  return <div className={`portal-row${selected ? ' is-selected' : ''}`}>
+    <a className="planner-card__hit" href={catalogDetailUrl(urls, 'portais', item)} aria-label={`Ver portal ${item.site_title || item.name}`}/>
     <LogoTile src={item.favicon_url || (item.domain ? `https://${item.domain}/favicon.ico` : '')} name={item.name} icon="browser" size="md"/>
-    <span className="planner-portal__main">
-      <span className="planner-portal__title"><strong>{item.site_title || item.name}</strong>{selected && <InPlan/>}</span>
-      <small>{item.domain}</small>
-    </span>
-    <span className="planner-portal__fact"><small>Categoria</small><b>{item.category || 'Não categorizado'}</b><small>{region}</small></span>
-    <span className="planner-portal__fact planner-portal__fact--extra"><small>Acessos / mês</small><b>{visits > 0 ? visits.toLocaleString('pt-BR', {notation: 'compact', maximumFractionDigits: 1}) : 'Sem fonte'}</b><small>{item.avg_time_seconds > 0 ? `Tempo médio ${minutes(item.avg_time_seconds)}` : 'Tempo médio: sem fonte'}</small></span>
-    <Icon name="chevron" size={16}/>
-  </a>;
+    <span className="portal-row__main"><strong>{item.site_title || item.name}</strong><small>{item.domain}</small></span>
+    <span className="portal-row__fact"><small>Categoria</small><b>{item.category || 'Não categorizado'}</b><small>{region}</small></span>
+    <span className="portal-row__fact"><small>Acessos / mês</small><b>{visits > 0 ? visits.toLocaleString('pt-BR', {notation: 'compact', maximumFractionDigits: 1}) : 'Sem fonte'}</b><small>{item.avg_time_seconds > 0 ? `Tempo médio ${minutes(item.avg_time_seconds)}` : 'Tempo médio: sem fonte'}</small></span>
+    <span className="portal-row__action"><SelectionButton size="md" quiet selected={selected} onToggle={onToggle}/></span>
+  </div>;
 }
 
 export function CatalogPage({boot, request, selection, notify}) {
@@ -269,7 +268,7 @@ export function CatalogPage({boot, request, selection, notify}) {
       <CaduButton variant="secondary" disabled={bulkBusy || !total} onClick={addFiltered}>{bulkBusy ? 'Adicionando…' : `Adicionar filtrados ao plano (${Math.min(total, BULK_LIMIT)})`}</CaduButton>
     </div>}
     {!records.length && !loading ? <ShelfEmpty title="Nenhuma referência encontrada" description="Ajuste a busca ou escolha outra categoria. Se preferir, o Planejar monta uma sugestão com você." action={<CaduButton variant="secondary" onClick={() => { setQuery(''); setCategory(''); setMore({measurable: false, formats: false}); }}>Limpar filtros</CaduButton>}/>
-      : portalMode ? <div className="planner-list" aria-label="Portais disponíveis">{records.map(item => <PortalRow key={itemKey(item)} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))}/>)}</div>
+      : portalMode ? <div className="planner-list" aria-label="Portais disponíveis">{records.map(item => <PortalRow key={itemKey(item)} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>)}</div>
         : kind === 'canais' ? (() => {
           // The invitation to plan sits after the first eight cards (or at the end of a short list).
           const groups = channelGroups(shown, category, groupBy);
@@ -292,9 +291,13 @@ export function CatalogPage({boot, request, selection, notify}) {
             </Fragment>;
           });
         })()
+        : kind === 'places' ? <div className="planner-grid planner-grid--channels" aria-label="Places disponíveis">{records.map(item => <PlaceCard key={itemKey(item)} item={item} urls={boot.urls}
+          selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>)}</div>
         : <div className="planner-grid" aria-label={`${MODULE_LABELS[kind]} disponíveis`}>{records.map(item => <CatalogCard key={itemKey(item)} kind={kind} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))}/>)}</div>}
     {kind === 'canais' && <PlanBar noun={['canal', 'canais']} count={selection.count(kind)} href={quoteUrl}
       chosen={records.filter(item => selection.isSelected(kind, itemKey(item))).map(item => ({key: itemKey(item), logo: item.logo_path, name: item.name}))}/>}
+    {(kind === 'places' || portalMode) && <PlanBar noun={portalMode ? ['portal', 'portais'] : ['place', 'places']} count={selection.count(kind)} href={quoteUrl}
+      chosen={records.filter(item => selection.isSelected(kind, itemKey(item))).map(item => ({key: itemKey(item), logo: portalMode ? (item.favicon_url || '') : (item.image_url || ''), name: item.name}))}/>}
     {portalMode && total > PORTAL_PAGE && <nav className="planner-pagination" aria-label="Páginas de portais">
       <CaduButton variant="secondary" disabled={!offset} onClick={() => setOffset(Math.max(0, offset - PORTAL_PAGE))}>Anterior</CaduButton>
       <CaduButton variant="secondary" disabled={offset + records.length >= total} onClick={() => setOffset(offset + PORTAL_PAGE)}>Próxima</CaduButton>
@@ -305,7 +308,7 @@ export function CatalogPage({boot, request, selection, notify}) {
 const FACTS = [
   ['Categoria', 'category'], ['Plataforma', 'platform'], ['Público estimado', item => audienceLabel(item)], ['Período da estimativa', 'audience_period'],
   ['Cidade', 'city'], ['Operador', 'operator'], ['Movimento', item => item.traffic && `${item.traffic}${item.traffic_label ? ` · ${item.traffic_label}` : ''}`],
-  ['Investimento', 'investment'], ['Finalidade', 'purpose'], ['Especificação', 'dimensions'], ['Arquivos', 'files'],
+  ['Finalidade', 'purpose'], ['Especificação', 'dimensions'], ['Arquivos', 'files'],
 ];
 const listText = value => Array.isArray(value) ? value.filter(Boolean).join(', ') : value;
 

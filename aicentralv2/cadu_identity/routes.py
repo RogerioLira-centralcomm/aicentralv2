@@ -216,6 +216,9 @@ def google_workspace_start():
         request.args.get("next"),
         product_url("workspace", "/integracoes"),
     )
+    if not google_workspace.workspace_enabled():
+        flash("A conexão com o Google ainda não está disponível.", "error")
+        return redirect(target, code=302)
     # This OAuth flow starts on the Auth product but its state cookie must
     # survive the trip to Google's callback on that same product. When a
     # reverse proxy enters this blueprint through the Workspace host, pin the

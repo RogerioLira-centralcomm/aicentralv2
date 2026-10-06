@@ -106,15 +106,24 @@ GOOGLE_SERVICE_CATALOG = (
     },
 )
 
-# Ask Google for every scope declared in the connector catalog, including
-# services currently labeled "coming soon", so customers can validate their
-# OAuth consent and API configuration before those product flows ship.
+# Only scopes of services that already ship are requested. "Coming soon"
+# services (Ads, Analytics, Search Console) stay out of the consent screen:
+# they are sensitive scopes that would block Google's app verification.
 # Full Drive access is intentional: the connector reads and organizes project
 # files. Each Cadu client and authorizing person owns a separate token.
 SCOPES = tuple(dict.fromkeys((
     *IDENTITY_SCOPES,
-    *(scope for service in GOOGLE_SERVICE_CATALOG for scope in service["scopes"]),
+    *(scope for service in GOOGLE_SERVICE_CATALOG if not service.get("coming_soon")
+      for scope in service["scopes"]),
 )))
+
+
+def workspace_enabled() -> bool:
+    """Feature flag: the customer Google connection is off until launch approval."""
+    try:
+        return bool(current_app.config.get("GOOGLE_WORKSPACE_ENABLED"))
+    except RuntimeError:
+        return False
 
 _SERVICE_STATUS_LABELS = {
     "enabled": "Habilitado",

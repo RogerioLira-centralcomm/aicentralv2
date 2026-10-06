@@ -597,10 +597,10 @@ def _workspace_integration_data(client_id: int, organization_id: int) -> dict:
         'configured': False,
         'enabled': google_workspace.workspace_enabled(),
     }
-    if not google['enabled']:
-        # Lançamento sem Google: não consulta conexões nem expõe o botão.
-        return {**_workspace_integration_base(accounts), 'google': google}
     try:
+        if not google['enabled']:
+            # Lançamento sem Google: não consulta conexões nem expõe o botão.
+            raise LookupError('google_workspace_disabled')
         connection = google_workspace.get_connection(client_id)
         google = {
             **google,
@@ -620,6 +620,8 @@ def _workspace_integration_data(client_id: int, organization_id: int) -> dict:
                 (int(client_id),),
             )
             google['projects'] = [dict(row) for row in cursor.fetchall()]
+    except LookupError:
+        pass
     except Exception:
         # A migration may be rolled out after the application code. Keep the
         # account page usable and show the connection as not yet available.

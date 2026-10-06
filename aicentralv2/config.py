@@ -88,6 +88,8 @@ class Config:
 		f"{AUTH_URL.rstrip('/')}/auth/google/workspace/callback",
 	)
 	GOOGLE_TOKEN_ENCRYPTION_KEY = os.getenv('GOOGLE_TOKEN_ENCRYPTION_KEY', '')
+	# Conexão Google do cliente fica desligada até o app OAuth ser verificado pelo Google.
+	GOOGLE_WORKSPACE_ENABLED = os.getenv('GOOGLE_WORKSPACE_ENABLED', 'false').strip().lower() in {'1', 'true', 'yes', 'on'}
 	GOOGLE_ADS_API_VERSION = os.getenv('GOOGLE_ADS_API_VERSION', 'v25')
 	GOOGLE_ADS_DEVELOPER_TOKEN = os.getenv('GOOGLE_ADS_DEVELOPER_TOKEN', '')
 	GOOGLE_ADS_LOGIN_CUSTOMER_ID = os.getenv('GOOGLE_ADS_LOGIN_CUSTOMER_ID', '')

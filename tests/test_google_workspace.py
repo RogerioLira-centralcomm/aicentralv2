@@ -80,13 +80,16 @@ def test_google_workspace_authorization_requests_workspace_capabilities():
     assert set(query['scope'][0].split()) == set(SCOPES)
     assert {
         scope for service in google_workspace.GOOGLE_SERVICE_CATALOG
+        if not service.get('coming_soon')
         for scope in service['scopes']
     } <= set(query['scope'][0].split())
+    # Serviços "em breve" ficam fora do consentimento para não travar a verificação do Google.
+    assert 'https://www.googleapis.com/auth/adwords' not in query['scope'][0].split()
     assert 'https://www.googleapis.com/auth/drive' in query['scope'][0]
     assert 'https://www.googleapis.com/auth/meetings.space.created' in query['scope'][0]
-    assert 'https://www.googleapis.com/auth/adwords' in query['scope'][0]
-    assert 'https://www.googleapis.com/auth/analytics.readonly' in query['scope'][0]
-    assert 'https://www.googleapis.com/auth/webmasters.readonly' in query['scope'][0]
+    assert 'https://www.googleapis.com/auth/adwords' not in query['scope'][0]
+    assert 'https://www.googleapis.com/auth/analytics.readonly' not in query['scope'][0]
+    assert 'https://www.googleapis.com/auth/webmasters.readonly' not in query['scope'][0]
 
 
 def test_google_workspace_authorization_rejects_a_callback_on_the_wrong_host_or_path():

@@ -50,16 +50,47 @@ def crawl_planner_portals_command(limit):
 @bp.cli.command('import-planner-portals')
 @click.argument('csv_path', type=click.Path(exists=True, dir_okay=False, readable=True, path_type=str))
 @click.option('--dry-run', is_flag=True, help='Valida o CSV sem gravar no banco.')
-def import_planner_portals_command(csv_path, dry_run):
+@click.option('--allow-pending', is_flag=True,
+              help='Aceita candidatos ainda sem aprovação editorial e ignora linhas inválidas.')
+def import_planner_portals_command(csv_path, dry_run, allow_pending):
     """Import curated portal records from a UTF-8 CSV file."""
     from ..cadu_planner import portals
     try:
         with open(csv_path, 'r', encoding='utf-8-sig', newline='') as csv_file:
-            summary = portals.import_curated_csv(csv_file, dry_run=dry_run)
+            summary = portals.import_curated_csv(csv_file, dry_run=dry_run, allow_pending=allow_pending)
     except (OSError, UnicodeError) as exc:
         raise click.ClickException(f'Não foi possível ler o CSV: {exc}') from exc
     action = 'validados' if dry_run else 'importados'
-    click.echo(f"{summary['rows']} portais {action}.")
+    click.echo(f"{summary['rows']} portais {action}; {len(summary['skipped'])} linhas ignoradas.")
+    for reason in summary['skipped'][:20]:
+        click.echo(f'  - {reason}')
+
+
+@bp.cli.command('crawl-planner-portals-ads')
+@click.option('--limit', default=100, type=click.IntRange(1, 2000), help='Máximo de portais por execução.')
+@click.option('--scope', type=click.Choice(['nacional_premium', 'regional']), help='Restringe a um escopo.')
+@click.option('--stale-days', default=30, type=click.IntRange(0, 365),
+              help='Reverifica portais checados há mais de N dias (0 = todos).')
+@click.option('--workers', default=8, type=click.IntRange(1, 16), help='Hosts verificados em paralelo.')
+def crawl_planner_portals_ads_command(limit, scope, stale_days, workers):
+    """Check ads.txt and programmatic tags of portals, oldest check first."""
+    from ..cadu_planner import portal_ads
+    clauses, params = ['active = TRUE', "(programmatic_checked_at IS NULL OR programmatic_checked_at < NOW() - make_interval(days => %s))"], [stale_days]
+    if scope:
+        clauses.append('scope = %s')
+        params.append(scope)
+    domains = [row['domain'] for row in repository.rows(
+        f"SELECT domain FROM cadu_planner_portals WHERE {' AND '.join(clauses)} "
+        'ORDER BY programmatic_checked_at NULLS FIRST, scope, name LIMIT %s', tuple(params + [limit]))]
+    for result in portal_ads.crawl_many(domains, workers=workers):
+        portal_ads.save_result(result)
+        if result.get('status') != 'ok':
+            click.echo(f"{result['domain']}: {result['status']}")
+            continue
+        ads, home = result['ads_txt'], result['home']
+        click.echo(f"{result['domain']}: ads.txt={ads['status']} ({ads['records']}) "
+                   f"programático={home.get('programmatic_status') or home['status']}")
+    click.echo(f'{len(domains)} portais verificados.')
 
 
 @bp.cli.command('monitor-planner-sites')
@@ -577,10 +608,21 @@ def planner_catalog(kind):
         return jsonify(kind=kind, records=records)
     if kind == 'portais':
         from ..cadu_planner import portals
+        filters = {key: request.args.get(key, '') for key in ('scope', 'uf', 'ads_txt', 'programmatic')}
         return jsonify(portals.catalog(request.args.get('q', ''), request.args.get('category', ''),
                                        request.args.get('sort', 'featured'), request.args.get('limit', 100),
-                                       request.args.get('offset', 0)))
+                                       request.args.get('offset', 0), **filters))
     return jsonify(kind=kind, records=catalog.query(kind, request.args.get('q', ''), request.args.get('limit', 100)))
+
+
+@bp.get('/api/planner/catalog/portais/ids')
+def planner_portal_ids():
+    """Ids of every portal matching the current filters, to select a whole group at once."""
+    from ..cadu_planner import portals
+    context.identity()
+    context.resolve()
+    filters = {key: request.args.get(key, '') for key in ('scope', 'uf', 'ads_txt', 'programmatic')}
+    return jsonify(ids=portals.catalog_ids(request.args.get('q', ''), request.args.get('category', ''), **filters))
 
 
 @bp.get('/api/planner/catalog/<kind>/<item_id>')

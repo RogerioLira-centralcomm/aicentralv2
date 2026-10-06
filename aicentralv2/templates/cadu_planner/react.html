@@ -26,6 +26,7 @@
   'user': {'name': (user or {}).get('name') or session.get('user_name', 'Minha conta'), 'avatar': avatar} if user else none,
   'clientName': (selected.client_name if selected else ''),
   'categories': ((marketplace_facets if marketplace_facets is defined else none) or {}).get('categories') or [],
+  'ufs': ((marketplace_facets if marketplace_facets is defined else none) or {}).get('ufs') or [],
   'csrf': csrf,
   'writesEnabled': cadu_family_writes_enabled|default(false),
   'features': planner_features|default({}),

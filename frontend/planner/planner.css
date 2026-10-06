@@ -1159,3 +1159,23 @@ a.planner-portal { padding: var(--sp-3) var(--sp-4); gap: var(--sp-4); }
 }
 .planner-cadu .ill-wait { flex-direction: column; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-4); }
 .planner-cadu .ill-wait .ill { width: 100%; max-width: 240px; }
+
+/* Portais: filtros por escopo/UF/programático e linha com métricas e ads.txt */
+.planner-portal-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3, 12px); margin-bottom: var(--sp-4, 16px); }
+.planner-segmented { display: inline-flex; overflow: hidden; border: 1px solid var(--planner-line); border-radius: 8px; background: var(--planner-surface); }
+.planner-segmented button { padding: 8px 14px; border: 0; background: transparent; color: var(--planner-muted); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.planner-segmented button + button { border-left: 1px solid var(--planner-line); }
+.planner-segmented button.is-active { background: var(--planner-soft); color: var(--planner-text, inherit); }
+.planner-multi { position: relative; }
+.planner-multi summary { padding: 9px 14px; border: 1px solid var(--planner-line); border-radius: 8px; background: var(--planner-surface); font-size: 13px; font-weight: 600; cursor: pointer; list-style: none; }
+.planner-multi__menu { position: absolute; z-index: 20; display: grid; gap: 6px; min-width: 260px; max-height: 320px; margin-top: 4px; padding: 12px; overflow: auto; border: 1px solid var(--planner-line); border-radius: 8px; background: var(--planner-surface); box-shadow: 0 8px 24px rgba(16, 24, 40, .12); font-size: 13px; }
+.planner-multi__menu label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+a.planner-portal.planner-portal--wide { grid-template-columns: 40px minmax(200px, 1.8fr) minmax(130px, 1fr) minmax(120px, .9fr) minmax(130px, .9fr) minmax(130px, .8fr) 16px; }
+@media (max-width: 1100px) {
+  a.planner-portal.planner-portal--wide { grid-template-columns: 40px minmax(0, 1fr) minmax(120px, .8fr) 16px; }
+  a.planner-portal--wide .planner-portal__fact:nth-of-type(n+3) { display: none; }
+}
+@media (max-width: 640px) {
+  a.planner-portal.planner-portal--wide { grid-template-columns: 36px minmax(0, 1fr); }
+  a.planner-portal--wide .planner-portal__fact { display: none; }
+}

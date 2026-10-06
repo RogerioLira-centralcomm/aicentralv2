@@ -27,4 +27,6 @@ export const pages = {
     {id: 'r1', title: '[CENTRAL] [D:CONTINUA] Plano', projectName: 'Media Hacks', href: '#'},
     {id: 'r2', title: 'Media Hacks — Imersão', projectName: 'Media Hacks', href: '#'},
     {id: 'r3', title: 'Dossiê do projeto', projectName: 'Netflix', href: '#'}]}},
+  'projeto-vazio': {rootClass: 'cv-home-root cadu-project-root', bootstrap: {...base, projectMode: true, canEdit: true, canManageBrand: true, endpoints: {agentState: '/api/agent-state'}, sectionLinks: {}, projectLinks: {},
+    project: {id: 'p1', name: 'Cemig', description: '', brand: null, files: [], resources: [], notes: [], links: [], tasks: [], reports: [], deliverables: [], conversations: [], members: [], context: {}, activity: []}}},
 };

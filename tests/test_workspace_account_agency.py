@@ -11,7 +11,7 @@ def test_account_journey_is_centered_on_the_agency_team():
 
     for tab in ("perfil: 'Perfil'", "equipe: 'Equipe'", "planos: 'Plano'", "uso: 'Uso'", "creditos: 'Créditos'", "faturamento: 'Faturamento'"):
         assert tab in component
-    assert 'WorkspaceContextSidebar' in component
+    assert 'WorkspaceSidebar' in component and 'sectionsLabel="Conta"' in component
     assert "'accountMode': True" in template
     assert '"organizacao": "agencia"' in routes
     assert 'cadu_workspace/account_react.html' in routes
@@ -39,7 +39,7 @@ def test_account_profile_is_identity_only_and_keeps_emails_out_of_the_page():
     assert 'email_catalog' not in component and 'email_events' not in component
     assert '"email_events"' not in routes
     # Account sections live in their own sidebar beside the closed Workspace rail.
-    assert 'EntityNavigator label="Conta"' in component
+    assert 'sectionsLabel="Conta"' in component
     assert 'cadu-ds-account-tabs' not in component
 
 

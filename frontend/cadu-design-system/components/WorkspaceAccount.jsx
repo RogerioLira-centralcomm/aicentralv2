@@ -1,6 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {WorkspaceContextSidebar} from './WorkspaceContextSidebar';
-import {EntityNavigator} from './WorkspaceEntityPortal';
+import {WorkspaceSidebar} from './WorkspaceSidebar';
 import {Icon} from './Icon';
 import {VisualIdentity} from './VisualIdentity';
 import {workspaceUserPhoto} from '../workspaceIdentity.mjs';
@@ -214,13 +213,9 @@ export function WorkspaceAccount({bootstrap}) {
   const order = ['perfil', 'agencia', 'equipe', 'integracoes', 'planos', 'uso', 'creditos', 'faturamento'];
   const navItems = [...order.filter(id => bootstrap.urls[id]).map(id => ({id, label: labels[id], icon: accountIcons[id], href: bootstrap.urls[id]})),
     ...(bootstrap.urls.observability ? [{id: 'observabilidade', label: 'Observabilidade do Cadu', icon: 'analysis', href: bootstrap.urls.observability}] : [])];
-  const agencyName = bootstrap.contextName || 'Conta';
-  // Same structure as Project detail: closed Workspace rail plus the section's own sidebar, open.
-  return <div className="cadu-ds-home-shell cadu-ds-account-shell"><main className="cadu-ds-home-main"><div className="cadu-ds-home-workarea cadu-ds-account-workarea">
-    {isMobile ? <WorkspaceMobileChrome eyebrow="Conta" title={labels[section] || 'Conta'} links={bootstrap.urls} logo={bootstrap.caduMark} solutionIcons={bootstrap.solutionIcons} accountItems={navItems.map(item => ({...item, name: item.label, active: item.id === section}))}/> : <WorkspaceContextSidebar mode="home" rail bootstrap={bootstrap} active="conta" links={bootstrap.urls}/>}
-    <div className="cadu-ds-entity-portal cadu-ds-entity-portal--account">
-      {!isMobile && <EntityNavigator label="Conta" items={navItems} activeId={section} identity={<><span className="cadu-ds-entity-nav__project-mark"><Icon name="home"/></span><span><small>Conta</small><b title={agencyName}>{agencyName}</b></span></>}/>}
-      <section className="cadu-ds-account-content">{content}</section>
-    </div>
-  </div></main><PurchaseModal bootstrap={bootstrap}/></div>;
+  return <div className="workspace-solution-shell cadu-ds-account-shell" data-cadu-skin="workspace">
+    {isMobile ? <WorkspaceMobileChrome eyebrow="Conta" title={labels[section] || 'Conta'} links={bootstrap.urls} logo={bootstrap.caduMark} solutionIcons={bootstrap.solutionIcons} accountItems={navItems.map(item => ({...item, name: item.label, active: item.id === section}))}/> : <WorkspaceSidebar bootstrap={bootstrap} active={section} sections={navItems} sectionsLabel="Conta"/>}
+    <main className="workspace-solution-main"><section className="cadu-ds-account-content">{content}</section></main>
+    <PurchaseModal bootstrap={bootstrap}/>
+  </div>;
 }

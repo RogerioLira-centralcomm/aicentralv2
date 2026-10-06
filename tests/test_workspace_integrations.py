@@ -32,7 +32,7 @@ class WorkspaceIntegrationsLayoutTests(TestCase):
 
         # Conta sections live in the account's own sidebar, beside the closed Workspace rail.
         self.assertIn("'perfil', 'agencia', 'equipe', 'integracoes'", account)
-        self.assertIn('EntityNavigator label="Conta"', account)
+        self.assertIn('sectionsLabel="Conta"', account)
         self.assertNotIn('ACCOUNT_ITEMS', context)
 
 

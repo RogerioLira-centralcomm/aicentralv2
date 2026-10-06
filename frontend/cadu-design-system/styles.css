@@ -1429,7 +1429,7 @@ body.portal--workspace .cadu-ds-dock:has(.cadu-ds-dock-avatar-button[aria-expand
    of floating work surfaces. This keeps hierarchy in the surfaces themselves
    instead of repeating low-contrast rules around every section. */
 body.portal--workspace {
-  --cadu-canvas:#eef3f4;
+  --cadu-canvas:#fafafa;
   --cadu-surface:#ffffff;
   --cadu-surface-soft:#e5eeed;
   --cadu-ink:#14283a;
@@ -1960,7 +1960,7 @@ body.portal--workspace .cadu-ds-home-workarea {
 
 .cadu-ds-context-sidebar__nav a.is-active {
   color:var(--cadu-accent-strong);
-  font-weight:700;
+  font-weight:500;
 }
 
 .cadu-ds-context-sidebar__nav svg,
@@ -3775,10 +3775,8 @@ body.portal--workspace .cadu-ds-prompt-suggestions.is-workspace-home button:focu
 /* Workspace ambient field. It is deliberately quieter behind the working
    controls and gains definition only toward the empty edges of the canvas. */
 body.portal--workspace .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-workarea {
-  background-color:#edf3f3;
-  background-image:
-    radial-gradient(ellipse 58% 48% at 66% 45%,rgba(255,255,255,.9) 0 18%,rgba(255,255,255,.42) 42%,transparent 72%),
-    linear-gradient(145deg,rgba(33,126,117,.025),transparent 48%);
+  background-color:#fafafa;
+  background-image:none;
 }
 body.portal--workspace .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content {
   background:transparent;

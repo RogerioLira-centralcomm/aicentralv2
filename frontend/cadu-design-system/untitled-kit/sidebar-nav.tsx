@@ -5,7 +5,7 @@ import {cx} from './utils/cx';
 
 const CollapsedContext = createContext(false);
 
-const itemClasses = 'group relative flex w-full min-w-0 cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3 py-2 text-left text-sm font-semibold text-secondary no-underline outline-focus-ring transition duration-100 ease-linear select-none hover:bg-primary_hover hover:text-secondary_hover focus-visible:outline-2 focus-visible:outline-offset-2 max-[1024px]:w-auto max-[1024px]:flex-none max-[1024px]:rounded-none max-[1024px]:px-2.5 max-[1024px]:min-h-11';
+const itemClasses = 'group relative flex w-full min-w-0 cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3 py-2 text-left text-sm font-medium text-secondary no-underline outline-focus-ring transition duration-100 ease-linear select-none hover:bg-primary_hover hover:text-secondary_hover focus-visible:outline-2 focus-visible:outline-offset-2 max-[1024px]:w-auto max-[1024px]:flex-none max-[1024px]:rounded-none max-[1024px]:px-2.5 max-[1024px]:min-h-11';
 const iconClasses = 'flex size-5 shrink-0 items-center justify-center text-fg-quaternary group-hover:text-fg-quaternary_hover [&>svg]:size-5 max-[1024px]:hidden';
 
 type ItemProps = {icon?: ReactNode; label: string; badge?: number; current?: boolean; collapsed?: boolean};

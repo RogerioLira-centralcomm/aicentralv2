@@ -260,7 +260,7 @@ body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-worksp
   body.portal--workspace #cadu-conversations-v2-root .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__brand-heading b,
   body.portal--workspace #cadu-conversations-v2-root .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__recent b {
     font-size: 11.5px;
-    font-weight: 600;
+    font-weight: 500;
   }
 
   body.portal--workspace #cadu-conversations-v2-root .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__recent b {

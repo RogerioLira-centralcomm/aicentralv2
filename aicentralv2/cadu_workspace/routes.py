@@ -2753,7 +2753,10 @@ def _brand_audit_history(client_id: int, brand_id: int) -> list[dict]:
         connection = get_db()
         with connection.cursor() as cursor:
             cursor.execute(
-                '''SELECT job_id, analysis_mode, status, sources, collected_data, costs, reviews, human_effort,
+                '''SELECT job_id, analysis_mode, status, sources,
+                          collected_data - 'analysis_result' - 'evidence_pages' AS collected_data,
+                          collected_data #> '{analysis_result,analysis_metadata}' AS result_metadata,
+                          costs, reviews, human_effort,
                           created_at, updated_at, completed_at
                      FROM cadu_workspace_brand_audit_runs
                     WHERE client_id = %s AND brand_id = %s
@@ -2762,7 +2765,7 @@ def _brand_audit_history(client_id: int, brand_id: int) -> list[dict]:
         history = []
         for row in rows:
             item = dict(row)
-            for key in ('sources', 'collected_data', 'costs', 'reviews', 'human_effort'):
+            for key in ('sources', 'collected_data', 'result_metadata', 'costs', 'reviews', 'human_effort'):
                 value = item.get(key)
                 if isinstance(value, str):
                     try:
@@ -2775,8 +2778,10 @@ def _brand_audit_history(client_id: int, brand_id: int) -> list[dict]:
                     item[key] = value.isoformat()
             costs = item.get('costs') if isinstance(item.get('costs'), dict) else {}
             collected = item.get('collected_data') if isinstance(item.get('collected_data'), dict) else {}
-            result = collected.get('analysis_result') if isinstance(collected.get('analysis_result'), dict) else {}
-            result_metadata = result.get('analysis_metadata') if isinstance(result.get('analysis_metadata'), dict) else {}
+            result_metadata = item.pop('result_metadata', None)
+            if not isinstance(result_metadata, dict):
+                legacy = collected.get('analysis_result') if isinstance(collected.get('analysis_result'), dict) else {}
+                result_metadata = legacy.get('analysis_metadata') if isinstance(legacy.get('analysis_metadata'), dict) else {}
             reliability = result_metadata.get('reliability') if isinstance(result_metadata.get('reliability'), dict) else {}
             item['reliability'] = {
                 'provider_calls': max(0, int(reliability.get('provider_calls') or 0)),

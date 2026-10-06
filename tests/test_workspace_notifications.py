@@ -58,3 +58,37 @@ def test_notification_migration_validates_every_trigger_column():
     runner = (ROOT / 'migrations' / 'run_add_cadu_workspace_notifications.py').read_text(encoding='utf-8')
     for column in ('organization_id', 'brand_ref', 'conversation_id', 'run_id', 'long_job_id', 'detail', 'created_at', 'updated_at'):
         assert repr(column) in runner
+
+
+def test_brand_audit_notifications_project_only_the_fields_they_read():
+    from unittest import mock
+    from aicentralv2.cadu_workspace import notification_service
+
+    executed = []
+    cursor = mock.MagicMock()
+    cursor.__enter__.return_value = cursor
+    cursor.execute.side_effect = lambda sql, params=None: executed.append(sql)
+    answers = iter([
+        {'available': True},   # inbox table exists
+        {'available': True},   # audit table exists
+        {'available': False},  # ingestion table
+    ])
+    cursor.fetchone.side_effect = lambda: next(answers, {'available': False})
+    audit = {'job_id': 'j1', 'brand_id': 5, 'analysis_mode': 'full', 'status': 'approved', 'sources': [{}, {}],
+             'collected_data': {'pages_analyzed': 7, 'assets_found': 3, 'fields_count': 12},
+             'costs': {'actual_cost_brl': 2.5}, 'human_effort': {'estimated_person_hours': 4},
+             'created_at': None, 'updated_at': None, 'completed_at': None, 'brand_name': 'Acme'}
+    cursor.fetchall.side_effect = [[], [audit], []]
+    connection = mock.MagicMock()
+    connection.cursor.return_value = cursor
+
+    with mock.patch.object(notification_service, 'get_db', return_value=connection):
+        result = notification_service.list_notifications(12, 7)
+
+    audit_sql = next(sql for sql in executed if 'cadu_workspace_brand_audit_runs r' in sql)
+    assert 'r.collected_data,' not in audit_sql
+    assert "jsonb_array_length(r.collected_data->'fields')" in audit_sql
+    [item] = [entry for entry in result['items'] if str(entry['id']).startswith('brand-audit:')]
+    assert item['action_payload']['pages_analyzed'] == 7
+    assert item['action_payload']['fields_generated'] == 12
+    assert item['action_payload']['sources_count'] == 2

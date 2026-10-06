@@ -1193,3 +1193,27 @@ class WorkspaceBrandsTest(TestCase):
         self.assertEqual(response.status_code, 409)
         self.assertIn('Saldo insuficiente', response.get_data(as_text=True))
         search.assert_not_called()
+
+
+class BrandAuditHistoryProjectionTest(TestCase):
+    @mock.patch('aicentralv2.creative_modeling_fx.usd_brl_rate', return_value=(5.0, 'test'))
+    @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
+    def test_history_reads_reliability_from_the_projected_metadata_not_the_full_payload(self, get_db, _rate):
+        connection = mock.MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchall.return_value = [{
+            'job_id': 'a-1', 'costs': {}, 'collected_data': {'pages_analyzed': 3},
+            'result_metadata': {'pipeline_version': 'v9', 'reliability': {'provider_calls': 4, 'failed_calls': 1, 'partial_result': True}},
+        }]
+        get_db.return_value = connection
+
+        [item] = _brand_audit_history(12, 81)
+
+        sql = cursor.execute.call_args.args[0]
+        self.assertIn("- 'analysis_result'", sql)
+        self.assertIn("'{analysis_result,analysis_metadata}'", sql)
+        self.assertEqual(item['pipeline_version'], 'v9')
+        self.assertEqual(item['reliability']['provider_calls'], 4)
+        self.assertTrue(item['reliability']['partial_result'])
+        self.assertNotIn('result_metadata', item)
+        self.assertEqual(item['collected_data'], {'pages_analyzed': 3})

@@ -40,7 +40,13 @@ def list_notifications(client_id: int, user_id: int, *, project_ref: str | None 
                 if bool(cursor.fetchone()['available']):
                     cursor.execute(
                         """SELECT r.job_id, r.brand_id, r.analysis_mode, r.status, r.sources,
-                                  r.collected_data, r.costs, r.human_effort, r.created_at,
+                                  jsonb_build_object(
+                                      'pages_analyzed', r.collected_data->'pages_analyzed',
+                                      'assets_found', r.collected_data->'assets_found',
+                                      'error', r.collected_data->'error',
+                                      'fields_count', CASE WHEN jsonb_typeof(r.collected_data->'fields') = 'array'
+                                                           THEN jsonb_array_length(r.collected_data->'fields') ELSE 0 END
+                                  ) AS collected_data, r.costs, r.human_effort, r.created_at,
                                   r.updated_at, r.completed_at, b.name AS brand_name
                              FROM cadu_workspace_brand_audit_runs r
                         LEFT JOIN cx_clients b ON b.id = r.brand_id AND b.crm_client_id = r.client_id
@@ -62,13 +68,13 @@ def list_notifications(client_id: int, user_id: int, *, project_ref: str | None 
                         collected = audit.get('collected_data') or {}
                         costs = audit.get('costs') or {}
                         effort = audit.get('human_effort') or {}
-                        fields = collected.get('fields') or []
+                        fields_generated = int(collected.get('fields_count') or len(collected.get('fields') or []))
                         action = {
                             'brand_id': audit.get('brand_id'),
                             'analysis_mode': audit.get('analysis_mode'),
                             'pages_analyzed': collected.get('pages_analyzed') or 0,
                             'assets_found': collected.get('assets_found') or 0,
-                            'fields_generated': len(fields),
+                            'fields_generated': fields_generated,
                             'sources_count': len(audit.get('sources') or []),
                             'estimated_hours_saved': effort.get('estimated_person_hours') or 0,
                             'cost_brl': costs.get('actual_cost_brl') or costs.get('estimated_cost_brl'),

@@ -6,8 +6,10 @@ import {LogoTile} from './PlannerUi.jsx';
  * Sticky bar at the foot of a shelf: how many items are in the plan, who they
  * are and the way forward. `chosen` are the ones in view; `count` is the truth.
  */
+const DOCKED = true;
 export function PlanBar({noun, count, chosen = [], href}) {
-  if (!count) return null;
+  // The floating plan dock now carries the running selection; this bar stays out of the way.
+  if (!count || DOCKED) return null;
   const [one, many] = noun;
   return <div className="channel-bar" role="status">
     <strong>{count} {count === 1 ? one : many} no plano</strong>

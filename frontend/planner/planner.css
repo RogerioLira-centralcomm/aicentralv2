@@ -1600,3 +1600,29 @@ a.planner-portal.planner-portal--wide { grid-template-columns: 40px minmax(200px
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14%); mask-image: linear-gradient(to bottom, transparent 0, #000 14%); }
 @media (max-width: 1180px) { .wizard--radar .wizard__scene { height: calc(100% - 360px); } }
 @media (max-width: 900px) { .wizard--radar .wizard__scene { height: 100%; object-position: center 30%; } }
+
+/* Plano flutuante: aba fechada no canto e painel lateral com cabeçalho. */
+.plan-dock__tab { position: fixed; right: 20px; bottom: 20px; z-index: 60; display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; border: 0; border-radius: 99px; background: var(--planner-ink, #101828); color: #fff; font: inherit; font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(16, 24, 40, .28); cursor: pointer; }
+.plan-dock__tab b { display: inline-grid; min-width: 22px; height: 22px; padding: 0 6px; place-items: center; border-radius: 99px; background: var(--colors-brand-500, #17b26a); font-size: 12px; }
+.plan-dock { position: fixed; top: 0; right: 0; bottom: 0; z-index: 70; display: flex; width: min(380px, 100vw); flex-direction: column; background: var(--planner-surface, #fff); box-shadow: -12px 0 32px rgba(16, 24, 40, .16); transform: translateX(104%); transition: transform 220ms ease; }
+.plan-dock.is-open { transform: none; }
+.plan-dock__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--planner-line); }
+.plan-dock__head span { display: flex; min-width: 0; flex-direction: column; }
+.plan-dock__head small { color: var(--planner-muted); font-size: 12px; }
+.plan-dock__head strong { overflow: hidden; font-size: 17px; text-overflow: ellipsis; white-space: nowrap; }
+.plan-dock__head button, .plan-dock li button { display: grid; width: 32px; height: 32px; flex: none; place-items: center; border: 0; border-radius: 8px; background: none; color: var(--planner-muted); cursor: pointer; }
+.plan-dock__head button:hover, .plan-dock li button:hover { background: var(--planner-soft); color: var(--planner-ink, #101828); }
+.plan-dock__body { display: flex; flex: 1 1 auto; flex-direction: column; gap: 18px; padding: 16px 20px; overflow-y: auto; }
+.plan-dock__empty { margin: 0; color: var(--planner-muted); font-size: 14px; line-height: 22px; }
+.plan-dock h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 13px; font-weight: 700; }
+.plan-dock h3 span { padding: 0 7px; border-radius: 99px; background: var(--planner-soft); color: var(--planner-muted); font-size: 12px; }
+.plan-dock ul { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.plan-dock li { display: flex; align-items: center; gap: 10px; }
+.plan-dock li a { flex: 1 1 auto; min-width: 0; overflow: hidden; color: inherit; font-size: 14px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.plan-dock__create { display: flex; flex-direction: column; gap: 10px; margin-top: auto; padding-top: 16px; border-top: 1px solid var(--planner-line); }
+.plan-dock__foot { padding: 14px 20px; border-top: 1px solid var(--planner-line); }
+.plan-dock__foot a { display: flex; align-items: center; justify-content: center; gap: 6px; height: 44px; border-radius: 10px; background: var(--colors-brand-600, #079455); color: #fff; font-weight: 600; text-decoration: none; }
+@media (max-width: 700px) { .plan-dock__tab { right: 12px; bottom: 12px; } }
+.planner-chipbar { flex-wrap: wrap; }
+.planner-chipbar__select { flex: 1 1 180px; width: auto; max-width: 260px; }
+.planner-chipbar__tools { flex: none; }

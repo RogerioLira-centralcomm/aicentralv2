@@ -19,6 +19,7 @@ import {DocsPage} from './Docs.jsx';
 import {MonitorPage} from './monitoring.jsx';
 import {PlanDetail} from './PlanDetail.jsx';
 import {PlanCreatePage, PlannerHome, PlansPage} from './PlansPages.jsx';
+import {PlanDock} from './PlanDock.jsx';
 import {PlannerNotice, usePlanSelection} from './PlannerUi.jsx';
 import {PublicDoc, PublicPlan} from './PublicViews.jsx';
 import {CATALOG_KINDS, createPlannerApi, moduleUrl, newPlanUrl} from './api.js';
@@ -89,6 +90,8 @@ function App({boot}) {
     return null;
   })();
 
+  const dockViews = ['channel-detail', 'audience-detail', 'format-detail', 'catalog-detail'];
+  const showDock = !publicView && !creating && (dockViews.includes(boot.view) || (boot.view === 'page' && (CATALOG_KINDS.includes(boot.module) || ['audiencias', 'formatos', 'interativos'].includes(boot.module))));
   const active = creating ? 'novo-plano' : boot.module;
   const urls = boot.urls;
   return <div className={`planner-shell${publicView ? ' is-public' : ''}`}>
@@ -100,6 +103,7 @@ function App({boot}) {
     <main className={`planner-main${boot.view === 'page' && CATALOG_KINDS.includes(boot.module) ? ' is-shelf' : ''}`} id="content">
       <PlannerNotice notice={notice} onDismiss={() => setNotice(null)}/>
       <PlannerChrome.Provider value={chrome}>{view}</PlannerChrome.Provider>
+      {showDock && <PlanDock boot={boot} request={request} plan={plan} setPlan={setPlan} selection={selection} notify={notify}/>}
     </main>
   </div>;
 }

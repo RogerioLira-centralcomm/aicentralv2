@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 
@@ -106,5 +106,6 @@ export function usePlanSelection(request, plan, onPlanChange, notify, enabled = 
 
   const isSelected = useCallback((kind, id) => keys.has(`${kind}:${id}`), [keys]);
   const count = useCallback(kind => [...keys].filter(key => key.startsWith(`${kind}:`)).length, [keys]);
-  return {isSelected, toggle, addMany, count};
+  const signature = useMemo(() => [...keys].sort().join('|'), [keys]);
+  return {isSelected, toggle, addMany, count, signature};
 }

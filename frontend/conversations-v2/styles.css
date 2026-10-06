@@ -2225,3 +2225,9 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
   #cadu-conversations-v2-root .cv-nav-action.is-active>.cv-nav-icon,
   #cadu-conversations-v2-root .cv-nav-action.is-active>svg { background:transparent; color:var(--cv-accent); }
 }
+
+/* Closed chat rail: same entries as the closed rail of the other Workspace pages. */
+#cadu-conversations-v2-root .cv-sidebar-mini-rail__nav { display:grid; gap:4px; margin-top:8px; }
+#cadu-conversations-v2-root .cv-sidebar-mini-rail__nav :is(a,span) { display:grid; width:36px; height:36px; place-items:center; border-radius:9px; color:#9ab0ac; text-decoration:none; }
+#cadu-conversations-v2-root .cv-sidebar-mini-rail__nav a:hover,#cadu-conversations-v2-root .cv-sidebar-mini-rail__nav a:focus-visible { background:rgba(181,218,211,.1); color:#edf6f4; }
+#cadu-conversations-v2-root .cv-sidebar-mini-rail__nav .is-current { background:rgba(85,216,198,.16); color:#a7e7dd; }

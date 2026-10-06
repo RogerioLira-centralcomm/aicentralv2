@@ -390,6 +390,11 @@ export function Sidebar({conversations, conversationSections = [], projects = []
     <aside ref={sidebarRef} id="cv-recent-sidebar" role={!desktopMode ? 'dialog' : undefined} aria-modal={!desktopMode ? 'true' : undefined} className={`cv-recent-sidebar ${desktopClosed ? 'is-closed' : 'is-open'}`} aria-label="Chats recentes">
       {desktopClosed ? <div className="cv-sidebar-mini-rail">
         <CaduSolutionSwitcher logo={logo} solutions={solutions} activeId="workspace" showActiveLabel={false} overlay/><button type="button" className="cv-sidebar-mini-rail__expand" onClick={onOpenSidebar} aria-label="Expandir sidebar" title="Expandir sidebar"><NavIcon name="expand"/></button>
+        <nav className="cv-sidebar-mini-rail__nav" aria-label="Navegação do Workspace">
+          {[['home', 'Início', 'home', navUrls.home], ['chat', 'Chat', 'compose', ''], ['brands', 'Marcas', 'brand', navUrls.brands], ['projects', 'Projetos', 'folder', navUrls.projects]].filter(([, , , href]) => href || href === '').map(([id, label, icon, href]) => href
+            ? <a key={id} href={href} aria-label={label} title={label}><Icon name={icon} size={18}/></a>
+            : <span key={id} className="is-current" aria-current="page" aria-label={label} title={label}><Icon name={icon} size={18}/></span>)}
+        </nav>
       </div> : <>
       <div className="cv-mobile-navigation">
         <header><div><strong>Workspace</strong><small>{conversationDisplayTitle(currentTitle || activeConversation?.title, 'Novo chat')}</small></div><button type="button" onClick={onClose} aria-label="Fechar navegação"><NavIcon name="close"/></button></header>

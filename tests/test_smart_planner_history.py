@@ -61,7 +61,8 @@ def test_history_row_links_to_canvas_when_quadro_exists():
         "plan_content": {"sections": [{"id": "one_page", "cards": [{"type": "strategy"}]}]},
         "updated_at": None,
     })
-    assert row["titulo"] == "Montana Grill"
+    # Sem nome de campanha, o título combina cliente e objetivo.
+    assert row["titulo"] == "Montana Grill · reconhecimento"
     assert row["agencia"] == "Casa"
     assert row["executivo"] == "Apolo Lira"
     assert row["logo_url"] == "/static/x.png"
@@ -128,6 +129,7 @@ def test_score_label_matches_php_scale():
 
 
 def test_reference_block_keeps_kind_and_label():
-    bloco = reference_block("url", "montana.com.br", "Cardápio e praça.")
-    assert "Referência — página: montana.com.br" in bloco
-    assert "Cardápio e praça." in bloco
+    # O dossiê guarda só o conteúdo, sem cabeçalho no input; sem conteúdo,
+    # o tipo e o rótulo viram uma linha de apoio.
+    assert reference_block("url", "montana.com.br", "Cardápio e praça.") == "Cardápio e praça."
+    assert reference_block("url", "montana.com.br", "") == "Apoio da página montana.com.br"

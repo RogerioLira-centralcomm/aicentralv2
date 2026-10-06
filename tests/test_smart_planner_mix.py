@@ -215,7 +215,13 @@ class MixEngineTest(unittest.TestCase):
             saved["briefing"] = briefing
             return {"ok": True}
 
-        with patch.object(service, "save_campos", side_effect=_save):
+        from datetime import date
+
+        from aicentralv2.smart_planner import pace
+
+        # Fixa "hoje" antes do voo (set–out/2026) para o teste não depender do relógio.
+        with patch.object(service, "save_campos", side_effect=_save), \
+             patch.object(pace, "_today", side_effect=lambda hoje=None: hoje or date(2026, 8, 1)):
             service.persist_review("tok", {
                 "briefing": "Narrativa",
                 "canais": ["google_ads", "netflix"],

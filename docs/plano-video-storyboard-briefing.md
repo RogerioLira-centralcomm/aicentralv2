@@ -93,3 +93,10 @@ cobrança simulada, nenhuma marca debitada). Cena 1 sem referência; cenas 2 e 3
   arco sem abertura/fechamento **avisam** e pedem confirmação ao gerar.
 - Não coberto: "estilos muito diferentes" entre imagens (não há medida confiável sem olhar a imagem); a âncora de estilo
   da fase 2 reduz o risco.
+
+## Cores da marca no storyboard (2026-10-06)
+
+No teste real no servidor o diretor recebeu as cores da marca (`#176b5e, #dcece6`), citou os códigos no visual e a checagem
+de números avisou "176, 5, 6" (falso positivo: eram dígitos do hex). O código hex também iria ao prompt da imagem, onde
+modelos de imagem podem desenhar as letras. Correção: o prompt pede cores em palavras e `plain_colors` troca qualquer hex
+por um nome em português ("verde-azulado escuro"). Medido no Lab com a marca real: avisos 4/4 → 0/4, nenhum hex restante.

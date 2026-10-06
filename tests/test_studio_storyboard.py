@@ -120,3 +120,28 @@ def test_resposta_sem_visual_ou_sem_beat_e_recusada():
         regenerate_beat(BRIEF, SCENES, 0, text_callable=one({"visual": "", "spoken": "oi"}))
     with pytest.raises(ValueError, match="não devolveu a cena"):
         regenerate_beat(BRIEF, SCENES, 0, text_callable=lambda m, **o: {"message": {"content": {"outra": 1}}})
+
+
+# ---- cores da marca: nomes em vez de hexadecimal ----
+from aicentralv2.creative_media.studio_storyboard import color_name, plain_colors, scene_image_prompt  # noqa: E402
+
+
+@pytest.mark.parametrize("code,name", [
+    ("#176b5e", "verde-azulado escuro"), ("#dcece6", "verde claro"), ("#ff0000", "vermelho"), ("#000", "preto"),
+    ("#ffffff", "branco"), ("#0b3d91", "azul escuro"), ("#8b4513", "marrom"), ("#9e9e9e", "cinza"),
+])
+def test_codigo_hex_vira_nome_de_cor(code, name):
+    assert color_name(code) == name
+
+
+def test_texto_com_hex_e_limpo_sem_tocar_em_outros_numeros():
+    assert plain_colors("Almofadas (#176b5e, #dcece6) e 500 mega") == "Almofadas (verde-azulado escuro, verde claro) e 500 mega"
+
+
+def test_hex_da_marca_no_visual_nao_gera_numero_inventado_nem_chega_ao_prompt_da_imagem():
+    row = beat("hook", visual="Sala com almofadas nas cores da marca (#176b5e, #dcece6) e roteador")
+    result = plan_storyboard(BRIEF, duration=9, brand={"name": "Marca", "colors": "#176b5e, #dcece6"},
+                             text_callable=fake([row, beat("offer"), beat("end")]))
+    assert result["warnings"] == []
+    assert "#" not in result["beats"][0]["visual"] and "verde-azulado escuro" in result["beats"][0]["visual"]
+    assert "#" not in scene_image_prompt({"visual": "Parede #176b5e"}, 0, 3)

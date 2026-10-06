@@ -167,15 +167,9 @@
     btn.classList.add('is-loading');
     btn.disabled = true;
 
-    var selected = document.querySelector('.plan-card.selected');
-
     var payload = {
       plan_id: parseInt(document.getElementById('selectedPlanId').value),
       plan_type: document.getElementById('selectedPlanType').value,
-      plan_price: parseFloat(selected.dataset.planPrice),
-      tokens_monthly_limit: parseInt(selected.dataset.tokens),
-      image_credits_monthly: parseInt(selected.dataset.images),
-      max_users: parseInt(selected.dataset.users),
       cnpj: document.getElementById('cnpj').value,
       razao_social: document.getElementById('razao_social').value,
       nome_fantasia: document.getElementById('nome_fantasia').value,
@@ -200,7 +194,7 @@
         btn.disabled = false;
 
         if (res.ok && res.data.success) {
-          document.getElementById('modalInvoiceNumber').textContent = res.data.invoice_number || '-';
+          document.getElementById('modalInvoiceNumber').textContent = res.data.request_id ? ('Solicitação #' + res.data.request_id) : '-';
           document.getElementById('successModal').showModal();
         } else {
           showToast(res.data.error || 'Erro ao processar assinatura.', 'error');

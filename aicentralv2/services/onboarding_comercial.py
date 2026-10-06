@@ -25,6 +25,46 @@ def obter_executivo_comercial():
     return db.obter_executivo_demetrius()
 
 
+DUPLICATE_EMAIL_MESSAGE = 'Este e-mail já possui uma conta. Entre ou recupere sua senha.'
+
+
+def _criar_cliente_e_contato(db, *, nome, email, senha, tipo_id, executivo_id):
+    """Cria cliente e contato numa única transação (A1).
+
+    Um lock consultivo por e-mail serializa cadastros simultâneos do mesmo
+    endereço (abas, Google + formulário) sem exigir índice único novo; a
+    duplicidade é conferida de novo dentro do lock. Qualquer falha desfaz tudo.
+    """
+    conn = db.get_db()
+    senha_hash = db.gerar_senha_hash(senha) if senha else None
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", ('cadu-signup:' + email,))
+            cursor.execute("SELECT 1 FROM tbl_contato_cliente WHERE lower(email) = %s LIMIT 1", (email,))
+            if cursor.fetchone():
+                raise ValueError(DUPLICATE_EMAIL_MESSAGE)
+            cursor.execute('''
+                INSERT INTO tbl_cliente (razao_social, nome_fantasia, pessoa, status, id_tipo_cliente,
+                                         vendas_central_comm, classificacao_cliente)
+                VALUES (%s, %s, 'J', TRUE, %s, %s, 'Prospecção')
+                RETURNING id_cliente
+            ''', (nome, nome, tipo_id, executivo_id))
+            client_id = cursor.fetchone()['id_cliente']
+            cursor.execute('''
+                INSERT INTO tbl_contato_cliente (nome_completo, email, senha, pk_id_tbl_cliente,
+                                                 status, cohorts, user_type)
+                VALUES (%s, %s, %s, %s, TRUE, 1, 'client')
+                RETURNING id_contato_cliente
+            ''', (nome, email, senha_hash, client_id))
+            contact_id = cursor.fetchone()['id_contato_cliente']
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        logger.warning('Cadastro público de %s desfeito', email, exc_info=True)
+        raise
+    return client_id, contact_id
+
+
 def provisionar_conta_publica(*, nome, email, senha=None):
     """Create one CRM client/contact pair for a new public Cadu account."""
     from aicentralv2 import db
@@ -32,7 +72,7 @@ def provisionar_conta_publica(*, nome, email, senha=None):
     email = str(email or '').strip().lower()
     nome = ' '.join(str(nome or '').split())[:180]
     if db.obter_contato_por_email(email):
-        raise ValueError('Este e-mail já possui uma conta. Entre ou recupere sua senha.')
+        raise ValueError(DUPLICATE_EMAIL_MESSAGE)
     executivo = obter_executivo_comercial()
     if not executivo or not executivo.get('id_contato_cliente'):
         raise ValueError('Não foi possível associar o executivo comercial agora.')
@@ -43,25 +83,9 @@ def provisionar_conta_publica(*, nome, email, senha=None):
     )
     if not tipo or not tipo.get('id_tipo_cliente'):
         raise ValueError('Não foi possível preparar o tipo de conta agora.')
-    client_id = db.criar_cliente(
-        razao_social=nome,
-        nome_fantasia=nome,
-        id_tipo_cliente=tipo['id_tipo_cliente'],
-        pessoa='J',
-        vendas_central_comm=executivo['id_contato_cliente'],
-        classificacao_cliente='Prospecção',
-    )
-    try:
-        contact_id = db.criar_contato(
-            nome_completo=nome,
-            email=email,
-            senha=senha,
-            pk_id_tbl_cliente=client_id,
-            user_type='client',
-        )
-    except Exception:
-        logger.exception('Cliente %s criado sem contato para o cadastro público %s', client_id, email)
-        raise
+    client_id, contact_id = _criar_cliente_e_contato(db, nome=nome, email=email, senha=senha,
+                                                    tipo_id=tipo['id_tipo_cliente'],
+                                                    executivo_id=executivo['id_contato_cliente'])
     user = db.obter_contato_por_id(contact_id) or {
         'id_contato_cliente': contact_id,
         'nome_completo': nome,

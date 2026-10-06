@@ -15110,143 +15110,32 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     @app.route('/api/subscription/checkout', methods=['POST'])
     @client_accessible_api
     def api_subscription_checkout():
-        """Processa checkout de assinatura: ativa plano, cria fatura, envia emails"""
+        """Registra SOLICITAÇÃO de mudança de plano (B1): não ativa plano nem cria fatura.
+
+        Exige administrador da organização; plano, preço e limites vêm só do
+        catálogo do servidor. O financeiro lança a fatura e ativa manualmente.
+        """
+        from aicentralv2.cadu_plan_checkout import CheckoutError, request_plan_change
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or not data:
+            return jsonify({'success': False, 'error': 'Dados não fornecidos'}), 400
+        cliente_id = session.get('cliente_id')
+        if not cliente_id:
+            return jsonify({'success': False, 'error': 'Cliente não identificado'}), 400
+        ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or request.remote_addr or ''
         try:
-            data = request.get_json()
-            if not data:
-                return jsonify({'success': False, 'error': 'Dados não fornecidos'}), 400
-
-            cliente_id = session.get('cliente_id')
-            user_id = session.get('user_id')
-
-            if not cliente_id:
-                return jsonify({'success': False, 'error': 'Cliente não identificado'}), 400
-
-            plan_type = data.get('plan_type', '')
-            plan_id_def = data.get('plan_id')
-            plan_price = data.get('plan_price', 0)
-
-            required_fields = ['cnpj', 'razao_social', 'nome_fantasia', 'cep', 'cidade',
-                               'estado', 'endereco', 'responsavel_nome', 'email_faturamento', 'telefone']
-            missing = [f for f in required_fields if not data.get(f)]
-            if missing or not plan_type or not plan_id_def:
-                return jsonify({'success': False, 'error': 'Preencha todos os campos obrigatórios.'}), 400
-
-            # 1. Atualizar dados de billing do cliente em tbl_cliente
-            db.atualizar_dados_billing_cliente(cliente_id, {
-                'cnpj': data['cnpj'],
-                'razao_social': data['razao_social'],
-                'nome_fantasia': data['nome_fantasia'],
-                'cep': data['cep'],
-                'cidade': data['cidade'],
-                'logradouro': data['endereco'],
-                'bairro': data.get('bairro', ''),
-            })
-
-            # 2. Criar/ativar plano em cadu_client_plans
-            valid_from = datetime.now()
-            valid_until = valid_from + timedelta(days=365)
-
-            plan_data = {
-                'id_cliente': cliente_id,
-                'id_plan_definition': plan_id_def,
-                'tokens_monthly_limit': data.get('tokens_monthly_limit', 100000),
-                'image_credits_monthly': data.get('image_credits_monthly', 50),
-                'max_users': data.get('max_users', 5),
-                'features': '{"all_modes": true, "unlimited_docs": true, "unlimited_conversations": true}',
-                'plan_status': 'active',
-                'valid_from': valid_from,
-                'valid_until': valid_until,
-                'plan_start_date': valid_from,
-                'plan_end_date': valid_until,
-            }
-
-            try:
-                new_plan_id = db.criar_client_plan(plan_data)
-            except Exception as e:
-                app.logger.error(f"Erro ao criar plano: {e}")
-                if 'idx_one_active_plan_per_client' in str(e):
-                    return jsonify({'success': False, 'error': 'Você já possui um plano ativo.'}), 400
-                raise
-
-            # 3. Criar fatura pendente
-            due_date = (datetime.now() + timedelta(days=7)).strftime('%Y-%m-%d')
-
-            billing_data = {
-                'cnpj': data['cnpj'],
-                'razao_social': data['razao_social'],
-                'nome_fantasia': data['nome_fantasia'],
-                'cep': data['cep'],
-                'cidade': data['cidade'] + '/' + data['estado'],
-                'endereco': data['endereco'],
-                'responsavel_nome': data['responsavel_nome'],
-                'email_faturamento': data['email_faturamento'],
-                'telefone': data['telefone'],
-            }
-
-            invoice_result = db.criar_invoice_assinatura({
-                'id_cliente': cliente_id,
-                'id_plan': new_plan_id,
-                'plan_type': plan_type,
-                'total': plan_price,
-                'due_date': due_date,
-                'billing_data': billing_data,
-                'created_by': user_id,
-            })
-
-            invoice_number = invoice_result['invoice_number']
-
-            # 4. Enviar emails
-            email_data = {
-                'responsavel_nome': data['responsavel_nome'],
-                'nome_fantasia': data['nome_fantasia'],
-                'razao_social': data['razao_social'],
-                'cnpj': data['cnpj'],
-                'plan_type': plan_type.capitalize(),
-                'valor': f"{float(plan_price):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
-                'invoice_number': invoice_number,
-                'due_date': datetime.strptime(due_date, '%Y-%m-%d').strftime('%d/%m/%Y'),
-                'email_faturamento': data['email_faturamento'],
-                'telefone': data['telefone'],
-            }
-
-            try:
-                send_subscription_confirmation_email(data['email_faturamento'], email_data)
-            except Exception as e:
-                app.logger.error(f"Erro ao enviar email de confirmação: {e}")
-
-            try:
-                send_new_subscription_internal_email(email_data)
-            except Exception as e:
-                app.logger.error(f"Erro ao enviar email interno: {e}")
-
-            # 5. Registrar auditoria
-            registrar_auditoria(
-                acao='CREATE',
-                modulo='ASSINATURAS',
-                descricao=f'Nova assinatura plano {plan_type} para cliente {data["nome_fantasia"]}',
-                registro_id=invoice_result['id_invoice'],
-                registro_tipo='subscription_invoice',
-                dados_novos={
-                    'plan_type': plan_type,
-                    'total': plan_price,
-                    'invoice_number': invoice_number,
-                    'cliente_id': cliente_id,
-                }
-            )
-
-            return jsonify({
-                'success': True,
-                'invoice_number': invoice_number,
-                'invoice_id': invoice_result['id_invoice'],
-                'plan_id': new_plan_id,
-            })
-
-        except Exception as e:
-            app.logger.error(f"Erro no checkout de assinatura: {e}")
-            import traceback
-            app.logger.error(traceback.format_exc())
-            return jsonify({'success': False, 'error': 'Erro interno ao processar assinatura.'}), 500
+            result = request_plan_change(user_id=session.get('user_id'), client_id=cliente_id, data=data,
+                                         ip=ip, user_agent=request.headers.get('User-Agent', ''))
+        except CheckoutError as e:
+            return jsonify({'success': False, 'error': e.message}), e.status
+        except Exception:
+            app.logger.exception("Erro na solicitação de plano")
+            return jsonify({'success': False, 'error': 'Erro interno ao registrar a solicitação.'}), 500
+        message = ('Já recebemos esta solicitação; o financeiro vai entrar em contato.' if result['duplicate']
+                   else 'Solicitação registrada. O financeiro vai lançar a fatura e ativar o plano.')
+        return jsonify({'success': True, 'request_id': result['request_id'], 'invoice_number': None,
+                        'plan': result['plan']['name'], 'duplicate': result['duplicate'],
+                        'activated': False, 'message': message})
 
     @app.route('/api/subscription/approve', methods=['POST'])
     @login_required

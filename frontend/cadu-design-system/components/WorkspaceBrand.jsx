@@ -1,6 +1,7 @@
 import React, {useEffect, useRef, useState} from 'react';
 import './WorkspaceBrand.css';
 import {WorkspaceContextSidebar} from './WorkspaceContextSidebar';
+import {Icon} from './Icon';
 import {VisualIdentity} from './VisualIdentity';
 import {CaduModal} from './CaduModal';
 import {WorkspaceDrawer} from './WorkspaceDrawer';
@@ -608,11 +609,11 @@ export function WorkspaceBrand({bootstrap}) {
         {!isProcessing && <EntityNavigator label={brand.name || 'Marca'} items={brandNav} collapsible storageKey="cadu:brand-sidebar" identity={<><VisualIdentity src={brand.logoUrl} initials={brand.initials || brand.name} label={brand.name} color={brand.color || colors[0]?.hex}/><span><small>Marca</small><b>{brand.name}</b></span></>}>
           {!isProcessing && lifecycle !== 'insufficient_information' && <>
             <span>Ações</span>
-            {verified && <CaduButton type="button" onClick={openConversation}>Conversar sobre a marca</CaduButton>}
-            {status === 'pending_approval' && canEdit && <form method="post" action={urls.approve}><Hidden name="_csrf" value={bootstrap.csrf}/><CaduButton type="submit">Aprovar análise</CaduButton></form>}
-            {canEdit && <button type="button" onClick={() => setDialog('identity')}>Editar dados</button>}
-            {canEdit && <button type="button" onClick={() => setDialog('audit')}>{status ? 'Atualizar auditoria' : 'Preparar auditoria'}</button>}
-            {canEdit && auditHistory.length > 0 && urls.reevaluate && <form method="post" action={urls.reevaluate}><Hidden name="_csrf" value={bootstrap.csrf}/><button type="submit">Reavaliar dados salvos</button></form>}
+            {verified && <button type="button" className="cadu-ds-entity-nav__conversation" onClick={openConversation}><Icon name="compose" size={15}/> Conversar sobre a marca</button>}
+            {status === 'pending_approval' && canEdit && <form method="post" action={urls.approve}><Hidden name="_csrf" value={bootstrap.csrf}/><button type="submit" className="cadu-ds-entity-nav__conversation"><Icon name="check" size={15}/> Aprovar análise</button></form>}
+            {canEdit && <button type="button" onClick={() => setDialog('identity')}><Icon name="file" size={15}/> Editar dados</button>}
+            {canEdit && <button type="button" onClick={() => setDialog('audit')}><Icon name="pulse" size={15}/> {status ? 'Atualizar auditoria' : 'Preparar auditoria'}</button>}
+            {canEdit && auditHistory.length > 0 && urls.reevaluate && <form method="post" action={urls.reevaluate}><Hidden name="_csrf" value={bootstrap.csrf}/><button type="submit"><Icon name="history" size={15}/> Reavaliar dados salvos</button></form>}
           </>}
         </EntityNavigator>}
         <section className="cadu-ds-brand-content">

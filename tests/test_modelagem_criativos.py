@@ -1,6 +1,7 @@
 """Testes isolados da Modelagem de Criativos, sem PostgreSQL ou APIs reais."""
 
 import base64
+from tests.deploy_text import deploy_text
 from io import BytesIO
 import json
 import tempfile
@@ -4413,7 +4414,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         runner = (
             root / "migrations" / "run_add_creative_concept_lab.py"
         ).read_text(encoding="utf-8")
-        deploy = (root / "deploy.sh").read_text(encoding="utf-8")
+        deploy = deploy_text(root)
         repository = (
             root / "aicentralv2" / "creative_modeling_repository.py"
         ).read_text(encoding="utf-8")
@@ -4527,7 +4528,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn('"Conta SBT"', viewer_seed)
         self.assertIn('"Ao vivo"', viewer_seed)
         self.assertIn('"ranked": True', viewer_seed)
-        deploy = (root / "deploy.sh").read_text(encoding="utf-8")
+        deploy = deploy_text(root)
         migration_call = (
             '"$VENV_PYTHON" migrations/run_add_creative_viewer_profiles.py'
         )

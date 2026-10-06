@@ -1,4 +1,5 @@
 import re
+from tests.deploy_text import deploy_text
 import unittest
 from pathlib import Path
 
@@ -32,7 +33,7 @@ class CrmV3MainUiContractTest(unittest.TestCase):
         cls.cotacoes_form = COTACOES_FORM.read_text()
         cls.cotacao_tipos = COTACAO_TIPOS.read_text()
         cls.db = DB.read_text()
-        cls.deploy = DEPLOY.read_text()
+        cls.deploy = deploy_text(ROOT)
 
     def test_workspace_is_not_artificially_scaled(self):
         self.assertNotIn("zoom: 0.8", self.css)

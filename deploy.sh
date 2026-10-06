@@ -35,6 +35,27 @@ export PAGER="cat"
 export SYSTEMD_LESS=""
 export TERM="${TERM:-xterm}"
 
+# Decide se um passo precisa rodar: sempre na primeira vez, com FORCE=1 ou quando
+# algum caminho listado mudou desde a revisão gravada em STATE_FILE.
+#   should_run STATE_FILE FORCE caminho...
+should_run() {
+    local state_file="$1" force="$2" last
+    shift 2
+    [ "$force" = "1" ] && return 0
+    [ -s "$state_file" ] || return 0
+    last="$(head -n 1 "$state_file")"
+    git cat-file -e "${last}^{commit}" 2>/dev/null || return 0
+    git diff --quiet "$last" "$(git rev-parse HEAD)" -- "$@" || return 0
+    return 1
+}
+
+# Grava a revisão atual como a última em que o passo rodou com sucesso.
+record_state() {
+    mkdir -p "$(dirname "$1")"
+    printf '%s\n' "$(git rev-parse HEAD)" > "${1}.tmp"
+    mv "${1}.tmp" "$1"
+}
+
 echo ""
 echo "========================================"
 echo "  Deploy AIcentral v2"
@@ -42,7 +63,7 @@ echo "========================================"
 echo "  Log detalhado: $DEPLOY_LOG"
 echo ""
 
-# 1. Atualizar com o serviço no ar (a parada acontece em stop_service_for_deploy)
+# Parada do serviço (chamada mais abaixo) (a parada acontece em stop_service_for_deploy)
 # Parar o serviço só depois de código, build e dependências estarem prontos:
 # o site continua no ar durante a parte lenta do deploy.
 stop_service_for_deploy() {
@@ -71,9 +92,9 @@ stop_service_for_deploy() {
     echo "  > OK"
 }
 
-# 2. Atualizar codigo
+# 1. Atualizar codigo
 echo ""
-echo "[2/7] Atualizando codigo..."
+echo "[1/9] Atualizando codigo..."
 # Compatibilidade de transição: a primeira atualização após o commit que
 # remove node_modules do Git precisa descartar alterações antigas para que a
 # remoção dos arquivos rastreados não bloqueie o pull. Depois do primeiro
@@ -135,9 +156,9 @@ echo "  > OK"
 # Ordem: código → dependências → schema → build → parada curta → workers → início.
 # O schema vem antes do build: um worker do gunicorn reciclado durante o build já
 # carrega o código novo e encontra as colunas novas, e o serviço só cai no fim.
-# 3. Atualizar dependencias
+# 2. Atualizar dependencias
 echo ""
-echo "[3/7] Atualizando dependencias..."
+echo "[2/9] Atualizando dependencias..."
 VENV_PIP="venv/bin/pip"
 [ ! -f "$VENV_PIP" ] && VENV_PIP="venv_new/bin/pip"
 VENV_PYTHON="$(dirname "$VENV_PIP")/python"
@@ -189,273 +210,75 @@ else
 fi
 echo "  > OK"
 
-# 8. Atualizar schema e dados idempotentes
+# 3. Atualizar schema e dados idempotentes
 echo ""
-echo "[7/9] Atualizando schemas e dados..."
+echo "[3/9] Atualizando schemas e dados..."
 MIGRATION_STATE_FILE="${MIGRATION_STATE_FILE:-logs/.last-migrations-revision}"
-MIGRATION_REVISION="$(git rev-parse HEAD)"
-RUN_MIGRATIONS=1
-if [ "${FORCE_MIGRATIONS:-0}" != "1" ] && [ -s "$MIGRATION_STATE_FILE" ]; then
-    LAST_MIGRATION_REVISION="$(head -n 1 "$MIGRATION_STATE_FILE")"
-    if git cat-file -e "${LAST_MIGRATION_REVISION}^{commit}" 2>/dev/null && \
-       git diff --quiet "$LAST_MIGRATION_REVISION" "$MIGRATION_REVISION" -- \
-           migrations deploy.sh scripts/seed_creative_formats.py \
-           scripts/seed_creative_viewer_profiles.py scripts/import_centralcomm_interactives.py; then
-        RUN_MIGRATIONS=0
+if should_run "$MIGRATION_STATE_FILE" "${FORCE_MIGRATIONS:-0}" \
+       migrations deploy.sh scripts/seed_creative_formats.py \
+       scripts/seed_creative_viewer_profiles.py scripts/import_centralcomm_interactives.py; then
+    echo "  > Migrações em andamento (detalhes em $DEPLOY_LOG)..."
+    # A lista e a ordem dos passos ficam em migrations/ORDER.txt.
+    if ! "$VENV_PYTHON" migrations/run_deploy_migrations.py >> "$DEPLOY_LOG" 2>&1; then
+        echo ""
+        echo "  > ERRO no bloco de migrações — últimas linhas do log:"
+        tail -n 40 "$DEPLOY_LOG" 2>/dev/null || true
+        if [ "$SERVICE_STOPPED" = "1" ]; then
+            echo "  > Tentando subir $APP_SERVICE após falha..."
+            sudo systemctl start "$APP_SERVICE" 2>/dev/null || true
+            SERVICE_STOPPED=0
+        fi
+        exit 1
     fi
-fi
-
-if [ "$RUN_MIGRATIONS" = "1" ]; then
-echo "  > Migrações em andamento (detalhes em $DEPLOY_LOG)..."
-if ! {
-"$VENV_PYTHON" migrations/run_add_tipo_comercial_to_cotacoes.py
-"$VENV_PYTHON" migrations/run_add_cotacao_grupo_plano.py
-"$VENV_PYTHON" migrations/run_add_cotacao_itens_especificos.py
-"$VENV_PYTHON" migrations/run_fix_cx_clients_crm_index.py
-"$VENV_PYTHON" migrations/run_create_creative_modeling.py
-"$VENV_PYTHON" migrations/run_add_creative_campaign_flow.py
-"$VENV_PYTHON" migrations/run_add_creative_house_client.py
-"$VENV_PYTHON" migrations/run_add_creative_scene_productions.py
-"$VENV_PYTHON" migrations/run_add_creative_client_intelligence.py
-"$VENV_PYTHON" migrations/run_add_creative_client_brand_assets.py
-"$VENV_PYTHON" migrations/run_add_creative_brand_lineage.py
-"$VENV_PYTHON" migrations/run_add_workspace_brand_audit_history.py
-"$VENV_PYTHON" migrations/run_add_workspace_brand_audit_jobs.py
-"$VENV_PYTHON" migrations/run_add_workspace_brand_audit_evidence.py
-"$VENV_PYTHON" migrations/run_add_workspace_brand_audit_versioning.py
-"$VENV_PYTHON" migrations/run_add_workspace_brand_field_reliability.py
-"$VENV_PYTHON" migrations/run_add_creative_format_studio.py
-"$VENV_PYTHON" migrations/run_add_studio_sessions.py
-"$VENV_PYTHON" migrations/run_add_cadu_studio_creation_history.py
-"$VENV_PYTHON" migrations/run_add_creative_compose_library.py
-"$VENV_PYTHON" migrations/run_add_creative_plate_kits.py
-"$VENV_PYTHON" migrations/run_add_creative_concept_lab.py
-"$VENV_PYTHON" scripts/seed_creative_formats.py
-"$VENV_PYTHON" migrations/run_seed_creative_format_layouts.py
-"$VENV_PYTHON" migrations/run_add_creative_viewer_profiles.py
-"$VENV_PYTHON" scripts/seed_creative_viewer_profiles.py
-"$VENV_PYTHON" migrations/run_add_creative_storyboards_and_catalogs.py
-"$VENV_PYTHON" migrations/run_add_design_system_ads.py
-"$VENV_PYTHON" migrations/run_add_design_system_ads_revision.py
-"$VENV_PYTHON" migrations/run_convert_interactive_formats_to_image_carousels.py
-"$VENV_PYTHON" migrations/run_add_google_calendar_meet.py
-"$VENV_PYTHON" migrations/run_add_system_integration_credentials.py
-"$VENV_PYTHON" migrations/run_sync_integration_provider_check.py
-"$VENV_PYTHON" migrations/run_sql_migration.py add_google_workspace_connections.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_google_workspace_sync_state.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_google_workspace_meet_artifacts.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_google_workspace_client_authorizations.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py drop_google_workspace_organization_id.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_slack_connector.sql
-"$VENV_PYTHON" migrations/run_add_openrouter_integration_credential.py
-"$VENV_PYTHON" migrations/run_add_openrouter_gpt_image_2.py
-"$VENV_PYTHON" migrations/run_add_openai_integration_credential.py
-"$VENV_PYTHON" migrations/run_add_firecrawl_integration_credential.py
-"$VENV_PYTHON" migrations/run_add_dify_integration_credential.py
-"$VENV_PYTHON" migrations/run_add_brevo_integration_credential.py
-"$VENV_PYTHON" migrations/run_add_cx_place_documents.py
-"$VENV_PYTHON" migrations/run_add_d4sign_assinaturas.py
-"$VENV_PYTHON" migrations/run_add_google_login_credentials.py
-"$VENV_PYTHON" migrations/run_sync_integration_provider_check.py
-"$VENV_PYTHON" migrations/run_sql_migration.py add_typesafe_integration_credential.sql
-"$VENV_PYTHON" migrations/run_add_cadu_sso_tickets.py
-"$VENV_PYTHON" migrations/run_add_cadu_knowledge_documents.py
-"$VENV_PYTHON" migrations/run_add_cadu_skills_marketplace.py
-"$VENV_PYTHON" migrations/run_add_cadu_skills_management.py
-"$VENV_PYTHON" migrations/run_add_cadu_agent_campaign_projects.py
-"$VENV_PYTHON" migrations/run_add_cadu_project_custom_fields.py
-"$VENV_PYTHON" migrations/run_add_cadu_chat_runtime.py
-"$VENV_PYTHON" migrations/run_add_cadu_conversations_v2.py
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_agent_turn_queue.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_agent_runtime_observability.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_agent_improvement_queue.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_mcp_operations.sql
-"$VENV_PYTHON" migrations/run_add_cadu_mcp_contexts.py
-"$VENV_PYTHON" migrations/run_add_cadu_user_memory.py
-"$VENV_PYTHON" migrations/run_add_cadu_working_memory.py
-"$VENV_PYTHON" migrations/run_sql_migration.py fix_cadu_work_memory_assistant_provenance.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_conversation_memory.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_conversation_chunks.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_working_memory_extraction.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_conversation_project_suggestions.sql
-"$VENV_PYTHON" migrations/run_add_cadu_tool_token_ledger.py
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_credit_requests.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_credit_request_lot.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_plan_storage.sql
-"$VENV_PYTHON" migrations/run_upgrade_cadu_tool_token_ledger_compat.py
-# Avatar badge is an optional rollout. Do not make a partial checkout fail
-# deployment before its migration runner is versioned with the feature.
-if [ -f "migrations/run_add_cadu_avatar_badge.py" ]; then
-    "$VENV_PYTHON" migrations/run_add_cadu_avatar_badge.py
-fi
-"$VENV_PYTHON" migrations/run_rename_percentual_to_fee_cliente.py
-"$VENV_PYTHON" migrations/run_add_format_variant_revisions.py
-"$VENV_PYTHON" migrations/run_sql_migration.py add_training_studio_import_palco.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_workspace_projects.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_workspace_project_links.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_project_file_classification.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_project_resource_registry.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_workspace_ingestion_and_dock.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_project_link_icon_metadata.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_resource_state.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_public_mcp.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_public_mcp_scopes.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_chat_plugin_catalog.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py activate_cadu_google_chat_plugins.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_daily_workflow_plugins.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py refine_cadu_daily_workflow_plugins.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py activate_cadu_daily_workflow_plugins.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py refine_cadu_chat_plugin_contracts_v1_3.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py refine_cadu_chat_plugin_contracts_v1_4.sql
-"$VENV_PYTHON" migrations/run_add_cadu_public_mcp_oauth.py
-"$VENV_PYTHON" migrations/run_add_cadu_public_mcp_modules.py
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_workspace_home_preferences.sql
-# Planner: a tabela de planos é a base das migrações de documentos,
-# alocações, revisões e compartilhamento. Aplique a cadeia completa nesta
-# ordem para instalações novas e para servidores que ainda não receberam o
-# primeiro rollout do produto.
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_plans.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_channel_allocations.sql
-"$VENV_PYTHON" migrations/run_add_cadu_planner_client_flow.py
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_review_history.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_docs_compat.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_link_test_runs.sql
-"$VENV_PYTHON" migrations/run_add_connect_report_workspace.py
-"$VENV_PYTHON" migrations/run_add_connect_report_sources.py
-"$VENV_PYTHON" migrations/run_add_connect_report_imports.py
-"$VENV_PYTHON" migrations/run_add_connect_report_reviews.py
-"$VENV_PYTHON" migrations/run_add_connect_report_ai_runs.py
-"$VENV_PYTHON" migrations/run_add_connect_report_public_links.py
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_operations_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_review_fixes_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_native_clients_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_workspace_project_links_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_funnel_management_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_versions_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_integrity_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_site_mapping_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_discovery_resume_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_site_journey_analytics.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_page_identity_m2.sql
-"$VENV_PYTHON" scripts/backfill_reports_flow_page_identity.py
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_page_monitoring.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_supertag_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_supertag_flow_lifecycle_events.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_private_tags_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_ownership_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_plan_versions_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_plan_only_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_templates_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_flow_probe_runs_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_site_pages_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_supertag_known_visitors.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_link_associations_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py move_link_tester_to_reports_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_universal_imports_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_decisions_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_visual_runs_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_projection_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_projection_decisions_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_published_versions_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_custom_metrics_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_range_snapshots_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_custom_values_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_custom_dimensions_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_observation_dimensions_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_column_maps_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_import_column_suggestions_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_google_ads_engine_v2.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_google_ads_engine_v22.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_supertag_leads.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_supertag_enhanced_events.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_google_ads_actions.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_alerts_v1.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_reports_supertag_site_customer.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_public_shares.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_cobuild.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_radar.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_interactive_creative_categories.sql
-"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_user_onboardings.sql
-} >> "$DEPLOY_LOG" 2>&1; then
-    echo ""
-    echo "  > ERRO no bloco de migrações — últimas linhas do log:"
-    tail -n 40 "$DEPLOY_LOG" 2>/dev/null || true
-    if [ "$SERVICE_STOPPED" = "1" ]; then
-        echo "  > Tentando subir $APP_SERVICE após falha..."
-        sudo systemctl start "$APP_SERVICE" 2>/dev/null || true
-        SERVICE_STOPPED=0
-    fi
-    exit 1
-fi
-    mkdir -p "$(dirname "$MIGRATION_STATE_FILE")"
-    printf '%s\n' "$MIGRATION_REVISION" > "${MIGRATION_STATE_FILE}.tmp"
-    mv "${MIGRATION_STATE_FILE}.tmp" "$MIGRATION_STATE_FILE"
-    echo "  > OK (migrações executadas para $MIGRATION_REVISION)"
+    record_state "$MIGRATION_STATE_FILE"
+    echo "  > OK (migrações executadas para $(git rev-parse HEAD))"
 else
-    echo "  > Nenhuma migração alterada desde $LAST_MIGRATION_REVISION; pulando bloco de migrações."
+    echo "  > Nenhuma migração alterada desde a última execução; pulando bloco de migrações."
 fi
 
-# 2b. Build frontend (artefatos gerados somente quando a camada visual mudou)
+# 4. Build frontend (artefatos gerados somente quando a camada visual mudou)
 echo ""
-echo "[2b/8] Build frontend (Tailwind)..."
+echo "[4/9] Build frontend (Tailwind)..."
 FRONTEND_STATE_FILE="${FRONTEND_STATE_FILE:-logs/.last-frontend-build-revision}"
-FRONTEND_REVISION="$(git rev-parse HEAD)"
-RUN_FRONTEND_BUILD=1
-if [ "${FORCE_FRONTEND_BUILD:-0}" != "1" ] && [ -s "$FRONTEND_STATE_FILE" ]; then
-    LAST_FRONTEND_REVISION="$(head -n 1 "$FRONTEND_STATE_FILE")"
-    if git cat-file -e "${LAST_FRONTEND_REVISION}^{commit}" 2>/dev/null && \
-       git diff --quiet "$LAST_FRONTEND_REVISION" "$FRONTEND_REVISION" -- \
-           frontend aicentralv2/templates aicentralv2/static/cadu_workspace \
-           aicentralv2/static/cadu_studio aicentralv2/static/css package.json \
-           package-lock.json build_frontend.sh postcss.config.js \
-           tailwind.config.js tailwind.artifact.config.js \
-           tailwind.conversations.config.js tailwind.studio.config.js \
-           vite.auth.config.mjs vite.conversations.config.mjs \
-           vite.reports.config.mjs vite.planner.config.mjs \
-           vite.studio-editor.config.mjs vite.studio-audio.config.mjs vite.studio-ui.config.mjs && \
-       [ -f "aicentralv2/static/css/tailwind/output.css" ]; then
-        RUN_FRONTEND_BUILD=0
+if should_run "$FRONTEND_STATE_FILE" "${FORCE_FRONTEND_BUILD:-0}" \
+       frontend aicentralv2/templates aicentralv2/static/cadu_workspace \
+       aicentralv2/static/cadu_studio aicentralv2/static/css package.json \
+       package-lock.json build_frontend.sh postcss.config.js \
+       tailwind.config.js tailwind.artifact.config.js \
+       tailwind.conversations.config.js tailwind.studio.config.js \
+       vite.auth.config.mjs vite.conversations.config.mjs \
+       vite.reports.config.mjs vite.planner.config.mjs \
+       vite.studio-editor.config.mjs vite.studio-audio.config.mjs vite.studio-ui.config.mjs \
+   || [ ! -f "aicentralv2/static/css/tailwind/output.css" ]; then
+    if [ -x "./build_frontend_fast.sh" ]; then
+        bash ./build_frontend_fast.sh 2>&1 | tee -a "$DEPLOY_LOG"
+    elif [ -x "./build_frontend.sh" ]; then
+        # Keep the detailed log while streaming progress to the terminal. Without
+        # this, npm ci/Vite can run for several minutes and the deploy appears
+        # frozen at [4/9].
+        bash ./build_frontend.sh 2>&1 | tee -a "$DEPLOY_LOG"
+    elif command -v npm >/dev/null 2>&1 && [ -f package.json ]; then
+        echo "  > Instalando dependências..."
+        npm install --no-audit --no-fund 2>&1 | grep -v "npm warn" | grep -v "install-scripts" >> "$DEPLOY_LOG"
+        echo "  > CSS (vanilla, artifact, studio)..."
+        npm run build:css 2>&1 | grep -E "Done in|✓ built" >> "$DEPLOY_LOG"
+        echo "  > Tailwind builds (conversations, reports)..."
+        npm run build:tailwind 2>&1 | grep -E "Done in|✓ built" >> "$DEPLOY_LOG"
+        echo "  > Vite builds (planner, auth, editor, audio)..."
+        npm run build:vite 2>&1 | grep -E "✓ built" >> "$DEPLOY_LOG"
+    else
+        echo "  > ERRO: build frontend indisponivel — output.css nao sera gerado"
+        exit 1
     fi
-fi
-
-if [ "$RUN_FRONTEND_BUILD" = "1" ] && [ -x "./build_frontend_fast.sh" ]; then
-    bash ./build_frontend_fast.sh 2>&1 | tee -a "$DEPLOY_LOG"
-    mkdir -p "$(dirname "$FRONTEND_STATE_FILE")"
-    printf '%s\n' "$FRONTEND_REVISION" > "${FRONTEND_STATE_FILE}.tmp"
-    mv "${FRONTEND_STATE_FILE}.tmp" "$FRONTEND_STATE_FILE"
-    echo "  > OK (frontend compilado para $FRONTEND_REVISION)"
-elif [ "$RUN_FRONTEND_BUILD" = "1" ] && [ -x "./build_frontend.sh" ]; then
-    # Keep the detailed log while streaming progress to the terminal. Without
-    # this, npm ci/Vite can run for several minutes and the deploy appears
-    # frozen at [2b/8].
-    bash ./build_frontend.sh 2>&1 | tee -a "$DEPLOY_LOG"
-    mkdir -p "$(dirname "$FRONTEND_STATE_FILE")"
-    printf '%s\n' "$FRONTEND_REVISION" > "${FRONTEND_STATE_FILE}.tmp"
-    mv "${FRONTEND_STATE_FILE}.tmp" "$FRONTEND_STATE_FILE"
-    echo "  > OK (frontend compilado para $FRONTEND_REVISION)"
-elif [ "$RUN_FRONTEND_BUILD" = "1" ] && command -v npm >/dev/null 2>&1 && [ -f package.json ]; then
-    echo "  > Instalando dependências..."
-    npm install --no-audit --no-fund 2>&1 | grep -v "npm warn" | grep -v "install-scripts" >> "$DEPLOY_LOG"
-    echo "  > CSS (vanilla, artifact, studio)..."
-    npm run build:css 2>&1 | grep -E "Done in|✓ built" >> "$DEPLOY_LOG"
-    echo "  > Tailwind builds (conversations, reports)..."
-    npm run build:tailwind 2>&1 | grep -E "Done in|✓ built" >> "$DEPLOY_LOG"
-    echo "  > Vite builds (planner, auth, editor, audio)..."
-    npm run build:vite 2>&1 | grep -E "✓ built" >> "$DEPLOY_LOG"
-    mkdir -p "$(dirname "$FRONTEND_STATE_FILE")"
-    printf '%s\n' "$FRONTEND_REVISION" > "${FRONTEND_STATE_FILE}.tmp"
-    mv "${FRONTEND_STATE_FILE}.tmp" "$FRONTEND_STATE_FILE"
-    echo "  > OK (frontend compilado para $FRONTEND_REVISION)"
-elif [ "$RUN_FRONTEND_BUILD" = "0" ]; then
-    echo "  > Frontend sem alteracoes; pulando build."
+    record_state "$FRONTEND_STATE_FILE"
+    echo "  > OK (frontend compilado para $(git rev-parse HEAD))"
 else
-    echo "  > ERRO: build frontend indisponivel — output.css nao sera gerado"
-    exit 1
+    echo "  > Frontend sem alteracoes; pulando build."
 fi
 
 stop_service_for_deploy
 
-# 4. Criar diretorios e dependencias do sistema
+# Diretorios e dependencias do sistema
 mkdir -p aicentralv2/static/uploads/audiencias aicentralv2/static/uploads/cotacoes \
     aicentralv2/static/media/whatsapp/outbound logs
 chmod 755 aicentralv2/static/uploads/audiencias aicentralv2/static/uploads/cotacoes \
@@ -470,7 +293,7 @@ fi
 
 # 5. Limpar cache Python
 echo ""
-echo "[4/7] Limpando cache..."
+echo "[5/9] Limpando cache..."
 if [ "${CLEAN_PYTHON_CACHE:-0}" = "1" ]; then
     find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
     find . -type f -name "*.pyc" -delete 2>/dev/null || true
@@ -481,13 +304,13 @@ echo "  > OK"
 
 # 6. Recarregar systemd (o unit principal e gerenciado no servidor)
 echo ""
-echo "[5/8] Recarregando systemd..."
+echo "[6/9] Recarregando systemd..."
 sudo systemctl daemon-reload
 echo "  > OK"
 
 # 7. Nginx — limite de upload (413)
 echo ""
-echo "[6/8] Configurando nginx (client_max_body_size 256M)..."
+echo "[7/9] Configurando nginx (client_max_body_size 256M)..."
 bash deploy/configure_nginx_upload.sh >> "$DEPLOY_LOG" 2>&1
 echo "  > OK"
 
@@ -505,18 +328,7 @@ fi
 # mudaram. O worker de mídia executa código da aplicação, então é reiniciado
 # em todo deploy para não ficar com a versão anterior.
 WORKERS_STATE_FILE="${WORKERS_STATE_FILE:-logs/.last-workers-revision}"
-WORKERS_REVISION="$(git rev-parse HEAD)"
-RUN_WORKER_INSTALLERS=1
-if [ "${FORCE_WORKERS:-0}" != "1" ] && [ -s "$WORKERS_STATE_FILE" ]; then
-    LAST_WORKERS_REVISION="$(head -n 1 "$WORKERS_STATE_FILE")"
-    if git cat-file -e "${LAST_WORKERS_REVISION}^{commit}" 2>/dev/null && \
-       git diff --quiet "$LAST_WORKERS_REVISION" "$WORKERS_REVISION" -- \
-           deploy requirements.txt requirements-media.txt; then
-        RUN_WORKER_INSTALLERS=0
-    fi
-fi
-
-if [ "$RUN_WORKER_INSTALLERS" = "1" ]; then
+if should_run "$WORKERS_STATE_FILE" "${FORCE_WORKERS:-0}" deploy requirements.txt requirements-media.txt; then
     MEDIA_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_media_worker.sh >> "$DEPLOY_LOG" 2>&1
     ONBOARDING_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_onboarding_followup_timer.sh >> "$DEPLOY_LOG" 2>&1
     LINK_ICON_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_link_icon_worker.sh >> "$DEPLOY_LOG" 2>&1
@@ -524,15 +336,13 @@ if [ "$RUN_WORKER_INSTALLERS" = "1" ]; then
     # the normal Git deploy so new queue entries cannot accumulate unnoticed.
     RESOURCE_REGISTRY_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_resource_registry_worker.sh >> "$DEPLOY_LOG" 2>&1
     CONVERSATION_MEMORY_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_conversation_memory_worker.sh >> "$DEPLOY_LOG" 2>&1
-    mkdir -p "$(dirname "$WORKERS_STATE_FILE")"
-    printf '%s\n' "$WORKERS_REVISION" > "${WORKERS_STATE_FILE}.tmp"
-    mv "${WORKERS_STATE_FILE}.tmp" "$WORKERS_STATE_FILE"
+    record_state "$WORKERS_STATE_FILE"
 else
     echo "  > Workers sem alteracoes; reiniciando apenas o worker de midia."
     sudo systemctl restart cadu-media-worker >> "$DEPLOY_LOG" 2>&1
 fi
 
-# 9. Iniciar servico
+# 8. Iniciar servico
 echo ""
 echo "[8/9] Iniciando servico..."
 sudo systemctl start "$APP_SERVICE"
@@ -558,7 +368,7 @@ fi
 echo "  > Validando APIs de formatos e visualizadores..."
 "$VENV_PYTHON" scripts/verify_creative_viewer_apis.py >> "$DEPLOY_LOG" 2>&1
 
-# 10. Health check
+# 9. Health check
 echo ""
 echo "[9/9] Health check..."
 sleep 2

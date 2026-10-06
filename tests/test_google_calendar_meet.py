@@ -1,4 +1,5 @@
 import unittest
+from tests.deploy_text import deploy_text
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 from unittest.mock import MagicMock, patch
@@ -92,7 +93,7 @@ class GoogleCalendarServiceTest(unittest.TestCase):
 class GoogleCalendarSchemaContractTest(unittest.TestCase):
     def test_migration_and_deploy_cover_google_tables(self):
         migration = (ROOT / "migrations/add_google_calendar_meet.sql").read_text()
-        deploy = (ROOT / "deploy.sh").read_text()
+        deploy = deploy_text(ROOT)
         for table in (
             "user_google_connections",
             "crm_activity_meetings",

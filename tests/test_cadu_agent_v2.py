@@ -1,4 +1,5 @@
 import json
+from tests.deploy_text import deploy_text
 
 import pytest
 from io import BytesIO
@@ -3363,7 +3364,7 @@ def test_v2_lab_and_migration_are_wired_for_deploy():
     app_factory = (root / "aicentralv2" / "__init__.py").read_text()
     routes = (root / "aicentralv2" / "cadu_workspace" / "agent_v2" / "routes.py").read_text()
     template = (root / "aicentralv2" / "templates" / "cadu_workspace" / "conversations_v2_lab.html").read_text()
-    deploy = (root / "deploy.sh").read_text()
+    deploy = deploy_text(root)
     assert "cadu_agent_v2_lab_bp" in app_factory
     assert 'lab_bp.get("/workspace/conversas-v2-lab")' in routes
     assert "cadu-conversations-v2-root" in template

@@ -1,4 +1,5 @@
 from pathlib import Path
+from tests.deploy_text import deploy_text
 import os
 from unittest import TestCase
 
@@ -22,7 +23,7 @@ class WorkspaceDeployIntegrityTest(TestCase):
 
     def test_deploy_restores_versioned_react_bundles_before_pull(self):
         """Generated Cadu bundles must not block the production merge."""
-        deploy = (ROOT / "deploy.sh").read_text()
+        deploy = deploy_text(ROOT)
 
         for asset in (
             "aicentralv2/static/cadu_workspace/conversations/react/app.css",

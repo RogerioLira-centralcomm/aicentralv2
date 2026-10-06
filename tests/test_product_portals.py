@@ -1,4 +1,5 @@
 from pathlib import Path
+from tests.deploy_text import deploy_text
 import re
 from unittest import TestCase, mock
 
@@ -482,7 +483,7 @@ class ProductPortalsTest(TestCase):
         self.assertIn("Lançamento", response.get_data(as_text=True))
 
     def test_deploy_creates_agents_campaign_project_context(self):
-        deploy = (ROOT / "deploy.sh").read_text()
+        deploy = deploy_text(ROOT)
         sql = (ROOT / "migrations" / "add_cadu_agent_campaign_projects.sql").read_text()
         self.assertIn("run_add_cadu_agent_campaign_projects.py", deploy)
         self.assertIn("campaign_id INTEGER PRIMARY KEY", sql)

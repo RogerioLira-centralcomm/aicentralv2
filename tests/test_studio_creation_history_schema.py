@@ -1,4 +1,5 @@
 from pathlib import Path
+from tests.deploy_text import deploy_text
 
 
 def test_studio_creation_history_tables_are_part_of_fresh_and_rollout_migrations():
@@ -16,7 +17,7 @@ def test_studio_creation_history_tables_are_part_of_fresh_and_rollout_migrations
 
 def test_deploy_runs_the_studio_creation_history_rollout_before_serving_requests():
     root = Path(__file__).resolve().parents[1]
-    deploy = (root / "deploy.sh").read_text(encoding="utf-8")
+    deploy = deploy_text(root)
 
     assert '"$VENV_PYTHON" migrations/run_add_cadu_studio_creation_history.py' in deploy
 

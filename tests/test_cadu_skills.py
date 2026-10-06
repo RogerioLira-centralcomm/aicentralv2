@@ -1,4 +1,5 @@
 from pathlib import Path
+from tests.deploy_text import deploy_text
 from unittest import TestCase, mock
 
 from flask import Flask
@@ -312,7 +313,7 @@ class CaduSkillsTest(TestCase):
         self.assertIn("Coordena contas, MCPs, relatórios e campanhas", html)
 
     def test_deploy_runs_both_skills_migrations(self):
-        deploy = (ROOT / "deploy.sh").read_text()
+        deploy = deploy_text(ROOT)
         self.assertIn("run_add_cadu_skills_marketplace.py", deploy)
         self.assertIn("run_add_cadu_skills_management.py", deploy)
         migration = (ROOT / "migrations" / "add_cadu_skills_management.sql").read_text()

@@ -1,4 +1,5 @@
 import unittest
+from tests.deploy_text import deploy_text
 from pathlib import Path
 
 
@@ -27,7 +28,7 @@ class CotacaoWorkspaceContractTest(unittest.TestCase):
         cls.migration = (
             ROOT / "migrations/add_cotacao_itens_especificos.sql"
         ).read_text()
-        cls.deploy = (ROOT / "deploy.sh").read_text()
+        cls.deploy = deploy_text(ROOT)
         cls.list_template = (
             ROOT / "aicentralv2/templates/cadu_cotacoes.html"
         ).read_text()

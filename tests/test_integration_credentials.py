@@ -1,4 +1,5 @@
 import unittest
+from tests.deploy_text import deploy_text
 from pathlib import Path
 from unittest.mock import patch
 
@@ -269,7 +270,7 @@ class IntegrationCredentialsContractTest(unittest.TestCase):
         migration = (
             ROOT / "migrations/add_system_integration_credentials.sql"
         ).read_text()
-        deploy = (ROOT / "deploy.sh").read_text()
+        deploy = deploy_text(ROOT)
         menu = (ROOT / "aicentralv2/templates/base_erp.html").read_text()
         template = (
             ROOT / "aicentralv2/templates/parametros/integracoes.html"

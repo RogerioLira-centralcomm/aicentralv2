@@ -1,6 +1,7 @@
 """Design System Ads: contrato, CentralComm, loop e rotas de specimen."""
 
 import unittest
+from tests.deploy_text import deploy_text
 from pathlib import Path
 
 from flask import Flask
@@ -574,7 +575,7 @@ class DesignSystemAdsDeployTest(unittest.TestCase):
         runner = (root / "migrations" / "run_add_design_system_ads.py").read_text(
             encoding="utf-8"
         )
-        deploy = (root / "deploy.sh").read_text(encoding="utf-8")
+        deploy = deploy_text(root)
         self.assertIn("ADD COLUMN IF NOT EXISTS brand_profile", migration)
         self.assertIn("ADD COLUMN IF NOT EXISTS creative_brief", migration)
         self.assertIn("uq_cx_brand_visual_systems_design_system_ads", migration)

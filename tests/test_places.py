@@ -1,4 +1,5 @@
 import unittest
+from tests.deploy_text import deploy_text
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -104,7 +105,7 @@ class PlacesDocumentsTest(unittest.TestCase):
 
     def test_documents_migration_and_deploy_are_registered(self):
         migration = (ROOT / "migrations" / "add_cx_place_documents.sql").read_text()
-        deploy = (ROOT / "deploy.sh").read_text()
+        deploy = deploy_text(ROOT)
         self.assertIn("cx_place_documents", migration)
         self.assertIn("cx_place_document_exports", migration)
         self.assertIn("run_add_cx_place_documents.py", deploy)

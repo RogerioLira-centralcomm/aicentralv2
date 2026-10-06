@@ -4588,12 +4588,3 @@ body.portal--workspace .cadu-ds-project-reports-row>a{display:grid;grid-template
   .cadu-ds-home-widget-settings__list > div > div button,
   .cadu-ds-purchase-modal__close { min-width:44px; min-height:44px; }
 }
-
-/* Internal Workspace pages: SolutionSidebar column + content, as in Planner and Reports. */
-.workspace-solution-shell { display:grid; grid-template-columns:239px minmax(0,1fr); min-height:100dvh; background:var(--cadu-canvas); color:var(--cadu-ink); font-family:var(--cadu-font-sans); }
-.workspace-solution-shell:has(> .cadu-solution-sidebar.is-collapsed) { grid-template-columns:62px minmax(0,1fr); }
-.workspace-solution-main { min-width:0; width:100%; max-width:1240px; margin:0 auto; padding:28px clamp(16px,2.4vw,40px) 48px; }
-@media (max-width:760px) {
-  .workspace-solution-shell { grid-template-columns:minmax(0,1fr); }
-  .workspace-solution-main { padding:16px 16px 40px; }
-}

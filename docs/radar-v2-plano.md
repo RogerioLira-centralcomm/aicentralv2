@@ -526,6 +526,35 @@ Somando com as duas rodadas anteriores no cenário Cemig, o F1 venceu ou empatou
 
 Hoje a reserva é fixa em 15.207 tokens. Para o cliente 174, o débito real do F1 é de cerca de 550 tokens.
 
+### Simplificação: buzz e ângulos (2026-10-06, depois do primeiro uso real)
+
+O primeiro uso real mostrou que o Radar estava complicado demais para o que ele precisa fazer. O produto é simples: **ver o que está em buzz agora e os ângulos para falar de um conceito.** Esta seção **substitui** a descrição do pipeline e do wizard em "Radar v2 entregue em duas páginas", logo abaixo. As partes sobre as duas páginas, os radares ativos, o agendador e a migração continuam valendo.
+
+**O que saiu:** as 3 buscas em paralelo, a leitura de páginas pelo Firecrawl, as notas editorial e paga, o quadrante, a conferência extra com o Perplexity e o selo de confiança. A **base de fontes não guia mais a busca**: o Perplexity procura na web aberta, e a base só diz, depois, se a fonte achada é forte (A), regional (B) ou a conferir (C).
+
+**Pipeline v1.5** (`prompts.V1_5`, 4 etapas, 2 chamadas de IA):
+
+1. **Buzz:** uma busca do Perplexity `sonar-pro` pede os assuntos em alta sobre o conceito, com data, veículo e link.
+2. **Conferir:** só fica o que tem data dentro da janela (7, 30 ou 60 dias) e link que abre. Sem data, sem link, antigo, do futuro ou repetido sai.
+3. **Ângulos:** um modelo (`gpt-5.4-mini`) transforma o buzz em 3 a 5 ângulos. Cada um tem título, gancho, por que agora, formatos e canais, janela e o buzz que o sustenta. Ângulo que não se apoia em nenhum buzz da lista é descartado.
+4. **Salvar:** o buzz vira sinal e o ângulo vira oportunidade, e o ângulo abre um planejamento com o gancho e o buzz no briefing.
+
+**Data de hoje.** O modelo trazia material de anos atrás porque respondia pelo que conhecia. Agora a data de hoje e o início da janela entram no prompt, e o código **descarta** qualquer item sem data ou fora da janela, em vez de confiar na resposta do modelo.
+
+**Wizard em 4 passos:** Marca → Conceito (com seis ideias para começar) → Onde e quando → Revisão. Saíram as lentes, o objetivo e a escolha de fontes. A cena `radar-4-fontes` ficou sem uso.
+
+**Teste real em produção** (Cemig, "consumo consciente de energia no fim do ano", MG, 30 dias):
+
+| | Antes (F1 de 5 etapas) | Agora |
+|---|---|---|
+| Tempo | 41 s | 20 s |
+| Tokens da conta 174 | 369 | 125 a 163 |
+| Resultado | 4 oportunidades com notas | 3 a 5 itens de buzz e 4 ângulos, todos de setembro e outubro de 2026 |
+
+**Custo da reserva:** US$ 0,10 por busca, o que dá 624 tokens para a conta 174.
+
+**Ainda aberto:** o número de itens de buzz varia entre buscas (3 e 5 nas duas rodadas), porque o Perplexity às vezes não traz data. Se isso incomodar, o próximo passo é pedir uma segunda busca quando vier menos de 3.
+
 ### Radar v2 entregue em duas páginas (2026-10-06)
 
 O Radar passou a ter duas páginas, para separar quem cria de quem acompanha, poupar recursos e facilitar a manutenção:

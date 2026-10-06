@@ -15,7 +15,7 @@ from html.parser import HTMLParser
 import requests
 
 UA = {'User-Agent': 'Mozilla/5.0 (compatible; CaduRadar/1.0; +https://centralcomm.media)'}
-LIST_KEYS = ('opportunities', 'results', 'changes', 'fatos')
+LIST_KEYS = ('opportunities', 'results', 'changes', 'fatos', 'buzz', 'angulos')
 
 
 def json_loads(text):

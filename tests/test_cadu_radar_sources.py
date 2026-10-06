@@ -37,3 +37,8 @@ def test_every_prompt_formats():
     for name in prompts.V1_0:
         system, user = (item['content'] for item in prompts.messages(name, **values))
         assert system and user
+
+
+def test_angles_prompt_tells_the_model_not_to_leak_internal_ids():
+    system = prompts.messages('angles', '1.5', today='2026-10-06', payload='{}')[0]['content']
+    assert 'Hoje é 2026-10-06' in system and 'NUNCA cite os ids' in system

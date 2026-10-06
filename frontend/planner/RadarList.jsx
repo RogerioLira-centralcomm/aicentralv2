@@ -101,7 +101,7 @@ export function RadarListPage({boot, request, notify}) {
             <span>{when(run.created_at)}<small>{run.trigger === 'agendado' ? 'Radar ativo' : 'Manual'}</small></span>
             <span><b title={subject}>{subject}</b><small>{names[run.brand_ref] || ''}</small></span>
             <span><CaduBadge tone={status[1]}>{status[0]}</CaduBadge>
-              {run.status === 'done' && <small>{Number(run.actionable)} {Number(run.actionable) === 1 ? 'oportunidade' : 'oportunidades'}{run.top_score != null && ` · nota ${run.top_score}`}</small>}</span>
+              {run.status === 'done' && <small>{Number(run.opportunities)} {Number(run.opportunities) === 1 ? 'ângulo' : 'ângulos'}</small>}</span>
             <span>{tokens(run.tokens)}<small>tokens</small></span>
             <Icon name="chevron" size={16}/>
           </a>;

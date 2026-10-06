@@ -46,8 +46,12 @@ def create_plan(client_id, actor_id, opportunity_id, context):
     breakdown = item.get('score_breakdown') or {}
     places = [place.get('place') for place in item.get('geo_scores') or [] if place.get('place')]
     objective = {'conteudo': 'awareness', 'integrada': 'consideracao', 'midia': 'consideracao'}.get(item.get('quadrant'), '')
+    buzz = [f"{entry.get('assunto')} ({entry.get('veiculo')}, {entry.get('data')})" for entry in breakdown.get('buzz') or []]
     notes = '\n'.join(part for part in [
-        item.get('thesis'), f"Janela: {breakdown['window']}" if breakdown.get('window') else '',
+        item.get('thesis'), f"Por que agora: {breakdown['why_now']}" if breakdown.get('why_now') else '',
+        f"Buzz que sustenta: {'; '.join(buzz)}" if buzz else '',
+        f"Janela: {breakdown['window']}" if breakdown.get('window') else '',
+        f"Formatos sugeridos pelo Radar: {', '.join(breakdown.get('formats') or [])}" if breakdown.get('formats') else '',
         f"Canais sugeridos pelo Radar: {', '.join(breakdown.get('channels') or [])}" if breakdown.get('channels') else ''] if part)
     plan = plans.create_plan(client_id, actor_id, {
         'title': item['title'][:180], 'objective': objective,

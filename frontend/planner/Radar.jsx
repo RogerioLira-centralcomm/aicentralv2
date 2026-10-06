@@ -6,34 +6,8 @@ import {Illustration} from './Illustration.jsx';
 import {PlannerHeader} from './PlannerHeader.jsx';
 import {RADAR_DRAFT_KEY, RadarWizard} from './RadarWizard.jsx';
 
-export const QUADRANTS = {
-  integrada: {label: 'Integrada', tone: 'brand', icon: 'branch', text: 'Iniciar a conversa no orgânico e amplificar com mídia.'},
-  conteudo: {label: 'Conteúdo', tone: 'success', icon: 'compose', text: 'Excelente oportunidade para conteúdo.'},
-  midia: {label: 'Mídia', tone: 'warning', icon: 'analysis', text: 'Existe audiência e contexto de mídia.'},
-  ignorar: {label: 'Ignorar', tone: 'neutral', icon: 'close', text: 'Não merece investimento agora.'},
-};
-const VERDICTS = {confirmado: ['Confirmada', 'success'], parcial: ['Evidência parcial', 'warning'], contestado: ['Contestada', 'neutral'], nao_verificado: ['Não verificada', 'neutral']};
-export const CONFIDENCE = {alta: ['Confiança alta', 'success'], media: ['Confiança média', 'warning'], baixa: ['Confiança baixa', 'neutral']};
 const STEP_STATUS = {pending: 'Aguardando', running: 'Em andamento', done: 'Concluída', failed: 'Falhou', skipped: 'Pulada'};
 const tokens = value => Number(value || 0).toLocaleString('pt-BR');
-
-/** Organic × paid decision matrix, the Radar's main reading. */
-function Matrix({opportunities}) {
-  const box = key => {
-    const meta = QUADRANTS[key];
-    const items = opportunities.filter(item => item.quadrant === key);
-    return <div className={`planner-matrix__cell is-${key}`}>
-      <span className="planner-matrix__title"><Icon name={meta.icon} size={14}/>{meta.label}<b>{items.length}</b></span>
-      <small>{meta.text}</small>
-      {items.slice(0, 3).map(item => <span key={item.id} className="planner-matrix__item">{item.title}<em>{item.editorial_score}/{item.paid_score}</em></span>)}
-    </div>;
-  };
-  return <div className="planner-matrix" role="group" aria-label="Matriz orgânico por pago">
-    <span className="planner-matrix__axis is-y">Orgânico</span>
-    <span className="planner-matrix__axis is-x">Oportunidade paga</span>
-    {box('conteudo')}{box('integrada')}{box('ignorar')}{box('midia')}
-  </div>;
-}
 
 function StepNode({step}) {
   return <li className={`radar-step is-${step.status}`}>
@@ -71,45 +45,54 @@ function RunChain({run}) {
         {run.error && <p className="radar-run__error">{run.error}</p>}
       </div>
     </div>
-    <ol className="radar-chain">
-      <li className="radar-chain__fork"><span className="radar-chain__label">Em paralelo</span><ol>{parallel.map(step => <StepNode key={step.key} step={step}/>)}</ol></li>
-      {serial.map(step => <StepNode key={step.key} step={step}/>)}
-    </ol>
+    {/* Terminada a busca, o passo a passo recolhe: o que importa é o resultado. */}
+    <details className="radar-chain-details" key={run.status} open={run.status !== 'done'}>
+      <summary>Como a busca foi feita</summary>
+      <ol className="radar-chain">
+        {parallel.length > 0 && <li className="radar-chain__fork"><span className="radar-chain__label">Em paralelo</span><ol>{parallel.map(step => <StepNode key={step.key} step={step}/>)}</ol></li>}
+        {serial.map(step => <StepNode key={step.key} step={step}/>)}
+      </ol>
+    </details>
   </section>;
 }
 
-function OpportunityCard({item, onPlan, busy, lead}) {
-  const meta = QUADRANTS[item.quadrant] || QUADRANTS.ignorar;
-  const breakdown = item.score_breakdown || {};
-  const verdict = VERDICTS[breakdown.verification?.verdict] || VERDICTS.nao_verificado;
-  const confidence = CONFIDENCE[breakdown.verification?.confidence];
-  const places = (item.geo_scores || []).slice(0, 3);
-  const sources = (breakdown.sources || []).filter(source => source.url).slice(0, 3);
+const TIER = {A: ['Fonte forte', 'success'], B: ['Fonte regional', 'brand'], C: ['Fonte a conferir', 'neutral']};
+const day = value => value ? new Date(value).toLocaleDateString('pt-BR', {day: '2-digit', month: 'short', timeZone: 'UTC'}).replace('.', '') : '';
+
+/** Uma fonte: veículo com link e o nível dela na base curada (só informação, nunca filtro). */
+function SourceLink({name, url, tier, date}) {
+  const level = TIER[tier];
+  return <a className="radar-source" href={url} target="_blank" rel="noreferrer noopener">
+    <span>{name}</span>{date && <small>{day(date)}</small>}{level && <CaduBadge tone={level[1]}>{level[0]}</CaduBadge>}</a>;
+}
+
+/** "O que está em buzz agora": os assuntos que sustentam os ângulos, com fonte e data. */
+function BuzzList({signals}) {
+  return <section className="radar-buzz" aria-labelledby="radar-buzz-title">
+    <h2 id="radar-buzz-title">O que está em buzz agora<span>{signals.length}</span></h2>
+    <ol>{signals.map(item => <li key={item.id}>
+      <strong>{item.headline}</strong>
+      {item.description && <p>{item.description}</p>}
+      <SourceLink name={item.source || 'Fonte'} url={item.url} tier={item.verification?.tier} date={item.published_at}/>
+    </li>)}</ol>
+  </section>;
+}
+
+/** Um ângulo para a marca falar do conceito, com o buzz que o sustenta e um caminho direto para virar plano. */
+function AngleCard({item, onPlan, busy, lead}) {
+  const detail = item.score_breakdown || {};
+  const tags = [...(detail.formats || []), ...(detail.channels || [])];
   return <article className="radar-opportunity">
-    <header>
-      <CaduBadge tone={meta.tone}>{meta.label}</CaduBadge><CaduBadge tone={verdict[1]}>{verdict[0]}</CaduBadge>
-      {confidence && <CaduBadge tone={confidence[1]}>{confidence[0]}</CaduBadge>}
-      {breakdown.window && <small>Janela: {breakdown.window}</small>}
-    </header>
+    <header>{detail.window && <small>Janela: {detail.window}</small>}</header>
     <h3>{item.title}</h3>
     <p>{item.thesis}</p>
-    <dl className="radar-opportunity__scores">
-      <div><dt>Editorial</dt><dd>{item.editorial_score ?? '—'}</dd>{breakdown.why?.editorial && <small>{breakdown.why.editorial}</small>}</div>
-      <div><dt>Pago</dt><dd>{item.paid_score ?? '—'}</dd>{breakdown.why?.paid && <small>{breakdown.why.paid}</small>}</div>
-      {places.length > 0 && <div><dt>Praças</dt><dd className="radar-opportunity__places">{places.map(place => <span key={place.place}>{place.place}<b>{place.score}</b></span>)}</dd></div>}
-    </dl>
-    {sources.length > 0 && <ul className="radar-opportunity__sources" aria-label="Fontes">
-      {sources.map(source => <li key={source.url}><a href={source.url} target="_blank" rel="noreferrer noopener">{source.domain || source.source}</a>
-        {source.tier && <small title={`Nível de confiança da fonte: ${source.tier}`}>{source.tier}</small>}
-        {source.url_status === 'quebrado' && <small className="is-broken">link não abre</small>}</li>)}
-    </ul>}
-    {breakdown.verification?.notes && <p className="radar-opportunity__check"><Icon name="search" size={14}/>{breakdown.verification.notes}</p>}
+    {detail.why_now && <p className="radar-angle__why"><Icon name="pulse" size={14}/><span><b>Por que agora:</b> {detail.why_now}</span></p>}
+    {tags.length > 0 && <ul className="radar-angle__tags" aria-label="Formatos e canais">{tags.map(tag => <li key={tag}>{tag}</li>)}</ul>}
+    {(detail.buzz || []).length > 0 && <div className="radar-angle__buzz"><small>Apoiado em</small>
+      {detail.buzz.map(entry => <SourceLink key={entry.id} name={`${entry.assunto} · ${entry.veiculo || entry.domain}`} url={entry.url} tier={entry.tier} date={entry.data}/>)}</div>}
     <footer>
-      {(breakdown.channels || []).length > 0 && <span className="planner-muted">Canais: {breakdown.channels.join(', ')}</span>}
-      {/* One primary action on the page: the strongest opportunity. Ignored ones stay quiet. */}
-      <CaduButton size="sm" variant={item.quadrant === 'ignorar' ? 'tertiary' : lead ? 'primary' : 'secondary'}
-        loading={busy} disabled={item.status === 'em_plano'} onClick={() => onPlan(item)}>
-        {item.status === 'em_plano' ? 'Já virou plano' : item.quadrant === 'ignorar' ? 'Planejar mesmo assim' : 'Criar planejamento'}</CaduButton>
+      <CaduButton size="sm" variant={lead ? 'primary' : 'secondary'} loading={busy} disabled={item.status === 'em_plano'} onClick={() => onPlan(item)}>
+        {item.status === 'em_plano' ? 'Já virou plano' : 'Criar planejamento'}</CaduButton>
     </footer>
   </article>;
 }
@@ -181,32 +164,31 @@ export function RadarPage({boot, request, notify, context}) {
   };
 
   if (!enabled) {
-    return <PlannerHeader title="Radar de Oportunidades" description="Sinais de mercado que viram conteúdo, mídia ou os dois."
+    return <PlannerHeader title="Radar" description="O que está em buzz agora e os ângulos para falar de um conceito."
       meta={<CaduBadge tone="brand">Em breve</CaduBadge>}/>;
   }
   if (!runId && !run) return <RadarWizard boot={boot} request={request} busy={starting} onSubmit={start} context={context}/>;
-  if (loading && !run) return <PlannerHeader title="Radar de Oportunidades" description="Carregando a busca…"/>;
+  if (loading && !run) return <PlannerHeader title="Radar" description="Carregando a busca…"/>;
 
   const running = run?.status === 'running';
-  const opportunities = run?.opportunities || [];
+  const angles = run?.opportunities || [];
+  const signals = run?.signals || [];
   return <>
-    <PlannerHeader title="Radar de Oportunidades" crumbs={[['Meus radares', boot.urls.radars]]}
-      description="Sinais de mercado que viram conteúdo, mídia ou os dois."
+    <PlannerHeader title="Radar" crumbs={[['Meus radares', boot.urls.radars]]}
+      description="O que está em buzz agora e os ângulos para falar de um conceito."
       actions={<><CaduButton variant="secondary" href={boot.urls.radars}>Meus radares</CaduButton>
         <CaduButton href={boot.urls.radar} onClick={() => { try { window.sessionStorage.removeItem(RADAR_DRAFT_KEY); } catch { /* ignore */ } }}><Icon name="plus" size={16}/>Novo radar</CaduButton></>}/>
     {run && <RunChain run={run}/>}
-    {opportunities.length > 0 && <>
-      <Matrix opportunities={opportunities}/>
-      <section className="radar-results" aria-labelledby="radar-results-title">
-        <h2 id="radar-results-title">Oportunidades<span>{opportunities.length}</span></h2>
-        <div className="radar-results__grid">{opportunities.map((item, index) => <OpportunityCard key={item.id} item={item} lead={index === 0 && item.quadrant !== 'ignorar'}
-          busy={planning === item.id} onPlan={createPlan}/>)}</div>
-      </section>
-    </>}
-    {run?.status === 'done' && !opportunities.length && <div className="radar-empty-result">
+    {angles.length > 0 && <section className="radar-results" aria-labelledby="radar-results-title">
+      <h2 id="radar-results-title">Ângulos para falar do conceito<span>{angles.length}</span></h2>
+      <div className="radar-results__grid">{angles.map((item, index) => <AngleCard key={item.id} item={item} lead={index === 0}
+        busy={planning === item.id} onPlan={createPlan}/>)}</div>
+    </section>}
+    {signals.length > 0 && <BuzzList signals={signals}/>}
+    {run?.status === 'done' && !angles.length && <div className="radar-empty-result">
       <Illustration slot="radar-empty"/>
-      <div><strong>Nenhuma oportunidade forte desta vez.</strong>
-        <p className="planner-muted">Tente recortar mais: acrescente a praça, a janela ou parta de uma das ideias de busca do assistente.</p></div>
+      <div><strong>Nada em buzz com fonte recente e link que abre.</strong>
+        <p className="planner-muted">Tente um conceito mais conhecido, uma janela maior (30 ou 60 dias) ou parta de uma das ideias do assistente.</p></div>
     </div>}
     {!running && run?.status === 'failed' && <p className="planner-muted">Você pode começar uma nova busca em &quot;Novo radar&quot;.</p>}
   </>;
@@ -216,8 +198,8 @@ export function RadarPage({boot, request, notify, context}) {
 export function RadarTeaser({boot}) {
   return <a className="planner-radar-teaser" href={boot.urls.radar}>
     <span className="planner-discover__icon" aria-hidden="true"><Icon name="pulse" size={18}/></span>
-    <strong>Radar de Oportunidades</strong>
+    <strong>Radar</strong>
     {boot.features?.radar ? <Icon name="chevron" size={16}/> : <CaduBadge tone="brand">Em breve</CaduBadge>}
-    <small>Sinais de mercado viram oportunidades de conteúdo, mídia ou as duas. Cada oportunidade abre um planejamento.</small>
+    <small>O que está em buzz agora e os ângulos para falar de um conceito. Cada ângulo abre um planejamento.</small>
   </a>;
 }

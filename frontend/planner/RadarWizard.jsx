@@ -8,10 +8,6 @@ import {contextQuery} from './api.js';
 const ART = '/static/images/planner/illustrations/';
 export const RADAR_DRAFT_KEY = 'planner.radar.draft';
 
-export const LENSES = [
-  ['Sazonalidade e datas', 'calendar'], ['Concorrência', 'users'], ['Tendências e cultura', 'pulse'],
-  ['Regulação', 'check'], ['Lançamentos do setor', 'plugin'], ['Reputação', 'analysis'],
-];
 /** Cada ideia vira um pedido completo; é o jeito mais rápido de pedir bem (tema + recorte). */
 export const IDEAS = [
   ['Datas e sazonalidade', who => `datas comerciais, eventos e sazonalidade das próximas semanas que abrem espaço para ${who}`],
@@ -21,27 +17,23 @@ export const IDEAS = [
   ['Reputação e imprensa', who => `o que a imprensa e o público estão falando sobre ${who}`],
   ['Notícias da praça', who => `fatos locais recentes que dão gancho para ${who}`],
 ];
-const OBJECTIVES = [['ambos', 'Conteúdo e mídia'], ['conteudo', 'Só conteúdo'], ['midia', 'Só mídia']];
 const PLACES = ['Brasil', 'São Paulo', 'Rio de Janeiro', 'Belo Horizonte', 'Capitais', 'Sul', 'Nordeste'];
 const RECENCY = [[7, 'Últimos 7 dias', 'O que acabou de acontecer.'], [30, 'Últimos 30 dias', 'O equilíbrio para a maioria das campanhas.'], [60, 'Últimos 60 dias', 'Para temas que andam devagar.']];
 export const FREQUENCIES = [[1, '1 vez por dia', 'às 8h'], [2, '2 vezes por dia', 'às 8h e 17h'], [3, '3 vezes por dia', 'às 8h, 13h e 18h']];
 const STEPS = [
   {key: 'marca', label: 'Marca', art: 'radar-1-marca.webp', title: 'De quem é este radar?', text: 'O Radar usa o perfil da marca: público, concorrentes e posicionamento.'},
-  {key: 'tema', label: 'Tema', art: 'radar-2-tema.webp', title: 'O que você quer encontrar?', text: 'Escreva o tema ou parta de uma ideia. Uma pergunta por radar rende oportunidades mais certeiras.'},
-  {key: 'praca', label: 'Onde e quando', art: 'radar-3-praca-janela.webp', title: 'Onde e em que janela?', text: 'A praça traz a imprensa local para a busca. A janela diz o quão recente o fato precisa ser.'},
-  {key: 'fontes', label: 'Fontes', art: 'radar-4-fontes.webp', title: 'Onde o Radar deve olhar?', text: 'Tudo vem ligado. Desligue o que não faz sentido para este tema.'},
+  {key: 'conceito', label: 'Conceito', art: 'radar-2-tema.webp', title: 'Sobre qual conceito você quer ouvir o buzz?', text: 'Escreva o tema, produto ou campanha. O Radar mostra o que está em alta e os ângulos para a marca falar dele.'},
+  {key: 'praca', label: 'Onde e quando', art: 'radar-3-praca-janela.webp', title: 'Onde e em que janela?', text: 'A praça traz o buzz do lugar. A janela diz o quão recente o assunto precisa ser.'},
   {key: 'revisao', label: 'Revisão', art: 'radar-5-revisao.webp', title: 'Pronto para procurar?', text: 'Confira o resumo. Se quiser, o Radar repete a busca sozinho e avisa quando houver novidade.'},
 ];
-const BENEFITS = [['search', 'Fatos recentes com fonte e data'], ['check', 'Cada oportunidade conferida na web'], ['pulse', 'Notas editorial, paga e por praça']];
+const BENEFITS = [['pulse', 'O que está em buzz agora'], ['plugin', 'Ângulos prontos para o cliente'], ['check', 'Só fonte recente e com link']];
 const GAP_FIELDS = [['competitors', 'Concorrentes'], ['target_audience', 'Público-alvo'], ['positioning', 'Posicionamento']];
 
-const empty = {brand_ref: '', project_ref: '', focus: '', lenses: [], objective: 'ambos', places: '', recency_days: 30,
-  press: true, trends: true, watch: false, frequency: 1};
+const empty = {brand_ref: '', project_ref: '', focus: '', places: '', recency_days: 30, watch: false, frequency: 1};
 const readDraft = () => { try { return {...empty, ...JSON.parse(window.sessionStorage.getItem(RADAR_DRAFT_KEY) || '{}')}; } catch { return empty; } };
-const toggle = (list, item, max = 3) => list.includes(item) ? list.filter(value => value !== item) : [...list, item].slice(-max);
 
 /**
- * "Novo radar": a busca montada uma pergunta por vez. Todo passo é opcional, o rascunho
+ * "Novo radar": o conceito e a marca, uma pergunta por vez. Todo passo é opcional, o rascunho
  * sobrevive a um recarregamento e o custo aparece antes de começar.
  */
 export function RadarWizard({boot, request, busy, onSubmit, context}) {
@@ -85,19 +77,14 @@ export function RadarWizard({boot, request, busy, onSubmit, context}) {
     event?.preventDefault();
     if (!last) { go(step + 1); return; }
     onSubmit({focus: data.focus.trim(), brand_ref: data.brand_ref || null, project_ref: data.project_ref || null,
-      params: {lenses: data.lenses, places: data.places, recency_days: data.recency_days, objective: data.objective,
-        sources: {press: data.press, trends: data.trends}},
-      watch: data.watch ? {frequency: data.frequency} : null});
+      params: {places: data.places, recency_days: data.recency_days}, watch: data.watch ? {frequency: data.frequency} : null});
   };
   const empty_ = !data.focus.trim() && !data.brand_ref && !data.project_ref;
   const filled = new Set((known.brand?.fields || []).map(item => item.key));
   const gaps = GAP_FIELDS.filter(([key]) => data.brand_ref && !known.loading && !filled.has(key));
   const current = STEPS[step];
-  const summary = [
-    ['Marca', [brand?.name, project?.name].filter(Boolean).join(' · ')], ['Tema', data.focus.trim()],
-    ['Lentes', data.lenses.join(', ')], ['Praça', data.places], ['Janela', `últimos ${data.recency_days} dias`],
-    ['Fontes', ['busca aberta', data.press && 'imprensa', data.trends && 'buscas em alta', 'conferência na web'].filter(Boolean).join(', ')],
-  ].filter(([, value]) => value);
+  const summary = [['Marca', [brand?.name, project?.name].filter(Boolean).join(' · ')], ['Conceito', data.focus.trim()],
+    ['Praça', data.places], ['Janela', `últimos ${data.recency_days} dias`]].filter(([, value]) => value);
 
   return <div className="wizard wizard--radar" role="dialog" aria-modal="true" aria-label="Novo radar">
     <header className="wizard__bar">
@@ -107,9 +94,9 @@ export function RadarWizard({boot, request, busy, onSubmit, context}) {
     </header>
     <aside className="wizard__art" aria-hidden="true">
       <div className="wizard__intro">
-        <span className="wizard__eyebrow">Do sinal à oportunidade</span>
+        <span className="wizard__eyebrow">Do buzz ao ângulo</span>
         <h1>Radar<em>Beta</em></h1>
-        <p>Diga o que procurar. O Radar traz fatos recentes, confere cada um e mostra onde agir.</p>
+        <p>Diga o conceito. O Radar mostra o que está em alta agora e os ângulos para a marca falar dele.</p>
         <ul>{BENEFITS.map(([icon, text]) => <li key={text}><Icon name={icon} size={20}/>{text}</li>)}</ul>
       </div>
       {STEPS.map((item, index) => <img key={item.key} className={`wizard__scene${index === step ? ' is-current' : ''}`} src={ART + item.art} alt="" loading={index === 0 ? 'eager' : 'lazy'}/>)}
@@ -149,20 +136,10 @@ export function RadarWizard({boot, request, busy, onSubmit, context}) {
         </>}
 
         {step === 1 && <>
-          <CaduTextAreaField aria-label="Tema" rows={3} value={data.focus} onChange={event => set('focus', event.target.value)} maxLength="240"
-            placeholder={`Ex.: volta às aulas e crédito estudantil no Sudeste para ${who}`}/>
-          <div className="wizard__chips" aria-label="Ideias de busca">
+          <CaduTextAreaField aria-label="Conceito" rows={3} value={data.focus} onChange={event => set('focus', event.target.value)} maxLength="240"
+            placeholder={`Ex.: consumo consciente de energia no fim do ano, para ${who}`}/>
+          <div className="wizard__chips" aria-label="Ideias para começar">
             {IDEAS.map(([label, text]) => <button key={label} type="button" onClick={() => set('focus', text(who))}>{label}</button>)}
-          </div>
-          <p className="wizard__label">Lentes <small>(até 3, opcional)</small></p>
-          <div className="wizard__chips" role="group" aria-label="Lentes">
-            {LENSES.map(([label, icon]) => <button key={label} type="button" aria-pressed={data.lenses.includes(label)} className={data.lenses.includes(label) ? 'is-on' : ''}
-              onClick={() => set('lenses', toggle(data.lenses, label))}><Icon name={icon} size={14}/>{label}</button>)}
-          </div>
-          <p className="wizard__label">O que fazer com o achado</p>
-          <div className="wizard__chips" role="radiogroup" aria-label="Objetivo">
-            {OBJECTIVES.map(([id, label]) => <button key={id} type="button" role="radio" aria-checked={data.objective === id} className={data.objective === id ? 'is-on' : ''}
-              onClick={() => set('objective', id)}>{label}</button>)}
           </div>
         </>}
 
@@ -178,20 +155,7 @@ export function RadarWizard({boot, request, busy, onSubmit, context}) {
           </div>
         </>}
 
-        {step === 3 && <div className="wizard__options">
-          <div className="wiz-option is-chosen is-fixed"><span className="wiz-option__icon"><Icon name="search" size={22}/></span>
-            <span><strong>Busca aberta</strong><small>O Perplexity procura o que está acontecendo no tema. Sempre ligada.</small></span><Icon name="check" size={18}/></div>
-          <button type="button" role="switch" aria-checked={data.press} className={`wiz-option${data.press ? ' is-chosen' : ''}`} onClick={() => set('press', !data.press)}>
-            <span className="wiz-option__icon"><Icon name="library" size={22}/></span>
-            <span><strong>Imprensa conhecida</strong><small>Só reportagens de veículos nacionais, de mercado e da sua praça.</small></span><Icon name={data.press ? 'check' : 'plus'} size={18}/></button>
-          <button type="button" role="switch" aria-checked={data.trends} className={`wiz-option${data.trends ? ' is-chosen' : ''}`} onClick={() => set('trends', !data.trends)}>
-            <span className="wiz-option__icon"><Icon name="pulse" size={22}/></span>
-            <span><strong>Buscas e assuntos em alta</strong><small>O que cresceu nos últimos dias ligado ao tema.</small></span><Icon name={data.trends ? 'check' : 'plus'} size={18}/></button>
-          <div className="wiz-option is-chosen is-fixed"><span className="wiz-option__icon"><Icon name="check" size={22}/></span>
-            <span><strong>Conferência na web</strong><small>Um segundo modelo pesquisa fora das fontes e tenta provar que cada oportunidade está errada. Sempre ligada.</small></span><Icon name="check" size={18}/></div>
-        </div>}
-
-        {step === 4 && <>
+        {step === 3 && <>
           {summary.length > 0 ? <dl className="wizard__summary">{summary.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
             : <p className="wizard__lead">Nada preenchido ainda. Escolha uma marca ou escreva um tema para o Radar procurar.</p>}
           <button type="button" role="switch" aria-checked={data.watch} className={`wiz-option${data.watch ? ' is-chosen' : ''}`} onClick={() => set('watch', !data.watch)}>

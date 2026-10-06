@@ -1658,3 +1658,19 @@ a.planner-portal.planner-portal--wide { grid-template-columns: 40px minmax(200px
 .format-card__stage, .audience-card__art { position: relative; }
 @media (hover: none) { .channel-card__cta { opacity: 1; transform: none; } }
 .pd-hero__metrics dd { overflow-wrap: break-word; word-break: normal; hyphens: none; font-size: 18px; }
+
+/* Radar: buzz e ângulos */
+.radar-source { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; color: #067647; font-size: 13px; text-decoration: none; }
+.radar-source:hover span { text-decoration: underline; text-underline-offset: 3px; } .radar-source small { color: var(--planner-muted); }
+.radar-angle__why { display: flex; gap: 8px; margin: 0; color: #344054; font-size: 14px; } .radar-angle__why svg { flex: none; margin-top: 3px; color: #067647; }
+.radar-angle__tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.radar-angle__tags li { padding: 3px 10px; border-radius: 99px; background: var(--planner-soft); font-size: 12px; font-weight: 600; }
+.radar-angle__buzz { display: grid; gap: 6px; } .radar-angle__buzz > small { color: var(--planner-muted); font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
+.radar-buzz { margin: var(--sp-8, 32px) 0; }
+.radar-buzz h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 var(--sp-3); font-size: 18px; font-weight: 600; }
+.radar-buzz h2 span { padding: 1px 9px; border-radius: 99px; background: var(--planner-soft); color: var(--planner-muted); font-size: 13px; font-weight: 600; }
+.radar-buzz ol { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.radar-buzz li { display: grid; gap: 4px; padding: var(--sp-4) var(--sp-5); border-radius: var(--planner-radius); background: var(--planner-surface); box-shadow: inset 0 0 0 1px var(--planner-line); }
+.radar-buzz li p { margin: 0; color: var(--planner-muted); font-size: 14px; }
+.radar-chain-details > summary { width: fit-content; margin: 0 0 var(--sp-3); color: #067647; font-size: 14px; font-weight: 600; cursor: pointer; }
+.radar-chain-details:not([open]) { margin-bottom: var(--sp-6); }

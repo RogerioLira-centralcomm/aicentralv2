@@ -112,7 +112,30 @@ V1_0 = {
         '{payload}'),
 }
 
-VERSIONS = {'1.0': V1_0}
+# Versão 1.5 (produção): o Radar responde a duas perguntas simples, "o que está em buzz agora?" e "que ângulos tenho
+# para falar do conceito?". Sem notas, selos nem quadrantes. A data de hoje vai em todo prompt, porque o modelo
+# tende a trazer o que conhece, que costuma ser de anos atrás.
+V1_5 = {
+    'buzz': (
+        'Hoje é {today}. Você acompanha o que está gerando buzz no Brasil. Liste os assuntos, acontecimentos, debates e '
+        'buscas que estão em alta AGORA e que tenham a ver com o conceito pedido, entre {since} e {today}. Para cada um: '
+        'o que é, por que está em alta, a data (AAAA-MM-DD), o veículo e a URL exata da reportagem ou página. Comece pelo '
+        'que mais gente está comentando. Nada anterior a {since}: se não tiver data e URL confiáveis, não inclua. '
+        'Até 8 itens. Responda só JSON: {{"buzz": [{{"assunto": "...", "por_que_em_alta": "...", "data": "AAAA-MM-DD", '
+        '"local": "cidade/UF ou Brasil", "veiculo": "...", "url": "..."}}]}}',
+        'Conceito: {topic}\nPraça: {places}\nContexto da marca: {brand_facts}'),
+    'angles': (
+        'Hoje é {today}. Você é estrategista de conteúdo e mídia de uma agência no Brasil. Recebe o conceito, a marca e uma '
+        'lista de assuntos em buzz (ids B1, B2…). Proponha de 3 a 5 ÂNGULOS para a marca falar do conceito aproveitando esse '
+        'buzz. Cada ângulo: título curto; gancho (a ideia em 1 ou 2 frases, algo que o planejador leva ao cliente); por que '
+        'agora (liga a um buzz da lista); formatos e canais sugeridos; até quando a janela fica aberta; e os ids dos buzz que '
+        'o sustentam. Seja específico para ESTA marca. Nada genérico e nenhum fato fora da lista. Nos textos, NUNCA cite os ids (B1, B2…): fale do assunto pelo nome. Os ids só entram no campo "buzz". Responda só JSON: '
+        '{{"angulos": [{{"titulo": "...", "gancho": "...", "por_que_agora": "...", "formatos": ["..."], "canais": ["..."], '
+        '"janela": "...", "buzz": ["B1"]}}]}}',
+        '{payload}'),
+}
+
+VERSIONS = {'1.0': V1_0, '1.5': V1_5}
 # Prompts que o médico de prompts pode reescrever. A descoberta fica fora: assim a versão nova roda sobre as
 # mesmas evidências da anterior e a comparação mede só o efeito do prompt.
 EDITABLE = ('judge', 'revise', 'reality_check', 'verify')

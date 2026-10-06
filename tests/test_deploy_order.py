@@ -62,3 +62,10 @@ def test_every_sql_migration_is_in_the_order_file_or_called_by_a_runner():
         if path.name not in ORDER and path.name not in runners and path.name not in legacy
     )
     assert not forgotten, f'Fora do deploy: {forgotten}. Inclua em migrations/ORDER.txt.'
+
+
+def test_link_tester_migrations_can_rerun_after_the_table_became_a_view():
+    """move_link_tester_to_reports_v1 troca a tabela por uma view; os SQLs anteriores precisam ignorar a reexecução."""
+    for name in ('add_cadu_planner_link_test_runs.sql', 'add_reports_link_associations_v1.sql'):
+        sql = (ROOT / 'migrations' / name).read_text()
+        assert "relkind FROM pg_class WHERE oid = to_regclass('cadu_planner_link_test_runs')) = 'v'" in sql, name

@@ -1,4 +1,12 @@
 -- Link Tester: three independent reports may share one URL, never one score.
+-- Reexecutável depois de move_link_tester_to_reports_v1.sql (a tabela virou cadu_reports_link_test_runs e este nome é uma view).
+DO $guard$
+BEGIN
+    IF (SELECT relkind FROM pg_class WHERE oid = to_regclass('cadu_planner_link_test_runs')) = 'v' THEN
+        RAISE NOTICE 'cadu_planner_link_test_runs já é uma view do Reports; migração ignorada.';
+        RETURN;
+    END IF;
+    EXECUTE $sql$
 CREATE TABLE IF NOT EXISTS cadu_planner_link_test_runs (
     id UUID PRIMARY KEY,
     client_id BIGINT NOT NULL,
@@ -31,3 +39,6 @@ ALTER TABLE cadu_planner_link_test_runs ADD COLUMN IF NOT EXISTS project_ref TEX
 CREATE INDEX IF NOT EXISTS cadu_planner_link_test_runs_project_idx
     ON cadu_planner_link_test_runs (client_id, project_ref, created_at DESC)
     WHERE project_ref IS NOT NULL;
+    $sql$;
+END
+$guard$;

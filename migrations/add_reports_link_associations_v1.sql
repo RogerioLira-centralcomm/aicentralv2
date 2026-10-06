@@ -1,4 +1,12 @@
 -- Confirmed Link Tester associations. Historical runs remain unchanged until a user saves a decision.
+-- Reexecutável depois de move_link_tester_to_reports_v1.sql (a tabela virou cadu_reports_link_test_runs e este nome é uma view).
+DO $guard$
+BEGIN
+    IF (SELECT relkind FROM pg_class WHERE oid = to_regclass('cadu_planner_link_test_runs')) = 'v' THEN
+        RAISE NOTICE 'cadu_planner_link_test_runs já é uma view do Reports; migração ignorada.';
+        RETURN;
+    END IF;
+    EXECUTE $sql$
 ALTER TABLE cadu_planner_link_test_runs ADD COLUMN IF NOT EXISTS report_workspace_id BIGINT;
 ALTER TABLE cadu_planner_link_test_runs ADD COLUMN IF NOT EXISTS association_updated_at TIMESTAMPTZ;
 
@@ -24,3 +32,6 @@ CREATE INDEX IF NOT EXISTS cadu_reports_link_association_history_run_idx
     ON cadu_reports_link_association_history (run_id, decided_at DESC);
 CREATE INDEX IF NOT EXISTS cadu_reports_link_association_history_client_idx
     ON cadu_reports_link_association_history (organization_id, client_id, decided_at DESC);
+    $sql$;
+END
+$guard$;

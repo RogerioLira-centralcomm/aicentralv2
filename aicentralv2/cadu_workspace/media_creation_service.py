@@ -64,6 +64,10 @@ def _index_generated_image(context: RequestContext, request_id: str, prompt: str
 
 def generate_studio_image(context: RequestContext, arguments: dict) -> dict:
     """Compile, direct, render, persist and return a Studio image to an agent."""
+    # Paid generation must always be billable: the Studio billing path silently skips charging
+    # when it has no payer, so refuse here instead of delivering an image for free.
+    if not context.client_id or not context.user_id:
+        raise ToolInputError("Não foi possível identificar a conta para cobrar a geração.")
     request_id = str(UUID(str(arguments["request_id"])))
     original = str(arguments["prompt"]).strip()
     source_url = str(arguments.get("source_url") or "").strip()

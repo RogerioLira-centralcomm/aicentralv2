@@ -586,6 +586,29 @@ def charge(provider_result, client_id, user_id, count, project_id, run_id=None,
     return int(charged.get("tokens_cobrados") or 0), credits.balance(actor.client_id)
 
 
+IMAGE_CHARGE_ATTEMPTS = 3
+
+
+def charge_image_with_retry(charge, *, request_id, **kwargs):
+    """Charge a generated image, retrying a failed ledger write before giving up.
+
+    The image already exists and the provider was paid, so a transient ledger failure must not leave it
+    unbilled. The idempotency key makes every retry safe: it can never debit twice. A persistent failure
+    still raises and is logged for reconciliation.
+    """
+    last_error = None
+    for attempt in range(IMAGE_CHARGE_ATTEMPTS):
+        try:
+            return charge(**kwargs)
+        except Exception as error:
+            last_error = error
+            logger.warning("Cobrança da imagem %s falhou (tentativa %s/%s)", request_id, attempt + 1,
+                           IMAGE_CHARGE_ATTEMPTS, exc_info=True)
+    logger.error("Imagem %s gerada e NÃO cobrada: reconciliar o lançamento %s", request_id,
+                 kwargs.get("idempotency_key"))
+    raise last_error
+
+
 def create_image(payload, modeling, client_id, user_id):
     """Generate one Studio still with explicit reference roles and mask-safe composition."""
     data = payload if isinstance(payload, dict) else {}
@@ -1067,7 +1090,9 @@ def create_image(payload, modeling, client_id, user_id):
         setattr(error, "studio_phase", "image_storage")
         raise
     try:
-        charged = modeling._charge_studio_call(
+        charged = charge_image_with_retry(
+            modeling._charge_studio_call,
+            request_id=request_id,
             client_id=client_id,
             user_id=user_id,
             idempotency_key=f"studio:create-image:{request_id}",

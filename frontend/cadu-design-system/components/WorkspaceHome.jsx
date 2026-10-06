@@ -210,7 +210,7 @@ export function WorkspaceHome({bootstrap}) {
           {resumeSuggestionState === 'ready' && resumeSuggestion ? <a className="cadu-ds-home-resume__result" href={resumeSuggestion.href}>
             <span><small>Trabalho atualizado recentemente</small><b>{resumeSuggestion.title}</b><small>{resumeSuggestion.context}{resumeSuggestion.context && resumeSuggestion.status ? ' · ' : ''}{resumeSuggestion.status}</small></span><span aria-hidden="true">›</span>
           </a> : <>
-            {resumeSuggestionState !== 'empty' && <CaduButton type="button" variant="secondary" onClick={requestResumeSuggestion} disabled={resumeSuggestionState === 'loading'}>
+            {resumeSuggestionState !== 'empty' && <CaduButton type="button" variant="tertiary" onClick={requestResumeSuggestion} disabled={resumeSuggestionState === 'loading'}>
               {resumeSuggestionState === 'loading' ? 'Carregando…' : resumeSuggestionState === 'error' ? 'Tentar novamente' : 'Retomar trabalho recente'}
             </CaduButton>}
             {resumeSuggestionState === 'empty' && <small role="status">Não encontrei uma sugestão útil para retomar agora.</small>}

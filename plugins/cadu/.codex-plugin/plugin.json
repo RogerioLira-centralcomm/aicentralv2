@@ -1,19 +1,96 @@
 {
   "name": "cadu",
-  "version": "0.1.0",
-  "description": "Acesse projetos, marcas, biblioteca e materiais de marketing do Cadu com autorização da sua conta.",
-  "author": { "name": "Central Comm" },
+  "version": "0.2.0",
+  "description": "Acesse projetos, marcas, biblioteca, Studio e o catálogo do Planner do Cadu com autorização da sua conta.",
+  "author": {
+    "name": "Central Comm",
+    "email": "contato@centralcomm.media",
+    "url": "https://workspace.centralcomm.media"
+  },
+  "homepage": "https://workspace.centralcomm.media",
+  "keywords": ["marketing", "marcas", "planejamento de mídia", "audiências", "criativos"],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Cadu",
-    "shortDescription": "Projetos, marcas e materiais de marketing do Cadu",
+    "shortDescription": "Projetos, marcas e Planner",
+    "longDescription": "O Cadu leva o contexto de marketing da sua conta para o seu agente. Pesquise e salve materiais nos projetos, cadastre marcas com logo e referências, peça a auditoria de marca (o custo em créditos é mostrado antes de iniciar), abra sessões do Studio para criar anúncios e imagens, e consulte o catálogo do Planner (audiências, canais, formatos, formatos interativos, portais e Places) com imagens e logos, sem abrir o Cadu. O acesso usa o login do Cadu com permissões que você aprova e pode revogar a qualquer momento.",
+    "developerName": "Central Comm",
     "category": "Marketing",
-    "logo": "./assets/logo.svg",
+    "capabilities": [
+      "Pesquisar e salvar materiais em projetos",
+      "Cadastrar e auditar marcas",
+      "Consultar o catálogo do Planner",
+      "Criar anúncios e imagens no Studio",
+      "Preparar documentos e planos"
+    ],
+    "websiteURL": "https://workspace.centralcomm.media",
+    "supportURL": "https://workspace.centralcomm.media/workspace/contato",
+    "privacyPolicyURL": "https://workspace.centralcomm.media/privacidade",
+    "termsOfServiceURL": "https://workspace.centralcomm.media/termos",
     "defaultPrompt": [
       "Quero começar com um cliente novo no Cadu.",
-      "Resuma o objetivo e as decisões do projeto, citando as fontes.",
-      "Faça a auditoria da marca e me diga o custo antes de iniciar."
-    ]
+      "Mostre audiências e canais do Planner para este público.",
+      "Resuma o projeto e cite as fontes do Cadu."
+    ],
+    "composerIcon": "./assets/logo.svg",
+    "logo": "./assets/logo.svg"
+  },
+  "extensions": {
+    "com.openai": {
+      "onboardingSkill": "./skills/primeiros-passos/SKILL.md",
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Cadastrar uma marca nova com site e segmento, e conferir o que ficou definido.",
+              "prompt": "Cadastre a marca Bomfim Cargas, site www.bomfimcargas.com.br, segmento transporte rodoviário e logística, e me diga o que ainda falta definir.",
+              "tools_triggered": "brands.create, brands.get_context",
+              "expected_behavior": "Cria a marca no Cadu, confere com brands.get_context e resume o que está definido e o que falta (posicionamento, público, tom de voz, paleta), sem tratar dados do site como identidade aprovada."
+            },
+            {
+              "description": "Mostrar o custo da auditoria de marca antes de iniciar e só então executá-la.",
+              "prompt": "Quero fazer a auditoria completa da marca Bomfim Cargas.",
+              "tools_triggered": "brands.audit_status, brands.start_audit",
+              "expected_behavior": "Consulta brands.audit_status, apresenta a estimativa de créditos e o tempo das modalidades, pede confirmação e só depois chama brands.start_audit; devolve o link da marca no Cadu para acompanhar o resultado."
+            },
+            {
+              "description": "Consultar o catálogo do Planner de forma visual.",
+              "prompt": "Quais audiências de executivos existem no Planner? Mostre com imagem e o canal de cada uma.",
+              "tools_triggered": "planner.search_catalog, planner.get_catalog_item",
+              "expected_behavior": "Pesquisa audiências, mostra os cards com imagem, logo da plataforma e link para abrir no Cadu, e aprofunda um item com planner.get_catalog_item quando pedido. Não exibe preços nem valores comerciais."
+            },
+            {
+              "description": "Pesquisar nas fontes de um projeto e citar os trechos.",
+              "prompt": "No projeto Media Hacks, resuma o objetivo e as decisões já tomadas, citando as fontes.",
+              "tools_triggered": "workspace.list_projects, projects.search_knowledge, projects.get_source_chunks",
+              "expected_behavior": "Busca no projeto correto, separa fatos (com fonte e trecho), lacunas e hipóteses, e não afirma ter pesquisado o que a busca não retornou."
+            },
+            {
+              "description": "Abrir uma sessão do Studio para um anúncio da marca, sem gerar mídia nem consumir créditos.",
+              "prompt": "Abra uma sessão no Studio para um anúncio 4:5 da Bomfim Cargas sobre a frota nova.",
+              "tools_triggered": "brands.get_context, media.start_studio_session",
+              "expected_behavior": "Lê o contexto da marca, escreve o briefing completo e devolve o link da sessão do Studio com a marca e o briefing já preenchidos. Não gera imagem nem cobra créditos."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Pedido fora do escopo do Cadu: previsão do tempo.",
+              "prompt": "Qual vai ser a previsão do tempo em Recife amanhã?"
+            },
+            {
+              "description": "Pedido fora do escopo do Cadu: compra de passagem.",
+              "prompt": "Reserve um voo de São Paulo para Lisboa na próxima sexta."
+            },
+            {
+              "description": "Pedido genérico de programação que não envolve dados do Cadu.",
+              "prompt": "Escreva uma função em Python que inverte uma string."
+            }
+          ]
+        },
+        "commerce": true,
+        "commerce_description": "O Cadu consome créditos da conta do usuário em ações pagas (auditoria de marca, indexação de fontes grandes e geração de imagem). O custo é mostrado e confirmado antes. Administradores podem solicitar a compra de pacotes de créditos, que o financeiro confirma fora do ChatGPT; nenhum pagamento é feito dentro da conversa."
+      }
+    }
   }
 }

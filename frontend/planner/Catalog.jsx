@@ -1,4 +1,4 @@
-import React, {useContext, useEffect, useMemo, useRef, useState} from 'react';
+import React, {Fragment, useContext, useEffect, useMemo, useRef, useState} from 'react';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.jsx';
 import {CaduSelectField} from '../cadu-design-system/components/CaduField.jsx';
@@ -9,6 +9,7 @@ import {MODULE_LABELS, moduleUrl} from './api.js';
 import {ActivePlanChip, PlannerHeader} from './PlannerHeader.jsx';
 import {ChannelCard, ChannelRow} from './ChannelCard.jsx';
 import {PlanBar} from './PlanBar.jsx';
+import {PlanBanner, ShelfEmpty} from './PlannerPromo.jsx';
 import {PlannerChrome} from './PlannerHeader.jsx';
 
 const PORTAL_PAGE = 50;
@@ -267,15 +268,30 @@ export function CatalogPage({boot, request, selection, notify}) {
       </details>}
       <CaduButton variant="secondary" disabled={bulkBusy || !total} onClick={addFiltered}>{bulkBusy ? 'Adicionando…' : `Adicionar filtrados ao plano (${Math.min(total, BULK_LIMIT)})`}</CaduButton>
     </div>}
-    {!records.length && !loading ? <PlannerPanel className="planner-panel--flush"><CaduEmptyState title="Nenhuma referência encontrada" description="Ajuste a busca ou escolha outra categoria."/></PlannerPanel>
+    {!records.length && !loading ? <ShelfEmpty title="Nenhuma referência encontrada" description="Ajuste a busca ou escolha outra categoria. Se preferir, o Planejar monta uma sugestão com você." action={<CaduButton variant="secondary" onClick={() => { setQuery(''); setCategory(''); setMore({measurable: false, formats: false}); }}>Limpar filtros</CaduButton>}/>
       : portalMode ? <div className="planner-list" aria-label="Portais disponíveis">{records.map(item => <PortalRow key={itemKey(item)} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))}/>)}</div>
-        : kind === 'canais' ? channelGroups(shown, category, groupBy).map(group => <section key={group.title || 'canais'} className="fmt-group" aria-label={group.title || 'Canais'}>
-          {group.title && <h2 className="fmt-group__title">{group.title}<span>{group.items.length}</span></h2>}
-          <div className={view === 'lista' ? 'channel-list' : 'planner-grid planner-grid--channels'}>{group.items.map(item => {
-            const Tile = view === 'lista' ? ChannelRow : ChannelCard;
-            return <Tile key={itemKey(item)} item={item} urls={boot.urls} quoteUrl={quoteUrl}
-              selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>;
-          })}</div></section>)
+        : kind === 'canais' ? (() => {
+          // The invitation to plan sits after the first eight cards (or at the end of a short list).
+          const groups = channelGroups(shown, category, groupBy);
+          let seen = 0;
+          let placed = false;
+          return groups.map((group, position) => {
+            seen += group.items.length;
+            const banner = !placed && (seen >= 8 || position === groups.length - 1);
+            if (banner) placed = true;
+            return <Fragment key={group.title || 'canais'}>
+              <section className="fmt-group" aria-label={group.title || 'Canais'}>
+                {group.title && <h2 className="fmt-group__title">{group.title}<span>{group.items.length}</span></h2>}
+                <div className={view === 'lista' ? 'channel-list' : 'planner-grid planner-grid--channels'}>{group.items.map(item => {
+                  const Tile = view === 'lista' ? ChannelRow : ChannelCard;
+                  return <Tile key={itemKey(item)} item={item} urls={boot.urls} quoteUrl={quoteUrl}
+                    selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>;
+                })}</div>
+              </section>
+              {banner && <PlanBanner urls={boot.urls}/>}
+            </Fragment>;
+          });
+        })()
         : <div className="planner-grid" aria-label={`${MODULE_LABELS[kind]} disponíveis`}>{records.map(item => <CatalogCard key={itemKey(item)} kind={kind} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))}/>)}</div>}
     {kind === 'canais' && <PlanBar noun={['canal', 'canais']} count={selection.count(kind)} href={quoteUrl}
       chosen={records.filter(item => selection.isSelected(kind, itemKey(item))).map(item => ({key: itemKey(item), logo: item.logo_path, name: item.name}))}/>}

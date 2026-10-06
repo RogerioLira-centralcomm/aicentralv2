@@ -8,6 +8,7 @@ import {FacetChips} from './AudienceShowcase.jsx';
 import {itemKey, useDebounced} from './Catalog.jsx';
 import {FormatCard} from './FormatCard.jsx';
 import {PlanBar} from './PlanBar.jsx';
+import {ShelfEmpty} from './PlannerPromo.jsx';
 import {ActivePlanChip, PlannerChrome, PlannerHeader} from './PlannerHeader.jsx';
 
 const URL_KEYS = {q: 'q', family: 'familia', platform: 'canal'};
@@ -81,7 +82,7 @@ export function FormatShowcase({boot, selection}) {
       </div>}
     </section>
 
-    {!groups.length ? <CaduEmptyState title="Nenhum formato com estes filtros" description="Tire um filtro ou busque por outro termo."
+    {!groups.length ? <ShelfEmpty title="Nenhum formato com estes filtros" description="Tire um filtro ou busque por outro termo."
       action={<CaduButton variant="secondary" onClick={clear}>Ver todos os formatos</CaduButton>}/>
       : groups.map(group => <section key={group.family} className="fmt-group" aria-labelledby={`fmt-${group.items[0].family_order}`}>
         <h2 id={`fmt-${group.items[0].family_order}`} className="fmt-group__title">{group.family}<span>{number(group.items.length)}</span></h2>

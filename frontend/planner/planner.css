@@ -1411,3 +1411,17 @@ a.planner-portal.planner-portal--wide { grid-template-columns: 40px minmax(200px
 .fmt-preview__text { font-size: 10px; }
 .format-card__stage .fmt-preview { width: 100%; max-width: 240px; }
 .format-card__stage { min-height: 180px; }
+
+/* Banner, steps card and empty shelf: the art has no text, the words are live. */
+.plan-banner { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 168px; margin: 8px 0 28px; padding: 24px 32px 24px 36%; border-radius: 20px; background-color: #e0f8ee; background-repeat: no-repeat; background-position: left center; background-size: auto 100%; }
+.plan-banner__copy { max-width: 560px; }
+.plan-banner h2 { margin: 0 0 4px; font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
+.plan-banner p { margin: 0; color: var(--color-text-secondary, #344054); font-size: 15px; }
+.steps-card { cursor: default; }
+.steps-card > img { display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: cover; background: #fff; }
+.steps-card .channel-card__foot .cadu-ds-button, .steps-card .channel-card__foot a { width: 100%; justify-content: center; }
+.shelf-empty { display: grid; justify-items: center; gap: 8px; padding: 40px 16px; text-align: center; }
+.shelf-empty img { width: min(260px, 60%); height: auto; }
+.shelf-empty h2 { margin: 8px 0 0; font-size: 18px; font-weight: 700; }
+.shelf-empty p { max-width: 460px; margin: 0 0 8px; color: var(--planner-muted); font-size: 14px; }
+@media (max-width: 760px) { .plan-banner { flex-direction: column; align-items: flex-start; padding: 150px 20px 20px; background-position: top center; background-size: auto 140px; } }

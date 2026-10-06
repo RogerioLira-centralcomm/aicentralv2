@@ -1,4 +1,4 @@
-import React, {useContext, useEffect, useRef, useState} from 'react';
+import React, {Fragment, useContext, useEffect, useRef, useState} from 'react';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.jsx';
 import {CaduSelectField} from '../cadu-design-system/components/CaduField.jsx';
@@ -7,6 +7,7 @@ import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {itemKey, useDebounced} from './Catalog.jsx';
 import {AudienceCard} from './AudienceCard.jsx';
 import {PlanBar} from './PlanBar.jsx';
+import {ShelfEmpty, StepsCard} from './PlannerPromo.jsx';
 import {PlannerChrome} from './PlannerHeader.jsx';
 import {ActivePlanChip, PlannerHeader} from './PlannerHeader.jsx';
 import {LogoTile} from './PlannerUi.jsx';
@@ -128,12 +129,15 @@ export function AudienceShowcase({boot, request, selection, notify}) {
       </div>}
     </section>
 
-    {!records.length && !loading ? <CaduEmptyState title="Nenhuma audiência com estes filtros"
+    {!records.length && !loading ? <ShelfEmpty title="Nenhuma audiência com estes filtros"
       description="Tire um filtro ou busque por outro termo." action={<CaduButton variant="secondary"
         onClick={() => setFilters({q: '', platform: '', category: '', subcategory: '', sort: 'relevant'})}>Ver todas as audiências</CaduButton>}/>
       : <div className={`planner-grid planner-grid--channels${loading ? ' is-loading' : ''}`} aria-label="Audiências disponíveis" aria-busy={loading}>
-        {records.map(item => <AudienceCard key={itemKey(item)} item={item} urls={boot.urls} selected={selection.isSelected('audiencias', itemKey(item))}
-          onToggle={() => selection.toggle('audiencias', itemKey(item))}/>)}
+        {records.map((item, index) => <Fragment key={itemKey(item)}>
+          <AudienceCard item={item} urls={boot.urls} selected={selection.isSelected('audiencias', itemKey(item))}
+            onToggle={() => selection.toggle('audiencias', itemKey(item))}/>
+          {index === 5 && <StepsCard urls={boot.urls}/>}
+        </Fragment>)}
       </div>}
 
     {records.length > 0 && <footer className="aud-more">

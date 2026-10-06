@@ -587,7 +587,7 @@ export function WorkspaceBrand({bootstrap}) {
   return <div className={`cadu-ds-home-shell cadu-ds-brand-shell is-${lifecycle}`}>
     <main className="cadu-ds-home-main">
       <div className="cadu-ds-home-workarea cadu-ds-brand-workarea">
-        {isMobile ? <WorkspaceMobileChrome eyebrow="Marca" title={brand.name || 'Marca'} links={bootstrap.urls} contextItems={linkedProjects.map(item => ({...item, detail:'Projeto relacionado'}))}/> : <WorkspaceContextSidebar mode="home" rail bootstrap={bootstrap} links={bootstrap.urls} active="marcas" projects={bootstrap.projects || []} brands={bootstrap.brands || []}/>}
+        {isMobile ? <WorkspaceMobileChrome eyebrow="Marca" title={brand.name || 'Marca'} links={bootstrap.urls} logo={bootstrap.caduMark} solutionIcons={bootstrap.solutionIcons} contextItems={linkedProjects.map(item => ({...item, detail:'Projeto relacionado'}))}/> : <WorkspaceContextSidebar mode="home" rail bootstrap={bootstrap} links={bootstrap.urls} active="marcas" projects={bootstrap.projects || []} brands={bootstrap.brands || []}/>}
         <div className="cadu-ds-entity-portal cadu-ds-entity-portal--brand">
         {!isProcessing && <EntityNavigator label={brand.name || 'Marca'} items={brandNav} collapsible storageKey="cadu:brand-sidebar" identity={<><VisualIdentity src={brand.logoUrl} initials={brand.initials || brand.name} label={brand.name} color={brand.color || colors[0]?.hex}/><span><small>Marca</small><b>{brand.name}</b></span></>}>
           {!isProcessing && <>

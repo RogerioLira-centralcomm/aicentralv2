@@ -4547,3 +4547,26 @@ body.portal--workspace .cadu-ds-project-reports-row>a{display:grid;grid-template
 .cadu-ds-confirm__dialog h2{margin:0;font-size:18px;color:var(--cadu-ink)}
 .cadu-ds-confirm__dialog p{margin:0;color:var(--cadu-muted);font-size:14px;line-height:1.5}
 .cadu-ds-confirm__actions{display:flex;justify-content:flex-end;gap:10px;margin-top:10px}
+
+/* Mobile drawer: brand, collapsible solution switcher and a pinned account footer. */
+@media (max-width:760px) {
+  .cadu-ds-mobile-navigation>section { display:flex; flex-direction:column; }
+  .cadu-ds-mobile-navigation__brand { display:flex!important; align-items:center; gap:10px; }
+  .cadu-ds-mobile-navigation__brand img { width:28px; height:28px; border-radius:8px; object-fit:contain; }
+  .cadu-ds-mobile-navigation__solutions { margin:12px 14px 4px; border:1px solid var(--cadu-line); border-radius:12px; background:var(--cadu-surface); }
+  .cadu-ds-mobile-navigation__solutions>summary { display:flex; min-height:52px; align-items:center; gap:12px; padding:0 12px; list-style:none; cursor:pointer; }
+  .cadu-ds-mobile-navigation__solutions>summary::-webkit-details-marker { display:none; }
+  .cadu-ds-mobile-navigation__solutions>summary>span { display:grid; flex:1; min-width:0; }
+  .cadu-ds-mobile-navigation__solutions>summary b { font-size:14px; color:var(--cadu-ink); }
+  .cadu-ds-mobile-navigation__solutions>summary small,.cadu-ds-mobile-navigation__solutions nav small { color:var(--cadu-muted); font-size:12px; }
+  .cadu-ds-mobile-navigation__solutions>summary>svg { transform:rotate(90deg); transition:transform .16s ease; color:var(--cadu-muted); }
+  .cadu-ds-mobile-navigation__solutions[open]>summary>svg { transform:rotate(-90deg); }
+  .cadu-ds-mobile-navigation__solutions img { width:28px; height:28px; border-radius:8px; object-fit:contain; }
+  .cadu-ds-mobile-navigation__solutions nav { display:grid; grid-template-columns:1fr; gap:2px; padding:4px 6px 8px; border-top:1px solid var(--cadu-line); }
+  .cadu-ds-mobile-navigation__solutions nav a { display:flex; min-height:52px; align-items:center; gap:12px; padding:0 8px; border-radius:10px; }
+  .cadu-ds-mobile-navigation__solutions nav a>span { display:grid; min-width:0; }
+  .cadu-ds-mobile-navigation__solutions nav a[aria-current="page"] { background:var(--cadu-surface-soft); }
+  .cadu-ds-mobile-navigation__solutions nav b { font-size:14px; color:var(--cadu-ink); }
+  .cadu-ds-mobile-navigation nav a { min-height:48px; }
+  .cadu-ds-mobile-navigation__account { position:sticky; bottom:0; z-index:1; margin:auto 0 0; padding:8px 14px calc(8px + env(safe-area-inset-bottom)); background:var(--cadu-canvas); }
+}

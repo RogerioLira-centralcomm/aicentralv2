@@ -20,6 +20,6 @@ export function WorkspaceLegacyChrome({bootstrap}) {
     };
   }, [bootstrap.active, bootstrap.surface]);
   return <>
-    {isMobile ? <WorkspaceMobileChrome title={bootstrap.title || bootstrap.contextName || 'Workspace'} links={bootstrap.urls}/> : <WorkspaceContextSidebar mode="home" rail bootstrap={bootstrap} links={bootstrap.urls} active={railActive}/>}
+    {isMobile ? <WorkspaceMobileChrome title={bootstrap.title || bootstrap.contextName || 'Workspace'} links={bootstrap.urls} logo={bootstrap.caduMark} solutionIcons={bootstrap.solutionIcons}/> : <WorkspaceContextSidebar mode="home" rail bootstrap={bootstrap} links={bootstrap.urls} active={railActive}/>}
   </>;
 }

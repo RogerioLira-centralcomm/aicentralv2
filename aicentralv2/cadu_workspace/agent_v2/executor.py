@@ -618,7 +618,7 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
             cap = resolved.values.get("media.creation_capabilities") or {}
             quote = cap.get("image_cost_estimate") if isinstance(cap, dict) else None
             if not isinstance(quote, dict) or quote.get("unit") != "credits":
-                policy["action_preflight"]["reason"] = "A estimativa de créditos do Studio está indisponível."
+                policy["action_preflight"]["reason"] = "A estimativa de tokens do Studio está indisponível."
                 policy["action_preflight"]["next_step"] = (
                     "Informe que a geração não foi iniciada porque não foi possível estimar o custo. "
                     "Peça para tentar novamente quando a estimativa estiver disponível."

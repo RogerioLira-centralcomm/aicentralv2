@@ -954,7 +954,7 @@ async function regenerateSceneImage(id) {
     const prices = await post(`${studioApi}/agent/storyboard/image`, { client_id: clientId, dry_run: true, aspect_ratio: state.aspectRatio });
     credits = index > 0 ? prices.credits_with_reference || prices.credits_per_image : prices.credits_per_image;
   } catch (_) { /* a confirmação segue sem o valor */ }
-  const price = credits ? `cerca de ${Number(credits).toLocaleString("pt-BR")} créditos` : "créditos reais de imagem";
+  const price = credits ? `cerca de ${Number(credits).toLocaleString("pt-BR")} tokens` : "tokens reais de imagem";
   const note = index === 0 && state.scenes.length > 1 ? " Esta é a 1ª cena: ela define o estilo, então as outras podem ficar diferentes dela." : "";
   if (!window.confirm(`Gerar uma nova imagem para a cena ${index + 1}? Vai usar ${price}. A imagem atual continua na biblioteca.${note}`)) return;
   const anchor = index > 0 ? (state.scenes[0].image_url || "") : "";
@@ -1105,7 +1105,7 @@ async function generateDraftImages(ids) {
   // A 1ª imagem do storyboard não tem referência de estilo; as seguintes têm e custam um pouco mais.
   const plain = Number(prices?.credits_per_image || 0), styled = Number(prices?.credits_with_reference || plain);
   const total = draft.anchorUrl ? styled * ids.length : plain + styled * (ids.length - 1);
-  const price = plain ? `cerca de ${Math.round(total / ids.length).toLocaleString("pt-BR")} créditos cada (total ≈ ${Math.round(total).toLocaleString("pt-BR")})` : "créditos reais de imagem";
+  const price = plain ? `cerca de ${Math.round(total / ids.length).toLocaleString("pt-BR")} tokens cada (total ≈ ${Math.round(total).toLocaleString("pt-BR")})` : "tokens reais de imagem";
   if (!window.confirm(`Gerar ${ids.length} ${ids.length === 1 ? "imagem" : "imagens"}? Vai usar ${price}. Cada imagem é cobrada ao ficar pronta e você pode parar a qualquer momento.`)) return;
   // O formato foi decidido antes de gerar; a primeira imagem não pode trocá-lo para o das seguintes.
   state.aspectExplicit = true;
@@ -1646,8 +1646,8 @@ async function generate() {
     if (version !== state.requestVersion) throw new Error("O projeto mudou. Confira o custo atualizado antes de gerar.");
     // A long or high-resolution clip costs hundreds of thousands of credits: the person confirms the amount first.
     const estimated = Number(confirmedQuote?.estimated_tokens || 0);
-    if (estimated >= VIDEO_CONFIRM_TOKENS && !window.confirm(`Este vídeo deve consumir cerca de ${estimated.toLocaleString("pt-BR")} créditos. Gerar mesmo assim?`)) {
-      throw new Error("Geração cancelada. Nenhum crédito foi usado.");
+    if (estimated >= VIDEO_CONFIRM_TOKENS && !window.confirm(`Este vídeo deve consumir cerca de ${estimated.toLocaleString("pt-BR")} tokens. Gerar mesmo assim?`)) {
+      throw new Error("Geração cancelada. Nenhum token foi usado.");
     }
     await persistProject();
     const job = await submitAnimate(body);

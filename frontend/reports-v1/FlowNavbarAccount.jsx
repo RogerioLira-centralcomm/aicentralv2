@@ -31,6 +31,6 @@ export function FlowNavbarAccount() {
   const Profile=data.profileUrl?'a':'span',Credits=data.creditsUrl?'a':'span';
   return <div className="flow-navbar-account">
     <Profile href={data.profileUrl||undefined} className="flow-navbar-profile" title={name} aria-label={`Perfil de ${name}`}><VisualIdentity src={data.userAvatar||''} initials={name} label={name} imageAlt={`Foto de ${name}`} className="flow-navbar-avatar"/><span>{name.split(' ')[0]}</span></Profile>
-    <Credits href={data.creditsUrl||undefined} className="flow-navbar-credits" title={usage==null?'Consumo de créditos indisponível':`${percent} dos créditos utilizados`} aria-label={usage==null?'Consumo de créditos indisponível':`${percent} dos créditos utilizados`}><span>{percent}</span><small>Créditos usados</small><i aria-hidden="true"><b style={{width:`${usage??0}%`}}/></i></Credits>
+    <Credits href={data.creditsUrl||undefined} className="flow-navbar-credits" title={usage==null?'Consumo de tokens indisponível':`${percent} dos tokens utilizados`} aria-label={usage==null?'Consumo de tokens indisponível':`${percent} dos tokens utilizados`}><span>{percent}</span><small>Tokens usados</small><i aria-hidden="true"><b style={{width:`${usage??0}%`}}/></i></Credits>
   </div>;
 }

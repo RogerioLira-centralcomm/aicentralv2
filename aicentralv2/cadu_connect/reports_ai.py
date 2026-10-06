@@ -20,7 +20,7 @@ def actor_for(selected=None):
     """Who pays: the Reports client in use and the signed-in user. Guests (shared access) and viewers cannot spend credits."""
     if selected is None:
         if not has_request_context():
-            raise ValueError('Esta ação de IA precisa de um cliente e um usuário para cobrar os créditos.')
+            raise ValueError('Esta ação de IA precisa de um cliente e um usuário para cobrar os tokens.')
         from . import reports_access
         selected = g.get('reports_selected') or reports_access.resolve()
     if selected.get('access_scope') == 'shared' or selected.get('role') == 'viewer':
@@ -49,7 +49,7 @@ def _charge(label, call):
     try:
         return call()
     except Exception:
-        logger.error('Falha ao debitar créditos de IA do Reports (%s); resposta já entregue, conciliar no ledger', label, exc_info=True)
+        logger.error('Falha ao debitar tokens de IA do Reports (%s); resposta já entregue, conciliar no ledger', label, exc_info=True)
         return None
 
 

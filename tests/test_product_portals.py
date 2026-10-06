@@ -405,7 +405,7 @@ class ProductPortalsTest(TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertIn("Passo a passo", response.get_data(as_text=True))
         plans = client.get("/workspace/planos", headers=headers).get_data(as_text=True)
-        for value in ("R$ 149", "R$ 549", "R$ 1.490", "Funcionalidades por solução", "Créditos", "Espaço", "Projetos ativos"):
+        for value in ("R$ 149", "R$ 549", "R$ 1.490", "Funcionalidades por solução", "Tokens", "Espaço", "Projetos ativos"):
             self.assertIn(value, plans)
         self.assertIn('"@type": "Product"', plans)
         home = client.get("/workspace/", headers=headers).get_data(as_text=True)

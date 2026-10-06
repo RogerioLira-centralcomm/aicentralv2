@@ -13,7 +13,7 @@
         link.querySelector('span').textContent = label;
         link.querySelector('b').style.width = value + '%';
         link.classList.toggle('is-high', value >= 80);
-        link.setAttribute('aria-label', 'Créditos: ' + label + ' usados no mês');
+        link.setAttribute('aria-label', 'Tokens: ' + label + ' usados no mês');
       })
       .catch(function () {});
   }

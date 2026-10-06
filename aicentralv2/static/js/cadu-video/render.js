@@ -257,8 +257,8 @@ export function paintSceneCards() {
         <button type="button" data-card-action="up" data-id="${id}" aria-label="Subir cena ${index + 1}" ${index === 0 ? "disabled" : ""}>↑</button>
         <button type="button" data-card-action="down" data-id="${id}" aria-label="Descer cena ${index + 1}" ${index === last ? "disabled" : ""}>↓</button>
         <button type="button" data-card-action="replace" data-id="${id}" aria-pressed="${replacing}" title="Trocar a imagem desta cena por outra peça da biblioteca">${replacing ? "Escolha na biblioteca…" : "Trocar imagem"}</button>
-        <button type="button" data-card-action="regen-image" data-id="${id}" title="Gera uma nova imagem só desta cena a partir do visual descrito. Usa créditos." ${busy ? "disabled" : ""}>${regenerating ? "Gerando imagem…" : "Gerar nova imagem"}</button>
-        <button type="button" data-card-action="rewrite" data-id="${id}" title="A IA reescreve só o texto desta cena (visual, movimento, fala). Gasta poucos créditos." ${busy ? "disabled" : ""}>${regenerating && state.regeneratingKind === "text" ? "Reescrevendo…" : "Reescrever texto"}</button>
+        <button type="button" data-card-action="regen-image" data-id="${id}" title="Gera uma nova imagem só desta cena a partir do visual descrito. Usa tokens." ${busy ? "disabled" : ""}>${regenerating ? "Gerando imagem…" : "Gerar nova imagem"}</button>
+        <button type="button" data-card-action="rewrite" data-id="${id}" title="A IA reescreve só o texto desta cena (visual, movimento, fala). Gasta poucos tokens." ${busy ? "disabled" : ""}>${regenerating && state.regeneratingKind === "text" ? "Reescrevendo…" : "Reescrever texto"}</button>
         ${beat.previous ? `<button type="button" data-card-action="undo-text" data-id="${id}" title="Volta ao texto anterior desta cena">Desfazer texto</button>` : ""}
         <button type="button" data-card-action="remove" data-id="${id}" aria-label="Excluir cena ${index + 1}">Excluir</button>
       </span>

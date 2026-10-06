@@ -42,11 +42,11 @@ document.addEventListener('DOMContentLoaded', () => {
   root.querySelectorAll('[data-custom-test]').forEach(form => form.addEventListener('submit', async event => {
     if (form.matches('[data-custom-links]')) return;
     event.preventDefault(); const button = form.querySelector('[type="submit"]'), status = form.querySelector('[data-test-status]'), answer = form.querySelector('[data-test-answer]');
-    button.disabled = true; status.textContent = 'Executando e verificando créditos…'; answer.hidden = true;
+    button.disabled = true; status.textContent = 'Executando e verificando tokens…'; answer.hidden = true;
     try {
       const response = await fetch(form.dataset.url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({prompt:form.elements.prompt.value, confirm_charge:form.elements.confirm_charge.checked})});
       const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Não foi possível testar.');
-      status.textContent = `${body.charged_credits} crédito(s) utilizado(s). Saldo: ${body.remaining_credits}.`; answer.textContent = body.answer; answer.hidden = false;
+      status.textContent = `${body.charged_credits} token(s) utilizado(s). Saldo: ${body.remaining_credits}.`; answer.textContent = body.answer; answer.hidden = false;
     } catch (error) { status.textContent = error.message; } finally { button.disabled = false; }
   }));
   root.querySelectorAll('[data-custom-links]').forEach(form => {

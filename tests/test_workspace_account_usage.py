@@ -174,5 +174,5 @@ class WorkspaceAccountUsageTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("Núcleo da agência", html)
-        self.assertIn("Projetos, marcas, plano e créditos são compartilhados", html)
+        self.assertIn("Projetos, marcas, plano e tokens são compartilhados", html)
         self.assertNotIn("Dados da equipe", html)

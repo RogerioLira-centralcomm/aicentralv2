@@ -17,14 +17,14 @@ export function chatFailure(error) {
 
   if (error?.code === 'credits_insufficient' || match) {
     const requirement = required === null
-      ? 'Esta solicitação precisa de créditos disponíveis para ser iniciada.'
-      : `Esta solicitação precisa de ${formatCredits(required)} créditos.`;
+      ? 'Esta solicitação precisa de tokens disponíveis para ser iniciada.'
+      : `Esta solicitação precisa de ${formatCredits(required)} tokens.`;
     const balance = available === null ? '' : ` O saldo disponível é ${formatCredits(available)}.`;
     return {
       kind: 'credits',
-      title: available === 0 ? 'Seus créditos acabaram' : 'Créditos insuficientes',
-      detail: `${requirement}${balance} Adicione créditos no Workspace para continuar.`,
-      guidance: 'Depois de adicionar créditos, envie a solicitação novamente.',
+      title: available === 0 ? 'Seus tokens acabaram' : 'Tokens insuficientes',
+      detail: `${requirement}${balance} Adicione tokens no Workspace para continuar.`,
+      guidance: 'Depois de adicionar tokens, envie a solicitação novamente.',
     };
   }
 

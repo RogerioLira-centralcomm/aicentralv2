@@ -41,7 +41,7 @@ export function formatMoney(quote) {
   const tokens = Number(quote.estimated_tokens || 0);
   const res = quote.resolution || "";
   const parts = [];
-  if (tokens) parts.push(`${tokens.toLocaleString('pt-BR')} créditos de tokens`);
+  if (tokens) parts.push(`${tokens.toLocaleString('pt-BR')} tokens`);
   if (res) parts.push(res);
   if (quote.voiceover_fits === false) parts.push("locução longa");
   return parts.join(" · ") || "Estimativa em tokens pronta.";

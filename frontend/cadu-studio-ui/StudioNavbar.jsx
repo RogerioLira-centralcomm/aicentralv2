@@ -103,8 +103,8 @@ export function CreditMeter({href, usagePercent, available}) {
   const usage = Math.max(0, Math.min(100, Math.round(Number(usagePercent || 0))));
   const tone = usage >= 90 ? ' is-critical' : usage >= 70 ? ' is-warning' : '';
   const balance = available != null && available !== '' && Number.isFinite(Number(available)) ? compactTokens(available) : '';
-  return <a className={`csu-credits${tone}`} href={href || '#'} aria-label={`${usage}% dos créditos usados${balance ? `, saldo de ${balance} tokens` : ''}. Ver consumo e créditos.`}>
-    <small>{balance ? `Saldo ${balance}` : 'Créditos'}</small>
+  return <a className={`csu-credits${tone}`} href={href || '#'} aria-label={`${usage}% dos tokens usados${balance ? `, saldo de ${balance} tokens` : ''}. Ver consumo e tokens.`}>
+    <small>{balance ? `Saldo ${balance}` : 'Tokens'}</small>
     <strong>{usage}% <span>usado</span></strong>
     <i aria-hidden="true"><b style={{width: `${usage}%`}}/></i>
   </a>;
@@ -114,7 +114,7 @@ export function AccountMenu({user = {}, links = {}}) {
   const [open, setOpen] = useState(false);
   const root = useRef(null);
   useDismiss(open, setOpen, root);
-  const items = [['Meu perfil', links.profile], ['Créditos e consumo', links.credits], ['Abrir Workspace', links.workspace], ['Sair', links.logout]].filter(([, href]) => href);
+  const items = [['Meu perfil', links.profile], ['Tokens e consumo', links.credits], ['Abrir Workspace', links.workspace], ['Sair', links.logout]].filter(([, href]) => href);
   return <div className="csu-account" ref={root}>
     <button type="button" className="csu-avatar" aria-haspopup="menu" aria-expanded={open} aria-label={`Conta de ${user.name || 'usuário'}`} onClick={() => setOpen(value => !value)}>
       {user.avatar ? <img src={user.avatar} alt=""/> : <span>{initials(user.name)}</span>}

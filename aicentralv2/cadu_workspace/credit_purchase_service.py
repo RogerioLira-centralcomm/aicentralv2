@@ -136,8 +136,12 @@ def purchase_extra(context: RequestContext, package_name: str, billing_mode: str
                    html_body=f"<p><strong>{escape(subject)}</strong></p><p>{escape(detail)}</p>"))
         buyer_sent = True
         if email and email.lower() != "apolo@centralcomm.media":
-            buyer_sent = bool(send_email(f"Compra confirmada no Cadu #{request_id}", [email], text_body=detail,
-                       html_body=f"<p>Compra confirmada.</p><p>{escape(detail)}</p>"))
+            from ..services.cadu_token_emails import send_token_purchase_receipt_email
+            receipt = send_token_purchase_receipt_email(
+                user_email=email, user_name=requester, package_name=package["name"], tokens=package["tokens"],
+                request_id=request_id, client_id=context.client_id,
+                balance=(credit_position(context.client_id) or {}).get("available"))
+            buyer_sent = bool(receipt.get("success"))
         notification_sent = finance_sent and buyer_sent
         if not notification_sent:
             current_app.logger.warning("Compra %s confirmada; falha no envio de uma ou mais notificações", request_id)

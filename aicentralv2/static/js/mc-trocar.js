@@ -1283,8 +1283,8 @@
 
   function ocrFailureCopy(message) {
     const raw = String(message || '');
-    if (/cliente que pagará|conta de créditos|cliente ou usuário inválido/i.test(raw)) {
-      return 'Não foi possível confirmar os créditos desta sessão. Atualize a página e tente novamente.';
+    if (/cliente que pagará|conta de tokens|cliente ou usuário inválido/i.test(raw)) {
+      return 'Não foi possível confirmar os tokens desta sessão. Atualize a página e tente novamente.';
     }
     return raw || 'Não deu para ler os textos. Escreva os textos na mão.';
   }
@@ -1916,7 +1916,7 @@
     const plural = selected.length === 1 ? 'saída será gerada' : 'saídas serão geradas';
     const perOutput = Math.max(0, Number(state.quote?.estimated_tokens || state.quote?.agent_tokens_estimate || 0) || 0);
     if ($('mcTrocrBatchEstimate')) $('mcTrocrBatchEstimate').textContent = perOutput
-      ? `${selected.length} ${plural} · estimativa de ${Math.round(perOutput * selected.length).toLocaleString('pt-BR')} créditos.`
+      ? `${selected.length} ${plural} · estimativa de ${Math.round(perOutput * selected.length).toLocaleString('pt-BR')} tokens.`
       : `${selected.length} ${plural} a partir da mesma base.`;
     const global = state.globalReference;
     if ($('mcTrocrBatchReference')) $('mcTrocrBatchReference').textContent = global
@@ -2876,7 +2876,7 @@
     if (!$('mcSwapCost')) return;
     const tokens = Math.max(0, Number(quote?.estimated_tokens || quote?.agent_tokens_estimate || 0) || 0);
     $('mcSwapCost').textContent = tokens
-      ? `Consumo estimado: ${tokens.toLocaleString('pt-BR')} créditos`
+      ? `Consumo estimado: ${tokens.toLocaleString('pt-BR')} tokens`
       : 'Consumo calculado ao gerar';
   }
 

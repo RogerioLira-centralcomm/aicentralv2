@@ -393,7 +393,7 @@ def _brand_audit_step(message: str):
     target = f"“{brand_query}”" if brand_query else "ativa"
     return {"kind": "action", "name": "brands.start_audit", "requires_confirmation": True,
             "request_id": str(uuid4()), "arguments": arguments,
-            "effect": "write", "summary": f"Iniciar auditoria {'profunda' if mode == 'deep' else 'completa'} da marca {target}, com uso de créditos."}
+            "effect": "write", "summary": f"Iniciar auditoria {'profunda' if mode == 'deep' else 'completa'} da marca {target}, com uso de tokens."}
 
 
 def _brand_identity_step(message: str):
@@ -497,9 +497,9 @@ def _studio_creation_step(route: IntentRoute, message: str, resolved_values: dic
         "cost_estimate": {"kind": "video_plan_cost_estimate" if tool_name == "media.plan_video" else "image_cost_estimate",
                           "unit": "credits", "estimated_total": estimated_total,
                           "note": str(quote.get("note") or "Estimativa do Cadu Studio; o consumo final pode variar.")[:300]},
-        "summary": (f"Planejar o vídeo no Cadu Studio por aproximadamente {estimated_total:,} créditos. O valor final pode variar."
+        "summary": (f"Planejar o vídeo no Cadu Studio por aproximadamente {estimated_total:,} tokens. O valor final pode variar."
                     if tool_name == "media.plan_video" else
-                    f"Gerar no Cadu Studio por aproximadamente {estimated_total:,} créditos. O valor final pode variar.").replace(",", "."),
+                    f"Gerar no Cadu Studio por aproximadamente {estimated_total:,} tokens. O valor final pode variar.").replace(",", "."),
     }
 
 

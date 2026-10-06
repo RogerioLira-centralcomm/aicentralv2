@@ -79,7 +79,7 @@ def test_studio_image_request_with_common_typos_routes_to_studio_but_prompt_requ
 def test_studio_generation_becomes_a_cost_quoted_journal_action():
     route = route_request("Crie uma imagem 4:5 em alta qualidade para a campanha")
     estimate = {"unit": "credits", "estimated_total": 12850,
-                "note": "Estimativa de créditos do Studio; o consumo real pode variar."}
+                "note": "Estimativa de tokens do Studio; o consumo real pode variar."}
     plan = build_task_plan(
         route, budget_for(route), "Crie uma imagem 4:5 em alta qualidade para a campanha",
         resolved_values={"media.creation_capabilities": {"image_cost_estimate": estimate}},
@@ -91,7 +91,7 @@ def test_studio_generation_becomes_a_cost_quoted_journal_action():
     assert action["arguments"]["quality"] == "alta"
     assert action["arguments"]["aspect_ratio"] == "4:5"
     assert action["arguments"]["index_in_project"] is False
-    assert "12.850 créditos" in action["summary"]
+    assert "12.850 tokens" in action["summary"]
     assert studio_capability_arguments("Crie em qualidade econômica") == {
         "quality": "econômica", "reference_count": 0,
     }
@@ -112,7 +112,7 @@ def test_studio_video_plan_uses_its_own_cost_confirmation():
     assert action["name"] == "media.plan_video"
     assert action["arguments"] == {"prompt": message, "kind": "video", "duration": 8}
     assert action["cost_estimate"]["kind"] == "video_plan_cost_estimate"
-    assert "2.400 créditos" in action["summary"]
+    assert "2.400 tokens" in action["summary"]
 
     edit_route = route_request("Edite o vídeo https://example.com/clip.mp4")
     edit_plan = build_task_plan(edit_route, budget_for(edit_route),
@@ -183,7 +183,7 @@ def test_approved_video_plan_receives_cost_flag_but_not_image_confirmation(monke
 
 
 def test_journal_confirmation_payload_keeps_studio_cost_estimate(monkeypatch):
-    snapshot = {"summary": "Gerar imagem por aproximadamente 5.000 créditos.",
+    snapshot = {"summary": "Gerar imagem por aproximadamente 5.000 tokens.",
                 "effect": "write", "arguments": {"prompt": "Campanha"},
                 "cost_estimate": {"kind": "image_cost_estimate", "unit": "credits",
                                   "estimated_total": 5000}}

@@ -397,7 +397,7 @@
       file.addEventListener('change', () => {
         const media = String(file.files?.[0]?.type || '').startsWith('video/') ? 'video' : 'image';
         const estimate = Number(estimates[media] || 0);
-        submit.dataset.defaultLabel = estimate ? `Analisar criativo · até ${estimate.toLocaleString('pt-BR')} créditos` : 'Analisar criativo';
+        submit.dataset.defaultLabel = estimate ? `Analisar criativo · até ${estimate.toLocaleString('pt-BR')} tokens` : 'Analisar criativo';
         if (!uploadLoading) submit.textContent = submit.dataset.defaultLabel;
       });
       if (payload.writes_enabled !== false) return;

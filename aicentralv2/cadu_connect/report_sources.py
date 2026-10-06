@@ -125,7 +125,7 @@ def register(bp, rows):
                         (report_id,revision,json.dumps(report['document']),
                          f'{added} print(s) recebido(s), lote {batch}. Aguardando revisão; dados ainda não compilados.',session['user_id']))
             conn.commit()
-            flash(f'{added} print(s) recebido(s). {len(uploads)-added} duplicado(s) ignorado(s). Nenhum crédito consumido.', 'report_sources')
+            flash(f'{added} print(s) recebido(s). {len(uploads)-added} duplicado(s) ignorado(s). Nenhum token consumido.', 'report_sources')
         except ValueError as exc:
             conn.rollback()
             flash(str(exc), 'report_sources_error')

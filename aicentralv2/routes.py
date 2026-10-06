@@ -802,6 +802,10 @@ def init_routes(app):
                             'plan_status': plan_status,
                         },
                     )
+                    if plan_status == 'active':
+                        from aicentralv2.services.cadu_token_emails import send_plan_activated_email
+                        send_plan_activated_email(client_id=cliente_id_int, plan_definition_id=id_plan_definition,
+                                                  tokens_monthly=tokens_monthly, new_plan_id=plano_id)
                     flash('Contrato criado com sucesso.', 'success')
                     return redirect(url_for('planos_lista'))
                 flash('Erro ao criar contrato.', 'error')
@@ -2707,6 +2711,9 @@ def init_routes(app):
                     }
                 )
                 
+                from aicentralv2.services.cadu_token_emails import send_plan_activated_email
+                send_plan_activated_email(client_id=cliente_id, plan_definition_id=id_plan_definition,
+                                          tokens_monthly=tokens_monthly, new_plan_id=plano_id)
                 return jsonify({'success': True, 'plano_id': plano_id})
             else:
                 return jsonify({'success': False, 'error': 'Erro ao criar plano'}), 500
@@ -2757,7 +2764,8 @@ def init_routes(app):
             cursor = conn.cursor()
             
             # Buscar status atual do plano
-            cursor.execute("SELECT plan_status FROM cadu_client_plans WHERE id = %s", (plano_id,))
+            cursor.execute("""SELECT plan_status, id_cliente, id_plan_definition, tokens_monthly_limit
+                                FROM cadu_client_plans WHERE id = %s""", (plano_id,))
             result = cursor.fetchone()
             
             if not result:
@@ -2774,6 +2782,10 @@ def init_routes(app):
                 (novo_status, plano_id)
             )
             conn.commit()
+            if novo_status == 'active':
+                from aicentralv2.services.cadu_token_emails import send_plan_activated_email
+                send_plan_activated_email(client_id=result['id_cliente'], plan_definition_id=result['id_plan_definition'],
+                                          tokens_monthly=result['tokens_monthly_limit'], new_plan_id=plano_id)
             
             return jsonify({'success': True, 'novo_status': novo_status})
             

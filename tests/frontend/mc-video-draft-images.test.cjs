@@ -33,7 +33,7 @@ failOn=2;
 await page.click('#mcVideoDraftGenerate');
 await page.waitForFunction(()=>document.querySelector('#mcVideoDraft .mc-draft-error'));
 // a prévia soma a 1ª imagem sem referência (120) e as seguintes com referência de estilo (150)
-assert.match(dialogs[0],/cerca de 140 créditos cada \(total ≈ 420\)/);
+assert.match(dialogs[0],/cerca de 140 tokens cada \(total ≈ 420\)/);
 let state1=await page.evaluate(async()=>{const {state}=await import('/static/js/cadu-video/state.js');return {scenes:state.scenes.map(s=>s.id),draft:state.draft.beats.map(b=>b.id),req:state.draft.beats[0].request_id,err:state.draft.beats[0].error,gen:state.draft.generating};});
 console.log(JSON.stringify(state1));
 assert.deepEqual(state1.scenes,['p1']); assert.deepEqual(state1.draft,['beat-2','beat-3']); assert.match(state1.err,/Saldo/); assert.equal(state1.gen,false);

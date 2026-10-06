@@ -62,7 +62,7 @@ def _completion(step_name: str, result: dict) -> dict:
             {"title": "Abrir no Cadu Studio", "url": studio_url},
         ) if item.get("url")]
         label = "Imagem editada" if step_name == "media.edit_image" else "Imagem criada"
-        detail = f"{int(result.get('charged_credits') or 0):,}".replace(",", ".") + " créditos utilizados"
+        detail = f"{int(result.get('charged_credits') or 0):,}".replace(",", ".") + " tokens utilizados"
         if indexed:
             detail += " · salva no projeto"
         elif result.get("project_link_status") == "pending_reconciliation":

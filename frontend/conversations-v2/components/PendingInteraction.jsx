@@ -32,11 +32,11 @@ export function pendingInteraction(messages, running) {
   if (message.kind === 'action') {
     const name = String(message.action?.name || '');
     const presentation = name === 'media.generate_image'
-      ? {app: 'Cadu Studio', eyebrow: 'Criação de imagem', approve: 'Gerar imagem', progress: 'Gerando imagem…', detail: 'A estimativa de créditos aparece acima. A geração só começa depois da aprovação; o consumo final pode variar.'}
+      ? {app: 'Cadu Studio', eyebrow: 'Criação de imagem', approve: 'Gerar imagem', progress: 'Gerando imagem…', detail: 'A estimativa de tokens aparece acima. A geração só começa depois da aprovação; o consumo final pode variar.'}
       : name === 'media.edit_image'
-        ? {app: 'Cadu Studio', eyebrow: 'Edição de imagem', approve: 'Editar imagem', progress: 'Editando imagem…', detail: 'A estimativa de créditos aparece acima. A edição só começa depois da aprovação; o consumo final pode variar.'}
+        ? {app: 'Cadu Studio', eyebrow: 'Edição de imagem', approve: 'Editar imagem', progress: 'Editando imagem…', detail: 'A estimativa de tokens aparece acima. A edição só começa depois da aprovação; o consumo final pode variar.'}
         : name === 'media.plan_video'
-          ? {app: 'Cadu Studio', eyebrow: 'Plano de vídeo', approve: 'Preparar plano', progress: 'Preparando plano…', detail: 'A estimativa de créditos aparece acima. O plano será criado no Studio após a aprovação; a geração do vídeo continuará pendente.'}
+          ? {app: 'Cadu Studio', eyebrow: 'Plano de vídeo', approve: 'Preparar plano', progress: 'Preparando plano…', detail: 'A estimativa de tokens aparece acima. O plano será criado no Studio após a aprovação; a geração do vídeo continuará pendente.'}
           : name === 'projects.create_link_reference'
       ? {eyebrow: 'Adicionar referência', approve: 'Adicionar ao projeto', progress: 'Adicionando…', detail: 'O link será salvo sem leitura ou indexação automática.'}
       : name === 'projects.create_note'

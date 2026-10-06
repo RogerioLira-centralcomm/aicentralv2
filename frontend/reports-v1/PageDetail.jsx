@@ -256,7 +256,7 @@ function CaptureHeat({siteId, path, device, document: doc, metrics, canEdit, cli
       <p>{body.status === 'capturing' ? 'Capturando a página… isso leva cerca de um minuto.' : body.status === 'failed' ? (body.message || 'A captura falhou.') : 'Ainda não há captura desta página neste dispositivo.'}</p>
       {body.status !== 'capturing' && (!body.available ? <p className="page-detail-note">A captura depende da integração Firecrawl, que não está configurada neste ambiente.</p>
         : canEdit ? <><ReportsActionButton color="secondary" size="sm" className="page-detail-button" disabled={starting} onClick={capture}>Capturar a página</ReportsActionButton>
-          <p className="page-detail-note">A captura usa créditos do provedor e só acontece quando você pede.</p></>
+          <p className="page-detail-note">A captura usa tokens do provedor e só acontece quando você pede.</p></>
         : <p className="page-detail-note">Peça a alguém com permissão de edição para capturar a página.</p>)}
     </div>}
     {ready && <>

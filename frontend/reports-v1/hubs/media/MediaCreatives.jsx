@@ -120,7 +120,7 @@ export function MediaCreatives({data}) {
     <div className="rs-actions"><div className="rs-segmented" role="group" aria-label="Imagem e vídeo">
       <button type="button" aria-pressed={mode === 'have'} onClick={() => setMode('have')}>Já tenho os criativos</button>
       <button type="button" aria-pressed={mode === 'generate'} onClick={() => setMode('generate')}>Quero gerar</button></div></div>
-    {mode === 'generate' && <Section title="Criar com o Studio" description="O briefing nasce dos dados da campanha. A direção, a geração e os créditos ficam no Studio.">
+    {mode === 'generate' && <Section title="Criar com o Studio" description="O briefing nasce dos dados da campanha. A direção, a geração e os tokens ficam no Studio.">
       <div className="rs-creative">
         <div className="rs-creative__form">
           <label className="rs-field"><span>Campanha</span>

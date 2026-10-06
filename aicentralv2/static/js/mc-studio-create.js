@@ -647,7 +647,7 @@
     const result = await request(`${apiRoot}/format-lab/studio/create/directions`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ client_id:state.quickMode ? '' : state.clientId, project_id:state.quickMode ? '' : state.projectId, quick_mode:state.quickMode, studio_session_id:state.sessionId, studio_root_session_id:state.sessionRootId || state.sessionId, count, prompt, references:scopedReferences, context:{ project_name:state.quickMode ? 'Rascunho pessoal' : $('studioCreateProject').textContent, brand:state.projectDocument.brand_name || '', brief:state.projectDocument.brief || '', purpose:'criacao', channels:['social','web'], format:$('studioRatio').value, direction_intensity:Number($('studioCreateRange').value), references:scopedReferences } }) });
     renderDirections(result.directions || []);
     addMessage('assistant', `Preparei ${result.directions?.length || 0} ${result.directions?.length === 1 ? 'versão' : 'versões'}. Escolha uma para gerar a imagem.`, { title: 'Versões prontas' });
-    if (result.remaining_credits !== undefined) $('studioCreateCreditHint').textContent = `${Number(result.remaining_credits).toLocaleString('pt-BR')} créditos disponíveis`;
+    if (result.remaining_credits !== undefined) $('studioCreateCreditHint').textContent = `${Number(result.remaining_credits).toLocaleString('pt-BR')} tokens disponíveis`;
   }
   async function generateImage(prompt, bindings, button) {
     const primary = bindings.find((binding) => binding.role === 'primary');
@@ -681,7 +681,7 @@
     addMessage('assistant', 'A nova imagem está na Mesa, ligada à base e às referências deste pedido.', { title:'Imagem pronta', bindings:node ? [{nodeId:node.id, role:'primary'}] : [] });
     if (node) focusNode(node.id);
     if (node) registerNode(node, 'attempt').catch((error) => announce(error.message || 'A imagem ficou salva apenas neste dispositivo.'));
-    if (result.remaining_credits !== undefined) $('studioCreateCreditHint').textContent = `${Number(result.remaining_credits).toLocaleString('pt-BR')} créditos disponíveis`;
+    if (result.remaining_credits !== undefined) $('studioCreateCreditHint').textContent = `${Number(result.remaining_credits).toLocaleString('pt-BR')} tokens disponíveis`;
     if (result.history_sync_pending && state.projectId) window.setTimeout(()=>request(`${apiRoot}/format-lab/studio/create/image`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(requestPayload)}).then((synced)=>{if(!synced.history_sync_pending)announce('Imagem vinculada ao histórico do projeto.');}).catch(()=>{}),2200);
   }
   function syncGenerateLabel() {

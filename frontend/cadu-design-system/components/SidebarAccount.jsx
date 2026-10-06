@@ -42,7 +42,7 @@ export function SidebarAccount({userName, agencyName = '', avatar = '', fallback
     <span className="cadu-sidebar-account__text"><strong>{first}</strong>{agencyName && <small>{agencyName}</small>}</span>
   </>;
   return <div className={`cadu-sidebar-account ${className}`.trim()}>
-    {creditsUrl && formatted && <a className={`cadu-sidebar-account__usage${percent >= 80 ? ' is-high' : ''}`} href={creditsUrl} aria-label={`Créditos: ${formatted} usados no mês`} title="Créditos e consumo"><span className="cadu-sidebar-account__usage-label">Créditos do mês</span><span className="cadu-sidebar-account__usage-value">{formatted}</span><i aria-hidden="true"><b style={{width: `${percent}%`}}/></i></a>}
+    {creditsUrl && formatted && <a className={`cadu-sidebar-account__usage${percent >= 80 ? ' is-high' : ''}`} href={creditsUrl} aria-label={`Tokens: ${formatted} usados no mês`} title="Tokens e consumo"><span className="cadu-sidebar-account__usage-label">Tokens do mês</span><span className="cadu-sidebar-account__usage-value">{formatted}</span><i aria-hidden="true"><b style={{width: `${percent}%`}}/></i></a>}
     {profileUrl
       ? <a className={`cadu-sidebar-account__profile${active ? ' is-active' : ''}`} href={profileUrl} aria-current={active ? 'page' : undefined} aria-label={`Abrir conta de ${userName || first}`} title={userName || first}>{identity}</a>
       : <span className="cadu-sidebar-account__profile">{identity}</span>}

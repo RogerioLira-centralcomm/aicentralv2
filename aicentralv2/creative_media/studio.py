@@ -448,7 +448,7 @@ def studio_create_directions():
         if not user_id:
             raise ValueError('Entre novamente para gerar direções.')
         if quick_mode and not client_id:
-            raise ValueError('Não foi possível identificar a conta de créditos desta sessão. Atualize a página e tente novamente.')
+            raise ValueError('Não foi possível identificar a conta de tokens desta sessão. Atualize a página e tente novamente.')
         _scope(client_id)
         count = max(1, min(int(data.get('count') or 1), 5))
         project_id = str(data.get('project_id') or '')
@@ -523,7 +523,7 @@ def studio_create_image():
         client_id = _quick_creative_client(modeling) if quick_mode else data.get('client_id')
         user_id = session.get('user_id')
         if not client_id:
-            raise ValueError('Não foi possível identificar a conta de créditos desta sessão.')
+            raise ValueError('Não foi possível identificar a conta de tokens desta sessão.')
         if not user_id:
             raise ValueError('Entre novamente para gerar a imagem.')
         _scope(client_id)
@@ -972,7 +972,7 @@ def _storyboard_image_prices(aspect_ratio, fallback):
 @studio_or_admin_required_api
 @studio_csrf_required
 def studio_storyboard_image():
-    """Gera a imagem de UMA cena do rascunho e a põe na biblioteca do Vídeo. Cobra créditos reais."""
+    """Gera a imagem de UMA cena do rascunho e a põe na biblioteca do Vídeo. Cobra tokens reais."""
     from . import studio_create
     from .studio_storyboard import SCENE_ASPECTS, scene_image_prompt
     from .studio_costs import image_credits_by_quality
@@ -1808,7 +1808,7 @@ def _quick_creative_client(modeling=None):
     """Map the authenticated CRM tenant to the Studio's canonical client id."""
     crm_client_id = session.get('cliente_id')
     if not crm_client_id:
-        raise ValueError('Não foi possível identificar a conta de créditos desta sessão.')
+        raise ValueError('Não foi possível identificar a conta de tokens desta sessão.')
     if modeling is None:
         from ..creative_modeling_service import CreativeModelingService
         modeling = CreativeModelingService()

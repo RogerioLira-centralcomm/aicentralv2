@@ -197,8 +197,8 @@ export function DockResourceShortcut({item, active = false, dropTarget = false, 
 export function DockUsageRing({percent, href, onOpen}) {
   const value = Math.max(0, Math.min(100, Number(percent) || 0));
   const formatted = new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 1}).format(value);
-  const sharedProps = {className:'cadu-ds-usage-ring', style:{'--cadu-usage': `${value * 3.6}deg`}, 'aria-label':`Utilização de créditos: ${formatted}%`};
-  return <DockTooltip label="Créditos e consumo">{href ? <a {...sharedProps} href={href}><span>{formatted}%</span></a> : <button {...sharedProps} type="button" onClick={onOpen}><span>{formatted}%</span></button>}</DockTooltip>;
+  const sharedProps = {className:'cadu-ds-usage-ring', style:{'--cadu-usage': `${value * 3.6}deg`}, 'aria-label':`Utilização de tokens: ${formatted}%`};
+  return <DockTooltip label="Tokens e consumo">{href ? <a {...sharedProps} href={href}><span>{formatted}%</span></a> : <button {...sharedProps} type="button" onClick={onOpen}><span>{formatted}%</span></button>}</DockTooltip>;
 }
 
 function DockPicker({candidates, items, busy, query, onQueryChange, linkUrl, onLinkUrlChange, linkTitle, onLinkTitleChange, onSave, onRemove, onClose}) {

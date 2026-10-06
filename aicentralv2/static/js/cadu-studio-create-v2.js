@@ -15,7 +15,7 @@
   let pendingReferenceReads = [];
   const setState = name => { root.dataset.state = name; if (name === 'generated' || name === 'results_ready') $('#promptForm')?.classList.remove('is-expanded'); };
   const setHint = message => { const hint = $('.prompt-hint'); if (hint) hint.innerHTML = `<i class="fa-solid fa-circle-info"></i> ${message}`; };
-  const phaseLabels = { image_reference: 'preparação das referências', image_credit: 'autorização de créditos', image_provider: 'provedor de imagem', image_storage: 'armazenamento da imagem', image_billing: 'registro de créditos', history_claim: 'histórico da criação', history_complete: 'finalização do histórico' };
+  const phaseLabels = { image_reference: 'preparação das referências', image_credit: 'autorização de tokens', image_provider: 'provedor de imagem', image_storage: 'armazenamento da imagem', image_billing: 'registro de tokens', history_claim: 'histórico da criação', history_complete: 'finalização do histórico' };
   const showStudioError = (message, errorId = '', phase = '') => { const dialog = $('#studioErrorDialog'); if (!dialog) return; const phaseText = phaseLabels[phase] ? ` Etapa: ${phaseLabels[phase]}.` : ''; $('#studioErrorMessage').textContent = `${message || 'Tente novamente em alguns instantes. Seu briefing continua salvo nesta tela.'}${phaseText}${errorId ? ` Código: ${errorId}` : ''}`; setHint(''); if (!dialog.open) dialog.showModal(); };
   const selectedProject = () => document.querySelector('#mcCaduProject')?.value || '';
   const selectedClient = () => document.querySelector('#mcCaduBarClient')?.value || root.dataset.clientId || '';

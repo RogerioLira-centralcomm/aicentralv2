@@ -132,7 +132,7 @@ async function main() {
   await page.getByLabel('Dispositivo do mapa de interação').selectOption('mobile');
   await page.getByRole('tab', {name: 'Sobre a captura'}).click();
   await page.getByText('Ainda não há captura desta página neste dispositivo.').waitFor();
-  assert.ok((await page.locator('.page-detail-capture').innerText()).includes('usa créditos do provedor'), 'avisa sobre o custo da captura');
+  assert.ok((await page.locator('.page-detail-capture').innerText()).includes('usa tokens do provedor'), 'avisa sobre o custo da captura');
   await page.getByRole('button', {name: 'Capturar a página'}).click();
   await page.locator('.page-detail-capture-stage img').waitFor();
   assert.equal(captureCalls[0].csrf, 'x', 'a captura envia o token CSRF');

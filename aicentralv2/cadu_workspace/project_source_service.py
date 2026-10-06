@@ -235,8 +235,8 @@ def _project_id(context: RequestContext) -> str:
     return str(row["id"])
 
 
-INDEXING_COST_NOTE = ("Indexar como conhecimento cobra créditos proporcionais ao texto extraído, "
-                      "cerca de 1,2 crédito por token (um token equivale a ~4 caracteres de texto). "
+INDEXING_COST_NOTE = ("Indexar como conhecimento cobra tokens proporcionais ao texto extraído, "
+                      "cerca de 1,2 token cobrado por token lido (um token equivale a ~4 caracteres de texto). "
                       "Com max_credits, o envio é recusado sem cobrança se a estimativa passar do limite aprovado.")
 
 
@@ -398,7 +398,7 @@ def save_upload(context: RequestContext, token: str, file_storage) -> dict:
             estimated = project_rag_credits(len(source["text"] or "") // 4)
             if estimated > int(max_credits):
                 raise BadRequest(
-                    f"A indexação deve custar cerca de {estimated} créditos, acima do limite aprovado de "
+                    f"A indexação deve custar cerca de {estimated} tokens, acima do limite aprovado de "
                     f"{int(max_credits)}. Nada foi cobrado: confirme o valor com a pessoa e envie de novo.")
         target = project_sources.private_path(
             _storage_root(), context.client_id, project_id, source["suffix"], uuid4().hex,

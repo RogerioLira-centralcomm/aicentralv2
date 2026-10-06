@@ -21,11 +21,15 @@ CADU_EMAIL_EVENTS: dict[str, dict[str, str]] = {
     "workspace.source_attention": {"product": "workspace", "status": "planned"},
     "workspace.document_reviewed": {"product": "workspace", "status": "planned"},
     "workspace.conversation_important": {"product": "workspace", "status": "planned"},
+    "workspace.token_purchase_receipt": {"product": "workspace", "status": "active"},
+    "workspace.plan_activated": {"product": "workspace", "status": "active"},
     "planner.quote_request_internal": {"product": "planner", "status": "active"},
     "planner.new_user_internal": {"product": "planner", "status": "active"},
     "studio.piece_ready": {"product": "studio", "status": "active"},
     "studio.session_saved": {"product": "studio", "status": "active"},
     "studio.work_completed": {"product": "studio", "status": "active"},
+    "studio.generation_failed": {"product": "studio", "status": "active"},
+    "connect.reports_alert": {"product": "connect", "status": "active"},
 }
 
 

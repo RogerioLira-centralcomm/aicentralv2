@@ -607,8 +607,8 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(conversation, /cv-chat-failure/);
   assert.match(conversation, /Confian\(\?:ça\|ca\)/);
   assert.match(markdown, /words\.length <= 4 && emphasis\.length <= 44/);
-  assert.match(conversation, /Créditos da conta/);
-  assert.match(conversation, /Adicionar créditos no Workspace/);
+  assert.match(conversation, /Tokens da conta/);
+  assert.match(conversation, /Adicionar tokens no Workspace/);
   assert.doesNotMatch(conversation, /Adicionar ao briefing|Perguntar|Resumir/);
   assert.doesNotMatch(conversation, /cv-selection-tools/);
   assert.match(conversation, /closest\('\.cv-prose'\)/);
@@ -775,9 +775,9 @@ test('conversation failures are converted into an actionable user-facing state',
   });
   assert.deepEqual(credits, {
     kind: 'credits',
-    title: 'Seus créditos acabaram',
-    detail: 'Esta solicitação precisa de 8.000 créditos. O saldo disponível é 0. Adicione créditos no Workspace para continuar.',
-    guidance: 'Depois de adicionar créditos, envie a solicitação novamente.',
+    title: 'Seus tokens acabaram',
+    detail: 'Esta solicitação precisa de 8.000 tokens. O saldo disponível é 0. Adicione tokens no Workspace para continuar.',
+    guidance: 'Depois de adicionar tokens, envie a solicitação novamente.',
   });
   assert.equal(model.chatFailure({status: 503}).title, 'Cadu Chat está temporariamente indisponível');
 });

@@ -136,7 +136,7 @@ def _send_brand_approval_email(brand: dict, pack: dict, client_id: int, brand_id
             cursor.execute("""SELECT COALESCE(SUM(tokens_cobrados), 0) AS credits FROM cadu_tools_token_usage WHERE id_cliente = %s AND metadata->>'job_id' = %s AND status = 'charged'""", (client_id, str(pack.get('job_id') or '')))
             credits_used = int((cursor.fetchone() or {}).get('credits') or 0)
     except Exception:
-        current_app.logger.exception('Não foi possível calcular créditos do resumo da marca %s', brand_id)
+        current_app.logger.exception('Não foi possível calcular tokens do resumo da marca %s', brand_id)
         credits_used = 0
     from ..services.cadu_email_connector import send_cadu_event
     money = lambda value: f'{value:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
@@ -1398,13 +1398,13 @@ def request_credit_package():
           <div style="padding:24px;background:#123d38;color:#fff"><div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.75">CentralComm · Financeiro</div><h1 style="margin:8px 0 0;font-size:24px">Novo pedido de compra</h1></div>
           <div style="padding:24px;border:1px solid #dce8e4;border-top:0"><p style="font-size:16px">O pedido <strong>#{request_id}</strong> foi registrado na área de conta.</p>
           <table style="width:100%;border-collapse:collapse;margin:18px 0"><tr><td style="padding:9px 0;color:#68807b">Produto</td><td style="padding:9px 0;text-align:right"><strong>{safe_name}</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Capacidade</td><td style="padding:9px 0;text-align:right"><strong>{tokens:,} tokens</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Valor</td><td style="padding:9px 0;text-align:right"><strong>{price_label}</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Cobrança</td><td style="padding:9px 0;text-align:right"><strong>{billing_label}</strong></td></tr></table><p><strong>Cliente:</strong> {client_id}<br><strong>Solicitante:</strong> {safe_buyer_name} ({safe_email})</p><p style="color:#68807b">{safe_note or 'Sem observações adicionais.'}</p></div></div>'''
-        buyer_html = f'''<div style="font-family:Arial,sans-serif;max-width:620px;color:#17332f"><div style="padding:24px;background:#123d38;color:#fff"><div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.75">CentralComm · Cadu</div><h1 style="margin:8px 0 0;font-size:24px">Compra confirmada</h1></div><div style="padding:24px;border:1px solid #dce8e4;border-top:0"><p style="font-size:16px">A compra de <strong>{safe_name}</strong> foi confirmada e os tokens já estão disponíveis para uso.</p><div style="padding:16px;background:#eef7f3;border-radius:10px"><strong>O que você e seu time poderão usar</strong><p style="margin:8px 0 0">Os tokens extras não expiram e podem ser usados pela sua conta nas conversas e ações de IA. O saldo é compartilhado por todas as pessoas da equipe. Projetos e marcas permanecem ilimitados.</p></div><p><strong>Pedido:</strong> #{request_id}<br><strong>Tokens liberados:</strong> {tokens:,}<br><strong>Condição:</strong> {billing_label}<br><strong>Valor:</strong> {price_label}</p><p style="color:#68807b">O pedido será acompanhado pelo financeiro para registrar a cobrança.</p></div></div>'''
         finance_sent = bool(send_email(internal_subject, recipients,
                    text_body=f'Pedido Cadu #{request_id}: {package_name} · {tokens:,} tokens · {price_label} · {billing_label}. Cliente {client_id}. Solicitante: {buyer_name} ({buyer_email}).',
                    html_body=internal_html))
         buyer_sent = True
         if buyer_email and buyer_email.lower() != 'apolo@centralcomm.media':
-            buyer_sent = bool(send_email(f'Compra confirmada no Cadu #{request_id}', [buyer_email], text_body=f'Compra confirmada: {package_name} · {tokens:,} tokens liberados · {price_label} · {billing_label}.', html_body=buyer_html))
+            from ..services.cadu_token_emails import send_token_purchase_receipt_email
+            buyer_sent = bool(send_token_purchase_receipt_email(user_email=buyer_email, user_name=buyer_name, package_name=package_name, tokens=tokens, request_id=request_id, client_id=client_id).get('success'))
         notification_sent = finance_sent and buyer_sent
         if not notification_sent:
             current_app.logger.warning('Compra %s confirmada; falha no envio de uma ou mais notificações', request_id)
@@ -1419,7 +1419,7 @@ def request_credit_package():
                            message='Tokens liberados, mas a notificação por e-mail falhou. O financeiro deve ser avisado.'), 201
         try: conn.rollback()
         except Exception: pass
-        current_app.logger.exception('Falha ao solicitar pacote de créditos')
+        current_app.logger.exception('Falha ao solicitar pacote de tokens')
         return jsonify(success=False, error='Não foi possível registrar a solicitação agora.'), 503
 
 
@@ -2457,16 +2457,16 @@ def _ensure_brand_audit_credit(client_id: int, required_credits: int = 1) -> Non
             break
         except Exception:
             if attempt == 1:
-                current_app.logger.exception('Não foi possível consultar créditos para auditoria de marca')
-                abort(503, description='Não foi possível consultar os créditos da equipe agora.')
-            current_app.logger.warning('Falha transitória ao consultar créditos para auditoria de marca; tentando novamente.')
+                current_app.logger.exception('Não foi possível consultar tokens para auditoria de marca')
+                abort(503, description='Não foi possível consultar os tokens da equipe agora.')
+            current_app.logger.warning('Falha transitória ao consultar tokens para auditoria de marca; tentando novamente.')
             try:
                 get_db().rollback()
             except Exception:
                 pass
             close_db()
     if available < max(1, int(required_credits or 1)):
-        abort(409, description=f'Esta análise requer saldo estimado de {max(1, int(required_credits or 1)):,} créditos. Consulte Créditos e consumo antes de iniciar.')
+        abort(409, description=f'Esta análise requer saldo estimado de {max(1, int(required_credits or 1)):,} tokens. Consulte Tokens e consumo antes de iniciar.')
 
 
 def _brand_audit_credit_gate(client_id: int, required_credits: int = 1):
@@ -4932,12 +4932,12 @@ PUBLIC_PAGES = {
     },
     "planos": {
         "title": "Planos",
-        "description": "Compare capacidade, créditos e pacotes para a operação da sua equipe.",
-        "lead": "A mesma conta atende todo o time. O plano define capacidade e os créditos acompanham o uso real.",
+        "description": "Compare capacidade, tokens e pacotes para a operação da sua equipe.",
+        "lead": "A mesma conta atende todo o time. O plano define capacidade e os tokens acompanham o uso real.",
     },
     "ajuda": {
         "title": "Ajuda",
-        "description": "Respostas sobre acesso, projetos, créditos, privacidade e produtos Cadu.",
+        "description": "Respostas sobre acesso, projetos, tokens, privacidade e produtos Cadu.",
         "lead": "Orientações curtas para começar e saber onde administrar cada parte da conta.",
     },
     "contato": {
@@ -5069,7 +5069,7 @@ LEGAL_PAGES = {
         "sections": [
             ("1. Escopo", "Esta política explica o tratamento de dados no Cadu Workspace, serviço da Centralcomm Comunicação e Tecnologia Ltda. Ela se aplica às páginas públicas, à conta de usuário e aos ambientes de marcas e projetos acessados pelo Workspace."),
             ("2. Dados que podemos tratar", "Podemos tratar dados de cadastro e acesso, como nome, e-mail, empresa e preferências; dados de uso necessários para operar a conta; e conteúdos que você ou sua equipe escolhem incluir, como briefings, arquivos, referências, decisões e instruções de projeto."),
-            ("3. Como usamos os dados", "Usamos esses dados para autenticar usuários, manter marcas e projetos organizados, executar recursos solicitados, preservar histórico e permissões, medir capacidade e créditos, prevenir abuso e prestar suporte. Não usamos o conteúdo privado de um projeto para torná-lo público."),
+            ("3. Como usamos os dados", "Usamos esses dados para autenticar usuários, manter marcas e projetos organizados, executar recursos solicitados, preservar histórico e permissões, medir capacidade e tokens, prevenir abuso e prestar suporte. Não usamos o conteúdo privado de um projeto para torná-lo público."),
             ("4. Google e outras integrações", "Quando você autoriza uma integração, o Workspace acessa somente os serviços e escopos apresentados na autorização. Tokens são usados para manter a conexão solicitada e podem ser revogados por você no Google. Não vendemos dados pessoais nem usamos dados de serviços conectados para publicidade comportamental."),
             ("5. Compartilhamento e acesso", "O acesso ao conteúdo depende da equipe, marca, projeto e papel atribuído à pessoa. Podemos compartilhar dados com provedores técnicos que atuam em nosso nome, sob obrigações de segurança e confidencialidade, ou quando a lei exigir. Não compartilhamos projetos privados para fins comerciais de terceiros."),
             ("6. Retenção e segurança", "Mantemos dados pelo tempo necessário para fornecer o serviço, cumprir obrigações legais, resolver disputas e proteger a operação. Aplicamos controles de acesso, registro de eventos e medidas técnicas compatíveis com a natureza dos dados. Nenhum serviço conectado à internet elimina todos os riscos, por isso recomendamos proteger sua conta e não inserir segredos em campos de projeto."),
@@ -5084,7 +5084,7 @@ LEGAL_PAGES = {
         "lead": "Condições simples para usar o Workspace com clareza, responsabilidade e respeito ao trabalho da sua equipe.",
         "updated": "21 de setembro de 2026",
         "sections": [
-            ("1. Sobre o serviço", "O Cadu Workspace reúne conta, equipe, marcas, projetos, arquivos, créditos e integrações para apoiar o trabalho de comunicação e mídia. Recursos, limites e disponibilidade podem variar conforme o plano contratado ou a configuração da equipe."),
+            ("1. Sobre o serviço", "O Cadu Workspace reúne conta, equipe, marcas, projetos, arquivos, tokens e integrações para apoiar o trabalho de comunicação e mídia. Recursos, limites e disponibilidade podem variar conforme o plano contratado ou a configuração da equipe."),
             ("2. Sua conta e sua equipe", "Você é responsável por manter seus dados de acesso corretos, proteger credenciais e garantir que as pessoas convidadas tenham autorização para acessar o conteúdo. O time também é responsável por administrar papéis, permissões e conexões que autorizar."),
             ("3. Conteúdo e instruções", "Você mantém os direitos sobre o conteúdo enviado ao Workspace. Você autoriza o processamento necessário para fornecer os recursos solicitados, incluindo indexação, análise e geração de resultados dentro do contexto escolhido. Não envie conteúdo que você não tenha autorização para usar."),
             ("4. Resultados e revisão humana", "Recursos assistidos por inteligência artificial podem produzir resultados incompletos ou incorretos. Os resultados são apoio ao trabalho e devem ser revisados antes de publicação, investimento, veiculação ou decisão comercial. O Workspace não substitui a aprovação da equipe responsável."),
@@ -5098,7 +5098,7 @@ LEGAL_PAGES = {
 
 PRODUCT_ENTRIES = {
     "cadu": ("Cadu", "Inteligência de mídia", "Traga a decisão de mídia para um só lugar.", "Pesquise públicos, formatos, canais e ferramentas de campanha a partir do contexto do seu time."),
-    "workspace": ("Workspace", "Conta e contexto", "Comece pelo contexto certo.", "Organize o time, os projetos, os créditos e os acessos antes de abrir uma solução especializada."),
+    "workspace": ("Workspace", "Conta e contexto", "Comece pelo contexto certo.", "Organize o time, os projetos, os tokens e os acessos antes de abrir uma solução especializada."),
     "planner": ("Planner", "Planejamento de mídia", "Planeje antes de investir.", "Estruture objetivos, público, canais e recomendações em um plano pronto para a próxima decisão."),
     "studio": ("Studio", "Criação de conteúdo", "Crie para o formato que importa.", "Transforme uma direção criativa em peças, variações e formatos preparados para a campanha."),
     "skills": ("Skills", "Conhecimento especialista", "Aplique o método certo no momento certo.", "Encontre skills e agentes especializados para pesquisar, decidir e executar com mais contexto."),
@@ -5222,9 +5222,9 @@ def workspace_onboarding():
             _ensure_brand_audit_credit(client_id)
             audit_job_id = uuid4().hex
         except HTTPException as exc:
-            audit_error = str(exc.description or 'A auditoria ficará disponível quando houver créditos.')[:360]
+            audit_error = str(exc.description or 'A auditoria ficará disponível quando houver tokens.')[:360]
         except Exception:
-            audit_error = 'A auditoria ficará disponível quando os créditos da equipe puderem ser consultados.'
+            audit_error = 'A auditoria ficará disponível quando os tokens da equipe puderem ser consultados.'
             current_app.logger.exception('Não foi possível preparar a auditoria do onboarding da empresa %s', client_id)
 
     audit_metadata = {}
@@ -5713,7 +5713,7 @@ def dashboard():
     try:
         credit = credit_position(client_id)
     except Exception:
-        current_app.logger.warning('Não foi possível carregar créditos da Home do Workspace', exc_info=True)
+        current_app.logger.warning('Não foi possível carregar tokens da Home do Workspace', exc_info=True)
         credit = {}
     usage = float(credit.get('monthly_usage_percentage') or 0)
     credit_available = max(0, int(credit.get('available') or 0))
@@ -5732,14 +5732,14 @@ def dashboard():
         'available': credit_available,
         'total': credit_total,
         'usagePercent': round(usage, 1),
-        'title': 'Dê mais capacidade ao seu time' if is_free_credit_state else 'Seu saldo de créditos está baixo',
+        'title': 'Dê mais capacidade ao seu time' if is_free_credit_state else 'Seu saldo de tokens está baixo',
         'description': (
             'Faça upgrade para liberar o uso de IA no Cadu para uma pessoa ou para toda a equipe.'
             if is_free_credit_state else
-            f'Você ainda tem {credit_available:,} créditos disponíveis. Adicione um pacote para continuar sem interrupções.'
+            f'Você ainda tem {credit_available:,} tokens disponíveis. Adicione um pacote para continuar sem interrupções.'
         ).replace(',', '.'),
         'href': url_for('cadu_workspace.account_page', section='planos' if is_free_credit_state else 'creditos'),
-        'cta': 'Ver planos' if is_free_credit_state else 'Comprar créditos',
+        'cta': 'Ver planos' if is_free_credit_state else 'Comprar tokens',
     }
     brand_items = [{'id': str(item.get('id')), 'kind': 'brand', 'title': str(item.get('name') or 'Marca'),
                     'name': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''),
@@ -6686,7 +6686,7 @@ def project_detail(project_id, project_view='overview'):
         try:
             usage_percent = round(float((credit_position(client_id) or {}).get('monthly_usage_percentage') or 0), 1)
         except Exception:
-            current_app.logger.exception('Não foi possível carregar os créditos do projeto %s', project_id)
+            current_app.logger.exception('Não foi possível carregar os tokens do projeto %s', project_id)
             usage_percent = 0
         project_data = {
             'id': str(project.get('id')), 'name': str(project.get('nome') or 'Projeto'),
@@ -9179,7 +9179,7 @@ def audit_brand(brand_id):
     if credit_response is not None:
         return credit_response
     if request.form.get('confirmed_cost') != 'true':
-        abort(400, description='Confirme a estimativa de créditos antes de iniciar a auditoria.')
+        abort(400, description='Confirme a estimativa de tokens antes de iniciar a auditoria.')
     social_links = [item.strip()[:500] for item in (request.form.get('social_links') or '').splitlines() if item.strip()][:12]
     additional_sources = [_normalized_website_url(item) for item in request.form.getlist('additional_sources')[:12] if str(item).strip()]
     excluded_sources = [_normalized_website_url(item) for item in request.form.getlist('excluded_sources')[:12] if str(item).strip()]
@@ -10577,7 +10577,7 @@ def llms():
            f"- [Agentes e capacidades]({product_url('skills', '/agentes')})",
            f"- [Skills públicas testáveis]({product_url('skills')})", ""] if skills_enabled() else []),
         "Áreas autenticadas", "",
-        "Projetos, skills personalizadas, créditos, clientes, campanhas, contas, MCPs e relatórios são privados e não fazem parte do sitemap.", "",
+        "Projetos, skills personalizadas, tokens, clientes, campanhas, contas, MCPs e relatórios são privados e não fazem parte do sitemap.", "",
     ]
     return Response("\n".join(lines), mimetype="text/plain")
 
@@ -10618,7 +10618,7 @@ def llms_full():
         f'- Termos: {product_url("workspace", "/termos")}',
         '- Contato oficial: contato@centralcomm.media', '',
         '## Conteúdo não público', '',
-        'Contas, projetos, marcas, arquivos, conversas, créditos, chaves, integrações autorizadas e relatórios privados não devem ser rastreados nem tratados como conteúdo público.', '',
+        'Contas, projetos, marcas, arquivos, conversas, tokens, chaves, integrações autorizadas e relatórios privados não devem ser rastreados nem tratados como conteúdo público.', '',
     ]
     response = Response('\n'.join(lines), mimetype='text/plain')
     response.headers['X-Robots-Tag'] = 'noindex'

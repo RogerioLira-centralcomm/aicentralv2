@@ -77,21 +77,21 @@ document.addEventListener('DOMContentLoaded', () => {
   }));
   const runButton = document.querySelector('[data-run]');
   runButton?.addEventListener('click', async () => {
-    const answer = document.querySelector('[data-message]'); runButton.disabled = true; show(answer, 'Executando e verificando créditos…');
+    const answer = document.querySelector('[data-message]'); runButton.disabled = true; show(answer, 'Executando e verificando tokens…');
     try {
       const response = await fetch(runButton.dataset.url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({prompt:document.querySelector('[data-composer]').value})});
       const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Não foi possível executar.');
-      show(answer, `${body.answer}\n\n${body.charged_credits} crédito(s) utilizado(s). Saldo: ${body.remaining_credits}.`);
+      show(answer, `${body.answer}\n\n${body.charged_credits} token(s) utilizado(s). Saldo: ${body.remaining_credits}.`);
     } catch (error) { show(answer, error.message); } finally { runButton.disabled = false; }
   });
   const sharedForm = document.querySelector('[data-shared-run]');
   sharedForm?.addEventListener('submit', async event => {
     event.preventDefault(); const button = sharedForm.querySelector('button[type="submit"]'), status = sharedForm.querySelector('[data-run-status]'), answer = sharedForm.querySelector('[data-run-answer]');
-    button.disabled = true; status.textContent = 'Executando e verificando créditos…'; answer.hidden = true;
+    button.disabled = true; status.textContent = 'Executando e verificando tokens…'; answer.hidden = true;
     try {
       const response = await fetch(sharedForm.dataset.url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({prompt:sharedForm.querySelector('textarea').value})});
       const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Não foi possível executar.');
-      status.textContent = `${body.charged_credits} crédito(s) utilizado(s). Saldo: ${body.remaining_credits}.`; show(answer, body.answer);
+      status.textContent = `${body.charged_credits} token(s) utilizado(s). Saldo: ${body.remaining_credits}.`; show(answer, body.answer);
     } catch (error) { status.textContent = error.message; } finally { button.disabled = false; }
   });
 });

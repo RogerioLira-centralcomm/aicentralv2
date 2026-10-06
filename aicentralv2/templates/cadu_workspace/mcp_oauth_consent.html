@@ -14,9 +14,9 @@
   'artifacts:write': 'Criar e revisar documentos',
   'account:read': 'Consultar dados básicos da conta',
   'account:write': 'Alterar conta e convidar equipe',
-  'credits:read': 'Consultar saldo e uso de créditos',
-  'credits:purchase': 'Solicitar compra de créditos (somente administradores)',
-  'media:generate': 'Gerar e editar imagens no Studio (consome créditos da conta)',
+  'credits:read': 'Consultar saldo e uso de tokens',
+  'credits:purchase': 'Solicitar compra de tokens (somente administradores)',
+  'media:generate': 'Gerar e editar imagens no Studio (consome tokens da conta)',
   'google:read': 'Consultar conexões Google',
   'google:write': 'Vincular dados do Google aos projetos',
   'contexts:read': 'Consultar o contexto de trabalho',
@@ -42,7 +42,7 @@
       <fieldset class="workspace-mcp-permissions workspace-mcp-permissions--modules"><legend>Ferramentas que o cliente vai carregar</legend><p>Marketing vem ativo. Os demais módulos podem ser ligados depois em Integrações → Agentes. Isso reduz a lista inicial de ferramentas enviada ao cliente.</p><div class="workspace-mcp-permissions__grid">
         {% for module_id, module_label in tool_modules.items() %}<label><input type="checkbox" name="module" value="{{ module_id }}" {% if module_id in default_modules %}checked{% endif %}> {{ module_label }}</label>{% endfor %}
       </div></fieldset>
-      <p class="workspace-oauth-consent__credits">O uso deste aplicativo consome os créditos da sua conta Cadu.</p>
+      <p class="workspace-oauth-consent__credits">O uso deste aplicativo consome os tokens da sua conta Cadu.</p>
       <div class="workspace-oauth-consent__actions"><button class="workspace-button is-primary" type="submit" name="decision" value="authorize">Autorizar conexão</button><button class="workspace-button" type="submit" name="decision" value="deny">Cancelar</button></div>
     </form>
     <footer>Você pode revogar o acesso a qualquer momento em Integrações.</footer>

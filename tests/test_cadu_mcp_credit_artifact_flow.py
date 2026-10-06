@@ -120,12 +120,15 @@ def test_credit_purchase_releases_only_catalog_quantity_and_names_requester():
          patch("aicentralv2.cadu_workspace.credit_purchase_service.credit_position",
                return_value={"available": 100_000}), \
          patch("aicentralv2.db.obter_cliente_por_id", return_value={"nome_fantasia": "Agência"}), \
-         patch("aicentralv2.email_service.send_email") as send_email:
+         patch("aicentralv2.email_service.send_email") as send_email, \
+         patch("aicentralv2.services.cadu_token_emails.send_token_purchase_receipt_email",
+               return_value={"success": True}) as receipt:
         result = purchase_extra(_context(), "Extra Essencial", "prepaid", "Solicitado pela equipe")
     assert result["credits_released"] == 100_000
     assert result["requester_name"] == "Ana Silva"
     assert result["credit_lot_id"] == 72
     assert any("Ana Silva" in str(call) for call in send_email.call_args_list)
+    assert receipt.call_args.kwargs["tokens"] == 100_000 and receipt.call_args.kwargs["balance"] == 100_000
     insert_lot = [call for call in cursor.execute.call_args_list
                   if "INSERT INTO cadu_credits_extras" in call.args[0]]
     assert len(insert_lot) == 1
@@ -230,13 +233,15 @@ def test_web_credit_purchase_requires_csrf_and_keeps_existing_member_flow():
     with patch("aicentralv2.cadu_workspace.routes.get_db", return_value=connection), \
          patch("aicentralv2.cadu_billing_catalog.load_packages", side_effect=public_packages), \
          patch("aicentralv2.db.obter_cliente_por_id", return_value={}), \
-         patch("aicentralv2.email_service.send_email") as send_email:
+         patch("aicentralv2.email_service.send_email") as send_email, \
+         patch("aicentralv2.services.cadu_token_emails.send_token_purchase_receipt_email",
+               return_value={"success": True}) as receipt:
         response = client.post("/workspace/api/creditos/solicitar", headers={"X-CSRF-Token":"valid"},
                                json={"package_name":"Extra Essencial", "tokens":100_000,
                                      "price":49, "billing_mode":"prepaid"})
     assert response.status_code == 201
     assert response.get_json()["credit_lot_id"] == 72
-    assert send_email.call_count == 2
+    assert send_email.call_count == 1 and receipt.call_args.kwargs["request_id"] == 41
     assert "Ana Silva" in str(send_email.call_args_list[0])
     assert any("INSERT INTO cadu_credits_extras" in call.args[0] for call in cursor.execute.call_args_list)
 
@@ -283,13 +288,15 @@ def test_web_credit_purchase_reuses_identical_recent_order_on_double_click():
     with patch("aicentralv2.cadu_workspace.routes.get_db", return_value=connection), \
          patch("aicentralv2.cadu_billing_catalog.load_packages", side_effect=public_packages), \
          patch("aicentralv2.db.obter_cliente_por_id", return_value={}), \
-         patch("aicentralv2.email_service.send_email") as send_email:
+         patch("aicentralv2.email_service.send_email") as send_email, \
+         patch("aicentralv2.services.cadu_token_emails.send_token_purchase_receipt_email") as receipt:
         response = client.post("/workspace/api/creditos/solicitar", headers={"X-CSRF-Token": "valid"},
                                json={"package_slug": "extra-essencial", "billing_mode": "prepaid"})
     assert response.status_code == 200
     assert response.get_json()["duplicate"] is True
     assert response.get_json()["request_id"] == 41
     send_email.assert_not_called()
+    receipt.assert_not_called()  # retry idempotente não reenvia o recibo
     assert not any("INSERT INTO cadu_credits_extras" in call.args[0] for call in cursor.execute.call_args_list)
 
 

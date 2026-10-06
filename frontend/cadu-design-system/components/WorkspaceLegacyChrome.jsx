@@ -12,7 +12,7 @@ export function WorkspaceLegacyChrome({bootstrap}) {
   const sideNavs = {
     observabilidade: {label: 'Conta', activeId: 'observabilidade', items: [
       ['perfil', 'Perfil', 'brand', 'profile'], ['agencia', 'Agência', 'home', 'agencia'], ['equipe', 'Equipe', 'users', 'equipe'], ['integracoes', 'Integrações', 'plugin', 'integracoes'],
-      ['planos', 'Plano', 'plan', 'plans'], ['uso', 'Uso', 'analysis', 'usage'], ['creditos', 'Créditos', 'history', 'credits'], ['faturamento', 'Faturamento', 'file', 'faturamento'], ['observabilidade', 'Observabilidade do Cadu', 'pulse', 'observability']]},
+      ['planos', 'Plano', 'plan', 'plans'], ['uso', 'Uso', 'analysis', 'usage'], ['creditos', 'Tokens', 'history', 'credits'], ['faturamento', 'Faturamento', 'file', 'faturamento'], ['observabilidade', 'Observabilidade do Cadu', 'pulse', 'observability']]},
     docs: {label: 'Biblioteca', activeId: 'docs', items: [['docs', 'Documentos', 'file', 'docs'], ['skills', 'Skills personalizadas', 'plugin', 'skills']]},
     skills: {label: 'Biblioteca', activeId: 'skills', items: [['docs', 'Documentos', 'file', 'docs'], ['skills', 'Skills personalizadas', 'plugin', 'skills']]},
   }[bootstrap.active];

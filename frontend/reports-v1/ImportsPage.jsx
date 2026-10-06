@@ -252,7 +252,7 @@ function PrintReview({detail, data, canEdit, onCheck}) {
       <img className="block w-full" src={`${API}/imports/${detail.import_file.id}/image`} alt={`Print enviado: ${detail.import_file.original_name}`}/>
     </section>
     <div className="flex flex-col gap-4">
-      {!detail.visual ? <Callout title="Print recebido">A leitura com IA consome créditos Cadu e só sugere valores com evidência. Nada é confirmado sem a sua conferência.</Callout>
+      {!detail.visual ? <Callout title="Print recebido">A leitura com IA consome tokens Cadu e só sugere valores com evidência. Nada é confirmado sem a sua conferência.</Callout>
         : <>
           <p className="text-sm text-tertiary">Leitura sugerida por {detail.visual.model}. Confira cada bloco com o print antes de confirmar.</p>
           {!scopes.length && <Callout tone="warning" title="Nada legível">Envie uma imagem mais nítida ou um export CSV/XLSX.</Callout>}

@@ -1038,3 +1038,19 @@ body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-entity-rail__group
   body.portal--workspace .cadu-ds-brand-workarea > .cadu-ds-entity-portal--brand.is-no-rail { grid-template-columns:var(--cadu-sidebar-width,239px) minmax(0,1fr); }
   body.portal--workspace .cadu-ds-brand-workarea > .cadu-ds-entity-portal--brand.is-no-rail:has(> .cadu-ds-entity-nav.is-collapsed) { grid-template-columns:64px minmax(0,1fr); }
 }
+
+/* Análise da marca na gaveta: uma coluna, rodapé fixo, tipografia legível. */
+.cadu-ds-workspace-drawer .cadu-ds-brand-audit-dialog__columns { grid-template-columns:minmax(0,1fr); overflow:visible; }
+.cadu-ds-workspace-drawer .cadu-ds-brand-audit-dialog__column { padding:20px 0; gap:14px; }
+.cadu-ds-workspace-drawer .cadu-ds-brand-audit-dialog__column + .cadu-ds-brand-audit-dialog__column { border-left:0; border-top:1px solid var(--cadu-line); }
+.cadu-ds-workspace-drawer .cadu-ds-brand-audit-dialog__column > header strong { font-size:14px; font-weight:600; }
+.cadu-ds-workspace-drawer .cadu-ds-brand-audit-dialog__column > header span { font-size:13px; line-height:1.5; }
+.cadu-ds-workspace-drawer .cadu-ds-brand-audit-dialog .cadu-ds-brand-audit-dialog__scope,
+.cadu-ds-workspace-drawer .cadu-ds-brand-audit-dialog__scope { padding:20px 0; }
+.cadu-ds-workspace-drawer .cadu-ds-brand-audit-dialog__scope > label b,
+.cadu-ds-workspace-drawer .cadu-ds-brand-audit-dialog__scope > label em,
+.cadu-ds-workspace-drawer .cadu-ds-brand-audit-dialog__scope > label small { font-size:13px; }
+.cadu-ds-workspace-drawer .cadu-ds-brand-audit-site { display:grid; gap:8px; justify-items:start; }
+.cadu-ds-workspace-drawer .cadu-ds-brand-audit-site b { overflow-wrap:anywhere; font-size:14px; font-weight:600; }
+.cadu-ds-workspace-drawer .cadu-ds-brand-audit-dialog__footer { position:sticky; bottom:0; margin:0 -24px -24px; padding:14px 24px; border-top:1px solid var(--cadu-line); background:var(--cadu-surface,#fff); }
+.cadu-ds-workspace-drawer .cadu-ds-brand-audit-dialog__cost { font-size:13px; }

@@ -801,3 +801,24 @@ body.portal--workspace :is(.cadu-ds-entity-portal--project,.cadu-ds-entity-porta
   body.portal--workspace :is(.cadu-ds-entity-portal--project,.cadu-ds-entity-portal--brand) .cadu-ds-entity-nav.is-collapsed .cadu-ds-entity-nav__actions { display:none; }
   body.portal--workspace :is(.cadu-ds-entity-portal--project,.cadu-ds-entity-portal--brand) .cadu-ds-entity-nav.is-collapsed nav a { display:grid; grid-template-columns:1fr; min-height:38px; justify-items:center; padding:0; }
 }
+
+/* Navegação lateral no padrão Untitled: linhas de 36px, 14px/600, ícone 20px, ativo em cinza claro. */
+@media (min-width:1025px) {
+  body.portal--workspace :is(.cadu-ds-entity-portal--brand,.cadu-ds-entity-portal--project) > .cadu-ds-entity-nav { padding:20px 12px 16px; background:var(--cadu-surface,#fff); }
+}
+body.portal--workspace :is(.cadu-ds-entity-portal--brand,.cadu-ds-entity-portal--project) > .cadu-ds-entity-nav :is(nav a,.cadu-ds-entity-nav__actions > button,.cadu-ds-entity-nav__actions > form > button,.cadu-ds-entity-nav__source-menu summary) {
+  display:flex; align-items:center; gap:12px; width:100%; min-height:36px; box-sizing:border-box; padding:8px 12px; border:0; border-radius:6px;
+  background:transparent; color:var(--color-text-secondary,#344054); font:600 14px/20px var(--cadu-font-sans); text-align:left; text-decoration:none; cursor:pointer;
+}
+body.portal--workspace :is(.cadu-ds-entity-portal--brand,.cadu-ds-entity-portal--project) > .cadu-ds-entity-nav :is(nav a,.cadu-ds-entity-nav__actions > button,.cadu-ds-entity-nav__actions > form > button) svg { width:20px; height:20px; flex:none; color:var(--color-text-quaternary,#667085); }
+body.portal--workspace :is(.cadu-ds-entity-portal--brand,.cadu-ds-entity-portal--project) > .cadu-ds-entity-nav :is(nav a,.cadu-ds-entity-nav__actions > button,.cadu-ds-entity-nav__actions > form > button):hover { background:var(--cadu-surface-soft,#f9fafb); color:var(--cadu-ink); }
+body.portal--workspace :is(.cadu-ds-entity-portal--brand,.cadu-ds-entity-portal--project) > .cadu-ds-entity-nav nav a.is-active { background:var(--cadu-surface-soft,#f9fafb); color:var(--cadu-ink); box-shadow:none; }
+body.portal--workspace :is(.cadu-ds-entity-portal--brand,.cadu-ds-entity-portal--project) > .cadu-ds-entity-nav nav a.is-active svg { color:var(--cadu-ink); }
+body.portal--workspace :is(.cadu-ds-entity-portal--brand,.cadu-ds-entity-portal--project) > .cadu-ds-entity-nav nav a > span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+body.portal--workspace :is(.cadu-ds-entity-portal--brand,.cadu-ds-entity-portal--project) > .cadu-ds-entity-nav nav a > small { flex:none; padding:2px 8px; border:1px solid var(--cadu-line); border-radius:16px; background:var(--cadu-surface-soft,#f9fafb); color:var(--color-text-secondary,#344054); font:500 12px/18px var(--cadu-font-sans); }
+body.portal--workspace :is(.cadu-ds-entity-portal--brand,.cadu-ds-entity-portal--project) > .cadu-ds-entity-nav nav { display:grid; gap:2px; }
+body.portal--workspace :is(.cadu-ds-entity-portal--brand,.cadu-ds-entity-portal--project) > .cadu-ds-entity-nav .cadu-ds-entity-nav__actions { display:grid; gap:2px; margin-top:16px; padding:16px 0 0; border-top:1px solid var(--cadu-line); }
+body.portal--workspace :is(.cadu-ds-entity-portal--brand,.cadu-ds-entity-portal--project) > .cadu-ds-entity-nav .cadu-ds-entity-nav__actions > span { margin:0 12px 4px; color:var(--color-text-quaternary,#667085); font:600 12px/18px var(--cadu-font-sans); letter-spacing:0; text-transform:none; }
+body.portal--workspace :is(.cadu-ds-entity-portal--brand,.cadu-ds-entity-portal--project) > .cadu-ds-entity-nav .cadu-ds-entity-nav__identity small { font:500 12px/18px var(--cadu-font-sans); letter-spacing:0; text-transform:none; }
+body.portal--workspace :is(.cadu-ds-entity-portal--brand,.cadu-ds-entity-portal--project) > .cadu-ds-entity-nav .cadu-ds-entity-nav__identity b { font:600 14px/20px var(--cadu-font-sans); }
+body.portal--workspace :is(.cadu-ds-entity-portal--brand,.cadu-ds-entity-portal--project) > .cadu-ds-entity-nav.is-collapsed nav a { justify-content:center; padding:8px; }

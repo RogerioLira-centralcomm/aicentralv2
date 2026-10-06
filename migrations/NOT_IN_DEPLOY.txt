@@ -42,3 +42,6 @@ rollback_cadu_link_reader_artifact.sql | manual-pontual | reversão ou verifica�
 upgrade_agent_tables_20260908.sql | manual-pontual | correção ou carga única; rodar à mão quando a operação pedir
 upgrade_reports_supertag_retention_rate_v1.sql | manual-pontual | correção ou carga única; rodar à mão quando a operação pedir
 verify_cadu_client_plans_schema.sql | manual-pontual | reversão ou verificação, nunca no deploy
+add_cadu_credit_packages_catalog_v1.sql | revisar-antes | catálogo único de pacotes de tokens (slug, kind, storage_gb): aplicar só após as consultas Q1-Q8 em produção
+add_cadu_credit_lot_source_v1.sql | revisar-antes | origem/ciclo dos lotes e índice único da franquia por ciclo: aplicar só junto com CADU_PLAN_ALLOWANCE_ENABLED, após as consultas Q1-Q8
+rename_cadu_orphan_tables_old_v1.sql | manual-destrutivo | renomeação _old_ das tabelas órfãs: comentada; só depois de migrar o admin /cadu/creditos

@@ -33,3 +33,21 @@ class ChannelCardTest(TestCase):
         with patch.object(channels, '_channel_logo', return_value=''):
             channels.decorate_logos([record])
         self.assertFalse([key for key in record if any(word in key for word in ('invest', 'preco', 'price', 'cpm', 'custo'))])
+
+
+class ReachSplitTest(TestCase):
+    def test_number_leads_and_sentence_is_never_a_figure(self):
+        self.assertEqual(channels.split_reach('+20M usuários BR'), ('+20M', 'usuários BR'))
+        self.assertEqual(channels.split_reach('+150M pageviews/mês'), ('+150M', 'pageviews/mês'))
+        self.assertEqual(channels.split_reach('Mensurável por campanha no Brasil'), ('', 'Mensurável por campanha no Brasil'))
+        self.assertEqual(channels.split_reach('24 horas no ar'), ('', '24 horas no ar'))
+        self.assertEqual(channels.split_reach(None), ('', ''))
+
+    def test_decorate_exposes_figure_and_keeps_sentence_out_of_it(self):
+        number = {'id': 1, 'slug': 'a', 'name': 'A', 'category': 'Streaming', 'logo_path': '', 'imagens': [], 'audience': '+50M ouvintes'}
+        phrase = {'id': 2, 'slug': 'b', 'name': 'B', 'category': 'Programática', 'logo_path': '', 'imagens': [], 'audience': 'Mensurável por campanha'}
+        with patch.object(channels, '_channel_logo', return_value=''):
+            channels.decorate_logos([number, phrase])
+        self.assertEqual((number['reach_figure'], number['reach_unit']), ('+50M', 'ouvintes'))
+        self.assertEqual(phrase['reach_figure'], '')
+        self.assertNotIn('reach_unit', phrase)

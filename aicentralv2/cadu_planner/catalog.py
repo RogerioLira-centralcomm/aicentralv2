@@ -166,7 +166,7 @@ def query(kind, value='', limit=20, category='', channel=''):
     if kind == 'canais':
         # The shelf columns are for the Planner grid; API, MCP and chat callers keep the previous shape.
         for record in records:
-            for key in ('tipo', 'imagem_path', 'og_image_path', 'imagens', 'viewability', 'completion_rate', 'usuarios_unicos'):
+            for key in ('tipo', 'imagem_path', 'og_image_path', 'imagens', 'viewability', 'completion_rate', 'usuarios_unicos', 'formats_count'):
                 record.pop(key, None)
     return records
 

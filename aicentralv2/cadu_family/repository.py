@@ -834,10 +834,12 @@ def catalog(module, query='', category='', platform='', sort='relevant', format_
                     (search, search, search, search, search, category, category, platform, platform)))
     if module == 'canais':
         category = category.strip()[:100] if isinstance(category, str) else ''
-        return rows('''SELECT id, slug, nome AS name, descricao AS description, categoria AS category,
-                             tipo, alcance AS audience, logo_path, cor, imagem_path, og_image_path, imagens,
-                             viewability, completion_rate, usuarios_unicos
-                        FROM cadu_canais
+        return rows('''SELECT c.id, c.slug, c.nome AS name, c.descricao AS description, c.categoria AS category,
+                             c.tipo, c.alcance AS audience, c.logo_path, c.cor, c.imagem_path, c.og_image_path, c.imagens,
+                             c.viewability, c.completion_rate, c.usuarios_unicos,
+                             (SELECT COUNT(*) FROM cadu_formatos f WHERE f.is_active IS TRUE
+                                 AND f.plataforma_slug IN (c.slug, REPLACE(c.slug, '-', '_'))) AS formats_count
+                        FROM cadu_canais c
                        WHERE is_active = TRUE AND (nome ILIKE %s OR COALESCE(descricao, '') ILIKE %s
                              OR COALESCE(categoria, '') ILIKE %s)
                          AND (%s = '' OR categoria = %s)

@@ -1,6 +1,7 @@
 """Read-only channel detail projections owned by SmartPlanner."""
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -82,6 +83,18 @@ def _percent(value):
     return number if 0 < number <= 100 else None
 
 
+_REACH = re.compile(r'^\s*([+≈~]?\s*\d[\d.,]*\s*(?:mil(?:h[õo]es|h[ãa]o)?|mi|bi|[kKmMbB])?)(?![\wÀ-ÿ])\s*(.*)$')
+
+
+def split_reach(text):
+    """"+50M usuários BR" → ("+50M", "usuários BR"); a sentence has no figure and stays a note."""
+    value = str(text or '').strip()
+    match = _REACH.match(value)
+    if match and re.search(r'[+≈~]|mil|mi$|bi$|[kKmMbB]$', match.group(1)):
+        return match.group(1).replace(' ', ''), match.group(2).strip()
+    return '', value
+
+
 def decorate_logos(records):
     """Catalog lists carry logo_path only; swap it for the logo that actually exists.
 
@@ -98,6 +111,9 @@ def decorate_logos(records):
             record['role'] = (channel_roles({**record, 'categoria': record.get('category')}) or [{}])[0].get('role', '')
             for key in ('imagem_path', 'og_image_path', 'imagens'):
                 record.pop(key, None)
+            figure, rest = split_reach(record.get('audience'))
+            record['reach_figure'] = figure
+            record['reach_unit' if figure else 'reach_note'] = rest
             for key in ('viewability', 'completion_rate'):
                 record[key] = _percent(record.get(key))
     return records

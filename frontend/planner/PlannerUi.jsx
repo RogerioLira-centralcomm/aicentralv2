@@ -105,5 +105,6 @@ export function usePlanSelection(request, plan, onPlanChange, notify, enabled = 
   }, [request, planId, onPlanChange, notify]);
 
   const isSelected = useCallback((kind, id) => keys.has(`${kind}:${id}`), [keys]);
-  return {isSelected, toggle, addMany};
+  const count = useCallback(kind => [...keys].filter(key => key.startsWith(`${kind}:`)).length, [keys]);
+  return {isSelected, toggle, addMany, count};
 }

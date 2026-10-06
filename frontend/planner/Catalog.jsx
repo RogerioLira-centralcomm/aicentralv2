@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.jsx';
 import {CaduSelectField} from '../cadu-design-system/components/CaduField.jsx';
@@ -104,11 +104,12 @@ export function CatalogCard({kind, item, urls, selected}) {
   </a>;
 }
 
-/** Todos: uma seção por categoria, na ordem do catálogo; com categoria escolhida, uma grade só. */
-function channelGroups(records, category) {
+/** Todos: uma seção por categoria (ou por papel no plano), na ordem do catálogo; com categoria escolhida, uma grade só. */
+function channelGroups(records, category, groupBy) {
   if (category) return [{title: '', items: records}];
+  const field = groupBy === 'papel' ? 'role' : 'category';
   const groups = new Map();
-  records.forEach(item => { const title = item.category || 'Outros'; if (!groups.has(title)) groups.set(title, []); groups.get(title).push(item); });
+  records.forEach(item => { const title = item[field] || (field === 'role' ? 'Outros papéis' : 'Outros'); if (!groups.has(title)) groups.set(title, []); groups.get(title).push(item); });
   return [...groups].map(([title, items]) => ({title, items}));
 }
 
@@ -142,6 +143,13 @@ export function CatalogPage({boot, request, selection, notify}) {
   const [query, setQuery] = useState('');
   const [categories, setCategories] = useState([]);
   const [category, setCategory] = useState('');
+  const [groupBy, setGroupBy] = useState('categoria');
+  // Chip counts come from the full list that arrives with the page, not from the filtered one.
+  const categoryCounts = useMemo(() => {
+    const counts = new Map();
+    (Array.isArray(boot.records) ? boot.records : []).forEach(item => counts.set(item.category, (counts.get(item.category) || 0) + 1));
+    return counts;
+  }, [boot.records]);
   const [filters, setFilters] = useState({scope: '', uf: ''});
   const [offset, setOffset] = useState(0);
   const [records, setRecords] = useState(Array.isArray(boot.records) ? boot.records : []);
@@ -204,9 +212,16 @@ export function CatalogPage({boot, request, selection, notify}) {
         options={[{value: '', label: 'Todas as categorias'}, ...boot.categories.map(value => ({value, label: value}))]}/>}
       <span className="planner-toolbar__count" aria-live="polite">{countLabel}</span>
     </div>
-    {kind === 'canais' && (boot.categories || []).length > 0 && <div className="planner-segmented planner-chips" role="group" aria-label="Categoria">
-      {[['', 'Todos'], ...boot.categories.map(value => [value, value])].map(([value, label]) => <button key={value || 'all'} type="button" aria-pressed={category === value}
-        className={category === value ? 'is-active' : ''} onClick={() => { setCategory(value); setOffset(0); }}>{label}</button>)}
+    {kind === 'canais' && (boot.categories || []).length > 0 && <div className="planner-chipbar">
+      <div className="planner-segmented planner-chips" role="group" aria-label="Categoria">
+        {[['', 'Todos', boot.records?.length || 0], ...boot.categories.map(value => [value, value, categoryCounts.get(value) || 0])].map(([value, label, count]) => <button key={value || 'all'} type="button" aria-pressed={category === value}
+          className={category === value ? 'is-active' : ''} onClick={() => { setCategory(value); setOffset(0); }}>{label}{count > 0 && <span>{count}</span>}</button>)}
+      </div>
+      {!category && <div className="planner-segmented planner-groupby" role="group" aria-label="Agrupar por">
+        <small>Agrupar por</small>
+        {[['categoria', 'Categoria'], ['papel', 'Papel no plano']].map(([value, label]) => <button key={value} type="button" aria-pressed={groupBy === value}
+          className={groupBy === value ? 'is-active' : ''} onClick={() => setGroupBy(value)}>{label}</button>)}
+      </div>}
     </div>}
     {portalMode && <div className="planner-portal-filters">
       <div className="planner-segmented" role="group" aria-label="Escopo">
@@ -225,11 +240,15 @@ export function CatalogPage({boot, request, selection, notify}) {
     </div>}
     {!records.length && !loading ? <PlannerPanel className="planner-panel--flush"><CaduEmptyState title="Nenhuma referência encontrada" description="Ajuste a busca ou escolha outra categoria."/></PlannerPanel>
       : portalMode ? <div className="planner-list" aria-label="Portais disponíveis">{records.map(item => <PortalRow key={itemKey(item)} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))}/>)}</div>
-        : kind === 'canais' ? channelGroups(records, category).map(group => <section key={group.title || 'canais'} className="fmt-group" aria-label={group.title || 'Canais'}>
+        : kind === 'canais' ? channelGroups(records, category, groupBy).map(group => <section key={group.title || 'canais'} className="fmt-group" aria-label={group.title || 'Canais'}>
           {group.title && <h2 className="fmt-group__title">{group.title}<span>{group.items.length}</span></h2>}
           <div className="planner-grid planner-grid--channels">{group.items.map(item => <ChannelCard key={itemKey(item)} item={item} urls={boot.urls}
             selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>)}</div></section>)
         : <div className="planner-grid" aria-label={`${MODULE_LABELS[kind]} disponíveis`}>{records.map(item => <CatalogCard key={itemKey(item)} kind={kind} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))}/>)}</div>}
+    {kind === 'canais' && selection.count(kind) > 0 && <div className="channel-bar" role="status">
+      <span><strong>{selection.count(kind)}</strong> {selection.count(kind) === 1 ? 'canal' : 'canais'} no plano</span>
+      <a href={boot.urls.plans}>Revisar plano<Icon name="chevron" size={14}/></a>
+    </div>}
     {portalMode && total > PORTAL_PAGE && <nav className="planner-pagination" aria-label="Páginas de portais">
       <CaduButton variant="secondary" disabled={!offset} onClick={() => setOffset(Math.max(0, offset - PORTAL_PAGE))}>Anterior</CaduButton>
       <CaduButton variant="secondary" disabled={offset + records.length >= total} onClick={() => setOffset(offset + PORTAL_PAGE)}>Próxima</CaduButton>

@@ -57,12 +57,83 @@ def _criar_cliente_e_contato(db, *, nome, email, senha, tipo_id, executivo_id):
                 RETURNING id_contato_cliente
             ''', (nome, email, senha_hash, client_id))
             contact_id = cursor.fetchone()['id_contato_cliente']
+            _conceder_plano_free_e_boas_vindas(cursor, client_id)
         conn.commit()
     except Exception:
         conn.rollback()
         logger.warning('Cadastro público de %s desfeito', email, exc_info=True)
         raise
     return client_id, contact_id
+
+
+def _existe(cursor, sql, params=()):
+    cursor.execute(sql, params)
+    row = cursor.fetchone()
+    return bool(row and next(iter(row.values()), None))
+
+
+def _conceder_plano_free_e_boas_vindas(cursor, client_id):
+    """A2: plano Free + lote de boas-vindas, no mesmo cursor/transação do cadastro.
+
+    O trigger ``trg_grant_cadu_launch_credit`` (add_cadu_launch_credit.sql)
+    concederia 100k ao inserir um plano ativo. Para não somar 100k aos tokens de
+    boas-vindas, gravamos antes o direito ``cadu_launch_100k`` com 0 tokens: o
+    trigger encontra o conflito e não concede nada. Tolerante a esquemas sem a
+    tabela de direitos, sem a coluna ``source`` ou sem a definição ``free``.
+    """
+    from aicentralv2.cadu_billing_catalog import FREE_PLAN, welcome_tokens
+
+    has_entitlements = _existe(cursor, "SELECT to_regclass('cadu_credit_entitlements') IS NOT NULL AS ok")
+    if has_entitlements:
+        cursor.execute("""INSERT INTO cadu_credit_entitlements
+                            (id_cliente, entitlement_key, tokens_amount, status)
+                          VALUES (%s, 'cadu_launch_100k', 0, 'replaced_by_welcome')
+                          ON CONFLICT (id_cliente, entitlement_key) DO NOTHING""", (client_id,))
+
+    tokens = welcome_tokens()
+    if tokens:
+        entitlement_id = None
+        grant = True
+        if has_entitlements:
+            cursor.execute("""INSERT INTO cadu_credit_entitlements
+                                (id_cliente, entitlement_key, tokens_amount, status)
+                              VALUES (%s, 'cadu_welcome', %s, 'granted')
+                              ON CONFLICT (id_cliente, entitlement_key) DO NOTHING
+                              RETURNING id""", (client_id, tokens))
+            row = cursor.fetchone()
+            entitlement_id = row['id'] if row else None
+            grant = entitlement_id is not None
+        if grant:
+            has_source = _existe(cursor, """SELECT EXISTS (SELECT 1 FROM information_schema.columns
+                                             WHERE table_name = 'cadu_credits_extras'
+                                               AND column_name = 'source') AS ok""")
+            source_col, source_val = (', source', ", 'welcome'") if has_source else ('', '')
+            cursor.execute(f"""INSERT INTO cadu_credits_extras
+                                 (id_cliente, tokens_amount, tokens_used, purchase_date, expiration_date,
+                                  purchased_at, expires_at, status{source_col})
+                               VALUES (%s, %s, 0, NOW(), NULL, NOW(), NULL, 'active'{source_val})
+                               RETURNING id""", (client_id, tokens))
+            lot_id = cursor.fetchone()['id']
+            if entitlement_id:
+                cursor.execute("UPDATE cadu_credit_entitlements SET credit_lot_id = %s WHERE id = %s",
+                               (lot_id, entitlement_id))
+
+    cursor.execute("""SELECT id FROM cadu_plan_definitions
+                       WHERE is_active AND (lower(plan_type) = %s OR lower(plan_name) = %s)
+                    ORDER BY id LIMIT 1""", (FREE_PLAN['slug'], FREE_PLAN['slug']))
+    definition = cursor.fetchone()
+    if not definition:
+        logger.warning('Definição de plano "free" ausente; cliente %s criado sem plano', client_id)
+        return
+    cursor.execute("""SELECT 1 FROM cadu_client_plans WHERE id_cliente = %s AND plan_status = 'active' LIMIT 1""",
+                   (client_id,))
+    if cursor.fetchone():
+        return
+    cursor.execute("""INSERT INTO cadu_client_plans
+                        (id_cliente, id_plan_definition, tokens_monthly_limit, image_credits_monthly,
+                         features, plan_status, plan_start_date, plan_end_date, valid_from, valid_until)
+                      VALUES (%s, %s, %s, 0, '{}'::jsonb, 'active', NOW(), NULL, NOW(), NULL)""",
+                   (client_id, definition['id'], FREE_PLAN['tokens_monthly']))
 
 
 def provisionar_conta_publica(*, nome, email, senha=None):

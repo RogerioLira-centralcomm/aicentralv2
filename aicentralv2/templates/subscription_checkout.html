@@ -15,38 +15,30 @@
   <section class="auth-checkout-section" aria-labelledby="checkoutPlanTitle">
     <h2 id="checkoutPlanTitle"><span class="auth-step">1</span>Escolha o plano</h2>
     <div class="auth-plan-grid" id="planCards">
-      {% for plan in plan_definitions %}
-        {% if plan.plan_type in ['pro', 'enterprise'] or plan.slug in ['pro', 'enterprise'] %}
+      {% for plan in checkout_plans %}
         <article
-          class="auth-plan plan-card"
-          tabindex="0"
-          role="radio"
-          aria-checked="false"
-          data-plan-id="{{ plan.id }}"
-          data-plan-type="{{ plan.plan_type or plan.slug }}"
-          data-plan-name="{{ plan.plan_name or plan.name }}"
-          data-plan-price="{{ plan.monthly_price or plan.price or 0 }}"
-          data-tokens="{{ plan.tokens_monthly_limit or plan.tokens_limit or 0 }}"
-          data-images="{{ plan.image_credits_monthly or plan.image_credits or 0 }}"
-          data-users="{{ plan.max_users or 5 }}"
-          onclick="selectPlan(this)"
-          onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); selectPlan(this); }"
+          class="auth-plan{% if plan.requestable %} plan-card{% endif %}"
+          {% if plan.requestable %}tabindex="0" role="radio" aria-checked="false"{% else %}aria-disabled="true"{% endif %}
+          data-plan-id=""
+          data-plan-type="{{ plan.slug }}"
+          data-plan-name="{{ plan.name }}"
+          data-plan-price="{{ plan.price_monthly or 0 }}"
+          {% if plan.requestable %}onclick="selectPlan(this)"
+          onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); selectPlan(this); }"{% endif %}
         >
           <div class="auth-field-row">
-            <strong>{{ plan.plan_name or plan.name }}</strong>
-            <span class="auth-badge plan-badge">Selecionado</span>
+            <strong>{{ plan.name }}</strong>
+            {% if plan.requestable %}<span class="auth-badge plan-badge">Selecionado</span>{% endif %}
           </div>
           <p class="auth-plan-price">
-            R$ {{ "%.2f"|format(plan.monthly_price or plan.price or 0) }}
-            <span>/mês</span>
+            {% if plan.price_monthly %}R$ {{ "%.2f"|format(plan.price_monthly) }}<span>/mês</span>{% else %}Consulte{% endif %}
           </p>
           <ul class="auth-feature-list">
-            <li><i class="fa-solid fa-check" aria-hidden="true"></i>{{ "{:,}".format(plan.tokens_monthly_limit or plan.tokens_limit or 0).replace(",", ".") }} tokens/mês</li>
-            <li><i class="fa-solid fa-check" aria-hidden="true"></i>{{ plan.image_credits_monthly or plan.image_credits or 0 }} créditos de imagem</li>
-            <li><i class="fa-solid fa-check" aria-hidden="true"></i>{{ plan.max_users or 5 }} usuários</li>
+            {% if plan.tokens_monthly %}<li><i class="fa-solid fa-check" aria-hidden="true"></i>{{ "{:,}".format(plan.tokens_monthly).replace(",", ".") }} tokens/mês</li>{% endif %}
+            {% for feature in plan.features %}<li><i class="fa-solid fa-check" aria-hidden="true"></i>{{ feature }}</li>{% endfor %}
           </ul>
+          {% if not plan.requestable %}<p class="auth-help">{% if plan.current %}Seu plano atual.{% else %}Contratação com a equipe: fale com a equipe.{% endif %}</p>{% endif %}
         </article>
-        {% endif %}
       {% endfor %}
     </div>
     <input type="hidden" id="selectedPlanId" name="plan_id">
@@ -141,24 +133,24 @@
   <div class="auth-checkout-submit">
     <button type="submit" id="submitBtn" class="auth-submit">
       <span class="auth-spinner" aria-hidden="true"></span>
-      <span class="auth-button-label">Assinar plano</span>
+      <span class="auth-button-label">Solicitar plano</span>
       <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
     </button>
-    <p class="auth-help">O plano será ativado imediatamente e a fatura seguirá para aprovação financeira.</p>
+    <p class="auth-help">Somente administradores da organização. O financeiro recebe a solicitação, lança a fatura e ativa o plano.</p>
   </div>
 </form>
 
 <dialog id="successModal" class="auth-dialog">
   <div class="auth-dialog-body">
     <i class="fa-solid fa-circle-check auth-dialog-icon" aria-hidden="true"></i>
-    <h2>Assinatura realizada</h2>
-    <p>O plano foi ativado. A equipe financeira enviará o boleto de pagamento.</p>
-    <p><strong>Fatura:</strong> <span id="modalInvoiceNumber">—</span></p>
+    <h2>Solicitação enviada</h2>
+    <p id="modalMessage">O financeiro vai lançar a fatura e ativar o plano. Nada foi cobrado ou ativado ainda.</p>
+    <p><strong>Protocolo:</strong> <span id="modalInvoiceNumber">—</span></p>
     <a href="/" class="auth-button">Ir para o início</a>
   </div>
 </dialog>
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/subscription_checkout.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/subscription_checkout.js') }}?v=3"></script>
 {% endblock %}

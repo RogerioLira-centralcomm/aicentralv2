@@ -64,6 +64,22 @@ def ensure_requestable(plan: dict) -> None:
                             "Fale com a equipe; nenhum plano foi alterado.")
 
 
+def checkout_plans(definitions: list[dict], current_plan: Optional[dict] = None) -> list[dict]:
+    """Planos do catálogo para a página de checkout, marcando os que podem ser solicitados."""
+    public_slugs = {item["slug"] for item in catalog.PLAN_CATALOG}
+    result = []
+    for plan in catalog.commercial_plans(definitions, current_plan):
+        if plan["slug"] not in public_slugs:
+            continue
+        try:
+            ensure_requestable(plan)
+            plan["requestable"] = True
+        except CheckoutError:
+            plan["requestable"] = False
+        result.append(plan)
+    return result
+
+
 def _current_plan(cursor, client_id: int) -> Optional[dict]:
     cursor.execute("""SELECT cp.id_plan_definition, cp.plan_status, pd.plan_type, pd.plan_name AS plan_definition_name
                         FROM cadu_client_plans cp

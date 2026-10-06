@@ -194,7 +194,8 @@
         btn.disabled = false;
 
         if (res.ok && res.data.success) {
-          document.getElementById('modalInvoiceNumber').textContent = res.data.request_id ? ('Solicitação #' + res.data.request_id) : '-';
+          document.getElementById('modalInvoiceNumber').textContent = res.data.request_id ? ('#' + res.data.request_id) : '-';
+          if (res.data.message) document.getElementById('modalMessage').textContent = res.data.message;
           document.getElementById('successModal').showModal();
         } else {
           showToast(res.data.error || 'Erro ao processar assinatura.', 'error');

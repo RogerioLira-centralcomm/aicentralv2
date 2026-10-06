@@ -15096,11 +15096,11 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         try:
             cliente_id = session.get('cliente_id')
             cliente = db.obter_cliente_por_id(cliente_id) if cliente_id else {}
-            plan_definitions = db.obter_plan_definitions(apenas_ativos=True)
+            from aicentralv2.cadu_plan_checkout import checkout_plans
             return render_template(
                 'subscription_checkout.html',
                 cliente=cliente or {},
-                plan_definitions=plan_definitions or []
+                checkout_plans=checkout_plans(db.obter_plan_definitions(apenas_ativos=True) or [])
             )
         except Exception as e:
             app.logger.error(f"Erro ao carregar checkout: {e}")

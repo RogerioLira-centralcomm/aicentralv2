@@ -43,6 +43,20 @@ PLAN_CATALOG: tuple[dict, ...] = (
      "cta": "contact", "highlight": False},
 )
 
+# Plano inicial de toda conta do cadastro público (decisão do dono, 2026-10-06).
+# A franquia mensal só é liberada com CADU_PLAN_ALLOWANCE_ENABLED ligado.
+FREE_PLAN = {"slug": "free", "name": "Free", "tokens_monthly": 100_000}
+DEFAULT_WELCOME_TOKENS = 50_000
+
+
+def welcome_tokens() -> int:
+    """Tokens de boas-vindas (lote extra sem expiração). ``CADU_WELCOME_TOKENS``; 0 desliga."""
+    try:
+        return max(int(os.getenv("CADU_WELCOME_TOKENS", DEFAULT_WELCOME_TOKENS)), 0)
+    except (TypeError, ValueError):
+        return DEFAULT_WELCOME_TOKENS
+
+
 # Nome comercial de planos internos (a chave interna é mantida no banco).
 PLAN_DISPLAY_NAMES = {"beta_tester": "Acesso antecipado", "beta tester": "Acesso antecipado", "beta": "Acesso antecipado"}
 

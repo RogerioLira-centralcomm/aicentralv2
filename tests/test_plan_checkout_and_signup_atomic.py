@@ -171,26 +171,84 @@ def provision(conn):
         return onboarding.provisionar_conta_publica(nome="Ana", email="ANA@x.test", senha="segredo123")
 
 
-def test_cadastro_atomico_cria_cliente_e_contato_num_commit():
-    conn = FakeConn([("pg_advisory_xact_lock", None), ("SELECT 1 FROM tbl_contato_cliente", None),
-                     ("INSERT INTO tbl_cliente", {"id_cliente": 10}),
-                     ("INSERT INTO tbl_contato_cliente", {"id_contato_cliente": 20})])
+def signup_script(**over):
+    script = {
+        "pg_advisory_xact_lock": None,
+        "SELECT 1 FROM tbl_contato_cliente": None,
+        "INSERT INTO tbl_cliente": {"id_cliente": 10},
+        "INSERT INTO tbl_contato_cliente": {"id_contato_cliente": 20},
+        "to_regclass('cadu_credit_entitlements')": {"ok": True},
+        "VALUES (%s, 'cadu_launch_100k'": None,
+        "VALUES (%s, 'cadu_welcome'": {"id": 30},
+        "information_schema.columns": {"ok": True},
+        "INSERT INTO cadu_credits_extras": {"id": 40},
+        "FROM cadu_plan_definitions": {"id": 1},
+        "FROM cadu_client_plans": None,
+        "INSERT INTO cadu_client_plans": None,
+    }
+    script.update(over)
+    return FakeConn(list(script.items()))
+
+
+def test_cadastro_atomico_cria_cliente_contato_plano_free_e_boas_vindas(monkeypatch):
+    monkeypatch.delenv("CADU_WELCOME_TOKENS", raising=False)
+    conn = signup_script()
     user, _ = provision(conn)
     assert user["id_contato_cliente"] == 20 and user["pk_id_tbl_cliente"] == 10
     assert conn.commits == 1 and conn.rollbacks == 0
     assert conn.ran("pg_advisory_xact_lock")[0] == ("cadu-signup:ana@x.test",)
+    assert conn.ran("INSERT INTO cadu_credits_extras")[0] == (10, 50000)
+    assert "'welcome'" in [s for s, _ in conn.executed if "INSERT INTO cadu_credits_extras" in s][0]
+    assert conn.ran("INSERT INTO cadu_client_plans")[0] == (10, 1, 100000)
+    # o direito de lançamento (100k do trigger) é neutralizado ANTES do plano ativo
+    order = [s for s, _ in conn.executed]
+    launch = next(i for i, s in enumerate(order) if "'cadu_launch_100k'" in s)
+    plan = next(i for i, s in enumerate(order) if "INSERT INTO cadu_client_plans" in s)
+    assert launch < plan
+
+
+def test_boas_vindas_configuravel(monkeypatch):
+    monkeypatch.setenv("CADU_WELCOME_TOKENS", "70000")
+    conn = signup_script()
+    provision(conn)
+    assert conn.ran("INSERT INTO cadu_credits_extras")[0] == (10, 70000)
+
+
+def test_boas_vindas_repetidas_nao_duplicam(monkeypatch):
+    conn = signup_script(**{"VALUES (%s, 'cadu_welcome'": None, "FROM cadu_client_plans": {"?column?": 1}})
+    provision(conn)
+    assert not conn.ran("INSERT INTO cadu_credits_extras") and not conn.ran("INSERT INTO cadu_client_plans")
+    assert conn.commits == 1
+
+
+def test_sem_definicao_free_cadastra_sem_plano():
+    conn = signup_script(**{"FROM cadu_plan_definitions": None})
+    provision(conn)
+    assert not conn.ran("INSERT INTO cadu_client_plans") and conn.commits == 1
+
+
+def test_falha_no_lote_desfaz_cadastro_inteiro():
+    conn = signup_script(**{"INSERT INTO cadu_credits_extras": RuntimeError("boom")})
+    with pytest.raises(RuntimeError):
+        provision(conn)
+    assert conn.commits == 0 and conn.rollbacks == 1
 
 
 def test_cadastro_desfaz_cliente_se_contato_falha():
-    conn = FakeConn([("INSERT INTO tbl_cliente", {"id_cliente": 10}),
-                     ("INSERT INTO tbl_contato_cliente", RuntimeError("unique violation"))])
+    conn = signup_script(**{"INSERT INTO tbl_contato_cliente": RuntimeError("unique violation")})
     with pytest.raises(RuntimeError):
         provision(conn)
     assert conn.commits == 0 and conn.rollbacks == 1
 
 
 def test_cadastro_corrida_email_detectada_dentro_do_lock():
-    conn = FakeConn([("SELECT 1 FROM tbl_contato_cliente", {"?column?": 1})])
+    conn = signup_script(**{"SELECT 1 FROM tbl_contato_cliente": {"?column?": 1}})
     with pytest.raises(ValueError, match="já possui uma conta"):
         provision(conn)
     assert not conn.ran("INSERT") and conn.commits == 0 and conn.rollbacks == 1
+
+
+def test_pagina_de_checkout_so_oferece_planos_solicitaveis(monkeypatch):
+    monkeypatch.setenv("CADU_PLAN_CATALOG_JSON", SELLABLE)
+    plans = {p["slug"]: p["requestable"] for p in checkout.checkout_plans([{"id": 9, "plan_type": "pro"}])}
+    assert plans == {"essencial": False, "equipe": True, "agencia": False}

@@ -239,6 +239,21 @@ class StudioStoryboardBeatEndpointTest(unittest.TestCase):
         mocked.assert_not_called()
 
 
+class StudioStoryboardImagePriceTest(unittest.TestCase):
+    def test_preco_previo_segue_o_formato_e_a_referencia_de_estilo(self):
+        from aicentralv2.creative_media.studio import _storyboard_image_prices
+        wide = _storyboard_image_prices("16:9", 9999)
+        square = _storyboard_image_prices("1:1", 9999)
+        self.assertGreater(wide["credits_with_reference"], wide["credits_per_image"])
+        self.assertLess(square["credits_per_image"], wide["credits_per_image"])
+        self.assertNotEqual(wide["credits_per_image"], 9999)
+
+    def test_falha_na_estimativa_cai_para_o_valor_padrao(self):
+        from aicentralv2.creative_media.studio import _storyboard_image_prices
+        with patch("aicentralv2.creative_media.studio_create.provider_canvas", side_effect=RuntimeError("x")):
+            self.assertEqual(_storyboard_image_prices("16:9", 4977), {"credits_per_image": 4977, "credits_with_reference": 4977})
+
+
 class StudioStoryboardImageEndpointTest(unittest.TestCase):
     def _call(self, payload, *, claim=None, owned=("/static/a.png",), create=None, library=None):
         from aicentralv2.creative_media import studio, studio_create

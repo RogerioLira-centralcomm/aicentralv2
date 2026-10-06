@@ -955,6 +955,20 @@ def studio_agent_storyboard_beat():
     return execute(run)
 
 
+def _storyboard_image_prices(aspect_ratio, fallback):
+    """Preço prévio de uma imagem de cena, no formato escolhido, sem e com a referência de estilo (cenas 2 em diante)."""
+    from ..cadu_tool_billing import cost_token_equivalent
+    from .studio_costs import image_estimate_usd
+    from .studio_create import provider_canvas
+    try:
+        canvas = provider_canvas(str(aspect_ratio or '16:9'))
+        plain, styled = (cost_token_equivalent(image_estimate_usd('medium', canvas, refs), margin_multiplier=1) for refs in (0, 1))
+    except Exception:
+        logger.exception('Storyboard image price estimate failed for %s', aspect_ratio)
+        plain = styled = fallback
+    return {'credits_per_image': plain, 'credits_with_reference': styled}
+
+
 @studio_or_admin_required_api
 @studio_csrf_required
 def studio_storyboard_image():
@@ -969,7 +983,7 @@ def studio_storyboard_image():
         client_id = data.get('client_id')
         _scope(client_id)
         if data.get('dry_run') is True:
-            return ok({'credits_per_image': image_credits_by_quality().get('padrão')})
+            return ok(_storyboard_image_prices(data.get('aspect_ratio'), image_credits_by_quality().get('padrão')))
         user_id = session.get('user_id')
         if not user_id:
             raise ValueError('Entre novamente para gerar a imagem.')

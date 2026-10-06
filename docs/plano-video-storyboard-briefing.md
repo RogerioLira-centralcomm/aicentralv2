@@ -116,7 +116,9 @@ Medido pelas linhas de cobrança (`cadu_tools_token_usage`), histórico e aloca�
 - 1 chamada por imagem, sem tentativas extras de revisão no caminho do storyboard. Débito alocado no lote 288; 3 linhas em
   `cx_studio_image_generations` e 3 ativos registrados no histórico da marca.
 - **Custo por cena de um storyboard: ~2.200 tokens de imagem + ~1.455 do texto, uma vez por storyboard.**
-- **Divergência a decidir:** a confirmação mostra ~4.977 tokens por imagem (custo a US$ 10/M, o preço-base); a cobrança foi
-  ~2.100–2.450. `media_tokens_for_cost` cobra o custo no preço-base **menos os tokens do provedor** (1.966 e 3.588), supondo
-  que já fossem cobrados à parte, mas `charge_from_provider` usa só `media_tokens` e não cobra esses tokens em outro lugar.
-  Ou a cobrança está ~45% abaixo da intenção (custo real a US$ 10/M), ou a estimativa mostrada está alta. Não alterado.
+- **Divergência resolvida (opção A, 2026-10-06):** a confirmação mostrava ~4.977 por imagem e a cobrança foi ~2.100–2.450 porque
+  `media_tokens_for_cost` subtraía os tokens do provedor (1.966 e 3.588), que nenhum outro ponto cobra. Agora a imagem é cobrada
+  pelo custo cheio no preço-base (US$ 10/M): a cena 1 do teste seria 4.413 e as com referência ~5.685. Vale para o Studio
+  (`_charge_studio_call`) e para o Editar (`FormatLabService._charge_provider_calls`). A prévia do storyboard passou a considerar
+  o formato e a referência de estilo (`credits_per_image` e `credits_with_reference`). Efeito: imagens do Studio ficam ~1,8x a 2,7x
+  mais caras para quem usa; o preço publicado não mudou.

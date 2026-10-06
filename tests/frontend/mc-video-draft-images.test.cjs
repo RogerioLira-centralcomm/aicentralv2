@@ -12,7 +12,7 @@ if(path.startsWith('/static/'))return route.fulfill({path:'aicentralv2'+path});
 if(path==='/clip.mp4')return route.fulfill({path:FIXTURE+'/clip.mp4',contentType:'video/mp4'});
 let data={};
 if(path.endsWith('/swap/library'))data={items:url.searchParams.get('media')==='video'?[{id:'clip1',name:'Teste horizontal',video_url:'/clip.mp4'}]:[1,2,3,4,5].map(n=>({id:'p'+n,name:'Peça '+n,image_url:'/static/images/canais/prime-video.svg',thumb_url:'/static/images/canais/prime-video.svg'}))};
-if(path.endsWith('/agent/storyboard/image')){const body=JSON.parse(route.request().postData());if(body.dry_run)data={credits_per_image:120};else{images.push(body);if(failOn&&images.length===failOn)return route.fulfill({status:400,json:{success:false,error:'Saldo insuficiente.'}});const n=images.length;data={image_url:'/static/images/canais/prime-video.svg?n='+n,scene_id:'p'+n,run_id:'run-1',charged_credits:120};}}
+if(path.endsWith('/agent/storyboard/image')){const body=JSON.parse(route.request().postData());if(body.dry_run)data={credits_per_image:120,credits_with_reference:150};else{images.push(body);if(failOn&&images.length===failOn)return route.fulfill({status:400,json:{success:false,error:'Saldo insuficiente.'}});const n=images.length;data={image_url:'/static/images/canais/prime-video.svg?n='+n,scene_id:'p'+n,run_id:'run-1',charged_credits:120};}}
 if(path.endsWith('/agent/storyboard')){posted.push(JSON.parse(route.request().postData()));data={beats:[{id:'beat-1',purpose:'hook',visual:'Família na sala',motion:'push-in',hold:'logo',transition:'cut',spoken:'Olá'},{id:'beat-2',purpose:'offer',visual:'Roteador em destaque',motion:'zoom',hold:'oferta',transition:'cross dissolve',spoken:'500 mega'},{id:'beat-3',purpose:'end',visual:'Logo final',motion:'pull-back',hold:'logo',transition:'cut',spoken:'Fale com a gente'}],warnings:[]};}
 if(path.endsWith('/clips'))data={items:[]};
 if(path.endsWith('/sounds'))data={items:JSON.parse(fs.readFileSync('aicentralv2/static/audio/studio/catalog.json'))};
@@ -22,7 +22,7 @@ if(path.endsWith('/inspect')||path.endsWith('/tasks'))data={has_audio:true,wavef
 if(path.endsWith('/capabilities'))data={model:'seedance',durations:[4,8],qualities:{draft:'720p',production:'720p'},skills:{}};
 return route.fulfill({json:{success:true,data}});
 });
-page.on('dialog',d=>d.accept());
+const dialogs=[];page.on('dialog',d=>{dialogs.push(d.message());d.accept();});
 await page.goto('http://studio.test/?client=1&clip=clip1');
 await page.waitForFunction(()=>document.querySelector('#mcSwapVideo').videoWidth===320);
 await page.fill('#mcVideoBriefing','Anúncio de internet fibra para famílias, 500 mega, fale com a gente.');
@@ -32,6 +32,8 @@ await page.waitForFunction(()=>document.querySelectorAll('#mcVideoDraft .mc-draf
 failOn=2;
 await page.click('#mcVideoDraftGenerate');
 await page.waitForFunction(()=>document.querySelector('#mcVideoDraft .mc-draft-error'));
+// a prévia soma a 1ª imagem sem referência (120) e as seguintes com referência de estilo (150)
+assert.match(dialogs[0],/cerca de 140 créditos cada \(total ≈ 420\)/);
 let state1=await page.evaluate(async()=>{const {state}=await import('/static/js/cadu-video/state.js');return {scenes:state.scenes.map(s=>s.id),draft:state.draft.beats.map(b=>b.id),req:state.draft.beats[0].request_id,err:state.draft.beats[0].error,gen:state.draft.generating};});
 console.log(JSON.stringify(state1));
 assert.deepEqual(state1.scenes,['p1']); assert.deepEqual(state1.draft,['beat-2','beat-3']); assert.match(state1.err,/Saldo/); assert.equal(state1.gen,false);

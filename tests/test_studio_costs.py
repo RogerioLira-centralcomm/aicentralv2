@@ -13,11 +13,32 @@ def test_an_image_costs_what_the_catalog_says_converted_at_the_base_rate(monkeyp
     assert studio_costs.image_credits(2) == 27280, "cada referência soma 12%"
 
 
-def test_media_tokens_are_the_cost_at_the_base_rate_minus_tokens_already_billed():
+def test_media_tokens_are_the_full_cost_at_the_base_rate():
     assert studio_costs.media_tokens_for_cost(0.14) == 14000
-    assert studio_costs.media_tokens_for_cost(0.14, provider_tokens=500) == 13500
-    assert studio_costs.media_tokens_for_cost(0.001, provider_tokens=500) == 0
+    assert studio_costs.media_tokens_for_cost(0.001) == 100
     assert studio_costs.media_tokens_for_cost(None) == 0
+    assert studio_costs.media_tokens_for_cost(-1) == 0
+
+
+def test_a_real_image_is_not_discounted_by_the_provider_usage_tokens():
+    """Medido em produção (2026-10-06): custo US$ 0,04413 com 1.966 tokens de uso foi cobrado 2.447 em vez de 4.413."""
+    from aicentralv2.creative_modeling_service import CreativeModelingService
+
+    charged = {}
+
+    class Connector:
+        def charge_provider(self, **kwargs):
+            charged.update(kwargs)
+
+    service = CreativeModelingService.__new__(CreativeModelingService)
+    service.credit_connector = Connector()
+    service._credits_crm_id = lambda value: value
+    service._charge_studio_call(
+        client_id=174, user_id=2, idempotency_key="studio:create-image:t", stage="image_generation", media=True,
+        provider_result={"model": "gpt-image-2", "actual_cost_usd": 0.04413, "usage": {"input_tokens": 594, "output_tokens": 1372}},
+        fallback_cost=Decimal("0"),
+    )
+    assert charged["media_tokens"] == 4413
 
 
 def test_a_creation_is_charged_like_the_workspace_estimates_it_not_at_the_plan_token_price():
@@ -77,3 +98,24 @@ def test_the_desk_estimate_follows_quality_and_is_near_five_thousand_credits_for
     table = studio_costs.image_credits_by_quality()
     assert 4000 <= table["padrão"] <= 6000
     assert table["econômica"] < table["padrão"] < table["alta"]
+
+
+def test_the_editor_also_charges_the_full_cost_without_subtracting_provider_usage():
+    from aicentralv2.creative_format_lab.service import FormatLabService
+
+    charged = []
+
+    class Connector:
+        def charge_provider(self, **kwargs):
+            charged.append(kwargs)
+            return {}
+
+    service = FormatLabService.__new__(FormatLabService)
+    service._billing_identity = lambda payload, user_id: (174, 2)
+    service._credit_connector = lambda: Connector()
+    service._charge_provider_calls(
+        {"request_id": "r1"}, 2, "studio.image", "image_edit",
+        [{"model": "gpt-image-2", "actual_cost_usd": 0.04413, "usage": {"input_tokens": 594, "output_tokens": 1372}}],
+        media=True,
+    )
+    assert charged[0]["media_tokens"] == 4413

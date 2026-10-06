@@ -75,6 +75,10 @@ def image_credits(reference_count: int = 0) -> int:
     return cost_token_equivalent(image_generation_usd_with_references(reference_count), margin_multiplier=1)
 
 
-def media_tokens_for_cost(cost_usd, provider_tokens: int = 0) -> int:
-    """Credits to charge for a media call: its USD cost at the base rate, minus tokens already billed."""
-    return max(0, cost_token_equivalent(cost_usd or 0, margin_multiplier=1) - max(0, int(provider_tokens or 0)))
+def media_tokens_for_cost(cost_usd) -> int:
+    """Credits to charge for a media call: its full USD cost at the base rate.
+
+    The provider's own usage tokens are not subtracted: nothing else bills them for a media call, and subtracting
+    them made a real image cost about 45% less than the estimate the desk shows (measured 2026-10-06).
+    """
+    return max(0, cost_token_equivalent(cost_usd or 0, margin_multiplier=1))

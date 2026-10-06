@@ -1500,7 +1500,7 @@ class FormatLabService:
         if identity is None or not calls:
             return []
         from ..cadu_credit_connector import CreditActor
-        from ..cadu_tool_billing import cost_token_equivalent, usage_tokens
+        from ..creative_media.studio_costs import media_tokens_for_cost
 
         base_key = str(payload.get("request_id") or uuid.uuid4())
         credits = self._credit_connector()
@@ -1512,8 +1512,7 @@ class FormatLabService:
                 or (result.get("usage") or {}).get("cost")
                 or fallback_cost_usd
             )
-            provider_tokens = usage_tokens(result.get("usage"))[2]
-            media_tokens = max(0, cost_token_equivalent(actual) - provider_tokens) if media else 0
+            media_tokens = media_tokens_for_cost(actual) if media else 0
             try:
                 charged.append(credits.charge_provider(
                     actor=actor,

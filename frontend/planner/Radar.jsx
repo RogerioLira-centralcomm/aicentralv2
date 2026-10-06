@@ -42,7 +42,7 @@ function RunChain({run}) {
   const serial = steps.filter(step => !step.parallel);
   const running = run.status === 'running';
   return <section className="radar-run" aria-labelledby="radar-run-title" aria-live="polite">
-    <div className="radar-run__head">
+    <div className={`radar-run__head${running ? ' is-running' : ''}`}>
       <RadarAnimation steps={steps} running={running}/>
       <div>
         <h2 id="radar-run-title">{running ? 'O Radar está procurando' : run.status === 'failed' ? 'A busca parou' : 'Busca concluída'}</h2>
@@ -144,8 +144,7 @@ export function RadarPage({boot, request, notify, context}) {
     setStarting(true);
     try {
       const {watch, ...body} = fields;
-      // `repeat` só entra no e-mail "o que será feito"; o radar ativo em si é criado logo abaixo.
-      const data = await request('/radar/runs', {method: 'POST', body: JSON.stringify({...body, repeat: watch?.frequency || null})});
+      const data = await request('/radar/runs', {method: 'POST', body: JSON.stringify(body)});
       let watchError = '';
       if (watch) {
         // O radar ativo é um extra: se falhar, a busca já começou e o aviso diz o que faltou.
@@ -200,7 +199,9 @@ export function RadarPage({boot, request, notify, context}) {
         <CaduButton href={boot.urls.radar} onClick={() => { try { window.sessionStorage.removeItem(RADAR_DRAFT_KEY); } catch { /* ignore */ } }}><Icon name="plus" size={16}/>Novo radar</CaduButton></>}/>
     {run && <RunChain run={run}/>}
     {angles.length > 0 && <section className="radar-results" aria-labelledby="radar-results-title">
-      <h2 id="radar-results-title">Ângulos para falar do conceito<span>{angles.length}</span></h2>
+      <h2 id="radar-results-title">Ângulos para falar do conceito<span>{angles.length}</span>
+        {run.time_saved?.label && <small className="radar-saved" title={`${run.time_saved.lines.map(line => `${line.minutes} min: ${line.label}${line.count > 1 ? ` (× ${line.count})` : ''}`).join('\n')}\n${run.time_saved.note}`}>
+          <Icon name="pulse" size={14}/>Tempo poupado: ~{run.time_saved.label}</small>}</h2>
       <div className="radar-results__grid">{angles.map((item, index) => <AngleCard key={item.id} item={item} lead={index === 0}
         busy={planning === item.id} onPlan={createPlan}/>)}</div>
     </section>}

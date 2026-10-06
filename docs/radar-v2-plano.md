@@ -538,7 +538,15 @@ Ajustes pedidos depois de o usuário abrir o wizard em produção.
   4. Cada atualização fica registrada no próprio perfil (`radar_enrichment.history`, até 10 entradas, e `field_provenance`), com as fontes usadas.
   - Quem grava é o gravador oficial do perfil, que mescla só as chaves enviadas e nunca mexe em `design_system_ads`. A marca é validada contra o cliente antes.
 - **Ao clicar em buscar, a animação entra na hora**, sem esperar a resposta do servidor. Se falhar, o wizard volta com o rascunho e o motivo.
-- **E-mail "o que será feito":** assim que a busca começa, o usuário recebe um e-mail com as etapas, a janela, a praça, o custo reservado e o link para acompanhar. Se o radar for ativo, o e-mail diz também a frequência e os horários. O envio é em segundo plano e uma falha nunca derruba a busca. Buscas agendadas não mandam e-mail ainda: esse é o aviso de novidade, que faz parte dos alertas.
+- **E-mail ao terminar a busca** (decisão do usuário: melhor ao terminar do que ao começar). O e-mail traz:
+  - os **ângulos**, com o gancho, o "por que agora" e os formatos e canais;
+  - o **buzz** que os sustenta, com veículo, data e link;
+  - o **tempo economizado**, com a conta aberta: 30 min pesquisando o que está em alta, 5 min por fonte conferida e 15 min por ângulo escrito. Para 4 fontes e 4 ângulos dá cerca de 2 h. É uma estimativa com tempos de referência do trabalho manual, no mesmo molde do tempo poupado do plano;
+  - o custo em tokens da busca e o link para ver os ângulos e criar o planejamento.
+  - Busca **sem ângulos** recebe um e-mail honesto, sem tempo poupado, sugerindo uma janela maior ou um conceito mais conhecido.
+  - O **radar ativo** (agendado) só manda e-mail quando encontra ângulos; sem novidade fica quieto.
+  - O e-mail sai depois de a busca estar salva e concluída, e uma falha de envio nunca derruba a busca.
+  - O tempo poupado também aparece, discreto, no cabeçalho dos ângulos na tela.
 
 **O 403 ao buscar em produção não era do Radar.** O Planner bloqueia toda gravação sem `CADU_FAMILY_WRITES_ENABLED=1` (`routes.py`, trava `protect`), e a trava foi apontada na auditoria `docs/auditoria-planner-reports.md`. Provas em produção:
 

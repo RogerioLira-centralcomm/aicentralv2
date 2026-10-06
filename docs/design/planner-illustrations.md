@@ -42,7 +42,7 @@ Cada placeholder carrega o próprio briefing de criação. Ele fica no `<desc>` 
 | `plan-building` | Cadu montando ou recalculando o plano | 240×160 | 3D | Blocos de montar empilhando-se em degraus (briefing, audiência, canais, verba), com o último bloco descendo com um leve brilho verde. |
 | `time-saved` | Selo de tempo poupado (revisão e cabeçalho do plano) | 56×56 (lido a 18 px) | 2D | Ampulheta inclinada com a areia em `#17B26A` e um raio pequeno ao lado. Precisa ser legível a 18 px. |
 
-A espera do Radar é animada em código (cenas com fade, órbitas e feixe), com 3 cenas por fase: instruções em `docs/prompts-radar-animacao-image-2-5.md`.
+A espera do Radar é um quadrado centralizado: mascote no meio, três órbitas animadas em código e 3 cenas (uma por fase) trocadas com fade: instruções em `docs/prompts-radar-animacao-image-2-5.md`.
 
 Cenas do wizard do Radar (`radar-1-marca` a `radar-5-revisao`, 900 px de largura) já estão em `static/images/planner/illustrations/` e entram no `RadarWizard.jsx` (fase 1 do plano v2).
 

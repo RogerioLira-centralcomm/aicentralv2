@@ -921,21 +921,7 @@ def planner_radar_start():
         abort(403, description=str(exc))
     except InsufficientToolCredits as exc:
         abort(409, description=str(exc))
-    _radar_started_email(selected, user, run, payload)
     return jsonify(run=run), 202
-
-
-def _radar_started_email(selected, user, run, payload):
-    """E-mail "o que será feito", em segundo plano; nunca atrapalha a busca."""
-    from ..cadu_radar import notify
-    try:
-        names = {row['ref']: row['name'] for row in context.inventory(selected['client_id'])}
-        repeat = payload.get('repeat')
-        notify.run_started(user, concept=run.get('focus') or '', brand=names.get(run.get('brand_ref')), params=run.get('params'),
-                           estimated_tokens=run.get('estimated_tokens') or 0, repeat=repeat if repeat in (1, 2, 3) else None,
-                           run_url=planner_url('radar', run=run['id']), radars_url=planner_url('radares'))
-    except Exception:  # noqa: BLE001
-        current_app.logger.warning('Radar: não foi possível preparar o e-mail de início.', exc_info=True)
 
 
 @bp.get('/api/planner/radar/runs')

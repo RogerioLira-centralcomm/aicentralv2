@@ -24,7 +24,7 @@ from flask import current_app
 from psycopg.types.json import Json
 from werkzeug.exceptions import BadRequest
 
-from . import prompts, sources as source_base
+from . import prompts, sources as source_base, time_saved
 from .db import transaction
 from .research import check_url, json_loads, parse_date
 
@@ -375,6 +375,21 @@ class Runner:
         else:
             self._save(buzz, self._angles(ctx, topic, buzz))
         _finish(self.run_id, 'done')
+        self._notify_finished(ctx.get('brand'))
+
+    def _notify_finished(self, brand):
+        """E-mail de conclusão ao dono da busca, com os ângulos e o tempo poupado. Nunca derruba a busca."""
+        try:
+            from ..cadu_family import repository
+            from ..product_domains import product_url
+            from . import notify
+            run = get_run(self.client_id, self.run_id)
+            if run and run['status'] == 'done':
+                notify.run_finished(repository.actor(self.actor_id), run=run, brand=brand,
+                                    run_url=product_url('planner', f'/radar?run={self.run_id}'),
+                                    radars_url=product_url('planner', '/radares'))
+        except Exception:  # noqa: BLE001 — o resultado já está salvo e visível na tela
+            logger.warning('Radar %s: não foi possível enviar o e-mail de conclusão.', self.run_id, exc_info=True)
 
 
 def get_run(client_id, run_id):
@@ -396,6 +411,8 @@ def get_run(client_id, run_id):
     run['signals'] = repository.rows('''SELECT id, headline, description, source, url, published_at, verification
                                           FROM cadu_radar_signals WHERE run_id = %s ORDER BY published_at DESC NULLS LAST''',
                                      (str(run_id),)) if done else []
+    if run['opportunities']:
+        run['time_saved'] = time_saved.estimate(len(run['signals']), len(run['opportunities']))
     return run
 
 

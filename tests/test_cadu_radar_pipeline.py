@@ -12,6 +12,7 @@ from aicentralv2.cadu_radar import db as radar_db, pipeline
 def runner(monkeypatch):
     run = pipeline.Runner('run-1', 7, 9, 'consumo consciente', None, None, {'recency_days': 30, 'places': 'Minas Gerais'})
     monkeypatch.setattr(run, '_save_steps', lambda: None)
+    monkeypatch.setattr(run, '_notify_finished', lambda brand: None)
     return run
 
 
@@ -219,3 +220,26 @@ def test_each_call_authorizes_its_own_usd_estimate_not_a_fixed_floor(monkeypatch
     monkeypatch.setattr(cadu_credit_connector.CaduCreditConnector, '_commercial_token_price_usd', lambda self, client: Decimal('0.0002'))
     runner._ai('buzz', 'perplexity/sonar-pro', [{'role': 'user', 'content': 'x'}], 100)
     assert seen['estimated'] == 250 < pipeline.estimate_tokens(7)  # US$ 0,05 a US$ 0,0002; abaixo da reserva total
+
+
+def test_execute_sends_the_completion_email_only_after_the_run_is_marked_done(monkeypatch):
+    run = pipeline.Runner('run-9', 7, 9, 'tema', None, None, {})
+    monkeypatch.setattr(run, '_save_steps', lambda: None)
+    order = []
+    monkeypatch.setattr(run, '_context', lambda: CTX)
+    monkeypatch.setattr(run, '_buzz', lambda ctx, topic: [])
+    monkeypatch.setattr(run, '_save', lambda buzz, angles: order.append('save'))
+    monkeypatch.setattr(run, '_notify_finished', lambda brand: order.append(('email', brand)))
+    monkeypatch.setattr(pipeline, '_finish', lambda run_id, status, error=None: order.append(status))
+    run.execute()
+    assert order == ['save', 'done', ('email', 'Cemig')]  # o resultado já está salvo e a busca concluída quando o e-mail sai
+
+
+def test_a_failing_completion_email_never_breaks_the_run(monkeypatch):
+    run = pipeline.Runner('run-10', 7, 9, 'tema', None, None, {})
+
+    def boom(*args, **kwargs):
+        raise RuntimeError('banco fora')
+
+    monkeypatch.setattr(pipeline, 'get_run', boom)
+    run._notify_finished('Cemig')  # não levanta

@@ -133,3 +133,6 @@ def test_reference_block_keeps_kind_and_label():
     # o tipo e o rótulo viram uma linha de apoio.
     assert reference_block("url", "montana.com.br", "Cardápio e praça.") == "Cardápio e praça."
     assert reference_block("url", "montana.com.br", "") == "Apoio da página montana.com.br"
+    assert reference_block("file", "briefing.pdf", "") == "Apoio do arquivo briefing.pdf"
+    assert reference_block("search", "tendências", "") == "Apoio dos dados online tendências"
+    assert reference_block("outro", "x", "") == "Apoio da referência x"

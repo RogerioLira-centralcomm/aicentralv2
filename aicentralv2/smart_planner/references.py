@@ -64,12 +64,12 @@ SEARCH_FOCUS = {
 
 def reference_block(kind: str, label: str, body: str) -> str:
     heading = {
-        "url": "página",
-        "file": "arquivo",
-        "image": "imagem",
-        "search": "dados online",
-    }.get(kind, "referência")
-    return (body or "").strip() or f"Apoio da {heading} {label}".strip()
+        "url": "da página",
+        "file": "do arquivo",
+        "image": "da imagem",
+        "search": "dos dados online",
+    }.get(kind, "da referência")
+    return (body or "").strip() or f"Apoio {heading} {label}".strip()
 
 
 def capture_url(url: str) -> dict:

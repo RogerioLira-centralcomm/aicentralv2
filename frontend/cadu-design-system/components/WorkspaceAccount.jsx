@@ -15,7 +15,7 @@ import {useWorkspaceViewport} from '../hooks/useWorkspaceViewport';
 import {AgentConnect} from './WorkspaceAgents';
 import '../account-pages.css';
 
-const labels = {agencia: 'Agência', equipe: 'Equipe', faturamento: 'Faturamento', integracoes: 'Integrações', planos: 'Plano', perfil: 'Perfil', uso: 'Uso', creditos: 'Créditos'};
+const labels = {agencia: 'Agência', equipe: 'Equipe', faturamento: 'Faturamento', integracoes: 'Integrações', planos: 'Plano', perfil: 'Perfil', uso: 'Uso', creditos: 'Tokens'};
 const accountIcons = {agencia: 'home', equipe: 'users', faturamento: 'file', integracoes: 'plugin', planos: 'plan', perfil: 'brand', uso: 'analysis', creditos: 'history'};
 const number = value => new Intl.NumberFormat('pt-BR').format(Number(value) || 0);
 const money = value => new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'}).format(Number(value) || 0);
@@ -32,36 +32,39 @@ const dateTime = value => {
   const parsed = parseDate(value);
   return parsed ? new Intl.DateTimeFormat('pt-BR', {dateStyle: 'short', timeStyle: 'short'}).format(parsed) : value ? String(value) : '—';
 };
-const groupCommercialActivity = movements => Object.values((movements || []).reduce((groups, item) => {
-  const day = civilDate(item.created_at);
-  const tool = String(item.reason || 'Uso do Cadu').replace(/^Ferramenta:\s*/i, '').split(' · ')[0].replace(/\bclient_id\b\s*[:=#]?\s*\d*/gi, '').trim() || 'Uso do Cadu';
-  const key = `${day}::${tool}`;
-  const current = groups[key] || {id:key, created_at:item.created_at, reason:tool, amount:0, executions:0};
-  current.amount += Number(item.amount || 0);
-  current.executions += 1;
-  current.reference = `${current.executions} ${current.executions === 1 ? 'execução' : 'execuções'}`;
-  groups[key] = current;
-  return groups;
-}, {})).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
-const invoiceStatuses = {paid: 'Paga', overdue: 'Em atraso', pending: 'Pendente'};
+const invoiceStatuses = {paid: 'Paga', overdue: 'Em atraso', pending: 'Pendente', sent: 'Enviada'};
+const requestStatuses = {approved: 'Tokens liberados · aguardando lançamento', pending: 'Aguardando confirmação', rejected: 'Recusada'};
+const plural = (count, one, many) => Math.abs(Number(count) || 0) === 1 ? one : many;
+const tokens = value => `${number(value)} ${plural(value, 'token', 'tokens')}`;
+const newIdempotencyKey = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
 
 function Hidden({name, value}) { return <input type="hidden" name={name} value={value || ''}/>; }
 function Metric({label, value, detail, children}) { return <article><span>{label}</span><strong>{value}</strong>{detail && <p>{detail}</p>}{children}</article>; }
 function PurchaseModal({bootstrap}) {
-  const [order, setOrder] = useState(null); const [billing, setBilling] = useState('prepaid'); const [note, setNote] = useState(''); const [state, setState] = useState('');
-  useEffect(() => { const open = event => { setOrder(event.detail); setBilling('prepaid'); setNote(''); setState(''); }; window.addEventListener('cadu-open-purchase', open); return () => window.removeEventListener('cadu-open-purchase', open); }, []);
+  const [order, setOrder] = useState(null); const [billing, setBilling] = useState('prepaid'); const [note, setNote] = useState(''); const [state, setState] = useState(''); const [busy, setBusy] = useState(false); const [done, setDone] = useState(false);
+  useEffect(() => { const open = event => { setOrder({...event.detail, key:newIdempotencyKey()}); setBilling('prepaid'); setNote(''); setState(''); setBusy(false); setDone(false); }; window.addEventListener('cadu-open-purchase', open); return () => window.removeEventListener('cadu-open-purchase', open); }, []);
   if (!order) return null;
-  const confirm = async () => { setState('Liberando créditos…'); try { const response = await fetch(bootstrap.endpoints.creditRequest, {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-CSRF-Token':bootstrap.csrf}, body:JSON.stringify({tokens:order.tokens || 0, price:order.price || 0, package_name:order.name, billing_mode:billing, note})}); const data = await response.json(); setState(data.message || data.error || 'Não foi possível concluir.'); if (data.success) setTimeout(() => window.location.reload(), 1400); } catch { setState('Não foi possível concluir o pedido.'); } };
-  return <CaduModal className="cadu-ds-purchase-modal__card" titleId="cadu-purchase-title" onClose={() => setOrder(null)}><CaduButton className="cadu-ds-purchase-modal__close" variant="tertiary" size="xs" onClick={() => setOrder(null)} aria-label="Fechar">×</CaduButton><span>Compra de créditos</span><h2 id="cadu-purchase-title">Confirmar {order.kind === 'plan' ? 'plano' : 'pacote'}</h2><div className="cadu-ds-purchase-modal__summary"><strong>{order.name}</strong><b>{order.price ? money(order.price) + (order.kind === 'plan' ? ' / mês' : '') : 'Valor não disponível'}</b>{order.tokens ? <small>{number(order.tokens)} créditos</small> : null}</div><CaduSelect label="Forma de cobrança" value={billing} onChange={event => setBilling(event.target.value)} options={[{value:'prepaid',label:'Pagamento antecipado'},{value:'postpaid',label:'Pós-pago / faturamento financeiro'}]}/><CaduTextarea label="Observação" rows="3" value={note} onChange={setNote} placeholder="Ex.: iniciar no próximo ciclo…"/><p className="cadu-ds-purchase-modal__hint">Ao confirmar, os créditos entram imediatamente no saldo compartilhado do seu time. O financeiro recebe a notificação para registrar a cobrança.</p><footer><CaduButton variant="secondary" type="button" onClick={() => setOrder(null)}>Voltar</CaduButton><CaduButton type="button" onClick={confirm}>Confirmar compra</CaduButton></footer>{state && <p className="cadu-ds-account-notice" role="status">{state}</p>}</CaduModal>;
+  const confirm = async () => {
+    if (busy || done) return;
+    setBusy(true); setState('Registrando o pedido…');
+    try {
+      const response = await fetch(bootstrap.endpoints.creditRequest, {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-CSRF-Token':bootstrap.csrf}, body:JSON.stringify({package_slug:order.slug, package_name:order.name, billing_mode:billing, note, idempotency_key:order.key})});
+      const data = await response.json();
+      setState(data.message || data.error || 'Não foi possível concluir.');
+      if (data.success) { setDone(true); setTimeout(() => window.location.reload(), 1400); } else setBusy(false);
+    } catch { setState('Não foi possível concluir o pedido.'); setBusy(false); }
+  };
+  return <CaduModal className="cadu-ds-purchase-modal__card" titleId="cadu-purchase-title" onClose={() => setOrder(null)}><CaduButton className="cadu-ds-purchase-modal__close" variant="tertiary" size="xs" onClick={() => setOrder(null)} aria-label="Fechar">×</CaduButton><span>Tokens extras</span><h2 id="cadu-purchase-title">Confirmar pacote</h2><div className="cadu-ds-purchase-modal__summary"><strong>{order.name}</strong><b>{money(order.price)}</b><small>{tokens(order.tokens)} · não expiram</small></div><CaduSelect label="Forma de cobrança" value={billing} onChange={event => setBilling(event.target.value)} options={[{value:'prepaid',label:'Pagamento antecipado'},{value:'postpaid',label:'Pós-pago / faturamento financeiro'}]}/><CaduTextarea label="Observação" rows="3" value={note} onChange={setNote} placeholder="Ex.: centro de custo, pedido de compra…"/><p className="cadu-ds-purchase-modal__hint">Os tokens entram na hora no saldo da equipe. O financeiro recebe o pedido e lança a cobrança manualmente; ela aparece em Faturamento.</p><footer><CaduButton variant="secondary" type="button" onClick={() => setOrder(null)}>Voltar</CaduButton><CaduButton type="button" onClick={confirm} loading={busy && !done} disabled={busy || done}>Confirmar compra</CaduButton></footer>{state && <p className="cadu-ds-account-notice" role="status">{state}</p>}</CaduModal>;
 }
 function AccountPageHeader({title, description, image, initials, photo = false, identity = false}) {
   // The section name is already the active item of the Conta sidebar; the header carries only the subject.
   return <header className="cadu-ds-account-page-header">{(photo || identity) && <VisualIdentity src={image} initials={initials || title} label={title} color="#176b5e" className={photo ? 'is-photo' : ''}/>}<div><h1>{title}</h1><p className="cadu-ds-page-description">{description}</p></div></header>;
 }
-function CreditSummary({available, lots, lastMovement}) {
-  return <section className="cadu-ds-credit-summary" aria-label="Resumo de créditos">
-    <div className="cadu-ds-credit-summary__balance"><span>Saldo disponível</span><strong>{number(available)}</strong><p>Créditos compartilhados entre as pessoas e ferramentas desta equipe.</p></div>
-    <dl><div><dt>Lotes ativos</dt><dd>{number(lots)}</dd></div><div><dt>Último consumo</dt><dd>{lastMovement ? `${number(lastMovement.amount)} créditos` : 'Nenhum'}</dd><small>{lastMovement?.reason || 'Ainda não há consumo registrado.'}</small></div></dl>
+function CreditSummary({usage, lastInteraction}) {
+  const allowance = usage?.allowance || {}; const extras = usage?.extras || {};
+  return <section className="cadu-ds-credit-summary" aria-label="Resumo de tokens">
+    <div className="cadu-ds-credit-summary__balance"><span>Tokens extras disponíveis</span><strong>{number(extras.available)}</strong><p>{extras.lots ? `${number(extras.lots)} ${plural(extras.lots, 'pacote ativo', 'pacotes ativos')} · extras não expiram` : 'Nenhum pacote extra ativo.'}</p></div>
+    <dl><div><dt>Franquia do plano</dt><dd>{allowance.active ? number(allowance.available) : allowance.granted ? number(allowance.granted) : 'Sem franquia'}</dd><small>{allowance.active ? 'disponíveis no ciclo' : allowance.granted ? 'tokens por mês' : ''}{usage?.cycle?.renews_on ? ` · renova em ${civilDate(usage.cycle.renews_on)}` : ''}</small></div><div><dt>Último consumo</dt><dd>{lastInteraction ? tokens(lastInteraction.tokens) : 'Nenhum'}</dd><small>{lastInteraction ? `${lastInteraction.tool} · ${dateTime(lastInteraction.created_at)}` : 'Ainda não há consumo registrado.'}</small></div></dl>
   </section>;
 }
 function DataTable({columns, rows, empty = 'Nenhum registro disponível.'}) {
@@ -105,64 +108,90 @@ function Team({bootstrap}) {
   return <div className="cadu-ds-account-stack">
     <AccountPageHeader title="Pessoas e acessos" description="Convites e permissões da agência."/>
     {admin && <section className="cadu-ds-account-section"><header><div><h2>Convidar para a equipe</h2></div></header><form className="cadu-ds-account-inline-form" method="post" action={endpoints.invite}><Hidden name="_csrf" value={csrf}/><CaduInput label="E-mail" type="email" name="email" required/><CaduSelect label="Acesso" name="role" options={[{value:'member',label:'Membro'},{value:'admin',label:'Administrador'}]}/><CaduButton type="submit">Enviar convite</CaduButton></form></section>}
-    <section className="cadu-ds-account-section"><header><div><h2>Pessoas da equipe</h2></div><small>{account.people?.length || 0} pessoas</small></header><p className="cadu-ds-account-section-copy">Projetos, marcas, plano e créditos são compartilhados por esta equipe.</p><div className="cadu-ds-account-list">{(account.people || []).length ? account.people.map(person => <article key={person.id_contato_cliente}><i>{(person.nome_completo || '?').slice(0, 1).toUpperCase()}</i><div><b>{person.nome_completo}</b><small>{person.email} · {person.cargo || person.setor || 'Equipe da agência'}</small></div><em>{person.status ? 'Ativo' : 'Inativo'}</em>{admin && String(person.id_contato_cliente) !== String(bootstrap.user.id) && <div className="cadu-ds-account-row-actions"><form method="post" action={`${endpoints.memberBase}/${person.id_contato_cliente}/papel`}><Hidden name="_csrf" value={csrf}/><CaduSelect size="sm" aria-label={`Acesso de ${person.nome_completo}`} name="role" defaultValue={['admin', 'superadmin'].includes(person.user_type) ? 'admin' : person.user_type || 'client'} options={[{value:'client',label:'Membro'},{value:'admin',label:'Administrador'},{value:'readonly',label:'Somente leitura'}]}/><CaduButton type="submit" size="xs">Salvar</CaduButton></form><form method="post" action={`${endpoints.memberBase}/${person.id_contato_cliente}/status`} onSubmit={confirmAction}><Hidden name="_csrf" value={csrf}/><CaduButton type="submit" size="xs" variant={person.status ? 'danger' : 'secondary'}>{person.status ? 'Desativar' : 'Reativar'}</CaduButton></form></div>}</article>) : <p className="cadu-ds-account-empty">Convide a primeira pessoa para começar a trabalhar em conjunto.</p>}</div></section>
+    <section className="cadu-ds-account-section"><header><div><h2>Pessoas da equipe</h2></div><small>{number(account.people?.length)} {plural(account.people?.length, 'pessoa', 'pessoas')}</small></header><p className="cadu-ds-account-section-copy">Projetos, marcas, plano e tokens são compartilhados por esta equipe.</p><div className="cadu-ds-account-list">{(account.people || []).length ? account.people.map(person => <article key={person.id_contato_cliente}><i>{(person.nome_completo || '?').slice(0, 1).toUpperCase()}</i><div><b>{person.nome_completo}</b><small>{person.email} · {person.cargo || person.setor || 'Equipe da agência'}</small></div><em>{person.status ? 'Ativo' : 'Inativo'}</em>{admin && String(person.id_contato_cliente) !== String(bootstrap.user.id) && <div className="cadu-ds-account-row-actions"><form method="post" action={`${endpoints.memberBase}/${person.id_contato_cliente}/papel`}><Hidden name="_csrf" value={csrf}/><CaduSelect size="sm" aria-label={`Acesso de ${person.nome_completo}`} name="role" defaultValue={['admin', 'superadmin'].includes(person.user_type) ? 'admin' : person.user_type || 'client'} options={[{value:'client',label:'Membro'},{value:'admin',label:'Administrador'},{value:'readonly',label:'Somente leitura'}]}/><CaduButton type="submit" size="xs">Salvar</CaduButton></form><form method="post" action={`${endpoints.memberBase}/${person.id_contato_cliente}/status`} onSubmit={confirmAction}><Hidden name="_csrf" value={csrf}/><CaduButton type="submit" size="xs" variant={person.status ? 'danger' : 'secondary'}>{person.status ? 'Desativar' : 'Reativar'}</CaduButton></form></div>}</article>) : <p className="cadu-ds-account-empty">Convide a primeira pessoa para começar a trabalhar em conjunto.</p>}</div></section>
     <section className="cadu-ds-account-section"><header><div><h2>Convites enviados</h2></div></header><div className="cadu-ds-account-list">{pendingInvites.length ? pendingInvites.map(invite => { const expired = Boolean(invite.expires_at && new Date(invite.expires_at).getTime() < Date.now()); return <article key={invite.id}><i>@</i><div><b>{invite.email}</b><small>{invite.role === 'admin' ? 'Administrador' : 'Membro'} · {expired ? 'expirou em' : 'expira em'} {civilDate(invite.expires_at)}</small></div><em>{expired ? 'Expirado' : 'Pendente'}</em>{admin && <div className="cadu-ds-account-row-actions"><form method="post" action={`${endpoints.inviteBase}/${invite.id}/reenviar`}><Hidden name="_csrf" value={csrf}/><CaduButton type="submit" size="xs" variant="secondary">Reenviar</CaduButton></form><form method="post" action={`${endpoints.inviteBase}/${invite.id}/cancelar`}><Hidden name="_csrf" value={csrf}/><CaduButton type="submit" size="xs" variant="danger">Cancelar</CaduButton></form></div>}</article>; }) : <p className="cadu-ds-account-empty">Nenhum convite aguardando resposta.</p>}</div></section>
     <CaduConfirmDialog open={!!pendingForm} title="Alterar acesso" description="Confirma a alteração de acesso desta pessoa?" confirmLabel="Confirmar" tone="danger" onCancel={() => setPendingForm(null)} onConfirm={() => { const form = pendingForm; setPendingForm(null); form?.submit(); }}/>
   </div>;
 }
 
+const PLAN_FAQ = [
+  ['O que é a franquia do plano?', 'É a quantidade de tokens incluída na mensalidade. Ela é liberada automaticamente no início de cada ciclo e é usada antes dos tokens extras.'],
+  ['O que acontece com os tokens da franquia que não usei?', 'Como num plano de celular, a sobra da franquia expira quando a franquia do ciclo seguinte é liberada.'],
+  ['Os tokens extras expiram?', 'Não. Pacotes extras ficam no saldo até serem usados e entram depois da franquia do plano.'],
+  ['Quantas pessoas podem usar?', 'Todos os planos têm pessoas ilimitadas. Projetos e marcas também são ilimitados.'],
+];
 function Plan({account, urls}) {
-  const currentPlan = account.plan?.plan_definition_name || account.plan?.plan_type || '';
-  const options = account.plan_options || [];
-  const currentKey = String(account.plan?.id_plan_definition || currentPlan).toLocaleLowerCase('pt-BR');
-  const getName = option => option.plan_name || option.plan_definition_name || option.plan_type || 'Plano';
-  const isCurrent = option => String(option.id || getName(option)).toLocaleLowerCase('pt-BR') === currentKey || getName(option).toLocaleLowerCase('pt-BR') === currentKey;
-  const formatStorage = value => {
-    const bytes = Number(value) || 0;
-    if (!bytes) return '—';
-    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-    return `${new Intl.NumberFormat('pt-BR', {maximumFractionDigits:1}).format(bytes / (1024 ** index))} ${units[index]}`;
-  };
-  const plans = options.map(option => {
-    const type = String(option.plan_type || option.slug || '').toLocaleLowerCase('pt-BR');
-    return {...option, name:getName(option), price:Number(option.price_monthly ?? option.monthly_price ?? option.price ?? 0), current:isCurrent(option), checkout:['pro','enterprise'].includes(type)};
-  });
-  const featureRows = [
-    {label:'Tokens por mês', value:plan => Number(plan.tokens_monthly_limit ?? plan.pd_tokens_monthly_limit) > 0 ? `${number(plan.tokens_monthly_limit ?? plan.pd_tokens_monthly_limit)} tokens` : '—'},
-    {label:'Créditos de imagem', value:plan => Number(plan.limit_image_generation ?? plan.image_credits_monthly) > 0 ? number(plan.limit_image_generation ?? plan.image_credits_monthly) : '—'},
-    {label:'Pessoas na equipe', value:plan => Number(plan.max_users ?? plan.pd_max_users) > 0 ? number(plan.max_users ?? plan.pd_max_users) : '—'},
-    {label:'Armazenamento', value:plan => formatStorage(plan.storage_bytes_limit ?? plan.pd_storage_bytes_limit)},
-  ];
+  const plans = account.plans || [];
+  const packages = account.packages || [];
+  const storage = account.storage_packages || [];
+  const current = plans.find(plan => plan.current);
+  const usage = account.insights?.tokens || {};
+  const contact = 'mailto:financeiro@centralcomm.media?subject=' + encodeURIComponent('Plano Cadu');
+  const price = plan => plan.price_monthly == null ? 'Consulte' : Number(plan.price_monthly) > 0 ? money(plan.price_monthly) : 'Grátis';
+  const allowance = plan => plan.tokens_monthly ? `${tokens(plan.tokens_monthly)} / mês` : 'Consulte';
+  const storageLabel = plan => plan.storage_gb ? `${number(plan.storage_gb)} GB` : 'Consulte';
+  const cta = plan => plan.current ? <CaduButton variant="secondary" disabled>Plano atual</CaduButton> : plan.cta === 'checkout' ? <CaduButton href="/assinatura/checkout">Contratar</CaduButton> : <CaduButton variant={plan.highlight ? 'primary' : 'secondary'} href={`${contact}%20${encodeURIComponent(plan.name)}`}>Falar com a equipe</CaduButton>;
+  const choosePackage = pack => window.dispatchEvent(new CustomEvent('cadu-open-purchase', {detail:{slug:pack.slug, name:pack.name, tokens:pack.tokens, price:pack.price_brl}}));
   return <div className="cadu-ds-account-stack cadu-ds-pricing-page">
-    <AccountPageHeader title="Planos para sua equipe" description={currentPlan ? `Seu plano atual é ${currentPlan}. Compare recursos e valores mensais.` : 'Compare recursos e valores mensais para escolher a opção adequada.'}/>
+    <AccountPageHeader title="Planos do Cadu" description={current ? `Seu plano atual é ${current.name}. Todos os planos têm pessoas ilimitadas; a franquia de tokens renova a cada ciclo.` : 'Todos os planos têm pessoas ilimitadas; a franquia de tokens renova a cada ciclo.'}/>
+    {current && <section className="cadu-ds-account-metrics"><Metric label="Plano atual" value={current.name} detail={price(current) + (Number(current.price_monthly) > 0 ? ' / mês' : '')}/><Metric label="Franquia do ciclo" value={usage.limit ? number(usage.used) : 'Consulte'} detail={usage.limit ? `de ${tokens(usage.limit)} usados neste ciclo` : 'franquia ainda não definida'}>{usage.limit ? <progress value={usage.percentage || 0} max="100"/> : null}</Metric><Metric label="Pessoas" value="Ilimitadas" detail="sem custo por pessoa"/></section>}
     {plans.length ? <>
-      <section className="cadu-ds-pricing-cards" aria-label="Planos disponíveis">{plans.map(plan => <article className={`cadu-ds-pricing-card${plan.current ? ' is-current' : ''}`} key={plan.id || plan.name}>
-        {plan.current && <span className="cadu-ds-pricing-badge">Seu plano</span>}
-        <h2>{plan.name}</h2><p className="cadu-ds-pricing-description">{plan.description || 'Recursos para sua equipe trabalhar com o Cadu.'}</p>
-        <div className="cadu-ds-pricing-price"><strong>{plan.price > 0 ? money(plan.price) : 'Grátis'}</strong>{plan.price > 0 && <span>/ mês</span>}</div>
-        <ul><li>{Number(plan.tokens_monthly_limit || 0) > 0 ? `${number(plan.tokens_monthly_limit)} tokens por mês` : 'Limite de tokens não informado'}</li><li>{Number(plan.limit_image_generation || plan.image_credits_monthly || 0) > 0 ? `${number(plan.limit_image_generation || plan.image_credits_monthly)} créditos de imagem` : 'Créditos de imagem não informados'}</li><li>{Number(plan.max_users || 0) > 0 ? `Até ${number(plan.max_users)} pessoas` : 'Limite de equipe não informado'}</li></ul>
-        {plan.current ? <span className="cadu-ds-pricing-action is-selected">Plano atual</span> : plan.checkout ? <a className="cadu-ds-pricing-action" href="/assinatura/checkout">Ver contratação</a> : <span className="cadu-ds-pricing-action is-unavailable">Consulte a equipe</span>}
+      <section className="cadu-ds-pricing-cards" style={{'--plan-count': plans.length}} aria-label="Planos disponíveis">{plans.map(plan => <article className={`cadu-ds-pricing-card${plan.current ? ' is-current' : ''}${plan.highlight ? ' is-highlight' : ''}`} key={plan.slug || plan.name}>
+        {plan.current ? <span className="cadu-ds-pricing-badge">Seu plano</span> : plan.highlight ? <span className="cadu-ds-pricing-badge">Mais escolhido</span> : <span className="cadu-ds-pricing-badge is-empty" aria-hidden="true"/>}
+        <h2>{plan.name}</h2>{plan.tagline && <p className="cadu-ds-pricing-description">{plan.tagline}</p>}
+        <div className="cadu-ds-pricing-price"><strong>{price(plan)}</strong>{Number(plan.price_monthly) > 0 && <span>/ mês</span>}</div>
+        <ul><li>{plan.tokens_monthly ? `${tokens(plan.tokens_monthly)} por mês` : 'Franquia de tokens: consulte'}</li><li>Pessoas ilimitadas</li><li>{plan.storage_gb ? `${number(plan.storage_gb)} GB de armazenamento` : 'Armazenamento: consulte'}</li>{(plan.features || []).map(feature => <li key={feature}>{feature}</li>)}</ul>
+        <div className="cadu-ds-pricing-cta">{cta(plan)}</div>
       </article>)}</section>
-      <section className="cadu-ds-pricing-comparison"><header><h2>Recursos incluídos</h2></header><div className="cadu-ds-account-table"><table><thead><tr><th>Recursos</th>{plans.map(plan => <th key={plan.id || plan.name}>{plan.name}</th>)}</tr></thead><tbody><tr><th scope="row">Preço mensal</th>{plans.map(plan => <td key={plan.id || plan.name}>{plan.price > 0 ? money(plan.price) : 'Grátis'}</td>)}</tr>{featureRows.map(row => <tr key={row.label}><th scope="row">{row.label}</th>{plans.map(plan => <td key={plan.id || plan.name}>{row.value(plan)}</td>)}</tr>)}</tbody></table></div></section>
-    </> : <section className="cadu-ds-pricing-empty"><h2>Nenhum plano disponível agora</h2><p>As opções de assinatura ainda não foram publicadas para esta conta.</p></section>}
+      <section className="cadu-ds-account-section cadu-ds-pricing-comparison"><header><div><h2>Comparativo</h2></div></header><div className="cadu-ds-account-table"><table><thead><tr><th scope="col">Incluído</th>{plans.map(plan => <th scope="col" key={plan.slug || plan.name}>{plan.name}</th>)}</tr></thead><tbody>
+        <tr><th scope="row">Preço mensal</th>{plans.map(plan => <td key={plan.slug}>{price(plan)}</td>)}</tr>
+        <tr><th scope="row">Franquia de tokens</th>{plans.map(plan => <td key={plan.slug}>{allowance(plan)}</td>)}</tr>
+        <tr><th scope="row">Pessoas</th>{plans.map(plan => <td key={plan.slug}>Ilimitadas</td>)}</tr>
+        <tr><th scope="row">Armazenamento incluído</th>{plans.map(plan => <td key={plan.slug}>{storageLabel(plan)}</td>)}</tr>
+        <tr><th scope="row">Projetos e marcas</th>{plans.map(plan => <td key={plan.slug}>Ilimitados</td>)}</tr>
+      </tbody></table></div></section>
+    </> : <section className="cadu-ds-account-section"><header><div><h2>Planos em preparação</h2></div></header><p className="cadu-ds-account-empty">Os planos ainda não foram publicados para esta conta. <a href={contact}>Fale com a equipe</a> para conhecer as opções.</p></section>}
+    <section className="cadu-ds-account-section"><header><div><h2>Tokens extras</h2></div><small>Não expiram</small></header><p className="cadu-ds-account-section-copy">Quando a franquia do ciclo acabar, o Cadu continua usando os tokens extras da equipe.</p>{packages.length ? <PackageTable packages={packages} onChoose={choosePackage}/> : <p className="cadu-ds-account-empty">Nenhum pacote disponível agora. Fale com a equipe.</p>}</section>
+    <section className="cadu-ds-account-section"><header><div><h2>Armazenamento extra</h2></div></header>{storage.length ? <DataTable columns={['Pacote', 'Espaço', 'Preço']} rows={storage.map(item => <tr key={item.slug}><td><b>{item.name}</b></td><td>{number(item.gb)} GB</td><td>{item.price_brl ? money(item.price_brl) + ' / mês' : 'Consulte'}</td></tr>)}/> : <p className="cadu-ds-account-empty">Precisa de mais espaço para arquivos? <a href={contact}>Consulte a equipe</a> sobre GB adicionais.</p>}</section>
+    <section className="cadu-ds-account-section cadu-ds-pricing-faq"><header><div><h2>Perguntas frequentes</h2></div></header><dl>{PLAN_FAQ.map(([question, answer]) => <div key={question}><dt>{question}</dt><dd>{answer}</dd></div>)}</dl></section>
+  </div>;
+}
+function PackageTable({packages, onChoose}) {
+  return <DataTable columns={['Pacote', 'Volume', 'Indicado para', 'Preço', '']} rows={packages.map(pack => <tr key={pack.slug}><td><b>{pack.name}</b></td><td>{tokens(pack.tokens)}</td><td>{pack.description || '—'}</td><td>{money(pack.price_brl)}</td><td className="cadu-ds-account-table__action"><CaduButton size="sm" type="button" onClick={() => onChoose(pack)}>Comprar</CaduButton></td></tr>)}/>;
+}
+
+function Usage({account}) {
+  const usage = account.usage || {};
+  const allowance = usage.allowance || {}; const extras = usage.extras || {};
+  const interactions = account.interactions || [];
+  const space = account.space || {};
+  const mb = new Intl.NumberFormat('pt-BR', {maximumFractionDigits:1}).format(Number(space.bytes_used || 0) / 1048576);
+  const renews = usage.cycle?.renews_on ? civilDate(usage.cycle.renews_on) : null;
+  return <div className="cadu-ds-account-stack"><AccountPageHeader title="Consumo e espaço" description="Tokens usados neste ciclo, saldo extra e espaço ocupado pela equipe."/>
+    <section className="cadu-ds-usage-blocks" aria-label="Saldo de tokens">
+      <article className="cadu-ds-account-section"><header><div><h2>Franquia do plano</h2></div>{renews && <small>Renova em {renews}</small>}</header><div className="cadu-ds-usage-block">{allowance.granted ? <><strong>{number(allowance.used)} <span>de {tokens(allowance.granted)}</span></strong><progress value={allowance.percentage || 0} max="100" aria-label="Uso da franquia"/><p>{allowance.active ? `${tokens(allowance.available)} disponíveis neste ciclo. A sobra expira na renovação.` : 'Consumo do ciclo comparado à franquia do plano. A liberação automática da franquia ainda não está ativa nesta conta; o consumo é debitado do saldo de tokens.'}</p></> : <><strong>{tokens(usage.cycle_tokens)} <span>neste ciclo</span></strong><p>Seu plano não tem franquia mensal configurada.</p></>}</div></article>
+      <article className="cadu-ds-account-section"><header><div><h2>Tokens extras</h2></div><small>Não expiram</small></header><div className="cadu-ds-usage-block"><strong>{number(extras.available)} <span>{plural(extras.available, 'token disponível', 'tokens disponíveis')}</span></strong><p>{extras.lots ? `${number(extras.lots)} ${plural(extras.lots, 'pacote ativo', 'pacotes ativos')}. Usados depois da franquia do plano.` : 'Nenhum pacote extra ativo.'}</p></div></article>
+    </section>
+    <section className="cadu-ds-account-section"><header><div><h2>Consumo por ferramenta</h2></div><small>Ciclo atual</small></header><DataTable columns={['Ferramenta', 'Interações', 'Tokens']} empty="Ainda não há consumo neste ciclo." rows={(usage.by_tool || []).map(item => <tr key={item.tool}><td><b>{item.tool}</b></td><td>{number(item.interactions)}</td><td>{number(item.tokens)}</td></tr>)}/></section>
+    <section className="cadu-ds-account-section"><header><div><h2>Último consumo</h2></div><small>Agrupado por interação</small></header><DataTable columns={['Ferramenta', 'Quando', 'Etapas', 'Tokens']} empty="Ainda não há consumo de IA registrado." rows={interactions.map((item, index) => <tr key={`${item.created_at}-${index}`}><td><b>{item.tool}</b></td><td>{dateTime(item.created_at)}</td><td>{number(item.steps)}</td><td>{number(item.tokens)}</td></tr>)}/></section>
+    <section className="cadu-ds-account-section"><header><div><h2>Projetos, marcas e arquivos</h2></div><small>Projetos e marcas ilimitados</small></header><DataTable columns={['Recurso', 'Quantidade / uso', 'Regra']} rows={[<tr key="projects"><td><b>Projetos</b></td><td>{number(space.projects)}</td><td>Ilimitados</td></tr>,<tr key="brands"><td><b>Marcas</b></td><td>{number(account.agency_context?.brands?.length)}</td><td>Ilimitadas</td></tr>,<tr key="files"><td><b>Arquivos indexados</b></td><td>{number(space.files)} · {mb} MB</td><td>Espaço medido por equipe</td></tr>]}/></section>
   </div>;
 }
 
-function Usage({account, image}) {
-  const insight = account.insights || {};
-  const movements = groupCommercialActivity(account.movements);
-  const additions = account.credit_additions || [];
-  const space = account.space || {};
-  const mb = (Number(space.bytes_used || 0) / 1048576).toFixed(2);
-  return <div className="cadu-ds-account-stack"><AccountPageHeader title="Consumo e espaço" description="Acompanhe as interações, os créditos utilizados e o espaço ocupado pela equipe."/><section className="cadu-ds-account-metrics"><Metric label="Tokens neste ciclo" value={`${number(insight.tokens?.used)} de ${number(insight.tokens?.limit)}`}><progress value={insight.tokens?.percentage || 0} max="100"/></Metric><Metric label="Interações recentes" value={number(movements.length)} detail="ferramentas e execuções agrupadas"/><Metric label="Espaço usado" value={`${mb} MB`} detail="arquivos da equipe"/></section><section className="cadu-ds-account-section"><header><div><h2>Projetos, marcas e arquivos</h2></div><small>Projetos e marcas ilimitados</small></header><DataTable columns={['Recurso', 'Quantidade / uso', 'Regra']} rows={[<tr key="projects"><td><b>Projetos</b></td><td>{number(space.projects)}</td><td>Ilimitados</td></tr>,<tr key="brands"><td><b>Marcas</b></td><td>{number(account.agency_context?.brands?.length)}</td><td>Ilimitadas</td></tr>,<tr key="files"><td><b>Arquivos indexados</b></td><td>{number(space.files)} · {mb} MB</td><td>Indexação automática; espaço medido por equipe</td></tr>,<tr key="conversations"><td><b>Conversas e ações de IA</b></td><td>{number(movements.length)} interações agrupadas</td><td>Consomem créditos quando usam IA</td></tr>,<tr key="tokens"><td><b>Conteúdo processado</b></td><td>{number(space.indexed_tokens)}</td><td>Volume de texto preparado para uso pelo Cadu</td></tr>]}/></section><section className="cadu-ds-account-section"><header><div><h2>Créditos adicionados</h2></div><small>{number(additions.length)} lotes registrados</small></header><DataTable columns={['Origem', 'Data', 'Referência', 'Créditos']} empty="Nenhum saldo foi adicionado ainda." rows={additions.map((item, index) => <tr key={item.id || index}><td><b>{item.reason}</b></td><td>{dateTime(item.created_at)}</td><td>{item.reference || '—'}</td><td>+{number(item.amount)}</td></tr>)}/></section><section className="cadu-ds-account-section"><header><div><h2>Atividade recente</h2></div><small>Uso de ferramentas Cadu</small></header><DataTable columns={['Execução', 'Data', 'Referência', 'Créditos']} empty="Ainda não há consumo de IA confirmado." rows={movements.map((item, index) => <tr key={item.id || index}><td><b>{item.reason || 'Execução Cadu'}</b></td><td>{dateTime(item.created_at)}</td><td>{item.reference || '—'}</td><td>−{number(item.amount)}</td></tr>)}/></section></div>;
+function Credits({account}) {
+  const packages = account.packages || [];
+  const lots = account.purchases || [];
+  const requests = account.credit_requests || [];
+  const choosePackage = pack => window.dispatchEvent(new CustomEvent('cadu-open-purchase', {detail:{slug:pack.slug, name:pack.name, tokens:pack.tokens, price:pack.price_brl}}));
+  return <div className="cadu-ds-account-stack"><AccountPageHeader title="Tokens da equipe" description="A franquia do plano é usada primeiro. Quando precisar de mais, compre tokens extras: entram na hora e não expiram."/>
+    <CreditSummary usage={account.usage} lastInteraction={account.interactions?.[0]}/>
+    <section className="cadu-ds-account-section"><header><div><h2>Comprar tokens extras</h2></div><small>Liberação imediata</small></header><p className="cadu-ds-account-section-copy">Qualquer pessoa da equipe pode comprar. O financeiro recebe o pedido e lança a cobrança.</p>{packages.length ? <PackageTable packages={packages} onChoose={choosePackage}/> : <p className="cadu-ds-account-empty">Nenhum pacote disponível agora.</p>}</section>
+    <section className="cadu-ds-account-section"><header><div><h2>Saldo por lote</h2></div></header><DataTable columns={['Origem', 'Vencimento', 'Disponível', 'Total']} empty="Você está usando a franquia do plano. Compre um pacote quando precisar de mais." rows={lots.map((lot, index) => <tr key={lot.id || index}><td><b>{lot.package_name}</b></td><td>{lot.expires_at ? civilDate(lot.expires_at) : 'Não expira'}</td><td>{number(lot.available)}</td><td>{number(lot.credits)}</td></tr>)}/></section>
+    {requests.length > 0 && <section className="cadu-ds-account-section"><header><div><h2>Pedidos recentes</h2></div></header><RequestTable requests={requests.slice(0, 5)}/></section>}
+  </div>;
 }
-
-function Credits({account, bootstrap}) {
-  const available = account.credit?.available ?? account.position?.available ?? 0;
-  const packages = [{tokens:100000, price:49, label:'Extra Essencial', description:'Reforço pontual para uma operação em andamento.'},{tokens:500000, price:179, label:'Extra Equipe', description:'Mais margem para planejamento, auditoria e produção.'},{tokens:1000000, price:299, label:'Extra Agência', description:'Volume para múltiplos projetos e clientes.'}];
-  const choosePackage = pack => window.dispatchEvent(new CustomEvent('cadu-open-purchase', {detail:{kind:'package', name:pack.label, tokens:pack.tokens, price:pack.price}}));
-  return <div className="cadu-ds-account-stack"><AccountPageHeader title="Créditos acompanham o seu uso" description="Escolha um pacote, confirme a compra e libere o saldo para o seu time na hora. O financeiro recebe a notificação para cuidar da cobrança."/><CreditSummary available={available} lots={account.purchases?.length} lastMovement={account.movements?.[0]}/><section className="cadu-ds-account-section cadu-ds-credit-packages"><header><div><h2>Pacotes de créditos</h2></div><small>Liberação imediata</small></header><p className="cadu-ds-account-section-copy">Os créditos são compartilhados entre as pessoas da equipe e usados quando o Cadu conversa, pesquisa, indexa arquivos ou cria entregas com IA.</p><DataTable columns={['Pacote', 'Volume', 'Indicado para', 'Preço']} rows={packages.map(pack => <tr key={pack.tokens}><td><b>{pack.label}</b></td><td>{number(pack.tokens)} créditos</td><td>{pack.description}</td><td>{money(pack.price)}</td></tr>)}/><div className="cadu-ds-credit-package-grid">{packages.map(pack => <article key={pack.tokens}><span>{pack.label}</span><strong>{number(pack.tokens)} créditos</strong><b>{money(pack.price)}</b><p>{pack.description}</p><small>Saldo liberado imediatamente após a confirmação.</small><CaduButton type="button" onClick={() => choosePackage(pack)}>Comprar pacote</CaduButton></article>)}</div></section><section className="cadu-ds-account-section cadu-ds-credit-usage-guide"><header><div><h2>Use conforme a operação pede</h2></div><small>Volume compartilhado</small></header><p className="cadu-ds-account-section-copy">Projetos, marcas e arquivos continuam disponíveis. Os créditos entram quando o Cadu processa contexto, conversa, pesquisa, indexa ou cria uma entrega.</p></section><section className="cadu-ds-account-section"><header><div><h2>Saldo por lote</h2></div></header><DataTable columns={['Pacote', 'Vencimento', 'Disponível', 'Total']} empty="Ainda não há créditos extras. Isso é normal: você pode começar usando o acesso gratuito." rows={(account.purchases || []).map((lot, index) => <tr key={lot.id || index}><td><b>{lot.package_name}</b></td><td>{lot.expires_at ? civilDate(lot.expires_at) : 'Sem vencimento'}</td><td>{number(lot.available)}</td><td>{number(lot.credits)}</td></tr>)}/></section></div>;
+function RequestTable({requests}) {
+  return <DataTable columns={['Pedido', 'Pacote', 'Data', 'Cobrança', 'Valor', 'Situação']} rows={requests.map(item => <tr key={item.id}><td><b>#{item.id}</b></td><td>{item.package_name} · {tokens(item.tokens_amount)}</td><td>{civilDate(item.created_at)}</td><td>{item.billing_mode === 'postpaid' ? 'Pós-pago' : 'Antecipado'}</td><td>{money(item.price_brl)}</td><td>{requestStatuses[item.status] || item.status}</td></tr>)}/>;
 }
 
 function Integrations({bootstrap}) {
@@ -203,15 +232,24 @@ function Integrations({bootstrap}) {
   </div>;
 }
 
-function Billing({account, image}) {
+function Billing({account}) {
   const summary = account.summary || {};
-  return <div className="cadu-ds-account-stack"><AccountPageHeader title="Faturamento" description="Consulte faturas, valores e status de cobrança em um só lugar."/><section className="cadu-ds-account-metrics"><Metric label="Em aberto" value={money(summary.open_total)} detail={`${number(summary.open_count)} faturas`}/><Metric label="Pagas" value={number(summary.paid_count)} detail="no histórico disponível"/><Metric label="Em atraso" value={number(summary.overdue_count)} detail={summary.overdue_count ? 'Requer atenção' : 'Nenhuma pendência vencida'}/></section><section className="cadu-ds-account-section"><header><div><h2>Histórico de faturas</h2></div></header><DataTable columns={['Fatura', 'Referência', 'Vencimento', 'Status', 'Valor', 'Documento']} empty="Quando houver cobrança registrada, ela aparecerá aqui." rows={(account.invoices || []).map((invoice, index) => <tr key={invoice.id || index}><td><b>{invoice.number}</b></td><td>{invoice.reference || '—'}</td><td>{civilDate(invoice.due_date)}</td><td>{invoiceStatuses[invoice.status_normalized] || invoice.status_normalized}</td><td>{money(invoice.total)}</td><td>{invoice.pdf_safe_url ? <a href={invoice.pdf_safe_url} target="_blank" rel="noreferrer">Abrir PDF</a> : '—'}</td></tr>)}/></section></div>;
+  const requests = account.credit_requests || [];
+  return <div className="cadu-ds-account-stack"><AccountPageHeader title="Faturamento" description="Faturas lançadas pelo financeiro e solicitações de pacotes de tokens."/>
+    <section className="cadu-ds-account-section"><header><div><h2>Como funciona a cobrança</h2></div></header><p className="cadu-ds-account-section-copy cadu-ds-billing-note">Ainda não há cobrança automática. Quando alguém da equipe compra tokens extras, os tokens são liberados na hora e o pedido vai para o financeiro, que lança a fatura manualmente. A fatura aparece no histórico abaixo depois desse lançamento. Dúvidas: <a href="mailto:financeiro@centralcomm.media">financeiro@centralcomm.media</a>.</p></section>
+    <section className="cadu-ds-account-metrics"><Metric label="Em aberto" value={money(summary.open_total)} detail={`${number(summary.open_count)} ${plural(summary.open_count, 'fatura', 'faturas')}`}/><Metric label="Pagas" value={number(summary.paid_count)} detail="no histórico disponível"/><Metric label="Solicitações de pacote" value={number(requests.length)} detail="aguardando ou já lançadas pelo financeiro"/></section>
+    <section className="cadu-ds-account-section"><header><div><h2>Solicitações de pacote</h2></div><small>Não são faturas</small></header><RequestTableOrEmpty requests={requests}/></section>
+    <section className="cadu-ds-account-section"><header><div><h2>Histórico de faturas</h2></div></header><DataTable columns={['Fatura', 'Referência', 'Vencimento', 'Status', 'Valor', 'Documento']} empty="Nenhuma fatura lançada ainda. Elas aparecem aqui quando o financeiro registra a cobrança." rows={(account.invoices || []).map((invoice, index) => <tr key={invoice.id || index}><td><b>{invoice.number}</b></td><td>{invoice.reference || '—'}</td><td>{civilDate(invoice.due_date)}</td><td>{invoiceStatuses[invoice.status_normalized] || invoice.status_normalized}</td><td>{money(invoice.total)}</td><td>{invoice.pdf_safe_url ? <a href={invoice.pdf_safe_url} target="_blank" rel="noreferrer">Abrir PDF</a> : '—'}</td></tr>)}/></section>
+  </div>;
+}
+function RequestTableOrEmpty({requests}) {
+  return requests.length ? <RequestTable requests={requests}/> : <p className="cadu-ds-account-empty">Nenhuma solicitação de pacote. Compras feitas em Tokens aparecem aqui.</p>;
 }
 
 export function WorkspaceAccount({bootstrap}) {
   const {isMobile} = useWorkspaceViewport();
   const section = bootstrap.section;
-  const content = section === 'agencia' ? <Agency bootstrap={bootstrap}/> : section === 'perfil' ? <Profile bootstrap={bootstrap}/> : section === 'equipe' ? <Team bootstrap={bootstrap}/> : section === 'integracoes' ? <Integrations bootstrap={bootstrap}/> : section === 'planos' ? <Plan account={bootstrap.account} urls={bootstrap.urls}/> : section === 'uso' ? <Usage account={bootstrap.account} image={bootstrap.caduMark}/> : section === 'creditos' ? <Credits account={bootstrap.account} bootstrap={bootstrap}/> : <Billing account={bootstrap.account} image={bootstrap.caduMark}/>;
+  const content = section === 'agencia' ? <Agency bootstrap={bootstrap}/> : section === 'perfil' ? <Profile bootstrap={bootstrap}/> : section === 'equipe' ? <Team bootstrap={bootstrap}/> : section === 'integracoes' ? <Integrations bootstrap={bootstrap}/> : section === 'planos' ? <Plan account={bootstrap.account} urls={bootstrap.urls}/> : section === 'uso' ? <Usage account={bootstrap.account}/> : section === 'creditos' ? <Credits account={bootstrap.account}/> : <Billing account={bootstrap.account}/>;
   const order = ['perfil', 'agencia', 'equipe', 'integracoes', 'planos', 'uso', 'creditos', 'faturamento'];
   const navItems = [...order.filter(id => bootstrap.urls[id]).map(id => ({id, label: labels[id], icon: accountIcons[id], href: bootstrap.urls[id]})),
     ...(bootstrap.urls.observability ? [{id: 'observabilidade', label: 'Observabilidade do Cadu', icon: 'analysis', href: bootstrap.urls.observability}] : [])];

@@ -77,7 +77,7 @@ def creation_capabilities(context: RequestContext, arguments: dict) -> dict:
             "note": "Estimativa conservadora do Studio; a cobrança final usa o consumo real dos provedores e pode variar.",
         }
     except Exception:
-        current_app.logger.warning("Estimativa de créditos do Studio indisponível", exc_info=True)
+        current_app.logger.warning("Estimativa de tokens do Studio indisponível", exc_info=True)
         estimate = {"status": "unavailable", "note": "Não foi possível calcular a estimativa de créditos do Studio."}
     return {"operations": _CREATION_CONTRACTS, "session_tool": "media.start_studio_session",
             "generation_available_via_mcp": ["image", "image_edit"],

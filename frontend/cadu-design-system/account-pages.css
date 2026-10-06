@@ -70,6 +70,51 @@ body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-table th { paddin
 body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-table td { padding: 14px var(--acc-pad); border-bottom: 1px solid var(--acc-line); color: var(--acc-body); font-size: 14px; line-height: 20px; }
 body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-table tbody tr:last-child td { border-bottom: 0; }
 
+/* Tokens, planos e faturamento */
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-table td.cadu-ds-account-table__action { width: 1%; text-align: right; white-space: nowrap; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-section-copy a,
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-empty a { color: var(--acc-brand-ink); font-weight: 600; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-billing-note { padding-bottom: 16px; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-usage-blocks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-usage-block { display: grid; gap: 8px; padding: 16px var(--acc-pad) 20px; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-usage-block strong { color: var(--acc-ink); font: 600 28px/36px var(--cadu-font-sans, Inter, system-ui, sans-serif); letter-spacing: -.02em; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-usage-block strong span { color: var(--acc-muted); font-size: 14px; font-weight: 500; letter-spacing: 0; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-usage-block p { margin: 0; color: var(--acc-muted); font-size: 13px; line-height: 18px; }
+body.portal--workspace .cadu-ds-account-shell :is(.cadu-ds-usage-block, .cadu-ds-account-metrics) progress { width: 100%; height: 8px; accent-color: var(--acc-brand); }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-cards { display: grid; grid-template-columns: repeat(var(--plan-count, 3), minmax(0, 1fr)); gap: 16px; margin: 0; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-card { display: flex; min-width: 0; flex-direction: column; padding: var(--acc-pad); border: 1px solid var(--acc-line); border-radius: var(--acc-radius); background: var(--acc-surface); box-shadow: 0 1px 2px rgba(16,24,40,.05); }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-card.is-current { border-color: var(--acc-brand); box-shadow: 0 0 0 1px var(--acc-brand); }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-badge { align-self: flex-start; min-height: 22px; margin: 0 0 10px; padding: 2px 8px; border-radius: 999px; background: #e7f4f1; color: var(--acc-brand-ink); font: 600 12px/18px var(--cadu-font-sans, Inter, system-ui, sans-serif); }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-badge.is-empty { background: transparent; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-card h2 { margin: 0; color: var(--acc-ink); font: 600 18px/28px var(--cadu-font-sans, Inter, system-ui, sans-serif); }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-description { min-height: 40px; margin: 4px 0 12px; color: var(--acc-muted); font-size: 13px; line-height: 20px; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; margin-bottom: 12px; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-price strong { color: var(--acc-ink); font: 600 24px/32px var(--cadu-font-sans, Inter, system-ui, sans-serif); letter-spacing: -.02em; white-space: nowrap; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-price span { color: var(--acc-muted); font-size: 13px; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-card ul { display: grid; gap: 8px; margin: 0 0 20px; padding: 12px 0 0; border-top: 1px solid var(--acc-line); list-style: none; color: var(--acc-body); font-size: 13px; line-height: 18px; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-card li::before { content: '✓'; margin-right: 8px; color: var(--acc-brand); font-weight: 700; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-cta { display: grid; margin-top: auto; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-cta > * { width: 100%; justify-content: center; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-comparison { margin: 0; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-comparison tbody th { padding: 14px var(--acc-pad); border-bottom: 1px solid var(--acc-line); background: var(--acc-surface); color: var(--acc-ink); font: 500 14px/20px var(--cadu-font-sans, Inter, system-ui, sans-serif); letter-spacing: 0; text-align: left; text-transform: none; white-space: nowrap; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-comparison tbody tr:last-child th { border-bottom: 0; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-faq dl { display: grid; margin: 0; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-faq dl > div { padding: 14px var(--acc-pad); border-bottom: 1px solid var(--acc-line); }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-faq dl > div:last-child { border-bottom: 0; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-faq dt { color: var(--acc-ink); font: 600 14px/20px var(--cadu-font-sans, Inter, system-ui, sans-serif); }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-faq dd { margin: 4px 0 0; color: var(--acc-muted); font-size: 14px; line-height: 20px; }
+@media (max-width: 1180px) {
+  body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
+  body.portal--workspace .cadu-ds-account-shell .cadu-ds-usage-blocks { grid-template-columns: minmax(0, 1fr); }
+  body.portal--workspace .cadu-ds-account-shell .cadu-ds-credit-summary { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  body.portal--workspace .cadu-ds-account-shell .cadu-ds-credit-summary dl { padding: 16px 0 0; border-left: 0; border-top: 1px solid var(--acc-line); }
+}
+@media (max-width: 640px) {
+  body.portal--workspace .cadu-ds-account-shell .cadu-ds-pricing-cards { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* Mobile */
 @media (max-width: 760px) {
   body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-content { padding: 20px 16px 96px; }

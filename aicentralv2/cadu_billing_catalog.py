@@ -31,15 +31,15 @@ EXTRA_PACKAGES: tuple[dict, ...] = (
 PLAN_CATALOG: tuple[dict, ...] = (
     {"slug": "essencial", "name": "Essencial", "price_monthly": 297.0, "tokens_monthly": None, "storage_gb": None,
      "tagline": "Para começar a operar com o Cadu no dia a dia.",
-     "features": ["Workspace, projetos e marcas ilimitados", "Studio, Planner e Connect", "Pessoas ilimitadas"],
+     "features": ["Workspace, projetos e marcas ilimitados", "Studio, Planner e Connect"],
      "cta": "contact", "highlight": False},
     {"slug": "equipe", "name": "Equipe", "price_monthly": 697.0, "tokens_monthly": None, "storage_gb": None,
      "tagline": "Para equipes que produzem e planejam toda semana.",
-     "features": ["Tudo do Essencial", "Mais tokens por mês", "Pessoas ilimitadas"],
+     "features": ["Tudo do Essencial", "Mais tokens por mês"],
      "cta": "contact", "highlight": True},
     {"slug": "agencia", "name": "Agência", "price_monthly": 1497.0, "tokens_monthly": None, "storage_gb": None,
      "tagline": "Para agências com vários clientes e projetos.",
-     "features": ["Tudo do Equipe", "Maior franquia de tokens", "Pessoas ilimitadas"],
+     "features": ["Tudo do Equipe", "Maior franquia de tokens"],
      "cta": "contact", "highlight": False},
 )
 

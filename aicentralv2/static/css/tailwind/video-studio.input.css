@@ -422,3 +422,22 @@
 .mc-video-studio .mc-draft-footer{list-style:none}
 .mc-video-studio .mc-draft-error{margin:0;padding:4px 8px;border-radius:6px;background:color-mix(in srgb,#d64545 16%,transparent);color:#b03030;font-size:11px}
 .mc-video-studio[data-theme=dark] .mc-draft-error{color:#ff9b9b}
+
+/* Biblioteca: cabeçalho fixo, cartão com ações compactas e miniatura indisponível */
+.mc-video-studio .mc-cadu-video-lib-top { position:sticky; top:-14px; z-index:3; display:grid; gap:8px; margin:0 -14px; padding:10px 14px 8px; background:var(--mc-cadu-paper); border-bottom:1px solid var(--mc-cadu-rule); }
+.mc-video-studio .mc-cadu-video-lib-top .mc-cadu-video-lib-tabs { border-bottom:0; }
+.mc-video-studio .mc-cadu-video-lib-top .mc-cadu-video-search .mc-cadu-video-label { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
+.mc-video-studio .mc-cadu-video-takes .mc-lib-item { display:grid; gap:4px; align-content:start; min-width:0; }
+.mc-video-studio .mc-cadu-video-takes .mc-lib-card { display:grid; width:100%; text-align:left; }
+.mc-video-studio .mc-cadu-video-takes .mc-lib-card strong { display:block; min-width:0; }
+.mc-video-studio .mc-cadu-video-takes .mc-lib-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:2px 6px; min-height:22px; min-width:0; }
+.mc-video-studio .mc-cadu-video-takes .mc-lib-actions button { display:inline-flex; align-items:center; width:auto; height:22px; margin:0; padding:0 6px; border:0; border-radius:4px; background:transparent; color:var(--mc-cadu-mute); font-size:11px; text-decoration:none; }
+.mc-video-studio .mc-cadu-video-takes .mc-lib-actions .mc-cadu-video-remove { text-decoration:underline; text-underline-offset:2px; }
+.mc-video-studio .mc-cadu-video-takes .mc-lib-actions .mc-cadu-video-delete { margin-left:auto; }
+.mc-video-studio .mc-cadu-video-takes .mc-lib-actions button:hover { color:var(--mc-cadu-ink); background:var(--vs-hover); }
+.mc-video-studio .mc-cadu-video-takes .mc-lib-actions .mc-cadu-video-delete:hover { color:#e77460; }
+.mc-video-studio .mc-cadu-video-takes .mc-lib-missing { display:block; aspect-ratio:16/10; background:repeating-linear-gradient(135deg,var(--mc-cadu-floor) 0 8px,color-mix(in srgb,var(--mc-cadu-floor) 80%,#fff 4%) 8px 16px); }
+.mc-video-studio .mc-cadu-video-takes .is-broken .mc-lib-card { border-style:dashed; border-color:#b45309; opacity:.8; }
+
+/* Cenas para geração ficam sempre visíveis no pé da timeline; as trilhas rolam por cima */
+.mc-video-studio .mc-cadu-video-timeline .mc-studio-storyboard { position:sticky; bottom:-10px; z-index:30; margin:0 -14px -10px; padding:6px 14px 10px; background:var(--mc-cadu-paper); border-top:1px solid var(--mc-cadu-rule); }

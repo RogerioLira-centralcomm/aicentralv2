@@ -25,6 +25,15 @@
         <label class="mc-cadu-video-upload"><input id="mcVideoFile" type="file" accept="image/*" hidden>Enviar imagem</label><label class="mc-cadu-video-upload"><input id="mcStudioVideoFile" type="file" accept="video/mp4,video/quicktime,video/webm" hidden>Enviar vídeo</label>
         <button type="button" class="mc-cadu-video-ghost" id="mcVideoPurgeBroken" hidden>Remover arquivos indisponíveis</button>
       </div></div>
+      
+      <div class="mc-cadu-video-lib-top">
+      <div class="mc-cadu-video-lib-tabs" role="tablist" aria-label="Tipo de mídia">
+        <button type="button" id="mcVideoLibStillTab" class="is-active" data-lib-tab="still" role="tab" aria-selected="true" aria-controls="mcVideoLibrary">Peças</button>
+        <button type="button" id="mcVideoLibClipTab" data-lib-tab="video" role="tab" aria-selected="false" aria-controls="mcVideoClips">Clipes</button>
+        <button type="button" id="mcStudioSoundsTab" data-lib-tab="sound" role="tab" aria-selected="false" aria-controls="mcStudioSounds">Sons</button>
+      </div>
+      <label class="mc-cadu-video-search"><span class="mc-cadu-video-label">Buscar</span><input id="mcVideoSearch" type="search" placeholder="Nome da mídia" autocomplete="off"></label>
+      </div>
       <details class="mc-import-options"><summary>Cortes na importação</summary>
         <label><input id="mcImportAutoCut" type="checkbox" checked> Encontrar pausas para revisar</label>
         <label>Intensidade<select id="mcImportCutMode"><option value="moderate">Moderado · preservar o ritmo</option><option value="aggressive">Agressivo · pausas mais curtas</option></select></label>
@@ -32,12 +41,6 @@
         <label>Transição sugerida<select id="mcImportTransition"><option value="cut">Corte seco</option><option value="fade">Dissolver</option><option value="fadeblack">Passar pelo preto</option></select></label>
         <p>O original é preservado. Nenhum corte é aplicado antes da sua revisão.</p>
       </details>
-      <div class="mc-cadu-video-lib-tabs" role="tablist" aria-label="Tipo de mídia">
-        <button type="button" id="mcVideoLibStillTab" class="is-active" data-lib-tab="still" role="tab" aria-selected="true" aria-controls="mcVideoLibrary">Peças</button>
-        <button type="button" id="mcVideoLibClipTab" data-lib-tab="video" role="tab" aria-selected="false" aria-controls="mcVideoClips">Clipes</button>
-        <button type="button" id="mcStudioSoundsTab" data-lib-tab="sound" role="tab" aria-selected="false" aria-controls="mcStudioSounds">Sons</button>
-      </div>
-      <label class="mc-cadu-video-search"><span class="mc-cadu-video-label">Buscar</span><input id="mcVideoSearch" type="search" placeholder="Nome da mídia" autocomplete="off"></label>
       <p class="mc-cadu-video-hint" id="mcVideoLibHint">Escolha a marca na barra para ver as peças.</p>
       <ul class="mc-cadu-video-takes" id="mcVideoLibrary" role="tabpanel" aria-labelledby="mcVideoLibStillTab"></ul>
       <ul class="mc-cadu-video-clips" id="mcVideoClips" role="tabpanel" aria-labelledby="mcVideoLibClipTab" hidden></ul>

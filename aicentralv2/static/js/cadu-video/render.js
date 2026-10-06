@@ -137,14 +137,18 @@ export function paintLibrary() {
   const availableRows = rows.filter((item) => !state.scenes.some((scene) => scene.id === item.id));
   const card = (item, selected) => {
     const thumb = item.thumb_url || item.image_url;
-    return `<li class="${item.broken ? "is-broken" : ""}" data-id="${escapeHtml(item.id)}">
-      <button type="button" data-id="${escapeHtml(item.id)}" data-action="${selected ? "select" : "pick"}" class="${selected ? "is-selected" : ""}" ${item.broken ? "disabled" : ""}>
-        ${thumb ? `<img loading="lazy" decoding="async" src="${escapeHtml(thumb)}" alt="">` : "<span></span>"}
-        <strong>${escapeHtml(item.name || "Peça")}</strong>
-        <small>${item.broken ? "Arquivo indisponível" : selected ? "Na sequência · abrir" : "Adicionar à sequência"}</small>
+    const name = escapeHtml(item.name || "Peça");
+    const status = item.broken ? "Arquivo indisponível" : selected ? "Na sequência · abrir" : "Adicionar à sequência";
+    return `<li class="mc-lib-item ${item.broken ? "is-broken" : ""}" data-id="${escapeHtml(item.id)}">
+      <button type="button" data-id="${escapeHtml(item.id)}" data-action="${selected ? "select" : "pick"}" class="mc-lib-card ${selected ? "is-selected" : ""}" title="${name}" ${item.broken ? "disabled" : ""}>
+        ${thumb && !item.broken ? `<img loading="lazy" decoding="async" src="${escapeHtml(thumb)}" alt="">` : `<span class="mc-lib-missing" aria-hidden="true"></span>`}
+        <strong>${name}</strong>
+        <small>${status}</small>
       </button>
-      ${selected ? `<button type="button" class="mc-cadu-video-remove" data-id="${escapeHtml(item.id)}" data-action="remove">Remover da sequência</button>` : ""}
-      <button type="button" class="mc-cadu-video-delete" data-id="${escapeHtml(item.id)}" data-action="delete">Excluir da biblioteca</button>
+      <div class="mc-lib-actions">
+        ${selected ? `<button type="button" class="mc-cadu-video-remove" data-id="${escapeHtml(item.id)}" data-action="remove" title="Remover da sequência" aria-label="Remover ${name} da sequência">Remover</button>` : ""}
+        <button type="button" class="mc-cadu-video-delete" data-id="${escapeHtml(item.id)}" data-action="delete" title="Excluir da biblioteca" aria-label="Excluir ${name} da biblioteca">Excluir</button>
+      </div>
     </li>`;
   };
   list.innerHTML = `${selectedRows.length ? `<li class="mc-studio-library-group"><strong>Na sequência deste vídeo</strong><small>${selectedRows.length} de 30 cenas</small></li>${selectedRows.map((item) => card(item, true)).join("")}` : ""}${availableRows.length ? `<li class="mc-studio-library-group"><strong>Disponíveis para adicionar</strong><small>Estas peças ainda não entram no vídeo.</small></li>${availableRows.map((item) => card(item, false)).join("")}` : ""}`;

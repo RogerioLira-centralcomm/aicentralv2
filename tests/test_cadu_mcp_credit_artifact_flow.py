@@ -1,4 +1,15 @@
 """Regression checks for public-agent purchase and document finalization boundaries."""
+import pytest as _pytest
+from unittest.mock import patch as _patch
+
+from aicentralv2.cadu_billing_catalog import public_packages
+
+
+@_pytest.fixture(autouse=True)
+def _code_package_catalog():
+    """The package catalog lives in the database; tests use the code fallback."""
+    with _patch("aicentralv2.cadu_billing_catalog.load_packages", side_effect=public_packages):
+        yield
 
 from unittest.mock import MagicMock, patch
 
@@ -213,10 +224,11 @@ def test_web_credit_purchase_requires_csrf_and_keeps_existing_member_flow():
         database.assert_not_called()
     cursor = MagicMock()
     cursor.__enter__.return_value = cursor
-    cursor.fetchone.side_effect = [{"id":41}, {"id":72}]
+    cursor.fetchone.side_effect = [None, {"id":41}, {"id":72}]
     connection = MagicMock()
     connection.cursor.return_value = cursor
     with patch("aicentralv2.cadu_workspace.routes.get_db", return_value=connection), \
+         patch("aicentralv2.cadu_billing_catalog.load_packages", side_effect=public_packages), \
          patch("aicentralv2.db.obter_cliente_por_id", return_value={}), \
          patch("aicentralv2.email_service.send_email") as send_email:
         response = client.post("/workspace/api/creditos/solicitar", headers={"X-CSRF-Token":"valid"},
@@ -239,10 +251,11 @@ def test_web_credit_purchase_does_not_invite_duplicate_retry_when_email_fails():
                        user_name="Ana Silva", user_email="ana@example.com")
     cursor = MagicMock()
     cursor.__enter__.return_value = cursor
-    cursor.fetchone.side_effect = [{"id": 41}, {"id": 72}]
+    cursor.fetchone.side_effect = [None, {"id": 41}, {"id": 72}]
     connection = MagicMock()
     connection.cursor.return_value = cursor
     with patch("aicentralv2.cadu_workspace.routes.get_db", return_value=connection), \
+         patch("aicentralv2.cadu_billing_catalog.load_packages", side_effect=public_packages), \
          patch("aicentralv2.db.obter_cliente_por_id", return_value={}), \
          patch("aicentralv2.email_service.send_email", return_value=False):
         response = client.post("/workspace/api/creditos/solicitar", headers={"X-CSRF-Token": "valid"},
@@ -253,6 +266,46 @@ def test_web_credit_purchase_does_not_invite_duplicate_retry_when_email_fails():
     assert response.get_json()["credit_lot_id"] == 72
     connection.commit.assert_called_once()
     connection.rollback.assert_not_called()
+
+
+def test_web_credit_purchase_reuses_identical_recent_order_on_double_click():
+    app = Flask(__name__)
+    app.secret_key = "test"
+    app.register_blueprint(workspace_bp)
+    client = app.test_client()
+    with client.session_transaction() as session:
+        session.update(user_id=7, cliente_id=12, family_csrf="valid", user_type="member")
+    cursor = MagicMock()
+    cursor.__enter__.return_value = cursor
+    cursor.fetchone.side_effect = [{"id": 41, "credit_lot_id": 72}]
+    connection = MagicMock()
+    connection.cursor.return_value = cursor
+    with patch("aicentralv2.cadu_workspace.routes.get_db", return_value=connection), \
+         patch("aicentralv2.cadu_billing_catalog.load_packages", side_effect=public_packages), \
+         patch("aicentralv2.db.obter_cliente_por_id", return_value={}), \
+         patch("aicentralv2.email_service.send_email") as send_email:
+        response = client.post("/workspace/api/creditos/solicitar", headers={"X-CSRF-Token": "valid"},
+                               json={"package_slug": "extra-essencial", "billing_mode": "prepaid"})
+    assert response.status_code == 200
+    assert response.get_json()["duplicate"] is True
+    assert response.get_json()["request_id"] == 41
+    send_email.assert_not_called()
+    assert not any("INSERT INTO cadu_credits_extras" in call.args[0] for call in cursor.execute.call_args_list)
+
+
+def test_web_credit_purchase_ignores_client_price_and_rejects_plans():
+    app = Flask(__name__)
+    app.secret_key = "test"
+    app.register_blueprint(workspace_bp)
+    client = app.test_client()
+    with client.session_transaction() as session:
+        session.update(user_id=7, cliente_id=12, family_csrf="valid", user_type="member")
+    with patch("aicentralv2.cadu_workspace.routes.get_db") as database, \
+         patch("aicentralv2.cadu_billing_catalog.load_packages", side_effect=public_packages):
+        response = client.post("/workspace/api/creditos/solicitar", headers={"X-CSRF-Token": "valid"},
+                               json={"package_name": "Equipe", "tokens": 1, "price": 1})
+    assert response.status_code == 400
+    database.assert_not_called()
 
 
 def test_agency_edit_rejects_invalid_document_and_postal_code_before_operation():

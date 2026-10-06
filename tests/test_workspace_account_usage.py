@@ -70,10 +70,11 @@ class WorkspaceAccountUsageTest(TestCase):
             "features": '{"brand_management": true, "project_knowledge": true, "studio": false}',
         }, {"used": 20, "effective_limit": 100}, [
             {"status": True}, {"status": False}, {"status": True},
-        ])
+        ], {"allowance": {"granted": 1000, "used": 400}})
 
+        # The dead plan counter (250) is ignored; usage comes from the ledger summary.
         self.assertEqual(insights["tokens"], {
-            "used": 250, "limit": 1000, "available": 750, "percentage": 25.0,
+            "used": 400, "limit": 1000, "available": 600, "percentage": 40.0,
         })
         self.assertEqual(insights["users"]["used"], 2)
         self.assertEqual(insights["users"]["available"], 2)
@@ -96,7 +97,8 @@ class WorkspaceAccountUsageTest(TestCase):
         bootstrap = _account_bootstrap(html)
         self.assertEqual(bootstrap["section"], "planos")
         self.assertEqual(bootstrap["account"]["plan"]["plan_definition_name"], "Equipe")
-        self.assertEqual(bootstrap["account"]["insights"]["tokens"]["used"], 250)
+        self.assertEqual(bootstrap["account"]["insights"]["tokens"]["used"], 0)
+        self.assertEqual(bootstrap["account"]["plans"][0]["slug"], "essencial")
 
     @mock.patch("aicentralv2.cadu_workspace.routes._php_account_data", side_effect=lambda _client, *_args, **_kw: _account_fixture())
     def test_usage_view_preserves_auditable_context(self, _account):

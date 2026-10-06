@@ -290,40 +290,49 @@ def _php_account_data(client_id: int, sections=None) -> dict:
         try:
             with get_db().cursor() as cursor:
                 cursor.execute(
-                    """SELECT id, 'usage' AS movement_type, tokens_cobrados AS amount,
+                    """SELECT id, 'usage' AS movement_type, tokens_cobrados AS amount, ferramenta,
                               CONCAT('Ferramenta: ', ferramenta,
                                      CASE WHEN etapa IS NULL THEN '' ELSE ' · ' || etapa END) AS reason,
                               idempotency_key AS reference, NULL::varchar AS created_by_name,
-                              COALESCE(charged_at, created_at) AS created_at
+                              metadata, COALESCE(charged_at, created_at) AS created_at
                          FROM cadu_tools_token_usage
                         WHERE id_cliente = %s AND status = 'charged'
-                        ORDER BY COALESCE(charged_at, created_at) DESC, id DESC LIMIT 20""",
+                          AND COALESCE(charged_at, created_at) >= NOW() - INTERVAL '62 days'
+                        ORDER BY COALESCE(charged_at, created_at) DESC, id DESC LIMIT 2000""",
                     (client_id,),
                 )
                 movements = [dict(row) for row in cursor.fetchall()]
         except Exception:
+            current_app.logger.warning('Não foi possível ler o consumo do cliente %s', client_id, exc_info=True)
+            _recover_failed_transaction()
             movements = []
     purchases = []
-    if want('purchases'):
+    lots = []
+    if want('purchases') or want('movements'):
         try:
+            source_column = "source" if _credit_lots_have_source() else "NULL::varchar"
             with get_db().cursor() as cursor:
                 cursor.execute(
-                    """SELECT id, 'Lote de créditos' AS package_name,
-                              tokens_amount AS credits, tokens_used,
+                    f"""SELECT id, tokens_amount, tokens_used, tokens_amount AS credits,
                               tokens_amount - tokens_used AS available,
-                              expires_at, status AS payment_status,
+                              expires_at, status, status AS payment_status,
+                              {source_column} AS source,
                               NULL::varchar AS reference, purchased_at
                          FROM cadu_credits_extras
                         WHERE id_cliente = %s
                           AND status = 'active'
-                          AND tokens_used < tokens_amount
                           AND (expires_at IS NULL OR expires_at > NOW())
-                     ORDER BY expires_at ASC NULLS LAST, purchased_at DESC NULLS LAST, id DESC LIMIT 20""",
+                     ORDER BY expires_at ASC NULLS LAST, purchased_at DESC NULLS LAST, id DESC LIMIT 200""",
                     (client_id,),
                 )
-                purchases = [dict(row) for row in cursor.fetchall()]
+                lots = [dict(row) for row in cursor.fetchall()]
         except Exception:
-            purchases = []
+            current_app.logger.warning('Não foi possível ler os lotes do cliente %s', client_id, exc_info=True)
+            _recover_failed_transaction()
+            lots = []
+        if want('purchases'):
+            purchases = [{**lot, 'package_name': 'Franquia do plano' if lot.get('source') == 'plan_allowance' else 'Tokens extras'}
+                         for lot in lots if int(lot.get('available') or 0) > 0][:20]
     credit_additions = []
     if want('credit_additions'):
         try:
@@ -354,14 +363,54 @@ def _php_account_data(client_id: int, sections=None) -> dict:
                 space = dict(cursor.fetchone() or {})
         except Exception:
             space = {'projects': 0, 'files': 0, 'bytes_used': 0, 'indexed_tokens': 0}
-    insights = _workspace_account_insights(plan, position, people)
+    usage = None
+    interactions = []
+    if want('movements'):
+        from ..cadu_billing_catalog import group_interactions, usage_summary
+        from ..cadu_plan_allowance import allowance_enabled
+        usage = usage_summary(plan=plan, usage_rows=movements, lots=lots, today=date.today(),
+                              allowance_enabled=allowance_enabled())
+        interactions = group_interactions(movements)[:20]
+    insights = _workspace_account_insights(plan, position, people, usage)
+    # The browser receives grouped interactions, never the raw ledger rows.
+    movements = [{key: row.get(key) for key in ('id', 'amount', 'reason', 'created_at')} for row in movements[:20]]
     return {"people": people, "invites": invites, "plan": plan, "credit": credit, "space": space,
             "position": position, "movements": movements, "credit_additions": credit_additions, "purchases": purchases,
-            "insights": insights}
+            "insights": insights, "usage": usage, "interactions": interactions}
 
 
-def _workspace_account_insights(plan: dict, position: Optional[dict], people: list[dict]) -> dict:
-    """Derive customer-facing plan usage without creating another source of truth."""
+_LOT_SOURCE_COLUMN: dict = {}
+
+
+def _recover_failed_transaction() -> None:
+    try:
+        from ..db import recuperar_transacao_falha
+        recuperar_transacao_falha()
+    except Exception:
+        pass
+
+
+def _credit_lots_have_source() -> bool:
+    """True once add_cadu_credit_lot_source_v1.sql is applied (cached per process)."""
+    if 'value' not in _LOT_SOURCE_COLUMN:
+        try:
+            with get_db().cursor() as cursor:
+                cursor.execute("""SELECT 1 FROM information_schema.columns
+                                   WHERE table_name = 'cadu_credits_extras' AND column_name = 'source' LIMIT 1""")
+                _LOT_SOURCE_COLUMN['value'] = bool(cursor.fetchone())
+        except Exception:
+            _recover_failed_transaction()
+            return False
+    return _LOT_SOURCE_COLUMN['value']
+
+
+def _workspace_account_insights(plan: dict, position: Optional[dict], people: list[dict],
+                                usage: Optional[dict] = None) -> dict:
+    """Derive customer-facing plan usage without creating another source of truth.
+
+    Token usage comes from the ledger summary (``usage``), never from the dead
+    ``cadu_client_plans.tokens_used_current_month`` counter.
+    """
     def integer(value) -> int:
         try:
             return max(0, int(value or 0))
@@ -382,10 +431,11 @@ def _workspace_account_insights(plan: dict, position: Optional[dict], people: li
                 return parsed, parsed.strftime('%d/%m/%Y')
             except ValueError:
                 return None, value
-        return None, 'Não informado'
+        return None, ''
 
-    token_limit = integer(plan.get('pd_tokens_monthly_limit') or plan.get('tokens_monthly_limit'))
-    token_used = integer(plan.get('tokens_used_current_month'))
+    allowance = (usage or {}).get('allowance') or {}
+    token_limit = integer(allowance.get('granted') or plan.get('pd_tokens_monthly_limit') or plan.get('tokens_monthly_limit'))
+    token_used = integer(allowance.get('used'))
     user_limit = integer(plan.get('pd_max_users') or plan.get('max_users'))
     active_users = sum(bool(person.get('status')) for person in people)
     features = plan.get('features') or {}
@@ -496,6 +546,26 @@ def _workspace_billing_data(client_id: int) -> dict:
             'paid_count': sum(item['status_normalized'] == 'paid' for item in invoices),
         },
     }
+
+
+def _workspace_credit_requests(client_id: int, limit: int = 20) -> list[dict]:
+    """Package orders (cadu_credit_requests). They are requests, not invoices:
+    finance records the charge manually."""
+    try:
+        with get_db().cursor() as cursor:
+            cursor.execute("""SELECT id, package_name, tokens_amount, price_brl, billing_mode, status, created_at
+                                FROM cadu_credit_requests
+                               WHERE id_cliente = %s
+                            ORDER BY created_at DESC, id DESC LIMIT %s""", (client_id, limit))
+            rows = [dict(row) for row in cursor.fetchall()]
+    except Exception:
+        current_app.logger.warning('Não foi possível ler as solicitações de pacote', exc_info=True)
+        _recover_failed_transaction()
+        return []
+    for row in rows:
+        row['price_brl'] = float(row.get('price_brl') or 0)
+        row['tokens_amount'] = int(row.get('tokens_amount') or 0)
+    return rows
 
 
 def _workspace_integration_data(client_id: int, organization_id: int) -> dict:
@@ -1240,6 +1310,9 @@ def workspace_credit_summary():
     return jsonify(credit_position(int(session.get('cliente_id') or 0)))
 
 
+_PURCHASE_DEDUP_SECONDS = 30
+
+
 @bp.post('/workspace/api/creditos/solicitar')
 @login_required
 def request_credit_package():
@@ -1247,35 +1320,13 @@ def request_credit_package():
     if not _workspace_api_csrf():
         abort(403, description='Atualize a página e tente novamente.')
     payload = request.get_json(silent=True) or request.form.to_dict()
-    try:
-        tokens = max(1, int(payload.get('tokens') or 0))
-        price = max(0, float(payload.get('price') or 0))
-    except (TypeError, ValueError):
-        return jsonify(success=False, error='Informe créditos e valor válidos.'), 400
-    package_name = str(payload.get('package_name') or f'{tokens:,} créditos').strip()[:160]
-    commercial_key = package_name.casefold()
-    if commercial_key not in CADU_COMMERCIAL_PRICES:
-        return jsonify(success=False, error='Escolha um plano ou pacote comercial válido.'), 400
-    expected_tokens = CADU_EXTRA_CREDIT_AMOUNTS.get(commercial_key)
-    if expected_tokens is None:
-        try:
-            from .. import db
-            definitions = db.obter_plan_definitions(apenas_ativos=True)
-            matching = next((item for item in definitions
-                             if str(item.get('plan_name') or item.get('plan_type') or '').casefold() == commercial_key), None)
-            expected_tokens = int((matching or {}).get('tokens_monthly_limit') or (matching or {}).get('pd_tokens_monthly_limit') or 0)
-        except Exception:
-            expected_tokens = 0
-    if not expected_tokens or tokens != expected_tokens:
-        return jsonify(success=False, error='A quantidade de créditos não corresponde ao produto escolhido.'), 400
-    price = CADU_COMMERCIAL_PRICES[commercial_key]
+    from ..cadu_billing_catalog import finance_recipients, load_packages, package_by_key
+    # Price and volume come only from the server catalog; client values are ignored.
+    package = package_by_key(payload.get('package_slug') or payload.get('package_name'), load_packages())
+    if not package:
+        return jsonify(success=False, error='Escolha um pacote de tokens do catálogo atual.'), 400
+    package_name, tokens, price = package['name'], int(package['tokens']), float(package['price_brl'])
     note = str(payload.get('note') or '').strip()[:2000]
-    try:
-        users = max(1, int(payload.get('users') or 1))
-    except (TypeError, ValueError):
-        users = 1
-    if not payload.get('users'):
-        users = {'essencial': 3, 'equipe': 10, 'agência': 25, 'agencia': 25}.get(package_name.lower(), users)
     billing_mode = str(payload.get('billing_mode') or 'prepaid').strip().lower()
     if billing_mode not in {'prepaid', 'postpaid'}:
         return jsonify(success=False, error='Condição de pagamento inválida.'), 400
@@ -1288,14 +1339,29 @@ def request_credit_package():
         sales_email = str(client_record.get('executivo_email') or '').strip()
         conn = get_db()
         with conn.cursor() as cur:
+            # Double-click guard: serialize this client's purchases and reuse an
+            # identical order made seconds ago instead of creating a second lot.
+            cur.execute("SELECT pg_advisory_xact_lock(%s, %s)", (771001, client_id))
+            cur.execute("""SELECT id, credit_lot_id FROM cadu_credit_requests
+                            WHERE id_cliente=%s AND requested_by=%s AND package_name=%s
+                              AND status='approved' AND created_at > NOW() - (%s * INTERVAL '1 second')
+                         ORDER BY id DESC LIMIT 1""",
+                        (client_id, user_id, package_name, _PURCHASE_DEDUP_SECONDS))
+            duplicate = cur.fetchone()
+            if duplicate:
+                conn.rollback()
+                return jsonify(success=True, duplicate=True, request_id=duplicate['id'],
+                               credit_lot_id=duplicate.get('credit_lot_id'), notification_sent=True,
+                               message='Este pedido já foi registrado há instantes. Os tokens já estão no saldo.'), 200
             cur.execute("""INSERT INTO cadu_credit_requests
                 (id_cliente, requested_by, package_name, tokens_amount, price_brl, billing_mode, note, status)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,'approved') RETURNING id""",
                 (client_id, user_id, package_name, tokens, price, billing_mode, note))
             request_id = cur.fetchone()['id']
+            # Extra tokens do not expire (owner decision 2026-10-06).
             cur.execute("""INSERT INTO cadu_credits_extras
                 (id_cliente, tokens_amount, tokens_used, purchase_date, expiration_date, purchased_at, expires_at, status)
-                VALUES (%s,%s,0,NOW(),NOW() + INTERVAL '12 months',NOW(),NOW() + INTERVAL '12 months','active')
+                VALUES (%s,%s,0,NOW(),NULL,NOW(),NULL,'active')
                 RETURNING id""", (client_id, tokens))
             credit_lot_id = cur.fetchone()['id']
             cur.execute("UPDATE cadu_credit_requests SET credit_lot_id=%s WHERE id=%s", (credit_lot_id, request_id))
@@ -1304,30 +1370,30 @@ def request_credit_package():
         from ..email_service import send_email
         buyer_email = str(session.get('user_email') or '').strip()
         buyer_name = str(session.get('user_name') or 'Pessoa não identificada').strip()[:160]
-        recipients = ['apolo@centralcomm.media']
+        recipients = finance_recipients()
         if sales_email and sales_email.lower() not in {item.lower() for item in recipients}:
             recipients.append(sales_email)
         safe_name, safe_note, safe_email = escape(package_name), escape(note), escape(buyer_email or 'não informado')
         safe_buyer_name = escape(buyer_name)
-        users_label = '1 pessoa' if users == 1 else f'{users} pessoas'
+
         billing_label = 'Pós-pago / faturamento financeiro' if billing_mode == 'postpaid' else 'Pagamento antecipado'
         price_label = f'R$ {price:,.2f}' if price else 'A definir pelo financeiro'
         internal_subject = f'Novo pedido Cadu #{request_id} · {package_name}'
         internal_html = f'''<div style="font-family:Arial,sans-serif;max-width:620px;color:#17332f">
           <div style="padding:24px;background:#123d38;color:#fff"><div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.75">CentralComm · Financeiro</div><h1 style="margin:8px 0 0;font-size:24px">Novo pedido de compra</h1></div>
           <div style="padding:24px;border:1px solid #dce8e4;border-top:0"><p style="font-size:16px">O pedido <strong>#{request_id}</strong> foi registrado na área de conta.</p>
-          <table style="width:100%;border-collapse:collapse;margin:18px 0"><tr><td style="padding:9px 0;color:#68807b">Produto</td><td style="padding:9px 0;text-align:right"><strong>{safe_name}</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Capacidade</td><td style="padding:9px 0;text-align:right"><strong>{tokens:,} créditos</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Uso previsto</td><td style="padding:9px 0;text-align:right"><strong>{users_label}</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Valor</td><td style="padding:9px 0;text-align:right"><strong>{price_label}</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Cobrança</td><td style="padding:9px 0;text-align:right"><strong>{billing_label}</strong></td></tr></table><p><strong>Cliente:</strong> {client_id}<br><strong>Solicitante:</strong> {safe_buyer_name} ({safe_email})</p><p style="color:#68807b">{safe_note or 'Sem observações adicionais.'}</p></div></div>'''
-        buyer_html = f'''<div style="font-family:Arial,sans-serif;max-width:620px;color:#17332f"><div style="padding:24px;background:#123d38;color:#fff"><div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.75">CentralComm · Cadu</div><h1 style="margin:8px 0 0;font-size:24px">Compra confirmada</h1></div><div style="padding:24px;border:1px solid #dce8e4;border-top:0"><p style="font-size:16px">A compra de <strong>{safe_name}</strong> foi confirmada e os créditos já estão disponíveis para uso.</p><div style="padding:16px;background:#eef7f3;border-radius:10px"><strong>O que você e seu time poderão usar</strong><p style="margin:8px 0 0">Os créditos podem ser usados pela sua conta nas conversas e ações de IA. {('O saldo está disponível para 1 pessoa.' if users == 1 else f'O saldo está compartilhado entre {users} pessoas.') } Projetos e marcas permanecem ilimitados.</p></div><p><strong>Pedido:</strong> #{request_id}<br><strong>Créditos liberados:</strong> {tokens:,}<br><strong>Condição:</strong> {billing_label}<br><strong>Valor:</strong> {price_label}</p><p style="color:#68807b">O pedido será acompanhado pelo financeiro para registrar a cobrança.</p></div></div>'''
+          <table style="width:100%;border-collapse:collapse;margin:18px 0"><tr><td style="padding:9px 0;color:#68807b">Produto</td><td style="padding:9px 0;text-align:right"><strong>{safe_name}</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Capacidade</td><td style="padding:9px 0;text-align:right"><strong>{tokens:,} tokens</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Valor</td><td style="padding:9px 0;text-align:right"><strong>{price_label}</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Cobrança</td><td style="padding:9px 0;text-align:right"><strong>{billing_label}</strong></td></tr></table><p><strong>Cliente:</strong> {client_id}<br><strong>Solicitante:</strong> {safe_buyer_name} ({safe_email})</p><p style="color:#68807b">{safe_note or 'Sem observações adicionais.'}</p></div></div>'''
+        buyer_html = f'''<div style="font-family:Arial,sans-serif;max-width:620px;color:#17332f"><div style="padding:24px;background:#123d38;color:#fff"><div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.75">CentralComm · Cadu</div><h1 style="margin:8px 0 0;font-size:24px">Compra confirmada</h1></div><div style="padding:24px;border:1px solid #dce8e4;border-top:0"><p style="font-size:16px">A compra de <strong>{safe_name}</strong> foi confirmada e os tokens já estão disponíveis para uso.</p><div style="padding:16px;background:#eef7f3;border-radius:10px"><strong>O que você e seu time poderão usar</strong><p style="margin:8px 0 0">Os tokens extras não expiram e podem ser usados pela sua conta nas conversas e ações de IA. O saldo é compartilhado por todas as pessoas da equipe. Projetos e marcas permanecem ilimitados.</p></div><p><strong>Pedido:</strong> #{request_id}<br><strong>Tokens liberados:</strong> {tokens:,}<br><strong>Condição:</strong> {billing_label}<br><strong>Valor:</strong> {price_label}</p><p style="color:#68807b">O pedido será acompanhado pelo financeiro para registrar a cobrança.</p></div></div>'''
         finance_sent = bool(send_email(internal_subject, recipients,
-                   text_body=f'Pedido Cadu #{request_id}: {package_name} · {tokens:,} créditos · {users_label} · {price_label} · {billing_label}. Cliente {client_id}. Solicitante: {buyer_name} ({buyer_email}).',
+                   text_body=f'Pedido Cadu #{request_id}: {package_name} · {tokens:,} tokens · {price_label} · {billing_label}. Cliente {client_id}. Solicitante: {buyer_name} ({buyer_email}).',
                    html_body=internal_html))
         buyer_sent = True
         if buyer_email and buyer_email.lower() != 'apolo@centralcomm.media':
-            buyer_sent = bool(send_email(f'Compra confirmada no Cadu #{request_id}', [buyer_email], text_body=f'Compra confirmada: {package_name} · {tokens:,} créditos liberados · {users_label} · {price_label} · {billing_label}.', html_body=buyer_html))
+            buyer_sent = bool(send_email(f'Compra confirmada no Cadu #{request_id}', [buyer_email], text_body=f'Compra confirmada: {package_name} · {tokens:,} tokens liberados · {price_label} · {billing_label}.', html_body=buyer_html))
         notification_sent = finance_sent and buyer_sent
         if not notification_sent:
             current_app.logger.warning('Compra %s confirmada; falha no envio de uma ou mais notificações', request_id)
-        message = 'Compra confirmada. Os créditos já estão disponíveis para uso.' if notification_sent else 'Créditos liberados, mas uma notificação por e-mail falhou. O financeiro deve ser avisado.'
+        message = 'Compra confirmada. Os tokens já estão disponíveis para uso.' if notification_sent else 'Tokens liberados, mas uma notificação por e-mail falhou. O financeiro deve ser avisado.'
         return jsonify(success=True, request_id=request_id, credit_lot_id=credit_lot_id,
                        notification_sent=notification_sent, message=message), 201
     except Exception:
@@ -1335,7 +1401,7 @@ def request_credit_package():
             current_app.logger.exception('Compra %s confirmada; falha ao preparar notificações', request_id)
             return jsonify(success=True, request_id=request_id, credit_lot_id=credit_lot_id,
                            notification_sent=False,
-                           message='Créditos liberados, mas a notificação por e-mail falhou. O financeiro deve ser avisado.'), 201
+                           message='Tokens liberados, mas a notificação por e-mail falhou. O financeiro deve ser avisado.'), 201
         try: conn.rollback()
         except Exception: pass
         current_app.logger.exception('Falha ao solicitar pacote de créditos')
@@ -9723,13 +9789,20 @@ def account_page(section):
     # the profile editor. These are canonical PHP records, never a copy.
     account.update(_workspace_settings_data(client_id, int(session.get("user_id") or 0),
                                             include_states=section == 'agencia'))
+    if section in {'planos', 'creditos'}:
+        from ..cadu_billing_catalog import commercial_plans, load_packages, storage_packages
+        account['packages'] = load_packages()
+        account['storage_packages'] = storage_packages()
     if section == 'planos':
         try:
             from .. import db
-            account['plan_options'] = [dict(row) for row in db.obter_plan_definitions(apenas_ativos=True)]
+            definitions = [dict(row) for row in db.obter_plan_definitions(apenas_ativos=True)]
         except Exception:
             current_app.logger.warning('Não foi possível carregar as opções comerciais de planos', exc_info=True)
-            account['plan_options'] = []
+            definitions = []
+        account['plans'] = commercial_plans(definitions, account.get('plan'))
+    if section in {'creditos', 'faturamento'}:
+        account['credit_requests'] = _workspace_credit_requests(client_id)
     # Only the agency and usage pages show the project and brand tree.
     projects = _workspace_projects(client_id) if section in {'agencia', 'uso'} else []
     brands = _workspace_brands(client_id) if section in {'agencia', 'uso'} else []

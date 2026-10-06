@@ -374,13 +374,16 @@ def add_items(client_id, actor_id, plan_id, payload):
     plan = get_plan(client_id, actor_id, plan_id)
     if str(payload.get('kind') or '') != 'portais':
         raise BadRequest('A seleção em lote está disponível para portais.')
-    found = records([str(item) for item in (payload.get('resource_ids') or [])][:200])
+    raw = payload.get('resource_ids')
+    if not isinstance(raw, list):
+        raise BadRequest('Informe a lista de portais a adicionar.')
+    found = records([str(item) for item in raw][:200])
     with get_db() as conn, conn.cursor() as cur:
         cur.execute("SELECT resource_id FROM cadu_planner_plan_items WHERE plan_id = %s AND kind = 'portais'", (str(plan['id']),))
         have = {str(row['resource_id']) for row in cur.fetchall()}
         added = [record for record in found if str(record['id']) not in have]
         for record in added:
-            cur.execute("INSERT INTO cadu_planner_plan_items (plan_id, kind, resource_id, snapshot) VALUES (%s, 'portais', %s, %s)",
+            cur.execute("INSERT INTO cadu_planner_plan_items (plan_id, kind, resource_id, snapshot) VALUES (%s, 'portais', %s, %s) ON CONFLICT (plan_id, kind, resource_id) DO NOTHING",
                         (str(plan['id']), str(record['id']), Json(record)))
         if added:
             cur.execute('UPDATE cadu_planner_plans SET updated_at = NOW() WHERE id = %s', (str(plan['id']),))

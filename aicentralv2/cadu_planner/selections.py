@@ -67,7 +67,10 @@ def add_many(client_id, actor_id, payload):
     from .portals import records
     if str(payload.get("kind") or "") != "portais":
         raise BadRequest("A seleção em lote está disponível para portais.")
-    ids = [str(item) for item in (payload.get("resource_ids") or [])][:BULK_LIMIT]
+    raw = payload.get("resource_ids")
+    if not isinstance(raw, list):
+        raise BadRequest("Informe a lista de portais a adicionar.")
+    ids = [str(item) for item in raw][:BULK_LIMIT]
     available = repository.rows("SELECT to_regclass('public.cadu_planner_selections') IS NOT NULL AS available")
     if not available or not available[0]["available"]:
         raise BadRequest("As seleções serão habilitadas após a atualização do Planner.")
@@ -81,7 +84,8 @@ def add_many(client_id, actor_id, payload):
             added = [record for record in found if str(record["id"]) not in have]
             for record in added:
                 cur.execute("""INSERT INTO cadu_planner_selections (client_id, actor_id, kind, resource_id, snapshot)
-                               VALUES (%s,%s,'portais',%s,%s)""", (client_id, actor_id, str(record["id"]), Json(record)))
+                               VALUES (%s,%s,'portais',%s,%s)
+                               ON CONFLICT (client_id, actor_id, kind, resource_id) DO NOTHING""", (client_id, actor_id, str(record["id"]), Json(record)))
         conn.commit()
     except Exception:
         conn.rollback()

@@ -53,7 +53,7 @@ export function RadarListPage({boot, request, notify}) {
     }
   };
 
-  const header = <PlannerHeader title="Meus radares" description="Os radares que rodam sozinhos e as buscas que você já fez."
+  const header = <PlannerHeader title="Meus radares" withContext description="Os radares que rodam sozinhos e as buscas que você já fez."
     meta={!enabled && <CaduBadge tone="brand">Em breve</CaduBadge>}
     actions={enabled && <CaduButton href={boot.urls.radar}><Icon name="plus" size={16}/>Novo radar</CaduButton>}/>;
   if (!enabled) return header;

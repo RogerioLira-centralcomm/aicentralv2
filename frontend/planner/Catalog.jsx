@@ -226,7 +226,7 @@ export function CatalogPage({boot, request, selection, notify}) {
   const countLabel = loading ? 'Atualizando…' : portalMode ? `${number(total)} portais · página ${Math.floor(offset / PORTAL_PAGE) + 1}` : `${number(shown.length)} ${shown.length === 1 ? 'referência' : 'referências'}`;
 
   return <>
-    <PlannerHeader title={MODULE_LABELS[kind]} description={DESCRIPTIONS[kind]} withContext actions={<ActivePlanChip/>}/>
+    <PlannerHeader title={MODULE_LABELS[kind]} description={DESCRIPTIONS[kind]} actions={<ActivePlanChip/>}/>
     <div className="planner-toolbar">
       <CaduInput className="planner-toolbar__search" aria-label="Pesquisar referências" type="search" value={query} placeholder={portalMode ? 'Buscar por portal, domínio ou categoria' : 'Buscar por nome, descrição ou categoria'}
         leading={<span className="planner-toolbar__search-icon" aria-hidden="true"><Icon name="search" size={16}/></span>}

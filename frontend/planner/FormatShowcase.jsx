@@ -65,7 +65,7 @@ export function FormatShowcase({boot, selection}) {
   const clear = () => { const empty = {q: '', family: '', platform: ''}; writeUrl(empty); setFilters(empty); };
 
   return <>
-    <PlannerHeader title={kind === 'interativos' ? 'Interativos' : 'Formatos'} withContext actions={<ActivePlanChip/>}
+    <PlannerHeader title={kind === 'interativos' ? 'Interativos' : 'Formatos'} actions={<ActivePlanChip/>}
       description={`${number(visible.length)} ${kind === 'interativos' ? (visible.length === 1 ? 'formato interativo' : 'formatos interativos') : (visible.length === 1 ? 'formato' : 'formatos')} de mídia${active ? ' com estes filtros' : ''}, agrupados por família`}/>
     <section className="aud-filters" aria-label="Filtros de formatos">
       <div className="aud-filters__top fmt-filters__top">

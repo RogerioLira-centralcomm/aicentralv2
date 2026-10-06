@@ -101,7 +101,7 @@ export function WorkspaceContextSidebar({mode = 'home', preferenceKey = mode, bo
 
   return <aside className={`cadu-ds-context-sidebar is-${mode} ${collapsed ? 'is-collapsed' : ''}${rail ? ' is-rail' : ''}`} aria-label="Navegação do Workspace">
     <header className="cadu-ds-context-sidebar__header">
-      {mode === 'home' && !collapsed ? <div className="cadu-ds-context-sidebar__solution"><CaduSolutionSwitcher logo={bootstrap.caduMark} solutions={workspaceSolutionItems(bootstrap)} activeId="workspace" showActiveLabel overlay/></div> : mode === 'home' ? <a className="cadu-ds-context-sidebar__collapsed-home" href={links.home || '/workspace/app'} aria-label="Início do Workspace"><img src={bootstrap.caduMark} alt=""/></a> : null}
+      {mode === 'home' ? <div className="cadu-ds-context-sidebar__solution"><CaduSolutionSwitcher logo={bootstrap.caduMark} solutions={workspaceSolutionItems(bootstrap)} activeId="workspace" showActiveLabel={!collapsed} overlay/></div> : null}
       {!rail && <button type="button" className="cadu-ds-context-sidebar__toggle" onClick={() => setCollapsed(value => !value)} aria-label={collapsed ? 'Abrir navegação' : 'Fechar navegação'} aria-expanded={!collapsed}><span className="cadu-ds-context-sidebar__toggle-mobile">{collapsed ? 'Menu' : 'Fechar'}</span><span className="cadu-ds-context-sidebar__toggle-desktop" aria-hidden="true">{collapsed ? '›' : '‹'}</span></button>}
     </header>
     {items.length > 0 && <nav className="cadu-ds-context-sidebar__nav" aria-label="Seções do Workspace">

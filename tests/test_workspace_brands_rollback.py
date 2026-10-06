@@ -70,3 +70,30 @@ def test_workspace_brand_asks_for_its_own_id_only():
     with mock.patch.object(workspace_routes, '_workspace_brands', return_value=[]) as read:
         assert workspace_routes._workspace_brand(12, 81) is None
     read.assert_called_once_with(12, only_id=81)
+
+
+def test_brand_catalog_metrics_only_aggregate_the_linked_projects():
+    connection = _connection(psycopg.pq.TransactionStatus.IDLE)
+    cursor = connection.cursor.return_value.__enter__.return_value
+    cursor.fetchall.return_value = [{'brand_ref': 'studio:81', 'active_projects': 2, 'conversations': 5,
+                                     'files': 7, 'file_categories': {'logo': 3}}]
+    app = Flask(__name__)
+    with app.app_context(), mock.patch.object(workspace_routes, 'get_db', return_value=connection):
+        metrics = workspace_routes._workspace_brand_catalog_metrics(12)
+    sql, params = cursor.execute.call_args.args
+    assert 'linked_projects AS' in sql
+    assert 'projeto_id IN (SELECT id FROM linked_projects)' in sql
+    assert sql.count('%s') == len(params) == 4
+    assert metrics == {'81': {'activeProjects': 2, 'conversationCount': 5, 'fileCount': 7, 'fileCategories': {'logo': 3}}}
+
+
+def test_brand_detail_caps_the_asset_list():
+    connection = _connection(psycopg.pq.TransactionStatus.IDLE)
+    cursor = connection.cursor.return_value.__enter__.return_value
+    cursor.fetchall.return_value = []
+    brand = {'id': 81, 'name': 'Acme'}
+    with mock.patch.object(workspace_routes, 'get_db', return_value=connection), \
+            mock.patch.object(workspace_routes, '_workspace_brands', return_value=[brand]):
+        workspace_routes._workspace_brand(12, 81)
+    asset_sql = next(call.args[0] for call in cursor.execute.call_args_list if 'FROM cx_client_brand_assets' in call.args[0])
+    assert 'LIMIT 500' in asset_sql

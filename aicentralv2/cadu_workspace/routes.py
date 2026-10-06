@@ -1775,7 +1775,8 @@ def _workspace_brand(client_id: int, brand_id: int) -> Optional[dict]:
                           metadata, created_at
                      FROM cx_client_brand_assets
                     WHERE client_id = %s
-                 ORDER BY is_primary DESC, score DESC NULLS LAST, id DESC""",
+                 ORDER BY is_primary DESC, score DESC NULLS LAST, id DESC
+                    LIMIT 500""",
                 (brand_id,),
             )
             brand['assets'] = [dict(row) for row in cursor.fetchall()]
@@ -5757,18 +5758,23 @@ def _workspace_brand_catalog_metrics(client_id: int) -> dict[str, dict]:
                          SELECT brand_ref, project_ref
                            FROM cadu_family_project_brands
                           WHERE client_id = %s
+                     ), linked_projects AS (
+                         SELECT p.id
+                           FROM cadu_ci_projetos p
+                          WHERE p.id_cliente = %s
+                            AND 'ci:' || p.id::text IN (SELECT project_ref FROM linked)
                      ), file_counts AS (
                          SELECT p.id::text AS project_id,
                                 COALESCE(f.category, 'other') AS category,
                                 COUNT(*) AS total
-                           FROM cadu_ci_projetos p
+                           FROM linked_projects p
                            LEFT JOIN cadu_ci_projeto_arquivos f ON f.projeto_id = p.id
-                          WHERE p.id_cliente = %s
                           GROUP BY p.id, COALESCE(f.category, 'other')
                      ), conversation_counts AS (
                          SELECT projeto_id, COUNT(*) AS total
                            FROM cadu_conversations
                           WHERE id_cliente = %s
+                            AND projeto_id IN (SELECT id FROM linked_projects)
                           GROUP BY projeto_id
                      )
                      SELECT linked.brand_ref,

@@ -54,12 +54,9 @@
   gap: 8px;
 }
 
-#cadu-conversations-v2-root .cv-plugin-flow-card__modes .cv-btn--sm {
+#cadu-conversations-v2-root .cv-plugin-flow-card__modes [data-cadu-untitled-button] {
   flex: 1;
-  min-width: 90px;
-  padding: 5px 12px;
-  min-height: 32px;
-  font-size: 12px;
+  min-width: 96px;
 }
 
 #cadu-conversations-v2-root .cv-plugin-flow-card__modes .is-upcoming {

@@ -11,7 +11,9 @@ const templates = path.join(root, 'aicentralv2/templates/cadu_workspace');
 for (const name of ['workspace_home_chat', 'brands_react', 'projects_react', 'brand_detail_react', 'project_detail_react', 'account_react']) {
   assert.match(fs.readFileSync(path.join(templates, `${name}.html`), 'utf8'), /_untitled_styles\.html/, `${name} loads the isolated kit`);
 }
-assert.doesNotMatch(fs.readFileSync(path.join(templates, 'conversations_v2_lab.html'), 'utf8'), /_untitled_styles\.html/, 'Conversations does not load the Workspace kit');
+const conversationsTemplate = fs.readFileSync(path.join(templates, 'conversations_v2_lab.html'), 'utf8');
+assert.doesNotMatch(conversationsTemplate, /_untitled_styles\.html|untitled\/workspace-kit\.css/, 'Conversations does not load the Workspace kit');
+assert.match(conversationsTemplate, /untitled\/chat-kit\.css/, 'Conversations loads its own dark Untitled kit');
 
 const bootstrap = (mode, section = '') => ({
   [mode]: true, section, admin: true, csrf: 'test', caduMark: '/mark.svg', user: {name: 'Teste', email: 'teste@example.com'}, brands: [], projects: [], dock: {items: []},

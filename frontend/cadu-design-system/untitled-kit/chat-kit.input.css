@@ -1,0 +1,34 @@
+@import "tailwindcss/theme";
+@import "tailwindcss/utilities";
+@import "./theme.css";
+
+@source "./button.tsx";
+@source "./modal.tsx";
+@source "./input.tsx";
+@source "./native-select.tsx";
+@source "./textarea.tsx";
+@source "./tabs.tsx";
+
+@custom-variant dark (&:where(.dark-mode, .dark-mode *));
+@custom-variant label (& [data-label]);
+@custom-variant focus-input-within (&:has(input:focus));
+
+@utility transition-inherit-all {
+  transition-property: inherit;
+  transition-duration: inherit;
+  transition-timing-function: inherit;
+}
+
+/* Chat kit: same components, dark Cadu palette. Loaded only by the conversations template. */
+html[data-cadu-skin="conversations"] {
+  --color-brand-25: #e7faf6; --color-brand-50: #cdf3ec; --color-brand-100: #a7e7dd; --color-brand-200: #7fd9cc;
+  --color-brand-300: #55cdbb; --color-brand-400: #2fb9a6; --color-brand-500: #13927f; --color-brand-600: #0d7468;
+  --color-brand-700: #0a5f55; --color-brand-800: #084a43; --color-brand-900: #063a35; --color-brand-950: #042a26;
+  --color-bg-primary: #0f1d20; --color-bg-primary_hover: #14272a; --color-bg-secondary: #14272a; --color-bg-secondary_alt: #14272a;
+  --color-bg-tertiary: #19332f; --color-bg-overlay: rgba(2, 9, 10, .64);
+  --color-text-primary: #edf6f4; --color-text-secondary: #c9dcd8; --color-text-secondary_hover: #edf6f4;
+  --color-text-tertiary: #9ab0ac; --color-text-tertiary_hover: #c9dcd8; --color-text-quaternary: #8aa39e; --color-text-placeholder: #8aa39e;
+  --color-border-primary: rgba(181, 218, 211, .28); --color-border-secondary: rgba(181, 218, 211, .16);
+  --color-fg-quaternary: #8aa39e; --color-fg-quaternary_hover: #b5cdc8;
+  --color-text-brand-secondary: #a7e7dd; --color-text-brand-tertiary: #7fd9cc; --color-text-brand-secondary_hover: #cdf3ec;
+}

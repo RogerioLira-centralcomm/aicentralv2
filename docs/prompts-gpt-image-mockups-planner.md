@@ -304,3 +304,75 @@ Cena editorial: uma pessoa estilizada sem traços faciais detalhados (tom de pel
 | Tamanho | Pode mandar menores (ex.: 512 px no lado maior); eu comprimo para WebP |
 | Onde vão | `aicentralv2/static/images/planner/illustrations/` |
 | Conferir | Sem texto; só verde-esmeralda, preto e neutros; o olho único igual em todas |
+
+---
+
+## Wizard "Planejar": ilustrações laterais sem texto (para compor no código)
+
+Referência: R10 (tela do assistente em duas colunas). A imagem é só cenário e fundo. **Todo texto, ícone, selo, número e rótulo é composto em HTML/React por cima**, para ficar nítido, traduzível e acessível. Por isso as imagens saem sem letras e com as telas dos dispositivos vazias.
+
+### Regras comuns (cole no início; anexar o logo R9)
+
+```
+Use o logo anexado (R9) como referência de marca: verde-esmeralda vivo (aprox. #1DBF73) e preto (aprox. #101418). Ilustração vetorial editorial em estilo flat moderno, formas geométricas arredondadas, contornos limpos, sombras só em blocos chapados, sem gradientes complexos. Paleta fechada: verde-esmeralda, preto, branco, verde-esmeralda muito claro (#E3F8EE), cinzas. Nenhuma outra cor de destaque.
+PROIBIDO na imagem: qualquer texto, letra, número, logotipo, marca ou legenda. As telas de celular, TV, painel e notebook devem aparecer VAZIAS: preenchidas apenas por um bloco liso verde-esmeralda ou por formas abstratas simples (círculos, barras), sem conteúdo legível. Pessoas estilizadas, sem traços faciais detalhados.
+Formato retrato 1200×1600, com 15% de margem livre no topo e 12% embaixo (o código coloca título e legendas ali). Entregar em PNG, fundo opaco (não transparente).
+```
+
+### Cena 1: objetivo (`planejar-1-objetivo.png`)
+
+```
+[REGRAS COMUNS]
+
+Cena de uma pessoa estilizada sentada de costas e de lado, à mesa, olhando para um quadro grande de metas na parede com um alvo (círculos concêntricos verde-esmeralda e preto) e uma seta cravada no centro. À esquerda, um celular em pé e uma TV com telas vazias em verde liso. Ambiente claro, fundo verde-esmeralda muito claro com formas de prédios suaves ao fundo.
+```
+
+### Cena 2: verba e período (`planejar-2-verba.png`)
+
+```
+[REGRAS COMUNS]
+
+Pessoa estilizada diante de um calendário grande de parede (grade de dias sem números, com alguns quadrados preenchidos em verde-esmeralda para marcar o período) e uma pilha de moedas e um cofrinho geométrico em verde e preto ao lado. Um relógio de parede liso (sem números) e uma planta. Fundo verde-esmeralda muito claro.
+```
+
+### Cena 3: praça (`planejar-3-praca.png`)
+
+```
+[REGRAS COMUNS]
+
+Vista aérea estilizada de uma cidade em blocos geométricos (prédios, ruas, parque) em tons de verde-esmeralda claro e cinza, com 4 pinos de localização verde-esmeralda e preto espalhados e linhas tracejadas conectando os pinos. Sem mapa realista, sem nomes. Um painel urbano vazio e um ponto de ônibus no primeiro plano.
+```
+
+### Cena 4: audiência (`planejar-4-audiencia.png`)
+
+```
+[REGRAS COMUNS]
+
+Grupo de 5 pessoas estilizadas diversas (idades, estilos e tons de pele variados, sem rosto detalhado) em primeiro plano, cada uma com um pequeno balão liso e vazio (sem texto) acima da cabeça, agrupadas por círculos suaves verde-esmeralda claro que sugerem segmentos. Ao fundo, telas de celular e TV vazias em verde liso.
+```
+
+### Cena 5: revisão (`planejar-5-revisao.png`)
+
+```
+[REGRAS COMUNS]
+
+Pessoa estilizada com os braços levantados em comemoração leve diante de um notebook aberto com a tela vazia (apenas formas abstratas de gráfico de barras sem números em verde-esmeralda e preto), uma xícara preta com um chevron « verde, uma pasta com folhas e um marcador de checklist com três marcas verdes (sem texto). Confete discreto verde-esmeralda. Fundo verde-esmeralda muito claro.
+```
+
+### Fundo base (`planejar-fundo.png`, 1200×1600)
+
+```
+[REGRAS COMUNS]
+
+Apenas o cenário, sem pessoas: uma cidade estilizada em camadas (prédios suaves, árvores, painéis urbanos e pontos de ônibus com telas vazias em verde liso) em degradê vertical do verde-esmeralda muito claro (topo) ao branco (base). Elementos espalhados e discretos, com bastante espaço livre no centro e na base.
+```
+
+### Como o código usa
+
+| Elemento | Onde |
+|---|---|
+| Imagem de cena | Painel esquerdo, uma por passo, com transição suave |
+| Título "Planejar", selo Beta, subtítulo e três benefícios | Compostos em React sobre a margem livre do topo |
+| Rótulos soltos ("Social", "TV e Streaming", "DOOH") | Etiquetas em HTML posicionadas por cima, para poder mudar por passo |
+| Pergunta, cartões de resposta, ícones, progresso "1 de 5" | Coluna direita, componentes Untitled UI do design system |
+| Telas vazias dos dispositivos | Opcional: sobrepor a peça real do cliente (logo e cor da marca) no futuro |

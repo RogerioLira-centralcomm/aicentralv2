@@ -145,3 +145,7 @@ def test_hex_da_marca_no_visual_nao_gera_numero_inventado_nem_chega_ao_prompt_da
     assert result["warnings"] == []
     assert "#" not in result["beats"][0]["visual"] and "verde-azulado escuro" in result["beats"][0]["visual"]
     assert "#" not in scene_image_prompt({"visual": "Parede #176b5e"}, 0, 3)
+
+
+def test_texto_comum_com_cerquilha_nao_vira_cor():
+    assert plain_colors("Pedido #500, hashtag #bad e #fee, cor #176b5e") == "Pedido #500, hashtag #bad e #fee, cor verde-azulado escuro"

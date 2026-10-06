@@ -213,7 +213,8 @@ def regenerate_beat(briefing, beats, index, *, instruction="", duration=8, brand
 _RATIO = re.compile(r"\b\d{1,2}\s*[:x×]\s*\d{1,2}\b")
 
 
-_HEX = re.compile(r"#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b")
+# Só a forma de 6 dígitos (como as cores chegam da marca): "#500" ou "#bad" são texto comum, não cor.
+_HEX = re.compile(r"#[0-9a-fA-F]{6}\b")
 
 
 def color_name(code):

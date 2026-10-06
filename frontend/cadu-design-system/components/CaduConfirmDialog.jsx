@@ -1,18 +1,19 @@
 import React from 'react';
-import {CaduModal} from './CaduModal';
-import {CaduButton} from './CaduButton';
+import {Dialog, Modal, ModalOverlay} from 'react-aria-components';
+import {Button} from '../untitled-kit/button';
 
 /** Short confirmation for a consequential action. `tone="danger"` styles the confirm button as destructive. */
 export function CaduConfirmDialog({open, title, description, confirmLabel = 'Confirmar', cancelLabel = 'Cancelar', tone = 'danger', busy = false, onCancel, onConfirm}) {
-  if (!open) return null;
-  return <CaduModal className="cadu-ds-confirm__dialog" closeOnBackdrop={!busy} onClose={() => { if (!busy) onCancel(); }}>
-    {({titleId}) => <>
-      <h2 id={titleId}>{title}</h2>
-      {description && <p>{description}</p>}
-      <div className="cadu-ds-confirm__actions">
-        <CaduButton variant="secondary" size="sm" onClick={onCancel} disabled={busy}>{cancelLabel}</CaduButton>
-        <CaduButton variant={tone === 'danger' ? 'danger' : 'primary'} size="sm" onClick={onConfirm} disabled={busy} loading={busy}>{confirmLabel}</CaduButton>
-      </div>
-    </>}
-  </CaduModal>;
+  return <ModalOverlay className="cadu-ds-overlay cadu-ds-overlay--center" isOpen={open} onOpenChange={value => { if (!value && !busy) onCancel(); }} isDismissable={!busy}>
+    <Modal className="cadu-ds-confirm">
+      <Dialog aria-label={title} className="cadu-ds-confirm__dialog">
+        <h2>{title}</h2>
+        {description && <p>{description}</p>}
+        <div className="cadu-ds-confirm__actions">
+          <Button color="secondary" size="sm" onPress={onCancel} isDisabled={busy}>{cancelLabel}</Button>
+          <Button color={tone === 'danger' ? 'primary-destructive' : 'primary'} size="sm" onPress={onConfirm} isDisabled={busy} isLoading={busy}>{confirmLabel}</Button>
+        </div>
+      </Dialog>
+    </Modal>
+  </ModalOverlay>;
 }

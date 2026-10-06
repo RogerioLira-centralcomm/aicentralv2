@@ -2,6 +2,7 @@ import React, {useEffect, useRef, useState} from 'react';
 import {WorkspaceContextSidebar} from './WorkspaceContextSidebar';
 import {VisualIdentity} from './VisualIdentity';
 import {CaduModal} from './CaduModal';
+import {WorkspaceDrawer} from './WorkspaceDrawer';
 import {CaduButton} from './CaduButton';
 import {CaduViewTabs} from './CaduViewTabs';
 import {openWorkspaceDetail} from '../workspaceNavigation';
@@ -57,7 +58,8 @@ function writeDockResourcePayload(event, resource, projectId) {
   event.dataTransfer.setData('text/plain', serialized);
 }
 
-function ProjectDialog({title, detail, onClose, children, className = ''}) {
+function ProjectDialog({title, detail, onClose, children, className = '', confirm = false}) {
+  if (!confirm) return <WorkspaceDrawer title={title} detail={detail} onClose={onClose} size={className.includes('--context') ? 'lg' : 'md'}>{children}</WorkspaceDrawer>;
   return <CaduModal className={`cadu-ds-project-dialog ${className}`} label={title} onClose={onClose}>
     <header className="cadu-ds-project-dialog__header"><div><h2>{title}</h2>{detail && <p>{detail}</p>}</div><button type="button" onClick={onClose} aria-label="Fechar">×</button></header>
     {children}
@@ -116,7 +118,7 @@ function ProjectManagementDialog({project, projects, urls, csrfToken, mode, init
     return id && id !== String(project.id);
   });
   const confirmed = isMerge ? Boolean(targetId) : confirmation.trim().toLocaleLowerCase('pt-BR') === String(project.name || '').trim().toLocaleLowerCase('pt-BR');
-  return <ProjectDialog title={isMerge ? 'Mesclar com outro projeto' : 'Excluir projeto'} detail={isMerge ? 'Todo o histórico deste projeto será transferido para o projeto escolhido.' : 'O projeto deixará de aparecer no Workspace. Esta ação exige confirmação.'} onClose={onClose}>
+  return <ProjectDialog confirm title={isMerge ? 'Mesclar com outro projeto' : 'Excluir projeto'} detail={isMerge ? 'Todo o histórico deste projeto será transferido para o projeto escolhido.' : 'O projeto deixará de aparecer no Workspace. Esta ação exige confirmação.'} onClose={onClose}>
     <form className="cadu-ds-project-form cadu-ds-project-management-form" method="post" action={isMerge ? urls.merge : urls.deleteProject}>
       <input type="hidden" name="_csrf" value={csrfToken}/>
       {isMerge ? <>

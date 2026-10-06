@@ -3,6 +3,7 @@ import './WorkspaceBrand.css';
 import {WorkspaceContextSidebar} from './WorkspaceContextSidebar';
 import {VisualIdentity} from './VisualIdentity';
 import {CaduModal} from './CaduModal';
+import {WorkspaceDrawer} from './WorkspaceDrawer';
 import {CaduButton} from './CaduButton';
 import {openWorkspaceDetail} from '../workspaceNavigation';
 import {WorkspaceMobileChrome} from './WorkspaceMobileChrome';
@@ -64,7 +65,8 @@ function FilledReading({items, emptyLabel = 'Adicione contexto para orientar as 
   return filled.length ? <div className="cadu-ds-brand-reading cadu-ds-brand-reading--direction">{filled.map(item => { const evidence = enrichedField(item.value); const parts = asList(evidence ? evidence.value : item.value).map(value => String(value).trim()).filter(Boolean); const isLong = parts.length > 1 || parts[0]?.length > 180; return <article key={item.label} className={isLong ? 'is-long' : ''}><small>{item.label}</small>{parts.length > 1 ? <div className="cadu-ds-brand-readable-copy">{parts.map((part, index) => <p key={`${item.label}-${index}`}>{part}</p>)}</div> : <b>{parts[0]}</b>}{evidence?.source_url && <a href={evidence.source_url} target="_blank" rel="noreferrer" className="cadu-ds-brand-field-source">Fonte</a>}</article>; })}</div> : <div className="cadu-ds-brand-reading-empty">{emptyLabel}</div>;
 }
 
-function BrandDialog({title, detail, onClose, children, className = ''}) {
+function BrandDialog({title, detail, onClose, children, className = '', confirm = false}) {
+  if (!confirm) return <WorkspaceDrawer title={title} detail={detail} onClose={onClose} size={/review|wide/.test(className) ? 'lg' : 'md'}>{children}</WorkspaceDrawer>;
   return <CaduModal className={`cadu-ds-brand-dialog ${className}`} label={title} onClose={onClose}>
     <header><div><h2>{title}</h2>{detail && <p>{detail}</p>}</div>{onClose && <button type="button" onClick={onClose} aria-label="Fechar">×</button>}</header>
     {children}
@@ -280,7 +282,7 @@ function DeleteBrandDialog({brand, linkedProjects, urls, csrfToken, onClose}) {
   const [confirmation, setConfirmation] = useState('');
   const normalizedConfirmation = value => String(value || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('pt-BR');
   const matches = normalizedConfirmation(confirmation) === normalizedConfirmation(brand.name);
-  return <BrandDialog title={`Apagar ${brand.name}`} detail="Esta ação remove a marca e desativa os projetos vinculados. Não poderá ser desfeita." onClose={onClose} className="cadu-ds-brand-delete-dialog">
+  return <BrandDialog confirm title={`Apagar ${brand.name}`} detail="Esta ação remove a marca e desativa os projetos vinculados. Não poderá ser desfeita." onClose={onClose} className="cadu-ds-brand-delete-dialog">
     <div className="cadu-ds-brand-delete-warning"><strong>Você está prestes a apagar:</strong><b>{brand.name}</b>{linkedProjects.length ? <><span>Projetos vinculados que também serão removidos:</span><ul>{linkedProjects.map(project => <li key={project.id}>{project.name}</li>)}</ul></> : <span>Não há projetos vinculados a esta marca.</span>}</div>
     <form className="cadu-ds-brand-form" method="post" action={urls.deleteBrand} onSubmit={event => { if (!matches) event.preventDefault(); }}>
       <Hidden name="_csrf" value={csrfToken}/><label>Digite o nome da marca para confirmar <small>maiúsculas e minúsculas não fazem diferença</small><input name="confirmation_name" value={confirmation} onChange={event => setConfirmation(event.target.value)} autoComplete="off" required/></label>

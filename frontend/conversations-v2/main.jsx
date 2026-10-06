@@ -2,6 +2,7 @@ import React from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App';
 import './styles.css';
+import '../cadu-design-system/primitives.css';
 import '../cadu-design-system/styles.css';
 import '../cadu-design-system/workspace-chrome.css';
 import '../cadu-design-system/workspace-normalization.css';

@@ -76,7 +76,7 @@ export function PlannerNav({boot, request, active}) {
         {DESTINATIONS.map(item => {
           const [id, label, icon] = item;
           const here = section === id;
-          return <a key={id} href={hrefFor(id)} className={`pn__link${here ? ' is-active' : ''}`} aria-current={here ? 'page' : undefined} onClick={close}>
+          return <a key={id} href={hrefFor(id)} title={label} className={`pn__link${here ? ' is-active' : ''}`} aria-current={here ? 'page' : undefined} onClick={close}>
             <Icon name={icon} size={16}/><span>{label}</span>
           </a>;
         })}

@@ -126,3 +126,6 @@
 .pn__link { flex-direction: row; gap: 7px; padding: 0 12px; font-size: 13px; }
 .pn__panel { display: none; }
 @media (max-width: 1500px) { .pn__link { padding: 0 10px; } }
+
+/* Medium screens: links keep only the icon (the name stays as tooltip) so the bar never wraps or crowds the account area. */
+@media (min-width: 1181px) and (max-width: 1360px) { .pn__link span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } .pn__link { padding: 0 14px; } .pn__link.is-active span { position: static; width: auto; height: auto; clip: auto; } }

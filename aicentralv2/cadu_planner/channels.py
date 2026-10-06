@@ -48,7 +48,8 @@ def detail(channel_id):
                               taxa_engajamento, demografia, segmentacao, formatos_resumo,
                               especificacoes, investimento_minimo, modelo_compra,
                               prazo_entrega, integracao, brand_safety, medicao,
-                              diferenciais, produtos, lp_data, segmentacoes, formatos
+                              diferenciais, produtos, lp_data, segmentacoes, formatos,
+                              perfil_audiencia, melhor_uso, fontes_metricas, metricas_atualizadas_em
                          FROM cadu_canais
                         WHERE id = %s AND is_active IS TRUE
                         LIMIT 1''', (channel_id,))

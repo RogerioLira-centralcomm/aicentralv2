@@ -1747,3 +1747,11 @@ a.planner-portal.planner-portal--wide { grid-template-columns: 40px minmax(200px
   .planner-portal-filters > * { flex: 1 1 140px; min-width: 0; }
   .planner-portal-filters > .planner-segmented { flex-basis: 100%; }
 }
+
+/* Detail hero: the pitch is the first thing read; audience and best use sit right under it as two plain callouts. */
+.pd-hero__copy > p.pd-hero__lead { font-size: 18px; line-height: 28px; color: var(--planner-ink, #101828); }
+.pd-highlights { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 4px 0 0; }
+.pd-highlights section { padding: 14px 16px; border-left: 3px solid var(--colors-brand-600, #079455); border-radius: 0 12px 12px 0; background: var(--colors-brand-50, #ecfdf3); }
+.pd-highlights h2 { margin: 0 0 4px; color: var(--colors-brand-800, #085d3a); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.pd-highlights p { margin: 0; color: var(--planner-ink, #101828); font-size: 14px; line-height: 22px; }
+.pd-highlights small { grid-column: 1 / -1; color: var(--planner-muted); font-size: 12px; }

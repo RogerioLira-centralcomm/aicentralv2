@@ -9,7 +9,7 @@ import {DemographyBars, DetailLayout, Facts, Rail, TagList, hasValue, listText} 
 
 // Percent fields are stored as bare numbers; never double the sign.
 const pct = value => (typeof value === 'number' || /^\s*\d+([.,]\d+)?\s*$/.test(String(value ?? ''))) && hasValue(value) ? `${value}%` : value;
-const date = value => value ? new Date(value).toLocaleDateString('pt-BR', {day: '2-digit', month: 'short', year: 'numeric'}) : '';
+const date = value => value ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value).toLocaleDateString('pt-BR', {day: '2-digit', month: 'short', year: 'numeric'}) : '';
 
 // Icon per role: the card should say what the channel does before the text does.
 const ROLE_ICON = [[/captur|busca/i, 'search'], [/alcance|cobertura/i, 'pulse'], [/frequ|contexto/i, 'audio'], [/complement|conex|ativa/i, 'share'], [/convers|venda|perform/i, 'check']];
@@ -41,7 +41,16 @@ export function ChannelDetail({boot, selection, plan = null}) {
   const photos = [channel.hero_image_url, ...(channel.gallery || []).map(photo => photo.url)].filter((url, index, all) => url && all.indexOf(url) === index);
   const heroMedia = photos.length ? {type: 'carousel', items: photos, illustrative: Boolean(channel.hero_illustrative)} : null;
 
+  const reachSource = channel.fontes_metricas?.alcance || {};
+  const profileSource = channel.fontes_metricas?.perfil || {};
+  const spec = [['Categoria', channel.categoria], ['Tipo', channel.tipo],
+    ['Alcance', [channel.alcance, reachSource.ano && `(${reachSource.ano})`].filter(Boolean).join(' ')],
+    ['Formatos', formats.length ? `${formats.length} ${formats.length === 1 ? 'formato' : 'formatos'}` : ''],
+    ['Prazo de entrega', listText(channel.prazo_entrega)], ['Integração', listText(channel.integracao)]];
+
   const sections = [
+    {id: 'ficha', label: 'Ficha técnica', hidden: !spec.some(([, value]) => hasValue(value)), hint: 'Os dados essenciais para decidir, num só lugar.',
+      render: () => <Facts items={spec}/>},
     {id: 'papel', label: 'Papel no plano', hidden: !roles.length, hint: 'Como este canal costuma trabalhar num plano. O Cadu ajusta por campanha.',
       render: () => <ul className="pd-roles">{roles.map(role => <li key={role.role}><Icon name={roleIcon(role.role)} size={22}/><span><strong>{role.role}</strong><small>{role.description}</small></span></li>)}</ul>},
     {id: 'formatos', label: 'Formatos', count: formats.length, wide: true, hint: 'Escolha o formato ideal para o seu objetivo.',
@@ -95,6 +104,8 @@ export function ChannelDetail({boot, selection, plan = null}) {
       {icon: 'check', label: 'Taxa de conclusão', value: pct(channel.completion_rate)},
       {icon: 'pulse', label: 'Engajamento', value: pct(channel.taxa_engajamento)},
     ]}
+    highlights={[['Quem você alcança', channel.perfil_audiencia], ['Melhor uso', channel.melhor_uso]]}
+    sourceNote={profileSource.pesquisado_em ? `Resumo de fontes públicas, pesquisado em ${date(profileSource.pesquisado_em)}.` : null}
     extraMeta={hasValue(channel.medicao) ? <CaduBadge tone="success">Mensurável</CaduBadge> : null}
     sections={sections}/>;
 }

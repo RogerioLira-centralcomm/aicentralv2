@@ -134,7 +134,7 @@ function HeroMedia({media, name}) {
  * section index. The name lives only in the page header, the "add to plan"
  * action with the header actions; related items are links, never buttons.
  */
-export function DetailLayout({boot, selection, kind, record, icon = 'plan', eyebrow, metrics = [], sections = [], media = null, aside = null, extraMeta = null}) {
+export function DetailLayout({boot, selection, kind, record, icon = 'plan', eyebrow, metrics = [], sections = [], media = null, aside = null, extraMeta = null, highlights = [], sourceNote = null}) {
   const id = record.id || record.slug;
   const visible = sections.filter(section => section && !section.hidden);
   const [current, setCurrent] = useState(visible[0]?.id);
@@ -151,6 +151,7 @@ export function DetailLayout({boot, selection, kind, record, icon = 'plan', eyeb
   }, [visible.length]);
 
   const shownMetrics = metrics.filter(item => hasValue(item.value));
+  const shownHighlights = highlights.filter(([, text]) => hasValue(text));
   // One accent for every page (the Planner green); the channel colour stays on its logo.
   return <article className={`pd${aside ? ' pd--aside' : ''}`}>
     <PlannerHeader crumbs={[[MODULE_LABELS[kind], moduleUrl(boot.urls, kind)]]} title={record.name}
@@ -160,7 +161,9 @@ export function DetailLayout({boot, selection, kind, record, icon = 'plan', eyeb
     <div className={`pd-shell${aside ? ' has-aside' : ''}`}><div className="pd-main">
     <section className={`pd-hero${media ? ' has-media' : ''}`} aria-label="Resumo">
       <div className="pd-hero__copy">
-        <p>{record.description || 'Sem descrição publicada.'}</p>
+        {record.description && <p className="pd-hero__lead">{record.description}</p>}
+        {shownHighlights.length > 0 && <div className="pd-highlights">{shownHighlights.map(([label, text]) => <section key={label}><h2>{label}</h2><p>{text}</p></section>)}
+          {sourceNote && <small>{sourceNote}</small>}</div>}
         {shownMetrics.length > 0 && <dl className="pd-hero__metrics" style={{'--metric-count': Math.min(shownMetrics.length, 6)}}>{shownMetrics.map(item => <div key={item.label}>
           {item.icon && <Icon name={item.icon} size={18}/>}<dt>{item.label}</dt><dd>{item.value}</dd>{item.hint && <small>{item.hint}</small>}
         </div>)}</dl>}

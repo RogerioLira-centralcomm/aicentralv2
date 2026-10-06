@@ -227,6 +227,25 @@ class CaduCreditConnector:
             metadata={**(metadata or {}), "margin_multiplier": 1},
         ))
 
+    def grant_lot_in_transaction(self, cursor, *, client_id: int, tokens: int) -> int:
+        """Cria um lote ativo, sem validade, em ``cadu_credits_extras``.
+
+        Usado por compras confirmadas (ex.: Admin CentralX) para que o saldo
+        real do ledger reflita o pacote na mesma transação do registro.
+        """
+        amount = int(tokens or 0)
+        if int(client_id or 0) <= 0 or amount <= 0:
+            raise ValueError('Cliente e quantidade de tokens são obrigatórios para liberar o lote.')
+        cursor.execute(
+            """INSERT INTO cadu_credits_extras
+                (id_cliente, tokens_amount, tokens_used, purchase_date, expiration_date,
+                 purchased_at, expires_at, status)
+               VALUES (%s,%s,0,NOW(),NULL,NOW(),NULL,'active')
+            RETURNING id""",
+            (int(client_id), amount),
+        )
+        return int(cursor.fetchone()['id'])
+
     def charge_tokens_in_transaction(
         self, cursor, *, actor: CreditActor, idempotency_key: str, app: str,
         stage: str, charged_tokens: int, model: str = "cadu",

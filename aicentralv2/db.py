@@ -4684,9 +4684,11 @@ def obter_planos_clientes(filtros=None):
                 pd.storage_bytes_limit as pd_storage_bytes_limit,
                 pd.tokens_monthly_limit as pd_tokens_monthly_limit,
                 pd.limit_image_generation as pd_limit_image_generation,
+                -- Uso real do mês vem do ledger; tokens_used_current_month é contador legado.
+                COALESCE(u.ledger_tokens_used, 0) as ledger_tokens_used,
                 CASE 
                     WHEN COALESCE(pd.tokens_monthly_limit, p.tokens_monthly_limit) > 0 THEN 
-                        ROUND((p.tokens_used_current_month::decimal / COALESCE(pd.tokens_monthly_limit, p.tokens_monthly_limit)) * 100, 1)
+                        ROUND((COALESCE(u.ledger_tokens_used, 0)::decimal / COALESCE(pd.tokens_monthly_limit, p.tokens_monthly_limit)) * 100, 1)
                     ELSE 0 
                 END as tokens_usage_percentage,
                 CASE 
@@ -4697,6 +4699,13 @@ def obter_planos_clientes(filtros=None):
             FROM cadu_client_plans p
             INNER JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
             LEFT JOIN cadu_plan_definitions pd ON p.id_plan_definition = pd.id
+            LEFT JOIN LATERAL (
+                SELECT SUM(tu.tokens_cobrados) AS ledger_tokens_used
+                  FROM cadu_tools_token_usage tu
+                 WHERE tu.id_cliente = p.id_cliente
+                   AND tu.status = 'charged'
+                   AND tu.charged_at >= DATE_TRUNC('month', CURRENT_TIMESTAMP)
+            ) u ON TRUE
             WHERE 1=1
         '''
         
@@ -4904,7 +4913,9 @@ def registrar_compra_creditos(plan_id, package_id, reference=None, notes=None,
             if not plan:
                 raise ValueError('Plano não encontrado.')
             cursor.execute('''
-                SELECT id, name, credits, price FROM cadu_credit_packages
+                SELECT id, name, credits, price,
+                       to_jsonb(cadu_credit_packages)->>'kind' AS kind
+                  FROM cadu_credit_packages
                  WHERE id = %s AND is_active = true
             ''', (package_id,))
             package = cursor.fetchone()
@@ -4927,6 +4938,12 @@ def registrar_compra_creditos(plan_id, package_id, reference=None, notes=None,
             ''', (plan_id, plan['id_cliente'], package['credits'],
                   'Compra do ' + package['name'], reference or f'COMPRA-{purchase_id}',
                   created_by, created_by_name))
+            # O registro acima é legado; o saldo real do Cadu vem dos lotes.
+            # Só pacotes de tokens viram lote (pacotes antigos são créditos de imagem).
+            if (package.get('kind') or '') == 'tokens':
+                from aicentralv2.cadu_credit_connector import CaduCreditConnector
+                CaduCreditConnector().grant_lot_in_transaction(
+                    cursor, client_id=plan['id_cliente'], tokens=package['credits'])
         conn.commit()
         return purchase_id
     except Exception:

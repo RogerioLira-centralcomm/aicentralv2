@@ -101,7 +101,7 @@
             </td>
             <td class="text-center plano-usage-cell">
               {% set tp = plano.tokens_usage_percentage or 0 %}
-              <div class="plano-usage-label">{{ "{:,}".format(plano.tokens_used_current_month or 0).replace(',', '.') }} / {{ "{:,}".format(plano.tokens_monthly_limit).replace(',', '.') }}</div>
+              <div class="plano-usage-label">{{ "{:,}".format(plano.ledger_tokens_used or 0).replace(',', '.') }} / {{ "{:,}".format(plano.tokens_monthly_limit).replace(',', '.') }}</div>
               <progress class="cx-progress {% if tp >= 90 %}cx-progress-danger{% elif tp >= 80 %}cx-progress-warning{% else %}cx-progress-success{% endif %}"
                         value="{{ tp }}" max="100" aria-label="Uso de tokens {{ tp }} por cento"></progress>
               <div class="plano-usage-pct">{{ tp }}%</div>

@@ -147,3 +147,11 @@
 #cadu-conversations-v2-root .cv-plugin-card > :last-child:not(.cv-plugin-card__copy) { flex: none; white-space: nowrap; }
 #cadu-conversations-v2-root .cv-plugin-shelf { margin-bottom: 28px; }
 #cadu-conversations-v2-root .cv-plugin-card.is-disabled { min-height: 56px; }
+
+/* O padding do cartão era zerado por `.cv-plugin-shelf li`; botões sem sombra do kit e Voltar sem moldura */
+#cadu-conversations-v2-root .cv-plugin-shelf li.cv-plugin-flow-card { padding: 16px; }
+#cadu-conversations-v2-root .cv-plugin-flow-card__modes [data-cadu-untitled-button] { box-shadow: none !important; }
+#cadu-conversations-v2-root .cv-plugins-page__header > [data-cadu-untitled-button] { box-shadow: none !important; background: transparent; outline: 0; gap: 4px; }
+#cadu-conversations-v2-root .cv-plugins-page__header > [data-cadu-untitled-button]:hover { background: rgba(181,218,211,.08); }
+#cadu-conversations-v2-root .cv-plugins-page__header > [data-cadu-untitled-button][data-focus-visible] { outline: 2px solid var(--cv-accent); outline-offset: 2px; }
+#cadu-conversations-v2-root .cv-plugins-page__header > [data-cadu-untitled-button] svg { display: block; flex: none; }

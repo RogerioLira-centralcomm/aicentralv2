@@ -34,12 +34,14 @@ export function bindWorkspace(project, commit, refresh) {
     ['mcStudioTimelineResize','--vs-timeline','y',-1,190,640,250],
   ]) {
     const handle=$(id);
+    // A altura padrão da timeline é um clamp() em CSS: sem número no estilo, parte da altura real e não de `initial`.
+    const current=()=>{const raw=parseFloat(getComputedStyle(root).getPropertyValue(key));if(Number.isFinite(raw))return raw;return (key==='--vs-timeline'&&document.querySelector('.mc-cadu-video-timeline')?.getBoundingClientRect().height)||initial;};
     if(Number.isFinite(prefs[key]))root.style.setProperty(key,`${clamp(prefs[key],min,max)}px`);
     handle.addEventListener('pointerdown',event=>{
       if(event.button!==0)return;
       event.preventDefault();handle.setPointerCapture(event.pointerId);root.classList.add('is-resizing');
       const at=axis==='x'?event.clientX:event.clientY;
-      const value=parseFloat(getComputedStyle(root).getPropertyValue(key))||initial;
+      const value=current();
       const move=ev=>{
         const available=axis==='y'?Math.min(max,root.clientHeight-230):Math.min(max,root.clientWidth-600);
         const next=clamp(value+sign*((axis==='x'?ev.clientX:ev.clientY)-at),min,Math.max(min,available));
@@ -50,7 +52,7 @@ export function bindWorkspace(project, commit, refresh) {
     });
     handle.addEventListener('keydown',event=>{
       if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home'].includes(event.key))return;
-      event.preventDefault();const value=parseFloat(getComputedStyle(root).getPropertyValue(key))||initial;
+      event.preventDefault();const value=current();
       const delta=['ArrowLeft','ArrowUp'].includes(event.key)?-10:10;
       const next=event.key==='Home'?initial:clamp(value+delta*sign,min,max);
       root.style.setProperty(key,`${next}px`);prefs[key]=next;handle.setAttribute('aria-valuenow',String(next));savePrefs();

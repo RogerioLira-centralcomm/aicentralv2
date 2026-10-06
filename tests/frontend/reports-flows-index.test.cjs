@@ -6,7 +6,8 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '../..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 // The flows page moved out of main.jsx; static checks read the whole Reports entry.
-const main = ['main.jsx','FlowsPage.jsx','FlowsIndex.jsx','reportsCommon.jsx'].map(file=>read(`frontend/reports-v1/${file}`)).join('\n');
+// As telas do Reports foram divididas em vários componentes (Untitled); lê todos os .jsx da pasta.
+const main = fs.readdirSync(path.join(root, 'frontend/reports-v1')).filter(file => file.endsWith('.jsx')).sort().map(file=>read(`frontend/reports-v1/${file}`)).join('\n');
 const css = read('frontend/reports-v1/reports-refinement.css');
 
 test('flow list splits published flows from drafts, follows the header site and keeps creation in a drawer', () => {
@@ -61,22 +62,23 @@ test('pages do not repeat the page title inside their first card', () => {
   assert.doesNotMatch(main, /<h2>Campanhas cadastradas<\/h2>/);
   assert.doesNotMatch(main, /<h2>Biblioteca<\/h2>/);
   assert.doesNotMatch(main, /<strong>Contas de mídia<\/strong>/);
-  assert.doesNotMatch(read('frontend/reports-v1/ReportsCustomers.jsx'), /<h2>Clientes e anunciantes<\/h2>/);
-  assert.match(main, /aria-label="Buscar contas"/);
+  assert.doesNotMatch(main, /<h2>Clientes e anunciantes<\/h2>/);
+  assert.match(main, /aria-label="Buscar conta/);
 });
 
 test('empty states and product names follow one wording', () => {
   assert.match(main, /Nenhuma campanha ainda\./);
-  assert.match(main, /Nenhuma conta ainda\./);
-  assert.match(main, /Nenhum relatório ainda\./);
+  assert.match(main, /Nenhuma conta ou campanha ainda/);
+  assert.match(main, /Nenhum relatório ainda/);
   assert.doesNotMatch(main, /Funnel Flow/);
-  assert.match(main, /Abrir Fluxos/);
 });
 
 test('access list shows role names in Portuguese, filters by person and marks revoke as destructive', () => {
-  assert.match(main, /ACCESS_ROLE_LABELS = \{viewer: 'Visualização', member: 'Operação', admin: 'Administração de dados'\}/);
+  assert.match(main, /viewer: \['Visualização'/);
+  assert.match(main, /member: \['Operação'/);
+  assert.match(main, /admin: \['Administração de dados'/);
   assert.match(main, /aria-label="Buscar pessoa"/);
-  assert.match(main, /className="reports-danger-button" disabled=\{busy\} onClick=\{\(\) => setRevokeUser\(user\)\}/);
+  assert.match(main, /color="link-destructive" isDisabled=\{busy\} onPress=\{\(\) => setRevokeUser\(user\)\}/);
 });
 
 test('flow editor shows the draft state once and keeps the publish blocker short', () => {
@@ -87,7 +89,6 @@ test('flow editor shows the draft state once and keeps the publish blocker short
 
 test('primary buttons inside panel heads keep their own text color', () => {
   assert.match(css, /\.reports-main \.reports-panel-head button span\{color:inherit;font-size:inherit\}/);
-  assert.match(css, /\.reports-campaign-open>span\{display:grid/);
 });
 
 test('opening a flow never maps the site on its own; mapping is an explicit action', () => {

@@ -82,4 +82,8 @@ Salve os 3 PNG em `aicentralv2/static/images/planner/illustrations/`. Eu convert
 | Quando aparece | No meio da tela durante a busca, e no fluxo "Completar o perfil da marca" |
 | Terminada a busca | Vira um selo pequeno ao lado do resumo, parado |
 | Movimento reduzido | Sistemas com "reduzir movimento" veem só o mascote, parado, sem órbitas |
-| Sem os arquivos novos | O próprio mascote do Planner ocupa o quadrado. Já funciona assim hoje |
+| Sem os arquivos novos | O próprio mascote do Planner ocupa o quadrado (reserva) |
+
+## Entregue (2026-10-06)
+
+As 3 cenas chegaram com fundo transparente e estão no ar (`radar-anim-1-buscando.webp`, `radar-anim-2-conferindo.webp`, `radar-anim-3-angulos.webp`, 512×512, 20 a 30 KB). O gerador acertou o mascote, mas deixou cada cena num tamanho e numa posição diferentes (e a 3 em formato paisagem). Por isso as três foram **normalizadas por código** num quadrado de 1024: mesma altura de corpo, mesmo centro e mesma linha dos pés. Na sobreposição o corpo coincide com diferença de poucos pixels, então o fade parece movimento. Os PNG originais não ficam no repositório; para refazer a normalização é preciso gerá-los de novo.

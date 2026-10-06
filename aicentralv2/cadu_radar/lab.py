@@ -732,7 +732,7 @@ def report_markdown(result):
         conf = row['confidence']
         lines.append(f"| {flow} {row['name']} | {row['opportunities']} | {row['review_avg'] or '—'} | {_p(row['sources_ab_pct'])} | "
                      f"{_p(row['urls_ok_pct'])} | {_p(row['in_window_pct'])} | {conf['alta']}/{conf['media']}/{conf['baixa']} | "
-                     f"{row['sim_tokens']:,} | {row['real_tokens']:,} | {row['provider_usd']:.4f} | {row['seconds']} s |".replace(',', '.'))
+                     f"{_n(row['sim_tokens'])} | {_n(row['real_tokens'])} | {row['provider_usd']:.4f} | {row['seconds']} s |")
     review = result.get('review') or {}
     mapping = review.get('mapping') or {}
     if review.get('vencedor'):
@@ -745,9 +745,9 @@ def report_markdown(result):
               '| Fluxo | Etapa | Modelo | Rota | Regime | Simulado (tokens Cadu) | Debitado (tokens Cadu) | US$ provedor | Entrada/saída | Tempo | Nota |',
               '|---|---|---|---|---|---|---|---|---|---|---|']
     for c in result['calls']:
-        lines.append(f"| {c['flow']} | {c['stage']} | {c['model']} | {c['route']} | {c['regime']} | {c['sim_tokens']:,} | "
-                     f"{c['real_tokens']:,} | {(c['real_usd'] or 0):.5f} | {c['input_tokens']:,}/{c['output_tokens']:,} | "
-                     f"{c['seconds']} s | {'' if c['ok'] else 'FALHOU '}{c['note']} |".replace(',', '.'))
+        lines.append(f"| {c['flow']} | {c['stage']} | {c['model']} | {c['route']} | {c['regime']} | {_n(c['sim_tokens'])} | "
+                     f"{_n(c['real_tokens'])} | {(c['real_usd'] or 0):.5f} | {_n(c['input_tokens'])}/{_n(c['output_tokens'])} | "
+                     f"{c['seconds']} s | {'' if c['ok'] else 'FALHOU '}{c['note']} |")
     lines += ['', '## Oportunidades', '']
     for flow, items in result['opportunities'].items():
         lines += [f"### {flow} — {result['flows'][flow]['name']}", '']
@@ -763,6 +763,11 @@ def report_markdown(result):
                 lines.append(f"  Revisor: {rev['nota']}")
         lines.append('')
     return '\n'.join(lines)
+
+
+def _n(value):
+    """Milhar com ponto, sem tocar no resto da linha."""
+    return f'{int(value or 0):,}'.replace(',', '.')
 
 
 def _p(value):

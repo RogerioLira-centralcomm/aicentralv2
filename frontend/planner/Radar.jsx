@@ -37,9 +37,9 @@ function RadarTips({open}) {
     <ul>
       <li><strong>Tema + recorte.</strong> "Black Friday de eletrodomésticos em BH" rende mais que "Black Friday".</li>
       <li><strong>Escolha a marca no topo.</strong> O Radar usa o perfil dela: público, concorrentes e posicionamento.</li>
-      <li><strong>Diga a praça</strong> quando a campanha for regional. A imprensa local entra na busca.</li>
+      <li><strong>Diga a praça</strong> quando a campanha for regional. Assim a busca procura fatos daquele lugar.</li>
       <li><strong>Uma pergunta por busca.</strong> Temas misturados viram oportunidades genéricas.</li>
-      <li><strong>Janela:</strong> o Radar olha os últimos 30 a 60 dias e confere cada fato em mais de uma fonte.</li>
+      <li><strong>Janela:</strong> o Radar olha os últimos 30 a 60 dias, e um segundo modelo confere data, fonte e contexto de cada oportunidade.</li>
     </ul>
   </details>;
 }

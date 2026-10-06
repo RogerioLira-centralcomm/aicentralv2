@@ -4,8 +4,8 @@
 Rode NO SERVIDOR (as imagens são gravadas em disco local e as linhas de biblioteca/histórico/débito vão para o
 banco: rodar da máquina de desenvolvimento deixaria itens apontando para arquivos que o servidor não tem).
 
-    venv/bin/python scripts/storyboard_real_check.py --crm 174 --brand 22 --user-id <contato> \
-        [--scenes 3] [--aspect 16:9] [--confirm-real-charge] [--cleanup]
+    venv/bin/python scripts/storyboard_real_check.py --crm 174 --brand 22 --email voce@empresa.com \
+        [--user-id N] [--scenes 3] [--aspect 16:9] [--confirm-real-charge] [--cleanup]
 
 Sem --confirm-real-charge: só lê (saldo, preço por imagem, plano). Com ele: monta o storyboard (texto), gera
 --scenes imagens pelas MESMAS views do Studio e confere, para cada uma, débito, histórico e biblioteca. No fim soma
@@ -40,12 +40,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--crm", type=int, required=True, help="id do cliente que paga (tbl_cliente.id_cliente)")
     parser.add_argument("--brand", type=int, required=True, help="id da marca no Studio (cx_clients.id) deste cliente")
-    parser.add_argument("--user-id", type=int, required=True, help="id do contato que dispara (tbl_contato_cliente.id_contato_cliente)")
+    parser.add_argument("--user-id", type=int, help="id do contato que dispara (tbl_contato_cliente.id_contato_cliente)")
+    parser.add_argument("--email", help="e-mail do contato que dispara; o id é buscado no banco (use --user-id se houver mais de um)")
     parser.add_argument("--scenes", type=int, default=3, choices=range(2, 7))
     parser.add_argument("--aspect", default="16:9")
     parser.add_argument("--confirm-real-charge", action="store_true")
     parser.add_argument("--cleanup", action="store_true")
     args = parser.parse_args()
+    if not args.user_id and not args.email:
+        parser.error("informe --email (ou --user-id) de quem dispara o teste")
 
     from dotenv import load_dotenv
     load_dotenv(ROOT / ".env")
@@ -65,6 +68,14 @@ def main():
     row = cur.fetchone()
     if not row or int(row[0] or 0) != args.crm:
         sys.exit(f"A marca {args.brand} não pertence ao cliente {args.crm}. Nada foi feito.")
+    if not args.user_id:
+        cur.execute("SELECT id_contato_cliente, pk_id_tbl_cliente FROM tbl_contato_cliente WHERE lower(email) = lower(%s)", (args.email.strip(),))
+        found = cur.fetchall()
+        if len(found) != 1:
+            sys.exit(f"{len(found)} contatos com o e-mail {args.email}: " + (", ".join(f"id {r[0]} (cliente {r[1]})" for r in found) or "nenhum")
+                     + ". Use --user-id com o id certo. Nada foi feito.")
+        args.user_id = int(found[0][0])
+        print(f"Contato encontrado pelo e-mail: id {args.user_id}")
     cur.execute("SELECT now()")
     started = cur.fetchone()[0]
 

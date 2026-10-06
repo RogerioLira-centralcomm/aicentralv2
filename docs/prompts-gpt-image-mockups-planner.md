@@ -18,7 +18,7 @@ Use junto com o plano `docs/plano-planner-marketplace-canais.md`. Anexe as image
 ```
 Você é um designer de produto sênior. Crie o mockup de uma tela de aplicação web (SaaS de planejamento de mídia), em alta fidelidade, vista de frente, em tela cheia, sem moldura de navegador.
 
-Linguagem visual a PRESERVAR da referência R1/R2 (nossa interface atual): barra lateral esquerda clara de 240 px com logo "Planner" e itens Início, Novo planejamento, Planos, Radar, Canais (ativo, fundo verde claro), Audiências, Formatos, Interativos, Portais, Places; fundo branco quase neutro; texto grafite; cor de ação verde-escuro (#1F5C3F); cantos arredondados de 10 a 12 px; bordas finas cinza muito claro; sombra sutil; tipografia sans-serif limpa (Inter ou similar); espaçamento generoso; faixa de créditos do mês e avatar "Apolo · CENTRALCOMM" no rodapé da barra lateral.
+Linguagem visual a PRESERVAR da referência R1/R2 (nossa interface atual): barra lateral esquerda clara de 240 px com logo "Planner" e itens Início, Novo planejamento, Planos, Radar, Canais (ativo, fundo verde claro), Audiências, Formatos, Interativos, Portais, Places; fundo branco quase neutro; texto grafite; cor de ação verde-esmeralda vivo (#1DBF73); cantos arredondados de 10 a 12 px; bordas finas cinza muito claro; sombra sutil; tipografia sans-serif limpa (Inter ou similar); espaçamento generoso; faixa de créditos do mês e avatar "Apolo · CENTRALCOMM" no rodapé da barra lateral.
 
 Padrões a ADOTAR da referência R3 (marketplace): cards com fotografia grande no topo e selos pequenos sobre a foto; trio de métricas com ícone e rótulo pequeno; sem preço (no lugar, o botão "Adicionar ao plano" e um link discreto "Solicitar cotação"); botão de ação em contorno verde dentro do card e um coração de salvar; chips de filtro arredondados no topo; alternador de exibição em dois botões (grade e lista); banner intercalado colorido entre linhas de cards.
 
@@ -48,7 +48,7 @@ Grade de 4 colunas de cards verticais brancos, cada um com:
 
 Canais nos cards: Spotify, Netflix, Globoplay, Uber, iFood, G1, Amazon Ads, Prime Video. Um card (Netflix) já está "No plano": botão verde preenchido "No plano ✓".
 
-Entre a primeira e a segunda linha, um banner largo lilás-claro (tom suave que combine com o verde da marca, não laranja) com ilustração simples de um robô-mascote amigável, título "Não sabe por onde começar?", texto "Conte o objetivo e o Cadu monta o plano com você." e botão escuro "Planejar".
+Entre a primeira e a segunda linha, um banner largo em verde-esmeralda muito claro (#E3F8EE), sem lilás e sem laranja, com o mascote do Planner (corpo preto, chevron verde-esmeralda, olho único), título "Não sabe por onde começar?", texto "Conte o objetivo e o Cadu monta o plano com você." e botão escuro "Planejar".
 
 Barra fixa no rodapé da área de conteúdo: "3 canais no plano" com mini logos empilhados e botão verde "Revisar plano →".
 
@@ -116,7 +116,7 @@ Mantenha o mesmo padrão de card do prompt de Canais para consistência.
 
 ## Prompt 5: "Planejar" (assistente em tela dividida)
 
-Anexar: R4, R1.
+Anexar: R4, R1, R9 (logo do Planner).
 
 ```
 [BLOCO DE ESTILO]
@@ -125,7 +125,7 @@ TELA: assistente de planejamento em tela dividida, inspirado na referência R4, 
 
 Cabeçalho superior simples: logo "Planner" à esquerda, "Planejar" com selo "Beta" ao centro-direita, e "Sair" à direita.
 
-Metade esquerda (45%): painel de fundo verde muito claro com título grande "Planejar" e selo "Beta", subtítulo "Conte sua ideia, trace um objetivo e deixe o restante com o Cadu.". Abaixo, uma ilustração vetorial editorial e colorida (estilo flat moderno, personagens estilizados sem rosto detalhado) de uma pessoa montando um plano de mídia, cercada por telas de celular, TV e painel urbano mostrando peças de campanha de uma marca fictícia, com linha de tempo e cursores. Paleta: verdes, amarelo-mostarda, lilás e grafite.
+Metade esquerda (45%): painel de fundo verde muito claro com título grande "Planejar" e selo "Beta", subtítulo "Conte sua ideia, trace um objetivo e deixe o restante com o Cadu.". Abaixo, uma ilustração vetorial editorial e colorida (estilo flat moderno, personagens estilizados sem rosto detalhado) de uma pessoa montando um plano de mídia, cercada por telas de celular, TV e painel urbano mostrando peças de campanha de uma marca fictícia, com linha de tempo e cursores. Paleta fechada do logo do Planner (R9): verde-esmeralda #1DBF73, preto #101418, brancos e cinzas; nenhuma outra cor de destaque.
 
 Metade direita: pergunta "Qual é o objetivo da sua campanha?" com indicador de passo "1 de 5". Quatro cartões de resposta empilhados, cada um com título e descrição: "Gerar awareness — Fazer a marca ser lembrada por mais gente.", "Lançar um produto — Impacto alto e burburinho para um lançamento.", "Gerar leads e vendas — Foco em ação e conversão.", "Campanha sazonal — Datas comemorativas e picos de venda.". Abaixo, campo "ou escreva um objetivo personalizado" com placeholder "Digite seu objetivo…". Rodapé com botão "Voltar" e botão verde "Continuar". Uma lista discreta dos passos seguintes: Objetivo · Verba e período · Praça · Audiência · Revisão.
 ```
@@ -159,7 +159,7 @@ Mock plano, fundo cinza muito claro, mostrando um anúncio {DIMENSÃO: 300×250 
 ### Ilustração para card de audiência
 
 ```
-Ilustração vetorial flat, acolhedora, 4:3, representando o perfil "{AUDIENCIA}" em uma cena do cotidiano, personagens estilizados sem traços de rosto detalhados, paleta de verdes, mostarda, lilás e grafite, fundo verde muito claro, sem texto.
+Ilustração vetorial flat, acolhedora, 4:3, representando o perfil "{AUDIENCIA}" em uma cena do cotidiano, personagens estilizados sem traços de rosto detalhados, paleta fechada do logo do Planner: verde-esmeralda #1DBF73, preto #101418, brancos e cinzas, fundo verde-esmeralda muito claro, sem texto.
 ```
 
 ## Checklist de conferência dos mockups
@@ -238,36 +238,38 @@ Barra lateral como R1, "Formatos" ativo.
 
 ## Ilustrações do banner e dos estados vazios (para uso real no produto)
 
-Referência de estilo: R8 (banner lilás com mascote). **Não copiar o personagem da referência**: ele é a marca de terceiros. Criar um mascote original do Planner.
+**Identidade do Planner = o logo anexado (R9): duplo chevron «, um verde-esmeralda vivo e um preto.** Anexe o logo em todo prompt desta seção e peça que as cores sejam as dele. Nada de roxo, lilás, verde-floresta ou laranja.
 
-### Regras comuns (cole no início de cada prompt)
+Referência de estilo: R8 (banner com mascote). **Não copiar o personagem da referência**: é a marca de terceiros. Criar um mascote original do Planner, derivado do logo.
 
-```
-Ilustração vetorial editorial em estilo flat moderno, formas geométricas ousadas e arredondadas, contornos limpos sem traço fino, sombras apenas em blocos chapados, sem gradientes complexos, sem textura de pintura, sem texto nem letras na imagem, sem logotipos. Fundo TRANSPARENTE (PNG com canal alfa). Composição centralizada com margem de 8% em volta. Paleta fechada: verde Planner #1F5C3F e verde-claro #86D9A8, lilás #B8A6FF, mostarda #F5B83D, coral #FF6B4A, grafite #1D2433, branco #FFFFFF. Alta nitidez, bordas sem serrilhado.
-```
-
-### 1. Mascote do banner (arquivo `mascote-planner.png`, 1024×1024)
+### Regras comuns (cole no início de cada prompt; anexar R9)
 
 ```
-[REGRAS COMUNS]
-
-Crie um mascote original e simpático para um produto de planejamento de mídia: uma criatura curiosa em forma de lupa-binóculo viva, corpo arredondado verde-escuro com UM olho grande e expressivo (íris verde-clara, pupila grafite, brilho branco), segurando com um braço rosa-coral um pequeno megafone mostarda. Sem boca visível, sensação de descoberta e entusiasmo. Pose de três quartos olhando para a direita, ligeiramente inclinada, braço levantado. Proporções fofas, sem rosto humano, sem referência a personagens existentes.
+Use o logo anexado (R9) como referência de marca: extraia dele o verde-esmeralda vivo (aprox. #1DBF73) e o preto (aprox. #101418) e use EXATAMENTE essas duas cores como identidade. Ilustração vetorial editorial em estilo flat moderno, formas geométricas ousadas e arredondadas, contornos limpos sem traço fino, sombras só em blocos chapados, sem gradientes complexos, sem textura de pintura, sem texto nem letras na imagem, sem logotipos. Fundo TRANSPARENTE (PNG com canal alfa). Composição centralizada com margem de 8%. Paleta fechada e minimalista: verde-esmeralda #1DBF73, preto #101418, branco #FFFFFF, verde-esmeralda claro #E3F8EE, cinza-claro #F2F4F7 e cinza-médio #98A2B3. Nenhuma outra cor de destaque (sem roxo, lilás, laranja, amarelo, rosa ou azul). Alta nitidez, bordas sem serrilhado.
 ```
 
-### 2. Banner completo (arquivo `banner-planejar.png`, 1600×360)
+### 1. Mascote (arquivo `mascote-planner.png`, 1024×1024)
 
 ```
 [REGRAS COMUNS]
 
-Banner horizontal 1600×360 com fundo sólido lilás #CDBEFF e cantos arredondados de 24 px. À esquerda, o mascote do Planner (criatura verde-escura de um olho só, megafone mostarda, braço coral) saindo ligeiramente do canto inferior, tamanho grande. Deixe 60% da largura à direita LIVRE e limpa (sem elementos) para o texto ser aplicado depois em HTML. Pequenas formas decorativas discretas (círculos e estrelinhas de 4 pontas) em verde-claro e mostarda espalhadas só no lado esquerdo. Sem texto.
+Crie um mascote original e simpático para um produto de planejamento de mídia, inspirado no duplo chevron do logo: um corpo arredondado PRETO com uma faixa em forma de chevron « verde-esmeralda no peito, UM único olho grande e expressivo (esclera branca, íris verde-esmeralda, pupila preta, brilho branco), e um braço verde-esmeralda segurando um pequeno megafone branco com detalhe preto. Sem boca visível, sensação de descoberta e entusiasmo. Pose de três quartos olhando para a direita, braço levantado. Proporções fofas, sem rosto humano, sem referência a personagens existentes.
 ```
 
-### 3. Cartão de passos (arquivo `passos-planejar.png`, 800×800)
+### 2. Banner completo (`banner-planejar.png`, 1600×360)
 
 ```
 [REGRAS COMUNS]
 
-Ilustração para um cartão intermediário de grade, mostrando dois quadros de interface empilhados e levemente deslocados: o de cima com fundo lilás e uma imagem placeholder (ícone de montanha e sol) mais barras de texto cinzas; o de baixo com borda verde e outra imagem placeholder. Círculos numerados coral "1" e "2" (apenas os numerais dentro dos círculos) no canto de cada quadro. Uma mão rosa-coral com cursor de seta clicando no quadro de cima. Sensação de "monte seu plano em passos". Sem outro texto.
+Banner horizontal 1600×360 com fundo sólido verde-esmeralda muito claro #E3F8EE e cantos arredondados de 24 px. À esquerda, o mascote do Planner (corpo preto, chevron verde-esmeralda, olho único) saindo ligeiramente do canto inferior, tamanho grande. Deixe 60% da largura à direita LIVRE e limpa (sem elementos) para o texto ser aplicado depois em HTML. Pequenas formas decorativas discretas (círculos e estrelinhas de 4 pontas) em verde-esmeralda e cinza-médio, espalhadas só no lado esquerdo. Sem texto.
+```
+
+### 3. Cartão de passos (`passos-planejar.png`, 800×800)
+
+```
+[REGRAS COMUNS]
+
+Dois quadros de interface empilhados e levemente deslocados: o de cima com fundo verde-esmeralda claro #E3F8EE e uma imagem placeholder (ícone de montanha e sol) mais barras de texto cinza; o de baixo com borda verde-esmeralda e outra imagem placeholder. Círculos pretos numerados "1" e "2" (apenas os numerais, em branco) no canto de cada quadro. Uma mão preta com cursor de seta verde-esmeralda clicando no quadro de cima. Sensação de "monte seu plano em passos". Sem outro texto.
 ```
 
 ### 4. Estado vazio: nenhum canal encontrado (`vazio-busca.png`, 800×800)
@@ -275,7 +277,7 @@ Ilustração para um cartão intermediário de grade, mostrando dois quadros de 
 ```
 [REGRAS COMUNS]
 
-O mascote do Planner (criatura verde-escura de um olho só) olhando por uma lupa grande mostarda para uma prateleira vazia, com pequeno ponto de interrogação coral flutuando acima. Expressão curiosa, sem tristeza. Sem texto exceto o símbolo "?".
+O mascote do Planner (corpo preto, chevron verde-esmeralda, olho único) olhando por uma lupa grande de aro preto e lente verde-esmeralda clara para uma prateleira vazia, com um pequeno "?" preto flutuando acima. Expressão curiosa, sem tristeza. Sem texto exceto o símbolo "?".
 ```
 
 ### 5. Estado vazio: plano sem itens (`vazio-plano.png`, 800×800)
@@ -283,15 +285,15 @@ O mascote do Planner (criatura verde-escura de um olho só) olhando por uma lupa
 ```
 [REGRAS COMUNS]
 
-O mascote do Planner segurando uma prancheta em branco com um lápis, ao lado de uma pilha pequena de cartões coloridos (lilás, verde-claro, mostarda) ainda por organizar. Clima de "vamos começar". Sem texto.
+O mascote do Planner segurando uma prancheta em branco com um lápis, ao lado de uma pequena pilha de cartões nas cores da paleta (verde-esmeralda, verde-esmeralda claro, cinza-claro) ainda por organizar. Clima de "vamos começar". Sem texto.
 ```
 
-### 6. Cabeçalho do assistente "Planejar" (`planejar-hero.png`, 1200×1200)
+### 6. Assistente "Planejar" (`planejar-hero.png`, 1200×1200)
 
 ```
 [REGRAS COMUNS]
 
-Cena editorial para a tela do assistente "Planejar": uma pessoa estilizada sem traços faciais detalhados (pele em tom neutro variado, cabelo curto verde-escuro, blazer mostarda, calça lilás) em pé, com um tablet na mão, cercada por telas flutuantes de formatos de mídia (celular vertical, TV, painel urbano e banner horizontal) com peças de campanha abstratas coloridas, uma linha de tempo fina atravessando a cena e dois cursores de seta. O mascote do Planner pousado em cima do tablet. Equilíbrio entre verde, lilás e mostarda.
+Cena editorial: uma pessoa estilizada sem traços faciais detalhados (tom de pele neutro variado, cabelo curto preto, blazer verde-esmeralda, calça cinza-clara) em pé, com um tablet na mão, cercada por telas flutuantes de formatos de mídia (celular vertical, TV, painel urbano e banner horizontal) com peças de campanha abstratas só nas cores da paleta, uma linha de tempo fina atravessando a cena e dois cursores de seta. O mascote do Planner pousado em cima do tablet.
 ```
 
 ### Como me enviar
@@ -299,7 +301,6 @@ Cena editorial para a tela do assistente "Planejar": uma pessoa estilizada sem t
 | Item | Regra |
 |---|---|
 | Formato | PNG com fundo transparente, nomes exatamente como acima |
-| Tamanho | Pode mandar menores (por exemplo 512 px do lado maior), eu comprimo para WebP |
+| Tamanho | Pode mandar menores (ex.: 512 px no lado maior); eu comprimo para WebP |
 | Onde vão | `aicentralv2/static/images/planner/illustrations/` |
-| Uso | Banner a cada 8 cards da lista de Canais, cartão de passos na grade, estados vazios e a tela do assistente |
-| Conferir | Sem texto na imagem, olho único do mascote igual em todas, paleta fechada |
+| Conferir | Sem texto; só verde-esmeralda, preto e neutros; o olho único igual em todas |

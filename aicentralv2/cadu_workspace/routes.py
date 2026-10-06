@@ -3613,11 +3613,6 @@ def _workspace_projects(client_id: int, query: str = "", status: str = "ativos",
                                 FROM cadu_ci_projeto_arquivos a
                                 JOIN scoped_projects p ON p.id = a.projeto_id
                             GROUP BY a.projeto_id
-                          ), chunk_counts AS (
-                              SELECT ch.projeto_id, COUNT(*) AS chunks_total
-                                FROM cadu_ci_chunks ch
-                                JOIN scoped_projects p ON p.id = ch.projeto_id
-                            GROUP BY ch.projeto_id
                           )
                        SELECT p.id, p.nome, p.descricao, p.tipo, p.cor, p.status,
                               p.instrucoes, p.tom_de_voz, p.publico, p.posicionamento,
@@ -3626,10 +3621,9 @@ def _workspace_projects(client_id: int, query: str = "", status: str = "ativos",
                               p.total_arquivos, p.total_conversas, p.updated_at,
                               COALESCE(files.fontes_prontas, 0) AS fontes_prontas,
                               COALESCE(files.fontes_total, 0) AS fontes_total,
-                              COALESCE(chunks.chunks_total, 0) AS chunks_total
+                              0 AS chunks_total
                          FROM scoped_projects p
                     LEFT JOIN file_counts files ON files.projeto_id = p.id
-                    LEFT JOIN chunk_counts chunks ON chunks.projeto_id = p.id
                      ORDER BY p.updated_at DESC""",
                     params,
                 )
@@ -3826,33 +3820,13 @@ def _remember_workspace_project(project_id: str) -> None:
     session[_WORKSPACE_RECENT_PROJECTS_KEY] = [project_ref, *recent][:6]
 
 
-def _workspace_sidebar_projects(client_id: int) -> list[dict]:
-    """Return recent active projects first, then complete the compact rail."""
-    if not client_id:
-        return []
-    try:
-        with get_db().cursor() as cursor:
-            cursor.execute(
-                """SELECT id, nome
-                     FROM cadu_ci_projetos
-                    WHERE id_cliente = %s AND status = 'ativo'
-                 ORDER BY LOWER(nome) ASC, nome ASC""",
-                (client_id,),
-            )
-            projects = [dict(row) for row in cursor.fetchall()]
-    except Exception:
-        return []
-
-    recent_ids = [str(item) for item in session.get(_WORKSPACE_RECENT_PROJECTS_KEY, []) if item]
-    by_id = {str(project.get('id')): project for project in projects}
-    recent = [by_id[project_id] for project_id in recent_ids if project_id in by_id]
-    recent_set = {str(project.get('id')) for project in recent}
-    remaining = [project for project in projects if str(project.get('id')) not in recent_set]
-    return [*recent, *remaining][:6]
-
-
 @bp.context_processor
 def workspace_sidebar_context():
+    """Expose the shared rail data lazily.
+
+    The dock and the credit meter cost about a dozen queries; React pages bring
+    their own copies, so templates call these only when they actually need them.
+    """
     if not session.get('user_id'):
         return {}
     try:
@@ -3860,23 +3834,31 @@ def workspace_sidebar_context():
     except (TypeError, ValueError):
         current_app.logger.warning('ID de organização inválido na sessão da sidebar do Workspace')
         client_id = 0
-    try:
-        usage = credit_position(client_id) or {}
+
+    def shell() -> dict:
+        cached = getattr(g, '_workspace_shell_cache', None)
+        if cached is not None and cached.get('client_id') == client_id:
+            return cached['value']
         try:
-            user_id = max(0, int(session.get('user_id') or 0))
-        except (TypeError, ValueError):
-            user_id = 0
-        dock_items = _workspace_common_dock_items(client_id, user_id)
-        usage_percent = round(float(usage.get('monthly_usage_percentage') or 0), 1)
-    except Exception:
-        current_app.logger.exception('Não foi possível preparar o shell compartilhado do Workspace')
-        dock_items = []
-        usage_percent = 0
+            usage = credit_position(client_id) or {}
+            try:
+                user_id = max(0, int(session.get('user_id') or 0))
+            except (TypeError, ValueError):
+                user_id = 0
+            value = {
+                'dock_items': _workspace_common_dock_items(client_id, user_id),
+                'usage_percent': round(float(usage.get('monthly_usage_percentage') or 0), 1),
+            }
+        except Exception:
+            current_app.logger.exception('Não foi possível preparar o shell compartilhado do Workspace')
+            value = {'dock_items': [], 'usage_percent': 0}
+        g._workspace_shell_cache = {'client_id': client_id, 'value': value}
+        return value
+
     return {
-        'workspace_sidebar_projects': _workspace_sidebar_projects(client_id),
         'workspace_sidebar': lambda: _workspace_sidebar_payload(client_id),
-        'workspace_dock_items': dock_items,
-        'workspace_usage_percent': usage_percent,
+        'workspace_dock_items': lambda: shell()['dock_items'],
+        'workspace_usage_percent': lambda: shell()['usage_percent'],
     }
 
 

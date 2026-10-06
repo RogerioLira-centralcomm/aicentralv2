@@ -357,19 +357,17 @@ class ProductPortalsTest(TestCase):
         conversations = client.get("/workspace/app/conversas", headers={"Host": "workspace.centralcomm.media"})
         self.assertEqual(conversations.status_code, 308)
         self.assertTrue(conversations.headers["Location"].endswith("/chat"))
-        sidebar_projects = [{"id": str(index), "nome": f"Projeto {index}"} for index in range(1, 7)]
-        with mock.patch("aicentralv2.cadu_workspace.routes._workspace_sidebar_projects", return_value=sidebar_projects):
-            response = client.get("/app", headers={"Host": "workspace.centralcomm.media"})
-            self.assertEqual(response.status_code, 200)
-            html = response.get_data(as_text=True)
-            self.assertIn('id="cadu-conversations-v2-root"', html)
-            self.assertIn('"homeMode": true', html)
-            self.assertIn('"name": "Apolo"', html)
-            self.assertIn('"newConversation": "/chat"', html)
-            self.assertNotIn('workspace-app-shell workspace-app-shell--home', html)
-            self.assertIn('"secondaryNav"', html)
-            for label in ("Equipe", "Planos", "Uso", "Perfil"):
-                self.assertIn(label, html)
+        response = client.get("/app", headers={"Host": "workspace.centralcomm.media"})
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn('id="cadu-conversations-v2-root"', html)
+        self.assertIn('"homeMode": true', html)
+        self.assertIn('"name": "Apolo"', html)
+        self.assertIn('"newConversation": "/chat"', html)
+        self.assertNotIn('workspace-app-shell workspace-app-shell--home', html)
+        self.assertIn('"secondaryNav"', html)
+        for label in ("Equipe", "Planos", "Uso", "Perfil"):
+            self.assertIn(label, html)
         self.assertEqual(client.get("/workspace/agentes", headers={"Host": "workspace.centralcomm.media"}).headers["Location"], "/skills/agentes")
         robots = client.get("/robots.txt", headers={"Host": "workspace.centralcomm.media"}).get_data(as_text=True)
         self.assertIn("Disallow: /workspace/app", robots)
@@ -387,22 +385,11 @@ class ProductPortalsTest(TestCase):
         self.assertNotIn("/workspace/app", sitemap)
         self.assertEqual(client.get("/workspace/assets/workspace-icon-64.png").status_code, 200)
 
-    def test_workspace_sidebar_prioritizes_last_opened_projects_and_limits_six(self):
+    def test_remember_workspace_project_keeps_most_recent_first(self):
         app = _app()
-        cursor = mock.MagicMock()
-        cursor.__enter__.return_value = cursor
-        cursor.fetchall.return_value = [
-            {"id": str(index), "nome": f"Projeto {index}"} for index in range(1, 8)
-        ]
-        connection = mock.MagicMock()
-        connection.cursor.return_value = cursor
-
         with app.test_request_context("/workspace/app", headers={"Host": "workspace.centralcomm.media"}):
             from flask import session
             session.update(user_id=7, cliente_id=12, workspace_recent_project_ids=["4", "2"])
-            with mock.patch("aicentralv2.cadu_workspace.routes.get_db", return_value=connection):
-                projects = workspace_routes._workspace_sidebar_projects(12)
-            self.assertEqual([item["id"] for item in projects], ["4", "2", "1", "3", "5", "6"])
             workspace_routes._remember_workspace_project("5")
             self.assertEqual(session["workspace_recent_project_ids"], ["5", "4", "2"])
 

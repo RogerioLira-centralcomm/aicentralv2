@@ -351,6 +351,8 @@ if should_run "$WORKERS_STATE_FILE" "${FORCE_WORKERS:-0}" deploy requirements.tx
     # the normal Git deploy so new queue entries cannot accumulate unnoticed.
     RESOURCE_REGISTRY_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_resource_registry_worker.sh >> "$DEPLOY_LOG" 2>&1
     CONVERSATION_MEMORY_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_conversation_memory_worker.sh >> "$DEPLOY_LOG" 2>&1
+    # Verificação diária de ads.txt dos portais do Planner (depende da migração add_cadu_planner_portal_programmatic).
+    PLANNER_MONITOR_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_planner_portal_ads_timer.sh >> "$DEPLOY_LOG" 2>&1
     record_state "$WORKERS_STATE_FILE"
 else
     echo "  > Workers sem alteracoes; reiniciando apenas o worker de midia."

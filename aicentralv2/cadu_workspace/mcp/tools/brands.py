@@ -123,16 +123,22 @@ def delete_asset(context: RequestContext, arguments: dict) -> dict:
         lambda: service.delete_asset(context, **payload)))
 
 
+def _with_brand_url(value: dict) -> dict:
+    """Link logado para o cliente ver a marca e o resultado da auditoria no Cadu."""
+    from ....product_domains import product_url
+    return {**value, "brand_url": product_url("workspace", f"/marcas/{int(value['brand_id'])}")}
+
+
 @register_tool(name="brands.start_audit", capability="workspace", effect="write",
                description="Inicia análise completa ou profunda da marca após confirmar o custo. Ambas publicam automaticamente uma base útil quando atingem o piso de evidência; a profunda amplia fontes, mercado e oportunidades sem elevar o gate de publicação. A auditoria pertence à marca, não altera o projeto atual e pode usar imagens aprovadas da biblioteca, incluindo o logo enviado pelo cliente.", exposures=("internal", "customer_agent"),
                input_schema={"type":"object","required":["request_id","confirmed","confirmed_cost"],"properties":{"request_id":{"type":"string","minLength":36,"maxLength":36},"confirmed":{"type":"boolean","enum":[True]},"confirmed_cost":{"type":"boolean","enum":[True]},"brand_id":{"type":"integer","minimum":1},"website_url":{"type":"string","maxLength":2000},"analysis_mode":{"type":"string","enum":["complete","deep"]},"include_project_sources":{"type":"boolean"},"social_links":{"type":"array","items":{"type":"string","maxLength":500},"maxItems":12},"additional_sources":{"type":"array","items":{"type":"string","maxLength":2000},"maxItems":12},"excluded_sources":{"type":"array","items":{"type":"string","maxLength":2000},"maxItems":12},"existing_asset_ids":{"type":"array","items":{"type":"integer","minimum":1},"maxItems":12}},"additionalProperties":False})
 def start_audit(context: RequestContext, arguments: dict) -> dict:
     values = {key: value for key, value in arguments.items() if key != "confirmed"}
-    return _domain(lambda: service.start_audit(context, **values))
+    return _domain(lambda: _with_brand_url(service.start_audit(context, **values)))
 
 
 @register_tool(name="brands.audit_status", capability="workspace", effect="read",
-               description="Consulta andamento, disponibilidade para uso, nível de qualidade, modalidade e custo da auditoria. O campo estimate traz o custo estimado em créditos e o tempo de cada modalidade antes de iniciar (apresente-o ao cliente para confirmar) ou o da auditoria em andamento; sem expor confiança bruta ao cliente.", exposures=("internal", "customer_agent"),
+               description="Consulta andamento, disponibilidade para uso, nível de qualidade, modalidade e custo da auditoria. O campo brand_url leva à página da marca no Cadu (com login), onde o resultado aparece: informe-o ao cliente. O campo estimate traz o custo estimado em créditos e o tempo de cada modalidade antes de iniciar (apresente-o ao cliente para confirmar) ou o da auditoria em andamento; sem expor confiança bruta ao cliente.", exposures=("internal", "customer_agent"),
                input_schema={"type":"object","required":["brand_id"],"properties":{"brand_id":{"type":"integer","minimum":1}},"additionalProperties":False})
 def audit_status(context: RequestContext, arguments: dict) -> dict:
-    return _domain(lambda: service.audit_status(context, arguments["brand_id"]))
+    return _domain(lambda: _with_brand_url(service.audit_status(context, arguments["brand_id"])))

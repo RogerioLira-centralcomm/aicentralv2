@@ -54,9 +54,9 @@ function FilledReading({items, emptyLabel = 'Adicione contexto para orientar as 
 }
 
 function BrandDialog({title, detail, onClose, children, className = '', confirm = false}) {
-  if (!confirm) return <WorkspaceDrawer title={title} detail={detail} onClose={onClose} size={/review|wide|audit/.test(className) ? 'lg' : 'md'}>{children}</WorkspaceDrawer>;
+  if (!confirm && !/audit/.test(className)) return <WorkspaceDrawer title={title} detail={detail} onClose={onClose} size={/review|wide/.test(className) ? 'lg' : 'md'}>{children}</WorkspaceDrawer>;
   return <CaduModal className={`cadu-ds-brand-dialog ${className}`} label={title} onClose={onClose}>
-    <header><div><h2>{title}</h2>{detail && <p>{detail}</p>}</div>{onClose && <button type="button" onClick={onClose} aria-label="Fechar">×</button>}</header>
+    <header><div><h2>{title}</h2>{detail && <p>{detail}</p>}</div>{onClose && <CaduButton type="button" variant="tertiary" onClick={onClose} aria-label="Fechar"><Icon name="close" size={18}/></CaduButton>}</header>
     {children}
   </CaduModal>;
 }

@@ -1,6 +1,8 @@
 from pathlib import Path
 from tests.deploy_text import deploy_text
 import os
+import re
+import subprocess
 from unittest import TestCase
 
 
@@ -21,12 +23,12 @@ class WorkspaceDeployIntegrityTest(TestCase):
             self.assertIn(partial, studio_context_bar)
             self.assertTrue((templates / partial).is_file(), partial)
 
-    def test_deploy_restores_versioned_react_bundles_before_pull(self):
-        """Generated Cadu bundles must not block the production merge."""
+    def test_deploy_restores_generated_bundles_before_pull(self):
+        """Generated bundles must not block the production merge."""
         deploy = deploy_text(ROOT)
 
-        for asset in (
-            "aicentralv2/static/cadu_workspace/conversations/react/app.css",
-            "aicentralv2/static/cadu_workspace/conversations/react/app.js",
-        ):
-            self.assertIn(f'restore_generated_file "{asset}"', deploy)
+        self.assertIn("git ls-files -ci --exclude-standard -- aicentralv2/static", deploy)
+        self.assertLess(deploy.index("restore_generated_file \"$generated_file\""), deploy.index("git pull origin main"))
+        tracked = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True).stdout.split()
+        for asset in re.findall(r'^\s+"(aicentralv2/static/[^"]+)"$', deploy, re.M):
+            self.assertIn(asset, tracked, f"{asset} está na lista de restauração mas não é versionado")

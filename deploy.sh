@@ -121,7 +121,7 @@ restore_generated_file() {
     fi
 
     mkdir -p "$backup_dir"
-    backup_name="$(basename "$generated_file")"
+    backup_name="${generated_file//\//__}"
     backup_file="$backup_dir/${backup_name}.$(date +%Y%m%d-%H%M%S)"
     if [ -f "$generated_file" ]; then
         cp "$generated_file" "$backup_file"
@@ -134,20 +134,18 @@ restore_generated_file() {
         git checkout -- "$generated_file"
 }
 
-restore_generated_file "aicentralv2/static/css/video-studio.css"
-restore_generated_file "aicentralv2/static/cadu_auth/app.css"
-restore_generated_file "aicentralv2/static/cadu_studio/editor/react/app.css"
-restore_generated_file "aicentralv2/static/cadu_studio/editor/react/app.js"
-restore_generated_file "aicentralv2/static/cadu_studio/ui/navbar.css"
-restore_generated_file "aicentralv2/static/cadu_studio/ui/navbar.js"
-restore_generated_file "aicentralv2/static/cadu_workspace/conversations/react/app.css"
-restore_generated_file "aicentralv2/static/cadu_workspace/conversations/react/app.js"
-restore_generated_file "aicentralv2/static/cadu_connect/react/app.css"
-restore_generated_file "aicentralv2/static/cadu_connect/react/app.js"
-restore_generated_file "aicentralv2/static/cadu_connect/react/untitled.css"
-restore_generated_file "aicentralv2/static/cadu_workspace/untitled/workspace-kit.css"
-restore_generated_file "aicentralv2/static/cadu_planner/react/app.css"
-restore_generated_file "aicentralv2/static/cadu_planner/react/app.js"
+# Gerados por build: os versionados que o .gitignore também cobre vêm do Git, então
+# um bundle novo ignorado não exige editar este script. Os versionados e não
+# ignorados (committed bundles) ficam nesta lista curta.
+VERSIONED_BUILD_OUTPUTS=(
+    "aicentralv2/static/cadu_planner/react/app.css"
+    "aicentralv2/static/cadu_planner/react/app.js"
+    "aicentralv2/static/cadu_studio/ui/navbar.css"
+    "aicentralv2/static/cadu_studio/ui/navbar.js"
+)
+while IFS= read -r generated_file; do
+    restore_generated_file "$generated_file"
+done < <({ git ls-files -ci --exclude-standard -- aicentralv2/static; printf '%s\n' "${VERSIONED_BUILD_OUTPUTS[@]}"; } | sort -u)
 git pull origin main >> "$DEPLOY_LOG" 2>&1
 # Renormalizar line endings apos pull
 git checkout -- . 2>/dev/null || true
@@ -257,15 +255,6 @@ if should_run "$FRONTEND_STATE_FILE" "${FORCE_FRONTEND_BUILD:-0}" \
         # this, npm ci/Vite can run for several minutes and the deploy appears
         # frozen at [4/9].
         bash ./build_frontend.sh 2>&1 | tee -a "$DEPLOY_LOG"
-    elif command -v npm >/dev/null 2>&1 && [ -f package.json ]; then
-        echo "  > Instalando dependências..."
-        npm install --no-audit --no-fund 2>&1 | grep -v "npm warn" | grep -v "install-scripts" >> "$DEPLOY_LOG"
-        echo "  > CSS (vanilla, artifact, studio)..."
-        npm run build:css 2>&1 | grep -E "Done in|✓ built" >> "$DEPLOY_LOG"
-        echo "  > Tailwind builds (conversations, reports)..."
-        npm run build:tailwind 2>&1 | grep -E "Done in|✓ built" >> "$DEPLOY_LOG"
-        echo "  > Vite builds (planner, auth, editor, audio)..."
-        npm run build:vite 2>&1 | grep -E "✓ built" >> "$DEPLOY_LOG"
     else
         echo "  > ERRO: build frontend indisponivel — output.css nao sera gerado"
         exit 1

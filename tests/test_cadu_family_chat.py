@@ -15,7 +15,7 @@ class ChatStreamTest(TestCase):
         self.addCleanup(patch.stop)
 
     def events(self, provider_events):
-        with mock.patch.object(chat.dify, 'events', return_value=iter(provider_events)), \
+        with mock.patch.object(conversation_service.runtime_provider, 'events', return_value=iter(provider_events)), \
              mock.patch.object(conversation_service, 'charge_chat_usage') as charge:
             self.charge = charge
             return [json.loads(value.removeprefix('data: ')) for value in chat.stream(self.run)]
@@ -46,14 +46,14 @@ class ChatStreamTest(TestCase):
         self.assertEqual(message[2], 'Parcial')
 
     def test_disconnect_stops_provider_and_saves_partial_response(self):
-        with mock.patch.object(chat.dify, 'events', return_value=iter([
+        with mock.patch.object(conversation_service.runtime_provider, 'events', return_value=iter([
             {'event': 'message', 'answer': 'Parcial', 'task_id': 'task-1'},
-        ])), mock.patch.object(chat.dify, 'stop') as stop:
+        ])), mock.patch.object(conversation_service.runtime_provider, 'stop') as stop:
             stream = chat.stream(self.run)
             next(stream)
             next(stream)
             stream.close()
-            stop.assert_called_once_with('task-1', 'user-7')
+            stop.assert_called_once_with('task-1', 'user-7', 'analysis')
         calls = self.db.cursor.return_value.__enter__.return_value.execute.call_args_list
         status = next(call.args[1][0] for call in calls if 'SET status = %s' in call.args[0])
         self.assertEqual(status, 'stopped')

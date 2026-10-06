@@ -486,6 +486,46 @@ A primeira tentativa falhou e foi corrigida:
 - objetivo: medir a v1.1 e a v1.2 com o critério de pontos;
 - custo estimado: 15 a 20 mil tokens por cenário, quase tudo do F2.
 
+### Rodada final e fluxo padrão (2026-10-06)
+
+Os fluxos F1, F2 e F5 rodaram nos cenários Cemig, Nike e Bomfim, com 2 voltas de revisão e 2 de prompt.
+
+- **Custo e tempo:** 51 mil tokens Cadu e US$ 1,44, cerca de 3 minutos por cenário, rodando em paralelo.
+- **Comparação justa:** a tabela usa a primeira passada do revisor, a única em que os três fluxos são julgados juntos e nas mesmas condições.
+
+| Fluxo | Pontos (3 cenários) | Boas / total | Tokens Cadu por busca | US$ por busca | Vitórias no revisor |
+|---|---|---|---|---|---|
+| **F1 Perplexity + imprensa** | **39,8** | **9/12** | **551** | 0,088 | 2 de 3 |
+| F2 OpenAI nativo | 29,8 | 7/12 | 14.673 | 0,109 | 1 de 3 |
+| F5 Grok + web e X | 4,2 | 1/8 | 1.516 | 0,243 | 0 de 3 |
+
+Somando com as duas rodadas anteriores no cenário Cemig, o F1 venceu ou empatou em todas as comparações. Ele também tem o menor custo por oportunidade boa.
+
+**Fluxo padrão do Radar: F1.**
+
+1. **Descoberta em paralelo, toda com Perplexity via OpenRouter:**
+   - `sonar-pro` na busca aberta;
+   - `sonar` só na imprensa curada (`sources.press_domains`, com os regionais das praças);
+   - `sonar` nas buscas em alta.
+2. **Leitura das páginas citadas** pelo Firecrawl, com o leitor Python gratuito como reserva.
+3. **Juiz `openai/gpt-5.4-mini`** via OpenRouter, que é cobrado pelo custo. Prompt `judge` v1.0.
+4. **Checagem de realidade obrigatória com `sonar`**, buscando fora do pacote. Prompt `reality_check` v1.0.
+5. **Nível das fontes e selo de confiança** (`sources.py`). Selo baixo não vira alerta.
+
+**O que não vai para produção agora:**
+
+- **Loop de revisão das oportunidades.** O revisor Haiku oscila demais entre passadas: a mesma lista do F1 no Cemig foi de 18,0 para 12,8 pontos sem mudar nada, e o ruído chegou a 1,07 ponto no Bomfim. Com tanta variação, o loop ora melhora (F2 Nike: de 8,0 para 13,4), ora destrói (F1 Nike: de 12,8 para 0, e a guarda manteve a original). Volta a ser avaliado com dois revisores ou com média de passadas.
+- **Loop de prompts.** O médico de prompts (`gpt-5.4`) não rodou porque o **saldo do OpenRouter acabou** (US$ 0,12 de US$ 465). Os prompts v1.0 seguem como padrão.
+
+**Para levar o F1 ao pipeline de produção** (`cadu_radar/pipeline.py`):
+
+- trocar o `discover` pelas três buscas do F1;
+- usar os prompts de `prompts.py`;
+- incluir a checagem com `sonar` e o selo de `sources.py`;
+- **recalcular a reserva de créditos pelo custo**.
+
+Hoje a reserva é fixa em 15.207 tokens. Para o cliente 174, o débito real do F1 é de cerca de 550 tokens.
+
 ### Ajuda ao usuário na tela do Radar (2026-10-06)
 
 - **Ideias de busca:**

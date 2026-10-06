@@ -368,6 +368,25 @@ def toggle_item(client_id, actor_id, plan_id, payload):
     return {'selected': selected, 'record': record}
 
 
+def add_items(client_id, actor_id, plan_id, payload):
+    """Add portals to a plan in one transaction; never removes anything."""
+    from .portals import records
+    plan = get_plan(client_id, actor_id, plan_id)
+    if str(payload.get('kind') or '') != 'portais':
+        raise BadRequest('A seleção em lote está disponível para portais.')
+    found = records([str(item) for item in (payload.get('resource_ids') or [])][:200])
+    with get_db() as conn, conn.cursor() as cur:
+        cur.execute("SELECT resource_id FROM cadu_planner_plan_items WHERE plan_id = %s AND kind = 'portais'", (str(plan['id']),))
+        have = {str(row['resource_id']) for row in cur.fetchall()}
+        added = [record for record in found if str(record['id']) not in have]
+        for record in added:
+            cur.execute("INSERT INTO cadu_planner_plan_items (plan_id, kind, resource_id, snapshot) VALUES (%s, 'portais', %s, %s)",
+                        (str(plan['id']), str(record['id']), Json(record)))
+        if added:
+            cur.execute('UPDATE cadu_planner_plans SET updated_at = NOW() WHERE id = %s', (str(plan['id']),))
+    return {'added': len(added), 'resource_ids': [str(record['id']) for record in found]}
+
+
 def request_quote(client_id, actor_id, plan_id, payload):
     """Freeze a client plan for the commercial team; never create prices here."""
     plan = get_plan(client_id, actor_id, plan_id)

@@ -115,6 +115,20 @@ def catalog_ids(query='', category='', scope='', uf='', ads_txt='', programmatic
     return [row['id'] for row in rows]
 
 
+def records(portal_ids):
+    """Active portals by id in one query (bulk selection snapshots)."""
+    from ..cadu_family import repository
+    ids = []
+    for value in portal_ids:
+        try:
+            ids.append(int(value))
+        except (TypeError, ValueError):
+            raise BadRequest('Identificador de portal inválido.')
+    if not ids:
+        return []
+    return repository.rows(f'SELECT {PORTAL_COLUMNS} FROM cadu_planner_portals WHERE id = ANY(%s) AND active = TRUE', (ids,))
+
+
 def catalog_facets():
     from ..cadu_family import repository
     rows = repository.rows('''SELECT DISTINCT category FROM cadu_planner_portals

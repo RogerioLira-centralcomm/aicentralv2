@@ -1001,6 +1001,14 @@ def planner_plan_item_toggle(plan_id):
     return jsonify(plans.toggle_item(selected['client_id'], user['id'], plan_id, request.get_json(silent=True) or {}))
 
 
+@bp.post('/api/planner/plans/<plan_id>/items/bulk')
+def planner_plan_items_bulk(plan_id):
+    from ..cadu_planner import plans
+    selected = writable_context()
+    user = context.identity()
+    return jsonify(plans.add_items(selected['client_id'], user['id'], plan_id, request.get_json(silent=True) or {}))
+
+
 @bp.post('/api/planner/plans/<plan_id>/quote-requests')
 def planner_plan_quote_request(plan_id):
     """Freeze the customer plan for commercial review; pricing remains in CRM."""
@@ -1019,6 +1027,14 @@ def planner_plan_share(plan_id):
     data = request.get_json(silent=True) or {}
     return jsonify(plan=plans.share_plan(selected['client_id'], user['id'], plan_id,
                                          data.get('enabled', True)))
+
+
+@bp.post('/api/planner/selections/bulk')
+def planner_selections_bulk():
+    from ..cadu_planner import selections
+    selected = writable_context()
+    user = context.identity()
+    return jsonify(selections.add_many(selected['client_id'], user['id'], request.get_json(silent=True) or {}))
 
 
 @bp.post('/api/planner/selections/toggle')

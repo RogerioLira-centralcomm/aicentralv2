@@ -89,3 +89,9 @@ def test_check_portal_never_raises_so_one_host_cannot_abort_a_batch(monkeypatch)
                                               ('missing', False), ('valid', False), ('http_403', False)])
 def test_transient_failures_are_distinguished_from_definitive_results(status, transient):
     assert portal_ads._transient(status) is transient
+
+
+def test_bulk_add_only_accepts_portals():
+    from aicentralv2.cadu_planner import selections
+    with pytest.raises(BadRequest):
+        selections.add_many(1, 2, {'kind': 'canais', 'resource_ids': [1]})

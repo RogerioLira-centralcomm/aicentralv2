@@ -107,7 +107,7 @@ export function CatalogCard({kind, item, urls, selected}) {
 const SCOPES = [['', 'Todos'], ['nacional_premium', 'Premium nacionais'], ['regional', 'Regionais']];
 const PROGRAMMATIC = [['', 'Programático: todos'], ['any', 'Com programático'], ['detected', 'Tags detectadas'], ['declared', 'Só ads.txt'], ['adsense_native', 'AdSense / nativo'], ['not_detected', 'Não detectado'], ['unchecked', 'Não verificado']];
 const ADS_TXT = [['', 'ads.txt: todos'], ['valid', 'ads.txt válido'], ['partial', 'ads.txt parcial'], ['missing', 'Sem ads.txt válido'], ['unchecked', 'Não verificado']];
-const BULK_LIMIT = 50;
+const BULK_LIMIT = 200;
 
 function minutes(seconds) {
   const value = Number(seconds);
@@ -145,9 +145,9 @@ function PortalRow({item, urls, selected}) {
       <small>{item.domain}</small>
     </span>
     <span className="planner-portal__fact"><small>Categoria</small><b>{item.category || 'Não categorizado'}</b><small>{region}</small></span>
-    <span className="planner-portal__fact"><small>Acessos / mês</small><b>{visits > 0 ? visits.toLocaleString('pt-BR', {notation: 'compact', maximumFractionDigits: 1}) : 'Sem fonte'}</b><small>{item.avg_time_seconds > 0 ? `Tempo médio ${minutes(item.avg_time_seconds)}` : 'Tempo médio: sem fonte'}</small></span>
-    <span className="planner-portal__fact"><small>Anúncios</small><b>{programmatic}</b><small>{hint}</small></span>
-    <span className="planner-portal__fact">{adsBadge(item)}</span>
+    <span className="planner-portal__fact planner-portal__fact--extra"><small>Acessos / mês</small><b>{visits > 0 ? visits.toLocaleString('pt-BR', {notation: 'compact', maximumFractionDigits: 1}) : 'Sem fonte'}</b><small>{item.avg_time_seconds > 0 ? `Tempo médio ${minutes(item.avg_time_seconds)}` : 'Tempo médio: sem fonte'}</small></span>
+    <span className="planner-portal__fact planner-portal__fact--extra"><small>Anúncios</small><b>{programmatic}</b><small>{hint}</small></span>
+    <span className="planner-portal__fact planner-portal__fact--extra">{adsBadge(item)}</span>
     <Icon name="chevron" size={16}/>
   </a>;
 }
@@ -199,9 +199,12 @@ export function CatalogPage({boot, request, selection, notify}) {
       const params = new URLSearchParams({q: search, category: categories.join(',')});
       Object.entries(filters).forEach(([key, value]) => { if (value) params.set(key, value); });
       const {ids = []} = await request(`/catalog/portais/ids?${params}`);
-      const pending = ids.filter(id => !selection.isSelected(kind, id)).slice(0, BULK_LIMIT);
-      for (const id of pending) await selection.toggle(kind, id);
-      notify({message: ids.length > BULK_LIMIT ? `${pending.length} adicionados (limite de ${BULK_LIMIT} por vez; refine o filtro para o restante).` : `${pending.length} portais adicionados ao plano.`});
+      const batch = ids.slice(0, BULK_LIMIT);
+      const result = await selection.addMany(kind, batch);
+      if (result) {
+        const rest = Math.max(total, ids.length) - batch.length;
+        notify({message: `${result.added} ${result.added === 1 ? 'portal adicionado' : 'portais adicionados'} ao plano${rest > 0 ? `; ${rest} ficaram de fora (limite de ${BULK_LIMIT} por vez, refine o filtro)` : ''}.`});
+      }
     } catch (error) { notify({tone: 'error', message: error.message}); } finally { setBulkBusy(false); }
   }
 

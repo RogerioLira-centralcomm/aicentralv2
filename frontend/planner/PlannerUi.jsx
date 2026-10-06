@@ -87,6 +87,23 @@ export function usePlanSelection(request, plan, onPlanChange, notify, enabled = 
     }
   }, [request, planId, onPlanChange, notify]);
 
+  // Adds many references at once (never removes): one request, one notice.
+  const addMany = useCallback(async (kind, ids) => {
+    try {
+      const path = planId ? `/plans/${planId}/items/bulk` : '/selections/bulk';
+      const data = await request(path, {method: 'POST', body: JSON.stringify({kind, resource_ids: ids.map(String)})});
+      setKeys(current => new Set([...current, ...(data.resource_ids || []).map(id => `${kind}:${id}`)]));
+      if (planId && onPlanChange) {
+        const updated = await request(`/plans/${planId}`);
+        onPlanChange(updated.plan);
+      }
+      return data;
+    } catch (error) {
+      notify?.({tone: 'error', message: error.message});
+      return undefined;
+    }
+  }, [request, planId, onPlanChange, notify]);
+
   const isSelected = useCallback((kind, id) => keys.has(`${kind}:${id}`), [keys]);
-  return {isSelected, toggle};
+  return {isSelected, toggle, addMany};
 }

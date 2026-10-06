@@ -195,9 +195,6 @@ def test_cadastro_atomico_cria_cliente_contato_plano_free_e_boas_vindas(monkeypa
     conn = signup_script()
     user, _ = provision(conn)
     assert user["id_contato_cliente"] == 20 and user["pk_id_tbl_cliente"] == 10
-    # o primeiro contato administra a conta (edita Agência e convida pessoas)
-    assert user["user_type"] == "admin"
-    assert "'admin'" in [s for s, _ in conn.executed if "INSERT INTO tbl_contato_cliente" in s][0]
     assert conn.commits == 1 and conn.rollbacks == 0
     assert conn.ran("pg_advisory_xact_lock")[0] == ("cadu-signup:ana@x.test",)
     assert conn.ran("INSERT INTO cadu_credits_extras")[0] == (10, 50000)

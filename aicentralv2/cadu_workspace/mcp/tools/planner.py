@@ -44,16 +44,71 @@ _CATALOG_FIELDS = {
 }
 
 
+def _public_url(path):
+    """Absolute URL for a stored media path, so the agent can render it outside the Cadu pages."""
+    from ....product_domains import product_url
+    value = str(path or "").strip()
+    if value.startswith(("http://", "https://")):
+        return value
+    return product_url("planner", value) if value.startswith("/static/") else ""
+
+
+def _logo_for(kind, row):
+    if kind == "canais":
+        from ....cadu_planner.channels import _channel_logo
+        return _channel_logo(row.get("slug"), row.get("logo_path"))
+    if kind == "portais":
+        return row.get("favicon_url") or ""
+    return row.get("platform_logo") or ""
+
+
+def _cadu_url(kind, row):
+    from ....product_domains import product_url
+    if kind == "places":
+        return product_url("planner", f"/places/{row.get('slug')}") if row.get("slug") else ""
+    return product_url("planner", f"/{kind}/{row.get('id')}") if row.get("id") else ""
+
+
+def _card(kind, item):
+    """Markdown the agent can paste as is: image, name, key facts and the link to open it in the Cadu."""
+    lines = []
+    if item.get("image_url"):
+        lines.append(f"![{item.get('name') or kind}]({item['image_url']})")
+    title = f"**{item.get('name') or ''}**"
+    if item.get("logo_url"):
+        title = f"![logo]({item['logo_url']}) " + title
+    facts = [str(item[key]) for key in ("category", "subcategory", "platform", "city", "audience",
+                                        "audience_estimate", "dimensions") if item.get(key)]
+    lines.append(title + (" · " + " · ".join(facts[:4]) if facts else ""))
+    description = " ".join(str(item.get("description") or "").split())
+    if description:
+        lines.append(description[:220] + ("…" if len(description) > 220 else ""))
+    if item.get("cadu_url"):
+        lines.append(f"[Abrir no Cadu]({item['cadu_url']})")
+    return "\n".join(lines)
+
+
 def _project(records, kind):
     fields = _CATALOG_FIELDS[kind]
-    return [{key: row.get(key) for key in fields} for row in records if isinstance(row, dict)]
+    projected = []
+    for row in records:
+        if not isinstance(row, dict):
+            continue
+        item = {key: row.get(key) for key in fields}
+        item["image_url"] = _public_url(row.get("image_url"))
+        item["logo_url"] = _public_url(_logo_for(kind, row))
+        item["cadu_url"] = _cadu_url(kind, row)
+        item["card"] = _card(kind, item)
+        projected.append(item)
+    return projected
 
 
 @register_tool(
     name="planner.search_catalog", capability="planner", effect="read",
     description=("Pesquisa o catálogo do Planner: audiências, canais, formatos, formatos interativos, portais e Places. "
                  "Somente leitura e sem custo: use para enriquecer pesquisas, anotações e planejamentos sem abrir o Cadu. "
-                 "Não traz valores comerciais."),
+                 "Cada registro traz image_url, logo_url, cadu_url e card (markdown pronto): mostre o card à pessoa para ela ver o item na conversa, "
+                 "com imagem e logo. Não traz valores comerciais."),
     exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "required": ["kind"], "properties": {
         "kind": {"type": "string", "enum": sorted(_CATALOG_FIELDS)},

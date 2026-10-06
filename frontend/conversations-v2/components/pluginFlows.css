@@ -136,3 +136,14 @@
 @media (max-width: 700px) {
   #cadu-conversations-v2-root .cv-plugin-shelf.cv-plugin-flow-shelf ul { grid-template-columns: 1fr; }
 }
+
+/* Cartões alinhados: modos no rodapé, 2 colunas quando há 4 ou menos de 3, marca discreta e selos sem quebra */
+#cadu-conversations-v2-root .cv-plugin-flow-card__modes { margin-top: auto; }
+#cadu-conversations-v2-root .cv-plugin-flow-card__modes[data-count="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#cadu-conversations-v2-root .cv-plugin-flow-card__modes[data-count="1"] { grid-template-columns: minmax(0, 1fr); }
+#cadu-conversations-v2-root .cv-plugin-flow-card p { min-height: 36px; }
+#cadu-conversations-v2-root .cv-plugin-flow-card__heading .cv-plugin-mark,
+#cadu-conversations-v2-root .cv-plugin-card .cv-plugin-mark { width: 32px; height: 32px; border-width: 1px; box-shadow: none; }
+#cadu-conversations-v2-root .cv-plugin-card > :last-child:not(.cv-plugin-card__copy) { flex: none; white-space: nowrap; }
+#cadu-conversations-v2-root .cv-plugin-shelf { margin-bottom: 28px; }
+#cadu-conversations-v2-root .cv-plugin-card.is-disabled { min-height: 56px; }

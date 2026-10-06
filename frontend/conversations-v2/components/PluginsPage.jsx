@@ -65,7 +65,7 @@ export function PluginsPage({onClose, onUsePlugin, caduMark = '', exploreUrl = '
               <span className="cv-plugin-mark" aria-hidden="true"><Icon name={flow.icon} size={19}/></span>
               <div><h3>{flow.name}</h3><p>{flow.description}</p></div>
             </div>
-            <div className="cv-plugin-flow-card__modes" aria-label={`Modos de ${flow.name}`}>
+            <div className="cv-plugin-flow-card__modes" data-count={flow.availableModes.length} aria-label={`Modos de ${flow.name}`}>
               {flow.availableModes.map(mode => <CaduButton key={mode.id} variant="secondary" size="sm" onClick={() => onUsePlugin?.(mode.plugin)}
                 aria-label={`${flow.name}: ${mode.label}`}>{mode.label}</CaduButton>)}
               {flow.upcomingModes.map(mode => <span key={mode.id} className="is-upcoming" title="Em desenvolvimento">

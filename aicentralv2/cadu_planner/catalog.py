@@ -162,7 +162,13 @@ def query(kind, value='', limit=20, category='', channel=''):
     # Keep the API and the Planner pages on one audited projection.  The
     # repository caps source records; the API's smaller limit is then applied
     # after validation, without duplicating database SQL here.
-    return repository.catalog(kind, value.strip()[:100])[:limit]
+    records = repository.catalog(kind, value.strip()[:100])[:limit]
+    if kind == 'canais':
+        # The shelf columns are for the Planner grid; API, MCP and chat callers keep the previous shape.
+        for record in records:
+            for key in ('tipo', 'imagem_path', 'og_image_path', 'imagens', 'viewability', 'completion_rate', 'usuarios_unicos'):
+                record.pop(key, None)
+    return records
 
 
 def detail(kind, value):

@@ -18,7 +18,7 @@ export function WorkspaceMobileChrome({title = 'Workspace', eyebrow = 'Workspace
         return;
       }
       if (event.key !== 'Tab') return;
-      const focusable = [...(panel.current?.querySelectorAll('a[href],button:not([disabled])') || [])];
+      const focusable = [...(panel.current?.querySelectorAll('a[href],button:not([disabled]),summary') || [])];
       if (!focusable.length) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];

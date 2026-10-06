@@ -1,4 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
+import {CaduInput} from './CaduInput';
 import './WorkspaceBrand.css';
 import {WorkspaceContextSidebar} from './WorkspaceContextSidebar';
 import {Icon} from './Icon';
@@ -21,7 +22,7 @@ const campaignProjectUrl = (template, id) => String(template || '').replace('__C
 
 const auditSteps = ['Fontes oficiais', 'Identidade visual', 'Mercado e campanhas', 'Consolidação'];
 
-function BrandState({type, brand, canEdit, onAudit, onIdentity, logoUrl, progress = 1}) {
+function BrandState({type, brand, canEdit, onAudit, onIdentity, logoUrl, progress = 1, hasHistory = false}) {
   const processing = type === 'processing';
   const failed = type === 'failed';
   return <section className={`cadu-ds-brand-state cadu-ds-brand-state--${type}`} id={processing ? 'analise' : 'estado-marca'} aria-live={processing ? 'polite' : undefined}>
@@ -29,10 +30,10 @@ function BrandState({type, brand, canEdit, onAudit, onIdentity, logoUrl, progres
       {processing && <><i className="cadu-ds-brand-orbit cadu-ds-brand-orbit--one"/><i className="cadu-ds-brand-orbit cadu-ds-brand-orbit--two"/><i className="cadu-ds-brand-orbit cadu-ds-brand-orbit--three"/><div className="cadu-ds-brand-audit-mark">{logoUrl ? <img src={logoUrl} alt=""/> : <span>{String(brand.name || 'M').slice(0, 1)}</span>}</div></>}
     </div>
     <div className="cadu-ds-brand-state__copy">
-      <p>{processing ? 'Auditoria em andamento' : failed ? 'Não foi possível concluir a análise' : 'Informações insuficientes'}</p>
-      <h2>{processing ? <>Estamos organizando os sinais de {brand.name}</> : failed ? 'Corrija a fonte antes de tentar novamente' : 'Ainda não há informações suficientes sobre esta marca'}</h2>
-      <span>{processing ? logoUrl ? 'Identidade oficial localizada. Agora estamos analisando fontes, sistema visual e presença pública.' : 'O site, os links oficiais e as referências estão sendo processados.' : failed ? brand.reviewPack?.error || 'A fonte principal não pôde ser confirmada. Revise o endereço e inicie uma nova auditoria.' : 'Adicione o site oficial, a logo ou referências confiáveis para identificar posicionamento, público e sistema visual.'}</span>
-      {processing ? <><div className="cadu-ds-brand-audit-progress" role="progressbar" aria-label="Progresso da auditoria" aria-valuemin="1" aria-valuemax="4" aria-valuenow={progress}>{auditSteps.map((step, index) => <div key={step} className={index + 1 < progress ? 'is-complete' : index + 1 === progress ? 'is-active' : ''}><i/><span>{step}</span></div>)}</div><small>Você pode sair desta página. O processamento continua em segundo plano.</small></> : <div className="cadu-ds-brand-state__actions">{canEdit && <CaduButton type="button" onClick={onAudit}>Preparar análise</CaduButton>}{canEdit && <CaduButton variant="secondary" type="button" onClick={onIdentity}>Adicionar informações</CaduButton>}</div>}
+      <p>{processing ? 'Auditoria em andamento' : failed ? 'Não foi possível concluir a análise' : hasHistory ? 'Análise concluída sem dados suficientes' : 'Informações insuficientes'}</p>
+      <h2>{processing ? <>Estamos organizando os sinais de {brand.name}</> : failed ? 'Corrija a fonte antes de tentar novamente' : hasHistory ? 'A última análise não encontrou dados suficientes' : 'Ainda não há informações suficientes sobre esta marca'}</h2>
+      <span>{processing ? logoUrl ? 'Identidade oficial localizada. Agora estamos analisando fontes, sistema visual e presença pública.' : 'O site, os links oficiais e as referências estão sendo processados.' : failed ? brand.reviewPack?.error || 'A fonte principal não pôde ser confirmada. Revise o endereço e inicie uma nova auditoria.' : hasHistory ? 'Adicione informações, a logo ou referências confiáveis e rode uma nova análise para completar posicionamento, público e sistema visual.' : 'Adicione o site oficial, a logo ou referências confiáveis para identificar posicionamento, público e sistema visual.'}</span>
+      {processing ? <><div className="cadu-ds-brand-audit-progress" role="progressbar" aria-label="Progresso da auditoria" aria-valuemin="1" aria-valuemax="4" aria-valuenow={progress}>{auditSteps.map((step, index) => <div key={step} className={index + 1 < progress ? 'is-complete' : index + 1 === progress ? 'is-active' : ''}><i/><span>{step}</span></div>)}</div><small>Você pode sair desta página. O processamento continua em segundo plano.</small></> : <div className="cadu-ds-brand-state__actions">{canEdit && <CaduButton type="button" onClick={onAudit}>{hasHistory ? 'Nova análise' : 'Preparar análise'}</CaduButton>}{canEdit && <CaduButton variant="secondary" type="button" onClick={onIdentity}>Adicionar informações</CaduButton>}</div>}
     </div>
   </section>;
 }
@@ -65,8 +66,8 @@ function IdentityDialog({brand, urls, csrfToken, onClose}) {
   return <BrandDialog title="Dados administrativos" detail="A identidade visual vem da análise da marca. Alterações de direção devem acontecer em conversa com o Cadu e ferramentas conectadas." onClose={onClose}>
     <form className="cadu-ds-brand-form" method="post" action={urls.updateIdentity}>
       <Hidden name="_csrf" value={csrfToken}/>
-      <label>Nome da marca<input name="name" required minLength="2" maxLength="150" defaultValue={brand.name}/></label>
-      <label>Site oficial<input name="website_url" type="url" maxLength="2000" placeholder="https://" defaultValue={brand.websiteUrl}/></label>
+      <CaduInput label="Nome da marca" name="name" required minLength="2" maxLength="150" defaultValue={brand.name}/>
+      <CaduInput label="Site oficial" name="website_url" type="url" maxLength="2000" placeholder="https://" defaultValue={brand.websiteUrl}/>
       <small className="cadu-ds-brand-form__note">Cores, tipografia, logo e direção não são editadas manualmente. Elas são extraídas das fontes, revisadas e aprovadas.</small>
       <footer><CaduButton variant="secondary" type="button" onClick={() => window.location.assign(urls.conversation)}>Atualizar em conversa</CaduButton><CaduButton variant="secondary" type="button" onClick={onClose}>Cancelar</CaduButton><CaduButton type="submit">Salvar metadados</CaduButton></footer>
     </form>
@@ -83,7 +84,7 @@ function CreateBrandProjectDialog({brand, action, csrfToken, onClose}) {
   return <BrandDialog title={`Novo projeto para ${brand.name}`} detail="O projeto será criado já conectado à base desta marca." onClose={onClose}>
     <form className="cadu-ds-project-form" method="post" action={action}>
       <Hidden name="_csrf" value={csrfToken}/><Hidden name="brand_id" value={brand.id}/>
-      <label>Nome<input name="name" required minLength="2" maxLength="150" autoFocus/></label>
+      <CaduInput label="Nome" name="name" required minLength="2" maxLength="150" autoFocus/>
       <label>Contexto inicial<textarea name="description" rows="3" maxLength="4000"/></label>
       <label>Orientações para o Cadu<textarea name="instructions" rows="4" maxLength="12000"/></label>
       <footer><CaduButton variant="secondary" type="button" onClick={onClose}>Cancelar</CaduButton><CaduButton type="submit">Criar projeto</CaduButton></footer>
@@ -151,7 +152,7 @@ function BrandAuditSources({initialAdditional = [], initialExcluded = []}) {
     <Hidden name="source_preferences_present" value="true"/>
     <summary>Adicionar fonte específica</summary>
     <div className="cadu-ds-brand-audit-sources__form">
-      <label>Endereço<input type="url" value={value} placeholder="https://" onChange={event => { setValue(event.target.value); setError(''); }} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); add(); } }}/></label>
+      <CaduInput label="Endereço" type="url" value={value} placeholder="https://" onChange={event => { setValue(event.target.value); setError(''); }} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); add(); } }}/>
       <label className="cadu-ds-brand-audit-sources__exclude"><input type="checkbox" checked={exclude} onChange={event => setExclude(event.target.checked)}/> Ignorar esta fonte</label>
       <CaduButton variant="secondary" type="button" onClick={add}>Adicionar</CaduButton>
       {error && <small role="alert">{error}</small>}
@@ -607,10 +608,10 @@ export function WorkspaceBrand({bootstrap}) {
           </SidebarNavGroup>}
         </EntityNavigator>}
         <section className="cadu-ds-brand-content">
-          <header className="cadu-ds-brand-hero cadu-ds-entity-detail-header" id="marca-visao"><div className="cadu-ds-brand-hero__identity"><VisualIdentity src={brand.logoUrl} initials={brand.initials || brand.name} label={brand.name} color={brand.color || colors[0]?.hex}/></div><div className="cadu-ds-brand-hero__copy"><p>{brand.sector || 'Marca'}</p><h1>{brand.name}</h1>{!isProcessing && (profile.brandSummary || profile.positioning) && <span>{profile.brandSummary || profile.positioning}</span>}<div className="cadu-ds-brand-hero__meta"><span className={`cadu-ds-brand-status is-${lifecycle}`}>{lifecycle === 'approved' ? 'Pronta para uso' : lifecycle === 'pending_approval' ? 'Revisão pendente' : lifecycle === 'audit_processing' ? 'Em análise' : lifecycle === 'audit_failed' ? 'Análise não concluída' : lifecycle === 'data_available' ? 'Base disponível' : 'Sem auditoria'}</span>{brand.websiteUrl && <a href={brand.websiteUrl} target="_blank" rel="noreferrer">Site oficial</a>}</div></div></header>
+          <header className="cadu-ds-brand-hero cadu-ds-entity-detail-header" id="marca-visao"><div className="cadu-ds-brand-hero__identity"><VisualIdentity src={brand.logoUrl} initials={brand.initials || brand.name} label={brand.name} color={brand.color || colors[0]?.hex}/></div><div className="cadu-ds-brand-hero__copy"><p>{brand.sector || 'Marca'}</p><h1>{brand.name}</h1>{!isProcessing && (profile.brandSummary || profile.positioning) && <span>{profile.brandSummary || profile.positioning}</span>}<div className="cadu-ds-brand-hero__meta"><span className={`cadu-ds-brand-status is-${lifecycle}`}>{lifecycle === 'approved' ? 'Pronta para uso' : lifecycle === 'pending_approval' ? 'Revisão pendente' : lifecycle === 'audit_processing' ? 'Em análise' : lifecycle === 'audit_failed' ? 'Análise não concluída' : lifecycle === 'data_available' ? 'Base disponível' : auditHistory.length ? 'Análise sem dados suficientes' : 'Sem auditoria'}</span>{brand.websiteUrl && <a href={brand.websiteUrl} target="_blank" rel="noreferrer">Site oficial</a>}</div></div></header>
           {isProcessing ? <BrandState type="processing" brand={brand} logoUrl={auditLogoUrl} progress={auditProgress}/> : <>{lifecycle !== 'insufficient_information' && <BrandCompletion score={readinessScore} missing={brand.readiness?.missing || []} breakdown={brand.readiness?.breakdown || []} processing={false} onAudit={() => setDialog('audit')} onEdit={() => setDialog('identity')}/>}
           {showDossier && <section className={`cadu-ds-brand-review cadu-ds-brand-review--${status || 'idle'}`}><div><p>Estado da base</p><h2>{reviewTitle}</h2><span>{reviewDescription}</span>{canShowSynthesis && <CaduButton variant="secondary" type="button" onClick={() => setDialog('reviews')}>Consultar síntese da análise</CaduButton>}</div></section>}
-          {lifecycle === 'insufficient_information' && <BrandState type="new" brand={brand} canEdit={canEdit} onAudit={() => setDialog('audit')} onIdentity={() => setDialog('identity')}/>}
+          {lifecycle === 'insufficient_information' && <BrandState type="new" hasHistory={auditHistory.length > 0} brand={brand} canEdit={canEdit} onAudit={() => setDialog('audit')} onIdentity={() => setDialog('identity')}/>}
           {lifecycle === 'audit_failed' && <BrandState
             type="failed"
             brand={brand}

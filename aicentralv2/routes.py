@@ -1328,6 +1328,9 @@ def init_routes(app):
                     user_email=email, user_name=nome, cliente_nome=nome,
                     login_link=product_url('workspace'), client_id=user['pk_id_tbl_cliente'],
                 )
+                from aicentralv2.services.cadu_token_emails import send_public_welcome_tokens_email
+                send_public_welcome_tokens_email(user_email=email, user_name=nome,
+                                                 client_id=user['pk_id_tbl_cliente'])
                 send_launch_bonus_email(
                     user_email=email, user_name=nome, cliente_nome=nome,
                     client_id=user['pk_id_tbl_cliente'],

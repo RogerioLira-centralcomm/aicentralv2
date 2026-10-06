@@ -162,6 +162,9 @@ def request_plan_change(*, user_id: int, client_id: int, data: dict, ip: str = "
     logger.info("Solicitação de plano %s: usuário %s, cliente %s, de %s para %s",
                 request_id, user_id, client_id, before["plan_name"], plan["slug"])
     sent = _notify_finance(request_id, actor, client_id, plan, before, billing)
+    from .services.cadu_token_emails import send_plan_request_received_email
+    send_plan_request_received_email(user_email=actor.get("email") or "", user_name=actor.get("name") or "",
+                                     plan_name=plan["name"], request_id=request_id)
     return {"request_id": request_id, "plan": plan, "duplicate": False, "notification_sent": sent}
 
 

@@ -186,6 +186,11 @@ def google_callback():
                     cliente_nome=user.get('nome_completo'), login_link=product_url('workspace'),
                     client_id=user.get('pk_id_tbl_cliente'),
                 )
+                from ..services.cadu_token_emails import send_public_welcome_tokens_email
+                send_public_welcome_tokens_email(
+                    user_email=user.get('email'), user_name=user.get('nome_completo'),
+                    client_id=user.get('pk_id_tbl_cliente'),
+                )
                 send_launch_bonus_email(
                     user_email=user.get('email'), user_name=user.get('nome_completo'),
                     cliente_nome=user.get('nome_completo'), client_id=user.get('pk_id_tbl_cliente'),

@@ -59,3 +59,13 @@ def test_item_profile_strips_commercial_keys_caps_lists_and_absolutizes_media():
 
 def test_item_tool_is_free_and_covers_the_same_kinds_as_search():
     assert usage.tool_cost("planner.get_catalog_item") == 0
+
+
+def test_audience_data_groups_are_not_truncated():
+    from flask import Flask
+
+    fields = [{"variable": f"campo_{i}", "value": i} for i in range(12)]
+    with Flask(__name__).app_context():
+        clean = planner._clean({"data_groups": [{"title": "Perfil", "fields": fields}], "gallery": list(range(10))})
+    assert len(clean["data_groups"][0]["fields"]) == 12
+    assert len(clean["gallery"]) == planner._LIST_LIMIT

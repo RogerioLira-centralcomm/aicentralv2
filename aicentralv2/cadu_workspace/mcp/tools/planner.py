@@ -142,16 +142,20 @@ _DENIED_KEYS = frozenset({
 _MEDIA_KEYS = frozenset({"image_url", "logo_url", "hero_image_url", "platform_logo", "creative_url", "gallery_url",
                          "favicon_url", "logo_path", "logo"})
 _LIST_LIMIT = 6
+# Only media and "related" lists are capped; data lists (the fields of an audience, for instance) stay whole.
+_CAPPED_LISTS = frozenset({"gallery", "ad_examples", "news", "related", "audiences", "formats", "channels",
+                           "concepts", "points"})
 
 
-def _clean(value):
-    """Drop commercial/internal keys, cap lists and make media URLs absolute, at any depth."""
+def _clean(value, key=""):
+    """Drop commercial/internal keys, cap media lists and make media URLs absolute, at any depth."""
     if isinstance(value, dict):
-        return {key: (_public_url(item) if key in _MEDIA_KEYS and isinstance(item, str) else _clean(item))
-                for key, item in value.items() if key not in _DENIED_KEYS}
+        return {name: (_public_url(item) if name in _MEDIA_KEYS and isinstance(item, str) else _clean(item, name))
+                for name, item in value.items() if name not in _DENIED_KEYS}
     if isinstance(value, list):
+        items = value[:_LIST_LIMIT] if key in _CAPPED_LISTS else value
         return [_public_url(item) if isinstance(item, str) and item.startswith("/static/") else _clean(item)
-                for item in value[:_LIST_LIMIT]]
+                for item in items]
     return value
 
 

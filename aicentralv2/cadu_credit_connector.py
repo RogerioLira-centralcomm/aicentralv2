@@ -246,13 +246,16 @@ class CaduCreditConnector:
         if required <= 0:
             return dict(row)
 
+        # Plan allowance as a lot (no-op unless CADU_PLAN_ALLOWANCE_ENABLED).
+        from .cadu_plan_allowance import debit_order_sql, ensure_plan_allowance
+        ensure_plan_allowance(cursor, actor.client_id)
         cursor.execute(
-            """SELECT id, tokens_amount, tokens_used
+            f"""SELECT id, tokens_amount, tokens_used
                   FROM cadu_credits_extras
                  WHERE id_cliente=%s AND status='active'
                    AND tokens_used < tokens_amount
                    AND (expires_at IS NULL OR expires_at > NOW())
-              ORDER BY expires_at NULLS LAST, purchased_at, id
+              {debit_order_sql(cursor)}
                  FOR UPDATE""",
             (actor.client_id,),
         )

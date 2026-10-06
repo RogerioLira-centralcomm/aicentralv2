@@ -35,7 +35,8 @@ function documentFor(surface) {
         assert.ok(result.panel.width >= width - 1, 'telefone: painel ocupa toda a largura');
         assert.ok(Math.abs(result.panel.left) <= 1, 'telefone: painel começa na borda');
       } else if (width === 820) {
-        assert.ok(result.panel.width <= width * .85 + 1, 'tablet portrait: painel secundário');
+        // Tablet em retrato abre o artefato em tela cheia com botão de retorno (como no telefone).
+        assert.ok(result.panel.width >= width - 1, `tablet portrait: painel em tela cheia (${result.panel.width}/${width})`);
       } else {
         assert.ok(result.panel.width < result.stage.width, `${width}: painel compartilha a largura`);
         assert.ok(result.chat.width >= 350, `${width}: conversa continua legível`);

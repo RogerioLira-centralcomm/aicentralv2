@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {defaultMedia, entryPageFor, mediaProgress, utmLink} from '../../frontend/reports-v1/flowMedia.js';
+import {defaultMedia, entryPageFor, isPaidPlatform, mediaProgress, utmLink} from '../../frontend/reports-v1/flowMedia.js';
 import {FLOW_STRATEGIES, buildStrategyConfig} from '../../frontend/reports-v1/flowStrategies.js';
 import {buildProductionSheet} from '../../frontend/reports-v1/flowProductionSheet.js';
 
@@ -38,11 +38,15 @@ test('o progresso conta criativos aprovados e setup concluído', () => {
 
 test('estratégias nascem com público, objetivo e mídia em cada canal pago, e a folha lista o que falta', () => {
   const plan = buildStrategyConfig(FLOW_STRATEGIES.find(item => item.id === 'leads-landing'));
-  const sources = plan.nodes.filter(node => node.type === 'source');
+  // Só canais pagos recebem público e objetivo; orgânico/direto entram sem mídia (aa82ad140).
+  const sources = plan.nodes.filter(node => node.type === 'source' && isPaidPlatform(node.source));
+  assert(sources.length >= 3);
   assert(sources.every(node => node.segment?.name && node.media?.objective === 'leads' && node.media.setup.length));
   assert.equal(sources.find(node => node.kind === 'traffic.retargeting').segment.kind, 'remarketing');
   const section = buildProductionSheet(plan).sections.find(item => item.id === 'source');
-  assert(section.items.every(item => !item.done && item.missing.length && item.segment && item.objective));
+  const paidItems = section.items.filter(item => item.objective);
+  assert(paidItems.length >= sources.length);
+  assert(paidItems.every(item => !item.done && item.missing.length && item.segment));
 });
 
 test('o CSV da revisão protege fórmulas e separa por ponto e vírgula', async () => {

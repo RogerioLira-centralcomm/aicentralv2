@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {computeForecast, forecastScenarios, hasForecastInput} from '../../frontend/reports-v1/flowForecast.js';
-import {FLOW_STRATEGIES, buildStrategyConfig} from '../../frontend/reports-v1/flowStrategies.js';
+import {ALWAYS_CHANNELS, FLOW_STRATEGIES, buildStrategyConfig} from '../../frontend/reports-v1/flowStrategies.js';
 
 const config = {nodes: [
   {id: 'meta', type: 'source', forecast: {visits: 10000, cost: 5000}},
@@ -49,7 +49,13 @@ test('taxa ausente vira aviso e uma saída acima de 100% é sinalizada', () => {
 
 test('estratégias já trazem taxas de referência em todas as conexões', () => {
   for (const strategy of FLOW_STRATEGIES) {
-    const plan = buildStrategyConfig(strategy);
+    // Busca orgânica e acesso direto entram sempre, sem taxa de referência (chegam sem UTM; aa82ad140).
+    const full = buildStrategyConfig(strategy);
+    const always = new Set(full.nodes.filter(node => ALWAYS_CHANNELS.includes(node.kind)).map(node => node.id));
+    assert.equal(always.size, ALWAYS_CHANNELS.length, strategy.id);
+    assert(full.edges.filter(edge => !always.has(edge.from)).every(edge => edge.forecast?.rate != null), strategy.id);
+    // As referências da estratégia cobrem todos os canais que ela própria seleciona.
+    const plan = buildStrategyConfig(strategy, strategy.channels.filter(([, selected]) => selected).map(([kind]) => kind));
     assert(plan.edges.every(edge => edge.forecast?.rate != null), strategy.id);
     assert(hasForecastInput(plan), strategy.id);
     const visits = {...plan, nodes: plan.nodes.map(node => node.type === 'source' ? {...node, forecast: {visits: 1000}} : node)};

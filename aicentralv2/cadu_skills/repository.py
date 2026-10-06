@@ -350,16 +350,13 @@ def credit_position(client_id: int) -> dict:
                 (client_id,),
             )
             lots = cursor.fetchone() or {}
-            cursor.execute(
-                "SELECT 1 FROM cadu_client_plans WHERE id_cliente = %s AND plan_status = 'active' LIMIT 1",
-                (client_id,),
-            )
-            configured = bool(cursor.fetchone()) or bool(lots.get('granted'))
             cursor.execute("""SELECT COALESCE(pd.tokens_monthly_limit, p.tokens_monthly_limit, 0) AS monthly_limit,
                                      COALESCE(p.tokens_used_current_month, 0) AS monthly_used
                                 FROM cadu_client_plans p LEFT JOIN cadu_plan_definitions pd ON pd.id = p.id_plan_definition
                                WHERE p.id_cliente = %s AND p.plan_status = 'active' ORDER BY p.created_at DESC LIMIT 1""", (client_id,))
             plan_usage = cursor.fetchone() or {}
+            # The plan row exists exactly when an active plan does, so it also answers "configured".
+            configured = bool(plan_usage) or bool(lots.get('granted'))
             monthly_limit = max(0, int(plan_usage.get("monthly_limit") or 0))
             monthly_used = max(0, int(plan_usage.get("monthly_used") or 0))
             lot_granted = max(0, int(lots.get("granted") or 0))

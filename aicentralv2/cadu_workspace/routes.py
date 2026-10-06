@@ -1326,7 +1326,11 @@ _PURCHASE_DEDUP_SECONDS = 30
 @bp.post('/workspace/api/creditos/solicitar')
 @login_required
 def request_credit_package():
-    """Confirma a compra, libera o lote e avisa o financeiro para cobrar."""
+    """Registra o pedido de pacote como pendente e avisa o financeiro.
+
+    Qualquer membro pode pedir, mas os tokens só entram no saldo quando o
+    financeiro confirmar o pagamento/aprovação (nada é creditado aqui).
+    """
     if not _workspace_api_csrf():
         abort(403, description='Atualize a página e tente novamente.')
     payload = request.get_json(silent=True) or request.form.to_dict()
@@ -1349,32 +1353,25 @@ def request_credit_package():
         sales_email = str(client_record.get('executivo_email') or '').strip()
         conn = get_db()
         with conn.cursor() as cur:
-            # Double-click guard: serialize this client's purchases and reuse an
-            # identical order made seconds ago instead of creating a second lot.
+            # Double-click guard: serialize this client's requests and reuse an
+            # identical order made seconds ago instead of creating a second one.
             cur.execute("SELECT pg_advisory_xact_lock(%s, %s)", (771001, client_id))
             cur.execute("""SELECT id, credit_lot_id FROM cadu_credit_requests
                             WHERE id_cliente=%s AND requested_by=%s AND package_name=%s
-                              AND status='approved' AND created_at > NOW() - (%s * INTERVAL '1 second')
+                              AND status IN ('pending','approved') AND created_at > NOW() - (%s * INTERVAL '1 second')
                          ORDER BY id DESC LIMIT 1""",
                         (client_id, user_id, package_name, _PURCHASE_DEDUP_SECONDS))
             duplicate = cur.fetchone()
             if duplicate:
                 conn.rollback()
-                return jsonify(success=True, duplicate=True, request_id=duplicate['id'],
-                               credit_lot_id=duplicate.get('credit_lot_id'), notification_sent=True,
-                               message='Este pedido já foi registrado há instantes. Os tokens já estão no saldo.'), 200
+                return jsonify(success=True, duplicate=True, status='pending', request_id=duplicate['id'],
+                               notification_sent=True,
+                               message='Este pedido já foi enviado ao financeiro há instantes.'), 200
             cur.execute("""INSERT INTO cadu_credit_requests
                 (id_cliente, requested_by, package_name, tokens_amount, price_brl, billing_mode, note, status)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,'approved') RETURNING id""",
+                VALUES (%s,%s,%s,%s,%s,%s,%s,'pending') RETURNING id""",
                 (client_id, user_id, package_name, tokens, price, billing_mode, note))
             request_id = cur.fetchone()['id']
-            # Extra tokens do not expire (owner decision 2026-10-06).
-            cur.execute("""INSERT INTO cadu_credits_extras
-                (id_cliente, tokens_amount, tokens_used, purchase_date, expiration_date, purchased_at, expires_at, status)
-                VALUES (%s,%s,0,NOW(),NULL,NOW(),NULL,'active')
-                RETURNING id""", (client_id, tokens))
-            credit_lot_id = cur.fetchone()['id']
-            cur.execute("UPDATE cadu_credit_requests SET credit_lot_id=%s WHERE id=%s", (credit_lot_id, request_id))
         conn.commit()
         committed = True
         from ..email_service import send_email
@@ -1390,28 +1387,28 @@ def request_credit_package():
         price_label = f'R$ {price:,.2f}' if price else 'A definir pelo financeiro'
         internal_subject = f'Novo pedido Cadu #{request_id} · {package_name}'
         internal_html = f'''<div style="font-family:Arial,sans-serif;max-width:620px;color:#17332f">
-          <div style="padding:24px;background:#123d38;color:#fff"><div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.75">CentralComm · Financeiro</div><h1 style="margin:8px 0 0;font-size:24px">Novo pedido de compra</h1></div>
-          <div style="padding:24px;border:1px solid #dce8e4;border-top:0"><p style="font-size:16px">O pedido <strong>#{request_id}</strong> foi registrado na área de conta.</p>
+          <div style="padding:24px;background:#123d38;color:#fff"><div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.75">CentralComm · Financeiro</div><h1 style="margin:8px 0 0;font-size:24px">Pedido de pacote aguardando liberação</h1></div>
+          <div style="padding:24px;border:1px solid #dce8e4;border-top:0"><p style="font-size:16px">O pedido <strong>#{request_id}</strong> foi registrado na área de conta e <strong>aguarda pagamento/aprovação</strong>. Os tokens só entram no saldo quando o financeiro liberar.</p>
           <table style="width:100%;border-collapse:collapse;margin:18px 0"><tr><td style="padding:9px 0;color:#68807b">Produto</td><td style="padding:9px 0;text-align:right"><strong>{safe_name}</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Capacidade</td><td style="padding:9px 0;text-align:right"><strong>{tokens:,} tokens</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Valor</td><td style="padding:9px 0;text-align:right"><strong>{price_label}</strong></td></tr><tr><td style="padding:9px 0;color:#68807b">Cobrança</td><td style="padding:9px 0;text-align:right"><strong>{billing_label}</strong></td></tr></table><p><strong>Cliente:</strong> {client_id}<br><strong>Solicitante:</strong> {safe_buyer_name} ({safe_email})</p><p style="color:#68807b">{safe_note or 'Sem observações adicionais.'}</p></div></div>'''
-        buyer_html = f'''<div style="font-family:Arial,sans-serif;max-width:620px;color:#17332f"><div style="padding:24px;background:#123d38;color:#fff"><div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.75">CentralComm · Cadu</div><h1 style="margin:8px 0 0;font-size:24px">Compra confirmada</h1></div><div style="padding:24px;border:1px solid #dce8e4;border-top:0"><p style="font-size:16px">A compra de <strong>{safe_name}</strong> foi confirmada e os tokens já estão disponíveis para uso.</p><div style="padding:16px;background:#eef7f3;border-radius:10px"><strong>O que você e seu time poderão usar</strong><p style="margin:8px 0 0">Os tokens extras não expiram e podem ser usados pela sua conta nas conversas e ações de IA. O saldo é compartilhado por todas as pessoas da equipe. Projetos e marcas permanecem ilimitados.</p></div><p><strong>Pedido:</strong> #{request_id}<br><strong>Tokens liberados:</strong> {tokens:,}<br><strong>Condição:</strong> {billing_label}<br><strong>Valor:</strong> {price_label}</p><p style="color:#68807b">O pedido será acompanhado pelo financeiro para registrar a cobrança.</p></div></div>'''
+        buyer_html = f'''<div style="font-family:Arial,sans-serif;max-width:620px;color:#17332f"><div style="padding:24px;background:#123d38;color:#fff"><div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.75">CentralComm · Cadu</div><h1 style="margin:8px 0 0;font-size:24px">Pedido enviado ao financeiro</h1></div><div style="padding:24px;border:1px solid #dce8e4;border-top:0"><p style="font-size:16px">Recebemos seu pedido de <strong>{safe_name}</strong>. O financeiro vai confirmar o pagamento e liberar os tokens no saldo da conta.</p><div style="padding:16px;background:#eef7f3;border-radius:10px"><strong>O que você e seu time poderão usar</strong><p style="margin:8px 0 0">Os tokens extras não expiram e podem ser usados pela sua conta nas conversas e ações de IA. O saldo é compartilhado por todas as pessoas da equipe. Projetos e marcas permanecem ilimitados.</p></div><p><strong>Pedido:</strong> #{request_id}<br><strong>Tokens do pacote:</strong> {tokens:,}<br><strong>Condição:</strong> {billing_label}<br><strong>Valor:</strong> {price_label}</p><p style="color:#68807b">Você recebe a confirmação assim que os tokens forem liberados.</p></div></div>'''
         finance_sent = bool(send_email(internal_subject, recipients,
                    text_body=f'Pedido Cadu #{request_id}: {package_name} · {tokens:,} tokens · {price_label} · {billing_label}. Cliente {client_id}. Solicitante: {buyer_name} ({buyer_email}).',
                    html_body=internal_html))
         buyer_sent = True
         if buyer_email and buyer_email.lower() != 'apolo@centralcomm.media':
-            buyer_sent = bool(send_email(f'Compra confirmada no Cadu #{request_id}', [buyer_email], text_body=f'Compra confirmada: {package_name} · {tokens:,} tokens liberados · {price_label} · {billing_label}.', html_body=buyer_html))
+            buyer_sent = bool(send_email(f'Pedido enviado ao financeiro · Cadu #{request_id}', [buyer_email], text_body=f'Pedido enviado ao financeiro: {package_name} · {tokens:,} tokens, liberados após pagamento/aprovação · {price_label} · {billing_label}.', html_body=buyer_html))
         notification_sent = finance_sent and buyer_sent
         if not notification_sent:
-            current_app.logger.warning('Compra %s confirmada; falha no envio de uma ou mais notificações', request_id)
-        message = 'Compra confirmada. Os tokens já estão disponíveis para uso.' if notification_sent else 'Tokens liberados, mas uma notificação por e-mail falhou. O financeiro deve ser avisado.'
-        return jsonify(success=True, request_id=request_id, credit_lot_id=credit_lot_id,
+            current_app.logger.warning('Pedido %s registrado; falha no envio de uma ou mais notificações', request_id)
+        message = 'Pedido enviado ao financeiro. Os tokens serão liberados após a confirmação do pagamento.' if notification_sent else 'Pedido registrado, mas uma notificação por e-mail falhou. Avise o financeiro.'
+        return jsonify(success=True, status='pending', request_id=request_id,
                        notification_sent=notification_sent, message=message), 201
     except Exception:
         if committed:
-            current_app.logger.exception('Compra %s confirmada; falha ao preparar notificações', request_id)
-            return jsonify(success=True, request_id=request_id, credit_lot_id=credit_lot_id,
+            current_app.logger.exception('Pedido %s registrado; falha ao preparar notificações', request_id)
+            return jsonify(success=True, status='pending', request_id=request_id,
                            notification_sent=False,
-                           message='Tokens liberados, mas a notificação por e-mail falhou. O financeiro deve ser avisado.'), 201
+                           message='Pedido registrado, mas a notificação por e-mail falhou. Avise o financeiro.'), 201
         try: conn.rollback()
         except Exception: pass
         current_app.logger.exception('Falha ao solicitar pacote de créditos')

@@ -224,7 +224,7 @@ def test_web_credit_purchase_requires_csrf_and_keeps_existing_member_flow():
         database.assert_not_called()
     cursor = MagicMock()
     cursor.__enter__.return_value = cursor
-    cursor.fetchone.side_effect = [None, {"id":41}, {"id":72}]
+    cursor.fetchone.side_effect = [None, {"id":41}]
     connection = MagicMock()
     connection.cursor.return_value = cursor
     with patch("aicentralv2.cadu_workspace.routes.get_db", return_value=connection), \
@@ -235,10 +235,15 @@ def test_web_credit_purchase_requires_csrf_and_keeps_existing_member_flow():
                                json={"package_name":"Extra Essencial", "tokens":100_000,
                                      "price":49, "billing_mode":"prepaid"})
     assert response.status_code == 201
-    assert response.get_json()["credit_lot_id"] == 72
+    body = response.get_json()
+    assert body["status"] == "pending" and body["request_id"] == 41
+    assert "credit_lot_id" not in body
+    assert "financeiro" in body["message"]
     assert send_email.call_count == 2
     assert "Ana Silva" in str(send_email.call_args_list[0])
-    assert any("INSERT INTO cadu_credits_extras" in call.args[0] for call in cursor.execute.call_args_list)
+    sql = [call.args[0] for call in cursor.execute.call_args_list]
+    assert any("INSERT INTO cadu_credit_requests" in q and "'pending'" in q for q in sql)
+    assert not any("cadu_credits_extras" in q for q in sql)
 
 
 def test_web_credit_purchase_does_not_invite_duplicate_retry_when_email_fails():
@@ -251,7 +256,7 @@ def test_web_credit_purchase_does_not_invite_duplicate_retry_when_email_fails():
                        user_name="Ana Silva", user_email="ana@example.com")
     cursor = MagicMock()
     cursor.__enter__.return_value = cursor
-    cursor.fetchone.side_effect = [None, {"id": 41}, {"id": 72}]
+    cursor.fetchone.side_effect = [None, {"id": 41}]
     connection = MagicMock()
     connection.cursor.return_value = cursor
     with patch("aicentralv2.cadu_workspace.routes.get_db", return_value=connection), \
@@ -263,7 +268,7 @@ def test_web_credit_purchase_does_not_invite_duplicate_retry_when_email_fails():
                                      "price": 49, "billing_mode": "prepaid"})
     assert response.status_code == 201
     assert response.get_json()["notification_sent"] is False
-    assert response.get_json()["credit_lot_id"] == 72
+    assert response.get_json()["status"] == "pending"
     connection.commit.assert_called_once()
     connection.rollback.assert_not_called()
 

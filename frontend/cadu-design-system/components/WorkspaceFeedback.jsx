@@ -1,4 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
+import {CaduButton} from './CaduButton';
 import {VisualIdentity} from './VisualIdentity';
 import {workspaceUserPhoto} from '../workspaceIdentity.mjs';
 import {CaduDialog} from './CaduDialog';
@@ -11,7 +12,7 @@ export function AgentActionDrop({action, onOpen, onDragStart}) {
 
 export function ActivityDrawer({open, title = 'Atividade recente', items = [], onClose, onOpenItem}) {
   if (!open) return null;
-  return <CaduDialog className="cadu-ds-activity-drawer" label={title} closeOnBackdrop onClose={onClose}><header><h2>{title}</h2><button type="button" onClick={onClose} aria-label="Fechar atividade">×</button></header><div>{items.map(item => <button key={item.id} type="button" onClick={() => onOpenItem?.(item)}><span>{item.icon || '•'}</span><p><b>{item.title}</b><small>{item.detail}</small></p><time>{item.time}</time></button>)}</div></CaduDialog>;
+  return <CaduDialog className="cadu-ds-activity-drawer" label={title} closeOnBackdrop onClose={onClose}><header><h2>{title}</h2><CaduButton variant="tertiary" type="button" onClick={onClose} aria-label="Fechar atividade">×</CaduButton></header><div>{items.map(item => <button key={item.id} type="button" onClick={() => onOpenItem?.(item)}><span>{item.icon || '•'}</span><p><b>{item.title}</b><small>{item.detail}</small></p><time>{item.time}</time></button>)}</div></CaduDialog>;
 }
 
 export function ShortcutManagerDialog({open, items = [], onClose, onToggle, onReorder}) {
@@ -29,7 +30,7 @@ export function ShortcutManagerDialog({open, items = [], onClose, onToggle, onRe
   const pinned = items.filter(item => item.pinned);
   const available = items.filter(item => !item.pinned);
   const row = item => <article key={item.id} draggable={item.pinned} onDragStart={() => setDraggedId(item.id)} onDragEnd={() => setDraggedId('')} onDragOver={event => item.pinned && event.preventDefault()} onDrop={() => dropOn(item)} className={item.pinned ? 'is-pinned' : ''}><span className="cadu-ds-shortcut-grid__handle" aria-hidden="true">{item.pinned ? '⋮⋮' : ''}</span><VisualIdentity src={item.logoUrl || item.previewUrl} initials={item.visualInitials || item.title} label={item.title} color={item.visualColor}/><span><b>{item.title}</b><small>{item.pinned ? 'Arraste para mudar a ordem' : 'Disponível para adicionar'}</small></span><button type="button" className={item.pinned ? 'is-danger' : ''} onClick={() => onToggle?.(item)}>{item.pinned ? 'Remover' : 'Adicionar'}</button></article>;
-  return <CaduModal className="cadu-ds-shortcut-dialog" label="Configurar dock" onClose={onClose}><header><div><h2>Configurar dock</h2><p>Defina a ordem de marcas e projetos e remova o que não precisa ficar à mão.</p></div><button type="button" onClick={onClose} aria-label="Fechar">×</button></header><section className="cadu-ds-shortcut-section"><header><b>Na dock</b><span>{pinned.length}</span></header><div className="cadu-ds-shortcut-grid">{pinned.length ? pinned.map(row) : <p>Nenhum atalho fixado.</p>}</div></section>{available.length > 0 && <section className="cadu-ds-shortcut-section"><header><b>Disponíveis</b><span>{available.length}</span></header><div className="cadu-ds-shortcut-grid">{available.map(row)}</div></section>}</CaduModal>;
+  return <CaduModal className="cadu-ds-shortcut-dialog" label="Configurar dock" onClose={onClose}><header><div><h2>Configurar dock</h2><p>Defina a ordem de marcas e projetos e remova o que não precisa ficar à mão.</p></div><CaduButton variant="tertiary" type="button" onClick={onClose} aria-label="Fechar">×</CaduButton></header><section className="cadu-ds-shortcut-section"><header><b>Na dock</b><span>{pinned.length}</span></header><div className="cadu-ds-shortcut-grid">{pinned.length ? pinned.map(row) : <p>Nenhum atalho fixado.</p>}</div></section>{available.length > 0 && <section className="cadu-ds-shortcut-section"><header><b>Disponíveis</b><span>{available.length}</span></header><div className="cadu-ds-shortcut-grid">{available.map(row)}</div></section>}</CaduModal>;
 }
 
 export function WorkspaceAccountMenu({open, onClose, user = {}, links = {}, projects = [], brands = [], usagePercent = 0, onManageShortcuts}) {
@@ -101,11 +102,11 @@ export function WorkspaceAccountControl({user = {}, open = false, onOpen}) {
 
 export function UndoToast({message, actionLabel = 'Desfazer', onUndo, onDismiss}) {
   if (!message) return null;
-  return <div className="cadu-ds-undo-toast" role="status"><span>{message}</span>{onUndo && <button type="button" onClick={onUndo}>{actionLabel}</button>}<button type="button" onClick={onDismiss} aria-label="Fechar">×</button></div>;
+  return <div className="cadu-ds-undo-toast" role="status"><span>{message}</span>{onUndo && <CaduButton variant="secondary" type="button" onClick={onUndo}>{actionLabel}</CaduButton>}<CaduButton variant="tertiary" type="button" onClick={onDismiss} aria-label="Fechar">×</CaduButton></div>;
 }
 
 export function PermissionState({title = 'Você não tem acesso a este conteúdo', detail, actionLabel, onAction}) {
-  return <section className="cadu-ds-permission-state"><h2>{title}</h2>{detail && <p>{detail}</p>}{actionLabel && <button type="button" onClick={onAction}>{actionLabel}</button>}</section>;
+  return <section className="cadu-ds-permission-state"><h2>{title}</h2>{detail && <p>{detail}</p>}{actionLabel && <CaduButton variant="secondary" type="button" onClick={onAction}>{actionLabel}</CaduButton>}</section>;
 }
 
 export function LoadingSkeleton({lines = 3, className = ''}) {

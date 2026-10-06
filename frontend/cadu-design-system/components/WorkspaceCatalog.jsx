@@ -4,7 +4,7 @@ import {CaduButton} from './CaduButton';
 
 export function CatalogError({message}) {
   if (!message) return null;
-  return <div className="cadu-ds-catalog-error" role="alert"><b>Não foi possível carregar este catálogo.</b><span>{message}</span><button type="button" onClick={() => window.location.reload()}>Tentar novamente</button></div>;
+  return <div className="cadu-ds-catalog-error" role="alert"><b>Não foi possível carregar este catálogo.</b><span>{message}</span><CaduButton variant="secondary" type="button" onClick={() => window.location.reload()}>Tentar novamente</CaduButton></div>;
 }
 
 export function CatalogFilters({items = []}) {

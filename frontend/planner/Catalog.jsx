@@ -105,8 +105,6 @@ export function CatalogCard({kind, item, urls, selected}) {
 }
 
 const SCOPES = [['', 'Todos'], ['nacional_premium', 'Premium nacionais'], ['regional', 'Regionais']];
-const PROGRAMMATIC = [['', 'Programático: todos'], ['any', 'Com programático'], ['detected', 'Tags detectadas'], ['declared', 'Só ads.txt'], ['adsense_native', 'AdSense / nativo'], ['not_detected', 'Não detectado'], ['unchecked', 'Não verificado']];
-const ADS_TXT = [['', 'ads.txt: todos'], ['valid', 'ads.txt válido'], ['partial', 'ads.txt parcial'], ['missing', 'Sem ads.txt válido'], ['unchecked', 'Não verificado']];
 const BULK_LIMIT = 200;
 
 function minutes(seconds) {
@@ -115,27 +113,7 @@ function minutes(seconds) {
   return value >= 60 ? `${Math.floor(value / 60)}min ${String(Math.round(value % 60)).padStart(2, '0')}s` : `${Math.round(value)}s`;
 }
 
-function adsBadge(item) {
-  if (!item.ads_txt_status) return <CaduBadge tone="neutral">Aguardando verificação</CaduBadge>;
-  if (item.ads_txt_status === 'valid') return <CaduBadge tone="success">ads.txt válido · {number(item.ads_txt_records)}</CaduBadge>;
-  if (item.ads_txt_status === 'partial') return <CaduBadge tone="warning">ads.txt parcial</CaduBadge>;
-  if (item.ads_txt_status === 'unreachable' || String(item.ads_txt_status).startsWith('http_')) return <CaduBadge tone="neutral">ads.txt indisponível</CaduBadge>;
-  return <CaduBadge tone="neutral">Sem ads.txt válido</CaduBadge>;
-}
-
-function programmaticLabel(item) {
-  const signals = (item.programmatic_signals || []).map(entry => entry.signal).slice(0, 2).join(', ');
-  switch (item.programmatic_status) {
-    case 'detected': return ['Programático', signals];
-    case 'ads_txt_declared': return ['Programático (ads.txt)', 'Tags carregadas por script'];
-    case 'adsense_native': return ['AdSense / nativo', signals];
-    case 'not_detected': return ['Não detectado', 'Na home estática'];
-    default: return ['—', item.programmatic_status ? 'Home indisponível' : 'Aguardando'];
-  }
-}
-
 function PortalRow({item, urls, selected}) {
-  const [programmatic, hint] = programmaticLabel(item);
   const visits = Number(item.monthly_visits);
   const region = item.scope === 'nacional_premium' ? 'Premium nacional' : item.uf ? `Regional · ${item.uf}` : '';
   return <a className={`planner-portal planner-portal--wide${selected ? ' is-selected' : ''}`} href={catalogDetailUrl(urls, 'portais', item)}>
@@ -146,8 +124,6 @@ function PortalRow({item, urls, selected}) {
     </span>
     <span className="planner-portal__fact"><small>Categoria</small><b>{item.category || 'Não categorizado'}</b><small>{region}</small></span>
     <span className="planner-portal__fact planner-portal__fact--extra"><small>Acessos / mês</small><b>{visits > 0 ? visits.toLocaleString('pt-BR', {notation: 'compact', maximumFractionDigits: 1}) : 'Sem fonte'}</b><small>{item.avg_time_seconds > 0 ? `Tempo médio ${minutes(item.avg_time_seconds)}` : 'Tempo médio: sem fonte'}</small></span>
-    <span className="planner-portal__fact planner-portal__fact--extra"><small>Anúncios</small><b>{programmatic}</b><small>{hint}</small></span>
-    <span className="planner-portal__fact planner-portal__fact--extra">{adsBadge(item)}</span>
     <Icon name="chevron" size={16}/>
   </a>;
 }
@@ -158,7 +134,7 @@ export function CatalogPage({boot, request, selection, notify}) {
   const [query, setQuery] = useState('');
   const [categories, setCategories] = useState([]);
   const [category, setCategory] = useState('');
-  const [filters, setFilters] = useState({scope: '', uf: '', programmatic: '', ads_txt: ''});
+  const [filters, setFilters] = useState({scope: '', uf: ''});
   const [offset, setOffset] = useState(0);
   const [records, setRecords] = useState(Array.isArray(boot.records) ? boot.records : []);
   const [total, setTotal] = useState(boot.records?.length || 0);
@@ -226,8 +202,6 @@ export function CatalogPage({boot, request, selection, notify}) {
       </div>
       {filters.scope !== 'nacional_premium' && (boot.ufs || []).length > 0 && <CaduSelectField className="planner-toolbar__category" aria-label="Estado" value={filters.uf} onChange={event => setFilter('uf', event.target.value)}
         options={[{value: '', label: 'Todos os estados'}, ...boot.ufs.map(value => ({value, label: value}))]}/>}
-      <CaduSelectField className="planner-toolbar__category" aria-label="Programático" value={filters.programmatic} onChange={event => setFilter('programmatic', event.target.value)} options={PROGRAMMATIC.map(([value, label]) => ({value, label}))}/>
-      <CaduSelectField className="planner-toolbar__category" aria-label="ads.txt" value={filters.ads_txt} onChange={event => setFilter('ads_txt', event.target.value)} options={ADS_TXT.map(([value, label]) => ({value, label}))}/>
       {(boot.categories || []).length > 0 && <details className="planner-multi">
         <summary>{categories.length ? `${categories.length} categorias` : 'Todas as categorias'}</summary>
         <div className="planner-multi__menu">

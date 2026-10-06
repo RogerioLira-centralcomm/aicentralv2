@@ -53,7 +53,7 @@ def _criar_cliente_e_contato(db, *, nome, email, senha, tipo_id, executivo_id):
             cursor.execute('''
                 INSERT INTO tbl_contato_cliente (nome_completo, email, senha, pk_id_tbl_cliente,
                                                  status, cohorts, user_type)
-                VALUES (%s, %s, %s, %s, TRUE, 1, 'client')
+                VALUES (%s, %s, %s, %s, TRUE, 1, 'admin')
                 RETURNING id_contato_cliente
             ''', (nome, email, senha_hash, client_id))
             contact_id = cursor.fetchone()['id_contato_cliente']
@@ -166,7 +166,7 @@ def provisionar_conta_publica(*, nome, email, senha=None):
         'nome_completo': nome,
         'email': email,
         'pk_id_tbl_cliente': client_id,
-        'user_type': 'client',
+        'user_type': 'admin',
     }
     user['pk_id_tbl_cliente'] = client_id
     return user, executivo

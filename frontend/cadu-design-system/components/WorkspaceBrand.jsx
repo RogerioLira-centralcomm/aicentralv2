@@ -126,7 +126,7 @@ function BrandAuditUploads() {
     <input ref={picker} type="file" accept="image/*" multiple hidden onChange={event => { distribute(event.target.files); event.target.value = ''; }}/>
     <input ref={logoInput} name="logo_image" type="file" accept="image/*" hidden aria-hidden="true" tabIndex="-1"/>
     <input ref={referencesInput} name="images" type="file" accept="image/*" multiple hidden aria-hidden="true" tabIndex="-1"/>
-    <button type="button" className="cadu-ds-brand-audit-uploads__picker" onClick={() => picker.current?.click()}>{files.length ? 'Adicionar outras imagens' : 'Enviar logo ou imagens'}</button>
+    <CaduButton type="button" variant="secondary" onClick={() => picker.current?.click()}>{files.length ? 'Adicionar outras imagens' : 'Enviar logo ou imagens'}</CaduButton>
     {files.length > 0 && <div className="cadu-ds-brand-audit-uploads__files" aria-label="Imagens adicionadas">{files.map((item, index) => <button type="button" key={`${item.file.name}-${item.file.lastModified}`} className={index === logoIndex ? 'is-logo' : ''} aria-label={`${item.file.name}: usar como logo`} aria-pressed={index === logoIndex} onClick={() => chooseLogo(index)}><img src={item.preview} alt=""/><span>{index === logoIndex ? 'Logo' : 'Referência'}</span><small title={item.file.name}>{item.file.name}</small></button>)}</div>}
   </div>;
 }
@@ -556,14 +556,14 @@ export function WorkspaceBrand({bootstrap}) {
   const brandNav = [
     {id:'marca-visao', label:'Visão geral', icon:'home'},
     ...(isProcessing ? [{id:'analise', label:'Análise em andamento', icon:'pulse'}] : []),
-    ...(!isProcessing ? [{id:'completar', label:'Cobertura da marca', icon:'pulse'}] : []),
+    ...(!isProcessing && lifecycle !== 'insufficient_information' ? [{id:'completar', label:'Cobertura da marca', icon:'pulse'}] : []),
     ...(!isProcessing && showDossier ? [
       {id:'direcao', label:'Direção da marca', icon:'compose'},
       ...(atlasHasContent ? [{id:'inteligencia', label:'Todos os dados', icon:'pulse'}] : []),
       ...(campaigns.length ? [{id:'campanhas', label:'Campanhas', icon:'folder', count:campaigns.length}] : []),
       ...(auditHistory.length ? [{id:'auditoria', label:'Auditorias', icon:'history', count:auditHistory.length}] : []),
     ] : []),
-    {id:'biblioteca', label:'Biblioteca', icon:'file', count:displayAssets.length},
+    ...(lifecycle !== 'insufficient_information' ? [{id:'biblioteca', label:'Biblioteca', icon:'file', count:displayAssets.length}] : []),
   ];
   const sourceLabel = (record, index) => {
     const href = record.url || record;

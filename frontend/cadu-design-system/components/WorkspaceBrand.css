@@ -1051,3 +1051,4 @@ body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__scope > labe
 body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__scope > label.is-selected b { color:var(--cadu-accent-strong); }
 body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__footer { padding:12px 0 0; border-top:1px solid var(--cadu-line); }
 body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__column > header span { font-size:12px; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-uploads { min-height:0; justify-items:start; }

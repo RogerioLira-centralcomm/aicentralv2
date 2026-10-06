@@ -8590,7 +8590,7 @@ def clean_brand_detail(brand_id):
     # Old links carry the database id; send them to the opaque reference.
     if re.match(r'^/marcas/\d+/?$', request.path):
         return redirect(url_for('cadu_workspace.clean_brand_detail', brand_id=brand_id,
-                                **request.args.to_dict(flat=True)), code=301)
+                                **request.args.to_dict(flat=True)), code=302)
     return brand_detail(brand_id)
 
 

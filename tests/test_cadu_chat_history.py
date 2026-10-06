@@ -15,6 +15,10 @@ class HistoryTest(TestCase):
             patch = mock.patch('aicentralv2.cadu_family.routes.context.' + name, return_value=value)
             patch.start()
             self.addCleanup(patch.stop)
+        # Seções personalizadas são opcionais (tabela pode não existir); fora do escopo aqui.
+        sections = mock.patch.object(repository, 'family_table_available', return_value=False)
+        sections.start()
+        self.addCleanup(sections.stop)
 
     def test_history_returns_all_matching_conversations(self):
         records = [{'id': str(i), 'status': 'active'} for i in range(13)]

@@ -19,4 +19,5 @@ class ChatShellTest(TestCase):
             session.update(user_id=7, cliente_id=12)
         response = self.client.get('/conversas')
         self.assertEqual(response.status_code, 308)
-        self.assertTrue(response.headers['Location'].endswith('/workspace/conversas-v2-lab'))
+        # A rota canônica das conversas (React v2) passou a ser /chat.
+        self.assertTrue(response.headers['Location'].endswith('/chat'))

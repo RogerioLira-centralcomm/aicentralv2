@@ -104,7 +104,7 @@ body.portal--workspace .cadu-ds-brand-audit-complete footer button {
   border: 0;
   border-radius: 9px;
   background: var(--cadu-accent-strong);
-  color: #fff;
+  color: var(--cadu-on-accent,#fff);
   font: 700 11px var(--cadu-font-sans);
   cursor: pointer;
 }
@@ -1040,7 +1040,7 @@ body.portal--workspace .cadu-ds-brand-starter ul { display:grid; gap:10px; margi
 body.portal--workspace .cadu-ds-brand-starter li { display:flex; align-items:center; gap:10px; font-size:14px; color:var(--cadu-muted); }
 body.portal--workspace .cadu-ds-brand-starter li.is-done { color:var(--cadu-ink); }
 body.portal--workspace .cadu-ds-brand-starter li i { display:grid; width:20px; height:20px; place-items:center; flex:none; border:1.5px solid var(--cadu-line); border-radius:50%; font-size:12px; font-style:normal; line-height:1; }
-body.portal--workspace .cadu-ds-brand-starter li.is-done i { border-color:var(--cadu-accent); background:var(--cadu-accent); color:#fff; }
+body.portal--workspace .cadu-ds-brand-starter li.is-done i { border-color:var(--cadu-accent); background:var(--cadu-accent); color:var(--cadu-on-accent,#fff); }
 body.portal--workspace .cadu-ds-brand-starter__actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:10px; }
 @media (max-width:760px) {
   body.portal--workspace .cadu-ds-brand-starter { margin:24px 0; }

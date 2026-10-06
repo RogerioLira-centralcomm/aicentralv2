@@ -32,6 +32,7 @@
   --cadu-nav-ink: #e6f1ef;
   --cadu-nav-muted: #91aaa6;
   --cadu-nav-line: rgba(181, 218, 211, .16);
+  --cadu-on-accent: #ffffff;
   --cadu-accent: #087765;
   --cadu-accent-strong: #055c50;
   --cadu-accent-soft: #e8f5f1;
@@ -101,6 +102,7 @@
   --cadu-accent-soft: #e8f5f1;
 }
 [data-cadu-skin="conversations"] {
+  --cadu-on-accent: #04201c;
   color-scheme: dark;
   --cadu-accent: #55d8c6;
   --cadu-accent-strong: #2ebbaa;
@@ -163,6 +165,7 @@
 }
 
 [data-cadu-theme="dark"] {
+  --cadu-on-accent: #04201c;
   --cadu-canvas: #111a1e;
   --cadu-surface: #172326;
   --cadu-surface-raised: #1d2c30;

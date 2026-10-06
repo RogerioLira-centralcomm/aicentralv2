@@ -67,7 +67,7 @@ body.portal--workspace .cadu-ds-entity-nav__actions button:not([data-cadu-untitl
 
 body.portal--workspace .cadu-ds-entity-nav__actions button.is-primary {
   background: var(--cadu-accent-strong);
-  color: #fff;
+  color: var(--cadu-on-accent,#fff);
 }
 
 body.portal--workspace .cadu-ds-entity-nav__context {
@@ -297,7 +297,7 @@ body.portal--workspace .cadu-ds-entity-nav nav a svg { width:14px; height:14px; 
 body.portal--workspace .cadu-ds-entity-nav__actions { margin-top:16px; padding:14px 5px 0; }
 body.portal--workspace .cadu-ds-entity-nav__actions > button:not([data-cadu-untitled-button]),
 body.portal--workspace .cadu-ds-entity-nav__source-menu summary { display:flex; align-items:center; gap:8px; width:100%; min-height:var(--cadu-sidebar-row-height,30px); padding:3px 7px; border:0; border-radius:7px; background:none; color:var(--cadu-ink); font:400 11px var(--cadu-font-sans); text-align:left; cursor:pointer; }
-body.portal--workspace .cadu-ds-entity-nav__actions > button.is-primary { background:var(--cadu-accent-strong); color:#fff; }
+body.portal--workspace .cadu-ds-entity-nav__actions > button.is-primary { background:var(--cadu-accent-strong); color:var(--cadu-on-accent,#fff); }
 body.portal--workspace .cadu-ds-entity-nav__actions svg { width:14px; height:14px; flex:0 0 14px; }
 body.portal--workspace .cadu-ds-entity-nav__source-menu summary { list-style:none; }
 body.portal--workspace .cadu-ds-entity-nav__source-menu summary::-webkit-details-marker { display:none; }

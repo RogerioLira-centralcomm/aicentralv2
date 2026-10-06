@@ -53,3 +53,13 @@ def test_camadas_desk_also_gets_hashed_module_urls():
         html = (ROOT / "aicentralv2" / "templates" / name).read_text()
         assert "'js/camadas/index.js'" in html.split("module_import_map")[0].rsplit("{% if", 1)[-1], name
         assert "?v=21" not in html, name  # versão manual esquecida: o hash vem do conteúdo
+
+
+def test_studio_desk_assets_are_content_fingerprinted():
+    """A1: nginx serve /static/ como immutable; nada de ?v=N fixo no desk."""
+    import re
+    from pathlib import Path
+    desk = Path(__file__).resolve().parents[1] / "aicentralv2/templates/cadu_studio/desk.html"
+    text = desk.read_text(encoding="utf-8")
+    assert not re.search(r"\?v=\d", text)
+    assert text.count("static_fingerprint(") >= 15

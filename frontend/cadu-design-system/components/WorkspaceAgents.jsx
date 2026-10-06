@@ -58,6 +58,8 @@ export function AgentConnect({bootstrap}) {
     try { await navigator.clipboard.writeText(command); setCopied(true); setTimeout(() => setCopied(false), 1600); } catch { setMessage('Copie o texto manualmente.'); }
   };
   const diagnosis = state?.diagnosis;
+  const totalSteps = (diagnosis?.steps || []).length;
+  const doneSteps = (diagnosis?.steps || []).filter(step => step.status === 'concluida').length;
   const activeGrants = (state?.grants || []).filter(grant => grant.status === 'active');
   const toggleModule = (grant, moduleId) => {
     const next = grant.modules.includes(moduleId) ? grant.modules.filter(item => item !== moduleId) : [...grant.modules, moduleId];
@@ -86,28 +88,42 @@ export function AgentConnect({bootstrap}) {
       <ol className="cadu-ds-agents__steps">{current.steps.map(step => <li key={step}>{step}</li>)}</ol>
     </div>
 
-    <h3 className="cadu-ds-agents__subtitle">Estado da conexão</h3>
-    <ol className="cadu-ds-agents__diagnosis">
-      {(diagnosis?.steps || []).map(step => <li key={step.id} data-status={step.status}>
-        <i aria-hidden="true">{(STATUS[step.status] || STATUS.pendente).mark}</i>
-        <div><b>{step.label}</b><small>{step.detail}{step.action ? ` ${step.action}` : ''}</small></div>
-        <em>{(STATUS[step.status] || STATUS.pendente).label}</em>
-      </li>)}
-    </ol>
-    <div className="cadu-ds-integration-actions"><CaduButton type="button" variant="secondary" onClick={load}>Verificar de novo</CaduButton></div>
-
-    {activeGrants.length > 0 && <>
-      <h3 className="cadu-ds-agents__subtitle">Aplicativos conectados</h3>
-      <div className="cadu-ds-integration-services">
-        {activeGrants.map(grant => <article key={grant.id}>
-          <i>{grant.clientName.slice(0, 2).toUpperCase()}</i>
-          <div><b>{grant.clientName}</b><small>Autorizado em {dateTime(grant.consentedAt)} · último uso {dateTime(grant.lastUsedAt)}</small>
-            <span className="cadu-ds-agents__modules">{(state.modules || []).map(item => <label key={item.id}><input type="checkbox" checked={grant.modules.includes(item.id)} onChange={() => toggleModule(grant, item.id)}/> {item.label}</label>)}</span>
-          </div>
-          <CaduButton type="button" variant="danger" onClick={() => post(`${bootstrap.endpoints.agentGrantBase}/${grant.id}/revoke`)}>Revogar</CaduButton>
-        </article>)}
-      </div>
-    </>}
+    <div className="cadu-ds-agents__accordions">
+      <details className="cadu-ds-agents__fold" open>
+        <summary><span>Estado da conexão</span><em>{doneSteps} de {totalSteps} concluídas</em></summary>
+        <ol className="cadu-ds-agents__diagnosis">
+          {(diagnosis?.steps || []).map(step => <li key={step.id} data-status={step.status}>
+            <i aria-hidden="true">{(STATUS[step.status] || STATUS.pendente).mark}</i>
+            <div><b>{step.label}</b><small>{step.detail}{step.action ? ` ${step.action}` : ''}</small></div>
+            <em>{(STATUS[step.status] || STATUS.pendente).label}</em>
+          </li>)}
+        </ol>
+        <div className="cadu-ds-integration-actions"><CaduButton type="button" variant="secondary" onClick={load}>Verificar de novo</CaduButton></div>
+      </details>
+      <details className="cadu-ds-agents__fold">
+        <summary><span>Aplicativos conectados</span><em>{activeGrants.length}</em></summary>
+        <div className="cadu-ds-integration-services">
+          {activeGrants.map(grant => <article key={grant.id}>
+            <i>{grant.clientName.slice(0, 2).toUpperCase()}</i>
+            <div><b>{grant.clientName}</b><small>Autorizado em {dateTime(grant.consentedAt)} · último uso {dateTime(grant.lastUsedAt)}</small></div>
+            <CaduButton type="button" variant="danger" onClick={() => post(`${bootstrap.endpoints.agentGrantBase}/${grant.id}/revoke`)}>Revogar</CaduButton>
+          </article>)}
+          {!activeGrants.length && <p className="cadu-ds-account-empty">Nenhum aplicativo conectado ainda.</p>}
+        </div>
+      </details>
+      <details className="cadu-ds-agents__fold">
+        <summary><span>Acessos e autorizações</span><em>Permissões por aplicativo</em></summary>
+        <div className="cadu-ds-integration-services">
+          {activeGrants.map(grant => <article key={grant.id}>
+            <i>{grant.clientName.slice(0, 2).toUpperCase()}</i>
+            <div><b>{grant.clientName}</b><small>Autorizado em {dateTime(grant.consentedAt)}</small>
+              <span className="cadu-ds-agents__modules">{(state.modules || []).map(item => <label key={item.id}><input type="checkbox" checked={grant.modules.includes(item.id)} onChange={() => toggleModule(grant, item.id)}/> {item.label}</label>)}</span>
+            </div>
+          </article>)}
+          {!activeGrants.length && <p className="cadu-ds-account-empty">As permissões aparecem aqui quando um aplicativo for autorizado.</p>}
+        </div>
+      </details>
+    </div>
     {message && <p className="cadu-ds-account-message" role="status">{message}</p>}
     <p className="cadu-ds-agents__legacy"><a href={bootstrap.endpoints.agentLegacy}>Método de compatibilidade com chave (avançado)</a></p>
   </section>;

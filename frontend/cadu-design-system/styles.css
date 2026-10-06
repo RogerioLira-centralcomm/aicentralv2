@@ -4575,3 +4575,22 @@ body.portal--workspace .cadu-ds-entity-rail__group > div > :is(a, div) > span:fi
 body.portal--workspace .cadu-ds-entity-rail__readiness{grid-template-columns:minmax(0,1fr)}
 body.portal--workspace .cadu-ds-entity-rail__readiness strong{font-size:20px;line-height:1.1}
 @media(min-width:641px) and (max-width:1024px){body.portal--workspace .cadu-ds-entity-nav>nav{flex-wrap:wrap;overflow-x:visible}}
+
+/* Fontes conectadas: agentes primeiro, detalhes recolhíveis, conectores futuros com baixa prioridade */
+.cadu-ds-agents__accordions { margin-top:14px; border:1px solid var(--cadu-line); border-radius:12px; background:var(--cadu-surface); overflow:hidden; }
+.cadu-ds-agents__fold + .cadu-ds-agents__fold { border-top:1px solid var(--cadu-line); }
+.cadu-ds-agents__fold > summary { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:54px; padding:0 16px; cursor:pointer; list-style:none; color:var(--cadu-ink); font-size:14px; font-weight:600; }
+.cadu-ds-agents__fold > summary::-webkit-details-marker { display:none; }
+.cadu-ds-agents__fold > summary::after { content:""; width:8px; height:8px; margin-left:4px; border-right:1.6px solid var(--cadu-muted); border-bottom:1.6px solid var(--cadu-muted); transform:rotate(45deg) translateY(-2px); transition:transform .18s ease; }
+.cadu-ds-agents__fold[open] > summary::after { transform:rotate(-135deg) translateY(-2px); }
+.cadu-ds-agents__fold > summary span { margin-right:auto; }
+.cadu-ds-agents__fold > summary em { padding:2px 10px; border-radius:999px; background:var(--cadu-accent-soft); color:var(--cadu-accent-strong); font-size:12px; font-style:normal; font-weight:600; }
+.cadu-ds-agents__fold[open] > summary { border-bottom:1px solid var(--cadu-line); }
+.cadu-ds-agents__fold > :not(summary) { margin-left:16px; margin-right:16px; }
+.cadu-ds-agents__fold > .cadu-ds-integration-actions { margin-bottom:16px; }
+.cadu-ds-agents__fold > .cadu-ds-integration-services { margin-bottom:8px; }
+.cadu-ds-connector-grid i.cadu-ds-connector-logo { background:#fff; border:1px solid var(--cadu-line); padding:6px; }
+.cadu-ds-connector-logo svg { width:100%; height:100%; }
+.cadu-ds-connector-grid { gap:8px; }
+.cadu-ds-connector-grid article { opacity:.78; padding:12px; }
+.cadu-ds-connector-grid article > em { display:inline-flex; width:max-content; padding:2px 8px; border-radius:999px; background:var(--cadu-accent-soft, #f2f4f7); font-size:10px; text-transform:none; }

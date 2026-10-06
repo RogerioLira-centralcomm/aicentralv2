@@ -26,22 +26,57 @@ def list_plans(context: RequestContext, arguments: dict) -> dict:
     return {"plans": [{key: row.get(key) for key in fields} for row in records]}
 
 
+# Read-only projections for agents: public descriptive fields only. Commercial values (investment labels, prices,
+# internal extras) never leave through the MCP, so the Planner data can be used freely to enrich research and notes.
+_CATALOG_FIELDS = {
+    "canais": ("id", "slug", "name", "description", "category", "audience"),
+    "audiencias": ("id", "name", "description", "audience", "category", "subcategory", "platform",
+                   "perfil_socioeconomico", "propensao_compra", "tamanho"),
+    "formatos": ("id", "name", "description", "dimensions", "files", "format_type", "platform_slug",
+                 "platform", "creative_category", "purpose"),
+    "interativos": ("id", "name", "description", "dimensions", "files", "format_type", "platform_slug",
+                    "platform", "creative_category", "purpose"),
+    "portais": ("id", "name", "domain", "category", "description", "audience_estimate", "audience_period",
+                "scope", "uf", "monthly_visits", "avg_time_seconds", "metrics_period", "ads_txt_status",
+                "programmatic_status"),
+    "places": ("id", "slug", "name", "code", "operator", "description", "category", "city", "audience",
+               "traffic", "traffic_label", "points", "public_url"),
+}
+
+
+def _project(records, kind):
+    fields = _CATALOG_FIELDS[kind]
+    return [{key: row.get(key) for key in fields} for row in records if isinstance(row, dict)]
+
+
 @register_tool(
     name="planner.search_catalog", capability="planner", effect="read",
-    description="Pesquisa audiências, canais, formatos ou formatos interativos do Planner.",
+    description=("Pesquisa o catálogo do Planner: audiências, canais, formatos, formatos interativos, portais e Places. "
+                 "Somente leitura e sem custo: use para enriquecer pesquisas, anotações e planejamentos sem abrir o Cadu. "
+                 "Não traz valores comerciais."),
     exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "required": ["kind"], "properties": {
-        "kind": {"type": "string", "enum": sorted(catalog.KINDS)},
+        "kind": {"type": "string", "enum": sorted(_CATALOG_FIELDS)},
         "query": {"type": "string", "maxLength": 100},
         "limit": {"type": "integer", "minimum": 1, "maximum": 30},
     }, "additionalProperties": False},
 )
 def search_catalog(context: RequestContext, arguments: dict) -> dict:
+    kind = arguments["kind"]
+    query = str(arguments.get("query") or "").strip()[:100]
+    limit = int(arguments.get("limit") or 20)
     try:
-        records = catalog.query(arguments["kind"], arguments.get("query", ""), arguments.get("limit", 20))
+        if kind == "portais":
+            from ....cadu_planner import portals
+            records = portals.catalog(query=query, limit=limit)["records"]
+        elif kind == "places":
+            from ....cadu_planner import places
+            records = places.catalog(query=query)[:limit]
+        else:
+            records = catalog.query(kind, query, limit)
     except HTTPException as exc:
         raise ToolInputError(str(exc.description)) from exc
-    return {"kind": arguments["kind"], "records": records}
+    return {"kind": kind, "records": _project(records, kind)}
 
 
 @register_tool(

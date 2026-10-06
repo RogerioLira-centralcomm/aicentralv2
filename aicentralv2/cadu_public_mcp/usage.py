@@ -13,6 +13,11 @@ from ..db import get_db
 
 PUBLIC_TOOL_COSTS = {
     "operations.get": 0,
+    # Planner catalog and plans are read-only reference data: free so agents use them without friction.
+    "planner.get_brief": 0,
+    "planner.get_media_plan": 0,
+    "planner.list_plans": 0,
+    "planner.search_catalog": 0,
     "media.creation_capabilities": 0,
     "media.start_studio_session": 0,
     "media.prepare_edit_source_upload": 0,
@@ -97,12 +102,8 @@ DEFAULT_ONE_CREDIT_TOOLS = frozenset({
     "context.update",
     "intent.execute",
     "intent.interpret",
-    "planner.get_brief",
     "reports.get_link_test",
-    "planner.get_media_plan",
     "reports.list_link_tests",
-    "planner.list_plans",
-    "planner.search_catalog",
     "projects.create_note",
     "projects.ingestion_status",
     "projects.inspect_link",

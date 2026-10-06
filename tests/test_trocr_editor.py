@@ -156,7 +156,8 @@ class TrocrEditorDraftTest(unittest.TestCase):
         self.assertNotIn(".trocr-product-bar", standalone_css)
         self.assertNotIn("body.portal--studio", standalone_css)
         self.assertIn("#mcTrocrClipCompare", standalone_css)
-        self.assertIn("cadu_studio/editor/react/app.css') }}?v=1", page)
-        self.assertIn("cadu_studio/editor/react/app.js') }}?v=1", page)
+        # Cache-busting por impressão digital do arquivo (não mais ?v=1 fixo).
+        self.assertIn("cadu_studio/editor/react/app.css') }}?v={{ static_fingerprint('cadu_studio/editor/react/app.css')", page)
+        self.assertIn("cadu_studio/editor/react/app.js') }}?v={{ static_fingerprint('cadu_studio/editor/react/app.js')", page)
         self.assertIn("cadu-studio-editor-root", page)
         self.assertNotIn("trocr-standalone.css", page)

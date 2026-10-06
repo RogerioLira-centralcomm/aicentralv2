@@ -308,7 +308,11 @@ class IntegrationCredentialsContractTest(unittest.TestCase):
             ROOT / "migrations/add_openrouter_integration_credential.sql"
         ).read_text()
         self.assertIn("openrouter", openrouter_sql)
-        self.assertIn("d4sign", openrouter_sql)
+        # O CHECK de provedores (incluindo d4sign) virou canônico em um arquivo só.
+        self.assertIn("run_sync_integration_provider_check.py", openrouter_sql)
+        provider_check = (ROOT / "migrations/integration_provider_check.sql").read_text()
+        self.assertIn("d4sign", provider_check)
+        self.assertIn("openrouter", provider_check)
         openai_sql = (ROOT / "migrations/add_openai_integration_credential.sql").read_text()
         self.assertIn("openai", openai_sql)
         firecrawl_sql = (
@@ -320,15 +324,15 @@ class IntegrationCredentialsContractTest(unittest.TestCase):
         ).read_text()
         self.assertIn("brevo", brevo_sql)
         d4sign_sql = (ROOT / "migrations/add_d4sign_assinaturas.sql").read_text()
-        self.assertIn("openai", d4sign_sql)
-        self.assertIn("firecrawl", d4sign_sql)
-        self.assertIn("brevo", d4sign_sql)
-        self.assertIn("google_login_cadu", d4sign_sql)
-        self.assertIn("google_login_centralx", d4sign_sql)
         self.assertIn("d4sign", d4sign_sql)
+        # A migração D4Sign não redefine mais o CHECK (derrubava a OpenAI);
+        # a lista inteira vive no CHECK canônico.
+        self.assertNotIn("DROP CONSTRAINT IF EXISTS system_integration_credentials_provider_check", d4sign_sql)
+        for provider in ("openai", "firecrawl", "brevo", "google_login_cadu", "google_login_centralx", "d4sign"):
+            self.assertIn(f"'{provider}'", provider_check)
         google_login_sql = (ROOT / "migrations/add_google_login_credentials.sql").read_text()
-        self.assertIn("brevo", google_login_sql)
-        self.assertIn("d4sign", google_login_sql)
+        self.assertIn("google_login_cadu", google_login_sql)
+        self.assertNotIn("DROP CONSTRAINT IF EXISTS system_integration_credentials_provider_check", google_login_sql)
 
 
 class OpenAIDirectRoutingTest(unittest.TestCase):

@@ -220,6 +220,8 @@ class CreativeAnalyzerRoutesTest(TestCase):
         )
         self.app.add_url_rule("/login", "login", lambda: "login")
         self.app.context_processor(lambda: {"product_url": product_url, "studio_url": lambda endpoint, **values: "/"})
+        from aicentralv2.product_flags import register_product_flags
+        register_product_flags(self.app)  # o shell dos portais usa skills_enabled()
         api = Blueprint("studio", __name__, url_prefix="/studio")
         product = Blueprint("studio_product", __name__)
         register_api_routes(api)

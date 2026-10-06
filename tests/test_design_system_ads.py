@@ -1287,6 +1287,11 @@ class DesignSystemAdsRevisionTest(unittest.TestCase):
 
 
 class DesignSystemAdsSkillsAlignmentTest(unittest.TestCase):
+    # .agents/ é ignorado pelo git (só existe na máquina de desenvolvimento).
+    @unittest.skipUnless(
+        __import__("aicentralv2.design_system_ads.skills", fromlist=["SKILL_DIR"]).SKILL_DIR.is_dir(),
+        ".agents/skills/design-system-ads ausente (diretório local, fora do git)",
+    )
     def test_matriz_de_consumo_nao_injeta_markdown(self):
         from aicentralv2.design_system_ads.skills import (
             consumption_matrix,

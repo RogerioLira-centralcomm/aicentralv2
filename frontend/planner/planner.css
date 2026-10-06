@@ -1260,3 +1260,4 @@ a.planner-portal.planner-portal--wide { grid-template-columns: 40px minmax(200px
 .channel-bar { position: fixed; bottom: 20px; left: 50%; z-index: 20; display: flex; align-items: center; gap: 18px; padding: 10px 12px 10px 18px; transform: translateX(-50%); border-radius: 99px; background: #101418; color: #fff; box-shadow: 0 12px 32px -8px rgba(16, 20, 24, .45); font-size: 14px; }
 .channel-bar strong { color: #1dbf73; }
 .channel-bar a { display: inline-flex; align-items: center; gap: 4px; padding: 6px 14px; border-radius: 99px; background: #1dbf73; color: #101418; font-weight: 700; text-decoration: none; }
+.fmt-group:last-of-type:has(.planner-grid--channels) { margin-bottom: 76px; }

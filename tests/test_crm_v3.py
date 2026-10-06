@@ -269,6 +269,13 @@ class CrmTestHelpersTest(unittest.TestCase):
 
 class CrmTestApiTest(unittest.TestCase):
     def setUp(self):
+        # Desde set/2026 o default é o repositório real (sem fallback);
+        # estes testes exercitam a API sobre o store em memória.
+        import os
+        from unittest import mock as _mock
+        env = _mock.patch.dict(os.environ, {"USE_CRM_V3_STORE": "mock"})
+        env.start()
+        self.addCleanup(env.stop)
         store.reset()
         self.app = _crm_v3_app()
         self.client = self.app.test_client()

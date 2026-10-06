@@ -77,7 +77,10 @@ class CrmV3MainUiContractTest(unittest.TestCase):
         self.assertIn("ENTRY_PARAMS.get('cliente_id')", self.js)
         self.assertIn("ENTRY_PARAMS.get('executivo')", self.js)
         self.assertIn("clienteIdFromEntry()", self.js)
-        self.assertIn("state.clientes.find(function (c) { return String(c.id) === String(entryClienteId); })", self.js)
+        self.assertRegex(
+            self.js,
+            r"state\.clientes\.find\(function \(c\) \{\s*return String\(c\.id\) === String\(entryClienteId\);\s*\}\)",
+        )
 
     def test_selection_respects_active_filters(self):
         self.assertIn("function clientePassaFiltros(", self.js)

@@ -4,7 +4,7 @@ Medido em 2026-10-06 com `psycopg.connect` bloqueado durante a execução de cad
 `tests/conftest.py` agora recusa essas conexões. Cada teste abaixo precisa simular `get_db`/`psycopg.connect`:
 sem isso, ele dependia do banco apontado pelo `.env` (em produção, o remoto).
 
-Total:      102 testes;       58 deles falham hoje.
+Total: 102 testes; 58 deles falham hoje.
 
 | Arquivo | Testes |
 |---|---|

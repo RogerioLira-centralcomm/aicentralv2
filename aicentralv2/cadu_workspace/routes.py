@@ -1570,9 +1570,13 @@ def _workspace_brands(client_id: int, query: str = "", *, raise_on_error: bool =
         # A progressive Workspace query may have failed earlier in the same
         # request. Clear that aborted read transaction before loading the
         # independent cx_clients catalog; otherwise both the enriched query
-        # and its fallback fail with InFailedSqlTransaction.
+        # and its fallback fail with InFailedSqlTransaction. Only an aborted
+        # transaction is rolled back: an unconditional rollback also discarded
+        # writes the caller had not committed yet.
         try:
-            get_db().rollback()
+            from ..db import recuperar_transacao_falha
+            get_db()
+            recuperar_transacao_falha()
         except Exception:
             pass
         with get_db().cursor() as cursor:
@@ -3648,11 +3652,18 @@ def _sync_approved_brand_to_projects(client_id: int, user_id: int, brand_id: int
 @_request_memo
 def _workspace_projects(client_id: int, query: str = "", status: str = "ativos", *, raise_on_error: bool = False,
                         identity_brands: Optional[list[dict]] = None,
-                        identity_links: Optional[list[dict]] = None) -> list[dict]:
-    """Project dossiers retained from Cadu, always isolated by organization."""
+                        identity_links: Optional[list[dict]] = None,
+                        only_id: Optional[str] = None) -> list[dict]:
+    """Project dossiers retained from Cadu, always isolated by organization.
+
+    ``only_id`` narrows the read to one project so a detail page does not load the whole catalog.
+    """
     status = status if status in {'ativos', 'arquivados', 'todos'} else 'ativos'
     status_clause = "p.status = 'ativo'" if status == 'ativos' else "p.status = 'arquivado'" if status == 'arquivados' else "p.status <> 'deletado'"
     params = (client_id,)
+    if only_id:
+        status_clause += " AND p.id::text = %s"
+        params = (client_id, str(only_id))
 
     def matches_query(record: dict) -> bool:
         if not query.strip():
@@ -4565,7 +4576,7 @@ def _project_source(client_id: int, project_id: str, source_id: int) -> Optional
 
 def _workspace_project(client_id: int, project_id: str) -> Optional[dict]:
     # Archived dossiers remain readable and can be reactivated from their detail page.
-    project = next((item for item in _workspace_projects(client_id, status='todos') if str(item['id']) == project_id), None)
+    project = next((item for item in _workspace_projects(client_id, status='todos', only_id=str(project_id)) if str(item['id']) == project_id), None)
     if not project:
         return None
     try:

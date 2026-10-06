@@ -855,3 +855,12 @@ def setUpModule():
 
 def tearDownModule():
     _media_validation_patch.stop()
+
+
+def test_provider_audio_copyright_failure_gets_a_clear_message_with_a_stable_marker():
+    from aicentralv2.creative_media.worker import AUDIO_BLOCKED, friendly_failure
+    raw = "The request failed because the output audio may be related to copyright restrictions. Request id: 0217"
+    text = friendly_failure(RuntimeError(raw))
+    assert "direito autoral" in text and text.endswith(AUDIO_BLOCKED) and "Request id" not in text
+    assert friendly_failure(RuntimeError("Timeout do provedor")) == "Timeout do provedor"
+    assert AUDIO_BLOCKED not in friendly_failure(RuntimeError("copyright claim on the image"))

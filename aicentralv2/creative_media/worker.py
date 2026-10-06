@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import logging
 import time
+import re
 import threading
 from datetime import datetime, timezone
 
@@ -31,6 +32,18 @@ class JobCancelled(Exception):
 
 
 TERMINAL = {"completed", "failed", "cancelled", "expired"}
+# Marcador estável no fim da mensagem: a tela o remove e, ao vê-lo, oferece "Tentar sem áudio".
+AUDIO_BLOCKED = "[audio_bloqueado]"
+_AUDIO_COPYRIGHT = re.compile(r"copyright", re.I)
+
+
+def friendly_failure(error):
+    """Mensagem em português para falhas conhecidas do provedor; as demais seguem como vieram."""
+    text = str(error or "").strip()
+    if _AUDIO_COPYRIGHT.search(text) and re.search(r"audio|áudio|som\b", text, re.I):
+        return ("O provedor bloqueou o áudio gerado por possível direito autoral (música ou som parecido com obra protegida). "
+                f"Gere de novo sem áudio ou mude a direção do som. {AUDIO_BLOCKED}")
+    return text
 
 
 class AnimateWorker:
@@ -98,13 +111,14 @@ class AnimateWorker:
             return self.repository.get_job(job_id)
         except Exception as exc:
             logger.exception("Animação %s falhou", job_id)
+            reason = friendly_failure(exc)
             self.repository.update_job(
                 job_id,
                 status="failed",
                 stage="failed",
                 progress=100,
-                message=str(exc)[:240],
-                error_message=str(exc)[:500],
+                message=reason[:240],
+                error_message=reason[:500],
                 failed_at=datetime.now(timezone.utc),
                 locked_at=None,
             )

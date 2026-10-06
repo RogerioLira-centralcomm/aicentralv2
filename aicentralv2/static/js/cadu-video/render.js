@@ -10,8 +10,18 @@ function $(id) {
 
 export { showVideo as playClip, hideVideo as clearClip };
 
-export function setStatus(message) {
-  if ($("mcAnimateStatus")) $("mcAnimateStatus").textContent = message || "";
+export function setStatus(message, action = null) {
+  const node = $("mcAnimateStatus");
+  if (!node) return;
+  node.textContent = message || "";
+  if (action) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "mc-cadu-video-ghost mc-status-action";
+    button.textContent = action.label;
+    button.addEventListener("click", action.onClick);
+    node.append(" ", button);
+  }
 }
 
 export function paintAll() {

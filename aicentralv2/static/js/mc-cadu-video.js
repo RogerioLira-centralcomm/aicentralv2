@@ -1596,6 +1596,17 @@ async function refreshQuote() {
 }
 
 const VIDEO_CONFIRM_TOKENS = 100000;
+const AUDIO_BLOCKED = "[audio_bloqueado]";
+
+// O provedor barrou o áudio gerado: desliga o áudio e deixa o custo atualizado; quem gera de novo é a pessoa.
+function retryWithoutAudio() {
+  state.audio.enabled = false;
+  syncAudioMode(state.audio);
+  markDirty();
+  scheduleQuote();
+  paintAll();
+  setStatus("Áudio desligado. Confira o custo e clique em Gerar clipe.");
+}
 
 async function generate() {
   const singleImage = state.generationMode === "single_image";
@@ -1670,7 +1681,9 @@ function resume(jobId) {
   }, (job) => {
     if(client!==state.clientId)return;
     sessionStorage.removeItem(JOB_KEY);
-    setStatus(job?.error || job?.message || "A animação falhou.");
+    const reason = String(job?.error || job?.message || "A animação falhou.");
+    const audioBlocked = reason.includes(AUDIO_BLOCKED);
+    setStatus(reason.replace(AUDIO_BLOCKED, "").trim(), audioBlocked && state.audio.enabled !== false ? { label: "Tentar sem áudio", onClick: retryWithoutAudio } : null);
     state.generating = false;
     recordSpend(`video:${jobId}`, "video", `Geração de vídeo · ${state.duration}s`, job?.quote, "failed");
     markDirty();

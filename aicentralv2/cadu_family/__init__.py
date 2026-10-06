@@ -6,6 +6,8 @@ def register(app):
     import os
     app.config.setdefault('CADU_FAMILY_ENABLED', os.getenv('CADU_FAMILY_ENABLED', '0') == '1')
     app.config.setdefault('CADU_FAMILY_WRITES_ENABLED', False)
+    from ..product_flags import register_product_flags
+    register_product_flags(app)
     app.register_blueprint(bp)
     # Operational commands are top-level so deployment runbooks can use the
     # documented `flask conversation-memory-*` names without a blueprint group.

@@ -76,7 +76,9 @@ stop_service_for_deploy() {
 
     # Garantir que nenhum worker órfão ficou vivo. O stop explícito acima evita que
     # o Restart=always do systemd recrie o processo durante esta limpeza.
-    sudo pkill -9 -f "gunicorn.*run:app" 2>/dev/null || true
+    # O [g] impede que o padrão case com a própria linha de comando do sudo/pkill
+    # (antes o sudo era morto junto e deixava o terminal desalinhado).
+    sudo pkill -9 -f "[g]unicorn.*run:app" 2>/dev/null || true
     sleep 1
 
     # Verificar que a porta 8001 esta livre
@@ -249,16 +251,30 @@ if should_run "$FRONTEND_STATE_FILE" "${FORCE_FRONTEND_BUILD:-0}" \
        vite.studio-editor.config.mjs vite.studio-audio.config.mjs vite.studio-ui.config.mjs \
    || [ ! -f "aicentralv2/static/css/tailwind/output.css" ]; then
     if [ -x "./build_frontend_fast.sh" ]; then
-        bash ./build_frontend_fast.sh 2>&1 | tee -a "$DEPLOY_LOG"
+        FRONTEND_BUILD_SCRIPT="./build_frontend_fast.sh"
     elif [ -x "./build_frontend.sh" ]; then
-        # Keep the detailed log while streaming progress to the terminal. Without
-        # this, npm ci/Vite can run for several minutes and the deploy appears
-        # frozen at [4/9].
-        bash ./build_frontend.sh 2>&1 | tee -a "$DEPLOY_LOG"
+        FRONTEND_BUILD_SCRIPT="./build_frontend.sh"
     else
         echo "  > ERRO: build frontend indisponivel — output.css nao sera gerado"
         exit 1
     fi
+    # A saída completa (Tailwind, Vite, npm) vai só para o log; na tela fica um
+    # ponto por etapa concluída, para o deploy não parecer travado.
+    echo "  > Compilando com $FRONTEND_BUILD_SCRIPT (pode levar alguns minutos)..."
+    FRONTEND_STARTED=$SECONDS
+    bash "$FRONTEND_BUILD_SCRIPT" >> "$DEPLOY_LOG" 2>&1 &
+    FRONTEND_PID=$!
+    while kill -0 "$FRONTEND_PID" 2>/dev/null; do
+        printf '.'
+        sleep 2
+    done
+    echo ""
+    if ! wait "$FRONTEND_PID"; then
+        echo "  > ERRO no build do frontend — últimas linhas do log:"
+        tail -n 40 "$DEPLOY_LOG" 2>/dev/null || true
+        exit 1
+    fi
+    echo "  > Build concluído em $((SECONDS - FRONTEND_STARTED))s"
     record_state "$FRONTEND_STATE_FILE"
     echo "  > OK (frontend compilado para $(git rev-parse HEAD))"
 else

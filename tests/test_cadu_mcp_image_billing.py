@@ -68,3 +68,25 @@ def test_rag_credit_estimate_matches_the_charge_margin(monkeypatch):
     assert project_rag_credits(1000) == 1200
     monkeypatch.setenv("CADU_PROJECT_RAG_TOKEN_MARGIN", "abc")
     assert project_rag_credits(1000) == 1200
+
+
+def test_queued_brand_audit_kicks_the_queue_without_a_worker(monkeypatch):
+    from flask import Flask
+    from aicentralv2.cadu_workspace import routes as workspace_routes, brand_audit_jobs
+
+    app = Flask(__name__)
+    processed = []
+    monkeypatch.setattr(brand_audit_jobs, "process_one", lambda: processed.append(1) or len(processed) < 2)
+    started = []
+
+    class Immediate:
+        def __init__(self, target, **kwargs):
+            self.target = target
+
+        def start(self):
+            started.append(1)
+            self.target()
+
+    monkeypatch.setattr(workspace_routes.threading, "Thread", Immediate)
+    workspace_routes._kick_brand_audit_queue(app)
+    assert started and processed == [1, 1]

@@ -3482,7 +3482,27 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
         'excluded_sources': list(excluded_sources or []),
         'existing_asset_ids': existing_asset_ids,
     })
+    if current_app.config.get('CADU_BRAND_AUDIT_INLINE_DISPATCH', True):
+        _kick_brand_audit_queue(app)
     return True
+
+
+def _kick_brand_audit_queue(app):
+    """Drain the audit queue from the web process so a queued audit runs without a separate worker.
+
+    The claim is atomic (SKIP LOCKED) and capped globally, so this coexists with the supervised worker:
+    whichever process claims a job runs it, and the other finds nothing to do.
+    """
+    def drain():
+        with app.app_context():
+            try:
+                from .brand_audit_jobs import process_one
+                while process_one():
+                    pass
+            except Exception:
+                app.logger.exception('Falha ao processar a fila de auditoria de marca pelo servidor web')
+
+    threading.Thread(target=drain, daemon=True, name='brand-audit-inline-dispatch').start()
 
 
 def _run_brand_module_review_job(client_id, user_id, brand_id, job_id, module_id, analysis):

@@ -4676,6 +4676,27 @@ def _workspace_project(client_id: int, project_id: str) -> Optional[dict]:
     return project
 
 
+def _project_owned(client_id: int, project_id: str) -> bool:
+    """Cheap ownership check for read-only routes: one indexed lookup, no dossier assembly."""
+    if not client_id or not project_id:
+        return False
+    try:
+        with get_db().cursor() as cursor:
+            cursor.execute(
+                """SELECT 1 AS ok FROM cadu_ci_projetos
+                    WHERE id::text = %s AND id_cliente = %s AND status <> 'deletado'""",
+                (str(project_id), client_id),
+            )
+            return cursor.fetchone() is not None
+    except Exception:
+        current_app.logger.exception('Não foi possível confirmar a posse do projeto %s', project_id)
+        try:
+            get_db().rollback()
+        except Exception:
+            pass
+        return False
+
+
 def _editable_workspace_project(client_id: int, project_id: str) -> dict:
     project = _workspace_project(client_id, project_id)
     if not project:
@@ -7312,7 +7333,7 @@ def remove_project_link(project_id, link_id):
 def project_image(project_id, image_id):
     """Serve a legacy project image stored in PostgreSQL within its owner scope."""
     client_id = int(session.get('cliente_id') or 0)
-    if not _workspace_project(client_id, project_id):
+    if not _project_owned(client_id, project_id):
         abort(404)
     try:
         with get_db().cursor() as cursor:
@@ -7752,7 +7773,7 @@ def import_project_url(project_id):
 @login_required
 def download_project_source(project_id, source_id):
     client_id = int(session.get('cliente_id') or 0)
-    if not _workspace_project(client_id, project_id):
+    if not _project_owned(client_id, project_id):
         abort(404)
     source = _project_source(client_id, project_id, source_id)
     if not source:
@@ -8173,7 +8194,7 @@ def query_project_knowledge(project_id):
     if not _workspace_api_csrf():
         return jsonify({'error': 'Atualize a página e tente novamente.'}), 403
     client_id = int(session.get('cliente_id') or 0)
-    if not _workspace_project(client_id, project_id):
+    if not _project_owned(client_id, project_id):
         abort(404)
     payload = request.get_json(silent=True) or {}
     query = ' '.join(str(payload.get('query') or '').split())[:400]

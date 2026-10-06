@@ -50,3 +50,21 @@ def test_studio_image_charge_debits_the_full_provider_cost():
     debit = modeling.credit_connector.charge_provider.call_args.kwargs
     assert debit["media_tokens"] == media_tokens_for_cost(0.05) > 0
     assert debit["media_tokens"] == 5000  # US$ 0,05 a US$ 10 por milhão de créditos, sem desconto de tokens do provedor
+
+
+def test_image_quote_follows_the_chosen_quality():
+    from aicentralv2.creative_media.studio_costs import QUALITY_LABELS, image_estimate_usd
+    from aicentralv2.cadu_tool_billing import cost_token_equivalent
+
+    quotes = {label: cost_token_equivalent(image_estimate_usd(quality), margin_multiplier=1)
+              for label, quality in QUALITY_LABELS.items()}
+    assert quotes["econômica"] < quotes["padrão"] < quotes["alta"]
+
+
+def test_rag_credit_estimate_matches_the_charge_margin(monkeypatch):
+    from aicentralv2.cadu_skills.repository import project_rag_credits
+
+    monkeypatch.delenv("CADU_PROJECT_RAG_TOKEN_MARGIN", raising=False)
+    assert project_rag_credits(1000) == 1200
+    monkeypatch.setenv("CADU_PROJECT_RAG_TOKEN_MARGIN", "abc")
+    assert project_rag_credits(1000) == 1200

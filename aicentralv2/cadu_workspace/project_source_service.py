@@ -18,7 +18,7 @@ from werkzeug.datastructures import FileStorage
 from werkzeug.exceptions import BadRequest, Conflict, NotFound
 from werkzeug.utils import secure_filename
 
-from ..cadu_skills.repository import charge_project_rag
+from ..cadu_skills.repository import charge_project_rag, project_rag_credits
 from ..db import get_db
 from . import project_index_service, project_knowledge, project_sources
 from .meeting_reference import parse_meeting_invite
@@ -235,8 +235,13 @@ def _project_id(context: RequestContext) -> str:
     return str(row["id"])
 
 
+INDEXING_COST_NOTE = ("Indexar como conhecimento cobra créditos proporcionais ao texto extraído, "
+                      "cerca de 1,2 crédito por token (um token equivale a ~4 caracteres de texto). "
+                      "Com max_credits, o envio é recusado sem cobrança se a estimativa passar do limite aprovado.")
+
+
 def prepare_upload(context: RequestContext, *, request_id: str, use_as_knowledge: Optional[bool] = None,
-                   category: Optional[str] = None, description: str = "") -> dict:
+                   category: Optional[str] = None, description: str = "", max_credits: Optional[int] = None) -> dict:
     project_id = _project_id(context)
     try:
         request_id = str(UUID(str(request_id)))
@@ -253,6 +258,7 @@ def prepare_upload(context: RequestContext, *, request_id: str, use_as_knowledge
         "use_as_knowledge": use_as_knowledge,
         "category": category,
         "description": description,
+        "max_credits": max_credits,
     })
     return {
         "upload_token": token,
@@ -265,6 +271,8 @@ def prepare_upload(context: RequestContext, *, request_id: str, use_as_knowledge
         "purpose": "automatic" if use_as_knowledge is None else "knowledge_source" if use_as_knowledge else "project_attachment",
         "category": category,
         "expires_in": UPLOAD_MAX_AGE,
+        "max_credits": max_credits,
+        "indexing_cost": INDEXING_COST_NOTE,
         "accepted": sorted(ATTACHMENT_EXTENSIONS if use_as_knowledge is not True else project_sources.ALLOWED_EXTENSIONS | project_sources.IMAGE_EXTENSIONS),
     }
 
@@ -385,6 +393,13 @@ def save_upload(context: RequestContext, token: str, file_storage) -> dict:
                                        "reason": existing.get("classification_reason")},
                     "status": "indexed" if existing.get("purpose") == "knowledge_source" else "attached",
                     "charged_credits": int(existing.get("tokens") or 0), "idempotent_replay": True}
+        max_credits = claims.get("max_credits")
+        if use_as_knowledge and max_credits:
+            estimated = project_rag_credits(len(source["text"] or "") // 4)
+            if estimated > int(max_credits):
+                raise BadRequest(
+                    f"A indexação deve custar cerca de {estimated} créditos, acima do limite aprovado de "
+                    f"{int(max_credits)}. Nada foi cobrado: confirme o valor com a pessoa e envie de novo.")
         target = project_sources.private_path(
             _storage_root(), context.client_id, project_id, source["suffix"], uuid4().hex,
         )

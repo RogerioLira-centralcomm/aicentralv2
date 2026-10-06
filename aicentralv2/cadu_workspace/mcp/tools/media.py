@@ -64,8 +64,11 @@ def creation_capabilities(context: RequestContext, arguments: dict) -> dict:
     fidelity = {"econômica": "draft", "padrão": "draft", "alta": "publish"}.get(quality, "draft")
     estimate = None
     try:
-        from ....creative_media.studio_costs import image_credits as catalog_image_credits
-        image_credits = catalog_image_credits(reference_count)
+        from ....creative_media.studio_costs import QUALITY_LABELS, image_estimate_usd
+        # The Studio charges the real token cost, which follows quality, so quote that quality and not the flat worst case.
+        image_credits = cost_token_equivalent(
+            image_estimate_usd(QUALITY_LABELS.get(quality, "medium"), reference_count=reference_count),
+            margin_multiplier=1)
         estimate = {
             "unit": "credits", "estimated_total": 1100 + studio_create.estimated_tokens(1, reference_count) + image_credits,
             "components": {

@@ -380,20 +380,21 @@ def update_task(context: RequestContext, arguments: dict) -> dict:
 
 @register_tool(
     name="projects.prepare_source_upload", capability="workspace", effect="draft", requires_project=True,
-    description="Prepara upload privado de qualquer arquivo aceito, incluindo HTML, documentos, planilhas, apresentações, imagens, áudio, vídeo e pacotes criativos. Sem use_as_knowledge, preserva o arquivo no inventário e só indexa formatos pesquisáveis quando apropriado. Indexar como conhecimento (use_as_knowledge) consome créditos proporcionais ao conteúdo extraído, que só ficam conhecidos após o envio e voltam em charged_credits: avise o cliente antes e informe o valor cobrado depois.",
+    description="Prepara upload privado de qualquer arquivo aceito, incluindo HTML, documentos, planilhas, apresentações, imagens, áudio, vídeo e pacotes criativos. Sem use_as_knowledge, preserva o arquivo no inventário e só indexa formatos pesquisáveis quando apropriado. Indexar como conhecimento (use_as_knowledge) consome cerca de 1,2 crédito por token do texto extraído (~4 caracteres por token); a resposta traz indexing_cost. Avise a pessoa, peça um limite e passe-o em max_credits: se a estimativa passar, o envio é recusado sem cobrança. O valor cobrado volta em charged_credits.",
     exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "required": ["request_id"], "properties": {
         "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
         "use_as_knowledge": {"type": "boolean"},
         "category": {"type": "string", "enum": sorted(project_source_service.CATEGORIES)},
         "description": {"type": "string", "maxLength": 4000, "description": "Descrição factual do item, especialmente útil para indexar imagens geradas sem texto ou arquivos criativos."},
+        "max_credits": {"type": "integer", "minimum": 1, "description": "Limite de créditos aprovado pela pessoa para indexar. Se a estimativa do texto passar dele, o envio é recusado sem cobrança."},
     }, "additionalProperties": False},
 )
 def prepare_source_upload(context: RequestContext, arguments: dict) -> dict:
     return _domain(lambda: project_source_service.prepare_upload(
         context, request_id=arguments["request_id"],
         use_as_knowledge=arguments.get("use_as_knowledge"), category=arguments.get("category"),
-        description=arguments.get("description", ""),
+        description=arguments.get("description", ""), max_credits=arguments.get("max_credits"),
     ))
 
 

@@ -384,6 +384,16 @@ def credit_position(client_id: int) -> dict:
         return {"available": 0, "monthly": 0, "configured": False, "monthly_limit": 0, "monthly_used": 0, "monthly_usage_percentage": 0}
 
 
+def project_rag_credits(raw_tokens: int) -> int:
+    """Credits a project RAG indexing of ``raw_tokens`` costs, with the same operating margin it is charged with."""
+    try:
+        margin = float(os.getenv('CADU_PROJECT_RAG_TOKEN_MARGIN', '1.20'))
+    except (TypeError, ValueError):
+        margin = 1.20
+    margin = min(2.0, max(1.0, margin))
+    return max(1, math.ceil(max(1, int(raw_tokens or 0)) * margin))
+
+
 def charge_project_rag(cursor, *, client_id: int, user_id: int, project_id: str,
                        tokens: int, stage: str, idempotency_key: str) -> int:
     """Debit RAG usage through the global connector in the caller transaction."""

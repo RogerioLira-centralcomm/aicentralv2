@@ -1139,12 +1139,15 @@ class WorkspaceBrandsTest(TestCase):
             '/observabilidade', endpoint='cadu_agent_v2_lab.observability_page',
             view_func=lambda: '',
         )
-        response = client.get('/marcas/81')
+        # O id numérico legado redireciona para a referência opaca da marca.
+        legacy = client.get('/marcas/81')
+        self.assertEqual(legacy.status_code, 302)
+        response = client.get(legacy.headers['Location'])
 
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
         self.assertIn('"brandMode": true', html)
-        self.assertIn('/workspace/app/marcas/81/hero/gerar', html)
+        self.assertRegex(html, r'/workspace/app/marcas/[^/"]+/hero/gerar')
 
     @mock.patch('aicentralv2.creative_modeling_service.CreativeModelingService')
     @mock.patch('aicentralv2.cadu_workspace.routes.CaduCreditConnector')

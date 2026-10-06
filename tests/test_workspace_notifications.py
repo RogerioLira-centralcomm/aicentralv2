@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 
@@ -51,7 +52,8 @@ def test_notification_center_is_shared_by_desktop_and_mobile_workspace_shells():
     assert 'estimated_hours_saved' in center
     assert 'cost_brl' in center
     assert 'processed_count' in center
-    assert 'inset: 0 0 0 auto' in center_css
+    # Gaveta ancorada à direita (com margem no desktop, tela cheia no celular).
+    assert re.search(r'inset:\s*16px 16px 16px auto', center_css)
 
 
 def test_notification_migration_validates_every_trigger_column():

@@ -9,7 +9,7 @@ def test_account_journey_is_centered_on_the_agency_team():
     component = (ROOT / 'frontend/cadu-design-system/components/WorkspaceAccount.jsx').read_text(encoding='utf-8')
     routes = (ROOT / 'aicentralv2/cadu_workspace/routes.py').read_text(encoding='utf-8')
 
-    for tab in ("perfil: 'Perfil'", "equipe: 'Equipe'", "planos: 'Plano'", "uso: 'Uso'", "creditos: 'Créditos'", "faturamento: 'Faturamento'"):
+    for tab in ("perfil: 'Perfil'", "equipe: 'Equipe'", "planos: 'Plano'", "uso: 'Uso'", "creditos: 'Tokens'", "faturamento: 'Faturamento'"):
         assert tab in component
     assert 'WorkspaceContextSidebar' in component
     assert "'accountMode': True" in template

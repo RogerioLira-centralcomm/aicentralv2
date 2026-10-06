@@ -23,7 +23,7 @@ return route.fulfill({json:{success:true,data}});
 });
 page.on('dialog',d=>d.accept());
 await page.goto('http://studio.test/?client=1&clip=clip1');
-await page.waitForFunction(()=>document.querySelector('#mcSwapVideo').videoWidth===320);
+await page.waitForFunction(()=>document.querySelector('#mcSwapVideo')?.videoWidth===320);
 for(const id of ['p1','p2','p3'])await page.click(`#mcVideoLibrary button[data-id="${id}"][data-action="pick"]`);
 await page.waitForFunction(()=>document.querySelectorAll('#mcVideoLibrary .mc-lib-item').length>=20);
 // imagem quebrada vira marcador, não ícone de imagem quebrada

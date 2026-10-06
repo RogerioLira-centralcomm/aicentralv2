@@ -21,7 +21,7 @@ return route.fulfill({json:{success:true,data}});
 });
 page.on('dialog',d=>d.accept());
 await page.goto('http://studio.test/?client=1&clip=clip1');
-await page.waitForFunction(()=>document.querySelector('#mcSwapVideo').videoWidth===320);
+await page.waitForFunction(()=>document.querySelector('#mcSwapVideo')?.videoWidth===320); // o vídeo pode montar depois do goto sob carga
 return page;}
 const comp=page=>page.evaluate(async()=>{const {state}=await import('/static/js/cadu-video/state.js');const c=state.composition||{};return {enabled:!!c.enabled,items:(c.items||[]).map(i=>i.asset_id),kinds:(c.items||[]).map(i=>i.kind),audio:(c.audio||[]).map(a=>({id:a.sound_id,start:a.start}))}});
 (async()=>{

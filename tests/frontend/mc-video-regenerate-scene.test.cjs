@@ -30,7 +30,7 @@ if(path.endsWith('/capabilities'))data={model:'seedance',durations:[4,8,12],qual
 return route.fulfill({json:{success:true,data}});
 });
 await page.goto('http://studio.test/?client=1&clip=clip1');
-await page.waitForFunction(()=>document.querySelector('#mcSwapVideo').videoWidth===320);
+await page.waitForFunction(()=>document.querySelector('#mcSwapVideo')?.videoWidth===320);
 await page.evaluate(async()=>{window.__S=(await import('/static/js/cadu-video/state.js')).state;});
 // monta 3 cenas: rascunho + peças da biblioteca
 await page.fill('#mcVideoBriefing','Anúncio de internet fibra para famílias, 500 mega, fale com a gente.');

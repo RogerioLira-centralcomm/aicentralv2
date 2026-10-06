@@ -22,7 +22,7 @@ if(path.endsWith('/capabilities'))data={model:'seedance',durations:[4,8],qualiti
 return route.fulfill({json:{success:true,data}});
 });
 await page.goto('http://studio.test/?client=1&clip=clip1');
-await page.waitForFunction(()=>document.querySelector('#mcSwapVideo').videoWidth===320);
+await page.waitForFunction(()=>document.querySelector('#mcSwapVideo')?.videoWidth===320);
 await page.fill('#mcVideoBriefing','Anúncio de internet fibra para famílias, 500 mega, fale com a gente.');
 await page.click('#mcVideoDraftBtn');
 await page.waitForFunction(()=>document.querySelectorAll('#mcVideoDraft .mc-draft-card').length===3);

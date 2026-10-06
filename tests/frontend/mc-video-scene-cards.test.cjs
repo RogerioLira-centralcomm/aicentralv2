@@ -20,7 +20,7 @@ if(path.endsWith('/capabilities'))data={model:'seedance',durations:[4,8],qualiti
 return route.fulfill({json:{success:true,data}});
 });
 await page.goto('http://studio.test/?client=1&clip=clip1');
-await page.waitForFunction(()=>document.querySelector('#mcSwapVideo').videoWidth===320);
+await page.waitForFunction(()=>document.querySelector('#mcSwapVideo')?.videoWidth===320);
 const result=await page.evaluate(async()=>{
   const {state}=await import('/static/js/cadu-video/state.js');
   const {paintProps}=await import('/static/js/cadu-video/render.js');

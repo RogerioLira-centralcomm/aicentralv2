@@ -20,7 +20,7 @@ if(path.endsWith('/capabilities'))data={model:'seedance',durations:[4,8],qualiti
 return route.fulfill({json:{success:true,data}});
 });
 await page.goto('http://studio.test/?client=1&clip=clip1');
-await page.waitForFunction(()=>document.querySelector('#mcSwapVideo').videoWidth===320);
+await page.waitForFunction(()=>document.querySelector('#mcSwapVideo')?.videoWidth===320);
 await page.waitForFunction(()=>document.querySelectorAll('#mcStudioFilmstrip img').length===8);
 for(const width of [1440,1024,900,390]){
 await page.setViewportSize({width,height:1000});

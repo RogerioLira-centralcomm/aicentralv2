@@ -7,6 +7,14 @@ sys.path.insert(0, str(ROOT))
 
 from flask import Flask, render_template, session  # noqa: E402
 
+
+def _atomic_write(target, text):
+    # Vários testes de navegador renderizam a mesma fixture em paralelo; troca atômica evita ler arquivo pela metade.
+    import os
+    tmp = target.with_name(f'.{target.name}.{os.getpid()}.tmp')
+    tmp.write_text(text)
+    os.replace(tmp, target)
+
 app = Flask('fixture', root_path=str(ROOT / 'aicentralv2'), template_folder='templates', static_folder='static')
 app.secret_key = 'fixture'
 app.jinja_env.globals.update(
@@ -23,4 +31,4 @@ with app.test_request_context('/studio/editar'):
     html = render_template('cadu_studio/trocr.html', mc_trocr_csrf='studio-token')
 out = ROOT / 'tests/frontend/.fixtures/studio-editor'
 out.mkdir(parents=True, exist_ok=True)
-(out / 'index.html').write_text(html)
+_atomic_write(out / 'index.html', html)

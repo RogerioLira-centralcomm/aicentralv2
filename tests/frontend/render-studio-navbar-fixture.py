@@ -3,6 +3,14 @@ from pathlib import Path
 from types import SimpleNamespace
 from jinja2 import Environment, FileSystemLoader
 
+
+def _atomic_write(target, text):
+    # Vários testes de navegador renderizam a mesma fixture em paralelo; troca atômica evita ler arquivo pela metade.
+    import os
+    tmp = target.with_name(f'.{target.name}.{os.getpid()}.tmp')
+    tmp.write_text(text)
+    os.replace(tmp, target)
+
 env = Environment(loader=FileSystemLoader('aicentralv2/templates'), autoescape=True)
 env.globals.update(
     url_for=lambda endpoint, **kw: '/static/' + kw['filename'] if endpoint == 'static' else '/' + endpoint,
@@ -24,4 +32,4 @@ page = ('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
         '<script src="/static/js/mc-cadu-nav.js" defer></script></body></html>')
 out = Path('tests/frontend/.fixtures/studio-navbar')
 out.mkdir(parents=True, exist_ok=True)
-(out / 'index.html').write_text(page)
+_atomic_write(out / 'index.html', page)

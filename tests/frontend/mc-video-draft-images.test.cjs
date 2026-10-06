@@ -24,7 +24,7 @@ return route.fulfill({json:{success:true,data}});
 });
 const dialogs=[];page.on('dialog',d=>{dialogs.push(d.message());d.accept();});
 await page.goto('http://studio.test/?client=1&clip=clip1');
-await page.waitForFunction(()=>document.querySelector('#mcSwapVideo').videoWidth===320);
+await page.waitForFunction(()=>document.querySelector('#mcSwapVideo')?.videoWidth===320);
 await page.fill('#mcVideoBriefing','Anúncio de internet fibra para famílias, 500 mega, fale com a gente.');
 await page.click('#mcVideoDraftBtn');
 await page.waitForFunction(()=>document.querySelectorAll('#mcVideoDraft .mc-draft-card').length===3);

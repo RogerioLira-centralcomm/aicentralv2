@@ -21,7 +21,7 @@ const fs=require('fs'),assert=require('node:assert/strict');
   else if(p.includes('/exports/')){data=jobs.get(p.split('/').at(-1));if(Date.now()-data.created<1800)data={...data,status:'rendering'};}
   return route.fulfill({json:{success:true,data}});
  });
- await page.goto('http://studio.test/?client=1&clip=clip1');await page.waitForFunction(()=>document.querySelector('#mcSwapVideo').videoWidth===320);
+ await page.goto('http://studio.test/?client=1&clip=clip1');await page.waitForFunction(()=>document.querySelector('#mcSwapVideo')?.videoWidth===320);
  await page.locator('#mcVideoName').fill('Oferta especial');await page.locator('#mcVideoName').dispatchEvent('change');
  for(const format of ['mp4','gif','html']){
   const download=page.waitForEvent('download');await page.locator('#mcStudioExportFormat').selectOption(format);
@@ -32,7 +32,8 @@ const fs=require('fs'),assert=require('node:assert/strict');
   assert.equal(file.suggestedFilename(),`marca_v001_oferta_especial_9x16.${format}`);
   assert.equal(await page.locator('#caduProcessing a').filter({hasText:'Baixar'}).count(),0);
   assert.equal(await page.locator('#mcStudioExportStatus a').count(),0);
-  assert.equal(await page.locator('#mcStudioExportFormat').getAttribute('aria-busy'),'false');
+  // O download dispara antes de o seletor sair do estado ocupado; espera a transição em vez de ler no mesmo tick.
+  await page.waitForFunction(()=>document.querySelector('#mcStudioExportFormat').getAttribute('aria-busy')==='false');
  }
  assert.equal(jobs.size,3);assert.deepEqual(errors,[]);console.log('PASS automatic MP4/GIF/HTML downloads, creative metadata, correct filenames, loading spinner and elapsed timer, no footer download links');await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});

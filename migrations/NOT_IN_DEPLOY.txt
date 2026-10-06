@@ -3,9 +3,7 @@
 # 'auditar' = ainda não sabemos se a produção tem; rode migrations/audit_unlisted.py no servidor e
 # mova o arquivo para o ORDER.txt (se faltar) ou reclassifique. Todo .sql novo precisa estar no
 # ORDER.txt, ser chamado por um run_*.py ou aparecer aqui (tests/test_deploy_order.py).
-add_brand_asset_html_roles.sql | conferir-manual | auditoria de 2026-10-06: só altera dados/constraints; conferir à mão
 add_cadu_conversation_organization.sql | aplicada-manual | auditoria de 2026-10-06: objetos já existem em produção, fora do ledger
-add_cadu_link_reader_artifact.sql | conferir-manual | auditoria de 2026-10-06: só altera dados/constraints; conferir à mão
 add_cadu_market_intelligence.sql | aplicada-manual | auditoria de 2026-10-06: objetos já existem em produção, fora do ledger
 add_cadu_project_access.sql | aplicada-manual | auditoria de 2026-10-06: objetos já existem em produção, fora do ledger
 add_cadu_visual_identity_versions.sql | aplicada-manual | auditoria de 2026-10-06: objetos já existem em produção, fora do ledger
@@ -15,7 +13,6 @@ add_campanha_custo_midia_orcado.sql | aplicada-manual | auditoria de 2026-10-06:
 add_creative_media.sql | aplicada-pelo-app | carregada por schema.py
 add_imposto_percentual_cotacoes.sql | aplicada-manual | auditoria de 2026-10-06: objetos já existem em produção, fora do ledger
 add_new_fields_cotacao_linhas.sql | aplicada-manual | auditoria de 2026-10-06: objetos já existem em produção, fora do ledger
-add_parceiro_papel_contato_operacional.sql | conferir-manual | auditoria de 2026-10-06: só altera dados/constraints; conferir à mão
 add_plataforma_campanha_cotacoes.sql | aplicada-manual | auditoria de 2026-10-06: objetos já existem em produção, fora do ledger
 add_proposta_campos_cotacoes.sql | aplicada-manual | auditoria de 2026-10-06: objetos já existem em produção, fora do ledger
 add_reports_google_ads_history_goals.sql | aplicada-pelo-app | carregada por reports_ingest_v2.py
@@ -26,15 +23,15 @@ backfill_reports_supertag_sessions_v1.sql | manual-pontual | correção ou carga
 create_cliente_web_info.sql | aplicada-pelo-app | carregada por crm_v3_routes.py
 create_crm_ai_style_models.sql | aplicada-manual | auditoria de 2026-10-06: objetos já existem em produção, fora do ledger
 create_training_studio.sql | aplicada-manual | auditoria de 2026-10-06: objetos já existem em produção, fora do ledger
-expand_cadu_canais_descriptive_fields.sql | conferir-manual | auditoria de 2026-10-06: só altera dados/constraints; conferir à mão
+expand_cadu_canais_descriptive_fields.sql | aplicada-manual | auditoria de 2026-10-06 (leitura em produção): colunas alcance e integracao já são text em produção
 fix_apresentacao_dados_text.sql | manual-pontual | correção ou carga única; rodar à mão quando a operação pedir
 fix_cadu_workspace_ingestion_schema.sql | manual-pontual | correção ou carga única; rodar à mão quando a operação pedir
 integration_provider_check.sql | aplicada-pelo-app | carregada por integration_provider_check_lib.py
 promote_cadu_external_references_as_canonical.sql | manual-pontual | correção ou carga única; rodar à mão quando a operação pedir
 queue_workspace_rag_v2_reindex.sql | manual-destrutivo | remove dados ou colunas; só rodar à mão, com backup
 queue_workspace_rag_v3_reindex.sql | manual-pontual | correção ou carga única; rodar à mão quando a operação pedir
-refine_cadu_campaign_review_v1_3.sql | conferir-manual | auditoria de 2026-10-06: só altera dados/constraints; conferir à mão
-refine_cadu_plugin_evidence_v1_2.sql | conferir-manual | auditoria de 2026-10-06: só altera dados/constraints; conferir à mão
+refine_cadu_campaign_review_v1_3.sql | aplicada-manual | auditoria de 2026-10-06 (leitura em produção): plugins campaign-tracker e investment-simulator já têm as versões 1.2.0 e 1.3.0 (a 1.3.0 é a atual)
+refine_cadu_plugin_evidence_v1_2.sql | aplicada-manual | auditoria de 2026-10-06 (leitura em produção): plugins campaign-tracker e investment-simulator já têm as versões 1.2.0 e 1.3.0 (a 1.3.0 é a atual)
 remove_em_analise_status_cotacoes.sql | manual-destrutivo | remove dados ou colunas; só rodar à mão, com backup
 remove_id_linha_cotacao_audiencias.sql | manual-destrutivo | remove dados ou colunas; só rodar à mão, com backup
 remove_proposta_fields_cotacoes.sql | manual-destrutivo | remove dados ou colunas; só rodar à mão, com backup

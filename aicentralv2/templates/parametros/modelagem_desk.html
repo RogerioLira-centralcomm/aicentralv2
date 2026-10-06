@@ -8,7 +8,7 @@
 {% if mc_page_js == 'js/camadas/index.js' %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/camadas-v2.css') }}?v=5">
 {% endif %}
-{% if mc_page_js == 'js/mc-cadu-video.js' %}{{ module_import_map(mc_page_js) }}<link rel="stylesheet" href="{{ url_for('static', filename='css/video-studio.css') }}?v=14">{% endif %}
+{% if mc_page_js in ('js/mc-cadu-video.js', 'js/camadas/index.js') %}{{ module_import_map(mc_page_js) }}{% endif %}{% if mc_page_js == 'js/mc-cadu-video.js' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/video-studio.css') }}?v=14">{% endif %}
 {% if mc_page == 'trocar' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trocr-editor.css') }}?v=14">{% endif %}
 {% endblock %}
 
@@ -46,7 +46,7 @@
 <script src="{{ url_for('static', filename='js/trocr/editor.js') }}?v=3" defer></script>
 {% endif %}
 {% if mc_page_js == 'js/camadas/index.js' %}
-<script type="module" src="{{ url_for('static', filename=mc_page_js) }}?v=21"></script>
+<script type="module" src="{{ url_for('static', filename=mc_page_js) }}?v={{ static_fingerprint(mc_page_js) }}"></script>
 {% elif mc_page_js == 'js/mc-cadu-video.js' %}
 <script type="module" src="{{ url_for('static', filename=mc_page_js) }}?v={{ static_fingerprint(mc_page_js) }}"></script>
 {% elif mc_page == 'trocar' %}

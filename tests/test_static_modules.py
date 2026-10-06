@@ -46,3 +46,10 @@ def test_video_desks_load_the_import_map_before_the_module_script():
         html = (ROOT / "aicentralv2" / "templates" / name).read_text()
         assert "module_import_map(mc_page_js)" in html, name
         assert html.index("module_import_map(mc_page_js)") < html.index("static_fingerprint(mc_page_js)"), name
+
+
+def test_camadas_desk_also_gets_hashed_module_urls():
+    for name in ("cadu_studio/desk.html", "parametros/modelagem_desk.html"):
+        html = (ROOT / "aicentralv2" / "templates" / name).read_text()
+        assert "'js/camadas/index.js'" in html.split("module_import_map")[0].rsplit("{% if", 1)[-1], name
+        assert "?v=21" not in html, name  # versão manual esquecida: o hash vem do conteúdo

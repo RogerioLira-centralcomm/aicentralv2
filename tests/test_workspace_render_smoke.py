@@ -23,7 +23,7 @@ ACCOUNT = {
 class WorkspaceAccountRenderTest(TestCase):
     def render(self, path):
         with ExitStack() as stack:
-            stack.enter_context(mock.patch(R + '_php_account_data', side_effect=lambda _client: json.loads(json.dumps(ACCOUNT))))
+            stack.enter_context(mock.patch(R + '_php_account_data', side_effect=lambda _client, *_args, **_kw: json.loads(json.dumps(ACCOUNT))))
             stack.enter_context(mock.patch(R + '_workspace_settings_data', return_value={}))
             stack.enter_context(mock.patch(R + '_workspace_projects', return_value=[]))
             stack.enter_context(mock.patch(R + '_workspace_brands', return_value=[]))

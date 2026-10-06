@@ -83,7 +83,7 @@ class WorkspaceAccountUsageTest(TestCase):
             "Gestão de marcas", "Base de conhecimento dos projetos",
         ])
 
-    @mock.patch("aicentralv2.cadu_workspace.routes._php_account_data", side_effect=lambda _client: _account_fixture())
+    @mock.patch("aicentralv2.cadu_workspace.routes._php_account_data", side_effect=lambda _client, *_args, **_kw: _account_fixture())
     def test_plan_view_explains_usage_and_included_resources(self, _account):
         client = _app().test_client()
         with client.session_transaction() as session:
@@ -98,7 +98,7 @@ class WorkspaceAccountUsageTest(TestCase):
         self.assertEqual(bootstrap["account"]["plan"]["plan_definition_name"], "Equipe")
         self.assertEqual(bootstrap["account"]["insights"]["tokens"]["used"], 250)
 
-    @mock.patch("aicentralv2.cadu_workspace.routes._php_account_data", side_effect=lambda _client: _account_fixture())
+    @mock.patch("aicentralv2.cadu_workspace.routes._php_account_data", side_effect=lambda _client, *_args, **_kw: _account_fixture())
     def test_usage_view_preserves_auditable_context(self, _account):
         client = _app().test_client()
         with client.session_transaction() as session:
@@ -113,7 +113,7 @@ class WorkspaceAccountUsageTest(TestCase):
         self.assertEqual(bootstrap["account"]["movements"][0]["reason"], "Geração da campanha Primavera")
         self.assertEqual(bootstrap["account"]["movements"][0]["amount"], 7)
 
-    @mock.patch("aicentralv2.cadu_workspace.routes._php_account_data", side_effect=lambda _client: _account_fixture())
+    @mock.patch("aicentralv2.cadu_workspace.routes._php_account_data", side_effect=lambda _client, *_args, **_kw: _account_fixture())
     def test_credits_view_exposes_balance_lots_without_becoming_usage(self, _account):
         client = _app().test_client()
         with client.session_transaction() as session:
@@ -134,7 +134,7 @@ class WorkspaceAccountUsageTest(TestCase):
             "user_type": "admin",
         },
     })
-    @mock.patch("aicentralv2.cadu_workspace.routes._php_account_data", side_effect=lambda _client: _account_fixture())
+    @mock.patch("aicentralv2.cadu_workspace.routes._php_account_data", side_effect=lambda _client, *_args, **_kw: _account_fixture())
     def test_profile_view_replaces_legacy_settings_page(self, _account, _settings):
         client = _app().test_client()
         with client.session_transaction() as session:
@@ -158,7 +158,7 @@ class WorkspaceAccountUsageTest(TestCase):
         },
         "states": [{"id_estado": 25, "sigla": "SP", "descricao": "São Paulo"}],
     })
-    @mock.patch("aicentralv2.cadu_workspace.routes._php_account_data", side_effect=lambda _client: _account_fixture())
+    @mock.patch("aicentralv2.cadu_workspace.routes._php_account_data", side_effect=lambda _client, *_args, **_kw: _account_fixture())
     def test_organization_view_explains_canonical_record(self, _account, _settings):
         client = _app().test_client()
         with client.session_transaction() as session:

@@ -232,13 +232,35 @@ def workspace_brevo_email_event():
     return '', 204
 
 
-def _php_account_data(client_id: int) -> dict:
-    """Read the established Cadu PHP records; Workspace owns no account copy."""
+# What each Conta section reads from the PHP records. The credit position is always
+# loaded because every section's shell shows the usage meter.
+_ACCOUNT_SECTION_NEEDS = {
+    'perfil': frozenset(),
+    'agencia': frozenset({'people'}),
+    'equipe': frozenset({'people', 'invites'}),
+    'planos': frozenset({'plan'}),
+    'uso': frozenset({'plan', 'people', 'movements', 'credit_additions', 'space'}),
+    'creditos': frozenset({'movements', 'purchases'}),
+    'faturamento': frozenset(),
+}
+
+
+def _php_account_data(client_id: int, sections=None) -> dict:
+    """Read the established Cadu PHP records; Workspace owns no account copy.
+
+    ``sections`` limits the reads to what one Conta page renders; ``None`` loads everything.
+    """
     from .. import db
 
+    def want(name: str) -> bool:
+        return sections is None or name in sections
+
+    people, plans = [], []
     try:
-        people = [dict(row) for row in db.obter_contatos_por_cliente(client_id)]
-        plans = [dict(row) for row in db.obter_planos_clientes({"cliente_id": client_id})]
+        if want('people'):
+            people = [dict(row) for row in db.obter_contatos_por_cliente(client_id)]
+        if want('plan'):
+            plans = [dict(row) for row in db.obter_planos_clientes({"cliente_id": client_id})]
     except Exception:
         people, plans = [], []
 
@@ -257,71 +279,81 @@ def _php_account_data(client_id: int) -> dict:
         "effective_limit": granted,
         "usage_percentage": round((used / granted) * 100, 1) if granted else 0,
     } if credit.get("configured") else None
-    try:
-        invites = [dict(row) for row in db.obter_invites_cliente(client_id)]
-    except Exception:
-        invites = []
-    try:
-        with get_db().cursor() as cursor:
-            cursor.execute(
-                """SELECT id, 'usage' AS movement_type, tokens_cobrados AS amount,
-                          CONCAT('Ferramenta: ', ferramenta,
-                                 CASE WHEN etapa IS NULL THEN '' ELSE ' · ' || etapa END) AS reason,
-                          idempotency_key AS reference, NULL::varchar AS created_by_name,
-                          COALESCE(charged_at, created_at) AS created_at
-                     FROM cadu_tools_token_usage
-                    WHERE id_cliente = %s AND status = 'charged'
-                    ORDER BY COALESCE(charged_at, created_at) DESC, id DESC LIMIT 20""",
-                (client_id,),
-            )
-            movements = [dict(row) for row in cursor.fetchall()]
-    except Exception:
-        movements = []
-    try:
-        with get_db().cursor() as cursor:
-            cursor.execute(
-                """SELECT id, 'Lote de créditos' AS package_name,
-                          tokens_amount AS credits, tokens_used,
-                          tokens_amount - tokens_used AS available,
-                          expires_at, status AS payment_status,
-                          NULL::varchar AS reference, purchased_at
-                     FROM cadu_credits_extras
-                    WHERE id_cliente = %s
-                      AND status = 'active'
-                      AND tokens_used < tokens_amount
-                      AND (expires_at IS NULL OR expires_at > NOW())
-                 ORDER BY expires_at ASC NULLS LAST, purchased_at DESC NULLS LAST, id DESC LIMIT 20""",
-                (client_id,),
-            )
-            purchases = [dict(row) for row in cursor.fetchall()]
-    except Exception:
-        purchases = []
-    try:
-        with get_db().cursor() as cursor:
-            cursor.execute(
-                """SELECT id, tokens_amount AS amount, purchased_at AS created_at,
-                          status, expires_at, 'Saldo adicionado' AS reason,
-                          CONCAT('Lote #', id::text) AS reference
-                     FROM cadu_credits_extras
-                    WHERE id_cliente = %s
-                 ORDER BY purchased_at DESC NULLS LAST, id DESC LIMIT 20""",
-                (client_id,),
-            )
-            credit_additions = [dict(row) for row in cursor.fetchall()]
-    except Exception:
-        credit_additions = []
-    try:
-        with get_db().cursor() as cursor:
-            cursor.execute("""SELECT COUNT(DISTINCT p.id) AS projects,
-                                    COUNT(f.id) AS files,
-                                    COALESCE(SUM(f.tamanho), 0) AS bytes_used,
-                                    COALESCE(SUM(f.tokens), 0) AS indexed_tokens
-                               FROM cadu_ci_projetos p
-                          LEFT JOIN cadu_ci_projeto_arquivos f ON f.projeto_id = p.id AND f.id_cliente = p.id_cliente
-                              WHERE p.id_cliente = %s""", (client_id,))
-            space = dict(cursor.fetchone() or {})
-    except Exception:
-        space = {'projects': 0, 'files': 0, 'bytes_used': 0, 'indexed_tokens': 0}
+    invites = []
+    if want('invites'):
+        try:
+            invites = [dict(row) for row in db.obter_invites_cliente(client_id)]
+        except Exception:
+            invites = []
+    movements = []
+    if want('movements'):
+        try:
+            with get_db().cursor() as cursor:
+                cursor.execute(
+                    """SELECT id, 'usage' AS movement_type, tokens_cobrados AS amount,
+                              CONCAT('Ferramenta: ', ferramenta,
+                                     CASE WHEN etapa IS NULL THEN '' ELSE ' · ' || etapa END) AS reason,
+                              idempotency_key AS reference, NULL::varchar AS created_by_name,
+                              COALESCE(charged_at, created_at) AS created_at
+                         FROM cadu_tools_token_usage
+                        WHERE id_cliente = %s AND status = 'charged'
+                        ORDER BY COALESCE(charged_at, created_at) DESC, id DESC LIMIT 20""",
+                    (client_id,),
+                )
+                movements = [dict(row) for row in cursor.fetchall()]
+        except Exception:
+            movements = []
+    purchases = []
+    if want('purchases'):
+        try:
+            with get_db().cursor() as cursor:
+                cursor.execute(
+                    """SELECT id, 'Lote de créditos' AS package_name,
+                              tokens_amount AS credits, tokens_used,
+                              tokens_amount - tokens_used AS available,
+                              expires_at, status AS payment_status,
+                              NULL::varchar AS reference, purchased_at
+                         FROM cadu_credits_extras
+                        WHERE id_cliente = %s
+                          AND status = 'active'
+                          AND tokens_used < tokens_amount
+                          AND (expires_at IS NULL OR expires_at > NOW())
+                     ORDER BY expires_at ASC NULLS LAST, purchased_at DESC NULLS LAST, id DESC LIMIT 20""",
+                    (client_id,),
+                )
+                purchases = [dict(row) for row in cursor.fetchall()]
+        except Exception:
+            purchases = []
+    credit_additions = []
+    if want('credit_additions'):
+        try:
+            with get_db().cursor() as cursor:
+                cursor.execute(
+                    """SELECT id, tokens_amount AS amount, purchased_at AS created_at,
+                              status, expires_at, 'Saldo adicionado' AS reason,
+                              CONCAT('Lote #', id::text) AS reference
+                         FROM cadu_credits_extras
+                        WHERE id_cliente = %s
+                     ORDER BY purchased_at DESC NULLS LAST, id DESC LIMIT 20""",
+                    (client_id,),
+                )
+                credit_additions = [dict(row) for row in cursor.fetchall()]
+        except Exception:
+            credit_additions = []
+    space = {'projects': 0, 'files': 0, 'bytes_used': 0, 'indexed_tokens': 0}
+    if want('space'):
+        try:
+            with get_db().cursor() as cursor:
+                cursor.execute("""SELECT COUNT(DISTINCT p.id) AS projects,
+                                        COUNT(f.id) AS files,
+                                        COALESCE(SUM(f.tamanho), 0) AS bytes_used,
+                                        COALESCE(SUM(f.tokens), 0) AS indexed_tokens
+                                   FROM cadu_ci_projetos p
+                              LEFT JOIN cadu_ci_projeto_arquivos f ON f.projeto_id = p.id AND f.id_cliente = p.id_cliente
+                                  WHERE p.id_cliente = %s""", (client_id,))
+                space = dict(cursor.fetchone() or {})
+        except Exception:
+            space = {'projects': 0, 'files': 0, 'bytes_used': 0, 'indexed_tokens': 0}
     insights = _workspace_account_insights(plan, position, people)
     return {"people": people, "invites": invites, "plan": plan, "credit": credit, "space": space,
             "position": position, "movements": movements, "credit_additions": credit_additions, "purchases": purchases,
@@ -400,7 +432,7 @@ def _workspace_account_insights(plan: dict, position: Optional[dict], people: li
     }
 
 
-def _workspace_settings_data(client_id: int, user_id: int) -> dict:
+def _workspace_settings_data(client_id: int, user_id: int, *, include_states: bool = True) -> dict:
     """Read the canonical organization and signed-in profile records."""
     from .. import db
 
@@ -412,10 +444,12 @@ def _workspace_settings_data(client_id: int, user_id: int) -> dict:
         current_user = dict(db.obter_contato_por_id(user_id) or {})
     except Exception:
         current_user = {}
-    try:
-        states = [dict(row) for row in db.obter_estados()]
-    except Exception:
-        states = []
+    states = []
+    if include_states:
+        try:
+            states = [dict(row) for row in db.obter_estados()]
+        except Exception:
+            states = []
     return {"organization": organization, "current_user": current_user, "states": states}
 
 
@@ -9662,10 +9696,11 @@ def account_page(section):
             target = f'{target}?{request.query_string.decode("utf-8")}'
         return redirect(target, code=308)
     client_id = int(session.get("cliente_id") or 0)
-    account = _php_account_data(client_id)
+    account = _php_account_data(client_id, _ACCOUNT_SECTION_NEEDS[section])
     # The agency identity belongs to the whole Account journey, not only to
     # the profile editor. These are canonical PHP records, never a copy.
-    account.update(_workspace_settings_data(client_id, int(session.get("user_id") or 0)))
+    account.update(_workspace_settings_data(client_id, int(session.get("user_id") or 0),
+                                            include_states=section == 'agencia'))
     if section == 'planos':
         try:
             from .. import db
@@ -9673,8 +9708,9 @@ def account_page(section):
         except Exception:
             current_app.logger.warning('Não foi possível carregar as opções comerciais de planos', exc_info=True)
             account['plan_options'] = []
-    projects = _workspace_projects(client_id)
-    brands = _workspace_brands(client_id)
+    # Only the agency and usage pages show the project and brand tree.
+    projects = _workspace_projects(client_id) if section in {'agencia', 'uso'} else []
+    brands = _workspace_brands(client_id) if section in {'agencia', 'uso'} else []
     account['agency_context'] = {
         'projects': [{'id': str(item.get('id')), 'name': str(item.get('nome') or 'Projeto'),
                       'brandName': str(item.get('thumbnail_label') or ''), 'status': str(item.get('status') or 'ativo'),

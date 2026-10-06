@@ -62,7 +62,7 @@ class WorkspaceBillingAndIntegrationsTest(TestCase):
             'paid_on': None, 'pdf_safe_url': 'https://files.example/invoice-4.pdf',
         }],
     })
-    @mock.patch('aicentralv2.cadu_workspace.routes._php_account_data', side_effect=lambda _client: _account_fixture())
+    @mock.patch('aicentralv2.cadu_workspace.routes._php_account_data', side_effect=lambda _client, *_args, **_kw: _account_fixture())
     def test_billing_page_is_native_to_workspace(self, _account, _billing):
         client = _app().test_client()
         with client.session_transaction() as session:

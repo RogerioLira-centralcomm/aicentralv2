@@ -1,0 +1,82 @@
+/* Conta: camada única de layout no padrão Untitled (cartão, cabeçalho, lista, tabela, métricas).
+   Vence as regras antigas por especificidade; nada aqui depende da ordem de importação. */
+body.portal--workspace .cadu-ds-account-shell {
+  --acc-ink: #101828; --acc-body: #344054; --acc-muted: #667085; --acc-line: #eaecf0; --acc-line-strong: #d0d5dd;
+  --acc-surface: #fff; --acc-subtle: #f9fafb; --acc-brand: #0d7468; --acc-brand-ink: #0a5f55;
+  --acc-radius: 12px; --acc-pad: 20px;
+}
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-content { min-width: 0; padding: 32px clamp(16px, 4vw, 48px) 64px; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-stack { display: grid; gap: 24px; width: 100%; max-width: 960px; margin: 0 auto; }
+
+/* Cabeçalho da página */
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-page-header { display: flex; align-items: center; gap: 16px; padding: 0 0 20px; border-bottom: 1px solid var(--acc-line); }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-page-header h1 { margin: 0; color: var(--acc-ink); font: 600 24px/32px var(--cadu-font-sans, Inter, system-ui, sans-serif); letter-spacing: -.01em; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-page-header .cadu-ds-page-description { margin: 4px 0 0; color: var(--acc-muted); font-size: 14px; line-height: 20px; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-page-header > .cadu-ds-visual-identity { width: 48px; height: 48px; flex: none; border-radius: 10px; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-page-header > .cadu-ds-visual-identity.is-photo { border-radius: 50%; }
+
+/* Cartão de seção: cabeçalho, texto de apoio e corpo com o mesmo respiro */
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-section { display: block; padding: 0; overflow: hidden; border: 1px solid var(--acc-line); border-radius: var(--acc-radius); background: var(--acc-surface); box-shadow: 0 1px 2px rgba(16,24,40,.05); }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-section > header { display: flex; min-height: 0; align-items: center; justify-content: space-between; gap: 12px; margin: 0; padding: 16px var(--acc-pad); border-bottom: 1px solid var(--acc-line); }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-section > header h2 { margin: 0; color: var(--acc-ink); font: 600 16px/24px var(--cadu-font-sans, Inter, system-ui, sans-serif); }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-section > header small { color: var(--acc-muted); font-size: 13px; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-section > header a { color: var(--acc-brand-ink); font: 600 13px/20px var(--cadu-font-sans, Inter, system-ui, sans-serif); text-decoration: none; white-space: nowrap; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-section > header a:hover { text-decoration: underline; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-section-copy { margin: 0; padding: 12px var(--acc-pad) 4px; color: var(--acc-muted); font-size: 14px; line-height: 20px; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-empty { margin: 0; padding: 20px var(--acc-pad); color: var(--acc-muted); font-size: 14px; }
+
+/* Formulários e convite */
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 20px; padding: var(--acc-pad); border: 1px solid var(--acc-line); border-radius: var(--acc-radius); background: var(--acc-surface); box-shadow: 0 1px 2px rgba(16,24,40,.05); }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-inline-form { display: grid; grid-template-columns: minmax(0, 1fr) 200px auto; align-items: end; gap: 12px; padding: var(--acc-pad); }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-form > :is(button, [data-cadu-untitled-button]) { justify-self: end; }
+
+/* Listas em linhas: avatar, texto, estado e ações alinhados na mesma grade */
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-list { display: block; padding: 0; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-list > :is(article, a) { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto auto; align-items: center; gap: 12px; min-height: 64px; padding: 12px var(--acc-pad); border: 0; border-bottom: 1px solid var(--acc-line); border-radius: 0; background: transparent; color: inherit; text-decoration: none; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-list > :is(article, a):last-child { border-bottom: 0; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-list > a:hover { background: var(--acc-subtle); }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-list i { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 50%; background: #e7f4f1; color: var(--acc-brand-ink); font: 600 13px/1 var(--cadu-font-sans, Inter, system-ui, sans-serif); font-style: normal; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-list .cadu-ds-visual-identity { width: 36px; height: 36px; border-radius: 8px; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-list b { display: block; overflow: hidden; color: var(--acc-ink); font: 600 14px/20px var(--cadu-font-sans, Inter, system-ui, sans-serif); text-overflow: ellipsis; white-space: nowrap; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-list small { display: block; overflow: hidden; color: var(--acc-muted); font-size: 13px; line-height: 18px; text-overflow: ellipsis; white-space: nowrap; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-list em { padding: 2px 8px; border: 1px solid var(--acc-line-strong); border-radius: 999px; background: var(--acc-subtle); color: var(--acc-body); font: 500 12px/18px var(--cadu-font-sans, Inter, system-ui, sans-serif); font-style: normal; white-space: nowrap; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-row-actions { display: flex; align-items: center; gap: 8px; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-row-actions form { display: flex; align-items: center; gap: 8px; margin: 0; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-row-actions select { min-width: 150px; }
+
+/* Marcas e projetos: cada marca é um grupo com cabeçalho e linhas */
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-brand-project-groups { display: grid; gap: 0; padding: 0; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-brand-project-groups > article { border-top: 1px solid var(--acc-line); }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-brand-project-groups > article:first-child { border-top: 0; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-brand-project-groups > article > header { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 14px var(--acc-pad); background: var(--acc-subtle); }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-brand-project-groups > article > header a { color: var(--acc-brand-ink); font: 600 13px/20px var(--cadu-font-sans, Inter, system-ui, sans-serif); text-decoration: none; white-space: nowrap; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-brand-project-groups .cadu-ds-account-list > a { grid-template-columns: 36px minmax(0, 1fr) auto; }
+
+/* Métricas */
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0; overflow: hidden; border: 1px solid var(--acc-line); border-radius: var(--acc-radius); background: var(--acc-surface); box-shadow: 0 1px 2px rgba(16,24,40,.05); }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-metrics > article { display: grid; align-content: start; gap: 4px; padding: var(--acc-pad); border: 0; border-right: 1px solid var(--acc-line); }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-metrics > article:last-child { border-right: 0; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-metrics span { color: var(--acc-muted); font: 500 13px/20px var(--cadu-font-sans, Inter, system-ui, sans-serif); }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-metrics strong { color: var(--acc-ink); font: 600 30px/38px var(--cadu-font-sans, Inter, system-ui, sans-serif); letter-spacing: -.02em; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-metrics p { margin: 0; color: var(--acc-muted); font-size: 13px; line-height: 18px; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-metrics a { margin-top: 6px; color: var(--acc-brand-ink); font: 600 13px/20px var(--cadu-font-sans, Inter, system-ui, sans-serif); text-decoration: none; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-metrics a:hover { text-decoration: underline; }
+
+/* Tabelas */
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-table { overflow-x: auto; border: 1px solid var(--acc-line); border-radius: var(--acc-radius); background: var(--acc-surface); box-shadow: 0 1px 2px rgba(16,24,40,.05); }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-section .cadu-ds-account-table { border: 0; border-radius: 0; box-shadow: none; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-table table { width: 100%; border-collapse: collapse; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-table th { padding: 10px var(--acc-pad); border-bottom: 1px solid var(--acc-line); background: var(--acc-subtle); color: var(--acc-muted); font: 500 12px/18px var(--cadu-font-sans, Inter, system-ui, sans-serif); text-align: left; white-space: nowrap; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-table td { padding: 14px var(--acc-pad); border-bottom: 1px solid var(--acc-line); color: var(--acc-body); font-size: 14px; line-height: 20px; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-table tbody tr:last-child td { border-bottom: 0; }
+
+/* Mobile */
+@media (max-width: 760px) {
+  body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-content { padding: 20px 16px 96px; }
+  body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-form,
+  body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-inline-form { grid-template-columns: minmax(0, 1fr); }
+  body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-list > :is(article, a) { grid-template-columns: 36px minmax(0, 1fr) auto; }
+  body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-list > article > .cadu-ds-account-row-actions { grid-column: 1 / -1; flex-wrap: wrap; }
+  body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-metrics > article { border-right: 0; border-bottom: 1px solid var(--acc-line); }
+  body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-metrics > article:last-child { border-bottom: 0; }
+}

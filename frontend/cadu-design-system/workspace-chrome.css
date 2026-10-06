@@ -460,3 +460,9 @@ body.portal--workspace .cadu-ds-home-workarea > .cadu-ds-home-content .cadu-ds-h
 
 /* Footer tokens for the shared SidebarAccount inside the Workspace rail. */
 .cadu-ds-context-sidebar { --cadu-account-ink:var(--cadu-ink); --cadu-account-muted:var(--cadu-muted); --cadu-account-hover:var(--cadu-surface); --cadu-account-track:var(--cadu-line); --cadu-account-fill:var(--cadu-accent); }
+
+/* Dock fechado: sem barras de rolagem nem texto vazando do trilho de 64–76px */
+body.portal--workspace .cadu-ds-context-sidebar.is-rail { overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }
+body.portal--workspace .cadu-ds-context-sidebar.is-rail::-webkit-scrollbar { display: none; }
+body.portal--workspace .cadu-ds-context-sidebar.is-rail .cadu-sidebar-account__text,
+body.portal--workspace .cadu-ds-context-sidebar.is-rail .cadu-sidebar-account__usage { display: none; }

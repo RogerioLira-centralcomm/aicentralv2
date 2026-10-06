@@ -1,4 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
+import './project-resources.css';
 import {WorkspaceContextSidebar} from './WorkspaceContextSidebar';
 import {VisualIdentity} from './VisualIdentity';
 import {CaduModal} from './CaduModal';
@@ -16,6 +17,7 @@ import {WorkspaceFilesView} from './WorkspaceFilesView';
 
 function ProjectIcon({name}) {
   const paths = {
+    close: <path d="M6 6l12 12M18 6 6 18"/>,
     context: <><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></>,
     source: <><path d="M5 3h10l4 4v14H5z"/><path d="M15 3v5h5M8 12h8M8 16h6"/></>,
     delivery: <><path d="M5 4h14v16H5z"/><path d="m8 13 3 3 5-6"/></>,
@@ -394,19 +396,40 @@ function LinkDialog({urls, csrfToken, onClose}) {
   </ProjectDialog>;
 }
 
-function ResourceDialog({resource, onClose}) {
+const RESOURCE_KINDS = {campaign: 'Campanha', site: 'Site', flow: 'Fluxo', report: 'Relatório', image: 'Imagem', document: 'Documento', link: 'Link', source: 'Fonte', note: 'Nota', video: 'Vídeo'};
+const RESOURCE_STATUS = {active: 'Ativo', archived: 'Arquivado', draft: 'Rascunho', ready: 'Pronto', paused: 'Pausado'};
+const resourceKind = resource => RESOURCE_KINDS[String(resource.kind || resource.resourceType || '').toLowerCase()] || resource.kind || 'Recurso';
+const resourceStatus = resource => RESOURCE_STATUS[String(resource.status || '').toLowerCase()] || resource.status || '';
+
+function resourceDestination(resource) {
   const externalUrl = /^https:\/\//i.test(resource.locator || '') ? resource.locator : '';
   const reportsUrl = /^\/connect\/app\/(?:flows|supertag\/sites|campaigns)(?:[/?]|$)/.test(resource.locator || '') ? resource.locator : '';
-  const destination = resource.href || reportsUrl || externalUrl;
   const internal = !!resource.href;
+  return {href: resource.href || reportsUrl || externalUrl, internal, reports: !!reportsUrl && !resource.href, externalUrl};
+}
+
+/** A linked resource is context, not a page: it sits in the right rail with one way out. */
+function ResourceRailCard({resource, onClose}) {
+  const {href, internal, reports, externalUrl} = resourceDestination(resource);
   const isImage = resource.resourceType === 'image' && externalUrl;
-  return <ProjectDialog title={resource.title} detail="Recurso conectado ao projeto" onClose={onClose}>
-    <div className="cadu-ds-project-resource-inspector">
-      {isImage && <img src={externalUrl} alt=""/>}
-      <dl><div><dt>Tipo</dt><dd>{resource.kind || 'Recurso'}</dd></div><div><dt>Status</dt><dd>{resource.status || 'Disponível'}</dd></div>{resource.mime && <div><dt>Formato</dt><dd>{resource.mime}</dd></div>}</dl>
-      {destination ? <a className="is-primary" href={destination} {...(internal ? {} : {target: '_blank', rel: 'noreferrer'})}>{internal ? 'Abrir documento' : 'Abrir recurso'}</a> : <p>Este recurso está organizado neste projeto. A prévia ou edição será aberta quando o sistema de origem disponibilizar um destino próprio.</p>}
-    </div>
-  </ProjectDialog>;
+  const meta = [resourceKind(resource), resourceStatus(resource), resource.mime].filter(Boolean).join(' · ');
+  return <section className="cadu-ds-resource-focus" aria-label="Recurso em foco">
+    <header><span>Recurso em foco</span><button type="button" onClick={onClose} aria-label="Fechar recurso em foco"><ProjectIcon name="close"/></button></header>
+    {isImage && <img src={externalUrl} alt=""/>}
+    <strong title={resource.title}>{resource.title}</strong>
+    <small>{meta}</small>
+    {href ? <CaduButton variant="secondary" size="sm" href={href} {...(internal ? {} : {target: '_blank', rel: 'noreferrer'})}>{internal ? 'Abrir documento' : reports ? 'Abrir no Reports' : 'Abrir recurso'}</CaduButton>
+      : <p>Vinculado a este projeto. Será aberto quando o sistema de origem tiver um destino próprio.</p>}
+  </section>;
+}
+
+function ResourceRailList({resources, activeId, onSelect, moreHref}) {
+  if (!resources.length) return null;
+  return <section className="cadu-ds-resource-links" aria-label="Conectado ao projeto">
+    <header><span>Conectado ao projeto</span><b>{resources.length}</b></header>
+    <ul>{resources.slice(0, 5).map(resource => <li key={resource.id}><button type="button" className={String(resource.id) === String(activeId) ? 'is-active' : ''} aria-pressed={String(resource.id) === String(activeId)} onClick={() => onSelect(resource.id)}><span title={resource.title}>{resource.title}</span><small>{resourceKind(resource)}</small></button></li>)}</ul>
+    {resources.length > 5 && moreHref && <a href={moreHref}>Ver todos</a>}
+  </section>;
 }
 
 function sourceStatus(status) {
@@ -829,6 +852,15 @@ export function WorkspaceProject({bootstrap}) {
     }
   };
   const selectedResource = (project.resources || []).find(item => String(item.id) === String(resourceId));
+  const canonicalResourceList = (project.resources || []).filter(item => isCanonicalResourceId(item.id));
+  const focusResource = id => {
+    setResourceId(id);
+    try {
+      const target = new URL(window.location.href);
+      if (id) target.searchParams.set('resource', id); else target.searchParams.delete('resource');
+      window.history.replaceState(window.history.state, '', `${target.pathname}${target.search}${target.hash}`);
+    } catch (_) { /* The rail still works without the address update. */ }
+  };
   const hasFiles = event => Array.from(event.dataTransfer?.types || []).includes('Files');
   const handleDragEnter = event => {
     if (!hasFiles(event)) return;
@@ -952,6 +984,7 @@ export function WorkspaceProject({bootstrap}) {
           <details className="cadu-ds-entity-nav__source-menu"><summary>Mais ações</summary><div>{bootstrap.canManageSharing && <button type="button" onClick={() => setDialog('sharing')}>Gerenciar acesso</button>}<a href={projectLinks.createPlan}>Criar plano de mídia</a><a href={projectLinks.createImage}>Criar imagem</a><a href={projectLinks.createVideo}>Criar vídeo</a>{canEdit && <form method="post" action={projectLinks.toggleStatus}><input type="hidden" name="_csrf" value={bootstrap.csrf}/><button type="submit">{project.status === 'arquivado' ? 'Reativar projeto' : 'Arquivar projeto'}</button></form>}{bootstrap.canManageProjects && <><button type="button" onClick={() => setDialog('merge')}>Mesclar com outro projeto</button><button type="button" className="is-danger" onClick={() => setDialog('delete-project')}>Excluir projeto</button></>}</div></details>
         </EntityNavigator>
         <section className="cadu-ds-project-content" data-project-view={projectView}>
+        {isMobile && selectedResource && <ResourceRailCard resource={selectedResource} onClose={() => focusResource('')}/>}
         {projectView === 'overview' && <><header className="cadu-ds-project-hero cadu-ds-entity-detail-header"><div className="cadu-ds-project-hero__copy"><p>{project.status === 'arquivado' ? 'Arquivado' : 'Em andamento'}</p><ProjectTitle name={project.name}/><div className="cadu-ds-project-hero__meta">{project.brand?.name && <a href={project.brand.href}>{project.brand.name}</a>}{(project.tasks || []).length > 0 && <a href={sectionLinks.tasks}>{(project.tasks || []).filter(item => item.status !== 'done').length} tarefas abertas</a>}</div></div>{actionableNotifications.length > 0 && <button type="button" className="cadu-ds-project-hero__attention" onClick={() => setNotificationsOpen(true)}>{actionableNotifications.length} atenç{actionableNotifications.length === 1 ? 'ão' : 'ões'}</button>}</header><ProjectGettingStarted project={project} conversationUrl={projectLinks.conversation} canEdit={canEdit} onEditContext={() => setDialog('identity')}/><ProjectEditorialOverview project={project} canEdit={canEdit} onEdit={() => setDialog('identity')}/>{(project.tasks || []).length > 0 && <div className="cadu-ds-project-overview-link"><span><b>{(project.tasks || []).filter(item => item.status !== 'done').length} tarefas abertas</b><small>Veja responsáveis, prazos e próximos passos.</small></span><a href={sectionLinks.tasks}>Abrir tarefas</a></div>}</>}
         {projectView === 'direction' && <><ProjectPageIntro title="Direção" detail="Contexto para conversas e entregas."/><ProjectEditorialOverview project={project} canEdit={canEdit} onEdit={() => setDialog('identity')}/></>}
         {projectView === 'tasks' && <><ProjectPageIntro title="Tarefas" detail="Ações do Cadu e da equipe."/><ProjectTasksSection project={project} urls={projectLinks} csrfToken={bootstrap.csrf} canEdit={canEdit}/></>}
@@ -964,7 +997,7 @@ export function WorkspaceProject({bootstrap}) {
         {projectView === 'views' && <ProjectViewsPage onStartConversation={startConversation}/>}
         {project.status === 'arquivado' && <aside className="cadu-ds-project-notice"><b>Este projeto está arquivado.</b><span>O contexto permanece disponível para consulta. Para reativar, use Mais ações.</span></aside>}
         </section>
-        <EntityContextRail title="Projeto agora" groups={savedProjectLinks.length ? [{title:'Links do projeto', items:savedProjectLinks, maxVisible:5, moreHref:sectionLinks.library, moreLabel:'Ver todos os links', onReorder:canEdit && savedProjectLinks.length === projectLinksPinned.length ? reorderProjectLinks : undefined}] : []}><div id="marca"><ProjectBrandCard brand={project.brand} urls={projectLinks} canEdit={canEdit} canManageBrand={bootstrap.canManageBrand} onDialog={setDialog}/></div>{!savedProjectLinks.length && <div className="cadu-ds-project-rail-links-empty"><strong>Links do projeto</strong><p>Sites e referências salvos aparecerão aqui.</p>{canEdit && <button type="button" onClick={() => setDialog('link')}>Adicionar link</button>}</div>}{linkOrderStatus && <p className={`cadu-ds-entity-rail__feedback${/não|falh|erro/i.test(linkOrderStatus) ? ' is-error' : ''}`} role={/não|falh|erro/i.test(linkOrderStatus) ? 'alert' : 'status'}>{linkOrderStatus}</p>}<div className="cadu-ds-entity-rail__index"><span>Indexação</span><strong>{(project.files || []).filter(item => item.status === 'completed').length}/{(project.files || []).length}</strong><small>fontes prontas</small><a href={sectionLinks.indexing}>Ver detalhes</a></div></EntityContextRail>
+        <EntityContextRail title="Projeto agora" groups={savedProjectLinks.length ? [{title:'Links do projeto', items:savedProjectLinks, maxVisible:5, moreHref:sectionLinks.library, moreLabel:'Ver todos os links', onReorder:canEdit && savedProjectLinks.length === projectLinksPinned.length ? reorderProjectLinks : undefined}] : []}>{selectedResource && <ResourceRailCard resource={selectedResource} onClose={() => focusResource('')}/>}<div id="marca"><ProjectBrandCard brand={project.brand} urls={projectLinks} canEdit={canEdit} canManageBrand={bootstrap.canManageBrand} onDialog={setDialog}/></div><ResourceRailList resources={canonicalResourceList} activeId={resourceId} onSelect={focusResource} moreHref={sectionLinks.library}/>{!savedProjectLinks.length && <div className="cadu-ds-project-rail-links-empty"><strong>Links do projeto</strong><p>Sites e referências salvos aparecerão aqui.</p>{canEdit && <button type="button" onClick={() => setDialog('link')}>Adicionar link</button>}</div>}{linkOrderStatus && <p className={`cadu-ds-entity-rail__feedback${/não|falh|erro/i.test(linkOrderStatus) ? ' is-error' : ''}`} role={/não|falh|erro/i.test(linkOrderStatus) ? 'alert' : 'status'}>{linkOrderStatus}</p>}<div className="cadu-ds-entity-rail__index"><span>Indexação</span><strong>{(project.files || []).filter(item => item.status === 'completed').length}/{(project.files || []).length}</strong><small>fontes prontas</small><a href={sectionLinks.indexing}>Ver detalhes</a></div></EntityContextRail>
         </div>
       </div>
     </main>
@@ -974,5 +1007,5 @@ export function WorkspaceProject({bootstrap}) {
       csrfToken={bootstrap.csrf} mode={dialog === 'merge' ? 'merge' : 'delete'}
       initialTargetId={initialMergeTarget} onClose={() => setDialog('')}
     />}
-    {notificationsOpen && <WorkspaceNotificationCenter items={notifications} onClose={() => setNotificationsOpen(false)} onOpenItem={openNotification} onMarkAllRead={markProjectNotificationsRead}/>} {canEdit && dialog === 'identity' && <IdentityDialog project={project} urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {dialog === 'brand-picker' && <BrandPickerDialog brands={bootstrap.brands || []} currentBrandId={project.brand?.id} urls={projectLinks} csrfToken={bootstrap.csrf} canManageBrand={bootstrap.canManageBrand} onCreate={() => setDialog('brand-import')} onClose={() => setDialog('')}/>} {dialog === 'brand-import' && <ImportBrandDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {canEdit && dialog === 'note' && <NoteDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {dialog === 'source-upload' && <SourceUploadDialog urls={projectLinks} csrfToken={bootstrap.csrf} canEdit={canEdit} pendingFiles={(project.files || []).filter(file => file.requiresReview)} droppedFiles={dropQueue} onDropConsumed={() => setDropQueue([])} onClose={() => setDialog('')}/>} {dialog === 'link' && <LinkDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {selectedResource && <ResourceDialog resource={selectedResource} onClose={() => setResourceId('')}/>}</div>;
+    {notificationsOpen && <WorkspaceNotificationCenter items={notifications} onClose={() => setNotificationsOpen(false)} onOpenItem={openNotification} onMarkAllRead={markProjectNotificationsRead}/>} {canEdit && dialog === 'identity' && <IdentityDialog project={project} urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {dialog === 'brand-picker' && <BrandPickerDialog brands={bootstrap.brands || []} currentBrandId={project.brand?.id} urls={projectLinks} csrfToken={bootstrap.csrf} canManageBrand={bootstrap.canManageBrand} onCreate={() => setDialog('brand-import')} onClose={() => setDialog('')}/>} {dialog === 'brand-import' && <ImportBrandDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {canEdit && dialog === 'note' && <NoteDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {dialog === 'source-upload' && <SourceUploadDialog urls={projectLinks} csrfToken={bootstrap.csrf} canEdit={canEdit} pendingFiles={(project.files || []).filter(file => file.requiresReview)} droppedFiles={dropQueue} onDropConsumed={() => setDropQueue([])} onClose={() => setDialog('')}/>} {dialog === 'link' && <LinkDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} </div>;
 }

@@ -13,6 +13,7 @@ import {CaduSelect} from './CaduSelect';
 import {CaduConfirmDialog} from './CaduConfirmDialog';
 import {useWorkspaceViewport} from '../hooks/useWorkspaceViewport';
 import {AgentConnect} from './WorkspaceAgents';
+import '../account-pages.css';
 
 const labels = {agencia: 'Agência', equipe: 'Equipe', faturamento: 'Faturamento', integracoes: 'Integrações', planos: 'Plano', perfil: 'Perfil', uso: 'Uso', creditos: 'Créditos'};
 const accountIcons = {agencia: 'home', equipe: 'users', faturamento: 'file', integracoes: 'plugin', planos: 'plan', perfil: 'brand', uso: 'analysis', creditos: 'history'};
@@ -219,7 +220,7 @@ export function WorkspaceAccount({bootstrap}) {
   return <div className="cadu-ds-home-shell cadu-ds-account-shell"><main className="cadu-ds-home-main"><div className="cadu-ds-home-workarea cadu-ds-account-workarea">
     {isMobile ? <WorkspaceMobileChrome eyebrow="Conta" title={labels[section] || 'Conta'} links={bootstrap.urls} logo={bootstrap.caduMark} solutionIcons={bootstrap.solutionIcons} accountItems={navItems.map(item => ({...item, name: item.label, active: item.id === section}))}/> : <WorkspaceContextSidebar mode="home" rail bootstrap={bootstrap} active="conta" links={bootstrap.urls}/>}
     <div className="cadu-ds-entity-portal cadu-ds-entity-portal--account">
-      {!isMobile && <EntityNavigator label="Conta" items={navItems} activeId={section} identity={<><span className="cadu-ds-entity-nav__project-mark"><Icon name="home"/></span><span><small>Conta</small><b title={agencyName}>{agencyName}</b></span></>}/>}
+      {!isMobile && <EntityNavigator label="Conta" items={navItems} activeId={section} identity={<span><b title={agencyName}>Conta</b></span>}/>}
       <section className="cadu-ds-account-content">{content}</section>
     </div>
   </div></main><PurchaseModal bootstrap={bootstrap}/></div>;

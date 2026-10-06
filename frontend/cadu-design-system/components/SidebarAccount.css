@@ -21,5 +21,5 @@ a.cadu-sidebar-account__profile:hover,.cadu-sidebar-account__profile.is-active{b
 /* Collapsed rails keep only the photo. */
 .is-collapsed .cadu-sidebar-account{justify-items:center}
 .is-collapsed .cadu-sidebar-account__profile{width:auto;min-height:0;padding:3px}
-.is-collapsed .cadu-sidebar-account__text,.is-collapsed .cadu-sidebar-account__usage{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:5px 8px;padding:7px 6px 6px;border-radius:8px;color:var(--account-muted);font-size:11px;line-height:1.2;font-variant-numeric:tabular-nums}
+.is-collapsed .cadu-sidebar-account__text,.is-collapsed .cadu-sidebar-account__usage{display:none}
 .cadu-sidebar-account__usage-value{color:var(--account-ink);font-weight:650}

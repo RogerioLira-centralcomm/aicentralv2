@@ -32,6 +32,6 @@ export function WorkspaceLegacyChrome({bootstrap}) {
   }, [bootstrap.active, bootstrap.surface]);
   return <>
     {isMobile ? <WorkspaceMobileChrome title={bootstrap.title || bootstrap.contextName || 'Workspace'} links={bootstrap.urls} logo={bootstrap.caduMark} solutionIcons={bootstrap.solutionIcons}/> : <WorkspaceContextSidebar mode="home" rail bootstrap={bootstrap} links={bootstrap.urls} active={railActive}/>}
-    {!isMobile && accountNav.length > 0 && <EntityNavigator label={sideNavs.label} items={accountNav} activeId={sideNavs.activeId} identity={<><span className="cadu-ds-entity-nav__project-mark"><Icon name="home"/></span><span><small>{sideNavs.label}</small><b title={bootstrap.contextName}>{bootstrap.contextName || sideNavs.label}</b></span></>}/>}
+    {!isMobile && accountNav.length > 0 && <EntityNavigator label={sideNavs.label} items={accountNav} activeId={sideNavs.activeId} identity={<span><b>{sideNavs.label}</b></span>}/>}
   </>;
 }

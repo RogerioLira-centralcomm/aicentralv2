@@ -577,6 +577,10 @@ def public_preview(slug):
         return jsonify({"success": False, "error": "Skill não encontrada."}), 404
     if not skill.get("is_testable", True) or skill.get("status") != "published":
         return jsonify({"success": False, "code": "NOT_TESTABLE", "error": "Esta skill está em revisão e ainda não pode ser testada."}), 409
+    # A prévia roda o modelo e é cobrada na organização da sessão: sem conta
+    # ativa não há quem pague (antes estourava KeyError/NameError → 500).
+    if not session.get("user_id") or not session.get("cliente_id"):
+        return jsonify({"success": False, "code": "LOGIN_REQUIRED", "error": "Entre na sua conta para testar esta skill."}), 401
     key = f"skill_preview_{slug}"
     before = consultation_state(session.get(key, 0), is_client=bool(session.get("user_id")))
     if not before["allowed"]:
@@ -591,7 +595,7 @@ def public_preview(slug):
         record_event(slug, "install", actor=_actor(), user_id=session.get("user_id"))
     record_event(slug, "run_started", actor=_actor(), user_id=session.get("user_id"))
     try:
-        result = run_test_skill(skill, prompt, client_id=int(session["cliente_id"]), user_id=int(session["user_id"]), idempotency_key=f"skills:custom:{reservation['run_id']}")
+        result = run_test_skill(skill, prompt, client_id=int(session["cliente_id"]), user_id=int(session["user_id"]), idempotency_key=f"skills:preview:{slug}:{secrets.token_hex(12)}")
     except (ValueError, RuntimeError, OpenRouterError) as exc:
         record_event(slug, "run_failed", actor=_actor(), user_id=session.get("user_id"), metadata={"error": type(exc).__name__})
         return jsonify({"success": False, "error": str(exc)}), 503

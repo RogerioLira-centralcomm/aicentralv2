@@ -29,6 +29,22 @@ def _app():
     return app
 
 
+def _member_client():
+    """Visitante anônimo vai ao Workspace (b51beeccd); as páginas são vistas logado."""
+    client = _app().test_client()
+    guest = client.get("/skills/")
+    assert guest.status_code == 302 and guest.headers["Location"].endswith("/workspace/"), guest.status_code
+    with client.session_transaction() as session:
+        session.update(user_id=7, cliente_id=12)
+    return client
+
+
+_MEMBER_PATCHES = (
+    mock.patch("aicentralv2.cadu_skills.routes.credit_position", new=lambda *_a, **_k: {"configured": True, "available": 18}),
+    mock.patch("aicentralv2.cadu_skills.routes.list_customizations", new=lambda *_a, **_k: []),
+)
+
+
 @mock.patch.dict("os.environ", {"CADU_SKILLS_ENABLED": "true"})  # Skills fora do lançamento: o produto é testado ligado.
 class CaduSkillsTest(TestCase):
     @mock.patch("aicentralv2.cadu_skills.repository._db")
@@ -103,12 +119,13 @@ class CaduSkillsTest(TestCase):
 
     @mock.patch("aicentralv2.cadu_skills.routes.managed_skills", side_effect=lambda rows: [dict(item, views=0, copies=0, installs=0, runs=0, engagements=0, display_rank=item["rank"]) for item in rows])
     @mock.patch("aicentralv2.cadu_skills.routes.record_event", return_value=True)
-    def test_public_marketplace_and_detail_do_not_require_login(self, _event, _managed):
-        client = _app().test_client()
+    @_MEMBER_PATCHES[0]
+    @_MEMBER_PATCHES[1]
+    def test_marketplace_sends_guests_to_workspace_and_shows_catalog_to_members(self, _event, _managed):
+        client = _member_client()
         response = client.get("/skills/")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("A campanha está em qual momento?", html)
         self.assertIn("Métodos para decisões recorrentes.", html)
         self.assertIn("Conhecimento também precisa de contexto.", html)
         self.assertIn("Personalizar um método", html)
@@ -116,7 +133,6 @@ class CaduSkillsTest(TestCase):
         self.assertIn('class="skills-topbar"', html)
         self.assertNotIn('cadu-app-sidebar cadu-skills-sidebar', html)
         self.assertNotIn('data-cadu-sidebar-mobile-toggle', html)
-        self.assertIn(">Entrar<", html)
         self.assertIn("skills-hero-worktable-v1.png", html)
         self.assertIn("skills-journey__track", html)
         detail = client.get("/skills/cadu-media-planning")
@@ -126,8 +142,10 @@ class CaduSkillsTest(TestCase):
         self.assertIn("Prompt e instalação", detail.get_data(as_text=True))
         self.assertEqual(client.get("/skills/assets/skills-icon-64.png").status_code, 200)
 
+    @_MEMBER_PATCHES[0]
+    @_MEMBER_PATCHES[1]
     def test_public_learning_and_content_pages_explain_skills(self):
-        client = _app().test_client()
+        client = _member_client()
         learn = client.get("/skills/aprender")
         self.assertEqual(learn.status_code, 200)
         self.assertIn("Entenda o método antes de pedir", learn.get_data(as_text=True))
@@ -184,8 +202,10 @@ class CaduSkillsTest(TestCase):
         self.assertIn("cadu-audience-intelligence/references/audiences.csv", names)
 
     @mock.patch("aicentralv2.cadu_skills.routes.record_event", return_value=True)
+    @_MEMBER_PATCHES[0]
+    @_MEMBER_PATCHES[1]
     def test_official_detail_exposes_public_agent_install_address(self, _event):
-        client = _app().test_client()
+        client = _member_client()
         detail = client.get("/skills/cadu-media-planning")
         self.assertEqual(detail.status_code, 200)
         html = detail.get_data(as_text=True)
@@ -193,7 +213,6 @@ class CaduSkillsTest(TestCase):
         self.assertIn("/skills/install/cadu-media-planning", html)
         self.assertIn("Baixar pacote", html)
         self.assertIn("Personalizar para um projeto", html)
-        self.assertIn("Usar fora do Cadu", html)
 
         install = client.get("/skills/install/cadu-media-planning")
         self.assertEqual(install.status_code, 200)
@@ -246,19 +265,27 @@ class CaduSkillsTest(TestCase):
     @mock.patch("aicentralv2.cadu_skills.routes.run_test_skill", return_value={"answer": "Plano de teste", "model": "test"})
     def test_public_preview_runs_agent_and_stops_at_three(self, _run, _event, _managed):
         client = _app().test_client()
+        anonymous = client.post("/skills/api/public/cadu-media-planning/preview", json={"prompt": "Planeje uma campanha regional de varejo"})
+        self.assertEqual(anonymous.status_code, 401)
+        _run.assert_not_called()
+        with client.session_transaction() as sess:
+            sess.update(user_id=7, cliente_id=12)
         for expected in (1, 2, 3):
             response = client.post("/skills/api/public/cadu-media-planning/preview", json={"prompt": "Planeje uma campanha regional de varejo"})
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.get_json()["state"]["count"], expected)
             self.assertEqual(response.get_json()["answer"], "Plano de teste")
-            expected_stage = "discover" if expected == 2 else "family" if expected == 3 else ""
-            self.assertEqual(response.get_json()["state"]["ecosystem_stage"], expected_stage)
+            # Cliente logado não recebe o convite ao ecossistema.
+            self.assertEqual(response.get_json()["state"]["ecosystem_stage"],
+                             consultation_state(expected, is_client=True)["ecosystem_stage"])
         self.assertEqual(client.post("/skills/api/public/cadu-media-planning/preview", json={"prompt": "Planeje uma campanha regional de varejo"}).status_code, 429)
         self.assertFalse(consultation_state(3, is_client=True)["show_ecosystem_invite"])
 
     @mock.patch("aicentralv2.cadu_skills.routes.record_event", return_value=True)
+    @_MEMBER_PATCHES[0]
+    @_MEMBER_PATCHES[1]
     def test_public_skill_is_an_editorial_installation_page(self, _event):
-        client = _app().test_client()
+        client = _member_client()
         response = client.get("/skills/cadu-media-planning")
         html = response.get_data(as_text=True)
         self.assertIn("O que este método ajuda a decidir", html)
@@ -305,8 +332,10 @@ class CaduSkillsTest(TestCase):
         self.assertNotIn('href="/skills/gestao"', html)
 
     @mock.patch("aicentralv2.cadu_skills.routes.all_cadu_skills", return_value=[CADU_MEDIA_PLANNING])
+    @_MEMBER_PATCHES[0]
+    @_MEMBER_PATCHES[1]
     def test_agent_desk_lives_inside_cadu_skills(self, _skills):
-        response = _app().test_client().get("/skills/agentes")
+        response = _member_client().get("/skills/agentes")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
         self.assertIn("Cada agente tem um lugar no trabalho.", html)

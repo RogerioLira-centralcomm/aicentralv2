@@ -35,8 +35,8 @@ Briefing (texto + marca + duração + proporção)
 | 0 | Beats com ID estável como fonte de verdade; cartões por cena (todos visíveis); reordenar, trocar imagem e remover sem desencaixar; "Roteiro completo" vira só visão de leitura/exportação | nenhum | reordenar 5 cenas e editar 3 cartões mantém cada fala na cena certa; teste automatizado |
 | 1 | Briefing → rascunho de storyboard (`agent/storyboard`): N beats sem imagem, editáveis | só texto | 3 briefings reais geram arco coerente (abertura → desenvolvimento → oferta → fechamento) |
 | 2 | Imagem por beat a partir do `visual` do cartão, com a 1ª imagem aprovada como âncora de estilo; mostrar custo antes | imagem | cenas geradas respeitam marca, proporção e ordem |
-| 3 | Regerar uma cena, ou só o texto de um beat, sem refazer o resto | imagem ou texto | trocar uma cena preserva as demais |
-| 4 | Checagem antes de gerar: cena sem imagem, proporções diferentes, beat vazio, falas que não cabem na duração, estilos muito diferentes | nenhum (regras) | bloqueia ou avisa antes de gastar |
+| 3 | Regerar uma cena, ou só o texto de um beat, sem refazer o resto — **feito 2026-10-06**: "Gerar nova imagem" (estilo da 1ª cena, id reaproveitado na retomada) e "Reescrever texto" com "Desfazer texto" (`agent/storyboard/beat`, só texto) | imagem ou texto | trocar uma cena preserva as demais |
+| 4 | **Feito 2026-10-06** (`cadu-video/coherence.js`, painel "Antes de gerar" na aba Gerar). Checagem antes de gerar: cena sem imagem, proporções diferentes, beat vazio, falas que não cabem na duração, estilos muito diferentes | nenhum (regras) | bloqueia ou avisa antes de gastar |
 
 ## Regras e riscos
 
@@ -82,3 +82,14 @@ cobrança simulada, nenhuma marca debitada). Cena 1 sem referência; cenas 2 e 3
   teste é maior (cerca de 15 chamadas). Não há número confiável de custo por cena; medir de novo somando todas as
   chamadas antes de afirmar um custo ao usuário.
 - **Não exercitado:** cobrança real de uma marca (ledger), registro no histórico e entrada na biblioteca do Vídeo.
+
+## Fases 3 e 4 (2026-10-06)
+
+- Fase 3: cada cartão de cena ganhou "Gerar nova imagem" (confirma o custo; a 1ª cena é a âncora de estilo das demais; o
+  `request_id` é reaproveitado se a rede cair e renovado depois do sucesso, para vir uma variação nova) e "Reescrever
+  texto" (só texto; guarda a versão anterior para "Desfazer texto"). As outras cenas e o roteiro nunca são tocados.
+- Fase 4: regras locais sem custo — imagem indisponível **bloqueia**; rascunho pendente, cena sem descrição, visual
+  repetido, proporções diferentes, fala que não cabe na cena ou no total (4 palavras/s), cenas demais para a duração e
+  arco sem abertura/fechamento **avisam** e pedem confirmação ao gerar.
+- Não coberto: "estilos muito diferentes" entre imagens (não há medida confiável sem olhar a imagem); a âncora de estilo
+  da fase 2 reduz o risco.

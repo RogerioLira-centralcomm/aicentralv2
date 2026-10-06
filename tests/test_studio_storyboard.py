@@ -73,3 +73,50 @@ def test_contexto_real_da_marca_chega_ao_diretor():
         "name": "Cemig", "tone_of_voice": "próximo", "palette": ["#00a", "#fff"], "target_audience": "famílias", "logo": "x"})
     assert "próximo" in seen["user"] and "#00a" in seen["user"] and "famílias" in seen["user"]
     assert "logo" not in seen["user"]
+
+
+# ---- reescrever uma cena ----
+from aicentralv2.creative_media.studio_storyboard import regenerate_beat  # noqa: E402
+
+SCENES = [
+    {"id": "a", "purpose": "hook", "visual": "Família na sala", "motion": "push-in", "hold": "logo", "transition": "cut", "spoken": "Olá"},
+    {"id": "b", "purpose": "offer", "visual": "Roteador em destaque", "motion": "zoom", "hold": "oferta", "transition": "cut", "spoken": "500 mega"},
+    {"id": "c", "purpose": "end", "visual": "Logo final", "motion": "pull-back", "hold": "logo", "transition": "cut", "spoken": "Fale com a gente"},
+]
+
+
+def one(row):
+    return lambda messages, **options: {"message": {"content": {"beat": row}}}
+
+
+def test_reescreve_so_a_cena_pedida_e_mantem_id_e_funcao():
+    seen = {}
+
+    def model(messages, **options):
+        seen["context"] = messages[1]["content"]
+        return {"message": {"content": {"beat": {"visual": "Roteador sobre a mesa, luz de fim de tarde", "motion": "dolly", "hold": "oferta", "transition": "cut", "spoken": "500 mega para você"}}}}
+
+    result = regenerate_beat(BRIEF, SCENES, 1, instruction="mais caloroso", duration=15, text_callable=model)
+    assert result["beat"]["id"] == "b" and result["beat"]["purpose"] == "offer"
+    assert result["beat"]["visual"].startswith("Roteador sobre a mesa")
+    assert '"cena_para_reescrever": 2' in seen["context"] and "mais caloroso" in seen["context"]
+    assert "Família na sala" in seen["context"] and "Logo final" in seen["context"]  # as outras cenas viajam como contexto
+
+
+def test_numero_inventado_e_fala_longa_viram_aviso():
+    row = {"visual": "Roteador", "spoken": "Só 99 reais " + "palavra " * 40}
+    warnings = regenerate_beat(BRIEF, SCENES, 1, duration=6, text_callable=one(row))["warnings"]
+    assert any("99" in w for w in warnings) and any("não caiba" in w for w in warnings)
+
+
+@pytest.mark.parametrize("scenes,index", [([], 0), (SCENES, 3), (SCENES, -1), (SCENES, "1")])
+def test_cena_invalida_e_recusada(scenes, index):
+    with pytest.raises(ValueError, match="cena válida"):
+        regenerate_beat(BRIEF, scenes, index, text_callable=one({"visual": "x"}))
+
+
+def test_resposta_sem_visual_ou_sem_beat_e_recusada():
+    with pytest.raises(ValueError, match="sem descrição visual"):
+        regenerate_beat(BRIEF, SCENES, 0, text_callable=one({"visual": "", "spoken": "oi"}))
+    with pytest.raises(ValueError, match="não devolveu a cena"):
+        regenerate_beat(BRIEF, SCENES, 0, text_callable=lambda m, **o: {"message": {"content": {"outra": 1}}})

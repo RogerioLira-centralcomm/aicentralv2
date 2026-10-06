@@ -6,6 +6,7 @@ import { startPoll } from "./trocr/animate-poller.js";
 import { deleteLibrary, get, loadVideoProject, post, saveVideoProject, studioApi, swapApi } from "./cadu-video/api.js?v=2";
 import {
   clearClip,
+  currentIssues,
   paintAll,
   paintCanvas,
   paintClips,
@@ -24,6 +25,7 @@ import {
   JOB_KEY,
   Desk,
   alignBeatsToScenes,
+  beatFor,
   ensureBeat,
   normalizeAudioState,
   normalizeWorkspaceSpend,
@@ -284,6 +286,10 @@ function bindUi() {
   document.getElementById("mcVideoSuggestNarration")?.addEventListener("click", () => suggestNarration("guided"));
   document.getElementById("mcVideoSuggestVoiceover")?.addEventListener("click", () => suggestNarration("voiceover"));
   document.getElementById("mcVideoSceneCards")?.addEventListener("click", onSceneCardClick);
+  document.getElementById("mcVideoChecks")?.addEventListener("click", (event) => {
+    const target = event.target.closest("[data-check-scene]");
+    if (target) selectScene(target.getAttribute("data-check-scene"));
+  });
   document.getElementById("mcVideoDraftBtn")?.addEventListener("click", buildDraft);
   document.getElementById("mcVideoBriefing")?.addEventListener("input", (event) => {
     state.draft.briefing = event.target.value;
@@ -867,12 +873,131 @@ function onSceneCardClick(event) {
     state.selectedSceneId = id;
     return removeSelectedScene();
   }
+  if (action === "regen-image") return regenerateSceneImage(id);
+  if (action === "rewrite") return rewriteSceneText(id);
+  if (action === "undo-text") return undoSceneText(id);
   if (action === "replace") {
     if (state.replaceSceneId === id) return cancelReplace();
     state.replaceSceneId = id;
     state.libTab = "still";
     setStatus("Escolha na biblioteca a peça que entra no lugar desta cena. Esc cancela.");
     paintAll();
+  }
+}
+
+const BEAT_TEXT_FIELDS = ["purpose", "visual", "motion", "hold", "transition", "spoken"];
+const beatText = (beat) => Object.fromEntries(BEAT_TEXT_FIELDS.map((key) => [key, String(beat?.[key] || "")]));
+
+// Reescreve só o texto de UMA cena (texto barato). A versão anterior fica guardada para "Desfazer texto".
+async function rewriteSceneText(id) {
+  const index = state.scenes.findIndex((scene) => scene.id === id);
+  const clientId = state.clientId;
+  if (index < 0 || !clientId || state.regeneratingId || state.draft.generating) return;
+  const instruction = window.prompt(`O que mudar na cena ${index + 1}? (opcional: deixe vazio para uma nova versão)`, "");
+  if (instruction === null) return;
+  const beats = state.scenes.map((scene) => ({ id: scene.id, ...beatText(beatFor(scene.id)) }));
+  const briefing = String(state.draft.briefing || "").trim() || beats.map((row) => row.visual).filter(Boolean).join(". ");
+  if (briefing.length < 10) {
+    setStatus("Descreva o visual das cenas ou o briefing do vídeo antes de reescrever.");
+    return;
+  }
+  state.regeneratingId = id;
+  state.regeneratingKind = "text";
+  paintAll();
+  try {
+    const data = await post(`${studioApi}/agent/storyboard/beat`, {
+      client_id: clientId, request_id: newId(), briefing, beats, index, instruction: instruction.trim(), duration: state.duration,
+    });
+    if (clientId !== state.clientId) return;
+    const beat = ensureBeat(id);
+    beat.previous = beatText(beat);
+    const { visual, motion, hold, transition, spoken } = data.beat;
+    Object.assign(beat, { visual, motion, hold, transition, spoken });
+    const note = data.warnings?.length ? ` Atenção: ${data.warnings.join(" ")}` : "";
+    setStatus(`Cena ${index + 1} reescrita. A imagem não mudou; use "Gerar nova imagem" se quiser refazê-la.${note}`);
+    if (state.audio.narration_mode === "voiceover") state.audio.script = spokenFromBeats();
+    markDirty();
+    scheduleQuote();
+  } catch (error) {
+    setStatus(error.message);
+  } finally {
+    state.regeneratingId = "";
+    state.regeneratingKind = "";
+    paintAll();
+  }
+}
+
+function undoSceneText(id) {
+  const beat = state.script?.beats?.find((row) => row.id === id);
+  if (!beat?.previous) return;
+  Object.assign(beat, beat.previous);
+  delete beat.previous;
+  if (state.audio.narration_mode === "voiceover") state.audio.script = spokenFromBeats();
+  setStatus("Texto anterior restaurado.");
+  paintAll();
+  markDirty();
+  scheduleQuote();
+}
+
+// Gera uma nova imagem só desta cena, no estilo da 1ª cena, e a troca no lugar mantendo o roteiro.
+async function regenerateSceneImage(id) {
+  const index = state.scenes.findIndex((scene) => scene.id === id);
+  const clientId = state.clientId;
+  if (index < 0 || !clientId || state.regeneratingId || state.draft.generating) return;
+  const beat = ensureBeat(id);
+  if (!String(beat.visual || "").trim()) {
+    setStatus("Descreva o visual da cena antes de gerar uma nova imagem.");
+    return;
+  }
+  let credits = null;
+  try {
+    credits = (await post(`${studioApi}/agent/storyboard/image`, { client_id: clientId, dry_run: true })).credits_per_image;
+  } catch (_) { /* a confirmação segue sem o valor */ }
+  const price = credits ? `cerca de ${Number(credits).toLocaleString("pt-BR")} créditos` : "créditos reais de imagem";
+  const note = index === 0 && state.scenes.length > 1 ? " Esta é a 1ª cena: ela define o estilo, então as outras podem ficar diferentes dela." : "";
+  if (!window.confirm(`Gerar uma nova imagem para a cena ${index + 1}? Vai usar ${price}. A imagem atual continua na biblioteca.${note}`)) return;
+  const anchor = index > 0 ? (state.scenes[0].image_url || "") : "";
+  const total = state.scenes.length;
+  // Mesmo pedido = mesmo request_id (repetir após queda de rede reaproveita a imagem já paga); depois do sucesso o
+  // próximo clique nasce com id novo, para vir uma variação diferente.
+  const key = JSON.stringify([id, beat.visual, beat.hold, state.aspectRatio, anchor, index, total]);
+  if (!beat.regen || beat.regen.key !== key) beat.regen = { key, request_id: newId() };
+  state.aspectExplicit = true;
+  state.regeneratingId = id;
+  state.regeneratingKind = "image";
+  paintAll();
+  try {
+    const data = await post(`${studioApi}/agent/storyboard/image`, {
+      client_id: clientId, request_id: beat.regen.request_id, beat: { visual: beat.visual, hold: beat.hold },
+      index, total, aspect_ratio: state.aspectRatio, anchor_url: anchor, run_id: state.draft.runId || "", title: `Cena ${index + 1}`,
+    });
+    if (clientId !== state.clientId) return;
+    state.draft.runId ||= data.run_id;
+    const items = await loadLibrary();
+    const item = (items || state.library).find((row) => row.id === data.scene_id);
+    if (!item) throw new Error("A imagem foi gerada, mas não apareceu na biblioteca. Recarregue o Studio.");
+    delete beat.regen;
+    replaceScene(id, item);
+    delete state.sceneAspects[id];
+    refreshSceneAspects();
+  } catch (error) {
+    setStatus(error.message);
+  } finally {
+    state.regeneratingId = "";
+    state.regeneratingKind = "";
+    paintAll();
+  }
+}
+
+// Proporção real de cada imagem da sequência, para a checagem avisar quando elas diferem.
+function refreshSceneAspects() {
+  for (const scene of state.scenes) {
+    if (scene.id in state.sceneAspects) continue;
+    state.sceneAspects[scene.id] = "";
+    sourceAspect(scene).then((ratio) => {
+      state.sceneAspects[scene.id] = ratio || "";
+      updateGenerateEnabled();
+    });
   }
 }
 
@@ -1424,6 +1549,7 @@ async function suggestNarration(mode) {
 }
 
 function scheduleQuote() {
+  refreshSceneAspects();
   window.clearTimeout(quoteTimer);
   state.quote = null;
   state.quoteError = "";
@@ -1485,6 +1611,14 @@ async function generate() {
     setStatus("Monte o roteiro antes de gerar.");
     return;
   }
+  const issues = currentIssues();
+  const blocker = issues.find((issue) => issue.level === "error");
+  if (blocker) {
+    setStatus(blocker.message);
+    return;
+  }
+  const warnings = issues.filter((issue) => issue.level === "warn");
+  if (warnings.length && !window.confirm(`Antes de gerar, ${warnings.length === 1 ? "há 1 aviso" : `há ${warnings.length} avisos`}:\n\n${warnings.slice(0, 5).map((issue) => `• ${issue.message}`).join("\n")}${warnings.length > 5 ? `\n• e mais ${warnings.length - 5}…` : ""}\n\nGerar mesmo assim?`)) return;
   await state.aspectPending;
   const body = planBody();
   const version = state.requestVersion;

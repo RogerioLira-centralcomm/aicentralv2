@@ -454,3 +454,16 @@
 .mc-video-studio .mc-cadu-video-timeline.is-drop-target::after { content:"Solte para adicionar à timeline"; position:absolute; inset:0; z-index:40; display:grid; place-items:center; border:2px dashed var(--vs-accent); border-radius:6px; background:color-mix(in srgb,var(--vs-selected) 78%,transparent); color:var(--vs-accent); font-size:13px; font-weight:650; pointer-events:none; }
 .mc-video-studio [draggable="true"][data-media-kind] { cursor:grab; }
 .mc-video-studio [draggable="true"][data-media-kind]:active { cursor:grabbing; }
+
+/* Checagem antes de gerar (fase 4) e cartão de cena ocupado (fase 3) */
+.mc-video-studio .mc-studio-checks { display:grid; gap:6px; padding:10px; border-left:3px solid var(--vs-accent); border-radius:0 5px 5px 0; background:var(--vs-selected); }
+.mc-video-studio .mc-studio-checks h3 { margin:0; font-size:12px; font-weight:650; }
+.mc-video-studio .mc-studio-checks.has-warnings { border-left-color:#d98a00; background:color-mix(in srgb,#d98a00 14%,var(--mc-cadu-paper)); }
+.mc-video-studio .mc-studio-checks.has-errors { border-left-color:#e77460; background:color-mix(in srgb,#e77460 14%,var(--mc-cadu-paper)); }
+.mc-video-studio .mc-studio-checks ul { display:grid; gap:3px; margin:0; padding:0; list-style:none; }
+.mc-video-studio .mc-studio-checks li { display:flex; align-items:flex-start; gap:6px; font-size:12px; line-height:1.35; }
+.mc-video-studio .mc-studio-checks li::before { content:"•"; flex:none; color:#d98a00; }
+.mc-video-studio .mc-studio-checks li > :is(button,span) { flex:1; min-width:0; width:auto; }
+.mc-video-studio .mc-studio-checks li.is-error::before { content:"✕"; color:#e77460; }
+.mc-video-studio .mc-studio-checks li button { padding:0; border:0; background:transparent; color:inherit; font:inherit; text-align:left; text-decoration:underline; text-underline-offset:2px; cursor:pointer; }
+.mc-video-studio .mc-scene-card.is-busy { opacity:.75; }

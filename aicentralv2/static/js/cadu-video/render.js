@@ -2,6 +2,7 @@ import {paintCompositionCanvas} from './composition.js';
 import { hideVideo, showVideo } from "../trocr/animate-player.js";
 import { beatFor, state } from "./state.js";
 import { escapeHtml, formatMoney, scriptText } from "./utils.js";
+import { coherenceIssues } from "./coherence.js";
 
 function $(id) {
   return document.getElementById(id);
@@ -232,6 +233,8 @@ export function paintSceneCards() {
     const thumb = scene.thumb_url || scene.image_url || "";
     const replacing = state.replaceSceneId === scene.id;
     const active = scene.id === state.selectedSceneId;
+    const regenerating = state.regeneratingId === scene.id;
+    const busy = Boolean(state.regeneratingId) || Boolean(state.draft?.generating);
     const id = escapeHtml(scene.id);
     return `<li class="mc-scene-card ${active ? "is-active" : ""} ${replacing ? "is-replacing" : ""}" data-card="${id}">
       <button type="button" class="mc-scene-card-main" data-card-action="select" data-id="${id}">
@@ -244,6 +247,9 @@ export function paintSceneCards() {
         <button type="button" data-card-action="up" data-id="${id}" aria-label="Subir cena ${index + 1}" ${index === 0 ? "disabled" : ""}>↑</button>
         <button type="button" data-card-action="down" data-id="${id}" aria-label="Descer cena ${index + 1}" ${index === last ? "disabled" : ""}>↓</button>
         <button type="button" data-card-action="replace" data-id="${id}" aria-pressed="${replacing}" title="Trocar a imagem desta cena por outra peça da biblioteca">${replacing ? "Escolha na biblioteca…" : "Trocar imagem"}</button>
+        <button type="button" data-card-action="regen-image" data-id="${id}" title="Gera uma nova imagem só desta cena a partir do visual descrito. Usa créditos." ${busy ? "disabled" : ""}>${regenerating ? "Gerando imagem…" : "Gerar nova imagem"}</button>
+        <button type="button" data-card-action="rewrite" data-id="${id}" title="A IA reescreve só o texto desta cena (visual, movimento, fala). Gasta poucos créditos." ${busy ? "disabled" : ""}>${regenerating && state.regeneratingKind === "text" ? "Reescrevendo…" : "Reescrever texto"}</button>
+        ${beat.previous ? `<button type="button" data-card-action="undo-text" data-id="${id}" title="Volta ao texto anterior desta cena">Desfazer texto</button>` : ""}
         <button type="button" data-card-action="remove" data-id="${id}" aria-label="Excluir cena ${index + 1}">Excluir</button>
       </span>
     </li>`;
@@ -444,17 +450,43 @@ export function paintSaveStatus() {
   node.classList.toggle("is-error", state.saveStatus === "error");
 }
 
+export function currentIssues() {
+  return coherenceIssues({
+    scenes: state.scenes, beatFor, draftBeats: state.draft?.beats || [], duration: state.duration,
+    mode: state.generationMode, aspects: state.sceneAspects || {}, selectedId: state.selectedSceneId,
+  });
+}
+
+export function paintChecks() {
+  const box = $("mcVideoChecks");
+  if (!box) return;
+  const issues = currentIssues();
+  const ready = state.generationMode === "single_image" ? Boolean(state.selectedSceneId) : state.scenes.length >= 2;
+  box.hidden = !ready;
+  if (!ready) return;
+  const errors = issues.filter((issue) => issue.level === "error").length;
+  const warnings = issues.length - errors;
+  const title = !issues.length ? "Tudo certo para gerar"
+    : `${errors ? `${errors} ${errors === 1 ? "problema bloqueia" : "problemas bloqueiam"}` : ""}${errors && warnings ? " · " : ""}${warnings ? `${warnings} ${warnings === 1 ? "aviso" : "avisos"}` : ""}`;
+  box.className = `mc-studio-checks ${errors ? "has-errors" : warnings ? "has-warnings" : "is-clear"}`;
+  box.innerHTML = `<h3>Antes de gerar · ${escapeHtml(title)}</h3>${issues.length ? `<ul>${issues.map((issue) => `<li class="is-${issue.level}">${issue.sceneId
+    ? `<button type="button" data-check-scene="${escapeHtml(issue.sceneId)}">${escapeHtml(issue.message)}</button>`
+    : `<span>${escapeHtml(issue.message)}</span>`}</li>`).join("")}</ul>` : ""}`;
+}
+
 export function updateGenerateEnabled() {
   const singleImage = state.generationMode === "single_image";
   const sourceReady = singleImage
     ? Boolean(state.selectedSceneId)
     : state.scenes.length >= 2 && state.scenes.length <= 30 && Boolean(state.script?.beats?.length);
-  const ready = sourceReady
+  const blocker = currentIssues().find((issue) => issue.level === "error");
+  const ready = sourceReady && !blocker
     && !state.quoteError && state.quoteStatus === "ready" && !state.generating;
   const button = $("mcVideoGenerate");
+  paintChecks();
   if (!button) return;
   button.disabled = !ready;
-  const reason = !state.clientId ? "Escolha uma marca" : singleImage && !state.selectedSceneId ? "Selecione uma imagem" : !singleImage && state.scenes.length < 2 ? "Adicione duas cenas" : !singleImage && !state.script?.beats?.length ? "Monte o roteiro" : state.quoteError ? state.quoteError : state.quoteStatus !== "ready" ? "Aguarde o cálculo do custo" : state.generating ? "Gerando clipe" : "";
+  const reason = !state.clientId ? "Escolha uma marca" : singleImage && !state.selectedSceneId ? "Selecione uma imagem" : !singleImage && state.scenes.length < 2 ? "Adicione duas cenas" : !singleImage && !state.script?.beats?.length ? "Monte o roteiro" : blocker ? blocker.message : state.quoteError ? state.quoteError : state.quoteStatus !== "ready" ? "Aguarde o cálculo do custo" : state.generating ? "Gerando clipe" : "";
   button.title = reason;
   button.setAttribute("aria-label", reason ? `Gerar clipe: ${reason}` : "Gerar clipe");
 }

@@ -199,6 +199,46 @@ class StudioStoryboardEndpointTest(unittest.TestCase):
         self.assertIn("Saldo insuficiente", str(result))
 
 
+class StudioStoryboardBeatEndpointTest(unittest.TestCase):
+    def _call(self, payload, complete):
+        from aicentralv2.creative_media import studio
+
+        app = Flask(__name__)
+        app.secret_key = "test"
+        modeling = Mock()
+        modeling._credits_crm_id.return_value = 174
+        modeling.get_client.return_value = {"name": "Cemig"}
+        http = (lambda fn: fn(), lambda: payload, lambda data: data, lambda: modeling)
+        view = studio.studio_agent_storyboard_beat.__wrapped__.__wrapped__
+        with app.test_request_context("/studio/agent/storyboard/beat", method="POST"):
+            session["user_id"] = 32
+            with patch.object(studio, "_http", return_value=http), patch.object(studio, "_scope"), \
+                 patch("aicentralv2.services.cadu_ai_connector.CaduAIConnector.complete", side_effect=complete) as mocked:
+                try:
+                    return view(), mocked
+                except ValueError as error:
+                    return error, mocked
+
+    SCENES = [{"id": "a", "purpose": "hook", "visual": "Família na sala"}, {"id": "b", "purpose": "end", "visual": "Logo final"}]
+
+    def test_reescreve_uma_cena_e_cobra_so_texto_com_chave_propria(self):
+        result, mocked = self._call(
+            {"client_id": 31, "request_id": "b1", "briefing": "Internet fibra para famílias.", "beats": self.SCENES, "index": 1, "instruction": "mais direto"},
+            lambda *a, **k: {"message": {"content": {"beat": {"visual": "Logo da marca sobre fundo azul", "spoken": "Fale com a gente"}}}})
+        self.assertEqual(result["beat"]["id"], "b")
+        call = mocked.call_args.kwargs
+        self.assertEqual((call["client_id"], call["user_id"]), (174, 32))
+        self.assertEqual(call["idempotency_key"], "studio:storyboard-beat:b1")
+        self.assertEqual(call["stage"], "video_storyboard_beat")
+
+    def test_indice_invalido_nao_chama_o_modelo(self):
+        result, mocked = self._call(
+            {"client_id": 31, "briefing": "Internet fibra para famílias.", "beats": self.SCENES, "index": "1"},
+            lambda *a, **k: {"message": {"content": {"beat": {"visual": "x"}}}})
+        self.assertIsInstance(result, ValueError)
+        mocked.assert_not_called()
+
+
 class StudioStoryboardImageEndpointTest(unittest.TestCase):
     def _call(self, payload, *, claim=None, owned=("/static/a.png",), create=None, library=None):
         from aicentralv2.creative_media import studio, studio_create

@@ -279,6 +279,7 @@ def register_studio_routes(blueprint):
     blueprint.add_url_rule('/api/format-lab/studio/csrf', view_func=studio_csrf, methods=['GET'])
     blueprint.add_url_rule('/api/format-lab/studio/agent/narration', view_func=studio_agent_narration, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/agent/storyboard', view_func=studio_agent_storyboard, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/agent/storyboard/beat', view_func=studio_agent_storyboard_beat, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/agent/storyboard/image', view_func=studio_storyboard_image, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/projects', view_func=studio_projects, methods=['GET', 'POST'])
     blueprint.add_url_rule('/api/format-lab/studio/library-sessions', view_func=studio_library_sessions, methods=['GET'])
@@ -902,6 +903,53 @@ def studio_agent_storyboard():
             data.get('briefing'), duration=data.get('duration') or 8,
             aspect_ratio=data.get('aspect_ratio') or '16:9', brand=brand,
             scene_count=data.get('scene_count'), text_callable=metered,
+        ))
+
+    return execute(run)
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_agent_storyboard_beat():
+    """Reescreve o texto de uma cena do storyboard, sem gerar imagem nem mexer nas outras. Cobra só texto."""
+    from ..cadu_credit_connector import CaduCreditConnector
+    from ..services.cadu_ai_connector import CaduAIConnector
+    from .studio_storyboard import regenerate_beat
+    execute, json_body, ok, service = _http()
+
+    def run():
+        data = json_body()
+        client_id = data.get('client_id')
+        _scope(client_id)
+        user_id = session.get('user_id')
+        if not user_id:
+            raise ValueError('Entre novamente para reescrever a cena.')
+        modeling = service()
+        payer = modeling._credits_crm_id(client_id) or int(client_id)
+        request_key = str(data.get('request_id') or hashlib.sha256(json.dumps(
+            [client_id, data.get('briefing'), data.get('index'), data.get('instruction')],
+            ensure_ascii=False, default=str).encode('utf-8')).hexdigest())[:160]
+        brand = {}
+        try:
+            from ..creative_format_lab.brand_context import build_brand_context
+            brand = build_brand_context(modeling.get_client(client_id)) or {}
+        except Exception:
+            logger.exception('Storyboard brand context unavailable for %s', client_id)
+        connector = CaduAIConnector(CaduCreditConnector(modeling.credit_ledger))
+
+        def metered(messages, **options):
+            return connector.complete(
+                messages, client_id=payer, user_id=user_id,
+                idempotency_key=f'studio:storyboard-beat:{request_key}',
+                app='Cadu Studio', stage='video_storyboard_beat', estimated_tokens=2000,
+                metadata={'studio_client_id': int(client_id), 'request_id': request_key, 'billing_class': 'agent'},
+                **options,
+            )
+
+        index = data.get('index')
+        return ok(regenerate_beat(
+            data.get('briefing'), data.get('beats'), index if isinstance(index, int) and not isinstance(index, bool) else -1,
+            instruction=data.get('instruction') or '', duration=data.get('duration') or 8, brand=brand, text_callable=metered,
         ))
 
     return execute(run)

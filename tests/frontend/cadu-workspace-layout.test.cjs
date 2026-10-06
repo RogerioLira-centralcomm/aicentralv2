@@ -105,7 +105,8 @@ async function dimensions(page, contentClass) {
 
   try {
     assert.match(workspaceHomeStyles, /#cadu-conversations-v2-root[^\{]+\.cadu-ds-prompt-suggestions\.is-workspace-home button/, 'Home: CTA vence a regra escura do root');
-    assert.match(workspaceHomeStyles, /\.cadu-ds-context-sidebar__project-tree[^\{]+\{[^}]*border-left:\s*1px\s+solid/, 'Home: projetos organizados por uma linha de árvore');
+    // A linha de árvore saiu na sidebar unificada (81284bb1f); os filhos seguem agrupados sob o projeto.
+    assert.match(workspaceHomeStyles, /\.cadu-ds-context-sidebar__project-tree \{[^}]*position:relative/, 'Home: projetos agrupados em árvore');
     assert.match(workspaceChromeStyles, /\.cadu-ds-dock :is\(\.cadu-ds-dock-brand,\.cadu-ds-dock-resource\)[^\{]+\{[^}]*transform:none/, 'Dock: atalhos usam o eixo canônico sem compensação lateral');
     for (const contentClass of ['cadu-ds-home-content', 'cadu-ds-project-content', 'cadu-ds-brands-content']) {
       await page.setViewportSize({width: 1440, height: 1000});
@@ -241,8 +242,7 @@ async function dimensions(page, contentClass) {
     assert.equal(brand.logoFit, 'contain', 'Marca: logo da Dock usa toda a área sem recorte');
     assert.ok(Math.abs(brand.homeCenter - brand.dockCenter) < 1, 'Marca: acesso centralizado na Dock');
     assert.ok(Math.abs(brand.brandCenter - brand.dockCenter) < 1, 'Marca: atalho de marca centralizado na Dock');
-    assert.notEqual(brand.activeBackground, 'rgba(0, 0, 0, 0)', 'Marca: link ativo segue a superfície usada em projetos');
-    assert.equal(brand.activeShadow, 'none', 'Marca: link ativo da sidebar sem barra lateral');
+    // O estado ativo da navegação agora vem do sidebar-nav Untitled (b0e4a34e1), fora desta fixture estática.
     assert.equal(brand.stageBackground, 'rgba(0, 0, 0, 0)', 'Marca: visualizador de ativos integrado ao canvas');
     assert.equal(brand.assetBackground, 'rgba(0, 0, 0, 0)', 'Marca: lista de ativos sem cards');
     assert.equal(brand.assetRadius, '0px', 'Marca: lista de ativos sem cantos de card');
@@ -263,8 +263,10 @@ async function dimensions(page, contentClass) {
 
     await page.setViewportSize({width: 1024, height: 800});
     await page.setContent(brandDocument(false));
-    const compactBrandManagement = await page.$eval('.cadu-ds-entity-portal--brand > .cadu-ds-entity-rail', node => getComputedStyle(node).display);
-    assert.notEqual(compactBrandManagement, 'none', 'Marca: gestão continua acessível abaixo do conteúdo no desktop compacto');
+    // Até 1240px o rail some e a mesma gestão aparece no fim do conteúdo (bloco responsivo).
+    const compactBrandManagement = await page.evaluate(() => ['.cadu-ds-entity-portal--brand > .cadu-ds-entity-rail', '.cadu-ds-brand-responsive-management']
+      .map(selector => document.querySelector(selector)).filter(Boolean).some(node => getComputedStyle(node).display !== 'none'));
+    assert.equal(compactBrandManagement, true, 'Marca: gestão continua acessível abaixo do conteúdo no desktop compacto');
 
     await page.setViewportSize({width: 390, height: 844});
     await page.setContent(brandDocument(false));
@@ -291,11 +293,13 @@ async function dimensions(page, contentClass) {
     });
     await page.evaluate(() => window.scrollTo(0, 520));
     const projectNavTopAfterScroll = await page.$eval('.cadu-ds-entity-nav', node => node.getBoundingClientRect().top);
-    assert.equal(projectBeforeScroll.navPosition, 'fixed', 'Projeto: sidebar 1 realmente fixa');
+    // Normalização do Workspace: sidebar 1 é sticky dentro do grid (mesmo efeito visual, sem sobrepor colunas).
+    assert.ok(['fixed', 'sticky'].includes(projectBeforeScroll.navPosition), 'Projeto: sidebar 1 realmente fixa');
     assert.equal(projectBeforeScroll.navTop, 0, 'Projeto: sidebar 1 começa no topo');
     assert.equal(projectNavTopAfterScroll, 0, 'Projeto: sidebar 1 permanece fixa ao rolar');
     assert.equal(projectBeforeScroll.navOverflow, 'auto', 'Projeto: sidebar 1 permite acesso a todos os itens quando não cabem');
-    assert.equal(projectBeforeScroll.railOverflow, 'visible', 'Projeto: sidebar 2 usa o scroll do documento');
+    // O trilho direito do projeto ficou fixo (0b4e8fa76) e rola por conta própria.
+    assert.equal(projectBeforeScroll.railOverflow, 'auto', 'Projeto: sidebar 2 fixa com scroll próprio');
     assert.ok(projectBeforeScroll.titleSize <= 48, 'Projeto: título longo respeita a escala máxima');
     assert.equal(projectBeforeScroll.horizontalOverflow, 0, 'Projeto: nome longo não rompe a largura');
     assert.ok(projectBeforeScroll.pageScrollHeight > 800, 'Projeto: navegador controla o scroll vertical');

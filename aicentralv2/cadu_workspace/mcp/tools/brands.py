@@ -132,7 +132,7 @@ def start_audit(context: RequestContext, arguments: dict) -> dict:
 
 
 @register_tool(name="brands.audit_status", capability="workspace", effect="read",
-               description="Consulta andamento, disponibilidade para uso, nível de qualidade, modalidade e custo da auditoria, sem expor confiança bruta ao cliente.", exposures=("internal", "customer_agent"),
+               description="Consulta andamento, disponibilidade para uso, nível de qualidade, modalidade e custo da auditoria. O campo estimate traz o custo estimado em créditos e o tempo de cada modalidade antes de iniciar (apresente-o ao cliente para confirmar) ou o da auditoria em andamento; sem expor confiança bruta ao cliente.", exposures=("internal", "customer_agent"),
                input_schema={"type":"object","required":["brand_id"],"properties":{"brand_id":{"type":"integer","minimum":1}},"additionalProperties":False})
 def audit_status(context: RequestContext, arguments: dict) -> dict:
     return _domain(lambda: service.audit_status(context, arguments["brand_id"]))

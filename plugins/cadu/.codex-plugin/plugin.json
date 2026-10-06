@@ -1,0 +1,19 @@
+{
+  "name": "cadu",
+  "version": "0.1.0",
+  "description": "Acesse projetos, marcas, biblioteca e materiais de marketing do Cadu com autorização da sua conta.",
+  "author": { "name": "Central Comm" },
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Cadu",
+    "shortDescription": "Projetos, marcas e materiais de marketing do Cadu",
+    "category": "Marketing",
+    "logo": "./assets/logo.svg",
+    "defaultPrompt": [
+      "Quero começar com um cliente novo no Cadu.",
+      "Resuma o objetivo e as decisões do projeto, citando as fontes.",
+      "Faça a auditoria da marca e me diga o custo antes de iniciar."
+    ]
+  }
+}

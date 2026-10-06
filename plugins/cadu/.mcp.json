@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "cadu": {
+      "type": "streamable-http",
+      "url": "https://workspace.centralcomm.media/mcp/cadu/v1"
+    }
+  }
+}

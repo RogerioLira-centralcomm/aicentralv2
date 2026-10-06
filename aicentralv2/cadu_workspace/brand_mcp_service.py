@@ -429,6 +429,13 @@ def delete_asset(context: RequestContext, *, brand_id, asset_id) -> dict:
             "asset_id": int(asset_id), "deleted": True}
 
 
+def _audit_estimate(analysis_mode: str) -> dict:
+    deep = analysis_mode == "deep"
+    return {"estimated_tokens": 150000 if deep else 75000,
+            "estimated_credits": 150000 if deep else 75000,
+            "estimated_time": "6–12 min" if deep else "3–8 min"}
+
+
 def start_audit(context: RequestContext, *, request_id, brand_id=None, website_url: str = "", analysis_mode: str = "complete", include_project_sources: bool = False, social_links=None, additional_sources=None, excluded_sources=None, confirmed_cost: bool = False, existing_asset_ids=None) -> dict:
     _require_admin(context)
     operation_id = _request_id(request_id)
@@ -438,9 +445,7 @@ def start_audit(context: RequestContext, *, request_id, brand_id=None, website_u
     social_links = [str(item).strip()[:500] for item in (social_links or []) if str(item).strip()][:12]
     additional_sources = list(dict.fromkeys(_website(item) for item in (additional_sources or []) if str(item).strip()))[:12]
     excluded_sources = list(dict.fromkeys(_website(item) for item in (excluded_sources or []) if str(item).strip()))[:12]
-    estimate = {"estimated_tokens": 150000 if analysis_mode == "deep" else 75000,
-                "estimated_credits": 150000 if analysis_mode == "deep" else 75000,
-                "estimated_time": "6–12 min" if analysis_mode == "deep" else "3–8 min"}
+    estimate = _audit_estimate(analysis_mode)
     brand = _brand(context, _current_brand_id(context, brand_id))
     selected_asset_ids = None
     if existing_asset_ids is None:
@@ -547,4 +552,16 @@ def audit_status(context: RequestContext, brand_id) -> dict:
             "quality_level": decision.get("quality_level"),
             "publication_threshold": decision.get("publication_threshold", BRAND_ANALYSIS_PUBLICATION_THRESHOLD),
             "enrichment_target": decision.get("enrichment_target", BRAND_ANALYSIS_ENRICHMENT_TARGET),
-            "costs": latest.get("costs") or {}}
+            "costs": latest.get("costs") or {},
+            "estimate": _audit_status_estimate(pack, status)}
+
+
+def _audit_status_estimate(pack: dict, status: str) -> dict:
+    """Custo estimado, para o agente confirmar antes de iniciar e para acompanhar depois.
+
+    Sem auditoria em andamento devolve as duas modalidades; com uma ativa, a estimativa gravada na fila.
+    """
+    saved = pack.get("input") if isinstance(pack.get("input"), dict) else {}
+    if status != "not_started" and saved.get("estimated_credits") is not None:
+        return {key: saved.get(key) for key in ("estimated_tokens", "estimated_credits", "estimated_time")}
+    return {"complete": _audit_estimate("complete"), "deep": _audit_estimate("deep")}

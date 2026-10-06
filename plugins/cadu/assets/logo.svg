@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Cadu MCP</title>
+  <desc id="desc">Marca Cadu com dois pontos conectados</desc>
+  <rect width="128" height="128" rx="25" fill="#fafaf8"/>
+  <path d="M44 31h27L48 64l23 33H44L17 64z" fill="#03b7a0"/>
+  <path d="M79 31h32L88 64l23 33H79L55 64z" fill="#14191d"/>
+  <path d="M48 107h32" fill="none" stroke="#03b7a0" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="45" cy="107" r="4" fill="#03b7a0"/>
+  <circle cx="83" cy="107" r="4" fill="#03b7a0"/>
+</svg>

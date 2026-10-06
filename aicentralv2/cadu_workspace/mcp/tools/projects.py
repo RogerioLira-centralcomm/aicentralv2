@@ -380,7 +380,7 @@ def update_task(context: RequestContext, arguments: dict) -> dict:
 
 @register_tool(
     name="projects.prepare_source_upload", capability="workspace", effect="draft", requires_project=True,
-    description="Prepara upload privado de qualquer arquivo aceito, incluindo HTML, documentos, planilhas, apresentações, imagens, áudio, vídeo e pacotes criativos. Sem use_as_knowledge, preserva o arquivo no inventário e só indexa formatos pesquisáveis quando apropriado.",
+    description="Prepara upload privado de qualquer arquivo aceito, incluindo HTML, documentos, planilhas, apresentações, imagens, áudio, vídeo e pacotes criativos. Sem use_as_knowledge, preserva o arquivo no inventário e só indexa formatos pesquisáveis quando apropriado. Indexar como conhecimento (use_as_knowledge) consome créditos proporcionais ao conteúdo extraído, que só ficam conhecidos após o envio e voltam em charged_credits: avise o cliente antes e informe o valor cobrado depois.",
     exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "required": ["request_id"], "properties": {
         "request_id": {"type": "string", "minLength": 36, "maxLength": 36},

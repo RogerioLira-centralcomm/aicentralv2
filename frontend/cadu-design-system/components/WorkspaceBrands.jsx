@@ -6,7 +6,6 @@ import {CaduButton} from './CaduButton';
 import {CaduInput} from './CaduInput';
 import {openWorkspaceDetail} from '../workspaceNavigation';
 import {WorkspaceCatalog} from './WorkspaceCatalog';
-import {WorkspaceSidebar} from './WorkspaceSidebar';
 import {WorkspaceMobileChrome} from './WorkspaceMobileChrome';
 import {useWorkspaceViewport} from '../hooks/useWorkspaceViewport';
 import {csrf} from '../../conversations-v2/lib/api';
@@ -160,10 +159,10 @@ export function WorkspaceBrands({bootstrap}) {
       window.location.reload();
     } catch (error) { setActionError(error.message || 'Não foi possível atualizar o status da marca.'); setBusyBrand(''); }
   };
-  return <div className="workspace-solution-shell cadu-ds-brands-shell cadu-ds-brands-shell--brands" data-cadu-skin="workspace">
-    {isMobile ? <WorkspaceMobileChrome title="Marcas" links={bootstrap.urls} logo={bootstrap.caduMark} solutionIcons={bootstrap.solutionIcons} contextItems={brands.map(item => ({...item, detail:item.sector || 'Marca'}))}/> : <WorkspaceSidebar bootstrap={bootstrap} active="workspace:brands"/>}
-    <main className="workspace-solution-main">
-      <div className="cadu-ds-catalog-workarea">
+  return <div className="cadu-ds-home-shell cadu-ds-brands-shell cadu-ds-brands-shell--brands">
+    <main className="cadu-ds-home-main">
+      <div className="cadu-ds-home-workarea cadu-ds-catalog-workarea">
+        {isMobile ? <WorkspaceMobileChrome title="Marcas" links={bootstrap.urls} logo={bootstrap.caduMark} solutionIcons={bootstrap.solutionIcons} contextItems={brands.map(item => ({...item, detail:item.sector || 'Marca'}))}/> : <WorkspaceContextSidebar mode="home" preferenceKey="brands" bootstrap={bootstrap} links={bootstrap.urls} active="marcas" projects={bootstrap.projects || []} brands={bootstrap.brands || []}/>}
       <WorkspaceCatalog title="Marcas" actionLabel="Nova marca" onAction={() => setCreating(true)} error={bootstrap.catalogError} filters={[["ativas", "Ativas"], ["arquivadas", "Arquivadas"], ["todas", "Todas"], ["auditadas", "Analisadas"], ["com-ativos", "Com ativos"]].map(([value, label]) => ({value, label, active: bootstrap.filterName === value, href: catalogHref(bootstrap.urls.brands, 'filtro', value, query)}))} query={query} onQueryChange={setQuery} searchRef={searchRef} queryLabel="Buscar marcas" countLabel={`${brands.length} marca${brands.length === 1 ? '' : 's'}`} resultCount={brands.length} totalCount={(bootstrap.brands || []).length}><div className="untitled-catalog-list is-brands" aria-label="Lista de marcas"><div className="untitled-catalog-list__head" aria-hidden="true"><span>Marca</span><span>Projetos</span><span>Conversas</span><span>Arquivos</span><span/></div>{actionError && <p role="alert">{actionError}</p>}{brands.map(brand => <div className="untitled-catalog-brand-row" key={brand.id}><a className="untitled-catalog-item" href={brand.href}><span className="untitled-catalog-item__identity"><VisualIdentity src={brand.logoUrl} initials={brand.visualInitials} label={brand.name} color={brand.visualColor}/><span><b>{brand.name}</b><small>{brand.audited ? 'Identidade analisada' : 'Identidade em preparação'}{brand.archived ? ' · Arquivada' : ''}</small></span></span><span className="untitled-catalog-item__metric"><small>Projetos</small><b>{brand.activeProjects || 0}</b></span><span className="untitled-catalog-item__metric"><small>Conversas</small><b>{brand.conversationCount || 0}</b></span><span className="untitled-catalog-item__metric"><small>Arquivos</small><b>{brand.fileCount || 0}</b></span><span className="untitled-catalog-item__chevron" aria-hidden="true">›</span></a>{bootstrap.canManageBrands && <button type="button" className="untitled-catalog-brand-row__archive" disabled={busyBrand === String(brand.id)} onClick={() => setBrandStatus(brand)} aria-label={`${brand.archived ? 'Restaurar' : 'Arquivar'} ${brand.name}`} title={`${brand.archived ? 'Restaurar' : 'Arquivar'} marca`}><Icon name={brand.archived ? 'undo' : 'archive'} size={16}/></button>}</div>)}{!brands.length && <div className="untitled-catalog-empty"><b>{query.trim() ? 'Nenhuma marca corresponde à busca.' : bootstrap.filterName === 'ativas' ? 'Nenhuma marca ativa.' : bootstrap.filterName === 'arquivadas' ? 'Nenhuma marca arquivada.' : 'Nenhuma marca neste filtro.'}</b>{!query.trim() && bootstrap.filterName === 'ativas' && <button type="button" onClick={() => setCreating(true)}>Criar marca</button>}</div>}</div></WorkspaceCatalog>
       </div>
     </main>

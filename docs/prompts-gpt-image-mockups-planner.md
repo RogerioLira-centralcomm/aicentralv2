@@ -233,3 +233,73 @@ Barra lateral como R1, "Formatos" ativo.
 | Nenhum card com imagem quebrada | |
 | Seleção em lote visível | |
 | Verde da marca no lugar do laranja da referência | |
+
+---
+
+## Ilustrações do banner e dos estados vazios (para uso real no produto)
+
+Referência de estilo: R8 (banner lilás com mascote). **Não copiar o personagem da referência**: ele é a marca de terceiros. Criar um mascote original do Planner.
+
+### Regras comuns (cole no início de cada prompt)
+
+```
+Ilustração vetorial editorial em estilo flat moderno, formas geométricas ousadas e arredondadas, contornos limpos sem traço fino, sombras apenas em blocos chapados, sem gradientes complexos, sem textura de pintura, sem texto nem letras na imagem, sem logotipos. Fundo TRANSPARENTE (PNG com canal alfa). Composição centralizada com margem de 8% em volta. Paleta fechada: verde Planner #1F5C3F e verde-claro #86D9A8, lilás #B8A6FF, mostarda #F5B83D, coral #FF6B4A, grafite #1D2433, branco #FFFFFF. Alta nitidez, bordas sem serrilhado.
+```
+
+### 1. Mascote do banner (arquivo `mascote-planner.png`, 1024×1024)
+
+```
+[REGRAS COMUNS]
+
+Crie um mascote original e simpático para um produto de planejamento de mídia: uma criatura curiosa em forma de lupa-binóculo viva, corpo arredondado verde-escuro com UM olho grande e expressivo (íris verde-clara, pupila grafite, brilho branco), segurando com um braço rosa-coral um pequeno megafone mostarda. Sem boca visível, sensação de descoberta e entusiasmo. Pose de três quartos olhando para a direita, ligeiramente inclinada, braço levantado. Proporções fofas, sem rosto humano, sem referência a personagens existentes.
+```
+
+### 2. Banner completo (arquivo `banner-planejar.png`, 1600×360)
+
+```
+[REGRAS COMUNS]
+
+Banner horizontal 1600×360 com fundo sólido lilás #CDBEFF e cantos arredondados de 24 px. À esquerda, o mascote do Planner (criatura verde-escura de um olho só, megafone mostarda, braço coral) saindo ligeiramente do canto inferior, tamanho grande. Deixe 60% da largura à direita LIVRE e limpa (sem elementos) para o texto ser aplicado depois em HTML. Pequenas formas decorativas discretas (círculos e estrelinhas de 4 pontas) em verde-claro e mostarda espalhadas só no lado esquerdo. Sem texto.
+```
+
+### 3. Cartão de passos (arquivo `passos-planejar.png`, 800×800)
+
+```
+[REGRAS COMUNS]
+
+Ilustração para um cartão intermediário de grade, mostrando dois quadros de interface empilhados e levemente deslocados: o de cima com fundo lilás e uma imagem placeholder (ícone de montanha e sol) mais barras de texto cinzas; o de baixo com borda verde e outra imagem placeholder. Círculos numerados coral "1" e "2" (apenas os numerais dentro dos círculos) no canto de cada quadro. Uma mão rosa-coral com cursor de seta clicando no quadro de cima. Sensação de "monte seu plano em passos". Sem outro texto.
+```
+
+### 4. Estado vazio: nenhum canal encontrado (`vazio-busca.png`, 800×800)
+
+```
+[REGRAS COMUNS]
+
+O mascote do Planner (criatura verde-escura de um olho só) olhando por uma lupa grande mostarda para uma prateleira vazia, com pequeno ponto de interrogação coral flutuando acima. Expressão curiosa, sem tristeza. Sem texto exceto o símbolo "?".
+```
+
+### 5. Estado vazio: plano sem itens (`vazio-plano.png`, 800×800)
+
+```
+[REGRAS COMUNS]
+
+O mascote do Planner segurando uma prancheta em branco com um lápis, ao lado de uma pilha pequena de cartões coloridos (lilás, verde-claro, mostarda) ainda por organizar. Clima de "vamos começar". Sem texto.
+```
+
+### 6. Cabeçalho do assistente "Planejar" (`planejar-hero.png`, 1200×1200)
+
+```
+[REGRAS COMUNS]
+
+Cena editorial para a tela do assistente "Planejar": uma pessoa estilizada sem traços faciais detalhados (pele em tom neutro variado, cabelo curto verde-escuro, blazer mostarda, calça lilás) em pé, com um tablet na mão, cercada por telas flutuantes de formatos de mídia (celular vertical, TV, painel urbano e banner horizontal) com peças de campanha abstratas coloridas, uma linha de tempo fina atravessando a cena e dois cursores de seta. O mascote do Planner pousado em cima do tablet. Equilíbrio entre verde, lilás e mostarda.
+```
+
+### Como me enviar
+
+| Item | Regra |
+|---|---|
+| Formato | PNG com fundo transparente, nomes exatamente como acima |
+| Tamanho | Pode mandar menores (por exemplo 512 px do lado maior), eu comprimo para WebP |
+| Onde vão | `aicentralv2/static/images/planner/illustrations/` |
+| Uso | Banner a cada 8 cards da lista de Canais, cartão de passos na grade, estados vazios e a tela do assistente |
+| Conferir | Sem texto na imagem, olho único do mascote igual em todas, paleta fechada |

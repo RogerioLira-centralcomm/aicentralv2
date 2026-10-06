@@ -93,7 +93,7 @@ class CaduPiCampaignDrawerUiTest(unittest.TestCase):
 
     def test_email_operacional_usa_marca_centralcomm(self):
         self.assertIn("logo_centralcomm_url", self.email)
-        self.assertIn('alt="CentralComm Media"', self.email)
+        self.assertIn('alt="CentralComm"', self.email)
         self.assertNotIn("cadu-logo", self.email)
         self.assertNotIn("<span style=\"color:#06F17B;\">Cadu</span>", self.email)
 

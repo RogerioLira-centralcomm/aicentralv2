@@ -96,7 +96,12 @@ class CampanhasPiContractTest(unittest.TestCase):
         self.assertNotIn('id="filtroMesRef"', source[: source.index("{% if false %}")])
         self.assertNotIn("window.confirm(", source)
         self.assertNotIn("window.alert(", source)
-        self.assertIn("requestCampConfirmation", source)
+        # O comportamento foi extraído para static/js/campanhas-pi-lista.js.
+        script = (project_root / "aicentralv2" / "static" / "js" / "campanhas-pi-lista.js").read_text(encoding="utf-8")
+        self.assertIn("campanhas-pi-lista.js", source)
+        self.assertIn("function requestCampConfirmation(", script)
+        self.assertNotIn("window.confirm(", script)
+        self.assertNotIn("window.alert(", script)
         self.assertIn("campActionStatus", source)
         for visible_metric in ("Orçado", "Realizado", "Restante", "Previsto"):
             self.assertIn(visible_metric, row_source)
@@ -105,7 +110,7 @@ class CampanhasPiContractTest(unittest.TestCase):
         self.assertIn("campanha_pi_detalhe", row_source)
         self.assertIn('role="link"', row_source)
         self.assertNotIn("abrirModalEditar(JSON.parse(this.dataset.camp))", row_source)
-        self.assertIn("abrirModalEditar(JSON.parse(row.dataset.camp))", source)
+        self.assertIn("abrirModalEditar(JSON.parse(row.dataset.camp))", script)
         self.assertIn("campanhas_pi/_form_fields.html", source)
         self.assertIn("campaign-flight-deck", detail_source)
         self.assertIn("data-campanha-id", detail_source)

@@ -419,7 +419,8 @@ class CaduPiListUiContractTest(unittest.TestCase):
             },
         )
         self.assertIn("NF 57", awaiting)
-        self.assertNotIn("Aguardando pagamento", awaiting)
+        # O status só segue como dado do modal de alteração; não vira selo visível.
+        self.assertNotIn('<span class="pi-nf-state">Aguardando pagamento', awaiting)
         self.assertIn("Registrar pagamento", awaiting)
         paid = template.render(
             origem_lista="faturamento",

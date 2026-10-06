@@ -71,7 +71,7 @@ class CaduPrototypeRoutesTest(unittest.TestCase):
             DictLoader({'base_erp.html': '{% block content %}{% endblock %}'}),
             FileSystemLoader(str(ROOT / 'aicentralv2/templates')),
         ]), autoescape=True)
-        env.globals['url_for'] = lambda endpoint, filename: '/parametros/prototipos-cadu/' + filename
+        env.globals['url_for'] = lambda endpoint, filename='': ('/parametros/prototipos-cadu/' + filename) if filename else '/' + endpoint
         files = sorted(p.name for p in (ROOT / 'output/mockups').glob('*.html'))
         html = env.get_template('parametros/prototipos_cadu.html').render(prototype_files=files)
         for product in ['workspace', 'studio', 'connect', 'skills', 'planner']:

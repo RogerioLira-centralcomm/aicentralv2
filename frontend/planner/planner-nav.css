@@ -11,12 +11,11 @@
 .pn__link:hover, .pn__link.is-open { color: var(--planner-ink, #101828); }
 .pn__link.is-active { color: var(--colors-brand-700, #087443); font-weight: 600; }
 .pn__link.is-active::after { content: ""; position: absolute; right: 10px; bottom: -1px; left: 10px; height: 2px; border-radius: 2px; background: var(--colors-brand-600, #079455); }
-.pn__link:focus-visible, .pn-action:focus-visible, .pn-new:focus-visible, .pn-user:focus-visible { outline: 2px solid var(--colors-brand-600, #079455); outline-offset: -2px; border-radius: 8px; }
+.pn__link:focus-visible, .pn-action:focus-visible, .pn-user:focus-visible { outline: 2px solid var(--colors-brand-600, #079455); outline-offset: -2px; border-radius: 8px; }
 .pn__actions { display: flex; flex: none; align-items: center; gap: 8px; }
 .pn-action { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; border: 0; border-radius: 8px; background: none; color: var(--color-text-secondary, #344054); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
 .pn-action:hover, .pn-action[aria-expanded="true"] { background: var(--planner-soft, #f2f4f7); }
-.pn-new { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 8px; background: var(--colors-brand-600, #079455); color: #fff !important; font-size: 13px; font-weight: 600; text-decoration: none; }
-.pn-new:hover { background: var(--colors-brand-700, #087443); }
+.pn-action.is-active { color: var(--colors-brand-700, #087443); font-weight: 600; background: var(--colors-brand-50, #ecfdf3); }
 .pn-menu { position: relative; }
 .pn-menu__list { position: absolute; top: calc(100% + 6px); z-index: 90; display: grid; min-width: 190px; padding: 6px; border: 1px solid var(--planner-line, #e4e7ec); border-radius: 10px; background: #fff; box-shadow: 0 12px 28px rgba(16, 24, 40, .14); }
 .pn-menu__list--right { right: 0; }
@@ -29,7 +28,10 @@
 .pn-tokens u { display: block; height: 100%; border-radius: inherit; background: var(--colors-brand-500, #17b26a); }
 .pn-tokens.is-high u { background: #f79009; }
 .pn-user { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 6px; border-radius: 99px; color: var(--planner-ink, #101828); font-size: 13px; font-weight: 600; text-decoration: none; }
-.pn-user__avatar { width: 30px; height: 30px; flex: none; border-radius: 50%; overflow: hidden; }
+/* Dois seletores de classe: a regra do design system (.planner-shell .cadu-ds-visual-identity, width/height 100%) tem esse peso
+   e, sem isto, esticava a foto até 1036 px e criava rolagem horizontal na página. */
+.pn-user .pn-user__avatar, .planner-shell .pn-user .pn-user__avatar { width: 30px; height: 30px; min-width: 30px; flex: none; border-radius: 50%; overflow: hidden; }
+.planner-shell .pn-user .pn-user__avatar img { padding: 0; object-fit: cover; }
 .pn__burger { display: none; margin-left: auto; width: 40px; height: 40px; place-items: center; border: 0; border-radius: 8px; background: none; color: var(--planner-ink, #101828); cursor: pointer; }
 
 /* Mega menu */

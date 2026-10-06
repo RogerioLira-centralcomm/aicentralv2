@@ -7,9 +7,9 @@ import {workspaceSolutionItems} from '../cadu-design-system/workspaceSolutions';
 import '../cadu-design-system/components/SolutionSidebar.css';
 import {moduleUrl, newPlanUrl} from './api.js';
 
-// Where people browse. Order follows the buying flow: who, where, how.
+// Where people browse. Order follows the buying flow: who, where, how. The home page IS the audience shelf, so there is no
+// separate "Início": the logo goes home and Audiências lights up there.
 const DESTINATIONS = [
-  ['inicio', 'Início', 'home', 'Vitrine de audiências com o seu plano sempre à mão.'],
   ['canais', 'Canais', 'share', 'Social, busca, vídeo, áudio e mídia exterior.'],
   ['audiencias', 'Audiências', 'users', 'Públicos com tamanho e contexto de uso.'],
   ['portais', 'Portais e veículos', 'library', 'Veículos com audiência pública verificável.'],
@@ -36,9 +36,9 @@ function useAudienceFacets(request, wanted) {
 
 function MegaPanel({item, urls, facets, onNavigate}) {
   const [id, label, icon, description] = item;
-  const base = moduleUrl(urls, id === 'inicio' ? 'audiencias' : id);
+  const base = moduleUrl(urls, id);
   const link = (params, text, extra = null) => <a key={text} href={`${base}?${params}`} onClick={onNavigate}>{extra}<span>{text}</span></a>;
-  const audience = id === 'audiencias' || id === 'inicio';
+  const audience = id === 'audiencias';
   return <div className="pn-mega" role="region" aria-label={label}>
     <div className="pn-mega__intro">
       <span className="pn-mega__icon"><Icon name={icon} size={20}/></span>
@@ -62,7 +62,7 @@ function MegaPanel({item, urls, facets, onNavigate}) {
   </div>;
 }
 
-function Menu({label, icon, items, align = 'right'}) {
+function Menu({label, icon, items, active = false, align = 'right'}) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
@@ -74,7 +74,7 @@ function Menu({label, icon, items, align = 'right'}) {
     return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape); };
   }, [open]);
   return <div className="pn-menu" ref={ref}>
-    <button type="button" className="pn-action" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen(value => !value)}>
+    <button type="button" className={`pn-action${active ? ' is-active' : ''}`} aria-haspopup="true" aria-expanded={open} aria-current={active ? 'page' : undefined} onClick={() => setOpen(value => !value)}>
       <Icon name={icon} size={16}/><span>{label}</span>
     </button>
     {open && <div className={`pn-menu__list pn-menu__list--${align}`} role="menu">
@@ -85,7 +85,7 @@ function Menu({label, icon, items, align = 'right'}) {
 
 /**
  * The Planner's one navigation: destinations with a mega menu, the actions that
- * start work (radar, plans, new plan) and the account. Replaces the sidebar so the
+ * start work (radar, plans) and the account. Replaces the sidebar so the
  * shelves get the full width.
  */
 export function PlannerNav({boot, request, active}) {
@@ -98,7 +98,9 @@ export function PlannerNav({boot, request, active}) {
   const solutions = workspaceSolutionItems({urls: {solutions: {workspace: urls.workspace, planner: urls.home, studio: urls.studio, connect: urls.reports, skills: urls.skills}}, solutionIcons: boot.solutionIcons || {
     workspace: '/static/images/cadu/products/cadu-icon.png', planner: '/static/images/cadu/products/planner-icon.png',
     studio: '/static/images/cadu/products/studio-icon.png', connect: '/static/images/cadu/products/connect-icon.png', skills: '/static/images/cadu/products/skills-icon.png'}});
-  const facets = useAudienceFacets(request, openId === 'audiencias' || openId === 'inicio');
+  const facets = useAudienceFacets(request, openId === 'audiencias');
+  // The home page is the audience shelf: highlight Audiências there.
+  const section = active === 'inicio' ? 'audiencias' : active;
 
   const cancelClose = () => window.clearTimeout(closeTimer.current);
   const openNow = id => { cancelClose(); setOpenId(id); };
@@ -127,7 +129,7 @@ export function PlannerNav({boot, request, active}) {
       <nav className="pn__nav" aria-label="Seções do Planner">
         {DESTINATIONS.map(item => {
           const [id, label, icon] = item;
-          const here = active === id;
+          const here = section === id;
           return <a key={id} href={hrefFor(id)} className={`pn__link${here ? ' is-active' : ''}${openId === id ? ' is-open' : ''}`} aria-current={here ? 'page' : undefined}
             aria-haspopup="true" aria-expanded={openId === id}
             onMouseEnter={() => openNow(id)} onFocus={() => openNow(id)}>
@@ -136,9 +138,8 @@ export function PlannerNav({boot, request, active}) {
         })}
       </nav>
       <div className="pn__actions">
-        <Menu label="Radar" icon="pulse" items={[['Novo radar', hrefFor('radar')], ['Meus radares', hrefFor('radares')]]}/>
-        <Menu label="Planos" icon="history" items={[['Todos os planos', urls.plans], ['Novo planejamento', newPlanUrl(urls)]]}/>
-        <a className="pn-new" href={newPlanUrl(urls)}><Icon name="plus" size={16}/><span>Novo plano</span></a>
+        <Menu label="Radar" icon="pulse" active={section === 'radar' || section === 'radares'} items={[['Novo radar', hrefFor('radar')], ['Meus radares', hrefFor('radares')]]}/>
+        <Menu label="Planos" icon="history" active={section === 'planos' || section === 'novo-plano'} items={[['Todos os planos', urls.plans], ['Novo planejamento', newPlanUrl(urls)]]}/>
         {percent !== null && urls.credits && <a className={`pn-tokens${percent >= 80 ? ' is-high' : ''}`} href={urls.credits} title="Tokens e consumo do mês" aria-label={`Tokens: ${PERCENT.format(percent)}% usados no mês`}>
           <span>Tokens <b>{PERCENT.format(percent)}%</b></span><i aria-hidden="true"><u style={{width: `${percent}%`}}/></i>
         </a>}

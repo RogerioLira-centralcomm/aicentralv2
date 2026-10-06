@@ -312,6 +312,22 @@ def channel_roles(channel):
             if any((word in words) if ' ' not in word else (word in haystack) for word in keywords)][:3]
 
 
+def channel_audiences(channel, limit=8):
+    """Audiences bought on this channel's platform (matched by platform name), biggest first."""
+    name = str(channel.get('name') or '').strip()
+    if not name:
+        return []
+    return repository.decorate_audiences(rows('''SELECT a.id, a.nome AS name, a.publico_estimado AS audience,
+                                     p.nome AS channel, p.nome AS platform, c.nome AS category,
+                                     a.imagem_url AS image_url
+                                FROM cadu_audiencias a
+                                JOIN cadu_audiencias_plataformas p ON p.id = a.plataforma_id
+                           LEFT JOIN cadu_categorias c ON c.id = a.categoria_id
+                               WHERE a.is_active = TRUE AND LOWER(p.nome) = LOWER(%s)
+                            ORDER BY a.publico_numero DESC NULLS LAST, a.nome
+                               LIMIT %s''', (name, limit)))
+
+
 def channel_profile(channel_id):
     """Ficha completa do canal para o cliente: dados, formatos, exemplos e notícias."""
     from . import channels
@@ -330,6 +346,7 @@ def channel_profile(channel_id):
                   'dimensions': row.get('dimensoes'), 'format_type': row.get('tipo')}
                  for row in channels.formats(channel)],
         news=channels.news(record_id),
+        audiences=channel_audiences(channel),
     )
     return profile
 

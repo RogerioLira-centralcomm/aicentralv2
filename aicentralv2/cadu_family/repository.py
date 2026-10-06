@@ -835,7 +835,8 @@ def catalog(module, query='', category='', platform='', sort='relevant', format_
     if module == 'canais':
         category = category.strip()[:100] if isinstance(category, str) else ''
         return rows('''SELECT id, slug, nome AS name, descricao AS description, categoria AS category,
-                             alcance AS audience, logo_path, cor
+                             tipo, alcance AS audience, logo_path, cor, imagem_path, og_image_path, imagens,
+                             viewability, completion_rate, usuarios_unicos
                         FROM cadu_canais
                        WHERE is_active = TRUE AND (nome ILIKE %s OR COALESCE(descricao, '') ILIKE %s
                              OR COALESCE(categoria, '') ILIKE %s)

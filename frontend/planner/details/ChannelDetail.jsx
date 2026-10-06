@@ -1,6 +1,7 @@
 import React from 'react';
 import {CaduEmptyState} from '../../cadu-design-system/components/CaduEmptyState.jsx';
 import {moduleUrl} from '../api.js';
+import {FormatPreview} from '../FormatPreview.jsx';
 import {DemographyBars, DetailLayout, Facts, Rail, TagList, hasValue, listText} from './DetailLayout.jsx';
 
 // Percent fields are stored as bare numbers; never double the sign.
@@ -14,6 +15,7 @@ export function ChannelDetail({boot, selection}) {
   const ads = channel.ad_examples || [];
   const concepts = channel.concepts || [];
   const news = channel.news || [];
+  const audiences = channel.audiences || [];
   const roles = channel.roles || [];
   // {temporal: {nome: 'Temporal', opcoes: [...]}} or [{nome, opcoes}] → one group of tags each.
   const playbook = (Array.isArray(channel.segmentacoes) ? channel.segmentacoes : []).filter(item => item && typeof item === 'object' && item.nome);
@@ -27,6 +29,9 @@ export function ChannelDetail({boot, selection}) {
     ['Brand safety', listText(channel.brand_safety)], ['Produtos', listText(channel.produtos)]];
   const examples = [...ads.map(ad => ({url: ad.image_url, caption: ad.title || ad.source_domain})),
     ...concepts.map(concept => ({url: concept.image_url, caption: `${concept.title} · conceito`}))];
+
+  const photos = [channel.hero_image_url, ...(channel.gallery || []).map(photo => photo.url)].filter((url, index, all) => url && all.indexOf(url) === index);
+  const heroMedia = photos.length > 1 ? {type: 'gallery', items: photos} : photos.length ? {type: 'image', src: photos[0]} : null;
 
   const sections = [
     {id: 'papel', label: 'Papel no plano', hidden: !roles.length, hint: 'Como este canal costuma trabalhar num plano. O Cadu ajusta por campanha.',
@@ -44,9 +49,17 @@ export function ChannelDetail({boot, selection}) {
         {item.exemplo && <p><span>Exemplo</span>{item.exemplo}</p>}
       </li>)}</ul>},
     {id: 'formatos', label: 'Formatos', count: formats.length, wide: true,
-      render: () => <Rail empty="Ainda não há formatos cadastrados para este canal." items={formats.map(format => ({
-        href: `${moduleUrl(boot.urls, 'formatos')}/${format.id}`, title: format.name, icon: 'table', logo: channel.logo_url,
-        subtitle: [format.format_type, format.dimensions].filter(Boolean).join(' · '),
+      render: () => formats.length ? <ul className="pd-formats">{formats.map(format => <li key={format.id}>
+        <a href={`${moduleUrl(boot.urls, 'formatos')}/${format.id}`}>
+          <FormatPreview dimensions={format.dimensions} name={format.name} compact/>
+          <strong>{format.name}</strong>
+          <small>{[format.format_type, format.dimensions].filter(Boolean).join(' · ')}</small>
+        </a></li>)}</ul> : <p className="planner-muted">Ainda não há formatos cadastrados para este canal.</p>},
+    {id: 'audiencias', label: 'Audiências neste canal', count: audiences.length, hidden: !audiences.length, wide: true,
+      hint: 'Públicos que se compram neste canal.',
+      render: () => <Rail items={audiences.map(audience => ({
+        href: `${moduleUrl(boot.urls, 'audiencias')}/${audience.id}`, title: audience.name, icon: 'users', logo: channel.logo_url,
+        subtitle: [audience.category, audience.audience].filter(Boolean).join(' · '),
       }))}/>},
     {id: 'exemplos', label: 'Exemplos', count: examples.length, hidden: !examples.length, wide: true,
       hint: concepts.length ? 'Conceitos de ativação são demonstrações do formato, não campanhas reais.' : null,
@@ -63,7 +76,7 @@ export function ChannelDetail({boot, selection}) {
 
   return <DetailLayout boot={boot} selection={selection} kind="canais" record={channel} icon="share"
     eyebrow={[channel.categoria, channel.tipo].filter(Boolean).join(' · ') || 'Canal'}
-    media={channel.hero_image_url ? {type: 'image', src: channel.hero_image_url} : (channel.gallery?.[0]?.url ? {type: 'image', src: channel.gallery[0].url} : null)}
+    media={heroMedia}
     metrics={[
       {label: 'Alcance', value: channel.alcance, hint: 'Declarado pelo canal'},
       {label: 'Usuários únicos', value: channel.usuarios_unicos},

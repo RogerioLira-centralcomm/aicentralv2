@@ -7,6 +7,7 @@ import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {LogoTile, PlannerPanel, SelectionButton} from './PlannerUi.jsx';
 import {MODULE_LABELS, moduleUrl} from './api.js';
 import {ActivePlanChip, PlannerHeader} from './PlannerHeader.jsx';
+import {ChannelCard} from './ChannelCard.jsx';
 
 const PORTAL_PAGE = 50;
 const DESCRIPTIONS = {
@@ -191,10 +192,14 @@ export function CatalogPage({boot, request, selection, notify}) {
       <CaduInput className="planner-toolbar__search" aria-label="Pesquisar referências" type="search" value={query} placeholder={portalMode ? 'Buscar por portal, domínio ou categoria' : 'Buscar por nome, descrição ou categoria'}
         leading={<span className="planner-toolbar__search-icon" aria-hidden="true"><Icon name="search" size={16}/></span>}
         onChange={event => { setQuery(event.target.value); setOffset(0); }}/>
-      {!portalMode && (boot.categories || []).length > 0 && <CaduSelectField className="planner-toolbar__category" aria-label="Categoria" value={category} onChange={event => { setCategory(event.target.value); setOffset(0); }}
+      {!portalMode && kind !== 'canais' && (boot.categories || []).length > 0 && <CaduSelectField className="planner-toolbar__category" aria-label="Categoria" value={category} onChange={event => { setCategory(event.target.value); setOffset(0); }}
         options={[{value: '', label: 'Todas as categorias'}, ...boot.categories.map(value => ({value, label: value}))]}/>}
       <span className="planner-toolbar__count" aria-live="polite">{countLabel}</span>
     </div>
+    {kind === 'canais' && (boot.categories || []).length > 0 && <div className="planner-segmented planner-chips" role="group" aria-label="Categoria">
+      {[['', 'Todos'], ...boot.categories.map(value => [value, value])].map(([value, label]) => <button key={value || 'all'} type="button" aria-pressed={category === value}
+        className={category === value ? 'is-active' : ''} onClick={() => { setCategory(value); setOffset(0); }}>{label}</button>)}
+    </div>}
     {portalMode && <div className="planner-portal-filters">
       <div className="planner-segmented" role="group" aria-label="Escopo">
         {SCOPES.map(([value, label]) => <button key={value || 'all'} type="button" aria-pressed={filters.scope === value} className={filters.scope === value ? 'is-active' : ''} onClick={() => setFilter('scope', value)}>{label}</button>)}
@@ -212,6 +217,8 @@ export function CatalogPage({boot, request, selection, notify}) {
     </div>}
     {!records.length && !loading ? <PlannerPanel className="planner-panel--flush"><CaduEmptyState title="Nenhuma referência encontrada" description="Ajuste a busca ou escolha outra categoria."/></PlannerPanel>
       : portalMode ? <div className="planner-list" aria-label="Portais disponíveis">{records.map(item => <PortalRow key={itemKey(item)} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))}/>)}</div>
+        : kind === 'canais' ? <div className="planner-grid planner-grid--channels" aria-label="Canais disponíveis">{records.map(item => <ChannelCard key={itemKey(item)} item={item} urls={boot.urls}
+          selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>)}</div>
         : <div className="planner-grid" aria-label={`${MODULE_LABELS[kind]} disponíveis`}>{records.map(item => <CatalogCard key={itemKey(item)} kind={kind} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))}/>)}</div>}
     {portalMode && total > PORTAL_PAGE && <nav className="planner-pagination" aria-label="Páginas de portais">
       <CaduButton variant="secondary" disabled={!offset} onClick={() => setOffset(Math.max(0, offset - PORTAL_PAGE))}>Anterior</CaduButton>

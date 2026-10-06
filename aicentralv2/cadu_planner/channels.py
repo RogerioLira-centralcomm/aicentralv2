@@ -68,12 +68,38 @@ def _channel_logo(slug, stored):
     return _safe_media_url(_resolver_logo(slug, stored))
 
 
+def cover_url(record):
+    """First real photo of the channel; empty when the catalog has none (no generated stand-in)."""
+    candidates = [record.get('imagem_path'), record.get('og_image_path'), *(record.get('imagens') or [])]
+    return next((url for url in map(_safe_media_url, candidates) if url), '')
+
+
+def _percent(value):
+    try:
+        number = float(str(value).replace('%', '').replace(',', '.').strip())
+    except (TypeError, ValueError):
+        return None
+    return number if 0 < number <= 100 else None
+
+
 def decorate_logos(records):
-    """Catalog lists carry logo_path only; swap it for the logo that actually exists."""
+    """Catalog lists carry logo_path only; swap it for the logo that actually exists.
+
+    Also turns the stored media columns into one cover photo and the roles the
+    channel plays, so the grid can show them without the raw columns. No
+    commercial value (price, minimum investment) is ever added here."""
+    from .catalog import channel_roles
     for record in records or []:
         logo = _channel_logo(str(record.get('slug') or '').lower(), record.get('logo_path'))
         if logo or 'logo_path' in record:
             record['logo_path'] = logo
+        if 'imagem_path' in record or 'imagens' in record:
+            record['image_url'] = cover_url(record)
+            record['role'] = (channel_roles({**record, 'categoria': record.get('category')}) or [{}])[0].get('role', '')
+            for key in ('imagem_path', 'og_image_path', 'imagens'):
+                record.pop(key, None)
+            for key in ('viewability', 'completion_rate'):
+                record[key] = _percent(record.get(key))
     return records
 
 

@@ -200,3 +200,22 @@ def test_dead_run_expiry_also_covers_runs_without_a_lease(monkeypatch):
     sql, = spy.statements
     # Runs do pipeline antigo não têm lease: contam 20 minutos desde a criação em vez de travar a marca para sempre.
     assert "COALESCE(lease_until, created_at + INTERVAL '20 minutes') < NOW()" in sql
+
+
+def test_each_call_authorizes_its_own_usd_estimate_not_a_fixed_floor(monkeypatch, runner):
+    """A reserva da busca é em US$; um piso fixo por chamada faria o run falhar com saldo entre a reserva e o piso."""
+    from decimal import Decimal
+
+    from aicentralv2 import cadu_credit_connector
+    from aicentralv2.services import cadu_ai_connector
+    seen = {}
+
+    class FakeAI:
+        def complete(self, messages, **kwargs):
+            seen['estimated'] = kwargs['estimated_tokens']
+            return {'message': {'content': '{}'}, 'cadu_charge': {'tokens_cobrados': 1}}
+
+    monkeypatch.setattr(cadu_ai_connector, 'CaduAIConnector', FakeAI)
+    monkeypatch.setattr(cadu_credit_connector.CaduCreditConnector, '_commercial_token_price_usd', lambda self, client: Decimal('0.0002'))
+    runner._ai('buzz', 'perplexity/sonar-pro', [{'role': 'user', 'content': 'x'}], 100)
+    assert seen['estimated'] == 250 < pipeline.estimate_tokens(7)  # US$ 0,05 a US$ 0,0002; abaixo da reserva total

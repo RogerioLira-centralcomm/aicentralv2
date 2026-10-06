@@ -250,7 +250,7 @@ class Runner:
         result = CaduAIConnector().complete(
             messages, client_id=self.client_id, user_id=self.actor_id,
             idempotency_key=f'radar:{self.run_id}:{stage}', app='Cadu Radar', stage=f'radar:{stage}',
-            estimated_tokens=max(1_000, usd_to_tokens(self.client_id, STAGE_USD[stage])), model=model,
+            estimated_tokens=max(1, usd_to_tokens(self.client_id, STAGE_USD[stage])), model=model,
             metadata={'radar_run_id': self.run_id, 'stage': stage, 'prompt_version': PROMPTS, 'web': web}, **options)
         tokens = int(((result.get('cadu_charge') or {}).get('tokens_cobrados')) or 0)
         from ..services.openrouter_service import message_text

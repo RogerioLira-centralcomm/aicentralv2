@@ -70,7 +70,7 @@ def test_every_sql_migration_is_in_the_order_file_or_called_by_a_runner_or_docum
 
 
 def test_not_in_deploy_manifest_is_consistent():
-    valid = {'manual-destrutivo', 'manual-pontual', 'aplicada-pelo-app', 'auditar'}
+    valid = {'manual-destrutivo', 'manual-pontual', 'aplicada-pelo-app', 'aplicada-manual', 'conferir-manual', 'revisar-antes', 'auditar'}
     runners = ''.join(path.read_text() for path in (ROOT / 'migrations').glob('run_*.py'))
     for name, category in _manifest().items():
         assert (ROOT / 'migrations' / name).is_file(), f'{name} não existe mais'

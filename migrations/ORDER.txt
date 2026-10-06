@@ -162,3 +162,11 @@ migrations/run_sql_migration.py add_cadu_planner_cobuild.sql
 migrations/run_sql_migration.py add_cadu_radar.sql
 migrations/run_sql_migration.py add_cadu_interactive_creative_categories.sql
 migrations/run_sql_migration.py add_cadu_user_onboardings.sql
+# Normalização 2026-10-06: o código usa estas tabelas e a auditoria no servidor as encontrou ausentes (idempotentes, testadas duas vezes).
+migrations/run_sql_migration.py add_cadu_connect_accounts.sql
+migrations/run_sql_migration.py add_cadu_planner_site_monitoring.sql
+migrations/run_sql_migration.py add_cadu_project_index_jobs.sql
+migrations/run_sql_migration.py add_cadu_project_tasks.sql
+migrations/run_sql_migration.py add_cadu_workspace_enterprise_onboarding.sql
+migrations/run_sql_migration.py add_cotacao_id_to_sales_atividades.sql
+migrations/run_sql_migration.py create_crm_copilot_history_sequences.sql

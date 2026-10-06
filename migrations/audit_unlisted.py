@@ -2,7 +2,7 @@
 
 Uso (no servidor): venv/bin/python migrations/audit_unlisted.py
 
-Para cada arquivo informa se o ledger (deploy_sql_migrations) o conhece e se as tabelas/colunas que ele
+Cobre as categorias 'auditar' e 'revisar-antes'. Para cada arquivo informa se o ledger (deploy_sql_migrations) o conhece e se as tabelas/colunas que ele
 cria já existem. Só executa SELECT. Resultado:
   APLICADA        o ledger registra o arquivo
   JA-EXISTE       tudo que o arquivo cria já existe no banco (aplicada fora do ledger)
@@ -28,7 +28,7 @@ ADD_COLUMN = re.compile(
 
 def pending_files():
     rows = [line.split(" | ") for line in MANIFEST.read_text(encoding="utf-8").splitlines() if line.strip() and not line.startswith("#")]
-    return [row[0] for row in rows if len(row) >= 2 and row[1] == "auditar"]
+    return [row[0] for row in rows if len(row) >= 2 and row[1] in ("auditar", "revisar-antes")]
 
 
 def objects(sql):

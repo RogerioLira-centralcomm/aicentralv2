@@ -398,6 +398,94 @@ O F3 é barato e rápido, mas só tem manchetes de agregadores e portais pequeno
 
 Antes de mexer no pipeline de produção, falta rodar os cenários Nike e Bomfim só com o F1. Cada rodada custa cerca de 400 tokens.
 
+### Lab ampliado: 7 fluxos com busca online e revisão em loop (2026-10-06)
+
+**Fluxos.** Cada um tem um tipo: `perplexity`, `web` (o próprio modelo busca na web pelo plugin `web` nativo do OpenRouter) ou `evidence`.
+
+| Fluxo | Tipo | Descoberta | Juiz | Checagem |
+|---|---|---|---|---|
+| F1 | perplexity | `sonar-pro` + `sonar` (imprensa, buscas em alta) | `gpt-5.4-mini` | `sonar` |
+| F2 | web | `gpt-5-mini` com busca da OpenAI | `gpt-5-mini` (OpenAI direta, regime de tokens) | `gpt-5-mini` com busca |
+| F3 | evidence | Google Notícias RSS + Firecrawl (na web aberta, se a imprensa curada voltar vazia) | `gemini-2.5-flash` | `deepseek-v3.2` relê o pacote |
+| F4 | web | `gemini-3-flash-preview` com busca do Google | o mesmo | o mesmo, com busca |
+| F5 | web | `grok-4.3` com busca na web e no X | o mesmo | o mesmo, com busca |
+| F6 | web | `claude-sonnet-5` com busca da Anthropic | o mesmo | o mesmo, com busca |
+| F7 | perplexity + RSS | igual ao F1, mais as pistas do Google Notícias | `claude-sonnet-5` | `sonar` |
+
+**Loop 1: revisão das oportunidades.** O revisor Haiku dá notas cegas a todos os fluxos.
+
+- O fluxo abaixo da meta (padrão 4,2) reescreve a própria lista com o prompt `revise`.
+- A reescrita usa o mesmo pacote de evidências e as notas e comentários do revisor por oportunidade.
+- Depois da reescrita, a lista passa de novo pela checagem e pela nota cega.
+- São até N voltas (padrão 2), e fica a melhor versão de cada fluxo.
+- A cada passada, os fluxos que não revisaram também recebem nota de novo. A variação deles mede o **ruído do revisor**, que entra no relatório.
+
+**Loop 2: revisão dos prompts.**
+
+- O **médico de prompts** (`claude-sonnet-5`) lê o diagnóstico da melhor versão. O diagnóstico traz:
+  - as piores oportunidades, com os comentários do revisor;
+  - fontes C, links quebrados, oportunidades sem fonte e oportunidades não verificadas, por fluxo.
+- Com isso, ele propõe até 3 mudanças nos prompts editáveis: `judge`, `revise`, `reality_check` e `verify`.
+- `prompts.apply_changes` recusa a mudança que:
+  - altera os campos `{…}`;
+  - quebra as chaves dobradas do JSON;
+  - cresce mais de 60%.
+- A versão candidata (v1.1, v1.2…) roda sobre as **mesmas evidências**, porque a descoberta não é reexecutada. Assim, a comparação mede só o prompt.
+- A candidata só vira a melhor versão se a média dos fluxos subir. O resultado sai em `prompts_best.json`.
+
+**Comando:**
+
+```
+.venv/bin/python scripts/radar_lab.py --client-id 174 --user-id 2 --scenario cemig --flows all --revise-rounds 2 --prompt-loops 1
+```
+
+Dry-run de uma versão com os 7 fluxos: cerca de 31 mil tokens Cadu, ou US$ 0,88. Desses, 25,7 mil são do F2, por causa da cobrança por token da OpenAI direta.
+
+Testes: `tests/test_cadu_radar_lab.py` cobre:
+
+- o loop para ao bater a meta;
+- o loop guarda a melhor versão;
+- uma revisão que piora a nota é descartada;
+- as regras do médico de prompts;
+- o JSON mode só para quem aceita.
+
+### Rodada ampliada: Cemig, 7 fluxos, 2 voltas de revisão, 1 volta de prompt (2026-10-06)
+
+**Custo e tempo:** 49,7 mil tokens Cadu (US$ 2,45) em 14 minutos.
+
+A primeira tentativa falhou e foi corrigida:
+
+- o juiz parou no limite de 3.200 tokens, então F2, F6 e F7 ficaram sem nenhuma oportunidade;
+- a busca nativa da Anthropic gastou US$ 1,25 numa chamada só;
+- o médico de prompts não devolveu JSON.
+
+| Fluxo | Boas / total | Média do revisor | Fontes A/B | Tokens debitados | US$ provedor | Leitura |
+|---|---|---|---|---|---|---|
+| **F1 Perplexity + imprensa** | **3/4** | 4,45 | 83% | **509** | 0,08 | Melhor custo-benefício de novo |
+| F2 OpenAI nativo | 3/3 | 4,27 | 100% | 35.938 | 0,25 | Qualidade boa, mas o regime de tokens 1:1 o torna 70 vezes mais caro em créditos que o F1 |
+| F5 Grok + web e X | 1/1 | 4,40 | 50% | 1.702 | 0,27 | Bom, mas entrega pouco |
+| F7 Híbrido, juiz Sonnet | 1/1 | 4,60 | 100% | 3.662 | 0,59 | O Sonnet corta demais e sai caro |
+| F3 Evidência primeiro | 0/2 | 4,60 | 38% | 265 | 0,04 | Média alta, mas só com fonte C (selo baixa) |
+| F4 Gemini + Google | 0/3 | 2,47 | 57% | 3.748 | 0,60 | Datas de 2024 e links quebrados |
+| F6 Claude + busca | 0/3 | 1,60 | 0% | 2.673 | 0,43 | Descartado |
+
+"Boa" quer dizer nota do revisor ≥ 4 e selo de confiança diferente de "baixa".
+
+**O que a rodada ensinou:**
+
+1. **O loop de revisão tinha um viés, já corrigido.** A média subia quando o fluxo cortava oportunidades (o F7 e o F5 terminaram com 1 item). O objetivo agora é **pontos**: a soma das notas das oportunidades boas. Cortar um item bom perde pontos. A revisão só para com pelo menos 3 boas e a média na meta. Os testes cobrem os dois casos.
+2. **O ruído do revisor fica entre 0,21 e 0,29 ponto** na média de um fluxo que não mudou. Diferença menor que isso não é ganho.
+3. **Prompts v1.1.** O médico aceitou uma mudança no `revise` (trocar o que está fora da janela ou é sustentado só por fonte C) e teve duas recusadas por crescerem demais. A média subiu de 3,69 para 3,77, uma diferença de 0,08, **dentro do ruído**. A v1.1 não é promovida.
+4. **Decisão mantida: o F1 é a base do Radar.** O F2 vira segunda opinião só depois que a cobrança passar a ser pelo custo em US$. O F5 (Grok) é candidato a fonte de conversa social (X) dentro do F1. F3, F4 e F6 saem.
+
+**Próxima rodada sugerida:**
+
+- fluxos: F1, F2 e F5;
+- 3 cenários: Cemig, Nike e Bomfim;
+- 2 voltas de revisão e 2 de prompt;
+- objetivo: medir a v1.1 e a v1.2 com o critério de pontos;
+- custo estimado: 15 a 20 mil tokens por cenário, quase tudo do F2.
+
 ### Ajuda ao usuário na tela do Radar (2026-10-06)
 
 - **Ideias de busca:**

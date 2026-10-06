@@ -87,23 +87,79 @@ V1_0 = {
         '"resumo": "2 frases", "melhor_em": "...", "pior_em": "..."}}], "duplicadas": [["A1", "B2"]], '
         '"vencedor": "A|B|C", "por_que": "2 frases"}}',
         '{payload}'),
+
+    # Revisão em loop: o mesmo juiz reescreve a lista a partir das notas do revisor, só com o pacote de evidências.
+    'revise': (
+        'Você é o mesmo analista que gerou as oportunidades abaixo. Um planejador sênior deu notas de 1 a 5 e '
+        'apontou problemas. Reescreva a lista: corrija ou retire oportunidades sustentadas só por fonte fraca '
+        '(nível C), por link que não abre ou por fato fora da janela; deixe a ação concreta para um planejador '
+        '(canal, formato e quando); troque o genérico por algo específico desta marca. Use SOMENTE as evidências '
+        'do pacote (S1, S2…): sem evidência, a oportunidade sai. Pode trocar uma oportunidade fraca por outra '
+        'melhor sustentada pelo pacote. Notas de 0 a 100, conservadoras. Responda só JSON no esquema pedido. '
+        'No máximo {max_opportunities} oportunidades.',
+        '{payload}'),
+
+    # Médico de prompts: lê o diagnóstico da rodada e propõe a próxima versão dos prompts editáveis.
+    'prompt_doctor': (
+        'Você melhora os prompts de um sistema que encontra oportunidades de mídia para planejadores no Brasil. '
+        'Recebe os prompts atuais e o diagnóstico de uma rodada (notas de um revisor por sistema, padrões de '
+        'falha, fontes fracas, links quebrados). Proponha no máximo 3 mudanças cirúrgicas que ataquem as falhas '
+        'mais frequentes. Regras: mantenha EXATAMENTE os mesmos campos entre chaves (ex.: {{max_opportunities}}) '
+        'e o mesmo formato de resposta JSON que cada prompt já pede; chaves literais do JSON ficam DOBRADAS, '
+        'exatamente como no original ({{{{ e }}}}); não aumente o tamanho do prompt em mais de '
+        '40%; escreva em português. Responda só JSON: {{"changes": [{{"prompt": "judge|revise|reality_check|verify", '
+        '"system": "texto completo novo do prompt", "why": "qual falha isto ataca"}}]}}',
+        '{payload}'),
 }
 
 VERSIONS = {'1.0': V1_0}
+# Prompts que o médico de prompts pode reescrever. A descoberta fica fora: assim a versão nova roda sobre as
+# mesmas evidências da anterior e a comparação mede só o efeito do prompt.
+EDITABLE = ('judge', 'revise', 'reality_check', 'verify')
 
 
-def get(name, version=VERSION):
-    return VERSIONS[version][name]
+def get(name, version=VERSION, prompt_set=None):
+    return (prompt_set or VERSIONS[version])[name]
 
 
-def messages(name, version=VERSION, **values):
-    system, user = get(name, version)
+def messages(name, version=VERSION, prompt_set=None, **values):
+    system, user = get(name, version, prompt_set)
     return [{'role': 'system', 'content': system.format(**values)}, {'role': 'user', 'content': user.format(**values)}]
 
 
-def judge_payload(topic, brand, discovered_text, evidence, *, places='', lenses=''):
-    """Pacote do juiz, com o esquema que ``scoring.py`` sabe ler."""
-    schema = {
+def fields(text):
+    """Campos ``{nome}`` de um template (o médico de prompts não pode mudá-los)."""
+    import string
+    return {name for _, name, _, _ in string.Formatter().parse(text) if name}
+
+
+def apply_changes(prompt_set, changes):
+    """Nova versão com as mudanças válidas; devolve (prompts, aceitas, recusadas)."""
+    result, accepted, rejected = dict(prompt_set), [], []
+    for change in changes or []:
+        name, system = (change or {}).get('prompt'), str((change or {}).get('system') or '').strip()
+        if name not in EDITABLE or not system:
+            rejected.append({**(change or {}), 'motivo': 'prompt fora da lista editável ou vazio'})
+            continue
+        old_system, user = result[name]
+        try:
+            system.format(**{key: 'x' for key in fields(old_system)})
+            same = fields(system) == fields(old_system)
+        except (KeyError, IndexError, ValueError):
+            same = False
+        if not same:
+            rejected.append({**change, 'motivo': 'campos entre chaves diferentes do original'})
+            continue
+        if len(system) > len(old_system) * 1.6:
+            rejected.append({**change, 'motivo': 'cresceu demais'})
+            continue
+        result[name] = (system, user)
+        accepted.append(change)
+    return result, accepted, rejected
+
+
+def _schema():
+    return {
         'opportunities': [{
             'title': 'até 90 caracteres', 'thesis': 'por que a marca deve agir agora, 1-2 frases',
             'signals': [{'source_id': 'S1', 'headline': '...', 'source_type': 'news|search_trend|social|regulation|event|report|other'}],
@@ -114,6 +170,17 @@ def judge_payload(topic, brand, discovered_text, evidence, *, places='', lenses=
             'channels': ['tipos de canal que fazem sentido'], 'window': 'até quando a janela fica aberta',
             'why': {'editorial': 'justificativa curta', 'paid': 'justificativa curta'},
         }]}
+
+
+def judge_payload(topic, brand, discovered_text, evidence, *, places='', lenses=''):
+    """Pacote do juiz, com o esquema que ``scoring.py`` sabe ler."""
+    schema = _schema()
     return json.dumps({'tema': topic, 'pracas': places, 'lentes': lenses, 'marca': brand,
                        'achados_da_pesquisa': str(discovered_text or '')[:4000], 'evidencias': evidence,
                        'esquema': schema}, ensure_ascii=False)
+
+
+def revise_payload(topic, brand, current, evidence, *, places=''):
+    """Pacote da revisão: lista atual com as notas do revisor, as mesmas evidências e o mesmo esquema."""
+    return json.dumps({'tema': topic, 'pracas': places, 'marca': brand, 'oportunidades_atuais': current,
+                       'evidencias': evidence, 'esquema': _schema()}, ensure_ascii=False)

@@ -1,4 +1,4 @@
-"""Lab do Radar: fluxos de pesquisa comparados lado a lado, com custo simulado e real.
+"""Lab do Radar: fluxos de pesquisa comparados lado a lado, com revisão em loop e custo simulado e real.
 
 Cada fluxo usa outra combinação de buscador e modelo, mas o mesmo cenário e os
 mesmos prompts versionados (``prompts.py``). Todas as chamadas passam pelo
@@ -12,6 +12,15 @@ OpenRouter + tamanho do prompt) e, depois, lê o que foi de fato debitado. Um
 revisor final (Haiku via OpenRouter) dá notas cegas às oportunidades de todos os
 fluxos. Nada é gravado nas tabelas do Radar; só o livro de créditos recebe os
 débitos, com ``app='Cadu Radar'`` e ``stage='radar-lab:<fluxo>:<etapa>'``.
+
+Dois loops de revisão:
+
+* **das oportunidades**: o fluxo abaixo da meta reescreve a própria lista a partir
+  das notas do revisor (só com o mesmo pacote de evidências), até N voltas; fica a
+  melhor versão;
+* **dos prompts**: o médico de prompts lê o diagnóstico e propõe a versão seguinte
+  dos prompts editáveis (juiz, revisão, checagens). Ela roda sobre as MESMAS
+  evidências e só vira a melhor versão se a média dos fluxos subir.
 """
 from __future__ import annotations
 
@@ -42,17 +51,47 @@ CHARS_PER_TOKEN = 3.6       # português, medido grosso
 OUTPUT_FILL = 0.6           # fração do max_tokens que costuma sair
 UA = {'User-Agent': 'Mozilla/5.0 (compatible; CaduRadarLab/1.0; +https://centralcomm.media)'}
 
-# Os três fluxos. Modelos trocáveis pela linha de comando (``--model F1.judge=...``).
+# Fluxos do Lab. ``kind`` diz como descobre e confere:
+#   perplexity  Perplexity aberto + imprensa curada + buscas em alta → lê páginas → juiz → checagem Perplexity
+#   web         o próprio modelo busca na web (plugin ``web`` nativo do OpenRouter) → juiz → checagem com busca
+#   evidence    sem IA na busca: Google Notícias (RSS) + Firecrawl na imprensa curada → juiz → verificador interno
+# Modelos trocáveis pela linha de comando (``--model F4.judge=...``).
 FLOWS = {
-    'F1': {'name': 'Perplexity + imprensa', 'models': {
+    'F1': {'name': 'Perplexity + imprensa', 'kind': 'perplexity', 'models': {
         'discover_open': 'perplexity/sonar-pro', 'discover_press': 'perplexity/sonar',
         'discover_trends': 'perplexity/sonar', 'judge': 'openai/gpt-5.4-mini', 'check': 'perplexity/sonar'}},
-    'F2': {'name': 'OpenAI nativo', 'models': {
-        'discover_open': 'openai/gpt-5-mini', 'discover_press': 'openai/gpt-5-mini',
-        'judge': 'gpt-5-mini', 'check': 'openai/gpt-5-mini'}},
-    'F3': {'name': 'Evidência primeiro (Firecrawl + Python)', 'models': {
+    'F2': {'name': 'OpenAI nativo', 'kind': 'web', 'judge_provider': 'openai', 'models': {
+        'discover': 'openai/gpt-5-mini', 'judge': 'gpt-5-mini', 'check': 'openai/gpt-5-mini'}},
+    'F3': {'name': 'Evidência primeiro (Firecrawl + Python)', 'kind': 'evidence', 'models': {
         'judge': 'google/gemini-2.5-flash', 'check': 'deepseek/deepseek-v3.2'}},
+    'F4': {'name': 'Gemini + busca Google', 'kind': 'web', 'models': {
+        'discover': 'google/gemini-3-flash-preview', 'judge': 'google/gemini-3-flash-preview',
+        'check': 'google/gemini-3-flash-preview'}},
+    'F5': {'name': 'Grok + web e X', 'kind': 'web', 'models': {
+        'discover': 'x-ai/grok-4.3', 'judge': 'x-ai/grok-4.3', 'check': 'x-ai/grok-4.3'}},
+    'F6': {'name': 'Claude Sonnet + busca Anthropic', 'kind': 'web', 'models': {
+        'discover': 'anthropic/claude-sonnet-5', 'judge': 'anthropic/claude-sonnet-5', 'check': 'anthropic/claude-sonnet-5'}},
+    'F7': {'name': 'Híbrido: Perplexity + RSS, juiz Sonnet', 'kind': 'perplexity', 'rss': True, 'models': {
+        'discover_open': 'perplexity/sonar-pro', 'discover_press': 'perplexity/sonar',
+        'discover_trends': 'perplexity/sonar', 'judge': 'anthropic/claude-sonnet-5', 'check': 'perplexity/sonar'}},
 }
+WEB_PLUGIN = [{'id': 'web', 'engine': 'native', 'max_results': 8}]
+# A busca nativa da Anthropic injeta páginas inteiras (526 mil tokens numa chamada, US$ 1,25 na rodada de 2026-10-06);
+# pelo Exa chegam trechos curtos.
+WEB_PLUGIN_BY_PREFIX = {'anthropic/': [{'id': 'web', 'engine': 'exa', 'max_results': 6}]}
+# Juiz e revisão escrevem até 5 oportunidades com critérios; modelos que raciocinam gastam parte disso pensando.
+JUDGE_TOKENS = 9000
+DOCTOR_MODEL = 'openai/gpt-5.4'
+LETTERS = 'ABCDEFGHIJ'
+
+
+def _web_plugin(model):
+    return next((plugin for prefix, plugin in WEB_PLUGIN_BY_PREFIX.items() if str(model).startswith(prefix)), WEB_PLUGIN)
+
+
+def _json_mode(model):
+    """Só pede ``response_format`` a quem aceita; os demais recebem o pedido de JSON no próprio prompt."""
+    return str(model).startswith(('openai/', 'google/', 'deepseek/', 'gpt-'))
 
 
 # ---------------------------------------------------------------------------
@@ -100,6 +139,8 @@ class Call:
     seconds: float = 0.0
     ok: bool = True
     note: str = ''
+    label: str = ''                # versão dos prompts na chamada
+    preview: str = ''              # começo da resposta, para depurar formato
 
 
 @dataclass
@@ -115,14 +156,40 @@ class Meter:
 # ---------------------------------------------------------------------------
 # Utilitários
 # ---------------------------------------------------------------------------
+LIST_KEYS = ('opportunities', 'results', 'changes', 'fatos')
+
+
 def _json(text):
+    """JSON da resposta; se veio cortado no limite de tokens, salva os itens completos da lista principal."""
     text = str(text or '').strip()
     text = re.sub(r'^```(?:json)?|```$', '', text, flags=re.M).strip()
     match = re.search(r'\{.*\}', text, re.S)
     try:
         return json.loads(match.group(0) if match else text)
     except (ValueError, AttributeError):
-        return {}
+        return _salvage(text)
+
+
+def _salvage(text):
+    decoder = json.JSONDecoder()
+    for key in LIST_KEYS:
+        found = re.search(r'"%s"\s*:\s*\[' % key, text)
+        if not found:
+            continue
+        items, position = [], found.end()
+        while True:
+            start = text.find('{', position)
+            if start < 0:
+                break
+            try:
+                item, end = decoder.raw_decode(text, start)
+            except ValueError:
+                break
+            items.append(item)
+            position = end
+        if items:
+            return {key: items, '_salvaged': True}
+    return {}
 
 
 def _text(message):
@@ -236,6 +303,7 @@ def check_url(url):
 class Lab:
     def __init__(self, client_id, user_id, scenario, *, overrides=None, run_id=None, dry_run=False):
         self.client_id, self.user_id, self.scenario = int(client_id), int(user_id), scenario
+        self.prompt_set, self.prompt_label = dict(prompts.V1_0), prompts.VERSION
         self.dry_run = dry_run  # só simula: nenhuma chamada paga, nenhum débito
         self.run_id = run_id or datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S') + '-' + uuid4().hex[:6]
         self.meter = Meter()
@@ -281,11 +349,11 @@ class Lab:
            plugins=None, web_requests=0):
         price = price_of(model)
         sim_in = int(_chars(messages) / CHARS_PER_TOKEN)
-        sim_out = int(max_tokens * OUTPUT_FILL)
+        sim_out = int(min(max_tokens * OUTPUT_FILL, 3_000))  # o limite alto é folga, não o tamanho típico
         sim_usd = sim_in * price['in'] + sim_out * price['out'] + web_requests * (price['web'] or 0.005) + price['req']
         regime = 'tokens' if provider == 'openai' else 'custo'
         sim_tokens = (sim_in + sim_out) if regime == 'tokens' else self._to_tokens(sim_usd)
-        call = Call(flow, stage, 'llm', model, provider, regime, round(sim_usd, 6), sim_tokens)
+        call = Call(flow, stage, 'llm', model, provider, regime, round(sim_usd, 6), sim_tokens, label=self.prompt_label)
         options = {'max_tokens': max_tokens, 'timeout': 150, 'temperature': 0.1, 'provider': provider}
         if json_mode:
             options['response_format'] = {'type': 'json_object'}
@@ -300,9 +368,9 @@ class Lab:
         try:
             result = CaduAIConnector().complete(
                 messages, client_id=self.client_id, user_id=self.user_id,
-                idempotency_key=f'radar-lab:{self.run_id}:{flow}:{stage}', app=APP, stage=f'radar-lab:{flow}:{stage}',
-                estimated_tokens=max(2_000, sim_tokens * 2), model=model,
-                metadata={'radar_lab_run': self.run_id, 'flow': flow, 'stage': stage, 'prompt_version': prompts.VERSION},
+                idempotency_key=f'radar-lab:{self.run_id}:{self.prompt_label}:{flow}:{stage}', app=APP,
+                stage=f'radar-lab:{flow}:{stage}', estimated_tokens=max(2_000, sim_tokens * 2), model=model,
+                metadata={'radar_lab_run': self.run_id, 'flow': flow, 'stage': stage, 'prompt_version': self.prompt_label},
                 **options)
         except Exception as exc:  # noqa: BLE001 — a falha entra no relatório
             call.ok, call.note, call.seconds = False, f'{type(exc).__name__}: {str(exc)[:160]}', time.monotonic() - started
@@ -317,8 +385,9 @@ class Lab:
         if not cost:
             call.note = 'custo do provedor calculado pela tabela (a OpenAI direta não informa USD)'
         call.real_tokens = int(((result.get('cadu_charge') or {}).get('tokens_cobrados')) or 0)
-        self.meter.add(call)
         message = result.get('message') if isinstance(result.get('message'), dict) else {}
+        call.preview = _text(message)[:400]
+        self.meter.add(call)
         return message, citations(message)
 
     def _firecrawl_charged(self, request_id):
@@ -429,11 +498,11 @@ class Lab:
                        'published_at': '2026-10-01', 'excerpt': 'texto ' * 230} for i in range(10)]
         return [{'id': f'S{index + 1}', **item} for index, item in enumerate(unique[:14])]
 
-    def _judge(self, flow, ctx, discovered_text, packet, provider='openrouter'):
-        model = self.flows[flow]['models']['judge']
-        payload = prompts.judge_payload(ctx.topic, ctx.brand, discovered_text, packet, places=ctx.places, lenses=ctx.lenses)
-        message, _ = self.ai(flow, 'judge', model, prompts.messages('judge', max_opportunities=5, payload=payload),
-                             max_tokens=3200, provider=provider)
+    def _msgs(self, name, **values):
+        return prompts.messages(name, prompt_set=self.prompt_set, **values)
+
+    def _parse(self, flow, message, packet):
+        """Lista de oportunidades do juiz ou da revisão; notas e quadrante saem do scoring.py."""
         by_id = {item['id']: item for item in packet}
         if self.dry_run:
             message = {'content': json.dumps({'opportunities': [
@@ -451,30 +520,56 @@ class Lab:
             opportunities.append({
                 'flow': flow, 'title': str(item['title'])[:240], 'thesis': str(item.get('thesis') or '')[:1200],
                 'editorial': editorial, 'paid': paid, 'quadrant': scoring.quadrant(editorial.score, paid.score),
-                'sources': [{'url': src['url'], 'title': src['title'], 'published_at': src['published_at']} for src in used],
+                'sources': [{'id': src['id'], 'url': src['url'], 'title': src['title'], 'published_at': src['published_at']}
+                            for src in used],
                 'places': [str(p.get('place')) for p in item.get('places') or [] if isinstance(p, dict) and p.get('place')][:5],
                 'channels': [str(c)[:60] for c in item.get('channels') or []][:6],
                 'window': str(item.get('window') or '')[:120], 'verdict': 'nao_verificado', 'check_notes': '',
                 'other_sources': []})
         return opportunities
 
-    def _reality_check(self, flow, ctx, opportunities, *, plugins=None):
-        if not opportunities:
-            return
-        claims = '\n'.join(f"{index}. {item['title']} — {item['thesis']}" for index, item in enumerate(opportunities))
-        message, cited = self.ai(flow, 'check', self.flows[flow]['models']['check'],
-                                 prompts.messages('reality_check', recency_days=ctx.recency_days, today=ctx.today, claims=claims),
-                                 max_tokens=1600, json_mode=False, plugins=plugins, web_requests=1)
-        self._apply_verdicts(opportunities, _json(_text(message)).get('results') or [], cited)
+    def _judge(self, flow, ctx, discovered_text, packet, stage='judge'):
+        spec = self.flows[flow]
+        model = spec['models']['judge']
+        payload = prompts.judge_payload(ctx.topic, ctx.brand, discovered_text, packet, places=ctx.places, lenses=ctx.lenses)
+        message, _ = self.ai(flow, stage, model, self._msgs('judge', max_opportunities=5, payload=payload),
+                             max_tokens=JUDGE_TOKENS, provider=spec.get('judge_provider', 'openrouter'), json_mode=_json_mode(model))
+        return self._parse(flow, message, packet)
 
-    def _internal_verify(self, flow, opportunities, packet):
+    def _revise(self, flow, ctx, state, opportunities, round_no):
+        """Uma volta do loop: o juiz reescreve a própria lista a partir das notas do revisor."""
+        spec = self.flows[flow]
+        model = spec['models']['judge']
+        current = [{'titulo': item['title'], 'tese': item['thesis'], 'janela': item['window'], 'canais': item['channels'],
+                    'evidencias_usadas': [src.get('id') for src in item['sources']],
+                    'fontes': [{'id': src.get('id'), 'nivel': src.get('tier'), 'abre': src.get('url_status'),
+                                'na_janela': src.get('in_window')} for src in item['sources']],
+                    'verificacao': item['verdict'], 'nota_do_revisor': (item.get('review') or {}).get('media'),
+                    'comentario_do_revisor': (item.get('review') or {}).get('nota')} for item in opportunities]
+        payload = prompts.revise_payload(ctx.topic, ctx.brand, current, state['packet'], places=ctx.places)
+        message, _ = self.ai(flow, f'revise-r{round_no}', model, self._msgs('revise', max_opportunities=5, payload=payload),
+                             max_tokens=JUDGE_TOKENS, provider=spec.get('judge_provider', 'openrouter'), json_mode=_json_mode(model))
+        revised = self._parse(flow, message, state['packet'])
+        self._check(flow, ctx, revised, state['packet'], stage=f'check-r{round_no}')
+        self.annotate(ctx, revised, state['packet'])
+        return revised
+
+    def _check(self, flow, ctx, opportunities, packet, stage='check'):
         if not opportunities:
             return
-        payload = json.dumps({'oportunidades': [{'index': i, 'title': o['title'], 'thesis': o['thesis'], 'sources': o['sources']}
-                                               for i, o in enumerate(opportunities)], 'evidencias': packet}, ensure_ascii=False)
-        message, _ = self.ai(flow, 'check', self.flows[flow]['models']['check'], prompts.messages('verify', payload=payload),
-                             max_tokens=1600)
-        self._apply_verdicts(opportunities, _json(_text(message)).get('results') or [], [])
+        kind, model = self.flows[flow]['kind'], self.flows[flow]['models']['check']
+        if kind == 'evidence':
+            payload = json.dumps({'oportunidades': [{'index': i, 'title': o['title'], 'thesis': o['thesis'], 'sources': o['sources']}
+                                                   for i, o in enumerate(opportunities)], 'evidencias': packet}, ensure_ascii=False)
+            message, cited = self.ai(flow, stage, model, self._msgs('verify', payload=payload), max_tokens=3000,
+                                     json_mode=_json_mode(model))
+        else:
+            claims = '\n'.join(f"{index}. {item['title']} — {item['thesis']}" for index, item in enumerate(opportunities))
+            message, cited = self.ai(flow, stage, model,
+                                     self._msgs('reality_check', recency_days=ctx.recency_days, today=ctx.today, claims=claims),
+                                     max_tokens=3000, json_mode=False, web_requests=1,
+                                     plugins=_web_plugin(model) if kind == 'web' else None)
+        self._apply_verdicts(opportunities, _json(_text(message)).get('results') or [], cited)
 
     @staticmethod
     def _apply_verdicts(opportunities, results, cited):
@@ -498,66 +593,68 @@ class Lab:
                     item[key] = scoring.weighted(item[key].criteria, weights, {**item[key].penalties, 'baixa_confianca': points})
                 item['quadrant'] = 'ignorar' if item['verdict'] == 'contestado' else scoring.quadrant(item['editorial'].score, item['paid'].score)
 
-    # ---- os três fluxos -------------------------------------------------------
-    def flow_f1(self, ctx):
-        """Perplexity aberto + Perplexity só na imprensa curada + buscas em alta → lê → juiz → checagem externa."""
-        m = self.flows['F1']['models']
+    # ---- descoberta (uma vez por fluxo; as versões de prompt reaproveitam o pacote) ----
+    def _base(self, ctx):
         domains = source_base.press_domains(ctx.places)
-        base = dict(topic=ctx.topic, places=ctx.places, lenses=ctx.lenses, recency_days=ctx.recency_days,
-                    brand_facts='; '.join(ctx.brand['facts']) or 'não informado', sector=ctx.brand.get('sector') or '',
-                    domains=', '.join(domains))
-        jobs = {'discover_open': m['discover_open'], 'discover_press': m['discover_press'], 'discover_trends': m['discover_trends']}
-        results = self._parallel({stage: (lambda s=stage, model=model: self.ai(
-            'F1', s, model, prompts.messages(s, **base), max_tokens=1800, json_mode=False, web_requests=1))
-            for stage, model in jobs.items()})
+        return domains, dict(topic=ctx.topic, places=ctx.places, lenses=ctx.lenses, recency_days=ctx.recency_days,
+                             brand_facts='; '.join(ctx.brand['facts']) or 'não informado', sector=ctx.brand.get('sector') or '',
+                             domains=', '.join(domains))
+
+    def _collect(self, results, domains):
         facts, cited, texts = [], [], []
+        allowed = {source_base.root(d) for d in domains}
         for stage, (message, urls) in results.items():
             found, urls = self._facts(message, list(urls))
             if stage == 'discover_press':
                 # Plano B do filtro de domínio: o que não é da lista curada sai.
-                allowed = {source_base.root(d) for d in domains}
                 found = [f for f in found if source_base.root(f.get('url', '')) in allowed]
             facts += found
             cited += urls
             texts.append(_text(message)[:2500])
-        pages = self.read_pages('F1', 'extract', [item['url'] for item in cited])
-        packet = self._packet(facts, pages)
-        opportunities = self._judge('F1', ctx, '\n\n'.join(texts), packet)
-        self._reality_check('F1', ctx, opportunities)
-        return opportunities, packet
+        return facts, cited, texts
 
-    def flow_f2(self, ctx):
-        """Busca nativa da OpenAI (plugin web do OpenRouter) → juiz na OpenAI direta → checagem com busca nativa."""
-        m = self.flows['F2']['models']
-        domains = source_base.press_domains(ctx.places)
-        base = dict(topic=ctx.topic, places=ctx.places, lenses=ctx.lenses, recency_days=ctx.recency_days,
-                    brand_facts='; '.join(ctx.brand['facts']) or 'não informado', domains=', '.join(domains))
-        web = [{'id': 'web', 'engine': 'native', 'max_results': 8}]
+    def discover_perplexity(self, flow, ctx):
+        m = self.flows[flow]['models']
+        domains, base = self._base(ctx)
+        stages = ('discover_open', 'discover_press', 'discover_trends')
         results = self._parallel({stage: (lambda s=stage: self.ai(
-            'F2', s, m[s], prompts.messages(s, **base), max_tokens=2200, json_mode=False, plugins=web, web_requests=1))
-            for stage in ('discover_open', 'discover_press')})
-        facts, cited, texts = [], [], []
-        for message, urls in results.values():
-            found, urls = self._facts(message, list(urls))
-            facts += found
-            cited += urls
-            texts.append(_text(message)[:2500])
-        packet = self._packet(facts, [], extra=[{'url': c['url'], 'title': c['title']} for c in cited])
-        opportunities = self._judge('F2', ctx, '\n\n'.join(texts), packet, provider='openai')
-        self._reality_check('F2', ctx, opportunities, plugins=web)
-        return opportunities, packet
+            flow, s, m[s], self._msgs(s, **base), max_tokens=1800, json_mode=False, web_requests=1)) for stage in stages})
+        facts, cited, texts = self._collect(results, domains)
+        pages = self.read_pages(flow, 'extract', [item['url'] for item in cited])
+        extra = self._rss(flow, ctx) if self.flows[flow].get('rss') else []
+        return {'packet': self._mark_rss(self._packet(facts, pages, extra=extra), extra), 'text': '\n\n'.join(texts)}
 
-    def flow_f3(self, ctx):
-        """Sem buscador com IA: Google Notícias (RSS) + Firecrawl na imprensa curada, leitura Python → juiz → verificador."""
+    def discover_web(self, flow, ctx):
+        model = self.flows[flow]['models']['discover']
+        domains, base = self._base(ctx)
+        results = self._parallel({stage: (lambda s=stage: self.ai(
+            flow, s, model, self._msgs(s, **base), max_tokens=3000, json_mode=False, plugins=_web_plugin(model), web_requests=1))
+            for stage in ('discover_open', 'discover_press')})
+        facts, cited, texts = self._collect(results, domains)
+        packet = self._packet(facts, [], extra=[{'url': c['url'], 'title': c['title']} for c in cited])
+        return {'packet': packet, 'text': '\n\n'.join(texts)}
+
+    def discover_evidence(self, flow, ctx):
         domains = source_base.press_domains(ctx.places)
         query = ' '.join(part for part in [ctx.focus, ctx.brand['name']] if part) or ctx.topic
+        rss = self._rss(flow, ctx)
+        found = self.firecrawl_search(flow, 'search', f'{query} {ctx.places}', limit=8,
+                                      include_domains=domains[:20], recency=ctx.recency)
+        if not found:
+            # Com muitos domínios no filtro o Firecrawl costuma voltar vazio: tenta a web aberta.
+            found = self.firecrawl_search(flow, 'search-open', f'{query} {ctx.places}', limit=8, recency=ctx.recency)
+        unread = [item['url'] for item in found if not item.get('content')]
+        pages = [item for item in found if item.get('content')] + (self.read_pages(flow, 'extract', unread) if unread else [])
+        return {'packet': self._mark_rss(self._packet([], pages, extra=rss), rss), 'text': ''}
+
+    def _rss(self, flow, ctx):
+        """Google Notícias (grátis): marca + (termo OR termo) e (termos) + praça."""
         started = time.monotonic()
-        # O RSS exige todas as palavras de uma frase longa: o tema vira marca + (termo OR termo).
         terms = [t.strip() for t in re.split(r',|;|\be\b', ctx.focus) if len(t.strip()) > 2][:5]
         ors = ' OR '.join(f'"{t}"' if ' ' in t else t for t in terms)
         queries = [f"{ctx.brand['name']} ({ors})" if ors else ctx.brand['name'], f'({ors}) {ctx.places.split(",")[0]}' if ors else '']
+        news, seen = [], set()
         try:
-            news, seen = [], set()
             for rss_query in [q for q in queries if q]:
                 for item in google_news(rss_query, ctx.recency_days):
                     if item['title'] not in seen:
@@ -565,26 +662,26 @@ class Lab:
                         news.append(item)
             note = f'{len(news)} manchetes'
         except Exception as exc:  # noqa: BLE001
-            news, note = [], f'{type(exc).__name__}'
-        self.meter.add(Call('F3', 'google_news', 'python', 'python/rss', 'python', 'gratis',
+            note = type(exc).__name__
+        self.meter.add(Call(flow, 'google_news', 'python', 'python/rss', 'python', 'gratis',
                             seconds=round(time.monotonic() - started, 1), note=note))
-        found = self.firecrawl_search('F3', 'search', f'{query} {ctx.places}', limit=8,
-                                      include_domains=domains[:20], recency=ctx.recency)
-        rss = [{'url': item['url'], 'title': f"{item['title']} ({item['source_name']})",
-                'published_at': item['published_at'], 'excerpt': item['title'], 'domain_hint': item['source_url']}
-               for item in news]
-        unread = [item['url'] for item in found if not item.get('content')]
-        pages = [item for item in found if item.get('content')] + (self.read_pages('F3', 'extract', unread) if unread else [])
-        packet = self._packet([], pages, extra=rss)
+        return [{'url': item['url'], 'title': f"{item['title']} ({item['source_name']})", 'published_at': item['published_at'],
+                 'excerpt': item['title'], 'domain_hint': item['source_url']} for item in news]
+
+    @staticmethod
+    def _mark_rss(packet, rss):
         hints = {item['url']: item['domain_hint'] for item in rss}
         for item in packet:
             if item['url'] in hints:
                 item['source_domain'] = source_base.host(hints[item['url']])
-        opportunities = self._judge('F3', ctx, '', packet)
-        self._internal_verify('F3', opportunities, packet)
-        return opportunities, packet
+        return packet
 
-    def _parallel(self, jobs):
+    def discover(self, flow, ctx):
+        kind = self.flows[flow]['kind']
+        runner = {'perplexity': self.discover_perplexity, 'web': self.discover_web, 'evidence': self.discover_evidence}[kind]
+        return runner(flow, ctx)
+
+    def _parallel(self, jobs, workers=None):
         from flask import current_app
         app = current_app._get_current_object()
 
@@ -592,7 +689,7 @@ class Lab:
             with app.app_context():
                 return function()
 
-        with ThreadPoolExecutor(max_workers=max(1, len(jobs))) as pool:
+        with ThreadPoolExecutor(max_workers=max(1, workers or len(jobs))) as pool:
             futures = {key: pool.submit(run, function) for key, function in jobs.items()}
             return {key: future.result() for key, future in futures.items()}
 
@@ -618,72 +715,153 @@ class Lab:
             if item['confidence'] == 'baixa':
                 item['quadrant'] = 'ignorar'
 
-    def review(self, ctx, by_flow):
-        letters = list(by_flow)
-        random.Random(self.run_id).shuffle(letters)
-        mapping = {flow: 'ABC'[index] for index, flow in enumerate(letters)}
-        systems = {}
-        for flow, opportunities in by_flow.items():
-            systems[mapping[flow]] = [{
-                'id': f'{mapping[flow]}{index + 1}', 'title': item['title'], 'thesis': item['thesis'],
-                'editorial': item['editorial'].score, 'paid': item['paid'].score, 'quadrant': item['quadrant'],
-                'janela': item['window'], 'selo_confianca': item['confidence'], 'veredito': item['verdict'],
-                'fontes': [{'dominio': s.get('domain'), 'nivel': s.get('tier'), 'abre': s.get('url_status'),
-                            'data': s.get('published_at'), 'na_janela': s.get('in_window'), 'url': s['url']} for s in item['sources']]}
-                for index, item in enumerate(opportunities)]
+    def review(self, ctx, by_flow, tag):
+        """Nota cega: os fluxos viram letras embaralhadas a cada passada."""
+        flows = [flow for flow, items in by_flow.items() if items]
+        random.Random(f'{self.run_id}:{tag}').shuffle(flows)
+        mapping = {flow: LETTERS[index] for index, flow in enumerate(flows)}
+        systems = {mapping[flow]: [{
+            'id': f'{mapping[flow]}{index + 1}', 'title': item['title'], 'thesis': item['thesis'],
+            'editorial': item['editorial'].score, 'paid': item['paid'].score, 'quadrant': item['quadrant'],
+            'janela': item['window'], 'selo_confianca': item['confidence'], 'veredito': item['verdict'],
+            'fontes': [{'dominio': s.get('domain'), 'nivel': s.get('tier'), 'abre': s.get('url_status'),
+                        'data': s.get('published_at'), 'na_janela': s.get('in_window'), 'url': s['url']} for s in item['sources']]}
+            for index, item in enumerate(by_flow[flow])] for flow in flows}
+        if not systems:
+            return {}
         payload = json.dumps({'hoje': ctx.today, 'janela_dias': ctx.recency_days, 'marca': ctx.brand, 'tema': ctx.focus,
                               'pracas': ctx.places, 'sistemas': systems}, ensure_ascii=False)
-        message, _ = self.ai('REV', 'review', REVIEW_MODEL, prompts.messages('review', payload=payload), max_tokens=3500,
+        message, _ = self.ai('REV', f'review-{tag}', REVIEW_MODEL, self._msgs('review', payload=payload), max_tokens=7000,
                              json_mode=False)
         verdict = _json(_text(message))
+        back = {letter: flow for flow, letter in mapping.items()}
         verdict['mapping'] = mapping
+        verdict['winner_flow'] = back.get(verdict.get('vencedor'))
         scores = {}
         for row in verdict.get('opportunities') or []:
             if isinstance(row, dict) and row.get('id'):
                 values = [row.get(key) for key in ('veracidade', 'recencia', 'aderencia', 'acao', 'novidade')]
                 numbers = [float(v) for v in values if isinstance(v, (int, float))]
                 scores[row['id']] = {**row, 'media': round(sum(numbers) / len(numbers), 2) if numbers else None}
-        for flow, opportunities in by_flow.items():
-            for index, item in enumerate(opportunities):
+        for flow in flows:
+            for index, item in enumerate(by_flow[flow]):
                 item['review'] = scores.get(f'{mapping[flow]}{index + 1}')
         return verdict
 
+    # ---- avaliação com loop de revisão ----------------------------------------------
+    def evaluate(self, ctx, states, flows, *, revise_rounds=2, target=4.2):
+        """Juiz → checagem → nota cega; quem fica abaixo da meta revisa a própria lista, até ``revise_rounds`` voltas.
+
+        Cada volta reavalia todos os fluxos juntos; os que não revisaram mostram o ruído do revisor.
+        Fica a melhor versão de cada fluxo.
+        """
+        live = [flow for flow in flows if states.get(flow)]
+
+        def first(flow):
+            items = self._judge(flow, ctx, states[flow]['text'], states[flow]['packet'])
+            self._check(flow, ctx, items, states[flow]['packet'])
+            self.annotate(ctx, items, states[flow]['packet'])
+            return items
+
+        current = self._parallel({flow: (lambda f=flow: first(f)) for flow in live}, workers=4)
+        reviews = [self.review(ctx, current, f'{self.prompt_label}-r0')]
+        history = {flow: [self._snapshot(current[flow], 0, False)] for flow in live}
+        best = {flow: current[flow] for flow in live}
+        for round_no in range(1, revise_rounds + 1):
+            # Para quem já tem MIN_GOOD oportunidades boas e média na meta; o resto revisa.
+            todo = [flow for flow in live if current[flow]
+                    and (len(_good(best[flow])) < MIN_GOOD or (_avg(best[flow]) or 0) < target)]
+            if not todo:
+                break
+            revised = self._parallel({flow: (lambda f=flow: self._revise(f, ctx, states[f], current[f], round_no))
+                                      for flow in todo}, workers=4)
+            for flow in todo:
+                if revised[flow]:
+                    current[flow] = revised[flow]
+            reviews.append(self.review(ctx, current, f'{self.prompt_label}-r{round_no}'))
+            for flow in live:
+                history[flow].append(self._snapshot(current[flow], round_no, flow in todo))
+                if (_points(current[flow]), _avg(current[flow]) or 0) > (_points(best[flow]), _avg(best[flow]) or 0):
+                    best[flow] = current[flow]
+        return {'label': self.prompt_label, 'by_flow': best,
+                'score': {flow: _points(best[flow]) for flow in live},
+                'avg': {flow: _avg(best[flow]) for flow in live}, 'history': history, 'reviews': reviews}
+
+    @staticmethod
+    def _snapshot(items, round_no, revised):
+        return {'round': round_no, 'avg': _avg(items), 'points': _points(items), 'good': len(_good(items)),
+                'n': len(items or []), 'revised': revised}
+
+    def doctor(self, ctx, evaluation):
+        """Médico de prompts: diagnóstico da avaliação → até 3 mudanças nos prompts editáveis."""
+        notes = sorted(((item.get('review') or {}).get('media') or 0, flow, item['title'], (item.get('review') or {}).get('nota'))
+                       for flow, items in evaluation['by_flow'].items() for item in items)
+        final_review = evaluation['reviews'][-1] if evaluation['reviews'] else {}
+        diagnosis = {
+            'notas_por_fluxo': evaluation['score'],
+            'oportunidades_boas_por_fluxo': {flow: len(_good(items)) for flow, items in evaluation['by_flow'].items()},
+            'piores_oportunidades': [{'fluxo': f, 'titulo': t, 'nota': n, 'comentario': c} for n, f, t, c in notes[:12]],
+            'resumo_por_sistema': final_review.get('systems'),
+            'falhas': {flow: {'fontes_c': sum(s.get('tier') == 'C' for o in items for s in o['sources']),
+                              'links_quebrados': sum(s.get('url_status') == 'quebrado' for o in items for s in o['sources']),
+                              'sem_fonte': sum(not o['sources'] for o in items),
+                              'nao_verificadas': sum(o['verdict'] == 'nao_verificado' for o in items)}
+                       for flow, items in evaluation['by_flow'].items()}}
+        current = {name: self.prompt_set[name][0] for name in prompts.EDITABLE}
+        payload = json.dumps({'prompts_atuais': current, 'diagnostico': diagnosis}, ensure_ascii=False)
+        message, _ = self.ai('DOC', f'doctor-{self.prompt_label}', DOCTOR_MODEL, self._msgs('prompt_doctor', payload=payload),
+                             max_tokens=9000, json_mode=_json_mode(DOCTOR_MODEL))
+        return _json(_text(message)).get('changes') or []
+
     # ---- orquestração -----------------------------------------------------------
-    def run(self, flows=('F1', 'F2', 'F3')):
+    def run(self, flows=('F1', 'F2', 'F3'), *, revise_rounds=2, target=4.2, prompt_loops=1):
         prices()
         ctx = self.context()
-        runners = {'F1': self.flow_f1, 'F2': self.flow_f2, 'F3': self.flow_f3}
-        started = {}
+        started = time.monotonic()
+        durations = {}
 
         def timed(flow):
-            started[flow] = time.monotonic()
+            began = time.monotonic()
             try:
-                return runners[flow](ctx)
+                return self.discover(flow, ctx)
             except Exception as exc:  # noqa: BLE001 — um fluxo quebrado não derruba os outros
-                self.meter.add(Call(flow, 'flow', 'llm', '', '', ok=False, note=f'{type(exc).__name__}: {str(exc)[:200]}'))
-                return [], []
+                self.meter.add(Call(flow, 'discover', 'llm', '', '', ok=False, note=f'{type(exc).__name__}: {str(exc)[:200]}'))
+                return None
             finally:
-                started[flow] = round(time.monotonic() - started[flow], 1)
+                durations[flow] = round(time.monotonic() - began, 1)
 
-        outputs = self._parallel({flow: (lambda f=flow: timed(f)) for flow in flows})
-        by_flow = {}
-        for flow, (opportunities, packet) in outputs.items():
-            self.annotate(ctx, opportunities, packet)
-            by_flow[flow] = opportunities
-        review = self.review(ctx, by_flow) if any(by_flow.values()) else {}
-        return self.summary(ctx, by_flow, review, started)
+        states = self._parallel({flow: (lambda f=flow: timed(f)) for flow in flows}, workers=4)
+        evaluations = [self.evaluate(ctx, states, flows, revise_rounds=revise_rounds, target=target)]
+        best_index, best_set = 0, dict(self.prompt_set)
+        changes_log = []
+        for loop in range(1, prompt_loops + 1):
+            changes = self.doctor(ctx, evaluations[best_index])
+            candidate, accepted, rejected = prompts.apply_changes(best_set, changes)
+            changes_log.append({'label': f'1.{loop}', 'from': evaluations[best_index]['label'],
+                                'accepted': accepted, 'rejected': rejected})
+            if not accepted:
+                break
+            self.prompt_set, self.prompt_label = candidate, f'1.{loop}'
+            evaluations.append(self.evaluate(ctx, states, flows, revise_rounds=revise_rounds, target=target))
+            if _mean(evaluations[-1]['score']) > _mean(evaluations[best_index]['score']):
+                best_index, best_set = len(evaluations) - 1, candidate
+        return self.summary(ctx, states, evaluations, best_index, best_set, changes_log, durations,
+                            round(time.monotonic() - started, 1))
 
-    def summary(self, ctx, by_flow, review, durations):
+    def summary(self, ctx, states, evaluations, best_index, best_set, changes_log, durations, total_seconds):
         calls = [asdict(call) for call in self.meter.calls]
+        best = evaluations[best_index]
         flows = {}
-        for flow, opportunities in by_flow.items():
+        for flow, opportunities in best['by_flow'].items():
             mine = [c for c in calls if c['flow'] == flow]
             srcs = [s for item in opportunities for s in item['sources']]
-            reviewed = [item['review']['media'] for item in opportunities if (item.get('review') or {}).get('media') is not None]
             flows[flow] = {
-                'name': self.flows[flow]['name'], 'models': self.flows[flow]['models'], 'seconds': durations.get(flow),
-                'opportunities': len(opportunities),
-                'review_avg': round(sum(reviewed) / len(reviewed), 2) if reviewed else None,
+                'name': self.flows[flow]['name'], 'kind': self.flows[flow]['kind'], 'models': self.flows[flow]['models'],
+                'discover_seconds': durations.get(flow), 'opportunities': len(opportunities),
+                'review_avg': best['avg'].get(flow), 'points': best['score'].get(flow), 'good': len(_good(opportunities)),
+                'history': {ev['label']: [f"{h['points']} ({h['good']}/{h['n']})" for h in ev['history'].get(flow, [])]
+                            for ev in evaluations},
+                'evidence': len((states.get(flow) or {}).get('packet') or []),
                 'sources': len(srcs),
                 'sources_ab_pct': _pct(sum(s.get('tier') in ('A', 'B') for s in srcs), len(srcs)),
                 'urls_ok_pct': _pct(sum(s.get('url_status') in ('ok', 'bloqueado') for s in srcs), len(srcs)),
@@ -694,10 +872,47 @@ class Lab:
                 'failed_calls': sum(not c['ok'] for c in mine)}
         serial = {flow: [{**item, 'editorial': item['editorial'].score, 'paid': item['paid'].score,
                           'editorial_breakdown': asdict(item['editorial']), 'paid_breakdown': asdict(item['paid'])}
-                         for item in items] for flow, items in by_flow.items()}
-        return {'run_id': self.run_id, 'prompt_version': prompts.VERSION, 'scenario': self.scenario,
-                'context': {**vars(ctx), 'since': ctx.since.isoformat()}, 'token_price_usd': self.token_price_usd,
-                'radar_r1_reserve': 15_207, 'flows': flows, 'calls': calls, 'opportunities': serial, 'review': review}
+                         for item in items] for flow, items in best['by_flow'].items()}
+        noise = []
+        for ev in evaluations:
+            for flow, rows in ev['history'].items():
+                for before, after in zip(rows, rows[1:]):
+                    if not after['revised'] and before['avg'] is not None and after['avg'] is not None:
+                        noise.append(abs(after['avg'] - before['avg']))
+        return {'run_id': self.run_id, 'scenario': self.scenario, 'context': {**vars(ctx), 'since': ctx.since.isoformat()},
+                'token_price_usd': self.token_price_usd, 'radar_r1_reserve': 15_207, 'seconds': total_seconds,
+                'flows': flows, 'calls': calls, 'opportunities': serial,
+                'versions': [{'label': ev['label'], 'mean': _mean(ev['score']), 'score': ev['score'],
+                              'winner': (ev['reviews'][-1] or {}).get('winner_flow') if ev['reviews'] else None} for ev in evaluations],
+                'best_version': best['label'], 'prompt_changes': changes_log,
+                'best_prompts': {name: best_set[name][0] for name in prompts.EDITABLE},
+                'reviewer_noise': round(sum(noise) / len(noise), 2) if noise else None,
+                'review': best['reviews'][-1] if best['reviews'] else {}}
+
+
+GOOD_SCORE, MIN_GOOD = 4.0, 3
+
+
+def _good(items):
+    """Oportunidades que um planejador usaria: nota do revisor ≥ 4 e selo de confiança diferente de baixa."""
+    return [item for item in items or [] if ((item.get('review') or {}).get('media') or 0) >= GOOD_SCORE
+            and item.get('confidence') != 'baixa']
+
+
+def _points(items):
+    """Objetivo do loop: soma das notas das oportunidades boas. Cortar item bom perde pontos; item fraco não soma."""
+    return round(sum(item['review']['media'] for item in _good(items)), 2)
+
+
+def _avg(items):
+    values = [(item.get('review') or {}).get('media') for item in items or []]
+    values = [value for value in values if value is not None]
+    return round(sum(values) / len(values), 2) if values else None
+
+
+def _mean(scores):
+    values = [value for value in (scores or {}).values() if value is not None]
+    return round(sum(values) / len(values), 3) if values else 0
 
 
 def _pct(part, whole):
@@ -720,38 +935,64 @@ def _criteria(raw, allowed):
 
 
 def report_markdown(result):
-    """Relatório para ler e comparar: fluxos, custo simulado x real por chamada e oportunidades."""
+    """Relatório: fluxos, versões de prompt, loop de revisão, custo simulado x real e oportunidades."""
+    ctx = result['context']
     lines = [f"# Radar Lab — {result['run_id']}", '',
-             f"Prompts v{result['prompt_version']} · cenário **{result['scenario'].get('name')}** · "
-             f"tema: {result['context']['focus'] or '—'} · praças: {result['context']['places']} · "
-             f"janela: {result['context']['recency_days']} dias · 1 token Cadu = US$ {result['token_price_usd']:.8f}", '',
-             '## Comparação dos fluxos', '',
-             '| Fluxo | Oport. | Nota revisor (1–5) | Fontes A/B | URLs abrem | Na janela | Selo alta/média/baixa | Tokens simulados | Tokens debitados | US$ provedor | Tempo |',
-             '|---|---|---|---|---|---|---|---|---|---|---|']
-    for flow, row in result['flows'].items():
+             f"Cenário **{result['scenario'].get('name')}** · tema: {ctx['focus'] or '—'} · praças: {ctx['places']} · "
+             f"janela: {ctx['recency_days']} dias · 1 token Cadu = US$ {result['token_price_usd']:.8f} · "
+             f"tempo total {result['seconds']} s", '',
+             f"Melhor versão de prompts: **{result['best_version']}** · ruído médio da média do revisor (fluxo sem mudança, "
+             f"de uma passada para outra): {result['reviewer_noise'] if result['reviewer_noise'] is not None else '—'} ponto(s)", '',
+             '## Comparação dos fluxos (melhor versão de cada um)', '',
+             'Critério: **pontos** = soma das notas do revisor das oportunidades **boas** (nota ≥ 4 e selo ≠ baixa). '
+             'Cortar uma oportunidade boa perde pontos; uma fraca não soma.', '',
+             '| Fluxo | Tipo | Pontos | Boas/total | Média revisor | Pontos por volta: pontos (boas/total) | Evidências | Fontes A/B | URLs abrem | Na janela | Selo a/m/b | Tokens sim. | Tokens debitados | US$ provedor |',
+             '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|']
+    ranked = sorted(result['flows'].items(), key=lambda kv: (-(kv[1]['points'] or 0), -(kv[1]['review_avg'] or 0)))
+    for flow, row in ranked:
         conf = row['confidence']
-        lines.append(f"| {flow} {row['name']} | {row['opportunities']} | {row['review_avg'] or '—'} | {_p(row['sources_ab_pct'])} | "
-                     f"{_p(row['urls_ok_pct'])} | {_p(row['in_window_pct'])} | {conf['alta']}/{conf['media']}/{conf['baixa']} | "
-                     f"{_n(row['sim_tokens'])} | {_n(row['real_tokens'])} | {row['provider_usd']:.4f} | {row['seconds']} s |")
+        hist = ' · '.join(f"v{label}: {' → '.join(values)}"
+                          for label, values in row['history'].items() if values)
+        lines.append(f"| {flow} {row['name']} | {row['kind']} | **{row['points']}** | {row['good']}/{row['opportunities']} | "
+                     f"{row['review_avg'] or '—'} | {hist} | "
+                     f"{row['evidence']} | {_p(row['sources_ab_pct'])} | {_p(row['urls_ok_pct'])} | {_p(row['in_window_pct'])} | "
+                     f"{conf['alta']}/{conf['media']}/{conf['baixa']} | {_n(row['sim_tokens'])} | {_n(row['real_tokens'])} | "
+                     f"{row['provider_usd']:.4f} |")
+    calls = result['calls']
+    shared = [c for c in calls if c['flow'] in ('REV', 'DOC')]
+    lines += ['', f"Revisor e médico de prompts (compartilhados): {_n(sum(c['real_tokens'] for c in shared))} tokens debitados, "
+              f"US$ {sum(c['real_usd'] or 0 for c in shared):.4f}. Total da rodada: {_n(sum(c['real_tokens'] for c in calls))} tokens, "
+              f"US$ {sum(c['real_usd'] or 0 for c in calls):.4f}.", '', '## Versões de prompt', '',
+              '| Versão | Pontos médios por fluxo | Vencedor do revisor | Pontos por fluxo |', '|---|---|---|---|']
+    for version in result['versions']:
+        notes = ', '.join(f"{flow} {score}" for flow, score in sorted(version['score'].items()))
+        lines.append(f"| {version['label']} | {version['mean']} | {version['winner'] or '—'} | {notes} |")
+    for change in result['prompt_changes']:
+        lines += ['', f"**Médico de prompts → v{change['label']}** (a partir da v{change['from']}): "
+                  f"{len(change['accepted'])} mudança(s) aceita(s), {len(change['rejected'])} recusada(s)."]
+        for item in change['accepted']:
+            lines.append(f"- `{item.get('prompt')}`: {item.get('why', '')}")
+        for item in change['rejected']:
+            lines.append(f"- recusada `{item.get('prompt')}`: {item.get('motivo')}")
     review = result.get('review') or {}
-    mapping = review.get('mapping') or {}
-    if review.get('vencedor'):
-        back = {letter: flow for flow, letter in mapping.items()}
-        lines += ['', f"**Revisor ({REVIEW_MODEL}):** vencedor {back.get(review['vencedor'], review['vencedor'])}. {review.get('por_que', '')}"]
+    if review.get('winner_flow'):
+        back = {letter: flow for flow, letter in (review.get('mapping') or {}).items()}
+        lines += ['', f"**Revisor ({REVIEW_MODEL}), última passada da melhor versão:** vencedor {review['winner_flow']}. "
+                  f"{review.get('por_que', '')}"]
         for system in review.get('systems') or []:
             lines.append(f"- {back.get(system.get('system'), system.get('system'))}: {system.get('resumo', '')} "
                          f"Melhor em: {system.get('melhor_em', '')}. Pior em: {system.get('pior_em', '')}.")
     lines += ['', '## Custo por chamada: simulado x real', '',
-              '| Fluxo | Etapa | Modelo | Rota | Regime | Simulado (tokens Cadu) | Debitado (tokens Cadu) | US$ provedor | Entrada/saída | Tempo | Nota |',
-              '|---|---|---|---|---|---|---|---|---|---|---|']
-    for c in result['calls']:
-        lines.append(f"| {c['flow']} | {c['stage']} | {c['model']} | {c['route']} | {c['regime']} | {_n(c['sim_tokens'])} | "
-                     f"{_n(c['real_tokens'])} | {(c['real_usd'] or 0):.5f} | {_n(c['input_tokens'])}/{_n(c['output_tokens'])} | "
-                     f"{c['seconds']} s | {'' if c['ok'] else 'FALHOU '}{c['note']} |")
-    lines += ['', '## Oportunidades', '']
-    for flow, items in result['opportunities'].items():
-        lines += [f"### {flow} — {result['flows'][flow]['name']}", '']
-        for item in items:
+              '| Versão | Fluxo | Etapa | Modelo | Rota | Regime | Simulado | Debitado | US$ provedor | Entrada/saída | Tempo | Nota |',
+              '|---|---|---|---|---|---|---|---|---|---|---|---|']
+    for c in calls:
+        lines.append(f"| {c.get('label', '')} | {c['flow']} | {c['stage']} | {c['model']} | {c['route']} | {c['regime']} | "
+                     f"{_n(c['sim_tokens'])} | {_n(c['real_tokens'])} | {(c['real_usd'] or 0):.5f} | "
+                     f"{_n(c['input_tokens'])}/{_n(c['output_tokens'])} | {c['seconds']} s | {'' if c['ok'] else 'FALHOU '}{c['note']} |")
+    lines += ['', '## Oportunidades (melhor versão de cada fluxo)', '']
+    for flow, row in ranked:
+        lines += [f"### {flow} — {row['name']} · revisor {row['review_avg'] or '—'}", '']
+        for item in result['opportunities'].get(flow, []):
             rev = item.get('review') or {}
             lines.append(f"- **{item['title']}** · {item['quadrant']} · ed {item['editorial']} / pago {item['paid']} · "
                          f"selo {item['confidence']} · verificação {item['verdict']} · revisor {rev.get('media', '—')}")

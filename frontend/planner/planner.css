@@ -1717,3 +1717,10 @@ a.planner-portal.planner-portal--wide { grid-template-columns: 40px minmax(200px
 .bp-working .radar-anim { width: min(220px, 70%); }
 @media (max-width: 720px) { .radar-run__head .radar-anim { width: min(240px, 70vw); } .radar-run__head:not(.is-running) .radar-anim { width: 96px; } }
 .radar-results h2 .radar-saved { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; padding: 3px 10px; border-radius: 99px; background: #e3f8ee; color: #067647; font-size: 12px; font-weight: 600; cursor: help; }
+
+/* Picker cards: the card is the button; "Ver detalhes" is a plain text link, not a second box. */
+.pd-formats--pick li > a, .pd-audiences--pick li > a { display: block; flex: none; height: auto; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; color: var(--planner-muted); font-size: 12px; text-align: center; text-decoration: underline; text-underline-offset: 2px; }
+.pd-formats--pick li > a:hover, .pd-audiences--pick li > a:hover { border: 0; color: var(--planner-text, inherit); }
+.pd-formats--pick li > button { flex: 1; }
+.pd-audiences--pick li { padding: 0; border: 0; border-radius: 0; background: none; }
+.pd-audiences--pick li > a { text-align: left; }

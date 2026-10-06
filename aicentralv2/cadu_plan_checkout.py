@@ -64,8 +64,20 @@ def ensure_requestable(plan: dict) -> None:
                             "Fale com a equipe; nenhum plano foi alterado.")
 
 
-def checkout_plans(definitions: list[dict], current_plan: Optional[dict] = None) -> list[dict]:
+def checkout_plans(definitions: list[dict], current_plan: Optional[dict] = None, client_id: Optional[int] = None) -> list[dict]:
     """Planos do catálogo para a página de checkout, marcando os que podem ser solicitados."""
+    if current_plan is None and client_id:
+        try:
+            from . import db
+            with db.get_db().cursor() as cursor:
+                current_plan = _current_plan(cursor, int(client_id))
+        except Exception:
+            logger.warning("Plano atual indisponível no checkout do cliente %s", client_id, exc_info=True)
+            try:
+                from .db import recuperar_transacao_falha
+                recuperar_transacao_falha()
+            except Exception:
+                pass
     public_slugs = {item["slug"] for item in catalog.PLAN_CATALOG}
     result = []
     for plan in catalog.commercial_plans(definitions, current_plan):

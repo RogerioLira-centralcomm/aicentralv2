@@ -113,7 +113,7 @@
   // ── Validation ──
 
   function validate() {
-    var planId = document.getElementById('selectedPlanId').value;
+    var planId = document.getElementById('selectedPlanType').value;
     if (!planId) {
       document.getElementById('planError').hidden = false;
       var planCard = document.querySelector('.plan-card');
@@ -168,7 +168,7 @@
     btn.disabled = true;
 
     var payload = {
-      plan_id: parseInt(document.getElementById('selectedPlanId').value),
+      plan_slug: document.getElementById('selectedPlanType').value,
       plan_type: document.getElementById('selectedPlanType').value,
       cnpj: document.getElementById('cnpj').value,
       razao_social: document.getElementById('razao_social').value,

@@ -15100,7 +15100,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return render_template(
                 'subscription_checkout.html',
                 cliente=cliente or {},
-                checkout_plans=checkout_plans(db.obter_plan_definitions(apenas_ativos=True) or [])
+                checkout_plans=checkout_plans(db.obter_plan_definitions(apenas_ativos=True) or [], client_id=cliente_id)
             )
         except Exception as e:
             app.logger.error(f"Erro ao carregar checkout: {e}")

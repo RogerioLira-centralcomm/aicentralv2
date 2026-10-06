@@ -49,13 +49,17 @@ export function ChannelDetail({boot, selection, plan = null}) {
       render: () => <FormatCards formats={formats} urls={boot.urls} selection={selection} empty="Ainda não há formatos cadastrados para este canal."/>},
     {id: 'audiencias', label: 'Audiências neste canal', count: audiences.length, hidden: !audiences.length, wide: true,
       hint: 'Segmente por interesses, comportamentos e contextos.',
-      render: () => <ul className="pd-audiences">{audiences.map(audience => <li key={audience.id}>
-        <a href={`${moduleUrl(boot.urls, 'audiencias')}/${audience.id}`}>
-          <strong>{audience.name}</strong>
-          <small>{[audience.category, audienceSize(audience.audience)].filter(Boolean).join(' · ')}</small>
-        </a>
-        <SelectionButton size="md" quiet selected={selection.isSelected('audiencias', audience.id)} onToggle={() => selection.toggle('audiencias', audience.id)}/>
-      </li>)}</ul>},
+      render: () => <ul className="pd-audiences pd-audiences--pick">{audiences.map(audience => {
+        const selected = selection.isSelected('audiencias', audience.id);
+        return <li key={audience.id} className={selected ? 'is-selected' : ''}>
+          <button type="button" aria-pressed={selected} onClick={() => selection.toggle('audiencias', audience.id)}>
+            <span className="pd-formats__tick" aria-hidden="true"><Icon name={selected ? 'check' : 'plus'} size={14}/></span>
+            <strong>{audience.name}</strong>
+            <small>{[audience.category, audienceSize(audience.audience)].filter(Boolean).join(' · ')}</small>
+          </button>
+          <a href={`${moduleUrl(boot.urls, 'audiencias')}/${audience.id}`}>Ver detalhes</a>
+        </li>;
+      })}</ul>},
     {id: 'exemplos', label: 'Exemplos', count: examples.length, hidden: !examples.length, wide: true,
       hint: concepts.length ? 'Conceitos de ativação são demonstrações do formato, não campanhas reais.' : null,
       render: () => <div className="pd-gallery">{examples.map((item, index) => <figure key={item.url} className={index === 0 ? 'is-lead' : ''}>

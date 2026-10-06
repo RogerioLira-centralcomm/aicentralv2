@@ -1646,3 +1646,10 @@ a.planner-portal.planner-portal--wide { grid-template-columns: 40px minmax(200px
 .pd-formats--pick li.is-selected .pd-formats__tick { background: var(--colors-brand-600, #079455); color: #fff; }
 .pd-formats--pick li > a { display: block; margin-top: 6px; color: var(--planner-muted); font-size: 12px; text-align: center; text-decoration: underline; text-underline-offset: 2px; }
 .pd-formats__hint { margin: 12px 0 0; color: var(--planner-muted); font-size: 13px; }
+.pd-audiences--pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.pd-audiences--pick button { position: relative; display: flex; width: 100%; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px 44px 14px 14px; border: 1px solid var(--planner-line); border-radius: 12px; background: var(--planner-surface); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.pd-audiences--pick button:hover { border-color: var(--colors-brand-400, #47cd89); }
+.pd-audiences--pick li.is-selected button { border-color: var(--colors-brand-600, #079455); box-shadow: inset 0 0 0 1px var(--colors-brand-600, #079455); background: var(--colors-brand-50, #ecfdf3); }
+.pd-audiences--pick li.is-selected .pd-formats__tick { background: var(--colors-brand-600, #079455); color: #fff; }
+.pd-audiences--pick small { color: var(--planner-muted); font-size: 12px; }
+.pd-audiences--pick li > a { display: block; margin-top: 6px; color: var(--planner-muted); font-size: 12px; text-decoration: underline; text-underline-offset: 2px; }

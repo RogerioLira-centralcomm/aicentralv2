@@ -3,7 +3,7 @@ import {CaduEmptyState} from '../../cadu-design-system/components/CaduEmptyState
 import {moduleUrl} from '../api.js';
 import {DetailLayout, Facts, Rail, TagList, hasValue} from './DetailLayout.jsx';
 import {FormatCards} from '../FormatCards.jsx';
-import {PlanSidebar} from './PlanSidebar.jsx';
+import {BuyBox} from './BuyBox.jsx';
 
 const PROFILE_GROUP = 'Público, perfil e comportamento';
 const DEMOGRAPHY_GROUP = 'Demografia e dispositivos';
@@ -82,6 +82,8 @@ export function AudienceDetail({boot, selection, plan = null}) {
       {icon: 'pulse', label: 'CPA', value: cpa, hint: 'Estimativa'},
       {icon: 'users', label: 'Alcance incremental', value: field('alcance_incremental')},
     ]}
-    aside={<PlanSidebar plan={plan} selection={selection} boot={boot} plansUrl={boot.urls.plans}/>}
+    aside={<BuyBox kind="audiencias" id={audience.id || audience.slug} name={audience.name} selection={selection}
+      pitch={String(audience.description || '').split(/(?<=[.!?])\s/)[0]}
+      facts={[['Público estimado', audience.audience, 'users'], ['Onde comprar', audience.channel || 'Portais e programática', 'share'], ['Plataforma', audience.platform, 'table']]}/>}
     sections={sections}/>;
 }

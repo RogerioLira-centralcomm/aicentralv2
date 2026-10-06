@@ -1,4 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
+import {CaduTextarea} from './CaduTextarea';
 import {CaduInput} from './CaduInput';
 import './WorkspaceBrand.css';
 import {WorkspaceContextSidebar} from './WorkspaceContextSidebar';
@@ -85,8 +86,8 @@ function CreateBrandProjectDialog({brand, action, csrfToken, onClose}) {
     <form className="cadu-ds-project-form" method="post" action={action}>
       <Hidden name="_csrf" value={csrfToken}/><Hidden name="brand_id" value={brand.id}/>
       <CaduInput label="Nome" name="name" required minLength="2" maxLength="150" autoFocus/>
-      <label>Contexto inicial<textarea name="description" rows="3" maxLength="4000"/></label>
-      <label>Orientações para o Cadu<textarea name="instructions" rows="4" maxLength="12000"/></label>
+      <CaduTextarea label="Contexto inicial" name="description" rows="3" maxLength="4000"/>
+      <CaduTextarea label="Orientações para o Cadu" name="instructions" rows="4" maxLength="12000"/>
       <footer><CaduButton variant="secondary" type="button" onClick={onClose}>Cancelar</CaduButton><CaduButton type="submit">Criar projeto</CaduButton></footer>
     </form>
   </BrandDialog>;

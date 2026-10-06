@@ -843,8 +843,9 @@ def catalog(module, query='', category='', platform='', sort='relevant', format_
                        WHERE is_active = TRUE AND (nome ILIKE %s OR COALESCE(descricao, '') ILIKE %s
                              OR COALESCE(categoria, '') ILIKE %s)
                          AND (%s = '' OR categoria = %s)
+                         AND COALESCE(categoria, '') <> ALL(%s) AND slug <> ALL(%s)
                     ORDER BY ordem, nome LIMIT 100''',
-                    (search, search, search, category, category))
+                    (search, search, search, category, category, list(HIDDEN_CHANNEL_CATEGORIES), list(RETIRED_CHANNEL_SLUGS)))
     if module in ('formatos', 'interativos'):
         platform = platform.strip()[:80] if isinstance(platform, str) else ''
         format_type = format_type.strip()[:80] if isinstance(format_type, str) else ''
@@ -976,10 +977,16 @@ def format_catalog_facets(interactive=False):
             'segments': [row['value'] for row in segments]}
 
 
+# Portais have their own area (and their own screenshots); Waze no longer exists as a channel.
+HIDDEN_CHANNEL_CATEGORIES = ('Portais',)
+RETIRED_CHANNEL_SLUGS = ('waze',)
+
+
 def channel_catalog_facets():
     categories = rows('''SELECT DISTINCT categoria AS value FROM cadu_canais
                           WHERE is_active = TRUE AND categoria IS NOT NULL AND categoria <> ''
-                          ORDER BY categoria LIMIT 20''')
+                            AND categoria <> ALL(%s) AND slug <> ALL(%s)
+                          ORDER BY categoria LIMIT 20''', (list(HIDDEN_CHANNEL_CATEGORIES), list(RETIRED_CHANNEL_SLUGS)))
     return {'categories': [row['value'] for row in categories], 'platforms': [], 'types': [], 'segments': []}
 
 

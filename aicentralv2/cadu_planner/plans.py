@@ -360,6 +360,7 @@ def toggle_item(client_id, actor_id, plan_id, payload):
         if removed:
             selected = False
         else:
+            catalog.ensure_channel_listed(kind, record)
             cur.execute('''INSERT INTO cadu_planner_plan_items (plan_id, kind, resource_id, snapshot)
                            VALUES (%s, %s, %s, %s)''',
                         (str(plan['id']), kind, resource_id, Json(record)))

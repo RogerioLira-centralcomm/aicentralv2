@@ -40,7 +40,7 @@ export function ChannelDetail({boot, selection, plan = null}) {
     ...concepts.map(concept => ({url: concept.image_url, caption: `${concept.title} · conceito`}))];
 
   const photos = [channel.hero_image_url, ...(channel.gallery || []).map(photo => photo.url)].filter((url, index, all) => url && all.indexOf(url) === index);
-  const heroMedia = photos.length ? {type: 'carousel', items: photos} : null;
+  const heroMedia = photos.length ? {type: 'carousel', items: photos, illustrative: Boolean(channel.hero_illustrative)} : null;
 
   const sections = [
     {id: 'papel', label: 'Papel no plano', hidden: !roles.length, hint: 'Como este canal costuma trabalhar num plano. O Cadu ajusta por campanha.',

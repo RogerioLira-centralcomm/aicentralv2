@@ -41,6 +41,7 @@ export function ChannelCard({item, urls, selected, onToggle, quoteUrl}) {
       {photo && logo && <span className="channel-card__mark"><img src={item.logo_path} alt="" onError={() => setLogoFailed(true)}/></span>}
       {item.category && <span className="channel-card__badge">{item.category}</span>}
       {item.measurable && <span className="channel-card__measurable">Mensurável</span>}
+      {photo && item.image_illustrative && <span className="channel-card__illustration">Ilustração</span>}
     </span>
     <div className="channel-card__body">
       {item.role && <span className="channel-card__role">{item.role}</span>}

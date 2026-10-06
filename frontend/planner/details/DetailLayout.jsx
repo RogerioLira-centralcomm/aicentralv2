@@ -93,7 +93,7 @@ export function Gallery({photos, name}) {
 }
 
 /** One big photo with arrows and a thumbnail strip; works with a single photo too. */
-function HeroCarousel({photos, name}) {
+function HeroCarousel({photos, name, illustrative = false}) {
   const [index, setIndex] = useState(0);
   const [broken, setBroken] = useState(() => new Set());
   const list = photos.filter(src => !broken.has(src));
@@ -104,6 +104,7 @@ function HeroCarousel({photos, name}) {
   return <div className="pd-carousel" aria-roledescription="carrossel" aria-label={`Fotos de ${name}`}>
     <figure className="pd-carousel__stage">
       <img src={list[current]} alt={`Foto ${current + 1} de ${list.length} de ${name}`} onError={() => drop(list[current])}/>
+      {illustrative && <span className="pd-carousel__tag">Ilustração</span>}
       {list.length > 1 && <>
         <button type="button" className="pd-carousel__nav is-prev" aria-label="Foto anterior" onClick={() => go(-1)}><Icon name="chevron" size={18}/></button>
         <button type="button" className="pd-carousel__nav is-next" aria-label="Próxima foto" onClick={() => go(1)}><Icon name="chevron" size={18}/></button>
@@ -118,7 +119,7 @@ function HeroCarousel({photos, name}) {
 function HeroMedia({media, name}) {
   const [failed, setFailed] = useState(false);
   if (!media || failed) return null;
-  if (media.type === 'carousel') return <HeroCarousel photos={media.items || []} name={name}/>;
+  if (media.type === 'carousel') return <HeroCarousel photos={media.items || []} name={name} illustrative={Boolean(media.illustrative)}/>;
   if (media.type === 'gallery') {
     const photos = (media.items || []).filter(Boolean).slice(0, 3);
     if (!photos.length) return null;

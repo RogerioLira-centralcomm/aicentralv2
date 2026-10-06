@@ -9,6 +9,7 @@ from werkzeug.exceptions import NotFound
 
 from ..crm_v3_canais import _resolver_logo
 from ..db import get_db
+from ..cadu_family import repository
 
 
 _CHANNEL_CONCEPTS = {
@@ -55,9 +56,12 @@ def detail(channel_id):
         raise NotFound('Canal indisponível.')
     channel = records[0]
     slug = str(channel.get('slug') or '').lower()
+    if slug in repository.RETIRED_CHANNEL_SLUGS:
+        raise NotFound('Canal indisponível.')
     channel['logo_url'] = _channel_logo(slug, channel.get('logo_path'))
-    channel['hero_image_url'] = _safe_media_url(channel.get('imagem_path')) or _safe_media_url(channel.get('og_image_path'))
-    channel['gallery'] = [url for url in (channel.get('imagens') or []) if _safe_media_url(url)]
+    channel['hero_image_url'] = cover_url(channel)
+    channel['hero_illustrative'] = cover_is_illustration(channel)
+    channel['gallery'] = [url for url in (channel.get('imagens') or []) if _safe_media_url(url)] + [url for url in capa_urls(slug)[1:]]
     channel['demografia'] = channel.get('demografia') or {}
     channel['segmentacao'] = channel.get('segmentacao') or {}
     channel['segmentacoes'] = channel.get('segmentacoes') or []
@@ -69,10 +73,29 @@ def _channel_logo(slug, stored):
     return _safe_media_url(_resolver_logo(slug, stored))
 
 
+# Cover illustrations made in the Studio (one file per channel slug; "-b" is the second angle).
+_CAPAS_DIR = Path(__file__).resolve().parents[1] / 'static' / 'images' / 'canais' / 'capas'
+
+
+def capa_urls(slug):
+    """Studio cover illustrations that exist for this channel, main one first."""
+    slug = re.sub(r'[^a-z0-9-]', '', str(slug or '').lower())
+    if not slug:
+        return []
+    return [f'/static/images/canais/capas/{name}.webp' for name in (slug, f'{slug}-b') if (_CAPAS_DIR / f'{name}.webp').is_file()]
+
+
 def cover_url(record):
-    """First real photo of the channel; empty when the catalog has none (no generated stand-in)."""
+    """First real photo of the channel, then the Studio illustration; empty when there is neither."""
     candidates = [record.get('imagem_path'), record.get('og_image_path'), *(record.get('imagens') or [])]
-    return next((url for url in map(_safe_media_url, candidates) if url), '')
+    real = next((url for url in map(_safe_media_url, candidates) if url), '')
+    return real or next(iter(capa_urls(record.get('slug'))), '')
+
+
+def cover_is_illustration(record):
+    """True when the cover shown comes from the Studio, not from a real photo of the channel."""
+    candidates = [record.get('imagem_path'), record.get('og_image_path'), *(record.get('imagens') or [])]
+    return not any(map(_safe_media_url, candidates)) and bool(capa_urls(record.get('slug')))
 
 
 def _percent(value):
@@ -108,6 +131,7 @@ def decorate_logos(records):
             record['logo_path'] = logo
         if 'imagem_path' in record or 'imagens' in record:
             record['image_url'] = cover_url(record)
+            record['image_illustrative'] = cover_is_illustration(record)
             record['role'] = (channel_roles({**record, 'categoria': record.get('category')}) or [{}])[0].get('role', '')
             for key in ('imagem_path', 'og_image_path', 'imagens'):
                 record.pop(key, None)

@@ -301,7 +301,7 @@ CHANNEL_ROLES = (
 # Campos do canal que um cliente do Planner pode ver. Investimento mínimo e
 # dados de landing page ficam com o time comercial.
 CLIENT_CHANNEL_KEYS = (
-    'id', 'slug', 'name', 'categoria', 'tipo', 'cor', 'logo_url', 'hero_image_url', 'descricao', 'alcance',
+    'id', 'slug', 'name', 'categoria', 'tipo', 'cor', 'logo_url', 'hero_image_url', 'hero_illustrative', 'descricao', 'alcance',
     'usuarios_unicos', 'tempo_medio', 'viewability', 'completion_rate', 'taxa_engajamento', 'demografia',
     'segmentacao', 'segmentacoes', 'formatos_resumo', 'especificacoes', 'modelo_compra', 'brand_safety',
     'medicao', 'diferenciais', 'produtos',
@@ -316,6 +316,15 @@ def channel_roles(channel):
     return [{'role': role, 'description': description}
             for keywords, role, description in CHANNEL_ROLES
             if any((word in words) if ' ' not in word else (word in haystack) for word in keywords)][:3]
+
+
+def ensure_channel_listed(kind, record):
+    """A channel the shelf no longer lists (a portal, now in its own area) cannot be newly added to a plan."""
+    if kind != 'canais':
+        return
+    category = str((record or {}).get('category') or (record or {}).get('categoria') or '')
+    if category in repository.HIDDEN_CHANNEL_CATEGORIES:
+        raise BadRequest('Portais ficam na área Portais e veículos.')
 
 
 def channel_audiences(channel, limit=8):
@@ -364,8 +373,10 @@ def format_profile(kind, value):
     record['channels'] = rows('''SELECT id, slug, nome AS name, categoria AS category, logo_path
                                    FROM cadu_canais
                                   WHERE is_active = TRUE AND slug = ANY(%s)
+                                    AND COALESCE(categoria, '') <> ALL(%s) AND slug <> ALL(%s)
                                ORDER BY ordem NULLS LAST, nome LIMIT 12''',
-                              (list({slug, slug.replace('_', '-'), *repository.FORMAT_PLATFORM_CHANNELS.get(slug, [])}),)) if slug else []
+                              (list({slug, slug.replace('_', '-'), *repository.FORMAT_PLATFORM_CHANNELS.get(slug, [])}),
+                               list(repository.HIDDEN_CHANNEL_CATEGORIES), list(repository.RETIRED_CHANNEL_SLUGS))) if slug else []
     for channel in record['channels']:
         channel['logo_path'] = _channel_logo(channel.get('slug'), channel.get('logo_path'))
     record['platform_logo'] = repository.platform_logo_by_slug(slug, '')

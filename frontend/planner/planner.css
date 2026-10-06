@@ -1099,16 +1099,6 @@ a.planner-portal { padding: var(--sp-3) var(--sp-4); gap: var(--sp-4); }
 .radar-compose__body { display: grid; flex: 1; gap: var(--sp-2); min-width: 0; }
 .radar-compose label { font-size: 16px; font-weight: 600; }
 .radar-compose__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-3); }
-.radar-ideas { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px;
-  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); }
-.radar-ideas::-webkit-scrollbar { display: none; }
-.radar-ideas button { display: inline-flex; align-items: center; gap: 6px; flex: none; white-space: nowrap; padding: 6px 12px; border: 1px solid var(--planner-line); border-radius: 99px; background: var(--planner-surface); color: inherit; font-size: 13px; cursor: pointer; }
-.radar-ideas button:hover:not(:disabled) { border-color: var(--colors-brand-600, #079455); color: #067647; }
-.radar-ideas button:disabled { opacity: .5; cursor: default; }
-.radar-compose__hint { margin: 0; font-size: 13px; color: var(--planner-muted); }
-.radar-tips { margin-bottom: var(--sp-6); padding: var(--sp-4) var(--sp-6); border-radius: var(--planner-radius); background: var(--planner-soft); }
-.radar-tips summary { font-weight: 600; cursor: pointer; }
-.radar-tips ul { margin: var(--sp-3) 0 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; }
 .radar-empty-result { display: flex; align-items: center; gap: var(--sp-6); padding: var(--sp-6); border-radius: var(--planner-radius); background: var(--planner-soft); }
 .radar-empty-result p { margin: var(--sp-1) 0 0; }
 .radar-compose__meta { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); margin: 0; color: var(--planner-muted); font-size: 13px; }
@@ -1572,3 +1562,41 @@ a.planner-portal.planner-portal--wide { grid-template-columns: 40px minmax(200px
 .planner-chipbar { flex-wrap: nowrap; justify-content: flex-start; }
 .planner-chipbar__select { flex: 0 0 auto; width: 240px; max-width: 100%; }
 @media (max-width: 760px) { .planner-chipbar { flex-wrap: wrap; } .planner-chipbar__select { flex: 1 1 100%; width: auto; } }
+
+/* Radar: wizard (reaproveita .wizard) e Meus radares */
+.wizard__options--scroll { max-height: 330px; overflow-y: auto; padding-right: 4px; }
+.wizard__label { margin: 6px 0 -4px; font-size: 14px; font-weight: 600; } .wizard__label small { color: var(--planner-muted); font-weight: 400; }
+.wizard__chips button { display: inline-flex; align-items: center; gap: 6px; }
+.wizard__chips button.is-on { border-color: var(--colors-brand-600, #079455); background: var(--colors-brand-50, #ecfdf3); color: #067647; }
+.wizard__chips small { color: var(--planner-muted); }
+.wizard__known { margin: 0; font-size: 14px; color: #344054; } .wizard__known .is-gap { color: #b54708; }
+.wizard__cost { display: flex; align-items: flex-start; gap: 8px; margin: 0; color: var(--planner-muted); font-size: 13px; } .wizard__cost svg { flex: none; margin-top: 2px; }
+.wiz-option.is-fixed { cursor: default; opacity: .85; }
+.radar-list { margin-bottom: var(--sp-8, 32px); }
+.radar-list h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 var(--sp-3); font-size: 18px; font-weight: 600; }
+.radar-list h2 span { padding: 1px 9px; border-radius: 99px; background: var(--planner-soft); color: var(--planner-muted); font-size: 13px; font-weight: 600; }
+.radar-watches { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.radar-watch { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: var(--sp-4); padding: var(--sp-4) var(--sp-5); border-radius: var(--planner-radius); background: var(--planner-surface); box-shadow: inset 0 0 0 1px var(--planner-line); }
+.radar-watch.is-pausado { opacity: .75; }
+.radar-watch__main { display: grid; gap: 2px; min-width: 0; } .radar-watch__main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.radar-watch__main small { color: var(--planner-muted); font-size: 13px; } .radar-watch__main .is-warning { color: #b54708; }
+.radar-watch__actions { display: inline-flex; gap: 8px; }
+.radar-runs { display: grid; border-radius: var(--planner-radius); box-shadow: inset 0 0 0 1px var(--planner-line); overflow: hidden; background: var(--planner-surface); }
+.radar-runs__head, .radar-runs__row { display: grid; grid-template-columns: 130px minmax(0, 1fr) 190px 90px 20px; align-items: center; gap: var(--sp-4); padding: 12px var(--sp-5); }
+.radar-runs__head { color: var(--planner-muted); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; background: var(--planner-soft); }
+.radar-runs__row { border-top: 1px solid var(--planner-line); color: inherit; text-decoration: none; }
+.radar-runs__row:hover { background: var(--planner-soft); }
+.radar-runs__row span { display: grid; gap: 2px; min-width: 0; } .radar-runs__row b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.radar-runs__row small { color: var(--planner-muted); font-size: 12px; }
+.radar-opportunity__sources { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; padding: 0; list-style: none; font-size: 13px; }
+.radar-opportunity__sources a { color: #067647; } .radar-opportunity__sources small { margin-left: 4px; color: var(--planner-muted); } .radar-opportunity__sources .is-broken { color: #b54708; }
+@media (max-width: 900px) {
+  .radar-watch { grid-template-columns: minmax(0, 1fr); }
+  .radar-runs__head { display: none; }
+  .radar-runs__row { grid-template-columns: minmax(0, 1fr) auto; } .radar-runs__row > :nth-child(2) { grid-column: 1; } .radar-runs__row > :nth-child(4), .radar-runs__row > svg { display: none; }
+}
+/* As cenas do Radar vêm sem a margem livre no topo: começam abaixo do texto de introdução. */
+.wizard--radar .wizard__scene { inset: auto 0 0 0; height: calc(100% - 300px); object-fit: cover; object-position: center 22%;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14%); mask-image: linear-gradient(to bottom, transparent 0, #000 14%); }
+@media (max-width: 1180px) { .wizard--radar .wizard__scene { height: calc(100% - 360px); } }
+@media (max-width: 900px) { .wizard--radar .wizard__scene { height: 100%; object-position: center 30%; } }

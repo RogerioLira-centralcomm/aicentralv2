@@ -9,6 +9,11 @@ def available() -> bool:
     return bool(result and result[0]['available'])
 
 
+def watches_available() -> bool:
+    result = repository.rows("SELECT to_regclass('public.cadu_radar_watches') IS NOT NULL AS available")
+    return bool(result and result[0]['available'])
+
+
 def list_opportunities(client_id, *, brand_ref=None, status=None, limit=50):
     if not available():
         return []

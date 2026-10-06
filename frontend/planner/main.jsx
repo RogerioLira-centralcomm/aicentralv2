@@ -14,6 +14,7 @@ import {FormatDetail} from './details/FormatDetail.jsx';
 import {PlaceDetail} from './details/PlaceDetail.jsx';
 import {PortalDetail} from './details/PortalDetail.jsx';
 import {RadarPage} from './Radar.jsx';
+import {RadarListPage} from './RadarList.jsx';
 import {DocsPage} from './Docs.jsx';
 import {MonitorPage} from './monitoring.jsx';
 import {PlanDetail} from './PlanDetail.jsx';
@@ -34,7 +35,7 @@ function sidebarGroups(urls) {
   return [
     {label: '', items: [item('inicio', 'Início', 'home')]},
     {label: 'Planejamento', items: [item('novo-plano', 'Novo planejamento', 'plus', newPlanUrl(urls)), item('planos', 'Planos', 'history')]},
-    {label: 'Oportunidades', items: [item('radar', 'Radar', 'pulse')]},
+    {label: 'Oportunidades', items: [item('radar', 'Novo radar', 'pulse'), item('radares', 'Meus radares', 'history')]},
     {label: 'Descobrir', items: [item('canais', 'Canais', 'share'), item('audiencias', 'Audiências', 'users'), item('formatos', 'Formatos', 'table'), item('interativos', 'Interativos', 'plugin'), item('portais', 'Portais e veículos', 'library'), item('places', 'Locais', 'browser')]},
     // Docs and "Sites e funis" are legacy tools: reachable by URL, not part of the Planner flow.
   ];
@@ -76,6 +77,7 @@ function App({boot}) {
     if (boot.view === 'catalog-detail' && boot.module === 'portais') return <PortalDetail boot={boot} selection={selection} plan={plan}/>;
     if (boot.view === 'catalog-detail') return <CatalogDetail boot={boot} selection={selection}/>;
     if (creating) return <PlanCreatePage boot={boot} request={request} notify={notify} selection={context}/>;
+    if (boot.module === 'radares') return <RadarListPage boot={boot} request={request} notify={notify}/>;
     if (boot.module === 'radar') return <RadarPage boot={boot} request={request} notify={notify} context={context}/>;
     if (boot.module === 'inicio') return <PlannerHome boot={boot} plans={plans}/>;
     if (boot.module === 'planos') return <PlansPage boot={boot} plans={plans}/>;

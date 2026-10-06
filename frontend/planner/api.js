@@ -15,13 +15,13 @@ export function createPlannerApi(csrf) {
 export const CATALOG_KINDS = ['audiencias', 'canais', 'formatos', 'interativos', 'places', 'portais'];
 
 export const MODULE_LABELS = {
-  inicio: 'Início', planos: 'Planos de mídia', radar: 'Radar de Oportunidades', audiencias: 'Audiências', canais: 'Canais', formatos: 'Formatos',
+  inicio: 'Início', planos: 'Planos de mídia', radar: 'Radar de Oportunidades', radares: 'Meus radares', audiencias: 'Audiências', canais: 'Canais', formatos: 'Formatos',
   interativos: 'Interativos', places: 'Locais', portais: 'Portais e veículos', monitoramento: 'Sites e funis', docs: 'Docs',
 };
 
 // Bootstrap URL keys for each module.
 export const MODULE_URL_KEYS = {
-  inicio: 'home', planos: 'plans', radar: 'radar', audiencias: 'audiences', canais: 'channels', formatos: 'formats',
+  inicio: 'home', planos: 'plans', radar: 'radar', radares: 'radars', audiencias: 'audiences', canais: 'channels', formatos: 'formats',
   interativos: 'interactive', places: 'places', portais: 'portals', monitoramento: 'monitoring', docs: 'docs',
 };
 

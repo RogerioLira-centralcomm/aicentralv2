@@ -93,6 +93,20 @@ def crawl_planner_portals_ads_command(limit, scope, stale_days, workers):
     click.echo(f'{len(domains)} portais verificados.')
 
 
+@bp.cli.command('radar-due')
+@click.option('--limit', default=3, show_default=True, help='Máximo de radares rodados nesta chamada.')
+def radar_due(limit):
+    """Roda os radares ativos que chegaram no horário (chamado pelo timer do systemd)."""
+    from ..cadu_radar import repository as radar, watches
+    if not current_app.config.get('CADU_RADAR_ENABLED') or not radar.watches_available():
+        click.echo('Radar desligado ou sem a migration v2; nada a fazer.')
+        return
+    results = watches.run_due(limit)
+    for item in results:
+        click.echo(f"{item['watch']}: {item['status']}")
+    click.echo(f'{len(results)} radares rodados.')
+
+
 @bp.cli.command('monitor-planner-sites')
 @click.option('--limit', default=50, type=click.IntRange(1, 200), help='Máximo de sites por execução.')
 def monitor_planner_sites_command(limit):
@@ -892,12 +906,69 @@ def planner_radar_start():
     brand_ref, project_ref = _planner_refs(selected['client_id'], payload.get('brand_ref'), payload.get('project_ref'))
     try:
         run = pipeline.start_run(selected['client_id'], user['id'], focus=payload.get('focus') or '',
-                                 brand_ref=brand_ref, project_ref=project_ref)
+                                 brand_ref=brand_ref, project_ref=project_ref, params=payload.get('params'))
     except pipeline.RadarDisabled as exc:
         abort(403, description=str(exc))
     except InsufficientToolCredits as exc:
         abort(409, description=str(exc))
     return jsonify(run=run), 202
+
+
+@bp.get('/api/planner/radar/runs')
+def planner_radar_runs():
+    """Consultas realizadas, da mais recente para a mais antiga."""
+    from ..cadu_radar import pipeline, repository as radar
+    selected = context.resolve()
+    if not radar.available():
+        return jsonify(runs=[])
+    return jsonify(runs=pipeline.list_runs(selected['client_id'], limit=request.args.get('limit', 30, type=int),
+                                           watch_id=request.args.get('watch_id') or None))
+
+
+def _radar_watches_ready():
+    from ..cadu_radar import repository as radar
+    if not radar.watches_available():
+        abort(409, description='Aplique a migration do Radar v2 antes de criar radares ativos.')
+
+
+@bp.get('/api/planner/radar/watches')
+def planner_radar_watches():
+    from ..cadu_radar import repository as radar, watches
+    selected = context.resolve()
+    return jsonify(watches=watches.list_watches(selected['client_id']) if radar.watches_available() else [],
+                   enabled=bool(current_app.config.get('CADU_RADAR_ENABLED')))
+
+
+@bp.post('/api/planner/radar/watches')
+def planner_radar_watch_create():
+    from ..cadu_radar import watches
+    selected = writable_context()
+    user = context.identity()
+    _radar_watches_ready()
+    payload = request.get_json(silent=True) or {}
+    brand_ref, project_ref = _planner_refs(selected['client_id'], payload.get('brand_ref'), payload.get('project_ref'))
+    return jsonify(watch=watches.create_watch(
+        selected['client_id'], user['id'], focus=payload.get('focus') or '', brand_ref=brand_ref, project_ref=project_ref,
+        params=payload.get('params'), frequency=payload.get('frequency') or 1, min_score=payload.get('min_score') or 70)), 201
+
+
+@bp.patch('/api/planner/radar/watches/<watch_id>')
+def planner_radar_watch_update(watch_id):
+    from ..cadu_radar import watches
+    selected = writable_context()
+    _radar_watches_ready()
+    payload = request.get_json(silent=True) or {}
+    return jsonify(watch=watches.update_watch(selected['client_id'], watch_id, status=payload.get('status'),
+                                              frequency=payload.get('frequency')))
+
+
+@bp.delete('/api/planner/radar/watches/<watch_id>')
+def planner_radar_watch_delete(watch_id):
+    from ..cadu_radar import watches
+    selected = writable_context()
+    _radar_watches_ready()
+    watches.delete_watch(selected['client_id'], watch_id)
+    return jsonify(ok=True)
 
 
 @bp.get('/api/planner/radar/runs/latest')

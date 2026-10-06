@@ -1,29 +1,27 @@
-"""Pipeline do Radar de Oportunidades.
+"""Pipeline do Radar de Oportunidades (fluxo F1, escolhido no Lab em 2026-10-06).
 
-Dois fluxos independentes começam juntos e se encontram na leitura:
+Três buscas do Perplexity (via OpenRouter, cobradas pelo custo) começam juntas:
 
-    discover  Perplexity via OpenRouter: "o que está acontecendo?"   ┐
-    search    Firecrawl: fontes públicas recentes sobre o tema       ┘─► extract
-    extract   lê as páginas citadas que ainda não foram lidas
-    judge     o modelo preenche critérios (0–100) com justificativa; as notas,
-              penalidades e o quadrante são calculados em scoring.py
-    verify    um segundo modelo tenta provar que cada oportunidade está errada
-    save      grava sinais e oportunidades
+    discover_open    o que está acontecendo no tema (sonar-pro)
+    discover_press   só em reportagens dos veículos da base curada, com os regionais das praças
+    discover_trends  assuntos e buscas em alta
+    extract          lê as páginas citadas (Firecrawl, com leitor Python como reserva)
+    judge            o modelo preenche critérios (0–100); notas, penalidades e quadrante são de scoring.py
+    verify           checagem de realidade: um modelo com busca confere cada oportunidade FORA do pacote
+    save             nível das fontes, selo de confiança, links que abrem; grava sinais e oportunidades
 
-Cada etapa grava status, detalhe e tokens gastos em ``cadu_radar_runs.steps``,
-para a tela mostrar o encadeamento ao vivo e o custo real em créditos. Os
-créditos são reservados antes de começar e cobrados por chamada, com chave
-idempotente por run e etapa. O Radar roda sob demanda; não há monitoramento
-contínuo.
+Cada etapa grava status, detalhe e tokens em ``cadu_radar_runs.steps``, para a tela
+mostrar o encadeamento ao vivo. Créditos: reserva pelo custo em US$ antes de começar
+e cobrança por chamada, com chave idempotente por run e etapa. Os prompts são
+versionados em ``prompts.py``; a base de fontes, em ``sources.py``.
 """
 from __future__ import annotations
 
-import json
 import logging
-import re
+import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -31,23 +29,40 @@ from flask import current_app
 from psycopg.types.json import Json
 from werkzeug.exceptions import BadRequest
 
-from . import scoring
+from . import prompts, scoring, sources as source_base
 from .contracts import QUADRANTS
+from .research import build_packet, check_url, citations, facts_from, json_loads, parse_date, python_read
 
 logger = logging.getLogger(__name__)
 
 STEPS = (
-    ('discover', 'Descobrindo sinais', 'Perplexity procura o que está acontecendo no tema.'),
-    ('search', 'Buscando fontes', 'Firecrawl encontra publicações recentes e lê as mais fortes.'),
+    ('discover_open', 'Descobrindo sinais', 'Perplexity procura o que está acontecendo no tema.'),
+    ('discover_press', 'Lendo a imprensa', 'Procura só em reportagens de veículos conhecidos, com os da sua praça.'),
+    ('discover_trends', 'Buscando o que está em alta', 'Assuntos e buscas que cresceram nos últimos dias.'),
     ('extract', 'Lendo as fontes', 'As páginas citadas são lidas para virar evidência.'),
     ('judge', 'Avaliando oportunidades', 'Cada oportunidade recebe nota editorial, paga e por praça.'),
-    ('verify', 'Verificando as evidências', 'Um segundo modelo tenta provar que cada oportunidade está errada.'),
-    ('save', 'Organizando o resultado', 'Sinais e oportunidades ficam salvos para o plano.'),
+    ('verify', 'Conferindo na web', 'Um segundo modelo pesquisa fora das fontes e tenta provar que cada oportunidade está errada.'),
+    ('save', 'Organizando o resultado', 'Nível das fontes, selo de confiança e links conferidos.'),
 )
-PARALLEL = ('discover', 'search')
-# Tokens estimados por etapa paga (reserva antes de começar; a cobrança é o uso real).
-ESTIMATES = {'discover': 3_500, 'judge': 7_000, 'verify': 4_500}
-SEARCH_LIMIT, READ_LIMIT, MAX_OPPORTUNITIES = 6, 4, 5
+PARALLEL = ('discover_open', 'discover_press', 'discover_trends')
+READ_LIMIT, MAX_OPPORTUNITIES = 4, 5
+# Custo típico do F1 no Lab: US$ 0,09 por busca. A reserva dá folga, mas é em US$, não em tokens fixos.
+ESTIMATE_USD = 0.15
+STAGE_USD = {'discover_open': 0.03, 'discover_press': 0.015, 'discover_trends': 0.015, 'judge': 0.03, 'verify': 0.03}
+LENSES = ('Sazonalidade e datas', 'Concorrência', 'Tendências e cultura', 'Regulação', 'Lançamentos do setor', 'Reputação')
+RECENCY_DAYS = (7, 30, 60)
+LEASE_MINUTES = 5
+
+
+def models():
+    from ..cadu_workspace import insights_research
+    return {
+        'discover_open': os.getenv('CADU_RADAR_DISCOVER_MODEL', 'perplexity/sonar-pro'),
+        'discover_press': os.getenv('CADU_RADAR_PRESS_MODEL', 'perplexity/sonar'),
+        'discover_trends': os.getenv('CADU_RADAR_TRENDS_MODEL', 'perplexity/sonar'),
+        'judge': os.getenv('CADU_RADAR_JUDGE_MODEL', insights_research.SYNTHESIS_MODEL),
+        'verify': os.getenv('CADU_RADAR_CHECK_MODEL', 'perplexity/sonar'),
+    }
 
 
 class RadarDisabled(RuntimeError):
@@ -58,31 +73,51 @@ def enabled() -> bool:
     return bool(current_app.config.get('CADU_RADAR_ENABLED'))
 
 
-def _models():
-    from ..cadu_workspace import insights_research
-    return insights_research.RESEARCH_MODEL, insights_research.SYNTHESIS_MODEL, insights_research.REVIEW_MODEL
+def clean_params(raw) -> dict:
+    """Parâmetros do wizard, validados: nada além do que a busca sabe usar."""
+    raw = raw if isinstance(raw, dict) else {}
+    sources = raw.get('sources') if isinstance(raw.get('sources'), dict) else {}
+    try:
+        days = int(raw.get('recency_days') or 30)
+    except (TypeError, ValueError):
+        days = 30
+    return {
+        'lenses': [item for item in raw.get('lenses') or [] if item in LENSES][:3],
+        'places': ' '.join(str(raw.get('places') or '').split())[:120],
+        'recency_days': days if days in RECENCY_DAYS else 30,
+        'objective': raw.get('objective') if raw.get('objective') in ('conteudo', 'midia', 'ambos') else 'ambos',
+        'sources': {'press': sources.get('press') is not False, 'trends': sources.get('trends') is not False},
+    }
+
+
+def usd_to_tokens(client_id, usd) -> int:
+    """Tokens Cadu equivalentes a um custo em US$, pelo preço comercial do cliente."""
+    from ..cadu_credit_connector import CaduCreditConnector
+    from ..cadu_tool_billing import cost_token_equivalent
+    price = CaduCreditConnector()._commercial_token_price_usd(client_id)
+    return cost_token_equivalent(usd, usd_per_credit_token=price)
 
 
 def estimate_tokens(client_id) -> int:
-    """Teto de tokens reservado antes do run (modelos + Firecrawl)."""
-    from ..cadu_credit_connector import CaduCreditConnector
-    credits = CaduCreditConnector()
-    firecrawl = (credits.estimate_firecrawl_tokens('search', client_id=client_id, results=SEARCH_LIMIT)
-                 + credits.estimate_firecrawl_tokens('scrape', client_id=client_id, pages=SEARCH_LIMIT + READ_LIMIT))
-    return int(sum(ESTIMATES.values()) + firecrawl)
+    """Teto reservado antes do run (o gasto real costuma ser bem menor)."""
+    return int(usd_to_tokens(client_id, ESTIMATE_USD))
 
 
 def _now():
     return datetime.now(timezone.utc).isoformat()
 
 
-def _initial_steps():
-    return [{'key': key, 'label': label, 'hint': hint, 'status': 'pending', 'tokens': 0, 'detail': '',
-             'parallel': key in PARALLEL, 'started_at': None, 'finished_at': None} for key, label, hint in STEPS]
+def _initial_steps(params=None):
+    params = params or clean_params({})
+    off = {'discover_press': not params['sources']['press'], 'discover_trends': not params['sources']['trends']}
+    return [{'key': key, 'label': label, 'hint': hint, 'status': 'skipped' if off.get(key) else 'pending', 'tokens': 0,
+             'detail': 'Desligada nesta busca' if off.get(key) else '', 'parallel': key in PARALLEL,
+             'started_at': None, 'finished_at': None} for key, label, hint in STEPS]
 
 
-def start_run(client_id, actor_id, *, focus='', brand_ref=None, project_ref=None):
-    """Reserva créditos, grava o run e dispara o pipeline em segundo plano."""
+def start_run(client_id, actor_id, *, focus='', brand_ref=None, project_ref=None, params=None,
+              background=True, trigger='manual', watch_id=None):
+    """Reserva créditos, grava o run e roda o pipeline (em segundo plano, ou inline para o agendador)."""
     from ..cadu_credit_connector import CaduCreditConnector, CreditActor
     from ..cadu_family import repository
     from . import repository as radar_repository
@@ -90,33 +125,40 @@ def start_run(client_id, actor_id, *, focus='', brand_ref=None, project_ref=None
         raise RadarDisabled('O Radar de Oportunidades ainda não está habilitado neste ambiente.')
     if not radar_repository.available():
         raise BadRequest('Aplique a migration do Radar antes de rodar.')
+    params = clean_params(params)
     focus = ' '.join(str(focus or '').split())[:240]
     if len(focus) < 3 and not (brand_ref or project_ref):
         raise BadRequest('Diga o tema ou escolha uma marca para o Radar procurar.')
+    _expire_dead_runs(client_id)
     running = repository.rows('''SELECT id FROM cadu_radar_runs WHERE client_id = %s AND status IN ('queued', 'running')
-                                    AND created_at > NOW() - INTERVAL '20 minutes' LIMIT 1''', (int(client_id),))
+                                    AND brand_ref IS NOT DISTINCT FROM %s LIMIT 1''', (int(client_id), brand_ref))
     if running:
-        raise BadRequest('Já existe uma busca do Radar em andamento. Aguarde ela terminar.')
+        raise BadRequest('Já existe uma busca do Radar em andamento para esta marca. Aguarde ela terminar.')
     estimate = estimate_tokens(client_id)
     # Sem saldo para o teto, o run nem começa (409 na rota).
     CaduCreditConnector().authorize(CreditActor.from_values(client_id, actor_id), estimate)
     run_id = str(uuid4())
     with repository.get_db() as conn, conn.cursor() as cur:
-        cur.execute('''INSERT INTO cadu_radar_runs (id, client_id, created_by, brand_ref, project_ref, status, steps, cost, focus)
-                       VALUES (%s, %s, %s, %s, %s, 'running', %s, %s, %s)''',
-                    (run_id, int(client_id), int(actor_id), brand_ref, project_ref, Json(_initial_steps()),
-                     Json({'estimated_tokens': estimate, 'tokens': 0}), focus or None))
+        cur.execute('''INSERT INTO cadu_radar_runs (id, client_id, created_by, brand_ref, project_ref, status, steps, cost, focus,
+                                                    params, trigger, watch_id, lease_until)
+                       VALUES (%s, %s, %s, %s, %s, 'running', %s, %s, %s, %s, %s, %s, NOW() + make_interval(mins => %s))''',
+                    (run_id, int(client_id), int(actor_id), brand_ref, project_ref, Json(_initial_steps(params)),
+                     Json({'estimated_tokens': estimate, 'tokens': 0}), focus or None, Json(params), trigger, watch_id,
+                     LEASE_MINUTES))
     app = current_app._get_current_object()
 
     def run():
         with app.app_context():
             try:
-                Runner(run_id, int(client_id), int(actor_id), focus, brand_ref, project_ref).execute()
+                Runner(run_id, int(client_id), int(actor_id), focus, brand_ref, project_ref, params).execute()
             except Exception as exc:  # noqa: BLE001 — o run registra a falha para a tela
                 logger.exception('Radar run %s falhou', run_id)
                 _finish(run_id, 'failed', error=_public_error(exc))
 
-    threading.Thread(target=run, daemon=True, name=f'cadu-radar-{run_id[:12]}').start()
+    if background:
+        threading.Thread(target=run, daemon=True, name=f'cadu-radar-{run_id[:12]}').start()
+    else:
+        run()
     return get_run(client_id, run_id)
 
 
@@ -158,24 +200,45 @@ def _finish(run_id, status, error=None):
     conn.commit()
 
 
-def _json(text):
-    text = str(text or '').strip()
-    match = re.search(r'\{.*\}', text, re.S)
+def _expire_dead_runs(client_id):
+    """Um run cuja thread morreu (deploy, reinício) fica sem renovar o lease: vira falha em vez de travar a marca."""
+    from ..cadu_family import repository
+    with repository.get_db() as conn, conn.cursor() as cur:
+        cur.execute('''UPDATE cadu_radar_runs SET status = 'failed', finished_at = NOW(),
+                              error = 'A busca foi interrompida. Rode de novo.'
+                        WHERE client_id = %s AND status IN ('queued', 'running') AND lease_until IS NOT NULL
+                          AND lease_until < NOW()''', (int(client_id),))
+
+
+def _host(url):
+    return source_base.host(url) or url
+
+
+def _num(value, low=0, high=100):
     try:
-        return json.loads(match.group(0) if match else text)
-    except (ValueError, AttributeError):
+        return max(low, min(high, float(value)))
+    except (TypeError, ValueError):
+        return low
+
+
+def _criteria(raw, allowed):
+    if not isinstance(raw, dict):
         return {}
+    return {key: _num(value, 0, allowed[key] if allowed is scoring.PENALTY_CAPS else 100)
+            for key, value in raw.items() if key in allowed}
 
 
 class Runner:
     """Executa um run; cada etapa atualiza a linha do run assim que muda."""
 
-    def __init__(self, run_id, client_id, actor_id, focus, brand_ref, project_ref):
+    def __init__(self, run_id, client_id, actor_id, focus, brand_ref, project_ref, params=None):
         self.run_id, self.client_id, self.actor_id = run_id, client_id, actor_id
         self.focus, self.brand_ref, self.project_ref = focus, brand_ref, project_ref
-        self.steps = _initial_steps()
+        self.params = clean_params(params)
+        self.steps = _initial_steps(self.params)
         self.lock = threading.Lock()
         self.web_context = SimpleNamespace(client_id=client_id, user_id=actor_id, conversation_id=None)
+        self.models = models()
 
     # ---- estado das etapas -------------------------------------------------
     def _step(self, key):
@@ -185,10 +248,11 @@ class Runner:
         with self.lock:
             snapshot = [dict(step) for step in self.steps]
             tokens = sum(step['tokens'] for step in snapshot)
-        _update(self.run_id, steps=snapshot)
         conn = _db()
         with conn.cursor() as cur:
-            cur.execute("UPDATE cadu_radar_runs SET cost = cost || %s WHERE id = %s", (Json({'tokens': tokens}), self.run_id))
+            cur.execute('''UPDATE cadu_radar_runs SET steps = %s, cost = cost || %s,
+                                  lease_until = NOW() + make_interval(mins => %s) WHERE id = %s''',
+                        (Json(snapshot), Json({'tokens': tokens}), LEASE_MINUTES, self.run_id))
         conn.commit()
 
     def _start(self, key):
@@ -205,17 +269,17 @@ class Runner:
         self._save_steps()
 
     # ---- chamadas pagas -----------------------------------------------------
-    def _ai(self, stage, model, messages, max_tokens, estimated, provider=None, json_mode=True):
+    def _ai(self, stage, model, messages, max_tokens, usd, json_mode=True, web=False):
+        """Sempre pelo OpenRouter: cobrança pelo custo real em US$ (a OpenAI direta cobraria 1 token por token)."""
         from ..services.cadu_ai_connector import CaduAIConnector
-        options = {'max_tokens': max_tokens, 'timeout': 75, 'temperature': 0.1}
+        options = {'max_tokens': max_tokens, 'timeout': 150, 'temperature': 0.1, 'provider': 'openrouter'}
         if json_mode:
             options['response_format'] = {'type': 'json_object'}
-        if provider:
-            options['provider'] = provider
         result = CaduAIConnector().complete(
             messages, client_id=self.client_id, user_id=self.actor_id,
             idempotency_key=f'radar:{self.run_id}:{stage}', app='Cadu Radar', stage=f'radar:{stage}',
-            estimated_tokens=estimated, model=model, metadata={'radar_run_id': self.run_id, 'stage': stage}, **options)
+            estimated_tokens=max(1_000, usd_to_tokens(self.client_id, usd)), model=model,
+            metadata={'radar_run_id': self.run_id, 'stage': stage, 'prompt_version': prompts.VERSION, 'web': web}, **options)
         tokens = int(((result.get('cadu_charge') or {}).get('tokens_cobrados')) or 0)
         return result, tokens
 
@@ -225,7 +289,7 @@ class Runner:
         with conn.cursor() as cur:
             cur.execute('''SELECT COALESCE(SUM(tokens_cobrados), 0) AS tokens FROM cadu_tools_token_usage
                             WHERE id_cliente = %s AND idempotency_key LIKE %s''',
-                        (self.client_id, f'web-search:radar:{self.run_id}:{prefix}%'))
+                        (self.client_id, f'%radar:{self.run_id}:{prefix}%'))
             row = cur.fetchone() or {}
         return int(row.get('tokens') or 0)
 
@@ -236,93 +300,73 @@ class Runner:
         brand, project = context.get('brand') or {}, context.get('project') or {}
         facts = [f"{item['label']}: {item['value']}" for item in (brand.get('fields') or []) + (project.get('fields') or []) if item.get('value')]
         return {'brand': brand.get('name'), 'sector': brand.get('sector'), 'project': project.get('name'),
-                'facts': facts[:14]}
+                'site': brand.get('website_url') or '', 'facts': facts[:14]}
 
     def _topic(self, ctx):
         parts = [self.focus, ctx.get('brand'), ctx.get('sector')]
         return ' '.join(part for part in parts if part)[:240]
 
+    def _values(self, ctx, topic):
+        places = self.params['places'] or 'Brasil'
+        domains = source_base.press_domains(places)
+        return domains, dict(topic=topic, places=places, lenses=', '.join(self.params['lenses']),
+                             recency_days=self.params['recency_days'], brand_facts='; '.join(ctx['facts']) or 'não informado',
+                             sector=ctx.get('sector') or '', domains=', '.join(domains))
+
     # ---- etapas --------------------------------------------------------------
-    def _discover(self, ctx, topic):
-        research_model, _, _ = _models()
-        self._start('discover')
-        result, tokens = self._ai('discover', research_model, [
-            {'role': 'system', 'content': (
-                'Você é um analista de oportunidades de mídia no Brasil. Pesquise fatos dos últimos 60 dias '
-                '(notícias, buscas em alta, regulação, eventos, conversas sociais) que abram uma janela para uma marca '
-                'falar ou anunciar. Para cada fato: o que aconteceu, quando, onde, e a URL da fonte. Não invente.')},
-            {'role': 'user', 'content': f'Tema: {topic}\nContexto da marca: {"; ".join(ctx["facts"]) or "não informado"}'},
-        ], max_tokens=1800, estimated=ESTIMATES['discover'], provider='openrouter', json_mode=False)
+    def _discover(self, stage, values):
+        self._start(stage)
+        result, tokens = self._ai(stage, self.models[stage], prompts.messages(stage, **values), max_tokens=3000,
+                                  usd=STAGE_USD[stage], json_mode=False, web=True)
         from ..services.openrouter_service import message_text
         message = result.get('message') if isinstance(result.get('message'), dict) else {}
-        citations = message.get('_cadu_citations') or []
-        if isinstance(citations, dict):
-            citations = citations.get('search_results') or citations.get('citations') or []
-        urls = []
-        for item in citations if isinstance(citations, list) else []:
-            url = item if isinstance(item, str) else (item.get('url') or item.get('link') or '') if isinstance(item, dict) else ''
-            if url and url not in urls:
-                urls.append(str(url))
         text = message_text(message)
-        self._done('discover', f'{len(urls)} fontes citadas', tokens,
-                   preview=[{'title': url.split('/')[2] if '//' in url else url, 'url': url} for url in urls])
-        return {'text': text[:8000], 'urls': urls[:8]}
+        facts, cited = facts_from(text, citations(message))
+        self._done(stage, f'{len(facts)} fatos, {len(cited)} fontes citadas', tokens,
+                   preview=[{'title': item.get('title') or _host(item['url']), 'url': item['url']} for item in cited])
+        return {'text': text[:2500], 'facts': facts, 'cited': cited}
 
-    def _search(self, topic):
-        from ..cadu_workspace import web_search
-        self._start('search')
-        result = web_search.search(self.web_context, {
-            'query': f'{topic} Brasil', 'depth': 'fast', 'limit': SEARCH_LIMIT, 'recency': 'month',
-            'include_content': True, 'request_id': f'radar:{self.run_id}:search'})
-        sources = result.get('sources') or []
-        read = [item for item in sources if item.get('content')]
-        self._done('search', f'{len(sources)} fontes, {len(read)} lidas', self._firecrawl_tokens('search'),
-                   preview=[{'title': item.get('title') or item.get('url'), 'url': item.get('url')} for item in sources])
-        return sources
-
-    def _extract(self, discovered, sources):
+    def _extract(self, found, domains):
         from ..cadu_workspace import web_search
         self._start('extract')
-        known = {str(item.get('url') or '').rstrip('/').casefold() for item in sources}
-        pending = [url for url in discovered['urls'] if url.rstrip('/').casefold() not in known][:READ_LIMIT]
-        if pending:
+        facts, cited, texts = [], [], []
+        allowed = {source_base.root(domain) for domain in domains}
+        for stage, item in found.items():
+            stage_facts = item['facts']
+            if stage == 'discover_press':
+                # O que o Perplexity trouxer fora da lista curada sai: a busca "só imprensa" tem de ser só imprensa.
+                stage_facts = [fact for fact in stage_facts if source_base.root(fact.get('url', '')) in allowed]
+            facts += stage_facts
+            cited += item['cited']
+            texts.append(item['text'])
+        urls = list(dict.fromkeys(entry['url'] for entry in cited if entry.get('url')))[:READ_LIMIT]
+        pages = {}
+        if urls:
             try:
-                extra = web_search.read(self.web_context, {'urls': pending, 'request_id': f'radar:{self.run_id}:extract'})
-                sources = [*sources, *(extra.get('sources') or [])]
-            except Exception:  # noqa: BLE001 — leitura extra é opcional
-                logger.info('Radar %s: leitura extra indisponível', self.run_id)
-        read = [item for item in sources if item.get('content')]
-        self._done('extract', f'{len(read)} páginas lidas como evidência', self._firecrawl_tokens('extract'))
-        return read
+                for page in web_search.read(self.web_context, {'urls': urls, 'request_id': f'radar:{self.run_id}:extract'}).get('sources') or []:
+                    if page.get('content'):
+                        pages[page.get('url')] = page
+            except Exception:  # noqa: BLE001 — a leitura é reforço, não condição
+                logger.info('Radar %s: leitura pelo Firecrawl indisponível', self.run_id)
+            for url in urls:
+                if url not in pages:
+                    try:
+                        pages[url] = {'url': url, **python_read(url)}
+                    except Exception:  # noqa: BLE001
+                        continue
+        packet = build_packet(facts, list(pages.values()))
+        self._done('extract', f'{len(pages)} páginas lidas, {len(packet)} evidências', self._firecrawl_tokens('extract'))
+        return packet, '\n\n'.join(texts)
 
-    def _judge(self, ctx, topic, discovered, evidence):
-        _, synthesis_model, _ = _models()
+    def _judge(self, ctx, topic, text, packet):
         self._start('judge')
-        packet = [{'id': f'S{index + 1}', 'title': item.get('title'), 'url': item.get('url'),
-                   'published_at': item.get('published_at'), 'excerpt': str(item.get('content') or item.get('excerpt') or '')[:1400]}
-                  for index, item in enumerate(evidence[:10])]
-        schema = {
-            'opportunities': [{
-                'title': 'até 90 caracteres', 'thesis': 'por que a marca deve agir agora, 1-2 frases',
-                'signals': [{'source_id': 'S1', 'headline': '...', 'source_type': 'news|search_trend|social|regulation|event|report|other'}],
-                'editorial': {key: '0-100' for key in scoring.EDITORIAL_WEIGHTS},
-                'paid': {key: '0-100' for key in scoring.PAID_WEIGHTS},
-                'penalties': {key: f'0-{cap}' for key, cap in scoring.PENALTY_CAPS.items()},
-                'places': [{'place': 'cidade ou estado', 'interest': '0-100', 'audience': '0-100', 'context': '0-100', 'reason': '...'}],
-                'channels': ['tipos de canal que fazem sentido'], 'window': 'até quando a janela fica aberta',
-                'why': {'editorial': 'justificativa curta', 'paid': 'justificativa curta'},
-            }]}
-        result, tokens = self._ai('judge', synthesis_model, [
-            {'role': 'system', 'content': (
-                'Você qualifica oportunidades de comunicação e mídia. Use somente as evidências fornecidas; '
-                'sem evidência, o critério vale 0. Notas de 0 a 100, conservadoras. Responda só JSON no esquema pedido. '
-                f'No máximo {MAX_OPPORTUNITIES} oportunidades, da mais forte para a mais fraca.')},
-            {'role': 'user', 'content': json.dumps({
-                'tema': topic, 'marca': ctx, 'achados_da_pesquisa': discovered['text'][:4000],
-                'evidencias': packet, 'esquema': schema}, ensure_ascii=False)},
-        ], max_tokens=3200, estimated=ESTIMATES['judge'])
+        payload = prompts.judge_payload(topic, ctx, text, packet, places=self.params['places'] or 'Brasil',
+                                        lenses=', '.join(self.params['lenses']))
+        result, tokens = self._ai('judge', self.models['judge'], prompts.messages('judge', max_opportunities=MAX_OPPORTUNITIES,
+                                                                                  payload=payload),
+                                  max_tokens=9000, usd=STAGE_USD['judge'])
         from ..services.openrouter_service import message_text
-        raw = _json(message_text(result.get('message')))
+        raw = json_loads(message_text(result.get('message')))
         by_id = {item['id']: item for item in packet}
         opportunities = []
         for item in (raw.get('opportunities') or [])[:MAX_OPPORTUNITIES]:
@@ -350,49 +394,65 @@ class Runner:
             })
         self._done('judge', f'{len(opportunities)} oportunidades avaliadas', tokens,
                    preview=[{'title': item['title'], 'score': max(item['editorial'].score, item['paid'].score)} for item in opportunities])
-        return opportunities, packet
+        return opportunities
 
-    def _verify(self, opportunities, packet):
-        _, _, review_model = _models()
+    def _verify(self, opportunities):
+        """Checagem de realidade: pesquisa na web fora do pacote e aplica as penalidades por evidência fraca."""
         self._start('verify')
         if not opportunities:
             self._done('verify', 'Nada para verificar', 0, status='skipped')
             return opportunities
-        result, tokens = self._ai('verify', review_model, [
-            {'role': 'system', 'content': (
-                'Você é o verificador. Tente provar que cada oportunidade está errada: a evidência é recente? '
-                'Há fonte primária? Está fora de contexto? Responda só JSON: {"results": [{"index": 0, '
-                '"verdict": "confirmado|parcial|contestado", "is_recent": true, "has_primary_source": true, '
-                '"corroborating_sources": 0, "notes": "..."}]}')},
-            {'role': 'user', 'content': json.dumps({
-                'oportunidades': [{'index': index, 'title': item['title'], 'thesis': item['thesis'],
-                                   'signals': item['signals']} for index, item in enumerate(opportunities)],
-                'evidencias': packet}, ensure_ascii=False)},
-        ], max_tokens=1600, estimated=ESTIMATES['verify'])
+        claims = '\n'.join(f"{index}. {item['title']} — {item['thesis']}" for index, item in enumerate(opportunities))
+        result, tokens = self._ai('verify', self.models['verify'], prompts.messages(
+            'reality_check', recency_days=self.params['recency_days'], today=datetime.now(timezone.utc).date().isoformat(),
+            claims=claims), max_tokens=3000, usd=STAGE_USD['verify'], json_mode=False, web=True)
         from ..services.openrouter_service import message_text
-        verdicts = {int(item.get('index', -1)): item for item in (_json(message_text(result.get('message'))).get('results') or [])
-                    if isinstance(item, dict) and str(item.get('index', '')).lstrip('-').isdigit()}
+        found = {}
+        for row in json_loads(message_text(result.get('message'))).get('results') or []:
+            if isinstance(row, dict) and str(row.get('index', '')).isdigit():
+                found[int(row['index'])] = row
         contested = 0
         for index, item in enumerate(opportunities):
-            verdict = verdicts.get(index) or {}
-            status = verdict.get('verdict') if verdict.get('verdict') in ('confirmado', 'parcial', 'contestado') else 'nao_verificado'
-            item['verification'] = {'verdict': status, 'is_recent': verdict.get('is_recent'),
-                                    'has_primary_source': verdict.get('has_primary_source'),
-                                    'corroborating_sources': int(_num(verdict.get('corroborating_sources'), 0, 20)),
-                                    'notes': str(verdict.get('notes') or '')[:600]}
-            if status in ('contestado', 'nao_verificado', 'parcial'):
+            row = found.get(index) or {}
+            verdict = row.get('verdict') if row.get('verdict') in ('confirmado', 'parcial', 'contestado') else 'nao_verificado'
+            item['verification'] = {
+                'verdict': verdict, 'is_recent': row.get('is_recent'),
+                'other_sources': [str(url) for url in row.get('other_sources') or [] if str(url).startswith('http')][:5],
+                'contradiction': str(row.get('contradiction') or '')[:300],
+                'notes': str(row.get('notes') or row.get('contradiction') or '')[:600]}
+            if verdict != 'confirmado':
                 # Evidência fraca baixa as duas notas; contestada derruba a oportunidade para "ignorar".
-                points = {'contestado': 20, 'nao_verificado': 12, 'parcial': 6}[status]
-                for key in ('editorial', 'paid'):
+                points = {'contestado': 20, 'nao_verificado': 12, 'parcial': 6}[verdict]
+                for key, weights in (('editorial', scoring.EDITORIAL_WEIGHTS), ('paid', scoring.PAID_WEIGHTS)):
                     breakdown = item[key]
-                    penalties = {**breakdown.penalties, 'baixa_confianca': points}
-                    weights = scoring.EDITORIAL_WEIGHTS if key == 'editorial' else scoring.PAID_WEIGHTS
-                    item[key] = scoring.weighted(breakdown.criteria, weights, penalties)
-                item['quadrant'] = 'ignorar' if status == 'contestado' else scoring.quadrant(item['editorial'].score, item['paid'].score)
-                contested += status == 'contestado'
+                    item[key] = scoring.weighted(breakdown.criteria, weights, {**breakdown.penalties, 'baixa_confianca': points})
+                item['quadrant'] = 'ignorar' if verdict == 'contestado' else scoring.quadrant(item['editorial'].score, item['paid'].score)
+                contested += verdict == 'contestado'
         confirmed = sum(1 for item in opportunities if item['verification']['verdict'] == 'confirmado')
         self._done('verify', f'{confirmed} confirmadas, {contested} contestadas', tokens)
         return opportunities
+
+    def _annotate(self, opportunities, ctx):
+        """Nível de cada fonte, se o link abre e se está na janela; selo de confiança calculado em Python."""
+        urls = sorted({signal.get('url') for item in opportunities for signal in item['signals'] if signal.get('url')})
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            status = dict(zip(urls, pool.map(check_url, urls)))
+        since = datetime.now(timezone.utc) - timedelta(days=self.params['recency_days'])
+        for item in opportunities:
+            for signal in item['signals']:
+                look = source_base.lookup(signal.get('url') or '', ctx.get('site'))
+                when = parse_date(signal.get('published_at'))
+                signal.update(tier=look['tier'], domain=look['domain'], url_status=status.get(signal.get('url'), 'sem_url'),
+                              in_window=None if when is None else when >= since)
+            alive = [signal['url'] for signal in item['signals'] if signal.get('url') and signal['url_status'] != 'quebrado']
+            verification = item.setdefault('verification', {'verdict': 'nao_verificado', 'other_sources': []})
+            verification['confidence'] = source_base.confidence(
+                alive + verification.get('other_sources', []), ctx.get('site'),
+                contradicted=bool(verification.get('contradiction')) or verification.get('verdict') == 'contestado')
+            verification['primary_source'] = any(source_base.lookup(url, ctx.get('site'))['primary'] for url in alive)
+            verification['sources_ab'] = sum(signal['tier'] in ('A', 'B') for signal in item['signals'])
+            if verification['confidence'] == 'baixa':
+                item['quadrant'] = 'ignorar'
 
     def _save(self, opportunities):
         from dataclasses import asdict
@@ -411,7 +471,8 @@ class Runner:
                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)''',
                                 (signal_id, self.run_id, self.client_id, str(signal.get('headline') or item['title'])[:500],
                                  str(signal.get('source') or '')[:240], source_type, str(signal.get('url') or '')[:1000],
-                                 Json([{'url': signal.get('url'), 'title': signal.get('source'), 'published_at': signal.get('published_at')}]),
+                                 Json([{'url': signal.get('url'), 'title': signal.get('source'), 'published_at': signal.get('published_at'),
+                                        'tier': signal.get('tier'), 'url_status': signal.get('url_status')}]),
                                  Json(item.get('verification') or {})))
                 quadrant = item['quadrant'] if item['quadrant'] in QUADRANTS else 'ignorar'
                 cur.execute('''INSERT INTO cadu_radar_opportunities (id, client_id, run_id, brand_ref, project_ref, title, thesis,
@@ -421,7 +482,9 @@ class Runner:
                              item['editorial'].score, item['paid'].score, Json([asdict(place) for place in item['places']]),
                              Json({'editorial': asdict(item['editorial']), 'paid': asdict(item['paid']),
                                    'verification': item.get('verification') or {}, 'channels': item['channels'],
-                                   'window': item['window'], 'why': item['why']}),
+                                   'window': item['window'], 'why': item['why'],
+                                   'sources': [{k: signal.get(k) for k in ('url', 'source', 'domain', 'tier', 'url_status', 'published_at', 'in_window')}
+                                               for signal in item['signals']]}),
                              Json(sorted(set(item['editorial'].penalties) | set(item['paid'].penalties))), quadrant, Json(signal_ids)))
         conn.commit()
         self._done('save', f'{len(opportunities)} oportunidades salvas')
@@ -429,29 +492,32 @@ class Runner:
     def execute(self):
         ctx = self._context()
         topic = self._topic(ctx)
+        domains, values = self._values(ctx, topic)
         app = current_app._get_current_object()
 
         def in_app(function, *args):
             with app.app_context():
                 return function(*args)
 
-        # Os dois fluxos de descoberta não dependem um do outro: rodam juntos.
-        with ThreadPoolExecutor(max_workers=2, thread_name_prefix=f'radar-{self.run_id[:8]}') as pool:
-            discovered_future = pool.submit(in_app, self._discover, ctx, topic)
-            sources_future = pool.submit(in_app, self._search, topic)
-            discovered = _safe(discovered_future, {'text': '', 'urls': []}, self, 'discover')
-            sources = _safe(sources_future, [], self, 'search')
-        if not discovered['text'] and not sources:
-            raise RuntimeError('Nenhum fluxo de descoberta trouxe resultado.')
-        evidence = self._extract(discovered, sources)
-        opportunities, packet = self._judge(ctx, topic, discovered, evidence)
-        opportunities = self._verify(opportunities, packet)
+        stages = [stage for stage in PARALLEL if self._step(stage)['status'] == 'pending']
+        found = {}
+        # As buscas não dependem uma da outra: rodam juntas; uma que falha não derruba as outras.
+        with ThreadPoolExecutor(max_workers=3, thread_name_prefix=f'radar-{self.run_id[:8]}') as pool:
+            futures = {stage: pool.submit(in_app, self._discover, stage, values) for stage in stages}
+            for stage, future in futures.items():
+                found[stage] = _safe(future, {'text': '', 'facts': [], 'cited': []}, self, stage)
+        if not any(item['facts'] or item['cited'] for item in found.values()):
+            raise RuntimeError('Nenhuma busca trouxe resultado.')
+        packet, text = self._extract(found, domains)
+        opportunities = self._judge(ctx, topic, text, packet)
+        opportunities = self._verify(opportunities)
+        self._annotate(opportunities, ctx)
         self._save(opportunities)
         _finish(self.run_id, 'done')
 
 
 def _safe(future, fallback, runner, key):
-    """Um fluxo que falha não derruba o outro; a etapa aparece como falha na tela."""
+    """Uma busca que falha não derruba as outras; a etapa aparece como falha na tela."""
     try:
         return future.result()
     except Exception:  # noqa: BLE001
@@ -460,23 +526,10 @@ def _safe(future, fallback, runner, key):
         return fallback
 
 
-def _num(value, low=0, high=100):
-    try:
-        return max(low, min(high, float(value)))
-    except (TypeError, ValueError):
-        return low
-
-
-def _criteria(raw, allowed):
-    if not isinstance(raw, dict):
-        return {}
-    return {key: _num(value, 0, allowed[key] if allowed is scoring.PENALTY_CAPS else 100)
-            for key, value in raw.items() if key in allowed}
-
-
 def get_run(client_id, run_id):
     from ..cadu_family import repository
-    rows = repository.rows('''SELECT id, status, steps, cost, focus, brand_ref, project_ref, error, created_at, finished_at
+    rows = repository.rows('''SELECT id, status, steps, cost, focus, brand_ref, project_ref, params, trigger, watch_id, error,
+                                     created_at, finished_at
                                 FROM cadu_radar_runs WHERE id = %s AND client_id = %s''', (str(run_id), int(client_id)))
     if not rows:
         return None
@@ -492,5 +545,29 @@ def get_run(client_id, run_id):
 
 def latest_run(client_id):
     from ..cadu_family import repository
+    _expire_dead_runs(client_id)
     rows = repository.rows('SELECT id FROM cadu_radar_runs WHERE client_id = %s ORDER BY created_at DESC LIMIT 1', (int(client_id),))
     return get_run(client_id, rows[0]['id']) if rows else None
+
+
+def list_runs(client_id, *, limit=30, watch_id=None):
+    """Consultas realizadas: uma linha por busca, com o que ela achou e quanto custou."""
+    from ..cadu_family import repository
+    _expire_dead_runs(client_id)
+    clauses, params = ['r.client_id = %s'], [int(client_id)]
+    if watch_id:
+        clauses.append('r.watch_id = %s')
+        params.append(str(watch_id))
+    params.append(max(1, min(int(limit), 100)))
+    rows = repository.rows(f'''SELECT r.id, r.status, r.focus, r.brand_ref, r.project_ref, r.params, r.trigger, r.watch_id, r.error,
+                                      r.cost, r.created_at, r.finished_at,
+                                      COUNT(o.id) AS opportunities,
+                                      COUNT(o.id) FILTER (WHERE o.quadrant <> 'ignorar') AS actionable,
+                                      MAX(GREATEST(o.editorial_score, o.paid_score)) AS top_score
+                                 FROM cadu_radar_runs r LEFT JOIN cadu_radar_opportunities o ON o.run_id = r.id
+                                WHERE {' AND '.join(clauses)}
+                             GROUP BY r.id ORDER BY r.created_at DESC LIMIT %s''', tuple(params))
+    for row in rows:
+        row['tokens'] = int((row.get('cost') or {}).get('tokens') or 0)
+        row.pop('cost', None)
+    return rows

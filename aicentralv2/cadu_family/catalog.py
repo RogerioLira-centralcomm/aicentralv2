@@ -14,11 +14,11 @@ PRODUCTS = {
         'faturamento': ('Faturamento', '/checkout-plano'),
     }},
     'planner': {'name': 'SmartPlanner', 'navigation': (
-        ('Planejar', ('inicio', 'planos', 'radar', 'audiencias', 'canais', 'formatos', 'interativos', 'places', 'portais', 'monitoramento')),
+        ('Planejar', ('inicio', 'planos', 'radar', 'radares', 'audiencias', 'canais', 'formatos', 'interativos', 'places', 'portais', 'monitoramento')),
         ('Entregas', ('docs',)),
     ), 'modules': {
         'inicio': ('Visão geral', None),
-        'planos': ('Planos de mídia', None), 'radar': ('Radar de Oportunidades', None),
+        'planos': ('Planos de mídia', None), 'radar': ('Radar de Oportunidades', None), 'radares': ('Meus radares', None),
         'audiencias': ('Audiências', '/audiencias'),
         'canais': ('Canais', '/canais'), 'formatos': ('Formatos', '/formatos'),
         'interativos': ('Interativos', '/interativos'), 'docs': ('Docs', '/smart-docs'),

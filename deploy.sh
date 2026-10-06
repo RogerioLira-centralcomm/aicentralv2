@@ -353,6 +353,8 @@ if should_run "$WORKERS_STATE_FILE" "${FORCE_WORKERS:-0}" deploy requirements.tx
     CONVERSATION_MEMORY_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_conversation_memory_worker.sh >> "$DEPLOY_LOG" 2>&1
     # Verificação diária de ads.txt dos portais do Planner (depende da migração add_cadu_planner_portal_programmatic).
     PLANNER_MONITOR_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_planner_portal_ads_timer.sh >> "$DEPLOY_LOG" 2>&1
+    # Radares ativos do Planner: o comando só age com CADU_RADAR_ENABLED e a migração add_cadu_radar_v2 aplicada.
+    RADAR_WATCH_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_radar_watch_timer.sh >> "$DEPLOY_LOG" 2>&1
     record_state "$WORKERS_STATE_FILE"
 else
     echo "  > Workers sem alteracoes; reiniciando apenas o worker de midia."

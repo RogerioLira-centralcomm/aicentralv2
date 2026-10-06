@@ -526,6 +526,58 @@ Somando com as duas rodadas anteriores no cenário Cemig, o F1 venceu ou empatou
 
 Hoje a reserva é fixa em 15.207 tokens. Para o cliente 174, o débito real do F1 é de cerca de 550 tokens.
 
+### Radar v2 entregue em duas páginas (2026-10-06)
+
+O Radar passou a ter duas páginas, para separar quem cria de quem acompanha, poupar recursos e facilitar a manutenção:
+
+| Página | O que faz |
+|---|---|
+| **Novo radar** (`/radar`) | Wizard de 5 passos, no mesmo padrão do Planejar. Depois de enviar, a mesma URL (`?run=<id>`) mostra a busca ao vivo e os resultados. |
+| **Meus radares** (`/radares`) | Radares ativos (pausar, retomar, apagar) e as consultas realizadas, com resultado e custo. Só lê e gerencia. |
+
+**Wizard.** Cinco passos, todos opcionais, com as cenas novas à esquerda e o rascunho salvo na sessão:
+
+1. **Marca:** escolher a marca e o projeto. O Radar mostra o que já sabe do perfil e o que falta (concorrentes, público, posicionamento).
+2. **Tema:** campo de tema com seis ideias de busca prontas, até três lentes e o objetivo (conteúdo, mídia ou os dois).
+3. **Onde e quando:** praça e janela de 7, 30 ou 60 dias.
+4. **Fontes:** imprensa conhecida e buscas em alta podem ser desligadas. A busca aberta e a conferência na web ficam sempre ligadas.
+5. **Revisão:** resumo, custo reservado e a opção "Me avise quando houver novidade", com frequência de 1, 2 ou 3 vezes por dia.
+
+**Pipeline de produção = F1.**
+
+- Três buscas do Perplexity em paralelo, uma delas só nos veículos da base curada, com os regionais da praça.
+- Leitura das páginas pelo Firecrawl, com o leitor Python como reserva.
+- Juiz `gpt-5.4-mini` e conferência na web com o `sonar`.
+- Selo de confiança calculado pela base de fontes, com o teste real de cada link.
+- Tudo via OpenRouter, cobrado pelo custo em US$. A reserva também é em US$ (0,15), e não mais 15.207 tokens fixos.
+- O cartão da oportunidade mostra o selo e as fontes, com o nível de cada uma e o aviso "link não abre".
+
+**Radares ativos.**
+
+- A tabela `cadu_radar_watches` guarda os radares.
+- O comando `flask cadu_family radar-due` pega, a cada 5 minutos, os radares no horário, com `FOR UPDATE SKIP LOCKED`, e roda cada um na própria linha de comando, fora do servidor web.
+- Os horários são 8h (1 vez), 8h e 17h (2 vezes) e 8h, 13h e 18h (3 vezes), no fuso de Brasília.
+- Cada rodada é cobrada do dono do radar.
+- Sem saldo, o radar vai para "Sem créditos" e para de tentar até alguém retomá-lo.
+- O limite é de 10 radares por cliente.
+
+**Outras correções do pipeline.**
+
+- Um run cuja execução morreu (deploy ou reinício) perde o lease e vira falha em 5 minutos, em vez de travar a marca.
+- A trava de busca simultânea passou a ser por marca, e não por cliente.
+
+**Para ligar em produção.** Nada disso está em produção ainda:
+
+1. Aplicar `migrations/add_cadu_radar_v2.sql`. Já está no `ORDER.txt`. Foi testada num Postgres local, aplicada duas vezes sem erro, e as consultas reais foram exercitadas ali. Não foi rodada no banco remoto.
+2. Fazer o deploy. O `deploy.sh` instala o timer `cadu-radar-watch`, que não faz nada sem `CADU_RADAR_ENABLED` ou sem a migração.
+3. Recarregar o saldo do OpenRouter. Estava em US$ 0,12.
+
+**O que ainda não existe, e a tela não promete:**
+
+- avisar só do que é **novo**: hoje cada rodada do radar é uma busca completa, sem a impressão digital dos sinais da fase 2;
+- aviso no sino ou por e-mail, e o limite de nota para alertar (`min_score` já está na tabela);
+- o agente que aprende o que priorizar (fase 4).
+
 ### Ajuda ao usuário na tela do Radar (2026-10-06)
 
 - **Ideias de busca:**

@@ -148,11 +148,14 @@ export function CatalogPage({boot, request, selection, notify}) {
   const [query, setQuery] = useState(() => fromUrl('q'));
   const [categories, setCategories] = useState([]);
   const [category, setCategory] = useState(() => fromUrl('categoria'));
-  const [city, setCity] = useState(() => fromUrl('cidade'));
-  const [groupBy, setGroupBy] = useState('categoria');
+  const [city, setCity] = useState(() => fromUrl('cidade') || (() => { try { return window.localStorage.getItem('planner.places.city') || ''; } catch { return ''; } })());
+  const remembered = (key, fallback) => { try { return JSON.parse(window.localStorage.getItem(`planner.${kind}.${key}`)) ?? fallback; } catch { return fallback; } };
+  const [groupBy, setGroupByState] = useState(() => remembered('groupBy', 'categoria'));
+  const setGroupBy = value => { setGroupByState(value); try { window.localStorage.setItem(`planner.${kind}.groupBy`, JSON.stringify(value)); } catch { /* not remembered */ } };
   const [view, setViewState] = useState(() => { try { return window.localStorage.getItem('planner.canais.view') === 'lista' ? 'lista' : 'grade'; } catch { return 'grade'; } });
   const setView = value => { setViewState(value); try { window.localStorage.setItem('planner.canais.view', value); } catch { /* the choice just is not remembered */ } };
-  const [more, setMore] = useState({measurable: false, formats: false});
+  const [more, setMoreState] = useState(() => remembered('more', {measurable: false, formats: false}));
+  const setMore = update => setMoreState(current => { const next = typeof update === 'function' ? update(current) : update; try { window.localStorage.setItem(`planner.${kind}.more`, JSON.stringify(next)); } catch { /* not remembered */ } return next; });
   const {activePlan} = useContext(PlannerChrome);
   // Chip counts come from the full list that arrives with the page, not from the filtered one.
   const categoryCounts = useMemo(() => {
@@ -233,14 +236,15 @@ export function CatalogPage({boot, request, selection, notify}) {
       <span className="planner-toolbar__count" aria-live="polite">{countLabel}</span>
     </div>
     {shelf && (boot.categories || []).length > 0 && <div className="planner-chipbar">
-      <div className="planner-segmented planner-chips" role="group" aria-label="Categoria">
-        {[['', 'Todos', boot.records?.length || 0], ...boot.categories.map(value => [value, value, categoryCounts.get(value) || 0])].map(([value, label, count]) => <button key={value || 'all'} type="button" aria-pressed={category === value}
-          className={category === value ? 'is-active' : ''} onClick={() => { setCategory(value); setOffset(0); }}>{label}{count > 0 && <span>{count}</span>}</button>)}
-      </div>
+      <CaduSelectField className="planner-chipbar__select" aria-label="Categoria" value={category} onChange={event => { setCategory(event.target.value); setOffset(0); }}
+        options={[{value: '', label: `Todas as categorias (${boot.records?.length || 0})`}, ...boot.categories.map(value => ({value, label: `${value} (${categoryCounts.get(value) || 0})`}))]}/>
+      {kind === 'places' && (boot.cities || []).length > 0 && <CaduSelectField className="planner-chipbar__select" aria-label="Cidade" value={city}
+        onChange={event => { setCity(event.target.value); setOffset(0); try { window.localStorage.setItem('planner.places.city', event.target.value); } catch { /* not remembered */ } }}
+        options={[{value: '', label: 'Todas as cidades'}, ...boot.cities.map(value => ({value, label: value}))]}/>}
+      {kind === 'canais' && <CaduSelectField className="planner-chipbar__select" aria-label="Agrupar por" value={groupBy} disabled={Boolean(category)}
+        onChange={event => setGroupBy(event.target.value)}
+        options={[{value: 'categoria', label: 'Agrupar: categoria'}, {value: 'papel', label: 'Agrupar: papel no plano'}]}/>}
       <div className="planner-chipbar__tools">
-        {kind === 'places' && (boot.cities || []).length > 0 && <CaduSelectField className="planner-chipbar__city" aria-label="Cidade" value={city}
-          onChange={event => { setCity(event.target.value); setOffset(0); }}
-          options={[{value: '', label: 'Todas as cidades'}, ...boot.cities.map(value => ({value, label: value}))]}/>}
         {kind === 'canais' && <details className="planner-multi planner-morefilters">
           <summary><Icon name="list" size={14}/>Mais filtros{(more.measurable || more.formats) ? <b>{[more.measurable, more.formats].filter(Boolean).length}</b> : null}</summary>
           <div className="planner-multi__menu">
@@ -253,11 +257,6 @@ export function CatalogPage({boot, request, selection, notify}) {
             className={view === value ? 'is-active' : ''} onClick={() => setView(value)}><Icon name={icon} size={14}/>{label}</button>)}
         </div>}
       </div>
-      {kind === 'canais' && !category && <div className="planner-segmented planner-groupby" role="group" aria-label="Agrupar por">
-        <small>Agrupar por</small>
-        {[['categoria', 'Categoria'], ['papel', 'Papel no plano']].map(([value, label]) => <button key={value} type="button" aria-pressed={groupBy === value}
-          className={groupBy === value ? 'is-active' : ''} onClick={() => setGroupBy(value)}>{label}</button>)}
-      </div>}
     </div>}
     {portalMode && <div className="planner-portal-filters">
       <div className="planner-segmented" role="group" aria-label="Escopo">

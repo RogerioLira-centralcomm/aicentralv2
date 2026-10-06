@@ -21,8 +21,6 @@ function Stats({item}) {
     <Icon name={icon} size={16}/><span><dt>{label}</dt><dd>{value}</dd></span></div>)}</dl>;
 }
 
-const QuoteLink = ({href}) => <a className="channel-card__quote" href={href} title="A cotação é pedida dentro do plano">Solicitar cotação</a>;
-
 /**
  * Channel as a shelf item: real photo (or the logo when there is none), the
  * numbers that help choose and one clear action. No prices: media is quoted.
@@ -50,8 +48,6 @@ export function ChannelCard({item, urls, selected, onToggle, quoteUrl}) {
       <Stats item={item}/>
       <div className="channel-card__foot">
         <SelectionButton size="md" quiet selected={selected} onToggle={onToggle}/>
-        <QuoteLink href={quoteUrl}/>
-        <span className="channel-card__formats">{Number(item.formats_count) > 0 ? `${item.formats_count} ${Number(item.formats_count) === 1 ? 'formato' : 'formatos'}` : 'Formatos sob consulta'}</span>
       </div>
     </div>
   </article>;
@@ -68,6 +64,6 @@ export function ChannelRow({item, urls, selected, onToggle, quoteUrl}) {
     </span>
     <span className="channel-row__text">{item.description}</span>
     <Stats item={item}/>
-    <span className="channel-row__actions"><SelectionButton size="md" quiet selected={selected} onToggle={onToggle}/><QuoteLink href={quoteUrl}/></span>
+    <span className="channel-row__actions"><SelectionButton size="md" quiet selected={selected} onToggle={onToggle}/></span>
   </article>;
 }

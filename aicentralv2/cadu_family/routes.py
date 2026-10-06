@@ -236,7 +236,9 @@ def error(exc):
 def forbidden(exc):
     """O tratador global de 403 devolve HTML e esconde o motivo; nas rotas da API o motivo vai em JSON."""
     if '/api/' in request.path:
-        return jsonify(error=exc.description), 403
+        # abort(403) sem descrição traz o texto padrão em inglês do Werkzeug: a tela mostraria isso ao usuário.
+        reason = exc.description if exc.description and not str(exc.description).startswith("You don't have") else 'Você não tem permissão para esta ação.'
+        return jsonify(error=reason), 403
     return render_template('errors/403.html'), 403
 
 

@@ -58,3 +58,12 @@ def test_api_403_returns_the_reason_instead_of_a_generic_html_page():
     with app.test_request_context('/familia/api/planner/radar/runs', method='POST'):
         response, status = routes.forbidden(Forbidden(description='Migração em modo de consulta. Gravações não estão habilitadas.'))
         assert status == 403 and response.get_json() == {'error': 'Migração em modo de consulta. Gravações não estão habilitadas.'}
+
+
+def test_api_403_without_a_description_is_not_shown_in_english():
+    from werkzeug.exceptions import Forbidden
+
+    from aicentralv2.cadu_family import routes
+    with Flask(__name__).test_request_context('/familia/api/planner/radar/runs', method='POST'):
+        response, status = routes.forbidden(Forbidden())
+        assert status == 403 and response.get_json() == {'error': 'Você não tem permissão para esta ação.'}

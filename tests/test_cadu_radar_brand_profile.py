@@ -47,14 +47,17 @@ def test_nothing_new_means_no_write_at_all():
     assert bp.build_update(PROFILE) == ({}, [])
 
 
-def test_each_update_is_recorded_with_provenance_and_history():
-    changes, _ = bp.build_update({'field_provenance': {'name': {'confidence': 0.9}}}, competitors=[{'name': 'Light'}], sources=['https://x.com', 'lixo'], actor_id=2)
-    assert changes['field_provenance']['name'] == {'confidence': 0.9}  # o que existia fica
-    assert changes['field_provenance']['competitors']['source_urls'] == ['https://x.com']
-    assert changes['radar_enrichment']['history'][-1]['fields'] == ['competitors'] and changes['radar_enrichment']['history'][-1]['by'] == 2
-    older = {'radar_enrichment': {'history': [{'at': str(index)} for index in range(30)]}}
+def test_each_update_is_recorded_in_radar_enrichment_and_never_touches_field_provenance():
+    profile = {'field_provenance': {'name': {'confidence': 0.9}}}
+    changes, _ = bp.build_update(profile, competitors=[{'name': 'Light'}], sources=['https://x.com', 'lixo'], actor_id=2)
+    assert 'field_provenance' not in changes  # outros fluxos escrevem lá, com estados de evidência fechados
+    record = changes['radar_enrichment']
+    assert record['sources']['competitors']['urls'] == ['https://x.com']
+    assert record['history'][-1]['fields'] == ['competitors'] and record['history'][-1]['by'] == 2
+    older = {'radar_enrichment': {'history': [{'at': str(index)} for index in range(30)], 'sources': {'positioning': {'urls': ['u']}}}}
     changes, _ = bp.build_update(older, competitors=[{'name': 'Nova'}])
     assert len(changes['radar_enrichment']['history']) == bp.HISTORY_LIMIT  # o histórico não cresce sem limite
+    assert 'positioning' in changes['radar_enrichment']['sources']  # a proveniência dos outros campos é mantida
 
 
 def test_save_sends_only_changed_keys_to_the_official_writer(monkeypatch):
@@ -64,7 +67,7 @@ def test_save_sends_only_changed_keys_to_the_official_writer(monkeypatch):
     monkeypatch.setattr(repo.CreativeModelingRepository, 'update_client_brand_profile', lambda self, brand_id, changes: sent.append((brand_id, changes)))
     result = bp.save(174, 2, 'studio:31', competitors=[{'name': 'Light'}], positioning='Energia confiável')
     (brand_id, changes), = sent
-    assert brand_id == 31 and sorted(changes) == ['competitors', 'field_provenance', 'positioning', 'radar_enrichment']
+    assert brand_id == 31 and sorted(changes) == ['competitors', 'positioning', 'radar_enrichment']
     assert 'differentiators' not in changes and 'target_audience' not in changes  # o resto do perfil nem é enviado
     assert result['changed'] == ['competitors', 'positioning'] and result['gaps'] == []
     sent.clear()

@@ -24,7 +24,7 @@ export function RadarAnimation({steps, scene, running = true, className = ''}) {
   const active = scene ?? sceneFor(steps);
   return <div className={`radar-anim${running ? ' is-running' : ''} ${className}`} aria-hidden="true" data-scene={active}>
     {SCENES.map((file, index) => <img key={file} className={`radar-anim__scene${index === active ? ' is-current' : ''}`} src={ART + file} alt=""
-      width="960" height="640" decoding="async" onError={event => { if (event.currentTarget.src !== FALLBACK) event.currentTarget.src = FALLBACK; }}/>)}
+      width="960" height="640" decoding="async" onError={event => { if (event.currentTarget.getAttribute('src') !== FALLBACK) event.currentTarget.setAttribute('src', FALLBACK); }}/>)}
     <span className="radar-anim__sweep"/>
     <span className="radar-anim__orbit radar-anim__orbit--one"><i/></span>
     <span className="radar-anim__orbit radar-anim__orbit--two"><i/></span>

@@ -155,14 +155,15 @@ def build_update(profile, *, competitors=None, positioning=None, target_audience
         return {}, []
     stamp = _now().isoformat()
     urls = [str(url) for url in sources or [] if str(url).startswith('http')][:8]
-    provenance = dict(profile.get('field_provenance') or {})
-    for key in changed:
-        provenance[key] = {'confidence': 0.7, 'source_urls': urls, 'source_count': len(urls), 'classification': 'market_context',
-                           'evidence_status': 'radar_research', 'updated_at': stamp}
-    history = list((profile.get('radar_enrichment') or {}).get('history') or [])
+    # A proveniência fica só em radar_enrichment, chave que apenas este fluxo escreve: field_provenance é de outros
+    # fluxos (auditoria de marca) e seus estados de evidência são fechados, então não é regravado aqui.
+    enrichment = profile.get('radar_enrichment') or {}
+    history = list(enrichment.get('history') or [])
     history.append({'at': stamp, 'by': actor_id, 'fields': changed, 'sources': urls})
-    changes['field_provenance'] = provenance
-    changes['radar_enrichment'] = {'updated_at': stamp, 'history': history[-HISTORY_LIMIT:]}
+    sources_by_field = dict(enrichment.get('sources') or {})
+    for key in changed:
+        sources_by_field[key] = {'urls': urls, 'updated_at': stamp}
+    changes['radar_enrichment'] = {'updated_at': stamp, 'sources': sources_by_field, 'history': history[-HISTORY_LIMIT:]}
     return changes, changed
 
 

@@ -67,8 +67,13 @@ const pageHtml = (mode, section, extra = {}) => `<!doctype html><html lang="pt-B
         const dialog = page.getByRole('dialog');
         await dialog.waitFor();
         assert.equal(await dialog.getAttribute('data-rac'), '', `${pathname} ${width}: Untitled UI React Aria modal mounted`);
+        // O painel entra deslizando; mede depois que a animação termina.
+        await page.evaluate(() => Promise.all(document.getAnimations().map(animation => animation.finished.catch(() => null))));
         const dialogBounds = await dialog.boundingBox();
-        assert.ok(dialogBounds && dialogBounds.x >= 15 && dialogBounds.x + dialogBounds.width <= width - 15, `${pathname} ${width}: modal fits viewport with gutters`);
+        // Projetos abre modal centralizado com margens; Marcas abre painel lateral (slideout) encostado à direita.
+        const centered = dialogBounds && dialogBounds.x >= 15 && dialogBounds.x + dialogBounds.width <= width - 15;
+        const slideout = dialogBounds && dialogBounds.x >= 0 && Math.abs(dialogBounds.x + dialogBounds.width - width) <= 1 && dialogBounds.height <= 901;
+        assert.ok(pathname === '/brands' ? slideout : centered, `${pathname} ${width}: modal fits viewport ${JSON.stringify(dialogBounds)}`);
         assert.doesNotMatch(await dialog.evaluate(element => getComputedStyle(element).fontFamily), /Times New Roman/i, `${pathname} ${width}: modal inherits CADU typography`);
         if (pathname === '/brands' && width === 820 && process.env.CADU_UNTITLED_MODAL_SCREENSHOT) await page.screenshot({path: process.env.CADU_UNTITLED_MODAL_SCREENSHOT});
         if (width === 820) {
@@ -151,6 +156,9 @@ const pageHtml = (mode, section, extra = {}) => `<!doctype html><html lang="pt-B
         assert.ok(request.postData()?.includes('Pacote de teste'), 'Credits: purchase payload reaches API');
         assert.ok(request.postData()?.includes('Pedido do time'), 'Credits: textarea value reaches API');
         assert.ok(request.postData()?.includes('postpaid'), 'Credits: billing selection reaches API');
+        await dialog.getByRole('status').waitFor();
+        // O botão desabilitado durante o envio solta o foco; Escape precisa do foco dentro do modal.
+        await dialog.getByRole('button', {name:'Voltar'}).focus();
       }
       await page.keyboard.press('Escape');
       await dialog.waitFor({state:'hidden'});
@@ -166,7 +174,7 @@ const pageHtml = (mode, section, extra = {}) => `<!doctype html><html lang="pt-B
         assert.ok(bounds && bounds.x >= 15 && bounds.x + bounds.width <= width - 15, `${pathname} ${width}: detail modal fits viewport`);
         await page.keyboard.press('Escape');
         await dialog.waitFor({state:'hidden'});
-        const visiblePrimaryColors = await page.locator('button[data-cadu-untitled-button]:visible').evaluateAll(elements => elements.map(element => ({label:element.textContent.trim(), background:getComputedStyle(element).backgroundColor, text:getComputedStyle(element.querySelector('[data-text]') || element).color})));
+        const visiblePrimaryColors = await page.locator('button[data-cadu-untitled-button][data-cadu-variant="primary"]:visible').evaluateAll(elements => elements.map(element => ({label:element.textContent.trim(), background:getComputedStyle(element).backgroundColor, text:getComputedStyle(element.querySelector('[data-text]') || element).color})));
         for (const button of visiblePrimaryColors) {
           assert.equal(button.background, 'rgb(8, 119, 101)', `${pathname} ${width}: ${button.label} keeps Workspace skin`);
           assert.equal(button.text, 'rgb(255, 255, 255)', `${pathname} ${width}: ${button.label} text has contrast`);
@@ -200,32 +208,9 @@ const pageHtml = (mode, section, extra = {}) => `<!doctype html><html lang="pt-B
       await page.locator('.cadu-ds-home-shell').waitFor();
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       assert.ok(overflow <= 1, `Home ${width}: no horizontal overflow`);
-      await page.goto('http://workspace.test/workspace#atalhos');
-      await page.reload();
-      const shortcutDialog = page.getByRole('dialog', {name:'Configurar dock'});
-      await shortcutDialog.waitFor();
-      assert.equal(await shortcutDialog.getAttribute('data-rac'), '', `Home ${width}: Untitled UI shortcut modal`);
-      const shortcutBounds = await shortcutDialog.boundingBox();
-      assert.ok(shortcutBounds && shortcutBounds.x >= 15 && shortcutBounds.x + shortcutBounds.width <= width - 15, `Home ${width}: shortcut modal fits viewport`);
-      await page.keyboard.press('Escape');
-      await shortcutDialog.waitFor({state:'hidden'});
-      if (width > 760) {
-        const accountTrigger = page.getByRole('button', {name:'Abrir conta de Teste'});
-        await accountTrigger.click();
-        const menu = page.getByRole('menu', {name:'Conta e gestão'});
-        await menu.waitFor();
-        const menuBounds = await menu.boundingBox();
-        assert.ok(menuBounds && menuBounds.x >= 0 && menuBounds.x + menuBounds.width <= width, `Home ${width}: account menu fits viewport`);
-        const firstItem = menu.getByRole('menuitem').first();
-        await firstItem.waitFor();
-        await page.waitForFunction(() => document.activeElement?.getAttribute('role') === 'menuitem');
-        assert.equal(await firstItem.evaluate(element => element === document.activeElement), true, `Home ${width}: account menu focuses first link`);
-        await page.keyboard.press('ArrowDown');
-        await page.waitForFunction(() => document.querySelectorAll('.cadu-ds-account-menu [role="menuitem"]')[1] === document.activeElement);
-        await page.keyboard.press('Escape');
-        await menu.waitFor({state:'hidden'});
-        assert.equal(await accountTrigger.evaluate(element => element === document.activeElement), true, `Home ${width}: account focus returns to trigger`);
-      }
+      // A Home não tem mais o modal "Configurar dock" nem o menu de conta (Dock Station removida em 6259f8c0f;
+      // a conta fica no rodapé da sidebar, SidebarAccount).
+      assert.equal(await page.getByRole('dialog', {name:'Configurar dock'}).count(), 0, `Home ${width}: no legacy dock modal`);
     }
     assert.deepEqual(errors, []);
     console.log('PASS: Workspace kit controls, dialogs, account navigation and page widths at desktop, tablet and phone sizes.');

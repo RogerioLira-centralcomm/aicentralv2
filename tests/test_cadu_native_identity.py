@@ -47,7 +47,8 @@ class NativeIdentityTest(TestCase):
              mock.patch('aicentralv2.cadu_identity.routes.db.get_db') as database:
             response = self.client.get('/auth/google/callback?code=test&state=test', base_url='https://auth.centralcomm.media')
             self.assertEqual(response.status_code, 303)
-            self.assertEqual(response.location, 'https://studio.centralcomm.media/')
+            # O login passa pela ponte mensurável /acesso-confirmado, que leva ao destino pedido.
+            self.assertEqual(response.location, 'https://auth.centralcomm.media/acesso-confirmado')
             database.assert_not_called()
         cookie = response.headers['Set-Cookie']
         for attribute in ('Domain=centralcomm.media', 'Secure', 'HttpOnly', 'SameSite=Lax'):
@@ -57,6 +58,8 @@ class NativeIdentityTest(TestCase):
         self.assertIsNone(self.client.get('/test-session', base_url='https://unrelated.test').json['user'])
         with self.client.session_transaction(base_url='https://auth.centralcomm.media') as current:
             self.assertNotIn('family_context', current)
+            self.assertEqual(current['login_conversion']['next'], 'https://studio.centralcomm.media/')
+            self.assertEqual(current['login_conversion']['method'], 'google')
             self.assertEqual(current['user_photo_url'], 'https://lh3.googleusercontent.com/a/photo')
 
     def test_saved_cadu_photo_has_priority_over_google_picture(self):

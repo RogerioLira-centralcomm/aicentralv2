@@ -28,7 +28,9 @@ class CaduGrowthEmailTemplateTests(unittest.TestCase):
             for key in GROWTH_EMAIL_MODELS:
                 html = render_growth_email(key)
                 self.assertIn("CentralComm", html)
-                self.assertIn("https://cadu.centralcomm.media", html)
+                # CTA aponta para o domínio do próprio produto (product_url), não ao CADU_URL legado.
+                from aicentralv2.product_domains import product_url
+                self.assertIn(product_url(GROWTH_EMAIL_MODELS[key]['product']).rstrip('/'), html)
                 self.assertIn(f"{GROWTH_EMAIL_MODELS[key]['product']}-band-v2.png", html)
                 self.assertIn('class="brand-band"', html)
                 self.assertIn("<strong>", html)

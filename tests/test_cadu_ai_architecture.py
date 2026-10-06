@@ -6,6 +6,8 @@ PACKAGE = ROOT / 'aicentralv2'
 LEDGER_BOUNDARIES = {
     PACKAGE / 'cadu_credit_connector.py',
     PACKAGE / 'cadu_tool_billing.py',
+    # Concede/expira o lote da franquia mensal do plano (não consome saldo).
+    PACKAGE / 'cadu_plan_allowance.py',
 }
 
 

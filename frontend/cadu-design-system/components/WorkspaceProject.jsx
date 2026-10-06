@@ -11,6 +11,7 @@ import {csrf, request} from '../../conversations-v2/lib/api';
 import {WorkspaceMobileChrome} from './WorkspaceMobileChrome';
 import {useWorkspaceViewport} from '../hooks/useWorkspaceViewport';
 import {EntityContextRail, EntityNavigator} from './WorkspaceEntityPortal';
+import {SidebarNavButton, SidebarNavGroup, SidebarNavLink, SidebarNavMenu} from '../untitled-kit/sidebar-nav';
 import {WorkspaceNotificationCenter} from './WorkspaceNotificationCenter';
 import {dockProviderLogo} from '../dockExternal.mjs';
 import {WorkspaceFilesView} from './WorkspaceFilesView';
@@ -977,11 +978,19 @@ export function WorkspaceProject({bootstrap}) {
         {dropActive && <div className="cadu-ds-project-page-drop" role="status" aria-live="polite"><div className="cadu-ds-project-page-drop__card"><span className="cadu-ds-project-page-drop__icon"><ProjectIcon name="source"/></span><strong>Solte para adicionar ao projeto</strong><span>O arquivo será preservado e revisado antes de entrar na base do Cadu.</span></div></div>}
         {isMobile ? <WorkspaceMobileChrome eyebrow="Projeto" title={project.name || 'Projeto'} links={bootstrap.urls} logo={bootstrap.caduMark} solutionIcons={bootstrap.solutionIcons} contextItems={(project.resources || []).map(item => ({...item, detail:item.type || 'Conteúdo do projeto'}))}/> : <WorkspaceContextSidebar mode="home" rail bootstrap={bootstrap} links={bootstrap.urls} active="projetos" projects={bootstrap.projects || []} brands={bootstrap.brands || []}/>}<div className="cadu-ds-entity-portal cadu-ds-entity-portal--project">
         <EntityNavigator label={project.name || 'Projeto'} items={projectNav} activeId={projectView} collapsible storageKey="cadu:project-sidebar" identity={<><span className="cadu-ds-entity-nav__project-mark"><ProjectIcon name="context"/></span><span><small>Projeto</small><b title={project.name}>{project.name}</b></span></>}>
-          <span>Ações</span>
-          <button type="button" className="cadu-ds-entity-nav__conversation" onClick={startConversation}><ProjectIcon name="compose"/> Nova conversa</button>
-          {canEdit && <button type="button" onClick={() => setDialog('identity')}><ProjectIcon name="text"/> Editar contexto</button>}
-          {canEdit && <details className="cadu-ds-entity-nav__source-menu"><summary><ProjectIcon name="source"/> Adicionar ao projeto</summary><div><button type="button" onClick={() => setDialog('source-upload')}>Adicionar fonte</button><button type="button" onClick={() => setDialog('note')}>Adicionar nota</button><button type="button" onClick={() => setDialog('link')}>Adicionar link</button></div></details>}
-          <details className="cadu-ds-entity-nav__source-menu"><summary>Mais ações</summary><div>{bootstrap.canManageSharing && <button type="button" onClick={() => setDialog('sharing')}>Gerenciar acesso</button>}<a href={projectLinks.createPlan}>Criar plano de mídia</a><a href={projectLinks.createImage}>Criar imagem</a><a href={projectLinks.createVideo}>Criar vídeo</a>{canEdit && <form method="post" action={projectLinks.toggleStatus}><input type="hidden" name="_csrf" value={bootstrap.csrf}/><button type="submit">{project.status === 'arquivado' ? 'Reativar projeto' : 'Arquivar projeto'}</button></form>}{bootstrap.canManageProjects && <><button type="button" onClick={() => setDialog('merge')}>Mesclar com outro projeto</button><button type="button" className="is-danger" onClick={() => setDialog('delete-project')}>Excluir projeto</button></>}</div></details>
+          <SidebarNavGroup title="Ações">
+            <SidebarNavButton icon={<ProjectIcon name="compose"/>} label="Nova conversa" onClick={startConversation}/>
+            {canEdit && <SidebarNavButton icon={<ProjectIcon name="text"/>} label="Editar contexto" onClick={() => setDialog('identity')}/>}
+            {canEdit && <SidebarNavMenu icon={<ProjectIcon name="source"/>} label="Adicionar ao projeto"><SidebarNavButton label="Adicionar fonte" onClick={() => setDialog('source-upload')}/><SidebarNavButton label="Adicionar nota" onClick={() => setDialog('note')}/><SidebarNavButton label="Adicionar link" onClick={() => setDialog('link')}/></SidebarNavMenu>}
+            <SidebarNavMenu label="Mais ações">
+              {bootstrap.canManageSharing && <SidebarNavButton label="Gerenciar acesso" onClick={() => setDialog('sharing')}/>}
+              <SidebarNavLink href={projectLinks.createPlan} label="Criar plano de mídia"/>
+              <SidebarNavLink href={projectLinks.createImage} label="Criar imagem"/>
+              <SidebarNavLink href={projectLinks.createVideo} label="Criar vídeo"/>
+              {canEdit && <form method="post" action={projectLinks.toggleStatus}><input type="hidden" name="_csrf" value={bootstrap.csrf}/><SidebarNavButton type="submit" label={project.status === 'arquivado' ? 'Reativar projeto' : 'Arquivar projeto'}/></form>}
+              {bootstrap.canManageProjects && <><SidebarNavButton label="Mesclar com outro projeto" onClick={() => setDialog('merge')}/><SidebarNavButton destructive label="Excluir projeto" onClick={() => setDialog('delete-project')}/></>}
+            </SidebarNavMenu>
+          </SidebarNavGroup>
         </EntityNavigator>
         <section className="cadu-ds-project-content" data-project-view={projectView}>
         {isMobile && selectedResource && <ResourceRailCard resource={selectedResource} onClose={() => focusResource('')}/>}

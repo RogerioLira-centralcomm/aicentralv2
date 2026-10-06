@@ -8,6 +8,7 @@
 @source "./native-select.tsx";
 @source "./textarea.tsx";
 @source "./tabs.tsx";
+@source "./sidebar-nav.tsx";
 
 @custom-variant dark (&:where(.dark-mode, .dark-mode *));
 @custom-variant label (& [data-label]);

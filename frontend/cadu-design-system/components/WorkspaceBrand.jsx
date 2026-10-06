@@ -10,6 +10,7 @@ import {openWorkspaceDetail} from '../workspaceNavigation';
 import {WorkspaceMobileChrome} from './WorkspaceMobileChrome';
 import {useWorkspaceViewport} from '../hooks/useWorkspaceViewport';
 import {BrandCompletion, EntityContextRail, EntityNavigator} from './WorkspaceEntityPortal';
+import {SidebarNavButton, SidebarNavGroup} from '../untitled-kit/sidebar-nav';
 
 const assetLabels = {logo: 'Logo', reference: 'Referência', creative: 'Peça criativa', background: 'Fundo', support: 'Apoio visual', icon: 'Ícone', cta_style: 'Estilo de CTA'};
 const reviewStatus = {ready: 'Pronto para aprovação', review: 'Requer revisão'};
@@ -593,19 +594,17 @@ export function WorkspaceBrand({bootstrap}) {
         {isMobile ? <WorkspaceMobileChrome eyebrow="Marca" title={brand.name || 'Marca'} links={bootstrap.urls} logo={bootstrap.caduMark} solutionIcons={bootstrap.solutionIcons} contextItems={linkedProjects.map(item => ({...item, detail:'Projeto relacionado'}))}/> : <WorkspaceContextSidebar mode="home" rail bootstrap={bootstrap} links={bootstrap.urls} active="marcas" projects={bootstrap.projects || []} brands={bootstrap.brands || []}/>}
         <div className={`cadu-ds-entity-portal cadu-ds-entity-portal--brand${lifecycle === 'insufficient_information' ? ' is-no-rail' : ''}`}>
         {!isProcessing && <EntityNavigator label={brand.name || 'Marca'} items={brandNav} collapsible storageKey="cadu:brand-sidebar" identity={<><VisualIdentity src={brand.logoUrl} initials={brand.initials || brand.name} label={brand.name} color={brand.color || colors[0]?.hex}/><span><small>Marca</small><b>{brand.name}</b></span></>}>
-          {!isProcessing && lifecycle === 'insufficient_information' && <>
-            <span>Ações</span>
-            <button type="button" onClick={() => setDialog('link')}><Icon name="file" size={15}/> Criar ou vincular projeto</button>
-            {canEdit && <button type="button" onClick={() => setDialog('delete')}><Icon name="history" size={15}/> Apagar marca</button>}
-          </>}
-          {!isProcessing && lifecycle !== 'insufficient_information' && <>
-            <span>Ações</span>
-            {verified && <button type="button" className="cadu-ds-entity-nav__conversation" onClick={openConversation}><Icon name="compose" size={15}/> Conversar sobre a marca</button>}
-            {status === 'pending_approval' && canEdit && <form method="post" action={urls.approve}><Hidden name="_csrf" value={bootstrap.csrf}/><button type="submit" className="cadu-ds-entity-nav__conversation"><Icon name="check" size={15}/> Aprovar análise</button></form>}
-            {canEdit && <button type="button" onClick={() => setDialog('identity')}><Icon name="file" size={15}/> Editar dados</button>}
-            {canEdit && <button type="button" onClick={() => setDialog('audit')}><Icon name="pulse" size={15}/> {status ? 'Atualizar auditoria' : 'Preparar auditoria'}</button>}
-            {canEdit && auditHistory.length > 0 && urls.reevaluate && <form method="post" action={urls.reevaluate}><Hidden name="_csrf" value={bootstrap.csrf}/><button type="submit"><Icon name="history" size={15}/> Reavaliar dados salvos</button></form>}
-          </>}
+          {!isProcessing && lifecycle === 'insufficient_information' && <SidebarNavGroup title="Ações">
+            <SidebarNavButton icon={<Icon name="file" size={20}/>} label="Criar ou vincular projeto" onClick={() => setDialog('link')}/>
+            {canEdit && <SidebarNavButton destructive icon={<Icon name="close" size={20}/>} label="Apagar marca" onClick={() => setDialog('delete')}/>}
+          </SidebarNavGroup>}
+          {!isProcessing && lifecycle !== 'insufficient_information' && <SidebarNavGroup title="Ações">
+            {verified && <SidebarNavButton icon={<Icon name="compose" size={20}/>} label="Conversar sobre a marca" onClick={openConversation}/>}
+            {status === 'pending_approval' && canEdit && <form method="post" action={urls.approve}><Hidden name="_csrf" value={bootstrap.csrf}/><SidebarNavButton type="submit" icon={<Icon name="check" size={20}/>} label="Aprovar análise"/></form>}
+            {canEdit && <SidebarNavButton icon={<Icon name="file" size={20}/>} label="Editar dados" onClick={() => setDialog('identity')}/>}
+            {canEdit && <SidebarNavButton icon={<Icon name="pulse" size={20}/>} label={status ? 'Atualizar auditoria' : 'Preparar auditoria'} onClick={() => setDialog('audit')}/>}
+            {canEdit && auditHistory.length > 0 && urls.reevaluate && <form method="post" action={urls.reevaluate}><Hidden name="_csrf" value={bootstrap.csrf}/><SidebarNavButton type="submit" icon={<Icon name="history" size={20}/>} label="Reavaliar dados salvos"/></form>}
+          </SidebarNavGroup>}
         </EntityNavigator>}
         <section className="cadu-ds-brand-content">
           <header className="cadu-ds-brand-hero cadu-ds-entity-detail-header" id="marca-visao"><div className="cadu-ds-brand-hero__identity"><VisualIdentity src={brand.logoUrl} initials={brand.initials || brand.name} label={brand.name} color={brand.color || colors[0]?.hex}/></div><div className="cadu-ds-brand-hero__copy"><p>{brand.sector || 'Marca'}</p><h1>{brand.name}</h1>{!isProcessing && (profile.brandSummary || profile.positioning) && <span>{profile.brandSummary || profile.positioning}</span>}<div className="cadu-ds-brand-hero__meta"><span className={`cadu-ds-brand-status is-${lifecycle}`}>{lifecycle === 'approved' ? 'Pronta para uso' : lifecycle === 'pending_approval' ? 'Revisão pendente' : lifecycle === 'audit_processing' ? 'Em análise' : lifecycle === 'audit_failed' ? 'Análise não concluída' : lifecycle === 'data_available' ? 'Base disponível' : 'Sem auditoria'}</span>{brand.websiteUrl && <a href={brand.websiteUrl} target="_blank" rel="noreferrer">Site oficial</a>}</div></div></header>

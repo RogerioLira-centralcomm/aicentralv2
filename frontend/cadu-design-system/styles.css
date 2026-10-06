@@ -3533,14 +3533,11 @@ body.portal--workspace .cadu-ds-dock-resource > i:not(.is-unread) { display:none
   body.portal--workspace .cadu-ds-entity-portal--brand>.cadu-ds-entity-nav,
   body.portal--workspace .cadu-ds-entity-portal--project>.cadu-ds-entity-nav { position:sticky; top:54px; z-index:60; display:block; width:100%; min-width:0; padding:0; border:0; border-bottom:1px solid var(--cadu-line); background:color-mix(in srgb,var(--cadu-canvas) 94%,var(--cadu-surface)); box-shadow:none; }
   body.portal--workspace .cadu-ds-entity-nav__identity,
-  body.portal--workspace .cadu-ds-entity-nav__label,
-  body.portal--workspace .cadu-ds-entity-nav__actions { display:none; }
-  body.portal--workspace .cadu-ds-entity-nav nav { display:flex; gap:2px; padding:0 12px; overflow-x:auto; white-space:nowrap; scrollbar-width:none; }
-  body.portal--workspace .cadu-ds-entity-nav nav::-webkit-scrollbar { display:none; }
-  body.portal--workspace .cadu-ds-entity-nav nav a,
-  body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-entity-nav nav a { flex:none; min-height:44px; padding:0 10px; border-radius:0; background:transparent; font-size:11px; }
-  body.portal--workspace .cadu-ds-entity-nav nav a svg,
-  body.portal--workspace .cadu-ds-entity-nav nav a small { display:none; }
+  body.portal--workspace .cadu-ds-entity-nav__label{ display:none; }
+  
+  
+  
+  
   .cadu-ds-brand-content,.cadu-ds-project-content { padding:20px 16px 42px; }
   .cadu-ds-brand-back { margin-bottom:14px; }
   .cadu-ds-brand-hero,.cadu-ds-project-hero { margin-bottom:18px; padding-bottom:18px; }
@@ -3857,26 +3854,10 @@ body.portal--workspace .cadu-ds-entity-nav__label {
   text-transform:uppercase;
   white-space:nowrap;
 }
-body.portal--workspace .cadu-ds-entity-nav nav { display:grid; gap:3px; }
-body.portal--workspace .cadu-ds-entity-nav a {
-  display:grid;
-  grid-template-columns:16px minmax(0,1fr) auto;
-  align-items:center;
-  min-height:40px;
-  padding:0 10px;
-  border-radius:9px;
-  color:var(--cadu-muted-strong);
-  font-size:12px;
-  font-weight:500;
-  text-decoration:none;
-}
-body.portal--workspace .cadu-ds-entity-nav a:hover,
-body.portal--workspace .cadu-ds-entity-nav a:focus-visible {
-  background:color-mix(in srgb,var(--cadu-accent) 8%,transparent);
-  color:var(--cadu-ink);
-  outline:0;
-}
-body.portal--workspace .cadu-ds-entity-nav a small { color:var(--cadu-muted); font-size:10px; font-variant-numeric:tabular-nums; }
+
+
+
+
 body.portal--workspace .cadu-ds-entity-portal > .cadu-ds-project-content,
 body.portal--workspace .cadu-ds-entity-portal > .cadu-ds-brand-content {
   width:100%;

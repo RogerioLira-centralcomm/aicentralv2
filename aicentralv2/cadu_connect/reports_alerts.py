@@ -201,8 +201,13 @@ class PeriodicRunner:
                 from .reports_ingest_v2 import prune_chunk_runs
                 prune_chunk_runs()
             except Exception:
-                get_db().rollback()
                 current_app.logger.exception('Limpeza dos lotes do Google Ads falhou')
+                try:
+                    # With the database down, get_db() itself raises; the
+                    # monitor loop must survive that too.
+                    get_db().rollback()
+                except Exception:
+                    pass
         return True
 
 

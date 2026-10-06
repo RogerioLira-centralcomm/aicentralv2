@@ -198,8 +198,11 @@ def test_resolved_missing_and_viewer_are_rejected(client):
     assert post(client, 'acknowledge', status='resolved')[0].status_code == 409
     assert post(client, 'acknowledge', found=False)[0].status_code == 404
     assert post(client, 'acknowledge', role='viewer')[0].status_code == 403
-    response = client.post('/connect/api/v2/reports/alerts/nao-e-uuid/acknowledge', json={})
-    assert response.status_code in (403, 404)
+    with mock.patch.object(alerts, '_selection', return_value={'client_id': 7, 'role': 'admin', 'user_id': 42}), \
+         mock.patch.object(alerts, '_write_guard'), mock.patch.object(alerts, '_rows') as rows:
+        response = client.post('/connect/api/v2/reports/alerts/nao-e-uuid/acknowledge', json={})
+    assert response.status_code == 404
+    rows.assert_not_called()
 
 
 def test_listing_rejects_unknown_status_and_needs_login():

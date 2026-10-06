@@ -5,7 +5,7 @@ import {CaduBadge} from '../../cadu-design-system/components/CaduBadge.jsx';
 import {Icon} from '../../cadu-design-system/components/Icon.jsx';
 import {FormatCards} from '../FormatCards.jsx';
 import {SelectionButton} from '../PlannerUi.jsx';
-import {PlanSidebar} from './PlanSidebar.jsx';
+import {BuyBox} from './BuyBox.jsx';
 import {DemographyBars, DetailLayout, Facts, Rail, TagList, hasValue, listText} from './DetailLayout.jsx';
 
 // Percent fields are stored as bare numbers; never double the sign.
@@ -93,6 +93,9 @@ export function ChannelDetail({boot, selection, plan = null}) {
       {icon: 'pulse', label: 'Engajamento', value: pct(channel.taxa_engajamento)},
     ]}
     extraMeta={hasValue(channel.medicao) ? <CaduBadge tone="success">Mensurável</CaduBadge> : null}
-    aside={<PlanSidebar plan={plan} selection={selection} boot={boot} plansUrl={boot.urls.plans}/>}
+    aside={<BuyBox kind="canais" id={channel.id || channel.slug} name={channel.name} selection={selection}
+      pitch={String(channel.description || '').split(/(?<=[.!?])\s/)[0]}
+      facts={[['Alcance', channel.alcance, 'users'], ['Viewability', pct(channel.viewability), 'pulse'], ['Formatos', formats.length ? String(formats.length) : '', 'table'],
+        ['Modelo de compra', listText(channel.modelo_compra), 'list'], ['Prazo', channel.prazo_entrega, 'clock']]}/>}
     sections={sections}/>;
 }

@@ -152,7 +152,7 @@ export function DetailLayout({boot, selection, kind, record, icon = 'plan', eyeb
 
   const shownMetrics = metrics.filter(item => hasValue(item.value));
   // One accent for every page (the Planner green); the channel colour stays on its logo.
-  return <article className="pd">
+  return <article className={`pd${aside ? ' pd--aside' : ''}`}>
     <PlannerHeader crumbs={[[MODULE_LABELS[kind], moduleUrl(boot.urls, kind)]]} title={record.name}
       leading={<DetailMark record={record} icon={icon}/>}
       meta={eyebrow || extraMeta ? <>{eyebrow && <CaduBadge tone="neutral">{eyebrow}</CaduBadge>}{extraMeta}</> : null}

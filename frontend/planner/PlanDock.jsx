@@ -9,7 +9,6 @@ import {moduleUrl} from './api.js';
 const SECTIONS = [['canais', 'Canais'], ['audiencias', 'Audiências'], ['formatos', 'Formatos'], ['interativos', 'Interativos'],
   ['portais', 'Portais e veículos'], ['places', 'Locais']];
 const OBJECTIVES = [['awareness', 'Awareness'], ['consideracao', 'Consideração'], ['leads', 'Leads'], ['vendas', 'Vendas'], ['trafego', 'Tráfego']];
-const OPEN_KEY = 'planner.dock.open';
 
 /**
  * The plan, always at hand: a closed tab at the corner that opens a side panel.
@@ -17,12 +16,12 @@ const OPEN_KEY = 'planner.dock.open';
  * with no plan open, a quick form creates one and carries the loose picks into it.
  */
 export function PlanDock({boot, request, plan, setPlan, selection, notify}) {
-  const [open, setOpen] = useState(() => { try { return window.localStorage.getItem(OPEN_KEY) === '1'; } catch { return false; } });
+  const [open, setOpen] = useState(false);
   const [loose, setLoose] = useState([]);
   const [title, setTitle] = useState('');
   const [objective, setObjective] = useState('awareness');
   const [busy, setBusy] = useState(false);
-  const remember = value => { setOpen(value); try { window.localStorage.setItem(OPEN_KEY, value ? '1' : '0'); } catch { /* not remembered */ } };
+  const remember = setOpen;
 
   // Without a plan the picks live in the visitor's loose selection: read them whenever they change.
   useEffect(() => {

@@ -275,7 +275,7 @@ body.portal--workspace > main#content:has(> #cadu-conversations-v2-root) { width
 #cadu-conversations-v2-root.cv-home-root { width:100%; min-height:100dvh; }
 /* Conversation mode owns a viewport-scoped composer; the project dossier is
    a document and must give the browser back its normal page scroll. */
-body:has(#cadu-conversations-v2-root.cadu-project-root) { height:auto; min-height:100%; overflow-x:hidden; overflow-y:auto; }
+body:has(#cadu-conversations-v2-root.cadu-project-root) { height:auto; min-height:100%; overflow-x:clip; overflow-y:visible; }
 #cadu-conversations-v2-root.cadu-project-root { min-height:100dvh; }
 .cadu-ds-home-shell { min-height:100dvh; background:var(--cadu-canvas); }
 .cadu-ds-home-navbar { position:relative; z-index:var(--cadu-z-navbar); flex:none; min-height:72px; height:72px; padding-inline:24px; border-bottom:1px solid var(--cadu-nav-line); }
@@ -4576,3 +4576,8 @@ body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-list small { font
   .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root .cadu-ds-entity-nav) .cadu-workspace-legacy-chrome-root > .cadu-ds-entity-nav { grid-column:2; grid-row:1; position:sticky; top:0; align-self:start; height:100dvh; overflow-y:auto; }
   .workspace-app-shell:has(> .cadu-workspace-legacy-chrome-root .cadu-ds-entity-nav) > .workspace-app-main { grid-column:3; }
 }
+
+/* Conta: seção é um cartão com cabeçalho e corpo recuado (sem vão no topo, sem conteúdo colado na borda) */
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-section { padding-top:0; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-section > :not(header) { margin:0; padding:4px 20px 16px; }
+body.portal--workspace .cadu-ds-account-shell .cadu-ds-account-section > .cadu-ds-account-table { padding:0; }

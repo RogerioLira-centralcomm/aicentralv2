@@ -30,7 +30,7 @@ body:has(#cadu-conversations-v2-root) > .cadu-family-footer { display: none; }
 /* Account and catalog screens are document surfaces, unlike the fixed-height
    conversation canvas. Their content must keep the browser's native scroll. */
 html:has(#cadu-conversations-v2-root.cv-account-root),
-body:has(#cadu-conversations-v2-root.cv-account-root) { height:auto; min-height:100%; overflow-x:hidden; overflow-y:auto; }
+body:has(#cadu-conversations-v2-root.cv-account-root) { height:auto; min-height:100%; overflow-x:clip; overflow-y:visible; }
 body:has(#cadu-conversations-v2-root.cv-account-root) > #content,
 #cadu-conversations-v2-root.cv-account-root { height:auto; min-height:100dvh; }
 
@@ -41,8 +41,8 @@ html:has(#cadu-conversations-v2-root.cv-home-root),
 body:has(#cadu-conversations-v2-root.cv-home-root) {
   height:auto;
   min-height:100%;
-  overflow-x:hidden;
-  overflow-y:auto;
+  overflow-x:clip;
+  overflow-y:visible;
 }
 body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root.cv-home-root {

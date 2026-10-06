@@ -171,3 +171,5 @@ migrations/run_sql_migration.py add_cadu_workspace_enterprise_onboarding.sql
 migrations/run_sql_migration.py add_cotacao_id_to_sales_atividades.sql
 migrations/run_sql_migration.py create_crm_copilot_history_sequences.sql
 migrations/run_sql_migration.py add_cadu_planner_portal_programmatic.sql
+# Auditoria em produção (2026-10-06): colunas archived_* ausentes, 3 linhas compatíveis com o CHECK, nenhuma duplicata; reexecução testada.
+migrations/run_sql_migration.py extend_cadu_project_external_resources.sql

@@ -27,7 +27,6 @@ create_cliente_web_info.sql | aplicada-pelo-app | carregada por crm_v3_routes.py
 create_crm_ai_style_models.sql | aplicada-manual | auditoria de 2026-10-06: objetos já existem em produção, fora do ledger
 create_training_studio.sql | aplicada-manual | auditoria de 2026-10-06: objetos já existem em produção, fora do ledger
 expand_cadu_canais_descriptive_fields.sql | conferir-manual | auditoria de 2026-10-06: só altera dados/constraints; conferir à mão
-extend_cadu_project_external_resources.sql | revisar-antes | ausente em produção; o ADD CONSTRAINT valida as linhas existentes de cadu_workspace_external_references.reference_type. Conferir os valores antes (SELECT DISTINCT reference_type)
 fix_apresentacao_dados_text.sql | manual-pontual | correção ou carga única; rodar à mão quando a operação pedir
 fix_cadu_workspace_ingestion_schema.sql | manual-pontual | correção ou carga única; rodar à mão quando a operação pedir
 integration_provider_check.sql | aplicada-pelo-app | carregada por integration_provider_check_lib.py

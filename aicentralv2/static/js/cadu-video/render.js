@@ -140,7 +140,7 @@ export function paintLibrary() {
     const name = escapeHtml(item.name || "Peça");
     const status = item.broken ? "Arquivo indisponível" : selected ? "Na sequência · abrir" : "Adicionar à sequência";
     return `<li class="mc-lib-item ${item.broken ? "is-broken" : ""}" data-id="${escapeHtml(item.id)}">
-      <button type="button" data-id="${escapeHtml(item.id)}" data-action="${selected ? "select" : "pick"}" class="mc-lib-card ${selected ? "is-selected" : ""}" title="${name}" ${item.broken ? "disabled" : ""}>
+      <button type="button" data-id="${escapeHtml(item.id)}" data-action="${selected ? "select" : "pick"}" class="mc-lib-card ${selected ? "is-selected" : ""}" title="${name}" ${item.broken ? "disabled" : `draggable="true" data-media-kind="image" data-media-id="${escapeHtml(item.id)}"`}>
         ${thumb && !item.broken ? `<img loading="lazy" decoding="async" src="${escapeHtml(thumb)}" alt="">` : `<span class="mc-lib-missing" aria-hidden="true"></span>`}
         <strong>${name}</strong>
         <small>${status}</small>
@@ -206,7 +206,7 @@ export function paintClips() {
     const poster = item.poster_url || item.thumb_url || item.image_url || "";
     const seconds = Number(item.duration || 0);
     return `<li data-clip="${escapeHtml(item.id)}">
-      <button type="button" data-clip="${escapeHtml(item.id)}" data-action="play" class="${current ? "is-current" : ""}">
+      <button type="button" data-clip="${escapeHtml(item.id)}" data-action="play" class="${current ? "is-current" : ""}" draggable="true" data-media-kind="video" data-media-id="${escapeHtml(item.id)}">
         ${poster ? `<img loading="lazy" decoding="async" src="${escapeHtml(poster)}" alt="">` : `<span class="mc-cadu-video-clip-ph"></span>`}
         <strong>${escapeHtml(item.name || "Clipe")}</strong>
         ${seconds ? `<small>${Math.round(seconds)}s</small>` : ""}

@@ -31,7 +31,7 @@ export function bindWorkspace(project, commit, refresh) {
   for(const [id,key,axis,sign,min,max,initial] of [
     ['mcStudioLibraryResize','--vs-library','x',1,210,380,250],
     ['mcStudioInspectorResize','--vs-inspector','x',-1,260,420,290],
-    ['mcStudioTimelineResize','--vs-timeline','y',-1,190,360,250],
+    ['mcStudioTimelineResize','--vs-timeline','y',-1,190,640,250],
   ]) {
     const handle=$(id);
     if(Number.isFinite(prefs[key]))root.style.setProperty(key,`${clamp(prefs[key],min,max)}px`);

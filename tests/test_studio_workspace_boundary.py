@@ -54,6 +54,8 @@ def test_video_workspace_renders_its_runtime_scripts_in_portal_shell():
         static_folder=str(root / 'aicentralv2' / 'static'),
     )
     studio.secret_key = 'test'
+    from aicentralv2.static_modules import register_static_helpers
+    register_static_helpers(studio)
     studio.config.update(
         STUDIO_URL='https://studio.test', WORKSPACE_URL='https://workspace.test',
         CADU_URL='https://cadu.test', AUTH_URL='https://auth.test',

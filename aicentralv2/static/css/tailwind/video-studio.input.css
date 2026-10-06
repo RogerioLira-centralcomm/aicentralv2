@@ -253,7 +253,7 @@
 .mc-studio-text-track { position:relative; overflow:hidden; background:var(--mc-cadu-floor); }
 .mc-studio-text-track span { position:absolute; top:4px; bottom:4px; padding:5px; box-sizing:border-box; font-size:11px; background:#765394; color:white; border-radius:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 /* Editing desk: narrow tool rail, collapsible media and contextual inspector. */
-.mc-video-studio {grid-template-columns:60px minmax(0,1fr);--vs-library:230px;--vs-inspector:280px;--vs-timeline:290px}
+.mc-video-studio {grid-template-columns:60px minmax(0,1fr);--vs-library:230px;--vs-inspector:280px;--vs-timeline:clamp(260px,38vh,460px)}
 .mc-video-studio[data-theme="dark"]{--mc-cadu-paper:#20252b;--mc-cadu-floor:#14191f;--vs-control:#2b323a;--vs-hover:#36424c;--vs-accent:#b2e2f2;--vs-selected:#244250;--vs-track:#315266}
 .mc-video-studio>.mc-cadu-video-toolbar{grid-column:1/-1;grid-row:1}
 .mc-video-studio>.mc-studio-rail{grid-column:1;grid-row:2}
@@ -288,7 +288,7 @@
 .mc-composition-audio-lane,.mc-composition-caption-lane{padding:6px 12px;background:#264a43;color:#c1e6da;border-radius:5px;font-size:12px;margin:4px 0}.mc-composition-caption-lane{background:#473a58;color:#e8d9f4}
 .mc-composition-caption{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin:8px 0}.mc-composition-caption textarea{grid-column:1/-1}
 #mcCompositionCaptions{max-height:300px;overflow:auto}
-.mc-video-studio.is-composition :is(.mc-studio-timeline-scroll,.mc-studio-storyboard,#mcStudioMarkIn,#mcStudioMarkOut){display:none}
+.mc-video-studio.is-composition :is(.mc-studio-timeline-scroll,#mcStudioMarkIn,#mcStudioMarkOut){display:none}
 .mc-video-studio:not(.is-composition) #mcCompositionControls{display:none}
 
 /* The composition timeline shares one horizontal time scale across every lane. */
@@ -439,5 +439,18 @@
 .mc-video-studio .mc-cadu-video-takes .mc-lib-missing { display:block; aspect-ratio:16/10; background:repeating-linear-gradient(135deg,var(--mc-cadu-floor) 0 8px,color-mix(in srgb,var(--mc-cadu-floor) 80%,#fff 4%) 8px 16px); }
 .mc-video-studio .mc-cadu-video-takes .is-broken .mc-lib-card { border-style:dashed; border-color:#b45309; opacity:.8; }
 
-/* Cenas para geração ficam sempre visíveis no pé da timeline; as trilhas rolam por cima */
-.mc-video-studio .mc-cadu-video-timeline .mc-studio-storyboard { position:sticky; bottom:-10px; z-index:30; margin:0 -14px -10px; padding:6px 14px 10px; background:var(--mc-cadu-paper); border-top:1px solid var(--mc-cadu-rule); }
+/* Timeline em coluna: ferramentas e faixa de cenas fixas; trilhas (ou a visão simples) rolam no meio */
+.mc-video-studio .mc-cadu-video-timeline { display:flex; flex-direction:column; overflow:hidden; gap:6px; position:relative; }
+.mc-video-studio .mc-cadu-video-timeline > * { flex:none; min-width:0; }
+.mc-video-studio .mc-cadu-video-timeline-tools { margin:0; }
+.mc-video-studio .mc-cadu-video-timeline :is(#mcCompositionTracks,.mc-studio-timeline-scroll) { flex:1 1 0; min-height:0; overflow:auto; }
+.mc-video-studio .mc-cadu-video-timeline .mc-studio-storyboard { flex:none; max-height:60%; overflow:auto; padding-top:6px; border-top:1px solid var(--mc-cadu-rule); background:var(--mc-cadu-paper); }
+.mc-video-studio .mc-cadu-video-timeline .mc-studio-storyboard:not([open]) { max-height:none; overflow:visible; }
+
+/* Timeline vazia e área de soltar mídia da biblioteca */
+.mc-video-studio .mc-comp-empty { flex:1 1 0; min-height:0; display:grid; align-content:center; justify-items:center; gap:6px; padding:12px; text-align:center; border:1px dashed var(--mc-cadu-rule); border-radius:6px; color:var(--mc-cadu-mute); }
+.mc-video-studio .mc-comp-empty strong { color:var(--mc-cadu-ink); font-size:13px; }
+.mc-video-studio .mc-comp-empty p { margin:0; font-size:12px; max-width:420px; }
+.mc-video-studio .mc-cadu-video-timeline.is-drop-target::after { content:"Solte para adicionar à timeline"; position:absolute; inset:0; z-index:40; display:grid; place-items:center; border:2px dashed var(--vs-accent); border-radius:6px; background:color-mix(in srgb,var(--vs-selected) 78%,transparent); color:var(--vs-accent); font-size:13px; font-weight:650; pointer-events:none; }
+.mc-video-studio [draggable="true"][data-media-kind] { cursor:grab; }
+.mc-video-studio [draggable="true"][data-media-kind]:active { cursor:grabbing; }

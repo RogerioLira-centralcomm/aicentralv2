@@ -37,9 +37,9 @@ assert.ok(actions.every(a=>a.inside&&!a.clipped&&a.h<=24),JSON.stringify(actions
 await page.evaluate(()=>{document.querySelector('.mc-cadu-video-lib').scrollTop=1200});
 const top=await page.evaluate(()=>{const lib=document.querySelector('.mc-cadu-video-lib').getBoundingClientRect(),s=document.querySelector('#mcVideoSearch').getBoundingClientRect(),t=document.querySelector('#mcVideoLibStillTab').getBoundingClientRect();return {tab:t.top-lib.top,search:s.top-lib.top,libH:lib.height}});
 assert.ok(top.tab>=0&&top.tab<60&&top.search>=0&&top.search<110,JSON.stringify(top));
-// "Cenas para geração" aparece inteira dentro da timeline, sem rolar por dentro dela
-const strip=await page.evaluate(()=>{const tl=document.querySelector('.mc-cadu-video-timeline').getBoundingClientRect(),s=document.querySelector('#mcVideoScenes').getBoundingClientRect();return {top:s.top-tl.top,bottom:tl.bottom-s.bottom}});
-assert.ok(strip.top>0&&strip.bottom>=0,JSON.stringify(strip));
+// "Cenas para geração" fica dentro da timeline e mostra a primeira cena sem rolar por dentro da timeline
+const strip=await page.evaluate(()=>{const tl=document.querySelector('.mc-cadu-video-timeline').getBoundingClientRect(),box=document.querySelector('.mc-studio-storyboard').getBoundingClientRect(),first=document.querySelector('#mcVideoScenes > *')?.getBoundingClientRect();return {inside:box.top>=tl.top&&box.bottom<=tl.bottom+1,firstVisible:!!first&&first.top>=box.top&&first.top<box.bottom-8}});
+assert.deepEqual(strip,{inside:true,firstVisible:true},JSON.stringify(strip));
 await page.screenshot({path:ARTIFACTS+'/library-layout.png'});
 assert.deepEqual(errors,[]);
 console.log('PASS biblioteca: ações visíveis, miniatura indisponível, cabeçalho fixo e cenas sempre visíveis em 1280×720');

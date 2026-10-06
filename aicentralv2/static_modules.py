@@ -63,3 +63,11 @@ def import_map_tag(static_folder, entry, url_prefix="/static/"):
     mapping = module_import_map(static_folder, entry, url_prefix)
     payload = json.dumps({"imports": mapping}, ensure_ascii=False, sort_keys=True).replace("</", "<\\/")
     return Markup(f'<script type="importmap">{payload}</script>')
+
+
+def register_static_helpers(app):
+    """Registra nos templates ``static_fingerprint`` e ``module_import_map`` (create_app e apps de teste)."""
+    from . import static_fingerprint
+
+    app.jinja_env.globals.setdefault("static_fingerprint", lambda relative_path: static_fingerprint(app.static_folder, relative_path))
+    app.jinja_env.globals["module_import_map"] = lambda entry: import_map_tag(app.static_folder, entry)

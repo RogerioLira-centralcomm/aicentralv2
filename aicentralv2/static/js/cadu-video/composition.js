@@ -9,7 +9,8 @@ import {get,post,studioApi} from './api.js?v=2';
 import {escapeHtml as esc,newId} from './utils.js';
 import {showProcessing,updateProcessing,notify} from '../media-progress.js';
 const $=id=>document.getElementById(id),base=studioApi;
-let dirty,refresh,signature='',dragId='',rendering=false,timelineZoom=1,snapEnabled=true;
+const MEDIA_TYPE='application/x-cadu-media';
+let dirty,refresh,signature='',dragId='',rendering=false,timelineZoom=1,snapEnabled=true,lastEnabled=null;
 export const emptyComposition=()=>({enabled:false,items:[],audio:[],captions:[],selected:'',selected_audio:-1,resolution:720,fps:30,preview_url:'',preview_valid:false});
 const comp=()=>state.composition ||= emptyComposition();
 const fingerprint=()=>JSON.stringify({items:comp().items,audio:comp().audio,captions:comp().captions,caption_style:comp().caption_style,resolution:comp().resolution,fps:comp().fps,ratio:state.aspectRatio,layers:state.edit?.layers||[]});
@@ -70,6 +71,31 @@ function makeSnapper(exclude=[]){
 }
 export function compositionDuration(){return comp().items.reduce((total,row,index)=>total+length(row)-(index&&comp().items[index-1].transition!=='cut'?Math.min(comp().items[index-1].transition_duration,length(row)/2,length(comp().items[index-1])/2):0),0);}
 function changed(){comp().preview_valid=false;dirty();paintComposition();paintCompositionCanvas();}
+const newRow=(kind,source)=>({id:newId(),asset_id:source.id,kind,in:0,out:Number(source.duration)||0,duration:4,speed:1,volume:1,fit:'contain',motion:'none',transition:'cut',transition_duration:.4});
+function insertIndex(at){if(at===null||at===undefined)return comp().items.length;const index=schedule(comp().items).findIndex(entry=>(entry.start+entry.end)/2>at);return index<0?comp().items.length:index;}
+// Adiciona uma mídia da biblioteca à montagem; `at` (s) escolhe a posição, sem ele vai para o fim.
+function addMedia(kind,id,at=null){
+  const c=comp();
+  if(kind==='sound'){
+    const row=(state.sounds||[]).find(sound=>sound.id===id);if(!row)return false;
+    c.enabled=true;document.dispatchEvent(new CustomEvent('cadu:composition-sound',{detail:{...row,start:Math.max(0,Number(at)||0)}}));refresh();return true;
+  }
+  const source=(kind==='image'?state.library:state.clips).find(row=>row.id===id);if(!source||source.broken||c.items.length>=120)return false;
+  const row=newRow(kind,source);c.items.splice(insertIndex(at),0,row);c.selected=row.id;c.selected_audio=-1;c.enabled=true;
+  changed();refresh();seekLivePreview(schedule(c.items).find(entry=>entry.row.id===row.id)?.start||0);return true;
+}
+function addSceneSequence(){
+  const c=comp(),room=120-c.items.length,scenes=state.scenes.map(scene=>state.library.find(row=>row.id===scene.id)).filter(row=>row&&!row.broken).slice(0,Math.max(0,room));
+  if(!scenes.length){notify('Adicione peças à sequência para montar a timeline.');return;}
+  const rows=scenes.map(source=>newRow('image',source));c.items.push(...rows);c.selected=rows[0].id;c.selected_audio=-1;c.enabled=true;
+  changed();refresh();seekLivePreview(0);
+}
+function dropTime(event){
+  const timeline=$('mcCompositionTracks')?.querySelector('.mc-pro-timeline'),lane=timeline?.querySelector('[data-track-kind="video"] .mc-pro-lane');
+  if(!timeline||!lane||$('mcCompositionTracks').hidden)return null;
+  return Math.max(0,(event.clientX-lane.getBoundingClientRect().left)/(Number(timeline.dataset.pps)||64));
+}
+const hasMedia=event=>[...(event.dataTransfer?.types||[])].includes(MEDIA_TYPE);
 export function bindComposition(commit,paint){
   dirty=commit;refresh=paint;
   const tracks=$('mcCompositionTracks');
@@ -157,18 +183,32 @@ export function bindComposition(commit,paint){
   bindKeyframes($('mcCompositionControls'),()=>item(),changed,row=>Math.max(0,previewTime()-(schedule(comp().items).find(r=>r.row.id===row.id)?.start||0)));
   $('mcCompositionMode')?.addEventListener('click',()=>{comp().enabled=!comp().enabled;dirty();refresh();paintComposition();});
   $('mcCompositionAdd')?.addEventListener('click',()=>{
-    const value=$('mcCompositionAsset').value;const kind=value.startsWith('image:')?'image':'video',id=value.slice(kind.length+1);
-    const source=(kind==='image'?state.library:state.clips).find(row=>row.id===id);if(!source||comp().items.length>=120)return;
-    const row={id:newId(),asset_id:id,kind,in:0,out:Number(source.duration)||0,duration:4,speed:1,volume:1,fit:'contain',motion:'none',transition:'cut',transition_duration:.4};
-    comp().items.push(row);comp().selected=row.id;comp().enabled=true;changed();refresh();seekLivePreview(schedule(comp().items).find(r=>r.row.id===row.id)?.start||0);
+    const value=$('mcCompositionAsset').value;const kind=value.startsWith('image:')?'image':'video';
+    addMedia(kind,value.slice(kind.length+1));
+  });
+  $('mcCompositionEmpty')?.addEventListener('click',event=>{if(event.target.closest('[data-comp-empty="scenes"]'))addSceneSequence();});
+  // Arrastar da biblioteca: peças, clipes e sons entram na posição solta; fora da montagem ela é ativada.
+  $('mcVideoLibDrop')?.addEventListener('dragstart',event=>{
+    const source=event.target.closest?.('[data-media-kind]');if(!source)return;
+    event.dataTransfer.setData(MEDIA_TYPE,JSON.stringify({kind:source.dataset.mediaKind,id:source.dataset.mediaId}));
+    event.dataTransfer.effectAllowed='copy';
+  });
+  const zone=document.querySelector('.mc-cadu-video-timeline');
+  zone?.addEventListener('dragover',event=>{if(!hasMedia(event))return;event.preventDefault();event.dataTransfer.dropEffect='copy';zone.classList.add('is-drop-target');});
+  zone?.addEventListener('dragleave',event=>{if(!zone.contains(event.relatedTarget))zone.classList.remove('is-drop-target');});
+  zone?.addEventListener('drop',event=>{
+    if(!hasMedia(event))return;
+    event.preventDefault();event.stopPropagation();zone.classList.remove('is-drop-target');
+    try{const media=JSON.parse(event.dataTransfer.getData(MEDIA_TYPE));if(!addMedia(media.kind,media.id,dropTime(event)))notify('Não foi possível adicionar esta mídia à timeline.');}catch{notify('Não foi possível adicionar esta mídia à timeline.');}
   });
   tracks?.addEventListener('click',event=>{
     const button=event.target.closest('[data-composition-item]');if(!button)return;
     comp().selected=button.dataset.compositionItem;comp().preview_valid=false;paintComposition();paintCompositionCanvas();seekLivePreview(schedule(comp().items).find(r=>r.row.id===comp().selected)?.start||0);
   });
   tracks?.addEventListener('dragstart',event=>{dragId=event.target.closest('[data-composition-item]')?.dataset.compositionItem||'';});
-  tracks?.addEventListener('dragover',event=>event.preventDefault());
+  tracks?.addEventListener('dragover',event=>{if(!hasMedia(event))event.preventDefault();});
   tracks?.addEventListener('drop',event=>{
+    if(hasMedia(event))return;
     event.preventDefault();const target=event.target.closest('[data-composition-item]')?.dataset.compositionItem;
     const from=comp().items.findIndex(row=>row.id===dragId),to=comp().items.findIndex(row=>row.id===target);
     if(from>=0&&to>=0){const [row]=comp().items.splice(from,1);comp().items.splice(to,0,row);changed();}
@@ -198,7 +238,7 @@ export function bindComposition(commit,paint){
   });
   document.addEventListener('cadu:composition-sound',event=>{
     if(comp().audio.length>=8){notify('A montagem aceita até oito faixas adicionais.');return;}
-    const row=event.detail;comp().audio.push({sound_id:row.id,name:row.name,start:0,sync_origin:0,in:0,duration:Math.min(row.duration||10,compositionDuration()||10),volume:.35,muted:false,solo:false,ripple:true,fade_in:0,fade_out:0,loop:false,gain_points:[]});changed();
+    const row=event.detail;const start=Math.max(0,Number(row.start)||0);comp().audio.push({sound_id:row.id,name:row.name,start,sync_origin:start,in:0,duration:Math.min(row.duration||10,compositionDuration()||10),volume:.35,muted:false,solo:false,ripple:true,fade_in:0,fade_out:0,loop:false,gain_points:[]});changed();
   });
   $('mcCompositionAudio')?.addEventListener('change',event=>{
     if(event.target.dataset.gainKey){const row=comp().audio[Number(event.target.dataset.audioIndex)],point=row?.gain_points?.[Number(event.target.dataset.gainIndex)],key=event.target.dataset.gainKey;if(point){point[key]=Math.max(Number(event.target.min),Math.min(Number(event.target.max),Number(event.target.value)||0));row.gain_points.sort((a,b)=>a.time-b.time);changed();}return;}
@@ -272,11 +312,14 @@ function number(key,label,value,min,max,step='.1',extra=''){return `<label>${lab
 export function paintComposition(){
   if(!$('mcCompositionTracks'))return;
   paintCaptionStyle();
-  const c=comp(),row=item();if(c.preview_valid&&c.preview_signature!==fingerprint())c.preview_valid=false;$('mcCompositionMode').setAttribute('aria-pressed',String(c.enabled));$('mcCompositionMode').textContent=c.enabled?'Timeline ativa':'Ativar montagem';
+  const c=comp(),row=item();if(c.preview_valid&&c.preview_signature!==fingerprint())c.preview_valid=false;$('mcCompositionMode').setAttribute('aria-pressed',String(c.enabled));$('mcCompositionMode').textContent=c.enabled?'Voltar à visão simples':'Editar em trilhas';$('mcCompositionMode').title=c.enabled?'Sai das trilhas e volta ao corte simples de um clipe.':'Monte vários clipes, imagens, sons e legendas em trilhas, como num editor de vídeo.';
   if($('mcTimelineSplit'))$('mcTimelineSplit').disabled=!c.enabled||!row;
   if($('mcTimelineRemove'))$('mcTimelineRemove').disabled=!c.enabled||!row;
   paintSnapButton();
-  $('mcSwap').classList.toggle('is-composition',c.enabled);$('mcCompositionTracks').hidden=!c.enabled;
+  $('mcSwap').classList.toggle('is-composition',c.enabled);
+  const empty=!c.items.length&&!c.audio.length&&!c.captions.length;$('mcCompositionTracks').hidden=!c.enabled||empty;
+  const box=$('mcCompositionEmpty');if(box){box.hidden=!c.enabled||!empty;const scenes=state.scenes.length,button=box.querySelector('[data-comp-empty="scenes"]');if(button){button.disabled=!scenes;button.textContent=scenes?`Usar ${scenes===1?'a cena':`as ${scenes} cenas`} da sequência`:'Sem cenas na sequência';}}
+  if(lastEnabled!==c.enabled){lastEnabled=c.enabled;const strip=document.querySelector('.mc-studio-storyboard');if(strip)strip.open=!c.enabled;}
   const selectedAsset=$('mcCompositionAsset').value;
   $('mcCompositionAsset').innerHTML=[...state.clips.map(row=>`<option value="video:${esc(row.id)}">Vídeo · ${esc(row.name)}</option>`),...state.library.filter(row=>!row.broken).map(row=>`<option value="image:${esc(row.id)}">Imagem · ${esc(row.name)}</option>`)].join('');
   if([...$('mcCompositionAsset').options].some(option=>option.value===selectedAsset))$('mcCompositionAsset').value=selectedAsset;

@@ -3108,14 +3108,6 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                     # in internal metadata; the workspace only exposes the
                     # functional source description to the user.
                     candidates = list(analysis.get('asset_candidates') or [])
-                    screenshot = analysis.get('screenshot')
-                    if isinstance(screenshot, str) and screenshot.startswith(('http://', 'https://')):
-                        candidates.insert(0, {
-                            'url': screenshot, 'page_url': website_url,
-                            'kind': 'reference', 'category': 'Captura do site',
-                            'score': 100,
-                            'reason': 'Captura da página inicial usada como referência visual.',
-                        })
                     imported_assets = service.import_website_brand_assets(brand_id, candidates)
                     analysis_metadata = analysis.get('analysis_metadata') or {}
                     uploaded_logo_path = _resolve_uploaded_logo_path(

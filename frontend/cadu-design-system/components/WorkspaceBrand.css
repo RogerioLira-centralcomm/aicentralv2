@@ -1047,3 +1047,10 @@ body.portal--workspace .cadu-ds-brand-starter__actions { display:flex; flex-wrap
   body.portal--workspace .cadu-ds-brand-starter h2 { font-size:22px; }
   body.portal--workspace .cadu-ds-brand-starter__actions > * { flex:1 1 auto; }
 }
+
+/* Sem análise: sem trilho direito, o conteúdo ocupa a largura restante. */
+@media (min-width:1025px) {
+  body.portal--workspace .cadu-ds-entity-portal--brand.is-no-rail,
+  body.portal--workspace .cadu-ds-brand-workarea > .cadu-ds-entity-portal--brand.is-no-rail { grid-template-columns:var(--cadu-sidebar-width,239px) minmax(0,1fr); }
+  body.portal--workspace .cadu-ds-brand-workarea > .cadu-ds-entity-portal--brand.is-no-rail:has(> .cadu-ds-entity-nav.is-collapsed) { grid-template-columns:64px minmax(0,1fr); }
+}

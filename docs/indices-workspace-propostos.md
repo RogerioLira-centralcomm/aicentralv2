@@ -8,7 +8,10 @@ Alguns podem já existir no banco (criados pelo PHP legado): confira com `\d tab
 
 ## 1. Studio por projeto do Workspace (`routes.py`, consulta de `cx_studio_sessions` no detalhe do projeto)
 A consulta filtra por `s.metadata->>'workspace_project_ref'` e hoje não filtra por cliente.
-Correção de código associada: acrescentar `AND s.client_id = %s` (também reforça o isolamento entre clientes).
+**Atenção, não aplicar o filtro `s.client_id = <cliente da sessão>`:** `cx_studio_sessions.client_id` referencia
+`cx_clients(id)`, que no resto do Workspace é a tabela de **marcas** (`cx_clients.crm_client_id` é o tenant). Um filtro
+pelo `cliente_id` da sessão zeraria os ativos de Studio do projeto. Se for preciso isolar por tenant, é via
+`JOIN cx_clients c ON c.id = s.client_id AND c.crm_client_id = %s`, depois de confirmar o mapeamento do `studio_client_id`.
 
 ```sql
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_cx_studio_sessions_client_workspace_project

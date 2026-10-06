@@ -18,6 +18,7 @@ PUBLIC_TOOL_COSTS = {
     "planner.get_media_plan": 0,
     "planner.list_plans": 0,
     "planner.search_catalog": 0,
+    "planner.get_catalog_item": 0,
     "media.creation_capabilities": 0,
     "media.start_studio_session": 0,
     "media.prepare_edit_source_upload": 0,

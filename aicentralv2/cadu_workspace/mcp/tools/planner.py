@@ -134,6 +134,67 @@ def search_catalog(context: RequestContext, arguments: dict) -> dict:
     return {"kind": kind, "records": _project(records, kind)}
 
 
+# Never leave through the MCP, whatever the underlying profile carries.
+_DENIED_KEYS = frozenset({
+    "investimento_minimo", "investment", "preco", "price", "lp_data", "extras", "taxonomy", "prazo_entrega",
+    "integracao", "cpm_custo", "cpm_venda", "cpm_minimo", "cpm_maximo", "metadados_geracao", "pipeline_tracking",
+})
+_MEDIA_KEYS = frozenset({"image_url", "logo_url", "hero_image_url", "platform_logo", "creative_url", "gallery_url",
+                         "favicon_url", "logo_path", "logo"})
+_LIST_LIMIT = 6
+
+
+def _clean(value):
+    """Drop commercial/internal keys, cap lists and make media URLs absolute, at any depth."""
+    if isinstance(value, dict):
+        return {key: (_public_url(item) if key in _MEDIA_KEYS and isinstance(item, str) else _clean(item))
+                for key, item in value.items() if key not in _DENIED_KEYS}
+    if isinstance(value, list):
+        return [_public_url(item) if isinstance(item, str) and item.startswith("/static/") else _clean(item)
+                for item in value[:_LIST_LIMIT]]
+    return value
+
+
+def _item_profile(kind, ident):
+    from ....cadu_planner import places, portals
+    if kind == "places":
+        row = places.detail(ident)
+        return {key: row.get(key) for key in _CATALOG_FIELDS["places"] + ("image_url", "gallery")}
+    if kind == "portais":
+        return portals.detail(ident)
+    if kind == "canais":
+        return catalog.channel_profile(ident)
+    if kind == "audiencias":
+        return catalog.audience_profile(ident)
+    return catalog.format_profile(kind, ident)
+
+
+@register_tool(
+    name="planner.get_catalog_item", capability="planner", effect="read",
+    description=("Ficha de um item do catálogo do Planner (audiência, canal, formato, formato interativo, portal ou Place), "
+                 "com imagens, logo, link para abrir no Cadu e card markdown. Use o id vindo de planner.search_catalog "
+                 "(para Places, o slug). Somente leitura e sem custo; não traz valores comerciais."),
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["kind", "id"], "properties": {
+        "kind": {"type": "string", "enum": sorted(_CATALOG_FIELDS)},
+        "id": {"type": "string", "minLength": 1, "maxLength": 120},
+    }, "additionalProperties": False},
+)
+def get_catalog_item(context: RequestContext, arguments: dict) -> dict:
+    kind, ident = arguments["kind"], str(arguments["id"]).strip()
+    try:
+        profile = _item_profile(kind, ident)
+    except HTTPException as exc:
+        raise ToolInputError(str(exc.description)) from exc
+    item = _clean(profile)
+    item["kind"] = kind
+    item.setdefault("image_url", item.get("hero_image_url") or "")
+    item["logo_url"] = item.get("logo_url") or item.get("platform_logo") or item.get("favicon_url") or ""
+    item["cadu_url"] = _cadu_url(kind, profile if kind != "places" else {"slug": ident})
+    item["card"] = _card(kind, item)
+    return {"item": item}
+
+
 @register_tool(
     name="planner.research_plan_inputs", capability="planner", effect="read",
     description=("Reúne referências atuais do catálogo Cadu para uma proposta de mídia: canais, "

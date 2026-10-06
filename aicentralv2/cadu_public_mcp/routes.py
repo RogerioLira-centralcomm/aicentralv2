@@ -99,6 +99,7 @@ PUBLIC_TOOLS = frozenset({
     "media.creation_capabilities",
     "planner.list_plans",
     "planner.search_catalog",
+    "planner.get_catalog_item",
     "reports.list_link_tests",
     "reports.get_link_test",
     "planner.get_brief",

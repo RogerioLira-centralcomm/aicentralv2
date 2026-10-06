@@ -38,3 +38,24 @@ def test_records_carry_visuals_and_a_ready_markdown_card():
     assert item["cadu_url"] == "https://planner.example/audiencias/9"
     assert item["card"].startswith("![Executivos](https://planner.example/static/images/a.png)")
     assert "[Abrir no Cadu](https://planner.example/audiencias/9)" in item["card"]
+
+
+def test_item_profile_strips_commercial_keys_caps_lists_and_absolutizes_media():
+    from flask import Flask
+
+    app = Flask(__name__)
+    app.config["PLANNER_URL"] = "https://planner.example"
+    profile = {"name": "Canal", "investimento_minimo": 5000, "lp_data": {"x": 1}, "logo_url": "/static/l.svg",
+               "gallery": [f"/static/g{i}.png" for i in range(10)],
+               "ad_examples": [{"title": "a", "cpm_venda": 9, "image_url": "/static/a.png"}]}
+    with app.app_context():
+        clean = planner._clean(profile)
+    assert not {"investimento_minimo", "lp_data"} & clean.keys()
+    assert clean["logo_url"] == "https://planner.example/static/l.svg"
+    assert len(clean["gallery"]) == planner._LIST_LIMIT and clean["gallery"][0].startswith("https://planner.example/")
+    assert "cpm_venda" not in clean["ad_examples"][0]
+    assert clean["ad_examples"][0]["image_url"] == "https://planner.example/static/a.png"
+
+
+def test_item_tool_is_free_and_covers_the_same_kinds_as_search():
+    assert usage.tool_cost("planner.get_catalog_item") == 0

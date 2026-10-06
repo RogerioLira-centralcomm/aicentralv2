@@ -53,3 +53,20 @@ def test_workspace_project_asks_for_its_own_id_only():
     with mock.patch.object(workspace_routes, '_workspace_projects', return_value=[]) as read:
         assert workspace_routes._workspace_project(12, 'p1') is None
     read.assert_called_once_with(12, status='todos', only_id='p1')
+
+
+def test_brand_lookup_reads_one_brand_instead_of_the_catalog():
+    connection = _connection(psycopg.pq.TransactionStatus.IDLE)
+    cursor = connection.cursor.return_value.__enter__.return_value
+    cursor.fetchall.return_value = []
+    with mock.patch.object(workspace_routes, 'get_db', return_value=connection):
+        workspace_routes._workspace_brands(12, only_id=81)
+    sql, params = cursor.execute.call_args_list[0].args
+    assert '(%s::int IS NULL OR c.id = %s)' in sql
+    assert params == (12, '%%', 81, 81)
+
+
+def test_workspace_brand_asks_for_its_own_id_only():
+    with mock.patch.object(workspace_routes, '_workspace_brands', return_value=[]) as read:
+        assert workspace_routes._workspace_brand(12, 81) is None
+    read.assert_called_once_with(12, only_id=81)

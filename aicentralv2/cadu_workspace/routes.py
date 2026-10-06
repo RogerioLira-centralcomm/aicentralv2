@@ -1564,8 +1564,11 @@ def _project_brand_links(client_id):
 
 
 @_request_memo
-def _workspace_brands(client_id: int, query: str = "", *, raise_on_error: bool = False) -> list[dict]:
-    """Read brand records owned by the active Workspace organization."""
+def _workspace_brands(client_id: int, query: str = "", *, raise_on_error: bool = False, only_id: Optional[int] = None) -> list[dict]:
+    """Read brand records owned by the active Workspace organization.
+
+    ``only_id`` narrows the read to one brand so a detail page skips the per-brand logo lookups of the whole catalog.
+    """
     try:
         # A progressive Workspace query may have failed earlier in the same
         # request. Clear that aborted read transaction before loading the
@@ -1628,9 +1631,10 @@ def _workspace_brands(client_id: int, query: str = "", *, raise_on_error: bool =
                 LEFT JOIN cx_client_brand_assets a ON a.client_id = c.id
                     WHERE c.crm_client_id = %s
                       AND c.name ILIKE %s
+                      AND (%s::int IS NULL OR c.id = %s)
                  GROUP BY c.id
                  ORDER BY c.created_at DESC NULLS LAST, c.name""",
-                (client_id, '%' + query[:100] + '%'),
+                (client_id, '%' + query[:100] + '%', only_id, only_id),
             )
             brands = [dict(row) for row in cursor.fetchall()]
             for brand in brands:
@@ -1695,8 +1699,9 @@ def _workspace_brands(client_id: int, query: str = "", *, raise_on_error: bool =
                          FROM cx_clients
                         WHERE crm_client_id = %s
                           AND name ILIKE %s
+                          AND (%s::int IS NULL OR id = %s)
                      ORDER BY created_at DESC NULLS LAST, name""",
-                    (client_id, '%' + query[:100] + '%'),
+                    (client_id, '%' + query[:100] + '%', only_id, only_id),
                 )
                 brands = []
                 for row in cursor.fetchall():
@@ -1758,7 +1763,7 @@ def _field_is_blocked(field: str, blocked_fields: set[str]) -> bool:
 
 
 def _workspace_brand(client_id: int, brand_id: int) -> Optional[dict]:
-    brands = _workspace_brands(client_id)
+    brands = _workspace_brands(client_id, only_id=int(brand_id))
     brand = next((item for item in brands if int(item['id']) == brand_id), None)
     if not brand:
         return None

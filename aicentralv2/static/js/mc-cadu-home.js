@@ -30,6 +30,9 @@
   }
   document.addEventListener('cadu:brand-ready', sync);
   document.addEventListener('cadu:brand-change', sync);
+  // Falha (ou ausência) de contextos de projeto só chega como project-ready;
+  // sem isso a Home ficava em "Carregando marca…" com a biblioteca antiga.
+  document.addEventListener('cadu:project-ready', event => { if (event.detail?.error || !event.detail?.clientId) sync(event); });
   // Navigation owns initial context validation; never fetch using stale storage here.
   if (window.McCaduContext) sync({ detail: window.McCaduContext });
   app.querySelectorAll('[data-media]').forEach(button => button.addEventListener('click', () => store.filter(button.dataset.media)));

@@ -5,7 +5,7 @@ import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 
 const ART = '/static/images/planner/illustrations/';
-const DRAFT_KEY = 'planner.wizard.draft';
+export const DRAFT_KEY = 'planner.wizard.draft';
 
 // Four common goals; each maps to the objective the plan stores. Nothing is mandatory.
 const GOALS = [
@@ -55,7 +55,6 @@ export function PlanWizard({urls, suggestions = {}, busy, onSubmit, onFullForm})
     const notes = [goal && `Objetivo: ${goal.title}.`, data.custom && `Objetivo (texto livre): ${data.custom}`, data.audience && `Público: ${data.audience}`].filter(Boolean).join('\n');
     onSubmit({title, objective: goal?.objective || '', advertiser_name: data.advertiser, campaign_name: title,
       briefing: {budget: data.budget, period: data.period, geography: data.geography, notes}});
-    try { window.sessionStorage.removeItem(DRAFT_KEY); } catch { /* nothing to clear */ }
   };
 
   const current = STEPS[step];

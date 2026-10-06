@@ -9,7 +9,7 @@ import {PlannerPanel} from './PlannerUi.jsx';
 import {OBJECTIVES, contextQuery, moduleUrl, newPlanUrl, objectiveLabel} from './api.js';
 import {RadarTeaser} from './Radar.jsx';
 import {PlannerHeader} from './PlannerHeader.jsx';
-import {PlanWizard} from './PlanWizard.jsx';
+import {DRAFT_KEY, PlanWizard} from './PlanWizard.jsx';
 
 export const planStatusLabel = plan => plan.status_label || {draft: 'Rascunho', ready: 'Pronto para revisão'}[plan.status] || 'Em andamento';
 export const planStatusTone = plan => plan.status === 'ready' ? 'success' : 'neutral';
@@ -189,6 +189,7 @@ export function PlanCreatePage({boot, request, notify, selection}) {
     try {
       const data = await request('/plans', {method: 'POST', body: JSON.stringify({...fields,
         brand_ref: selection?.brand_ref || null, project_ref: selection?.project_ref || null})});
+      try { window.sessionStorage.removeItem(DRAFT_KEY); } catch { /* the draft is only a convenience */ }
       window.location.assign(`${boot.urls.plans}/${encodeURIComponent(data.plan.id)}`);
     } catch (error) {
       notify({tone: 'error', message: error.message});

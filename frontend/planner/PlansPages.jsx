@@ -9,6 +9,7 @@ import {PlannerPanel} from './PlannerUi.jsx';
 import {OBJECTIVES, contextQuery, moduleUrl, newPlanUrl, objectiveLabel} from './api.js';
 import {RadarTeaser} from './Radar.jsx';
 import {PlannerHeader} from './PlannerHeader.jsx';
+import {PlanWizard} from './PlanWizard.jsx';
 
 export const planStatusLabel = plan => plan.status_label || {draft: 'Rascunho', ready: 'Pronto para revisão'}[plan.status] || 'Em andamento';
 export const planStatusTone = plan => plan.status === 'ready' ? 'success' : 'neutral';
@@ -182,6 +183,19 @@ export function PlanCreatePage({boot, request, notify, selection}) {
       setBusy(false);
     }
   }
+  const [fullForm, setFullForm] = useState(() => new URLSearchParams(window.location.search).get('modo') === 'formulario');
+  async function createFromWizard(fields) {
+    setBusy(true);
+    try {
+      const data = await request('/plans', {method: 'POST', body: JSON.stringify({...fields,
+        brand_ref: selection?.brand_ref || null, project_ref: selection?.project_ref || null})});
+      window.location.assign(`${boot.urls.plans}/${encodeURIComponent(data.plan.id)}`);
+    } catch (error) {
+      notify({tone: 'error', message: error.message});
+      setBusy(false);
+    }
+  }
+  if (!fullForm) return <PlanWizard urls={boot.urls} suggestions={suggestions} busy={busy} onSubmit={createFromWizard} onFullForm={() => setFullForm(true)}/>;
   // Remount the form when the context arrives so its suggestions become the defaults.
   const formKey = [context?.brand?.ref, context?.project?.ref].join('|');
   return <>

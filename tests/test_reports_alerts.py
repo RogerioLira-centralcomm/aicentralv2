@@ -100,7 +100,7 @@ def run_notify(row, env=None, recipients=('a@x.com',), sent=True):
     with mock.patch.object(alerts, '_log', lambda alert_id, kind, actor=None, detail=None: logged.append((kind, detail))), \
          mock.patch.object(alerts, '_recipients', return_value=list(recipients)), \
          mock.patch.object(alerts, '_rows', return_value=[]), \
-         mock.patch('aicentralv2.email_service.send_email', return_value=sent) as send, \
+         mock.patch('aicentralv2.services.cadu_email_connector.send_cadu_event', return_value={'success': sent}) as send, \
          mock.patch.dict('os.environ', env or {}, clear=False):
         import os
         if not env:
@@ -122,6 +122,16 @@ def test_enabled_emails_go_out_once_and_respect_cooldown_severity_and_recipients
     assert run_notify(alert_row(severity='low'), on)[0][0][1] == {'reason': 'low_severity'}
     assert run_notify(alert_row(), on, recipients=())[0][0][1] == {'reason': 'no_recipients'}
     assert run_notify(alert_row(), on, sent=False)[0][0][0] == 'notification_failed'
+
+
+def test_alert_email_uses_the_reports_brand_template():
+    logged, send = run_notify(alert_row(page_path='/checkout'), {'REPORTS_ALERT_EMAILS': '1', 'REPORTS_PUBLIC_BASE_URL': 'https://r.x'})
+    kw = send.call_args.kwargs
+    assert kw['product'] == 'connect' and kw['template'] == 'produto-atividade.html' and kw['subject'] == '[Reports] T'
+    assert kw['params']['DESCRIPTION'] == 'S' and kw['params']['CTA_URL'] == 'https://r.x/connect/app/alerts'
+    assert {'label': 'Severidade', 'value': 'Alta'} in kw['params']['DETAILS']
+    with mock.patch('aicentralv2.services.cadu_email_connector.send_cadu_event', side_effect=RuntimeError('down')):
+        assert alerts._send_alert_email(alert_row(), ['a@x.com']) is False
 
 
 # ---- routes ----------------------------------------------------------------

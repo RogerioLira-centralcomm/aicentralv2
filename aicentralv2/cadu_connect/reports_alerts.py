@@ -45,6 +45,34 @@ def _recipients(alert):
     return sorted({row['email'] for row in rows if row.get('email')})
 
 
+_SEVERITY_LABELS = {'high': 'Alta', 'medium': 'Média', 'low': 'Baixa'}
+
+
+def _send_alert_email(alert, recipients):
+    """Modelo de marca do Reports (produto-atividade.html); True só com envio confirmado."""
+    try:
+        from ..services.cadu_email_connector import send_cadu_event
+        base = os.environ.get('REPORTS_PUBLIC_BASE_URL', '').rstrip('/')
+        details = [{'label': 'Severidade', 'value': _SEVERITY_LABELS.get(alert.get('severity'), alert.get('severity') or '—')}]
+        if alert.get('page_path'):
+            details.append({'label': 'Página', 'value': alert['page_path']})
+        sent = True
+        for email in recipients:
+            result = send_cadu_event(
+                product='connect', event='connect.reports_alert', template='produto-atividade.html',
+                recipient=email, recipient_name='Equipe', subject=f"[Reports] {alert['title']}",
+                client_id=alert.get('client_id'),
+                params={'TITLE': alert['title'], 'EYEBROW': 'Alerta do Reports', 'DESCRIPTION': alert.get('summary') or '',
+                        'DETAILS': details, 'CTA_LABEL': 'Abrir alertas' if base else '',
+                        'CTA_URL': f'{base}/connect/app/alerts' if base else ''})
+            sent = sent and bool((result or {}).get('success'))
+        return sent
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception('Alerta %s: e-mail não enviado', alert.get('id'))
+        return False
+
+
 def notify_opened(alert, now):
     """One e-mail per new alert, never more than once per cooldown. Skips are logged, never silent."""
     if alert['severity'] == 'low':
@@ -56,10 +84,7 @@ def notify_opened(alert, now):
     recipients = _recipients(alert)
     if not recipients:
         return _log(alert['id'], 'notification_skipped', detail={'reason': 'no_recipients'})
-    from ..email_service import send_email
-    base = os.environ.get('REPORTS_PUBLIC_BASE_URL', '').rstrip('/')
-    link = f'\n\nAbrir: {base}/connect/app/alerts' if base else ''
-    sent = send_email(f"[Reports] {alert['title']}", recipients, text_body=f"{alert['summary']}{link}")
+    sent = _send_alert_email(alert, recipients)
     if sent:
         _rows('UPDATE cadu_reports_alerts SET last_notified_at=%s WHERE id=%s RETURNING id', (now, alert['id']))
     _log(alert['id'], 'notified' if sent else 'notification_failed', detail={'recipients': len(recipients)})

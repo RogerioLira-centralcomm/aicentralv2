@@ -63,7 +63,8 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(contextSidebar, /recentFiles.length > 0/);
   assert.doesNotMatch(contextSidebar, /Atalhos de trabalho/);
   assert.doesNotMatch(contextSidebar, /\{id: 'recent'/);
-  assert.doesNotMatch(contextSidebar, /context-sidebar__footer/);
+  // A conta voltou ao rodapé da sidebar contextual (SidebarAccount).
+  assert.match(contextSidebar, /cadu-ds-context-sidebar__footer[\s\S]*<SidebarAccount userName=\{userName\} agencyName=\{agencyName\}/);
   assert.match(feedback, /WorkspaceAccountControl/);
   assert.match(feedback, /user\.email \|\| 'Conta e perfil'/);
   assert.doesNotMatch(home, /matchedProjects|Buscar projetos/);
@@ -78,9 +79,8 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(selectors, /selectorItemIds\(item\)\.includes/);
   assert.doesNotMatch(composer, /· ID \$\{detectedProfile\.id/);
   assert.match(home, /agencyName=\{home\.agency\?\.name\}/);
-  assert.match(contextSidebar, /agencyName = ''/);
-  assert.match(contextSidebar, /<strong>\{agencyName \|\| 'Cliente'\}<\/strong>/);
-  assert.match(contextSidebar, /id: 'integracoes', label: 'Integrações'/);
+  assert.match(contextSidebar, /agencyName: agencyNameProp = ''/);
+  assert.match(contextSidebar, /const agencyName = shared\.agency\?\.name \|\| agencyNameProp/);
   assert.match(contextSidebar, /MOBILE_HOME_ITEMS/);
   assert.match(contextSidebar, /max-width: 760px/);
   assert.match(contextSidebar, /cadu-ds-context-sidebar__nav--mobile/);
@@ -92,10 +92,11 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(mobileChrome, /event\.key !== 'Tab'/);
   assert.match(mobileChrome, /event\.preventDefault\(\)/);
   assert.match(mobileChrome, /workspaceMobileDestinationItems\(links\)/);
-  assert.match(mobileChrome, /workspaceMobileSolutionItems\(links\)/);
+  assert.match(mobileChrome, /workspaceSolutionItems\(\{urls: links, solutionIcons\}\)/);
   assert.match(mobileChrome, /workspaceChatHref\(links, \{history: true\}\)/);
   assert.doesNotMatch(mobileChrome, /href=\{[^}]*\|\| '#'/);
-  assert.match(viewportHook, /window\.matchMedia\(PHONE_QUERY\)/);
+  assert.match(viewportHook, /phone: PHONE_QUERY/);
+  assert.match(viewportHook, /window\.matchMedia\(queries\.phone\)/);
   assert.match(viewportHook, /window\.visualViewport/);
   assert.match(viewportHook, /--workspace-visual-height/);
   assert.match(viewportHook, /data-workspace-keyboard-open/);
@@ -105,8 +106,8 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(dock, /workspaceSolutionItems\(bootstrap\)/);
   assert.match(home, /onOpenResource=\{item => isDockResource\(item\) \? openWorkspaceResourceConversation/);
   assert.match(home, /: openWorkspaceDetail\(item\)/);
-  assert.match(projects, /onOpenResource=\{openWorkspaceDetail\}/);
-  assert.match(brands, /onOpenResource=\{openWorkspaceDetail\}/);
+  assert.match(projects, /<WorkspaceCatalog/);
+  assert.match(brands, /<WorkspaceCatalog/);
   assert.match(sidebar, /<strong>Workspace<\/strong>/);
   assert.match(sidebar, /workspaceMobileDestinationItems\(navUrls\)/);
   assert.match(sidebar, /workspaceMobileSolutionItems\(navUrls\)/);
@@ -142,7 +143,7 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(cards, /typeLabel/);
   assert.doesNotMatch(cards, /Visualização indisponível/);
   assert.match(selectors, /href=\{solution\.href\}/);
-  assert.match(template, /'avatar': \(perfil_contato or \{\}\)\.get\('foto_url'\)/);
+  assert.match(template, /'avatar': workspace_user_avatar\|default\(''\)/);
   assert.match(template, /'planner': product_url\('planner', '\/'\)/);
   assert.match(template, /'skills': product_url\('skills', '\/'\)/);
   assert.match(template, /'logout': product_url\('auth', '\/logout'\)/);
@@ -173,7 +174,7 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(project, /<strong>\{match\[1\]\}<\/strong>/);
   assert.match(template, /cadu_workspace\.merge_project/);
   assert.match(template, /cadu_workspace\.delete_project/);
-  assert.match(project, /WorkspaceAccountMenu/);
+  assert.match(project, /<WorkspaceContextSidebar/);
   assert.match(project, /cadu-ds-home-workarea cadu-ds-project-workarea/);
   assert.match(project, /dragDepth = useRef/);
   assert.match(project, /Solte para adicionar ao projeto/);
@@ -204,7 +205,9 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(project, /\{id:'tasks', label:'Tarefas'/);
   assert.doesNotMatch(project, /title:'Links principais'/);
   assert.match(project, /<b title=\{project\.name\}>\{project\.name\}<\/b>/);
-  assert.match(project, /cadu-ds-project-workarea[\s\S]*<CaduDock[\s\S]*cadu-ds-project-content/);
+  // O dock saiu das telas internas (6259f8c0f); a navegação é a sidebar contextual.
+  assert.doesNotMatch(project, /<CaduDock/);
+  assert.match(project, /cadu-ds-project-workarea[\s\S]*cadu-ds-project-content/);
   assert.match(styles, /\.cadu-ds-home-content \{ width:100%; max-width:none; margin:0;/);
   assert.match(styles, /\.cadu-ds-home-content \.cadu-ds-composer,[\s\S]*width:100%; max-width:none;/);
   assert.match(styles, /\.cadu-ds-project-content \{ width:100%; max-width:none;/);
@@ -216,7 +219,8 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(styles, /\.cadu-ds-project-workarea/);
   const entityStyles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceEntityPortal.css'), 'utf8');
   assert.match(entityStyles, /\.cadu-ds-entity-portal--project > \.cadu-ds-entity-nav \{[\s\S]*position:fixed[\s\S]*overflow-y:auto/);
-  assert.match(entityStyles, /\.cadu-ds-entity-portal--project > \.cadu-ds-entity-rail \{[\s\S]*height:auto;[\s\S]*overflow:visible/);
+  // O rail do projeto agora só reaparece em bloco no layout estreito.
+  assert.match(entityStyles, /\.cadu-ds-entity-portal--project > \.cadu-ds-entity-rail \{ display:block; \}/);
   assert.match(entityStyles, /font-size:clamp\(26px,2\.5vw,36px\)/);
   assert.match(styles, /\.cadu-ds-project-indexing__file > span > span \{ overflow-wrap:anywhere/);
   assert.match(template, /'projectMode': True/);
@@ -309,11 +313,12 @@ test('Workspace catalogs keep the dock inside the shared work area at full width
   const styles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/styles.css'), 'utf8');
   for (const catalog of [projects, brands]) {
     assert.match(catalog, /cadu-ds-home-workarea cadu-ds-catalog-workarea/);
-    assert.match(catalog, /cadu-ds-catalog-workarea[\s\S]*<CaduDock[\s\S]*<WorkspaceCatalog/);
+    assert.match(catalog, /cadu-ds-catalog-workarea[\s\S]*<WorkspaceCatalog/);
+    assert.doesNotMatch(catalog, /<CaduDock/);
   }
   assert.match(styles, /\.untitled-catalog-page\{width:100%;min-width:0;/);
   assert.match(styles, /\.untitled-catalog-list__head,.untitled-catalog-item\{display:grid/);
-  assert.match(styles, /@media\(max-width:640px\)[\s\S]*\.untitled-catalog-item\{display:grid/);
+  assert.match(styles, /@media\(max-width:760px\)[\s\S]*\.untitled-catalog-item\{display:grid/);
   assert.doesNotMatch(projects, /cadu-ds-catalog-(?:list|row)/);
   assert.doesNotMatch(brands, /cadu-ds-catalog-(?:list|row)/);
 });
@@ -349,8 +354,8 @@ test('Cadu primitives own icons, accessible dialogs, selectors and persistent do
   assert.doesNotMatch(selectors, /role="menuitem"/);
   assert.match(selectors, /aria-pressed/);
   assert.match(selectors, /event\.key === 'Escape'/);
-  assert.match(confirm, /<CaduDialog/);
-  assert.match(studio, /<CaduDialog/);
+  assert.match(confirm, /<CaduConfirmDialog/);
+  assert.match(studio, /<StudioDialog/);
 });
 
 test('Workspace shares catalog primitives and bridges legacy Jinja pages into React chrome', () => {
@@ -361,7 +366,8 @@ test('Workspace shares catalog primitives and bridges legacy Jinja pages into Re
   const partial = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/_app_sidebar.html'), 'utf8');
   for (const file of ['WorkspaceHome.jsx', 'WorkspaceProject.jsx', 'WorkspaceProjects.jsx', 'WorkspaceBrands.jsx']) {
     const source = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components', file), 'utf8');
-    assert.match(source, /<CaduDock/);
+    // Só a Home mantém o dock; as demais usam a sidebar contextual.
+    assert.match(source, file === 'WorkspaceHome.jsx' ? /<CaduDock/ : /<WorkspaceContextSidebar/);
     assert.doesNotMatch(source, /<WorkspaceNavbar/);
   }
   for (const file of ['WorkspaceProjects.jsx', 'WorkspaceBrands.jsx']) {
@@ -371,7 +377,7 @@ test('Workspace shares catalog primitives and bridges legacy Jinja pages into Re
   assert.match(navbar, /CaduSolutionSwitcher/);
   assert.match(navbar, /WorkspaceAccountControl/);
   assert.match(catalog, /CatalogFilters/);
-  assert.match(legacy, /<CaduDock/);
+  assert.match(legacy, /<WorkspaceContextSidebar/);
   assert.match(legacy, /main\.dataset\.workspaceSurface = surface/);
   assert.match(entry, /bootstrap\.legacyMode \? <WorkspaceLegacyChrome/);
   assert.match(partial, /cadu-workspace-legacy-chrome-root/);
@@ -386,7 +392,7 @@ test('Workspace account routes render the new React account surface', () => {
   const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/account_react.html'), 'utf8');
   const routes = fs.readFileSync(path.join(root, 'aicentralv2/cadu_workspace/routes.py'), 'utf8');
   assert.match(account, /export function WorkspaceAccount/);
-  assert.match(account, /<CaduDock/);
+  assert.match(account, /<WorkspaceContextSidebar/);
   assert.match(account, /function DataTable/);
   assert.match(entry, /bootstrap\.accountMode \? <WorkspaceAccount/);
   assert.match(template, /'accountMode': True/);
@@ -427,7 +433,8 @@ test('Workspace React surfaces share one product navigation catalog', () => {
   }
   for (const file of ['WorkspaceHome.jsx', 'WorkspaceProject.jsx', 'WorkspaceProjects.jsx', 'WorkspaceBrands.jsx']) {
     const source = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components', file), 'utf8');
-    assert.match(source, /<CaduDock/);
+    // Só a Home mantém o dock; as demais usam a sidebar contextual.
+    assert.match(source, file === 'WorkspaceHome.jsx' ? /<CaduDock/ : /<WorkspaceContextSidebar/);
   }
 });
 
@@ -461,8 +468,6 @@ test('Workspace catalogs expose server-backed filters and preserve personalized 
   const projectsTemplate = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/projects_react.html'), 'utf8');
   assert.match(brands, /Todas.*Analisadas.*Com ativos/s);
   assert.match(projects, /Ativos.*Arquivados.*Todos/s);
-  assert.match(brands, /const dockItems = bootstrap\.dock\?\.items \|\| \[\]/);
-  assert.match(projects, /const dockItems = bootstrap\.dock\?\.items \|\| \[\]/);
   assert.match(brandsTemplate, /'filterName':filter_name/);
   assert.match(projectsTemplate, /'dock':\{'items':dock_items\}/);
   assert.doesNotMatch(projectsTemplate, /'dock':\{'items':brand_items\[:3\]\+project_items\[:5\]\}/);

@@ -12,6 +12,7 @@ env.globals.update(
     request=SimpleNamespace(blueprint='studio_product', endpoint='studio_product.home', path='/studio'),
     cadu_nav_credit={'configured': True, 'monthly': 1000, 'available': 640},
     perfil_contato={},
+    skills_enabled=lambda: False,  # mesma chave global do create_app (Skills fora do lançamento)
 )
 bar = env.from_string('{% set mc_page = "criar" %}{% include "cadu_studio/_context_bar.html" %}').render()
 styles = ''.join(f'<link rel="stylesheet" href="/static/css/{name}.css">' for name in (

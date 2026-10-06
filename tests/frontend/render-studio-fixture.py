@@ -11,6 +11,9 @@ env.globals['url_for']=url_for
 env.globals['session']={}
 env.globals['request']=SimpleNamespace(endpoint='parametros.modelagem_criativos')
 env.globals['product_url']=lambda slug, fallback='/': fallback
-env.globals['studio_url']=lambda endpoint: '/parametros/modelagem-criativos'
+env.globals['studio_url']=lambda endpoint, **_: '/parametros/modelagem-criativos'
+env.globals['skills_enabled']=lambda: False  # chave global do create_app
 out=Path('tests/frontend/.fixtures/studio-home');out.mkdir(parents=True,exist_ok=True)
-(out/'rendered.html').write_text(env.get_template('parametros/modelagem_criativos.html').render())
+# Produção renderiza cadu_studio/home.html (creative_modeling_routes.modelagem_criativos);
+# parametros/modelagem_criativos.html ficou órfão e não carrega os scripts no shell dos portais.
+(out/'rendered.html').write_text(env.get_template('cadu_studio/home.html').render(mc_page='hub', mc_title='A peça na mesa', mc_trocr_csrf='fixture'))

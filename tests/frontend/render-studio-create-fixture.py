@@ -17,6 +17,7 @@ app.jinja_env.globals.update(
     product_url=lambda slug, path='/': f'/{slug}{path}',
     cadu_nav_credit={'configured': True, 'monthly': 1000, 'available': 640},
     perfil_contato={},
+    skills_enabled=lambda: False,  # mesma chave global do create_app (Skills fora do lançamento)
 )
 
 with app.test_request_context('/studio/criar'):

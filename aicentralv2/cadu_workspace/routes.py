@@ -1436,7 +1436,9 @@ def workspace_context_resolve_api():
 
 
 def _workspace_team_admin() -> None:
-    if session.get('user_type') not in {'admin', 'superadmin'}:
+    # Papel de administrador da conta do cliente; não dá acesso ao CentralX.
+    from ..auth import is_account_admin
+    if not is_account_admin():
         abort(403, description='Somente administradores podem gerenciar os acessos da equipe.')
 
 
@@ -10211,6 +10213,11 @@ def update_organization():
     }
     if not 2 <= len(fields['trade_name']) <= 160:
         abort(400, description='Informe o nome da empresa.')
+    from ..auth import is_reserved_org_name
+    # nome_fantasia decide is_centralcomm no login: conta cliente não pode adotá-lo.
+    if not session.get('is_centralcomm') and (
+            is_reserved_org_name(fields['trade_name']) or is_reserved_org_name(fields['legal_name'])):
+        abort(400, description='Este nome de empresa é reservado. Escolha outro nome.')
     if fields['legal_name'] and len(fields['legal_name']) > 180:
         abort(400, description='A razão social é muito longa.')
     if fields['document'] and len(fields['document']) not in {11, 14}:

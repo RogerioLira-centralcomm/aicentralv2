@@ -775,7 +775,7 @@ class CreativeFormatLabTest(unittest.TestCase):
             with client.session_transaction() as sess:
                 sess["user_id"] = 1
                 sess["is_admin"] = True
-                sess["user_type"] = "admin"
+                sess["user_type"] = "admin"; sess["is_centralcomm"] = True
             response = client.post(
                 "/parametros/api/format-lab/layers/split",
                 json={
@@ -4454,7 +4454,7 @@ class CreativeFormatLabRoutesTest(unittest.TestCase):
         self.client = app.test_client()
         with self.client.session_transaction() as session:
             session["user_id"] = 1
-            session["user_type"] = "admin"
+            session["user_type"] = "admin"; session["is_centralcomm"] = True
             session["trocr_csrf_token"] = "trocr-test-csrf"
 
     def _trocr_headers(self):

@@ -246,7 +246,7 @@ class WorkspaceHttpTest(unittest.TestCase):
             client=app.test_client();path='/api/format-lab/swap/editor/assets?client_id=1'
             self.assertEqual(client.post(path).status_code,401)
             with client.session_transaction() as session:
-                session['user_id']=1;session['user_type']='admin';session['trocr_csrf_token']='csrf'
+                session['user_id']=1;session['user_type']='admin'; session['is_centralcomm'] = True;session['trocr_csrf_token']='csrf'
             self.assertEqual(client.post(path).status_code,403)
             with patch.object(editor_routes,'workspace',lambda:store):
                 response=client.post(path,headers={'X-Trocr-CSRF-Token':'csrf'},data={'file':(io.BytesIO(png('red')),'base.png')})

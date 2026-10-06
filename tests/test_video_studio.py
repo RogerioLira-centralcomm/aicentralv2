@@ -177,7 +177,7 @@ class MediaTest(unittest.TestCase):
         app = self.app()
         client = app.test_client()
         with client.session_transaction() as sess:
-            sess.update(user_id=7, user_type='admin', studio_csrf_token='test-token')
+            sess.update(user_id=7, user_type='admin', is_centralcomm=True, studio_csrf_token='test-token')
         service = Mock()
         service.load_format_lab_swap_library.return_value = {'items': [{'id': 'clip-test', 'video_url': '/parametros/api/media/assets/asset-test/content'}]}
         service.serve_media_asset.return_value = (self.silent, 'video/mp4')
@@ -217,7 +217,7 @@ class MediaTest(unittest.TestCase):
         url = '/parametros/api/format-lab/studio/sounds'
         self.assertEqual(client.get(url + '?client_id=10').status_code, 401)
         with client.session_transaction() as sess:
-            sess.update(user_id=7, user_type='admin', studio_csrf_token='test-token')
+            sess.update(user_id=7, user_type='admin', is_centralcomm=True, studio_csrf_token='test-token')
         self.assertEqual(client.post(url).status_code, 403)
         def execute(fn):
             try:
@@ -250,7 +250,7 @@ class SeedancePanelTest(unittest.TestCase):
         url = '/api/format-lab/studio/capabilities'
         self.assertEqual(client.get(url).status_code, 401)
         with client.session_transaction() as sess:
-            sess.update(user_id=7, user_type='admin')
+            sess.update(user_id=7, user_type='admin', is_centralcomm=True)
         data = client.get(url).json['data']
         self.assertEqual(data['model'], settings.MODEL)
         self.assertEqual(data['durations'], [d for d in settings.DURATIONS if d <= settings.MAX_DURATION])

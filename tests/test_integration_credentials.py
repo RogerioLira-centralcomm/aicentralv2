@@ -246,7 +246,7 @@ class IntegrationCredentialsApiTest(unittest.TestCase):
     def test_admin_lists_only_masked_summaries(self):
         with self.client.session_transaction() as session:
             session["user_id"] = 1
-            session["user_type"] = "admin"
+            session["user_type"] = "admin"; session["is_centralcomm"] = True
         with patch.object(
             integration_credentials,
             "list_summaries",

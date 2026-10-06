@@ -1591,7 +1591,8 @@ def custom_list(advertiser_id: str, custom_list_id: str):
 
 
 def _is_dv_session_admin() -> bool:
-    return session.get("user_type") in ("admin", "superadmin")
+    from .auth import is_internal_admin
+    return is_internal_admin()
 
 
 def _session_cliente_id() -> Optional[int]:

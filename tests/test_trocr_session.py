@@ -545,7 +545,7 @@ class TrocrSessionRoutesTest(unittest.TestCase):
         self.client = app.test_client()
         with self.client.session_transaction() as session:
             session["user_id"] = 1
-            session["user_type"] = "admin"
+            session["user_type"] = "admin"; session["is_centralcomm"] = True
             session["trocr_csrf_token"] = "trocr-test-csrf"
 
     def test_post_do_historico_exige_csrf(self):

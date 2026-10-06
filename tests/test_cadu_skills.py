@@ -286,7 +286,7 @@ class CaduSkillsTest(TestCase):
         client = _app().test_client()
         with client.session_transaction() as sess:
             sess["user_id"] = 7
-            sess["user_type"] = "admin"
+            sess["user_type"] = "admin"; sess["is_centralcomm"] = True
         response = client.post("/skills/api/gestao/personalizadas/9/link", json={"permission": "run"})
         self.assertEqual(response.status_code, 200)
         self.assertIn("/skills/s/secret_token", response.get_json()["url"])
@@ -300,7 +300,7 @@ class CaduSkillsTest(TestCase):
     def test_internal_management_is_not_part_of_the_public_skills_navigation(self, _managed):
         client = _app().test_client()
         with client.session_transaction() as session:
-            session.update(user_id=7, user_type="admin", cliente_id=12)
+            session.update(user_id=7, user_type="admin", is_centralcomm=True, cliente_id=12)
         html = client.get("/skills/?catalog=1").get_data(as_text=True)
         self.assertNotIn('href="/skills/gestao"', html)
 

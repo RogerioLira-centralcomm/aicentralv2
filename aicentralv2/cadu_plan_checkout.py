@@ -114,6 +114,10 @@ def request_plan_change(*, user_id: int, client_id: int, data: dict, ip: str = "
     if missing:
         raise CheckoutError("Preencha todos os campos obrigatórios.")
     billing = {f: str(data.get(f) or "").strip()[:255] for f in BILLING_FIELDS + ("bairro",)}
+    from .auth import is_reserved_org_name
+    # nome_fantasia decide is_centralcomm no login: conta cliente não pode adotá-lo.
+    if is_reserved_org_name(billing.get("nome_fantasia")) or is_reserved_org_name(billing.get("razao_social")):
+        raise CheckoutError("Este nome de empresa é reservado. Escolha outro nome.")
 
     conn = db.get_db()
     try:

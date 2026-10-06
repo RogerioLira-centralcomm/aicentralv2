@@ -18,7 +18,7 @@ class EditorMediaTest(unittest.TestCase):
     def test_import_inspect_extract_and_brand_boundary(self):
         app=self.app();client=app.test_client()
         with client.session_transaction() as sess:
-            sess.update(user_id=7,user_type='admin',studio_csrf_token='token')
+            sess.update(user_id=7,user_type='admin', is_centralcomm=True,studio_csrf_token='token')
         def execute(fn):
             try:return fn()
             except ValueError as error:return jsonify(success=False,error=str(error)),400

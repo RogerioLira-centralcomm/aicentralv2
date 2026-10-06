@@ -3618,7 +3618,7 @@ class CreativeRoutesTest(unittest.TestCase):
         service.list_campaigns.return_value = [{"id": 30, "name": "Campanha"}]
         with self.client.session_transaction() as session:
             session["user_id"] = 1
-            session["user_type"] = "admin"
+            session["user_type"] = "admin"; session["is_centralcomm"] = True
         with patch(
             "aicentralv2.creative_modeling_routes._service",
             return_value=service,
@@ -3641,7 +3641,7 @@ class CreativeRoutesTest(unittest.TestCase):
         }
         with self.client.session_transaction() as session:
             session["user_id"] = 1
-            session["user_type"] = "admin"
+            session["user_type"] = "admin"; session["is_centralcomm"] = True
         payload = {
             "client_source": "crm",
             "client_id": 42,
@@ -3676,7 +3676,7 @@ class CreativeRoutesTest(unittest.TestCase):
         }
         with self.client.session_transaction() as session:
             session["user_id"] = 1
-            session["user_type"] = "admin"
+            session["user_type"] = "admin"; session["is_centralcomm"] = True
         with patch(
             "aicentralv2.creative_modeling_routes._service",
             return_value=service,
@@ -3716,7 +3716,7 @@ class CreativeRoutesTest(unittest.TestCase):
         }
         with self.client.session_transaction() as session:
             session["user_id"] = 1
-            session["user_type"] = "admin"
+            session["user_type"] = "admin"; session["is_centralcomm"] = True
         with patch(
             "aicentralv2.creative_modeling_routes._service",
             return_value=service,
@@ -3770,7 +3770,7 @@ class CreativeRoutesTest(unittest.TestCase):
         }
         with self.client.session_transaction() as session:
             session["user_id"] = 1
-            session["user_type"] = "admin"
+            session["user_type"] = "admin"; session["is_centralcomm"] = True
         with patch(
             "aicentralv2.creative_modeling_routes._service",
             return_value=service,
@@ -3805,7 +3805,7 @@ class CreativeRoutesTest(unittest.TestCase):
         )
         with self.client.session_transaction() as session:
             session["user_id"] = 1
-            session["user_type"] = "admin"
+            session["user_type"] = "admin"; session["is_centralcomm"] = True
         with patch(
             "aicentralv2.creative_modeling_routes._service",
             return_value=service,
@@ -3829,7 +3829,7 @@ class CreativeRoutesTest(unittest.TestCase):
         )
         with self.client.session_transaction() as session:
             session["user_id"] = 1
-            session["user_type"] = "admin"
+            session["user_type"] = "admin"; session["is_centralcomm"] = True
         with patch(
             "aicentralv2.creative_modeling_routes._service",
             return_value=service,
@@ -3850,7 +3850,7 @@ class CreativeRoutesTest(unittest.TestCase):
         )
         with self.client.session_transaction() as session:
             session["user_id"] = 1
-            session["user_type"] = "admin"
+            session["user_type"] = "admin"; session["is_centralcomm"] = True
         with patch(
             "aicentralv2.creative_modeling_routes._service",
             return_value=service,
@@ -3882,7 +3882,7 @@ class CreativeRoutesTest(unittest.TestCase):
         }
         with self.client.session_transaction() as session:
             session["user_id"] = 1
-            session["user_type"] = "admin"
+            session["user_type"] = "admin"; session["is_centralcomm"] = True
         with patch(
             "aicentralv2.creative_modeling_routes._service",
             return_value=service,
@@ -3909,7 +3909,7 @@ class CreativeRoutesTest(unittest.TestCase):
             session["user_type"] = "client"
         self.assertEqual(self.client.get(url).status_code, 403)
         with self.client.session_transaction() as session:
-            session["user_type"] = "admin"
+            session["user_type"] = "admin"; session["is_centralcomm"] = True
         service = Mock()
         service.list_brand_sources.return_value = [{
             "crm_client_id": 42, "name": "Agência", "kind": "Agência",
@@ -3926,7 +3926,7 @@ class CreativeRoutesTest(unittest.TestCase):
         service.update_client.return_value = {"id": 10, "name": "Cliente editado"}
         with self.client.session_transaction() as session:
             session["user_id"] = 1
-            session["user_type"] = "admin"
+            session["user_type"] = "admin"; session["is_centralcomm"] = True
         with patch(
             "aicentralv2.creative_modeling_routes._service",
             return_value=service,
@@ -3946,7 +3946,7 @@ class CreativeRoutesTest(unittest.TestCase):
         }
         with self.client.session_transaction() as session:
             session["user_id"] = 1
-            session["user_type"] = "admin"
+            session["user_type"] = "admin"; session["is_centralcomm"] = True
         with patch(
             "aicentralv2.creative_modeling_routes._service",
             return_value=service,
@@ -3973,7 +3973,7 @@ class CreativeRoutesTest(unittest.TestCase):
         }
         with self.client.session_transaction() as session:
             session["user_id"] = 1
-            session["user_type"] = "admin"
+            session["user_type"] = "admin"; session["is_centralcomm"] = True
         with patch(
             "aicentralv2.creative_modeling_routes._service",
             return_value=service,
@@ -5858,7 +5858,7 @@ class BancadaDeskContractTest(unittest.TestCase):
         client = app.test_client()
         with client.session_transaction() as session:
             session["user_id"] = 1
-            session["user_type"] = "admin"
+            session["user_type"] = "admin"; session["is_centralcomm"] = True
         with patch(
             "aicentralv2.creative_modeling_routes._service",
             return_value=service,

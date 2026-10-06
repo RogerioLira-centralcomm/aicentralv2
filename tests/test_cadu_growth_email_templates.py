@@ -91,7 +91,7 @@ class CaduGrowthEmailTemplateTests(unittest.TestCase):
         client = self.app.test_client()
         with client.session_transaction() as session:
             session["user_id"] = 1
-            session["user_type"] = "admin"
+            session["user_type"] = "admin"; session["is_centralcomm"] = True
         with patch("aicentralv2.brevo_test_routes.run_growth_email_test_suite", return_value={"success": True, "dry_run": True, "sent": 0, "failed": 0, "results": []}) as suite, patch(
             "aicentralv2.brevo_test_routes.render_template", return_value="ok"
         ):

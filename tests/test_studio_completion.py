@@ -66,7 +66,7 @@ class MediaCompletionTest(unittest.TestCase):
         from flask import request,jsonify
         from aicentralv2.creative_media.queue_worker import drain_tasks
         app=self.app();app.config['MEDIA_WORKER_MODE']='supervised';client=app.test_client()
-        with client.session_transaction() as sess:sess.update(user_id=7,user_type='admin',studio_csrf_token='token')
+        with client.session_transaction() as sess:sess.update(user_id=7,user_type='admin', is_centralcomm=True,studio_csrf_token='token')
         def execute(fn):
             try:return fn()
             except ValueError as error:return jsonify(success=False,error=str(error)),400

@@ -20,7 +20,7 @@ class DeliveryTest(unittest.TestCase):
     def test_formats_download_and_anonymous_html(self):
         from aicentralv2.creative_media import studio
         app=self.app();client=app.test_client();anonymous=app.test_client();service=Mock();service.get_client.return_value={'name':'Marca Ágil'}
-        with client.session_transaction() as sess:sess.update(user_id=7,user_type='admin',studio_csrf_token='token')
+        with client.session_transaction() as sess:sess.update(user_id=7,user_type='admin', is_centralcomm=True,studio_csrf_token='token')
         def execute(fn):
             try:return fn()
             except ValueError as error:return jsonify(success=False,error=str(error)),400

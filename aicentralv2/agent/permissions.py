@@ -48,7 +48,8 @@ def agent_csrf_required(view):
 
 
 def has_global_commercial_access():
-    return session.get("user_type") in {"admin", "superadmin"}
+    from ..auth import is_internal_admin
+    return is_internal_admin()
 
 
 def public_capabilities():

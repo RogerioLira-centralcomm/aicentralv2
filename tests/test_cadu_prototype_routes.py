@@ -33,6 +33,7 @@ class CaduPrototypeRoutesTest(unittest.TestCase):
         with self.client.session_transaction() as s:
             s['user_id'] = 1
             s['user_type'] = role
+            s['is_centralcomm'] = role in ('admin', 'superadmin')
 
     def test_unauthenticated_and_non_admin_are_blocked(self):
         path = '/parametros/prototipos-cadu/cadu-finance.js'

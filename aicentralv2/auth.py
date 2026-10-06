@@ -82,16 +82,76 @@ def login_required(f):
     return decorated_function
 
 
+ADMIN_ROLES = frozenset({'admin', 'superadmin'})
+CENTRALCOMM_ORG_NAME = 'CENTRALCOMM'
+
+
+def is_reserved_org_name(name):
+    """Nome de organização que concederia acesso interno (CentralComm).
+
+    ``session['is_centralcomm']`` é calculado pelo ``nome_fantasia`` do cliente;
+    por isso cadastro público e edição da Agência no Workspace não podem gravar
+    esse nome (com quaisquer espaços, pontuação ou caixa).
+    """
+    import unicodedata
+    folded = unicodedata.normalize('NFKD', str(name or '')).encode('ascii', 'ignore').decode()
+    return re.sub(r'[^A-Z0-9]', '', folded.upper()) == CENTRALCOMM_ORG_NAME
+
+
+def is_account_admin():
+    """Administrador da conta do cliente (Workspace: Agência, equipe, marcas).
+
+    Não concede acesso a ferramentas internas do CentralX; para isso use
+    :func:`is_admin` / :func:`admin_required`.
+    """
+    return session.get('user_type') in ADMIN_ROLES
+
+
+def is_internal_admin():
+    """Admin/superadmin da equipe CentralComm (rotas internas do CentralX)."""
+    return is_account_admin() and bool(session.get('is_centralcomm'))
+
+
+def account_admin_required(f):
+    """Rotas de administrador de conta cliente (aceita admin de qualquer conta)."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Por favor, faça login para acessar esta página.', 'warning')
+            return redirect(login_url())
+        if not is_account_admin():
+            flash('Acesso negado. Esta área é restrita aos administradores da conta.', 'error')
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def account_admin_required_api(f):
+    """JSON counterpart to :func:`account_admin_required`."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({'success': False, 'error': 'Sessão expirada. Faça login novamente.'}), 401
+        if not is_account_admin():
+            return jsonify({'success': False, 'error': 'Acesso negado. Permissão insuficiente.'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 def admin_required(f):
-    """Decorador para proteger rotas administrativas (admin ou superadmin)"""
+    """Rotas internas do CentralX: admin/superadmin da equipe CentralComm.
+
+    Admin de conta cliente (``user_type='admin'`` fora da CentralComm) não
+    passa; rotas de administração da própria conta usam
+    :func:`account_admin_required`.
+    """
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
             flash('Por favor, faça login para acessar esta página.', 'warning')
             return redirect(login_url())
         
-        user_type = session.get('user_type', 'client')
-        if user_type not in ['admin', 'superadmin']:
+        if not is_internal_admin():
             flash('Acesso negado. Esta área é restrita a administradores.', 'error')
             return redirect(url_for('index'))
         
@@ -107,8 +167,7 @@ def superadmin_required(f):
             flash('Por favor, faça login para acessar esta página.', 'warning')
             return redirect(login_url())
         
-        user_type = session.get('user_type', 'client')
-        if user_type != 'superadmin':
+        if not is_superadmin():
             flash('Acesso negado. Esta área é restrita a super administradores.', 'error')
             return redirect(url_for('index'))
         
@@ -122,20 +181,20 @@ def is_logged_in():
 
 
 def is_admin():
-    """Verifica se o usuário é admin ou superadmin"""
-    return session.get('user_type') in ['admin', 'superadmin']
+    """Admin/superadmin interno (equipe CentralComm). Ver :func:`is_account_admin`."""
+    return is_internal_admin()
 
 
 def is_superadmin():
     """Verifica se o usuário é superadmin"""
-    return session.get('user_type') == 'superadmin'
+    return session.get('user_type') == 'superadmin' and bool(session.get('is_centralcomm'))
 
 
 def is_finance_admin():
-    """Flag finance_admin ou admin/superadmin."""
-    if session.get('is_finance_admin'):
-        return True
-    return session.get('user_type') in ('admin', 'superadmin')
+    """Flag finance_admin ou admin/superadmin, sempre da equipe CentralComm."""
+    if not session.get('is_centralcomm'):
+        return False
+    return bool(session.get('is_finance_admin')) or is_account_admin()
 
 
 def get_current_user():
@@ -231,8 +290,7 @@ def admin_required_api(f):
         if 'user_id' not in session:
             return jsonify({'success': False, 'error': 'Sessão expirada. Faça login novamente.'}), 401
         
-        user_type = session.get('user_type', 'client')
-        if user_type not in ['admin', 'superadmin']:
+        if not is_internal_admin():
             return jsonify({'success': False, 'error': 'Acesso negado. Permissão insuficiente.'}), 403
         
         return f(*args, **kwargs)
@@ -249,8 +307,7 @@ def superadmin_required_api(f):
         if 'user_id' not in session:
             return jsonify({'success': False, 'error': 'Sessão expirada. Faça login novamente.'}), 401
         
-        user_type = session.get('user_type', 'client')
-        if user_type != 'superadmin':
+        if not is_superadmin():
             return jsonify({'success': False, 'error': 'Acesso negado. Apenas super administradores.'}), 403
         
         return f(*args, **kwargs)

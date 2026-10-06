@@ -131,7 +131,8 @@ def _handle_any_exception(exc):
     print(f"[crm_v3] 500 em {request.method} {request.path}: {exc}", file=_sys.stderr)
     print(tb_str, file=_sys.stderr)
 
-    is_admin = session.get("user_type") in ("admin", "superadmin")
+    from .auth import is_internal_admin
+    is_admin = is_internal_admin()
     if request.path.startswith("/crm-v3/api/"):
         payload = {
             "success": False,

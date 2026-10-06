@@ -313,7 +313,7 @@ class StudioSessionRouteTest(unittest.TestCase):
             base = "/api/format-lab/studio/sessions"
             self.assertEqual(client.get(base).status_code, 401)
             with client.session_transaction() as sess:
-                sess.update(user_id=7, user_type="admin", cliente_id=31, user_email="real@example.com",
+                sess.update(user_id=7, user_type="admin", is_centralcomm=True, cliente_id=31, user_email="real@example.com",
                             user_name="Pessoa", studio_csrf_token="token")
 
             def execute(fn):

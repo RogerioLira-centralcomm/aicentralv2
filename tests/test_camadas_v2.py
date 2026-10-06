@@ -497,7 +497,7 @@ class CamadasV2ContractTest(unittest.TestCase):
             client = app.test_client()
             with client.session_transaction() as sess:
                 sess["user_id"] = 1
-                sess["user_type"] = "admin"
+                sess["user_type"] = "admin"; sess["is_centralcomm"] = True
             empty = client.post("/parametros/api/camadas/v2/creatives")
             self.assertEqual(empty.status_code, 400)
             response = client.post(
@@ -525,7 +525,7 @@ class CamadasV2ContractTest(unittest.TestCase):
             client = app.test_client()
             with client.session_transaction() as sess:
                 sess["user_id"] = 1
-                sess["user_type"] = "admin"
+                sess["user_type"] = "admin"; sess["is_centralcomm"] = True
             response = client.get("/modelagem-criativos/camadas")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(render.call_args.kwargs["panel"], "parametros/_mc_camadas_v2.html")
@@ -670,7 +670,7 @@ class CamadasV2ContractTest(unittest.TestCase):
             client = app.test_client()
             with client.session_transaction() as sess:
                 sess["user_id"] = 1
-                sess["user_type"] = "admin"
+                sess["user_type"] = "admin"; sess["is_centralcomm"] = True
             response = client.post(
                 "/parametros/api/camadas/v2/creatives/crt_ab/segment",
                 json={
@@ -782,7 +782,7 @@ class CamadasV2ContractTest(unittest.TestCase):
             client = app.test_client()
             with client.session_transaction() as sess:
                 sess["user_id"] = 1
-                sess["user_type"] = "admin"
+                sess["user_type"] = "admin"; sess["is_centralcomm"] = True
             response = client.patch(
                 "/parametros/api/camadas/v2/creatives/crt_ab/scene",
                 json={
@@ -887,7 +887,7 @@ class CamadasV2ContractTest(unittest.TestCase):
             client = app.test_client()
             with client.session_transaction() as sess:
                 sess["user_id"] = 1
-                sess["user_type"] = "admin"
+                sess["user_type"] = "admin"; sess["is_centralcomm"] = True
             response = client.post(
                 "/parametros/api/camadas/v2/elements/el_ab/publish",
                 json={"name": "Pessoa", "predictor": "malicioso"},
@@ -922,7 +922,7 @@ class CamadasV2ContractTest(unittest.TestCase):
             client = app.test_client()
             with client.session_transaction() as sess:
                 sess["user_id"] = 1
-                sess["user_type"] = "admin"
+                sess["user_type"] = "admin"; sess["is_centralcomm"] = True
             created = client.post(
                 "/parametros/api/camadas/v2/creatives",
                 data={"file": (io.BytesIO(PNG_1PX), "still.png"), "name": "Peça", "brand_id": "10"},
@@ -1019,7 +1019,7 @@ class CamadasV2ContractTest(unittest.TestCase):
             client = app.test_client()
             with client.session_transaction() as sess:
                 sess["user_id"] = 1
-                sess["user_type"] = "admin"
+                sess["user_type"] = "admin"; sess["is_centralcomm"] = True
             packs = client.get("/parametros/api/camadas/v2/brands/10/collections")
             self.assertEqual(packs.status_code, 200)
             html = client.get(f"/parametros/api/camadas/v2/creatives/{created['creative_id']}/export")
@@ -1111,7 +1111,7 @@ class CamadasV2ContractTest(unittest.TestCase):
             client = app.test_client()
             with client.session_transaction() as sess:
                 sess["user_id"] = 1
-                sess["user_type"] = "admin"
+                sess["user_type"] = "admin"; sess["is_centralcomm"] = True
             response = client.post(
                 "/parametros/api/camadas/v2/creatives/crt_ab/clean-background",
                 json={"image_callable": "malicioso"},

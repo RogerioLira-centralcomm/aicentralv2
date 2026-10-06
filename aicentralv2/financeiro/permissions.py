@@ -4,10 +4,12 @@ from flask import session, redirect, url_for, flash, jsonify
 
 
 def is_finance_admin():
-    """True se o usuário tem flag is_finance_admin ou é admin/superadmin."""
-    if session.get('is_finance_admin'):
-        return True
-    return session.get('user_type') in ('admin', 'superadmin')
+    """True se o usuário tem flag is_finance_admin ou é admin/superadmin.
+
+    Sempre restrito à equipe CentralComm: admin de conta cliente não é financeiro.
+    """
+    from ..auth import is_finance_admin as _is_finance_admin
+    return _is_finance_admin()
 
 
 def finance_admin_required(f):

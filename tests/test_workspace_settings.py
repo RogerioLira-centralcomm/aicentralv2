@@ -74,7 +74,7 @@ class WorkspaceSettingsTest(TestCase):
 
         response = _client().post('/workspace/app/organizacao', data={
             '_csrf': 'known-token',
-            'trade_name': 'CentralComm', 'legal_name': 'Central Comunicação Ltda',
+            'trade_name': 'Agência Exemplo', 'legal_name': 'Agência Exemplo Comunicação Ltda',
             'document': '12.345.678/0001-90', 'postal_code': '01.234-567',
             'street': 'Rua Exemplo', 'number': '10', 'complement': '5º andar',
             'district': 'Centro', 'city': 'São Paulo', 'state': 'SP',

@@ -142,6 +142,10 @@ def provisionar_conta_publica(*, nome, email, senha=None):
 
     email = str(email or '').strip().lower()
     nome = ' '.join(str(nome or '').split())[:180]
+    from aicentralv2.auth import is_reserved_org_name
+    # O nome vira nome_fantasia do cliente, que decide is_centralcomm na sessão.
+    if is_reserved_org_name(nome):
+        raise ValueError('Este nome não pode ser usado no cadastro. Informe seu nome completo.')
     if db.obter_contato_por_email(email):
         raise ValueError(DUPLICATE_EMAIL_MESSAGE)
     executivo = obter_executivo_comercial()

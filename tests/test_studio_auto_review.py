@@ -71,6 +71,7 @@ def test_approved_first_version_is_delivered_without_retry(monkeypatch):
 
 def test_worse_second_version_keeps_the_first(monkeypatch):
     calls, saved = [], []
+    monkeypatch.setattr(studio_review, "MAX_ATTEMPTS", 3)
     _verdicts(monkeypatch, {**REJECTED, "score": 50}, {**REJECTED, "score": 20}, {**REJECTED, "score": 30})
     result = _generate(_modeling(calls, saved))
     # Every edit starts from the best version so far and the best one is delivered.
@@ -299,3 +300,13 @@ def test_a_sign_read_apart_from_its_number_is_the_same_offer():
     from aicentralv2.creative_media.studio_review import as_transcribed
     required, shown = as_transcribed(["+20GB DE BÔNUS"], ["+ 20GB DE", "BÔNUS"])
     assert shown == ["+20GB DE", "BÔNUS"] and required == ["+20GB DE", "BÔNUS"]
+
+
+def test_auto_review_max_attempts_default_is_two(monkeypatch):
+    import importlib
+    from aicentralv2.creative_media import studio_review
+    monkeypatch.delenv("STUDIO_AUTO_REVIEW_MAX_ATTEMPTS", raising=False)
+    try:
+        assert importlib.reload(studio_review).MAX_ATTEMPTS == 2
+    finally:
+        importlib.reload(studio_review)

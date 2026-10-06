@@ -28,7 +28,7 @@ TYPESAFE_TIMEOUT = 30
 CONFIDENCE = 0.6
 # Versions per piece: version 1 from the Studio prompt, the rest are edits of the best one. The Studio only goes on
 # while the reviewer rejects; the Lab (``modeling.refine_target``) also goes on while the score is below the target.
-MAX_ATTEMPTS = max(1, int(os.getenv("STUDIO_AUTO_REVIEW_MAX_ATTEMPTS", "3") or 3))
+MAX_ATTEMPTS = max(1, int(os.getenv("STUDIO_AUTO_REVIEW_MAX_ATTEMPTS", "2") or 2))
 # Text, CTA and logo closer than this to an edge break the 8% safe margin. The eyes estimate boxes within ~±2%,
 # and a 1-2% miss is not worth another generation: only elements clearly at the edge reject the piece.
 MARGIN_LIMIT = 5.0

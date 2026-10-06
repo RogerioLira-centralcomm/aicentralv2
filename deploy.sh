@@ -72,6 +72,7 @@ stop_service_for_deploy() {
     echo "[parada] Parando servico (codigo, build e dependencias prontos)..."
     sudo systemctl stop "$APP_SERVICE" 2>/dev/null || true
     SERVICE_STOPPED=1
+    SERVICE_STOPPED_AT=$SECONDS
     sleep 2
 
     # Garantir que nenhum worker órfão ficou vivo. O stop explícito acima evita que
@@ -92,6 +93,52 @@ stop_service_for_deploy() {
     # A unidade atual não usa mais PID file: o systemd é a única fonte de estado.
     sudo rm -f /var/www/aicentralv2/gunicorn.pid
     echo "  > OK"
+}
+
+# Build do frontend. Não depende do Python, então roda antes da parada do serviço
+# quando o requirements.txt muda (ver passo 2); no passo 4 ele só repete se faltou.
+frontend_build_step() {
+    FRONTEND_STATE_FILE="${FRONTEND_STATE_FILE:-logs/.last-frontend-build-revision}"
+    if should_run "$FRONTEND_STATE_FILE" "${FORCE_FRONTEND_BUILD:-0}" \
+           frontend aicentralv2/templates aicentralv2/static/cadu_workspace \
+           aicentralv2/static/cadu_studio aicentralv2/static/css package.json \
+           package-lock.json build_frontend.sh postcss.config.js \
+           tailwind.config.js tailwind.artifact.config.js \
+           tailwind.conversations.config.js tailwind.studio.config.js \
+           vite.auth.config.mjs vite.conversations.config.mjs \
+           vite.reports.config.mjs vite.planner.config.mjs \
+           vite.studio-editor.config.mjs vite.studio-audio.config.mjs vite.studio-ui.config.mjs \
+       || [ ! -f "aicentralv2/static/css/tailwind/output.css" ]; then
+        if [ -x "./build_frontend_fast.sh" ]; then
+            FRONTEND_BUILD_SCRIPT="./build_frontend_fast.sh"
+        elif [ -x "./build_frontend.sh" ]; then
+            FRONTEND_BUILD_SCRIPT="./build_frontend.sh"
+        else
+            echo "  > ERRO: build frontend indisponivel — output.css nao sera gerado"
+            exit 1
+        fi
+        # A saída completa (Tailwind, Vite, npm) vai só para o log; na tela fica um
+        # ponto por etapa concluída, para o deploy não parecer travado.
+        echo "  > Compilando com $FRONTEND_BUILD_SCRIPT (pode levar alguns minutos)..."
+        FRONTEND_STARTED=$SECONDS
+        bash "$FRONTEND_BUILD_SCRIPT" >> "$DEPLOY_LOG" 2>&1 &
+        FRONTEND_PID=$!
+        while kill -0 "$FRONTEND_PID" 2>/dev/null; do
+            printf '.'
+            sleep 2
+        done
+        echo ""
+        if ! wait "$FRONTEND_PID"; then
+            echo "  > ERRO no build do frontend — últimas linhas do log:"
+            tail -n 40 "$DEPLOY_LOG" 2>/dev/null || true
+            exit 1
+        fi
+        echo "  > Build concluído em $((SECONDS - FRONTEND_STARTED))s"
+        record_state "$FRONTEND_STATE_FILE"
+        echo "  > OK (frontend compilado para $(git rev-parse HEAD))"
+    else
+        echo "  > Frontend sem alteracoes (ou ja compilado nesta revisao); pulando build."
+    fi
 }
 
 # 1. Atualizar codigo
@@ -198,6 +245,9 @@ else
 fi
 if [ ! -f "$REQUIREMENTS_STATE_FILE" ] || [ "$(cat "$REQUIREMENTS_STATE_FILE")" != "$REQUIREMENTS_HASH" ]; then
     echo "  > requirements.txt mudou; atualizando ambiente Python..."
+    # Compila o frontend com o site ainda no ar: a parada só cobre pip e migrações.
+    echo "  > Compilando o frontend antes de parar o servico..."
+    frontend_build_step
     # Bibliotecas não podem ser trocadas sob workers em execução.
     stop_service_for_deploy
     "$VENV_PIP" install --upgrade pip --quiet 2>&1
@@ -239,47 +289,7 @@ fi
 # 4. Build frontend (artefatos gerados somente quando a camada visual mudou)
 echo ""
 echo "[4/9] Build frontend (Tailwind)..."
-FRONTEND_STATE_FILE="${FRONTEND_STATE_FILE:-logs/.last-frontend-build-revision}"
-if should_run "$FRONTEND_STATE_FILE" "${FORCE_FRONTEND_BUILD:-0}" \
-       frontend aicentralv2/templates aicentralv2/static/cadu_workspace \
-       aicentralv2/static/cadu_studio aicentralv2/static/css package.json \
-       package-lock.json build_frontend.sh postcss.config.js \
-       tailwind.config.js tailwind.artifact.config.js \
-       tailwind.conversations.config.js tailwind.studio.config.js \
-       vite.auth.config.mjs vite.conversations.config.mjs \
-       vite.reports.config.mjs vite.planner.config.mjs \
-       vite.studio-editor.config.mjs vite.studio-audio.config.mjs vite.studio-ui.config.mjs \
-   || [ ! -f "aicentralv2/static/css/tailwind/output.css" ]; then
-    if [ -x "./build_frontend_fast.sh" ]; then
-        FRONTEND_BUILD_SCRIPT="./build_frontend_fast.sh"
-    elif [ -x "./build_frontend.sh" ]; then
-        FRONTEND_BUILD_SCRIPT="./build_frontend.sh"
-    else
-        echo "  > ERRO: build frontend indisponivel — output.css nao sera gerado"
-        exit 1
-    fi
-    # A saída completa (Tailwind, Vite, npm) vai só para o log; na tela fica um
-    # ponto por etapa concluída, para o deploy não parecer travado.
-    echo "  > Compilando com $FRONTEND_BUILD_SCRIPT (pode levar alguns minutos)..."
-    FRONTEND_STARTED=$SECONDS
-    bash "$FRONTEND_BUILD_SCRIPT" >> "$DEPLOY_LOG" 2>&1 &
-    FRONTEND_PID=$!
-    while kill -0 "$FRONTEND_PID" 2>/dev/null; do
-        printf '.'
-        sleep 2
-    done
-    echo ""
-    if ! wait "$FRONTEND_PID"; then
-        echo "  > ERRO no build do frontend — últimas linhas do log:"
-        tail -n 40 "$DEPLOY_LOG" 2>/dev/null || true
-        exit 1
-    fi
-    echo "  > Build concluído em $((SECONDS - FRONTEND_STARTED))s"
-    record_state "$FRONTEND_STATE_FILE"
-    echo "  > OK (frontend compilado para $(git rev-parse HEAD))"
-else
-    echo "  > Frontend sem alteracoes; pulando build."
-fi
+frontend_build_step
 
 stop_service_for_deploy
 
@@ -356,7 +366,7 @@ sleep 3
 if sudo systemctl is-active --quiet "$APP_SERVICE"; then
     SERVICE_STOPPED=0
     trap - ERR
-    echo "  > Servico ativo!"
+    echo "  > Servico ativo! (fora do ar por $((SECONDS - SERVICE_STOPPED_AT))s)"
 else
     echo "  > ERRO ao iniciar servico"
     echo ""

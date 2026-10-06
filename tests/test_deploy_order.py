@@ -107,3 +107,16 @@ def test_every_legacy_step_exists_and_none_comes_after_the_post_v2_ones():
     steps = runner.read_steps()
     legacy = [step for step in steps if step['legacy']]
     assert legacy and not runner.missing_files(legacy)
+
+
+def test_frontend_is_built_before_the_service_stops_when_requirements_change():
+    """Com requirements novos o site para para trocar bibliotecas; o build de minutos não pode contar como fora do ar."""
+    early_build = SCRIPT.index('frontend_build_step\n    # Bibliotecas não podem ser trocadas')
+    early_stop = SCRIPT.index('stop_service_for_deploy\n    "$VENV_PIP" install --upgrade pip')
+    step_four = SCRIPT.index('# 4. Build frontend')
+    assert early_build < early_stop < step_four
+    assert SCRIPT.index('\nfrontend_build_step\n', step_four) < SCRIPT.index('\nstop_service_for_deploy\n', step_four)
+
+
+def test_deploy_reports_how_long_the_site_was_down():
+    assert 'SERVICE_STOPPED_AT=$SECONDS' in SCRIPT and 'fora do ar por' in SCRIPT

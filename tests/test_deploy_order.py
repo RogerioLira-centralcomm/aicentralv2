@@ -53,15 +53,31 @@ def test_deploy_runs_migrations_only_through_the_order_file():
     assert 'run_sql_migration.py' not in SCRIPT
 
 
-def test_every_sql_migration_is_in_the_order_file_or_called_by_a_runner():
-    """Um .sql novo em migrations/ precisa entrar no ORDER.txt ou ser chamado por um run_*.py."""
+def _manifest():
+    rows = [line.split(' | ') for line in (ROOT / 'migrations' / 'NOT_IN_DEPLOY.txt').read_text().splitlines() if line.strip() and not line.startswith('#')]
+    return {row[0]: row[1] for row in rows}
+
+
+def test_every_sql_migration_is_in_the_order_file_or_called_by_a_runner_or_documented():
+    """Um .sql novo em migrations/ precisa entrar no ORDER.txt, ser chamado por um run_*.py ou constar em NOT_IN_DEPLOY.txt."""
     runners = ''.join(path.read_text() for path in (ROOT / 'migrations').glob('run_*.py'))
-    legacy = set((ROOT / 'tests' / 'fixtures' / 'migrations_sem_deploy.txt').read_text().split())
+    documented = _manifest()
     forgotten = sorted(
         path.name for path in (ROOT / 'migrations').glob('*.sql')
-        if path.name not in ORDER and path.name not in runners and path.name not in legacy
+        if path.name not in ORDER and path.name not in runners and path.name not in documented
     )
-    assert not forgotten, f'Fora do deploy: {forgotten}. Inclua em migrations/ORDER.txt.'
+    assert not forgotten, f'Fora do deploy e sem motivo: {forgotten}. Inclua em migrations/ORDER.txt ou em migrations/NOT_IN_DEPLOY.txt.'
+
+
+def test_not_in_deploy_manifest_is_consistent():
+    valid = {'manual-destrutivo', 'manual-pontual', 'aplicada-pelo-app', 'auditar'}
+    runners = ''.join(path.read_text() for path in (ROOT / 'migrations').glob('run_*.py'))
+    for name, category in _manifest().items():
+        assert (ROOT / 'migrations' / name).is_file(), f'{name} não existe mais'
+        assert category in valid, f'{name}: categoria {category!r}'
+        assert name not in ORDER, f'{name} já está no ORDER.txt; remova de NOT_IN_DEPLOY.txt'
+        assert name not in runners or category != 'auditar', f'{name} é chamado por um runner; remova de NOT_IN_DEPLOY.txt'
+
 
 
 def test_link_tester_migrations_can_rerun_after_the_table_became_a_view():

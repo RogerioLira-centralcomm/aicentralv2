@@ -35,7 +35,7 @@ function sidebarGroups(urls) {
     {label: '', items: [item('inicio', 'Início', 'home')]},
     {label: 'Planejamento', items: [item('novo-plano', 'Novo planejamento', 'plus', newPlanUrl(urls)), item('planos', 'Planos', 'history')]},
     {label: 'Oportunidades', items: [item('radar', 'Radar', 'pulse')]},
-    {label: 'Descobrir', items: [item('canais', 'Canais', 'share'), item('audiencias', 'Audiências', 'users'), item('formatos', 'Formatos', 'table'), item('interativos', 'Interativos', 'plugin'), item('portais', 'Portais', 'library'), item('places', 'Places', 'browser')]},
+    {label: 'Descobrir', items: [item('canais', 'Canais', 'share'), item('audiencias', 'Audiências', 'users'), item('formatos', 'Formatos', 'table'), item('interativos', 'Interativos', 'plugin'), item('portais', 'Portais e veículos', 'library'), item('places', 'Locais', 'browser')]},
     // Docs and "Sites e funis" are legacy tools: reachable by URL, not part of the Planner flow.
   ];
 }
@@ -71,9 +71,9 @@ function App({boot}) {
     if (boot.view === 'plan-detail') return <PlanDetail boot={boot} request={request} plan={plan} setPlan={setPlan} selection={selection} notify={notify}/>;
     if (boot.view === 'channel-detail') return <ChannelDetail boot={boot} selection={selection} plan={plan}/>;
     if (boot.view === 'audience-detail') return <AudienceDetail boot={boot} selection={selection} plan={plan}/>;
-    if (boot.view === 'format-detail') return <FormatDetail boot={boot} selection={selection}/>;
-    if (boot.view === 'catalog-detail' && boot.module === 'places') return <PlaceDetail boot={boot} selection={selection}/>;
-    if (boot.view === 'catalog-detail' && boot.module === 'portais') return <PortalDetail boot={boot} selection={selection}/>;
+    if (boot.view === 'format-detail') return <FormatDetail boot={boot} selection={selection} plan={plan}/>;
+    if (boot.view === 'catalog-detail' && boot.module === 'places') return <PlaceDetail boot={boot} selection={selection} plan={plan}/>;
+    if (boot.view === 'catalog-detail' && boot.module === 'portais') return <PortalDetail boot={boot} selection={selection} plan={plan}/>;
     if (boot.view === 'catalog-detail') return <CatalogDetail boot={boot} selection={selection}/>;
     if (creating) return <PlanCreatePage boot={boot} request={request} notify={notify} selection={context}/>;
     if (boot.module === 'radar') return <RadarPage boot={boot} request={request} notify={notify} context={context}/>;

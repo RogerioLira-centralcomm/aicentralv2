@@ -19,8 +19,8 @@ const DISCOVER = [
   ['audiencias', 'users', 'Audiências', 'Públicos com tamanho e contexto de uso.'],
   ['formatos', 'table', 'Formatos', 'Especificações e finalidade de cada peça.'],
   ['interativos', 'plugin', 'Interativos', 'Formatos com interação para engajar.'],
-  ['portais', 'library', 'Portais', 'Veículos com audiência pública verificável.'],
-  ['places', 'browser', 'Places', 'Pontos físicos e circulação.'],
+  ['portais', 'library', 'Portais e veículos', 'Veículos com audiência pública verificável.'],
+  ['places', 'browser', 'Locais', 'Pontos físicos e circulação.'],
 ];
 const STATUS_FILTERS = [['', 'Todos'], ['draft', 'Rascunhos'], ['ready', 'Prontos']];
 

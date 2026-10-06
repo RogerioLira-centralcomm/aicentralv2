@@ -70,7 +70,7 @@ export function FormatShowcase({boot, selection}) {
     <section className="aud-filters" aria-label="Filtros de formatos">
       <div className="aud-filters__top fmt-filters__top">
         <CaduInput className="aud-filters__search" aria-label="Buscar formatos" type="search" value={filters.q}
-          placeholder="Buscar por formato, canal, tamanho ou finalidade"
+          placeholder="Buscar formato, canal ou tamanho"
           leading={<span className="planner-toolbar__search-icon" aria-hidden="true"><Icon name="search" size={16}/></span>}
           onChange={event => set('q', event.target.value)}/>
         <CaduSelectField className="aud-filters__select" aria-label="Canal" value={filters.platform} onChange={event => set('platform', event.target.value)}

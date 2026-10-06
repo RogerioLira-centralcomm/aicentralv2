@@ -110,12 +110,12 @@ export function AudienceShowcase({boot, request, selection, notify}) {
     <section className="aud-filters aud-filters--aud" aria-label="Filtros de audiências">
       <div className="aud-filters__top aud-filters__top--aud">
         <CaduInput className="aud-filters__search" aria-label="Buscar audiências" type="search" value={filters.q}
-          placeholder="Buscar por público, interesse, categoria ou canal"
+          placeholder="Buscar público, interesse ou canal"
           leading={<span className="planner-toolbar__search-icon" aria-hidden="true"><Icon name="search" size={16}/></span>}
           onChange={event => set('q', event.target.value)}/>
         <CaduSelectField className="aud-filters__select" aria-label="Categoria" value={filters.category}
           onChange={event => set('category', event.target.value)}
-          options={[{value: '', label: `Todas as categorias (${number(categoryTotal)})`}, ...facets.categories.map(item => ({value: item.value, label: `${item.value} (${number(item.count)})`}))]}/>
+          options={[{value: '', label: `Categorias (${number(categoryTotal)})`}, ...facets.categories.map(item => ({value: item.value, label: `${item.value} (${number(item.count)})`}))]}/>
         {facets.subcategories.length > 0 && <CaduSelectField className="aud-filters__select" aria-label="Subcategoria" value={filters.subcategory}
           onChange={event => set('subcategory', event.target.value)}
           options={[{value: '', label: 'Todas as subcategorias'}, ...facets.subcategories.map(item => ({value: item.value, label: `${item.value} (${number(item.count)})`}))]}/>}

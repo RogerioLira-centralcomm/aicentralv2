@@ -1,13 +1,14 @@
 import React from 'react';
 import {CaduEmptyState} from '../../cadu-design-system/components/CaduEmptyState.jsx';
 import {DetailLayout, Facts} from './DetailLayout.jsx';
+import {PlanSidebar} from './PlanSidebar.jsx';
 
 const number = value => Number(value).toLocaleString('pt-BR');
 const minutes = seconds => Number(seconds) > 0 ? `${Math.floor(seconds / 60)}min ${String(Math.round(seconds % 60)).padStart(2, '0')}s` : null;
 const date = value => value ? new Date(value).toLocaleDateString('pt-BR') : '';
 
 /** An editorial portal: public audience with its source, and what we have read of it. */
-export function PortalDetail({boot, selection}) {
+export function PortalDetail({boot, selection, plan = null}) {
   const portal = boot.record;
   if (!portal) return <CaduEmptyState title="Portal indisponível" description="Ele pode ter saído do catálogo."/>;
   const attributes = (Array.isArray(portal.public_attributes) ? portal.public_attributes : [])
@@ -29,12 +30,13 @@ export function PortalDetail({boot, selection}) {
 
   return <DetailLayout boot={boot} selection={selection} kind="portais" record={{...portal, logo_url: portal.favicon_url || (portal.domain ? `https://${portal.domain}/favicon.ico` : '')}} icon="library"
     eyebrow={portal.featured_rank ? 'Destaque' : portal.category}
+    aside={<PlanSidebar plan={plan} selection={selection} boot={boot} plansUrl={boot.urls.plans}/>}
     metrics={[
-      {label: 'Audiência pública', value: portal.audience_estimate, hint: portal.audience_source_url
+      {icon: 'users', label: 'Audiência pública', value: portal.audience_estimate, hint: portal.audience_source_url
         ? <a href={portal.audience_source_url} target="_blank" rel="noreferrer">Ver fonte</a> : 'Sem fonte publicada'},
-      {label: 'Acessos por mês', value: Number(portal.monthly_visits) > 0 ? number(portal.monthly_visits) : null, hint: portal.metrics_source_url ? <a href={portal.metrics_source_url} target="_blank" rel="noreferrer">Ver fonte</a> : 'Sem fonte publicada'},
-      {label: 'Tempo médio na página', value: minutes(portal.avg_time_seconds)},
-      {label: 'Páginas lidas', value: pages > 0 ? number(pages) : null, hint: portal.last_crawled_at ? `Última leitura em ${date(portal.last_crawled_at)}` : null},
+      {icon: 'pulse', label: 'Acessos por mês', value: Number(portal.monthly_visits) > 0 ? number(portal.monthly_visits) : null, hint: portal.metrics_source_url ? <a href={portal.metrics_source_url} target="_blank" rel="noreferrer">Ver fonte</a> : 'Sem fonte publicada'},
+      {icon: 'clock', label: 'Tempo médio na página', value: minutes(portal.avg_time_seconds)},
+      {icon: 'file', label: 'Páginas lidas', value: pages > 0 ? number(pages) : null, hint: portal.last_crawled_at ? `Última leitura em ${date(portal.last_crawled_at)}` : null},
       {label: 'Leituras', value: Number(portal.crawl_updates_count) > 0 ? number(portal.crawl_updates_count) : null},
     ]}
     sections={sections}/>;

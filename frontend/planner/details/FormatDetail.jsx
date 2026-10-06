@@ -3,12 +3,13 @@ import {CaduEmptyState} from '../../cadu-design-system/components/CaduEmptyState
 import {Icon} from '../../cadu-design-system/components/Icon.jsx';
 import {moduleUrl} from '../api.js';
 import {DetailLayout, Facts, Rail, TagList, hasValue, listText} from './DetailLayout.jsx';
+import {PlanSidebar} from './PlanSidebar.jsx';
 import {platformLogo} from '../Catalog.jsx';
 
 const capitalize = value => value ? String(value).replace(/^./, letter => letter.toUpperCase()) : value;
 
 /** Formats and interactive formats share one page; the preview leads the hero. */
-export function FormatDetail({boot, selection}) {
+export function FormatDetail({boot, selection, plan = null}) {
   const record = boot.record;
   const kind = boot.module;
   const interactive = kind === 'interativos';
@@ -40,7 +41,8 @@ export function FormatDetail({boot, selection}) {
   return <DetailLayout boot={boot} selection={selection} kind={kind} record={{...record, logo_url: platformLogo(record)}} icon={interactive ? 'plugin' : 'table'}
     eyebrow={interactive ? 'Formato interativo' : capitalize(record.creative_category || 'Formato')}
     media={record.image_url ? {type: 'image', src: record.image_url, fit: 'contain', alt: `Prévia: ${record.name}`} : null}
-    metrics={[{label: 'Finalidade', value: record.purpose}, {label: 'Tamanhos', value: sizes.length > 1 ? `${sizes.length} opções` : record.dimensions},
-      {label: 'Canais compatíveis', value: channels.length || null}]}
+    aside={<PlanSidebar plan={plan} selection={selection} boot={boot} plansUrl={boot.urls.plans}/>}
+    metrics={[{icon: 'pulse', label: 'Finalidade', value: record.purpose}, {icon: 'table', label: 'Tamanhos', value: sizes.length > 1 ? `${sizes.length} opções` : record.dimensions},
+      {icon: 'share', label: 'Canais compatíveis', value: channels.length || null}]}
     sections={sections}/>;
 }

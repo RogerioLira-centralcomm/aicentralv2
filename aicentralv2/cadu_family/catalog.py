@@ -22,8 +22,8 @@ PRODUCTS = {
         'audiencias': ('Audiências', '/audiencias'),
         'canais': ('Canais', '/canais'), 'formatos': ('Formatos', '/formatos'),
         'interativos': ('Interativos', '/interativos'), 'docs': ('Docs', '/smart-docs'),
-        'places': ('Places', '/places'),
-        'portais': ('Portais', None),
+        'places': ('Locais', '/places'),
+        'portais': ('Portais e veículos', None),
         'monitoramento': ('Sites e funis', None),
     }},
     'studio': {'name': 'Studio', 'navigation': (

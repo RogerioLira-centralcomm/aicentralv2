@@ -291,7 +291,7 @@ export function CatalogPage({boot, request, selection, notify}) {
             </Fragment>;
           });
         })()
-        : kind === 'places' ? <div className="planner-grid planner-grid--channels" aria-label="Places disponíveis">{records.map(item => <PlaceCard key={itemKey(item)} item={item} urls={boot.urls}
+        : kind === 'places' ? <div className="planner-grid planner-grid--channels" aria-label="Locais disponíveis">{records.map(item => <PlaceCard key={itemKey(item)} item={item} urls={boot.urls}
           selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>)}</div>
         : <div className="planner-grid" aria-label={`${MODULE_LABELS[kind]} disponíveis`}>{records.map(item => <CatalogCard key={itemKey(item)} kind={kind} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))}/>)}</div>}
     {kind === 'canais' && <PlanBar noun={['canal', 'canais']} count={selection.count(kind)} href={quoteUrl}

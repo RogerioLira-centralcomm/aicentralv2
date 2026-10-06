@@ -1498,3 +1498,43 @@ a.planner-portal.planner-portal--wide { grid-template-columns: 40px minmax(200px
   .wizard__panel h2 { font-size: 24px; } .wizard__main { padding: 20px 20px 24px; } .wizard__steps { display: none; }
 }
 .wizard__scene { inset: auto 0 0 0; height: 74%; object-position: center bottom; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16%); mask-image: linear-gradient(to bottom, transparent 0, #000 16%); }
+
+/* Horizontal filters: chip text never breaks, a row scrolls sideways instead of wrapping, edges fade when there is more. */
+.planner-chips button, .aud-chip, .planner-segmented button, .planner-multi summary, .channel-bar a, .planner-toolbar__count { white-space: nowrap; }
+.planner-segmented { flex: none; max-width: 100%; }
+.aud-facet__chips, .planner-chipbar .planner-chips { flex-wrap: nowrap; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; scroll-snap-type: x proximity; padding: 2px 2px 4px; }
+.aud-facet__chips::-webkit-scrollbar, .planner-chipbar .planner-chips::-webkit-scrollbar { display: none; }
+.aud-facet__chips > *, .planner-chipbar .planner-chips > button { flex: none; scroll-snap-align: start; }
+.aud-facet__chips, .planner-chipbar .planner-chips { -webkit-mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 28px), transparent 100%); mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 28px), transparent 100%); }
+.planner-chipbar { flex-wrap: wrap; }
+.planner-chipbar .planner-chips { flex: 1 1 320px; width: auto; max-width: 100%; border-radius: 0; border: 0; background: none; }
+.planner-chipbar .planner-chips button { border: 1px solid var(--planner-line); background: var(--planner-surface); }
+.planner-chipbar .planner-chips button.is-active, .planner-chipbar .planner-chips button[aria-pressed="true"] { background: #101418; border-color: #101418; color: #fff; }
+.planner-chipbar .planner-chips button.is-active span { color: #fff; }
+.planner-chipbar__tools { flex: none; flex-wrap: nowrap; }
+.aud-facet { grid-template-columns: auto minmax(0, 1fr); }
+.aud-facet__label { white-space: nowrap; }
+.aud-filters__top, .aud-filters__top--aud { grid-template-columns: minmax(200px, 1fr) repeat(3, minmax(150px, 200px)); }
+.aud-filters__top > * { min-width: 0; }
+.planner-toolbar { grid-template-columns: minmax(200px, 1fr) minmax(140px, 240px) auto; }
+@media (max-width: 1100px) { .aud-filters__top, .aud-filters__top--aud { grid-template-columns: repeat(2, minmax(0, 1fr)); } .aud-filters__search { grid-column: 1 / -1; } .aud-filters__select, .aud-filters__top--aud .aud-filters__select--sort { width: 100%; } }
+@media (max-width: 700px) {
+  .planner-toolbar { grid-template-columns: minmax(0, 1fr); }
+  .planner-toolbar__category { width: 100%; }
+  .planner-chipbar .planner-chips { flex-basis: 100%; }
+  .planner-portal-filters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
+  .planner-portal-filters > * { flex: none; }
+}
+
+/* Second pass of the filter audit */
+.aud-facet__chips, .planner-chipbar .planner-chips { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%); padding-left: 2px; }
+.aud-facet__chips:not(:hover):not(:focus-within) { scroll-padding-left: 2px; }
+@media (max-width: 700px) {
+  .planner-portal-filters { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%); }
+  .channel-bar { flex-wrap: nowrap; min-width: 0; overflow: hidden; }
+  .channel-bar strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .channel-bar .channel-bar__all, .channel-bar .channel-bar__logos, .channel-bar .channel-bar__more { display: none; }
+  .channel-bar .channel-bar__go { flex: none; margin-left: auto; }
+}
+.aud-facet--inline .aud-facet__chips { scrollbar-width: none; }
+.aud-facet--inline .aud-facet__chips::-webkit-scrollbar { display: none; }

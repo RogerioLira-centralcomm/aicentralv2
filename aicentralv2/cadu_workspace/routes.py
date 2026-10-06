@@ -151,7 +151,10 @@ def _send_brand_approval_email(brand: dict, pack: dict, client_id: int, brand_id
     )
 
 
+from .brand_ref import BrandRefConverter
 bp = Blueprint("cadu_workspace", __name__)
+# Must be recorded before the first route so `<brand:brand_id>` resolves in any app that mounts this blueprint.
+bp.record_once(lambda state: state.app.url_map.converters.setdefault('brand', BrandRefConverter))
 
 
 @bp.before_request
@@ -5760,8 +5763,8 @@ def brands():
                            usage_percent=round(float(credit_position(client_id).get('monthly_usage_percentage') or 0), 1))
 
 
-@bp.post('/marcas/<int:brand_id>/status')
-@bp.post('/workspace/app/marcas/<int:brand_id>/status')
+@bp.post('/marcas/<brand:brand_id>/status')
+@bp.post('/workspace/app/marcas/<brand:brand_id>/status')
 @login_required
 def update_brand_status(brand_id):
     if not _workspace_api_csrf():
@@ -5975,7 +5978,7 @@ def inspect_brand_site_route():
     return jsonify(ok=True, inspection=result, inspection_token=token)
 
 
-@bp.post('/workspace/app/marcas/<int:brand_id>/inspecionar-site')
+@bp.post('/workspace/app/marcas/<brand:brand_id>/inspecionar-site')
 @login_required
 def inspect_existing_brand_site_route(brand_id):
     if not _workspace_api_csrf():
@@ -6225,7 +6228,7 @@ def create_project():
     return redirect(detail_url, code=303)
 
 
-@bp.post('/workspace/app/marcas/<int:brand_id>/campanhas/<campaign_id>/projeto')
+@bp.post('/workspace/app/marcas/<brand:brand_id>/campanhas/<campaign_id>/projeto')
 @login_required
 def create_campaign_project(brand_id, campaign_id):
     """Create a project only when a user elects to develop one campaign."""
@@ -8382,7 +8385,7 @@ def publish_workspace_gallery():
         return jsonify({'error': 'Não foi possível criar o link da seleção agora.'}), 503
 
 
-@bp.get('/workspace/app/marcas/<int:brand_id>')
+@bp.get('/workspace/app/marcas/<brand:brand_id>')
 @login_required
 def brand_detail(brand_id):
     if request.path.startswith('/workspace/app/'):
@@ -8581,13 +8584,17 @@ def brand_detail(brand_id):
     return redirect(url_for('cadu_workspace.clean_brand_detail', brand_id=brand_id), code=308)
 
 
-@bp.get('/marcas/<int:brand_id>')
+@bp.get('/marcas/<brand:brand_id>')
 @login_required
 def clean_brand_detail(brand_id):
+    # Old links carry the database id; send them to the opaque reference.
+    if re.match(r'^/marcas/\d+/?$', request.path):
+        return redirect(url_for('cadu_workspace.clean_brand_detail', brand_id=brand_id,
+                                **request.args.to_dict(flat=True)), code=301)
     return brand_detail(brand_id)
 
 
-@bp.get('/workspace/api/brands/<int:brand_id>/context')
+@bp.get('/workspace/api/brands/<brand:brand_id>/context')
 @login_required
 def brand_context_api(brand_id):
     """Canonical, tenant-scoped brand context for conversations and artifacts."""
@@ -8614,7 +8621,7 @@ def brand_context_api(brand_id):
     return jsonify(context)
 
 
-@bp.post('/workspace/app/marcas/<int:brand_id>/apagar')
+@bp.post('/workspace/app/marcas/<brand:brand_id>/apagar')
 @login_required
 def delete_brand(brand_id):
     """Delete a brand after an explicit name confirmation and retire its linked projects."""
@@ -8658,7 +8665,7 @@ def delete_brand(brand_id):
     return redirect(url_for('cadu_workspace.clean_brands'), code=303)
 
 
-@bp.post('/workspace/app/marcas/<int:brand_id>/identidade')
+@bp.post('/workspace/app/marcas/<brand:brand_id>/identidade')
 @login_required
 def update_brand_identity(brand_id):
     if not _workspace_api_csrf():
@@ -8715,7 +8722,7 @@ def update_brand_identity(brand_id):
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id), code=303)
 
 
-@bp.post('/workspace/app/marcas/<int:brand_id>/ativos')
+@bp.post('/workspace/app/marcas/<brand:brand_id>/ativos')
 @login_required
 def upload_brand_assets(brand_id):
     if not _workspace_api_csrf():
@@ -8743,7 +8750,7 @@ def upload_brand_assets(brand_id):
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id), code=303)
 
 
-@bp.post('/workspace/app/marcas/<int:brand_id>/fontes')
+@bp.post('/workspace/app/marcas/<brand:brand_id>/fontes')
 @login_required
 def upload_brand_font(brand_id):
     if not _workspace_api_csrf():
@@ -8768,7 +8775,7 @@ def upload_brand_font(brand_id):
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id), code=303)
 
 
-@bp.post('/workspace/app/marcas/<int:brand_id>/ativos/<int:asset_id>/principal')
+@bp.post('/workspace/app/marcas/<brand:brand_id>/ativos/<int:asset_id>/principal')
 @login_required
 def set_primary_brand_asset(brand_id, asset_id):
     if not _workspace_api_csrf():
@@ -8788,7 +8795,7 @@ def set_primary_brand_asset(brand_id, asset_id):
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id), code=303)
 
 
-@bp.post('/workspace/app/marcas/<int:brand_id>/ativos/<int:asset_id>/logo')
+@bp.post('/workspace/app/marcas/<brand:brand_id>/ativos/<int:asset_id>/logo')
 @login_required
 def promote_brand_asset_to_logo(brand_id, asset_id):
     """Let the team choose any imported website visual as the official logo."""
@@ -8809,7 +8816,7 @@ def promote_brand_asset_to_logo(brand_id, asset_id):
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id), code=303)
 
 
-@bp.post('/workspace/app/marcas/<int:brand_id>/ativos/<int:asset_id>/apagar')
+@bp.post('/workspace/app/marcas/<brand:brand_id>/ativos/<int:asset_id>/apagar')
 @login_required
 def delete_brand_asset(brand_id, asset_id):
     """Remove an asset while preserving the active Workspace tenant boundary."""
@@ -8830,7 +8837,7 @@ def delete_brand_asset(brand_id, asset_id):
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id), code=303)
 
 
-@bp.post('/workspace/app/marcas/<int:brand_id>/ativos/referencias-recentes')
+@bp.post('/workspace/app/marcas/<brand:brand_id>/ativos/referencias-recentes')
 @login_required
 def find_recent_brand_creatives(brand_id):
     """Import public campaign references into the current brand session."""
@@ -8888,7 +8895,7 @@ def find_recent_brand_creatives(brand_id):
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id, assets='recent'), code=303)
 
 
-@bp.post('/workspace/app/marcas/<int:brand_id>/hero/gerar')
+@bp.post('/workspace/app/marcas/<brand:brand_id>/hero/gerar')
 @login_required
 def generate_brand_hero(brand_id):
     """Legacy endpoint kept for compatibility; brands do not generate heroes."""
@@ -8936,7 +8943,7 @@ def generate_brand_hero(brand_id):
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id, hero='generated'), code=303)
 
 
-@bp.post('/workspace/app/marcas/<int:brand_id>/auditoria')
+@bp.post('/workspace/app/marcas/<brand:brand_id>/auditoria')
 @login_required
 def audit_brand(brand_id):
     """Queue a slow, reviewable brand audit without holding the browser open."""
@@ -9099,7 +9106,7 @@ def audit_brand(brand_id):
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id, audit='queued'), code=303)
 
 
-@bp.get('/workspace/app/marcas/<int:brand_id>/auditoria/status')
+@bp.get('/workspace/app/marcas/<brand:brand_id>/auditoria/status')
 @login_required
 def brand_audit_status(brand_id):
     client_id = int(session.get('cliente_id') or 0)
@@ -9147,7 +9154,7 @@ def brand_audit_status(brand_id):
     })
 
 
-@bp.post('/workspace/app/marcas/<int:brand_id>/auditoria/repetir')
+@bp.post('/workspace/app/marcas/<brand:brand_id>/auditoria/repetir')
 @login_required
 def retry_brand_audit(brand_id):
     if not _workspace_api_csrf():
@@ -9297,7 +9304,7 @@ def retry_brand_audit(brand_id):
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id, audit='queued'), code=303)
 
 
-@bp.post('/workspace/app/marcas/<int:brand_id>/auditoria/modulos/<module_id>/revisar')
+@bp.post('/workspace/app/marcas/<brand:brand_id>/auditoria/modulos/<module_id>/revisar')
 @login_required
 def refresh_brand_audit_module(brand_id, module_id):
     """Refresh one opinion from saved evidence; it never re-collects or applies identity."""
@@ -9367,7 +9374,7 @@ def refresh_brand_audit_module(brand_id, module_id):
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id, audit='queued'), code=303)
 
 
-@bp.post('/workspace/app/marcas/<int:brand_id>/auditoria/reavaliar')
+@bp.post('/workspace/app/marcas/<brand:brand_id>/auditoria/reavaliar')
 @login_required
 def reevaluate_brand_audit(brand_id):
     """Apply the current deterministic gate to saved evidence at zero provider cost."""
@@ -9389,7 +9396,7 @@ def reevaluate_brand_audit(brand_id):
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id, reevaluated=result['status']), code=303)
 
 
-@bp.post('/workspace/app/marcas/<int:brand_id>/revisoes/aprovar')
+@bp.post('/workspace/app/marcas/<brand:brand_id>/revisoes/aprovar')
 @login_required
 def approve_brand_reviews(brand_id):
     """Promote a human-approved proposal to the brand context used by projects."""
@@ -9570,7 +9577,7 @@ def approve_brand_reviews(brand_id):
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id, review='approved'), code=303)
 
 
-@bp.get('/workspace/app/marcas/<int:brand_id>/sistema')
+@bp.get('/workspace/app/marcas/<brand:brand_id>/sistema')
 @login_required
 def brand_system(brand_id):
     """Advanced brand editor inside the tenant-scoped Workspace shell."""

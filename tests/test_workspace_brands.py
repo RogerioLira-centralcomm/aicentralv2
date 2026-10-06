@@ -543,7 +543,11 @@ class WorkspaceBrandsTest(TestCase):
         })
 
         self.assertEqual(response.status_code, 303)
-        self.assertEqual(response.headers['Location'], '/workspace/app/marcas/81')
+        location = response.headers['Location']
+        self.assertTrue(location.startswith('/workspace/app/marcas/b'))
+        with _app().app_context():
+            from aicentralv2.cadu_workspace.brand_ref import decode_brand_ref
+            self.assertEqual(decode_brand_ref(location.rsplit('/', 1)[1]), 81)
         brand_insert = next(
             call for call in cursor.execute.call_args_list
             if 'INSERT INTO cx_clients' in call.args[0]

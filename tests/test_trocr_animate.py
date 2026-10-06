@@ -202,6 +202,40 @@ class TrocrAnimateWorkerTest(unittest.TestCase):
         self.assertEqual(billed[0][3]["usage"]["total_tokens"], 46)
 
 
+    def test_falha_no_download_nao_cobra_o_video(self):
+        repo = MemoryMediaRepository()
+        plan = build_plan({
+            "duration": 5, "quality": "draft", "aspect_ratio": "1:1",
+            "source": {"mode": "flattened_still", "base_id": "v1"},
+        })
+        from io import BytesIO
+        from PIL import Image
+
+        buf = BytesIO()
+        Image.new("RGB", (32, 32), (12, 12, 12)).save(buf, format="PNG")
+        plan["reference"] = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+        job = repo.create_job({"plan_json": plan, "plan_hash": plan["plan_hash"], "quote_json": plan["quote"]})
+        billed = []
+
+        def broken_download(*_a, **_k):
+            raise RuntimeError("download falhou")
+
+        worker = AnimateWorker(
+            repo,
+            video={
+                "submit": lambda *a, **k: {"id": "or-1", "polling_url": "https://x/or-1", "status": "pending"},
+                "poll": lambda *a, **k: {"id": "or-1", "status": "completed", "usage": {"total_tokens": 46}},
+                "download": broken_download,
+            },
+            billing_fn=lambda *args: billed.append(args),
+        )
+        with patch("aicentralv2.creative_media.worker.POLL_INTERVAL", 0):
+            with self.assertRaises(RuntimeError):
+                worker.run(job["public_id"])
+        self.assertEqual(repo.get_job(job["public_id"])["status"], "failed")
+        self.assertEqual(billed, [])
+
+
 def _scene_snapshot(version=1, headline="OFERTA"):
     from aicentralv2.creative_media.composition.scene_snapshot import snapshot_scene
 

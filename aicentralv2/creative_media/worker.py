@@ -85,11 +85,14 @@ class AnimateWorker:
                 status = self._wait(job_id, submitted)
                 if status.get("status") != "completed":
                     raise RuntimeError(status.get("error") or "A geração falhou.")
-                if callable(self.billing_fn):
-                    self.billing_fn(claimed, plan, "video", status)
                 self._stage(job_id, "download", 72, "Baixando master")
                 raw = self.video["download"](submitted.get("id") or status.get("id"))
                 version = self._packs(job_id, claimed, plan, raw)
+                # A2: cobra só com o vídeo baixado e empacotado; falha antes
+                # disso não debita. A chave studio-video:{id}:video é idempotente
+                # e o version_payload só é gravado depois do débito.
+                if callable(self.billing_fn):
+                    self.billing_fn(claimed, plan, "video", status)
                 self.repository.update_job(job_id, version_payload=version)
             self._stage(job_id, "persist", 94, "Salvando no histórico")
             if callable(self.persist_fn):

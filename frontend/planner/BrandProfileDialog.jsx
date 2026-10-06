@@ -2,7 +2,7 @@ import React, {useState} from 'react';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {CaduTextAreaField} from '../cadu-design-system/components/CaduField.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
-import {Illustration} from './Illustration.jsx';
+import {RadarAnimation} from './RadarAnimation.jsx';
 
 const LABELS = {competitors: 'concorrentes', positioning: 'posicionamento', target_audience: 'público-alvo'};
 
@@ -64,7 +64,7 @@ export function BrandProfileDialog({request, brand, onClose, onSaved}) {
       </>}
 
       {(phase === 'working' || phase === 'saving') && <div className="bp-working" role="status" aria-live="polite">
-        <Illustration slot="radar-scan" busy/><strong>{phase === 'working' ? 'Pesquisando na web…' : 'Salvando no perfil…'}</strong>
+        <RadarAnimation scene={phase === 'working' ? 0 : 2}/><strong>{phase === 'working' ? 'Pesquisando na web…' : 'Salvando no perfil…'}</strong>
         <p className="planner-muted">{phase === 'working' ? `Buscando concorrentes e posicionamento de ${brand.name}.` : 'Somando ao que já existe.'}</p></div>}
 
       {phase === 'review' && proposal && <>

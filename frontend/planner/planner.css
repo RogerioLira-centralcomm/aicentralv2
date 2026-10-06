@@ -1689,3 +1689,36 @@ a.planner-portal.planner-portal--wide { grid-template-columns: 40px minmax(200px
 .bp-list input { margin-top: 4px; } .bp-list span { display: grid; gap: 2px; } .bp-list small { color: var(--planner-muted); font-size: 13px; } .bp-tag { margin-left: 8px; padding: 1px 8px; border-radius: 99px; background: var(--planner-soft); color: #067647; font-size: 12px; font-style: normal; font-weight: 600; }
 .bp-kept { margin-bottom: 6px; color: var(--planner-muted); font-size: 13px; } .bp-replace { display: flex; gap: 8px; margin-top: 6px; font-size: 13px; }
 .bp-sources { font-size: 13px; } .bp-sources a { margin-left: 8px; color: #067647; }
+
+/* Animação de espera do Radar: cenas com fade, feixe de radar e três órbitas (mesmo movimento da análise de marcas) */
+.radar-anim { --cx: 37%; --cy: 43%; position: relative; flex: none; width: 300px; aspect-ratio: 3 / 2; overflow: hidden; border-radius: 16px; background: #e3f8ee; isolation: isolate; }
+/* Âncora das órbitas por cena: todas na antena (37%, 43%). Se uma cena sair com a antena fora do lugar, ajuste só a dela. */
+.radar-anim[data-scene="0"] { --cx: 37%; --cy: 43%; } .radar-anim[data-scene="1"] { --cx: 37%; --cy: 43%; } .radar-anim[data-scene="2"] { --cx: 37%; --cy: 43%; }
+.radar-anim__sweep, .radar-anim__orbit, .radar-anim__core { transition: left 700ms ease, top 700ms ease; }
+.radar-anim__scene { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 700ms ease; }
+.radar-anim__scene.is-current { opacity: 1; }
+.radar-anim.is-running .radar-anim__scene.is-current { animation: radar-drift 14s ease-in-out infinite alternate; }
+.radar-anim__sweep { position: absolute; left: var(--cx); top: var(--cy); width: 150%; aspect-ratio: 1; margin: -75% 0 0 -75%; border-radius: 50%; pointer-events: none; opacity: 0;
+  background: conic-gradient(from 0deg, rgba(29, 191, 115, .34), rgba(29, 191, 115, 0) 22%, rgba(29, 191, 115, 0) 100%);
+  -webkit-mask-image: radial-gradient(circle, #000 0, #000 28%, transparent 62%); mask-image: radial-gradient(circle, #000 0, #000 28%, transparent 62%); }
+.radar-anim.is-running .radar-anim__sweep { opacity: 1; animation: radar-orbit 6s linear infinite; }
+.radar-anim__orbit { position: absolute; left: var(--cx); top: var(--cy); border: 1px solid rgba(6, 118, 71, .48); border-radius: 50%; pointer-events: none; }
+.radar-anim__orbit i { position: absolute; top: -5px; left: 50%; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: #1dbf73; box-shadow: 0 0 0 3px rgba(255, 255, 255, .7); }
+.radar-anim__orbit--one { width: 34%; height: 52%; margin: -26% 0 0 -17%; }
+.radar-anim__orbit--two { width: 52%; height: 40%; margin: -20% 0 0 -26%; transform: rotate(62deg); }
+.radar-anim__orbit--two i { background: #75e0a7; }
+.radar-anim__orbit--three { width: 26%; height: 64%; margin: -32% 0 0 -13%; transform: rotate(118deg); }
+.radar-anim__orbit--three i { background: #067647; }
+.radar-anim.is-running .radar-anim__orbit--one { animation: radar-orbit 8s linear infinite; }
+.radar-anim.is-running .radar-anim__orbit--two { animation: radar-orbit-reverse 10s linear infinite; }
+.radar-anim.is-running .radar-anim__orbit--three { animation: radar-orbit-three 12s linear infinite; }
+.radar-anim__core { position: absolute; left: var(--cx); top: var(--cy); width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 4px rgba(29, 191, 115, .55); }
+.radar-anim.is-running .radar-anim__core { animation: radar-ping 2.4s ease-out infinite; }
+@keyframes radar-drift { from { transform: scale(1); } to { transform: scale(1.045) translate(-.8%, .6%); } }
+@keyframes radar-orbit { to { transform: rotate(360deg); } }
+@keyframes radar-orbit-reverse { from { transform: rotate(62deg); } to { transform: rotate(-298deg); } }
+@keyframes radar-orbit-three { from { transform: rotate(118deg); } to { transform: rotate(478deg); } }
+@keyframes radar-ping { 0% { box-shadow: 0 0 0 0 rgba(29, 191, 115, .6); } 100% { box-shadow: 0 0 0 22px rgba(29, 191, 115, 0); } }
+@media (prefers-reduced-motion: reduce) { .radar-anim *, .radar-anim { animation: none !important; } .radar-anim__sweep { opacity: 0 !important; } }
+.radar-run__head .radar-anim { width: 320px; } .bp-working .radar-anim { width: min(360px, 100%); }
+@media (max-width: 720px) { .radar-run__head .radar-anim { width: 100%; } }

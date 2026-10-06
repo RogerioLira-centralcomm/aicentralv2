@@ -4,6 +4,7 @@ import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {Illustration} from './Illustration.jsx';
 import {PlannerHeader} from './PlannerHeader.jsx';
+import {RadarAnimation} from './RadarAnimation.jsx';
 import {RADAR_DRAFT_KEY, RadarWizard} from './RadarWizard.jsx';
 
 // Etapas mostradas na hora do clique; as de verdade (com tokens e detalhes) chegam do servidor logo depois.
@@ -42,7 +43,7 @@ function RunChain({run}) {
   const running = run.status === 'running';
   return <section className="radar-run" aria-labelledby="radar-run-title" aria-live="polite">
     <div className="radar-run__head">
-      <Illustration slot="radar-scan" busy={running}/>
+      <RadarAnimation steps={steps} running={running}/>
       <div>
         <h2 id="radar-run-title">{running ? 'O Radar está procurando' : run.status === 'failed' ? 'A busca parou' : 'Busca concluída'}</h2>
         <p>{run.focus ? `Tema: ${run.focus}` : 'Tema a partir da marca e do projeto escolhidos.'}</p>

@@ -104,29 +104,33 @@ export function AudienceShowcase({boot, request, selection, notify}) {
   const platformTotal = facets.platforms.reduce((sum, item) => sum + item.count, 0);
   const categoryTotal = facets.categories.reduce((sum, item) => sum + item.count, 0);
 
+  const bar = (
+    <div className="aud-bar" role="search">
+      <label className="aud-bar__field aud-bar__field--search"><Icon name="search" size={16}/>
+        <span className="aud-bar__text"><small>Buscar</small>
+          <input type="search" aria-label="Buscar audiências" value={filters.q} placeholder="Público, interesse ou canal" onChange={event => set('q', event.target.value)}/></span></label>
+      <label className="aud-bar__field"><span className="aud-bar__text"><small>Canal de compra</small>
+        <select aria-label="Canal de compra" value={filters.platform} onChange={event => set('platform', event.target.value)}>
+          <option value="">Todos ({number(platformTotal)})</option>
+          {facets.platforms.map(item => <option key={item.value} value={item.value}>{item.value} ({number(item.count)})</option>)}
+        </select></span></label>
+      {facets.subcategories.length > 0 && <label className="aud-bar__field"><span className="aud-bar__text"><small>Subcategoria</small>
+        <select aria-label="Subcategoria" value={filters.subcategory} onChange={event => set('subcategory', event.target.value)}>
+          <option value="">Todas</option>
+          {facets.subcategories.map(item => <option key={item.value} value={item.value}>{item.value} ({number(item.count)})</option>)}
+        </select></span></label>}
+      <label className="aud-bar__field"><span className="aud-bar__text"><small>Ordenar</small>
+        <select aria-label="Ordenar" value={filters.sort} onChange={event => set('sort', event.target.value)}>
+          {SORTS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select></span></label>
+    </div>
+  );
+
+  // Título e filtros na mesma linha; as categorias ficam logo abaixo, porque não cabem ao lado.
   return <>
-    <PlannerHeader title="Audiências" actions={<ActivePlanChip/>}
+    <PlannerHeader className="ph--filters" title="Audiências" actions={<>{bar}<ActivePlanChip/></>}
       description={`${number(total)} ${total === 1 ? 'audiência comprável' : 'audiências compráveis'}${active ? ' com estes filtros' : ''}`}/>
-    <section className="aud-filters aud-filters--aud" aria-label="Filtros de audiências">
-      <div className="aud-bar" role="search">
-        <label className="aud-bar__field aud-bar__field--search"><Icon name="search" size={16}/>
-          <span className="aud-bar__text"><small>Buscar</small>
-            <input type="search" aria-label="Buscar audiências" value={filters.q} placeholder="Público, interesse ou canal" onChange={event => set('q', event.target.value)}/></span></label>
-        <label className="aud-bar__field"><span className="aud-bar__text"><small>Canal de compra</small>
-          <select aria-label="Canal de compra" value={filters.platform} onChange={event => set('platform', event.target.value)}>
-            <option value="">Todos ({number(platformTotal)})</option>
-            {facets.platforms.map(item => <option key={item.value} value={item.value}>{item.value} ({number(item.count)})</option>)}
-          </select></span></label>
-        {facets.subcategories.length > 0 && <label className="aud-bar__field"><span className="aud-bar__text"><small>Subcategoria</small>
-          <select aria-label="Subcategoria" value={filters.subcategory} onChange={event => set('subcategory', event.target.value)}>
-            <option value="">Todas</option>
-            {facets.subcategories.map(item => <option key={item.value} value={item.value}>{item.value} ({number(item.count)})</option>)}
-          </select></span></label>}
-        <label className="aud-bar__field"><span className="aud-bar__text"><small>Ordenar</small>
-          <select aria-label="Ordenar" value={filters.sort} onChange={event => set('sort', event.target.value)}>
-            {SORTS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select></span></label>
-      </div>
+    <section className="aud-filters aud-filters--aud" aria-label="Categorias de audiências">
       <FacetChips inline label="Categoria" items={facets.categories} value={filters.category} total={categoryTotal} onChange={value => set('category', value)}/>
       {active > 0 && <div className="aud-filters__summary">
         <span aria-live="polite">{loading ? 'Atualizando…' : `${number(total)} ${total === 1 ? 'resultado' : 'resultados'}`}</span>

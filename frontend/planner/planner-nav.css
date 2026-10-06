@@ -112,3 +112,11 @@
 /* Telas médias: a barra cabe sem cortar a conta */
 .pn__brand { width: 150px; }
 @media (max-width: 1500px) { .pn-user span { display: none; } .pn__actions { gap: 4px; } .pn__link { padding: 0 9px; } }
+
+/* Vitrine de audiências: título e filtros na mesma linha (as categorias ficam numa linha abaixo). */
+.ph--filters { align-items: center; gap: 24px; }
+.ph--filters .ph__copy { flex: 0 0 auto; }
+.ph--filters .ph__actions { flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; justify-content: flex-end; }
+.ph--filters .aud-bar { flex: 1 1 auto; min-width: 0; max-width: 900px; }
+.ph--filters .aud-bar__field { padding: 7px 14px; }
+@media (max-width: 1100px) { .ph--filters { flex-wrap: wrap; gap: 8px 16px; } .ph--filters .ph__actions { width: 100%; flex-wrap: wrap; } .ph--filters .aud-bar { max-width: none; width: 100%; } }

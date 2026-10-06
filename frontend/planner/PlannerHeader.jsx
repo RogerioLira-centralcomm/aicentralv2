@@ -62,10 +62,10 @@ export function ActivePlanChip() {
  * sticky: crumbs only on third-level pages, one line of context, actions and
  * the brand/project selector on the same row.
  */
-export function PlannerHeader({title, description, crumbs, back, meta, actions, leading = null, withContext = false}) {
+export function PlannerHeader({title, description, crumbs, back, meta, actions, leading = null, withContext = false, className = ''}) {
   const {contextNode} = useContext(PlannerChrome);
   const trail = crumbs || (back ? [[back.label, back.href]] : null);
-  return <header className="ph">
+  return <header className={`ph${className ? ` ${className}` : ''}`}>
     {leading && <span className="ph__leading">{leading}</span>}
     <div className="ph__copy">
       {trail?.length > 0 && <ol className="ph__crumbs" aria-label="Você está em">{trail.map(([label, href]) => <li key={label}>

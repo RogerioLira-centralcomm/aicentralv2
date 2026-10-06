@@ -363,13 +363,13 @@ async function main() {
     await page.getByRole('link', {name: 'Fluxos'}).click();
     await page.getByRole('button', {name: 'Novo fluxo'}).click();
     await page.getByRole('radio', {name: /Testar a página inicial/}).check();
-    await page.getByPlaceholder('https://www.exemplo.com.br').fill('https://example.test');
+    await page.getByPlaceholder('www.exemplo.com.br ou exemplo.com.br').fill('https://example.test');
     await page.getByRole('button', {name: 'Validar domínio'}).click();
     await page.getByText('example.test · HTTP 200').waitFor();
     await page.getByLabel('Nome do fluxo').fill('Fluxo de teste');
-    await page.getByText('Associações').click();
+    // Cliente e campanha ficam num fieldset sempre visível ("Cliente e campanha · Opcional").
     await page.getByLabel('Cliente / anunciante').selectOption(String(customerId));
-    await page.locator('.reports-flow-new__optional label').filter({hasText: /^Campanha/}).locator('select').selectOption('77');
+    await page.locator('.reports-flow-new__links label').filter({hasText: /^Campanha/}).locator('select').selectOption('77');
     await page.getByRole('button', {name: 'Criar fluxo', exact: true}).click();
     await page.waitForURL(`**/connect/app/flows/${flowId}**`);
     await page.getByRole('button', {name: 'Adicionar ao mapa'}).click();

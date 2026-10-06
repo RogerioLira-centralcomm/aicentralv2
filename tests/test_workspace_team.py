@@ -35,6 +35,7 @@ class WorkspaceTeamTest(TestCase):
         self.assertEqual(response.status_code, 403)
         create.assert_not_called()
 
+    @mock.patch('aicentralv2.cadu_workspace.routes._team_member_exists', return_value=False)
     @mock.patch('aicentralv2.email_service.send_invite_email', return_value={'success': True})
     @mock.patch('aicentralv2.db.obter_planos_clientes', return_value=[])
     @mock.patch('aicentralv2.db.obter_invite_por_id', return_value={
@@ -42,7 +43,7 @@ class WorkspaceTeamTest(TestCase):
     })
     @mock.patch('aicentralv2.db.criar_invite', return_value=44)
     @mock.patch('aicentralv2.db.verificar_convite_pendente', return_value=None)
-    def test_invite_uses_active_organization(self, pending, create, _invite, _plans, send):
+    def test_invite_uses_active_organization(self, pending, create, _invite, _plans, send, _member):
         response = _client().post('/workspace/app/equipe/convites', data={
             '_csrf': 'known-token', 'email': 'Pessoa@Example.com', 'role': 'admin',
         })
@@ -51,6 +52,7 @@ class WorkspaceTeamTest(TestCase):
         create.assert_called_once_with(12, 7, 'pessoa@example.com', 'admin')
         send.assert_called_once()
 
+    @mock.patch('aicentralv2.cadu_workspace.routes._team_member_exists', return_value=False)
     @mock.patch('aicentralv2.db.cancelar_invite')
     @mock.patch('aicentralv2.email_service.send_invite_email', return_value={'success': False, 'error': 'provider'})
     @mock.patch('aicentralv2.db.obter_planos_clientes', return_value=[])
@@ -59,12 +61,37 @@ class WorkspaceTeamTest(TestCase):
     })
     @mock.patch('aicentralv2.db.criar_invite', return_value=44)
     @mock.patch('aicentralv2.db.verificar_convite_pendente', return_value=None)
-    def test_failed_delivery_cancels_new_invite(self, _pending, _create, _invite, _plans, _send, cancel):
+    def test_failed_delivery_cancels_new_invite(self, _pending, _create, _invite, _plans, _send, cancel, _member):
         response = _client().post('/workspace/app/equipe/convites', data={
             '_csrf': 'known-token', 'email': 'pessoa@example.com', 'role': 'member',
         })
         self.assertEqual(response.status_code, 502)
         cancel.assert_called_once_with(44)
+
+    @mock.patch('aicentralv2.cadu_workspace.routes._team_member_exists', return_value=True)
+    @mock.patch('aicentralv2.db.criar_invite')
+    @mock.patch('aicentralv2.db.verificar_convite_pendente', return_value=None)
+    def test_existing_member_is_not_invited_again(self, _pending, create, _member):
+        response = _client().post('/workspace/app/equipe/convites', data={
+            '_csrf': 'known-token', 'email': 'pessoa@example.com', 'role': 'member',
+        })
+        self.assertEqual(response.status_code, 409)
+        create.assert_not_called()
+
+    @mock.patch('aicentralv2.cadu_workspace.routes._team_member_exists', return_value=False)
+    @mock.patch('aicentralv2.email_service.send_invite_email', return_value={'success': True})
+    @mock.patch('aicentralv2.db.obter_planos_clientes', return_value=[{'nome_fantasia': 'Ag', 'max_users': 1}])
+    @mock.patch('aicentralv2.db.obter_invite_por_id', return_value={
+        'id': 45, 'id_cliente': 12, 'invite_token': 'token', 'expires_at': 'soon',
+    })
+    @mock.patch('aicentralv2.db.criar_invite', return_value=45)
+    @mock.patch('aicentralv2.db.verificar_convite_pendente', return_value=None)
+    def test_invite_ignores_legacy_max_users(self, _pending, create, _invite, _plans, _send, _member):
+        response = _client().post('/workspace/app/equipe/convites', data={
+            '_csrf': 'known-token', 'email': 'nova@example.com', 'role': 'member',
+        })
+        self.assertEqual(response.status_code, 303)
+        create.assert_called_once()
 
     @mock.patch('aicentralv2.db.reenviar_invite')
     @mock.patch('aicentralv2.db.obter_invite_por_id', return_value={

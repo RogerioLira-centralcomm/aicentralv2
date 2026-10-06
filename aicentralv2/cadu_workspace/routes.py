@@ -440,7 +440,7 @@ def _workspace_account_insights(plan: dict, position: Optional[dict], people: li
     allowance = (usage or {}).get('allowance') or {}
     token_limit = integer(allowance.get('granted') or plan.get('pd_tokens_monthly_limit') or plan.get('tokens_monthly_limit'))
     token_used = integer(allowance.get('used'))
-    user_limit = integer(plan.get('pd_max_users') or plan.get('max_users'))
+    # Pessoas ilimitadas em todos os planos: max_users legado não limita nem convida.
     active_users = sum(bool(person.get('status')) for person in people)
     features = plan.get('features') or {}
     if isinstance(features, str):
@@ -474,9 +474,8 @@ def _workspace_account_insights(plan: dict, position: Optional[dict], people: li
         'tokens': {'used': token_used, 'limit': token_limit,
                    'available': max(token_limit - token_used, 0),
                    'percentage': percentage(token_used, token_limit)},
-        'users': {'used': active_users, 'limit': user_limit,
-                  'available': max(user_limit - active_users, 0),
-                  'percentage': percentage(active_users, user_limit)},
+        'users': {'used': active_users, 'limit': None, 'available': None,
+                  'percentage': 0, 'unlimited': True},
         'credits': {'projected': projected,
                     'projected_percentage': percentage(projected, effective_limit)},
         'features': [feature_labels.get(key, key.replace('_', ' ').capitalize())
@@ -10257,6 +10256,16 @@ def update_organization():
     return redirect(url_for('cadu_workspace.account_page', section='agencia', saved='1'), code=303)
 
 
+def _team_member_exists(client_id: int, email: str) -> bool:
+    with get_db().cursor() as cursor:
+        cursor.execute(
+            """SELECT 1 FROM tbl_contato_cliente
+                WHERE pk_id_tbl_cliente = %s AND lower(email) = %s LIMIT 1""",
+            (client_id, email),
+        )
+        return bool(cursor.fetchone())
+
+
 @bp.post('/workspace/app/equipe/convites')
 @login_required
 def create_team_invite():
@@ -10279,6 +10288,14 @@ def create_team_invite():
         abort(503, description='Não foi possível validar o convite agora. Tente novamente.')
     if pending_invite:
         abort(409, description='Já existe um convite pendente para este e-mail.')
+    # Sem limite de pessoas (max_users não bloqueia); só recusa quem já é membro.
+    try:
+        already_member = _team_member_exists(client_id, email)
+    except Exception:
+        current_app.logger.exception('Não foi possível validar membro da equipe')
+        abort(503, description='Não foi possível validar o convite agora. Tente novamente.')
+    if already_member:
+        abort(409, description='Este e-mail já faz parte da equipe.')
     try:
         invite_id = db.criar_invite(client_id, session.get('user_id'), email, role)
         invite = db.obter_invite_por_id(invite_id)

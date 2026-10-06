@@ -77,7 +77,10 @@ class WorkspaceAccountUsageTest(TestCase):
             "used": 400, "limit": 1000, "available": 600, "percentage": 40.0,
         })
         self.assertEqual(insights["users"]["used"], 2)
-        self.assertEqual(insights["users"]["available"], 2)
+        # Pessoas ilimitadas: o max_users legado (4) não vira limite.
+        self.assertIsNone(insights["users"]["limit"])
+        self.assertIsNone(insights["users"]["available"])
+        self.assertTrue(insights["users"]["unlimited"])
         self.assertEqual(insights["days_remaining"], 12)
         self.assertEqual(insights["validity"]["end"], future.strftime("%d/%m/%Y"))
         self.assertEqual(insights["features"], [

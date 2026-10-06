@@ -703,3 +703,11 @@ body.portal--workspace :is(.cadu-ds-entity-portal--project,.cadu-ds-entity-porta
   
 }
 
+
+/* Conta: dock e navegação ficam fixas; só o conteúdo rola. */
+@media (min-width:1025px) {
+  body.portal--workspace .cadu-ds-account-workarea { align-items:flex-start; }
+  body.portal--workspace .cadu-ds-account-workarea > .cadu-ds-context-sidebar.is-rail { position:sticky; top:0; align-self:flex-start; height:100dvh; min-height:100dvh; }
+  body.portal--workspace .cadu-ds-entity-portal--account { align-items:flex-start; }
+  body.portal--workspace .cadu-ds-entity-portal--account > .cadu-ds-entity-nav { position:sticky; top:0; align-self:flex-start; height:100dvh; overflow-y:auto; overscroll-behavior:contain; }
+}

@@ -150,27 +150,6 @@
   body.portal--workspace .cadu-ds-brands-shell--projects .cadu-ds-catalog-workarea { padding-left:0; }
 }
 
-[data-cadu-skin="workspace"] .cadu-ds-brands-shell--projects :is(.untitled-catalog-header > button[data-cadu-untitled-button],.untitled-catalog-empty button) {
-  width:auto;
-  min-height:34px;
-  padding:0 11px;
-  border:1px solid var(--cadu-accent-strong);
-  border-radius:7px;
-  background:var(--cadu-accent-strong);
-  color:#fff;
-  box-shadow:none;
-  font:650 11px/1 var(--cadu-font-sans);
-  transform:none;
-}
-
-[data-cadu-skin="workspace"] .cadu-ds-brands-shell--projects .untitled-catalog-header > button[data-cadu-untitled-button]::before { display:none; }
-
-[data-cadu-skin="workspace"] .cadu-ds-brands-shell--projects :is(.untitled-catalog-header > button[data-cadu-untitled-button],.untitled-catalog-empty button):hover {
-  border-color:var(--cadu-accent-strong);
-  background:var(--cadu-accent-strong);
-  box-shadow:none;
-  transform:none;
-}
 
 @media (max-width:760px) {
   [data-cadu-skin="workspace"] .cadu-ds-brands-shell--projects .untitled-catalog-header > button[data-cadu-untitled-button] { align-self:flex-start; }

@@ -4588,3 +4588,12 @@ body.portal--workspace .cadu-ds-project-reports-row>a{display:grid;grid-template
   .cadu-ds-home-widget-settings__list > div > div button,
   .cadu-ds-purchase-modal__close { min-width:44px; min-height:44px; }
 }
+
+/* List pages: filters and the create action live in the page sidebar from 1025px, and in the catalog below it. */
+@media (min-width:1025px) {
+  .cadu-ds-entity-portal--catalog .untitled-catalog-filters,
+  .cadu-ds-entity-portal--catalog .untitled-catalog-header [data-cadu-untitled-button] { display:none; }
+}
+@media (max-width:1024px) {
+  .cadu-ds-entity-portal--catalog > .cadu-ds-entity-nav { display:none; }
+}

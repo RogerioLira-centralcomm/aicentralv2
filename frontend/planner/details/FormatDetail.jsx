@@ -3,7 +3,6 @@ import {CaduEmptyState} from '../../cadu-design-system/components/CaduEmptyState
 import {Icon} from '../../cadu-design-system/components/Icon.jsx';
 import {moduleUrl} from '../api.js';
 import {DetailLayout, Facts, Rail, TagList, hasValue, listText} from './DetailLayout.jsx';
-import {BuyBox} from './BuyBox.jsx';
 import {platformLogo} from '../Catalog.jsx';
 
 const capitalize = value => value ? String(value).replace(/^./, letter => letter.toUpperCase()) : value;
@@ -41,9 +40,6 @@ export function FormatDetail({boot, selection, plan = null}) {
   return <DetailLayout boot={boot} selection={selection} kind={kind} record={{...record, logo_url: platformLogo(record)}} icon={interactive ? 'plugin' : 'table'}
     eyebrow={interactive ? 'Formato interativo' : capitalize(record.creative_category || 'Formato')}
     media={record.image_url ? {type: 'image', src: record.image_url, fit: 'contain', alt: `Prévia: ${record.name}`} : null}
-    aside={<BuyBox kind={kind} id={record.id || record.slug} name={record.name} selection={selection}
-      pitch={String(record.description || '').split(/(?<=[.!?])\s/)[0]}
-      facts={[['Tipo', capitalize(record.format_type), 'table'], ['Dimensões', sizes.length > 1 ? `${sizes.length} opções` : record.dimensions, 'table'], ['Finalidade', record.purpose, 'pulse'], ['Canais compatíveis', channels.length ? String(channels.length) : '', 'share']]}/>}
     metrics={[{icon: 'pulse', label: 'Finalidade', value: record.purpose}, {icon: 'table', label: 'Tamanhos', value: sizes.length > 1 ? `${sizes.length} opções` : record.dimensions},
       {icon: 'share', label: 'Canais compatíveis', value: channels.length || null}]}
     sections={sections}/>;

@@ -3,7 +3,7 @@ import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {CaduSelectField} from '../cadu-design-system/components/CaduField.jsx';
-import {LogoTile} from './PlannerUi.jsx';
+import {LogoTile, SelectionButton} from './PlannerUi.jsx';
 import {moduleUrl} from './api.js';
 
 const SECTIONS = [['canais', 'Canais'], ['audiencias', 'Audiências'], ['formatos', 'Formatos'], ['interativos', 'Interativos'],
@@ -38,6 +38,11 @@ export function PlanDock({boot, request, plan, setPlan, selection, notify}) {
     return () => window.removeEventListener('keydown', close);
   }, [open]);
 
+  // On a detail page the one action floats next to the plan: no column, no hunting for the button.
+  const record = boot.record || null;
+  const subjectKind = {'channel-detail': 'canais', 'audience-detail': 'audiencias', 'format-detail': boot.module, 'catalog-detail': boot.module}[boot.view];
+  const subjectId = record && (record.id || record.slug);
+  const subject = subjectKind && subjectId ? {kind: subjectKind, id: subjectId} : null;
   const items = plan ? (plan.items || []) : loose;
   const total = items.length;
   const planUrl = plan ? `${boot.urls.plans}/${encodeURIComponent(plan.id)}` : boot.urls.plans;
@@ -63,9 +68,12 @@ export function PlanDock({boot, request, plan, setPlan, selection, notify}) {
   }
 
   return <>
-    {!open && <button type="button" className="plan-dock__tab" onClick={() => remember(true)} aria-label="Abrir o seu plano">
-      <Icon name="plan" size={16}/><span>Seu plano</span>{total > 0 && <b>{total}</b>}
-    </button>}
+    {!open && <div className="plan-dock__float">
+      {subject && <SelectionButton size="md" selected={selection.isSelected(subject.kind, subject.id)} onToggle={() => selection.toggle(subject.kind, subject.id)} className="plan-dock__cta"/>}
+      <button type="button" className="plan-dock__tab" onClick={() => remember(true)} aria-label="Abrir o seu plano">
+        <Icon name="plan" size={16}/><span>Seu plano</span>{total > 0 && <b>{total}</b>}
+      </button>
+    </div>}
     <aside className={`plan-dock${open ? ' is-open' : ''}`} aria-label="Seu plano" aria-hidden={!open} inert={!open ? '' : undefined}>
       <header className="plan-dock__head">
         <span><small>{plan ? 'Plano aberto' : 'Seleção rápida'}</small><strong>{plan ? plan.title : 'Seu plano'}</strong></span>

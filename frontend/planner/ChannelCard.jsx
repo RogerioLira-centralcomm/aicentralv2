@@ -40,15 +40,13 @@ export function ChannelCard({item, urls, selected, onToggle, quoteUrl}) {
       {item.category && <span className="channel-card__badge">{item.category}</span>}
       {item.measurable && <span className="channel-card__measurable">Mensurável</span>}
       {photo && item.image_illustrative && <span className="channel-card__illustration">Ilustração</span>}
+    <span className="channel-card__cta"><SelectionButton size="md" selected={selected} onToggle={onToggle}/></span>
     </span>
     <div className="channel-card__body">
       {item.role && <span className="channel-card__role">{item.role}</span>}
       <strong className="planner-card__title">{item.name}</strong>
       <span className="planner-card__text">{item.description || 'Referência para apoiar as decisões do plano.'}</span>
       <Stats item={item}/>
-      <div className="channel-card__foot">
-        <SelectionButton size="md" quiet selected={selected} onToggle={onToggle}/>
-      </div>
     </div>
   </article>;
 }

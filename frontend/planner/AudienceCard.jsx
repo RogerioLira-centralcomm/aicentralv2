@@ -30,6 +30,7 @@ export function AudienceCard({item, urls, selected, onToggle}) {
           : <Icon name="users" size={32}/>}
       {item.category && <span className="channel-card__badge">{item.category}</span>}
       {photo && logo && <span className="channel-card__mark"><img src={item.platform_logo} alt="" onError={() => setLogoFailed(true)}/></span>}
+    <span className="channel-card__cta"><SelectionButton size="md" selected={selected} onToggle={onToggle}/></span>
     </span>
     <div className="channel-card__body">
       {item.platform && <span className="channel-card__role">{item.platform}</span>}
@@ -39,10 +40,6 @@ export function AudienceCard({item, urls, selected, onToggle}) {
         {figure && <div className="audience-card__size"><strong>{figure}</strong><span>de pessoas</span></div>}
         {traits.length > 0 && <ul>{traits.map(value => <li key={value}>{value}</li>)}</ul>}
       </div>}
-      <div className="channel-card__foot">
-        <SelectionButton size="md" quiet selected={selected} onToggle={onToggle}/>
-        {item.subcategory && <span className="channel-card__formats">{item.subcategory}</span>}
-      </div>
     </div>
   </article>;
 }

@@ -1,7 +1,6 @@
 import React from 'react';
 import {CaduEmptyState} from '../../cadu-design-system/components/CaduEmptyState.jsx';
 import {DetailLayout, Facts} from './DetailLayout.jsx';
-import {BuyBox} from './BuyBox.jsx';
 
 const number = value => Number(value).toLocaleString('pt-BR');
 const minutes = seconds => Number(seconds) > 0 ? `${Math.floor(seconds / 60)}min ${String(Math.round(seconds % 60)).padStart(2, '0')}s` : null;
@@ -30,9 +29,6 @@ export function PortalDetail({boot, selection, plan = null}) {
 
   return <DetailLayout boot={boot} selection={selection} kind="portais" record={{...portal, logo_url: portal.favicon_url || (portal.domain ? `https://${portal.domain}/favicon.ico` : '')}} icon="library"
     eyebrow={portal.featured_rank ? 'Destaque' : portal.category}
-    aside={<BuyBox kind="portais" id={portal.id || portal.slug} name={portal.name} selection={selection}
-      pitch={String(portal.description || '').split(/(?<=[.!?])\s/)[0]}
-      facts={[['Audiência pública', portal.audience_estimate, 'users'], ['Escopo', portal.scope === 'nacional_premium' ? 'Premium nacional' : portal.uf ? `Regional · ${portal.uf}` : '', 'browser'], ['Categoria', portal.category, 'list']]}/>}
     metrics={[
       {icon: 'users', label: 'Audiência pública', value: portal.audience_estimate, hint: portal.audience_source_url
         ? <a href={portal.audience_source_url} target="_blank" rel="noreferrer">Ver fonte</a> : 'Sem fonte publicada'},

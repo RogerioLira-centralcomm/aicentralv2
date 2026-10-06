@@ -13,6 +13,7 @@ export function PlaceCard({item, urls, selected, onToggle}) {
     <span className={`channel-card__photo${photo ? '' : ' is-logo'}`}>
       {photo ? <img src={item.image_url} alt="" loading="lazy" onError={() => setFailed(true)}/> : <Icon name="browser" size={32}/>}
       {item.category && <span className="channel-card__badge">{item.category}</span>}
+    <span className="channel-card__cta"><SelectionButton size="md" selected={selected} onToggle={onToggle}/></span>
     </span>
     <div className="channel-card__body">
       {item.city && <span className="channel-card__role">{item.city}</span>}
@@ -20,7 +21,6 @@ export function PlaceCard({item, urls, selected, onToggle}) {
       <span className="planner-card__text">{item.description || 'Ponto de mídia com circulação medida.'}</span>
       {stats.length > 0 && <dl className="channel-card__stats">{stats.slice(0, 3).map(([icon, label, value]) => <div key={label}>
         <Icon name={icon} size={16}/><span><dt>{label}</dt><dd title={value}>{value}</dd></span></div>)}</dl>}
-      <div className="channel-card__foot"><SelectionButton size="md" quiet selected={selected} onToggle={onToggle}/></div>
     </div>
   </article>;
 }

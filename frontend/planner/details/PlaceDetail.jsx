@@ -2,7 +2,6 @@ import React from 'react';
 import {CaduEmptyState} from '../../cadu-design-system/components/CaduEmptyState.jsx';
 import {Icon} from '../../cadu-design-system/components/Icon.jsx';
 import {DetailLayout, Facts, Gallery, listText} from './DetailLayout.jsx';
-import {BuyBox} from './BuyBox.jsx';
 
 /** A Place is one media point: where it is and how many people pass. */
 export function PlaceDetail({boot, selection, plan = null}) {
@@ -30,9 +29,6 @@ export function PlaceDetail({boot, selection, plan = null}) {
   return <DetailLayout boot={boot} selection={selection} kind="places" record={{...place, hero_image_url: cover}} icon="browser"
     eyebrow={[place.category, place.city].filter(Boolean).join(' · ')}
     media={heroPhotos.length ? {type: 'carousel', items: heroPhotos} : null}
-    aside={<BuyBox kind="places" id={place.id || place.slug} name={place.name} selection={selection}
-      pitch={String(place.description || '').split(/(?<=[.!?])\s/)[0]}
-      facts={[[place.traffic_label || 'Movimento', place.traffic, 'users'], ['Audiência', place.audience, 'pulse'], ['Cidade', place.city, 'browser']]}/>}
     metrics={[
       {icon: 'users', label: place.traffic_label || 'Movimento', value: place.traffic},
       {icon: 'pulse', label: 'Audiência', value: place.audience},

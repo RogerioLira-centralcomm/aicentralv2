@@ -14,6 +14,7 @@ export function FormatCard({item, urls, selected, onToggle, kind = 'formatos'}) 
     <a className="planner-card__hit" href={catalogDetailUrl(urls, kind, item)} aria-label={`Ver formato ${item.name}`}/>
     <span className="format-card__stage">
       {item.image_url ? <img src={item.image_url} alt="" loading="lazy"/> : <FormatPreview dimensions={item.dimensions} name={item.name} type={item.format_type}/>}
+    <span className="channel-card__cta"><SelectionButton size="md" selected={selected} onToggle={onToggle}/></span>
     </span>
     <div className="channel-card__body">
       <strong className="planner-card__title">{item.name}</strong>
@@ -24,7 +25,6 @@ export function FormatCard({item, urls, selected, onToggle, kind = 'formatos'}) 
       {places.length > 0 && <span className="format-card__runs"><small>Roda em</small>
         {places.slice(0, 4).map(place => <LogoTile key={place.name} src={place.logo} name={place.name} icon="share" size="xs"/>)}
         {places.length > 4 && <small>+{places.length - 4}</small>}</span>}
-      <div className="channel-card__foot"><SelectionButton size="md" quiet selected={selected} onToggle={onToggle}/></div>
     </div>
   </article>;
 }

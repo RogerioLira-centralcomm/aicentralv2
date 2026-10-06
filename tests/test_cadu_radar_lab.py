@@ -86,3 +86,28 @@ def test_truncated_json_keeps_complete_items():
     cut = '```json\n{"opportunities": [{"title": "a", "x": {"y": 1}}, {"title": "b"}, {"title": "c", "thes'
     assert [item['title'] for item in lab._json(cut)['opportunities']] == ['a', 'b']
     assert lab._json('{"results": [{"index": 0}]}') == {'results': [{'index': 0}]}
+
+
+def test_doctor_always_edits_the_best_version(monkeypatch):
+    instance = _lab()
+    seen = []
+    loops = iter([{'F1': 4.0}, {'F1': 3.0}, {'F1': 5.0}])  # v1.0, v1.1 perde, v1.2 ganha
+
+    def evaluate(ctx, states, flows, **kwargs):
+        return {'label': instance.prompt_label, 'by_flow': {}, 'score': next(loops), 'avg': {}, 'history': {}, 'reviews': []}
+
+    def doctor(ctx, evaluation):
+        seen.append((instance.prompt_label, instance.prompt_set['revise'][0][:8]))
+        old = instance.prompt_set['revise'][0]
+        return [{'prompt': 'revise', 'system': old.replace('Você é', f'V{len(seen)} Você é', 1)}]
+
+    instance.context = lambda: None
+    instance.discover = lambda flow, ctx: {'packet': [], 'text': ''}
+    instance.evaluate, instance.doctor = evaluate, doctor
+    instance.summary = lambda ctx, states, evaluations, best_index, best_set, *rest: (best_index, best_set['revise'][0][:8])
+    monkeypatch.setattr(lab, 'prices', lambda: None)
+    with Flask(__name__).app_context():
+        best_index, best_text = instance.run(('F1',), prompt_loops=2)
+    # A volta 2 parte da v1.0 (a v1.1 perdeu), não da v1.1.
+    assert seen == [('1.0', 'Você é o'), ('1.0', 'Você é o')]
+    assert best_index == 2 and best_text == 'V2 Você '

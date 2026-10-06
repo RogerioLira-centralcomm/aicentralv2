@@ -773,7 +773,8 @@ class Lab:
                     and (len(_good(best[flow])) < MIN_GOOD or (_avg(best[flow]) or 0) < target)]
             if not todo:
                 break
-            revised = self._parallel({flow: (lambda f=flow: self._revise(f, ctx, states[f], current[f], round_no))
+            # Revisa sempre a melhor versão: se a volta anterior piorou, não se constrói em cima dela.
+            revised = self._parallel({flow: (lambda f=flow: self._revise(f, ctx, states[f], best[f], round_no))
                                       for flow in todo}, workers=4)
             for flow in todo:
                 if revised[flow]:
@@ -798,7 +799,9 @@ class Lab:
                        for flow, items in evaluation['by_flow'].items() for item in items)
         final_review = evaluation['reviews'][-1] if evaluation['reviews'] else {}
         diagnosis = {
-            'notas_por_fluxo': evaluation['score'],
+            'media_do_revisor_por_fluxo_1_a_5': evaluation['avg'],
+            'pontos_por_fluxo': evaluation['score'],
+            'como_ler_pontos': 'soma das notas (1 a 5) das oportunidades boas: nota >= 4 e selo de confiança diferente de baixa',
             'oportunidades_boas_por_fluxo': {flow: len(_good(items)) for flow, items in evaluation['by_flow'].items()},
             'piores_oportunidades': [{'fluxo': f, 'titulo': t, 'nota': n, 'comentario': c} for n, f, t, c in notes[:12]],
             'resumo_por_sistema': final_review.get('systems'),
@@ -835,6 +838,8 @@ class Lab:
         best_index, best_set = 0, dict(self.prompt_set)
         changes_log = []
         for loop in range(1, prompt_loops + 1):
+            # O médico sempre lê e edita a melhor versão até aqui, nunca uma candidata que perdeu.
+            self.prompt_set, self.prompt_label = best_set, evaluations[best_index]['label']
             changes = self.doctor(ctx, evaluations[best_index])
             candidate, accepted, rejected = prompts.apply_changes(best_set, changes)
             changes_log.append({'label': f'1.{loop}', 'from': evaluations[best_index]['label'],

@@ -98,7 +98,8 @@ def test_legacy_reports_steps_are_skipped_once_reports_v2_is_installed(tmp_path,
 
 def test_legacy_reports_steps_run_when_reports_v2_is_not_installed(tmp_path, monkeypatch):
     ran = _run_with_order(tmp_path, monkeypatch, v2_installed=False)
-    assert ran == ['migrations/a.py', 'migrations/legacy.py', 'migrations/legacy_optional.py', 'migrations/b.py']
+    # legacy_optional.py não existe no repositório: o '?' o ignora mesmo sem v2.
+    assert ran == ['migrations/a.py', 'migrations/legacy.py', 'migrations/b.py']
 
 
 def test_every_legacy_step_exists_and_none_comes_after_the_post_v2_ones():

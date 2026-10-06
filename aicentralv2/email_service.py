@@ -237,7 +237,7 @@ def send_launch_bonus_email(user_email, user_name, cliente_nome='', client_id=No
     result = get_brevo_product_service('workspace').enviar_email_com_template(
         template_name='bonus-creditos.html', template_folder='emails/externos',
         to_email=user_email, to_name=user_name,
-        subject='100.000 créditos para começar',
+        subject='100.000 tokens para começar',
         params={
             'PRIMEIRO_NOME': (user_name or 'pessoa da equipe').split()[0],
             'EMPRESA': cliente_nome or 'sua equipe',
@@ -249,7 +249,7 @@ def send_launch_bonus_email(user_email, user_name, cliente_nome='', client_id=No
     )
     _record_workspace_email_event(
         recipient_email=user_email, client_id=tenant_id, event_type='launch_bonus',
-        subject='100.000 créditos para começar', result=result,
+        subject='100.000 tokens para começar', result=result,
     )
     return result
 

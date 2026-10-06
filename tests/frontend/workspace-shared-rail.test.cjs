@@ -24,11 +24,14 @@ test('brand catalog renders the Workspace sidebar instead of the retired dock', 
 test('the sidebar tree comes from one server payload and agency sits beside the user', () => {
   const sidebar = read(`${components}/WorkspaceContextSidebar.jsx`);
   assert.match(sidebar, /bootstrap\.sidebar/);
-  assert.match(sidebar, /cadu-ds-context-sidebar__profile-text/);
+  // O rodapé da pessoa virou o SidebarAccount compartilhado (nome + agência + uso).
+  const account = read(`${components}/SidebarAccount.jsx`);
+  assert.match(sidebar, /<SidebarAccount userName=\{userName\} agencyName=\{agencyName\}/);
+  assert.match(account, /cadu-sidebar-account__text"><strong>\{first\}<\/strong>\{agencyName && <small>\{agencyName\}<\/small>\}/);
   assert.doesNotMatch(sidebar, /<span>Agência<\/span>/);
   assert.doesNotMatch(sidebar, /Ver todos<\/a><\/div>\s*\{groups/);
   // As in Reports: credit use sits beside the person, never as a separate card.
-  assert.match(sidebar, /cadu-ds-context-sidebar__usage/);
+  assert.match(account, /cadu-sidebar-account__usage/);
   assert.doesNotMatch(sidebar, /credit-alert/);
   // One order across Workspace and Chat: Início, Conversas, Marcas, Projetos; Conta lives in the footer.
   assert.match(sidebar, /id: 'home'[\s\S]*id: 'conversas'[\s\S]*id: 'marcas'[\s\S]*id: 'projetos'/);

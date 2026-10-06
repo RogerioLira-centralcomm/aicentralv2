@@ -206,8 +206,8 @@ def _expire_dead_runs(client_id):
     with repository.get_db() as conn, conn.cursor() as cur:
         cur.execute('''UPDATE cadu_radar_runs SET status = 'failed', finished_at = NOW(),
                               error = 'A busca foi interrompida. Rode de novo.'
-                        WHERE client_id = %s AND status IN ('queued', 'running') AND lease_until IS NOT NULL
-                          AND lease_until < NOW()''', (int(client_id),))
+                        WHERE client_id = %s AND status IN ('queued', 'running')
+                          AND COALESCE(lease_until, created_at + INTERVAL '20 minutes') < NOW()''', (int(client_id),))
 
 
 def _host(url):
@@ -250,7 +250,7 @@ class Runner:
             tokens = sum(step['tokens'] for step in snapshot)
         conn = _db()
         with conn.cursor() as cur:
-            cur.execute('''UPDATE cadu_radar_runs SET steps = %s, cost = cost || %s,
+            cur.execute('''UPDATE cadu_radar_runs SET steps = %s, cost = cost || %s::jsonb,
                                   lease_until = NOW() + make_interval(mins => %s) WHERE id = %s''',
                         (Json(snapshot), Json({'tokens': tokens}), LEASE_MINUTES, self.run_id))
         conn.commit()
@@ -528,6 +528,8 @@ def _safe(future, fallback, runner, key):
 
 def get_run(client_id, run_id):
     from ..cadu_family import repository
+    # A tela consulta este run a cada 2 s: se o executor morreu, ela precisa ver a falha em vez de esperar para sempre.
+    _expire_dead_runs(client_id)
     rows = repository.rows('''SELECT id, status, steps, cost, focus, brand_ref, project_ref, params, trigger, watch_id, error,
                                      created_at, finished_at
                                 FROM cadu_radar_runs WHERE id = %s AND client_id = %s''', (str(run_id), int(client_id)))

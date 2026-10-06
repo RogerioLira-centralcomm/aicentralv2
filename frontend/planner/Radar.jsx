@@ -140,6 +140,13 @@ export function RadarPage({boot, request, notify, context}) {
     return () => window.clearTimeout(poll.current);
   }, [run, load]);
 
+  // O botão Voltar do navegador sai de ?run= e volta para o wizard.
+  useEffect(() => {
+    const back = () => { if (!new URLSearchParams(window.location.search).get('run')) setRun(null); };
+    window.addEventListener('popstate', back);
+    return () => window.removeEventListener('popstate', back);
+  }, []);
+
   const start = async fields => {
     setStarting(true);
     try {

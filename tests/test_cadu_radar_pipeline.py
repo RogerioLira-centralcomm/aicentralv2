@@ -157,3 +157,60 @@ def test_estimate_is_priced_in_usd_not_fixed_tokens(monkeypatch):
     assert pipeline.estimate_tokens(1) == 750  # US$ 0,15 a US$ 0,0002 por token
     monkeypatch.setattr(cadu_credit_connector.CaduCreditConnector, '_commercial_token_price_usd', lambda self, client: Decimal('0.0001'))
     assert pipeline.estimate_tokens(1) == 1500
+
+
+class SqlSpy:
+    """Registra o SQL que o pipeline manda; o Postgres real recusa `jsonb || json`, então o cast é obrigatório."""
+    def __init__(self):
+        self.statements = []
+
+    def cursor(self):
+        spy = self
+
+        class Cursor:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def execute(self, sql, params=None):
+                spy.statements.append(' '.join(sql.split()))
+
+            def fetchone(self):
+                return None
+
+        return Cursor()
+
+    def commit(self):
+        pass
+
+
+def test_step_progress_concatenates_cost_as_jsonb(monkeypatch):
+    spy = SqlSpy()
+    monkeypatch.setattr(pipeline, '_db', lambda: spy)
+    pipeline.Runner('run-3', 7, 9, 'tema', None, None)._save_steps()
+    sql, = [item for item in spy.statements if item.startswith('UPDATE cadu_radar_runs SET steps')]
+    assert 'cost = cost || %s::jsonb' in sql and 'lease_until' in sql
+
+
+def test_dead_run_expiry_also_covers_runs_without_a_lease(monkeypatch):
+    spy = SqlSpy()
+
+    class Repo:
+        @staticmethod
+        def get_db():
+            class Ctx:
+                def __enter__(self_inner):
+                    return spy
+
+                def __exit__(self_inner, *args):
+                    return False
+            return Ctx()
+
+    from aicentralv2.cadu_family import repository
+    monkeypatch.setattr(repository, 'get_db', Repo.get_db)
+    pipeline._expire_dead_runs(5)
+    sql, = spy.statements
+    # Runs do pipeline antigo não têm lease: contam 20 minutos desde a criação em vez de travar a marca para sempre.
+    assert "COALESCE(lease_until, created_at + INTERVAL '20 minutes') < NOW()" in sql

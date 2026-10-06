@@ -6,7 +6,6 @@ import {CaduButton} from './CaduButton';
 import {CaduInput} from './CaduInput';
 import {openWorkspaceDetail} from '../workspaceNavigation';
 import {WorkspaceCatalog} from './WorkspaceCatalog';
-import {EntityNavigator} from './WorkspaceEntityPortal';
 import {WorkspaceMobileChrome} from './WorkspaceMobileChrome';
 import {useWorkspaceViewport} from '../hooks/useWorkspaceViewport';
 import {csrf} from '../../conversations-v2/lib/api';
@@ -161,19 +160,11 @@ export function WorkspaceBrands({bootstrap}) {
     } catch (error) { setActionError(error.message || 'Não foi possível atualizar o status da marca.'); setBusyBrand(''); }
   };
   const catalogFilters = [["ativas", "Ativas"], ["arquivadas", "Arquivadas"], ["todas", "Todas"], ["auditadas", "Analisadas"], ["com-ativos", "Com ativos"]].map(([value, label]) => ({value, label, active: bootstrap.filterName === value, href: catalogHref(bootstrap.urls.brands, 'filtro', value, query)}));
-  return <div className="cadu-ds-home-shell cadu-ds-account-shell cadu-ds-brands-shell cadu-ds-brands-shell--brands">
+  return <div className="cadu-ds-home-shell cadu-ds-brands-shell cadu-ds-brands-shell--brands">
     <main className="cadu-ds-home-main">
-      <div className="cadu-ds-home-workarea cadu-ds-account-workarea cadu-ds-catalog-workarea">
+      <div className="cadu-ds-home-workarea cadu-ds-catalog-workarea">
         {isMobile ? <WorkspaceMobileChrome title="Marcas" links={bootstrap.urls} logo={bootstrap.caduMark} solutionIcons={bootstrap.solutionIcons} contextItems={brands.map(item => ({...item, detail:item.sector || 'Marca'}))}/> : <WorkspaceContextSidebar mode="home" rail bootstrap={bootstrap} links={bootstrap.urls} active="marcas"/>}
-        <div className="cadu-ds-entity-portal cadu-ds-entity-portal--account cadu-ds-entity-portal--catalog">
-          {!isMobile && <EntityNavigator label="Marcas" items={catalogFilters.map(item => ({id: item.value, label: item.label, icon: 'brand', href: item.href}))} activeId={bootstrap.filterName || 'ativas'} identity={<><span className="cadu-ds-entity-nav__project-mark"><Icon name="brand"/></span><span><small>Workspace</small><b>Marcas</b></span></>}>
-            <span>Ações</span>
-            <CaduButton type="button" size="sm" onClick={() => setCreating(true)} iconLeading={<span aria-hidden="true">+</span>}>Nova marca</CaduButton>
-          </EntityNavigator>}
-          <section className="cadu-ds-account-content">
       <WorkspaceCatalog actionLabel="Nova marca" onAction={() => setCreating(true)} title="Marcas" error={bootstrap.catalogError} filters={catalogFilters} query={query} onQueryChange={setQuery} searchRef={searchRef} queryLabel="Buscar marcas" countLabel={`${brands.length} marca${brands.length === 1 ? '' : 's'}`} resultCount={brands.length} totalCount={(bootstrap.brands || []).length}><div className="untitled-catalog-list is-brands" aria-label="Lista de marcas"><div className="untitled-catalog-list__head" aria-hidden="true"><span>Marca</span><span>Projetos</span><span>Conversas</span><span>Arquivos</span><span/></div>{actionError && <p role="alert">{actionError}</p>}{brands.map(brand => <div className="untitled-catalog-brand-row" key={brand.id}><a className="untitled-catalog-item" href={brand.href}><span className="untitled-catalog-item__identity"><VisualIdentity src={brand.logoUrl} initials={brand.visualInitials} label={brand.name} color={brand.visualColor}/><span><b>{brand.name}</b><small>{brand.audited ? 'Identidade analisada' : 'Identidade em preparação'}{brand.archived ? ' · Arquivada' : ''}</small></span></span><span className="untitled-catalog-item__metric"><small>Projetos</small><b>{brand.activeProjects || 0}</b></span><span className="untitled-catalog-item__metric"><small>Conversas</small><b>{brand.conversationCount || 0}</b></span><span className="untitled-catalog-item__metric"><small>Arquivos</small><b>{brand.fileCount || 0}</b></span><span className="untitled-catalog-item__chevron" aria-hidden="true">›</span></a>{bootstrap.canManageBrands && <button type="button" className="untitled-catalog-brand-row__archive" disabled={busyBrand === String(brand.id)} onClick={() => setBrandStatus(brand)} aria-label={`${brand.archived ? 'Restaurar' : 'Arquivar'} ${brand.name}`} title={`${brand.archived ? 'Restaurar' : 'Arquivar'} marca`}><Icon name={brand.archived ? 'undo' : 'archive'} size={16}/></button>}</div>)}{!brands.length && <div className="untitled-catalog-empty"><b>{query.trim() ? 'Nenhuma marca corresponde à busca.' : bootstrap.filterName === 'ativas' ? 'Nenhuma marca ativa.' : bootstrap.filterName === 'arquivadas' ? 'Nenhuma marca arquivada.' : 'Nenhuma marca neste filtro.'}</b>{!query.trim() && bootstrap.filterName === 'ativas' && <button type="button" onClick={() => setCreating(true)}>Criar marca</button>}</div>}</div></WorkspaceCatalog>
-          </section>
-        </div>
       </div>
     </main>
     {creating && <CaduModal className="cadu-ds-brand-create-dialog" label="Nova marca" onClose={() => setCreating(false)}><BrandCreateForm bootstrap={bootstrap} onClose={() => setCreating(false)}/></CaduModal>}

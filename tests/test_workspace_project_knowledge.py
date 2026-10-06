@@ -42,5 +42,5 @@ class WorkspaceProjectKnowledgeTest(TestCase):
             'results': [{'source': 'Guia de marca', 'excerpt': 'Tom direto e seguro.'}],
         })
         sql, params = cursor.execute.call_args.args
-        self.assertIn('id_cliente = %s', sql)
+        self.assertRegex(sql, r'id_cliente\s*=\s*%s')
         self.assertEqual(params[1:3], ('p-1', 12))

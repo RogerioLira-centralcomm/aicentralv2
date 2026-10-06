@@ -83,7 +83,7 @@ class WorkspaceProjectIndexTest(TestCase):
         result = project_index_jobs.enqueue(12, "project-1", 8, 7)
 
         self.assertEqual(result, "job-1")
-        self.assertTrue(any("SET indexing_status='queued'" in call.args[0]
+        self.assertTrue(any("SET indexing_status=" in call.args[0] and "'queued'" in call.args[0]
                             for call in cursor.execute.call_args_list))
         connection.commit.assert_called_once_with()
 
@@ -101,5 +101,5 @@ class WorkspaceProjectIndexTest(TestCase):
         result = project_index_jobs.enqueue(12, "project-1", 8, 7)
 
         self.assertEqual(result, "existing-job")
-        self.assertFalse(any("SET indexing_status='queued'" in call.args[0]
+        self.assertFalse(any("SET indexing_status=" in call.args[0] and "'queued'" in call.args[0]
                              for call in cursor.execute.call_args_list))

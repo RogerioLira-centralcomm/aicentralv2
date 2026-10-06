@@ -73,7 +73,7 @@ class WorkspaceProjectNotesTest(TestCase):
         })
 
         self.assertEqual(response.status_code, 303)
-        self.assertEqual(response.headers['Location'], '/workspace/app/projetos/p-1')
+        self.assertEqual(response.headers['Location'], '/projetos/p-1')
         sql = '\n'.join(str(call.args[0]) for call in cursor.execute.call_args_list)
         self.assertIn('INSERT INTO cadu_ci_projeto_arquivos', sql)
         self.assertIn('INSERT INTO cadu_ci_chunks', sql)

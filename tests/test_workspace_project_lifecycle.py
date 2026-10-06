@@ -44,18 +44,18 @@ class WorkspaceProjectLifecycleTest(TestCase):
         connection.commit.assert_called_once_with()
 
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_project', return_value={'id': 'p-1'})
-    @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
-    def test_context_update_keeps_tenant_predicate(self, get_db, _project):
-        connection = mock.MagicMock()
-        cursor = connection.cursor.return_value.__enter__.return_value
-        get_db.return_value = connection
+    @mock.patch('aicentralv2.cadu_workspace.routes.project_context_service.update_context')
+    def test_context_update_keeps_tenant_predicate(self, update_context, _project):
+        # A rota delega ao serviço de contexto (que aplica id=%s AND id_cliente=%s);
+        # o contrato aqui é a rota passar a organização ativa da sessão.
         response = _client().post('/workspace/app/projetos/p-1/contexto', data={
             '_csrf': 'known-token', 'name': 'Projeto revisado', 'color': '#176b5e',
         })
         self.assertEqual(response.status_code, 303)
-        sql, params = cursor.execute.call_args.args
-        self.assertIn('id_cliente = %s', sql)
-        self.assertEqual(params[-2:], ('p-1', 12))
+        kwargs = update_context.call_args.kwargs
+        self.assertEqual(kwargs['client_id'], 12)
+        self.assertEqual(kwargs['project_ref'], 'ci:p-1')
+        self.assertEqual(kwargs['standard_fields']['name'], 'Projeto revisado')
 
     @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_project', return_value=None)

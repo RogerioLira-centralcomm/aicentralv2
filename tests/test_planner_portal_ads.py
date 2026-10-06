@@ -77,3 +77,15 @@ def test_import_metrics_need_a_source_and_pending_mode_skips_bad_rows():
     good = 'Bar,bar.com.br,Notícias,,[],nacional_premium,,,,\n'
     result = portals.import_curated_csv(io.StringIO(HEADER + bad + good), dry_run=True, allow_pending=True)
     assert result['rows'] == 1 and 'métricas exigem' in result['skipped'][0]
+
+
+def test_check_portal_never_raises_so_one_host_cannot_abort_a_batch(monkeypatch):
+    import http.client
+    monkeypatch.setattr(portal_ads, '_check_portal', lambda *a: (_ for _ in ()).throw(http.client.IncompleteRead(b'')))
+    assert portal_ads.check_portal('example.com') == {'domain': 'example.com', 'status': 'error'}
+
+
+@pytest.mark.parametrize('status,transient', [('dns_failed', True), ('unreachable', True), ('http_503', True), ('error', True),
+                                              ('missing', False), ('valid', False), ('http_403', False)])
+def test_transient_failures_are_distinguished_from_definitive_results(status, transient):
+    assert portal_ads._transient(status) is transient

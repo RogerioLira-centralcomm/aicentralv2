@@ -300,7 +300,7 @@ def _validate_row(row, line, seen_domains, allow_pending):
         'description': str(row.get('description') or '').strip(),
         'audience': audience, 'period': period, 'source': source,
         'checked_at': checked_at, 'attributes': json.dumps(attributes, ensure_ascii=False),
-        'featured_rank': featured_rank, **_scope_and_metrics(row, line, attributes),
+        'featured_rank': featured_rank, 'approved': review == 'aprovado', **_scope_and_metrics(row, line, attributes),
     }
 
 
@@ -366,13 +366,16 @@ def import_curated_csv(file_obj, dry_run=False, allow_pending=False):
                           metrics_period = COALESCE(EXCLUDED.metrics_period, cadu_planner_portals.metrics_period),
                           metrics_source_url = COALESCE(EXCLUDED.metrics_source_url, cadu_planner_portals.metrics_source_url),
                           metrics_checked_at = COALESCE(EXCLUDED.metrics_checked_at, cadu_planner_portals.metrics_checked_at),
-                          active = TRUE, updated_at = NOW()''',
+                          active = TRUE, updated_at = NOW()
+                        WHERE NOT ((cadu_planner_portals.scope = 'nacional_premium'
+                                    OR cadu_planner_portals.public_attributes @> '[{"atributo": "status_curadoria", "valor": "aprovado"}]'::jsonb)
+                                   AND %s::text IS DISTINCT FROM 'nacional_premium' AND NOT %s::boolean)''',
                         (item['name'], item['domain'], item['category'], item['description'],
                          item['audience'], item['period'], item['source'], item['checked_at'],
                          item['attributes'], item['featured_rank'], item['scope'], item['uf'],
                          item['monthly_visits'], item['avg_time_seconds'], item['metrics_period'],
                          item['metrics_source'], item['metrics_checked_at'],
-                         item['scope'], item['scope'], item['scope']))
+                         item['scope'], item['scope'], item['scope'], item['scope'], item['approved']))
             conn.commit()
         except Exception:
             conn.rollback()

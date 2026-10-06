@@ -207,7 +207,14 @@ def check_home(host, timeout=12):
 
 
 def check_portal(domain, timeout=12):
-    """Run both checks for one portal domain; never raises on network problems."""
+    """Run both checks for one portal domain; never raises, so one bad host cannot stop a batch."""
+    try:
+        return _check_portal(domain, timeout)
+    except Exception:  # e.g. http.client.IncompleteRead on a truncated response
+        return {'domain': str(domain or '').strip().lower(), 'status': 'error'}
+
+
+def _check_portal(domain, timeout):
     host = str(domain or '').strip().lower().rstrip('.')
     if not host or '/' in host or ':' in host or '@' in host:
         return {'domain': host, 'status': 'invalid_domain'}
@@ -227,6 +234,12 @@ def crawl_many(domains, workers=8, timeout=12):
         yield from pool.map(lambda d: check_portal(d, timeout), domains)
 
 
+def _transient(status):
+    """Failures that say nothing about the site's setup (network, DNS, 5xx, crash)."""
+    status = str(status or '')
+    return status in {'unreachable', 'dns_failed', 'robots_unavailable', 'error', 'too_large'} or status.startswith('http_5')
+
+
 def save_result(result):
     """Persist one check; keeps previous title/favicon when the home page failed."""
     from psycopg.types.json import Json
@@ -237,23 +250,28 @@ def save_result(result):
     else:
         ads, home, checked = result['ads_txt'], result['home'], result['checked_at']
     ok_home = home.get('status') == 'ok'
+    keep_ads, keep_home = _transient(ads['status']), not ok_home and _transient(home['status'])
+    programmatic = home.get('programmatic_status') if ok_home else f"unavailable_{home['status']}"[:30]
     conn = get_db()
     try:
         with conn.cursor() as cur:
             cur.execute('''UPDATE cadu_planner_portals
-                              SET ads_txt_status = %s, ads_txt_checked_at = %s, ads_txt_records = %s,
-                                  ads_txt_sellers = %s,
-                                  programmatic_status = %s, programmatic_checked_at = %s,
-                                  programmatic_signals = %s,
-                                  site_title = COALESCE(NULLIF(%s, ''), site_title),
-                                  favicon_url = COALESCE(NULLIF(%s, ''), favicon_url),
+                              SET ads_txt_status = CASE WHEN %(keep_ads)s THEN COALESCE(ads_txt_status, %(ads_status)s) ELSE %(ads_status)s END,
+                                  ads_txt_records = CASE WHEN %(keep_ads)s THEN ads_txt_records ELSE %(records)s END,
+                                  ads_txt_sellers = CASE WHEN %(keep_ads)s THEN ads_txt_sellers ELSE %(sellers)s::jsonb END,
+                                  ads_txt_checked_at = %(checked)s,
+                                  programmatic_status = CASE WHEN %(keep_home)s THEN COALESCE(programmatic_status, %(programmatic)s) ELSE %(programmatic)s END,
+                                  programmatic_signals = CASE WHEN %(keep_home)s THEN programmatic_signals ELSE %(signals)s::jsonb END,
+                                  programmatic_checked_at = %(checked)s,
+                                  site_title = COALESCE(NULLIF(%(title)s, ''), site_title),
+                                  favicon_url = COALESCE(NULLIF(%(favicon)s, ''), favicon_url),
                                   updated_at = NOW()
-                            WHERE domain = %s''',
-                        (ads['status'], checked, ads['records'], Json(ads['sellers']),
-                         home.get('programmatic_status') if ok_home else f"unavailable_{home['status']}"[:30], checked,
-                         Json(home.get('signals', []) if ok_home else []),
-                         home.get('title', '') if ok_home else '', home.get('favicon_url', '') if ok_home else '',
-                         result['domain']))
+                            WHERE domain = %(domain)s''',
+                        {'keep_ads': keep_ads, 'keep_home': keep_home, 'ads_status': ads['status'], 'records': ads['records'],
+                         'sellers': Json(ads['sellers']), 'checked': checked, 'programmatic': programmatic,
+                         'signals': Json(home.get('signals', []) if ok_home else []),
+                         'title': home.get('title', '') if ok_home else '',
+                         'favicon': home.get('favicon_url', '') if ok_home else '', 'domain': result['domain']})
             saved = cur.rowcount > 0
         conn.commit()
         return saved

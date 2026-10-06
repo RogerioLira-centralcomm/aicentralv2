@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from html import escape
 
 from flask import current_app
@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 
 def _day(value):
     if isinstance(value, datetime):
-        return value.strftime('%d/%m')
+        # A data do buzz é gravada como meia-noite UTC: formatar em UTC mantém o dia da reportagem, em qualquer fuso do banco.
+        return (value if value.tzinfo is None else value.astimezone(timezone.utc)).strftime('%d/%m')
     text = str(value or '')[:10]
     return f'{text[8:10]}/{text[5:7]}' if len(text) == 10 and text[4] == '-' else ''
 

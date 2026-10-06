@@ -97,3 +97,10 @@ def test_api_403_without_a_description_is_not_shown_in_english():
     with Flask(__name__).test_request_context('/familia/api/planner/radar/runs', method='POST'):
         response, status = routes.forbidden(Forbidden())
         assert status == 403 and response.get_json() == {'error': 'Você não tem permissão para esta ação.'}
+
+
+def test_buzz_date_keeps_the_reporting_day_whatever_the_database_timezone():
+    from zoneinfo import ZoneInfo
+    stored = datetime(2026, 10, 1, tzinfo=timezone.utc).astimezone(ZoneInfo('America/Sao_Paulo'))  # 30/09 21:00 no fuso do banco
+    assert notify._day(stored) == '01/10' and notify._day(datetime(2026, 10, 1, tzinfo=timezone.utc)) == '01/10'
+    assert notify._day('2026-10-01') == '01/10' and notify._day(None) == ''

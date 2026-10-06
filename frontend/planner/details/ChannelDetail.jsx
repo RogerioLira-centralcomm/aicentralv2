@@ -3,7 +3,7 @@ import {CaduEmptyState} from '../../cadu-design-system/components/CaduEmptyState
 import {moduleUrl} from '../api.js';
 import {CaduBadge} from '../../cadu-design-system/components/CaduBadge.jsx';
 import {Icon} from '../../cadu-design-system/components/Icon.jsx';
-import {FormatPreview} from '../FormatPreview.jsx';
+import {FormatCards} from '../FormatCards.jsx';
 import {SelectionButton} from '../PlannerUi.jsx';
 import {PlanSidebar} from './PlanSidebar.jsx';
 import {DemographyBars, DetailLayout, Facts, Rail, TagList, hasValue, listText} from './DetailLayout.jsx';
@@ -45,27 +45,8 @@ export function ChannelDetail({boot, selection, plan = null}) {
   const sections = [
     {id: 'papel', label: 'Papel no plano', hidden: !roles.length, hint: 'Como este canal costuma trabalhar num plano. O Cadu ajusta por campanha.',
       render: () => <ul className="pd-roles">{roles.map(role => <li key={role.role}><Icon name={roleIcon(role.role)} size={22}/><span><strong>{role.role}</strong><small>{role.description}</small></span></li>)}</ul>},
-    {id: 'publico', label: 'Quem está no canal', hidden: !hasValue(channel.demografia),
-      render: () => <DemographyBars value={channel.demografia}/>},
-    {id: 'diferenciais', label: 'Diferenciais', hidden: !hasValue(channel.diferenciais), render: () => <TagList value={channel.diferenciais}/>},
-    {id: 'compra', label: 'Como comprar', hidden: !buying.some(([, value]) => hasValue(value)) && !segmentation.length,
-      render: () => <><Facts items={buying}/>{segmentation.length > 0 && <><h3 className="pd-subtitle">Segmentação disponível</h3>
-        <dl className="pd-segments">{segmentation.map(([title, options]) => <div key={title}><dt>{title}</dt><dd><TagList value={options}/></dd></div>)}</dl></>}</>},
-    {id: 'estrategias', label: 'Quando usar cada segmentação', count: playbook.length, hidden: !playbook.length, wide: true,
-      render: () => <ul className="pd-playbook">{playbook.map(item => <li key={item.nome}>
-        <strong>{item.nome}</strong>
-        {item.quando && <p><span>Quando</span>{item.quando}</p>}
-        {item.exemplo && <p><span>Exemplo</span>{item.exemplo}</p>}
-      </li>)}</ul>},
     {id: 'formatos', label: 'Formatos', count: formats.length, wide: true, hint: 'Escolha o formato ideal para o seu objetivo.',
-      render: () => formats.length ? <ul className="pd-formats">{formats.map(format => <li key={format.id}>
-        <a href={`${moduleUrl(boot.urls, 'formatos')}/${format.id}`}>
-          <FormatPreview dimensions={format.dimensions} name={format.name} compact/>
-          <strong>{format.name}</strong>
-          <small>{[format.format_type, format.dimensions].filter(Boolean).join(' · ')}</small>
-        </a>
-        <SelectionButton size="md" quiet selected={selection.isSelected('formatos', format.id)} onToggle={() => selection.toggle('formatos', format.id)}/>
-      </li>)}</ul> : <p className="planner-muted">Ainda não há formatos cadastrados para este canal.</p>},
+      render: () => <FormatCards formats={formats} urls={boot.urls} selection={selection} empty="Ainda não há formatos cadastrados para este canal."/>},
     {id: 'audiencias', label: 'Audiências neste canal', count: audiences.length, hidden: !audiences.length, wide: true,
       hint: 'Segmente por interesses, comportamentos e contextos.',
       render: () => <ul className="pd-audiences">{audiences.map(audience => <li key={audience.id}>
@@ -80,6 +61,18 @@ export function ChannelDetail({boot, selection, plan = null}) {
       render: () => <div className="pd-gallery">{examples.map((item, index) => <figure key={item.url} className={index === 0 ? 'is-lead' : ''}>
         <img src={item.url} alt={item.caption || 'Exemplo de anúncio'} loading="lazy"/>{item.caption && <figcaption>{item.caption}</figcaption>}
       </figure>)}</div>},
+    {id: 'diferenciais', label: 'Diferenciais', hidden: !hasValue(channel.diferenciais), render: () => <TagList value={channel.diferenciais}/>},
+    {id: 'publico', label: 'Quem está no canal', hidden: !hasValue(channel.demografia),
+      render: () => <DemographyBars value={channel.demografia}/>},
+    {id: 'compra', label: 'Como comprar', hidden: !buying.some(([, value]) => hasValue(value)) && !segmentation.length,
+      render: () => <><Facts items={buying}/>{segmentation.length > 0 && <><h3 className="pd-subtitle">Segmentação disponível</h3>
+        <dl className="pd-segments">{segmentation.map(([title, options]) => <div key={title}><dt>{title}</dt><dd><TagList value={options}/></dd></div>)}</dl></>}</>},
+    {id: 'estrategias', label: 'Quando usar cada segmentação', count: playbook.length, hidden: !playbook.length, wide: true,
+      render: () => <ul className="pd-playbook">{playbook.map(item => <li key={item.nome}>
+        <strong>{item.nome}</strong>
+        {item.quando && <p><span>Quando</span>{item.quando}</p>}
+        {item.exemplo && <p><span>Exemplo</span>{item.exemplo}</p>}
+      </li>)}</ul>},
     {id: 'novidades', label: 'Novidades', count: news.length, hidden: !news.length,
       render: () => <ul className="pd-news">{news.map(item => <li key={`${item.titulo}-${item.data_publicacao}`}>
         <small>{[item.fonte, date(item.data_publicacao)].filter(Boolean).join(' · ')}</small>

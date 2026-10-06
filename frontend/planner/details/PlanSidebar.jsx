@@ -18,7 +18,7 @@ export function PlanSidebar({plan, selection, boot, plansUrl}) {
   const items = plan?.items || [];
   const href = plan ? `${plansUrl}/${encodeURIComponent(plan.id)}` : plansUrl;
   return <div className="pd-plan">
-    <header><h2>No seu plano</h2><span className="pd-plan__count">{items.length}</span></header>
+    <header><h2>No seu plano</h2>{plan && <span className="pd-plan__count">{items.length}</span>}</header>
     {plan ? items.length ? <ul>{items.map(item => <li key={`${item.kind}:${item.resource_id}`}>
       <LogoTile src={item.logo} name={item.snapshot?.name} icon="plan" size="sm"/>
       <span><a href={`${moduleUrl(boot.urls, item.kind)}/${encodeURIComponent(item.resource_id)}`}>{item.snapshot?.name || item.resource_id}</a>

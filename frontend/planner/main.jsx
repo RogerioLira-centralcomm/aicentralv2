@@ -70,7 +70,7 @@ function App({boot}) {
     if (boot.view === 'public-doc') return <PublicDoc document={boot.document}/>;
     if (boot.view === 'plan-detail') return <PlanDetail boot={boot} request={request} plan={plan} setPlan={setPlan} selection={selection} notify={notify}/>;
     if (boot.view === 'channel-detail') return <ChannelDetail boot={boot} selection={selection} plan={plan}/>;
-    if (boot.view === 'audience-detail') return <AudienceDetail boot={boot} selection={selection}/>;
+    if (boot.view === 'audience-detail') return <AudienceDetail boot={boot} selection={selection} plan={plan}/>;
     if (boot.view === 'format-detail') return <FormatDetail boot={boot} selection={selection}/>;
     if (boot.view === 'catalog-detail' && boot.module === 'places') return <PlaceDetail boot={boot} selection={selection}/>;
     if (boot.view === 'catalog-detail' && boot.module === 'portais') return <PortalDetail boot={boot} selection={selection}/>;
@@ -95,7 +95,7 @@ function App({boot}) {
       solutionUrls={{workspace: urls.workspace, planner: urls.home, studio: urls.studio, connect: urls.reports, skills: urls.skills}}
       groups={sidebarGroups(urls)} userName={boot.user?.name || 'Minha conta'} accountLabel={boot.clientName || undefined}
       userAvatar={boot.user?.avatar || ''} creditsUrl={urls.credits} profileUrl={urls.profile}/>}
-    <main className="planner-main" id="content">
+    <main className={`planner-main${boot.view === 'page' && CATALOG_KINDS.includes(boot.module) ? ' is-shelf' : ''}`} id="content">
       <PlannerNotice notice={notice} onDismiss={() => setNotice(null)}/>
       <PlannerChrome.Provider value={chrome}>{view}</PlannerChrome.Provider>
     </main>

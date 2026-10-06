@@ -11,18 +11,18 @@ export function parseSize(value) {
   return null;
 }
 
-const BOX = {width: 176, height: 104};
+const BOX = {width: 220, height: 140};
 
 /**
  * The format drawn to scale with its width and height marked, so a size reads
  * at a glance. It comes from the registered dimensions alone; a format without
  * a readable size shows a plain icon, never a broken image.
  */
-export function FormatPreview({dimensions, name = '', compact = false}) {
+export function FormatPreview({dimensions, name = '', type = '', compact = false}) {
   const size = parseSize(dimensions);
-  if (!size) return <span className="fmt-preview is-empty" role="img" aria-label={`${name}: sem medida cadastrada`}><Icon name="table" size={22}/></span>;
-  const gutter = 18;
-  const scale = Math.min((BOX.width - gutter * 2) / size.width, (BOX.height - gutter * 2) / size.height);
+  if (!size) return <span className="fmt-preview is-empty" role="img" aria-label={`${name}: sem medida cadastrada`}><Icon name={/[aá]udio|podcast/i.test(`${name} ${type}`) ? 'audio' : 'table'} size={22}/></span>;
+  const gutter = 26;
+  const scale = Math.min((BOX.width - 80) / size.width, (BOX.height - gutter * 2) / size.height);
   const width = Math.max(10, size.width * scale);
   const height = Math.max(10, size.height * scale);
   const x = (BOX.width - width) / 2;
@@ -31,9 +31,9 @@ export function FormatPreview({dimensions, name = '', compact = false}) {
   return <svg className={`fmt-preview${compact ? ' is-compact' : ''}`} viewBox={`0 0 ${BOX.width} ${BOX.height}`} role="img"
     aria-label={`${name} ${size.ratio ? `proporção ${label}` : `${size.width} por ${size.height} pixels`}`.trim()}>
     <rect className="fmt-preview__piece" x={x} y={y} width={width} height={height} rx="3"/>
-    <line className="fmt-preview__dim" x1={x} x2={x + width} y1={y - 8} y2={y - 8}/>
+    <line className="fmt-preview__dim" x1={x} x2={x + width} y1={y - 7} y2={y - 7}/>
     <line className="fmt-preview__dim" x1={x + width + 8} x2={x + width + 8} y1={y} y2={y + height}/>
-    <text className="fmt-preview__text" x={BOX.width / 2} y={Math.max(9, y - 11)} textAnchor="middle">{size.ratio ? label : `${size.width} px`}</text>
-    {!size.ratio && <text className="fmt-preview__text" x={Math.min(BOX.width - 2, x + width + 12)} y={BOX.height / 2 + 3} textAnchor="start" fontSize="8">{size.height}</text>}
+    <text className="fmt-preview__text" x={BOX.width / 2} y={Math.max(12, y - 12)} textAnchor="middle">{size.ratio ? label : `${size.width} px`}</text>
+    {!size.ratio && <text className="fmt-preview__text" x={Math.min(BOX.width - 2, x + width + 12)} y={BOX.height / 2 + 3} textAnchor="start">{size.height}</text>}
   </svg>;
 }

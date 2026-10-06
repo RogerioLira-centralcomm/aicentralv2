@@ -1,12 +1,14 @@
-import React, {useMemo, useState} from 'react';
+import React, {useContext, useMemo, useState} from 'react';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.jsx';
 import {CaduSelectField} from '../cadu-design-system/components/CaduField.jsx';
 import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {FacetChips} from './AudienceShowcase.jsx';
-import {CatalogCard, itemKey, useDebounced} from './Catalog.jsx';
-import {ActivePlanChip, PlannerHeader} from './PlannerHeader.jsx';
+import {itemKey, useDebounced} from './Catalog.jsx';
+import {FormatCard} from './FormatCard.jsx';
+import {PlanBar} from './PlanBar.jsx';
+import {ActivePlanChip, PlannerChrome, PlannerHeader} from './PlannerHeader.jsx';
 
 const URL_KEYS = {q: 'q', family: 'familia', platform: 'canal'};
 const number = value => Number(value || 0).toLocaleString('pt-BR');
@@ -36,6 +38,7 @@ const tally = (records, key) => {
  */
 export function FormatShowcase({boot, selection}) {
   const all = Array.isArray(boot.records) ? boot.records : [];
+  const {activePlan} = useContext(PlannerChrome);
   const [filters, setFilters] = useState(filtersFromUrl);
   const search = useDebounced(filters.q);
   const set = (key, value) => setFilters(current => { const next = {...current, [key]: value}; writeUrl(next); return next; });
@@ -82,9 +85,12 @@ export function FormatShowcase({boot, selection}) {
       action={<CaduButton variant="secondary" onClick={clear}>Ver todos os formatos</CaduButton>}/>
       : groups.map(group => <section key={group.family} className="fmt-group" aria-labelledby={`fmt-${group.items[0].family_order}`}>
         <h2 id={`fmt-${group.items[0].family_order}`} className="fmt-group__title">{group.family}<span>{number(group.items.length)}</span></h2>
-        <div className="planner-grid" aria-label={`Formatos de ${group.family}`}>
-          {group.items.map(item => <CatalogCard key={itemKey(item)} kind="formatos" item={item} urls={boot.urls} selected={selection.isSelected('formatos', itemKey(item))}/>)}
+        <div className="planner-grid planner-grid--formats" aria-label={`Formatos de ${group.family}`}>
+          {group.items.map(item => <FormatCard key={itemKey(item)} item={item} urls={boot.urls} selected={selection.isSelected('formatos', itemKey(item))}
+            onToggle={() => selection.toggle('formatos', itemKey(item))}/>)}
         </div>
       </section>)}
+    <PlanBar noun={['formato', 'formatos']} count={selection.count('formatos')} href={activePlan ? `${boot.urls.plans}/${encodeURIComponent(activePlan.id)}` : boot.urls.plans}
+      chosen={all.filter(item => selection.isSelected('formatos', itemKey(item))).map(item => ({key: itemKey(item), logo: item.platform_logo, name: item.name}))}/>
   </>;
 }

@@ -2,6 +2,8 @@ import React from 'react';
 import {CaduEmptyState} from '../../cadu-design-system/components/CaduEmptyState.jsx';
 import {moduleUrl} from '../api.js';
 import {DetailLayout, Facts, Rail, TagList, hasValue} from './DetailLayout.jsx';
+import {FormatCards} from '../FormatCards.jsx';
+import {PlanSidebar} from './PlanSidebar.jsx';
 
 const PROFILE_GROUP = 'Público, perfil e comportamento';
 const DEMOGRAPHY_GROUP = 'Demografia e dispositivos';
@@ -42,7 +44,7 @@ function Demography({group}) {
   return <div className="planner-demography">{part('Gênero', 'demografia_')}{part('Idade', 'idade_')}{part('Dispositivos', 'dispositivo_')}</div>;
 }
 
-export function AudienceDetail({boot, selection}) {
+export function AudienceDetail({boot, selection, plan = null}) {
   const audience = boot.record;
   if (!audience) return <CaduEmptyState title="Audiência indisponível" description="Ela pode ter saído do catálogo."/>;
   const groups = audience.data_groups || [];
@@ -56,6 +58,12 @@ export function AudienceDetail({boot, selection}) {
     {id: 'perfil', label: 'Quem são', hidden: !fieldsOf(byTitle[PROFILE_GROUP]).length, render: () => <Narrative group={byTitle[PROFILE_GROUP]}/>},
     {id: 'demografia', label: 'Demografia', hidden: !demographyRows.length, render: () => <Demography group={byTitle[DEMOGRAPHY_GROUP]}/>},
     {id: 'uso', label: 'Como usar no plano', hidden: !fieldsOf(byTitle[NARRATIVE_GROUP]).length, render: () => <Narrative group={byTitle[NARRATIVE_GROUP]}/>},
+    {id: 'onde', label: 'Onde comprar', hidden: !audience.channel_ref, hint: 'O canal em que esta audiência é ativada.',
+      render: () => <Rail items={audience.channel_ref ? [{href: `${moduleUrl(boot.urls, 'canais')}/${audience.channel_ref.id}`, title: audience.channel_ref.name,
+        subtitle: audience.channel_ref.category, logo: audience.channel_ref.logo, icon: 'share'}] : []}/>},
+    {id: 'formatos', label: 'Formatos para ativar', count: (audience.channel_formats || []).length, hidden: !(audience.channel_formats || []).length, wide: true,
+      hint: 'Peças que este canal aceita para alcançar o público.',
+      render: () => <FormatCards formats={audience.channel_formats} urls={boot.urls} selection={selection}/>},
     {id: 'parecidas', label: 'Audiências parecidas', count: related.length, hidden: !related.length, wide: true,
       render: () => <Rail items={related.map(item => ({
         href: `${moduleUrl(boot.urls, 'audiencias')}/${item.id}`, title: item.name, icon: 'users', logo: item.platform_logo,
@@ -65,14 +73,15 @@ export function AudienceDetail({boot, selection}) {
 
   return <DetailLayout boot={boot} selection={selection} kind="audiencias" record={{...audience, logo_url: audience.platform_logo}} icon="users"
     eyebrow={[audience.category, audience.subcategory].filter(Boolean).join(' · ') || 'Audiência'}
-    media={audience.image_url ? {type: 'image', src: audience.image_url} : null}
+    media={audience.image_url ? {type: 'carousel', items: [audience.image_url]} : null}
     metrics={[
-      {label: 'Público estimado', value: audience.audience},
-      {label: 'Onde comprar', value: audience.channel || 'Portais e programática'},
-      {label: 'CTR médio', value: field('ctr_medio_estimado'), hint: 'Estimativa'},
-      {label: 'Conversão', value: field('taxa_conversao_estimada'), hint: 'Estimativa'},
-      {label: 'CPA', value: cpa, hint: 'Estimativa'},
-      {label: 'Alcance incremental', value: field('alcance_incremental')},
+      {icon: 'users', label: 'Público estimado', value: audience.audience},
+      {icon: 'share', label: 'Onde comprar', value: audience.channel || 'Portais e programática'},
+      {icon: 'pulse', label: 'CTR médio', value: field('ctr_medio_estimado'), hint: 'Estimativa'},
+      {icon: 'check', label: 'Conversão', value: field('taxa_conversao_estimada'), hint: 'Estimativa'},
+      {icon: 'pulse', label: 'CPA', value: cpa, hint: 'Estimativa'},
+      {icon: 'users', label: 'Alcance incremental', value: field('alcance_incremental')},
     ]}
+    aside={<PlanSidebar plan={plan} selection={selection} boot={boot} plansUrl={boot.urls.plans}/>}
     sections={sections}/>;
 }

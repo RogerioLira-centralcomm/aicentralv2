@@ -380,4 +380,21 @@ def audience_profile(value):
     projected = client_projection('audiencias', record)
     projected['related'] = related
     projected['platform_logo'] = repository.platform_logo_by_name(record.get('channel'))
+    projected.update(_audience_channel(record.get('channel')))
     return projected
+
+
+def _audience_channel(platform_name):
+    """The channel an audience is bought on and the formats that activate it (matched by name)."""
+    from . import channels
+    name = str(platform_name or '').strip()
+    found = rows('SELECT id, slug, nome AS name, categoria AS category, logo_path FROM cadu_canais '
+                 'WHERE is_active = TRUE AND LOWER(nome) = LOWER(%s) ORDER BY ordem NULLS LAST LIMIT 1', (name,)) if name else []
+    if not found:
+        return {'channel_ref': None, 'channel_formats': []}
+    channel = found[0]
+    ref = {'id': channel['id'], 'name': channel['name'], 'category': channel.get('category'),
+           'logo': channels._channel_logo(str(channel.get('slug') or '').lower(), channel.get('logo_path'))}
+    return {'channel_ref': ref,
+            'channel_formats': [{'id': row['id'], 'name': row['name'], 'dimensions': row.get('dimensoes'),
+                                 'format_type': row.get('tipo')} for row in channels.formats(channel)[:8]]}

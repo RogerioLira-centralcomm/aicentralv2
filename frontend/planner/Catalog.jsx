@@ -8,6 +8,7 @@ import {LogoTile, PlannerPanel, SelectionButton} from './PlannerUi.jsx';
 import {MODULE_LABELS, moduleUrl} from './api.js';
 import {ActivePlanChip, PlannerHeader} from './PlannerHeader.jsx';
 import {ChannelCard, ChannelRow} from './ChannelCard.jsx';
+import {PlanBar} from './PlanBar.jsx';
 import {PlannerChrome} from './PlannerHeader.jsx';
 
 const PORTAL_PAGE = 50;
@@ -141,11 +142,13 @@ function PortalRow({item, urls, selected}) {
 export function CatalogPage({boot, request, selection, notify}) {
   const kind = boot.module;
   const portalMode = kind === 'portais';
-  const [query, setQuery] = useState('');
+  const fromUrl = key => (kind === 'canais' ? new URLSearchParams(window.location.search).get(key) || '' : '');
+  const [query, setQuery] = useState(() => fromUrl('q'));
   const [categories, setCategories] = useState([]);
-  const [category, setCategory] = useState('');
+  const [category, setCategory] = useState(() => fromUrl('categoria'));
   const [groupBy, setGroupBy] = useState('categoria');
-  const [view, setView] = useState('grade');
+  const [view, setViewState] = useState(() => { try { return window.localStorage.getItem('planner.canais.view') === 'lista' ? 'lista' : 'grade'; } catch { return 'grade'; } });
+  const setView = value => { setViewState(value); try { window.localStorage.setItem('planner.canais.view', value); } catch { /* the choice just is not remembered */ } };
   const [more, setMore] = useState({measurable: false, formats: false});
   const {activePlan} = useContext(PlannerChrome);
   // Chip counts come from the full list that arrives with the page, not from the filtered one.
@@ -160,8 +163,15 @@ export function CatalogPage({boot, request, selection, notify}) {
   const [total, setTotal] = useState(boot.records?.length || 0);
   const [loading, setLoading] = useState(false);
   const search = useDebounced(query);
+  useEffect(() => {
+    if (kind !== 'canais') return;
+    const params = new URLSearchParams(window.location.search);
+    [['q', search], ['categoria', category]].forEach(([key, value]) => { if (value) params.set(key, value); else params.delete(key); });
+    const text = params.toString();
+    window.history.replaceState(null, '', window.location.pathname + (text ? `?${text}` : ''));
+  }, [kind, search, category]);
   // The first page arrives with the HTML (portals need the total, so they fetch).
-  const preloaded = useRef(Array.isArray(boot.records) && !portalMode);
+  const preloaded = useRef(Array.isArray(boot.records) && !portalMode && !(kind === 'canais' && (query || category)));
 
   useEffect(() => {
     if (preloaded.current) { preloaded.current = false; return undefined; }
@@ -267,17 +277,8 @@ export function CatalogPage({boot, request, selection, notify}) {
               selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>;
           })}</div></section>)
         : <div className="planner-grid" aria-label={`${MODULE_LABELS[kind]} disponíveis`}>{records.map(item => <CatalogCard key={itemKey(item)} kind={kind} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))}/>)}</div>}
-    {kind === 'canais' && selection.count(kind) > 0 && (() => {
-      const chosen = records.filter(item => selection.isSelected(kind, itemKey(item)));
-      const total = selection.count(kind);
-      return <div className="channel-bar" role="status">
-        <strong>{total} {total === 1 ? 'canal' : 'canais'} no plano</strong>
-        <span className="channel-bar__logos">{chosen.slice(0, 5).map(item => <LogoTile key={itemKey(item)} src={item.logo_path} name={item.name} icon="share" size="sm"/>)}</span>
-        {total > 5 && <span className="channel-bar__more">+{total - 5}</span>}
-        <a className="channel-bar__all" href={quoteUrl}>Ver todos</a>
-        <a className="channel-bar__go" href={quoteUrl}>Revisar plano<Icon name="chevron" size={14}/></a>
-      </div>;
-    })()}
+    {kind === 'canais' && <PlanBar noun={['canal', 'canais']} count={selection.count(kind)} href={quoteUrl}
+      chosen={records.filter(item => selection.isSelected(kind, itemKey(item))).map(item => ({key: itemKey(item), logo: item.logo_path, name: item.name}))}/>}
     {portalMode && total > PORTAL_PAGE && <nav className="planner-pagination" aria-label="Páginas de portais">
       <CaduButton variant="secondary" disabled={!offset} onClick={() => setOffset(Math.max(0, offset - PORTAL_PAGE))}>Anterior</CaduButton>
       <CaduButton variant="secondary" disabled={offset + records.length >= total} onClick={() => setOffset(offset + PORTAL_PAGE)}>Próxima</CaduButton>

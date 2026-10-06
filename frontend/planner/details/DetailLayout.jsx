@@ -155,7 +155,7 @@ export function DetailLayout({boot, selection, kind, record, icon = 'plan', eyeb
     <PlannerHeader crumbs={[[MODULE_LABELS[kind], moduleUrl(boot.urls, kind)]]} title={record.name}
       leading={<DetailMark record={record} icon={icon}/>}
       meta={eyebrow || extraMeta ? <>{eyebrow && <CaduBadge tone="neutral">{eyebrow}</CaduBadge>}{extraMeta}</> : null}
-      actions={<><ActivePlanChip/>
+      actions={<>{!aside && <ActivePlanChip/>}
         <SelectionButton size="md" selected={selection.isSelected(kind, id)} onToggle={() => selection.toggle(kind, id)}/></>}/>
     <div className={`pd-shell${aside ? ' has-aside' : ''}`}><div className="pd-main">
     <section className={`pd-hero${media ? ' has-media' : ''}`} aria-label="Resumo">

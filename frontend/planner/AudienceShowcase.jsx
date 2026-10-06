@@ -1,10 +1,13 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useContext, useEffect, useRef, useState} from 'react';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.jsx';
 import {CaduSelectField} from '../cadu-design-system/components/CaduField.jsx';
 import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
-import {CatalogCard, itemKey, useDebounced} from './Catalog.jsx';
+import {itemKey, useDebounced} from './Catalog.jsx';
+import {AudienceCard} from './AudienceCard.jsx';
+import {PlanBar} from './PlanBar.jsx';
+import {PlannerChrome} from './PlannerHeader.jsx';
 import {ActivePlanChip, PlannerHeader} from './PlannerHeader.jsx';
 import {LogoTile} from './PlannerUi.jsx';
 
@@ -48,6 +51,7 @@ export function FacetChips({label, items, value, total, onChange, inline = false
  */
 export function AudienceShowcase({boot, request, selection, notify}) {
   const meta = boot.catalogMeta || {};
+  const {activePlan} = useContext(PlannerChrome);
   const [filters, setFilters] = useState(filtersFromUrl);
   const [records, setRecords] = useState(Array.isArray(boot.records) ? boot.records : []);
   const [total, setTotal] = useState(Number(meta.total || 0));
@@ -127,8 +131,9 @@ export function AudienceShowcase({boot, request, selection, notify}) {
     {!records.length && !loading ? <CaduEmptyState title="Nenhuma audiência com estes filtros"
       description="Tire um filtro ou busque por outro termo." action={<CaduButton variant="secondary"
         onClick={() => setFilters({q: '', platform: '', category: '', subcategory: '', sort: 'relevant'})}>Ver todas as audiências</CaduButton>}/>
-      : <div className={`planner-grid${loading ? ' is-loading' : ''}`} aria-label="Audiências disponíveis" aria-busy={loading}>
-        {records.map(item => <CatalogCard key={itemKey(item)} kind="audiencias" item={item} urls={boot.urls} selected={selection.isSelected('audiencias', itemKey(item))}/>)}
+      : <div className={`planner-grid planner-grid--channels${loading ? ' is-loading' : ''}`} aria-label="Audiências disponíveis" aria-busy={loading}>
+        {records.map(item => <AudienceCard key={itemKey(item)} item={item} urls={boot.urls} selected={selection.isSelected('audiencias', itemKey(item))}
+          onToggle={() => selection.toggle('audiencias', itemKey(item))}/>)}
       </div>}
 
     {records.length > 0 && <footer className="aud-more">
@@ -136,5 +141,7 @@ export function AudienceShowcase({boot, request, selection, notify}) {
       {records.length < total && <CaduButton variant="secondary" loading={loadingMore} onClick={loadMore}>
         Carregar mais {number(Math.min(PAGE, total - records.length))}</CaduButton>}
     </footer>}
+    <PlanBar noun={['audiência', 'audiências']} count={selection.count('audiencias')} href={activePlan ? `${boot.urls.plans}/${encodeURIComponent(activePlan.id)}` : boot.urls.plans}
+      chosen={records.filter(item => selection.isSelected('audiencias', itemKey(item))).map(item => ({key: itemKey(item), logo: item.platform_logo, name: item.name}))}/>
   </>;
 }

@@ -1067,7 +1067,25 @@ def _decorate_format(record):
     record['image_url'] = _current_creative_url(extras.get('imagem_referencia', ''))
     raw_url = next((extras.get(key) for key in ('creative_url', 'preview_url', 'link', 'url') if extras.get(key)), '')
     record['creative_url'] = _current_creative_url(raw_url)
+    record['runs_on'] = _runs_on(record)
     return record
+
+
+def _runs_on(record):
+    """Where a format runs: its own platform first, then the channels it is mapped to (logos only, no query)."""
+    from ..crm_v3_canais import _resolver_logo
+    slug = str(record.get('platform_slug') or '')
+    seen, places = set(), []
+    if record.get('platform') or record.get('platform_logo'):
+        places.append({'name': record.get('platform') or slug, 'logo': record.get('platform_logo') or ''})
+        seen.update({str(record.get('platform') or slug).lower(), str(record.get('platform_logo') or '')})
+    for channel_slug in FORMAT_PLATFORM_CHANNELS.get(slug, []):
+        name = channel_slug.replace('-', ' ').title()
+        logo = _resolver_logo(channel_slug, '') or ''
+        if name.lower() not in seen and logo not in seen:
+            seen.update({name.lower(), logo})
+            places.append({'name': name, 'logo': logo})
+    return places[:6]
 
 
 def _current_creative_url(raw_url):

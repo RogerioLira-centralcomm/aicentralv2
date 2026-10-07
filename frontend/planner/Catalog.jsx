@@ -1,4 +1,4 @@
-import React, {Fragment, useContext, useEffect, useMemo, useRef, useState} from 'react';
+import React, {Fragment, useEffect, useMemo, useRef, useState} from 'react';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.jsx';
 import {CaduSelectField} from '../cadu-design-system/components/CaduField.jsx';
@@ -10,9 +10,7 @@ import {ActivePlanChip, PlannerHeader} from './PlannerHeader.jsx';
 import {ShelfHeader, ShelfIndex} from './ShelfHeader.jsx';
 import {ChannelCard, ChannelRow} from './ChannelCard.jsx';
 import {PlaceCard} from './PlaceCard.jsx';
-import {PlanBar} from './PlanBar.jsx';
 import {PlanBanner, ShelfEmpty} from './PlannerPromo.jsx';
-import {PlannerChrome} from './PlannerHeader.jsx';
 import {PlannerSelect} from './PlannerSelect.jsx';
 
 const PORTAL_PAGE = 50;
@@ -193,7 +191,6 @@ export function CatalogPage({boot, request, selection, notify}) {
   const setView = value => { setViewState(value); try { window.localStorage.setItem('planner.canais.view', value); } catch { /* the choice just is not remembered */ } };
   const [more, setMoreState] = useState(() => remembered('more', {measurable: false, formats: false}));
   const setMore = update => setMoreState(current => { const next = typeof update === 'function' ? update(current) : update; try { window.localStorage.setItem(`planner.${kind}.more`, JSON.stringify(next)); } catch { /* not remembered */ } return next; });
-  const {activePlan} = useContext(PlannerChrome);
   // Chip counts come from the full list that arrives with the page, not from the filtered one.
   const categoryCounts = useMemo(() => {
     const counts = new Map();
@@ -259,8 +256,6 @@ export function CatalogPage({boot, request, selection, notify}) {
   }
 
   const shown = kind === 'canais' ? records.filter(item => (!more.measurable || item.measurable) && (!more.formats || Number(item.formats_count) > 0)) : records;
-  const quoteUrl = activePlan ? `${boot.urls.plans}/${encodeURIComponent(activePlan.id)}` : boot.urls.plans;
-  const countLabel = loading ? 'Atualizando…' : portalMode ? `${number(total)} portais · página ${Math.floor(offset / PORTAL_PAGE) + 1}` : `${number(shown.length)} ${shown.length === 1 ? 'referência' : 'referências'}`;
 
   const channels = kind === 'canais';
   const channelFilters = Boolean(query || category || more.measurable || more.formats);
@@ -333,7 +328,7 @@ export function CatalogPage({boot, request, selection, notify}) {
                 <div className={view === 'lista' ? 'channel-list' : 'planner-grid planner-grid--channels'}>{group.items.map((item, index) => {
                   const Tile = view === 'lista' ? ChannelRow : ChannelCard;
                   return <Fragment key={itemKey(item)}>
-                    <Tile item={item} urls={boot.urls} quoteUrl={quoteUrl}
+                    <Tile item={item} urls={boot.urls}
                       selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>
                     {inline && index === 7 && <div className="planner-grid__span"><PlanBanner urls={boot.urls}/></div>}
                   </Fragment>;
@@ -347,10 +342,6 @@ export function CatalogPage({boot, request, selection, notify}) {
         : kind === 'places' ? <><div className="planner-grid planner-grid--channels" aria-label="Locais disponíveis">{records.map(item => <PlaceCard key={itemKey(item)} item={item} urls={boot.urls}
           selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>)}</div>{records.length > 0 && <PlanBanner urls={boot.urls}/>}</>
         : <div className="planner-grid" aria-label={`${MODULE_LABELS[kind]} disponíveis`}>{records.map(item => <CatalogCard key={itemKey(item)} kind={kind} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))}/>)}</div>}
-    {kind === 'canais' && <PlanBar noun={['canal', 'canais']} count={selection.count(kind)} href={quoteUrl}
-      chosen={records.filter(item => selection.isSelected(kind, itemKey(item))).map(item => ({key: itemKey(item), logo: item.logo_path, name: item.name}))}/>}
-    {(kind === 'places' || portalMode) && <PlanBar noun={portalMode ? ['portal', 'portais'] : ['place', 'places']} count={selection.count(kind)} href={quoteUrl}
-      chosen={records.filter(item => selection.isSelected(kind, itemKey(item))).map(item => ({key: itemKey(item), logo: portalMode ? (item.favicon_url || '') : (item.image_url || ''), name: item.name}))}/>}
     {portalMode && total > PORTAL_PAGE && <nav className="planner-pagination" aria-label="Páginas de portais">
       <CaduButton variant="secondary" disabled={!offset} onClick={() => setOffset(Math.max(0, offset - PORTAL_PAGE))}>Anterior</CaduButton>
       <CaduButton variant="secondary" disabled={offset + records.length >= total} onClick={() => setOffset(offset + PORTAL_PAGE)}>Próxima</CaduButton>

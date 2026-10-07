@@ -1,13 +1,11 @@
-import React, {useContext, useMemo, useState} from 'react';
+import React, {useMemo, useState} from 'react';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {FacetChips} from './AudienceShowcase.jsx';
 import {itemKey, useDebounced} from './Catalog.jsx';
 import {FormatCard} from './FormatCard.jsx';
-import {PlanBar} from './PlanBar.jsx';
 import {ShelfEmpty} from './PlannerPromo.jsx';
-import {PlannerChrome} from './PlannerHeader.jsx';
 import {ShelfHeader} from './ShelfHeader.jsx';
 import {PlannerSelect} from './PlannerSelect.jsx';
 
@@ -40,7 +38,6 @@ const tally = (records, key) => {
 export function FormatShowcase({boot, selection}) {
   const kind = boot.module === 'interativos' ? 'interativos' : 'formatos';
   const all = Array.isArray(boot.records) ? boot.records : [];
-  const {activePlan} = useContext(PlannerChrome);
   const [filters, setFilters] = useState(filtersFromUrl);
   const search = useDebounced(filters.q);
   const set = (key, value) => setFilters(current => { const next = {...current, [key]: value}; writeUrl(next); return next; });
@@ -91,7 +88,5 @@ export function FormatShowcase({boot, selection}) {
             onToggle={() => selection.toggle(kind, itemKey(item))}/>)}
         </div>
       </section>)}
-    <PlanBar noun={kind === 'interativos' ? ['interativo', 'interativos'] : ['formato', 'formatos']} count={selection.count(kind)} href={activePlan ? `${boot.urls.plans}/${encodeURIComponent(activePlan.id)}` : boot.urls.plans}
-      chosen={all.filter(item => selection.isSelected(kind, itemKey(item))).map(item => ({key: itemKey(item), logo: item.platform_logo, name: item.name}))}/>
   </>;
 }

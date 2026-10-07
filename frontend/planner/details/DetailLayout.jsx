@@ -15,15 +15,6 @@ export const tidy = value => typeof value === 'string' && /^[a-z0-9]+(_[a-z0-9]+
 
 export const listText = value => Array.isArray(value) ? value.filter(Boolean).map(item => typeof item === 'object' ? (item.nome || item.name || item.label || '') : item).filter(Boolean).join(', ') : value;
 
-/** Flatten a small JSON object (demographics, specs) into label/value facts. */
-export function objectFacts(value, limit = 12) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
-  return Object.entries(value).filter(([, entry]) => hasValue(entry)).slice(0, limit).map(([key, entry]) => [
-    key.replaceAll('_', ' ').replace(/^./, letter => letter.toUpperCase()),
-    typeof entry === 'object' ? (Array.isArray(entry) ? listText(entry) : Object.entries(entry).map(([k, v]) => `${k}: ${v}`).join(' · ')) : String(entry),
-  ]);
-}
-
 export function Facts({items}) {
   const visible = items.filter(([, value]) => hasValue(value));
   if (!visible.length) return null;
@@ -183,10 +174,6 @@ export function RelatedList({title, items, empty = null}) {
       {item.onToggle && <RowAddButton name={item.title} selected={item.selected} onToggle={item.onToggle}/>}
     </li>)}</ul>
   </section>;
-}
-
-export function EmptyTab({text}) {
-  return <p className="planner-muted">{text}</p>;
 }
 
 const prettyKey = key => String(key).length <= 2 ? String(key).toUpperCase() : String(key).replace(/^(\d+)_(\d+)$/, '$1–$2').replace(/^(\d+)_plus$/, '$1+')

@@ -16,18 +16,6 @@ export function PlanBanner({urls}) {
   </section>;
 }
 
-/** Card for the middle of a grid: the way to plan in steps. */
-export function StepsCard({urls}) {
-  return <article className="planner-card channel-card steps-card">
-    <img src={`${ART}passos-planejar.webp`} alt="" loading="lazy"/>
-    <div className="channel-card__body">
-      <strong className="planner-card__title">Monte seu plano em passos</strong>
-      <span className="planner-card__text">Escolha o objetivo, a verba e a praça. O Cadu sugere canais, formatos e audiências.</span>
-      <div className="channel-card__foot"><CaduButton variant="secondary" href={newPlanUrl(urls)}>Planejar</CaduButton></div>
-    </div>
-  </article>;
-}
-
 /** Empty shelf: the mascot, a plain sentence and the way out. */
 export function ShelfEmpty({title, description, action}) {
   return <div className="shelf-empty" role="status">

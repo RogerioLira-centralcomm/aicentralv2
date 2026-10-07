@@ -25,7 +25,7 @@ function Stats({item}) {
  * Channel as a shelf item: real photo (or the logo when there is none), the
  * numbers that help choose and one clear action. No prices: media is quoted.
  */
-export function ChannelCard({item, urls, selected, onToggle, quoteUrl}) {
+export function ChannelCard({item, urls, selected, onToggle}) {
   const [imageFailed, setImageFailed] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
   const photo = item.image_url && !imageFailed;
@@ -52,7 +52,7 @@ export function ChannelCard({item, urls, selected, onToggle, quoteUrl}) {
 }
 
 /** Same channel, one dense row for comparing at a glance. */
-export function ChannelRow({item, urls, selected, onToggle, quoteUrl}) {
+export function ChannelRow({item, urls, selected, onToggle}) {
   return <article className={`channel-row${selected ? ' is-selected' : ''}`}>
     <a className="planner-card__hit" href={catalogDetailUrl(urls, 'canais', item)} aria-label={`Ver canal ${item.name}`}/>
     <LogoTile src={item.logo_path} name={item.name} icon="share" size="md" color={item.cor}/>

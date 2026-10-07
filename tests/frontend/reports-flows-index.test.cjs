@@ -39,7 +39,8 @@ test('global filters only show on flows while following results, not on the list
 });
 
 test('sidebar groups product areas, not every screen, and icons are distinct', () => {
-  assert.match(main, /\['', \[\['overview', 'Visão geral', 'overview'\]\]\]/);
+  // O primeiro grupo é a entrada do produto: Visão geral e o passeio "Conhecer o Reports" logo abaixo.
+  assert.match(main, /\['', \[\['overview', 'Visão geral', 'overview'\], \['onboarding', 'Conhecer o Reports', 'onboarding'\]\]\]/);
   assert.match(main, /\['Análise', \[\['media', 'Mídia', 'media'\], \['journey', 'Site & Jornada', 'journey'\]/);
   assert.match(main, /customers:'users', accounts:'table'/);
   const icons = main.match(/const reportIcons = (\{[^}]+\})/)[1].match(/:'([a-z]+)'/g);

@@ -62,10 +62,13 @@ const SITE = {id: '11111111-1111-4111-8111-111111111111', label: 'Padaria Sol', 
     assert.equal(await dialog.getByLabel('Nome desta instalação').inputValue(), 'Padaria Sol');
     if (shots) await page.screenshot({path: path.join(shots, 'site-1440.png')});
     assert.equal(calls.length, 0, 'nada é criado antes de continuar');
+    assert.ok(await dialog.getByRole('button', {name: 'Continuar'}).isDisabled(), 'todo site pertence a um cliente');
+    await dialog.getByLabel('Cliente / anunciante').selectOption('10');
     await dialog.getByRole('button', {name: 'Continuar'}).click();
     await dialog.getByRole('heading', {name: 'Instale a Super Tag'}).waitFor();
     assert.deepEqual(calls.map(call => call.path), ['/supertag/sites']);
     assert.equal(calls[0].body.allowed_host, 'padaria.test');
+    assert.equal(calls[0].body.customer_id, '10', 'o site nasce no cliente escolhido');
 
     // 2 · Super Tag: código e verificação.
     await dialog.getByLabel('Código da Super Tag').getByText(/supertag\.js/).waitFor();

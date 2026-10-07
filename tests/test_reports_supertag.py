@@ -246,3 +246,47 @@ class ReportsSuperTagSettingsTest(SuperTagAppTest):
         self.assertEqual(captured['config']['conversion_rules'], [{'type': 'path', 'match': 'exact', 'value': '/obrigado'}])
         self.assertEqual(captured['config']['form_capture'], {'fields': ['empresa'], 'confirm': 'valid_submit'})
         self.assertNotIn('consent', response.get_json()['site']['snippet'])
+
+
+class ReportsSuperTagSiteCustomerTest(SuperTagAppTest):
+    """Every site belongs to a client (advertiser) once the account has any active one."""
+
+    def _call(self, method, path, payload, has_customers=True, site_customer=None):
+        created = []
+
+        def answer(sql, params=()):
+            if 'FROM cadu_reports_customers' in sql:
+                return [{'id': 1}] if has_customers else []
+            if 'FROM cadu_reports_supertag_sites' in sql and 'FOR UPDATE' in sql:
+                return [{'id': SITE_ID, 'label': 'Site', 'allowed_host': 'example.test', 'config': {}, 'config_version': 1, 'customer_id': site_customer}]
+            return []
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 1
+        with mock.patch.object(reports_supertag, '_selection', return_value={'client_id': 7, 'role': 'admin'}), \
+                mock.patch.object(reports_supertag, '_write_guard'), \
+                mock.patch.object(reports_supertag, 'get_db', return_value=FakeDb()), \
+                mock.patch.object(reports_supertag, '_customer_id', side_effect=lambda _selected, value: int(value) if value else None), \
+                mock.patch.object(reports_supertag, 'ensure_supertag_site', side_effect=lambda *a: created.append(a) or ({'id': SITE_ID, 'customer_id': None}, True)), \
+                mock.patch.object(reports_supertag, '_rows', side_effect=answer):
+            response = getattr(self.client, method)(path, json=payload)
+        return response, created
+
+    def test_create_without_client_is_refused_when_clients_exist(self):
+        response, created = self._call('post', '/connect/api/v2/reports/supertag/sites', {'label': 'Site', 'allowed_host': 'example.test'})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('cliente', response.get_json()['description'] if response.is_json else response.get_data(as_text=True))
+        self.assertEqual(created, [])
+
+    def test_create_without_client_is_allowed_when_the_account_has_none(self):
+        response, created = self._call('post', '/connect/api/v2/reports/supertag/sites', {'label': 'Site', 'allowed_host': 'example.test'}, has_customers=False)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(len(created), 1)
+
+    def test_create_with_client_links_it(self):
+        response, created = self._call('post', '/connect/api/v2/reports/supertag/sites', {'label': 'Site', 'allowed_host': 'example.test', 'customer_id': 1})
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.get_json()['site']['customer_id'], 1)
+
+    def test_site_cannot_be_unlinked_from_its_client(self):
+        response, _ = self._call('patch', f'/connect/api/v2/reports/supertag/sites/{SITE_ID}', {'customer_id': None}, site_customer=1)
+        self.assertEqual(response.status_code, 400)

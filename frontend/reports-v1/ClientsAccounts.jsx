@@ -1,6 +1,6 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {Dialog, DialogTrigger, Popover} from 'react-aria-components';
-import {Check, ChevronDown, ChevronRight, Edit01, FolderPlus, Link01, Plus, SearchLg, XClose} from '@untitledui/icons';
+import {AlertTriangle, Check, ChevronDown, ChevronRight, Edit01, FolderPlus, Plus, SearchLg, XClose} from '@untitledui/icons';
 import {Button} from '../cadu-design-system/untitled-kit/button.tsx';
 import {Badge, BadgeWithDot} from '../cadu-design-system/untitled-kit/badges.tsx';
 import {CaduTooltip} from '../cadu-design-system/components/CaduTooltip.jsx';
@@ -12,6 +12,7 @@ import {platformName} from './shell/media.jsx';
 import {json} from './reportsCommon.jsx';
 import {FlowConnectSite} from './FlowConnectSite.jsx';
 import {APP_BASE} from './shell/routes.js';
+import {readCustomer, writeCustomer} from './shell/customerScope.js';
 import {NewClientWizard} from './NewClientWizard.jsx';
 
 const API = '/connect/api/v2/reports';
@@ -24,12 +25,12 @@ export const channelLabel = value => CHANNELS[value] || CHANNELS[String(value ||
 const plural = (count, one, many) => `${count.toLocaleString('pt-BR')} ${count === 1 ? one : many}`;
 const initials = name => String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase();
 const matches = (query, ...values) => !query || values.some(value => String(value ?? '').toLowerCase().includes(query));
-const readSelection = () => new URLSearchParams(location.search).get('customer') || ALL;
-const writeSelection = value => {
-  const url = new URL(location.href);
-  if (value === ALL) url.searchParams.delete('customer'); else url.searchParams.set('customer', value);
-  history.replaceState(history.state, '', url);
-};
+export const NEW_CLIENT_EVENT = 'reports:new-client';
+
+/** Botão do cabeçalho da página: a tela abre o assistente de novo cliente ao ouvir o evento. */
+export function NewClientButton() {
+  return <Button size="md" color="primary" iconLeading={Plus} onPress={() => dispatchEvent(new Event(NEW_CLIENT_EVENT))}>Novo cliente</Button>;
+}
 
 export function Status({map, value}) {
   const [label, color] = map[value] || [value || 'Sem status', 'gray'];
@@ -57,8 +58,9 @@ function send(data, path, method, payload = {}) {
 /** Clients, their Workspace brands, media accounts and campaigns in one place, as a hierarchy. */
 export function ClientsAccounts({data, save, busy, reload}) {
   const [map, reloadMap] = useWorkspaceMap(data.client.client_id);
-  const [selected, setSelected] = useState(readSelection);
-  const [clientQuery, setClientQuery] = useState('');
+  // O cliente é o mesmo da barra lateral: a página não tem seletor próprio.
+  const selected = readCustomer();
+  const setSelected = writeCustomer;
   const [query, setQuery] = useState('');
   const [platform, setPlatform] = useState('');
   const [showInactive, setShowInactive] = useState(true);
@@ -76,7 +78,11 @@ export function ClientsAccounts({data, save, busy, reload}) {
     return linked?.logo_url || '';
   };
 
-  useEffect(() => {writeSelection(selected);}, [selected]);
+  useEffect(() => {
+    const open = () => setWizard(true);
+    addEventListener(NEW_CLIENT_EVENT, open);
+    return () => removeEventListener(NEW_CLIENT_EVENT, open);
+  }, []);
   useEffect(() => {
     if (selected !== ALL && selected !== NONE && !customers.some(item => String(item.id) === selected)) setSelected(ALL);
   }, [data.customers]);
@@ -84,11 +90,9 @@ export function ClientsAccounts({data, save, busy, reload}) {
   const inScope = item => selected === ALL || (selected === NONE ? !item.customer_id : String(item.customer_id || '') === selected);
   const accounts = data.accounts.filter(inScope);
   const campaigns = data.campaigns.filter(inScope);
-  const orphanCount = data.accounts.filter(item => !item.customer_id).length + data.campaigns.filter(item => !item.customer_id).length;
   const current = customers.find(item => String(item.id) === selected);
   const linkedBrandRefs = new Set(Object.values(workspace?.customer_brands || {}).flat().map(brand => brand.ref));
   const freeBrands = (workspace?.brands || []).filter(brand => !linkedBrandRefs.has(brand.ref));
-  const clientNeedle = clientQuery.trim().toLowerCase();
 
   const run = async action => {
     setError('');
@@ -102,39 +106,7 @@ export function ClientsAccounts({data, save, busy, reload}) {
     setSelected(String(customerId));
   });
 
-  return <div className="untitled-scope grid items-start gap-6 lg:grid-cols-[264px_minmax(0,1fr)]">
-    <aside className="flex flex-col overflow-hidden rounded-xl bg-primary shadow-xs ring-1 ring-secondary lg:sticky lg:top-4" aria-label="Clientes">
-      <header className="flex items-center justify-between gap-3 border-b border-secondary px-4 py-3">
-        <div className="flex items-center gap-2"><h2 className="text-md font-semibold text-primary">Clientes</h2><Badge type="pill-color" size="sm" color="gray">{customers.length}</Badge></div>
-        {canManageClients && <CaduTooltip label="Novo cliente"><Button size="sm" color="secondary" iconLeading={Plus} aria-label="Novo cliente" onPress={() => setWizard(true)}/></CaduTooltip>}
-      </header>
-      {customers.length > 6 && <div className="px-3 pt-3"><ReportsFieldInput size="sm" type="search" aria-label="Buscar cliente" placeholder="Buscar cliente" value={clientQuery} onChange={event => setClientQuery(event.target.value)}
-        leading={<SearchLg size={16} aria-hidden="true" className="ml-3 shrink-0 text-fg-quaternary"/>}/></div>}
-      <nav className="flex max-h-[calc(100vh-220px)] flex-col gap-0.5 overflow-y-auto p-2">
-        <ClientItem active={selected === ALL} name="Todos os clientes" meta={`${plural(data.accounts.length, 'conta', 'contas')} · ${plural(data.campaigns.length, 'campanha', 'campanhas')}`} onPress={() => setSelected(ALL)} icon={<span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary text-fg-quaternary"><Link01 size={16}/></span>}/>
-        {customers.filter(item => matches(clientNeedle, item.name, ...brandsOf(item.id).map(brand => brand.name))).map(item => {
-          const accountCount = data.accounts.filter(account => account.customer_id === item.id).length;
-          const campaignCount = data.campaigns.filter(campaign => campaign.customer_id === item.id).length;
-          const brands = brandsOf(item.id);
-          return <ClientItem key={item.id} active={selected === String(item.id)} name={item.name} onPress={() => setSelected(String(item.id))}
-            meta={brands.length ? `${brands.map(brand => brand.name).join(', ')} · ${plural(accountCount, 'conta', 'contas')}` : `${plural(accountCount, 'conta', 'contas')} · ${plural(campaignCount, 'campanha', 'campanhas')}`}
-            icon={<Avatar name={item.name} logo={logoOf(item.id)}/>}/>;
-        })}
-        {orphanCount > 0 && <ClientItem active={selected === NONE} name="Sem cliente" meta={`${plural(orphanCount, 'item', 'itens')} da operação própria`} onPress={() => setSelected(NONE)} icon={<span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-full border border-dashed border-primary text-xs text-quaternary">—</span>}/>}
-      </nav>
-      {canManageClients && freeBrands.length > 0 && <section className="border-t border-secondary px-4 py-3" aria-label="Marcas do Workspace sem cliente">
-        <h3 className="text-xs font-semibold text-tertiary">Marcas do Workspace sem cliente</h3>
-        <ul className="mt-2 flex flex-col gap-1">
-          {freeBrands.slice(0, 5).map(brand => <li key={brand.ref} className="flex items-center gap-2">
-            <Avatar name={brand.name} logo={brand.logo_url}/>
-            <span className="min-w-0 flex-1 truncate text-sm text-secondary">{brand.name}</span>
-            <CaduTooltip label={`Criar cliente ${brand.name}`}><Button size="sm" color="tertiary" iconLeading={Plus} aria-label={`Criar cliente ${brand.name}`} isDisabled={busy} onPress={() => importBrand(brand)}/></CaduTooltip>
-          </li>)}
-        </ul>
-        {freeBrands.length > 5 && <p className="mt-1 text-xs text-tertiary">e mais {freeBrands.length - 5}. Use Novo cliente para escolher.</p>}
-      </section>}
-    </aside>
-
+  return <div className="untitled-scope">
     <div className="flex min-w-0 flex-col gap-6">
       {error && <p role="alert" className="rounded-lg bg-error-primary px-4 py-3 text-sm text-error-primary ring-1 ring-error_subtle">{error}</p>}
       <ClientHeader data={data} current={current} selected={selected} brands={current ? brandsOf(current.id) : []} workspace={workspace} accounts={accounts} campaigns={campaigns}
@@ -166,6 +138,17 @@ export function ClientsAccounts({data, save, busy, reload}) {
           onEditAccount={account => setDrawer({kind: 'account', account})} onEditCampaign={campaign => setDrawer({kind: 'campaign', campaign})}/>
       </section>
       <SitesSection data={data} current={current} selected={selected} customers={customers} canEdit={canEdit} onError={setError}/>
+      {canManageClients && workspace && !current && freeBrands.length > 0 && <section className="overflow-hidden rounded-xl bg-primary shadow-xs ring-1 ring-secondary" aria-label="Marcas do Workspace sem cliente">
+        <header className="border-b border-secondary px-6 py-5">
+          <div className="flex items-center gap-2"><h2 className="text-lg font-semibold text-primary">Marcas do Workspace sem cliente</h2><Badge type="pill-color" size="sm" color="gray">{freeBrands.length}</Badge></div>
+          <p className="mt-0.5 text-sm text-tertiary">Cada marca vira um cliente com um clique, já vinculado a ela.</p>
+        </header>
+        <ul className="grid gap-3 p-6 sm:grid-cols-2 xl:grid-cols-3">{freeBrands.map(brand => <li key={brand.ref} className="flex items-center gap-3 rounded-lg px-3 py-2.5 ring-1 ring-secondary ring-inset">
+          <Avatar name={brand.name} logo={brand.logo_url}/>
+          <span className="min-w-0 flex-1 truncate text-sm font-medium text-secondary">{brand.name}</span>
+          <Button size="sm" color="secondary" iconLeading={Plus} aria-label={`Criar cliente ${brand.name}`} isDisabled={busy} onPress={() => importBrand(brand)}>Cliente</Button>
+        </li>)}</ul>
+      </section>}
     </div>
 
     {wizard && <NewClientWizard freeBrands={freeBrands} save={save} send={(path, method, payload) => send(data, path, method, payload)} reload={reload}
@@ -178,7 +161,7 @@ export function ClientsAccounts({data, save, busy, reload}) {
   </div>;
 }
 
-/** Super Tag sites of this client, with the ones not yet assigned to any client; new sites are created already linked to it. */
+/** Super Tag sites of this client. Every site belongs to a client: new ones are created inside the open client, loose ones get assigned. */
 function SitesSection({data, current, selected, customers, canEdit, onError}) {
   const [sites, setSites] = useState(null);
   const [version, setVersion] = useState(0);
@@ -191,53 +174,49 @@ function SitesSection({data, current, selected, customers, canEdit, onError}) {
     return () => {live = false;};
   }, [version]);
   const nameOf = id => customers.find(item => item.id === id)?.name || '';
-  const visible = (sites || []).filter(site => selected === ALL || (selected === NONE ? !site.customer_id : String(site.customer_id || '') === selected));
-  const unassigned = current ? (sites || []).filter(site => !site.customer_id) : [];
+  const visible = (sites || []).filter(site => site.customer_id && (selected === ALL || String(site.customer_id) === selected));
+  const unassigned = (sites || []).filter(site => !site.customer_id);
   const connect = async host => {
-    await send(data, '/supertag/sites', 'POST', {label: host, allowed_host: host, ...(current ? {customer_id: current.id} : {})});
+    await send(data, '/supertag/sites', 'POST', {label: host, allowed_host: host, customer_id: current.id});
     setConnecting(false); setVersion(value => value + 1);
   };
-  const assign = async site => {
+  const assign = async (site, customerId) => {
+    if (!customerId) return;
     setWorking(site.id);
-    try {await send(data, `/supertag/sites/${site.id}`, 'PATCH', {customer_id: current.id}); setVersion(value => value + 1);}
+    try {await send(data, `/supertag/sites/${site.id}`, 'PATCH', {customer_id: Number(customerId)}); setVersion(value => value + 1);}
     catch (failure) {onError(failure.message);} finally {setWorking('');}
   };
-  const row = (site, action) => <li key={site.id} className="flex items-center gap-3 px-6 py-3">
+  const row = (site, action) => <li key={site.id} className="flex flex-wrap items-center gap-3 px-6 py-3">
     <span className="min-w-0 flex-1">
       <span className="block truncate text-sm font-semibold text-primary">{site.allowed_host}</span>
       <span className="block truncate text-xs text-tertiary">{site.label !== site.allowed_host ? `${site.label} · ` : ''}{site.last_event_at ? `Último evento em ${new Date(site.last_event_at).toLocaleDateString('pt-BR')} · ${plural(Number(site.events_30d) || 0, 'evento', 'eventos')} em 30 dias` : 'Sem eventos recebidos'}{selected === ALL && site.customer_id ? ` · ${nameOf(site.customer_id)}` : ''}</span>
     </span>
     {action || (site.enabled ? <BadgeWithDot type="pill-color" size="sm" color="success">Ativo</BadgeWithDot> : <BadgeWithDot type="pill-color" size="sm" color="gray">Desativado</BadgeWithDot>)}
   </li>;
+  const assignControl = site => current
+    ? <Button size="sm" color="secondary" isDisabled={working === site.id} onPress={() => assign(site, current.id)}>Ligar a {current.name}</Button>
+    : <div className="w-56"><ReportsNativeSelect size="sm" aria-label={`Cliente de ${site.allowed_host}`} value="" disabled={working === site.id} onChange={event => assign(site, event.target.value)}>
+      <option value="">Atribuir a um cliente</option>{customers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+    </ReportsNativeSelect></div>;
   return <section className="overflow-hidden rounded-xl bg-primary shadow-xs ring-1 ring-secondary" aria-label="Sites">
     <header className="flex flex-wrap items-start justify-between gap-4 border-b border-secondary px-6 py-5">
       <div className="min-w-60 flex-1">
         <div className="flex items-center gap-2"><h2 className="text-lg font-semibold text-primary">Sites</h2>{sites && <Badge type="pill-color" size="sm" color="brand">{plural(visible.length, 'site', 'sites')}</Badge>}</div>
-        <p className="mt-0.5 text-sm text-tertiary">Domínios com a Super Tag instalada{current ? ` para ${current.name}` : ''}.</p>
+        <p className="mt-0.5 text-sm text-tertiary">{current ? `Domínios com a Super Tag instalada para ${current.name}.` : 'Domínios com a Super Tag instalada. Cada site pertence a um cliente.'}</p>
       </div>
-      {canEdit && <Button size="md" color="primary" iconLeading={Plus} onPress={() => setConnecting(true)}>Site</Button>}
+      {canEdit && current && <Button size="md" color="primary" iconLeading={Plus} onPress={() => setConnecting(true)}>Site</Button>}
     </header>
     {sites === null ? <p className="px-6 py-5 text-sm text-tertiary">Carregando sites…</p>
       : visible.length ? <ul className="divide-y divide-secondary">{visible.map(site => row(site))}</ul>
-        : <p className="px-6 py-5 text-sm text-tertiary">{current ? 'Nenhum site ligado a este cliente ainda.' : 'Nenhum site encontrado.'}</p>}
-    {canEdit && unassigned.length > 0 && <div className="border-t border-secondary bg-secondary">
-      <h3 className="px-6 pt-4 text-xs font-semibold text-tertiary">Sites sem cliente</h3>
-      <ul className="divide-y divide-secondary">{unassigned.map(site => row(site,
-        <Button size="sm" color="secondary" isDisabled={working === site.id} onPress={() => assign(site)}>Ligar a {current.name}</Button>))}</ul>
+        : <p className="px-6 py-5 text-sm text-tertiary">{current ? 'Nenhum site ligado a este cliente ainda.' : selected === NONE ? 'Sites sempre pertencem a um cliente.' : 'Nenhum site ligado a clientes ainda.'}</p>}
+    {canEdit && !current && sites !== null && <p className="border-t border-secondary px-6 py-3 text-sm text-tertiary">Para adicionar um site, escolha o cliente na barra lateral.</p>}
+    {canEdit && unassigned.length > 0 && customers.length > 0 && <div className="border-t border-secondary bg-warning-primary">
+      <p className="flex items-center gap-2 px-6 pt-4 text-sm font-semibold text-warning-primary"><AlertTriangle size={16} aria-hidden="true"/>{plural(unassigned.length, 'site sem cliente', 'sites sem cliente')}</p>
+      <p className="px-6 pt-0.5 text-sm text-tertiary">Atribua cada um a um cliente para que apareça na análise certa.</p>
+      <ul className="divide-y divide-secondary">{unassigned.map(site => row(site, assignControl(site)))}</ul>
     </div>}
-    <FlowConnectSite open={connecting} clientId={data.client.client_id} data={null} onConnect={connect} onClose={() => setConnecting(false)}/>
+    {current && <FlowConnectSite open={connecting} clientId={data.client.client_id} data={null} onConnect={connect} onClose={() => setConnecting(false)}/>}
   </section>;
-}
-
-function ClientItem({active, name, meta, icon, onPress}) {
-  return <button type="button" onClick={onPress} aria-current={active ? 'true' : undefined}
-    className={`flex w-full cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 text-left outline-focus-ring transition duration-100 ease-linear focus-visible:outline-2 ${active ? 'bg-secondary ring-1 ring-secondary ring-inset' : 'hover:bg-primary_hover'}`}>
-    {icon}
-    <span className="min-w-0 flex-1">
-      <span className={`block truncate text-sm font-semibold ${active ? 'text-primary' : 'text-secondary'}`}>{name}</span>
-      <span className="block truncate text-xs text-tertiary">{meta}</span>
-    </span>
-  </button>;
 }
 
 function ClientHeader({data, current, selected, brands, workspace, accounts, campaigns, canManage, onRename, onBrands, onError}) {
@@ -271,7 +250,7 @@ function ClientHeader({data, current, selected, brands, workspace, accounts, cam
         onToggle={(item, isLinked) => toggleBrand(item, isLinked)} placeholder="Buscar marca" empty="Nenhuma marca no Workspace."/>}
       {!brands.length && !canManage && <span className="text-sm text-tertiary">Nenhuma marca vinculada.</span>}
     </div>}
-    <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-lg bg-border-secondary ring-1 ring-secondary sm:grid-cols-4">
+    <dl className={`mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-lg bg-border-secondary ring-1 ring-secondary ${stats.length === 4 ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
       {stats.map(([label, value]) => <div key={label} className="bg-primary px-4 py-3"><dt className="text-xs font-medium text-tertiary">{label}</dt><dd className="mt-0.5 text-lg font-semibold text-primary tabular-nums">{typeof value === 'number' ? value.toLocaleString('pt-BR') : value}</dd></div>)}
     </dl>
   </section>;

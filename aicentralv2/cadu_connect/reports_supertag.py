@@ -774,6 +774,9 @@ def register(bp):
             abort(400, description='Informe o nome da instalação.')
         host = _host(payload['allowed_host'])
         customer_id = _customer_id(selected, payload.get('customer_id'))
+        # Todo site pertence a um cliente; só a operação sem nenhum cliente ativo cria site solto.
+        if not customer_id and _rows("SELECT 1 FROM cadu_reports_customers WHERE client_id=%s AND status='active' LIMIT 1", (selected['client_id'],)):
+            abort(400, description='Escolha o cliente do site.')
         site, created = ensure_supertag_site(selected, host, label)
         if customer_id and site.get('customer_id') and site['customer_id'] != customer_id:
             abort(409, description='Esse domínio já está ligado a outro cliente.')
@@ -804,6 +807,8 @@ def register(bp):
         label = ' '.join(str(payload.get('label', current['label']) or '').split())[:120]
         host = _host(payload.get('allowed_host', current['allowed_host']))
         customer_id = _customer_id(selected, payload['customer_id']) if 'customer_id' in payload else current.get('customer_id')
+        if 'customer_id' in payload and not customer_id and current.get('customer_id'):
+            abort(400, description='O site precisa continuar ligado a um cliente.')
         config = dict(current['config'] or {})
         # Consent is the website's job; old keys are dropped on the next save.
         config.pop('consent_mode', None)

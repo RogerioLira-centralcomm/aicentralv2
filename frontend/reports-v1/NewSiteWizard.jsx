@@ -93,7 +93,8 @@ export function NewSiteWizard({data, onClose}) {
       if (result.title && !form.label) set({label: result.title.slice(0, 120)});
     } catch (failure) {setCheck({error: failure.message});} finally {setChecking(false);}
   };
-  const canContinue = index => index === 0 ? verified && Boolean((form.label || check?.host || '').trim())
+  // Todo site pertence a um cliente; só a operação sem nenhum cliente cadastrado cria site solto.
+  const canContinue = index => index === 0 ? verified && Boolean((form.label || check?.host || '').trim()) && (!customers.length || Boolean(form.customerId))
     : index === 3 ? !rule || !rule.error : true;
   // The site exists from the first step on; going back and forward again must not create it twice.
   const onNext = async index => {
@@ -121,8 +122,8 @@ export function NewSiteWizard({data, onClose}) {
           <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-primary">{check.title || check.host || 'Site encontrado'}</p><p className="text-xs text-tertiary">{check.host}{check.status ? ` · HTTP ${check.status}` : ''}</p></div>
           <BadgeWithDot type="pill-color" size="sm" color="success">Respondeu</BadgeWithDot></div>)}
       <ReportsFieldInput label="Nome desta instalação" required maxLength={120} disabled={Boolean(site)} value={form.label} onChange={event => set({label: event.target.value})} placeholder={check?.title || 'Preenchido ao verificar'}/>
-      <ReportsNativeSelect label="Cliente / anunciante" disabled={Boolean(site)} value={form.customerId} onChange={event => set({customerId: event.target.value, campaignId: ''})}>
-        <option value="">Sem cliente</option>{customers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+      <ReportsNativeSelect label="Cliente / anunciante" required={customers.length > 0} disabled={Boolean(site)} value={form.customerId} onChange={event => set({customerId: event.target.value, campaignId: ''})}>
+        <option value="">{customers.length ? 'Escolha o cliente' : 'Nenhum cliente cadastrado'}</option>{customers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
       </ReportsNativeSelect>
     </div>;
     if (index === 1) return site ? <Install site={site} call={call}/> : null;

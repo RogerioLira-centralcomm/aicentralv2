@@ -277,6 +277,76 @@ Um sino azul calmo repousando sobre uma almofada, com um pequeno ponto verde ao 
 
 ---
 
+## Bloco 6: Estados vazios da Visão geral e das telas sem dados (8 cenas, 480×320)
+
+Um por cartão que hoje cai em texto seco quando o cliente não tem o item. Mesma regra: sem texto, telas lisas, margem de 10%, formato 480×320. Anexar R1 e R2.
+
+### V1: Super Tag não instalada (`empty-supertag.png`)
+
+```
+[REGRAS COMUNS + R2]
+
+Um site estilizado (janela de navegador vazia) com uma etiqueta azul pendurada ao lado, ainda desconectada: um fio tracejado azul parte da etiqueta e termina solto no ar, a poucos centímetros da janela. Uma pessoa pequena segura a ponta do fio, prestes a encaixar. Formato 480×320, margem de 10%.
+```
+
+### V2: nenhum site conectado (`empty-sem-site.png`)
+
+```
+[REGRAS COMUNS + R2]
+
+Um terreno vazio com uma placa em branco e uma janela de navegador tracejada, só o contorno, indicando onde o site ficará. Ao lado, uma pessoa pequena com uma planta de obra azul. Formato 480×320, margem de 10%.
+```
+
+### V3: sem sessões no período (`empty-sem-sessoes.png`)
+
+```
+[REGRAS COMUNS + R2]
+
+Uma estrada em perspectiva levando a uma porta de loja aberta, sem ninguém passando; pegadas azuis tracejadas começam longe e ainda não chegaram. Um relógio de areia pequeno no canto. Formato 480×320, margem de 10%.
+```
+
+### V4: nenhuma campanha ativa (`empty-sem-campanhas.png`)
+
+```
+[REGRAS COMUNS + R2]
+
+Um megafone azul apoiado em um suporte, desligado, com o fio solto ao lado; um painel pequeno vazio ao fundo e um interruptor com um único ponto âmbar. Formato 480×320, margem de 10%.
+```
+
+### V5: nenhum fluxo criado (`empty-sem-fluxos.png`)
+
+```
+[REGRAS COMUNS + R2]
+
+Três blocos vazios (anúncio, site, conversão) dispostos da esquerda para a direita, ligados por setas tracejadas azuis; o último bloco só com o contorno. Uma pessoa pequena desenha a primeira seta com um marcador. Formato 480×320, margem de 10%.
+```
+
+### V6: fontes sem atualização (`empty-saude-dados.png`)
+
+```
+[REGRAS COMUNS + R2]
+
+Três tomadas azuis alinhadas, cada uma com um cabo; um cabo está encaixado com ponto verde, outro solto com ponto âmbar, o terceiro apenas esperando. Formato 480×320, margem de 10%.
+```
+
+### V7: mídia sem dados (`empty-sem-midia.png`)
+
+```
+[REGRAS COMUNS + R2]
+
+Um gráfico de barras sem barras, só os eixos e linhas-guia, com um cofrinho azul ao lado e uma lupa. Fios tracejados saindo de três ícones abstratos (círculo, quadrado, triângulo) que representam plataformas ainda desconectadas. Formato 480×320, margem de 10%.
+```
+
+### V8: sem conversões (`empty-sem-conversoes.png`)
+
+```
+[REGRAS COMUNS + R2]
+
+Uma bandeira azul no topo de um morro, o caminho tracejado subindo até ela sem ninguém no trajeto; uma pessoa pequena na base olhando para cima. Formato 480×320, margem de 10%.
+```
+
+---
+
 ## Como o código usa
 
 | Imagem | Onde |
@@ -287,6 +357,7 @@ Um sino azul calmo repousando sobre uma almofada, com um pequeno ponto verde ao 
 | `site-1` a `site-5` | Wizard "Adicionar site, fluxo e Super Tag" em Site & Jornada |
 | `onb-1` a `onb-8` | Tela nova "Conhecer o Reports", logo abaixo de Visão geral |
 | `empty-*` | Estados vazios da Visão geral, de Clientes e contas e de Alertas |
+| `empty-supertag`, `empty-sem-site`, `empty-sem-sessoes`, `empty-sem-campanhas`, `empty-sem-fluxos`, `empty-saude-dados`, `empty-sem-midia`, `empty-sem-conversoes` | Cartões da Visão geral quando o cliente não tem o item |
 
 ## Ordem sugerida de geração
 
@@ -295,5 +366,6 @@ Um sino azul calmo repousando sobre uma almofada, com um pequeno ponto verde ao 
 3. Blocos 2 e 3 (9 cenas).
 4. Bloco 4 (8 cenas).
 5. Bloco 5 (3 cenas).
+6. Bloco 6 (8 cenas): estados vazios da Visão geral.
 
 Se algo sair com texto, tela cheia de conteúdo ou outra cor de destaque, regenere só aquela cena com a mesma regra comum e uma linha extra: "Remova todo texto e deixe a tela lisa".

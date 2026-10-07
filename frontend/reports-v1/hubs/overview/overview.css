@@ -85,3 +85,4 @@ a.ov-page .rs-empty{padding:16px}
   .ov-kpi{border-top:1px solid var(--color-border-secondary);margin-top:-1px}
   .ov-kpi__value{font-size:20px;line-height:28px}
 }
+.ov-empty{display:grid;gap:8px;justify-items:start}.ov-empty p{margin:0}

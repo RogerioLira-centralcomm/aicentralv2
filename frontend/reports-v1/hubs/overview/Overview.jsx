@@ -176,7 +176,7 @@ function SitesCard({domains, sites, loading}) {
   };
   return <Section title="Sites e Super Tag" description={loading ? 'Carregando…' : live.length ? `${live.length} ${live.length === 1 ? 'site conectado' : 'sites conectados'}` : 'Nenhum site conectado'}
     action={more(reportUrl('journey'), 'Site & Jornada')}>
-    {loading ? <LoadingState rows={3}/> : !live.length ? <p className="rs-muted">Instale a Super Tag para acompanhar visitas e conversões.</p>
+    {loading ? <LoadingState rows={3}/> : !live.length ? <div className="ov-empty"><p className="rs-muted"><strong>Super Tag não instalada.</strong> Conecte o site do cliente e instale a Super Tag para medir sessões, origens e conversões.</p>{more(reportUrl('supertag'), 'Instalar Super Tag')}</div>
       : <ul className="ov-list">{live.slice(0, 5).map(item => {
         const [label, tone] = state(item);
         return <li key={item.id}>

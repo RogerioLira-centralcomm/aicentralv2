@@ -423,7 +423,8 @@ div.rs-asset-type{cursor:default}
 .rs-picker__empty{padding:10px 8px;color:var(--rs-muted);font-size:13px}
 @media (max-width:640px){.rs-context .rs-picker__trigger{width:100%;max-width:none}}
 /* Client chooser in the sidebar, below the product logo. */
-.rs-sidebar-client{display:grid;gap:6px;min-width:0}
+.rs-sidebar-client{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;min-width:0}
+.rs-sidebar-client>.rs-picker__trigger{min-width:0}
 .rs-picker__trigger.is-block{width:100%;max-width:none;justify-content:flex-start}
 .rs-picker__trigger.is-block .rs-picker__name{flex:1;text-align:left}
 .rs-picker__trigger.is-compact{width:40px;padding:0;justify-content:center;border-color:transparent;background:none}

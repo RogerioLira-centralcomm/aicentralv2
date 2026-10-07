@@ -1,7 +1,6 @@
 import React, {Fragment, useEffect, useMemo, useRef, useState} from 'react';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.jsx';
-import {CaduSelectField} from '../cadu-design-system/components/CaduField.jsx';
 import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {LogoTile, PlannerPanel, RowAddButton, SelectionButton} from './PlannerUi.jsx';
@@ -277,8 +276,22 @@ export function CatalogPage({boot, request, selection, notify}) {
   const searchField = <label className="aud-bar__field aud-bar__field--search"><Icon name="search" size={16}/>
     <span className="aud-bar__text"><small>Buscar</small>
       <input type="search" aria-label="Pesquisar referências" value={query} placeholder={portalMode ? 'Portal, domínio ou categoria' : 'Nome, descrição ou categoria'} onChange={event => { setQuery(event.target.value); setOffset(0); }}/></span></label>;
+  const portalFields = portalMode && <>
+    <div className="aud-bar__field"><PlannerSelect label="Escopo" value={filters.scope} onChange={value => setFilter('scope', value)}
+      options={SCOPES.map(([value, label]) => ({value, label}))}/></div>
+    {filters.scope !== 'nacional_premium' && (boot.ufs || []).length > 0 && <div className="aud-bar__field"><PlannerSelect label="Estado" value={filters.uf} onChange={value => setFilter('uf', value)}
+      options={[{value: '', label: 'Todos'}, ...boot.ufs.map(value => ({value, label: value}))]}/></div>}
+    {(boot.categories || []).length > 0 && <div className="aud-bar__field aud-bar__field--multi"><details className="planner-multi">
+      <summary><span>Categorias:</span> <b>{categories.length ? `${categories.length} selecionadas` : 'Todas'}</b></summary>
+      <div className="planner-multi__menu">
+        {boot.categories.map(value => <label key={value}><input type="checkbox" checked={categories.includes(value)} onChange={() => toggleCategory(value)}/> {value}</label>)}
+        {categories.length > 0 && <CaduButton variant="tertiary" size="sm" onClick={() => { setCategories([]); setOffset(0); }}>Limpar</CaduButton>}
+      </div>
+    </details></div>}
+  </>;
   const shelfBar = !channels && <div className="aud-bar" role="search">
     {searchField}
+    {portalFields}
     {shelf && (boot.categories || []).length > 0 && <div className="aud-bar__field"><PlannerSelect label="Categoria" value={category} onChange={value => { setCategory(value); setOffset(0); }}
       options={[{value: '', label: `Todas (${boot.records?.length || 0})`}, ...boot.categories.map(value => ({value, label: value, count: categoryCounts.get(value) || 0}))]}/></div>}
     {kind === 'places' && (boot.cities || []).length > 0 && <div className="aud-bar__field"><PlannerSelect label="Cidade" value={city}
@@ -288,25 +301,11 @@ export function CatalogPage({boot, request, selection, notify}) {
 
   return <>
     <ShelfHeader title={MODULE_LABELS[kind]} description={headerCount}
-      bar={channels ? channelBar : shelfBar} tools={channels ? <ViewToggle value={view} onChange={setView}/> : null}/>
+      bar={channels ? channelBar : shelfBar} tools={channels ? <ViewToggle value={view} onChange={setView}/> : portalMode
+        ? <CaduButton variant="secondary" disabled={bulkBusy || !total} onClick={addFiltered}>{bulkBusy ? 'Adicionando…' : `Adicionar filtrados ao plano (${Math.min(total, BULK_LIMIT)})`}</CaduButton> : null}/>
     {channels && channelFilters && <div className="aud-filters__summary aud-filters__summary--bar">
       <span aria-live="polite">{loading ? 'Atualizando…' : `${number(shown.length)} ${shown.length === 1 ? 'resultado' : 'resultados'}`}</span>
       <CaduButton variant="tertiary" size="sm" onClick={clearChannelFilters}>Limpar filtros</CaduButton>
-    </div>}
-    {portalMode && <div className="planner-portal-filters">
-      <div className="planner-segmented" role="group" aria-label="Escopo">
-        {SCOPES.map(([value, label]) => <button key={value || 'all'} type="button" aria-pressed={filters.scope === value} className={filters.scope === value ? 'is-active' : ''} onClick={() => setFilter('scope', value)}>{label}</button>)}
-      </div>
-      {filters.scope !== 'nacional_premium' && (boot.ufs || []).length > 0 && <CaduSelectField className="planner-toolbar__category" aria-label="Estado" value={filters.uf} onChange={event => setFilter('uf', event.target.value)}
-        options={[{value: '', label: 'Todos os estados'}, ...boot.ufs.map(value => ({value, label: value}))]}/>}
-      {(boot.categories || []).length > 0 && <details className="planner-multi">
-        <summary>{categories.length ? `${categories.length} categorias` : 'Todas as categorias'}</summary>
-        <div className="planner-multi__menu">
-          {boot.categories.map(value => <label key={value}><input type="checkbox" checked={categories.includes(value)} onChange={() => toggleCategory(value)}/> {value}</label>)}
-          {categories.length > 0 && <CaduButton variant="tertiary" size="sm" onClick={() => { setCategories([]); setOffset(0); }}>Limpar</CaduButton>}
-        </div>
-      </details>}
-      <CaduButton variant="secondary" disabled={bulkBusy || !total} onClick={addFiltered}>{bulkBusy ? 'Adicionando…' : `Adicionar filtrados ao plano (${Math.min(total, BULK_LIMIT)})`}</CaduButton>
     </div>}
     {!records.length && !loading ? <ShelfEmpty title="Nenhuma referência encontrada" description="Ajuste a busca ou escolha outra categoria. Se preferir, o Planejar monta uma sugestão com você." action={<CaduButton variant="secondary" onClick={() => { setQuery(''); setCategory(''); setMore({measurable: false, formats: false}); }}>Limpar filtros</CaduButton>}/>
       : portalMode ? <div className="planner-list" aria-label="Portais disponíveis">{records.map(item => <PortalRow key={itemKey(item)} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>)}</div>

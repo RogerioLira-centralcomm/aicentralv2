@@ -99,3 +99,9 @@
 @media (max-width: 980px) { .ix-spot { grid-template-columns: minmax(0, 1fr); padding: 24px; gap: 24px; } }
 /* `.aud-more` is also the "carregar mais" footer class (planner.css); inside the toolbar it is only a dropdown. */
 .shelf-head .aud-more { display: block; margin: 0; color: inherit; font-size: inherit; }
+/* Portais: categorias (multi-seleção) no mesmo molde dos selects da barra. */
+.shelf-head .aud-bar__field--multi { position: relative; }
+.shelf-head .planner-multi summary { display: flex; align-items: center; gap: 4px; height: 38px; padding: 0 12px; border: 0; background: none; font-size: 14px; }
+.shelf-head .planner-multi summary span { color: var(--planner-muted, #667085); font-weight: 500; }
+.shelf-head .planner-multi summary b { color: var(--planner-ink, #101828); font-weight: 600; }
+.shelf-head .planner-multi__menu { top: 100%; left: 0; }

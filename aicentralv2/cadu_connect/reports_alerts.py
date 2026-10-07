@@ -89,7 +89,7 @@ def _send_alert_email(alert, recipients):
         return False
 
 
-def notify_opened(alert, now):
+def notify_opened(alert, now, retry=False):
     """One e-mail per new alert, never more than once per cooldown. Skips are logged, never silent."""
     if alert['severity'] == 'low':
         return _log(alert['id'], 'notification_skipped', detail={'reason': 'low_severity'})
@@ -105,11 +105,19 @@ def notify_opened(alert, now):
         return _log(alert['id'], 'notification_skipped', detail={'reason': 'no_recipients'})
     recent = _rows('SELECT COUNT(*) AS n FROM cadu_reports_alerts WHERE client_id=%s AND last_notified_at>%s', (alert['client_id'], now - timedelta(hours=1)))
     if recent and int(recent[0]['n']) >= NOTIFY_BURST_LIMIT:
-        return _log(alert['id'], 'notification_skipped', detail={'reason': 'burst'})
+        # A retry waits quietly for the next cycle instead of writing a skip to the history every few minutes.
+        return None if retry else _log(alert['id'], 'notification_skipped', detail={'reason': 'burst'})
     sent = _send_alert_email(alert, recipients)
     if sent:
         _rows('UPDATE cadu_reports_alerts SET last_notified_at=%s WHERE id=%s RETURNING id', (now, alert['id']))
     _log(alert['id'], 'notified' if sent else 'notification_failed', detail={'recipients': len(recipients)})
+
+
+def _held_back_by_burst(alert_id):
+    """True when the only thing that kept this alert from being e-mailed was the hourly cap, so a later cycle may still send it."""
+    last = _rows("""SELECT kind,detail FROM cadu_reports_alert_events WHERE alert_id=%s AND kind IN ('notification_skipped','notified','notification_failed')
+        ORDER BY id DESC LIMIT 1""", (alert_id,))
+    return bool(last) and last[0]['kind'] == 'notification_skipped' and (last[0]['detail'] or {}).get('reason') == 'burst'
 
 
 def sync_findings(site, rule, findings, now=None):
@@ -135,6 +143,8 @@ def sync_findings(site, rule, findings, now=None):
             _rows('''UPDATE cadu_reports_alerts SET severity=%s,title=%s,summary=%s,evidence=%s::jsonb,page_path=%s,impact=%s::jsonb,recommendations=%s::jsonb,causes=%s::jsonb,last_seen_at=%s,
                 occurrences=occurrences+1,status=%s,silenced_until=CASE WHEN %s='silenced' THEN silenced_until END WHERE id=%s RETURNING id''',
                   (*fields, status, status, current['id']))
+            if status == 'open' and not current.get('last_notified_at') and _held_back_by_burst(current['id']):
+                notify_opened({**current, 'severity': finding['severity'], 'title': finding['title'], 'summary': finding['summary']}, now, retry=True)
             continue
         alert_id = str(uuid.uuid4())
         created = _rows('''INSERT INTO cadu_reports_alerts (id,client_id,site_id,rule,subject_key,severity,title,summary,evidence,page_path,impact,

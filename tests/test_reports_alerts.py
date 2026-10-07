@@ -469,3 +469,33 @@ def test_email_burst_is_capped_per_client_per_hour_and_the_skip_is_logged():
          mock.patch.dict('os.environ', on, clear=False):
         alerts.notify_opened(alert_row(rule='gads_cap_reached'), NOW)
     assert logged == [('notification_skipped', {'reason': 'burst'})] and not send.called
+
+
+def test_an_alert_held_back_by_the_hourly_cap_is_sent_on_a_later_cycle():
+    current = {'id': ALERT_ID, 'client_id': 7, 'rule': 'gads_cap_reached', 'subject_key': 'c1', 'status': 'open', 'silenced_until': None, 'last_notified_at': None,
+               'severity': 'high', 'assigned_to': None}
+    finding = {'subject_key': 'c1', 'severity': 'high', 'title': 't', 'summary': 's', 'evidence': [], 'page_path': None}
+
+    def run(last_event):
+        notified = []
+
+        def rows(sql, params=()):
+            if sql.startswith('SELECT * FROM cadu_reports_alerts'):
+                return [current]
+            if 'FROM cadu_reports_alert_events' in sql:
+                return last_event
+            return []
+        with mock.patch.object(alerts, '_rows', rows), mock.patch.object(alerts, 'notify_opened', lambda alert, now, retry=False: notified.append(retry)):
+            alerts.sync_findings({'id': None, 'client_id': 7}, 'gads_cap_reached', [finding], NOW)
+        return notified
+    assert run([{'kind': 'notification_skipped', 'detail': {'reason': 'burst'}}]) == [True]
+    assert run([{'kind': 'notification_skipped', 'detail': {'reason': 'disabled'}}]) == []     # other skips are decisions, not delays
+    assert run([{'kind': 'notified', 'detail': {}}]) == [] and run([]) == []
+
+
+def test_a_quiet_retry_under_the_cap_never_writes_a_skip_to_the_history():
+    logged = []
+    with mock.patch.object(alerts, '_log', lambda alert_id, kind, actor=None, detail=None: logged.append(kind)), mock.patch.object(alerts, '_recipients', return_value=['a@x.com']), \
+         mock.patch.object(alerts, '_rows', return_value=[{'n': alerts.NOTIFY_BURST_LIMIT}]), mock.patch.dict('os.environ', {'REPORTS_ALERT_EMAILS': '1'}, clear=False):
+        assert alerts.notify_opened(alert_row(rule='gads_cap_reached'), NOW, retry=True) is None
+    assert logged == []

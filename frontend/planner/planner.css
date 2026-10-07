@@ -1844,3 +1844,14 @@ a.planner-portal.planner-portal--wide { grid-template-columns: 40px minmax(200px
 @media (max-width: 900px) { .pdb.has-image { height: auto; min-height: 260px; } .pdb.has-image .pdb__inner { padding: 16px; } .pdb.has-image .pdb__title h1 { font-size: 24px; line-height: 30px; } }
 .pd-highlights { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .pd-highlights__cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+
+/* Detail banner: edge to edge, no rounded corners, taller. Content inside keeps the page's own gutters. */
+.planner-shell { container-type: inline-size; }
+.planner-shell:has(.pdb) { overflow-x: clip; }
+.pdb { width: auto; margin: 0 calc(50% - 50cqw) 28px; border-radius: 0; }
+.pdb__inner { padding-inline: max(clamp(16px, 2.4vw, 40px), calc((100cqw - 1680px) / 2 + clamp(16px, 2.4vw, 40px))); }
+.pdb.has-image { height: clamp(300px, 34vw, 460px); }
+.pdb.has-image .pdb__inner { padding-bottom: 32px; padding-inline: max(clamp(16px, 2.4vw, 40px), calc((100cqw - 1680px) / 2 + clamp(16px, 2.4vw, 40px))); }
+.pdb__badge { right: max(16px, calc((100cqw - 1680px) / 2 + 24px)); }
+@media (max-width: 900px) { .pdb.has-image { height: auto; min-height: 280px; } .pdb.has-image .pdb__inner { padding-inline: 16px; } }
+@media (max-width: 900px) { .pdb.has-image { background-image: linear-gradient(180deg, rgba(10, 14, 20, .4) 0%, rgba(10, 14, 20, .9) 100%), var(--pdb-image); } }

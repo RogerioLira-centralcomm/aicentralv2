@@ -16,3 +16,7 @@
 .shelf-index .pd-index__nav a span { color: var(--planner-subtle, #98a2b3); font-size: 12px; font-weight: 500; }
 .shelf-layout .fmt-group { scroll-margin-top: 84px; }
 @media (max-width: 1200px) { .shelf-layout { grid-template-columns: minmax(0, 1fr); } .shelf-index { display: none; } }
+
+/* Same edge-to-edge treatment as the detail banner, so shelf and detail read as one family. */
+.planner-shell:has(.shelf-banner) { overflow-x: clip; }
+.shelf-banner { margin: 0 calc(50% - 50cqw) 20px; border-radius: 0; padding-inline: max(clamp(16px, 2.4vw, 40px), calc((100cqw - 1680px) / 2 + clamp(16px, 2.4vw, 40px))); }

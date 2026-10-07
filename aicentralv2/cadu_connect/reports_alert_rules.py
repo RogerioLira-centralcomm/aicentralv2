@@ -59,7 +59,7 @@ def _finding(rule, subject_key, summary, evidence, page_path=None, impact=None):
             'summary': summary, 'evidence': evidence, 'page_path': page_path, 'channel': meta['channel'], 'kind': meta['kind'], 'impact': impact}
 
 
-def page_down_findings(checks):
+def page_down_findings(checks, failures=CONSECUTIVE_FAILURES):
     """checks: newest first, each {checked_at, pages:[{host,path,status,http_status,detail}]}.
 
     A page alerts when its most recent CONSECUTIVE_FAILURES readings are all not-online. A reading is skipped for
@@ -72,8 +72,8 @@ def page_down_findings(checks):
             history.setdefault(key, []).append({**page, 'checked_at': check['checked_at']})
     findings = []
     for (host, path), readings in history.items():
-        recent = readings[:CONSECUTIVE_FAILURES]
-        if len(recent) < CONSECUTIVE_FAILURES or any(item.get('status') == 'online' for item in recent):
+        recent = readings[:failures]
+        if len(recent) < failures or any(item.get('status') == 'online' for item in recent):
             continue
         failing = 0
         for item in readings:
@@ -92,9 +92,9 @@ def page_down_findings(checks):
     return findings
 
 
-def collection_absent_findings(site_label, events_last_7d_before, hours_since_last_event):
+def collection_absent_findings(site_label, events_last_7d_before, hours_since_last_event, silent_after=SILENT_AFTER_HOURS):
     """events_last_7d_before: events in the 7 days before the silence started; None hours = no event ever."""
-    if hours_since_last_event is None or events_last_7d_before < MIN_BASELINE_EVENTS or hours_since_last_event < SILENT_AFTER_HOURS:
+    if hours_since_last_event is None or events_last_7d_before < MIN_BASELINE_EVENTS or hours_since_last_event < silent_after:
         return []
     return [_finding('collection_absent', '',
                      f'{site_label} não recebe eventos da Super Tag há {int(hours_since_last_event)} horas, mas costumava receber.',
@@ -103,7 +103,7 @@ def collection_absent_findings(site_label, events_last_7d_before, hours_since_la
                      impact={'value': f'{int(hours_since_last_event)} h', 'unit': 'text', 'label': 'sem eventos'})]
 
 
-def conversion_drop_findings(pages):
+def conversion_drop_findings(pages, percent=CONVERSION_DROP_PERCENT):
     """pages: [{path, current:{sessions,session_conversion_rate}, previous:{...}}]."""
     findings = []
     for page in pages:
@@ -111,7 +111,7 @@ def conversion_drop_findings(pages):
         if min(now['sessions'], before['sessions']) < MIN_RELIABLE_SESSIONS:
             continue
         a, b = now.get('session_conversion_rate'), before.get('session_conversion_rate')
-        if a is None or not b or 100 * (b - a) / b < CONVERSION_DROP_PERCENT:
+        if a is None or not b or 100 * (b - a) / b < percent:
             continue
         findings.append(_finding(
             'conversion_drop', page['path'], f"A conversão de {page['path']} caiu em relação à semana anterior.",
@@ -243,10 +243,11 @@ def anomaly_series(daily, last_day, key):
             'unit': 'count', 'current_label': 'Observado', 'previous_label': 'Esperado'}
 
 
-def anomaly_findings(daily, today, site_label):
+def anomaly_findings(daily, today, site_label, change_percent=ANOMALY_CHANGE_PERCENT):
     """daily: {date: {'sessions': n, 'conversions': n}}. Judges the last complete day (today - 1) against its weekday baseline.
 
-    A day with no events at all is left to collection_absent: silence is a tracking problem before it is a traffic one."""
+    A day with no events at all is left to collection_absent: silence is a tracking problem before it is a traffic one.
+    change_percent is one number for both rules or {rule: number}."""
     last_day = today - timedelta(days=1)
     if last_day not in daily:
         return []
@@ -258,7 +259,7 @@ def anomaly_findings(daily, today, site_label):
             continue
         expected, deviation, weeks = base
         change = 100 * (observed - expected) / expected
-        if abs(change) < ANOMALY_CHANGE_PERCENT or abs(observed - expected) < ANOMALY_SIGMAS * deviation:
+        if abs(change) < (change_percent.get(rule, ANOMALY_CHANGE_PERCENT) if isinstance(change_percent, dict) else change_percent) or abs(observed - expected) < ANOMALY_SIGMAS * deviation:
             continue
         falling = observed < expected
         finding = _finding(rule, key, f"{site_label} teve {observed} {noun} em {last_day.strftime('%d/%m')}, {'abaixo' if falling else 'acima'} do esperado ({expected:.0f}) para esse dia da semana.",
@@ -268,5 +269,6 @@ def anomaly_findings(daily, today, site_label):
         if not falling:
             finding['severity'] = 'low'   # more than expected is worth knowing, not worth waking someone
         finding['series'] = anomaly_series(daily, last_day, key)
+        finding['metrics'] = [{'label': noun.capitalize(), 'value': observed, 'unit': 'count', 'previous': round(expected, 1), 'change': round(change, 1)}]
         findings.append(finding)
     return findings

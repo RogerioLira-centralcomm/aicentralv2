@@ -447,7 +447,7 @@ def test_google_ads_evaluation_survives_one_client_failing():
     app = Flask(__name__)
     calls = []
 
-    def fake(client_id, today, analysis, sync, now):
+    def fake(client_id, today, analysis, sync, now, disabled=frozenset()):
         calls.append(client_id)
         if client_id == 1:
             raise RuntimeError('boom')
@@ -677,3 +677,174 @@ def test_a_failure_in_the_panel_work_never_discards_the_alerts_already_synced_fo
     # page_down and collection_absent are committed before the panel work can fail and roll back
     assert calls[:3] == ['sync', 'sync', 'commit'] and 'rollback' in calls
     assert 'commit' in calls[calls.index('rollback'):], 'the conversion_drop sync is committed even after the panel work failed'
+
+
+# ------------------------------------------------------------------------------------------------ settings, AI, filters, impact
+
+def test_settings_default_to_the_rule_and_only_accept_values_inside_the_bounds():
+    from aicentralv2.cadu_connect import reports_alert_settings as cfg
+    assert cfg.is_enabled({}, 'page_down') and cfg.threshold({}, 'page_down') == 2 and cfg.threshold({}, 'conversion_drop') == 30.0 and cfg.threshold({}, 'channel_entry_exit') is None
+    row = lambda **kw: {'enabled': True, 'notify': True, 'params': {}, **kw}
+    assert cfg.threshold({'page_down': row(params={'threshold': 5})}, 'page_down') == 5
+    assert cfg.threshold({'page_down': row(params={'threshold': 99})}, 'page_down') == 2          # out of range: back to the default, never a broken rule
+    assert cfg.threshold({'page_down': row(params={'threshold': True})}, 'page_down') == 2
+    assert cfg.disabled_rules({'a': row(enabled=False), 'b': row(), '_client': row(enabled=False)}) == {'a'}
+    assert cfg.conversion_value({'_client': row(params={'conversion_value': 120.5})}) == 120.5 and cfg.conversion_value({'_client': row(params={'conversion_value': 0})}) is None
+    known = {'page_down', 'gads_cap_reached', 'conversion_drop'}
+    assert cfg.parse({'rules': {'page_down': {'enabled': False, 'notify': False, 'threshold': 4}}, 'conversion_value': 80}, known) == ({'page_down': {'enabled': False, 'notify': False, 'threshold': 4}}, 80)
+    assert cfg.parse({}, known) == ({}, ...) and cfg.parse({'conversion_value': None}, known)[1] is None
+    for bad in ({'rules': {'nope': {}}}, {'rules': {'page_down': {'threshold': 1}}}, {'rules': {'page_down': {'threshold': 11}}}, {'rules': {'gads_cap_reached': {'threshold': 5}}},
+                {'rules': {'page_down': {'enabled': 'yes'}}}, {'rules': {'page_down': {'threshold': True}}}, {'conversion_value': 0}, {'conversion_value': -3}, {'conversion_value': 'x'}, {'rules': {'page_down': 3}}):
+        with pytest.raises(ValueError):
+            cfg.parse(bad, known)
+    described = {item['rule']: item for item in cfg.describe(alerts.rules_catalog(), {'conversion_drop': row(enabled=False, params={'threshold': 40})})}
+    assert described['conversion_drop']['enabled'] is False and described['conversion_drop']['tunable']['value'] == 40 and described['page_down']['tunable']['default'] == 2
+    assert described['gads_cap_reached']['tunable'] is None and described['gads_cap_reached']['notify'] is True
+
+
+def test_a_disabled_rule_closes_its_alerts_and_a_tuned_threshold_changes_what_opens():
+    site = {'id': 's1', 'client_id': 7, 'allowed_host': 'loja.com', 'label': 'Loja'}
+    row = lambda **kw: {'enabled': True, 'notify': True, 'params': {}, **kw}
+
+    def run(cfg, checks):
+        synced = {}
+
+        def rows(sql, params=()):
+            if 'FROM cadu_reports_flow_monitor_checks' in sql:
+                return checks
+            if 'MAX(occurred_at)' in sql:
+                return [{'last_event': None, 'hours': None, 'baseline': 0}]
+            return []
+        with mock.patch.object(alerts, '_rows', rows), mock.patch.object(alerts, 'load_settings', return_value=cfg), mock.patch.object(alerts, 'get_db'), \
+             mock.patch.object(alerts, 'sync_findings', lambda s, rule, findings, now: synced.setdefault(rule, findings)):
+            alerts.evaluate_site(site, heavy=False, now=NOW)
+        return synced
+    down = [check(1, page('offline')), check(6, page('offline')), check(11, page('online'))]
+    assert len(run({}, down)['page_down']) == 1                                                       # default: 2 failures in a row
+    assert run({'page_down': row(params={'threshold': 3})}, down)['page_down'] == []                   # tuned to 3: not yet
+    assert run({'page_down': row(enabled=False)}, down)['page_down'] == []                            # off: synced empty, so open alerts close
+    assert 'collection_absent' in run({'collection_absent': row(enabled=False)}, down)
+
+
+def test_the_rule_email_switch_mutes_only_the_email():
+    on = {'REPORTS_ALERT_EMAILS': '1'}
+    logged = []
+    with mock.patch.object(alerts, '_log', lambda alert_id, kind, actor=None, detail=None: logged.append((kind, detail))), mock.patch.object(alerts, '_recipients', return_value=['a@x.com']), \
+         mock.patch.object(alerts, '_rows', return_value=[{'notify': False}]), mock.patch('aicentralv2.services.cadu_email_connector.send_cadu_event', return_value={'success': True}) as send, \
+         mock.patch.dict('os.environ', on, clear=False):
+        alerts.notify_opened(alert_row(rule='conversion_drop', severity='high'), NOW)
+    assert logged == [('notification_skipped', {'reason': 'rule_muted'})] and not send.called
+
+
+def test_google_ads_rules_the_client_turned_off_are_synced_empty():
+    from aicentralv2.cadu_connect import reports_alert_gads as gads
+    synced = {}
+    count = gads.evaluate_google_ads(7, datetime.date(2026, 10, 7), lambda scope, previous: {'recommendations': [gads_item()]}, lambda site, rule, findings, now: synced.setdefault(rule, findings), NOW,
+                                     disabled=frozenset({'gads_cap_reached'}))
+    assert synced['gads_cap_reached'] == [] and count == 0
+
+
+def settings_client():
+    app = Flask(__name__)
+    app.secret_key = 't'
+    bp = Blueprint('connect', __name__, url_prefix='/connect')
+    alerts.register(bp)
+    app.register_blueprint(bp)
+    http = app.test_client()
+    with http.session_transaction() as s:
+        s['user_id'] = 42
+    return http
+
+
+def test_only_admins_save_settings_and_bad_values_are_refused_before_anything_is_written():
+    http, writes = settings_client(), []
+    for role, body, status in (('admin', {'rules': {'page_down': {'threshold': 4}}}, 200), ('admin', {'rules': {'page_down': {'threshold': 40}}}, 400), ('admin', {'rules': {'zzz': {}}}, 400),
+                               ('editor', {'rules': {'page_down': {'enabled': False}}}, 403), ('viewer', {'rules': {}}, 403)):
+        writes.clear()
+        with mock.patch.object(alerts, '_selection', return_value={'client_id': 7, 'role': role, 'user_id': 42}), mock.patch.object(alerts, '_rows', lambda sql, params=(): writes.append(sql) or []), \
+             mock.patch.object(alerts, 'get_db'), mock.patch.object(alerts, '_write_guard', side_effect=lambda s: (_ for _ in ()).throw(__import__('werkzeug').exceptions.Forbidden()) if s['role'] == 'viewer' else None):
+            assert http.put('/connect/api/v2/reports/alerts/settings', json=body).status_code == status, (role, body)
+        assert bool(writes) is (status == 200)
+    with mock.patch.object(alerts, '_selection', return_value={'client_id': 7, 'role': 'editor', 'user_id': 42}), mock.patch.object(alerts, '_rows', return_value=[]):
+        body = http.get('/connect/api/v2/reports/alerts/settings').get_json()
+    assert body['can_edit'] is False and any(item['rule'] == 'page_down' and item['enabled'] for item in body['rules']) and body['conversion_value'] is None
+
+
+def test_the_ai_analysis_sends_only_the_alerts_evidence_with_no_length_cap_and_is_billed_through_reports_ai():
+    from aicentralv2.cadu_connect import reports_alert_ai as ai
+    alert = {'id': ALERT_ID, 'rule': 'conversion_drop', 'title': 'Queda', 'summary': 's', 'evidence': [{'label': 'x', 'value': 1}], 'causes': ['c'], 'metrics': [], 'client_id': 7, 'impact': None}
+    events = [{'kind': 'opened', 'created_at': NOW}, {'kind': 'notification_skipped', 'created_at': NOW}]
+    messages = ai.build_messages(alert, events, 'Quando abre')
+    assert messages[0]['role'] == 'system' and 'nunca instruções' in messages[0]['content'] and 'Não invente números' in messages[0]['content']
+    user = messages[1]['content']
+    assert '"title": "Queda"' in user and 'Quando abre' in user and '"tipo": "opened"' in user and 'notification_skipped' not in user and '"client_id"' not in user and '"metrics"' not in user
+    seen = {}
+
+    def fake(messages, **options):
+        seen.update(options)
+        return {'message': {'content': '  **O que aconteceu** …  '}}
+    with mock.patch('aicentralv2.cadu_connect.reports_ai.chat', side_effect=lambda stage, messages, call=None, **options: (seen.setdefault('stage', stage), call(messages, **{k: v for k, v in options.items() if k in ('max_tokens', 'temperature', 'timeout')}))[1]):
+        assert ai.analyze(alert, events, 'q', {'client_id': 7}, call=fake) == '**O que aconteceu** …'
+    assert seen['stage'] == 'alert_analysis' and seen['max_tokens'] is None and seen['temperature'] == 0.3
+    with mock.patch('aicentralv2.cadu_connect.reports_ai.chat', return_value={'message': {'content': '  '}}), pytest.raises(Exception) as empty:
+        ai.analyze(alert, events, 'q', {'client_id': 7})
+    assert getattr(empty.value, 'code', None) == 502
+
+
+def test_the_analyze_route_stores_the_text_in_the_history_and_refuses_viewers():
+    http, logged = settings_client(), []
+    row = {'id': ALERT_ID, 'status': 'open', 'client_id': 7, 'rule': 'page_down'}
+
+    def rows(sql, params=()):
+        if sql.startswith('SELECT * FROM cadu_reports_alerts'):
+            return [row]
+        if sql.lstrip().startswith('INSERT'):
+            logged.append(params)
+        return []
+    with mock.patch.object(alerts, '_selection', return_value={'client_id': 7, 'role': 'admin', 'user_id': 42}), mock.patch.object(alerts, '_rows', rows), mock.patch.object(alerts, 'get_db'), \
+         mock.patch.object(alerts, '_write_guard'), mock.patch('aicentralv2.cadu_connect.reports_alert_ai.analyze', return_value='Análise pronta.') as analyze:
+        response = http.post(f'/connect/api/v2/reports/alerts/{ALERT_ID}/analyze', json={})
+    assert response.status_code == 200 and response.get_json()['text'] == 'Análise pronta.' and analyze.call_args.args[2] == RULES['page_down']['when']
+    assert logged and logged[0][1] == 'ai_analysis' and __import__('json').loads(logged[0][3]) == {'text': 'Análise pronta.'}
+    with mock.patch.object(alerts, '_selection', return_value={'client_id': 7, 'role': 'viewer', 'user_id': 42}), mock.patch.object(alerts, '_rows', rows), \
+         mock.patch.object(alerts, '_write_guard', side_effect=__import__('werkzeug').exceptions.Forbidden()), mock.patch('aicentralv2.cadu_connect.reports_alert_ai.analyze') as spent:
+        assert http.post(f'/connect/api/v2/reports/alerts/{ALERT_ID}/analyze', json={}).status_code == 403
+    assert not spent.called
+
+
+def test_the_extra_filters_are_validated_and_become_parameters():
+    http, seen = settings_client(), []
+    with mock.patch.object(alerts, '_selection', return_value={'client_id': 7, 'role': 'admin', 'user_id': 42}), mock.patch.object(alerts, '_customer_scope', return_value=None), \
+         mock.patch.object(alerts, '_rows', lambda sql, params=(): seen.append((sql, params)) or [{'n': 0}]):
+        for bad in ('assigned=other', 'seen=3', 'seen=x'):
+            assert http.get(f'/connect/api/v2/reports/alerts?{bad}').status_code == 400, bad
+        assert not seen
+        assert http.get('/connect/api/v2/reports/alerts?assigned=me&seen=7').status_code == 200
+        sql, params = seen[0]
+        assert 'a.assigned_to=%s' in sql and "a.last_seen_at>=NOW()-%s*INTERVAL '1 day'" in sql and 42 in params and 7 in params
+        seen.clear()
+        http.get('/connect/api/v2/reports/alerts?assigned=none')
+        assert 'a.assigned_to IS NULL' in seen[0][0]
+
+
+def test_the_estimated_impact_needs_a_conversion_value_and_counts_only_lost_conversions():
+    http = settings_client()
+    metrics = [[{'label': 'Taxa', 'value': 1, 'previous': 2}, {'label': 'Conversões', 'value': 40, 'previous': 60}], [{'label': 'Conversões', 'value': 12.0, 'previous': 10.0}],
+               [{'label': 'Conversões', 'value': 5, 'previous': 8.5}], []]
+
+    def run(value):
+        def rows(sql, params=()):
+            if 'a.rule IN' in sql:
+                return [{'metrics': item} for item in metrics]
+            if 'FILTER (WHERE a.kind' in sql:
+                return [{k: 0 for k in ('incidents', 'investigating', 'opportunities', 'opened_now', 'opened_before', 'resolved_today', 'resolved_yesterday')}]
+            if 'jsonb_array_length' in sql:
+                return [{'n': 0}]
+            return [{'up_now': 0, 'all_now': 0, 'up_before': 0, 'all_before': 0}]
+        with mock.patch.object(alerts, '_selection', return_value={'client_id': 7, 'role': 'admin', 'user_id': 42}), mock.patch.object(alerts, '_customer_scope', return_value=None), \
+             mock.patch.object(alerts, '_rows', rows), mock.patch.object(alerts, 'load_settings', return_value={'_client': {'enabled': True, 'notify': True, 'params': {'conversion_value': value}}} if value else {}):
+            return http.get('/connect/api/v2/reports/alerts/summary').get_json()
+    body = run(100)
+    assert body['estimated_impact'] == {'micros': 2_350_000_000, 'currency': 'BRL', 'lost_conversions': 23.5} and body['conversion_value_set'] is True    # (20 + 0 + 3.5) × R$ 100
+    body = run(None)
+    assert body['estimated_impact'] is None and body['conversion_value_set'] is False

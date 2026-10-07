@@ -1,10 +1,12 @@
 import {ReportsActionButton} from './ReportsActionButton.jsx';
 import {CaduTabs} from '../cadu-design-system/components/CaduTabs.jsx';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {AlertCircle, AlertTriangle, ArrowDown, ArrowUp, CheckCircle, Download01, InfoCircle, SearchLg, XClose} from '@untitledui/icons';
+import {AlertCircle, AlertTriangle, ArrowDown, ArrowUp, CheckCircle, Download01, FilterLines, InfoCircle, SearchLg, Settings01, Stars01, XClose} from '@untitledui/icons';
 import {Empty, integer, json, reportUrl} from './reportsCommon.jsx';
 import {ReportsNativeSelect} from './ReportsNativeSelect.jsx';
 import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
+import {ReportsDrawer} from './ReportsDrawer.jsx';
+import {Checkbox} from '../cadu-design-system/untitled-kit/checkbox.tsx';
 import {Badge, BadgeWithDot} from '../cadu-design-system/untitled-kit/badges.tsx';
 import {Table} from '../cadu-design-system/untitled-kit/table.tsx';
 import './alerts-center.css';
@@ -64,7 +66,7 @@ function Delta({value, unit = '', worseWhenUp = false, suffix}) {
   return <span className={`al-delta ${bad ? 'is-bad' : 'is-good'}`}><Arrow width={12} height={12} aria-hidden="true"/>{Math.abs(value).toLocaleString('pt-BR', {maximumFractionDigits: 1})}{unit}{suffix && <em>{suffix}</em>}</span>;
 }
 
-function Kpis({summary}) {
+function Kpis({summary, onConfigure}) {
   if (!summary) return <div className="al-kpis" aria-busy="true"><div className="al-kpi is-loading"/></div>;
   return <section className="al-kpis" aria-label="Resumo dos alertas">
     <div className="al-kpi"><span className="al-kpi__icon is-high"><AlertCircle width={20} height={20} aria-hidden="true"/></span>
@@ -75,8 +77,10 @@ function Kpis({summary}) {
       <div><b>{integer(summary.resolved_today)}</b><span>Resolvidas hoje</span><Delta value={summary.resolved_today_change} unit="%" suffix="vs. ontem"/></div></div>
     <div className="al-kpi"><span className="al-kpi__icon is-info"><InfoCircle width={20} height={20} aria-hidden="true"/></span>
       <div><b>{summary.uptime == null ? dash : percent(summary.uptime)}</b><span>Uptime dos sites</span>{summary.uptime_change != null && <Delta value={summary.uptime_change} unit=" pt"/>}</div></div>
-    {summary.estimated_impact != null && <div className="al-kpi"><span className="al-kpi__icon is-info"><InfoCircle width={20} height={20} aria-hidden="true"/></span>
-      <div><b>{money(summary.estimated_impact.micros, summary.estimated_impact.currency)}</b><span>Impacto estimado</span><small>últimos 7 dias</small></div></div>}
+    <div className="al-kpi"><span className="al-kpi__icon is-info"><InfoCircle width={20} height={20} aria-hidden="true"/></span>
+      {summary.estimated_impact
+        ? <div><b>{money(summary.estimated_impact.micros, summary.estimated_impact.currency)}</b><span>Impacto estimado</span><small>{integer(Math.round(summary.estimated_impact.lost_conversions))} conversões a menos · 7 dias</small></div>
+        : <div><b>{dash}</b><span>Impacto estimado</span><ReportsActionButton color="link-color" size="sm" className="reports-inline-link" onClick={onConfigure}>Informar valor por conversão</ReportsActionButton></div>}</div>
   </section>;
 }
 
@@ -96,7 +100,7 @@ function History({alertId, client}) {
 }
 
 const PANEL_TABS = [{id: 'overview', label: 'Visão geral'}, {id: 'evidence', label: 'Evidências'}, {id: 'causes', label: 'Possíveis causas'},
-  {id: 'recommendations', label: 'Recomendações'}, {id: 'history', label: 'Histórico'}];
+  {id: 'recommendations', label: 'Recomendações'}, {id: 'ai', label: 'Investigação'}, {id: 'history', label: 'Histórico'}];
 
 function TextList({items, empty}) {
   if (!items?.length) return <p className="alerts-note">{empty}</p>;
@@ -159,10 +163,46 @@ function ImpactedUrls({urls}) {
       <Table.Cell className={tight}>{item.change == null ? dash : <Delta value={item.change} unit="%"/>}</Table.Cell></Table.Row>)}</Table.Body></Table></div>;
 }
 
-function AlertPanel({alert, userId, choices, busy, onAct, onClose, client}) {
+/** **bold** and paragraphs from the model's text, rendered as React nodes (never as HTML). */
+function RichText({text}) {
+  return text.split(/\n{2,}/).map((block, index) => <p key={index}>{block.split(/(\*\*[^*]+\*\*)/g).map((part, position) => part.startsWith('**') && part.endsWith('**') && part.length > 4
+    ? <strong key={position}>{part.slice(2, -2)}</strong> : part.split('\n').map((line, row) => <React.Fragment key={`${position}-${row}`}>{row > 0 && <br/>}{line}</React.Fragment>))}</p>);
+}
+
+/** The AI reading of one alert, kept in its history so it is not paid for twice just to read it again. */
+function AiTab({alert, client, csrf, runKey}) {
+  const [state, setState] = useState({loading: true, text: '', at: null, error: '', running: false});
+  useEffect(() => {
+    let active = true;
+    json(`/connect/api/v2/reports/alerts/${alert.id}/events`).then(body => {
+      const last = body.events.find(item => item.kind === 'ai_analysis');
+      if (active) setState(current => ({...current, loading: false, text: last?.detail?.text || '', at: last?.created_at || null}));
+    }).catch(() => { if (active) setState(current => ({...current, loading: false})); });
+    return () => { active = false; };
+  }, [alert.id, client]);
+  const run = useCallback(async () => {
+    setState(current => ({...current, running: true, error: ''}));
+    try {
+      const body = await json(`/connect/api/v2/reports/alerts/${alert.id}/analyze`, {method: 'POST', headers: csrfHeaders({csrf}), body: '{}'});
+      setState({loading: false, running: false, error: '', text: body.text, at: new Date().toISOString()});
+    } catch (failure) { setState(current => ({...current, running: false, error: failure.message})); }
+  }, [alert.id, csrf]);
+  useEffect(() => { if (runKey > 0) run(); }, [runKey, run]);
+  return <div className="al-ai">
+    <p className="alerts-note">A IA lê a evidência deste alerta (números, gráfico, causas e histórico) e sugere o que verificar. Não altera nada e usa créditos de IA do cliente.</p>
+    <ReportsActionButton color={state.text ? 'secondary' : 'primary'} size="sm" disabled={state.running} onClick={run}><Stars01 width={16} height={16} aria-hidden="true"/> {state.running ? 'Analisando…' : state.text ? 'Investigar de novo' : 'Investigar com IA'}</ReportsActionButton>
+    {state.error && <div className="reports-error" role="alert">{state.error}</div>}
+    {state.running && <p className="alerts-note" role="status">A análise pode levar alguns segundos…</p>}
+    {state.loading && !state.text && <p className="alerts-note" role="status">Carregando…</p>}
+    {state.text && <article className="al-ai__text"><RichText text={state.text}/><small>Gerada {ago(state.at)}</small></article>}
+  </div>;
+}
+
+function AlertPanel({alert, userId, choices, busy, onAct, onClose, client, csrf}) {
+  const [runKey, setRunKey] = useState(0);
   const [tab, setTab] = useState('overview');
   const [hours, setHours] = useState(String(choices[1] || choices[0]));
-  useEffect(() => setTab('overview'), [alert.id]);
+  useEffect(() => { setTab('overview'); setRunKey(0); }, [alert.id]);
   const live = alert.status !== 'resolved';
   const mine = alert.assigned_to === userId;
   return <aside className="al-panel" aria-label={`Detalhes: ${alert.title}`}>
@@ -188,6 +228,7 @@ function AlertPanel({alert, userId, choices, busy, onAct, onClose, client}) {
       {tab === 'evidence' && <dl className="alerts-evidence">{alert.evidence.map((item, index) => <div key={index}><dt>{item.label}</dt><dd>{evidenceValue(item)}</dd></div>)}</dl>}
       {tab === 'causes' && <><p className="alerts-note">Fatos que aconteceram na mesma janela; indicam onde olhar primeiro, não provam a causa.</p><TextList items={alert.causes} empty="Nenhum fato do mesmo período explica esta ocorrência. O sistema cruza queda de disponibilidade, lentidão, falhas de coleta e variação de tráfego."/></>}
       {tab === 'recommendations' && <TextList items={alert.recommendations} empty="Este alerta ainda não tem recomendações."/>}
+      {tab === 'ai' && <AiTab alert={alert} client={client} csrf={csrf} runKey={runKey}/>}
       {tab === 'history' && <History alertId={alert.id} client={client}/>}
     </div>
     {live && <div className="al-panel__tools">
@@ -198,6 +239,7 @@ function AlertPanel({alert, userId, choices, busy, onAct, onClose, client}) {
         : <ReportsActionButton color="secondary" size="sm" disabled={busy} onClick={() => onAct([alert.id], 'unsilence', {})}>Remover silêncio</ReportsActionButton>}
     </div>}
     <footer className="al-panel__foot">
+      <ReportsActionButton color="secondary" onClick={() => { setTab('ai'); setRunKey(value => value + 1); }}><Stars01 width={16} height={16} aria-hidden="true"/> Investigar com IA</ReportsActionButton>
       {alert.page_path
         ? <ReportsActionButton color="secondary" href={reportUrl('pages', {site_id: alert.site_id, path: alert.page_path})}>Ver em Site &amp; Jornada</ReportsActionButton>
         : alert.site_id && <ReportsActionButton color="secondary" href={reportUrl('supertag', {scope_site: alert.site_id})}>Ver coleta do site</ReportsActionButton>}
@@ -232,14 +274,15 @@ const STATUS_FILTERS = [['active', 'Todos os status'], ['investigating', 'Em inv
 function AlertsList({kind, data, onChanged}) {
   const client = data.client.client_id;
   const customer_id = customerParam();
-  const [filters, setFilters] = useState({q: '', channel: '', severity: '', status: 'active'});
+  const [filters, setFilters] = useState({q: '', channel: '', severity: '', status: 'active', assigned: '', seen: ''});
+  const [moreOpen, setMoreOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [state, setState] = useState({loading: true, error: '', body: null});
   const [selected, setSelected] = useState(() => new Set());
   const [openId, setOpenId] = useState('');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
-  const query = {kind, customer_id, q: filters.q, channel: filters.channel, severity: filters.severity, status: filters.status};
+  const query = {kind, customer_id, q: filters.q, channel: filters.channel, severity: filters.severity, status: filters.status, assigned: filters.assigned, seen: filters.seen};
   const latest = useRef(0);
   const load = useCallback(() => { const mine = ++latest.current; return json(apiUrl('/alerts', {...query, per_page: 200}))
     .then(body => { if (mine === latest.current) setState({loading: false, error: '', body}); }).catch(failure => { if (mine === latest.current) setState({loading: false, error: failure.message, body: null}); }); },
@@ -279,8 +322,15 @@ function AlertsList({kind, data, onChanged}) {
           {Object.entries(SEVERITY).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</ReportsNativeSelect>
         <ReportsNativeSelect value={filters.status} onChange={event => change({status: event.target.value})} aria-label="Status">
           {STATUS_FILTERS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</ReportsNativeSelect>
+        <ReportsActionButton color={moreOpen || filters.assigned || filters.seen ? 'secondary' : 'tertiary'} size="sm" aria-expanded={moreOpen} onClick={() => setMoreOpen(value => !value)}>
+          <FilterLines width={16} height={16} aria-hidden="true"/> Mais filtros{(filters.assigned ? 1 : 0) + (filters.seen ? 1 : 0) > 0 ? ` (${(filters.assigned ? 1 : 0) + (filters.seen ? 1 : 0)})` : ''}</ReportsActionButton>
         <ReportsActionButton color="secondary" size="sm" href={exportUrl}><Download01 width={16} height={16} aria-hidden="true"/> Exportar</ReportsActionButton>
       </div>
+      {moreOpen && <div className="al-toolbar al-toolbar--more">
+        <ReportsNativeSelect value={filters.assigned} onChange={event => change({assigned: event.target.value})} aria-label="Responsável"><option value="">Todos os responsáveis</option>
+          <option value="me">Meus alertas</option><option value="none">Sem responsável</option></ReportsNativeSelect>
+        <ReportsNativeSelect value={filters.seen} onChange={event => change({seen: event.target.value})} aria-label="Última ocorrência"><option value="">Qualquer data</option>
+          <option value="1">Últimas 24 horas</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option></ReportsNativeSelect></div>}
       {selected.size > 0 && <div className="al-bulk" role="region" aria-label="Ações em lote"><b>{selected.size} {selected.size === 1 ? 'selecionado' : 'selecionados'}</b>
         <ReportsActionButton color="secondary" size="sm" disabled={busy} onClick={() => act([...selected], 'acknowledge', {}, true)}>Reconhecer</ReportsActionButton>
         <ReportsActionButton color="secondary" size="sm" disabled={busy} onClick={() => act([...selected], 'investigate', {}, true)}>Em investigação</ReportsActionButton>
@@ -312,7 +362,7 @@ function AlertsList({kind, data, onChanged}) {
       {body && rows.length > 0 && <p className="alerts-note">{body.total > rows.length ? `Mostrando os ${integer(rows.length)} mais recentes de ${integer(body.total)}. Use os filtros para refinar.` : `${integer(body.total)} ${body.total === 1 ? noun : noun === 'ocorrência' ? 'ocorrências' : 'oportunidades'}`}</p>}
       {kind === 'incident' && filters.status === 'active' && <GoogleAdsAlerts/>}
     </section>
-    {open && <AlertPanel alert={open} userId={body.user_id} choices={body.silence_choices} busy={busy} onAct={act} onClose={() => setOpenId('')} client={client}/>}
+    {open && <AlertPanel alert={open} userId={body.user_id} choices={body.silence_choices} busy={busy} onAct={act} onClose={() => setOpenId('')} client={client} csrf={data.csrf}/>}
   </div>;
 }
 
@@ -406,18 +456,96 @@ function MonitorsList({client}) {
   </div>;
 }
 
+const CHANNEL_ORDER = ['site', 'journey', 'google_ads', 'meta', 'reports'];
+
+/** Which rules run for this client, their e-mail, the few thresholds worth tuning and the value of one conversion (base of the estimated impact). */
+function SettingsDrawer({open, onOpenChange, data, onSaved}) {
+  const [state, setState] = useState({loading: true, error: '', body: null});
+  const [edits, setEdits] = useState({});
+  const [value, setValue] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!open) return undefined;
+    let active = true;
+    setState({loading: true, error: '', body: null}); setEdits({});
+    json(apiUrl('/alerts/settings')).then(body => { if (active) { setState({loading: false, error: '', body}); setValue(body.conversion_value == null ? '' : String(body.conversion_value)); } })
+      .catch(failure => { if (active) setState({loading: false, error: failure.message, body: null}); });
+    return () => { active = false; };
+  }, [open]);
+  const body = state.body;
+  const can = Boolean(body?.can_edit);
+  const current = rule => ({enabled: rule.enabled, notify: rule.notify, threshold: rule.tunable?.value, ...edits[rule.rule]});
+  const edit = (rule, patch) => setEdits(previous => ({...previous, [rule]: {...previous[rule], ...patch}}));
+  const save = async event => {
+    event.preventDefault();
+    const rules = {};
+    body.rules.forEach(rule => {
+      const now = current(rule), change = {};
+      if (now.enabled !== rule.enabled) change.enabled = now.enabled;
+      if (now.notify !== rule.notify) change.notify = now.notify;
+      if (rule.tunable && Number(now.threshold) !== Number(rule.tunable.value)) change.threshold = Number(now.threshold);
+      if (Object.keys(change).length) rules[rule.rule] = change;
+    });
+    const payload = {rules};
+    const typed = value.trim().replace(',', '.');
+    if (typed !== (body.conversion_value == null ? '' : String(body.conversion_value))) payload.conversion_value = typed === '' ? null : Number(typed);
+    setBusy(true);
+    try {
+      await json(apiUrl('/alerts/settings'), {method: 'PUT', headers: csrfHeaders(data), body: JSON.stringify(payload)});
+      onOpenChange(false); onSaved();
+    } catch (failure) { setState(previous => ({...previous, error: failure.message})); }
+    setBusy(false);
+  };
+  const groups = body ? CHANNEL_ORDER.map(channel => [channel, body.rules.filter(rule => rule.channel === channel)]).filter(([, rules]) => rules.length) : [];
+  const renderRule = rule => {
+    const now = current(rule);
+    return <li key={rule.rule} className="al-rule">
+      <div className="al-rule__text"><b>{rule.title}</b><small>{rule.when}</small></div>
+      <div className="al-rule__controls">
+        <Checkbox size="sm" label="Ativa" isSelected={now.enabled} isDisabled={!can} onChange={checked => edit(rule.rule, {enabled: checked})}/>
+        <Checkbox size="sm" label="Avisar por e-mail" isSelected={now.notify} isDisabled={!can || !now.enabled} onChange={checked => edit(rule.rule, {notify: checked})}/>
+        {rule.tunable && <CaduInput size="sm" type="number" label={`${rule.tunable.label} (${rule.tunable.unit})`} min={rule.tunable.min} max={rule.tunable.max} step={rule.tunable.step}
+          disabled={!can || !now.enabled} value={now.threshold} onChange={event => edit(rule.rule, {threshold: event.target.value})} hint={`Padrão ${rule.tunable.default}. De ${rule.tunable.min} a ${rule.tunable.max}.`}/>}
+      </div>
+    </li>;
+  };
+  return <ReportsDrawer open={open} onOpenChange={onOpenChange} size="lg" title="Configurar alertas" context={data.client.client_name}
+    description="Escolha o que a central vigia para este cliente, quem é avisado por e-mail e a partir de quando um desvio vira alerta."
+    footer={can ? <div className="al-settings__foot"><ReportsActionButton color="secondary" onClick={() => onOpenChange(false)}>Cancelar</ReportsActionButton>
+      <ReportsActionButton color="primary" type="submit" form="al-settings-form" disabled={busy || !body}>Salvar configuração</ReportsActionButton></div> : null}>
+    <form id="al-settings-form" className="al-settings" onSubmit={save}>
+      {state.error && <div className="reports-error" role="alert">{state.error}</div>}
+      {state.loading && <p className="alerts-note" role="status">Carregando configuração…</p>}
+      {body && !can && <p className="alerts-note" role="note">Só administradores alteram a configuração. Você pode consultar o que está ativo.</p>}
+      {body && !body.emails_enabled && <p className="alerts-note" role="note">O envio de e-mail está desligado neste ambiente: as opções de e-mail valem quando ele for ligado.</p>}
+      {body && <section className="al-settings__value"><h3 className="al-section">Valor de uma conversão</h3>
+        <CaduInput size="sm" type="text" inputMode="decimal" label="R$ por conversão" disabled={!can} value={value} onChange={event => setValue(event.target.value)} placeholder="Ex.: 120,00"
+          hint="Base do impacto estimado: conversões perdidas nos alertas abertos vezes este valor. Deixe em branco para não estimar."/></section>}
+      {groups.map(([channel, rules]) => channel === 'google_ads'
+        ? <details key={channel} className="al-settings__group"><summary><h3 className="al-section">{CHANNEL[channel]} <small>({rules.length} regras)</small></h3></summary><ul>{rules.map(renderRule)}</ul></details>
+        : <section key={channel} className="al-settings__group"><h3 className="al-section">{CHANNEL[channel]}</h3><ul>{rules.map(renderRule)}</ul></section>)}
+    </form>
+  </ReportsDrawer>;
+}
+
 export function AlertsCenter({data}) {
   const client = data.client.client_id;
   const [tab, setTab] = useState('incident');
   const [summary, setSummary] = useState(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [revision, setRevision] = useState(0);
   const loadSummary = useCallback(() => json(apiUrl('/alerts/summary', {customer_id: customerParam()})).then(setSummary).catch(() => setSummary(null)), [client]);
   useEffect(() => { loadSummary(); }, [loadSummary]);
   const tabs = summary?.tabs;
   return <div className="alerts-center">
-    <CaduTabs label="Central de alertas" value={tab} onChange={setTab} items={[
-      {id: 'incident', label: 'Ocorrências', count: tabs?.incidents ?? ''}, {id: 'monitors', label: 'Monitores', count: tabs?.monitors ?? ''},
-      {id: 'opportunity', label: 'Oportunidades', count: tabs?.opportunities ?? ''}]}/>
-    <Kpis summary={summary}/>
-    {tab === 'monitors' ? <MonitorsList client={client}/> : <AlertsList key={tab} kind={tab} data={data} onChanged={loadSummary}/>}
+    <div className="al-topbar">
+      <CaduTabs label="Central de alertas" value={tab} onChange={setTab} items={[
+        {id: 'incident', label: 'Ocorrências', count: tabs?.incidents ?? ''}, {id: 'monitors', label: 'Monitores', count: tabs?.monitors ?? ''},
+        {id: 'opportunity', label: 'Oportunidades', count: tabs?.opportunities ?? ''}]}/>
+      <ReportsActionButton color="secondary" size="sm" onClick={() => setSettingsOpen(true)}><Settings01 width={16} height={16} aria-hidden="true"/> Configurar alertas</ReportsActionButton>
+    </div>
+    <Kpis summary={summary} onConfigure={() => setSettingsOpen(true)}/>
+    {tab === 'monitors' ? <MonitorsList client={client}/> : <AlertsList key={`${tab}-${revision}`} kind={tab} data={data} onChanged={loadSummary}/>}
+    <SettingsDrawer open={settingsOpen} onOpenChange={setSettingsOpen} data={data} onSaved={() => { loadSummary(); setRevision(value => value + 1); }}/>
   </div>;
 }

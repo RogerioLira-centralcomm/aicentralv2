@@ -195,3 +195,41 @@ def test_anomaly_causes_and_panel_data_run_on_the_real_schema(db):
 def finding_with_panel():
     return {**finding('conversion_drop', '/lp', channel='site', kind='incident', page_path='/lp'), 'series': {'labels': ['2026-10-06'], 'current': [1.0], 'previous': [1.4], 'unit': 'percent'},
             'metrics': [{'label': 'Taxa', 'value': 1.0, 'unit': 'percent', 'change': -30.0}], 'impacted_urls': [{'path': '/lp'}], 'causes': ['c']}
+
+
+def test_settings_filters_muting_and_the_estimated_impact_run_on_the_real_schema(api, db):
+    now = datetime.datetime.now(datetime.timezone.utc)
+    put = lambda body: api.put('/connect/api/v2/reports/alerts/settings', json=body)
+    get = lambda url: api.get('/connect/api/v2/reports' + url)
+    assert put({'rules': {'page_down': {'threshold': 4, 'notify': False}}, 'conversion_value': 100}).status_code == 200
+    assert put({'rules': {'page_down': {'enabled': False}}}).status_code == 200                         # a second save keeps what the first one stored
+    assert put({'rules': {'page_down': {'threshold': 40}}}).status_code == 400
+    assert put({'rules': {'nope': {'enabled': False}}}).status_code == 400
+    settings = get('/alerts/settings').get_json()
+    page_down = next(item for item in settings['rules'] if item['rule'] == 'page_down')
+    assert (page_down['enabled'], page_down['notify'], page_down['tunable']['value']) == (False, False, 4) and settings['conversion_value'] == 100 and settings['can_edit'] is True
+    assert db("SELECT enabled,notify,params FROM cadu_reports_alert_settings WHERE client_id=%s AND rule='page_down'", (CLIENT,))[0] == {'enabled': False, 'notify': False, 'params': {'threshold': 4}}
+    assert db("SELECT params FROM cadu_reports_alert_settings WHERE client_id=%s AND rule='_client'", (CLIENT,))[0]['params'] == {'conversion_value': 100}
+    assert alerts._rule_muted({'client_id': CLIENT, 'rule': 'page_down'}) is True and alerts._rule_muted({'client_id': CLIENT, 'rule': 'conversion_drop'}) is False
+    assert put({'conversion_value': None}).status_code == 200 and get('/alerts/settings').get_json()['conversion_value'] is None
+    assert put({'conversion_value': 100}).status_code == 200
+
+    # Two conversion alerts lose 20 + 3.5 conversions; a rise and a closed alert do not count. At R$ 100 each the impact is R$ 2.350.
+    def alert_with(rule, key, metrics, **extra):
+        item = {**finding(rule, key, channel='site', kind='incident', page_path='/lp'), 'metrics': metrics, **extra}
+        with mock.patch.object(alerts, '_rows', db), mock.patch.object(alerts, 'notify_opened'):
+            alerts.sync_findings({'id': SITE, 'client_id': CLIENT}, rule, [item], now)
+    alert_with('conversion_drop', '/lp', [{'label': 'Conversões', 'value': 40, 'previous': 60}])
+    alert_with('conversion_anomaly', 'conversions', [{'label': 'Conversões', 'value': 5, 'previous': 8.5}])
+    alert_with('traffic_anomaly', 'sessions', [{'label': 'Sessões', 'value': 10, 'previous': 100}])
+    summary = get('/alerts/summary').get_json()
+    assert summary['estimated_impact'] == {'micros': 2_350_000_000, 'currency': 'BRL', 'lost_conversions': 23.5} and summary['conversion_value_set'] is True
+    assert get('/alerts/summary?customer_id=2').get_json()['estimated_impact']['micros'] == 0                  # these alerts belong to the site of advertiser 1
+    assert get('/alerts/summary?customer_id=1').get_json()['estimated_impact']['micros'] == 2_350_000_000
+
+    # Extra filters: owner and recency.
+    db("UPDATE cadu_reports_alerts SET assigned_to=%s WHERE rule='conversion_drop'", (USER,))
+    db("UPDATE cadu_reports_alerts SET last_seen_at=NOW()-INTERVAL '10 days' WHERE rule='conversion_anomaly'")
+    titles = lambda query: sorted(item['rule'] for item in get('/alerts?' + query).get_json()['alerts'])
+    assert titles('assigned=me') == ['conversion_drop'] and 'conversion_drop' not in titles('assigned=none') and len(titles('assigned=none')) == 2
+    assert 'conversion_anomaly' not in titles('seen=7') and 'conversion_anomaly' in titles('seen=30') and 'conversion_anomaly' in titles('')

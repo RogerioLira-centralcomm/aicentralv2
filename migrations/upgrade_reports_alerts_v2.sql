@@ -56,3 +56,16 @@ CREATE TABLE IF NOT EXISTS cadu_reports_flow_monitor_daily (
     CONSTRAINT cadu_reports_flow_monitor_daily_online_le_checks CHECK (online <= checks)
 );
 CREATE INDEX IF NOT EXISTS cadu_reports_flow_monitor_daily_day_idx ON cadu_reports_flow_monitor_daily (day);
+
+-- Configuração da central por cliente: regra ligada, e-mail da regra e limiares ajustáveis. Sem linha = padrão da regra.
+-- A regra reservada '_client' guarda o valor de uma conversão em R$ (base do impacto estimado).
+CREATE TABLE IF NOT EXISTS cadu_reports_alert_settings (
+    client_id BIGINT NOT NULL,
+    rule VARCHAR(40) NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    notify BOOLEAN NOT NULL DEFAULT TRUE,
+    params JSONB NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(params)='object'),
+    updated_by BIGINT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (client_id, rule)
+);

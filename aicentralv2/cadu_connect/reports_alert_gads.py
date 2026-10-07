@@ -58,7 +58,7 @@ def findings_by_rule(recommendations):
     return grouped
 
 
-def evaluate_google_ads(client_id, today, analysis, sync, now):
+def evaluate_google_ads(client_id, today, analysis, sync, now, disabled=frozenset()):
     """analysis(scope, previous_scope) and sync(site, rule, findings, now) are injected so the worker and the tests share this."""
     from . import reports_google_ads as gads
     end = today
@@ -69,5 +69,6 @@ def evaluate_google_ads(client_id, today, analysis, sync, now):
     previous = {'client': client_id, 'start': start - timedelta(days=span), 'end': start - timedelta(days=1), 'account': None, 'campaign': None}
     grouped = findings_by_rule(analysis(scope, previous)['recommendations'])
     for rule, findings in grouped.items():
-        sync({'id': None, 'client_id': client_id}, rule, findings, now)
-    return sum(len(findings) for findings in grouped.values())
+        # A rule the client turned off is synced empty, so its open alerts close instead of lingering.
+        sync({'id': None, 'client_id': client_id}, rule, [] if rule in disabled else findings, now)
+    return sum(len(findings) for rule, findings in grouped.items() if rule not in disabled)

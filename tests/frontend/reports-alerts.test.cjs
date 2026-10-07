@@ -32,7 +32,7 @@ async function main() {
   const browser = await chromium.launch({headless: true, ...(process.env.CHROME_PATH ? {executablePath: process.env.CHROME_PATH} : {})});
   const page = await browser.newPage({viewport: {width: 1440, height: 900}});
   page.setDefaultTimeout(10000);
-  const errors = [], posts = [], lists = [];
+  const errors = [], posts = [], lists = [], saved = [];
   const panelData = {metrics: [{label: 'Taxa de conversão', value: 0.8, unit: 'percent', previous: 1.1, change: -27.3}, {label: 'Visitas', value: 4582, unit: 'count', previous: 4085, change: 12.2}],
     series: {labels: ['2026-09-30', '2026-10-01', '2026-10-02'], current: [1.0, 0.9, 0.8], previous: [1.2, 1.1, null], unit: 'percent', current_label: 'Período atual', previous_label: 'Período anterior'},
     impacted_urls: [{path: '/lp', sessions: 4582, conversions: 37, rate: 0.8, change: -27.3}], causes: ['A URL ficou abaixo de 95% de disponibilidade em 2 dias dos últimos 7 (pior dia: 80%).']};
@@ -48,7 +48,14 @@ async function main() {
     if (name === '/bootstrap') return route.fulfill({json: {ready: true, client: {client_id: clientId, client_name: 'Cliente', role: 'admin'}, csrf: 'csrf-alertas',
       clients: [{id: clientId, name: 'Cliente'}], accounts: [], campaigns: [], reports: [], link_tests: [], workspace_projects: [], features: {}}});
     if (name === '/alerts/summary') return route.fulfill({json: {tabs: {incidents: 1, monitors: 2, opportunities: 1}, active: 1, opened_delta: 1, investigating: 0, resolved_today: 2,
-      resolved_today_change: 100, uptime: 99.2, uptime_change: -0.4, estimated_impact: null}});
+      resolved_today_change: 100, uptime: 99.2, uptime_change: -0.4, estimated_impact: null, conversion_value_set: false}});
+    if (name === '/alerts/settings' && request.method() === 'GET') return route.fulfill({json: {can_edit: true, emails_enabled: false, conversion_value: null, rules: [
+      {rule: 'page_down', channel: 'site', kind: 'incident', severity: 'high', title: 'Página indisponível', when: 'Falhou em 2 verificações seguidas.', enabled: true, notify: true,
+        tunable: {label: 'Verificações seguidas com falha', unit: 'vezes', default: 2, min: 2, max: 10, step: 1, value: 2}},
+      {rule: 'channel_entry_exit', channel: 'journey', kind: 'opportunity', severity: 'low', title: 'Canal entra e sai', when: 'Insight.', enabled: true, notify: true, tunable: null},
+      {rule: 'gads_cap_reached', channel: 'google_ads', kind: 'incident', severity: 'high', title: 'Google Ads: teto atingido', when: 'Gasto no teto.', enabled: true, notify: true, tunable: null}]}});
+    if (name === '/alerts/settings' && request.method() === 'PUT') { saved.push({csrf: request.headers()['x-csrf-token'], body: request.postDataJSON()}); return route.fulfill({json: {ok: true}}); }
+    if (name === '/alerts/a1/analyze') { posts.push({action: 'analyze', csrf: request.headers()['x-csrf-token'], body: request.postDataJSON()}); return route.fulfill({json: {ok: true, text: '**O que aconteceu**\n\nA conversão caiu.\n\n**Hipóteses**\nA URL ficou fora do ar.'}}); }
     if (name === '/alerts/monitors') {
       const heat = Array.from({length: 90}, (_, index) => index < 10 ? null : index % 20 === 0 ? [80, 900] : [100, 400]);
       const url = (path, label, vital, extra = {}) => ({flow_id: 'f1', flow_name: 'Fluxo Verão', host: 'exemplo.com.br', path, label, state: vital === 'critical' ? 'offline' : 'online', vital,
@@ -84,9 +91,17 @@ async function main() {
   await row.waitFor();
   const text = await page.locator('.alerts-center').innerText();
   for (const expected of ['Ocorrências ativas', 'Resolvidas hoje', 'Uptime dos sites', '99,2%', 'erro 503', 'Alta', 'Ativo']) assert.ok(text.includes(expected), `a central deve mostrar "${expected}"`);
-  assert.ok(!text.includes('Impacto estimado'), 'sem valor de objetivo, o KPI de impacto em R$ fica oculto');
+  assert.ok(text.includes('Impacto estimado') && text.includes('Informar valor por conversão') && !text.includes('R$'), 'sem o valor por conversão não há número em R$, só o convite para informá-lo');
   assert.deepEqual([lists[0].kind, lists[0].status], ['incident', 'active']);
 
+  await page.getByRole('button', {name: /Mais filtros/}).click();
+  await page.getByLabel('Responsável').selectOption('me');
+  await page.getByRole('button', {name: /Mais filtros \(1\)/}).waitFor();
+  assert.equal(lists.at(-1).assigned, 'me', 'o filtro de responsável chega à API');
+  await page.getByLabel('Última ocorrência').selectOption('7');
+  assert.equal(lists.at(-1).seen, '7');
+  await page.getByLabel('Responsável').selectOption('');
+  await page.getByLabel('Última ocorrência').selectOption('');
   await row.click();
   const panel = page.getByRole('complementary', {name: /Detalhes: Página indisponível/});
   await panel.waitFor();
@@ -99,6 +114,12 @@ async function main() {
   assert.match(await panel.locator('.al-chart figcaption').innerText(), /01\/10 · Período atual: 0,9% · Período anterior: 1,1%/, 'o gráfico lê cada dia pelas setas');
   await panel.getByRole('tab', {name: 'Evidências'}).click();
   await panel.getByText('Falhas seguidas').waitFor();
+  await panel.getByRole('button', {name: 'Investigar com IA'}).click();
+  await panel.getByText('A URL ficou fora do ar.').waitFor();
+  assert.equal(await panel.locator('.al-ai__text strong').first().innerText(), 'O que aconteceu', 'a resposta da IA mostra o negrito como texto, sem HTML');
+  const analysis = posts.find(item => item.action === 'analyze');
+  assert.equal(analysis.csrf, 'csrf-alertas', 'a IA também exige o token CSRF');
+  posts.splice(posts.indexOf(analysis), 1);
   await panel.getByRole('tab', {name: 'Visão geral'}).click();
   await panel.getByRole('button', {name: 'Assumir'}).click();
   await panel.getByText('responsável: Ana').waitFor();
@@ -157,6 +178,20 @@ async function main() {
   await page.getByLabel('Buscar URL ou fluxo').fill('contato');
   assert.equal(await page.locator('.uti-card').count(), 1, 'a busca filtra as URLs');
 
+  await page.getByRole('tab', {name: /Ocorrências/}).click();
+  await page.getByRole('button', {name: 'Informar valor por conversão'}).click();
+  const drawer = page.getByRole('dialog', {name: 'Configurar alertas'});
+  await drawer.getByText('Página indisponível', {exact: true}).waitFor();
+  assert.ok((await drawer.innerText()).includes('O envio de e-mail está desligado neste ambiente'), 'avisa que o e-mail está desligado');
+  await drawer.getByLabel(/R\$ por conversão/).fill('120,50');
+  await drawer.getByLabel(/Verificações seguidas com falha/).fill('4');
+  await drawer.getByText('Avisar por e-mail').first().click();
+  await drawer.getByText('Google Ads', {exact: false}).first().click();
+  await drawer.getByText('Google Ads: teto atingido').waitFor();
+  await drawer.getByRole('button', {name: 'Salvar configuração'}).click();
+  await page.getByRole('dialog', {name: 'Configurar alertas'}).waitFor({state: 'detached'});
+  assert.deepEqual(saved[0].body, {rules: {page_down: {notify: false, threshold: 4}}, conversion_value: 120.5}, 'só o que mudou é enviado');
+  assert.equal(saved[0].csrf, 'csrf-alertas');
   await page.setViewportSize({width: 390, height: 844});
   await page.waitForTimeout(300);
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'sem rolagem horizontal no celular');

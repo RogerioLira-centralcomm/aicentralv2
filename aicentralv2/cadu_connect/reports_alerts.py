@@ -19,6 +19,7 @@ from werkzeug.exceptions import HTTPException
 from ..auth import login_required_api
 from ..db import get_db
 from . import reports_alert_causes as causes
+from . import reports_alert_settings as client_settings
 from .reports_alert_rules import (RULES, SILENT_AFTER_HOURS, anomaly_findings, campaign_page_findings, channel_entry_findings, collection_absent_findings, conversion_drop_findings,
                                   page_down_findings, tech_conversion_findings)
 from .reports_alert_vitals import HEAT_DAYS, PULSE, attach_heat, summarize, url_vitals
@@ -91,10 +92,20 @@ def _send_alert_email(alert, recipients):
         return False
 
 
+def _rule_muted(alert):
+    """The client switched the e-mail of this rule off in the settings. The alert itself still opens and shows in the center."""
+    if not alert.get('client_id') or not alert.get('rule'):
+        return False
+    rows = _rows('SELECT notify FROM cadu_reports_alert_settings WHERE client_id=%s AND rule=%s', (alert['client_id'], alert['rule']))
+    return bool(rows) and rows[0].get('notify') is False
+
+
 def notify_opened(alert, now, retry=False):
     """One e-mail per new alert, never more than once per cooldown. Skips are logged, never silent."""
     if alert['severity'] == 'low':
         return _log(alert['id'], 'notification_skipped', detail={'reason': 'low_severity'})
+    if _rule_muted(alert):
+        return _log(alert['id'], 'notification_skipped', detail={'reason': 'rule_muted'})
     if alert.get('rule') == 'page_down':
         # The flow monitor already e-mails every outage cycle (7h-23h) and the recovery; a second e-mail would duplicate it.
         return _log(alert['id'], 'notification_skipped', detail={'reason': 'flow_monitor'})
@@ -263,12 +274,14 @@ def enrich_conversion_drop(site, finding, page, today):
     return finding
 
 
-def evaluate_anomalies(site, now):
+def evaluate_anomalies(site, now, cfg=None):
     """Traffic and conversions of the last complete day against the same weekday of the previous weeks."""
     today = now.astimezone(SAO_PAULO).date()
     since = datetime.combine(today - timedelta(days=35), datetime.min.time(), tzinfo=SAO_PAULO)
     daily = {row['day']: {'sessions': int(row['sessions']), 'conversions': int(row['conversions'])} for row in _rows(_SITE_DAILY_SQL, {'site': site['id'], 'since': since})}
-    found = anomaly_findings(daily, today, site['label'])
+    cfg = cfg or {}
+    limits = {rule: client_settings.threshold(cfg, rule) for rule in ('traffic_anomaly', 'conversion_anomaly')}
+    found = [item for item in anomaly_findings(daily, today, site['label'], change_percent=limits) if client_settings.is_enabled(cfg, item['rule'])]
     if found:
         last_day = today - timedelta(days=1)
         host = _monitor_rows(_HOST_DAILY_SQL, {'client': site['client_id'], 'host': site['allowed_host'], 'since': today - timedelta(days=15)})
@@ -280,24 +293,39 @@ def evaluate_anomalies(site, now):
 
 
 
-def evaluate_insights(site, now):
+def evaluate_insights(site, now, cfg=None):
     """Advisory rules (severity low, never e-mailed) over the last 7 days of sessions of one site."""
     from .reports_journey import _CHANNELS_CTE, DEVICE_LABELS, ORIGIN_LABELS
     cte = _CHANNELS_CTE.replace('{site}', 'AND e.site_id=%(site)s::uuid')
     params = {'client': site['client_id'], 'since': now - timedelta(days=7), 'until': now, 'site': site['id']}
     tech = _rows(cte + _INSIGHT_TECH_SQL, params)
-    sync_findings(site, 'channel_entry_exit', channel_entry_findings(_rows(cte + _INSIGHT_ENTRY_SQL, params), ORIGIN_LABELS), now)
-    sync_findings(site, 'device_conversion_low', tech_conversion_findings(tech, DEVICE_LABELS), now)
-    sync_findings(site, 'campaign_weak_page', campaign_page_findings(_rows(cte + _INSIGHT_CAMPAIGN_SQL, params), tech), now)
+    cfg = cfg or {}
+    on = lambda rule: client_settings.is_enabled(cfg, rule)
+    sync_findings(site, 'channel_entry_exit', channel_entry_findings(_rows(cte + _INSIGHT_ENTRY_SQL, params), ORIGIN_LABELS) if on('channel_entry_exit') else [], now)
+    sync_findings(site, 'device_conversion_low', tech_conversion_findings(tech, DEVICE_LABELS) if on('device_conversion_low') else [], now)
+    sync_findings(site, 'campaign_weak_page', campaign_page_findings(_rows(cte + _INSIGHT_CAMPAIGN_SQL, params), tech) if on('campaign_weak_page') else [], now)
+
+
+def load_settings(client_id):
+    """The client's alert settings; an empty dict (all defaults) if the table is not there yet, so a missed migration never stops the monitor."""
+    try:
+        return client_settings.load(_rows, client_id)
+    except Exception:
+        get_db().rollback()
+        current_app.logger.exception('Configuração de alertas do cliente %s indisponível; usando os padrões', client_id)
+        return {}
 
 
 def evaluate_site(site, heavy=False, now=None):
     now = now or datetime.now(timezone.utc)
+    cfg = load_settings(site['client_id'])
+    on, limit = (lambda rule: client_settings.is_enabled(cfg, rule)), (lambda rule: client_settings.threshold(cfg, rule))
     checks = _rows(_CHECKS_SQL, (site['id'], site['client_id']))
-    sync_findings(site, 'page_down', page_down_findings(checks), now)
+    sync_findings(site, 'page_down', page_down_findings(checks, failures=int(limit('page_down'))) if on('page_down') else [], now)
     silence = _rows(_SILENCE_SQL, {'site': site['id']})[0]
     hours = float(silence['hours']) if silence['hours'] is not None else None
-    sync_findings(site, 'collection_absent', collection_absent_findings(site['label'], int(silence['baseline'] or 0), hours), now)
+    sync_findings(site, 'collection_absent', collection_absent_findings(site['label'], int(silence['baseline'] or 0), hours, silent_after=limit('collection_absent'))
+                  if on('collection_absent') else [], now)
     if heavy:
         # Confirm the availability and tracking alerts first: a failure while building the richer panels below rolls back only their own work.
         get_db().commit()
@@ -307,7 +335,7 @@ def evaluate_site(site, heavy=False, now=None):
             current = window_metrics(site['id'], row['path'], now - timedelta(days=7), now)[0]
             previous = window_metrics(site['id'], row['path'], now - timedelta(days=14), now - timedelta(days=7))[0]
             pages.append({'path': row['path'], 'current': current, 'previous': previous})
-        drops = conversion_drop_findings(pages)
+        drops = conversion_drop_findings(pages, percent=limit('conversion_drop')) if on('conversion_drop') else []
         by_path = {page['path']: page for page in pages}
         today = now.astimezone(SAO_PAULO).date()
         for finding in drops:
@@ -319,14 +347,14 @@ def evaluate_site(site, heavy=False, now=None):
         sync_findings(site, 'conversion_drop', drops, now)
         get_db().commit()
         try:
-            evaluate_anomalies(site, now)
+            evaluate_anomalies(site, now, cfg)
         except Exception:
             get_db().rollback()
             current_app.logger.exception('Falha ao avaliar anomalias do site %s', site['id'])
         # Committed first: a failing insight query must not undo the incident rules just synced.
         get_db().commit()
         try:
-            evaluate_insights(site, now)
+            evaluate_insights(site, now, cfg)
         except Exception:
             get_db().rollback()
             current_app.logger.exception('Falha ao avaliar insights do site %s', site['id'])
@@ -373,7 +401,7 @@ def evaluate_google_ads_all(now=None):
         return 0
     for client_id in clients:
         try:
-            evaluate_google_ads(client_id, gads._today(), gads._analysis, sync_findings, now)
+            evaluate_google_ads(client_id, gads._today(), gads._analysis, sync_findings, now, disabled=client_settings.disabled_rules(load_settings(client_id)))
             get_db().commit()
         except Exception:
             get_db().rollback()
@@ -512,6 +540,10 @@ _COUNTS_SQL = '''
            COUNT(*) FILTER (WHERE a.kind='incident' AND a.resolved_at>=%(day)s-INTERVAL '1 day' AND a.resolved_at<%(day)s) AS resolved_yesterday
     FROM cadu_reports_alerts a LEFT JOIN cadu_reports_supertag_sites s ON s.id=a.site_id
     WHERE a.client_id=%(client)s AND (%(customer)s::bigint IS NULL OR a.site_id IS NULL OR s.customer_id=%(customer)s)'''
+_LOST_SQL = '''
+    SELECT a.metrics FROM cadu_reports_alerts a LEFT JOIN cadu_reports_supertag_sites s ON s.id=a.site_id
+    WHERE a.client_id=%(client)s AND a.kind='incident' AND a.status<>'resolved' AND a.rule IN ('conversion_drop','conversion_anomaly')
+        AND a.last_seen_at>=%(now)s-INTERVAL '7 days' AND (%(customer)s::bigint IS NULL OR a.site_id IS NULL OR s.customer_id=%(customer)s)'''
 _MONITOR_COUNT_SQL = '''
     SELECT (SELECT COALESCE(SUM(jsonb_array_length(c.pages)),0)
             FROM cadu_reports_flow_registry f
@@ -559,6 +591,17 @@ def _filters(selected):
     if severity:
         where.append('a.severity=%s')
         params.append(severity)
+    assigned, seen = request.args.get('assigned', ''), request.args.get('seen', '')
+    if assigned not in ('', 'me', 'none') or seen not in ('', '1', '7', '30'):
+        abort(400, description='Filtro inválido.')
+    if assigned == 'me':
+        where.append('a.assigned_to=%s')
+        params.append(selected['user_id'])
+    elif assigned == 'none':
+        where.append('a.assigned_to IS NULL')
+    if seen:
+        where.append("a.last_seen_at>=NOW()-%s*INTERVAL '1 day'")
+        params.append(int(seen))
     text = request.args.get('q', '').strip()[:80]
     if text:
         like = '%' + text.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%'
@@ -603,6 +646,9 @@ def register(bp):
         uptime = _rows(_UPTIME_SQL, {'client': selected['client_id'], 'now': now, 'customer': customer})[0]
         monitors = _rows(_MONITOR_COUNT_SQL, {'c': selected['client_id'], 'customer': customer})[0]['n']
         resolved_today, resolved_yesterday = int(counts['resolved_today']), int(counts['resolved_yesterday'])
+        value = client_settings.conversion_value(load_settings(selected['client_id']))
+        lost = sum(max(0.0, float(metric['previous']) - float(metric['value'])) for row in _rows(_LOST_SQL, {'client': selected['client_id'], 'now': now, 'customer': customer})
+                   for metric in row['metrics'] or [] if metric.get('label') == 'Conversões' and metric.get('previous') is not None and metric.get('value') is not None)
         uptime_now, uptime_before = _pct(uptime['up_now'], uptime['all_now']), _pct(uptime['up_before'], uptime['all_before'])
         return jsonify(
             tabs={'incidents': int(counts['incidents']), 'monitors': int(monitors), 'opportunities': int(counts['opportunities'])},
@@ -610,8 +656,9 @@ def register(bp):
             investigating=int(counts['investigating']),
             resolved_today=resolved_today, resolved_today_change=_pct(resolved_today - resolved_yesterday, resolved_yesterday),
             uptime=uptime_now, uptime_change=round(uptime_now - uptime_before, 1) if uptime_now is not None and uptime_before is not None else None,
-            # Needs a value per conversion goal; until the flow goals carry one the KPI stays hidden instead of showing an invented figure.
-            estimated_impact=None)
+            # Lost conversions of the open conversion alerts times the value the client set for one conversion; without that value there is no number to show.
+            estimated_impact={'micros': round(lost * value * 1_000_000), 'currency': 'BRL', 'lost_conversions': round(lost, 1)} if value else None,
+            conversion_value_set=bool(value))
 
     @bp.get('/api/v2/reports/alerts/monitors')
     @login_required_api
@@ -652,6 +699,48 @@ def register(bp):
                              _cell(row['page_path']), row['first_seen_at'], row['last_seen_at']])
         return Response('﻿' + out.getvalue(), mimetype='text/csv; charset=utf-8',
                         headers={'Content-Disposition': 'attachment; filename="alertas.csv"'})
+
+    @bp.get('/api/v2/reports/alerts/settings')
+    @login_required_api
+    def reports_alert_settings():
+        selected = _selection()
+        cfg = load_settings(selected['client_id'])
+        return jsonify(rules=client_settings.describe(rules_catalog(), cfg), conversion_value=client_settings.conversion_value(cfg),
+                       can_edit=selected['role'] == 'admin', emails_enabled=emails_enabled())
+
+    @bp.put('/api/v2/reports/alerts/settings')
+    @login_required_api
+    def reports_alert_settings_save():
+        payload = request.get_json(silent=True)
+        payload = payload if isinstance(payload, dict) else {}
+        selected = _selection(payload)
+        _write_guard(selected)
+        if selected['role'] != 'admin':
+            abort(403, description='Só administradores configuram os alertas.')
+        try:
+            changes, value = client_settings.parse(payload, {item['rule'] for item in rules_catalog()})
+        except ValueError as failure:
+            abort(400, description=str(failure))
+        client_settings.save(_rows, selected['client_id'], session['user_id'], changes, value)
+        get_db().commit()
+        return jsonify(ok=True)
+
+    @bp.post('/api/v2/reports/alerts/<alert_id>/analyze')
+    @login_required_api
+    def reports_alert_analyze(alert_id):
+        """AI reading of one alert. Spends the client's credits, so viewers and guests are refused before anything runs."""
+        from . import reports_alert_ai
+        payload = request.get_json(silent=True)
+        payload = payload if isinstance(payload, dict) else {}
+        selected = _selection(payload)
+        _write_guard(selected)
+        alert = _alert_for(selected, alert_id)
+        events = _rows('SELECT kind,created_at FROM cadu_reports_alert_events WHERE alert_id=%s ORDER BY created_at DESC,id DESC LIMIT 50', (alert_id,))
+        when = next((item['when'] for item in rules_catalog() if item['rule'] == alert['rule']), '')
+        text = reports_alert_ai.analyze(alert, events, when, selected)
+        _log(alert['id'], 'ai_analysis', session['user_id'], {'text': text})
+        get_db().commit()
+        return jsonify(ok=True, text=text)
 
     @bp.get('/api/v2/reports/alerts/<alert_id>/events')
     @login_required_api

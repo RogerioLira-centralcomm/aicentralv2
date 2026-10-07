@@ -21,6 +21,20 @@
         "5050"
       ],
       "port": 5050
+    },
+    {
+      "name": "flask-studio",
+      "runtimeExecutable": "/usr/bin/env",
+      "runtimeArgs": [
+        "STUDIO_URL=http://studio.localhost:5050",
+        ".venv/bin/flask",
+        "--app",
+        "run:app",
+        "run",
+        "--port",
+        "5050"
+      ],
+      "port": 5050
     }
   ]
 }

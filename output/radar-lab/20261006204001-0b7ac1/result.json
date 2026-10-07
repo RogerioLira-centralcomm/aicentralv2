@@ -1,0 +1,2764 @@
+{
+  "run_id": "20261006204001-0b7ac1",
+  "scenario": {
+    "name": "cemig",
+    "brand_ref": "studio:31",
+    "project_ref": "ci:1e3b2924-cc9f-42ba-b288-b94a4c9d5d90",
+    "brand_name": "Cemig",
+    "sector": "Energia elétrica",
+    "site": "https://www.cemig.com.br",
+    "facts": [
+      "Distribuidora e geradora de energia de Minas Gerais",
+      "Clientes residenciais, empresas e rural"
+    ],
+    "focus": "conta de luz, bandeira tarifária, calor e consumo consciente no fim do ano",
+    "places": "Minas Gerais, Belo Horizonte",
+    "lenses": [
+      "Sazonalidade e datas",
+      "Regulação",
+      "Reputação"
+    ],
+    "recency_days": 30
+  },
+  "context": {
+    "brand": {
+      "name": "Cemig",
+      "sector": "[{'value': 'Energia elétrica', 'source_url': 'https://ri.cemig.com.br', 'excerpt",
+      "facts": [
+        "Resumo da marca: [{'value': 'A Cemig se apresenta como uma companhia de energia com frente institucional, serviços ao cliente, produtos comerciais e relações com investidores.', 'source_url': 'https://www.cemig.com.br', 'excerpt': '## SERVIÇOS ... ## INSTITUCIONAL ... ## RELACIONAMENTO ... ## PRODUTOS', 'confidence': 0.93}, {'value': 'A marca opera com contexto principal no Brasil em português, mas também oferece navegação em inglês.', 'source_url': 'https://www.cemig.com.br', 'excerpt': '[PT](https://www.cemig.com.br/ \"Português\") ... [EN](https://www.cemig.com.br/en \"English\")', 'confidence': 0.96}]",
+        "Público-alvo: [{'label': 'Clientes e consumidores de energia da Cemig', 'evidence': 'O site destaca serviços de atendimento e autoatendimento ligados à conta de luz e fornecimento de energia, como 2ª via da conta, troca de titularidade, estou sem luz e religação.', 'source_url': 'https://www.cemig.com.br', 'excerpt': 'SERVIÇOS MAIS ACESSADOS - 2ª via da conta; Troca de titularidade; Estou sem luz; Religação', 'confidence': 0.98}, {'label': 'Investidores e acionistas', 'evidence': 'Há uma área dedicada de Relações com Investidores com conteúdos de governança, resultados, informações financeiras e serviços de",
+        "Produtos e serviços: ['Cemig Atende Web / CEMIG ATENDE', 'Fornecimento e acompanhamento de energia, incluindo mapa de fornecimento e desligamento programado', 'Geração Distribuída', 'Gestão de conta de luz e tarifas', 'Energia Livre Cemig', 'Cemig SIM']",
+        "Diferenciais: ['Disponibiliza ecossistema amplo de atendimento digital e autosserviço ao cliente.', 'Combina atuação institucional e operacional com área dedicada de Relações com Investidores.', 'Expõe acessibilidade e suporte multilíngue no ambiente institucional.', 'Mantém portfólio que vai além da distribuição/atendimento, incluindo Geração Distribuída e produtos como Energia Livre Cemig e Cemig SIM.']",
+        "Tom de voz: [{'value': 'Institucional', 'source_url': 'https://www.cemig.com.br', 'excerpt': '## INSTITUCIONAL\\n- [A Cemig] ...\\n- [Governança] ...\\n- [Legislação do Setor] ...', 'confidence': 0.91}, {'value': 'Orientado a serviços e autoatendimento', 'source_url': 'https://www.cemig.com.br', 'excerpt': '## SERVIÇOS MAIS ACESSADOS\\n- [2ª via da conta] ...\\n- [Troca de titularidade] ...\\n- [Estou sem luz] ...\\n- [Religação] ...', 'confidence': 0.95}, {'value': 'Acessível e bilíngue', 'source_url': 'https://www.cemig.com.br', 'excerpt': '[Recursos de acessibilidade](https://www.cemig.com.br/recursos-de-aces",
+        "Direção do trabalho: Dossiê operacional da marca Cemig.",
+        "Orientações para o Cadu: Contexto de marca vinculado; decisões de campanha devem ser registradas neste projeto.",
+        "Tom de voz: [{'value': 'Institucional', 'source_url': 'https://www.cemig.com.br', 'excerpt': '## INSTITUCIONAL\\n- [A Cemig] ...\\n- [Governança] ...\\n- [Legislação do Setor] ...', 'confidence': 0.91}, {'value': 'Orientado a serviços e autoatendimento', 'source_url': 'https://www.cemig.com.br', 'excerpt': '## SERVIÇOS MAIS ACESSADOS\\n- [2ª via da conta] ...\\n- [Troca de titularidade] ...\\n- [Estou sem luz] ...\\n- [Religação] ...', 'confidence': 0.95}, {'value': 'Acessível e bilíngue', 'source_url': 'https://www.cemig.com.br', 'excerpt': '[Recursos de acessibilidade](https://www.cemig.com.br/recursos-de-aces",
+        "Público: [{'label': 'Clientes e consumidores de energia da Cemig', 'evidence': 'O site destaca serviços de atendimento e autoatendimento ligados à conta de luz e fornecimento de energia, como 2ª via da conta, troca de titularidade, estou sem luz e religação.', 'source_url': 'https://www.cemig.com.br', 'excerpt': 'SERVIÇOS MAIS ACESSADOS - 2ª via da conta; Troca de titularidade; Estou sem luz; Religação', 'confidence': 0.98}, {'label': 'Investidores e acionistas', 'evidence': 'Há uma área dedicada de Relações com Investidores com conteúdos de governança, resultados, informações financeiras e serviços de",
+        "Posicionamento: [{'value': 'A Cemig se apresenta como uma companhia de energia com frente institucional, serviços ao cliente, produtos comerciais e relações com investidores.', 'source_url': 'https://www.cemig.com.br', 'excerpt': '## SERVIÇOS ... ## INSTITUCIONAL ... ## RELACIONAMENTO ... ## PRODUTOS', 'confidence': 0.93}, {'value': 'A marca opera com contexto principal no Brasil em português, mas também oferece navegação em inglês.', 'source_url': 'https://www.cemig.com.br', 'excerpt': '[PT](https://www.cemig.com.br/ \"Português\") ... [EN](https://www.cemig.com.br/en \"English\")', 'confidence': 0.96}]"
+      ],
+      "site": "https://www.cemig.com.br"
+    },
+    "focus": "conta de luz, bandeira tarifária, calor e consumo consciente no fim do ano",
+    "places": "Minas Gerais, Belo Horizonte",
+    "lenses": "Sazonalidade e datas, Regulação, Reputação",
+    "recency_days": 30,
+    "recency": "month",
+    "topic": "conta de luz, bandeira tarifária, calor e consumo consciente no fim do ano Cemig [{'value': 'Energia elétrica', 'source_url': 'https://ri.cemig.com.br', 'excerpt",
+    "today": "2026-10-06",
+    "since": "2026-09-06T20:40:01.376025+00:00"
+  },
+  "token_price_usd": 0.00016055828898483784,
+  "radar_r1_reserve": 15207,
+  "seconds": 334.4,
+  "flows": {
+    "F1": {
+      "name": "Perplexity + imprensa",
+      "kind": "perplexity",
+      "models": {
+        "discover_open": "perplexity/sonar-pro",
+        "discover_press": "perplexity/sonar",
+        "discover_trends": "perplexity/sonar",
+        "judge": "openai/gpt-5.4-mini",
+        "check": "perplexity/sonar"
+      },
+      "discover_seconds": 38.1,
+      "opportunities": 3,
+      "review_avg": 4.73,
+      "history": {
+        "1.0": [
+          4.15,
+          4.73,
+          4.67
+        ]
+      },
+      "evidence": 13,
+      "sources": 9,
+      "sources_ab_pct": 100,
+      "urls_ok_pct": 100,
+      "in_window_pct": 100,
+      "confidence": {
+        "alta": 3,
+        "media": 0,
+        "baixa": 0
+      },
+      "sim_tokens": 554,
+      "real_tokens": 519,
+      "provider_usd": 0.0829,
+      "failed_calls": 0
+    },
+    "F2": {
+      "name": "OpenAI nativo",
+      "kind": "web",
+      "models": {
+        "discover": "openai/gpt-5-mini",
+        "judge": "gpt-5-mini",
+        "check": "openai/gpt-5-mini"
+      },
+      "discover_seconds": 22.9,
+      "opportunities": 0,
+      "review_avg": null,
+      "history": {
+        "1.0": [
+          null,
+          null,
+          null
+        ]
+      },
+      "evidence": 11,
+      "sources": 0,
+      "sources_ab_pct": null,
+      "urls_ok_pct": null,
+      "in_window_pct": null,
+      "confidence": {
+        "alta": 0,
+        "media": 0,
+        "baixa": 0
+      },
+      "sim_tokens": 6338,
+      "real_tokens": 7961,
+      "provider_usd": 0.0692,
+      "failed_calls": 0
+    },
+    "F3": {
+      "name": "Evidência primeiro (Firecrawl + Python)",
+      "kind": "evidence",
+      "models": {
+        "judge": "google/gemini-2.5-flash",
+        "check": "deepseek/deepseek-v3.2"
+      },
+      "discover_seconds": 18.7,
+      "opportunities": 3,
+      "review_avg": 3.93,
+      "history": {
+        "1.0": [
+          3.2,
+          2.4,
+          3.93
+        ]
+      },
+      "evidence": 14,
+      "sources": 5,
+      "sources_ab_pct": 80,
+      "urls_ok_pct": 100,
+      "in_window_pct": 100,
+      "confidence": {
+        "alta": 1,
+        "media": 2,
+        "baixa": 0
+      },
+      "sim_tokens": 393,
+      "real_tokens": 293,
+      "provider_usd": 0.0468,
+      "failed_calls": 0
+    },
+    "F4": {
+      "name": "Gemini + busca Google",
+      "kind": "web",
+      "models": {
+        "discover": "google/gemini-3-flash-preview",
+        "judge": "google/gemini-3-flash-preview",
+        "check": "google/gemini-3-flash-preview"
+      },
+      "discover_seconds": 9.1,
+      "opportunities": 4,
+      "review_avg": 2.15,
+      "history": {
+        "1.0": [
+          1.75,
+          2.15,
+          2.1
+        ]
+      },
+      "evidence": 14,
+      "sources": 6,
+      "sources_ab_pct": 67,
+      "urls_ok_pct": 33,
+      "in_window_pct": 0,
+      "confidence": {
+        "alta": 0,
+        "media": 4,
+        "baixa": 0
+      },
+      "sim_tokens": 709,
+      "real_tokens": 1947,
+      "provider_usd": 0.312,
+      "failed_calls": 0
+    },
+    "F5": {
+      "name": "Grok + web e X",
+      "kind": "web",
+      "models": {
+        "discover": "x-ai/grok-4.3",
+        "judge": "x-ai/grok-4.3",
+        "check": "x-ai/grok-4.3"
+      },
+      "discover_seconds": 18.8,
+      "opportunities": 2,
+      "review_avg": 4.7,
+      "history": {
+        "1.0": [
+          4.7,
+          4.2,
+          3.9
+        ]
+      },
+      "evidence": 14,
+      "sources": 3,
+      "sources_ab_pct": 67,
+      "urls_ok_pct": 100,
+      "in_window_pct": 100,
+      "confidence": {
+        "alta": 2,
+        "media": 0,
+        "baixa": 0
+      },
+      "sim_tokens": 242,
+      "real_tokens": 805,
+      "provider_usd": 0.129,
+      "failed_calls": 0
+    },
+    "F6": {
+      "name": "Claude Sonnet + busca Anthropic",
+      "kind": "web",
+      "models": {
+        "discover": "anthropic/claude-sonnet-5",
+        "judge": "anthropic/claude-sonnet-5",
+        "check": "anthropic/claude-sonnet-5"
+      },
+      "discover_seconds": 77.6,
+      "opportunities": 0,
+      "review_avg": null,
+      "history": {
+        "1.0": [
+          null,
+          null,
+          null
+        ]
+      },
+      "evidence": 10,
+      "sources": 0,
+      "sources_ab_pct": null,
+      "urls_ok_pct": null,
+      "in_window_pct": null,
+      "confidence": {
+        "alta": 0,
+        "media": 0,
+        "baixa": 0
+      },
+      "sim_tokens": 500,
+      "real_tokens": 10027,
+      "provider_usd": 1.6096,
+      "failed_calls": 0
+    },
+    "F7": {
+      "name": "Híbrido: Perplexity + RSS, juiz Sonnet",
+      "kind": "perplexity",
+      "models": {
+        "discover_open": "perplexity/sonar-pro",
+        "discover_press": "perplexity/sonar",
+        "discover_trends": "perplexity/sonar",
+        "judge": "anthropic/claude-sonnet-5",
+        "check": "perplexity/sonar"
+      },
+      "discover_seconds": 34.7,
+      "opportunities": 0,
+      "review_avg": null,
+      "history": {
+        "1.0": [
+          null,
+          null,
+          null
+        ]
+      },
+      "evidence": 14,
+      "sources": 0,
+      "sources_ab_pct": null,
+      "urls_ok_pct": null,
+      "in_window_pct": null,
+      "confidence": {
+        "alta": 0,
+        "media": 0,
+        "baixa": 0
+      },
+      "sim_tokens": 499,
+      "real_tokens": 605,
+      "provider_usd": 0.0967,
+      "failed_calls": 0
+    }
+  },
+  "calls": [
+    {
+      "flow": "F3",
+      "stage": "google_news",
+      "kind": "python",
+      "model": "python/rss",
+      "route": "python",
+      "regime": "gratis",
+      "sim_usd": 0.0,
+      "sim_tokens": 0,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.2,
+      "ok": true,
+      "note": "23 manchetes",
+      "label": "",
+      "preview": ""
+    },
+    {
+      "flow": "F3",
+      "stage": "search",
+      "kind": "firecrawl",
+      "model": "firecrawl/search",
+      "route": "firecrawl",
+      "regime": "firecrawl",
+      "sim_usd": 0.0,
+      "sim_tokens": 95,
+      "real_usd": 0.005138,
+      "real_tokens": 32,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 1.3,
+      "ok": true,
+      "note": "0 fontes, 0 lidas",
+      "label": "",
+      "preview": ""
+    },
+    {
+      "flow": "F1",
+      "stage": "discover_press",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.007721,
+      "sim_tokens": 49,
+      "real_usd": 0.00689,
+      "real_tokens": 43,
+      "input_tokens": 1807,
+      "output_tokens": 83,
+      "seconds": 3.5,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"fatos\":[{\"fato\":\"A Cemig informou em seu site que a bandeira tarifária de outubro de 2026 é verde, sem acréscimo na conta de luz.\",\"data\":\"2026-10-05\",\"local\":\"Brasil\",\"veiculo\":\"Cemig\",\"url\":\"https://www.cemig.com.br/\",\"tipo\":\"news\"}]}"
+    },
+    {
+      "flow": "F3",
+      "stage": "search-open",
+      "kind": "firecrawl",
+      "model": "firecrawl/search",
+      "route": "firecrawl",
+      "regime": "firecrawl",
+      "sim_usd": 0.0,
+      "sim_tokens": 95,
+      "real_usd": 0.005138,
+      "real_tokens": 32,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 3.6,
+      "ok": true,
+      "note": "8 fontes, 0 lidas",
+      "label": "",
+      "preview": ""
+    },
+    {
+      "flow": "F1",
+      "stage": "discover_trends",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.006328,
+      "sim_tokens": 40,
+      "real_usd": 0.00592,
+      "real_tokens": 37,
+      "input_tokens": 275,
+      "output_tokens": 649,
+      "seconds": 7.0,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"fatos\":[{\"fato\":\"O Google Trends para o Brasil mostra a seção 'Em alta', indicando aumento recente de interesse em pesquisas no tema de energia no país.\",\"data\":\"2026-02-11\",\"local\":\"Brasil\",\"veiculo\":\"Google Trends\",\"url\":\"https://trends.google.com.br/explore?geo=BR\",\"tipo\":\"search_trend\"},{\"fato\":\"A Cemig mantém a explicação sobre bandeiras tarifárias, usadas para sinalizar acréscimos na conta"
+    },
+    {
+      "flow": "F4",
+      "stage": "discover_open",
+      "kind": "llm",
+      "model": "google/gemini-3-flash-preview",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.018707,
+      "sim_tokens": 117,
+      "real_usd": 0.005309,
+      "real_tokens": 34,
+      "input_tokens": 1583,
+      "output_tokens": 1506,
+      "seconds": 9.0,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "```json\n{\n  \"fatos\": [\n    {\n      \"fato\": \"A Aneel anunciou a bandeira tarifária amarela para o mês de novembro, reduzindo o custo extra na conta de luz após período de bandeira vermelha.\",\n      \"data\": \"2024-10-25\",\n      \"local\": \"Brasil\",\n      \"veiculo\": \"G1\",\n      \"url\": \"https://g1.globo.com/economia/noticia/2024/10/25/conta-de-luz-tera-bandeira-amarela-em-novembro-diz-aneel.ghtml\",\n     "
+    },
+    {
+      "flow": "F4",
+      "stage": "discover_press",
+      "kind": "llm",
+      "model": "google/gemini-3-flash-preview",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.01878,
+      "sim_tokens": 117,
+      "real_usd": 0.059418,
+      "real_tokens": 371,
+      "input_tokens": 1802,
+      "output_tokens": 839,
+      "seconds": 9.1,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "```json\n{\n  \"fatos\": [\n    {\n      \"fato\": \"A Aneel anunciou que a bandeira tarifária para o mês de outubro de 2024 será vermelha patamar 2, a mais cara do sistema.\",\n      \"data\": \"2024-09-27\",\n      \"local\": \"Brasil\",\n      \"veiculo\": \"Poder360\",\n      \"url\": \"https://www.poder360.com.br/economia/aneel-aciona-bandeira-vermelha-2-na-conta-de-luz-em-outubro/\",\n      \"tipo\": \"regulation\"\n    },\n   "
+    },
+    {
+      "flow": "F1",
+      "stage": "discover_open",
+      "kind": "llm",
+      "model": "perplexity/sonar-pro",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.025682,
+      "sim_tokens": 160,
+      "real_usd": 0.0241,
+      "real_tokens": 151,
+      "input_tokens": 1639,
+      "output_tokens": 879,
+      "seconds": 10.1,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"fatos\":[{\"fato\":\"A ANEEL anunciou que a bandeira tarifária de outubro será verde, eliminando a cobrança adicional na conta de luz; a medida cria uma oportunidade para comunicação sobre alívio na fatura e consumo consciente durante o calor.\",\"data\":\"2026-09-25\",\"local\":\"Brasil\",\"veiculo\":\"G1\",\"url\":\"https://g1.globo.com/economia/noticia/2026/09/25/conta-de-luz-aneel-reduz-bandeira-tarifaria-para-"
+    },
+    {
+      "flow": "F2",
+      "stage": "discover_press",
+      "kind": "llm",
+      "model": "openai/gpt-5-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.01305,
+      "sim_tokens": 82,
+      "real_usd": 0.013525,
+      "real_tokens": 85,
+      "input_tokens": 10289,
+      "output_tokens": 1110,
+      "seconds": 11.5,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"fatos\":[{\"fato\":\"A Agência Nacional de Energia Elétrica (Aneel) anunciou que as contas de luz voltarão à bandeira verde (sem cobrança adicional) a partir de outubro, após cinco meses de bandeira amarela.\",\"data\":\"2026-09-25\",\"local\":\"Brasil\",\"veiculo\":\"Hoje em Dia\",\"url\":\"https://www.hojeemdia.com.br/economiaefinancas/faltando-menos-de-10-dias-para-a-eleic-o-governo-anuncia-conta-de-luz-sem-tari"
+    },
+    {
+      "flow": "F3",
+      "stage": "extract",
+      "kind": "firecrawl",
+      "model": "firecrawl/scrape",
+      "route": "firecrawl",
+      "regime": "firecrawl",
+      "sim_usd": 0.0,
+      "sim_tokens": 63,
+      "real_usd": 0.005138,
+      "real_tokens": 32,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 11.1,
+      "ok": true,
+      "note": "",
+      "label": "",
+      "preview": ""
+    },
+    {
+      "flow": "F3",
+      "stage": "extract-python",
+      "kind": "python",
+      "model": "python/html",
+      "route": "python",
+      "regime": "gratis",
+      "sim_usd": 0.0,
+      "sim_tokens": 0,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 1.5,
+      "ok": true,
+      "note": "2/2 lidas",
+      "label": "",
+      "preview": ""
+    },
+    {
+      "flow": "F5",
+      "stage": "discover_open",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.010167,
+      "sim_tokens": 64,
+      "real_usd": 0.043253,
+      "real_tokens": 270,
+      "input_tokens": 22134,
+      "output_tokens": 1363,
+      "seconds": 12.5,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\n  \"fatos\": [\n    {\n      \"fato\": \"Aneel definiu bandeira tarifária verde para outubro de 2026, encerrando cinco meses de bandeira amarela e sem cobrança adicional na conta de luz.\",\n      \"data\": \"2026-09-25\",\n      \"local\": \"Brasil\",\n      \"veiculo\": \"Agência Brasil\",\n      \"url\": \"https://agenciabrasil.ebc.com.br/economia/noticia/2026-09/apos-cinco-meses-conta-de-luz-voltara-bandeira-verde-em-"
+    },
+    {
+      "flow": "F2",
+      "stage": "discover_open",
+      "kind": "llm",
+      "model": "openai/gpt-5-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.013014,
+      "sim_tokens": 82,
+      "real_usd": 0.048155,
+      "real_tokens": 300,
+      "input_tokens": 23930,
+      "output_tokens": 1720,
+      "seconds": 22.8,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"fatos\":[{\"fato\":\"ANEEL definiu bandeira tarifária VERDE para outubro, indicando ausência de custo extra na conta de luz.\",\"data\":\"2026-09-25\",\"local\":\"Brasil\",\"veiculo\":\"Agência Nacional de Energia Elétrica (ANEEL)\",\"url\":\"https://www.gov.br/aneel/pt-br/assuntos/noticias/2026-defeso-eleitoral/outubro-tera-bandeira-verde-contas-de-luz-sem-custo-extra\",\"tipo\":\"regulation\"},{\"fato\":\"Cemig publicou "
+    },
+    {
+      "flow": "F7",
+      "stage": "discover_press",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.007721,
+      "sim_tokens": 49,
+      "real_usd": 0.00681,
+      "real_tokens": 43,
+      "input_tokens": 1807,
+      "output_tokens": 6,
+      "seconds": 2.9,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"fatos\":[]}"
+    },
+    {
+      "flow": "F5",
+      "stage": "discover_press",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.010351,
+      "sim_tokens": 65,
+      "real_usd": 0.039973,
+      "real_tokens": 249,
+      "input_tokens": 17506,
+      "output_tokens": 2419,
+      "seconds": 18.8,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\n  \"fatos\": [\n    {\n      \"fato\": \"Cemig alerta famílias mineiras sobre risco de perda de descontos na conta de luz pela Tarifa Social se não regularizarem dados cadastrais até 31 de dezembro de 2026.\",\n      \"data\": \"2026-09-17\",\n      \"local\": \"Minas Gerais\",\n      \"veiculo\": \"Rádio Itatiaia\",\n      \"url\": \"https://www.itatiaia.com.br/ouropreto/cemig-alerta-para-risco-de-perda-de-descontos-na-c"
+    },
+    {
+      "flow": "F7",
+      "stage": "discover_trends",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.006328,
+      "sim_tokens": 40,
+      "real_usd": 0.00579,
+      "real_tokens": 37,
+      "input_tokens": 275,
+      "output_tokens": 518,
+      "seconds": 6.5,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"fatos\":[{\"fato\":\"A Cemig informa que a bandeira vigente em outubro de 2026 é verde, enquanto em setembro de 2026 foi amarela, o que costuma impulsionar atenção a conta de luz e consumo consciente.\",\"data\":\"2026-10-05\",\"local\":\"Brasil\",\"veiculo\":\"Cemig\",\"url\":\"https://www.cemig.com.br/\",\"tipo\":\"search_trend\"},{\"fato\":\"A Cemig publicou alerta de que, mesmo com bandeira verde, o consumo consciente "
+    },
+    {
+      "flow": "F7",
+      "stage": "discover_open",
+      "kind": "llm",
+      "model": "perplexity/sonar-pro",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.025682,
+      "sim_tokens": 160,
+      "real_usd": 0.02269,
+      "real_tokens": 142,
+      "input_tokens": 1639,
+      "output_tokens": 785,
+      "seconds": 9.3,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"fatos\":[{\"fato\":\"A ANEEL anunciou que a bandeira tarifária de outubro de 2026 será verde, encerrando cinco meses de bandeira amarela e eliminando a cobrança adicional na conta de luz.\",\"data\":\"2026-09-25\",\"local\":\"Brasil\",\"veiculo\":\"G1\",\"url\":\"https://g1.globo.com/economia/noticia/2026/09/25/conta-de-luz-aneel-reduz-bandeira-tarifaria-para-verde-em-outubro.ghtml\",\"tipo\":\"regulation\"},{\"fato\":\"A "
+    },
+    {
+      "flow": "F1",
+      "stage": "extract",
+      "kind": "firecrawl",
+      "model": "firecrawl/scrape",
+      "route": "firecrawl",
+      "regime": "firecrawl",
+      "sim_usd": 0.0,
+      "sim_tokens": 63,
+      "real_usd": 0.010276,
+      "real_tokens": 64,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 27.8,
+      "ok": true,
+      "note": "",
+      "label": "",
+      "preview": ""
+    },
+    {
+      "flow": "F6",
+      "stage": "discover_open",
+      "kind": "llm",
+      "model": "anthropic/claude-sonnet-5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.026188,
+      "sim_tokens": 164,
+      "real_usd": 0.313694,
+      "real_tokens": 1954,
+      "input_tokens": 118192,
+      "output_tokens": 2731,
+      "seconds": 33.7,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "Com base na pesquisa, compilei os fatos relevantes dos últimos 30 dias (setembro-outubro de 2026) relacionados a conta de luz, bandeira tarifária, calor e consumo consciente, com foco em Minas Gerais/Cemig.Com base nas buscas, aqui estão os fatos relevantes dos últimos 30 dias para o tema \"conta de luz, bandeira tarifária, calor e consumo consciente\" ligados à Cemig/Minas Gerais e ao cenário nacio"
+    },
+    {
+      "flow": "F7",
+      "stage": "extract",
+      "kind": "firecrawl",
+      "model": "firecrawl/scrape",
+      "route": "firecrawl",
+      "regime": "firecrawl",
+      "sim_usd": 0.0,
+      "sim_tokens": 63,
+      "real_usd": 0.010276,
+      "real_tokens": 64,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 25.0,
+      "ok": true,
+      "note": "",
+      "label": "",
+      "preview": ""
+    },
+    {
+      "flow": "F7",
+      "stage": "google_news",
+      "kind": "python",
+      "model": "python/rss",
+      "route": "python",
+      "regime": "gratis",
+      "sim_usd": 0.0,
+      "sim_tokens": 0,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.2,
+      "ok": true,
+      "note": "23 manchetes",
+      "label": "",
+      "preview": ""
+    },
+    {
+      "flow": "F6",
+      "stage": "discover_press",
+      "kind": "llm",
+      "model": "anthropic/claude-sonnet-5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.026482,
+      "sim_tokens": 165,
+      "real_usd": 1.24984,
+      "real_tokens": 7785,
+      "input_tokens": 526805,
+      "output_tokens": 5623,
+      "seconds": 77.5,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "```json\n{\"fatos\": [\n  {\"fato\": \"A Aneel confirmou que a bandeira tarifária de outubro de 2026 será verde, encerrando cinco meses seguidos de bandeira amarela e eliminando a cobrança adicional na conta de luz.\", \"data\": \"2026-09-25\", \"local\": \"Brasil\", \"veiculo\": \"Agência Brasil\", \"url\": \"https://agenciabrasil.ebc.com.br/radioagencia-nacional/geral/audio/2026-09/conta-de-luz-sem-taxa-extra-em-outub"
+    },
+    {
+      "flow": "F1",
+      "stage": "judge",
+      "kind": "llm",
+      "model": "openai/gpt-5.4-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.012694,
+      "sim_tokens": 80,
+      "real_usd": 0.012457,
+      "real_tokens": 78,
+      "input_tokens": 5485,
+      "output_tokens": 1854,
+      "seconds": 12.9,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"opportunities\":[{\"title\":\"Bandeira verde: alívio na conta e dica de consumo\",\"thesis\":\"A Cemig pode aproveitar a bandeira verde em outubro para explicar, de forma simples, por que a conta vem sem custo extra e como manter o consumo consciente no calor. O tema é altamente aderente ao serviço principal da marca e conversa com uma dor sazonal já presente no verão.\",\"signals\":[{\"source_id\":\"S2\",\"hea"
+    },
+    {
+      "flow": "F4",
+      "stage": "judge",
+      "kind": "llm",
+      "model": "google/gemini-3-flash-preview",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.00789,
+      "sim_tokens": 50,
+      "real_usd": 0.009923,
+      "real_tokens": 62,
+      "input_tokens": 5248,
+      "output_tokens": 2433,
+      "seconds": 14.3,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\n  \"opportunities\": [\n    {\n      \"title\": \"Campanha de Alívio Financeiro: Bandeira Amarela e Negociação de Débitos\",\n      \"thesis\": \"Aproveitar a transição da bandeira vermelha para amarela em novembro para promover a campanha de negociação de débitos com até 90% de desconto, aliviando o orçamento das famílias no fim de ano.\",\n      \"signals\": [\n        {\n          \"source_id\": \"S1\",\n          "
+    },
+    {
+      "flow": "F3",
+      "stage": "judge",
+      "kind": "llm",
+      "model": "google/gemini-2.5-flash",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.006125,
+      "sim_tokens": 39,
+      "real_usd": 0.008168,
+      "real_tokens": 51,
+      "input_tokens": 6803,
+      "output_tokens": 2451,
+      "seconds": 16.9,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\n  \"opportunities\": [\n    {\n      \"title\": \"Campanha de Conscientização: Consumo Inteligente no Verão e Fim de Ano\",\n      \"thesis\": \"Com a bandeira verde e a chegada do calor, a Cemig deve reforçar a importância do consumo consciente para evitar surpresas na conta de luz, aproveitando o período de festas para educar seus clientes.\",\n      \"signals\": [\n        {\n          \"source_id\": \"S1\",\n     "
+    },
+    {
+      "flow": "F4",
+      "stage": "check",
+      "kind": "llm",
+      "model": "google/gemini-3-flash-preview",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.017433,
+      "sim_tokens": 109,
+      "real_usd": 0.072824,
+      "real_tokens": 454,
+      "input_tokens": 374,
+      "output_tokens": 879,
+      "seconds": 8.3,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "```json\n{\"results\": [{\"index\": 0, \"verdict\": \"parcial\", \"is_recent\": true, \"other_sources\": [\"https://amanha.com.br/energia/aneel-reduz-para-amarela-bandeira-tarifaria-de-energia-em-novembro\", \"https://www.gov.br/aneel/pt-br/assuntos/noticias/2026/aneel-divulga-calendario-de-bandeiras-tarifarias-para-2026\"], \"contradiction\": \"A Aneel confirmou a bandeira amarela para novembro de 2026, mas não há r"
+    },
+    {
+      "flow": "F2",
+      "stage": "judge",
+      "kind": "llm",
+      "model": "gpt-5-mini",
+      "route": "openai",
+      "regime": "tokens",
+      "sim_usd": 0.004903,
+      "sim_tokens": 6174,
+      "real_usd": 0.007494,
+      "real_tokens": 7576,
+      "input_tokens": 4376,
+      "output_tokens": 3200,
+      "seconds": 27.9,
+      "ok": true,
+      "note": "custo do provedor calculado pela tabela (a OpenAI direta não informa USD)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F3",
+      "stage": "check",
+      "kind": "llm",
+      "model": "deepseek/deepseek-v3.2",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.001703,
+      "sim_tokens": 11,
+      "real_usd": 0.005104,
+      "real_tokens": 32,
+      "input_tokens": 8522,
+      "output_tokens": 562,
+      "seconds": 14.9,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "[\n  {\n    \"index\": 0,\n    \"verdict\": \"confirmado\",\n    \"is_recent\": true,\n    \"has_primary_source\": true,\n    \"corroborating_sources\": -1,\n    \"notes\": \"A tese é confirmada por múltiplas fontes. S1 e S3 são comunicados diretos da Cemig alertando sobre consumo consciente mesmo com bandeira verde. S12 e S13 fornecem o contexto de onda de calor e aumento do uso de energia, que justifica a campanha de"
+    },
+    {
+      "flow": "F5",
+      "stage": "judge",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.010031,
+      "sim_tokens": 63,
+      "real_usd": 0.009438,
+      "real_tokens": 59,
+      "input_tokens": 4786,
+      "output_tokens": 1436,
+      "seconds": 12.3,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\n  \"opportunities\": [\n    {\n      \"title\": \"Campanha de consumo consciente com bandeira verde\",\n      \"thesis\": \"Cemig deve reforçar hábitos de economia mesmo com bandeira verde em outubro, pois a tarifa não cai e o calor de fim de ano pode elevar consumo.\",\n      \"signals\": [\n        {\"source_id\": \"S2\", \"headline\": \"Cemig alerta que bandeira verde em outubro não significa redução da tarifa\", \"so"
+    },
+    {
+      "flow": "F1",
+      "stage": "check",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.006549,
+      "sim_tokens": 41,
+      "real_usd": 0.00604,
+      "real_tokens": 38,
+      "input_tokens": 488,
+      "output_tokens": 552,
+      "seconds": 27.4,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"results\":[{\"index\":0,\"verdict\":\"confirmado\",\"is_recent\":true,\"other_sources\":[\"https://www.cemig.com.br/noticias/\",\"https://www.gov.br/aneel/pt-br\",\"https://g1.globo.com/economia/noticia/2026/09/25/conta-de-luz-aneel-reduz-bandeira-tarifaria-para-verde-em-outubro.ghtml\"],\"contradiction\":\"\",\"notes\":\"A ANEEL definiu bandeira verde para outubro de 2026, sem cobrança adicional; a Cemig também public"
+    },
+    {
+      "flow": "F5",
+      "stage": "check",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.00799,
+      "sim_tokens": 50,
+      "real_usd": 0.036286,
+      "real_tokens": 227,
+      "input_tokens": 15586,
+      "output_tokens": 856,
+      "seconds": 7.2,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"results\": [{\"index\": 0, \"verdict\": \"confirmado\", \"is_recent\": true, \"other_sources\": [\"https://www.cemig.com.br/noticia/dicas-e-orientacoes/bandeira-verde-em-outubro-cemig-alerta-que-consumo-consciente-continua-essencial-para-evitar-surpresas-na-conta-de-luz/\", \"https://jornalvozativa.com/noticias/bandeira-verde-outubro-cemig-economia-energia/\", \"https://diariodocomercio.com.br/geral/bandeira-ve"
+    },
+    {
+      "flow": "F6",
+      "stage": "judge",
+      "kind": "llm",
+      "model": "anthropic/claude-sonnet-5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.027424,
+      "sim_tokens": 171,
+      "real_usd": 0.046102,
+      "real_tokens": 288,
+      "input_tokens": 7051,
+      "output_tokens": 3200,
+      "seconds": 30.1,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "```json\n{\n  \"opportunities\": [\n    {\n      \"title\": \"Reforçar consumo consciente mesmo com bandeira verde em outubro\",\n      \"thesis\": \"A Cemig já comunicou que bandeira verde não significa conta mais barata; aproveitar a atenção nacional ao tema para ampliar essa mensagem institucional com dicas práticas e evitar reclamações por contas altas.\",\n      \"signals\": [\n        {\"source_id\": \"S1\", \"head"
+    },
+    {
+      "flow": "F7",
+      "stage": "judge",
+      "kind": "llm",
+      "model": "anthropic/claude-sonnet-5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.029994,
+      "sim_tokens": 187,
+      "real_usd": 0.051102,
+      "real_tokens": 319,
+      "input_tokens": 9551,
+      "output_tokens": 3200,
+      "seconds": 31.2,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "```json\n{\n  \"opportunities\": [\n    {\n      \"title\": \"Bandeira verde não anula calor: campanha de consumo consciente em MG\",\n      \"thesis\": \"A bandeira verde de outubro gerou alívio na conta, mas a cobertura local (Rede98) já alerta que o calor pode elevar o consumo via ar-condicionado. A Cemig pode antecipar a narrativa e orientar o cliente antes que a fatura surpreenda, reforçando papel instituc"
+    },
+    {
+      "flow": "REV",
+      "stage": "review-1.0-r0",
+      "kind": "llm",
+      "model": "anthropic/claude-haiku-4.5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.027136,
+      "sim_tokens": 170,
+      "real_usd": 0.022046,
+      "real_tokens": 138,
+      "input_tokens": 10306,
+      "output_tokens": 2348,
+      "seconds": 18.6,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "```json\n{\n  \"opportunities\": [\n    {\n      \"id\": \"B1\",\n      \"veracidade\": 5,\n      \"recencia\": 5,\n      \"aderencia\": 5,\n      \"acao\": 5,\n      \"novidade\": 4,\n      \"nota\": \"Bandeira verde em outubro com fontes A atualizadas (gov.br, cemig.com.br 05/10); narrativa educativa sobre consumo consciente no calor é aderente ao tom de autoatendimento da marca.\"\n    },\n    {\n      \"id\": \"B2\",\n      \"verac"
+    },
+    {
+      "flow": "F1",
+      "stage": "revise-r1",
+      "kind": "llm",
+      "model": "openai/gpt-5.4-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.012686,
+      "sim_tokens": 80,
+      "real_usd": 0.011343,
+      "real_tokens": 71,
+      "input_tokens": 5602,
+      "output_tokens": 1587,
+      "seconds": 10.0,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"opportunities\":[{\"title\":\"Bandeira verde em MG: explique na conta e no app\",\"thesis\":\"A ANEEL confirmou bandeira verde para outubro e a Cemig atualizou sua página com o mesmo status. A marca pode transformar isso em uma peça de serviço direto para clientes mineiros: informar que não há custo extra no mês e orientar o que continua pesando na fatura.\",\"signals\":[{\"source_id\":\"S2\",\"headline\":\"ANEEL"
+    },
+    {
+      "flow": "F4",
+      "stage": "revise-r1",
+      "kind": "llm",
+      "model": "google/gemini-3-flash-preview",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.007731,
+      "sim_tokens": 49,
+      "real_usd": 0.009451,
+      "real_tokens": 59,
+      "input_tokens": 4735,
+      "output_tokens": 2361,
+      "seconds": 13.1,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\n  \"opportunities\": [\n    {\n      \"title\": \"Alívio Financeiro Cemig: Negociação de Débitos com 90% de Desconto\",\n      \"thesis\": \"Aproveitar a janela de lançamento da campanha de negociação da Cemig para converter inadimplentes em clientes regulares, utilizando o gatilho de descontos agressivos antes das festas de fim de ano.\",\n      \"signals\": [\n        {\n          \"source_id\": \"S4\",\n          \""
+    },
+    {
+      "flow": "F3",
+      "stage": "revise-r1",
+      "kind": "llm",
+      "model": "google/gemini-2.5-flash",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.00636,
+      "sim_tokens": 40,
+      "real_usd": 0.00829,
+      "real_tokens": 52,
+      "input_tokens": 7750,
+      "output_tokens": 2386,
+      "seconds": 13.7,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "[\n  {\n    \"title\": \"Cemig Alerta: Consumo Consciente no Verão para Evitar Surpresas na Conta\",\n    \"thesis\": \"Com a chegada do calor intenso em Minas Gerais e a bandeira verde, a Cemig deve educar seus clientes sobre o consumo consciente de energia para evitar aumentos inesperados na conta de luz, aproveitando o período de festas de fim de ano.\",\n    \"signals\": [\n      {\n        \"source_id\": \"S12\""
+    },
+    {
+      "flow": "F1",
+      "stage": "check-r1",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.006475,
+      "sim_tokens": 41,
+      "real_usd": 0.00592,
+      "real_tokens": 37,
+      "input_tokens": 413,
+      "output_tokens": 502,
+      "seconds": 4.7,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"results\":[{\"index\":0,\"verdict\":\"confirmado\",\"is_recent\":true,\"other_sources\":[\"https://www.gov.br/aneel/pt-br/assuntos/noticias/2026/bandeira-tarifaria-aneel-divulga-calendario-de-acionamento-para-2026\",\"https://www.cemig.com.br/noticias/\",\"https://www.cemig.com.br/\"],\"contradiction\":\"\",\"notes\":\"A ANEEL informou que outubro de 2026 terá bandeira verde, sem custo extra, e a Cemig publicou conteúd"
+    },
+    {
+      "flow": "F4",
+      "stage": "check-r1",
+      "kind": "llm",
+      "model": "google/gemini-3-flash-preview",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.017437,
+      "sim_tokens": 109,
+      "real_usd": 0.072552,
+      "real_tokens": 452,
+      "input_tokens": 406,
+      "output_tokens": 783,
+      "seconds": 8.1,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "```json\n{\n \"results\": [\n  {\n   \"index\": 0,\n   \"verdict\": \"parcial\",\n   \"is_recent\": true,\n   \"other_sources\": [\n    \"https://www.portalg37.com.br\",\n    \"https://www.cemig.com.br\"\n   ],\n   \"contradiction\": \"Não há uma campanha própria da Cemig com '90% de desconto' lançada nos últimos 30 dias; o desconto de 90% refere-se à terceira fase do programa federal Desenrola Brasil, que inclui dívidas de en"
+    },
+    {
+      "flow": "REV",
+      "stage": "review-1.0-r1",
+      "kind": "llm",
+      "model": "anthropic/claude-haiku-4.5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.026606,
+      "sim_tokens": 166,
+      "real_usd": 0.020535,
+      "real_tokens": 128,
+      "input_tokens": 9505,
+      "output_tokens": 2206,
+      "seconds": 18.0,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "```json\n{\n  \"opportunities\": [\n    {\n      \"id\": \"B1\",\n      \"veracidade\": 5,\n      \"recencia\": 5,\n      \"aderencia\": 5,\n      \"acao\": 5,\n      \"novidade\": 4,\n      \"nota\": \"Bandeira verde confirmada em gov.br e Cemig.com.br com URLs abertas e datas na janela; ação imediata de serviço ao cliente.\"\n    },\n    {\n      \"id\": \"B2\",\n      \"veracidade\": 5,\n      \"recencia\": 5,\n      \"aderencia\": 5,\n    "
+    },
+    {
+      "flow": "F3",
+      "stage": "revise-r2",
+      "kind": "llm",
+      "model": "google/gemini-2.5-flash",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.006366,
+      "sim_tokens": 40,
+      "real_usd": 0.007776,
+      "real_tokens": 49,
+      "input_tokens": 7769,
+      "output_tokens": 2178,
+      "seconds": 12.9,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\n  \"opportunities\": [\n    {\n      \"title\": \"Alerta Cemig: Onda de calor e consumo consciente no fim de ano\",\n      \"thesis\": \"Com a previsão de onda de calor em Minas Gerais e o período de festas de fim de ano, a Cemig deve alertar seus clientes sobre o aumento do consumo de energia e a importância de práticas conscientes para evitar surpresas na conta de luz.\",\n      \"signals\": [\n        {\n     "
+    },
+    {
+      "flow": "F4",
+      "stage": "revise-r2",
+      "kind": "llm",
+      "model": "google/gemini-3-flash-preview",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.007727,
+      "sim_tokens": 49,
+      "real_usd": 0.009524,
+      "real_tokens": 60,
+      "input_tokens": 4733,
+      "output_tokens": 2386,
+      "seconds": 13.8,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\n  \"opportunities\": [\n    {\n      \"title\": \"Campanha Alívio de Fim de Ano: Negociação Cemig com 90% de Desconto\",\n      \"thesis\": \"Aproveitar a campanha oficial de negociação de débitos da Cemig para reduzir a inadimplência antes das festas, utilizando o gatilho de descontos agressivos para regularização de clientes residenciais e comerciais.\",\n      \"signals\": [\n        {\n          \"source_id\": "
+    },
+    {
+      "flow": "F4",
+      "stage": "check-r2",
+      "kind": "llm",
+      "model": "google/gemini-3-flash-preview",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.017441,
+      "sim_tokens": 109,
+      "real_usd": 0.072997,
+      "real_tokens": 455,
+      "input_tokens": 395,
+      "output_tokens": 933,
+      "seconds": 8.5,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "```json\n{\"results\": [{\"index\": 0, \"verdict\": \"parcial\", \"is_recent\": true, \"other_sources\": [\"https://www.serasa.com.br/limpa-nome-online/parceiros/cemig/\", \"https://www.cemig.com.br/servicos/parcelamento-de-debitos/\"], \"contradiction\": \"Não há uma campanha oficial da Cemig denominada 'Alívio de Fim de Ano' com 90% de desconto lançada nos últimos 30 dias. O desconto de até 90% é oferecido permanen"
+    },
+    {
+      "flow": "F3",
+      "stage": "check-r2",
+      "kind": "llm",
+      "model": "deepseek/deepseek-v3.2",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.001483,
+      "sim_tokens": 10,
+      "real_usd": 0.002045,
+      "real_tokens": 13,
+      "input_tokens": 7008,
+      "output_tokens": 548,
+      "seconds": 36.6,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"results\": [{\"index\": 0, \"verdict\": \"confirmado\", \"is_recent\": true, \"has_primary_source\": true, \"corroborating_sources\": 1, \"notes\": \"A tese é confirmada. A evidência S1 é um alerta direto da Cemig sobre consumo consciente, publicado em 06/10/2026, que é recente e uma fonte primária (comunicado da empresa). As fontes da oportunidade (S12, S13, S14) corroboram o contexto de onda de calor e aument"
+    },
+    {
+      "flow": "REV",
+      "stage": "review-1.0-r2",
+      "kind": "llm",
+      "model": "anthropic/claude-haiku-4.5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.025922,
+      "sim_tokens": 162,
+      "real_usd": 0.019982,
+      "real_tokens": 125,
+      "input_tokens": 7707,
+      "output_tokens": 2455,
+      "seconds": 19.9,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "```json\n{\n  \"opportunities\": [\n    {\n      \"id\": \"B1\",\n      \"veracidade\": 5,\n      \"recencia\": 5,\n      \"aderencia\": 5,\n      \"acao\": 5,\n      \"novidade\": 4,\n      \"nota\": \"Bandeira verde confirmada em gov.br e Cemig.com.br com URLs abertas e datas na janela; ação imediata de serviço ao cliente.\"\n    },\n    {\n      \"id\": \"B3\",\n      \"veracidade\": 5,\n      \"recencia\": 5,\n      \"aderencia\": 5,\n    "
+    },
+    {
+      "flow": "DOC",
+      "stage": "doctor-1.0",
+      "kind": "llm",
+      "model": "anthropic/claude-sonnet-5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.034798,
+      "sim_tokens": 217,
+      "real_usd": 0.05804,
+      "real_tokens": 362,
+      "input_tokens": 4020,
+      "output_tokens": 5000,
+      "seconds": 45.5,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "Looking at the diagnostic data, I'm spotting F4 as the worst performer with broken links, low-grade sources, and dates outside the expected window (2024 instead of 2026). There's a recurring pattern of dates falling outside the window and unconfirmed percentage claims, suggesting a systemic issue worth targeting with a focused fix.\n\nI'm now drafting two surgical changes: tightening the \"judge\" pro"
+    }
+  ],
+  "opportunities": {
+    "F1": [
+      {
+        "flow": "F1",
+        "title": "Bandeira verde em MG: explique na conta e no app",
+        "thesis": "A ANEEL confirmou bandeira verde para outubro e a Cemig atualizou sua página com o mesmo status. A marca pode transformar isso em uma peça de serviço direto para clientes mineiros: informar que não há custo extra no mês e orientar o que continua pesando na fatura.",
+        "editorial": 90,
+        "paid": 87,
+        "quadrant": "integrada",
+        "sources": [
+          {
+            "id": "S2",
+            "url": "https://www.gov.br/aneel/pt-br",
+            "title": "ANEEL",
+            "published_at": "2026-09-29",
+            "domain": "gov.br",
+            "name": "gov.br",
+            "group": "governo",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": true
+          },
+          {
+            "id": "S4",
+            "url": "https://www.cemig.com.br/",
+            "title": "Cemig",
+            "published_at": "2026-10-05",
+            "domain": "cemig.com.br",
+            "name": "Site da marca",
+            "group": "oficial",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": true
+          },
+          {
+            "id": "S5",
+            "url": "https://www.cemig.com.br/valores-e-tarifas/bandeira-tarifaria/",
+            "title": "Cemig",
+            "published_at": null,
+            "domain": "cemig.com.br",
+            "name": "Site da marca",
+            "group": "oficial",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": null
+          }
+        ],
+        "places": [
+          "Minas Gerais",
+          "Belo Horizonte"
+        ],
+        "channels": [
+          "site institucional",
+          "app/push de serviços",
+          "e-mail para clientes",
+          "redes sociais",
+          "FAQ/central de ajuda"
+        ],
+        "window": "janela imediata de outubro de 2026",
+        "verdict": "confirmado",
+        "check_notes": "A ANEEL informou que outubro de 2026 terá bandeira verde, sem custo extra, e a Cemig publicou conteúdo e a home page exibindo Outubro 2026: Verde; isso sustenta a afirmação como recente e correta.",
+        "other_sources": [
+          "https://www.gov.br/aneel/pt-br/assuntos/noticias/2026/bandeira-tarifaria-aneel-divulga-calendario-de-acionamento-para-2026",
+          "https://www.cemig.com.br/noticias/",
+          "https://www.cemig.com.br/"
+        ],
+        "contradicted": false,
+        "confidence": "alta",
+        "review": {
+          "id": "B1",
+          "veracidade": 5,
+          "recencia": 5,
+          "aderencia": 5,
+          "acao": 5,
+          "novidade": 4,
+          "nota": "Bandeira verde confirmada em gov.br e Cemig.com.br com URLs abertas e datas na janela; ação imediata de serviço ao cliente.",
+          "media": 4.8
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 92.0,
+            "marca": 96.0,
+            "territorio": 98.0,
+            "autoridade": 97.0,
+            "cultura": 72.0,
+            "timing": 98.0,
+            "conversa": 91.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 2.0,
+            "custo_excessivo": 1.0
+          },
+          "score": 90
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 90.0,
+            "audiencia": 88.0,
+            "geo": 97.0,
+            "momentum": 96.0,
+            "criativo": 84.0,
+            "eficiencia": 89.0,
+            "canais": 86.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 2.0,
+            "custo_excessivo": 1.0
+          },
+          "score": 87
+        }
+      },
+      {
+        "flow": "F1",
+        "title": "Leia a conta Cemig: bandeiras, kWh e valor final",
+        "thesis": "A Cemig tem uma página própria para explicar a conta de luz e outra sobre bandeiras tarifárias. Isso permite uma ação educativa mais útil que um post genérico: mostrar, em formato curto, onde aparece a bandeira, como ler o consumo em kWh e como isso afeta o valor final.",
+        "editorial": 82,
+        "paid": 79,
+        "quadrant": "integrada",
+        "sources": [
+          {
+            "id": "S6",
+            "url": "https://www.cemig.com.br/faturas/entenda-sua-conta/",
+            "title": "Cemig",
+            "published_at": null,
+            "domain": "cemig.com.br",
+            "name": "Site da marca",
+            "group": "oficial",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": null
+          },
+          {
+            "id": "S5",
+            "url": "https://www.cemig.com.br/valores-e-tarifas/bandeira-tarifaria/",
+            "title": "Cemig",
+            "published_at": null,
+            "domain": "cemig.com.br",
+            "name": "Site da marca",
+            "group": "oficial",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": null
+          },
+          {
+            "id": "S13",
+            "url": "https://dadosabertos.aneel.gov.br/dataset/bandeiras-tarifarias",
+            "title": "Bandeiras Tarifárias - Conjunto de dados - Portal de Dados Abertos - Agência Nacional de Energia Elétrica",
+            "published_at": "",
+            "domain": "dadosabertos.aneel.gov.br",
+            "name": "dadosabertos.aneel.gov.br",
+            "group": "governo",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": null
+          }
+        ],
+        "places": [
+          "Minas Gerais",
+          "Belo Horizonte"
+        ],
+        "channels": [
+          "landing page educativa",
+          "site institucional",
+          "redes sociais",
+          "CRM/e-mail",
+          "atendimento digital"
+        ],
+        "window": "aberta enquanto houver dúvidas sobre leitura da fatura e rotina de fechamento mensal",
+        "verdict": "confirmado",
+        "check_notes": "A Cemig mantém página própria para explicar a conta de luz e outra sobre bandeiras tarifárias, e ambas estão atualizadas recentemente; isso confirma a possibilidade de uma peça educativa sobre leitura da conta, kWh e impacto da bandeira.",
+        "other_sources": [
+          "https://www.cemig.com.br/faturas/entenda-sua-conta/",
+          "https://www.cemig.com.br/valores-e-tarifas/bandeira-tarifaria/",
+          "https://www.cemig.com.br/noticia/imprensa/entenda-o-papel-da-cemig-nas-bandeiras-tarifarias-na-conta-de-luz/"
+        ],
+        "contradicted": false,
+        "confidence": "alta",
+        "review": {
+          "id": "B2",
+          "veracidade": 5,
+          "recencia": 5,
+          "aderencia": 5,
+          "acao": 4,
+          "novidade": 3,
+          "nota": "Páginas próprias Cemig sobre fatura e bandeiras existem e abrem; conteúdo evergreen mas com baixa urgência semanal.",
+          "media": 4.4
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 88.0,
+            "marca": 95.0,
+            "territorio": 90.0,
+            "autoridade": 96.0,
+            "cultura": 68.0,
+            "timing": 81.0,
+            "conversa": 88.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 1.0
+          },
+          "score": 82
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 86.0,
+            "audiencia": 84.0,
+            "geo": 88.0,
+            "momentum": 80.0,
+            "criativo": 82.0,
+            "eficiencia": 87.0,
+            "canais": 85.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 1.0
+          },
+          "score": 79
+        }
+      },
+      {
+        "flow": "F1",
+        "title": "Conteúdo de serviço: como a bandeira verde muda a fatura",
+        "thesis": "Com a bandeira verde vigente e a explicação oficial disponível na ANEEL, a Cemig pode publicar uma nota curta e objetiva sobre o que muda e o que não muda na conta. A ação é mais forte se for ancorada em transparência e serviço, não em campanha genérica de economia.",
+        "editorial": 85,
+        "paid": 81,
+        "quadrant": "integrada",
+        "sources": [
+          {
+            "id": "S2",
+            "url": "https://www.gov.br/aneel/pt-br",
+            "title": "ANEEL",
+            "published_at": "2026-09-29",
+            "domain": "gov.br",
+            "name": "gov.br",
+            "group": "governo",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": true
+          },
+          {
+            "id": "S3",
+            "url": "https://dadosabertos.aneel.gov.br/dataset/bandeiras-tarifarias/resource/0591b8f6-fe54-437b-b72b-1aa2efd46e42",
+            "title": "Portal de Dados Abertos da ANEEL",
+            "published_at": "2026-10-05",
+            "domain": "dadosabertos.aneel.gov.br",
+            "name": "dadosabertos.aneel.gov.br",
+            "group": "governo",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": true
+          },
+          {
+            "id": "S4",
+            "url": "https://www.cemig.com.br/",
+            "title": "Cemig",
+            "published_at": "2026-10-05",
+            "domain": "cemig.com.br",
+            "name": "Site da marca",
+            "group": "oficial",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [
+          "Minas Gerais",
+          "Belo Horizonte"
+        ],
+        "channels": [
+          "release institucional",
+          "site institucional",
+          "LinkedIn",
+          "relacionamento com imprensa",
+          "FAQ público"
+        ],
+        "window": "janela curta de outubro de 2026, especialmente na virada do mês e após atualização oficial",
+        "verdict": "confirmado",
+        "check_notes": "Com a bandeira verde vigente e a explicação oficial da ANEEL, a ideia de uma nota curta de serviço é compatível com os materiais públicos da Cemig e da agência; não houve indicação de conflito factual.",
+        "other_sources": [
+          "https://www.gov.br/aneel/pt-br/assuntos/noticias/2026/bandeira-tarifaria-aneel-divulga-calendario-de-acionamento-para-2026",
+          "https://www.cemig.com.br/valores-e-tarifas/bandeira-tarifaria/",
+          "https://www.cemig.com.br/faturas/entenda-sua-conta/"
+        ],
+        "contradicted": false,
+        "confidence": "alta",
+        "review": {
+          "id": "B3",
+          "veracidade": 5,
+          "recencia": 5,
+          "aderencia": 5,
+          "acao": 5,
+          "novidade": 4,
+          "nota": "Conteúdo educativo ancorado em transparência com fontes oficiais abertas e vigentes; execução viável esta semana.",
+          "media": 4.8
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 89.0,
+            "marca": 94.0,
+            "territorio": 94.0,
+            "autoridade": 98.0,
+            "cultura": 70.0,
+            "timing": 95.0,
+            "conversa": 85.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 4.0,
+            "custo_excessivo": 1.0
+          },
+          "score": 85
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 84.0,
+            "audiencia": 82.0,
+            "geo": 95.0,
+            "momentum": 94.0,
+            "criativo": 78.0,
+            "eficiencia": 88.0,
+            "canais": 83.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 4.0,
+            "custo_excessivo": 1.0
+          },
+          "score": 81
+        }
+      }
+    ],
+    "F2": [],
+    "F3": [
+      {
+        "flow": "F3",
+        "title": "Alerta Cemig: Onda de calor e consumo consciente no fim de ano",
+        "thesis": "Com a previsão de onda de calor em Minas Gerais e o período de festas de fim de ano, a Cemig deve alertar seus clientes sobre o aumento do consumo de energia e a importância de práticas conscientes para evitar surpresas na conta de luz.",
+        "editorial": 82,
+        "paid": 79,
+        "quadrant": "integrada",
+        "sources": [
+          {
+            "id": "S12",
+            "url": "https://news.google.com/rss/articles/CBMitwFBVV95cUxPaEliQ054Y3FwWjhfSkthMmcxZTJWNElCTUlRR3JPSDZYenNuYjVpMl82Vk5WUXRjX3dZTEZESXAxaDM5WV9jOUNuNC1XRk9lTWw4aDMyYXB3aGlvU3B6cDBGQWNvQ0FiMmlwOW9wdmNVZ3NQYzNxUU5jT3hvcGdoZnFXYWY1dHBpU0NIRTllTGl0dnpVbkdNbU5HanJKcWRxMklLUzBlSDlWbTNhSHpELU1ES2JNb2fSAcYBQVVfeXFMTmo1M01hRlZiZkdPNUViSDY4ajVHcG9sYnRLbE8tcGJEU0V5eU1idVVEb3lCU2V1UDEzeGE3d181SnA1WmpBWWxLd3gtX2lZdlZ5YzhwZ3dpU2Q0eDZycXE4X05Bcktnd1QzTXJ0TVNjTWZ1YU1zdm9JNGVLMk9Nb2gtWF9aMlV0OG1PZ09jQjhKZHViekgzaDFFRU1xUVNaVnF2YUpMMmtBR3ZrWThUU25leF9yMjBoSEozR21lSm5oTC1VTE13?oc=5",
+            "title": "Defesa Civil emite alerta de onda de calor forte em BH; veja previsão do tempo para os próximos dias (G1)",
+            "published_at": "Sun, 27 Sep 2026 07:00:00 GMT",
+            "domain": "g1.globo.com",
+            "name": "g1",
+            "group": "nacional",
+            "tier": "A",
+            "primary": false,
+            "uf": null,
+            "url_status": "ok",
+            "in_window": true
+          },
+          {
+            "id": "S13",
+            "url": "https://news.google.com/rss/articles/CBMi7wFBVV95cUxOSGF3Nmd4Q1llQjZjSlkzY05ZczA3bnZNeTZ3VlhPLTVsaDBGSWhWaHFZVjdCNmZ4MEdkbnhleEY1Tjl5OWFldmk0ZXE3bXFVNWQ3WHBLNWpDUS1lOTBYeV9qaGtrd0tfYXRTQTJDY1R3cnU3OVVoLWpaQzFVcEM2dVUtSWRNcXpBQzJHOTJ5SkN5N1p5RnhCWTI2Vl9TU290bmRld3V4Q1lKanktdkxrVmg4VnNnUEt0Q2Y5cklGendUU3BsR0dzMU1tdTlabU90UHhMSE9fdVl0NjdxYWctdnExZGhWU2hRM0U1RFY3aw?oc=5",
+            "title": "Onda de calor: climatização cresce 150% e energia fica até 40% mais cara, aponta FIEMG (FIEMG)",
+            "published_at": "Tue, 29 Sep 2026 12:26:00 GMT",
+            "domain": "fiemg.com.br",
+            "name": "fiemg.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": true
+          },
+          {
+            "id": "S14",
+            "url": "https://news.google.com/rss/articles/CBMizgFBVV95cUxOM1d0OFQ1N1BoWHA0a3pJdVhCX3Z5dklHTzh5V1p6eC1SWlIzN3c5WHFtZDVlUHhhX1dwMGl3UndacUoxaEJJRmkwaEJjVmhYVEs5bWlNVlFDV1FidGlVS201RUlTdUVaWEFXdkxzXzBEVmVJTlNCeVQ1RTN2ODlxa21vRWRJcU1haTFuakU3VGZ3c092Y3VmSGE1TDdfV0RObjZLSk0tRDIyNzk1eW9tYi1OYzJEa05ZV1JrWVZEUEN0QTBwOFRQSm5hRG0tZw?oc=5",
+            "title": "Inmet emite alerta de grande perigo por onda de calor no fim de semana (Agência Brasil)",
+            "published_at": "Fri, 25 Sep 2026 07:00:00 GMT",
+            "domain": "agenciabrasil.ebc.com.br",
+            "name": "Agência Brasil",
+            "group": "nacional",
+            "tier": "A",
+            "primary": false,
+            "uf": null,
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [
+          "Minas Gerais",
+          "Belo Horizonte"
+        ],
+        "channels": [
+          "Redes Sociais (Instagram, Facebook, X)",
+          "Notificações no aplicativo Cemig Atende",
+          "E-mail marketing segmentado",
+          "SMS para clientes em áreas afetadas",
+          "Comunicados à imprensa local"
+        ],
+        "window": "Até o final de janeiro, com pico em dezembro",
+        "verdict": "confirmado",
+        "check_notes": "A tese é confirmada. A evidência S1 é um alerta direto da Cemig sobre consumo consciente, publicado em 06/10/2026, que é recente e uma fonte primária (comunicado da empresa). As fontes da oportunidade (S12, S13, S14) corroboram o contexto de onda de calor e aumento de consumo, mas não são alertas diretos da Cemig. Portanto, a tese de que a Cemig 'deve alertar' é validada por uma ação concreta da e",
+        "other_sources": [],
+        "contradicted": false,
+        "confidence": "alta",
+        "review": {
+          "id": "C1",
+          "veracidade": 4,
+          "recencia": 5,
+          "aderencia": 5,
+          "acao": 4,
+          "novidade": 3,
+          "nota": "Onda de calor e fim de ano confirmados em fontes A; uma fonte C reduz veracidade; planejável mas genérico.",
+          "media": 4.2
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 90.0,
+            "marca": 95.0,
+            "territorio": 90.0,
+            "autoridade": 95.0,
+            "cultura": 80.0,
+            "timing": 100.0,
+            "conversa": 85.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 5.0
+          },
+          "score": 82
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 90.0,
+            "audiencia": 90.0,
+            "geo": 95.0,
+            "momentum": 100.0,
+            "criativo": 85.0,
+            "eficiencia": 80.0,
+            "canais": 85.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 5.0
+          },
+          "score": 79
+        }
+      },
+      {
+        "flow": "F3",
+        "title": "Cemig Explica: Bandeira Verde e o Consumo Consciente",
+        "thesis": "Mesmo com a bandeira verde, a Cemig deve educar seus clientes sobre o significado da bandeira tarifária e a importância contínua do consumo consciente, desmistificando a ideia de que a conta será 'barata' e prevenindo surpresas.",
+        "editorial": 70,
+        "paid": 65,
+        "quadrant": "conteudo",
+        "sources": [
+          {
+            "id": "S9",
+            "url": "https://news.google.com/rss/articles/CBMi5gFBVV95cUxNMDEwQ0FOeGxmUk1UMXZNekxMc3BsUFNYYU9VM3B3cWItYldJSS1PLXdUN0VpUmVXdWZRMUNxaUpVYUpLQXVCN0FHUEpHQ29KTGRYSllUSXFPVDdGOFRKRnctWGxLR2JwN2RuR2xLcXl0VFdDcU4wM1hwbzNIcE1keG1iM3RGcTJ5UUh2YjlPbEhISG84S0NGU1ZELUtRVlJWeG1oN2RIaWpoY05Kb2ozOURyaDFuQjZETElCUC1nNTFzX3V2UUxZc2VPc2pzOW5xdkVnRmNma3hfQjd4b0JnODdvNi1aZ9IB9AFBVV95cUxPWkdiUTRTR24wVW1JajJ0REhRSDkxQkdxZldUNXM1VDBFWEdBUEV4UHJSTEpkZGVoY3c3TURSNks4ZzNBT0ZqOXdpZVJYSWNtcUtzeXNiUWJfU0Q5UENBa1VMMTV3Sk9mNVM2NEd5dHRjZjd4Z0s2eElOc1dQYVFiNEltM2lmY0xqSmFHc2Ita1p5SnE4bmpieXU5ZktJRHJLNXZoVXJJaEdaS3lQc2pRVlllSmh0ZnFWd3g2T1k5d1JJNnlFeWVmbERwclo0amxlMTdMeVNxMjlYaFlOVndtMmhJSUlHY1dsOFNucmt2dWhYVEcy?oc=5",
+            "title": "Conta de luz não terá cobrança extra em outubro com bandeira tarifária verde (G1)",
+            "published_at": "Fri, 02 Oct 2026 23:42:03 GMT",
+            "domain": "g1.globo.com",
+            "name": "g1",
+            "group": "nacional",
+            "tier": "A",
+            "primary": false,
+            "uf": null,
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [
+          "Minas Gerais"
+        ],
+        "channels": [
+          "Blog da Cemig (artigos explicativos)",
+          "Vídeos curtos no YouTube e redes sociais (Cemig Explica)",
+          "Infográficos no site e redes sociais",
+          "Seção de Perguntas Frequentes (FAQ) no Cemig Atende"
+        ],
+        "window": "Próximos 2 meses",
+        "verdict": "confirmado",
+        "check_notes": "A tese é confirmada. A evidência S1 é um alerta direto da Cemig sobre o tema, publicado em 06/10/2026, que é recente e uma fonte primária. A evidência S3 também é um alerta similar da Cemig, publicado em 29/09/2026. A fonte da oportunidade (S9) apenas anuncia a bandeira verde, mas não contém o alerta educativo da Cemig, que é encontrado nas evidências S1 e S3. Portanto, a tese de que a Cemig 'deve",
+        "other_sources": [],
+        "contradicted": false,
+        "confidence": "media",
+        "review": {
+          "id": "C2",
+          "veracidade": 4,
+          "recencia": 5,
+          "aderencia": 4,
+          "acao": 3,
+          "novidade": 2,
+          "nota": "Fonte G1 abre e está na janela; tema educativo mas genérico; execução menos urgente que B1/B3.",
+          "media": 3.6
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 85.0,
+            "marca": 90.0,
+            "territorio": 80.0,
+            "autoridade": 95.0,
+            "cultura": 75.0,
+            "timing": 85.0,
+            "conversa": 80.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 10.0,
+            "custo_excessivo": 5.0
+          },
+          "score": 70
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 80.0,
+            "audiencia": 80.0,
+            "geo": 80.0,
+            "momentum": 85.0,
+            "criativo": 80.0,
+            "eficiencia": 75.0,
+            "canais": 80.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 10.0,
+            "custo_excessivo": 5.0
+          },
+          "score": 65
+        }
+      },
+      {
+        "flow": "F3",
+        "title": "Cemig Alerta: Não perca o desconto da Tarifa Social",
+        "thesis": "A Cemig deve alertar e orientar proativamente as famílias elegíveis sobre a importância da atualização cadastral para manter o benefício da Tarifa Social, evitando a perda de descontos essenciais na conta de luz.",
+        "editorial": 81,
+        "paid": 80,
+        "quadrant": "integrada",
+        "sources": [
+          {
+            "id": "S4",
+            "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxQVllsbXo2N1VKRjh1bmxvRkM3REtSOHAwbjA1NGpxOEw2NTF5eUZFalN6M3VfakJkT1piT2Y0MjY4VTc2WG1qSUhKLXM3R2p1LUpBeUJfYzZxaUJKWWV6R21fWHBoa1kxeVR3WkZwcDEwalp0dGdHeDl5VXQ5MlhGMGp0YmtIRmJPWXMzTE1zZmo0QzNtdHRUeWRfVGdaU1RKMWc?oc=5",
+            "title": "Cemig alerta para risco de perda de descontos na conta de luz (Rádio Itatiaia)",
+            "published_at": "Thu, 17 Sep 2026 07:00:00 GMT",
+            "domain": "itatiaia.com.br",
+            "name": "Rádio Itatiaia",
+            "group": "regional",
+            "tier": "A",
+            "primary": false,
+            "uf": "MG",
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [
+          "Minas Gerais",
+          "Uberlândia"
+        ],
+        "channels": [
+          "Notificações personalizadas no aplicativo Cemig Atende",
+          "E-mail marketing para clientes elegíveis",
+          "SMS com link para informações sobre atualização cadastral",
+          "Publicações em redes sociais com passo a passo",
+          "Parcerias com CRAS e prefeituras para divulgação local"
+        ],
+        "window": "Até o final do ano",
+        "verdict": "confirmado",
+        "check_notes": "A tese é confirmada. A evidência S4 (a mesma fonte citada na oportunidade) é um alerta direto da Cemig sobre o risco de perda de descontos, publicado em 17/09/2026. A evidência S10, de 22/09/2026, também aborda o tema, orientando o que fazer para não perder o desconto, corroborando a ação de alerta e orientação. Ambas são recentes e a S4 é uma fonte primária (comunicado da Cemig via rádio). Portan",
+        "other_sources": [],
+        "contradicted": false,
+        "confidence": "media",
+        "review": {
+          "id": "C3",
+          "veracidade": 4,
+          "recencia": 5,
+          "aderencia": 5,
+          "acao": 3,
+          "novidade": 3,
+          "nota": "Tarifa Social é relevante para público Cemig; fonte A abre; mas ação requer coordenação com área de benefícios.",
+          "media": 4.0
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 95.0,
+            "marca": 90.0,
+            "territorio": 90.0,
+            "autoridade": 95.0,
+            "cultura": 85.0,
+            "timing": 90.0,
+            "conversa": 90.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 5.0
+          },
+          "score": 81
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 95.0,
+            "audiencia": 95.0,
+            "geo": 90.0,
+            "momentum": 90.0,
+            "criativo": 85.0,
+            "eficiencia": 85.0,
+            "canais": 90.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 5.0
+          },
+          "score": 80
+        }
+      }
+    ],
+    "F4": [
+      {
+        "flow": "F4",
+        "title": "Alívio Financeiro Cemig: Negociação de Débitos com 90% de Desconto",
+        "thesis": "Aproveitar a janela de lançamento da campanha de negociação da Cemig para converter inadimplentes em clientes regulares, utilizando o gatilho de descontos agressivos antes das festas de fim de ano.",
+        "editorial": 68,
+        "paid": 71,
+        "quadrant": "midia",
+        "sources": [
+          {
+            "id": "S4",
+            "url": "https://www.agenciaminas.mg.gov.br/noticia/cemig-oferece-condicoes-especiais-para-clientes-quitarem-debitos-com-ate-90-de-desconto",
+            "title": "Agência Minas",
+            "published_at": "2024-10-07",
+            "domain": "agenciaminas.mg.gov.br",
+            "name": "agenciaminas.mg.gov.br",
+            "group": "governo",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": false
+          }
+        ],
+        "places": [
+          "Minas Gerais"
+        ],
+        "channels": [
+          "SMS",
+          "E-mail Marketing",
+          "WhatsApp Business",
+          "Rádio Regional"
+        ],
+        "window": "Outubro e Novembro de 2024",
+        "verdict": "parcial",
+        "check_notes": "A Cemig possui programas de parcelamento recorrentes e participou do Desenrola Brasil (que oferece até 90% de desconto). Em outubro de 2026, o foco da empresa em canais oficiais é o parcelamento padrão e alertas contra fraudes, não uma 'janela de lançamento' de campanha própria de 90%.",
+        "other_sources": [
+          "https://www.portalg37.com.br",
+          "https://www.cemig.com.br"
+        ],
+        "contradicted": true,
+        "confidence": "media",
+        "review": {
+          "id": "A1",
+          "veracidade": 3,
+          "recencia": 2,
+          "aderencia": 4,
+          "acao": 3,
+          "novidade": 3,
+          "nota": "Fonte A (agenciaminas) mas data 2024-10-07 fora da janela 2026; desconto de 90% não verificado em fontes atuais.",
+          "media": 3.0
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 95.0,
+            "marca": 90.0,
+            "territorio": 85.0,
+            "autoridade": 98.0,
+            "cultura": 80.0,
+            "timing": 90.0,
+            "conversa": 75.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 5.0,
+            "risco_reputacional": 5.0,
+            "baixa_confianca": 6.0
+          },
+          "score": 68
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 98.0,
+            "audiencia": 90.0,
+            "geo": 100.0,
+            "momentum": 85.0,
+            "criativo": 80.0,
+            "eficiencia": 95.0,
+            "canais": 90.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 5.0,
+            "risco_reputacional": 5.0,
+            "baixa_confianca": 6.0
+          },
+          "score": 71
+        }
+      },
+      {
+        "flow": "F4",
+        "title": "Estratégia de Sobrevivência à Bandeira Vermelha Patamar 2",
+        "thesis": "Mitigar o impacto da tarifa mais cara do sistema (Bandeira Vermelha 2) educando o consumidor sobre o custo extra de R$ 7,87 a cada 100 kWh, posicionando a Cemig como aliada na economia.",
+        "editorial": 59,
+        "paid": 56,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S12",
+            "url": "https://g1.globo.com/economia/noticia/2024/09/27/aneel-anuncia-bandeira-tarifaria-vermelha-patamar-2-para-outubro.ghtml",
+            "title": "G1",
+            "published_at": "2024-09-28",
+            "domain": "g1.globo.com",
+            "name": "g1",
+            "group": "nacional",
+            "tier": "A",
+            "primary": false,
+            "uf": null,
+            "url_status": "quebrado",
+            "in_window": false
+          },
+          {
+            "id": "S13",
+            "url": "https://www.cnnbrasil.com.br/economia/macroeconomia/aneel-define-bandeira-vermelha-patamar-2-para-outubro-a-mais-cara-do-sistema/",
+            "title": "CNN Brasil",
+            "published_at": "2024-09-27",
+            "domain": "cnnbrasil.com.br",
+            "name": "CNN Brasil",
+            "group": "nacional",
+            "tier": "A",
+            "primary": false,
+            "uf": null,
+            "url_status": "quebrado",
+            "in_window": false
+          }
+        ],
+        "places": [
+          "Belo Horizonte"
+        ],
+        "channels": [
+          "Instagram (Reels com dicas)",
+          "Push Notification App Cemig Atende",
+          "Google Search (Termos de economia)"
+        ],
+        "window": "Outubro de 2024",
+        "verdict": "confirmado",
+        "check_notes": "A Aneel confirmou a Bandeira Vermelha Patamar 2 para outubro de 2026. O valor de R$ 7,877 a cada 100 kWh é o valor oficial vigente para este patamar em 2026.",
+        "other_sources": [
+          "https://www.celetro.com.br",
+          "https://www.bulbeenergia.com.br",
+          "https://www.cemig.com.br"
+        ],
+        "contradicted": true,
+        "confidence": "media",
+        "review": {
+          "id": "A2",
+          "veracidade": 2,
+          "recencia": 1,
+          "aderencia": 3,
+          "acao": 2,
+          "novidade": 2,
+          "nota": "URLs quebradas em G1 e CNN; data 2024-09-27 fora da janela; bandeira vermelha não é contexto atual (verde em outubro 2026).",
+          "media": 2.0
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 100.0,
+            "marca": 85.0,
+            "territorio": 90.0,
+            "autoridade": 95.0,
+            "cultura": 90.0,
+            "timing": 100.0,
+            "conversa": 95.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 10.0,
+            "custo_excessivo": 5.0,
+            "restricao_marca": 5.0,
+            "risco_reputacional": 15.0
+          },
+          "score": 59
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 90.0,
+            "audiencia": 95.0,
+            "geo": 90.0,
+            "momentum": 100.0,
+            "criativo": 85.0,
+            "eficiencia": 90.0,
+            "canais": 85.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 10.0,
+            "custo_excessivo": 5.0,
+            "restricao_marca": 5.0,
+            "risco_reputacional": 15.0
+          },
+          "score": 56
+        }
+      },
+      {
+        "flow": "F4",
+        "title": "Operação Segurança: Proteção contra Golpes de PIX no Fim de Ano",
+        "thesis": "Combater o aumento de fraudes em contas de luz falsas via PIX, utilizando o canal oficial da Cemig para validar pagamentos e proteger o cliente.",
+        "editorial": 80,
+        "paid": 74,
+        "quadrant": "integrada",
+        "sources": [
+          {
+            "id": "S9",
+            "url": "https://www.otempo.com.br/cidades/2024/10/22/cemig-alerta-para-golpes-na-conta-de-luz-saiba-como-se-proteger",
+            "title": "O Tempo",
+            "published_at": "2024-10-22",
+            "domain": "otempo.com.br",
+            "name": "O Tempo",
+            "group": "regional",
+            "tier": "A",
+            "primary": false,
+            "uf": "MG",
+            "url_status": "quebrado",
+            "in_window": false
+          }
+        ],
+        "places": [
+          "Minas Gerais"
+        ],
+        "channels": [
+          "WhatsApp Status",
+          "Stories Instagram",
+          "Banner no site Cemig Atende"
+        ],
+        "window": "Outubro a Dezembro de 2024",
+        "verdict": "confirmado",
+        "check_notes": "A Cemig emitiu alertas específicos em 2026 devido à mudança no layout da conta (cor verde mais vibrante e novo número de Unidade Consumidora), que gerou uma onda de golpes de boletos e PIX falsos. A orientação oficial é conferir o beneficiário 'Cemig Distribuição S.A' e o banco Santander (033).",
+        "other_sources": [
+          "https://www.itatiaia.com.br",
+          "https://www.hojeemdia.com.br",
+          "https://www.drd.com.br"
+        ],
+        "contradicted": true,
+        "confidence": "media",
+        "review": {
+          "id": "A3",
+          "veracidade": 2,
+          "recencia": 1,
+          "aderencia": 4,
+          "acao": 2,
+          "novidade": 2,
+          "nota": "O Tempo URL quebrada; data 2024-10-22 fora da janela; tema relevante mas sem fonte verificável atual.",
+          "media": 2.2
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 90.0,
+            "marca": 100.0,
+            "territorio": 80.0,
+            "autoridade": 100.0,
+            "cultura": 85.0,
+            "timing": 90.0,
+            "conversa": 80.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "pouca_evidencia": 5.0
+          },
+          "score": 80
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 85.0,
+            "audiencia": 90.0,
+            "geo": 80.0,
+            "momentum": 85.0,
+            "criativo": 75.0,
+            "eficiencia": 80.0,
+            "canais": 95.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "pouca_evidencia": 5.0
+          },
+          "score": 74
+        }
+      },
+      {
+        "flow": "F4",
+        "title": "Campanha Varejo Consciente: Climatização e Black Friday em BH",
+        "thesis": "Conectar a alta demanda por aparelhos de ventilação no comércio de BH com a redução tarifária de 1,92% aprovada pela Aneel, incentivando a troca por aparelhos eficientes.",
+        "editorial": 47,
+        "paid": 46,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S6",
+            "url": "https://www.canalenergia.com.br/noticias/53292415/aneel-aprova-reducao-media-de-192-nas-tarifas-da-cemig-d",
+            "title": "CanalEnergia",
+            "published_at": "2024-10-15",
+            "domain": "canalenergia.com.br",
+            "name": "canalenergia.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": false
+          },
+          {
+            "id": "S8",
+            "url": "https://diariodocomercio.com.br/economia/comercio-de-bh-espera-crescimento-nas-vendas-de-fim-de-ano/",
+            "title": "Diário do Comércio",
+            "published_at": "2024-10-28",
+            "domain": "diariodocomercio.com.br",
+            "name": "diariodocomercio.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": false
+          }
+        ],
+        "places": [
+          "Belo Horizonte"
+        ],
+        "channels": [
+          "LinkedIn (B2B para lojistas)",
+          "Google Display (Segmentado por interesse em eletrodomésticos",
+          "Parcerias com portais de notícias locais"
+        ],
+        "window": "Novembro de 2024 (Black Friday)",
+        "verdict": "contestado",
+        "check_notes": "Embora a Cemig realize campanhas de eficiência energética durante a Black Friday (como a mencionada sobre o Selo Procel), a afirmação de uma 'redução tarifária de 1,92%' é falsa para o contexto de 2026, onde houve aumento.",
+        "other_sources": [
+          "https://www.cenarioenergia.com.br",
+          "https://www.cemig.com.br"
+        ],
+        "contradicted": true,
+        "confidence": "media",
+        "review": {
+          "id": "A4",
+          "veracidade": 1,
+          "recencia": 1,
+          "aderencia": 2,
+          "acao": 1,
+          "novidade": 2,
+          "nota": "Duas fontes C com URLs quebradas; redução de 1,92% não confirmada em fontes A; Black Friday genérica e forçada.",
+          "media": 1.4
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 85.0,
+            "marca": 90.0,
+            "territorio": 95.0,
+            "autoridade": 85.0,
+            "cultura": 90.0,
+            "timing": 85.0,
+            "conversa": 80.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 10.0,
+            "custo_excessivo": 5.0,
+            "baixa_confianca": 20,
+            "pouca_evidencia": 5.0
+          },
+          "score": 47
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 80.0,
+            "audiencia": 85.0,
+            "geo": 95.0,
+            "momentum": 90.0,
+            "criativo": 85.0,
+            "eficiencia": 85.0,
+            "canais": 80.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 10.0,
+            "custo_excessivo": 5.0,
+            "baixa_confianca": 20,
+            "pouca_evidencia": 5.0
+          },
+          "score": 46
+        }
+      }
+    ],
+    "F5": [
+      {
+        "flow": "F5",
+        "title": "Campanha de consumo consciente com bandeira verde",
+        "thesis": "Cemig deve reforçar hábitos de economia mesmo com bandeira verde em outubro, pois a tarifa não cai e o calor de fim de ano pode elevar consumo.",
+        "editorial": 58,
+        "paid": 53,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S2",
+            "url": "https://www.cemig.com.br/noticia/dicas-e-orientacoes/bandeira-verde-em-outubro-cemig-alerta-que-consumo-consciente-continua-essencial-para-evitar-surpresas-na-conta-de-luz/",
+            "title": "Cemig",
+            "published_at": "2026-09-28",
+            "domain": "cemig.com.br",
+            "name": "Site da marca",
+            "group": "oficial",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": true
+          },
+          {
+            "id": "S5",
+            "url": "https://diariodocomercio.com.br/geral/bandeira-verde/",
+            "title": "Diário do Comércio",
+            "published_at": "2026-09-29",
+            "domain": "diariodocomercio.com.br",
+            "name": "diariodocomercio.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [
+          "Minas Gerais",
+          "Montes Claros"
+        ],
+        "channels": [
+          "site institucional",
+          "redes sociais",
+          "e-mail marketing",
+          "app Cemig Atende"
+        ],
+        "window": "outubro de 2026",
+        "verdict": "confirmado",
+        "check_notes": "Cemig publicou alerta oficial em 28/09/2026 reforçando consumo consciente na bandeira verde de outubro (não reduz tarifa base; hábitos evitam surpresas). Vários veículos replicaram. Menção implícita a aumento de consumo no calor de fim de ano via orientações sobre equipamentos.",
+        "other_sources": [
+          "https://www.cemig.com.br/noticia/dicas-e-orientacoes/bandeira-verde-em-outubro-cemig-alerta-que-consumo-consciente-continua-essencial-para-evitar-surpresas-na-conta-de-luz/",
+          "https://jornalvozativa.com/noticias/bandeira-verde-outubro-cemig-economia-energia/",
+          "https://diariodocomercio.com.br/geral/bandeira-verde/"
+        ],
+        "contradicted": false,
+        "confidence": "alta",
+        "review": {
+          "id": "D1",
+          "veracidade": 5,
+          "recencia": 5,
+          "aderencia": 5,
+          "acao": 4,
+          "novidade": 2,
+          "nota": "Fonte Cemig.com.br com URL específica abre; mas tese é óbvia (consumo consciente mesmo com bandeira verde).",
+          "media": 4.2
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 85.0,
+            "marca": 90.0,
+            "territorio": 80.0,
+            "autoridade": 85.0,
+            "cultura": 70.0,
+            "timing": 90.0,
+            "conversa": 75.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 5.0,
+            "baixa_confianca": 5.0,
+            "risco_reputacional": 5.0,
+            "pouca_evidencia": 5.0
+          },
+          "score": 58
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 80.0,
+            "audiencia": 85.0,
+            "geo": 75.0,
+            "momentum": 80.0,
+            "criativo": 70.0,
+            "eficiencia": 75.0,
+            "canais": 80.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 5.0,
+            "baixa_confianca": 5.0,
+            "risco_reputacional": 5.0,
+            "pouca_evidencia": 5.0
+          },
+          "score": 53
+        }
+      },
+      {
+        "flow": "F5",
+        "title": "Alerta sobre regularização da Tarifa Social até dezembro",
+        "thesis": "Cemig precisa comunicar famílias de baixa renda sobre risco de perda de descontos caso não atualizem cadastro até 31/12/2026.",
+        "editorial": 36,
+        "paid": 31,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S6",
+            "url": "https://www.itatiaia.com.br/ouropreto/cemig-alerta-para-risco-de-perda-de-descontos-na-conta-de-luz/",
+            "title": "Rádio Itatiaia",
+            "published_at": "2026-09-17",
+            "domain": "itatiaia.com.br",
+            "name": "Rádio Itatiaia",
+            "group": "regional",
+            "tier": "A",
+            "primary": false,
+            "uf": "MG",
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [
+          "Minas Gerais"
+        ],
+        "channels": [
+          "site institucional",
+          "SMS",
+          "atendimento presencial",
+          "redes sociais"
+        ],
+        "window": "até 31 de dezembro de 2026",
+        "verdict": "confirmado",
+        "check_notes": "Página oficial da Cemig e reportagens de set/2026 confirmam necessidade de regularizar cadastro da Tarifa Social até 31/12/2026 para famílias de baixa renda evitarem perda do benefício (novas regras ANEEL). Cemig está comunicando via conta e e-mail.",
+        "other_sources": [
+          "https://www.cemig.com.br/valores-e-tarifas/tarifa-social/regularizar-cadastro/",
+          "https://www.itatiaia.com.br/ouropreto/cemig-alerta-para-risco-de-perda-de-descontos-na-conta-de-luz/",
+          "https://ofator.com.br/especial/tarifa-social-entenda-quem-tem-direito-como-regularizar-cadastro/"
+        ],
+        "contradicted": false,
+        "confidence": "alta",
+        "review": {
+          "id": "D2",
+          "veracidade": 5,
+          "recencia": 5,
+          "aderencia": 4,
+          "acao": 2,
+          "novidade": 2,
+          "nota": "Fonte Itatiaia abre e data na janela; mas score editorial/paid baixos (36/31) indicam baixa prioridade interna.",
+          "media": 3.6
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 80.0,
+            "marca": 85.0,
+            "territorio": 75.0,
+            "autoridade": 90.0,
+            "cultura": 65.0,
+            "timing": 70.0,
+            "conversa": 60.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 10.0,
+            "baixa_confianca": 5.0,
+            "risco_reputacional": 10.0,
+            "pouca_evidencia": 10.0
+          },
+          "score": 36
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 75.0,
+            "audiencia": 70.0,
+            "geo": 80.0,
+            "momentum": 65.0,
+            "criativo": 60.0,
+            "eficiencia": 70.0,
+            "canais": 75.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 10.0,
+            "baixa_confianca": 5.0,
+            "risco_reputacional": 10.0,
+            "pouca_evidencia": 10.0
+          },
+          "score": 31
+        }
+      }
+    ],
+    "F6": [],
+    "F7": []
+  },
+  "versions": [
+    {
+      "label": "1.0",
+      "mean": 3.878,
+      "score": {
+        "F1": 4.73,
+        "F2": null,
+        "F3": 3.93,
+        "F4": 2.15,
+        "F5": 4.7,
+        "F6": null,
+        "F7": null
+      },
+      "winner": "F1"
+    }
+  ],
+  "best_version": "1.0",
+  "prompt_changes": [
+    {
+      "label": "1.1",
+      "from": "1.0",
+      "accepted": [],
+      "rejected": []
+    }
+  ],
+  "best_prompts": {
+    "judge": "Você qualifica oportunidades de comunicação e mídia para planejadores. Use somente as evidências fornecidas; sem evidência, o critério vale 0. Toda oportunidade cita ao menos uma evidência pelo id (S1, S2…). Notas de 0 a 100, conservadoras. Uma oportunidade é uma AÇÃO possível para a marca, não um resumo da notícia. Responda só JSON no esquema pedido. No máximo {max_opportunities} oportunidades, da mais forte para a mais fraca.",
+    "revise": "Você é o mesmo analista que gerou as oportunidades abaixo. Um planejador sênior deu notas de 1 a 5 e apontou problemas. Reescreva a lista: corrija ou retire oportunidades sustentadas só por fonte fraca (nível C), por link que não abre ou por fato fora da janela; deixe a ação concreta para um planejador (canal, formato e quando); troque o genérico por algo específico desta marca. Use SOMENTE as evidências do pacote (S1, S2…): sem evidência, a oportunidade sai. Pode trocar uma oportunidade fraca por outra melhor sustentada pelo pacote. Notas de 0 a 100, conservadoras. Responda só JSON no esquema pedido. No máximo {max_opportunities} oportunidades.",
+    "reality_check": "Você é um checador de fatos. Para cada afirmação, pesquise na web agora e responda: é verdade? Aconteceu nos últimos {recency_days} dias? Quais outros veículos publicaram (URLs)? Há algo que contradiga? Seja cético: na dúvida, \"parcial\". Responda só JSON: {{\"results\": [{{\"index\": 0, \"verdict\": \"confirmado|parcial|contestado\", \"is_recent\": true, \"other_sources\": [\"url\"], \"contradiction\": \"vazio ou o que contradiz\", \"notes\": \"...\"}}]}}",
+    "verify": "Você é o verificador. Tente provar que cada oportunidade está errada: a evidência é recente? Há fonte primária? Está fora de contexto? Responda só JSON: {{\"results\": [{{\"index\": 0, \"verdict\": \"confirmado|parcial|contestado\", \"is_recent\": true, \"has_primary_source\": true, \"corroborating_sources\": 0, \"notes\": \"...\"}}]}}"
+  },
+  "reviewer_noise": 0.29,
+  "review": {
+    "opportunities": [
+      {
+        "id": "B1",
+        "veracidade": 5,
+        "recencia": 5,
+        "aderencia": 5,
+        "acao": 5,
+        "novidade": 4,
+        "nota": "Bandeira verde confirmada em gov.br e Cemig.com.br com URLs abertas e datas na janela; ação imediata de serviço ao cliente."
+      },
+      {
+        "id": "B3",
+        "veracidade": 5,
+        "recencia": 5,
+        "aderencia": 5,
+        "acao": 5,
+        "novidade": 4,
+        "nota": "Conteúdo educativo ancorado em transparência com fontes oficiais abertas e vigentes; execução viável esta semana."
+      },
+      {
+        "id": "B2",
+        "veracidade": 5,
+        "recencia": 5,
+        "aderencia": 5,
+        "acao": 4,
+        "novidade": 3,
+        "nota": "Páginas próprias Cemig sobre fatura e bandeiras existem e abrem; conteúdo evergreen mas com baixa urgência semanal."
+      },
+      {
+        "id": "C1",
+        "veracidade": 4,
+        "recencia": 5,
+        "aderencia": 5,
+        "acao": 4,
+        "novidade": 3,
+        "nota": "Onda de calor e fim de ano confirmados em fontes A; uma fonte C reduz veracidade; planejável mas genérico."
+      },
+      {
+        "id": "D1",
+        "veracidade": 5,
+        "recencia": 5,
+        "aderencia": 5,
+        "acao": 4,
+        "novidade": 2,
+        "nota": "Fonte Cemig.com.br com URL específica abre; mas tese é óbvia (consumo consciente mesmo com bandeira verde)."
+      },
+      {
+        "id": "C3",
+        "veracidade": 4,
+        "recencia": 5,
+        "aderencia": 5,
+        "acao": 3,
+        "novidade": 3,
+        "nota": "Tarifa Social é relevante para público Cemig; fonte A abre; mas ação requer coordenação com área de benefícios."
+      },
+      {
+        "id": "A1",
+        "veracidade": 2,
+        "recencia": 1,
+        "aderencia": 4,
+        "acao": 2,
+        "novidade": 2,
+        "nota": "Janela é nov-dez 2024 (passada); fonte agenciaminas.mg.gov.br abre mas data 2024-10-07 fora da janela 30 dias."
+      },
+      {
+        "id": "A3",
+        "veracidade": 2,
+        "recencia": 1,
+        "aderencia": 4,
+        "acao": 2,
+        "novidade": 3,
+        "nota": "Tema relevante (fraudes PIX); fonte otempo.com.br quebrada; data 2024-10-22 fora da janela atual."
+      },
+      {
+        "id": "A4",
+        "veracidade": 2,
+        "recencia": 1,
+        "aderencia": 4,
+        "acao": 2,
+        "novidade": 2,
+        "nota": "Segurança em chuvas é pertinente; fontes quebradas; uma é nível C; datas 2024 fora da janela."
+      },
+      {
+        "id": "A2",
+        "veracidade": 1,
+        "recencia": 1,
+        "aderencia": 3,
+        "acao": 1,
+        "novidade": 2,
+        "nota": "Ambas as fontes quebradas; datas 2024 fora da janela; veredito 'contestado' sinaliza inconsistência."
+      },
+      {
+        "id": "C2",
+        "veracidade": 4,
+        "recencia": 5,
+        "aderencia": 4,
+        "acao": 3,
+        "novidade": 2,
+        "nota": "Fonte G1 abre e está na janela; tema educativo mas genérico; execução menos urgente que B1/B3."
+      },
+      {
+        "id": "D2",
+        "veracidade": 5,
+        "recencia": 5,
+        "aderencia": 4,
+        "acao": 2,
+        "novidade": 2,
+        "nota": "Fonte Itatiaia abre e data na janela; mas score editorial/paid baixos (36/31) indicam baixa prioridade interna."
+      }
+    ],
+    "systems": [
+      {
+        "system": "B",
+        "resumo": "Sistema B entrega 3 oportunidades com fontes gov.br e cemig.com.br abertas, datas vigentes na janela de 30 dias, e teses ancoradas em fatos verificáveis (bandeira verde confirmada, páginas de serviço existentes). Todas as URLs abrem e os scores editorial/paid são altos (79-90).",
+        "melhor_em": "Veracidade (fontes A abertas), recência (datas 2026-09-29 a 2026-10-05), ação (conteúdo planejável esta semana), aderência (serviço direto ao cliente Cemig).",
+        "pior_em": "Novidade (B1 e B3 são educativas mas previsíveis; B2 é evergreen sem urgência semanal)."
+      },
+      {
+        "system": "C",
+        "resumo": "Sistema C oferece 3 oportunidades com mix de fontes A e C, datas recentes (set-out 2026) dentro da janela, e teses contextualizadas (onda de calor, Tarifa Social, consumo consciente). Scores editorial/paid moderados a altos (70-82), mas uma fonte C em C1 reduz confiança geral.",
+        "melhor_em": "Aderência (temas alinhados com marca e público), recência (datas 2026), relevância contextual (calor + fim de ano).",
+        "pior_em": "Veracidade (C1 tem fonte nível C que reduz para 4; C2 e C3 têm scores editorial/paid mais baixos que B); novidade (temas genéricos de consumo consciente e benefícios)."
+      },
+      {
+        "system": "A",
+        "resumo": "Sistema A apresenta 4 oportunidades com datas e janelas em 2024 (nov-dez 2024, out-jan 2025), fora da janela de 30 dias atual (hoje 2026-10-06). Fontes incluem nível C e URLs quebradas. Vereditos mistos (parcial, contestado, confirmado) indicam inconsistência editorial.",
+        "melhor_em": "Aderência (temas relevantes: negociação débitos, segurança, chuvas); scores editorial/paid moderados (62-85).",
+        "pior_em": "Recência (todas as datas são 2024, fora da janela); veracidade (fontes quebradas, nível C em A4); ação (impossível planejar mídia para campanhas de 2024 em outubro 2026)."
+      },
+      {
+        "system": "D",
+        "resumo": "Sistema D oferece 2 oportunidades com fontes A abertas e datas na janela (2026-09-28 a 2026-09-29), mas scores editorial/paid muito baixos (31-58) e quadrantes 'ignorar'. Uma fonte é nível C. Teses são óbvias (consumo consciente com bandeira verde; atualizar cadastro).",
+        "melhor_em": "Recência (datas 2026 na janela); veracidade (D1 tem URL Cemig específica que abre).",
+        "pior_em": "Novidade (teses genéricas e previsíveis); ação (scores baixos sugerem baixa prioridade); aderência (D2 tem score editorial 36, indicando fraca relevância editorial)."
+      }
+    ],
+    "duplicadas": [
+      [
+        "B1",
+        "D1"
+      ],
+      [
+        "B3",
+        "C2"
+      ],
+      [
+        "C3",
+        "D2"
+      ]
+    ],
+    "vencedor": "B",
+    "por_que": "Sistema B entrega 3 oportunidades com veracidade máxima (fontes gov.br e cemig.com.br abertas), recência confirmada (datas 2026-09-29 a 2026-10-05 dentro da janela), aderência total (serviço direto ao cliente Cemig em MG) e ação imediata (conteúdo planejável esta semana). Todas as fontes abrem, os scores editorial/paid são altos (79-90) e as teses são ancoradas em fatos verificáveis (bandeira verde vigente, páginas de serviço existentes). Sistema C fica em segundo (boa aderência e recência, mas veracidade reduzida por fonte C e scores mais baixos); A e D ficam descartados (A: datas 2024 fora da janela; D: scores muito baixos e teses óbvias).",
+    "mapping": {
+      "F4": "A",
+      "F1": "B",
+      "F3": "C",
+      "F5": "D"
+    },
+    "winner_flow": "F1"
+  }
+}

@@ -1,0 +1,4370 @@
+{
+  "run_id": "20261006203940-e89d7b",
+  "scenario": {
+    "name": "cemig",
+    "brand_ref": "studio:31",
+    "project_ref": "ci:1e3b2924-cc9f-42ba-b288-b94a4c9d5d90",
+    "brand_name": "Cemig",
+    "sector": "Energia elétrica",
+    "site": "https://www.cemig.com.br",
+    "facts": [
+      "Distribuidora e geradora de energia de Minas Gerais",
+      "Clientes residenciais, empresas e rural"
+    ],
+    "focus": "conta de luz, bandeira tarifária, calor e consumo consciente no fim do ano",
+    "places": "Minas Gerais, Belo Horizonte",
+    "lenses": [
+      "Sazonalidade e datas",
+      "Regulação",
+      "Reputação"
+    ],
+    "recency_days": 30
+  },
+  "context": {
+    "brand": {
+      "name": "Cemig",
+      "sector": "[{'value': 'Energia elétrica', 'source_url': 'https://ri.cemig.com.br', 'excerpt",
+      "facts": [
+        "Resumo da marca: [{'value': 'A Cemig se apresenta como uma companhia de energia com frente institucional, serviços ao cliente, produtos comerciais e relações com investidores.', 'source_url': 'https://www.cemig.com.br', 'excerpt': '## SERVIÇOS ... ## INSTITUCIONAL ... ## RELACIONAMENTO ... ## PRODUTOS', 'confidence': 0.93}, {'value': 'A marca opera com contexto principal no Brasil em português, mas também oferece navegação em inglês.', 'source_url': 'https://www.cemig.com.br', 'excerpt': '[PT](https://www.cemig.com.br/ \"Português\") ... [EN](https://www.cemig.com.br/en \"English\")', 'confidence': 0.96}]",
+        "Público-alvo: [{'label': 'Clientes e consumidores de energia da Cemig', 'evidence': 'O site destaca serviços de atendimento e autoatendimento ligados à conta de luz e fornecimento de energia, como 2ª via da conta, troca de titularidade, estou sem luz e religação.', 'source_url': 'https://www.cemig.com.br', 'excerpt': 'SERVIÇOS MAIS ACESSADOS - 2ª via da conta; Troca de titularidade; Estou sem luz; Religação', 'confidence': 0.98}, {'label': 'Investidores e acionistas', 'evidence': 'Há uma área dedicada de Relações com Investidores com conteúdos de governança, resultados, informações financeiras e serviços de",
+        "Produtos e serviços: ['Cemig Atende Web / CEMIG ATENDE', 'Fornecimento e acompanhamento de energia, incluindo mapa de fornecimento e desligamento programado', 'Geração Distribuída', 'Gestão de conta de luz e tarifas', 'Energia Livre Cemig', 'Cemig SIM']",
+        "Diferenciais: ['Disponibiliza ecossistema amplo de atendimento digital e autosserviço ao cliente.', 'Combina atuação institucional e operacional com área dedicada de Relações com Investidores.', 'Expõe acessibilidade e suporte multilíngue no ambiente institucional.', 'Mantém portfólio que vai além da distribuição/atendimento, incluindo Geração Distribuída e produtos como Energia Livre Cemig e Cemig SIM.']",
+        "Tom de voz: [{'value': 'Institucional', 'source_url': 'https://www.cemig.com.br', 'excerpt': '## INSTITUCIONAL\\n- [A Cemig] ...\\n- [Governança] ...\\n- [Legislação do Setor] ...', 'confidence': 0.91}, {'value': 'Orientado a serviços e autoatendimento', 'source_url': 'https://www.cemig.com.br', 'excerpt': '## SERVIÇOS MAIS ACESSADOS\\n- [2ª via da conta] ...\\n- [Troca de titularidade] ...\\n- [Estou sem luz] ...\\n- [Religação] ...', 'confidence': 0.95}, {'value': 'Acessível e bilíngue', 'source_url': 'https://www.cemig.com.br', 'excerpt': '[Recursos de acessibilidade](https://www.cemig.com.br/recursos-de-aces",
+        "Direção do trabalho: Dossiê operacional da marca Cemig.",
+        "Orientações para o Cadu: Contexto de marca vinculado; decisões de campanha devem ser registradas neste projeto.",
+        "Tom de voz: [{'value': 'Institucional', 'source_url': 'https://www.cemig.com.br', 'excerpt': '## INSTITUCIONAL\\n- [A Cemig] ...\\n- [Governança] ...\\n- [Legislação do Setor] ...', 'confidence': 0.91}, {'value': 'Orientado a serviços e autoatendimento', 'source_url': 'https://www.cemig.com.br', 'excerpt': '## SERVIÇOS MAIS ACESSADOS\\n- [2ª via da conta] ...\\n- [Troca de titularidade] ...\\n- [Estou sem luz] ...\\n- [Religação] ...', 'confidence': 0.95}, {'value': 'Acessível e bilíngue', 'source_url': 'https://www.cemig.com.br', 'excerpt': '[Recursos de acessibilidade](https://www.cemig.com.br/recursos-de-aces",
+        "Público: [{'label': 'Clientes e consumidores de energia da Cemig', 'evidence': 'O site destaca serviços de atendimento e autoatendimento ligados à conta de luz e fornecimento de energia, como 2ª via da conta, troca de titularidade, estou sem luz e religação.', 'source_url': 'https://www.cemig.com.br', 'excerpt': 'SERVIÇOS MAIS ACESSADOS - 2ª via da conta; Troca de titularidade; Estou sem luz; Religação', 'confidence': 0.98}, {'label': 'Investidores e acionistas', 'evidence': 'Há uma área dedicada de Relações com Investidores com conteúdos de governança, resultados, informações financeiras e serviços de",
+        "Posicionamento: [{'value': 'A Cemig se apresenta como uma companhia de energia com frente institucional, serviços ao cliente, produtos comerciais e relações com investidores.', 'source_url': 'https://www.cemig.com.br', 'excerpt': '## SERVIÇOS ... ## INSTITUCIONAL ... ## RELACIONAMENTO ... ## PRODUTOS', 'confidence': 0.93}, {'value': 'A marca opera com contexto principal no Brasil em português, mas também oferece navegação em inglês.', 'source_url': 'https://www.cemig.com.br', 'excerpt': '[PT](https://www.cemig.com.br/ \"Português\") ... [EN](https://www.cemig.com.br/en \"English\")', 'confidence': 0.96}]"
+      ],
+      "site": "https://www.cemig.com.br"
+    },
+    "focus": "conta de luz, bandeira tarifária, calor e consumo consciente no fim do ano",
+    "places": "Minas Gerais, Belo Horizonte",
+    "lenses": "Sazonalidade e datas, Regulação, Reputação",
+    "recency_days": 30,
+    "recency": "month",
+    "topic": "conta de luz, bandeira tarifária, calor e consumo consciente no fim do ano Cemig [{'value': 'Energia elétrica', 'source_url': 'https://ri.cemig.com.br', 'excerpt",
+    "today": "2026-10-06",
+    "since": "2026-09-06T20:39:40.413081+00:00"
+  },
+  "token_price_usd": 0.00016055828898483784,
+  "radar_r1_reserve": 15207,
+  "seconds": 3.4,
+  "flows": {
+    "F1": {
+      "name": "Perplexity + imprensa",
+      "kind": "perplexity",
+      "models": {
+        "discover_open": "perplexity/sonar-pro",
+        "discover_press": "perplexity/sonar",
+        "discover_trends": "perplexity/sonar",
+        "judge": "openai/gpt-5.4-mini",
+        "check": "perplexity/sonar"
+      },
+      "discover_seconds": 0.1,
+      "opportunities": 5,
+      "review_avg": null,
+      "history": {
+        "1.0": [
+          null,
+          null,
+          null
+        ]
+      },
+      "evidence": 10,
+      "sources": 5,
+      "sources_ab_pct": 0,
+      "urls_ok_pct": 0,
+      "in_window_pct": 100,
+      "confidence": {
+        "alta": 0,
+        "media": 0,
+        "baixa": 5
+      },
+      "sim_tokens": 690,
+      "real_tokens": 0,
+      "provider_usd": 0,
+      "failed_calls": 0
+    },
+    "F2": {
+      "name": "OpenAI nativo",
+      "kind": "web",
+      "models": {
+        "discover": "openai/gpt-5-mini",
+        "judge": "gpt-5-mini",
+        "check": "openai/gpt-5-mini"
+      },
+      "discover_seconds": 0.0,
+      "opportunities": 5,
+      "review_avg": null,
+      "history": {
+        "1.0": [
+          null,
+          null,
+          null
+        ]
+      },
+      "evidence": 10,
+      "sources": 5,
+      "sources_ab_pct": 0,
+      "urls_ok_pct": 0,
+      "in_window_pct": 100,
+      "confidence": {
+        "alta": 0,
+        "media": 0,
+        "baixa": 5
+      },
+      "sim_tokens": 25709,
+      "real_tokens": 0,
+      "provider_usd": 0,
+      "failed_calls": 0
+    },
+    "F3": {
+      "name": "Evidência primeiro (Firecrawl + Python)",
+      "kind": "evidence",
+      "models": {
+        "judge": "google/gemini-2.5-flash",
+        "check": "deepseek/deepseek-v3.2"
+      },
+      "discover_seconds": 1.8,
+      "opportunities": 5,
+      "review_avg": null,
+      "history": {
+        "1.0": [
+          null,
+          null,
+          null
+        ]
+      },
+      "evidence": 14,
+      "sources": 5,
+      "sources_ab_pct": 0,
+      "urls_ok_pct": 100,
+      "in_window_pct": 100,
+      "confidence": {
+        "alta": 0,
+        "media": 0,
+        "baixa": 5
+      },
+      "sim_tokens": 339,
+      "real_tokens": 0,
+      "provider_usd": 0,
+      "failed_calls": 0
+    },
+    "F4": {
+      "name": "Gemini + busca Google",
+      "kind": "web",
+      "models": {
+        "discover": "google/gemini-3-flash-preview",
+        "judge": "google/gemini-3-flash-preview",
+        "check": "google/gemini-3-flash-preview"
+      },
+      "discover_seconds": 0.0,
+      "opportunities": 5,
+      "review_avg": null,
+      "history": {
+        "1.0": [
+          null,
+          null,
+          null
+        ]
+      },
+      "evidence": 10,
+      "sources": 5,
+      "sources_ab_pct": 0,
+      "urls_ok_pct": 0,
+      "in_window_pct": 100,
+      "confidence": {
+        "alta": 0,
+        "media": 0,
+        "baixa": 5
+      },
+      "sim_tokens": 730,
+      "real_tokens": 0,
+      "provider_usd": 0,
+      "failed_calls": 0
+    },
+    "F5": {
+      "name": "Grok + web e X",
+      "kind": "web",
+      "models": {
+        "discover": "x-ai/grok-4.3",
+        "judge": "x-ai/grok-4.3",
+        "check": "x-ai/grok-4.3"
+      },
+      "discover_seconds": 0.0,
+      "opportunities": 5,
+      "review_avg": null,
+      "history": {
+        "1.0": [
+          null,
+          null,
+          null
+        ]
+      },
+      "evidence": 10,
+      "sources": 5,
+      "sources_ab_pct": 0,
+      "urls_ok_pct": 0,
+      "in_window_pct": 100,
+      "confidence": {
+        "alta": 0,
+        "media": 0,
+        "baixa": 5
+      },
+      "sim_tokens": 526,
+      "real_tokens": 0,
+      "provider_usd": 0,
+      "failed_calls": 0
+    },
+    "F6": {
+      "name": "Claude Sonnet + busca Anthropic",
+      "kind": "web",
+      "models": {
+        "discover": "anthropic/claude-sonnet-5",
+        "judge": "anthropic/claude-sonnet-5",
+        "check": "anthropic/claude-sonnet-5"
+      },
+      "discover_seconds": 0.0,
+      "opportunities": 5,
+      "review_avg": null,
+      "history": {
+        "1.0": [
+          null,
+          null,
+          null
+        ]
+      },
+      "evidence": 10,
+      "sources": 5,
+      "sources_ab_pct": 0,
+      "urls_ok_pct": 0,
+      "in_window_pct": 100,
+      "confidence": {
+        "alta": 0,
+        "media": 0,
+        "baixa": 5
+      },
+      "sim_tokens": 1338,
+      "real_tokens": 0,
+      "provider_usd": 0,
+      "failed_calls": 0
+    },
+    "F7": {
+      "name": "Híbrido: Perplexity + RSS, juiz Sonnet",
+      "kind": "perplexity",
+      "models": {
+        "discover_open": "perplexity/sonar-pro",
+        "discover_press": "perplexity/sonar",
+        "discover_trends": "perplexity/sonar",
+        "judge": "anthropic/claude-sonnet-5",
+        "check": "perplexity/sonar"
+      },
+      "discover_seconds": 1.6,
+      "opportunities": 5,
+      "review_avg": null,
+      "history": {
+        "1.0": [
+          null,
+          null,
+          null
+        ]
+      },
+      "evidence": 14,
+      "sources": 5,
+      "sources_ab_pct": 0,
+      "urls_ok_pct": 100,
+      "in_window_pct": 100,
+      "confidence": {
+        "alta": 0,
+        "media": 0,
+        "baixa": 5
+      },
+      "sim_tokens": 976,
+      "real_tokens": 0,
+      "provider_usd": 0,
+      "failed_calls": 0
+    }
+  },
+  "calls": [
+    {
+      "flow": "F1",
+      "stage": "discover_open",
+      "kind": "llm",
+      "model": "perplexity/sonar-pro",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.025682,
+      "sim_tokens": 160,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F1",
+      "stage": "discover_trends",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.006328,
+      "sim_tokens": 40,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F1",
+      "stage": "discover_press",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.007721,
+      "sim_tokens": 49,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F4",
+      "stage": "discover_open",
+      "kind": "llm",
+      "model": "google/gemini-3-flash-preview",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.018707,
+      "sim_tokens": 117,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F2",
+      "stage": "discover_open",
+      "kind": "llm",
+      "model": "openai/gpt-5-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.013014,
+      "sim_tokens": 82,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F2",
+      "stage": "discover_press",
+      "kind": "llm",
+      "model": "openai/gpt-5-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.01305,
+      "sim_tokens": 82,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F4",
+      "stage": "discover_press",
+      "kind": "llm",
+      "model": "google/gemini-3-flash-preview",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.01878,
+      "sim_tokens": 117,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F5",
+      "stage": "discover_open",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.010167,
+      "sim_tokens": 64,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F5",
+      "stage": "discover_press",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.010351,
+      "sim_tokens": 65,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F6",
+      "stage": "discover_open",
+      "kind": "llm",
+      "model": "anthropic/claude-sonnet-5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.026188,
+      "sim_tokens": 164,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F6",
+      "stage": "discover_press",
+      "kind": "llm",
+      "model": "anthropic/claude-sonnet-5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.026482,
+      "sim_tokens": 165,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F7",
+      "stage": "discover_open",
+      "kind": "llm",
+      "model": "perplexity/sonar-pro",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.025682,
+      "sim_tokens": 160,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F7",
+      "stage": "discover_trends",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.006328,
+      "sim_tokens": 40,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F7",
+      "stage": "discover_press",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.007721,
+      "sim_tokens": 49,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F7",
+      "stage": "extract",
+      "kind": "firecrawl",
+      "model": "firecrawl/scrape",
+      "route": "firecrawl",
+      "regime": "firecrawl",
+      "sim_usd": 0.0,
+      "sim_tokens": 63,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "",
+      "preview": ""
+    },
+    {
+      "flow": "F1",
+      "stage": "extract",
+      "kind": "firecrawl",
+      "model": "firecrawl/scrape",
+      "route": "firecrawl",
+      "regime": "firecrawl",
+      "sim_usd": 0.0,
+      "sim_tokens": 63,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "",
+      "preview": ""
+    },
+    {
+      "flow": "F3",
+      "stage": "google_news",
+      "kind": "python",
+      "model": "python/rss",
+      "route": "python",
+      "regime": "gratis",
+      "sim_usd": 0.0,
+      "sim_tokens": 0,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 1.6,
+      "ok": true,
+      "note": "23 manchetes",
+      "label": "",
+      "preview": ""
+    },
+    {
+      "flow": "F7",
+      "stage": "google_news",
+      "kind": "python",
+      "model": "python/rss",
+      "route": "python",
+      "regime": "gratis",
+      "sim_usd": 0.0,
+      "sim_tokens": 0,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 1.5,
+      "ok": true,
+      "note": "23 manchetes",
+      "label": "",
+      "preview": ""
+    },
+    {
+      "flow": "F3",
+      "stage": "search",
+      "kind": "firecrawl",
+      "model": "firecrawl/search",
+      "route": "firecrawl",
+      "regime": "firecrawl",
+      "sim_usd": 0.0,
+      "sim_tokens": 95,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "",
+      "preview": ""
+    },
+    {
+      "flow": "F3",
+      "stage": "search-open",
+      "kind": "firecrawl",
+      "model": "firecrawl/search",
+      "route": "firecrawl",
+      "regime": "firecrawl",
+      "sim_usd": 0.0,
+      "sim_tokens": 95,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "",
+      "preview": ""
+    },
+    {
+      "flow": "F1",
+      "stage": "judge",
+      "kind": "llm",
+      "model": "openai/gpt-5.4-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.013211,
+      "sim_tokens": 83,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F1",
+      "stage": "check",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.006454,
+      "sim_tokens": 41,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F2",
+      "stage": "judge",
+      "kind": "llm",
+      "model": "gpt-5-mini",
+      "route": "openai",
+      "regime": "tokens",
+      "sim_usd": 0.005363,
+      "sim_tokens": 8014,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F2",
+      "stage": "check",
+      "kind": "llm",
+      "model": "openai/gpt-5-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.012254,
+      "sim_tokens": 77,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F3",
+      "stage": "judge",
+      "kind": "llm",
+      "model": "google/gemini-2.5-flash",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.006125,
+      "sim_tokens": 39,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F3",
+      "stage": "check",
+      "kind": "llm",
+      "model": "deepseek/deepseek-v3.2",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.001468,
+      "sim_tokens": 10,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F4",
+      "stage": "judge",
+      "kind": "llm",
+      "model": "google/gemini-3-flash-preview",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.008807,
+      "sim_tokens": 55,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F4",
+      "stage": "check",
+      "kind": "llm",
+      "model": "google/gemini-3-flash-preview",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.017427,
+      "sim_tokens": 109,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F5",
+      "stage": "judge",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.012418,
+      "sim_tokens": 78,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F5",
+      "stage": "check",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.008168,
+      "sim_tokens": 51,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F6",
+      "stage": "judge",
+      "kind": "llm",
+      "model": "anthropic/claude-sonnet-5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.031388,
+      "sim_tokens": 196,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F6",
+      "stage": "check",
+      "kind": "llm",
+      "model": "anthropic/claude-sonnet-5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.021548,
+      "sim_tokens": 135,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F7",
+      "stage": "judge",
+      "kind": "llm",
+      "model": "anthropic/claude-sonnet-5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.02804,
+      "sim_tokens": 175,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F7",
+      "stage": "check",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.006454,
+      "sim_tokens": 41,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "REV",
+      "stage": "review-1.0-r0",
+      "kind": "llm",
+      "model": "anthropic/claude-haiku-4.5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.028245,
+      "sim_tokens": 176,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F1",
+      "stage": "revise-r1",
+      "kind": "llm",
+      "model": "openai/gpt-5.4-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.013688,
+      "sim_tokens": 86,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F1",
+      "stage": "check-r1",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.006454,
+      "sim_tokens": 41,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F2",
+      "stage": "revise-r1",
+      "kind": "llm",
+      "model": "gpt-5-mini",
+      "route": "openai",
+      "regime": "tokens",
+      "sim_usd": 0.005522,
+      "sim_tokens": 8650,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F2",
+      "stage": "check-r1",
+      "kind": "llm",
+      "model": "openai/gpt-5-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.012254,
+      "sim_tokens": 77,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F3",
+      "stage": "revise-r1",
+      "kind": "llm",
+      "model": "google/gemini-2.5-flash",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.006314,
+      "sim_tokens": 40,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F3",
+      "stage": "check-r1",
+      "kind": "llm",
+      "model": "deepseek/deepseek-v3.2",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.001468,
+      "sim_tokens": 10,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F4",
+      "stage": "revise-r1",
+      "kind": "llm",
+      "model": "google/gemini-3-flash-preview",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.009125,
+      "sim_tokens": 57,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F4",
+      "stage": "check-r1",
+      "kind": "llm",
+      "model": "google/gemini-3-flash-preview",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.017427,
+      "sim_tokens": 109,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F5",
+      "stage": "revise-r1",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.013213,
+      "sim_tokens": 83,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F5",
+      "stage": "check-r1",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.008168,
+      "sim_tokens": 51,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F6",
+      "stage": "revise-r1",
+      "kind": "llm",
+      "model": "anthropic/claude-sonnet-5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.03266,
+      "sim_tokens": 204,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F6",
+      "stage": "check-r1",
+      "kind": "llm",
+      "model": "anthropic/claude-sonnet-5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.021548,
+      "sim_tokens": 135,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F7",
+      "stage": "revise-r1",
+      "kind": "llm",
+      "model": "anthropic/claude-sonnet-5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.029294,
+      "sim_tokens": 183,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F7",
+      "stage": "check-r1",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.006454,
+      "sim_tokens": 41,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "REV",
+      "stage": "review-1.0-r1",
+      "kind": "llm",
+      "model": "anthropic/claude-haiku-4.5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.028245,
+      "sim_tokens": 176,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F1",
+      "stage": "revise-r2",
+      "kind": "llm",
+      "model": "openai/gpt-5.4-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.013688,
+      "sim_tokens": 86,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F1",
+      "stage": "check-r2",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.006454,
+      "sim_tokens": 41,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F2",
+      "stage": "revise-r2",
+      "kind": "llm",
+      "model": "gpt-5-mini",
+      "route": "openai",
+      "regime": "tokens",
+      "sim_usd": 0.005522,
+      "sim_tokens": 8650,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F2",
+      "stage": "check-r2",
+      "kind": "llm",
+      "model": "openai/gpt-5-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.012254,
+      "sim_tokens": 77,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F3",
+      "stage": "revise-r2",
+      "kind": "llm",
+      "model": "google/gemini-2.5-flash",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.006314,
+      "sim_tokens": 40,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F3",
+      "stage": "check-r2",
+      "kind": "llm",
+      "model": "deepseek/deepseek-v3.2",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.001468,
+      "sim_tokens": 10,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F4",
+      "stage": "revise-r2",
+      "kind": "llm",
+      "model": "google/gemini-3-flash-preview",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.009125,
+      "sim_tokens": 57,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F4",
+      "stage": "check-r2",
+      "kind": "llm",
+      "model": "google/gemini-3-flash-preview",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.017427,
+      "sim_tokens": 109,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F5",
+      "stage": "revise-r2",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.013213,
+      "sim_tokens": 83,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F5",
+      "stage": "check-r2",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.008168,
+      "sim_tokens": 51,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F6",
+      "stage": "revise-r2",
+      "kind": "llm",
+      "model": "anthropic/claude-sonnet-5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.03266,
+      "sim_tokens": 204,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F6",
+      "stage": "check-r2",
+      "kind": "llm",
+      "model": "anthropic/claude-sonnet-5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.021548,
+      "sim_tokens": 135,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F7",
+      "stage": "revise-r2",
+      "kind": "llm",
+      "model": "anthropic/claude-sonnet-5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.029294,
+      "sim_tokens": 183,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "F7",
+      "stage": "check-r2",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.006454,
+      "sim_tokens": 41,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "REV",
+      "stage": "review-1.0-r2",
+      "kind": "llm",
+      "model": "anthropic/claude-haiku-4.5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.028245,
+      "sim_tokens": 176,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    },
+    {
+      "flow": "DOC",
+      "stage": "doctor-1.0",
+      "kind": "llm",
+      "model": "anthropic/claude-sonnet-5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.032512,
+      "sim_tokens": 203,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.0,
+      "ok": true,
+      "note": "simulado (dry-run)",
+      "label": "1.0",
+      "preview": ""
+    }
+  ],
+  "opportunities": {
+    "F1": [
+      {
+        "flow": "F1",
+        "title": "Oportunidade simulada 1",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F1",
+        "title": "Oportunidade simulada 2",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F1",
+        "title": "Oportunidade simulada 3",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F1",
+        "title": "Oportunidade simulada 4",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F1",
+        "title": "Oportunidade simulada 5",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      }
+    ],
+    "F2": [
+      {
+        "flow": "F2",
+        "title": "Oportunidade simulada 1",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F2",
+        "title": "Oportunidade simulada 2",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F2",
+        "title": "Oportunidade simulada 3",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F2",
+        "title": "Oportunidade simulada 4",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F2",
+        "title": "Oportunidade simulada 5",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      }
+    ],
+    "F3": [
+      {
+        "flow": "F3",
+        "title": "Oportunidade simulada 1",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://news.google.com/rss/articles/CBMi1wFBVV95cUxNM1hQZjBFdWdxMVNtTTdfZ2J2UFZJc2NLaUlkTjVGUUVHRXhNSnctbWVRa2RjTllYRWhKcWxNaDY0UlNUUFZWMHBfUEhoS2JuNFQ0M1ZlOW5VZWpJOW1mbG56R3VHUk5vODJ5aVBqOXg1dDZyMUZIVklnVFBoMC1WcE8zb0pKRXZwTTNLUnVyVTRPUWZPZ1ptWmc3dzhNdzZQcTVGTXRoME9aQXlYb1JZUEthMVJ4SG4yb0tzYTUwYll5cWFEZW1IZW83WDRiOHlaQW1xQ01rTQ?oc=5",
+            "title": "Bandeira verde em outubro: Cemig alerta que consumo consciente continua essencial para evitar surpresas na conta de luz (PocosCom)",
+            "published_at": "Tue, 06 Oct 2026 09:31:03 GMT",
+            "domain": "pocoscom.com",
+            "name": "pocoscom.com",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F3",
+        "title": "Oportunidade simulada 2",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://news.google.com/rss/articles/CBMi1wFBVV95cUxNM1hQZjBFdWdxMVNtTTdfZ2J2UFZJc2NLaUlkTjVGUUVHRXhNSnctbWVRa2RjTllYRWhKcWxNaDY0UlNUUFZWMHBfUEhoS2JuNFQ0M1ZlOW5VZWpJOW1mbG56R3VHUk5vODJ5aVBqOXg1dDZyMUZIVklnVFBoMC1WcE8zb0pKRXZwTTNLUnVyVTRPUWZPZ1ptWmc3dzhNdzZQcTVGTXRoME9aQXlYb1JZUEthMVJ4SG4yb0tzYTUwYll5cWFEZW1IZW83WDRiOHlaQW1xQ01rTQ?oc=5",
+            "title": "Bandeira verde em outubro: Cemig alerta que consumo consciente continua essencial para evitar surpresas na conta de luz (PocosCom)",
+            "published_at": "Tue, 06 Oct 2026 09:31:03 GMT",
+            "domain": "pocoscom.com",
+            "name": "pocoscom.com",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F3",
+        "title": "Oportunidade simulada 3",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://news.google.com/rss/articles/CBMi1wFBVV95cUxNM1hQZjBFdWdxMVNtTTdfZ2J2UFZJc2NLaUlkTjVGUUVHRXhNSnctbWVRa2RjTllYRWhKcWxNaDY0UlNUUFZWMHBfUEhoS2JuNFQ0M1ZlOW5VZWpJOW1mbG56R3VHUk5vODJ5aVBqOXg1dDZyMUZIVklnVFBoMC1WcE8zb0pKRXZwTTNLUnVyVTRPUWZPZ1ptWmc3dzhNdzZQcTVGTXRoME9aQXlYb1JZUEthMVJ4SG4yb0tzYTUwYll5cWFEZW1IZW83WDRiOHlaQW1xQ01rTQ?oc=5",
+            "title": "Bandeira verde em outubro: Cemig alerta que consumo consciente continua essencial para evitar surpresas na conta de luz (PocosCom)",
+            "published_at": "Tue, 06 Oct 2026 09:31:03 GMT",
+            "domain": "pocoscom.com",
+            "name": "pocoscom.com",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F3",
+        "title": "Oportunidade simulada 4",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://news.google.com/rss/articles/CBMi1wFBVV95cUxNM1hQZjBFdWdxMVNtTTdfZ2J2UFZJc2NLaUlkTjVGUUVHRXhNSnctbWVRa2RjTllYRWhKcWxNaDY0UlNUUFZWMHBfUEhoS2JuNFQ0M1ZlOW5VZWpJOW1mbG56R3VHUk5vODJ5aVBqOXg1dDZyMUZIVklnVFBoMC1WcE8zb0pKRXZwTTNLUnVyVTRPUWZPZ1ptWmc3dzhNdzZQcTVGTXRoME9aQXlYb1JZUEthMVJ4SG4yb0tzYTUwYll5cWFEZW1IZW83WDRiOHlaQW1xQ01rTQ?oc=5",
+            "title": "Bandeira verde em outubro: Cemig alerta que consumo consciente continua essencial para evitar surpresas na conta de luz (PocosCom)",
+            "published_at": "Tue, 06 Oct 2026 09:31:03 GMT",
+            "domain": "pocoscom.com",
+            "name": "pocoscom.com",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F3",
+        "title": "Oportunidade simulada 5",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://news.google.com/rss/articles/CBMi1wFBVV95cUxNM1hQZjBFdWdxMVNtTTdfZ2J2UFZJc2NLaUlkTjVGUUVHRXhNSnctbWVRa2RjTllYRWhKcWxNaDY0UlNUUFZWMHBfUEhoS2JuNFQ0M1ZlOW5VZWpJOW1mbG56R3VHUk5vODJ5aVBqOXg1dDZyMUZIVklnVFBoMC1WcE8zb0pKRXZwTTNLUnVyVTRPUWZPZ1ptWmc3dzhNdzZQcTVGTXRoME9aQXlYb1JZUEthMVJ4SG4yb0tzYTUwYll5cWFEZW1IZW83WDRiOHlaQW1xQ01rTQ?oc=5",
+            "title": "Bandeira verde em outubro: Cemig alerta que consumo consciente continua essencial para evitar surpresas na conta de luz (PocosCom)",
+            "published_at": "Tue, 06 Oct 2026 09:31:03 GMT",
+            "domain": "pocoscom.com",
+            "name": "pocoscom.com",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      }
+    ],
+    "F4": [
+      {
+        "flow": "F4",
+        "title": "Oportunidade simulada 1",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F4",
+        "title": "Oportunidade simulada 2",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F4",
+        "title": "Oportunidade simulada 3",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F4",
+        "title": "Oportunidade simulada 4",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F4",
+        "title": "Oportunidade simulada 5",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      }
+    ],
+    "F5": [
+      {
+        "flow": "F5",
+        "title": "Oportunidade simulada 1",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F5",
+        "title": "Oportunidade simulada 2",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F5",
+        "title": "Oportunidade simulada 3",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F5",
+        "title": "Oportunidade simulada 4",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F5",
+        "title": "Oportunidade simulada 5",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      }
+    ],
+    "F6": [
+      {
+        "flow": "F6",
+        "title": "Oportunidade simulada 1",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F6",
+        "title": "Oportunidade simulada 2",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F6",
+        "title": "Oportunidade simulada 3",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F6",
+        "title": "Oportunidade simulada 4",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F6",
+        "title": "Oportunidade simulada 5",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://exemplo.com.br/0",
+            "title": "Manchete de exemplo Manchete de exemplo Manchete de exemplo ",
+            "published_at": "2026-10-01",
+            "domain": "exemplo.com.br",
+            "name": "exemplo.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "quebrado",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      }
+    ],
+    "F7": [
+      {
+        "flow": "F7",
+        "title": "Oportunidade simulada 1",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://news.google.com/rss/articles/CBMi1wFBVV95cUxNM1hQZjBFdWdxMVNtTTdfZ2J2UFZJc2NLaUlkTjVGUUVHRXhNSnctbWVRa2RjTllYRWhKcWxNaDY0UlNUUFZWMHBfUEhoS2JuNFQ0M1ZlOW5VZWpJOW1mbG56R3VHUk5vODJ5aVBqOXg1dDZyMUZIVklnVFBoMC1WcE8zb0pKRXZwTTNLUnVyVTRPUWZPZ1ptWmc3dzhNdzZQcTVGTXRoME9aQXlYb1JZUEthMVJ4SG4yb0tzYTUwYll5cWFEZW1IZW83WDRiOHlaQW1xQ01rTQ?oc=5",
+            "title": "Bandeira verde em outubro: Cemig alerta que consumo consciente continua essencial para evitar surpresas na conta de luz (PocosCom)",
+            "published_at": "Tue, 06 Oct 2026 09:31:03 GMT",
+            "domain": "pocoscom.com",
+            "name": "pocoscom.com",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F7",
+        "title": "Oportunidade simulada 2",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://news.google.com/rss/articles/CBMi1wFBVV95cUxNM1hQZjBFdWdxMVNtTTdfZ2J2UFZJc2NLaUlkTjVGUUVHRXhNSnctbWVRa2RjTllYRWhKcWxNaDY0UlNUUFZWMHBfUEhoS2JuNFQ0M1ZlOW5VZWpJOW1mbG56R3VHUk5vODJ5aVBqOXg1dDZyMUZIVklnVFBoMC1WcE8zb0pKRXZwTTNLUnVyVTRPUWZPZ1ptWmc3dzhNdzZQcTVGTXRoME9aQXlYb1JZUEthMVJ4SG4yb0tzYTUwYll5cWFEZW1IZW83WDRiOHlaQW1xQ01rTQ?oc=5",
+            "title": "Bandeira verde em outubro: Cemig alerta que consumo consciente continua essencial para evitar surpresas na conta de luz (PocosCom)",
+            "published_at": "Tue, 06 Oct 2026 09:31:03 GMT",
+            "domain": "pocoscom.com",
+            "name": "pocoscom.com",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F7",
+        "title": "Oportunidade simulada 3",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://news.google.com/rss/articles/CBMi1wFBVV95cUxNM1hQZjBFdWdxMVNtTTdfZ2J2UFZJc2NLaUlkTjVGUUVHRXhNSnctbWVRa2RjTllYRWhKcWxNaDY0UlNUUFZWMHBfUEhoS2JuNFQ0M1ZlOW5VZWpJOW1mbG56R3VHUk5vODJ5aVBqOXg1dDZyMUZIVklnVFBoMC1WcE8zb0pKRXZwTTNLUnVyVTRPUWZPZ1ptWmc3dzhNdzZQcTVGTXRoME9aQXlYb1JZUEthMVJ4SG4yb0tzYTUwYll5cWFEZW1IZW83WDRiOHlaQW1xQ01rTQ?oc=5",
+            "title": "Bandeira verde em outubro: Cemig alerta que consumo consciente continua essencial para evitar surpresas na conta de luz (PocosCom)",
+            "published_at": "Tue, 06 Oct 2026 09:31:03 GMT",
+            "domain": "pocoscom.com",
+            "name": "pocoscom.com",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F7",
+        "title": "Oportunidade simulada 4",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://news.google.com/rss/articles/CBMi1wFBVV95cUxNM1hQZjBFdWdxMVNtTTdfZ2J2UFZJc2NLaUlkTjVGUUVHRXhNSnctbWVRa2RjTllYRWhKcWxNaDY0UlNUUFZWMHBfUEhoS2JuNFQ0M1ZlOW5VZWpJOW1mbG56R3VHUk5vODJ5aVBqOXg1dDZyMUZIVklnVFBoMC1WcE8zb0pKRXZwTTNLUnVyVTRPUWZPZ1ptWmc3dzhNdzZQcTVGTXRoME9aQXlYb1JZUEthMVJ4SG4yb0tzYTUwYll5cWFEZW1IZW83WDRiOHlaQW1xQ01rTQ?oc=5",
+            "title": "Bandeira verde em outubro: Cemig alerta que consumo consciente continua essencial para evitar surpresas na conta de luz (PocosCom)",
+            "published_at": "Tue, 06 Oct 2026 09:31:03 GMT",
+            "domain": "pocoscom.com",
+            "name": "pocoscom.com",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      },
+      {
+        "flow": "F7",
+        "title": "Oportunidade simulada 5",
+        "thesis": "tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese tese ",
+        "editorial": 0,
+        "paid": 0,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://news.google.com/rss/articles/CBMi1wFBVV95cUxNM1hQZjBFdWdxMVNtTTdfZ2J2UFZJc2NLaUlkTjVGUUVHRXhNSnctbWVRa2RjTllYRWhKcWxNaDY0UlNUUFZWMHBfUEhoS2JuNFQ0M1ZlOW5VZWpJOW1mbG56R3VHUk5vODJ5aVBqOXg1dDZyMUZIVklnVFBoMC1WcE8zb0pKRXZwTTNLUnVyVTRPUWZPZ1ptWmc3dzhNdzZQcTVGTXRoME9aQXlYb1JZUEthMVJ4SG4yb0tzYTUwYll5cWFEZW1IZW83WDRiOHlaQW1xQ01rTQ?oc=5",
+            "title": "Bandeira verde em outubro: Cemig alerta que consumo consciente continua essencial para evitar surpresas na conta de luz (PocosCom)",
+            "published_at": "Tue, 06 Oct 2026 09:31:03 GMT",
+            "domain": "pocoscom.com",
+            "name": "pocoscom.com",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [],
+        "channels": [],
+        "window": "",
+        "verdict": "nao_verificado",
+        "check_notes": "",
+        "other_sources": [],
+        "confidence": "baixa",
+        "review": null,
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "marca": 0.0,
+            "territorio": 0.0,
+            "autoridade": 0.0,
+            "cultura": 0.0,
+            "timing": 0.0,
+            "conversa": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 0.0,
+            "audiencia": 0.0,
+            "geo": 0.0,
+            "momentum": 0.0,
+            "criativo": 0.0,
+            "eficiencia": 0.0,
+            "canais": 0.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "baixa_confianca": 12.0
+          },
+          "score": 0
+        }
+      }
+    ]
+  },
+  "versions": [
+    {
+      "label": "1.0",
+      "mean": 0,
+      "score": {
+        "F1": null,
+        "F2": null,
+        "F3": null,
+        "F4": null,
+        "F5": null,
+        "F6": null,
+        "F7": null
+      },
+      "winner": null
+    }
+  ],
+  "best_version": "1.0",
+  "prompt_changes": [
+    {
+      "label": "1.1",
+      "from": "1.0",
+      "accepted": [],
+      "rejected": []
+    }
+  ],
+  "best_prompts": {
+    "judge": "Você qualifica oportunidades de comunicação e mídia para planejadores. Use somente as evidências fornecidas; sem evidência, o critério vale 0. Toda oportunidade cita ao menos uma evidência pelo id (S1, S2…). Notas de 0 a 100, conservadoras. Uma oportunidade é uma AÇÃO possível para a marca, não um resumo da notícia. Responda só JSON no esquema pedido. No máximo {max_opportunities} oportunidades, da mais forte para a mais fraca.",
+    "revise": "Você é o mesmo analista que gerou as oportunidades abaixo. Um planejador sênior deu notas de 1 a 5 e apontou problemas. Reescreva a lista: corrija ou retire oportunidades sustentadas só por fonte fraca (nível C), por link que não abre ou por fato fora da janela; deixe a ação concreta para um planejador (canal, formato e quando); troque o genérico por algo específico desta marca. Use SOMENTE as evidências do pacote (S1, S2…): sem evidência, a oportunidade sai. Pode trocar uma oportunidade fraca por outra melhor sustentada pelo pacote. Notas de 0 a 100, conservadoras. Responda só JSON no esquema pedido. No máximo {max_opportunities} oportunidades.",
+    "reality_check": "Você é um checador de fatos. Para cada afirmação, pesquise na web agora e responda: é verdade? Aconteceu nos últimos {recency_days} dias? Quais outros veículos publicaram (URLs)? Há algo que contradiga? Seja cético: na dúvida, \"parcial\". Responda só JSON: {{\"results\": [{{\"index\": 0, \"verdict\": \"confirmado|parcial|contestado\", \"is_recent\": true, \"other_sources\": [\"url\"], \"contradiction\": \"vazio ou o que contradiz\", \"notes\": \"...\"}}]}}",
+    "verify": "Você é o verificador. Tente provar que cada oportunidade está errada: a evidência é recente? Há fonte primária? Está fora de contexto? Responda só JSON: {{\"results\": [{{\"index\": 0, \"verdict\": \"confirmado|parcial|contestado\", \"is_recent\": true, \"has_primary_source\": true, \"corroborating_sources\": 0, \"notes\": \"...\"}}]}}"
+  },
+  "reviewer_noise": null,
+  "review": {
+    "mapping": {
+      "F2": "A",
+      "F5": "B",
+      "F7": "C",
+      "F1": "D",
+      "F3": "E",
+      "F6": "F",
+      "F4": "G"
+    },
+    "winner_flow": null
+  }
+}

@@ -100,3 +100,4 @@ tests/frontend/.artifacts/
 
 # Resized copies of the Places gallery, made on demand by places/thumbs.py
 aicentralv2/static/images/places/gallery/_thumbs/
+_gen/

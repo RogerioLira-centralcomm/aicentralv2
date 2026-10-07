@@ -1,6 +1,6 @@
 """Captura a home real dos portais (print acima da dobra) e registra para aprovação humana.
 
-Uso (com o ambiente do app e o CLI `firecrawl` autenticado):
+Uso (com o ambiente do app; usa a chave do Firecrawl já guardada nas integrações, ou o CLI `firecrawl` se não houver chave):
   python scripts/capture_portal_prints.py --scope nacional_premium --limit 20     # captura os que ainda não têm print
   python scripts/capture_portal_prints.py --domain g1.globo.com                   # um portal
   python scripts/capture_portal_prints.py --pendentes                             # lista o que espera revisão
@@ -13,6 +13,7 @@ e nada vai à vitrine sem status 'aprovado'. Arquivos em static/images/portais/p
 import argparse
 import io
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -21,6 +22,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+import requests
 from dotenv import load_dotenv
 from PIL import Image
 
@@ -48,15 +50,33 @@ def select_portals(args):
         return cur.fetchall()
 
 
-def capture(domain):
-    """Screenshot URL from Firecrawl for the portal home, downloaded and stored as WebP (1440 wide)."""
-    source = f'https://{domain}'
+def _api_key():
+    from aicentralv2.services.integration_credentials import resolve_firecrawl_api_key
+    return resolve_firecrawl_api_key() or os.getenv('FIRECRAWL_API_KEY', '').strip()
+
+
+def _screenshot_url(source):
+    """Firecrawl API (the key the app already stores); falls back to the CLI when no key is configured."""
+    key = _api_key()
+    if key:
+        response = requests.post('https://api.firecrawl.dev/v2/scrape', timeout=120,
+                                 headers={'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'},
+                                 json={'url': source, 'formats': ['screenshot']})
+        response.raise_for_status()
+        data = response.json()
+        return (data.get('data') or data).get('screenshot')
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / 'shot.json'
         done = subprocess.run(['firecrawl', 'scrape', source, '--format', 'screenshot', '-o', str(out)], capture_output=True, text=True, timeout=180)
         if done.returncode or not out.exists():
             raise RuntimeError((done.stderr or done.stdout or 'firecrawl falhou').strip()[:200])
-        url = json.loads(out.read_text()).get('screenshot')
+        return json.loads(out.read_text()).get('screenshot')
+
+
+def capture(domain):
+    """Screenshot of the portal home, downloaded as an image (max 1440 wide)."""
+    source = f'https://{domain}'
+    url = _screenshot_url(source)
     if not url:
         raise RuntimeError('sem screenshot na resposta')
     with urllib.request.urlopen(url, timeout=60) as response:

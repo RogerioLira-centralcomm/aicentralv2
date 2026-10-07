@@ -15,7 +15,7 @@ import {FormatDetail} from './details/FormatDetail.jsx';
 import {PlaceDetail} from './details/PlaceDetail.jsx';
 import {PortalDetail} from './details/PortalDetail.jsx';
 import {RadarPage} from './Radar.jsx';
-import {RadarListPage} from './RadarList.jsx';
+import {RadarHub} from './RadarHub.jsx';
 import {DocsPage} from './Docs.jsx';
 import {MonitorPage} from './monitoring.jsx';
 import {PlanDetail} from './PlanDetail.jsx';
@@ -63,7 +63,7 @@ function App({boot}) {
     if (boot.view === 'catalog-detail' && boot.module === 'portais') return <PortalDetail boot={boot} selection={selection} plan={plan}/>;
     if (boot.view === 'catalog-detail') return <CatalogDetail boot={boot} selection={selection}/>;
     if (creating) return <PlanCreatePage boot={boot} request={request} notify={notify} selection={context}/>;
-    if (boot.module === 'radares') return <RadarListPage boot={boot} request={request} notify={notify}/>;
+    if (boot.module === 'radares') return <RadarHub boot={boot} request={request} notify={notify}/>;
     if (boot.module === 'radar') return <RadarPage boot={boot} request={request} notify={notify} context={context}/>;
     if (boot.module === 'planos') return <PlansPage boot={boot} plans={plans}/>;
     if (boot.module === 'monitoramento') return <MonitorPage request={request}/>;

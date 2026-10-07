@@ -1,39 +1,15 @@
 """Tela de resultados do Radar: os sinais achados pelas buscas, em ordem de relevância ou de data.
 
-Os sinais já vêm verificados pelo pipeline (data recente, link que abre). Aqui só se agrupam por tema
-(palavras-chave, sem custo de modelo), se marcam os que sustentam um ângulo e se guardam os salvos.
+Os sinais já vêm verificados pelo pipeline (data recente, link que abre). Cada um carrega o radar (tema da busca)
+que o achou e os ângulos que sustenta; aqui também se guardam os salvos.
 """
 from __future__ import annotations
 
-import re
-import unicodedata
 from datetime import datetime, timedelta, timezone
 
 from ..cadu_family import repository
 
-THEMES = (
-    ('programatica', 'Mídia programática', ('programatic', 'dsp', 'ssp', 'rtb', 'leilao', 'header bidding')),
-    ('ctv', 'CTV e vídeo', ('ctv', 'tv conectada', 'streaming', 'youtube', 'netflix', 'video', 'tv linear', 'tv aberta', 'globoplay')),
-    ('retail', 'Retail media', ('retail media', 'marketplace', 'mercado livre', 'amazon ads', 'varejo', 'e-commerce')),
-    ('ia', 'IA e automação', ('inteligencia artificial', ' ia ', 'ia generativa', 'chatgpt', 'gemini', 'automacao', 'llm', 'agente')),
-    ('audiencias', 'Audiências', ('audiencia', 'publico', 'consumidor', 'geracao', 'comportamento')),
-    ('dooh', 'DOOH e geolocalização', ('dooh', 'out of home', 'ooh', 'midia exterior', 'outdoor', 'geolocaliz', 'shopping', 'painel digital')),
-    ('dados', 'Dados e mensuração', ('mensuracao', 'dados', 'cookie', 'privacidade', 'atribuicao', 'analytics', 'metric')),
-    ('regulatorio', 'Regulatório', ('regulat', 'lei ', 'conar', 'anpd', 'lgpd', 'ministerio', 'regras', 'portaria', 'stf', 'projeto de lei')),
-)
-OTHER = ('outros', 'Outros')
 TIER_WEIGHT = {'A': 3, 'B': 2, 'C': 1}
-
-
-def _plain(value):
-    text = unicodedata.normalize('NFKD', str(value or '')).encode('ascii', 'ignore').decode().lower()
-    return f' {re.sub(r"[^a-z0-9 -]+", " ", text)} '
-
-
-def theme_of(*parts):
-    text = _plain(' '.join(part or '' for part in parts))
-    best = max(((sum(text.count(word) for word in words), key, label) for key, label, words in THEMES), default=(0, *OTHER))
-    return (best[1], best[2]) if best[0] else OTHER
 
 
 def available():
@@ -52,7 +28,7 @@ def _score(item, now):
 def list_feed(client_id, *, days=30, limit=120):
     exists, has_saved = available()
     if not exists:
-        return {'items': [], 'themes': []}
+        return {'items': []}
     days = max(1, min(int(days), 365))
     now = datetime.now(timezone.utc)
     saved_col = 's.saved_at' if has_saved else 'NULL::timestamptz'
@@ -72,21 +48,16 @@ def list_feed(client_id, *, days=30, limit=120):
     items = []
     for row in rows:
         verification = row.get('verification') or {}
-        theme_key, theme_label = theme_of(row['headline'], row['description'])
         item = {'id': str(row['id']), 'title': row['headline'], 'summary': row['description'] or '', 'source': row['source'] or 'Fonte',
                 'url': row['url'], 'published_at': row['published_at'], 'detected_at': row['detected_at'],
-                'tier': verification.get('tier'), 'theme': theme_key, 'theme_label': theme_label,
+                'tier': verification.get('tier'),
                 'angles': angles.get(str(row['id']), []), 'saved': bool(row['saved_at']), 'radar': row['focus'] or '',
                 'brand_ref': row['brand_ref'], 'project_ref': row['project_ref'], 'scheduled': bool(row['watch_id']),
                 'run_id': str(row['run_id']) if row['run_id'] else None}
         item['angle_count'] = len(item['angles'])
         item['score'] = round(_score(item, now), 2)
         items.append(item)
-    counts = {}
-    for item in items:
-        counts[item['theme']] = counts.get(item['theme'], 0) + 1
-    themes = [{'id': key, 'label': label, 'count': counts[key]} for key, label in (*[(k, l) for k, l, _ in THEMES], OTHER) if counts.get(key)]
-    return {'items': items, 'themes': themes}
+    return {'items': items}
 
 
 def set_saved(client_id, signal_id, saved):

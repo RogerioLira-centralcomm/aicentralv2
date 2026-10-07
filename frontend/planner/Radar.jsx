@@ -196,11 +196,12 @@ export function RadarPage({boot, request, notify, context}) {
   const angles = run?.opportunities || [];
   const signals = run?.signals || [];
   return <>
-    <PlannerHeader title="Radar" crumbs={[['Radar', boot.urls.radar]]}
-      description="O que está em buzz agora e os ângulos para falar de um conceito."
-      actions={<><CaduButton variant="secondary" href={boot.urls.radar}>Resultados</CaduButton>
-        <CaduButton variant="secondary" href={boot.urls.radars}>Meus radares</CaduButton>
-        <CaduButton href={`${boot.urls.radar}?novo=1`} onClick={() => { try { window.sessionStorage.removeItem(RADAR_DRAFT_KEY); } catch { /* ignore */ } }}><Icon name="plus" size={16}/>Novo radar</CaduButton></>}/>
+    <PlannerHeader title={run?.focus || 'Radar'} crumbs={[['Radar', boot.urls.radar]]}
+      description={run ? [run.created_at && `Busca de ${new Date(run.created_at).toLocaleDateString('pt-BR', {day: '2-digit', month: 'long'})}`,
+        run.status === 'done' && `${signals.length} ${signals.length === 1 ? 'notícia verificada' : 'notícias verificadas'}`,
+        run.status === 'done' && `${angles.length} ${angles.length === 1 ? 'ângulo' : 'ângulos'}`].filter(Boolean).join(' · ')
+        : 'Carregando a busca…'}
+      actions={<CaduButton href={`${boot.urls.radar}?novo=1`} onClick={() => { try { window.sessionStorage.removeItem(RADAR_DRAFT_KEY); } catch { /* ignore */ } }}><Icon name="plus" size={16}/>Novo radar</CaduButton>}/>
     {run && <RunChain run={run}/>}
     {angles.length > 0 && <section className="radar-results" aria-labelledby="radar-results-title">
       <h2 id="radar-results-title">Ângulos para falar do conceito<span>{angles.length}</span>

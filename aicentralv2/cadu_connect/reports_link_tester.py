@@ -123,7 +123,7 @@ def _rendered_page(url, actor=None):
             'source': 'rendered', 'error': None if screenshot else 'Print não gerado: a captura voltou sem imagem.'}
 
 
-def _common(payload, mode, actor=None):
+def _common(payload, mode, actor=None, render=True):
     original = _url(payload.get('url'))
     current, chain, html, final_headers = original.geturl(), [], '', {}
     started = monotonic()
@@ -144,7 +144,7 @@ def _common(payload, mode, actor=None):
     final = _url(current)
     elapsed_ms = round((monotonic() - started) * 1000)  # the site's own response time, before any rendering
     # Every analysis ships a screenshot; the rendered DOM only replaces the raw HTML for tag detection (media).
-    rendered = _rendered_page(final.geturl(), actor)
+    rendered = _rendered_page(final.geturl(), actor) if render else {'html': '', 'screenshot': None, 'source': 'http', 'error': None}
     raw_html = html
     if rendered['html'] and mode != 'agentic':
         html = rendered['html']
@@ -415,7 +415,8 @@ def test(payload, client_id=None, actor_id=None):
         actor = CreditActor.from_values(client_id, actor_id)
         # Desktop and mobile prints (ScreenshotOne, signed) download while the analysis runs.
         shots = reports_link_screenshots.start(_url(payload.get('url')).geturl(), reports_link_screenshots.keys())
-    common = _common(payload, mode, actor)
+    # Destination only needs the rendered page for its screenshot; with ScreenshotOne prints, skip the paid render.
+    common = _common(payload, mode, actor, render=not (mode == 'destination' and shots))
     common['client_id'] = client_id
     # Clean inventory (scripts by origin, platforms with IDs, events, forms): kept instead of the HTML, read by the
     # reviewer, and the single source of tag detection for the media analysis.

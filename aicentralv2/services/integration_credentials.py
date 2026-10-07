@@ -700,6 +700,8 @@ def _validate_screenshotone(config):
         return False, "Não foi possível validar a chave na ScreenshotOne."
     if response.status_code in (401, 403):
         return False, "A access key da ScreenshotOne não foi aceita."
+    if response.status_code == 404:
+        return True, "Credencial ScreenshotOne armazenada. A conta não expõe consulta de uso; a primeira captura confirma a chave."
     if response.status_code >= 400:
         return False, "A ScreenshotOne recusou a validação da chave."
     try:

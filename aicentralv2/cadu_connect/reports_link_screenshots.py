@@ -62,7 +62,8 @@ def start(page_url, credentials):
     return {device: _pool.submit(_download, signed_url(page_url, device, credentials)) for device in DEVICES}
 
 
-def result(future: Future, timeout=70):
+def result(future: Future, timeout=30):
+    """Downloads start before the analysis, so this usually returns at once; it never holds the response long."""
     try:
         return future.result(timeout=timeout)
     except Exception:

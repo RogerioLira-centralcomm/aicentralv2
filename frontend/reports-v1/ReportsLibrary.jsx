@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {ArrowLeft, ArrowUpRight, Plus, SearchLg, Stars02, Trash01, UploadCloud02} from '@untitledui/icons';
+import {ArrowLeft, ArrowUpRight, Plus, Stars02, Trash01, UploadCloud02} from '@untitledui/icons';
 import {Button} from '../cadu-design-system/untitled-kit/button.tsx';
 import {Badge, BadgeWithDot} from '../cadu-design-system/untitled-kit/badges.tsx';
 import {ReportsDrawer} from './ReportsDrawer.jsx';
@@ -9,6 +9,7 @@ import {ReportsTextArea} from './ReportsTextArea.jsx';
 import {Alert, Callout, Card, DateField, DrawerActions, EmptyNote} from './ReportsBlocks.jsx';
 import {json, shortDate} from './reportsCommon.jsx';
 import {ReportResults} from './ReportResults.jsx';
+import {CREATE_EVENT, ReportsLibraryList} from './ReportsLibraryList.jsx';
 import {ReportBlocksEditor, blocksOf} from './ReportBlocksEditor.jsx';
 import {ReportMetricsEditor} from './ReportMetricsEditor.jsx';
 import {ReportAgents} from './ReportAgents.jsx';
@@ -18,7 +19,6 @@ import {createFromGoogle, loadUnlinkedGoogleCampaigns} from './GoogleCampaignLin
 const API = '/connect/api/v2/reports';
 const EMPTY_METRIC = {name: '', raw: '', unit: 'count', definition: '', scope: '', evidence: ''};
 const UNITS = [['count', 'Quantidade'], ['BRL', 'R$'], ['USD', 'US$'], ['percent', '%'], ['seconds', 'Segundos']];
-const KINDS = [['all', 'Todos'], ['pinned', 'Principais'], ['published', 'Publicados'], ['draft', 'Em edição']];
 
 /** Saved reports: a library of cards, then one report with document, sources, assistant and publication. */
 export function ReportsLibrary({data, save, busy}) {
@@ -26,6 +26,11 @@ export function ReportsLibrary({data, save, busy}) {
   const [error, setError] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   useEffect(() => {setDetail(null); setError('');}, [data.client.client_id]);
+  useEffect(() => {
+    const onCreate = () => setCreateOpen(true);
+    addEventListener(CREATE_EVENT, onCreate);
+    return () => removeEventListener(CREATE_EVENT, onCreate);
+  }, []);
   const open = async reportId => {
     setError('');
     try {setDetail(await json(`${API}/workspaces/${reportId}`));} catch (failure) {setError(failure.message);}
@@ -34,49 +39,9 @@ export function ReportsLibrary({data, save, busy}) {
   return <div className="untitled-scope flex flex-col gap-6">
     {error && <Alert>{error}</Alert>}
     {detail ? <ReportDetail key={detail.report.id} data={data} save={save} busy={busy} detail={detail} refresh={refresh} onBack={() => setDetail(null)} setError={setError}/>
-      : <Library data={data} onOpen={open} onCreate={() => setCreateOpen(true)}/>}
+      : <ReportsLibraryList data={data} save={save} onOpen={open}/>}
     <CreateDrawer open={createOpen} data={data} save={save} busy={busy} onClose={() => setCreateOpen(false)}/>
   </div>;
-}
-
-function Library({data, onOpen, onCreate}) {
-  const [query, setQuery] = useState('');
-  const [campaign, setCampaign] = useState('');
-  const [kind, setKind] = useState('all');
-  const term = query.trim().toLocaleLowerCase();
-  const visible = data.reports.filter(item => (!term || `${item.campaign_name} ${item.project_ref || ''}`.toLocaleLowerCase().includes(term))
-    && (!campaign || (campaign === 'none' ? !item.media_campaign_id && !item.flow_id : campaign.startsWith('flow:') ? item.flow_id === campaign.slice(5) : String(item.media_campaign_id) === campaign))
-    && (kind === 'all' || (kind === 'pinned' ? item.pinned : (kind === 'published') === Boolean(item.published))));
-  const counts = {all: data.reports.length, pinned: data.reports.filter(item => item.pinned).length, published: data.reports.filter(item => item.published).length, draft: data.reports.filter(item => !item.published).length};
-  const campaignName = id => data.campaigns.find(item => String(item.id) === String(id))?.name;
-  const flows = [...new Map(data.reports.filter(item => item.flow_id).map(item => [item.flow_id, item.flow_name])).entries()];
-  const scopeLabel = item => item.flow_id ? `Fluxo · ${item.flow_name || 'sem nome'}` : campaignName(item.media_campaign_id) || 'Sem campanha';
-  return <Card flush title="Relatórios" badge={<Badge type="pill-color" size="sm" color="gray">{data.reports.length}</Badge>} description="Documentos de resultado por campanha ou por fluxo, com evidências revisadas e link público opcional."
-    actions={data.client.role !== 'viewer' && <Button size="md" color="primary" iconLeading={Plus} onPress={onCreate}>Criar relatório</Button>}>
-    <div className="flex flex-wrap items-center gap-3 border-b border-secondary px-6 py-3">
-      <div className="rs-segmented rs-segmented--sm" role="group" aria-label="Situação">{KINDS.map(([key, label]) => <button type="button" key={key} aria-pressed={kind === key} onClick={() => setKind(key)}>{label} <small>{counts[key]}</small></button>)}</div>
-      <div className="ml-auto flex flex-wrap gap-3">
-        <div className="w-64"><ReportsFieldInput size="sm" type="search" aria-label="Buscar relatório" placeholder="Buscar relatório" value={query} onChange={event => setQuery(event.target.value)}
-          leading={<SearchLg size={16} aria-hidden="true" className="ml-3 shrink-0 text-fg-quaternary"/>}/></div>
-        <div className="w-56"><ReportsNativeSelect size="sm" aria-label="Campanha ou fluxo" value={campaign} onChange={event => setCampaign(event.target.value)}>
-          <option value="">Todas as campanhas e fluxos</option><option value="none">Sem campanha nem fluxo</option>
-          {flows.map(([id, name]) => <option key={id} value={`flow:${id}`}>Fluxo · {name}</option>)}
-          {data.campaigns.filter(item => data.reports.some(report => String(report.media_campaign_id) === String(item.id))).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-        </ReportsNativeSelect></div>
-      </div>
-    </div>
-    {visible.length ? <div className="grid gap-4 p-6 sm:grid-cols-2 xl:grid-cols-3">{visible.map(item => <button type="button" key={item.id} onClick={() => onOpen(item.id)}
-      className="flex flex-col gap-2 rounded-xl bg-primary p-5 text-left shadow-xs ring-1 ring-secondary transition duration-100 ring-inset hover:bg-primary_hover hover:ring-primary">
-      <div className="flex items-center justify-between gap-2">
-        <BadgeWithDot type="pill-color" size="sm" color={item.published ? 'success' : 'gray'}>{item.published ? 'Publicado' : 'Em edição'}</BadgeWithDot>
-        <span className="text-xs text-tertiary">{item.pinned ? '★ ' : ''}v{item.revision}{item.published && item.published_revision && item.revision > item.published_revision ? ` · publicada v${item.published_revision}` : ''}</span>
-      </div>
-      <h3 className="text-md font-semibold text-primary">{item.campaign_name}</h3>
-      <p className="text-sm text-tertiary">{scopeLabel(item)}{item.project_ref ? ' · com projeto' : ''}</p>
-      <p className="mt-auto pt-2 text-xs text-quaternary">Atualizado em {shortDate(item.updated_at)}</p>
-    </button>)}</div>
-      : <EmptyNote title={data.reports.length ? 'Nada corresponde aos filtros' : 'Nenhum relatório ainda'}>{data.reports.length ? 'Ajuste a busca, a situação ou a campanha.' : 'Crie um relatório por campanha, por fluxo ou independente.'}</EmptyNote>}
-  </Card>;
 }
 
 function CreateDrawer({open, data, save, busy, onClose}) {

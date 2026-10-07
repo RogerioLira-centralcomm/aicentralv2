@@ -302,7 +302,7 @@ def register(bp):
         published_sql = ('''EXISTS (SELECT 1 FROM cadu_connect_report_public_links l WHERE l.report_id=w.id
                 AND l.revoked_at IS NULL AND (l.expires_at IS NULL OR l.expires_at > NOW()))''' if links_ready else 'FALSE')
         reports = (_rows(f'''SELECT w.id,w.campaign_name,w.project_ref,w.account_id,w.media_campaign_id,
-                w.document->>'flow_id' AS flow_id,w.document->>'flow_name' AS flow_name,w.revision,
+                w.document->>'flow_id' AS flow_id,w.document->>'flow_name' AS flow_name,LEFT(w.document->>'objective',240) AS summary,w.revision,
                 {'w.pinned,w.published_revision,' if _published_ready() else 'FALSE AS pinned,NULL::int AS published_revision,'}
                 {'(SELECT l.expires_at FROM cadu_connect_report_public_links l WHERE l.report_id=w.id AND l.revoked_at IS NULL) AS link_expires_at,' if links_ready else 'NULL AS link_expires_at,'}w.updated_at,{published_sql} AS published FROM cadu_connect_report_workspaces w
                 WHERE w.client_id=%s ORDER BY {'w.pinned DESC,' if _published_ready() else ''}w.updated_at DESC LIMIT 60''', params)

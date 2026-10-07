@@ -40,7 +40,7 @@ export const ROUTES = {
   'journey/navigation': {page: 'navigation', nav: 'journey', hub: 'journey', needsCustomer: true, siteRequired: true, period: true, scope: 'site'},
   'journey/conversions': {page: 'conversions', nav: 'journey', hub: 'journey', needsCustomer: true, siteRequired: true, period: true, scope: 'site'},
   'journey/heatmap': {page: 'heatmap', nav: 'journey', hub: 'journey', needsCustomer: true, siteRequired: true, period: true, scope: 'site'},
-  reports: {page: 'reports', nav: 'reports', title: 'Relatórios', description: 'Análises salvas e entregáveis prontos para distribuir.'},
+  reports: {page: 'reports', nav: 'reports', title: 'Relatórios', description: 'Crie, organize e compartilhe análises de campanhas e jornadas.'},
   alerts: {page: 'alerts', nav: 'alerts', title: 'Alertas', description: 'Acompanhe problemas e anomalias que precisam da sua atenção, com responsável e histórico.'},
   'data-sources': {page: 'data-sources', nav: 'data-sources', hub: 'data', customers: true},
   'data-sources/connect': {page: 'monitor', nav: 'data-sources', hub: 'data', scope: 'account'},

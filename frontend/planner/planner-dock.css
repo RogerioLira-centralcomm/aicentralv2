@@ -13,6 +13,5 @@
   .pdk__btn { flex: 1 1 0; min-width: 0; padding: 0 12px; }
   .pdk__add { flex: 1.6 1 0; }
 }
-
 /* The side panel opens above the navbar (z 80) so its header is never covered. */
 .planner-shell .plan-dock { z-index: 90; }

@@ -8,20 +8,24 @@
 .shelf-head__bar .aud-bar__field { padding: 0; }
 .shelf-head__bar .aud-bar__field--search { padding: 0 14px; }
 .shelf-head__tools { flex: none; }
-@media (max-width: 1180px) { .shelf-head { flex-wrap: wrap; gap: 8px 16px; } .shelf-head__title { max-width: none; flex: 1 1 auto; } .shelf-head__bar { flex: 1 1 100%; order: 3; } .shelf-head__tools { margin-left: auto; } }
-
+@media (max-width: 1180px) {
+  .shelf-head { flex-wrap: wrap; gap: 8px 16px; }
+  .shelf-head__title { max-width: none; flex: 1 1 auto; }
+  .shelf-head__bar { flex: 1 1 100%; order: 3; }
+  .shelf-head__tools { margin-left: auto; }
+}
 /* Grouped shelf: the groups on the left, their index on the right (hidden when the screen is narrow). */
 .shelf-layout { display: grid; grid-template-columns: minmax(0, 1fr) 190px; gap: 32px; align-items: start; }
 .shelf-layout__main { min-width: 0; }
 .shelf-index { top: 76px; }
 .shelf-index .pd-index__nav a span { color: var(--planner-subtle, #98a2b3); font-size: 12px; font-weight: 500; }
 .shelf-layout .fmt-group { scroll-margin-top: 84px; }
-@media (max-width: 1200px) { .shelf-layout { grid-template-columns: minmax(0, 1fr); } .shelf-index { display: none; } }
-
+@media (max-width: 1200px) {
+  .shelf-layout { grid-template-columns: minmax(0, 1fr); }
+  .shelf-index { display: none; }
+}
 /* Same edge-to-edge treatment as the detail banner, so shelf and detail read as one family. */
 .planner-shell:has(.shelf-banner) { overflow-x: clip; }
-.shelf-banner { margin: 0 calc(50% - 50cqw) 20px; border-radius: 0; padding-inline: max(clamp(16px, 2.4vw, 40px), calc((100cqw - 1680px) / 2 + clamp(16px, 2.4vw, 40px))); }
-
 /* Grade/Lista: a small control of its own, outside the filter card. */
 .shelf-head__tools .aud-view { padding: 2px; border-radius: 8px; }
 .shelf-head__tools .aud-view button { height: 28px; padding: 0 10px; border-radius: 6px; font-size: 12px; }

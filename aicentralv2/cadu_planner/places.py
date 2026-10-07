@@ -75,7 +75,8 @@ def detail(slug):
     value = str(slug or "").strip()
     if not value:
         raise BadRequest("Identificador de place inválido.")
-    record = next((row for row in catalog() if row["slug"] == value), None)
-    if not record:
+    # One row, not the whole serialized catalog: the fiche must stay fast.
+    try:
+        return _serialize(service.serialize(service.public_place(value)))
+    except service.PlaceNotFound:
         raise NotFound("Place indisponível.")
-    return record

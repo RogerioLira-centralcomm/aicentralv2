@@ -78,6 +78,18 @@ def _user_id():
     return int(value) if value not in (None, "") else None
 
 
+_SEEDED = False
+
+
+def ensure_seed_once() -> None:
+    """Seed at most once per process; the check costs one query per seed row."""
+    global _SEEDED
+    if _SEEDED:
+        return
+    ensure_seed()
+    _SEEDED = True
+
+
 def ensure_seed() -> int:
     """Cria o catálogo inicial sem regravar fichas já curadas na base.
 
@@ -853,7 +865,7 @@ def _seed_public(slug: str = "") -> list[dict]:
 
 def public_catalog() -> list[dict]:
     try:
-        ensure_seed()
+        ensure_seed_once()
         return [serialize(item) for item in list_published()]
     except Exception:
         return _seed_public()
@@ -861,7 +873,7 @@ def public_catalog() -> list[dict]:
 
 def public_place(slug: str) -> dict:
     try:
-        ensure_seed()
+        ensure_seed_once()
         return serialize(get_published_by_slug(slug))
     except PlaceNotFound:
         fallback = _seed_public(slug)

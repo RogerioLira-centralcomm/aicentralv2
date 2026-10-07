@@ -12,8 +12,9 @@ import logging
 import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Json
-from flask import g, current_app
+from flask import g, current_app, request
 import os
+import time
 import hashlib
 import bcrypt
 from datetime import date, datetime, timedelta
@@ -144,6 +145,45 @@ def recuperar_transacao_falha():
     return False
 
 
+class _TimedCursor(psycopg.Cursor):
+    """Conta consultas e tempo de banco da requisição (lido por log_slow_request)."""
+
+    def execute(self, query, params=None, **kwargs):
+        started = time.perf_counter()
+        try:
+            return super().execute(query, params, **kwargs)
+        finally:
+            try:
+                stats = g.setdefault('db_stats', {'n': 0, 'ms': 0.0, 'worst': (0.0, '')})
+                elapsed = (time.perf_counter() - started) * 1000
+                stats['n'] += 1
+                stats['ms'] += elapsed
+                if elapsed > stats['worst'][0]:
+                    text = query if isinstance(query, str) else str(query)
+                    stats['worst'] = (elapsed, ' '.join(text.split())[:160])
+            except Exception:
+                pass
+
+
+def log_slow_request(response):
+    """Registra no log, em WARNING, as requisições acima de DB_SLOW_REQUEST_MS (padrão 800 ms)."""
+    try:
+        started = g.get('request_started')
+        if started is None:
+            return response
+        total = (time.perf_counter() - started) * 1000
+        if total >= float(os.getenv('DB_SLOW_REQUEST_MS', '800')):
+            stats = g.get('db_stats') or {'n': 0, 'ms': 0.0, 'worst': (0.0, '')}
+            connect = g.get('db_connect_ms', 0.0)
+            current_app.logger.warning(
+                'LENTA %s %s%s: total %.0f ms, conexão %.0f ms, banco %.0f ms em %d consultas, pior %.0f ms [%s]',
+                request.method, request.host, request.path, total, connect, stats['ms'], stats['n'],
+                stats['worst'][0], stats['worst'][1])
+    except Exception:
+        pass
+    return response
+
+
 def get_db():
     """
     Obtém conexão com o banco de dados
@@ -156,7 +196,9 @@ def get_db():
     if 'db' not in g:
         try:
             config = get_db_config()
-            g.db = psycopg.connect(**config)
+            opened = time.perf_counter()
+            g.db = psycopg.connect(**config, cursor_factory=_TimedCursor)
+            g.db_connect_ms = g.get('db_connect_ms', 0.0) + (time.perf_counter() - opened) * 1000
             g.db.autocommit = False
         except Exception as e:
             current_app.logger.error(f"FALHA Erro ao conectar ao banco: {e}")

@@ -345,6 +345,14 @@ def create_app(config_class=Config):
 
     # Registrar teardown (fechar conexão)
     app.teardown_appcontext(db.close_db)
+
+    @app.before_request
+    def _mark_request_start():
+        from flask import g
+        import time
+        g.request_started = time.perf_counter()
+
+    app.after_request(db.log_slow_request)
     
     # Inicializar banco de dados
     try:

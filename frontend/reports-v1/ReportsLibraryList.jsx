@@ -29,12 +29,15 @@ const updatedLabel = value => {
 export const CREATE_EVENT = 'reports:create-report';
 const readView = () => {try {return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'grid';} catch {return 'grid';}};
 
+// No celular a capa vai em cima do card, em 2:1; a partir de 640 px vira a coluna da esquerda.
+const COVER_BOX = 'aspect-[2/1] rounded-lg sm:aspect-auto sm:h-full sm:min-h-36';
+
 /** Capa do card: o criativo mais recente da campanha no Studio; sem criativo, uma ilustração pelo foco do relatório. */
 function Cover({preview, scope, loading}) {
-  if (loading) return <div className="h-full min-h-36 animate-pulse rounded-lg bg-secondary" aria-hidden="true"/>;
-  if (preview?.cover_url) return <div className="relative h-full min-h-36 overflow-hidden rounded-lg bg-secondary" aria-hidden="true">
+  if (loading) return <div className={`${COVER_BOX} animate-pulse bg-secondary`} aria-hidden="true"/>;
+  if (preview?.cover_url) return <div className={`${COVER_BOX} relative overflow-hidden bg-secondary`} aria-hidden="true">
     <img src={preview.cover_url} alt="" loading="lazy" className="absolute inset-0 size-full object-cover transition duration-300 group-hover:scale-105"/></div>;
-  return <div className="flex h-full min-h-36 items-end justify-center overflow-hidden rounded-lg bg-brand-primary px-4 pb-5 text-fg-brand-primary" aria-hidden="true">
+  return <div className={`${COVER_BOX} flex items-end justify-center overflow-hidden bg-brand-primary px-4 pb-5 text-fg-brand-primary`} aria-hidden="true">
     <svg viewBox="0 0 96 56" className="w-full max-w-28">
       {scope === 'campaign' && [[6, 34], [26, 26], [46, 16], [66, 4]].map(([x, y], index) => <rect key={x} x={x} y={y} width="14" height={56 - y} rx="2" fill="currentColor" opacity={0.35 + index * 0.2}/>)}
       {scope === 'flow' && <><path d="M2 46 C 20 46, 22 22, 40 26 S 66 44, 94 8" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/><path d="M2 46 C 20 46, 22 22, 40 26 S 66 44, 94 8 V56 H2Z" fill="currentColor" opacity=".12"/></>}
@@ -190,13 +193,13 @@ export function ReportsLibraryList({data, save, onOpen}) {
 
   return <div className="flex flex-col gap-5">
     <div className="flex flex-wrap items-center gap-3">
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Situação">{KINDS.map(([key, label]) => <button type="button" key={key} aria-pressed={kind === key} onClick={() => setKind(key)}
-        className={`inline-flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium ring-1 ring-inset transition duration-100 ${kind === key ? 'bg-brand-primary text-brand-secondary ring-brand' : 'bg-primary text-secondary ring-primary hover:bg-primary_hover'}`}>
+      <div className="flex max-w-full gap-2 overflow-x-auto [scrollbar-width:none] sm:flex-wrap" role="group" aria-label="Situação">{KINDS.map(([key, label]) => <button type="button" key={key} aria-pressed={kind === key} onClick={() => setKind(key)}
+        className={`inline-flex h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-sm font-medium ring-1 ring-inset transition duration-100 ${kind === key ? 'bg-brand-primary text-brand-secondary ring-brand' : 'bg-primary text-secondary ring-primary hover:bg-primary_hover'}`}>
         {label}<Badge type="pill-color" size="sm" color={kind === key ? 'brand' : 'gray'}>{counts[key]}</Badge></button>)}</div>
-      <div className="ml-auto flex flex-wrap items-center gap-3">
+      <div className="ml-auto flex flex-wrap items-center gap-3 max-sm:ml-0 max-sm:w-full">
         <div className="w-60 max-sm:w-full"><ReportsFieldInput size="sm" type="search" aria-label="Buscar relatórios" placeholder="Buscar relatórios" value={query} onChange={event => setQuery(event.target.value)}
           leading={<SearchLg size={16} aria-hidden="true" className="ml-3 shrink-0 text-fg-quaternary"/>}/></div>
-        <div className="w-64 max-sm:w-full"><ReportsNativeSelect size="sm" aria-label="Campanha ou fluxo" value={campaign} onChange={event => setCampaign(event.target.value)}>
+        <div className="w-64 max-sm:w-auto max-sm:min-w-0 max-sm:flex-1"><ReportsNativeSelect size="sm" aria-label="Campanha ou fluxo" value={campaign} onChange={event => setCampaign(event.target.value)}>
           <option value="">Todas as campanhas e fluxos</option><option value="none">Sem campanha nem fluxo</option>
           {flows.map(([id, name]) => <option key={id} value={`flow:${id}`}>Fluxo · {name}</option>)}
           {data.campaigns.filter(item => data.reports.some(report => String(report.media_campaign_id) === String(item.id))).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
@@ -212,7 +215,7 @@ export function ReportsLibraryList({data, save, onOpen}) {
       : view === 'grid' ? <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.map(item => {
         const info = describe(item);
         const preview = previews.get(item.id);
-        return <li key={item.id} className="group relative grid grid-cols-[minmax(0,40%)_minmax(0,1fr)] gap-x-4 gap-y-3 rounded-xl bg-primary p-3 shadow-xs ring-1 ring-secondary transition duration-150 ring-inset hover:-translate-y-0.5 hover:shadow-lg hover:ring-primary">
+        return <li key={item.id} className="group relative grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-[minmax(0,40%)_minmax(0,1fr)] rounded-xl bg-primary p-3 shadow-xs ring-1 ring-secondary transition duration-150 ring-inset hover:-translate-y-0.5 hover:shadow-lg hover:ring-primary">
           <Cover preview={preview} scope={info.scope} loading={loadingPreviews}/>
           <div className="flex min-w-0 flex-col gap-1.5 py-1 pr-1">
             <div className="flex min-h-8 items-center justify-between gap-2"><Logos platforms={preview?.platforms}/><Actions item={item} onOpen={onOpen} onPin={pin} onCover={setCoverFor} hasCover={Boolean(preview?.cover_url)} canEdit={canEdit}/></div>
@@ -221,7 +224,7 @@ export function ReportsLibraryList({data, save, onOpen}) {
             <p className="line-clamp-2 text-sm text-tertiary">{info.summary}</p>
             <div className="mt-auto pt-1"><Spark preview={preview}/></div>
           </div>
-          <div className="col-span-2 flex items-center gap-2 border-t border-secondary px-1 pt-3 text-sm text-tertiary">
+          <div className="flex items-center gap-2 border-t sm:col-span-2 border-secondary px-1 pt-3 text-sm text-tertiary">
             <Status item={item}/>
             {item.pinned && <Star01 size={16} aria-label="Principal" className="shrink-0 text-fg-warning-secondary"/>}
             <span className="inline-flex min-w-0 items-center gap-1"><Clock size={14} aria-hidden="true" className="shrink-0 text-fg-quaternary"/><span className="truncate" title={longDate.format(new Date(item.updated_at))}>{updatedLabel(item.updated_at)}</span></span>

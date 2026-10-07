@@ -32,9 +32,9 @@ export function ReportBlocksEditor({blocks, onChange, draft, onField, disabled, 
     {blocks.map((block, index) => {
       const field = FIELDS[block.type];
       return <div key={block.id} className={`flex flex-col gap-3 rounded-xl p-4 ring-1 ring-inset ${block.hidden ? 'bg-secondary_subtle ring-secondary opacity-70' : 'bg-primary ring-secondary'}`}>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:flex-nowrap">
           <input aria-label="Título do bloco" disabled={disabled} maxLength={120} value={block.title} onChange={event => set(index, {title: event.target.value})}
-            className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-md font-semibold text-primary ring-secondary ring-inset hover:ring-1 focus:ring-2 focus:ring-brand focus:outline-none"/>
+            className="min-w-0 flex-[1_1_100%] rounded-md bg-transparent px-2 py-1 text-md sm:flex-1 font-semibold text-primary ring-secondary ring-inset hover:ring-1 focus:ring-2 focus:ring-brand focus:outline-none"/>
           <span className="hidden text-xs text-tertiary sm:inline">{DATA[block.type] ? 'dados do período' : field ? 'campo do relatório' : 'texto livre'}</span>
           {!disabled && <>
             <Button size="sm" color="tertiary" iconLeading={ArrowUp} aria-label="Subir" isDisabled={!index} onPress={() => move(index, -1)}/>

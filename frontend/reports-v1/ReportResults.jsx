@@ -26,9 +26,9 @@ function Funnel({stages}) {
   const top = Math.max(...stages.map(stage => stage.value || 0), 1);
   return <ol className="flex flex-col gap-2">{stages.map((stage, index) => {
     const before = index ? stages[index - 1].value : null;
-    return <li key={stage.label} className="grid grid-cols-[150px_minmax(0,1fr)_110px] items-center gap-3 text-sm">
+    return <li key={stage.label} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-sm sm:grid-cols-[150px_minmax(0,1fr)_110px]">
       <span className="text-secondary">{stage.label}<small className="block text-xs text-quaternary">{stage.source}</small></span>
-      <span className="h-6 overflow-hidden rounded bg-secondary"><span className="block h-full rounded bg-brand-solid" style={{width: `${Math.max(2, 100 * (stage.value || 0) / top)}%`}}/></span>
+      <span className="order-last col-span-2 h-6 overflow-hidden rounded bg-secondary sm:order-none sm:col-span-1"><span className="block h-full rounded bg-brand-solid" style={{width: `${Math.max(2, 100 * (stage.value || 0) / top)}%`}}/></span>
       <span className="text-right tabular-nums text-primary">{stage.display ?? number(stage.value)}{before ? <small className="block text-xs text-tertiary">{pct(100 * (stage.value || 0) / before)} da etapa anterior</small> : null}</span>
     </li>;
   })}</ol>;
@@ -73,7 +73,7 @@ export function ReportResults({report, onJourney, onTotals}) {
       : media.error ? <Alert>{media.error}</Alert>
       : !t ? <EmptyNote title={flow ? 'Nenhuma campanha ligada a este fluxo' : 'Relatório sem campanha'}>{flow ? 'Ligue campanhas ao fluxo ou às etapas em Site & Jornada › Fluxos para ver investimento e custo por conversão.' : 'Vincule uma campanha para ver os resultados de mídia.'}</EmptyNote>
       : <div className="flex flex-col gap-6">
-        <dl className="grid gap-px overflow-hidden rounded-lg bg-border-secondary ring-1 ring-secondary sm:grid-cols-3 lg:grid-cols-6">
+        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg bg-border-secondary ring-1 ring-secondary sm:grid-cols-3 lg:grid-cols-6">
           <Kpi label="Investimento" value={money(t.cost)}><Delta now={t.cost} before={p?.cost}/></Kpi>
           <Kpi label="Impressões" value={number(t.impressions)}><Delta now={t.impressions} before={p?.impressions}/></Kpi>
           <Kpi label="Cliques" value={number(t.clicks)}><Delta now={t.clicks} before={p?.clicks}/></Kpi>
@@ -94,7 +94,7 @@ export function ReportResults({report, onJourney, onTotals}) {
                 {label: 'Entradas no fluxo', source: 'Super Tag', value: j.funnel?.entries},
                 {label: 'Conversões do fluxo', source: 'Super Tag', value: j.funnel?.conversions},
               ]}/>
-              <dl className="grid gap-px overflow-hidden rounded-lg bg-border-secondary ring-1 ring-secondary sm:grid-cols-3">
+              <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg bg-border-secondary ring-1 ring-secondary sm:grid-cols-3">
                 <Kpi label="Custo por entrada" value={j.funnel?.entries ? money(t.cost / j.funnel.entries) : '—'}/>
                 <Kpi label="Custo por conversão do fluxo" value={j.funnel?.conversions ? money(t.cost / j.funnel.conversions) : '—'}/>
                 <Kpi label="Clique → entrada" value={t.clicks && j.funnel?.entries != null ? pct(100 * j.funnel.entries / t.clicks) : '—'}/>

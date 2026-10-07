@@ -53,10 +53,10 @@ export function DateField({label, hideLabel = false, className = '', ...props}) 
 
 /** Strip of headline numbers: label, value and an optional supporting line. */
 export function Stats({items}) {
-  return <dl className={`grid gap-px overflow-hidden rounded-xl bg-border-secondary shadow-xs ring-1 ring-secondary sm:grid-cols-2 ${items.length > 3 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
-    {items.map(([label, value, detail]) => <div key={label} className="min-w-0 bg-primary px-5 py-4">
+  return <dl className={`grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-border-secondary shadow-xs ring-1 ring-secondary ${items.length > 3 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
+    {items.map(([label, value, detail]) => <div key={label} className="min-w-0 bg-primary px-4 py-3 sm:px-5 sm:py-4">
       <dt className="text-sm font-medium text-tertiary">{label}</dt>
-      <dd className="mt-1 truncate text-display-xs font-semibold text-primary tabular-nums" title={String(value)}>{value}</dd>
+      <dd className="mt-1 truncate text-xl font-semibold sm:text-display-xs text-primary tabular-nums" title={String(value)}>{value}</dd>
       {detail && <p className="mt-1 line-clamp-2 text-xs text-tertiary">{detail}</p>}
     </div>)}
   </dl>;

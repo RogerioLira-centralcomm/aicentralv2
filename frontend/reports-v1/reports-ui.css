@@ -175,3 +175,26 @@
     animation-timeline: scroll(self inline);
   }
 }
+
+/* Menu do celular aberto cobre a tela inteira (o styles.css antigo prendia a barra em position:relative). */
+@media (max-width: 760px) {
+  .reports-shell > .cadu-solution-sidebar.is-mobile-open { position: fixed; inset: 0; z-index: 70; height: 100dvh; max-height: none; }
+}
+
+/* Barra de filtros: no desktop o botão "Filtros" some; no celular os campos ficam recolhidos atrás dele, um por linha. */
+.reports-main .reports-filter-bar__toggle { display: none; }
+@media (max-width: 639px) {
+  .reports-main .reports-filter-bar { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
+  .reports-main .reports-filter-bar__heading { display: none; }
+  .reports-main .reports-filter-bar__toggle { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; min-height: 40px; padding: 0 14px; border: 0; border-radius: 8px; background: var(--color-bg-primary); box-shadow: inset 0 0 0 1px var(--color-border-primary); color: var(--color-text-secondary); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .reports-main .reports-filter-bar__toggle b { display: inline-flex; min-width: 20px; height: 20px; align-items: center; justify-content: center; padding: 0 6px; border-radius: 999px; background: var(--color-bg-brand-solid); color: #fff; font-size: 12px; }
+  .reports-main .reports-filter-bar__toggle[aria-expanded=true] .reports-filter-bar__chevron { transform: rotate(180deg); }
+  .reports-main .reports-filter-bar:not(.is-open) :is(.reports-filter-bar__fields, .reports-filter-bar__actions) { display: none; }
+  .reports-main .reports-filter-bar__fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .reports-main .reports-filter-bar__fields > label { width: 100%; max-width: none; }
+  .reports-main .reports-filter-bar__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  /* Cabeçalho da página: período e seletores à esquerda e na largura toda, não um botão solto à direita. */
+  .reports-main .rs-header__actions, .reports-main .rs-context { justify-content: flex-start; }
+  .reports-main .rs-context .rdr-trigger { width: 100%; justify-content: flex-start; }
+  .reports-main .rs-context > * { flex: 1 1 100%; min-width: 0; }
+}

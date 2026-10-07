@@ -1,7 +1,7 @@
 import {ReportsNativeSelect} from './ReportsNativeSelect.jsx';
-import React from 'react';
+import React, {useState} from 'react';
 import {Button as UntitledButton} from '../cadu-design-system/untitled-kit/button.tsx';
-import {FilterLines, RefreshCw01} from '@untitledui/icons';
+import {ChevronDown, FilterLines, RefreshCw01} from '@untitledui/icons';
 
 export const REPORT_FILTER_DEFAULTS = Object.freeze({
   platform: '', account: '', campaign: '', tags: '', period: '30', startDate: '', endDate: '',
@@ -63,8 +63,12 @@ export function ReportsFilterBar({data, filters, onChange, onRefresh}) {
   const allCampaignTags = [...new Set((data?.campaigns || []).flatMap(item => item.tags || []))].sort();
   const activeCount = [filters.platform, filters.account, filters.campaign, filters.tags].filter(Boolean).length;
   const clearFilters = () => onChange({platform: '', account: '', campaign: '', tags: ''});
+  // No celular os campos ficam recolhidos atrás de um botão; no desktop o botão some e tudo aparece.
+  const [open, setOpen] = useState(false);
 
-  return <section className="reports-filter-bar" aria-label="Filtros da página">
+  return <section className={`reports-filter-bar${open ? ' is-open' : ''}`} aria-label="Filtros da página">
+    <button type="button" className="reports-filter-bar__toggle" aria-expanded={open} onClick={() => setOpen(value => !value)}>
+      <FilterLines size={16} aria-hidden="true"/><span>Filtros</span>{activeCount > 0 && <b>{activeCount}</b>}<ChevronDown size={16} aria-hidden="true" className="reports-filter-bar__chevron"/></button>
     <div className="reports-filter-bar__heading"><span className="reports-filter-bar__icon" aria-hidden="true"><FilterLines size={16}/></span><div><strong>Filtros</strong><small>Cliente, período e tags no topo</small></div></div>
     <div className="reports-filter-bar__fields">
     <label><span>Plataforma</span><ReportsNativeSelect value={filters.platform} onChange={event => onChange({platform: event.target.value})}>

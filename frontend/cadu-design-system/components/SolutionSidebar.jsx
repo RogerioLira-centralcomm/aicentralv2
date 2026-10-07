@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {Icon} from './Icon';
 import {CaduSolutionSwitcher} from './WorkspaceSelectors';
 import {SidebarAccount, useCreditUsage} from './SidebarAccount';
@@ -12,6 +12,14 @@ export function SolutionSidebar({solution, icon, accent, groups = [], active, st
     try { return localStorage.getItem(storageKey) === 'collapsed'; } catch (_) { return false; }
   });
   const [mobileOpen, setMobileOpen] = useState(false);
+  // Menu aberto no celular cobre a tela: a página de trás não rola e Esc fecha.
+  useEffect(() => {
+    if (!mobileOpen) return undefined;
+    document.documentElement.classList.add('cadu-nav-open');
+    const onKey = event => { if (event.key === 'Escape') setMobileOpen(false); };
+    addEventListener('keydown', onKey);
+    return () => { document.documentElement.classList.remove('cadu-nav-open'); removeEventListener('keydown', onKey); };
+  }, [mobileOpen]);
   const usagePercent = useCreditUsage(null);
   // Collapsed links show only icons: name them in a tooltip placed outside the scrolling nav.
   const [tooltip, setTooltip] = useState(null);
@@ -32,7 +40,7 @@ export function SolutionSidebar({solution, icon, accent, groups = [], active, st
     <header className="cadu-solution-sidebar__header">
       <div className="cadu-solution-sidebar__switcher"><CaduSolutionSwitcher logo={solutionLogo} solutions={solutions} activeId={activeSolutionId} showActiveLabel={!collapsed} overlay overlayAccent={accent}/></div>
       <button type="button" className="cadu-solution-sidebar__toggle" onClick={() => {hideTooltip(); if (matchMedia('(max-width: 760px)').matches) setMobileOpen(value => !value); else toggleCollapsed();}} aria-label={mobileOpen ? 'Fechar navegação' : collapsed ? 'Expandir navegação' : 'Recolher navegação'} aria-expanded={matchMedia('(max-width: 760px)').matches ? mobileOpen : !collapsed}>
-        <span className="cadu-solution-sidebar__toggle-mobile">{mobileOpen ? 'Fechar' : 'Menu'}</span><span className="cadu-solution-sidebar__toggle-desktop" aria-hidden="true">{collapsed ? '›' : '‹'}</span>
+        <span className="cadu-solution-sidebar__toggle-mobile" aria-hidden="true"><Icon name={mobileOpen ? 'close' : 'menu'} size={20}/></span><span className="cadu-solution-sidebar__toggle-desktop" aria-hidden="true">{collapsed ? '›' : '‹'}</span>
       </button>
     </header>
     {context && <div className="cadu-solution-sidebar__context">{typeof context === 'function' ? context({collapsed}) : context}</div>}

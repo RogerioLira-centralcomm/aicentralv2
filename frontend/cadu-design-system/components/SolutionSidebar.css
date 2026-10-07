@@ -86,3 +86,19 @@
 @media(max-width:760px){.cadu-solution-sidebar__tooltip{display:none}.cadu-solution-sidebar.is-collapsed .cadu-solution-sidebar__group{display:contents}.cadu-solution-sidebar.is-collapsed .cadu-solution-sidebar__group a{width:auto;height:auto;min-height:44px;justify-content:flex-start;padding:5px 9px}}
 .cadu-solution-sidebar__context{display:grid;gap:6px;padding:0 0 2px}
 .cadu-solution-sidebar.is-collapsed .cadu-solution-sidebar__context{justify-items:center}
+
+/* Celular: botão de menu com ícone e menu aberto em tela cheia, por cima da página, com grupos, links grandes e a conta. */
+@media(max-width:760px){
+  .cadu-solution-sidebar__toggle{width:40px;min-width:40px;height:40px;padding:0;border-radius:8px;color:var(--color-fg-secondary,#344054)}
+  .cadu-solution-sidebar__toggle:hover{background:var(--color-bg-secondary,#f2f4f7)}
+  .cadu-solution-sidebar__toggle-mobile{display:inline-flex}
+  .cadu-solution-sidebar.is-mobile-open{position:fixed;inset:0;z-index:70;display:flex;flex-direction:column;height:100dvh;max-height:none;overflow:hidden;background:var(--color-bg-primary,#fff);backdrop-filter:none}
+  .cadu-solution-sidebar.is-mobile-open .cadu-solution-sidebar__context{padding:0 14px 8px}
+  .cadu-solution-sidebar.is-mobile-open .cadu-solution-sidebar__nav{display:flex;flex:1 1 auto;flex-direction:column;gap:16px;padding:8px 14px 16px;overflow-y:auto}
+  .cadu-solution-sidebar.is-mobile-open .cadu-solution-sidebar__nav .cadu-solution-sidebar__group{display:grid;gap:2px;padding:0;border:0;justify-items:stretch}
+  .cadu-solution-sidebar.is-mobile-open .cadu-solution-sidebar__nav .cadu-solution-sidebar__group-label{display:block;padding:0 12px 4px}
+  .cadu-solution-sidebar.is-mobile-open .cadu-solution-sidebar__nav .cadu-solution-sidebar__group a{width:auto;height:auto;min-height:48px;padding:0 12px;justify-content:flex-start;font-size:15px}
+  .cadu-solution-sidebar.is-mobile-open .cadu-solution-sidebar__nav .cadu-solution-sidebar__group a span{display:inline}
+  .cadu-solution-sidebar.is-mobile-open .cadu-solution-sidebar__footer{display:block;border-top:1px solid var(--color-border-secondary,#eaecf0)}
+  html.cadu-nav-open,html.cadu-nav-open body{overflow:hidden}
+}

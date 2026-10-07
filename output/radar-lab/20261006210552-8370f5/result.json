@@ -1,0 +1,1840 @@
+{
+  "run_id": "20261006210552-8370f5",
+  "scenario": {
+    "name": "nike",
+    "brand_ref": "studio:50",
+    "brand_name": "Nike",
+    "sector": "Artigos esportivos",
+    "site": "https://www.nike.com.br",
+    "facts": [
+      "Marca global de calçados e roupas esportivas"
+    ],
+    "focus": "corrida de rua, provas de fim de ano e São Silvestre",
+    "places": "São Paulo, Rio de Janeiro",
+    "lenses": [
+      "Tendências e cultura",
+      "Concorrência",
+      "Sazonalidade e datas"
+    ],
+    "recency_days": 30
+  },
+  "context": {
+    "brand": {
+      "name": "Nike",
+      "sector": "Artigos esportivos",
+      "facts": [
+        "Marca global de calçados e roupas esportivas"
+      ],
+      "site": "https://www.nike.com.br"
+    },
+    "focus": "corrida de rua, provas de fim de ano e São Silvestre",
+    "places": "São Paulo, Rio de Janeiro",
+    "lenses": "Tendências e cultura, Concorrência, Sazonalidade e datas",
+    "recency_days": 30,
+    "recency": "month",
+    "topic": "corrida de rua, provas de fim de ano e São Silvestre Nike Artigos esportivos",
+    "today": "2026-10-06",
+    "since": "2026-09-06T21:05:52.809961+00:00"
+  },
+  "token_price_usd": 0.00016052605160124484,
+  "radar_r1_reserve": 15207,
+  "seconds": 165.8,
+  "flows": {
+    "F1": {
+      "name": "Perplexity + imprensa",
+      "kind": "perplexity",
+      "models": {
+        "discover_open": "perplexity/sonar-pro",
+        "discover_press": "perplexity/sonar",
+        "discover_trends": "perplexity/sonar",
+        "judge": "openai/gpt-5.4-mini",
+        "check": "perplexity/sonar"
+      },
+      "discover_seconds": 18.6,
+      "opportunities": 4,
+      "review_avg": 4.15,
+      "points": 12.8,
+      "good": 3,
+      "history": {
+        "1.0": [
+          "12.8 (3/4)",
+          "0 (0/3)",
+          "0 (0/3)"
+        ]
+      },
+      "evidence": 14,
+      "sources": 11,
+      "sources_ab_pct": 55,
+      "urls_ok_pct": 100,
+      "in_window_pct": 29,
+      "confidence": {
+        "alta": 4,
+        "media": 0,
+        "baixa": 0
+      },
+      "sim_tokens": 720,
+      "real_tokens": 587,
+      "provider_usd": 0.0935,
+      "failed_calls": 0
+    },
+    "F2": {
+      "name": "OpenAI nativo",
+      "kind": "web",
+      "models": {
+        "discover": "openai/gpt-5-mini",
+        "judge": "gpt-5-mini",
+        "check": "openai/gpt-5-mini"
+      },
+      "discover_seconds": 16.4,
+      "opportunities": 3,
+      "review_avg": 4.4,
+      "points": 13.2,
+      "good": 3,
+      "history": {
+        "1.0": [
+          "8.0 (2/4)",
+          "13.4 (3/3)",
+          "13.2 (3/3)"
+        ]
+      },
+      "evidence": 6,
+      "sources": 6,
+      "sources_ab_pct": 83,
+      "urls_ok_pct": 100,
+      "in_window_pct": 100,
+      "confidence": {
+        "alta": 3,
+        "media": 0,
+        "baixa": 0
+      },
+      "sim_tokens": 10728,
+      "real_tokens": 10092,
+      "provider_usd": 0.089,
+      "failed_calls": 0
+    },
+    "F5": {
+      "name": "Grok + web e X",
+      "kind": "web",
+      "models": {
+        "discover": "x-ai/grok-4.3",
+        "judge": "x-ai/grok-4.3",
+        "check": "x-ai/grok-4.3"
+      },
+      "discover_seconds": 18.6,
+      "opportunities": 1,
+      "review_avg": 4.0,
+      "points": 4.0,
+      "good": 1,
+      "history": {
+        "1.0": [
+          "0 (0/2)",
+          "0 (0/1)",
+          "4.0 (1/1)"
+        ]
+      },
+      "evidence": 14,
+      "sources": 1,
+      "sources_ab_pct": 100,
+      "urls_ok_pct": 100,
+      "in_window_pct": 100,
+      "confidence": {
+        "alta": 1,
+        "media": 0,
+        "baixa": 0
+      },
+      "sim_tokens": 504,
+      "real_tokens": 1401,
+      "provider_usd": 0.2244,
+      "failed_calls": 0
+    }
+  },
+  "calls": [
+    {
+      "flow": "F1",
+      "stage": "discover_press",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.006456,
+      "sim_tokens": 41,
+      "real_usd": 0.00544,
+      "real_tokens": 34,
+      "input_tokens": 429,
+      "output_tokens": 6,
+      "seconds": 4.9,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"fatos\": []}"
+    },
+    {
+      "flow": "F2",
+      "stage": "discover_press",
+      "kind": "llm",
+      "model": "openai/gpt-5-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.013694,
+      "sim_tokens": 86,
+      "real_usd": 0.012058,
+      "real_tokens": 76,
+      "input_tokens": 9138,
+      "output_tokens": 290,
+      "seconds": 5.0,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"fatos\": []}"
+    },
+    {
+      "flow": "F1",
+      "stage": "discover_trends",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.006286,
+      "sim_tokens": 40,
+      "real_usd": 0.0058,
+      "real_tokens": 37,
+      "input_tokens": 224,
+      "output_tokens": 579,
+      "seconds": 5.5,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"fatos\":[{\"fato\":\"A busca por **corrida de rua** cresceu no Brasil, com aumento de 85% no número de provas em relação a 2024 segundo a Abraceo, refletindo a alta do segmento de artigos esportivos ligados à prática.\",\"data\":\"2026-09-01\",\"local\":\"Brasil\",\"veiculo\":\"Folha de S.Paulo\",\"url\":\"https://www1.folha.uol.com.br/equilibrio/2026/09/o-que-e-preciso-saber-antes-de-participar-de-uma-corrida-de-r"
+    },
+    {
+      "flow": "F1",
+      "stage": "discover_open",
+      "kind": "llm",
+      "model": "perplexity/sonar-pro",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.021902,
+      "sim_tokens": 137,
+      "real_usd": 0.02374,
+      "real_tokens": 148,
+      "input_tokens": 264,
+      "output_tokens": 1130,
+      "seconds": 7.1,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"fatos\":[{\"fato\":\"A São Silvestre 2025 bateu recorde de inscrições, com 55 mil participantes, reforçando a corrida como ativo cultural e de marca no fim de ano.\",\"data\":\"2025-12-31\",\"local\":\"São Paulo/SP\",\"veiculo\":\"Terra\",\"url\":\"https://www.terra.com.br/noticias/mercado-de-wellness-cresce-junto-a-sao-silvestre-2025,215cecc1fdb9ac0bcf07cbb066045245umgfx5fq.html\",\"tipo\":\"news\"},{\"fato\":\"São Paulo "
+    },
+    {
+      "flow": "F5",
+      "stage": "discover_press",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.00997,
+      "sim_tokens": 63,
+      "real_usd": 0.03778,
+      "real_tokens": 236,
+      "input_tokens": 21226,
+      "output_tokens": 1171,
+      "seconds": 13.3,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\n  \"fatos\": []\n}"
+    },
+    {
+      "flow": "F2",
+      "stage": "discover_open",
+      "kind": "llm",
+      "model": "openai/gpt-5-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.013659,
+      "sim_tokens": 86,
+      "real_usd": 0.02501,
+      "real_tokens": 156,
+      "input_tokens": 9527,
+      "output_tokens": 1818,
+      "seconds": 16.4,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"fatos\":[{\"fato\":\"Secretaria Municipal de Esportes de São Paulo atualizou lista pública de corridas de rua com eventos e autorizações, abrindo janelas para ativações locais e parcerias em provas de bairro e parques.\",\"data\":\"2026-09-15\",\"local\":\"São Paulo/SP\",\"veiculo\":\"Prefeitura de São Paulo - Corridas de Rua\",\"url\":\"https://prefeitura.sp.gov.br/w/servico/corridas-de-rua\",\"tipo\":\"report\"},{\"fat"
+    },
+    {
+      "flow": "F5",
+      "stage": "discover_open",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.009793,
+      "sim_tokens": 62,
+      "real_usd": 0.051346,
+      "real_tokens": 320,
+      "input_tokens": 21277,
+      "output_tokens": 2061,
+      "seconds": 18.5,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\n  \"fatos\": [\n    {\n      \"fato\": \"Inscrições para a 101ª São Silvestre 2026 abriram em 30 de setembro com alta demanda, atingindo 30 mil inscritos rapidamente e 55 mil vagas totais.\",\n      \"data\": \"2026-09-30\",\n      \"local\": \"São Paulo/SP\",\n      \"veiculo\": \"JW News\",\n      \"url\": \"https://jwnews.com.br/2026/10/05/sao-silvestre-inicia-inscricoes-para-a-101a-edicao-com-alta-adesao-e-experiencia"
+    },
+    {
+      "flow": "F1",
+      "stage": "extract",
+      "kind": "firecrawl",
+      "model": "firecrawl/scrape",
+      "route": "firecrawl",
+      "regime": "firecrawl",
+      "sim_usd": 0.0,
+      "sim_tokens": 63,
+      "real_usd": 0.010274,
+      "real_tokens": 64,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 11.3,
+      "ok": true,
+      "note": "",
+      "label": "",
+      "preview": ""
+    },
+    {
+      "flow": "F1",
+      "stage": "judge",
+      "kind": "llm",
+      "model": "openai/gpt-5.4-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.016165,
+      "sim_tokens": 101,
+      "real_usd": 0.01091,
+      "real_tokens": 68,
+      "input_tokens": 3686,
+      "output_tokens": 1810,
+      "seconds": 11.5,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"opportunities\":[{\"title\":\"Ative São Silvestre com conversão de fim de ano\",\"thesis\":\"A São Silvestre segue como ativo cultural e comercial de alto alcance em São Paulo no pico de dezembro, com forte adesão e associação à tradição. Nike pode usar esse momento para capturar intenção de compra de performance e presenteável com campanha, landing e oferta de corrida.\",\"signals\":[{\"source_id\":\"S1\",\"he"
+    },
+    {
+      "flow": "F5",
+      "stage": "judge",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.0106,
+      "sim_tokens": 67,
+      "real_usd": 0.007363,
+      "real_tokens": 46,
+      "input_tokens": 3046,
+      "output_tokens": 1476,
+      "seconds": 13.5,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\n  \"opportunities\": [\n    {\n      \"title\": \"Ativar em corridas de rua de SP e RJ no fim de 2026\",\n      \"thesis\": \"Com dezenas de provas agendadas em SP e RJ (S5, S6, S8), Nike pode ativar em eventos não patrocinados pela Netshoes para capturar corredores de rua no pico sazonal.\",\n      \"signals\": [\n        {\"source_id\": \"S5\", \"headline\": \"Calendário de corridas de rua em São Paulo inclui dezenas"
+    },
+    {
+      "flow": "F1",
+      "stage": "check",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.007258,
+      "sim_tokens": 46,
+      "real_usd": 0.00615,
+      "real_tokens": 39,
+      "input_tokens": 455,
+      "output_tokens": 692,
+      "seconds": 4.7,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"results\":[{\"index\":0,\"verdict\":\"parcial\",\"is_recent\":true,\"other_sources\":[\"https://prefeitura.sp.gov.br/web/esportes/w/corridas_de_rua/8722\",\"https://www.riotimesonline.com/sao-silvestre-sao-paulo-2026/\",\"https://www.folhavitoria.com.br/esportes/corrida-de-sao-silvestre-2026-inscricoes-abertas-a-partir-desta-quarta-feira/\"],\"contradiction\":\"\",\"notes\":\"Há evidência de que a São Silvestre 2026 es"
+    },
+    {
+      "flow": "F2",
+      "stage": "judge",
+      "kind": "llm",
+      "model": "gpt-5-mini",
+      "route": "openai",
+      "regime": "tokens",
+      "sim_usd": 0.006498,
+      "sim_tokens": 4993,
+      "real_usd": 0.005788,
+      "real_tokens": 4687,
+      "input_tokens": 2049,
+      "output_tokens": 2638,
+      "seconds": 20.3,
+      "ok": true,
+      "note": "custo do provedor calculado pela tabela (a OpenAI direta não informa USD)",
+      "label": "1.0",
+      "preview": "{\n  \"opportunities\": [\n    {\n      \"title\": \"Ativação da Nike SP City Marathon com presença de experiência no dia\",\n      \"thesis\": \"A Nike já promove o evento (presença oficial) e a Prefeitura atualizou lista de corridas em SP — momento para consolidar ativações locais, testar produtos e gerar conteúdo urbano antes da temporada de fim de ano.\",\n      \"signals\": [\n        {\n          \"source_id\": "
+    },
+    {
+      "flow": "F5",
+      "stage": "check",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.009801,
+      "sim_tokens": 62,
+      "real_usd": 0.048131,
+      "real_tokens": 300,
+      "input_tokens": 19585,
+      "output_tokens": 1621,
+      "seconds": 17.4,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"results\": [{\"index\": 0, \"verdict\": \"parcial\", \"is_recent\": false, \"other_sources\": [\"https://esportividade.com.br/nike-patrocina-a-sp-city-marathon-que-se-torna-nike-sp-city-marathon-em-2026/\", \"https://www.promoview.com.br/ativacoes-marcas-maratona-do-rio-2026/\", \"https://esportividade.com.br/netshoes-e-a-nova-patrocinadora-da-sao-silvestre-e-prepara-acoes-aos-corredores/\"], \"contradiction\": \"N"
+    },
+    {
+      "flow": "F2",
+      "stage": "check",
+      "kind": "llm",
+      "model": "openai/gpt-5-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.013703,
+      "sim_tokens": 86,
+      "real_usd": 0.014968,
+      "real_tokens": 94,
+      "input_tokens": 9346,
+      "output_tokens": 1719,
+      "seconds": 20.8,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"results\": [{\"index\": 0, \"verdict\": \"parcial\", \"is_recent\": true, \"other_sources\": [\"https://www.boracorrerbrasil.com.br/sao-paulo/agenda\",\"https://diariooficial.prefeitura.sp.gov.br/md_epubli_controlador.php?acao=edicao_consultar&dta=05%2F10%2F2026\",\"https://runable.com.br/corrida_sao_paulo\"], \"contradiction\": \"Nenhuma fonte pública encontrada que confirme participação/ativação oficial da Nike n"
+    },
+    {
+      "flow": "REV",
+      "stage": "review-1.0-r0",
+      "kind": "llm",
+      "model": "anthropic/claude-haiku-4.5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.017956,
+      "sim_tokens": 112,
+      "real_usd": 0.013572,
+      "real_tokens": 85,
+      "input_tokens": 4107,
+      "output_tokens": 1893,
+      "seconds": 15.9,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "```json\n{\n  \"opportunities\": [\n    {\n      \"id\": \"A1\",\n      \"veracidade\": 4,\n      \"recencia\": 2,\n      \"aderencia\": 5,\n      \"acao\": 5,\n      \"novidade\": 4,\n      \"nota\": \"São Silvestre é ativo cultural comprovado (Nível A + B), mas fonte principal está fora da janela; oportunidade de conversão de fim de ano é clara e acionável já.\"\n    },\n    {\n      \"id\": \"A2\",\n      \"veracidade\": 5,\n      \"re"
+    },
+    {
+      "flow": "F5",
+      "stage": "revise-r1",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.0102,
+      "sim_tokens": 64,
+      "real_usd": 0.006101,
+      "real_tokens": 39,
+      "input_tokens": 2702,
+      "output_tokens": 1170,
+      "seconds": 11.3,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\n  \"opportunities\": [\n    {\n      \"title\": \"Ativar em Circuito das Estações SP out-dez 2026\",\n      \"thesis\": \"Prefeitura SP confirma dezenas de provas em out-dez 2026 (S5); Nike pode patrocinar ou ativar em eventos não-Netshoes para alcançar corredores de rua no pico sazonal com tênis e apparel running.\",\n      \"signals\": [\n        {\"source_id\": \"S5\", \"headline\": \"Calendário de corridas de rua e"
+    },
+    {
+      "flow": "F1",
+      "stage": "revise-r1",
+      "kind": "llm",
+      "model": "openai/gpt-5.4-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.01608,
+      "sim_tokens": 101,
+      "real_usd": 0.012365,
+      "real_tokens": 78,
+      "input_tokens": 3617,
+      "output_tokens": 2145,
+      "seconds": 12.9,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\n  \"opportunities\": [\n    {\n      \"title\": \"Nike Running always-on em São Paulo\",\n      \"thesis\": \"São Paulo registrou 182 provas de corrida de rua apoiadas pela Prefeitura em 2024, alta de 15% vs. 2023, e os circuitos da capital vão de março a novembro. A Nike deve operar presença always-on na praça com foco em aquisição, comunidade e produto de corrida durante a temporada.\",\n      \"signals\": [\n"
+    },
+    {
+      "flow": "F2",
+      "stage": "revise-r1",
+      "kind": "llm",
+      "model": "gpt-5-mini",
+      "route": "openai",
+      "regime": "tokens",
+      "sim_usd": 0.006598,
+      "sim_tokens": 5391,
+      "real_usd": 0.00541,
+      "real_tokens": 4918,
+      "input_tokens": 2529,
+      "output_tokens": 2389,
+      "seconds": 19.2,
+      "ok": true,
+      "note": "custo do provedor calculado pela tabela (a OpenAI direta não informa USD)",
+      "label": "1.0",
+      "preview": "{\n  \"opportunities\": [\n    {\n      \"title\": \"Ativação on-site: Nike SP City Marathon 2026\",\n      \"thesis\": \"A Nike já comunica presença oficial no 'Nike SP City Marathon' (S2) e a Prefeitura de SP listou corridas autorizadas (S1) — agir agora garante exposição on-site, teste de produtos e conteúdo urbano relevante antes da temporada de fim de ano.\",\n      \"signals\": [\n        {\n          \"source_"
+    },
+    {
+      "flow": "F1",
+      "stage": "check-r1",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.007168,
+      "sim_tokens": 45,
+      "real_usd": 0.00625,
+      "real_tokens": 39,
+      "input_tokens": 380,
+      "output_tokens": 869,
+      "seconds": 8.0,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"results\":[{\"index\":0,\"verdict\":\"confirmado\",\"is_recent\":false,\"other_sources\":[\"https://prefeitura.sp.gov.br/web/prefeitura-de-sao-paulo/w/corridas-de-rua-conquistam-cada-vez-mais-paulistanos\",\"https://prefeitura.sp.gov.br/web/esportes/w/popularidade-das-corridas-de-rua-dispara-na-capital-paulista\",\"https://www.nike.com.br/sc/eventos\"],\"contradiction\":\"Nenhuma contradição encontrada; o dado de 1"
+    },
+    {
+      "flow": "F5",
+      "stage": "check-r1",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.009741,
+      "sim_tokens": 61,
+      "real_usd": 0.034322,
+      "real_tokens": 214,
+      "input_tokens": 14338,
+      "output_tokens": 1151,
+      "seconds": 12.6,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"results\": [{\"index\": 0, \"verdict\": \"parcial\", \"is_recent\": false, \"other_sources\": [\"https://www.metropoles.com/colunas/demetrio-vecchioli/sao-paulo-tem-160-corridas-de-rua-no-calendario-2026-veja-datas\", \"https://guia.folha.uol.com.br/passeios/2026/01/veja-agenda-de-corridas-de-rua-de-sao-paulo-em-2026.shtml\", \"https://propmark.com.br/anunciantes/nike-entra-como-patrocinadora-da-sp-city-maratho"
+    },
+    {
+      "flow": "F2",
+      "stage": "check-r1",
+      "kind": "llm",
+      "model": "openai/gpt-5-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.013693,
+      "sim_tokens": 86,
+      "real_usd": 0.025784,
+      "real_tokens": 161,
+      "input_tokens": 13323,
+      "output_tokens": 1630,
+      "seconds": 14.8,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"results\": [{\"index\": 0, \"verdict\": \"confirmado\", \"is_recent\": false, \"other_sources\": [\"https://www.nike.com.br/sc/nike-sp-city-marathon\",\"https://sampanews.sp.gov.br/web/secretaria_executiva_de_transporte_e_mobilidade_urbana/w/confira-as-mudan%C3%A7as-no-tr%C3%A2nsito-e-no-transporte-para-corridas-neste-domingo-1\",\"https://ssl.cetsp.com.br/noticias/2026/07/24/cet-monitora-o-transito-nas-regioes"
+    },
+    {
+      "flow": "REV",
+      "stage": "review-1.0-r1",
+      "kind": "llm",
+      "model": "anthropic/claude-haiku-4.5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.016955,
+      "sim_tokens": 106,
+      "real_usd": 0.009978,
+      "real_tokens": 63,
+      "input_tokens": 2653,
+      "output_tokens": 1465,
+      "seconds": 14.6,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "```json\n{\n  \"opportunities\": [\n    {\n      \"id\": \"B1\",\n      \"veracidade\": 5,\n      \"recencia\": 5,\n      \"aderencia\": 5,\n      \"acao\": 5,\n      \"novidade\": 4,\n      \"nota\": \"Nike SP City Marathon confirmado em fontes A (Prefeitura + nike.com.br), datas na janela, ativação on-site executável esta semana.\"\n    },\n    {\n      \"id\": \"B2\",\n      \"veracidade\": 3,\n      \"recencia\": 5,\n      \"aderencia\": "
+    },
+    {
+      "flow": "F1",
+      "stage": "revise-r2",
+      "kind": "llm",
+      "model": "openai/gpt-5.4-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.01608,
+      "sim_tokens": 101,
+      "real_usd": 0.006442,
+      "real_tokens": 41,
+      "input_tokens": 3617,
+      "output_tokens": 1328,
+      "seconds": 8.8,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"opportunities\":[{\"title\":\"Corrida de rua em SP segue aquecida\",\"thesis\":\"São Paulo registrou 182 provas com apoio da Prefeitura em 2024, alta de 15% sobre 2023, o que sustenta um fluxo contínuo de interesse em corrida de rua na praça. Nike pode operar uma presença always-on para capturar demanda de performance, comunidade e compra de produto ao longo do calendário.\",\"signals\":[{\"source_id\":\"S2\","
+    },
+    {
+      "flow": "F5",
+      "stage": "revise-r2",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.0102,
+      "sim_tokens": 64,
+      "real_usd": 0.003953,
+      "real_tokens": 25,
+      "input_tokens": 2702,
+      "output_tokens": 1359,
+      "seconds": 12.0,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\n  \"opportunities\": [\n    {\n      \"title\": \"Ativar em Circuito das Estações SP com OOH e eventos Nike Run Club\",\n      \"thesis\": \"Calendário oficial da Prefeitura (S5) lista dezenas de provas em SP out-dez 2026; Nike pode capturar corredores de rua em eventos não patrocinados pela Netshoes via ativações presenciais e OOH perto de largadas.\",\n      \"signals\": [\n        {\"source_id\": \"S5\", \"headlin"
+    },
+    {
+      "flow": "F1",
+      "stage": "check-r2",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.007191,
+      "sim_tokens": 45,
+      "real_usd": 0.00617,
+      "real_tokens": 39,
+      "input_tokens": 407,
+      "output_tokens": 762,
+      "seconds": 6.9,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"results\":[{\"index\":0,\"verdict\":\"confirmado\",\"is_recent\":false,\"other_sources\":[\"https://prefeitura.sp.gov.br/web/esportes/w/popularidade-das-corridas-de-rua-dispara-na-capital-paulista\",\"https://prefeitura.sp.gov.br/web/prefeitura-de-sao-paulo/w/corridas-de-rua-conquistam-cada-vez-mais-paulistanos\",\"https://www.terra.com.br/vida-e-estilo/partiu-correr/nunca-tanta-gente-correu-brasil-vive-expansa"
+    },
+    {
+      "flow": "F5",
+      "stage": "check-r2",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.009754,
+      "sim_tokens": 61,
+      "real_usd": 0.035423,
+      "real_tokens": 221,
+      "input_tokens": 15015,
+      "output_tokens": 1226,
+      "seconds": 12.7,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\n  \"results\": [\n    {\n      \"index\": 0,\n      \"verdict\": \"parcial\",\n      \"is_recent\": false,\n      \"other_sources\": [\n        \"https://prefeitura.sp.gov.br/web/esportes/w/corridas_de_rua/8722\",\n        \"https://www.metropoles.com/colunas/demetrio-vecchioli/sao-paulo-tem-160-corridas-de-rua-no-calendario-2026-veja-datas\",\n        \"https://www.terra.com.br/vida-e-estilo/sao-paulo-tera-160-corridas"
+    },
+    {
+      "flow": "REV",
+      "stage": "review-1.0-r2",
+      "kind": "llm",
+      "model": "anthropic/claude-haiku-4.5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.016987,
+      "sim_tokens": 106,
+      "real_usd": 0.009718,
+      "real_tokens": 61,
+      "input_tokens": 2688,
+      "output_tokens": 1406,
+      "seconds": 13.3,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "```json\n{\n  \"opportunities\": [\n    {\n      \"id\": \"A1\",\n      \"veracidade\": 4,\n      \"recencia\": 5,\n      \"aderencia\": 5,\n      \"acao\": 5,\n      \"novidade\": 4,\n      \"nota\": \"Evento próprio Nike com confirmação oficial (Prefeitura + nike.com.br); janela curta exige ação imediata em negociações e logística.\"\n    },\n    {\n      \"id\": \"A2\",\n      \"veracidade\": 3,\n      \"recencia\": 5,\n      \"aderencia\""
+    },
+    {
+      "flow": "DOC",
+      "stage": "doctor-1.0",
+      "kind": "llm",
+      "model": "openai/gpt-5.4",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.049615,
+      "sim_tokens": 310,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.35207320895278826,
+      "ok": false,
+      "note": "OpenRouterError: O saldo da conta OpenRouter é insuficiente.",
+      "label": "1.0",
+      "preview": ""
+    }
+  ],
+  "opportunities": {
+    "F1": [
+      {
+        "flow": "F1",
+        "title": "Ative São Silvestre com conversão de fim de ano",
+        "thesis": "A São Silvestre segue como ativo cultural e comercial de alto alcance em São Paulo no pico de dezembro, com forte adesão e associação à tradição. Nike pode usar esse momento para capturar intenção de compra de performance e presenteável com campanha, landing e oferta de corrida.",
+        "editorial": 64,
+        "paid": 62,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://www.terra.com.br/noticias/mercado-de-wellness-cresce-junto-a-sao-silvestre-2025,215cecc1fdb9ac0bcf07cbb066045245umgfx5fq.html",
+            "title": "Terra",
+            "published_at": "2025-12-31",
+            "domain": "terra.com.br",
+            "name": "Terra",
+            "group": "nacional",
+            "tier": "B",
+            "primary": false,
+            "uf": null,
+            "url_status": "ok",
+            "in_window": false
+          },
+          {
+            "id": "S9",
+            "url": "https://maquinadoesporte.com.br/running/sao-silvestre-inicia-novo-seculo-unindo-tradicao-com-experiencia-conexao-e-visibilidade/",
+            "title": "Máquina do Esporte",
+            "published_at": null,
+            "domain": "maquinadoesporte.com.br",
+            "name": "maquinadoesporte.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": null
+          },
+          {
+            "id": "S12",
+            "url": "https://corrida360.com.br/blog/corridas-de-rua-em-sao-paulo-2026",
+            "title": "Corrida360º",
+            "published_at": null,
+            "domain": "corrida360.com.br",
+            "name": "corrida360.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": null
+          }
+        ],
+        "places": [
+          "São Paulo"
+        ],
+        "channels": [
+          "paid social",
+          "search",
+          "OOH próximo a roteiros de corrida",
+          "e-commerce",
+          "CRM",
+          "influenciadores running"
+        ],
+        "window": "novembro a 31/12",
+        "verdict": "parcial",
+        "check_notes": "Há evidência de que a São Silvestre 2026 está ativa e com inscrições/reportagens recentes, mas não há prova direta da parte de 'alto alcance cultural e comercial' nem de que dezembro seja especificamente 'pico' de conversão para Nike.",
+        "other_sources": [
+          "https://prefeitura.sp.gov.br/web/esportes/w/corridas_de_rua/8722",
+          "https://www.riotimesonline.com/sao-silvestre-sao-paulo-2026/",
+          "https://www.folhavitoria.com.br/esportes/corrida-de-sao-silvestre-2026-inscricoes-abertas-a-partir-desta-quarta-feira/"
+        ],
+        "contradicted": false,
+        "confidence": "alta",
+        "review": {
+          "id": "A1",
+          "veracidade": 4,
+          "recencia": 2,
+          "aderencia": 5,
+          "acao": 5,
+          "novidade": 4,
+          "nota": "São Silvestre é ativo cultural comprovado (Nível A + B), mas fonte principal está fora da janela; oportunidade de conversão de fim de ano é clara e acionável já.",
+          "media": 4.0
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 82.0,
+            "marca": 90.0,
+            "territorio": 95.0,
+            "autoridade": 78.0,
+            "cultura": 92.0,
+            "timing": 97.0,
+            "conversa": 88.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 8.0,
+            "custo_excessivo": 6.0,
+            "baixa_confianca": 6.0,
+            "risco_reputacional": 1.0,
+            "pouca_evidencia": 3.0
+          },
+          "score": 64
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 84.0,
+            "audiencia": 90.0,
+            "geo": 92.0,
+            "momentum": 95.0,
+            "criativo": 80.0,
+            "eficiencia": 76.0,
+            "canais": 88.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 8.0,
+            "custo_excessivo": 6.0,
+            "baixa_confianca": 6.0,
+            "risco_reputacional": 1.0,
+            "pouca_evidencia": 3.0
+          },
+          "score": 62
+        }
+      },
+      {
+        "flow": "F1",
+        "title": "Explorar o boom de corridas em São Paulo",
+        "thesis": "São Paulo vive expansão consistente do calendário de corrida de rua, com alta de provas e calendário aquecido. Nike pode se posicionar com uma jornada sempre-on de corrida, ativando produto, comunidade e aquisição durante a temporada.",
+        "editorial": 67,
+        "paid": 66,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S2",
+            "url": "https://prefeitura.sp.gov.br/web/prefeitura-de-sao-paulo/w/corridas-de-rua-conquistam-cada-vez-mais-paulistanos",
+            "title": "Prefeitura de São Paulo",
+            "published_at": "2025-08-31",
+            "domain": "prefeitura.sp.gov.br",
+            "name": "prefeitura.sp.gov.br",
+            "group": "governo",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": false
+          },
+          {
+            "id": "S4",
+            "url": "https://eventia-br.meublog.net/post/calendario-corridas-de-rua-sao-paulo-2026",
+            "title": "Eventia",
+            "published_at": "2026-03-30",
+            "domain": "eventia-br.meublog.net",
+            "name": "eventia-br.meublog.net",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": false
+          },
+          {
+            "id": "S7",
+            "url": "https://prefeitura.sp.gov.br/web/esportes/w/noticias/36750",
+            "title": "Prefeitura de São Paulo",
+            "published_at": null,
+            "domain": "prefeitura.sp.gov.br",
+            "name": "prefeitura.sp.gov.br",
+            "group": "governo",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": null
+          }
+        ],
+        "places": [
+          "São Paulo",
+          "Rio de Janeiro"
+        ],
+        "channels": [
+          "search",
+          "paid social",
+          "programmatic",
+          "CRM",
+          "conteúdo editorial",
+          "retail media"
+        ],
+        "window": "março a novembro, com reforço em setembro-novembro",
+        "verdict": "confirmado",
+        "check_notes": "O calendário oficial e compilações recentes mostram muitas provas em São Paulo ao longo de 2026, incluindo várias em outubro, indicando um mercado aquecido de corrida de rua.",
+        "other_sources": [
+          "https://prefeitura.sp.gov.br/web/esportes/w/corridas_de_rua/8722",
+          "https://www.terra.com.br/vida-e-estilo/sao-paulo-tera-160-corridas-de-rua-em-2026-confira-datas,fff8653c4bc7c691b2ea4c1be62517achdy5d240.html",
+          "https://korridas.com.br/corridas/sp/sao-paulo/2026/outubro/"
+        ],
+        "contradicted": false,
+        "confidence": "alta",
+        "review": {
+          "id": "A2",
+          "veracidade": 5,
+          "recencia": 3,
+          "aderencia": 5,
+          "acao": 5,
+          "novidade": 3,
+          "nota": "Prefeitura (Nível A) confirma boom de corridas em SP; dados sólidos mas não recentes; estratégia sempre-on é viável e alinhada com Nike.",
+          "media": 4.2
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 80.0,
+            "marca": 85.0,
+            "territorio": 94.0,
+            "autoridade": 74.0,
+            "cultura": 79.0,
+            "timing": 88.0,
+            "conversa": 76.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 6.0,
+            "custo_excessivo": 4.0,
+            "baixa_confianca": 3.0,
+            "risco_reputacional": 1.0,
+            "pouca_evidencia": 2.0
+          },
+          "score": 67
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 82.0,
+            "audiencia": 88.0,
+            "geo": 90.0,
+            "momentum": 84.0,
+            "criativo": 77.0,
+            "eficiencia": 73.0,
+            "canais": 84.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 6.0,
+            "custo_excessivo": 4.0,
+            "baixa_confianca": 3.0,
+            "risco_reputacional": 1.0,
+            "pouca_evidencia": 2.0
+          },
+          "score": 66
+        }
+      },
+      {
+        "flow": "F1",
+        "title": "Lançar campanha para 5K/10K e estreia na corrida",
+        "thesis": "O calendário de São Paulo mostra muitas provas curtas e conteúdo de preparação, sinalizando entrada de novos corredores. Nike pode capturar iniciantes com produto de porta de entrada, conteúdo de treino e incentivo para primeira prova.",
+        "editorial": 66,
+        "paid": 68,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S4",
+            "url": "https://eventia-br.meublog.net/post/calendario-corridas-de-rua-sao-paulo-2026",
+            "title": "Eventia",
+            "published_at": "2026-03-30",
+            "domain": "eventia-br.meublog.net",
+            "name": "eventia-br.meublog.net",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": false
+          },
+          {
+            "id": "S10",
+            "url": "https://www1.folha.uol.com.br/equilibrio/2026/09/o-que-e-preciso-saber-antes-de-participar-de-uma-corrida-de-rua.shtml",
+            "title": "Folha de S.Paulo",
+            "published_at": "2026-09-01",
+            "domain": "www1.folha.uol.com.br",
+            "name": "Folha de S.Paulo",
+            "group": "nacional",
+            "tier": "A",
+            "primary": false,
+            "uf": null,
+            "url_status": "ok",
+            "in_window": false
+          },
+          {
+            "id": "S11",
+            "url": "https://oglobo.globo.com/patrocinado/pulse-brand/noticia/2026/09/28/a-corrida-explodiu-no-brasil-agora-o-corredor-quer-aprender-a-descansar-1.ghtml",
+            "title": "O Globo",
+            "published_at": "2026-09-28",
+            "domain": "oglobo.globo.com",
+            "name": "O Globo",
+            "group": "nacional",
+            "tier": "A",
+            "primary": false,
+            "uf": null,
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [
+          "São Paulo",
+          "Rio de Janeiro"
+        ],
+        "channels": [
+          "search",
+          "social video",
+          "creator marketing",
+          "landing page de treinamento",
+          "CRM",
+          "retail/e-commerce"
+        ],
+        "window": "agosto a dezembro",
+        "verdict": "confirmado",
+        "check_notes": "Há várias provas curtas e de entrada no calendário, incluindo 5K e 10K, além de eventos com conteúdo de preparação, o que sustenta a leitura de captação de novos corredores.",
+        "other_sources": [
+          "https://olympics.com/pt/noticias/corrida-de-rua-sao-paulo-2026-calendario-provas",
+          "https://korridas.com.br/corridas/sp/sao-paulo/2026/outubro/",
+          "https://www.estadao.com.br/esportes/corrida-para-todos/ultima-etapa-do-circuito-athenas-esta-com-as-inscricoes-abertas/"
+        ],
+        "contradicted": false,
+        "confidence": "alta",
+        "review": {
+          "id": "A3",
+          "veracidade": 5,
+          "recencia": 4,
+          "aderencia": 5,
+          "acao": 5,
+          "novidade": 4,
+          "nota": "Folha e O Globo (Nível A, recente) validam entrada de iniciantes; campanha de porta de entrada é acionável esta semana com conteúdo e produto.",
+          "media": 4.6
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 77.0,
+            "marca": 88.0,
+            "territorio": 86.0,
+            "autoridade": 70.0,
+            "cultura": 72.0,
+            "timing": 85.0,
+            "conversa": 80.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 3.0,
+            "baixa_confianca": 4.0,
+            "pouca_evidencia": 2.0
+          },
+          "score": 66
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 80.0,
+            "audiencia": 86.0,
+            "geo": 78.0,
+            "momentum": 83.0,
+            "criativo": 82.0,
+            "eficiencia": 79.0,
+            "canais": 86.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 3.0,
+            "baixa_confianca": 4.0,
+            "pouca_evidencia": 2.0
+          },
+          "score": 68
+        }
+      },
+      {
+        "flow": "F1",
+        "title": "Apostar em corrida noturna com clima festivo",
+        "thesis": "As corridas noturnas e experiências com música/ambiente social estão em alta no Brasil, especialmente para públicos jovens. Nike pode testar eventos, ativações e criativos com estética noturna para ampliar relevância cultural e diferenciar a marca.",
+        "editorial": 52,
+        "paid": 54,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S5",
+            "url": "https://vogue.globo.com/wellness/noticia/2026/09/das-running-raves-aos-festivais-a-pista-de-corrida-da-vez-esta-diferente-e-muito-mais-animada.ghtml",
+            "title": "Vogue Brasil",
+            "published_at": "2026-09",
+            "domain": "vogue.globo.com",
+            "name": "vogue.globo.com",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": null
+          },
+          {
+            "id": "S6",
+            "url": "https://veja.abril.com.br/saude/por-que-as-corridas-de-rua-noturnas-estao-com-tudo-no-brasil/",
+            "title": "Veja",
+            "published_at": "2026-10-02",
+            "domain": "veja.abril.com.br",
+            "name": "Veja",
+            "group": "nacional",
+            "tier": "A",
+            "primary": false,
+            "uf": null,
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [
+          "São Paulo",
+          "Rio de Janeiro"
+        ],
+        "channels": [
+          "eventos",
+          "social video",
+          "influenciadores",
+          "OOH experiencial",
+          "streaming audio",
+          "paid social"
+        ],
+        "window": "agosto a outubro, com testes até verão",
+        "verdict": "parcial",
+        "check_notes": "Existem corridas noturnas em São Paulo e no Brasil, incluindo etapas 'Night Run', mas os resultados não comprovam que estejam claramente 'em alta' nem que o apelo festivo seja tendência dominante entre públicos jovens.",
+        "other_sources": [
+          "https://prefeitura.sp.gov.br/web/esportes/w/corridas_de_rua/8722",
+          "https://korridas.com.br/corridas/sp/sao-paulo/2026/outubro/",
+          "https://corrida1.com.br/colecoes/night-run-noturnas"
+        ],
+        "contradicted": false,
+        "confidence": "alta",
+        "review": {
+          "id": "A4",
+          "veracidade": 3,
+          "recencia": 4,
+          "aderencia": 4,
+          "acao": 3,
+          "novidade": 5,
+          "nota": "Veja (Nível A, recente) confirma corridas noturnas em alta, mas Vogue é Nível C; diferenciação cultural é forte mas requer testes e parcerias.",
+          "media": 3.8
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 68.0,
+            "marca": 78.0,
+            "territorio": 60.0,
+            "autoridade": 64.0,
+            "cultura": 90.0,
+            "timing": 82.0,
+            "conversa": 83.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 4.0,
+            "custo_excessivo": 5.0,
+            "baixa_confianca": 6.0,
+            "risco_reputacional": 2.0,
+            "pouca_evidencia": 4.0
+          },
+          "score": 52
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 72.0,
+            "audiencia": 78.0,
+            "geo": 65.0,
+            "momentum": 80.0,
+            "criativo": 90.0,
+            "eficiencia": 67.0,
+            "canais": 80.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 4.0,
+            "custo_excessivo": 5.0,
+            "baixa_confianca": 6.0,
+            "risco_reputacional": 2.0,
+            "pouca_evidencia": 4.0
+          },
+          "score": 54
+        }
+      }
+    ],
+    "F2": [
+      {
+        "flow": "F2",
+        "title": "Ativação on-site: Nike SP City Marathon 2026",
+        "thesis": "A Nike já comunica presença oficial no 'Nike SP City Marathon' (S2) e a Prefeitura de SP listou corridas autorizadas (S1) — agir agora garante exposição on-site, teste de produtos e conteúdo urbano relevante antes da temporada de fim de ano.",
+        "editorial": 55,
+        "paid": 57,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S2",
+            "url": "https://www.nike.com.br/sc/nike-sp-city-marathon",
+            "title": "Nike (site oficial Brasil)",
+            "published_at": "2026-09-16",
+            "domain": "nike.com.br",
+            "name": "Site da marca",
+            "group": "oficial",
+            "tier": "A",
+            "primary": true,
+            "url_status": "bloqueado",
+            "in_window": true
+          },
+          {
+            "id": "S1",
+            "url": "https://prefeitura.sp.gov.br/w/servico/corridas-de-rua",
+            "title": "Prefeitura de São Paulo - Corridas de Rua",
+            "published_at": "2026-09-15",
+            "domain": "prefeitura.sp.gov.br",
+            "name": "prefeitura.sp.gov.br",
+            "group": "governo",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [
+          "São Paulo"
+        ],
+        "channels": [
+          "Ativação on-site: estande com test-run e estação de fit/ajus",
+          "Conteúdo social (reels/shorts) em dia do evento e teasers pr",
+          "E-mail segmentado para base Nike SP com convite para test-ru",
+          "PR local: divulgação de resultados e histórias de corredores"
+        ],
+        "window": "Implementar negociações e logística imediatamente; ativações on-site no dia do evento; comunicação pré-evento 4–6 semana",
+        "verdict": "confirmado",
+        "check_notes": "Há ampla evidência pública de que a prova passou a se chamar 'Nike SP City Marathon' em 2026 e que a Nike teve presença/ativação relacionada ao evento (site oficial da Nike, cobertura editorial e avisos da Prefeitura/CET sobre bloqueios para a \"Nike SP City Marathon 2026\"). Porém a prova ocorreu em 26 de julho de 2026 — portanto a ação 'agir agora garante exposição on-site... antes da temporada de",
+        "other_sources": [
+          "https://www.nike.com.br/sc/nike-sp-city-marathon",
+          "https://sampanews.sp.gov.br/web/secretaria_executiva_de_transporte_e_mobilidade_urbana/w/confira-as-mudan%C3%A7as-no-tr%C3%A2nsito-e-no-transporte-para-corridas-neste-domingo-1",
+          "https://ssl.cetsp.com.br/noticias/2026/07/24/cet-monitora-o-transito-nas-regioes-central%2C-oeste-e-sul-da-cidade-para-a-sp-city-marathon-2026.aspx",
+          "https://esportividade.com.br/evento/sp-city-marathon-e-sp-city-half-marathon-2026/"
+        ],
+        "contradicted": false,
+        "confidence": "alta",
+        "review": {
+          "id": "A1",
+          "veracidade": 4,
+          "recencia": 5,
+          "aderencia": 5,
+          "acao": 5,
+          "novidade": 4,
+          "nota": "Evento próprio Nike com confirmação oficial (Prefeitura + nike.com.br); janela curta exige ação imediata em negociações e logística.",
+          "media": 4.6
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 85.0,
+            "marca": 90.0,
+            "territorio": 88.0,
+            "autoridade": 80.0,
+            "cultura": 70.0,
+            "timing": 95.0,
+            "conversa": 70.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 6.0,
+            "custo_excessivo": 8.0,
+            "baixa_confianca": 5.0,
+            "restricao_marca": 3.0,
+            "risco_reputacional": 2.0,
+            "pouca_evidencia": 5.0
+          },
+          "score": 55
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 80.0,
+            "audiencia": 85.0,
+            "geo": 95.0,
+            "momentum": 90.0,
+            "criativo": 85.0,
+            "eficiencia": 80.0,
+            "canais": 90.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 6.0,
+            "custo_excessivo": 8.0,
+            "baixa_confianca": 5.0,
+            "restricao_marca": 3.0,
+            "risco_reputacional": 2.0,
+            "pouca_evidencia": 5.0
+          },
+          "score": 57
+        }
+      },
+      {
+        "flow": "F2",
+        "title": "Campanha tática: linha de produto e treinos para 5–10 km e meias",
+        "thesis": "Calendários especializados indicam crescimento de provas de 5–10 km e meia maratonas (S5) e a Nike tem presença em provas urbanas (S2) — oportunidade para promover produtos específicos e programas de 4–8 semanas para corredores urbanos em SP e RJ.",
+        "editorial": 47,
+        "paid": 52,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S5",
+            "url": "https://corrida360.com.br/blog/corridas-de-rua-no-rio-de-janeiro-2026",
+            "title": "Corrida360 / RioRunningTour (calendários)",
+            "published_at": "2026-09-22",
+            "domain": "corrida360.com.br",
+            "name": "corrida360.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": true
+          },
+          {
+            "id": "S2",
+            "url": "https://www.nike.com.br/sc/nike-sp-city-marathon",
+            "title": "Nike (site oficial Brasil)",
+            "published_at": "2026-09-16",
+            "domain": "nike.com.br",
+            "name": "Site da marca",
+            "group": "oficial",
+            "tier": "A",
+            "primary": true,
+            "url_status": "bloqueado",
+            "in_window": true
+          }
+        ],
+        "places": [
+          "São Paulo",
+          "Rio de Janeiro"
+        ],
+        "channels": [
+          "Paid social e search segmentado por distância (campanhas 5 k",
+          "Séries de conteúdo educativo: 4–8 semanas de treino em forma",
+          "Test-drives em parques (parcerias com grupos de corrida loca",
+          "Promoção regional em lojas Nike/partner com kits 'comece a t"
+        ],
+        "window": "Campanha contínua até dezembro; picos de comunicação 4–8 semanas antes de provas-chave (iniciar execução imediatamente p",
+        "verdict": "confirmado",
+        "check_notes": "Fontes do setor e estudos publicados em 2026 (ChronoMAX e veículos especializados) mostram crescimento e diversificação do calendário de corridas de rua no Brasil, com forte presença de provas de 5 km, 10 km e meia maratona e aumento de participantes. A afirmação sobre oportunidade para promover linhas e programas de 4–8 semanas está alinhada com essas tendências. Ainda assim, essas publicações sã",
+        "other_sources": [
+          "https://www.mktesportivo.com/2026/03/estudo-revela-panorama-completo-das-corridas-de-rua-no-brasil/",
+          "https://portalocorredor.com.br/2026/08/05/estudo-da-chronomax-revela-as-cidades-mais-rapidas-do-brasil-e-mostra-crescimento-historico-da-corrida-de-rua/",
+          "https://vamucorrer.com.br/conteudo/estatisticas-corridas-brasil",
+          "https://corridabr.com.br/"
+        ],
+        "contradicted": false,
+        "confidence": "alta",
+        "review": {
+          "id": "A2",
+          "veracidade": 3,
+          "recencia": 5,
+          "aderencia": 5,
+          "acao": 5,
+          "novidade": 3,
+          "nota": "Campanha tática sólida mas fonte C (corrida360.com.br) reduz confiança; produto e treino são genéricos para Nike.",
+          "media": 4.2
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 82.0,
+            "marca": 88.0,
+            "territorio": 75.0,
+            "autoridade": 72.0,
+            "cultura": 68.0,
+            "timing": 85.0,
+            "conversa": 65.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 6.0,
+            "baixa_confianca": 8.0,
+            "restricao_marca": 2.0,
+            "risco_reputacional": 1.0,
+            "pouca_evidencia": 9.0
+          },
+          "score": 47
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 80.0,
+            "audiencia": 83.0,
+            "geo": 90.0,
+            "momentum": 78.0,
+            "criativo": 80.0,
+            "eficiencia": 82.0,
+            "canais": 85.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 6.0,
+            "baixa_confianca": 8.0,
+            "restricao_marca": 2.0,
+            "risco_reputacional": 1.0,
+            "pouca_evidencia": 9.0
+          },
+          "score": 52
+        }
+      },
+      {
+        "flow": "F2",
+        "title": "Run-to-store/local engagement: test-run e ofertas regionais em SP",
+        "thesis": "Com eventos e autorizações listadas pela Prefeitura (S1) e prova própria da Nike em SP (S2), ativar experiências em lojas e parques cria fluxo direto de participantes para compras locais e test-drives de produto.",
+        "editorial": 53,
+        "paid": 57,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://prefeitura.sp.gov.br/w/servico/corridas-de-rua",
+            "title": "Prefeitura de São Paulo - Corridas de Rua",
+            "published_at": "2026-09-15",
+            "domain": "prefeitura.sp.gov.br",
+            "name": "prefeitura.sp.gov.br",
+            "group": "governo",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": true
+          },
+          {
+            "id": "S2",
+            "url": "https://www.nike.com.br/sc/nike-sp-city-marathon",
+            "title": "Nike (site oficial Brasil)",
+            "published_at": "2026-09-16",
+            "domain": "nike.com.br",
+            "name": "Site da marca",
+            "group": "oficial",
+            "tier": "A",
+            "primary": true,
+            "url_status": "bloqueado",
+            "in_window": true
+          }
+        ],
+        "places": [
+          "São Paulo"
+        ],
+        "channels": [
+          "Test-run guiado saindo de lojas Nike/retail partners (manhãs",
+          "Ofertas exclusivas pós-test-run (desconto por tempo limitado",
+          "Micro-influenciadores locais para promover encontros e publi",
+          "Comunicação via e-mail local e push app para inscritos em at"
+        ],
+        "window": "Rodar táticas imediatamente até dezembro, com maior intensidade nas 6 semanas antes de provas locais e no fim de semana ",
+        "verdict": "parcial",
+        "check_notes": "Existem provas (autorização/avisos da Prefeitura e CET) e evidência de ação da Nike em São Paulo (Nike SP City Marathon 2026), o que apoia a ideia de que conexões run-to-store e experiências locais são viáveis. No entanto, não encontrei evidência pública direta e específica (ex.: comunicados oficiais da Nike, retailers ou organizadores) descrevendo um programa 'test-run e ofertas regionais em SP' ",
+        "other_sources": [
+          "https://sampanews.sp.gov.br/web/secretaria_executiva_de_transporte_e_mobilidade_urbana/w/confira-as-mudan%C3%A7as-no-tr%C3%A2nsito-e-no-transporte-para-corridas-neste-domingo-1",
+          "https://ssl.cetsp.com.br/noticias/2026/07/24/cet-monitora-o-transito-nas-regioes-central%2C-oeste-e-sul-da-cidade-para-a-sp-city-marathon-2026.aspx",
+          "https://www.nike.com.br/sc/nike-sp-city-marathon"
+        ],
+        "contradicted": false,
+        "confidence": "alta",
+        "review": {
+          "id": "A3",
+          "veracidade": 4,
+          "recencia": 5,
+          "aderencia": 5,
+          "acao": 4,
+          "novidade": 4,
+          "nota": "Run-to-store com base em eventos reais; exige coordenação com lojas e parques, viável mas operacionalmente complexo.",
+          "media": 4.4
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 78.0,
+            "marca": 86.0,
+            "territorio": 82.0,
+            "autoridade": 70.0,
+            "cultura": 65.0,
+            "timing": 88.0,
+            "conversa": 60.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 4.0,
+            "custo_excessivo": 7.0,
+            "baixa_confianca": 6.0,
+            "restricao_marca": 2.0,
+            "risco_reputacional": 1.0,
+            "pouca_evidencia": 4.0
+          },
+          "score": 53
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 75.0,
+            "audiencia": 80.0,
+            "geo": 92.0,
+            "momentum": 85.0,
+            "criativo": 75.0,
+            "eficiencia": 84.0,
+            "canais": 80.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 4.0,
+            "custo_excessivo": 7.0,
+            "baixa_confianca": 6.0,
+            "restricao_marca": 2.0,
+            "risco_reputacional": 1.0,
+            "pouca_evidencia": 4.0
+          },
+          "score": 57
+        }
+      }
+    ],
+    "F5": [
+      {
+        "flow": "F5",
+        "title": "Ativar em Circuito das Estações SP com OOH e eventos Nike Run Club",
+        "thesis": "Calendário oficial da Prefeitura (S5) lista dezenas de provas em SP out-dez 2026; Nike pode capturar corredores de rua em eventos não patrocinados pela Netshoes via ativações presenciais e OOH perto de largadas.",
+        "editorial": 50,
+        "paid": 48,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S5",
+            "url": "https://prefeitura.sp.gov.br/web/esportes/w/corridas_de_rua/8722",
+            "title": "Prefeitura de São Paulo",
+            "published_at": "2026-10-01",
+            "domain": "prefeitura.sp.gov.br",
+            "name": "prefeitura.sp.gov.br",
+            "group": "governo",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [
+          "São Paulo"
+        ],
+        "channels": [
+          "eventos",
+          "OOH",
+          "influencer"
+        ],
+        "window": "outubro a dezembro 2026",
+        "verdict": "parcial",
+        "check_notes": "Calendário oficial da Prefeitura lista dezenas de provas em SP out-dez/2026 (ex.: ~20+ em out, várias em nov/dez, incluindo Circuito Estações SESI). Circuito das Estações existe com etapas SP 2026. Netshoes patrocina São Silvestre (anúncio set/2026), mas não todas as provas (muitos organizadores independentes). Parte sobre Nike Run Club/OOH/ativações é sugestão estratégica especulativa, não fato v",
+        "other_sources": [
+          "https://prefeitura.sp.gov.br/web/esportes/w/corridas_de_rua/8722",
+          "https://www.metropoles.com/colunas/demetrio-vecchioli/sao-paulo-tem-160-corridas-de-rua-no-calendario-2026-veja-datas",
+          "https://www.terra.com.br/vida-e-estilo/sao-paulo-tera-160-corridas-de-rua-em-2026-confira-datas,fff8653c4bc7c691b2ea4c1be62517achdy5d240.html",
+          "https://www.mktesportivo.com/2026/09/netshoes-fecha-patrocinio-de-tres-anos-com-a-corrida-internacional-de-sao-silvestre/"
+        ],
+        "contradicted": false,
+        "confidence": "alta",
+        "review": {
+          "id": "B1",
+          "veracidade": 4,
+          "recencia": 5,
+          "aderencia": 4,
+          "acao": 4,
+          "novidade": 3,
+          "nota": "Circuito das Estações é real e recente; OOH em eventos não-patrocinados é tática defensiva, menos diferenciada.",
+          "media": 4.0
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 75.0,
+            "marca": 80.0,
+            "territorio": 70.0,
+            "autoridade": 85.0,
+            "cultura": 65.0,
+            "timing": 90.0,
+            "conversa": 60.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 10.0,
+            "baixa_confianca": 6.0,
+            "pouca_evidencia": 5.0
+          },
+          "score": 50
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 70.0,
+            "audiencia": 75.0,
+            "geo": 85.0,
+            "momentum": 80.0,
+            "criativo": 65.0,
+            "eficiencia": 70.0,
+            "canais": 75.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 10.0,
+            "baixa_confianca": 6.0,
+            "pouca_evidencia": 5.0
+          },
+          "score": 48
+        }
+      }
+    ]
+  },
+  "versions": [
+    {
+      "label": "1.0",
+      "mean": 10.0,
+      "score": {
+        "F1": 12.8,
+        "F2": 13.2,
+        "F5": 4.0
+      },
+      "winner": "F2"
+    }
+  ],
+  "best_version": "1.0",
+  "prompt_changes": [
+    {
+      "label": "1.1",
+      "from": "1.0",
+      "accepted": [],
+      "rejected": []
+    }
+  ],
+  "best_prompts": {
+    "judge": "Você qualifica oportunidades de comunicação e mídia para planejadores. Use somente as evidências fornecidas; sem evidência, o critério vale 0. Toda oportunidade cita ao menos uma evidência pelo id (S1, S2…). Notas de 0 a 100, conservadoras. Uma oportunidade é uma AÇÃO possível para a marca, não um resumo da notícia. Responda só JSON no esquema pedido. No máximo {max_opportunities} oportunidades, da mais forte para a mais fraca.",
+    "revise": "Você é o mesmo analista que gerou as oportunidades abaixo. Um planejador sênior deu notas de 1 a 5 e apontou problemas. Reescreva a lista: corrija ou retire oportunidades sustentadas só por fonte fraca (nível C), por link que não abre ou por fato fora da janela; deixe a ação concreta para um planejador (canal, formato e quando); troque o genérico por algo específico desta marca. Use SOMENTE as evidências do pacote (S1, S2…): sem evidência, a oportunidade sai. Pode trocar uma oportunidade fraca por outra melhor sustentada pelo pacote. Notas de 0 a 100, conservadoras. Responda só JSON no esquema pedido. No máximo {max_opportunities} oportunidades.",
+    "reality_check": "Você é um checador de fatos. Para cada afirmação, pesquise na web agora e responda: é verdade? Aconteceu nos últimos {recency_days} dias? Quais outros veículos publicaram (URLs)? Há algo que contradiga? Seja cético: na dúvida, \"parcial\". Responda só JSON: {{\"results\": [{{\"index\": 0, \"verdict\": \"confirmado|parcial|contestado\", \"is_recent\": true, \"other_sources\": [\"url\"], \"contradiction\": \"vazio ou o que contradiz\", \"notes\": \"...\"}}]}}",
+    "verify": "Você é o verificador. Tente provar que cada oportunidade está errada: a evidência é recente? Há fonte primária? Está fora de contexto? Responda só JSON: {{\"results\": [{{\"index\": 0, \"verdict\": \"confirmado|parcial|contestado\", \"is_recent\": true, \"has_primary_source\": true, \"corroborating_sources\": 0, \"notes\": \"...\"}}]}}"
+  },
+  "reviewer_noise": 0.07,
+  "review": {
+    "opportunities": [
+      {
+        "id": "A1",
+        "veracidade": 4,
+        "recencia": 5,
+        "aderencia": 5,
+        "acao": 5,
+        "novidade": 4,
+        "nota": "Evento próprio Nike com confirmação oficial (Prefeitura + nike.com.br); janela curta exige ação imediata em negociações e logística."
+      },
+      {
+        "id": "A2",
+        "veracidade": 3,
+        "recencia": 5,
+        "aderencia": 5,
+        "acao": 5,
+        "novidade": 3,
+        "nota": "Campanha tática sólida mas fonte C (corrida360.com.br) reduz confiança; produto e treino são genéricos para Nike."
+      },
+      {
+        "id": "A3",
+        "veracidade": 4,
+        "recencia": 5,
+        "aderencia": 5,
+        "acao": 4,
+        "novidade": 4,
+        "nota": "Run-to-store com base em eventos reais; exige coordenação com lojas e parques, viável mas operacionalmente complexo."
+      },
+      {
+        "id": "B1",
+        "veracidade": 4,
+        "recencia": 5,
+        "aderencia": 4,
+        "acao": 4,
+        "novidade": 3,
+        "nota": "Circuito das Estações é real e recente; OOH em eventos não-patrocinados é tática defensiva, menos diferenciada."
+      },
+      {
+        "id": "C1",
+        "veracidade": 3,
+        "recencia": 2,
+        "aderencia": 4,
+        "acao": 2,
+        "novidade": 1,
+        "nota": "Dado de 2024 fora da janela (ago-2025); contexto genérico de mercado aquecido, sem gatilho tático imediato."
+      },
+      {
+        "id": "C2",
+        "veracidade": 3,
+        "recencia": 3,
+        "aderencia": 4,
+        "acao": 3,
+        "novidade": 2,
+        "nota": "Fonte Folha fora da janela; tendência de iniciantes é óbvia para Nike; conteúdo de treino é commodity."
+      },
+      {
+        "id": "C3",
+        "veracidade": 3,
+        "recencia": 5,
+        "aderencia": 4,
+        "acao": 3,
+        "novidade": 3,
+        "nota": "Veja recente e relevante; corridas noturnas são insight cultural válido mas genérico; estética noturna é tática comum."
+      }
+    ],
+    "systems": [
+      {
+        "system": "A",
+        "resumo": "Sistema A entrega 3 oportunidades com alta confiança e fontes Nível A (Prefeitura + Nike.com.br), focadas em ativações on-site, campanhas táticas de produto e run-to-store. Todas estão na janela e permitem ação imediata.",
+        "melhor_em": "Veracidade (fontes oficiais), Ação (eventos e datas claras), Aderência (alinhamento direto Nike).",
+        "pior_em": "Novidade (A2 é genérico em produto/treino); A1 e A3 dependem de nike.com.br bloqueado."
+      },
+      {
+        "system": "B",
+        "resumo": "Sistema B oferece 1 oportunidade defensiva (Circuito das Estações) com fonte Nível A recente, mas tática é reativa (capturar em eventos não-patrocinados) e menos diferenciada.",
+        "melhor_em": "Recencia (outubro 2026), Veracidade (Prefeitura oficial).",
+        "pior_em": "Novidade (OOH em eventos é tática padrão), Ação (menos urgente que A1)."
+      },
+      {
+        "system": "C",
+        "resumo": "Sistema C gera 3 insights contextuais com mix de fontes Nível A (Folha, O Globo, Veja) mas 2 de 3 fora da janela ou com dados defasados (2024). Tendências são reais mas genéricas e não disparam ação tática imediata.",
+        "melhor_em": "Recencia parcial (C3 é de 02-out), Aderência (corredores iniciantes e noturnas são públicos Nike).",
+        "pior_em": "Veracidade (dados 2024 em C1), Ação (insights sem gatilho operacional), Novidade (tendências óbvias)."
+      }
+    ],
+    "duplicadas": [
+      [
+        "A2",
+        "C2"
+      ],
+      [
+        "A1",
+        "B1"
+      ]
+    ],
+    "vencedor": "A",
+    "por_que": "Sistema A combina veracidade (fontes oficiais Nível A), recencia (todas na janela), aderência máxima (Nike SP City Marathon é evento próprio) e ação imediata (negociações e logística esta semana). B é defensivo e genérico; C oferece contexto mas sem gatilhos táticos urgentes.",
+    "mapping": {
+      "F2": "A",
+      "F5": "B",
+      "F1": "C"
+    },
+    "winner_flow": "F2"
+  }
+}

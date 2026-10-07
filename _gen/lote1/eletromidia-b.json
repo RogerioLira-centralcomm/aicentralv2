@@ -1,0 +1,24 @@
+{
+ "slug": "eletromidia",
+ "variant": "b",
+ "model": "gpt-image-2.5-sunburst",
+ "quality": "medium",
+ "size": [
+  1680,
+  944
+ ],
+ "usage": {
+  "input_tokens": 269,
+  "input_tokens_details": {
+   "image_tokens": 0,
+   "text_tokens": 269
+  },
+  "output_tokens": 280,
+  "output_tokens_details": {
+   "image_tokens": 280,
+   "text_tokens": 0
+  },
+  "total_tokens": 549
+ },
+ "prompt": "You are rendering a finished editorial photograph for an advertising media catalog. Follow the brief literally; never add logos, brand names or readable text that were not requested.\n\nTASK: One wide 16:9 photograph used as the cover of a media channel card.\nSUBJECT AND COMPOSITION: A modern office elevator with a vertical digital screen showing a clean outdoor sportswear ad, two commuters in business casual looking at it; reflective steel walls.\nSTYLE: realistic commercial photography, natural light, shallow depth of field, clean modern composition, a subtle emerald green accent (#1DBF73) somewhere in the scene (clothing, object or light), neutral warm skin tones, no heavy filters.\nTEXT ON SCREENS AND SURFACES: any screen or surface may show only abstract shapes and layout blocks. If a headline is requested, render exactly this string and nothing else: \"Mais conforto para o seu caminho.\".\nBRAND: the only brand shown is the fictional advertiser VÉRTICE (outdoor sportswear, simple mountain-peak mark in white). No real logos, trademarks, app icons or interface chrome from any real service.\nAVOID: real brand logos, recognizable celebrities, distorted hands, extra fingers, garbled text, watermarks, collage borders, stock-photo cliches, dark muddy shadows."
+}

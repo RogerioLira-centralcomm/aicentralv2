@@ -1,0 +1,1973 @@
+{
+  "run_id": "20261006210551-3a73bd",
+  "scenario": {
+    "name": "bomfim",
+    "brand_ref": "studio:52",
+    "brand_name": "Bomfim Cargas",
+    "sector": "Transporte e logística de cargas",
+    "facts": [
+      "Transportadora rodoviária de cargas"
+    ],
+    "focus": "pico logístico de Black Friday e Natal, frete e estradas",
+    "places": "Minas Gerais, São Paulo",
+    "lenses": [
+      "Sazonalidade e datas",
+      "Lançamentos do setor",
+      "Regulação"
+    ],
+    "recency_days": 30
+  },
+  "context": {
+    "brand": {
+      "name": "Bomfim Cargas",
+      "sector": "transporte rodoviário de cargas e logística",
+      "facts": [
+        "Transportadora rodoviária de cargas"
+      ],
+      "site": "https://www.bomfimcargas.com.br"
+    },
+    "focus": "pico logístico de Black Friday e Natal, frete e estradas",
+    "places": "Minas Gerais, São Paulo",
+    "lenses": "Sazonalidade e datas, Lançamentos do setor, Regulação",
+    "recency_days": 30,
+    "recency": "month",
+    "topic": "pico logístico de Black Friday e Natal, frete e estradas Bomfim Cargas transporte rodoviário de cargas e logística",
+    "today": "2026-10-06",
+    "since": "2026-09-06T21:05:52.093448+00:00"
+  },
+  "token_price_usd": 0.00016052605160124484,
+  "radar_r1_reserve": 15207,
+  "seconds": 195.2,
+  "flows": {
+    "F1": {
+      "name": "Perplexity + imprensa",
+      "kind": "perplexity",
+      "models": {
+        "discover_open": "perplexity/sonar-pro",
+        "discover_press": "perplexity/sonar",
+        "discover_trends": "perplexity/sonar",
+        "judge": "openai/gpt-5.4-mini",
+        "check": "perplexity/sonar"
+      },
+      "discover_seconds": 31.3,
+      "opportunities": 3,
+      "review_avg": 4.4,
+      "points": 9.6,
+      "good": 2,
+      "history": {
+        "1.0": [
+          "9.0 (2/4)",
+          "4.0 (1/4)",
+          "9.6 (2/3)"
+        ]
+      },
+      "evidence": 14,
+      "sources": 9,
+      "sources_ab_pct": 67,
+      "urls_ok_pct": 100,
+      "in_window_pct": 100,
+      "confidence": {
+        "alta": 3,
+        "media": 0,
+        "baixa": 0
+      },
+      "sim_tokens": 733,
+      "real_tokens": 571,
+      "provider_usd": 0.091,
+      "failed_calls": 0
+    },
+    "F2": {
+      "name": "OpenAI nativo",
+      "kind": "web",
+      "models": {
+        "discover": "openai/gpt-5-mini",
+        "judge": "gpt-5-mini",
+        "check": "openai/gpt-5-mini"
+      },
+      "discover_seconds": 16.6,
+      "opportunities": 3,
+      "review_avg": 3.4,
+      "points": 4.4,
+      "good": 1,
+      "history": {
+        "1.0": [
+          "9.0 (2/4)",
+          "13.4 (3/3)",
+          "4.4 (1/3)"
+        ]
+      },
+      "evidence": 10,
+      "sources": 8,
+      "sources_ab_pct": 100,
+      "urls_ok_pct": 100,
+      "in_window_pct": 100,
+      "confidence": {
+        "alta": 0,
+        "media": 3,
+        "baixa": 0
+      },
+      "sim_tokens": 12252,
+      "real_tokens": 12790,
+      "provider_usd": 0.1031,
+      "failed_calls": 0
+    },
+    "F5": {
+      "name": "Grok + web e X",
+      "kind": "web",
+      "models": {
+        "discover": "x-ai/grok-4.3",
+        "judge": "x-ai/grok-4.3",
+        "check": "x-ai/grok-4.3"
+      },
+      "discover_seconds": 26.3,
+      "opportunities": 3,
+      "review_avg": 4.0,
+      "points": 9.0,
+      "good": 2,
+      "history": {
+        "1.0": [
+          "0 (0/3)",
+          "9.0 (2/3)",
+          "8.0 (2/3)"
+        ]
+      },
+      "evidence": 14,
+      "sources": 4,
+      "sources_ab_pct": 50,
+      "urls_ok_pct": 100,
+      "in_window_pct": 100,
+      "confidence": {
+        "alta": 0,
+        "media": 2,
+        "baixa": 1
+      },
+      "sim_tokens": 508,
+      "real_tokens": 1576,
+      "provider_usd": 0.2522,
+      "failed_calls": 0
+    }
+  },
+  "calls": [
+    {
+      "flow": "F1",
+      "stage": "discover_press",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.006464,
+      "sim_tokens": 41,
+      "real_usd": 0.00544,
+      "real_tokens": 34,
+      "input_tokens": 433,
+      "output_tokens": 5,
+      "seconds": 4.2,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"fatos\":[]}"
+    },
+    {
+      "flow": "F1",
+      "stage": "discover_trends",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.006303,
+      "sim_tokens": 40,
+      "real_usd": 0.00604,
+      "real_tokens": 38,
+      "input_tokens": 239,
+      "output_tokens": 800,
+      "seconds": 5.5,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"fatos\":[{\"fato\":\"Minas Gerais teve alta de 14% na demanda por transporte de cargas no período entre Black Friday e Natal, segundo reportagem do setor logístico mineiro.\",\"data\":\"2025-11-24\",\"local\":\"Minas Gerais\",\"veiculo\":\"Diário do Comércio\",\"url\":\"https://diariodocomercio.com.br/economia/black-friday-cargas-logistica-minas-gerais/\",\"tipo\":\"search_trend\"},{\"fato\":\"Em Minas Gerais, o setor de l"
+    },
+    {
+      "flow": "F1",
+      "stage": "discover_open",
+      "kind": "llm",
+      "model": "perplexity/sonar-pro",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.021923,
+      "sim_tokens": 137,
+      "real_usd": 0.01676,
+      "real_tokens": 105,
+      "input_tokens": 268,
+      "output_tokens": 664,
+      "seconds": 9.5,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"fatos\":[{\"fato\":\"A ANTT atualizou os coeficientes dos pisos mínimos do frete rodoviário, considerando o preço médio nacional do diesel S10 de R$ 7,33 por litro; a norma entrou em vigor em setembro.\",\"data\":\"2026-10-01\",\"local\":\"Brasil\",\"veiculo\":\"Diário do Comércio\",\"url\":\"https://diariodocomercio.com.br/economia/frete-minimo-antt-transportes-rodoviarios/\",\"tipo\":\"regulation\"},{\"fato\":\"A ANTT an"
+    },
+    {
+      "flow": "F2",
+      "stage": "discover_open",
+      "kind": "llm",
+      "model": "openai/gpt-5-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.01366,
+      "sim_tokens": 86,
+      "real_usd": 0.025435,
+      "real_tokens": 159,
+      "input_tokens": 13318,
+      "output_tokens": 1456,
+      "seconds": 15.7,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"fatos\":[{\"fato\":\"ANTT destacou ações e obrigações para caminhoneiros no Dia Nacional do Caminhoneiro, reforçando regras sobre CIOT, vale-pedágio e registros; oportunidade para comunicar compliance e apoio a motoristas antes do pico sazonal.\",\"data\":\"2026-09-16\",\"local\":\"Brasil\",\"veiculo\":\"Agência Nacional de Transportes Terrestres (ANTT)\",\"url\":\"https://www.gov.br/antt/pt-br/assuntos/noticias-de"
+    },
+    {
+      "flow": "F5",
+      "stage": "discover_press",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.00998,
+      "sim_tokens": 63,
+      "real_usd": 0.027245,
+      "real_tokens": 170,
+      "input_tokens": 12186,
+      "output_tokens": 1477,
+      "seconds": 15.8,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\n  \"fatos\": []\n}"
+    },
+    {
+      "flow": "F2",
+      "stage": "discover_press",
+      "kind": "llm",
+      "model": "openai/gpt-5-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.013696,
+      "sim_tokens": 86,
+      "real_usd": 0.03584,
+      "real_tokens": 224,
+      "input_tokens": 16255,
+      "output_tokens": 1392,
+      "seconds": 16.5,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"fatos\":[{\"fato\":\"Tráfego no km 368 da MGC-383 (Sul de Minas) foi parcialmente liberado, mas caminhões e outros veículos pesados continuam proibidos até a conclusão das obras de contenção.\",\"data\":\"2026-09-24\",\"local\":\"Sul de Minas/MG\",\"veiculo\":\"O Tempo\",\"url\":\"https://www.otempo.com.br/cidades/2026/9/24/apos-um-mes-interditada-mgc-383-tem-trafego-parcialmente-liberado-entenda-as-restricoes\",\"ti"
+    },
+    {
+      "flow": "F5",
+      "stage": "discover_open",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.009801,
+      "sim_tokens": 62,
+      "real_usd": 0.060207,
+      "real_tokens": 376,
+      "input_tokens": 27648,
+      "output_tokens": 2420,
+      "seconds": 26.3,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\n  \"fatos\": [\n    {\n      \"fato\": \"Relatório destaca que frete, dados e IA devem pautar a logística na Black Friday 2026, com menos de 80 dias para a data.\",\n      \"data\": \"2026-09-09\",\n      \"local\": \"Brasil\",\n      \"veiculo\": \"E-Commerce Brasil\",\n      \"url\": \"https://www.ecommercebrasil.com.br/noticias/frete-dados-e-ia-devem-pautar-logistica-na-black-friday-2026-mostra-relatorio\",\n      \"tipo\""
+    },
+    {
+      "flow": "F1",
+      "stage": "extract",
+      "kind": "firecrawl",
+      "model": "firecrawl/scrape",
+      "route": "firecrawl",
+      "regime": "firecrawl",
+      "sim_usd": 0.0,
+      "sim_tokens": 63,
+      "real_usd": 0.010274,
+      "real_tokens": 64,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 21.6,
+      "ok": true,
+      "note": "",
+      "label": "",
+      "preview": ""
+    },
+    {
+      "flow": "F1",
+      "stage": "judge",
+      "kind": "llm",
+      "model": "openai/gpt-5.4-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.016812,
+      "sim_tokens": 105,
+      "real_usd": 0.012065,
+      "real_tokens": 76,
+      "input_tokens": 4453,
+      "output_tokens": 1939,
+      "seconds": 11.2,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"opportunities\":[{\"title\":\"Guia pré-pico para embarcadores em MG e SP\",\"thesis\":\"Criar um guia de serviço para clientes e prospects com planejamento de capacidade, prazos e prevenção de atrasos para o pico de Black Friday e Natal. A oportunidade é forte porque há sinais de aumento de demanda em Minas Gerais e São Paulo e de concentração das entregas no fim do ano.\",\"signals\":[{\"source_id\":\"S6\",\"h"
+    },
+    {
+      "flow": "F5",
+      "stage": "judge",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.010622,
+      "sim_tokens": 67,
+      "real_usd": 0.008209,
+      "real_tokens": 52,
+      "input_tokens": 3005,
+      "output_tokens": 1835,
+      "seconds": 18.6,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\n  \"opportunities\": [\n    {\n      \"title\": \"Posicionar expertise em logística Black Friday\",\n      \"thesis\": \"Com menos de 90 dias para Black Friday 2026, Bomfim Cargas pode publicar conteúdo e propostas sobre frete e IA para conversão, usando relatórios setoriais.\",\n      \"signals\": [{\"source_id\": \"S2\", \"headline\": \"Estudo da nstech aponta logística como fator decisivo para conversão\", \"source_t"
+    },
+    {
+      "flow": "F1",
+      "stage": "check",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.007286,
+      "sim_tokens": 46,
+      "real_usd": 0.00654,
+      "real_tokens": 41,
+      "input_tokens": 507,
+      "output_tokens": 1037,
+      "seconds": 8.4,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"results\":[{\"index\":0,\"verdict\":\"parcial\",\"is_recent\":true,\"other_sources\":[\"https://www.gov.br/antt/pt-br/assuntos/noticias-defeso-eleitoral/antt-inicia-procedimentos-para-suspensao-de-empresas-que-descumprem-o-piso-minimo-do-frete/\",\"https://www.gov.br/antt/pt-br/assuntos/cargas/ciot-para-todos-1/perguntas-frequentes\",\"https://www.gov.br/antt/pt-br/assuntos/ultimas-noticias/ciot-para-todos-nova"
+    },
+    {
+      "flow": "F2",
+      "stage": "judge",
+      "kind": "llm",
+      "model": "gpt-5-mini",
+      "route": "openai",
+      "regime": "tokens",
+      "sim_usd": 0.006733,
+      "sim_tokens": 5931,
+      "real_usd": 0.006929,
+      "real_tokens": 6148,
+      "input_tokens": 3067,
+      "output_tokens": 3081,
+      "seconds": 27.5,
+      "ok": true,
+      "note": "custo do provedor calculado pela tabela (a OpenAI direta não informa USD)",
+      "label": "1.0",
+      "preview": "{\n  \"opportunities\": [\n    {\n      \"title\": \"Campanha de compliance e apoio ao caminhoneiro\",\n      \"thesis\": \"Comunicar conformidade com regras da ANTT e ofertas de apoio aos motoristas (treinamento, vale-pedágio, processos CIOT) antes do pico sazonal para reduzir risco regulatório e atrair clientes que valorizam parceiros compliance.\",\n      \"signals\": [\n        {\n          \"source_id\": \"S1\",\n  "
+    },
+    {
+      "flow": "F5",
+      "stage": "check",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.009856,
+      "sim_tokens": 62,
+      "real_usd": 0.044715,
+      "real_tokens": 279,
+      "input_tokens": 19065,
+      "output_tokens": 1375,
+      "seconds": 14.3,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\n  \"results\": [\n    {\n      \"index\": 0,\n      \"verdict\": \"confirmado\",\n      \"is_recent\": true,\n      \"other_sources\": [\n        \"https://www.which.co.uk/topic/black-friday\",\n        \"https://www.ritfitsports.com/blogs/article/days-until-black-friday\",\n        \"https://blackfriday.com/news/when-is-black-friday\"\n      ],\n      \"contradiction\": \"\",\n      \"notes\": \"Black Friday 2026 confirmed as Nov"
+    },
+    {
+      "flow": "F2",
+      "stage": "check",
+      "kind": "llm",
+      "model": "openai/gpt-5-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.0137,
+      "sim_tokens": 86,
+      "real_usd": 0.014509,
+      "real_tokens": 91,
+      "input_tokens": 9342,
+      "output_tokens": 1490,
+      "seconds": 14.6,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"results\":[{\"index\":0,\"verdict\":\"parcial\",\"is_recent\":false,\"other_sources\":[\"https://www.gov.br/antt/pt-br/assuntos/cargas/ciot-para-todos-1\",\"https://www.gov.br/antt/pt-br/assuntos/cargas/vale-pedagio-obrigatorio/o-que-e\",\"https://www2.camara.leg.br/atividade-legislativa/estudos-e-notas-tecnicas/notas-descritivas-sobre-medidas-provisorias/notas-descritivas-sobre-medidas-provisorias/2026/nota-de"
+    },
+    {
+      "flow": "REV",
+      "stage": "review-1.0-r0",
+      "kind": "llm",
+      "model": "anthropic/claude-haiku-4.5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.018698,
+      "sim_tokens": 117,
+      "real_usd": 0.01442,
+      "real_tokens": 90,
+      "input_tokens": 5230,
+      "output_tokens": 1838,
+      "seconds": 16.3,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "```json\n{\n  \"opportunities\": [\n    {\n      \"id\": \"B2\",\n      \"veracidade\": 5,\n      \"recencia\": 5,\n      \"aderencia\": 5,\n      \"acao\": 5,\n      \"novidade\": 4,\n      \"nota\": \"Conformidade ANTT com fontes gov.br recentes (set/2026) e janela perfeita para pico; posiciona Bomfim como parceira segura.\"\n    },\n    {\n      \"id\": \"A3\",\n      \"veracidade\": 5,\n      \"recencia\": 5,\n      \"aderencia\": 5,\n    "
+    },
+    {
+      "flow": "F1",
+      "stage": "revise-r1",
+      "kind": "llm",
+      "model": "openai/gpt-5.4-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.016741,
+      "sim_tokens": 105,
+      "real_usd": 0.012801,
+      "real_tokens": 80,
+      "input_tokens": 4492,
+      "output_tokens": 2096,
+      "seconds": 12.3,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"opportunities\":[{\"title\":\"Bomfim: guia de frete, CIOT e Vale-Pedágio no pico\",\"thesis\":\"Usar a atualização recente da ANTT sobre piso mínimo do frete e o aumento da fiscalização para publicar um guia prático para embarcadores em MG e SP. O material deve ajudar o cliente a contratar com conformidade antes do pico de fim de ano, quando a operação fica mais sensível a erro documental e custo de rot"
+    },
+    {
+      "flow": "F5",
+      "stage": "revise-r1",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.010327,
+      "sim_tokens": 65,
+      "real_usd": 0.008186,
+      "real_tokens": 51,
+      "input_tokens": 2744,
+      "output_tokens": 1983,
+      "seconds": 17.5,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\n  \"opportunities\": [\n    {\n      \"title\": \"Relatório frete+IA Black Friday para clientes MG/SP\",\n      \"thesis\": \"S1 mostra que frete, dados e IA decidem conversão na Black Friday 2026; Bomfim Cargas deve enviar relatório customizado com rotas MG-SP otimizadas para 15 clientes de e-commerce até 20/10/2026.\",\n      \"signals\": [\n        {\"source_id\": \"S1\", \"headline\": \"frete, dados e IA devem paut"
+    },
+    {
+      "flow": "F1",
+      "stage": "check-r1",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.007322,
+      "sim_tokens": 46,
+      "real_usd": 0.00671,
+      "real_tokens": 42,
+      "input_tokens": 551,
+      "output_tokens": 1161,
+      "seconds": 8.6,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"results\":[{\"index\":0,\"verdict\":\"parcial\",\"is_recent\":true,\"other_sources\":[\"https://www.gov.br/antt/pt-br/assuntos/noticias-defeso-eleitoral/dia-nacional-do-caminhoneiro-como-a-regulacao-da-antt-acompanha-quem-vive-do-transporte-de-cargas\",\"https://www.gov.br/antt/pt-br/assuntos/cargas/politica-nacional-de-pisos-minimos-de-frete/perguntas-frequentes-pmf\",\"https://www.gov.br/antt/pt-br/assuntos/c"
+    },
+    {
+      "flow": "F2",
+      "stage": "revise-r1",
+      "kind": "llm",
+      "model": "gpt-5-mini",
+      "route": "openai",
+      "regime": "tokens",
+      "sim_usd": 0.006744,
+      "sim_tokens": 5977,
+      "real_usd": 0.006509,
+      "real_tokens": 6081,
+      "input_tokens": 3230,
+      "output_tokens": 2851,
+      "seconds": 24.8,
+      "ok": true,
+      "note": "custo do provedor calculado pela tabela (a OpenAI direta não informa USD)",
+      "label": "1.0",
+      "preview": "{\n  \"opportunities\": [\n    {\n      \"title\": \"Comunicação de compliance ANTT e apoio direto ao caminhoneiro\",\n      \"thesis\": \"Comunicar que Bomfim Cargas já cumpre regras ANTT (CIOT, vale‑pedágio, frete mínimo) e lançar pacote operacional de apoio ao motorista (checklist, canal dedicado, vale‑pedágio operacional) para reduzir risco regulatório e atrair clientes B2B preocupados com conformidade no "
+    },
+    {
+      "flow": "F5",
+      "stage": "check-r1",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.00988,
+      "sim_tokens": 62,
+      "real_usd": 0.045015,
+      "real_tokens": 281,
+      "input_tokens": 17005,
+      "output_tokens": 1638,
+      "seconds": 15.2,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\n  \"results\": [\n    {\n      \"index\": 0,\n      \"verdict\": \"parcial\",\n      \"is_recent\": true,\n      \"other_sources\": [\n        \"https://logweb.com.br/estudo-da-nstech-aponta-logistica-como-fator-decisivo-para-conversao-a-menos-de-90-dias-da-black-friday/\"\n      ],\n      \"contradiction\": \"\",\n      \"notes\": \"Relatório nstech de 25/09/2026 confirma frete/dados/IA como decisivos para conversão Black F"
+    },
+    {
+      "flow": "F2",
+      "stage": "check-r1",
+      "kind": "llm",
+      "model": "openai/gpt-5-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.013695,
+      "sim_tokens": 86,
+      "real_usd": 0.013884,
+      "real_tokens": 87,
+      "input_tokens": 9137,
+      "output_tokens": 1203,
+      "seconds": 11.8,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"results\": [{\"index\": 0, \"verdict\": \"parcial\", \"is_recent\": false, \"other_sources\": [\"https://www.bomfimcargas.com.br/\",\"https://cliente.bomfimcargas.com.br/perfil-de-carga\",\"https://portal.antt.gov.br/pt-br/assuntos/cargas/ciot-para-todos-1/perguntas-frequentes\",\"https://portal.antt.gov.br/pt-br/assuntos/cargas/vale-pedagio-obrigatorio/o-que-e\"], \"contradiction\": \"vazio\", \"notes\": \"Procurei por "
+    },
+    {
+      "flow": "REV",
+      "stage": "review-1.0-r1",
+      "kind": "llm",
+      "model": "anthropic/claude-haiku-4.5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.018614,
+      "sim_tokens": 116,
+      "real_usd": 0.01413,
+      "real_tokens": 89,
+      "input_tokens": 5190,
+      "output_tokens": 1788,
+      "seconds": 16.3,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "```json\n{\n  \"opportunities\": [\n    {\n      \"id\": \"A1\",\n      \"veracidade\": 4,\n      \"recencia\": 5,\n      \"aderencia\": 5,\n      \"acao\": 5,\n      \"novidade\": 4,\n      \"nota\": \"Relatório customizado com dados de IA sobre frete em Black Friday é acionável esta semana e alinha perfeitamente com posicionamento B2B da marca.\"\n    },\n    {\n      \"id\": \"A2\",\n      \"veracidade\": 4,\n      \"recencia\": 5,\n    "
+    },
+    {
+      "flow": "F1",
+      "stage": "revise-r2",
+      "kind": "llm",
+      "model": "openai/gpt-5.4-mini",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.016741,
+      "sim_tokens": 105,
+      "real_usd": 0.008279,
+      "real_tokens": 52,
+      "input_tokens": 4492,
+      "output_tokens": 1744,
+      "seconds": 10.6,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"opportunities\":[{\"title\":\"Frete ANTT: guia rápido para embarcadores\",\"thesis\":\"A Bomfim Cargas pode publicar um guia curto explicando o que mudou no piso mínimo do frete e o que o embarcador precisa checar em CIOT e Vale-Pedágio. O tema está quente agora porque a ANTT atualizou o piso e reforçou a fiscalização sobre o transporte rodoviário de cargas.\",\"signals\":[{\"source_id\":\"S1\",\"headline\":\"ANT"
+    },
+    {
+      "flow": "F5",
+      "stage": "revise-r2",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.010401,
+      "sim_tokens": 65,
+      "real_usd": 0.008398,
+      "real_tokens": 53,
+      "input_tokens": 2844,
+      "output_tokens": 2018,
+      "seconds": 17.5,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\n  \"opportunities\": [\n    {\n      \"title\": \"Relatório frete+IA Black Friday para clientes MG/SP\",\n      \"thesis\": \"S1 e S2 mostram que frete, dados e IA decidem conversão na Black Friday 2026; Bomfim Cargas deve enviar relatório customizado com rotas MG-SP otimizadas para 15 clientes de e-commerce até 20/10/2026.\",\n      \"signals\": [\n        {\"source_id\": \"S1\", \"headline\": \"frete, dados e IA deve"
+    },
+    {
+      "flow": "F1",
+      "stage": "check-r2",
+      "kind": "llm",
+      "model": "perplexity/sonar",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.00722,
+      "sim_tokens": 45,
+      "real_usd": 0.00614,
+      "real_tokens": 39,
+      "input_tokens": 467,
+      "output_tokens": 670,
+      "seconds": 8.1,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "{\"results\":[{\"index\":0,\"verdict\":\"parcial\",\"is_recent\":true,\"other_sources\":[\"https://www.gov.br/antt/pt-br/assuntos/noticias-defeso-eleitoral/antt-atualiza-coeficientes-do-piso-minimo-do-frete-e-divulga-novo-preco-de-referencia-do-diesel\",\"https://www.diariodocomercio.com.br/economia/frete-minimo-antt-transportes-rodoviarios/\",\"https://www.setcesp.org.br/noticias/antt-reajusta-tabela-do-frete-min"
+    },
+    {
+      "flow": "F5",
+      "stage": "check-r2",
+      "kind": "llm",
+      "model": "x-ai/grok-4.3",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.009886,
+      "sim_tokens": 62,
+      "real_usd": 0.050271,
+      "real_tokens": 314,
+      "input_tokens": 22585,
+      "output_tokens": 1461,
+      "seconds": 13.5,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "**{\"results\": [{\"index\": 0, \"verdict\": \"parcial\", \"is_recent\": true, \"other_sources\": [\"https://www.ecommercebrasil.com.br/noticias/frete-dados-e-ia-devem-pautar-logistica-na-black-friday-2026-mostra-relatorio\", \"https://logweb.com.br/estudo-da-nstech-aponta-logistica-como-fator-decisivo-para-conversao-a-menos-de-90-dias-da-black-friday/\", \"https://jornalempresasenegocios.com.br/mercado/a-menos-de"
+    },
+    {
+      "flow": "REV",
+      "stage": "review-1.0-r2",
+      "kind": "llm",
+      "model": "anthropic/claude-haiku-4.5",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.018141,
+      "sim_tokens": 114,
+      "real_usd": 0.014025,
+      "real_tokens": 88,
+      "input_tokens": 4510,
+      "output_tokens": 1903,
+      "seconds": 16.9,
+      "ok": true,
+      "note": "",
+      "label": "1.0",
+      "preview": "```json\n{\n  \"opportunities\": [\n    {\n      \"id\": \"B1\",\n      \"veracidade\": 5,\n      \"recencia\": 5,\n      \"aderencia\": 5,\n      \"acao\": 5,\n      \"novidade\": 4,\n      \"nota\": \"Guia ANTT com fontes gov.br A recentes (01/10) e tema quente de fiscalização; executável em 2 semanas como conteúdo educativo para embarcadores.\"\n    },\n    {\n      \"id\": \"B2\",\n      \"veracidade\": 5,\n      \"recencia\": 5,\n     "
+    },
+    {
+      "flow": "DOC",
+      "stage": "doctor-1.0",
+      "kind": "llm",
+      "model": "openai/gpt-5.4",
+      "route": "openrouter",
+      "regime": "custo",
+      "sim_usd": 0.050005,
+      "sim_tokens": 312,
+      "real_usd": null,
+      "real_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 0.6674201659625396,
+      "ok": false,
+      "note": "OpenRouterError: O saldo da conta OpenRouter é insuficiente.",
+      "label": "1.0",
+      "preview": ""
+    }
+  ],
+  "opportunities": {
+    "F1": [
+      {
+        "flow": "F1",
+        "title": "Frete ANTT: guia rápido para embarcadores",
+        "thesis": "A Bomfim Cargas pode publicar um guia curto explicando o que mudou no piso mínimo do frete e o que o embarcador precisa checar em CIOT e Vale-Pedágio. O tema está quente agora porque a ANTT atualizou o piso e reforçou a fiscalização sobre o transporte rodoviário de cargas.",
+        "editorial": 67,
+        "paid": 63,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://diariodocomercio.com.br/economia/frete-minimo-antt-transportes-rodoviarios/",
+            "title": "Diário do Comércio",
+            "published_at": "2026-10-01",
+            "domain": "diariodocomercio.com.br",
+            "name": "diariodocomercio.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": true
+          },
+          {
+            "id": "S2",
+            "url": "https://www.gov.br/antt/pt-br/assuntos/noticias-defeso-eleitoral/antt-aprova-novos-projetos-de-concessao-atualiza-o-piso-do-frete-e-amplia-fiscalizacao-e-seguranca-viaria-em-setembro",
+            "title": "ANTT",
+            "published_at": "2026-10-01",
+            "domain": "gov.br",
+            "name": "gov.br",
+            "group": "governo",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": true
+          },
+          {
+            "id": "S3",
+            "url": "https://www.gov.br/antt/pt-br/assuntos/noticias-defeso-eleitoral/antt-inicia-procedimentos-para-suspensao-de-empresas-que-descumprem-o-piso-minimo-do-frete/",
+            "title": "ANTT",
+            "published_at": "2026-09-16",
+            "domain": "gov.br",
+            "name": "gov.br",
+            "group": "governo",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": true
+          },
+          {
+            "id": "S5",
+            "url": "https://gazetadoparana.com.br/publico/antt-aprova-transicao-para-novas-regras-do-ciot-no-frete-rodoviario",
+            "title": "Gazeta do Paraná",
+            "published_at": "2026-09-29",
+            "domain": "gazetadoparana.com.br",
+            "name": "gazetadoparana.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [
+          "Minas Gerais",
+          "São Paulo"
+        ],
+        "channels": [
+          "LinkedIn",
+          "landing page no site",
+          "newsletter B2B",
+          "e-mail para clientes",
+          "material de apoio comercial"
+        ],
+        "window": "imediato, com publicação nas próximas 2 semanas e reforço até o fim do ano",
+        "verdict": "parcial",
+        "check_notes": "Há atualização recente do piso mínimo do frete pela ANTT em 30/09/2026, com novo preço de referência do diesel e vigência imediata. A parte sobre orientar embarcadores em CIOT e Vale-Pedágio é consistente com regras da ANTT, mas a afirmação mistura recomendação de marketing com fato regulatório, então não é totalmente confirmável como notícia factual única.",
+        "other_sources": [
+          "https://www.gov.br/antt/pt-br/assuntos/noticias-defeso-eleitoral/antt-atualiza-coeficientes-do-piso-minimo-do-frete-e-divulga-novo-preco-de-referencia-do-diesel",
+          "https://www.diariodocomercio.com.br/economia/frete-minimo-antt-transportes-rodoviarios/",
+          "https://www.setcesp.org.br/noticias/antt-reajusta-tabela-do-frete-minimo-com-diesel-a-r-733-novos-valores-valem-a-partir-de-quarta-feira/"
+        ],
+        "contradicted": false,
+        "confidence": "alta",
+        "review": {
+          "id": "B1",
+          "veracidade": 5,
+          "recencia": 5,
+          "aderencia": 5,
+          "acao": 5,
+          "novidade": 4,
+          "nota": "Guia ANTT com fontes gov.br A recentes (01/10) e tema quente de fiscalização; executável em 2 semanas como conteúdo educativo para embarcadores.",
+          "media": 4.8
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 88.0,
+            "marca": 90.0,
+            "territorio": 72.0,
+            "autoridade": 91.0,
+            "cultura": 18.0,
+            "timing": 93.0,
+            "conversa": 84.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 4.0,
+            "baixa_confianca": 6.0,
+            "risco_reputacional": 3.0
+          },
+          "score": 67
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 86.0,
+            "audiencia": 80.0,
+            "geo": 55.0,
+            "momentum": 92.0,
+            "criativo": 68.0,
+            "eficiencia": 73.0,
+            "canais": 82.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 4.0,
+            "baixa_confianca": 6.0,
+            "risco_reputacional": 3.0
+          },
+          "score": 63
+        }
+      },
+      {
+        "flow": "F1",
+        "title": "Rotas críticas MG-SP no pico: reduzir atraso e custo",
+        "thesis": "A Bomfim Cargas deve ativar um conteúdo e uma campanha geolocalizada sobre rotas críticas no Sudeste, mostrando como planejar coleta, janela de entrega e custo em trechos com trânsito pesado em MG e SP. Isso é relevante agora porque há trânsito crítico em rodovias do Sudeste e mudanças de pedágio/fluxo em corredores importantes.",
+        "editorial": 60,
+        "paid": 62,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S11",
+            "url": "https://noticias.portaldaindustria.com.br/noticias/competitividade/16-trechos-de-rodovias-do-sudeste-tem-transito-critico-em-horarios-de-pico/",
+            "title": "Portal da Indústria",
+            "published_at": "2026-10-06",
+            "domain": "noticias.portaldaindustria.com.br",
+            "name": "noticias.portaldaindustria.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": true
+          },
+          {
+            "id": "S2",
+            "url": "https://www.gov.br/antt/pt-br/assuntos/noticias-defeso-eleitoral/antt-aprova-novos-projetos-de-concessao-atualiza-o-piso-do-frete-e-amplia-fiscalizacao-e-seguranca-viaria-em-setembro",
+            "title": "ANTT",
+            "published_at": "2026-10-01",
+            "domain": "gov.br",
+            "name": "gov.br",
+            "group": "governo",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": true
+          },
+          {
+            "id": "S4",
+            "url": "https://www.gov.br/antt/pt-br/assuntos/noticias-defeso-eleitoral/dia-nacional-do-caminhoneiro-como-a-regulacao-da-antt-acompanha-quem-vive-do-transporte-de-cargas/",
+            "title": "ANTT",
+            "published_at": "2026-09-16",
+            "domain": "gov.br",
+            "name": "gov.br",
+            "group": "governo",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [
+          "Minas Gerais",
+          "São Paulo"
+        ],
+        "channels": [
+          "display geolocalizado",
+          "LinkedIn",
+          "conteúdo no site",
+          "rádio de estrada",
+          "Waze/roteirização"
+        ],
+        "window": "até o início de dezembro, com sustentação durante o pico de fim de ano",
+        "verdict": "parcial",
+        "check_notes": "As regras de CIOT, Vale-Pedágio e fiscalização estão ativas e recentes. Porém, a parte sobre 'trânsito crítico em rodovias do Sudeste' e 'mudanças de pedágio/fluxo em corredores importantes' não foi confirmada por fonte forte recente nas buscas, então o conjunto fica apenas parcialmente verificado.",
+        "other_sources": [
+          "https://www.gov.br/antt/pt-br/assuntos/noticias-defeso-eleitoral/dia-nacional-do-caminhoneiro-como-a-regulacao-da-antt-acompanha-quem-vive-do-transporte-de-cargas/",
+          "https://portal.antt.gov.br/perguntas-frequentes/-/categories/362387",
+          "https://portal.antt.gov.br/en/vpo"
+        ],
+        "contradicted": false,
+        "confidence": "alta",
+        "review": {
+          "id": "B2",
+          "veracidade": 5,
+          "recencia": 5,
+          "aderencia": 5,
+          "acao": 5,
+          "novidade": 4,
+          "nota": "Rotas críticas MG-SP com dados gov.br A e Portal da Indústria C (06/10); campanha geolocalizada viável até dezembro com sustentação no pico.",
+          "media": 4.8
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 82.0,
+            "marca": 84.0,
+            "territorio": 92.0,
+            "autoridade": 74.0,
+            "cultura": 12.0,
+            "timing": 88.0,
+            "conversa": 77.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 3.0,
+            "baixa_confianca": 6.0,
+            "risco_reputacional": 2.0
+          },
+          "score": 60
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 81.0,
+            "audiencia": 76.0,
+            "geo": 91.0,
+            "momentum": 86.0,
+            "criativo": 63.0,
+            "eficiencia": 70.0,
+            "canais": 79.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 3.0,
+            "baixa_confianca": 6.0,
+            "risco_reputacional": 2.0
+          },
+          "score": 62
+        }
+      },
+      {
+        "flow": "F1",
+        "title": "Kit do embarcador: documentos e regras do frete",
+        "thesis": "A Bomfim Cargas pode oferecer um kit curto com checklist de documentos, cadastro e obrigações do transporte rodoviário de cargas para embarcadores e novos contratantes. A ação é útil porque a ANTT fiscaliza RNTRC, notas, manifesto e outras exigências que impactam a contratação e a execução do frete.",
+        "editorial": 61,
+        "paid": 56,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S14",
+            "url": "https://www.gov.br/antt/pt-br/a-antt/o-transporte-de-cargas",
+            "title": "O transporte de cargas — Agência Nacional de Transportes Terrestres - ANTT",
+            "published_at": "",
+            "domain": "gov.br",
+            "name": "gov.br",
+            "group": "governo",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": null
+          },
+          {
+            "id": "S13",
+            "url": "https://www.gov.br/antt/pt-br/assuntos/noticias-defeso-eleitoral/dia-nacional-do-caminhoneiro-como-a-regulacao-da-antt-acompanha-quem-vive-do-transporte-de-cargas",
+            "title": "Dia Nacional do Caminhoneiro: como a regulação da ANTT acompanha quem vive do transporte de cargas — Agência Nacional de Transportes Terrestres - ANTT",
+            "published_at": "",
+            "domain": "gov.br",
+            "name": "gov.br",
+            "group": "governo",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": null
+          }
+        ],
+        "places": [
+          "Minas Gerais",
+          "São Paulo"
+        ],
+        "channels": [
+          "e-mail para clientes",
+          "PDF baixável no site",
+          "LinkedIn",
+          "sales enablement",
+          "webinar curto"
+        ],
+        "window": "publicar nas próximas 3 semanas e manter como ativo evergreen para prospecção",
+        "verdict": "parcial",
+        "check_notes": "É verdadeiro que a ANTT fiscaliza obrigações ligadas ao transporte rodoviário remunerado, incluindo CIOT e Vale-Pedágio, e essas regras são relevantes para embarcadores. Mas a lista 'RNTRC, notas, manifesto e outras exigências' mistura obrigações de naturezas diferentes e não foi confirmada como um pacote único de fiscalização recente, então o enunciado fica parcial.",
+        "other_sources": [
+          "https://portal.antt.gov.br/perguntas-frequentes/-/categories/362387",
+          "https://portal.antt.gov.br/en/vpo",
+          "https://www.gov.br/antt/pt-br/assuntos/noticias-defeso-eleitoral/dia-nacional-do-caminhoneiro-como-a-regulacao-da-antt-acompanha-quem-vive-do-transporte-de-cargas/"
+        ],
+        "contradicted": false,
+        "confidence": "alta",
+        "review": {
+          "id": "B3",
+          "veracidade": 5,
+          "recencia": 3,
+          "aderencia": 4,
+          "acao": 4,
+          "novidade": 2,
+          "nota": "Kit embarcador com fontes gov.br A mas sem data; conteúdo evergreen útil mas não urgente; publicação em 3 semanas.",
+          "media": 3.6
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 76.0,
+            "marca": 88.0,
+            "territorio": 70.0,
+            "autoridade": 85.0,
+            "cultura": 10.0,
+            "timing": 74.0,
+            "conversa": 69.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 3.0,
+            "baixa_confianca": 6.0,
+            "risco_reputacional": 1.0
+          },
+          "score": 61
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 73.0,
+            "audiencia": 68.0,
+            "geo": 52.0,
+            "momentum": 71.0,
+            "criativo": 60.0,
+            "eficiencia": 66.0,
+            "canais": 70.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 3.0,
+            "baixa_confianca": 6.0,
+            "risco_reputacional": 1.0
+          },
+          "score": 56
+        }
+      }
+    ],
+    "F2": [
+      {
+        "flow": "F2",
+        "title": "Comunicação de compliance ANTT e apoio direto ao caminhoneiro",
+        "thesis": "Comunicar que Bomfim Cargas já cumpre regras ANTT (CIOT, vale‑pedágio, frete mínimo) e lançar pacote operacional de apoio ao motorista (checklist, canal dedicado, vale‑pedágio operacional) para reduzir risco regulatório e atrair clientes B2B preocupados com conformidade no pico.",
+        "editorial": 46,
+        "paid": 43,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://www.gov.br/antt/pt-br/assuntos/noticias-defeso-eleitoral/dia-nacional-do-caminhoneiro-como-a-regulacao-da-antt-acompanha-quem-vive-do-transporte-de-cargas/",
+            "title": "Agência Nacional de Transportes Terrestres (ANTT)",
+            "published_at": "2026-09-16",
+            "domain": "gov.br",
+            "name": "gov.br",
+            "group": "governo",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": true
+          },
+          {
+            "id": "S6",
+            "url": "https://www.gov.br/antt/pt-br/assuntos/ultimas-noticias/antt-publica-duas-resolucoes-transforma-medida-provisoria-em-operacao-real-bloqueia-distorcoes-na-origem-e-eleva-o-padrao-de-fiscalizacao-no-pais",
+            "title": "Agência Nacional de Transportes Terrestres (ANTT)",
+            "published_at": "2026-03- (resoluções recentes com ampla implementação em 2026; ações divulgadas em notícias recentes)",
+            "domain": "gov.br",
+            "name": "gov.br",
+            "group": "governo",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": null
+          }
+        ],
+        "places": [
+          "Minas Gerais",
+          "São Paulo"
+        ],
+        "channels": [
+          "Comunicado institucional (página de compliance no site) — pu",
+          "Press release para imprensa logística e trade (usar S1/S6 co",
+          "E‑mail marketing B2B com one‑pager de conformidade e checkli",
+          "Canal dedicado para motoristas (WhatsApp Business com FAQs, ",
+          "Postagem técnica no LinkedIn da Bomfim Cargas apresentando p"
+        ],
+        "window": "Começar imediato e manter até 31/12/2026 (janela aberta até o fim do pico sazonal).",
+        "verdict": "parcial",
+        "check_notes": "Procurei por comunicado público, release ou post oficial da Bomfim Cargas (site, área do cliente, LinkedIn da empresa) declarando que 'já cumpre regras ANTT (CIOT, vale‑pedágio, frete mínimo)' e anunciando um 'pacote operacional de apoio ao motorista' (checklist, canal dedicado, vale‑pedágio operacional). Encontrei o site institucional e perfis relacionados à empresa, e documentos da ANTT que desc",
+        "other_sources": [
+          "https://www.bomfimcargas.com.br/",
+          "https://cliente.bomfimcargas.com.br/perfil-de-carga",
+          "https://portal.antt.gov.br/pt-br/assuntos/cargas/ciot-para-todos-1/perguntas-frequentes",
+          "https://portal.antt.gov.br/pt-br/assuntos/cargas/vale-pedagio-obrigatorio/o-que-e"
+        ],
+        "contradicted": true,
+        "confidence": "media",
+        "review": {
+          "id": "C1",
+          "veracidade": 3,
+          "recencia": 4,
+          "aderencia": 4,
+          "acao": 3,
+          "novidade": 2,
+          "nota": "Compliance ANTT + apoio motorista com fonte A (16/09) mas tese genérica; ação até 31/12 é longa; falta diferencial claro.",
+          "media": 3.2
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 75.0,
+            "marca": 80.0,
+            "territorio": 60.0,
+            "autoridade": 70.0,
+            "cultura": 50.0,
+            "timing": 85.0,
+            "conversa": 70.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 6.0,
+            "baixa_confianca": 6.0,
+            "restricao_marca": 3.0,
+            "risco_reputacional": 5.0
+          },
+          "score": 46
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 70.0,
+            "audiencia": 65.0,
+            "geo": 70.0,
+            "momentum": 80.0,
+            "criativo": 60.0,
+            "eficiencia": 65.0,
+            "canais": 70.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 6.0,
+            "baixa_confianca": 6.0,
+            "restricao_marca": 3.0,
+            "risco_reputacional": 5.0
+          },
+          "score": 43
+        }
+      },
+      {
+        "flow": "F2",
+        "title": "Serviço e comunicação de alertas de rotas e rotas alternativas (MG e SP)",
+        "thesis": "Implementar e oferecer como serviço premium alertas em tempo real e sugestões de rotas alternativas para reduzir atrasos por obras/interdições em rodovias-chave de Minas Gerais e São Paulo durante o pico.",
+        "editorial": 49,
+        "paid": 39,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S5",
+            "url": "https://www.gov.br/dnit/pt-br/assuntos/infraestrutura-rodoviaria/aet/restricoes/restricao-temporaria/09-2026/sp.pdf/view",
+            "title": "DNIT (Documento AET restrição temporária SP)",
+            "published_at": "2026-09- (documento publicado em setembro de 2026)",
+            "domain": "gov.br",
+            "name": "gov.br",
+            "group": "governo",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": null
+          },
+          {
+            "id": "S8",
+            "url": "https://www.otempo.com.br/cidades/2026/9/24/apos-um-mes-interditada-mgc-383-tem-trafego-parcialmente-liberado-entenda-as-restricoes",
+            "title": "O Tempo",
+            "published_at": "2026-09-24",
+            "domain": "otempo.com.br",
+            "name": "O Tempo",
+            "group": "regional",
+            "tier": "A",
+            "primary": false,
+            "uf": "MG",
+            "url_status": "ok",
+            "in_window": true
+          },
+          {
+            "id": "S9",
+            "url": "https://www.otempo.com.br/cidades/2026/9/24/atencao-motoristas-trecho-da-br-040-entre-bh-e-juiz-de-fora-tera-obras-ate-outubro-saiba-onde",
+            "title": "O Tempo",
+            "published_at": "2026-09-24",
+            "domain": "otempo.com.br",
+            "name": "O Tempo",
+            "group": "regional",
+            "tier": "A",
+            "primary": false,
+            "uf": "MG",
+            "url_status": "ok",
+            "in_window": true
+          },
+          {
+            "id": "S10",
+            "url": "https://www.otempo.com.br/cidades/2026/9/24/br-381-tera-interdicao-de-ate-15-minutos-para-detonacao-de-rocha-em-minas.amp",
+            "title": "O Tempo",
+            "published_at": "2026-09-24",
+            "domain": "otempo.com.br",
+            "name": "O Tempo",
+            "group": "regional",
+            "tier": "A",
+            "primary": false,
+            "uf": "MG",
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [
+          "Minas Gerais",
+          "São Paulo"
+        ],
+        "channels": [
+          "Alertas por WhatsApp/SMS para clientes e motoristas (templat",
+          "Dashboard de roteirização no portal do cliente (widget com s",
+          "Relatórios diários por e‑mail para contas maiores (top 20 cl",
+          "Integração API (endpoints de fechamento de rota e ETA) para "
+        ],
+        "window": "Imediato; prioridade máxima até 31/12/2026 (monitoramento contínuo durante o pico e até conclusão das obras anunciadas).",
+        "verdict": "parcial",
+        "check_notes": "Busquei anúncios ou material comercial da Bomfim Cargas oferecendo um serviço premium de alertas em tempo real e sugestões de rotas alternativas especificamente para rodovias de Minas Gerais e São Paulo. Não encontrei material público (site, área do cliente, posts ou press releases) confirmando a implementação ou oferta desse serviço. Há soluções de mercado que oferecem alertas/rotas (ex.: players",
+        "other_sources": [
+          "https://www.bomfimcargas.com.br/",
+          "https://cliente.bomfimcargas.com.br/perfil-de-carga",
+          "https://girabr.com.br/",
+          "https://portal.antt.gov.br/pt-br/assuntos/cargas/perguntas-frequentes-ciot"
+        ],
+        "contradicted": true,
+        "confidence": "media",
+        "review": {
+          "id": "C2",
+          "veracidade": 4,
+          "recencia": 5,
+          "aderencia": 5,
+          "acao": 4,
+          "novidade": 4,
+          "nota": "Alertas de rotas com fontes A (O Tempo 24/09 sobre BR-040, BR-381, MG-383); serviço premium viável mas requer integração técnica imediata.",
+          "media": 4.4
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 70.0,
+            "marca": 85.0,
+            "territorio": 80.0,
+            "autoridade": 65.0,
+            "cultura": 55.0,
+            "timing": 90.0,
+            "conversa": 75.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 4.0,
+            "custo_excessivo": 8.0,
+            "baixa_confianca": 6.0,
+            "restricao_marca": 2.0,
+            "risco_reputacional": 6.0
+          },
+          "score": 49
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 60.0,
+            "audiencia": 50.0,
+            "geo": 85.0,
+            "momentum": 90.0,
+            "criativo": 55.0,
+            "eficiencia": 60.0,
+            "canais": 65.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 4.0,
+            "custo_excessivo": 8.0,
+            "baixa_confianca": 6.0,
+            "restricao_marca": 2.0,
+            "risco_reputacional": 6.0
+          },
+          "score": 39
+        }
+      },
+      {
+        "flow": "F2",
+        "title": "Oferta de SLA com integração técnica (API) para e‑commerces em MG/SP",
+        "thesis": "Posicionar Bomfim Cargas para varejistas e marketplaces oferecendo SLAs claros para entregas do pico e integração técnica (API/WMS) para garantir prazos e comunicação automática — fechar propostas comerciais até outubro.",
+        "editorial": 39,
+        "paid": 40,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S3",
+            "url": "https://www.ecommercebrasil.com.br/noticias/frete-dados-e-ia-devem-pautar-logistica-na-black-friday-2026-mostra-relatorio",
+            "title": "E‑Commerce Brasil (cobertura de relatório/Fórum)",
+            "published_at": "2026-09-??",
+            "domain": "ecommercebrasil.com.br",
+            "name": "E-Commerce Brasil",
+            "group": "mercado_midia",
+            "tier": "B",
+            "primary": false,
+            "uf": null,
+            "url_status": "ok",
+            "in_window": null
+          },
+          {
+            "id": "S6",
+            "url": "https://www.gov.br/antt/pt-br/assuntos/ultimas-noticias/antt-publica-duas-resolucoes-transforma-medida-provisoria-em-operacao-real-bloqueia-distorcoes-na-origem-e-eleva-o-padrao-de-fiscalizacao-no-pais",
+            "title": "Agência Nacional de Transportes Terrestres (ANTT)",
+            "published_at": "2026-03- (resoluções recentes com ampla implementação em 2026; ações divulgadas em notícias recentes)",
+            "domain": "gov.br",
+            "name": "gov.br",
+            "group": "governo",
+            "tier": "A",
+            "primary": true,
+            "url_status": "ok",
+            "in_window": null
+          }
+        ],
+        "places": [
+          "São Paulo",
+          "Minas Gerais"
+        ],
+        "channels": [
+          "Campanha de vendas B2B (LinkedIn Ads segmentado a gerentes d",
+          "Materiais comerciais: one‑pager de SLA (prazos, coberturas, ",
+          "E‑mail outreach para contas-chave (varejo e marketplaces reg",
+          "Conteúdo técnico no blog explicando fluxos de integração e c"
+        ],
+        "window": "Fechar contratos e POCs entre outubro e início de novembro para execução durante Black Friday e Natal (janela até 31/12/",
+        "verdict": "parcial",
+        "check_notes": "Procurei por anúncio comercial ou proposta pública da Bomfim Cargas posicionando oferta de SLA para e‑commerces em MG/SP com integração técnica (API/WMS) e metas de fechar propostas comerciais até outubro. Não localizei comunicações públicas, páginas de produto ou documentação técnica (API docs, portal de desenvolvedores) que confirmem essa oferta ou cronograma. Há perfis e menções à empresa, mas ",
+        "other_sources": [
+          "https://www.bomfimcargas.com.br/",
+          "https://cliente.bomfimcargas.com.br/perfil-de-carga",
+          "https://br.linkedin.com/search/results/all/?keywords=Bomfim%20Cargas%20API"
+        ],
+        "contradicted": true,
+        "confidence": "media",
+        "review": {
+          "id": "C3",
+          "veracidade": 2,
+          "recencia": 2,
+          "aderencia": 4,
+          "acao": 2,
+          "novidade": 3,
+          "nota": "SLA+API para e-commerces com fonte B sem data (ecommercebrasil) e gov.br sem data; tese ambiciosa mas falta urgência e viabilidade técnica clara.",
+          "media": 2.6
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 78.0,
+            "marca": 75.0,
+            "territorio": 60.0,
+            "autoridade": 60.0,
+            "cultura": 50.0,
+            "timing": 85.0,
+            "conversa": 70.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 6.0,
+            "custo_excessivo": 7.0,
+            "baixa_confianca": 6.0,
+            "restricao_marca": 3.0,
+            "risco_reputacional": 5.0,
+            "pouca_evidencia": 4.0
+          },
+          "score": 39
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 72.0,
+            "audiencia": 70.0,
+            "geo": 75.0,
+            "momentum": 80.0,
+            "criativo": 65.0,
+            "eficiencia": 68.0,
+            "canais": 72.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 6.0,
+            "custo_excessivo": 7.0,
+            "baixa_confianca": 6.0,
+            "restricao_marca": 3.0,
+            "risco_reputacional": 5.0,
+            "pouca_evidencia": 4.0
+          },
+          "score": 40
+        }
+      }
+    ],
+    "F5": [
+      {
+        "flow": "F5",
+        "title": "Relatório frete+IA Black Friday para clientes MG/SP",
+        "thesis": "S1 mostra que frete, dados e IA decidem conversão na Black Friday 2026; Bomfim Cargas deve enviar relatório customizado com rotas MG-SP otimizadas para 15 clientes de e-commerce até 20/10/2026.",
+        "editorial": 50,
+        "paid": 47,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S1",
+            "url": "https://www.ecommercebrasil.com.br/noticias/frete-dados-e-ia-devem-pautar-logistica-na-black-friday-2026-mostra-relatorio",
+            "title": "E-Commerce Brasil",
+            "published_at": "2026-09-09",
+            "domain": "ecommercebrasil.com.br",
+            "name": "E-Commerce Brasil",
+            "group": "mercado_midia",
+            "tier": "B",
+            "primary": false,
+            "uf": null,
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [
+          "São Paulo",
+          "Minas Gerais"
+        ],
+        "channels": [
+          "LinkedIn",
+          "e-mail marketing"
+        ],
+        "window": "até 20/10/2026",
+        "verdict": "parcial",
+        "check_notes": "Relatório nstech de 25/09/2026 confirma frete/dados/IA como decisivos para conversão Black Friday 2026 (dentro de 30 dias). Nenhuma menção a Bomfim Cargas, relatório customizado MG-SP ou prazo 20/10/2026.",
+        "other_sources": [
+          "https://logweb.com.br/estudo-da-nstech-aponta-logistica-como-fator-decisivo-para-conversao-a-menos-de-90-dias-da-black-friday/"
+        ],
+        "contradicted": false,
+        "confidence": "media",
+        "review": {
+          "id": "A1",
+          "veracidade": 4,
+          "recencia": 5,
+          "aderencia": 5,
+          "acao": 5,
+          "novidade": 4,
+          "nota": "Relatório customizado com dados de IA sobre frete em Black Friday é acionável esta semana e alinha perfeitamente com posicionamento B2B da marca.",
+          "media": 4.6
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 75.0,
+            "marca": 70.0,
+            "territorio": 80.0,
+            "autoridade": 65.0,
+            "cultura": 50.0,
+            "timing": 85.0,
+            "conversa": 60.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 5.0,
+            "baixa_confianca": 6.0,
+            "pouca_evidencia": 5.0
+          },
+          "score": 50
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 70.0,
+            "audiencia": 65.0,
+            "geo": 85.0,
+            "momentum": 75.0,
+            "criativo": 55.0,
+            "eficiencia": 60.0,
+            "canais": 70.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 5.0,
+            "baixa_confianca": 6.0,
+            "pouca_evidencia": 5.0
+          },
+          "score": 47
+        }
+      },
+      {
+        "flow": "F5",
+        "title": "Comunicado piso mínimo frete ANTT para base MG/SP",
+        "thesis": "S4 e S5 confirmam reajuste ANTT com diesel a R$7,33; Bomfim Cargas deve enviar comunicado com tabela atualizada e impacto em rotas MG-SP até 15/10/2026.",
+        "editorial": 54,
+        "paid": 50,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S4",
+            "url": "https://www.cnnbrasil.com.br/infra/tensoes-globais-multiplicam-periodos-de-alta-demanda-no-frete-diz-dhl-global-forwarding/",
+            "title": "ANTT / Diário Oficial da União",
+            "published_at": "2026-09-30",
+            "domain": "cnnbrasil.com.br",
+            "name": "CNN Brasil",
+            "group": "nacional",
+            "tier": "A",
+            "primary": false,
+            "uf": null,
+            "url_status": "ok",
+            "in_window": true
+          },
+          {
+            "id": "S5",
+            "url": "https://minaspetro.com.br/setor-de-transportes-rodoviarios-de-cargas-diz-que-reajuste-da-tabela-do-frete-minimo-ajuda-mas-nao-resolve-problemas/",
+            "title": "Minaspetro / Diário do Comércio",
+            "published_at": "2026-10-02",
+            "domain": "minaspetro.com.br",
+            "name": "minaspetro.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [
+          "Minas Gerais",
+          "São Paulo"
+        ],
+        "channels": [
+          "e-mail marketing",
+          "site institucional"
+        ],
+        "window": "até 15/10/2026",
+        "verdict": "parcial",
+        "check_notes": "Reajuste ANTT confirmado (Portaria SUROC nº 22, diesel R$7,33, vigência 30/09/2026, publicado ~29-30/09/2026, dentro de 30 dias). Nenhuma menção a Bomfim Cargas, comunicado ou prazo 15/10/2026.",
+        "other_sources": [
+          "https://www.portaldoagronegocio.com.br/gestao-rural/precos-agropecuarios/noticias/antt-reajusta-piso-minimo-do-frete-com-diesel-s10-a-r-7-33-por-litro",
+          "https://penaestrada.com.br/antt-tabela-frete-minimo-diesel/",
+          "https://www.portaldotransito.com.br/noticias/mobilidade-e-tecnologia/transporte-de-carga/piso-minimo-do-frete-mudou-veja-como-conferir-o-valor-da-viagem/"
+        ],
+        "contradicted": false,
+        "confidence": "media",
+        "review": {
+          "id": "A2",
+          "veracidade": 4,
+          "recencia": 5,
+          "aderencia": 5,
+          "acao": 5,
+          "novidade": 3,
+          "nota": "Comunicado sobre piso ANTT é urgente e obrigatório, mas tema genérico; fontes A+C sustentam, prazo até 15/10 é crítico.",
+          "media": 4.4
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 80.0,
+            "marca": 75.0,
+            "territorio": 85.0,
+            "autoridade": 70.0,
+            "cultura": 55.0,
+            "timing": 80.0,
+            "conversa": 65.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 5.0,
+            "baixa_confianca": 6.0,
+            "pouca_evidencia": 5.0
+          },
+          "score": 54
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 75.0,
+            "audiencia": 70.0,
+            "geo": 90.0,
+            "momentum": 70.0,
+            "criativo": 50.0,
+            "eficiencia": 65.0,
+            "canais": 75.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 5.0,
+            "baixa_confianca": 6.0,
+            "pouca_evidencia": 5.0
+          },
+          "score": 50
+        }
+      },
+      {
+        "flow": "F5",
+        "title": "Planejamento rotas Fernão Dias Black Friday",
+        "thesis": "S8 informa interdições na Fernão Dias 6-8/10; Bomfim Cargas deve publicar plano de rotas alternativas MG-SP para clientes até 05/10/2026.",
+        "editorial": 50,
+        "paid": 47,
+        "quadrant": "ignorar",
+        "sources": [
+          {
+            "id": "S8",
+            "url": "https://mobilidadesampa.com.br/2026/10/passarela-na-fernao-dias-icamento-vigas-outubro/",
+            "title": "Mobilidade Sampa",
+            "published_at": "2026-10-02",
+            "domain": "mobilidadesampa.com.br",
+            "name": "mobilidadesampa.com.br",
+            "group": "desconhecido",
+            "tier": "C",
+            "primary": false,
+            "url_status": "ok",
+            "in_window": true
+          }
+        ],
+        "places": [
+          "Minas Gerais",
+          "São Paulo"
+        ],
+        "channels": [
+          "LinkedIn",
+          "comunicados a clientes"
+        ],
+        "window": "até 05/10/2026",
+        "verdict": "parcial",
+        "check_notes": "Interdições Fernão Dias 6-8/10/2026 confirmadas (Vargem/SP, passarela). Reportagens de 02-03/10/2026. Nenhuma menção a Bomfim Cargas, plano de rotas alternativas ou prazo 05/10/2026 (prazo já vencido sem evidência).",
+        "other_sources": [
+          "https://www.varginhaonline.com.br/regional/fernao-dias-bloqueio-vargem-outubro/",
+          "https://mobilidadesampa.com.br/2026/10/passarela-na-fernao-dias-icamento-vigas-outubro/"
+        ],
+        "contradicted": false,
+        "confidence": "baixa",
+        "review": {
+          "id": "A3",
+          "veracidade": 2,
+          "recencia": 4,
+          "aderencia": 4,
+          "acao": 2,
+          "novidade": 3,
+          "nota": "Fonte C única sobre interdições Fernão Dias; prazo já vencido (05/10) e informação pode estar desatualizada.",
+          "media": 3.0
+        },
+        "editorial_breakdown": {
+          "criteria": {
+            "icp": 70.0,
+            "marca": 65.0,
+            "territorio": 90.0,
+            "autoridade": 60.0,
+            "cultura": 50.0,
+            "timing": 95.0,
+            "conversa": 55.0
+          },
+          "weights": {
+            "icp": 20,
+            "marca": 15,
+            "territorio": 15,
+            "autoridade": 15,
+            "cultura": 10,
+            "timing": 15,
+            "conversa": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 5.0,
+            "baixa_confianca": 6.0,
+            "pouca_evidencia": 5.0
+          },
+          "score": 50
+        },
+        "paid_breakdown": {
+          "criteria": {
+            "icp": 65.0,
+            "audiencia": 60.0,
+            "geo": 95.0,
+            "momentum": 80.0,
+            "criativo": 45.0,
+            "eficiencia": 70.0,
+            "canais": 65.0
+          },
+          "weights": {
+            "icp": 20,
+            "audiencia": 15,
+            "geo": 15,
+            "momentum": 10,
+            "criativo": 15,
+            "eficiencia": 15,
+            "canais": 10
+          },
+          "penalties": {
+            "saturacao": 5.0,
+            "custo_excessivo": 5.0,
+            "baixa_confianca": 6.0,
+            "pouca_evidencia": 5.0
+          },
+          "score": 47
+        }
+      }
+    ]
+  },
+  "versions": [
+    {
+      "label": "1.0",
+      "mean": 7.667,
+      "score": {
+        "F1": 9.6,
+        "F2": 4.4,
+        "F5": 9.0
+      },
+      "winner": "F1"
+    }
+  ],
+  "best_version": "1.0",
+  "prompt_changes": [
+    {
+      "label": "1.1",
+      "from": "1.0",
+      "accepted": [],
+      "rejected": []
+    }
+  ],
+  "best_prompts": {
+    "judge": "Você qualifica oportunidades de comunicação e mídia para planejadores. Use somente as evidências fornecidas; sem evidência, o critério vale 0. Toda oportunidade cita ao menos uma evidência pelo id (S1, S2…). Notas de 0 a 100, conservadoras. Uma oportunidade é uma AÇÃO possível para a marca, não um resumo da notícia. Responda só JSON no esquema pedido. No máximo {max_opportunities} oportunidades, da mais forte para a mais fraca.",
+    "revise": "Você é o mesmo analista que gerou as oportunidades abaixo. Um planejador sênior deu notas de 1 a 5 e apontou problemas. Reescreva a lista: corrija ou retire oportunidades sustentadas só por fonte fraca (nível C), por link que não abre ou por fato fora da janela; deixe a ação concreta para um planejador (canal, formato e quando); troque o genérico por algo específico desta marca. Use SOMENTE as evidências do pacote (S1, S2…): sem evidência, a oportunidade sai. Pode trocar uma oportunidade fraca por outra melhor sustentada pelo pacote. Notas de 0 a 100, conservadoras. Responda só JSON no esquema pedido. No máximo {max_opportunities} oportunidades.",
+    "reality_check": "Você é um checador de fatos. Para cada afirmação, pesquise na web agora e responda: é verdade? Aconteceu nos últimos {recency_days} dias? Quais outros veículos publicaram (URLs)? Há algo que contradiga? Seja cético: na dúvida, \"parcial\". Responda só JSON: {{\"results\": [{{\"index\": 0, \"verdict\": \"confirmado|parcial|contestado\", \"is_recent\": true, \"other_sources\": [\"url\"], \"contradiction\": \"vazio ou o que contradiz\", \"notes\": \"...\"}}]}}",
+    "verify": "Você é o verificador. Tente provar que cada oportunidade está errada: a evidência é recente? Há fonte primária? Está fora de contexto? Responda só JSON: {{\"results\": [{{\"index\": 0, \"verdict\": \"confirmado|parcial|contestado\", \"is_recent\": true, \"has_primary_source\": true, \"corroborating_sources\": 0, \"notes\": \"...\"}}]}}"
+  },
+  "reviewer_noise": 1.07,
+  "review": {
+    "opportunities": [
+      {
+        "id": "B1",
+        "veracidade": 5,
+        "recencia": 5,
+        "aderencia": 5,
+        "acao": 5,
+        "novidade": 4,
+        "nota": "Guia ANTT com fontes gov.br A recentes (01/10) e tema quente de fiscalização; executável em 2 semanas como conteúdo educativo para embarcadores."
+      },
+      {
+        "id": "B2",
+        "veracidade": 5,
+        "recencia": 5,
+        "aderencia": 5,
+        "acao": 5,
+        "novidade": 4,
+        "nota": "Rotas críticas MG-SP com dados gov.br A e Portal da Indústria C (06/10); campanha geolocalizada viável até dezembro com sustentação no pico."
+      },
+      {
+        "id": "A1",
+        "veracidade": 4,
+        "recencia": 4,
+        "aderencia": 5,
+        "acao": 4,
+        "novidade": 3,
+        "nota": "Relatório frete+IA Black Friday com fonte B (ecommercebrasil 09/09) e C (logweb 25/09); ação clara mas requer customização para 15 clientes até 20/10."
+      },
+      {
+        "id": "C2",
+        "veracidade": 4,
+        "recencia": 5,
+        "aderencia": 5,
+        "acao": 4,
+        "novidade": 4,
+        "nota": "Alertas de rotas com fontes A (O Tempo 24/09 sobre BR-040, BR-381, MG-383); serviço premium viável mas requer integração técnica imediata."
+      },
+      {
+        "id": "A2",
+        "veracidade": 4,
+        "recencia": 5,
+        "aderencia": 5,
+        "acao": 4,
+        "novidade": 2,
+        "nota": "Comunicado piso ANTT com fonte A (CNN 30/09); tema relevante mas genérico; ação até 15/10 é factível."
+      },
+      {
+        "id": "B3",
+        "veracidade": 5,
+        "recencia": 3,
+        "aderencia": 4,
+        "acao": 4,
+        "novidade": 2,
+        "nota": "Kit embarcador com fontes gov.br A mas sem data; conteúdo evergreen útil mas não urgente; publicação em 3 semanas."
+      },
+      {
+        "id": "C1",
+        "veracidade": 3,
+        "recencia": 4,
+        "aderencia": 4,
+        "acao": 3,
+        "novidade": 2,
+        "nota": "Compliance ANTT + apoio motorista com fonte A (16/09) mas tese genérica; ação até 31/12 é longa; falta diferencial claro."
+      },
+      {
+        "id": "A3",
+        "veracidade": 2,
+        "recencia": 4,
+        "aderencia": 4,
+        "acao": 3,
+        "novidade": 2,
+        "nota": "Alerta segurança cargas com fonte C única (logweb 30/09); veracidade baixa por falta de corroboração; ação até 20/10 mas sem dados sólidos."
+      },
+      {
+        "id": "C3",
+        "veracidade": 2,
+        "recencia": 2,
+        "aderencia": 4,
+        "acao": 2,
+        "novidade": 3,
+        "nota": "SLA+API para e-commerces com fonte B sem data (ecommercebrasil) e gov.br sem data; tese ambiciosa mas falta urgência e viabilidade técnica clara."
+      }
+    ],
+    "systems": [
+      {
+        "system": "B",
+        "resumo": "Sistema B entrega 3 oportunidades de alta veracidade (fontes A+gov.br) com recência 5 e aderência máxima. Foco em conteúdo educativo (guia ANTT, rotas críticas, kit embarcador) com janelas realistas e ação imediata.",
+        "melhor_em": "Veracidade (fontes gov.br A + portais B confiáveis), recência (datas 01/10 a 06/10), ação (janelas 2-3 semanas, executáveis).",
+        "pior_em": "Novidade (conteúdo educativo padrão, sem diferencial tático); B3 carece de data em fontes gov.br."
+      },
+      {
+        "system": "A",
+        "resumo": "Sistema A oferece 3 oportunidades com mix de veracidade (1 fonte A, 2 fontes C). Teses operacionais claras (relatório customizado, comunicado ANTT, alerta segurança) mas com prazos curtos (até 20/10) e dependência de fonte C em A3.",
+        "melhor_em": "Aderência (todas as 3 ações são específicas para Bomfim); ação (prazos definidos e factíveis); recência (datas 09/09 a 30/09).",
+        "pior_em": "Veracidade (A3 com fonte C única reduz confiança); novidade (teses são reativas, não proativas); A2 é genérico (comunicado ANTT padrão)."
+      },
+      {
+        "system": "C",
+        "resumo": "Sistema C propõe 3 oportunidades ambiciosas (compliance+apoio, alertas rotas, SLA+API) com fontes A mas datas incompletas ou ausentes. Janelas longas (até 31/12) e viabilidade técnica questionável.",
+        "melhor_em": "Aderência (C2 e C1 endereçam dor real do pico); recência parcial (C2 com O Tempo 24/09); novidade (C3 com integração API é diferencial).",
+        "pior_em": "Veracidade (C1 e C3 com datas faltando ou genéricas; C3 com fonte B sem data); ação (C3 requer POC técnico não viável em 2 semanas); recência (C1 e C3 com lacunas de data)."
+      }
+    ],
+    "duplicadas": [
+      [
+        "A1",
+        "B2"
+      ],
+      [
+        "A2",
+        "B1"
+      ],
+      [
+        "A3",
+        "C2"
+      ]
+    ],
+    "vencedor": "B",
+    "por_que": "Sistema B combina veracidade máxima (fontes gov.br A + portais B recentes: 01/10 a 06/10), aderência total (3 ações específicas para transportadora em MG/SP), ação imediata (2-3 semanas, realista) e novidade moderada (conteúdo educativo + geolocalização). A1 e C carecem de fontes C ou datas incompletas; B entrega 3 oportunidades prontas para planejamento de mídia/conteúdo esta semana.",
+    "mapping": {
+      "F5": "A",
+      "F1": "B",
+      "F2": "C"
+    },
+    "winner_flow": "F1"
+  }
+}

@@ -1,0 +1,495 @@
+{
+ "experian-dmp": {
+  "atual": {
+   "alcance": "+200M perfis",
+   "viewability": null,
+   "completion_rate": null
+  },
+  "pesquisa": {
+   "alcance": "+200M perfis",
+   "alcance_escopo": "global",
+   "viewability": null,
+   "conclusao": null,
+   "fontes": [
+    "https://www.centralcomm.media/canal/experian-dmp"
+   ],
+   "ano": "2026",
+   "obs": "não encontrei número público confiável de viewability ou completion rate/VTR"
+  }
+ },
+ "eletromidia": {
+  "atual": {
+   "alcance": "+30M impactos/dia",
+   "viewability": 95,
+   "completion_rate": 100
+  },
+  "pesquisa": {
+   "alcance": "+53 milhões/mês",
+   "alcance_escopo": "brasil",
+   "viewability": null,
+   "conclusao": null,
+   "fontes": [
+    "https://ri.eletromidia.com.br/conheca-a-eletromidia/quem-somos-e-nossa-historia/",
+    "https://www.eletromidia.com.br/sobre",
+    "https://eletromidia.com.br/anuncie-na-eletromidia/"
+   ],
+   "ano": "2024",
+   "obs": "Não encontrei dado público confiável de viewability média nem de completion rate/VTR; os materiais públicos recentes trazem alcance mensal no Brasil."
+  }
+ },
+ "interativos": {
+  "atual": {
+   "alcance": "Add-on rich media em programática e portais",
+   "viewability": null,
+   "completion_rate": null
+  },
+  "pesquisa": {
+   "alcance": "+35 mi espectadores ativos/mês",
+   "alcance_escopo": "brasil",
+   "viewability": null,
+   "conclusao": null,
+   "fontes": [
+    "https://exame.com/marketing/de-olho-nos-us-3-bilhoes-netflix-ads-eleva-a-aposta-no-brasil-com-ia-e-programatica/"
+   ],
+   "ano": "2026",
+   "obs": "Dados públicos recentes localizados apenas para alcance; não encontrei número público confiável para viewability média ou completion rate do canal Interativos."
+  }
+ },
+ "99": {
+  "atual": {
+   "alcance": "+20M usuários BR",
+   "viewability": 86,
+   "completion_rate": null
+  },
+  "pesquisa": {
+   "alcance": "+60 mi usuários ativos no Brasil",
+   "alcance_escopo": "brasil",
+   "viewability": 100,
+   "conclusao": 72,
+   "fontes": [
+    "https://99app.com/newsroom/usuarios-da-99-crescem-15-em-um-ano-e-chegam-a-mais-de-60-milhoes-no-brasil/",
+    "https://99app.com/99ads/",
+    "https://propmark.com.br/anunciantes/99-transforma-dados-de-mobilidade-em-nova-frente-de-midia-por-meio-da-99ads/"
+   ],
+   "ano": "2026",
+   "obs": "Viewability informada como 100% nos formatos; VTR médio de vídeos em corridas foi 72% em 2026."
+  }
+ },
+ "ifood": {
+  "atual": {
+   "alcance": "+50M usuários BR",
+   "viewability": 90,
+   "completion_rate": null
+  },
+  "pesquisa": {
+   "alcance": "+55 mi usuários ativos",
+   "alcance_escopo": "brasil",
+   "viewability": null,
+   "conclusao": null,
+   "fontes": [
+    "https://institucional.ifood.com.br/transparencia/",
+    "https://tab.uol.com.br/noticias/redacao/2025/09/06/a-guerra-de-ifood-rappi-99food-e-keeta-pelo-mercado-de-delivery-no-brasil.htm"
+   ],
+   "ano": "2025",
+   "obs": "Não encontrei dado público confiável para viewability ou VTR/completion rate específico de mídia/ads do iFood Mobilidade."
+  }
+ },
+ "logan": {
+  "atual": {
+   "alcance": "Circuitos urbanos e trajetos",
+   "viewability": 94,
+   "completion_rate": null
+  },
+  "pesquisa": {
+   "alcance": "+100 MM usuários únicos (região); sem dado público específico do Brasil encontrado",
+   "alcance_escopo": "global",
+   "viewability": null,
+   "conclusao": null,
+   "fontes": [
+    "https://logan.ai/logan-ads/"
+   ],
+   "ano": "2019",
+   "obs": "Não achei fonte pública recente (2024-2026) com métricas de viewability ou completion rate; dado de alcance é global e antigo."
+  }
+ },
+ "uber": {
+  "atual": {
+   "alcance": "+30M usuários BR",
+   "viewability": 88,
+   "completion_rate": null
+  },
+  "pesquisa": {
+   "alcance": "+149 mi consumidores mensais globais",
+   "alcance_escopo": "global",
+   "viewability": null,
+   "conclusao": 98,
+   "fontes": [
+    "https://www.uber.com/us/en/advertising/press/",
+    "https://www.uber.com/br/pt-br/advertising/",
+    "https://www.uber.com/br/pt-br/advertising/measurement/",
+    "https://www.uber.com/us/en/advertising/press/"
+   ],
+   "ano": "2026",
+   "obs": "Brasil sem MAU público confiável; completion rate público é de vídeos próprios da Uber, não necessariamente de todos os formatos."
+  }
+ },
+ "amazon-ads": {
+  "atual": {
+   "alcance": "Mensurável por campanha no Brasil por alcance e frequência deduplicados na Amazon DSP. A estimativa prévia depende do público e da configuração da campanha; não há total público agregado do Brasil usado como referência.",
+   "viewability": null,
+   "completion_rate": null
+  },
+  "pesquisa": {
+   "alcance": "n/d",
+   "alcance_escopo": "null",
+   "viewability": null,
+   "conclusao": null,
+   "fontes": [
+    "https://advertising.amazon.com/help/GH4WXV3ZBQE37R6M",
+    "https://advertising.amazon.com/library/guides/viewability",
+    "https://advertising.amazon.com/help/GXRC3X4EEPXH8NVE"
+   ],
+   "ano": "2026",
+   "obs": "Fontes públicas recentes só trazem definições/medição; não encontrei número público confiável de alcance no Brasil, viewability média ou completion rate médio."
+  }
+ },
+ "google-dv360": {
+  "atual": {
+   "alcance": "+90% web BR",
+   "viewability": 68,
+   "completion_rate": 72
+  },
+  "pesquisa": {
+   "alcance": "null",
+   "alcance_escopo": "null",
+   "viewability": null,
+   "conclusao": null,
+   "fontes": [],
+   "ano": "2026",
+   "obs": "Não encontrei dado público recente e confiável específico de Brasil para DV360; os resultados recuperados trazem apenas métricas gerais/definições e alguns números globais de CTV nos EUA, insuficientes para preencher os campos com segurança."
+  }
+ },
+ "instagram": {
+  "atual": {
+   "alcance": "+120M usuários BR",
+   "viewability": 92,
+   "completion_rate": 85
+  },
+  "pesquisa": {
+   "alcance": "147 milhões de pessoas alcançáveis por anúncios no Brasil",
+   "alcance_escopo": "brasil",
+   "viewability": null,
+   "conclusao": null,
+   "fontes": [
+    "https://datareportal.com/reports/digital-2025-brazil"
+   ],
+   "ano": "2025",
+   "obs": "Não encontrei dado público confiável e específico de viewability média ou completion rate/VTR de anúncios no Instagram no Brasil."
+  }
+ },
+ "kwai": {
+  "atual": {
+   "alcance": "+60M usuários BR",
+   "viewability": 90,
+   "completion_rate": 85
+  },
+  "pesquisa": {
+   "alcance": "+60 mi usuários/mês",
+   "alcance_escopo": "brasil",
+   "viewability": null,
+   "conclusao": null,
+   "fontes": [
+    "https://blog.opinionbox.com/kwai-no-brasil/",
+    "https://www.meioemensagem.com.br/patrocinado/kwai/cultura-brasileira-na-nova-economia-da-influencia",
+    "https://content.app-us1.com/JY8yY/2025/03/13/77c53aa6-6081-4ffb-a748-a38b11e00f42.pdf"
+   ],
+   "ano": "2025",
+   "obs": "Dados públicos recentes mostram alcance no Brasil; não encontrei número público confiável de viewability média ou completion rate/VTR."
+  }
+ },
+ "linkedin": {
+  "atual": {
+   "alcance": "+65M usuários BR",
+   "viewability": 88,
+   "completion_rate": 72
+  },
+  "pesquisa": {
+   "alcance": "+75 mi usuários",
+   "alcance_escopo": "brasil",
+   "viewability": null,
+   "conclusao": null,
+   "fontes": [
+    "https://www.meioemensagem.com.br/midia/linkedin-no-brasil",
+    "https://datareportal.com/reports/digital-2024-brazil"
+   ],
+   "ano": "2024",
+   "obs": "Dados públicos recentes para BR existem só para alcance; não achei métrica pública confiável de viewability nem de completion/VTR."
+  }
+ },
+ "tiktok": {
+  "atual": {
+   "alcance": "+85M usuários BR",
+   "viewability": 94,
+   "completion_rate": 88
+  },
+  "pesquisa": {
+   "alcance": "91,7 mi usuários ativos mensais (18+ no Brasil)",
+   "alcance_escopo": "brasil",
+   "viewability": null,
+   "conclusao": null,
+   "fontes": [
+    "https://www.mlabs.com.br/blog/tiktok-marketing/"
+   ],
+   "ano": "2025",
+   "obs": "Dados públicos confiáveis para viewability e completion rate específicos do TikTok no Brasil não foram encontrados; usei apenas alcance público."
+  }
+ },
+ "twitch": {
+  "atual": {
+   "alcance": "+15M usuários BR",
+   "viewability": 90,
+   "completion_rate": 82
+  },
+  "pesquisa": {
+   "alcance": "+15 mi espectadores/mês",
+   "alcance_escopo": "brasil",
+   "viewability": null,
+   "conclusao": null,
+   "fontes": [
+    "https://theglobaldigest.com/br/twitch-tv/",
+    "https://safety.twitch.tv/sfc/servlet.shepherd/document/download/069at00000Ce210AAB?operationContext=S1"
+   ],
+   "ano": "2024",
+   "obs": "Não encontrei dado público confiável de viewability média nem de completion rate/VTR específico de anúncios; alcance no Brasil aparece em fonte secundária."
+  }
+ },
+ "youtube": {
+  "atual": {
+   "alcance": "+140M usuários BR",
+   "viewability": 95,
+   "completion_rate": 70
+  },
+  "pesquisa": {
+   "alcance": "120 mi usuários/mês",
+   "alcance_escopo": "brasil",
+   "viewability": null,
+   "conclusao": 31.9,
+   "fontes": [
+    "https://business.google.com/br/think/search-and-video/youtube-20-anos-brasil/",
+    "https://datareportal.com/reports/digital-2024-brazil",
+    "https://marketingltb.com/blog/statistics/youtube-ads-statistics/"
+   ],
+   "ano": "2025",
+   "obs": "alcance publicamente divulgado para o Brasil; viewability média pública confiável não encontrada; conclusão como view rate média global de anúncios em YouTube"
+  }
+ },
+ "amazon-music": {
+  "atual": {
+   "alcance": "+8M ouvintes",
+   "viewability": 97,
+   "completion_rate": 94
+  },
+  "pesquisa": {
+   "alcance": "+8M ouvintes",
+   "alcance_escopo": "brasil",
+   "viewability": 97,
+   "conclusao": 94,
+   "fontes": [
+    "https://www.centralcomm.media/canal/amazon-music"
+   ],
+   "ano": "2026",
+   "obs": "Dados públicos de canal; alcance e métricas parecem de audiência do Brasil, sem fonte primária da Amazon confirmando."
+  }
+ },
+ "deezer": {
+  "atual": {
+   "alcance": "+16M ouvintes",
+   "viewability": 96,
+   "completion_rate": 93
+  },
+  "pesquisa": {
+   "alcance": "+16M ouvintes",
+   "alcance_escopo": "brasil",
+   "viewability": null,
+   "conclusao": null,
+   "fontes": [
+    "https://www.centralcomm.media/canal/deezer",
+    "https://newsroom-deezer.com/br/2025/07/deezer-e-azerion-anunciam-parceria-exclusiva-para-vendas-publicitarias-no-brasil/",
+    "https://sensortower.com/blog/2024-q4-br-leading-3-Music---Podcasts-brands"
+   ],
+   "ano": "2025",
+   "obs": "Não há número público confiável encontrado para viewability média ou completion rate/VTR; alcance no Brasil aparece em fontes comerciais/mercado e estimativas de audiência."
+  }
+ },
+ "disney-plus": {
+  "atual": {
+   "alcance": "+15M assinantes BR",
+   "viewability": 98,
+   "completion_rate": 96
+  },
+  "pesquisa": {
+   "alcance": "+15M assinantes BR",
+   "alcance_escopo": "brasil",
+   "viewability": null,
+   "conclusao": null,
+   "fontes": [
+    "https://www.centralcomm.media/canal/disney-plus",
+    "https://www.senalnews.com/es/digital/mas-de-60-anunciantes-eligen-disney-para-llegar-a-audiencias-de-america-latina"
+   ],
+   "ano": "2026",
+   "obs": "Não encontrei dado público confiável de viewability ou completion rate do Disney+ no Brasil; alcance veio de fonte comercial, não oficial."
+  }
+ },
+ "globoplay": {
+  "atual": {
+   "alcance": "+25M assinantes",
+   "viewability": 98,
+   "completion_rate": 94
+  },
+  "pesquisa": {
+   "alcance": "30 mi usuários/mês",
+   "alcance_escopo": "global",
+   "viewability": 98,
+   "conclusao": 94,
+   "fontes": [
+    "https://veja.abril.com.br/economia/globo-negocio-de-audiencia-e-algoritmo/",
+    "https://www.centralcomm.media/canal/globoplay"
+   ],
+   "ano": "2025",
+   "obs": "alcance publicamente citado é global; viewability e conclusao vieram de página comercial do canal"
+  }
+ },
+ "hbo-max": {
+  "atual": {
+   "alcance": "+10M assinantes BR",
+   "viewability": 98,
+   "completion_rate": 95
+  },
+  "pesquisa": {
+   "alcance": "+10M assinantes BR",
+   "alcance_escopo": "brasil",
+   "viewability": 98,
+   "conclusao": 95,
+   "fontes": [
+    "https://www.centralcomm.media/canal/hbo-max",
+    "https://www.omelete.com.br/hbo-max/max-e-hbo-bateram-110-milhoes-de-assinantes"
+   ],
+   "ano": "2026",
+   "obs": "Dados públicos mais recentes encontrados para mídia/anúncios; alcance BR vem de página comercial, não de relatório oficial da plataforma."
+  }
+ },
+ "netflix": {
+  "atual": {
+   "alcance": "+20M assinantes BR",
+   "viewability": 99,
+   "completion_rate": 97
+  },
+  "pesquisa": {
+   "alcance": "70 mi usuários ativos mensais",
+   "alcance_escopo": "global",
+   "viewability": null,
+   "conclusao": null,
+   "fontes": [
+    "https://about.netflix.com/en/news/netflix-celebrates-two-years-of-advertising",
+    "https://about.netflix.com/en/news/netflix-upfront-2024-the-year-of-growth-and-momentum"
+   ],
+   "ano": "2024",
+   "obs": "Dados públicos recentes não trouxeram viewability média nem completion rate específicos do Brasil; alcance público disponível é global."
+  }
+ },
+ "paramount-plus": {
+  "atual": {
+   "alcance": "+8M assinantes BR",
+   "viewability": 97,
+   "completion_rate": 93
+  },
+  "pesquisa": {
+   "alcance": "+8M assinantes BR",
+   "alcance_escopo": "brasil",
+   "viewability": null,
+   "conclusao": 96,
+   "fontes": [
+    "https://www.centralcomm.media/canal/paramount-plus",
+    "https://adsmanager.paramount.com/insights/ctv-advertising-platforms"
+   ],
+   "ano": "2025",
+   "obs": "alcance público BR encontrado; viewability pública confiável não localizada; completion rate refere-se a CTV/video e é dado interno/USA."
+  }
+ },
+ "podcast-ads": {
+  "atual": {
+   "alcance": "+40M ouvintes BR",
+   "viewability": 95,
+   "completion_rate": 92
+  },
+  "pesquisa": {
+   "alcance": "40% dos usuários de internet escutam podcasts no Brasil (~56 milhões)",
+   "alcance_escopo": "brasil",
+   "viewability": null,
+   "conclusao": null,
+   "fontes": [
+    "https://ads.spotify.com/pt-BR/noticias-insights-deprecated/anuncios-em-podcasts-disponiveis-no-brasil/"
+   ],
+   "ano": "2026",
+   "obs": "Dados públicos recentes para viewability e conclusão não encontrados de forma confiável; alcance é de audiência de podcasts no Brasil, não especificamente de anúncios."
+  }
+ },
+ "prime-video": {
+  "atual": {
+   "alcance": "+12M assinantes BR",
+   "viewability": 97,
+   "completion_rate": 94
+  },
+  "pesquisa": {
+   "alcance": "+315 mi globais; Brasil sem dado público específico",
+   "alcance_escopo": "global",
+   "viewability": null,
+   "conclusao": null,
+   "fontes": [
+    "https://advertising.amazon.com/products/prime-video-ads"
+   ],
+   "ano": "2026",
+   "obs": "Amazon informa alcance mensal ad-supported global; não localizou métrica pública confiável de viewability ou completion rate/VTR."
+  }
+ },
+ "samsung-tv-plus": {
+  "atual": {
+   "alcance": "+20M Smart TVs BR",
+   "viewability": 97,
+   "completion_rate": 95
+  },
+  "pesquisa": {
+   "alcance": "+22,4 mi usuários ativos (Brasil)",
+   "alcance_escopo": "brasil",
+   "viewability": null,
+   "conclusao": 98,
+   "fontes": [
+    "https://news.samsung.com/br/samsung-tv-plus-atinge-88-milhoes-de-usuarios-ativos-mensais-globalmente",
+    "https://www.samsung.com/br/tvs/smart-tv/samsung-tv-plus/",
+    "https://variety.com/2025/tv/global/sofa-digital-fast-brazil-1236410625",
+    "https://www.centralcomm.media/canal/samsung-tv-plus"
+   ],
+   "ano": "2025",
+   "obs": "alcance BR citado em fonte de 2025; viewability pública confiável não localizada; conclusão pública encontrada apenas para peça interativa/gamebreak, não para anúncios padrão."
+  }
+ },
+ "spotify": {
+  "atual": {
+   "alcance": "+50M ouvintes",
+   "viewability": 98,
+   "completion_rate": 95
+  },
+  "pesquisa": {
+   "alcance": "+56 milhões de usuários ativos mensais no Brasil",
+   "alcance_escopo": "brasil",
+   "viewability": 65.28,
+   "conclusao": null,
+   "fontes": [
+    "https://ads.spotify.com/pt-BR/noticias-insights/spotify-musica-ao-vivo-brasil/",
+    "https://ads.spotify.com/en-US/display-advertising/"
+   ],
+   "ano": "2025",
+   "obs": "Fonte pública recente traz MAUs no Brasil; viewability pública para display no Spotify é 65,28%; não localizei taxa pública confiável de conclusão (video/audio) específica para Brasil."
+  }
+ }
+}

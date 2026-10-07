@@ -1,0 +1,1221 @@
+{
+ "experian-dmp": {
+  "atual": {
+   "alcance": "+200M perfis",
+   "viewability": null,
+   "completion_rate": null
+  },
+  "pesquisa": {
+   "perfil_audiencia": "A base pública indicada pela Serasa/Serasa Experian para ativação publicitária é majoritariamente adulta, com segmentações disponíveis de 18–65+ anos, por gênero, classe social (A–E), escolaridade e ocupação/profissão.[1][11] A oferta também inclui perfis por renda presumida, comportamento financeiro e consumo, mas não encontrei fonte pública recente com recorte demográfico exato de audiência usada na mídia.[1][11]",
+   "formatos_anuncio": [
+    "Display em mídia paga",
+    "Mídia mobile",
+    "E-mail marketing segmentado",
+    "Redes sociais",
+    "Ativação no portal Serasa (web desktop/mobile)",
+    "App Serasa (iOS/Android)",
+    "Push notification segmentado",
+    "Landing page co-branded"
+   ],
+   "segmentacao": [
+    "Idade (18–65+)",
+    "Gênero",
+    "Estado civil",
+    "Classe social (A, B, C, D, E)",
+    "Escolaridade",
+    "Ocupação/Profissão",
+    "Renda presumida",
+    "Score de crédito",
+    "Propensão a consumo",
+    "Momento financeiro",
+    "Comportamento de pagamento",
+    "Perfil de consumo",
+    "Ticket médio",
+    "Frequência de compras",
+    "Canais de compra preferidos",
+    "Resposta a ofertas anteriores",
+    "Geografia: país, UF, cidade, bairro, CEP",
+    "Segmentos B2C e B2B",
+    "MEI, PME e grande empresa",
+    "Busca de lookalike financeiro",
+    "CRM match / data enrichment",
+    "Exclusão de base existente"
+   ],
+   "medicao": [
+    "Não encontrei, em fonte pública recente, parceiros específicos de medição como Nielsen, IAS ou brand lift para este canal.",
+    "A Serasa informa uso de dados agregados e ativação em plataformas de mídia, mas sem detalhar publicamente métricas padronizadas de mensuração.",
+    "Há referência pública à parceria com a Tail para DMP e conexão com plataformas de mídia, mas não a métricas de medição de audiência/brand safety.",
+    "modelos de conversão e performance são citados de forma geral, sem método público padronizado."
+   ],
+   "modelo_compra": "Leilão e/ou ativação programática via DMP; também há oferta direta/rezerva em propriedades próprias e soluções de ativação digital, mas sem preços públicos.[3][11][12]",
+   "melhor_uso": "Melhor para campanhas de performance e segmentação baseada em dados financeiros, crédito e comportamento de consumo, especialmente para públicos adultos com intenção de compra ou risco/propensão financeira.[1][11][12]",
+   "novidades": "A Serasa informa parceria com a Tail para acesso a dados de marketing na DMP, e páginas recentes da empresa seguem destacando ativação digital e parceria com a 4ADS para mídia no app e na web.[3][6][10]",
+   "fontes": [
+    "https://www.serasaexperian.com.br/conteudos/marketing/tudo-o-que-voce-precisa-saber-sobre-dmp/",
+    "https://www.serasaexperian.com.br/solucoes/ativacoes-digitais/",
+    "https://www.serasaexperian.com.br/solucoes/analise-de-mercado-e-segmentacao-de-campanhas/",
+    "https://www.serasa.com.br/seja-parceiro/"
+   ],
+   "ano": "2026"
+  }
+ },
+ "eletromidia": {
+  "atual": {
+   "alcance": "+30M impactos/dia",
+   "viewability": 95,
+   "completion_rate": 100
+  },
+  "pesquisa": {
+   "perfil_audiencia": "A Eletromidia se posiciona com alcance amplo em OOH/DOOH no Brasil, cobrindo seis verticais e 11 maiores mercados, com destaque para uma audiência urbana de alto fluxo; a própria empresa cita que 89% da população brasileira foi impactada por OOH nos últimos 30 dias. Há indícios públicos de uso para planejamento por jornada e contexto, com foco em públicos de massa e segmentações por comportamento/locação, mas não encontrei recorte público confiável por idade, classe ou gênero para o inventário Brasil.",
+   "formatos_anuncio": [
+    "telas digitais em ruas",
+    "mobiliário urbano",
+    "painéis em edifícios residenciais e comerciais",
+    "mídia em shoppings",
+    "mídia em aeroportos",
+    "mídia em transportes",
+    "mídia de bordo",
+    "formatos especiais/campanhas de contexto e ativações crossmedia"
+   ],
+   "segmentacao": [
+    "hipersegmentação por momento e local exatos do público",
+    "segmentação por contexto/jornada",
+    "segmentação por território/praça",
+    "segmentação por perfil e interesse via parcerias de dados",
+    "segmentação por verticais temáticas como eventos musicais, futebol, esportes e varejo"
+   ],
+   "medicao": [
+    "padronização de métricas em parceria com JCDecaux",
+    "parcerias de dados com Claro para segmentação e direcionamento",
+    "compra por audiência com entrega em CPM",
+    "alcance estimado em campanhas especiais (ex.: Copa 2026)",
+    "não encontrei fonte pública confiável nesta busca sobre Nielsen, IAS ou brand lift específicos da Eletromidia"
+   ],
+   "modelo_compra": "reserva e pacotes por audiência/CPM, com transição anunciada para compra por audiência em 2026; também há indicação pública de venda por espaços/campanhas especiais e patrocínios fundadores em projetos novos.",
+   "melhor_uso": "Mais indicado para cobertura de massa com reforço de frequência e impacto contextual em jornadas urbanas, especialmente em grandes capitais e ativos premium.",
+   "novidades": "Em 2025/2026, a empresa anunciou compra por audiência em CPM para 2026, com uso de dados proprietários e parceria com Claro; também divulgou projeto OOH da Copa 2026 e nova campanha para o mercado condominial em 2026.",
+   "fontes": [
+    "https://www.eletromidia.com.br/",
+    "https://anuncie.eletromidia.com.br/",
+    "https://www.eletromidia.com.br/imprensa",
+    "https://janela.com.br/2026/05/27/eletromidia-apresenta-seu-projeto-de-ooh-copa-2026-para-o-mercado-publicitario/",
+    "https://adnews.com.br/post/eletromidia-anuncia-novidades-em-upfront-para-2026",
+    "https://janela.com.br/2026/09/02/com-grandes-nomes-do-setor-eletromidia-eleva-estreia-nova-campanha-focada-no-mercado-condominial/"
+   ],
+   "ano": "2026"
+  }
+ },
+ "interativos": {
+  "atual": {
+   "alcance": "Add-on rich media em programática e portais",
+   "viewability": null,
+   "completion_rate": null
+  },
+  "pesquisa": {
+   "perfil_audiencia": "Fonte pública específica de audiência para “Interativos/Interattivo” no Brasil não foi encontrada; sem base pública confiável, o perfil não deve ser inferido. ",
+   "formatos_anuncio": [
+    "null"
+   ],
+   "segmentacao": [
+    "null"
+   ],
+   "medicao": [
+    "Brand Lift em ecossistemas Google/YouTube é uma métrica pública e disponível em campanhas de vídeo, com indicadores como recall, notoriedade, consideração e intenção de compra[1][2].",
+    "Brand Lift de grandes publishers brasileiros também é usado para awareness, favorabilidade e intenção de compra[3]."
+   ],
+   "modelo_compra": "null",
+   "melhor_uso": "null",
+   "novidades": "Há páginas públicas do site Interattivo com atualização recente, mas o material encontrado não descreve novos formatos de mídia/anúncios de forma verificável[1][2].",
+   "fontes": [
+    "https://www.interattivo.com.br/",
+    "https://support.google.com/google-ads/answer/9049825?hl=pt-br",
+    "https://globoads.globo.com/produtos-globo/brand_lift.ghtml"
+   ],
+   "ano": "2026"
+  }
+ },
+ "99": {
+  "atual": {
+   "alcance": "+20M usuários BR",
+   "viewability": 86,
+   "completion_rate": null
+  },
+  "pesquisa": {
+   "perfil_audiencia": "A 99 no Brasil é uma plataforma massiva de mobilidade com presença em 3.300 cidades, mais de 1 milhão de motoristas parceiros ativos e base amplamente urbana; os materiais públicos citam foco em consumidores em movimento e uso forte em praças como São Paulo, Belo Horizonte e Porto Alegre.[13][2] As campanhas recentes reforçam apelo a adultos urbanos de diferentes classes, com uso em contextos de deslocamento e alta recorrência; não há dado público confiável, recente e detalhado de faixa etária, gênero ou classe por audiência publicitária específica.[13][2]",
+   "formatos_anuncio": [
+    "Display dentro do app (ex: PopUp, Home Page Banner)",
+    "Vídeo dentro do app (ex: Trip Video)",
+    "Formatos nativos",
+    "Mídia OOH na frota de veículos dos motoristas parceiros"
+   ],
+   "segmentacao": [
+    "Demográfica",
+    "Geográfica",
+    "Comportamental",
+    "Interesses",
+    "Geolocalização"
+   ],
+   "medicao": [
+    "Métricas e mensuração próprias da 99Ads",
+    "Não há parceiro público de medição amplamente citado nas fontes encontradas",
+    "Brand lift: não encontrado publicamente",
+    "Nielsen: não encontrado publicamente",
+    "IAS: não encontrado publicamente"
+   ],
+   "modelo_compra": "null",
+   "melhor_uso": "Boa para campanhas de alcance e contexto de mobilidade, com mensagem orientada a geolocalização e presença ao longo da jornada urbana.[2][1]",
+   "novidades": "A 99 lançou oficialmente a 99Ads em 2026, estreando com formatos no app e em mídia OOH, além de segmentação e mensuração para marcas e agências.[1][2]",
+   "fontes": [
+    "https://99app.com/99ads/",
+    "https://propmark.com.br/anunciantes/99-transforma-dados-de-mobilidade-em-nova-frente-de-midia-por-meio-da-99ads/"
+   ],
+   "ano": "2026"
+  }
+ },
+ "ifood": {
+  "atual": {
+   "alcance": "+50M usuários BR",
+   "viewability": 90,
+   "completion_rate": null
+  },
+  "pesquisa": {
+   "perfil_audiencia": "O canal iFood Ads no Brasil declara base de 55 milhões de usuários cadastrados, com operação que cobre grandes centros e cidades do interior.[3] Para a vertical de mobilidade/entregas, o público é formado por entregadores e usuários do ecossistema iFood, mas não há dado público recente e específico de idade, classe social ou gênero para essa subcategoria; usar com cautela e sem inferir recortes não publicados.[1][3]",
+   "formatos_anuncio": [
+    "anúncios nativos no app",
+    "vitrines patrocinadas",
+    "anúncios in-app",
+    "soluções omnichannel",
+    "ativações exclusivas com a marca iFood",
+    "projetos especiais co-criados"
+   ],
+   "segmentacao": [
+    "segmentação por contexto do ecossistema iFood",
+    "segmentação por jornada de compra",
+    "alcançar usuários por cidades e capilaridade nacional",
+    "ativação em canais in-app e fora da plataforma"
+   ],
+   "medicao": [
+    "não há parceiro público específico de medição encontrado para a vertical mobilidade",
+    "não há menção pública recente a Nielsen",
+    "não há menção pública recente a IAS",
+    "não há menção pública recente a estudos de brand lift"
+   ],
+   "modelo_compra": "Não há modelo público detalhado específico para mobilidade; o iFood Ads descreve formatos relevantes e eficientes, com campanhas e projetos especiais, mas sem explicitar CPM/CPV/leilão/reserva nas fontes públicas encontradas.[3]",
+   "melhor_uso": "Bom para campanhas de conversão e consideração no ecossistema de delivery, aproveitando audiência de alta intenção e presença omnichannel.[3]",
+   "novidades": "Em 2026, o iFood entrou na Aliança pela Mobilidade Sustentável e segue ampliando iniciativas ligadas a veículos elétricos e infraestrutura de recarga; além disso, em 2026 foi anunciada parceria Uber+iFood com nova aba de Mobilidade no app do iFood.[1][14]",
+   "fontes": [
+    "https://institucional.ifood.com.br/impacto-social/alianca-pela-mobilidade-sustentavel/",
+    "https://institucional.ifood.com.br/novos-negocios/ifood-ads/",
+    "https://www.uber.com/br/pt-br/newsroom/uber-e-ifood-anunciam-parceria-no-brasil/"
+   ],
+   "ano": "2026"
+  }
+ },
+ "logan": {
+  "atual": {
+   "alcance": "Circuitos urbanos e trajetos",
+   "viewability": 94,
+   "completion_rate": null
+  },
+  "pesquisa": {
+   "perfil_audiencia": "Audiência mobile ampla no Brasil, com foco em usuários de dispositivos móveis e comportamentos cross-device; a Logan se posiciona para atingir pessoas em mobilidade, com menções públicas a cobertura em classes ABC e a base de mais de 300 milhões de usuários na América Latina em sua comunicação institucional[4][12]. Não há, nas fontes públicas encontradas, recorte recente e confiável de idade/gênero específico para o Brasil, então esse detalhe fica como null.",
+   "formatos_anuncio": [
+    "Rich Media",
+    "Display Ads",
+    "Vídeo",
+    "Audio",
+    "CTV",
+    "In-game ads",
+    "formatos interativos customizados",
+    "push",
+    "second screen",
+    "realidade virtual em jornadas cross-screen",
+    "formats sob medida com mapas integrados e lembretes",
+    "OOH integrado via Nexus"
+   ],
+   "segmentacao": [
+    "geolocalização",
+    "customização por conteúdo",
+    "segmentação por audiência/cluster",
+    "retargeting cross-device",
+    "segmentação com base em online e offline behavior",
+    "zero-party data com opt-in",
+    "clusterização por interesse",
+    "segmentação por device/mobile behavior"
+   ],
+   "medicao": [
+    "mensuração e atribuição próprias da Logan",
+    "data insights",
+    "auditoria por terceiros",
+    "monitoramento de PDV e OOH"
+   ],
+   "modelo_compra": "compra direta e programática/leilão via DSP com DEAL IDs; também há operação de reserva/campanhas sob medida em formatos proprietários, sem indicação pública recente de preço[1][5][6].",
+   "melhor_uso": "Melhor para campanhas mobile-first e cross-device que buscam segmentação por comportamento, geolocalização e formatos interativos de alto engajamento[1][3][6].",
+   "novidades": "Entre 2024-2026, a fonte pública mais recente indica expansão e integração da Logan em OOH com a co-criação da plataforma Nexus com a INVIAN, além de comunicação recente sobre parceria com Disney para mídia mobile no Brasil[9][2].",
+   "fontes": [
+    "https://logan.ai/",
+    "https://logan.ai/logan-ads/",
+    "https://logan.ai/loganads/industria.html",
+    "https://propmark.com.br/logan-adota-zero-party-data-para-capturar-dados-sem-intermediarios/",
+    "https://meioemensagem.com.br/patrocinado/logan/inovacao-always-on",
+    "https://nossomeio.com.br/logan-e-invian-unem-inteligencia-de-dados-e-tecnologia-para-transformar-o-mercado-de-ooh-com-a-co-criacao-de-nexus/",
+    "https://revistalivemarketing.com.br/the-walt-disney-company-fecha-parceria-com-o-grupo-logan/"
+   ],
+   "ano": "2026"
+  }
+ },
+ "uber": {
+  "atual": {
+   "alcance": "+30M usuários BR",
+   "viewability": 88,
+   "completion_rate": null
+  },
+  "pesquisa": {
+   "perfil_audiencia": "A Uber no Brasil alcança usuários de alta intenção no momento de deslocamento, com forte relevância para adultos urbanos e digitalmente ativos; a própria Uber descreve a audiência como pessoas em “momentos de alta intenção” ao longo da jornada.[1] Não há dado público, recente e específico de Brasil nas fontes recuperadas para idade, classe ou gênero; portanto, esses campos devem ser tratados como nulos em catálogo público.[1]",
+   "formatos_anuncio": [
+    "Journey Takeover (Home/Ride Offers + Journey Ads + Car Icon)",
+    "Ride Offers / ofertas com desconto no app",
+    "Journey Ads ao longo da viagem",
+    "Car Icon com personalização visual",
+    "Anúncios em tela inicial do app",
+    "Anúncios fora da plataforma (off-platform), em teste",
+    "Ads on-screen video no app",
+    "Soluções em Uber Mercado/Delivery advertising surfaces"
+   ],
+   "segmentacao": [
+    "sinais em tempo real de movimento, contexto e comportamento",
+    "momento da jornada/etapa da viagem",
+    "proximidade do usuário ao ponto de venda",
+    "contexto de deslocamento e intenção de compra",
+    "inventário premium por viagem/campanha",
+    "segmentação por uso de mobilidade e/ou delivery quando aplicável"
+   ],
+   "medicao": [
+    "não há parceiro público confirmado nas fontes recuperadas para o Brasil",
+    "métricas de atenção e engajamento no app",
+    "interações com anúncios",
+    "conversão por uso de desconto/cupom",
+    "alcance em momentos de alta intenção",
+    "brand lift: não encontrado em fonte pública recuperada"
+   ],
+   "modelo_compra": "Reserva/campanhas limitadas para formatos premium; há também oferta em teste de compra/entrega fora da plataforma, mas sem detalhes públicos suficientes para confirmar leilão ou CPM/CPV no Brasil.",
+   "melhor_uso": "Melhor para campanhas de alta intenção, ativação de marca e oferta com incentivo, especialmente quando a marca quer influenciar a decisão durante o deslocamento.",
+   "novidades": "Lançamento do Journey Takeover no Brasil em 2026, estreando no Carnaval com a Cheetos; em 2025 o Ride Offers passou a ser oferecido a anunciantes brasileiros e em 2026 a Uber anunciou testes de anúncios fora da plataforma.[2][4][8][14]",
+   "fontes": [
+    "https://www.uber.com/br/pt-br/advertising/",
+    "https://www.uber.com/br/pt-br/newsroom/advertising/",
+    "https://www.uber.com/br/en/advertising/ads-go/",
+    "https://www.uber.com/br/pt-br/blog/mobility-offers-premium-eats-formats-offsite/"
+   ],
+   "ano": "2026"
+  }
+ },
+ "amazon-ads": {
+  "atual": {
+   "alcance": "Mensurável por campanha no Brasil por alcance e frequência deduplicados na Amazon DSP. A estimativa prévia depende do público e da configuração da campanha; não há total público agregado do Brasil usado como referência.",
+   "viewability": null,
+   "completion_rate": null
+  },
+  "pesquisa": {
+   "perfil_audiencia": "No Brasil, a Amazon Ads atende anunciantes de todos os portes e segmentos, em todos os 26 estados e no DF, com orçamentos flexíveis e sem exigir que a marca venda na loja Amazon.[1] Em termos públicos citados pela própria Amazon, há foco relevante em PMEs brasileiras e em públicos qualificados para vídeo/streaming; a fonte não traz recorte público confiável de idade, classe ou gênero para o país, então esses campos ficam sem detalhamento publicável.[2]",
+   "formatos_anuncio": [
+    "Sponsored Products",
+    "Sponsored Brands",
+    "Sponsored Brands vídeo",
+    "Stores/Store spotlight",
+    "Sponsored Display",
+    "Amazon DSP",
+    "Display, vídeo e áudio via Amazon DSP/Amazon Ads Agent",
+    "Brand+",
+    "Ads Agent (plataforma de planejamento/gestão com IA, não um formato criativo em si)"
+   ],
+   "segmentacao": [
+    "Palavras-chave",
+    "Produtos/ASINs",
+    "Segmentação automática e manual",
+    "Segmentação por audiências qualificadas na Amazon DSP",
+    "Segmentação por raio/localização",
+    "Segmentação por remarketing/retargeting (implícita em DSP e públicos)",
+    "Palavras-chave negativas",
+    "Segmentação por grupos de segmentos"
+   ],
+   "medicao": [
+    "Amazon Marketing Cloud",
+    "Brand lift",
+    "Métricas de performance nativas de campanha (cliques, impressões, CTR, conversões/vendas)",
+    "Relatórios de palavras-chave e desempenho",
+    "Integrações e parceiros de medição não especificados publicamente nas fontes encontradas"
+   ],
+   "modelo_compra": "Leilão; CPC para Sponsored Products e formatos de busca; CPM para programática/display/vídeo/áudio na DSP; a venda na Amazon não é pré-requisito para anunciar.[1][10][11]",
+   "melhor_uso": "Mais indicado para construção de consideração e conversão no ecossistema Amazon, combinando intenção de busca no marketplace com alcance programático em ambientes premium dentro e fora da Amazon.[1][11]",
+   "novidades": "Em 2026, a Amazon lançou no Brasil o Ads Agent em beta/protótipo para a Amazon DSP, com interface em português e automação de planejamento, segmentação e otimização; também ampliou o Brand+ globalmente para o Brasil.[1][4][6][14]",
+   "fontes": [
+    "https://www.aboutamazon.com.br/noticias/ads/amazon-ads-construida-para-conectar-marcas-a-vida-real-dos-consumidores",
+    "https://www.aboutamazon.com.br/noticias/ads/ia-abre-as-portas-da-publicidade-premium-para-pmes-brasileiras",
+    "https://advertising.amazon.com/pt-br/solutions/products/amazon-dsp",
+    "https://www.aboutamazon.com.br/noticias/ads/o-que-a-amazon-planeja-para-o-ads-agent-no-brasil",
+    "https://advertising.amazon.com/pt-br/resources/whats-new/drive-brand-awareness-and-engagement-with-brand-plus",
+    "https://venda.amazon.com.br/publicidade"
+   ],
+   "ano": "2026"
+  }
+ },
+ "google-dv360": {
+  "atual": {
+   "alcance": "+90% web BR",
+   "viewability": 68,
+   "completion_rate": 72
+  },
+  "pesquisa": {
+   "perfil_audiencia": "DV360 é uma plataforma DSP usada por anunciantes e agências para planejamento e compra programática, sem perfil demográfico público específico de usuários finais no material encontrado. As fontes públicas mostram uso em campanhas digitais para públicos segmentados por idade, gênero, localização e interesses, mas não informam classe social; portanto, esse campo deve ficar sem detalhamento público confiável.",
+   "formatos_anuncio": [
+    "display",
+    "vídeo",
+    "connected TV (CTV)",
+    "áudio",
+    "rich media",
+    "YouTube e parceiros",
+    "DOOH digital"
+   ],
+   "segmentacao": [
+    "idade",
+    "gênero",
+    "localização/geografia",
+    "públicos próprios (first-party)",
+    "públicos de terceiros (third-party)",
+    "públicos semelhantes/lookalike",
+    "segmentação contextual",
+    "segmentação por visibilidade/Active View",
+    "frequência",
+    "inventário/posicionamento"
+   ],
+   "medicao": [
+    "métricas de relatórios e otimização da plataforma",
+    "Active View/visibilidade",
+    "brand lift",
+    "integrações de medição e relatórios via Google Marketing Platform",
+    "métricas de performance como alcance e impressões",
+    "métricas de atribuição/otimização conforme configuração"
+   ],
+   "modelo_compra": "leilão/RTB, com otimização automatizada e lances automatizados; a plataforma também suporta compra programática integrada em múltiplos inventários.",
+   "melhor_uso": "Mais indicado para planejar, comprar, medir e otimizar mídia programática multicanal em uma única plataforma.",
+   "novidades": "Há anúncios de mudanças na plataforma a partir de setembro de 2025, mas a fonte pública encontrada não detalha um novo formato específico para o Brasil.",
+   "fontes": [
+    "https://marketingplatform.google.com/intl/pt_BR/about/display-video-360/",
+    "https://developers.google.com/display-video/api/guides/quickstart/overview?hl=pt-br",
+    "https://developers.google.com/display-video/api/structured-data-file/v9-1/Campaign?hl=pt-br",
+    "https://cloud.google.com/looker/docs/studio/connect-to-display--video-360?hl=pt-BR",
+    "https://support.google.com/displayvideo/announcements/9210754?hl=en-GB"
+   ],
+   "ano": "2026"
+  }
+ },
+ "instagram": {
+  "atual": {
+   "alcance": "+120M usuários BR",
+   "viewability": 92,
+   "completion_rate": 85
+  },
+  "pesquisa": {
+   "perfil_audiencia": "Em 2025, a audiência adulta de Instagram no Brasil é majoritariamente feminina: 57,8% mulheres e 42,2% homens; estimativas públicas de ferramentas de anúncio indicam alcance de cerca de 147 milhões de usuários no país no fim de 2025.[2][3] Em recortes públicos de planejadores de mídia, a base é forte em 18-34 anos e concentrada em áreas urbanas, com uso amplo entre classes consumidoras digitais; não há fonte pública confiável e atual com corte de classe social para o Brasil em Instagram Ads.[1][3]",
+   "formatos_anuncio": [
+    "Feed (imagem única, vídeo, carrossel)",
+    "Stories",
+    "Reels",
+    "Explore/Explorar",
+    "Anúncios em coleção",
+    "Anúncios de compras/Shop, quando disponíveis via Meta Commerce"
+   ],
+   "segmentacao": [
+    "Localização (Brasil, estados, cidades e raio)",
+    "Idade",
+    "Gênero",
+    "Idiomas",
+    "Interesses",
+    "Comportamentos",
+    "Públicos personalizados (site, app, lista de clientes, engajamento)",
+    "Públicos semelhantes (lookalike)",
+    "Advantage+ Audience / segmentação automatizada",
+    "Remarketing por visualização de vídeo, engajamento e visitas ao site"
+   ],
+   "medicao": [
+    "Meta Ads Manager e relatórios de entrega/conversão",
+    "Meta Pixel",
+    "API de Conversões (CAPI)",
+    "Brand Lift da Meta",
+    "Parceiros de medição de terceiros como Nielsen e IAS, quando contratados pela marca/plataforma"
+   ],
+   "modelo_compra": "Leilão via Meta Ads; cobrança normalmente por CPM/CPV/CPC/CPA conforme objetivo e otimização; há opções de reserva/alcance garantido em alguns formatos e inventários via Meta, quando elegíveis.",
+   "melhor_uso": "Canal forte para alcance, consideração e conversão mobile-first, especialmente com criativos verticais e remarketing.",
+   "novidades": "Em 2025-2026, a evolução pública mais relevante é a ampliação de automação de audiência (Advantage+), maior peso de Reels/formatos verticais e uso crescente de mensuração com CAPI e Brand Lift; não há um novo formato de anúncio exclusivo do Brasil claramente documentado em fonte pública recente.",
+   "fontes": [
+    "https://datareportal.com/reports/digital-2025-brazil",
+    "https://datareportal.com/reports/digital-2026-brazil",
+    "https://affectgroup.com/blog/meta-ads-audience-in-brazil-facebook-and-instagram-capacity-in-2025/"
+   ],
+   "ano": "2026"
+  }
+ },
+ "kwai": {
+  "atual": {
+   "alcance": "+60M usuários BR",
+   "viewability": 90,
+   "completion_rate": 85
+  },
+  "pesquisa": {
+   "perfil_audiencia": "Fontes públicas recentes apontam o Kwai no Brasil como uma plataforma de alcance massivo e forte presença em social commerce, com uso concentrado em públicos populares e amplamente distribuídos por idade e gênero; a plataforma declara cookie-based advertising e segmentação por comportamento, mas não divulga, em fonte pública recente encontrada, um recorte oficial único de idade/classe/gênero para o mercado brasileiro.[13][3]",
+   "formatos_anuncio": [
+    "In-Feed / Native Ads",
+    "First Sight / Splash (primeira visualização do dia)",
+    "EyeMax / formato imersivo de abertura",
+    "Hashtag Challenge",
+    "Live commerce / ações em live",
+    "Formatos com RA/AR e elementos interativos da marca",
+    "Brand Auction",
+    "Reach & Frequency",
+    "Coupons",
+    "Add Ons",
+    "Catálogo de Produtos",
+    "KCM (branding)",
+    "Performance Auction"
+   ],
+   "segmentacao": [
+    "localização geográfica (cidade/estado/região; em alguns casos nacional)",
+    "idade",
+    "gênero",
+    "idioma",
+    "interesses",
+    "comportamentos",
+    "remarketing / públicos personalizados",
+    "lookalikes / públicos semelhantes",
+    "segmentação por cidade para In-Feed em mercados habilitados",
+    "segmentação nacional para First Sight em alguns usos citados"
+   ],
+   "medicao": [
+    "Brand Lift",
+    "Conversion Lift",
+    "IAS Brand Safety and Suitability",
+    "IAS Signal com métricas como Viewability, Time-in-View, Percent Completed e IVT Rate"
+   ],
+   "modelo_compra": "Leilão, reserva e CPT para formatos de alto impacto; em performance, compra por leilão é mencionada para In-Feed e Performance Auction, enquanto branding pode usar Reach & Frequency e inventário reservado.",
+   "melhor_uso": "Mais forte para awareness e performance em funil completo, especialmente para campanhas com vídeo vertical, social commerce e ativações criativas de alto engajamento.",
+   "novidades": "Em 2025, a Kwai lançou o licenciamento de mini-novelas como novo formato comercial; em 2026, há menção pública ao Kwai Creative Exchange, ampliando produção criativa para marcas.",
+   "fontes": [
+    "https://www.kwai.com/business/pt-BR",
+    "https://www.kwai.com/newsroom",
+    "https://www.prnewswire.com/news-releases/ias-announces-exclusive-first-to-market-partnership-with-kwai-for-business-to-provide-content-level-brand-safety-and-suitability-measurement-for-advertisers-302335829.html",
+    "https://fastcompanybrasil.com/fastco-works/kwai-summit-ads/"
+   ],
+   "ano": "2026"
+  }
+ },
+ "linkedin": {
+  "atual": {
+   "alcance": "+65M usuários BR",
+   "viewability": 88,
+   "completion_rate": 72
+  },
+  "pesquisa": {
+   "perfil_audiencia": "LinkedIn no Brasil é predominantemente usado por profissionais em idade ativa, com forte presença de decisores e influenciadores B2B; a segmentação pública disponível aponta foco em dados profissionais como cargo, senioridade, setor e tamanho de empresa, mais do que em idade/gênero. Não há, nas fontes públicas coletadas, recorte confiável e recente de classe social/gênero específico para o Brasil, então isso deve ficar como null.",
+   "formatos_anuncio": [
+    "Sponsored Content (imagem única, carrossel, vídeo, documento e evento)",
+    "Message Ads",
+    "Text Ads"
+   ],
+   "segmentacao": [
+    "cargo",
+    "nome da empresa",
+    "indústria/setor",
+    "tamanho da empresa",
+    "senioridade",
+    "função profissional",
+    "formação acadêmica",
+    "habilidades",
+    "interesses profissionais e pessoais",
+    "localidade",
+    "Matched Audiences (retargeting de site, lista de contatos e segmentação baseada em contas)",
+    "segmentação por lista de empresas",
+    "segmentação por indústria com hierarquia"
+   ],
+   "medicao": [
+    "LinkedIn Campaign Manager",
+    "Matched Audiences / retargeting",
+    "métricas nativas de campanha (impressões, cliques, engajamento e conversões)",
+    "brand lift não confirmado nas fontes públicas coletadas",
+    "Nielsen e IAS não confirmados nas fontes públicas coletadas"
+   ],
+   "modelo_compra": "Leilão",
+   "melhor_uso": "Melhor para mídia B2B e geração de demanda qualificada, especialmente quando a audiência pode ser definida por cargo, empresa e senioridade.",
+   "novidades": "Há indicações públicas recentes de evolução de segmentação e de Conversation Ads com personalização mais dinâmica, mas não foi possível confirmar um lançamento oficial específico para o Brasil nas fontes coletadas.",
+   "fontes": [
+    "https://business.linkedin.com/br/pt/advertise/ads/campaign-manager",
+    "https://business.linkedin.com/br/pt/advertise/ads/best-practices/create-your-first-campaign",
+    "https://www.linkedin.com/help/lms/answer/a424660/opcoes-de-segmentacao-para-linkedin-ads?lang=pt",
+    "https://www.linkedin.com/help/lms/answer/a425060?lang=pt-BR",
+    "https://www.linkedin.com/help/lms/answer/a782030?lang=pt"
+   ],
+   "ano": "2026"
+  }
+ },
+ "tiktok": {
+  "atual": {
+   "alcance": "+85M usuários BR",
+   "viewability": 94,
+   "completion_rate": 88
+  },
+  "pesquisa": {
+   "perfil_audiencia": "Usuários do TikTok no Brasil concentram-se sobretudo em públicos mais jovens e mobile-first; o próprio posicionamento da plataforma destaca descoberta e consumo em vídeo curto, mas não há no material público coletado um recorte oficial recente de idade, classe ou gênero para audiência brasileira. Portanto, use null para números demográficos públicos específicos.",
+   "formatos_anuncio": [
+    "In-Feed Ads",
+    "Spark Ads",
+    "TopView",
+    "Brand Takeover",
+    "Branded Hashtag Challenge",
+    "Branded Effects",
+    "Shopping Ads",
+    "Search Ads",
+    "Image Ads",
+    "Carousel Ads",
+    "Collection Ads",
+    "Smart+ Catalog Ads",
+    "TopReach"
+   ],
+   "segmentacao": [
+    "idade",
+    "gênero",
+    "localização",
+    "interesses",
+    "comportamentos",
+    "palavras-chave/pesquisa",
+    "remarketing/audiências personalizadas",
+    "lookalike/similares",
+    "exclusão de públicos",
+    "device/OS"
+   ],
+   "medicao": [
+    "brand lift",
+    "TikTok Pixel",
+    "Events API",
+    "relatórios de performance no Ads Manager",
+    "parceiros externos de mensuração citados no ecossistema da plataforma como Nielsen e IAS"
+   ],
+   "modelo_compra": "leilão e reserva",
+   "melhor_uso": "Canal indicado para alcance incremental, descoberta e performance em vídeo curto, especialmente em mobile-first e e-commerce.",
+   "novidades": "TopReach foi anunciado no TikTok World 2026 como novo formato premium para ampliar alcance e impacto em escala.",
+   "fontes": [
+    "https://ads.tiktok.com/business/pt-BR",
+    "https://newsroom.tiktok.com/tiktok-world-2026-mostra-evoluo-do-tiktok-como-plataforma-de-performance?lang=pt-BR",
+    "https://ads.tiktok.com/resources/help/article/tiktok-ads-policy-ad-format-and-functionality?lang=en"
+   ],
+   "ano": "2026"
+  }
+ },
+ "twitch": {
+  "atual": {
+   "alcance": "+15M usuários BR",
+   "viewability": 90,
+   "completion_rate": 82
+  },
+  "pesquisa": {
+   "perfil_audiencia": "A Twitch no Brasil é fortemente concentrada em público jovem-adulto, com destaque para faixas de 18–34 anos e interesse em jogos, cultura pop e conteúdo ao vivo; as fontes públicas consultadas não trazem recorte confiável de classe ou gênero para o Brasil, então esses campos ficam não confirmados. A plataforma é usada tanto por espectadores quanto por criadores, com consumo em desktop e mobile.",
+   "formatos_anuncio": [
+    "Premium Video",
+    "Vertical Video Ads",
+    "Stream Display Ads",
+    "Mid-Feed Ads",
+    "Super Leaderboard",
+    "Medium Rectangle",
+    "Homepage Carousel",
+    "Headliner",
+    "Mobile Video",
+    "Desktop Video",
+    "Cross-screen video",
+    "Display ads"
+   ],
+   "segmentacao": [
+    "Contexto/interest targeting por conteúdo e categorias",
+    "Segmentação por dispositivo (desktop, mobile, tablet, console, streaming TV)",
+    "Segmentação por formato/placement",
+    "Segmentação por inventário da Twitch via Amazon Ads",
+    "Segmentação por audiências próprias e de terceiros da Amazon Ads",
+    "Segmentação contextual por livestream/categoria de conteúdo"
+   ],
+   "medicao": [
+    "Nielsen",
+    "VideoAmp",
+    "Lucid",
+    "Kantar",
+    "Twitch RPG",
+    "métricas de reconhecimento",
+    "preferência",
+    "intenção"
+   ],
+   "modelo_compra": "Leilão/programático via Amazon Ads; há também reserva/solução premium para alguns formatos de alto impacto, sem preços públicos confirmados.",
+   "melhor_uso": "Ideal para awareness e consideração em públicos jovens e engajados, especialmente em contextos de gaming, entretenimento e cultura digital ao vivo.",
+   "novidades": "A Twitch e a Amazon Ads seguem ampliando formatos premium e integrações de medição; em 2026 o Gerenciador de anúncios da Twitch passou a permitir monetização e gestão de anúncios com nova lógica de elegibilidade para criadores, mas não há anúncio público específico de um novo formato exclusivo para o Brasil.",
+   "fontes": [
+    "https://advertising.amazon.com/pt-br/channels/twitch",
+    "https://advertising.amazon.com/resources/ad-specs/twitch",
+    "https://help.twitch.tv/s/article/ads-manager?language=pt_BR"
+   ],
+   "ano": "2026"
+  }
+ },
+ "youtube": {
+  "atual": {
+   "alcance": "+140M usuários BR",
+   "viewability": 95,
+   "completion_rate": 70
+  },
+  "pesquisa": {
+   "perfil_audiencia": "O YouTube no Brasil alcança uma audiência ampla, com forte uso em mobile e consumo de vídeo para entretenimento, aprendizado e descoberta de conteúdo; os materiais públicos consultados não trazem recorte oficial recente de idade, classe ou gênero específico para publicidade no país, então esse campo deve ficar conservador. Em fontes públicas de planejamento, a plataforma é tratada como audiência massiva e segmentável por interesses e comportamento, sem números demográficos fechados nesta base consultada.",
+   "formatos_anuncio": [
+    "anúncios in-stream puláveis",
+    "anúncios in-stream não puláveis",
+    "anúncios em vídeo in-feed",
+    "anúncios bumper",
+    "anúncios out-stream e conteúdo complementar",
+    "anúncios de masthead",
+    "anúncios do YouTube Shorts",
+    "anúncios em áudio"
+   ],
+   "segmentacao": [
+    "localização",
+    "idioma",
+    "interesses",
+    "públicos-alvo personalizados",
+    "listas de remarketing",
+    "segmentos de dados",
+    "palavras-chave",
+    "tópicos",
+    "line-ups do YouTube Select para compra por reserva"
+   ],
+   "medicao": [
+    "métricas do Google Ads em tempo real",
+    "brand lift",
+    "visitas à loja",
+    "ações no app",
+    "conversões no site",
+    "taxa de conversão (CVR)",
+    "métricas sociais específicas de Shorts como comentários, curtidas e compartilhamentos"
+   ],
+   "modelo_compra": "leilão e reserva; há opções como CPV para anúncios puláveis e CPM para bumper, alcance e algumas reservas, sem preços públicos nesta resposta.",
+   "melhor_uso": "Bom para alcance massivo com vídeo e para considerar jornadas de topo e meio de funil, especialmente quando combinados com segmentação por interesses, remarketing e públicos personalizados.",
+   "novidades": "Há atualização recente nas métricas do Google Ads API para anúncios do YouTube Shorts, incluindo comentários, curtidas e compartilhamentos; também há suporte recente a segmentação com line-ups do YouTube Select em campanhas por reserva.",
+   "fontes": [
+    "https://business.google.com/br/ad-solutions/youtube-ads/",
+    "https://support.google.com/google-ads/answer/9427120?hl=pt-BR",
+    "https://developers.google.com/google-ads/api/docs/release-notes?hl=pt-br"
+   ],
+   "ano": "2026"
+  }
+ },
+ "amazon-music": {
+  "atual": {
+   "alcance": "+8M ouvintes",
+   "viewability": 97,
+   "completion_rate": 94
+  },
+  "pesquisa": {
+   "perfil_audiencia": "Usuários da Amazon Music no Brasil aparecem, nas fontes públicas acessadas, como audiência de streaming de áudio em momentos de consumo digital, com acesso em mobile, desktop, tablets e dispositivos Alexa/Fire TV; a base suportada por anúncios é descrita como ampla e exclusiva, mas não há recorte público recente e específico por idade, classe ou gênero para o Brasil. A Amazon destaca que atende anunciantes em todos os portes e segmentos no país, mas não publica um perfil sociodemográfico detalhado da audiência local.",
+   "formatos_anuncio": [
+    "Anúncios de áudio de 10 a 60 segundos, não puláveis, inseridos entre músicas e conteúdos de áudio suportados por anúncios[1][11].",
+    "Banner complementar/companion banner exibido em dispositivos Echo Show, Fire TV, aplicativo Amazon Music e webplayer, com possibilidade de clique no app e no webplayer[2][12].",
+    "Anúncios de áudio interativos com chamada de voz para Alexa, permitindo ações como adicionar item ao carrinho, definir lembrete ou receber e-mail com mais informações[12].",
+    "Campanhas de áudio padrão e de podcasts na Amazon DSP, incluindo inventário de áudio dentro do ecossistema Amazon[10][13].",
+    "Patrocínios e ativações de música citados publicamente para o Brasil, como playlist sponsorships, genre sponsorships e live music events[5]."
+   ],
+   "segmentacao": [
+    "Segmentação disponível via Amazon Ads/Amazon DSP para inventário de áudio e música, com suporte a campanhas em desktop, mobile, tablet, CTV e smart speakers[1][12].",
+    "Segmentação por contexto/inventário em Amazon Music suportada por anúncios e em outros ambientes de áudio da Amazon, incluindo podcasts e supply de terceiros via Amazon Publisher Direct em alguns mercados[1][4][13].",
+    "Possibilidade de usar dados e públicos da Amazon Ads/Amazon DSP, mas as fontes públicas recentes recuperadas não detalham critérios específicos de segmentação para o Brasil no nível de idade, gênero, renda ou interesses[1][10]."
+   ],
+   "medicao": [
+    "A Amazon afirma medir impacto em objetivos de marca, mas as fontes públicas recuperadas não detalham parceiros terceiros específicos para o Brasil no inventário Amazon Music[1][4].",
+    "Medição nativa de campanha com métricas de anúncios de áudio e inventário digital da Amazon Ads/Amazon DSP[10][12].",
+    "Não há, nas fontes públicas recuperadas, confirmação específica de parceria pública recente no Brasil com Nielsen, IAS ou brand lift para Amazon Music; use null se o catálogo exigir apenas parceiros explicitamente confirmados.",
+    "null"
+   ],
+   "modelo_compra": "CPM para anúncios de áudio; campanhas também podem ser operadas via Amazon DSP e inventário programático de áudio, sem preços públicos nas fontes recuperadas[1][4][10].",
+   "melhor_uso": "Boa opção para awareness e consideração em momentos de escuta contínua, com alcance em ambientes sem tela e reforço visual via companion banner[1][2].",
+   "novidades": "Em 2026, aparecem sinais públicos de expansão no Brasil para novas ofertas de Audio & Music Ads, incluindo Interactive Audio Ads, programmatic audio, Amazon Music Live e sponsorships de playlists/gêneros/eventos, além de reforço da operação local Brasil e México[5].",
+   "fontes": [
+    "https://advertising.amazon.com/pt-br/solutions/products/audio-ads?ref_=a20m_us_fnav_p_aa",
+    "https://advertising.amazon.com/pt-br/resources/faq",
+    "https://advertising.amazon.com/resources/ad-specs/audio-ads",
+    "https://advertising.amazon.com/pt-br/resources/ad-specs",
+    "https://advertising.amazon.com/pt-br/help/G8M4PBLF44KEHQNX",
+    "https://amazon.jobs/en/jobs/10497117/pm-audio-music-ads-brazil-mexico-audio-music-ads",
+    "https://www.aboutamazon.com.br/noticias/ads/amazon-ads-construida-para-conectar-marcas-a-vida-real-dos-consumidores"
+   ],
+   "ano": "2026"
+  }
+ },
+ "deezer": {
+  "atual": {
+   "alcance": "+16M ouvintes",
+   "viewability": 96,
+   "completion_rate": 93
+  },
+  "pesquisa": {
+   "perfil_audiencia": "A base publicamente descrita pela Deezer no Brasil é de ouvintes de streaming com acesso a plano grátis com anúncios e a ecossistema de música/áudio, mas não há, nas fontes públicas recentes encontradas, recorte oficial por idade, classe social ou gênero específico para mídia no país; portanto, esses campos devem permanecer como null ou não especificados. Há sinal público de escala relevante no Brasil em 2024-2026, mas sem detalhamento demográfico suficiente para inventariar em catálogo de planejamento.",
+   "formatos_anuncio": [
+    "Anúncios de áudio",
+    "Anúncios em vídeo",
+    "Inventário em streaming de música",
+    "Inventário em podcasts/áudio parceiro",
+    "Formatos premium de publicidade em áudio dentro da Deezer",
+    "Experiências interativas/rich media em oferta de mídia terceirizada citada publicamente"
+   ],
+   "segmentacao": [
+    "Idade",
+    "Gênero",
+    "Localização geográfica",
+    "Preferências/gêneros musicais",
+    "Segmentação por audiência via DSP/parceiro",
+    "Atribuição e ativação via integração com Hawk",
+    "Planejamento por inventário exclusivo de áudio e vídeo no Brasil"
+   ],
+   "medicao": [
+    "Real-time performance insights via Hawk",
+    "Métricas de performance de campanha fornecidas pelo parceiro de monetização",
+    "Brand lift:null",
+    "Nielsen:null",
+    "IAS:null",
+    "Medição pública de terceiros não confirmada nas fontes encontradas"
+   ],
+   "modelo_compra": "Leilão aberto, private deals, programático direto e programático garantido; em 2025 a monetização de áudio e vídeo no Brasil passou a ser exclusiva via Azerion, com acesso por DSP integrado.",
+   "melhor_uso": "Boa para alcance incremental em audiência engajada com música e áudio, especialmente em campanhas de awareness e consideração com segmentação contextual e demográfica.",
+   "novidades": "Em junho de 2025, a Deezer passou a ter Azerion como parceiro exclusivo de monetização de áudio e vídeo no Brasil; em março de 2026, a Deezer lançou a oferta reformulada Deezer for Business, incluindo uma solução premium para anunciantes.",
+   "fontes": [
+    "https://newsroom-deezer.com/2025/07/deezer-azerion-deal-in-brazil/",
+    "https://newsroom-deezer.com/br/2026/03/deezer-for-business-deezer-anuncia-plataforma-de-parcerias-reformulada-para-acelerar-nova-fase-de-crescimento/",
+    "https://support.deezer.com/hc/en-gb/articles/36339056473629-Distribute-Deezer-in-Latin-America-if-you-are-an-ISP"
+   ],
+   "ano": "2026"
+  }
+ },
+ "disney-plus": {
+  "atual": {
+   "alcance": "+15M assinantes BR",
+   "viewability": 98,
+   "completion_rate": 96
+  },
+  "pesquisa": {
+   "perfil_audiencia": "Público amplo de streaming no Brasil, com forte presença de entretenimento familiar e esportes; fontes públicas disponíveis apontam base relevante de anunciantes e alcance em público multi-idade, mas sem recorte público detalhado por classe/gênero para o Brasil. Para o ecossistema global de anúncios da Disney, há 157 milhões de usuários ativos mensais nos planos com anúncios, porém esse dado não é exclusivo do Brasil[10].",
+   "formatos_anuncio": [
+    "vídeos pre-roll",
+    "vídeos mid-roll não puláveis",
+    "anúncios em conteúdo ao vivo e reprises",
+    "patrocínios",
+    "product placement",
+    "elementos promocionais de marcas e serviços Disney",
+    "inventário programático/biddable"
+   ],
+   "segmentacao": [
+    "segmentação por audiência com uso de insights combinados de parceiros",
+    "segmentação contextual via Magic Words",
+    "segmentação por dados proprietários/first-party da Disney",
+    "segmentação por perfil/momento de compra",
+    "ativação em inventário programático",
+    "conexão futura com Disney Select"
+   ],
+   "medicao": [
+    "métricas de usuários ativos mensais em planos com anúncios",
+    "verificação/medição de audiência por parceiros não explicitamente públicos no Brasil nas fontes encontradas",
+    "brand lift não encontrado em fonte pública específica para o Brasil",
+    "Nielsen não encontrado em fonte pública específica para o Brasil",
+    "IAS não encontrado em fonte pública específica para o Brasil"
+   ],
+   "modelo_compra": "reserva e programático/leilão em inventário biddable; sem preços públicos encontrados",
+   "melhor_uso": "Bom para awareness e consideração em streaming premium, especialmente em entretenimento, família e esportes, com forte apelo para marcas que buscam contexto seguro e segmentação por audiência.",
+   "novidades": "Lançamento/expansão do plano Disney+ com anúncios no Brasil em 2025, com oferta também integrada a parcerias como Mercado Ads e colaboração programática com Amazon Ads anunciada em 2025.",
+   "fontes": [
+    "https://imprensa.disney.com.br/novidades/magia-comercial-as-campanhas-e-ativacoes-de-2024-inspiradas-em-historias-e-personagens-disney",
+    "https://mercadoeconsumo.com.br/02/07/2024/retail-media/mercado-ads-anuncia-alianca-com-disney-para-retail-media-com-70-da-sua-capacidade-vendida/",
+    "https://telaviva.com.br/17/12/2025/disney-e-amazon-ads-anunciam-colaboracao-programatica-no-brasil/",
+    "https://www.disneyplus.com/en-br",
+    "https://telaviva.com.br/15/01/2025/disney-afirma-ter-157-milhoes-de-usuarios-ativos-nos-planos-com-anuncios-de-suas-plataformas/"
+   ],
+   "ano": "2025"
+  }
+ },
+ "globoplay": {
+  "atual": {
+   "alcance": "+25M assinantes",
+   "viewability": 98,
+   "completion_rate": 94
+  },
+  "pesquisa": {
+   "perfil_audiencia": "A audiência publicitária do Globoplay é formada por usuários com dados de perfil ligados ao Globo ID, incluindo idade, gênero, interesses e até renda/poder de compra em ativações ao vivo. As fontes públicas indicam segmentação por faixa etária, gênero, interesses e região, mas não trazem um recorte público consolidado de classe social ou distribuição etária detalhada para 2024-2026.",
+   "formatos_anuncio": [
+    "DAI (Dynamic Ad Insertion) em streams ao vivo",
+    "Pause Ads",
+    "Binge Ads",
+    "Primeiríssima",
+    "Segundíssima",
+    "Branded Content",
+    "Comercial Amplificado",
+    "Welcome Ads na tela de login",
+    "Inserções em intervalos de conteúdos ao vivo"
+   ],
+   "segmentacao": [
+    "Região (estados e cidades)",
+    "Faixa etária",
+    "Gênero",
+    "Interesses",
+    "Comportamento de visualização",
+    "Tempo de visualização",
+    "Audiência e território",
+    "Dados de performance",
+    "Perfis Globo ID",
+    "Características como renda/poder de compra em ativações ao vivo"
+   ],
+   "medicao": [
+    "Métricas de campanha no ecossistema Globo Ads",
+    "Impressões",
+    "Alcance",
+    "CTR",
+    "Taxa de conclusão de vídeo (VTR)",
+    "Indicadores de campanha em tempo real",
+    "Dados de performance segmentada"
+   ],
+   "modelo_compra": "Reserva e compra programática/segmentada no ecossistema Globo Ads; há também distribuição por formatos patrocinados e ativações de branded content, sem preço público consolidado nas fontes encontradas.",
+   "melhor_uso": "Bom para alcance premium com segmentação por dados próprios da Globo, especialmente em campanhas com vídeo, cobertura regional e ativações em conteúdo ao vivo.",
+   "novidades": "Em 2026, o Globoplay lançou o Welcome Ads na tela de login e ampliou a oferta de personalização com o Globo DAI para anúncios diferentes no mesmo conteúdo ao vivo.",
+   "fontes": [
+    "https://globoads.globo.com/para-o-seu-negocio/anunciar-no-globoplay",
+    "https://globoads.globo.com/para-o-seu-negocio/anunciar-no-globoplay/intervalo-globoplay",
+    "https://globoads.globo.com/upfront/2026/globoplay",
+    "https://ajuda.globoads.globo.com/s/article/Perguntas-frequentes-sobre-an%C3%BAncios-digitais",
+    "https://g1.globo.com/rj/regiao-dos-lagos/noticia/2026/10/01/anunciantes-conhecem-globo-dai-tecnologia-que-personaliza-publicidade-no-globoplay.ghtml",
+    "https://propmark.com.br/midia/globoplay-estreia-welcome-ads-com-magalu-na-tela-de-login/"
+   ],
+   "ano": "2026"
+  }
+ },
+ "hbo-max": {
+  "atual": {
+   "alcance": "+10M assinantes BR",
+   "viewability": 98,
+   "completion_rate": 95
+  },
+  "pesquisa": {
+   "perfil_audiencia": "Público amplo e premium, com plano com anúncios voltado a consumidores que aceitam publicidade em troca de preço mais acessível; fontes públicas citam oferta para múltiplos gêneros e conteúdos, sem detalhar idade/renda/gênero da audiência do Brasil de forma oficial.[6][10]",
+   "formatos_anuncio": [
+    "Video Ads 15s/30s (pre-roll e mid-roll)",
+    "Três formatos pre-roll em sequência com exclusividade",
+    "Anúncios em conteúdo ao vivo com Dynamic Ad Insertion (DAI)",
+    "Patrocínio de programas e filmes",
+    "Inventário em conteúdos específicos e por marca/franquia"
+   ],
+   "segmentacao": [
+    "Idade (18-65+)",
+    "Gênero",
+    "Idioma",
+    "País/Estado/Região/Cidade",
+    "Contexto/conteúdo por gênero, título, marca e tipo de conteúdo",
+    "Comportamental (heavy viewers, binge watchers, novo assinante, recorrente, plano com anúncios)",
+    "Dispositivo/plataforma (Smart TV, mobile, desktop/web, tablet, console, Apple TV, Chromecast)",
+    "Temporal/dayparting e horário nobre",
+    "Frequência limitada por marca",
+    "Segurança de marca"
+   ],
+   "medicao": [
+    "Brand lift",
+    "Limite de frequência",
+    "Segurança de marca",
+    "Medição integrada de desempenho publicitário não detalhada publicamente",
+    "Nielsen/IAS não encontrados em fonte pública recente específica do Brasil"
+   ],
+   "modelo_compra": "Reserva/compra direta com cotas e formatos dedicados; também disponibilidade em plataformas programáticas na região; sem preços públicos confirmados para o Brasil.",
+   "melhor_uso": "Boa opção para campanhas de alcance e brand safety em ambiente premium de streaming, especialmente em lançamentos, franquias fortes e eventos ao vivo.",
+   "novidades": "Em 2024, a Max chegou ao Brasil com o plano Básico com Anúncios; em 2025, houve expansão de oportunidades comerciais na América Latina/Brasil com DAI para eventos ao vivo e presença em DSPs programáticas.",
+   "fontes": [
+    "https://www.wbdforbrands.com.br/landing/oportunidades-hbo-max/",
+    "https://www.adnews.com.br/max-chega-ao-brasil-com-novas-oportunidades-comerciais",
+    "https://www.thedailytelevision.com/articulo/publicidad/max-abre-nuevas-oportunidades-comerciales-para-anunciantes-en-latam"
+   ],
+   "ano": "2025"
+  }
+ },
+ "netflix": {
+  "atual": {
+   "alcance": "+20M assinantes BR",
+   "viewability": 99,
+   "completion_rate": 97
+  },
+  "pesquisa": {
+   "perfil_audiencia": "No Brasil, o plano com anúncios da Netflix atingia 29,2 milhões de pessoas ativas por mês em 2023, com evolução recente da base de assinantes com ads; as fontes públicas encontradas não detalham, de forma completa e atualizada, recortes de idade, classe e gênero para 2024-2026.[1][13]",
+   "formatos_anuncio": [
+    "Anúncios em vídeo no plano com anúncios da Netflix.[1]",
+    "Formatos comerciais especiais como binge ad (anunciado para expansão global a partir de 2024).[7]",
+    "Pacotes comerciais temáticos/narrativos apresentados ao mercado publicitário no Brasil.[13]"
+   ],
+   "segmentacao": [
+    "Públicos avançados por dados demográficos, incluindo educação, estado civil e renda familiar.[11]",
+    "Integração de públicos via LiveRamp no Brasil.[1][11]",
+    "Públicos de mercado para alcançar assinantes em busca de produtos específicos.[1]",
+    "Combinação de dados proprietários com parceiros como Mercado Ads/Mercado Livre para ativação em segmentos específicos.[8]"
+   ],
+   "medicao": [
+    "Validação de audiência de campanhas com Kantar Ibope Media/Kantar Ibope CAV no Brasil.[10][14]",
+    "Parcerias de atenção publicitária com Amplified Intelligence e Alter Agents no Brasil.[1]",
+    "Métricas de atenção: atenção ativa, atenção passiva, porcentagem de atenção ativa sobre a duração do anúncio e tempo sem atenção.[6]",
+    "Métricas cross-media de alcance e frequência entre plataformas.[14]",
+    "Brand lift/recall e relatórios de percepção foram citados em materiais públicos de mercado, mas não há confirmação oficial pública completa para todos os casos.[3]"
+   ],
+   "modelo_compra": "Leilão/programática via Netflix Ads Suite, com alguns formatos e pacotes comerciais tratados como reserva/curadoria comercial; não há preço público nas fontes encontradas.[1][9][13]",
+   "melhor_uso": "Melhor para awareness e consideração com alta atenção em streaming premium, especialmente para campanhas que querem combinar segmentação avançada e mensuração cross-media.[1][6][14]",
+   "novidades": "Em 2025 a Netflix lançou a Netflix Ads Suite no Brasil; em 2026 passou a medir atenção em vídeo no país e ampliou integrações/parcerias de dados e mensuração.[6][9][13]",
+   "fontes": [
+    "https://about.netflix.com/pt_br/news/netflix-third-season-of-ads-and-a-look-ahead-at-whats-next-brazil",
+    "https://about.netflix.com/pt_br/news/netflix-and-embratur-announce-cooperation-agreement",
+    "https://about.netflix.com/pt_br/news/one-year-into-netflix-ads",
+    "https://telaviva.com.br/12/11/2024/netflix-lancara-tecnologia-de-publicidade-interna-em-2025",
+    "https://telaviva.com.br/21/05/2026/netflix-ads-cria-mecanismo-para-medir-a-atencao-de-video-no-brasil/",
+    "https://www.meioemensagem.com.br/midia/netflix-55-dos-novos-usuarios-assinam-plano-com-anuncios",
+    "https://www.meioemensagem.com.br/cannes/netflix-quer-colocar-as-marcas-no-centro-das-atencoes"
+   ],
+   "ano": "2026"
+  }
+ },
+ "paramount-plus": {
+  "atual": {
+   "alcance": "+8M assinantes BR",
+   "viewability": 97,
+   "completion_rate": 93
+  },
+  "pesquisa": {
+   "perfil_audiencia": "Público amplo de streaming premium no Brasil; fontes públicas recentes indicam oferta com foco em adultos de 18+ e segmentação por idade, gênero e renda, mas não há dado público consolidado específico de composição por classe/gênero para o inventário Brasil. Há evidência pública de alcance em fãs de esportes, entretenimento, famílias e público jovem, porém sem números oficiais divulgados abertamente.",
+   "formatos_anuncio": [
+    "Video Ads (pré-roll)",
+    "Pause Ads",
+    "Branded Content",
+    "Patrocínios",
+    "Inserções publicitárias em conteúdo ao vivo"
+   ],
+   "segmentacao": [
+    "idade",
+    "gênero",
+    "renda domiciliar",
+    "interesses",
+    "comportamentos",
+    "geografia (país/estado/cidade)",
+    "contexto de conteúdo/programa",
+    "dayparting",
+    "eventos esportivos ao vivo",
+    "audiências in-market",
+    "retargeting",
+    "segmentos por dispositivo (Smart TV, mobile, desktop, tablet, console)"
+   ],
+   "medicao": [
+    "a plataforma pública de ads cita otimização orientada por dados e atribuição always-on",
+    "a Paramount divulga uso de métricas e medições de performance em seus produtos de publicidade, mas não há confirmação pública recente e específica de parceria oficial com Nielsen no Brasil nas fontes encontradas",
+    "não há fonte pública recente verificada sobre brand lift no Brasil nas fontes encontradas"
+   ],
+   "modelo_compra": "Reserva e formatos programáticos/self-serve; a oferta pública descreve CTV/streaming com compra orientada a campanha, sem preços públicos.",
+   "melhor_uso": "Mais indicado para awareness e consideração de marca em ambiente premium de streaming, com reforço em esportes e entretenimento.",
+   "novidades": "Em 2024 a Paramount comunicou a chegada de uma versão com anúncios em mercados internacionais, incluindo o Brasil; em 2026 a oferta brasileira passou a estar associada ao plano Básico com anúncios e a termos de uso que confirmam publicidade em conteúdos e live.",
+   "fontes": [
+    "https://www.centralcomm.media/canal/paramount-plus",
+    "https://paramountforbusiness.com.br/",
+    "https://legal.paramount.com/br/pt/pplus/termsofuse",
+    "https://www.meioemensagem.com.br/midia/stremings-publicidade",
+    "https://www.paramount.com/about/businesses/advertising",
+    "https://adsmanager.paramount.com/",
+    "https://internet.tim.com.br/paramount"
+   ],
+   "ano": "2026"
+  }
+ },
+ "podcast-ads": {
+  "atual": {
+   "alcance": "+40M ouvintes BR",
+   "viewability": 95,
+   "completion_rate": 92
+  },
+  "pesquisa": {
+   "perfil_audiencia": "No Brasil, a segmentação pública da Spotify Ads para podcasts indica alcance por idade, gênero e localização; o material em português também menciona entrega em desktop, mobile, web player, TV, carro e smart speaker, sugerindo uso amplo e digital-first[4][8][12]. Não há dado público recente e específico por classe social para podcast ads no Brasil nas fontes consultadas; use null para essa parte.",
+   "formatos_anuncio": [
+    "host-read",
+    "inserção dinâmica",
+    "preroll",
+    "midroll",
+    "postroll",
+    "áudio gravado por locutor profissional",
+    "patrocínio de série/quadro",
+    "episódio de marca"
+   ],
+   "segmentacao": [
+    "idade",
+    "gênero",
+    "localização",
+    "dispositivo",
+    "conta free ou premium",
+    "contexto/posição de inserção (preroll, midroll, postroll)"
+   ],
+   "medicao": [
+    "impressões",
+    "impressões transmitidas",
+    "impressões baixadas",
+    "alcance",
+    "frequência",
+    "cliques",
+    "completion rate",
+    "Spotify Ad Analytics",
+    "Spotify Brand Lift",
+    "Spotify Pixel"
+   ],
+   "modelo_compra": "leilão e compra direta/reserva; a documentação pública consultada não trouxe preço",
+   "melhor_uso": "Boa opção para awareness e consideração com segmentação básica e mensuração de alcance, frequência e conclusão em ambientes de áudio premium.",
+   "novidades": "Spotify Ad Analytics está disponível no Brasil e a Spotify adicionou Brand Lift e Pixel ao Ads Manager em 2025; em podcast, a empresa também destaca anúncios em múltiplos formatos e inserção dinâmica com mensuração avançada[1][10][12].",
+   "fontes": [
+    "https://help.adanalytics.spotify.com/about-ad-analytics",
+    "https://ads.spotify.com/pt-BR/experiencias-publicitarias/podcast-ads-specs/",
+    "https://ads.spotify.com/pt-BR/noticias-insights/guia-para-comecar-seus-anuncios-em-podcasts/",
+    "https://newsroom.spotify.com/2025-04-02/the-three-key-takeaways-for-advertisers-from-our-spotify-advance-event/"
+   ],
+   "ano": "2025"
+  }
+ },
+ "prime-video": {
+  "atual": {
+   "alcance": "+12M assinantes BR",
+   "viewability": 97,
+   "completion_rate": 94
+  },
+  "pesquisa": {
+   "perfil_audiencia": "Prime Video no Brasil passou a ter anúncios limitados a partir de 2025, com opção sem anúncios para quem desejar; o serviço se posiciona como alcance amplo em streaming premium, com foco em membros Prime e audiência de entretenimento/esportes ao vivo.[14][1] Em materiais públicos recentes, a Amazon não divulga recorte aberto de idade, classe ou gênero específico para Prime Video Ads no Brasil; use null para esse detalhamento público.[14][2]",
+   "formatos_anuncio": [
+    "vídeo em streaming com pre-roll e mid-roll em conteúdo do Prime Video[2]",
+    "anúncios de vídeo interativos (IVA) no Prime Video e em esportes ao vivo[5]",
+    "First Impression Takeover (FITO) no Prime Video[5]",
+    "Pause Ads no Prime Video[5]"
+   ],
+   "segmentacao": [
+    "sinais first-party de compras e streaming da Amazon[9]",
+    "segmentação por público-alvo interno com dados em tempo real de compras e streaming[9]",
+    "segmentação geográfica por CEP no Brasil, anunciada em 2026[7]"
+   ],
+   "medicao": [
+    "soluções de medição first-party e third-party da Amazon Ads[4]",
+    "insights de audiência da própria Amazon Ads[4]",
+    "brand lift não foi confirmado nas fontes públicas encontradas; usar null se necessário"
+   ],
+   "modelo_compra": "gestão de campanha via managed-service e self-service na Amazon Ads[2]",
+   "melhor_uso": "Indicado para awareness e consideração em ambiente de streaming premium, especialmente em campanhas que queiram combinar vídeo, entretenimento e sinais first-party da Amazon.[2][9]",
+   "novidades": "A expansão para o Brasil foi anunciada em 2024 para início em 2025, com anúncios limitados no Prime Video; em 2026 a Amazon lançou formatos interativos novos no Brasil e ampliou a segmentação por CEP.[1][14][5][7]",
+   "fontes": [
+    "https://advertising.amazon.com/products/prime-video-ads",
+    "https://advertising.amazon.com/library/news/unboxed-prime-video-advertising",
+    "https://www.aboutamazon.com.br/noticias/entretenimento/uma-atualizacao-sobre-o-prime-video",
+    "https://www.aboutamazon.com.br/noticias/entretenimento/agora-voce-pode-interagir-com-marcas-enquanto-assiste-streaming-sem-perder-nenhuma-cena",
+    "https://ppc.land/prime-video-pledges-2-billion-for-latin-america-content-by-2030/"
+   ],
+   "ano": "2026"
+  }
+ },
+ "samsung-tv-plus": {
+  "atual": {
+   "alcance": "+20M Smart TVs BR",
+   "viewability": 97,
+   "completion_rate": 95
+  },
+  "pesquisa": {
+   "perfil_audiencia": "Públicos mencionados publicamente pela Samsung incluem famílias da geração millennial e espectadores influentes; a própria Samsung Ads também cita audiência premium com 68% classe A/B em materiais comerciais do Brasil. Não há, nas fontes públicas encontradas, recorte confiável e recente por gênero ou faixa etária detalhada para o Brasil.",
+   "formatos_anuncio": [
+    "Video Ads (pre-roll e mid-roll)",
+    "Home Screen Ads",
+    "First Screen Takeover",
+    "Masthead",
+    "Native Ads"
+   ],
+   "segmentacao": [
+    "ACR/Automatic Content Recognition baseado no consumo assistido",
+    "segmentação por conteúdo assistido (ex.: esportes, jogos)",
+    "segmentação por localização/região",
+    "segmentação por hardware/modelo/tamanho de tela/resolução",
+    "remarketing/retargeting",
+    "lookalike audiences",
+    "CRM match via Samsung Ads DSP",
+    "segmentos cross-device (TV + mobile + tablet Samsung)",
+    "janelas de horário/prime time e dia da semana"
+   ],
+   "medicao": [
+    "Samsung Ads ACR",
+    "mensuração cross-device",
+    "alcance e frequência",
+    "métricas de completion de vídeo publicadas por parceiros comerciais",
+    "integrável/comprável via DV360",
+    "integrável/comprável via The Trade Desk"
+   ],
+   "modelo_compra": "leilão/programmatic e reserva; compra via Samsung Ads DSP, DV360 e The Trade Desk, sem preços públicos nas fontes encontradas",
+   "melhor_uso": "Boa opção para branding, alcance incremental e segmentação em CTV/streaming com ambiente premium e inventário de TV conectada.",
+   "novidades": "Há movimento recente de ampliação de inventário e formatos no Brasil, com destaque para First Screen Takeover e Masthead, além de expansão de canais e conteúdo no Samsung TV Plus em 2026.",
+   "fontes": [
+    "https://news.samsung.com/br/samsung-ads-chega-ao-brasil-como-nova-opcao-de-midia-nas-tvs-samsung",
+    "https://news.samsung.com/br/samsung-tv-plus-inicia-2026-com-mais-de-100-milhoes-de-usuarios-ativos-mensais",
+    "https://www.centralcomm.media/canal/samsung-tv-plus"
+   ],
+   "ano": "2026"
+  }
+ },
+ "spotify": {
+  "atual": {
+   "alcance": "+50M ouvintes",
+   "viewability": 98,
+   "completion_rate": 95
+  },
+  "pesquisa": {
+   "perfil_audiencia": "Spotify é uma plataforma massiva de streaming no Brasil, com alcance em usuários de música e podcasts, especialmente em audiências mobile e em momentos de atenção ativa. As fontes públicas encontradas não trazem recorte demográfico detalhado recente por idade, classe e gênero para o Brasil; portanto, isso fica null.",
+   "formatos_anuncio": [
+    "Audio Ads",
+    "Podcast ads",
+    "Video Takeover",
+    "Sponsored Sessions",
+    "Display",
+    "Sponsored Playlists",
+    "Homepage Takeover",
+    "Overlay",
+    "Leaderboard",
+    "Audio Everywhere",
+    "The Stage"
+   ],
+   "segmentacao": [
+    "categoria/objetivo da campanha",
+    "segmentação por formato e posicionamento",
+    "programação/veiculação",
+    "estratégia de lances",
+    "segmentação disponível no nível de conjunto de anúncios",
+    "podcast only",
+    "music only",
+    "music & podcasts"
+   ],
+   "medicao": [
+    "relatórios de alcance",
+    "métricas de lembrança de marca",
+    "métricas de lembrança do anúncio",
+    "intenção de compra",
+    "medição de escala do público alcançado",
+    "Spotify Ad Studio relatórios",
+    "parceiros externos públicos não identificados nas fontes encontradas"
+   ],
+   "modelo_compra": "Leilão e compra por campanha/conjunto de anúncios via plataforma; também há formatos e posicionamentos reserváveis/direct em mercados selecionados, sem preços públicos nas fontes encontradas.",
+   "melhor_uso": "Melhor para alcance em áudio com alta atenção, reforço de marca e ativações combinando áudio, vídeo e display.",
+   "novidades": "Em 2025-2026, o Spotify destacou novas experiências e formatos como The Stage, Audio Everywhere e a expansão/criação de formatos mais visuais e imersivos no Brasil.",
+   "fontes": [
+    "https://ads.spotify.com/pt-BR/ad-formats/",
+    "https://ads.spotify.com/pt-BR/experiencias-publicitarias/",
+    "https://ads.spotify.com/pt-BR/ad-measurement/",
+    "https://adshelp.spotify.com/HelpCenter/s/article/Campanhas-anuncios-e-grupos-de-anuncios-BR?language=pt_BR",
+    "https://ads.spotify.com/pt-BR/ad-formats/audio-ads/",
+    "https://ads.spotify.com/pt-BR/ad-specs/audio-ad-specs/",
+    "https://ads.spotify.com/pt-BR/noticias-insights/spotify-musica-ao-vivo-brasil/",
+    "https://ads.spotify.com/pt-BR/noticias-insights/ad-studio-e-lancado-no-brasil/",
+    "https://ads.spotify.com/pt-BR/inspiracao/spotify-hits-2025/"
+   ],
+   "ano": "2026"
+  }
+ }
+}

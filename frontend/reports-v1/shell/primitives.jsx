@@ -102,6 +102,9 @@ export function Async({state, onRetry, empty, isEmpty, rows, children}) {
   if (state.error) return <ErrorState message={state.error} onRetry={onRetry}/>;
   if (state.loading && !state.body) return <LoadingState rows={rows}/>;
   if (!state.body) return null;
-  if (isEmpty?.(state.body)) return empty || null;
+  // Uma resposta sem a lista esperada (API antiga, campo opcional) conta como vazia, em vez de derrubar a tela.
+  let blank;
+  try {blank = isEmpty?.(state.body);} catch {blank = true;}
+  if (blank) return empty || null;
   return children(state.body);
 }

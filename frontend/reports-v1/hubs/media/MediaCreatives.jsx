@@ -106,7 +106,7 @@ export function MediaCreatives({data}) {
       retrySessions();
     } catch (failure) {tab?.close(); setError(failure.message);} finally {setSending(false);}
   };
-  const brand = body?.brands.find(item => item.ref === brandRef);
+  const brand = body?.brands?.find(item => item.ref === brandRef);
   const signals = body?.signals;
   const studio = !campaigns.length
     ? <EmptyState title="Nenhuma campanha cadastrada" description="Os briefings de criativo partem dos dados de uma campanha. Cadastre ou importe campanhas primeiro."

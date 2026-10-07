@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect, useRef} from 'react';
 import {ChevronRight} from '@untitledui/icons';
 import {platformName} from './media.jsx';
 import {ReportsNativeSelect} from '../ReportsNativeSelect.jsx';
@@ -37,7 +37,14 @@ export function ContextSelector({showPeriod, accounts, campaigns, sites, siteReq
 
 /** Second navigation level: real links, so tabs can be opened in a new tab and survive reloads. */
 export function SectionTabs({tabs, active}) {
-  return <nav className="rs-tabs" aria-label="Seções">
+  // Em tela estreita a aba ativa pode estar fora da área visível: a barra rola até ela (só na horizontal).
+  const ref = useRef(null);
+  useEffect(() => {
+    const list = ref.current, current = list?.querySelector('.is-active');
+    if (!list || !current || list.scrollWidth <= list.clientWidth) return;
+    list.scrollLeft = Math.max(0, current.offsetLeft - list.offsetLeft - (list.clientWidth - current.offsetWidth) / 2);
+  }, [active]);
+  return <nav ref={ref} className="rs-tabs" aria-label="Seções">
     {tabs.map(([path, label]) => {
       const href = `${APP_BASE}/${path}`;
       return <a key={path} href={href} className={active === path ? 'is-active' : ''} aria-current={active === path ? 'page' : undefined}

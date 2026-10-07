@@ -99,6 +99,18 @@ export function Gallery({photos, name}) {
 export function DetailLayout({boot, selection, kind, record, icon = 'plan', eyebrow, metrics = [], sections = [], media = null, aside = null, extraMeta = null, highlights = [], sourceNote = null}) {
   const id = record.id || record.slug;
   const visible = sections.filter(section => section && !section.hidden);
+  const photos = (media?.type === 'carousel' || media?.type === 'gallery' ? media.items : media?.src ? [media.src] : []).filter(Boolean);
+  const [bannerFailed, setBannerFailed] = useState(false);
+  const firstPhoto = photos[0] || '';
+  // A banner photo that does not load falls back to the plain dark banner (keyed on the URL, so it cannot loop).
+  useEffect(() => {
+    setBannerFailed(false);
+    if (!firstPhoto) return undefined;
+    const probe = new Image();
+    probe.onerror = () => setBannerFailed(true);
+    probe.src = firstPhoto;
+    return () => { probe.onerror = null; };
+  }, [firstPhoto]);
   const [current, setCurrent] = useState(visible[0]?.id);
   const refs = useRef({});
 
@@ -110,21 +122,11 @@ export function DetailLayout({boot, selection, kind, record, icon = 'plan', eyeb
     }, {rootMargin: '-96px 0px -60% 0px'});
     Object.values(refs.current).forEach(node => node && observer.observe(node));
     return () => observer.disconnect();
-  }, [visible.length, media]);
+  }, [visible.length]);
 
   const shownMetrics = metrics.filter(item => hasValue(item.value)).slice(0, 6);
   const shownHighlights = highlights.filter(([, text]) => hasValue(text));
-  const photos = (media?.type === 'carousel' || media?.type === 'gallery' ? media.items : media?.src ? [media.src] : []).filter(Boolean);
-  const [bannerFailed, setBannerFailed] = useState(false);
-  const bannerImage = !bannerFailed ? photos[0] : null;
-  useEffect(() => {
-    setBannerFailed(false);
-    if (!photos[0]) return undefined;
-    const probe = new Image();
-    probe.onerror = () => setBannerFailed(true);
-    probe.src = photos[0];
-    return () => { probe.onerror = null; };
-  }, [photos[0]]);
+  const bannerImage = bannerFailed ? null : photos[0];
   // Extra photos are a section of their own; the first one is the banner.
   const more = photos.slice(1).map(url => ({url}));
   const all = more.length ? [...visible, {id: 'fotos', label: 'Fotos', count: more.length, wide: true, render: () => <Gallery photos={more} name={record.name}/>}] : visible;

@@ -142,7 +142,7 @@ export function PlanDetail({boot, request, plan, setPlan, selection, notify}) {
             <ul className="planner-items">{list.map(item => <li key={`${item.kind}:${item.resource_id}`}>
               <LogoTile src={item.logo} name={item.snapshot?.name} size="sm"/>
               <span><a href={`${moduleUrl(boot.urls, item.kind)}/${encodeURIComponent(item.resource_id)}`}><strong>{item.snapshot?.name || item.resource_id}</strong></a>
-                <small>{[item.snapshot?.category, item.snapshot?.audience].filter(Boolean).join(' · ')}</small></span>
+                <small>{[item.snapshot?.category, item.snapshot?.audience].filter(value => value && String(value).length <= 40).join(' · ')}</small></span>
               <CaduButton variant="tertiary" size="sm" onClick={() => toggle(item.kind, item.resource_id)}>Remover</CaduButton>
             </li>)}</ul>
           </div>) : <p className="planner-muted">Ainda não há referências neste plano. Explore as vitrines; o que você adicionar entra direto aqui.</p>}

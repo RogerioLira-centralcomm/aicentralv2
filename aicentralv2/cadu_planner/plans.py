@@ -205,7 +205,37 @@ def public_plan(token):
                                                 FROM cadu_planner_channel_allocations WHERE plan_id = %s
                                              ORDER BY resource_id''', (str(plan['id']),)) if _allocations_available() else []
     plan['allocation_by_channel'] = {str(row['resource_id']): row for row in plan['allocations']}
+    plan['story'] = _public_story(plan['id'])
+    plan['pending'] = _public_pending(plan['id'])
     return plan
+
+
+def _public_story(plan_id):
+    """'Por que agora' of a plan born in the Radar: the angle and the dated news behind it (public links only)."""
+    try:
+        rows = repository.rows('''SELECT o.title, o.score_breakdown FROM cadu_planner_plans p
+                                    JOIN cadu_radar_opportunities o ON o.id = p.opportunity_id
+                                   WHERE p.id = %s''', (str(plan_id),))
+    except Exception:  # noqa: BLE001 — no Radar tables or no link: the plan stands on its own
+        return None
+    if not rows:
+        return None
+    breakdown = rows[0].get('score_breakdown') or {}
+    buzz = [{'title': item.get('assunto'), 'source': item.get('veiculo'), 'date': item.get('data'), 'url': item.get('url')}
+            for item in breakdown.get('buzz') or [] if item.get('assunto') and str(item.get('url') or '').startswith('http')]
+    return {'angle': rows[0]['title'], 'why_now': breakdown.get('why_now') or '', 'window': breakdown.get('window') or '',
+            'buzz': buzz[:5]}
+
+
+def _public_pending(plan_id):
+    """Open questions left by the latest briefing review ('A confirmar: …' lines)."""
+    try:
+        rows = repository.rows('''SELECT review_note FROM cadu_planner_review_runs
+                                   WHERE plan_id = %s AND scope = 'briefing' ORDER BY created_at DESC LIMIT 1''', (str(plan_id),))
+    except Exception:  # noqa: BLE001
+        return []
+    note = (rows[0].get('review_note') if rows else '') or ''
+    return [line.split(':', 1)[1].strip() for line in note.splitlines() if line.startswith('A confirmar:')][:6]
 
 
 def readiness(plan):

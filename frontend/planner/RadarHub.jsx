@@ -133,7 +133,7 @@ export function RadarHub({boot, request, notify}) {
         </div>
         {tab !== 'radares' && <>
           <label className="rh-search"><Icon name="search" size={16}/><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar insights, temas ou fontes…" aria-label="Buscar nos resultados"/></label>
-          <label className="rh-select"><select value={theme} onChange={event => setTheme(event.target.value)} aria-label="Tema">
+          <label className="rh-select"><select value={theme} onChange={event => { setTheme(event.target.value); setSources([]); }} aria-label="Tema">
             <option value="todos">Todos os temas</option>{themes.map(entry => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select></label>
           <label className="rh-select"><select value={period} onChange={event => setPeriod(Number(event.target.value))} aria-label="Período">
             {PERIODS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
@@ -153,8 +153,8 @@ export function RadarHub({boot, request, notify}) {
           <aside className="rh-side" aria-label="Filtros">
             <h2>Temas</h2>
             <ul>
-              <li><button type="button" className={theme === 'todos' ? 'is-active' : ''} onClick={() => setTheme('todos')}><span>Todos os temas</span><b>{searched.length}</b></button></li>
-              {themes.map(entry => <li key={entry.id}><button type="button" className={theme === entry.id ? 'is-active' : ''} onClick={() => setTheme(entry.id)}><span>{entry.label}</span><b>{entry.count}</b></button></li>)}
+              <li><button type="button" className={theme === 'todos' ? 'is-active' : ''} onClick={() => { setTheme('todos'); setSources([]); }}><span>Todos os temas</span><b>{searched.length}</b></button></li>
+              {themes.map(entry => <li key={entry.id}><button type="button" className={theme === entry.id ? 'is-active' : ''} onClick={() => { setTheme(entry.id); setSources([]); }}><span>{entry.label}</span><b>{entry.count}</b></button></li>)}
             </ul>
             {sourceList.length > 0 && <>
               <h2>Fontes</h2>

@@ -73,3 +73,6 @@
 .rh-empty img { width: 100%; aspect-ratio: 2000 / 731; border-radius: 16px; object-fit: cover; }
 .rh-empty strong { font-size: 20px; font-weight: 650; }
 .rh-empty p { margin: 4px 0 14px; max-width: 560px; }
+
+/* The full-bleed hero uses 50vw margins, which include the scrollbar width: clip so the page never scrolls sideways. */
+.planner-shell:has(.rh) { overflow-x: clip; }

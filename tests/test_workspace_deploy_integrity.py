@@ -30,5 +30,7 @@ class WorkspaceDeployIntegrityTest(TestCase):
         self.assertIn("git ls-files -ci --exclude-standard -- aicentralv2/static", deploy)
         self.assertLess(deploy.index("restore_generated_file \"$generated_file\""), deploy.index("git pull origin main"))
         tracked = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True).stdout.split()
+        # A lista nomeia arquivos ou pastas de saída de build; cada item precisa existir no Git (guarda contra erro de digitação).
         for asset in re.findall(r'^\s+"(aicentralv2/static/[^"]+)"$', deploy, re.M):
-            self.assertIn(asset, tracked, f"{asset} está na lista de restauração mas não é versionado")
+            self.assertTrue(any(path == asset or path.startswith(asset + "/") for path in tracked),
+                            f"{asset} está na lista de restauração mas não é versionado")

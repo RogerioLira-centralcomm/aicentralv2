@@ -102,14 +102,51 @@ def test_the_deploy_script_wires_the_new_behaviour_in_the_right_order():
     assert 'o servico nao para' in SCRIPT and 'requirements.txt sem alteracoes' in SCRIPT
     # every phase is timed, and the summary also prints when the deploy fails
     for label in ('git pull e artefatos gerados', 'dependencias Python', 'migracoes', 'build do frontend', 'parada do servico, nginx, importacao e workers', 'iniciar o servico',
-                  'validacao das APIs e health check'):
+                  'validacao das APIs', 'health check'):
         assert f'step_done "{label}' in SCRIPT, label
     failure = SCRIPT[SCRIPT.index('restore_service_on_error() {'):SCRIPT.index('trap restore_service_on_error ERR')]
     assert 'print_timings' in failure
-    assert SCRIPT.index('print_timings\n\necho ""\necho "========================================"\necho "  Deploy concluido') > SCRIPT.index('step_done "validacao das APIs')
+    assert SCRIPT.index('print_timings\n\necho ""\necho "========================================"\necho "  Deploy concluido') > SCRIPT.index('step_done "health check"')
 
 
 def test_requirements_pull_torch_for_cpu_on_fresh_installs_and_still_list_it():
     lines = [line for line in (ROOT / 'requirements.txt').read_text().splitlines() if line and not line.startswith('#')]
     assert lines[0] == '--extra-index-url https://download.pytorch.org/whl/cpu'
     assert any(line.startswith('torch') for line in lines) and any(line.startswith('sentence-transformers') for line in lines)
+
+
+VERIFY_CODE = section('VERIFY_TIMEOUT="${VERIFY_TIMEOUT:-180}"', 'step_done "validacao das APIs"')
+
+
+def run_verify(tmp_path, python_body, timeout_seconds, fake_timeout=None):
+    python = tmp_path / 'python'
+    python.write_text('#!/bin/bash\n' + python_body)
+    python.chmod(0o755)
+    (tmp_path / 'logs').mkdir(exist_ok=True)
+    bin_dir = tmp_path / 'bin'
+    bin_dir.mkdir(exist_ok=True)
+    if fake_timeout is not None:                                  # stands in for GNU timeout, which the Linux server has and macOS does not
+        shim = bin_dir / 'timeout'
+        shim.write_text(f'#!/bin/bash\necho "$1" > "{tmp_path}/timeout-arg"\n{fake_timeout}\n')
+        shim.chmod(0o755)
+    import os
+    return bash(f'''
+        set -e
+        DEPLOY_LOG="{tmp_path}/deploy.log"; VENV_PYTHON="{python}"; VERIFY_TIMEOUT={timeout_seconds}
+        {VERIFY_CODE}
+        echo CONCLUIDO
+    ''', tmp_path, PATH=f"{bin_dir}:{os.environ['PATH']}")
+
+
+def test_a_verification_that_hangs_is_cut_off_with_a_message_instead_of_blocking_the_deploy(tmp_path):
+    result = run_verify(tmp_path, 'sleep 30', 7, fake_timeout='exit 124')          # GNU timeout exits 124 when it cuts a command off
+    assert result.returncode == 124 and 'passou de 7s' in result.stdout and 'CONCLUIDO' not in result.stdout
+    assert (tmp_path / 'timeout-arg').read_text().strip() == '7'                    # the limit is what is passed to timeout
+
+
+def test_a_failing_verification_still_fails_the_deploy_and_a_passing_one_continues(tmp_path):
+    failed = run_verify(tmp_path, 'echo "Verificacao falhou"; exit 3', 5)
+    assert failed.returncode == 3 and 'CONCLUIDO' not in failed.stdout and 'passou de' not in failed.stdout
+    assert 'Verificacao falhou' in (tmp_path / 'deploy.log').read_text()
+    passed = run_verify(tmp_path, 'echo ok; exit 0', 5)
+    assert passed.returncode == 0 and 'CONCLUIDO' in passed.stdout

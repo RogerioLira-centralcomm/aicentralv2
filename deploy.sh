@@ -211,18 +211,27 @@ restore_generated_file() {
         git checkout -- "$generated_file"
 }
 
-# Gerados por build: os versionados que o .gitignore também cobre vêm do Git, então
-# um bundle novo ignorado não exige editar este script. Os versionados e não
-# ignorados (committed bundles) ficam nesta lista curta.
-VERSIONED_BUILD_OUTPUTS=(
-    "aicentralv2/static/cadu_planner/react/app.css"
-    "aicentralv2/static/cadu_planner/react/app.js"
-    "aicentralv2/static/cadu_studio/ui/navbar.css"
-    "aicentralv2/static/cadu_studio/ui/navbar.js"
+# Gerados por build. Os versionados que o .gitignore também cobre vêm do Git (um bundle novo ignorado não exige editar este
+# script). Os versionados e NÃO ignorados (compilados que o repositório guarda) ficam nestes caminhos: tudo que os builds do
+# deploy escrevem (outDir dos vite.*.config.mjs e saídas -o do Tailwind). Se o servidor compilou uma versão diferente da
+# que o commit novo traz, o pull aborta com "local changes would be overwritten"; por isso qualquer arquivo versionado e
+# alterado nestes caminhos é guardado em logs/deploy-backups e restaurado antes do pull. O build abaixo o recria.
+BUILD_OUTPUT_PATHS=(
+    "aicentralv2/static/cadu_auth"
+    "aicentralv2/static/cadu_connect/react"
+    "aicentralv2/static/cadu_planner/react"
+    "aicentralv2/static/cadu_workspace/conversations/react"
+    "aicentralv2/static/cadu_workspace/untitled"
+    "aicentralv2/static/cadu_studio/ui"
+    "aicentralv2/static/cadu_studio/lab/react"
+    "aicentralv2/static/cadu_studio/audio/react"
+    "aicentralv2/static/cadu_studio/editor/react"
+    "aicentralv2/static/css/tailwind"
+    "aicentralv2/static/css/video-studio.css"
 )
 while IFS= read -r generated_file; do
     restore_generated_file "$generated_file"
-done < <({ git ls-files -ci --exclude-standard -- aicentralv2/static; printf '%s\n' "${VERSIONED_BUILD_OUTPUTS[@]}"; } | sort -u)
+done < <({ git ls-files -ci --exclude-standard -- aicentralv2/static; git ls-files -m -- "${BUILD_OUTPUT_PATHS[@]}"; } | sort -u)
 git pull origin main >> "$DEPLOY_LOG" 2>&1
 # Renormalizar line endings apos pull
 git checkout -- . 2>/dev/null || true
@@ -448,7 +457,22 @@ fi
 
 step_done "iniciar o servico"
 echo "  > Validando APIs de formatos e visualizadores..."
-"$VENV_PYTHON" scripts/verify_creative_viewer_apis.py >> "$DEPLOY_LOG" 2>&1
+# Esta validação sobe a aplicação inteira e consulta o banco: sem limite, uma espera por trava deixaria o deploy preso
+# para sempre depois de o serviço já estar no ar. Com limite, o deploy falha com uma mensagem que aponta o passo.
+VERIFY_TIMEOUT="${VERIFY_TIMEOUT:-180}"
+VERIFY_COMMAND=("$VENV_PYTHON" scripts/verify_creative_viewer_apis.py)
+if command -v timeout >/dev/null 2>&1; then
+    VERIFY_COMMAND=(timeout "$VERIFY_TIMEOUT" "${VERIFY_COMMAND[@]}")
+fi
+VERIFY_STATUS=0
+"${VERIFY_COMMAND[@]}" >> "$DEPLOY_LOG" 2>&1 || VERIFY_STATUS=$?
+if [ "$VERIFY_STATUS" = "124" ]; then
+    echo "  > ERRO: a validacao das APIs passou de ${VERIFY_TIMEOUT}s e foi interrompida (consulta presa?). Detalhes: $DEPLOY_LOG"
+fi
+if [ "$VERIFY_STATUS" != "0" ]; then
+    exit "$VERIFY_STATUS"
+fi
+step_done "validacao das APIs"
 
 # 9. Health check
 echo ""
@@ -463,7 +487,7 @@ else
     echo "  > Retornou HTTP $HTTP_CODE"
 fi
 
-step_done "validacao das APIs e health check"
+step_done "health check"
 print_timings
 
 echo ""

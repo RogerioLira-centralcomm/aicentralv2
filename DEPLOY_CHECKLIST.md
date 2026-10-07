@@ -52,3 +52,5 @@ sudo systemctl restart aicentralv2
 - O `pip` não usa mais `--upgrade`: pacotes sem versão fixa (`torch`, `numpy`...) ficam como estão. Para atualizar de propósito: `PIP_UPGRADE=1 ./deploy.sh`.
 - `requirements.txt` aponta o índice de `torch` só para CPU: instalações novas baixam centenas de MB, não GB. Ambientes que já têm `torch` não mudam.
 - Para um trace detalhado de uma execução: `PS4='+ $(date +%T) ' bash -x ./deploy.sh 2> logs/deploy-trace.log` e procure os maiores intervalos.
+- `git pull` aborta com "local changes would be overwritten" em `...react/untitled.css` ou outro compilado? O servidor recompilou um arquivo versionado. O `deploy.sh` guarda uma cópia em `logs/deploy-backups` e restaura qualquer arquivo versionado alterado nas pastas de saída de build (`BUILD_OUTPUT_PATHS`) antes do pull. Se estiver fazendo o pull à mão: `git checkout -- <arquivo>` e depois `git pull origin main`.
+- A validação das APIs depois do início do serviço tem limite de 180 s (`VERIFY_TIMEOUT`); se estourar, o deploy falha dizendo qual passo travou, em vez de ficar preso.

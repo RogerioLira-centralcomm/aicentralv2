@@ -11,17 +11,25 @@ export function audienceFigure(item) {
   return /\d/.test(text) && text.length <= 14 ? text : '';
 }
 
+/** The numbers that help choose, each with its small standard icon; a missing one is left out, never invented. */
+function audienceStats(item, figure) {
+  return [
+    ['users', 'Público', figure],
+    ['wallet', 'Classe', item.perfil_socioeconomico],
+    ['cart', 'Compra', item.propensao_compra],
+  ].filter(([, , value]) => value);
+}
+
 /**
- * Audience as a shelf item: the size leads, the platform it is bought on is
- * the visual, and one clear action. No prices: media is quoted.
+ * Audience as a shelf item, same anatomy as the channel card: the photo leads, the add button appears on hover,
+ * the channel it is bought on is the logo mark. No chips inside chips: facts are icon + label + value. No prices.
  */
 export function AudienceCard({item, urls, selected, onToggle}) {
   const [imageFailed, setImageFailed] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
   const photo = item.image_url && !imageFailed;
   const logo = item.platform_logo && !logoFailed;
-  const figure = audienceFigure(item);
-  const traits = [item.perfil_socioeconomico && `Classe ${item.perfil_socioeconomico}`, item.propensao_compra && `Compra: ${item.propensao_compra}`].filter(Boolean);
+  const stats = audienceStats(item, audienceFigure(item));
   return <article className={`planner-card channel-card audience-card${selected ? ' is-selected' : ''}`}>
     <a className="planner-card__hit" href={catalogDetailUrl(urls, 'audiencias', item)} aria-label={`Ver audiência ${item.name}`}/>
     <span className={`channel-card__photo audience-card__art${photo ? '' : ' is-logo'}`}>
@@ -29,48 +37,15 @@ export function AudienceCard({item, urls, selected, onToggle}) {
         : logo ? <img className="channel-card__logo" src={item.platform_logo} alt="" loading="lazy" onError={() => setLogoFailed(true)}/>
           : <Icon name="users" size={32}/>}
       {item.category && <span className="channel-card__badge">{item.category}</span>}
-      {photo && logo && <span className="channel-card__mark"><img src={item.platform_logo} alt="" onError={() => setLogoFailed(true)}/></span>}
-    <span className="channel-card__cta"><SelectionButton size="md" selected={selected} onToggle={onToggle}/></span>
+      {photo && logo && <span className="channel-card__mark" title={item.platform}><img src={item.platform_logo} alt={item.platform || ''} onError={() => setLogoFailed(true)}/></span>}
+      <span className="channel-card__cta"><SelectionButton size="md" selected={selected} onToggle={onToggle}/></span>
     </span>
     <div className="channel-card__body">
       {item.platform && <span className="channel-card__role">{item.platform}</span>}
       <strong className="planner-card__title">{item.name}</strong>
       <span className="planner-card__text">{item.description || 'Público para apoiar as decisões do plano.'}</span>
-      {(figure || traits.length > 0) && <div className="audience-card__numbers">
-        {figure && <div className="audience-card__size"><strong>{figure}</strong><span>de pessoas</span></div>}
-        {traits.length > 0 && <ul>{traits.map(value => <li key={value}>{value}</li>)}</ul>}
-      </div>}
-    </div>
-  </article>;
-}
-
-/**
- * Audience as a marketplace row: a tall image column on the left, the story in the middle and the action on the right.
- * The photo leads; without one the platform logo (or a neutral icon) takes its place. No prices: media is quoted.
- */
-export function AudienceRow({item, urls, selected, onToggle}) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const [logoFailed, setLogoFailed] = useState(false);
-  const photo = item.image_url && !imageFailed;
-  const logo = item.platform_logo && !logoFailed;
-  const figure = audienceFigure(item);
-  const facts = [item.perfil_socioeconomico && `Classe ${item.perfil_socioeconomico}`, item.propensao_compra && `Compra: ${item.propensao_compra}`, item.platform].filter(Boolean);
-  return <article className={`aud-row${selected ? ' is-selected' : ''}`}>
-    <a className="planner-card__hit" href={catalogDetailUrl(urls, 'audiencias', item)} aria-label={`Ver audiência ${item.name}`}/>
-    <span className={`aud-row__image${photo ? '' : ' is-logo'}`}>
-      {photo ? <img src={item.image_url} alt="" loading="lazy" onError={() => setImageFailed(true)}/>
-        : logo ? <img className="aud-row__logo" src={item.platform_logo} alt="" loading="lazy" onError={() => setLogoFailed(true)}/>
-          : <Icon name="users" size={36}/>}
-    </span>
-    <div className="aud-row__body">
-      {item.category && <span className="aud-row__category">{item.category}</span>}
-      <strong className="aud-row__title">{item.name}</strong>
-      <span className="aud-row__text">{item.description || 'Público para apoiar as decisões do plano.'}</span>
-      {facts.length > 0 && <ul className="aud-row__facts">{facts.map(value => <li key={value}>{value}</li>)}</ul>}
-    </div>
-    <div className="aud-row__side">
-      {figure && <div className="aud-row__size"><strong>{figure}</strong><span>de pessoas</span></div>}
-      <SelectionButton size="md" selected={selected} onToggle={onToggle}/>
+      {stats.length > 0 && <dl className="channel-card__stats audience-card__stats">{stats.map(([icon, label, value]) => <div key={label}>
+        <Icon name={icon} size={16}/><span><dt>{label}</dt><dd>{value}</dd></span></div>)}</dl>}
     </div>
   </article>;
 }

@@ -40,6 +40,8 @@ export function Icon({name, size = 18, className = ''}) {
     share: <><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.7 10.7 6.6-4.4m-6.6 7 6.6 4.4"/></>,
     branch: <><path d="M6 3v12a6 6 0 0 0 6 6h2"/><path d="M6 9a6 6 0 0 0 6-6h2M14 3l4 3-4 3M14 17l4 4-4 3"/></>,
     check: <path d="m5 12 4 4L19 6"/>,
+    wallet: <><path d="M4 7a2 2 0 0 1 2-2h12v4"/><path d="M4 7v10a2 2 0 0 0 2 2h14V9H6a2 2 0 0 1-2-2Z"/><path d="M16 14h.01"/></>,
+    cart: <><path d="M3 4h2l2 11h11l2-8H6"/><circle cx="9" cy="19" r="1"/><circle cx="17" cy="19" r="1"/></>,
     alert: <><circle cx="12" cy="12" r="9"/><path d="M12 7.5v6M12 17h.01"/></>,
     chevron: <path d="m9 6 6 6-6 6"/>,
     undo: <><path d="M9 7 4 12l5 5"/><path d="M5 12h8a6 6 0 0 1 6 6"/></>,

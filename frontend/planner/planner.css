@@ -1189,17 +1189,9 @@ a.planner-card:focus-visible { outline: 2px solid var(--colors-brand-600, #07945
 .pd-formats .planner-selection-button, .pd-audiences .planner-selection-button { width: 100%; justify-content: center; border-color: var(--colors-brand-600, #079455); color: var(--colors-brand-700, #067647); }
 .pd-formats .planner-selection-button.is-selected, .pd-audiences .planner-selection-button.is-selected { background: var(--colors-brand-600, #079455); color: #fff; }
 /* Audience shelf */
-.audience-card__numbers { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; margin-top: 8px; padding: 10px 12px; border-radius: 10px; background: var(--planner-soft); }
-.audience-card__size { display: flex; flex-direction: column; margin: 0; line-height: 1.1; }
-.audience-card__size strong { font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
-.audience-card__size span { color: var(--planner-muted); font-size: 11px; }
-.audience-card__numbers ul { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; margin: 0; padding: 0; list-style: none; color: var(--planner-muted); font-size: 11px; }
 .planner-grid.is-loading { opacity: .55; transition: opacity 120ms ease; }
 .channel-card__stats > div { flex-direction: row; align-items: center; }
 .channel-card__stats > div > svg { flex: none; color: var(--colors-brand-600, #079455); }
-.audience-card__art.is-logo { aspect-ratio: auto; height: 76px; }
-.audience-card__art .channel-card__logo { max-width: 38%; max-height: 54%; }
-.audience-card .channel-card__badge { top: 8px; left: 8px; }
 @media (max-width: 700px) {
   .channel-bar { gap: 10px; margin: 12px -8px 0; padding: 10px 14px; border-radius: 12px 12px 0 0; }
   .channel-bar strong { font-size: 14px; white-space: nowrap; }

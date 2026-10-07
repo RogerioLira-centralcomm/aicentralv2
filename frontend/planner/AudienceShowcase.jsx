@@ -6,7 +6,7 @@ import {CaduSelectField} from '../cadu-design-system/components/CaduField.jsx';
 import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {itemKey, useDebounced} from './Catalog.jsx';
-import {AudienceRow} from './AudienceCard.jsx';
+import {AudienceCard} from './AudienceCard.jsx';
 import {ShelfEmpty, ShelfGrid} from './PlannerPromo.jsx';
 import {ShelfHeader} from './ShelfHeader.jsx';
 import {LogoTile} from './PlannerUi.jsx';
@@ -17,9 +17,23 @@ const SORTS = [['relevant', 'Mais relevantes'], ['size', 'Maior público'], ['na
 const URL_KEYS = {q: 'q', platform: 'canal', category: 'categoria', subcategory: 'subcategoria', sort: 'ordem'};
 const number = value => Number(value || 0).toLocaleString('pt-BR');
 
+const PREFS_KEY = 'planner.audiencias.prefs';
+const REMEMBERED = ['platform', 'category', 'sort'];
+
+function readPrefs() {
+  try { return JSON.parse(window.localStorage.getItem(PREFS_KEY) || '{}') || {}; } catch { return {}; }
+}
+
+/** The URL wins; with a bare URL the person's last channel, category and order come back. */
 function filtersFromUrl() {
   const params = new URLSearchParams(window.location.search);
-  return Object.fromEntries(Object.entries(URL_KEYS).map(([key, name]) => [key, params.get(name) || (key === 'sort' ? 'relevant' : '')]));
+  const bare = !Object.values(URL_KEYS).some(name => params.get(name));
+  const prefs = bare ? readPrefs() : {};
+  return Object.fromEntries(Object.entries(URL_KEYS).map(([key, name]) => [key, params.get(name) || (REMEMBERED.includes(key) && prefs[key]) || (key === 'sort' ? 'relevant' : '')]));
+}
+
+function savePrefs(filters) {
+  try { window.localStorage.setItem(PREFS_KEY, JSON.stringify(Object.fromEntries(REMEMBERED.map(key => [key, filters[key] || ''])))); } catch { /* not remembered */ }
 }
 
 function writeUrl(filters) {
@@ -52,13 +66,14 @@ export function FacetChips({label, items, value, total, onChange, inline = false
 export function AudienceShowcase({boot, request, selection, notify}) {
   const meta = boot.catalogMeta || {};
   const [filters, setFilters] = useState(filtersFromUrl);
+  const restored = useRef(REMEMBERED.some(key => filters[key] && !(key === 'sort' && filters[key] === 'relevant')) && !new URLSearchParams(window.location.search).toString());
   const [records, setRecords] = useState(Array.isArray(boot.records) ? boot.records : []);
   const [total, setTotal] = useState(Number(meta.total || 0));
   const [facets, setFacets] = useState(meta.facets || {platforms: [], categories: [], subcategories: []});
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const search = useDebounced(filters.q);
-  const first = useRef(Boolean(boot.catalogMeta));
+  const first = useRef(Boolean(boot.catalogMeta) && !restored.current);
   const query = {...filters, q: search};
 
   const params = (offset = 0) => new URLSearchParams({q: query.q, platform: query.platform, category: query.category,
@@ -66,6 +81,7 @@ export function AudienceShowcase({boot, request, selection, notify}) {
 
   useEffect(() => {
     writeUrl(query);
+    savePrefs(query);
     if (first.current) { first.current = false; return undefined; }
     const controller = new AbortController();
     let current = true;
@@ -96,7 +112,7 @@ export function AudienceShowcase({boot, request, selection, notify}) {
     }
   };
 
-  const set = (key, value) => setFilters(current => ({...current, [key]: value, ...(key === 'category' ? {subcategory: ''} : {})}));
+  const set = (key, value) => { restored.current = false; setFilters(current => ({...current, [key]: value, ...(key === 'category' ? {subcategory: ''} : {})})); };
   const active = [filters.platform, filters.category, filters.subcategory, filters.q].filter(Boolean).length;
   // "Todos" in each facet shows what the other filters allow.
   const platformTotal = facets.platforms.reduce((sum, item) => sum + item.count, 0);
@@ -109,6 +125,8 @@ export function AudienceShowcase({boot, request, selection, notify}) {
           <input type="search" aria-label="Buscar audiências" value={filters.q} placeholder="Público, interesse ou canal" onChange={event => set('q', event.target.value)}/></span></label>
       <div className="aud-bar__field"><PlannerSelect label="Canal de compra" value={filters.platform} onChange={value => set('platform', value)}
         options={[{value: '', label: `Todos (${number(platformTotal)})`}, ...facets.platforms.map(item => ({value: item.value, label: item.value, count: number(item.count), logo: item.logo}))]}/></div>
+      <div className="aud-bar__field"><PlannerSelect label="Categoria" value={filters.category} onChange={value => set('category', value)}
+        options={[{value: '', label: `Todas (${number(categoryTotal)})`}, ...facets.categories.map(item => ({value: item.value, label: item.value, count: number(item.count)}))]}/></div>
       {facets.subcategories.length > 0 && <div className="aud-bar__field"><PlannerSelect label="Subcategoria" value={filters.subcategory} onChange={value => set('subcategory', value)}
         options={[{value: '', label: 'Todas'}, ...facets.subcategories.map(item => ({value: item.value, label: item.value, count: number(item.count)}))]}/></div>}
       <div className="aud-bar__field"><PlannerSelect label="Ordenar" value={filters.sort} onChange={value => set('sort', value)}
@@ -116,23 +134,23 @@ export function AudienceShowcase({boot, request, selection, notify}) {
     </div>
   );
 
-  // Título e filtros na mesma linha; as categorias ficam logo abaixo.
+  const first_name = String(boot.user?.name || '').trim().split(/\s+/)[0];
+  const clear = () => { restored.current = false; setFilters({q: '', platform: '', category: '', subcategory: '', sort: 'relevant'}); };
+
+  // Título e filtros na mesma linha: busca, canal (com logos), categoria e ordem lado a lado.
   return <>
     <ShelfHeader title="Audiências" bar={bar}
       description={`${number(total)} ${total === 1 ? 'audiência' : 'audiências'}${active ? ' com estes filtros' : ''}`}/>
-    <section className="aud-filters aud-filters--aud" aria-label="Categorias de audiências">
-      <FacetChips inline label="Categoria" items={facets.categories} value={filters.category} total={categoryTotal} onChange={value => set('category', value)}/>
-      {active > 0 && <div className="aud-filters__summary">
-        <span aria-live="polite">{loading ? 'Atualizando…' : `${number(total)} ${total === 1 ? 'resultado' : 'resultados'}`}</span>
-        <CaduButton variant="tertiary" size="sm" onClick={() => setFilters({q: '', platform: '', category: '', subcategory: '', sort: filters.sort})}>Limpar filtros</CaduButton>
-      </div>}
-    </section>
+    {(active > 0 || restored.current) && <div className="aud-filters__summary aud-filters__summary--bar">
+      <span aria-live="polite">{loading ? 'Atualizando…' : restored.current && !filters.q ? `${first_name ? `${first_name}, mantivemos` : 'Mantivemos'} seus filtros da última visita` : `${number(total)} ${total === 1 ? 'resultado' : 'resultados'}`}</span>
+      <CaduButton variant="tertiary" size="sm" onClick={clear}>Limpar filtros</CaduButton>
+    </div>}
 
     {!records.length && !loading ? <ShelfEmpty title="Nenhuma audiência com estes filtros"
       description="Tire um filtro ou busque por outro termo." action={<CaduButton variant="secondary"
-        onClick={() => setFilters({q: '', platform: '', category: '', subcategory: '', sort: 'relevant'})}>Ver todas as audiências</CaduButton>}/>
-      : <ShelfGrid className={`aud-list${loading ? ' is-loading' : ''}`} aria-label="Audiências disponíveis" aria-busy={loading} urls={boot.urls} variants={['formatos', 'canais', 'planejar']}
-        items={records} render={item => <AudienceRow key={itemKey(item)} item={item} urls={boot.urls} selected={selection.isSelected('audiencias', itemKey(item))}
+        onClick={clear}>Ver todas as audiências</CaduButton>}/>
+      : <ShelfGrid className={`planner-grid planner-grid--channels${loading ? ' is-loading' : ''}`} aria-label="Audiências disponíveis" aria-busy={loading} urls={boot.urls} variants={['formatos', 'canais', 'planejar']}
+        items={records} render={item => <AudienceCard key={itemKey(item)} item={item} urls={boot.urls} selected={selection.isSelected('audiencias', itemKey(item))}
           onToggle={() => selection.toggle('audiencias', itemKey(item))}/>}/>}
 
     {records.length > 0 && <footer className="aud-more">

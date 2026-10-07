@@ -296,3 +296,81 @@ def test_evaluate_insights_syncs_each_rule_over_seven_days_of_one_site():
     for sql, params in seen:
         assert 'AND e.site_id=%(site)s::uuid' in sql and '{site}' not in sql and params['site'] == site['id'] and params['client'] == 7
         assert params['until'] - params['since'] == datetime.timedelta(days=7)
+
+
+# ------------------------------------------------------------------------------------------------ central v2
+
+def test_findings_carry_channel_kind_and_the_one_figure_the_table_shows():
+    down = page_down_findings([check(1, page('offline', http=500)), check(6, page('offline', http=500))])[0]
+    assert (down['channel'], down['kind'], down['impact']) == ('site', 'incident', {'value': 'erro 500', 'unit': 'text', 'label': 'página fora do ar'})
+    assert page_down_findings([check(1, page('offline')), check(6, page('offline'))])[0]['impact']['value'] == 'sem resposta'
+    assert collection_absent_findings('Site', 500, 7.2)[0]['impact'] == {'value': '7 h', 'unit': 'text', 'label': 'sem eventos'}
+    drop = conversion_drop_findings([{'path': '/a', 'current': {'sessions': 90, 'session_conversion_rate': 7.0}, 'previous': {'sessions': 90, 'session_conversion_rate': 10.0}}])[0]
+    assert drop['impact'] == {'value': -30.0, 'unit': 'percent', 'label': 'taxa de conversão'}
+    # insights are opportunities, so the "Oportunidades" tab can trigger automation without mixing with incidents
+    assert {key for key, rule in RULES.items() if rule['kind'] == 'opportunity'} == {'channel_entry_exit', 'device_conversion_low', 'campaign_weak_page'}
+    assert all(rule['channel'] in alerts.CHANNELS for rule in RULES.values())
+    assert channel_entry_findings([entry('google_ads', 40, 32), entry('direct', 30, 9)], LABELS)[0]['impact']['unit'] == 'percent'
+
+
+def test_page_down_never_sends_a_second_email_because_the_flow_monitor_already_does():
+    logged, send = run_notify(alert_row(rule='page_down'), {'REPORTS_ALERT_EMAILS': '1'})
+    assert logged == [('notification_skipped', {'reason': 'flow_monitor'})] and not send.called
+    assert run_notify(alert_row(rule='collection_absent'), {'REPORTS_ALERT_EMAILS': '1'})[0] == [('notified', {'recipients': 1})]
+
+
+def test_investigate_and_resolve_move_the_alert_and_resolve_is_rejected_once_closed(client):
+    assert post(client, 'investigate')[0].status_code == 200
+    assert post(client, 'investigate', status='acknowledged')[0].status_code == 200
+    assert post(client, 'investigate', status='investigating')[0].status_code == 409
+    assert post(client, 'investigate', status='silenced')[0].status_code == 409
+    response, updates = post(client, 'resolve', status='investigating')
+    assert response.status_code == 200 and any(verb == 'UPDATE' for verb, _ in updates)
+    assert post(client, 'resolve', status='resolved')[0].status_code == 409
+    assert post(client, 'resolve', role='viewer')[0].status_code == 403
+
+
+def bulk(client, body):
+    rows_ = {a: {'id': a, 'status': st, 'client_id': 7} for a, st in (('11111111-1111-1111-1111-111111111111', 'open'), ('22222222-2222-2222-2222-222222222222', 'resolved'))}
+
+    def rows(sql, params=()):
+        return [rows_[params[0]]] if sql.startswith('SELECT * FROM cadu_reports_alerts') and params[0] in rows_ else []
+    with mock.patch.object(alerts, '_rows', rows), mock.patch.object(alerts, 'get_db'), mock.patch.object(alerts, '_write_guard'), \
+         mock.patch.object(alerts, '_selection', return_value={'client_id': 7, 'role': 'admin', 'user_id': 42}):
+        return client.post('/connect/api/v2/reports/alerts/bulk', json=body)
+
+
+def test_bulk_applies_to_each_live_alert_and_counts_the_ones_it_skips(client):
+    ok, resolved, missing = '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', '33333333-3333-3333-3333-333333333333'
+    response = bulk(client, {'ids': [ok, resolved, missing, 'nao-uuid', ok], 'action': 'resolve'})
+    assert response.status_code == 200 and response.get_json()['done'] == 1 and response.get_json()['skipped'] == 3
+    assert bulk(client, {'ids': [], 'action': 'resolve'}).status_code == 400
+    assert bulk(client, {'ids': [ok], 'action': 'silence'}).status_code == 400          # only acknowledge, investigate and resolve run in bulk
+    assert bulk(client, {'ids': [ok] * 1 + [str(uuid.uuid4()) for _ in range(alerts.BULK_LIMIT)], 'action': 'resolve'}).status_code == 400
+    assert bulk(client, {'ids': [1], 'action': 'resolve'}).status_code == 400
+
+
+def test_listing_validates_filters_before_touching_the_database(client):
+    with mock.patch.object(alerts, '_selection', return_value={'client_id': 7, 'role': 'admin', 'user_id': 42}), \
+         mock.patch.object(alerts, '_customer_scope', return_value=None), mock.patch.object(alerts, '_rows') as rows:
+        for query in ('channel=tiktok', 'severity=critical', 'status=nope', 'kind=other', 'per_page=7', 'page=abc'):
+            assert client.get(f'/connect/api/v2/reports/alerts?{query}').status_code == 400, query
+        rows.assert_not_called()
+
+
+def test_csv_cells_cannot_run_as_spreadsheet_formulas():
+    assert alerts._cell('=HYPERLINK("x")') == "'=HYPERLINK(\"x\")" and alerts._cell('+1') == "'+1" and alerts._cell(None) == '' and alerts._cell('ok') == 'ok'
+
+
+def test_a_client_level_alert_without_a_site_is_keyed_by_client_and_rule():
+    seen = []
+
+    def rows(sql, params=()):
+        seen.append((sql, params))
+        return [{'id': ALERT_ID, 'client_id': 7, 'severity': 'high', 'title': 'T', 'summary': 'S', 'assigned_to': None, 'last_notified_at': None}] if sql.lstrip().startswith('INSERT') else []
+    finding = {'subject_key': 'c1', 'severity': 'high', 'title': 't', 'summary': 's', 'evidence': [], 'page_path': None, 'channel': 'google_ads', 'kind': 'incident'}
+    with mock.patch.object(alerts, '_rows', rows), mock.patch.object(alerts, 'notify_opened'):
+        alerts.sync_findings({'id': None, 'client_id': 7}, 'collection_absent', [finding], NOW)
+    select, insert = seen[0], next(item for item in seen if item[0].lstrip().startswith('INSERT'))
+    assert 'IS NOT DISTINCT FROM' in select[0] and select[1] == (7, None, 'collection_absent')
+    assert insert[1][2] is None and 'google_ads' in insert[1] and 'incident' in insert[1]

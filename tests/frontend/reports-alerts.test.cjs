@@ -1,4 +1,4 @@
-// Alert center against simulated APIs. Run after building Reports:
+// Central de alertas (ocorrências, monitores e oportunidades) against simulated APIs. Run after building Reports:
 //   REPORTS_BUILD_DIR=<vite outDir> node tests/frontend/reports-alerts.test.cjs
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -20,10 +20,11 @@ const server = http.createServer((req, res) => {
   res.end(html);
 });
 
-const alert = (id, overrides = {}) => ({id, rule: 'page_down', severity: 'high', status: 'open', resolution: null, title: 'Página indisponível',
+const alert = (id, overrides = {}) => ({id, rule: 'page_down', channel: 'site', kind: 'incident', severity: 'high', status: 'open', resolution: null, title: 'Página indisponível',
   summary: 'exemplo.com.br/lp falhou em 3 verificações seguidas.', evidence: [{label: 'Falhas seguidas', value: 3, unit: 'count'}, {label: 'Código HTTP', value: 503, unit: 'count'}],
-  page_path: '/lp', occurrences: 3, assigned_to: null, assigned_name: null, acknowledged_at: null, silenced_until: null, first_seen_at: '2026-10-01T10:00:00Z',
-  last_seen_at: '2026-10-01T12:00:00Z', resolved_at: null, site_id: 'site-1', site_label: 'Site principal', allowed_host: 'exemplo.com.br', ...overrides});
+  impact: {value: 'erro 503', unit: 'text', label: 'página fora do ar'}, page_path: '/lp', occurrences: 3, assigned_to: null, assigned_name: null, acknowledged_at: null, silenced_until: null,
+  first_seen_at: '2026-10-01T10:00:00Z', last_seen_at: '2026-10-01T12:00:00Z', resolved_at: null, site_id: 'site-1', site_label: 'Site principal', allowed_host: 'exemplo.com.br',
+  causes: [], recommendations: [], ...overrides});
 
 async function main() {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -31,9 +32,10 @@ async function main() {
   const browser = await chromium.launch({headless: true, ...(process.env.CHROME_PATH ? {executablePath: process.env.CHROME_PATH} : {})});
   const page = await browser.newPage({viewport: {width: 1440, height: 900}});
   page.setDefaultTimeout(10000);
-  const errors = [], posts = [];
+  const errors = [], posts = [], lists = [];
   let current = alert('a1');
-  const resolved = alert('a2', {status: 'resolved', resolution: 'auto', resolved_at: '2026-10-01T11:00:00Z', title: 'Super Tag sem enviar eventos', severity: 'medium', page_path: null});
+  const resolved = alert('a2', {status: 'resolved', resolution: 'auto', resolved_at: '2026-10-01T11:00:00Z', title: 'Super Tag sem enviar eventos', severity: 'medium', page_path: null, impact: null});
+  const opportunity = alert('a3', {kind: 'opportunity', rule: 'device_conversion_low', severity: 'low', title: 'Aparelho ou tela converte abaixo da média', page_path: null, impact: {value: 1.2, unit: 'percent', label: 'conversão'}});
   page.on('pageerror', error => errors.push(error.message));
   await page.route('**/workspace/api/creditos/resumo', route => route.fulfill({json: {monthly_usage_percentage: 10}}));
   await page.route('**/connect/api/v2/reports/**', route => {
@@ -42,49 +44,84 @@ async function main() {
     const name = url.pathname.replace('/connect/api/v2/reports', '');
     if (name === '/bootstrap') return route.fulfill({json: {ready: true, client: {client_id: clientId, client_name: 'Cliente', role: 'admin'}, csrf: 'csrf-alertas',
       clients: [{id: clientId, name: 'Cliente'}], accounts: [], campaigns: [], reports: [], link_tests: [], workspace_projects: [], features: {}}});
-    if (name === '/alerts' && request.method() === 'GET') return route.fulfill({json: {user_id: 42, emails_enabled: false, silence_choices: [1, 24, 168],
-      rules: [{rule: 'page_down', title: 'Página indisponível', when: 'Falhou em 2 verificações seguidas.'}],
-      alerts: url.searchParams.get('status') === 'resolved' ? [resolved] : [current]}});
-    if (name === '/alerts/a1/events') return route.fulfill({json: {events: [{kind: 'notification_skipped', detail: {reason: 'disabled'}, created_at: '2026-10-01T10:00:00Z'}, {kind: 'opened', detail: {}, created_at: '2026-10-01T10:00:00Z'}]}});
-    const match = name.match(/^\/alerts\/a1\/(acknowledge|assign|silence|unsilence)$/);
+    if (name === '/alerts/summary') return route.fulfill({json: {tabs: {incidents: 1, monitors: 2, opportunities: 1}, active: 1, opened_delta: 1, investigating: 0, resolved_today: 2,
+      resolved_today_change: 100, uptime: 99.2, uptime_change: -0.4, estimated_impact: null}});
+    if (name === '/alerts/monitors') return route.fulfill({json: {emails_enabled: false, rules: [{rule: 'page_down', title: 'Página indisponível', when: 'Falhou em 2 verificações seguidas.'}],
+      monitors: [{kind: 'url', id: 'f1', name: 'Fluxo Verão', target: 'exemplo.com.br', health: 'down', last_checked_at: '2026-10-01T12:00:00Z', every_minutes: 5, down_since: '2026-10-01T11:00:00Z'},
+        {kind: 'collection', id: 's1', name: 'Site principal', target: 'exemplo.com.br', health: 'ok', last_checked_at: '2026-10-01T11:59:00Z', events_24h: 120}]}});
+    if (name === '/alerts' && request.method() === 'GET') {
+      lists.push(Object.fromEntries(url.searchParams));
+      const kind = url.searchParams.get('kind'), status = url.searchParams.get('status');
+      const alerts = kind === 'opportunity' ? [opportunity] : status === 'resolved' ? [resolved] : [current];
+      return route.fulfill({json: {user_id: 42, emails_enabled: false, silence_choices: [1, 24, 168], page: 1, per_page: 10, page_sizes: [10, 25, 50], total: alerts.length, rules: [], alerts}});
+    }
+    if (name === '/alerts/a1/events') return route.fulfill({json: {events: [{kind: 'notification_skipped', detail: {reason: 'flow_monitor'}, created_at: '2026-10-01T10:00:00Z'}, {kind: 'opened', detail: {}, created_at: '2026-10-01T10:00:00Z'}]}});
+    const match = name.match(/^\/alerts\/a1\/(acknowledge|assign|silence|unsilence|investigate|resolve)$/);
     if (match && request.method() === 'POST') {
       posts.push({action: match[1], csrf: request.headers()['x-csrf-token'], body: request.postDataJSON()});
-      if (match[1] === 'acknowledge') current = {...current, status: 'acknowledged', acknowledged_at: '2026-10-01T12:05:00Z'};
       if (match[1] === 'assign') current = {...current, assigned_to: 42, assigned_name: 'Ana'};
       if (match[1] === 'silence') current = {...current, status: 'silenced', silenced_until: '2026-10-02T12:00:00Z'};
+      if (match[1] === 'unsilence') current = {...current, status: 'open', silenced_until: null};
+      if (match[1] === 'investigate') current = {...current, status: 'investigating'};
+      if (match[1] === 'resolve') current = {...current, status: 'resolved', resolution: 'manual', resolved_at: '2026-10-01T12:30:00Z'};
       return route.fulfill({json: {ok: true}});
     }
     return route.fulfill({json: {}});
   });
 
   await page.goto(`${base}/connect/app/alerts`);
-  await page.getByRole('heading', {name: 'Página indisponível'}).first().waitFor();
+  const row = page.getByRole('row', {name: /Página indisponível/});
+  await row.waitFor();
   const text = await page.locator('.alerts-center').innerText();
-  for (const expected of ['Prioridade alta', 'falhou em 3 verificações', 'Falhas seguidas', '503', 'sem responsável', 'E-mail desativado neste ambiente', 'Quando um alerta abre']) assert.ok(text.includes(expected), `a central deve mostrar "${expected}"`);
-  assert.ok((await page.getByRole('link', {name: 'Ver página'}).getAttribute('href')).includes('site_id=site-1'), 'liga ao detalhe da página');
-  assert.ok((await page.getByRole('link', {name: 'Ver coleta do site'}).getAttribute('href')).includes('/supertag?scope_site=site-1'), 'liga à coleta do site');
+  for (const expected of ['Ocorrências ativas', 'Resolvidas hoje', 'Uptime dos sites', '99,2%', 'erro 503', 'Alta', 'Ativo']) assert.ok(text.includes(expected), `a central deve mostrar "${expected}"`);
+  assert.ok(!text.includes('Impacto estimado'), 'sem valor de objetivo, o KPI de impacto em R$ fica oculto');
+  assert.deepEqual([lists[0].kind, lists[0].status], ['incident', 'active']);
 
-  await page.getByRole('button', {name: 'Reconhecer'}).click();
-  await page.getByText('Reconhecido em').waitFor();
+  await row.click();
+  const panel = page.getByRole('complementary', {name: /Detalhes: Página indisponível/});
+  await panel.waitFor();
+  const panelText = await panel.innerText();
+  for (const expected of ['falhou em 3 verificações', 'Falhas seguidas', '503', 'sem responsável']) assert.ok(panelText.includes(expected), `o painel deve mostrar "${expected}"`);
+  assert.ok((await panel.getByRole('link', {name: 'Ver em Site & Jornada'}).getAttribute('href')).includes('site_id=site-1'), 'liga ao detalhe da página');
+
+  await panel.getByRole('button', {name: 'Assumir'}).click();
+  await panel.getByText('responsável: Ana').waitFor();
   assert.equal(posts[0].csrf, 'csrf-alertas', 'ações enviam o token CSRF');
   assert.equal(posts[0].body.client_id, undefined, 'o cliente vem da sessão, não do corpo');
-  await page.getByRole('button', {name: 'Assumir'}).click();
-  await page.getByText('responsável: Ana').waitFor();
-  assert.equal(posts[1].body.assign, true);
-  await page.getByLabel('Duração do silêncio').selectOption('168');
-  await page.getByRole('button', {name: 'Silenciar'}).click();
-  await page.getByText('Silenciado até').waitFor();
-  assert.equal(posts[2].body.hours, 168, 'silêncio de 7 dias');
-  await page.getByRole('button', {name: 'Remover silêncio'}).waitFor();
-  assert.equal(await page.getByRole('button', {name: 'Reconhecer'}).count(), 0, 'alerta silenciado não oferece reconhecer');
+  assert.equal(posts[0].body.assign, true);
+  await panel.getByLabel('Duração do silêncio').selectOption('168');
+  await panel.getByRole('button', {name: 'Silenciar'}).click();
+  await panel.getByText('silenciado até').waitFor();
+  assert.equal(posts[1].body.hours, 168, 'silêncio de 7 dias');
+  assert.equal(await panel.getByRole('button', {name: 'Em investigação'}).count(), 0, 'alerta silenciado não entra em investigação');
+  await panel.getByRole('button', {name: 'Remover silêncio'}).click();
+  await panel.getByRole('button', {name: 'Em investigação'}).click();
+  await page.getByRole('row').filter({hasText: 'Em investigação'}).waitFor();
+  assert.equal(posts[3].action, 'investigate');
+  await panel.getByRole('tab', {name: 'Histórico'}).click();
+  await panel.getByText('Alerta aberto').waitFor();
+  assert.ok((await panel.locator('.alerts-history').innerText()).includes('a queda já é avisada pelo monitor de páginas'), 'o histórico explica por que não houve e-mail');
+  await panel.getByRole('tab', {name: 'Possíveis causas'}).click();
+  await panel.getByText('Ainda não há causas calculadas').waitFor();
 
-  await page.getByRole('button', {name: 'Histórico'}).click();
-  await page.getByText('Alerta aberto').waitFor();
-  assert.ok((await page.locator('.alerts-history').innerText()).includes('envio de e-mail desativado'), 'o histórico explica por que não houve e-mail');
+  await panel.getByRole('button', {name: 'Marcar como resolvido'}).click();
+  await panel.getByRole('tab', {name: 'Visão geral'}).click();
+  await page.getByText('resolvido manualmente em').waitFor();
+  assert.equal(posts[4].action, 'resolve');
+  assert.equal(await panel.getByRole('button', {name: 'Marcar como resolvido'}).count(), 0, 'resolvidos não têm ações');
 
-  await page.getByRole('tab', {name: 'Resolvidos'}).click();
-  await page.getByText('Resolvido automaticamente em').waitFor();
-  assert.equal(await page.getByRole('button', {name: 'Reconhecer'}).count(), 0, 'resolvidos não têm ações');
+  await page.getByLabel('Status').selectOption('resolved');
+  await page.getByRole('row', {name: /Super Tag sem enviar eventos/}).waitFor();
+  assert.equal(lists.at(-1).status, 'resolved');
+
+  await page.getByRole('tab', {name: /Oportunidades/}).click();
+  await page.getByRole('row', {name: /Aparelho ou tela converte abaixo da média/}).waitFor();
+  assert.equal(lists.at(-1).kind, 'opportunity');
+  await page.getByRole('tab', {name: /Monitores/}).click();
+  await page.getByRole('row', {name: /Fluxo Verão/}).waitFor();
+  const monitors = await page.locator('.alerts-center').innerText();
+  for (const expected of ['Fora do ar', 'verifica a cada 5 min', '120 eventos em 24 h', 'E-mail desativado neste ambiente', 'Quando um alerta abre']) assert.ok(monitors.includes(expected), `monitores devem mostrar "${expected}"`);
+
   await page.setViewportSize({width: 390, height: 844});
   await page.waitForTimeout(300);
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'sem rolagem horizontal no celular');

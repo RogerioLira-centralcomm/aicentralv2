@@ -41,7 +41,7 @@ export const ROUTES = {
   'journey/conversions': {page: 'conversions', nav: 'journey', hub: 'journey', needsCustomer: true, siteRequired: true, period: true, scope: 'site'},
   'journey/heatmap': {page: 'heatmap', nav: 'journey', hub: 'journey', needsCustomer: true, siteRequired: true, period: true, scope: 'site'},
   reports: {page: 'reports', nav: 'reports', title: 'Relatórios', description: 'Análises salvas e entregáveis prontos para distribuir.'},
-  alerts: {page: 'alerts', nav: 'alerts', title: 'Alertas', description: 'O que precisa da sua atenção, com responsável e histórico.'},
+  alerts: {page: 'alerts', nav: 'alerts', title: 'Alertas', description: 'Acompanhe problemas e anomalias que precisam da sua atenção, com responsável e histórico.'},
   'data-sources': {page: 'data-sources', nav: 'data-sources', hub: 'data', customers: true},
   'data-sources/connect': {page: 'monitor', nav: 'data-sources', hub: 'data', scope: 'account'},
   // Super Tag always shows one site: the header picks it, there is no "all sites" view.

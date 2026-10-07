@@ -215,7 +215,7 @@ export function Overview({data}) {
   const media = useMedia(period);
   const [domains] = useApi(apiUrl('/pages/domains', {start_date: period.start, end_date: period.end, customer_id}));
   const [compareState] = useApi(apiUrl('/overview/compare', {start_date: period.start, end_date: period.end, customer_id}));
-  const [alerts, retryAlerts] = useApi(apiUrl('/alerts', {customer_id}));
+  const [alerts, retryAlerts] = useApi(apiUrl('/alerts', {customer_id, per_page: 50}));
   const [sites] = useApi(apiUrl('/supertag/sites', {customer_id}));
   const [sources] = useApi(apiUrl('/ingest-keys', {customer_id}));
   const [flows] = useApi(apiUrl('/flow', {view: 'edit', customer_id}));

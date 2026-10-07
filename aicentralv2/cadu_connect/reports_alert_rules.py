@@ -18,29 +18,30 @@ INSIGHT_MIN_CONVERTED = 5       # the site needs this many converted sessions be
 INSIGHT_BELOW_RATIO = 0.5       # conversion under this share of the site average
 INSIGHT_PER_RULE = 10           # findings kept per insight rule, busiest first
 RULES = {
-    'page_down': {'severity': 'high', 'title': 'Página indisponível',
+    'page_down': {'channel': 'site', 'kind': 'incident', 'severity': 'high', 'title': 'Página indisponível',
                   'when': f'A página falhou em {CONSECUTIVE_FAILURES} verificações seguidas do monitor.'},
-    'collection_absent': {'severity': 'medium', 'title': 'Super Tag sem enviar eventos',
+    'collection_absent': {'channel': 'site', 'kind': 'incident', 'severity': 'medium', 'title': 'Super Tag sem enviar eventos',
                           'when': f'Nenhum evento há {SILENT_AFTER_HOURS} horas ou mais em um site que enviou ao menos {MIN_BASELINE_EVENTS} eventos nos 7 dias anteriores.'},
-    'conversion_drop': {'severity': 'low', 'title': 'Queda na conversão da página',
+    'conversion_drop': {'channel': 'site', 'kind': 'incident', 'severity': 'low', 'title': 'Queda na conversão da página',
                         'when': f'Queda relativa de {CONVERSION_DROP_PERCENT:.0f}% ou mais na taxa de conversão da sessão, '
                                 f'7 dias contra os 7 anteriores, com ao menos {MIN_RELIABLE_SESSIONS} sessões nos dois.'},
-    'channel_entry_exit': {'severity': 'low', 'title': 'Canal entra e sai sem ver outra página',
+    'channel_entry_exit': {'channel': 'journey', 'kind': 'opportunity', 'severity': 'low', 'title': 'Canal entra e sai sem ver outra página',
                            'when': f'Ao menos {INSIGHT_MIN_SESSIONS} sessões de um canal entram por uma página e {INSIGHT_BOUNCE_PERCENT:.0f}% ou mais saem sem ver outra, '
                                    f'{INSIGHT_BOUNCE_GAP:.0f} pontos acima dos demais canais na mesma página (que somam ao menos {INSIGHT_OTHERS_MIN} sessões), 7 dias.'},
-    'device_conversion_low': {'severity': 'low', 'title': 'Aparelho ou tela converte abaixo da média',
+    'device_conversion_low': {'channel': 'site', 'kind': 'opportunity', 'severity': 'low', 'title': 'Aparelho ou tela converte abaixo da média',
                               'when': f'Ao menos {MIN_RELIABLE_SESSIONS} sessões num tipo de aparelho ou tamanho de tela, com conversão abaixo de '
                                       f'{INSIGHT_BELOW_RATIO * 100:.0f}% da média do site, que tem ao menos {INSIGHT_MIN_CONVERTED} sessões convertidas, 7 dias.'},
-    'campaign_weak_page': {'severity': 'low', 'title': 'Campanha leva a uma página fraca',
+    'campaign_weak_page': {'channel': 'journey', 'kind': 'opportunity', 'severity': 'low', 'title': 'Campanha leva a uma página fraca',
                            'when': f'Ao menos {INSIGHT_MIN_SESSIONS} sessões de uma campanha (utm_campaign) entram por uma página onde {INSIGHT_BOUNCE_PERCENT:.0f}% ou mais saem sem ver outra '
                                    f'e a conversão fica abaixo de {INSIGHT_BELOW_RATIO * 100:.0f}% da média do site, 7 dias.'},
 }
 
 
-def _finding(rule, subject_key, summary, evidence, page_path=None):
+def _finding(rule, subject_key, summary, evidence, page_path=None, impact=None):
+    """impact: the one number the alerts table shows ({value, unit: percent|text|count, label}); None when there is no single figure."""
     meta = RULES[rule]
     return {'rule': rule, 'subject_key': subject_key, 'severity': meta['severity'], 'title': meta['title'],
-            'summary': summary, 'evidence': evidence, 'page_path': page_path}
+            'summary': summary, 'evidence': evidence, 'page_path': page_path, 'channel': meta['channel'], 'kind': meta['kind'], 'impact': impact}
 
 
 def page_down_findings(checks):
@@ -71,7 +72,8 @@ def page_down_findings(checks):
             [{'label': 'Estado', 'value': 'Indisponível' if latest.get('status') == 'offline' else 'Degradada', 'unit': 'text'},
              {'label': 'Falhas seguidas', 'value': failing, 'unit': 'count'},
              {'label': 'Código HTTP', 'value': latest.get('http_status'), 'unit': 'count'},
-             {'label': 'Detalhe', 'value': latest.get('detail') or '—', 'unit': 'text'}], page_path=path))
+             {'label': 'Detalhe', 'value': latest.get('detail') or '—', 'unit': 'text'}], page_path=path,
+            impact={'value': f"erro {latest['http_status']}" if latest.get('http_status') else 'sem resposta', 'unit': 'text', 'label': 'página fora do ar'}))
     return findings
 
 
@@ -82,7 +84,8 @@ def collection_absent_findings(site_label, events_last_7d_before, hours_since_la
     return [_finding('collection_absent', '',
                      f'{site_label} não recebe eventos da Super Tag há {int(hours_since_last_event)} horas, mas costumava receber.',
                      [{'label': 'Horas sem eventos', 'value': int(hours_since_last_event), 'unit': 'count'},
-                      {'label': 'Eventos nos 7 dias anteriores', 'value': events_last_7d_before, 'unit': 'count'}])]
+                      {'label': 'Eventos nos 7 dias anteriores', 'value': events_last_7d_before, 'unit': 'count'}],
+                     impact={'value': f'{int(hours_since_last_event)} h', 'unit': 'text', 'label': 'sem eventos'})]
 
 
 def conversion_drop_findings(pages):
@@ -99,7 +102,8 @@ def conversion_drop_findings(pages):
             'conversion_drop', page['path'], f"A conversão de {page['path']} caiu em relação à semana anterior.",
             [{'label': 'Últimos 7 dias', 'value': a, 'unit': 'percent'}, {'label': '7 dias anteriores', 'value': b, 'unit': 'percent'},
              {'label': 'Variação relativa', 'value': round(100 * (a - b) / b, 1), 'unit': 'percent'},
-             {'label': 'Sessões atuais', 'value': now['sessions'], 'unit': 'count'}], page_path=page['path']))
+             {'label': 'Sessões atuais', 'value': now['sessions'], 'unit': 'count'}], page_path=page['path'],
+            impact={'value': round(100 * (a - b) / b, 1), 'unit': 'percent', 'label': 'taxa de conversão'}))
     return findings
 
 
@@ -139,7 +143,8 @@ def channel_entry_findings(rows, labels):
                 f'{label} entra por {path} e {bounce:.0f}% das sessões saem sem ver outra página; nos demais canais são {baseline:.0f}%.',
                 [{'label': 'Canal', 'value': label, 'unit': 'text'}, {'label': 'Sessões do canal na página', 'value': sessions, 'unit': 'count'},
                  {'label': 'Saem sem ver outra página', 'value': round(bounce, 1), 'unit': 'percent'},
-                 {'label': 'Demais canais', 'value': round(baseline, 1), 'unit': 'percent'}], page_path=path)))
+                 {'label': 'Demais canais', 'value': round(baseline, 1), 'unit': 'percent'}], page_path=path,
+                impact={'value': round(bounce, 1), 'unit': 'percent', 'label': 'saem sem ver outra página'})))
     return _busiest(found)
 
 
@@ -171,7 +176,8 @@ def tech_conversion_findings(rows, labels):
             'device_conversion_low', _subject(row['kind'], row['value']),
             f'{what} {name} converte {rate:.1f}% das sessões, abaixo da metade da média do site ({average:.1f}%).',
             [{'label': 'Aparelho ou tela', 'value': name, 'unit': 'text'}, {'label': 'Sessões', 'value': sessions, 'unit': 'count'},
-             {'label': 'Conversão', 'value': round(rate, 1), 'unit': 'percent'}, {'label': 'Média do site', 'value': round(average, 1), 'unit': 'percent'}])))
+             {'label': 'Conversão', 'value': round(rate, 1), 'unit': 'percent'}, {'label': 'Média do site', 'value': round(average, 1), 'unit': 'percent'}],
+            impact={'value': round(rate, 1), 'unit': 'percent', 'label': 'conversão'})))
     return _busiest(found)
 
 
@@ -194,5 +200,5 @@ def campaign_page_findings(rows, overall):
             [{'label': 'Campanha', 'value': row['campaign'], 'unit': 'text'}, {'label': 'Sessões na página', 'value': sessions, 'unit': 'count'},
              {'label': 'Saem sem ver outra página', 'value': round(bounce, 1), 'unit': 'percent'},
              {'label': 'Conversão', 'value': round(rate, 1), 'unit': 'percent'}, {'label': 'Média do site', 'value': round(average, 1), 'unit': 'percent'}],
-            page_path=row['path'])))
+            page_path=row['path'], impact={'value': round(bounce, 1), 'unit': 'percent', 'label': 'saem sem ver outra página'})))
     return _busiest(found)

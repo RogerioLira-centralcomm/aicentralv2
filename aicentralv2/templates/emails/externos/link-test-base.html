@@ -4,8 +4,10 @@
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="x-apple-disable-message-reformatting">
 <title>{{ headline }}</title>
 </head>
-{# Reports e-mail: logo, kind icon + illustration, preliminary result, screenshot and the public report link. #}
-{% set tones = {'ok': ['#12b76a', '#ecfdf3'], 'warn': ['#f79009', '#fffaeb'], 'bad': ['#f04438', '#fef3f2']} %}
+{# Reports e-mail built from the same report as the app and the public link: score, quick indicators, module scores,
+   what to fix first, desktop and mobile prints, and the full report link. Tables only, inline styles (e-mail clients). #}
+{% set soft = {'ok': '#ecfdf3', 'warn': '#fffaeb', 'bad': '#fef3f2', 'info': '#eff8ff', 'skip': '#f2f4f7', 'muted': '#f2f4f7'} %}
+{% set ink = {'ok': '#067647', 'warn': '#b54708', 'bad': '#b42318', 'info': '#175cd3', 'skip': '#667085', 'muted': '#667085'} %}
 {% set score_tone = 'ok' if score >= 80 else ('warn' if score >= 50 else 'bad') %}
 <body style="margin:0;padding:0;background:#f5f8fc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#17243a;">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;">{{ preheader }}</div>
@@ -15,63 +17,125 @@
 <tr><td style="padding:20px 28px;border-bottom:1px solid #e9eef5;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>
     <td><img src="{{ base_url }}/static/images/cadu-logo-variant-2.png" alt="Cadu" height="26" style="display:block;height:26px;width:auto;"></td>
-    <td align="right" style="font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#3974bd;">Reports</td>
+    <td align="right" style="font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#3974bd;">Reports · Link Tester</td>
   </tr></table>
 </td></tr>
 
 <tr><td style="padding:0;background:{{ accent_soft }};"><img src="{{ base_url }}/static/images/reports/email/hero-{{ kind }}.jpg" alt="" width="600" style="display:block;width:100%;height:auto;border:0;"></td></tr>
 
-<tr><td style="padding:28px 28px 8px;">
+<tr><td style="padding:26px 28px 6px;">
   <table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr>
-    <td style="vertical-align:middle;"><img src="{{ base_url }}/static/images/reports/email/icon-{{ kind }}.png" alt="" width="44" height="44" style="display:block;width:44px;height:44px;border-radius:12px;"></td>
+    <td style="vertical-align:middle;"><img src="{{ base_url }}/static/images/reports/email/icon-{{ kind }}.png" alt="" width="40" height="40" style="display:block;width:40px;height:40px;border-radius:11px;"></td>
     <td style="vertical-align:middle;padding-left:12px;font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:{{ accent }};">{{ kind_label }}</td>
   </tr></table>
-  <h1 style="margin:16px 0 6px;font-size:24px;line-height:1.25;color:#152443;">{{ headline }}</h1>
-  <p style="margin:0;font-size:15px;line-height:1.6;color:#4a5b73;">{% block intro %}{% endblock %}</p>
+  <h1 style="margin:14px 0 6px;font-size:23px;line-height:1.25;color:#152443;">{{ headline }}</h1>
+  <p style="margin:0;font-size:14px;line-height:1.6;color:#4a5b73;">{% block intro %}{% endblock %}</p>
 </td></tr>
 
-<tr><td style="padding:16px 28px 8px;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:{{ tones[score_tone][1] }};border-radius:12px;border:1px solid #e1e8f1;"><tr>
-    <td width="96" align="center" style="padding:18px 0 18px 18px;"><div style="width:76px;height:76px;border-radius:38px;border:5px solid {{ tones[score_tone][0] }};background:#ffffff;text-align:center;line-height:66px;font-size:24px;font-weight:700;color:#152443;">{{ score }}</div></td>
+{# Score card #}
+<tr><td style="padding:16px 28px 4px;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:{{ soft[score_tone] }};border-radius:12px;border:1px solid #e1e8f1;"><tr>
+    <td width="96" align="center" style="padding:18px 0 18px 18px;"><div style="width:76px;height:76px;border-radius:38px;border:5px solid {{ tone_colors[score_tone] }};background:#ffffff;text-align:center;line-height:66px;font-size:24px;font-weight:700;color:#152443;">{{ score }}</div></td>
     <td style="padding:18px;">
       <div style="font-size:17px;font-weight:700;color:#152443;">{{ status_label }}</div>
-      <div style="margin-top:3px;font-size:13px;line-height:1.5;color:#4a5b73;">{{ summary }}</div>
+      {% if summary %}<div style="margin-top:3px;font-size:13px;line-height:1.5;color:#4a5b73;">{{ summary }}</div>{% endif %}
       <div style="margin-top:8px;font-size:12px;color:#7a8aa0;word-break:break-all;">{{ url }}</div>
+      <div style="margin-top:6px;font-size:12px;color:#7a8aa0;">{% if author %}Testado por {{ author }} · {% endif %}{{ created_at }}</div>
     </td>
   </tr></table>
 </td></tr>
 
-{% if highlights %}
-<tr><td style="padding:16px 28px 0;">
-  <div style="font-size:13px;font-weight:700;color:#152443;margin-bottom:8px;">Resultado preliminar</div>
+{# Quick indicators: three per row #}
+{% if indicators %}
+<tr><td style="padding:14px 28px 0;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-  {% for item in highlights %}
-    <tr><td width="22" valign="top" style="padding:7px 0;"><div style="width:10px;height:10px;border-radius:5px;background:{{ tones[item.tone][0] }};margin-top:5px;"></div></td>
-        <td style="padding:7px 0;font-size:14px;line-height:1.5;color:#2c3c55;border-bottom:1px solid #eef2f7;">{{ item.text }}</td></tr>
+  {% for row in indicators|batch(3) %}<tr>
+    {% for i in row %}<td width="33%" valign="top" style="padding:4px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f7f9fc;border:1px solid #e6ecf3;border-radius:10px;"><tr><td style="padding:10px 12px;">
+        <div style="font-size:11px;color:#62738a;"><span style="display:inline-block;width:8px;height:8px;border-radius:4px;background:{{ tone_colors[i.tone] or '#98a2b3' }};margin-right:5px;"></span>{{ i.label }}</div>
+        <div style="margin-top:4px;font-size:15px;font-weight:700;color:#152443;">{{ i.value }}</div>
+      </td></tr></table>
+    </td>{% endfor %}
+    {% for _ in range(3 - row|length) %}<td width="33%" style="padding:4px;"></td>{% endfor %}
+  </tr>{% endfor %}
+  </table>
+</td></tr>
+{% endif %}
+
+{# Module scores #}
+{% if modules %}
+<tr><td style="padding:18px 28px 0;">
+  <div style="font-size:13px;font-weight:700;color:#152443;margin-bottom:8px;">Nota por área</div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+  {% for m in modules %}{% set t = 'ok' if (m.score or 0) >= 80 else ('warn' if (m.score or 0) >= 50 else 'bad') %}{% set pct = [[(m.score or 0)|int, 0]|max, 100]|min %}
+    <tr><td style="padding:5px 0;font-size:13px;color:#2c3c55;" width="38%">{{ m.label }}</td>
+      <td style="padding:5px 8px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#e4eaf2;border-radius:4px;"><tr>
+          {% if pct > 0 %}<td width="{{ pct }}%" style="background:{{ tone_colors[t] }};height:8px;line-height:8px;font-size:0;border-radius:4px;">&nbsp;</td>{% endif %}
+          {% if pct < 100 %}<td style="height:8px;line-height:8px;font-size:0;">&nbsp;</td>{% endif %}
+        </tr></table>
+      </td>
+      <td width="34" align="right" style="padding:5px 0;font-size:13px;font-weight:700;color:#152443;">{{ m.score }}</td></tr>
   {% endfor %}
   </table>
 </td></tr>
 {% endif %}
 
+{# What to fix first #}
 <tr><td style="padding:20px 28px 0;">
-  <div style="font-size:13px;font-weight:700;color:#152443;margin-bottom:8px;">Print da página analisada</div>
-  {% if screenshot %}
-  <a href="{{ report_url }}" style="text-decoration:none;"><img src="{{ screenshot }}" alt="Print da página {{ url }}" width="544" style="display:block;width:100%;height:auto;border:1px solid #e1e8f1;border-radius:10px;"></a>
+  {% if issues %}
+  <div style="font-size:13px;font-weight:700;color:#152443;margin-bottom:4px;">O que corrigir primeiro</div>
+  <div style="font-size:12px;color:#62738a;margin-bottom:8px;">{% if overview.problems %}{{ overview.problems }} de {{ overview.total }} áreas pedem atenção · {% endif %}{{ issue_total }} ponto(s) no total</div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+  {% for item in issues %}
+    <tr><td width="22" valign="top" style="padding:9px 0;"><div style="width:10px;height:10px;border-radius:5px;background:{{ tone_colors[item.tone] }};margin-top:5px;"></div></td>
+      <td style="padding:9px 0;border-bottom:1px solid #eef2f7;font-size:14px;line-height:1.5;color:#2c3c55;">
+        <strong style="color:#152443;">{{ item.title }}</strong> <span style="font-size:11px;color:#7a8aa0;">· {{ item.section }}</span>
+        {% if item.fix %}<div style="font-size:13px;color:#155ab0;margin-top:2px;">→ {{ item.fix }}</div>{% endif %}
+      </td></tr>
+  {% endfor %}
+  </table>
+  {% elif highlights %}
+  <div style="font-size:13px;font-weight:700;color:#152443;margin-bottom:8px;">Resultado preliminar</div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+  {% for item in highlights %}{% set t = 'bad' if item.tone == 'bad' else ('warn' if item.tone == 'warn' else 'ok') %}
+    <tr><td width="22" valign="top" style="padding:7px 0;"><div style="width:10px;height:10px;border-radius:5px;background:{{ tone_colors[t] }};margin-top:5px;"></div></td>
+      <td style="padding:7px 0;font-size:14px;line-height:1.5;color:#2c3c55;border-bottom:1px solid #eef2f7;">{{ item.text }}</td></tr>
+  {% endfor %}
+  </table>
   {% else %}
-  <div style="border:1px dashed #cfd9e6;border-radius:10px;padding:28px;text-align:center;font-size:13px;color:#7a8aa0;">O print desta análise ainda não está disponível. Ele aparece no relatório completo assim que for gerado.</div>
+  <div style="background:#ecfdf3;border-radius:10px;padding:14px 16px;font-size:14px;color:#067647;">Nenhum ponto crítico encontrado nesta análise.</div>
+  {% endif %}
+</td></tr>
+
+{# Prints #}
+<tr><td style="padding:22px 28px 0;">
+  <div style="font-size:13px;font-weight:700;color:#152443;margin-bottom:8px;">Print da página</div>
+  {% if screenshot or screenshot_mobile %}
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>
+    {% if screenshot %}<td valign="top" style="padding-right:{{ '10px' if screenshot_mobile else '0' }};"><a href="{{ report_url }}" style="text-decoration:none;"><img src="{{ screenshot }}" alt="Print no desktop" width="{{ 410 if screenshot_mobile else 544 }}" style="display:block;width:100%;height:auto;border:1px solid #e1e8f1;border-radius:10px;"></a>
+      <div style="font-size:11px;color:#7a8aa0;margin-top:4px;">Desktop</div></td>{% endif %}
+    {% if screenshot_mobile %}<td valign="top" width="{{ 124 if screenshot else 200 }}"><a href="{{ report_url }}" style="text-decoration:none;"><img src="{{ screenshot_mobile }}" alt="Print no celular" width="{{ 124 if screenshot else 200 }}" style="display:block;width:100%;height:auto;border:1px solid #e1e8f1;border-radius:10px;"></a>
+      <div style="font-size:11px;color:#7a8aa0;margin-top:4px;">Celular</div></td>{% endif %}
+  </tr></table>
+  {% else %}
+  <div style="border:1px dashed #cfd9e6;border-radius:10px;padding:24px;text-align:center;font-size:13px;color:#7a8aa0;">O print desta análise não está disponível. O relatório completo traz todas as seções.</div>
   {% endif %}
 </td></tr>
 
 <tr><td style="padding:22px 28px 6px;font-size:14px;line-height:1.6;color:#4a5b73;">{% block next %}{% endblock %}</td></tr>
 
+{% if report_url %}
 <tr><td align="center" style="padding:10px 28px 8px;">
-  <a href="{{ report_url }}" style="display:inline-block;background:#3974bd;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:14px 28px;border-radius:10px;">Abrir relatório completo</a>
+  <a href="{{ report_url }}" style="display:inline-block;background:#3974bd;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:14px 28px;border-radius:10px;">Ver relatório completo</a>
+  {% if overview.total %}<div style="font-size:12px;color:#7a8aa0;margin-top:8px;">{{ overview.total }} seções com o detalhe de cada verificação</div>{% endif %}
 </td></tr>
+{% endif %}
 {% if note %}<tr><td style="padding:12px 28px 0;"><div style="background:#f7f9fc;border-left:3px solid {{ accent }};padding:12px 14px;font-size:13px;line-height:1.55;color:#2c3c55;">{{ note }}</div></td></tr>{% endif %}
 
 <tr><td style="padding:24px 28px 26px;font-size:12px;line-height:1.6;color:#8a98aa;">
-  O relatório abre sem login e pode ser compartilhado. Gerado pelo Reports em {{ created_at }}.<br>
-  <a href="{{ report_url }}" style="color:#3974bd;word-break:break-all;">{{ report_url }}</a>
+  {% if legacy %}Análise feita no Cadu anterior e reaberta no Reports. {% endif %}O relatório abre sem login e pode ser compartilhado.
+  {% if report_url %}<br><a href="{{ report_url }}" style="color:#3974bd;word-break:break-all;">{{ report_url }}</a>{% endif %}
 </td></tr>
 
 </table></td></tr></table>

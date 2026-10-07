@@ -1113,12 +1113,8 @@ def register(bp):
 
     def _link_test_email(run_id, note=''):
         selected = _selection()
-        try:
-            run_uuid = str(uuid.UUID(run_id))
-        except ValueError:
-            abort(400, description='Teste de link inválido.')
-        from . import reports_link_tester, reports_link_test_email
-        run = reports_link_tester.detail(selected['client_id'], run_uuid)
+        from . import reports_link_history, reports_link_test_email
+        run = reports_link_history.detail(selected['client_id'], run_id)  # Reports runs and Cadu-anterior analyses
         if not run:
             abort(404)
         # Links and images in the e-mail always point at the Reports host, whatever host the request came from.

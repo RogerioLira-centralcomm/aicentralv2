@@ -131,7 +131,7 @@ class LinkTestEmailTest(TestCase):
 
     def test_missing_screenshot_shows_a_placeholder_not_a_broken_image(self):
         _, html = self.render('media', None)
-        self.assertIn('ainda não está disponível', html)
+        self.assertIn('não está disponível', html)
 
 
 class MediaFormCountTest(TestCase):
@@ -156,3 +156,27 @@ class ScreenshotOneSigningTest(TestCase):
     def test_without_keys_no_capture_starts(self):
         from aicentralv2.cadu_connect import reports_link_screenshots as shots
         self.assertEqual({}, shots.start('https://example.com/', None))
+
+
+class LinkTestEmailContentTest(TestCase):
+    def test_email_carries_indicators_modules_issues_and_both_prints(self):
+        import datetime
+        from flask import Flask
+        from aicentralv2.cadu_connect import reports_link_test_email as email
+        app = Flask('t', template_folder=str(__import__('pathlib').Path(__file__).resolve().parents[1] / 'aicentralv2' / 'templates'))
+        run = {'source': 'cadu_php', 'kind': 'media', 'score': 77, 'status_label': 'Bom', 'final_url': 'https://www.cemig.com.br/', 'author': 'João',
+               'created_at': datetime.datetime(2026, 8, 4, 11, 22), 'type_label': 'Análise completa (Cadu anterior)', 'public_token': 'uuid-1',
+               'screenshots': {'desktop': '/x', 'mobile': '/y'},
+               'analysis': {'http_status': {'code': 200, 'is_success': True}, 'ssl': {'valid': True, 'days_left': 20},
+                            'scores_by_scope': {'tags': 20, 'infra': 100},
+                            'events': {'conversion_gaps': [{'element': 'WhatsApp', 'expected_event': 'whatsapp_click', 'recommendation': 'Crie o evento.'}]}}}
+        with app.app_context():
+            subject, html = email.render(run, 'https://reports.example/')
+        self.assertIn('77/100', subject)
+        self.assertIn('cemig.com.br', subject)
+        self.assertIn('Testado por João', html)
+        self.assertIn('Nota por área', html)
+        self.assertIn('WhatsApp sem o evento whatsapp_click', html)
+        self.assertIn('→ Crie o evento.', html)
+        self.assertIn('https://reports.example/connect/public/link-tests/uuid-1/screenshot?device=mobile', html)
+        self.assertIn('Cadu anterior', html)

@@ -60,7 +60,7 @@ export function LinkTestDetail({id, data, save, busy, onAssociate}) {
   const copyShare = async () => {try {await navigator.clipboard.writeText(shareUrl(run.public_token)); setCopied(true); setTimeout(() => setCopied(false), 1500);} catch (_) { /* Clipboard may be denied. */ }};
   const actions = <>
     {!legacy && canEdit && <Button size="sm" color="secondary" iconLeading={Stars02} isDisabled={reviewing} isLoading={reviewing} onPress={runReview}>{result.review ? 'Revisar de novo' : 'Revisar com o Cadu'}</Button>}
-    {!legacy && canEdit && <Button size="sm" color="secondary" iconLeading={Mail01} onPress={() => setEmailing({id: run.id, url: run.final_url})}>Enviar por e-mail</Button>}
+    {canEdit && <Button size="sm" color="secondary" iconLeading={Mail01} onPress={() => setEmailing({id: run.id, url: run.final_url})}>Enviar por e-mail</Button>}
     {run.public_token && <Button size="sm" color="secondary" iconLeading={Copy01} onPress={copyShare}>{copied ? 'Copiado' : 'Copiar link público'}</Button>}
     {run.public_token && <a href={shareUrl(run.public_token)} target="_blank" rel="noreferrer noopener" className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-semibold text-tertiary no-underline ring-1 ring-secondary ring-inset hover:text-secondary">Abrir link público</a>}
     {!legacy && canEdit && onAssociate && <Button size="sm" color="secondary" onPress={() => onAssociate({...run, campaign_name: run.campaign_name})}>{run.campaign_name ? 'Alterar campanha' : 'Associar campanha'}</Button>}

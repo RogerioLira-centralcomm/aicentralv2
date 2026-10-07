@@ -146,12 +146,13 @@ def legacy_screenshot(client_id, legacy_id, device):
     """Path of our own copy of a PHP print, downloading it once from the stored provider URL. None when unavailable."""
     from flask import current_app
     device = 'mobile' if device == 'mobile' else 'desktop'
-    target = Path(current_app.instance_path) / 'reports-link-tests' / 'legacy' / f'{int(legacy_id)}-{device}.webp'
-    if target.is_file():
-        return target
+    # Ownership first: the cached file is shared by id, so it must never answer for another client.
     row = legacy_row(client_id, legacy_id)
     if not row:
         return None
+    target = Path(current_app.instance_path) / 'reports-link-tests' / 'legacy' / f'{int(legacy_id)}-{device}.webp'
+    if target.is_file():
+        return target
     data = row['analise_completa'] if isinstance(row['analise_completa'], dict) else {}
     shots = data.get('screenshot') if isinstance(data.get('screenshot'), dict) else {}
     url = (shots.get(device) or {}).get('url') or (row.get('screenshot_url') if device == 'desktop' else None)

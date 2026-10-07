@@ -63,3 +63,15 @@ def test_legacy_print_download_only_from_the_provider_host(tmp_path):
             mock.patch('aicentralv2.cadu_connect.reports_link_screenshots._download') as download:
         assert history.legacy_screenshot(174, 284, 'desktop') is None
         download.assert_not_called()
+
+
+def test_cached_legacy_print_is_not_served_to_another_client(tmp_path):
+    from flask import Flask
+    app = Flask('t', instance_path=str(tmp_path))
+    cached = tmp_path / 'reports-link-tests' / 'legacy' / '284-desktop.webp'
+    cached.parent.mkdir(parents=True)
+    cached.write_bytes(b'img')
+    with app.app_context(), mock.patch.object(history, '_rows', side_effect=fake_rows({'cadu_link_tests': []})):
+        assert history.legacy_screenshot(999, 284, 'desktop') is None
+    with app.app_context(), mock.patch.object(history, '_rows', side_effect=fake_rows({'cadu_link_tests': [LEGACY]})):
+        assert history.legacy_screenshot(174, 284, 'desktop') == cached

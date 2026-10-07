@@ -406,3 +406,32 @@ def test_attribution_route_scopes_cost_to_the_site_customer(app):
     assert all('{site}' not in sql and '{customer}' not in sql for sql, _ in seen)
     sessions_queries = [(sql, params) for sql, params in seen if 'GROUP BY origin' in sql and 'cost_micros' not in sql]
     assert any('AND s.customer_id=%(customer)s' in sql and params['customer'] == 9 for sql, params in sessions_queries)
+
+
+@pytest.mark.parametrize('route', ['content', 'conversion-groups', 'navigation', 'channels', 'conversions', 'heatmap-pages'])
+def test_routes_narrow_every_query_to_the_chosen_advertiser(app, route):
+    """With ?customer_id= and no site, no query reads another advertiser's sites."""
+    seen = []
+
+    def fake_rows(sql, params=()):
+        seen.append((sql, params))
+        if 'FROM cadu_reports_customers' in sql:
+            return [{'id': 7}]
+        if 'to_regclass' in sql:
+            return [{'ready': False}]
+        return []
+
+    client = app.test_client()
+    with client.session_transaction() as session:
+        session['user_id'] = 1
+    with mock.patch.object(journey, '_rows', fake_rows), mock.patch('aicentralv2.cadu_connect.reports_v1._rows', fake_rows), \
+         mock.patch.object(journey, '_column_exists', return_value=True), \
+         mock.patch.object(journey, '_selection', return_value={'client_id': 174, 'role': 'admin', 'user_id': 1}):
+        response = client.get(f'/connect/api/v2/reports/journey/{route}?customer_id=7&{PERIOD}')
+    assert response.status_code == 200, response.get_data(as_text=True)[:300]
+    event_queries = [(sql, params) for sql, params in seen if 'cadu_reports_supertag_events' in sql or 'EVENT_TABLE' in sql or 'supertag_sites s' in sql]
+    assert event_queries
+    for sql, params in event_queries:
+        if '%(site)s' in sql or 'e.site_id' in sql and 'AND e.site_id=%(site)s' in sql:
+            continue
+        assert 'AND s.customer_id=%(customer)s' in sql and params['customer'] == 7, sql[:120]

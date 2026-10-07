@@ -109,6 +109,11 @@ def _customer_id(selected,value):
     return customer_id
 
 
+def _customer_scope(selected):
+    """Optional ?customer_id=: the advertiser the analysis is narrowed to (None = every one of the account)."""
+    return _customer_id(selected, request.args.get('customer_id', '').strip())
+
+
 def _redact_ai_text(value, limit):
     """Minimize page-derived text before sending it to semantic suggestions."""
     text = str(value or '')[:limit]

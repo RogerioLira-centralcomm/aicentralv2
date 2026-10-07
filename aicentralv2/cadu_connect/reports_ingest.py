@@ -12,7 +12,7 @@ from flask import abort, jsonify, request, session
 from ..auth import login_required_api
 from ..cadu_family import context
 from ..db import get_db
-from .reports_v1 import _column_exists, _ready, _rows, _selection, _write_guard
+from .reports_v1 import _column_exists, _customer_scope, _ready, _rows, _selection, _write_guard
 
 
 MAX_BODY_BYTES = 1_000_000
@@ -183,9 +183,14 @@ def register(bp):
         selected = _selection()
         if not _ready():
             return jsonify(keys=[])
-        keys = _rows('''SELECT id,label,source_kind,allowed_account_ids,bound_account_id,manager_external_id,created_at,last_used_at,revoked_at
-                FROM cadu_reports_ingest_keys WHERE client_id=%s
-                ORDER BY created_at DESC''', (selected['client_id'],))
+        customer = _customer_scope(selected)
+        # A key belongs to a client through the media accounts it is bound to or allowed to write.
+        keys = _rows('''SELECT k.id,k.label,k.source_kind,k.allowed_account_ids,k.bound_account_id,k.manager_external_id,k.created_at,k.last_used_at,k.revoked_at
+                FROM cadu_reports_ingest_keys k WHERE k.client_id=%s
+                AND (%s::bigint IS NULL OR EXISTS (SELECT 1 FROM cadu_reports_accounts a
+                    WHERE a.client_id=k.client_id AND a.customer_id=%s
+                    AND (a.id=k.bound_account_id OR a.id::text=ANY(k.allowed_account_ids))))
+                ORDER BY k.created_at DESC''', (selected['client_id'], customer, customer))
         runs = _rows('''SELECT id,source_kind,status,record_count,period_start,period_end,
                 created_at,finished_at,metadata FROM cadu_reports_source_runs
                 WHERE client_id=%s AND source_kind <> 'google_ads_engine_v2_chunk'
@@ -479,6 +484,10 @@ def register(bp):
                     abort(400, description=f'{field} inválido.')
                 filters += f' AND {column}=%s'
                 params.append(value)
+        customer = _customer_scope(selected)
+        if customer:
+            filters += ' AND c.customer_id=%s'
+            params.append(customer)
         joins = '''JOIN cadu_reports_campaigns c ON c.id=m.campaign_id
                 JOIN cadu_reports_accounts a ON a.id=c.account_id'''
         daily = _rows('''SELECT m.metric_date AS date,SUM(m.impressions)::bigint AS impressions,

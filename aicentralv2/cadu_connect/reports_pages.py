@@ -18,7 +18,7 @@ from .reports_page_suggestions import MIN_TERM_CLICKS, build_suggestions
 from .reports_page_metrics import (
     DEVICE_LABELS, DEVICES, DICTIONARY, MIN_RELIABLE_CLICKS, RETENTION_DAYS, breakdown, build_conversion_map, build_document_grid, build_elements,
     build_grid, build_metrics, compare, device_bucket, pct, sum_groups)
-from .reports_v1 import _rows, _selection
+from .reports_v1 import _customer_scope, _rows, _selection
 
 HEALTH_TIMELINE = 30
 EVENT_TABLE = 'cadu_reports_supertag_events'
@@ -437,8 +437,10 @@ def register(bp):
         scope = {'client': client, 'since': since, 'until': until}
         previous_scope = {'client': client, 'since': since - span, 'until': since}
         has_previous = (datetime.now(timezone.utc) - (since - span)).days < RETENTION_DAYS
+        customer = _customer_scope(selected)
         sites = _rows('''SELECT id,label,allowed_host,enabled FROM cadu_reports_supertag_sites
-            WHERE client_id=%s AND revoked_at IS NULL ORDER BY allowed_host''', (client,))
+            WHERE client_id=%s AND revoked_at IS NULL AND (%s::bigint IS NULL OR customer_id=%s)
+            ORDER BY allowed_host''', (client, customer, customer))
         current = {str(row['site_id']): row for row in _rows(_DOMAIN_TOTALS_SQL, scope)}
         previous = {str(row['site_id']): row for row in _rows(_DOMAIN_TOTALS_SQL, previous_scope)} if has_previous else {}
         daily, pages, origins, devices = {}, {}, {}, {}

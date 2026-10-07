@@ -15,7 +15,7 @@ from .reports_flow_metrics import (NOT_SEARCH, PLATFORM_ALIASES, PLATFORM_LABELS
                                    search_engine_for_host, search_engine_label)
 from .reports_page_identity import sql_normalized_path
 from .reports_pages import EVENT_TABLE, _window
-from .reports_v1 import _column_exists, _rows, _selection
+from .reports_v1 import _customer_scope, _column_exists, _rows, _selection
 
 NAVIGATION_LIMIT = 25
 PAGES_LIMIT = 100
@@ -770,9 +770,15 @@ def _site_param():
         abort(400, description='Site inválido.')
 
 
-def _one_site(sql, site):
-    """Narrows a query built on ``_SCOPE`` to one site."""
-    return sql.replace(_SCOPE, _SCOPE + ' AND e.site_id=%(site)s::uuid') if site else sql
+def _narrowing(site, customer=None):
+    """Extra WHERE terms for the chosen site and/or advertiser; every query here reads ``cadu_reports_supertag_sites s``."""
+    return ' '.join(part for part in ('AND e.site_id=%(site)s::uuid' if site else '', 'AND s.customer_id=%(customer)s' if customer else '') if part)
+
+
+def _one_site(sql, site, customer=None):
+    """Narrows a query built on ``_SCOPE`` to one site and/or advertiser."""
+    narrowing = _narrowing(site, customer)
+    return sql.replace(_SCOPE, f'{_SCOPE} {narrowing}') if narrowing else sql
 
 
 def _by_platform(rows, *fields):
@@ -812,8 +818,9 @@ def register(bp):
         selected = _selection()
         since, until, days = _window()
         site = _site_param()
-        scope = {'client': selected['client_id'], 'since': since, 'until': until, 'site': site}
-        sections = _rows(_one_site(_CONTENT_SQL, site), scope)
+        customer = _customer_scope(selected)
+        scope = {'client': selected['client_id'], 'since': since, 'until': until, 'site': site, 'customer': customer}
+        sections = _rows(_one_site(_CONTENT_SQL, site, customer), scope)
         paid_ready = _rows("SELECT to_regclass('public.cadu_reports_gads_landing_page_daily') IS NOT NULL AS ready")[0]['ready']
         paid = {(_bare_host(row['host']), row['section'] or '/'): row for row in (_rows(_CONTENT_PAID_SQL, scope) if paid_ready else [])}
         for row in sections:
@@ -834,9 +841,10 @@ def register(bp):
         if origin is not None and origin not in ORIGIN_GROUPS:
             abort(400, description='Origem inválida.')
         site = _site_param()
+        customer = _customer_scope(selected)
         scope = {'client': selected['client_id'], 'since': since, 'until': until, 'limit': NAVIGATION_LIMIT,
-                 'pages': PAGES_LIMIT, 'depth': SEQUENCE_DEPTH, 'sequences': SEQUENCES_LIMIT, 'origin': origin, 'site': site}
-        narrow = (lambda sql: sql.replace('{site}', 'AND e.site_id=%(site)s::uuid' if site else ''))
+                 'pages': PAGES_LIMIT, 'depth': SEQUENCE_DEPTH, 'sequences': SEQUENCES_LIMIT, 'origin': origin, 'site': site, 'customer': customer}
+        narrow = (lambda sql: sql.replace('{site}', _narrowing(site, customer)))
         summary = _rows(narrow(_NAV_SUMMARY_SQL), scope)
         totals = navigation_totals(summary, origin)
         previous_since, previous_until = previous_window(since, until)
@@ -862,8 +870,9 @@ def register(bp):
         selected = _selection()
         since, until, days = _window()
         site = _site_param()
-        scope = {'client': selected['client_id'], 'since': since, 'until': until, 'site': site}
-        narrow = (lambda sql: sql.replace('{site}', 'AND e.site_id=%(site)s::uuid' if site else ''))
+        customer = _customer_scope(selected)
+        scope = {'client': selected['client_id'], 'since': since, 'until': until, 'site': site, 'customer': customer}
+        narrow = (lambda sql: sql.replace('{site}', _narrowing(site, customer)))
         summary = _rows(narrow(_CHANNELS_SUMMARY_SQL), scope)
         channels = channel_rows(summary, _rows(narrow(_CHANNELS_DEVICES_SQL), scope),
                                 _rows(narrow(_CHANNELS_CAMPAIGNS_SQL), scope), _rows(narrow(_CHANNELS_LANDINGS_SQL), scope))
@@ -886,9 +895,10 @@ def register(bp):
         selected = _selection()
         since, until, days = _window()
         site = _site_param()
-        scope = {'client': selected['client_id'], 'since': since, 'until': until, 'site': site}
+        customer = _customer_scope(selected)
+        scope = {'client': selected['client_id'], 'since': since, 'until': until, 'site': site, 'customer': customer}
         name = ("COALESCE(NULLIF(e.event_name,''),e.event_kind)" if _column_exists(EVENT_TABLE, 'event_name') else 'e.event_kind')
-        narrow = (lambda sql: sql.replace('{site}', 'AND e.site_id=%(site)s::uuid' if site else '').replace('@NAME@', name))
+        narrow = (lambda sql: sql.replace('{site}', _narrowing(site, customer)).replace('@NAME@', name))
         groups = conversion_groups(_rows(narrow(_CONV_GROUPS_TOTAL_SQL), scope), _rows(narrow(_CONV_GROUPS_ORIGINS_SQL), scope),
                                    _rows(narrow(_CONV_GROUPS_PREVIOUS_SQL), scope))
         return jsonify(window=_window_json(since, until, days), groups=groups,
@@ -902,13 +912,13 @@ def register(bp):
         selected = _selection()
         since, until, days = _window()
         site = _site_param()
-        scope = {'client': selected['client_id'], 'since': since, 'until': until, 'site': site, 'customer': None}
-        narrow = (lambda sql: sql.replace('{site}', 'AND e.site_id=%(site)s::uuid' if site else ''))
+        customer = _customer_scope(selected)
+        scope = {'client': selected['client_id'], 'since': since, 'until': until, 'site': site, 'customer': customer}
+        narrow = (lambda sql: sql.replace('{site}', _narrowing(site, customer)))
         attribution = attribution_rows(_rows(narrow(_ATTRIBUTION_SQL), scope))
         cost = None
         if _rows("SELECT to_regclass('public.cadu_reports_campaign_daily_metrics') IS NOT NULL AS ready")[0]['ready']:
-            customer = None
-            if site:
+            if site and not customer:
                 found = _rows('SELECT customer_id FROM cadu_reports_supertag_sites WHERE id=%(site)s::uuid AND client_id=%(client)s', scope)
                 customer = found[0]['customer_id'] if found else None
             # Spend belongs to the client, so its sessions are those of every site of that client, not only the chosen one.
@@ -928,15 +938,16 @@ def register(bp):
         selected = _selection()
         since, until, days = _window()
         site = _site_param()
-        scope = {'client': selected['client_id'], 'since': since, 'until': until, 'site': site}
+        customer = _customer_scope(selected)
+        scope = {'client': selected['client_id'], 'since': since, 'until': until, 'site': site, 'customer': customer}
         name = ("COALESCE(NULLIF(e.event_name,''),e.event_kind)" if _column_exists(EVENT_TABLE, 'event_name')
                 else 'e.event_kind')
-        groups = _rows(_one_site(_CONV_GROUPS_SQL.format(name=name), site), scope)
-        daily = [{**row, 'day': row['day'].isoformat()} for row in _rows(_one_site(_CONV_DAILY_SQL, site), scope)]
+        groups = _rows(_one_site(_CONV_GROUPS_SQL.format(name=name), site, customer), scope)
+        daily = [{**row, 'day': row['day'].isoformat()} for row in _rows(_one_site(_CONV_DAILY_SQL, site, customer), scope)]
         totals = {kind: sum(int(row['total']) for row in groups if row['kind'] == kind) for kind in _CONVERSION_KINDS}
         crm_ready = _rows("SELECT to_regclass('public.cadu_reports_external_conversions') IS NOT NULL AS ready")[0]['ready']
         return jsonify(window=_window_json(since, until, days), totals=totals, groups=groups, daily=daily,
-                       origins=_by_platform(_rows(_one_site(_CONV_ORIGINS_SQL, site), scope), 'sessions', 'converted'),
+                       origins=_by_platform(_rows(_one_site(_CONV_ORIGINS_SQL, site, customer), scope), 'sessions', 'converted'),
                        confirmed=_rows(_CRM_SQL, scope) if crm_ready else [])
 
     @bp.get('/api/v2/reports/journey/heatmap-detail')
@@ -975,8 +986,9 @@ def register(bp):
         if device not in HEATMAP_DEVICES:
             abort(400, description='Escolha computador ou celular.')
         site = _site_param()
-        scope = {'client': selected['client_id'], 'since': since, 'until': until, 'pages': PAGES_LIMIT, 'site': site}
+        customer = _customer_scope(selected)
+        scope = {'client': selected['client_id'], 'since': since, 'until': until, 'pages': PAGES_LIMIT, 'site': site, 'customer': customer}
         sql = _HEATMAP_PAGES_SQL.replace('{device}', HEATMAP_DEVICES[device]).replace(
-            '{site}', 'AND e.site_id=%(site)s::uuid' if site else '')
+            '{site}', _narrowing(site, customer))
         return jsonify(window=_window_json(since, until, days), device=device, pages=heatmap_pages(_rows(sql, scope)),
                        cost_tokens=capture_cost_tokens(selected['client_id']))

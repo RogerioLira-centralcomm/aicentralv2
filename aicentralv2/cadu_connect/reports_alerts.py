@@ -17,7 +17,7 @@ from ..db import get_db
 from .reports_alert_rules import (RULES, campaign_page_findings, channel_entry_findings, collection_absent_findings, conversion_drop_findings,
                                   page_down_findings, tech_conversion_findings)
 from .reports_page_identity import sql_normalized_path
-from .reports_v1 import _rows, _selection, _write_guard
+from .reports_v1 import _customer_scope, _rows, _selection, _write_guard
 
 NOTIFY_COOLDOWN = timedelta(hours=24)
 SILENCE_CHOICES_HOURS = (1, 24, 168)
@@ -258,13 +258,14 @@ def register(bp):
         if status not in ('active', 'resolved', 'all'):
             abort(400, description='Estado inválido.')
         where = {'active': "a.status<>'resolved'", 'resolved': "a.status='resolved'", 'all': 'TRUE'}[status]
+        customer = _customer_scope(selected)
         rows = _rows(f'''SELECT a.id,a.rule,a.severity,a.status,a.resolution,a.title,a.summary,a.evidence,a.page_path,a.occurrences,
                 a.assigned_to,u.nome_completo AS assigned_name,a.acknowledged_at,a.silenced_until,a.first_seen_at,a.last_seen_at,a.resolved_at,
                 a.site_id,s.label AS site_label,s.allowed_host
             FROM cadu_reports_alerts a JOIN cadu_reports_supertag_sites s ON s.id=a.site_id
             LEFT JOIN tbl_contato_cliente u ON u.id_contato_cliente=a.assigned_to
-            WHERE a.client_id=%s AND {where}
-            ORDER BY CASE a.severity WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,a.last_seen_at DESC LIMIT 200''', (selected['client_id'],))
+            WHERE a.client_id=%s AND {where} AND (%s::bigint IS NULL OR s.customer_id=%s)
+            ORDER BY CASE a.severity WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,a.last_seen_at DESC LIMIT 200''', (selected['client_id'], customer, customer))
         return jsonify(alerts=rows, user_id=selected['user_id'], emails_enabled=emails_enabled(), silence_choices=list(SILENCE_CHOICES_HOURS),
                        rules=[{'rule': key, **value} for key, value in RULES.items()])
 

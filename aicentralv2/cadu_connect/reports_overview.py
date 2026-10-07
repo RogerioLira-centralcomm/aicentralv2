@@ -14,7 +14,7 @@ from flask import abort, jsonify, request
 from ..auth import login_required_api
 from .reports_page_metrics import RETENTION_DAYS
 from .reports_pages import EVENT_TABLE
-from .reports_v1 import _ready, _rows, _selection
+from .reports_v1 import _customer_scope, _ready, _rows, _selection
 
 ZONE = ZoneInfo('America/Sao_Paulo')
 MEDIA_FIELDS = ('impressions', 'clicks', 'cost', 'conversions')
@@ -40,7 +40,7 @@ _IMPORT_SQL = '''SELECT m.metric_date AS date,m.metric_key,COALESCE(m.currency,'
     GROUP BY m.metric_date,m.metric_key,COALESCE(m.currency,'')'''
 
 
-def _site_sql(windows):
+def _site_sql(windows, customer=None):
     """One pass over the events: distinct sessions/visitors and conversions per window, plus the previous period by day."""
     columns = []
     for key in windows:
@@ -50,7 +50,7 @@ def _site_sql(windows):
         columns.append(f"COUNT(*) FILTER (WHERE e.event_kind='conversion' AND {inside})::bigint AS {key}_conversions")
     return f'''SELECT {",".join(columns)}
         FROM {EVENT_TABLE} e JOIN cadu_reports_supertag_sites s ON s.id=e.site_id
-        WHERE s.client_id=%(client)s AND s.revoked_at IS NULL AND e.expires_at>NOW()
+        WHERE s.client_id=%(client)s AND s.revoked_at IS NULL AND e.expires_at>NOW(){' AND s.customer_id=%(customer)s' if customer else ''}
             AND e.occurred_at>=%(since)s AND e.occurred_at<%(until)s'''
 
 
@@ -58,7 +58,7 @@ _SITE_DAILY_SQL = f'''SELECT (e.occurred_at AT TIME ZONE 'America/Sao_Paulo')::d
         COUNT(DISTINCT e.session_id) FILTER (WHERE e.event_kind='page_view')::bigint AS sessions,
         COUNT(*) FILTER (WHERE e.event_kind='conversion')::bigint AS conversions
     FROM {EVENT_TABLE} e JOIN cadu_reports_supertag_sites s ON s.id=e.site_id
-    WHERE s.client_id=%(client)s AND s.revoked_at IS NULL AND e.expires_at>NOW()
+    WHERE s.client_id=%(client)s AND s.revoked_at IS NULL AND e.expires_at>NOW(){{customer_filter}}
         AND e.occurred_at>=%(since)s AND e.occurred_at<%(until)s
     GROUP BY 1 ORDER BY 1'''
 
@@ -173,6 +173,10 @@ def register(bp):
         windows = windows_for(start, end, today)
         serial = {key: {'start': first.isoformat(), 'end': last.isoformat()} for key, (first, last) in windows.items()}
         filters, scope = _scope_filters()
+        customer = _customer_scope(selected)
+        if customer:
+            filters += ' AND c.customer_id=%(customer)s'
+            scope['customer'] = customer
         empty = {'currency': None, 'media_source': None, 'windows': serial, 'media': None, 'site': None,
                  'previous_daily': {'media': [], 'site': []}}
         if not _ready():
@@ -192,17 +196,18 @@ def register(bp):
             oldest = today - timedelta(days=RETENTION_DAYS - 1)
             live = {key: value for key, value in windows.items() if value[0] >= oldest}
             if live:
-                site_params = {'client': selected['client_id']}
+                site_params = {'client': selected['client_id'], **({'customer': customer} if customer else {})}
                 for key, (first, last) in live.items():
                     site_params[f'{key}_since'], site_params[f'{key}_until'] = _bounds(first, last)
                 site_params['since'] = min(site_params[f'{key}_since'] for key in live)
                 site_params['until'] = max(site_params[f'{key}_until'] for key in live)
-                row = (_rows(_site_sql(live), site_params) or [{}])[0]
+                row = (_rows(_site_sql(live, customer), site_params) or [{}])[0]
                 site = {key: ({field: int(row.get(f'{key}_{field}') or 0) for field in SITE_FIELDS} if key in live else None)
                         for key in WINDOW_KEYS}
                 if 'period_previous' in live:
                     since, until = _bounds(previous_first, previous_last)
-                    site_daily = _rows(_SITE_DAILY_SQL, {'client': selected['client_id'], 'since': since, 'until': until})
+                    site_daily = _rows(_SITE_DAILY_SQL.format(customer_filter=' AND s.customer_id=%(customer)s' if customer else ''),
+                                       {'client': selected['client_id'], 'since': since, 'until': until, **({'customer': customer} if customer else {})})
         previous_days = [previous_first + timedelta(days=offset) for offset in range((previous_last - previous_first).days + 1)]
         return jsonify(
             currency=currency, media_source=source, windows=serial,

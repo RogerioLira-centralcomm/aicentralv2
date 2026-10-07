@@ -22,7 +22,7 @@ from ..cadu_workspace.brand_site_inspector import (
     normalize_public_url,
 )
 from .reports_flow import _campaign_match, _host_allowed, _safe_path
-from .reports_v1 import _customer_id, _rows, _selection, _write_guard
+from .reports_v1 import _customer_id, _customer_scope, _rows, _selection, _write_guard
 from . import reports_supertag_leads as leads
 from . import reports_tech as tech
 
@@ -743,7 +743,8 @@ def register(bp):
     @login_required_api
     def supertag_sites():
         selected = _selection()
-        params = (selected['client_id'],)
+        customer = _customer_scope(selected)
+        params = (selected['client_id'], customer, customer)
         sites = _rows('''SELECT s.id,s.public_id,s.label,s.allowed_host,s.enabled,s.config,s.customer_id,
                 s.config_version,s.created_at,s.updated_at,s.revoked_at,
                 COUNT(e.id)::bigint AS events_30d,
@@ -752,7 +753,7 @@ def register(bp):
                     WHERE l.site_id=s.id AND l.expires_at > NOW()) AS last_event_at
             FROM cadu_reports_supertag_sites s LEFT JOIN cadu_reports_supertag_events e
               ON e.site_id=s.id AND e.expires_at > NOW() AND e.occurred_at >= NOW() - INTERVAL '30 days'
-            WHERE s.client_id=%s
+            WHERE s.client_id=%s AND (%s::bigint IS NULL OR s.customer_id=%s)
             GROUP BY s.id ORDER BY s.created_at DESC''', params)
         base = _base_url()
         for site in sites:

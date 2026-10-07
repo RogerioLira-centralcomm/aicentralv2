@@ -16,7 +16,7 @@ from flask import abort, current_app, jsonify, request, session
 
 from ..auth import login_required_api
 from ..db import get_db
-from .reports_v1 import _rows, _selection, _write_guard, _customer_id, _optional_positive_id
+from .reports_v1 import _rows, _selection, _write_guard, _customer_id, _customer_scope, _optional_positive_id
 from .reports_flow_versions import expected_revision, lock_flow, save_draft, publish_draft, session_snapshot, match_version_step
 from .reports_flow_schema import DEFAULT_KINDS, to_v3
 from .reports_flow_validation import MAX_FLOW_PAGES, validate_flow_config
@@ -1022,7 +1022,8 @@ def register(bp):
                             AND c.client_id=s.client_id
                         WHERE s.tag_id=f.tag_id AND s.client_id=f.client_id AND s.is_active=TRUE) AS campaign_names
                 FROM cadu_reports_flow_registry f LEFT JOIN cadu_reports_site_tags t ON t.id=f.tag_id
-                WHERE f.client_id=%s ORDER BY f.created_at DESC''', params)
+                WHERE f.client_id=%s AND (%s::bigint IS NULL OR f.customer_id=%s)
+                ORDER BY f.created_at DESC''', (*params, _customer_scope(selected), _customer_scope(selected)))
             supertag_sites = _rows('''SELECT id,public_id,label,allowed_host,enabled,revoked_at
                 FROM cadu_reports_supertag_sites WHERE client_id=%s
                     AND enabled=TRUE AND revoked_at IS NULL ORDER BY created_at DESC''', params)
@@ -1143,7 +1144,8 @@ def register(bp):
                         AND c.client_id=s.client_id
                     WHERE s.tag_id=f.tag_id AND s.client_id=f.client_id AND s.is_active=TRUE) AS campaign_names
             FROM cadu_reports_flow_registry f LEFT JOIN cadu_reports_site_tags t ON t.id=f.tag_id
-            WHERE f.client_id=%s ORDER BY f.created_at DESC''', params)
+            WHERE f.client_id=%s AND (%s::bigint IS NULL OR f.customer_id=%s) ORDER BY f.created_at DESC''',
+            (*params, _customer_scope(selected), _customer_scope(selected)))
         flows = [{**item, 'config': to_v3(item['config'])} for item in flows]
         flows = _with_flow_stats(flows, params)
         activity = _rows(scoped_events + '''SELECT e.tag_id,e.page_path,

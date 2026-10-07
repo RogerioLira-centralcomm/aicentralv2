@@ -18,7 +18,7 @@ from ..db import get_db
 from .report_sources import prepare_image
 from .reports_import_parser import (ALIASES, FIELD_BY_HEADER, MAX_FILE_BYTES,
                                     normalized_header, normalized_platform, parse_record, read_export)
-from .reports_v1 import _rows, _selection, _write_guard
+from .reports_v1 import _customer_scope, _rows, _selection, _write_guard
 
 logger = logging.getLogger(__name__)
 
@@ -754,6 +754,10 @@ def register(bp):
                     abort(400, description=f'{field} inválido.')
                 filters += f' AND {column}=%s'
                 params.append(number)
+        customer = _customer_scope(selected)
+        if customer:
+            filters += ' AND c.customer_id=%s'
+            params.append(customer)
         rows = _rows('''SELECT p.metric_date,p.metric_key,p.currency,a.platform,
             SUM(p.value_numeric) AS value_numeric,
             COUNT(*) FILTER (WHERE p.version_count>1 AND p.value_numeric IS NULL)::bigint AS conflicts

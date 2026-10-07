@@ -228,14 +228,16 @@ def _tracking_gap(site):
 
 
 def conversion_series(site_id, path, today):
-    """Daily session conversion rate of the page for the last SERIES_DAYS days and the SERIES_DAYS before them, aligned day by day."""
+    """Daily session conversion rate of the page for the SERIES_DAYS complete days before `today` and the SERIES_DAYS before them, aligned day by day.
+
+    Today is left out: it is still partial and would make the end of the line look like a drop."""
     from .reports_pages import window_metrics
     rates = []
-    for offset in range(2 * SERIES_DAYS - 1, -1, -1):
+    for offset in range(2 * SERIES_DAYS, 0, -1):
         day = today - timedelta(days=offset)
         start = datetime.combine(day, datetime.min.time(), tzinfo=SAO_PAULO)
         rates.append(window_metrics(site_id, path, start, start + timedelta(days=1))[0]['session_conversion_rate'])
-    days = [today - timedelta(days=offset) for offset in range(SERIES_DAYS - 1, -1, -1)]
+    days = [today - timedelta(days=offset) for offset in range(SERIES_DAYS, 0, -1)]
     return {'labels': [day.isoformat() for day in days], 'current': rates[SERIES_DAYS:], 'previous': rates[:SERIES_DAYS], 'unit': 'percent',
             'current_label': 'Período atual', 'previous_label': 'Período anterior'}
 
@@ -297,6 +299,8 @@ def evaluate_site(site, heavy=False, now=None):
     hours = float(silence['hours']) if silence['hours'] is not None else None
     sync_findings(site, 'collection_absent', collection_absent_findings(site['label'], int(silence['baseline'] or 0), hours), now)
     if heavy:
+        # Confirm the availability and tracking alerts first: a failure while building the richer panels below rolls back only their own work.
+        get_db().commit()
         from .reports_pages import window_metrics
         pages = []
         for row in _rows(_TOP_PAGES_SQL, {'site': site['id']}):
@@ -313,6 +317,7 @@ def evaluate_site(site, heavy=False, now=None):
                 get_db().rollback()
                 current_app.logger.exception('Falha ao montar o painel do alerta de conversão de %s', finding['subject_key'])
         sync_findings(site, 'conversion_drop', drops, now)
+        get_db().commit()
         try:
             evaluate_anomalies(site, now)
         except Exception:

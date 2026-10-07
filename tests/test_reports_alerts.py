@@ -617,7 +617,7 @@ def test_conversion_drop_gets_a_chart_figures_the_impacted_url_and_causes():
     with mock.patch('aicentralv2.cadu_connect.reports_pages.window_metrics', window), mock.patch.object(alerts, '_monitor_rows', return_value=[]), mock.patch.object(alerts, '_tracking_gap', return_value=True):
         out = alerts.enrich_conversion_drop(site, finding, page, TODAY)
     assert window.call_count == 14 and out['series']['previous'] == [float(n) for n in range(1, 8)] and out['series']['current'] == [float(n) for n in range(8, 15)]
-    assert out['series']['labels'][-1] == '2026-10-07' and out['series']['unit'] == 'percent'
+    assert out['series']['labels'][-1] == '2026-10-06' and out['series']['labels'][0] == '2026-09-30' and out['series']['unit'] == 'percent'   # ends on the last complete day
     assert [m['label'] for m in out['metrics']] == ['Taxa de conversão', 'Visitas', 'Conversões'] and out['metrics'][0]['change'] == -33.0 and out['metrics'][1]['change'] == -10.0
     assert out['impacted_urls'] == [{'path': '/lp', 'sessions': 90, 'conversions': 6, 'rate': 6.7, 'change': -33.0}]
     assert any('Super Tag' in text for text in out['causes'])
@@ -652,3 +652,28 @@ def test_anomalies_are_evaluated_per_site_and_closed_when_the_day_is_normal():
          mock.patch.object(alerts, 'sync_findings', lambda s, rule, findings, now: synced.setdefault(rule, findings)):
         alerts.evaluate_anomalies(site, datetime.datetime(2026, 10, 7, 15, 0, tzinfo=datetime.timezone.utc))
     assert set(synced) == {'traffic_anomaly', 'conversion_anomaly'} and len(synced['traffic_anomaly']) == 1 and synced['conversion_anomaly'] == []
+
+
+def test_a_failure_in_the_panel_work_never_discards_the_alerts_already_synced_for_the_site():
+    site = {'id': 's1', 'client_id': 7, 'allowed_host': 'loja.com', 'label': 'Loja'}
+    calls = []
+    db = mock.Mock()
+    db.commit.side_effect = lambda: calls.append('commit')
+    db.rollback.side_effect = lambda: calls.append('rollback')
+    page = {'path': '/lp', 'current': {'sessions': 90, 'converted_sessions': 6, 'session_conversion_rate': 6.7}, 'previous': {'sessions': 100, 'converted_sessions': 10, 'session_conversion_rate': 10.0}}
+    app = Flask(__name__)
+
+    def fake_rows(sql, params=()):
+        if 'FROM cadu_reports_flow_monitor_checks' in sql:
+            return []
+        if 'MAX(occurred_at)' in sql:
+            return [{'last_event': None, 'hours': None, 'baseline': 0}]
+        return [{'path': '/lp'}] if 'GROUP BY 1 ORDER BY views' in sql else []
+    window = mock.Mock(return_value=(page['current'], []))
+    with app.app_context(), mock.patch.object(alerts, '_rows', fake_rows), mock.patch.object(alerts, 'get_db', return_value=db), mock.patch.object(alerts, 'sync_findings', lambda *a, **k: calls.append('sync')), \
+         mock.patch('aicentralv2.cadu_connect.reports_pages.window_metrics', window), mock.patch.object(alerts, 'conversion_drop_findings', return_value=[{'subject_key': '/lp'}]), \
+         mock.patch.object(alerts, 'enrich_conversion_drop', side_effect=RuntimeError('boom')), mock.patch.object(alerts, 'evaluate_anomalies'), mock.patch.object(alerts, 'evaluate_insights'):
+        alerts.evaluate_site(site, heavy=True, now=NOW)
+    # page_down and collection_absent are committed before the panel work can fail and roll back
+    assert calls[:3] == ['sync', 'sync', 'commit'] and 'rollback' in calls
+    assert 'commit' in calls[calls.index('rollback'):], 'the conversion_drop sync is committed even after the panel work failed'

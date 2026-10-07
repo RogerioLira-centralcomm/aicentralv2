@@ -21,9 +21,13 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+from dotenv import load_dotenv
 from PIL import Image
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+load_dotenv(ROOT / '.env')
+from aicentralv2 import create_app  # noqa: E402
 from aicentralv2.db import get_db  # noqa: E402
 
 STATIC = Path(__file__).resolve().parents[1] / 'aicentralv2' / 'static'
@@ -112,4 +116,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    with create_app().app_context():
+        main()

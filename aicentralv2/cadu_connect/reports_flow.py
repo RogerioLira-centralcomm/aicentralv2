@@ -1993,9 +1993,11 @@ def register(bp):
                            description=f"Resolva {len(blocking)} pendência(s) bloqueante(s) antes de publicar.",
                            items=blocking), 422
         _validate_flow_references(config, selected)
+        first_publication = flow['status'] != 'published' and flow.get('published_at') is None
         changed = publish_draft(flow['id'], selected, expected_revision(payload), session['user_id'])
-        # First publication turns the page monitor on (5 min); a monitor the team already configured is left alone.
-        _rows('''UPDATE cadu_reports_flow_registry SET monitor_enabled=TRUE,monitor_interval_minutes=5,monitor_next_check_at=NOW()
+        # Only the first publication turns the page monitor on (5 min); a choice the team made later is never undone.
+        if first_publication:
+          _rows('''UPDATE cadu_reports_flow_registry SET monitor_enabled=TRUE,monitor_interval_minutes=5,monitor_next_check_at=NOW()
             WHERE id=%s AND client_id=%s AND monitor_enabled=FALSE AND monitor_checked_at IS NULL RETURNING id''',
             (flow['id'], selected['client_id']))
         get_db().commit()

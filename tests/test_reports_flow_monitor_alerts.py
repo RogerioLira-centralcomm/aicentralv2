@@ -93,3 +93,18 @@ def test_ai_agents_are_recognised_by_referrer_and_utm():
     assert ai_agent_for('gemini.google.com') == 'gemini' and ai_agent_for('www.google.com') is None
     assert origin_platform('utm:chatgpt.com|x') == 'chatgpt' and origin_platform('ref:gemini.google.com') == 'gemini'
     assert origin_platform('ref:www.google.com') == 'organic' and origin_platform('ref:claude.ai') == 'claude'
+
+
+def test_recovery_at_night_is_held_until_the_window_opens(env):
+    env.state = {'monitor_down_since': DAY, 'monitor_last_alert_at': DAY}
+    monitor.notify_transition(FLOW, 'online', UP, now=NIGHT)
+    assert env.sent == [] and env.db.updates == []          # state kept: the all-clear is still owed
+    monitor.notify_transition(FLOW, 'online', UP, now=DAY + timedelta(days=1))
+    assert len(env.sent) == 1 and env.db.updates[-1] == ('f1',)
+
+
+def test_failed_recovery_mail_is_retried(env, monkeypatch):
+    env.state = {'monitor_down_since': DAY, 'monitor_last_alert_at': DAY}
+    monkeypatch.setattr(monitor, '_send_monitor_email', lambda *a, **k: False)
+    monitor.notify_transition(FLOW, 'online', UP, now=DAY + timedelta(minutes=5))
+    assert env.db.updates == []

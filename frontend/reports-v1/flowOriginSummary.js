@@ -12,9 +12,9 @@ const ALIASES = {
   tiktok: ['tiktok', 'tiktok_ads'], linkedin: ['linkedin', 'linkedin_ads', 'lnkd'], youtube: ['youtube', 'yt'],
   email: ['email', 'e-mail', 'newsletter', 'mailchimp', 'rdstation', 'hubspot'], whatsapp: ['whatsapp', 'wa'], sms: ['sms'],
 };
-const SEARCH_DOMAINS = ['google.com', 'google.com.br', 'bing.com', 'search.yahoo.com', 'yahoo.com', 'duckduckgo.com', 'ecosia.org', 'yandex.com', 'yandex.ru', 'baidu.com', 'search.brave.com'];
+const SEARCH_DOMAINS = ['google.com', 'google.com.br', 'google.pt', 'google.co.uk', 'google.es', 'google.de', 'google.fr', 'google.it', 'google.ca', 'google.com.ar', 'google.com.mx', 'google.cl', 'google.co', 'bing.com', 'search.yahoo.com', 'yahoo.com', 'duckduckgo.com', 'ecosia.org', 'yandex.com', 'yandex.ru', 'baidu.com', 'search.brave.com'];
 const NOT_SEARCH = ['mail.', 'accounts.', 'docs.', 'drive.', 'maps.', 'play.', 'support.', 'news.', 'calendar.'];
-const SOCIAL = ['facebook.', 'instagram.', 'linkedin.', 't.co', 'twitter.', 'x.com', 'tiktok.', 'youtube.', 'pinterest.', 'lnkd.in'];
+const SOCIAL_DOMAINS = ['facebook.com', 'fb.com', 'fb.me', 'messenger.com', 'instagram.com', 'linkedin.com', 'lnkd.in', 't.co', 'twitter.com', 'x.com', 'tiktok.com', 'youtube.com', 'youtu.be', 'pinterest.com', 'threads.net', 'reddit.com'];
 const NODE_PLATFORMS = {facebook: 'meta', instagram: 'meta', dv360: 'google', organic_search: 'organic', organic_social: 'social', communication: 'email'};
 
 export const ORIGIN_LABELS = {direct: 'Acesso direto', organic: 'Busca orgânica', social: 'Redes sociais', referral: 'Outros sites',
@@ -40,7 +40,7 @@ export function classifyOrigin(label) {
   if (named) return named;
   if (!value.includes('.')) return 'campaign';
   if (!NOT_SEARCH.some(prefix => value.startsWith(prefix)) && inDomain(value, SEARCH_DOMAINS)) return 'organic';
-  if (SOCIAL.some(token => value.includes(token))) return 'social';
+  if (inDomain(value, SOCIAL_DOMAINS)) return 'social';
   return 'referral';
 }
 

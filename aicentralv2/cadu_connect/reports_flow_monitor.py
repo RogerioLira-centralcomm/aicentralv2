@@ -82,9 +82,12 @@ def notify_transition(flow, status, pages, now=None):
         if status == "online":
             if state["monitor_down_since"] is None:
                 return
-            if state["monitor_last_alert_at"] is not None and in_alert_window(now):
-                _send_monitor_email(flow, _alert_recipients(flow["id"], flow["client_id"]), status, pages,
-                                    state["monitor_down_since"], recovered=True)
+            if state["monitor_last_alert_at"] is not None:
+                # An alert went out: the all-clear follows it, held until 7h when the site came back at night.
+                if not in_alert_window(now) or not _send_monitor_email(
+                        flow, _alert_recipients(flow["id"], flow["client_id"]), status, pages,
+                        state["monitor_down_since"], recovered=True):
+                    return
             with connection.cursor() as cursor:
                 cursor.execute("UPDATE cadu_reports_flow_registry SET monitor_down_since=NULL,monitor_last_alert_at=NULL WHERE id=%s", (flow["id"],))
             connection.commit()
@@ -188,9 +191,9 @@ def check_flow(flow_id, client_id):
             check = cursor.fetchone()
             cursor.execute("""UPDATE cadu_reports_flow_registry SET monitor_status=%s,
                     monitor_checked_at=%s,monitor_next_check_at=CASE WHEN monitor_enabled
-                        THEN NOW()+(monitor_interval_minutes*INTERVAL '1 minute') ELSE NULL END
+                        THEN NOW()+(CASE WHEN %s='online' THEN monitor_interval_minutes ELSE LEAST(monitor_interval_minutes,5) END*INTERVAL '1 minute') ELSE NULL END
                 WHERE id=%s AND client_id=%s""",
-                (status, check["checked_at"], flow_id, client_id))
+                (status, check["checked_at"], status, flow_id, client_id))
             cursor.execute("""DELETE FROM cadu_reports_flow_monitor_checks
                 WHERE flow_id=%s AND id NOT IN (SELECT id FROM cadu_reports_flow_monitor_checks
                     WHERE flow_id=%s ORDER BY checked_at DESC LIMIT 200)""", (flow_id, flow_id))

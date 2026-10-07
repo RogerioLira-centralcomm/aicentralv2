@@ -30,6 +30,12 @@ def _serialize(row):
         "audience": ((row.get("metrics") or {}).get("addressable") or {}).get("label") or "",
         "traffic": ((row.get("metrics") or {}).get("passengers") or {}).get("label") or "",
         "traffic_label": row.get("traffic_label") or "Movimento",
+        # Where each number comes from: official, estimate or to validate.
+        "audience_origin": ((row.get("metrics") or {}).get("addressable") or {}).get("source_status") or "",
+        "traffic_origin": ((row.get("metrics") or {}).get("passengers") or {}).get("source_status") or "",
+        "weekly_movement": [value if isinstance(value, (int, float)) else None
+                            for value in ((row.get("weekly_movement") or {}).get("values") or [])][:7],
+        "weekly_origin": (row.get("weekly_movement") or {}).get("source_status") or "",
         # The marketplace should show the curated photo library, not a stale
         # generated hero when real photos are available.
         "image_url": card_image or media.get("hero_url") or next((item.get("url") for item in media.get("images") or [] if item.get("url")), ""),

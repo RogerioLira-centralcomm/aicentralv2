@@ -1,7 +1,7 @@
 import React from 'react';
 import {CaduEmptyState} from '../../cadu-design-system/components/CaduEmptyState.jsx';
 import {moduleUrl} from '../api.js';
-import {DetailLayout, Facts, Rail, RelatedList, TagList, hasValue} from './DetailLayout.jsx';
+import {DetailLayout, Facts, Rail, ReadMore, RelatedList, TagList, hasValue} from './DetailLayout.jsx';
 import {FormatCards} from '../FormatCards.jsx';
 
 const PROFILE_GROUP = 'Público, perfil e comportamento';
@@ -22,7 +22,8 @@ function Narrative({group}) {
   const long = fields.filter(field => !LIST_FIELDS.has(field.variable) && String(field.value).length > 90);
   const short = fields.filter(field => !lists.includes(field) && !long.includes(field));
   return <>
-    {long.map(field => <div key={field.variable} className="pd-prose"><h3 className="pd-subtitle">{field.label}</h3><p className="pd-text">{field.value}</p></div>)}
+    {long.length > 0 && <div className="pd-cards">{long.map(field => <div key={field.variable} className="pd-card">
+      <h3 className="pd-subtitle">{field.label}</h3><ReadMore text={field.value} limit={160}/></div>)}</div>}
     {lists.map(field => <div key={field.variable}><h3 className="pd-subtitle">{field.label}</h3><TagList value={field.value}/></div>)}
     {short.length > 0 && <Facts items={short.map(field => [field.label, field.value])}/>}
   </>;

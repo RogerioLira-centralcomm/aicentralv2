@@ -5,7 +5,7 @@ import {CaduBadge} from '../../cadu-design-system/components/CaduBadge.jsx';
 import {Icon} from '../../cadu-design-system/components/Icon.jsx';
 import {FormatCards} from '../FormatCards.jsx';
 import {SelectionButton} from '../PlannerUi.jsx';
-import {DemographyBars, DetailLayout, Facts, Rail, RelatedList, TagList, hasValue, listText} from './DetailLayout.jsx';
+import {DemographyBars, DetailLayout, Facts, Rail, ReadMore, RelatedList, TagList, hasValue, listText} from './DetailLayout.jsx';
 
 // Percent fields are stored as bare numbers; never double the sign.
 const pct = value => (typeof value === 'number' || /^\s*\d+([.,]\d+)?\s*$/.test(String(value ?? ''))) && hasValue(value) ? `${value}%` : value;
@@ -38,8 +38,12 @@ export function ChannelDetail({boot, selection, plan = null}) {
   const examples = [...ads.map(ad => ({url: ad.image_url, caption: ad.title || ad.source_domain})),
     ...concepts.map(concept => ({url: concept.image_url, caption: `${concept.title} · conceito`}))];
 
-  const photos = [channel.hero_image_url, ...(channel.gallery || []).map(photo => photo.url)].filter((url, index, all) => url && all.indexOf(url) === index);
-  const heroMedia = photos.length ? {type: 'carousel', items: photos, illustrative: Boolean(channel.hero_illustrative)} : null;
+  // A real ad on the channel says more than an illustration: when the cover is illustrative and real ads exist, they lead.
+  const realAds = ads.map(ad => ad.image_url).filter(Boolean);
+  const leadWithAds = Boolean(channel.hero_illustrative) && realAds.length > 0;
+  const photos = [...(leadWithAds ? realAds : []), channel.hero_image_url, ...(channel.gallery || []).map(photo => photo.url)]
+    .filter((url, index, all) => url && all.indexOf(url) === index);
+  const heroMedia = photos.length ? {type: 'carousel', items: photos, illustrative: Boolean(channel.hero_illustrative) && !leadWithAds} : null;
 
   const reachSource = channel.fontes_metricas?.alcance || {};
   const profileSource = channel.fontes_metricas?.perfil || {};
@@ -82,14 +86,14 @@ export function ChannelDetail({boot, selection, plan = null}) {
     {id: 'estrategias', label: 'Quando usar cada segmentação', count: playbook.length, hidden: !playbook.length, wide: true,
       render: () => <ul className="pd-playbook">{playbook.map(item => <li key={item.nome}>
         <strong>{item.nome}</strong>
-        {item.quando && <p><span>Quando</span>{item.quando}</p>}
-        {item.exemplo && <p><span>Exemplo</span>{item.exemplo}</p>}
+        {item.quando && <div className="pd-playbook__row"><span>Quando</span><ReadMore text={item.quando} limit={140}/></div>}
+        {item.exemplo && <div className="pd-playbook__row"><span>Exemplo</span><ReadMore text={item.exemplo} limit={140}/></div>}
       </li>)}</ul>},
     {id: 'novidades', label: 'Novidades', count: news.length, hidden: !news.length,
       render: () => <ul className="pd-news">{news.map(item => <li key={`${item.titulo}-${item.data_publicacao}`}>
         <small>{[item.fonte, date(item.data_publicacao)].filter(Boolean).join(' · ')}</small>
         <strong>{item.fonte_url ? <a href={item.fonte_url} target="_blank" rel="noreferrer">{item.titulo}</a> : item.titulo}</strong>
-        {item.resumo && <p>{item.resumo}</p>}
+        {item.resumo && <ReadMore text={item.resumo} limit={160}/>}
       </li>)}</ul>},
   ];
 

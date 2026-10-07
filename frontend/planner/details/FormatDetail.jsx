@@ -4,6 +4,20 @@ import {Icon} from '../../cadu-design-system/components/Icon.jsx';
 import {moduleUrl} from '../api.js';
 import {DetailLayout, Facts, Rail, TagList, hasValue, listText} from './DetailLayout.jsx';
 import {platformLogo} from '../Catalog.jsx';
+import {parseSize} from '../FormatPreview.jsx';
+
+const BOARD_HEIGHT = 180;
+/** Every size of the format drawn at ONE common scale, so a 970x250 and a 300x250 compare at a glance. */
+function SizeBoard({sizes}) {
+  const parsed = sizes.map(label => ({label, size: parseSize(label)})).filter(item => item.size && !item.size.ratio);
+  if (!parsed.length) return null;
+  const scale = Math.min(BOARD_HEIGHT / Math.max(...parsed.map(item => item.size.height)), 320 / Math.max(...parsed.map(item => item.size.width)));
+  return <ul className="pd-sizes" aria-label="Tamanhos em escala">{parsed.map(({label, size}) => <li key={label}>
+    <span className="pd-sizes__box" style={{width: Math.max(12, size.width * scale), height: Math.max(12, size.height * scale)}}/>
+    <strong>{size.width}×{size.height}</strong>
+    {label.replace(/^\s*\d+\s*[x×]\s*\d+\s*(px)?/i, '').replace(/[()]/g, '').trim() && <small>{label.replace(/^\s*\d+\s*[x×]\s*\d+\s*(px)?/i, '').replace(/[()]/g, '').trim()}</small>}
+  </li>)}</ul>;
+}
 
 const capitalize = value => value ? String(value).replace(/^./, letter => letter.toUpperCase()) : value;
 
@@ -19,8 +33,9 @@ export function FormatDetail({boot, selection, plan = null}) {
   const sizes = String(record.dimensions || '').split(/\s*[|,;]\s*/).filter(Boolean);
 
   const sections = [
+    {id: 'tamanhos', label: 'Tamanhos em escala', hidden: !sizes.some(value => parseSize(value) && !parseSize(value).ratio), wide: true,
+      hint: 'Todos desenhados na mesma escala, para comparar o espaço de cada peça.', render: () => <SizeBoard sizes={sizes}/>},
     {id: 'especificacoes', label: 'Especificações', render: () => <>
-      {sizes.length > 1 && <><h3 className="pd-subtitle">Tamanhos</h3><TagList value={sizes}/></>}
       <Facts items={[['Tipo', capitalize(record.format_type)], ['Dimensões', sizes.length > 1 ? null : record.dimensions],
         ['Arquivos aceitos', listText(record.files)], ['Categoria criativa', capitalize(record.creative_category)]]}/>
       {links.length > 0 && <ul className="pd-links">{links.map(([url, label]) => <li key={url}>

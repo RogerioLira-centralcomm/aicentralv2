@@ -1,6 +1,23 @@
 import React from 'react';
 import {CaduEmptyState} from '../../cadu-design-system/components/CaduEmptyState.jsx';
-import {DetailLayout, Facts} from './DetailLayout.jsx';
+import {Icon} from '../../cadu-design-system/components/Icon.jsx';
+import {DetailLayout, Facts, Gallery} from './DetailLayout.jsx';
+
+// What we read on the site, as a checklist: can this portal be bought in programmatic?
+const ADS_TXT = {valid: ['ok', 'ads.txt válido'], partial: ['warn', 'ads.txt parcial'], empty: ['warn', 'ads.txt vazio'],
+  invalid: ['no', 'ads.txt inválido'], missing: ['no', 'Sem ads.txt']};
+const PROGRAMMATIC = {detected: ['ok', 'Tags de programática no site'], ads_txt_declared: ['ok', 'Programática declarada no ads.txt'],
+  adsense_native: ['warn', 'Só AdSense ou nativo'], not_detected: ['no', 'Sem programática detectada']};
+function ProgrammaticPanel({portal}) {
+  const rows = [
+    ADS_TXT[portal.ads_txt_status] || (portal.ads_txt_status ? ['unknown', 'ads.txt não pôde ser lido'] : null),
+    Number(portal.ads_txt_records) > 0 ? ['ok', `${Number(portal.ads_txt_records).toLocaleString('pt-BR')} vendedores autorizados`] : null,
+    PROGRAMMATIC[portal.programmatic_status] || (portal.programmatic_status ? ['unknown', 'Site não pôde ser lido'] : null),
+  ].filter(Boolean);
+  if (!rows.length) return null;
+  const icon = {ok: 'check', warn: 'pulse', no: 'close', unknown: 'search'};
+  return <ul className="pd-checks">{rows.map(([state, label]) => <li key={label} className={`is-${state}`}><Icon name={icon[state]} size={16}/>{label}</li>)}</ul>;
+}
 
 const number = value => Number(value).toLocaleString('pt-BR');
 const minutes = seconds => Number(seconds) > 0 ? `${Math.floor(seconds / 60)}min ${String(Math.round(seconds % 60)).padStart(2, '0')}s` : null;
@@ -19,8 +36,11 @@ export function PortalDetail({boot, selection, plan = null}) {
   const sections = [
     {id: 'prints', label: 'Como o portal aparece', hidden: !shots.length,
       hint: 'Capturas reais da página, sem edição. O que aparece como anúncio é o que o portal exibiu naquele momento.',
-      render: () => <Facts items={shots.map(shot => [shot.kind === 'home' ? 'Página inicial' : shot.kind,
-        <>capturada em {date(shot.captured_at)}{shot.source_url && <> · <a href={shot.source_url} target="_blank" rel="noreferrer">Fonte</a></>}</>])}/>},
+      render: () => <Gallery name={portal.name} photos={shots.map(shot => ({url: shot.url,
+        caption: `${shot.kind === 'home' ? 'Página inicial' : shot.kind} · capturada em ${date(shot.captured_at)}`}))}/>},
+    {id: 'programatica', label: 'Pronto para programática', hidden: !portal.ads_txt_status && !portal.programmatic_status,
+      hint: portal.ads_txt_checked_at ? `Leitura automática do site em ${date(portal.ads_txt_checked_at)}.` : 'Leitura automática do site.',
+      render: () => <ProgrammaticPanel portal={portal}/>},
     {id: 'evidencias', label: 'Evidências públicas', count: attributes.length, hint: 'Características verificadas em fontes públicas.',
       render: () => attributes.length ? <ul className="pd-evidence">{attributes.map((entry, index) => <li key={`${entry.atributo}-${index}`}>
         <span>{String(entry.atributo || 'Característica').replaceAll('_', ' ')}</span>

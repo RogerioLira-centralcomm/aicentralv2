@@ -13,6 +13,28 @@ export const hasValue = value => !(value === null || value === undefined || valu
 export const tidy = value => typeof value === 'string' && /^[a-z0-9]+(_[a-z0-9]+)+$/.test(value)
   ? value.replaceAll('_', ' ').replace(/^./, letter => letter.toUpperCase()) : value;
 
+// A hero number is a number: long sentences ("mensurável por campanha…") are notes about the method, not tiles.
+const METRIC_MAX = 28;
+export const isTileValue = value => typeof value !== 'string' || value.trim().length <= METRIC_MAX;
+// Where a number comes from, as a small badge on its tile.
+const ORIGIN = {official: ['Dado oficial', 'is-official'], estimate: ['Estimativa', 'is-estimate'], to_validate: ['A validar', 'is-pending']};
+export function OriginBadge({origin}) {
+  const [label, tone] = ORIGIN[origin] || [];
+  return label ? <span className={`pd-origin ${tone}`}>{label}</span> : null;
+}
+
+/** Long text shows its first sentence; the rest opens on demand. */
+export function ReadMore({text, limit = 180}) {
+  const [open, setOpen] = useState(false);
+  const value = String(text || '').trim();
+  if (!value) return null;
+  const sentence = value.match(/^.{40,}?[.!?](\s|$)/)?.[0]?.trim() || value.slice(0, limit);
+  const short = sentence.length < value.length - 20 ? sentence : value;
+  if (short === value) return <p className="pd-text">{value}</p>;
+  return <p className="pd-text">{open ? value : short}{' '}
+    <button type="button" className="pd-readmore" aria-expanded={open} onClick={() => setOpen(current => !current)}>{open ? 'Mostrar menos' : 'Ler mais'}</button></p>;
+}
+
 export const listText = value => Array.isArray(value) ? value.filter(Boolean).map(item => typeof item === 'object' ? (item.nome || item.name || item.label || '') : item).filter(Boolean).join(', ') : value;
 
 export function Facts({items}) {
@@ -115,7 +137,9 @@ export function DetailLayout({boot, selection, kind, record, icon = 'plan', eyeb
     return () => observer.disconnect();
   }, [visible.length]);
 
-  const shownMetrics = metrics.filter(item => hasValue(item.value)).slice(0, 6);
+  const filled = metrics.filter(item => hasValue(item.value));
+  const shownMetrics = filled.filter(item => isTileValue(item.value)).slice(0, 6);
+  const metricNotes = filled.filter(item => !isTileValue(item.value));
   const shownHighlights = highlights.filter(([, text]) => hasValue(text));
   const bannerImage = bannerFailed ? null : photos[0];
   // Extra photos are a section of their own; the first one is the banner.
@@ -137,14 +161,17 @@ export function DetailLayout({boot, selection, kind, record, icon = 'plan', eyeb
         </div>
         {shownMetrics.length > 0 && <dl className="pdb__metrics" style={{'--metric-count': shownMetrics.length}}>{shownMetrics.map(item => <div key={item.label} title={typeof item.hint === 'string' ? item.hint : undefined}>
           <dt>{item.label}{item.hint && typeof item.hint !== 'string' && <small>{item.hint}</small>}</dt><dd>{item.value}</dd>
+          {(item.origin || (typeof item.hint === 'string' && /estimativa/i.test(item.hint))) && <OriginBadge origin={item.origin || 'estimate'}/>}
         </div>)}</dl>}
       </div>
     </header>
     <div className={`pd-market${aside ? ' has-side' : ''}`}>
       <div className="pd-main">
+        {metricNotes.length > 0 && <aside className="pd-method" aria-label="Sobre os números">{metricNotes.map(item => <div key={item.label}>
+          <strong>{item.label}</strong><ReadMore text={item.value}/></div>)}</aside>}
         {(record.description || shownHighlights.length > 0) && <section className="pd-intro" aria-label="Resumo">
           {record.description && <p className="pd-hero__lead">{record.description}</p>}
-          {shownHighlights.length > 0 && <div className="pd-highlights"><div className="pd-highlights__cards">{shownHighlights.map(([label, text]) => <section key={label}><h2>{label}</h2><p>{text}</p></section>)}</div>
+          {shownHighlights.length > 0 && <div className="pd-highlights"><div className="pd-highlights__cards">{shownHighlights.map(([label, text]) => <section key={label}><h2>{label}</h2><ReadMore text={text} limit={220}/></section>)}</div>
             {sourceNote && <small>{sourceNote}</small>}</div>}
         </section>}
         {all.length > 1 && <nav className="pd-nav" aria-label="Nesta página">{all.map(section => <a key={section.id} href={`#pd-${section.id}`}

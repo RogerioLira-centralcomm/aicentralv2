@@ -8,3 +8,11 @@
   .shelf-banner { height: auto; min-height: 96px; padding: 16px; }
   .shelf-banner h1 { font-size: 22px; line-height: 28px; }
 }
+
+/* Grouped shelf: the groups on the left, their index on the right (hidden when the screen is narrow). */
+.shelf-layout { display: grid; grid-template-columns: minmax(0, 1fr) 190px; gap: 32px; align-items: start; }
+.shelf-layout__main { min-width: 0; }
+.shelf-index { top: 76px; }
+.shelf-index .pd-rail__nav a span { color: var(--planner-subtle, #98a2b3); font-size: 12px; font-weight: 500; }
+.shelf-layout .fmt-group { scroll-margin-top: 84px; }
+@media (max-width: 1200px) { .shelf-layout { grid-template-columns: minmax(0, 1fr); } .shelf-index { display: none; } }

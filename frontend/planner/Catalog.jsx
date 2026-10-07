@@ -7,6 +7,7 @@ import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {LogoTile, PlannerPanel, RowAddButton, SelectionButton} from './PlannerUi.jsx';
 import {MODULE_LABELS, moduleUrl} from './api.js';
 import {ActivePlanChip, PlannerHeader} from './PlannerHeader.jsx';
+import {ShelfBanner, ShelfIndex} from './ShelfBanner.jsx';
 import {ChannelCard, ChannelRow} from './ChannelCard.jsx';
 import {PlaceCard} from './PlaceCard.jsx';
 import {PlanBar} from './PlanBar.jsx';
@@ -108,6 +109,8 @@ export function CatalogCard({kind, item, urls, selected}) {
     </span>
   </a>;
 }
+
+const groupAnchor = title => `grupo-${String(title).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 
 /** Todos: uma seção por categoria (ou por papel no plano), na ordem do catálogo; com categoria escolhida, uma grade só. */
 function channelGroups(records, category, groupBy) {
@@ -275,10 +278,9 @@ export function CatalogPage({boot, request, selection, notify}) {
   </div>;
 
   return <>
-    {channels
-      ? <PlannerHeader className="ph--filters" title={MODULE_LABELS[kind]} actions={<>{channelBar}<ActivePlanChip/></>}
-          description={`${number(shown.length)} ${shown.length === 1 ? 'canal disponível' : 'canais disponíveis'}${channelFilters ? ' com estes filtros' : ''}`}/>
-      : <PlannerHeader title={MODULE_LABELS[kind]} description={DESCRIPTIONS[kind]} actions={<ActivePlanChip/>}/>}
+    <ShelfBanner kind={kind} title={MODULE_LABELS[kind]}
+      description={channels ? `${number(shown.length)} ${shown.length === 1 ? 'canal' : 'canais'}${channelFilters ? ' com estes filtros' : ''} · ${DESCRIPTIONS[kind]}` : DESCRIPTIONS[kind]}/>
+    {channelBar}
     {channels && channelFilters && <div className="aud-filters__summary aud-filters__summary--bar">
       <span aria-live="polite">{loading ? 'Atualizando…' : `${number(shown.length)} ${shown.length === 1 ? 'resultado' : 'resultados'}`}</span>
       <CaduButton variant="tertiary" size="sm" onClick={clearChannelFilters}>Limpar filtros</CaduButton>
@@ -318,16 +320,17 @@ export function CatalogPage({boot, request, selection, notify}) {
         : kind === 'canais' ? (() => {
           // The invitation to plan sits after the first eight cards (or at the end of a short list).
           const groups = channelGroups(shown, category, groupBy);
+          const index = groups.filter(group => group.title).map(group => ({id: groupAnchor(group.title), label: group.title, count: group.items.length}));
           let seen = 0;
           let placed = false;
-          return groups.map((group, position) => {
+          const blocks = groups.map((group, position) => {
             // Ungrouped shelf: the invitation to plan is a full-width row inside the same grid, after the first eight cards.
             const inline = !group.title && group.items.length > 8;
             seen += group.items.length;
             const banner = !inline && !placed && (seen >= 8 || position === groups.length - 1);
             if (banner || inline) placed = true;
             return <Fragment key={group.title || 'canais'}>
-              <section className="fmt-group" aria-label={group.title || 'Canais'}>
+              <section className="fmt-group" id={group.title ? groupAnchor(group.title) : undefined} aria-label={group.title || 'Canais'}>
                 {group.title && <h2 className="fmt-group__title">{group.title}<span>{group.items.length}</span></h2>}
                 <div className={view === 'lista' ? 'channel-list' : 'planner-grid planner-grid--channels'}>{group.items.map((item, index) => {
                   const Tile = view === 'lista' ? ChannelRow : ChannelCard;
@@ -341,6 +344,7 @@ export function CatalogPage({boot, request, selection, notify}) {
               {banner && <PlanBanner urls={boot.urls}/>}
             </Fragment>;
           });
+          return index.length > 1 ? <div className="shelf-layout"><div className="shelf-layout__main">{blocks}</div><ShelfIndex items={index}/></div> : blocks;
         })()
         : kind === 'places' ? <><div className="planner-grid planner-grid--channels" aria-label="Locais disponíveis">{records.map(item => <PlaceCard key={itemKey(item)} item={item} urls={boot.urls}
           selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>)}</div>{records.length > 0 && <PlanBanner urls={boot.urls}/>}</>

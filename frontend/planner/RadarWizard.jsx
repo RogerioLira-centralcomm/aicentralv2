@@ -90,7 +90,7 @@ export function RadarWizard({boot, request, busy, onSubmit, context}) {
   const summary = [['Marca', [brand?.name, project?.name].filter(Boolean).join(' · ')], ['Conceito', data.focus.trim()],
     ['Praça', data.places], ['Janela', `últimos ${data.recency_days} dias`]].filter(([, value]) => value);
 
-  return <div className="wizard wizard--radar" role="dialog" aria-modal="true" aria-label="Novo radar">
+  return <section className="wizard wizard--radar" aria-label="Novo radar">
     <header className="wizard__bar">
       <span className="wizard__title">Novo radar<em>Beta</em></span>
       <nav className="wizard__links" aria-label="Já criados"><a href={boot.urls.radars}><Icon name="pulse" size={16}/>Radares criados</a>
@@ -191,5 +191,5 @@ export function RadarWizard({boot, request, busy, onSubmit, context}) {
         <button type="button" disabled={index > reached} onClick={() => go(index)}><b>{index + 1}</b>{item.label}</button></li>)}</ol>
     </main>
     {profileOpen && brand && <BrandProfileDialog request={request} brand={brand} onClose={() => setProfileOpen(false)} onSaved={() => setRefresh(value => value + 1)}/>}
-  </div>;
+  </section>;
 }

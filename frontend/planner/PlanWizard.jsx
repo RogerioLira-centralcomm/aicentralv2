@@ -61,7 +61,7 @@ export function PlanWizard({urls, request, radarEnabled = false, suggestions = {
   const current = STEPS[step];
   const summary = [['Objetivo', goal?.title || data.custom], ['Verba', data.budget], ['Período', data.period], ['Praça', data.geography], ['Público', data.audience]].filter(([, value]) => value);
 
-  return <div className="wizard" role="dialog" aria-modal="true" aria-label="Planejar">
+  return <section className="wizard" aria-label="Novo plano">
     <header className="wizard__bar">
       <span className="wizard__title">Novo plano<em>Beta</em></span>
       <nav className="wizard__links" aria-label="Já criados"><a href={urls.plans}><Icon name="history" size={16}/>Planos criados</a>
@@ -126,5 +126,5 @@ export function PlanWizard({urls, request, radarEnabled = false, suggestions = {
       <ol className="wizard__steps">{STEPS.map((item, index) => <li key={item.key} className={index === step ? 'is-current' : ''}>
         <button type="button" disabled={index > reached} onClick={() => go(index)}><b>{index + 1}</b>{item.label}</button></li>)}</ol>
     </main>
-  </div>;
+  </section>;
 }

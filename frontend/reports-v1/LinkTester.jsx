@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {AlertTriangle, Copy01, Link01, Mail01, Stars02} from '@untitledui/icons';
+import {AlertTriangle, ArrowRight, Copy01, Link01, Mail01, SearchLg, Stars02} from '@untitledui/icons';
 import {Button} from '../cadu-design-system/untitled-kit/button.tsx';
 import {Badge, BadgeWithDot} from '../cadu-design-system/untitled-kit/badges.tsx';
 import {CaduTooltip} from '../cadu-design-system/components/CaduTooltip.jsx';
@@ -12,13 +12,43 @@ import {json, shortDate} from './reportsCommon.jsx';
 
 import {KindIcon, LINK_KIND_META} from './linkKinds.jsx';
 import {LinkEmailDrawer} from './LinkEmailDrawer.jsx';
+import {LinkTestDetail, detailHref} from './LinkTestDetail.jsx';
+import {navigateOnClick} from './shell/routes.js';
 const MODES = Object.fromEntries(Object.entries(LINK_KIND_META).map(([key, meta]) => [key, meta.label]));
 const PAGE_ROLES = {landing: 'entrada', form: 'formulário', thank_you: 'obrigado', content: 'conteúdo', unknown: 'indefinido'};
 const scoreColor = score => score >= 80 ? 'success' : score >= 50 ? 'warning' : 'error';
 const shareUrl = token => `${location.origin}/connect/public/link-tests/${encodeURIComponent(token)}`;
 
 /** Check a link (destination, media tagging, agent readiness) and tie it to the right campaign. */
-export function LinkTester({data, save, busy}) {
+export function LinkTester({data, save, busy, entity}) {
+  if (entity) return <LinkTesterDetailPage id={entity} data={data} save={save} busy={busy}/>;
+  return <LinkTesterHome data={data} save={save} busy={busy}/>;
+}
+
+function LinkTesterDetailPage({id, data, save, busy}) {
+  const [editing, setEditing] = useState(null);
+  return <>
+    <LinkTestDetail id={id} data={data} save={save} busy={busy} onAssociate={setEditing}/>
+    <AssociationDrawer run={editing} data={data} save={save} busy={busy} canEdit={data.client.role !== 'viewer'} onClose={() => setEditing(null)}/>
+  </>;
+}
+
+/** Both sources (Reports runs and the PHP Cadu analyses), searchable, each opening its full result inside the tool. */
+function useLinkHistory(clientId, query, revision) {
+  const [state, setState] = useState({runs: null, hasMore: false, error: ''});
+  useEffect(() => {
+    let alive = true;
+    const timer = setTimeout(() => {
+      json(`/connect/api/v2/reports/link-tests?client_id=${encodeURIComponent(clientId)}&limit=80${query ? `&q=${encodeURIComponent(query)}` : ''}`)
+        .then(body => alive && setState({runs: body.runs || [], hasMore: Boolean(body.has_more), error: ''}))
+        .catch(failure => alive && setState({runs: [], hasMore: false, error: failure.message || 'Histórico indisponível.'}));
+    }, query ? 300 : 0);
+    return () => {alive = false; clearTimeout(timer);};
+  }, [clientId, query, revision]);
+  return state;
+}
+
+function LinkTesterHome({data, save, busy}) {
   const [form, setForm] = useState({url: '', mode: 'destination'});
   const [result, setResult] = useState(null);
   const [editing, setEditing] = useState(null);
@@ -32,16 +62,19 @@ export function LinkTester({data, save, busy}) {
     catch (_) { /* The page banner shows the failure. */ } finally {setReviewing(false);}
   };
   const [copied, setCopied] = useState('');
+  const [query, setQuery] = useState('');
+  const [revision, setRevision] = useState(0);
+  const history = useLinkHistory(data.client.client_id, query.trim(), revision);
   const sites = data.client_sites || [];
   const canEdit = data.client.role !== 'viewer';
   useEffect(() => {json('/connect/api/v2/reports/ai/status').then(setAiStatus).catch(() => setAiStatus(null));}, []);
   useEffect(() => {setEditing(null);}, [data.client.client_id]);
-  const submit = async event => {event.preventDefault(); try {const body = await save('/link-tests', form); setResult(body.result);} catch (_) { /* The page banner shows the failure. */ }};
+  const submit = async event => {event.preventDefault(); try {const body = await save('/link-tests', form); setResult(body.result); setRevision(value => value + 1);} catch (_) { /* The page banner shows the failure. */ }};
   const copyShare = async token => {try {await navigator.clipboard.writeText(shareUrl(token)); setCopied(token); setTimeout(() => setCopied(''), 1500);} catch (_) { /* Clipboard may be denied. */ }};
 
   return <div className="untitled-scope flex flex-col gap-4">
     {guided && <LinkTestWizard sites={sites} initial={form} onClose={() => setGuided(false)}
-      onRun={async values => {const body = await save('/link-tests', values); setForm(values); setResult(body.result);}}/>}
+      onRun={async values => {const body = await save('/link-tests', values); setForm(values); setResult(body.result); setRevision(value => value + 1);}}/>}
     {/* One compact row: link, kind, run. Client sites come as suggestions of the link field. */}
     <form onSubmit={submit} aria-label="Testar link" className="flex flex-wrap items-center gap-2 rounded-xl bg-primary p-2.5 shadow-xs ring-1 ring-secondary">
       <label className="relative flex-1" style={{minWidth: 280}}>
@@ -72,6 +105,7 @@ export function LinkTester({data, save, busy}) {
           <p className="mt-2 font-mono text-xs break-all text-tertiary">{result.final_url}</p>
         </div>
         {result.public_token && <div className="flex flex-wrap gap-2">
+          {result.run_id && <a href={detailHref(result.run_id)} onClick={event => navigateOnClick(event, detailHref(result.run_id))} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-solid px-3 text-sm font-semibold text-white no-underline shadow-xs hover:bg-brand-solid_hover">Abrir resultado completo<ArrowRight size={16} aria-hidden="true"/></a>}
           {result.run_id && canEdit && <Button size="sm" color="secondary" iconLeading={Stars02} isDisabled={reviewing} isLoading={reviewing} onPress={runReview}>{result.review ? 'Revisar de novo' : 'Revisar com o Cadu'}</Button>}
           {result.run_id && <Button size="sm" color="secondary" iconLeading={Mail01} onPress={() => setEmailing({id: result.run_id, url: result.final_url})}>Enviar por e-mail</Button>}
           <Button size="sm" color="secondary" iconLeading={Copy01} onPress={() => copyShare(result.public_token)}>{copied === result.public_token ? 'Copiado' : 'Copiar link do resultado'}</Button>
@@ -88,33 +122,43 @@ export function LinkTester({data, save, busy}) {
       </ul>}
     </section>}
 
-    <Card flush title="Histórico" badge={<Badge type="pill-color" size="sm" color="gray">{data.link_tests.length}</Badge>} description="Associe cada link à campanha certa para que os resultados entrem no relatório dela.">
+    <Card flush title="Análises" badge={history.runs ? <Badge type="pill-color" size="sm" color="gray">{history.runs.length}{history.hasMore ? '+' : ''}</Badge> : null}
+      description="Todas as análises deste cliente, inclusive as do Cadu anterior. Clique para ver o resultado completo."
+      actions={<label className="relative w-64 max-w-full"><span className="sr-only">Buscar por domínio ou link</span>
+        <SearchLg size={16} aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-fg-quaternary"/>
+        <input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar domínio ou link" style={{paddingLeft: 34, paddingRight: 10}}
+          className="h-9 w-full rounded-lg bg-primary text-sm text-primary shadow-xs ring-1 ring-primary outline-none ring-inset placeholder:text-placeholder focus:ring-2 focus:ring-brand"/></label>}>
       {aiStatus && !aiStatus.configured && <div className="border-b border-secondary px-6 py-3"><Callout>A sugestão por TypeSafe ainda não está configurada nas Integrações do Cadu. IDs exatos de campanha continuam reconhecidos.</Callout></div>}
-      {data.link_tests.length ? <><ul className="divide-y divide-secondary md:hidden">{data.link_tests.map(item => <li key={item.id} className="flex items-start gap-3 px-4 py-3">
-        <KindIcon kind={item.mode} size={28}/>
-        <div className="min-w-0 flex-1"><p className="truncate font-mono text-xs text-primary">{item.final_url}</p>
-          <p className="mt-0.5 text-xs text-tertiary">{item.score}/100 · {item.status_label} · {shortDate(item.created_at)}</p>
-          <p className="mt-0.5 text-xs text-tertiary">{item.campaign_name || 'Sem campanha'}</p></div>
-        <div className="flex shrink-0 gap-1">{item.public_token && <Button size="sm" color="tertiary" iconLeading={Copy01} aria-label="Copiar link do resultado" onPress={() => copyShare(item.public_token)}/>}
-          <Button size="sm" color="secondary" onPress={() => setEditing(item)}>{item.campaign_name ? 'Alterar' : 'Associar'}</Button></div>
-      </li>)}</ul>
-      <div className="relative hidden overflow-x-auto md:block"><table className="w-full min-w-[900px]">
-        <thead><tr><th className={TH}>Destino</th><th className={TH}>Resultado</th><th className={TH}>Campanha</th><th className={TH}>Data</th><th className={TH}><span className="sr-only">Ações</span></th></tr></thead>
-        <tbody>{data.link_tests.map(item => <tr key={item.id} className="hover:bg-primary_hover">
-          <td className={`${TD} max-w-72`}><div className="flex items-center gap-2"><KindIcon kind={item.mode} size={24}/><div className="min-w-0"><p className="truncate font-mono text-xs text-primary" title={item.final_url}>{item.final_url}</p><p className="text-xs text-tertiary">{MODES[item.mode] || item.mode}</p></div></div></td>
+      {history.runs === null ? <p className="px-6 py-6 text-sm text-tertiary">Carregando análises…</p>
+        : history.error ? <EmptyNote title="Histórico indisponível">{history.error}</EmptyNote>
+        : history.runs.length ? <><ul className="divide-y divide-secondary md:hidden">{history.runs.map(item => <li key={item.id}>
+        <a href={detailHref(item.id)} onClick={event => navigateOnClick(event, detailHref(item.id))} className="flex items-start gap-3 px-4 py-3 no-underline">
+          <KindIcon kind={item.mode} size={28}/>
+          <div className="min-w-0 flex-1"><p className="truncate font-mono text-xs text-primary">{item.final_url}</p>
+            <p className="mt-0.5 text-xs text-tertiary">{item.score}/100 · {item.status_label} · {shortDate(item.created_at)}</p>
+            <p className="mt-0.5 text-xs text-tertiary">{item.author || '—'}{item.source === 'cadu_php' ? ' · Cadu anterior' : item.campaign_name ? ` · ${item.campaign_name}` : ''}</p></div>
+          <ArrowRight size={16} className="mt-1 shrink-0 text-fg-quaternary"/>
+        </a></li>)}</ul>
+      <div className="relative hidden overflow-x-auto md:block"><table className="w-full min-w-[960px]">
+        <thead><tr><th className={TH}>Destino</th><th className={TH}>Resultado</th><th className={TH}>Testado por</th><th className={TH}>Campanha</th><th className={TH}>Data</th><th className={TH}><span className="sr-only">Ações</span></th></tr></thead>
+        <tbody>{history.runs.map(item => <tr key={item.id} className="hover:bg-primary_hover">
+          <td className={`${TD} max-w-80`}><a href={detailHref(item.id)} onClick={event => navigateOnClick(event, detailHref(item.id))} className="flex items-center gap-2 no-underline">
+            <KindIcon kind={item.mode} size={24}/><div className="min-w-0"><p className="truncate font-mono text-xs text-primary" title={item.final_url}>{item.final_url}</p>
+            <p className="text-xs text-tertiary">{item.source === 'cadu_php' ? <Badge type="color" size="sm" color="warning">Cadu anterior</Badge> : (MODES[item.mode] || item.mode)}</p></div></a></td>
           <td className={TD}><BadgeWithDot type="pill-color" size="sm" color={scoreColor(item.score)}>{item.score}/100</BadgeWithDot><p className="mt-1 text-xs text-tertiary">{item.status_label}</p></td>
-          <td className={`${TD} min-w-48`}>{item.campaign_name ? <><p className="font-medium text-primary">{item.campaign_name}</p>{item.report_name && <p className="text-xs text-tertiary">{item.report_name}</p>}</> : <span className="text-quaternary">Sem campanha</span>}</td>
+          <td className={`${TD} whitespace-nowrap text-secondary`}>{item.author || <span className="text-quaternary">—</span>}</td>
+          <td className={`${TD} min-w-40`}>{item.source === 'cadu_php' ? <span className="text-quaternary">—</span> : item.campaign_name ? <p className="font-medium text-primary">{item.campaign_name}</p> : <span className="text-quaternary">Sem campanha</span>}</td>
           <td className={`${TD} whitespace-nowrap`}>{shortDate(item.created_at)}</td>
           <td className={`${TD} text-right whitespace-nowrap`}>
-            {item.public_token && <CaduTooltip label={copied === item.public_token ? 'Copiado' : 'Copiar link do resultado'}><Button size="sm" color="tertiary" iconLeading={Copy01} aria-label="Copiar link do resultado" onPress={() => copyShare(item.public_token)}/></CaduTooltip>}
-            {canEdit && item.public_token && <CaduTooltip label="Enviar por e-mail"><Button className="ml-2" size="sm" color="tertiary" iconLeading={Mail01} aria-label="Enviar por e-mail" onPress={() => setEmailing({id: item.id, url: item.final_url})}/></CaduTooltip>}
-            <Button className="ml-2" size="sm" color="secondary" onPress={() => setEditing(item)}>{item.campaign_name ? 'Alterar campanha' : 'Associar'}</Button>
+            {item.public_token && <CaduTooltip label={copied === item.public_token ? 'Copiado' : 'Copiar link público'}><Button size="sm" color="tertiary" iconLeading={Copy01} aria-label="Copiar link público" onPress={() => copyShare(item.public_token)}/></CaduTooltip>}
+            {canEdit && item.source === 'reports' && <Button className="ml-2" size="sm" color="secondary" onPress={() => setEditing(item)}>{item.campaign_name ? 'Alterar campanha' : 'Associar'}</Button>}
+            <a href={detailHref(item.id)} onClick={event => navigateOnClick(event, detailHref(item.id))} className="ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-semibold text-tertiary no-underline hover:bg-primary_hover hover:text-secondary">Abrir<ArrowRight size={16} aria-hidden="true"/></a>
           </td>
         </tr>)}</tbody>
-      </table></div></> : <EmptyNote title="Nenhum teste ainda">Os links testados neste cliente aparecem aqui.</EmptyNote>}
+      </table></div></> : <EmptyNote title={query ? 'Nada encontrado' : 'Nenhum teste ainda'}>{query ? 'Nenhuma análise com esse domínio ou link.' : 'Os links testados neste cliente aparecem aqui.'}</EmptyNote>}
     </Card>
     <LinkEmailDrawer run={emailing} data={data} save={save} busy={busy} onClose={() => setEmailing(null)}/>
-    <AssociationDrawer run={editing} data={data} save={save} busy={busy} canEdit={canEdit} onClose={() => setEditing(null)}/>
+    <AssociationDrawer run={editing} data={data} save={save} busy={busy} canEdit={canEdit} onClose={() => {setEditing(null); setRevision(value => value + 1);}}/>
   </div>;
 }
 

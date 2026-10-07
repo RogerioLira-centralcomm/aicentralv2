@@ -1186,6 +1186,44 @@ def register(bp):
         get_db().commit()
         return jsonify(review=review)
 
+    @bp.get('/api/v2/reports/link-tests')
+    @login_required_api
+    def reports_v1_link_tests_history():
+        """Link Tester history inside the tool: Reports runs and the PHP Cadu analyses, with who ran each one."""
+        selected = _selection()
+        from . import reports_link_history
+        try:
+            limit = max(1, min(int(request.args.get('limit', 60)), 200))
+            offset = max(0, int(request.args.get('offset', 0)))
+        except ValueError:
+            abort(400)
+        runs = reports_link_history.history(selected['client_id'], query=request.args.get('q', '')[:200], limit=limit + 1, offset=offset)
+        return jsonify(runs=runs[:limit], has_more=len(runs) > limit)
+
+    @bp.get('/api/v2/reports/link-tests/<run_id>')
+    @login_required_api
+    def reports_v1_link_test_detail(run_id):
+        selected = _selection()
+        from . import reports_link_history
+        run = reports_link_history.detail(selected['client_id'], run_id)
+        if not run:
+            abort(404)
+        run['domain_runs'] = reports_link_history.domain_runs(
+            selected['client_id'], reports_link_history._domain(run.get('final_url') or run.get('original_url')), exclude_id=run['id'])
+        return jsonify(run=run)
+
+    @bp.get('/api/v2/reports/link-tests/php-<int:legacy_id>/screenshot')
+    @login_required_api
+    def reports_v1_legacy_link_test_screenshot(legacy_id):
+        selected = _selection()
+        from . import reports_link_history
+        path = reports_link_history.legacy_screenshot(selected['client_id'], legacy_id, request.args.get('device', 'desktop'))
+        if not path:
+            abort(404)
+        response = send_file(path, mimetype='image/webp')
+        response.headers['Cache-Control'] = 'private, max-age=86400'
+        return response
+
     @bp.get('/api/v2/reports/ai/status')
     @login_required_api
     def reports_v1_ai_status():

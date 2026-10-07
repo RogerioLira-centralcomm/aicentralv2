@@ -304,7 +304,7 @@ function App() {
       supertag: () => <SuperTagPage data={data}/>,
       events: () => <EventsPage data={data} filters={filters} refreshRevision={refreshRevision} />,
       imports: () => <ImportsPage data={data} reloadBootstrap={() => load(data.client.client_id)} focusLibrary={library} />,
-      links: () => <LinkTester data={data} save={save} busy={busy}/>,
+      links: () => <LinkTester data={data} save={save} busy={busy} entity={route.entity}/>,
       accounts: () => <ClientsAccounts data={data} save={save} busy={busy} reload={() => load(data.client.client_id)}/>,
       access: () => data.can_manage_access ? <AccessPage data={data} save={save} busy={busy}/> : <Empty message="Seu acesso não permite administrar usuários do Reports neste cliente." />,
     }[pageSection]();

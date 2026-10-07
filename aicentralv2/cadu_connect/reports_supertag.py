@@ -174,6 +174,14 @@ def _event_params(data, clean_data):
         clean_data['currency'] = data['currency']
 
 
+def adopt_site_customer(site, customer_id):
+    """A site created without a client takes the client of what created it (a flow); one already linked keeps its own."""
+    if customer_id and site and not site.get('customer_id'):
+        _rows('UPDATE cadu_reports_supertag_sites SET customer_id=%s,updated_at=NOW() WHERE id=%s', (customer_id, str(site['id'])))
+        site['customer_id'] = customer_id
+    return site
+
+
 def ensure_supertag_site(selected, host, label):
     """Reuse or create the one browser installation shared by this client's flows."""
     canonical_host = host[4:] if host.startswith('www.') else host

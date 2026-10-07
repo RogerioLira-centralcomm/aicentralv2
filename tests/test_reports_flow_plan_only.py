@@ -102,3 +102,28 @@ def test_connecting_a_site_creates_the_tag_and_links_the_installation(monkeypatc
 def test_a_flow_that_already_has_a_site_is_not_reconnected(monkeypatch):
     client, _ = _client(monkeypatch, lambda sql, params: [{'id': FLOW_ID, 'name': 'Plano', 'tag_id': 'tag-1', 'draft_config': PLAN}])
     assert client.post(f'/api/v2/reports/flow/flows/{FLOW_ID}/site', json={'allowed_host': 'exemplo.com.br'}).status_code == 409
+
+
+def test_connecting_a_site_gives_a_new_installation_the_flow_client(monkeypatch):
+    monkeypatch.setattr(reports_supertag, 'ensure_supertag_site', lambda selected, host, name: ({'id': 'site-1', 'allowed_host': host, 'customer_id': None}, True))
+    adopted = []
+    monkeypatch.setattr(reports_supertag, '_rows', lambda sql, params=(): adopted.append(params) or [])
+
+    def rows(sql, params):
+        if 'FOR UPDATE' in sql:
+            return [{'id': FLOW_ID, 'name': 'Plano', 'tag_id': None, 'draft_config': PLAN, 'customer_id': 10}]
+        if 'INSERT INTO cadu_reports_site_tags' in sql:
+            return [{'id': 'tag-1', 'label': params[2], 'allowed_host': params[3], 'public_key': 'k', 'created_at': None, 'revoked_at': None, 'tag_kind': 'flow'}]
+        if 'UPDATE cadu_reports_flow_registry SET tag_id' in sql:
+            return [{'id': FLOW_ID, 'site_id': params[1], 'tag_id': params[0], 'updated_at': None}]
+        raise AssertionError(sql)
+    client, _ = _client(monkeypatch, rows)
+    response = client.post(f'/api/v2/reports/flow/flows/{FLOW_ID}/site', json={'allowed_host': 'exemplo.com.br'})
+    assert response.status_code == 200
+    assert adopted == [(10, 'site-1')]
+    assert response.json['supertag_site']['customer_id'] == 10
+
+
+def test_a_site_already_linked_keeps_its_own_client():
+    site = {'id': 'site-1', 'customer_id': 11}
+    assert reports_supertag.adopt_site_customer(site, 10)['customer_id'] == 11

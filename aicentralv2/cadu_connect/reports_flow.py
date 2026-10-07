@@ -1835,7 +1835,7 @@ def register(bp):
     @bp.post('/api/v2/reports/flow/flows')
     @login_required_api
     def reports_flow_create_flow():
-        from .reports_supertag import ensure_supertag_site
+        from .reports_supertag import adopt_site_customer, ensure_supertag_site
         payload = request.get_json(silent=True) or {}
         if not isinstance(payload, dict):
             abort(400)
@@ -1865,6 +1865,7 @@ def register(bp):
                            tag_urls=_client_tag_urls(selected['client_id'],)), 201
         requested_host = _host(payload.get('allowed_host') or (tag or {}).get('allowed_host'))
         supertag_site, _ = ensure_supertag_site(selected, requested_host, name)
+        adopt_site_customer(supertag_site, customer_id)
         # Each flow owns an internal tag, even when created from an existing site tag.
         label = ' '.join(str(payload.get('tag_label') or name).split())[:120]
         host = requested_host
@@ -1893,13 +1894,13 @@ def register(bp):
     @login_required_api
     def reports_flow_connect_site(flow_id):
         """Give a plan its site: the internal tag and the Super Tag installation are created only now."""
-        from .reports_supertag import ensure_supertag_site
+        from .reports_supertag import adopt_site_customer, ensure_supertag_site
         payload = request.get_json(silent=True) or {}
         if not isinstance(payload, dict):
             abort(400)
         selected = _selection(payload)
         _write_guard(selected)
-        flow = _rows('''SELECT id,name,tag_id,draft_config FROM cadu_reports_flow_registry
+        flow = _rows('''SELECT id,name,tag_id,draft_config,customer_id FROM cadu_reports_flow_registry
             WHERE id=%s AND client_id=%s FOR UPDATE''', (flow_id, selected['client_id']))
         if not flow:
             abort(404, description='Fluxo não encontrado neste cliente.')
@@ -1910,6 +1911,7 @@ def register(bp):
         # Addresses typed while planning must belong to the site being connected.
         _normalize_flow_config(flow['draft_config'] or {}, host)
         supertag_site, _ = ensure_supertag_site(selected, host, flow['name'])
+        adopt_site_customer(supertag_site, flow.get('customer_id'))
         tag = _rows('''INSERT INTO cadu_reports_site_tags
             (id,client_id,label,allowed_host,public_key,created_by,tag_kind)
             VALUES (%s,%s,%s,%s,%s,%s,'flow')

@@ -257,25 +257,90 @@ function AlertsList({kind, data, onChanged}) {
   </div>;
 }
 
+const VITAL = {critical: ['Crítico', 'error'], attention: ['Atenção', 'warning'], stable: ['Estável', 'success']};
+const VITAL_FILTERS = [['all', 'Todas'], ['critical', 'Críticas'], ['attention', 'Atenção'], ['stable', 'Estáveis']];
+const heatClass = cell => !cell ? 'is-none' : cell[0] >= 99.5 ? 'is-ok' : cell[0] >= 95 ? 'is-warn' : 'is-bad';
+const dayLabel = (index, total) => { const day = new Date(); day.setDate(day.getDate() - (total - 1 - index)); return day.toLocaleDateString('pt-BR', {day: '2-digit', month: 'short'}); };
+const heatText = (cell, index, total) => `${dayLabel(index, total)} · ${cell ? `${percent(cell[0])} disponível · ${integer(cell[1])} ms em média` : 'sem leitura'}`;
+const HEAT_COLUMNS = 13;
+
+/** 90 days of availability as a calendar heatmap: oldest day first, one column per week, read on hover, focus or with the arrow keys. */
+function Heat({cells, label}) {
+  const [active, setActive] = useState(-1);
+  const [focused, setFocused] = useState(false);
+  const total = cells.length;
+  const pick = event => { const index = Number(event.target.dataset?.i); if (Number.isInteger(index)) setActive(index); };
+  const onKeyDown = event => {
+    const step = {ArrowRight: 7, ArrowLeft: -7, ArrowDown: 1, ArrowUp: -1}[event.key];
+    if (step == null && event.key !== 'Home' && event.key !== 'End') return;
+    event.preventDefault();
+    setActive(current => event.key === 'Home' ? 0 : event.key === 'End' ? total - 1 : Math.min(total - 1, Math.max(0, (current < 0 ? total - 1 : current) + step)));
+  };
+  const measured = cells.filter(Boolean).length;
+  const down = cells.filter(cell => cell && cell[0] < 95).length;
+  return <div className="uti-heat-wrap">
+    <div className="uti-heat" role="group" tabIndex={0} aria-label={`${label}: ${measured} de ${total} dias medidos, ${down} com disponibilidade abaixo de 95%. Use as setas para percorrer os dias.`}
+      onMouseMove={pick} onMouseLeave={() => setActive(-1)} onFocus={() => setFocused(true)} onBlur={() => { setFocused(false); setActive(-1); }} onKeyDown={onKeyDown}>
+      <i className="is-pad" aria-hidden="true"/>
+      {cells.map((cell, index) => <i key={index} data-i={index} style={{'--i': index}} className={`${heatClass(cell)}${active === index ? ' is-active' : ''}`}/>)}
+    </div>
+    <p className="uti-readout" aria-live={focused ? 'polite' : 'off'}>{active >= 0 ? heatText(cells[active], active, total) : measured ? `Últimos ${total} dias · ${down ? `${down} ${down === 1 ? 'dia' : 'dias'} abaixo de 95%` : 'sem dias abaixo de 95%'}` : 'O histórico de 90 dias começa a ser montado agora.'}</p>
+  </div>;
+}
+
+function UrlCard({url}) {
+  const [open, setOpen] = useState(false);
+  const [text, tone] = VITAL[url.vital];
+  return <article className={`uti-card is-${url.vital}${open ? ' is-open' : ''}`}>
+    <header>
+      <span className={`uti-beat is-${url.vital}`} role="img" aria-label={`${text}: pulsa a cada 3 segundos`}/>
+      <button type="button" className="uti-name" aria-expanded={open} onClick={() => setOpen(value => !value)}><strong title={url.label}>{url.label}</strong><small title={`${url.host}${url.path}`}>{url.host}{url.path}</small></button>
+      <BadgeWithDot size="sm" color={tone}>{text}</BadgeWithDot>
+    </header>
+    <Heat cells={url.heat} label={`Disponibilidade de ${url.path}`}/>
+    <div className="uti-pulse" role="img" aria-label={`Últimas ${url.pulse.length} verificações`}>{url.pulse.map((state, index) => <i key={index} className={`is-${state}`}/>)}</div>
+    <dl className="uti-vitals">
+      <div><dt>Resposta</dt><dd>{url.http_status ? `HTTP ${url.http_status}` : 'sem resposta'}{url.duration_ms != null ? <small>{integer(url.duration_ms)} ms</small> : null}</dd></div>
+      <div><dt>Disponibilidade</dt><dd>{url.uptime_90 == null ? percent(url.uptime) : percent(url.uptime_90)}<small>{url.uptime_90 == null ? `últimas ${url.readings} leituras` : '90 dias'}</small></dd></div>
+      <div><dt>Tempo médio</dt><dd>{url.average_ms == null ? dash : `${integer(url.average_ms)} ms`}<small>{url.average_ms > 3000 ? 'lento' : 'recente'}</small></dd></div>
+    </dl>
+    {open && <p className="uti-detail">{url.detail || dash}{url.down_since ? ` · fora do ar desde ${when(url.down_since)} (${url.streak} ${url.streak === 1 ? 'verificação' : 'verificações'})` : ''} · fluxo {url.flow_name}</p>}
+    <footer><span>Lida {ago(url.last_checked_at)}</span>
+      <ReportsActionButton color="link-color" size="sm" className="reports-inline-link" href={reportUrl(`flows/${encodeURIComponent(url.flow_id)}/monitor`)}>Abrir saúde</ReportsActionButton></footer>
+  </article>;
+}
+
 function MonitorsList({client}) {
   const [state] = useApi(apiUrl('/alerts/monitors', {customer_id: customerParam()}));
+  const [vital, setVital] = useState('all');
+  const [search, setSearch] = useState('');
   const body = state.body;
+  const urls = (body?.urls || []).filter(item => (vital === 'all' || item.vital === vital)
+    && (!search.trim() || `${item.label} ${item.host}${item.path} ${item.flow_name}`.toLowerCase().includes(search.trim().toLowerCase())));
   return <div className="al-monitors">
     {state.error && <div className="reports-error" role="alert">{state.error}</div>}
     {state.loading && !body && <div className="reports-loading" role="status">Carregando monitores…</div>}
-    {body && !body.monitors.length && <Empty message="Nenhum monitor ativo. Publique um fluxo com monitoramento de páginas ou instale a Super Tag em um site."/>}
-    {body?.monitors.length > 0 && <div className="al-table-wrap">
-      <Table aria-label="Monitores" size="sm">
-        <Table.Header><Table.Head id="monitor" isRowHeader label="Monitor"/><Table.Head id="type" label="Tipo"/><Table.Head id="health" label="Situação"/>
-          <Table.Head id="last" label="Última leitura"/><Table.Head id="detail" label="Detalhe"/></Table.Header>
-        <Table.Body>{body.monitors.map(item => <Table.Row key={`${item.kind}-${item.id}`} id={`${item.kind}-${item.id}`}>
+    {body && !body.urls.length && <Empty message="Nenhuma URL monitorada. Publique um fluxo com monitoramento de páginas para acompanhar a saúde de cada URL."/>}
+    {body?.urls.length > 0 && <section className="al-list-wrap" aria-label="UTI das URLs">
+      <div className="al-toolbar">
+        <CaduInput className="al-search" size="sm" type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar URL ou fluxo…" aria-label="Buscar URL ou fluxo"
+          leading={<SearchLg width={16} height={16} aria-hidden="true"/>}/>
+        <div className="uti-filters" role="group" aria-label="Filtrar por estado">{VITAL_FILTERS.map(([id, label]) => <ReportsActionButton key={id} color={vital === id ? 'secondary' : 'tertiary'} size="sm" aria-pressed={vital === id}
+          onClick={() => setVital(id)}>{label} <small>{id === 'all' ? body.summary.total : body.summary[id]}</small></ReportsActionButton>)}</div>
+      </div>
+      {urls.length ? <div className="uti-grid">{urls.map(item => <UrlCard key={`${item.flow_id}|${item.host}|${item.path}`} url={item}/>)}</div>
+        : <Empty message="Nenhuma URL com estes filtros."/>}
+    </section>}
+    {body?.monitors.length > 0 && <section className="al-list-wrap" aria-label="Coleta da Super Tag"><h3 className="al-section">Coleta da Super Tag</h3><div className="al-table-wrap">
+      <Table aria-label="Coleta da Super Tag" size="sm">
+        <Table.Header><Table.Head id="monitor" isRowHeader label="Site"/><Table.Head id="health" label="Situação"/><Table.Head id="last" label="Último evento"/><Table.Head id="detail" label="Detalhe"/></Table.Header>
+        <Table.Body>{body.monitors.map(item => <Table.Row key={item.id} id={item.id}>
           <Table.Cell><span className="al-title"><span><b>{item.name}</b><small>{item.target}</small></span></span></Table.Cell>
-          <Table.Cell>{item.kind === 'url' ? 'Páginas do fluxo' : 'Coleta da Super Tag'}</Table.Cell>
           <Table.Cell><BadgeWithDot size="sm" color={HEALTH[item.health][1]}>{HEALTH[item.health][0]}</BadgeWithDot></Table.Cell>
           <Table.Cell className="al-when">{ago(item.last_checked_at)}</Table.Cell>
-          <Table.Cell>{item.kind === 'url' ? `verifica a cada ${item.every_minutes} min${item.down_since ? ` · fora do ar desde ${when(item.down_since)}` : ''}` : `${integer(item.events_24h)} eventos em 24 h`}</Table.Cell>
+          <Table.Cell>{`${integer(item.events_24h)} eventos em 24 h`}</Table.Cell>
         </Table.Row>)}</Table.Body>
-      </Table></div>}
+      </Table></div></section>}
     {body && <article className="reports-panel alerts-rules"><div className="reports-panel-head"><h2>Quando um alerta abre</h2><span>{body.emails_enabled ? 'E-mail ativado neste ambiente' : 'E-mail desativado neste ambiente'}</span></div>
       <ul>{body.rules.map(rule => <li key={rule.rule}><b>{rule.title}.</b> {rule.when}</li>)}</ul>
       <p className="alerts-note">Um alerta só abre depois da confirmação da regra, é atualizado em vez de duplicado, fecha sozinho quando o problema acaba e pode ser silenciado. Os alertas não alteram nada no seu site nem no Google Ads.</p></article>}

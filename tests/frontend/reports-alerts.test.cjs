@@ -46,9 +46,16 @@ async function main() {
       clients: [{id: clientId, name: 'Cliente'}], accounts: [], campaigns: [], reports: [], link_tests: [], workspace_projects: [], features: {}}});
     if (name === '/alerts/summary') return route.fulfill({json: {tabs: {incidents: 1, monitors: 2, opportunities: 1}, active: 1, opened_delta: 1, investigating: 0, resolved_today: 2,
       resolved_today_change: 100, uptime: 99.2, uptime_change: -0.4, estimated_impact: null}});
-    if (name === '/alerts/monitors') return route.fulfill({json: {emails_enabled: false, rules: [{rule: 'page_down', title: 'Página indisponível', when: 'Falhou em 2 verificações seguidas.'}],
-      monitors: [{kind: 'url', id: 'f1', name: 'Fluxo Verão', target: 'exemplo.com.br', health: 'down', last_checked_at: '2026-10-01T12:00:00Z', every_minutes: 5, down_since: '2026-10-01T11:00:00Z'},
-        {kind: 'collection', id: 's1', name: 'Site principal', target: 'exemplo.com.br', health: 'ok', last_checked_at: '2026-10-01T11:59:00Z', events_24h: 120}]}});
+    if (name === '/alerts/monitors') {
+      const heat = Array.from({length: 90}, (_, index) => index < 10 ? null : index % 20 === 0 ? [80, 900] : [100, 400]);
+      const url = (path, label, vital, extra = {}) => ({flow_id: 'f1', flow_name: 'Fluxo Verão', host: 'exemplo.com.br', path, label, state: vital === 'critical' ? 'offline' : 'online', vital,
+        http_status: vital === 'critical' ? 503 : 200, duration_ms: 420, average_ms: 450, detail: 'Página respondendo', uptime: 99, readings: 30, streak: vital === 'critical' ? 2 : 0,
+        down_since: vital === 'critical' ? '2026-10-01T11:00:00Z' : null, last_checked_at: '2026-10-01T12:00:00Z', uptime_90: 99.2, days_measured: 80,
+        pulse: ['online', 'online', vital === 'critical' ? 'offline' : 'online'], heat, ...extra});
+      return route.fulfill({json: {emails_enabled: false, rules: [{rule: 'page_down', title: 'Página indisponível', when: 'Falhou em 2 verificações seguidas.'}],
+        summary: {critical: 1, attention: 0, stable: 1, total: 2}, urls: [url('/orcamento', 'Orçamento', 'critical'), url('/contato', 'Contato', 'stable')],
+        monitors: [{kind: 'collection', id: 's1', name: 'Site principal', target: 'exemplo.com.br', health: 'ok', last_checked_at: '2026-10-01T11:59:00Z', events_24h: 120}]}});
+    }
     if (name === '/alerts' && request.method() === 'GET') {
       lists.push(Object.fromEntries(url.searchParams));
       const kind = url.searchParams.get('kind'), status = url.searchParams.get('status');
@@ -118,9 +125,25 @@ async function main() {
   await page.getByRole('row', {name: /Aparelho ou tela converte abaixo da média/}).waitFor();
   assert.equal(lists.at(-1).kind, 'opportunity');
   await page.getByRole('tab', {name: /Monitores/}).click();
-  await page.getByRole('row', {name: /Fluxo Verão/}).waitFor();
+  const card = page.getByRole('article').filter({hasText: 'Orçamento'});
+  await card.waitFor();
   const monitors = await page.locator('.alerts-center').innerText();
-  for (const expected of ['Fora do ar', 'verifica a cada 5 min', '120 eventos em 24 h', 'E-mail desativado neste ambiente', 'Quando um alerta abre']) assert.ok(monitors.includes(expected), `monitores devem mostrar "${expected}"`);
+  for (const expected of ['Crítico', 'HTTP 503', 'Estável', 'Coleta da Super Tag', '120 eventos em 24 h', 'E-mail desativado neste ambiente', 'Quando um alerta abre']) assert.ok(monitors.includes(expected), `monitores devem mostrar "${expected}"`);
+  assert.ok((await card.getByRole('link', {name: 'Abrir saúde'}).getAttribute('href')).endsWith('/flows/f1/monitor'), 'liga à saúde do fluxo');
+  assert.equal(await card.locator('.uti-beat').evaluate(node => getComputedStyle(node).animationDuration), '3s', 'o bullet pulsa a cada 3 segundos');
+  assert.equal(await card.locator('.uti-heat i[data-i]').count(), 90, 'o mapa de calor tem 90 dias');
+  await card.locator('.uti-heat').focus();
+  await page.keyboard.press('ArrowDown');
+  assert.match(await card.locator('.uti-readout').innerText(), /% disponível|sem leitura/, 'as setas leem cada dia');
+  await card.locator('.uti-heat i[data-i="20"]').hover();
+  assert.match(await card.locator('.uti-readout').innerText(), /80% disponível · 900 ms/, 'o mouse lê o dia');
+  await card.getByRole('button', {name: /Orçamento/}).click();
+  await card.getByText('fora do ar desde').waitFor();
+  await page.getByRole('button', {name: /Estáveis/}).click();
+  assert.equal(await page.getByRole('article').filter({hasText: 'Orçamento'}).count(), 0, 'o filtro Estáveis esconde o crítico');
+  await page.getByRole('button', {name: /Todas/}).click();
+  await page.getByLabel('Buscar URL ou fluxo').fill('contato');
+  assert.equal(await page.locator('.uti-card').count(), 1, 'a busca filtra as URLs');
 
   await page.setViewportSize({width: 390, height: 844});
   await page.waitForTimeout(300);

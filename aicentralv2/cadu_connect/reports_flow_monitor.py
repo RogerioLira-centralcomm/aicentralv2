@@ -176,6 +176,24 @@ def run_check(flow):
     return status, results, round((time.monotonic() - started) * 1000)
 
 
+_DAILY_SQL = """INSERT INTO cadu_reports_flow_monitor_daily (flow_id,host,path,day,checks,online,duration_ms_sum,duration_ms_max)
+    SELECT %s,left(p.host,255),left(p.path,500),%s,1,(p.status='online')::int,COALESCE(p.duration_ms,0),COALESCE(p.duration_ms,0)
+    FROM jsonb_to_recordset(%s::jsonb) AS p(host text,path text,status text,duration_ms int)
+    ON CONFLICT (flow_id,host,path,day) DO UPDATE SET checks=cadu_reports_flow_monitor_daily.checks+1,
+        online=cadu_reports_flow_monitor_daily.online+EXCLUDED.online,
+        duration_ms_sum=cadu_reports_flow_monitor_daily.duration_ms_sum+EXCLUDED.duration_ms_sum,
+        duration_ms_max=GREATEST(cadu_reports_flow_monitor_daily.duration_ms_max,EXCLUDED.duration_ms_max)"""
+
+
+def record_daily(connection, flow_id, pages, checked_at):
+    """Daily availability per page for the 90-day heatmap. Its own savepoint: a failure here never loses the check itself."""
+    try:
+        with connection.transaction(), connection.cursor() as cursor:
+            cursor.execute(_DAILY_SQL, (flow_id, checked_at.astimezone(ALERT_TZ).date(), json.dumps(pages, ensure_ascii=False)))
+    except Exception:
+        logger.exception("Resumo diário do monitor do fluxo %s não gravado", flow_id)
+
+
 def check_flow(flow_id, client_id):
     flow = _rows("""SELECT f.id,f.client_id,f.name,f.config,f.tag_id,f.published_revision,t.allowed_host
         FROM cadu_reports_flow_registry f JOIN cadu_reports_site_tags t ON t.id=f.tag_id
@@ -202,6 +220,7 @@ def check_flow(flow_id, client_id):
             cursor.execute("""DELETE FROM cadu_reports_flow_monitor_checks
                 WHERE flow_id=%s AND id NOT IN (SELECT id FROM cadu_reports_flow_monitor_checks
                     WHERE flow_id=%s ORDER BY checked_at DESC LIMIT 200)""", (flow_id, flow_id))
+        record_daily(connection, flow_id, pages, check["checked_at"])
         connection.commit()
         notify_transition(flow, status, pages)
         return {"id": check["id"], "status": status, "checked_at": check["checked_at"],

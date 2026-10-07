@@ -3,6 +3,7 @@
 Runs in a throwaway schema (search_path), so it never touches real tables. Skipped unless CX_TEST_DATABASE_URL points to a database made for tests.
 """
 import datetime
+import json
 import os
 import uuid
 from pathlib import Path
@@ -12,6 +13,7 @@ import pytest
 from flask import Blueprint, Flask
 
 from aicentralv2.cadu_connect import reports_alerts as alerts
+from aicentralv2.cadu_connect import reports_flow_monitor as monitor
 
 ROOT = Path(__file__).resolve().parents[1]
 SITE, CLIENT, USER = str(uuid.uuid4()), 7, 42
@@ -27,6 +29,7 @@ CREATE TABLE cadu_reports_flow_registry(id UUID PRIMARY KEY, client_id BIGINT, c
     monitor_status TEXT, monitor_checked_at TIMESTAMPTZ, monitor_interval_minutes INT, monitor_down_since TIMESTAMPTZ);
 CREATE TABLE cadu_reports_flow_monitor_checks(id BIGSERIAL PRIMARY KEY, flow_id UUID, client_id BIGINT, status TEXT, checked_at TIMESTAMPTZ, pages JSONB);
 '''
+PAGE = {'host': 'loja.com', 'path': '/orcamento', 'label': 'Orçamento', 'duration_ms': 400, 'http_status': 200}
 
 
 import psycopg
@@ -63,12 +66,14 @@ def db():
     tag, flow = str(uuid.uuid4()), str(uuid.uuid4())
     cur.execute("INSERT INTO cadu_reports_site_tags VALUES (%s,'loja.com')", (tag,))
     cur.execute("INSERT INTO cadu_reports_flow_registry VALUES (%s,%s,1,%s,'Fluxo A','published',TRUE,'offline',NOW(),5,NOW())", (flow, CLIENT, tag))
-    cur.execute("INSERT INTO cadu_reports_flow_monitor_checks(flow_id,client_id,status,checked_at,pages) VALUES (%s,%s,'online',NOW(),'[]'),(%s,%s,'offline',NOW(),'[]')",
-                (flow, CLIENT, flow, CLIENT))
+    pages = lambda status, code: json.dumps([{**PAGE, 'status': status, 'http_status': code}])
+    cur.execute("INSERT INTO cadu_reports_flow_monitor_checks(flow_id,client_id,status,checked_at,pages) VALUES (%s,%s,'online',NOW(),%s),(%s,%s,'offline',NOW()-INTERVAL '5 minutes',%s)",
+                (flow, CLIENT, pages('online', 200), flow, CLIENT, pages('offline', 503)))
 
     def rows(sql, params=()):
         cur.execute(sql, params)
         return list(cur.fetchall()) if cur.description else []
+    rows.connection, rows.flow = conn, flow
     yield rows
     cur.execute(f'DROP SCHEMA {schema} CASCADE')
     conn.close()
@@ -128,9 +133,18 @@ def test_listing_filters_summary_and_monitors_run_on_the_real_schema(api, db):
     summary = get('/alerts/summary').get_json()
     assert summary['tabs'] == {'incidents': 2, 'monitors': 2, 'opportunities': 1} and summary['uptime'] == 50.0
     assert get('/alerts/summary?customer_id=2').get_json()['tabs'] == {'incidents': 1, 'monitors': 0, 'opportunities': 0}
-    monitors = get('/alerts/monitors').get_json()['monitors']
-    assert [(m['kind'], m['health']) for m in monitors] == [('url', 'down'), ('collection', 'ok')]
-    assert get('/alerts/monitors?customer_id=2').get_json()['monitors'] == []
+    # The "UTI": one row per monitored URL with its vital signs, and the 90-day heatmap fed by the daily summary.
+    day = datetime.datetime.now(datetime.timezone.utc)
+    for status in ('online', 'offline', 'online'):
+        monitor.record_daily(db.connection, db.flow, [{**PAGE, 'status': status}], day)
+    uti = get('/alerts/monitors').get_json()
+    assert [(m['kind'], m['health']) for m in uti['monitors']] == [('collection', 'ok')]
+    [url] = uti['urls']
+    assert (url['path'], url['state'], url['vital'], url['http_status']) == ('/orcamento', 'online', 'attention', 200)   # one failure in the last 2 readings
+    assert url['pulse'] == ['offline', 'online'] and url['uptime'] == 50.0 and len(url['heat']) == 90 and url['days_measured'] == 1
+    assert url['heat'][-1] == [66.7, 400] and url['uptime_90'] == 66.7 and uti['summary'] == {'critical': 0, 'attention': 1, 'stable': 0, 'total': 1}
+    assert get('/alerts/summary').get_json()['tabs']['monitors'] == 2          # 1 monitored URL (last check) + 1 Super Tag site
+    assert get('/alerts/monitors?customer_id=2').get_json()['urls'] == []
     csv_body = get('/alerts/export').data.decode()
     assert csv_body.startswith('﻿Alerta,') and 'google_ads' in csv_body
     ids = [a['id'] for a in body['alerts']]

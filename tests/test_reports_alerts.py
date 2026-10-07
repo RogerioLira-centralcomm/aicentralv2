@@ -499,3 +499,49 @@ def test_a_quiet_retry_under_the_cap_never_writes_a_skip_to_the_history():
          mock.patch.object(alerts, '_rows', return_value=[{'n': alerts.NOTIFY_BURST_LIMIT}]), mock.patch.dict('os.environ', {'REPORTS_ALERT_EMAILS': '1'}, clear=False):
         assert alerts.notify_opened(alert_row(rule='gads_cap_reached'), NOW, retry=True) is None
     assert logged == []
+
+
+# ------------------------------------------------------------------------------------------------ UTI of the monitored URLs
+
+def reading(minutes_ago, *pages):
+    return {'checked_at': NOW - datetime.timedelta(minutes=minutes_ago), 'pages': list(pages)}
+
+
+def vpage(status, path='/lp', ms=400, http=200):
+    return {'host': 'www.exemplo.com.br', 'path': path, 'label': 'LP', 'status': status, 'http_status': http, 'duration_ms': ms, 'detail': 'x'}
+
+
+FLOW = {'id': 'f1', 'name': 'Fluxo', 'allowed_host': 'www.exemplo.com.br'}
+
+
+def test_vitals_classify_each_url_and_keep_the_pulse_oldest_first():
+    from aicentralv2.cadu_connect.reports_alert_vitals import summarize, url_vitals
+    rows = url_vitals(FLOW, [reading(1, vpage('offline', http=503), vpage('online', '/ok', ms=3600)), reading(6, vpage('offline', http=503), vpage('online', '/ok', ms=3500)),
+                             reading(11, vpage('online'), vpage('online', '/ok', ms=3800))])
+    by = {row['path']: row for row in rows}
+    assert by['/lp']['vital'] == 'critical' and by['/lp']['pulse'] == ['online', 'offline', 'offline'] and by['/lp']['streak'] == 2
+    assert by['/lp']['down_since'] == NOW - datetime.timedelta(minutes=6) and by['/lp']['uptime'] == 33.3 and by['/lp']['http_status'] == 503
+    assert by['/ok']['vital'] == 'attention' and by['/ok']['average_ms'] == 3633 and by['/ok']['down_since'] is None      # online now, but slow on average
+    assert [row['vital'] for row in rows] == ['critical', 'attention'] and summarize(rows) == {'critical': 1, 'attention': 1, 'stable': 0, 'total': 2}
+    steady = url_vitals(FLOW, [reading(1, vpage('online')), reading(6, vpage('online'))])[0]
+    assert steady['vital'] == 'stable' and steady['uptime'] == 100.0
+    assert url_vitals(FLOW, [reading(1, vpage('online'))] * 2 + [reading(11, vpage('offline'))] * 2)[0]['vital'] == 'attention'   # 50% of the recent readings
+
+
+def test_the_degraded_state_is_attention_and_an_unknown_state_never_looks_healthy():
+    from aicentralv2.cadu_connect.reports_alert_vitals import url_vitals
+    assert url_vitals(FLOW, [reading(1, vpage('degraded'))])[0]['vital'] == 'attention'
+    assert url_vitals(FLOW, [reading(1, {**vpage('online'), 'status': 'weird'})])[0]['state'] == 'degraded'
+    assert url_vitals(FLOW, []) == [] and url_vitals(FLOW, [reading(1)]) == []
+
+
+def test_the_ninety_day_heatmap_has_one_cell_per_day_oldest_first_with_gaps_left_empty():
+    from aicentralv2.cadu_connect.reports_alert_vitals import HEAT_DAYS, attach_heat
+    today = datetime.date(2026, 10, 7)
+    url = {'flow_id': 'f1', 'host': 'h', 'path': '/lp'}
+    day = lambda ago, checks, online, ms=400: {'flow_id': 'f1', 'host': 'h', 'path': '/lp', 'day': today - datetime.timedelta(days=ago), 'checks': checks, 'online': online, 'duration_ms_sum': checks * ms}
+    out = attach_heat([url, {'flow_id': 'f1', 'host': 'h', 'path': '/other'}], [day(0, 288, 288), day(1, 288, 144, 900), day(89, 10, 10), day(90, 5, 0)], today)
+    heat = out[0]['heat']
+    assert len(heat) == HEAT_DAYS == 90 and heat[-1] == [100.0, 400] and heat[-2] == [50.0, 900] and heat[0] == [100.0, 400] and heat[10] is None
+    assert out[0]['days_measured'] == 3 and out[0]['uptime_90'] == round(100 * (288 + 144 + 10 + 0) / (288 + 288 + 10 + 5), 1)   # day 90 is outside the window but its rows are counted
+    assert out[1]['heat'] == [None] * 90 and out[1]['uptime_90'] is None and out[1]['days_measured'] == 0

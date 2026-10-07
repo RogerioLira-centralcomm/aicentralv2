@@ -20,6 +20,7 @@ from ..auth import login_required_api
 from ..db import get_db
 from .reports_alert_rules import (RULES, SILENT_AFTER_HOURS, campaign_page_findings, channel_entry_findings, collection_absent_findings, conversion_drop_findings,
                                   page_down_findings, tech_conversion_findings)
+from .reports_alert_vitals import HEAT_DAYS, PULSE, attach_heat, summarize, url_vitals
 from .reports_page_identity import sql_normalized_path
 from .reports_v1 import _customer_scope, _rows, _selection, _write_guard
 
@@ -240,7 +241,18 @@ def evaluate_all(heavy=False):
             current_app.logger.exception('Falha ao avaliar alertas do site %s', site['id'])
     if heavy:
         evaluate_google_ads_all()
+        prune_monitor_daily()
     return len(sites)
+
+
+def prune_monitor_daily(keep_days=HEAT_DAYS + 10):
+    """The heatmap shows HEAT_DAYS days; older daily rows are dropped (with a margin for the day boundary)."""
+    try:
+        _rows('DELETE FROM cadu_reports_flow_monitor_daily WHERE day < CURRENT_DATE - %s::int RETURNING 1', (keep_days,))
+        get_db().commit()
+    except Exception:
+        get_db().rollback()
+        current_app.logger.exception('Falha ao limpar o resumo diário do monitor')
 
 
 def evaluate_google_ads_all(now=None):
@@ -399,20 +411,27 @@ _COUNTS_SQL = '''
     FROM cadu_reports_alerts a LEFT JOIN cadu_reports_supertag_sites s ON s.id=a.site_id
     WHERE a.client_id=%(client)s AND (%(customer)s::bigint IS NULL OR a.site_id IS NULL OR s.customer_id=%(customer)s)'''
 _MONITOR_COUNT_SQL = '''
-    SELECT (SELECT COUNT(*) FROM cadu_reports_flow_registry WHERE client_id=%(c)s AND status='published' AND monitor_enabled=TRUE
-                AND (%(customer)s::bigint IS NULL OR customer_id=%(customer)s))
+    SELECT (SELECT COALESCE(SUM(jsonb_array_length(c.pages)),0)
+            FROM cadu_reports_flow_registry f
+            CROSS JOIN LATERAL (SELECT pages FROM cadu_reports_flow_monitor_checks WHERE flow_id=f.id ORDER BY checked_at DESC LIMIT 1) c
+            WHERE f.client_id=%(c)s AND f.status='published' AND f.monitor_enabled=TRUE AND (%(customer)s::bigint IS NULL OR f.customer_id=%(customer)s))
          + (SELECT COUNT(*) FROM cadu_reports_supertag_sites WHERE client_id=%(c)s AND enabled=TRUE AND revoked_at IS NULL
                 AND (%(customer)s::bigint IS NULL OR customer_id=%(customer)s)) AS n'''
-_MONITOR_FLOWS_SQL = '''
-    SELECT f.id::text AS id,f.name,t.allowed_host,f.monitor_status,f.monitor_checked_at,f.monitor_interval_minutes,f.monitor_down_since
+# One row per (flow, check): the last PULSE checks of every monitored flow, newest first.
+_MONITOR_CHECKS_SQL = f'''
+    SELECT f.id::text AS flow_id,f.name,t.allowed_host,c.checked_at,c.pages
     FROM cadu_reports_flow_registry f JOIN cadu_reports_site_tags t ON t.id=f.tag_id
-    WHERE f.client_id=%s AND f.status='published' AND f.monitor_enabled=TRUE AND (%s::bigint IS NULL OR f.customer_id=%s) ORDER BY lower(f.name),f.id'''
+    CROSS JOIN LATERAL (SELECT checked_at,pages FROM cadu_reports_flow_monitor_checks WHERE flow_id=f.id ORDER BY checked_at DESC LIMIT {PULSE}) c
+    WHERE f.client_id=%s AND f.status='published' AND f.monitor_enabled=TRUE AND (%s::bigint IS NULL OR f.customer_id=%s)
+    ORDER BY f.id,c.checked_at DESC'''
+_MONITOR_DAILY_SQL = '''
+    SELECT flow_id::text AS flow_id,host,path,day,checks,online,duration_ms_sum FROM cadu_reports_flow_monitor_daily
+    WHERE flow_id=ANY(%s::uuid[]) AND day<=%s AND day>%s-%s::int'''
 _MONITOR_SITES_SQL = '''
     SELECT s.id::text AS id,s.label,s.allowed_host,MAX(e.occurred_at) AS last_event_at,
         COUNT(e.*) FILTER (WHERE e.occurred_at>=NOW()-INTERVAL '24 hours') AS events_24h
     FROM cadu_reports_supertag_sites s LEFT JOIN cadu_reports_supertag_events e ON e.site_id=s.id AND e.expires_at>NOW()
     WHERE s.client_id=%s AND s.enabled=TRUE AND s.revoked_at IS NULL AND (%s::bigint IS NULL OR s.customer_id=%s) GROUP BY s.id ORDER BY lower(s.label),s.id'''
-_FLOW_HEALTH = {'online': 'ok', 'degraded': 'warning', 'offline': 'down'}
 _HEALTH_ORDER = {'down': 0, 'warning': 1, 'unknown': 2, 'ok': 3}
 
 
@@ -495,20 +514,27 @@ def register(bp):
     @bp.get('/api/v2/reports/alerts/monitors')
     @login_required_api
     def reports_alert_monitors():
+        """The "UTI": vital signs of every monitored URL, plus the Super Tag collection of each site."""
         selected = _selection()
         customer = _customer_scope(selected)
         now = datetime.now(timezone.utc)
-        items = [{'kind': 'url', 'id': row['id'], 'name': row['name'] or row['allowed_host'], 'target': row['allowed_host'],
-                  'health': _FLOW_HEALTH.get(row['monitor_status'], 'unknown'), 'last_checked_at': row['monitor_checked_at'],
-                  'every_minutes': row['monitor_interval_minutes'], 'down_since': row['monitor_down_since']}
-                 for row in _rows(_MONITOR_FLOWS_SQL, (selected['client_id'], customer, customer))]
+        flows = {}
+        for row in _rows(_MONITOR_CHECKS_SQL, (selected['client_id'], customer, customer)):
+            flow = flows.setdefault(row['flow_id'], ({'id': row['flow_id'], 'name': row['name'], 'allowed_host': row['allowed_host']}, []))
+            flow[1].append({'checked_at': row['checked_at'], 'pages': row['pages']})
+        urls = sorted((item for flow, checks in flows.values() for item in url_vitals(flow, checks)),
+                      key=lambda item: ({'critical': 0, 'attention': 1, 'stable': 2}[item['vital']], item['flow_name'], item['path']))
+        if urls:
+            today = now.astimezone(ZoneInfo('America/Sao_Paulo')).date()
+            attach_heat(urls, _rows(_MONITOR_DAILY_SQL, (list(flows), today, today, HEAT_DAYS)), today)
+        collection = []
         for row in _rows(_MONITOR_SITES_SQL, (selected['client_id'], customer, customer)):
             hours = (now - row['last_event_at']).total_seconds() / 3600 if row['last_event_at'] else None
             health = 'unknown' if hours is None else 'warning' if hours >= SILENT_AFTER_HOURS else 'ok'
-            items.append({'kind': 'collection', 'id': row['id'], 'name': row['label'], 'target': row['allowed_host'], 'health': health,
-                          'last_checked_at': row['last_event_at'], 'events_24h': int(row['events_24h'] or 0)})
-        return jsonify(monitors=sorted(items, key=lambda item: _HEALTH_ORDER[item['health']]), emails_enabled=emails_enabled(),
-                       rules=rules_catalog())
+            collection.append({'kind': 'collection', 'id': row['id'], 'name': row['label'], 'target': row['allowed_host'], 'health': health,
+                               'last_checked_at': row['last_event_at'], 'events_24h': int(row['events_24h'] or 0)})
+        return jsonify(urls=urls, summary=summarize(urls), monitors=sorted(collection, key=lambda item: _HEALTH_ORDER[item['health']]),
+                       emails_enabled=emails_enabled(), rules=rules_catalog())
 
     @bp.get('/api/v2/reports/alerts/export')
     @login_required_api

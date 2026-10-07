@@ -40,3 +40,19 @@ CREATE UNIQUE INDEX IF NOT EXISTS cadu_reports_alerts_live_unique_v2
     ON cadu_reports_alerts (client_id, COALESCE(site_id::text, ''), rule, subject_key) WHERE status <> 'resolved';
 CREATE INDEX IF NOT EXISTS cadu_reports_alerts_kind_idx
     ON cadu_reports_alerts (client_id, kind, status, last_seen_at DESC);
+
+-- Disponibilidade diária de cada URL monitorada (mapa de calor de 90 dias da aba Monitores). As verificações guardam só as
+-- últimas 200 leituras por fluxo; este resumo guarda um registro por URL por dia, atualizado a cada verificação.
+CREATE TABLE IF NOT EXISTS cadu_reports_flow_monitor_daily (
+    flow_id UUID NOT NULL REFERENCES cadu_reports_flow_registry(id) ON DELETE CASCADE,
+    host VARCHAR(255) NOT NULL,
+    path VARCHAR(500) NOT NULL,
+    day DATE NOT NULL,
+    checks INTEGER NOT NULL DEFAULT 0 CHECK (checks >= 0),
+    online INTEGER NOT NULL DEFAULT 0 CHECK (online >= 0),
+    duration_ms_sum BIGINT NOT NULL DEFAULT 0 CHECK (duration_ms_sum >= 0),
+    duration_ms_max INTEGER NOT NULL DEFAULT 0 CHECK (duration_ms_max >= 0),
+    PRIMARY KEY (flow_id, host, path, day),
+    CONSTRAINT cadu_reports_flow_monitor_daily_online_le_checks CHECK (online <= checks)
+);
+CREATE INDEX IF NOT EXISTS cadu_reports_flow_monitor_daily_day_idx ON cadu_reports_flow_monitor_daily (day);

@@ -16,7 +16,7 @@ const frequencyLabel = value => FREQUENCIES.find(([id]) => id === value)?.slice(
  * "Meus radares": os radares ativos (buscas que se repetem sozinhas) e o histórico de consultas.
  * Fica separada do "Novo radar" de propósito: aqui só se lê e se gerencia, ali se cria.
  */
-export function RadarListPage({boot, request, notify}) {
+export function RadarListPage({boot, request, notify, embedded = false}) {
   const enabled = Boolean(boot.features?.radar);
   const [watches, setWatches] = useState(null);
   const [runs, setRuns] = useState(null);
@@ -53,21 +53,22 @@ export function RadarListPage({boot, request, notify}) {
     }
   };
 
-  const header = <PlannerHeader title="Meus radares" withContext description="Os radares que rodam sozinhos e as buscas que você já fez."
+  const newUrl = `${boot.urls.radar}?novo=1`;
+  const header = embedded ? null : <PlannerHeader title="Meus radares" withContext description="Os radares que rodam sozinhos e as buscas que você já fez."
     meta={!enabled && <CaduBadge tone="brand">Em breve</CaduBadge>}
-    actions={enabled && <CaduButton href={boot.urls.radar}><Icon name="plus" size={16}/>Novo radar</CaduButton>}/>;
-  if (!enabled) return header;
+    actions={enabled && <CaduButton href={newUrl}><Icon name="plus" size={16}/>Novo radar</CaduButton>}/>;
+  if (!enabled) return header || <CaduBadge tone="brand">Em breve</CaduBadge>;
   const loading = watches === null || runs === null;
 
   return <>
     {header}
     <section className="radar-list" aria-labelledby="radar-watches-title">
       <h2 id="radar-watches-title">Radares ativos<span>{(watches || []).filter(watch => watch.status === 'ativo').length}</span></h2>
-      {loading ? <p className="planner-muted">Carregando…</p> : watches.length === 0 ? <div className="radar-empty-result">
-        <Illustration slot="radar-empty"/>
+      {loading ? <p className="planner-muted">Carregando…</p> : watches.length === 0 ? <div className={embedded ? 'rh-empty' : 'radar-empty-result'}>
+        {embedded ? <img src="/static/images/planner/radar-empty-v1.webp" alt="" loading="lazy"/> : <Illustration slot="radar-empty"/>}
         <div><strong>Você ainda não tem radares ativos.</strong>
           <p className="planner-muted">Monte uma busca em &quot;Novo radar&quot; e ligue &quot;Me avise quando houver novidade&quot;. O Radar repete a busca de 1 a 3 vezes por dia.</p>
-          <CaduButton size="sm" href={boot.urls.radar}>Criar o primeiro radar</CaduButton></div>
+          <CaduButton size="sm" href={newUrl}>Criar o primeiro radar</CaduButton></div>
       </div> : <ul className="radar-watches">
         {watches.map(watch => {
           const status = WATCH_STATUS[watch.status] || WATCH_STATUS.ativo;

@@ -14,7 +14,7 @@
 {%- endif -%}
 </svg>
 {%- endmacro -%}
-{%- set destinations = [('canais', 'Canais', 'share'), ('audiencias', 'Audiências', 'users'), ('portais', 'Portais e veículos', 'library'), ('places', 'Locais', 'browser'), ('formatos', 'Formatos', 'table'), ('interativos', 'Interativos', 'plugin')] -%}
+{%- set destinations = [('radar', 'Radar', 'pulse'), ('canais', 'Canais', 'share'), ('audiencias', 'Audiências', 'users'), ('portais', 'Portais e veículos', 'library'), ('places', 'Locais', 'browser'), ('formatos', 'Formatos', 'table'), ('interativos', 'Interativos', 'plugin')] -%}
 {%- set section = 'canais' if module == 'inicio' else module -%}
 {%- set person = (user or {}).get('name') or session.get('user_name', 'Minha conta') -%}
 {%- set first = (person|trim).split()[0] if (person|trim) else 'Minha conta' -%}
@@ -24,10 +24,9 @@
 <div class="pn__brand"><details class="cadu-ds-solution-switcher"><summary aria-label="Selecionar solução: Planner"><img src="{{ url_for('static', filename='images/cadu/products/planner-icon.png') }}" alt="Cadu"><span class="cadu-ds-solution-switcher__active-label">Planner</span></summary></details></div>
 <button type="button" class="pn__burger" aria-label="Abrir navegação" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M9 5v14M15 5v14"/></svg></button>
 <nav class="pn__nav" aria-label="Seções do Planner">
-{%- for id, label, icon_name in destinations %}<a href="{{ planner_url(id) }}" title="{{ label }}" class="pn__link{{ ' is-active' if section == id }}"{% if section == id %} aria-current="page"{% endif %}>{{ icon(icon_name) }}<span>{{ label }}</span></a>{% endfor -%}
+{%- for id, label, icon_name in destinations %}<a href="{{ planner_url(id) }}" title="{{ label }}" class="pn__link{{ ' pn__link--radar' if id == 'radar' }}{{ ' is-active' if section == id or (id == 'radar' and section == 'radares') }}"{% if section == id or (id == 'radar' and section == 'radares') %} aria-current="page"{% endif %}>{{ icon(icon_name) }}<span>{{ label }}</span></a>{% endfor -%}
 </nav>
 <div class="pn__actions">
-<a class="pn-action{{ ' is-active' if module in ('radar', 'radares') }}" href="{{ planner_url('radar') }}">{{ icon('pulse') }}<span>Radar</span></a>
 <a class="pn-action{{ ' is-active' if module == 'planos' }}" href="{{ planner_url('planos') }}?create=1">{{ icon('history') }}<span>Planos</span></a>
 <a class="pn-tokens is-pending" href="{{ product_url('workspace', '/workspace/app/creditos') }}" title="Tokens e consumo do mês"><span>Tokens <b>&nbsp;</b></span><i aria-hidden="true"><u style="width:0"></u></i></a>
 <a class="pn-user" href="{{ product_url('workspace', '/workspace/app/conta?section=perfil') }}" title="{{ person }}"><span class="cadu-ds-visual-identity has-{{ 'rendered-image' if avatar else 'fallback-content' }} pn-user__avatar" style="--cadu-identity-color:#71807d">{% if avatar %}<img src="{{ avatar }}" alt="">{% else %}<span aria-hidden="true">{{ initials }}</span>{% endif %}</span><span>{{ first }}</span></a>

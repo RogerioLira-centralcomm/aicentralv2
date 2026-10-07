@@ -935,6 +935,22 @@ def planner_radar_runs():
                                            watch_id=request.args.get('watch_id') or None))
 
 
+@bp.get('/api/planner/radar/feed')
+def planner_radar_feed():
+    """Resultados dos radares: sinais verificados, com tema, fonte e os ângulos que eles sustentam."""
+    from ..cadu_radar import feed
+    selected = context.resolve()
+    return jsonify(feed.list_feed(selected['client_id'], days=request.args.get('days', 30, type=int)))
+
+
+@bp.put('/api/planner/radar/signals/<signal_id>/saved')
+def planner_radar_signal_saved(signal_id):
+    from ..cadu_radar import feed
+    selected = writable_context()
+    saved = bool((request.get_json(silent=True) or {}).get('saved'))
+    return jsonify(saved=feed.set_saved(selected['client_id'], signal_id, saved))
+
+
 @bp.post('/api/planner/radar/brand-profile/research')
 def planner_radar_brand_research():
     """Fluxo separado: pesquisa concorrentes, posicionamento e público da marca e PROPÕE; nada é gravado aqui."""

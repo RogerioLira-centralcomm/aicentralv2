@@ -197,3 +197,5 @@ migrations/run_sql_migration.py upgrade_reports_alerts_v2.sql
 migrations/run_sql_migration.py refine_cadu_chat_plugin_reports_link_tester.sql
 # ScreenshotOne no cofre de integrações (aditivo, idempotente; amplia o CHECK de providers).
 migrations/run_add_screenshotone_integration_credential.py
+# Radar: sinais salvos na tela de resultados (aditivo, idempotente; depende de add_cadu_radar.sql).
+migrations/run_sql_migration.py add_cadu_radar_v3.sql

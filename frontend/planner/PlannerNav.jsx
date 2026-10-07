@@ -10,6 +10,7 @@ import {moduleUrl, newPlanUrl} from './api.js';
 // Where people browse. The home page IS the channel shelf, so there is no separate "Início": the logo goes home and
 // Canais lights up there.
 const DESTINATIONS = [
+  ['radar', 'Radar', 'pulse'],
   ['canais', 'Canais', 'share'],
   ['audiencias', 'Audiências', 'users'],
   ['portais', 'Portais e veículos', 'library'],
@@ -54,16 +55,14 @@ export function PlannerNav({boot, request, active}) {
       <nav className="pn__nav" aria-label="Seções do Planner">
         {DESTINATIONS.map(item => {
           const [id, label, icon] = item;
-          const here = section === id;
-          return <a key={id} href={hrefFor(id)} title={label} className={`pn__link${here ? ' is-active' : ''}`} aria-current={here ? 'page' : undefined} onClick={close}>
+          const here = section === id || (id === 'radar' && section === 'radares');
+          return <a key={id} href={hrefFor(id)} title={label} className={`pn__link${id === 'radar' ? ' pn__link--radar' : ''}${here ? ' is-active' : ''}`} aria-current={here ? 'page' : undefined} onClick={close}>
             <Icon name={icon} size={16}/><span>{label}</span>
           </a>;
         })}
       </nav>
       <div className="pn__actions">
-        {/* Both open the creation screen; the plans and radars already made are listed inside it. */}
-        <a className={`pn-action${section === 'radar' || section === 'radares' ? ' is-active' : ''}`} href={hrefFor('radar')}
-          aria-current={section === 'radar' ? 'page' : undefined} onClick={close}><Icon name="pulse" size={16}/><span>Radar</span></a>
+        {/* Radar leads the navigation; Planos opens the creation screen (the plans already made are listed inside it). */}
         <a className={`pn-action${section === 'planos' || section === 'novo-plano' ? ' is-active' : ''}`} href={newPlanUrl(urls)}
           aria-current={section === 'novo-plano' ? 'page' : undefined} onClick={close}><Icon name="history" size={16}/><span>Planos</span></a>
         {urls.credits && <a className={`pn-tokens${percent === null ? ' is-pending' : percent >= 80 ? ' is-high' : ''}`} href={urls.credits} title="Tokens e consumo do mês" aria-label={percent === null ? 'Tokens do mês' : `Tokens: ${PERCENT.format(percent)}% usados no mês`}>

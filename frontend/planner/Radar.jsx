@@ -5,6 +5,7 @@ import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {Illustration} from './Illustration.jsx';
 import {PlannerHeader} from './PlannerHeader.jsx';
 import {RadarAnimation} from './RadarAnimation.jsx';
+import {RadarHub} from './RadarHub.jsx';
 import {RADAR_DRAFT_KEY, RadarWizard} from './RadarWizard.jsx';
 
 // Etapas mostradas na hora do clique; as de verdade (com tokens e detalhes) chegam do servidor logo depois.
@@ -108,6 +109,7 @@ function AngleCard({item, onPlan, busy, lead}) {
 export function RadarPage({boot, request, notify, context}) {
   const enabled = Boolean(boot.features?.radar);
   const runId = new URLSearchParams(window.location.search).get('run');
+  const creating = new URLSearchParams(window.location.search).get('novo') === '1';
   const [run, setRun] = useState(null);
   const [loading, setLoading] = useState(Boolean(runId));
   const [starting, setStarting] = useState(false);
@@ -177,6 +179,7 @@ export function RadarPage({boot, request, notify, context}) {
     return <PlannerHeader title="Radar" description="O que está em buzz agora e os ângulos para falar de um conceito."
       meta={<CaduBadge tone="brand">Em breve</CaduBadge>}/>;
   }
+  if (!runId && !run && !creating) return <RadarHub boot={boot} request={request} notify={notify}/>;
   if (!runId && !run) {
     // Ao clicar em buscar a animação entra na hora, sem esperar a resposta; se falhar, o wizard volta com o rascunho.
     return <>
@@ -193,10 +196,11 @@ export function RadarPage({boot, request, notify, context}) {
   const angles = run?.opportunities || [];
   const signals = run?.signals || [];
   return <>
-    <PlannerHeader title="Radar" crumbs={[['Meus radares', boot.urls.radars]]}
+    <PlannerHeader title="Radar" crumbs={[['Radar', boot.urls.radar]]}
       description="O que está em buzz agora e os ângulos para falar de um conceito."
-      actions={<><CaduButton variant="secondary" href={boot.urls.radars}>Meus radares</CaduButton>
-        <CaduButton href={boot.urls.radar} onClick={() => { try { window.sessionStorage.removeItem(RADAR_DRAFT_KEY); } catch { /* ignore */ } }}><Icon name="plus" size={16}/>Novo radar</CaduButton></>}/>
+      actions={<><CaduButton variant="secondary" href={boot.urls.radar}>Resultados</CaduButton>
+        <CaduButton variant="secondary" href={boot.urls.radars}>Meus radares</CaduButton>
+        <CaduButton href={`${boot.urls.radar}?novo=1`} onClick={() => { try { window.sessionStorage.removeItem(RADAR_DRAFT_KEY); } catch { /* ignore */ } }}><Icon name="plus" size={16}/>Novo radar</CaduButton></>}/>
     {run && <RunChain run={run}/>}
     {angles.length > 0 && <section className="radar-results" aria-labelledby="radar-results-title">
       <h2 id="radar-results-title">Ângulos para falar do conceito<span>{angles.length}</span>

@@ -36,9 +36,14 @@ def in_alert_window(now=None):
 
 
 def _alert_recipients(flow_id, client_id):
+    """The flow's creator and the client's admins, so an outage never depends on one person still being around."""
     rows = _rows("""SELECT u.email FROM cadu_reports_flow_registry f
         JOIN tbl_contato_cliente u ON u.id_contato_cliente=f.created_by
-        WHERE f.id=%s AND f.client_id=%s AND u.status=TRUE""", (flow_id, client_id))
+        WHERE f.id=%s AND f.client_id=%s AND u.status=TRUE
+        UNION
+        SELECT u.email FROM cadu_reports_client_memberships m
+        JOIN tbl_contato_cliente u ON u.id_contato_cliente=m.user_id
+        WHERE m.client_id=%s AND m.role='admin' AND m.revoked_at IS NULL AND u.status=TRUE""", (flow_id, client_id, client_id))
     emails = {row["email"].strip().lower() for row in rows if row.get("email")}
     emails.add(os.environ.get("REPORTS_MONITOR_ALERT_EMAIL", ALERT_FIXED_RECIPIENT).strip().lower())
     return sorted(emails)

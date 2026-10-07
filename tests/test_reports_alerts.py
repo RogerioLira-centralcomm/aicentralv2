@@ -457,3 +457,15 @@ def test_google_ads_evaluation_survives_one_client_failing():
          mock.patch('aicentralv2.cadu_connect.reports_alert_gads.evaluate_google_ads', fake):
         assert alerts.evaluate_google_ads_all(NOW) == 2
     assert calls == [1, 2]
+
+
+def test_email_burst_is_capped_per_client_per_hour_and_the_skip_is_logged():
+    on = {'REPORTS_ALERT_EMAILS': '1'}
+    logged = []
+    with mock.patch.object(alerts, '_log', lambda alert_id, kind, actor=None, detail=None: logged.append((kind, detail))), \
+         mock.patch.object(alerts, '_recipients', return_value=['a@x.com']), \
+         mock.patch.object(alerts, '_rows', return_value=[{'n': alerts.NOTIFY_BURST_LIMIT}]), \
+         mock.patch('aicentralv2.services.cadu_email_connector.send_cadu_event', return_value={'success': True}) as send, \
+         mock.patch.dict('os.environ', on, clear=False):
+        alerts.notify_opened(alert_row(rule='gads_cap_reached'), NOW)
+    assert logged == [('notification_skipped', {'reason': 'burst'})] and not send.called

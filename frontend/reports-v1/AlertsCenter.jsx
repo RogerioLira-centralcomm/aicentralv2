@@ -258,7 +258,7 @@ function AlertsList({kind, data, onChanged}) {
 }
 
 function MonitorsList({client}) {
-  const [state] = useApi(apiUrl('/alerts/monitors'));
+  const [state] = useApi(apiUrl('/alerts/monitors', {customer_id: customerParam()}));
   const body = state.body;
   return <div className="al-monitors">
     {state.error && <div className="reports-error" role="alert">{state.error}</div>}
@@ -286,7 +286,7 @@ export function AlertsCenter({data}) {
   const client = data.client.client_id;
   const [tab, setTab] = useState('incident');
   const [summary, setSummary] = useState(null);
-  const loadSummary = useCallback(() => json(apiUrl('/alerts/summary')).then(setSummary).catch(() => setSummary(null)), [client]);
+  const loadSummary = useCallback(() => json(apiUrl('/alerts/summary', {customer_id: customerParam()})).then(setSummary).catch(() => setSummary(null)), [client]);
   useEffect(() => { loadSummary(); }, [loadSummary]);
   const tabs = summary?.tabs;
   return <div className="alerts-center">

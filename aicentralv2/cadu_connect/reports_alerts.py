@@ -24,6 +24,7 @@ from .reports_page_identity import sql_normalized_path
 from .reports_v1 import _customer_scope, _rows, _selection, _write_guard
 
 NOTIFY_COOLDOWN = timedelta(hours=24)
+NOTIFY_BURST_LIMIT = 5   # e-mails per client per hour; the rest stay visible in the center
 SILENCE_CHOICES_HOURS = (1, 24, 168)
 LIGHT_EVERY_SECONDS = 300
 HEAVY_EVERY_SECONDS = 3600
@@ -102,6 +103,9 @@ def notify_opened(alert, now):
     recipients = _recipients(alert)
     if not recipients:
         return _log(alert['id'], 'notification_skipped', detail={'reason': 'no_recipients'})
+    recent = _rows('SELECT COUNT(*) AS n FROM cadu_reports_alerts WHERE client_id=%s AND last_notified_at>%s', (alert['client_id'], now - timedelta(hours=1)))
+    if recent and int(recent[0]['n']) >= NOTIFY_BURST_LIMIT:
+        return _log(alert['id'], 'notification_skipped', detail={'reason': 'burst'})
     sent = _send_alert_email(alert, recipients)
     if sent:
         _rows('UPDATE cadu_reports_alerts SET last_notified_at=%s WHERE id=%s RETURNING id', (now, alert['id']))
@@ -367,33 +371,37 @@ _FROM = '''FROM cadu_reports_alerts a LEFT JOIN cadu_reports_supertag_sites s ON
     LEFT JOIN tbl_contato_cliente u ON u.id_contato_cliente=a.assigned_to'''
 _ORDER = "ORDER BY CASE a.severity WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,a.last_seen_at DESC,a.id"
 _UPTIME_SQL = '''
-    SELECT COUNT(*) FILTER (WHERE p->>'status'='online' AND c.checked_at>=%(now)s-INTERVAL '7 days') AS up_now,
+    SELECT COUNT(*) FILTER (WHERE c.status='online' AND c.checked_at>=%(now)s-INTERVAL '7 days') AS up_now,
            COUNT(*) FILTER (WHERE c.checked_at>=%(now)s-INTERVAL '7 days') AS all_now,
-           COUNT(*) FILTER (WHERE p->>'status'='online' AND c.checked_at<%(now)s-INTERVAL '7 days') AS up_before,
+           COUNT(*) FILTER (WHERE c.status='online' AND c.checked_at<%(now)s-INTERVAL '7 days') AS up_before,
            COUNT(*) FILTER (WHERE c.checked_at<%(now)s-INTERVAL '7 days') AS all_before
-    FROM cadu_reports_flow_monitor_checks c CROSS JOIN LATERAL jsonb_array_elements(c.pages) p
-    WHERE c.client_id=%(client)s AND c.checked_at>=%(now)s-INTERVAL '14 days' '''
+    FROM cadu_reports_flow_monitor_checks c JOIN cadu_reports_flow_registry f ON f.id=c.flow_id
+    WHERE c.client_id=%(client)s AND c.checked_at>=%(now)s-INTERVAL '14 days'
+        AND (%(customer)s::bigint IS NULL OR f.customer_id=%(customer)s)'''
 _COUNTS_SQL = '''
-    SELECT COUNT(*) FILTER (WHERE kind='incident' AND status<>'resolved') AS incidents,
-           COUNT(*) FILTER (WHERE kind='incident' AND status='investigating') AS investigating,
-           COUNT(*) FILTER (WHERE kind='opportunity' AND status<>'resolved') AS opportunities,
-           COUNT(*) FILTER (WHERE kind='incident' AND first_seen_at>=%(now)s-INTERVAL '7 days') AS opened_now,
-           COUNT(*) FILTER (WHERE kind='incident' AND first_seen_at<%(now)s-INTERVAL '7 days' AND first_seen_at>=%(now)s-INTERVAL '14 days') AS opened_before,
-           COUNT(*) FILTER (WHERE kind='incident' AND resolved_at>=%(day)s) AS resolved_today,
-           COUNT(*) FILTER (WHERE kind='incident' AND resolved_at>=%(day)s-INTERVAL '1 day' AND resolved_at<%(day)s) AS resolved_yesterday
-    FROM cadu_reports_alerts WHERE client_id=%(client)s'''
+    SELECT COUNT(*) FILTER (WHERE a.kind='incident' AND a.status<>'resolved') AS incidents,
+           COUNT(*) FILTER (WHERE a.kind='incident' AND a.status='investigating') AS investigating,
+           COUNT(*) FILTER (WHERE a.kind='opportunity' AND a.status<>'resolved') AS opportunities,
+           COUNT(*) FILTER (WHERE a.kind='incident' AND a.first_seen_at>=%(now)s-INTERVAL '7 days') AS opened_now,
+           COUNT(*) FILTER (WHERE a.kind='incident' AND a.first_seen_at<%(now)s-INTERVAL '7 days' AND a.first_seen_at>=%(now)s-INTERVAL '14 days') AS opened_before,
+           COUNT(*) FILTER (WHERE a.kind='incident' AND a.resolved_at>=%(day)s) AS resolved_today,
+           COUNT(*) FILTER (WHERE a.kind='incident' AND a.resolved_at>=%(day)s-INTERVAL '1 day' AND a.resolved_at<%(day)s) AS resolved_yesterday
+    FROM cadu_reports_alerts a LEFT JOIN cadu_reports_supertag_sites s ON s.id=a.site_id
+    WHERE a.client_id=%(client)s AND (%(customer)s::bigint IS NULL OR a.site_id IS NULL OR s.customer_id=%(customer)s)'''
 _MONITOR_COUNT_SQL = '''
-    SELECT (SELECT COUNT(*) FROM cadu_reports_flow_registry WHERE client_id=%(c)s AND status='published' AND monitor_enabled=TRUE)
-         + (SELECT COUNT(*) FROM cadu_reports_supertag_sites WHERE client_id=%(c)s AND enabled=TRUE AND revoked_at IS NULL) AS n'''
+    SELECT (SELECT COUNT(*) FROM cadu_reports_flow_registry WHERE client_id=%(c)s AND status='published' AND monitor_enabled=TRUE
+                AND (%(customer)s::bigint IS NULL OR customer_id=%(customer)s))
+         + (SELECT COUNT(*) FROM cadu_reports_supertag_sites WHERE client_id=%(c)s AND enabled=TRUE AND revoked_at IS NULL
+                AND (%(customer)s::bigint IS NULL OR customer_id=%(customer)s)) AS n'''
 _MONITOR_FLOWS_SQL = '''
     SELECT f.id::text AS id,f.name,t.allowed_host,f.monitor_status,f.monitor_checked_at,f.monitor_interval_minutes,f.monitor_down_since
     FROM cadu_reports_flow_registry f JOIN cadu_reports_site_tags t ON t.id=f.tag_id
-    WHERE f.client_id=%s AND f.status='published' AND f.monitor_enabled=TRUE ORDER BY lower(f.name),f.id'''
+    WHERE f.client_id=%s AND f.status='published' AND f.monitor_enabled=TRUE AND (%s::bigint IS NULL OR f.customer_id=%s) ORDER BY lower(f.name),f.id'''
 _MONITOR_SITES_SQL = '''
     SELECT s.id::text AS id,s.label,s.allowed_host,MAX(e.occurred_at) AS last_event_at,
         COUNT(e.*) FILTER (WHERE e.occurred_at>=NOW()-INTERVAL '24 hours') AS events_24h
     FROM cadu_reports_supertag_sites s LEFT JOIN cadu_reports_supertag_events e ON e.site_id=s.id AND e.expires_at>NOW()
-    WHERE s.client_id=%s AND s.enabled=TRUE AND s.revoked_at IS NULL GROUP BY s.id ORDER BY lower(s.label),s.id'''
+    WHERE s.client_id=%s AND s.enabled=TRUE AND s.revoked_at IS NULL AND (%s::bigint IS NULL OR s.customer_id=%s) GROUP BY s.id ORDER BY lower(s.label),s.id'''
 _FLOW_HEALTH = {'online': 'ok', 'degraded': 'warning', 'offline': 'down'}
 _HEALTH_ORDER = {'down': 0, 'warning': 1, 'unknown': 2, 'ok': 3}
 
@@ -459,9 +467,10 @@ def register(bp):
         selected = _selection()
         now = datetime.now(timezone.utc)
         today = now.astimezone(ZoneInfo('America/Sao_Paulo')).replace(hour=0, minute=0, second=0, microsecond=0)
-        counts = _rows(_COUNTS_SQL, {'client': selected['client_id'], 'now': now, 'day': today})[0]
-        uptime = _rows(_UPTIME_SQL, {'client': selected['client_id'], 'now': now})[0]
-        monitors = _rows(_MONITOR_COUNT_SQL, {'c': selected['client_id']})[0]['n']
+        customer = _customer_scope(selected)
+        counts = _rows(_COUNTS_SQL, {'client': selected['client_id'], 'now': now, 'day': today, 'customer': customer})[0]
+        uptime = _rows(_UPTIME_SQL, {'client': selected['client_id'], 'now': now, 'customer': customer})[0]
+        monitors = _rows(_MONITOR_COUNT_SQL, {'c': selected['client_id'], 'customer': customer})[0]['n']
         resolved_today, resolved_yesterday = int(counts['resolved_today']), int(counts['resolved_yesterday'])
         uptime_now, uptime_before = _pct(uptime['up_now'], uptime['all_now']), _pct(uptime['up_before'], uptime['all_before'])
         return jsonify(
@@ -477,12 +486,13 @@ def register(bp):
     @login_required_api
     def reports_alert_monitors():
         selected = _selection()
+        customer = _customer_scope(selected)
         now = datetime.now(timezone.utc)
         items = [{'kind': 'url', 'id': row['id'], 'name': row['name'] or row['allowed_host'], 'target': row['allowed_host'],
                   'health': _FLOW_HEALTH.get(row['monitor_status'], 'unknown'), 'last_checked_at': row['monitor_checked_at'],
                   'every_minutes': row['monitor_interval_minutes'], 'down_since': row['monitor_down_since']}
-                 for row in _rows(_MONITOR_FLOWS_SQL, (selected['client_id'],))]
-        for row in _rows(_MONITOR_SITES_SQL, (selected['client_id'],)):
+                 for row in _rows(_MONITOR_FLOWS_SQL, (selected['client_id'], customer, customer))]
+        for row in _rows(_MONITOR_SITES_SQL, (selected['client_id'], customer, customer)):
             hours = (now - row['last_event_at']).total_seconds() / 3600 if row['last_event_at'] else None
             health = 'unknown' if hours is None else 'warning' if hours >= SILENT_AFTER_HOURS else 'ok'
             items.append({'kind': 'collection', 'id': row['id'], 'name': row['label'], 'target': row['allowed_host'], 'health': health,

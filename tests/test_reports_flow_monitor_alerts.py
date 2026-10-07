@@ -108,3 +108,10 @@ def test_failed_recovery_mail_is_retried(env, monkeypatch):
     monkeypatch.setattr(monitor, '_send_monitor_email', lambda *a, **k: False)
     monitor.notify_transition(FLOW, 'online', UP, now=DAY + timedelta(minutes=5))
     assert env.db.updates == []
+
+
+def test_recipients_also_include_the_client_admins(monkeypatch):
+    seen = []
+    monkeypatch.setattr(monitor, '_rows', lambda sql, params=(): seen.append((sql, params)) or [{'email': 'Admin@Exemplo.com'}, {'email': 'dono@exemplo.com'}])
+    assert monitor._alert_recipients('f1', 7) == ['admin@exemplo.com', 'apolo@centralcomm.media', 'dono@exemplo.com']
+    assert 'cadu_reports_client_memberships' in seen[0][0] and "role='admin'" in seen[0][0] and seen[0][1] == ('f1', 7, 7)

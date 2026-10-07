@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {ArrowRight, Bell01, Building02, Check, ChevronLeft, ChevronRight, Clock, ClockRewind, Cursor02, Data, FileCheck02, FolderShield, Key01, LineChartUp01, Lock01, Mail01, Monitor02, RefreshCw01, Route, Share07, Stars02, Target04, Users01, Zap} from '@untitledui/icons';
 import {Button} from '../cadu-design-system/untitled-kit/button.tsx';
 import {BadgeWithDot} from '../cadu-design-system/untitled-kit/badges.tsx';
@@ -22,7 +22,7 @@ const CHAPTERS = [
     points: [[Clock, 'Leva cerca de 5 minutos', 'Objetivo e direto, sem enrolação.'], [Zap, 'Dá para pular e voltar', 'Faça no seu ritmo, quando quiser.'], [Check, 'Nada é criado sem você confirmar', 'Você mantém o controle sempre.']]},
   {key: 'clientes', focus: 35, label: 'Clientes', art: 'onb-2-clientes.webp', title: 'Clientes e contas', action: 'client', quote: 'Cada número no cliente certo.',
     text: 'Cada cliente reúne marcas, contas de mídia, campanhas e sites. O seletor na barra lateral troca o cliente de toda a análise.',
-    points: [[Building02, 'Logo automático', 'Vem da marca cadastrada no Workspace.'], [Users01, 'Um cliente por vez', 'Visão geral, Mídia e Site mostram sempre o cliente escolhido.'], [FolderShield, 'Tudo em hierarquia', 'Organize clientes, marcas e contas em Clientes e contas.']]},
+    points: [[Building02, 'Logo automático', 'Vem da marca do Workspace, quando houver.'], [Users01, 'Um cliente por vez', 'Visão geral, Mídia e Site mostram sempre o cliente escolhido.'], [FolderShield, 'Tudo em hierarquia', 'Organize clientes, marcas e contas em Clientes e contas.']]},
   {key: 'midia', focus: 38, label: 'Mídia', art: 'onb-3-midia.webp', title: 'Mídia', link: ['media', 'Abrir Mídia'], quote: 'Investimento só faz sentido ao lado do resultado.',
     text: 'Investimento, cliques, custo por conversão e resultado por campanha, sempre comparados ao período anterior de mesma duração.',
     points: [[LineChartUp01, 'Compare períodos e plataformas', 'Veja o que melhorou e o que caiu.'], [Target04, 'Filtre por fonte e campanha', 'Vá do total ao detalhe em um clique.'], [Monitor02, 'Veja os criativos', 'Saiba o que está no ar agora.']]},
@@ -74,7 +74,15 @@ export function Onboarding({data, save, busy, reload}) {
 
   useEffect(() => {writeSaved({at: index});}, [index]);
   // Em telas estreitas a barra de passos rola; o passo atual fica sempre à vista.
-  useEffect(() => {document.querySelector('.ob-steps .is-current')?.scrollIntoView({block: 'nearest', inline: 'nearest'});}, [index]);
+  // Rola só a barra, na horizontal: scrollIntoView também moveria a página até os passos.
+  const stepsRef = useRef(null);
+  useEffect(() => {
+    const list = stepsRef.current, current = list?.querySelector('.is-current');
+    if (!list || !current || list.scrollWidth <= list.clientWidth) return;
+    const left = current.offsetLeft, right = left + current.offsetWidth;
+    if (left < list.scrollLeft) list.scrollLeft = left - 8;
+    else if (right > list.scrollLeft + list.clientWidth) list.scrollLeft = right - list.clientWidth + 8;
+  }, [index]);
   const go = next => setIndex(Math.max(0, Math.min(CHAPTERS.length - 1, next)));
   useEffect(() => {
     const onKey = event => {
@@ -161,7 +169,7 @@ export function Onboarding({data, save, busy, reload}) {
     </section>
 
     <nav className="ob-steps" aria-label="Passos do passeio">
-      <ol>{CHAPTERS.map((item, position) => <li key={item.key} className={position < index ? 'is-past' : ''}>
+      <ol ref={stepsRef}>{CHAPTERS.map((item, position) => <li key={item.key} className={position < index ? 'is-past' : ''}>
         <button type="button" className={position === index ? 'is-current' : ''} aria-current={position === index ? 'step' : undefined} onClick={() => go(position)}>
           <b>{position + 1}</b><span>{item.label}</span></button></li>)}</ol>
     </nav>

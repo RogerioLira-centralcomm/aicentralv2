@@ -47,7 +47,7 @@
 .ob-link:hover{color:var(--color-text-brand-secondary_hover,#1849a9)}
 
 /* Passos: número em círculo, ligados por um traço; o atual fica cheio e sublinhado. */
-.ob-steps ol{display:flex;align-items:center;margin:0;padding:0 4px 4px;overflow-x:auto;list-style:none;scrollbar-width:thin}
+.ob-steps ol{position:relative;display:flex;align-items:center;margin:0;padding:0 4px 4px;overflow-x:auto;list-style:none;scrollbar-width:thin}
 .ob-steps li{display:flex;flex:1 0 auto;align-items:center}
 .ob-steps li + li::before{content:'';flex:1 1 16px;min-width:8px;height:1px;margin:0 6px;background:var(--color-border-primary)}
 .ob-steps li.is-past + li::before,.ob-steps li.is-past::before{background:var(--color-border-brand,#84adff)}

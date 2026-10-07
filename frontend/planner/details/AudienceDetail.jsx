@@ -76,9 +76,9 @@ export function AudienceDetail({boot, selection, plan = null}) {
       {icon: 'pulse', label: 'CPA', value: cpa, hint: 'Estimativa'},
       {icon: 'users', label: 'Alcance incremental', value: field('alcance_incremental')},
     ]}
-    aside={<RelatedList title="Audiências parecidas" items={related.map(item => ({
+    aside={related.length > 0 ? <RelatedList title="Audiências parecidas" items={related.map(item => ({
       href: `${moduleUrl(boot.urls, 'audiencias')}/${item.id}`, title: item.name, icon: 'users', logo: item.platform_logo,
       subtitle: [item.platform, item.audience].filter(Boolean).join(' · '),
-      selected: selection.isSelected('audiencias', item.id), onToggle: () => selection.toggle('audiencias', item.id)}))}/>}
+      selected: selection.isSelected('audiencias', item.id), onToggle: () => selection.toggle('audiencias', item.id)}))}/> : null}
     sections={sections}/>;
 }

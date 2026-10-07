@@ -69,6 +69,22 @@ def detail(channel_id):
     return channel
 
 
+def related(channel, limit=6):
+    """Other channels of the same category (the marketplace's "similar items"); none when the category is hidden or alone."""
+    category = str(channel.get('categoria') or '').strip()
+    if not category or category in repository.HIDDEN_CHANNEL_CATEGORIES:
+        return []
+    records = _rows('''SELECT id, slug, nome AS name, categoria AS category, alcance, logo_path
+                         FROM cadu_canais
+                        WHERE is_active IS TRUE AND categoria = %s AND id <> %s AND slug <> ALL(%s)
+                     ORDER BY ordem NULLS LAST, nome LIMIT %s''',
+                    (category, channel.get('id'), list(repository.RETIRED_CHANNEL_SLUGS), limit))
+    for record in records:
+        record['logo_url'] = _channel_logo(str(record.get('slug') or '').lower(), record.get('logo_path'))
+        record.pop('logo_path', None)
+    return records
+
+
 def _channel_logo(slug, stored):
     """Curated logo by slug; the stored path is the legacy /assets_images one the app does not serve."""
     return _safe_media_url(_resolver_logo(slug, stored))

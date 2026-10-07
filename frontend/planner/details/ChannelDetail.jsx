@@ -5,7 +5,7 @@ import {CaduBadge} from '../../cadu-design-system/components/CaduBadge.jsx';
 import {Icon} from '../../cadu-design-system/components/Icon.jsx';
 import {FormatCards} from '../FormatCards.jsx';
 import {SelectionButton} from '../PlannerUi.jsx';
-import {DemographyBars, DetailLayout, Facts, Rail, TagList, hasValue, listText} from './DetailLayout.jsx';
+import {DemographyBars, DetailLayout, Facts, Rail, RelatedList, TagList, hasValue, listText} from './DetailLayout.jsx';
 
 // Percent fields are stored as bare numbers; never double the sign.
 const pct = value => (typeof value === 'number' || /^\s*\d+([.,]\d+)?\s*$/.test(String(value ?? ''))) && hasValue(value) ? `${value}%` : value;
@@ -107,5 +107,9 @@ export function ChannelDetail({boot, selection, plan = null}) {
     highlights={[['Quem você alcança', channel.perfil_audiencia], ['Melhor uso', channel.melhor_uso]]}
     sourceNote={profileSource.pesquisado_em ? `Resumo de fontes públicas, pesquisado em ${date(profileSource.pesquisado_em)}.` : null}
     extraMeta={hasValue(channel.medicao) ? <CaduBadge tone="success">Mensurável</CaduBadge> : null}
+    aside={(channel.related || []).length > 0 ? <RelatedList title="Canais parecidos" items={(channel.related || []).map(item => ({
+      href: `${moduleUrl(boot.urls, 'canais')}/${item.id}`, title: item.name, icon: 'share', logo: item.logo_url,
+      subtitle: item.alcance || item.category,
+      selected: selection.isSelected('canais', item.id), onToggle: () => selection.toggle('canais', item.id)}))}/> : null}
     sections={sections}/>;
 }

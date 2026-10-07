@@ -305,6 +305,8 @@ CLIENT_CHANNEL_KEYS = (
     'usuarios_unicos', 'tempo_medio', 'viewability', 'completion_rate', 'taxa_engajamento', 'demografia',
     'segmentacao', 'segmentacoes', 'formatos_resumo', 'especificacoes', 'modelo_compra', 'brand_safety',
     'medicao', 'diferenciais', 'produtos',
+    # Resumo de fontes públicas (texto revisado e a data/fonte da pesquisa). Prazo, integração e investimento não saem daqui.
+    'perfil_audiencia', 'melhor_uso', 'fontes_metricas',
 )
 
 
@@ -362,6 +364,7 @@ def channel_profile(channel_id):
                  for row in channels.formats(channel)],
         news=channels.news(record_id),
         audiences=channel_audiences(channel),
+        related=channels.related(channel),
     )
     return profile
 

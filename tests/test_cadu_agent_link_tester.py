@@ -92,3 +92,18 @@ def test_review_tool_is_internal_only():
     assert "reports.review_link_test" in internal
     assert "reports.review_link_test" not in public
     assert {"reports.list_link_tests", "reports.get_link_test"} <= public
+
+
+def test_review_result_is_json_serializable_with_uuid_ids(monkeypatch):
+    import json, uuid
+    from aicentralv2.cadu_workspace.mcp.tools import reports
+    from aicentralv2.cadu_connect import reports_link_inventory
+    run_uuid = uuid.UUID(RUN_ID)
+    monkeypatch.setattr(reports.operations, "execute", lambda request_id, current, tool_name, payload, operation: json.loads(json.dumps(operation())))
+    monkeypatch.setattr(reports.link_tester, "detail", lambda *_: {"id": run_uuid, "mode": "media", "final_url": "https://a.com/", "score": 50,
+                                                                 "result": {"evidence": {"inventory": {"platforms": []}}}})
+    monkeypatch.setattr(reports_link_inventory, "review", lambda *_: {"verdict": "ajustes", "summary": "s", "problems": [], "check_in_gtm": [], "questions": []})
+    monkeypatch.setattr(reports.repository, "rows", lambda *_: [])
+    result = load_builtin_tools().execute("reports.review_link_test", {
+        "request_id": "be777b36-a973-419c-802a-886bf1d125b0", "confirmed": True, "run_id": RUN_ID}, ctx(), "internal")
+    assert result["run_id"] == RUN_ID

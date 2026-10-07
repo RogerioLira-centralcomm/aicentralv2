@@ -129,14 +129,14 @@ def review_link_test(context: RequestContext, arguments: dict) -> dict:
         if not ((run.get("result") or {}).get("evidence") or {}).get("inventory"):
             raise ToolInputError("Este diagnóstico é anterior ao inventário de tags; rode o teste de novo.")
         try:
-            review = reports_link_inventory.review(run["mode"], run["result"], CreditActor.from_values(context.client_id, context.user_id), run["id"])
+            review = reports_link_inventory.review(run["mode"], run["result"], CreditActor.from_values(context.client_id, context.user_id), str(run["id"]))
         except InsufficientToolCredits as exc:
             error = ToolError(str(exc) or "Saldo de tokens insuficiente para a revisão.")
             error.code = "insufficient_credits"
             raise error from exc
         repository.rows("""UPDATE cadu_reports_link_test_runs SET result = result || jsonb_build_object('review', %s::jsonb)
-                           WHERE id=%s AND client_id=%s RETURNING id""", (json.dumps(review), run["id"], context.client_id))
-        return {"run_id": run["id"], "mode": run["mode"], "final_url": run["final_url"], "score": run["score"],
+                           WHERE id=%s AND client_id=%s RETURNING id""", (json.dumps(review), str(run["id"]), context.client_id))
+        return {"run_id": str(run["id"]), "mode": run["mode"], "final_url": run["final_url"], "score": run["score"],
                 "review": {key: review.get(key) for key in ("verdict", "summary", "problems", "check_in_gtm", "questions")},
                 "tokens_charged": review.get("tokens_charged")}
     return _link_domain(lambda: operations.execute(arguments["request_id"], context, "reports.review_link_test",

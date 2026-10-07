@@ -1140,9 +1140,15 @@ def register(bp):
         _write_guard(selected)
         _, module, (subject, html) = _link_test_email(run_id, payload.get('note', ''))
         recipient = module.valid_recipient(payload.get('to'))
+        # Per-user ceiling so the platform domain cannot be used to mass-mail: 30 result e-mails per hour.
+        key = f"link_email:{session['user_id']}:{datetime.now(timezone.utc):%Y%m%d%H}"
+        sent = session.get('link_email_quota') or {}
+        if sent.get('key') == key and sent.get('count', 0) >= 30:
+            abort(429, description='Limite de 30 e-mails por hora atingido. Tente de novo mais tarde.')
         from ..email_service import send_email
         if not send_email(subject, [recipient], text_body=subject, html_body=html):
             abort(502, description='Não foi possível enviar o e-mail agora.')
+        session['link_email_quota'] = {'key': key, 'count': (sent.get('count', 0) if sent.get('key') == key else 0) + 1}
         return jsonify(sent=True, to=recipient)
 
     @bp.post('/api/v2/reports/link-tests/<run_id>/review')

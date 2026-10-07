@@ -253,7 +253,8 @@ def _media(common):
         tags = [{'name': name, 'detected': bool(re.search(pattern, html, re.I))} for name, pattern in definitions.items()]
     supertag = supertag_evidence(common.get('raw_html') or html, html)
     whatsapp = bool(re.search(r'(?:wa\.me/|api\.whatsapp\.com|whatsapp:)', html, re.I))
-    forms = len(re.findall(r'<form\b', html, re.I))
+    # Raw and rendered HTML are concatenated above: count forms in each version separately, never the sum.
+    forms = max(len(re.findall(r'<form\b', common['html'], re.I)), len(re.findall(r'<form\b', common.get('raw_html') or '', re.I)))
     phones = bool(re.search(r'href=["\']tel:', html, re.I))
     events = sorted(set(re.findall(r"(?:gtag\s*\(\s*['\"]event['\"]\s*,\s*|event\s*[:=]\s*['\"])([\w_-]+)", html, re.I)))
     if inventory is not None:

@@ -132,3 +132,10 @@ class LinkTestEmailTest(TestCase):
     def test_missing_screenshot_shows_a_placeholder_not_a_broken_image(self):
         _, html = self.render('media', None)
         self.assertIn('ainda não está disponível', html)
+
+
+class MediaFormCountTest(TestCase):
+    def test_a_form_present_in_raw_and_rendered_html_counts_once(self):
+        page = '<html><body><form><input type="email"></form></body></html>'
+        result = link_tester._media({'html': page, 'raw_html': page.replace('<body>', '<body><p>raw</p>'), 'capture': {}})
+        self.assertEqual(1, result['evidence']['conversion']['forms'])

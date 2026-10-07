@@ -34,6 +34,10 @@ def _serialize(row):
         # generated hero when real photos are available.
         "image_url": card_image or media.get("hero_url") or next((item.get("url") for item in media.get("images") or [] if item.get("url")), ""),
         "gallery": gallery,
+        "target_audience": [str(item) for item in row.get("target_audience") or [] if item],
+        "demographics": {key: str(value) for key, value in (row.get("demographics") or {}).items() if value},
+        "channel_ranking": [{"name": item.get("name") or "", "why": item.get("why") or "", "logo": item.get("icon") or ""}
+                            for item in (row.get("channel_ranking") or [])[:6] if item.get("name")],
         # A place is one media point: its position, not a list of sub-points.
         "lat": lat if lng is not None else None, "lng": lng if lat is not None else None,
         "map_url": f"https://www.google.com/maps?q={lat},{lng}" if lat is not None and lng is not None else "",

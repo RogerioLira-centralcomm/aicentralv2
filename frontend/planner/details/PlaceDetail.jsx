@@ -1,7 +1,7 @@
 import React from 'react';
 import {CaduEmptyState} from '../../cadu-design-system/components/CaduEmptyState.jsx';
 import {Icon} from '../../cadu-design-system/components/Icon.jsx';
-import {DetailLayout, Facts, Gallery, listText} from './DetailLayout.jsx';
+import {DetailLayout, Facts, Gallery, TagList, listText} from './DetailLayout.jsx';
 
 /** A Place is one media point: where it is and how many people pass. */
 export function PlaceDetail({boot, selection, plan = null}) {
@@ -22,6 +22,13 @@ export function PlaceDetail({boot, selection, plan = null}) {
         {place.map_url && <ul className="pd-links"><li><a href={place.map_url} target="_blank" rel="noreferrer"><Icon name="external" size={16}/>Abrir no mapa</a></li></ul>}</>},
     {id: 'fotos', label: 'Fotos', count: rest.length, hidden: !rest.length, wide: true,
       render: () => <Gallery photos={rest.map(photo => ({url: photo.url, title: photo.title}))} name={place.name}/>},
+    {id: 'publico', label: 'Quem passa por aqui', hidden: !place.target_audience?.length && !Object.keys(place.demographics || {}).length,
+      render: () => <>
+        <TagList value={place.target_audience}/>
+        <Facts items={[['Faixa etária', place.demographics?.age], ['Gênero', place.demographics?.gender],
+          ['Renda', place.demographics?.income], ['Origem', place.demographics?.origin]]}/></>},
+    {id: 'canais', label: 'Onde alcançar esse público', hidden: !place.channel_ranking?.length, hint: 'Canais com maior afinidade com quem passa por aqui.',
+      render: () => <ol className="pd-text">{place.channel_ranking.map(item => <li key={item.name}><strong>{item.name}</strong>{item.why ? ` — ${item.why}` : ''}</li>)}</ol>},
     {id: 'sobre', label: 'Sobre o lugar', render: () => <Facts items={[['Categoria', place.category], ['Cidade', place.city],
       ['Operador', place.operator], ['Código', place.code], ['Formatos', listText(place.formats)]]}/>},
   ];

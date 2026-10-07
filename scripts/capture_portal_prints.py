@@ -5,6 +5,7 @@ Uso (com o ambiente do app; usa a chave do Firecrawl já guardada nas integraç�
   python scripts/capture_portal_prints.py --domain g1.globo.com                   # um portal
   python scripts/capture_portal_prints.py --pendentes                             # lista o que espera revisão
   python scripts/capture_portal_prints.py --aprovar 12 15 --por apolo             # libera para a vitrine
+  python scripts/capture_portal_prints.py --aprovar-todos --por apolo             # libera tudo que está pendente
   python scripts/capture_portal_prints.py --descartar 13
 
 Regras: print fiel (sem editar nem mascarar anúncio), uma captura por portal por vez, pausa entre domínios,
@@ -112,8 +113,14 @@ def main():
     parser.add_argument('--limit', type=int, default=10); parser.add_argument('--refazer', action='store_true')
     parser.add_argument('--pendentes', action='store_true')
     parser.add_argument('--aprovar', type=int, nargs='+'); parser.add_argument('--descartar', type=int, nargs='+')
+    parser.add_argument('--aprovar-todos', action='store_true')
     parser.add_argument('--por', default='')
     args = parser.parse_args()
+    if args.aprovar_todos:
+        with get_db().cursor() as cur:
+            cur.execute("SELECT id FROM cadu_planner_portal_prints WHERE status = 'pendente'")
+            pending = [row['id'] for row in cur.fetchall()]
+        return review(pending, 'aprovado', args.por) if pending else print('nada pendente')
     if args.aprovar:
         return review(args.aprovar, 'aprovado', args.por)
     if args.descartar:

@@ -127,12 +127,17 @@ function CoverDrawer({report, data, onClose, onDone}) {
       const result = await json(`/connect/api/v2/reports/workspaces/${report.id}/cover`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf},
         body: JSON.stringify({prompt, request_id: requestId, confirmed_cost: true})});
       onDone(result);
-    } catch (failure) {setError(failure.message);} finally {setBusy(false);}
+    } catch (failure) {
+      setError(failure.message);
+      // Resposta definitiva (saldo, pedido inválido): a próxima tentativa é um pedido novo. Sem resposta (rede, tempo
+      // esgotado) o identificador fica: a geração pode ter terminado e repetir não pode cobrar de novo.
+      if (failure.status >= 400 && failure.status < 500) setRequestId(crypto.randomUUID());
+    } finally {setBusy(false);}
   };
   return <ReportsDrawer open={Boolean(report)} onOpenChange={value => {if (!value && !busy) onClose();}} title="Capa com o Studio" description="O Studio cria uma imagem para o card a partir deste relatório." context={report?.campaign_name}>
     <form className="untitled-scope flex flex-col gap-5" onSubmit={submit}>
       {error && <Alert>{error}</Alert>}
-      <ReportsTextArea label="Pedido para o Studio" rows={9} maxLength={4000} value={prompt} onChange={event => setPrompt(event.target.value)} isDisabled={!brief || busy}
+      <ReportsTextArea label="Pedido para o Studio" rows={9} maxLength={4000} value={prompt} onChange={event => {setPrompt(event.target.value); if (error) setRequestId(crypto.randomUUID());}} isDisabled={!brief || busy}
         hint="Montado com o tema, o foco e as plataformas do relatório. Os números não entram na imagem: o card mostra os reais."/>
       <div className="rounded-lg bg-secondary px-4 py-3 text-sm text-secondary ring-1 ring-secondary ring-inset">
         <p className="font-semibold text-primary">Custo estimado: {estimate}</p>

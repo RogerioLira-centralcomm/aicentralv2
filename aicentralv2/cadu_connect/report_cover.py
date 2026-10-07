@@ -108,6 +108,9 @@ def register(bp):
             return jsonify(error=str(exc), code='insufficient_credits'), 402
         except ToolInputError as exc:
             abort(400, description=str(exc))
+        except ValueError as exc:
+            # O Studio recusa reaproveitar um request_id com outro pedido: é erro de quem chamou, não do servidor.
+            abort(409, description=str(exc))
         # Liga a sessão do Studio ao relatório: a biblioteca lê a capa daqui.
         metadata = {'origin': 'cadu_reports', 'reports_client_id': int(selected['client_id']), 'reports_report_id': int(report['id']),
                     'reports_cover_url': result['image_url']}

@@ -109,3 +109,11 @@ def test_insufficient_credits_answers_402():
         response = run(patches=patched(), call=lambda: app_client().post('/api/v2/reports/workspaces/5/cover', json={
             'prompt': 'Capa', 'request_id': str(uuid.uuid4()), 'confirmed_cost': True}))
     assert response.status_code == 402
+
+
+def test_reused_request_id_with_another_prompt_answers_409_not_500():
+    with mock.patch('aicentralv2.cadu_workspace.media_creation_service.generate_studio_image',
+                    side_effect=ValueError('Este identificador de geração já foi usado por outro pedido.')):
+        response = run(patches=patched(), call=lambda: app_client().post('/api/v2/reports/workspaces/5/cover', json={
+            'prompt': 'Outra capa', 'request_id': str(uuid.uuid4()), 'confirmed_cost': True}))
+    assert response.status_code == 409

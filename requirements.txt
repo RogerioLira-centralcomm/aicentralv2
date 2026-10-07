@@ -1,3 +1,7 @@
+# O servico usa torch so para gerar embeddings (sentence-transformers) em CPU. Este indice entrega a roda "+cpu"
+# (centenas de MB) em instalacoes novas, em vez da roda CUDA padrao do PyPI (varios GB). Ambientes que ja tem torch
+# instalado nao sao alterados: o deploy instala sem --upgrade.
+--extra-index-url https://download.pytorch.org/whl/cpu
 blinker==1.9.0
 click==8.3.0
 colorama==0.4.6

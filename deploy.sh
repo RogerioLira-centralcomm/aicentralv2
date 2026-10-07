@@ -17,6 +17,33 @@ DEPLOY_LOG="logs/deploy-$(date +%Y%m%d-%H%M%S).log"
 # Não iniciar aicentralv2.service em paralelo: ele disputa a mesma porta.
 APP_SERVICE="gunicorn.service"
 
+# Tempo de cada etapa: vai para a tela, para o log e para logs/deploy-timings.log (histórico).
+# Mostra onde um deploy lento gastou o tempo, sem precisar adivinhar.
+DEPLOY_STARTED=$SECONDS
+STEP_STARTED=$SECONDS
+TIMINGS=""
+step_done() {
+    local elapsed=$((SECONDS - STEP_STARTED))
+    STEP_STARTED=$SECONDS
+    TIMINGS="${TIMINGS}$(printf '%5ss  %s' "$elapsed" "$1")"$'\n'
+    echo "  > [tempo] $1: ${elapsed}s"
+    return 0
+}
+print_timings() {
+    local total=$((SECONDS - DEPLOY_STARTED))
+    [ -n "$TIMINGS" ] || return 0
+    {
+        echo ""
+        echo "Tempo por etapa (maiores primeiro), total ${total}s:"
+        printf '%s' "$TIMINGS" | sort -rn
+    } | tee -a "$DEPLOY_LOG" || true
+    {
+        printf '=== %s  %s  total %ss\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$(git rev-parse --short HEAD 2>/dev/null || echo ?)" "$total"
+        printf '%s' "$TIMINGS"
+    } >> logs/deploy-timings.log 2>/dev/null || true
+    return 0
+}
+
 restore_service_on_error() {
     local exit_code=$?
     trap - ERR
@@ -27,6 +54,7 @@ restore_service_on_error() {
     fi
     echo "  > Detalhes: $DEPLOY_LOG"
     tail -n 40 "$DEPLOY_LOG" 2>/dev/null || true
+    print_timings
     exit "$exit_code"
 }
 trap restore_service_on_error ERR
@@ -199,6 +227,7 @@ git pull origin main >> "$DEPLOY_LOG" 2>&1
 # Renormalizar line endings apos pull
 git checkout -- . 2>/dev/null || true
 echo "  > OK"
+step_done "git pull e artefatos gerados"
 
 # Ordem: código → dependências → schema → build → parada curta → workers → início.
 # O schema vem antes do build: um worker do gunicorn reciclado durante o build já
@@ -235,6 +264,27 @@ cleanup_pip_orphans() {
     fi
 }
 
+# Sem --upgrade o pip só instala o que falta ou está na versão errada. O --upgrade antigo reavaliava todo pacote sem
+# versão fixa (torch, numpy...) a cada mudança no arquivo e baixava gigabytes com o site parado. Use PIP_UPGRADE=1 para
+# atualizar de propósito.
+PIP_UPGRADE_FLAG=""
+if [ "${PIP_UPGRADE:-0}" = "1" ]; then
+    PIP_UPGRADE_FLAG="--upgrade"
+fi
+
+# Simula a instalação sem alterar nada: o serviço só precisa parar se algum pacote vai mesmo ser trocado. Se a simulação
+# falhar (pip antigo, conflito, rede), assume que há o que instalar e segue o caminho completo.
+pip_has_pending_changes() {
+    local plan
+    if ! plan="$("$VENV_PIP" install -r requirements.txt --dry-run --disable-pip-version-check $PIP_UPGRADE_FLAG 2>&1)"; then
+        printf '%s\n' "$plan" >> "$DEPLOY_LOG"
+        echo "  > A simulacao do pip falhou; seguindo o caminho completo."
+        return 0
+    fi
+    printf '%s\n' "$plan" >> "$DEPLOY_LOG"
+    grep -q '^Would install' <<< "$plan"
+}
+
 cleanup_pip_orphans "$VENV_PIP"
 VENV_NAME="$(basename "$(dirname "$VENV_PIP")")"
 REQUIREMENTS_STATE_FILE="${REQUIREMENTS_STATE_FILE:-logs/.requirements-${VENV_NAME}.sha256}"
@@ -243,8 +293,12 @@ if command -v sha256sum >/dev/null 2>&1; then
 else
     REQUIREMENTS_HASH="$(shasum -a 256 requirements.txt | awk '{print $1}')"
 fi
+REQUIREMENTS_CHANGED=0
 if [ ! -f "$REQUIREMENTS_STATE_FILE" ] || [ "$(cat "$REQUIREMENTS_STATE_FILE")" != "$REQUIREMENTS_HASH" ]; then
-    echo "  > requirements.txt mudou; atualizando ambiente Python..."
+    REQUIREMENTS_CHANGED=1
+fi
+if [ "$REQUIREMENTS_CHANGED" = "1" ] && pip_has_pending_changes; then
+    echo "  > requirements.txt mudou e ha pacotes a instalar; atualizando ambiente Python..."
     # Compila o frontend com o site ainda no ar: a parada só cobre pip e migrações.
     echo "  > Compilando o frontend antes de parar o servico..."
     frontend_build_step
@@ -252,13 +306,17 @@ if [ ! -f "$REQUIREMENTS_STATE_FILE" ] || [ "$(cat "$REQUIREMENTS_STATE_FILE")" 
     stop_service_for_deploy
     "$VENV_PIP" install --upgrade pip --quiet 2>&1
     cleanup_pip_orphans "$VENV_PIP"
-    "$VENV_PIP" install -r requirements.txt --upgrade --quiet 2>&1
+    "$VENV_PIP" install -r requirements.txt $PIP_UPGRADE_FLAG --quiet 2>&1
     cleanup_pip_orphans "$VENV_PIP"
+    printf '%s\n' "$REQUIREMENTS_HASH" > "$REQUIREMENTS_STATE_FILE"
+elif [ "$REQUIREMENTS_CHANGED" = "1" ]; then
+    echo "  > requirements.txt mudou, mas nenhum pacote precisa ser instalado; o servico nao para."
     printf '%s\n' "$REQUIREMENTS_HASH" > "$REQUIREMENTS_STATE_FILE"
 else
     echo "  > requirements.txt sem alteracoes; pulando instalacao Python."
 fi
 echo "  > OK"
+step_done "dependencias Python (inclui o build antecipado do frontend, se houve)"
 
 # 3. Atualizar schema e dados idempotentes
 echo ""
@@ -285,11 +343,13 @@ if should_run "$MIGRATION_STATE_FILE" "${FORCE_MIGRATIONS:-0}" \
 else
     echo "  > Nenhuma migração alterada desde a última execução; pulando bloco de migrações."
 fi
+step_done "migracoes"
 
 # 4. Build frontend (artefatos gerados somente quando a camada visual mudou)
 echo ""
 echo "[4/9] Build frontend (Tailwind)..."
 frontend_build_step
+step_done "build do frontend"
 
 stop_service_for_deploy
 
@@ -361,6 +421,8 @@ else
     sudo systemctl restart cadu-media-worker >> "$DEPLOY_LOG" 2>&1
 fi
 
+step_done "parada do servico, nginx, importacao e workers"
+
 # 8. Iniciar servico
 echo ""
 echo "[8/9] Iniciando servico..."
@@ -384,6 +446,7 @@ else
     exit 1
 fi
 
+step_done "iniciar o servico"
 echo "  > Validando APIs de formatos e visualizadores..."
 "$VENV_PYTHON" scripts/verify_creative_viewer_apis.py >> "$DEPLOY_LOG" 2>&1
 
@@ -399,6 +462,9 @@ elif [ "$HTTP_CODE" -lt "400" ] || [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = 
 else
     echo "  > Retornou HTTP $HTTP_CODE"
 fi
+
+step_done "validacao das APIs e health check"
+print_timings
 
 echo ""
 echo "========================================"

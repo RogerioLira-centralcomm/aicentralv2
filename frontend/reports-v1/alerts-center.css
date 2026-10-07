@@ -78,6 +78,8 @@
 .uti-filters small{margin-left:4px;color:var(--color-text-tertiary);font-variant-numeric:tabular-nums}
 .uti-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:16px;align-items:stretch}
 .uti-card{display:flex;flex-direction:column;gap:12px;min-width:0;padding:16px;border:1px solid var(--color-border-secondary);border-radius:12px;background:var(--color-bg-primary);box-shadow:0 1px 2px rgba(16,24,40,.05);transition:border-color .15s,box-shadow .15s}
+/* Hundreds of URLs mean tens of thousands of heatmap cells: the browser paints (and runs the sweep of) only the cards in view. */
+.uti-card{content-visibility:auto;contain-intrinsic-size:auto 380px}
 .uti-card:hover,.uti-card:focus-within{border-color:var(--color-border-primary);box-shadow:0 4px 12px rgba(16,24,40,.08)}
 .uti-card.is-critical{border-color:var(--color-utility-red-300)}
 .uti-card>header{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px}

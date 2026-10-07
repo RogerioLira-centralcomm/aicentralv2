@@ -15,7 +15,7 @@ export function audienceFigure(item) {
 function audienceStats(item, figure) {
   return [
     ['users', 'Público', figure],
-    ['wallet', 'Classe', item.perfil_socioeconomico],
+    ['wallet', 'Perfil', item.perfil_socioeconomico && `Classe ${item.perfil_socioeconomico}`],
     ['cart', 'Compra', item.propensao_compra],
   ].filter(([, , value]) => value);
 }

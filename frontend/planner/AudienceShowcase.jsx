@@ -1,9 +1,6 @@
-import React, {Fragment, useEffect, useRef, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
-import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.jsx';
 import {PlannerSelect} from './PlannerSelect.jsx';
-import {CaduSelectField} from '../cadu-design-system/components/CaduField.jsx';
-import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {itemKey, useDebounced} from './Catalog.jsx';
 import {AudienceCard} from './AudienceCard.jsx';
@@ -25,9 +22,11 @@ function readPrefs() {
 }
 
 /** The URL wins; with a bare URL the person's last channel, category and order come back. */
+const urlIsBare = () => { const params = new URLSearchParams(window.location.search); return !Object.values(URL_KEYS).some(name => params.get(name)); };
+
 function filtersFromUrl() {
   const params = new URLSearchParams(window.location.search);
-  const bare = !Object.values(URL_KEYS).some(name => params.get(name));
+  const bare = urlIsBare();
   const prefs = bare ? readPrefs() : {};
   return Object.fromEntries(Object.entries(URL_KEYS).map(([key, name]) => [key, params.get(name) || (REMEMBERED.includes(key) && prefs[key]) || (key === 'sort' ? 'relevant' : '')]));
 }
@@ -66,13 +65,14 @@ export function FacetChips({label, items, value, total, onChange, inline = false
 export function AudienceShowcase({boot, request, selection, notify}) {
   const meta = boot.catalogMeta || {};
   const [filters, setFilters] = useState(filtersFromUrl);
-  const restored = useRef(REMEMBERED.some(key => filters[key] && !(key === 'sort' && filters[key] === 'relevant')) && !new URLSearchParams(window.location.search).toString());
+  const restored = useRef(REMEMBERED.some(key => filters[key] && !(key === 'sort' && filters[key] === 'relevant')) && urlIsBare());
   const [records, setRecords] = useState(Array.isArray(boot.records) ? boot.records : []);
   const [total, setTotal] = useState(Number(meta.total || 0));
   const [facets, setFacets] = useState(meta.facets || {platforms: [], categories: [], subcategories: []});
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const search = useDebounced(filters.q);
+  const touched = useRef(false);
   const first = useRef(Boolean(boot.catalogMeta) && !restored.current);
   const query = {...filters, q: search};
 
@@ -81,7 +81,7 @@ export function AudienceShowcase({boot, request, selection, notify}) {
 
   useEffect(() => {
     writeUrl(query);
-    savePrefs(query);
+    if (touched.current) savePrefs(query);
     if (first.current) { first.current = false; return undefined; }
     const controller = new AbortController();
     let current = true;
@@ -112,7 +112,7 @@ export function AudienceShowcase({boot, request, selection, notify}) {
     }
   };
 
-  const set = (key, value) => { restored.current = false; setFilters(current => ({...current, [key]: value, ...(key === 'category' ? {subcategory: ''} : {})})); };
+  const set = (key, value) => { restored.current = false; touched.current = true; setFilters(current => ({...current, [key]: value, ...(key === 'category' ? {subcategory: ''} : {})})); };
   const active = [filters.platform, filters.category, filters.subcategory, filters.q].filter(Boolean).length;
   // "Todos" in each facet shows what the other filters allow.
   const platformTotal = facets.platforms.reduce((sum, item) => sum + item.count, 0);
@@ -134,15 +134,15 @@ export function AudienceShowcase({boot, request, selection, notify}) {
     </div>
   );
 
-  const first_name = String(boot.user?.name || '').trim().split(/\s+/)[0];
-  const clear = () => { restored.current = false; setFilters({q: '', platform: '', category: '', subcategory: '', sort: 'relevant'}); };
+  const firstName = String(boot.user?.name || '').trim().split(/\s+/)[0];
+  const clear = () => { restored.current = false; touched.current = true; setFilters({q: '', platform: '', category: '', subcategory: '', sort: 'relevant'}); };
 
   // Título e filtros na mesma linha: busca, canal (com logos), categoria e ordem lado a lado.
   return <>
     <ShelfHeader title="Audiências" bar={bar}
       description={`${number(total)} ${total === 1 ? 'audiência' : 'audiências'}${active ? ' com estes filtros' : ''}`}/>
     {(active > 0 || restored.current) && <div className="aud-filters__summary aud-filters__summary--bar">
-      <span aria-live="polite">{loading ? 'Atualizando…' : restored.current && !filters.q ? `${first_name ? `${first_name}, mantivemos` : 'Mantivemos'} seus filtros da última visita` : `${number(total)} ${total === 1 ? 'resultado' : 'resultados'}`}</span>
+      <span aria-live="polite">{loading ? 'Atualizando…' : restored.current && !filters.q ? `${firstName ? `${firstName}, mantivemos` : 'Mantivemos'} seus filtros da última visita` : `${number(total)} ${total === 1 ? 'resultado' : 'resultados'}`}</span>
       <CaduButton variant="tertiary" size="sm" onClick={clear}>Limpar filtros</CaduButton>
     </div>}
 

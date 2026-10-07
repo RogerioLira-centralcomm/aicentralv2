@@ -158,3 +158,22 @@
 .aud-bar { overflow: visible; }
 .planner-select__list .logo-tile, .planner-select__value .logo-tile { flex: none; width: 24px; height: 24px; min-width: 24px; }
 .planner-select__list { min-width: 240px; }
+
+/* Canais: a mesma barra de Audiências. "Mais filtros" e Grade/Lista são campos da barra, com o mesmo traço dos dropdowns. */
+.aud-bar__field--view { flex: 0 0 auto; padding: 6px 8px; }
+.aud-view { display: inline-flex; gap: 2px; padding: 3px; border-radius: 9px; background: var(--planner-soft, #f2f4f7); }
+.aud-view button { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border: 0; border-radius: 7px; background: none; color: var(--planner-muted, #667085); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.aud-view button:hover { color: var(--planner-ink, #101828); }
+.aud-view button.is-active { background: #fff; color: var(--planner-ink, #101828); box-shadow: 0 1px 2px rgba(16, 24, 40, .1); }
+.aud-view button:focus-visible { outline: 2px solid var(--colors-brand-600, #079455); outline-offset: 1px; }
+.aud-more__menu { display: grid; gap: 2px; min-width: 260px; }
+.aud-more__menu label { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; color: var(--planner-ink, #101828); font-size: 14px; cursor: pointer; }
+.aud-more__menu label:hover { background: var(--planner-soft, #f2f4f7); }
+.aud-more__menu input { accent-color: var(--colors-brand-600, #079455); }
+.aud-filters__summary--bar { display: flex; align-items: center; gap: 12px; margin: -4px 0 16px; color: var(--planner-muted, #667085); font-size: 13px; }
+@media (max-width: 1100px) { .aud-bar__field--view { flex: 1 1 100%; justify-content: flex-end; } }
+
+/* Texto inteiro: nos canais e nas descrições do cabeçalho nada é cortado com reticências, o texto quebra linha. */
+.channel-card .planner-card__title, .channel-card .planner-card__text, .channel-row__text, .channel-row__main strong, .channel-row__main small,
+.channel-card__stats dt, .channel-card__stats dd, .channel-card__role { display: block; min-height: 0; overflow: visible; -webkit-line-clamp: unset; text-overflow: clip; white-space: normal; }
+.ph__copy > p { overflow: visible; text-overflow: clip; white-space: normal; }

@@ -12,6 +12,7 @@ import {PlaceCard} from './PlaceCard.jsx';
 import {PlanBar} from './PlanBar.jsx';
 import {PlanBanner, ShelfEmpty} from './PlannerPromo.jsx';
 import {PlannerChrome} from './PlannerHeader.jsx';
+import {PlannerSelect} from './PlannerSelect.jsx';
 
 const PORTAL_PAGE = 50;
 const DESCRIPTIONS = {
@@ -110,7 +111,7 @@ export function CatalogCard({kind, item, urls, selected}) {
 
 /** Todos: uma seção por categoria (ou por papel no plano), na ordem do catálogo; com categoria escolhida, uma grade só. */
 function channelGroups(records, category, groupBy) {
-  if (category) return [{title: '', items: records}];
+  if (category || groupBy === 'nenhum') return [{title: '', items: records}];
   const field = groupBy === 'papel' ? 'role' : 'category';
   const groups = new Map();
   records.forEach(item => { const title = item[field] || (field === 'role' ? 'Outros papéis' : 'Outros'); if (!groups.has(title)) groups.set(title, []); groups.get(title).push(item); });
@@ -140,6 +141,38 @@ function PortalRow({item, urls, selected, onToggle}) {
   </div>;
 }
 
+/** "Mais filtros" as one more field of the bar: same trigger and list as the dropdowns beside it. */
+function MoreFilters({value, onChange}) {
+  const [open, setOpen] = useState(false);
+  const root = useRef(null);
+  const count = [value.measurable, value.formats].filter(Boolean).length;
+  useEffect(() => {
+    if (!open) return undefined;
+    const outside = event => { if (!root.current?.contains(event.target)) setOpen(false); };
+    const escape = event => { if (event.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', outside);
+    document.addEventListener('keydown', escape);
+    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape); };
+  }, [open]);
+  return <div className="planner-select aud-more" ref={root}>
+    <button type="button" className="planner-select__trigger" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen(current => !current)}>
+      <span className="planner-select__text"><small>Mais filtros</small><span className="planner-select__value"><b>{count ? `${count} ativo${count === 1 ? '' : 's'}` : 'Nenhum'}</b></span></span>
+      <Icon name="chevron" size={16}/>
+    </button>
+    {open && <div className="planner-select__list aud-more__menu" role="group" aria-label="Mais filtros">
+      <label><input type="checkbox" checked={value.measurable} onChange={event => onChange({...value, measurable: event.target.checked})}/>Só canais mensuráveis</label>
+      <label><input type="checkbox" checked={value.formats} onChange={event => onChange({...value, formats: event.target.checked})}/>Só com formatos cadastrados</label>
+    </div>}
+  </div>;
+}
+
+function ViewToggle({value, onChange}) {
+  return <div className="aud-view" role="group" aria-label="Exibição">
+    {[['grade', 'table', 'Grade'], ['lista', 'list', 'Lista']].map(([id, icon, label]) => <button key={id} type="button" aria-pressed={value === id}
+      className={value === id ? 'is-active' : ''} onClick={() => onChange(id)}><Icon name={icon} size={16}/><span>{label}</span></button>)}
+  </div>;
+}
+
 export function CatalogPage({boot, request, selection, notify}) {
   const kind = boot.module;
   const portalMode = kind === 'portais';
@@ -151,8 +184,8 @@ export function CatalogPage({boot, request, selection, notify}) {
   const [category, setCategory] = useState(() => fromUrl('categoria'));
   const [city, setCity] = useState(() => fromUrl('cidade') || (() => { try { return window.localStorage.getItem('planner.places.city') || ''; } catch { return ''; } })());
   const remembered = (key, fallback) => { try { return JSON.parse(window.localStorage.getItem(`planner.${kind}.${key}`)) ?? fallback; } catch { return fallback; } };
-  const [groupBy, setGroupByState] = useState(() => remembered('groupBy', 'categoria'));
-  const setGroupBy = value => { setGroupByState(value); try { window.localStorage.setItem(`planner.${kind}.groupBy`, JSON.stringify(value)); } catch { /* not remembered */ } };
+  const [groupBy, setGroupByState] = useState(() => remembered('groupMode', 'nenhum'));
+  const setGroupBy = value => { setGroupByState(value); try { window.localStorage.setItem(`planner.${kind}.groupMode`, JSON.stringify(value)); } catch { /* not remembered */ } };
   const [view, setViewState] = useState(() => { try { return window.localStorage.getItem('planner.canais.view') === 'lista' ? 'lista' : 'grade'; } catch { return 'grade'; } });
   const setView = value => { setViewState(value); try { window.localStorage.setItem('planner.canais.view', value); } catch { /* the choice just is not remembered */ } };
   const [more, setMoreState] = useState(() => remembered('more', {measurable: false, formats: false}));
@@ -226,38 +259,44 @@ export function CatalogPage({boot, request, selection, notify}) {
   const quoteUrl = activePlan ? `${boot.urls.plans}/${encodeURIComponent(activePlan.id)}` : boot.urls.plans;
   const countLabel = loading ? 'Atualizando…' : portalMode ? `${number(total)} portais · página ${Math.floor(offset / PORTAL_PAGE) + 1}` : `${number(shown.length)} ${shown.length === 1 ? 'referência' : 'referências'}`;
 
+  const channels = kind === 'canais';
+  const channelFilters = Boolean(query || category || more.measurable || more.formats);
+  const clearChannelFilters = () => { setQuery(''); setCategory(''); setMore({measurable: false, formats: false}); setOffset(0); };
+  const channelBar = channels && <div className="aud-bar" role="search">
+    <label className="aud-bar__field aud-bar__field--search"><Icon name="search" size={16}/>
+      <span className="aud-bar__text"><small>Buscar</small>
+        <input type="search" aria-label="Pesquisar canais" value={query} placeholder="Canal ou categoria" onChange={event => { setQuery(event.target.value); setOffset(0); }}/></span></label>
+    {(boot.categories || []).length > 0 && <div className="aud-bar__field"><PlannerSelect label="Categoria" value={category} onChange={value => { setCategory(value); setOffset(0); }}
+      options={[{value: '', label: `Todas (${boot.records?.length || 0})`}, ...boot.categories.map(value => ({value, label: value, count: categoryCounts.get(value) || 0}))]}/></div>}
+    <div className="aud-bar__field"><PlannerSelect label="Agrupar" value={groupBy} onChange={setGroupBy}
+      options={[{value: 'nenhum', label: 'Sem agrupar'}, {value: 'categoria', label: 'Por categoria'}, {value: 'papel', label: 'Por papel no plano'}]}/></div>
+    <div className="aud-bar__field"><MoreFilters value={more} onChange={setMore}/></div>
+    <div className="aud-bar__field aud-bar__field--view"><ViewToggle value={view} onChange={setView}/></div>
+  </div>;
+
   return <>
-    <PlannerHeader title={MODULE_LABELS[kind]} description={DESCRIPTIONS[kind]} actions={<ActivePlanChip/>}/>
-    <div className="planner-toolbar">
+    {channels
+      ? <PlannerHeader className="ph--filters" title={MODULE_LABELS[kind]} actions={<>{channelBar}<ActivePlanChip/></>}
+          description={`${number(shown.length)} ${shown.length === 1 ? 'canal disponível' : 'canais disponíveis'}${channelFilters ? ' com estes filtros' : ''}`}/>
+      : <PlannerHeader title={MODULE_LABELS[kind]} description={DESCRIPTIONS[kind]} actions={<ActivePlanChip/>}/>}
+    {channels && channelFilters && <div className="aud-filters__summary aud-filters__summary--bar">
+      <span aria-live="polite">{loading ? 'Atualizando…' : `${number(shown.length)} ${shown.length === 1 ? 'resultado' : 'resultados'}`}</span>
+      <CaduButton variant="tertiary" size="sm" onClick={clearChannelFilters}>Limpar filtros</CaduButton>
+    </div>}
+    {!channels && <div className="planner-toolbar">
       <CaduInput className="planner-toolbar__search" aria-label="Pesquisar referências" type="search" value={query} placeholder={portalMode ? 'Buscar por portal, domínio ou categoria' : 'Buscar por nome, descrição ou categoria'}
         leading={<span className="planner-toolbar__search-icon" aria-hidden="true"><Icon name="search" size={16}/></span>}
         onChange={event => { setQuery(event.target.value); setOffset(0); }}/>
       {!portalMode && !shelf && (boot.categories || []).length > 0 && <CaduSelectField className="planner-toolbar__category" aria-label="Categoria" value={category} onChange={event => { setCategory(event.target.value); setOffset(0); }}
         options={[{value: '', label: 'Todas as categorias'}, ...boot.categories.map(value => ({value, label: value}))]}/>}
       <span className="planner-toolbar__count" aria-live="polite">{countLabel}</span>
-    </div>
-    {shelf && (boot.categories || []).length > 0 && <div className="planner-chipbar">
+    </div>}
+    {shelf && !channels && (boot.categories || []).length > 0 && <div className="planner-chipbar">
       <CaduSelectField className="planner-chipbar__select" aria-label="Categoria" value={category} onChange={event => { setCategory(event.target.value); setOffset(0); }}
         options={[{value: '', label: `Todas as categorias (${boot.records?.length || 0})`}, ...boot.categories.map(value => ({value, label: `${value} (${categoryCounts.get(value) || 0})`}))]}/>
       {kind === 'places' && (boot.cities || []).length > 0 && <CaduSelectField className="planner-chipbar__select" aria-label="Cidade" value={city}
         onChange={event => { setCity(event.target.value); setOffset(0); try { window.localStorage.setItem('planner.places.city', event.target.value); } catch { /* not remembered */ } }}
         options={[{value: '', label: 'Todas as cidades'}, ...boot.cities.map(value => ({value, label: value}))]}/>}
-      {kind === 'canais' && <CaduSelectField className="planner-chipbar__select" aria-label="Agrupar por" value={groupBy} disabled={Boolean(category)}
-        onChange={event => setGroupBy(event.target.value)}
-        options={[{value: 'categoria', label: 'Agrupar: categoria'}, {value: 'papel', label: 'Agrupar: papel no plano'}]}/>}
-      <div className="planner-chipbar__tools">
-        {kind === 'canais' && <details className="planner-multi planner-morefilters">
-          <summary><Icon name="list" size={14}/>Mais filtros{(more.measurable || more.formats) ? <b>{[more.measurable, more.formats].filter(Boolean).length}</b> : null}</summary>
-          <div className="planner-multi__menu">
-            <label><input type="checkbox" checked={more.measurable} onChange={event => setMore(current => ({...current, measurable: event.target.checked}))}/> Só canais mensuráveis</label>
-            <label><input type="checkbox" checked={more.formats} onChange={event => setMore(current => ({...current, formats: event.target.checked}))}/> Só com formatos cadastrados</label>
-          </div>
-        </details>}
-        {kind === 'canais' && <div className="planner-segmented planner-viewtoggle" role="group" aria-label="Exibição">
-          {[['grade', 'table', 'Grade'], ['lista', 'list', 'Lista']].map(([value, icon, label]) => <button key={value} type="button" aria-pressed={view === value}
-            className={view === value ? 'is-active' : ''} onClick={() => setView(value)}><Icon name={icon} size={14}/>{label}</button>)}
-        </div>}
-      </div>
     </div>}
     {portalMode && <div className="planner-portal-filters">
       <div className="planner-segmented" role="group" aria-label="Escopo">
@@ -282,16 +321,21 @@ export function CatalogPage({boot, request, selection, notify}) {
           let seen = 0;
           let placed = false;
           return groups.map((group, position) => {
+            // Ungrouped shelf: the invitation to plan is a full-width row inside the same grid, after the first eight cards.
+            const inline = !group.title && group.items.length > 8;
             seen += group.items.length;
-            const banner = !placed && (seen >= 8 || position === groups.length - 1);
-            if (banner) placed = true;
+            const banner = !inline && !placed && (seen >= 8 || position === groups.length - 1);
+            if (banner || inline) placed = true;
             return <Fragment key={group.title || 'canais'}>
               <section className="fmt-group" aria-label={group.title || 'Canais'}>
                 {group.title && <h2 className="fmt-group__title">{group.title}<span>{group.items.length}</span></h2>}
-                <div className={view === 'lista' ? 'channel-list' : 'planner-grid planner-grid--channels'}>{group.items.map(item => {
+                <div className={view === 'lista' ? 'channel-list' : 'planner-grid planner-grid--channels'}>{group.items.map((item, index) => {
                   const Tile = view === 'lista' ? ChannelRow : ChannelCard;
-                  return <Tile key={itemKey(item)} item={item} urls={boot.urls} quoteUrl={quoteUrl}
-                    selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>;
+                  return <Fragment key={itemKey(item)}>
+                    <Tile item={item} urls={boot.urls} quoteUrl={quoteUrl}
+                      selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>
+                    {inline && index === 7 && <div className="planner-grid__span"><PlanBanner urls={boot.urls}/></div>}
+                  </Fragment>;
                 })}</div>
               </section>
               {banner && <PlanBanner urls={boot.urls}/>}

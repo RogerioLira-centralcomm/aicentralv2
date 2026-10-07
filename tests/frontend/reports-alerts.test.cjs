@@ -33,7 +33,10 @@ async function main() {
   const page = await browser.newPage({viewport: {width: 1440, height: 900}});
   page.setDefaultTimeout(10000);
   const errors = [], posts = [], lists = [];
-  let current = alert('a1');
+  const panelData = {metrics: [{label: 'Taxa de conversão', value: 0.8, unit: 'percent', previous: 1.1, change: -27.3}, {label: 'Visitas', value: 4582, unit: 'count', previous: 4085, change: 12.2}],
+    series: {labels: ['2026-09-30', '2026-10-01', '2026-10-02'], current: [1.0, 0.9, 0.8], previous: [1.2, 1.1, null], unit: 'percent', current_label: 'Período atual', previous_label: 'Período anterior'},
+    impacted_urls: [{path: '/lp', sessions: 4582, conversions: 37, rate: 0.8, change: -27.3}], causes: ['A URL ficou abaixo de 95% de disponibilidade em 2 dias dos últimos 7 (pior dia: 80%).']};
+  let current = alert('a1', panelData);
   const resolved = alert('a2', {status: 'resolved', resolution: 'auto', resolved_at: '2026-10-01T11:00:00Z', title: 'Super Tag sem enviar eventos', severity: 'medium', page_path: null, impact: null});
   const opportunity = alert('a3', {kind: 'opportunity', rule: 'device_conversion_low', severity: 'low', title: 'Aparelho ou tela converte abaixo da média', page_path: null, impact: {value: 1.2, unit: 'percent', label: 'conversão'}});
   page.on('pageerror', error => errors.push(error.message));
@@ -88,9 +91,15 @@ async function main() {
   const panel = page.getByRole('complementary', {name: /Detalhes: Página indisponível/});
   await panel.waitFor();
   const panelText = await panel.innerText();
-  for (const expected of ['falhou em 3 verificações', 'Falhas seguidas', '503', 'sem responsável']) assert.ok(panelText.includes(expected), `o painel deve mostrar "${expected}"`);
+  for (const expected of ['falhou em 3 verificações', 'Taxa de conversão', '4.582', 'no período anterior', 'Evolução', 'URLs impactadas', '/lp', 'sem responsável']) assert.ok(panelText.includes(expected), `o painel deve mostrar "${expected}"`);
   assert.ok((await panel.getByRole('link', {name: 'Ver em Site & Jornada'}).getAttribute('href')).includes('site_id=site-1'), 'liga ao detalhe da página');
 
+  await panel.getByRole('group', {name: /Evolução/}).focus();
+  await page.keyboard.press('ArrowLeft');
+  assert.match(await panel.locator('.al-chart figcaption').innerText(), /01\/10 · Período atual: 0,9% · Período anterior: 1,1%/, 'o gráfico lê cada dia pelas setas');
+  await panel.getByRole('tab', {name: 'Evidências'}).click();
+  await panel.getByText('Falhas seguidas').waitFor();
+  await panel.getByRole('tab', {name: 'Visão geral'}).click();
   await panel.getByRole('button', {name: 'Assumir'}).click();
   await panel.getByText('responsável: Ana').waitFor();
   assert.equal(posts[0].csrf, 'csrf-alertas', 'ações enviam o token CSRF');
@@ -109,7 +118,8 @@ async function main() {
   await panel.getByText('Alerta aberto').waitFor();
   assert.ok((await panel.locator('.alerts-history').innerText()).includes('a queda já é avisada pelo monitor de páginas'), 'o histórico explica por que não houve e-mail');
   await panel.getByRole('tab', {name: 'Possíveis causas'}).click();
-  await panel.getByText('Ainda não há causas calculadas').waitFor();
+  await panel.getByText('A URL ficou abaixo de 95% de disponibilidade').waitFor();
+  await panel.getByText('não provam a causa').waitFor();
 
   await panel.getByRole('button', {name: 'Marcar como resolvido'}).click();
   await panel.getByRole('tab', {name: 'Visão geral'}).click();

@@ -103,6 +103,62 @@ function TextList({items, empty}) {
   return <ul className="al-list">{items.map((item, index) => <li key={index}>{typeof item === 'string' ? item : item.text || item.title}</li>)}</ul>;
 }
 
+const formatSeries = (value, unit) => value == null ? dash : unit === 'percent' ? percent(value) : integer(value);
+const shortDay = iso => new Date(`${iso}T12:00:00`).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'});
+
+/** Current period against the previous one (or against what was expected), read by hovering or with the arrow keys. */
+function SeriesChart({series}) {
+  const [active, setActive] = useState(-1);
+  const {labels, current, previous, unit} = series;
+  const width = 360, height = 150, left = 38, right = 8, top = 8, bottom = 22;
+  const values = [...current, ...previous].filter(value => value != null);
+  const step = unit === 'percent' ? 1 : 10;
+  const max = Math.max(step, Math.ceil(Math.max(0, ...values) / step) * step);
+  const x = index => left + (labels.length === 1 ? 0 : index * (width - left - right) / (labels.length - 1));
+  const y = value => top + (1 - value / max) * (height - top - bottom);
+  const path = line => line.reduce((d, value, index) => value == null ? d : `${d}${d && line[index - 1] != null ? 'L' : 'M'}${x(index).toFixed(1)} ${y(value).toFixed(1)}`, '');
+  const pick = event => {
+    const box = event.currentTarget.getBoundingClientRect();
+    const position = (event.clientX - box.left) / box.width * width;
+    setActive(Math.min(labels.length - 1, Math.max(0, Math.round((position - left) / ((width - left - right) / Math.max(1, labels.length - 1))))));
+  };
+  const onKeyDown = event => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    setActive(index => Math.min(labels.length - 1, Math.max(0, (index < 0 ? labels.length - 1 : index) + (event.key === 'ArrowRight' ? 1 : -1))));
+  };
+  const ticks = [0, max / 2, max];
+  return <figure className="al-chart">
+    <div className="al-chart__legend"><span className="is-current">{series.current_label}</span><span className="is-previous">{series.previous_label}</span></div>
+    <svg viewBox={`0 0 ${width} ${height}`} role="group" tabIndex={0} aria-label={`Evolução: ${series.current_label} contra ${series.previous_label}. Use as setas para percorrer os dias.`}
+      onMouseMove={pick} onMouseLeave={() => setActive(-1)} onBlur={() => setActive(-1)} onKeyDown={onKeyDown}>
+      {ticks.map(tick => <g key={tick}><line x1={left} x2={width - right} y1={y(tick)} y2={y(tick)} className="al-chart__grid"/><text x={left - 6} y={y(tick) + 4} textAnchor="end">{formatSeries(tick, unit)}</text></g>)}
+      <path d={path(previous)} className="al-chart__line is-previous"/><path d={path(current)} className="al-chart__line is-current"/>
+      {labels.map((label, index) => (index === 0 || index === labels.length - 1 || index === Math.floor(labels.length / 2)) && <text key={label} x={x(index)} y={height - 6} textAnchor={index === 0 ? 'start' : index === labels.length - 1 ? 'end' : 'middle'}>{shortDay(label)}</text>)}
+      {active >= 0 && <g><line x1={x(active)} x2={x(active)} y1={top} y2={height - bottom} className="al-chart__cursor"/>
+        {previous[active] != null && <circle cx={x(active)} cy={y(previous[active])} r="3.5" className="al-chart__dot is-previous"/>}
+        {current[active] != null && <circle cx={x(active)} cy={y(current[active])} r="3.5" className="al-chart__dot is-current"/>}</g>}
+    </svg>
+    <figcaption aria-live="polite">{active >= 0 ? `${shortDay(labels[active])} · ${series.current_label}: ${formatSeries(current[active], unit)} · ${series.previous_label}: ${formatSeries(previous[active], unit)}` : 'Passe o mouse ou use as setas para ler cada dia.'}</figcaption>
+  </figure>;
+}
+
+function MetricCards({metrics}) {
+  return <dl className="al-cards">{metrics.map((item, index) => <div key={index}><dt>{item.label}</dt>
+    <dd>{formatSeries(item.value, item.unit)} {item.change != null && <Delta value={item.change} unit="%"/>}</dd>
+    <small>{item.previous != null ? `${formatSeries(item.previous, item.unit)} no período anterior` : 'sem período anterior'}</small></div>)}</dl>;
+}
+
+function ImpactedUrls({urls}) {
+  const tight = 'px-2 first:pl-3 last:pr-3';
+  return <div className="al-table-wrap al-impacted"><Table aria-label="URLs impactadas" size="sm">
+    <Table.Header><Table.Head id="url" isRowHeader label="URL" className={tight}/><Table.Head id="visits" label="Visitas" className={tight}/><Table.Head id="conv" label="Conv." className={tight}/>
+      <Table.Head id="rate" label="Taxa" className={tight}/><Table.Head id="change" label="Var." className={tight}/></Table.Header>
+    <Table.Body>{urls.map(item => <Table.Row key={item.path} id={item.path}><Table.Cell className={`${tight} al-wrap`}>{item.path}</Table.Cell><Table.Cell className={tight}>{integer(item.sessions)}</Table.Cell>
+      <Table.Cell className={tight}>{integer(item.conversions)}</Table.Cell><Table.Cell className={tight}>{formatSeries(item.rate, 'percent')}</Table.Cell>
+      <Table.Cell className={tight}>{item.change == null ? dash : <Delta value={item.change} unit="%"/>}</Table.Cell></Table.Row>)}</Table.Body></Table></div>;
+}
+
 function AlertPanel({alert, userId, choices, busy, onAct, onClose, client}) {
   const [tab, setTab] = useState('overview');
   const [hours, setHours] = useState(String(choices[1] || choices[0]));
@@ -120,14 +176,17 @@ function AlertPanel({alert, userId, choices, busy, onAct, onClose, client}) {
     <div className="al-panel__body">
       {tab === 'overview' && <>
         <p>{alert.summary}</p>
-        {alert.evidence.length > 0 && <dl className="al-cards">{alert.evidence.slice(0, 3).map((item, index) => <div key={index}><dt>{item.label}</dt><dd>{evidenceValue(item)}</dd></div>)}</dl>}
+        {alert.metrics?.length > 0 ? <MetricCards metrics={alert.metrics}/>
+          : alert.evidence.length > 0 && <dl className="al-cards">{alert.evidence.slice(0, 3).map((item, index) => <div key={index}><dt>{item.label}</dt><dd>{evidenceValue(item)}</dd></div>)}</dl>}
+        {alert.series?.labels?.length > 0 && <><h3 className="al-section">Evolução</h3><SeriesChart series={alert.series}/></>}
+        {alert.impacted_urls?.length > 0 && <><h3 className="al-section">URLs impactadas</h3><ImpactedUrls urls={alert.impacted_urls}/></>}
         <p className="alerts-meta">Detectado em {when(alert.first_seen_at)} · {integer(alert.occurrences)} {alert.occurrences === 1 ? 'verificação' : 'verificações'}
           {alert.site_label ? ` · ${alert.site_label}` : ''}{alert.assigned_name ? ` · responsável: ${alert.assigned_name}` : ' · sem responsável'}
           {alert.status === 'silenced' ? ` · ${alert.silenced_until ? `silenciado até ${when(alert.silenced_until)}` : 'silenciado sem prazo'}` : ''}
           {alert.status === 'resolved' ? ` · resolvido ${alert.resolution === 'auto' ? 'automaticamente' : 'manualmente'} em ${when(alert.resolved_at)}` : ''}</p>
       </>}
       {tab === 'evidence' && <dl className="alerts-evidence">{alert.evidence.map((item, index) => <div key={index}><dt>{item.label}</dt><dd>{evidenceValue(item)}</dd></div>)}</dl>}
-      {tab === 'causes' && <TextList items={alert.causes} empty="Ainda não há causas calculadas para este alerta. Elas aparecem quando o sistema cruza a ocorrência com mudanças no mesmo período."/>}
+      {tab === 'causes' && <><p className="alerts-note">Fatos que aconteceram na mesma janela; indicam onde olhar primeiro, não provam a causa.</p><TextList items={alert.causes} empty="Nenhum fato do mesmo período explica esta ocorrência. O sistema cruza queda de disponibilidade, lentidão, falhas de coleta e variação de tráfego."/></>}
       {tab === 'recommendations' && <TextList items={alert.recommendations} empty="Este alerta ainda não tem recomendações."/>}
       {tab === 'history' && <History alertId={alert.id} client={client}/>}
     </div>

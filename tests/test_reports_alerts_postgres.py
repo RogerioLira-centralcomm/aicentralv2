@@ -23,7 +23,7 @@ STUBS = '''
 CREATE TABLE cadu_reports_supertag_sites(id UUID PRIMARY KEY, client_id BIGINT, customer_id BIGINT, label TEXT, allowed_host TEXT,
     enabled BOOL DEFAULT TRUE, revoked_at TIMESTAMPTZ);
 CREATE TABLE tbl_contato_cliente(id_contato_cliente BIGINT PRIMARY KEY, nome_completo TEXT, email TEXT, status BOOL);
-CREATE TABLE cadu_reports_supertag_events(site_id UUID, occurred_at TIMESTAMPTZ, expires_at TIMESTAMPTZ);
+CREATE TABLE cadu_reports_supertag_events(site_id UUID, occurred_at TIMESTAMPTZ, expires_at TIMESTAMPTZ, session_id TEXT, event_kind TEXT);
 CREATE TABLE cadu_reports_site_tags(id UUID PRIMARY KEY, allowed_host TEXT);
 CREATE TABLE cadu_reports_flow_registry(id UUID PRIMARY KEY, client_id BIGINT, customer_id BIGINT, tag_id UUID, name TEXT, status TEXT, monitor_enabled BOOL,
     monitor_status TEXT, monitor_checked_at TIMESTAMPTZ, monitor_interval_minutes INT, monitor_down_since TIMESTAMPTZ);
@@ -62,7 +62,7 @@ def db():
     cur.execute((ROOT / 'migrations' / 'upgrade_reports_alerts_v2.sql').read_text())   # replayable
     cur.execute("INSERT INTO cadu_reports_supertag_sites VALUES (%s,%s,1,'Loja','loja.com',TRUE,NULL)", (SITE, CLIENT))
     cur.execute("INSERT INTO tbl_contato_cliente VALUES (%s,'Apolo Lira','a@x.com',TRUE)", (USER,))
-    cur.execute("INSERT INTO cadu_reports_supertag_events VALUES (%s,NOW()-INTERVAL '1 hour',NOW()+INTERVAL '1 day')", (SITE,))
+    cur.execute("INSERT INTO cadu_reports_supertag_events VALUES (%s,NOW()-INTERVAL '1 hour',NOW()+INTERVAL '1 day','s0','page_view')", (SITE,))
     tag, flow = str(uuid.uuid4()), str(uuid.uuid4())
     cur.execute("INSERT INTO cadu_reports_site_tags VALUES (%s,'loja.com')", (tag,))
     cur.execute("INSERT INTO cadu_reports_flow_registry VALUES (%s,%s,1,%s,'Fluxo A','published',TRUE,'offline',NOW(),5,NOW())", (flow, CLIENT, tag))
@@ -152,3 +152,46 @@ def test_listing_filters_summary_and_monitors_run_on_the_real_schema(api, db):
     assert post(f'/{ids[0]}/investigate', {}).status_code == 200 and post(f'/{ids[0]}/investigate', {}).status_code == 409
     assert post('/bulk', {'ids': ids + ['nao-uuid'], 'action': 'resolve'}).get_json()['done'] == 2
     assert get('/alerts/summary').get_json()['resolved_today'] == 2
+
+
+def test_anomaly_causes_and_panel_data_run_on_the_real_schema(db):
+    from zoneinfo import ZoneInfo
+    sao_paulo = ZoneInfo('America/Sao_Paulo')
+    now = datetime.datetime.now(datetime.timezone.utc)
+    today = now.astimezone(sao_paulo).date()
+    # 34 steady days of 200 sessions (noon, Sao Paulo) and yesterday with only 80: far below its weekday baseline.
+    db("DELETE FROM cadu_reports_supertag_events")
+    for ago in range(1, 35):
+        sessions = 80 if ago == 1 else 200
+        noon = datetime.datetime.combine(today - datetime.timedelta(days=ago), datetime.time(12), tzinfo=sao_paulo)
+        db("INSERT INTO cadu_reports_supertag_events SELECT %s,%s,NOW()+INTERVAL '1 day','d'||%s||'-'||g,'page_view' FROM generate_series(1,%s) g", (SITE, noon, ago, sessions))
+    # The monitor saw the site's pages down yesterday: it must show up as a cause.
+    flow = db.flow
+    day_before = today - datetime.timedelta(days=1)
+    db("INSERT INTO cadu_reports_flow_monitor_daily VALUES (%s,'loja.com','/orcamento',%s,288,100,288*400,900)", (flow, day_before))
+    site = {'id': SITE, 'client_id': CLIENT, 'allowed_host': 'loja.com', 'label': 'Loja'}
+    with mock.patch.object(alerts, '_rows', db), mock.patch.object(alerts, 'get_db'), mock.patch.object(alerts, 'notify_opened'):
+        alerts.evaluate_anomalies(site, now)
+        [alert] = db("SELECT rule,severity,kind,impact,series,causes FROM cadu_reports_alerts WHERE rule='traffic_anomaly'")
+        assert alert['kind'] == 'incident' and alert['severity'] == 'medium' and alert['impact']['value'] == -60.0
+        assert alert['series']['current'][-1] == 80 and alert['series']['previous'][-1] == 200.0 and len(alert['series']['labels']) == 14
+        assert any('abaixo de 95%' in cause and day_before.strftime('%d/%m') in cause for cause in alert['causes'])
+        assert db("SELECT COUNT(*) AS n FROM cadu_reports_alerts WHERE rule='conversion_anomaly'")[0]['n'] == 0
+        # A normal day closes it on the next evaluation.
+        noon = datetime.datetime.combine(day_before, datetime.time(13), tzinfo=sao_paulo)
+        db("INSERT INTO cadu_reports_supertag_events SELECT %s,%s,NOW()+INTERVAL '1 day','fix-'||g,'page_view' FROM generate_series(1,120) g", (SITE, noon))
+        alerts.evaluate_anomalies(site, now)
+        assert db("SELECT status,resolution FROM cadu_reports_alerts WHERE rule='traffic_anomaly'")[0] == {'status': 'resolved', 'resolution': 'auto'}
+    # The URL-level cause query (normalized path, case-insensitive host) and the panel columns round-trip.
+    rows = db(alerts._URL_DAILY_SQL, {'client': CLIENT, 'host': 'LOJA.com', 'path': '/orcamento', 'since': today - datetime.timedelta(days=15)})
+    assert [row['checks'] for row in rows] == [288]
+    finding = finding_with_panel()
+    with mock.patch.object(alerts, '_rows', db), mock.patch.object(alerts, 'notify_opened'):
+        alerts.sync_findings(site, 'conversion_drop', [finding], now)
+    stored = db("SELECT metrics,series,impacted_urls,causes FROM cadu_reports_alerts WHERE rule='conversion_drop'")[0]
+    assert stored['series']['unit'] == 'percent' and stored['metrics'][0]['change'] == -30.0 and stored['impacted_urls'][0]['path'] == '/lp' and stored['causes'] == ['c']
+
+
+def finding_with_panel():
+    return {**finding('conversion_drop', '/lp', channel='site', kind='incident', page_path='/lp'), 'series': {'labels': ['2026-10-06'], 'current': [1.0], 'previous': [1.4], 'unit': 'percent'},
+            'metrics': [{'label': 'Taxa', 'value': 1.0, 'unit': 'percent', 'change': -30.0}], 'impacted_urls': [{'path': '/lp'}], 'causes': ['c']}

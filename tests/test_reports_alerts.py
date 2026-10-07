@@ -63,7 +63,7 @@ def test_conversion_drop_requires_reliable_samples_and_a_big_relative_fall():
 
 
 def test_every_rule_documents_its_condition():
-    assert set(RULES) == {'page_down', 'collection_absent', 'conversion_drop', 'channel_entry_exit', 'device_conversion_low', 'campaign_weak_page'}
+    assert set(RULES) == {'page_down', 'collection_absent', 'conversion_drop', 'traffic_anomaly', 'conversion_anomaly', 'channel_entry_exit', 'device_conversion_low', 'campaign_weak_page'}
     assert all(RULES[key]['severity'] == 'low' for key in ('channel_entry_exit', 'device_conversion_low', 'campaign_weak_page'))   # advisory, never e-mailed
     assert all(item['when'] and item['title'] and item['severity'] for item in RULES.values())
 
@@ -545,3 +545,110 @@ def test_the_ninety_day_heatmap_has_one_cell_per_day_oldest_first_with_gaps_left
     assert len(heat) == HEAT_DAYS == 90 and heat[-1] == [100.0, 400] and heat[-2] == [50.0, 900] and heat[0] == [100.0, 400] and heat[10] is None
     assert out[0]['days_measured'] == 3 and out[0]['uptime_90'] == round(100 * (288 + 144 + 10 + 0) / (288 + 288 + 10 + 5), 1)   # day 90 is outside the window but its rows are counted
     assert out[1]['heat'] == [None] * 90 and out[1]['uptime_90'] is None and out[1]['days_measured'] == 0
+
+
+# ------------------------------------------------------------------------------------------------ anomalies, series and causes
+
+TODAY = datetime.date(2026, 10, 7)          # a Wednesday: the judged day is Tuesday 2026-10-06
+
+
+def daily_series(**overrides):
+    """Eight weeks of steady days (sessions 200, conversions 10), with chosen days replaced."""
+    days = {TODAY - datetime.timedelta(days=offset): {'sessions': 200, 'conversions': 10} for offset in range(1, 57)}
+    for offset, values in overrides.items():
+        days[TODAY - datetime.timedelta(days=int(offset.lstrip('d')))] = values
+    return days
+
+
+def test_a_day_far_below_its_weekday_baseline_is_an_anomaly_with_a_series_and_a_range():
+    from aicentralv2.cadu_connect.reports_alert_rules import ANOMALY_SERIES_DAYS, anomaly_findings
+    found = anomaly_findings(daily_series(d1={'sessions': 90, 'conversions': 10}), TODAY, 'Loja')
+    assert [item['rule'] for item in found] == ['traffic_anomaly'] and found[0]['subject_key'] == 'sessions'
+    item = found[0]
+    assert item['severity'] == 'medium' and item['impact'] == {'value': -55.0, 'unit': 'percent', 'label': 'sessões'} and 'abaixo do esperado' in item['summary']
+    assert {e['label']: e['value'] for e in item['evidence']}['Esperado (mesmo dia da semana)'] == 200
+    assert len(item['series']['labels']) == len(item['series']['current']) == len(item['series']['previous']) == ANOMALY_SERIES_DAYS
+    assert item['series']['current'][-1] == 90 and item['series']['previous'][-1] == 200.0
+
+
+def test_a_rise_is_reported_as_low_and_normal_wobble_never_alerts():
+    from aicentralv2.cadu_connect.reports_alert_rules import anomaly_findings
+    rise = anomaly_findings(daily_series(d1={'sessions': 420, 'conversions': 10}), TODAY, 'Loja')
+    assert rise[0]['severity'] == 'low' and 'acima do esperado' in rise[0]['summary']
+    assert anomaly_findings(daily_series(d1={'sessions': 160, 'conversions': 8}), TODAY, 'Loja') == []        # -20%: inside the tolerance
+    assert anomaly_findings(daily_series(d1={'sessions': 200, 'conversions': 10}), TODAY, 'Loja') == []
+
+
+def test_anomalies_need_a_trusted_baseline_and_leave_silence_to_the_tracking_rule():
+    from aicentralv2.cadu_connect.reports_alert_rules import anomaly_findings
+    quiet = {day: {'sessions': 20, 'conversions': 1} for day in daily_series()}
+    quiet[TODAY - datetime.timedelta(days=1)] = {'sessions': 1, 'conversions': 0}
+    assert anomaly_findings(quiet, TODAY, 'Loja') == []                                                            # expected 20/day is below the floor
+    assert anomaly_findings(daily_series(d1={'sessions': 0, 'conversions': 0}), TODAY, 'Loja')[0]['rule'] == 'conversion_anomaly'   # zero sessions is collection_absent's job
+    young = {day: values for day, values in daily_series().items() if (TODAY - day).days <= 10}
+    young[TODAY - datetime.timedelta(days=1)] = {'sessions': 10, 'conversions': 0}
+    assert anomaly_findings(young, TODAY, 'Loja') == []                                                            # fewer than 3 same-weekday weeks
+    assert anomaly_findings({}, TODAY, 'Loja') == []
+    noisy = daily_series(**{f'd{week * 7 + 1}': {'sessions': value, 'conversions': 10} for week, value in zip(range(1, 5), (80, 320, 120, 280))}, d1={'sessions': 110, 'conversions': 10})
+    assert anomaly_findings(noisy, TODAY, 'Loja') == []                                                            # the baseline itself swings: a normal day for this weekday
+
+
+def test_causes_only_state_facts_of_the_same_window():
+    from aicentralv2.cadu_connect import reports_alert_causes as causes
+    day = lambda ago, checks, online, ms: {'day': TODAY - datetime.timedelta(days=ago), 'checks': checks, 'online': online, 'duration_ms_sum': checks * ms}
+    rows = [day(0, 288, 288, 2000), day(1, 288, 100, 2000), day(2, 288, 288, 2000), day(8, 288, 288, 400), day(9, 288, 288, 400)]
+    found = causes.url_causes(rows, TODAY)
+    assert any('abaixo de 95% de disponibilidade em 1 dia' in text and '35%' in text for text in found)
+    assert any('subiu de 400 ms para 2000 ms (+400%)' in text for text in found)
+    assert causes.url_causes([day(0, 288, 288, 450), day(8, 288, 288, 400)], TODAY) == []                       # a small slowdown is not a cause
+    assert causes.url_causes([], TODAY) == []
+    assert causes.traffic_cause(60, 100)[0].startswith('O tráfego da página caiu 40%') and causes.traffic_cause(95, 100) == [] and causes.traffic_cause(10, 0) == []
+    assert len(causes.tracking_cause(True)) == 1 and causes.tracking_cause(False) == []
+    assert causes.combine(['a', 'b'], ['b', 'c']) == ['a', 'b', 'c']
+    assert causes.host_causes([day(1, 288, 100, 400), day(1, 288, 288, 400)], TODAY - datetime.timedelta(days=1), TODAY)[0].startswith('1 URL monitorada ficou')
+
+
+def test_conversion_drop_gets_a_chart_figures_the_impacted_url_and_causes():
+    page = {'path': '/lp', 'current': {'sessions': 90, 'converted_sessions': 6, 'session_conversion_rate': 6.7}, 'previous': {'sessions': 100, 'converted_sessions': 10, 'session_conversion_rate': 10.0}}
+    finding = conversion_drop_findings([{**page, 'current': {**page['current'], 'session_conversion_rate': 6.7}}])[0]
+    site = {'id': 's1', 'client_id': 7, 'allowed_host': 'loja.com', 'label': 'Loja'}
+    rates = iter(range(1, 15))
+    window = mock.Mock(side_effect=lambda site_id, path, since, until: ({'session_conversion_rate': float(next(rates))}, []))
+    with mock.patch('aicentralv2.cadu_connect.reports_pages.window_metrics', window), mock.patch.object(alerts, '_monitor_rows', return_value=[]), mock.patch.object(alerts, '_tracking_gap', return_value=True):
+        out = alerts.enrich_conversion_drop(site, finding, page, TODAY)
+    assert window.call_count == 14 and out['series']['previous'] == [float(n) for n in range(1, 8)] and out['series']['current'] == [float(n) for n in range(8, 15)]
+    assert out['series']['labels'][-1] == '2026-10-07' and out['series']['unit'] == 'percent'
+    assert [m['label'] for m in out['metrics']] == ['Taxa de conversão', 'Visitas', 'Conversões'] and out['metrics'][0]['change'] == -33.0 and out['metrics'][1]['change'] == -10.0
+    assert out['impacted_urls'] == [{'path': '/lp', 'sessions': 90, 'conversions': 6, 'rate': 6.7, 'change': -33.0}]
+    assert any('Super Tag' in text for text in out['causes'])
+
+
+def test_the_panel_data_is_stored_with_the_alert():
+    seen = []
+
+    def rows(sql, params=()):
+        seen.append((sql, params))
+        return [{'id': ALERT_ID, 'client_id': 7, 'severity': 'high', 'title': 'T', 'summary': 'S', 'assigned_to': None, 'last_notified_at': None}] if sql.lstrip().startswith('INSERT') else []
+    finding = {'subject_key': 'k', 'severity': 'medium', 'title': 't', 'summary': 's', 'evidence': [], 'page_path': None, 'channel': 'site', 'kind': 'incident',
+               'series': {'labels': ['2026-10-07'], 'current': [1], 'previous': [2], 'unit': 'count'}, 'metrics': [{'label': 'x', 'value': 1, 'unit': 'count'}],
+               'impacted_urls': [{'path': '/lp'}], 'causes': ['c']}
+    with mock.patch.object(alerts, '_rows', rows), mock.patch.object(alerts, 'notify_opened'):
+        alerts.sync_findings({'id': 's1', 'client_id': 7}, 'traffic_anomaly', [finding], NOW)
+    insert = next(params for sql, params in seen if sql.lstrip().startswith('INSERT'))
+    strings = [item for item in insert if isinstance(item, str)]
+    assert any('"labels"' in item for item in strings) and any('"label": "x"' in item for item in strings) and any('/lp' in item for item in strings) and '["c"]' in strings
+    plain = {k: v for k, v in finding.items() if k not in ('series', 'metrics', 'impacted_urls', 'causes')}
+    seen.clear()
+    with mock.patch.object(alerts, '_rows', rows), mock.patch.object(alerts, 'notify_opened'):
+        alerts.sync_findings({'id': 's1', 'client_id': 7}, 'traffic_anomaly', [plain], NOW)
+    assert None in next(params for sql, params in seen if sql.lstrip().startswith('INSERT'))                       # no series: stored as NULL, not as the string "null"
+
+
+def test_anomalies_are_evaluated_per_site_and_closed_when_the_day_is_normal():
+    site = {'id': 's1', 'client_id': 7, 'allowed_host': 'loja.com', 'label': 'Loja'}
+    synced = {}
+    rows = [{'day': day, 'sessions': v['sessions'], 'conversions': v['conversions']} for day, v in daily_series(d1={'sessions': 90, 'conversions': 10}).items()]
+    with mock.patch.object(alerts, '_rows', return_value=rows), mock.patch.object(alerts, '_monitor_rows', return_value=[]), mock.patch.object(alerts, '_tracking_gap', return_value=False), \
+         mock.patch.object(alerts, 'sync_findings', lambda s, rule, findings, now: synced.setdefault(rule, findings)):
+        alerts.evaluate_anomalies(site, datetime.datetime(2026, 10, 7, 15, 0, tzinfo=datetime.timezone.utc))
+    assert set(synced) == {'traffic_anomaly', 'conversion_anomaly'} and len(synced['traffic_anomaly']) == 1 and synced['conversion_anomaly'] == []

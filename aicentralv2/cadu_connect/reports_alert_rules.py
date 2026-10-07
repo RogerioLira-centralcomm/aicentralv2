@@ -3,6 +3,8 @@
 An alert is a *confirmed* condition, not a single bad reading: availability needs consecutive failures, a silent tag
 needs a baseline that proves it used to send events, and a conversion drop needs a reliable sample in both periods.
 """
+from datetime import timedelta
+
 from .reports_page_identity import canonical_page
 from .reports_page_metrics import MIN_RELIABLE_SESSIONS
 
@@ -17,7 +19,20 @@ INSIGHT_BOUNCE_GAP = 20.0       # points above the other channels on the same pa
 INSIGHT_MIN_CONVERTED = 5       # the site needs this many converted sessions before "below average" means anything
 INSIGHT_BELOW_RATIO = 0.5       # conversion under this share of the site average
 INSIGHT_PER_RULE = 10           # findings kept per insight rule, busiest first
+ANOMALY_WEEKS = 4               # same weekday, this many weeks back, is the expected value
+ANOMALY_MIN_WEEKS = 3           # weeks with data needed before a baseline is trusted
+ANOMALY_MIN_SESSIONS = 50       # expected sessions/day below this are too noisy to judge
+ANOMALY_MIN_CONVERSIONS = 5     # same for conversions/day
+ANOMALY_CHANGE_PERCENT = 30.0   # the day must differ from the expectation by at least this much...
+ANOMALY_SIGMAS = 3.0            # ...and by this many robust standard deviations
+ANOMALY_SERIES_DAYS = 14
 RULES = {
+    'traffic_anomaly': {'channel': 'site', 'kind': 'incident', 'severity': 'medium', 'title': 'Tráfego do site fora do padrão',
+                        'when': f'As sessões do último dia completo diferem em {ANOMALY_CHANGE_PERCENT:.0f}% ou mais, e em {ANOMALY_SIGMAS:.0f} desvios, do esperado para o mesmo dia da semana '
+                                f'(mediana das {ANOMALY_WEEKS} semanas anteriores), com ao menos {ANOMALY_MIN_SESSIONS} sessões esperadas.'},
+    'conversion_anomaly': {'channel': 'site', 'kind': 'incident', 'severity': 'medium', 'title': 'Conversões do site fora do padrão',
+                           'when': f'As conversões do último dia completo diferem em {ANOMALY_CHANGE_PERCENT:.0f}% ou mais, e em {ANOMALY_SIGMAS:.0f} desvios, do esperado para o mesmo dia da semana, '
+                                   f'com ao menos {ANOMALY_MIN_CONVERSIONS} conversões esperadas.'},
     'page_down': {'channel': 'site', 'kind': 'incident', 'severity': 'high', 'title': 'Página indisponível',
                   'when': f'A página falhou em {CONSECUTIVE_FAILURES} verificações seguidas do monitor.'},
     'collection_absent': {'channel': 'site', 'kind': 'incident', 'severity': 'medium', 'title': 'Super Tag sem enviar eventos',
@@ -202,3 +217,56 @@ def campaign_page_findings(rows, overall):
              {'label': 'Conversão', 'value': round(rate, 1), 'unit': 'percent'}, {'label': 'Média do site', 'value': round(average, 1), 'unit': 'percent'}],
             page_path=row['path'], impact={'value': round(bounce, 1), 'unit': 'percent', 'label': 'saem sem ver outra página'})))
     return _busiest(found)
+
+
+def _median(values):
+    ordered = sorted(values)
+    middle = len(ordered) // 2
+    return ordered[middle] if len(ordered) % 2 else (ordered[middle - 1] + ordered[middle]) / 2
+
+
+def weekday_baseline(daily, day, key):
+    """(expected, robust deviation, weeks used) for `day`: the same weekday of the previous weeks, or None without enough weeks."""
+    values = [daily[day - timedelta(days=7 * week)][key] for week in range(1, ANOMALY_WEEKS + 1) if day - timedelta(days=7 * week) in daily]
+    if len(values) < ANOMALY_MIN_WEEKS:
+        return None
+    expected = _median(values)
+    # MAD scaled to a standard deviation, floored by what plain counting noise (Poisson) and a 10% wobble would produce anyway.
+    deviation = max(1.4826 * _median([abs(value - expected) for value in values]), 0.1 * expected, expected ** 0.5)
+    return expected, deviation, len(values)
+
+
+def anomaly_series(daily, last_day, key):
+    days = [last_day - timedelta(days=offset) for offset in range(ANOMALY_SERIES_DAYS - 1, -1, -1)]
+    return {'labels': [day.isoformat() for day in days], 'current': [daily[day][key] if day in daily else None for day in days],
+            'previous': [(lambda base: round(base[0], 1) if base else None)(weekday_baseline(daily, day, key)) for day in days],
+            'unit': 'count', 'current_label': 'Observado', 'previous_label': 'Esperado'}
+
+
+def anomaly_findings(daily, today, site_label):
+    """daily: {date: {'sessions': n, 'conversions': n}}. Judges the last complete day (today - 1) against its weekday baseline.
+
+    A day with no events at all is left to collection_absent: silence is a tracking problem before it is a traffic one."""
+    last_day = today - timedelta(days=1)
+    if last_day not in daily:
+        return []
+    findings = []
+    for key, rule, noun, minimum in (('sessions', 'traffic_anomaly', 'sessões', ANOMALY_MIN_SESSIONS), ('conversions', 'conversion_anomaly', 'conversões', ANOMALY_MIN_CONVERSIONS)):
+        observed = daily[last_day][key]
+        base = weekday_baseline(daily, last_day, key)
+        if base is None or base[0] < minimum or (key == 'sessions' and observed == 0):
+            continue
+        expected, deviation, weeks = base
+        change = 100 * (observed - expected) / expected
+        if abs(change) < ANOMALY_CHANGE_PERCENT or abs(observed - expected) < ANOMALY_SIGMAS * deviation:
+            continue
+        falling = observed < expected
+        finding = _finding(rule, key, f"{site_label} teve {observed} {noun} em {last_day.strftime('%d/%m')}, {'abaixo' if falling else 'acima'} do esperado ({expected:.0f}) para esse dia da semana.",
+                           [{'label': f'{noun.capitalize()} em {last_day.strftime("%d/%m")}', 'value': observed, 'unit': 'count'}, {'label': 'Esperado (mesmo dia da semana)', 'value': round(expected, 1), 'unit': 'count'},
+                            {'label': 'Variação', 'value': round(change, 1), 'unit': 'percent'}, {'label': 'Desvios do esperado', 'value': round(abs(observed - expected) / deviation, 1), 'unit': 'text'}],
+                           impact={'value': round(change, 1), 'unit': 'percent', 'label': noun})
+        if not falling:
+            finding['severity'] = 'low'   # more than expected is worth knowing, not worth waking someone
+        finding['series'] = anomaly_series(daily, last_day, key)
+        findings.append(finding)
+    return findings

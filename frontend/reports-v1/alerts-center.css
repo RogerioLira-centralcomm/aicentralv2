@@ -20,7 +20,7 @@
 
 /* List + detail panel */
 .al-main{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start}
-.al-main.has-panel{grid-template-columns:minmax(0,1fr) minmax(320px,400px)}
+.al-main.has-panel{grid-template-columns:minmax(0,1fr) minmax(340px,420px)}
 .al-list-wrap{display:grid;gap:12px;min-width:0}
 .al-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .al-toolbar>.reports-ui-select{flex:0 0 180px;width:180px;min-width:0}
@@ -125,3 +125,24 @@
   .al-kpi{margin:0;border:0;padding:12px;background:var(--color-bg-primary);flex-wrap:wrap}
   .al-kpi>div{flex:1 1 90px}.al-delta{white-space:normal}
 }
+
+/* Panel chart: current period against the previous one (or the expected value). The dashed line is also named in the legend, not only coloured. */
+.al-chart{display:grid;gap:6px;margin:0}
+.al-chart svg{width:100%;height:auto;overflow:visible;font-size:10px;fill:var(--color-text-tertiary);border-radius:6px}
+.al-chart svg:focus-visible{outline:2px solid var(--color-border-brand);outline-offset:2px}
+.al-chart__grid{stroke:var(--color-border-secondary);stroke-width:1}
+.al-chart__line{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.al-chart__line.is-current,.al-chart__legend .is-current::before{stroke:var(--color-utility-brand-600);background:var(--color-utility-brand-600)}
+.al-chart__line.is-previous{stroke:var(--color-fg-quaternary);stroke-dasharray:5 4}
+.al-chart__cursor{stroke:var(--color-text-quaternary);stroke-width:1;stroke-dasharray:2 3}
+.al-chart__dot{stroke:var(--color-bg-primary);stroke-width:2}.al-chart__dot.is-current{fill:var(--color-utility-brand-600)}.al-chart__dot.is-previous{fill:var(--color-fg-quaternary)}
+.al-chart__legend{display:flex;flex-wrap:wrap;gap:4px 16px;color:var(--color-text-secondary);font-size:12px}
+.al-chart__legend span{display:inline-flex;align-items:center;gap:6px}
+.al-chart__legend span::before{content:'';width:18px;height:0;border-top:2px solid var(--color-fg-quaternary)}
+.al-chart__legend .is-current::before{height:0;background:none;border-top:2px solid var(--color-utility-brand-600)}
+.al-chart__legend .is-previous::before{border-top-style:dashed}
+.al-chart figcaption{min-height:18px;color:var(--color-text-secondary);font-size:12px;line-height:18px}
+.al-cards small{color:var(--color-text-tertiary);font-size:12px}
+.al-cards dd{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px}
+.al-impacted{margin:0}
+.al-wrap{overflow-wrap:anywhere}

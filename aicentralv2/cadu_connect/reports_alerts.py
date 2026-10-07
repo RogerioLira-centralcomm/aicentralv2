@@ -18,7 +18,8 @@ from werkzeug.exceptions import HTTPException
 
 from ..auth import login_required_api
 from ..db import get_db
-from .reports_alert_rules import (RULES, SILENT_AFTER_HOURS, campaign_page_findings, channel_entry_findings, collection_absent_findings, conversion_drop_findings,
+from . import reports_alert_causes as causes
+from .reports_alert_rules import (RULES, SILENT_AFTER_HOURS, anomaly_findings, campaign_page_findings, channel_entry_findings, collection_absent_findings, conversion_drop_findings,
                                   page_down_findings, tech_conversion_findings)
 from .reports_alert_vitals import HEAT_DAYS, PULSE, attach_heat, summarize, url_vitals
 from .reports_page_identity import sql_normalized_path
@@ -135,13 +136,15 @@ def sync_findings(site, rule, findings, now=None):
         current = live.get(finding['subject_key'])
         impact = json.dumps(finding['impact']) if finding.get('impact') else None
         fields = (finding['severity'], finding['title'], finding['summary'], json.dumps(finding['evidence']), finding['page_path'], impact,
-                  json.dumps(finding.get('recommendations') or []), json.dumps(finding.get('causes') or []), now)
+                  json.dumps(finding.get('recommendations') or []), json.dumps(finding.get('causes') or []), now,
+                  json.dumps(finding.get('metrics') or []), json.dumps(finding['series'], default=str) if finding.get('series') else None,
+                  json.dumps(finding.get('impacted_urls') or []))
         if current:
             status = current['status']
             if status == 'silenced' and current['silenced_until'] and current['silenced_until'] <= now:
                 status = 'investigating' if current.get('investigating_at') else 'open'
                 _log(current['id'], 'unsilenced', detail={'reason': 'expired'})
-            _rows('''UPDATE cadu_reports_alerts SET severity=%s,title=%s,summary=%s,evidence=%s::jsonb,page_path=%s,impact=%s::jsonb,recommendations=%s::jsonb,causes=%s::jsonb,last_seen_at=%s,
+            _rows('''UPDATE cadu_reports_alerts SET severity=%s,title=%s,summary=%s,evidence=%s::jsonb,page_path=%s,impact=%s::jsonb,recommendations=%s::jsonb,causes=%s::jsonb,last_seen_at=%s,metrics=%s::jsonb,series=%s::jsonb,impacted_urls=%s::jsonb,
                 occurrences=occurrences+1,status=%s,silenced_until=CASE WHEN %s='silenced' THEN silenced_until END WHERE id=%s RETURNING id''',
                   (*fields, status, status, current['id']))
             if status == 'open' and not current.get('last_notified_at') and _held_back_by_burst(current['id']):
@@ -149,10 +152,10 @@ def sync_findings(site, rule, findings, now=None):
             continue
         alert_id = str(uuid.uuid4())
         created = _rows('''INSERT INTO cadu_reports_alerts (id,client_id,site_id,rule,subject_key,severity,title,summary,evidence,page_path,impact,
-                recommendations,causes,last_seen_at,channel,kind)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s::jsonb,%s::jsonb,%s::jsonb,%s,%s,%s) RETURNING *''',
+                recommendations,causes,last_seen_at,metrics,series,impacted_urls,channel,kind)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s::jsonb,%s::jsonb,%s::jsonb,%s,%s::jsonb,%s::jsonb,%s::jsonb,%s,%s) RETURNING *''',
                         (alert_id, site['client_id'], site.get('id'), rule, finding['subject_key'], finding['severity'], finding['title'],
-                         finding['summary'], json.dumps(finding['evidence']), finding['page_path'], impact, fields[6], fields[7], now,
+                         finding['summary'], json.dumps(finding['evidence']), finding['page_path'], impact, fields[6], fields[7], now, fields[9], fields[10], fields[11],
                          finding.get('channel') or RULES[rule]['channel'], finding.get('kind') or RULES[rule]['kind']))[0]
         _log(alert_id, 'opened', detail={'summary': finding['summary']})
         notify_opened(created, now)
@@ -195,6 +198,86 @@ _INSIGHT_CAMPAIGN_SQL = '''
     FROM chan WHERE campaign<>'' GROUP BY campaign,path'''
 
 
+_SITE_DAILY_SQL = '''
+    SELECT (e.occurred_at AT TIME ZONE 'America/Sao_Paulo')::date AS day,
+        COUNT(DISTINCT e.session_id) FILTER (WHERE e.event_kind='page_view')::bigint AS sessions,
+        COUNT(*) FILTER (WHERE e.event_kind='conversion')::bigint AS conversions
+    FROM cadu_reports_supertag_events e
+    WHERE e.site_id=%(site)s AND e.expires_at>NOW() AND e.occurred_at>=%(since)s GROUP BY 1'''
+_URL_DAILY_SQL = f'''
+    SELECT d.day,d.checks,d.online,d.duration_ms_sum FROM cadu_reports_flow_monitor_daily d JOIN cadu_reports_flow_registry f ON f.id=d.flow_id
+    WHERE f.client_id=%(client)s AND lower(d.host)=lower(%(host)s) AND {sql_normalized_path('d.path')}=%(path)s AND d.day>%(since)s'''
+_HOST_DAILY_SQL = '''
+    SELECT d.day,d.checks,d.online FROM cadu_reports_flow_monitor_daily d JOIN cadu_reports_flow_registry f ON f.id=d.flow_id
+    WHERE f.client_id=%(client)s AND lower(d.host)=lower(%(host)s) AND d.day>%(since)s'''
+SAO_PAULO = ZoneInfo('America/Sao_Paulo')
+SERIES_DAYS = 7
+
+
+def _monitor_rows(sql, params):
+    """Daily monitor rows, or none when the table is not there yet (the migration runs before the worker, but never break an evaluation over a cause)."""
+    try:
+        return _rows(sql, params)
+    except Exception:
+        get_db().rollback()
+        return []
+
+
+def _tracking_gap(site):
+    return bool(_rows("SELECT 1 FROM cadu_reports_alerts WHERE site_id=%s AND rule='collection_absent' AND status<>'resolved' LIMIT 1", (site['id'],)))
+
+
+def conversion_series(site_id, path, today):
+    """Daily session conversion rate of the page for the last SERIES_DAYS days and the SERIES_DAYS before them, aligned day by day."""
+    from .reports_pages import window_metrics
+    rates = []
+    for offset in range(2 * SERIES_DAYS - 1, -1, -1):
+        day = today - timedelta(days=offset)
+        start = datetime.combine(day, datetime.min.time(), tzinfo=SAO_PAULO)
+        rates.append(window_metrics(site_id, path, start, start + timedelta(days=1))[0]['session_conversion_rate'])
+    days = [today - timedelta(days=offset) for offset in range(SERIES_DAYS - 1, -1, -1)]
+    return {'labels': [day.isoformat() for day in days], 'current': rates[SERIES_DAYS:], 'previous': rates[:SERIES_DAYS], 'unit': 'percent',
+            'current_label': 'Período atual', 'previous_label': 'Período anterior'}
+
+
+def _change(now, before):
+    return round(100 * (now - before) / before, 1) if before else None
+
+
+def enrich_conversion_drop(site, finding, page, today):
+    """Chart, figures, impacted URL and possible causes for one conversion_drop finding."""
+    current, previous, path = page['current'], page['previous'], page['path']
+    finding['series'] = conversion_series(site['id'], path, today)
+    finding['metrics'] = [
+        {'label': 'Taxa de conversão', 'value': current['session_conversion_rate'], 'unit': 'percent', 'previous': previous['session_conversion_rate'],
+         'change': _change(current['session_conversion_rate'], previous['session_conversion_rate'])},
+        {'label': 'Visitas', 'value': current['sessions'], 'unit': 'count', 'previous': previous['sessions'], 'change': _change(current['sessions'], previous['sessions'])},
+        {'label': 'Conversões', 'value': current['converted_sessions'], 'unit': 'count', 'previous': previous['converted_sessions'],
+         'change': _change(current['converted_sessions'], previous['converted_sessions'])}]
+    finding['impacted_urls'] = [{'path': path, 'sessions': current['sessions'], 'conversions': current['converted_sessions'], 'rate': current['session_conversion_rate'],
+                                 'change': finding['metrics'][0]['change']}]
+    rows = _monitor_rows(_URL_DAILY_SQL, {'client': site['client_id'], 'host': site['allowed_host'], 'path': path, 'since': today - timedelta(days=15)})
+    finding['causes'] = causes.combine(causes.url_causes(rows, today), causes.traffic_cause(current['sessions'], previous['sessions']), causes.tracking_cause(_tracking_gap(site)))
+    return finding
+
+
+def evaluate_anomalies(site, now):
+    """Traffic and conversions of the last complete day against the same weekday of the previous weeks."""
+    today = now.astimezone(SAO_PAULO).date()
+    since = datetime.combine(today - timedelta(days=35), datetime.min.time(), tzinfo=SAO_PAULO)
+    daily = {row['day']: {'sessions': int(row['sessions']), 'conversions': int(row['conversions'])} for row in _rows(_SITE_DAILY_SQL, {'site': site['id'], 'since': since})}
+    found = anomaly_findings(daily, today, site['label'])
+    if found:
+        last_day = today - timedelta(days=1)
+        host = _monitor_rows(_HOST_DAILY_SQL, {'client': site['client_id'], 'host': site['allowed_host'], 'since': today - timedelta(days=15)})
+        shared = causes.combine(causes.host_causes(host, last_day, today), causes.tracking_cause(_tracking_gap(site)))
+        for finding in found:
+            finding['causes'] = shared
+    for rule in ('traffic_anomaly', 'conversion_anomaly'):
+        sync_findings(site, rule, [item for item in found if item['rule'] == rule], now)
+
+
+
 def evaluate_insights(site, now):
     """Advisory rules (severity low, never e-mailed) over the last 7 days of sessions of one site."""
     from .reports_journey import _CHANNELS_CTE, DEVICE_LABELS, ORIGIN_LABELS
@@ -220,7 +303,21 @@ def evaluate_site(site, heavy=False, now=None):
             current = window_metrics(site['id'], row['path'], now - timedelta(days=7), now)[0]
             previous = window_metrics(site['id'], row['path'], now - timedelta(days=14), now - timedelta(days=7))[0]
             pages.append({'path': row['path'], 'current': current, 'previous': previous})
-        sync_findings(site, 'conversion_drop', conversion_drop_findings(pages), now)
+        drops = conversion_drop_findings(pages)
+        by_path = {page['path']: page for page in pages}
+        today = now.astimezone(SAO_PAULO).date()
+        for finding in drops:
+            try:
+                enrich_conversion_drop(site, finding, by_path[finding['subject_key']], today)
+            except Exception:
+                get_db().rollback()
+                current_app.logger.exception('Falha ao montar o painel do alerta de conversão de %s', finding['subject_key'])
+        sync_findings(site, 'conversion_drop', drops, now)
+        try:
+            evaluate_anomalies(site, now)
+        except Exception:
+            get_db().rollback()
+            current_app.logger.exception('Falha ao avaliar anomalias do site %s', site['id'])
         # Committed first: a failing insight query must not undo the incident rules just synced.
         get_db().commit()
         try:

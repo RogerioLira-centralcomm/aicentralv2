@@ -1,6 +1,6 @@
 import {ReportsActionButton} from './ReportsActionButton.jsx';
 import {CaduTabs} from '../cadu-design-system/components/CaduTabs.jsx';
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {AlertCircle, AlertTriangle, ArrowDown, ArrowUp, CheckCircle, Download01, InfoCircle, SearchLg, XClose} from '@untitledui/icons';
 import {Empty, integer, json, reportUrl} from './reportsCommon.jsx';
 import {ReportsNativeSelect} from './ReportsNativeSelect.jsx';
@@ -181,8 +181,9 @@ function AlertsList({kind, data, onChanged}) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const query = {kind, customer_id, q: filters.q, channel: filters.channel, severity: filters.severity, status: filters.status};
-  const load = useCallback(() => json(apiUrl('/alerts', {...query, per_page: 200}))
-    .then(body => setState({loading: false, error: '', body})).catch(failure => setState({loading: false, error: failure.message, body: null})),
+  const latest = useRef(0);
+  const load = useCallback(() => { const mine = ++latest.current; return json(apiUrl('/alerts', {...query, per_page: 200}))
+    .then(body => { if (mine === latest.current) setState({loading: false, error: '', body}); }).catch(failure => { if (mine === latest.current) setState({loading: false, error: failure.message, body: null}); }); },
   // eslint-disable-next-line react-hooks/exhaustive-deps
   [client, kind, customer_id, filters]);
   useEffect(() => { setState(current => ({...current, loading: true})); load(); }, [load]);
@@ -192,10 +193,10 @@ function AlertsList({kind, data, onChanged}) {
   const body = state.body;
   const rows = body?.alerts || [];
   const open = rows.find(item => item.id === openId);
-  const act = async (ids, action, extra) => {
+  const act = async (ids, action, extra, fromBulk = false) => {
     setBusy(true); setNotice('');
     try {
-      if (ids.length === 1) {
+      if (ids.length === 1 && !fromBulk) {
         await json(`/connect/api/v2/reports/alerts/${ids[0]}/${action}`, {method: 'POST', headers: csrfHeaders(data), body: JSON.stringify({...extra})});
       } else {
         const result = await json('/connect/api/v2/reports/alerts/bulk', {method: 'POST', headers: csrfHeaders(data), body: JSON.stringify({ids, action})});
@@ -222,9 +223,9 @@ function AlertsList({kind, data, onChanged}) {
         <ReportsActionButton color="secondary" size="sm" href={exportUrl}><Download01 width={16} height={16} aria-hidden="true"/> Exportar</ReportsActionButton>
       </div>
       {selected.size > 0 && <div className="al-bulk" role="region" aria-label="Ações em lote"><b>{selected.size} {selected.size === 1 ? 'selecionado' : 'selecionados'}</b>
-        <ReportsActionButton color="secondary" size="sm" disabled={busy} onClick={() => act([...selected], 'acknowledge', {})}>Reconhecer</ReportsActionButton>
-        <ReportsActionButton color="secondary" size="sm" disabled={busy} onClick={() => act([...selected], 'investigate', {})}>Em investigação</ReportsActionButton>
-        <ReportsActionButton color="primary" size="sm" disabled={busy} onClick={() => act([...selected], 'resolve', {})}>Marcar como resolvido</ReportsActionButton></div>}
+        <ReportsActionButton color="secondary" size="sm" disabled={busy} onClick={() => act([...selected], 'acknowledge', {}, true)}>Reconhecer</ReportsActionButton>
+        <ReportsActionButton color="secondary" size="sm" disabled={busy} onClick={() => act([...selected], 'investigate', {}, true)}>Em investigação</ReportsActionButton>
+        <ReportsActionButton color="primary" size="sm" disabled={busy} onClick={() => act([...selected], 'resolve', {}, true)}>Marcar como resolvido</ReportsActionButton></div>}
       {notice && <p className="alerts-note" role="status">{notice}</p>}
       {state.error && <div className="reports-error" role="alert">{state.error}</div>}
       {state.loading && !body && <div className="reports-loading" role="status">Carregando alertas…</div>}

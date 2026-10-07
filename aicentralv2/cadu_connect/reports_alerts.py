@@ -119,7 +119,7 @@ def sync_findings(site, rule, findings, now=None):
         if current:
             status = current['status']
             if status == 'silenced' and current['silenced_until'] and current['silenced_until'] <= now:
-                status = 'open'
+                status = 'investigating' if current.get('investigating_at') else 'open'
                 _log(current['id'], 'unsilenced', detail={'reason': 'expired'})
             _rows('''UPDATE cadu_reports_alerts SET severity=%s,title=%s,summary=%s,evidence=%s::jsonb,page_path=%s,impact=%s::jsonb,last_seen_at=%s,
                 occurrences=occurrences+1,status=%s,silenced_until=CASE WHEN %s='silenced' THEN silenced_until END WHERE id=%s RETURNING id''',
@@ -300,7 +300,9 @@ def _handle_silence(alert, payload, selected):
 def _handle_unsilence(alert, payload, selected):
     if alert['status'] != 'silenced':
         abort(409, description='Este alerta não está silenciado.')
-    _rows("UPDATE cadu_reports_alerts SET status='open',silenced_until=NULL WHERE id=%s RETURNING id", (alert['id'],))
+    # An alert someone was already investigating goes back to that state, not to untouched.
+    back = 'investigating' if alert.get('investigating_at') else 'open'
+    _rows("UPDATE cadu_reports_alerts SET status=%s,silenced_until=NULL WHERE id=%s RETURNING id", (back, alert['id']))
     _log(alert['id'], 'unsilenced', session['user_id'], {'reason': 'manual'})
 
 

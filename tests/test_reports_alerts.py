@@ -374,3 +374,20 @@ def test_a_client_level_alert_without_a_site_is_keyed_by_client_and_rule():
     select, insert = seen[0], next(item for item in seen if item[0].lstrip().startswith('INSERT'))
     assert 'IS NOT DISTINCT FROM' in select[0] and select[1] == (7, None, 'collection_absent')
     assert insert[1][2] is None and 'google_ads' in insert[1] and 'incident' in insert[1]
+
+
+def test_unsilencing_an_alert_under_investigation_returns_it_to_investigating(client):
+    def run(row_extra):
+        row = {'id': ALERT_ID, 'status': 'silenced', 'client_id': 7, **row_extra}
+        updates = []
+
+        def rows(sql, params=()):
+            if sql.startswith('SELECT * FROM cadu_reports_alerts'):
+                return [row]
+            updates.append((sql, params))
+            return []
+        with mock.patch.object(alerts, '_rows', rows), mock.patch.object(alerts, 'get_db'), mock.patch.object(alerts, '_write_guard'), \
+             mock.patch.object(alerts, '_selection', return_value={'client_id': 7, 'role': 'admin', 'user_id': 42}):
+            assert client.post(f'/connect/api/v2/reports/alerts/{ALERT_ID}/unsilence', json={}).status_code == 200
+        return next(params for sql, params in updates if sql.startswith('UPDATE'))[0]
+    assert run({'investigating_at': NOW}) == 'investigating' and run({'investigating_at': None}) == 'open'

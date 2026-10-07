@@ -45,7 +45,8 @@ def create_plan(client_id, actor_id, opportunity_id, context):
     item = rows[0]
     breakdown = item.get('score_breakdown') or {}
     places = [place.get('place') for place in item.get('geo_scores') or [] if place.get('place')]
-    objective = {'conteudo': 'awareness', 'integrada': 'consideracao', 'midia': 'consideracao'}.get(item.get('quadrant'), '')
+    # Radar 1.5 has no quadrant: an angle is an idea to put in front of people, so the plan starts as consideration.
+    objective = {'conteudo': 'awareness', 'integrada': 'consideracao', 'midia': 'consideracao'}.get(item.get('quadrant'), 'consideracao')
     buzz = [f"{entry.get('assunto')} ({entry.get('veiculo')}, {entry.get('data')})" for entry in breakdown.get('buzz') or []]
     notes = '\n'.join(part for part in [
         item.get('thesis'), f"Por que agora: {breakdown['why_now']}" if breakdown.get('why_now') else '',

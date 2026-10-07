@@ -42,7 +42,7 @@ def _provider_name(model=None):
 
 
 class TextProvider:
-    def complete(self, messages, *, max_tokens=1600, temperature=0.45, model=None, tools=None):
+    def complete(self, messages, *, max_tokens=1600, temperature=0.45, model=None, tools=None, response_format=None):
         chosen = model or DEFAULT_TEXT_MODEL
         response = chat_completion(
             messages,
@@ -51,6 +51,7 @@ class TextProvider:
             max_tokens=max_tokens,
             temperature=temperature,
             timeout=90,
+            **({"response_format": response_format} if response_format else {}),
         )
         message = response.get("message") or {}
         content = message.get("content") or ""

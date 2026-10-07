@@ -61,6 +61,8 @@ function ProposalCard({proposal, label, busy, onDecide}) {
 export function CaduPanel({boot, request, plan, setPlan, notify, active}) {
   const [state, setState] = useState({proposals: [], events: [], cobuild: false});
   const [busy, setBusy] = useState('');
+  // What the review changed and what only the client can answer: worth the credits, so it stays on screen.
+  const [review, setReview] = useState(null);
   const planId = plan.id;
   const revision = plan.revision;
 
@@ -89,6 +91,7 @@ export function CaduPanel({boot, request, plan, setPlan, notify, active}) {
     if (!window.confirm(`O Cadu revisa o briefing em ${estimate.passes || 3} passagens${tokens ? ` (cerca de ${tokens.toLocaleString('pt-BR')} tokens)` : ''}, usando créditos. Continuar?`)) return;
     const data = await request(`/plans/${planId}/briefing-review`, {method: 'POST', body: JSON.stringify({})});
     if (data.plan) setPlan(data.plan);
+    setReview(data.review || null);
     notify({message: 'Briefing revisado pelo Cadu. Confira os campos atualizados.'});
   });
   const propose = () => run('propose', async () => {
@@ -101,6 +104,14 @@ export function CaduPanel({boot, request, plan, setPlan, notify, active}) {
     description="O Cadu propõe uma seção de cada vez e explica o porquê. Você aceita, ajusta ou recusa.">
     {busy === 'review' && <IllustratedWait slot="plan-building" title="O Cadu está revisando o briefing"
       description="Três passagens: ler o contexto, reorganizar e aplicar a versão revisada."/>}
+    {review && (review.note || (review.pending || []).length > 0) && <section className="planner-review-result" aria-label="Resultado da revisão">
+      <header><strong>O Cadu revisou o briefing</strong>
+        <button type="button" className="planner-review-result__close" aria-label="Fechar" onClick={() => setReview(null)}>×</button></header>
+      {review.note && <p>{review.note}</p>}
+      {(review.pending || []).length > 0 && <><h3>A confirmar com o cliente</h3>
+        <ul>{review.pending.map(item => <li key={item}>{item}</li>)}</ul></>}
+      {review.charged_tokens > 0 && <small>{Number(review.charged_tokens).toLocaleString('pt-BR')} tokens usados</small>}
+    </section>}
     {visible.map(proposal => <ProposalCard key={proposal.id} proposal={proposal} label={labels[proposal.section]} busy={busy === proposal.id} onDecide={decide}/>)}
     {!visible.length && <p className="planner-muted">{state.cobuild
       ? 'Nenhuma proposta pendente nesta seção.'

@@ -1770,3 +1770,12 @@ a.planner-card:focus-visible { outline: 2px solid var(--colors-brand-600, #07945
 .pd-week__bar b { display: block; width: 100%; border-radius: 6px; background: var(--colors-brand-500, #17b26a); }
 .pd-week strong { font-size: 12px; }
 .pd-week small { color: var(--planner-muted, #667085); font-size: 12px; }
+/* Result of a briefing review: what changed and the questions only the client can answer. */
+.planner-review-result { display: grid; gap: 8px; margin: 0 0 16px; padding: 14px 16px; border: 1px solid var(--colors-brand-200, #abefc6); border-radius: 12px; background: #f6fef9; }
+.planner-review-result header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.planner-review-result header strong { font-size: 14px; }
+.planner-review-result__close { padding: 0 6px; border: 0; background: none; color: var(--planner-muted, #667085); font-size: 18px; line-height: 1; cursor: pointer; }
+.planner-review-result p { margin: 0; color: var(--color-text-secondary, #344054); font-size: 14px; line-height: 1.5; white-space: pre-line; }
+.planner-review-result h3 { margin: 4px 0 0; font-size: 13px; font-weight: 600; }
+.planner-review-result ul { display: grid; gap: 4px; margin: 0; padding-left: 18px; color: var(--color-text-secondary, #344054); font-size: 14px; }
+.planner-review-result small { color: var(--planner-muted, #667085); font-size: 12px; }

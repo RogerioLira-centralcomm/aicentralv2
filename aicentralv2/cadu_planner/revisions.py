@@ -19,6 +19,8 @@ BRIEFING_OUTPUT_TOKENS_PER_PASS = 2_500  # reasoning included: a real 3-pass rev
 DOCUMENT_OUTPUT_TOKENS_PER_PASS = 3_500
 TEXT_AGENT_MARGIN_MULTIPLIER = 1
 
+OBJECTIVE_LABELS = {"awareness": "Awareness", "consideracao": "Consideração", "leads": "Leads", "vendas": "Vendas", "trafego": "Tráfego"}
+
 _TASKS = {
     "briefing": "Revise o briefing para que ele seja uma direção clara, verificável e pronta para orientar as escolhas de mídia.",
     "recommendation": "Revise a recomendação de mídia para que escolhas, distribuição e justificativas respondam ao briefing.",
@@ -60,11 +62,21 @@ def build_review_pass_prompt(task: str, context: Mapping[str, object], previous:
         "Tarefa: %s\n"
         "Etapa atual — %s: %s\n\n"
         "Não invente dados, preços, resultados ou disponibilidade. Preserve fatos do plano e use português do Brasil. "
+        "Use o perfil da marca e do projeto do contexto (público, posicionamento, concorrentes) para deixar o briefing "
+        "específico; o que faltar e só o cliente pode dizer vai em \"pendencias\", como pergunta curta, nunca inventado. O campo review_note é um resumo para o usuário do que mudou, não o processo interno. "
+        "Limites de tamanho por campo, em caracteres (escreva dentro deles, sem cortar frases): %s.\n"
         "Retorne APENAS JSON válido, sem markdown, com esta estrutura:\n"
-        '{"advertiser_name":"","campaign_name":"","briefing":{"budget":"","period":"","geography":"","kpis":"","notes":""},"review_note":""}\n\n'
+        '{"advertiser_name":"","campaign_name":"","briefing":{"budget":"","period":"","geography":"","kpis":"","notes":""},'
+        '"review_note":"o que você ajustou e por quê, em até 3 frases (preencha em TODAS as passagens)",'
+        '"pendencias":["pergunta a confirmar com o cliente (mantenha as que seguem abertas)"]}\n\n'
         "Contexto original do plano: %s\n\n"
         "Rascunho recebido da passagem anterior: %s"
-    ) % (pass_number, _TASKS[task], title, instruction, source, draft)
+    ) % (pass_number, _TASKS[task], title, instruction, _limits_text(), source, draft)
+
+
+def _limits_text():
+    from .plans import BRIEFING_LIMITS
+    return ', '.join(f'{key} {limit}' for key, limit in BRIEFING_LIMITS.items())
 
 
 def _json_object(value: str) -> dict:
@@ -87,7 +99,8 @@ def _json_object(value: str) -> dict:
         "campaign_name": str(parsed.get("campaign_name") or "").strip(),
         "briefing": {key: str(briefing.get(key) or "").strip()
                      for key in ("budget", "period", "geography", "kpis", "notes")},
-        "review_note": str(parsed.get("review_note") or "").strip()[:500],
+        "review_note": str(parsed.get("review_note") or "").strip()[:800],
+        "pending": [str(item).strip()[:200] for item in parsed.get("pendencias") or [] if str(item).strip()][:6],
     }
 
 
@@ -213,11 +226,21 @@ def review_briefing(client_id: int, actor_id: int, plan_id: str) -> dict:
     from . import plans
 
     plan = plans.get_plan(client_id, actor_id, plan_id)
+    from .context import load_plan_context
+    try:
+        brand_context = load_plan_context(client_id, plan.get("brand_ref"), plan.get("project_ref"))
+    except Exception:  # noqa: BLE001 — the review still runs on the plan alone
+        brand_context = {}
+    def profile(entity):
+        return {"nome": entity.get("name"), **{item["label"]: item["value"] for item in entity.get("fields") or []
+                                              if item.get("value") not in (None, "", [], {})}} if entity else None
     context = {
-        "title": plan.get("title"), "objective": plan.get("objective"),
+        "title": plan.get("title"), "objective": OBJECTIVE_LABELS.get(plan.get("objective"), plan.get("objective")),
+        "marca": profile(brand_context.get("brand")), "projeto": profile(brand_context.get("project")),
         "advertiser_name": plan.get("advertiser_name"), "campaign_name": plan.get("campaign_name"),
         "briefing": plan.get("briefing") or {},
-        "selected_media": [{"kind": item.get("kind"), "name": (item.get("snapshot") or {}).get("name")}
+        "selected_media": [{"kind": item.get("kind"), "name": (item.get("snapshot") or {}).get("name"),
+                            "category": (item.get("snapshot") or {}).get("category")}
                            for item in plan.get("items") or []],
     }
     credits = CaduCreditConnector()
@@ -226,16 +249,27 @@ def review_briefing(client_id: int, actor_id: int, plan_id: str) -> dict:
     credits.authorize(actor, briefing_billing_estimate(client_id, actor_id, plan_id))
     provider, draft, charged_tokens = TextProvider(), {}, 0
     review_id = str(uuid4())
+    # Pass 1 finds the gaps and pass 3 only applies: keep every question and the last explanation, not just pass 3's.
+    pending, note = [], ""
     for pass_number in (1, 2, 3):
-        response = provider.complete([
-            {"role": "system", "content": "Você revisa planos de mídia com precisão e transparência."},
-            {"role": "user", "content": build_review_pass_prompt("briefing", context, draft, pass_number)},
-        ], max_tokens=None, temperature=0.15)  # a cap made the reasoning model return an empty answer
-        charged_tokens += _charge_review_pass(
-            credits=credits, actor=actor, review_id=review_id, scope="briefing_review",
-            pass_number=pass_number, response=response, target_id=str(plan_id),
-        )
-        draft = _json_object(response.get("content"))
+        # JSON mode, and one retry when the answer still is not valid JSON: a broken pass must not waste the other two.
+        for attempt in (1, 2):
+            response = provider.complete([
+                {"role": "system", "content": "Você revisa planos de mídia com precisão e transparência. Responda só JSON válido."},
+                {"role": "user", "content": build_review_pass_prompt("briefing", context, draft, pass_number)},
+            ], max_tokens=None, temperature=0.15, response_format={"type": "json_object"})  # no cap: reasoning models answered empty
+            charged_tokens += _charge_review_pass(
+                credits=credits, actor=actor, review_id=review_id, scope="briefing_review",
+                pass_number=pass_number if attempt == 1 else f"{pass_number}-retry", response=response, target_id=str(plan_id),
+            )
+            try:
+                draft = _json_object(response.get("content"))
+                note = draft.get("review_note") or note
+                pending += [item for item in draft.get("pending") or [] if item not in pending]
+                break
+            except BadRequest:
+                if attempt == 2:
+                    raise
     # An omitted field is never an instruction to erase saved briefing context.
     final_payload = {
         "advertiser_name": draft["advertiser_name"] or plan.get("advertiser_name") or "",
@@ -245,9 +279,10 @@ def review_briefing(client_id: int, actor_id: int, plan_id: str) -> dict:
     }
     updated = plans.update_briefing(client_id, actor_id, plan_id, final_payload, expected_updated_at=plan.get("updated_at"))
     _record_history(review_id=review_id, client_id=client_id, actor_id=actor_id, scope="briefing", plan_id=plan_id,
-                    charged_tokens=charged_tokens, note=draft.get("review_note"), source=context, applied=final_payload)
+                    charged_tokens=charged_tokens, source=context, applied=final_payload,
+                    note="\n".join([note] + [f"A confirmar: {item}" for item in pending[:6]]).strip())
     return {"plan": updated, "review": {"passes": 3, "applied_pass": 3, "charged_tokens": charged_tokens,
-                                             "note": draft.get("review_note")}}
+                                             "note": note, "pending": pending[:6]}}
 
 
 def _document_pass_prompt(document: Mapping[str, object], previous_html: str, pass_number: int, source_context: str = "") -> str:

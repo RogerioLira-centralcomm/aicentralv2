@@ -228,6 +228,17 @@ def readiness(plan):
     return {'ready': all(item['complete'] for item in checks), 'checks': checks}
 
 
+def _fit(value, limit):
+    """Keep a field within its limit without cutting a sentence (or a word) in half."""
+    if len(value) <= limit:
+        return value
+    cut = value[:limit - 1]
+    end = max(cut.rfind(mark) for mark in ('. ', '; ', '\n', '! ', '? '))
+    if end >= limit * 0.6:
+        return cut[:end + 1].rstrip()
+    return cut[:cut.rfind(' ')].rstrip(' ,;:') + '…' if ' ' in cut else cut + '…'
+
+
 def _clean_briefing(raw_briefing):
     if not isinstance(raw_briefing, dict):
         raise BadRequest('Briefing inválido.')
@@ -238,7 +249,7 @@ def _clean_briefing(raw_briefing):
             continue
         value = str(value).strip()
         if value:
-            briefing[key] = value[:limit]
+            briefing[key] = _fit(value, limit)
     return briefing
 
 

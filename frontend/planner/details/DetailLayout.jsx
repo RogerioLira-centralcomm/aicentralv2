@@ -1,8 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {CaduBadge} from '../../cadu-design-system/components/CaduBadge.jsx';
 import {Icon} from '../../cadu-design-system/components/Icon.jsx';
-import {LogoTile, SelectionButton} from '../PlannerUi.jsx';
-import {ActivePlanChip, PlannerHeader} from '../PlannerHeader.jsx';
+import {LogoTile} from '../PlannerUi.jsx';
 import {MODULE_LABELS, moduleUrl} from '../api.js';
 
 // Catalog rows sometimes carry placeholder text instead of an empty value.
@@ -150,36 +148,49 @@ export function DetailLayout({boot, selection, kind, record, icon = 'plan', eyeb
     return () => observer.disconnect();
   }, [visible.length]);
 
-  const shownMetrics = metrics.filter(item => hasValue(item.value));
+  const shownMetrics = metrics.filter(item => hasValue(item.value)).slice(0, 6);
   const shownHighlights = highlights.filter(([, text]) => hasValue(text));
-  // One accent for every page (the Planner green); the channel colour stays on its logo.
-  return <article className={`pd${aside ? ' pd--aside' : ''}`}>
-    <PlannerHeader crumbs={[[MODULE_LABELS[kind], moduleUrl(boot.urls, kind)]]} title={record.name}
-      leading={<DetailMark record={record} icon={icon}/>}
-      meta={eyebrow || extraMeta ? <>{eyebrow && <CaduBadge tone="neutral">{eyebrow}</CaduBadge>}{extraMeta}</> : null}
-      actions={<ActivePlanChip/>}/>
-    <div className={`pd-shell${aside ? ' has-aside' : ''}`}><div className="pd-main">
-    <section className={`pd-hero${media ? ' has-media' : ''}`} aria-label="Resumo">
-      <div className="pd-hero__copy">
-        {record.description && <p className="pd-hero__lead">{record.description}</p>}
-        {shownHighlights.length > 0 && <div className="pd-highlights">{shownHighlights.map(([label, text]) => <section key={label}><h2>{label}</h2><p>{text}</p></section>)}
-          {sourceNote && <small>{sourceNote}</small>}</div>}
-        {shownMetrics.length > 0 && <dl className="pd-hero__metrics" style={{'--metric-count': Math.min(shownMetrics.length, 6)}}>{shownMetrics.map(item => <div key={item.label}>
-          {item.icon && <Icon name={item.icon} size={18}/>}<dt>{item.label}</dt><dd>{item.value}</dd>{item.hint && <small>{item.hint}</small>}
+  const bannerImage = media?.type === 'carousel' ? media.items?.[0] : media?.type === 'gallery' ? media.items?.[0] : media?.src;
+  const scrollTo = (event, id) => { event.preventDefault(); refs.current[id]?.scrollIntoView({behavior: 'smooth', block: 'start'}); setCurrent(id); };
+  const index = (className, label) => visible.length > 1 && <nav className={className} aria-label={label}>{visible.map(section => <a key={section.id} href={`#pd-${section.id}`}
+    className={current === section.id ? 'is-active' : ''} aria-current={current === section.id ? 'true' : undefined} onClick={event => scrollTo(event, section.id)}>
+    {section.label}{section.count ? <span>{section.count}</span> : null}</a>)}</nav>;
+
+  // A marketplace listing: a slim banner with the identity and the key numbers (no cards), the pitch and photos right
+  // below, then the sections with an index that follows on the right.
+  return <article className="pd pd--market">
+    <header className={`pdb${bannerImage ? ' has-image' : ''}`} style={bannerImage ? {'--pdb-image': `url("${bannerImage}")`} : undefined}>
+      <div className="pdb__inner">
+        <span className="pdb__mark"><DetailMark record={record} icon={icon} size="md"/></span>
+        <div className="pdb__title">
+          <nav className="pdb__crumbs" aria-label="Você está em"><a href={moduleUrl(boot.urls, kind)}>{MODULE_LABELS[kind]}</a><span aria-hidden="true">/</span></nav>
+          <h1>{record.name}</h1>
+          {(eyebrow || extraMeta) && <span className="pdb__chips">{eyebrow && <em>{eyebrow}</em>}{extraMeta}</span>}
+        </div>
+        {shownMetrics.length > 0 && <dl className="pdb__metrics" style={{'--metric-count': shownMetrics.length}}>{shownMetrics.map(item => <div key={item.label} title={typeof item.hint === 'string' ? item.hint : undefined}>
+          <dt>{item.label}{item.hint && typeof item.hint !== 'string' && <small>{item.hint}</small>}</dt><dd>{item.value}</dd>
         </div>)}</dl>}
       </div>
-      <HeroMedia media={media} name={record.name}/>
-    </section>
-    {visible.length > 1 && <nav className="pd-nav" aria-label="Nesta página">{visible.map(section => <a key={section.id} href={`#pd-${section.id}`}
-      className={current === section.id ? 'is-active' : ''} aria-current={current === section.id ? 'true' : undefined}
-      onClick={event => { event.preventDefault(); refs.current[section.id]?.scrollIntoView({behavior: 'smooth', block: 'start'}); setCurrent(section.id); }}>
-      {section.label}{section.count ? <span>{section.count}</span> : null}</a>)}</nav>}
-    <div className="pd-sections">{visible.map(section => <section key={section.id} id={`pd-${section.id}`} ref={node => { refs.current[section.id] = node; }}
-      className={`pd-section${section.wide ? ' is-wide' : ''}`} aria-labelledby={`pd-${section.id}-title`}>
-      <header><h2 id={`pd-${section.id}-title`}>{section.label}</h2>{section.hint && <p>{section.hint}</p>}</header>
-      <div className="pd-section__body">{section.render()}</div>
-    </section>)}</div>
-    </div>{aside && <aside className="pd-aside" aria-label="Seu plano">{aside}</aside>}</div>
+    </header>
+    <div className="pd-market">
+      <div className="pd-main">
+        {(record.description || shownHighlights.length > 0 || media) && <section className={`pd-intro${media ? ' has-media' : ''}`} aria-label="Resumo">
+          <HeroMedia media={media} name={record.name}/>
+          <div className="pd-intro__copy">
+            {record.description && <p className="pd-hero__lead">{record.description}</p>}
+            {shownHighlights.length > 0 && <div className="pd-highlights">{shownHighlights.map(([label, text]) => <section key={label}><h2>{label}</h2><p>{text}</p></section>)}
+              {sourceNote && <small>{sourceNote}</small>}</div>}
+          </div>
+        </section>}
+        {index('pd-nav pd-nav--inline', 'Nesta página')}
+        <div className="pd-sections">{visible.map(section => <section key={section.id} id={`pd-${section.id}`} ref={node => { refs.current[section.id] = node; }}
+          className={`pd-section${section.wide ? ' is-wide' : ''}`} aria-labelledby={`pd-${section.id}-title`}>
+          <header><h2 id={`pd-${section.id}-title`}>{section.label}</h2>{section.hint && <p>{section.hint}</p>}</header>
+          <div className="pd-section__body">{section.render()}</div>
+        </section>)}</div>
+      </div>
+      {visible.length > 1 && <aside className="pd-rail"><strong>Nesta página</strong>{index('pd-rail__nav', 'Seções da página')}</aside>}
+    </div>
   </article>;
 }
 

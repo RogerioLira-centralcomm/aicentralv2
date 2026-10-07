@@ -9,7 +9,7 @@ import {ActivePlanChip, PlannerHeader} from './PlannerHeader.jsx';
 import {ShelfHeader, ShelfIndex} from './ShelfHeader.jsx';
 import {ChannelCard, ChannelRow} from './ChannelCard.jsx';
 import {PlaceCard} from './PlaceCard.jsx';
-import {PlanBanner, ShelfEmpty} from './PlannerPromo.jsx';
+import {PlanBanner, ShelfEmpty, ShelfGrid} from './PlannerPromo.jsx';
 import {PlannerSelect} from './PlannerSelect.jsx';
 
 const PORTAL_PAGE = 50;
@@ -328,29 +328,26 @@ export function CatalogPage({boot, request, selection, notify}) {
           let placed = false;
           const blocks = groups.map((group, position) => {
             // Ungrouped shelf: the invitation to plan is a full-width row inside the same grid, after the first eight cards.
-            const inline = !group.title && group.items.length > 8;
+            const inline = false;
             seen += group.items.length;
             const banner = !inline && !placed && (seen >= 8 || position === groups.length - 1);
             if (banner || inline) placed = true;
             return <Fragment key={group.title || 'canais'}>
               <section className="fmt-group" id={group.title ? groupAnchor(group.title) : undefined} aria-label={group.title || 'Canais'}>
                 {group.title && <h2 className="fmt-group__title">{group.title}<span>{group.items.length}</span></h2>}
-                <div className={view === 'lista' ? 'channel-list' : 'planner-grid planner-grid--channels'}>{group.items.map((item, index) => {
-                  const Tile = view === 'lista' ? ChannelRow : ChannelCard;
-                  return <Fragment key={itemKey(item)}>
-                    <Tile item={item} urls={boot.urls}
-                      selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>
-                    {inline && index === 7 && <div className="planner-grid__span"><PlanBanner urls={boot.urls}/></div>}
-                  </Fragment>;
-                })}</div>
+                {view === 'lista'
+                  ? <div className="channel-list">{group.items.map(item => <ChannelRow key={itemKey(item)} item={item} urls={boot.urls}
+                    selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>)}</div>
+                  : <ShelfGrid items={group.items} urls={boot.urls} variants={['formatos', 'planejar']} render={item => <ChannelCard key={itemKey(item)} item={item} urls={boot.urls}
+                    selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>}/>}
               </section>
               {banner && <PlanBanner urls={boot.urls}/>}
             </Fragment>;
           });
           return index.length > 1 ? <div className="shelf-layout"><div className="shelf-layout__main">{blocks}</div><ShelfIndex items={index}/></div> : blocks;
         })()
-        : kind === 'places' ? <><div className="planner-grid planner-grid--channels" aria-label="Locais disponíveis">{records.map(item => <PlaceCard key={itemKey(item)} item={item} urls={boot.urls}
-          selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>)}</div>{records.length > 0 && <PlanBanner urls={boot.urls}/>}</>
+        : kind === 'places' ? <><ShelfGrid aria-label="Locais disponíveis" items={records} urls={boot.urls} variants={['canais', 'formatos', 'planejar']}
+          render={item => <PlaceCard key={itemKey(item)} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>}/>{records.length > 0 && <PlanBanner urls={boot.urls} variant="formatos"/>}</>
         : <div className="planner-grid" aria-label={`${MODULE_LABELS[kind]} disponíveis`}>{records.map(item => <CatalogCard key={itemKey(item)} kind={kind} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))}/>)}</div>}
     {portalMode && total > PORTAL_PAGE && <nav className="planner-pagination" aria-label="Páginas de portais">
       <CaduButton variant="secondary" disabled={!offset} onClick={() => setOffset(Math.max(0, offset - PORTAL_PAGE))}>Anterior</CaduButton>

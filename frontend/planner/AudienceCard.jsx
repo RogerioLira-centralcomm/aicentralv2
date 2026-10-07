@@ -43,3 +43,34 @@ export function AudienceCard({item, urls, selected, onToggle}) {
     </div>
   </article>;
 }
+
+/**
+ * Audience as a marketplace row: a tall image column on the left, the story in the middle and the action on the right.
+ * The photo leads; without one the platform logo (or a neutral icon) takes its place. No prices: media is quoted.
+ */
+export function AudienceRow({item, urls, selected, onToggle}) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const [logoFailed, setLogoFailed] = useState(false);
+  const photo = item.image_url && !imageFailed;
+  const logo = item.platform_logo && !logoFailed;
+  const figure = audienceFigure(item);
+  const facts = [item.perfil_socioeconomico && `Classe ${item.perfil_socioeconomico}`, item.propensao_compra && `Compra: ${item.propensao_compra}`, item.platform].filter(Boolean);
+  return <article className={`aud-row${selected ? ' is-selected' : ''}`}>
+    <a className="planner-card__hit" href={catalogDetailUrl(urls, 'audiencias', item)} aria-label={`Ver audiência ${item.name}`}/>
+    <span className={`aud-row__image${photo ? '' : ' is-logo'}`}>
+      {photo ? <img src={item.image_url} alt="" loading="lazy" onError={() => setImageFailed(true)}/>
+        : logo ? <img className="aud-row__logo" src={item.platform_logo} alt="" loading="lazy" onError={() => setLogoFailed(true)}/>
+          : <Icon name="users" size={36}/>}
+    </span>
+    <div className="aud-row__body">
+      {item.category && <span className="aud-row__category">{item.category}</span>}
+      <strong className="aud-row__title">{item.name}</strong>
+      <span className="aud-row__text">{item.description || 'Público para apoiar as decisões do plano.'}</span>
+      {facts.length > 0 && <ul className="aud-row__facts">{facts.map(value => <li key={value}>{value}</li>)}</ul>}
+    </div>
+    <div className="aud-row__side">
+      {figure && <div className="aud-row__size"><strong>{figure}</strong><span>de pessoas</span></div>}
+      <SelectionButton size="md" selected={selected} onToggle={onToggle}/>
+    </div>
+  </article>;
+}

@@ -6,8 +6,8 @@ import {CaduSelectField} from '../cadu-design-system/components/CaduField.jsx';
 import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {itemKey, useDebounced} from './Catalog.jsx';
-import {AudienceCard} from './AudienceCard.jsx';
-import {PlanBanner, ShelfEmpty} from './PlannerPromo.jsx';
+import {AudienceRow} from './AudienceCard.jsx';
+import {ShelfEmpty, ShelfGrid} from './PlannerPromo.jsx';
 import {ShelfHeader} from './ShelfHeader.jsx';
 import {LogoTile} from './PlannerUi.jsx';
 
@@ -131,13 +131,9 @@ export function AudienceShowcase({boot, request, selection, notify}) {
     {!records.length && !loading ? <ShelfEmpty title="Nenhuma audiência com estes filtros"
       description="Tire um filtro ou busque por outro termo." action={<CaduButton variant="secondary"
         onClick={() => setFilters({q: '', platform: '', category: '', subcategory: '', sort: 'relevant'})}>Ver todas as audiências</CaduButton>}/>
-      : <div className={`planner-grid planner-grid--channels${loading ? ' is-loading' : ''}`} aria-label="Audiências disponíveis" aria-busy={loading}>
-        {records.map((item, index) => <Fragment key={itemKey(item)}>
-          <AudienceCard item={item} urls={boot.urls} selected={selection.isSelected('audiencias', itemKey(item))}
-            onToggle={() => selection.toggle('audiencias', itemKey(item))}/>
-          {index === 7 && <div className="planner-grid__span"><PlanBanner urls={boot.urls}/></div>}
-        </Fragment>)}
-      </div>}
+      : <ShelfGrid className={`aud-list${loading ? ' is-loading' : ''}`} aria-label="Audiências disponíveis" aria-busy={loading} urls={boot.urls} variants={['formatos', 'canais', 'planejar']}
+        items={records} render={item => <AudienceRow key={itemKey(item)} item={item} urls={boot.urls} selected={selection.isSelected('audiencias', itemKey(item))}
+          onToggle={() => selection.toggle('audiencias', itemKey(item))}/>}/>}
 
     {records.length > 0 && <footer className="aud-more">
       <span>Mostrando {number(records.length)} de {number(total)}</span>

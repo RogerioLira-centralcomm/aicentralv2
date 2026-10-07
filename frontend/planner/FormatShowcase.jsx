@@ -6,7 +6,7 @@ import {FacetChips} from './AudienceShowcase.jsx';
 import {itemKey, useDebounced} from './Catalog.jsx';
 import {FormatCard} from './FormatCard.jsx';
 import {InteractiveSpotlight} from './InteractiveSpotlight.jsx';
-import {ShelfEmpty} from './PlannerPromo.jsx';
+import {PlanBanner, ShelfEmpty, ShelfGrid} from './PlannerPromo.jsx';
 import {ShelfHeader} from './ShelfHeader.jsx';
 import {PlannerSelect} from './PlannerSelect.jsx';
 
@@ -85,10 +85,10 @@ export function FormatShowcase({boot, selection}) {
       action={<CaduButton variant="secondary" onClick={clear}>Ver todos os formatos</CaduButton>}/>
       : groups.map(group => <section key={group.family} className="fmt-group" aria-labelledby={`fmt-${group.items[0].family_order}`}>
         <h2 id={`fmt-${group.items[0].family_order}`} className="fmt-group__title">{group.family}<span>{number(group.items.length)}</span></h2>
-        <div className="planner-grid planner-grid--formats" aria-label={`Formatos de ${group.family}`}>
-          {group.items.map(item => <FormatCard key={itemKey(item)} kind={kind} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))}
-            onToggle={() => selection.toggle(kind, itemKey(item))}/>)}
-        </div>
+        <ShelfGrid className="planner-grid planner-grid--formats" aria-label={`Formatos de ${group.family}`} items={group.items} urls={boot.urls} variants={['canais', 'planejar']}
+          render={item => <FormatCard key={itemKey(item)} kind={kind} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))}
+            onToggle={() => selection.toggle(kind, itemKey(item))}/>}/>
       </section>)}
+    {groups.length > 0 && <PlanBanner urls={boot.urls} variant="canais"/>}
   </>;
 }

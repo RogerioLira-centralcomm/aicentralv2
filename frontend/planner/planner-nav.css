@@ -129,3 +129,32 @@
 
 /* Medium screens: links keep only the icon (the name stays as tooltip) so the bar never wraps or crowds the account area. */
 @media (min-width: 1181px) and (max-width: 1360px) { .pn__link span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } .pn__link { padding: 0 14px; } .pn__link.is-active span { position: static; width: auto; height: auto; clip: auto; } }
+
+/* The usage chip keeps its slot while the value loads, so the actions never shift when it arrives. */
+.pn-tokens.is-pending b { min-width: 3ch; }
+.pn-tokens.is-pending i { opacity: .6; }
+.pn-tokens span { white-space: nowrap; }
+.pn-user { min-width: 36px; }
+
+/* Planner dropdown (replaces the native select popup in the audience filter bar). */
+.aud-bar__field:has(.planner-select) { position: relative; padding: 0; }
+.planner-select { position: relative; width: 100%; }
+.planner-select__trigger { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 16px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ph--filters .planner-select__trigger { padding: 7px 14px; }
+.planner-select__text { display: grid; min-width: 0; }
+.planner-select__text small { color: var(--planner-muted, #667085); font-size: 11px; }
+.planner-select__value { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.planner-select__value b { overflow: hidden; color: var(--planner-ink, #101828); font-size: 14px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.planner-select__trigger[aria-expanded="true"] svg { transform: rotate(180deg); }
+.planner-select__trigger svg { flex: none; color: var(--planner-muted, #667085); transition: transform 140ms; }
+.planner-select__trigger:focus-visible { outline: 2px solid var(--colors-brand-600, #079455); outline-offset: -2px; border-radius: 12px; }
+.planner-select__list { position: absolute; top: calc(100% + 6px); left: 0; z-index: 70; min-width: 100%; width: max-content; max-width: 340px; max-height: 340px; margin: 0; padding: 6px; overflow-y: auto; list-style: none; border: 1px solid var(--planner-line, #e4e7ec); border-radius: 12px; background: #fff; box-shadow: 0 16px 40px rgba(16, 24, 40, .18); }
+.planner-select__list li { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; color: var(--planner-ink, #101828); font-size: 14px; cursor: pointer; }
+.planner-select__list li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.planner-select__list li em { color: var(--planner-muted, #667085); font-size: 12px; font-style: normal; }
+.planner-select__list li.is-cursor { background: var(--planner-soft, #f2f4f7); }
+.planner-select__list li.is-selected { color: var(--colors-brand-800, #085d3a); font-weight: 600; }
+.planner-select__list li.is-selected svg { color: var(--colors-brand-600, #079455); }
+.aud-bar { overflow: visible; }
+.planner-select__list .logo-tile, .planner-select__value .logo-tile { flex: none; width: 24px; height: 24px; min-width: 24px; }
+.planner-select__list { min-width: 240px; }

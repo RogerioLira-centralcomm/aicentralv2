@@ -84,8 +84,8 @@ export function PlannerNav({boot, request, active}) {
       <div className="pn__actions">
         <Menu label="Radar" icon="pulse" active={section === 'radar' || section === 'radares'} items={[['Novo radar', hrefFor('radar')], ['Meus radares', hrefFor('radares')]]}/>
         <Menu label="Planos" icon="history" active={section === 'planos' || section === 'novo-plano'} items={[['Todos os planos', urls.plans], ['Novo planejamento', newPlanUrl(urls)]]}/>
-        {percent !== null && urls.credits && <a className={`pn-tokens${percent >= 80 ? ' is-high' : ''}`} href={urls.credits} title="Tokens e consumo do mês" aria-label={`Tokens: ${PERCENT.format(percent)}% usados no mês`}>
-          <span>Tokens <b>{PERCENT.format(percent)}%</b></span><i aria-hidden="true"><u style={{width: `${percent}%`}}/></i>
+        {urls.credits && <a className={`pn-tokens${percent === null ? ' is-pending' : percent >= 80 ? ' is-high' : ''}`} href={urls.credits} title="Tokens e consumo do mês" aria-label={percent === null ? 'Tokens do mês' : `Tokens: ${PERCENT.format(percent)}% usados no mês`}>
+          <span>Tokens <b>{percent === null ? '\u00a0' : `${PERCENT.format(percent)}%`}</b></span><i aria-hidden="true"><u style={{width: `${percent ?? 0}%`}}/></i>
         </a>}
         <a className="pn-user" href={urls.profile} title={boot.user?.name || first} aria-label={`Abrir conta de ${boot.user?.name || first}`}>
           <VisualIdentity src={boot.user?.avatar || ''} initials={boot.user?.name || first} label={boot.user?.name || first} imageAlt="" className="pn-user__avatar"/>

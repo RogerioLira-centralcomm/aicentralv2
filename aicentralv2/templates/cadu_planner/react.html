@@ -44,7 +44,7 @@
   }
 }|tojson }}</script>
 {#- Public documents are served in a script-less sandbox, so their text is rendered here. -#}
-<div id="planner-root">{% if planner_view == 'public-doc' and document %}<div class="planner-shell is-public"><main class="planner-main"><article class="planner-public"><span class="planner-section-label">{{ document.type or 'Documento' }}</span><h1>{{ document.title or 'Documento' }}</h1><p class="planner-doc-preview">{{ (document.html or '')|striptags or 'Este documento não contém texto para exibição.' }}</p></article></main></div>{% endif %}</div>
+<div id="planner-root">{% if planner_view in ('public-plan', 'public-doc') %}{% else %}{% include 'cadu_planner/_nav_boot.html' %}{% endif %}{% if planner_view == 'public-doc' and document %}<div class="planner-shell is-public"><main class="planner-main"><article class="planner-public"><span class="planner-section-label">{{ document.type or 'Documento' }}</span><h1>{{ document.title or 'Documento' }}</h1><p class="planner-doc-preview">{{ (document.html or '')|striptags or 'Este documento não contém texto para exibição.' }}</p></article></main></div>{% endif %}</div>
 <script type="module" src="{{ url_for('static', filename='cadu_planner/react/app.js') }}?v={{ cadu_workspace_asset_version }}"></script>
 </body>
 </html>

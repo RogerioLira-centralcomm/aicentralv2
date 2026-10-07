@@ -11,13 +11,18 @@ const cleanPercent = value => {
 };
 
 /** Credit usage shared by every sidebar footer: server value first, then the live summary. */
+const CACHE_KEY = 'cadu-credit-usage';
+const readCachedUsage = () => {try {return window.localStorage.getItem(CACHE_KEY);} catch (_) {return null;}};
+const writeCachedUsage = value => {try {window.localStorage.setItem(CACHE_KEY, String(value));} catch (_) {/* the bar just loads again next time */}};
+
 export function useCreditUsage(initial, endpoint = SUMMARY_ENDPOINT) {
-  const [percent, setPercent] = useState(() => cleanPercent(initial));
+  // Without a server value, start from the last one seen on this browser so a page change does not blank the usage bar and shift its neighbours.
+  const [percent, setPercent] = useState(() => cleanPercent(initial) ?? cleanPercent(readCachedUsage()));
   useEffect(() => {
     let current = true;
     const refresh = () => fetch(endpoint, {credentials: 'same-origin', headers: {Accept: 'application/json'}})
       .then(response => response.ok ? response.json() : Promise.reject(new Error('Resumo indisponível')))
-      .then(value => { const next = cleanPercent(value.monthly_usage_percentage); if (current && next !== null) setPercent(next); })
+      .then(value => { const next = cleanPercent(value.monthly_usage_percentage); if (current && next !== null) {setPercent(next); writeCachedUsage(next);} })
       .catch(() => {});
     refresh();
     const timer = window.setInterval(refresh, 60000);

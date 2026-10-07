@@ -87,6 +87,34 @@ def _filters(query, category, scope, uf, ads_txt, programmatic):
     return ' AND '.join(where), params
 
 
+def attach_prints(portals, all_kinds=False):
+    """Approved real screenshots per portal (newest first). Missing table or no print is never an error."""
+    from ..cadu_family import repository
+    ids = [row['id'] for row in portals if row.get('id')]
+    for row in portals:
+        row['prints'] = []
+        row['print_url'] = ''
+    if not ids:
+        return portals
+    try:
+        found = repository.rows("""SELECT portal_id, kind, file_path, source_url, captured_at
+                                     FROM cadu_planner_portal_prints
+                                    WHERE portal_id = ANY(%s) AND status = 'aprovado'
+                                 ORDER BY captured_at DESC""", (ids,))
+    except Exception:
+        return portals
+    by_portal = {}
+    for item in found:
+        by_portal.setdefault(item['portal_id'], []).append({
+            'kind': item['kind'], 'url': '/static/' + str(item['file_path']).lstrip('/'),
+            'source_url': item['source_url'], 'captured_at': item['captured_at']})
+    for row in portals:
+        shots = by_portal.get(row['id'], [])
+        row['prints'] = shots if all_kinds else shots[:1]
+        row['print_url'] = next((shot['url'] for shot in shots if shot['kind'] == 'home'), '')
+    return portals
+
+
 def catalog(query='', category='', sort='featured', limit=50, offset=0,
             scope='', uf='', ads_txt='', programmatic=''):
     """Return a bounded, server-paged portal catalog; audience is source-backed only."""
@@ -103,6 +131,7 @@ def catalog(query='', category='', sort='featured', limit=50, offset=0,
                                 ORDER BY {order} LIMIT %s OFFSET %s''', tuple(params + [limit, offset]))
     for row in rows:
         row['public_attributes'] = row.get('public_attributes') or []
+    attach_prints(rows)
     return {'records': rows, 'total': total, 'limit': limit, 'offset': offset}
 
 
@@ -148,6 +177,7 @@ def detail(portal_id):
     if not rows:
         from werkzeug.exceptions import NotFound
         raise NotFound('Portal indisponível.')
+    attach_prints(rows, all_kinds=True)
     return rows[0]
 
 

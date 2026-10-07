@@ -187,3 +187,5 @@ migrations/run_sql_migration.py add_cadu_canais_fontes_metricas.sql
 migrations/run_sql_migration.py update_cadu_canais_alcance_fontes.sql
 # Perfil da audiência e melhor uso dos canais, com fonte (aditivo, idempotente; só preenche campo vazio).
 migrations/run_sql_migration.py update_cadu_canais_perfil_melhor_uso.sql
+# Prints reais dos portais (aditivo, idempotente; depende de add_cadu_planner_portals.sql).
+migrations/run_sql_migration.py add_cadu_planner_portal_prints.sql

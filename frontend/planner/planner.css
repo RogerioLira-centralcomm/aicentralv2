@@ -1755,3 +1755,9 @@ a.planner-portal.planner-portal--wide { grid-template-columns: 40px minmax(200px
 .pd-highlights h2 { margin: 0 0 4px; color: var(--colors-brand-800, #085d3a); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
 .pd-highlights p { margin: 0; color: var(--planner-ink, #101828); font-size: 14px; line-height: 22px; }
 .pd-highlights small { grid-column: 1 / -1; color: var(--planner-muted); font-size: 12px; }
+
+/* Portal rows with a real capture: a 16:9 thumbnail leads the row. */
+.portal-row.has-shot { grid-template-columns: 112px 44px minmax(180px, 2fr) minmax(140px, 1fr) minmax(150px, 1fr) 150px; }
+.portal-row__shot { display: block; aspect-ratio: 16 / 10; overflow: hidden; border: 1px solid var(--planner-line); border-radius: 8px; background: var(--planner-soft, #f2f4f7); }
+.portal-row__shot img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+@media (max-width: 760px) { .portal-row.has-shot { grid-template-columns: 96px 1fr; } .portal-row.has-shot .portal-row__shot { grid-row: span 2; } }

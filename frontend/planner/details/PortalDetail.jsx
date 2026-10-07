@@ -14,7 +14,13 @@ export function PortalDetail({boot, selection, plan = null}) {
     .filter(entry => entry && typeof entry === 'object' && entry.atributo !== 'status_curadoria');
   const pages = Number(portal.discovered_pages_count);
 
+  const shots = (portal.prints || []).filter(shot => shot?.url);
+
   const sections = [
+    {id: 'prints', label: 'Como o portal aparece', hidden: !shots.length,
+      hint: 'Capturas reais da página, sem edição. O que aparece como anúncio é o que o portal exibiu naquele momento.',
+      render: () => <Facts items={shots.map(shot => [shot.kind === 'home' ? 'Página inicial' : shot.kind,
+        <>capturada em {date(shot.captured_at)}{shot.source_url && <> · <a href={shot.source_url} target="_blank" rel="noreferrer">Fonte</a></>}</>])}/>},
     {id: 'evidencias', label: 'Evidências públicas', count: attributes.length, hint: 'Características verificadas em fontes públicas.',
       render: () => attributes.length ? <ul className="pd-evidence">{attributes.map((entry, index) => <li key={`${entry.atributo}-${index}`}>
         <span>{String(entry.atributo || 'Característica').replaceAll('_', ' ')}</span>
@@ -29,6 +35,7 @@ export function PortalDetail({boot, selection, plan = null}) {
 
   return <DetailLayout boot={boot} selection={selection} kind="portais" record={{...portal, logo_url: portal.favicon_url || (portal.domain ? `https://${portal.domain}/favicon.ico` : '')}} icon="library"
     eyebrow={portal.featured_rank ? 'Destaque' : portal.category}
+    media={shots.length ? {type: 'carousel', items: shots.map(shot => shot.url)} : null}
     metrics={[
       {icon: 'users', label: 'Audiência pública', value: portal.audience_estimate, hint: portal.audience_source_url
         ? <a href={portal.audience_source_url} target="_blank" rel="noreferrer">Ver fonte</a> : 'Sem fonte publicada'},

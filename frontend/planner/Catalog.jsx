@@ -129,8 +129,9 @@ function minutes(seconds) {
 function PortalRow({item, urls, selected, onToggle}) {
   const visits = Number(item.monthly_visits);
   const region = item.scope === 'nacional_premium' ? 'Premium nacional' : item.uf ? `Regional · ${item.uf}` : '';
-  return <div className={`portal-row${selected ? ' is-selected' : ''}`}>
+  return <div className={`portal-row${selected ? ' is-selected' : ''}${item.print_url ? ' has-shot' : ''}`}>
     <a className="planner-card__hit" href={catalogDetailUrl(urls, 'portais', item)} aria-label={`Ver portal ${item.site_title || item.name}`}/>
+    {item.print_url && <span className="portal-row__shot"><img src={item.print_url} alt="" loading="lazy" onError={event => { event.currentTarget.parentElement.hidden = true; }}/></span>}
     <LogoTile src={item.favicon_url || (item.domain ? `https://${item.domain}/favicon.ico` : '')} name={item.name} icon="browser" size="md"/>
     <span className="portal-row__main"><strong>{item.site_title || item.name}</strong><small>{item.domain}</small></span>
     <span className="portal-row__fact"><small>Categoria</small><b>{item.category || 'Não categorizado'}</b><small>{region}</small></span>

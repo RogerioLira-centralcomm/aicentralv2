@@ -35,8 +35,13 @@ def thumb_url(url: str, width: int) -> str:
     if width not in WIDTHS or not value.startswith(GALLERY_PREFIX):
         return value
     filename = value[len(GALLERY_PREFIX):]
-    if "/" not in filename and (STATIC_GALLERY / "_thumbs" / str(width) / f"{Path(filename).stem}.webp").is_file():
+    if "/" in filename:
+        return f"/media/places/{width}/{filename}"
+    folder = STATIC_GALLERY / "_thumbs" / str(width)
+    if (folder / f"{Path(filename).stem}.webp").is_file():
         return f"{GALLERY_PREFIX}_thumbs/{width}/{Path(filename).stem}.webp"
+    if (folder / f"{Path(filename).stem}.failed").is_file():
+        return value  # unreadable photo: the original, without a round trip through the route
     return f"/media/places/{width}/{filename}"
 
 
@@ -45,19 +50,30 @@ def make_thumb(source: Path, width: int) -> Path:
     target = source.parent / "_thumbs" / str(width) / f"{source.stem}.webp"
     if target.is_file() and target.stat().st_mtime >= source.stat().st_mtime:
         return target
+    # A photo that already failed is not decoded again on every visit (a 6,500 px JPEG costs seconds of CPU);
+    # replacing the file makes it newer than the marker and retries.
+    failed = target.with_suffix(".failed")
+    if failed.is_file() and failed.stat().st_mtime >= source.stat().st_mtime:
+        raise OSError(f"miniatura já falhou antes: {source.name}")
     from PIL import Image, ImageOps
 
     # Truncated photos raise here (never flip Pillow's global LOAD_TRUNCATED_IMAGES: uploads rely on it);
     # the route then serves the original instead.
     target.parent.mkdir(parents=True, exist_ok=True)
-    with Image.open(source) as image:
-        image = ImageOps.exif_transpose(image)
-        if image.mode not in ("RGB", "RGBA"):
-            image = image.convert("RGBA" if "transparency" in image.info else "RGB")
-        image.thumbnail((width, width * 2))
-        partial = target.with_suffix(f".{os.getpid()}.tmp")
-        image.save(partial, "WEBP", quality=QUALITY, method=4)
-        os.replace(partial, target)  # atomic: concurrent requests never read half a file
+    partial = target.with_suffix(f".{os.getpid()}.tmp")
+    try:
+        with Image.open(source) as image:
+            image = ImageOps.exif_transpose(image)
+            if image.mode not in ("RGB", "RGBA"):
+                image = image.convert("RGBA" if "transparency" in image.info else "RGB")
+            image.thumbnail((width, width * 2))
+            image.save(partial, "WEBP", quality=QUALITY, method=4)
+    except Exception:
+        partial.unlink(missing_ok=True)
+        failed.touch()
+        raise
+    os.replace(partial, target)  # atomic: concurrent requests never read half a file
+    failed.unlink(missing_ok=True)
     return target
 
 

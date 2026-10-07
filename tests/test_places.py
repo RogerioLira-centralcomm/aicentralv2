@@ -1474,3 +1474,23 @@ class PlacesThumbTest(unittest.TestCase):
                 self.assertEqual(thumbs.thumb_url("/static/images/places/gallery/b.jpg", 640), "/media/places/640/b.jpg")
         self.assertEqual(thumbs.thumb_url("https://cdn.example/x.jpg", 640), "https://cdn.example/x.jpg")
         self.assertEqual(thumbs.thumb_url("/static/images/places/gallery/a.jpg", 300), "/static/images/places/gallery/a.jpg")
+
+    def test_unreadable_photo_is_marked_once_and_served_as_the_original(self):
+        import tempfile
+        from pathlib import Path
+        from unittest import mock
+        from aicentralv2.places import thumbs
+        with tempfile.TemporaryDirectory() as root:
+            source = Path(root) / "broken-hero.jpg"
+            source.write_bytes(b"\xff\xd8not a jpeg")
+            with self.assertRaises(Exception):
+                thumbs.make_thumb(source, 640)
+            marker = Path(root) / "_thumbs" / "640" / "broken-hero.failed"
+            self.assertTrue(marker.is_file())
+            self.assertEqual(list(marker.parent.glob("*.tmp")), [])
+            with mock.patch("PIL.Image.open") as opened, self.assertRaises(OSError):
+                thumbs.make_thumb(source, 640)
+            opened.assert_not_called()
+            with mock.patch.object(thumbs, "STATIC_GALLERY", Path(root)):
+                self.assertEqual(thumbs.thumb_url("/static/images/places/gallery/broken-hero.jpg", 640),
+                                 "/static/images/places/gallery/broken-hero.jpg")

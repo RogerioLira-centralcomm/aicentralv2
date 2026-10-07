@@ -165,6 +165,10 @@ class _TimedCursor(psycopg.Cursor):
                 pass
 
 
+def mark_request_start():
+    g.request_started = time.perf_counter()
+
+
 def log_slow_request(response):
     """Registra no log, em WARNING, as requisições acima de DB_SLOW_REQUEST_MS (padrão 800 ms)."""
     try:
@@ -176,8 +180,8 @@ def log_slow_request(response):
             stats = g.get('db_stats') or {'n': 0, 'ms': 0.0, 'worst': (0.0, '')}
             connect = g.get('db_connect_ms', 0.0)
             current_app.logger.warning(
-                'LENTA %s %s%s: total %.0f ms, conexão %.0f ms, banco %.0f ms em %d consultas, pior %.0f ms [%s]',
-                request.method, request.host, request.path, total, connect, stats['ms'], stats['n'],
+                'LENTA %s %s%s: total %.0f ms, conexão %.0f ms (%d aberturas), banco %.0f ms em %d consultas, pior %.0f ms [%s]',
+                request.method, request.host, request.path, total, connect, g.get('db_connects', 0), stats['ms'], stats['n'],
                 stats['worst'][0], stats['worst'][1])
     except Exception:
         pass
@@ -199,6 +203,7 @@ def get_db():
             opened = time.perf_counter()
             g.db = psycopg.connect(**config, cursor_factory=_TimedCursor)
             g.db_connect_ms = g.get('db_connect_ms', 0.0) + (time.perf_counter() - opened) * 1000
+            g.db_connects = g.get('db_connects', 0) + 1
             g.db.autocommit = False
         except Exception as e:
             current_app.logger.error(f"FALHA Erro ao conectar ao banco: {e}")

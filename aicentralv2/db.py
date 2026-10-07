@@ -149,6 +149,10 @@ def get_db():
     Obtém conexão com o banco de dados
     Reutiliza conexão existente ou cria nova
     """
+    # ``with get_db() as conn`` (psycopg 3) commits and CLOSES the connection on
+    # exit; reopen it so the rest of the request does not hit a closed connection.
+    if 'db' in g and g.db.closed:
+        g.pop('db')
     if 'db' not in g:
         try:
             config = get_db_config()

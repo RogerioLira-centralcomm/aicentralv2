@@ -253,7 +253,7 @@ def update_briefing(client_id, actor_id, plan_id, payload, *, expected_updated_a
     with get_db() as conn, conn.cursor() as cur:
         cur.execute('''UPDATE cadu_planner_plans
                           SET briefing = %s, advertiser_name = %s, campaign_name = %s, updated_at = NOW()
-                        WHERE id = %s AND (%s IS NULL OR updated_at IS NOT DISTINCT FROM %s)
+                        WHERE id = %s AND (%s::timestamptz IS NULL OR updated_at IS NOT DISTINCT FROM %s::timestamptz)
                      RETURNING id''', (Json(briefing), _clean_label(payload.get('advertiser_name')),
                                        _clean_label(payload.get('campaign_name')), str(plan['id']),
                                        expected_updated_at, expected_updated_at))

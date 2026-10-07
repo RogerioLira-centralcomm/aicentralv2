@@ -45,6 +45,14 @@ export function SelectionButton({selected, onToggle, size = 'sm', quiet = false,
   </CaduButton>;
 }
 
+/** Quiet row action for long lists: just an icon, no border, revealed when the row is hovered or focused (always there on touch). */
+export function RowAddButton({selected, onToggle, name}) {
+  const label = selected ? `${name ? `${name}: ` : ''}no plano. Remover do plano` : `Adicionar ${name || 'item'} ao plano`;
+  return <button type="button" className={`row-add${selected ? ' is-selected' : ''}`} aria-pressed={selected} aria-label={label} title={selected ? 'No plano · remover' : 'Adicionar ao plano'} onClick={onToggle}>
+    <Icon name={selected ? 'check' : 'plus'} size={20}/>
+  </button>;
+}
+
 /**
  * Selected references for the current plan, or for the visitor's loose
  * selection when no plan is open. Keys are `kind:resource_id`.

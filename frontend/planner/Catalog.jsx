@@ -4,7 +4,7 @@ import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.js
 import {CaduSelectField} from '../cadu-design-system/components/CaduField.jsx';
 import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
-import {LogoTile, PlannerPanel, SelectionButton} from './PlannerUi.jsx';
+import {LogoTile, PlannerPanel, RowAddButton, SelectionButton} from './PlannerUi.jsx';
 import {MODULE_LABELS, moduleUrl} from './api.js';
 import {ActivePlanChip, PlannerHeader} from './PlannerHeader.jsx';
 import {ChannelCard, ChannelRow} from './ChannelCard.jsx';
@@ -136,7 +136,7 @@ function PortalRow({item, urls, selected, onToggle}) {
     <span className="portal-row__main"><strong>{item.site_title || item.name}</strong><small>{item.domain}</small></span>
     <span className="portal-row__fact"><small>Categoria</small><b>{item.category || 'Não categorizado'}</b><small>{region}</small></span>
     <span className="portal-row__fact"><small>Acessos / mês</small><b>{visits > 0 ? visits.toLocaleString('pt-BR', {notation: 'compact', maximumFractionDigits: 1}) : 'Sem fonte'}</b><small>{item.avg_time_seconds > 0 ? `Tempo médio ${minutes(item.avg_time_seconds)}` : 'Tempo médio: sem fonte'}</small></span>
-    <span className="portal-row__action"><SelectionButton size="md" quiet selected={selected} onToggle={onToggle}/></span>
+    <span className="portal-row__action"><RowAddButton name={item.site_title || item.name} selected={selected} onToggle={onToggle}/></span>
   </div>;
 }
 

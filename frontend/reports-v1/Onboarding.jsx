@@ -17,28 +17,28 @@ const writeSaved = value => {try {localStorage.setItem(SAVED, JSON.stringify(val
 
 /** Cada capítulo: o que a área faz, por que importa e (quando há) a ação que já deixa o ambiente pronto. */
 const CHAPTERS = [
-  {key: 'boas-vindas', label: 'Boas-vindas', art: 'onb-1-boas-vindas.webp', title: 'Bem-vindo ao Reports',
+  {key: 'boas-vindas', focus: 28, label: 'Boas-vindas', art: 'onb-1-boas-vindas.webp', title: 'Bem-vindo ao Reports',
     text: 'Aqui você vê o que o anúncio, o site e o resultado fazem juntos. Em 8 passos você conhece cada área e já deixa o ambiente pronto.',
     points: ['Leva cerca de 5 minutos.', 'Dá para pular e voltar quando quiser.', 'Nada é criado sem você confirmar.']},
-  {key: 'clientes', label: 'Clientes', art: 'onb-2-clientes.webp', title: 'Clientes e contas', action: 'client',
+  {key: 'clientes', focus: 35, label: 'Clientes', art: 'onb-2-clientes.webp', title: 'Clientes e contas', action: 'client',
     text: 'Cada cliente reúne marcas, contas de mídia, campanhas e sites. O seletor na barra lateral troca o cliente de toda a análise.',
     points: ['O logo vem da marca do Workspace, quando há.', 'A Visão geral, a Mídia e o Site mostram sempre um cliente.', 'Em Clientes e contas você organiza tudo em hierarquia.']},
-  {key: 'midia', label: 'Mídia', art: 'onb-3-midia.webp', title: 'Mídia', link: ['media', 'Abrir Mídia'],
+  {key: 'midia', focus: 38, label: 'Mídia', art: 'onb-3-midia.webp', title: 'Mídia', link: ['media', 'Abrir Mídia'],
     text: 'Investimento, cliques, custo por conversão e resultado por campanha, sempre contra o período anterior de mesma duração.',
     points: ['Compare períodos e plataformas.', 'Filtre por fonte de dados e por campanha.', 'Veja criativos e o que está em execução.']},
-  {key: 'jornada', label: 'Site & Jornada', art: 'onb-4-jornada.webp', title: 'Site & Jornada', action: 'site',
+  {key: 'jornada', focus: 22, label: 'Site & Jornada', art: 'onb-4-jornada.webp', title: 'Site & Jornada', action: 'site',
     text: 'O que as pessoas fazem depois do clique: páginas, canais, navegação, conversões e o caminho de cada visitante, medidos pela Super Tag.',
     points: ['A Super Tag mede visitas, formulários e conversões.', 'Fluxos ligam anúncio, página, formulário e conversão.', 'O heatmap mostra onde as pessoas clicam.']},
-  {key: 'relatorios', label: 'Relatórios', art: 'onb-5-relatorios.webp', title: 'Relatórios', link: ['reports', 'Abrir Relatórios'],
+  {key: 'relatorios', focus: 32, label: 'Relatórios', art: 'onb-5-relatorios.webp', title: 'Relatórios', link: ['reports', 'Abrir Relatórios'],
     text: 'Análises salvas e entregáveis prontos para distribuir ao cliente, com os números do período que você escolher.',
     points: ['Monte uma vez e reaproveite.', 'Compartilhe por link.', 'Agentes ajudam a revisar o que está fora do normal.']},
-  {key: 'alertas', label: 'Alertas', art: 'onb-6-alertas.webp', title: 'Alertas', link: ['alerts', 'Ver alertas'],
+  {key: 'alertas', focus: 40, label: 'Alertas', art: 'onb-6-alertas.webp', title: 'Alertas', link: ['alerts', 'Ver alertas'],
     text: 'O Reports vigia o site e as importações e avisa quando algo sai do trilho, com responsável e histórico.',
     points: ['Assuma, silencie ou resolva cada alerta.', 'Avisos por e-mail, se você ligar.', 'Alertas resolvidos ficam no histórico.']},
-  {key: 'fontes', label: 'Fontes de dados', art: 'onb-7-fontes.webp', title: 'Fontes de dados', action: 'google',
+  {key: 'fontes', focus: 42, label: 'Fontes de dados', art: 'onb-7-fontes.webp', title: 'Fontes de dados', action: 'google',
     text: 'De onde vêm os números: Google Ads por script, conversões do CRM por webhook, o site pela Super Tag e arquivos importados.',
     points: ['Cada fonte tem a própria chave e dá para revogar.', 'O estado mostra quando foi o último envio.', 'O Google Ads é só leitura, a menos que você ligue as Ações.']},
-  {key: 'pronto', label: 'Pronto', art: 'onb-8-pronto.webp', title: 'Seu ambiente', final: true,
+  {key: 'pronto', focus: 60, label: 'Pronto', art: 'onb-8-pronto.webp', title: 'Seu ambiente', final: true,
     text: 'Este é o estado do ambiente agora. O que ainda falta tem um atalho para resolver em poucos cliques.', points: []},
 ];
 
@@ -47,7 +47,7 @@ function Scene({chapter, index}) {
   const [broken, setBroken] = useState(false);
   useEffect(() => setBroken(false), [chapter.key]);
   if (broken) return <div className="ob-scene ob-scene--empty" aria-hidden="true"><span>{index + 1}</span></div>;
-  return <div className="ob-scene" aria-hidden="true"><img key={chapter.key} src={ART + chapter.art} alt="" onError={() => setBroken(true)}/></div>;
+  return <div className="ob-scene" aria-hidden="true"><img key={chapter.key} src={ART + chapter.art} alt="" style={{objectPosition: `${chapter.focus ?? 30}% 50%`}} onError={() => setBroken(true)}/></div>;
 }
 
 /** Tela "Conhecer o Reports": um capítulo por área, cada um com a ação que já prepara o ambiente. */

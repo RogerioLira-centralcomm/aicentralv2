@@ -39,6 +39,8 @@ const boot = {ready: true, features: {}, csrf: 't', reports: [], link_tests: [],
       if (pathname === '/ingest-keys') return route.fulfill({json: {keys: [], runs: []}});
       return route.fulfill({json: {}});
     });
+    // One scene is missing on purpose: its chapter keeps a brand block instead of a broken image.
+    await page.route('**/onb-3-midia.webp', route => route.fulfill({status: 404}));
     await page.goto(`http://127.0.0.1:${server.address().port}/connect/app/overview`);
     // A tela fica logo abaixo de Visão geral, na barra lateral.
     const links = await page.getByRole('navigation', {name: /Seções do Reports/}).getByRole('link').allTextContents();
@@ -46,7 +48,8 @@ const boot = {ready: true, features: {}, csrf: 't', reports: [], link_tests: [],
     await page.getByRole('link', {name: 'Conhecer o Reports'}).click();
     await page.waitForURL('**/connect/app/onboarding**');
     await page.getByRole('heading', {name: 'Bem-vindo ao Reports', level: 2}).waitFor();
-    assert.equal(await page.locator('.ob-scene--empty').count(), 1, 'sem a imagem, um bloco de marca ocupa o lugar');
+    await page.waitForFunction(() => document.querySelector('.ob-scene img')?.naturalWidth > 0);
+    assert.equal(await page.locator('.ob-scene--empty').count(), 0, 'com a imagem, não há bloco de marca');
     if (shots) await page.screenshot({path: path.join(shots, 'onboarding-1440.png')});
 
     // Capítulos: botão Começar, passos clicáveis e setas do teclado.
@@ -55,6 +58,7 @@ const boot = {ready: true, features: {}, csrf: 't', reports: [], link_tests: [],
     assert.ok(await page.getByText('Feito').first().isVisible(), 'o fixture já tem cliente e conta');
     await page.keyboard.press('ArrowRight');
     await page.getByRole('heading', {name: 'Mídia', level: 2}).waitFor();
+    await page.locator('.ob-scene--empty').waitFor();
     await page.keyboard.press('ArrowLeft');
     await page.getByRole('heading', {name: 'Clientes e contas', level: 2}).waitFor();
 
@@ -78,6 +82,7 @@ const boot = {ready: true, features: {}, csrf: 't', reports: [], link_tests: [],
     assert.ok(await page.getByText('3 de 5 etapas prontas').isVisible());
     assert.equal(await page.getByRole('button', {name: 'Resolver'}).count(), 2, 'fonte do Google Ads e site ainda faltam');
     if (shots) {
+      await page.waitForTimeout(600);
       await page.screenshot({path: path.join(shots, 'onboarding-final-1440.png')});
       for (const [name, width, height] of [['tablet', 820, 1100], ['phone', 390, 844]]) {
         await page.setViewportSize({width, height}); await page.waitForTimeout(150);

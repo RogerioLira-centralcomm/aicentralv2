@@ -10,7 +10,8 @@
 .ob-steps button.is-seen b{background:var(--color-bg-success-secondary,#dcfae6);color:var(--color-text-success-primary,#067647)}
 .ob-card{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);overflow:hidden;border-radius:16px;background:var(--color-bg-primary);box-shadow:0 1px 2px rgba(16,24,40,.05),0 0 0 1px var(--color-border-secondary)}
 .ob-scene{position:relative;min-height:420px;background:var(--color-bg-brand-primary,#eff4ff)}
-.ob-scene img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;animation:ob-in .35s ease}
+.ob-scene img{position:absolute;top:0;left:0;width:100%;height:clamp(420px,62vh,560px);object-fit:cover;animation:ob-in .35s ease;-webkit-mask-image:linear-gradient(to bottom,#000 86%,transparent);mask-image:linear-gradient(to bottom,#000 86%,transparent)}
+/* The scenes keep the right third empty for text laid out beside them; here the text is in the next column, so crop to the busy part. */
 .ob-scene--empty{display:flex;align-items:center;justify-content:center}
 .ob-scene--empty span{font-size:96px;font-weight:700;color:var(--color-bg-brand-solid,#175cd3);opacity:.18}
 .ob-body{display:flex;flex-direction:column;gap:16px;padding:32px clamp(20px,3.5vw,48px)}
@@ -39,6 +40,7 @@
 @media (max-width:1023px){
   .ob-card{grid-template-columns:minmax(0,1fr)}
   .ob-scene{min-height:0;aspect-ratio:16/9}
+  .ob-scene img{height:100%;-webkit-mask-image:none;mask-image:none}
   .ob-body{padding:24px 20px}
 }
 @media (max-width:639px){

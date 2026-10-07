@@ -315,11 +315,38 @@ function App() {
           {data && !isFlowEditor && <PageHeader {...header} activeTab={route.path} actions={pageSection === 'onboarding' ? <OnboardingHeaderActions/> : pageSection === 'reports' && data.client.role !== 'viewer' ? <NewReportButton/> : pageSection === 'accounts' && data.can_manage_clients ? <NewClientButton/> : undefined}
             context={<ContextSelector accounts={route.scope === true || route.scope === 'account' ? scopeAccounts : undefined} campaigns={route.scope === true ? scopeCampaigns : undefined} sites={route.scope === 'site' ? sites : undefined} siteRequired={Boolean(route.siteRequired)} showPeriod={Boolean(route.period) && !(pageSection === 'pages' && new URLSearchParams(location.search).get('site_id'))}/>}/>}
           {showFilterBar && <ReportsFilterBar data={data} filters={filters} onChange={updateFilters} onRefresh={onRefresh} />}
-          <div className="reports-content">{error && <div className="reports-error" role="alert">{error}</div>}<React.Fragment key={`${clientKey}:${route.path}`}>{page}</React.Fragment></div>
+          <div className="reports-content">{error && <div className="reports-error" role="alert">{error}</div>}<PageErrorBoundary key={`${clientKey}:${route.path}`}>{page}</PageErrorBoundary></div>
       </>
     </main>
     {siteWizard && <NewSiteWizard data={data} onClose={() => setSiteWizard(false)}/>}
   </div></ReportsContext.Provider>;
+}
+
+/** Um erro numa tela fica nela: a barra lateral, o cabeçalho e as outras páginas continuam funcionando. */
+class PageErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {failed: false};
+  }
+
+  static getDerivedStateFromError() {
+    return {failed: true};
+  }
+
+  componentDidCatch(error) {
+    console.error('Reports page render failed:', error);
+  }
+
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return <div className="untitled-scope" role="alert">
+      <div className="rounded-xl bg-primary px-6 py-10 text-center shadow-xs ring-1 ring-secondary">
+        <p className="text-md font-semibold text-primary">Não foi possível exibir esta tela</p>
+        <p className="mx-auto mt-1 max-w-md text-sm text-tertiary">O restante do Reports continua disponível. Tente de novo ou escolha outra área no menu.</p>
+        <div className="mt-4"><UntitledButton size="md" color="secondary" onPress={() => this.setState({failed: false})}>Tentar de novo</UntitledButton></div>
+      </div>
+    </div>;
+  }
 }
 
 class ReportsErrorBoundary extends React.Component {

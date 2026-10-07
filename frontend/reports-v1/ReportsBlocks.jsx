@@ -13,7 +13,7 @@ export function Card({title, badge, description, actions, children, flush = fals
         <div className="flex items-center gap-2"><h2 className="text-lg font-semibold text-primary">{title}</h2>{badge}</div>
         {description && <p className="mt-0.5 text-sm text-tertiary">{description}</p>}
       </div>
-      {actions && <div className="flex shrink-0 flex-wrap gap-3">{actions}</div>}
+      {actions && <div className="flex max-w-full shrink-0 flex-wrap gap-3">{actions}</div>}
     </header>}
     {children != null && children !== false && <div className={flush ? '' : 'px-6 py-5'}>{children}</div>}
   </section>;

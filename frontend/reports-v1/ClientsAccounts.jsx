@@ -117,7 +117,7 @@ export function ClientsAccounts({data, save, busy, reload}) {
             <div className="flex items-center gap-2"><h2 className="text-lg font-semibold text-primary">Contas e campanhas</h2><Badge type="pill-color" size="sm" color="brand">{plural(campaigns.length, 'campanha', 'campanhas')}</Badge></div>
             <p className="mt-0.5 text-sm text-tertiary">{workspace ? 'Cada campanha pode alimentar um projeto do Workspace.' : 'Organizadas por gerente e conta de mídia.'}</p>
           </div>
-          {canEdit && <div className="flex shrink-0 gap-3">
+          {canEdit && <div className="flex max-w-full shrink-0 flex-wrap gap-3">
             <Button size="md" color="secondary" iconLeading={Plus} onPress={() => setDrawer({kind: 'account'})}>Conta de mídia</Button>
             <Button size="md" color="primary" iconLeading={Plus} onPress={() => setDrawer({kind: 'campaign'})}>Campanha</Button>
           </div>}

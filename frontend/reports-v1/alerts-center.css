@@ -166,3 +166,5 @@
 .al-settings__foot{display:flex;justify-content:flex-end;gap:8px}
 @media (max-width:640px){.al-rule{grid-template-columns:1fr}.al-toolbar--more>.reports-ui-select{flex:1 1 100%;width:100%}}
 .al-rule__controls label{display:inline-flex;align-items:center;gap:8px;width:fit-content}
+/* Duas colunas no celular: um indicador sobrando ocupa a linha inteira, sem célula vazia ao lado. */
+@media (max-width:640px){.al-kpis>.al-kpi:last-child:nth-child(odd){grid-column:1/-1}}

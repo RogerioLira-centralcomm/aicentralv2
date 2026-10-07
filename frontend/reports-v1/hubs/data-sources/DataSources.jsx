@@ -72,13 +72,14 @@ export function DataSources({data}) {
     <Section title="Site" description={`Domínios com a Super Tag${scopeLabel ? ` · ${scopeLabel}` : ''}`} action={<ReportsActionButton color="secondary" size="sm" href={reportUrl('supertag')}>Abrir Super Tag</ReportsActionButton>}>
       <Async state={sites} onRetry={retrySites}>
         {body => <DataTable label="Sites" rows={body.sites.filter(live).filter(site => inScope(site.customer_id))} rowKey={row => row.id}
-          empty={<EmptyState title={scopeLabel ? `Nenhum site de ${scopeLabel}` : 'Nenhum site conectado'} description={scopeLabel ? 'Ligue um site a este cliente na coluna Cliente, escolhendo outro filtro, ou instale a Super Tag.' : 'Instale a Super Tag para medir visitas, eventos e conversões do site.'}/>} columns={[
+          empty={<EmptyState title={scopeLabel ? `Nenhum site de ${scopeLabel}` : 'Nenhum site conectado'} description={scopeLabel ? 'Ligue um site a este cliente na coluna Cliente (em Todos os clientes) ou instale a Super Tag.' : 'Instale a Super Tag para medir visitas, eventos e conversões do site.'}/>} columns={[
             {key: 'allowed_host', label: 'Domínio', render: row => <a href={reportUrl('supertag', {}, row.id)}>{row.allowed_host}</a>},
             {key: 'customer', label: 'Cliente', sort: row => nameOf(row.customer_id) || '', render: row => canEdit
-              ? <ReportsNativeSelect size="sm" value={row.customer_id || ''} disabled={working === row.id} aria-label={`Cliente de ${row.allowed_host}`} onChange={event => relink(row, event.target.value)}>
-                <option value="">Sem cliente</option>
+              // Todo site pertence a um cliente: dá para trocar ou atribuir, não para deixar sem.
+              ? <div className="min-w-44"><ReportsNativeSelect size="sm" value={row.customer_id || ''} disabled={working === row.id} aria-label={`Cliente de ${row.allowed_host}`} onChange={event => event.target.value && relink(row, event.target.value)}>
+                {!row.customer_id && <option value="">Atribuir a um cliente</option>}
                 {customers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-              </ReportsNativeSelect>
+              </ReportsNativeSelect></div>
               : nameOf(row.customer_id) || <span className="rs-muted">Sem cliente</span>},
             {key: 'events_30d', label: 'Eventos (30 dias)', numeric: true, render: row => number(row.events_30d)},
             {key: 'last_event_at', label: 'Último evento', render: row => row.last_event_at ? friendlyAgo(row.last_event_at) : '—'},

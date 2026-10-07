@@ -146,3 +146,11 @@
 .reports-main .cadu-table :is(.reports-cell-stack, .reports-campaign-link) > small { color: var(--color-text-tertiary); font-size: 12px; font-weight: 400; line-height: 18px; }
 .reports-main .cadu-table .reports-campaign-link:hover > strong { color: var(--color-text-brand-secondary); text-decoration: underline; }
 .reports-main .reports-panel-head h2 small { margin-left: 8px; color: var(--color-text-tertiary); font-size: 14px; font-weight: 500; }
+
+/* Celular: o cabeçalho do card quebra em duas linhas em vez de espremer o título, e as tabelas mantêm uma largura
+   legível e rolam dentro do card em vez de quebrar cada palavra numa linha. */
+@media (max-width: 639px) {
+  .reports-main .reports-content .reports-panel-head { flex-wrap: wrap; }
+  .reports-main .reports-content .reports-panel-head > :first-child { flex: 1 1 100%; min-width: 0; }
+  .reports-main :is(.reports-table-wrap, .rs-table-wrap) > table { min-width: 560px; }
+}

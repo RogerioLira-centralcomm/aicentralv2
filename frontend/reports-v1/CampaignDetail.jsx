@@ -100,7 +100,7 @@ export function CampaignDetail({data, detail, error, tab, setTab, close, filters
           <p className="mt-1 text-xs text-quaternary">Criada em {shortDate(campaign.created_at)} · atualizada em {shortDate(campaign.updated_at)} · período {period}</p>
         </div>
       </div>
-      <div className="flex shrink-0 gap-3">
+      <div className="flex max-w-full shrink-0 flex-wrap gap-3">
         <Button size="md" color="secondary" href={reportUrl('media/creatives', {campaign: campaign.id})}>Criar criativo</Button>
         <Button size="md" color="secondary" href={reportUrl('imports')}>Importar dados</Button>
       </div>

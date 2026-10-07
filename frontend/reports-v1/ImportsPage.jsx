@@ -196,7 +196,7 @@ function FileDetail({detail, data, canEdit, busy, run, setBusy, setError, onBack
           <div className="flex flex-wrap items-center gap-2"><h2 className="truncate text-xl font-semibold text-primary">{file.original_name}</h2><Status map={FILE_STATUS} value={file.status}/></div>
           <p className="mt-0.5 text-sm text-tertiary">{image ? 'Print' : (file.file_kind || 'Arquivo').toUpperCase()}{file.platform_hint ? ` · ${file.platform_hint}` : ''}{image ? '' : ` · ${number(file.row_count)} ${file.row_count === 1 ? 'linha' : 'linhas'}`}</p>
         </div>
-        {canEdit && <div className="flex shrink-0 gap-3">
+        {canEdit && <div className="flex max-w-full shrink-0 flex-wrap gap-3">
           {!image && pending && <Button size="md" color="secondary" onPress={() => setMapping(true)}>Mapear colunas</Button>}
           {image && !detail.visual && <Button size="md" color="primary" iconLeading={Stars02} isDisabled={busy} isLoading={busy} onPress={onExtract}>Ler print com IA</Button>}
         </div>}

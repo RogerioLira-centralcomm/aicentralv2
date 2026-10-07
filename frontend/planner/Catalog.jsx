@@ -276,12 +276,23 @@ export function CatalogPage({boot, request, selection, notify}) {
   const searchField = <label className="aud-bar__field aud-bar__field--search"><Icon name="search" size={16}/>
     <span className="aud-bar__text"><small>Buscar</small>
       <input type="search" aria-label="Pesquisar referências" value={query} placeholder={portalMode ? 'Portal, domínio ou categoria' : 'Nome, descrição ou categoria'} onChange={event => { setQuery(event.target.value); setOffset(0); }}/></span></label>;
+  const categoryMenu = useRef(null);
+  // The category menu closes on an outside click or Escape, like the other selects of the bar.
+  useEffect(() => {
+    const node = categoryMenu.current;
+    if (!node) return undefined;
+    const outside = event => { if (node.open && !node.contains(event.target)) node.open = false; };
+    const escape = event => { if (event.key === 'Escape') node.open = false; };
+    document.addEventListener('pointerdown', outside);
+    document.addEventListener('keydown', escape);
+    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape); };
+  }, [portalMode, (boot.categories || []).length]);
   const portalFields = portalMode && <>
     <div className="aud-bar__field"><PlannerSelect label="Escopo" value={filters.scope} onChange={value => setFilter('scope', value)}
       options={SCOPES.map(([value, label]) => ({value, label}))}/></div>
     {filters.scope !== 'nacional_premium' && (boot.ufs || []).length > 0 && <div className="aud-bar__field"><PlannerSelect label="Estado" value={filters.uf} onChange={value => setFilter('uf', value)}
       options={[{value: '', label: 'Todos'}, ...boot.ufs.map(value => ({value, label: value}))]}/></div>}
-    {(boot.categories || []).length > 0 && <div className="aud-bar__field aud-bar__field--multi"><details className="planner-multi">
+    {(boot.categories || []).length > 0 && <div className="aud-bar__field aud-bar__field--multi"><details className="planner-multi" ref={categoryMenu}>
       <summary><span>Categorias:</span> <b>{categories.length ? `${categories.length} selecionadas` : 'Todas'}</b></summary>
       <div className="planner-multi__menu">
         {boot.categories.map(value => <label key={value}><input type="checkbox" checked={categories.includes(value)} onChange={() => toggleCategory(value)}/> {value}</label>)}

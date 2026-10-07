@@ -115,7 +115,7 @@ def ensure_seed() -> int:
     return created
 
 
-def _share(row: dict) -> dict:
+def _share(row: dict, qr: bool = True) -> dict:
     slug = text(row.get("slug"))
     token = text(row.get("preview_token"))
     status = row.get("status")
@@ -124,7 +124,7 @@ def _share(row: dict) -> dict:
         "public_url": public_url(slug) if status == "published" else "",
         "preview_url": preview_url(token),
         "share_url": url,
-        "qr_svg": qr_svg(url) if url else "",
+        "qr_svg": qr_svg(url) if url and qr else "",
     }
 
 
@@ -250,9 +250,9 @@ def _keep_previous(previous: dict, payload: dict) -> dict:
     return payload
 
 
-def serialize(row: dict) -> dict:
+def serialize(row: dict, qr: bool = True) -> dict:
     view = _attach_bundled_gallery(public_view(row))
-    view.update(_share(row))
+    view.update(_share(row, qr))
     view["source_labels"] = SOURCE_LABELS
     view["fiche"] = fiche_output(view)
     view["images"] = image_pack(view)
@@ -863,10 +863,11 @@ def _seed_public(slug: str = "") -> list[dict]:
     return rows
 
 
-def public_catalog() -> list[dict]:
+def public_catalog(qr: bool = True) -> list[dict]:
+    """Published places, serialized. ``qr=False`` skips the share QR code (a list never shows it)."""
     try:
         ensure_seed_once()
-        return [serialize(item) for item in list_published()]
+        return [serialize(item, qr) for item in list_published()]
     except Exception:
         return _seed_public()
 

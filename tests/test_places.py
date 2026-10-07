@@ -370,9 +370,17 @@ class PlacesCatalogTest(unittest.TestCase):
         gallery = place["media"]["gallery"]
         self.assertGreaterEqual(len(gallery), 10)
         self.assertTrue(all(item["url"].startswith("/static/images/places/gallery/") for item in gallery))
-        planner = planner_place_serialize(place)
-        self.assertEqual(planner["gallery"], gallery)
-        self.assertEqual(planner["image_url"], gallery[0]["url"])
+        # The shelf card carries only a 640 px copy; the fiche gets every photo as a 1,600 px copy.
+        # (No copy made yet: URLs point to the route that makes them.)
+        from pathlib import Path
+        from unittest import mock
+        with mock.patch("aicentralv2.places.thumbs.STATIC_GALLERY", Path("/nonexistent")):
+            card = planner_place_serialize(place)
+            fiche = planner_place_serialize(place, full=True)
+        self.assertNotIn("gallery", card)
+        self.assertEqual(card["image_url"], gallery[0]["url"].replace("/static/images/places/gallery/", "/media/places/640/"))
+        self.assertEqual([item["url"] for item in fiche["gallery"]],
+                         [item["url"].replace("/static/images/places/gallery/", "/media/places/1600/") for item in gallery])
 
     def test_normalize_keeps_polygon(self):
         payload = normalize_payload(CONFINS["payload"])
@@ -1449,3 +1457,20 @@ class PlacesPublicRoutesTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PlacesThumbTest(unittest.TestCase):
+    def test_existing_copy_is_a_static_url_and_other_urls_pass_through(self):
+        import tempfile
+        from pathlib import Path
+        from unittest import mock
+        from aicentralv2.places import thumbs
+        with tempfile.TemporaryDirectory() as root:
+            (Path(root) / "_thumbs" / "640").mkdir(parents=True)
+            (Path(root) / "_thumbs" / "640" / "a-hero.webp").write_bytes(b"x")
+            with mock.patch.object(thumbs, "STATIC_GALLERY", Path(root)):
+                self.assertEqual(thumbs.thumb_url("/static/images/places/gallery/a-hero.jpg", 640),
+                                 "/static/images/places/gallery/_thumbs/640/a-hero.webp")
+                self.assertEqual(thumbs.thumb_url("/static/images/places/gallery/b.jpg", 640), "/media/places/640/b.jpg")
+        self.assertEqual(thumbs.thumb_url("https://cdn.example/x.jpg", 640), "https://cdn.example/x.jpg")
+        self.assertEqual(thumbs.thumb_url("/static/images/places/gallery/a.jpg", 300), "/static/images/places/gallery/a.jpg")

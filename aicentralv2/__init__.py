@@ -433,7 +433,9 @@ def create_app(config_class=Config):
         app.register_blueprint(smart_planner_bp)
 
         from .places.routes import bp as places_bp
+        from .places.thumbs import bp as places_thumbs_bp
         app.register_blueprint(places_bp)
+        app.register_blueprint(places_thumbs_bp)
 
         from .cadu_skills import bp as cadu_skills_bp
         app.register_blueprint(cadu_skills_bp)

@@ -97,3 +97,6 @@ aicentralv2/static/cadu_connect/react/assets/
 # Studio browser test fixtures and screenshots (regenerated on every run)
 tests/frontend/.fixtures/
 tests/frontend/.artifacts/
+
+# Resized copies of the Places gallery, made on demand by places/thumbs.py
+aicentralv2/static/images/places/gallery/_thumbs/

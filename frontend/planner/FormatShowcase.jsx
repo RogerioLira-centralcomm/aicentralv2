@@ -5,6 +5,7 @@ import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {FacetChips} from './AudienceShowcase.jsx';
 import {itemKey, useDebounced} from './Catalog.jsx';
 import {FormatCard} from './FormatCard.jsx';
+import {InteractiveSpotlight} from './InteractiveSpotlight.jsx';
 import {ShelfEmpty} from './PlannerPromo.jsx';
 import {ShelfHeader} from './ShelfHeader.jsx';
 import {PlannerSelect} from './PlannerSelect.jsx';
@@ -79,6 +80,7 @@ export function FormatShowcase({boot, selection}) {
       </div>}
     </section>
 
+    {kind === 'interativos' && !active && <InteractiveSpotlight records={all} urls={boot.urls} selection={selection}/>}
     {!groups.length ? <ShelfEmpty title="Nenhum formato com estes filtros" description="Tire um filtro ou busque por outro termo."
       action={<CaduButton variant="secondary" onClick={clear}>Ver todos os formatos</CaduButton>}/>
       : groups.map(group => <section key={group.family} className="fmt-group" aria-labelledby={`fmt-${group.items[0].family_order}`}>

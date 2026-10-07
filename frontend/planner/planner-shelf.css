@@ -32,3 +32,70 @@
 .shelf-head__tools .aud-view button svg { width: 14px; height: 14px; }
 /* Cards in a row keep a calm height: long descriptions stop at three lines. */
 .channel-card__body .planner-card__text { -webkit-line-clamp: 3; }
+
+/* ---- Shelf toolbar (Untitled UI): title on its own line, then one row of 40px controls. ----
+   Every field is a bordered button with an inline "Label: value"; Grade/Lista is a button group at the right edge. */
+.shelf-head { flex-wrap: wrap; align-items: center; gap: 12px; margin: 24px 0 20px; }
+.shelf-head__title { flex: 1 1 100%; max-width: none; display: flex; align-items: baseline; gap: 10px; }
+.shelf-head__title p { color: var(--planner-muted, #667085); font-size: 14px; }
+.shelf-head__bar { flex: 1 1 auto; order: 0; }
+.shelf-head__tools { margin-left: auto; }
+.shelf-head .aud-bar { flex-wrap: wrap; gap: 8px; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.shelf-head .aud-bar:focus-within { box-shadow: none; }
+.shelf-head .aud-bar__field, .shelf-head .aud-bar__field:has(.planner-select) { flex: 0 0 auto; height: 40px; padding: 0; border: 1px solid var(--planner-line, #d0d5dd); border-radius: 8px; background: #fff; box-shadow: 0 1px 2px rgba(16, 24, 40, .05); }
+.shelf-head .aud-bar__field + .aud-bar__field { border-left: 1px solid var(--planner-line, #d0d5dd); }
+.shelf-head .aud-bar__field:focus-within { border-color: var(--colors-brand-500, #17b26a); box-shadow: 0 0 0 4px rgba(23, 178, 106, .14); }
+.shelf-head .aud-bar__field--search { flex: 0 1 320px; min-width: 200px; padding: 0 12px; gap: 8px; }
+.shelf-head .aud-bar__field--search .aud-bar__text small { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.shelf-head .aud-bar__text input { font-size: 14px; font-weight: 400; }
+.shelf-head .planner-select__trigger { height: 38px; padding: 0 12px; gap: 6px; border-radius: 8px; }
+.shelf-head .planner-select__text { display: inline-flex; align-items: center; gap: 4px; }
+.shelf-head .planner-select__text small { color: var(--planner-muted, #667085); font-size: 14px; font-weight: 500; }
+.shelf-head .planner-select__text small::after { content: ':'; }
+.shelf-head .planner-select__value b { color: var(--planner-ink, #101828); font-size: 14px; font-weight: 600; max-width: 180px; }
+.shelf-head .planner-select__trigger > svg { transform: rotate(90deg); }
+.shelf-head .planner-select__trigger[aria-expanded="true"] > svg { transform: rotate(-90deg); }
+.shelf-head .planner-select__list { top: calc(100% + 4px); }
+/* Grade/Lista: Untitled button group, same 40px height as the fields. */
+.shelf-head__tools .aud-view { gap: 0; padding: 0; overflow: hidden; border: 1px solid var(--planner-line, #d0d5dd); border-radius: 8px; background: #fff; box-shadow: 0 1px 2px rgba(16, 24, 40, .05); }
+.shelf-head__tools .aud-view button { height: 38px; padding: 0 14px; border-radius: 0; color: var(--color-text-secondary, #344054); font-size: 14px; }
+.shelf-head__tools .aud-view button + button { border-left: 1px solid var(--planner-line, #d0d5dd); }
+.shelf-head__tools .aud-view button svg { width: 16px; height: 16px; }
+.shelf-head__tools .aud-view button.is-active { background: var(--planner-soft, #f2f4f7); color: var(--planner-ink, #101828); box-shadow: none; }
+@media (max-width: 760px) {
+  .shelf-head .aud-bar__field--search { flex: 1 1 100%; }
+  .shelf-head__tools { margin-left: 0; }
+}
+
+/* Interativos: spotlight with the real covers cycling like a GIF and the gesture the person makes. */
+.ix-spot { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 420px); gap: 40px; align-items: center; margin: 4px 0 32px; padding: 32px 40px;
+  border: 1px solid var(--planner-line, #e4e7ec); border-radius: 16px; background: linear-gradient(135deg, #ecfdf3 0%, #fff 55%); }
+.ix-spot__eyebrow { color: #067647; font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.ix-spot h2 { margin: 8px 0 10px; font-size: 28px; font-weight: 700; letter-spacing: -.015em; line-height: 1.2; }
+.ix-spot__copy > p { max-width: 560px; margin: 0; color: var(--color-text-secondary, #475467); font-size: 16px; line-height: 1.5; }
+.ix-spot__now { display: grid; gap: 4px; max-width: 560px; margin: 20px 0; padding: 14px 16px; border-left: 3px solid var(--colors-brand-500, #17b26a); background: #fff; border-radius: 0 10px 10px 0; }
+.ix-spot__now strong { font-size: 16px; }
+.ix-spot__now em { justify-self: start; padding: 1px 8px; border-radius: 99px; background: #ecfdf3; color: #067647; font-size: 12px; font-style: normal; font-weight: 600; }
+.ix-spot__now span { display: -webkit-box; overflow: hidden; color: var(--planner-muted, #667085); font-size: 14px; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.ix-spot__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ix-spot__stage { display: grid; gap: 12px; justify-items: center; }
+.ix-spot__phone { position: relative; width: 100%; max-width: 420px; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 16px; background: #101828; box-shadow: 0 20px 40px -12px rgba(16, 24, 40, .28); }
+.ix-spot__phone img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transform: scale(1.04); transition: opacity .7s ease; }
+.ix-spot__phone img.is-current { opacity: 1; animation: ix-zoom 3.8s ease-out both; }
+.ix-spot__hand { position: absolute; left: 50%; top: 58%; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .35)); pointer-events: none; }
+.ix-spot__hand::before { content: ''; position: absolute; left: 6px; top: -2px; width: 16px; height: 16px; border-radius: 50%; background: rgba(255, 255, 255, .7); transform: scale(0); }
+.ix-spot__hand--tap { animation: ix-tap 1.9s ease-in-out infinite; }
+.ix-spot__hand--tap::before { animation: ix-ripple 1.9s ease-out infinite; }
+.ix-spot__hand--drag { animation: ix-drag 2.4s ease-in-out infinite; }
+.ix-spot__thumbs { display: flex; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.ix-spot__thumbs button { display: block; width: 52px; height: 40px; padding: 0; overflow: hidden; border: 2px solid transparent; border-radius: 8px; background: #f2f4f7; cursor: pointer; opacity: .65; }
+.ix-spot__thumbs button.is-current { border-color: var(--colors-brand-500, #17b26a); opacity: 1; }
+.ix-spot__thumbs img { width: 100%; height: 100%; object-fit: cover; }
+@keyframes ix-zoom { from { transform: scale(1.04); } to { transform: scale(1.12); } }
+@keyframes ix-tap { 0%, 100% { transform: translate(-50%, 0) scale(1); } 45% { transform: translate(-50%, 6px) scale(.9); } }
+@keyframes ix-ripple { 0%, 40% { transform: scale(0); opacity: .9; } 80%, 100% { transform: scale(2.6); opacity: 0; } }
+@keyframes ix-drag { 0% { transform: translate(-140%, 0); opacity: 0; } 15% { opacity: 1; } 70% { transform: translate(60%, -6px); opacity: 1; } 100% { transform: translate(60%, -6px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ix-spot__phone img.is-current, .ix-spot__hand { animation: none; } .ix-spot__hand::before { display: none; } }
+@media (max-width: 980px) { .ix-spot { grid-template-columns: minmax(0, 1fr); padding: 24px; gap: 24px; } }
+/* `.aud-more` is also the "carregar mais" footer class (planner.css); inside the toolbar it is only a dropdown. */
+.shelf-head .aud-more { display: block; margin: 0; color: inherit; font-size: inherit; }

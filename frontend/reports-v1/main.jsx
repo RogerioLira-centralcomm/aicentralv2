@@ -137,6 +137,8 @@ function App() {
   const [scope, setScopeState] = useState(readScope);
   // Everything the header offers (sources, campaigns, sites) belongs to the client chosen in the sidebar.
   const customer = customerParam();
+  // A flow opened by its own address (editor) belongs to its own client: the sidebar choice must not hide it.
+  const openFlowEntity = route.page === 'flow' && Boolean(route.entity);
   const ofCustomer = item => !customer || String(item.customer_id || '') === customer;
   const customerAccountIds = new Set((data?.accounts || []).filter(ofCustomer).map(item => String(item.id)));
   const setScope = next => {setScopeState(next); if (data?.client?.client_id) saveScope(scopeMemoryKey(data.client.client_id), next);};
@@ -196,7 +198,7 @@ function App() {
   // Single-client screens never show "all": open on the saved client, else the first one.
   useEffect(() => {
     const list = (data?.customers || []).filter(item => item.status !== 'archived');
-    if (!data?.ready || !route.needsCustomer || !list.length) return;
+    if (!data?.ready || !route.needsCustomer || openFlowEntity || !list.length) return;
     if (list.some(item => String(item.id) === readCustomer())) return;
     const saved = readSavedCustomer();
     writeCustomer(String((list.find(item => String(item.id) === saved) || list[0]).id));
@@ -275,7 +277,7 @@ function App() {
     || pageSection === 'events' || (pageSection === 'flow' && new URLSearchParams(location.search).get('flow_view') === 'monitor'));
   const clientKey = data?.client?.client_id;
   // Site & Jornada always shows one site of the chosen client: a client with none gets a way to add it, not another client's data.
-  const customerHasNoSite = Boolean(data?.ready) && route.needsCustomer && route.scope === 'site' && Boolean(customer) && Boolean(siteList.body) && !siteList.loading && sites.length === 0;
+  const customerHasNoSite = Boolean(data?.ready) && route.needsCustomer && !openFlowEntity && route.scope === 'site' && Boolean(customer) && Boolean(siteList.body) && !siteList.loading && sites.length === 0;
   const page = !data ? <LoadingState rows={4} label="Carregando Reports…"/>
     : !data.ready ? <Empty message="A base de Reports V1 ainda precisa da migração de dados." />
     : customerHasNoSite ? <section className="untitled-scope rs-nosite"><h2>Este cliente ainda não tem um site conectado</h2><p>Site & Jornada mostra o que as pessoas fazem no site do cliente escolhido. Conecte o site e instale a Super Tag para começar.</p>{data.client.role !== 'viewer' && <UntitledButton size="md" color="primary" onPress={() => setSiteWizard(true)}>Adicionar site, fluxo e Super Tag</UntitledButton>}</section>

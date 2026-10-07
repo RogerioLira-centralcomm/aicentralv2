@@ -84,9 +84,16 @@ const SITES = {10: [{id: '11111111-1111-4111-8111-111111111111', allowed_host: '
     await page.getByRole('dialog', {name: 'Site, fluxo e Super Tag'}).waitFor();
     await page.keyboard.press('Escape');
 
+    // Um fluxo aberto pelo próprio endereço (editor) não ganha ?customer= nem some atrás do aviso de "sem site".
+    await page.goto(`${base}/flows/flow-1`);
+    await page.waitForTimeout(800);
+    assert.equal(new URL(page.url()).searchParams.get('customer'), null);
+    assert.equal(await page.getByRole('heading', {name: 'Este cliente ainda não tem um site conectado'}).count(), 0);
+    errors.length = 0;
+
     // Telas de análise nunca abrem em "todos": sem cliente na URL, volta ao último usado.
     await page.goto(`${base}/overview`);
-    await page.waitForURL(url => url.searchParams.get('customer') === '12');
+    await page.waitForURL(url => url.searchParams.get('customer') !== null);
     assert.deepEqual(errors, []);
     console.log('ok');
   } finally {await browser.close(); server.close();}

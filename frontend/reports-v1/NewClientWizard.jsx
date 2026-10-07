@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useRef, useState} from 'react';
 import {Check} from '@untitledui/icons';
 import {ReportsWizard} from './ReportsWizard.jsx';
 import {ReportsFieldInput} from './ReportsFieldInput.jsx';
@@ -23,6 +23,8 @@ export function NewClientWizard({freeBrands = [], save, send, reload, onDone, on
   const [form, setForm] = useState(blank);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // What already exists after a failed attempt: retrying must finish the job, not create the client again.
+  const done = useRef({customerId: null, brand: false, account: false});
   const set = patch => setForm(value => ({...value, ...patch}));
   const chosen = freeBrands.find(item => item.ref === form.brand);
   const name = form.name.trim() || chosen?.name || '';
@@ -33,10 +35,13 @@ export function NewClientWizard({freeBrands = [], save, send, reload, onDone, on
   const finish = async () => {
     setBusy(true); setError('');
     try {
-      const created = await save('/customers', {name, status: 'active'}, false);
-      const id = created.customer?.id;
-      if (chosen && id) await send('/customers/' + id + '/brands', 'POST', {brand_ref: chosen.ref});
-      if (withAccount && id) await save('/accounts', {platform: form.platform, account_kind: 'advertiser', name: form.accountName.trim(), external_id: form.externalId.trim(), parent_account_id: null, customer_id: id}, false);
+      if (!done.current.customerId) done.current.customerId = (await save('/customers', {name, status: 'active'}, false)).customer?.id;
+      const id = done.current.customerId;
+      if (chosen && id && !done.current.brand) {await send('/customers/' + id + '/brands', 'POST', {brand_ref: chosen.ref}); done.current.brand = true;}
+      if (withAccount && id && !done.current.account) {
+        await save('/accounts', {platform: form.platform, account_kind: 'advertiser', name: form.accountName.trim(), external_id: form.externalId.trim(), parent_account_id: null, customer_id: id}, false);
+        done.current.account = true;
+      }
       await reload();
       await onDone(id);
     } catch (failure) {setError(failure.message || 'Não foi possível criar o cliente.'); setBusy(false);}

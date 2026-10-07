@@ -30,10 +30,15 @@ const boot = {ready: true, features: {}, csrf: 't', reports: [], link_tests: [],
     const page = await browser.newPage({viewport: {width: 1440, height: 900}});
     page.setDefaultTimeout(8000);
     const calls = [], errors = [];
+    let failAccount = true;
     page.on('pageerror', error => errors.push(error.message));
     await page.route('**/connect/api/**', route => {
       const request = route.request(), pathname = new URL(request.url()).pathname.replace('/connect/api/v2/reports', '');
-      if (request.method() !== 'GET') {calls.push({path: pathname, body: request.postDataJSON()}); return route.fulfill({status: 201, json: {customer: {id: 13}, account: {id: 50}}});}
+      if (request.method() !== 'GET') {
+        calls.push({path: pathname, body: request.postDataJSON()});
+        if (pathname === '/accounts' && failAccount) {failAccount = false; return route.fulfill({status: 400, json: {error: 'ID da conta inválido.'}});}
+        return route.fulfill({status: 201, json: {customer: {id: 13}, account: {id: 50}}});
+      }
       if (pathname === '/bootstrap') return route.fulfill({json: boot});
       if (pathname === '/workspace/map') return route.fulfill({json: fixture['/workspace/map']});
       return route.fulfill({json: {}});
@@ -64,9 +69,12 @@ const boot = {ready: true, features: {}, csrf: 't', reports: [], link_tests: [],
       }
       await page.setViewportSize({width: 1440, height: 900});
     }
+    // A failed account must not make the retry create the client twice.
+    await dialog.getByRole('button', {name: 'Criar cliente'}).click();
+    await dialog.getByRole('alert').waitFor();
     await dialog.getByRole('button', {name: 'Criar cliente'}).click();
     await dialog.waitFor({state: 'detached'});
-    assert.deepEqual(calls.map(call => call.path), ['/customers', '/accounts']);
+    assert.deepEqual(calls.map(call => call.path), ['/customers', '/accounts', '/accounts']);
     assert.equal(calls[0].body.name, 'Padaria Sol');
     assert.deepEqual({platform: calls[1].body.platform, customer_id: calls[1].body.customer_id, external_id: calls[1].body.external_id}, {platform: 'google_ads', customer_id: 13, external_id: '123-456-7890'});
 

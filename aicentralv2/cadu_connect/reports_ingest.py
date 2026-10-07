@@ -189,7 +189,7 @@ def register(bp):
                 FROM cadu_reports_ingest_keys k WHERE k.client_id=%s
                 AND (%s::bigint IS NULL OR EXISTS (SELECT 1 FROM cadu_reports_accounts a
                     WHERE a.client_id=k.client_id AND a.customer_id=%s
-                    AND (a.id=k.bound_account_id OR a.id::text=ANY(k.allowed_account_ids))))
+                    AND (a.external_id=k.bound_account_id OR a.external_id=ANY(k.allowed_account_ids))))
                 ORDER BY k.created_at DESC''', (selected['client_id'], customer, customer))
         runs = _rows('''SELECT id,source_kind,status,record_count,period_start,period_end,
                 created_at,finished_at,metadata FROM cadu_reports_source_runs

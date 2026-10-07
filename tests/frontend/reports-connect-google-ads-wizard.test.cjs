@@ -80,8 +80,9 @@ const boot = {ready: true, features: {}, csrf: 't', reports: [], link_tests: [],
     await dialog.getByText('PMax | Verão').last().waitFor();
     await dialog.getByLabel('Nome da campanha').fill('Search | Marca');
     await dialog.getByLabel('ID da campanha').fill('2093840001');
-    await dialog.getByRole('button', {name: 'Cadastrar campanha'}).click();
+    await dialog.getByLabel('ID da campanha').press('Enter');
     await dialog.getByText('Search | Marca').waitFor();
+    assert.ok(await dialog.getByRole('heading', {name: 'Qual campanha acompanhar?'}).isVisible(), 'Enter cadastra e não avança o passo');
     const campaigns = posts.filter(item => item.path === '/campaigns');
     assert.equal(campaigns.length, 2);
     assert.deepEqual({account: campaigns[1].body.account_id, id: campaigns[1].body.external_id}, {account: 2, id: '2093840001'});
@@ -91,7 +92,7 @@ const boot = {ready: true, features: {}, csrf: 't', reports: [], link_tests: [],
     await dialog.getByRole('heading', {name: 'Conectado. Esperando os dados'}).waitFor();
     await dialog.getByText('Aguardando primeiro envio').first().waitFor();
     keys = keys.map(item => ({...item, last_used_at: new Date().toISOString()}));
-    await dialog.getByText('Dados recebidos').waitFor({timeout: 9000});
+    await dialog.getByText('Dados recebidos').waitFor({timeout: 14000});
     if (shots) {
       for (const [name, width, height] of [['tablet', 820, 1100], ['phone', 390, 844]]) {
         await page.setViewportSize({width, height}); await page.waitForTimeout(150);

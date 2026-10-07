@@ -199,7 +199,8 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
       start_date: filters.startDate, end_date: filters.endDate, view:workspaceV2&&flowView==='monitor'?'edit':flowView});
     if (selectedFlowId) params.set('flow_id', selectedFlowId);
     if(flowView==='monitor'&&analysisRevision)params.set('revision',analysisRevision);
-    if (customerParam()) params.set('customer_id', customerParam());
+    // The list narrows to the chosen client; one flow opened by link (editor or monitor) is read whole, whatever its client.
+    if (customerParam() && !selectedFlowId) params.set('customer_id', customerParam());
     if (filters.platform) params.set('platform', filters.platform);
     if (filters.account) params.set('account_id', filters.account);
     if (filters.campaign) params.set('campaign_id', filters.campaign);

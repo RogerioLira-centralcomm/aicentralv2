@@ -114,7 +114,8 @@ function Campaigns({data, state, save, reportsAccounts, created, setCreated, bus
       <ul className="flex flex-col gap-1.5">{[...known.map(item => ({id: item.id, name: item.name, externalId: item.external_id})), ...created].map(item => <li key={item.id} className="flex items-center gap-2 text-sm text-secondary">
         <BadgeWithDot type="pill-color" size="sm" color="success">{item.name}</BadgeWithDot>{item.externalId && <span className="font-mono text-xs text-tertiary">{item.externalId}</span>}</li>)}</ul>
     </div>}
-    <div className="flex flex-col gap-3 rounded-xl p-4 ring-1 ring-secondary ring-inset">
+    <div className="flex flex-col gap-3 rounded-xl p-4 ring-1 ring-secondary ring-inset"
+      onKeyDown={event => {if (event.key === 'Enter' && event.target.tagName === 'INPUT') {event.preventDefault(); if (ready && !busy) addManual();}}}>
       <p className="text-sm font-semibold text-primary">Cadastrar pelo ID</p>
       {chosen.length > 1 && <ReportsNativeSelect label="Conta" value={manual.accountId} onChange={event => setManual({...manual, accountId: event.target.value})}>
         {chosen.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</ReportsNativeSelect>}

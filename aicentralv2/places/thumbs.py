@@ -45,10 +45,10 @@ def make_thumb(source: Path, width: int) -> Path:
     target = source.parent / "_thumbs" / str(width) / f"{source.stem}.webp"
     if target.is_file() and target.stat().st_mtime >= source.stat().st_mtime:
         return target
-    from PIL import Image, ImageFile, ImageOps
+    from PIL import Image, ImageOps
 
-    # A few library photos are truncated JPEGs; browsers show them, so the copy does too.
-    ImageFile.LOAD_TRUNCATED_IMAGES = True
+    # Truncated photos raise here (never flip Pillow's global LOAD_TRUNCATED_IMAGES: uploads rely on it);
+    # the route then serves the original instead.
     target.parent.mkdir(parents=True, exist_ok=True)
     with Image.open(source) as image:
         image = ImageOps.exif_transpose(image)

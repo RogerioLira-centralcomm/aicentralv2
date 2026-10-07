@@ -15,7 +15,7 @@
 </svg>
 {%- endmacro -%}
 {%- set destinations = [('canais', 'Canais', 'share'), ('audiencias', 'Audiências', 'users'), ('portais', 'Portais e veículos', 'library'), ('places', 'Locais', 'browser'), ('formatos', 'Formatos', 'table'), ('interativos', 'Interativos', 'plugin')] -%}
-{%- set section = 'audiencias' if module == 'inicio' else module -%}
+{%- set section = 'canais' if module == 'inicio' else module -%}
 {%- set person = (user or {}).get('name') or session.get('user_name', 'Minha conta') -%}
 {%- set first = (person|trim).split()[0] if (person|trim) else 'Minha conta' -%}
 {%- set words = (person|trim).split() -%}
@@ -27,8 +27,8 @@
 {%- for id, label, icon_name in destinations %}<a href="{{ planner_url(id) }}" title="{{ label }}" class="pn__link{{ ' is-active' if section == id }}"{% if section == id %} aria-current="page"{% endif %}>{{ icon(icon_name) }}<span>{{ label }}</span></a>{% endfor -%}
 </nav>
 <div class="pn__actions">
-<div class="pn-menu"><button type="button" class="pn-action{{ ' is-active' if module in ('radar', 'radares') }}" aria-haspopup="true" aria-expanded="false">{{ icon('pulse') }}<span>Radar</span></button></div>
-<div class="pn-menu"><button type="button" class="pn-action{{ ' is-active' if module == 'planos' }}" aria-haspopup="true" aria-expanded="false">{{ icon('history') }}<span>Planos</span></button></div>
+<a class="pn-action{{ ' is-active' if module in ('radar', 'radares') }}" href="{{ planner_url('radar') }}">{{ icon('pulse') }}<span>Radar</span></a>
+<a class="pn-action{{ ' is-active' if module == 'planos' }}" href="{{ planner_url('planos') }}?create=1">{{ icon('history') }}<span>Planos</span></a>
 <a class="pn-tokens is-pending" href="{{ product_url('workspace', '/workspace/app/creditos') }}" title="Tokens e consumo do mês"><span>Tokens <b>&nbsp;</b></span><i aria-hidden="true"><u style="width:0"></u></i></a>
 <a class="pn-user" href="{{ product_url('workspace', '/workspace/app/conta?section=perfil') }}" title="{{ person }}"><span class="cadu-ds-visual-identity has-{{ 'rendered-image' if avatar else 'fallback-content' }} pn-user__avatar" style="--cadu-identity-color:#71807d">{% if avatar %}<img src="{{ avatar }}" alt="">{% else %}<span aria-hidden="true">{{ initials }}</span>{% endif %}</span><span>{{ first }}</span></a>
 </div>

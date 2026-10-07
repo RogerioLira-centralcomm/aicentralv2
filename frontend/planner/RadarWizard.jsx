@@ -3,6 +3,7 @@ import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {CaduTextAreaField} from '../cadu-design-system/components/CaduField.jsx';
 import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
+import {WorkOverview} from './WorkOverview.jsx';
 import {contextQuery} from './api.js';
 import {BrandProfileDialog} from './BrandProfileDialog.jsx';
 
@@ -91,18 +92,18 @@ export function RadarWizard({boot, request, busy, onSubmit, context}) {
 
   return <div className="wizard wizard--radar" role="dialog" aria-modal="true" aria-label="Novo radar">
     <header className="wizard__bar">
-      <a className="wizard__brand" href={boot.urls.home}><img src="/static/images/cadu/products/planner-icon.png" alt=""/>Planner</a>
-      <span className="wizard__title">Radar<em>Beta</em></span>
-      <a className="wizard__exit" href={boot.urls.radars}><Icon name="close" size={16}/>Sair</a>
+      <span className="wizard__title">Novo radar<em>Beta</em></span>
+      <nav className="wizard__links" aria-label="Já criados"><a href={boot.urls.radars}><Icon name="pulse" size={16}/>Radares criados</a>
+        <a href={boot.urls.plans}><Icon name="history" size={16}/>Planos criados</a></nav>
     </header>
-    <aside className="wizard__art" aria-hidden="true">
-      <div className="wizard__intro">
+    <aside className="wizard__art">
+      <WorkOverview request={request} urls={boot.urls} radarEnabled={Boolean(boot.features?.radar)}><div className="wizard__intro">
         <span className="wizard__eyebrow">Do buzz ao ângulo</span>
         <h1>Radar<em>Beta</em></h1>
         <p>Diga o conceito. O Radar mostra o que está em alta agora e os ângulos para a marca falar dele.</p>
         <ul>{BENEFITS.map(([icon, text]) => <li key={text}><Icon name={icon} size={20}/>{text}</li>)}</ul>
       </div>
-      {STEPS.map((item, index) => <img key={item.key} className={`wizard__scene${index === step ? ' is-current' : ''}`} src={ART + item.art} alt="" loading={index === 0 ? 'eager' : 'lazy'}/>)}
+      {STEPS.map((item, index) => <img key={item.key} className={`wizard__scene${index === step ? ' is-current' : ''}`} src={ART + item.art} alt="" loading={index === 0 ? 'eager' : 'lazy'}/>)}</WorkOverview>
     </aside>
     <main className="wizard__main">
       <ol className="wizard__progress" aria-label="Progresso">

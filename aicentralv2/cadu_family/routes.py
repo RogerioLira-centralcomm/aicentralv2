@@ -1645,6 +1645,9 @@ def _planner_react_page(module=None):
     module = module or next(iter(spec['modules']))
     if module not in spec['modules']:
         abort(404)
+    if module == 'inicio':
+        # The home is the channel shelf: people start by where the media runs.
+        module = 'canais'
     title, _legacy = spec['modules'][module]
     if module == 'audiencias':
         # The largest showcase: paged, faceted and filterable from the URL.

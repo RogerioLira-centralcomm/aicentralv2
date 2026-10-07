@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {VisualIdentity} from '../cadu-design-system/components/VisualIdentity.jsx';
 import {CaduSolutionSwitcher} from '../cadu-design-system/components/WorkspaceSelectors.jsx';
@@ -7,8 +7,8 @@ import {workspaceSolutionItems} from '../cadu-design-system/workspaceSolutions';
 import '../cadu-design-system/components/SolutionSidebar.css';
 import {moduleUrl, newPlanUrl} from './api.js';
 
-// Where people browse. Order follows the buying flow: who, where, how. The home page IS the audience shelf, so there is no
-// separate "Início": the logo goes home and Audiências lights up there.
+// Where people browse. The home page IS the channel shelf, so there is no separate "Início": the logo goes home and
+// Canais lights up there.
 const DESTINATIONS = [
   ['canais', 'Canais', 'share'],
   ['audiencias', 'Audiências', 'users'],
@@ -18,27 +18,6 @@ const DESTINATIONS = [
   ['interativos', 'Interativos', 'plugin'],
 ];
 const PERCENT = new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 1});
-
-function Menu({label, icon, items, active = false, align = 'right'}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  useEffect(() => {
-    if (!open) return undefined;
-    const outside = event => { if (!ref.current?.contains(event.target)) setOpen(false); };
-    const escape = event => { if (event.key === 'Escape') setOpen(false); };
-    document.addEventListener('pointerdown', outside);
-    document.addEventListener('keydown', escape);
-    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape); };
-  }, [open]);
-  return <div className="pn-menu" ref={ref}>
-    <button type="button" className={`pn-action${active ? ' is-active' : ''}`} aria-haspopup="true" aria-expanded={open} aria-current={active ? 'page' : undefined} onClick={() => setOpen(value => !value)}>
-      <Icon name={icon} size={16}/><span>{label}</span>
-    </button>
-    {open && <div className={`pn-menu__list pn-menu__list--${align}`} role="menu">
-      {items.map(([text, href]) => <a key={text} role="menuitem" href={href}>{text}</a>)}
-    </div>}
-  </div>;
-}
 
 /**
  * The Planner's one navigation: direct links to each section, the actions that
@@ -52,8 +31,8 @@ export function PlannerNav({boot, request, active}) {
   const solutions = workspaceSolutionItems({urls: {solutions: {workspace: urls.workspace, planner: urls.home, studio: urls.studio, connect: urls.reports, skills: urls.skills}}, solutionIcons: boot.solutionIcons || {
     workspace: '/static/images/cadu/products/cadu-icon.png', planner: '/static/images/cadu/products/planner-icon.png',
     studio: '/static/images/cadu/products/studio-icon.png', connect: '/static/images/cadu/products/connect-icon.png', skills: '/static/images/cadu/products/skills-icon.png'}});
-  // The home page is the audience shelf: highlight Audiências there.
-  const section = active === 'inicio' ? 'audiencias' : active;
+  // The home page is the channel shelf: highlight Canais there.
+  const section = active === 'inicio' ? 'canais' : active;
 
   const close = () => setMobile(false);
   useEffect(() => {
@@ -82,8 +61,11 @@ export function PlannerNav({boot, request, active}) {
         })}
       </nav>
       <div className="pn__actions">
-        <Menu label="Radar" icon="pulse" active={section === 'radar' || section === 'radares'} items={[['Novo radar', hrefFor('radar')], ['Meus radares', hrefFor('radares')]]}/>
-        <Menu label="Planos" icon="history" active={section === 'planos' || section === 'novo-plano'} items={[['Todos os planos', urls.plans], ['Novo planejamento', newPlanUrl(urls)]]}/>
+        {/* Both open the creation screen; the plans and radars already made are listed inside it. */}
+        <a className={`pn-action${section === 'radar' || section === 'radares' ? ' is-active' : ''}`} href={hrefFor('radar')}
+          aria-current={section === 'radar' ? 'page' : undefined} onClick={close}><Icon name="pulse" size={16}/><span>Radar</span></a>
+        <a className={`pn-action${section === 'planos' || section === 'novo-plano' ? ' is-active' : ''}`} href={newPlanUrl(urls)}
+          aria-current={section === 'novo-plano' ? 'page' : undefined} onClick={close}><Icon name="history" size={16}/><span>Planos</span></a>
         {urls.credits && <a className={`pn-tokens${percent === null ? ' is-pending' : percent >= 80 ? ' is-high' : ''}`} href={urls.credits} title="Tokens e consumo do mês" aria-label={percent === null ? 'Tokens do mês' : `Tokens: ${PERCENT.format(percent)}% usados no mês`}>
           <span>Tokens <b>{percent === null ? '\u00a0' : `${PERCENT.format(percent)}%`}</b></span><i aria-hidden="true"><u style={{width: `${percent ?? 0}%`}}/></i>
         </a>}

@@ -161,7 +161,8 @@ class FamilyTest(TestCase):
         self.assertIn('cadu_planner/react/untitled.css', html)
         self.assertIn('cadu_planner/react/app.js', html)
         boot = self.planner_boot(html)
-        self.assertEqual(boot['module'], 'inicio')
+        # The home is the channel shelf.
+        self.assertEqual(boot['module'], 'canais')
         self.assertEqual(boot['view'], 'page')
         self.assertEqual(boot['records'], [{'id': 'p1', 'title': 'Plano'}])
         self.assertEqual(set(boot['user']), {'name', 'avatar'})

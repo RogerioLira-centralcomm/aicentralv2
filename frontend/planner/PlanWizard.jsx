@@ -3,6 +3,7 @@ import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {CaduTextAreaField} from '../cadu-design-system/components/CaduField.jsx';
 import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
+import {WorkOverview} from './WorkOverview.jsx';
 
 const ART = '/static/images/planner/illustrations/';
 export const DRAFT_KEY = 'planner.wizard.draft';
@@ -32,7 +33,7 @@ const readDraft = () => { try { return {...empty, ...JSON.parse(window.sessionSt
  * "Planejar": the plan brief, one question at a time. Every step is optional;
  * the draft survives a reload and the full form stays one click away.
  */
-export function PlanWizard({urls, suggestions = {}, busy, onSubmit, onFullForm}) {
+export function PlanWizard({urls, request, radarEnabled = false, suggestions = {}, busy, onSubmit, onFullForm}) {
   const [step, setStep] = useState(0);
   const [reached, setReached] = useState(0);
   const [visited, setVisited] = useState(() => new Set([0]));
@@ -62,18 +63,18 @@ export function PlanWizard({urls, suggestions = {}, busy, onSubmit, onFullForm})
 
   return <div className="wizard" role="dialog" aria-modal="true" aria-label="Planejar">
     <header className="wizard__bar">
-      <a className="wizard__brand" href={urls.home}><img src="/static/images/cadu/products/planner-icon.png" alt=""/>Planner</a>
-      <span className="wizard__title">Planejar<em>Beta</em></span>
-      <a className="wizard__exit" href={urls.plans}><Icon name="close" size={16}/>Sair</a>
+      <span className="wizard__title">Novo plano<em>Beta</em></span>
+      <nav className="wizard__links" aria-label="Já criados"><a href={urls.plans}><Icon name="history" size={16}/>Planos criados</a>
+        <a href={urls.radars}><Icon name="pulse" size={16}/>Radares criados</a></nav>
     </header>
-    <aside className="wizard__art" aria-hidden="true">
-      <div className="wizard__intro">
+    <aside className="wizard__art">
+      <WorkOverview request={request} urls={urls} radarEnabled={radarEnabled}><div className="wizard__intro">
         <span className="wizard__eyebrow">Do brief ao resultado</span>
         <h1>Planejar<em>Beta</em></h1>
         <p>Conte sua ideia, trace um objetivo e deixe o restante com o Cadu.</p>
         <ul>{BENEFITS.map(([icon, text]) => <li key={text}><Icon name={icon} size={20}/>{text}</li>)}</ul>
       </div>
-      {STEPS.map((item, index) => <img key={item.key} className={`wizard__scene${index === step ? ' is-current' : ''}`} src={ART + item.art} alt="" loading={index === 0 ? 'eager' : 'lazy'}/>)}
+      {STEPS.map((item, index) => <img key={item.key} className={`wizard__scene${index === step ? ' is-current' : ''}`} src={ART + item.art} alt="" loading={index === 0 ? 'eager' : 'lazy'}/>)}</WorkOverview>
     </aside>
     <main className="wizard__main">
       <ol className="wizard__progress" aria-label="Progresso">

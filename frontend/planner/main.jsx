@@ -65,8 +65,6 @@ function App({boot}) {
     if (creating) return <PlanCreatePage boot={boot} request={request} notify={notify} selection={context}/>;
     if (boot.module === 'radares') return <RadarListPage boot={boot} request={request} notify={notify}/>;
     if (boot.module === 'radar') return <RadarPage boot={boot} request={request} notify={notify} context={context}/>;
-    // The home is the audience shelf itself: people see what can be bought before anything else.
-    if (boot.module === 'inicio') return <AudienceShowcase boot={{...boot, records: undefined, catalogMeta: undefined}} request={request} selection={selection} notify={notify}/>;
     if (boot.module === 'planos') return <PlansPage boot={boot} plans={plans}/>;
     if (boot.module === 'monitoramento') return <MonitorPage request={request}/>;
     if (boot.module === 'docs') return <DocsPage boot={boot} request={request} notify={notify}/>;

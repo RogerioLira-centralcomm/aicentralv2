@@ -1,0 +1,10 @@
+/* Shelf banner: the module art on the right, a dark wash on the left so the title always reads. */
+.shelf-banner { display: flex; align-items: center; justify-content: space-between; gap: 24px; height: 112px; margin: 0 0 16px; padding: 0 28px; overflow: hidden; border-radius: 14px; background-color: #101418; background-image: linear-gradient(90deg, rgba(10, 14, 20, .96) 0%, rgba(10, 14, 20, .8) 42%, rgba(10, 14, 20, .25) 100%), var(--shelf-art); background-position: center, right center; background-size: cover; color: #fff; }
+.shelf-banner__copy { display: grid; gap: 4px; min-width: 0; }
+.shelf-banner h1 { overflow: hidden; color: #fff; font-size: 28px; font-weight: 650; line-height: 34px; letter-spacing: -.02em; text-overflow: ellipsis; white-space: nowrap; }
+.shelf-banner p { max-width: 62ch; margin: 0; color: rgba(255, 255, 255, .82); font-size: 14px; line-height: 20px; }
+.shelf-banner__side { flex: none; }
+@media (max-width: 760px) {
+  .shelf-banner { height: auto; min-height: 96px; padding: 16px; }
+  .shelf-banner h1 { font-size: 22px; line-height: 28px; }
+}

@@ -1,0 +1,18 @@
+/* One floating control: the item's action and the plan are two halves of the same pill (same height, type and radius). */
+.pdk { position: fixed; bottom: 16px; left: 50%; z-index: 60; display: flex; align-items: center; gap: 4px; max-width: calc(100vw - 24px); padding: 4px; transform: translateX(-50%); border: 1px solid var(--planner-line, #e4e7ec); border-radius: 99px; background: #fff; box-shadow: 0 12px 32px rgba(16, 24, 40, .2); }
+.pdk__btn { display: inline-flex; flex: none; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 20px; border: 0; border-radius: 99px; background: none; color: var(--planner-ink, #101828); font: inherit; font-size: 14px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background 140ms, color 140ms; }
+.pdk__btn:hover { background: var(--planner-soft, #f2f4f7); }
+.pdk__btn:focus-visible { outline: 2px solid var(--colors-brand-600, #079455); outline-offset: 2px; }
+.pdk__add { background: var(--colors-brand-600, #079455); color: #fff; }
+.pdk__add:hover { background: var(--colors-brand-700, #087443); }
+.pdk__add.is-selected { background: var(--colors-brand-50, #ecfdf3); color: var(--colors-brand-800, #085d3a); }
+.pdk__add.is-selected:hover { background: var(--colors-brand-100, #d1fadf); }
+.pdk__plan b { display: inline-grid; min-width: 22px; height: 22px; place-items: center; padding: 0 6px; border-radius: 99px; background: var(--colors-brand-600, #079455); color: #fff; font-size: 12px; font-weight: 600; }
+@media (max-width: 760px) {
+  .pdk { right: 12px; bottom: 12px; left: 12px; transform: none; justify-content: stretch; }
+  .pdk__btn { flex: 1 1 0; min-width: 0; padding: 0 12px; }
+  .pdk__add { flex: 1.6 1 0; }
+}
+
+/* The side panel opens above the navbar (z 80) so its header is never covered. */
+.planner-shell .plan-dock { z-index: 90; }

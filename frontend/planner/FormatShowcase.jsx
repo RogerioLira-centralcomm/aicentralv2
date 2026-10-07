@@ -9,7 +9,8 @@ import {itemKey, useDebounced} from './Catalog.jsx';
 import {FormatCard} from './FormatCard.jsx';
 import {PlanBar} from './PlanBar.jsx';
 import {ShelfEmpty} from './PlannerPromo.jsx';
-import {ActivePlanChip, PlannerChrome, PlannerHeader} from './PlannerHeader.jsx';
+import {PlannerChrome} from './PlannerHeader.jsx';
+import {ShelfBanner} from './ShelfBanner.jsx';
 
 const URL_KEYS = {q: 'q', family: 'familia', platform: 'canal'};
 const number = value => Number(value || 0).toLocaleString('pt-BR');
@@ -65,7 +66,7 @@ export function FormatShowcase({boot, selection}) {
   const clear = () => { const empty = {q: '', family: '', platform: ''}; writeUrl(empty); setFilters(empty); };
 
   return <>
-    <PlannerHeader title={kind === 'interativos' ? 'Interativos' : 'Formatos'} actions={<ActivePlanChip/>}
+    <ShelfBanner kind={kind === 'interativos' ? 'interativos' : 'formatos'} title={kind === 'interativos' ? 'Interativos' : 'Formatos'}
       description={`${number(visible.length)} ${kind === 'interativos' ? (visible.length === 1 ? 'formato interativo' : 'formatos interativos') : (visible.length === 1 ? 'formato' : 'formatos')} de mídia${active ? ' com estes filtros' : ''}, agrupados por família`}/>
     <section className="aud-filters" aria-label="Filtros de formatos">
       <div className="aud-filters__top fmt-filters__top">

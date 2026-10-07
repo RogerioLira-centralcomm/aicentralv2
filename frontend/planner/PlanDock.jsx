@@ -3,7 +3,8 @@ import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {CaduSelectField} from '../cadu-design-system/components/CaduField.jsx';
-import {LogoTile, SelectionButton} from './PlannerUi.jsx';
+import {LogoTile} from './PlannerUi.jsx';
+import './planner-dock.css';
 import {moduleUrl} from './api.js';
 
 const SECTIONS = [['canais', 'Canais'], ['audiencias', 'Audiências'], ['formatos', 'Formatos'], ['interativos', 'Interativos'],
@@ -68,19 +69,17 @@ export function PlanDock({boot, request, plan, setPlan, selection, notify}) {
   }
 
   return <>
-    {!open && <div className="plan-dock__float">
-      {subject && <SelectionButton size="md" selected={selection.isSelected(subject.kind, subject.id)} onToggle={() => selection.toggle(subject.kind, subject.id)} className="plan-dock__cta"/>}
-      {total === 0 && !plan ? <button type="button" className="plan-dock__tab" onClick={() => remember(true)} aria-label="Abrir o seu plano">
-        <Icon name="plan" size={16}/><span>Seu plano</span>
-      </button> : <div className="plan-dock__bar" role="region" aria-label="Seu plano">
-        <b className="plan-dock__count" aria-label={`${total} ${total === 1 ? 'item' : 'itens'}`}>{total}</b>
-        <span className="plan-dock__who"><strong>{plan ? 'Plano em andamento' : 'Seleção rápida'}</strong><small>{plan ? plan.title : 'Ainda sem plano · crie em um passo'}</small></span>
-        <span className="plan-dock__chips">{items.slice(0, 2).map(item => <i key={`${item.kind}:${item.resource_id}`}><LogoTile src={item.logo || item.snapshot?.logo_path} name={item.snapshot?.name} icon="plan" size="xs"/>{item.snapshot?.name || item.resource_id}</i>)}
-          {total > 2 && <i>+{total - 2}</i>}</span>
-        <button type="button" className="plan-dock__link" onClick={() => remember(true)}>{plan ? 'Ver itens' : 'Cadastro rápido'}</button>
-        {plan ? <a className="plan-dock__go" href={planUrl}>Continuar planejamento<Icon name="chevron" size={14}/></a>
-          : <button type="button" className="plan-dock__go" onClick={() => remember(true)}>Continuar planejamento<Icon name="chevron" size={14}/></button>}
-      </div>}
+    {!open && <div className="pdk" role="region" aria-label="Seu plano">
+      {subject && (() => {
+        const chosen = selection.isSelected(subject.kind, subject.id);
+        return <button type="button" className={`pdk__btn pdk__add${chosen ? ' is-selected' : ''}`} aria-pressed={chosen}
+          onClick={() => selection.toggle(subject.kind, subject.id)}>
+          <Icon name={chosen ? 'check' : 'plus'} size={18}/><span>{chosen ? 'No plano' : 'Adicionar ao plano'}</span>
+        </button>;
+      })()}
+      <button type="button" className="pdk__btn pdk__plan" aria-haspopup="dialog" aria-expanded="false" title={plan ? plan.title : 'Abrir o seu plano'} onClick={() => remember(true)}>
+        <Icon name="plan" size={18}/><span>Seu plano</span>{total > 0 && <b aria-label={`${total} ${total === 1 ? 'item' : 'itens'}`}>{total}</b>}
+      </button>
     </div>}
     <aside className={`plan-dock${open ? ' is-open' : ''}`} aria-label="Seu plano" aria-hidden={!open} inert={!open ? '' : undefined}>
       <header className="plan-dock__head">

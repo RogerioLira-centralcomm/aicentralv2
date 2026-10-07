@@ -39,11 +39,20 @@ const boot = {ready: true, features: {}, csrf: 't', reports, link_tests: [], wor
     const page = await browser.newPage({viewport: {width: 1440, height: 1000}});
     page.setDefaultTimeout(8000);
     const errors = [];
-    const pins = [];
+    const pins = [], covers = [];
+    let previewCalls = 0;
     page.on('pageerror', error => errors.push(error.message));
     await page.route('**/connect/api/**', route => {
       const pathname = new URL(route.request().url()).pathname.replace('/connect/api/v2/reports', '');
       if (pathname === '/bootstrap') return route.fulfill({json: boot});
+      if (pathname === '/workspaces/1/cover' && route.request().method() === 'GET') return route.fulfill({json: {prompt: 'Capa editorial para o relatório "Resultado de setembro".', estimate: 5100, aspect_ratio: '4:5'}});
+      if (pathname === '/workspaces/1/cover') {covers.push(route.request().postDataJSON()); return route.fulfill({json: {cover_url: '/static/images/reports/illustrations/onb-5-relatorios.webp', charged_credits: 4980}});}
+      if (pathname === '/workspaces/previews') previewCalls += 1;
+      if (pathname === '/workspaces/previews') return route.fulfill({json: {previews: [
+        {id: 1, platforms: ['google_ads', 'meta_ads'], cover_url: '/static/images/reports/illustrations/onb-3-midia.webp', metric: 'conversions', total: 30, previous: 20,
+          series: Array.from({length: 10}, (_, index) => ({date: `2026-09-${String(21 + index).padStart(2, '0')}`, value: index + 1}))},
+        {id: 2, platforms: [], cover_url: null, metric: null, total: null, previous: null, series: []},
+      ]}});
       if (/\/workspaces\/\d+\/pin$/.test(pathname)) {pins.push([pathname, route.request().postDataJSON()]); return route.fulfill({json: {ok: true}});}
       return route.fulfill({json: {}});
     });
@@ -53,7 +62,17 @@ const boot = {ready: true, features: {}, csrf: 't', reports, link_tests: [], wor
     // Card: situação, origem (plataforma · cliente), resumo, versão com a publicada atrás e data longa.
     const first = page.locator('li').filter({has: page.getByRole('heading', {name: 'Resultado de setembro'})});
     const card = await first.innerText();
-    for (const text of ['Publicado', 'Principal', 'Google Ads', 'geração de leads', 'v3', 'Atualizado em 03 de out. de 2026']) assert.ok(card.includes(text), `card sem "${text}": ${card}`);
+    for (const text of ['Publicado', 'Google Ads', 'geração de leads', 'v3', '30 conversões', '50%']) assert.ok(card.includes(text), `card sem "${text}": ${card}`);
+    assert.ok(await first.getByLabel('Principal').isVisible());
+    assert.equal(await first.getByRole('list', {name: 'Plataformas: Google Ads, Meta Ads'}).getByRole('listitem').count(), 2);
+    await first.locator('img').first().waitFor();
+    assert.ok((await first.locator('img').first().getAttribute('src')).includes('onb-3-midia'), 'a capa é o criativo do Studio');
+    // Passar o mouse no gráfico mostra o dia e o valor.
+    const chart = first.getByRole('img', {name: /30 conversões nos últimos 10 dias/});
+    const box = await chart.boundingBox();
+    await page.mouse.move(box.x + box.width - 2, box.y + box.height / 2);
+    assert.ok((await first.innerText()).includes('10 conversões') && (await first.innerText()).includes('30 de set.'), await first.innerText());
+    await page.mouse.move(0, 0);
     const flow = await page.locator('li').filter({has: page.getByRole('heading', {name: 'Relatório 2'})}).innerText();
     assert.ok(flow.includes('Fluxo · Cadastro de leads'));
     const loose = await page.locator('li').filter({has: page.getByRole('heading', {name: 'Relatório 3', exact: true})}).innerText();
@@ -80,8 +99,23 @@ const boot = {ready: true, features: {}, csrf: 't', reports, link_tests: [], wor
     await page.waitForResponse(response => response.url().endsWith('/workspaces/2/pin')).catch(() => {});
     assert.deepEqual(pins.at(-1), ['/workspaces/2/pin', {pinned: true}]);
 
-    // Lista: mesma informação em tabela, e a escolha fica salva.
+    // Capa pelo Studio: prompt pronto, custo estimado e geração só depois de confirmar.
     await page.getByRole('button', {name: /^Todos \d/}).click();
+    await page.getByRole('button', {name: 'Ações de Resultado de setembro'}).click();
+    await page.getByRole('menuitem', {name: 'Nova capa com o Studio'}).click();
+    const drawer = page.getByRole('dialog', {name: 'Capa com o Studio'});
+    await drawer.getByText('Custo estimado: ~5.100 créditos').waitFor();
+    assert.ok((await drawer.getByLabel('Pedido para o Studio').inputValue()).includes('Resultado de setembro'));
+    if (shots) {await page.waitForTimeout(700); await page.screenshot({path: path.join(shots, 'reports-cover-drawer.png')});}
+    const before = previewCalls;
+    await drawer.getByRole('button', {name: 'Gerar capa (~5.100 créditos)'}).click();
+    await page.getByText('Capa criada no Studio: 4.980 créditos cobrados.').waitFor();
+    assert.equal(covers.length, 1);
+    assert.equal(covers[0].confirmed_cost, true);
+    assert.match(covers[0].request_id, /^[0-9a-f-]{36}$/);
+    assert.ok(previewCalls > before, 'a biblioteca recarrega as capas');
+
+    // Lista: mesma informação em tabela, e a escolha fica salva.
     await page.getByRole('button', {name: 'Lista'}).click();
     await page.getByRole('table').waitFor();
     assert.equal(await page.locator('tbody tr').count(), 12);

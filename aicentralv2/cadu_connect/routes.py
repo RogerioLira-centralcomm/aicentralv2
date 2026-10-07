@@ -55,6 +55,10 @@ from .report_workspace import register as register_report_workspace
 register_report_workspace(bp)
 from .reports_v1 import register as register_reports_v1
 register_reports_v1(bp)
+from .report_previews import register as register_report_previews
+register_report_previews(bp)
+from .report_cover import register as register_report_cover
+register_report_cover(bp)
 from .reports_ingest import register as register_reports_ingest
 register_reports_ingest(bp)
 from .reports_ingest_v2 import register as register_reports_ingest_v2

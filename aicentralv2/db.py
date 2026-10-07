@@ -6417,8 +6417,18 @@ def cancelar_invite(invite_id):
 # ainda não foram migradas). Isso permite que o CrmV3Repository seja
 # ligado ao banco real sem duplicar lógica em routes.
 
+_COLUMNS_FOUND = set()
+
+
 def _has_column(cur, table_name, column_name):
-    """Retorna True se `table_name.column_name` existir no schema atual."""
+    """Retorna True se `table_name.column_name` existir no schema atual.
+
+    Só o "existe" fica em cache no processo (coluna não some em runtime); o
+    "não existe" é reconsultado para enxergar migrações aplicadas depois.
+    """
+    key = (table_name, column_name)
+    if key in _COLUMNS_FOUND:
+        return True
     cur.execute(
         """
         SELECT 1
@@ -6430,7 +6440,10 @@ def _has_column(cur, table_name, column_name):
         """,
         (table_name, column_name),
     )
-    return cur.fetchone() is not None
+    found = cur.fetchone() is not None
+    if found:
+        _COLUMNS_FOUND.add(key)
+    return found
 
 
 # ---------- sales_atividades ----------

@@ -1025,7 +1025,7 @@ def platform_logo_by_slug(slug, stored):
 
 # Audience platform names (cadu_audiencias_plataformas.nome) -> channel logo slug.
 AUDIENCE_PLATFORM_LOGOS = {
-    'programática': 'the-trade-desk', 'programatica': 'the-trade-desk', 'serasa': 'experian-portal',
+    'programática': 'programatica', 'programatica': 'programatica', 'serasa': 'experian-portal',
     'g1 / globo.com': 'g1-globo', 'prime video': 'prime-video', 'cnn brasil': 'cnn-brasil', 'netflix': 'netflix',
     'sbt': 'sbt', 'infomoney': 'infomoney', 'spotify ads': 'spotify', 'google ads': 'google-ads', 'tiktok ads': 'tiktok',
     'linkedin ads': 'linkedin', 'deezer': 'deezer', 'amazon music': 'amazon-music', 'globoplay': 'globoplay',

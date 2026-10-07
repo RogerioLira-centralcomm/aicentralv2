@@ -1,6 +1,7 @@
 import React, {Fragment, useContext, useEffect, useRef, useState} from 'react';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.jsx';
+import {PlannerSelect} from './PlannerSelect.jsx';
 import {CaduSelectField} from '../cadu-design-system/components/CaduField.jsx';
 import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
@@ -109,20 +110,12 @@ export function AudienceShowcase({boot, request, selection, notify}) {
       <label className="aud-bar__field aud-bar__field--search"><Icon name="search" size={16}/>
         <span className="aud-bar__text"><small>Buscar</small>
           <input type="search" aria-label="Buscar audiências" value={filters.q} placeholder="Público, interesse ou canal" onChange={event => set('q', event.target.value)}/></span></label>
-      <label className="aud-bar__field"><span className="aud-bar__text"><small>Canal de compra</small>
-        <select aria-label="Canal de compra" value={filters.platform} onChange={event => set('platform', event.target.value)}>
-          <option value="">Todos ({number(platformTotal)})</option>
-          {facets.platforms.map(item => <option key={item.value} value={item.value}>{item.value} ({number(item.count)})</option>)}
-        </select></span></label>
-      {facets.subcategories.length > 0 && <label className="aud-bar__field"><span className="aud-bar__text"><small>Subcategoria</small>
-        <select aria-label="Subcategoria" value={filters.subcategory} onChange={event => set('subcategory', event.target.value)}>
-          <option value="">Todas</option>
-          {facets.subcategories.map(item => <option key={item.value} value={item.value}>{item.value} ({number(item.count)})</option>)}
-        </select></span></label>}
-      <label className="aud-bar__field"><span className="aud-bar__text"><small>Ordenar</small>
-        <select aria-label="Ordenar" value={filters.sort} onChange={event => set('sort', event.target.value)}>
-          {SORTS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-        </select></span></label>
+      <div className="aud-bar__field"><PlannerSelect label="Canal de compra" value={filters.platform} onChange={value => set('platform', value)}
+        options={[{value: '', label: `Todos (${number(platformTotal)})`}, ...facets.platforms.map(item => ({value: item.value, label: item.value, count: number(item.count), logo: item.logo}))]}/></div>
+      {facets.subcategories.length > 0 && <div className="aud-bar__field"><PlannerSelect label="Subcategoria" value={filters.subcategory} onChange={value => set('subcategory', value)}
+        options={[{value: '', label: 'Todas'}, ...facets.subcategories.map(item => ({value: item.value, label: item.value, count: number(item.count)}))]}/></div>}
+      <div className="aud-bar__field"><PlannerSelect label="Ordenar" value={filters.sort} onChange={value => set('sort', value)}
+        options={SORTS.map(([value, label]) => ({value, label}))}/></div>
     </div>
   );
 

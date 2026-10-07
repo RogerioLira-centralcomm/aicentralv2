@@ -53,7 +53,7 @@ export function ChannelDetail({boot, selection, plan = null}) {
       render: () => <Facts items={spec}/>},
     {id: 'papel', label: 'Papel no plano', hidden: !roles.length, hint: 'Como este canal costuma trabalhar num plano. O Cadu ajusta por campanha.',
       render: () => <ul className="pd-roles">{roles.map(role => <li key={role.role}><Icon name={roleIcon(role.role)} size={22}/><span><strong>{role.role}</strong><small>{role.description}</small></span></li>)}</ul>},
-    {id: 'formatos', label: 'Formatos', count: formats.length, wide: true, hint: 'Escolha o formato ideal para o seu objetivo.',
+    {id: 'formatos', label: 'Formatos', count: formats.length, hidden: !formats.length, wide: true, hint: 'Escolha o formato ideal para o seu objetivo.',
       render: () => <FormatCards formats={formats} urls={boot.urls} selection={selection} empty="Ainda não há formatos cadastrados para este canal."/>},
     {id: 'audiencias', label: 'Audiências neste canal', count: audiences.length, hidden: !audiences.length, wide: true,
       hint: 'Segmente por interesses, comportamentos e contextos.',

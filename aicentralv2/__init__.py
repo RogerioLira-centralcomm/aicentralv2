@@ -265,7 +265,7 @@ def create_app(config_class=Config):
     # Tornar config acessível nos templates
     @app.context_processor
     def inject_config():
-        from flask import request, session
+        from flask import g, request, session
         from .erp_page_context import resolve_page_context
         from .product_domains import product_url
         
@@ -274,6 +274,7 @@ def create_app(config_class=Config):
         perfil_contato = None
         perfil_google = None
         cadu_nav_credit = None
+        light_shell = bool(g.get('light_shell'))
         if 'user_id' in session:
             try:
                 # Uma consulta anterior da mesma requisição pode ter abortado a transação.
@@ -289,11 +290,14 @@ def create_app(config_class=Config):
                     perfil_contato['foto_url'] = resolve_existing_foto_url(
                         perfil_contato.get('foto_url')
                     ) or resolve_existing_foto_url(session.get('user_photo_url'))
-                try:
-                    perfil_google = db.obter_conexao_google_usuario(session['user_id'])
-                except Exception:
-                    perfil_google = None
-                if contato and contato.get('pk_id_tbl_cliente'):
+                # Shells that only need the avatar (Planner) skip the Google link,
+                # the client row and the credit ledger: 4 round-trips per page.
+                if not light_shell:
+                    try:
+                        perfil_google = db.obter_conexao_google_usuario(session['user_id'])
+                    except Exception:
+                        perfil_google = None
+                if contato and contato.get('pk_id_tbl_cliente') and not light_shell:
                     cliente = db.obter_cliente_por_id(contato['pk_id_tbl_cliente'])
                     if cliente:
                         is_cc_user = cliente.get('nome_fantasia', '').upper() == 'CENTRALCOMM'
@@ -308,7 +312,8 @@ def create_app(config_class=Config):
                 # The signed-in contact is the source of truth for Workspace.
                 # A carried-over SSO session can contain a previous client id.
                 client_id = (perfil_contato or {}).get('pk_id_tbl_cliente') or session.get('cliente_id')
-                cadu_nav_credit = credit_position(int(client_id or 0))
+                if not light_shell:
+                    cadu_nav_credit = credit_position(int(client_id or 0))
             except Exception:
                 # O menu continua funcional se o ledger estiver indisponível.
                 cadu_nav_credit = None

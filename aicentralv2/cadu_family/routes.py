@@ -5,7 +5,7 @@ import secrets
 from uuid import UUID
 from urllib.parse import quote, urlencode
 
-from flask import Blueprint, Response, abort, current_app, jsonify, make_response, redirect, render_template, request, session, stream_with_context, url_for
+from flask import Blueprint, Response, abort, current_app, g, jsonify, make_response, redirect, render_template, request, session, stream_with_context, url_for
 from werkzeug.exceptions import HTTPException
 from urllib.parse import urlparse
 import click
@@ -1688,6 +1688,7 @@ def _render_planner(view, module, title, *, public=False, **data):
             session['planner_active_plan'] = str(data['plan']['id'])
         elif 'plan' not in data and view != 'public-doc':
             data['plan'] = _active_plan(selected, user)
+    g.light_shell = True  # react.html only reads the avatar from the global shell context
     return render_template('cadu_planner/react.html', planner_view=view, module=module, title=title,
                            planner_url=planner_url, product_url=product_url, planner_features=features,
                            **session_data, **data)

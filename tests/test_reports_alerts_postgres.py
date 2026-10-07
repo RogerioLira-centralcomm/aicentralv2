@@ -214,7 +214,7 @@ def test_settings_filters_muting_and_the_estimated_impact_run_on_the_real_schema
     assert put({'conversion_value': None}).status_code == 200 and get('/alerts/settings').get_json()['conversion_value'] is None
     assert put({'conversion_value': 100}).status_code == 200
 
-    # Two conversion alerts lose 20 + 3.5 conversions; a rise and a closed alert do not count. At R$ 100 each the impact is R$ 2.350.
+    # The page alert loses 20 conversions and the site alert 3.5: the larger counts (same loss, two angles). A traffic alert does not count. At R$ 100 each: R$ 2.000.
     def alert_with(rule, key, metrics, **extra):
         item = {**finding(rule, key, channel='site', kind='incident', page_path='/lp'), 'metrics': metrics, **extra}
         with mock.patch.object(alerts, '_rows', db), mock.patch.object(alerts, 'notify_opened'):
@@ -223,9 +223,9 @@ def test_settings_filters_muting_and_the_estimated_impact_run_on_the_real_schema
     alert_with('conversion_anomaly', 'conversions', [{'label': 'Conversões', 'value': 5, 'previous': 8.5}])
     alert_with('traffic_anomaly', 'sessions', [{'label': 'Sessões', 'value': 10, 'previous': 100}])
     summary = get('/alerts/summary').get_json()
-    assert summary['estimated_impact'] == {'micros': 2_350_000_000, 'currency': 'BRL', 'lost_conversions': 23.5} and summary['conversion_value_set'] is True
+    assert summary['estimated_impact'] == {'micros': 2_000_000_000, 'currency': 'BRL', 'lost_conversions': 20.0} and summary['conversion_value_set'] is True
     assert get('/alerts/summary?customer_id=2').get_json()['estimated_impact']['micros'] == 0                  # these alerts belong to the site of advertiser 1
-    assert get('/alerts/summary?customer_id=1').get_json()['estimated_impact']['micros'] == 2_350_000_000
+    assert get('/alerts/summary?customer_id=1').get_json()['estimated_impact']['micros'] == 2_000_000_000
 
     # Extra filters: owner and recency.
     db("UPDATE cadu_reports_alerts SET assigned_to=%s WHERE rule='conversion_drop'", (USER,))

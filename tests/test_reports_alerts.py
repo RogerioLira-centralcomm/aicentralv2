@@ -829,13 +829,13 @@ def test_the_extra_filters_are_validated_and_become_parameters():
 
 def test_the_estimated_impact_needs_a_conversion_value_and_counts_only_lost_conversions():
     http = settings_client()
-    metrics = [[{'label': 'Taxa', 'value': 1, 'previous': 2}, {'label': 'Conversões', 'value': 40, 'previous': 60}], [{'label': 'Conversões', 'value': 12.0, 'previous': 10.0}],
-               [{'label': 'Conversões', 'value': 5, 'previous': 8.5}], []]
+    metrics = [('conversion_drop', [{'label': 'Taxa', 'value': 1, 'previous': 2}, {'label': 'Conversões', 'value': 40, 'previous': 60}]), ('conversion_drop', [{'label': 'Conversões', 'value': 12.0, 'previous': 10.0}]),
+               ('conversion_anomaly', [{'label': 'Conversões', 'value': 5, 'previous': 8.5}]), ('conversion_drop', [])]
 
     def run(value):
         def rows(sql, params=()):
             if 'a.rule IN' in sql:
-                return [{'metrics': item} for item in metrics]
+                return [{'rule': rule, 'metrics': item} for rule, item in metrics]
             if 'FILTER (WHERE a.kind' in sql:
                 return [{k: 0 for k in ('incidents', 'investigating', 'opportunities', 'opened_now', 'opened_before', 'resolved_today', 'resolved_yesterday')}]
             if 'jsonb_array_length' in sql:
@@ -845,6 +845,14 @@ def test_the_estimated_impact_needs_a_conversion_value_and_counts_only_lost_conv
              mock.patch.object(alerts, '_rows', rows), mock.patch.object(alerts, 'load_settings', return_value={'_client': {'enabled': True, 'notify': True, 'params': {'conversion_value': value}}} if value else {}):
             return http.get('/connect/api/v2/reports/alerts/summary').get_json()
     body = run(100)
-    assert body['estimated_impact'] == {'micros': 2_350_000_000, 'currency': 'BRL', 'lost_conversions': 23.5} and body['conversion_value_set'] is True    # (20 + 0 + 3.5) × R$ 100
+    assert body['estimated_impact'] == {'micros': 2_000_000_000, 'currency': 'BRL', 'lost_conversions': 20.0} and body['conversion_value_set'] is True    # drops 20 + 0 vs anomaly 3.5: the larger, never the sum, × R$ 100
     body = run(None)
     assert body['estimated_impact'] is None and body['conversion_value_set'] is False
+
+
+def test_the_text_sent_to_the_model_is_redacted_like_every_other_reports_ai_call():
+    from aicentralv2.cadu_connect import reports_alert_ai as ai
+    alert = {'id': ALERT_ID, 'rule': 'conversion_drop', 'title': 'Queda em /obrigado', 'summary': 'Contato joao.silva@exemplo.com e (11) 98765-4321 na página.', 'page_path': '/obrigado',
+             'evidence': [{'label': 'Origem', 'value': 'maria@exemplo.com.br'}]}
+    user = ai.build_messages(alert, [], 'q')[1]['content']
+    assert 'joao.silva@exemplo.com' not in user and '98765-4321' not in user and 'maria@exemplo.com.br' not in user and '[redacted]' in user and '/obrigado' in user

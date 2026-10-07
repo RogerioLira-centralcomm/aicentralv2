@@ -541,7 +541,7 @@ _COUNTS_SQL = '''
     FROM cadu_reports_alerts a LEFT JOIN cadu_reports_supertag_sites s ON s.id=a.site_id
     WHERE a.client_id=%(client)s AND (%(customer)s::bigint IS NULL OR a.site_id IS NULL OR s.customer_id=%(customer)s)'''
 _LOST_SQL = '''
-    SELECT a.metrics FROM cadu_reports_alerts a LEFT JOIN cadu_reports_supertag_sites s ON s.id=a.site_id
+    SELECT a.rule,a.metrics FROM cadu_reports_alerts a LEFT JOIN cadu_reports_supertag_sites s ON s.id=a.site_id
     WHERE a.client_id=%(client)s AND a.kind='incident' AND a.status<>'resolved' AND a.rule IN ('conversion_drop','conversion_anomaly')
         AND a.last_seen_at>=%(now)s-INTERVAL '7 days' AND (%(customer)s::bigint IS NULL OR a.site_id IS NULL OR s.customer_id=%(customer)s)'''
 _MONITOR_COUNT_SQL = '''
@@ -647,8 +647,13 @@ def register(bp):
         monitors = _rows(_MONITOR_COUNT_SQL, {'c': selected['client_id'], 'customer': customer})[0]['n']
         resolved_today, resolved_yesterday = int(counts['resolved_today']), int(counts['resolved_yesterday'])
         value = client_settings.conversion_value(load_settings(selected['client_id']))
-        lost = sum(max(0.0, float(metric['previous']) - float(metric['value'])) for row in _rows(_LOST_SQL, {'client': selected['client_id'], 'now': now, 'customer': customer})
-                   for metric in row['metrics'] or [] if metric.get('label') == 'Conversões' and metric.get('previous') is not None and metric.get('value') is not None)
+        # Page-level and site-level conversion alerts describe the same lost conversions from two angles, so the larger total is used, never their sum.
+        lost_by_rule = {}
+        for row in _rows(_LOST_SQL, {'client': selected['client_id'], 'now': now, 'customer': customer}):
+            lost_by_rule[row['rule']] = lost_by_rule.get(row['rule'], 0.0) + sum(
+                max(0.0, float(metric['previous']) - float(metric['value'])) for metric in row['metrics'] or []
+                if metric.get('label') == 'Conversões' and metric.get('previous') is not None and metric.get('value') is not None)
+        lost = max(lost_by_rule.values(), default=0.0)
         uptime_now, uptime_before = _pct(uptime['up_now'], uptime['all_now']), _pct(uptime['up_before'], uptime['all_before'])
         return jsonify(
             tabs={'incidents': int(counts['incidents']), 'monitors': int(monitors), 'opportunities': int(counts['opportunities'])},

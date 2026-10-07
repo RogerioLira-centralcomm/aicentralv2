@@ -15,8 +15,8 @@ REVIEW_PASSES = (
     ("Aplicar a versão revisada", "Entregue a versão final mais consistente. Esta é a única versão que será aplicada ao plano; não descreva o processo interno."),
 )
 MAX_REVIEW_DOCUMENT_CHARS = 40_000
-BRIEFING_OUTPUT_TOKENS_PER_PASS = 800
-DOCUMENT_OUTPUT_TOKENS_PER_PASS = 1_200
+BRIEFING_OUTPUT_TOKENS_PER_PASS = 2_500  # reasoning included: a real 3-pass review used ~6.8k tokens
+DOCUMENT_OUTPUT_TOKENS_PER_PASS = 3_500
 TEXT_AGENT_MARGIN_MULTIPLIER = 1
 
 _TASKS = {

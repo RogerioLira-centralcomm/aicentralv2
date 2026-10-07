@@ -2,6 +2,7 @@ import React from 'react';
 import {reportUrl} from '../../reportsCommon.jsx';
 import {useReportsContext} from '../../shell/context.js';
 import {apiUrl, useApi} from '../../shell/useApi.js';
+import {customerParam} from '../../shell/customerScope.js';
 import {AppLink, DataTable, EmptyState, ErrorState, LoadingState, MetricGroup, Section} from '../../shell/primitives.jsx';
 import {number, percent} from '../shared.jsx';
 
@@ -13,7 +14,7 @@ export const sectionName = path => path === '/' ? 'Página inicial' : path.slice
  */
 export function Contents() {
   const {period, scope} = useReportsContext();
-  const [state, retry] = useApi(apiUrl('/journey/content', {start_date: period.start, end_date: period.end, site_id: scope.site || undefined}));
+  const [state, retry] = useApi(apiUrl('/journey/content', {start_date: period.start, end_date: period.end, site_id: scope.site || undefined, customer_id: customerParam()}));
   if (state.error) return <ErrorState message={state.error} onRetry={retry}/>;
   if (state.loading && !state.body) return <div className="rs-stack"><LoadingState rows={2}/><LoadingState rows={6}/></div>;
   const sections = state.body.sections;

@@ -4,6 +4,7 @@ import {reportUrl} from '../../reportsCommon.jsx';
 import {dayLabel} from '../../friendlyDates.js';
 import {useReportsContext} from '../../shell/context.js';
 import {apiUrl, useApi} from '../../shell/useApi.js';
+import {customerParam} from '../../shell/customerScope.js';
 import {Chart} from '../../shell/media.jsx';
 import {AppLink, Async, DataTable, ErrorState, LoadingState, MetricGroup, Section} from '../../shell/primitives.jsx';
 import {compact, number, percent, siteTotals} from '../shared.jsx';
@@ -30,10 +31,10 @@ const Share = ({value, total}) => <span className="rs-share"><i><b style={{width
 /** "O que as pessoas fazem depois de chegar?" — KPIs, traffic and channels, entries and devices, pages and contents. The heatmap lives in its own tab. */
 export function JourneyOverview() {
   const {period, scope} = useReportsContext();
-  const range = {start_date: period.start, end_date: period.end};
+  const range = {start_date: period.start, end_date: period.end, customer_id: customerParam()};
   const [domains, retryDomains] = useApi(apiUrl('/pages/domains', range));
-  const [navigation, retryNavigation] = useApi(apiUrl('/journey/navigation', {...range, site_id: scope.site}));
-  const [content, retryContent] = useApi(apiUrl('/journey/content', {...range, site_id: scope.site || undefined}));
+  const [navigation, retryNavigation] = useApi(apiUrl('/journey/navigation', {...range, site_id: scope.site, customer_id: customerParam()}));
+  const [content, retryContent] = useApi(apiUrl('/journey/content', {...range, site_id: scope.site || undefined, customer_id: customerParam()}));
   const inScope = item => !scope.site || item.site_id === scope.site;
   const scoped = useMemo(() => (domains.body?.domains || []).filter(inScope), [domains.body, scope.site]);
   const site = domains.body ? siteTotals(scoped) : null;

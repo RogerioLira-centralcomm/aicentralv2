@@ -2,6 +2,7 @@ import React from 'react';
 import {friendlyAgo} from '../friendlyDates.js';
 import {apiUrl, useApi} from '../shell/useApi.js';
 import {periodBucket} from '../shell/context.js';
+import {customerParam} from '../shell/customerScope.js';
 import {platformName} from '../shell/media.jsx';
 
 export const number = value => value == null || !Number.isFinite(Number(value)) ? '—' : Number(value).toLocaleString('pt-BR', {maximumFractionDigits: 0});
@@ -37,7 +38,7 @@ export function mediaSummary(metrics, imported) {
 
 /** Script metrics and imported metrics for the period, loaded side by side. */
 export function useMedia(period, scope = {}) {
-  const query = {...periodQuery(period), account_id: scope.account, campaign_id: scope.campaign};
+  const query = {...periodQuery(period), account_id: scope.account, campaign_id: scope.campaign, customer_id: customerParam()};
   const [metrics, retryMetrics] = useApi(apiUrl('/metrics', query));
   const [imported, retryImported] = useApi(apiUrl('/import-metrics', query));
   const loading = metrics.loading || imported.loading;

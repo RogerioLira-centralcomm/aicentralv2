@@ -12,6 +12,7 @@ import {ReportsRelationships} from './ReportsRelationships.jsx';
 import {Alert, Callout, Card, DataTable, DrawerActions, EmptyNote, Stats} from './ReportsBlocks.jsx';
 import {decimal, integer, json, reportUrl, shortDate} from './reportsCommon.jsx';
 import {useReportsContext} from './shell/context.js';
+import {NewSiteWizard} from './NewSiteWizard.jsx';
 
 const API = '/connect/api/v2/reports/supertag';
 const EVENT_LABELS = {page_view: 'Visualização de página', page_leave: 'Saída de página', click: 'Clique', whatsapp_click: 'Clique no WhatsApp', form_submit: 'Envio de formulário',
@@ -91,6 +92,7 @@ export function SuperTagPage({data}) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [installOpen, setInstallOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [verify, setVerify] = useState(null);
   const [verifying, setVerifying] = useState(false);
   const [revokeOpen, setRevokeOpen] = useState(false);
@@ -183,10 +185,10 @@ export function SuperTagPage({data}) {
       {notice && <Alert tone="success">{notice}</Alert>}
       {!selected && !loading && <Card><EmptyNote title={sites.length ? 'Escolha um site' : canEdit ? 'Conecte seu primeiro site' : 'Nenhum site conectado'}>
         {sites.length ? 'Escolha o site no seletor do cabeçalho para ver instalação, eventos e fluxos.' : canEdit ? 'Instale a Super Tag para acompanhar visitas, eventos e conversões.' : 'Os sites autorizados para este cliente aparecem aqui.'}
-        {!sites.length && canEdit && <span className="mt-4 block"><Button size="md" color="primary" iconLeading={Plus} onPress={() => setInstallOpen(true)}>Conectar site</Button></span>}
+        {!sites.length && canEdit && <span className="mt-4 block"><Button size="md" color="primary" iconLeading={Plus} onPress={() => setInstallOpen(true)}>Conectar site</Button>{' '}<Button size="md" color="secondary" onPress={() => setWizardOpen(true)}>Assistente: site, fluxo e Super Tag</Button></span>}
       </EmptyNote></Card>}
       {selected && <>
-        <SiteHeader site={selected} hasEvents={hasEvents} flowsCount={detailLoading ? null : linked.length} onAdd={canEdit ? () => setInstallOpen(true) : null}/>
+        <SiteHeader site={selected} hasEvents={hasEvents} flowsCount={detailLoading ? null : linked.length} onAdd={canEdit ? () => setInstallOpen(true) : null} onWizard={canEdit ? () => setWizardOpen(true) : null}/>
         <ReportsTabs label="Áreas do site" value={current} onChange={setTab} items={tabs}/>
         {detailLoading && <p role="status" className="text-sm text-tertiary">Carregando dados do site…</p>}
         {current === 'overview' && <>
@@ -211,12 +213,13 @@ export function SuperTagPage({data}) {
         {current === 'settings' && <Settings data={data} site={selected} busy={busy} canEdit={canEdit} onUpdate={update} onRevoke={() => setRevokeOpen(true)}/>}
       </>}
     </div>
+    {wizardOpen && <NewSiteWizard data={data} onClose={() => setWizardOpen(false)}/>}
     <InstallDrawer open={installOpen} data={data} onClose={() => setInstallOpen(false)} onCreated={site => location.assign(reportUrl('supertag', {scope_site: site.id}))}/>
     <ReportsConfirmDialog open={revokeOpen} title="Revogar Super Tag" description="A coleta neste domínio será interrompida. Os dados já recebidos permanecem no Reports." confirmLabel="Revogar instalação" busy={busy} onCancel={() => setRevokeOpen(false)} onConfirm={revoke}/>
   </div>;
 }
 
-function SiteHeader({site, hasEvents, flowsCount, onAdd}) {
+function SiteHeader({site, hasEvents, flowsCount, onAdd, onWizard}) {
   const [state, color] = siteState(site);
   const last = site.last_event_at;
   return <section className="overflow-hidden rounded-xl bg-primary shadow-xs ring-1 ring-secondary">
@@ -228,6 +231,7 @@ function SiteHeader({site, hasEvents, flowsCount, onAdd}) {
       <div className="flex flex-wrap gap-3">
         <Button size="md" color="secondary" iconTrailing={ArrowUpRight} href={`https://${site.allowed_host}`} target="_blank" rel="noopener noreferrer">Visitar site</Button>
         {onAdd && <Button size="md" color="secondary" iconLeading={Plus} onPress={onAdd}>Conectar site</Button>}
+        {onWizard && <Button size="md" color="secondary" onPress={onWizard}>Assistente completo</Button>}
       </div>
     </div>
     <dl className="grid gap-px border-t border-secondary bg-border-secondary sm:grid-cols-2 lg:grid-cols-4">

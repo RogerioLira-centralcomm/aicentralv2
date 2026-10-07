@@ -84,3 +84,5 @@
 .cadu-solution-sidebar.is-collapsed .cadu-solution-sidebar__group a:hover svg{color:var(--color-fg-secondary,#475467)}
 .cadu-solution-sidebar.is-collapsed .cadu-solution-sidebar__group a.is-active svg{color:var(--color-fg-brand-primary,var(--solution-accent))}
 @media(max-width:760px){.cadu-solution-sidebar__tooltip{display:none}.cadu-solution-sidebar.is-collapsed .cadu-solution-sidebar__group{display:contents}.cadu-solution-sidebar.is-collapsed .cadu-solution-sidebar__group a{width:auto;height:auto;min-height:44px;justify-content:flex-start;padding:5px 9px}}
+.cadu-solution-sidebar__context{display:grid;gap:6px;padding:0 0 2px}
+.cadu-solution-sidebar.is-collapsed .cadu-solution-sidebar__context{justify-items:center}

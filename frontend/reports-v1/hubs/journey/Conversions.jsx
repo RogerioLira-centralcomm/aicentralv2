@@ -6,6 +6,7 @@ import {json, reportUrl} from '../../reportsCommon.jsx';
 import {friendlyDateTime} from '../../friendlyDates.js';
 import {useReportsContext} from '../../shell/context.js';
 import {apiUrl, useApi} from '../../shell/useApi.js';
+import {customerParam} from '../../shell/customerScope.js';
 import {Chart} from '../../shell/media.jsx';
 import {AppLink, DataTable, EmptyState, ErrorState, LoadingState, MetricGroup, Section} from '../../shell/primitives.jsx';
 import {number, percent} from '../shared.jsx';
@@ -18,7 +19,7 @@ const STEP = {page_view: 'Página', form_submit: 'Formulário', conversion: 'Con
 /** Conversions as the site observed them (type, page, origin), next to what the CRM confirmed. Connects media and behaviour. */
 export function Conversions() {
   const {period, scope} = useReportsContext();
-  const range = {start_date: period.start, end_date: period.end, site_id: scope.site || undefined};
+  const range = {start_date: period.start, end_date: period.end, site_id: scope.site || undefined, customer_id: customerParam()};
   const [state, retry] = useApi(apiUrl('/journey/conversions', range));
   const [leadsState, retryLeads] = useApi(apiUrl('/supertag/leads', range));
   const [groupsState] = useApi(apiUrl('/journey/conversion-groups', range));

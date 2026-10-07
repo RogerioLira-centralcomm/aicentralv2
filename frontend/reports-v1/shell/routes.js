@@ -21,23 +21,25 @@ export const HUBS = {
 
 /**
  * path → page. `page` is the key App renders; `nav` is the sidebar item kept active;
+ * `needsCustomer` screens always show one client (the sidebar picker has no "all" there);
  * `period` shows the global period picker in the header; `scope` adds the header picker
  * (true: source + campaign, 'account': source only, 'site': Super Tag site).
  */
 export const ROUTES = {
-  overview: {page: 'overview', nav: 'overview', title: 'Visão geral', description: 'Saúde dos dados, resultados e próxima ação.', period: true},
-  media: {page: 'media', nav: 'media', hub: 'media', period: true, scope: true},
-  'media/campaigns': {page: 'campaigns', nav: 'media', hub: 'media', period: true},
-  'media/google-ads': {page: 'google-ads', nav: 'media', hub: 'media', period: true, scope: true},
-  'media/creatives': {page: 'creatives', nav: 'media', hub: 'media', period: true, scope: true},
-  journey: {page: 'journey', nav: 'journey', hub: 'journey', period: true, scope: 'site'},
-  'journey/flows': {page: 'flow', nav: 'journey', hub: 'journey', scope: 'site'},
-  'journey/pages': {page: 'pages', nav: 'journey', hub: 'journey', period: true, scope: 'site'},
-  'journey/content': {page: 'content', nav: 'journey', hub: 'journey', period: true, scope: 'site'},
-  'journey/channels': {page: 'channels', nav: 'journey', hub: 'journey', period: true, scope: 'site'},
-  'journey/navigation': {page: 'navigation', nav: 'journey', hub: 'journey', period: true, scope: 'site'},
-  'journey/conversions': {page: 'conversions', nav: 'journey', hub: 'journey', period: true, scope: 'site'},
-  'journey/heatmap': {page: 'heatmap', nav: 'journey', hub: 'journey', period: true, scope: 'site', siteRequired: true},
+  overview: {page: 'overview', nav: 'overview', needsCustomer: true, title: 'Visão geral', description: 'Saúde dos dados, resultados e próxima ação.', period: true},
+  onboarding: {page: 'onboarding', nav: 'onboarding', title: 'Conhecer o Reports', description: 'Um passeio pelas áreas e a preparação do seu ambiente.'},
+  media: {page: 'media', nav: 'media', hub: 'media', needsCustomer: true, period: true, scope: true},
+  'media/campaigns': {page: 'campaigns', nav: 'media', hub: 'media', needsCustomer: true, period: true},
+  'media/google-ads': {page: 'google-ads', nav: 'media', hub: 'media', needsCustomer: true, period: true, scope: true},
+  'media/creatives': {page: 'creatives', nav: 'media', hub: 'media', needsCustomer: true, period: true, scope: true},
+  journey: {page: 'journey', nav: 'journey', hub: 'journey', needsCustomer: true, siteRequired: true, period: true, scope: 'site'},
+  'journey/flows': {page: 'flow', nav: 'journey', hub: 'journey', needsCustomer: true, siteRequired: true, scope: 'site'},
+  'journey/pages': {page: 'pages', nav: 'journey', hub: 'journey', needsCustomer: true, siteRequired: true, period: true, scope: 'site'},
+  'journey/content': {page: 'content', nav: 'journey', hub: 'journey', needsCustomer: true, siteRequired: true, period: true, scope: 'site'},
+  'journey/channels': {page: 'channels', nav: 'journey', hub: 'journey', needsCustomer: true, siteRequired: true, period: true, scope: 'site'},
+  'journey/navigation': {page: 'navigation', nav: 'journey', hub: 'journey', needsCustomer: true, siteRequired: true, period: true, scope: 'site'},
+  'journey/conversions': {page: 'conversions', nav: 'journey', hub: 'journey', needsCustomer: true, siteRequired: true, period: true, scope: 'site'},
+  'journey/heatmap': {page: 'heatmap', nav: 'journey', hub: 'journey', needsCustomer: true, siteRequired: true, period: true, scope: 'site'},
   reports: {page: 'reports', nav: 'reports', title: 'Relatórios', description: 'Análises salvas e entregáveis prontos para distribuir.'},
   alerts: {page: 'alerts', nav: 'alerts', title: 'Alertas', description: 'O que precisa da sua atenção, com responsável e histórico.'},
   'data-sources': {page: 'data-sources', nav: 'data-sources', hub: 'data', customers: true},

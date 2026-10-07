@@ -98,8 +98,8 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
   const allTags=[...new Set(flows.flatMap(flowTags))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
   const normalizeHost=value=>String(value||'').toLowerCase().replace(/^www\./,'');
   const scopedHost=normalizeHost(supertagSites.find(site=>String(site.id)===scope.site)?.allowed_host);
-  const scopedFlows=flows.filter(item=>!scopedHost||normalizeHost(item.allowed_host)===scopedHost);
-  const visibleFlows=flows.filter(item=>(!flowTagFilter||flowTags(item).includes(flowTagFilter))&&(!scopedHost||normalizeHost(item.allowed_host)===scopedHost));
+  const scopedFlows=flows.filter(item=>!scopedHost||normalizeHost(item.allowed_host)===scopedHost||(!item.allowed_host&&Boolean(item.customer_id)));
+  const visibleFlows=flows.filter(item=>(!flowTagFilter||flowTags(item).includes(flowTagFilter))&&(!scopedHost||normalizeHost(item.allowed_host)===scopedHost||(!item.allowed_host&&Boolean(item.customer_id))));
   const publishedFlows=visibleFlows.filter(item=>item.status==='published');
   const draftFlows=visibleFlows.filter(item=>item.status!=='published');
   const flowIdentity=item=><><strong title={item.flow_code}>{item.name}</strong><small className="rs-cell-sub">{[plural(flowItemCount(item),'item','itens'),item.allowed_host||'sem site · plano',item.campaign_names,...flowTags(item)].filter(Boolean).join(' · ')}</small></>;

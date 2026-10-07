@@ -5,6 +5,7 @@ import {ReportsFieldInput} from '../../ReportsFieldInput.jsx';
 import {reportUrl} from '../../reportsCommon.jsx';
 import {useReportsContext} from '../../shell/context.js';
 import {apiUrl, useApi} from '../../shell/useApi.js';
+import {customerParam} from '../../shell/customerScope.js';
 import {AppLink, Async, DataTable, EmptyState, Section} from '../../shell/primitives.jsx';
 import {number, percent} from '../shared.jsx';
 import {sectionName} from './Contents.jsx';
@@ -25,7 +26,7 @@ const initialSearch = () => {try {return (new URLSearchParams(location.search).g
 export function PagesList() {
   const {period, scope} = useReportsContext();
   const [origin, setOrigin] = useOrigin();
-  const [state, retry] = useApi(apiUrl('/journey/navigation', {start_date: period.start, end_date: period.end, site_id: scope.site || undefined, origin: origin || undefined}));
+  const [state, retry] = useApi(apiUrl('/journey/navigation', {start_date: period.start, end_date: period.end, site_id: scope.site || undefined, customer_id: customerParam(), origin: origin || undefined}));
   const [query, setQuery] = useState(initialSearch);
   const [host, setHost] = useState('');
   const pages = (state.body?.pages || []).filter(item => !scope.site || item.site_id === scope.site);

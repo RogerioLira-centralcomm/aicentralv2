@@ -299,14 +299,14 @@ async function main() {
     await page.waitForURL('**/connect/app/settings/accounts');
     await page.getByRole('heading', {name: 'Contas e campanhas'}).waitFor();
     await page.getByRole('button', {name: 'Novo cliente'}).click();
-    await page.getByRole('heading', {name: 'Novo cliente'}).waitFor();
-    // "Criar cliente" stays enabled; the required name field is what stops an empty submit (browser validation).
-    const customerName = page.getByLabel('Nome do cliente ou anunciante');
-    await page.getByRole('button', {name: 'Criar cliente'}).click();
-    assert.equal(await customerName.evaluate(input => input.validity.valueMissing), true, 'cadastro exige nome');
+    await page.getByRole('heading', {name: 'Quem é o cliente?'}).waitFor();
+    // The wizard does not advance without a name, so nothing is sent for an empty client.
+    assert.equal(await page.getByRole('button', {name: 'Continuar'}).isDisabled(), true, 'cadastro exige nome');
     assert.equal(state.calls.some(item => item.path === '/customers' && item.method === 'POST'), false,
       'sem nome, nenhum cliente é enviado à API');
-    await customerName.fill('Cliente criado na interface');
+    await page.getByLabel('Nome do cliente ou anunciante').fill('Cliente criado na interface');
+    await page.getByRole('button', {name: 'Continuar'}).click();
+    await page.getByRole('button', {name: 'Continuar'}).click();
     await page.getByRole('button', {name: 'Criar cliente'}).click();
     await page.waitForURL(`**/connect/app/settings/accounts?customer=${customerId}`);
     await page.getByRole('heading', {name: 'Cliente criado na interface', level: 2}).waitFor();

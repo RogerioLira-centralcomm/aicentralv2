@@ -4,6 +4,7 @@ import {ArrowRight} from '@untitledui/icons';
 import {reportUrl} from '../../reportsCommon.jsx';
 import {useReportsContext} from '../../shell/context.js';
 import {apiUrl, useApi} from '../../shell/useApi.js';
+import {customerParam} from '../../shell/customerScope.js';
 import {AppLink, DataTable, EmptyState, ErrorState, LoadingState, MetricGroup, Section} from '../../shell/primitives.jsx';
 import {number, percent} from '../shared.jsx';
 import {OriginPicker, useOrigin} from './origin.jsx';
@@ -60,7 +61,7 @@ const pageLink = (row, path = row.path) => <AppLink className="rs-path" href={re
 export function Navigation() {
   const {period, scope} = useReportsContext();
   const [origin, setOrigin] = useOrigin();
-  const [state, retry] = useApi(apiUrl('/journey/navigation', {start_date: period.start, end_date: period.end, site_id: scope.site, origin: origin || undefined}));
+  const [state, retry] = useApi(apiUrl('/journey/navigation', {start_date: period.start, end_date: period.end, site_id: scope.site, customer_id: customerParam(), origin: origin || undefined}));
   if (state.error) return <ErrorState message={state.error} onRetry={retry}/>;
   if (state.loading && !state.body) return <div className="rs-stack"><LoadingState rows={2}/><LoadingState rows={6}/></div>;
   const body = state.body;

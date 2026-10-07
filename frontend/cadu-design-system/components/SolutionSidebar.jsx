@@ -5,7 +5,7 @@ import {SidebarAccount, useCreditUsage} from './SidebarAccount';
 import {workspaceSolutionItems} from '../workspaceSolutions';
 import './SolutionSidebar.css';
 
-export function SolutionSidebar({solution, icon, accent, groups = [], active, storageKey, footer, solutionUrls = {}, solutionIcons = {}, solutionLogo, activeSolutionId, userName = 'Minha conta', accountLabel, userAvatar = '', creditsUrl, profileUrl, onNavigate, autoCollapse = false}) {
+export function SolutionSidebar({solution, icon, accent, groups = [], active, storageKey, footer, solutionUrls = {}, solutionIcons = {}, solutionLogo, activeSolutionId, userName = 'Minha conta', accountLabel, userAvatar = '', creditsUrl, profileUrl, onNavigate, autoCollapse = false, context}) {
   // autoCollapse: focused pages (e.g. a plan) open collapsed without touching the saved preference.
   const [collapsed, setCollapsed] = useState(() => {
     if (autoCollapse) return true;
@@ -35,6 +35,7 @@ export function SolutionSidebar({solution, icon, accent, groups = [], active, st
         <span className="cadu-solution-sidebar__toggle-mobile">{mobileOpen ? 'Fechar' : 'Menu'}</span><span className="cadu-solution-sidebar__toggle-desktop" aria-hidden="true">{collapsed ? '›' : '‹'}</span>
       </button>
     </header>
+    {context && <div className="cadu-solution-sidebar__context">{typeof context === 'function' ? context({collapsed}) : context}</div>}
     <nav className="cadu-solution-sidebar__nav" aria-label={`Seções do ${solution}`}>
       {groups.map(group => <section className="cadu-solution-sidebar__group" key={group.label}>
         {group.label && <span className="cadu-solution-sidebar__group-label">{group.label}</span>}

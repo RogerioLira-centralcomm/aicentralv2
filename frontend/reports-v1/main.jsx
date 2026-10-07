@@ -16,10 +16,14 @@ import {SolutionSidebar} from '../cadu-design-system/components/SolutionSidebar.
 import {Button as UntitledButton} from '../cadu-design-system/untitled-kit/button.tsx';
 import {PageDetail} from './PageDetail.jsx';
 import {AlertsCenter} from './AlertsCenter.jsx';
+import {Onboarding} from './Onboarding.jsx';
+import {NewSiteWizard} from './NewSiteWizard.jsx';
 import {REPORT_FILTER_DEFAULTS, ReportsFilterBar} from './PageChrome.jsx';
 import {APP_BASE, HUBS, applyLegacyRedirect, navigateOnClick, resolveRoute, useLocationKey} from './shell/routes.js';
 import {ReportsContext, periodFilters, readPeriod, readSavedScope, readScope, initialScope, initialSite, saveScope, writePeriod, writeScope} from './shell/context.js';
 import {ContextSelector, PageHeader} from './shell/PageHeader.jsx';
+import {SidebarClient} from './shell/SidebarClient.jsx';
+import {customerParam, customerSearch, readCustomer, readSavedCustomer, scopeMemoryKey, writeCustomer} from './shell/customerScope.js';
 import {LoadingState} from './shell/primitives.jsx';
 import {apiUrl, setActiveClient, useApi} from './shell/useApi.js';
 import {platformName} from './shell/media.jsx';
@@ -107,9 +111,9 @@ function Campaigns({data, save, busy, filters, refreshRevision}) {
   </article></section>;
 }
 
-const reportIcons = {overview:'home', media:'analysis', journey:'branch', reports:'file', alerts:'alert', 'data-sources':'plugin', supertag:'pulse', events:'calendar', imports:'download', links:'link', customers:'users', accounts:'table', access:'folder'};
+const reportIcons = {overview:'home', onboarding:'check', media:'analysis', journey:'branch', reports:'file', alerts:'alert', 'data-sources':'plugin', supertag:'pulse', events:'calendar', imports:'download', links:'link', customers:'users', accounts:'table', access:'folder'};
 const NAV_GROUPS = [
-  ['', [['overview', 'Visão geral', 'overview']]],
+  ['', [['overview', 'Visão geral', 'overview'], ['onboarding', 'Conhecer o Reports', 'onboarding']]],
   ['Análise', [['media', 'Mídia', 'media'], ['journey', 'Site & Jornada', 'journey'], ['reports', 'Relatórios', 'reports'], ['alerts', 'Alertas', 'alerts']]],
   ['Dados', [['data-sources', 'Fontes de dados', 'data-sources']]],
   ['Ferramentas', [['links', 'Link Tester', 'tools/link-tester']]],
@@ -127,10 +131,15 @@ function App() {
   const isFlowEditor = Boolean(flowEditorId())&&(!/\/monitor\/?$/.test(location.pathname)||Boolean(data?.features?.flows_workspace_v2));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [siteWizard, setSiteWizard] = useState(false);
   const [period, setPeriodState] = useState(readPeriod);
   const setPeriod = range => {setPeriodState(range); writePeriod(range);};
   const [scope, setScopeState] = useState(readScope);
-  const setScope = next => {setScopeState(next); if (data?.client?.client_id) saveScope(data.client.client_id, next);};
+  // Everything the header offers (sources, campaigns, sites) belongs to the client chosen in the sidebar.
+  const customer = customerParam();
+  const ofCustomer = item => !customer || String(item.customer_id || '') === customer;
+  const customerAccountIds = new Set((data?.accounts || []).filter(ofCustomer).map(item => String(item.id)));
+  const setScope = next => {setScopeState(next); if (data?.client?.client_id) saveScope(scopeMemoryKey(data.client.client_id), next);};
   // Platform/account/campaign filters stay per page; the period is one for the whole app.
   const [filtersByPage, setFiltersByPage] = useState({});
   const filters = {...REPORT_FILTER_DEFAULTS, ...(filtersByPage[pageSection] || {}), ...periodFilters(period)};
@@ -183,31 +192,41 @@ function App() {
   };
   const groups = NAV_GROUPS.map(([label, items]) => ({label, items: items
     .filter(([id]) => id !== 'access' || data?.can_manage_access)
-    .map(([id, title, path]) => ({id, label: title, icon: reportIcons[id], href: `${APP_BASE}/${path}`}))}));
+    .map(([id, title, path]) => ({id, label: title, icon: reportIcons[id], href: `${APP_BASE}/${path}${customerSearch()}`}))}));
+  // Single-client screens never show "all": open on the saved client, else the first one.
+  useEffect(() => {
+    const list = (data?.customers || []).filter(item => item.status !== 'archived');
+    if (!data?.ready || !route.needsCustomer || !list.length) return;
+    if (list.some(item => String(item.id) === readCustomer())) return;
+    const saved = readSavedCustomer();
+    writeCustomer(String((list.find(item => String(item.id) === saved) || list[0]).id));
+  }, [data?.ready, data?.customers, locationKey]);
   const solutionUrls={workspace:rootElement.dataset.workspaceUrl,planner:rootElement.dataset.plannerUrl,studio:rootElement.dataset.studioUrl,connect:location.pathname+location.search,skills:rootElement.dataset.skillsUrl};
   const solutionIcons={workspace:'/static/images/cadu/products/cadu-icon.png',planner:'/static/images/cadu/products/planner-icon.png',studio:'/static/images/cadu/products/studio-icon.png',connect:'/static/images/cadu/products/connect-icon.png',skills:'/static/images/cadu/products/skills-icon.png'};
   // Once a client's data is in: reopen the last source/campaign used, or the only one there is.
   useEffect(() => {
     if (!data?.ready || !data.client?.client_id) return;
-    const next = initialScope({urlScope: readScope(), saved: readSavedScope(data.client.client_id), accounts: data.accounts || [], campaigns: data.campaigns || []});
-    setScopeState(current => ({...next, site: current.site}));
-  }, [data?.client?.client_id, data?.ready]);
+    const next = initialScope({urlScope: readScope(), saved: readSavedScope(scopeMemoryKey(data.client.client_id)),
+      accounts: (data.accounts || []).filter(ofCustomer), campaigns: (data.campaigns || []).filter(ofCustomer)});
+    // The site follows the new advertiser's own list; account and campaign come back from what this advertiser last used.
+    setScopeState(current => ({...next, site: ''}));
+  }, [data?.client?.client_id, data?.ready, customer]);
   const siteRoute = Boolean(data?.ready) && route.scope === 'site';
-  const [siteList] = useApi(siteRoute ? apiUrl('/supertag/sites', {for_client: data?.client?.client_id}) : '');
+  const [siteList] = useApi(siteRoute ? apiUrl('/supertag/sites', {for_client: data?.client?.client_id, customer_id: customer}) : '');
   const sites = (siteList.body?.sites || []).filter(item => !item.revoked_at);
   useEffect(() => {
-    if (!siteList.body) return;
+    if (!siteList.body || siteList.loading) return;
     // Old Super Tag links carry the site in the path (/supertag/sites/<id>); the header picker takes it from there.
-    const site = initialSite({urlSite: readScope().site || (route.page === 'supertag' ? route.entity : ''), savedSite: readSavedScope(data.client.client_id)?.site, sites});
+    const site = initialSite({urlSite: readScope().site || (route.page === 'supertag' ? route.entity : ''), savedSite: readSavedScope(scopeMemoryKey(data.client.client_id))?.site, sites});
     setScopeState(current => ({...current, site}));
-  }, [siteList.body]);
+  }, [siteList.body, customer]);
   // Screens that always show one site (Super Tag) open on the busiest one when nothing was chosen yet.
   // Functional update: the site picked above (URL, old path or saved) in the same pass wins over this fallback.
   useEffect(() => {
     if (!route.siteRequired || scope.site || !sites.length) return;
     const busiest = (sites.find(item => Number(item.events_30d) > 0) || sites[0]).id;
     setScopeState(current => current.site ? current : {...current, site: busiest});
-  }, [route.path, siteList.body, scope.site]);
+  }, [route.path, siteList.body, scope.site, customer]);
   // In-app links that carry ?scope_site= (alerts, overview) pick that site; read it before the URL is rewritten below.
   useEffect(() => {
     const urlSite = readScope().site;
@@ -224,8 +243,8 @@ function App() {
   // the other Mídia pages list registered campaigns. Managers (MCC) hold no metrics, so they are never a source.
   const googleRoute = route.path === 'media/google-ads';
   const [googleScope] = useApi(googleRoute && data?.ready ? apiUrl('/google-ads/scope', {client_id: data?.client?.client_id}) : '');
-  const scopeAccounts = googleRoute ? (googleScope.body?.accounts || []) : (data?.accounts || []).filter(item => item.account_kind !== 'manager');
-  const scopeCampaigns = googleRoute ? (googleScope.body?.campaigns || []) : (data?.campaigns || []);
+  const scopeAccounts = (googleRoute ? (googleScope.body?.accounts || []).filter(item => !customer || customerAccountIds.has(String(item.id))) : (data?.accounts || []).filter(item => item.account_kind !== 'manager' && ofCustomer(item)));
+  const scopeCampaigns = googleRoute ? (googleScope.body?.campaigns || []).filter(item => !customer || customerAccountIds.has(String(item.account_id))) : (data?.campaigns || []).filter(ofCustomer);
   // A choice made on one page is carried to the other: map it to the same campaign there, or clear it when there is none.
   useEffect(() => {
     if (!data?.ready || route.scope !== true || (googleRoute && !googleScope.body)) return;
@@ -255,10 +274,14 @@ function App() {
   const showFilterBar = data?.ready && !isFlowEditor && (pageSection === 'campaigns' && !route.entity && !new URLSearchParams(location.search).get('campaign_id')
     || pageSection === 'events' || (pageSection === 'flow' && new URLSearchParams(location.search).get('flow_view') === 'monitor'));
   const clientKey = data?.client?.client_id;
+  // Site & Jornada always shows one site of the chosen client: a client with none gets a way to add it, not another client's data.
+  const customerHasNoSite = Boolean(data?.ready) && route.needsCustomer && route.scope === 'site' && Boolean(customer) && Boolean(siteList.body) && !siteList.loading && sites.length === 0;
   const page = !data ? <LoadingState rows={4} label="Carregando Reports…"/>
     : !data.ready ? <Empty message="A base de Reports V1 ainda precisa da migração de dados." />
+    : customerHasNoSite ? <section className="untitled-scope rs-nosite"><h2>Este cliente ainda não tem um site conectado</h2><p>Site & Jornada mostra o que as pessoas fazem no site do cliente escolhido. Conecte o site e instale a Super Tag para começar.</p>{data.client.role !== 'viewer' && <UntitledButton size="md" color="primary" onPress={() => setSiteWizard(true)}>Adicionar site, fluxo e Super Tag</UntitledButton>}</section>
     : {
       overview: () => <Overview data={data}/>,
+      onboarding: () => <Onboarding data={data} save={save} busy={busy} reload={() => load(data.client.client_id)}/>,
       media: () => <MediaOverview data={data}/>,
       campaigns: () => <Campaigns data={data} save={save} busy={busy} filters={filters} refreshRevision={refreshRevision} />,
       'google-ads': () => <GoogleAds data={data}/>,
@@ -283,15 +306,16 @@ function App() {
       access: () => data.can_manage_access ? <AccessPage data={data} save={save} busy={busy}/> : <Empty message="Seu acesso não permite administrar usuários do Reports neste cliente." />,
     }[pageSection]();
   return <ReportsContext.Provider value={context}><div data-cadu-skin="reports" className={`reports-shell reports-shell--${pageSection}${isFlowEditor?' reports-shell--flow-editor':''}`}>
-    {!isFlowEditor && <SolutionSidebar solution="Reports" userName={rootElement.dataset.userName||'Minha conta'} accountLabel={rootElement.dataset.agencyName||'Agência'} userAvatar={rootElement.dataset.userAvatar||''} creditsUrl={rootElement.dataset.creditsUrl} profileUrl={rootElement.dataset.profileUrl} accent="#175cd3" storageKey="reports-sidebar" active={route.nav} activeSolutionId="connect" solutionLogo={solutionIcons.connect} solutionUrls={solutionUrls} solutionIcons={solutionIcons} groups={groups} onNavigate={navigateOnClick} />}
+    {!isFlowEditor && <SolutionSidebar solution="Reports" userName={rootElement.dataset.userName||'Minha conta'} accountLabel={rootElement.dataset.agencyName||'Agência'} userAvatar={rootElement.dataset.userAvatar||''} creditsUrl={rootElement.dataset.creditsUrl} profileUrl={rootElement.dataset.profileUrl} accent="#175cd3" storageKey="reports-sidebar" active={route.nav} activeSolutionId="connect" solutionLogo={solutionIcons.connect} solutionUrls={solutionUrls} solutionIcons={solutionIcons} groups={groups} onNavigate={navigateOnClick} context={({collapsed}) => data ? <SidebarClient clients={data.clients} customers={data.customers} campaigns={data.campaigns} accounts={data.accounts} client={data.client} needsCustomer={Boolean(route.needsCustomer)} collapsed={collapsed}/> : null} />}
     <main className="reports-main">
       <>
           {data && !isFlowEditor && <PageHeader {...header} activeTab={route.path}
-            context={<ContextSelector clients={data.clients} customers={route.customers ? data.customers : undefined} client={data.client} accounts={route.scope === true || route.scope === 'account' ? scopeAccounts : undefined} campaigns={route.scope === true ? scopeCampaigns : undefined} sites={route.scope === 'site' ? sites : undefined} siteRequired={Boolean(route.siteRequired)} alwaysClient={route.page === 'overview' || route.hub === 'data'} showPeriod={Boolean(route.period) && !(pageSection === 'pages' && new URLSearchParams(location.search).get('site_id'))}/>}/>}
+            context={<ContextSelector accounts={route.scope === true || route.scope === 'account' ? scopeAccounts : undefined} campaigns={route.scope === true ? scopeCampaigns : undefined} sites={route.scope === 'site' ? sites : undefined} siteRequired={Boolean(route.siteRequired)} showPeriod={Boolean(route.period) && !(pageSection === 'pages' && new URLSearchParams(location.search).get('site_id'))}/>}/>}
           {showFilterBar && <ReportsFilterBar data={data} filters={filters} onChange={updateFilters} onRefresh={onRefresh} />}
           <div className="reports-content">{error && <div className="reports-error" role="alert">{error}</div>}<React.Fragment key={`${clientKey}:${route.path}`}>{page}</React.Fragment></div>
       </>
     </main>
+    {siteWizard && <NewSiteWizard data={data} onClose={() => setSiteWizard(false)}/>}
   </div></ReportsContext.Provider>;
 }
 

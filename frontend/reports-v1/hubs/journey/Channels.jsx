@@ -3,6 +3,7 @@ import {ArrowRight} from '@untitledui/icons';
 import {reportUrl} from '../../reportsCommon.jsx';
 import {useReportsContext} from '../../shell/context.js';
 import {apiUrl, useApi} from '../../shell/useApi.js';
+import {customerParam} from '../../shell/customerScope.js';
 import {AppLink, DataTable, EmptyState, ErrorState, LoadingState, MetricGroup, Section} from '../../shell/primitives.jsx';
 import {number, percent} from '../shared.jsx';
 import './journey.css';
@@ -61,8 +62,8 @@ function AdsCost({state}) {
 /** "De onde vêm as visitas?" — every origin group with volume, conversion, devices, campaigns and the pages people land on. */
 export function Channels() {
   const {period, scope} = useReportsContext();
-  const [state, retry] = useApi(apiUrl('/journey/channels', {start_date: period.start, end_date: period.end, site_id: scope.site || undefined}));
-  const [attribution] = useApi(apiUrl('/journey/attribution', {start_date: period.start, end_date: period.end, site_id: scope.site || undefined}));
+  const [state, retry] = useApi(apiUrl('/journey/channels', {start_date: period.start, end_date: period.end, site_id: scope.site || undefined, customer_id: customerParam()}));
+  const [attribution] = useApi(apiUrl('/journey/attribution', {start_date: period.start, end_date: period.end, site_id: scope.site || undefined, customer_id: customerParam()}));
   if (state.error) return <ErrorState message={state.error} onRetry={retry}/>;
   if (state.loading && !state.body) return <div className="rs-stack"><LoadingState rows={2}/><LoadingState rows={6}/></div>;
   const {channels, totals, quality, tech} = state.body;

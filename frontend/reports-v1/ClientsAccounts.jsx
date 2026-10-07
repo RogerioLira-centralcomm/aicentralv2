@@ -12,6 +12,7 @@ import {platformName} from './shell/media.jsx';
 import {json} from './reportsCommon.jsx';
 import {FlowConnectSite} from './FlowConnectSite.jsx';
 import {APP_BASE} from './shell/routes.js';
+import {NewClientWizard} from './NewClientWizard.jsx';
 
 const API = '/connect/api/v2/reports';
 const ALL = 'all';
@@ -63,6 +64,7 @@ export function ClientsAccounts({data, save, busy, reload}) {
   const [showInactive, setShowInactive] = useState(true);
   const [collapsed, setCollapsed] = useState(() => new Set());
   const [drawer, setDrawer] = useState(null);
+  const [wizard, setWizard] = useState(false);
   const [error, setError] = useState('');
   const canEdit = data.client.role !== 'viewer';
   const canManageClients = Boolean(data.can_manage_clients);
@@ -104,7 +106,7 @@ export function ClientsAccounts({data, save, busy, reload}) {
     <aside className="flex flex-col overflow-hidden rounded-xl bg-primary shadow-xs ring-1 ring-secondary lg:sticky lg:top-4" aria-label="Clientes">
       <header className="flex items-center justify-between gap-3 border-b border-secondary px-4 py-3">
         <div className="flex items-center gap-2"><h2 className="text-md font-semibold text-primary">Clientes</h2><Badge type="pill-color" size="sm" color="gray">{customers.length}</Badge></div>
-        {canManageClients && <CaduTooltip label="Novo cliente"><Button size="sm" color="secondary" iconLeading={Plus} aria-label="Novo cliente" onPress={() => setDrawer({kind: 'customer'})}/></CaduTooltip>}
+        {canManageClients && <CaduTooltip label="Novo cliente"><Button size="sm" color="secondary" iconLeading={Plus} aria-label="Novo cliente" onPress={() => setWizard(true)}/></CaduTooltip>}
       </header>
       {customers.length > 6 && <div className="px-3 pt-3"><ReportsFieldInput size="sm" type="search" aria-label="Buscar cliente" placeholder="Buscar cliente" value={clientQuery} onChange={event => setClientQuery(event.target.value)}
         leading={<SearchLg size={16} aria-hidden="true" className="ml-3 shrink-0 text-fg-quaternary"/>}/></div>}
@@ -166,6 +168,8 @@ export function ClientsAccounts({data, save, busy, reload}) {
       <SitesSection data={data} current={current} selected={selected} customers={customers} canEdit={canEdit} onError={setError}/>
     </div>
 
+    {wizard && <NewClientWizard freeBrands={freeBrands} save={save} send={(path, method, payload) => send(data, path, method, payload)} reload={reload}
+      onDone={async id => {await reloadMap(); if (id) setSelected(String(id)); setWizard(false);}} onClose={() => setWizard(false)}/>}
     <CustomerDrawer open={drawer?.kind === 'customer'} customer={drawer?.customer} data={data} save={save} reload={reload} busy={busy} workspace={workspace} freeBrands={freeBrands}
       onClose={() => setDrawer(null)} onSaved={async id => {await reloadMap(); if (id) setSelected(String(id));}}/>
     <AccountDrawer open={drawer?.kind === 'account'} account={drawer?.account} data={data} save={save} reload={reload} busy={busy} customerId={current?.id || ''} customers={customers} onClose={() => setDrawer(null)}/>

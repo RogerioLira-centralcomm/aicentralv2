@@ -5,6 +5,7 @@ import {ReportsActionButton} from '../../ReportsActionButton.jsx';
 import {json, reportUrl} from '../../reportsCommon.jsx';
 import {useReportsContext} from '../../shell/context.js';
 import {apiUrl, useApi} from '../../shell/useApi.js';
+import {customerParam} from '../../shell/customerScope.js';
 import {platformName} from '../../shell/media.jsx';
 import {TrendAside, TrendGrid, daySeries} from '../../shell/TrendGrid.jsx';
 import {AppLink, EmptyState, LoadingState, Section} from '../../shell/primitives.jsx';
@@ -209,13 +210,16 @@ function FlowsCard({state}) {
 /** The client at a glance: headline numbers, daily trend of campaigns and site, what is running (campaigns, sites, flows), alerts and data health. */
 export function Overview({data}) {
   const {period} = useReportsContext();
+  // Everything here is the chosen client's (sidebar picker); the API narrows each list and metric to it.
+  const customer_id = customerParam();
   const media = useMedia(period);
-  const [domains] = useApi(apiUrl('/pages/domains', {start_date: period.start, end_date: period.end}));
-  const [compareState] = useApi(apiUrl('/overview/compare', {start_date: period.start, end_date: period.end}));
-  const [alerts, retryAlerts] = useApi(apiUrl('/alerts'));
-  const [sites] = useApi(apiUrl('/supertag/sites'));
-  const [sources] = useApi(apiUrl('/ingest-keys'));
-  const [flows] = useApi(apiUrl('/flow', {view: 'edit'}));
+  const [domains] = useApi(apiUrl('/pages/domains', {start_date: period.start, end_date: period.end, customer_id}));
+  const [compareState] = useApi(apiUrl('/overview/compare', {start_date: period.start, end_date: period.end, customer_id}));
+  const [alerts, retryAlerts] = useApi(apiUrl('/alerts', {customer_id}));
+  const [sites] = useApi(apiUrl('/supertag/sites', {customer_id}));
+  const [sources] = useApi(apiUrl('/ingest-keys', {customer_id}));
+  const [flows] = useApi(apiUrl('/flow', {view: 'edit', customer_id}));
+  const campaigns = (data.campaigns || []).filter(item => !customer_id || String(item.customer_id || '') === customer_id);
   const [busy, setBusy] = useState('');
   const [actionError, setActionError] = useState('');
   const site = domains.body ? siteTotals(domains.body.domains) : null;
@@ -233,7 +237,7 @@ export function Overview({data}) {
   };
   // Onboarding stays until there is something to read in either media or the site.
   if (settled && !summary && !site?.sessions) return <div className="rs-stack">
-    <OverviewSetup data={data} sites={sites.body?.sites ?? (sites.error ? null : [])} sources={sources.body?.keys ?? (sources.error ? null : [])} imported={media.conflicts ? {conflicts: media.conflicts} : null}/>
+    <OverviewSetup data={{...data, campaigns}} sites={sites.body?.sites ?? (sites.error ? null : [])} sources={sources.body?.keys ?? (sources.error ? null : [])} imported={media.conflicts ? {conflicts: media.conflicts} : null}/>
   </div>;
   const current = {media: summary?.totals || null, site: site && domains.body.domains.length ? site : null};
   const money = value => currency(value, code);
@@ -265,7 +269,7 @@ export function Overview({data}) {
     </TrendGrid>
     {!summary && settled && <EmptyState title="Sem dados de mídia neste período" description="Conecte uma fonte ou envie um arquivo para ver investimento e resultados." action={<ReportsActionButton color="secondary" size="sm" href={reportUrl('media/data')}>Conectar fonte</ReportsActionButton>}/>}
     <div className="ov-grid3">
-      <CampaignsCard campaigns={data.campaigns || []} spend={summary && summary.origin === 'Google Ads Script' ? summary.campaigns : null} code={code} loading={media.loading}/>
+      <CampaignsCard campaigns={campaigns} spend={summary && summary.origin === 'Google Ads Script' ? summary.campaigns : null} code={code} loading={media.loading}/>
       <SitesCard domains={domains.body?.domains} sites={sites.body?.sites} loading={sites.loading && !sites.body}/>
       <FlowsCard state={flows}/>
     </div>

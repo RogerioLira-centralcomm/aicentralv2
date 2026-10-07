@@ -2,26 +2,16 @@ import React from 'react';
 import {ChevronRight} from '@untitledui/icons';
 import {platformName} from './media.jsx';
 import {ReportsNativeSelect} from '../ReportsNativeSelect.jsx';
-import {EntityPicker} from './EntityPicker.jsx';
-import {ALL_CUSTOMERS, NO_CUSTOMER, readCustomer, writeCustomer} from './customerScope.js';
 import {ReportsDateRange} from '../ReportsDateRange.jsx';
 import {APP_BASE, navigateOnClick} from './routes.js';
 import {useReportsContext} from './context.js';
-import {useCustomerLogos} from './useCustomerLogos.js';
 
-/** Client and period, kept in the header so the analysed context changes without leaving the page. */
-export function ContextSelector({clients = [], customers, client, showPeriod, accounts, campaigns, sites, siteRequired = false, alwaysClient = false}) {
-  const {period, setPeriod, switchClient, scope, setScope} = useReportsContext();
-  const logos = useCustomerLogos(customers?.length ? client?.client_id : null);
+/** Sources, campaigns or sites of the chosen client, plus the period; the client itself is picked in the sidebar. Kept in the header so the analysed context changes without leaving the page. */
+export function ContextSelector({showPeriod, accounts, campaigns, sites, siteRequired = false}) {
+  const {period, setPeriod, scope, setScope} = useReportsContext();
   const sources = (accounts || []).filter(item => item.status !== 'disabled');
   const scoped = (campaigns || []).filter(item => !scope.account || String(item.account_id) === scope.account);
   return <div className="rs-context" aria-label="Contexto da análise">
-    {clients.length > 1 || (alwaysClient && clients.length) ? <div className="rs-context__client">
-      <EntityPicker label="Conta" value={client?.client_id ?? ''} items={clients.map(item => ({id: item.id, name: item.name}))} onChange={switchClient}/></div>
-      : null}
-    {customers && customers.length > 0 && <div className="rs-context__client">
-      <EntityPicker label="Cliente" value={customers.some(item => String(item.id) === readCustomer()) ? readCustomer() : readCustomer() === NO_CUSTOMER ? NO_CUSTOMER : ALL_CUSTOMERS} allLabel="Todos os clientes" allValue={ALL_CUSTOMERS} extra={[{id: NO_CUSTOMER, name: 'Sem cliente'}]}
-        items={customers.filter(item => item.status !== 'archived').map(item => ({id: item.id, name: item.name, logo: logos[String(item.id)]}))} onChange={writeCustomer}/></div>}
     {accounts && sources.length > 0 && <label className="rs-context__client"><span className="reports-sr-only">Fonte de dados</span>
       <ReportsNativeSelect value={scope.account} onChange={event => setScope({...scope, account: event.target.value, campaign: ''})} aria-label="Fonte de dados">
         <option value="">Todas as fontes</option>

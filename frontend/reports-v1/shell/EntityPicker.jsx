@@ -14,19 +14,19 @@ function Badge({name, muted, logo}) {
  * Friendly chooser for clients: avatar, name, optional detail line and a search box once the list grows.
  * `items` are {id, name, meta, logo}; `allLabel` adds a leading option for "no filter" and `extra` more fixed options (e.g. Sem cliente).
  */
-export function EntityPicker({label, value, items, onChange, allLabel, allValue = '', extra = [], searchAfter = 6}) {
+export function EntityPicker({label, value, items, onChange, allLabel, allValue = '', extra = [], searchAfter = 6, placement = 'bottom end', block = false, compact = false}) {
   const [query, setQuery] = useState('');
   const fixed = [...(allLabel ? [{id: allValue, name: allLabel, fixed: true}] : []), ...extra.map(item => ({...item, fixed: true}))];
   const needle = query.trim().toLowerCase();
   const shown = items.filter(item => !needle || `${item.name} ${item.meta || ''}`.toLowerCase().includes(needle));
   const current = [...fixed, ...items].find(item => String(item.id) === String(value)) || fixed[0] || items[0];
   return <DialogTrigger onOpenChange={open => {if (!open) setQuery('');}}>
-    <Button className="rs-picker__trigger" aria-label={`${label}: ${current?.name || ''}`}>
+    <Button className={`rs-picker__trigger${block ? ' is-block' : ''}${compact ? ' is-compact' : ''}`} aria-label={`${label}: ${current?.name || ''}`}>
       <Badge name={current?.name} muted={current?.fixed} logo={current?.logo}/>
       <span className="rs-picker__name">{current?.name || label}</span>
       <ChevronDown size={16} aria-hidden="true"/>
     </Button>
-    <Popover placement="bottom end" className="rs-picker__popover">
+    <Popover placement={placement} className="rs-picker__popover">
       <Dialog aria-label={label} className="rs-picker__dialog">
         {({close}) => <>
           {items.length > searchAfter && <label className="rs-picker__search"><SearchLg size={16} aria-hidden="true"/>

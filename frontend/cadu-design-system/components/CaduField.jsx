@@ -30,7 +30,8 @@ const optionText = value => {
 function collectOptions(nodes) {
   return React.Children.toArray(nodes).flatMap(node => {
     if (!React.isValidElement(node)) return [];
-    if (node.type === React.Fragment) return collectOptions(node.props.children);
+    // The native list has no groups: an <optgroup> contributes its options, so none of them disappears.
+    if (node.type === React.Fragment || node.type === 'optgroup') return collectOptions(node.props.children);
     if (node.type !== 'option') return [];
     return [{value: String(node.props.value ?? optionText(node.props.children)), label: optionText(node.props.children), disabled: Boolean(node.props.disabled)}];
   });

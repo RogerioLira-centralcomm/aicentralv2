@@ -422,3 +422,14 @@ div.rs-asset-type{cursor:default}
 .rs-picker__text small{overflow:hidden;color:var(--rs-muted);font-size:12px;text-overflow:ellipsis;white-space:nowrap}
 .rs-picker__empty{padding:10px 8px;color:var(--rs-muted);font-size:13px}
 @media (max-width:640px){.rs-context .rs-picker__trigger{width:100%;max-width:none}}
+/* Client chooser in the sidebar, below the product logo. */
+.rs-sidebar-client{display:grid;gap:6px;min-width:0}
+.rs-picker__trigger.is-block{width:100%;max-width:none;justify-content:flex-start}
+.rs-picker__trigger.is-block .rs-picker__name{flex:1;text-align:left}
+.rs-picker__trigger.is-compact{width:40px;padding:0;justify-content:center;border-color:transparent;background:none}
+.rs-picker__trigger.is-compact .rs-picker__name,.rs-picker__trigger.is-compact>svg{display:none}
+.rs-nosite{display:grid;justify-items:start;gap:8px;max-width:560px;padding:32px;border:1px dashed var(--color-border-primary);border-radius:12px}
+.rs-nosite h2{margin:0;color:var(--color-text-primary);font-size:18px;font-weight:600}
+.rs-nosite p{margin:0 0 8px;color:var(--color-text-tertiary);font-size:14px;line-height:20px}
+/* The popover is rendered outside the app root: give it the app font and the list its own colors. */
+.rs-picker__popover{font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif}

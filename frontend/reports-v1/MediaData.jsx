@@ -12,10 +12,11 @@ import {APP_BASE} from './shell/routes.js';
 import {useReportsContext} from './shell/context.js';
 import {integer, json, shortDate} from './reportsCommon.jsx';
 import {UnlinkedGoogleCampaigns} from './GoogleCampaignLinks.jsx';
+import {ConnectGoogleAdsWizard} from './ConnectGoogleAdsWizard.jsx';
+import {ScriptCard, digits, formatGoogleId, generateGoogleScripts, scriptName, validGoogleAdsAccountId} from './googleAdsScripts.jsx';
 
-const validGoogleAdsAccountId = value => /^(?:\d{10}|\d{3}-\d{3}-\d{4})$/.test(String(value || '').trim());
-const formatGoogleId = value => String(value).replace(/^(\d{3})(\d{3})(\d{4})$/, '$1-$2-$3');
-const digits = value => String(value || '').replace(/\D/g, '');
+export {scriptName};
+
 const SOURCES = {
   google_ads_script: {label: 'Google Ads Script', short: 'Google Ads · Leitura', name: 'Google Ads · monitoramento', description: 'Dois scripts na conta ou MCC: Leitura (métricas, diário) e Ações (aplica as mudanças aprovadas, de hora em hora).'},
   conversion_webhook: {label: 'CRM / conversões', short: 'CRM', name: 'CRM · conversões', description: 'Vendas e leads confirmados pelo CRM, sem dados pessoais.'},
@@ -23,56 +24,12 @@ const SOURCES = {
 // Listed in the keys table only; generated together with the Leitura script.
 const KEY_KINDS = {...SOURCES, google_ads_actions: {short: 'Google Ads · Ações'}};
 const SCRIPT_KINDS = {google_ads_script: true, google_ads_actions: true};
-const SCRIPTS = {
-  read: {file: '/static/cadu_connect/google-ads-engine-v2.js', title: 'Leitura', schedule: 'diariamente', kind: 'google_ads_script'},
-  actions: {file: '/static/cadu_connect/google-ads-actions.js', title: 'Acoes', schedule: 'de hora em hora', kind: 'google_ads_actions'},
-};
-
 /** Numbered step title: the connection reads as choose → configure → install → link campaigns. */
 function Step({n, title, children}) {
   return <div className="flex items-start gap-3">
     <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-solid text-sm font-semibold text-white">{n}</span>
     <div><p className="text-md font-semibold text-primary">{title}</p>{children && <p className="mt-0.5 text-sm text-tertiary">{children}</p>}</div>
   </div>;
-}
-
-/** Name used for the .txt file and suggested for the script in Google Ads: product, script, account and version. */
-export function scriptName(kind, accountLabel, version) {
-  return `Cadu_GoogleAds_${SCRIPTS[kind].title}_${accountLabel}_v${version}`;
-}
-const versionOf = template => (template.match(/engineVersion:\s*'([^']+)'/) || [])[1] || '0';
-function downloadText(text, name) {
-  const url = URL.createObjectURL(new Blob([text], {type: 'text/plain;charset=utf-8'}));
-  const link = Object.assign(document.createElement('a'), {href: url, download: `${name}.txt`});
-  document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url);
-}
-async function template(kind) {
-  const response = await fetch(SCRIPTS[kind].file, {credentials: 'same-origin', cache: 'no-store'});
-  if (!response.ok) throw new Error('Não foi possível carregar o script do Google Ads.');
-  return response.text();
-}
-
-/** One generated script: suggested name, download as .txt and copy. */
-function ScriptCard({item}) {
-  const [copied, setCopied] = useState('');
-  const copy = async (value, what) => {try {await navigator.clipboard.writeText(value); setCopied(what);} catch {setCopied('');}};
-  return <Card title={`Script de ${item.kind === 'read' ? 'Leitura' : 'Ações'} · v${item.version}`}
-    badge={<Badge type="pill-color" size="sm" color="warning">Baixe ou copie agora</Badge>}
-    description={item.kind === 'read'
-      ? 'Lê métricas, termos e negativas e envia ao Reports. Nunca altera a conta. Agende diariamente.'
-      : `Aplica as mudanças aprovadas no Reports (pausar, ativar, negativar, palavras-chave, lance e orçamento até ±${item.limits.max_budget_change_pct}%/±${item.limits.max_cpc_change_pct}%). Agende de hora em hora.`}
-    actions={<div className="flex flex-wrap gap-2">
-      <Button size="md" color="primary" iconLeading={Download01} onPress={() => downloadText(item.text, item.name)}>Baixar .txt</Button>
-      <Button size="md" color="secondary" iconLeading={copied === 'code' ? Check : Copy01} onPress={() => copy(item.text, 'code')}>{copied === 'code' ? 'Copiado' : 'Copiar código'}</Button>
-    </div>}>
-    <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-secondary_subtle px-3 py-2 text-sm ring-1 ring-secondary ring-inset">
-      <span className="text-tertiary">Nome no Google Ads:</span>
-      <code className="font-mono text-xs font-semibold text-primary">{item.name}</code>
-      <Button size="sm" color="link-color" onPress={() => copy(item.name, 'name')}>{copied === 'name' ? 'Copiado' : 'Copiar nome'}</Button>
-      <span className="ml-auto text-xs text-tertiary">Ferramentas › Scripts › + › cole o código › Programar: {SCRIPTS[item.kind].schedule}</span>
-    </div>
-    <pre aria-label={`Código do script de ${item.kind === 'read' ? 'Leitura' : 'Ações'}`} className="max-h-64 overflow-auto rounded-lg bg-secondary p-4 font-mono text-xs leading-5 whitespace-pre text-secondary ring-1 ring-secondary ring-inset">{item.text}</pre>
-  </Card>;
 }
 
 /** Health of an ingestion key, in the words the user acts on. */
@@ -106,6 +63,7 @@ export function MediaData({data, save, busy}) {
   const [loaded, setLoaded] = useState(false);
   // null: follow the data (open only while nothing is connected); true/false: the user's choice.
   const [formOpen, setFormOpen] = useState(null);
+  const [wizard, setWizard] = useState(false);
   const {scope} = useReportsContext();
   const scopedAccount = scope.account ? data.accounts.find(item => String(item.id) === scope.account) : null;
   const canEdit = data.client.role !== 'viewer';
@@ -149,27 +107,7 @@ export function MediaData({data, save, busy}) {
   const managerExternalId = managerAccountId ? managers.find(item => String(item.id) === managerAccountId)?.external_id : '';
   /** Leitura (and, by default, Ações) for the same accounts: one key each, named after the account and the version. */
   const createGoogle = async () => {
-    const kinds = withActions ? ['read', 'actions'] : ['read'];
-    const templates = await Promise.all(kinds.map(template));
-    const accountLabel = managerExternalId ? `MCC-${formatGoogleId(managerExternalId)}` : formatGoogleId(accountIds[0]);
-    const today = new Date().toLocaleDateString('pt-BR');
-    const generated = [];
-    for (const [index, kind] of kinds.entries()) {
-      const created = await save('/ingest-keys', {label: kind === 'read' ? label : `${label} · Ações`, source_kind: SCRIPTS[kind].kind,
-        manager_account_id: managerExternalId, account_ids: accountIds, limits: kind === 'actions' ? limits : undefined}, false);
-      const version = versionOf(templates[index]);
-      const name = scriptName(kind, accountLabel, version);
-      const accounts = created.allowed_account_ids.map(formatGoogleId);
-      const title = `${name} · ${managerExternalId ? `MCC ${formatGoogleId(managerExternalId)} · contas ${accounts.join(', ')}` : `conta ${accounts.join(', ')}`} · gerado em ${today}`;
-      let text = templates[index].replace('__CADU_INGEST_URL__', `${location.origin}/connect/api/gads`).replace('__CADU_API_KEY__', created.token)
-        .replace('__CADU_ACCOUNT_IDS__', JSON.stringify(accounts));
-      text = kind === 'actions'
-        ? text.replace('__CADU_SCRIPT_TITLE__', title).replace('__CADU_MAX_BUDGET_PCT__', String(created.limits.max_budget_change_pct))
-          .replace('__CADU_MAX_CPC_PCT__', String(created.limits.max_cpc_change_pct))
-        : `// ${title}\n${text}`;
-      generated.push({kind, name, version, text, limits: created.limits || {}});
-    }
-    setScripts(generated); setScript('');
+    setScripts(await generateGoogleScripts({save, withActions, label, managerExternalId, accountIds, limits})); setScript('');
   };
   const create = async event => {
     event.preventDefault(); setError('');
@@ -208,9 +146,9 @@ export function MediaData({data, save, busy}) {
 
     {canEdit && !showForm && <Card title="Conectar fonte"
       description={loaded ? `${integer(keys.filter(item => !item.revoked_at).length)} chave(s) ativa(s) neste cliente. Gere outra só para uma nova conta, MCC ou CRM.` : 'Carregando conexões…'}
-      actions={<><GoogleAdsHowItWorks/><Button size="md" color="secondary" iconLeading={Plus} isDisabled={!loaded} onPress={() => setFormOpen(true)}>Conectar nova fonte</Button></>}/>}
+      actions={<><GoogleAdsHowItWorks/><Button size="md" color="primary" iconLeading={Plus} isDisabled={!loaded} onPress={() => setWizard(true)}>Conectar o Google Ads</Button><Button size="md" color="secondary" isDisabled={!loaded} onPress={() => setFormOpen(true)}>Conexão avançada</Button></>}/>}
     {canEdit && showForm && <Card title="Conectar fonte" description="Cada fonte recebe uma chave própria. Você pode revogar a qualquer momento."
-      actions={<><GoogleAdsHowItWorks/>{connected && <Button size="md" color="tertiary" iconLeading={ChevronUp} onPress={() => setFormOpen(false)}>Recolher</Button>}</>}>
+      actions={<><GoogleAdsHowItWorks/><Button size="md" color="primary" iconLeading={Plus} onPress={() => setWizard(true)}>Assistente do Google Ads</Button>{connected && <Button size="md" color="tertiary" iconLeading={ChevronUp} onPress={() => setFormOpen(false)}>Recolher</Button>}</>}>
       <form className="flex flex-col gap-6" onSubmit={create}>
         <Step n={1} title="Escolha a fonte"/>
         <div role="radiogroup" aria-label="Fonte" className="grid gap-3 sm:grid-cols-2">
@@ -315,6 +253,7 @@ export function MediaData({data, save, busy}) {
         </tr>)}</tbody>
       </table></div> : <div className="px-6 py-10 text-center"><p className="text-md font-semibold text-primary">Nenhum lote ainda</p><p className="mt-1 text-sm text-tertiary">O primeiro envio aparece aqui depois que o script rodar.</p></div>}
     </Card>
+    {wizard && <ConnectGoogleAdsWizard data={data} save={save} busy={busy} reload={reload} onClose={() => setWizard(false)}/>}
     <ReportsConfirmDialog open={Boolean(revokeId)} title="Revogar chave de ingestão" description="O script que usa esta chave deixará de enviar dados. Os envios anteriores permanecem no histórico." confirmLabel="Revogar chave" busy={busy} onCancel={() => setRevokeId('')} onConfirm={() => revoke(revokeId)}/>
   </div>;
 }

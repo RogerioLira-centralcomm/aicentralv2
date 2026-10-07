@@ -7,6 +7,7 @@ import {friendlyAgo} from '../../friendlyDates.js';
 import {reportUrl} from '../../reportsCommon.jsx';
 import {useReportsContext} from '../../shell/context.js';
 import {apiUrl, useApi} from '../../shell/useApi.js';
+import {customerParam} from '../../shell/customerScope.js';
 import {AppLink, Async, EmptyState, ErrorState} from '../../shell/primitives.jsx';
 import {compact, number} from '../shared.jsx';
 import './journey.css';
@@ -236,7 +237,7 @@ export function Heatmap({data}) {
   const {period, scope} = useReportsContext();
   const [view, setView] = useState(readView);
   const {device, mode} = view;
-  const [state, retry] = useApi(apiUrl('/journey/heatmap-pages', {start_date: period.start, end_date: period.end, device, site_id: scope.site}));
+  const [state, retry] = useApi(apiUrl('/journey/heatmap-pages', {start_date: period.start, end_date: period.end, device, site_id: scope.site, customer_id: customerParam()}));
   const pages = state.body?.device === device ? state.body.pages : [];
   const page = pages.find(item => item.path === view.path) || pages[0];
   const update = patch => setView(current => ({...current, ...patch}));

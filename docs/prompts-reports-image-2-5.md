@@ -369,3 +369,138 @@ Uma bandeira azul no topo de um morro, o caminho tracejado subindo até ela sem 
 6. Bloco 6 (8 cenas): estados vazios da Visão geral.
 
 Se algo sair com texto, tela cheia de conteúdo ou outra cor de destaque, regenere só aquela cena com a mesma regra comum e uma linha extra: "Remova todo texto e deixe a tela lisa".
+
+---
+
+## Bloco 7: Link Tester, o produto de análise (12 imagens)
+
+O Link Tester tem três análises, e cada uma ganha um **mundo visual próprio**, sempre dentro da paleta do Reports. O fio condutor é **o link como um caminho**: o clique percorre um trilho tracejado azul até a página. Cada análise olha esse caminho de um jeito.
+
+| Análise | Pergunta | Metáfora | Acento (só no ícone e num detalhe da cena) |
+|---|---|---|---|
+| Destino | O clique chega ao site? | Trilho com portas de redirecionamento até a página | azul `#175CD3` |
+| Medição de mídia | A conversão será medida? | Sensores (tags) acoplados à página, emitindo sinais para as plataformas | verde-azulado `#0E9384` |
+| Presença para agentes | Agentes de IA conseguem ler o site? | Leitores geométricos (não mascotes) consultando o site como uma biblioteca, com portão (robots), mapa (llms.txt) e índice (sitemap) | violeta `#7A5AF8` |
+
+**Exceção à regra comum de cor:** neste bloco, cada cena pode usar **o acento da sua análise** em um único elemento (o sensor, o portão, a borda do painel). O resto segue azul, preto e neutros. Anexe R1 e R2 (P0) como no resto do Reports. A partir da cena LT0, anexe também **R3 = LT0 aprovada**, que fixa o "trilho do link".
+
+### LT0: trilho do link, base do bloco (`lt-base.png`, 1600×1000)
+
+Não vai para a interface. Fixa o trilho, a página-destino e o traço deste bloco.
+
+```
+[REGRAS COMUNS + R2]
+
+Vista lateral ampla de uma bancada longa dentro do observatório de dados. Da esquerda para a direita, um trilho tracejado azul (#175CD3) sai de um pequeno cartão de anúncio arredondado e vazio, passa por duas portinholas arredondadas (redirecionamentos) e termina numa grande janela de navegador vazia (a página-destino), apoiada em pé sobre a bancada. Uma pequena esfera azul (o clique) percorre o trilho, a meio caminho. Uma pessoa estilizada de blazer azul acompanha o percurso com uma lupa grande. A cidade estilizada em azul muito claro aparece pelas janelas. Muito espaço livre no terço direito, acima da janela de navegador. Paisagem 1600×1000.
+```
+
+### Heróis das análises (paisagem 1600×1000, usados no e-mail e no relatório público)
+
+Ficam no topo do e-mail (corte 600 px de largura) e da página pública. **Deixe o terço inferior mais calmo**, porque o e-mail corta a imagem por baixo.
+
+#### LT1: Destino (`lt-hero-destination.png`)
+
+```
+[REGRAS COMUNS + R2 + R3]
+
+O mesmo trilho do link, agora visto de perto e em diagonal. A esfera do clique atravessa a última portinhola e entra na janela de navegador vazia, que se ilumina suavemente em azul-claro. Na entrada da janela, um pequeno selo redondo azul com um visto abstrato (forma de check, sem letra). Atrás, as duas portinholas anteriores aparecem desfocadas. Uma pessoa estilizada confere o percurso com uma prancheta lisa. Um único ponto verde pequeno acima da janela (chegou). Paisagem 1600×1000, margem de 8%.
+```
+
+#### LT2: Medição de mídia (`lt-hero-media.png`)
+
+```
+[REGRAS COMUNS + R2 + R3]
+
+A janela de navegador vazia de pé sobre a bancada, agora com quatro pequenos sensores arredondados encaixados nas bordas, como clipes, em verde-azulado #0E9384 (o único elemento nessa cor). De cada sensor sai uma onda tracejada fina que sobe até quatro molduras redondas vazias flutuando acima (as plataformas de mídia), todas iguais e sem marca. Um dos sensores está apagado, cinza, e sua onda não chega: um pequeno ponto âmbar ao lado dele. Duas pessoas estilizadas conferem os sinais, uma apontando o sensor apagado. Paisagem 1600×1000, margem de 8%.
+```
+
+#### LT3: Presença para agentes de IA (`lt-hero-agentic.png`)
+
+```
+[REGRAS COMUNS + R2 + R3]
+
+O site representado como uma pequena biblioteca arredondada em azul muito claro, com estantes de blocos lisos (sem lombadas escritas). Na entrada, um portão baixo aberto (robots). Ao lado do portão, um mapa dobrado liso (llms.txt) preso num pedestal e um índice em forma de árvore de pontos ligados por linhas (sitemap). Três leitores geométricos (formas arredondadas simples, sem rosto, tipo cápsula com um único ponto de luz) entram pelo portão seguindo um caminho tracejado; a borda do portão e o ponto de luz de cada leitor em violeta #7A5AF8 (o único elemento nessa cor). Uma pessoa estilizada abre o portão. Paisagem 1600×1000, margem de 8%.
+```
+
+### Ícones das análises (quadrado 512×512, usados no e-mail e no relatório)
+
+Fundo liso na cor do acento, cantos arredondados (raio de 22%), símbolo branco centralizado, ocupando cerca de 55% da área. Traço grosso e simples, para continuar legível a 40 px.
+
+#### LT-I1: Destino (`lt-icon-destination.png`)
+
+```
+Ícone quadrado 512×512, fundo liso azul #175CD3 com cantos bem arredondados. No centro, em branco e com traço grosso: um caminho em "S" ligando um pequeno círculo (origem) a um alvo de dois anéis (destino). Sem texto, sem sombra, sem gradiente. PNG.
+```
+
+#### LT-I2: Medição de mídia (`lt-icon-media.png`)
+
+```
+Ícone quadrado 512×512, fundo liso verde-azulado #0E9384 com cantos bem arredondados. No centro, em branco e com traço grosso: um pequeno sensor arredondado emitindo duas ondas em arco para cima, sobre três barras crescentes. Sem texto, sem sombra, sem gradiente. PNG.
+```
+
+#### LT-I3: Presença para agentes (`lt-icon-agentic.png`)
+
+```
+Ícone quadrado 512×512, fundo liso violeta #7A5AF8 com cantos bem arredondados. No centro, em branco e com traço grosso: uma janela de navegador simples com uma lupa sobreposta no canto inferior direito, e dentro da lente um pequeno ponto de luz. Sem texto, sem sombra, sem gradiente. PNG.
+```
+
+### Wizard "Teste guiado" (3 cenas, retrato 1200×1600)
+
+Margens do wizard: 15% livres no topo e 12% embaixo.
+
+#### LT4: o que você quer descobrir (`lt-wizard-1-pergunta.png`)
+
+```
+[REGRAS COMUNS + R2 + R3]
+
+Uma pessoa estilizada diante de uma bifurcação do trilho tracejado, que se divide em três caminhos. Na entrada de cada caminho, uma placa redonda lisa: a primeira com a borda azul #175CD3, a segunda verde-azulado #0E9384, a terceira violeta #7A5AF8 (as três únicas cores de acento da cena). Ao fundo, de cada caminho se vê de leve o seu mundo: uma janela de navegador, sensores com ondas, uma pequena biblioteca com portão. Retrato 1200×1600.
+```
+
+#### LT5: qual link (`lt-wizard-2-link.png`)
+
+```
+[REGRAS COMUNS + R2 + R3]
+
+Uma pessoa estilizada encaixa um cartão de anúncio liso numa ranhura no início do trilho tracejado, como quem insere um bilhete. Ao lado, uma pequena prateleira com três miniaturas de janelas de navegador vazias (os sites do cliente), uma delas destacada por um contorno azul. A esfera do clique espera, pronta para partir. Retrato 1200×1600.
+```
+
+#### LT6: pronto para analisar (`lt-wizard-3-revisao.png`)
+
+```
+[REGRAS COMUNS + R2 + R3]
+
+Vista do alto do trilho completo, do cartão de anúncio até a página, com uma pessoa estilizada segurando uma prancheta lisa com três linhas e caixinhas marcadas em azul. Acima do trilho, um painel arredondado vazio começa a se acender (só barras e uma linha abstratas). Clima de partida, uma pequena estrela azul sobre o painel. Retrato 1200×1600.
+```
+
+### Estados (480×320, margem de 10%)
+
+#### LT7: nenhum teste ainda (`empty-link-tester.png`)
+
+```
+[REGRAS COMUNS + R2 + R3]
+
+Um trecho curto do trilho tracejado azul, vazio, terminando numa janela de navegador vazia. Uma pessoa estilizada pequena coloca a esfera do clique no início do trilho, convidando a começar. Formato 480×320.
+```
+
+#### LT8: revisão do Cadu (`lt-revisao.png`)
+
+Aparece ao lado da "Revisão do Cadu" no resultado.
+
+```
+[REGRAS COMUNS + R2 + R3]
+
+Uma pessoa estilizada e um painel arredondado vazio lado a lado sobre a bancada; sobre o painel, quatro fichas lisas empilhadas e organizadas (o inventário), uma delas com borda âmbar (um único ponto de atenção). A pessoa marca a ficha âmbar com um lápis azul. Formato 480×320.
+```
+
+### Como o código usa (Link Tester)
+
+| Imagem | Onde | Substitui |
+|---|---|---|
+| `lt-base` | Referência R3, não vai para a interface | — |
+| `lt-hero-*` | Topo do e-mail de cada análise e do relatório público | `email/hero-*.jpg` (hoje cópias de `onb-4`, `onb-3` e `onb-7`) |
+| `lt-icon-*` | Ícone do e-mail e do relatório público | `email/icon-*.png` (hoje desenhados em código) |
+| `lt-wizard-1` a `lt-wizard-3` | Painel esquerdo do "Teste guiado" | `onb-4-jornada`, `site-1-dominio`, `site-5-revisao` |
+| `empty-link-tester` | Histórico vazio do Link Tester | — |
+| `lt-revisao` | Bloco "Revisão do Cadu" no resultado | — |
+
+Ordem: LT0 (4 variações, aprovar como R3) → LT1 a LT3 → ícones → LT4 a LT6 → LT7 e LT8. Salve os PNGs em `aicentralv2/static/images/reports/illustrations/link-tester/`; eu converto para WebP (app) e JPG/PNG (e-mail, porque o Outlook não lê WebP) e troco as referências.

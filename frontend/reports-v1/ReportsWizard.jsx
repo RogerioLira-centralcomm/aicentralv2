@@ -40,7 +40,18 @@ export function ReportsWizard({label, steps, artBase, renderStep, canContinue = 
     }
     go(step + 1);
   };
-  return <div className="rw untitled-scope" role="dialog" aria-modal="true" aria-label={label}>
+  // The page behind the wizard stays mounted (it keeps its state); make it inert so Tab and screen readers stay in the dialog.
+  const dialog = useRef(null);
+  useEffect(() => {
+    const quieted = [];
+    for (let node = dialog.current; node && node.id !== 'cadu-reports-v1-root' && node.parentElement; node = node.parentElement) {
+      for (const sibling of node.parentElement.children) {
+        if (sibling !== node && !sibling.inert) {sibling.inert = true; quieted.push(sibling);}
+      }
+    }
+    return () => quieted.forEach(element => {element.inert = false;});
+  }, []);
+  return <div ref={dialog} className="rw untitled-scope" role="dialog" aria-modal="true" aria-label={label}>
     <header className="rw__bar">
       <span className="rw__brand"><img src="/static/images/cadu/products/connect-icon.png" alt=""/>Reports</span>
       <span className="rw__title">{label}</span>

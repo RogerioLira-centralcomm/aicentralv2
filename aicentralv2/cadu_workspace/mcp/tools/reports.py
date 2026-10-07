@@ -1,4 +1,6 @@
-"""Read-only tools for manually imported and human-reviewed Reports data."""
+"""Reports tools: human-reviewed report data and the Link Tester (diagnostics, history, AI review)."""
+
+import json
 
 from ....cadu_family import repository
 from ....cadu_connect import reports_link_tester as link_tester
@@ -19,12 +21,42 @@ def _link_domain(call):
 
 
 def _private_link_result(result):
-    """Keep share credentials outside agent-visible evidence."""
+    """Keep share credentials outside agent-visible evidence: the token, and the screenshot URL that embeds it."""
     if isinstance(result, list):
         return [_private_link_result(item) for item in result]
     if not isinstance(result, dict):
         return result
-    return {key: value for key, value in result.items() if key != "public_token"}
+    return {key: (bool(value) if key == "screenshot" and isinstance(value, str) and "/link-tests/" in value
+                  else _private_link_result(value))
+            for key, value in result.items() if key != "public_token"}
+
+
+def _link_digest(result):
+    """What an agent needs from a Link Tester result: score, findings and tags with IDs, never the raw page inventory
+    (dozens of script URLs) nor share credentials. Keeps tool output small for the model and the operations journal."""
+    if not isinstance(result, dict):
+        return result
+    evidence = result.get("evidence") or {}
+    inventory = evidence.get("inventory") or {}
+    findings = evidence.get("findings") or evidence.get("tag_findings") or []
+    review = result.get("review") or {}
+    supertag = evidence.get("supertag") or {}
+    return {
+        "run_id": result.get("run_id") or result.get("id"),
+        "mode": result.get("kind") or result.get("mode"), "score": result.get("score"),
+        "status_label": result.get("status_label"), "summary": result.get("summary"),
+        "final_url": result.get("final_url"), "highlights": result.get("highlights") or [],
+        "alerts": (result.get("alerts") or [])[:12],
+        "findings": [{key: item.get(key) for key in ("severity", "category", "title", "fix")}
+                     for item in findings if item.get("severity") != "ok"][:15],
+        "categories": evidence.get("categories"), "score_caps": evidence.get("caps"),
+        "platforms": [{key: item.get(key) for key in ("name", "ids", "where")} for item in inventory.get("platforms") or []],
+        "scripts": {key: (inventory.get("scripts") or {}).get(key) for key in ("external", "third_party", "injected", "blocking_in_code")} if inventory else None,
+        "consent": inventory.get("consent"), "events": inventory.get("events"),
+        "supertag": {key: supertag.get(key) for key in ("detected", "via", "registered", "site_label", "host_matches")} if supertag else None,
+        "has_screenshot": bool(evidence.get("screenshot")), "capture_note": evidence.get("capture_note"),
+        "review": {key: review.get(key) for key in ("verdict", "summary", "problems", "check_in_gtm", "questions")} if review else None,
+    }
 
 
 @register_tool(
@@ -42,7 +74,7 @@ def run_link_test(context: RequestContext, arguments: dict) -> dict:
     payload = {"url": arguments["url"], "mode": arguments["mode"]}
     return _link_domain(lambda: operations.execute(
         arguments["request_id"], context, "reports.link_test", payload,
-        lambda: _private_link_result(link_tester.test(payload, context.client_id, context.user_id)),
+        lambda: _link_digest(_private_link_result(link_tester.test(payload, context.client_id, context.user_id))),
     ))
 
 
@@ -70,7 +102,45 @@ def get_link_test(context: RequestContext, arguments: dict) -> dict:
     run = link_tester.detail(context.client_id, arguments["run_id"])
     if not run:
         raise ToolInputError("Diagnóstico indisponível neste contexto.")
-    return {"run": _private_link_result(run)}
+    run = _private_link_result(run)
+    return {"run": {**_link_digest({**(run.get("result") or {}), "run_id": run.get("id"), "mode": run.get("mode")}),
+                    "created_at": run.get("created_at")}}
+
+
+@register_tool(
+    name="reports.review_link_test", capability="reports", effect="write",
+    description="Revisão por IA de um diagnóstico do Link Tester (tags, IDs, JS e consentimento), cobrada nos créditos do cliente, após confirmação.",
+    exposures=("internal",),
+    input_schema={"type": "object", "required": ["request_id", "confirmed", "run_id"], "properties": {
+        "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
+        "confirmed": {"type": "boolean", "enum": [True]},
+        "run_id": {"type": "string", "minLength": 36, "maxLength": 36},
+    }, "additionalProperties": False},
+)
+def review_link_test(context: RequestContext, arguments: dict) -> dict:
+    from ....cadu_connect import reports_link_inventory
+    from ....cadu_credit_connector import CreditActor
+    from ....cadu_tool_billing import InsufficientToolCredits
+
+    def run_review():
+        run = link_tester.detail(context.client_id, arguments["run_id"])
+        if not run:
+            raise ToolInputError("Diagnóstico indisponível neste contexto.")
+        if not ((run.get("result") or {}).get("evidence") or {}).get("inventory"):
+            raise ToolInputError("Este diagnóstico é anterior ao inventário de tags; rode o teste de novo.")
+        try:
+            review = reports_link_inventory.review(run["mode"], run["result"], CreditActor.from_values(context.client_id, context.user_id), run["id"])
+        except InsufficientToolCredits as exc:
+            error = ToolError(str(exc) or "Saldo de tokens insuficiente para a revisão.")
+            error.code = "insufficient_credits"
+            raise error from exc
+        repository.rows("""UPDATE cadu_reports_link_test_runs SET result = result || jsonb_build_object('review', %s::jsonb)
+                           WHERE id=%s AND client_id=%s RETURNING id""", (json.dumps(review), run["id"], context.client_id))
+        return {"run_id": run["id"], "mode": run["mode"], "final_url": run["final_url"], "score": run["score"],
+                "review": {key: review.get(key) for key in ("verdict", "summary", "problems", "check_in_gtm", "questions")},
+                "tokens_charged": review.get("tokens_charged")}
+    return _link_domain(lambda: operations.execute(arguments["request_id"], context, "reports.review_link_test",
+                                                   {"run_id": arguments["run_id"]}, run_review))
 
 
 def _reports(context: RequestContext, report_id=None):

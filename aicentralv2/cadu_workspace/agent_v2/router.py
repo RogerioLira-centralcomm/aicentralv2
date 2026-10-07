@@ -311,8 +311,17 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         return IntentRoute("workspace", "list_projects", "low", "analysis", (),
                            ("workspace.list_projects",))
 
-    if (_has(text, r"\b(test|teste|testar|verifi|diagn[oó]stico|audit).{0,30}\b(link|url|destino|utm|tracking)\b")
-            or _has(text, r"\b(link|url)\b.{0,30}\b(test|teste|testar|verifi|diagn[oó]stico|audit)")):
+    # AI review of an existing Link Tester run (paid, confirmed): "revise o teste de link <id>", "revisão das tags".
+    if _has(text, r"\brevis\w*\b.{0,40}\b(teste\s+de\s+link|link\s+test|diagn[oó]stico\s+do\s+link|tags?\s+d[oa]\s+(?:site|p[aá]gina|link))"):
+        return IntentRoute("reports", "link_review", "medium", "decision", (), ("reports.list_link_tests",), None, True)
+    has_site = _has(text, r"https?://|\b[a-z0-9][a-z0-9-]*\.(?:com|com\.br|media|net|org|io|app|br)\b|\b(link|url|site|p[aá]gina|dom[ií]nio)\b")
+    if (_has(text, r"\b(test|teste|testar|verifi|diagn[oó]stico|audit|analis).{0,30}\b(link|url|destino|utm|tracking)\b")
+            or _has(text, r"\b(link|url)\b.{0,30}\b(test|teste|testar|verifi|diagn[oó]stico|audit)")
+            # Agent readiness and tag installation questions about a site are Link Tester analyses too.
+            or (has_site and _has(text, r"\b(pronto|preparad|vis[ií]vel|leg[ií]vel|aparece|encontrad)\w*\b.{0,40}\b(ia|agentes?|chatgpt|perplexity|claude|gemini|llms?)\b"))
+            or (has_site and _has(text, r"\b(llms\.txt|robots\.txt|presen[cç]a\s+(?:para|em)\s+(?:ia|agentes))"))
+            or (has_site and _has(text, r"\b(super\s*tag|pixel|gtm|ga4|tag(?:ueamento)?s?)\b.{0,40}\b(instalad|funcionand|dispar|ativ|presente)\w*"))
+            or (has_site and _has(text, r"\b(verifi|confer|chec|analis|audit)\w*\b.{0,40}\b(pixel|super\s*tag|gtm|ga4|tags?|tagueamento|mensura\w*)\b"))):
         return IntentRoute("reports", "link_test", "medium", "decision", (), (), None, True)
     # A linked brand is usually present in project context. An implicit name
     # change still targets the active project unless the user names the brand

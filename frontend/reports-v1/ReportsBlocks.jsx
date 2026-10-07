@@ -2,7 +2,7 @@
 import React, {useState} from 'react';
 import {Button} from '../cadu-design-system/untitled-kit/button.tsx';
 
-export const TH = 'border-b border-secondary bg-secondary px-6 py-3 text-left text-xs font-semibold whitespace-nowrap text-tertiary';
+export const TH = 'relative border-b border-secondary bg-secondary px-6 py-3 text-left text-xs font-semibold whitespace-nowrap text-tertiary';
 export const TD = 'border-b border-secondary px-6 py-3 align-middle text-sm text-secondary';
 
 /** Card with a header (title, badge, supporting text, actions); `flush` lets a table run edge to edge. */

@@ -8,7 +8,8 @@ import uuid
 from datetime import date, datetime, timedelta, timezone
 from difflib import SequenceMatcher
 from urllib.parse import parse_qs, urlparse
-from flask import abort, jsonify, make_response, redirect, render_template, request, session
+from flask import abort, current_app, jsonify, make_response, redirect, render_template, request, send_file, session
+from werkzeug.exceptions import HTTPException
 
 from ..auth import login_required, login_required_api
 from ..db import get_db
@@ -208,6 +209,21 @@ def register(bp):
         )
         return response
 
+    @bp.get('/public/link-tests/<token>/screenshot')
+    def reports_v1_public_link_test_screenshot(token):
+        from . import reports_link_tester
+        if not reports_link_tester.public_result(token):
+            abort(404)
+        try:
+            path = reports_link_tester.screenshot_path(token)
+        except ValueError:
+            abort(404)
+        if not path.is_file():
+            abort(404)
+        response = send_file(path, mimetype='image/webp')
+        response.headers['Cache-Control'] = 'private, max-age=3600'
+        return response
+
     @bp.get('/app')
     @bp.get('/app/<section>')
     @bp.get('/app/<section>/<path:rest>')
@@ -302,11 +318,24 @@ def register(bp):
                     AND w.client_id=%s
                 WHERE r.client_id=%s ORDER BY r.created_at DESC LIMIT 20''',
                 (*params, *params, selected['client_id'])) if link_tests_ready else [])
+        # Sites the client already measures (Super Tag / flow tags) pre-fill the Link Tester's URL field.
+        client_sites = []
+        for table in ('cadu_reports_supertag_sites', 'cadu_reports_site_tags'):
+            if _rows("SELECT to_regclass(%s) IS NOT NULL AS ready", (f'public.{table}',))[0]['ready']:
+                client_sites += _rows(f'''SELECT allowed_host,label FROM {table}
+                    WHERE client_id=%s AND revoked_at IS NULL {'AND enabled=TRUE' if table.endswith('sites') else ''}
+                    ORDER BY created_at DESC LIMIT 30''', params)
+        seen, sites = set(), []
+        for row in client_sites:
+            host = (row['allowed_host'] or '').strip().lower().lstrip('.')
+            if host and host not in seen and re.fullmatch(r'[a-z0-9.-]+', host):
+                seen.add(host)
+                sites.append({'host': host, 'url': f'https://{host}/', 'label': row['label'] or host})
         return jsonify(ready=True, features={'flows_workspace_v2': str(selected['client_id'],) in os.environ.get('REPORTS_FLOWS_WORKSPACE_V2_CLIENTS','').split(',') or os.environ.get('REPORTS_FLOWS_WORKSPACE_V2_CLIENTS') == '*'}, client=selected, clients=clients, csrf=session['family_csrf'],
                        can_manage_access=selected['role'] == 'admin',
                        can_manage_clients=selected['role'] == 'admin',
                        customers=_rows('SELECT id,name,status FROM cadu_reports_customers WHERE client_id=%s ORDER BY name',params),
-                       accounts=accounts, campaigns=campaigns, reports=reports, link_tests=link_tests,
+                       accounts=accounts, campaigns=campaigns, reports=reports, link_tests=link_tests, client_sites=sites,
                        workspace_projects=workspace_projects)
 
     @bp.post('/api/v2/reports/accounts')
@@ -1078,6 +1107,78 @@ def register(bp):
         result = link_tester.test({'url': payload.get('url'), 'mode': payload.get('mode')},
                                   selected['client_id'], session['user_id'])
         return jsonify(result=result)
+
+    def _link_test_email(run_id, note=''):
+        selected = _selection()
+        try:
+            run_uuid = str(uuid.UUID(run_id))
+        except ValueError:
+            abort(400, description='Teste de link inválido.')
+        from . import reports_link_tester, reports_link_test_email
+        run = reports_link_tester.detail(selected['client_id'], run_uuid)
+        if not run:
+            abort(404)
+        # Links and images in the e-mail always point at the Reports host, whatever host the request came from.
+        from ..product_domains import product_url
+        base = product_url('connect', '/').rstrip('/')
+        return selected, reports_link_test_email, reports_link_test_email.render(run, base if base.startswith('http') else request.host_url, note)
+
+    @bp.get('/api/v2/reports/link-tests/<run_id>/email-preview')
+    @login_required_api
+    def reports_v1_link_test_email_preview(run_id):
+        _, _, (subject, html) = _link_test_email(run_id, request.args.get('note', ''))
+        return jsonify(subject=subject, html=html)
+
+    @bp.post('/api/v2/reports/link-tests/<run_id>/email')
+    @login_required_api
+    def reports_v1_link_test_email_send(run_id):
+        """Send the result e-mail to one recipient. Only runs on an explicit click; nothing is sent automatically."""
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            abort(400)
+        selected = _selection(payload)
+        _write_guard(selected)
+        _, module, (subject, html) = _link_test_email(run_id, payload.get('note', ''))
+        recipient = module.valid_recipient(payload.get('to'))
+        from ..email_service import send_email
+        if not send_email(subject, [recipient], text_body=subject, html_body=html):
+            abort(502, description='Não foi possível enviar o e-mail agora.')
+        return jsonify(sent=True, to=recipient)
+
+    @bp.post('/api/v2/reports/link-tests/<run_id>/review')
+    @login_required_api
+    def reports_v1_link_test_review(run_id):
+        """AI reviewer over the run's clean inventory (never the HTML). Billed to the client; saved with the run."""
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            abort(400)
+        selected = _selection(payload)
+        _write_guard(selected)
+        try:
+            run_uuid = str(uuid.UUID(run_id))
+        except ValueError:
+            abort(400, description='Teste de link inválido.')
+        from . import reports_ai, reports_link_inventory, reports_link_tester
+        from ..cadu_tool_billing import InsufficientToolCredits
+        run = reports_link_tester.detail(selected['client_id'], run_uuid)
+        if not run:
+            abort(404)
+        if not (run['result'] or {}).get('evidence', {}).get('inventory'):
+            abort(409, description='Este teste é anterior ao inventário de tags. Rode a análise de novo para revisar.')
+        try:
+            review = reports_link_inventory.review(run['mode'], run['result'], reports_ai.actor_for(selected), run_uuid)
+        except InsufficientToolCredits as exc:
+            abort(409, description=str(exc) or 'Saldo de tokens insuficiente para a revisão.')
+        except HTTPException:
+            raise  # 403/409: no permission or no token balance, already worded for the person
+        except Exception as exc:
+            current_app.logger.warning('Revisor do Link Tester falhou: %s', exc)
+            abort(502, description=str(exc) if isinstance(exc, ValueError) else 'O revisor não respondeu. Tente de novo em instantes.')
+        from psycopg.types.json import Json
+        _rows("""UPDATE cadu_reports_link_test_runs SET result = result || jsonb_build_object('review', %s::jsonb)
+            WHERE id=%s AND client_id=%s RETURNING id""", (Json(review), run_uuid, selected['client_id']))
+        get_db().commit()
+        return jsonify(review=review)
 
     @bp.get('/api/v2/reports/ai/status')
     @login_required_api

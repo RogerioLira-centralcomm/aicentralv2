@@ -6,7 +6,7 @@ from dataclasses import replace
 from ..mcp.registry import ToolError, ToolInputError, load_builtin_tools
 
 ALLOWED_ACTION_TOOLS = frozenset({
-    "reports.link_test", "workspace.create_project", "workspace.update_project_context",
+    "reports.link_test", "reports.review_link_test", "workspace.create_project", "workspace.update_project_context",
     "workspace.set_project_status",
     "workspace.link_current_brand",
     "projects.reindex_source",
@@ -53,6 +53,36 @@ def _resolve_audit_brand(sealed: dict, context, registry) -> None:
 
 def _completion(step_name: str, result: dict) -> dict:
     """Give the UI a small, semantic receipt instead of a generic success string."""
+    if step_name == "reports.link_test":
+        mode_label = {"destination": "Destino", "media": "Medição de mídia", "agentic": "Presença para agentes de IA"}.get(result.get("mode"), "Link")
+        tone = {"ok": "ok", "warn": "atenção", "bad": "crítico"}
+        blocks = [{"type": "activity", "state": "completed", "label": f"Link analisado · {mode_label}", "detail": result.get("final_url") or ""},
+                  {"type": "metrics", "title": "Resultado", "items": [
+                      {"id": "score", "title": "Nota", "value": f"{result.get('score', '–')}/100", "detail": result.get("status_label") or ""},
+                      *([{"id": "platforms", "title": "Plataformas", "value": str(len(result["platforms"])),
+                          "detail": ", ".join(item["name"] for item in result["platforms"][:4])}] if result.get("platforms") else [])]}]
+        points = [{"id": f"p{index}", "title": item.get("text"), "detail": tone.get(item.get("tone"), "")}
+                  for index, item in enumerate(result.get("highlights") or []) if item.get("text")]
+        if result.get("run_id"):
+            points.append({"id": "review", "title": "Revisar com IA (tags, IDs, JS e consentimento)", "detail": "Usa tokens do cliente.",
+                           "prompt": f"Revise o teste de link {result['run_id']}"})
+        if points:
+            blocks.append({"type": "insights", "title": "Resultado preliminar", "items": points[:7]})
+        if result.get("capture_note"):
+            blocks.append({"type": "warning", "title": "Sem print da página", "text": result["capture_note"]})
+        return {"answer": f"{result.get('summary') or 'Diagnóstico concluído.'} O relatório completo, com print e link público, está no Reports › Link Tester.",
+                "blocks": blocks, "refresh_context": False}
+    if step_name == "reports.review_link_test":
+        review = result.get("review") or {}
+        problems = [{"id": f"r{index}", "title": f"{item.get('plataforma') or item.get('gravidade')}: {item.get('problema')}", "detail": item.get("correcao") or ""}
+                    for index, item in enumerate(review.get("problems") or []) if item.get("problema")]
+        blocks = [{"type": "activity", "state": "completed", "label": "Revisão do link concluída",
+                   "detail": f"Veredito: {review.get('verdict') or '–'}" + (f" · {result['tokens_charged']} tokens" if result.get("tokens_charged") else "")}]
+        if problems:
+            blocks.append({"type": "insights", "title": "O que corrigir", "items": problems[:8]})
+        if review.get("check_in_gtm"):
+            blocks.append({"type": "insights", "title": "Verificar no GTM", "items": [{"id": f"g{index}", "title": item} for index, item in enumerate(review["check_in_gtm"][:6])]})
+        return {"answer": review.get("summary") or "Revisão concluída.", "blocks": blocks, "refresh_context": False}
     if step_name in {"media.generate_image", "media.edit_image"}:
         image_url = result.get("image_url")
         studio_url = result.get("studio_url")

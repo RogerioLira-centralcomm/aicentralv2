@@ -58,15 +58,37 @@ def _project_meeting_step(message: str, now=None):
     }
 
 
+LINK_AGENTIC = re.compile(r"\b(agentes?\s+de\s+ia|para\s+(?:a\s+)?ia|presen[cç]a\s+(?:para|em)\s+(?:ia|agentes)|llms?(?:-full)?\.txt|robots\.txt|chatgpt|perplexity|claude|gemini|ag[eê]ntic\w*|rob[oô]s?\s+de\s+ia)\b", re.IGNORECASE)
+LINK_MEDIA = re.compile(r"\b(m[ií]dia|mensura\w*|medi[cç][aã]o|pixel|super\s*tag|tags?|gtm|ga4|google\s+ads|meta|tiktok|tracking|convers[aãõ]\w*|evento\w*|consentimento|lgpd)\b", re.IGNORECASE)
+
+
+def link_test_mode(message: str) -> str:
+    """Which Link Tester analysis the request asks for. Agent readiness wins over media words ("tags para IA")."""
+    text = str(message or "")
+    if LINK_AGENTIC.search(text):
+        return "agentic"
+    if LINK_MEDIA.search(text):
+        return "media"
+    return "destination"
+
+
+def _link_review_step(message: str):
+    match = re.search(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", str(message or ""), re.IGNORECASE)
+    if not match:
+        return None
+    return {
+        "kind": "action", "name": "reports.review_link_test", "requires_confirmation": True,
+        "request_id": str(uuid4()), "arguments": {"run_id": match.group(0).lower()},
+        "effect": "write", "summary": "Revisar com IA o diagnóstico do link (tags, IDs, JS e consentimento). Usa tokens do cliente.",
+    }
+
+
 def _link_test_step(message: str):
     match = re.search(r"https?://[^\s<>\]\[\"']+|(?<!@)\b(?:www\.)?[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:/[^\s<>\]\[\"']*)?",
                       str(message or ""), re.IGNORECASE)
     if not match:
         return None
-    mode = "agentic" if re.search(r"\b(ia|ai|llms?\.txt|rob[oô]s?|ag[eê]ntic)", message, re.IGNORECASE) else (
-        "media" if re.search(r"\b(m[ií]dia|utm|pixel|tag|tracking|convers[aã]o)", message, re.IGNORECASE)
-        else "destination"
-    )
+    mode = link_test_mode(message)
     return {
         "kind": "action", "name": "reports.link_test", "requires_confirmation": True,
         "request_id": str(uuid4()), "arguments": {"url": match.group(0).rstrip(".,;:)"), "mode": mode},
@@ -515,6 +537,10 @@ def build_task_plan(route: IntentRoute, budget: ExecutionBudget, message: str = 
         steps.append(studio_action)
     if route.action == "link_test":
         action = _link_test_step(message)
+        if action:
+            steps.append(action)
+    if route.action == "link_review":
+        action = _link_review_step(message)
         if action:
             steps.append(action)
     if route.action == "schedule_project_meeting":

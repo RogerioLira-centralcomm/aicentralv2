@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="x-apple-disable-message-reformatting">
+<title>{{ headline }}</title>
+</head>
+{# Reports e-mail: logo, kind icon + illustration, preliminary result, screenshot and the public report link. #}
+{% set tones = {'ok': ['#12b76a', '#ecfdf3'], 'warn': ['#f79009', '#fffaeb'], 'bad': ['#f04438', '#fef3f2']} %}
+{% set score_tone = 'ok' if score >= 80 else ('warn' if score >= 50 else 'bad') %}
+<body style="margin:0;padding:0;background:#f5f8fc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#17243a;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">{{ preheader }}</div>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f5f8fc;"><tr><td align="center" style="padding:32px 12px;">
+<table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #e1e8f1;border-radius:16px;overflow:hidden;">
+
+<tr><td style="padding:20px 28px;border-bottom:1px solid #e9eef5;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>
+    <td><img src="{{ base_url }}/static/images/cadu-logo-variant-2.png" alt="Cadu" height="26" style="display:block;height:26px;width:auto;"></td>
+    <td align="right" style="font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#3974bd;">Reports</td>
+  </tr></table>
+</td></tr>
+
+<tr><td style="padding:0;background:{{ accent_soft }};"><img src="{{ base_url }}/static/images/reports/email/hero-{{ kind }}.jpg" alt="" width="600" style="display:block;width:100%;height:auto;border:0;"></td></tr>
+
+<tr><td style="padding:28px 28px 8px;">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr>
+    <td style="vertical-align:middle;"><img src="{{ base_url }}/static/images/reports/email/icon-{{ kind }}.png" alt="" width="44" height="44" style="display:block;width:44px;height:44px;border-radius:12px;"></td>
+    <td style="vertical-align:middle;padding-left:12px;font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:{{ accent }};">{{ kind_label }}</td>
+  </tr></table>
+  <h1 style="margin:16px 0 6px;font-size:24px;line-height:1.25;color:#152443;">{{ headline }}</h1>
+  <p style="margin:0;font-size:15px;line-height:1.6;color:#4a5b73;">{% block intro %}{% endblock %}</p>
+</td></tr>
+
+<tr><td style="padding:16px 28px 8px;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:{{ tones[score_tone][1] }};border-radius:12px;border:1px solid #e1e8f1;"><tr>
+    <td width="96" align="center" style="padding:18px 0 18px 18px;"><div style="width:76px;height:76px;border-radius:38px;border:5px solid {{ tones[score_tone][0] }};background:#ffffff;text-align:center;line-height:66px;font-size:24px;font-weight:700;color:#152443;">{{ score }}</div></td>
+    <td style="padding:18px;">
+      <div style="font-size:17px;font-weight:700;color:#152443;">{{ status_label }}</div>
+      <div style="margin-top:3px;font-size:13px;line-height:1.5;color:#4a5b73;">{{ summary }}</div>
+      <div style="margin-top:8px;font-size:12px;color:#7a8aa0;word-break:break-all;">{{ url }}</div>
+    </td>
+  </tr></table>
+</td></tr>
+
+{% if highlights %}
+<tr><td style="padding:16px 28px 0;">
+  <div style="font-size:13px;font-weight:700;color:#152443;margin-bottom:8px;">Resultado preliminar</div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+  {% for item in highlights %}
+    <tr><td width="22" valign="top" style="padding:7px 0;"><div style="width:10px;height:10px;border-radius:5px;background:{{ tones[item.tone][0] }};margin-top:5px;"></div></td>
+        <td style="padding:7px 0;font-size:14px;line-height:1.5;color:#2c3c55;border-bottom:1px solid #eef2f7;">{{ item.text }}</td></tr>
+  {% endfor %}
+  </table>
+</td></tr>
+{% endif %}
+
+<tr><td style="padding:20px 28px 0;">
+  <div style="font-size:13px;font-weight:700;color:#152443;margin-bottom:8px;">Print da página analisada</div>
+  {% if screenshot %}
+  <a href="{{ report_url }}" style="text-decoration:none;"><img src="{{ screenshot }}" alt="Print da página {{ url }}" width="544" style="display:block;width:100%;height:auto;border:1px solid #e1e8f1;border-radius:10px;"></a>
+  {% else %}
+  <div style="border:1px dashed #cfd9e6;border-radius:10px;padding:28px;text-align:center;font-size:13px;color:#7a8aa0;">O print desta análise ainda não está disponível. Ele aparece no relatório completo assim que for gerado.</div>
+  {% endif %}
+</td></tr>
+
+<tr><td style="padding:22px 28px 6px;font-size:14px;line-height:1.6;color:#4a5b73;">{% block next %}{% endblock %}</td></tr>
+
+<tr><td align="center" style="padding:10px 28px 8px;">
+  <a href="{{ report_url }}" style="display:inline-block;background:#3974bd;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:14px 28px;border-radius:10px;">Abrir relatório completo</a>
+</td></tr>
+{% if note %}<tr><td style="padding:12px 28px 0;"><div style="background:#f7f9fc;border-left:3px solid {{ accent }};padding:12px 14px;font-size:13px;line-height:1.55;color:#2c3c55;">{{ note }}</div></td></tr>{% endif %}
+
+<tr><td style="padding:24px 28px 26px;font-size:12px;line-height:1.6;color:#8a98aa;">
+  O relatório abre sem login e pode ser compartilhado. Gerado pelo Reports em {{ created_at }}.<br>
+  <a href="{{ report_url }}" style="color:#3974bd;word-break:break-all;">{{ report_url }}</a>
+</td></tr>
+
+</table></td></tr></table>
+</body></html>

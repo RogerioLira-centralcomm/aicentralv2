@@ -1222,7 +1222,9 @@ def test_reports_link_test_is_idempotent_and_hides_share_token(monkeypatch):
         "confirmed": True, "url": "https://example.com", "mode": "destination",
     }, context(capabilities=("reports",)), "internal")
 
-    assert result == {"run_id": "run-1", "score": 91}
+    # The agent gets a compact digest: the score and run id, never the share token nor the raw page inventory.
+    assert result["run_id"] == "run-1" and result["score"] == 91
+    assert "public_token" not in result and "must-not-reach-agent" not in str(result)
     assert captured["tool_name"] == "reports.link_test"
     assert captured["payload"] == {"url": "https://example.com", "mode": "destination"}
 
@@ -2317,8 +2319,9 @@ def test_link_test_route_creates_a_sealed_confirmation_step():
     assert route.action == "link_test"
     assert route.requires_confirmation is True
     assert action["name"] == "reports.link_test"
+    # UTMs are checked by the destination analysis (redirects, UTM, HTTPS); media is for tags and conversions.
     assert action["arguments"] == {
-        "url": "https://example.com/landing?utm_source=cadu", "mode": "media",
+        "url": "https://example.com/landing?utm_source=cadu", "mode": "destination",
     }
     assert action["requires_confirmation"] is True
     assert len(action["request_id"]) == 36
@@ -2354,7 +2357,8 @@ def test_approved_action_executes_only_the_sealed_tool_and_arguments(monkeypatch
         "current": current, "exposure": "internal",
     }
     assert receipt["result"]["run_id"] == "link-run"
-    assert receipt["completion"]["answer"] == "Ação concluída."
+    assert receipt["completion"]["answer"].startswith("Diagnóstico concluído.")
+    assert any(block["type"] == "metrics" for block in receipt["completion"]["blocks"])
 
 
 def test_brand_audit_resolves_named_brand_without_replacing_project_context(monkeypatch):

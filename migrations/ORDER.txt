@@ -193,3 +193,5 @@ migrations/run_sql_migration.py add_cadu_planner_portal_prints.sql
 migrations/run_sql_migration.py add_reports_flow_monitor_alerts.sql
 # Central de alertas v2: canal, tipo, impacto, painel, em investigação e alertas sem site (aditivo, idempotente; depende de add_reports_alerts_v1.sql).
 migrations/run_sql_migration.py upgrade_reports_alerts_v2.sql
+# Plugin Reports 0.2.0: manifesto documenta o Link Tester no chat (idempotente; preserva versão publicada depois).
+migrations/run_sql_migration.py refine_cadu_chat_plugin_reports_link_tester.sql

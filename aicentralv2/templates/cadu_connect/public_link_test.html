@@ -6,7 +6,25 @@
   <meta name="robots" content="noindex,nofollow">
   <title>{{ report.status_label or 'Diagnóstico de link' }} · Reports</title>
   <style>
-    :root{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#17243a;background:#f5f8fc;font-synthesis:none;text-rendering:optimizeLegibility}*{box-sizing:border-box}body{margin:0}.top{height:66px;background:#fff;border-bottom:1px solid #e2e9f2;display:flex;align-items:center;padding:0 max(24px,calc((100vw - 1080px)/2));gap:12px}.logo{height:28px;width:auto;object-fit:contain}.product{font-size:13px;color:#60728a;border-left:1px solid #dce4ee;padding-left:12px}.wrap{max-width:960px;margin:40px auto;padding:0 20px}.report-card{background:#fff;border:1px solid #e1e8f1;border-radius:14px;padding:28px;box-shadow:0 8px 26px #182f5010}.eyebrow{color:#3974bd;font-size:11px;font-weight:650;letter-spacing:.09em;text-transform:uppercase}.title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}.title-row h1{font-size:26px;line-height:1.2;margin:8px 0;color:#152443}.score{flex:none;border-radius:12px;background:#edf5ff;color:#155ab0;padding:12px 16px;font-size:24px;font-weight:650}.url{margin:8px 0 20px;color:#566a84;overflow-wrap:anywhere;font-size:14px}.summary{font-size:15px;line-height:1.6;margin:20px 0 28px}.section{border-top:1px solid #e9eef5;padding-top:20px;margin-top:20px}.section h2{font-size:15px;margin:0 0 12px}.alerts{margin:0;padding-left:20px;color:#75500a;line-height:1.7}.evidence{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.evidence-item{min-width:0;background:#f7f9fc;border:1px solid #e8edf4;border-radius:9px;padding:12px}.evidence-item strong{display:block;margin-bottom:7px;color:#62738a;font-size:11px;text-transform:capitalize}.evidence-item pre{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;margin:0;color:#243957}.footer{font-size:12px;color:#8a98aa;margin:18px 2px}@media(max-width:640px){.wrap{margin:20px auto;padding:0 12px}.report-card{padding:20px}.title-row h1{font-size:21px}.score{font-size:19px;padding:10px 12px}.evidence{grid-template-columns:1fr}}
+    :root{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#17243a;background:#f5f8fc;font-synthesis:none;text-rendering:optimizeLegibility}*{box-sizing:border-box}body{margin:0}
+    .top{height:66px;background:#fff;border-bottom:1px solid #e2e9f2;display:flex;align-items:center;padding:0 max(24px,calc((100vw - 1080px)/2));gap:12px}.logo{height:28px;width:auto;object-fit:contain}.product{font-size:13px;color:#60728a;border-left:1px solid #dce4ee;padding-left:12px}
+    .wrap{max-width:960px;margin:40px auto;padding:0 20px}.report-card{background:#fff;border:1px solid #e1e8f1;border-radius:14px;padding:28px;box-shadow:0 8px 26px #182f5010}
+    .hero{display:block;width:100%;border-radius:12px;margin:0 0 22px}.kind{display:flex;align-items:center;gap:10px}.kind img{width:40px;height:40px;border-radius:11px}
+    .eyebrow{color:var(--accent);font-size:11px;font-weight:650;letter-spacing:.09em;text-transform:uppercase}
+    .title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}.title-row h1{font-size:26px;line-height:1.2;margin:12px 0 8px;color:#152443}
+    .score{flex:none;border-radius:12px;background:#edf5ff;color:#155ab0;padding:12px 16px;font-size:24px;font-weight:650}
+    .url{margin:8px 0 20px;color:#566a84;overflow-wrap:anywhere;font-size:14px}.summary{font-size:15px;line-height:1.6;margin:20px 0 28px}
+    .section{border-top:1px solid #e9eef5;padding-top:20px;margin-top:20px}.section h2{font-size:15px;margin:0 0 12px}.alerts{margin:0;padding-left:20px;color:#75500a;line-height:1.7}
+    .shot{display:block;width:100%;border:1px solid #e1e8f1;border-radius:10px}
+    .cats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.cat{background:#f7f9fc;border:1px solid #e8edf4;border-radius:10px;padding:12px}.cat b{font-size:20px}.cat small{display:block;color:#62738a;font-size:12px;margin-top:2px}
+    .bar{height:6px;border-radius:3px;background:#e4eaf2;margin-top:8px}.bar i{display:block;height:6px;border-radius:3px;background:var(--accent)}
+    .f{display:flex;gap:10px;padding:11px 0;border-bottom:1px solid #eef2f7;font-size:14px}.dot{flex:none;width:10px;height:10px;border-radius:5px;margin-top:6px}
+    .ok{background:#12b76a}.warn,.warning{background:#f79009}.bad,.critical{background:#f04438}.info{background:#98a2b3}
+    .f p{margin:2px 0 0;color:#566a84;font-size:13px;line-height:1.5;overflow-wrap:anywhere}.f p.fix{color:#155ab0}
+    .chips{display:flex;flex-wrap:wrap;gap:6px}.chip{border-radius:999px;padding:3px 10px;font-size:12px;background:#eef2f7;color:#35465f}.chip.good{background:#ecfdf3;color:#067647}.chip.badc{background:#fef3f2;color:#b42318}
+    table.t{width:100%;border-collapse:collapse;font-size:13px}table.t td{padding:7px 0;border-bottom:1px solid #eef2f7;vertical-align:top;overflow-wrap:anywhere}table.t td:first-child{color:#62738a;width:38%}
+    .footer{font-size:12px;color:#8a98aa;margin:18px 2px}
+    @media(max-width:640px){.wrap{margin:20px auto;padding:0 12px}.report-card{padding:20px}.title-row h1{font-size:21px}.score{font-size:19px;padding:10px 12px}}
   </style>
 </head>
 <body>
@@ -14,19 +32,54 @@
     <img class="logo" src="/static/images/cadu-logo-variant-2.png" alt="Cadu"><span class="product">Reports</span>
   </header>
   <main class="wrap">
-    <article class="report-card">
+    {% set result = report.result or {} %}{% set evidence = result.get('evidence') or {} %}{% set mode = report.mode or 'destination' %}
+    {% set cfg = {'destination': ['Destino e redirecionamentos', '#3974bd'], 'media': ['Medição de mídia', '#0e9384'], 'agentic': ['Presença para agentes de IA', '#7a5af8']}.get(mode, ['Diagnóstico de link', '#3974bd']) %}
+    <article class="report-card" style="--accent:{{ cfg[1] }}">
+      {% if mode in ['destination', 'media', 'agentic'] %}<img class="hero" src="/static/images/reports/email/hero-{{ mode }}.jpg" alt="">{% endif %}
       <div class="title-row">
-        <div><span class="eyebrow">Diagnóstico de destino · {{ report.mode or 'destination' }}</span><h1>{{ report.status_label or 'Relatório de link' }}</h1></div>
+        <div>
+          <div class="kind">{% if mode in ['destination', 'media', 'agentic'] %}<img src="/static/images/reports/email/icon-{{ mode }}.png" alt="">{% endif %}<span class="eyebrow">{{ cfg[0] }}</span></div>
+          <h1>{{ report.status_label or 'Relatório de link' }}</h1>
+        </div>
         <strong class="score">{{ report.score or 0 }}<small>/100</small></strong>
       </div>
       <p class="url">{{ report.final_url or report.original_url or '' }}</p>
-      <p class="summary">{{ (report.result or {}).get('summary') or 'Sem resumo disponível.' }}</p>
-      {% set alerts = (report.result or {}).get('alerts') or [] %}
-      {% if alerts %}<section class="section"><h2>Pontos de atenção</h2><ul class="alerts">{% for alert in alerts %}<li>{{ alert }}</li>{% endfor %}</ul></section>{% endif %}
-      {% set evidence = (report.result or {}).get('evidence') or {} %}
-      {% if evidence %}<section class="section"><h2>Evidências</h2><div class="evidence">{% for key, value in evidence.items() %}<div class="evidence-item"><strong>{{ key.replace('_',' ') }}</strong><pre>{{ value|tojson(indent=2) }}</pre></div>{% endfor %}</div></section>{% endif %}
+      <p class="summary">{{ result.get('summary') or 'Sem resumo disponível.' }}</p>
+
+      {% if evidence.get('screenshot') %}<section class="section"><h2>Print da página</h2><img class="shot" src="{{ evidence.screenshot }}" alt="Print da página analisada"></section>{% elif evidence.get('capture_note') %}<section class="section"><h2>Print da página</h2><p class="url">{{ evidence.capture_note }}</p></section>{% endif %}
+
+      {% set highlights = result.get('highlights') or [] %}
+      {% if highlights and mode != 'agentic' %}<section class="section"><h2>Resultado preliminar</h2>{% for item in highlights %}<div class="f"><span class="dot {{ item.tone }}"></span><div>{{ item.text }}</div></div>{% endfor %}</section>{% endif %}
+
+      {% if mode == 'agentic' %}
+        <section class="section"><h2>Pontuação por área</h2><div class="cats">{% for c in evidence.get('categories', []) %}<div class="cat"><b>{{ c.score }}</b><small>de {{ c.max }} · {{ c.name }}</small><small>{{ c.question }}</small><div class="bar"><i style="width:{{ (c.score * 100 / c.max)|round|int }}%"></i></div></div>{% endfor %}</div></section>
+        {% if evidence.get('caps') %}<section class="section"><h2>O que limita a nota</h2>{% for c in evidence.caps %}<div class="f"><span class="dot bad"></span><div>{{ c.reason }}<p>A nota não passa de {{ c.limit }}, não importa o resto.</p></div></div>{% endfor %}</section>{% endif %}
+        <section class="section"><h2>Achados</h2>{% for f in evidence.get('findings', []) %}<div class="f"><span class="dot {{ f.severity }}"></span><div><strong>{{ f.title }}</strong><p>{{ f.detail }}</p>{% if f.fix %}<p class="fix">Como corrigir: {{ f.fix }}</p>{% endif %}</div></div>{% endfor %}</section>
+        <section class="section"><h2>Robôs de IA</h2><div class="chips">{% for b in evidence.get('bot_access', []) %}<span class="chip {{ 'badc' if b.blocked else 'good' }}">{{ b.name }} · {{ 'bloqueado' if b.blocked else 'liberado' }}</span>{% endfor %}</div></section>
+      {% elif mode == 'media' %}
+        {% set st = evidence.get('supertag') or {} %}
+        <section class="section"><h2>Cadu Super Tag</h2><div class="f"><span class="dot {{ 'ok' if st.get('detected') else ('warn' if st.get('registered') else 'info') }}"></span><div><strong>{{ 'Instalada' if st.get('detected') else 'Não encontrada' }}</strong>
+          <p>{% if st.get('detected') %}{{ 'Injetada pelo Google Tag Manager' if st.get('via') == 'gtm' else 'No código da página' }}{% if st.get('site_label') %} · site "{{ st.site_label }}"{% endif %}{% elif st.get('registered') %}Cadastrada para este domínio ({{ st.get('site_label') }}), mas ausente da página.{% else %}A tag do Reports mede a jornada e as conversões deste site.{% endif %}</p></div></div></section>
+        <section class="section"><h2>Plataformas</h2>{% for p in evidence.get('platforms', []) %}<div class="f"><span class="dot {{ 'ok' if p.score >= 100 else ('warn' if p.score else 'info') }}"></span><div><strong>{{ p.name }} · {{ p.score }}%</strong>{% if p.missing %}<p>Falta: {{ p.missing|join(', ') }}</p>{% endif %}</div></div>{% endfor %}</section>
+        <section class="section"><h2>Tags detectadas</h2><div class="chips">{% for t in evidence.get('tags', []) %}<span class="chip {{ 'good' if t.detected }}">{{ t.name }}</span>{% endfor %}</div></section>
+        {% set conv = evidence.get('conversion') or {} %}{% set comp = evidence.get('compliance') or {} %}
+        <section class="section"><h2>Conversão e consentimento</h2><table class="t">
+          <tr><td>Formulários</td><td>{{ conv.get('forms', 0) }}</td></tr><tr><td>WhatsApp</td><td>{{ 'Sim' if conv.get('whatsapp') else 'Não' }}</td></tr><tr><td>Telefone</td><td>{{ 'Sim' if conv.get('phone') else 'Não' }}</td></tr>
+          <tr><td>Eventos</td><td>{{ (evidence.get('events') or [])|join(', ') or 'nenhum encontrado' }}</td></tr><tr><td>Aviso de cookies</td><td>{{ 'Sim' if comp.get('consent_detected') else 'Não' }}</td></tr><tr><td>Política de privacidade</td><td>{{ 'Sim' if comp.get('privacy_policy_detected') else 'Não' }}</td></tr>
+        </table></section>
+      {% else %}
+        <section class="section"><h2>Caminho do clique</h2>{% for r in evidence.get('redirects', []) %}<div class="f"><span class="dot {{ 'bad' if r.status >= 400 else ('warn' if r.status >= 300 else 'ok') }}"></span><div>HTTP {{ r.status }}<p>{{ r.url }}</p></div></div>{% endfor %}</section>
+        <section class="section"><h2>Página</h2><table class="t">
+          <tr><td>Resposta</td><td>HTTP {{ evidence.get('http_status') }} em {{ evidence.get('elapsed_ms') }} ms</td></tr><tr><td>HTTPS</td><td>{{ 'Válido' if (evidence.get('ssl') or {}).get('valid') else 'Não validado' }}</td></tr>
+          <tr><td>Título</td><td>{{ evidence.get('title') or '–' }}</td></tr><tr><td>Descrição</td><td>{{ evidence.get('description') or '–' }}</td></tr>
+          {% for k, v in (evidence.get('utm') or {}).items() %}<tr><td>{{ k }}</td><td>{{ v[0] if v else '' }}</td></tr>{% endfor %}
+        </table></section>
+      {% endif %}
+
+      {% set alerts = result.get('alerts') or [] %}
+      {% if alerts and mode != 'agentic' %}<section class="section"><h2>Pontos de atenção</h2><ul class="alerts">{% for alert in alerts %}<li>{{ alert }}</li>{% endfor %}</ul></section>{% endif %}
     </article>
-    <p class="footer">Relatório compartilhado pelo Reports · {{ report.created_at }}</p>
+    <p class="footer">Relatório compartilhado pelo Reports · {{ report.created_at.strftime('%d/%m/%Y %H:%M') if report.created_at.strftime is defined else report.created_at }}</p>
   </main>
 </body>
 </html>

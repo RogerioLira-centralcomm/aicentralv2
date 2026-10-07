@@ -85,7 +85,7 @@ FLOW_CATALOG = (
     {"id": "performance", "name": "Performance", "icon": "analysis",
      "description": "Leia resultados reais e priorize mudanças na campanha.",
      "steps": (
-         "Campanha analisa um relatório anexado; Relatórios consulta relatórios revisados do projeto.",
+         "Campanha analisa um relatório anexado; Relatórios consulta relatórios revisados e testa links (destino, tags de mídia, presença para IA).",
          "O Cadu identifica métricas e períodos presentes e só compara dados compatíveis.",
          "Veja achados e próximos passos ligados às fontes consultadas.",
      ),
@@ -371,7 +371,7 @@ def select(route: IntentRoute, message: str, context: RequestContext, *, has_rep
             tool_chain = tuple([*context_tools, "insights.research_market"])
         else:
             missing.append("tema de mercado dos insights")
-    elif route.action == "link_test":
+    elif route.action in {"link_test", "link_review"}:
         plugin_id = "reports"
     elif route.action == "compare_report_to_plan":
         plugin_id = "reports"

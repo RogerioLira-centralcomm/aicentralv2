@@ -10,7 +10,7 @@ import {AudienceCard} from './AudienceCard.jsx';
 import {PlanBar} from './PlanBar.jsx';
 import {PlanBanner, ShelfEmpty} from './PlannerPromo.jsx';
 import {PlannerChrome} from './PlannerHeader.jsx';
-import {ShelfBanner} from './ShelfBanner.jsx';
+import {ShelfHeader} from './ShelfHeader.jsx';
 import {LogoTile} from './PlannerUi.jsx';
 
 const PAGE = 48;
@@ -119,11 +119,10 @@ export function AudienceShowcase({boot, request, selection, notify}) {
     </div>
   );
 
-  // Faixa com o título, a barra de filtros logo abaixo e, depois, as categorias.
+  // Título e filtros na mesma linha; as categorias ficam logo abaixo.
   return <>
-    <ShelfBanner kind="audiencias" title="Audiências"
-      description={`${number(total)} ${total === 1 ? 'audiência comprável' : 'audiências compráveis'}${active ? ' com estes filtros' : ''}`}/>
-    {bar}
+    <ShelfHeader title="Audiências" bar={bar}
+      description={`${number(total)} ${total === 1 ? 'audiência' : 'audiências'}${active ? ' com estes filtros' : ''}`}/>
     <section className="aud-filters aud-filters--aud" aria-label="Categorias de audiências">
       <FacetChips inline label="Categoria" items={facets.categories} value={filters.category} total={categoryTotal} onChange={value => set('category', value)}/>
       {active > 0 && <div className="aud-filters__summary">

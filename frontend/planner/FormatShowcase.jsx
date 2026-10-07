@@ -1,8 +1,6 @@
 import React, {useContext, useMemo, useState} from 'react';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.jsx';
-import {CaduSelectField} from '../cadu-design-system/components/CaduField.jsx';
-import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {FacetChips} from './AudienceShowcase.jsx';
 import {itemKey, useDebounced} from './Catalog.jsx';
@@ -10,7 +8,8 @@ import {FormatCard} from './FormatCard.jsx';
 import {PlanBar} from './PlanBar.jsx';
 import {ShelfEmpty} from './PlannerPromo.jsx';
 import {PlannerChrome} from './PlannerHeader.jsx';
-import {ShelfBanner} from './ShelfBanner.jsx';
+import {ShelfHeader} from './ShelfHeader.jsx';
+import {PlannerSelect} from './PlannerSelect.jsx';
 
 const URL_KEYS = {q: 'q', family: 'familia', platform: 'canal'};
 const number = value => Number(value || 0).toLocaleString('pt-BR');
@@ -66,17 +65,16 @@ export function FormatShowcase({boot, selection}) {
   const clear = () => { const empty = {q: '', family: '', platform: ''}; writeUrl(empty); setFilters(empty); };
 
   return <>
-    <ShelfBanner kind={kind === 'interativos' ? 'interativos' : 'formatos'} title={kind === 'interativos' ? 'Interativos' : 'Formatos'}
-      description={`${number(visible.length)} ${kind === 'interativos' ? (visible.length === 1 ? 'formato interativo' : 'formatos interativos') : (visible.length === 1 ? 'formato' : 'formatos')} de mídia${active ? ' com estes filtros' : ''}, agrupados por família`}/>
+    <ShelfHeader title={kind === 'interativos' ? 'Interativos' : 'Formatos'}
+      description={`${number(visible.length)} ${kind === 'interativos' ? (visible.length === 1 ? 'interativo' : 'interativos') : (visible.length === 1 ? 'formato' : 'formatos')}${active ? ' com estes filtros' : ''}`}
+      bar={<div className="aud-bar" role="search">
+        <label className="aud-bar__field aud-bar__field--search"><Icon name="search" size={16}/>
+          <span className="aud-bar__text"><small>Buscar</small>
+            <input type="search" aria-label="Buscar formatos" value={filters.q} placeholder="Formato, canal ou tamanho" onChange={event => set('q', event.target.value)}/></span></label>
+        <div className="aud-bar__field"><PlannerSelect label="Canal" value={filters.platform} onChange={value => set('platform', value)}
+          options={[{value: '', label: 'Todos os canais'}, ...platforms.map(item => ({value: item.slug, label: item.name, count: number(item.count)}))]}/></div>
+      </div>}/>
     <section className="aud-filters" aria-label="Filtros de formatos">
-      <div className="aud-filters__top fmt-filters__top">
-        <CaduInput className="aud-filters__search" aria-label="Buscar formatos" type="search" value={filters.q}
-          placeholder="Buscar formato, canal ou tamanho"
-          leading={<span className="planner-toolbar__search-icon" aria-hidden="true"><Icon name="search" size={16}/></span>}
-          onChange={event => set('q', event.target.value)}/>
-        <CaduSelectField className="aud-filters__select" aria-label="Canal" value={filters.platform} onChange={event => set('platform', event.target.value)}
-          options={[{value: '', label: 'Todos os canais'}, ...platforms.map(item => ({value: item.slug, label: `${item.name} (${number(item.count)})`}))]}/>
-      </div>
       <FacetChips label="Família" items={families} value={filters.family} total={familyTotal} onChange={value => set('family', value)}/>
       {active > 0 && <div className="aud-filters__summary">
         <span aria-live="polite">{number(visible.length)} {visible.length === 1 ? 'resultado' : 'resultados'}</span>

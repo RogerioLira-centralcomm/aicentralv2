@@ -7,7 +7,7 @@ import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {LogoTile, PlannerPanel, RowAddButton, SelectionButton} from './PlannerUi.jsx';
 import {MODULE_LABELS, moduleUrl} from './api.js';
 import {ActivePlanChip, PlannerHeader} from './PlannerHeader.jsx';
-import {ShelfBanner, ShelfIndex} from './ShelfBanner.jsx';
+import {ShelfHeader, ShelfIndex} from './ShelfHeader.jsx';
 import {ChannelCard, ChannelRow} from './ChannelCard.jsx';
 import {PlaceCard} from './PlaceCard.jsx';
 import {PlanBar} from './PlanBar.jsx';
@@ -274,31 +274,29 @@ export function CatalogPage({boot, request, selection, notify}) {
     <div className="aud-bar__field"><PlannerSelect label="Agrupar" value={groupBy} onChange={setGroupBy}
       options={[{value: 'nenhum', label: 'Sem agrupar'}, {value: 'categoria', label: 'Por categoria'}, {value: 'papel', label: 'Por papel no plano'}]}/></div>
     <div className="aud-bar__field"><MoreFilters value={more} onChange={setMore}/></div>
-    <div className="aud-bar__field aud-bar__field--view"><ViewToggle value={view} onChange={setView}/></div>
+  </div>;
+
+  const headerCount = channels
+    ? `${number(shown.length)} ${shown.length === 1 ? 'canal' : 'canais'}${channelFilters ? ' com estes filtros' : ''}`
+    : loading ? 'Atualizando…' : portalMode ? `${number(total)} portais · página ${Math.floor(offset / PORTAL_PAGE) + 1}` : `${number(shown.length)} ${shown.length === 1 ? 'local' : 'locais'}`;
+  const searchField = <label className="aud-bar__field aud-bar__field--search"><Icon name="search" size={16}/>
+    <span className="aud-bar__text"><small>Buscar</small>
+      <input type="search" aria-label="Pesquisar referências" value={query} placeholder={portalMode ? 'Portal, domínio ou categoria' : 'Nome, descrição ou categoria'} onChange={event => { setQuery(event.target.value); setOffset(0); }}/></span></label>;
+  const shelfBar = !channels && <div className="aud-bar" role="search">
+    {searchField}
+    {shelf && (boot.categories || []).length > 0 && <div className="aud-bar__field"><PlannerSelect label="Categoria" value={category} onChange={value => { setCategory(value); setOffset(0); }}
+      options={[{value: '', label: `Todas (${boot.records?.length || 0})`}, ...boot.categories.map(value => ({value, label: value, count: categoryCounts.get(value) || 0}))]}/></div>}
+    {kind === 'places' && (boot.cities || []).length > 0 && <div className="aud-bar__field"><PlannerSelect label="Cidade" value={city}
+      onChange={value => { setCity(value); setOffset(0); try { window.localStorage.setItem('planner.places.city', value); } catch { /* not remembered */ } }}
+      options={[{value: '', label: 'Todas as cidades'}, ...boot.cities.map(value => ({value, label: value}))]}/></div>}
   </div>;
 
   return <>
-    <ShelfBanner kind={kind} title={MODULE_LABELS[kind]}
-      description={channels ? `${number(shown.length)} ${shown.length === 1 ? 'canal' : 'canais'}${channelFilters ? ' com estes filtros' : ''} · ${DESCRIPTIONS[kind]}` : DESCRIPTIONS[kind]}/>
-    {channelBar}
+    <ShelfHeader title={MODULE_LABELS[kind]} description={headerCount}
+      bar={channels ? channelBar : shelfBar} tools={channels ? <ViewToggle value={view} onChange={setView}/> : null}/>
     {channels && channelFilters && <div className="aud-filters__summary aud-filters__summary--bar">
       <span aria-live="polite">{loading ? 'Atualizando…' : `${number(shown.length)} ${shown.length === 1 ? 'resultado' : 'resultados'}`}</span>
       <CaduButton variant="tertiary" size="sm" onClick={clearChannelFilters}>Limpar filtros</CaduButton>
-    </div>}
-    {!channels && <div className="planner-toolbar">
-      <CaduInput className="planner-toolbar__search" aria-label="Pesquisar referências" type="search" value={query} placeholder={portalMode ? 'Buscar por portal, domínio ou categoria' : 'Buscar por nome, descrição ou categoria'}
-        leading={<span className="planner-toolbar__search-icon" aria-hidden="true"><Icon name="search" size={16}/></span>}
-        onChange={event => { setQuery(event.target.value); setOffset(0); }}/>
-      {!portalMode && !shelf && (boot.categories || []).length > 0 && <CaduSelectField className="planner-toolbar__category" aria-label="Categoria" value={category} onChange={event => { setCategory(event.target.value); setOffset(0); }}
-        options={[{value: '', label: 'Todas as categorias'}, ...boot.categories.map(value => ({value, label: value}))]}/>}
-      <span className="planner-toolbar__count" aria-live="polite">{countLabel}</span>
-    </div>}
-    {shelf && !channels && (boot.categories || []).length > 0 && <div className="planner-chipbar">
-      <CaduSelectField className="planner-chipbar__select" aria-label="Categoria" value={category} onChange={event => { setCategory(event.target.value); setOffset(0); }}
-        options={[{value: '', label: `Todas as categorias (${boot.records?.length || 0})`}, ...boot.categories.map(value => ({value, label: `${value} (${categoryCounts.get(value) || 0})`}))]}/>
-      {kind === 'places' && (boot.cities || []).length > 0 && <CaduSelectField className="planner-chipbar__select" aria-label="Cidade" value={city}
-        onChange={event => { setCity(event.target.value); setOffset(0); try { window.localStorage.setItem('planner.places.city', event.target.value); } catch { /* not remembered */ } }}
-        options={[{value: '', label: 'Todas as cidades'}, ...boot.cities.map(value => ({value, label: value}))]}/>}
     </div>}
     {portalMode && <div className="planner-portal-filters">
       <div className="planner-segmented" role="group" aria-label="Escopo">

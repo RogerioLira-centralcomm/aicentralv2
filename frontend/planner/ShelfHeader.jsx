@@ -1,19 +1,18 @@
 import React, {useEffect, useState} from 'react';
 import './planner-shelf.css';
 
-const ART = '/static/images/planner/shelf/';
-
 /**
- * Title of a shelf (Canais, Audiências, Formatos…) as a slim banner: the module's art, one title, one line of context.
- * It is the page's only h1; filters and results follow right below.
+ * Title and filters of a shelf on ONE row (the page's only h1): the name and a count on the left, the filter bar filling the
+ * middle and, outside the bar, the small view tools. Narrow screens stack them. No image: the cards below carry the visuals.
  */
-export function ShelfBanner({kind, title, description, children = null}) {
-  return <header className="shelf-banner" style={{'--shelf-art': `url("${ART}${kind}.webp")`}}>
-    <div className="shelf-banner__copy">
+export function ShelfHeader({title, description, bar = null, tools = null}) {
+  return <header className="shelf-head">
+    <div className="shelf-head__title">
       <h1>{title}</h1>
       {description && <p>{description}</p>}
     </div>
-    {children && <div className="shelf-banner__side">{children}</div>}
+    {bar && <div className="shelf-head__bar">{bar}</div>}
+    {tools && <div className="shelf-head__tools">{tools}</div>}
   </header>;
 }
 

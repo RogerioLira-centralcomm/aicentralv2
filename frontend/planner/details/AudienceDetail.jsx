@@ -1,7 +1,7 @@
 import React from 'react';
 import {CaduEmptyState} from '../../cadu-design-system/components/CaduEmptyState.jsx';
 import {moduleUrl} from '../api.js';
-import {DetailLayout, Facts, Rail, TagList, hasValue} from './DetailLayout.jsx';
+import {DetailLayout, Facts, Rail, RelatedList, TagList, hasValue} from './DetailLayout.jsx';
 import {FormatCards} from '../FormatCards.jsx';
 
 const PROFILE_GROUP = 'Público, perfil e comportamento';
@@ -63,11 +63,6 @@ export function AudienceDetail({boot, selection, plan = null}) {
     {id: 'formatos', label: 'Formatos para ativar', count: (audience.channel_formats || []).length, hidden: !(audience.channel_formats || []).length, wide: true,
       hint: 'Peças que este canal aceita para alcançar o público.',
       render: () => <FormatCards formats={audience.channel_formats} urls={boot.urls} selection={selection}/>},
-    {id: 'parecidas', label: 'Audiências parecidas', count: related.length, hidden: !related.length, wide: true,
-      render: () => <Rail items={related.map(item => ({
-        href: `${moduleUrl(boot.urls, 'audiencias')}/${item.id}`, title: item.name, icon: 'users', logo: item.platform_logo,
-        subtitle: [item.platform, item.audience].filter(Boolean).join(' · '),
-      }))}/>},
   ];
 
   return <DetailLayout boot={boot} selection={selection} kind="audiencias" record={{...audience, logo_url: audience.platform_logo}} icon="users"
@@ -81,5 +76,9 @@ export function AudienceDetail({boot, selection, plan = null}) {
       {icon: 'pulse', label: 'CPA', value: cpa, hint: 'Estimativa'},
       {icon: 'users', label: 'Alcance incremental', value: field('alcance_incremental')},
     ]}
+    aside={<RelatedList title="Audiências parecidas" items={related.map(item => ({
+      href: `${moduleUrl(boot.urls, 'audiencias')}/${item.id}`, title: item.name, icon: 'users', logo: item.platform_logo,
+      subtitle: [item.platform, item.audience].filter(Boolean).join(' · '),
+      selected: selection.isSelected('audiencias', item.id), onToggle: () => selection.toggle('audiencias', item.id)}))}/>}
     sections={sections}/>;
 }

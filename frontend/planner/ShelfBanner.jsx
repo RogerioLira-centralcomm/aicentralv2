@@ -30,8 +30,8 @@ export function ShelfIndex({items, label = 'Nesta página'}) {
     ids.split('|').forEach(id => { const node = document.getElementById(id); if (node) observer.observe(node); });
     return () => observer.disconnect();
   }, [ids]);
-  return <aside className="pd-rail shelf-index"><strong>{label}</strong>
-    <nav className="pd-rail__nav" aria-label="Grupos desta página">{items.map(item => <a key={item.id} href={`#${item.id}`} className={current === item.id ? 'is-active' : ''}
+  return <aside className="pd-index shelf-index"><strong>{label}</strong>
+    <nav className="pd-index__nav" aria-label="Grupos desta página">{items.map(item => <a key={item.id} href={`#${item.id}`} className={current === item.id ? 'is-active' : ''}
       aria-current={current === item.id ? 'true' : undefined}
       onClick={event => { event.preventDefault(); document.getElementById(item.id)?.scrollIntoView({behavior: 'smooth', block: 'start'}); setCurrent(item.id); }}>
       {item.label}<span>{item.count}</span></a>)}</nav>

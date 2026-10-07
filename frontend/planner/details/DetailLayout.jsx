@@ -1,6 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {Icon} from '../../cadu-design-system/components/Icon.jsx';
-import {LogoTile} from '../PlannerUi.jsx';
+import {LogoTile, RowAddButton} from '../PlannerUi.jsx';
 import {MODULE_LABELS, moduleUrl} from '../api.js';
 
 // Catalog rows sometimes carry placeholder text instead of an empty value.
@@ -90,42 +90,6 @@ export function Gallery({photos, name}) {
   </figure>)}</div>;
 }
 
-/** One big photo with arrows and a thumbnail strip; works with a single photo too. */
-function HeroCarousel({photos, name, illustrative = false}) {
-  const [index, setIndex] = useState(0);
-  const [broken, setBroken] = useState(() => new Set());
-  const list = photos.filter(src => !broken.has(src));
-  if (!list.length) return null;
-  const current = Math.min(index, list.length - 1);
-  const go = step => setIndex((current + step + list.length) % list.length);
-  const drop = src => setBroken(previous => new Set(previous).add(src));
-  return <div className="pd-carousel" aria-roledescription="carrossel" aria-label={`Fotos de ${name}`}>
-    <figure className="pd-carousel__stage">
-      <img src={list[current]} alt={`Foto ${current + 1} de ${list.length} de ${name}`} onError={() => drop(list[current])}/>
-      {illustrative && <span className="pd-carousel__tag">Ilustração</span>}
-      {list.length > 1 && <>
-        <button type="button" className="pd-carousel__nav is-prev" aria-label="Foto anterior" onClick={() => go(-1)}><Icon name="chevron" size={18}/></button>
-        <button type="button" className="pd-carousel__nav is-next" aria-label="Próxima foto" onClick={() => go(1)}><Icon name="chevron" size={18}/></button>
-      </>}
-    </figure>
-    {list.length > 1 && <ul className="pd-carousel__thumbs">{list.slice(0, 8).map((src, position) => <li key={src}>
-      <button type="button" className={position === current ? 'is-active' : ''} aria-label={`Ver foto ${position + 1}`} aria-current={position === current ? 'true' : undefined} onClick={() => setIndex(position)}>
-        <img src={src} alt="" loading="lazy" onError={() => drop(src)}/></button></li>)}</ul>}
-  </div>;
-}
-
-function HeroMedia({media, name}) {
-  const [failed, setFailed] = useState(false);
-  if (!media || failed) return null;
-  if (media.type === 'carousel') return <HeroCarousel photos={media.items || []} name={name} illustrative={Boolean(media.illustrative)}/>;
-  if (media.type === 'gallery') {
-    const photos = (media.items || []).filter(Boolean).slice(0, 3);
-    if (!photos.length) return null;
-    return <div className={`pd-hero__mosaic is-${photos.length}`}>{photos.map((src, index) => <img key={src} src={src} alt={index ? '' : `Foto de ${name}`} onError={index ? undefined : () => setFailed(true)}/>)}</div>;
-  }
-  return <figure className={`pd-hero__media${media.fit === 'contain' ? ' is-contain' : ''}`}><img src={media.src} alt={media.alt || ''} onError={() => setFailed(true)}/></figure>;
-}
-
 /**
  * Detail pages read top to bottom like a short report: a visual hero with the
  * identity, the pitch and the key numbers; then stacked sections with a sticky
@@ -146,20 +110,31 @@ export function DetailLayout({boot, selection, kind, record, icon = 'plan', eyeb
     }, {rootMargin: '-96px 0px -60% 0px'});
     Object.values(refs.current).forEach(node => node && observer.observe(node));
     return () => observer.disconnect();
-  }, [visible.length]);
+  }, [visible.length, media]);
 
   const shownMetrics = metrics.filter(item => hasValue(item.value)).slice(0, 6);
   const shownHighlights = highlights.filter(([, text]) => hasValue(text));
-  const bannerImage = media?.type === 'carousel' ? media.items?.[0] : media?.type === 'gallery' ? media.items?.[0] : media?.src;
+  const photos = (media?.type === 'carousel' || media?.type === 'gallery' ? media.items : media?.src ? [media.src] : []).filter(Boolean);
+  const [bannerFailed, setBannerFailed] = useState(false);
+  const bannerImage = !bannerFailed ? photos[0] : null;
+  useEffect(() => {
+    setBannerFailed(false);
+    if (!photos[0]) return undefined;
+    const probe = new Image();
+    probe.onerror = () => setBannerFailed(true);
+    probe.src = photos[0];
+    return () => { probe.onerror = null; };
+  }, [photos[0]]);
+  // Extra photos are a section of their own; the first one is the banner.
+  const more = photos.slice(1).map(url => ({url}));
+  const all = more.length ? [...visible, {id: 'fotos', label: 'Fotos', count: more.length, wide: true, render: () => <Gallery photos={more} name={record.name}/>}] : visible;
   const scrollTo = (event, id) => { event.preventDefault(); refs.current[id]?.scrollIntoView({behavior: 'smooth', block: 'start'}); setCurrent(id); };
-  const index = (className, label) => visible.length > 1 && <nav className={className} aria-label={label}>{visible.map(section => <a key={section.id} href={`#pd-${section.id}`}
-    className={current === section.id ? 'is-active' : ''} aria-current={current === section.id ? 'true' : undefined} onClick={event => scrollTo(event, section.id)}>
-    {section.label}{section.count ? <span>{section.count}</span> : null}</a>)}</nav>;
 
-  // A marketplace listing: a slim banner with the identity and the key numbers (no cards), the pitch and photos right
-  // below, then the sections with an index that follows on the right.
+  // A marketplace listing: the photo is the banner (identity and key numbers over it), the pitch right below, a horizontal
+  // index, the sections, and on the right the related items to compare.
   return <article className="pd pd--market">
     <header className={`pdb${bannerImage ? ' has-image' : ''}`} style={bannerImage ? {'--pdb-image': `url("${bannerImage}")`} : undefined}>
+      {bannerImage && media?.illustrative && <span className="pdb__badge">Ilustração</span>}
       <div className="pdb__inner">
         <span className="pdb__mark"><DetailMark record={record} icon={icon} size="md"/></span>
         <div className="pdb__title">
@@ -172,26 +147,40 @@ export function DetailLayout({boot, selection, kind, record, icon = 'plan', eyeb
         </div>)}</dl>}
       </div>
     </header>
-    <div className="pd-market">
+    <div className={`pd-market${aside ? ' has-side' : ''}`}>
       <div className="pd-main">
-        {(record.description || shownHighlights.length > 0 || media) && <section className={`pd-intro${media ? ' has-media' : ''}`} aria-label="Resumo">
-          <HeroMedia media={media} name={record.name}/>
-          <div className="pd-intro__copy">
-            {record.description && <p className="pd-hero__lead">{record.description}</p>}
-            {shownHighlights.length > 0 && <div className="pd-highlights">{shownHighlights.map(([label, text]) => <section key={label}><h2>{label}</h2><p>{text}</p></section>)}
-              {sourceNote && <small>{sourceNote}</small>}</div>}
-          </div>
+        {(record.description || shownHighlights.length > 0) && <section className="pd-intro" aria-label="Resumo">
+          {record.description && <p className="pd-hero__lead">{record.description}</p>}
+          {shownHighlights.length > 0 && <div className="pd-highlights"><div className="pd-highlights__cards">{shownHighlights.map(([label, text]) => <section key={label}><h2>{label}</h2><p>{text}</p></section>)}</div>
+            {sourceNote && <small>{sourceNote}</small>}</div>}
         </section>}
-        {index('pd-nav pd-nav--inline', 'Nesta página')}
-        <div className="pd-sections">{visible.map(section => <section key={section.id} id={`pd-${section.id}`} ref={node => { refs.current[section.id] = node; }}
+        {all.length > 1 && <nav className="pd-nav" aria-label="Nesta página">{all.map(section => <a key={section.id} href={`#pd-${section.id}`}
+          className={current === section.id ? 'is-active' : ''} aria-current={current === section.id ? 'true' : undefined} onClick={event => scrollTo(event, section.id)}>
+          {section.label}{section.count ? <span>{section.count}</span> : null}</a>)}</nav>}
+        <div className="pd-sections">{all.map(section => <section key={section.id} id={`pd-${section.id}`} ref={node => { refs.current[section.id] = node; }}
           className={`pd-section${section.wide ? ' is-wide' : ''}`} aria-labelledby={`pd-${section.id}-title`}>
           <header><h2 id={`pd-${section.id}-title`}>{section.label}</h2>{section.hint && <p>{section.hint}</p>}</header>
           <div className="pd-section__body">{section.render()}</div>
         </section>)}</div>
       </div>
-      {visible.length > 1 && <aside className="pd-rail"><strong>Nesta página</strong>{index('pd-rail__nav', 'Seções da página')}</aside>}
+      {aside && <aside className="pd-side">{aside}</aside>}
     </div>
   </article>;
+}
+
+/** "Similar items" column of a marketplace: compact rows that link to the item, with a quiet add button on hover. */
+export function RelatedList({title, items, empty = null}) {
+  if (!items?.length) return empty;
+  return <section className="pd-related" aria-label={title}>
+    <h2>{title}<span>{items.length}</span></h2>
+    <ul>{items.map(item => <li key={item.href}>
+      <a className="pd-related__link" href={item.href}>
+        <LogoTile src={item.logo} name={item.title} icon={item.icon || 'plan'} size="sm"/>
+        <span><strong>{item.title}</strong>{item.subtitle && <small>{item.subtitle}</small>}</span>
+      </a>
+      {item.onToggle && <RowAddButton name={item.title} selected={item.selected} onToggle={item.onToggle}/>}
+    </li>)}</ul>
+  </section>;
 }
 
 export function EmptyTab({text}) {

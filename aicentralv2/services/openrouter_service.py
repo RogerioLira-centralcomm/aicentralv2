@@ -390,7 +390,7 @@ def chat_completion(
     *,
     model: Optional[str] = None,
     timeout: int = 90,
-    max_tokens: int = 2200,
+    max_tokens: Optional[int] = 2200,
     temperature: Optional[float] = None,
     top_p: Optional[float] = None,
     top_k: Optional[int] = None,
@@ -421,6 +421,9 @@ def chat_completion(
         "stream": False,
         "usage": {"include": True},
     }
+    if max_tokens is None:
+        # No cap: reasoning models spend part of the budget thinking, and a cap can leave the answer empty.
+        payload.pop("max_tokens")
     if tools:
         payload["tools"] = tools
         payload["tool_choice"] = "auto"

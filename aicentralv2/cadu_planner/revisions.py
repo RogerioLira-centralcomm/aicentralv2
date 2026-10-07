@@ -230,7 +230,7 @@ def review_briefing(client_id: int, actor_id: int, plan_id: str) -> dict:
         response = provider.complete([
             {"role": "system", "content": "Você revisa planos de mídia com precisão e transparência."},
             {"role": "user", "content": build_review_pass_prompt("briefing", context, draft, pass_number)},
-        ], max_tokens=800, temperature=0.15)
+        ], max_tokens=None, temperature=0.15)  # a cap made the reasoning model return an empty answer
         charged_tokens += _charge_review_pass(
             credits=credits, actor=actor, review_id=review_id, scope="briefing_review",
             pass_number=pass_number, response=response, target_id=str(plan_id),
@@ -285,7 +285,7 @@ def review_document(client_id: int, actor_id: int, doc_id: str, *, source_contex
         response = provider.complete([
             {"role": "system", "content": "Você revisa documentos de planejamento de mídia com precisão e transparência."},
             {"role": "user", "content": _document_pass_prompt(document, draft, pass_number, source_context)},
-        ], max_tokens=1200, temperature=0.15)
+        ], max_tokens=None, temperature=0.15)
         charged_tokens += _charge_review_pass(
             credits=credits, actor=actor, review_id=review_id, scope="document_review",
             pass_number=pass_number, response=response, target_id=str(doc_id),

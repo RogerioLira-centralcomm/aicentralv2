@@ -41,6 +41,12 @@ def _log(alert_id, kind, actor=None, detail=None):
           (alert_id, kind, actor, json.dumps(detail or {}, default=str)))
 
 
+def rules_catalog():
+    """Every rule the center can open an alert for: the site rules and the Google Ads ones."""
+    from .reports_alert_gads import alert_rules
+    return [{'rule': key, **value} for key, value in {**RULES, **alert_rules()}.items()]
+
+
 def emails_enabled():
     return os.environ.get('REPORTS_ALERT_EMAILS', '').lower() in ('1', 'true', 'yes')
 
@@ -115,21 +121,23 @@ def sync_findings(site, rule, findings, now=None):
         seen.add(finding['subject_key'])
         current = live.get(finding['subject_key'])
         impact = json.dumps(finding['impact']) if finding.get('impact') else None
-        fields = (finding['severity'], finding['title'], finding['summary'], json.dumps(finding['evidence']), finding['page_path'], impact, now)
+        fields = (finding['severity'], finding['title'], finding['summary'], json.dumps(finding['evidence']), finding['page_path'], impact,
+                  json.dumps(finding.get('recommendations') or []), json.dumps(finding.get('causes') or []), now)
         if current:
             status = current['status']
             if status == 'silenced' and current['silenced_until'] and current['silenced_until'] <= now:
                 status = 'investigating' if current.get('investigating_at') else 'open'
                 _log(current['id'], 'unsilenced', detail={'reason': 'expired'})
-            _rows('''UPDATE cadu_reports_alerts SET severity=%s,title=%s,summary=%s,evidence=%s::jsonb,page_path=%s,impact=%s::jsonb,last_seen_at=%s,
+            _rows('''UPDATE cadu_reports_alerts SET severity=%s,title=%s,summary=%s,evidence=%s::jsonb,page_path=%s,impact=%s::jsonb,recommendations=%s::jsonb,causes=%s::jsonb,last_seen_at=%s,
                 occurrences=occurrences+1,status=%s,silenced_until=CASE WHEN %s='silenced' THEN silenced_until END WHERE id=%s RETURNING id''',
                   (*fields, status, status, current['id']))
             continue
         alert_id = str(uuid.uuid4())
-        created = _rows('''INSERT INTO cadu_reports_alerts (id,client_id,site_id,rule,subject_key,severity,title,summary,evidence,page_path,impact,last_seen_at,channel,kind)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s::jsonb,%s,%s,%s) RETURNING *''',
+        created = _rows('''INSERT INTO cadu_reports_alerts (id,client_id,site_id,rule,subject_key,severity,title,summary,evidence,page_path,impact,
+                recommendations,causes,last_seen_at,channel,kind)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s::jsonb,%s::jsonb,%s::jsonb,%s,%s,%s) RETURNING *''',
                         (alert_id, site['client_id'], site.get('id'), rule, finding['subject_key'], finding['severity'], finding['title'],
-                         finding['summary'], json.dumps(finding['evidence']), finding['page_path'], impact, now,
+                         finding['summary'], json.dumps(finding['evidence']), finding['page_path'], impact, fields[6], fields[7], now,
                          finding.get('channel') or RULES[rule]['channel'], finding.get('kind') or RULES[rule]['kind']))[0]
         _log(alert_id, 'opened', detail={'summary': finding['summary']})
         notify_opened(created, now)
@@ -216,7 +224,33 @@ def evaluate_all(heavy=False):
         except Exception:
             get_db().rollback()
             current_app.logger.exception('Falha ao avaliar alertas do site %s', site['id'])
+    if heavy:
+        evaluate_google_ads_all()
     return len(sites)
+
+
+def evaluate_google_ads_all(now=None):
+    """Google Ads alerts per client, from the data the scripts already sent. One client failing never stops the others."""
+    from . import reports_google_ads as gads
+    from .reports_alert_gads import evaluate_google_ads
+    now = now or datetime.now(timezone.utc)
+    try:
+        if not gads._ready():
+            return 0
+        clients = [row['client_id'] for row in _rows("""SELECT DISTINCT client_id FROM cadu_reports_accounts
+            WHERE platform='google_ads' AND account_kind='advertiser' AND status<>'disabled'""")]
+    except Exception:
+        get_db().rollback()
+        current_app.logger.exception('Falha ao listar clientes do Google Ads para alertas')
+        return 0
+    for client_id in clients:
+        try:
+            evaluate_google_ads(client_id, gads._today(), gads._analysis, sync_findings, now)
+            get_db().commit()
+        except Exception:
+            get_db().rollback()
+            current_app.logger.exception('Falha ao avaliar alertas do Google Ads do cliente %s', client_id)
+    return len(clients)
 
 
 class PeriodicRunner:
@@ -417,7 +451,7 @@ def register(bp):
         rows = _rows(f'SELECT {_LIST_COLUMNS} {_FROM} WHERE {where} {_ORDER} LIMIT %s OFFSET %s', (*params, per_page, (page - 1) * per_page))
         return jsonify(alerts=rows, total=int(total), page=page, per_page=per_page, page_sizes=list(PAGE_SIZES), user_id=selected['user_id'],
                        emails_enabled=emails_enabled(), silence_choices=list(SILENCE_CHOICES_HOURS),
-                       rules=[{'rule': key, **value} for key, value in RULES.items()])
+                       rules=rules_catalog())
 
     @bp.get('/api/v2/reports/alerts/summary')
     @login_required_api
@@ -454,7 +488,7 @@ def register(bp):
             items.append({'kind': 'collection', 'id': row['id'], 'name': row['label'], 'target': row['allowed_host'], 'health': health,
                           'last_checked_at': row['last_event_at'], 'events_24h': int(row['events_24h'] or 0)})
         return jsonify(monitors=sorted(items, key=lambda item: _HEALTH_ORDER[item['health']]), emails_enabled=emails_enabled(),
-                       rules=[{'rule': key, **value} for key, value in RULES.items()])
+                       rules=rules_catalog())
 
     @bp.get('/api/v2/reports/alerts/export')
     @login_required_api

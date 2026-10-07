@@ -391,3 +391,69 @@ def test_unsilencing_an_alert_under_investigation_returns_it_to_investigating(cl
             assert client.post(f'/connect/api/v2/reports/alerts/{ALERT_ID}/unsilence', json={}).status_code == 200
         return next(params for sql, params in updates if sql.startswith('UPDATE'))[0]
     assert run({'investigating_at': NOW}) == 'investigating' and run({'investigating_at': None}) == 'open'
+
+
+# ------------------------------------------------------------------------------------------------ Google Ads in the center
+
+def gads_item(rule='cap_reached', key='1', severity='high', impact=('cost', 1234.5), action='Revise o teto.'):
+    return {'id': f'{rule}:{key}', 'rule': rule, 'severity': severity, 'title': 'Teto de orçamento atingido', 'object': {'kind': 'campaign', 'label': 'Verão'},
+            'summary': 'Gasto alcançou o teto.', 'action': action, 'impact': {'kind': impact[0], 'value': impact[1]}, 'evidence': [('Gasto', 'R$ 10')]}
+
+
+def test_google_ads_recommendations_become_client_level_alerts_with_a_kind_and_an_action():
+    from aicentralv2.cadu_connect import reports_alert_gads as gads
+    found = gads.finding_from_recommendation(gads_item())
+    assert found['rule'] == 'gads_cap_reached' and found['subject_key'] == 'cap_reached:1' and found['channel'] == 'google_ads' and found['kind'] == 'incident'
+    assert found['title'] == 'Teto de orçamento atingido: Verão' and found['recommendations'] == ['Revise o teto.']
+    assert found['impact'] == {'value': 'R$ 1.234,50', 'unit': 'text', 'label': 'gasto envolvido'}
+    assert found['evidence'] == [{'label': 'Gasto', 'value': 'R$ 10', 'unit': 'text'}]
+    assert gads.finding_from_recommendation(gads_item('add_keyword', impact=('none', 0)))['kind'] == 'opportunity'
+    assert gads.finding_from_recommendation(gads_item('add_keyword', impact=('none', 0)))['impact'] is None
+
+
+def test_every_google_ads_rule_is_synced_so_recovered_ones_close():
+    from aicentralv2.cadu_connect import reports_alert_gads as gads
+    from aicentralv2.cadu_connect.reports_google_ads_rules import RULES as GADS_RULES
+    synced = {}
+    count = gads.evaluate_google_ads(7, datetime.date(2026, 10, 7), lambda scope, previous: {'recommendations': [gads_item()]},
+                                     lambda site, rule, findings, now: synced.setdefault(rule, (site, findings)), NOW)
+    assert set(synced) == {f"gads_{item['rule']}" for item in GADS_RULES} and count == 1
+    assert synced['gads_cap_reached'][0] == {'id': None, 'client_id': 7} and len(synced['gads_cap_reached'][1]) == 1
+    assert synced['gads_script_stale'][1] == []         # nothing found this time: the sync auto-resolves what was open
+    assert all(len(rule) <= 40 for rule in synced)       # the alerts.rule column is VARCHAR(40)
+
+
+def test_the_catalog_lists_site_and_google_ads_rules_without_touching_the_site_rules():
+    keys = {item['rule'] for item in alerts.rules_catalog()}
+    assert set(RULES) < keys and 'gads_cap_reached' in keys and 'gads_cap_reached' not in RULES
+    assert all(item['channel'] in alerts.CHANNELS and item['kind'] in ('incident', 'opportunity') for item in alerts.rules_catalog())
+
+
+def test_recommendations_are_stored_with_the_alert_and_refreshed_on_every_sighting():
+    seen = []
+
+    def rows(sql, params=()):
+        seen.append((sql, params))
+        return [{'id': ALERT_ID, 'client_id': 7, 'severity': 'high', 'title': 'T', 'summary': 'S', 'assigned_to': None, 'last_notified_at': None}] if sql.lstrip().startswith('INSERT') else []
+    finding = {'subject_key': 'c1', 'severity': 'high', 'title': 't', 'summary': 's', 'evidence': [], 'page_path': None, 'channel': 'google_ads', 'kind': 'incident',
+               'recommendations': ['Faça isto.']}
+    with mock.patch.object(alerts, '_rows', rows), mock.patch.object(alerts, 'notify_opened'):
+        alerts.sync_findings({'id': None, 'client_id': 7}, 'gads_cap_reached', [finding], NOW)
+    insert = next(params for sql, params in seen if sql.lstrip().startswith('INSERT'))
+    assert '["Faça isto."]' in [item for item in insert if isinstance(item, str)][-1] or '["Fa\\u00e7a isto."]' in insert
+
+
+def test_google_ads_evaluation_survives_one_client_failing():
+    app = Flask(__name__)
+    calls = []
+
+    def fake(client_id, today, analysis, sync, now):
+        calls.append(client_id)
+        if client_id == 1:
+            raise RuntimeError('boom')
+    from aicentralv2.cadu_connect import reports_google_ads as gads
+    with app.app_context(), mock.patch.object(gads, '_ready', return_value=True), mock.patch.object(alerts, 'get_db'), \
+         mock.patch.object(alerts, '_rows', return_value=[{'client_id': 1}, {'client_id': 2}]), \
+         mock.patch('aicentralv2.cadu_connect.reports_alert_gads.evaluate_google_ads', fake):
+        assert alerts.evaluate_google_ads_all(NOW) == 2
+    assert calls == [1, 2]

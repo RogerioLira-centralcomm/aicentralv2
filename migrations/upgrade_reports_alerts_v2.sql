@@ -24,6 +24,11 @@ ALTER TABLE cadu_reports_alerts DROP CONSTRAINT IF EXISTS cadu_reports_alerts_st
 ALTER TABLE cadu_reports_alerts ADD CONSTRAINT cadu_reports_alerts_status_check
     CHECK (status IN ('open','acknowledged','investigating','silenced','resolved'));
 
+-- Listas do painel e dos detectores (Google Ads grava recomendações): sempre arrays, como a evidência.
+ALTER TABLE cadu_reports_alerts DROP CONSTRAINT IF EXISTS cadu_reports_alerts_panel_arrays_check;
+ALTER TABLE cadu_reports_alerts ADD CONSTRAINT cadu_reports_alerts_panel_arrays_check
+    CHECK (jsonb_typeof(metrics)='array' AND jsonb_typeof(impacted_urls)='array' AND jsonb_typeof(causes)='array' AND jsonb_typeof(recommendations)='array');
+
 -- Regras de insight já existentes são oportunidades, não incidentes.
 UPDATE cadu_reports_alerts SET kind='opportunity'
  WHERE rule IN ('channel_entry_exit','device_conversion_low','campaign_weak_page') AND kind='incident';

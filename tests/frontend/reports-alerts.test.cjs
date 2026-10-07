@@ -127,6 +127,8 @@ async function main() {
   await page.getByRole('tab', {name: /Monitores/}).click();
   const card = page.getByRole('article').filter({hasText: 'Orçamento'});
   await card.waitFor();
+  await page.getByText('Estável', {exact: true}).waitFor();   // cards are painted lazily (content-visibility), so read the text only once it is rendered
+  await card.getByText('Crítico', {exact: true}).waitFor();
   const monitors = await page.locator('.alerts-center').innerText();
   for (const expected of ['Crítico', 'HTTP 503', 'Estável', 'Coleta da Super Tag', '120 eventos em 24 h', 'E-mail desativado neste ambiente', 'Quando um alerta abre']) assert.ok(monitors.includes(expected), `monitores devem mostrar "${expected}"`);
   assert.ok((await card.getByRole('link', {name: 'Abrir saúde'}).getAttribute('href')).endsWith('/flows/f1/monitor'), 'liga à saúde do fluxo');

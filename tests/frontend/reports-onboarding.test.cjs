@@ -1,4 +1,4 @@
-// Conhecer o Reports: entrada na barra lateral, capítulos, estado do ambiente e ações que abrem os assistentes.
+// Conhecer o Reports: entrada na barra lateral, capítulos, frase sobre a cena, estado do ambiente e ações que abrem os assistentes.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const http = require('node:http');
@@ -47,19 +47,27 @@ const boot = {ready: true, features: {}, csrf: 't', reports: [], link_tests: [],
     assert.deepEqual(links.slice(0, 2).map(text => text.trim()), ['Visão geral', 'Conhecer o Reports']);
     await page.getByRole('link', {name: 'Conhecer o Reports'}).click();
     await page.waitForURL('**/connect/app/onboarding**');
-    await page.getByRole('heading', {name: 'Bem-vindo ao Reports', level: 2}).waitFor();
+    await page.getByRole('heading', {name: 'Boas-vindas ao Reports', level: 2}).waitFor();
     await page.waitForFunction(() => document.querySelector('.ob-scene img')?.naturalWidth > 0);
     assert.equal(await page.locator('.ob-scene--empty').count(), 0, 'com a imagem, não há bloco de marca');
+    // A frase é texto da tela, sobre a cena; o cabeçalho mostra o tempo e a saída do passeio.
+    assert.equal((await page.locator('.ob-scene figcaption').textContent()).trim(), '“Dados conectam decisões a resultados.”');
+    assert.ok(await page.getByText('~ 5 minutos').isVisible());
+    assert.equal(await page.getByRole('link', {name: 'Sair do passeio'}).getAttribute('href').then(value => value.includes('overview')), true);
+    assert.equal(await page.locator('.ob-steps svg').count(), 0, 'os passos mostram só o número, sem marca de visto');
+    assert.equal(await page.getByRole('button', {name: 'Passo anterior'}).isDisabled(), true);
     if (shots) await page.screenshot({path: path.join(shots, 'onboarding-1440.png')});
 
-    // Capítulos: botão Começar, passos clicáveis e setas do teclado.
-    await page.getByRole('button', {name: 'Começar'}).click();
+    // Capítulos: botão Começar agora, setas do card, passos clicáveis e setas do teclado.
+    await page.getByRole('button', {name: 'Começar agora'}).click();
     await page.getByRole('heading', {name: 'Clientes e contas', level: 2}).waitFor();
     assert.ok(await page.getByText('Feito').first().isVisible(), 'o fixture já tem cliente e conta');
     await page.keyboard.press('ArrowRight');
     await page.getByRole('heading', {name: 'Mídia', level: 2}).waitFor();
     await page.locator('.ob-scene--empty').waitFor();
-    await page.keyboard.press('ArrowLeft');
+    await page.getByRole('button', {name: 'Passo anterior'}).click();
+    await page.getByRole('heading', {name: 'Clientes e contas', level: 2}).waitFor();
+    await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowLeft');
     await page.getByRole('heading', {name: 'Clientes e contas', level: 2}).waitFor();
 
     // A ação do capítulo abre o assistente certo, sem sair da tela.
@@ -78,8 +86,9 @@ const boot = {ready: true, features: {}, csrf: 't', reports: [], link_tests: [],
 
     // Último capítulo: o estado do ambiente, com atalho para o que falta.
     await page.getByRole('button', {name: 'Pronto'}).click();
-    await page.getByRole('heading', {name: 'Seu ambiente', level: 2}).waitFor();
+    await page.getByRole('heading', {name: 'Quase lá', level: 2}).waitFor();
     assert.ok(await page.getByText('3 de 5 etapas prontas').isVisible());
+    assert.equal(await page.getByRole('button', {name: 'Próximo passo'}).isDisabled(), true);
     assert.equal(await page.getByRole('button', {name: 'Resolver'}).count(), 2, 'fonte do Google Ads e site ainda faltam');
     if (shots) {
       await page.waitForTimeout(600);
@@ -94,7 +103,9 @@ const boot = {ready: true, features: {}, csrf: 't', reports: [], link_tests: [],
     // O passeio lembra onde parou.
     await page.setViewportSize({width: 1440, height: 900});
     await page.reload();
-    await page.getByRole('heading', {name: 'Seu ambiente', level: 2}).waitFor();
+    await page.getByRole('heading', {name: 'Quase lá', level: 2}).waitFor();
+    await page.getByRole('button', {name: 'Rever o passeio'}).click();
+    await page.getByRole('heading', {name: 'Boas-vindas ao Reports', level: 2}).waitFor();
     assert.deepEqual(errors, []);
     console.log('ok');
   } finally {await browser.close(); server.close();}

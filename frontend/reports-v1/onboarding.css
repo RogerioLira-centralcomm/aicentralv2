@@ -1,31 +1,38 @@
-/* Conhecer o Reports: capítulos em passos clicáveis, cena à esquerda, texto e ação à direita. */
-.ob{display:flex;flex-direction:column;gap:20px}
-.ob-steps ol{display:flex;gap:6px;margin:0;padding:0 0 4px;overflow-x:auto;list-style:none}
-.ob-steps button{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 12px 0 6px;border:1px solid var(--color-border-secondary);border-radius:999px;background:var(--color-bg-primary);color:var(--color-text-tertiary);font:inherit;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer}
-.ob-steps button b{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:999px;background:var(--color-bg-secondary);color:var(--color-text-secondary);font-size:12px}
-.ob-steps button:hover{background:var(--color-bg-secondary)}
-.ob-steps button:focus-visible{outline:2px solid var(--color-bg-brand-solid,#175cd3);outline-offset:2px}
-.ob-steps button.is-current{border-color:var(--color-bg-brand-solid,#175cd3);background:var(--color-bg-brand-primary,#eff4ff);color:var(--color-text-brand-secondary,#175cd3)}
-.ob-steps button.is-current b{background:var(--color-bg-brand-solid,#175cd3);color:#fff}
-.ob-steps button.is-seen b{background:var(--color-bg-success-secondary,#dcfae6);color:var(--color-text-success-primary,#067647)}
-.ob-card{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);overflow:hidden;border-radius:16px;background:var(--color-bg-primary);box-shadow:0 1px 2px rgba(16,24,40,.05),0 0 0 1px var(--color-border-secondary)}
-.ob-scene{position:relative;min-height:420px;background:var(--color-bg-brand-primary,#eff4ff)}
-.ob-scene img{position:absolute;top:0;left:0;width:100%;height:clamp(420px,62vh,560px);object-fit:cover;animation:ob-in .35s ease;-webkit-mask-image:linear-gradient(to bottom,#000 86%,transparent);mask-image:linear-gradient(to bottom,#000 86%,transparent)}
-/* The scenes keep the right third empty for text laid out beside them; here the text is in the next column, so crop to the busy part. */
+/* Conhecer o Reports: cena com a frase à esquerda, texto e ação à direita, passos numerados embaixo. */
+.ob{display:flex;flex-direction:column;gap:24px}
+.ob-time{display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:10px;box-shadow:inset 0 0 0 1px var(--color-border-secondary);color:var(--color-text-tertiary);font-size:14px;font-weight:500;white-space:nowrap}
+.ob-time svg{color:var(--color-fg-brand-primary,#175cd3)}
+
+.ob-card{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);min-height:clamp(560px,68vh,680px);overflow:hidden;border-radius:16px;background:var(--color-bg-primary);box-shadow:0 1px 2px rgba(16,24,40,.05),0 0 0 1px var(--color-border-secondary)}
+.ob-scene{position:relative;margin:0;min-height:420px;overflow:hidden;background:var(--color-bg-brand-primary,#eff4ff)}
+.ob-scene img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;animation:ob-in .35s ease}
+/* Escurece só a base da cena para a frase ficar legível sobre qualquer imagem. */
+.ob-scene::after{content:'';position:absolute;inset:auto 0 0;height:45%;background:linear-gradient(to top,rgba(8,20,52,.62),rgba(8,20,52,0));pointer-events:none}
+.ob-scene figcaption{position:absolute;z-index:1;left:clamp(20px,6%,48px);right:clamp(20px,6%,48px);bottom:clamp(24px,7%,48px);max-width:440px;color:#fff;font-size:clamp(20px,1.9vw,26px);line-height:1.25;font-weight:600;letter-spacing:-.01em;text-wrap:balance;animation:ob-in .45s ease}
+.ob-scene figcaption::after{content:'';display:block;width:56px;height:3px;margin-top:14px;border-radius:3px;background:#84adff}
 .ob-scene--empty{display:flex;align-items:center;justify-content:center}
 .ob-scene--empty span{font-size:96px;font-weight:700;color:var(--color-bg-brand-solid,#175cd3);opacity:.18}
-.ob-body{display:flex;flex-direction:column;gap:16px;padding:32px clamp(20px,3.5vw,48px)}
-.ob-count{margin:0;color:var(--color-text-tertiary);font-size:13px;font-weight:600}
-.ob-body h2{margin:0;color:var(--color-text-primary);font-size:28px;line-height:36px;font-weight:600;letter-spacing:-.01em}
-.ob-text{margin:0;color:var(--color-text-tertiary);font-size:16px;line-height:24px}
-.ob-points{display:grid;gap:8px;margin:0;padding:0;list-style:none}
-.ob-points li{display:flex;align-items:flex-start;gap:8px;color:var(--color-text-secondary);font-size:14px;line-height:20px}
-.ob-points svg{flex:none;margin-top:2px;color:var(--color-bg-brand-solid,#175cd3)}
+
+.ob-body{display:flex;flex-direction:column;gap:20px;padding:40px clamp(24px,3.5vw,56px)}
+.ob-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ob-count{margin:0;color:var(--color-text-tertiary);font-size:14px;font-weight:600}
+.ob-arrows{display:flex;gap:10px}
+.ob-arrows button{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border:0;border-radius:10px;background:var(--color-bg-primary);box-shadow:inset 0 0 0 1px var(--color-border-primary);color:var(--color-text-brand-secondary,#175cd3);cursor:pointer}
+.ob-arrows button:hover:not(:disabled){background:var(--color-bg-brand-primary,#eff4ff)}
+.ob-arrows button:disabled{color:var(--color-fg-disabled,#a4a7ae);cursor:default}
+.ob-arrows button:focus-visible{outline:2px solid var(--color-bg-brand-solid,#175cd3);outline-offset:2px}
+.ob-body h2{margin:0;color:var(--color-text-primary);font-size:clamp(28px,2.4vw,36px);line-height:1.15;font-weight:700;letter-spacing:-.02em;animation:ob-in .3s ease}
+.ob-text{margin:0;color:var(--color-text-tertiary);font-size:17px;line-height:28px}
+.ob-points{display:grid;gap:18px;margin:4px 0 0;padding:0;list-style:none}
+.ob-points li{display:flex;align-items:center;gap:16px}
+.ob-points__icon{display:inline-flex;flex:none;align-items:center;justify-content:center;width:48px;height:48px;border-radius:10px;background:var(--color-bg-brand-primary,#eff4ff);color:var(--color-fg-brand-primary,#175cd3)}
+.ob-points li > span:last-child{display:grid;gap:2px;min-width:0}
+.ob-points strong{color:var(--color-text-primary);font-size:16px;line-height:24px;font-weight:600}
+.ob-points small{color:var(--color-text-tertiary);font-size:15px;line-height:22px}
+
 .ob-action{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:16px;border-radius:12px;background:var(--color-bg-secondary);box-shadow:inset 0 0 0 1px var(--color-border-secondary)}
 .ob-action__state{display:flex;flex-direction:column;gap:6px;min-width:0;color:var(--color-text-secondary);font-size:13px}
 .ob-muted{margin:0;color:var(--color-text-tertiary);font-size:13px}
-.ob-link{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;color:var(--color-text-brand-secondary,#175cd3);font-size:14px;font-weight:600;text-decoration:none}
-.ob-link:hover{text-decoration:underline}
 .ob-progress{margin:0;color:var(--color-text-secondary);font-size:14px;font-weight:600}
 .ob-checklist{display:grid;gap:8px;margin:0;padding:0;list-style:none}
 .ob-checklist li{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;box-shadow:inset 0 0 0 1px var(--color-border-secondary)}
@@ -34,19 +41,37 @@
 .ob-checklist__text{display:grid;flex:1;min-width:0}
 .ob-checklist__text strong{color:var(--color-text-primary);font-size:14px}
 .ob-checklist__text small{color:var(--color-text-tertiary);font-size:13px}
-.ob-final{display:flex;flex-wrap:wrap;gap:8px}
-.ob-nav{display:flex;justify-content:space-between;gap:12px;margin-top:auto;padding-top:8px}
+
+.ob-cta{display:flex;flex-wrap:wrap;align-items:center;gap:12px 32px;margin-top:auto;padding-top:8px}
+.ob-link{display:inline-flex;align-items:center;gap:6px;padding:0;border:0;background:none;color:var(--color-text-brand-secondary,#175cd3);font:inherit;font-size:15px;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.ob-link:hover{color:var(--color-text-brand-secondary_hover,#1849a9)}
+
+/* Passos: número em círculo, ligados por um traço; o atual fica cheio e sublinhado. */
+.ob-steps ol{display:flex;align-items:center;margin:0;padding:0 4px 4px;overflow-x:auto;list-style:none;scrollbar-width:thin}
+.ob-steps li{display:flex;flex:1 0 auto;align-items:center}
+.ob-steps li + li::before{content:'';flex:1 1 16px;min-width:8px;height:1px;margin:0 6px;background:var(--color-border-primary)}
+.ob-steps li.is-past + li::before,.ob-steps li.is-past::before{background:var(--color-border-brand,#84adff)}
+.ob-steps button{position:relative;display:inline-flex;align-items:center;gap:8px;height:52px;padding:0 4px;border:0;background:none;color:var(--color-text-tertiary);font:inherit;font-size:14px;font-weight:500;white-space:nowrap;cursor:pointer}
+.ob-steps button b{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:999px;background:var(--color-bg-primary);box-shadow:inset 0 0 0 1px var(--color-border-primary);color:var(--color-text-secondary);font-size:14px;font-weight:600}
+.ob-steps button:hover b{background:var(--color-bg-secondary)}
+.ob-steps li.is-past button b{box-shadow:inset 0 0 0 1px var(--color-border-brand,#84adff);color:var(--color-text-brand-secondary,#175cd3)}
+.ob-steps button:focus-visible{outline:2px solid var(--color-bg-brand-solid,#175cd3);outline-offset:2px;border-radius:999px}
+.ob-steps button.is-current{color:var(--color-text-brand-secondary,#175cd3);font-weight:600}
+.ob-steps button.is-current b{background:var(--color-bg-brand-solid,#175cd3);box-shadow:0 0 0 4px var(--color-bg-brand-primary,#eff4ff);color:#fff}
+.ob-steps button.is-current::after{content:'';position:absolute;left:-4px;right:-4px;bottom:0;height:3px;border-radius:3px;background:var(--color-bg-brand-solid,#175cd3)}
+
 @keyframes ob-in{from{opacity:0}to{opacity:1}}
 @media (max-width:1023px){
-  .ob-card{grid-template-columns:minmax(0,1fr)}
+  .ob-card{grid-template-columns:minmax(0,1fr);min-height:0}
   .ob-scene{min-height:0;aspect-ratio:16/9}
-  .ob-scene img{height:100%;-webkit-mask-image:none;mask-image:none}
   .ob-body{padding:24px 20px}
 }
 @media (max-width:639px){
-  .ob-body h2{font-size:22px;line-height:30px}
+  .ob-text{font-size:16px;line-height:24px}
+  .ob-points__icon{width:40px;height:40px}
+  .ob-cta .ob-link{order:1}
   .ob-steps button span{display:none}
-  .ob-steps button{padding:0 6px}
-  .ob-steps button.is-current span{display:inline;padding-right:6px}
+  .ob-steps button.is-current span{display:inline}
+  .ob-steps button b{width:34px;height:34px;font-size:14px}
 }
-@media (prefers-reduced-motion:reduce){.ob-scene img{animation:none}}
+@media (prefers-reduced-motion:reduce){.ob-scene img,.ob-scene figcaption,.ob-body h2{animation:none}}

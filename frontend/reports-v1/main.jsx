@@ -16,7 +16,7 @@ import {SolutionSidebar} from '../cadu-design-system/components/SolutionSidebar.
 import {Button as UntitledButton} from '../cadu-design-system/untitled-kit/button.tsx';
 import {PageDetail} from './PageDetail.jsx';
 import {AlertsCenter} from './AlertsCenter.jsx';
-import {Onboarding} from './Onboarding.jsx';
+import {Onboarding, OnboardingHeaderActions} from './Onboarding.jsx';
 import {NewSiteWizard} from './NewSiteWizard.jsx';
 import {REPORT_FILTER_DEFAULTS, ReportsFilterBar} from './PageChrome.jsx';
 import {APP_BASE, HUBS, applyLegacyRedirect, navigateOnClick, resolveRoute, useLocationKey} from './shell/routes.js';
@@ -311,7 +311,7 @@ function App() {
     {!isFlowEditor && <SolutionSidebar solution="Reports" userName={rootElement.dataset.userName||'Minha conta'} accountLabel={rootElement.dataset.agencyName||'Agência'} userAvatar={rootElement.dataset.userAvatar||''} creditsUrl={rootElement.dataset.creditsUrl} profileUrl={rootElement.dataset.profileUrl} accent="#175cd3" storageKey="reports-sidebar" active={route.nav} activeSolutionId="connect" solutionLogo={solutionIcons.connect} solutionUrls={solutionUrls} solutionIcons={solutionIcons} groups={groups} onNavigate={navigateOnClick} context={({collapsed}) => data ? <SidebarClient clients={data.clients} customers={data.customers} campaigns={data.campaigns} accounts={data.accounts} client={data.client} needsCustomer={Boolean(route.needsCustomer)} collapsed={collapsed}/> : null} />}
     <main className="reports-main">
       <>
-          {data && !isFlowEditor && <PageHeader {...header} activeTab={route.path}
+          {data && !isFlowEditor && <PageHeader {...header} activeTab={route.path} actions={pageSection === 'onboarding' ? <OnboardingHeaderActions/> : undefined}
             context={<ContextSelector accounts={route.scope === true || route.scope === 'account' ? scopeAccounts : undefined} campaigns={route.scope === true ? scopeCampaigns : undefined} sites={route.scope === 'site' ? sites : undefined} siteRequired={Boolean(route.siteRequired)} showPeriod={Boolean(route.period) && !(pageSection === 'pages' && new URLSearchParams(location.search).get('site_id'))}/>}/>}
           {showFilterBar && <ReportsFilterBar data={data} filters={filters} onChange={updateFilters} onRefresh={onRefresh} />}
           <div className="reports-content">{error && <div className="reports-error" role="alert">{error}</div>}<React.Fragment key={`${clientKey}:${route.path}`}>{page}</React.Fragment></div>

@@ -45,8 +45,10 @@ export function PublicPlan({plan}) {
   const channels = items.filter(item => item.kind === 'canais');
   const split = channels.map(item => ({item, allocation: allocations[String(item.resource_id)]})).filter(row => row.allocation);
   const total = split.reduce((sum, row) => sum + Number(row.allocation.investment || 0), 0);
-  const groups = KIND_ORDER.filter(kind => kind !== 'canais' || !split.length)
-    .map(kind => [kind, items.filter(item => item.kind === kind)]).filter(([, list]) => list.length);
+  // Channels with money are in the split chart; any channel still without an allocation stays listed.
+  const inSplit = new Set(split.map(row => String(row.item.resource_id)));
+  const groups = KIND_ORDER.map(kind => [kind, items.filter(item => item.kind === kind && !(kind === 'canais' && inSplit.has(String(item.resource_id))))])
+    .filter(([, list]) => list.length);
   const blocks = strategyBlocks(briefing.notes);
   const kpis = kpiList(briefing.kpis);
   const story = plan.story;

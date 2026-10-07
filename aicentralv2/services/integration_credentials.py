@@ -91,6 +91,12 @@ PROVIDERS = {
         "secret_fields": ("api_key", "webhook_token"),
         "required": ("api_key",),
     },
+    "screenshotone": {
+        "label": "ScreenshotOne",
+        "public_fields": ("access_key",),
+        "secret_fields": ("secret_key",),
+        "required": ("access_key", "secret_key"),
+    },
     "d4sign": {
         "label": "D4Sign",
         "public_fields": ("uuid_safe", "ambiente"),
@@ -153,6 +159,10 @@ ENV_FIELDS = {
     },
     "brevo": {
         "api_key": "BREVO_API_KEY",
+    },
+    "screenshotone": {
+        "access_key": "SCREENSHOTONE_ACCESS_KEY",
+        "secret_key": "SCREENSHOTONE_SECRET_KEY",
     },
     "d4sign": {},
 }
@@ -410,6 +420,9 @@ def validate_configuration(provider):
         return valid, message, {}
     if provider == "d4sign":
         return _validate_d4sign(config)
+    if provider == "screenshotone":
+        valid, message = _validate_screenshotone(config)
+        return valid, message, {}
     return True, (
         "Credencial Google pronta para iniciar OAuth."
         if provider.startswith("google_")
@@ -675,6 +688,39 @@ def _validate_firecrawl(config):
     return True, (
         f"Credencial Firecrawl aceita. Créditos restantes: {remaining}."
     )
+
+
+def _validate_screenshotone(config):
+    import requests
+
+    access_key = str(config.get("access_key") or "").strip()
+    try:
+        response = requests.get("https://api.screenshotone.com/usage", params={"access_key": access_key}, timeout=15)
+    except requests.RequestException:
+        return False, "Não foi possível validar a chave na ScreenshotOne."
+    if response.status_code in (401, 403):
+        return False, "A access key da ScreenshotOne não foi aceita."
+    if response.status_code >= 400:
+        return False, "A ScreenshotOne recusou a validação da chave."
+    try:
+        available = (response.json() or {}).get("available")
+    except ValueError:
+        available = None
+    suffix = f" Capturas disponíveis: {available}." if available is not None else ""
+    return True, "Credencial ScreenshotOne aceita. O Link Tester gera prints desktop e mobile assinados." + suffix
+
+
+def resolve_screenshotone() -> tuple[str, str]:
+    """(access_key, secret_key) from the vault, with the environment as fallback; empty strings when absent."""
+    try:
+        config = get_configuration("screenshotone", include_secrets=True)
+        if config.get("status") != "disabled":
+            access, secret = str(config.get("access_key") or "").strip(), str(config.get("secret_key") or "").strip()
+            if access and secret:
+                return access, secret
+    except Exception:
+        pass
+    return str(_setting("SCREENSHOTONE_ACCESS_KEY") or "").strip(), str(_setting("SCREENSHOTONE_SECRET_KEY") or "").strip()
 
 
 def resolve_brevo_api_key() -> str:

@@ -7,5 +7,5 @@ ALTER TABLE system_integration_credentials
     CHECK (provider IN (
         'google_login_cadu', 'google_login_centralx', 'google_workspace',
         'google_calendar', 'higgsfield', 'openrouter', 'openai', 'typesafe',
-        'firecrawl', 'dify', 'dify_cadu_chat', 'brevo', 'd4sign'
+        'firecrawl', 'dify', 'dify_cadu_chat', 'brevo', 'd4sign', 'screenshotone'
     ));

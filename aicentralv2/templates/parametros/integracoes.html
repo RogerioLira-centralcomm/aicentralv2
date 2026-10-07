@@ -197,6 +197,26 @@
       {{ integration_footer('Salvar Firecrawl') }}
     </form>
 
+    <form class="cx-integration-card" data-integration-form="screenshotone">
+      <header>
+        <span class="cx-integration-logo is-firecrawl"><i class="fa-solid fa-camera" aria-hidden="true"></i></span>
+        <div>
+          <h2>ScreenshotOne</h2>
+          <p>Prints desktop e mobile do Link Tester, em URLs assinadas.</p>
+        </div>
+        <span class="cx-badge cx-badge-muted" data-integration-status>Carregando…</span>
+      </header>
+      <div class="cx-integration-fields">
+        {{ cx_text_field('access_key', 'Access key', placeholder='Access key da conta', autocomplete='off') }}
+        {{ cx_secret_field('secret_key', 'Secret key', 'Deixe vazio para manter a chave atual', 'Nenhuma chave armazenada.') }}
+      </div>
+      <aside>
+        <strong>Assinatura obrigatória</strong>
+        <span>A secret key fica criptografada no PostgreSQL e assina cada captura. Ative "Require signed requests" no painel da ScreenshotOne.</span>
+      </aside>
+      {{ integration_footer('Salvar ScreenshotOne') }}
+    </form>
+
     <form class="cx-integration-card" data-integration-form="dify_cadu_chat">
       <header>
         <span class="cx-integration-logo is-openai"><i class="fa-solid fa-comments" aria-hidden="true"></i></span>

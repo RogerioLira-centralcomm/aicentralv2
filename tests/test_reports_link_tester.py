@@ -139,3 +139,20 @@ class MediaFormCountTest(TestCase):
         page = '<html><body><form><input type="email"></form></body></html>'
         result = link_tester._media({'html': page, 'raw_html': page.replace('<body>', '<body><p>raw</p>'), 'capture': {}})
         self.assertEqual(1, result['evidence']['conversion']['forms'])
+
+
+class ScreenshotOneSigningTest(TestCase):
+    def test_every_capture_url_is_signed_with_the_secret(self):
+        import hashlib, hmac
+        from urllib.parse import urlsplit
+        from aicentralv2.cadu_connect import reports_link_screenshots as shots
+        for device in ('desktop', 'mobile'):
+            url = shots.signed_url('https://example.com/?a=1', device, ('ACCESS', 'SECRET'))
+            query, signature = urlsplit(url).query.rsplit('&signature=', 1)
+            self.assertEqual(hmac.new(b'SECRET', query.encode(), hashlib.sha256).hexdigest(), signature)
+            self.assertIn('access_key=ACCESS', query)
+            self.assertNotIn('SECRET', url)
+
+    def test_without_keys_no_capture_starts(self):
+        from aicentralv2.cadu_connect import reports_link_screenshots as shots
+        self.assertEqual({}, shots.start('https://example.com/', None))

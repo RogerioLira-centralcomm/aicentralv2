@@ -15,7 +15,7 @@
     .score{flex:none;border-radius:12px;background:#edf5ff;color:#155ab0;padding:12px 16px;font-size:24px;font-weight:650}
     .url{margin:8px 0 20px;color:#566a84;overflow-wrap:anywhere;font-size:14px}.summary{font-size:15px;line-height:1.6;margin:20px 0 28px}
     .section{border-top:1px solid #e9eef5;padding-top:20px;margin-top:20px}.section h2{font-size:15px;margin:0 0 12px}.alerts{margin:0;padding-left:20px;color:#75500a;line-height:1.7}
-    .shot{display:block;width:100%;border:1px solid #e1e8f1;border-radius:10px}
+    .shots{display:flex;gap:12px;align-items:flex-start}.shot{display:block;width:100%;min-width:0;flex:1;border:1px solid #e1e8f1;border-radius:10px}.shot-mobile{flex:0 0 24%;max-width:190px}
     .cats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.cat{background:#f7f9fc;border:1px solid #e8edf4;border-radius:10px;padding:12px}.cat b{font-size:20px}.cat small{display:block;color:#62738a;font-size:12px;margin-top:2px}
     .bar{height:6px;border-radius:3px;background:#e4eaf2;margin-top:8px}.bar i{display:block;height:6px;border-radius:3px;background:var(--accent)}
     .f{display:flex;gap:10px;padding:11px 0;border-bottom:1px solid #eef2f7;font-size:14px}.dot{flex:none;width:10px;height:10px;border-radius:5px;margin-top:6px}
@@ -46,7 +46,7 @@
       <p class="url">{{ report.final_url or report.original_url or '' }}</p>
       <p class="summary">{{ result.get('summary') or 'Sem resumo disponível.' }}</p>
 
-      {% if evidence.get('screenshot') %}<section class="section"><h2>Print da página</h2><img class="shot" src="{{ evidence.screenshot }}" alt="Print da página analisada"></section>{% elif evidence.get('capture_note') %}<section class="section"><h2>Print da página</h2><p class="url">{{ evidence.capture_note }}</p></section>{% endif %}
+      {% if evidence.get('screenshot') %}<section class="section"><h2>Print da página</h2><div class="shots"><img class="shot" src="{{ evidence.screenshot }}" alt="Print da página no desktop">{% if evidence.get('screenshot_mobile') %}<img class="shot shot-mobile" src="{{ evidence.screenshot_mobile }}" alt="Print da página no celular">{% endif %}</div></section>{% elif evidence.get('capture_note') %}<section class="section"><h2>Print da página</h2><p class="url">{{ evidence.capture_note }}</p></section>{% endif %}
 
       {% set highlights = result.get('highlights') or [] %}
       {% if highlights and mode != 'agentic' %}<section class="section"><h2>Resultado preliminar</h2>{% for item in highlights %}<div class="f"><span class="dot {{ item.tone }}"></span><div>{{ item.text }}</div></div>{% endfor %}</section>{% endif %}

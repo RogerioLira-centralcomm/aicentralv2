@@ -26,7 +26,7 @@ def _private_link_result(result):
         return [_private_link_result(item) for item in result]
     if not isinstance(result, dict):
         return result
-    return {key: (bool(value) if key == "screenshot" and isinstance(value, str) and "/link-tests/" in value
+    return {key: (bool(value) if key in {"screenshot", "screenshot_mobile"} and isinstance(value, str) and "/link-tests/" in value
                   else _private_link_result(value))
             for key, value in result.items() if key != "public_token"}
 

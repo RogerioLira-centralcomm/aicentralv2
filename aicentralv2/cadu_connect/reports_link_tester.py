@@ -329,9 +329,26 @@ def detail(client_id, run_id):
     return rows[0] if rows else None
 
 
-def screenshot_path(token):
+def screenshot_path(token, device='desktop'):
     from flask import current_app
-    return Path(current_app.instance_path) / 'reports-link-tests' / f'{uuid.UUID(str(token))}.webp'
+    suffix = '-mobile' if device == 'mobile' else ''
+    return Path(current_app.instance_path) / 'reports-link-tests' / f'{uuid.UUID(str(token))}{suffix}.webp'
+
+
+def _store_bytes(token, content, device):
+    """Re-encode a downloaded screenshot as bounded WebP on our disk. False when the image is unusable."""
+    if not content:
+        return False
+    try:
+        from .reports_page_captures import process_image
+        data, _, _ = process_image(content, 'mobile' if device == 'mobile' else 'desktop')
+        target = screenshot_path(token, device)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+        return True
+    except Exception:
+        logger.warning('Print %s do Link Tester não pôde ser guardado.', device, exc_info=True)
+        return False
 
 
 def _store_screenshot(token, remote_url):
@@ -391,9 +408,13 @@ def test(payload, client_id=None, actor_id=None):
     if mode not in MODES:
         raise BadRequest('Escolha uma análise válida.')
     actor = None
+    from . import reports_link_screenshots
+    shots = {}
     if client_id and actor_id:
         from ..cadu_credit_connector import CreditActor
         actor = CreditActor.from_values(client_id, actor_id)
+        # Desktop and mobile prints (ScreenshotOne, signed) download while the analysis runs.
+        shots = reports_link_screenshots.start(_url(payload.get('url')).geturl(), reports_link_screenshots.keys())
     common = _common(payload, mode, actor)
     common['client_id'] = client_id
     # Clean inventory (scripts by origin, platforms with IDs, events, forms): kept instead of the HTML, read by the
@@ -411,8 +432,14 @@ def test(payload, client_id=None, actor_id=None):
         result['alerts'] += [item['title'] for item in tag_findings if item['severity'] == 'warning']
     run_id, token = str(uuid.uuid4()), str(uuid.uuid4())
     remote = (result.get('evidence') or {}).get('screenshot')
-    stored = _store_screenshot(token, remote) if client_id and actor_id else False
-    result['evidence']['screenshot'] = f'/connect/public/link-tests/{token}/screenshot' if stored else None
+    stored = mobile = False
+    if client_id and actor_id:
+        stored = _store_bytes(token, reports_link_screenshots.result(shots['desktop']), 'desktop') if 'desktop' in shots else False
+        stored = stored or _store_screenshot(token, remote)  # Firecrawl's screenshot is the fallback for desktop
+        mobile = _store_bytes(token, reports_link_screenshots.result(shots['mobile']), 'mobile') if 'mobile' in shots else False
+    base = f'/connect/public/link-tests/{token}/screenshot'
+    result['evidence']['screenshot'] = base if stored else None
+    result['evidence']['screenshot_mobile'] = f'{base}?device=mobile' if mobile else None
     result['evidence']['capture_note'] = None if stored else ((common.get('capture') or {}).get('error') or 'Print não gerado: a imagem da captura não pôde ser guardada.')
     result['highlights'] = _highlights(result)
     saved = _save_run(client_id, actor_id, mode, result, run_id, token)

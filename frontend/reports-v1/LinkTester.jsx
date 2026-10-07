@@ -77,7 +77,10 @@ export function LinkTester({data, save, busy}) {
           <Button size="sm" color="secondary" iconLeading={Copy01} onPress={() => copyShare(result.public_token)}>{copied === result.public_token ? 'Copiado' : 'Copiar link do resultado'}</Button>
         </div>}
       </div>
-      {result.evidence?.screenshot && <img src={result.evidence.screenshot} alt="Print da página analisada" className="mt-4 w-full rounded-lg ring-1 ring-secondary"/>}
+      {(result.evidence?.screenshot || result.evidence?.screenshot_mobile) && <div className="mt-4 flex items-start gap-3">
+        {result.evidence.screenshot && <img src={result.evidence.screenshot} alt="Print da página no desktop" className="min-w-0 flex-1 rounded-lg ring-1 ring-secondary"/>}
+        {result.evidence.screenshot_mobile && <img src={result.evidence.screenshot_mobile} alt="Print da página no celular" className="w-[22%] max-w-44 shrink-0 rounded-lg ring-1 ring-secondary"/>}
+      </div>}
       <ReviewPanel review={result.review}/>
       <ResultEvidence result={result}/>
       {result.alerts?.length > 0 && <ul className="mt-4 flex flex-col gap-2 border-t border-secondary pt-4">

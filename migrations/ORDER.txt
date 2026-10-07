@@ -195,3 +195,5 @@ migrations/run_sql_migration.py add_reports_flow_monitor_alerts.sql
 migrations/run_sql_migration.py upgrade_reports_alerts_v2.sql
 # Plugin Reports 0.2.0: manifesto documenta o Link Tester no chat (idempotente; preserva versão publicada depois).
 migrations/run_sql_migration.py refine_cadu_chat_plugin_reports_link_tester.sql
+# ScreenshotOne no cofre de integrações (aditivo, idempotente; amplia o CHECK de providers).
+migrations/run_add_screenshotone_integration_credential.py

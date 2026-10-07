@@ -18,6 +18,7 @@ CANONICAL_PROVIDERS = (
     "dify_cadu_chat",
     "brevo",
     "d4sign",
+    "screenshotone",
 )
 
 SQL_PATH = Path(__file__).with_name("integration_provider_check.sql")

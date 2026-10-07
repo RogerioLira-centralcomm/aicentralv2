@@ -215,7 +215,7 @@ def register(bp):
         if not reports_link_tester.public_result(token):
             abort(404)
         try:
-            path = reports_link_tester.screenshot_path(token)
+            path = reports_link_tester.screenshot_path(token, 'mobile' if request.args.get('device') == 'mobile' else 'desktop')
         except ValueError:
             abort(404)
         if not path.is_file():

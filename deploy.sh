@@ -470,6 +470,7 @@ if [ "$VERIFY_STATUS" = "124" ]; then
     echo "  > ERRO: a validacao das APIs passou de ${VERIFY_TIMEOUT}s e foi interrompida (consulta presa?). Detalhes: $DEPLOY_LOG"
 fi
 if [ "$VERIFY_STATUS" != "0" ]; then
+    print_timings
     exit "$VERIFY_STATUS"
 fi
 step_done "validacao das APIs"

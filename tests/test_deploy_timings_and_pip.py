@@ -132,6 +132,7 @@ def run_verify(tmp_path, python_body, timeout_seconds, fake_timeout=None):
     import os
     return bash(f'''
         set -e
+        print_timings() {{ echo TEMPOS_IMPRESSOS; }}
         DEPLOY_LOG="{tmp_path}/deploy.log"; VENV_PYTHON="{python}"; VERIFY_TIMEOUT={timeout_seconds}
         {VERIFY_CODE}
         echo CONCLUIDO
@@ -141,12 +142,13 @@ def run_verify(tmp_path, python_body, timeout_seconds, fake_timeout=None):
 def test_a_verification_that_hangs_is_cut_off_with_a_message_instead_of_blocking_the_deploy(tmp_path):
     result = run_verify(tmp_path, 'sleep 30', 7, fake_timeout='exit 124')          # GNU timeout exits 124 when it cuts a command off
     assert result.returncode == 124 and 'passou de 7s' in result.stdout and 'CONCLUIDO' not in result.stdout
+    assert 'TEMPOS_IMPRESSOS' in result.stdout                                       # the timing summary is still shown when the deploy ends here
     assert (tmp_path / 'timeout-arg').read_text().strip() == '7'                    # the limit is what is passed to timeout
 
 
 def test_a_failing_verification_still_fails_the_deploy_and_a_passing_one_continues(tmp_path):
     failed = run_verify(tmp_path, 'echo "Verificacao falhou"; exit 3', 5)
-    assert failed.returncode == 3 and 'CONCLUIDO' not in failed.stdout and 'passou de' not in failed.stdout
+    assert failed.returncode == 3 and 'CONCLUIDO' not in failed.stdout and 'passou de' not in failed.stdout and 'TEMPOS_IMPRESSOS' in failed.stdout
     assert 'Verificacao falhou' in (tmp_path / 'deploy.log').read_text()
     passed = run_verify(tmp_path, 'echo ok; exit 0', 5)
     assert passed.returncode == 0 and 'CONCLUIDO' in passed.stdout

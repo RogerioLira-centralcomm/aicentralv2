@@ -403,7 +403,7 @@ function HierarchyTable({data, accounts, campaigns, query, platform, showInactiv
     <p className="mt-1 text-sm text-tertiary">{query || platform || !showInactive ? 'Ajuste a busca ou os filtros.' : 'Adicione uma conta de mídia ou conecte uma fonte em Fontes de dados.'}</p>
   </div>;
   return <div role="grid" aria-label="Contas e campanhas" className="overflow-x-auto">
-    <div className="min-w-[720px]">
+    <div className="min-w-[800px]">
       <div role="row" className={`grid ${columns} items-center gap-4 border-b border-secondary bg-secondary px-6 py-3 text-xs font-semibold text-tertiary`}>
         <span role="columnheader">Conta / campanha</span><span role="columnheader">ID</span><span role="columnheader">Status</span>{workspace && <span role="columnheader">Projeto do Workspace</span>}<span role="columnheader" className="sr-only">Ações</span>
       </div>

@@ -75,3 +75,4 @@
   .ob-steps button b{width:34px;height:34px;font-size:14px}
 }
 @media (prefers-reduced-motion:reduce){.ob-scene img,.ob-scene figcaption,.ob-body h2{animation:none}}
+@media (max-width:639px){.ob-scene figcaption{font-size:17px;left:16px;right:16px;bottom:16px}.ob-scene figcaption::after{margin-top:8px}}

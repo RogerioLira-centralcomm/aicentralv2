@@ -138,9 +138,9 @@ export function MediaData({data, save, busy}) {
   const receiving = googleKeys.some(item => item.last_used_at);
 
   return <div className="untitled-scope flex flex-col gap-6">
-    <dl className="grid gap-px overflow-hidden rounded-xl bg-border-secondary shadow-xs ring-1 ring-secondary sm:grid-cols-4">
+    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-border-secondary shadow-xs ring-1 ring-secondary sm:grid-cols-4">
       {[['Fontes ativas', integer(active.length)], ['Precisam de atenção', integer(attention)], ['Último envio', lastRun ? shortDate(lastRun) : '—'], ['Lotes recebidos', integer(runs.length)]].map(([term, value]) =>
-        <div key={term} className="bg-primary px-5 py-4"><dt className="text-sm font-medium text-tertiary">{term}</dt><dd className="mt-1 text-display-xs font-semibold text-primary tabular-nums">{value}</dd></div>)}
+        <div key={term} className="min-w-0 bg-primary px-4 py-3 sm:px-5 sm:py-4"><dt className="text-sm font-medium text-tertiary">{term}</dt><dd className="mt-1 text-display-xs font-semibold text-primary tabular-nums">{value}</dd></div>)}
     </dl>
     {error && <p role="alert" className="rounded-lg bg-error-primary px-4 py-3 text-sm text-error-primary ring-1 ring-error_subtle">{error}</p>}
 

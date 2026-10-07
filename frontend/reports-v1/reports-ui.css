@@ -198,3 +198,6 @@
   .reports-main .rs-context .rdr-trigger { width: 100%; justify-content: flex-start; }
   .reports-main .rs-context > * { flex: 1 1 100%; min-width: 0; }
 }
+
+/* Até 1279 px a descrição do cabeçalho quebra linha em vez de cortar com reticências. */
+@media (max-width: 1279px) { .reports-main .rs-header__copy > p { white-space: normal; } }

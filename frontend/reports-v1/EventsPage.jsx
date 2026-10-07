@@ -55,12 +55,12 @@ export function EventsPage({data, filters, initialKind = 'all', refreshRevision}
   const period = `${shortDate(filters.startDate)} – ${shortDate(filters.endDate)}`;
 
   return <div className="untitled-scope flex flex-col gap-6">
-    <dl className="grid gap-px overflow-hidden rounded-xl bg-border-secondary shadow-xs ring-1 ring-secondary sm:grid-cols-2 lg:grid-cols-4">
+    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-border-secondary shadow-xs ring-1 ring-secondary lg:grid-cols-4">
       {[['Ocorrências', integer(summary.total), period],
         ['Envios de formulário', integer(summary.form_submissions), 'Sem registrar os valores enviados'],
         ['Conversões', integer(summary.conversions), 'Páginas de conversão mapeadas'],
         ['Origem identificada', `${attributed}%`, attributed >= 80 ? 'Boa atribuição das origens' : summary.total ? 'Parte das visitas sem UTM ou referência' : 'Aguardando os primeiros eventos']].map(([term_, value, detail]) =>
-        <div key={term_} className="bg-primary px-5 py-4"><dt className="text-sm font-medium text-tertiary">{term_}</dt><dd className="mt-1 text-display-xs font-semibold text-primary tabular-nums">{value}</dd><p className="mt-1 text-xs text-tertiary">{detail}</p></div>)}
+        <div key={term_} className="min-w-0 bg-primary px-4 py-3 sm:px-5 sm:py-4"><dt className="text-sm font-medium text-tertiary">{term_}</dt><dd className="mt-1 text-display-xs font-semibold text-primary tabular-nums">{value}</dd><p className="mt-1 text-xs text-tertiary">{detail}</p></div>)}
     </dl>
     {error && <Alert>{error}</Alert>}
     <Card flush title="Atividade recebida" badge={<Badge type="pill-color" size="sm" color="gray">{integer(result.event_group_count ?? all.length)}</Badge>}
@@ -71,10 +71,10 @@ export function EventsPage({data, filters, initialKind = 'all', refreshRevision}
       </>}>
       <div className="flex flex-wrap items-center gap-3 border-b border-secondary px-6 py-3">
         <ReportsTabs label="Tipos de evento" items={KINDS.map(item => ({...item, count: counts[item.id] || undefined}))} value={kind} onChange={setKind}/>
-        <div className="ml-auto flex flex-wrap gap-3">
-          <div className="w-64"><ReportsFieldInput size="sm" type="search" aria-label="Buscar eventos" placeholder="Evento ou página" value={query} onChange={event => setQuery(event.target.value)}
+        <div className="ml-auto flex flex-wrap gap-3 max-sm:ml-0 max-sm:w-full">
+          <div className="w-64 max-sm:w-full"><ReportsFieldInput size="sm" type="search" aria-label="Buscar eventos" placeholder="Evento ou página" value={query} onChange={event => setQuery(event.target.value)}
             leading={<SearchLg size={16} aria-hidden="true" className="ml-3 shrink-0 text-fg-quaternary"/>}/></div>
-          <div className="w-48"><ReportsNativeSelect size="sm" aria-label="Filtrar fonte" value={source} onChange={event => setSource(event.target.value)}>
+          <div className="w-48 max-sm:w-full"><ReportsNativeSelect size="sm" aria-label="Filtrar fonte" value={source} onChange={event => setSource(event.target.value)}>
             <option value="all">Todas as fontes</option>{sources.map(item => <option key={item} value={item}>{item}</option>)}
           </ReportsNativeSelect></div>
         </div>

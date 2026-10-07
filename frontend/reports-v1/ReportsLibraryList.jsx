@@ -212,7 +212,7 @@ export function ReportsLibraryList({data, save, onOpen}) {
     </div>
 
     {!visible.length ? <div className="rounded-xl bg-primary shadow-xs ring-1 ring-secondary"><EmptyNote title={data.reports.length ? 'Nada corresponde aos filtros' : 'Nenhum relatório ainda'}>{data.reports.length ? 'Ajuste a busca, a situação ou a campanha.' : 'Crie um relatório por campanha, por fluxo ou independente.'}</EmptyNote></div>
-      : view === 'grid' ? <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.map(item => {
+      : view === 'grid' ? <ul className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">{shown.map(item => {
         const info = describe(item);
         const preview = previews.get(item.id);
         return <li key={item.id} className="group relative grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-[minmax(0,40%)_minmax(0,1fr)] rounded-xl bg-primary p-3 shadow-xs ring-1 ring-secondary transition duration-150 ring-inset hover:-translate-y-0.5 hover:shadow-lg hover:ring-primary">

@@ -168,3 +168,7 @@
 .al-rule__controls label{display:inline-flex;align-items:center;gap:8px;width:fit-content}
 /* Duas colunas no celular: um indicador sobrando ocupa a linha inteira, sem célula vazia ao lado. */
 @media (max-width:640px){.al-kpis>.al-kpi:last-child:nth-child(odd){grid-column:1/-1}}
+/* Celular: "Mais filtros" e "Exportar" dividem uma linha em vez de ocupar uma cada. */
+@media (max-width:640px){.al-toolbar>:is(a,button){flex:1 1 calc(50% - 6px);width:auto;justify-content:center}}
+/* Acima do celular os indicadores se distribuem em linhas que se esticam: nenhuma célula vazia no fim. */
+@media (min-width:641px){.al-kpis{display:flex;flex-wrap:wrap}.al-kpi{flex:1 1 190px;border-top:1px solid var(--color-border-secondary);margin-top:-1px}}

@@ -112,6 +112,8 @@ function Campaigns({data, save, busy, filters, refreshRevision}) {
   </article></section>;
 }
 
+// No tablet o menu abre recolhido (só ícones) para sobrar espaço à página; a preferência salva no desktop não muda.
+const TABLET = typeof matchMedia === 'function' && matchMedia('(min-width: 761px) and (max-width: 1100px)').matches;
 const reportIcons = {overview:'home', onboarding:'check', media:'analysis', journey:'branch', reports:'file', alerts:'alert', 'data-sources':'plugin', supertag:'pulse', events:'calendar', imports:'download', links:'link', customers:'users', accounts:'table', access:'folder'};
 const NAV_GROUPS = [
   ['', [['overview', 'Visão geral', 'overview'], ['onboarding', 'Conhecer o Reports', 'onboarding']]],
@@ -309,7 +311,7 @@ function App() {
       access: () => data.can_manage_access ? <AccessPage data={data} save={save} busy={busy}/> : <Empty message="Seu acesso não permite administrar usuários do Reports neste cliente." />,
     }[pageSection]();
   return <ReportsContext.Provider value={context}><div data-cadu-skin="reports" className={`reports-shell reports-shell--${pageSection}${isFlowEditor?' reports-shell--flow-editor':''}`}>
-    {!isFlowEditor && <SolutionSidebar solution="Reports" userName={rootElement.dataset.userName||'Minha conta'} accountLabel={rootElement.dataset.agencyName||'Agência'} userAvatar={rootElement.dataset.userAvatar||''} creditsUrl={rootElement.dataset.creditsUrl} profileUrl={rootElement.dataset.profileUrl} accent="#175cd3" storageKey="reports-sidebar" active={route.nav} activeSolutionId="connect" solutionLogo={solutionIcons.connect} solutionUrls={solutionUrls} solutionIcons={solutionIcons} groups={groups} onNavigate={navigateOnClick} context={({collapsed}) => data ? <SidebarClient clients={data.clients} customers={data.customers} campaigns={data.campaigns} accounts={data.accounts} client={data.client} needsCustomer={Boolean(route.needsCustomer)} collapsed={collapsed}/> : null} />}
+    {!isFlowEditor && <SolutionSidebar solution="Reports" autoCollapse={TABLET} userName={rootElement.dataset.userName||'Minha conta'} accountLabel={rootElement.dataset.agencyName||'Agência'} userAvatar={rootElement.dataset.userAvatar||''} creditsUrl={rootElement.dataset.creditsUrl} profileUrl={rootElement.dataset.profileUrl} accent="#175cd3" storageKey="reports-sidebar" active={route.nav} activeSolutionId="connect" solutionLogo={solutionIcons.connect} solutionUrls={solutionUrls} solutionIcons={solutionIcons} groups={groups} onNavigate={navigateOnClick} context={({collapsed}) => data ? <SidebarClient clients={data.clients} customers={data.customers} campaigns={data.campaigns} accounts={data.accounts} client={data.client} needsCustomer={Boolean(route.needsCustomer)} collapsed={collapsed}/> : null} />}
     <main className="reports-main">
       <>
           {data && !isFlowEditor && <PageHeader {...header} activeTab={route.path} actions={pageSection === 'onboarding' ? <OnboardingHeaderActions/> : pageSection === 'reports' && data.client.role !== 'viewer' ? <NewReportButton/> : pageSection === 'accounts' && data.can_manage_clients ? <NewClientButton/> : undefined}

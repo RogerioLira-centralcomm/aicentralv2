@@ -61,6 +61,8 @@ const boot = {ready: true, features: {}, csrf: 't', reports, link_tests: [], wor
 
     // Card: situação, origem (plataforma · cliente), resumo, versão com a publicada atrás e data longa.
     const first = page.locator('li').filter({has: page.getByRole('heading', {name: 'Resultado de setembro'})});
+    // As prévias (plataformas, capa e tendência) chegam depois da lista: espera o dado antes de ler o card.
+    await first.getByText('30 conversões').waitFor();
     const card = await first.innerText();
     for (const text of ['Publicado', 'Google Ads', 'geração de leads', 'v3', '30 conversões', '50%']) assert.ok(card.includes(text), `card sem "${text}": ${card}`);
     assert.ok(await first.getByLabel('Principal').isVisible());

@@ -234,10 +234,10 @@ function SiteHeader({site, hasEvents, flowsCount, onAdd, onWizard}) {
         {onWizard && <Button size="md" color="secondary" onPress={onWizard}>Assistente completo</Button>}
       </div>
     </div>
-    <dl className="grid gap-px border-t border-secondary bg-border-secondary sm:grid-cols-2 lg:grid-cols-4">
+    <dl className="grid grid-cols-2 gap-px border-t border-secondary bg-border-secondary lg:grid-cols-4">
       {[['Eventos · 30 dias', integer(site.events_30d || 0), hasEvents ? 'Aceitos pelo coletor' : 'Nenhum evento recebido'], ['Último evento', last ? relativeTime(last) : 'Nenhum ainda', last ? longDate(last) : 'Aguardando a primeira visita'],
         ['Fluxos vinculados', flowsCount == null ? '—' : integer(flowsCount), 'Usam os dados deste site'], ['Instalação', hasEvents ? 'Verificada' : 'Pendente', hasEvents ? 'Confirmada pelos eventos' : 'Verifique o código no site']].map(([label, value, hint]) =>
-        <div key={label} className="bg-primary px-6 py-4"><dt className="text-sm font-medium text-tertiary">{label}</dt><dd className="mt-1 text-lg font-semibold text-primary tabular-nums">{value}</dd><p className="text-xs text-tertiary">{hint}</p></div>)}
+        <div key={label} className="min-w-0 bg-primary px-4 py-3 sm:px-6 sm:py-4"><dt className="text-sm font-medium text-tertiary">{label}</dt><dd className="mt-1 text-lg font-semibold text-primary tabular-nums">{value}</dd><p className="text-xs text-tertiary">{hint}</p></div>)}
     </dl>
   </section>;
 }

@@ -1,5 +1,5 @@
 import React, {useMemo} from 'react';
-import {ArrowRight} from '@untitledui/icons';
+import {AlertTriangle, ArrowRight, CheckCircle, XCircle} from '@untitledui/icons';
 import {reportUrl} from '../../reportsCommon.jsx';
 import {dayLabel} from '../../friendlyDates.js';
 import {useReportsContext} from '../../shell/context.js';
@@ -9,7 +9,26 @@ import {Chart} from '../../shell/media.jsx';
 import {AppLink, Async, DataTable, ErrorState, LoadingState, MetricGroup, Section} from '../../shell/primitives.jsx';
 import {compact, number, percent, siteTotals} from '../shared.jsx';
 import {sectionName} from './Contents.jsx';
+import {Donut} from './TechPanel.jsx';
 import './journey.css';
+
+const MONITOR_ICON = {online: [CheckCircle, 'No ar'], degraded: [AlertTriangle, 'Instável'], offline: [XCircle, 'Fora do ar']};
+
+/** One row per published flow: availability of its pages, linking straight to the flow's monitor. */
+function FlowMonitors({flows}) {
+  if (!flows.length) return null;
+  return <Section title="Monitoramento dos fluxos" description="Disponibilidade das páginas de cada fluxo publicado">
+    <ul className="rs-flow-monitors">
+      {flows.map(flow => {
+        const [Icon, label] = MONITOR_ICON[flow.monitor_status] || [AlertTriangle, flow.monitor_enabled ? 'Aguardando checagem' : 'Sem monitor'];
+        const detail = !flow.monitor_enabled ? 'Monitor desligado' : flow.total ? (flow.failing ? `${flow.failing} de ${flow.total} páginas com problema` : `${flow.total} páginas no ar`) : 'Ainda sem verificação';
+        return <li key={flow.id}><AppLink href={reportUrl(`flows/${flow.id}/monitor`)} className={`rs-flow-monitors__item is-${flow.monitor_enabled ? flow.monitor_status : 'off'}`}>
+          <Icon size={20} aria-hidden="true"/><span><strong>{flow.name}</strong><small>{flow.host} · {detail}</small></span><b>{label}</b><ArrowRight size={14} aria-hidden="true"/>
+        </AppLink></li>;
+      })}
+    </ul>
+  </Section>;
+}
 
 const link = (href, label) => <AppLink className="rs-link" href={href}>{label}<ArrowRight size={14} aria-hidden="true"/></AppLink>;
 const seconds = value => value == null ? '—' : value < 60 ? `${Math.round(value)} s` : `${Math.floor(value / 60)} min ${String(Math.round(value % 60)).padStart(2, '0')} s`;
@@ -35,6 +54,7 @@ export function JourneyOverview() {
   const [domains, retryDomains] = useApi(apiUrl('/pages/domains', range));
   const [navigation, retryNavigation] = useApi(apiUrl('/journey/navigation', {...range, site_id: scope.site, customer_id: customerParam()}));
   const [content, retryContent] = useApi(apiUrl('/journey/content', {...range, site_id: scope.site || undefined, customer_id: customerParam()}));
+  const [monitors] = useApi(apiUrl('/journey/monitors', {site_id: scope.site || undefined}));
   const inScope = item => !scope.site || item.site_id === scope.site;
   const scoped = useMemo(() => (domains.body?.domains || []).filter(inScope), [domains.body, scope.site]);
   const site = domains.body ? siteTotals(scoped) : null;
@@ -53,6 +73,7 @@ export function JourneyOverview() {
       {label: 'Visualizações', value: compact(site.views), change: site.viewsChange, detail: viewsPerSession ? `${viewsPerSession} por sessão` : undefined},
       {label: 'Conversões', value: number(site.conversions), change: site.conversionsChange, detail: `${percent(site.conversions, site.sessions)} das sessões`},
     ]}/>
+    <FlowMonitors flows={monitors.body?.flows || []}/>
     <div className="rs-journey-overview__main">
       <Section title="Evolução de tráfego" description="Sessões por dia no período">
         {site.daily.length > 1
@@ -88,7 +109,7 @@ export function JourneyOverview() {
       </Section>
       <Section title="Dispositivos" description="Sessões por tipo de aparelho">
         {devices.length
-          ? <ul className="rs-bars">{devices.map(item => <li key={item.device}><span>{item.label}</span><i><b style={{width: `${Math.max(2, item.sessions * 100 / (deviceTotal || 1))}%`}}/></i><strong>{percent(item.sessions, deviceTotal)}</strong></li>)}</ul>
+          ? <Donut items={devices.map(item => ({key: item.device, label: item.label, sessions: item.sessions}))} total={deviceTotal} label="Sessões por tipo de aparelho"/>
           : <p className="rs-muted">Sem dados de dispositivo.</p>}
       </Section>
     </div>

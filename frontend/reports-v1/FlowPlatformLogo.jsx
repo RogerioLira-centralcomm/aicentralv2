@@ -17,6 +17,9 @@ export const FLOW_PLATFORMS = {
   serasa: {label: 'Serasa', wordmark: 'serasa'},
   disney_ads: {label: 'Disney Ads', logo: '/static/images/creative-viewers/disney-plus.png'},
   email: {label: 'E-mail', wordmark: 'email'},
+  chatgpt: {label: 'ChatGPT', logo: '/static/images/canais/chatgpt.svg'},
+  gemini: {label: 'Gemini', logo: '/static/images/canais/gemini.svg'},
+  claude: {label: 'Claude', logo: '/static/images/canais/claude.svg'},
 };
 
 

@@ -1,6 +1,6 @@
 import {Edit01, BarChart01, Plus} from '@untitledui/icons';
 import {useReportsContext} from './shell/context.js';
-import {DataTable, EmptyState, Section} from './shell/primitives.jsx';
+import {DataTable, EmptyState, LoadingState, Section} from './shell/primitives.jsx';
 import {CaduTabs} from '../cadu-design-system/components/CaduTabs.jsx';
 import React, {useEffect, useRef, useState} from 'react';
 import {ReportsActionButton} from './ReportsActionButton.jsx';
@@ -43,7 +43,7 @@ function FirstFlow({canCreate,onCreate,onModels,siteLabel}){
 }
 
 /** Flow list and creation: the entry screen of Fluxos. Owns its own form state; the editor never reads it. */
-export function FlowsIndex({data, flows, supertagSites, save, busy}) {
+export function FlowsIndex({data, flows, supertagSites, save, busy, loading}) {
   const {scope}=useReportsContext();
   const [flowHost, setFlowHost] = useState(()=>new URLSearchParams(location.search).get('site_host')||'');
   const [flowCreateOpen,setFlowCreateOpen]=useState(()=>Boolean(new URLSearchParams(location.search).get('site_host')));
@@ -124,7 +124,7 @@ export function FlowsIndex({data, flows, supertagSites, save, busy}) {
       {allTags.length>0&&<div className="reports-flow-index__tools">
         <ReportsNativeSelect aria-label="Etiqueta" value={flowTagFilter} onChange={event=>setFlowTagFilter(event.target.value)}><option value="">Todas as etiquetas</option>{allTags.map(tag=><option key={tag} value={tag}>{tag}</option>)}</ReportsNativeSelect>
       </div>}
-      {scopedFlows.length===0?<FirstFlow canCreate={data.client.role!=='viewer'} onCreate={()=>setFlowCreateOpen(true)} onModels={()=>setIndexView('models')} siteLabel={supertagSites.find(site=>String(site.id)===scope.site)?.allowed_host}/>:<div className="rs-stack">
+      {loading&&scopedFlows.length===0?<LoadingState rows={4} label="Carregando fluxos…"/>:scopedFlows.length===0?<FirstFlow canCreate={data.client.role!=='viewer'} onCreate={()=>setFlowCreateOpen(true)} onModels={()=>setIndexView('models')} siteLabel={supertagSites.find(site=>String(site.id)===scope.site)?.allowed_host}/>:<div className="rs-stack">
         <Section title="Publicados" description="Fluxos medindo agora, com coleta, entradas e conversão dos últimos dias">
           <DataTable label="Fluxos publicados" rows={publishedFlows} rowKey={row=>row.id} initialSort={{key:'updated',dir:'desc'}}
             empty={<EmptyState title="Nenhum fluxo publicado" description="Abra um rascunho, revise os passos e publique para começar a medir."/>}

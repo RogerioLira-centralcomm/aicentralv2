@@ -1994,6 +1994,10 @@ def register(bp):
                            items=blocking), 422
         _validate_flow_references(config, selected)
         changed = publish_draft(flow['id'], selected, expected_revision(payload), session['user_id'])
+        # First publication turns the page monitor on (5 min); a monitor the team already configured is left alone.
+        _rows('''UPDATE cadu_reports_flow_registry SET monitor_enabled=TRUE,monitor_interval_minutes=5,monitor_next_check_at=NOW()
+            WHERE id=%s AND client_id=%s AND monitor_enabled=FALSE AND monitor_checked_at IS NULL RETURNING id''',
+            (flow['id'], selected['client_id']))
         get_db().commit()
         return jsonify(flow=changed, tag_url=_client_tag_urls(selected['client_id'],)['flow'],
                        supertag_url=_client_tag_urls(selected['client_id'],)['supertag'],

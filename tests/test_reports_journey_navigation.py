@@ -30,7 +30,11 @@ PERIOD = f'start_date={(_END - timedelta(days=29)).isoformat()}&end_date={_END.i
     ((None, None, None, 'parceiro.com', 'exemplo.com.br'), 'referral'),
     ((None, None, None, 'www.exemplo.com.br', 'exemplo.com.br'), 'unknown'),   # referred by the site itself
     ((None, None, None, 'blog.exemplo.com.br', 'www.exemplo.com.br'), 'unknown'),
-    (('chatgpt.com', None, None, 'www.exemplo.com.br', 'exemplo.com.br'), 'referral'),
+    (('chatgpt.com', None, None, 'www.exemplo.com.br', 'exemplo.com.br'), 'ai'),
+    ((None, None, None, 'chatgpt.com', 'exemplo.com.br'), 'ai'),
+    ((None, None, None, 'gemini.google.com', 'exemplo.com.br'), 'ai'),         # a Google domain, but not a search result
+    ((None, None, None, 'claude.ai', 'exemplo.com.br'), 'ai'),
+    (('claude', 'referral', None, None, 'exemplo.com.br'), 'ai'),
     (('ig', 'social', None, None, 'exemplo.com.br'), 'social'),
     (('newsletter', 'email', None, None, 'exemplo.com.br'), 'other'),
     ((None, 'referral', None, None, 'exemplo.com.br'), 'referral'),

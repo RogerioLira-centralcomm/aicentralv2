@@ -11,7 +11,7 @@ from flask import abort, jsonify, request
 
 from ..auth import login_required_api
 from .reports_page_metrics import RETENTION_DAYS, pct
-from .reports_flow_metrics import (NOT_SEARCH, PLATFORM_ALIASES, PLATFORM_LABELS, SEARCH_ENGINES, origin_platform, parse_origin,
+from .reports_flow_metrics import (AI_AGENTS, NOT_SEARCH, PLATFORM_ALIASES, PLATFORM_LABELS, SEARCH_ENGINES, ai_agent_for, origin_platform, parse_origin,
                                    search_engine_for_host, search_engine_label)
 from .reports_page_identity import sql_normalized_path
 from .reports_pages import EVENT_TABLE, _window
@@ -43,13 +43,14 @@ ROLE_MIN_VIEWS = 5          # a page needs this many views before it is given a 
 # mixing two very different cases: Direto (no campaign tag, no click id and no referrer at all) and Origem desconhecida
 # (the first view we have was referred by the site itself, so the real landing — and its origin — was not captured:
 # the session started before the period, the landing view was lost or the tag only runs on some pages).
-ORIGIN_GROUPS = ('direct', 'google_ads', 'organic', 'social', 'referral', 'other', 'unknown')
-ORIGIN_LABELS = {'direct': 'Direto', 'google_ads': 'Google Ads', 'organic': 'Orgânico', 'social': 'Social',
+ORIGIN_GROUPS = ('direct', 'google_ads', 'organic', 'ai', 'social', 'referral', 'other', 'unknown')
+ORIGIN_LABELS = {'direct': 'Direto', 'google_ads': 'Google Ads', 'organic': 'Orgânico', 'ai': 'Agentes de IA', 'social': 'Social',
                  'referral': 'Referência', 'other': 'Outros', 'unknown': 'Origem desconhecida'}
 ORIGIN_HINTS = {
     'direct': 'Sem UTM, sem identificador de clique e sem site de origem: endereço digitado, favorito ou app que esconde a origem.',
     'google_ads': 'utm_source do Google (exceto medium orgânico), gclid/gbraid/wbraid ou referência de googleadservices/doubleclick.',
     'organic': 'Vindo de um buscador (Google, Bing…) sem marca de anúncio, ou utm_medium organic/seo.',
+    'ai': 'ChatGPT, Gemini e Claude: link numa resposta do assistente (utm_source=chatgpt.com ou referência de chatgpt.com, gemini.google.com, claude.ai).',
     'social': 'Redes sociais, por UTM (facebook, instagram, linkedin…), fbclid ou referência dessas redes.',
     'referral': 'Outro site com link para o seu, sem UTM.',
     'other': 'Campanhas com UTM fora dos grupos acima (e-mail, WhatsApp, SMS, parceiros…).',
@@ -58,6 +59,8 @@ ORIGIN_HINTS = {
 _GOOGLE_SOURCES = frozenset(PLATFORM_ALIASES['google'])
 _SOCIAL_SOURCES = frozenset(set().union(*(PLATFORM_ALIASES[key] for key in ('meta', 'tiktok', 'linkedin', 'youtube')))
                             | {'twitter', 'x', 'pinterest', 'threads', 'reddit', 'kwai'})
+_AI_DOMAINS = tuple(domain for _, domains, _ in AI_AGENTS.values() for domain in domains)
+_AI_SOURCES = frozenset(name for _, _, names in AI_AGENTS.values() for name in names) | frozenset(_AI_DOMAINS)
 _ORGANIC_MEDIUMS = frozenset({'organic', 'organico', 'seo'})
 _SOCIAL_MEDIUMS = frozenset({'social', 'social-media', 'social_media', 'socialmedia', 'paid_social', 'paid-social', 'paidsocial', 'sm'})
 _GOOGLE_ADS_DOMAINS = ('googleadservices.com', 'doubleclick.net', 'googlesyndication.com', 'syndicatedsearch.goog')
@@ -78,6 +81,8 @@ def _domain_in(host, domains):
 def _host_origin(host, site_host=''):
     if site_host and (host == site_host or host.endswith('.' + site_host) or site_host.endswith('.' + host)):
         return 'unknown'
+    if _domain_in(host, _AI_DOMAINS):
+        return 'ai'
     if _domain_in(host, _GOOGLE_ADS_DOMAINS):
         return 'google_ads'
     if (_domain_in(host, _SEARCH_DOMAINS) and not host.startswith(NOT_SEARCH)) or host in _SEARCH_APPS:
@@ -91,6 +96,8 @@ def origin_group(utm_source=None, utm_medium=None, click_id=None, referrer_host=
     """Origin group of a session from its first page view. Mirrored in SQL by origin_group_sql (keep both in step)."""
     source, medium = str(utm_source or '').strip().lower(), str(utm_medium or '').strip().lower()
     if source or medium:
+        if ai_agent_for(source):
+            return 'ai'
         if source in _GOOGLE_SOURCES:
             return 'organic' if medium in _ORGANIC_MEDIUMS else 'google_ads'
         if source in _SOCIAL_SOURCES or medium in _SOCIAL_MEDIUMS:
@@ -126,7 +133,8 @@ def _sql_host_origin(host, site=None):
     own = (f"WHEN {site}<>'' AND ({host}={site} OR RIGHT({host},LENGTH({site})+1)='.'||{site} "
            f"OR RIGHT({site},LENGTH({host})+1)='.'||{host}) THEN 'unknown' ") if site else ''
     not_search = "'^(" + '|'.join(re.escape(prefix.rstrip('.')) for prefix in NOT_SEARCH) + ")\\.'"
-    return (f"CASE {own}WHEN {host} ~ {_sql_domains(_GOOGLE_ADS_DOMAINS)} THEN 'google_ads' "
+    return (f"CASE {own}WHEN {host} ~ {_sql_domains(_AI_DOMAINS)} THEN 'ai' "
+            f"WHEN {host} ~ {_sql_domains(_GOOGLE_ADS_DOMAINS)} THEN 'google_ads' "
             f"WHEN ({host} ~ {_sql_domains(_SEARCH_DOMAINS)} AND {host} !~ {not_search}) OR {host} IN ({_sql_in(_SEARCH_APPS)}) THEN 'organic' "
             f"WHEN {host} ~ {_sql_domains(_SOCIAL_DOMAINS)} THEN 'social' ELSE 'referral' END")
 
@@ -138,6 +146,7 @@ def origin_group_sql(attribution='attribution', referrer='referrer_host', site_h
     click = f"BTRIM(COALESCE({attribution}->>'click_id',''))"
     referrer_bare, site_bare = _sql_bare(referrer), _sql_bare(site_host)
     return (f"CASE WHEN {source}<>'' OR {medium}<>'' THEN CASE "
+            f"WHEN {source} IN ({_sql_in(_AI_SOURCES)}) THEN 'ai' "
             f"WHEN {source} IN ({_sql_in(_GOOGLE_SOURCES)}) THEN CASE WHEN {medium} IN ({_sql_in(_ORGANIC_MEDIUMS)}) THEN 'organic' ELSE 'google_ads' END "
             f"WHEN {source} IN ({_sql_in(_SOCIAL_SOURCES)}) OR {medium} IN ({_sql_in(_SOCIAL_MEDIUMS)}) THEN 'social' "
             f"WHEN {medium} IN ({_sql_in(_ORGANIC_MEDIUMS)}) THEN 'organic' "
@@ -811,6 +820,24 @@ def _bare_host(host):
 
 
 def register(bp):
+    @bp.get('/api/v2/reports/journey/monitors')
+    @login_required_api
+    def reports_journey_monitors():
+        """Published flows of the client with their page-availability state, for the overview's monitoring card."""
+        selected = _selection()
+        site = _site_param()
+        flows = _rows("""SELECT f.id::text AS id,f.name,t.allowed_host AS host,f.monitor_enabled,f.monitor_interval_minutes,
+                f.monitor_status,f.monitor_checked_at,f.monitor_down_since,
+                (SELECT COUNT(*) FROM jsonb_array_elements(c.pages) p WHERE p->>'status'<>'online')::int AS failing,
+                COALESCE(jsonb_array_length(c.pages),0)::int AS total
+            FROM cadu_reports_flow_registry f JOIN cadu_reports_site_tags t ON t.id=f.tag_id
+            LEFT JOIN LATERAL (SELECT pages FROM cadu_reports_flow_monitor_checks k WHERE k.flow_id=f.id
+                ORDER BY k.checked_at DESC LIMIT 1) c ON TRUE
+            WHERE f.client_id=%(client)s AND f.status='published' AND t.revoked_at IS NULL
+                AND (%(site)s::text IS NULL OR f.site_id::text=%(site)s::text)
+            ORDER BY f.monitor_status='online', f.name LIMIT 50""", {'client': selected['client_id'], 'site': site})
+        return jsonify(flows=flows)
+
     @bp.get('/api/v2/reports/journey/content')
     @login_required_api
     def reports_journey_content():

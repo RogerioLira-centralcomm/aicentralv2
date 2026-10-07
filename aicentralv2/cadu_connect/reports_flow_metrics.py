@@ -16,6 +16,23 @@ SEARCH_ENGINES = {
     'brave': ('Brave Search', ('search.brave.com',)),
 }
 SEARCH_ENGINE_IDS = tuple(SEARCH_ENGINES)
+# AI assistants that send visitors (a link in an answer). ChatGPT adds utm_source=chatgpt.com itself; the others arrive by referrer.
+# Checked before search engines: gemini.google.com is a Google domain but is not a search result.
+AI_AGENTS = {
+    'chatgpt': ('ChatGPT', ('chatgpt.com', 'chat.openai.com', 'openai.com'), {'chatgpt', 'openai'}),
+    'gemini': ('Gemini', ('gemini.google.com', 'bard.google.com'), {'gemini', 'bard'}),
+    'claude': ('Claude', ('claude.ai',), {'claude', 'anthropic'}),
+}
+
+
+def ai_agent_for(value):
+    """AI agent id of a referrer host or utm_source value, or None."""
+    value = str(value or '').lower().strip(' .').removeprefix('www.')
+    for agent, (_, domains, names) in AI_AGENTS.items():
+        if value in names or any(value == domain or value.endswith('.' + domain) for domain in domains):
+            return agent
+    return None
+
 # Subdomains of an engine's domain that are not search results.
 NOT_SEARCH = ('mail.', 'accounts.', 'docs.', 'drive.', 'maps.', 'play.', 'support.', 'news.', 'calendar.')
 
@@ -74,13 +91,15 @@ PLATFORM_ALIASES = {
     'tiktok': {'tiktok', 'tiktok_ads'}, 'linkedin': {'linkedin', 'linkedin_ads', 'lnkd'},
     'youtube': {'youtube', 'yt'}, 'email': {'email', 'e-mail', 'newsletter', 'mailchimp', 'rdstation', 'hubspot'},
     'whatsapp': {'whatsapp', 'wa'}, 'sms': {'sms'},
+    **{agent: {*names, *domains} for agent, (_, domains, names) in AI_AGENTS.items()},
 }
 NODE_PLATFORMS = {'facebook': 'meta', 'instagram': 'meta', 'dv360': 'google', 'organic_search': 'organic',
                   'organic_social': 'social', 'communication': 'email'}
 SOCIAL_HOSTS = ('facebook.', 'instagram.', 'linkedin.', 't.co', 'twitter.', 'x.com', 'tiktok.', 'youtube.', 'pinterest.', 'lnkd.in')
 PLATFORM_LABELS = {'direct': 'Acesso direto', 'organic': 'Busca orgânica', 'social': 'Redes sociais', 'referral': 'Outros sites',
                    'google': 'Google Ads', 'meta': 'Meta Ads', 'tiktok': 'TikTok Ads', 'linkedin': 'LinkedIn Ads',
-                   'youtube': 'YouTube', 'email': 'E-mail', 'whatsapp': 'WhatsApp', 'sms': 'SMS', 'campaign': 'Outras campanhas'}
+                   'youtube': 'YouTube', 'email': 'E-mail', 'whatsapp': 'WhatsApp', 'sms': 'SMS', 'campaign': 'Outras campanhas',
+                   **{agent: label for agent, (label, _, _) in AI_AGENTS.items()}}
 
 
 def origin_platform(origin):
@@ -90,6 +109,8 @@ def origin_platform(origin):
         return 'direct'
     if kind == 'utm':
         return next((platform for platform, aliases in PLATFORM_ALIASES.items() if value in aliases), 'campaign')
+    if ai_agent_for(value):
+        return ai_agent_for(value)
     if search_engine_for_host(value):
         return 'organic'
     if any(token in value for token in SOCIAL_HOSTS):

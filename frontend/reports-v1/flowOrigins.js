@@ -2,7 +2,8 @@ import {stageX} from './flowStages.js';
 
 const KINDS={direct:'traffic.direct',organic:'traffic.organic_search',social:'traffic.organic_social',referral:'traffic.referral',campaign:'traffic.referral',
   google:'traffic.google_search',meta:'traffic.meta',tiktok:'traffic.tiktok',linkedin:'traffic.linkedin',youtube:'traffic.youtube',
-  email:'communication.email',whatsapp:'communication.whatsapp',sms:'communication.sms'};
+  email:'communication.email',whatsapp:'communication.whatsapp',sms:'communication.sms',
+  chatgpt:'traffic.ai_chatgpt',gemini:'traffic.ai_gemini',claude:'traffic.ai_claude'};
 
 export const originKind=platform=>KINDS[platform]||'traffic.referral';
 

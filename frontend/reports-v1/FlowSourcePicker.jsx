@@ -16,12 +16,15 @@ const CHANNELS=[
   {key:'tiktok',group:'paid',kind:'traffic.tiktok',source:'tiktok',title:'TikTok Ads'},
   {key:'linkedin',group:'paid',kind:'traffic.linkedin',source:'linkedin',title:'LinkedIn Ads'},
   {key:'youtube',group:'paid',kind:'traffic.youtube',source:'youtube',title:'YouTube Ads'},
+  {key:'chatgpt',group:'ai',kind:'traffic.ai_chatgpt',source:'chatgpt',title:'ChatGPT'},
+  {key:'gemini',group:'ai',kind:'traffic.ai_gemini',source:'gemini',title:'Gemini'},
+  {key:'claude',group:'ai',kind:'traffic.ai_claude',source:'claude',title:'Claude'},
   {key:'email',group:'other',kind:'communication.email',source:'email',title:'E-mail'},
   {key:'whatsapp',group:'other',kind:'communication.whatsapp',source:'whatsapp',title:'WhatsApp'},
   {key:'sms',group:'other',kind:'communication.sms',source:'sms',title:'SMS'},
   {key:'referral',group:'other',kind:'traffic.referral',source:'referral',title:'Referência de outros sites'},
 ];
-const GROUPS=[['essential','Origens naturais de toda marca'],['paid','Mídia paga'],['other','Comunicação e outros']];
+const GROUPS=[['essential','Origens naturais de toda marca'],['paid','Mídia paga'],['ai','Agentes de IA'],['other','Comunicação e outros']];
 const CAMPAIGN_PLATFORMS={google_ads:['traffic.google_search','google'],meta_ads:['traffic.meta','meta'],microsoft_ads:['traffic.referral','referral']};
 
 /** Start a flow from where visitors come from: the client's campaigns or a traffic channel. */

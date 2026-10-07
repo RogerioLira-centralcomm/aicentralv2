@@ -1,0 +1,22 @@
+.flow-url-monitor{display:grid;gap:12px}
+.flow-url-monitor__summary{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin:0;font-size:14px;font-weight:600;color:var(--color-text-success-primary,#067647)}
+.flow-url-monitor__summary.is-down{color:var(--color-text-error-primary,#b42318)}
+.flow-url-monitor__summary small{font-size:12px;font-weight:400;color:var(--color-text-tertiary)}
+.flow-url-monitor__grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;margin:0;padding:0;list-style:none}
+.flow-url-monitor__tile{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:4px 10px;padding:10px 12px;border:1px solid var(--color-border-secondary);border-radius:10px;background:var(--color-bg-primary)}
+.flow-url-monitor__tile>svg{grid-row:span 1;flex:none}
+.flow-url-monitor__tile.is-online>svg{color:var(--color-fg-success-primary,#17b26a)}
+.flow-url-monitor__tile.is-degraded{border-color:var(--color-border-warning,#fec84b)}
+.flow-url-monitor__tile.is-degraded>svg{color:var(--color-fg-warning-primary,#f79009)}
+.flow-url-monitor__tile.is-offline{border-color:var(--color-border-error,#fda29b);background:var(--color-bg-error-primary,#fef3f2)}
+.flow-url-monitor__tile.is-offline>svg{color:var(--color-fg-error-primary,#f04438)}
+.flow-url-monitor__tile.is-checking>svg{color:var(--color-fg-quaternary);animation:flow-url-spin 1s linear infinite}
+.flow-url-monitor__text,.flow-url-monitor__meta{display:grid;min-width:0}
+.flow-url-monitor__text strong,.flow-url-monitor__text small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.flow-url-monitor__text strong{font-size:13px}
+.flow-url-monitor__meta{text-align:right}
+.flow-url-monitor__meta b{font-size:12px}
+.flow-url-monitor small{font-size:11px;color:var(--color-text-tertiary)}
+.flow-url-monitor__tile em{grid-column:2/-1;font-size:11px;font-style:normal;color:var(--color-text-error-primary,#b42318)}
+@keyframes flow-url-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.flow-url-monitor__tile.is-checking>svg{animation:none}}

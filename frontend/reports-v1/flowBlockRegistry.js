@@ -11,7 +11,8 @@ const groups = [
   ['Tráfego orgânico','source','circle','neutral',[
     ['traffic.organic_search','Busca orgânica','organic'],['traffic.organic_social','Redes sociais','social'],
     ['traffic.direct','Acesso direto','direct'],['traffic.referral','Referência','referral'],
-    ['traffic.affiliate','Afiliado','affiliate'],['traffic.qr','QR Code','qr']]],
+    ['traffic.affiliate','Afiliado','affiliate'],['traffic.qr','QR Code','qr'],
+    ['traffic.ai_chatgpt','ChatGPT','chatgpt'],['traffic.ai_gemini','Gemini','gemini'],['traffic.ai_claude','Claude','claude']]],
   ['Comunicação','source','circle','communication',[
     ['communication.email','E-mail','email'],['communication.email_sequence','Sequência de e-mail','email'],
     ['communication.sms','SMS','sms'],['communication.whatsapp','WhatsApp','whatsapp'],

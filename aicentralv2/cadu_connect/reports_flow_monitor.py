@@ -2,7 +2,11 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
 import time
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urljoin, urlparse
 
@@ -19,6 +23,86 @@ from .reports_link_tester import _fetch
 from .reports_v1 import _rows
 
 MAX_MONITORED_PAGES = 201
+ALERT_TZ = ZoneInfo("America/Sao_Paulo")
+ALERT_FROM_HOUR, ALERT_UNTIL_HOUR = 7, 23   # avisos só entre 7h e 23h (Brasília)
+ALERT_REPEAT = timedelta(minutes=4, seconds=30)  # um aviso por ciclo de 5 min enquanto estiver fora
+ALERT_FIXED_RECIPIENT = "apolo@centralcomm.media"
+logger = logging.getLogger(__name__)
+
+
+def in_alert_window(now=None):
+    hour = (now or datetime.now(timezone.utc)).astimezone(ALERT_TZ).hour
+    return ALERT_FROM_HOUR <= hour < ALERT_UNTIL_HOUR
+
+
+def _alert_recipients(flow_id, client_id):
+    rows = _rows("""SELECT u.email FROM cadu_reports_flow_registry f
+        JOIN tbl_contato_cliente u ON u.id_contato_cliente=f.created_by
+        WHERE f.id=%s AND f.client_id=%s AND u.status=TRUE""", (flow_id, client_id))
+    emails = {row["email"].strip().lower() for row in rows if row.get("email")}
+    emails.add(os.environ.get("REPORTS_MONITOR_ALERT_EMAIL", ALERT_FIXED_RECIPIENT).strip().lower())
+    return sorted(emails)
+
+
+def _send_monitor_email(flow, recipients, status, pages, down_since, recovered=False):
+    """E-mail de marca do Reports; True só se todos os envios foram confirmados."""
+    from ..services.cadu_email_connector import send_cadu_event
+    base = os.environ.get("REPORTS_PUBLIC_BASE_URL", "").rstrip("/")
+    failing = [page for page in pages if page["status"] != "online"]
+    name = flow.get("name") or flow["allowed_host"]
+    if recovered:
+        title = f"Fluxo {name} voltou ao ar"
+        description = "Todas as páginas monitoradas estão respondendo novamente."
+    else:
+        title = f"{len(failing)} de {len(pages)} páginas do fluxo {name} fora do ar"
+        description = "A última verificação encontrou páginas sem resposta. Novo aviso em 5 minutos se continuar assim."
+    since = down_since.astimezone(ALERT_TZ).strftime("%d/%m %H:%M") if down_since else "—"
+    details = [{"label": "Site", "value": flow["allowed_host"]}, {"label": "Fora do ar desde", "value": since}]
+    for page in failing[:8]:
+        details.append({"label": page["path"], "value": page.get("detail") or "Sem resposta"})
+    sent = True
+    for email in recipients:
+        result = send_cadu_event(
+            product="connect", event="connect.reports_alert", template="produto-atividade.html",
+            recipient=email, recipient_name="Equipe", subject=f"[Reports] {title}", client_id=flow["client_id"],
+            params={"TITLE": title, "EYEBROW": "Monitor de páginas", "DESCRIPTION": description, "DETAILS": details,
+                    "CTA_LABEL": "Abrir monitoramento" if base else "",
+                    "CTA_URL": f"{base}/connect/app/flows/{flow['id']}/monitor" if base else ""})
+        sent = sent and bool((result or {}).get("success"))
+    return sent
+
+
+def notify_transition(flow, status, pages, now=None):
+    """Down: one e-mail per cycle between 7h and 23h. Back up: one recovery e-mail. Never raises."""
+    now = now or datetime.now(timezone.utc)
+    try:
+        state = _rows("SELECT monitor_down_since,monitor_last_alert_at FROM cadu_reports_flow_registry WHERE id=%s AND client_id=%s",
+                      (flow["id"], flow["client_id"]))[0]
+        connection = get_db()
+        if status == "online":
+            if state["monitor_down_since"] is None:
+                return
+            if state["monitor_last_alert_at"] is not None and in_alert_window(now):
+                _send_monitor_email(flow, _alert_recipients(flow["id"], flow["client_id"]), status, pages,
+                                    state["monitor_down_since"], recovered=True)
+            with connection.cursor() as cursor:
+                cursor.execute("UPDATE cadu_reports_flow_registry SET monitor_down_since=NULL,monitor_last_alert_at=NULL WHERE id=%s", (flow["id"],))
+            connection.commit()
+            return
+        down_since = state["monitor_down_since"] or now
+        last = state["monitor_last_alert_at"]
+        due = in_alert_window(now) and (last is None or now - last >= ALERT_REPEAT)
+        sent = due and _send_monitor_email(flow, _alert_recipients(flow["id"], flow["client_id"]), status, pages, down_since)
+        with connection.cursor() as cursor:
+            cursor.execute("UPDATE cadu_reports_flow_registry SET monitor_down_since=%s,monitor_last_alert_at=%s WHERE id=%s",
+                           (down_since, now if sent else last, flow["id"]))
+        connection.commit()
+    except Exception:
+        logger.exception("Alerta de indisponibilidade do fluxo %s falhou", flow.get("id"))
+        try:
+            get_db().rollback()
+        except Exception:
+            pass
 
 
 def _page_targets(flow):
@@ -85,7 +169,7 @@ def run_check(flow):
 
 
 def check_flow(flow_id, client_id):
-    flow = _rows("""SELECT f.id,f.client_id,f.config,f.tag_id,f.published_revision,t.allowed_host
+    flow = _rows("""SELECT f.id,f.client_id,f.name,f.config,f.tag_id,f.published_revision,t.allowed_host
         FROM cadu_reports_flow_registry f JOIN cadu_reports_site_tags t ON t.id=f.tag_id
         WHERE f.id=%s AND f.client_id=%s AND f.status='published'
             AND t.revoked_at IS NULL""", (flow_id, client_id))
@@ -111,6 +195,7 @@ def check_flow(flow_id, client_id):
                 WHERE flow_id=%s AND id NOT IN (SELECT id FROM cadu_reports_flow_monitor_checks
                     WHERE flow_id=%s ORDER BY checked_at DESC LIMIT 200)""", (flow_id, flow_id))
         connection.commit()
+        notify_transition(flow, status, pages)
         return {"id": check["id"], "status": status, "checked_at": check["checked_at"],
                 "duration_ms": duration, "pages": pages, "checked_pages": len(pages), "total_pages": len(_page_targets(flow)), "revision": flow.get("published_revision")}
     except Exception:

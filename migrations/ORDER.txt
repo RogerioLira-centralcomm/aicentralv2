@@ -189,3 +189,7 @@ migrations/run_sql_migration.py update_cadu_canais_alcance_fontes.sql
 migrations/run_sql_migration.py update_cadu_canais_perfil_melhor_uso.sql
 # Prints reais dos portais (aditivo, idempotente; depende de add_cadu_planner_portals.sql).
 migrations/run_sql_migration.py add_cadu_planner_portal_prints.sql
+# Alerta por e-mail quando páginas do fluxo caem (aditivo, idempotente; depende de add_reports_flow_page_monitoring.sql).
+migrations/run_sql_migration.py add_reports_flow_monitor_alerts.sql
+# Central de alertas v2: canal, tipo, impacto, painel, em investigação e alertas sem site (aditivo, idempotente; depende de add_reports_alerts_v1.sql).
+migrations/run_sql_migration.py upgrade_reports_alerts_v2.sql

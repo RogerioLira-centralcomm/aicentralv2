@@ -52,13 +52,13 @@ def history(client_id, *, query='', limit=60, offset=0):
             WHERE r.client_id = %s {"AND LOWER(r.final_url || ' ' || r.original_url) LIKE %s" if like else ''}
             ORDER BY r.created_at DESC LIMIT %s''', (client_id, *([like] if like else []), limit + offset))
     if _ready('cadu_link_tests'):
-        legacy = _rows(f'''SELECT t.id, t.tipo_analise, t.url_testada, t.url_final, t.score_total, t.created_at, u.nome_completo AS author
+        legacy = _rows(f'''SELECT t.id, t.uuid::text AS uuid, t.tipo_analise, t.url_testada, t.url_final, t.score_total, t.created_at, u.nome_completo AS author
             FROM cadu_link_tests t LEFT JOIN tbl_contato_cliente u ON u.id_contato_cliente = t.user_id
             WHERE t.client_id = %s {"AND LOWER(COALESCE(t.url_final, t.url_testada)) LIKE %s" if like else ''}
             ORDER BY t.created_at DESC LIMIT %s''', (client_id, *([like] if like else []), limit + offset))
         runs += [{'id': f'{LEGACY_PREFIX}{row["id"]}', 'source': 'cadu_php', 'mode': KIND_FROM_PHP.get(row['tipo_analise'] or 'campanha', 'media'),
                   'php_type': row['tipo_analise'] or 'campanha', 'original_url': row['url_testada'], 'final_url': row['url_final'] or row['url_testada'],
-                  'score': row['score_total'], 'status_label': _status(row['score_total']), 'public_token': None, 'created_at': row['created_at'],
+                  'score': row['score_total'], 'status_label': _status(row['score_total']), 'public_token': row.get('uuid'), 'created_at': row['created_at'],
                   'media_campaign_id': None, 'report_workspace_id': None, 'campaign_name': None, 'author': row['author'],
                   'has_screenshot': True} for row in legacy]
     runs.sort(key=lambda item: item['created_at'], reverse=True)
@@ -116,7 +116,8 @@ def _legacy_detail(client_id, legacy_id):
         'id': f'{LEGACY_PREFIX}{row["id"]}', 'source': 'cadu_php', 'php_type': php_type, 'kind': KIND_FROM_PHP.get(php_type, 'media'),
         'type_label': PHP_LABELS.get(php_type, 'Cadu anterior'), 'original_url': row['url_testada'], 'final_url': row['url_final'] or row['url_testada'],
         'score': row['score_total'], 'status_label': data.get('readiness_label') or data.get('score_label') or _status(row['score_total']),
-        'created_at': row['created_at'], 'author': row['author'], 'public_token': None,
+        # The PHP public link was the analysis uuid; it stays the public link of the old analyses.
+        'created_at': row['created_at'], 'author': row['author'], 'public_token': row['uuid'],
         'screenshots': {device: f'{base}?device={device}' if present else None for device, present in devices.items()},
         'analysis': _strip_provider_urls(data),
     }
@@ -168,3 +169,30 @@ def legacy_screenshot(client_id, legacy_id, device):
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(encoded)
     return target
+
+
+def public_run(token):
+    """A run opened by its public link: a Reports share token, or the uuid of a PHP analysis (its old public link)."""
+    try:
+        value = str(uuid.UUID(str(token)))
+    except ValueError:
+        return None
+    if _ready('cadu_reports_link_test_runs'):
+        rows = _rows('''SELECT r.id::text AS id, r.client_id, r.mode, r.original_url, r.final_url, r.score, r.status_label, r.result, r.public_token,
+                r.created_at, u.nome_completo AS author FROM cadu_reports_link_test_runs r
+                LEFT JOIN tbl_contato_cliente u ON u.id_contato_cliente = r.created_by
+                WHERE r.public_token = %s AND r.revoked_at IS NULL''', (value,))
+        if rows:
+            row = rows[0]
+            result = row.pop('result') or {}
+            return {**row, 'source': 'reports', 'kind': result.get('kind') or row['mode'], 'result': result}
+    if _ready('cadu_link_tests'):
+        rows = _rows('SELECT id, client_id FROM cadu_link_tests WHERE uuid = %s', (value,))
+        if rows:
+            run = _legacy_detail(rows[0]['client_id'], rows[0]['id'])
+            if run:
+                base = f'/connect/public/link-tests/{value}/screenshot'
+                run['screenshots'] = {device: f'{base}?device={device}' if url else None for device, url in run['screenshots'].items()}
+                run['client_id'] = rows[0]['client_id']
+                return run
+    return None

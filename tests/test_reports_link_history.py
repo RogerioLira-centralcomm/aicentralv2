@@ -36,7 +36,7 @@ def test_history_merges_both_sources_newest_first_with_authors():
         runs = history.history(174)
     assert [run['id'] for run in runs] == [REPORTS['id'], 'php-284']
     assert [run['author'] for run in runs] == ['Apolo', 'João']
-    assert runs[1]['source'] == 'cadu_php' and runs[1]['public_token'] is None
+    assert runs[1]['source'] == 'cadu_php' and runs[1]['public_token'] == 'u'  # the PHP public link was the uuid
     assert {run['domain'] for run in runs} == {'cemig.com.br'}
 
 

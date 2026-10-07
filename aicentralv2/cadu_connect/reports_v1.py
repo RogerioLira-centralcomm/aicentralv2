@@ -197,11 +197,12 @@ def _journey_summary(value):
 def register(bp):
     @bp.get('/public/link-tests/<token>')
     def reports_v1_public_link_test(token):
-        from . import reports_link_tester
-        report = reports_link_tester.public_result(token)
-        if not report:
+        """Public report: a Reports share token or the uuid of a PHP analysis (its old public link keeps working)."""
+        from . import reports_link_history, reports_link_report
+        run = reports_link_history.public_run(token)
+        if not run:
             abort(404)
-        response = make_response(render_template('cadu_connect/public_link_test.html', report=report))
+        response = make_response(render_template('cadu_connect/public_link_test.html', report=reports_link_report.build(run)))
         response.headers['Cache-Control'] = 'private, no-store'
         response.headers['Content-Security-Policy'] = (
             "default-src 'self'; script-src 'none'; object-src 'none'; base-uri 'none'; "
@@ -211,14 +212,16 @@ def register(bp):
 
     @bp.get('/public/link-tests/<token>/screenshot')
     def reports_v1_public_link_test_screenshot(token):
-        from . import reports_link_tester
-        if not reports_link_tester.public_result(token):
+        from . import reports_link_history, reports_link_tester
+        device = 'mobile' if request.args.get('device') == 'mobile' else 'desktop'
+        run = reports_link_history.public_run(token)
+        if not run:
             abort(404)
-        try:
-            path = reports_link_tester.screenshot_path(token, 'mobile' if request.args.get('device') == 'mobile' else 'desktop')
-        except ValueError:
-            abort(404)
-        if not path.is_file():
+        if run['source'] == 'cadu_php':
+            path = reports_link_history.legacy_screenshot(run['client_id'], int(run['id'].removeprefix('php-')), device)
+        else:
+            path = reports_link_tester.screenshot_path(token, device)
+        if not path or not path.is_file():
             abort(404)
         response = send_file(path, mimetype='image/webp')
         response.headers['Cache-Control'] = 'private, max-age=3600'
@@ -1210,6 +1213,8 @@ def register(bp):
             abort(404)
         run['domain_runs'] = reports_link_history.domain_runs(
             selected['client_id'], reports_link_history._domain(run.get('final_url') or run.get('original_url')), exclude_id=run['id'])
+        from . import reports_link_report
+        run['report'] = reports_link_report.build(run)
         return jsonify(run=run)
 
     @bp.get('/api/v2/reports/link-tests/php-<int:legacy_id>/screenshot')

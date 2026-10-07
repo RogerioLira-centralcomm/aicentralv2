@@ -4,82 +4,149 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <title>{{ report.status_label or 'Diagnóstico de link' }} · Reports</title>
+  {% set h = report.header %}
+  {% set kind = h.kind if h.kind in ['destination', 'media', 'agentic'] else 'media' %}
+  {% set accent = {'destination': '#3974bd', 'media': '#0e9384', 'agentic': '#7a5af8'}[kind] %}
+  {% set kind_label = h.type_label or {'destination': 'Destino e redirecionamentos', 'media': 'Medição de mídia', 'agentic': 'Presença para agentes de IA'}[kind] %}
+  <title>{{ h.status_label or 'Diagnóstico de link' }} · Link Tester · Reports</title>
   <style>
-    :root{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#17243a;background:#f5f8fc;font-synthesis:none;text-rendering:optimizeLegibility}*{box-sizing:border-box}body{margin:0}
-    .top{height:66px;background:#fff;border-bottom:1px solid #e2e9f2;display:flex;align-items:center;padding:0 max(24px,calc((100vw - 1080px)/2));gap:12px}.logo{height:28px;width:auto;object-fit:contain}.product{font-size:13px;color:#60728a;border-left:1px solid #dce4ee;padding-left:12px}
-    .wrap{max-width:960px;margin:40px auto;padding:0 20px}.report-card{background:#fff;border:1px solid #e1e8f1;border-radius:14px;padding:28px;box-shadow:0 8px 26px #182f5010}
-    .hero{display:block;width:100%;border-radius:12px;margin:0 0 22px}.kind{display:flex;align-items:center;gap:10px}.kind img{width:40px;height:40px;border-radius:11px}
-    .eyebrow{color:var(--accent);font-size:11px;font-weight:650;letter-spacing:.09em;text-transform:uppercase}
-    .title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}.title-row h1{font-size:26px;line-height:1.2;margin:12px 0 8px;color:#152443}
-    .score{flex:none;border-radius:12px;background:#edf5ff;color:#155ab0;padding:12px 16px;font-size:24px;font-weight:650}
-    .url{margin:8px 0 20px;color:#566a84;overflow-wrap:anywhere;font-size:14px}.summary{font-size:15px;line-height:1.6;margin:20px 0 28px}
-    .section{border-top:1px solid #e9eef5;padding-top:20px;margin-top:20px}.section h2{font-size:15px;margin:0 0 12px}.alerts{margin:0;padding-left:20px;color:#75500a;line-height:1.7}
-    .shots{display:flex;gap:12px;align-items:flex-start}.shot{display:block;width:100%;min-width:0;flex:1;border:1px solid #e1e8f1;border-radius:10px}.shot-mobile{flex:0 0 24%;max-width:190px}
-    .cats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.cat{background:#f7f9fc;border:1px solid #e8edf4;border-radius:10px;padding:12px}.cat b{font-size:20px}.cat small{display:block;color:#62738a;font-size:12px;margin-top:2px}
-    .bar{height:6px;border-radius:3px;background:#e4eaf2;margin-top:8px}.bar i{display:block;height:6px;border-radius:3px;background:var(--accent)}
-    .f{display:flex;gap:10px;padding:11px 0;border-bottom:1px solid #eef2f7;font-size:14px}.dot{flex:none;width:10px;height:10px;border-radius:5px;margin-top:6px}
-    .ok{background:#12b76a}.warn,.warning{background:#f79009}.bad,.critical{background:#f04438}.info{background:#98a2b3}
-    .f p{margin:2px 0 0;color:#566a84;font-size:13px;line-height:1.5;overflow-wrap:anywhere}.f p.fix{color:#155ab0}
-    .chips{display:flex;flex-wrap:wrap;gap:6px}.chip{border-radius:999px;padding:3px 10px;font-size:12px;background:#eef2f7;color:#35465f}.chip.good{background:#ecfdf3;color:#067647}.chip.badc{background:#fef3f2;color:#b42318}
-    table.t{width:100%;border-collapse:collapse;font-size:13px}table.t td{padding:7px 0;border-bottom:1px solid #eef2f7;vertical-align:top;overflow-wrap:anywhere}table.t td:first-child{color:#62738a;width:38%}
-    .footer{font-size:12px;color:#8a98aa;margin:18px 2px}
-    @media(max-width:640px){.wrap{margin:20px auto;padding:0 12px}.report-card{padding:20px}.title-row h1{font-size:21px}.score{font-size:19px;padding:10px 12px}}
+    :root{--accent:{{ accent }};--ink:#152443;--text:#2c3c55;--muted:#62738a;--line:#e6ecf3;--soft:#f5f8fc;--ok:#12b76a;--warn:#f79009;--bad:#f04438;--info:#3974bd;--skip:#98a2b3;
+      font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text);background:var(--soft);font-synthesis:none;text-rendering:optimizeLegibility}
+    *{box-sizing:border-box}body{margin:0}a{color:var(--info)}
+    .top{height:60px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 max(20px,calc((100vw - 1180px)/2));gap:12px;position:sticky;top:0;z-index:5}
+    .logo{height:26px}.product{font-size:13px;color:var(--muted);border-left:1px solid var(--line);padding-left:12px}
+    .wrap{max-width:1180px;margin:24px auto 60px;padding:0 20px;display:grid;grid-template-columns:220px minmax(0,1fr);gap:24px;align-items:start}
+    nav.toc{position:sticky;top:84px;display:flex;flex-direction:column;gap:2px;font-size:13px}
+    nav.toc a{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;color:var(--text);text-decoration:none}
+    nav.toc a:hover{background:#fff;box-shadow:0 0 0 1px var(--line)}
+    .dot{flex:none;width:9px;height:9px;border-radius:50%;background:var(--skip)}.t-ok{background:var(--ok)}.t-warn{background:var(--warn)}.t-bad{background:var(--bad)}.t-info{background:var(--info)}.t-muted,.t-skip{background:var(--skip)}
+    .card{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 6px 22px #182f500d}
+    .hero{overflow:hidden}.hero-img{display:block;width:100%;height:190px;object-fit:cover;object-position:center 45%}
+    .hero-body{display:flex;gap:24px;align-items:center;padding:22px 26px;flex-wrap:wrap}
+    .gauge{position:relative;width:118px;height:118px;flex:none}.gauge svg{transform:rotate(-90deg)}
+    .gauge b{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:34px;color:var(--ink);line-height:1}.gauge b small{font-size:12px;color:var(--muted);font-weight:500;margin-top:4px}
+    .kind{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.kind img{width:36px;height:36px;border-radius:10px}.eyebrow{color:var(--accent);font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}
+    h1{font-size:26px;line-height:1.2;margin:10px 0 6px;color:var(--ink)}.url{font:13px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);overflow-wrap:anywhere;margin:0}
+    .meta{font-size:12px;color:var(--muted);margin-top:8px}.summary{font-size:14px;line-height:1.6;margin:10px 0 0}
+    .badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;background:#eef2f7;color:#35465f}
+    .b-ok{background:#ecfdf3;color:#067647}.b-warn{background:#fffaeb;color:#b54708}.b-bad{background:#fef3f2;color:#b42318}.b-info{background:#eff8ff;color:#175cd3}.b-muted,.b-skip{background:#f2f4f7;color:#667085}
+    .indicators{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;padding:0 26px 22px}
+    .ind{display:block;text-decoration:none;color:inherit;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--soft);transition:transform .15s}
+    .ind:hover{transform:translateY(-2px);border-color:var(--accent)}.ind span{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}.ind strong{display:block;margin-top:6px;font-size:16px;color:var(--ink)}
+    .modules{padding:18px 26px;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px 24px}
+    .bar{height:8px;border-radius:4px;background:#e4eaf2;margin-top:6px;overflow:hidden}.bar i{display:block;height:8px;border-radius:4px}
+    .bar-row{font-size:13px}.bar-row header{display:flex;justify-content:space-between;gap:8px}.bar-row header b{color:var(--ink)}.bar-row small{display:block;color:var(--muted);font-size:12px;margin-top:3px}
+    .highlights{padding:18px 26px;border-top:1px solid var(--line)}.highlights h2,.section h2{font-size:15px;margin:0;color:var(--ink)}
+    .hl{display:flex;gap:10px;padding:8px 0;font-size:14px;border-bottom:1px solid #f0f3f8}.hl:last-child{border:0}.hl .dot{margin-top:6px}
+    .shots{display:flex;gap:16px;align-items:flex-start;padding:20px 26px}.shots figure{margin:0}.shots img{display:block;width:100%;border:1px solid var(--line);border-radius:10px}
+    .shots .d{flex:1;min-width:0}.shots .m{flex:0 0 22%;max-width:220px}figcaption{font-size:12px;color:var(--muted);margin-top:6px}
+    .section{margin-top:16px;scroll-margin-top:80px}
+    .section>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:18px 22px}.section>summary::-webkit-details-marker{display:none}
+    .section>summary .chev{margin-left:auto;transition:transform .2s;color:var(--muted);flex:none}.section[open]>summary .chev{transform:rotate(180deg)}
+    .section>summary .sum{font-size:12px;color:var(--muted)}.section .content{padding:0 22px 22px;display:grid;gap:18px}
+    .block h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 8px}
+    dl.kv{margin:0;display:grid;grid-template-columns:minmax(140px,35%) 1fr;font-size:14px}dl.kv dt,dl.kv dd{padding:9px 0;border-bottom:1px solid #f0f3f8;margin:0}dl.kv dt{color:var(--muted)}dl.kv dd{overflow-wrap:anywhere;color:var(--ink)}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+    .chips{display:flex;flex-wrap:wrap;gap:6px}.chip{display:inline-flex;flex-direction:column;border-radius:10px;padding:5px 11px;font-size:13px;font-weight:600}.chip small{font-weight:500;font-size:11px;opacity:.8}
+    .checks{list-style:none;margin:0;padding:0}.checks li{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid #f0f3f8;font-size:14px}.checks li:last-child{border:0}
+    .checks .why{color:var(--muted);font-size:13px;margin-top:2px}.checks .fix{color:#155ab0;font-size:13px;margin-top:3px}.checks .grp{font-size:11px;color:var(--muted);font-weight:500}
+    .filter{display:flex;gap:6px;margin-bottom:6px}.filter label{font-size:12px;font-weight:600;border:1px solid var(--line);border-radius:999px;padding:4px 12px;cursor:pointer;color:var(--muted)}
+    .filter input{position:absolute;opacity:0;pointer-events:none}.filter input:checked+label{background:var(--ink);color:#fff;border-color:var(--ink)}
+    .checks-wrap:has(.only-problems:checked) li.s-ok,.checks-wrap:has(.only-problems:checked) li.s-skip,.checks-wrap:has(.only-problems:checked) li.s-info{display:none}
+    table.t{width:100%;border-collapse:collapse;font-size:13px}table.t th{text-align:left;color:var(--muted);font-weight:600;font-size:12px;padding:8px 10px 8px 0;border-bottom:1px solid var(--line)}
+    table.t td{padding:9px 10px 9px 0;border-bottom:1px solid #f0f3f8;overflow-wrap:anywhere;vertical-align:top}
+    ol.chain{list-style:none;margin:0;padding:0}ol.chain li{display:flex;gap:10px;align-items:flex-start;padding:7px 0 7px 4px;font-size:13px}
+    ol.chain li+li{border-top:1px dashed var(--line)}.code{flex:none;font-weight:700;font-size:12px;border-radius:6px;padding:2px 7px}
+    .list{list-style:none;margin:0;padding:0}.list li{display:flex;gap:10px;padding:7px 0;font-size:14px}.list .dot{margin-top:6px}
+    .footer{grid-column:2;font-size:12px;color:var(--muted);margin-top:18px}
+    .map{margin-top:16px;padding:20px 22px}.map h2{font-size:15px;margin:0 0 12px;color:var(--ink)}.map-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}.tile{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:11px 13px;text-decoration:none;color:inherit;transition:transform .15s}.tile:hover{transform:translateY(-2px);border-color:var(--accent)}.tile .dot{margin-top:5px}.tile b{display:block;font-size:14px;color:var(--ink)}.tile small{display:block;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tile.p-bad{background:#fef3f2}.tile.p-warn{background:#fffaeb}@media(max-width:1100px){.wrap{grid-template-columns:1fr}nav.toc{display:none}.footer{grid-column:1}}
+    @media(max-width:560px){.wrap{padding:0 12px}.hero-body,.indicators,.modules,.highlights,.shots{padding-left:16px;padding-right:16px}h1{font-size:21px}.gauge{width:96px;height:96px}.gauge b{font-size:28px}.shots{flex-direction:column}.shots .m{max-width:60%}dl.kv{grid-template-columns:1fr}dl.kv dt{border:0;padding-bottom:0}.section>summary{padding:16px}.section .content{padding:0 16px 16px}}
   </style>
 </head>
 <body>
-  <header class="top">
-    <img class="logo" src="/static/images/cadu-logo-variant-2.png" alt="Cadu"><span class="product">Reports</span>
-  </header>
-  <main class="wrap">
-    {% set result = report.result or {} %}{% set evidence = result.get('evidence') or {} %}{% set mode = report.mode or 'destination' %}
-    {% set cfg = {'destination': ['Destino e redirecionamentos', '#3974bd'], 'media': ['Medição de mídia', '#0e9384'], 'agentic': ['Presença para agentes de IA', '#7a5af8']}.get(mode, ['Diagnóstico de link', '#3974bd']) %}
-    <article class="report-card" style="--accent:{{ cfg[1] }}">
-      {% if mode in ['destination', 'media', 'agentic'] %}<img class="hero" src="/static/images/reports/email/hero-{{ mode }}.jpg" alt="">{% endif %}
-      <div class="title-row">
-        <div>
-          <div class="kind">{% if mode in ['destination', 'media', 'agentic'] %}<img src="/static/images/reports/email/icon-{{ mode }}.png" alt="">{% endif %}<span class="eyebrow">{{ cfg[0] }}</span></div>
-          <h1>{{ report.status_label or 'Relatório de link' }}</h1>
+  {% macro tone_badge(tone, text) %}<span class="badge b-{{ tone or 'muted' }}">{{ text }}</span>{% endmacro %}
+  {% macro block(b, sid, index) %}
+    <div class="block">
+      {% if b.title %}<h3>{{ b.title }}</h3>{% endif %}
+      {% if b.type == 'kv' %}
+        <dl class="kv">{% for r in b.rows %}<dt>{{ r.label }}</dt><dd>{% if r.tone %}{{ tone_badge(r.tone, r.value) }}{% else %}<span class="{{ 'mono' if r.mono }}">{{ r.value }}</span>{% endif %}</dd>{% endfor %}</dl>
+      {% elif b.type == 'chips' %}
+        <div class="chips">{% for c in b['items'] %}<span class="chip b-{{ c.tone or 'muted' }}">{{ c.label }}{% if c.detail %}<small>{{ c.detail }}</small>{% endif %}</span>{% endfor %}</div>
+      {% elif b.type == 'checks' %}
+        {% set fid = sid ~ '-' ~ index %}
+        <div class="checks-wrap">
+          {% if b['items']|length > 6 %}<div class="filter"><input type="radio" name="{{ fid }}" id="{{ fid }}-all" checked><label for="{{ fid }}-all">Todas ({{ b['items']|length }})</label>
+            <input type="radio" name="{{ fid }}" id="{{ fid }}-bad" class="only-problems"><label for="{{ fid }}-bad">Só problemas ({{ b['items']|selectattr('status', 'in', ['bad', 'warn'])|list|length }})</label></div>{% endif %}
+          <ul class="checks">{% for c in b['items'] %}<li class="s-{{ c.status }}"><span class="dot t-{{ c.status }}" style="margin-top:6px"></span><div>
+            <strong>{{ c.title }}</strong>{% if c.group %} <span class="grp">· {{ c.group }}</span>{% endif %}
+            {% if c.detail %}<div class="why">{{ c.detail }}</div>{% endif %}{% if c.fix %}<div class="fix">→ {{ c.fix }}</div>{% endif %}</div></li>{% endfor %}</ul>
         </div>
-        <strong class="score">{{ report.score or 0 }}<small>/100</small></strong>
-      </div>
-      <p class="url">{{ report.final_url or report.original_url or '' }}</p>
-      <p class="summary">{{ result.get('summary') or 'Sem resumo disponível.' }}</p>
+      {% elif b.type == 'list' %}
+        <ul class="list">{% for i in b['items'] %}<li><span class="dot t-{{ i.tone or 'info' }}"></span><span>{{ i.text }}</span></li>{% endfor %}</ul>
+      {% elif b.type == 'table' %}
+        <div style="overflow-x:auto"><table class="t"><thead><tr>{% for c in b.columns %}<th>{{ c }}</th>{% endfor %}</tr></thead><tbody>{% for r in b.rows %}<tr>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
+      {% elif b.type == 'chain' %}
+        <ol class="chain">{% for s in b.steps %}{% set code = (s.status or 0)|int %}{% set t = 'bad' if code >= 400 else ('warn' if code >= 300 else 'ok') %}<li><span class="code b-{{ t }}">{{ s.status or '–' }}</span><span class="mono" style="overflow-wrap:anywhere">{{ s.url }}</span></li>{% endfor %}</ol>
+      {% elif b.type == 'bars' %}
+        <div style="display:grid;gap:12px">{% for i in b['items'] %}<div class="bar-row"><header><span>{{ i.label }}</span><b>{{ i.value }}{% if i.max == 100 %}%{% endif %}</b></header>
+          <div class="bar"><i style="width:{{ ((i.value or 0) * 100 / (i.max or 100))|round|int }}%;background:var(--{{ i.tone or 'info' }})"></i></div>{% if i.detail %}<small>{{ i.detail }}</small>{% endif %}</div>{% endfor %}</div>
+      {% elif b.type == 'text' %}
+        <p style="margin:0;font-size:14px;line-height:1.6">{{ b.text }}</p>
+      {% endif %}
+    </div>
+  {% endmacro %}
 
-      {% if evidence.get('screenshot') %}<section class="section"><h2>Print da página</h2><div class="shots"><img class="shot" src="{{ evidence.screenshot }}" alt="Print da página no desktop">{% if evidence.get('screenshot_mobile') %}<img class="shot shot-mobile" src="{{ evidence.screenshot_mobile }}" alt="Print da página no celular">{% endif %}</div></section>{% elif evidence.get('capture_note') %}<section class="section"><h2>Print da página</h2><p class="url">{{ evidence.capture_note }}</p></section>{% endif %}
+  <header class="top"><img class="logo" src="/static/images/cadu-logo-variant-2.png" alt="Cadu"><span class="product">Reports · Link Tester</span></header>
+  <div class="wrap">
+    <nav class="toc" aria-label="Seções">
+      <a href="#resultado"><span class="dot t-{{ h.tone }}"></span>Resultado</a>
+      {% if report.screenshots.desktop or report.screenshots.mobile %}<a href="#print"><span class="dot t-info"></span>Print da página</a>{% endif %}
+      {% for s in report.sections %}<a href="#{{ s.id }}"><span class="dot t-{{ s.tone or 'info' }}"></span>{{ s.title }}</a>{% endfor %}
+    </nav>
+    <main>
+      <article class="card hero" id="resultado">
+        <img class="hero-img" src="/static/images/reports/illustrations/link-tester/lt-hero-{{ kind }}.webp" alt="">
+        <div class="hero-body">
+          {% set pct = (h.score or 0) %}
+          <div class="gauge" aria-label="Nota {{ pct }} de 100"><svg viewBox="0 0 120 120" width="100%" height="100%"><circle cx="60" cy="60" r="52" fill="none" stroke="#e4eaf2" stroke-width="10"/>
+            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--{{ h.tone }})" stroke-width="10" stroke-linecap="round" stroke-dasharray="{{ (326.7 * pct / 100)|round(1) }} 326.7"/></svg><b>{{ pct }}<small>de 100</small></b></div>
+          <div style="flex:1;min-width:220px">
+            <div class="kind"><img src="/static/images/reports/illustrations/link-tester/lt-icon-{{ kind }}.png" alt=""><span class="eyebrow">{{ kind_label }}</span>
+              {% if h.source == 'cadu_php' %}{{ tone_badge('warn', 'Cadu anterior') }}{% endif %}</div>
+            <h1>{{ h.status_label or 'Diagnóstico de link' }}</h1>
+            <p class="url">{{ h.url }}</p>
+            {% if h.summary %}<p class="summary">{{ h.summary }}</p>{% endif %}
+            <p class="meta">{% if h.author %}Testado por {{ h.author }} · {% endif %}{{ h.created_at.strftime('%d/%m/%Y %H:%M') if h.created_at and h.created_at.strftime is defined else (h.created_at or '') }}</p>
+          </div>
+        </div>
+        {% if report.indicators %}<div class="indicators">{% for i in report.indicators %}<a class="ind" href="#{{ i.target }}"><span><span class="dot t-{{ i.tone }}"></span>{{ i.label }}</span><strong>{{ i.value }}</strong></a>{% endfor %}</div>{% endif %}
+        {% if report.modules %}<div class="modules">{% for m in report.modules %}{% set t = 'ok' if (m.score or 0) >= 80 else ('warn' if (m.score or 0) >= 50 else 'bad') %}
+          <div class="bar-row"><header><span>{{ m.label }}</span><b>{{ m.score }}</b></header><div class="bar"><i style="width:{{ m.score or 0 }}%;background:var(--{{ t }})"></i></div>{% if m.detail %}<small>{{ m.detail }}</small>{% endif %}</div>{% endfor %}</div>{% endif %}
+        {% if h.highlights %}<div class="highlights"><h2>Resultado preliminar</h2>{% for p in h.highlights %}<div class="hl"><span class="dot t-{{ 'bad' if p.tone == 'bad' else ('warn' if p.tone == 'warn' else 'ok') }}"></span><span>{{ p.text }}</span></div>{% endfor %}</div>{% endif %}
+      </article>
 
-      {% set highlights = result.get('highlights') or [] %}
-      {% if highlights and mode != 'agentic' %}<section class="section"><h2>Resultado preliminar</h2>{% for item in highlights %}<div class="f"><span class="dot {{ item.tone }}"></span><div>{{ item.text }}</div></div>{% endfor %}</section>{% endif %}
-
-      {% if mode == 'agentic' %}
-        <section class="section"><h2>Pontuação por área</h2><div class="cats">{% for c in evidence.get('categories', []) %}<div class="cat"><b>{{ c.score }}</b><small>de {{ c.max }} · {{ c.name }}</small><small>{{ c.question }}</small><div class="bar"><i style="width:{{ (c.score * 100 / c.max)|round|int }}%"></i></div></div>{% endfor %}</div></section>
-        {% if evidence.get('caps') %}<section class="section"><h2>O que limita a nota</h2>{% for c in evidence.caps %}<div class="f"><span class="dot bad"></span><div>{{ c.reason }}<p>A nota não passa de {{ c.limit }}, não importa o resto.</p></div></div>{% endfor %}</section>{% endif %}
-        <section class="section"><h2>Achados</h2>{% for f in evidence.get('findings', []) %}<div class="f"><span class="dot {{ f.severity }}"></span><div><strong>{{ f.title }}</strong><p>{{ f.detail }}</p>{% if f.fix %}<p class="fix">Como corrigir: {{ f.fix }}</p>{% endif %}</div></div>{% endfor %}</section>
-        <section class="section"><h2>Robôs de IA</h2><div class="chips">{% for b in evidence.get('bot_access', []) %}<span class="chip {{ 'badc' if b.blocked else 'good' }}">{{ b.name }} · {{ 'bloqueado' if b.blocked else 'liberado' }}</span>{% endfor %}</div></section>
-      {% elif mode == 'media' %}
-        {% set st = evidence.get('supertag') or {} %}
-        <section class="section"><h2>Cadu Super Tag</h2><div class="f"><span class="dot {{ 'ok' if st.get('detected') else ('warn' if st.get('registered') else 'info') }}"></span><div><strong>{{ 'Instalada' if st.get('detected') else 'Não encontrada' }}</strong>
-          <p>{% if st.get('detected') %}{{ 'Injetada pelo Google Tag Manager' if st.get('via') == 'gtm' else 'No código da página' }}{% if st.get('site_label') %} · site "{{ st.site_label }}"{% endif %}{% elif st.get('registered') %}Cadastrada para este domínio ({{ st.get('site_label') }}), mas ausente da página.{% else %}A tag do Reports mede a jornada e as conversões deste site.{% endif %}</p></div></div></section>
-        <section class="section"><h2>Plataformas</h2>{% for p in evidence.get('platforms', []) %}<div class="f"><span class="dot {{ 'ok' if p.score >= 100 else ('warn' if p.score else 'info') }}"></span><div><strong>{{ p.name }} · {{ p.score }}%</strong>{% if p.missing %}<p>Falta: {{ p.missing|join(', ') }}</p>{% endif %}</div></div>{% endfor %}</section>
-        <section class="section"><h2>Tags detectadas</h2><div class="chips">{% for t in evidence.get('tags', []) %}<span class="chip {{ 'good' if t.detected }}">{{ t.name }}</span>{% endfor %}</div></section>
-        {% set conv = evidence.get('conversion') or {} %}{% set comp = evidence.get('compliance') or {} %}
-        <section class="section"><h2>Conversão e consentimento</h2><table class="t">
-          <tr><td>Formulários</td><td>{{ conv.get('forms', 0) }}</td></tr><tr><td>WhatsApp</td><td>{{ 'Sim' if conv.get('whatsapp') else 'Não' }}</td></tr><tr><td>Telefone</td><td>{{ 'Sim' if conv.get('phone') else 'Não' }}</td></tr>
-          <tr><td>Eventos</td><td>{{ (evidence.get('events') or [])|join(', ') or 'nenhum encontrado' }}</td></tr><tr><td>Aviso de cookies</td><td>{{ 'Sim' if comp.get('consent_detected') else 'Não' }}</td></tr><tr><td>Política de privacidade</td><td>{{ 'Sim' if comp.get('privacy_policy_detected') else 'Não' }}</td></tr>
-        </table></section>
-      {% else %}
-        <section class="section"><h2>Caminho do clique</h2>{% for r in evidence.get('redirects', []) %}<div class="f"><span class="dot {{ 'bad' if r.status >= 400 else ('warn' if r.status >= 300 else 'ok') }}"></span><div>HTTP {{ r.status }}<p>{{ r.url }}</p></div></div>{% endfor %}</section>
-        <section class="section"><h2>Página</h2><table class="t">
-          <tr><td>Resposta</td><td>HTTP {{ evidence.get('http_status') }} em {{ evidence.get('elapsed_ms') }} ms</td></tr><tr><td>HTTPS</td><td>{{ 'Válido' if (evidence.get('ssl') or {}).get('valid') else 'Não validado' }}</td></tr>
-          <tr><td>Título</td><td>{{ evidence.get('title') or '–' }}</td></tr><tr><td>Descrição</td><td>{{ evidence.get('description') or '–' }}</td></tr>
-          {% for k, v in (evidence.get('utm') or {}).items() %}<tr><td>{{ k }}</td><td>{{ v[0] if v else '' }}</td></tr>{% endfor %}
-        </table></section>
+      {% set ov = report.overview %}
+      {% if ov and ov['items'] %}
+      <section class="card map" aria-label="Mapa das seções"><h2>{% if ov.problems %}{{ ov.problems }} de {{ ov.total }} seções pedem atenção{% else %}As {{ ov.total }} seções estão em ordem{% endif %}</h2>
+        <div class="map-grid">{% for i in ov['items'] %}<a class="tile p-{{ i.tone }}" href="#{{ i.id }}"><span class="dot t-{{ i.tone }}"></span><span style="min-width:0"><b>{{ i.title }}</b>
+          {% if i.issues %}<small>{{ i.issues }} a corrigir</small>{% elif i.summary %}<small>{{ i.summary }}</small>{% endif %}</span></a>{% endfor %}</div></section>
       {% endif %}
 
-      {% set alerts = result.get('alerts') or [] %}
-      {% if alerts and mode != 'agentic' %}<section class="section"><h2>Pontos de atenção</h2><ul class="alerts">{% for alert in alerts %}<li>{{ alert }}</li>{% endfor %}</ul></section>{% endif %}
-    </article>
-    <p class="footer">Relatório compartilhado pelo Reports · {{ report.created_at.strftime('%d/%m/%Y %H:%M') if report.created_at.strftime is defined else report.created_at }}</p>
-  </main>
+      {% if report.screenshots.desktop or report.screenshots.mobile %}
+      <section class="card section" id="print"><div style="padding:18px 22px 0"><h2>Print da página</h2></div>
+        <div class="shots">{% if report.screenshots.desktop %}<figure class="d"><img src="{{ report.screenshots.desktop }}" alt="Print no desktop" loading="lazy"><figcaption>Desktop</figcaption></figure>{% endif %}
+          {% if report.screenshots.mobile %}<figure class="m"><img src="{{ report.screenshots.mobile }}" alt="Print no celular" loading="lazy"><figcaption>Celular</figcaption></figure>{% endif %}</div></section>
+      {% elif report.screenshots.note %}<p class="meta">{{ report.screenshots.note }}</p>{% endif %}
+
+      {% for s in report.sections %}
+      <details class="card section" id="{{ s.id }}" {{ 'open' if loop.index <= 4 or s.tone in ['bad', 'warn'] }}>
+        <summary><span class="dot t-{{ s.tone or 'info' }}"></span><div><h2>{{ s.title }}</h2>{% if s.summary %}<span class="sum">{{ s.summary }}</span>{% endif %}</div>
+          <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></summary>
+        <div class="content">{% for b in s.blocks %}{{ block(b, s.id, loop.index) }}{% endfor %}</div>
+      </details>
+      {% endfor %}
+    </main>
+    <p class="footer">Relatório compartilhado pelo Reports · Cadu. As informações refletem o momento do teste.</p>
+  </div>
 </body>
 </html>

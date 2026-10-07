@@ -71,9 +71,10 @@ def _studio_image_reference(context: RequestContext, resource: dict, request_id:
                             str(context.project_ref or "").removeprefix("ci:")))
             owned = cursor.fetchone()
         if owned:
-            payload = owned.get("file_bytes") or CreativeAssetStorage().read_public_bytes(
-                str(owned.get("file_path") or "")
-            )
+            # Production keeps only the size in file_bytes (bigint); the image is the file.
+            blob = owned.get("file_bytes")
+            payload = bytes(blob) if isinstance(blob, (bytes, bytearray, memoryview)) and blob else \
+                CreativeAssetStorage().read_public_bytes(str(owned.get("file_path") or ""))
     elif locator.startswith(("/static/uploads/creative_", "https://", "http://")):
         payload = CreativeAssetStorage().read_public_bytes(locator)
 

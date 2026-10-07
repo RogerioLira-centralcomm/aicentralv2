@@ -1540,6 +1540,11 @@ def obter_contatos_ativos_por_cliente(id_cliente):
 # ==================== CLIENTES - CRUD ====================
 
 def obter_cliente_por_id(id_cliente):
+    """Retorna um cliente específico com informações do plano e agência (uma leitura por GET)."""
+    return request_memo(('obter_cliente_por_id', id_cliente), lambda: _obter_cliente_por_id(id_cliente))
+
+
+def _obter_cliente_por_id(id_cliente):
     """Retorna um cliente específico com informações do plano e agência.
 
     Também inclui a nota-livre do executivo (`nota_executivo_vendas`) e o
@@ -6422,17 +6427,60 @@ def cancelar_invite(invite_id):
 # ligado ao banco real sem duplicar lógica em routes.
 
 _COLUMNS_FOUND = set()
+_COLUMNS_MISSING = {}
+_TABLES_FOUND = set()
+_TABLES_MISSING = {}
+# A missing column/table is re-checked after this many seconds, so a migration applied
+# while the process runs is seen without a restart; one that exists never disappears.
+_SCHEMA_MISSING_TTL = 600
+
+
+def table_exists(table_name, cur=None):
+    """True when ``public.<table_name>`` exists; cached per process (missing: for 10 min)."""
+    import time as _time
+    if table_name in _TABLES_FOUND:
+        return True
+    if _time.monotonic() - _TABLES_MISSING.get(table_name, -_SCHEMA_MISSING_TTL) < _SCHEMA_MISSING_TTL:
+        return False
+    if cur is None:
+        with get_db().cursor() as own:
+            own.execute("SELECT to_regclass(%s) IS NOT NULL AS available", (f"public.{table_name}",))
+            found = bool(own.fetchone()["available"])
+    else:
+        cur.execute("SELECT to_regclass(%s) IS NOT NULL AS available", (f"public.{table_name}",))
+        found = bool(cur.fetchone()["available"])
+    if found:
+        _TABLES_FOUND.add(table_name)
+    else:
+        _TABLES_MISSING[table_name] = _time.monotonic()
+    return found
+
+
+def request_memo(key, build):
+    """Reuse ``build()`` within one GET request (navbars ask for the same client/credit
+    several times per page); writes always read fresh. Callers get a copy."""
+    import copy
+    from flask import has_request_context, request
+    if not has_request_context() or request.method != 'GET':
+        return build()
+    store = g.__dict__.setdefault('_db_request_memo', {})
+    if key not in store:
+        store[key] = build()
+    return copy.deepcopy(store[key])
 
 
 def _has_column(cur, table_name, column_name):
     """Retorna True se `table_name.column_name` existir no schema atual.
 
-    Só o "existe" fica em cache no processo (coluna não some em runtime); o
-    "não existe" é reconsultado para enxergar migrações aplicadas depois.
+    O "existe" fica em cache no processo (coluna não some em runtime); o
+    "não existe" vale por 10 minutos, para enxergar migrações aplicadas depois.
     """
+    import time as _time
     key = (table_name, column_name)
     if key in _COLUMNS_FOUND:
         return True
+    if _time.monotonic() - _COLUMNS_MISSING.get(key, -_SCHEMA_MISSING_TTL) < _SCHEMA_MISSING_TTL:
+        return False
     cur.execute(
         """
         SELECT 1
@@ -6447,6 +6495,8 @@ def _has_column(cur, table_name, column_name):
     found = cur.fetchone() is not None
     if found:
         _COLUMNS_FOUND.add(key)
+    else:
+        _COLUMNS_MISSING[key] = _time.monotonic()
     return found
 
 

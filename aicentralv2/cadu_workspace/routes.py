@@ -774,9 +774,8 @@ def _workspace_onboarding_render(form: dict, *, error: str = '', organization: O
 def _dock_shortcuts_available() -> bool:
     """Allow the Workspace to keep rendering while the migration is rolling out."""
     try:
-        with get_db().cursor() as cursor:
-            cursor.execute("SELECT to_regclass('public.cadu_workspace_dock_shortcuts') AS relation")
-            return bool((cursor.fetchone() or {}).get('relation'))
+        from ..db import table_exists
+        return table_exists('cadu_workspace_dock_shortcuts')
     except Exception:
         # The dock is a progressive enhancement. A stale connection or a
         # partially applied migration must never take down the Workspace home.
@@ -1237,9 +1236,8 @@ _WORKSPACE_HOME_WIDGETS = ('resume', 'next', 'projects', 'brands', 'activity', '
 def _home_preferences_available() -> bool:
     """Keep the Home usable while its additive preference migration rolls out."""
     try:
-        with get_db().cursor() as cursor:
-            cursor.execute("SELECT to_regclass('public.cadu_workspace_home_preferences') AS relation")
-            return bool((cursor.fetchone() or {}).get('relation'))
+        from ..db import table_exists
+        return table_exists('cadu_workspace_home_preferences')
     except Exception:
         current_app.logger.warning('Preferências da Home indisponíveis; usando padrão', exc_info=True)
         return False
@@ -3872,15 +3870,14 @@ def _attach_project_identity(client_id: int, projects: list[dict], *, brands: Op
     project_images: dict[str, str] = {}
     try:
         project_ids = [str(project.get('id')) for project in projects if project.get('id')]
-        if project_ids:
+        if project_ids and _image_payload_condition() != 'FALSE':
             with get_db().cursor() as cursor:
                 cursor.execute(
                     """SELECT DISTINCT ON (projeto_id) projeto_id, id
                          FROM cadu_docs_client_images
                         WHERE id_cliente = %s AND ativo = true
                           AND projeto_id::text = ANY(%s::text[])
-                          AND file_bytes IS NOT NULL
-                          AND octet_length(file_bytes) > 0
+                          AND """ + _image_payload_condition() + """
                           AND LOWER(COALESCE(mime, '')) IN
                               ('image/jpeg', 'image/png', 'image/webp', 'image/gif')
                      ORDER BY projeto_id, created_at DESC""",
@@ -3891,7 +3888,10 @@ def _attach_project_identity(client_id: int, projects: list[dict], *, brands: Op
                     for row in cursor.fetchall()
                 }
     except Exception:
+        current_app.logger.warning('Capas de projeto indisponíveis', exc_info=True)
         project_images = {}
+        from ..db import recuperar_transacao_falha
+        recuperar_transacao_falha()  # a failed optional query must not break the rest of the page
     try:
         brands = _workspace_brands(client_id) if brands is None else brands
         brands_by_ref = {f"studio:{brand['id']}": brand for brand in brands}
@@ -4772,7 +4772,7 @@ def _workspace_project(client_id: int, project_id: str) -> Optional[dict]:
         with get_db().cursor() as cursor:
             cursor.execute(
                 """SELECT id, title, source, mime, file_path, created_at,
-                          (file_bytes IS NOT NULL AND octet_length(file_bytes) > 0
+                          (""" + _image_payload_condition() + """
                            AND LOWER(COALESCE(mime, '')) IN
                                ('image/jpeg', 'image/png', 'image/webp', 'image/gif')) AS has_preview
                      FROM cadu_docs_client_images
@@ -4793,6 +4793,8 @@ def _workspace_project(client_id: int, project_id: str) -> Optional[dict]:
                 ) if image.get('has_preview') else ''
     except Exception:
         project['images'] = []
+        from ..db import recuperar_transacao_falha
+        recuperar_transacao_falha()
     try:
         with get_db().cursor() as cursor:
             cursor.execute(
@@ -4869,6 +4871,36 @@ def _workspace_project(client_id: int, project_id: str) -> Optional[dict]:
         project['resources'], project['resource_summary'] = [], {}
         project['resource_registry_available'] = False
     return project
+
+
+_IMAGE_BYTES_ARE_BLOB = None
+
+
+def _image_payload_condition() -> str:
+    """SQL test for 'this project image has a servable payload', for either schema.
+
+    The repo stores the image in ``file_bytes`` (bytea); production keeps only its
+    size there (bigint) and the file on disk. ``octet_length`` on a bigint aborts
+    the request's transaction, so the column type decides the test.
+    """
+    global _IMAGE_BYTES_ARE_BLOB
+    if _IMAGE_BYTES_ARE_BLOB is None:
+        with get_db().cursor() as cursor:
+            cursor.execute("""SELECT data_type FROM information_schema.columns
+                               WHERE table_schema = current_schema() AND table_name = 'cadu_docs_client_images'
+                                 AND column_name = 'file_bytes'""")
+            row = cursor.fetchone()
+        _IMAGE_BYTES_ARE_BLOB = bool(row and row['data_type'] == 'bytea')
+    return 'file_bytes IS NOT NULL AND octet_length(file_bytes) > 0' if _IMAGE_BYTES_ARE_BLOB else 'FALSE'
+
+
+def _image_bytes(row) -> bytes | None:
+    """The image itself: the stored blob, or the file it points to (never the stored size)."""
+    content = (row or {}).get('file_bytes')
+    if isinstance(content, (bytes, bytearray, memoryview)):
+        return bytes(content) or None
+    from ..creative_modeling_storage import CreativeAssetStorage
+    return CreativeAssetStorage().read_public_bytes(str((row or {}).get('file_path') or '')) or None
 
 
 def _project_owned(client_id: int, project_id: str) -> bool:
@@ -7558,7 +7590,7 @@ def project_image(project_id, image_id):
     try:
         with get_db().cursor() as cursor:
             cursor.execute(
-                """SELECT file_bytes, mime, title
+                """SELECT file_bytes, file_path, mime, title
                      FROM cadu_docs_client_images
                     WHERE id = %s AND projeto_id = %s AND id_cliente = %s
                       AND ativo = true""",
@@ -7569,7 +7601,7 @@ def project_image(project_id, image_id):
         current_app.logger.exception('Não foi possível carregar a imagem %s do projeto %s', image_id, project_id)
         abort(404)
 
-    content = image.get('file_bytes') if image else None
+    content = _image_bytes(image) if image else None
     if not content:
         abort(404)
     mime = str(image.get('mime') or '').lower()

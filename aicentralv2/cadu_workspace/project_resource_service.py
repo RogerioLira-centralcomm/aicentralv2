@@ -53,8 +53,8 @@ def resource_id_for_source(client_id: int, project_ref: str, source_system: str,
 
 
 def _relation(cursor, table: str) -> bool:
-    cursor.execute("SELECT to_regclass(%s) IS NOT NULL AS available", (f"public.{table}",))
-    return bool(cursor.fetchone()["available"])
+    from ..db import table_exists
+    return table_exists(table, cursor)
 
 
 def _columns(cursor, table: str) -> set[str]:

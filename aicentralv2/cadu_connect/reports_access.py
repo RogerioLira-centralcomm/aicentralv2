@@ -77,8 +77,8 @@ def can_read_all(client_id,user_id=None):
     if user_id is None and has_request_context(): user_id=session.get('user_id')
     if not user_id:return False
     with get_db().cursor() as cursor:
-        cursor.execute("SELECT to_regclass('public.cadu_reports_client_memberships') IS NOT NULL AS ready")
-        if not cursor.fetchone()['ready']:return False
+        from ..db import table_exists
+        if not table_exists('cadu_reports_client_memberships', cursor):return False
         cursor.execute('''SELECT 1 FROM cadu_reports_client_memberships m
             JOIN tbl_contato_cliente u ON u.id_contato_cliente=m.user_id AND u.status=TRUE
             JOIN tbl_cliente c ON c.id_cliente=m.client_id AND c.status=TRUE

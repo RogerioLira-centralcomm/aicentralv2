@@ -328,6 +328,12 @@ def update_managed_skill(slug: str, payload: dict, user_id: int) -> bool:
 
 
 def credit_position(client_id: int) -> dict:
+    """Saldo de tokens dos shells CADU, lido uma vez por GET (navbar e página pedem o mesmo)."""
+    from ..db import request_memo
+    return request_memo(('credit_position', int(client_id or 0)), lambda: _credit_position(client_id))
+
+
+def _credit_position(client_id: int) -> dict:
     """Saldo compartilhado de tokens exibido nos shells CADU.
 
     O Chat de Famílias e as ferramentas internas consomem os mesmos lotes em

@@ -76,3 +76,10 @@
 
 /* The full-bleed hero uses 50vw margins, which include the scrollbar width: clip so the page never scrolls sideways. */
 .planner-shell:has(.rh) { overflow-x: clip; }
+
+.rh-empty { max-width: 720px; }
+.rh-empty:not(:has(img)) { padding: 20px 22px; border: 1px dashed var(--rh-line); border-radius: 14px; background: #f9fafb; }
+.rh-card footer { flex-wrap: wrap; }
+.rh-card__source { flex: 1 1 140px; }
+.rh-card__source small { overflow: hidden; text-overflow: ellipsis; }
+.rh-card__source > :not(i):not(small) { min-width: 0; }

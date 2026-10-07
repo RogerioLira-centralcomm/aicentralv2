@@ -75,7 +75,8 @@ function App({boot}) {
   })();
 
   // The plan travels with the person: every screen but a plan's own page, the public views and the creation wizard.
-  const showDock = !publicView && !creating && boot.view !== 'plan-detail';
+  // O Radar não alimenta o plano em andamento (cada ângulo abre um plano próprio), então o dock fica fora dele.
+  const showDock = !publicView && !creating && boot.view !== 'plan-detail' && !['radar', 'radares'].includes(boot.module);
   const active = creating ? 'novo-plano' : boot.module;
   return <div className={`planner-shell${publicView ? ' is-public' : ''}`}>
     {!publicView && <PlannerNav boot={boot} request={request} active={active}/>}

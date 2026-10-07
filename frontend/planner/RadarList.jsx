@@ -16,7 +16,7 @@ const frequencyLabel = value => FREQUENCIES.find(([id]) => id === value)?.slice(
  * "Meus radares": os radares ativos (buscas que se repetem sozinhas) e o histórico de consultas.
  * Fica separada do "Novo radar" de propósito: aqui só se lê e se gerencia, ali se cria.
  */
-export function RadarListPage({boot, request, notify, embedded = false}) {
+export function RadarListPage({boot, request, notify, embedded = false, firstUse = false}) {
   const enabled = Boolean(boot.features?.radar);
   const [watches, setWatches] = useState(null);
   const [runs, setRuns] = useState(null);
@@ -65,7 +65,7 @@ export function RadarListPage({boot, request, notify, embedded = false}) {
     <section className="radar-list" aria-labelledby="radar-watches-title">
       <h2 id="radar-watches-title">Radares ativos<span>{(watches || []).filter(watch => watch.status === 'ativo').length}</span></h2>
       {loading ? <p className="planner-muted">Carregando…</p> : watches.length === 0 ? <div className={embedded ? 'rh-empty' : 'radar-empty-result'}>
-        {embedded ? <img src="/static/images/planner/radar-empty-v1.webp" alt="" loading="lazy"/> : <Illustration slot="radar-empty"/>}
+        {embedded ? (firstUse && <img src="/static/images/planner/radar-empty-v1.webp" alt="" loading="lazy"/>) : <Illustration slot="radar-empty"/>}
         <div><strong>Você ainda não tem radares ativos.</strong>
           <p className="planner-muted">Monte uma busca em &quot;Novo radar&quot; e ligue &quot;Me avise quando houver novidade&quot;. O Radar repete a busca de 1 a 3 vezes por dia.</p>
           <CaduButton size="sm" href={newUrl}>Criar o primeiro radar</CaduButton></div>
@@ -91,7 +91,7 @@ export function RadarListPage({boot, request, notify, embedded = false}) {
       </ul>}
     </section>
 
-    <section className="radar-list" aria-labelledby="radar-runs-title">
+    {!embedded && <section className="radar-list" aria-labelledby="radar-runs-title">
       <h2 id="radar-runs-title">Consultas realizadas<span>{(runs || []).length}</span></h2>
       {loading ? null : runs.length === 0 ? <p className="planner-muted">Nenhuma consulta ainda. As buscas que você fizer aparecem aqui, com o que acharam e o que custaram.</p> : <div className="radar-runs" role="table" aria-label="Consultas realizadas">
         <div className="radar-runs__head" role="row"><span>Quando</span><span>Tema</span><span>Resultado</span><span>Custo</span><span/></div>
@@ -108,6 +108,6 @@ export function RadarListPage({boot, request, notify, embedded = false}) {
           </a>;
         })}
       </div>}
-    </section>
+    </section>}
   </>;
 }

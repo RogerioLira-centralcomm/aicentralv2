@@ -143,7 +143,7 @@ export function RadarHub({boot, request, notify}) {
       </div>
 
       {tab === 'radares' ? <div className="rh-embedded">
-          <RadarListPage boot={boot} request={request} notify={notify} embedded/>
+          <RadarListPage boot={boot} request={request} notify={notify} embedded firstUse={data !== null && (data.items || []).length === 0}/>
           {highlights.length > 0 && <section className="rh-highlights" aria-labelledby="rh-highlights-title">
             <h2 id="rh-highlights-title">Em alta nos seus radares<button type="button" onClick={() => setTab('alta')}>Ver tudo</button></h2>
             <div className="rh-grid">{highlights.map(item => <NewsCard key={item.id} item={item} onSave={save} onPlan={plan} planning={planning}/>)}</div>
@@ -166,8 +166,8 @@ export function RadarHub({boot, request, notify}) {
             </>}
           </aside>
           <div className="rh-main">
-            {loading ? <p className="planner-muted">Carregando…</p> : visible.length === 0 ? <div className="radar-empty-result">
-              <Illustration slot="radar-empty"/>
+            {loading ? <p className="planner-muted">Carregando…</p> : visible.length === 0 ? <div className={(data.items || []).length ? 'radar-empty-result' : 'rh-empty'}>
+              {(data.items || []).length ? <Illustration slot="radar-empty"/> : <img src="/static/images/planner/radar-empty-v1.webp" alt="" loading="lazy"/>}
               <div><strong>{tab === 'salvos' ? 'Nada salvo ainda.' : (data.items || []).length ? 'Nada com esses filtros.' : 'Seus radares ainda não trouxeram resultados.'}</strong>
                 <p className="planner-muted">{tab === 'salvos' ? 'Use o marcador de um card para guardar o que vale revisitar.' : (data.items || []).length ? 'Mude o tema, a fonte ou o período.' : 'Monte um radar com um tema ou uma marca. Cada busca traz notícias com data recente e link que abre, e os ângulos para virar plano.'}</p>
                 {boot.features?.radar && !(data.items || []).length && <CaduButton size="sm" href={newUrl}>Criar o primeiro radar</CaduButton>}

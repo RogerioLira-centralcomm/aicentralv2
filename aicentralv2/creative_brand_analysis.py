@@ -1670,10 +1670,17 @@ def _website_response_error(raw):
     return None
 
 
-def _text(value, limit):
+def _plain_text(value):
+    """Texto legível de um campo que o modelo pode devolver como objeto ou lista de objetos com evidência."""
     if isinstance(value, dict):
-        value = value.get("value") or value.get("text") or value.get("name") or value.get("title") or ""
-    value = str(value or "").strip()
+        return _plain_text(value.get("value") or value.get("text") or value.get("name") or value.get("title") or "")
+    if isinstance(value, (list, tuple)):
+        return " ".join(part for part in (_plain_text(item) for item in value) if part)
+    return str(value or "").strip()
+
+
+def _text(value, limit):
+    value = _plain_text(value)
     return value[:limit] or None
 
 

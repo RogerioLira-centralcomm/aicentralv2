@@ -1052,3 +1052,13 @@ body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__scope > labe
 body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__footer { padding:12px 0 0; border-top:1px solid var(--cadu-line); }
 body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__column > header span { font-size:12px; }
 body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-uploads { min-height:0; justify-items:start; }
+
+/* O resumo do hero é só uma prévia; o texto completo fica em "Essência da marca". */
+body.portal--workspace .cadu-ds-brand-hero__copy > span {
+  display:-webkit-box;
+  max-width:70ch;
+  overflow:hidden;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:3;
+}
+body.portal--workspace .cadu-ds-brand-direction__lead p { max-width:70ch; }

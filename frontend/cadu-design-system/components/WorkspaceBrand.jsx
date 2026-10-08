@@ -52,8 +52,8 @@ function AuditCelebration({brand, logoUrl}) {
 }
 
 function FilledReading({items, emptyLabel = 'Adicione contexto para orientar as próximas decisões.'}) {
-  const filled = items.filter(item => item.value && (!Array.isArray(item.value) || item.value.length));
-  return filled.length ? <div className="cadu-ds-brand-reading cadu-ds-brand-reading--direction">{filled.map(item => { const evidence = enrichedField(item.value); const parts = asList(evidence ? evidence.value : item.value).map(value => String(value).trim()).filter(Boolean); const isLong = parts.length > 1 || parts[0]?.length > 180; return <article key={item.label} className={isLong ? 'is-long' : ''}><small>{item.label}</small>{parts.length > 1 ? <div className="cadu-ds-brand-readable-copy">{parts.map((part, index) => <p key={`${item.label}-${index}`}>{part}</p>)}</div> : <b>{parts[0]}</b>}{evidence?.source_url && <a href={evidence.source_url} target="_blank" rel="noreferrer" className="cadu-ds-brand-field-source">Fonte</a>}</article>; })}</div> : <div className="cadu-ds-brand-reading-empty">{emptyLabel}</div>;
+  const filled = items.filter(item => plainParts(item.value).length);
+  return filled.length ? <div className="cadu-ds-brand-reading cadu-ds-brand-reading--direction">{filled.map(item => { const evidence = enrichedField(item.value); const parts = plainParts(evidence ? evidence.value : item.value); const isLong = parts.length > 1 || parts[0]?.length > 180; return <article key={item.label} className={isLong ? 'is-long' : ''}><small>{item.label}</small>{parts.length > 1 ? <div className="cadu-ds-brand-readable-copy">{parts.map((part, index) => <p key={`${item.label}-${index}`}>{part}</p>)}</div> : <b>{parts[0]}</b>}{evidence?.source_url && <a href={evidence.source_url} target="_blank" rel="noreferrer" className="cadu-ds-brand-field-source">Fonte</a>}</article>; })}</div> : <div className="cadu-ds-brand-reading-empty">{emptyLabel}</div>;
 }
 
 function BrandDialog({title, detail, onClose, children, className = '', confirm = false}) {
@@ -441,6 +441,28 @@ const readableBrandValue = value => {
   if (value && typeof value === 'object') return Object.values(value).map(readableBrandValue).filter(Boolean).join(' / ');
   return String(value ?? '');
 };
+const legacyStringFields = (raw, key) => {
+  const found = [];
+  const pattern = new RegExp(`["']${key}["']\\s*:`, 'g');
+  for (let match = pattern.exec(raw); match; match = pattern.exec(raw)) {
+    const text = legacyStringField(raw.slice(match.index), key);
+    if (text) found.push(text);
+    pattern.lastIndex = match.index + match[0].length + text.length;
+  }
+  return found;
+};
+// Campos de texto da marca chegam como texto, objeto, lista de objetos com evidência (JSON ou repr do Python).
+// Devolve só os trechos legíveis, sem fonte, trecho citado nem confiança.
+const plainParts = value => {
+  if (value == null || value === '') return [];
+  if (Array.isArray(value)) return value.flatMap(plainParts);
+  if (typeof value === 'object') return plainParts(value.value ?? value.text ?? value.name ?? value.title ?? '');
+  const text = String(value).trim();
+  if (!/^[\[{]/.test(text)) return text ? [text] : [];
+  try { return plainParts(JSON.parse(text)); } catch (_) { /* repr do Python, com aspas simples */ }
+  return legacyStringFields(text, 'value').map(part => part.trim()).filter(Boolean);
+};
+const plainText = value => plainParts(value).join(' ');
 const normalizedUrl = value => { try { const url = new URL(String(value || '')); return `${url.hostname.replace(/^www\./, '').toLowerCase()}${url.pathname.replace(/\/$/, '')}`; } catch (_) { return String(value || '').split('?', 1)[0].replace(/\/$/, '').toLowerCase(); } };
 const uniqueSources = sources => [...new Map(asList(sources).filter(Boolean).map(source => {
   const item = typeof source === 'string' ? {url:source} : {...source, url:source.url || source.source_url || source.href};
@@ -453,7 +475,7 @@ const normalizeFonts = fonts => {
 };
 
 function ListBlock({title, items}) {
-  const list = asList(items);
+  const list = asList(items).flatMap(item => typeof item === 'string' && /^\s*\[/.test(item) ? plainParts(item) : [item]);
   if (!list.length) return null;
   const hidden = new Set(['source_url', 'url', 'confidence']);
   const fieldNames = {needs:'Necessidades',context:'Contexto',rationale:'Justificativa',evidence:'Evidência',excerpt:'Trecho',relationship:'Relação',market:'Mercado',barriers:'Barreiras',channels:'Canais',status:'Status',role:'Papel',usage:'Uso',family:'Família'};
@@ -505,6 +527,7 @@ export function WorkspaceBrand({bootstrap}) {
   const [reviewTitle, reviewDescription] = reviewCopy(brand);
   const canEdit = Boolean(bootstrap.canManageBrand);
   const profile = brand.profile || {};
+  const brandSummary = plainText(profile.brandSummary) || plainText(profile.positioning);
   const colors = profile.colorPalette || [];
   const productPalettes = profile.productPalettes || {};
   const fonts = normalizeFonts(profile.fonts || []);
@@ -614,7 +637,7 @@ export function WorkspaceBrand({bootstrap}) {
           </SidebarNavGroup>}
         </EntityNavigator>}
         <section className="cadu-ds-brand-content">
-          <header className="cadu-ds-brand-hero cadu-ds-entity-detail-header" id="marca-visao"><div className="cadu-ds-brand-hero__identity"><VisualIdentity src={brand.logoUrl} initials={brand.initials || brand.name} label={brand.name} color={brand.color || colors[0]?.hex}/></div><div className="cadu-ds-brand-hero__copy"><p>{brand.sector || 'Marca'}</p><h1>{brand.name}</h1>{!isProcessing && (profile.brandSummary || profile.positioning) && <span>{profile.brandSummary || profile.positioning}</span>}<div className="cadu-ds-brand-hero__meta"><span className={`cadu-ds-brand-status is-${lifecycle}`}>{lifecycle === 'approved' ? 'Pronta para uso' : lifecycle === 'pending_approval' ? 'Revisão pendente' : lifecycle === 'audit_processing' ? 'Em análise' : lifecycle === 'audit_failed' ? 'Análise não concluída' : lifecycle === 'data_available' ? 'Base disponível' : auditHistory.length ? 'Análise sem dados suficientes' : 'Sem auditoria'}</span>{brand.websiteUrl && <a href={brand.websiteUrl} target="_blank" rel="noreferrer">Site oficial</a>}</div></div></header>
+          <header className="cadu-ds-brand-hero cadu-ds-entity-detail-header" id="marca-visao"><div className="cadu-ds-brand-hero__identity"><VisualIdentity src={brand.logoUrl} initials={brand.initials || brand.name} label={brand.name} color={brand.color || colors[0]?.hex}/></div><div className="cadu-ds-brand-hero__copy"><p>{brand.sector || 'Marca'}</p><h1>{brand.name}</h1>{!isProcessing && brandSummary && <span>{brandSummary}</span>}<div className="cadu-ds-brand-hero__meta"><span className={`cadu-ds-brand-status is-${lifecycle}`}>{lifecycle === 'approved' ? 'Pronta para uso' : lifecycle === 'pending_approval' ? 'Revisão pendente' : lifecycle === 'audit_processing' ? 'Em análise' : lifecycle === 'audit_failed' ? 'Análise não concluída' : lifecycle === 'data_available' ? 'Base disponível' : auditHistory.length ? 'Análise sem dados suficientes' : 'Sem auditoria'}</span>{brand.websiteUrl && <a href={brand.websiteUrl} target="_blank" rel="noreferrer">Site oficial</a>}</div></div></header>
           {isProcessing ? <BrandState type="processing" brand={brand} logoUrl={auditLogoUrl} progress={auditProgress}/> : <>{lifecycle !== 'insufficient_information' && <BrandCompletion score={readinessScore} missing={brand.readiness?.missing || []} breakdown={brand.readiness?.breakdown || []} processing={false} onAudit={() => setDialog('audit')} onEdit={() => setDialog('identity')}/>}
           {showDossier && <section className={`cadu-ds-brand-review cadu-ds-brand-review--${status || 'idle'}`}><div><p>Estado da base</p><h2>{reviewTitle}</h2><span>{reviewDescription}</span>{canShowSynthesis && <CaduButton variant="secondary" type="button" onClick={() => setDialog('reviews')}>Consultar síntese da análise</CaduButton>}</div></section>}
           {lifecycle === 'insufficient_information' && <BrandState type="new" hasHistory={auditHistory.length > 0} brand={brand} canEdit={canEdit} onAudit={() => setDialog('audit')} onIdentity={() => setDialog('identity')}/>}
@@ -627,7 +650,7 @@ export function WorkspaceBrand({bootstrap}) {
           />}
           {showDossier ? <><header className="cadu-ds-brand-data-viewer__header"><span>Dossiê da marca</span><h2>Informações para orientar o trabalho</h2><p>Consulte direção, público, ativos e fontes nas seções abaixo.</p></header><div className="cadu-ds-brand-layout cadu-ds-brand-data-viewer">
             <div className="cadu-ds-brand-layout__main">
-              <section className="cadu-ds-brand-section cadu-ds-brand-direction" id="direcao"><header><div><p>Direção da marca</p><h2>O que deve orientar cada entrega</h2><span>Uma síntese operacional do que a marca comunica, para quem e com quais diferenciais.</span></div><CaduButton variant="secondary" type="button" onClick={openConversation}>Atualizar com o Cadu</CaduButton></header><div className="cadu-ds-brand-direction__lead"><small>Essência da marca</small><p>{profile.brandSummary || profile.positioning}</p></div><FilledReading items={[{label:'Público', value:profile.targetAudience},{label:'Oferta', value:profile.productsServices},{label:'Tom', value:profile.toneOfVoice},{label:'Diferenciais', value:profile.differentiators},{label:'Direção criativa', value:profile.creativeGuidelines}]}/></section>
+              <section className="cadu-ds-brand-section cadu-ds-brand-direction" id="direcao"><header><div><p>Direção da marca</p><h2>O que deve orientar cada entrega</h2><span>Uma síntese operacional do que a marca comunica, para quem e com quais diferenciais.</span></div><CaduButton variant="secondary" type="button" onClick={openConversation}>Atualizar com o Cadu</CaduButton></header>{brandSummary && <div className="cadu-ds-brand-direction__lead"><small>Essência da marca</small><p>{brandSummary}</p></div>}<FilledReading items={[{label:'Público', value:profile.targetAudience},{label:'Oferta', value:profile.productsServices},{label:'Tom', value:profile.toneOfVoice},{label:'Diferenciais', value:profile.differentiators},{label:'Direção criativa', value:profile.creativeGuidelines}]}/></section>
               <CampaignSection campaigns={campaigns} urls={urls} csrfToken={bootstrap.csrf} canManageBrand={canEdit}/>
               {atlasHasContent && <AuditAtlas profile={profile} verified={verified}/>}
               <AuditScreenshot metadata={brand.analysisMetadata || {}}/>

@@ -181,7 +181,7 @@ def _decorate_item_logos(items):
         elif kind == 'audiencias':
             item['logo'] = repository.platform_logo_by_name(snapshot.get('channel') or snapshot.get('platform'))
         elif kind == 'portais' and snapshot.get('domain'):
-            item['logo'] = f"https://{snapshot['domain']}/favicon.ico"
+            item['logo'] = snapshot.get('favicon_url') or f"https://www.google.com/s2/favicons?domain={snapshot['domain']}&sz=64"
         else:
             item['logo'] = ''
     return items

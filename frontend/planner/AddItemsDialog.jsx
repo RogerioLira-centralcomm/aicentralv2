@@ -19,7 +19,7 @@ function pathFor(kind, query) {
 
 function logoFor(kind, item) {
   if (kind === 'canais') return item.logo_path || item.logo_url || '';
-  if (kind === 'portais') return item.domain ? `https://${item.domain}/favicon.ico` : '';
+  if (kind === 'portais') return item.favicon_url || (item.domain ? `https://www.google.com/s2/favicons?domain=${item.domain}&sz=64` : '');
   return item.platform_logo || '';
 }
 

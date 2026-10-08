@@ -143,7 +143,38 @@ V1_5 = {
         'Marca: {brand_name}\nSite: {site}\nSetor: {sector}\nJá consta no perfil: {known}'),
 }
 
-VERSIONS = {'1.0': V1_0, '1.5': V1_5}
+# Versão 1.6 (só no Lab até ser medida): cada ângulo diz o que permite fazer. Mídia (há espaço a comprar), conteúdo (há
+# assunto para a marca falar) ou inteligência (serve para decidir). Mídia só escolhe canais do catálogo recebido.
+V1_6 = {
+    'buzz': V1_5['buzz'],
+    'angles': (
+        'Hoje é {today}. Você é estrategista de uma agência de mídia no Brasil. Recebe o conceito, a marca, uma lista de '
+        'assuntos em buzz (ids B1, B2…) e o CATÁLOGO de canais de mídia que a agência vende (ids C1, C2…). Proponha de 3 a 5 '
+        'ÂNGULOS e classifique cada um em UM tipo:\n'
+        '- "midia": existe um momento, um público ou uma praça em que vale a marca COMPRAR espaço agora. Escolha de 1 a 4 '
+        'canais SOMENTE do catálogo (pelo id) e diga, para cada um, o formato e por que ele serve.\n'
+        '- "conteudo": existe assunto para a marca FALAR (pauta), mas comprar mídia não é o centro. Descreva a pauta para um '
+        'redator produzir.\n'
+        '- "inteligencia": serve para a marca DECIDIR (concorrente, regulação, preço, data do calendário). Não invente mídia '
+        'nem conteúdo para isso.\n'
+        'Eventos: decida pelo que eles permitem (audiência para comprar = midia; assunto = conteudo; só saber = inteligencia). '
+        'Concorrência é inteligência, salvo ação de mídia clara (defesa de marca, busca pelo nome do concorrente), que você '
+        'justifica. Não force: se nada pede mídia, não haverá ângulo de mídia.\n'
+        'Todo ângulo tem: tipo; por_que_o_tipo (1 frase); título curto; gancho (1 ou 2 frases que o planejador leva ao '
+        'cliente); por que agora (liga a um buzz da lista); janela (até quando vale) e os ids dos buzz que o sustentam.\n'
+        'Só para "midia": objetivo (um de: awareness, consideracao, leads, vendas, trafego); publico; pracas; periodo '
+        '(inicio e fim, AAAA-MM-DD, a partir de hoje); mensagem; canais [{{"id": "C…", "formato": "...", "por_que": "..."}}].\n'
+        'Só para "conteudo": tema; mensagem; formatos (ex.: artigo, carrossel, vídeo curto, newsletter); tom.\n'
+        'Só para "inteligencia": impacto (o que muda para a marca); observar (o que acompanhar daqui em diante).\n'
+        'Seja específico para ESTA marca. Nenhum fato fora da lista. Nos textos, NUNCA cite os ids (B1, C1…): fale pelo nome. '
+        'Responda só JSON: {{"angulos": [{{"tipo": "midia|conteudo|inteligencia", "por_que_o_tipo": "...", "titulo": "...", '
+        '"gancho": "...", "por_que_agora": "...", "janela": "...", "buzz": ["B1"], "objetivo": "...", "publico": "...", '
+        '"pracas": "...", "periodo": {{"inicio": "AAAA-MM-DD", "fim": "AAAA-MM-DD"}}, "mensagem": "...", "canais": [], '
+        '"tema": "...", "formatos": [], "tom": "...", "impacto": "...", "observar": "..."}}]}}',
+        '{payload}'),
+}
+
+VERSIONS = {'1.0': V1_0, '1.5': V1_5, '1.6': V1_6}
 # Prompts que o médico de prompts pode reescrever. A descoberta fica fora: assim a versão nova roda sobre as
 # mesmas evidências da anterior e a comparação mede só o efeito do prompt.
 EDITABLE = ('judge', 'revise', 'reality_check', 'verify')

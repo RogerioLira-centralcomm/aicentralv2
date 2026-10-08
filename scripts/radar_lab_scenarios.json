@@ -6,10 +6,17 @@
     "brand_name": "Cemig",
     "sector": "Energia elétrica",
     "site": "https://www.cemig.com.br",
-    "facts": ["Distribuidora e geradora de energia de Minas Gerais", "Clientes residenciais, empresas e rural"],
+    "facts": [
+      "Distribuidora e geradora de energia de Minas Gerais",
+      "Clientes residenciais, empresas e rural"
+    ],
     "focus": "conta de luz, bandeira tarifária, calor e consumo consciente no fim do ano",
     "places": "Minas Gerais, Belo Horizonte",
-    "lenses": ["Sazonalidade e datas", "Regulação", "Reputação"],
+    "lenses": [
+      "Sazonalidade e datas",
+      "Regulação",
+      "Reputação"
+    ],
     "recency_days": 30
   },
   {
@@ -18,10 +25,16 @@
     "brand_name": "Nike",
     "sector": "Artigos esportivos",
     "site": "https://www.nike.com.br",
-    "facts": ["Marca global de calçados e roupas esportivas"],
+    "facts": [
+      "Marca global de calçados e roupas esportivas"
+    ],
     "focus": "corrida de rua, provas de fim de ano e São Silvestre",
     "places": "São Paulo, Rio de Janeiro",
-    "lenses": ["Tendências e cultura", "Concorrência", "Sazonalidade e datas"],
+    "lenses": [
+      "Tendências e cultura",
+      "Concorrência",
+      "Sazonalidade e datas"
+    ],
     "recency_days": 30
   },
   {
@@ -29,10 +42,32 @@
     "brand_ref": "studio:52",
     "brand_name": "Bomfim Cargas",
     "sector": "Transporte e logística de cargas",
-    "facts": ["Transportadora rodoviária de cargas"],
+    "facts": [
+      "Transportadora rodoviária de cargas"
+    ],
     "focus": "pico logístico de Black Friday e Natal, frete e estradas",
     "places": "Minas Gerais, São Paulo",
-    "lenses": ["Sazonalidade e datas", "Lançamentos do setor", "Regulação"],
+    "lenses": [
+      "Sazonalidade e datas",
+      "Lançamentos do setor",
+      "Regulação"
+    ],
+    "recency_days": 30
+  },
+  {
+    "name": "nike-concorrencia",
+    "brand_ref": "studio:50",
+    "brand_name": "Nike",
+    "sector": "Artigos esportivos",
+    "site": "https://www.nike.com.br",
+    "facts": [
+      "Marca global de calçados e roupas esportivas"
+    ],
+    "focus": "lançamentos e campanhas de tênis de corrida da Adidas, Asics, Olympikus e Mizuno",
+    "places": "Brasil",
+    "lenses": [
+      "Concorrência"
+    ],
     "recency_days": 30
   }
 ]

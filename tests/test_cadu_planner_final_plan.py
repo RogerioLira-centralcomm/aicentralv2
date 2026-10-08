@@ -167,3 +167,69 @@ def test_generate_charges_each_response_retries_bad_json_and_keeps_edits(monkeyp
     assert Provider.calls == 2 and len(Credits.charges) == 2 and state['charged_tokens'] == 20
     assert inserted['edited'] == ['visao'] and inserted['origin'] == 'generated'
     assert next(s for s in inserted['document']['sections'] if s['key'] == 'visao')['body'] == 'Minha visão.'
+
+
+def test_update_section_inserts_edited_version_keeping_source_hash(monkeypatch):
+    previous = {'document': {'sections': [{'key': 'visao', 'title': 'Visão e objetivo', 'body': 'antes'}]},
+                'edited_sections': [], 'source_hash': 'abc', 'plan_revision': 3}
+    inserted = {}
+    monkeypatch.setattr(final_plan, '_require_available', lambda: None)
+    monkeypatch.setattr(final_plan, '_context', lambda *a: (plan(), {}))
+    monkeypatch.setattr(final_plan, '_latest', lambda _p: previous)
+    monkeypatch.setattr(final_plan, '_insert_version', lambda p, **kw: inserted.update(kw))
+    monkeypatch.setattr(final_plan, 'get_state', lambda *a: {'exists': True})
+    final_plan.update_section(1, 2, 'p1', 'visao', 'depois', expected_version=5)
+    assert inserted['origin'] == 'edited' and inserted['edited'] == ['visao']
+    assert inserted['source_hash'] == 'abc' and inserted['plan_revision'] == 3 and inserted['expected_version'] == 5
+    assert inserted['document']['sections'][0]['body'] == 'depois'
+
+
+class _Cursor:
+    def __init__(self, log):
+        self.log = log
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def execute(self, sql, params=()):
+        self.log.append((sql, params))
+
+
+class _Conn(_Cursor):
+    def cursor(self):
+        return _Cursor(self.log)
+
+
+@pytest.mark.parametrize('rotate', [False, True])
+def test_set_share_rotates_token_only_when_asked(monkeypatch, rotate):
+    log = []
+    monkeypatch.setattr(final_plan, '_require_available', lambda: None)
+    monkeypatch.setattr(final_plan, '_latest', lambda _p: {'id': 'v1'})
+    monkeypatch.setattr(final_plan, 'get_state', lambda *a: {})
+    monkeypatch.setattr('aicentralv2.cadu_planner.plans.get_plan', lambda *a: {'id': 'p1'})
+    monkeypatch.setattr('aicentralv2.db.get_db', lambda: _Conn(log))
+    final_plan.set_share(1, 2, 'p1', True, rotate=rotate)
+    sql, params = log[0]
+    assert 'CASE WHEN %s THEN EXCLUDED.share_token' in sql
+    assert params[-1] is rotate and params[2] is True
+
+
+def test_mcp_final_plan_call_turns_credit_and_http_errors_into_tool_input_errors():
+    from werkzeug.exceptions import Conflict
+    from aicentralv2.cadu_tool_billing import InsufficientToolCredits
+    from aicentralv2.cadu_workspace.mcp.registry import ToolInputError
+    from aicentralv2.cadu_workspace.mcp.tools.planner import _final_plan_call
+
+    def raising(error):
+        def call():
+            raise error
+        return call
+
+    with pytest.raises(ToolInputError):
+        _final_plan_call(raising(InsufficientToolCredits('Créditos insuficientes.')))
+    with pytest.raises(ToolInputError):
+        _final_plan_call(raising(Conflict('mudou')))
+    assert _final_plan_call(lambda: {'ok': 1}) == {'ok': 1}

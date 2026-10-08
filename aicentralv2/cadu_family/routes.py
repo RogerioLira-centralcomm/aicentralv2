@@ -1177,7 +1177,8 @@ def planner_final_plan_share(plan_id):
     selected = writable_context()
     user = context.identity()
     body = request.get_json(silent=True) or {}
-    return jsonify(final_plan=final_plan.set_share(selected['client_id'], user['id'], plan_id, bool(body.get('enabled'))))
+    return jsonify(final_plan=final_plan.set_share(selected['client_id'], user['id'], plan_id, bool(body.get('enabled')),
+                                                    rotate=bool(body.get('rotate'))))
 
 
 @bp.post('/api/planner/plans/<plan_id>/final-plan/project')

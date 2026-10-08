@@ -112,12 +112,13 @@ export function FinalPlanPanel({boot, request, plan, notify}) {
     return true;
   });
   const publicUrl = token => new URL(`/planos/public/final/${token}`, boot.urls.home).href;
-  const toggleShare = enabled => run('share', async () => {
-    const data = await request(`/plans/${planId}/final-plan/share`, {method: 'POST', body: JSON.stringify({enabled})});
+  const toggleShare = (enabled, rotate = false) => run('share', async () => {
+    if (rotate && !window.confirm('Criar um novo link? O link atual deixa de funcionar para quem já o recebeu.')) return;
+    const data = await request(`/plans/${planId}/final-plan/share`, {method: 'POST', body: JSON.stringify({enabled, rotate})});
     setState(data.final_plan);
     if (enabled && data.final_plan?.share_token) {
       await navigator.clipboard?.writeText(publicUrl(data.final_plan.share_token));
-      notify({message: 'Link público ativado e copiado. Quem tiver o link vê a versão atual, sem login.'});
+      notify({message: rotate ? 'Novo link criado e copiado. O anterior não funciona mais.' : 'Link público ativado e copiado. Quem tiver o link vê a versão atual, sem login.'});
     } else notify({message: 'Link público desativado.'});
   });
   const copyLink = () => run('copy', async () => {
@@ -144,6 +145,7 @@ export function FinalPlanPanel({boot, request, plan, notify}) {
       <CaduButton loading={busy === 'generate'} onClick={generate}>{exists ? 'Gerar nova versão' : 'Gerar plano final'}</CaduButton>
       {exists && (state.share_enabled
         ? <><CaduButton variant="secondary" loading={busy === 'copy'} onClick={copyLink}><Icon name="link" size={16}/>Copiar link</CaduButton>
+          <CaduButton variant="tertiary" loading={busy === 'share'} onClick={() => toggleShare(true, true)}>Criar novo link</CaduButton>
           <CaduButton variant="tertiary" loading={busy === 'share'} onClick={() => toggleShare(false)}>Desativar link</CaduButton></>
         : <CaduButton variant="secondary" loading={busy === 'share'} onClick={() => toggleShare(true)}><Icon name="link" size={16}/>Ativar link público</CaduButton>)}
       {exists && <CaduButton variant="secondary" loading={busy === 'project'} disabled={!String(plan.project_ref || '').startsWith('ci:')}

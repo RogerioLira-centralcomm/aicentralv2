@@ -378,10 +378,13 @@ def _final_plan_result(state: dict, plan_id: str) -> dict:
 
 
 def _final_plan_call(call):
+    from ....cadu_tool_billing import InsufficientToolCredits
     try:
         return call()
     except HTTPException as exc:
         raise ToolInputError(str(exc.description)) from exc
+    except InsufficientToolCredits as exc:
+        raise ToolInputError(str(exc)) from exc
 
 
 @register_tool(

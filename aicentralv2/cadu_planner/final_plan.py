@@ -516,8 +516,8 @@ def estimate(client_id, actor_id, plan_id) -> int:
     return tokens * TEXT_AGENT_MARGIN_MULTIPLIER
 
 
-def _insert_version(plan, *, payload, document, edited, origin, warnings, charged, actor_id, instructions=None,
-                    expected_version=None):
+def _insert_version(plan, *, payload=None, document, edited, origin, warnings, charged, actor_id, instructions=None,
+                    expected_version=None, source_hash=None, plan_revision=None):
     from ..db import get_db
     from psycopg.types.json import Json
     with get_db() as conn, conn.cursor() as cur:
@@ -531,7 +531,8 @@ def _insert_version(plan, *, payload, document, edited, origin, warnings, charge
                           origin, warnings, instructions, charged_tokens, prompt_version, created_by)
                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
                     (str(uuid4()), str(plan['id']), plan.get('client_id') or plan['_client_id'], current + 1,
-                     int(plan.get('revision') or 0), payload_hash(payload), Json(document), Json(sorted(set(edited))),
+                     int(plan.get('revision') or 0) if plan_revision is None else int(plan_revision),
+                     source_hash or payload_hash(payload), Json(document), Json(sorted(set(edited))),
                      origin, Json(warnings[:40]), instructions or None, int(charged), PROMPT_VERSION, actor_id))
 
 
@@ -595,26 +596,16 @@ def update_section(client_id, actor_id, plan_id, section, body, *, expected_vers
         raise NotFound('Gere o plano final antes de editar.')
     document = apply_section_edit(latest['document'], section, body)
     edited = list(latest.get('edited_sections') or []) + [section]
-    # The edit does not refresh the plan data: keep the hash the text was generated from.
-    from ..db import get_db
-    from psycopg.types.json import Json
-    with get_db() as conn, conn.cursor() as cur:
-        cur.execute('SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))', (f'planner-final:{plan["id"]}',))
-        cur.execute('SELECT COALESCE(MAX(version), 0) AS v FROM cadu_planner_final_plans WHERE plan_id = %s', (str(plan['id']),))
-        current = int(cur.fetchone()['v'])
-        if expected_version not in (None, '') and int(expected_version) != current:
-            raise Conflict('O plano final mudou desde que você abriu. Atualize para ver a versão atual.')
-        cur.execute('''INSERT INTO cadu_planner_final_plans
-                         (id, plan_id, client_id, version, plan_revision, source_hash, document, edited_sections,
-                          origin, warnings, charged_tokens, prompt_version, created_by)
-                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'edited','[]'::jsonb,0,%s,%s)''',
-                    (str(uuid4()), str(plan['id']), client_id, current + 1, latest.get('plan_revision') or 0,
-                     latest['source_hash'], Json(document), Json(sorted(set(edited))), PROMPT_VERSION, actor_id))
+    # The edit does not refresh the plan data: keep the hash and revision the text was generated from.
+    _insert_version({**plan, '_client_id': client_id}, document=document, edited=edited, origin='edited', warnings=[],
+                    charged=0, actor_id=actor_id, expected_version=expected_version or None,
+                    source_hash=latest['source_hash'], plan_revision=latest.get('plan_revision') or 0)
     return get_state(client_id, actor_id, plan_id)
 
 
-def set_share(client_id, actor_id, plan_id, enabled) -> dict:
-    """Open link (no login) to the current version; the token survives disable/enable."""
+def set_share(client_id, actor_id, plan_id, enabled, *, rotate=False) -> dict:
+    """Open link (no login) to the current version. The token survives disable/enable; ``rotate`` issues a new one
+    (the old link stops working), for a link that went to the wrong person."""
     _require_available()
     from . import plans
     from ..db import get_db
@@ -625,8 +616,10 @@ def set_share(client_id, actor_id, plan_id, enabled) -> dict:
         cur.execute('''INSERT INTO cadu_planner_final_plan_shares (plan_id, share_token, share_enabled, updated_by)
                        VALUES (%s, %s, %s, %s)
                        ON CONFLICT (plan_id) DO UPDATE SET share_enabled = EXCLUDED.share_enabled,
+                              share_token = CASE WHEN %s THEN EXCLUDED.share_token
+                                                 ELSE cadu_planner_final_plan_shares.share_token END,
                               updated_by = EXCLUDED.updated_by, updated_at = NOW()''',
-                    (str(plan['id']), secrets.token_urlsafe(24), bool(enabled), actor_id))
+                    (str(plan['id']), secrets.token_urlsafe(24), bool(enabled), actor_id, bool(rotate)))
     return get_state(client_id, actor_id, plan_id)
 
 

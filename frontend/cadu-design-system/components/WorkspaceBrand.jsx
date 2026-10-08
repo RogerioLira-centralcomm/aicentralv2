@@ -460,7 +460,9 @@ const plainParts = value => {
   const text = String(value).trim();
   if (!/^[\[{]/.test(text)) return text ? [text] : [];
   try { return plainParts(JSON.parse(text)); } catch (_) { /* repr do Python, com aspas simples */ }
-  return legacyStringFields(text, 'value').map(part => part.trim()).filter(Boolean);
+  const values = legacyStringFields(text, 'value').map(part => part.trim()).filter(Boolean);
+  // Texto comum que só começa com colchete ("[PT] Sobre nós") não é mapeamento: mantém o texto.
+  return values.length || /^\[?\s*\{/.test(text) ? values : [text];
 };
 const plainText = value => plainParts(value).join(' ');
 const normalizedUrl = value => { try { const url = new URL(String(value || '')); return `${url.hostname.replace(/^www\./, '').toLowerCase()}${url.pathname.replace(/\/$/, '')}`; } catch (_) { return String(value || '').split('?', 1)[0].replace(/\/$/, '').toLowerCase(); } };

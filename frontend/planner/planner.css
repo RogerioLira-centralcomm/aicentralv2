@@ -1828,3 +1828,13 @@ a.planner-card:focus-visible { outline: 2px solid var(--colors-brand-600, #07945
 .wizard { grid-template-rows: minmax(0, 1fr); }
 .wizard__bar { display: none; }
 @media (max-width: 900px) { .wizard { grid-template-rows: 180px minmax(0, 1fr); } }
+
+/* Layout fixes (laptop widths): no gap between the sections rail and the Cadu panel, nothing spilling out of the narrow
+   column, and no strip of scrolling content between the navbar and the sticky page header. */
+@media (min-width: 1241px) and (max-width: 1480px) {
+  .planner-workbench { grid-template-rows: auto 1fr; }
+}
+.planner-workbench__side .planner-panel { min-width: 0; overflow-wrap: anywhere; }
+.planner-shell .planner-cadu__actions > * { max-width: 100%; white-space: normal; text-align: left; }
+.planner-shell .planner-cadu .cadu-badge { max-width: 100%; white-space: normal; }
+.ph { box-shadow: 0 -10px 0 var(--planner-page); }

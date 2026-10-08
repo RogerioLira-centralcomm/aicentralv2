@@ -14,6 +14,7 @@ import {LogoTile, PlannerPanel} from './PlannerUi.jsx';
 import {CaduPanel, SectionRail} from './PlanWorkbench.jsx';
 import {MODULE_LABELS, OBJECTIVES, moduleUrl, objectiveLabel} from './api.js';
 import {PlannerHeader} from './PlannerHeader.jsx';
+import {ShareControl} from './ShareControl.jsx';
 import {planStatusLabel, planStatusTone} from './PlansPages.jsx';
 
 const BRIEFING_FIELDS = [['advertiser_name', 'Anunciante'], ['campaign_name', 'Campanha'], ['budget', 'Investimento'], ['period', 'Período'], ['geography', 'Praça'], ['kpis', 'KPIs']];
@@ -61,12 +62,10 @@ export function PlanDetail({boot, request, plan, setPlan, selection, notify}) {
     try { await action(); } catch (error) { notify({tone: 'error', message: error.message}); } finally { setBusy(''); }
   };
 
-  const share = () => run('share', async () => {
-    const data = await request(`/plans/${plan.id}/share`, {method: 'POST', body: JSON.stringify({enabled: true})});
-    const token = data.plan?.share_token;
-    if (!token) return notify({message: 'Link público do plano criado.'});
-    await navigator.clipboard?.writeText(new URL(`/planos/public/${token}`, boot.urls.home).href);
-    notify({message: 'Link público copiado.'});
+  const setShare = enabled => run('share', async () => {
+    const data = await request(`/plans/${plan.id}/share`, {method: 'POST', body: JSON.stringify({enabled})});
+    setPlan(data.plan);
+    notify({message: enabled ? 'Link público do plano ativado.' : 'Link público do plano desativado.'});
   });
   const reopen = () => run('status', async () => {
     const data = await request(`/plans/${plan.id}/status`, {method: 'PUT', body: JSON.stringify({status: 'draft'})});
@@ -117,7 +116,9 @@ export function PlanDetail({boot, request, plan, setPlan, selection, notify}) {
       meta={<><CaduBadge tone={planStatusTone(plan)}>{planStatusLabel(plan)}</CaduBadge>{lastQuote && <CaduBadge tone="brand">Proposta: {QUOTE_STATUS[lastQuote.status] || lastQuote.status}</CaduBadge>}
         {plan.status === 'ready' && <TimeSaved estimate={plan.time_saved} className="is-inline" compact/>}</>}
       actions={<>
-        <CaduButton variant="secondary" loading={busy === 'share'} onClick={share}><Icon name="link" size={16}/>Copiar link</CaduButton>
+        <ShareControl title="Compartilhar o plano" description="Link aberto para o time ou o cliente ver o plano. O plano final aparece nele quando o link do plano final também está ativo."
+          url={plan.share_token ? new URL(`/planos/public/${plan.share_token}`, boot.urls.home).href : ''} enabled={Boolean(plan.share_enabled)}
+          busy={busy === 'share'} onToggle={setShare}/>
         <CaduButton variant="secondary" disabled={!readiness.ready} title={readiness.ready ? undefined : 'Complete o checklist para pedir proposta'}
           onClick={() => setQuoteOpen(true)}>Solicitar proposta</CaduButton>
         {plan.status === 'ready'

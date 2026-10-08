@@ -1826,3 +1826,10 @@ a.planner-card:focus-visible { outline: 2px solid var(--colors-brand-600, #07945
 .final-plan__actions { justify-content: flex-end; margin: 8px 0 0; }
 .final-plan__stale { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 10px 12px; border-radius: 10px; background: #fffaeb; color: #93370d; font-size: 14px; }
 .final-plan__note { font-size: 13px; }
+
+/* Share control: the same dialog on plan, final plan and docs. */
+.planner-share__body { display: grid; gap: 16px; padding: 24px; }
+.planner-share__body > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.planner-share__body > p { color: var(--planner-muted); font-size: 14px; }
+.planner-share__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding-top: 8px; }
+.planner-share__warn { color: var(--planner-ink); font-size: 14px; font-weight: 500; }

@@ -8,6 +8,8 @@ import {CaduSelectField, CaduTextAreaField} from '../cadu-design-system/componen
 import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {PlannerPanel} from './PlannerUi.jsx';
+import {ShareControl} from './ShareControl.jsx';
+import {useConfirm} from './useConfirm.jsx';
 import {plainText} from './api.js';
 
 const DOC_TYPES = [['documento', 'Documento'], ['briefing', 'Briefing'], ['apresentacao', 'Apresentação'], ['proposta', 'Proposta']];
@@ -27,6 +29,7 @@ function DocumentView({boot, request, notify, document: initial, startEditing, o
   const [editing, setEditing] = useState(startEditing);
   const [html, setHtml] = useState(initial.html || '');
   const [busy, setBusy] = useState('');
+  const [confirm, confirmDialog] = useConfirm();
   const canWrite = boot.writesEnabled && doc.is_owner;
   const apply = next => { setDoc(next); setHtml(next.html || ''); onChange(next); };
   const run = async (key, action) => {
@@ -41,7 +44,8 @@ function DocumentView({boot, request, notify, document: initial, startEditing, o
   });
   const review = () => run('review', async () => {
     const estimate = await request(`/docs/${doc.id}/review/estimate`);
-    if (!window.confirm(`Revisar em ${estimate.passes} etapas. Estimativa: ${Number(estimate.estimated_tokens).toLocaleString('pt-BR')} créditos. Continuar?`)) return;
+    if (!await confirm({title: 'Revisar com o Cadu?', confirmLabel: 'Revisar',
+      description: `Revisão em ${estimate.passes} etapas. Estimativa: ${Number(estimate.estimated_tokens).toLocaleString('pt-BR')} créditos.`})) return;
     const data = await request(`/docs/${doc.id}/review`, {method: 'POST', body: JSON.stringify({})});
     if (data.document) { apply(data.document); setEditing(false); }
   });
@@ -50,16 +54,14 @@ function DocumentView({boot, request, notify, document: initial, startEditing, o
     onChange(data.document, true);
     notify({message: 'Documento duplicado.'});
   });
-  const share = () => run('share', async () => {
-    const data = await request(`/docs/${doc.id}/share`, {method: 'POST', body: JSON.stringify({enabled: !doc.share_enabled})});
+  const setShare = enabled => run('share', async () => {
+    const data = await request(`/docs/${doc.id}/share`, {method: 'POST', body: JSON.stringify({enabled})});
     apply(data.document);
-    if (data.document.share_enabled) {
-      await navigator.clipboard?.writeText(new URL(`/docs/public/${data.document.share_token}`, boot.urls.home).href);
-      notify({message: 'Link público copiado.'});
-    }
+    notify({message: enabled ? 'Link público do documento ativado.' : 'Link público do documento desativado.'});
   });
 
   return <>
+    {confirmDialog}
     <PlannerHeader crumbs={[['Docs', boot.urls.docs]]} title={doc.title || 'Documento'}
       meta={<><CaduBadge tone="neutral">{typeLabel(doc.type)}</CaduBadge>{doc.share_enabled && <CaduBadge tone="brand">Público</CaduBadge>}</>}
       description={doc.updated_at ? `Atualizado em ${doc.updated_at}` : null}
@@ -68,7 +70,9 @@ function DocumentView({boot, request, notify, document: initial, startEditing, o
         <CaduButton loading={busy === 'save'} onClick={save}>Salvar alterações</CaduButton>
       </> : <>
         <CaduButton variant="secondary" loading={busy === 'duplicate'} onClick={duplicate}>Duplicar</CaduButton>
-        <CaduButton variant="secondary" loading={busy === 'share'} onClick={share}><Icon name="link" size={16}/>{doc.share_enabled ? 'Despublicar' : 'Copiar link público'}</CaduButton>
+        <ShareControl title="Compartilhar o documento" description="Link aberto para o time ou o cliente ler este documento."
+          url={doc.share_token ? new URL(`/docs/public/${doc.share_token}`, boot.urls.home).href : ''} enabled={Boolean(doc.share_enabled)}
+          busy={busy === 'share'} onToggle={setShare}/>
         <CaduButton variant="secondary" loading={busy === 'review'} onClick={review}><Icon name="compose" size={16}/>Revisar com o Cadu</CaduButton>
         <CaduButton onClick={() => setEditing(true)}>Editar</CaduButton>
       </>) : null}/>

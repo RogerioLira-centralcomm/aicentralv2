@@ -5,6 +5,7 @@ import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {Illustration} from './Illustration.jsx';
 import {PlannerHeader} from './PlannerHeader.jsx';
 import {FREQUENCIES} from './RadarWizard.jsx';
+import {useConfirm} from './useConfirm.jsx';
 
 const WATCH_STATUS = {ativo: ['Ativo', 'success'], pausado: ['Pausado', 'neutral'], sem_credito: ['Sem créditos', 'warning']};
 const RUN_STATUS = {done: ['Concluída', 'success'], running: ['Em andamento', 'brand'], failed: ['Falhou', 'neutral'], queued: ['Na fila', 'neutral'], cancelled: ['Cancelada', 'neutral']};
@@ -21,6 +22,7 @@ export function RadarListPage({boot, request, notify, embedded = false, firstUse
   const [watches, setWatches] = useState(null);
   const [runs, setRuns] = useState(null);
   const [busy, setBusy] = useState('');
+  const [confirm, confirmDialog] = useConfirm();
   const names = useMemo(() => Object.fromEntries([...(boot.contextBar?.brands || []), ...(boot.contextBar?.projects || [])].map(item => [item.ref, item.name])), [boot.contextBar]);
 
   const load = useCallback(async () => {
@@ -40,7 +42,7 @@ export function RadarListPage({boot, request, notify, embedded = false, firstUse
     setBusy(watch.id);
     try {
       if (action === 'delete') {
-        if (!window.confirm(`Apagar o radar "${watch.name}"? As consultas já feitas continuam no histórico.`)) return;
+        if (!await confirm({title: `Apagar o radar "${watch.name}"?`, description: 'As consultas já feitas continuam no histórico.', confirmLabel: 'Apagar radar', tone: 'danger'})) return;
         await request(`/radar/watches/${watch.id}`, {method: 'DELETE'});
       } else {
         await request(`/radar/watches/${watch.id}`, {method: 'PATCH', body: JSON.stringify({status: action})});
@@ -62,6 +64,7 @@ export function RadarListPage({boot, request, notify, embedded = false, firstUse
 
   return <>
     {header}
+    {confirmDialog}
     <section className="radar-list" aria-labelledby="radar-watches-title">
       <h2 id="radar-watches-title">Radares ativos<span>{(watches || []).filter(watch => watch.status === 'ativo').length}</span></h2>
       {loading ? <p className="planner-muted">Carregando…</p> : watches.length === 0 ? <div className={embedded ? 'rh-empty' : 'radar-empty-result'}>

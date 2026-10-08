@@ -4,6 +4,7 @@ import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {IllustratedWait} from './Illustration.jsx';
 import {PlannerPanel} from './PlannerUi.jsx';
+import {useConfirm} from './useConfirm.jsx';
 
 export const SECTION_STATES = {
   vazia: {label: 'A definir', tone: 'neutral'},
@@ -61,6 +62,7 @@ function ProposalCard({proposal, label, busy, onDecide}) {
 export function CaduPanel({boot, request, plan, setPlan, notify, active}) {
   const [state, setState] = useState({proposals: [], events: [], cobuild: false});
   const [busy, setBusy] = useState('');
+  const [confirm, confirmDialog] = useConfirm();
   // What the review changed and what only the client can answer: worth the credits, so it stays on screen.
   const [review, setReview] = useState(null);
   const planId = plan.id;
@@ -88,7 +90,8 @@ export function CaduPanel({boot, request, plan, setPlan, notify, active}) {
     // Three review passes spend credits: say so before starting.
     const estimate = await request(`/plans/${planId}/briefing-review/estimate`).catch(() => ({}));
     const tokens = Number(estimate.estimated_tokens || 0);
-    if (!window.confirm(`O Cadu revisa o briefing em ${estimate.passes || 3} passagens${tokens ? ` (cerca de ${tokens.toLocaleString('pt-BR')} tokens)` : ''}, usando créditos. Continuar?`)) return;
+    if (!await confirm({title: 'Revisar o briefing com o Cadu?', confirmLabel: 'Revisar briefing',
+      description: `O Cadu revisa o briefing em ${estimate.passes || 3} passagens${tokens ? ` (cerca de ${tokens.toLocaleString('pt-BR')} tokens)` : ''}, usando créditos.`})) return;
     const data = await request(`/plans/${planId}/briefing-review`, {method: 'POST', body: JSON.stringify({})});
     if (data.plan) setPlan(data.plan);
     setReview(data.review || null);
@@ -122,5 +125,6 @@ export function CaduPanel({boot, request, plan, setPlan, notify, active}) {
       {state.cobuild && active && <CaduButton size="sm" loading={busy === 'propose'} onClick={propose}>Pedir proposta</CaduButton>}
     </div>
     {plan.source && plan.source !== 'manual' && <CaduBadge tone="brand">{plan.source === 'radar' ? 'Nasceu no Radar' : 'Nasceu no SmartPlanner'}</CaduBadge>}
+    {confirmDialog}
   </PlannerPanel>;
 }

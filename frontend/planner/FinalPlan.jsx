@@ -6,6 +6,8 @@ import {CaduTextAreaField} from '../cadu-design-system/components/CaduField.jsx'
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {IllustratedWait} from './Illustration.jsx';
 import {PlannerPanel} from './PlannerUi.jsx';
+import {ShareControl} from './ShareControl.jsx';
+import {useConfirm} from './useConfirm.jsx';
 
 const money = value => Number(value) ? Number(value).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL', maximumFractionDigits: 0}) : 'a definir';
 const pct = value => Number(value) ? `${Number(value).toLocaleString('pt-BR', {maximumFractionDigits: 1})}%` : 'a definir';
@@ -81,6 +83,7 @@ export function FinalPlanDocument({document, editable = false, edited = [], busy
 export function FinalPlanPanel({boot, request, plan, notify}) {
   const [state, setState] = useState(null);
   const [busy, setBusy] = useState('');
+  const [confirm, confirmDialog] = useConfirm();
   const planId = plan.id;
   const updatedAt = plan.updated_at;
 
@@ -97,10 +100,12 @@ export function FinalPlanPanel({boot, request, plan, notify}) {
   const generate = () => run('generate', async () => {
     const estimate = await request(`/plans/${planId}/final-plan/estimate`).catch(() => ({}));
     const tokens = Number(estimate.estimated_tokens || 0);
-    if (!window.confirm(`O Cadu escreve o plano final a partir dos dados do plano${tokens ? ` (até cerca de ${tokens.toLocaleString('pt-BR')} tokens)` : ''}, usando créditos. Você paga pelo consumo real. Continuar?`)) return;
+    if (!await confirm({title: 'Gerar o plano final?', confirmLabel: 'Gerar plano final',
+      description: `O Cadu escreve o plano final a partir dos dados do plano${tokens ? ` (até cerca de ${tokens.toLocaleString('pt-BR')} tokens)` : ''}, usando créditos. Você paga pelo consumo real.`})) return;
     let overwrite = false;
     const edited = state?.edited_sections || [];
-    if (edited.length) overwrite = window.confirm(`Você editou ${edited.length} ${edited.length === 1 ? 'seção' : 'seções'}. OK para substituir pelo texto novo do Cadu; Cancelar para manter as suas edições.`);
+    if (edited.length) overwrite = await confirm({title: 'Substituir as seções que você editou?', confirmLabel: 'Substituir pelo texto novo', cancelLabel: 'Manter minhas edições',
+      description: `Você editou ${edited.length} ${edited.length === 1 ? 'seção' : 'seções'}. Mantendo, o Cadu atualiza só o restante.`});
     const data = await request(`/plans/${planId}/final-plan`, {method: 'POST', body: JSON.stringify({overwrite_edited: overwrite})});
     setState(data.final_plan);
     notify({message: `Plano final gerado (versão ${data.final_plan?.version}).`});
@@ -113,20 +118,13 @@ export function FinalPlanPanel({boot, request, plan, notify}) {
   });
   const publicUrl = token => new URL(`/planos/public/final/${token}`, boot.urls.home).href;
   const toggleShare = (enabled, rotate = false) => run('share', async () => {
-    if (rotate && !window.confirm('Criar um novo link? O link atual deixa de funcionar para quem já o recebeu.')) return;
     const data = await request(`/plans/${planId}/final-plan/share`, {method: 'POST', body: JSON.stringify({enabled, rotate})});
     setState(data.final_plan);
-    if (enabled && data.final_plan?.share_token) {
-      await navigator.clipboard?.writeText(publicUrl(data.final_plan.share_token));
-      notify({message: rotate ? 'Novo link criado e copiado. O anterior não funciona mais.' : 'Link público ativado e copiado. Quem tiver o link vê a versão atual, sem login.'});
-    } else notify({message: 'Link público desativado.'});
-  });
-  const copyLink = () => run('copy', async () => {
-    await navigator.clipboard?.writeText(publicUrl(state.share_token));
-    notify({message: 'Link copiado.'});
+    notify({message: !enabled ? 'Link público desativado.' : rotate ? 'Novo link criado. O anterior não funciona mais.' : 'Link público ativado.'});
   });
   const addToProject = () => run('project', async () => {
-    if (!window.confirm('Adicionar a versão atual do plano final ao conhecimento do projeto? A indexação usa créditos proporcionais ao texto.')) return;
+    if (!await confirm({title: 'Adicionar ao projeto?', confirmLabel: 'Adicionar ao projeto',
+      description: 'A versão atual do plano final entra no conhecimento do projeto. A indexação usa créditos proporcionais ao texto.'})) return;
     const data = await request(`/plans/${planId}/final-plan/project`, {method: 'POST', body: JSON.stringify({})});
     setState(data.final_plan);
     notify({message: 'Plano final adicionado ao projeto.'});
@@ -143,11 +141,8 @@ export function FinalPlanPanel({boot, request, plan, notify}) {
       O plano mudou depois desta versão. Gere de novo para atualizar o documento.</div>}
     <div className="final-plan__toolbar">
       <CaduButton loading={busy === 'generate'} onClick={generate}>{exists ? 'Gerar nova versão' : 'Gerar plano final'}</CaduButton>
-      {exists && (state.share_enabled
-        ? <><CaduButton variant="secondary" loading={busy === 'copy'} onClick={copyLink}><Icon name="link" size={16}/>Copiar link</CaduButton>
-          <CaduButton variant="tertiary" loading={busy === 'share'} onClick={() => toggleShare(true, true)}>Criar novo link</CaduButton>
-          <CaduButton variant="tertiary" loading={busy === 'share'} onClick={() => toggleShare(false)}>Desativar link</CaduButton></>
-        : <CaduButton variant="secondary" loading={busy === 'share'} onClick={() => toggleShare(true)}><Icon name="link" size={16}/>Ativar link público</CaduButton>)}
+      {exists && <ShareControl title="Compartilhar o plano final" description="Gere um link aberto para o time ou o cliente. Ele mostra sempre a versão atual do plano final."
+        url={state.share_token ? publicUrl(state.share_token) : ''} enabled={state.share_enabled} busy={busy === 'share'} canRotate onToggle={toggleShare}/>}
       {exists && <CaduButton variant="secondary" loading={busy === 'project'} disabled={!String(plan.project_ref || '').startsWith('ci:')}
         title={String(plan.project_ref || '').startsWith('ci:') ? undefined : 'Vincule o plano a um projeto do Cadu'} onClick={addToProject}>
         {state.project_source_id ? 'Adicionar de novo ao projeto' : 'Adicionar ao projeto'}</CaduButton>}
@@ -155,6 +150,7 @@ export function FinalPlanPanel({boot, request, plan, notify}) {
     {exists
       ? <FinalPlanDocument document={state.document} editable edited={state.edited_sections || []} busyKey={busy} onSave={saveSection}/>
       : <p className="planner-muted">Ainda não há plano final. Quanto mais completo o plano (briefing, canais, verba), melhor o documento; o que faltar vira “Para alinharmos”, nunca é inventado.</p>}
+    {confirmDialog}
   </PlannerPanel>;
 }
 

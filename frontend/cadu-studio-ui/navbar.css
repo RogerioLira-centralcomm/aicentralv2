@@ -66,7 +66,9 @@
 
 /* Embedded in the server-rendered Studio header: the product switch stays server-side. */
 .csu-navbar--embedded{flex:1;min-width:0;min-height:0;align-self:stretch;padding:0;background:transparent;border:0}
-.mc-cadu-bar.has-studio-navbar{display:flex!important;align-items:stretch;gap:20px;height:56px!important;min-height:56px}
+.mc-cadu-bar.has-studio-navbar{display:flex!important;align-items:stretch;gap:20px;height:auto!important;min-height:56px}
+/* One row of 56px on desktop; below 821px the tools wrap to a second row, so the height stays automatic. */
+@media (min-width:821px){.mc-cadu-bar.has-studio-navbar{height:56px!important}}
 .mc-cadu-bar.has-studio-navbar>.studio-product-identity{display:flex;align-items:center;flex:0 1 auto;min-width:0;max-width:240px}
 .mc-cadu-bar.has-studio-navbar>#caduStudioNavbar{display:flex;flex:1;min-width:0}
 .mc-cadu-bar.has-studio-navbar>.mc-cadu-nav,.mc-cadu-bar.has-studio-navbar>.mc-cadu-meta{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0 0 0 0)!important;white-space:nowrap!important}

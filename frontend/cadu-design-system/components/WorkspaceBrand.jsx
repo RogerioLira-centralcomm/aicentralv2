@@ -12,7 +12,6 @@ import {openWorkspaceDetail} from '../workspaceNavigation';
 import {WorkspaceMobileChrome} from './WorkspaceMobileChrome';
 import {useWorkspaceViewport} from '../hooks/useWorkspaceViewport';
 import {BrandCompletion, EntityContextRail, EntityNavigator} from './WorkspaceEntityPortal';
-import {SidebarNavButton, SidebarNavGroup} from '../untitled-kit/sidebar-nav';
 
 const assetLabels = {logo: 'Logo', reference: 'Referência', creative: 'Peça criativa', background: 'Fundo', support: 'Apoio visual', icon: 'Ícone', cta_style: 'Estilo de CTA'};
 const reviewStatus = {ready: 'Pronto para aprovação', review: 'Requer revisão'};
@@ -490,6 +489,29 @@ function ListBlock({title, items}) {
   })}</ul></section>;
 }
 
+// Todas as ações da marca ficam aqui, uma vez. Uma ação principal; o resto é secundário ou vai para "Mais".
+function BrandActions({lifecycle, status, verified, canEdit, urls, csrf, hasHistory, onDialog, onConversation}) {
+  const insufficient = lifecycle === 'insufficient_information';
+  const pending = status === 'pending_approval' && canEdit;
+  const primary = pending ? 'approve' : verified ? 'conversation' : '';
+  return <div className="cadu-ds-brand-actions" role="group" aria-label="Ações da marca">
+    {pending && <form method="post" action={urls.approve}><Hidden name="_csrf" value={csrf}/><CaduButton type="submit">Aprovar análise</CaduButton></form>}
+    {verified && <CaduButton variant={primary === 'conversation' ? 'primary' : 'secondary'} type="button" onClick={onConversation}>Conversar sobre a marca</CaduButton>}
+    {verified && urls.createImage && <CaduButton variant="secondary" href={urls.createImage}>Criar imagem</CaduButton>}
+    {verified && urls.createVideo && <CaduButton variant="secondary" href={urls.createVideo}>Criar vídeo</CaduButton>}
+    {canEdit && !insufficient && <CaduButton variant="tertiary" type="button" onClick={() => onDialog('identity')}>Editar dados</CaduButton>}
+    <details className="cadu-ds-brand-actions__more">
+      <summary aria-label="Mais ações da marca">Mais</summary>
+      <div role="menu">
+        <button type="button" role="menuitem" onClick={() => onDialog('link')}>Criar ou vincular projeto</button>
+        {canEdit && !insufficient && <button type="button" role="menuitem" onClick={() => onDialog('audit')}>{status ? 'Atualizar análise' : 'Preparar análise'}</button>}
+        {canEdit && hasHistory && urls.reevaluate && <form method="post" action={urls.reevaluate}><Hidden name="_csrf" value={csrf}/><button type="submit" role="menuitem">Reavaliar dados salvos</button></form>}
+        {canEdit && <button type="button" role="menuitem" className="is-danger" onClick={() => onDialog('delete')}>Apagar marca</button>}
+      </div>
+    </details>
+  </div>;
+}
+
 function BrandKit({brand, profile}) {
   const publicLink = `${window.location.origin}${brand.detailUrl || ''}`;
   return <section className="cadu-ds-brand-kit" aria-label="Kit de contexto da marca"><header><div><p>Pronto para usar</p><h2>Contexto para conversas e artefatos</h2></div></header><div className="cadu-ds-brand-kit__grid"><article><small>Logo principal</small>{brand.logoUrl ? <img src={brand.logoUrl} alt={`Logo ${brand.name}`}/> : <b>Logo ainda não disponível</b>}<CopyButton value={brand.logoUrl} label="Copiar link do logo"/></article><article><small>Site oficial</small><a href={brand.websiteUrl} target="_blank" rel="noreferrer">{brand.websiteUrl || 'Não informado'}</a><CopyButton value={brand.websiteUrl} label="Copiar site"/></article><article><small>Link da marca no Workspace</small><span>{publicLink}</span><CopyButton value={publicLink} label="Copiar link"/></article><article><small>Paleta aprovada</small><div className="cadu-ds-brand-kit__colors">{(profile.colorPalette || []).slice(0, 6).map((color, index) => <button type="button" key={`${color.hex}-${index}`} title={`Copiar ${color.hex}`} onClick={() => navigator.clipboard?.writeText(color.hex)} style={{background: color.hex}}><span>{color.hex}</span></button>)}</div><small>Clique em uma cor para copiar.</small></article></div></section>;
@@ -604,7 +626,8 @@ export function WorkspaceBrand({bootstrap}) {
       if (index === 0) return 'Site oficial';
       if (recorded && !recorded.toLocaleLowerCase('pt-BR').includes(hostname.toLocaleLowerCase('pt-BR'))) return recorded;
       if (page?.toLocaleLowerCase('pt-BR') === 'about') return 'Sobre a marca';
-      return page ? page.replace(/\b\w/g, letter => letter.toUpperCase()) : hostname;
+      // Sem título registrado, o domínio identifica a fonte; o caminho aparece como detalhe.
+      return hostname;
     } catch (_) {
       return index === 0 ? 'Site oficial' : record.title || 'Fonte pública';
     }
@@ -626,21 +649,10 @@ export function WorkspaceBrand({bootstrap}) {
         {isMobile ? <WorkspaceMobileChrome eyebrow="Marca" title={brand.name || 'Marca'} links={bootstrap.urls} logo={bootstrap.caduMark} solutionIcons={bootstrap.solutionIcons} contextItems={linkedProjects.map(item => ({...item, detail:'Projeto relacionado'}))}/> : <WorkspaceContextSidebar mode="home" rail bootstrap={bootstrap} links={bootstrap.urls} active="marcas" projects={bootstrap.projects || []} brands={bootstrap.brands || []}/>}
         <div className={`cadu-ds-entity-portal cadu-ds-entity-portal--brand${lifecycle === 'insufficient_information' ? ' is-no-rail' : ''}`}>
         {!isProcessing && <EntityNavigator label={brand.name || 'Marca'} items={brandNav} collapsible storageKey="cadu:brand-sidebar" identity={<><VisualIdentity src={brand.logoUrl} initials={brand.initials || brand.name} label={brand.name} color={brand.color || colors[0]?.hex}/><span><small>Marca</small><b>{brand.name}</b></span></>}>
-          {!isProcessing && lifecycle === 'insufficient_information' && <SidebarNavGroup title="Ações">
-            <SidebarNavButton icon={<Icon name="file" size={20}/>} label="Criar ou vincular projeto" onClick={() => setDialog('link')}/>
-            {canEdit && <SidebarNavButton destructive icon={<Icon name="close" size={20}/>} label="Apagar marca" onClick={() => setDialog('delete')}/>}
-          </SidebarNavGroup>}
-          {!isProcessing && lifecycle !== 'insufficient_information' && <SidebarNavGroup title="Ações">
-            {verified && <SidebarNavButton icon={<Icon name="compose" size={20}/>} label="Conversar sobre a marca" onClick={openConversation}/>}
-            {status === 'pending_approval' && canEdit && <form method="post" action={urls.approve}><Hidden name="_csrf" value={bootstrap.csrf}/><SidebarNavButton type="submit" icon={<Icon name="check" size={20}/>} label="Aprovar análise"/></form>}
-            {canEdit && <SidebarNavButton icon={<Icon name="file" size={20}/>} label="Editar dados" onClick={() => setDialog('identity')}/>}
-            {canEdit && <SidebarNavButton icon={<Icon name="pulse" size={20}/>} label={status ? 'Atualizar auditoria' : 'Preparar auditoria'} onClick={() => setDialog('audit')}/>}
-            {canEdit && auditHistory.length > 0 && urls.reevaluate && <form method="post" action={urls.reevaluate}><Hidden name="_csrf" value={bootstrap.csrf}/><SidebarNavButton type="submit" icon={<Icon name="history" size={20}/>} label="Reavaliar dados salvos"/></form>}
-          </SidebarNavGroup>}
         </EntityNavigator>}
         <section className="cadu-ds-brand-content">
-          <header className="cadu-ds-brand-hero cadu-ds-entity-detail-header" id="marca-visao"><div className="cadu-ds-brand-hero__identity"><VisualIdentity src={brand.logoUrl} initials={brand.initials || brand.name} label={brand.name} color={brand.color || colors[0]?.hex}/></div><div className="cadu-ds-brand-hero__copy"><p>{brand.sector || 'Marca'}</p><h1>{brand.name}</h1>{!isProcessing && brandSummary && <span>{brandSummary}</span>}<div className="cadu-ds-brand-hero__meta"><span className={`cadu-ds-brand-status is-${lifecycle}`}>{lifecycle === 'approved' ? 'Pronta para uso' : lifecycle === 'pending_approval' ? 'Revisão pendente' : lifecycle === 'audit_processing' ? 'Em análise' : lifecycle === 'audit_failed' ? 'Análise não concluída' : lifecycle === 'data_available' ? 'Base disponível' : auditHistory.length ? 'Análise sem dados suficientes' : 'Sem auditoria'}</span>{brand.websiteUrl && <a href={brand.websiteUrl} target="_blank" rel="noreferrer">Site oficial</a>}</div></div></header>
-          {isProcessing ? <BrandState type="processing" brand={brand} logoUrl={auditLogoUrl} progress={auditProgress}/> : <>{lifecycle !== 'insufficient_information' && <BrandCompletion score={readinessScore} missing={brand.readiness?.missing || []} breakdown={brand.readiness?.breakdown || []} processing={false} onAudit={() => setDialog('audit')} onEdit={() => setDialog('identity')}/>}
+          <header className="cadu-ds-brand-hero cadu-ds-entity-detail-header" id="marca-visao"><div className="cadu-ds-brand-hero__identity"><VisualIdentity src={brand.logoUrl} initials={brand.initials || brand.name} label={brand.name} color={brand.color || colors[0]?.hex}/></div><div className="cadu-ds-brand-hero__copy"><p>{brand.sector || 'Marca'}</p><h1>{brand.name}</h1>{!isProcessing && brandSummary && <span>{brandSummary}</span>}<div className="cadu-ds-brand-hero__meta"><span className={`cadu-ds-brand-status is-${lifecycle}`}>{lifecycle === 'approved' ? 'Pronta para uso' : lifecycle === 'pending_approval' ? 'Revisão pendente' : lifecycle === 'audit_processing' ? 'Em análise' : lifecycle === 'audit_failed' ? 'Análise não concluída' : lifecycle === 'data_available' ? 'Base disponível' : auditHistory.length ? 'Análise sem dados suficientes' : 'Sem auditoria'}</span>{brand.websiteUrl && <a href={brand.websiteUrl} target="_blank" rel="noreferrer">Site oficial</a>}</div>{!isProcessing && <BrandActions lifecycle={lifecycle} status={status} verified={verified} canEdit={canEdit} urls={urls} csrf={bootstrap.csrf} hasHistory={auditHistory.length > 0} onDialog={setDialog} onConversation={openConversation}/>}</div></header>
+          {isProcessing ? <BrandState type="processing" brand={brand} logoUrl={auditLogoUrl} progress={auditProgress}/> : <>{lifecycle !== 'insufficient_information' && <BrandCompletion score={readinessScore} missing={brand.readiness?.missing || []} breakdown={brand.readiness?.breakdown || []} processing={false} onAudit={canEdit ? () => setDialog('audit') : undefined}/>}
           {showDossier && <section className={`cadu-ds-brand-review cadu-ds-brand-review--${status || 'idle'}`}><div><p>Estado da base</p><h2>{reviewTitle}</h2><span>{reviewDescription}</span>{canShowSynthesis && <CaduButton variant="secondary" type="button" onClick={() => setDialog('reviews')}>Consultar síntese da análise</CaduButton>}</div></section>}
           {lifecycle === 'insufficient_information' && <BrandState type="new" hasHistory={auditHistory.length > 0} brand={brand} canEdit={canEdit} onAudit={() => setDialog('audit')} onIdentity={() => setDialog('identity')}/>}
           {lifecycle === 'audit_failed' && <BrandState
@@ -652,18 +664,18 @@ export function WorkspaceBrand({bootstrap}) {
           />}
           {showDossier ? <><header className="cadu-ds-brand-data-viewer__header"><span>Dossiê da marca</span><h2>Informações para orientar o trabalho</h2><p>Consulte direção, público, ativos e fontes nas seções abaixo.</p></header><div className="cadu-ds-brand-layout cadu-ds-brand-data-viewer">
             <div className="cadu-ds-brand-layout__main">
-              <section className="cadu-ds-brand-section cadu-ds-brand-direction" id="direcao"><header><div><p>Direção da marca</p><h2>O que deve orientar cada entrega</h2><span>Uma síntese operacional do que a marca comunica, para quem e com quais diferenciais.</span></div><CaduButton variant="secondary" type="button" onClick={openConversation}>Atualizar com o Cadu</CaduButton></header>{brandSummary && <div className="cadu-ds-brand-direction__lead"><small>Essência da marca</small><p>{brandSummary}</p></div>}<FilledReading items={[{label:'Público', value:profile.targetAudience},{label:'Oferta', value:profile.productsServices},{label:'Tom', value:profile.toneOfVoice},{label:'Diferenciais', value:profile.differentiators},{label:'Direção criativa', value:profile.creativeGuidelines}]}/></section>
+              <section className="cadu-ds-brand-section cadu-ds-brand-direction" id="direcao"><header><div><p>Direção da marca</p><h2>O que deve orientar cada entrega</h2><span>Uma síntese operacional do que a marca comunica, para quem e com quais diferenciais.</span></div><CaduButton variant="secondary" type="button" onClick={openConversation}>Refinar com o Cadu</CaduButton></header>{brandSummary && <div className="cadu-ds-brand-direction__lead"><small>Essência da marca</small><p>{brandSummary}</p></div>}<FilledReading items={[{label:'Público', value:profile.targetAudience},{label:'Oferta', value:profile.productsServices},{label:'Tom', value:profile.toneOfVoice},{label:'Diferenciais', value:profile.differentiators},{label:'Direção criativa', value:profile.creativeGuidelines}]}/></section>
               <CampaignSection campaigns={campaigns} urls={urls} csrfToken={bootstrap.csrf} canManageBrand={canEdit}/>
               {atlasHasContent && <AuditAtlas profile={profile} verified={verified}/>}
               <AuditScreenshot metadata={brand.analysisMetadata || {}}/>
               <BrandDossierSections profile={profile}/>
               <AssetSection brand={brand} urls={urls} csrfToken={bootstrap.csrf} canManageBrand={canEdit}/>
               <AuditHistory history={auditHistory}/>
-              <EntityContextRail className="cadu-ds-brand-responsive-management" title="Informações rápidas da marca" groups={brandRailGroups}><BrandDesignerKit brand={brand} colors={colors} fonts={fonts} verified={verified}/><button type="button" className="cadu-ds-entity-rail__action" onClick={() => setDialog('link')}>Criar ou vincular projeto</button>{canEdit && <button type="button" className="cadu-ds-entity-rail__danger" onClick={() => setDialog('delete')}>Apagar marca</button>}</EntityContextRail>
+              <EntityContextRail className="cadu-ds-brand-responsive-management" title="Informações rápidas da marca" groups={brandRailGroups}><BrandDesignerKit brand={brand} colors={colors} fonts={fonts} verified={verified}/></EntityContextRail>
             </div>
-          </div></> : <>{lifecycle !== 'insufficient_information' && <><AssetSection brand={brand} urls={urls} csrfToken={bootstrap.csrf} canManageBrand={canEdit}/><AuditHistory history={auditHistory}/></>}<EntityContextRail className="cadu-ds-brand-responsive-management" title="Gestão da marca"><BrandDesignerKit brand={brand} colors={colors} fonts={fonts} verified={verified}/><button type="button" className="cadu-ds-entity-rail__action" onClick={() => setDialog('link')}>Criar ou vincular projeto</button>{canEdit && <button type="button" className="cadu-ds-entity-rail__danger" onClick={() => setDialog('delete')}>Apagar marca</button>}</EntityContextRail></>}</>}
+          </div></> : <>{lifecycle !== 'insufficient_information' && <><AssetSection brand={brand} urls={urls} csrfToken={bootstrap.csrf} canManageBrand={canEdit}/><AuditHistory history={auditHistory}/></>}<EntityContextRail className="cadu-ds-brand-responsive-management" title="Gestão da marca"><BrandDesignerKit brand={brand} colors={colors} fonts={fonts} verified={verified}/></EntityContextRail></>}</>}
         </section>
-        {!isProcessing && lifecycle !== 'insufficient_information' && <EntityContextRail title="Gestão da marca" groups={showDossier ? brandRailGroups : []}><BrandDesignerKit brand={brand} colors={colors} fonts={fonts} verified={verified}/><div className="cadu-ds-entity-rail__readiness"><span>Base da marca</span><strong>{verified ? 'Pronta' : hasStrategicData ? 'Disponível' : 'Inicial'}</strong><small>{verified ? 'em uso nos projetos' : hasStrategicData ? 'pode ser enriquecida' : 'aguardando análise'}</small></div>{verified && <><a className="cadu-ds-entity-rail__studio" href={urls.createImage}>Criar imagem no Studio</a><a className="cadu-ds-entity-rail__studio" href={urls.createVideo}>Criar vídeo no Studio</a></>}<button type="button" className="cadu-ds-entity-rail__action" onClick={() => setDialog('link')}>Criar ou vincular projeto</button>{canEdit && <button type="button" className="cadu-ds-entity-rail__danger" onClick={() => setDialog('delete')}>Apagar marca</button>}</EntityContextRail>}
+        {!isProcessing && lifecycle !== 'insufficient_information' && <EntityContextRail title="Gestão da marca" groups={showDossier ? brandRailGroups : []}><BrandDesignerKit brand={brand} colors={colors} fonts={fonts} verified={verified}/><div className="cadu-ds-entity-rail__readiness"><span>Base da marca</span><strong>{verified ? 'Pronta' : hasStrategicData ? 'Disponível' : 'Inicial'}</strong><small>{verified ? 'em uso nos projetos' : hasStrategicData ? 'pode ser enriquecida' : 'aguardando análise'}</small></div></EntityContextRail>}
         </div>
       </div>
     </main>

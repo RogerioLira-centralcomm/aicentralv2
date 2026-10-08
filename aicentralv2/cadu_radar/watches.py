@@ -52,7 +52,7 @@ def list_watches(client_id):
     return rows
 
 
-def create_watch(client_id, owner_id, *, focus='', brand_ref=None, project_ref=None, params=None, frequency=1, min_score=70):
+def create_watch(client_id, owner_id, *, focus='', brand_ref=None, project_ref=None, params=None, frequency=1, min_score=70, adopt_run_id=None):
     params = pipeline.clean_params(params)
     focus = ' '.join(str(focus or '').split())[:240]
     if len(focus) < 3 and not (brand_ref or project_ref):
@@ -73,6 +73,10 @@ def create_watch(client_id, owner_id, *, focus='', brand_ref=None, project_ref=N
                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'ativo', %s)''',
                     (watch_id, int(client_id), int(owner_id), brand_ref, project_ref, _name(focus, brand_ref, params),
                      focus or None, Json(params), frequency, min_score, next_run_at(frequency)))
+        if adopt_run_id:
+            # A busca que acompanhou a criação do radar é a primeira execução dele, não um radar à parte.
+            cur.execute('UPDATE cadu_radar_runs SET watch_id = %s WHERE id = %s AND client_id = %s AND watch_id IS NULL',
+                        (watch_id, str(adopt_run_id), int(client_id)))
     return get_watch(client_id, watch_id)
 
 

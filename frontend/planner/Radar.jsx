@@ -52,7 +52,7 @@ export function RadarPage({boot, request, notify, context}) {
       let watchError = '';
       if (watch) {
         // O radar ativo é um extra: se falhar, a busca já começou e o aviso diz o que faltou.
-        try { await request('/radar/watches', {method: 'POST', body: JSON.stringify({...body, frequency: watch.frequency})}); }
+        try { await request('/radar/watches', {method: 'POST', body: JSON.stringify({...body, frequency: watch.frequency, run_id: data.run.id})}); }
         catch (error) { watchError = error.message; }
       }
       try { window.sessionStorage.removeItem(RADAR_DRAFT_KEY); } catch { /* the draft is only a convenience */ }

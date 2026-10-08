@@ -124,3 +124,14 @@ def test_radar_code_never_uses_the_shared_connection_as_a_context_manager():
     root = Path(radar_db.__file__).parent
     offenders = [path.name for path in root.glob('*.py') if path.name != 'db.py' and 'get_db() as' in path.read_text()]
     assert offenders == []
+
+
+def test_create_watch_adopts_the_search_that_was_started_with_it(monkeypatch):
+    cursor = FakeCursor([])
+    conn = FakeConn(cursor)
+    monkeypatch.setattr(radar_db, 'get_db', lambda: conn)
+    monkeypatch.setattr(watches.repository, 'rows', lambda sql, params=(): [{'total': 0}])
+    monkeypatch.setattr(watches, 'get_watch', lambda client_id, watch_id: {'id': watch_id})
+    watch = watches.create_watch(5, 8, focus='CTV para varejo', adopt_run_id='r1')
+    adopt = [params for sql, params in cursor.queries if sql.startswith('UPDATE cadu_radar_runs SET watch_id')]
+    assert adopt == [(watch['id'], 'r1', 5)]

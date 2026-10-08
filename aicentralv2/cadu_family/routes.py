@@ -951,6 +951,43 @@ def planner_radar_signal_saved(signal_id):
     return jsonify(saved=feed.set_saved(selected['client_id'], signal_id, saved))
 
 
+@bp.get('/api/planner/radar/radars')
+def planner_radar_radars():
+    """Vitrine: cada radar (ativo ou busca avulsa) com a última execução e o que mudou desde a última visita."""
+    from ..cadu_radar import radars, repository as radar
+    selected = context.resolve()
+    user = context.identity()
+    if not radar.available():
+        return jsonify(radars=[], state=False)
+    return jsonify(radars=radars.list_radars(selected['client_id'], user['id']), state=radars.state_available())
+
+
+@bp.get('/api/planner/radar/radars/<radar_id>')
+def planner_radar_radar(radar_id):
+    from ..cadu_radar import radars
+    selected = context.resolve()
+    user = context.identity()
+    return jsonify(radars.get_radar(selected['client_id'], user['id'], radar_id))
+
+
+@bp.post('/api/planner/radar/radars/<radar_id>/seen')
+def planner_radar_seen(radar_id):
+    from ..cadu_radar import radars
+    selected = context.resolve()
+    user = context.identity()
+    radars.mark_seen(selected['client_id'], user['id'], radar_id)
+    return jsonify(ok=True)
+
+
+@bp.put('/api/planner/radar/radars/<radar_id>/favorite')
+def planner_radar_favorite(radar_id):
+    from ..cadu_radar import radars
+    selected = context.resolve()
+    user = context.identity()
+    favorite = bool((request.get_json(silent=True) or {}).get('favorite'))
+    return jsonify(favorite=radars.set_favorite(selected['client_id'], user['id'], radar_id, favorite))
+
+
 @bp.post('/api/planner/radar/brand-profile/research')
 def planner_radar_brand_research():
     """Fluxo separado: pesquisa concorrentes, posicionamento e público da marca e PROPÕE; nada é gravado aqui."""
@@ -1003,7 +1040,8 @@ def planner_radar_watch_create():
     brand_ref, project_ref = _planner_refs(selected['client_id'], payload.get('brand_ref'), payload.get('project_ref'))
     return jsonify(watch=watches.create_watch(
         selected['client_id'], user['id'], focus=payload.get('focus') or '', brand_ref=brand_ref, project_ref=project_ref,
-        params=payload.get('params'), frequency=payload.get('frequency') or 1, min_score=payload.get('min_score') or 70)), 201
+        params=payload.get('params'), frequency=payload.get('frequency') or 1, min_score=payload.get('min_score') or 70,
+        adopt_run_id=payload.get('run_id') or None)), 201
 
 
 @bp.patch('/api/planner/radar/watches/<watch_id>')

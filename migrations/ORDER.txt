@@ -199,3 +199,5 @@ migrations/run_sql_migration.py refine_cadu_chat_plugin_reports_link_tester.sql
 migrations/run_add_screenshotone_integration_credential.py
 # Radar: sinais salvos na tela de resultados (aditivo, idempotente; depende de add_cadu_radar.sql e add_cadu_planner_cobuild.sql).
 migrations/run_sql_migration.py add_cadu_radar_v3.sql
+# Radar: estado de leitura e favoritos por pessoa (aditivo, idempotente; depende de add_cadu_radar_v2.sql).
+migrations/run_sql_migration.py add_cadu_radar_v4.sql

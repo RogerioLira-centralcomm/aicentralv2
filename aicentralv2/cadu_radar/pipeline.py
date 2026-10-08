@@ -232,10 +232,10 @@ class Runner:
             self._step(key).update(status='running', started_at=_now())
         self._save_steps()
 
-    def _done(self, key, detail='', tokens=0, preview=None, status='done'):
+    def _done(self, key, detail='', tokens=0, preview=None, status='done', **extra):
         with self.lock:
             step = self._step(key)
-            step.update(status=status, finished_at=_now(), detail=detail, tokens=int(step['tokens']) + int(tokens or 0))
+            step.update(status=status, finished_at=_now(), detail=detail, tokens=int(step['tokens']) + int(tokens or 0), **extra)
             if preview is not None:
                 step['preview'] = preview[:5]
         self._save_steps()
@@ -312,7 +312,9 @@ class Runner:
             alive.append({**item, 'tier': look['tier'], 'domain': look['domain'], 'url_status': state})
         for index, item in enumerate(alive):
             item['id'] = f'B{index + 1}'
-        self._done('check', f'{len(alive)} com link aberto' + (f', {len(buzz) - len(alive)} descartados' if len(alive) < len(buzz) else ''))
+        # Quantas fontes não abriram fica no passo: a vitrine avisa "Falha em N fontes" sem guardar o link morto.
+        self._done('check', f'{len(alive)} com link aberto' + (f', {len(buzz) - len(alive)} descartados' if len(alive) < len(buzz) else ''),
+                   broken=len(buzz) - len(alive))
         return alive
 
     def _angles(self, ctx, topic, buzz):
@@ -435,7 +437,7 @@ def list_runs(client_id, *, limit=30, watch_id=None):
         clauses.append('r.watch_id = %s')
         params.append(str(watch_id))
     params.append(max(1, min(int(limit), 100)))
-    rows = repository.rows(f'''SELECT r.id, r.status, r.focus, r.brand_ref, r.project_ref, r.params, r.trigger, r.watch_id, r.error,
+    rows = repository.rows(f'''SELECT r.id, r.status, r.focus, r.brand_ref, r.project_ref, r.params, r.trigger, r.watch_id, r.error, r.steps,
                                       r.cost, r.created_at, r.finished_at, COUNT(o.id) AS opportunities,
                                       COUNT(o.id) FILTER (WHERE o.status = 'em_plano') AS in_plan,
                                       (SELECT COUNT(*) FROM cadu_radar_signals s WHERE s.run_id = r.id) AS signals
@@ -444,5 +446,6 @@ def list_runs(client_id, *, limit=30, watch_id=None):
                              GROUP BY r.id ORDER BY r.created_at DESC LIMIT %s''', tuple(params))
     for row in rows:
         row['tokens'] = int((row.get('cost') or {}).get('tokens') or 0)
+        row['broken_sources'] = sum(int(step.get('broken') or 0) for step in row.pop('steps', None) or [] if isinstance(step, dict))
         row.pop('cost', None)
     return rows

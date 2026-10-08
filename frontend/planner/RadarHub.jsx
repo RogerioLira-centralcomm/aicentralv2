@@ -3,12 +3,41 @@ import {CaduBadge} from '../cadu-design-system/components/CaduBadge.jsx';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {Illustration} from './Illustration.jsx';
+import {radarChatUrl} from './RadarDetail.jsx';
 import {RadarRuns, RUN_STATUS} from './RadarRuns.jsx';
 import './radar-hub.css';
 
-const TABS = [['radares', 'Meus radares', 'pulse'], ['alta', 'Em alta', 'analysis'], ['recentes', 'Recentes', 'history'], ['salvos', 'Salvos', 'check']];
+const TABS = [['radares', 'Meus radares', 'pulse'], ['pautas', 'Pautas salvas', 'library'], ['alta', 'Em alta', 'analysis'], ['recentes', 'Recentes', 'history'], ['salvos', 'Notícias salvas', 'check']];
 const PERIODS = [[7, 'Últimos 7 dias'], [30, 'Últimos 30 dias'], [90, 'Últimos 90 dias']];
 const TIER = {A: 'Fonte forte', B: 'Fonte regional', C: 'Fonte a conferir'};
+/** Pautas de conteúdo salvas em todos os radares: prontas para o Cadu Chat produzir. */
+function PautasList({boot, request, notify}) {
+  const [items, setItems] = useState(null);
+  useEffect(() => { request('/radar/pautas').then(result => setItems(result.pautas || [])).catch(error => { setItems([]); notify({tone: 'error', message: error.message}); }); }, [request, notify]);
+  const remove = async item => {
+    setItems(current => current.filter(entry => entry.id !== item.id));
+    try { await request(`/radar/opportunities/${item.id}/pauta`, {method: 'PUT', body: JSON.stringify({saved: false})}); }
+    catch (error) { setItems(current => [item, ...current]); notify({tone: 'error', message: error.message}); }
+  };
+  if (items === null) return <p className="planner-muted">Carregando…</p>;
+  if (!items.length) return <p className="rv-none">Nenhuma pauta salva. Nas "Pautas de conteúdo" de um radar, use "Salvar pauta".</p>;
+  return <div className="rp-list">{items.map(item => {
+    const content = item.score_breakdown?.content || {};
+    const chat = radarChatUrl(boot, item);
+    return <article key={item.id} className="rp-card">
+      <small>{item.focus || 'Radar'}</small>
+      <h3>{item.title}</h3>
+      {item.thesis && <p>{item.thesis}</p>}
+      {(content.formats || []).length > 0 && <ul className="rd-tags">{content.formats.map(tag => <li key={tag}>{tag}</li>)}</ul>}
+      <footer className="rd-actions">
+        {chat && <CaduButton size="sm" href={chat}>Criar no Cadu Chat</CaduButton>}
+        {item.run_id && <CaduButton size="sm" variant="secondary" href={`${boot.urls.radar}?run=${encodeURIComponent(item.run_id)}`}>Abrir o radar</CaduButton>}
+        <CaduButton size="sm" variant="tertiary" onClick={() => remove(item)}>Remover</CaduButton>
+      </footer>
+    </article>;
+  })}</div>;
+}
+
 const SOURCES_SHOWN = 5;
 const day = value => value ? new Date(value).toLocaleDateString('pt-BR', {day: '2-digit', month: 'short', year: 'numeric'}).replace(/\./g, '') : '';
 const sinceDays = value => value ? (Date.now() - new Date(value).getTime()) / 86400000 : Infinity;
@@ -164,7 +193,8 @@ export function RadarHub({boot, request, notify}) {
     </aside>
 
     <section className="rw-main">
-      {tab === 'radares' ? <RadarRuns boot={boot} request={request} notify={notify} runs={runs} names={names} filters={filters} firstUse={data !== null && (data.items || []).length === 0 && runs !== null && runs.length === 0}/>
+      {tab === 'pautas' ? <><h2 className="rw-title rp-title">Pautas salvas</h2><PautasList boot={boot} request={request} notify={notify}/></>
+        : tab === 'radares' ? <RadarRuns boot={boot} request={request} notify={notify} runs={runs} names={names} filters={filters} firstUse={data !== null && (data.items || []).length === 0 && runs !== null && runs.length === 0}/>
         : <>
           <div className="rh-toolbar">
             <h2 className="rw-title">{TABS.find(([id]) => id === tab)[1]}<span>{visible.length}</span></h2>

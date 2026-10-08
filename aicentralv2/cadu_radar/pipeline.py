@@ -423,8 +423,9 @@ def get_run(client_id, run_id):
     run['signals'] = repository.rows('''SELECT id, headline, description, source, url, published_at, verification
                                           FROM cadu_radar_signals WHERE run_id = %s ORDER BY published_at DESC NULLS LAST''',
                                      (str(run_id),)) if done else []
-    run['related_plans'] = radar_repository.plans_for(client_id, signal_ids=[row['id'] for row in run['signals']],
-                                                       opportunity_ids=[row['id'] for row in run['opportunities']]) if done else []
+    run['related_plans'] = radar_repository.plans_for(
+        client_id, signal_ids=[row['id'] for row in run['signals']], opportunity_ids=[row['id'] for row in run['opportunities']],
+        plan_ids=[plan for row in run['opportunities'] for plan in (row.get('score_breakdown') or {}).get('briefed_plans') or []]) if done else []
     if run['opportunities']:
         run['time_saved'] = time_saved.estimate(len(run['signals']), len(run['opportunities']))
     return run
@@ -449,6 +450,9 @@ def list_runs(client_id, *, limit=30, watch_id=None):
     rows = repository.rows(f'''SELECT r.id, r.status, r.focus, r.brand_ref, r.project_ref, r.params, r.trigger, r.watch_id, r.error, r.steps,
                                       r.cost, r.created_at, r.finished_at, COUNT(o.id) AS opportunities,
                                       COUNT(o.id) FILTER (WHERE o.status = 'em_plano') AS in_plan,
+                                      COUNT(o.id) FILTER (WHERE o.score_breakdown->>'type' = 'midia') AS media_angles,
+                                      COUNT(o.id) FILTER (WHERE o.score_breakdown->>'type' = 'conteudo') AS content_angles,
+                                      COUNT(o.id) FILTER (WHERE o.score_breakdown->>'type' = 'inteligencia') AS intel_angles,
                                       (SELECT COUNT(*) FROM cadu_radar_signals s WHERE s.run_id = r.id) AS signals
                                  FROM cadu_radar_runs r LEFT JOIN cadu_radar_opportunities o ON o.run_id = r.id
                                 WHERE {' AND '.join(clauses)}

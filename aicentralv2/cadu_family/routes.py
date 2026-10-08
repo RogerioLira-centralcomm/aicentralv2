@@ -1080,6 +1080,23 @@ def planner_radar_run(run_id):
     return jsonify(run=run)
 
 
+@bp.get('/api/planner/radar/pautas')
+def planner_radar_pautas():
+    from ..cadu_radar import repository as radar
+    selected = context.resolve()
+    return jsonify(pautas=radar.list_pautas(selected['client_id']))
+
+
+@bp.post('/api/planner/radar/opportunities/<opportunity_id>/briefing')
+def planner_radar_brief_plan(opportunity_id):
+    """Leva um ângulo de inteligência ao briefing de um plano existente (``plan_id``) ou de um plano novo."""
+    from ..cadu_radar import repository as radar
+    selected = writable_context()
+    user = context.identity()
+    plan_id = (request.get_json(silent=True) or {}).get('plan_id') or None
+    return jsonify(plan=radar.brief_plan(selected['client_id'], user['id'], opportunity_id, plan_id, selected))
+
+
 @bp.put('/api/planner/radar/opportunities/<opportunity_id>/pauta')
 def planner_radar_pauta(opportunity_id):
     """Guarda (ou tira) um ângulo de conteúdo da lista de pautas; o que já virou plano não muda."""

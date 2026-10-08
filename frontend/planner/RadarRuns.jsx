@@ -21,7 +21,10 @@ function RunCard({run, brand, href}) {
     {run.error && <p className="rr-card__error">{run.error}</p>}
     {done ? <dl>
       <div><dt>Sinais</dt><dd>{num(run.signals)}</dd></div>
-      <div><dt>Ângulos</dt><dd>{num(run.opportunities)}</dd></div>
+      {Number(run.media_angles) + Number(run.content_angles) + Number(run.intel_angles) > 0
+        ? <div className="rr-card__types"><dt>Ângulos</dt><dd>{[[run.media_angles, 'mídia'], [run.content_angles, run.content_angles === 1 ? 'pauta' : 'pautas'],
+          [run.intel_angles, 'para saber']].filter(([value]) => Number(value) > 0).map(([value, label]) => `${value} ${label}`).join(' · ')}</dd></div>
+        : <div><dt>Ângulos</dt><dd>{num(run.opportunities)}</dd></div>}
       <div><dt>Em plano</dt><dd>{num(run.in_plan)}</dd></div>
       <div><dt>Custo</dt><dd>{num(run.tokens)}<small> tokens</small></dd></div>
     </dl> : <small className="rr-card__wait">{run.status === 'running' ? 'A busca está em andamento.' : 'Sem resultado nesta busca.'}</small>}

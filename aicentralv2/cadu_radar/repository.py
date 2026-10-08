@@ -137,10 +137,13 @@ def create_plan_from_signal(client_id, actor_id, signal_id, context):
     return plans.get_plan(client_id, actor_id, plan['id'])
 
 
-def plans_for(client_id, *, signal_ids=(), opportunity_ids=()):
-    """Planos que nasceram dessas notícias ou ângulos: id, título, estado e a que eles se ligam."""
+def plans_for(client_id, *, signal_ids=(), opportunity_ids=(), plan_ids=()):
+    """Planos que nasceram dessas notícias ou ângulos (ou que receberam contexto deles): id, título, estado e o vínculo."""
     columns = _plan_columns()
     clauses, params = [], []
+    if plan_ids:
+        clauses.append('id = ANY(%s::uuid[])')
+        params.append([str(value) for value in plan_ids])
     if 'signal_id' in columns and signal_ids:
         clauses.append('signal_id = ANY(%s::uuid[])')
         params.append([str(value) for value in signal_ids])
@@ -149,7 +152,9 @@ def plans_for(client_id, *, signal_ids=(), opportunity_ids=()):
         params.append([str(value) for value in opportunity_ids])
     if not clauses:
         return []
-    return repository.rows(f'''SELECT id, title, status, signal_id, opportunity_id, created_at FROM cadu_planner_plans
+    signal_col = 'signal_id' if 'signal_id' in columns else 'NULL::uuid AS signal_id'
+    opp_col = 'opportunity_id' if 'opportunity_id' in columns else 'NULL::uuid AS opportunity_id'
+    return repository.rows(f'''SELECT id, title, status, {signal_col}, {opp_col}, created_at FROM cadu_planner_plans
                                  WHERE client_id = %s AND ({' OR '.join(clauses)}) ORDER BY created_at DESC''', (int(client_id), *params))
 
 
@@ -167,3 +172,67 @@ def set_pauta(client_id, opportunity_id, saved):
     if not rows:
         raise NotFound('Ângulo indisponível.')
     return rows[0]['status']
+
+
+def intel_block(item, focus=''):
+    """Bloco "Contexto do Radar" que um ângulo de inteligência acrescenta ao briefing de um plano."""
+    detail = item.get('score_breakdown') or {}
+    sources = '; '.join(f"{entry.get('assunto')} ({entry.get('veiculo') or entry.get('domain')}, {entry.get('data')}): {entry.get('url')}"
+                        for entry in detail.get('buzz') or [])
+    return '\n'.join(part for part in [
+        f"Contexto do Radar{f' ({focus})' if focus else ''}: {item.get('title')}",
+        item.get('thesis'),
+        f"O que muda para a marca: {detail['impact']}" if detail.get('impact') else '',
+        f"O que acompanhar: {detail['watch']}" if detail.get('watch') else '',
+        f"Fontes: {sources}" if sources else ''] if part)
+
+
+def brief_plan(client_id, actor_id, opportunity_id, plan_id, context):
+    """Leva um ângulo de inteligência ao briefing de um plano (ou de um plano novo) sem apagar o que já está lá."""
+    from werkzeug.exceptions import BadRequest, NotFound
+    from ..cadu_planner import plans
+    from .db import transaction
+    rows = repository.rows('''SELECT o.id, o.title, o.thesis, o.score_breakdown, o.geo_scores, o.quadrant, o.brand_ref, o.project_ref, r.focus
+                                FROM cadu_radar_opportunities o LEFT JOIN cadu_radar_runs r ON r.id = o.run_id
+                               WHERE o.id = %s AND o.client_id = %s''', (str(opportunity_id), int(client_id)))
+    if not rows:
+        raise NotFound('Ângulo indisponível.')
+    item = rows[0]
+    block = intel_block(item, item.get('focus') or '')
+    if plan_id:
+        plan = plans.get_plan(client_id, actor_id, plan_id)
+        briefing = dict(plan.get('briefing') or {})
+        notes = str(briefing.get('notes') or '').strip()
+        if block in notes:
+            return plan
+        joined = f'{notes}\n\n{block}' if notes else block
+        if len(joined) > plans.BRIEFING_LIMITS['notes']:
+            raise BadRequest('O briefing deste plano está cheio. Abra o plano e resuma as notas antes de trazer mais contexto.')
+        briefing['notes'] = joined
+        with transaction() as cur:
+            cur.execute('UPDATE cadu_planner_plans SET briefing = %s, updated_at = NOW() WHERE id = %s AND client_id = %s',
+                        (Json(briefing), str(plan['id']), int(client_id)))
+    else:
+        payload = plan_payload(item)
+        payload['briefing']['notes'] = block[:plans.BRIEFING_LIMITS['notes']]
+        plan = plans.create_plan(client_id, actor_id, payload, context)
+    with transaction() as cur:
+        # O ângulo guarda para quais planos foi levado: aparece em "Planos relacionados" e o botão mostra que já foi.
+        cur.execute('''UPDATE cadu_radar_opportunities
+                          SET score_breakdown = jsonb_set(score_breakdown, '{briefed_plans}',
+                                  COALESCE(score_breakdown->'briefed_plans', '[]'::jsonb) || to_jsonb(%s::text), TRUE),
+                              updated_at = NOW()
+                        WHERE id = %s AND NOT COALESCE(score_breakdown->'briefed_plans', '[]'::jsonb) ? %s''',
+                    (str(plan['id']), str(item['id']), str(plan['id'])))
+    return plans.get_plan(client_id, actor_id, plan['id'])
+
+
+def list_pautas(client_id):
+    """Pautas salvas de todos os radares do cliente, da mais recente para a mais antiga."""
+    if not available():
+        return []
+    return repository.rows('''SELECT o.id, o.title, o.thesis, o.score_breakdown, o.brand_ref, o.project_ref, o.updated_at, o.run_id,
+                                      r.focus, r.watch_id
+                                 FROM cadu_radar_opportunities o LEFT JOIN cadu_radar_runs r ON r.id = o.run_id
+                                WHERE o.client_id = %s AND o.status = 'salva'
+                             ORDER BY o.updated_at DESC LIMIT 100''', (int(client_id),))

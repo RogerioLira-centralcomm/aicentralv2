@@ -71,3 +71,47 @@ def test_legacy_angle_keeps_the_old_plan_payload():
     payload = repository.plan_payload(item)
     assert payload['objective'] == 'consideracao' and payload['briefing']['geography'] == 'MG' and 'period' not in payload['briefing']
     assert 'Canais sugeridos pelo Radar: Instagram' in payload['briefing']['notes']
+
+
+def _intel_item():
+    return {'id': 'o3', 'title': 'Netshoes assume a vitrine', 'thesis': 'Patrocínio muda a disputa.', 'geo_scores': [], 'quadrant': None,
+            'brand_ref': 'b1', 'project_ref': None, 'focus': 'corrida de rua',
+            'score_breakdown': {'type': 'inteligencia', 'impact': 'concorrência associada à prova', 'watch': 'menções',
+                                'buzz': [{'assunto': 'Patrocínio', 'veiculo': 'Máquina do Esporte', 'data': '2026-09-30', 'url': 'https://m/x'}]}}
+
+
+def test_intel_block_carries_impact_watch_and_sources():
+    from aicentralv2.cadu_radar import repository
+    block = repository.intel_block(_intel_item(), 'corrida de rua')
+    assert block.startswith('Contexto do Radar (corrida de rua): Netshoes assume a vitrine')
+    assert 'O que muda para a marca: concorrência associada à prova' in block and 'https://m/x' in block
+
+
+def test_brief_plan_appends_to_existing_notes_once(monkeypatch):
+    from contextlib import contextmanager
+    from aicentralv2.cadu_planner import plans
+    from aicentralv2.cadu_radar import repository
+    executed = []
+
+    class Cursor:
+        def execute(self, sql, params=()):
+            executed.append((' '.join(sql.split()), params))
+
+    @contextmanager
+    def fake_transaction():
+        yield Cursor()
+
+    state = {'briefing': {'notes': 'Notas antigas'}}
+    monkeypatch.setattr(repository.repository, 'rows', lambda sql, params=(): [_intel_item()])
+    monkeypatch.setattr('aicentralv2.cadu_radar.db.transaction', fake_transaction)
+    monkeypatch.setattr(plans, 'get_plan', lambda client, actor, plan_id: {'id': 'p1', 'title': 'Q4', 'briefing': dict(state['briefing'])})
+    repository.brief_plan(5, 8, 'o3', 'p1', {})
+    update = next(params for sql, params in executed if sql.startswith('UPDATE cadu_planner_plans SET briefing'))
+    notes = update[0].obj['notes']
+    assert notes.startswith('Notas antigas\n\nContexto do Radar') and update[1:] == ('p1', 5)
+    assert any('briefed_plans' in sql for sql, _ in executed)
+    # Já está lá: não repete.
+    state['briefing'] = {'notes': notes}
+    executed.clear()
+    repository.brief_plan(5, 8, 'o3', 'p1', {})
+    assert not any(sql.startswith('UPDATE cadu_planner_plans') for sql, _ in executed)

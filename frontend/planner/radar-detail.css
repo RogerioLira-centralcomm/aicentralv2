@@ -104,3 +104,8 @@
 .rd-angle__line b { font-weight: 600; }
 .rd-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .rd-more { margin-top: -8px; padding: 0; border: 0; background: none; color: var(--colors-brand-700, #087443); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+
+.rd-brief { display: grid; gap: 8px; padding: 12px; border-radius: 10px; background: #f9fafb; }
+.rd-brief__select { display: grid; gap: 4px; font-size: 12px; color: var(--rd-muted); }
+.rd-brief__select select { height: 36px; padding: 0 10px; border: 1px solid #d0d5dd; border-radius: 8px; background: #fff; color: var(--rd-ink); font: inherit; font-size: 14px; }
+.rd-actions { align-items: center; }

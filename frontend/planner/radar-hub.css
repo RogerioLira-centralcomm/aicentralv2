@@ -120,3 +120,13 @@
 .rh-card__source { flex: 1 1 150px; }
 .rh-card__source em { flex: 0 1 auto; max-width: 100%; }
 @media (max-width: 560px) { .rh-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.rr-card__types { grid-column: 1 / -1; order: -1; }
+.rr-card__types dd { font-size: 14px !important; }
+.rp-title { margin-bottom: 14px; }
+.rp-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+.rp-card { display: flex; flex-direction: column; gap: 8px; padding: 18px; border: 1px solid var(--rd-line, #eaecf0); border-radius: 12px; background: #fff; }
+.rp-card small { color: #98a2b3; font-size: 12px; }
+.rp-card h3 { margin: 0; font-size: 17px; font-weight: 650; line-height: 24px; }
+.rp-card p { margin: 0; color: var(--planner-muted, #667085); font-size: 14px; line-height: 20px; }
+.rp-card footer { margin-top: auto; padding-top: 6px; }

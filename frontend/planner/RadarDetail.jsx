@@ -61,10 +61,59 @@ const OBJECTIVE = {awareness: 'Awareness', consideracao: 'Consideração', leads
 const GROUPS = [['midia', 'Oportunidades de mídia', 'Momento, público ou praça em que vale comprar espaço. A combinação de canais vira itens do plano para revisar.'],
   ['conteudo', 'Pautas de conteúdo', 'Assunto para a marca falar. Salve a pauta ou peça ao Cadu Chat para produzir.'],
   ['inteligencia', 'Para saber', 'Concorrência, regulação e datas: servem para decidir, não para agir agora.']];
+// O chat recebe só o id do ângulo e o contexto (projeto, senão marca); o pedido é montado no servidor.
+export function radarChatUrl(boot, item) {
+  if (!boot.urls.chat) return '';
+  const url = new URL(boot.urls.chat, window.location.origin);
+  url.searchParams.set('radar_angle', item.id);
+  if (item.project_ref) url.searchParams.set('project_ref', item.project_ref);
+  else if (item.brand_ref) url.searchParams.set('brand_ref', item.brand_ref);
+  else url.searchParams.set('context_mode', 'free');
+  url.searchParams.set('auto_send', '1');
+  return url.toString();
+}
+
+/** Escolhe um plano (ou um novo) para receber o contexto de um ângulo de inteligência. */
+function BriefPicker({item, request, notify, plansUrl}) {
+  const briefed = (item.score_breakdown?.briefed_plans || []).length;
+  const [open, setOpen] = useState(false);
+  const [plans, setPlans] = useState(null);
+  const [choice, setChoice] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(null);
+  const openPicker = () => {
+    setOpen(true);
+    if (plans === null) request('/plans').then(result => setPlans(result.plans || [])).catch(() => setPlans([]));
+  };
+  const send = async () => {
+    setBusy(true);
+    try {
+      const result = await request(`/radar/opportunities/${item.id}/briefing`, {method: 'POST', body: JSON.stringify({plan_id: choice || null})});
+      setDone(result.plan);
+      setOpen(false);
+      notify?.({tone: 'success', message: `Contexto levado ao briefing de "${result.plan.title}".`});
+    } catch (error) {
+      notify?.({tone: 'error', message: error.message});
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (done) return <footer className="rd-actions"><CaduButton size="sm" variant="secondary" href={`${plansUrl}/${encodeURIComponent(done.id)}`}>Abrir o plano</CaduButton></footer>;
+  if (!open) return <footer className="rd-actions"><CaduButton size="sm" variant="secondary" onClick={openPicker}>Levar ao briefing de um plano</CaduButton>
+    {briefed > 0 && <small className="rd-muted">Já levado a {briefed} {briefed === 1 ? 'plano' : 'planos'}</small>}</footer>;
+  return <footer className="rd-brief">
+    <label className="rd-brief__select"><span>Plano</span><select value={choice} onChange={event => setChoice(event.target.value)} disabled={plans === null}>
+      <option value="">Criar um plano novo com este contexto</option>
+      {(plans || []).map(plan => <option key={plan.id} value={plan.id}>{plan.title}</option>)}</select></label>
+    <span className="rd-actions"><CaduButton size="sm" loading={busy} onClick={send}>Levar</CaduButton>
+      <CaduButton size="sm" variant="tertiary" disabled={busy} onClick={() => setOpen(false)}>Cancelar</CaduButton></span>
+  </footer>;
+}
+
 const brDate = value => value ? value.split('-').reverse().join('/') : '';
 
 /** Ângulo do prompt 1.6: cada tipo mostra o que importa para ele e a ação que leva ao destino certo. */
-function TypedAngle({item, isNew, onPlan, busy, pauta, onPauta, chatHref, full}) {
+function TypedAngle({item, isNew, onPlan, busy, pauta, onPauta, chatHref, full, request, notify, plansUrl}) {
   const detail = item.score_breakdown || {};
   const inPlan = item.status === 'em_plano';
   const head = <div className="rd-angle__head"><span className={`rd-type is-${detail.type}`}>{{midia: 'Mídia', conteudo: 'Pauta', inteligencia: 'Para saber'}[detail.type]}</span>
@@ -104,6 +153,7 @@ function TypedAngle({item, isNew, onPlan, busy, pauta, onPauta, chatHref, full})
     {detail.impact && <p className="rd-angle__line"><b>O que muda para a marca:</b> {detail.impact}</p>}
     {detail.watch && <p className="rd-angle__line"><b>O que acompanhar:</b> {detail.watch}</p>}
     {why}{support}
+    {request && <BriefPicker item={item} request={request} notify={notify} plansUrl={plansUrl}/>}
   </article>;
 }
 
@@ -116,7 +166,7 @@ function AngleGroups({angles, legacy, changedAngles, full, ...props}) {
       <p className="rd-group__hint">{hint}</p>
       <div className="rd-grid">{list.map(item => <TypedAngle key={item.id} item={item} full={full} isNew={changedAngles.has(item.id)}
         busy={props.planning === item.id} onPlan={props.onPlan} pauta={props.pautas[item.id] ?? item.status} onPauta={props.onPauta}
-        chatHref={props.chatHref(item)}/>)}</div>
+        chatHref={props.chatHref(item)} request={props.request} notify={props.notify} plansUrl={props.plansUrl}/>)}</div>
     </section>;
   })}{legacy}</>;
 }
@@ -236,18 +286,8 @@ export function RadarDetail({boot, run, names, onPlan, onSignalPlan, planning, r
       notify?.({tone: 'error', message: error.message});
     }
   };
-  // O chat recebe só o id do ângulo e o contexto (projeto, senão marca); o pedido é montado no servidor.
-  const chatHref = item => {
-    if (!boot.urls.chat) return '';
-    const url = new URL(boot.urls.chat, window.location.origin);
-    url.searchParams.set('radar_angle', item.id);
-    if (run.project_ref) url.searchParams.set('project_ref', run.project_ref);
-    else if (run.brand_ref) url.searchParams.set('brand_ref', run.brand_ref);
-    else url.searchParams.set('context_mode', 'free');
-    url.searchParams.set('auto_send', '1');
-    return url.toString();
-  };
-  const groupProps = {changedAngles, planning, onPlan, pautas, onPauta, chatHref};
+  const chatHref = item => radarChatUrl(boot, {...item, project_ref: run.project_ref, brand_ref: run.brand_ref});
+  const groupProps = {changedAngles, planning, onPlan, pautas, onPauta, chatHref, request, notify, plansUrl: boot.urls.plans};
   const description = [brand, run.params?.places, run.params?.recency_days && `últimos ${run.params.recency_days} dias`, day(run.created_at)].filter(Boolean).join(' · ');
 
   return <>

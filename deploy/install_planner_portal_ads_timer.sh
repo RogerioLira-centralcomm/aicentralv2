@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Instala a verificação diária de ads.txt e sinais programáticos dos portais do Planner.
+# Instala a manutenção noturna dos portais do Planner: saúde e ads.txt (ciclo semanal; DNS inválido em duas noites seguidas desativa),
+# formatos de anúncio (mensal, poucos por noite, só Firecrawl) e estimativas de popularidade (mensal).
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 python_bin="${PLANNER_MONITOR_PYTHON:-$root/venv/bin/python}"
@@ -12,7 +13,7 @@ tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 cat >"$tmp_dir/cadu-planner-portal-ads.service" <<EOF
 [Unit]
-Description=Verifica ads.txt e sinais programáticos dos portais do Planner
+Description=Manutenção noturna dos portais do Planner (saúde, ads.txt, formatos e estimativas)
 After=network-online.target
 Wants=network-online.target
 [Service]
@@ -22,11 +23,13 @@ WorkingDirectory=$root
 Environment=PATH=$(dirname "$python_bin"):/usr/local/bin:/usr/bin:/bin
 Environment=AICENTRAL_ENV=production
 TimeoutStartSec=3h
-ExecStart=$python_bin -m flask --app run:app cadu_family crawl-planner-portals-ads --limit=400 --workers=6 --stale-days=30
+ExecStart=$python_bin -m flask --app run:app cadu_family crawl-planner-portals-ads --limit=400 --workers=6 --stale-days=7
+ExecStart=-$python_bin -m flask --app run:app cadu_family read-planner-portals-signals --stale-days=30 --limit=8
+ExecStart=-$python_bin -m flask --app run:app cadu_family estimate-planner-portals --if-stale-days=30
 EOF
 cat >"$tmp_dir/cadu-planner-portal-ads.timer" <<'EOF'
 [Unit]
-Description=Executa a verificação de ads.txt dos portais do Planner todo dia de madrugada
+Description=Executa a manutenção dos portais do Planner todo dia de madrugada
 [Timer]
 OnCalendar=*-*-* 03:30:00
 Persistent=true

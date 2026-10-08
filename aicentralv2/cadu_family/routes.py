@@ -110,9 +110,16 @@ def rank_planner_portals_top_command():
 @bp.cli.command('estimate-planner-portals')
 @click.option('--tranco-file', type=click.Path(exists=True, dir_okay=False, path_type=str),
               help='Lista Tranco já baixada (zip ou csv); sem ela, baixa de tranco-list.eu.')
-def estimate_planner_portals_command(tranco_file):
+@click.option('--if-stale-days', default=None, type=click.IntRange(1, 365), help='Só roda se alguma estimativa tiver mais de N dias (ou não existir).')
+def estimate_planner_portals_command(tranco_file, if_stale_days):
     """Fill public popularity (Tranco), size tier and estimated demographics of every active portal."""
     from ..cadu_planner import portal_estimates
+    if if_stale_days:
+        stale = repository.rows("""SELECT COUNT(*) AS n FROM cadu_planner_portals
+                                    WHERE active AND (estimates_updated_at IS NULL OR estimates_updated_at < NOW() - make_interval(days => %s))""", (if_stale_days,))
+        if not stale or not stale[0]['n']:
+            click.echo('Estimativas em dia; nada a fazer.')
+            return
     ranks = portal_estimates.load_tranco(tranco_file)
     click.echo(f'{len(ranks)} domínios na lista Tranco.')
     items = repository.rows("""SELECT id, domain, category, to_jsonb(p)->>'uf' AS uf, to_jsonb(p)->>'scope' AS scope
@@ -160,8 +167,9 @@ def audit_planner_portals_command(apply_changes, keep_top):
 @bp.cli.command('read-planner-portals-signals')
 @click.option('--top', is_flag=True, help='Só o Top 10 nacional.')
 @click.option('--curados', is_flag=True, help='Só os portais com perfil curado (Top 10 e próximos).')
+@click.option('--stale-days', default=None, type=click.IntRange(1, 365), help='Só os lidos há mais de N dias (ou nunca), curados primeiro.')
 @click.option('--limit', default=20, type=click.IntRange(1, 700), help='Máximo de portais por execução (mais antigos primeiro).')
-def read_planner_portals_signals_command(top, curados, limit):
+def read_planner_portals_signals_command(top, curados, stale_days, limit):
     """Read ad formats and menu sections from the rendered home of each portal (Firecrawl)."""
     from time import sleep
     from ..cadu_planner import portal_signals, portals
@@ -169,7 +177,13 @@ def read_planner_portals_signals_command(top, curados, limit):
     key = resolve_firecrawl_api_key()
     if not key:
         raise click.ClickException('Sem chave do Firecrawl configurada.')
-    if curados:
+    if stale_days:
+        from ..cadu_planner.portal_profiles import PROFILES
+        items = repository.rows("""SELECT id, domain FROM cadu_planner_portals
+                                    WHERE active AND (signals_checked_at IS NULL OR signals_checked_at < NOW() - make_interval(days => %s))
+                                 ORDER BY (domain = ANY(%s)) DESC, signals_checked_at NULLS FIRST, popularity_rank NULLS LAST LIMIT %s""",
+                                (stale_days, list(PROFILES) + list(portals.TOP_PORTAL_DOMAINS), limit))
+    elif curados:
         from ..cadu_planner.portal_profiles import PROFILES
         items = repository.rows('SELECT id, domain FROM cadu_planner_portals WHERE active AND domain = ANY(%s) AND signals_checked_at IS NULL ORDER BY popularity_rank', (list(PROFILES),))
     elif top:

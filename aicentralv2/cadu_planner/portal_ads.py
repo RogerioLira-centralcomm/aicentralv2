@@ -267,7 +267,7 @@ def _transient(status):
 
 
 def save_result(result):
-    """Persist one check; keeps previous title/favicon when the home page failed."""
+    """Persist one check; keeps previous title/favicon when the home page failed. A domain that fails DNS on two consecutive checks is deactivated."""
     from psycopg.types.json import Json
     from ..db import get_db
     if result.get('status') != 'ok':
@@ -281,6 +281,9 @@ def save_result(result):
     conn = get_db()
     try:
         with conn.cursor() as cur:
+            cur.execute('SELECT ads_txt_status FROM cadu_planner_portals WHERE domain = %s', (result['domain'],))
+            row = cur.fetchone()
+            previous = (row.get('ads_txt_status') if isinstance(row, dict) else (row[0] if row else None))
             cur.execute('''UPDATE cadu_planner_portals
                               SET ads_txt_status = CASE WHEN %(keep_ads)s THEN COALESCE(ads_txt_status, %(ads_status)s) ELSE %(ads_status)s END,
                                   ads_txt_records = CASE WHEN %(keep_ads)s THEN ads_txt_records ELSE %(records)s END,
@@ -299,8 +302,8 @@ def save_result(result):
                          'title': home.get('title', '') if ok_home else '',
                          'favicon': home.get('favicon_url', '') if ok_home else '', 'domain': result['domain']})
             saved = cur.rowcount > 0
-            if result.get('status') == 'dns_failed':
-                # The domain does not resolve: the portal leaves the catalog (kept in the table, inactive).
+            if result.get('status') == 'dns_failed' and previous == 'dns_failed':
+                # The domain failed on two checks in a row (days apart): the portal leaves the catalog (kept in the table, inactive).
                 cur.execute('UPDATE cadu_planner_portals SET active = FALSE, featured_rank = NULL WHERE domain = %s', (result['domain'],))
         conn.commit()
         return saved

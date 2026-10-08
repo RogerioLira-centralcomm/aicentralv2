@@ -488,7 +488,7 @@ body.portal--workspace .cadu-ds-project-getting-started > header > div { display
 body.portal--workspace .cadu-ds-project-getting-started > header span { color:var(--cadu-accent-strong); font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
 body.portal--workspace .cadu-ds-project-getting-started h2 { margin:0; color:var(--cadu-ink); font-size:18px; letter-spacing:-.02em; line-height:1.25; }
 body.portal--workspace .cadu-ds-project-getting-started > header p { max-width:740px; margin:0; color:var(--cadu-muted-strong); font-size:12px; line-height:1.55; }
-body.portal--workspace .cadu-ds-project-getting-started__grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+body.portal--workspace .cadu-ds-project-getting-started__grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
 body.portal--workspace .cadu-ds-project-getting-started__action { display:grid; grid-template-columns:32px minmax(0,1fr) 12px; gap:10px; align-items:center; min-width:0; min-height:66px; padding:10px; border:1px solid var(--cadu-line); border-radius:10px; background:var(--cadu-canvas); color:var(--cadu-ink); text-decoration:none; transition:border-color .15s ease,background .15s ease; }
 body.portal--workspace .cadu-ds-project-getting-started__action:hover { border-color:var(--cadu-accent-strong); background:var(--cadu-surface-soft); }
 body.portal--workspace .cadu-ds-project-getting-started__action:focus-visible,
@@ -711,3 +711,16 @@ body.portal--workspace :is(.cadu-ds-entity-portal--project,.cadu-ds-entity-porta
   body.portal--workspace .cadu-ds-entity-portal--account { align-items:flex-start; }
   body.portal--workspace .cadu-ds-entity-portal--account > .cadu-ds-entity-nav { position:sticky; top:0; align-self:flex-start; height:100dvh; overflow-y:auto; overscroll-behavior:contain; }
 }
+
+/* Marca no trilho do projeto: ações são links discretos, não um botão grande */
+body.portal--workspace .cadu-ds-project-brand-feature__actions { display:flex; flex-wrap:wrap; gap:4px 14px; align-items:center; }
+body.portal--workspace .cadu-ds-project-brand-feature__actions :is(a, button) { padding:0; border:0; background:none; color:var(--cadu-accent-strong); font-size:12px; font-weight:600; cursor:pointer; text-decoration:none; }
+body.portal--workspace .cadu-ds-project-brand-feature__actions :is(a, button):hover { text-decoration:underline; }
+/* Recursos ligados: título em até duas linhas em vez de cortado */
+body.portal--workspace .cadu-ds-resource-links li button > span { display:-webkit-box; overflow:hidden; white-space:normal; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+body.portal--workspace .cadu-ds-entity-rail__index.is-attention strong { color:#b54708; }
+
+/* Sidebar: só a linha lateral separa a navegação; sem linha sob a identidade, sem caixa no ícone e sem divisória antes de "Ações" */
+body.portal--workspace .cadu-ds-entity-nav .cadu-ds-entity-nav__top { border-bottom:0; }
+body.portal--workspace .cadu-ds-entity-nav .cadu-ds-entity-nav__project-mark { border-color:transparent; background:var(--cadu-surface-soft, #f2f4f5); }
+body.portal--workspace .cadu-ds-entity-nav [class~="border-t"] { border-top-width:0; margin-top:14px; padding-top:0; }

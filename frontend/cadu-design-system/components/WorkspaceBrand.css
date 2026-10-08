@@ -1087,3 +1087,30 @@ body.portal--workspace .cadu-ds-brand-actions__more > div button.is-danger { col
 /* Título do dossiê no tamanho de seção: o nome da marca é o maior texto da página */
 body.portal--workspace .cadu-ds-brand-data-viewer__header { margin:40px 0 8px; padding-bottom:16px; border-bottom:1px solid var(--cadu-line, #d5dadd); }
 body.portal--workspace .cadu-ds-brand-data-viewer__header h2 { font-size:clamp(22px, 2vw, 28px); max-width:none; letter-spacing:-.03em; }
+
+/* Topo da marca: a barra de ações precisa caber e o menu "Mais" não pode ser cortado */
+body.portal--workspace .cadu-ds-brand-hero.cadu-ds-entity-detail-header { max-height:none; min-height:0; overflow:visible; }
+
+/* Bordas: uma linha fina separa a navegação do conteúdo; sem linhas aninhadas dentro das colunas laterais */
+body.portal--workspace .cadu-ds-entity-nav__top { border-bottom:0; }
+body.portal--workspace .cadu-ds-entity-rail .cadu-ds-brand-designer-kit__section { border-top:0; padding-top:4px; }
+body.portal--workspace .cadu-ds-entity-rail .cadu-ds-entity-rail__group { border-top:0; }
+body.portal--workspace .cadu-ds-entity-rail .cadu-ds-entity-rail__group + .cadu-ds-entity-rail__group { margin-top:22px; }
+
+/* Escala tipográfica: nada abaixo de 12px; rótulos 12px/600, detalhes 12px, itens 13px, leitura 14px */
+body.portal--workspace .cadu-ds-entity-portal :is(small, em, dt, dd, th, td, option, summary, label) { font-size:12px; line-height:1.45; }
+body.portal--workspace .cadu-ds-entity-portal :is(.cadu-ds-brand-hero__copy > p, .cadu-ds-brand-hero__meta > *, .cadu-ds-brand-completion__body > span, .cadu-ds-brand-completion__score > span, .cadu-ds-brand-data-viewer__header > span, .cadu-ds-brand-section header p, .cadu-ds-brand-direction__lead small, .cadu-ds-brand-reading small, .cadu-ds-entity-rail__readiness span) { font-size:12px; font-weight:600; letter-spacing:.01em; }
+body.portal--workspace .cadu-ds-entity-rail span > b,
+body.portal--workspace .cadu-ds-entity-rail__group > header h3 { font-size:13px; font-weight:600; line-height:1.4; }
+body.portal--workspace .cadu-ds-entity-rail__group > header span { font-size:12px; }
+body.portal--workspace .cadu-ds-brand-designer-kit__section > strong { font-size:12px; font-weight:600; }
+
+/* Resumo do topo em até 3 linhas, sem reticências de uma linha só */
+body.portal--workspace .cadu-ds-entity-portal .cadu-ds-brand-hero.cadu-ds-entity-detail-header .cadu-ds-brand-hero__copy > span { display:-webkit-box; max-width:70ch; white-space:normal; text-overflow:clip; font-size:14px; line-height:1.5; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; }
+/* Paleta no trilho: uma cor por linha, o código nunca é cortado */
+body.portal--workspace .cadu-ds-entity-rail .cadu-ds-brand-designer-kit__palette { grid-template-columns:1fr; gap:2px; }
+body.portal--workspace .cadu-ds-entity-rail .cadu-ds-brand-designer-kit__palette button { grid-template-columns:20px auto minmax(0,1fr); gap:10px; }
+body.portal--workspace .cadu-ds-entity-rail .cadu-ds-brand-designer-kit__palette button span { display:contents; }
+body.portal--workspace .cadu-ds-entity-rail .cadu-ds-brand-designer-kit__palette b { font-size:12px; font-weight:600; font-variant-numeric:tabular-nums; }
+body.portal--workspace .cadu-ds-brand-completion__score span { white-space:nowrap; }
+body.portal--workspace .cadu-ds-brand-actions a { text-decoration:none; }

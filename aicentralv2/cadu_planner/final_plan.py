@@ -647,9 +647,9 @@ def public_by_token(token) -> dict:
 
 
 def public_for_plan(plan_id) -> dict | None:
-    """Final plan inside the plan's own shared link (the plan link is already public)."""
+    """Final plan inside the plan's own shared link, only while its own sharing is switched on."""
     try:
-        if not available():
+        if not available() or not _share(plan_id).get('share_enabled'):
             return None
         latest = _latest(plan_id)
     except Exception:  # noqa: BLE001 — older schema: the shared plan still opens

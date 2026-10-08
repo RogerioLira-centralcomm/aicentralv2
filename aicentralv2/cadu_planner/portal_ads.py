@@ -52,6 +52,14 @@ def _public_host(host):
         return False
 
 
+def domain_resolves(host):
+    """True when the host resolves to public addresses; checked twice so a network blip is not a dead domain."""
+    if _public_host(host):
+        return True
+    time.sleep(2)
+    return _public_host(host)
+
+
 class _SiteRedirect(HTTPRedirectHandler):
     """Follow HTTPS redirects only between host and www.host, to public addresses."""
     def __init__(self, host):
@@ -219,10 +227,8 @@ def _check_portal(domain, timeout):
     host = str(domain or '').strip().lower().rstrip('.')
     if not host or '/' in host or ':' in host or '@' in host:
         return {'domain': host, 'status': 'invalid_domain'}
-    if not _public_host(host):
-        time.sleep(2)  # one retry: a dead domain fails twice, a network blip does not
-        if not _public_host(host):
-            return {'domain': host, 'status': 'dns_failed'}
+    if not domain_resolves(host):
+        return {'domain': host, 'status': 'dns_failed'}
     ads_txt, home = check_ads_txt(host, timeout), check_home(host, timeout)
     # Tags injected by JavaScript are invisible to a static fetch; a valid ads.txt
     # still proves the inventory is sold programmatically.

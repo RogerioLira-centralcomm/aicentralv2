@@ -95,3 +95,15 @@ def test_bulk_add_only_accepts_portals():
     from aicentralv2.cadu_planner import selections
     with pytest.raises(BadRequest):
         selections.add_many(1, 2, {'kind': 'canais', 'resource_ids': [1]})
+
+
+def test_import_rejects_domain_that_does_not_resolve(monkeypatch):
+    import io
+    from aicentralv2.cadu_planner import portal_ads, portals
+    monkeypatch.setattr(portal_ads, 'domain_resolves', lambda host: host != 'morto.example')
+    header = 'name,domain,category,public_attributes\n'
+    rows = ('Vivo,vivo.example,Notícias,"[{""atributo"":""status_curadoria"",""valor"":""aprovado""}]"\n'
+            'Morto,morto.example,Notícias,"[{""atributo"":""status_curadoria"",""valor"":""aprovado""}]"\n')
+    result = portals.import_curated_csv(io.StringIO(header + rows), dry_run=True, allow_pending=True, check_dns=True)
+    assert result['rows'] == 1
+    assert any('DNS' in reason for reason in result['skipped'])

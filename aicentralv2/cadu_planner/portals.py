@@ -297,7 +297,7 @@ def _scope_and_metrics(row, line, attributes):
             'metrics_checked_at': checked_at, **values}
 
 
-def _validate_row(row, line, seen_domains, allow_pending):
+def _validate_row(row, line, seen_domains, allow_pending, check_dns=False):
     name = str(row.get('name') or '').strip()
     domain = str(row.get('domain') or '').strip().lower().rstrip('.')
     category = str(row.get('category') or '').strip()
@@ -307,6 +307,10 @@ def _validate_row(row, line, seen_domains, allow_pending):
         raise BadRequest(f'Linha {line}: domínio inválido.')
     if domain in seen_domains:
         raise BadRequest(f'Linha {line}: domínio duplicado no CSV ({domain}).')
+    if check_dns:
+        from .portal_ads import domain_resolves
+        if not domain_resolves(domain):
+            raise BadRequest(f'Linha {line}: o domínio {domain} não resolve (DNS inválido).')
     seen_domains.add(domain)
 
     audience = str(row.get('audience_estimate') or '').strip()
@@ -355,7 +359,7 @@ def _validate_row(row, line, seen_domains, allow_pending):
     }
 
 
-def import_curated_csv(file_obj, dry_run=False, allow_pending=False):
+def import_curated_csv(file_obj, dry_run=False, allow_pending=False, check_dns=False):
     """Validate and import reviewed portal records from a UTF-8 CSV file.
 
     Audience figures require a public HTTPS source, a reporting period and an
@@ -365,6 +369,7 @@ def import_curated_csv(file_obj, dry_run=False, allow_pending=False):
     reported instead of aborting the whole file. Optional columns: scope
     (nacional_premium|regional), uf, monthly_visits, avg_time_seconds,
     metrics_period, metrics_source_url, metrics_checked_at -- metrics need a source.
+    `check_dns` rejects rows whose domain does not resolve (checked twice).
     """
     reader = csv.DictReader(file_obj)
     required = {'name', 'domain', 'category'}
@@ -375,7 +380,7 @@ def import_curated_csv(file_obj, dry_run=False, allow_pending=False):
     seen_domains = set()
     for line, row in enumerate(reader, start=2):
         try:
-            item = _validate_row(row, line, seen_domains, allow_pending)
+            item = _validate_row(row, line, seen_domains, allow_pending, check_dns)
         except BadRequest as exc:
             if not allow_pending:
                 raise

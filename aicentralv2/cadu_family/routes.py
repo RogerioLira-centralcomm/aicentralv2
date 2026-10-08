@@ -52,12 +52,14 @@ def crawl_planner_portals_command(limit):
 @click.option('--dry-run', is_flag=True, help='Valida o CSV sem gravar no banco.')
 @click.option('--allow-pending', is_flag=True,
               help='Aceita candidatos ainda sem aprovação editorial e ignora linhas inválidas.')
-def import_planner_portals_command(csv_path, dry_run, allow_pending):
+@click.option('--check-dns/--no-check-dns', default=True, show_default=True,
+              help='Rejeita linhas cujo domínio não resolve (DNS inválido).')
+def import_planner_portals_command(csv_path, dry_run, allow_pending, check_dns):
     """Import curated portal records from a UTF-8 CSV file."""
     from ..cadu_planner import portals
     try:
         with open(csv_path, 'r', encoding='utf-8-sig', newline='') as csv_file:
-            summary = portals.import_curated_csv(csv_file, dry_run=dry_run, allow_pending=allow_pending)
+            summary = portals.import_curated_csv(csv_file, dry_run=dry_run, allow_pending=allow_pending, check_dns=check_dns)
     except (OSError, UnicodeError) as exc:
         raise click.ClickException(f'Não foi possível ler o CSV: {exc}') from exc
     action = 'validados' if dry_run else 'importados'

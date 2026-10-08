@@ -40,9 +40,9 @@ def test_project_ux_keeps_rag_processing_out_of_the_project_overview():
     root = Path(__file__).resolve().parents[1]
     component = (root / 'frontend/cadu-design-system/components/WorkspaceProject.jsx').read_text(encoding='utf-8')
     assert 'Créditos do projeto' not in component
-    # A indexação vive numa visão própria ("Indexação"), com triagem antes de entrar no projeto.
-    assert "projectView === 'indexing'" in component
-    assert 'ProjectIndexingSection' in component
+    # Arquivos, biblioteca e indexação são uma visão só ("Fontes"); a triagem fica no diálogo de envio.
+    assert "['files', 'library', 'indexing'].includes(projectView)" in component
+    assert 'ProjectSourceExplorer' in component
     assert 'sourceErrorMessage' in component
     assert 'Aguardando revisão' in component
     assert 'Confirmar arquivos no projeto' in component
@@ -56,6 +56,6 @@ def test_project_detail_has_brand_import_and_quality_workflows():
     assert 'ProjectBrandCard' in component
     assert 'ImportBrandDialog' in component
     assert 'Criar e auditar marca' in component
-    assert 'title="Indexação"' in component
+    assert 'title="Fontes"' in component
     assert "'updateBrands': url_for('cadu_workspace.update_project_brands'" in template
     assert "'importBrand': url_for('cadu_workspace.import_project_brand'" in template

@@ -161,8 +161,9 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(project, /fetch\(urls\.directionHistory/);
   assert.match(project, /Revisão \{item\.revision\}/);
   assert.match(project, /Itens personalizados/);
-  assert.match(project, /project\.contextItems/);
-  assert.match(project, /value="context">Direção/);
+  // Fontes reúne arquivos, notas e links; a Direção tem a própria página e as criações ficam em Entregas.
+  assert.doesNotMatch(project, /value="context">Direção/);
+  assert.match(project, /\['files', 'library', 'indexing'\]\.includes\(projectView\)/);
   assert.match(project, /onEditContext=\{\(\) => setDialog\('identity'\)\}/);
   assert.match(project, /aria-label="Fontes do projeto"/);
   assert.match(project, /Criar plano de mídia/);
@@ -179,7 +180,7 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(project, /dragDepth = useRef/);
   assert.match(project, /Solte para adicionar ao projeto/);
   assert.match(project, /cadu-ds-project-page-drop__card/);
-  assert.match(project, /Fontes e estado da indexação/);
+  assert.match(project, /Arquivos, notas e links que o Cadu usa como contexto do projeto/);
   assert.match(project, /sourceErrorMessage/);
   assert.match(project, /cadu-ds-project-brand-feature/);
   assert.match(project, /Criar e auditar marca/);
@@ -1304,7 +1305,7 @@ test('project empty and processing states use the workspace illustration system'
   const project = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceProject.jsx'), 'utf8');
   const styles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/styles.css'), 'utf8');
   const illustrationDirectory = path.join(root, 'aicentralv2/static/images/cadu/project-states');
-  const names = ['tasks-empty', 'library-empty', 'indexing-processing', 'activity-empty', 'deliveries-empty', 'views-empty'];
+  const names = ['tasks-empty', 'library-empty', 'activity-empty', 'deliveries-empty', 'views-empty'];
 
   assert.match(project, /function ProjectStateIllustration/);
   assert.match(project, /\/static\/images\/cadu\/project-states\/\$\{name\}\.png/);

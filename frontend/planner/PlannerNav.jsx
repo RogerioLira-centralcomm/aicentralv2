@@ -14,7 +14,7 @@ const DESTINATIONS = [
   ['radar', 'Radar', 'pulse'],
   ['canais', 'Canais', 'share'],
   ['audiencias', 'Audiências', 'users'],
-  ['portais', 'Portais e veículos', 'library'],
+  ['portais', 'Portais', 'library'],
   ['places', 'Locais', 'browser'],
   ['formatos', 'Formatos', 'table'],
   ['interativos', 'Interativos', 'plugin'],

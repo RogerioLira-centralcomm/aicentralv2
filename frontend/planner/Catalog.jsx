@@ -18,7 +18,7 @@ const DESCRIPTIONS = {
   audiencias: 'Públicos compráveis, com tamanho estimado e contexto de uso.',
   formatos: 'Peças por canal, com especificações e finalidade.',
   interativos: 'Formatos com interação para engajar e medir atenção.',
-  portais: 'Veículos editoriais com dados públicos e fontes verificáveis.',
+  portais: 'Portais de notícias com dados públicos e fontes verificáveis.',
   places: 'Pontos físicos, circulação e produtos de mídia em lugares.',
 };
 const KIND_ICON = {places: 'browser', audiencias: 'users', canais: 'share', interativos: 'plugin', formatos: 'plan', portais: 'library'};

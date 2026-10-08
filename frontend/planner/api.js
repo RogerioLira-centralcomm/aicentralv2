@@ -16,7 +16,7 @@ export const CATALOG_KINDS = ['audiencias', 'canais', 'formatos', 'interativos',
 
 export const MODULE_LABELS = {
   inicio: 'Início', planos: 'Planos de mídia', radar: 'Radar de Oportunidades', radares: 'Meus radares', audiencias: 'Audiências', canais: 'Canais', formatos: 'Formatos',
-  interativos: 'Interativos', places: 'Locais', portais: 'Portais e veículos', monitoramento: 'Sites e funis', docs: 'Docs',
+  interativos: 'Interativos', places: 'Locais', portais: 'Portais', monitoramento: 'Sites e funis', docs: 'Docs',
 };
 
 // Bootstrap URL keys for each module.

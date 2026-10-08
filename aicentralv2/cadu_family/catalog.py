@@ -23,7 +23,7 @@ PRODUCTS = {
         'canais': ('Canais', '/canais'), 'formatos': ('Formatos', '/formatos'),
         'interativos': ('Interativos', '/interativos'), 'docs': ('Docs', '/smart-docs'),
         'places': ('Locais', '/places'),
-        'portais': ('Portais e veículos', None),
+        'portais': ('Portais', None),
         'monitoramento': ('Sites e funis', None),
     }},
     'studio': {'name': 'Studio', 'navigation': (

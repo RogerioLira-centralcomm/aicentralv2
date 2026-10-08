@@ -326,7 +326,7 @@ def ensure_channel_listed(kind, record):
         return
     category = str((record or {}).get('category') or (record or {}).get('categoria') or '')
     if category in repository.HIDDEN_CHANNEL_CATEGORIES:
-        raise BadRequest('Portais ficam na área Portais e veículos.')
+        raise BadRequest('Portais ficam na área Portais.')
 
 
 def channel_audiences(channel, limit=8):

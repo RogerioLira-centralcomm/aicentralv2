@@ -8,7 +8,7 @@ import './planner-dock.css';
 import {moduleUrl} from './api.js';
 
 const SECTIONS = [['canais', 'Canais'], ['audiencias', 'Audiências'], ['formatos', 'Formatos'], ['interativos', 'Interativos'],
-  ['portais', 'Portais e veículos'], ['places', 'Locais']];
+  ['portais', 'Portais'], ['places', 'Locais']];
 const OBJECTIVES = [['awareness', 'Awareness'], ['consideracao', 'Consideração'], ['leads', 'Leads'], ['vendas', 'Vendas'], ['trafego', 'Tráfego']];
 
 /**

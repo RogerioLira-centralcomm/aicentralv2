@@ -14,7 +14,7 @@
 {%- endif -%}
 </svg>
 {%- endmacro -%}
-{%- set destinations = [('planos', 'Planos', 'history'), ('radar', 'Radar', 'pulse'), ('canais', 'Canais', 'share'), ('audiencias', 'Audiências', 'users'), ('portais', 'Portais e veículos', 'library'), ('places', 'Locais', 'browser'), ('formatos', 'Formatos', 'table'), ('interativos', 'Interativos', 'plugin')] -%}
+{%- set destinations = [('planos', 'Planos', 'history'), ('radar', 'Radar', 'pulse'), ('canais', 'Canais', 'share'), ('audiencias', 'Audiências', 'users'), ('portais', 'Portais', 'library'), ('places', 'Locais', 'browser'), ('formatos', 'Formatos', 'table'), ('interativos', 'Interativos', 'plugin')] -%}
 {%- set section = 'canais' if module == 'inicio' else module -%}
 {%- set person = (user or {}).get('name') or session.get('user_name', 'Minha conta') -%}
 {%- set first = (person|trim).split()[0] if (person|trim) else 'Minha conta' -%}

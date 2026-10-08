@@ -626,31 +626,35 @@ export function WorkspaceBrand({bootstrap}) {
     ] : []),
     ...(lifecycle !== 'insufficient_information' ? [{id:'biblioteca', label:'Biblioteca', icon:'file', count:displayAssets.length}] : []),
   ];
-  const sourceLabel = (record, index) => {
-    const href = record.url || record;
-    try {
-      const url = new URL(href);
-      const hostname = url.hostname.replace(/^www\./, '');
-      const recorded = String(record.title || '').trim();
-      const page = decodeURIComponent(url.pathname).split('/').filter(Boolean).at(-1)?.replace(/[-_]/g, ' ');
-      if (index === 0) return 'Site oficial';
-      if (recorded && !recorded.toLocaleLowerCase('pt-BR').includes(hostname.toLocaleLowerCase('pt-BR'))) return recorded;
-      if (page?.toLocaleLowerCase('pt-BR') === 'about') return 'Sobre a marca';
-      // Sem título registrado, o domínio identifica a fonte; o caminho aparece como detalhe.
-      return hostname;
-    } catch (_) {
-      return index === 0 ? 'Site oficial' : record.title || 'Fonte pública';
-    }
-  };
-  const sourceDetail = href => { try { const url = new URL(href); return url.pathname && url.pathname !== '/' ? decodeURIComponent(url.pathname).replace(/\/$/, '').split('/').filter(Boolean).at(-1)?.replace(/[-_]/g, ' ') : url.hostname; } catch (_) { return href; } };
   const rawPublicRecords = [...asList(profile.contacts), ...asList(profile.addresses), ...asList(profile.digitalPolicies), ...asList(brand.analysisMetadata?.socialLinks).map(value => typeof value === 'string' ? {label:'Canal oficial', value, source_url:value} : value)];
   const publicRecords = [...new Map(rawPublicRecords.filter(Boolean).map(record => {
     const identity = `${record.label || record.title || record.type || ''}|${record.value || record.address || record.excerpt || ''}|${record.source_url || record.url || ''}`.trim().toLocaleLowerCase('pt-BR');
     return [identity, record];
   }).filter(([identity]) => identity)).values()];
+  const hostOf = url => { try { return new URL(String(url || '')).hostname.replace(/^www\./, '').toLowerCase(); } catch (_) { return ''; } };
+  const registrable = host => { const parts = host.split('.'); return parts.slice(-(['com', 'org', 'gov', 'net', 'edu'].includes(parts.at(-2)) ? 3 : 2)).join('.'); };
+  const siteHost = hostOf(brand.websiteUrl);
+  const isOfficialHost = host => Boolean(siteHost && host && registrable(host) === registrable(siteHost));
+  const hostGroups = [...uniqueSources([{url:brand.websiteUrl,title:'Site oficial'}, ...(brand.analysisMetadata?.sourceRecords || []), ...(brand.analysisMetadata?.sources || [])]).reduce((groups, record) => {
+    const host = hostOf(record.url);
+    if (!host) return groups;
+    groups.set(host, {host, urls:[...(groups.get(host)?.urls || []), record.url]});
+    return groups;
+  }, new Map()).values()].sort((a, b) => Number(isOfficialHost(b.host)) - Number(isOfficialHost(a.host)) || Number(b.host === siteHost) - Number(a.host === siteHost));
+  const contactKind = value => /@/.test(value) ? 'email' : /^[+()\d\s.-]{8,}$/.test(value) ? 'phone' : 'other';
+  const contactItems = publicRecords.map((record, index) => {
+    const value = String(record.value || record.address || record.excerpt || '').trim();
+    const kind = contactKind(value);
+    const type = kind === 'email' ? 'E-mail' : kind === 'phone' ? 'Telefone' : String(record.label || record.title || record.type || 'Registro').replace(/\s+p[úu]blic[oa]$/i, '');
+    return {kind, item:{id:`record-${index}-${value}`, title:value || type, detail:type, href:kind === 'email' ? `mailto:${value}` : kind === 'phone' ? `tel:${value.replace(/[^\d+]/g, '')}` : record.source_url || record.url, external:kind === 'other'}};
+  }).sort((a, b) => ['email', 'phone', 'other'].indexOf(a.kind) - ['email', 'phone', 'other'].indexOf(b.kind)).map(entry => entry.item);
   const brandRailGroups = [
-    {title:'Presença pública', items:publicRecords.map((record, index) => ({id:`record-${index}-${record.value || record.address}`, title:record.label || record.title || record.type || 'Registro público', detail:record.value || record.address || record.excerpt || 'Detalhe disponível', href:record.source_url || record.url, external:true, icon:'external'}))},
-    {title:'Fontes da auditoria', items:uniqueSources([{url:brand.websiteUrl,title:'Site oficial'}, ...(brand.analysisMetadata?.sourceRecords || []), ...(brand.analysisMetadata?.sources || [])]).map((record, index) => ({id:record.url, title:sourceLabel(record, index), detail:sourceDetail(record.url), origin:index === 0 ? 'Site informado pela marca' : 'Fonte usada na auditoria', href:record.url, external:true, icon:'external'}))},
+    {title:'Presença pública', items:contactItems},
+    {title:'Fontes da auditoria', items:hostGroups.map(group => {
+      const official = isOfficialHost(group.host);
+      const pages = `${group.urls.length} página${group.urls.length === 1 ? '' : 's'}`;
+      return {id:group.host, title:group.host === siteHost ? 'Site oficial' : group.host, detail:group.host === siteHost ? `${group.host} · ${pages}` : pages, origin:official ? 'Domínio da marca' : 'Fonte externa', href:group.urls[0], external:true, icon:'external'};
+    })},
     {title:'Projetos da marca', items:linkedProjects.map(item => ({...item, title:item.name, detail:`${item.sources || 0} fontes prontas`}))},
   ];
   return <div className={`cadu-ds-home-shell cadu-ds-brand-shell is-${lifecycle}`}>

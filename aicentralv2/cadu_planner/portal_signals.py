@@ -95,6 +95,7 @@ def menu_sections(html, host):
     best = max(groups, key=len) if groups else []
     seen, result = set(), []
     for text in best:
+        text = re.sub(r'^Site(?=[A-ZÁÉÍÓÚ])', '', text).strip()
         key = text.lower()
         if key not in seen:
             seen.add(key)

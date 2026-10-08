@@ -102,6 +102,7 @@ def rank_planner_portals_top_command():
     """Mark the curated national Top 10 of portals in the showcase."""
     from ..cadu_planner import portals
     applied = portals.apply_top_ranking()
+    portals.apply_top_profiles()
     missing = [domain for domain in portals.TOP_PORTAL_DOMAINS if domain not in applied]
     click.echo(f'{len(applied)} portais marcados no Top 10.' + (f' Fora do catálogo: {", ".join(missing)}' if missing else ''))
 

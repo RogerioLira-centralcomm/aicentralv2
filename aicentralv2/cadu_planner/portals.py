@@ -39,7 +39,10 @@ PORTAL_COLUMNS = """id, name, domain, category, description, audience_estimate,
                     (to_jsonb(cadu_planner_portals)->>'popularity_rank')::INTEGER AS popularity_rank,
                     to_jsonb(cadu_planner_portals)->>'popularity_source' AS popularity_source,
                     to_jsonb(cadu_planner_portals)->>'traffic_tier' AS traffic_tier,
-                    to_jsonb(cadu_planner_portals)->'demographics' AS demographics"""
+                    to_jsonb(cadu_planner_portals)->'demographics' AS demographics,
+                    to_jsonb(cadu_planner_portals)->'ad_formats' AS ad_formats,
+                    to_jsonb(cadu_planner_portals)->'site_sections' AS site_sections,
+                    to_jsonb(cadu_planner_portals)->>'signals_checked_at' AS signals_checked_at"""
 # Columns added by the programmatic migration are read through to_jsonb so a
 # rolling deployment keeps working before that migration reaches the database.
 
@@ -48,6 +51,29 @@ SCOPES = {'nacional_premium', 'regional'}
 TOP_PORTAL_DOMAINS = ('g1.globo.com', 'uol.com.br', 'oglobo.globo.com', 'folha.uol.com.br', 'estadao.com.br',
                       'cnnbrasil.com.br', 'r7.com', 'metropoles.com', 'terra.com.br', 'ge.globo.com')
 TOP_FILTER = 'top10'
+# Editorial profile of the Top 10: a commercial pitch without audience numbers, and the main sections of each portal.
+TOP_PROFILES = {
+    'g1.globo.com': ('Portal de notícias da Globo, com cobertura nacional e regional em tempo real, forte em política, economia, esportes e eleições, e vídeo ao vivo.',
+                     ['Política', 'Economia', 'Mundo', 'Educação', 'Ciência e Saúde', 'Tecnologia', 'Pop & Arte', 'Esportes', 'Meio Ambiente', 'Carros', 'Turismo e Viagem', 'Agro']),
+    'uol.com.br': ('Um dos maiores portais do Brasil: notícias, esporte, entretenimento, e-mail, vídeo e serviços em um só lugar, com marcas próprias como UOL Mail, Splash, Universa e Ecoa.',
+                   ['Notícias', 'Esporte', 'Entretenimento', 'Economia', 'TV e Famosos', 'Tecnologia', 'Universa', 'Ecoa', 'Nossa', 'Viagem', 'Carros', 'UOL Mail']),
+    'oglobo.globo.com': ('Jornal carioca de circulação nacional, com cobertura de política, economia, cidade do Rio e opinião, além de newsletters, podcasts e conteúdo de marca.',
+                         ['Política', 'Economia', 'Brasil', 'Mundo', 'Rio', 'Esportes', 'Cultura', 'Sociedade', 'Ciência', 'Saúde', 'Opinião', 'Podcasts']),
+    'folha.uol.com.br': ('Jornal paulistano de alcance nacional, conhecido pelo jornalismo analítico e pelas colunas de opinião, com forte cobertura de política, mercado e cotidiano.',
+                         ['Poder', 'Mercado', 'Cotidiano', 'Mundo', 'Esporte', 'Ilustrada', 'Opinião', 'Tec', 'Ciência', 'Saúde', 'Educação', 'Ambiente']),
+    'estadao.com.br': ('Um dos jornais mais tradicionais do país, de São Paulo, com cobertura de política, economia, cultura e marcas próprias como Paladar, Jornal do Carro e E-Investidor.',
+                       ['Política', 'Economia', 'Internacional', 'Brasil', 'Esportes', 'Cultura', 'Saúde', 'Educação', 'Opinião', 'Paladar', 'Jornal do Carro', 'E-Investidor']),
+    'cnnbrasil.com.br': ('Canal de notícias 24 horas, com transmissão ao vivo e cobertura de política, economia, internacional e esportes em vídeo e texto.',
+                         ['Política', 'Nacional', 'Economia', 'Internacional', 'Pop', 'Esportes', 'Saúde', 'Tecnologia', 'Viagem & Gastronomia', 'Auto', 'Comportamento', 'Ao Vivo']),
+    'r7.com': ('Portal do grupo Record, com notícias, esportes, entretenimento e vídeos, ligado à programação da emissora de TV.',
+               ['Notícias', 'Esportes', 'Entretenimento', 'Economia', 'Vídeos', 'Tecnologia e Ciência', 'Saúde', 'Educação', 'Carros', 'Record']),
+    'metropoles.com': ('Portal de notícias nascido em Brasília, com forte cobertura da política do Distrito Federal e do país, e colunas de opinião assinadas.',
+                       ['Distrito Federal', 'Política', 'Brasil', 'Mundo', 'Esportes', 'Celebridades', 'Saúde', 'Tecnologia', 'Vida & Estilo', 'Dinheiro & Negócios', 'Colunas e blogs']),
+    'terra.com.br': ('Portal de notícias, serviços e entretenimento, com esportes, vida e estilo, tecnologia, horóscopo e receitas.',
+                     ['Notícias', 'Esportes', 'Futebol', 'Entretenimento', 'Economia', 'Vida e Estilo', 'Horóscopo', 'Receitas', 'Tecnologia', 'Planeta', 'Educação']),
+    'ge.globo.com': ('Portal esportivo da Globo, com cobertura diária de futebol, campeonatos nacionais e estaduais, seleção brasileira e outras modalidades.',
+                     ['Futebol', 'Brasileirão', 'Copa do Brasil', 'Libertadores', 'Seleção', 'Futebol internacional', 'Basquete', 'Vôlei', 'Automobilismo', 'Olimpíadas', 'Tênis', 'MMA']),
+}
 TOP_UF_FILTER = 'top10_uf'
 TOP_UF_SIZE = 10
 # Top 10 of each state among regional portals ranked on their own domain (a rank inherited from youtube.com or
@@ -629,6 +655,22 @@ def save_crawl_result(result):
             saved = cur.rowcount > 0
         conn.commit()
         return saved
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def apply_top_profiles():
+    """Write the curated description and sections of the Top 10 (their generic catalog text says nothing commercial)."""
+    from psycopg.types.json import Json
+    from ..db import get_db
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            for domain, (description, sections) in TOP_PROFILES.items():
+                cur.execute('UPDATE cadu_planner_portals SET description = %s, site_sections = %s WHERE domain = %s AND active = TRUE',
+                            (description, Json(sections), domain))
+        conn.commit()
     except Exception:
         conn.rollback()
         raise

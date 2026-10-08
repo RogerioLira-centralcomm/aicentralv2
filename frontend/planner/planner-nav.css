@@ -169,3 +169,8 @@
   .planner-card.is-visual .planner-card__art { height: 104px; }
   .planner-main, .planner-main.is-shelf, .planner-main:not(.is-shelf) { padding-bottom: 96px; }
 }
+/* Detail banner without a photo: the fixed 125px clipped the wrapped metrics on phones; it now grows with its content. */
+@media (max-width: 900px) {
+  .pdb:not(.has-image) { height: auto; min-height: 125px; }
+  .pdb:not(.has-image) .pdb__inner { padding-block: 16px; }
+}

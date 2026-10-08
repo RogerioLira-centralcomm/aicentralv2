@@ -207,3 +207,5 @@ migrations/run_sql_migration.py add_cadu_planner_final_plans.sql
 migrations/run_sql_migration.py add_cadu_planner_portal_estimates.sql
 # Portais do Planner: formatos de anúncio observados e editorias do menu (aditivo, idempotente; depende de add_cadu_planner_portal_estimates.sql).
 migrations/run_sql_migration.py add_cadu_planner_portal_signals.sql
+# Prints dos portais: tipo editoria (idempotente; depende de add_cadu_planner_portal_prints.sql).
+migrations/run_sql_migration.py extend_cadu_planner_portal_prints_kinds.sql

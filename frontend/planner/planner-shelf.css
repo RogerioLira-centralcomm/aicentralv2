@@ -123,9 +123,13 @@
   .shelf-head .aud-bar__field--search { flex: 1 1 100%; min-width: 0; }
   .shelf-head .aud-bar__text input { font-size: 16px; }
   .shelf-head .planner-select__trigger, .shelf-head .planner-multi summary { height: 34px; padding: 0 10px; font-size: 13px; }
-  .shelf-head .planner-select__text { flex: 1; min-width: 0; }
-  .shelf-head .planner-select__text small, .shelf-head .planner-select__value b { font-size: 13px; }
-  .shelf-head .planner-select__text small { flex: none; }
+  /* Three filters on one line leave ~105px each: the label sits above the value so neither is cut to "T…". */
+  .shelf-head .aud-bar__field, .shelf-head .aud-bar__field:has(.planner-select) { height: 46px; }
+  .shelf-head .planner-select__trigger { height: 44px; padding: 0 8px 0 10px; gap: 4px; }
+  .shelf-head .planner-select__text { display: grid; flex: 1; gap: 0; min-width: 0; }
+  .shelf-head .planner-select__text small { overflow: hidden; font-size: 11px; line-height: 14px; text-overflow: ellipsis; white-space: nowrap; }
+  .shelf-head .planner-select__text small::after { content: none; }
+  .shelf-head .planner-select__value b { font-size: 13px; line-height: 18px; }
   .shelf-head .planner-select__value { min-width: 0; }
   .shelf-head .planner-select__value b { overflow: hidden; max-width: 100%; text-overflow: ellipsis; white-space: nowrap; }
   .shelf-head .planner-multi summary { overflow: hidden; white-space: nowrap; }

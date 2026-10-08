@@ -21,6 +21,7 @@ function splitList(value) {
 }
 const attributeValue = (attributes, key) => attributes.find(entry => String(entry.atributo || '').toLowerCase() === key)?.valor;
 
+const SHOT_KINDS = {home: 'Página inicial', noticia: 'Página de matéria', editoria: 'Página de editoria', anuncio: 'Anúncio no portal'};
 const TIER_LABELS = {grande: 'Grande porte', medio: 'Médio porte', pequeno: 'Pequeno porte', nicho: 'Nicho local'};
 const LEAN = {masculino: 'Público mais masculino', feminino: 'Público mais feminino', equilibrado: 'Público equilibrado entre homens e mulheres'};
 
@@ -82,7 +83,7 @@ export function PortalDetail({boot, selection, plan = null}) {
     {id: 'prints', label: 'Como o portal aparece', hidden: !shots.length,
       hint: 'Capturas reais da página, sem edição. O que aparece como anúncio é o que o portal exibiu naquele momento.',
       render: () => <Gallery name={portal.name} photos={shots.map(shot => ({url: shot.url,
-        caption: `${shot.kind === 'home' ? 'Página inicial' : shot.kind} · capturada em ${date(shot.captured_at)}`}))}/>},
+        caption: `${SHOT_KINDS[shot.kind] || shot.kind} · capturada em ${date(shot.captured_at)}`}))}/>},
     {id: 'sobre', label: 'Sobre o portal', render: () => <Facts items={[
       ['Cobertura', place || null],
       ['Domínio', portal.domain && <a href={`https://${portal.domain}`} target="_blank" rel="noreferrer">{portal.domain}</a>],

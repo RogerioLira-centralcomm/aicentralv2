@@ -203,3 +203,5 @@ migrations/run_sql_migration.py add_cadu_radar_v3.sql
 migrations/run_sql_migration.py add_cadu_radar_v4.sql
 # Plano final do Planner: versões do documento e link público próprio (aditivo, idempotente; depende de add_cadu_planner_plans.sql).
 migrations/run_sql_migration.py add_cadu_planner_final_plans.sql
+# Portais do Planner: popularidade pública (Tranco), porte e demografia estimados (aditivo, idempotente; depende de add_cadu_planner_portal_programmatic.sql).
+migrations/run_sql_migration.py add_cadu_planner_portal_estimates.sql

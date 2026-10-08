@@ -119,7 +119,6 @@ function channelGroups(records, category, groupBy) {
 }
 
 const SCOPES = [['', 'Todos'], ['top10', 'Top 10'], ['nacional_premium', 'Premium nacionais'], ['regional', 'Regionais']];
-const BULK_LIMIT = 200;
 
 function minutes(seconds) {
   const value = Number(seconds);
@@ -239,21 +238,6 @@ export function CatalogPage({boot, request, selection, notify}) {
 
   const setFilter = (key, value) => { setFilters(current => ({...current, [key]: value, ...(key === 'scope' && (value === 'nacional_premium' || value === 'top10') ? {uf: ''} : {})})); setOffset(0); };
   const toggleCategory = value => { setCategories(current => current.includes(value) ? current.filter(item => item !== value) : [...current, value]); setOffset(0); };
-  const [bulkBusy, setBulkBusy] = useState(false);
-  async function addFiltered() {
-    setBulkBusy(true);
-    try {
-      const params = new URLSearchParams({q: search, category: categories.join(',')});
-      Object.entries(filters).forEach(([key, value]) => { if (value) params.set(key, value); });
-      const {ids = []} = await request(`/catalog/portais/ids?${params}`);
-      const batch = ids.slice(0, BULK_LIMIT);
-      const result = await selection.addMany(kind, batch);
-      if (result) {
-        const rest = Math.max(total, ids.length) - batch.length;
-        notify({message: `${result.added} ${result.added === 1 ? 'portal adicionado' : 'portais adicionados'} ao plano${rest > 0 ? `; ${rest} ficaram de fora (limite de ${BULK_LIMIT} por vez, refine o filtro)` : ''}.`});
-      }
-    } catch (error) { notify({tone: 'error', message: error.message}); } finally { setBulkBusy(false); }
-  }
 
   const shown = kind === 'canais' ? records.filter(item => (!more.measurable || item.measurable) && (!more.formats || Number(item.formats_count) > 0)) : records;
 
@@ -313,8 +297,7 @@ export function CatalogPage({boot, request, selection, notify}) {
 
   return <>
     <ShelfHeader title={MODULE_LABELS[kind]} description={headerCount}
-      bar={channels ? channelBar : shelfBar} tools={channels ? <ViewToggle value={view} onChange={setView}/> : portalMode
-        ? <CaduButton variant="secondary" disabled={bulkBusy || !total} onClick={addFiltered}>{bulkBusy ? 'Adicionando…' : `Adicionar filtrados ao plano (${Math.min(total, BULK_LIMIT)})`}</CaduButton> : null}/>
+      bar={channels ? channelBar : shelfBar} tools={channels ? <ViewToggle value={view} onChange={setView}/> : null}/>
     {channels && channelFilters && <div className="aud-filters__summary aud-filters__summary--bar">
       <span aria-live="polite">{loading ? 'Atualizando…' : `${number(shown.length)} ${shown.length === 1 ? 'resultado' : 'resultados'}`}</span>
       <CaduButton variant="tertiary" size="sm" onClick={clearChannelFilters}>Limpar filtros</CaduButton>

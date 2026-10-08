@@ -116,9 +116,11 @@
   .shelf-head__tools:not(:has(.aud-view)) { flex: 1 1 100%; order: 3; }
   .shelf-head__tools:not(:has(.aud-view)) > button { width: 100%; }
   .shelf-head__bar { order: 2; flex: 1 1 100%; }
-  .shelf-head .aud-bar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  /* Search on its own line, every filter together on a single line below it. */
+  .shelf-head .aud-bar { display: flex; flex-wrap: wrap; gap: 8px; }
+  .shelf-head .aud-bar__field:not(.aud-bar__field--search) { flex: 1 1 0; }
   .shelf-head .aud-bar__field, .shelf-head .aud-bar__field:has(.planner-select) { min-width: 0; height: 36px; }
-  .shelf-head .aud-bar__field--search { grid-column: 1 / -1; flex: none; min-width: 0; }
+  .shelf-head .aud-bar__field--search { flex: 1 1 100%; min-width: 0; }
   .shelf-head .aud-bar__text input { font-size: 16px; }
   .shelf-head .planner-select__trigger, .shelf-head .planner-multi summary { height: 34px; padding: 0 10px; font-size: 13px; }
   .shelf-head .planner-select__text { flex: 1; min-width: 0; }
@@ -130,7 +132,7 @@
   .shelf-head .planner-multi summary b { overflow: hidden; text-overflow: ellipsis; }
   /* Lists stay inside the screen; the right-hand column opens towards the left. */
   .shelf-head .planner-select__list, .shelf-head .planner-multi__menu { min-width: min(240px, calc(100vw - 32px)); max-width: calc(100vw - 32px); max-height: 56vh; }
-  .shelf-head .aud-bar__field:nth-child(odd):not(:first-child) .planner-select__list, .shelf-head .aud-bar__field:nth-child(odd):not(:first-child) .planner-multi__menu { right: 0; left: auto; }
+  .shelf-head .aud-bar__field:not(.aud-bar__field--search):nth-last-child(-n+2) .planner-select__list, .shelf-head .aud-bar__field:not(.aud-bar__field--search):nth-last-child(-n+2) .planner-multi__menu { right: 0; left: auto; }
   .shelf-head__tools .aud-view button { height: 30px; padding: 0 10px; font-size: 13px; }
   .shelf-head__tools .aud-view button svg { width: 14px; height: 14px; }
   .aud-filters__summary--bar { margin: -4px 0 12px; }

@@ -104,6 +104,24 @@ def rank_planner_portals_top_command():
     click.echo(f'{len(applied)} portais marcados no Top 10.' + (f' Fora do catálogo: {", ".join(missing)}' if missing else ''))
 
 
+@bp.cli.command('estimate-planner-portals')
+@click.option('--tranco-file', type=click.Path(exists=True, dir_okay=False, path_type=str),
+              help='Lista Tranco já baixada (zip ou csv); sem ela, baixa de tranco-list.eu.')
+def estimate_planner_portals_command(tranco_file):
+    """Fill public popularity (Tranco), size tier and estimated demographics of every active portal."""
+    from ..cadu_planner import portal_estimates
+    ranks = portal_estimates.load_tranco(tranco_file)
+    click.echo(f'{len(ranks)} domínios na lista Tranco.')
+    items = repository.rows("""SELECT id, domain, category, to_jsonb(p)->>'uf' AS uf, to_jsonb(p)->>'scope' AS scope
+                                 FROM cadu_planner_portals p WHERE active = TRUE ORDER BY id""")
+    tiers = {}
+    for item in items:
+        values = portal_estimates.estimate(item, ranks)
+        portal_estimates.save_estimates(item['id'], values)
+        tiers[values['traffic_tier']] = tiers.get(values['traffic_tier'], 0) + 1
+    click.echo(f'{len(items)} portais estimados: {tiers}')
+
+
 @bp.cli.command('radar-due')
 @click.option('--limit', default=3, show_default=True, help='Máximo de radares rodados nesta chamada.')
 def radar_due(limit):

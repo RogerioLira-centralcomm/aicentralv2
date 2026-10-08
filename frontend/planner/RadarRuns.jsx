@@ -3,6 +3,7 @@ import {CaduBadge} from '../cadu-design-system/components/CaduBadge.jsx';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {RadarListPage} from './RadarList.jsx';
+import {upperFirst} from './api.js';
 
 export const RUN_STATUS = {done: ['Concluído', 'success'], running: ['Em andamento', 'brand'], queued: ['Na fila', 'neutral'], failed: ['Falhou', 'neutral'], cancelled: ['Cancelado', 'neutral']};
 const when = value => value ? new Date(value).toLocaleDateString('pt-BR', {day: '2-digit', month: 'short', year: 'numeric'}).replace(/\./g, '') : '';
@@ -10,7 +11,7 @@ const num = value => Number(value || 0).toLocaleString('pt-BR');
 
 function RunCard({run, brand, href}) {
   const status = RUN_STATUS[run.status] || RUN_STATUS.done;
-  const title = run.focus || brand || 'Busca sem tema';
+  const title = upperFirst(run.focus || brand || 'Busca sem tema');
   const done = run.status === 'done';
   return <a className="rr-card" href={href}>
     <div className="rr-card__top"><CaduBadge tone={status[1]}>{status[0]}</CaduBadge>

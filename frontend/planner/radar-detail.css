@@ -109,3 +109,5 @@
 .rd-brief__select { display: grid; gap: 4px; font-size: 12px; color: var(--rd-muted); }
 .rd-brief__select select { height: 36px; padding: 0 10px; border: 1px solid #d0d5dd; border-radius: 8px; background: #fff; color: var(--rd-ink); font: inherit; font-size: 14px; }
 .rd-actions { align-items: center; }
+
+.rd-brief__select { min-width: min(100%, 300px); }

@@ -4,6 +4,7 @@ import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {Illustration} from './Illustration.jsx';
 import {PlannerHeader} from './PlannerHeader.jsx';
+import {upperFirst} from './api.js';
 import {FREQUENCIES} from './RadarWizard.jsx';
 import {useConfirm} from './useConfirm.jsx';
 
@@ -77,7 +78,7 @@ export function RadarListPage({boot, request, notify, embedded = false, firstUse
           const status = WATCH_STATUS[watch.status] || WATCH_STATUS.ativo;
           return <li key={watch.id} className={`radar-watch is-${watch.status}`}>
             <div className="radar-watch__main">
-              <strong>{watch.name}</strong>
+              <strong>{upperFirst(watch.name)}</strong>
               <small>{[names[watch.brand_ref], names[watch.project_ref]].filter(Boolean).join(' · ') || 'Sem marca'} · {frequencyLabel(watch.frequency)}</small>
               <small>Última busca: {when(watch.last_run_at)}{watch.status === 'ativo' && <> · Próxima: {when(watch.next_run_at)}</>} · {watch.runs} {watch.runs === 1 ? 'consulta' : 'consultas'}</small>
               {watch.status === 'sem_credito' && <small className="is-warning">Os créditos acabaram. Recarregue e retome o radar.</small>}
@@ -100,7 +101,7 @@ export function RadarListPage({boot, request, notify, embedded = false, firstUse
         <div className="radar-runs__head" role="row"><span>Quando</span><span>Tema</span><span>Resultado</span><span>Custo</span><span/></div>
         {runs.map(run => {
           const status = RUN_STATUS[run.status] || RUN_STATUS.done;
-          const subject = run.focus || [names[run.brand_ref], names[run.project_ref]].filter(Boolean).join(' · ') || 'Busca sem tema';
+          const subject = upperFirst(run.focus || [names[run.brand_ref], names[run.project_ref]].filter(Boolean).join(' · ') || 'Busca sem tema');
           return <a key={run.id} className="radar-runs__row" role="row" href={`${boot.urls.radar}?run=${encodeURIComponent(run.id)}`}>
             <span>{when(run.created_at)}<small>{run.trigger === 'agendado' ? 'Radar ativo' : 'Manual'}</small></span>
             <span><b title={subject}>{subject}</b><small>{names[run.brand_ref] || ''}</small></span>

@@ -3,6 +3,7 @@ import {CaduBadge} from '../cadu-design-system/components/CaduBadge.jsx';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {Illustration} from './Illustration.jsx';
+import {PlannerSelect} from './PlannerSelect.jsx';
 import {radarChatUrl} from './RadarDetail.jsx';
 import {RadarRuns, RUN_STATUS} from './RadarRuns.jsx';
 import './radar-hub.css';
@@ -199,10 +200,10 @@ export function RadarHub({boot, request, notify}) {
           <div className="rh-toolbar">
             <h2 className="rw-title">{TABS.find(([id]) => id === tab)[1]}<span>{visible.length}</span></h2>
             <label className="rh-search"><Icon name="search" size={16}/><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar insights, temas ou fontes…" aria-label="Buscar nos resultados"/></label>
-            <label className="rh-select"><select value={theme} onChange={event => { setTheme(event.target.value); setSources([]); }} aria-label="Tema">
-              <option value="todos">Todos os temas</option>{themes.map(entry => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select></label>
-            <label className="rh-select"><select value={period} onChange={event => setPeriod(Number(event.target.value))} aria-label="Período">
-              {PERIODS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <div className="rh-select"><PlannerSelect ariaLabel="Tema" value={theme} onChange={value => { setTheme(value); setSources([]); }}
+              options={[{value: 'todos', label: 'Todos os temas'}, ...themes.map(entry => ({value: entry.id, label: entry.label}))]}/></div>
+            <div className="rh-select"><PlannerSelect ariaLabel="Período" value={String(period)} onChange={value => setPeriod(Number(value))}
+              options={PERIODS.map(([value, label]) => ({value: String(value), label}))}/></div>
           </div>
           <div className="rh-layout">
           <aside className="rh-side" aria-label="Filtros">

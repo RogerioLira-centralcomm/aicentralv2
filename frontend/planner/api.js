@@ -35,6 +35,9 @@ export function newPlanUrl(urls) {
   return url.pathname + url.search;
 }
 
+/** Titles and names typed in lowercase still read as titles: first letter up, the rest untouched. */
+export const upperFirst = value => { const text = String(value ?? '').trim(); return text ? text.charAt(0).toLocaleUpperCase('pt-BR') + text.slice(1) : text; };
+
 export function plainText(html) {
   return String(html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }

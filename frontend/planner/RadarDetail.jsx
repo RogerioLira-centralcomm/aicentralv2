@@ -3,6 +3,8 @@ import {CaduBadge} from '../cadu-design-system/components/CaduBadge.jsx';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {PlannerHeader} from './PlannerHeader.jsx';
+import {PlannerSelect} from './PlannerSelect.jsx';
+import {upperFirst} from './api.js';
 import {RunChain, tokens} from './RadarRun.jsx';
 import './radar-detail.css';
 
@@ -102,9 +104,8 @@ function BriefPicker({item, request, notify, plansUrl}) {
   if (!open) return <footer className="rd-actions"><CaduButton size="sm" variant="secondary" onClick={openPicker}>Levar ao briefing de um plano</CaduButton>
     {briefed > 0 && <small className="rd-muted">Já levado a {briefed} {briefed === 1 ? 'plano' : 'planos'}</small>}</footer>;
   return <footer className="rd-brief">
-    <label className="rd-brief__select"><span>Plano</span><select value={choice} onChange={event => setChoice(event.target.value)} disabled={plans === null}>
-      <option value="">Criar um plano novo com este contexto</option>
-      {(plans || []).map(plan => <option key={plan.id} value={plan.id}>{plan.title}</option>)}</select></label>
+    <div className="rd-brief__select"><PlannerSelect label="Plano" ariaLabel="Plano" value={choice} onChange={setChoice}
+      options={[{value: '', label: 'Criar um plano novo com este contexto'}, ...(plans || []).map(plan => ({value: plan.id, label: plan.title}))]}/></div>
     <span className="rd-actions"><CaduButton size="sm" loading={busy} onClick={send}>Levar</CaduButton>
       <CaduButton size="sm" variant="tertiary" disabled={busy} onClick={() => setOpen(false)}>Cancelar</CaduButton></span>
   </footer>;
@@ -265,7 +266,7 @@ export function RadarDetail({boot, run, names, onPlan, onSignalPlan, planning, r
   const angles = run.opportunities || [];
   const signals = run.signals || [];
   const brand = names[run.brand_ref] || names[run.project_ref] || '';
-  const title = run.focus || brand || 'Radar';
+  const title = upperFirst(run.focus || brand || 'Radar');
   const finished = run.status === 'done';
   const sources = new Set(signals.filter(verified).map(item => item.source)).size;
   const urls = {channels: boot.urls.channels, formats: boot.urls.formats};

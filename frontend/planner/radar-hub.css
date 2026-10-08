@@ -130,3 +130,8 @@
 .rp-card h3 { margin: 0; font-size: 17px; font-weight: 650; line-height: 24px; }
 .rp-card p { margin: 0; color: var(--planner-muted, #667085); font-size: 14px; line-height: 20px; }
 .rp-card footer { margin-top: auto; padding-top: 6px; }
+
+/* Tema and Período use the Planner listbox (its own border), so the wrapper only sizes it. */
+.rh-select { display: inline-block; height: auto; border: 0; background: none; }
+.rh-select:focus-within { border: 0; box-shadow: none; }
+.rh-select .planner-select { min-width: 190px; }

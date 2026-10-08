@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import './WorkspaceEntityPortal.css';
 import {Icon} from './Icon';
+import {CaduButton} from './CaduButton';
 import {SidebarNav, SidebarNavLink, SidebarNavProvider} from '../untitled-kit/sidebar-nav';
 
 export function EntityNavigator({label, items = [], context, children, identity, activeId: controlledActiveId, collapsible = false, storageKey = ''}) {
@@ -56,7 +57,7 @@ function RailGroup({title, items = [], onReorder, maxVisible, moreHref, moreLabe
     const content = <>{item.previewUrl ? <img src={item.previewUrl} alt="" loading="lazy"/> : item.icon ? <Icon name={item.icon} size={15}/> : null}<span><b>{item.title || item.name || `Item ${index + 1}`}</b>{item.detail && <small>{item.detail}</small>}{item.origin && <em>{item.origin}</em>}</span>{item.href && !/^(mailto|tel):/.test(item.href) && <i aria-hidden="true">↗</i>}</>;
     const row = item.href ? <a href={item.href} target={item.external ? '_blank' : undefined} rel={item.external ? 'noreferrer' : undefined} aria-current={item.active ? 'page' : undefined}>{content}</a> : <div>{content}</div>;
     return onReorder ? <article key={item.id || item.href || index} className={`cadu-ds-entity-rail__sortable${draggedId === String(item.id) ? ' is-dragging' : ''}`} draggable onDragStart={() => setDraggedId(String(item.id))} onDragEnd={() => setDraggedId('')} onDragOver={event => event.preventDefault()} onDrop={() => drop(item)}>{row}<span className="cadu-ds-entity-rail__order"><button type="button" disabled={index === 0} onClick={() => move(item,-1)} aria-label={`Mover ${item.title} para cima`}>↑</button><button type="button" disabled={index === items.length - 1} onClick={() => move(item,1)} aria-label={`Mover ${item.title} para baixo`}>↓</button></span></article> : React.cloneElement(row, {key:item.id || item.href || index, className:item.previewUrl ? 'has-preview' : ''});
-  })}</div>{moreHref && items.length > limit ? <a className="cadu-ds-entity-rail__expand" href={moreHref}>{moreLabel || 'Ver todos'}</a> : !maxVisible && items.length > limit && <button type="button" className="cadu-ds-entity-rail__expand" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? 'Mostrar menos' : `Ver todos (${items.length})`}</button>}</section>;
+  })}</div>{moreHref && items.length > limit ? <a className="cadu-ds-entity-rail__expand" href={moreHref}>{moreLabel || 'Ver todos'}</a> : !maxVisible && items.length > limit && <CaduButton variant="link" type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? 'Mostrar menos' : `Ver todos (${items.length})`}</CaduButton>}</section>;
 }
 
 export function EntityContextRail({title = 'Em destaque', action, groups = [], primaryGroup, secondaryGroup, children, className = ''}) {
@@ -69,6 +70,6 @@ export function BrandCompletion({score = 0, missing = [], breakdown = [], proces
   return <section className={`cadu-ds-brand-completion${ready ? ' is-ready' : ''}`} id="completar">
     <div className="cadu-ds-brand-completion__score"><strong>{normalized}%</strong><span>completude da base</span></div>
     <div className="cadu-ds-brand-completion__body"><span>{ready ? 'Cobertura consolidada' : 'Próximo ganho de qualidade'}</span><h2>{ready ? 'A marca já orienta projetos e criação' : 'Complete os sinais que ainda fazem diferença'}</h2><p>{missing.length ? `Priorize: ${missing.slice(0, 3).join(', ')}.` : 'A auditoria preserva as lacunas sem bloquear os dados comprovados.'}</p>{breakdown.length > 0 && <div className="cadu-ds-brand-completion__map" aria-label="Cobertura por dimensão">{breakdown.map(item => { const pct = Math.max(0, Math.min(100, Math.round((Number(item.score) || 0) * 100 / Math.max(1, Number(item.max) || 1)))); return <div key={item.id}><span><b>{item.label}</b><small>{item.score}/{item.max}</small></span><i><em style={{width:`${pct}%`}}/></i></div>; })}</div>}</div>
-    {(onAudit || onEdit) && <div className="cadu-ds-brand-completion__actions">{onAudit && <button type="button" className="is-primary" disabled={processing} onClick={onAudit}>{processing ? 'Análise em andamento' : ready ? 'Atualizar análise' : 'Executar análise completa'}</button>}{onEdit && <button type="button" onClick={onEdit}>Editar dados</button>}</div>}
+    {(onAudit || onEdit) && <div className="cadu-ds-brand-completion__actions">{onAudit && <CaduButton type="button" disabled={processing} onClick={onAudit}>{processing ? 'Análise em andamento' : ready ? 'Atualizar análise' : 'Executar análise completa'}</CaduButton>}{onEdit && <CaduButton variant="tertiary" type="button" onClick={onEdit}>Editar dados</CaduButton>}</div>}
   </section>;
 }

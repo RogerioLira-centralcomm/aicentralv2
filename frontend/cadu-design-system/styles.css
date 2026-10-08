@@ -3889,8 +3889,6 @@ body.portal--workspace .cadu-ds-brand-completion__map i { display:block; height:
 body.portal--workspace .cadu-ds-brand-completion__map em { display:block; height:100%; background:var(--cadu-accent); }
 body.portal--workspace .cadu-ds-brand-completion.is-ready .cadu-ds-brand-completion__score strong { color:var(--cadu-accent-strong); }
 body.portal--workspace .cadu-ds-brand-completion__actions { display:flex; align-items:center; gap:8px; padding-top:4px; }
-body.portal--workspace .cadu-ds-brand-completion__actions button { min-height:34px; padding:0 12px; border:1px solid var(--cadu-line); border-radius:9px; background:transparent; color:var(--cadu-ink); font:inherit; font-size:11px; font-weight:700; }
-body.portal--workspace .cadu-ds-brand-completion__actions .is-primary { border-color:var(--cadu-accent); background:var(--cadu-accent); color:var(--cadu-accent-ink,#fff); }
 body.portal--workspace .cadu-ds-project-indexing { padding:25px 0; }
 body.portal--workspace .cadu-ds-project-indexing > header { display:flex; align-items:start; justify-content:space-between; gap:24px; }
 body.portal--workspace .cadu-ds-project-indexing h2 { margin:3px 0 7px; font-size:20px; }

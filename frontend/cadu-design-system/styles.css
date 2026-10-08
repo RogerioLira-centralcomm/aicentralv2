@@ -3975,7 +3975,8 @@ body.portal--workspace .cadu-ds-project-explorer__groups > section { padding:18p
 body.portal--workspace .cadu-ds-project-explorer__groups > section:first-child { border-top:0; }
 body.portal--workspace .cadu-ds-project-explorer__groups > section > header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:10px; }
 body.portal--workspace .cadu-ds-project-explorer__groups > section > header > div:first-child { display:flex; align-items:baseline; gap:9px; }
-body.portal--workspace .cadu-ds-project-explorer__groups > section > header h3 { margin:0; font-size:12px; font-weight:720; text-transform:capitalize; }
+body.portal--workspace .cadu-ds-project-explorer__groups > section > header h3 { margin:0; font-size:13px; font-weight:650; text-transform:none; }
+body.portal--workspace .cadu-ds-project-explorer__groups > section > header h3::first-letter { text-transform:uppercase; }
 body.portal--workspace .cadu-ds-project-explorer__groups > section > header span { color:var(--cadu-muted); font-size:11px; }
 body.portal--workspace .cadu-ds-project-explorer__actors { display:flex; align-items:center; padding-right:4px; }
 body.portal--workspace .cadu-ds-project-explorer__actors .cadu-ds-project-explorer__actor { margin-right:-5px; box-shadow:0 0 0 2px var(--cadu-canvas); }

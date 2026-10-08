@@ -4233,7 +4233,10 @@ body.portal--workspace .cadu-ds-project-task-form{animation:cadu-project-reveal 
 body.portal--workspace .cadu-ds-project-task-layout{display:block;margin-top:18px}
 body.portal--workspace .cadu-ds-project-task-list article{transition:background-color .16s ease,transform .16s ease,opacity .16s ease}
 body.portal--workspace .cadu-ds-project-task-list article:hover{background:color-mix(in srgb,var(--cadu-accent-soft) 35%,transparent);transform:translateX(2px)}
-body.portal--workspace .cadu-ds-project-task-toolbar{display:flex;align-items:center;gap:10px;margin:18px 0 6px;overflow-x:auto;padding-bottom:5px}
+body.portal--workspace .cadu-ds-project-task-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:18px 0 6px;padding-bottom:5px}
+body.portal--workspace .cadu-ds-project-task-toolbar .cadu-untitled-tabs{flex:1 1 auto;min-width:0}
+body.portal--workspace .cadu-ds-project-task-toolbar .cadu-untitled-tab-list{max-width:100%;overflow-x:auto}
+body.portal--workspace .cadu-ds-project-task-toolbar .cadu-untitled-tab-list [role=tab]{flex:none;white-space:nowrap}
 body.portal--workspace .cadu-ds-project-task-toolbar>div{display:flex;gap:3px}.cadu-ds-project-task-toolbar button{flex:none;min-height:32px;padding:0 9px;border:0;border-radius:7px;background:transparent;color:var(--cadu-muted);font-size:10px}.cadu-ds-project-task-toolbar button.is-active{background:var(--cadu-surface-soft);color:var(--cadu-accent-strong)}
 body.portal--workspace .cadu-ds-project-task-toolbar input{width:min(190px,30vw);min-height:32px;margin-left:auto;border:1px solid var(--cadu-line);border-radius:7px;background:var(--cadu-surface);padding:0 9px;color:var(--cadu-ink);font-size:10px}
 body.portal--workspace .cadu-ds-project-task-list__open{display:block;min-width:0;padding:0;border:0;background:transparent;color:inherit;text-align:left}

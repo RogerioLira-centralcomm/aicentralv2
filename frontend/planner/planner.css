@@ -1838,3 +1838,4 @@ a.planner-card:focus-visible { outline: 2px solid var(--colors-brand-600, #07945
 .planner-shell .planner-cadu__actions > * { max-width: 100%; white-space: normal; text-align: left; }
 .planner-shell .planner-cadu .cadu-badge { max-width: 100%; white-space: normal; }
 .ph { box-shadow: 0 -10px 0 var(--planner-page); }
+@media (max-width: 900px) { .ph { box-shadow: none; } }

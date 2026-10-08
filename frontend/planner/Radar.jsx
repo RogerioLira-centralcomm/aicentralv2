@@ -77,6 +77,17 @@ export function RadarPage({boot, request, notify, context}) {
     }
   };
 
+  const createSignalPlan = async item => {
+    setPlanning(item.id);
+    try {
+      const data = await request(`/radar/signals/${item.id}/plan`, {method: 'POST', body: JSON.stringify({})});
+      window.location.assign(`${boot.urls.plans}/${encodeURIComponent(data.plan.id)}`);
+    } catch (error) {
+      notify({tone: 'error', message: error.message});
+      setPlanning('');
+    }
+  };
+
   if (!enabled) {
     return <PlannerHeader title="Radar" description="O que está em buzz agora e os ângulos para falar de um conceito."
       meta={<CaduBadge tone="brand">Em breve</CaduBadge>}/>;
@@ -95,7 +106,7 @@ export function RadarPage({boot, request, notify, context}) {
   if (loading && !run) return <PlannerHeader title="Radar" description="Carregando a busca…"/>;
 
   if (!run) return null;
-  return <RadarDetail boot={boot} run={run} names={names} onPlan={createPlan} planning={planning}/>;
+  return <RadarDetail boot={boot} run={run} names={names} onPlan={createPlan} onSignalPlan={createSignalPlan} planning={planning}/>;
 }
 
 /** Compact Radar block for the Planner home. */

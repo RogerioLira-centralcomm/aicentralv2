@@ -49,12 +49,19 @@ function Kpi({icon, value, label, hint}) {
     <div><strong>{value}</strong><span>{label}</span></div><p>{hint}</p></div>;
 }
 
-function Signals({signals}) {
-  return <ol className="rd-signals">{signals.map(item => <li key={item.id}>
-    <strong>{item.headline}</strong>
-    {item.description && <p>{item.description}</p>}
-    <SourceLink name={item.source || 'Fonte'} url={item.url} tier={item.verification?.tier} date={item.published_at}/>
-  </li>)}</ol>;
+function Signals({signals, planOf, plansUrl, onSignalPlan, planning}) {
+  return <ol className="rd-signals">{signals.map(item => {
+    const plan = planOf[item.id];
+    return <li key={item.id}>
+      <strong>{item.headline}</strong>
+      {item.description && <p>{item.description}</p>}
+      <div className="rd-signals__foot">
+        <SourceLink name={item.source || 'Fonte'} url={item.url} tier={item.verification?.tier} date={item.published_at}/>
+        {plan ? <CaduButton size="sm" variant="secondary" href={`${plansUrl}/${encodeURIComponent(plan.id)}`}>Abrir plano</CaduButton>
+          : <CaduButton size="sm" variant="secondary" loading={planning === item.id} onClick={() => onSignalPlan(item)}>Criar planejamento</CaduButton>}
+      </div>
+    </li>;
+  })}</ol>;
 }
 
 /** Evidências: uma linha por veículo, com o nível dele na base curada e o que ele sustentou. */
@@ -103,16 +110,20 @@ function Applications({angles, catalogUrl}) {
   </section>)}</div>;
 }
 
-function Side({run, brand, angles, signals, onTab}) {
-  const inPlan = angles.filter(angle => angle.status === 'em_plano');
+const PLAN_STATUS = {draft: 'Rascunho', ready: 'Pronto', archived: 'Arquivado'};
+
+function Side({run, brand, signals, onTab, plansUrl}) {
+  const related = run.related_plans || [];
   const rows = [['Marca', brand], ['Praça', run.params?.places || 'Brasil'], ['Janela', run.params?.recency_days ? `Últimos ${run.params.recency_days} dias` : ''],
     ['Rodada', run.trigger === 'agendado' ? 'Radar ativo' : 'Busca manual'], ['Feita em', day(run.created_at)],
     ['Tamanho da busca', `${tokens(run.tokens)} tokens`]].filter(([, value]) => value);
   return <aside className="rd-side">
     <section className="rd-card"><h2>Sobre este radar</h2>
       <dl>{rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></section>
-    {inPlan.length > 0 && <section className="rd-card"><h2>Ângulos em plano<span>{inPlan.length}</span></h2>
-      <ul className="rd-plain">{inPlan.map(angle => <li key={angle.id}>{angle.title}</li>)}</ul></section>}
+    <section className="rd-card"><h2>Planos relacionados<span>{related.length}</span></h2>
+      {related.length === 0 ? <p className="rd-muted">Nenhum plano nasceu deste radar ainda. Use &quot;Criar planejamento&quot; em um ângulo ou em uma notícia.</p>
+        : <ul className="rd-plans">{related.map(plan => <li key={plan.id}><a href={`${plansUrl}/${encodeURIComponent(plan.id)}`}>{plan.title}</a>
+          {PLAN_STATUS[plan.status] && <small>{PLAN_STATUS[plan.status]}</small>}</li>)}</ul>}</section>
     <button type="button" className="rd-card rd-card--link" onClick={() => onTab('metodologia')}>
       <span><b>Como a busca foi feita</b><small>{count(signals.length, 'notícia lida e verificada', 'notícias lidas e verificadas')}, etapas e custo de cada uma.</small></span>
       <Icon name="chevron" size={16}/></button>
@@ -120,7 +131,7 @@ function Side({run, brand, angles, signals, onTab}) {
 }
 
 /** Detalhe de um radar: números, ângulos, sinais, evidências, aplicações e metodologia, com os dados da busca ao lado. */
-export function RadarDetail({boot, run, names, onPlan, planning}) {
+export function RadarDetail({boot, run, names, onPlan, onSignalPlan, planning}) {
   const [tab, setTab] = useState('geral');
   const status = STATUS[run.status] || STATUS.done;
   const angles = run.opportunities || [];
@@ -130,6 +141,7 @@ export function RadarDetail({boot, run, names, onPlan, planning}) {
   const finished = run.status === 'done';
   const sources = new Set(signals.filter(verified).map(item => item.source)).size;
   const urls = {channels: boot.urls.channels, formats: boot.urls.formats};
+  const planOf = useMemo(() => Object.fromEntries((run.related_plans || []).filter(plan => plan.signal_id).map(plan => [plan.signal_id, plan])), [run.related_plans]);
   const tabCount = {angulos: angles.length, sinais: signals.length, evidencias: sources};
   const description = [brand, run.params?.places, run.params?.recency_days && `últimos ${run.params.recency_days} dias`, day(run.created_at)].filter(Boolean).join(' · ');
 
@@ -156,12 +168,12 @@ export function RadarDetail({boot, run, names, onPlan, planning}) {
           {run.time_saved?.label && <p className="rd-saved"><Icon name="pulse" size={14}/>Tempo poupado: ~{run.time_saved.label}</p>}
         </>}
         {tab === 'angulos' && <div className="rd-grid">{angles.map((item, index) => <AngleCard key={item.id} item={item} rank={index} busy={planning === item.id} onPlan={onPlan}/>)}</div>}
-        {tab === 'sinais' && (signals.length ? <Signals signals={signals}/> : <p className="rd-empty">Nenhum sinal passou na verificação.</p>)}
+        {tab === 'sinais' && (signals.length ? <Signals signals={signals} planOf={planOf} plansUrl={boot.urls.plans} onSignalPlan={onSignalPlan} planning={planning}/> : <p className="rd-empty">Nenhum sinal passou na verificação.</p>)}
         {tab === 'evidencias' && (signals.length ? <Evidence signals={signals}/> : <p className="rd-empty">Sem fontes para mostrar.</p>)}
         {tab === 'aplicacoes' && <Applications angles={angles} catalogUrl={urls}/>}
         {tab === 'metodologia' && <RunChain run={run}/>}
       </div>
-      <Side run={run} brand={brand} angles={angles} signals={signals} onTab={setTab}/>
+      <Side run={run} brand={brand} signals={signals} onTab={setTab} plansUrl={boot.urls.plans}/>
     </div>}
   </>;
 }

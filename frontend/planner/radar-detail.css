@@ -65,3 +65,10 @@
 .rd-saved { display: inline-flex; align-items: center; gap: 6px; margin-top: 16px; }
 @media (max-width: 1100px) { .rd { grid-template-columns: minmax(0, 1fr); } .rd-side { position: static; } .rd-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 720px) { .rd-grid, .rd-apps { grid-template-columns: minmax(0, 1fr); } .rd-table__head { display: none; } .rd-table__row { grid-template-columns: minmax(0, 1fr) auto; } }
+
+.rd-signals__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.rd-muted { margin: 0; color: var(--rd-muted); font-size: 13px; line-height: 18px; }
+.rd-plans { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.rd-plans li { display: grid; gap: 2px; }
+.rd-plans a { color: var(--rd-ink); font-size: 14px; font-weight: 500; line-height: 20px; }
+.rd-plans small { color: #98a2b3; font-size: 12px; }

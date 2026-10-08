@@ -1051,6 +1051,15 @@ def planner_radar_create_plan(opportunity_id):
     return jsonify(plan=radar.create_plan(selected['client_id'], user['id'], opportunity_id, selected)), 201
 
 
+@bp.post('/api/planner/radar/signals/<signal_id>/plan')
+def planner_radar_signal_plan(signal_id):
+    """Cria um planejamento que nasce de uma notícia do Radar: ela vira o briefing."""
+    from ..cadu_radar import repository as radar
+    selected = writable_context()
+    user = context.identity()
+    return jsonify(plan=radar.create_plan_from_signal(selected['client_id'], user['id'], signal_id, selected)), 201
+
+
 @bp.get('/api/planner/plans/<plan_id>')
 def planner_plan_detail(plan_id):
     from ..cadu_planner import plans

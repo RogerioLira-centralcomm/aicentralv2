@@ -394,6 +394,7 @@ class Runner:
 
 def get_run(client_id, run_id):
     from ..cadu_family import repository
+    from . import repository as radar_repository
     # A tela consulta este run a cada 2 s: se o executor morreu, ela precisa ver a falha em vez de esperar para sempre.
     _expire_dead_runs(client_id)
     rows = repository.rows('''SELECT id, status, steps, cost, focus, brand_ref, project_ref, params, trigger, watch_id, error,
@@ -411,6 +412,8 @@ def get_run(client_id, run_id):
     run['signals'] = repository.rows('''SELECT id, headline, description, source, url, published_at, verification
                                           FROM cadu_radar_signals WHERE run_id = %s ORDER BY published_at DESC NULLS LAST''',
                                      (str(run_id),)) if done else []
+    run['related_plans'] = radar_repository.plans_for(client_id, signal_ids=[row['id'] for row in run['signals']],
+                                                       opportunity_ids=[row['id'] for row in run['opportunities']]) if done else []
     if run['opportunities']:
         run['time_saved'] = time_saved.estimate(len(run['signals']), len(run['opportunities']))
     return run

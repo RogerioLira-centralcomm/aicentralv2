@@ -1,6 +1,8 @@
 """Leituras do Radar. Escritas entram com o pipeline (Fase 3)."""
 from __future__ import annotations
 
+from psycopg.types.json import Json
+
 from ..cadu_family import repository
 
 
@@ -64,3 +66,56 @@ def create_plan(client_id, actor_id, opportunity_id, context):
                         (str(item['id']), str(plan['id'])))
         cur.execute("UPDATE cadu_radar_opportunities SET status = 'em_plano', updated_at = NOW() WHERE id = %s", (str(item['id']),))
     return plans.get_plan(client_id, actor_id, plan['id'])
+
+
+def _plan_columns():
+    rows = repository.rows("""SELECT column_name FROM information_schema.columns WHERE table_schema = 'public'
+                               AND table_name = 'cadu_planner_plans' AND column_name IN ('opportunity_id', 'signal_id')""")
+    return {row['column_name'] for row in rows}
+
+
+def create_plan_from_signal(client_id, actor_id, signal_id, context):
+    """Nasce um planejamento da notícia: ela entra como briefing, com fonte, data, link e o radar que a achou."""
+    from werkzeug.exceptions import BadRequest, NotFound
+    from ..cadu_planner import plans
+    from .db import transaction
+    if 'signal_id' not in _plan_columns():
+        raise BadRequest('Aplique a migration do Radar (add_cadu_radar_v3.sql) antes de criar planos a partir de notícias.')
+    rows = repository.rows('''SELECT s.id, s.headline, s.description, s.source, s.url, s.published_at, r.focus, r.brand_ref, r.project_ref, r.params
+                                FROM cadu_radar_signals s LEFT JOIN cadu_radar_runs r ON r.id = s.run_id
+                               WHERE s.id = %s AND s.client_id = %s''', (str(signal_id), int(client_id)))
+    if not rows:
+        raise NotFound('Notícia indisponível.')
+    item = rows[0]
+    when = item['published_at'].strftime('%d/%m/%Y') if item.get('published_at') else ''
+    angles = repository.rows("""SELECT title FROM cadu_radar_opportunities WHERE client_id = %s AND signal_ids @> %s::jsonb ORDER BY created_at""",
+                             (int(client_id), Json([str(item['id'])])))
+    notes = '\n'.join(part for part in [
+        item['headline'], item.get('description'),
+        f"Fonte: {item.get('source') or 'não informada'}{f' ({when})' if when else ''}{f' · {item['url']}' if item.get('url') else ''}",
+        f"Radar: {item['focus']}" if item.get('focus') else '',
+        f"Ângulos que esta notícia sustenta: {'; '.join(angle['title'] for angle in angles)}" if angles else ''] if part)
+    places = ((item.get('params') or {}).get('places') or '')[:120]
+    plan = plans.create_plan(client_id, actor_id, {
+        'title': item['headline'][:180], 'objective': 'awareness',
+        'briefing': {'notes': notes[:2000], 'geography': places},
+        'brand_ref': item.get('brand_ref'), 'project_ref': item.get('project_ref')}, context)
+    with transaction() as cur:
+        cur.execute("UPDATE cadu_planner_plans SET source = 'radar', signal_id = %s WHERE id = %s", (str(item['id']), str(plan['id'])))
+    return plans.get_plan(client_id, actor_id, plan['id'])
+
+
+def plans_for(client_id, *, signal_ids=(), opportunity_ids=()):
+    """Planos que nasceram dessas notícias ou ângulos: id, título, estado e a que eles se ligam."""
+    columns = _plan_columns()
+    clauses, params = [], []
+    if 'signal_id' in columns and signal_ids:
+        clauses.append('signal_id = ANY(%s::uuid[])')
+        params.append([str(value) for value in signal_ids])
+    if 'opportunity_id' in columns and opportunity_ids:
+        clauses.append('opportunity_id = ANY(%s::uuid[])')
+        params.append([str(value) for value in opportunity_ids])
+    if not clauses:
+        return []
+    return repository.rows(f'''SELECT id, title, status, signal_id, opportunity_id, created_at FROM cadu_planner_plans
+                                 WHERE client_id = %s AND ({' OR '.join(clauses)}) ORDER BY created_at DESC''', (int(client_id), *params))

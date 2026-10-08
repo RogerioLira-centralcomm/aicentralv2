@@ -27,7 +27,7 @@ function Cover({item}) {
 
 function Tag({tone = 'plain', children}) { return <span className={`rh-tag rh-tag--${tone}`}>{children}</span>; }
 
-function NewsCard({item, onSave, onPlan, planning, radarUrl}) {
+function NewsCard({item, onSave, onPlan, planning, radarUrl, plansUrl}) {
   const lead = item.angles.find(angle => angle.status !== 'em_plano') || null;
   return <article className="rh-card">
     <Cover item={item}/>
@@ -40,7 +40,9 @@ function NewsCard({item, onSave, onPlan, planning, radarUrl}) {
       <h3><a href={item.url} target="_blank" rel="noreferrer noopener">{item.title}</a></h3>
       {item.summary && <p>{item.summary}</p>}
       {lead && <small className="rh-card__angle"><b>Ângulo:</b> {lead.title}</small>}
-      {lead && <div className="rh-card__cta"><CaduButton size="sm" variant="secondary" loading={planning === lead.id} onClick={() => onPlan(lead)}>Criar planejamento</CaduButton></div>}
+      <div className="rh-card__cta">{item.plan
+        ? <CaduButton size="sm" variant="secondary" href={`${plansUrl}/${encodeURIComponent(item.plan.id)}`}>Abrir plano</CaduButton>
+        : <CaduButton size="sm" variant="secondary" loading={planning === item.id} onClick={() => onPlan(item)}>Criar planejamento</CaduButton>}</div>
       {item.run_id && <a className="rh-card__radar" href={`${radarUrl}?run=${encodeURIComponent(item.run_id)}`}>Ver a busca completa</a>}
       <footer>
         <span className="rh-card__source"><i aria-hidden="true">{(item.source || '?').trim().charAt(0)}</i><em>{item.source}</em><small>{day(item.published_at || item.detected_at)}</small></span>
@@ -115,10 +117,11 @@ export function RadarHub({boot, request, notify}) {
     try { await request(`/radar/signals/${item.id}/saved`, {method: 'PUT', body: JSON.stringify({saved: next})}); }
     catch (error) { mark(!next); notify({tone: 'error', message: error.message}); }
   }, [request, notify]);
-  const plan = useCallback(async angle => {
-    setPlanning(angle.id);
+  // A notícia vira o briefing de um plano novo.
+  const plan = useCallback(async item => {
+    setPlanning(item.id);
     try {
-      const created = await request(`/radar/opportunities/${angle.id}/plan`, {method: 'POST', body: JSON.stringify({})});
+      const created = await request(`/radar/signals/${item.id}/plan`, {method: 'POST', body: JSON.stringify({})});
       window.location.assign(`${boot.urls.plans}/${encodeURIComponent(created.plan.id)}`);
     } catch (error) { notify({tone: 'error', message: error.message}); setPlanning(''); }
   }, [request, notify, boot.urls.plans]);
@@ -194,7 +197,7 @@ export function RadarHub({boot, request, notify}) {
                 <p className="planner-muted">{tab === 'salvos' ? 'Use o marcador de um card para guardar o que vale revisitar.' : (data.items || []).length ? 'Mude o tema, a fonte ou o período.' : 'Monte um radar com um tema ou uma marca. Cada busca traz notícias com data recente e link que abre, e os ângulos para virar plano.'}</p>
                 {boot.features?.radar && !(data.items || []).length && <CaduButton size="sm" href={newUrl}>Criar o primeiro radar</CaduButton>}
                 {!boot.features?.radar && <CaduBadge tone="brand">Em breve</CaduBadge>}</div>
-            </div> : <div className="rh-grid">{visible.map(item => <NewsCard key={item.id} item={item} onSave={save} onPlan={plan} planning={planning} radarUrl={boot.urls.radar}/>)}</div>}
+            </div> : <div className="rh-grid">{visible.map(item => <NewsCard key={item.id} item={item} onSave={save} onPlan={plan} planning={planning} radarUrl={boot.urls.radar} plansUrl={boot.urls.plans}/>)}</div>}
           </div>
           </div>
         </>}

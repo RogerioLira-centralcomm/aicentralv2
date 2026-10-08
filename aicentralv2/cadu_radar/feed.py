@@ -45,13 +45,18 @@ def list_feed(client_id, *, days=30, limit=120):
                                        WHERE client_id = %s AND run_id = ANY(%s::uuid[])''', (int(client_id), run_ids)):
             for signal_id in opp.get('signal_ids') or []:
                 angles.setdefault(str(signal_id), []).append({'id': str(opp['id']), 'title': opp['title'], 'status': opp['status']})
+    from . import repository as radar
+    plan_of = {}
+    for plan in radar.plans_for(client_id, signal_ids=[row['id'] for row in rows]):
+        if plan.get('signal_id'):
+            plan_of.setdefault(str(plan['signal_id']), {'id': str(plan['id']), 'title': plan['title']})
     items = []
     for row in rows:
         verification = row.get('verification') or {}
         item = {'id': str(row['id']), 'title': row['headline'], 'summary': row['description'] or '', 'source': row['source'] or 'Fonte',
                 'url': row['url'], 'published_at': row['published_at'], 'detected_at': row['detected_at'],
                 'tier': verification.get('tier'),
-                'angles': angles.get(str(row['id']), []), 'saved': bool(row['saved_at']), 'radar': row['focus'] or '',
+                'angles': angles.get(str(row['id']), []), 'plan': plan_of.get(str(row['id'])), 'saved': bool(row['saved_at']), 'radar': row['focus'] or '',
                 'brand_ref': row['brand_ref'], 'project_ref': row['project_ref'], 'scheduled': bool(row['watch_id']),
                 'run_id': str(row['run_id']) if row['run_id'] else None}
         item['angle_count'] = len(item['angles'])

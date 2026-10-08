@@ -180,7 +180,7 @@ migrations/run_sql_migration.py add_parceiro_papel_contato_operacional.sql
 # Índices das leituras por projeto do Workspace (validados com EXPLAIN em Postgres 17 local; aditivo, idempotente, lock_timeout de 5 s).
 migrations/run_add_workspace_query_indexes.py
 migrations/run_sql_migration.py deactivate_canal_waze.sql
-# Radar v2: params do wizard, radares ativos e vínculo do run (aditivo, idempotente; depende de add_cadu_radar.sql).
+# Radar v2: params do wizard, radares ativos e vínculo do run (aditivo, idempotente; depende de add_cadu_radar.sql e add_cadu_planner_cobuild.sql).
 migrations/run_sql_migration.py add_cadu_radar_v2.sql
 # Fontes das métricas dos canais e alcance pesquisado (aditivo, idempotente; schema antes dos dados).
 migrations/run_sql_migration.py add_cadu_canais_fontes_metricas.sql
@@ -197,5 +197,5 @@ migrations/run_sql_migration.py upgrade_reports_alerts_v2.sql
 migrations/run_sql_migration.py refine_cadu_chat_plugin_reports_link_tester.sql
 # ScreenshotOne no cofre de integrações (aditivo, idempotente; amplia o CHECK de providers).
 migrations/run_add_screenshotone_integration_credential.py
-# Radar: sinais salvos na tela de resultados (aditivo, idempotente; depende de add_cadu_radar.sql).
+# Radar: sinais salvos na tela de resultados (aditivo, idempotente; depende de add_cadu_radar.sql e add_cadu_planner_cobuild.sql).
 migrations/run_sql_migration.py add_cadu_radar_v3.sql

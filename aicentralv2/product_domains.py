@@ -215,6 +215,11 @@ def register_product_host_routing(app) -> None:
         planner_host_only()
         return app.view_functions['cadu_family.planner_public_plan'](token)
 
+    @app.get('/planos/public/final/<token>')
+    def planner_host_public_final_plan(token):
+        planner_host_only()
+        return app.view_functions['cadu_family.planner_public_final_plan'](token)
+
     @app.get('/places/<slug>')
     def planner_host_place_detail(slug):
         planner_host_only()

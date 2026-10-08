@@ -142,10 +142,9 @@
 .channel-card .planner-card__title, .channel-card .planner-card__text, .channel-row__text, .channel-row__main strong, .channel-row__main small, .channel-card__stats dt, .channel-card__stats dd, .channel-card__role { display: block; min-height: 0; overflow: visible; -webkit-line-clamp: unset; text-overflow: clip; white-space: normal; }
 .ph__copy > p { overflow: visible; text-overflow: clip; white-space: normal; }
 
-/* Radar leads the navigation: a green pill, always visible, whether or not the page is active. */
-.pn__link--radar { margin-right: 6px; border-radius: 8px; background: var(--colors-brand-50, #ecfdf3); color: var(--colors-brand-700, #087443); font-weight: 600; }
-.pn__link--radar:hover { background: var(--colors-brand-100, #d3f8df); color: var(--colors-brand-800, #085d3a); }
-.pn__link--radar.is-active { background: var(--colors-brand-100, #d3f8df); }
-.pn__link--radar.is-active::after { display: none; }
-.pn__link--radar svg { color: var(--colors-brand-600, #079455); }
-@media (max-width: 1100px) { .pn__link--radar span { position: static; width: auto; height: auto; clip: auto; } }
+/* Links truly centred: brand and actions take equal shares either side of the nav. */
+@media (min-width: 1101px) {
+  .pn__brand { flex: 1 1 0; width: auto; min-width: 0; }
+  .pn__nav { flex: none; }
+  .pn__actions { flex: 1 1 0; justify-content: flex-end; min-width: 0; }
+}

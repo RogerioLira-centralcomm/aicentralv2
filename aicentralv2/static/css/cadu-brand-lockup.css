@@ -6,7 +6,7 @@
  * Change the tokens, not the per-product CSS.
  */
 :root {
-  --cadu-brand-logo: 24px;
+  --cadu-brand-logo: 32px;
   --cadu-brand-gap: 10px;
   --cadu-brand-inset: 16px;          /* from the left edge of the window */
   --cadu-brand-row: 56px;            /* first row: logo vertically centred → top at 16px */
@@ -93,12 +93,13 @@
   display: flex; width: auto; height: var(--cadu-brand-logo); place-items: initial; background: transparent;
 }
 #cadu-conversations-v2-root .cv-chat-solution-switcher .cadu-brand-lockup { --cadu-brand-dx: 6px; --cadu-brand-dy: 0px; }
-#cadu-conversations-v2-root .cadu-brand-lockup .cadu-brand-lockup__name { color: var(--cadu-brand-ink-dark); }
+#cadu-conversations-v2-root .cv-chat-solution-switcher .cadu-brand-lockup .cadu-brand-lockup__name,
+#cadu-conversations-v2-root .cv-sidebar-mini-rail .cadu-brand-lockup .cadu-brand-lockup__name { color: var(--cadu-brand-ink-dark); }
 #cadu-conversations-v2-root .cadu-brand-lockup.cadu-brand-lockup > img,
 #cadu-conversations-v2-root .cadu-brand-lockup.cadu-brand-lockup .cadu-brand-lockup__logo { width: var(--cadu-brand-logo); height: var(--cadu-brand-logo); }
 
 /* Planner top bar (56px): content left 25, row centre 28. */
-.pn__brand .cadu-brand-lockup { --cadu-brand-dx: -9px; --cadu-brand-dy: 0px; }
+.pn__brand .cadu-brand-lockup { --cadu-brand-dx: calc(var(--cadu-brand-inset) - clamp(16px, 2.4vw, 40px)); --cadu-brand-dy: 0px; }
 
 /* Studio bar (every Studio page, Planner layout, 56px): side padding clamp(16px, 2.4vw, 40px); row centre 28. */
 .csu-navbar { --csu-pad-x: clamp(16px, 2.4vw, 40px); }
@@ -108,3 +109,15 @@
 /* Collapsed rails centre the logo in a narrow column: no offset there. */
 .cadu-solution-sidebar.is-collapsed .cadu-brand-lockup,
 .cadu-ds-context-sidebar.is-collapsed .cadu-brand-lockup { --cadu-brand-dx: 0px; --cadu-brand-dy: 0px; }
+
+/* Dark products (Chat, Studio): the logo sits on a white tile so the dark chevrons stay readable. */
+#cadu-conversations-v2-root .cv-chat-solution-switcher .cadu-brand-lockup.cadu-brand-lockup .cadu-brand-lockup__logo,
+#cadu-conversations-v2-root .cv-sidebar-mini-rail .cadu-brand-lockup.cadu-brand-lockup .cadu-brand-lockup__logo,
+.csu-navbar .cadu-brand-lockup.cadu-brand-lockup .cadu-brand-lockup__logo { padding: 4px; border-radius: 9px; background: #fff; }
+
+/* The solutions menu is always a white card, also over dark pages (Chat, Studio). */
+.cadu-ds-solution-switcher__portal nav.cadu-ds-solution-switcher__overlay { padding: 8px; border: 1px solid #d7dfda; border-radius: 14px; background: #fff; box-shadow: 0 18px 44px #16272130; }
+.cadu-ds-solution-switcher__portal nav.cadu-ds-solution-switcher__overlay a { color: #283530; }
+.cadu-ds-solution-switcher__portal nav.cadu-ds-solution-switcher__overlay a:hover { background: #f2f6f3; }
+.cadu-ds-solution-switcher__portal nav.cadu-ds-solution-switcher__overlay a[aria-current="page"] { background: transparent; color: var(--solution-accent, var(--cadu-accent, #087443)); }
+.cadu-ds-solution-switcher__portal nav.cadu-ds-solution-switcher__overlay small { color: #78827e; }

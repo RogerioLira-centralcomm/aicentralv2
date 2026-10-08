@@ -101,3 +101,7 @@
 @media (max-width: 760px) { .csu-navbar { --csu-pad-x: 12px; } }
 .csu-navbar .csu-navbar__identity .cadu-brand-lockup { --cadu-brand-dx: calc(var(--cadu-brand-inset) - var(--csu-pad-x) + 4px); --cadu-brand-dy: -4px; }
 .csu-navbar .cadu-brand-lockup.cadu-brand-lockup .cadu-brand-lockup__name { color: var(--csu-text, var(--cadu-brand-ink-dark)); }
+
+/* Collapsed rails centre the logo in a narrow column: no offset there. */
+.cadu-solution-sidebar.is-collapsed .cadu-brand-lockup,
+.cadu-ds-context-sidebar.is-collapsed .cadu-brand-lockup { --cadu-brand-dx: 0px; --cadu-brand-dy: 0px; }

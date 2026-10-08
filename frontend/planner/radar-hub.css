@@ -80,7 +80,7 @@
 @media (max-width: 560px) { .rh-cover { aspect-ratio: auto; min-height: 72px; } }
 
 /* Workspace: sidebar (visões, marcas, status, período) + conteúdo. */
-.rw { --rd-line: var(--planner-line, #eaecf0); display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 32px; align-items: start; padding-top: 24px; }
+.rw { --rd-line: var(--planner-line, #eaecf0); display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 32px; align-items: start; padding-top: 14px; }
 .rw-side { position: sticky; top: 76px; display: grid; gap: 18px; }
 .rw-side__title h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -.015em; }
 .rw-side__title p { margin: 4px 0 0; color: var(--planner-muted, #667085); font-size: 14px; line-height: 20px; }

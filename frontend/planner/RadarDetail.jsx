@@ -146,7 +146,7 @@ export function RadarDetail({boot, run, names, onPlan, onSignalPlan, planning}) 
   const description = [brand, run.params?.places, run.params?.recency_days && `últimos ${run.params.recency_days} dias`, day(run.created_at)].filter(Boolean).join(' · ');
 
   return <>
-    <PlannerHeader title={title} crumbs={[['Radar', boot.urls.radar]]} description={description} meta={<CaduBadge tone={status[1]}>{status[0]}</CaduBadge>}
+    <PlannerHeader title={title} description={description} meta={<CaduBadge tone={status[1]}>{status[0]}</CaduBadge>}
       actions={<CaduButton href={`${boot.urls.radar}?novo=1`}><Icon name="plus" size={16}/>Novo radar</CaduButton>}/>
     {!finished && <RunChain run={run}/>}
     {finished && <div className="rd">

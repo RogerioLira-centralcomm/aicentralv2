@@ -8829,7 +8829,8 @@ def brand_detail(brand_id):
             'create': product_url('planner', f'/radar?novo=1&brand_ref={radar_ref}'),
             'hub': product_url('planner', f'/radar?brand_ref={radar_ref}'),
             'run': product_url('planner', f'/radar?run=__RUN__&brand_ref={radar_ref}'),
-            'chat': url_for('cadu_workspace.conversations'),
+            # Mesmo endereço que o Planner usa para abrir a conversa de uma pauta (radar_angle).
+            'chat': product_url('workspace', '/chat'),
         }
         return render_template(
             'cadu_workspace/brand_detail_react.html', brand_data=brand_data, brand_links=brand_links, radar_data=radar_data,

@@ -1080,6 +1080,15 @@ def planner_radar_run(run_id):
     return jsonify(run=run)
 
 
+@bp.put('/api/planner/radar/opportunities/<opportunity_id>/pauta')
+def planner_radar_pauta(opportunity_id):
+    """Guarda (ou tira) um ângulo de conteúdo da lista de pautas; o que já virou plano não muda."""
+    from ..cadu_radar import repository as radar
+    selected = writable_context()
+    saved = bool((request.get_json(silent=True) or {}).get('saved'))
+    return jsonify(status=radar.set_pauta(selected['client_id'], opportunity_id, saved))
+
+
 @bp.post('/api/planner/radar/opportunities/<opportunity_id>/plan')
 def planner_radar_create_plan(opportunity_id):
     """Cria um planejamento que nasce da oportunidade (source='radar')."""

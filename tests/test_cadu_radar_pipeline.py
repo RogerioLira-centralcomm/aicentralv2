@@ -74,7 +74,7 @@ def test_angles_must_rest_on_a_listed_buzz(monkeypatch, runner):
               {'titulo': 'Sem apoio', 'gancho': 'x', 'buzz': []},
               {'gancho': 'sem título', 'buzz': ['B1']}]
     monkeypatch.setattr(runner, '_ai', lambda *a, **k: (json.dumps({'angulos': angles}), 300))
-    result = runner._angles(CTX, 'tema', buzz)
+    result = runner._angles(CTX, 'tema', buzz, version='1.5')
     assert [item['titulo'] for item in result] == ['Conta verde não é conta barata']
     assert result[0]['buzz'] == ['B1']  # o id inexistente sai
     assert runner._step('angles')['detail'] == '1 ângulos'
@@ -84,7 +84,8 @@ def test_angles_are_capped_at_five(monkeypatch, runner):
     buzz = [{'id': 'B1', 'assunto': 'a', 'por_que': '', 'data': day(runner, 1), 'veiculo': 'g1', 'local': ''}]
     many = [{'titulo': f'Ângulo {index}', 'gancho': 'g', 'buzz': ['B1']} for index in range(9)]
     monkeypatch.setattr(runner, '_ai', lambda *a, **k: (json.dumps({'angulos': many}), 1))
-    assert len(runner._angles(CTX, 'tema', buzz)) == pipeline.MAX_ANGLES
+    assert len(runner._angles(CTX, 'tema', buzz, version='1.5')) == pipeline.MAX_ANGLES
+    assert len(runner._angles(CTX, 'tema', buzz, catalog=[])) == pipeline.MAX_ANGLES
 
 
 def test_execute_without_buzz_skips_angles_and_finishes(monkeypatch, runner):
@@ -243,3 +244,27 @@ def test_a_failing_completion_email_never_breaks_the_run(monkeypatch):
 
     monkeypatch.setattr(pipeline, 'get_run', boom)
     run._notify_finished('Cemig')  # não levanta
+
+
+def test_typed_angles_send_the_catalog_and_keep_only_catalog_channels(monkeypatch, runner):
+    buzz = [{'id': 'B1', 'assunto': 'São Silvestre', 'por_que': 'x', 'data': day(runner, 2), 'veiculo': 'CBN', 'local': 'SP'}]
+    catalog = [{'ref': 'C1', 'id': 5, 'name': 'Globoplay', 'category': 'Streaming', 'kind': 'ctv', 'description': 'Streaming da Globo'}]
+    seen = {}
+    answer = {'angulos': [
+        {'tipo': 'midia', 'titulo': 'Reta final', 'gancho': 'g', 'buzz': ['B1'], 'objetivo': 'consideracao', 'pracas': 'SP',
+         'periodo': {'inicio': '2026-10-08', 'fim': '2026-12-31'}, 'canais': [{'id': 'C1', 'formato': 'vídeo 15s', 'por_que': 'tela grande'}, {'id': 'C7'}]},
+        {'tipo': 'inteligencia', 'titulo': 'Netshoes patrocina', 'gancho': 'g', 'buzz': ['B1'], 'impacto': 'disputa', 'observar': 'menções'}]}
+
+    def ai(stage, model, messages, max_tokens, json_mode=True, web=False):
+        seen['payload'] = json.loads(messages[1]['content'])
+        seen['max_tokens'] = max_tokens
+        return json.dumps(answer), 50
+
+    monkeypatch.setattr(runner, '_ai', ai)
+    result = runner._angles(CTX, 'tema', buzz, catalog=catalog)
+    assert seen['payload']['catalogo'] == [{'id': 'C1', 'canal': 'Globoplay', 'categoria': 'Streaming', 'tipo': 'ctv', 'o_que_e': 'Streaming da Globo'}]
+    assert seen['max_tokens'] == 8000
+    media, intel = result
+    assert media['tipo'] == 'midia' and media['canais'] == [{'id': 5, 'name': 'Globoplay', 'formato': 'vídeo 15s', 'por_que': 'tela grande'}]
+    assert media['canais_invalidos'] == ['C7'] and media['periodo'] == {'inicio': '2026-10-08', 'fim': '2026-12-31'}
+    assert intel['tipo'] == 'inteligencia' and intel['canais'] == []

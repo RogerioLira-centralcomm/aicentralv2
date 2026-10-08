@@ -9,13 +9,9 @@ import json
 from datetime import date
 from uuid import uuid4
 
-from ..cadu_family import repository
-from . import pipeline, prompts
-from .research import json_loads
+from . import angle_types, pipeline
 
-TYPES = ('midia', 'conteudo', 'inteligencia')
-OBJECTIVES = {'awareness', 'consideracao', 'leads', 'vendas', 'trafego'}
-
+TYPES = angle_types.TYPES
 
 class LabRunner(pipeline.Runner):
     """O Runner do produto sem a linha do run: etapas ficam só na memória."""
@@ -35,50 +31,16 @@ class LabRunner(pipeline.Runner):
 
 
 def channel_catalog():
-    """Canais ativos do catálogo, com id curto para o prompt (C1, C2…)."""
-    # Interativos é um tipo de formato, não um canal onde se compra espaço.
-    rows = [row for row in repository.catalog('canais') if row.get('tipo') != 'interativo']
-    return [{'ref': f'C{index + 1}', 'id': row['id'], 'slug': row.get('slug'), 'name': row['name'], 'category': row.get('category') or '',
-             'kind': row.get('tipo') or '', 'description': ' '.join(str(row.get('description') or '').split())[:160]}
-            for index, row in enumerate(rows)]
+    return angle_types.channel_catalog()
 
 
 def angles_v16(runner, ctx, topic, buzz, catalog):
-    payload = json.dumps({
-        'conceito': topic, 'marca': ctx, 'praca': runner.params['places'] or 'Brasil',
-        'buzz': [{key: item[key] for key in ('id', 'assunto', 'por_que', 'data', 'veiculo', 'local')} for item in buzz],
-        'catalogo': [{'id': item['ref'], 'canal': item['name'], 'categoria': item['category'], 'tipo': item['kind'],
-                      'o_que_e': item['description']} for item in catalog]}, ensure_ascii=False)
-    text, tokens = runner._ai('angles', runner.models['angles'], prompts.messages('angles', '1.6', today=runner.today.isoformat(),
-                                                                                 payload=payload), max_tokens=8000)
-    return validate(json_loads(text).get('angulos') or [], buzz, catalog), tokens
+    angles = runner._angles(ctx, topic, buzz, version='1.6', catalog=catalog)
+    return angles, runner._step('angles')['tokens']
 
 
 def validate(raw, buzz, catalog):
-    """Mesmo filtro do produto (ângulo sem buzz é invenção) e canais só do catálogo; conta o que foi descartado."""
-    by_buzz = {item['id'] for item in buzz}
-    by_ref = {item['ref']: item for item in catalog}
-    kept = []
-    for item in raw if isinstance(raw, list) else []:
-        if not isinstance(item, dict) or not item.get('titulo'):
-            continue
-        ids = [str(value) for value in item.get('buzz') or [] if str(value) in by_buzz]
-        if not ids:
-            continue
-        kind = item.get('tipo') if item.get('tipo') in TYPES else None
-        channels, invalid = [], []
-        for entry in item.get('canais') or []:
-            ref = str((entry or {}).get('id') or '') if isinstance(entry, dict) else str(entry)
-            if ref in by_ref:
-                channels.append({'id': by_ref[ref]['id'], 'name': by_ref[ref]['name'], 'formato': (entry or {}).get('formato') if isinstance(entry, dict) else '',
-                                 'por_que': (entry or {}).get('por_que') if isinstance(entry, dict) else ''})
-            else:
-                invalid.append(ref)
-        objective = item.get('objetivo') if item.get('objetivo') in OBJECTIVES else None
-        kept.append({**{key: item.get(key) for key in ('titulo', 'gancho', 'por_que_agora', 'janela', 'por_que_o_tipo', 'publico', 'pracas',
-                                                        'periodo', 'mensagem', 'tema', 'formatos', 'tom', 'impacto', 'observar')},
-                     'tipo': kind, 'objetivo': objective, 'canais': channels, 'canais_invalidos': invalid, 'buzz': ids})
-    return kept
+    return angle_types.validate(raw, {item['id'] for item in buzz}, catalog)
 
 
 def run_scenario(client_id, user_id, scenario, catalog):
@@ -89,7 +51,7 @@ def run_scenario(client_id, user_id, scenario, catalog):
     topic = current._topic(ctx)
     buzz = current._check(current._buzz(ctx, topic), ctx)
     base_tokens = sum(step['tokens'] for step in current.steps)
-    old = current._angles(ctx, topic, buzz) if buzz else []
+    old = current._angles(ctx, topic, buzz, version='1.5') if buzz else []
     old_tokens = current._step('angles')['tokens'] if buzz else 0
     new, new_tokens = angles_v16(candidate, ctx, topic, buzz, catalog) if buzz else ([], 0)
     return {'scenario': scenario['name'], 'focus': scenario['focus'], 'buzz': buzz, 'tokens_buzz_check': base_tokens - old_tokens,

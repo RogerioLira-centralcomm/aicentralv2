@@ -40,7 +40,7 @@
     'docs': planner_url('docs'), 'workspace': product_url('workspace', '/workspace/app'), 'studio': product_url('studio', '/'),
     'reports': product_url('connect', '/'), 'skills': product_url('skills', '/') if skills_enabled() else '',
     'profile': product_url('workspace', '/workspace/app/conta?section=perfil'),
-    'credits': product_url('workspace', '/workspace/app/creditos'), 'logout': product_url('auth', '/logout')
+    'credits': product_url('workspace', '/workspace/app/creditos'), 'chat': product_url('workspace', '/chat'), 'logout': product_url('auth', '/logout')
   }
 }|tojson }}</script>
 {#- Public documents are served in a script-less sandbox, so their text is rendered here. -#}

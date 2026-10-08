@@ -80,3 +80,27 @@
 .rd-counts li { display: grid; color: var(--rd-muted); font-size: 12px; line-height: 16px; }
 .rd-counts b { color: var(--rd-ink); font-size: 22px; font-weight: 650; line-height: 28px; font-variant-numeric: tabular-nums; }
 .rd-side { margin-top: 0; }
+
+/* Ângulos por tipo (prompt 1.6). */
+.rd-group { margin-bottom: 28px; }
+.rd-group .rd-h2 { justify-content: flex-start; gap: 8px; margin-bottom: 4px; }
+.rd-group .rd-h2 span { color: #98a2b3; font-size: 14px; font-weight: 500; }
+.rd-group__hint { margin: 0 0 14px; color: var(--rd-muted); font-size: 13px; }
+.rd-type { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 6px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.rd-type.is-midia { background: var(--colors-brand-50, #ecfdf3); color: var(--colors-brand-700, #087443); }
+.rd-type.is-conteudo { background: #eff8ff; color: #175cd3; }
+.rd-type.is-inteligencia { background: #f4f3ff; color: #5925dc; }
+.rd-new { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 6px; background: #fef0c7; color: #93370d; font-size: 12px; font-weight: 600; }
+.rd-angle__head { justify-content: flex-start; }
+.rd-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; margin: 0; padding: 12px; border-radius: 10px; background: #f9fafb; }
+.rd-facts dt { color: #98a2b3; font-size: 12px; }
+.rd-facts dd { margin: 2px 0 0; font-size: 13px; line-height: 18px; }
+.rd-media small { color: #98a2b3; font-size: 12px; }
+.rd-media ul { display: grid; gap: 8px; margin: 6px 0 0; padding: 0; list-style: none; }
+.rd-media li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 8px; align-items: baseline; font-size: 14px; }
+.rd-media li span { color: var(--rd-muted); font-size: 13px; }
+.rd-media li em { grid-column: 1 / -1; color: #98a2b3; font-size: 12px; font-style: normal; line-height: 17px; }
+.rd-angle__line { color: var(--rd-ink) !important; font-size: 13px !important; }
+.rd-angle__line b { font-weight: 600; }
+.rd-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.rd-more { margin-top: -8px; padding: 0; border: 0; background: none; color: var(--colors-brand-700, #087443); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }

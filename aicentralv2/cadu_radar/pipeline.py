@@ -24,7 +24,7 @@ from flask import current_app
 from psycopg.types.json import Json
 from werkzeug.exceptions import BadRequest
 
-from . import prompts, sources as source_base, time_saved
+from . import angle_types, prompts, sources as source_base, time_saved
 from .db import transaction
 from .research import check_url, json_loads, parse_date
 
@@ -37,7 +37,7 @@ STEPS = (
     ('save', 'Organizando o resultado', 'O buzz e os ângulos ficam salvos para virar plano.'),
 )
 PARALLEL = ()
-PROMPTS = '1.5'
+PROMPTS = '1.6'
 MAX_BUZZ, MAX_ANGLES = 8, 5
 # Custo típico no teste real: ~US$ 0,03 por busca. A reserva dá folga, mas é em US$, não em tokens fixos.
 ESTIMATE_USD = 0.10
@@ -317,14 +317,23 @@ class Runner:
                    broken=len(buzz) - len(alive))
         return alive
 
-    def _angles(self, ctx, topic, buzz):
+    def _angles(self, ctx, topic, buzz, version=None, catalog=None):
+        """1.6 classifica cada ângulo (mídia, conteúdo, inteligência) e escolhe canais do catálogo; 1.5 fica para comparação."""
+        version = version or PROMPTS
+        typed = version not in ('1.0', '1.5')
         self._start('angles')
-        payload = json.dumps({
-            'conceito': topic, 'marca': ctx, 'praca': self.params['places'] or 'Brasil',
-            'buzz': [{key: item[key] for key in ('id', 'assunto', 'por_que', 'data', 'veiculo', 'local')} for item in buzz]},
-            ensure_ascii=False)
-        text, tokens = self._ai('angles', self.models['angles'], prompts.messages('angles', PROMPTS, today=self.today.isoformat(),
-                                                                                  payload=payload), max_tokens=6000)
+        data = {'conceito': topic, 'marca': ctx, 'praca': self.params['places'] or 'Brasil',
+                'buzz': [{key: item[key] for key in ('id', 'assunto', 'por_que', 'data', 'veiculo', 'local')} for item in buzz]}
+        if typed:
+            catalog = angle_types.channel_catalog() if catalog is None else catalog
+            data['catalogo'] = angle_types.catalog_payload(catalog)
+        text, tokens = self._ai('angles', self.models['angles'], prompts.messages('angles', version, today=self.today.isoformat(),
+                                                                                  payload=json.dumps(data, ensure_ascii=False)),
+                                max_tokens=8000 if typed else 6000)
+        if typed:
+            angles = angle_types.validate(json_loads(text).get('angulos') or [], {item['id'] for item in buzz}, catalog)[:MAX_ANGLES]
+            self._done('angles', f'{len(angles)} ângulos', tokens, preview=[{'title': item['titulo']} for item in angles])
+            return angles
         by_id = {item['id']: item for item in buzz}
         angles = []
         for item in json_loads(text).get('angulos') or []:
@@ -359,8 +368,8 @@ class Runner:
                                    score_breakdown, penalties, signal_ids)
                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, '[]'::jsonb, %s)''',
                             (str(uuid4()), self.client_id, self.run_id, self.brand_ref, self.project_ref, angle['titulo'], angle['gancho'],
-                             Json({'rank': rank, 'why_now': angle['por_que_agora'], 'formats': angle['formatos'],
-                                   'channels': angle['canais'], 'window': angle['janela'],
+                             Json({'rank': rank, 'why_now': angle['por_que_agora'], 'window': angle['janela'],
+                                   **(angle_types.breakdown(angle) if 'tipo' in angle else {'formats': angle['formatos'], 'channels': angle['canais']}),
                                    'buzz': [{key: by[key] for key in ('id', 'assunto', 'veiculo', 'data', 'url', 'tier', 'domain')}
                                             for by in buzz if by['id'] in angle['buzz']]}),
                              Json([signal_ids[value] for value in angle['buzz']])))

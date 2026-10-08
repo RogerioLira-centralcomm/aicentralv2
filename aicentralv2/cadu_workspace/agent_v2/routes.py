@@ -355,6 +355,26 @@ def brand_identity(brand_id):
     )
 
 
+@bp.get("/radar/angles/<angle_id>/prompt")
+def radar_angle_prompt(angle_id):
+    """Pedido pronto para produzir uma pauta do Radar. A URL do chat leva só o id; o texto é montado aqui, no cliente certo."""
+    from ...cadu_radar import angle_types
+    current = resolve(surface="conversations")
+    rows = repository.rows(
+        """SELECT o.id, o.title, o.thesis, o.score_breakdown, o.brand_ref, o.project_ref, r.focus
+             FROM cadu_radar_opportunities o LEFT JOIN cadu_radar_runs r ON r.id = o.run_id
+            WHERE o.id = %s AND o.client_id = %s""",
+        (str(angle_id), current.client_id),
+    )
+    if not rows:
+        abort(404, description="Pauta do Radar não encontrada neste ambiente.")
+    item = rows[0]
+    entities = {entry["ref"]: entry for entry in repository.entities(current.client_id)}
+    brand = str((entities.get(str(item.get("brand_ref") or "")) or {}).get("name") or "")
+    return jsonify(prompt=angle_types.chat_prompt(item, brand=brand, focus=item.get("focus") or ""),
+                   project_ref=item.get("project_ref"), brand_ref=item.get("brand_ref"))
+
+
 @bp.get("/projects/<path:project_ref>/resources")
 def project_resource_map(project_ref):
     """Expose the canonical Resource Registry as a navigable Chat artifact."""

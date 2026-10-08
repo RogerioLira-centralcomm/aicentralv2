@@ -1145,12 +1145,23 @@ export default function App({bootstrap}) {
   }, [contextLoading, queuedTurns, running, submit, queueEndpoint, trace]);
 
   const initialPromptRef = useRef(initialQuery.get('auto_send') === '1' ? initialQuery.get('prompt') || '' : '');
+  // Pauta do Radar: a URL traz só o id; o pedido (longo) é montado pelo servidor e enviado como um prompt inicial.
+  const radarAngleRef = useRef(initialQuery.get('radar_angle') || '');
+  const [radarPromptReady, setRadarPromptReady] = useState(0);
+  useEffect(() => {
+    const angleId = radarAngleRef.current;
+    if (!angleId) return;
+    radarAngleRef.current = '';
+    request(`/workspace/api/v2/radar/angles/${encodeURIComponent(angleId)}/prompt`)
+      .then(data => { if (data?.prompt) { initialPromptRef.current = data.prompt; setRadarPromptReady(value => value + 1); } })
+      .catch(() => setInput('Não encontrei esta pauta do Radar. Volte ao Radar e tente de novo.'));
+  }, [request]);
   useEffect(() => {
     if (!initialPromptRef.current || running || contextLoading || !contextTransferReady) return;
     const prompt = initialPromptRef.current;
     initialPromptRef.current = '';
     submit(prompt);
-  }, [contextLoading, contextTransferReady, running, submit]);
+  }, [contextLoading, contextTransferReady, running, submit, radarPromptReady]);
 
   const stop = useCallback(async () => {
     const runId = runRef.current;

@@ -34,8 +34,40 @@ def list_opportunities(client_id, *, brand_ref=None, status=None, limit=50):
                              ORDER BY created_at DESC LIMIT %s''', tuple(params))
 
 
+def _br_date(value):
+    year, month, day = str(value).split('-')
+    return f'{day}/{month}/{year}'
+
+
+def plan_payload(item):
+    """Plano que nasce do ângulo. Mídia (1.6) traz objetivo, período, praças e público; os demais, só o briefing em texto."""
+    breakdown = item.get('score_breakdown') or {}
+    is_media = breakdown.get('type') == 'midia'
+    places = [place.get('place') for place in item.get('geo_scores') or [] if place.get('place')]
+    # Sem tipo (1.5): o ângulo é uma ideia a levar às pessoas, então o plano começa em consideração.
+    objective = breakdown.get('objective') if is_media and breakdown.get('objective') else \
+        {'conteudo': 'awareness', 'integrada': 'consideracao', 'midia': 'consideracao'}.get(item.get('quadrant'), 'consideracao')
+    period = breakdown.get('period') or {}
+    buzz = [f"{entry.get('assunto')} ({entry.get('veiculo')}, {entry.get('data')}): {entry.get('url')}" for entry in breakdown.get('buzz') or []]
+    media = [f"{entry.get('name')} ({entry.get('formato')}): {entry.get('por_que')}" for entry in breakdown.get('media') or []] if is_media else []
+    notes = '\n'.join(part for part in [
+        item.get('thesis'), f"Por que agora: {breakdown['why_now']}" if breakdown.get('why_now') else '',
+        f"Público: {breakdown['audience']}" if is_media and breakdown.get('audience') else '',
+        f"Mensagem: {breakdown['message']}" if is_media and breakdown.get('message') else '',
+        f"Janela: {breakdown['window']}" if breakdown.get('window') else '',
+        'Canais sugeridos pelo Radar (já no plano, para revisar):\n' + '\n'.join(f'- {line}' for line in media) if media else '',
+        f"Formatos sugeridos pelo Radar: {', '.join(breakdown.get('formats') or [])}" if not is_media and breakdown.get('formats') else '',
+        f"Canais sugeridos pelo Radar: {', '.join(breakdown.get('channels') or [])}" if not is_media and breakdown.get('channels') else '',
+        'Notícias que sustentam:\n' + '\n'.join(f'- {line}' for line in buzz) if buzz else ''] if part)
+    briefing = {'notes': notes[:2000], 'geography': ((breakdown.get('places') if is_media else '') or ', '.join(places))[:120]}
+    if is_media and period.get('inicio') and period.get('fim'):
+        briefing['period'] = f"{_br_date(period['inicio'])} a {_br_date(period['fim'])}"
+    return {'title': item['title'][:180], 'objective': objective, 'briefing': briefing,
+            'brand_ref': item.get('brand_ref'), 'project_ref': item.get('project_ref')}
+
+
 def create_plan(client_id, actor_id, opportunity_id, context):
-    """Nasce um planejamento a partir da oportunidade: tese vira briefing, praças viram geografia."""
+    """Nasce um planejamento a partir do ângulo; os canais de um ângulo de mídia entram como itens do plano."""
     from werkzeug.exceptions import NotFound
     from ..cadu_planner import plans
     from .db import transaction
@@ -46,21 +78,21 @@ def create_plan(client_id, actor_id, opportunity_id, context):
         raise NotFound('Oportunidade indisponível.')
     item = rows[0]
     breakdown = item.get('score_breakdown') or {}
-    places = [place.get('place') for place in item.get('geo_scores') or [] if place.get('place')]
-    # Radar 1.5 has no quadrant: an angle is an idea to put in front of people, so the plan starts as consideration.
-    objective = {'conteudo': 'awareness', 'integrada': 'consideracao', 'midia': 'consideracao'}.get(item.get('quadrant'), 'consideracao')
-    buzz = [f"{entry.get('assunto')} ({entry.get('veiculo')}, {entry.get('data')})" for entry in breakdown.get('buzz') or []]
-    notes = '\n'.join(part for part in [
-        item.get('thesis'), f"Por que agora: {breakdown['why_now']}" if breakdown.get('why_now') else '',
-        f"Buzz que sustenta: {'; '.join(buzz)}" if buzz else '',
-        f"Janela: {breakdown['window']}" if breakdown.get('window') else '',
-        f"Formatos sugeridos pelo Radar: {', '.join(breakdown.get('formats') or [])}" if breakdown.get('formats') else '',
-        f"Canais sugeridos pelo Radar: {', '.join(breakdown.get('channels') or [])}" if breakdown.get('channels') else ''] if part)
-    plan = plans.create_plan(client_id, actor_id, {
-        'title': item['title'][:180], 'objective': objective,
-        'briefing': {'notes': notes[:2000], 'geography': ', '.join(places)[:120]},
-        'brand_ref': item.get('brand_ref'), 'project_ref': item.get('project_ref')}, context)
+    media = breakdown.get('media') if breakdown.get('type') == 'midia' else []
+    plan = plans.create_plan(client_id, actor_id, plan_payload(item), context)
+    from ..cadu_planner import catalog
+    added = []
+    for entry in media or []:
+        # Canal sugerido entra como item do plano, marcado como sugestão do Radar para o planejador revisar.
+        try:
+            snapshot = catalog.client_detail('canais', str(entry['id']))
+        except NotFound:  # canal saiu do catálogo depois da busca: fica só no briefing
+            continue
+        added.append((str(entry['id']), {**snapshot, 'radar': {'formato': entry.get('formato'), 'por_que': entry.get('por_que')}}))
     with transaction() as cur:
+        for resource_id, snapshot in added:
+            cur.execute('''INSERT INTO cadu_planner_plan_items (plan_id, kind, resource_id, snapshot) VALUES (%s, 'canais', %s, %s)
+                           ON CONFLICT (plan_id, kind, resource_id) DO NOTHING''', (str(plan['id']), resource_id, Json(snapshot)))
         if plans._cobuild_available():
             cur.execute("UPDATE cadu_planner_plans SET source = 'radar', opportunity_id = %s WHERE id = %s",
                         (str(item['id']), str(plan['id'])))
@@ -119,3 +151,19 @@ def plans_for(client_id, *, signal_ids=(), opportunity_ids=()):
         return []
     return repository.rows(f'''SELECT id, title, status, signal_id, opportunity_id, created_at FROM cadu_planner_plans
                                  WHERE client_id = %s AND ({' OR '.join(clauses)}) ORDER BY created_at DESC''', (int(client_id), *params))
+
+
+def set_pauta(client_id, opportunity_id, saved):
+    from werkzeug.exceptions import NotFound
+    from .db import transaction
+    with transaction() as cur:
+        cur.execute("""UPDATE cadu_radar_opportunities SET status = %s, updated_at = NOW()
+                        WHERE id = %s AND client_id = %s AND status <> 'em_plano' RETURNING status""",
+                    ('salva' if saved else 'nova', str(opportunity_id), int(client_id)))
+        row = cur.fetchone()
+    if row:
+        return row['status']
+    rows = repository.rows('SELECT status FROM cadu_radar_opportunities WHERE id = %s AND client_id = %s', (str(opportunity_id), int(client_id)))
+    if not rows:
+        raise NotFound('Ângulo indisponível.')
+    return rows[0]['status']

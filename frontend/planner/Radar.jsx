@@ -106,7 +106,7 @@ export function RadarPage({boot, request, notify, context}) {
   if (loading && !run) return <PlannerHeader title="Radar" description="Carregando a busca…"/>;
 
   if (!run) return null;
-  return <RadarDetail boot={boot} run={run} names={names} onPlan={createPlan} onSignalPlan={createSignalPlan} planning={planning}/>;
+  return <RadarDetail boot={boot} run={run} names={names} onPlan={createPlan} onSignalPlan={createSignalPlan} planning={planning} request={request} notify={notify}/>;
 }
 
 /** Compact Radar block for the Planner home. */

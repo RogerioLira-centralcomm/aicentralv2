@@ -123,7 +123,7 @@ export function useFinalPlan({boot, request, plan, notify}) {
 
   useEffect(() => {
     let current = true;
-    request(`/plans/${planId}/final-plan`).then(data => { if (current) setState(data.final_plan || {available: false}); }).catch(() => { if (current) setState({available: false}); });
+    request(`/plans/${planId}/final-plan`).then(data => { if (current) setState(data.final_plan || {available: false}); }).catch(() => { if (current) setState({available: true, exists: false, loadError: true}); });
     return () => { current = false; };
   }, [request, planId, updatedAt]);
 
@@ -171,7 +171,7 @@ export function useFinalPlan({boot, request, plan, notify}) {
   };
   const canProject = String(plan.project_ref || '').startsWith('ci:');
   return {state, busy, generate, saveSection, toggleShare, addToProject, publicUrl, canProject, confirmDialog,
-    exists: Boolean(state?.exists), unavailable: state?.available === false, loading: state === null};
+    exists: Boolean(state?.exists), unavailable: state?.available === false, loadError: Boolean(state?.loadError), loading: state === null};
 }
 
 const firstSentence = text => {
@@ -194,12 +194,12 @@ export function FinalPlanPanel({boot, request, plan, notify}) {
     {exists && fp.state.stale && <div className="final-plan__stale" role="status"><Icon name="alert" size={16}/>
       O plano mudou depois desta versão. Gere de novo para atualizar o documento.</div>}
     {thesis && <p className="final-plan-panel__thesis">{thesis}</p>}
-    {!exists && <p className="planner-muted">{fp.loading ? 'Carregando…' : 'Ainda não há plano final. Quanto mais completo o plano (briefing, canais, verba), melhor o documento; o que faltar vira “Para alinharmos”, nunca é inventado.'}</p>}
+    {!exists && <p className="planner-muted">{fp.loading ? 'Carregando…' : fp.loadError ? 'Não foi possível carregar o plano final agora. Atualize a página para tentar de novo.' : 'Ainda não há plano final. Quanto mais completo o plano (briefing, canais, verba), melhor o documento; o que faltar vira “Para alinharmos”, nunca é inventado.'}</p>}
     <div className="final-plan__toolbar">
       {exists
         ? <><CaduButton href={url}>Abrir plano final</CaduButton>
           <CaduButton variant="secondary" loading={busy === 'generate'} onClick={generate}>Gerar nova versão</CaduButton></>
-        : <CaduButton loading={busy === 'generate'} disabled={fp.loading} onClick={generate}>Gerar plano final</CaduButton>}
+        : <CaduButton loading={busy === 'generate'} disabled={fp.loading || fp.loadError} onClick={generate}>Gerar plano final</CaduButton>}
     </div>
     {fp.confirmDialog}
   </PlannerPanel>;
@@ -227,7 +227,8 @@ export function PlanFinalPage({boot, request, plan, notify}) {
       meta={exists ? <CaduBadge tone={state.stale ? 'warning' : 'success'}>{state.stale ? 'Desatualizado' : `Versão ${state.version}`}</CaduBadge> : null}/>
     {fp.unavailable && <CaduEmptyState title="Plano final indisponível" description="Este ambiente ainda não habilitou o plano final."/>}
     {!fp.unavailable && fp.loading && <p className="planner-muted">Carregando…</p>}
-    {!fp.unavailable && !fp.loading && !exists && <section className="final-hero">
+    {fp.loadError && <CaduEmptyState title="Não foi possível carregar o plano final" description="Atualize a página para tentar de novo."/>}
+    {!fp.unavailable && !fp.loading && !fp.loadError && !exists && <section className="final-hero">
       <Illustration slot="plan-building"/>
       <h2>O plano final ainda não foi gerado</h2>
       <p>O Cadu reúne direção, canais, verba e audiências em um documento pronto para apresentar. O que faltar vira “Para alinharmos”, nunca é inventado.</p>

@@ -417,7 +417,7 @@ def get_run(client_id, run_id):
     run['tokens'] = int((run.get('cost') or {}).get('tokens') or 0)
     run['estimated_tokens'] = int((run.get('cost') or {}).get('estimated_tokens') or 0)
     done = run['status'] == 'done'
-    run['opportunities'] = repository.rows('''SELECT id, title, thesis, status, score_breakdown, created_at
+    run['opportunities'] = repository.rows('''SELECT id, title, thesis, status, score_breakdown, signal_ids, created_at
                                                 FROM cadu_radar_opportunities WHERE run_id = %s
                                             ORDER BY (score_breakdown->>'rank')::int NULLS LAST, created_at''', (str(run_id),)) if done else []
     run['signals'] = repository.rows('''SELECT id, headline, description, source, url, published_at, verification

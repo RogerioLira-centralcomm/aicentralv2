@@ -90,60 +90,118 @@ CURATED.update({
 CURADOS = tuple(CURATED)
 
 
+UF_NAMES = {'AC': 'Acre', 'AL': 'Alagoas', 'AP': 'Amapá', 'AM': 'Amazonas', 'BA': 'Bahia', 'CE': 'Ceará', 'DF': 'Distrito Federal', 'ES': 'Espírito Santo',
+            'GO': 'Goiás', 'MA': 'Maranhão', 'MT': 'Mato Grosso', 'MS': 'Mato Grosso do Sul', 'MG': 'Minas Gerais', 'PA': 'Pará', 'PB': 'Paraíba',
+            'PR': 'Paraná', 'PE': 'Pernambuco', 'PI': 'Piauí', 'RJ': 'Rio de Janeiro', 'RN': 'Rio Grande do Norte', 'RS': 'Rio Grande do Sul',
+            'RO': 'Rondônia', 'RR': 'Roraima', 'SC': 'Santa Catarina', 'SP': 'São Paulo', 'SE': 'Sergipe', 'TO': 'Tocantins'}
+ACCENTS = ('fresh emerald green', 'ocean blue', 'warm orange', 'deep teal', 'coral red', 'golden yellow', 'violet purple', 'sky blue')
+
+
+# National portals that are really one city's newspaper.
+HOME_CITY = {
+    'em.com.br': ('Belo Horizonte', 'Minas Gerais'), 'otempo.com.br': ('Belo Horizonte', 'Minas Gerais'), 'uai.com.br': ('Belo Horizonte', 'Minas Gerais'),
+    'opovo.com.br': ('Fortaleza', 'Ceará'), 'atarde.com.br': ('Salvador', 'Bahia'), 'agazeta.com.br': ('Vitória', 'Espírito Santo'),
+    'gazetadopovo.com.br': ('Curitiba', 'Paraná'), 'opopular.com.br': ('Goiânia', 'Goiás'), 'correiodopovo.com.br': ('Porto Alegre', 'Rio Grande do Sul'),
+    'folhape.com.br': ('Recife', 'Pernambuco'),
+}
+# Scenes by editorial category, with no place at all, so national portals never default to the same postcard.
+CATEGORY_SCENES = {
+    'economia': ["a 3D bull and bear statuette, stacked gold coins, rising bar charts and a calculator on a desk", "a 3D briefcase, a piggy bank, a rocket launching from a bar chart and floating percentage-shaped cards"],
+    'tecnologia': ["3D gadgets: a smartphone, a laptop, a game controller and a robot arm with circuit patterns", "a glossy 3D robot, VR headset, drone and floating app tiles"],
+    'entretenimento': ["a 3D film clapperboard, a popcorn bucket, 3D glasses, a star and a spotlight", "a 3D retro TV, a golden star on a red carpet and camera flash bursts"],
+    'esportes': ["a 3D football, a trophy, boots and a scoreboard", "a 3D basketball, a tennis racket, a medal and stadium lights"],
+    'ciência': ["a glowing 3D lightbulb, an atom, a telescope and a rocket", "a 3D microscope, a globe and floating chemistry flasks"],
+    'mulher': ["a 3D handbag, high heels, a perfume bottle and sunglasses on a pastel podium", "3D lipstick, a mirror, flowers and a shopping bag"],
+    'viagem': ["a 3D suitcase with stickers, an airplane, a compass and a tropical island", "a 3D passport, a camera, a hot air balloon and a world map"],
+    'saúde': ["a 3D stethoscope, a heart, an apple and a clipboard", "3D vitamin bottles, a running shoe and a water glass"],
+    'automotivo': ["a glossy 3D car on a curved road, a steering wheel and a speedometer", "a 3D electric car with a charging station"],
+    'música': ["a 3D electric guitar, headphones, a vinyl record and notes", "a 3D microphone, a keyboard and stage lights"],
+}
+NEWS_SCENES = [
+    "a 3D newsroom desk with a vintage microphone, a breaking-news beacon light and a floating map of Brazil",
+    "a 3D stack of folded newspapers, a magnifying glass over a chart and a fountain pen",
+    "a 3D press-conference podium with several microphones and floating rounded quote cards",
+    "a 3D globe with a satellite dish, a TV camera and floating news cards",
+    "a 3D ballot box, a gavel, a scale of justice and floating news cards",
+]
+
+
 def automatic_prompt(portal):
-    place = {'Norte': 'the Brazilian Amazon region', 'Nordeste': 'the Brazilian Northeast coast', 'Sudeste': 'southeastern Brazil',
-             'Sul': 'southern Brazil', 'Centro-Oeste': 'central Brazil'}
+    """Regional prompt from the portal's own city and state; national ones from their category, never from a default postcard."""
     category = str(portal.get('category') or '')
-    region = next((text for key, text in place.items() if key in category), 'Brazil')
-    topic = category.split('·')[0].strip() or 'news'
-    uf = f" in the state of {portal['uf']}" if portal.get('uf') else ''
-    return (f"A Brazilian online news portal about {topic.lower()} from {region}{uf}: 3D clay-style landmarks and scenery typical of that place, "
-            "a rolled newspaper, a vintage microphone and floating rounded news cards."), 'fresh emerald green'
+    topic = category.split('·')[0].strip().lower() or 'news'
+    accent = ACCENTS[int(portal['id']) % len(ACCENTS)]
+    city, state = str(portal.get('city') or '').strip(), UF_NAMES.get(str(portal.get('uf') or ''), '')
+    if portal['domain'] in HOME_CITY:
+        city, state = HOME_CITY[portal['domain']]
+    if state:
+        place = f"the city of {city}, {state}, Brazil" if city else f"the state of {state}, Brazil"
+        return (f"A local Brazilian online news portal about {topic} from {place}: 3D clay-style version of the most recognizable landmarks, streets, nature or "
+                "culture of that exact place, a rolled newspaper, a vintage microphone and floating rounded news cards."), accent
+    scenes = next((value for key, value in CATEGORY_SCENES.items() if key in topic), NEWS_SCENES)
+    scene = scenes[int(portal['id']) % len(scenes)]
+    return (f"A Brazilian national online portal about {topic}: {scene}. No landmarks and no real places, only the objects, in a clean abstract studio set."), accent
 
 
 def select(args):
     from aicentralv2.cadu_family import repository
     if args.top:
         return repository.rows("SELECT id, domain, name, category, to_jsonb(p)->>'uf' AS uf FROM cadu_planner_portals p WHERE active AND domain = ANY(%s)", (list(TOP),))
+    if args.ids:
+        return repository.rows("""SELECT id, domain, name, category, to_jsonb(p)->>'uf' AS uf,
+                                     (SELECT split_part(a->>'valor', ' · ', 1) FROM jsonb_array_elements(public_attributes) a WHERE a->>'atributo' = 'localizacao' LIMIT 1) AS city
+                                FROM cadu_planner_portals p WHERE active AND id = ANY(%s)""", ([int(x) for x in args.ids.split(',')],))
     if args.curados:
         return repository.rows("SELECT id, domain, name, category, to_jsonb(p)->>'uf' AS uf FROM cadu_planner_portals p WHERE active AND domain = ANY(%s) ORDER BY popularity_rank ASC NULLS LAST, name", (list(CURADOS),))
     if args.domain:
         return repository.rows("SELECT id, domain, name, category, to_jsonb(p)->>'uf' AS uf FROM cadu_planner_portals p WHERE active AND domain = %s", (args.domain,))
-    return repository.rows("""SELECT id, domain, name, category, to_jsonb(p)->>'uf' AS uf FROM cadu_planner_portals p
-                              WHERE active ORDER BY popularity_rank ASC NULLS LAST, name LIMIT %s""", (args.limit * 3,))
+    return repository.rows("""SELECT id, domain, name, category, to_jsonb(p)->>'uf' AS uf,
+                                     (SELECT split_part(a->>'valor', ' · ', 1) FROM jsonb_array_elements(public_attributes) a WHERE a->>'atributo' = 'localizacao' LIMIT 1) AS city
+                                FROM cadu_planner_portals p
+                               WHERE active AND popularity_source = 'tranco' AND popularity_rank IS NOT NULL
+                            ORDER BY popularity_rank ASC, name LIMIT %s""", (args.limit * 3,))
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--top', action='store_true')
     parser.add_argument('--curados', action='store_true', help='todos os portais com prompt curado que ainda não têm ilustração')
+    parser.add_argument('--ids', help='ids de portais, separados por vírgula (com --refazer, regera)')
     parser.add_argument('--domain')
     parser.add_argument('--limit', type=int, default=0)
+    parser.add_argument('--workers', type=int, default=4, help='gerações em paralelo')
     parser.add_argument('--refazer', action='store_true', help='regera mesmo que já exista')
     args = parser.parse_args()
-    if not (args.top or args.curados or args.domain or args.limit):
-        parser.error('use --top, --curados, --domain ou --limit')
+    if not (args.top or args.curados or args.domain or args.limit or args.ids):
+        parser.error('use --top, --curados, --ids, --domain ou --limit')
     from run import app
     from aicentralv2.services import openrouter_service as svc
     THUMBS.mkdir(parents=True, exist_ok=True)
+    from concurrent.futures import ThreadPoolExecutor
     with app.app_context():
-        done = 0
+        todo = []
         for portal in select(args):
-            target = THUMBS / f"{portal['id']}.webp"
-            if target.exists() and not args.refazer:
+            if (THUMBS / f"{portal['id']}.webp").exists() and not args.refazer:
                 continue
-            if args.limit and done >= args.limit:
+            todo.append(portal)
+            if args.limit and len(todo) >= args.limit:
                 break
+
+        def generate(portal):
+            target = THUMBS / f"{portal['id']}.webp"
             core, accent = CURATED.get(portal['domain']) or automatic_prompt(portal)
             started = time.time()
             try:
-                result = svc._openai_generate_image({'prompt': TEMPLATE.format(core=core, accent=accent), 'aspect_ratio': '16:9', 'quality': 'medium'},
-                                                    image_model='gpt-image-2.5-sunburst', output_format='png', timeout=180, size='1680x944')
+                with app.app_context():
+                    result = svc._openai_generate_image({'prompt': TEMPLATE.format(core=core, accent=accent), 'aspect_ratio': '16:9', 'quality': 'medium'},
+                                                        image_model='gpt-image-2.5-sunburst', output_format='png', timeout=180, size='1680x944')
                 Image.open(io.BytesIO(base64.b64decode(result['b64_json']))).convert('RGB').save(target, 'WEBP', quality=85)
-                done += 1
                 print('ok', portal['domain'], f'{time.time() - started:.0f}s', flush=True)
             except Exception as exc:  # report and keep going: one failure must not stop the batch
                 print('erro', portal['domain'], repr(exc)[:160], flush=True)
+
+        with ThreadPoolExecutor(max_workers=max(1, args.workers)) as pool:
+            list(pool.map(generate, todo))
 
 
 if __name__ == '__main__':

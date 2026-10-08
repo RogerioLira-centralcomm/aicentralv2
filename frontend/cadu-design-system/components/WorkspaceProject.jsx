@@ -541,6 +541,51 @@ function ProjectGettingStarted({project, conversationUrl, canEdit, onEditContext
   </section>;
 }
 
+const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`;
+
+// Uma linha por produto: o que o projeto já tem em Planner, Studio, Reports, fontes e tarefas, com a próxima ação.
+function ProjectToday({project, links, sectionLinks, canEdit, onAddSource}) {
+  const [reports, setReports] = useState(null);
+  useEffect(() => {
+    if (!links.reportsApi) return undefined;
+    let alive = true;
+    fetch(links.reportsApi, {credentials: 'same-origin', headers: {Accept: 'application/json'}})
+      .then(response => response.ok ? response.json() : null)
+      .then(value => { if (alive) setReports(value || false); })
+      .catch(() => { if (alive) setReports(false); });
+    return () => { alive = false; };
+  }, [links.reportsApi]);
+  const deliveries = project.deliveries || [];
+  const plans = deliveries.filter(item => String(item.id).startsWith('plan:'));
+  const pieces = deliveries.filter(item => /^(studio|image):/.test(String(item.id)));
+  const files = project.files || [];
+  const ready = files.filter(item => ['completed', 'indexed', 'ready'].includes(item.status)).length;
+  const attention = files.filter(item => item.requiresReview || ['error', 'failed'].includes(item.status)).length;
+  const openTasks = (project.tasks || []).filter(item => item.status !== 'done').length;
+  const linked = reports?.linked || {};
+  const rows = [
+    {key:'plans', label:'Planos de mídia', summary:plans.length ? `${plural(plans.length, 'plano', 'planos')} · último: ${plans[0].title}` : 'Nenhum plano criado', actions:[
+      ...(plans.length ? [{label:'Ver planos', href:sectionLinks.deliveries}] : []),
+      ...(links.createPlan ? [{label:'Criar plano', href:links.createPlan, primary:!plans.length}] : [])]},
+    {key:'studio', label:'Studio', summary:pieces.length ? plural(pieces.length, 'peça criada', 'peças criadas') : 'Nenhuma peça criada', actions:[
+      ...(links.createImage ? [{label:'Criar imagem', href:links.createImage}] : []),
+      ...(links.createVideo ? [{label:'Criar vídeo', href:links.createVideo}] : [])]},
+    ...(reports === false || (reports && reports.available_module === false) ? [] : [{key:'reports', label:'Reports', summary:!reports ? 'Carregando…'
+      : [plural((linked.campaign || []).length, 'campanha', 'campanhas'), plural((linked.site || []).length, 'site', 'sites'), plural((linked.flow || []).length, 'fluxo', 'fluxos')].join(' · '),
+      actions:[{label:'Abrir Reports', href:sectionLinks.reports}]}]),
+    {key:'sources', label:'Fontes', summary:files.length ? `${ready} de ${files.length} indexadas${attention ? ` · ${attention} pedem atenção` : ''}` : 'Nenhuma fonte adicionada', warn:attention > 0,
+      actions:[canEdit ? {label:'Adicionar fonte', onClick:onAddSource} : {label:'Ver fontes', href:sectionLinks.library}]},
+    ...((project.tasks || []).length ? [{key:'tasks', label:'Tarefas', summary:`${plural(openTasks, 'aberta', 'abertas')}`, actions:[{label:'Abrir tarefas', href:sectionLinks.tasks}]}] : []),
+  ];
+  return <section className="cadu-ds-project-today" aria-labelledby="project-today-title">
+    <h2 id="project-today-title">Hoje no projeto</h2>
+    <ul>{rows.map(row => <li key={row.key}>
+      <span><b>{row.label}</b><small className={row.warn ? 'is-warning' : ''}>{row.summary}</small></span>
+      <div>{row.actions.map(action => <CaduButton key={action.label} variant={action.primary ? 'primary' : 'tertiary'} type="button" {...(action.href ? {href:action.href} : {onClick:action.onClick})}>{action.label}</CaduButton>)}</div>
+    </li>)}</ul>
+  </section>;
+}
+
 function ProjectEditorialOverview({project, onEdit, canEdit}) {
   const customChapters = Object.entries(project.customFields || {}).map(([key, item]) => ({
     title:item?.label || key.replace(/_/g, ' '),
@@ -996,7 +1041,7 @@ export function WorkspaceProject({bootstrap}) {
         </EntityNavigator>
         <section className="cadu-ds-project-content" data-project-view={projectView}>
         {isMobile && selectedResource && <ResourceRailCard resource={selectedResource} onClose={() => focusResource('')}/>}
-        {projectView === 'overview' && <><header className="cadu-ds-project-hero cadu-ds-entity-detail-header"><div className="cadu-ds-project-hero__copy"><p>{project.status === 'arquivado' ? 'Arquivado' : 'Em andamento'}</p><ProjectTitle name={project.name}/><div className="cadu-ds-project-hero__meta">{project.brand?.name && <a href={project.brand.href}>{project.brand.name}</a>}{(project.tasks || []).length > 0 && <a href={sectionLinks.tasks}>{(project.tasks || []).filter(item => item.status !== 'done').length} tarefas abertas</a>}</div></div>{actionableNotifications.length > 0 && <CaduButton variant="secondary" type="button" onClick={() => setNotificationsOpen(true)}>{actionableNotifications.length} atenç{actionableNotifications.length === 1 ? 'ão' : 'ões'}</CaduButton>}</header><ProjectGettingStarted project={project} conversationUrl={projectLinks.conversation} canEdit={canEdit} onEditContext={() => setDialog('identity')}/><ProjectEditorialOverview project={project} canEdit={canEdit} onEdit={() => setDialog('identity')}/>{(project.tasks || []).length > 0 && <div className="cadu-ds-project-overview-link"><span><b>{(project.tasks || []).filter(item => item.status !== 'done').length} tarefas abertas</b><small>Veja responsáveis, prazos e próximos passos.</small></span><a href={sectionLinks.tasks}>Abrir tarefas</a></div>}</>}
+        {projectView === 'overview' && <><header className="cadu-ds-project-hero cadu-ds-entity-detail-header"><div className="cadu-ds-project-hero__copy"><p>{project.status === 'arquivado' ? 'Arquivado' : 'Em andamento'}</p><ProjectTitle name={project.name}/><div className="cadu-ds-project-hero__meta">{project.brand?.name && <a href={project.brand.href}>{project.brand.name}</a>}{(project.tasks || []).length > 0 && <a href={sectionLinks.tasks}>{(() => { const open = (project.tasks || []).filter(item => item.status !== 'done').length; return `${open} ${open === 1 ? 'tarefa aberta' : 'tarefas abertas'}`; })()}</a>}</div></div>{actionableNotifications.length > 0 && <CaduButton variant="secondary" type="button" onClick={() => setNotificationsOpen(true)}>{actionableNotifications.length} atenç{actionableNotifications.length === 1 ? 'ão' : 'ões'}</CaduButton>}</header><ProjectGettingStarted project={project} conversationUrl={projectLinks.conversation} canEdit={canEdit} onEditContext={() => setDialog('identity')}/><ProjectToday project={project} links={projectLinks} sectionLinks={sectionLinks} canEdit={canEdit} onAddSource={() => setDialog('source-upload')}/><ProjectEditorialOverview project={project} canEdit={canEdit} onEdit={() => setDialog('identity')}/></>}
         {projectView === 'direction' && <><ProjectPageIntro title="Direção" detail="Contexto para conversas e entregas."/><ProjectEditorialOverview project={project} canEdit={canEdit} onEdit={() => setDialog('identity')}/></>}
         {projectView === 'tasks' && <><ProjectPageIntro title="Tarefas" detail="Ações do Cadu e da equipe."/><ProjectTasksSection project={project} urls={projectLinks} csrfToken={bootstrap.csrf} canEdit={canEdit}/></>}
         {projectView === 'files' && <WorkspaceFilesView files={project.files || []} scope="project" onAdd={canEdit ? () => setDialog('source-upload') : undefined}/>}

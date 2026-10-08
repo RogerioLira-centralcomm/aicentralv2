@@ -30,7 +30,7 @@ export const ILLUSTRATIONS = {
     brief: `2D vetorial: prancheta com lista de checagem em que três itens recebem um check verde, uma lupa sobre o último item. Formas arredondadas, sombra chapada #DCFAE6. Uso: revisão final do plano. ${PALETTE}`,
   },
   'plan-building': {
-    size: [240, 160], style: '3D',
+    size: [240, 160], style: '3D', art: 'mascote-prancheta.webp',
     brief: `3D isométrico, argila fosca: blocos de montar empilhando-se em degraus (briefing, audiência, canais, verba), o último bloco descendo com um leve brilho verde. Uso: Cadu montando ou recalculando o plano. ${PALETTE}`,
   },
   'time-saved': {

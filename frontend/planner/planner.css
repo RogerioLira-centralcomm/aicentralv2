@@ -1839,3 +1839,43 @@ a.planner-card:focus-visible { outline: 2px solid var(--colors-brand-600, #07945
 .planner-shell .planner-cadu .cadu-badge { max-width: 100%; white-space: normal; }
 .ph { box-shadow: 0 -10px 0 var(--planner-page); }
 @media (max-width: 900px) { .ph { box-shadow: none; } }
+
+/* Final plan: its own page (the document that closes the plan) and the full-screen state while it is written. */
+.final-page { display: grid; grid-template-columns: 200px minmax(0, 840px); align-items: start; justify-content: center; gap: 32px; padding-bottom: 48px; }
+.final-page__index { position: sticky; top: 160px; }
+.final-page__index ol { display: grid; gap: 2px; margin: 0; padding: 0; border-left: 1px solid var(--planner-line); list-style: none; }
+.final-page__index a { display: block; margin-left: -1px; padding: 6px 12px; border-left: 2px solid transparent; color: var(--planner-muted); font-size: 13px; line-height: 20px; text-decoration: none; }
+.final-page__index a:hover { border-left-color: var(--planner-brand); color: var(--planner-ink); }
+.final-page__paper { padding: 48px 56px; border: 1px solid var(--planner-line); border-radius: 16px; background: var(--planner-surface); box-shadow: 0 12px 32px rgba(16, 24, 40, .06); }
+.final-page__head { margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--planner-line); }
+.final-page__eyebrow { color: var(--colors-brand-700, #087443); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.final-page__head h2 { margin: 8px 0 4px; font-size: 32px; font-weight: 650; line-height: 40px; letter-spacing: -.02em; }
+.final-page__head p { margin: 0; color: var(--planner-muted); font-size: 16px; line-height: 24px; }
+.final-page__paper .final-plan { gap: 28px; }
+.final-page__paper .final-plan__section h3 { font-size: 18px; line-height: 28px; }
+.final-page__paper .final-plan__section :is(p, li) { font-size: 16px; line-height: 26px; }
+.final-page__paper .final-plan__section.is-summary { padding: 24px 28px; }
+.final-hero { display: grid; justify-items: center; gap: 12px; max-width: 560px; margin: 48px auto; text-align: center; }
+.final-hero p { margin: 0; color: var(--planner-muted); }
+.final-plan-panel__thesis { margin: 0 0 12px; font-size: 16px; line-height: 24px; }
+@media (max-width: 1100px) {
+  .final-page { grid-template-columns: minmax(0, 1fr); }
+  .final-page__index { display: none; }
+  .final-page__paper { padding: 28px 20px; }
+}
+.final-building { position: fixed; inset: 0; z-index: 1000; display: grid; overflow-y: auto; padding: 24px; background: var(--planner-page, #fcfcfd); }
+.final-building__card { display: grid; justify-items: center; gap: 12px; max-width: 520px; margin: auto; text-align: center; }
+.final-building__art { width: min(360px, 70vw); max-height: 32vh; height: auto; object-fit: contain; }
+.final-building h1 { margin: 8px 0 0; font-size: 28px; font-weight: 650; line-height: 36px; letter-spacing: -.01em; }
+.final-building p { margin: 0; color: var(--planner-muted); font-size: 15px; line-height: 24px; }
+.final-building__steps { display: grid; gap: 10px; margin: 16px 0 8px; padding: 0; list-style: none; text-align: left; }
+.final-building__steps li { display: flex; align-items: center; gap: 10px; color: var(--planner-subtle); font-size: 15px; }
+.final-building__steps li span { display: grid; width: 18px; height: 18px; flex: 0 0 18px; place-items: center; border: 1.5px solid var(--color-border-primary, #d0d5dd); border-radius: 50%; color: #fff; }
+.final-building__steps li.is-done { color: var(--planner-muted); }
+.final-building__steps li.is-done span { border-color: transparent; background: var(--planner-brand-mid); }
+.final-building__steps li.is-active { color: var(--planner-ink); font-weight: 600; }
+.final-building__steps li.is-active span { border-color: var(--planner-brand); box-shadow: 0 0 0 3px var(--planner-brand-soft); }
+.final-building__bar { width: 240px; height: 4px; overflow: hidden; border-radius: 4px; background: var(--planner-line); }
+.final-building__bar i { display: block; width: 40%; height: 100%; border-radius: 4px; background: var(--colors-brand-600, #079455); animation: final-building-slide 1.6s ease-in-out infinite; }
+@keyframes final-building-slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+@media (prefers-reduced-motion: reduce) { .final-building__bar i { width: 100%; animation: none; } }

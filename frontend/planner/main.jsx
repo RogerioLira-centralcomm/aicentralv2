@@ -23,7 +23,7 @@ import {PlanCreatePage, PlansPage} from './PlansPages.jsx';
 import {PlanDock} from './PlanDock.jsx';
 import {PlannerNotice, usePlanSelection} from './PlannerUi.jsx';
 import {PublicDoc, PublicPlan} from './PublicViews.jsx';
-import {PublicFinalPlan} from './FinalPlan.jsx';
+import {PlanFinalPage, PublicFinalPlan} from './FinalPlan.jsx';
 import {CATALOG_KINDS, createPlannerApi} from './api.js';
 
 const PUBLIC_VIEWS = new Set(['public-plan', 'public-doc', 'public-final-plan']);
@@ -57,6 +57,7 @@ function App({boot}) {
     if (boot.view === 'public-plan') return <PublicPlan plan={plan}/>;
     if (boot.view === 'public-final-plan') return <PublicFinalPlan document={boot.document}/>;
     if (boot.view === 'public-doc') return <PublicDoc document={boot.document}/>;
+    if (boot.view === 'plan-final') return <PlanFinalPage boot={boot} request={request} plan={plan} notify={notify}/>;
     if (boot.view === 'plan-detail') return <PlanDetail boot={boot} request={request} plan={plan} setPlan={setPlan} selection={selection} notify={notify}/>;
     if (boot.view === 'channel-detail') return <ChannelDetail boot={boot} selection={selection} plan={plan}/>;
     if (boot.view === 'audience-detail') return <AudienceDetail boot={boot} selection={selection} plan={plan}/>;
@@ -78,7 +79,7 @@ function App({boot}) {
 
   // The plan travels with the person: every screen but a plan's own page, the public views and the creation wizard.
   // O Radar não alimenta o plano em andamento (cada ângulo abre um plano próprio), então o dock fica fora dele.
-  const showDock = !publicView && !creating && boot.view !== 'plan-detail' && !['radar', 'radares'].includes(boot.module);
+  const showDock = !publicView && !creating && !['plan-detail', 'plan-final'].includes(boot.view) && !['radar', 'radares'].includes(boot.module);
   const active = creating ? 'novo-plano' : boot.module;
   return <div className={`planner-shell${publicView ? ' is-public' : ''}`}>
     {!publicView && <PlannerNav boot={boot} request={request} active={active}/>}

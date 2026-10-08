@@ -1429,6 +1429,18 @@ def planner_plan_media_desk(plan_id):
     return _render_planner('plan-detail', 'planos', plan['title'], plan=plan)
 
 
+@bp.get('/planner/planos/<plan_id>/final')
+def planner_plan_final_page(plan_id):
+    """The final plan has its own page: the document is the end of the plan, not a block inside it."""
+    if not session.get('user_id'):
+        return redirect(workspace_public_url(), code=302)
+    from ..cadu_planner import plans
+    user = context.identity()
+    selected = context.resolve()
+    plan = plans.get_plan(selected['client_id'], user['id'], plan_id)
+    return _render_planner('plan-final', 'planos', f"Plano final — {plan['title']}", plan=plan)
+
+
 @bp.get('/planner/planos/public/<token>')
 def planner_public_plan(token):
     from ..cadu_planner import plans
@@ -1848,7 +1860,7 @@ def _render_planner(view, module, title, *, public=False, **data):
     if not public:
         selected, user = session_data['selected'], session_data['user']
         data.setdefault('context_bar', _planner_context_bar(selected['client_id']))
-        if view == 'plan-detail' and data.get('plan'):
+        if view in ('plan-detail', 'plan-final') and data.get('plan'):
             session['planner_active_plan'] = str(data['plan']['id'])
         elif 'plan' not in data and view != 'public-doc':
             data['plan'] = _active_plan(selected, user)

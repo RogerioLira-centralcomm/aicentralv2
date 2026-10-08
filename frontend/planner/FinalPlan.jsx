@@ -4,7 +4,9 @@ import {CaduBadge} from '../cadu-design-system/components/CaduBadge.jsx';
 import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.jsx';
 import {CaduTextAreaField} from '../cadu-design-system/components/CaduField.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
-import {IllustratedWait} from './Illustration.jsx';
+import {Illustration} from './Illustration.jsx';
+import {PlannerHeader} from './PlannerHeader.jsx';
+import {upperFirst} from './api.js';
 import {PlannerPanel} from './PlannerUi.jsx';
 import {ShareControl} from './ShareControl.jsx';
 import {useConfirm} from './useConfirm.jsx';
@@ -49,11 +51,11 @@ function MixTable({rows}) {
 }
 
 /** The document itself: summary sheet on top, then the body. Shared by the Planner and the public link. */
-export function FinalPlanDocument({document, editable = false, edited = [], busyKey = '', onSave}) {
+export function FinalPlanDocument({document, editable = false, edited = [], busyKey = '', onSave, anchors = false}) {
   const [editing, setEditing] = useState('');
   const sections = (document?.sections || []).filter(section => editable || section.body || section.rows?.length);
   return <div className="final-plan">
-    {sections.map(section => <section key={section.key} className={`final-plan__section${section.key === 'resumo' ? ' is-summary' : ''}`}>
+    {sections.map(section => <section key={section.key} id={anchors ? `final-${section.key}` : undefined} className={`final-plan__section${section.key === 'resumo' ? ' is-summary' : ''}`}>
       <header>
         <h3>{section.title}</h3>
         {edited.includes(section.key) && <CaduBadge tone="neutral">Editada por você</CaduBadge>}
@@ -79,8 +81,40 @@ export function FinalPlanDocument({document, editable = false, edited = [], busy
   </div>;
 }
 
-/** 'Plano final' block in the plan page: generate with a credit estimate, edit by section, share, add to project. */
-export function FinalPlanPanel({boot, request, plan, notify}) {
+export const finalPlanUrl = (urls, planId) => `${urls.plans}/${encodeURIComponent(planId)}/final`;
+
+const BUILD_STEPS = [
+  'Lendo o plano e o briefing',
+  'Conferindo verba, canais e audiências',
+  'Escrevendo a folha-resumo',
+  'Montando o desdobramento completo',
+  'Validando cada número com o plano',
+];
+
+/** Full-screen state while the Cadu writes the final plan: the only thing on screen until it is done. */
+export function FinalPlanBuilding() {
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => setStep(index => Math.min(index + 1, BUILD_STEPS.length - 1)), 6000);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { window.clearInterval(timer); document.body.style.overflow = overflow; };
+  }, []);
+  return <div className="final-building" role="status" aria-live="polite">
+    <div className="final-building__card">
+      <Illustration slot="plan-building" busy className="final-building__art"/>
+      <h1>O Cadu está montando o plano final</h1>
+      <p>Ele junta o que você definiu no plano, confere cada número e escreve o documento. Mantenha esta página aberta.</p>
+      <ol className="final-building__steps">{BUILD_STEPS.map((label, index) =>
+        <li key={label} className={index < step ? 'is-done' : index === step ? 'is-active' : ''} aria-current={index === step ? 'step' : undefined}>
+          <span aria-hidden="true">{index < step ? <Icon name="check" size={12}/> : null}</span>{label}</li>)}</ol>
+      <div className="final-building__bar" aria-hidden="true"><i/></div>
+    </div>
+  </div>;
+}
+
+/** Everything the final plan can do, shared by the compact block in the plan and by the page itself. */
+export function useFinalPlan({boot, request, plan, notify}) {
   const [state, setState] = useState(null);
   const [busy, setBusy] = useState('');
   const [confirm, confirmDialog] = useConfirm();
@@ -89,7 +123,7 @@ export function FinalPlanPanel({boot, request, plan, notify}) {
 
   useEffect(() => {
     let current = true;
-    request(`/plans/${planId}/final-plan`).then(data => { if (current) setState(data.final_plan || null); }).catch(() => {});
+    request(`/plans/${planId}/final-plan`).then(data => { if (current) setState(data.final_plan || {available: false}); }).catch(() => { if (current) setState({available: false}); });
     return () => { current = false; };
   }, [request, planId, updatedAt]);
 
@@ -97,20 +131,21 @@ export function FinalPlanPanel({boot, request, plan, notify}) {
     setBusy(key);
     try { return await action(); } catch (error) { notify({tone: 'error', message: error.message}); return false; } finally { setBusy(''); }
   };
-  // Confirm first, then mark busy: the "writing" state must not show while the person is still deciding.
+  // Confirm first, then mark busy: the "writing" screen must not show while the person is still deciding.
   const generate = async () => {
     const estimate = await request(`/plans/${planId}/final-plan/estimate`).catch(() => ({}));
     const tokens = Number(estimate.estimated_tokens || 0);
     if (!await confirm({title: 'Gerar o plano final?', confirmLabel: 'Gerar plano final',
-      description: `O Cadu escreve o plano final a partir dos dados do plano${tokens ? ` (até cerca de ${tokens.toLocaleString('pt-BR')} tokens)` : ''}, usando créditos. Você paga pelo consumo real.`})) return;
+      description: `O Cadu escreve o plano final a partir dos dados do plano${tokens ? ` (até cerca de ${tokens.toLocaleString('pt-BR')} tokens)` : ''}, usando créditos. Você paga pelo consumo real.`})) return false;
     let overwrite = false;
     const edited = state?.edited_sections || [];
     if (edited.length) overwrite = await confirm({title: 'Substituir as seções que você editou?', confirmLabel: 'Substituir pelo texto novo', cancelLabel: 'Manter minhas edições',
       description: `Você editou ${edited.length} ${edited.length === 1 ? 'seção' : 'seções'}. Mantendo, o Cadu atualiza só o restante.`});
-    await run('generate', async () => {
+    return run('generate', async () => {
       const data = await request(`/plans/${planId}/final-plan`, {method: 'POST', body: JSON.stringify({overwrite_edited: overwrite})});
       setState(data.final_plan);
       notify({message: `Plano final gerado (versão ${data.final_plan?.version}).`});
+      return true;
     });
   };
   const saveSection = (section, body) => run(section, async () => {
@@ -134,29 +169,86 @@ export function FinalPlanPanel({boot, request, plan, notify}) {
       notify({message: 'Plano final adicionado ao projeto.'});
     });
   };
+  const canProject = String(plan.project_ref || '').startsWith('ci:');
+  return {state, busy, generate, saveSection, toggleShare, addToProject, publicUrl, canProject, confirmDialog,
+    exists: Boolean(state?.exists), unavailable: state?.available === false, loading: state === null};
+}
 
-  if (state && state.available === false) return null;
-  const exists = Boolean(state?.exists);
+const firstSentence = text => {
+  const plain = String(text || '').replace(/\*\*/g, '').replace(/\n+/g, ' ').trim();
+  return plain.length > 220 ? `${plain.slice(0, 217).trimEnd()}…` : plain;
+};
+
+/** Compact block at the end of the plan: where the final plan stands and the way to its own page. */
+export function FinalPlanPanel({boot, request, plan, notify}) {
+  const fp = useFinalPlan({boot, request, plan, notify});
+  const {state, busy, exists} = fp;
+  if (fp.unavailable) return null;
+  const url = finalPlanUrl(boot.urls, plan.id);
+  const thesis = exists ? firstSentence(((state.document?.sections || []).find(section => section.key === 'resumo')?.body || '').replace(/^\*\*Tese\.\*\*\s*/, '')) : '';
+  const generate = async () => { if (await fp.generate()) window.location.assign(url); };
   return <PlannerPanel className="planner-block final-plan-panel" title="Plano final"
-    description="O documento do plano: folha-resumo e desdobramento completo, escrito pelo Cadu a partir do que está no plano."
+    description="O documento que fecha o plano: folha-resumo e desdobramento completo, escrito pelo Cadu a partir do que está no plano."
     actions={exists ? <span className="planner-muted">Versão {state.version} · {day(state.created_at)}</span> : null}>
-    {busy === 'generate' && <IllustratedWait slot="plan-building" title="O Cadu está escrevendo o plano final"
-      description="Lendo o plano, montando a tese e conferindo cada número com o que você registrou."/>}
-    {exists && state.stale && <div className="final-plan__stale" role="status"><Icon name="alert" size={16}/>
+    {busy === 'generate' && <FinalPlanBuilding/>}
+    {exists && fp.state.stale && <div className="final-plan__stale" role="status"><Icon name="alert" size={16}/>
       O plano mudou depois desta versão. Gere de novo para atualizar o documento.</div>}
+    {thesis && <p className="final-plan-panel__thesis">{thesis}</p>}
+    {!exists && <p className="planner-muted">{fp.loading ? 'Carregando…' : 'Ainda não há plano final. Quanto mais completo o plano (briefing, canais, verba), melhor o documento; o que faltar vira “Para alinharmos”, nunca é inventado.'}</p>}
     <div className="final-plan__toolbar">
-      <CaduButton loading={busy === 'generate'} onClick={generate}>{exists ? 'Gerar nova versão' : 'Gerar plano final'}</CaduButton>
-      {exists && <ShareControl title="Compartilhar o plano final" description="Gere um link aberto para o time ou o cliente. Ele mostra sempre a versão atual do plano final."
-        url={state.share_token ? publicUrl(state.share_token) : ''} enabled={state.share_enabled} busy={busy === 'share'} canRotate onToggle={toggleShare}/>}
-      {exists && <CaduButton variant="secondary" loading={busy === 'project'} disabled={!String(plan.project_ref || '').startsWith('ci:')}
-        title={String(plan.project_ref || '').startsWith('ci:') ? undefined : 'Vincule o plano a um projeto do Cadu'} onClick={addToProject}>
-        {state.project_source_id ? 'Adicionar de novo ao projeto' : 'Adicionar ao projeto'}</CaduButton>}
+      {exists
+        ? <><CaduButton href={url}>Abrir plano final</CaduButton>
+          <CaduButton variant="secondary" loading={busy === 'generate'} onClick={generate}>Gerar nova versão</CaduButton></>
+        : <CaduButton loading={busy === 'generate'} disabled={fp.loading} onClick={generate}>Gerar plano final</CaduButton>}
     </div>
-    {exists
-      ? <FinalPlanDocument document={state.document} editable edited={state.edited_sections || []} busyKey={busy} onSave={saveSection}/>
-      : <p className="planner-muted">Ainda não há plano final. Quanto mais completo o plano (briefing, canais, verba), melhor o documento; o que faltar vira “Para alinharmos”, nunca é inventado.</p>}
-    {confirmDialog}
+    {fp.confirmDialog}
   </PlannerPanel>;
+}
+
+/** The final plan as its own page: the end of the plan, presented as a document. */
+export function PlanFinalPage({boot, request, plan, notify}) {
+  const fp = useFinalPlan({boot, request, plan, notify});
+  const {state, busy, exists} = fp;
+  const planUrl = `${boot.urls.plans}/${encodeURIComponent(plan.id)}`;
+  const title = upperFirst(plan.title);
+  const sections = exists ? (state.document?.sections || []).filter(section => section.body || section.rows?.length) : [];
+  const description = [plan.advertiser_name, plan.campaign_name !== plan.title && plan.campaign_name].filter(Boolean).join(' · ');
+  const actions = exists ? <>
+    <ShareControl title="Compartilhar o plano final" description="Gere um link aberto para o time ou o cliente. Ele mostra sempre a versão atual do plano final."
+      url={state.share_token ? fp.publicUrl(state.share_token) : ''} enabled={state.share_enabled} busy={busy === 'share'} canRotate onToggle={fp.toggleShare}/>
+    <CaduButton variant="secondary" loading={busy === 'project'} disabled={!fp.canProject}
+      title={fp.canProject ? undefined : 'Vincule o plano a um projeto do Cadu'} onClick={fp.addToProject}>
+      {state.project_source_id ? 'Adicionar de novo ao projeto' : 'Adicionar ao projeto'}</CaduButton>
+    <CaduButton loading={busy === 'generate'} onClick={fp.generate}>Gerar nova versão</CaduButton>
+  </> : null;
+  return <>
+    {busy === 'generate' && <FinalPlanBuilding/>}
+    <PlannerHeader crumbs={[['Planos', boot.urls.plans], [title, planUrl]]} title="Plano final" actions={actions}
+      meta={exists ? <CaduBadge tone={state.stale ? 'warning' : 'success'}>{state.stale ? 'Desatualizado' : `Versão ${state.version}`}</CaduBadge> : null}/>
+    {fp.unavailable && <CaduEmptyState title="Plano final indisponível" description="Este ambiente ainda não habilitou o plano final."/>}
+    {!fp.unavailable && fp.loading && <p className="planner-muted">Carregando…</p>}
+    {!fp.unavailable && !fp.loading && !exists && <section className="final-hero">
+      <Illustration slot="plan-building"/>
+      <h2>O plano final ainda não foi gerado</h2>
+      <p>O Cadu reúne direção, canais, verba e audiências em um documento pronto para apresentar. O que faltar vira “Para alinharmos”, nunca é inventado.</p>
+      <div className="final-plan__toolbar"><CaduButton onClick={fp.generate}>Gerar plano final</CaduButton><CaduButton variant="secondary" href={planUrl}>Voltar ao plano</CaduButton></div>
+    </section>}
+    {exists && <div className="final-page">
+      <nav className="final-page__index" aria-label="Seções do plano final"><ol>{sections.map(section =>
+        <li key={section.key}><a href={`#final-${section.key}`}>{section.title}</a></li>)}</ol></nav>
+      <article className="final-page__paper">
+        <header className="final-page__head">
+          <span className="final-page__eyebrow">Plano final · Versão {state.version} · {day(state.created_at)}</span>
+          <h2>{title}</h2>
+          {description && <p>{description}</p>}
+        </header>
+        {state.stale && <div className="final-plan__stale" role="status"><Icon name="alert" size={16}/>
+          O plano mudou depois desta versão. Gere de novo para atualizar o documento.</div>}
+        <FinalPlanDocument document={state.document} editable edited={state.edited_sections || []} busyKey={busy} onSave={fp.saveSection} anchors/>
+      </article>
+    </div>}
+    {fp.confirmDialog}
+  </>;
 }
 
 /** Open link: the current version, read-only, without internal data. */

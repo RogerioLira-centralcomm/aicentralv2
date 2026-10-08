@@ -210,6 +210,11 @@ def register_product_host_routing(app) -> None:
         planner_host_only()
         return app.view_functions['cadu_family.planner_plan_media_desk'](plan_id)
 
+    @app.get('/planos/<plan_id>/final')
+    def planner_host_plan_final(plan_id):
+        planner_host_only()
+        return app.view_functions['cadu_family.planner_plan_final_page'](plan_id)
+
     @app.get('/planos/public/<token>')
     def planner_host_public_plan(token):
         planner_host_only()

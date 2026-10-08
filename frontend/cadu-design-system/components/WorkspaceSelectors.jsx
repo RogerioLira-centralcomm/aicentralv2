@@ -1,6 +1,7 @@
 import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {Icon} from './Icon';
+import '../brand-lockup.css';
 import {markProjectUsed, recentProjectOptions} from '../projectOptions.mjs';
 
 function useDisclosure(menuRef) {
@@ -43,7 +44,7 @@ function Selector({label, value, items = [], onChange, emptyLabel, className = '
   </details>;
 }
 
-export function CaduSolutionSwitcher({logo, solutions = [], activeId, onSelect, showActiveLabel = false, overlay = false, overlayAccent}) {
+export function CaduSolutionSwitcher({logo, solutions = [], activeId, activeLabel = '', onSelect, showActiveLabel = false, overlay = false, overlayAccent}) {
   const menuRef = useRef(null);
   const {root, open, setOpen} = useDisclosure(menuRef);
   const [menuPosition, setMenuPosition] = useState(null);
@@ -92,7 +93,7 @@ export function CaduSolutionSwitcher({logo, solutions = [], activeId, onSelect, 
     ? <a key={solution.id} href={solution.href} onClick={() => setOpen(false)} aria-current={activeId === solution.id ? 'page' : undefined}>{solution.icon && <img src={solution.icon} alt=""/>}<span><b>{solution.name}</b><small>{solution.description}</small></span></a>
     : <button key={solution.id} type="button" onClick={() => choose(solution)} aria-pressed={activeId === solution.id}>{solution.icon && <img src={solution.icon} alt=""/>}<span><b>{solution.name}</b><small>{solution.description}</small></span></button>)}</nav>;
   return <details ref={root} open={open} onToggle={event => setOpen(event.currentTarget.open)} className="cadu-ds-solution-switcher">
-    <summary aria-label={showActiveLabel ? `Selecionar solução: ${activeSolution?.name || 'Workspace'}` : 'Abrir soluções Cadu'}>{logo ? <img src={logo} alt="Cadu"/> : <span aria-hidden="true">❮❮</span>}{showActiveLabel && <span className="cadu-ds-solution-switcher__active-label">{activeSolution?.name || 'Workspace'}</span>}</summary>
+    <summary className="cadu-brand-lockup" aria-label={showActiveLabel ? `Selecionar solução: ${activeLabel || activeSolution?.name || 'Workspace'}` : 'Abrir soluções Cadu'}>{logo ? <img className="cadu-brand-lockup__logo" src={logo} alt="Cadu"/> : <span aria-hidden="true">❮❮</span>}{showActiveLabel && <span className="cadu-ds-solution-switcher__active-label cadu-brand-lockup__name">{activeLabel || activeSolution?.name || 'Workspace'}</span>}</summary>
     {overlay ? open && createPortal(<div className="cadu-ds-solution-switcher cadu-ds-solution-switcher__portal" style={overlayAccent ? {'--solution-accent': overlayAccent} : undefined}>{menu}</div>, document.body) : menu}
   </details>;
 }

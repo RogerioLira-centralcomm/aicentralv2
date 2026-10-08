@@ -81,8 +81,6 @@
 .pn__brand .cadu-ds-solution-switcher { position: relative; }
 .pn__brand .cadu-ds-solution-switcher > summary { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 6px; border-radius: 8px; list-style: none; cursor: pointer; }
 .pn__brand .cadu-ds-solution-switcher > summary::-webkit-details-marker { display: none; }
-.pn__brand .cadu-ds-solution-switcher > summary img { width: 22px; height: 22px; object-fit: contain; }
-.pn__brand .cadu-ds-solution-switcher__active-label { font-size: 14px; font-weight: 600; color: var(--planner-ink, #101828); }
 /* Telas médias: a barra cabe sem cortar a conta */
 .pn__brand { width: 150px; }
 @media (max-width: 1500px) {

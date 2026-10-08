@@ -1813,12 +1813,6 @@ body.portal--workspace .cadu-ds-home-workarea {
   background:transparent;
 }
 
-.cadu-ds-context-sidebar__solution .cadu-ds-solution-switcher__active-label {
-  color:var(--cadu-ink);
-  font-size:12px;
-  font-weight:650;
-  letter-spacing:0;
-}
 
 .cadu-ds-context-sidebar__solution .cadu-ds-solution-switcher summary:focus-visible {
   outline:2px solid var(--cadu-accent);

@@ -4,8 +4,6 @@
 .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher{width:100%}
 .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher summary{display:flex;width:100%;height:38px;align-items:center;gap:9px;padding:0 9px;border:0;border-radius:0;background:transparent;list-style:none;cursor:pointer}
 .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher summary::-webkit-details-marker{display:none}
-.cadu-solution-sidebar__switcher .cadu-ds-solution-switcher summary img{width:28px;height:28px;flex:0 0 28px;max-width:none;max-height:none;object-fit:contain}
-.cadu-solution-sidebar__switcher .cadu-ds-solution-switcher__active-label{overflow:hidden;color:#202b2b;font-size:12px;font-weight:650;letter-spacing:0;text-overflow:ellipsis;white-space:nowrap}
 .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher summary:focus-visible{outline:2px solid var(--solution-accent);outline-offset:0}
 .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher nav{position:absolute;top:0;left:calc(100% + 10px);z-index:60;display:grid;width:290px;max-height:calc(100dvh - 28px);overflow:auto;padding:8px;border:1px solid #d7dfda;border-radius:14px;background:#fff;box-shadow:0 18px 44px #16272130}
 .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher nav a{display:flex;min-height:48px;align-items:center;gap:10px;padding:8px;border-radius:9px;color:#283530;text-decoration:none}

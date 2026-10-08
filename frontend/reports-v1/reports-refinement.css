@@ -119,12 +119,9 @@
 
 /* Shell: marca compacta, cabeçalho enxuto e filtros em uma só linha. */
 .reports-shell>.cadu-solution-sidebar{gap:10px;padding:12px 14px}
-.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__header{min-height:34px;gap:6px;padding:0 0 8px}
-.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__switcher{height:30px}
-.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher summary{height:30px;gap:8px;padding:0 6px;border-radius:8px}
+.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__header{gap:6px;padding:0 0 8px}
+.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher summary{border-radius:8px}
 .reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher summary:hover{background:var(--color-bg-primary)}
-.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher summary img{width:22px;height:22px;flex-basis:22px}
-.reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher__active-label{font-size:13px;font-weight:650}
 .reports-shell>.cadu-solution-sidebar:not(.is-collapsed) .cadu-solution-sidebar__switcher .cadu-ds-solution-switcher summary::after{content:"";width:6px;height:6px;margin:-3px 0 0 2px;border-right:1.5px solid var(--color-border-primary);border-bottom:1.5px solid var(--color-border-primary);transform:rotate(45deg)}
 .reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__toggle{width:24px;height:24px;flex-basis:24px;border-radius:7px}
 .reports-shell>.cadu-solution-sidebar .cadu-solution-sidebar__footer{display:flex;align-items:center;gap:6px;padding-top:8px}

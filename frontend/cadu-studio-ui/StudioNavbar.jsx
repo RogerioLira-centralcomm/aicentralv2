@@ -1,6 +1,7 @@
 import React, {useEffect, useId, useMemo, useRef, useState} from 'react';
 import './tokens.css';
 import './navbar.css';
+import '../cadu-design-system/brand-lockup.css';
 
 // One navigation for every Studio tool. Keys match the `links` bootstrap shared by the pages.
 export const STUDIO_SECTIONS = [
@@ -130,8 +131,8 @@ export default function StudioNavbar({active, links = {}, projects = [], project
   credits, user, identity, actions, embedded = false}) {
   const Root = embedded ? 'div' : 'header';
   return <Root className={`csu-navbar${embedded ? ' csu-navbar--embedded' : ''}`}>
-    {identity !== false && <div className="csu-navbar__identity">{identity || <a className="csu-brand" href={links.home || '#'}>
-      <img src="/static/images/cadu/products/studio-icon.png" alt=""/><strong>Cadu</strong><span>Studio</span></a>}</div>}
+    {identity !== false && <div className="csu-navbar__identity">{identity || <a className="csu-brand cadu-brand-lockup" href={links.home || '#'} aria-label="Cadu Studio">
+      <img className="cadu-brand-lockup__logo" src="/static/images/cadu/products/studio-icon.png" alt=""/><span className="cadu-brand-lockup__name">Studio</span></a>}</div>}
     <nav className="csu-navbar__nav" aria-label="Ferramentas do Studio">
       {STUDIO_SECTIONS.filter(([key]) => links[key]).map(([key, label]) =>
         <a key={key} href={links[key]} aria-current={key === active ? 'page' : undefined}>{label}</a>)}

@@ -1,0 +1,103 @@
+/*
+ * Cadu brand lockup: the product logo and name at the top-left of every product (Workspace, Chat, Reports,
+ * Planner, Studio). One size, one type, one position everywhere:
+ *   logo 24×24 · 16px from the left edge of the window · logo top at 16px · 10px gap · name Inter 14/20 600.
+ * Containers have different paddings; each one is compensated below so the lockup lands on the same pixels.
+ * Change the tokens, not the per-product CSS.
+ */
+:root {
+  --cadu-brand-logo: 24px;
+  --cadu-brand-gap: 10px;
+  --cadu-brand-inset: 16px;          /* from the left edge of the window */
+  --cadu-brand-row: 56px;            /* first row: logo vertically centred → top at 16px */
+  --cadu-brand-font: 600 14px/20px Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --cadu-brand-tracking: -0.01em;
+  --cadu-brand-ink: #172033;
+  --cadu-brand-ink-dark: #eef2f6;
+}
+
+.cadu-brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: var(--cadu-brand-gap);
+  min-width: 0;
+  text-decoration: none;
+}
+.cadu-brand-lockup.cadu-brand-lockup .cadu-brand-lockup__logo,
+.cadu-brand-lockup.cadu-brand-lockup > img {
+  box-sizing: border-box;
+  flex: 0 0 var(--cadu-brand-logo);
+  width: var(--cadu-brand-logo);
+  height: var(--cadu-brand-logo);
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border-radius: 7px;
+  background: transparent;
+  object-fit: contain;
+}
+.cadu-brand-lockup.cadu-brand-lockup .cadu-brand-lockup__name {
+  overflow: hidden;
+  color: var(--cadu-brand-ink);
+  font: var(--cadu-brand-font);
+  letter-spacing: var(--cadu-brand-tracking);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cadu-brand-lockup--dark .cadu-brand-lockup__name { color: var(--cadu-brand-ink-dark); }
+
+/* ---- Workspace, Reports, Planner and Chat: the shared solution switcher (<summary class="cadu-brand-lockup">) */
+.cadu-ds-solution-switcher > summary.cadu-brand-lockup.cadu-brand-lockup {
+  display: flex;
+  gap: var(--cadu-brand-gap);
+  justify-content: flex-start;
+  width: auto;
+  height: var(--cadu-brand-logo);
+  min-height: var(--cadu-brand-logo);
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* The Workspace dock is a separate shortcut rail (44px button): it keeps its larger mark. */
+.cadu-ds-dock-solution .cadu-ds-solution-switcher > summary.cadu-brand-lockup.cadu-brand-lockup { width: 44px; height: 44px; justify-content: center; }
+.cadu-ds-dock-solution .cadu-brand-lockup.cadu-brand-lockup .cadu-brand-lockup__logo { width: 30px; height: 30px; flex-basis: 30px; }
+
+/*
+ * Position. Each product keeps its own sidebar/top-bar layout; the lockup is shifted (position:relative, no reflow)
+ * so the logo lands at 16px from the left and 16px from the top. Offsets come from measuring production at
+ * 1024px: "content left" is where a zero-padding lockup starts in that container; "row centre" is the vertical
+ * centre of the first row. dx = 16 − content left, dy = 28 − row centre (28 = 16 + half the 24px logo).
+ */
+.cadu-brand-lockup.cadu-brand-lockup { position: relative; left: var(--cadu-brand-dx, 0px); top: var(--cadu-brand-dy, 0px); }
+
+/* Reports and Planner sidebar (SolutionSidebar): content left = side padding − 1px (13px up to 1024px, 18px above); row centre 27. */
+.cadu-solution-sidebar { --cadu-sidebar-pad-x: 18px; }
+@media (max-width: 1024px) and (min-width: 761px) { .cadu-solution-sidebar { --cadu-sidebar-pad-x: 13px; } }
+.cadu-solution-sidebar__switcher .cadu-brand-lockup { --cadu-brand-dx: calc(var(--cadu-brand-inset) - var(--cadu-sidebar-pad-x) + 1px); --cadu-brand-dy: 1px; }
+
+/* Workspace context sidebar: content left = side padding + 3px (8px up to 1024px, 18px above); row centre 35. */
+.cadu-ds-context-sidebar { --cadu-sidebar-pad-x: 18px; }
+@media (max-width: 1024px) { .cadu-ds-context-sidebar { --cadu-sidebar-pad-x: 8px; } }
+.cadu-ds-context-sidebar__solution .cadu-brand-lockup { --cadu-brand-dx: calc(var(--cadu-brand-inset) - var(--cadu-sidebar-pad-x) - 3px); --cadu-brand-dy: -7px; }
+
+/* Chat (dark): history header and collapsed rail; content left 10, row centre 28. */
+#cadu-conversations-v2-root .cv-chat-solution-switcher .cadu-ds-solution-switcher > summary.cadu-brand-lockup,
+#cadu-conversations-v2-root .cv-sidebar-mini-rail .cadu-ds-solution-switcher > summary.cadu-brand-lockup {
+  display: flex; width: auto; height: var(--cadu-brand-logo); place-items: initial; background: transparent;
+}
+#cadu-conversations-v2-root .cv-chat-solution-switcher .cadu-brand-lockup { --cadu-brand-dx: 6px; --cadu-brand-dy: 0px; }
+#cadu-conversations-v2-root .cadu-brand-lockup .cadu-brand-lockup__name { color: var(--cadu-brand-ink-dark); }
+#cadu-conversations-v2-root .cadu-brand-lockup.cadu-brand-lockup > img,
+#cadu-conversations-v2-root .cadu-brand-lockup.cadu-brand-lockup .cadu-brand-lockup__logo { width: var(--cadu-brand-logo); height: var(--cadu-brand-logo); }
+
+/* Planner top bar: content left 25, row centre 29. */
+.pn__brand .cadu-brand-lockup { --cadu-brand-dx: -9px; --cadu-brand-dy: -1px; }
+
+/* Studio top bar (dark): content left = side padding − 4px (18px; 12px on phones); row centre 32. */
+.csu-navbar { --csu-pad-x: 18px; }
+@media (max-width: 760px) { .csu-navbar { --csu-pad-x: 12px; } }
+.csu-navbar .csu-navbar__identity .cadu-brand-lockup { --cadu-brand-dx: calc(var(--cadu-brand-inset) - var(--csu-pad-x) + 4px); --cadu-brand-dy: -4px; }
+.csu-navbar .cadu-brand-lockup.cadu-brand-lockup .cadu-brand-lockup__name { color: var(--csu-text, var(--cadu-brand-ink-dark)); }

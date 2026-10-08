@@ -13,5 +13,3 @@
 @media(max-width:1100px){.flow-navbar-account{gap:8px;padding-left:8px}.flow-navbar-profile>span:last-child{display:none}.flow-workspace-header{flex-wrap:wrap;height:auto;min-height:56px;padding-top:6px;padding-bottom:6px}.flow-workspace-header-actions{margin-left:auto}}
 .reports-shell--flow-editor .reports-flow-editor-topbar{flex-basis:auto;row-gap:6px;padding-top:8px!important;padding-bottom:8px!important}
 .flow-navbar-solutions .cadu-ds-solution-switcher>summary{display:flex;align-items:center;gap:8px;padding:4px;cursor:pointer;list-style:none}
-.flow-navbar-solutions .cadu-ds-solution-switcher>summary>img{width:26px;height:26px;object-fit:contain}
-.flow-navbar-solutions .cadu-ds-solution-switcher__active-label{font-size:14px;font-weight:600}

@@ -2,6 +2,7 @@ import React, {useEffect, useId, useMemo, useRef, useState} from 'react';
 import './tokens.css';
 import './navbar.css';
 import '../../aicentralv2/static/css/cadu-brand-lockup.css';
+import '../cadu-design-system/components/SolutionSidebar.css';  // product menu (portal) styles, same as the Planner
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {CaduSolutionSwitcher} from '../cadu-design-system/components/WorkspaceSelectors.jsx';
 import {workspaceSolutionItems} from '../cadu-design-system/workspaceSolutions';

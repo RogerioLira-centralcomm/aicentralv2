@@ -68,7 +68,10 @@ export default function StudioHomeApp({bootstrap = {}}) {
   const visible = useMemo(() => items.list.filter(item => filter === 'all' || item.media === filter).slice(0, 24), [items.list, filter]);
   const options = projects.map(item => ({id: String(item.id), name: item.name, brandName: item.brand_name || ''}));
   const changeProject = id => {setProjectId(id); remember(id);};
-  const editorHref = item => `${bootstrap.links?.[item.media === 'video' ? 'videos' : 'editor'] || '#'}${project ? `${String(bootstrap.links?.editor || '').includes('?') ? '&' : '?'}project_id=${encodeURIComponent(project.external_project_id || project.id)}` : ''}`;
+  const editorHref = item => {
+    const base = bootstrap.links?.[item.media === 'video' ? 'videos' : 'editor'] || '#';
+    return project ? `${base}${base.includes('?') ? '&' : '?'}project_id=${encodeURIComponent(project.external_project_id || project.id)}` : base;
+  };
 
   return <div className="sh-app">
     <StudioNavbar active="home" links={bootstrap.links || {}} user={bootstrap.user || {}} projects={options} projectId={projectId}

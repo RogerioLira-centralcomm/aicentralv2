@@ -112,7 +112,7 @@ def _build(subject_id, kind, group, watch, state_row):
         phase = 'pausado'
     else:
         phase = 'concluido'
-    return {'id': str(subject_id), 'kind': kind, 'title': title, 'brand_ref': latest.get('brand_ref'), 'project_ref': latest.get('project_ref'),
+    return {'id': str(subject_id), 'kind': kind, 'title': title, 'focus': latest.get('focus') or '', 'brand_ref': latest.get('brand_ref'), 'project_ref': latest.get('project_ref'),
             'params': latest.get('params') or {}, 'schedule': schedule, 'phase': phase, 'reading': state,
             'executions': len(group), 'latest': summary, 'favorite': bool((state_row or {}).get('favorite')),
             'changes': {'signals': len(new_signals), 'angles': len(new_angles)}, 'last_seen_at': seen_at,

@@ -58,6 +58,6 @@
   .rr-action { grid-column: 2 / 4; justify-self: start; }
   .rr-table__head { display: none; }
   .rr-table__row { grid-template-columns: 20px minmax(0, 1fr) 28px; }
-  .rr-table__row > :not(input):not(strong):not(.rr-toggle):not(button.btn) { display: none; }
+  .rr-clamp, .rr-formats, .rr-status, .rr-when { display: none; }
   .rr-detail { padding-left: 16px; }
 }

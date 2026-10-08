@@ -18,8 +18,8 @@ const singleFilterOf = phase => ({em_execucao: 'andamento', falha: 'erro'})[phas
 const SORTS = [['recentes', 'Mais recentes'], ['novos', 'Mais novidades'], ['nome', 'Nome (A–Z)']];
 const PHASE = {programado: ['Ativo', 'success'], em_execucao: ['Em execução', 'brand'], pausado: ['Pausado', 'neutral'], concluido: ['Concluído', 'brand'], falha: ['Atenção', 'warning']};
 /** Ícone e cor da solicitação pelo assunto do tema; sem pista, o pulso do radar. */
-const THEMES = [[/concorr|lançamento|campanha/, 'analysis', 215], [/programátic|ctv|mídia|midia|tv\b/, 'browser', 340], [/transporte|logíst|logist|frota/, 'branch', 35],
-  [/consum|conta|luz|tarifa|energia/, 'wallet', 150], [/invest|capital|debênture|mercado/, 'table', 215], [/regula|norma|lei\b/, 'file', 255]];
+const THEMES = [[/concorr|lançamento/, 'analysis', 215], [/programátic|ctv|mídia|midia|tv\b/, 'browser', 340], [/transporte|logíst|logist|frota/, 'branch', 35],
+  [/consum|conta|luz|tarifa|energia/, 'wallet', 150], [/invest|capital|debênture/, 'table', 215], [/regula|norma|lei\b/, 'file', 255]];
 const themeOf = text => { const key = String(text || '').toLowerCase(); const hit = THEMES.find(([rule]) => rule.test(key)); return hit ? [hit[1], hit[2]] : ['pulse', 150]; };
 const plain = value => String(value || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const hueOf = text => [...String(text)].reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) % 360, 7);
@@ -232,7 +232,7 @@ export function RadarHub({boot, request, notify}) {
       {enabled ? <CaduButton href={newUrl}><Icon name="plus" size={16}/>Novo radar</CaduButton> : <CaduBadge tone="brand">Em breve</CaduBadge>}
     </header>
     <div className="rl-tabs" role="tablist" aria-label="Visões do Radar">
-      {TABS.map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'is-active' : ''} onClick={() => { setTab(id); setStatus('todos'); }}>
+      {TABS.map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'is-active' : ''} onClick={() => { setTab(id); setStatus('todos'); setTheme(''); }}>
         {label}{tabCount[id] != null && <span>{tabCount[id]}</span>}</button>)}
     </div>
 

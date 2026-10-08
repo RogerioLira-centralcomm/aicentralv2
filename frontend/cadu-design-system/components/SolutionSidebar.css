@@ -30,7 +30,7 @@
 .cadu-solution-sidebar__group-label{padding:0 8px 4px;font-size:11px;letter-spacing:.07em}
 .cadu-solution-sidebar__group a{display:flex;min-width:0;min-height:38px;align-items:center;gap:10px;padding:0 9px;border-radius:8px;color:#67736f;font-size:12px;text-decoration:none;transition:background 120ms ease,color 120ms ease}
 .cadu-solution-sidebar__group a svg{flex:0 0 17px;color:#7b8983}
-.cadu-solution-sidebar__group a:hover,.cadu-solution-sidebar__group a:focus-visible,.cadu-solution-sidebar__group a.is-active{background:#fff;color:var(--solution-accent);outline:0;box-shadow:0 3px 12px #14283a0d}
+.cadu-solution-sidebar__group a:hover,.cadu-solution-sidebar__group a:focus-visible,.cadu-solution-sidebar__group a.is-active{background:#fff;color:var(--solution-accent);outline:0;box-shadow:0 3px 12px #1018280d}
 .cadu-solution-sidebar__group a.is-active{font-weight:700}
 .cadu-solution-sidebar__group a.is-active svg{color:var(--solution-accent)}
 .cadu-solution-sidebar__group a span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

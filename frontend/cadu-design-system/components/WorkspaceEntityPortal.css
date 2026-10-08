@@ -40,7 +40,7 @@ body.portal--workspace .cadu-ds-entity-nav__context > span {
   margin-bottom: 3px;
   color: var(--cadu-muted);
   font-size: 11px;
-  font-weight: 700;
+  font-weight:700;
 }
 
 body.portal--workspace .cadu-ds-entity-nav__context > div { display: grid; gap: 1px; }
@@ -61,7 +61,7 @@ body.portal--workspace .cadu-ds-entity-nav__context > div > a b {
   overflow: hidden;
   color: var(--cadu-ink);
   font-size: 10px;
-  font-weight: 600;
+  font-weight:600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -97,12 +97,12 @@ body.portal--workspace .cadu-ds-entity-rail__group > div > :is(a,div):not(.has-p
 body.portal--workspace .cadu-ds-entity-rail__group > div > :is(a,div) > img { width:34px; height:34px; border:1px solid var(--cadu-line); border-radius:7px; background:#fff; object-fit:contain; }
 body.portal--workspace .cadu-ds-entity-rail__group > div > .has-preview { grid-template-columns:34px minmax(0,1fr) 12px; }
 body.portal--workspace .cadu-ds-entity-rail__group > div > :is(a,div) > span { display:grid; min-width:0; gap:2px; margin:0; }
-body.portal--workspace .cadu-ds-entity-rail__group > div > :is(a,div) b { overflow:hidden; font-size:11px; font-weight:650; text-overflow:ellipsis; white-space:nowrap; }
+body.portal--workspace .cadu-ds-entity-rail__group > div > :is(a,div) b { overflow:hidden; font-size:11px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
 body.portal--workspace .cadu-ds-entity-rail__group > div > :is(a,div) small,
 body.portal--workspace .cadu-ds-entity-rail__group > div > :is(a,div) em { overflow:hidden; color:var(--cadu-muted); font-size:11px; font-style:normal; line-height:1.3; text-overflow:ellipsis; white-space:nowrap; }
 body.portal--workspace .cadu-ds-entity-rail__group > div > :is(a,div) em { color:var(--cadu-accent-strong); }
 body.portal--workspace .cadu-ds-entity-rail__group > div > a:hover b { text-decoration:underline; text-underline-offset:2px; }
-body.portal--workspace .cadu-ds-entity-rail__group.is-prominent { margin:0 0 15px; padding:12px; border:1px solid color-mix(in srgb,var(--cadu-accent-strong) 22%,var(--cadu-line)); border-radius:12px; background:color-mix(in srgb,var(--cadu-accent-strong) 5%,var(--cadu-surface)); }
+body.portal--workspace .cadu-ds-entity-rail__group.is-prominent { margin:0 0 15px; padding:12px; border:1px solid color-mix(in srgb,var(--cadu-accent-strong) 22%,var(--cadu-line)); border-radius:12px; background:color-mix(in srgb,var(--cadu-ink) 3%,var(--cadu-surface)); }
 body.portal--workspace .cadu-ds-entity-rail__group.is-prominent > header h3 { color:var(--cadu-ink); font-size:12px; }
 body.portal--workspace .cadu-ds-entity-rail__group.is-prominent > div > :is(a,div) b { font-weight:500; }
 body.portal--workspace .cadu-ds-entity-rail__group.is-prominent > div { margin-top:6px; }
@@ -228,7 +228,7 @@ body.portal--workspace .cadu-ds-entity-nav__identity { display:flex; min-height:
 body.portal--workspace .cadu-ds-entity-nav__identity .cadu-ds-visual-identity { flex:0 0 38px; width:38px; height:38px; border-radius:11px; }
 body.portal--workspace .cadu-ds-entity-nav__identity > span { display:grid; min-width:0; gap:2px; }
 body.portal--workspace .cadu-ds-entity-nav__identity small { color:var(--cadu-muted); font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
-body.portal--workspace .cadu-ds-entity-nav__identity b { overflow:hidden; color:var(--cadu-ink); font-size:13px; font-weight:650; text-overflow:ellipsis; white-space:nowrap; }
+body.portal--workspace .cadu-ds-entity-nav__identity b { overflow:hidden; color:var(--cadu-ink); font-size:13px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
 
 
 
@@ -493,7 +493,7 @@ body.portal--workspace .cadu-ds-project-getting-started__action { display:grid; 
 body.portal--workspace .cadu-ds-project-getting-started__action:hover { border-color:var(--cadu-accent-strong); background:var(--cadu-surface-soft); }
 body.portal--workspace .cadu-ds-project-getting-started__action:focus-visible,
 body.portal--workspace .cadu-ds-project-getting-started footer button:focus-visible { outline:2px solid var(--cadu-accent-strong); outline-offset:2px; }
-body.portal--workspace .cadu-ds-project-getting-started__icon { display:grid; width:30px; height:30px; place-items:center; border-radius:8px; background:color-mix(in srgb,var(--cadu-accent-strong) 10%,var(--cadu-surface)); color:var(--cadu-accent-strong); }
+body.portal--workspace .cadu-ds-project-getting-started__icon { display:grid; width:30px; height:30px; place-items:center; border-radius:8px; background:color-mix(in srgb,var(--cadu-ink) 6%,var(--cadu-surface)); color:var(--cadu-accent-strong); }
 body.portal--workspace .cadu-ds-project-getting-started__icon svg,
 body.portal--workspace .cadu-ds-project-getting-started footer svg { width:15px; height:15px; }
 body.portal--workspace .cadu-ds-project-getting-started__copy { display:grid; min-width:0; gap:3px; }
@@ -506,7 +506,7 @@ body.portal--workspace .cadu-ds-project-getting-started > footer > span { displa
 body.portal--workspace .cadu-ds-project-getting-started > footer svg { color:var(--cadu-accent-strong); }
 body.portal--workspace .cadu-ds-project-getting-started > footer b { color:var(--cadu-ink); font-variant-numeric:tabular-nums; }
 body.portal--workspace .cadu-ds-project-getting-started > footer button { margin-left:auto; padding:5px 0; border:0; background:none; color:var(--cadu-accent-strong); font:650 10px var(--cadu-font-sans); cursor:pointer; }
-body.portal--workspace .cadu-ds-project-getting-started > footer a { margin-left:auto; color:var(--cadu-accent-strong); font-size:10px; font-weight:650; text-decoration:none; }
+body.portal--workspace .cadu-ds-project-getting-started > footer a { margin-left:auto; color:var(--cadu-accent-strong); font-size:10px; font-weight:600; text-decoration:none; }
 body.portal--workspace .cadu-ds-project-getting-started > footer a:hover { text-decoration:underline; }
 
 @media (max-width:1100px) and (min-width:1025px) {
@@ -592,8 +592,8 @@ body.portal--workspace .cadu-ds-entity-nav__project-mark {
 body.portal--workspace .cadu-ds-entity-nav__project-mark { display:grid; place-items:center; color:var(--cadu-accent-strong); }
 body.portal--workspace .cadu-ds-entity-nav__project-mark svg { width:19px; height:19px; }
 body.portal--workspace :is(.cadu-ds-entity-portal--brand,.cadu-ds-entity-portal--project) .cadu-ds-entity-nav__identity > span:last-child { display:grid; min-width:0; gap:2px; }
-body.portal--workspace :is(.cadu-ds-entity-portal--brand,.cadu-ds-entity-portal--project) .cadu-ds-entity-nav__identity small { color:var(--cadu-muted); font-size:11px; font-weight:650; letter-spacing:.04em; text-transform:uppercase; }
-body.portal--workspace :is(.cadu-ds-entity-portal--brand,.cadu-ds-entity-portal--project) .cadu-ds-entity-nav__identity b { color:var(--cadu-ink); font-size:13px; font-weight:650; line-height:1.25; }
+body.portal--workspace :is(.cadu-ds-entity-portal--brand,.cadu-ds-entity-portal--project) .cadu-ds-entity-nav__identity small { color:var(--cadu-muted); font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; }
+body.portal--workspace :is(.cadu-ds-entity-portal--brand,.cadu-ds-entity-portal--project) .cadu-ds-entity-nav__identity b { color:var(--cadu-ink); font-size:13px; font-weight:600; line-height:1.25; }
 
 
 
@@ -722,5 +722,5 @@ body.portal--workspace .cadu-ds-entity-rail__index.is-attention strong { color:#
 
 /* Sidebar: só a linha lateral separa a navegação; sem linha sob a identidade, sem caixa no ícone e sem divisória antes de "Ações" */
 body.portal--workspace .cadu-ds-entity-nav .cadu-ds-entity-nav__top { border-bottom:0; }
-body.portal--workspace .cadu-ds-entity-nav .cadu-ds-entity-nav__project-mark { border-color:transparent; background:var(--cadu-surface-soft, #f2f4f5); }
+body.portal--workspace .cadu-ds-entity-nav .cadu-ds-entity-nav__project-mark { border-color:transparent; background:var(--cadu-surface-soft, #f2f4f7); }
 body.portal--workspace .cadu-ds-entity-nav [class~="border-t"] { border-top-width:0; margin-top:14px; padding-top:0; }

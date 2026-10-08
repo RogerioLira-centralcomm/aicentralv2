@@ -43,7 +43,7 @@
     },
     'conversation': url_for('cadu_workspace.conversations', project_ref='ci:' ~ project_data.id, history='1'),
     'brands': url_for('cadu_workspace.clean_brands'),
-    'createPlan': product_url('planner', '/novo?project_id=' ~ project_data.id ~ ('&cliente_id=' ~ project_data.brand.crmClientId ~ '&cliente_name=' ~ (project_data.brand.name|urlencode) ~ '&brand_id=' ~ project_data.brand.id ~ '&brand_name=' ~ (project_data.brand.name|urlencode) if project_data.brand.id else '')),
+    'createPlan': product_url('planner', '/planos?create=1&project_ref=ci:' ~ project_data.id ~ ('&brand_ref=studio:' ~ project_data.brand.id if project_data.brand.id else '')),
     'createImage': product_url('studio', '/studio/modelagem-criativos/criar?project_id=' ~ project_data.id ~ ('&creative_client_id=' ~ project_data.brand.id if project_data.brand.id else '')),
     'createVideo': product_url('studio', '/studio/modelagem-criativos/video?project_id=' ~ project_data.id ~ ('&creative_client_id=' ~ project_data.brand.id if project_data.brand.id else '')),
     'updateContext': url_for('cadu_workspace.update_project_context', project_id=project_data.id),

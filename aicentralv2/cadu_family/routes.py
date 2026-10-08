@@ -1942,6 +1942,29 @@ def _active_plan(selected, user):
     return plan
 
 
+def _apply_requested_context(selected, bar):
+    """Links de outros produtos chegam com ?project_ref=ci:<id>&brand_ref=studio:<id>.
+
+    Só vale o que existe no inventário do cliente; qualquer outra coisa é ignorada (nunca aborta a página).
+    A escolha fica na sessão, como se tivesse sido feita na barra de contexto.
+    """
+    brand_ref = (request.args.get('brand_ref') or '').strip()
+    project_ref = (request.args.get('project_ref') or '').strip()
+    if not (brand_ref or project_ref):
+        return
+    brands = {item['ref']: item for item in bar.get('brands', [])}
+    projects = {item['ref']: item for item in bar.get('projects', [])}
+    project = projects.get(project_ref)
+    if not project:
+        project_ref = ''
+    if brand_ref not in brands:
+        brand_ref = next((ref for ref in (project or {}).get('related_refs', []) if ref in brands), '')
+    if not (brand_ref or project_ref):
+        return
+    bar['brand_ref'], bar['project_ref'] = brand_ref or None, project_ref or None
+    session['family_context'] = {**selected, 'brand_ref': brand_ref or None, 'project_ref': project_ref or None}
+
+
 def _render_planner(view, module, title, *, public=False, **data):
     """Every Planner page boots the same React app; shared links carry no session data."""
     session_data = {'user': None, 'selected': None, 'csrf': '', 'cadu_family_writes_enabled': False} if public else {
@@ -1953,6 +1976,8 @@ def _render_planner(view, module, title, *, public=False, **data):
     if not public:
         selected, user = session_data['selected'], session_data['user']
         data.setdefault('context_bar', _planner_context_bar(selected['client_id']))
+        if request.method == 'GET' and isinstance(data['context_bar'], dict):
+            _apply_requested_context(selected, data['context_bar'])
         if view in ('plan-detail', 'plan-final') and data.get('plan'):
             session['planner_active_plan'] = str(data['plan']['id'])
         elif 'plan' not in data and view != 'public-doc':

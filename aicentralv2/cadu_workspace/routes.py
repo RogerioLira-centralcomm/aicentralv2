@@ -8712,7 +8712,7 @@ def brand_detail(brand_id):
             'conversation': url_for('cadu_workspace.conversations', **conversation_args),
             'createImage': product_url('studio', f"/studio/modelagem-criativos/criar?creative_client_id={brand_id}" + (f"&project_id={active_linked_project.get('id')}" if active_linked_project else '')),
             'createVideo': product_url('studio', f"/studio/modelagem-criativos/video?creative_client_id={brand_id}" + (f"&project_id={active_linked_project.get('id')}" if active_linked_project else '')),
-            'createPlan': product_url('planner', f"/novo?cliente_id={brand.get('crm_client_id') or ''}&cliente_name={quote(str(brand.get('name') or 'Marca'))}&brand_id={brand_id}&brand_name={quote(str(brand.get('name') or 'Marca'))}" + (f"&project_id={active_linked_project.get('id')}" if active_linked_project else '')),
+            'createPlan': product_url('planner', f"/planos?create=1&brand_ref=studio:{brand_id}" + (f"&project_ref=ci:{active_linked_project.get('id')}" if active_linked_project else '')),
             'system': url_for('cadu_workspace.brand_system', brand_id=brand_id),
             'generateHero': url_for('cadu_workspace.generate_brand_hero', brand_id=brand_id),
             'updateIdentity': url_for('cadu_workspace.update_brand_identity', brand_id=brand_id),

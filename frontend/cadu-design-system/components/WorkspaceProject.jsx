@@ -1014,11 +1014,11 @@ export function WorkspaceProject({bootstrap}) {
             <SidebarNavButton icon={<ProjectIcon name="compose"/>} label="Nova conversa" onClick={startConversation}/>
             {canEdit && <SidebarNavButton icon={<ProjectIcon name="text"/>} label="Editar contexto" onClick={() => setDialog('identity')}/>}
             {canEdit && <SidebarNavMenu icon={<ProjectIcon name="source"/>} label="Adicionar ao projeto"><SidebarNavButton label="Adicionar fonte" onClick={() => setDialog('source-upload')}/><SidebarNavButton label="Adicionar nota" onClick={() => setDialog('note')}/><SidebarNavButton label="Adicionar link" onClick={() => setDialog('link')}/></SidebarNavMenu>}
+            {projectLinks.createPlan && <SidebarNavLink href={projectLinks.createPlan} icon={<ProjectIcon name="plan"/>} label="Criar plano de mídia"/>}
+            {projectLinks.createImage && <SidebarNavLink href={projectLinks.createImage} icon={<ProjectIcon name="image"/>} label="Criar imagem"/>}
+            {projectLinks.createVideo && <SidebarNavLink href={projectLinks.createVideo} icon={<ProjectIcon name="spark"/>} label="Criar vídeo"/>}
             <SidebarNavMenu label="Mais ações">
               {bootstrap.canManageSharing && <SidebarNavButton label="Gerenciar acesso" onClick={() => setDialog('sharing')}/>}
-              <SidebarNavLink href={projectLinks.createPlan} label="Criar plano de mídia"/>
-              <SidebarNavLink href={projectLinks.createImage} label="Criar imagem"/>
-              <SidebarNavLink href={projectLinks.createVideo} label="Criar vídeo"/>
               {canEdit && <form method="post" action={projectLinks.toggleStatus}><input type="hidden" name="_csrf" value={bootstrap.csrf}/><SidebarNavButton type="submit" label={project.status === 'arquivado' ? 'Reativar projeto' : 'Arquivar projeto'}/></form>}
               {bootstrap.canManageProjects && <><SidebarNavButton label="Mesclar com outro projeto" onClick={() => setDialog('merge')}/><SidebarNavButton destructive label="Excluir projeto" onClick={() => setDialog('delete-project')}/></>}
             </SidebarNavMenu>

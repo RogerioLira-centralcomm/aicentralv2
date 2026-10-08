@@ -32,7 +32,7 @@ const readDraft = () => { try { return {...empty, ...JSON.parse(window.sessionSt
  * "Planejar": the plan brief, one question at a time. Every step is optional;
  * the draft survives a reload and the full form stays one click away.
  */
-export function PlanWizard({urls, suggestions = {}, busy, onSubmit, onFullForm}) {
+export function PlanWizard({urls, suggestions = {}, context = null, busy, onSubmit, onFullForm}) {
   const [step, setStep] = useState(0);
   const [reached, setReached] = useState(0);
   const [visited, setVisited] = useState(() => new Set([0]));
@@ -72,6 +72,12 @@ export function PlanWizard({urls, suggestions = {}, busy, onSubmit, onFullForm})
       {STEPS.map((item, index) => <img key={item.key} className={`wizard__scene${index === step ? ' is-current' : ''}`} src={ART + item.art} alt="" loading={index === 0 ? 'eager' : 'lazy'}/>)}
     </aside>
     <main className="wizard__main">
+      {(context?.project || context?.brand) && <p className="wizard__context" role="status">
+        <span>Criando para</span>
+        {context.project && <b>{context.project.name}</b>}
+        {context.brand && <span>{context.project ? 'marca ' : 'a marca '}<b>{context.brand.name}</b></span>}
+        {!context.project && <small>O plano fica só na marca; você pode vincular a um projeto depois.</small>}
+      </p>}
       <ol className="wizard__progress" aria-label="Progresso">
         <li className="wizard__count">{step + 1} de {STEPS.length}</li>
         {STEPS.map((item, index) => <li key={item.key}><button type="button" aria-label={`Ir para ${item.label}`} disabled={index > reached}

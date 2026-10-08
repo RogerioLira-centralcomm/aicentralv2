@@ -196,7 +196,7 @@ export function PlanCreatePage({boot, request, notify, selection}) {
       setBusy(false);
     }
   }
-  if (!fullForm) return <PlanWizard urls={boot.urls} suggestions={suggestions} busy={busy} onSubmit={createFromWizard} onFullForm={() => setFullForm(true)}/>;
+  if (!fullForm) return <PlanWizard urls={boot.urls} suggestions={suggestions} context={context} busy={busy} onSubmit={createFromWizard} onFullForm={() => setFullForm(true)}/>;
   // Remount the form when the context arrives so its suggestions become the defaults.
   const formKey = [context?.brand?.ref, context?.project?.ref].join('|');
   return <>

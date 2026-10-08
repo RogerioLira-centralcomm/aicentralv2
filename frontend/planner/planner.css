@@ -1943,3 +1943,8 @@ a.planner-card:focus-visible { outline: 2px solid var(--colors-brand-600, #07945
 .planner-mark--sm { border-radius: 10px; }
 .pdb__mark { border-radius: 16px; overflow: hidden; }
 .ph__leading .logo-tile--lg, .ph__leading .planner-mark--lg { border-radius: 12px; }
+
+/* Contexto de criação: para quem este plano está sendo feito */
+.wizard__context { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0 0 16px; padding: 8px 12px; border: 1px solid var(--planner-line); border-radius: 10px; background: #fff; color: var(--planner-muted); font-size: 13px; }
+.wizard__context b { color: var(--planner-ink); font-weight: 600; }
+.wizard__context small { flex-basis: 100%; color: var(--planner-subtle); font-size: 12px; }

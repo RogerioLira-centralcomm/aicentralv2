@@ -42,7 +42,7 @@ export function AudienceCard({item, urls, selected, onToggle}) {
     <a className="planner-card__hit" href={catalogDetailUrl(urls, 'audiencias', item)} aria-label={`Ver audiência ${item.name}`}/>
     <span className={`channel-card__photo audience-card__art${photo ? '' : ' is-logo'}`}>
       {photo ? <img src={item.image_url} alt="" loading="lazy" onError={() => setImageFailed(true)}/>
-        : logo ? <img className="channel-card__logo" src={item.platform_logo} alt="" loading="lazy" onError={() => setLogoFailed(true)}/>
+        : logo ? <img className="channel-card__logo" src={item.platform_logo} alt={item.platform || ''} loading="lazy" onError={() => setLogoFailed(true)}/>
           : <Icon name="users" size={32}/>}
       {item.category && <span className="channel-card__badge">{item.category}</span>}
       {photo && logo && <span className="channel-card__mark" title={item.platform}><img src={item.platform_logo} alt={item.platform || ''} onError={() => setLogoFailed(true)}/></span>}

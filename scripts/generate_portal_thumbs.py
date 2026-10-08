@@ -71,7 +71,6 @@ def main():
     parser.add_argument('--domain')
     parser.add_argument('--limit', type=int, default=0)
     parser.add_argument('--refazer', action='store_true', help='regera mesmo que já exista')
-    parser.add_argument('--origem', help='pasta com {slug}.webp já gerados para reaproveitar (slug = domínio sem sufixo)')
     args = parser.parse_args()
     if not (args.top or args.domain or args.limit):
         parser.error('use --top, --domain ou --limit')

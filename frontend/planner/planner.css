@@ -48,7 +48,12 @@ body.planner-react {
 .planner-shell .cadu-ds-visual-identity { display: grid; width: 100%; height: 100%; place-items: center; overflow: hidden; border-radius: inherit; background: var(--planner-soft); color: var(--planner-muted); font-size: 12px; font-weight: 600; }
 .planner-shell .cadu-ds-visual-identity img { display: block; width: 100%; height: 100%; padding: 6px; object-fit: contain; }
 /* Notice */
-.planner-notice { position: sticky; top: 12px; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 16px; padding: 10px 12px 10px 16px; border: 1px solid #abefc6; border-radius: 10px; background: #ecfdf3; color: #067647; font-size: 14px; box-shadow: var(--shadow-sm, 0 1px 3px rgba(16, 24, 40, .1)); }
+.planner-toast-region { position: fixed; top: 76px; left: 50%; z-index: 60; width: max-content; max-width: min(92vw, 480px); transform: translateX(-50%); pointer-events: none; }
+.planner-notice { display: flex; align-items: center; gap: 10px; margin: 0; padding: 8px 8px 8px 16px; border: 1px solid #abefc6; border-radius: 999px; background: #ecfdf3; color: #067647; font-size: 14px; font-weight: 500; box-shadow: 0 10px 24px -8px rgba(16, 24, 40, .25); pointer-events: auto; animation: planner-toast-in .22s ease-out both; }
+.planner-notice.is-leaving { animation: planner-toast-out .22s ease-in both; }
+@keyframes planner-toast-in { from { opacity: 0; transform: translateY(-10px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes planner-toast-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-10px) scale(.96); } }
+@media (prefers-reduced-motion: reduce) { .planner-notice, .planner-notice.is-leaving { animation: none; } }
 .planner-notice--error { border-color: #fecdca; background: #fef3f2; color: #b42318; }
 /* Panels and sections */
 .planner-panel { display: grid; gap: 16px; min-width: 0; padding: 20px 24px; border: 1px solid var(--planner-line); border-radius: var(--planner-radius); background: var(--planner-surface); box-shadow: var(--shadow-xs, 0 1px 2px rgba(16, 24, 40, .05)); }

@@ -21,11 +21,23 @@ export function LogoTile({src, fallbacks = [], name = '', icon = 'plan', size = 
   </span>;
 }
 
+/** Floating toast: small, centred at the top, over the page so it never moves the content; it fades out before unmounting. */
 export function PlannerNotice({notice, onDismiss}) {
-  if (!notice) return null;
-  return <div className={`planner-notice planner-notice--${notice.tone || 'success'}`} role={notice.tone === 'error' ? 'alert' : 'status'}>
-    <span>{notice.message}</span>
-    <CaduButton variant="tertiary" size="sm" aria-label="Fechar aviso" onClick={onDismiss}><Icon name="close" size={16}/></CaduButton>
+  const [shown, setShown] = useState(notice);
+  const [leaving, setLeaving] = useState(false);
+  useEffect(() => {
+    if (notice) { setShown(notice); setLeaving(false); return undefined; }
+    if (!shown) return undefined;
+    setLeaving(true);
+    const timer = window.setTimeout(() => { setShown(null); setLeaving(false); }, 220);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+  if (!shown) return null;
+  return <div className="planner-toast-region" aria-live={shown.tone === 'error' ? 'assertive' : 'polite'}>
+    <div className={`planner-notice planner-notice--${shown.tone || 'success'}${leaving ? ' is-leaving' : ''}`} role={shown.tone === 'error' ? 'alert' : 'status'}>
+      <span>{shown.message}</span>
+      <CaduButton variant="tertiary" size="sm" aria-label="Fechar aviso" onClick={onDismiss}><Icon name="close" size={16}/></CaduButton>
+    </div>
   </div>;
 }
 

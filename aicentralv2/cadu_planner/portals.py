@@ -239,6 +239,45 @@ def catalog_facets():
     return {'categories': [row['category'] for row in rows], 'ufs': [row['uf'] for row in ufs]}
 
 
+# Portals with formats of their own in the Formatos catalog (plataforma_slug), and how the page reader names map to IAB formats.
+PORTAL_FORMAT_PLATFORM = {'g1.globo.com': 'g1', 'cnnbrasil.com.br': 'cnn', 'infomoney.com.br': 'infomoney'}
+OBSERVED_TO_IAB = {'Vídeo in-stream (VAST/IMA)': 'pre-roll-vast', 'Nativo (recomendação)': 'native-content-recommendation',
+                   'Vídeo outstream / in-read': 'outstream-video', 'Interstitial / tela cheia': 'interstitial-web',
+                   'Sticky / rodapé fixo': 'adhesion-banner-sticky-bottom'}
+MARKET_STANDARD = ('leaderboard-728x90', 'medium-rectangle-300x250', 'billboard-970x250', 'half-page-300x600',
+                   'smartphone-banner-320x50', 'native-in-feed', 'pre-roll-vast', 'outstream-video')
+
+
+def attach_formats(portal):
+    """Formats of the portal in three groups taken from the Formatos catalog: its own, the ones seen on its home, the market standard."""
+    from ..cadu_family import repository
+    columns = 'id, slug, nome, tipo, dimensoes'
+    rows_by_slug = {row['slug']: row for row in repository.rows(
+        f"SELECT {columns} FROM cadu_formatos WHERE is_active IS TRUE AND plataforma_slug = 'programatica_iab'")}
+    by_size = {}
+    for row in rows_by_slug.values():
+        match = re.search(r'(\d{2,4})x(\d{2,4})', str(row['nome']) + ' ' + str(row['dimensoes']))
+        if match:
+            by_size.setdefault(match.group(0), row)
+    own = []
+    platform = PORTAL_FORMAT_PLATFORM.get(str(portal.get('domain') or ''))
+    if platform:
+        own = repository.rows(f"SELECT {columns} FROM cadu_formatos WHERE is_active IS TRUE AND plataforma_slug = %s ORDER BY ordem", (platform,))
+    observed, seen = [], set()
+    for item in portal.get('ad_formats') or []:
+        match = by_size.get(item.get('size') or '') if item.get('size') else rows_by_slug.get(OBSERVED_TO_IAB.get(item.get('format'), ''))
+        label = item.get('format')
+        key = match['id'] if match else label
+        if key in seen:
+            continue
+        seen.add(key)
+        observed.append({**(match or {}), 'label': label, 'size': item.get('size'), 'linked': bool(match)})
+    taken = {row['id'] for row in own} | {row.get('id') for row in observed if row.get('id')}
+    market = [rows_by_slug[slug] for slug in MARKET_STANDARD if slug in rows_by_slug and rows_by_slug[slug]['id'] not in taken][:6]
+    portal['formats'] = {'own': own, 'observed': observed, 'market': market}
+    return portal
+
+
 def detail(portal_id):
     from ..cadu_family import repository
     try:
@@ -251,6 +290,7 @@ def detail(portal_id):
         raise NotFound('Portal indisponível.')
     attach_prints(rows, all_kinds=True)
     attach_thumbs(rows)
+    attach_formats(rows[0])
     return rows[0]
 
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import {CaduEmptyState} from '../../cadu-design-system/components/CaduEmptyState.jsx';
 import {DetailLayout, Facts, Gallery} from './DetailLayout.jsx';
+import {moduleUrl} from '../api.js';
 
 // Cadastro fields that help a media planner, in plain words. Everything else we hold is technical and stays out of the page.
 const COMMERCIAL = [
@@ -49,15 +50,18 @@ export function PortalDetail({boot, selection, plan = null}) {
   const coverage = portal.scope === 'nacional_premium' ? 'Nacional' : [place.split('·')[0].trim(), portal.uf].filter(Boolean).join(' · ');
   const audienceText = demographics ? [LEAN[demographics.genero], demographics.idade_dominante && `faixa predominante de ${demographics.idade_dominante} anos`,
     demographics.classe && `classe ${demographics.classe}`].filter(Boolean).join(', ') : '';
-  const displayFormats = formats.filter(item => item.size);
-  const richFormats = formats.filter(item => !item.size);
+  const groups = {own: portal.formats?.own || [], observed: portal.formats?.observed || [], market: portal.formats?.market || []};
+  const formatCount = groups.own.length + groups.observed.length + groups.market.length;
+  const formatLink = (item, label) => item?.id ? <a href={`${moduleUrl(boot.urls, 'formatos')}/${item.id}`}>{label}</a> : label;
 
   const sections = [
-    {id: 'formatos', label: 'Formatos de anúncio', hidden: !formats.length, count: formats.length,
-      hint: `Observados na página inicial${portal.signals_checked_at ? ` em ${date(portal.signals_checked_at)}` : ''}. Formatos que carregam sob demanda podem não aparecer aqui.`,
+    {id: 'formatos', label: 'Formatos de anúncio', hidden: !formatCount, count: formatCount,
+      hint: 'Do catálogo de Formatos: abra cada um para ver especificações e orientações de criativo.',
       render: () => <div className="pd-profile">
-        {displayFormats.length > 0 && <div><span>Display</span><ul className="pd-chips">{displayFormats.map(item => <li key={item.format}>{item.format} · {item.size.replace('x', '×')}</li>)}</ul></div>}
-        {richFormats.length > 0 && <div><span>Vídeo, nativo e conteúdo de marca</span><ul className="pd-chips">{richFormats.map(item => <li key={item.format}>{item.format}</li>)}</ul></div>}
+        {groups.own.length > 0 && <div><span>Formatos do portal</span><ul className="pd-chips">{groups.own.map(item => <li key={item.id}>{formatLink(item, `${item.nome}`)}</li>)}</ul></div>}
+        {groups.observed.length > 0 && <div><span>Vistos na página inicial{portal.signals_checked_at ? ` em ${date(portal.signals_checked_at)}` : ''}</span>
+          <ul className="pd-chips">{groups.observed.map(item => <li key={item.id || item.label}>{formatLink(item.linked ? item : null, `${item.label}${item.size ? ` · ${item.size.replace('x', '×')}` : ''}`)}</li>)}</ul></div>}
+        {groups.market.length > 0 && <div><span>Padrão de mercado, a confirmar com o portal</span><ul className="pd-chips is-soft">{groups.market.map(item => <li key={item.id}>{formatLink(item, item.nome)}</li>)}</ul></div>}
       </div>},
     {id: 'compra', label: 'Como comprar', hidden: !programmatic && !directOnly,
       hint: 'Modalidades de compra, a partir do que o portal expõe publicamente.',

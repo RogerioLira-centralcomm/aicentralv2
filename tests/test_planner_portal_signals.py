@@ -23,3 +23,22 @@ def test_ad_formats_empty_page_is_empty_list():
 
 def test_menu_sections_keeps_same_site_links_only():
     assert ps.menu_sections(HTML, 'www.exemplo.com.br') == ['Política', 'Economia', 'Esportes', 'Saúde']
+
+
+def test_attach_formats_links_observed_formats_to_the_iab_catalog(monkeypatch):
+    from aicentralv2.cadu_family import repository
+    from aicentralv2.cadu_planner import portals
+    iab = [{'id': 1, 'slug': 'billboard-970x250', 'nome': 'Billboard (970x250)', 'tipo': 'display', 'dimensoes': '970x250 pixels'},
+           {'id': 2, 'slug': 'pre-roll-vast', 'nome': 'Pre-Roll (VAST)', 'tipo': 'video', 'dimensoes': '1920x1080'},
+           {'id': 3, 'slug': 'leaderboard-728x90', 'nome': 'Leaderboard (728x90)', 'tipo': 'display', 'dimensoes': '728x90 pixels'}]
+
+    def fake_rows(sql, params=None):
+        return iab if "'programatica_iab'" in sql else []
+    monkeypatch.setattr(repository, 'rows', fake_rows)
+    portal = {'domain': 'exemplo.com.br', 'ad_formats': [{'format': 'Billboard', 'size': '970x250', 'count': 3},
+                                                         {'format': 'Vídeo in-stream (VAST/IMA)', 'size': None, 'count': 1},
+                                                         {'format': 'Branded content / publieditorial', 'size': None, 'count': 1}]}
+    groups = portals.attach_formats(portal)['formats']
+    assert [item['label'] for item in groups['observed']] == ['Billboard', 'Vídeo in-stream (VAST/IMA)', 'Branded content / publieditorial']
+    assert groups['observed'][0]['linked'] and groups['observed'][1]['linked'] and not groups['observed'][2]['linked']
+    assert [item['slug'] for item in groups['market']] == ['leaderboard-728x90']  # what is already shown is not repeated

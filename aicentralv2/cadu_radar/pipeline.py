@@ -433,7 +433,9 @@ def list_runs(client_id, *, limit=30, watch_id=None):
         params.append(str(watch_id))
     params.append(max(1, min(int(limit), 100)))
     rows = repository.rows(f'''SELECT r.id, r.status, r.focus, r.brand_ref, r.project_ref, r.params, r.trigger, r.watch_id, r.error,
-                                      r.cost, r.created_at, r.finished_at, COUNT(o.id) AS opportunities
+                                      r.cost, r.created_at, r.finished_at, COUNT(o.id) AS opportunities,
+                                      COUNT(o.id) FILTER (WHERE o.status = 'em_plano') AS in_plan,
+                                      (SELECT COUNT(*) FROM cadu_radar_signals s WHERE s.run_id = r.id) AS signals
                                  FROM cadu_radar_runs r LEFT JOIN cadu_radar_opportunities o ON o.run_id = r.id
                                 WHERE {' AND '.join(clauses)}
                              GROUP BY r.id ORDER BY r.created_at DESC LIMIT %s''', tuple(params))

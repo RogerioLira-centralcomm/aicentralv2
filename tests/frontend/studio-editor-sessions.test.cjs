@@ -12,7 +12,7 @@ const asset={id:'v1',name:'Peça',url:STILL,dataUrl:STILL,status:'draft'};
   const browser=await chromium.launch({headless:true});
   const page=await browser.newPage({viewport:{width:1500,height:950}}),tasks=[],errors=[];
   page.on('pageerror',e=>errors.push(e.message));
-  await page.addInitScript(([k,v])=>localStorage.setItem(k,v),['cadu-studio-editor-v1:174',JSON.stringify({asset,versions:[asset],selectedId:'v1',prompt:'',format:'4:5',outputSize:{width:1080,height:1350,format:'4:5'},quality:'draft',zoom:100,agentMessages:[{id:'old',role:'assistant',text:'Mensagem da sessão antiga'}]})]);
+  await page.addInitScript(([k,v])=>localStorage.setItem(k,v),['cadu-studio-editor-v1:174:none',JSON.stringify({asset,versions:[asset],selectedId:'v1',prompt:'',format:'4:5',outputSize:{width:1080,height:1350,format:'4:5'},quality:'draft',zoom:100,agentMessages:[{id:'old',role:'assistant',text:'Mensagem da sessão antiga'}]})]);
   await page.route('https://**',route=>route.fulfill({status:200,contentType:'text/css',body:''}));
   await page.route('http://studio.test/**',async route=>{const req=route.request(),url=new URL(req.url()),p=url.pathname;
     if(p==='/')return route.fulfill({contentType:'text/html',body:HTML});
@@ -27,6 +27,7 @@ const asset={id:'v1',name:'Peça',url:STILL,dataUrl:STILL,status:'draft'};
     if(/\/sessions(\/[^/]+)?$/.test(p)&&req.method()!=='GET')return ok({id:'s1',revision:1,title:'Mesa',status:'active',assets:[]});
     return ok({items:[],runs:[],personal_assets:[],assets:[]});});
   await page.goto('http://studio.test/?project_id=p1');
+  await page.getByRole('button',{name:/Continuar sessão em aberto/}).click({timeout:2500}).catch(()=>{});
   await page.locator('.se-composer').waitFor();await page.waitForTimeout(1200);
 
   // 1. Nenhuma referência do projeto é escolhida sozinha

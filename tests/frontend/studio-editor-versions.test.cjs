@@ -11,13 +11,14 @@ const versions=['Peça original','Desdobramento · Vertical 4:5','Cemig – 2ª 
   const browser=await chromium.launch({headless:true});
   const page=await browser.newPage({viewport:{width:1500,height:950},acceptDownloads:true}),errors=[];
   page.on('pageerror',e=>errors.push(e.message));
-  await page.addInitScript(([k,v])=>localStorage.setItem(k,v),['cadu-studio-editor-v1:default',JSON.stringify({asset:versions[0],versions,selectedId:'v0',prompt:'',format:'1:1',outputSize:{width:1080,height:1080,format:'1:1'},quality:'draft',zoom:100})]);
+  await page.addInitScript(([k,v])=>localStorage.setItem(k,v),['cadu-studio-editor-v1:default:none',JSON.stringify({asset:versions[0],versions,selectedId:'v0',prompt:'',format:'1:1',outputSize:{width:1080,height:1080,format:'1:1'},quality:'draft',zoom:100})]);
   await page.route('https://**',route=>route.fulfill({status:200,contentType:'text/css',body:''}));
   await page.route('http://studio.test/**',async route=>{const req=route.request(),url=new URL(req.url()),p=url.pathname;
     if(p==='/')return route.fulfill({contentType:'text/html',body:HTML});
     if(p.startsWith('/static/'))return fs.existsSync('aicentralv2'+p)?route.fulfill({path:path.resolve('aicentralv2'+p),...(p.endsWith('.png')?{contentType:'image/png'}:{})}):route.fulfill({status:404,body:''});
     return route.fulfill({json:{success:true,data:{items:[],runs:[],personal_assets:[],assets:[]}}});});
   await page.goto('http://studio.test/');
+  await page.getByRole('button',{name:/Continuar sessão em aberto/}).click({timeout:2500}).catch(()=>{});
   await page.locator('.se-vrow').first().waitFor();await page.waitForTimeout(900);
 
   const facts=await page.locator('.se-vrow__facts').allInnerTexts();

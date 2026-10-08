@@ -17,7 +17,7 @@ const good={id:'v2',name:'Peça',url:STILL,dataUrl:STILL,status:'draft'};
     for(const [label,asset] of cases){
       const page=await browser.newPage({viewport:{width,height:1000}}),errors=[];
       page.on('pageerror',e=>errors.push(e.message));
-      if(asset)await page.addInitScript(([k,v])=>localStorage.setItem(k,v),['cadu-studio-editor-v1:default',JSON.stringify({asset,versions:[asset],selectedId:asset.id,prompt:'',format:'4:5',outputSize:{width:1080,height:1350,format:'4:5'},quality:'draft',zoom:100})]);
+      if(asset)await page.addInitScript(([k,v])=>localStorage.setItem(k,v),['cadu-studio-editor-v1:default:none',JSON.stringify({asset,versions:[asset],selectedId:asset.id,prompt:'',format:'4:5',outputSize:{width:1080,height:1350,format:'4:5'},quality:'draft',zoom:100})]);
       await page.route('https://**',route=>route.fulfill({status:200,contentType:'text/css',body:''}));
       await page.route('http://studio.test/**',async route=>{const url=new URL(route.request().url()),p=url.pathname;
         if(p==='/')return route.fulfill({contentType:'text/html',body:HTML});
@@ -25,6 +25,7 @@ const good={id:'v2',name:'Peça',url:STILL,dataUrl:STILL,status:'draft'};
         if(p.startsWith('/static/'))return fs.existsSync('aicentralv2'+p)?route.fulfill({path:path.resolve('aicentralv2'+p)}):route.fulfill({status:404,body:''});
         const lib=Array.from({length:10},(_,i)=>({id:'a'+i,asset_url:STILL,url:STILL,title:'Imagem do projeto '+(i+1),name:'Imagem do projeto '+(i+1)}));return route.fulfill({json:{success:true,data:{items:[],runs:[],personal_assets:lib,assets:lib,library:lib}}});});
       await page.goto('http://studio.test/');
+      await page.getByRole('button',{name:/Continuar sessão em aberto/}).click({timeout:2500}).catch(()=>{});
       await page.locator('.se-toolbar').waitFor();await page.waitForTimeout(900);
       const m=await page.evaluate(()=>{const r=e=>{const b=document.querySelector(e).getBoundingClientRect();return {top:Math.round(b.top),height:Math.round(b.height),width:Math.round(b.width)}};return {nav:r('.csu-navbar'),toolbar:r('.se-toolbar'),stage:r('.se-stage'),main:r('.se-main'),layout:r('.se-layout')}});
       const where=`${label}, ${width}px`;

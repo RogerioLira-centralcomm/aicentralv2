@@ -14,7 +14,7 @@ const asset={id:'v1',name:'Peça horizontal',url:WIDE,dataUrl:WIDE,status:'draft
   const browser=await chromium.launch({headless:true});
   const page=await browser.newPage({viewport:{width:1500,height:950}}),tasks=[],errors=[];
   page.on('pageerror',e=>errors.push(e.message));
-  await page.addInitScript(([k,v])=>localStorage.setItem(k,v),['cadu-studio-editor-v1:default',JSON.stringify({asset,versions:[asset],selectedId:'v1',prompt:'Troque o CTA para Saiba mais',format:'16:9',outputSize:{width:1920,height:1080,format:'16:9'},quality:'draft',zoom:100,selectedGlobalReferences:['brand-reference-0']})]);
+  await page.addInitScript(([k,v])=>localStorage.setItem(k,v),['cadu-studio-editor-v1:default:none',JSON.stringify({asset,versions:[asset],selectedId:'v1',prompt:'Troque o CTA para Saiba mais',format:'16:9',outputSize:{width:1920,height:1080,format:'16:9'},quality:'draft',zoom:100,selectedGlobalReferences:['brand-reference-0']})]);
   await page.route('https://**',route=>route.fulfill({status:200,contentType:'text/css',body:''}));
   let taskId=0;
   await page.route('http://studio.test/**',async route=>{const req=route.request(),url=new URL(req.url()),p=url.pathname;
@@ -28,6 +28,7 @@ const asset={id:'v1',name:'Peça horizontal',url:WIDE,dataUrl:WIDE,status:'draft
     if(/\/sessions(\/[^/]+)?$/.test(p)&&req.method()!=='GET')return ok({id:'s1',revision:1,title:'Mesa',status:'active',assets:[]});
     return ok({items:[],runs:[],personal_assets:[],assets:[]});});
   await page.goto('http://studio.test/');
+  await page.getByRole('button',{name:/Continuar sessão em aberto/}).click({timeout:2500}).catch(()=>{});
   await page.locator('.se-artboard img').waitFor();await page.waitForTimeout(600);
 
   // 1. Um para um: horizontal -> vertical

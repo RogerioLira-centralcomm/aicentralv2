@@ -46,6 +46,16 @@ SCOPES = {'nacional_premium', 'regional'}
 TOP_PORTAL_DOMAINS = ('g1.globo.com', 'uol.com.br', 'oglobo.globo.com', 'folha.uol.com.br', 'estadao.com.br',
                       'cnnbrasil.com.br', 'r7.com', 'metropoles.com', 'terra.com.br', 'ge.globo.com')
 TOP_FILTER = 'top10'
+TOP_UF_FILTER = 'top10_uf'
+TOP_UF_SIZE = 10
+# Top 10 of each state among regional portals ranked on their own domain (a rank inherited from youtube.com or
+# wordpress.com says nothing about the portal); lower rank = more popular.
+TOP_UF_IDS_SQL = """SELECT id FROM (
+        SELECT id, ROW_NUMBER() OVER (PARTITION BY to_jsonb(p)->>'uf' ORDER BY popularity_rank ASC, name ASC) AS position
+          FROM cadu_planner_portals p
+         WHERE active = TRUE AND to_jsonb(p)->>'scope' = 'regional' AND to_jsonb(p)->>'uf' IS NOT NULL
+           AND popularity_rank IS NOT NULL AND popularity_source = 'tranco') ranked
+    WHERE position <= %s"""
 ADS_TXT_FILTERS = {'valid': ('valid',), 'partial': ('partial',), 'missing': ('missing', 'empty', 'invalid'),
                    'unchecked': (None,)}
 PROGRAMMATIC_FILTERS = {'any': ('detected', 'ads_txt_declared'), 'detected': ('detected',),
@@ -72,6 +82,9 @@ def _filters(query, category, scope, uf, ads_txt, programmatic):
     if scope == TOP_FILTER:
         where.append('featured_rank BETWEEN 1 AND %s')
         params.append(len(TOP_PORTAL_DOMAINS))
+    elif scope == TOP_UF_FILTER:
+        where.append(f'id IN ({TOP_UF_IDS_SQL})')
+        params.append(TOP_UF_SIZE)
     elif scope:
         if scope not in SCOPES:
             raise BadRequest('Escopo inválido.')
@@ -137,11 +150,16 @@ def catalog(query='', category='', sort='featured', limit=50, offset=0,
         raise BadRequest('Paginação inválida.')
     clause, params = _filters(query, category, scope, uf, ads_txt, programmatic)
     order = SORTS.get(sort, SORTS['featured'])
+    if scope == TOP_UF_FILTER:
+        order = "to_jsonb(cadu_planner_portals)->>'uf' ASC, popularity_rank ASC, name ASC"
     total = repository.rows(f'SELECT COUNT(*) AS total FROM cadu_planner_portals WHERE {clause}', tuple(params))[0]['total']
     rows = repository.rows(f'''SELECT {PORTAL_COLUMNS} FROM cadu_planner_portals WHERE {clause}
                                 ORDER BY {order} LIMIT %s OFFSET %s''', tuple(params + [limit, offset]))
     for row in rows:
         row['public_attributes'] = row.get('public_attributes') or []
+    top_uf = {row['id'] for row in repository.rows(TOP_UF_IDS_SQL, (TOP_UF_SIZE,))}
+    for row in rows:
+        row['uf_top'] = row['id'] in top_uf
     attach_prints(rows)
     return {'records': rows, 'total': total, 'limit': limit, 'offset': offset}
 

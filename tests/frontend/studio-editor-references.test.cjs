@@ -13,7 +13,7 @@ const asset={id:'v1',name:'Peça',url:'http://studio.test'+STILL,dataUrl:'http:/
   const browser=await chromium.launch({headless:true});
   const page=await browser.newPage({viewport:{width:1500,height:950}}),calls=[],errors=[];
   page.on('pageerror',e=>errors.push(e.message));
-  await page.addInitScript(([k,v])=>localStorage.setItem(k,v),['cadu-studio-editor-v1:174',JSON.stringify({asset,versions:[asset],selectedId:'v1',prompt:'',format:'4:5',outputSize:{width:1080,height:1350,format:'4:5'},quality:'draft',zoom:100,selectedGlobalReferences:['brand-reference-0','brand-reference-1','brand-reference-2']})]);
+  await page.addInitScript(([k,v])=>localStorage.setItem(k,v),['cadu-studio-editor-v1:174:none',JSON.stringify({asset,versions:[asset],selectedId:'v1',prompt:'',format:'4:5',outputSize:{width:1080,height:1350,format:'4:5'},quality:'draft',zoom:100,selectedGlobalReferences:['brand-reference-0','brand-reference-1','brand-reference-2']})]);
   await page.route('https://**',route=>route.fulfill({status:200,contentType:'text/css',body:''}));
   await page.route('http://studio.test/**',async route=>{const req=route.request(),url=new URL(req.url()),p=url.pathname;
     if(p==='/')return route.fulfill({contentType:'text/html',body:HTML});
@@ -27,6 +27,7 @@ const asset={id:'v1',name:'Peça',url:'http://studio.test'+STILL,dataUrl:'http:/
     if(/\/sessions(\/[^/]+)?$/.test(p)&&req.method()!=='GET')return ok({id:'s1',revision:1,title:'Mesa',status:'active',assets:[]});
     return ok({items:[],runs:[],personal_assets:[],assets:[]});});
   await page.goto('http://studio.test/?project_id=p1');
+  await page.getByRole('button',{name:/Continuar sessão em aberto/}).click({timeout:2500}).catch(()=>{});
   await page.locator('.se-composer').waitFor();await page.waitForTimeout(1200);
   const chips=await page.locator('.se-reference-chip.is-global').count();
   assert.ok(chips>=1&&chips<=2,`no máximo 2 referências globais visíveis (${chips})`);
@@ -45,7 +46,7 @@ const asset={id:'v1',name:'Peça',url:'http://studio.test'+STILL,dataUrl:'http:/
   // remover um chip global tira a referência do próximo envio
   await page.locator('.se-reference-chip.is-global button').first().click();
   await page.waitForTimeout(700);
-  const stored=JSON.parse(await page.evaluate(()=>localStorage.getItem('cadu-studio-editor-v1:174'))).selectedGlobalReferences;
+  const stored=JSON.parse(await page.evaluate(()=>localStorage.getItem('cadu-studio-editor-v1:174:none'))).selectedGlobalReferences;
   assert.equal(stored.length,1,`a seleção guardada cai para o limite de 2 e remover o chip tira mais uma: ${JSON.stringify(stored)}`);
   // A escolha das referências do projeto tem um botão e aceita no máximo duas.
   await page.locator('.se-brand-content > summary').click();

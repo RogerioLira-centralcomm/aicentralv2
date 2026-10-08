@@ -90,8 +90,10 @@ def crawl_planner_portals_ads_command(limit, scope, stale_days, workers):
             click.echo(f"{result['domain']}: {result['status']}")
             continue
         ads, home = result['ads_txt'], result['home']
+        alert = portal_ads.deactivation_alert(ads['status'], home.get('programmatic_status'))
         click.echo(f"{result['domain']}: ads.txt={ads['status']} ({ads['records']}) "
-                   f"programático={home.get('programmatic_status') or home['status']}")
+                   f"programático={home.get('programmatic_status') or home['status']}"
+                   + (f'  ** ALERTA: candidato a desativar ({alert}) **' if alert else ''))
     click.echo(f'{len(domains)} portais verificados.')
 
 
@@ -120,6 +122,38 @@ def estimate_planner_portals_command(tranco_file):
         portal_estimates.save_estimates(item['id'], values)
         tiers[values['traffic_tier']] = tiers.get(values['traffic_tier'], 0) + 1
     click.echo(f'{len(items)} portais estimados: {tiers}')
+
+
+@bp.cli.command('audit-planner-portals')
+@click.option('--apply', 'apply_changes', is_flag=True, help='Desativa os candidatos listados (reversível: active = FALSE).')
+@click.option('--keep-top', default=10, show_default=True, help='Nunca desativa os N primeiros do Top 10 nacional.')
+def audit_planner_portals_command(apply_changes, keep_top):
+    """List portals that should leave the catalog: invalid DNS and no ads.txt/programmatic signal."""
+    from ..cadu_planner import portal_ads
+    items = repository.rows("""SELECT id, name, domain, featured_rank, to_jsonb(p)->>'scope' AS scope,
+                                      ads_txt_status, programmatic_status
+                                 FROM cadu_planner_portals p WHERE active = TRUE ORDER BY name""")
+    flagged = []
+    for item in items:
+        if item['featured_rank'] and item['featured_rank'] <= keep_top:
+            continue
+        reason = portal_ads.deactivation_alert(item['ads_txt_status'], item['programmatic_status'])
+        if reason:
+            flagged.append((reason, item))
+    for reason, item in flagged:
+        click.echo(f"{reason}\t{item['id']}\t{item['domain']}\t{item['scope']}\tads.txt={item['ads_txt_status']}")
+    counts = {}
+    for reason, _ in flagged:
+        counts[reason] = counts.get(reason, 0) + 1
+    click.echo(f'{len(flagged)} candidatos a desativar: {counts}')
+    if apply_changes and flagged:
+        from ..db import get_db
+        conn = get_db()
+        with conn.cursor() as cur:
+            cur.execute('UPDATE cadu_planner_portals SET active = FALSE, featured_rank = NULL WHERE id = ANY(%s)',
+                        ([item['id'] for _, item in flagged],))
+        conn.commit()
+        click.echo('Desativados.')
 
 
 @bp.cli.command('radar-due')

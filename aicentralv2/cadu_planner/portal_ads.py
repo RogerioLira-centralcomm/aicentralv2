@@ -243,6 +243,23 @@ def crawl_many(domains, workers=8, timeout=12):
         yield from pool.map(lambda d: check_portal(d, timeout), domains)
 
 
+NO_ADS_TXT = {'missing', 'empty', 'invalid'}
+
+
+def deactivation_alert(ads_txt_status, programmatic_status, dns_failed=False):
+    """Why a portal is a candidate to leave the catalog, or None.
+
+    'dns_invalido' is conclusive (the site does not exist). 'sem_ads_txt' is the strong alert: no usable ads.txt
+    and no programmatic tag, so the portal cannot be bought programmatically and only sells direct, if at all.
+    Unreadable sites (403, redirects, robots) are never an alert: not being able to read is not being absent.
+    """
+    if dns_failed or ads_txt_status == 'dns_failed':
+        return 'dns_invalido'
+    if ads_txt_status in NO_ADS_TXT and programmatic_status in {'not_detected', 'adsense_native'}:
+        return 'sem_ads_txt'
+    return None
+
+
 def _transient(status):
     """Failures that say nothing about the site's setup (network, DNS, 5xx, crash)."""
     status = str(status or '')

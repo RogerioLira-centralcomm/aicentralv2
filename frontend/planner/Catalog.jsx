@@ -118,7 +118,7 @@ function channelGroups(records, category, groupBy) {
   return [...groups].map(([title, items]) => ({title, items}));
 }
 
-const SCOPES = [['', 'Todos'], ['top10', 'Top 10'], ['nacional_premium', 'Premium nacionais'], ['regional', 'Regionais']];
+const SCOPES = [['', 'Todos'], ['top10', 'Top 10 nacional'], ['top10_uf', 'Top 10 por estado'], ['nacional_premium', 'Premium nacionais'], ['regional', 'Regionais']];
 
 function minutes(seconds) {
   const value = Number(seconds);
@@ -136,7 +136,7 @@ function PortalRow({item, urls, selected, onToggle}) {
     <span className={`portal-row__shot${item.print_url ? '' : ' is-empty'}`}>{item.print_url
       ? <img src={item.print_url} alt="" loading="lazy" onError={event => { event.currentTarget.remove(); }}/> : <Icon name="browser" size={20}/>}</span>
     <LogoTile src={item.favicon_url} fallbacks={item.domain ? [`https://${item.domain}/favicon.ico`, `https://www.google.com/s2/favicons?domain=${item.domain}&sz=64`] : []} name={item.name} icon="browser" size="md"/>
-    <span className="portal-row__main"><strong>{item.site_title || item.name}{item.featured_rank >= 1 && item.featured_rank <= 10 && <em className="portal-row__top">Top 10</em>}</strong><small>{item.domain}</small></span>
+    <span className="portal-row__main"><strong>{item.site_title || item.name}{item.featured_rank >= 1 && item.featured_rank <= 10 && <em className="portal-row__top">Top 10</em>}{item.uf_top && <em className="portal-row__top">Top 10 · {item.uf}</em>}</strong><small>{item.domain}</small></span>
     <span className="portal-row__fact"><small>Categoria</small><b>{item.category || 'Não categorizado'}</b><small>{region}</small></span>
     <span className="portal-row__fact"><small>{visits > 0 ? 'Acessos / mês' : 'Porte do portal'}</small>
       <b>{visits > 0 ? visits.toLocaleString('pt-BR', {notation: 'compact', maximumFractionDigits: 1}) : TIER_LABELS[item.traffic_tier] || 'Sem dados'}</b>

@@ -2,7 +2,9 @@
 from html.parser import HTMLParser
 import csv
 import json
+import os
 import re
+from pathlib import Path
 from urllib.parse import urlparse, urljoin
 from urllib.robotparser import RobotFileParser
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -111,6 +113,20 @@ def _filters(query, category, scope, uf, ads_txt, programmatic):
     return ' AND '.join(where), params
 
 
+THUMBS_DIR = Path(__file__).resolve().parents[1] / 'static' / 'images' / 'portais' / 'thumbs'
+
+
+def attach_thumbs(portals):
+    """Illustrated 3D cover of the portal (static/images/portais/thumbs/{id}.webp) when one was generated."""
+    try:
+        available = {name[:-5] for name in os.listdir(THUMBS_DIR) if name.endswith('.webp')}
+    except OSError:
+        available = set()
+    for row in portals:
+        row['thumb_url'] = f"/static/images/portais/thumbs/{row['id']}.webp" if str(row.get('id')) in available else ''
+    return portals
+
+
 def attach_prints(portals, all_kinds=False):
     """Approved real screenshots per portal (newest first). Missing table or no print is never an error."""
     from ..cadu_family import repository
@@ -161,6 +177,7 @@ def catalog(query='', category='', sort='featured', limit=50, offset=0,
     for row in rows:
         row['uf_top'] = row['id'] in top_uf
     attach_prints(rows)
+    attach_thumbs(rows)
     return {'records': rows, 'total': total, 'limit': limit, 'offset': offset}
 
 
@@ -207,6 +224,7 @@ def detail(portal_id):
         from werkzeug.exceptions import NotFound
         raise NotFound('Portal indisponível.')
     attach_prints(rows, all_kinds=True)
+    attach_thumbs(rows)
     return rows[0]
 
 

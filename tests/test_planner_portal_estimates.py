@@ -25,3 +25,11 @@ def test_demographics_are_labelled_as_estimates():
     result = pe.demographics('Esportes')
     assert result['genero'] == 'masculino' and result['estimado'] is True and result['confianca'] == 'baixa'
     assert pe.demographics('Jornalismo online · Nordeste')['regiao'] == 'Nordeste'
+
+
+def test_attach_thumbs_marks_only_ids_that_have_a_file(tmp_path, monkeypatch):
+    from aicentralv2.cadu_planner import portals
+    (tmp_path / '7.webp').write_bytes(b'x')
+    monkeypatch.setattr(portals, 'THUMBS_DIR', tmp_path)
+    rows = portals.attach_thumbs([{'id': 7}, {'id': 8}])
+    assert rows[0]['thumb_url'].endswith('/thumbs/7.webp') and rows[1]['thumb_url'] == ''

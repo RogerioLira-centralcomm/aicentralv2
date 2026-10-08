@@ -1900,3 +1900,7 @@ a.planner-card:focus-visible { outline: 2px solid var(--colors-brand-600, #07945
 
 /* Every portal row keeps the thumbnail column, so rows without a capture stay aligned with the others. */
 .portal-row__shot.is-empty { display: grid; place-items: center; color: var(--planner-subtle, #98a2b3); }
+
+/* Portal illustration: a small label marks it as artwork, not a capture of the site. */
+.portal-row__shot { position: relative; }
+.portal-row__tag { position: absolute; left: 6px; bottom: 6px; padding: 1px 6px; border-radius: 999px; background: rgba(16, 24, 40, .72); color: #fff; font-size: 10px; font-weight: 600; }

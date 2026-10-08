@@ -57,6 +57,7 @@ export function PortalDetail({boot, selection, plan = null}) {
   const place = String(attributeValue(attributes, 'localizacao') || '').trim();
 
   const shots = (portal.prints || []).filter(shot => shot?.url);
+  const cover = portal.thumb_url ? [portal.thumb_url] : [];
 
   const sections = [
     {id: 'prints', label: 'Como o portal aparece', hidden: !shots.length,
@@ -84,7 +85,7 @@ export function PortalDetail({boot, selection, plan = null}) {
 
   return <DetailLayout boot={boot} selection={selection} kind="portais" record={{...portal, logo_url: portal.favicon_url || (portal.domain ? `https://${portal.domain}/favicon.ico` : '')}} icon="library"
     eyebrow={portal.featured_rank ? 'Destaque' : portal.category}
-    media={shots.length ? {type: 'carousel', items: shots.map(shot => shot.url)} : null}
+    media={cover.length || shots.length ? {type: 'carousel', items: [...cover, ...shots.map(shot => shot.url)]} : null}
     metrics={[
       {icon: 'pulse', label: 'Porte estimado', value: TIER_LABELS[portal.traffic_tier] || null,
         hint: portal.popularity_rank ? `Ranking público Tranco: #${number(portal.popularity_rank)}${inherited ? ' (do site principal)' : ''}` : 'Fora do ranking público dos 1 milhão de sites mais acessados'},

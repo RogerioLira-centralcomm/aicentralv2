@@ -36,8 +36,10 @@ class LabRunner(pipeline.Runner):
 
 def channel_catalog():
     """Canais ativos do catálogo, com id curto para o prompt (C1, C2…)."""
-    rows = repository.catalog('canais')
-    return [{'ref': f'C{index + 1}', 'id': row['id'], 'slug': row.get('slug'), 'name': row['name'], 'category': row.get('category') or ''}
+    # Interativos é um tipo de formato, não um canal onde se compra espaço.
+    rows = [row for row in repository.catalog('canais') if row.get('tipo') != 'interativo']
+    return [{'ref': f'C{index + 1}', 'id': row['id'], 'slug': row.get('slug'), 'name': row['name'], 'category': row.get('category') or '',
+             'kind': row.get('tipo') or '', 'description': ' '.join(str(row.get('description') or '').split())[:160]}
             for index, row in enumerate(rows)]
 
 
@@ -45,7 +47,8 @@ def angles_v16(runner, ctx, topic, buzz, catalog):
     payload = json.dumps({
         'conceito': topic, 'marca': ctx, 'praca': runner.params['places'] or 'Brasil',
         'buzz': [{key: item[key] for key in ('id', 'assunto', 'por_que', 'data', 'veiculo', 'local')} for item in buzz],
-        'catalogo': [{'id': item['ref'], 'canal': item['name'], 'categoria': item['category']} for item in catalog]}, ensure_ascii=False)
+        'catalogo': [{'id': item['ref'], 'canal': item['name'], 'categoria': item['category'], 'tipo': item['kind'],
+                      'o_que_e': item['description']} for item in catalog]}, ensure_ascii=False)
     text, tokens = runner._ai('angles', runner.models['angles'], prompts.messages('angles', '1.6', today=runner.today.isoformat(),
                                                                                  payload=payload), max_tokens=8000)
     return validate(json_loads(text).get('angulos') or [], buzz, catalog), tokens

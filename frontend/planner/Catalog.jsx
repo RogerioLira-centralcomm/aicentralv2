@@ -130,10 +130,11 @@ function minutes(seconds) {
 function PortalRow({item, urls, selected, onToggle}) {
   const visits = Number(item.monthly_visits);
   const region = item.scope === 'nacional_premium' ? 'Premium nacional' : item.uf ? `Regional · ${item.uf}` : '';
-  return <div className={`portal-row${selected ? ' is-selected' : ''}${item.print_url ? ' has-shot' : ''}`}>
+  return <div className={`portal-row${selected ? ' is-selected' : ''} has-shot`}>
     <a className="planner-card__hit" href={catalogDetailUrl(urls, 'portais', item)} aria-label={`Ver portal ${item.site_title || item.name}`}/>
-    {item.print_url && <span className="portal-row__shot"><img src={item.print_url} alt="" loading="lazy" onError={event => { event.currentTarget.parentElement.hidden = true; }}/></span>}
-    <LogoTile src={item.favicon_url || (item.domain ? `https://${item.domain}/favicon.ico` : '')} name={item.name} icon="browser" size="md"/>
+    <span className={`portal-row__shot${item.print_url ? '' : ' is-empty'}`}>{item.print_url
+      ? <img src={item.print_url} alt="" loading="lazy" onError={event => { event.currentTarget.remove(); }}/> : <Icon name="browser" size={20}/>}</span>
+    <LogoTile src={item.favicon_url} fallbacks={item.domain ? [`https://${item.domain}/favicon.ico`, `https://www.google.com/s2/favicons?domain=${item.domain}&sz=64`] : []} name={item.name} icon="browser" size="md"/>
     <span className="portal-row__main"><strong>{item.site_title || item.name}{item.featured_rank >= 1 && item.featured_rank <= 10 && <em className="portal-row__top">Top 10</em>}</strong><small>{item.domain}</small></span>
     <span className="portal-row__fact"><small>Categoria</small><b>{item.category || 'Não categorizado'}</b><small>{region}</small></span>
     <span className="portal-row__fact"><small>Acessos / mês</small><b>{visits > 0 ? visits.toLocaleString('pt-BR', {notation: 'compact', maximumFractionDigits: 1}) : 'Sem fonte'}</b><small>{item.avg_time_seconds > 0 ? `Tempo médio ${minutes(item.avg_time_seconds)}` : 'Tempo médio: sem fonte'}</small></span>

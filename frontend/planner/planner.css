@@ -1892,3 +1892,6 @@ a.planner-card:focus-visible { outline: 2px solid var(--colors-brand-600, #07945
 .pd-chips li { padding: 6px 12px; border-radius: 999px; background: var(--planner-soft, #f9fafb); font-size: 13px; font-weight: 500; }
 
 .portal-row__top { margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: var(--colors-brand-50, #ecfdf3); color: var(--colors-brand-800, #085d3a); font-size: 11px; font-style: normal; font-weight: 700; vertical-align: middle; }
+
+/* Every portal row keeps the thumbnail column, so rows without a capture stay aligned with the others. */
+.portal-row__shot.is-empty { display: grid; place-items: center; color: var(--planner-subtle, #98a2b3); }

@@ -148,3 +148,24 @@
   .pn__nav { flex: none; }
   .pn__actions { flex: 1 1 0; justify-content: flex-end; min-width: 0; }
 }
+
+/* ---- Mobile: the open menu is a full-height sheet (down to the bottom edge) with one link under another. ---- */
+@media (max-width: 1180px) {
+  .pn.is-mobile-open { position: fixed; inset: 0; z-index: 120; display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain; }
+  .pn.is-mobile-open .pn__bar { flex: 1 0 auto; align-content: flex-start; gap: 0; padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+  .pn.is-mobile-open .pn__brand { flex: 1 1 0; min-height: 56px; display: flex; align-items: center; }
+  .pn.is-mobile-open .pn__nav { gap: 0; margin: 4px 0 8px; border-top: 1px solid var(--planner-line, #e4e7ec); }
+  .pn.is-mobile-open .pn__link { min-height: 52px; padding: 0 4px; border-bottom: 1px solid var(--planner-line, #e4e7ec); font-size: 16px; }
+  .pn.is-mobile-open .pn__link svg { width: 20px; height: 20px; }
+  .pn.is-mobile-open .pn__link.is-active { background: var(--colors-brand-50, #ecfdf3); }
+  .pn.is-mobile-open .pn__actions { justify-content: space-between; align-items: center; gap: 16px; margin-top: auto; padding-top: 8px; }
+  .pn.is-mobile-open .pn-tokens { flex: 1; width: auto; max-width: 220px; font-size: 13px; }
+  .pn.is-mobile-open .pn-user span { display: inline; }
+  body:has(.pn.is-mobile-open) { overflow: hidden; }
+}
+/* Mobile cards: shorter covers so the shelf shows more than one card per screen. */
+@media (max-width: 560px) {
+  .channel-card__photo { aspect-ratio: 2 / 1; }
+  .planner-card.is-visual .planner-card__art { height: 104px; }
+  .planner-main, .planner-main.is-shelf, .planner-main:not(.is-shelf) { padding-bottom: 96px; }
+}

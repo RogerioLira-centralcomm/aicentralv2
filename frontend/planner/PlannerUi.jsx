@@ -8,11 +8,16 @@ import {Icon} from '../cadu-design-system/components/Icon.jsx';
  * tile: white, hairline border, proportional radius and inner margin, image
  * contained — so wordmarks and app icons read as one family.
  */
-export function LogoTile({src, name = '', icon = 'plan', size = 'sm', color}) {
-  const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [src]);
+export function LogoTile({src, fallbacks = [], name = '', icon = 'plan', size = 'sm', color}) {
+  // `src` is tried first, then each fallback in order; the icon shows only when every image failed.
+  const sources = [src, ...fallbacks].filter(Boolean);
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => setAttempt(0), [src]);
+  const current = sources[attempt];
+  const failed = !current;
+  const setFailed = () => setAttempt(value => value + 1);
   return <span className={`logo-tile logo-tile--${size}`} style={color ? {'--logo-tile-color': color} : undefined} role={name ? 'img' : undefined} aria-label={name || undefined}>
-    {src && !failed ? <img src={src} alt="" loading="lazy" onError={() => setFailed(true)}/> : <Icon name={icon} size={size === 'lg' ? 24 : size === 'xs' ? 12 : 18}/>}
+    {!failed ? <img key={current} src={current} alt="" loading="lazy" onError={() => setFailed(true)}/> : <Icon name={icon} size={size === 'lg' ? 24 : size === 'xs' ? 12 : 18}/>}
   </span>;
 }
 

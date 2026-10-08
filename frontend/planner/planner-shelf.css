@@ -105,3 +105,33 @@
 .shelf-head .planner-multi summary span { color: var(--planner-muted, #667085); font-weight: 500; }
 .shelf-head .planner-multi summary b { color: var(--planner-ink, #101828); font-weight: 600; }
 .shelf-head .planner-multi__menu { top: 100%; left: 0; }
+
+/* ---- Mobile shelves: title and Grade/Lista share a line, the search takes the full width, the dropdowns sit two by two. ---- */
+@media (max-width: 760px) {
+  .shelf-head { gap: 10px 12px; margin: 12px 0 14px; }
+  .shelf-head__title { flex: 1 1 0; min-width: 0; flex-wrap: wrap; gap: 0 8px; }
+  .shelf-head__title h1 { font-size: 20px; line-height: 26px; }
+  .shelf-head__title p { overflow: visible; font-size: 13px; line-height: 20px; white-space: normal; }
+  .shelf-head__tools { order: 1; flex: none; margin-left: auto; }
+  .shelf-head__tools:not(:has(.aud-view)) { flex: 1 1 100%; order: 3; }
+  .shelf-head__tools:not(:has(.aud-view)) > button { width: 100%; }
+  .shelf-head__bar { order: 2; flex: 1 1 100%; }
+  .shelf-head .aud-bar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .shelf-head .aud-bar__field, .shelf-head .aud-bar__field:has(.planner-select) { min-width: 0; height: 36px; }
+  .shelf-head .aud-bar__field--search { grid-column: 1 / -1; flex: none; min-width: 0; }
+  .shelf-head .aud-bar__text input { font-size: 16px; }
+  .shelf-head .planner-select__trigger, .shelf-head .planner-multi summary { height: 34px; padding: 0 10px; font-size: 13px; }
+  .shelf-head .planner-select__text { flex: 1; min-width: 0; }
+  .shelf-head .planner-select__text small, .shelf-head .planner-select__value b { font-size: 13px; }
+  .shelf-head .planner-select__text small { flex: none; }
+  .shelf-head .planner-select__value { min-width: 0; }
+  .shelf-head .planner-select__value b { overflow: hidden; max-width: 100%; text-overflow: ellipsis; white-space: nowrap; }
+  .shelf-head .planner-multi summary { overflow: hidden; white-space: nowrap; }
+  .shelf-head .planner-multi summary b { overflow: hidden; text-overflow: ellipsis; }
+  /* Lists stay inside the screen; the right-hand column opens towards the left. */
+  .shelf-head .planner-select__list, .shelf-head .planner-multi__menu { min-width: min(240px, calc(100vw - 32px)); max-width: calc(100vw - 32px); max-height: 56vh; }
+  .shelf-head .aud-bar__field:nth-child(odd):not(:first-child) .planner-select__list, .shelf-head .aud-bar__field:nth-child(odd):not(:first-child) .planner-multi__menu { right: 0; left: auto; }
+  .shelf-head__tools .aud-view button { height: 30px; padding: 0 10px; font-size: 13px; }
+  .shelf-head__tools .aud-view button svg { width: 14px; height: 14px; }
+  .aud-filters__summary--bar { margin: -4px 0 12px; }
+}

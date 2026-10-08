@@ -29,9 +29,9 @@ function AngleCard({item, rank, onPlan, busy, compact = false}) {
   return <article className="rd-angle">
     <div className="rd-angle__head">
       <span className={`rd-priority${high ? ' is-high' : ''}`}><Icon name="pulse" size={12}/>{high ? 'Alta oportunidade' : 'Média oportunidade'}</span>
-      {detail.window && <small>Janela: {detail.window}</small>}
     </div>
     <h3>{item.title}</h3>
+    {detail.window && <small className="rd-angle__window"><b>Janela:</b> {detail.window}</small>}
     <p>{item.thesis}</p>
     {!compact && detail.why_now && <p className="rd-angle__why"><b>Por que agora:</b> {detail.why_now}</p>}
     {tags.length > 0 && <ul className="rd-tags" aria-label="Formatos e canais">{tags.map(tag => <li key={tag}>{tag}</li>)}</ul>}
@@ -44,9 +44,17 @@ function AngleCard({item, rank, onPlan, busy, compact = false}) {
   </article>;
 }
 
-function Kpi({icon, value, label, hint}) {
-  return <div className="rd-kpi"><span className="rd-kpi__icon" aria-hidden="true"><Icon name={icon} size={20}/></span>
-    <div><strong>{value}</strong><span>{label}</span></div><p>{hint}</p></div>;
+// "há 30 min", "há 3 h", "ontem, 14:05"; mais antigo vira data.
+export function friendly(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  const minutes = Math.round((Date.now() - date.getTime()) / 60000);
+  if (minutes < 1) return 'agora há pouco';
+  if (minutes < 60) return `há ${minutes} min`;
+  if (minutes < 24 * 60 && date.toDateString() === new Date().toDateString()) return `há ${Math.round(minutes / 60)} h`;
+  const yesterday = new Date(Date.now() - 86400000).toDateString() === date.toDateString();
+  const time = date.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
+  return yesterday ? `ontem, ${time}` : `${day(value)}, ${time}`;
 }
 
 function Signals({signals, planOf, plansUrl, onSignalPlan, planning}) {
@@ -112,13 +120,19 @@ function Applications({angles, catalogUrl}) {
 
 const PLAN_STATUS = {draft: 'Rascunho', ready: 'Pronto', archived: 'Arquivado'};
 
-function Side({run, brand, signals, onTab, plansUrl}) {
+function Side({run, brand, signals, angles, sources, onTab, plansUrl}) {
   const related = run.related_plans || [];
   const rows = [['Marca', brand], ['Praça', run.params?.places || 'Brasil'], ['Janela', run.params?.recency_days ? `Últimos ${run.params.recency_days} dias` : ''],
-    ['Rodada', run.trigger === 'agendado' ? 'Radar ativo' : 'Busca manual'], ['Feita em', day(run.created_at)],
+    ['Rodada', run.trigger === 'agendado' ? 'Radar ativo' : 'Busca manual'], ['Feita', friendly(run.created_at)],
     ['Tamanho da busca', `${tokens(run.tokens)} tokens`]].filter(([, value]) => value);
   return <aside className="rd-side">
     <section className="rd-card"><h2>Sobre este radar</h2>
+      <ul className="rd-counts" aria-label="Números desta busca">
+        <li><b>{signals.length}</b>{signals.length === 1 ? 'sinal' : 'sinais'}</li>
+        <li><b>{sources}</b>{sources === 1 ? 'fonte verificada' : 'fontes verificadas'}</li>
+        <li><b>{angles.length}</b>{angles.length === 1 ? 'ângulo' : 'ângulos'}</li>
+        <li><b>{angles.filter(angle => angle.status === 'em_plano').length}</b>em plano</li>
+      </ul>
       <dl>{rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></section>
     <section className="rd-card"><h2>Planos relacionados<span>{related.length}</span></h2>
       {related.length === 0 ? <p className="rd-muted">Nenhum plano nasceu deste radar ainda. Use &quot;Criar planejamento&quot; em um ângulo ou em uma notícia.</p>
@@ -156,12 +170,6 @@ export function RadarDetail({boot, run, names, onPlan, onSignalPlan, planning}) 
             {label}{tabCount[id] != null && <span>{tabCount[id]}</span>}</button>)}
         </div>
         {tab === 'geral' && <>
-          <div className="rd-kpis">
-            <Kpi icon="pulse" value={signals.length} label={signals.length === 1 ? 'Sinal identificado' : 'Sinais identificados'} hint="Notícias recentes sobre o tema, com data e link que abre."/>
-            <Kpi icon="check" value={sources} label={sources === 1 ? 'Fonte verificada' : 'Fontes verificadas'} hint="Veículos cujo link foi aberto e conferido."/>
-            <Kpi icon="analysis" value={angles.length} label={angles.length === 1 ? 'Ângulo estratégico' : 'Ângulos estratégicos'} hint="Oportunidades para a marca falar do tema."/>
-            <Kpi icon="plus" value={angles.filter(angle => angle.status === 'em_plano').length} label="Ângulos em plano" hint="Ângulos que já viraram planejamento."/>
-          </div>
           {angles.length === 0 ? <p className="rd-empty">Nada em buzz com fonte recente e link que abre. Tente um tema mais conhecido ou uma janela maior.</p>
             : <section aria-labelledby="rd-top"><h2 id="rd-top" className="rd-h2">Ângulos estratégicos<button type="button" onClick={() => setTab('angulos')}>Ver todos</button></h2>
               <div className="rd-grid">{angles.slice(0, 4).map((item, index) => <AngleCard key={item.id} item={item} rank={index} compact busy={planning === item.id} onPlan={onPlan}/>)}</div></section>}
@@ -173,7 +181,7 @@ export function RadarDetail({boot, run, names, onPlan, onSignalPlan, planning}) 
         {tab === 'aplicacoes' && <Applications angles={angles} catalogUrl={urls}/>}
         {tab === 'metodologia' && <RunChain run={run}/>}
       </div>
-      <Side run={run} brand={brand} signals={signals} onTab={setTab} plansUrl={boot.urls.plans}/>
+      <Side run={run} brand={brand} signals={signals} angles={angles} sources={sources} onTab={setTab} plansUrl={boot.urls.plans}/>
     </div>}
   </>;
 }

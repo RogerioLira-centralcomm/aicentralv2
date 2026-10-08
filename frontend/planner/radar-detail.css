@@ -72,3 +72,11 @@
 .rd-plans li { display: grid; gap: 2px; }
 .rd-plans a { color: var(--rd-ink); font-size: 14px; font-weight: 500; line-height: 20px; }
 .rd-plans small { color: #98a2b3; font-size: 12px; }
+
+.rd-priority { flex: none; white-space: nowrap; }
+.rd-angle__window { color: var(--rd-muted); font-size: 12px; line-height: 17px; }
+.rd-angle__window b { color: #475467; font-weight: 600; }
+.rd-counts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; margin: 0 0 16px; padding: 0 0 16px; border-bottom: 1px solid var(--rd-line); list-style: none; }
+.rd-counts li { display: grid; color: var(--rd-muted); font-size: 12px; line-height: 16px; }
+.rd-counts b { color: var(--rd-ink); font-size: 22px; font-weight: 650; line-height: 28px; font-variant-numeric: tabular-nums; }
+.rd-side { margin-top: 0; }

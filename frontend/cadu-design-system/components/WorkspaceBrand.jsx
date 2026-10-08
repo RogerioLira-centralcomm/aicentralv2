@@ -494,19 +494,28 @@ function BrandActions({lifecycle, status, verified, canEdit, urls, csrf, hasHist
   const insufficient = lifecycle === 'insufficient_information';
   const pending = status === 'pending_approval' && canEdit;
   const primary = pending ? 'approve' : verified ? 'conversation' : '';
+  const menu = useRef(null);
+  useEffect(() => {
+    const close = event => { if (menu.current?.open && !menu.current.contains(event.target)) menu.current.open = false; };
+    const escape = event => { if (event.key === 'Escape' && menu.current?.open) menu.current.open = false; };
+    document.addEventListener('pointerdown', close);
+    document.addEventListener('keydown', escape);
+    return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', escape); };
+  }, []);
+  const pick = dialog => () => { if (menu.current) menu.current.open = false; onDialog(dialog); };
   return <div className="cadu-ds-brand-actions" role="group" aria-label="Ações da marca">
     {pending && <form method="post" action={urls.approve}><Hidden name="_csrf" value={csrf}/><CaduButton type="submit">Aprovar análise</CaduButton></form>}
     {verified && <CaduButton variant={primary === 'conversation' ? 'primary' : 'secondary'} type="button" onClick={onConversation}>Conversar sobre a marca</CaduButton>}
     {verified && urls.createImage && <CaduButton variant="secondary" href={urls.createImage}>Criar imagem</CaduButton>}
     {verified && urls.createVideo && <CaduButton variant="secondary" href={urls.createVideo}>Criar vídeo</CaduButton>}
     {canEdit && !insufficient && <CaduButton variant="tertiary" type="button" onClick={() => onDialog('identity')}>Editar dados</CaduButton>}
-    <details className="cadu-ds-brand-actions__more">
+    <details className="cadu-ds-brand-actions__more" ref={menu}>
       <summary aria-label="Mais ações da marca">Mais</summary>
       <div role="menu">
-        <button type="button" role="menuitem" onClick={() => onDialog('link')}>Criar ou vincular projeto</button>
-        {canEdit && !insufficient && <button type="button" role="menuitem" onClick={() => onDialog('audit')}>{status ? 'Atualizar análise' : 'Preparar análise'}</button>}
+        <button type="button" role="menuitem" onClick={pick('link')}>Criar ou vincular projeto</button>
+        {canEdit && !insufficient && <button type="button" role="menuitem" onClick={pick('audit')}>{status ? 'Atualizar análise' : 'Preparar análise'}</button>}
         {canEdit && hasHistory && urls.reevaluate && <form method="post" action={urls.reevaluate}><Hidden name="_csrf" value={csrf}/><button type="submit" role="menuitem">Reavaliar dados salvos</button></form>}
-        {canEdit && <button type="button" role="menuitem" className="is-danger" onClick={() => onDialog('delete')}>Apagar marca</button>}
+        {canEdit && <button type="button" role="menuitem" className="is-danger" onClick={pick('delete')}>Apagar marca</button>}
       </div>
     </details>
   </div>;

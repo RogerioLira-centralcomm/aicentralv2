@@ -86,17 +86,19 @@ export function CaduPanel({boot, request, plan, setPlan, notify, active}) {
     setPlan(data.plan);
     notify({message: decision === 'rejected' ? 'Proposta recusada.' : 'Proposta aplicada ao plano.'});
   });
-  const reviewBriefing = () => run('review', async () => {
-    // Three review passes spend credits: say so before starting.
+  const reviewBriefing = async () => {
+    // Three review passes spend credits: say so before starting, and only then show the working state.
     const estimate = await request(`/plans/${planId}/briefing-review/estimate`).catch(() => ({}));
     const tokens = Number(estimate.estimated_tokens || 0);
     if (!await confirm({title: 'Revisar o briefing com o Cadu?', confirmLabel: 'Revisar briefing',
       description: `O Cadu revisa o briefing em ${estimate.passes || 3} passagens${tokens ? ` (cerca de ${tokens.toLocaleString('pt-BR')} tokens)` : ''}, usando créditos.`})) return;
-    const data = await request(`/plans/${planId}/briefing-review`, {method: 'POST', body: JSON.stringify({})});
-    if (data.plan) setPlan(data.plan);
-    setReview(data.review || null);
-    notify({message: 'Briefing revisado pelo Cadu. Confira os campos atualizados.'});
-  });
+    await run('review', async () => {
+      const data = await request(`/plans/${planId}/briefing-review`, {method: 'POST', body: JSON.stringify({})});
+      if (data.plan) setPlan(data.plan);
+      setReview(data.review || null);
+      notify({message: 'Briefing revisado pelo Cadu. Confira os campos atualizados.'});
+    });
+  };
   const propose = () => run('propose', async () => {
     await request(`/plans/${planId}/sections/${active}/propose`, {method: 'POST', body: JSON.stringify({})});
   });

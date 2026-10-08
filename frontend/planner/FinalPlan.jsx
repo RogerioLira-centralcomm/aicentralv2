@@ -97,7 +97,8 @@ export function FinalPlanPanel({boot, request, plan, notify}) {
     setBusy(key);
     try { return await action(); } catch (error) { notify({tone: 'error', message: error.message}); return false; } finally { setBusy(''); }
   };
-  const generate = () => run('generate', async () => {
+  // Confirm first, then mark busy: the "writing" state must not show while the person is still deciding.
+  const generate = async () => {
     const estimate = await request(`/plans/${planId}/final-plan/estimate`).catch(() => ({}));
     const tokens = Number(estimate.estimated_tokens || 0);
     if (!await confirm({title: 'Gerar o plano final?', confirmLabel: 'Gerar plano final',
@@ -106,10 +107,12 @@ export function FinalPlanPanel({boot, request, plan, notify}) {
     const edited = state?.edited_sections || [];
     if (edited.length) overwrite = await confirm({title: 'Substituir as seções que você editou?', confirmLabel: 'Substituir pelo texto novo', cancelLabel: 'Manter minhas edições',
       description: `Você editou ${edited.length} ${edited.length === 1 ? 'seção' : 'seções'}. Mantendo, o Cadu atualiza só o restante.`});
-    const data = await request(`/plans/${planId}/final-plan`, {method: 'POST', body: JSON.stringify({overwrite_edited: overwrite})});
-    setState(data.final_plan);
-    notify({message: `Plano final gerado (versão ${data.final_plan?.version}).`});
-  });
+    await run('generate', async () => {
+      const data = await request(`/plans/${planId}/final-plan`, {method: 'POST', body: JSON.stringify({overwrite_edited: overwrite})});
+      setState(data.final_plan);
+      notify({message: `Plano final gerado (versão ${data.final_plan?.version}).`});
+    });
+  };
   const saveSection = (section, body) => run(section, async () => {
     const data = await request(`/plans/${planId}/final-plan/sections/${section}`, {method: 'PUT', body: JSON.stringify({body, expected_version: state?.version})});
     setState(data.final_plan);
@@ -122,13 +125,15 @@ export function FinalPlanPanel({boot, request, plan, notify}) {
     setState(data.final_plan);
     notify({message: !enabled ? 'Link público desativado.' : rotate ? 'Novo link criado. O anterior não funciona mais.' : 'Link público ativado.'});
   });
-  const addToProject = () => run('project', async () => {
+  const addToProject = async () => {
     if (!await confirm({title: 'Adicionar ao projeto?', confirmLabel: 'Adicionar ao projeto',
       description: 'A versão atual do plano final entra no conhecimento do projeto. A indexação usa créditos proporcionais ao texto.'})) return;
-    const data = await request(`/plans/${planId}/final-plan/project`, {method: 'POST', body: JSON.stringify({})});
-    setState(data.final_plan);
-    notify({message: 'Plano final adicionado ao projeto.'});
-  });
+    await run('project', async () => {
+      const data = await request(`/plans/${planId}/final-plan/project`, {method: 'POST', body: JSON.stringify({})});
+      setState(data.final_plan);
+      notify({message: 'Plano final adicionado ao projeto.'});
+    });
+  };
 
   if (state && state.available === false) return null;
   const exists = Boolean(state?.exists);

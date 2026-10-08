@@ -42,13 +42,16 @@ function DocumentView({boot, request, notify, document: initial, startEditing, o
     setEditing(false);
     notify({message: 'Documento salvo.'});
   });
-  const review = () => run('review', async () => {
-    const estimate = await request(`/docs/${doc.id}/review/estimate`);
+  const review = async () => {
+    let estimate;
+    try { estimate = await request(`/docs/${doc.id}/review/estimate`); } catch (error) { notify({tone: 'error', message: error.message}); return; }
     if (!await confirm({title: 'Revisar com o Cadu?', confirmLabel: 'Revisar',
       description: `Revisão em ${estimate.passes} etapas. Estimativa: ${Number(estimate.estimated_tokens).toLocaleString('pt-BR')} créditos.`})) return;
-    const data = await request(`/docs/${doc.id}/review`, {method: 'POST', body: JSON.stringify({})});
-    if (data.document) { apply(data.document); setEditing(false); }
-  });
+    await run('review', async () => {
+      const data = await request(`/docs/${doc.id}/review`, {method: 'POST', body: JSON.stringify({})});
+      if (data.document) { apply(data.document); setEditing(false); }
+    });
+  };
   const duplicate = () => run('duplicate', async () => {
     const data = await request(`/docs/${doc.id}/duplicate`, {method: 'POST', body: JSON.stringify({})});
     onChange(data.document, true);

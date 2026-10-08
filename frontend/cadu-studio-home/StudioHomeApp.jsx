@@ -42,9 +42,11 @@ export default function StudioHomeApp({bootstrap = {}}) {
       const list = data?.items || [];
       setProjects(list);
       const wanted = String(bootstrap.projectId || recall() || '').replace(/^ci:/, '');
-      const match = list.find(item => [item.id, item.external_project_id].some(id => String(id || '').replace(/^ci:/, '') === wanted)) || list[0];
-      setProjectId(match ? String(match.id) : '');
-      setProjectState({loading: false, error: ''});
+      const match = list.find(item => [item.id, item.external_project_id].some(id => String(id || '').replace(/^ci:/, '') === wanted));
+      const requested = Boolean(String(bootstrap.projectId || '').trim());
+      const chosen = match || (requested ? null : list[0]);
+      setProjectId(chosen ? String(chosen.id) : '');
+      setProjectState({loading: false, error: requested && !match ? 'O projeto escolhido ainda não está disponível no Studio. Selecione um projeto na barra.' : ''});
     }).catch(error => alive && setProjectState({loading: false, error: error.message}));
     readCredits(bootstrap.creditSummaryUrl || '/workspace/api/creditos/resumo').then(value => alive && value && setCredits(value)).catch(() => {});
     return () => {alive = false;};

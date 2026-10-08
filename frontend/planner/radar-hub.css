@@ -11,6 +11,9 @@
 .rl-tabs button span { min-width: 22px; padding: 0 6px; border-radius: 10px; background: #f2f4f7; color: #344054; font-size: 12px; line-height: 20px; text-align: center; }
 .rl-tabs button.is-active span { background: var(--colors-brand-50, #ecfdf3); color: var(--colors-brand-700, #087443); }
 
+.rl-searchbar { display: flex; gap: 12px; margin-bottom: 14px; }
+.rl-searchbar .rl-search { flex: 1; margin-bottom: 0; }
+.rl-search kbd { padding: 1px 6px; border: 1px solid var(--rl-line); border-radius: 5px; color: #98a2b3; font: inherit; font-size: 12px; }
 .rl-search { display: flex; align-items: center; gap: 8px; height: 44px; margin-bottom: 14px; padding: 0 14px; border: 1px solid var(--rl-line); border-radius: 10px; background: #fff; color: var(--rl-muted); }
 .rl-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--rl-ink); font: inherit; font-size: 14px; }
 .rl-search:focus-within { border-color: var(--rl-brand); box-shadow: 0 0 0 4px rgba(23, 178, 106, .14); }
@@ -121,3 +124,27 @@
   .rw2-day li { grid-template-columns: minmax(0, 1fr); padding: 0 0 8px; }
   .rw2-item__plan { padding-left: 42px; }
 }
+
+/* Solicitações pontuais */
+.rl-chips button.is-info.is-active { background: #eff8ff; color: #175cd3; }
+.rl-chips button.is-danger { color: #b42318; }
+.rl-chips button.is-danger.is-active { background: #fef3f2; color: #b42318; }
+.rl-th { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+.rl-th svg { transform: rotate(90deg); color: #98a2b3; }
+.rl-act { display: inline-flex; align-items: center; gap: 8px; }
+.rl-muted { color: var(--rl-muted); font-size: 13px; }
+.rl-end { width: auto; white-space: nowrap; }
+.rl-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 8px; border-top: 1px solid var(--rl-line); color: var(--rl-muted); font-size: 14px; }
+.rl-pager nav { display: flex; gap: 6px; }
+.rl-pager button { display: inline-grid; place-items: center; min-width: 36px; height: 36px; border: 1px solid var(--rl-line); border-radius: 8px; background: #fff; color: var(--rl-ink); font: inherit; font-size: 14px; cursor: pointer; }
+.rl-pager button.is-active { border-color: var(--rl-brand); color: var(--colors-brand-700, #087443); font-weight: 600; }
+.rl-pager button:disabled { color: #d0d5dd; cursor: default; }
+.rl-pager button[aria-label^='Página'] svg { transform: rotate(180deg); }
+@media (max-width: 720px) { .rl-searchbar { flex-direction: column; } .rl-search kbd { display: none; } }
+
+.rl-ico { display: inline-grid; flex: none; place-items: center; width: 44px; height: 44px; border-radius: 12px; }
+.rl-two small { color: #98a2b3; font-size: 13px; }
+.rl-filterbtn { display: inline-grid; place-items: center; flex: none; width: 44px; height: 44px; border: 1px solid var(--rl-line); border-radius: 10px; background: #fff; color: #475467; cursor: pointer; }
+.rl-filterbtn.is-active { border-color: var(--rl-brand); color: var(--colors-brand-700, #087443); }
+.rl-panel { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 14px; padding: 14px; border: 1px solid var(--rl-line); border-radius: 10px; background: #f9fafb; }
+.rl-panel > :first-child { min-width: 240px; }

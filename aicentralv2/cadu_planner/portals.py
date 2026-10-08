@@ -661,13 +661,14 @@ def save_crawl_result(result):
 
 
 def apply_top_profiles():
-    """Write the curated description and sections of the Top 10 (their generic catalog text says nothing commercial)."""
+    """Write the curated description and sections of the Top 10 and of the next curated portals (their catalog text is generic)."""
     from psycopg.types.json import Json
     from ..db import get_db
     conn = get_db()
     try:
         with conn.cursor() as cur:
-            for domain, (description, sections) in TOP_PROFILES.items():
+            from .portal_profiles import PROFILES
+            for domain, (description, sections) in {**PROFILES, **TOP_PROFILES}.items():
                 cur.execute('UPDATE cadu_planner_portals SET description = %s, site_sections = %s WHERE domain = %s AND active = TRUE',
                             (description, Json(sections), domain))
         conn.commit()

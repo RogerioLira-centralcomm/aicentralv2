@@ -1,23 +1,6 @@
 import React from 'react';
 import {CaduEmptyState} from '../../cadu-design-system/components/CaduEmptyState.jsx';
-import {Icon} from '../../cadu-design-system/components/Icon.jsx';
 import {DetailLayout, Facts, Gallery} from './DetailLayout.jsx';
-
-// What we read on the site, as a checklist: can this portal be bought in programmatic?
-const ADS_TXT = {valid: ['ok', 'ads.txt válido'], partial: ['warn', 'ads.txt parcial'], empty: ['warn', 'ads.txt vazio'],
-  invalid: ['no', 'ads.txt inválido'], missing: ['no', 'Sem ads.txt']};
-const PROGRAMMATIC = {detected: ['ok', 'Tags de programática no site'], ads_txt_declared: ['ok', 'Programática declarada no ads.txt'],
-  adsense_native: ['warn', 'Só AdSense ou nativo'], not_detected: ['no', 'Sem programática detectada']};
-function ProgrammaticPanel({portal}) {
-  const rows = [
-    ADS_TXT[portal.ads_txt_status] || (portal.ads_txt_status ? ['unknown', 'ads.txt não pôde ser lido'] : null),
-    Number(portal.ads_txt_records) > 0 ? ['ok', `${Number(portal.ads_txt_records).toLocaleString('pt-BR')} vendedores autorizados`] : null,
-    PROGRAMMATIC[portal.programmatic_status] || (portal.programmatic_status ? ['unknown', 'Site não pôde ser lido'] : null),
-  ].filter(Boolean);
-  if (!rows.length) return <p className="planner-muted">Verificação pendente: ainda não sabemos se este portal vende programática.</p>;
-  const icon = {ok: 'check', warn: 'pulse', no: 'close', unknown: 'search'};
-  return <ul className="pd-checks">{rows.map(([state, label]) => <li key={label} className={`is-${state}`}><Icon name={icon[state]} size={16}/>{label}</li>)}</ul>;
-}
 
 // Cadastro fields that help a media planner, in plain words. Everything else we hold is technical and stays out of the page.
 const COMMERCIAL = [
@@ -60,7 +43,6 @@ export function PortalDetail({boot, selection, plan = null}) {
 
   const formats = Array.isArray(portal.ad_formats) ? portal.ad_formats : [];
   const editorias = Array.isArray(portal.site_sections) ? portal.site_sections : [];
-  const sellers = Number(portal.ads_txt_records) || 0;
   const programmatic = ['valid', 'partial'].includes(portal.ads_txt_status) || ['detected', 'ads_txt_declared'].includes(portal.programmatic_status);
   const directOnly = ['missing', 'empty', 'invalid'].includes(portal.ads_txt_status) && ['not_detected', 'adsense_native'].includes(portal.programmatic_status);
   const topSeal = portal.featured_rank >= 1 && portal.featured_rank <= 10 ? 'Top 10 nacional' : portal.uf_top ? `Top 10 · ${portal.uf}` : '';
@@ -77,8 +59,9 @@ export function PortalDetail({boot, selection, plan = null}) {
         {displayFormats.length > 0 && <div><span>Display</span><ul className="pd-chips">{displayFormats.map(item => <li key={item.format}>{item.format} · {item.size.replace('x', '×')}</li>)}</ul></div>}
         {richFormats.length > 0 && <div><span>Vídeo, nativo e conteúdo de marca</span><ul className="pd-chips">{richFormats.map(item => <li key={item.format}>{item.format}</li>)}</ul></div>}
       </div>},
-    {id: 'programatica', label: 'Compra programática', hint: portal.ads_txt_checked_at ? `Leitura automática do site em ${date(portal.ads_txt_checked_at)}.` : 'Ainda não lemos o ads.txt deste portal.',
-      render: () => <ProgrammaticPanel portal={portal}/>},
+    {id: 'compra', label: 'Como comprar', hidden: !programmatic && !directOnly,
+      hint: 'Modalidades de compra, a partir do que o portal expõe publicamente.',
+      render: () => <ul className="pd-chips">{programmatic ? <><li>Compra programática</li><li>Negociação direta com o comercial</li></> : <li>Negociação direta com o comercial do portal</li>}</ul>},
     {id: 'demografia', label: 'Perfil do público', hidden: !demographics,
       hint: `Estimado pela categoria editorial${demographics?.regiao ? ' e pela região' : ''}; confiança ${demographics?.confianca || 'baixa'}. Não é medição do portal.`,
       render: () => <Facts items={[
@@ -99,12 +82,12 @@ export function PortalDetail({boot, selection, plan = null}) {
     {id: 'sobre', label: 'Sobre o portal', render: () => <Facts items={[
       ['Cobertura', place || null],
       ['Domínio', portal.domain && <a href={`https://${portal.domain}`} target="_blank" rel="noreferrer">{portal.domain}</a>],
-      ['Categoria', portal.category], ['Escopo', portal.scope === 'nacional_premium' ? 'Premium nacional' : portal.uf ? `Regional · ${portal.uf}` : null], ['Título do site', portal.site_title], ['Período da audiência', portal.audience_period], ['Audiência conferida em', date(portal.audience_checked_at)]]}/>},
+      ['Categoria', portal.category], ['Escopo', portal.scope === 'nacional_premium' ? 'Premium nacional' : portal.uf ? `Regional · ${portal.uf}` : null], ['Período da audiência', portal.audience_period], ['Audiência conferida em', date(portal.audience_checked_at)]]}/>},
   ];
 
   const highlights = [
-    ['Compra programática', programmatic ? `Pode ser comprado em programática${sellers > 0 ? `: o ads.txt autoriza ${number(sellers)} vendedores` : ''}.`
-      : directOnly ? 'Sem ads.txt utilizável nem tags de programática: a compra é direta, com o comercial do portal.' : ''],
+    ['Como comprar', programmatic ? 'Disponível em compra programática, além da negociação direta com o comercial do portal.'
+      : directOnly ? 'Venda direta: a compra é negociada com o comercial do portal.' : ''],
     ['Formatos de anúncio', formats.length ? `Vimos ${formats.length} ${formats.length === 1 ? 'formato' : 'formatos'} na home: ${formats.slice(0, 4).map(item => item.format).join(', ')}${formats.length > 4 ? ' e outros' : ''}.` : ''],
     ['Quem lê (estimado)', audienceText ? `${audienceText.charAt(0).toUpperCase()}${audienceText.slice(1)}.` : ''],
   ];
@@ -116,7 +99,7 @@ export function PortalDetail({boot, selection, plan = null}) {
     metrics={[
       {icon: 'pulse', label: 'Porte', value: TIER_LABELS[portal.traffic_tier] || null,
         hint: portal.popularity_rank ? `Estimativa pelo ranking público Tranco: #${number(portal.popularity_rank)}${inherited ? ' (do site principal)' : ''}` : 'Estimativa: fora do ranking público Tranco'},
-      {icon: 'check', label: 'Programática', value: programmatic ? 'Pronta' : directOnly ? 'Venda direta' : null, hint: sellers > 0 ? `${number(sellers)} vendedores autorizados` : null},
+      {icon: 'check', label: 'Programática', value: programmatic ? 'Pronta' : directOnly ? 'Venda direta' : null},
       {icon: 'layout', label: 'Formatos vistos', value: formats.length ? number(formats.length) : null, hint: 'Na página inicial'},
       {icon: 'file', label: 'Editorias', value: editorias.length ? number(editorias.length) : null},
       {icon: 'users', label: 'Cobertura', value: coverage || null},

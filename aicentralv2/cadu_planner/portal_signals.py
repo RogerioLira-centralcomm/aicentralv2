@@ -124,8 +124,10 @@ def save(portal_id, values):
     conn = get_db()
     try:
         with conn.cursor() as cur:
-            cur.execute('''UPDATE cadu_planner_portals SET ad_formats = %s, site_sections = %s, signals_checked_at = %s WHERE id = %s''',
-                        (Json(values['ad_formats']), Json(values['site_sections']), datetime.now(timezone.utc), portal_id))
+            # The curated sections are better than the crawled menu: only fill the sections when none were written yet.
+            cur.execute('''UPDATE cadu_planner_portals SET ad_formats = %s, signals_checked_at = %s,
+                                  site_sections = COALESCE(site_sections, %s::jsonb) WHERE id = %s''',
+                        (Json(values["ad_formats"]), datetime.now(timezone.utc), Json(values["site_sections"]), portal_id))
         conn.commit()
     except Exception:
         conn.rollback()

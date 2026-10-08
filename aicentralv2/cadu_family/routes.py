@@ -159,8 +159,9 @@ def audit_planner_portals_command(apply_changes, keep_top):
 
 @bp.cli.command('read-planner-portals-signals')
 @click.option('--top', is_flag=True, help='Só o Top 10 nacional.')
+@click.option('--curados', is_flag=True, help='Só os portais com perfil curado (Top 10 e próximos).')
 @click.option('--limit', default=20, type=click.IntRange(1, 700), help='Máximo de portais por execução (mais antigos primeiro).')
-def read_planner_portals_signals_command(top, limit):
+def read_planner_portals_signals_command(top, curados, limit):
     """Read ad formats and menu sections from the rendered home of each portal (Firecrawl)."""
     from time import sleep
     from ..cadu_planner import portal_signals, portals
@@ -168,7 +169,10 @@ def read_planner_portals_signals_command(top, limit):
     key = resolve_firecrawl_api_key()
     if not key:
         raise click.ClickException('Sem chave do Firecrawl configurada.')
-    if top:
+    if curados:
+        from ..cadu_planner.portal_profiles import PROFILES
+        items = repository.rows('SELECT id, domain FROM cadu_planner_portals WHERE active AND domain = ANY(%s) AND signals_checked_at IS NULL ORDER BY popularity_rank', (list(PROFILES),))
+    elif top:
         items = repository.rows('SELECT id, domain FROM cadu_planner_portals WHERE active AND domain = ANY(%s) ORDER BY featured_rank', (list(portals.TOP_PORTAL_DOMAINS),))
     else:
         items = repository.rows('SELECT id, domain FROM cadu_planner_portals WHERE active ORDER BY signals_checked_at NULLS FIRST, popularity_rank NULLS LAST LIMIT %s', (limit,))

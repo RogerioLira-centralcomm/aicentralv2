@@ -8,6 +8,7 @@ programmatic". One host per call; redirects stay on host / www.host.
 import ipaddress
 import re
 import socket
+import time
 import zlib
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -219,7 +220,9 @@ def _check_portal(domain, timeout):
     if not host or '/' in host or ':' in host or '@' in host:
         return {'domain': host, 'status': 'invalid_domain'}
     if not _public_host(host):
-        return {'domain': host, 'status': 'dns_failed'}
+        time.sleep(2)  # one retry: a dead domain fails twice, a network blip does not
+        if not _public_host(host):
+            return {'domain': host, 'status': 'dns_failed'}
     ads_txt, home = check_ads_txt(host, timeout), check_home(host, timeout)
     # Tags injected by JavaScript are invisible to a static fetch; a valid ads.txt
     # still proves the inventory is sold programmatically.
@@ -273,6 +276,9 @@ def save_result(result):
                          'title': home.get('title', '') if ok_home else '',
                          'favicon': home.get('favicon_url', '') if ok_home else '', 'domain': result['domain']})
             saved = cur.rowcount > 0
+            if result.get('status') == 'dns_failed':
+                # The domain does not resolve: the portal leaves the catalog (kept in the table, inactive).
+                cur.execute('UPDATE cadu_planner_portals SET active = FALSE, featured_rank = NULL WHERE domain = %s', (result['domain'],))
         conn.commit()
         return saved
     except Exception:

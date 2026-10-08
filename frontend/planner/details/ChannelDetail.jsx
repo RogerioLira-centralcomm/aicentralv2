@@ -33,11 +33,12 @@ export function ChannelDetail({boot, selection, plan = null}) {
       const options = (value && typeof value === 'object' && !Array.isArray(value)) ? (value.opcoes || value.options || value.valores || listText(Object.values(value))) : value;
       return [String(title).replace(/^./, letter => letter.toUpperCase()), options];
     }).filter(([title, options]) => hasValue(options) && typeof title === 'string' && !/^\d+$/.test(title));
+  const hostOf = url => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } };
   const formatSources = (channel.fontes_metricas?.formatos?.fontes || []).filter(url => /^https?:\/\//.test(url));
   const buying = [['Modelo de compra', listText(channel.modelo_compra)], ['Mensuração', listText(channel.medicao)],
     ['Brand safety', listText(channel.brand_safety)],
     ['Produtos', Array.isArray(channel.produtos) && channel.produtos.length ? <ul className="pd-bullets">{channel.produtos.map(item => <li key={item}>{item}</li>)}</ul> : listText(channel.produtos)],
-    ['Fontes dos formatos', formatSources.length ? <ul className="pd-bullets">{formatSources.map(url => <li key={url}><a href={url} target="_blank" rel="noreferrer">{new URL(url).hostname.replace(/^www\./, '')}</a></li>)}</ul> : null]];
+    ['Fontes dos formatos', formatSources.length ? <ul className="pd-bullets">{formatSources.map(url => <li key={url}><a href={url} target="_blank" rel="noreferrer">{hostOf(url)}</a></li>)}</ul> : null]];
   const examples = [...ads.map(ad => ({url: ad.image_url, caption: ad.title || ad.source_domain})),
     ...concepts.map(concept => ({url: concept.image_url, caption: `${concept.title} · conceito`}))];
 

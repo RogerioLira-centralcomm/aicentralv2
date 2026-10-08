@@ -13,15 +13,26 @@ Tudo abaixo está commitado e **sem push**. O banco `.env` (DB_HOST remoto) já 
 ## Dados que já estão no banco (não recalcular no deploy)
 Estimativas (Tranco) dos portais ativos, Top 10 nacional (`featured_rank` 1 a 10), perfis curados dos 50 principais, formatos de anúncio lidos, 98 portais desativados por DNS inválido, prints aprovados.
 
+## Canais atualizados só no banco (sem migração, sem código)
+Em 2026-10-08 os canais abaixo foram completados direto na tabela `cadu_canais` do banco do `.env`, a partir de fontes públicas (links em `fontes_metricas.formatos` de cada um):
+- **Uber, iFood, 99:** formatos, produtos, mensuração e diferenciais novos (Journey Ads, Ride Offers e Destination Offers; Instant Sampling e closed loop; 99Ads no app e OOH na frota). iFood passou a ter 60M usuários/mês em 1.500 cidades.
+- **Amazon Ads / Marketplace:** Sponsored Products, Sponsored Brands e Amazon Stores (fonte de mercado, não oficial).
+- **Logan:** reescrito com a página oficial logan.ai/pt-br/logan-ads (plataforma multicanal: OOH, rich media, CTV, vídeo in-app, áudio, WhatsApp, in-game, push); categoria passou a Programática; logo oficial em `static/images/canais/logan.svg` (esse vai no commit, o resto é banco).
+- **Serasa Data (DMP):** produtos confirmados (Programa de Parcerias, audiências digitais, Serasa Ads). O nome "DMP", a base de 200M de perfis e as integrações com DSPs seguem do cadastro anterior, **sem fonte pública**.
+- **Interativos:** descrição passou a refletir os 29 formatos do catálogo.
+
+Se o banco do `.env` **não** for o de produção, esses UPDATEs precisam ser reaplicados lá (os textos estão neste roteiro e nas fontes de cada canal); se for, nada a fazer no deploy.
+
 ## Depois do deploy
 1. `flask cadu_family estimate-planner-portals` (só se o banco for outro).
-2. Abrir `/portais`, `/portais/1` (G1) e um regional; conferir miniatura, chips, formatos e galeria.
+2. Abrir `/portais`, `/portais/1` (G1) e um regional; conferir miniatura, chips, formatos e galeria. Nos canais, abrir Logan, Uber e iFood (produtos em lista, fontes dos formatos, logos com cantos arredondados).
 3. Conferir fontes (DejaVu/Liberation) só se voltar a usar compositor de imagem no servidor; hoje não é necessário.
 
-## Rotina contínua (próxima etapa, não incluída)
-Saúde semanal (DNS, HTTP), duas falhas seguidas antes de desativar, releitura mensal de formatos e prints, via timer do systemd como o `radar-due`.
+## Rotina noturna (já no código, ativa no deploy)
+`deploy/install_planner_portal_ads_timer.sh` (rodado pelo `deploy.sh`) instala o timer das 3h30: saúde e ads.txt em ciclo semanal (até 400 portais por noite; DNS inválido desativa só após duas noites seguidas), formatos de anúncio mensais (8 por noite, Firecrawl) e estimativas de popularidade mensais. Prints e ilustrações não são renovados automaticamente.
 
 ## Pendências conhecidas
 - 17 portais sem página de matéria ou de editoria nos prints internos; 3 capturas vazias descartadas.
+- Logo da Logan: wordmark oficial; confira o resultado no card.
 - 359 portais sem `ads.txt` e sem programática seguem no ar como "Venda direta" (decisão: não desativar em massa).
 - `tests/test_planner_nav_boot.py` falha desde antes desta rodada (template do plano público).

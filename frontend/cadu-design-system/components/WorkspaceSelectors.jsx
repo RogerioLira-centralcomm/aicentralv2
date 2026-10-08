@@ -1,7 +1,7 @@
 import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {Icon} from './Icon';
-import '../brand-lockup.css';
+import '../../../aicentralv2/static/css/cadu-brand-lockup.css';
 import {markProjectUsed, recentProjectOptions} from '../projectOptions.mjs';
 
 function useDisclosure(menuRef) {

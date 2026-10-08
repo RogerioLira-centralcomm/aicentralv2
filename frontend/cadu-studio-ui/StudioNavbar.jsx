@@ -1,19 +1,20 @@
 import React, {useEffect, useId, useMemo, useRef, useState} from 'react';
 import './tokens.css';
 import './navbar.css';
-import '../cadu-design-system/brand-lockup.css';
+import '../../aicentralv2/static/css/cadu-brand-lockup.css';
+import {Icon} from '../cadu-design-system/components/Icon.jsx';
 
 // One navigation for every Studio tool. Keys match the `links` bootstrap shared by the pages.
 export const STUDIO_SECTIONS = [
-  ['home', 'Início'],
-  ['create', 'Criar'],
-  ['editor', 'Editar'],
-  ['videos', 'Vídeo'],
-  ['audio', 'Áudio'],
-  ['analyzer', 'Analisar'],
-  ['library', 'Biblioteca'],
+  ['home', 'Início', 'home'],
+  ['create', 'Criar', 'plus'],
+  ['editor', 'Editar', 'compose'],
+  ['videos', 'Vídeo', 'image'],
+  ['audio', 'Áudio', 'audio'],
+  ['analyzer', 'Analisar', 'analysis'],
+  ['library', 'Biblioteca', 'library'],
   // Only present in `links` for organizations allowed into the Creative Lab.
-  ['lab', 'Lab'],
+  ['lab', 'Lab', 'plugin'],
 ];
 
 const initials = name => String(name || 'C').trim().split(/\s+/).slice(0, 2).map(part => part[0] || '').join('').toUpperCase() || 'C';
@@ -134,8 +135,8 @@ export default function StudioNavbar({active, links = {}, projects = [], project
     {identity !== false && <div className="csu-navbar__identity">{identity || <a className="csu-brand cadu-brand-lockup" href={links.home || '#'} aria-label="Cadu Studio">
       <img className="cadu-brand-lockup__logo" src="/static/images/cadu/products/studio-icon.png" alt=""/><span className="cadu-brand-lockup__name">Studio</span></a>}</div>}
     <nav className="csu-navbar__nav" aria-label="Ferramentas do Studio">
-      {STUDIO_SECTIONS.filter(([key]) => links[key]).map(([key, label]) =>
-        <a key={key} href={links[key]} aria-current={key === active ? 'page' : undefined}>{label}</a>)}
+      {STUDIO_SECTIONS.filter(([key]) => links[key]).map(([key, label, icon]) =>
+        <a key={key} href={links[key]} title={label} aria-current={key === active ? 'page' : undefined}><Icon name={icon} size={16}/><span>{label}</span></a>)}
     </nav>
     <div className="csu-navbar__meta">
       {onProjectChange && <ProjectPicker projects={projects} projectId={projectId} onChange={onProjectChange} loading={projectsLoading} allowQuick={allowQuick} quickLabel={quickLabel}/>}

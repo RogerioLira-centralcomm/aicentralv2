@@ -1,4 +1,4 @@
-.csu-navbar{position:relative;z-index:40;display:flex;align-items:center;gap:18px;min-height:60px;padding:0 18px;background:var(--csu-surface);border-bottom:1px solid var(--csu-line);color:var(--csu-text);font-family:var(--csu-font);box-sizing:border-box}
+.csu-navbar{position:relative;z-index:40;display:flex;align-items:center;gap:20px;min-height:56px;padding:0 18px;background:var(--csu-surface);border-bottom:1px solid var(--csu-line);color:var(--csu-text);font-family:var(--csu-font);box-sizing:border-box}
 .csu-navbar *,.csu-navbar *::before,.csu-navbar *::after{box-sizing:border-box}
 .csu-navbar :is(a,button,input):focus-visible{outline:2px solid var(--csu-focus);outline-offset:2px}
 .csu-navbar__identity{display:flex;align-items:center;flex:none;min-width:0}
@@ -6,9 +6,17 @@
 
 .csu-navbar__nav{display:flex;align-items:stretch;align-self:stretch;gap:2px;min-width:0;overflow-x:auto;scrollbar-width:none}
 .csu-navbar__nav::-webkit-scrollbar{display:none}
-.csu-navbar__nav a{display:grid;place-items:center;padding:0 11px;color:var(--csu-text-soft);text-decoration:none;font-size:13px;font-weight:600;white-space:nowrap;transition:color var(--csu-fast) var(--csu-ease),box-shadow var(--csu-fast) var(--csu-ease)}
+.csu-navbar__nav{flex:1 1 auto;justify-content:center}
+/* Same rhythm as the Planner bar: icon beside the label, open spacing, underline on the current tool. */
+.csu-navbar__nav a{position:relative;display:inline-flex;align-items:center;gap:7px;padding:0 12px;color:var(--csu-text-soft);text-decoration:none;font-size:13px;font-weight:500;white-space:nowrap;transition:color var(--csu-fast) var(--csu-ease)}
+.csu-navbar__nav a svg{flex:none;color:var(--csu-muted);transition:color var(--csu-fast) var(--csu-ease)}
+.csu-navbar__nav a:hover svg{color:var(--csu-text)}
 .csu-navbar__nav a:hover{color:#fff}
-.csu-navbar__nav a[aria-current="page"]{color:var(--csu-accent-text);box-shadow:inset 0 -2px var(--csu-accent)}
+.csu-navbar__nav a[aria-current="page"]{color:var(--csu-accent-text);font-weight:600}
+.csu-navbar__nav a[aria-current="page"] svg{color:var(--csu-accent-text)}
+.csu-navbar__nav a[aria-current="page"]::after{content:"";position:absolute;right:10px;bottom:0;left:10px;height:2px;border-radius:2px;background:var(--csu-accent)}
+/* Medium screens: icons only (name in the tooltip), the current tool keeps its name. */
+@media (min-width:821px) and (max-width:1280px){.csu-navbar__nav a:not([aria-current="page"]) span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.csu-navbar__nav a{padding:0 11px}}
 .csu-navbar__meta{display:flex;align-items:center;gap:12px;margin-left:auto;min-width:0}
 .csu-navbar .csu-button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:0 13px;border:1px solid var(--csu-line-strong);border-radius:var(--csu-radius-sm);background:var(--csu-raised);color:var(--csu-text);font:600 12.5px/1 var(--csu-font);white-space:nowrap;cursor:pointer;transition:background var(--csu-fast) var(--csu-ease)}
 .csu-navbar .csu-button:hover{background:var(--csu-overlay)}
@@ -58,7 +66,7 @@
 
 /* Embedded in the server-rendered Studio header: the product switch stays server-side. */
 .csu-navbar--embedded{flex:1;min-width:0;min-height:0;align-self:stretch;padding:0;background:transparent;border:0}
-.mc-cadu-bar.has-studio-navbar{display:flex!important;align-items:stretch;gap:18px;height:auto!important;min-height:56px}
+.mc-cadu-bar.has-studio-navbar{display:flex!important;align-items:stretch;gap:20px;height:56px!important;min-height:56px}
 .mc-cadu-bar.has-studio-navbar>.studio-product-identity{display:flex;align-items:center;flex:0 1 auto;min-width:0;max-width:240px}
 .mc-cadu-bar.has-studio-navbar>#caduStudioNavbar{display:flex;flex:1;min-width:0}
 .mc-cadu-bar.has-studio-navbar>.mc-cadu-nav,.mc-cadu-bar.has-studio-navbar>.mc-cadu-meta{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0 0 0 0)!important;white-space:nowrap!important}
@@ -74,4 +82,4 @@
 .mc-cadu-bar--studio:not(.has-studio-navbar)>.mc-cadu-nav,.mc-cadu-bar--studio:not(.has-studio-navbar)>.mc-cadu-meta{visibility:hidden;animation:csu-reveal 0s 1.2s forwards}
 
 /* Cadu product icon sits close to the left edge. */
-@media (min-width:821px){.mc-cadu-bar.has-studio-navbar{padding-left:10px!important}.mc-cadu-bar.has-studio-navbar>.studio-product-identity .cadu-product-switch>summary{padding-left:4px}}
+@media (min-width:821px){.mc-cadu-bar.has-studio-navbar{padding-left:10px!important}.mc-cadu-bar.has-studio-navbar>.studio-product-identity .cadu-product-switch>summary{padding-left:6px}}

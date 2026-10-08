@@ -4,7 +4,7 @@
 .portal--studio #content > .mc-shell { width: 100%; max-width: none; margin: 0; }
 .portal--studio .mc-shell { gap: 0; min-height: 100dvh; background: #14191f; }
 .portal--studio .mc-panel { padding: 0; border: 0; background: transparent; }
-.portal--studio .mc-cadu-video { height: calc(100dvh - 64px); min-height: 520px; border: 0; border-radius: 0; }
+.portal--studio .mc-cadu-video { height: calc(100dvh - 56px); min-height: 520px; border: 0; border-radius: 0; }
 
 .mc-cadu-bar--studio,
 .mc-studio-home .mc-cadu-bar--studio {
@@ -17,9 +17,9 @@
   align-items: center;
   box-sizing: border-box;
   width: 100%;
-  min-height: 64px;
-  height: 64px;
-  padding: 8px clamp(18px, 2.2vw, 32px);
+  min-height: 56px;
+  height: 56px;
+  padding: 0 clamp(18px, 2.2vw, 32px);
   gap: 20px;
   border: 0 !important;
   background: var(--studio-nav-bg) !important;
@@ -40,14 +40,6 @@
   border: 0;
   border-radius: 0;
   color: var(--studio-nav-text);
-}
-.mc-cadu-bar--studio .cadu-product-switch summary > img {
-  width: 35px;
-  height: 35px;
-  padding: 6px;
-  border-radius: 10px;
-  background: #fff;
-  object-fit: contain;
 }
 .mc-cadu-bar--studio .cadu-product-switch summary > small,
 .mc-cadu-bar--studio .cadu-product-switch summary > i { color: var(--studio-nav-muted); }

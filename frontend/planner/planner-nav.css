@@ -89,8 +89,8 @@
   .pn__link { padding: 0 9px; }
 }
 /* Vitrine de audiências: título e filtros na mesma linha (as categorias ficam numa linha abaixo). */
-/* Compact bar: 15% shorter (68 -> 58px), links laid out horizontally (icon beside label), no mega menu. */
-.pn__bar { min-height: 58px; }
+/* Compact bar: 56px, the same height as the Studio bar, links laid out horizontally (icon beside label), no mega menu. */
+.pn__bar { min-height: 56px; }
 .pn__link { flex-direction: row; gap: 7px; padding: 0 12px; font-size: 13px; }
 @media (max-width: 1500px) {
   .pn__link { padding: 0 10px; }

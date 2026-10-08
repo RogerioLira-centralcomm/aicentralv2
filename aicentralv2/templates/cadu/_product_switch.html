@@ -5,8 +5,10 @@
    não ao seletor de produto. #}
 {% set product_switch_items = cadu_products.cadu_product_catalog %}
 {% set active_item = product_switch_items | selectattr('0', 'equalto', active_product) | first | default(product_switch_items[0]) %}
+{# One brand lockup for every Cadu product (logo 24px, product name Inter 14/600, 16px from the left and top). #}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-brand-lockup.css') }}">
 <details class="cadu-product-switch">
-  <summary><img src="{{ url_for('static', filename='images/cadu/products/' ~ active_item[2]) }}" alt=""><span>Cadu</span><small>{{ active_item[1] }}</small><i aria-hidden="true">⌄</i></summary>
+  <summary class="cadu-brand-lockup" aria-label="Cadu {{ active_item[1] }}: trocar de produto"><img class="cadu-brand-lockup__logo" src="{{ url_for('static', filename='images/cadu/products/' ~ active_item[2]) }}" alt=""><span class="cadu-brand-lockup__name">{{ active_item[1] }}</span><i aria-hidden="true">⌄</i></summary>
   <nav aria-label="Produtos Cadu">
     {% for slug, name, icon in product_switch_items %}{% set href = product_url(slug, product_switch_path ~ slug ~ '/' if product_switch_path is defined else '/') %}<a href="{{ href }}" class="{{ 'is-current' if slug == active_product else '' }}" {% if slug == active_product %}aria-current="page"{% endif %}><img src="{{ url_for('static', filename='images/cadu/products/' ~ icon) }}" alt=""><span>{{ name }}</span></a>{% endfor %}
   </nav>

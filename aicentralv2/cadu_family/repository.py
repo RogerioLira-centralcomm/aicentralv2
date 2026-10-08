@@ -918,6 +918,7 @@ def audience_search(query='', category='', platform='', subcategory='', sort='re
     records = rows('''SELECT a.id, a.nome AS name, COALESCE(a.descricao_curta, a.descricao) AS description,
                              a.publico_estimado AS audience, a.publico_numero AS audience_size,
                              a.imagem_url AS image_url, a.perfil_socioeconomico, a.propensao_compra, a.tamanho,
+                             a.idade_18_24, a.idade_25_34, a.idade_35_44, a.idade_45_mais,
                              c.nome AS category, s.nome AS subcategory, p.nome AS platform,
                              COUNT(*) OVER () AS total_count
                     ''' + where() + ' ORDER BY ' + ordering + ' LIMIT %(limit)s OFFSET %(offset)s', params)

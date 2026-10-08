@@ -11,12 +11,20 @@ export function audienceFigure(item) {
   return /\d/.test(text) && text.length <= 14 ? text : '';
 }
 
+const AGE_BANDS = [['idade_18_24', '18-24'], ['idade_25_34', '25-34'], ['idade_35_44', '35-44'], ['idade_45_mais', '45+']];
+
+/** The age band that holds most of the audience, from the stored shares; nothing when they are missing. */
+function dominantAge(item) {
+  const best = AGE_BANDS.map(([key, label]) => [Number(item[key]) || 0, label]).sort((a, b) => b[0] - a[0])[0];
+  return best && best[0] > 0 ? `${best[1]} anos` : '';
+}
+
 /** The numbers that help choose, each with its small standard icon; a missing one is left out, never invented. */
 function audienceStats(item, figure) {
   return [
     ['users', 'Público', figure],
     ['wallet', 'Perfil', item.perfil_socioeconomico && `Classe ${item.perfil_socioeconomico}`],
-    ['cart', 'Compra', item.propensao_compra],
+    ['calendar', 'Idade', dominantAge(item)],
   ].filter(([, , value]) => value);
 }
 
@@ -41,7 +49,7 @@ export function AudienceCard({item, urls, selected, onToggle}) {
       <span className="channel-card__cta"><SelectionButton size="md" selected={selected} onToggle={onToggle}/></span>
     </span>
     <div className="channel-card__body">
-      {item.platform && <span className="channel-card__role">{item.platform}</span>}
+      {item.platform && !logo && <span className="channel-card__role">{item.platform}</span>}
       <strong className="planner-card__title">{item.name}</strong>
       <span className="planner-card__text">{item.description || 'Público para apoiar as decisões do plano.'}</span>
       {stats.length > 0 && <dl className="channel-card__stats audience-card__stats">{stats.map(([icon, label, value]) => <div key={label}>

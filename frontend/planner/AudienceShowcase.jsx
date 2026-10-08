@@ -134,18 +134,12 @@ export function AudienceShowcase({boot, request, selection, notify}) {
     </div>
   );
 
-  const firstName = String(boot.user?.name || '').trim().split(/\s+/)[0];
   const clear = () => { restored.current = false; touched.current = true; setFilters({q: '', platform: '', category: '', subcategory: '', sort: 'relevant'}); };
 
   // Título e filtros na mesma linha: busca, canal (com logos), categoria e ordem lado a lado.
   return <>
     <ShelfHeader title="Audiências" bar={bar}
       description={`${number(total)} ${total === 1 ? 'audiência' : 'audiências'}${active ? ' com estes filtros' : ''}`}/>
-    {(active > 0 || restored.current) && <div className="aud-filters__summary aud-filters__summary--bar">
-      <span aria-live="polite">{loading ? 'Atualizando…' : restored.current && !filters.q ? `${firstName ? `${firstName}, mantivemos` : 'Mantivemos'} seus filtros da última visita` : `${number(total)} ${total === 1 ? 'resultado' : 'resultados'}`}</span>
-      <CaduButton variant="tertiary" size="sm" onClick={clear}>Limpar filtros</CaduButton>
-    </div>}
-
     {!records.length && !loading ? <ShelfEmpty title="Nenhuma audiência com estes filtros"
       description="Tire um filtro ou busque por outro termo." action={<CaduButton variant="secondary"
         onClick={clear}>Ver todas as audiências</CaduButton>}/>

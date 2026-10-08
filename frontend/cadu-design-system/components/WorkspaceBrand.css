@@ -1114,3 +1114,26 @@ body.portal--workspace .cadu-ds-entity-rail .cadu-ds-brand-designer-kit__palette
 body.portal--workspace .cadu-ds-entity-rail .cadu-ds-brand-designer-kit__palette b { font-size:12px; font-weight:600; font-variant-numeric:tabular-nums; }
 body.portal--workspace .cadu-ds-brand-completion__score span { white-space:nowrap; }
 body.portal--workspace .cadu-ds-brand-actions a { text-decoration:none; }
+
+/* Radar da marca */
+body.portal--workspace .cadu-ds-brand-radar > header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+body.portal--workspace .cadu-ds-brand-radar__empty { display:grid; gap:4px; max-width:60ch; padding:18px 0; }
+body.portal--workspace .cadu-ds-brand-radar__empty b { font-size:14px; }
+body.portal--workspace .cadu-ds-brand-radar__empty span { color:var(--cadu-muted-strong); font-size:13px; line-height:1.5; }
+body.portal--workspace .cadu-ds-brand-radar__list { display:grid; gap:0; max-width:780px; }
+body.portal--workspace .cadu-ds-brand-radar__list article { display:grid; gap:6px; padding:18px 0; border-top:1px solid var(--cadu-line); }
+body.portal--workspace .cadu-ds-brand-radar__list article:first-child { border-top:0; }
+body.portal--workspace .cadu-ds-brand-radar__list article > small { color:var(--cadu-accent-strong); font-weight:600; }
+body.portal--workspace .cadu-ds-brand-radar__list article > b { font-size:15px; line-height:1.35; }
+body.portal--workspace .cadu-ds-brand-radar__list article > p { display:-webkit-box; max-width:70ch; margin:0; overflow:hidden; color:var(--cadu-muted-strong); font-size:13px; line-height:1.55; -webkit-box-orient:vertical; -webkit-line-clamp:3; }
+body.portal--workspace .cadu-ds-brand-radar__list ul, body.portal--workspace .cadu-ds-brand-radar__signals ul { display:grid; gap:6px; margin:0; padding:0; list-style:none; }
+body.portal--workspace .cadu-ds-brand-radar li { display:grid; gap:1px; }
+body.portal--workspace .cadu-ds-brand-radar li a, body.portal--workspace .cadu-ds-brand-radar__more { color:var(--cadu-accent-strong); font-size:13px; font-weight:600; text-decoration:none; }
+body.portal--workspace .cadu-ds-brand-radar li a:hover, body.portal--workspace .cadu-ds-brand-radar__more:hover { text-decoration:underline; }
+body.portal--workspace .cadu-ds-brand-radar li small { color:var(--cadu-muted); }
+body.portal--workspace .cadu-ds-brand-radar__list article > div { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+body.portal--workspace .cadu-ds-brand-radar__list article > div a { text-decoration:none; }
+body.portal--workspace .cadu-ds-brand-radar__signals { max-width:780px; margin-top:24px; padding-top:18px; border-top:1px solid var(--cadu-line); }
+body.portal--workspace .cadu-ds-brand-radar__signals h3 { margin:0 0 10px; font-size:13px; font-weight:600; }
+body.portal--workspace .cadu-ds-brand-radar__more { display:inline-block; margin-top:16px; }
+body.portal--workspace .cadu-ds-brand-radar > header a { text-decoration:none; }

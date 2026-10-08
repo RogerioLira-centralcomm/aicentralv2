@@ -8821,8 +8821,18 @@ def brand_detail(brand_id):
             projects=projects, brands=brands,
         )
         brand_credit = credit_position(client_id)
+        from ..cadu_radar import brand_context as radar_brand
+        radar_ref = radar_brand.brand_ref(brand_id)
+        radar_data = radar_brand.brand_radar(brand.get('crm_client_id') or client_id, brand_id,
+                                             enabled=bool(current_app.config.get('CADU_RADAR_ENABLED')))
+        radar_data['urls'] = {
+            'create': product_url('planner', f'/radar?novo=1&brand_ref={radar_ref}'),
+            'hub': product_url('planner', f'/radar?brand_ref={radar_ref}'),
+            'run': product_url('planner', f'/radar?run=__RUN__&brand_ref={radar_ref}'),
+            'chat': url_for('cadu_workspace.conversations'),
+        }
         return render_template(
-            'cadu_workspace/brand_detail_react.html', brand_data=brand_data, brand_links=brand_links,
+            'cadu_workspace/brand_detail_react.html', brand_data=brand_data, brand_links=brand_links, radar_data=radar_data,
             brand_items=brand_items, project_items=project_items, available_project_items=available_project_items,
             dock_items=dock_items, can_manage_brand=can_manage_brand,
             usage_percent=round(float(brand_credit.get('monthly_usage_percentage') or 0), 1),

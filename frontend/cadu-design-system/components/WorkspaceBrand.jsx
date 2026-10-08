@@ -365,10 +365,42 @@ function AuditCompletionSummary({brand, audit, onDone}) {
   </section>;
 }
 
-function CampaignSection({campaigns, urls, csrfToken, canManageBrand}) {
-  if (!campaigns.length) return null;
-  const labels = {institutional: 'Institucional', social: 'Redes sociais', paid_media: 'Mídia e anúncios'};
-  return <section className="cadu-ds-brand-section cadu-ds-brand-campaigns" id="campanhas"><header><div><p>Da análise para a execução</p><h2>Campanhas que viram projetos</h2><span>Escolha uma oportunidade para abrir um projeto já vinculado à marca e ao contexto aprovado.</span></div></header><div className="cadu-ds-brand-reading">{campaigns.map(campaign => <article key={campaign.id}><small>{labels[campaign.type] || 'Campanha'} · {campaign.status === 'observed' ? 'observada' : campaign.status === 'project_created' ? 'projeto criado' : 'oportunidade'}</small><b>{campaign.name}</b><span>{campaign.objective || campaign.rationale || 'Definir objetivo no projeto.'}</span>{campaign.channels?.length ? <small>{campaign.channels.join(' · ')}</small> : null}{campaign.status === 'project_created' ? <small>Já transformada em projeto.</small> : canManageBrand && <form method="post" action={campaignProjectUrl(urls.createCampaignProjectBase, campaign.id)}><Hidden name="_csrf" value={csrfToken}/><CaduButton variant="primary" type="submit">Transformar em projeto</CaduButton></form>}</article>)}</div></section>;
+
+const RADAR_QUADRANT = {conteudo:'Conteúdo', midia:'Mídia', integrada:'Integrada'};
+const RUN_ACTIVE = ['queued', 'running'];
+const shortDate = value => { const date = new Date(value); return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat('pt-BR', {day:'2-digit', month:'short'}).format(date).replace('.', ''); };
+
+// Oportunidades e notícias que o Radar achou para a marca; o plano e a conversa continuam nos produtos de origem.
+function BrandRadar({brand, radar}) {
+  if (!radar?.enabled) return null;
+  const urls = radar.urls || {};
+  const opportunities = radar.opportunities || [];
+  const signals = (radar.signals || []).slice(0, 5);
+  const runs = radar.runs || [];
+  const watch = (radar.watches || []).find(item => item.status === 'ativo');
+  const running = runs.some(run => RUN_ACTIVE.includes(run.status));
+  const lastDone = runs.find(run => run.status === 'done');
+  const failed = !running && runs[0]?.status === 'failed';
+  const runUrl = id => String(urls.run || '').replace('__RUN__', encodeURIComponent(id || ''));
+  const chatUrl = item => { const url = new URL(urls.chat || '/', window.location.origin); url.searchParams.set('radar_angle', item.id); url.searchParams.set('brand_ref', radar.brandRef); url.searchParams.set('auto_send', '1'); return url.toString(); };
+  const status = !radar.available ? 'O Radar não está disponível agora.'
+    : running ? 'Radar em execução. Os resultados aparecem aqui quando terminar.'
+    : failed ? 'A última busca não terminou. Tente de novo.'
+    : lastDone ? `Última busca em ${shortDate(lastDone.finishedAt || lastDone.createdAt)}${watch ? ` · alerta ${watch.frequency || 1}x ao dia` : ' · sem alerta ativo'}`
+    : 'Ainda não há radar para esta marca.';
+  return <section className="cadu-ds-brand-section cadu-ds-brand-radar" id="radar">
+    <header><div><p>Radar da marca</p><h2>O que vale aproveitar agora</h2><span>{status}</span></div>{radar.available && urls.create && <CaduButton href={urls.create}>{runs.length ? 'Rodar radar' : 'Criar primeiro radar'}</CaduButton>}</header>
+    {radar.available && !opportunities.length && !running && <div className="cadu-ds-brand-radar__empty"><b>{runs.length ? 'Nenhuma oportunidade aberta agora' : `Nenhuma busca feita para ${brand.name}`}</b><span>{runs.length ? 'Rode uma nova busca ou ative um alerta para receber o que mudar.' : 'O Radar procura notícias, datas e movimentos do mercado e os transforma em pautas de conteúdo e oportunidades de mídia.'}</span></div>}
+    {opportunities.length > 0 && <div className="cadu-ds-brand-radar__list">{opportunities.map(item => <article key={item.id}>
+      <small>{RADAR_QUADRANT[item.quadrant] || 'Oportunidade'} · nota {Math.max(item.editorialScore || 0, item.paidScore || 0)}{item.window ? ` · ${item.window}` : ''}</small>
+      <b>{item.title}</b>
+      {(item.thesis || item.whyNow) && <p>{item.thesis || item.whyNow}</p>}
+      {item.sources.length > 0 && <ul>{item.sources.map(source => <li key={source.url}><a href={source.url} target="_blank" rel="noreferrer">{source.title || source.outlet}</a><small>{[source.outlet, source.date].filter(Boolean).join(' · ')}</small></li>)}</ul>}
+      <div>{item.runId && urls.run && <CaduButton variant="secondary" href={runUrl(item.runId)}>Criar plano</CaduButton>}{urls.chat && <CaduButton variant="tertiary" href={chatUrl(item)}>Conversar sobre isso</CaduButton>}</div>
+    </article>)}</div>}
+    {signals.length > 0 && <div className="cadu-ds-brand-radar__signals"><h3>Notícias recentes</h3><ul>{signals.map(item => <li key={item.id}><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a><small>{[item.source, shortDate(item.publishedAt)].filter(Boolean).join(' · ')}</small></li>)}</ul></div>}
+    {radar.available && runs.length > 0 && urls.hub && <a className="cadu-ds-brand-radar__more" href={urls.hub}>Ver tudo no Radar</a>}
+  </section>;
 }
 
 function CopyButton({value, label = 'Copiar'}) {
@@ -568,7 +600,6 @@ export function WorkspaceBrand({bootstrap}) {
   const linkedProjects = brand.linkedProjects || [];
   const auditHistory = [...(brand.auditHistory || [])].sort((a, b) => new Date(b.completed_at || b.updated_at || b.created_at || 0) - new Date(a.completed_at || a.updated_at || a.created_at || 0));
   const displayAssets = uniqueBrandAssets(brand.assets || []);
-  const campaigns = profile.campaigns || [];
   const status = brand.reviewPack?.status || '';
   const canShowSynthesis = ['pending_approval', 'approved'].includes(status) && brand.reviewPack?.reviews?.length > 0;
   const notStarted = !status || status === 'not_started';
@@ -621,7 +652,7 @@ export function WorkspaceBrand({bootstrap}) {
     ...(!isProcessing && showDossier ? [
       {id:'direcao', label:'Direção da marca', icon:'compose'},
       ...(atlasHasContent ? [{id:'inteligencia', label:'Todos os dados', icon:'pulse'}] : []),
-      ...(campaigns.length ? [{id:'campanhas', label:'Campanhas', icon:'folder', count:campaigns.length}] : []),
+      ...(bootstrap.radar?.enabled && bootstrap.radar?.available ? [{id:'radar', label:'Radar', icon:'pulse', count:(bootstrap.radar.opportunities || []).length}] : []),
       ...(auditHistory.length ? [{id:'auditoria', label:'Auditorias', icon:'history', count:auditHistory.length}] : []),
     ] : []),
     ...(lifecycle !== 'insufficient_information' ? [{id:'biblioteca', label:'Biblioteca', icon:'file', count:displayAssets.length}] : []),
@@ -679,7 +710,7 @@ export function WorkspaceBrand({bootstrap}) {
           {showDossier ? <><div className="cadu-ds-brand-layout cadu-ds-brand-data-viewer">
             <div className="cadu-ds-brand-layout__main">
               <section className="cadu-ds-brand-section cadu-ds-brand-direction" id="direcao"><header><div><p>Direção da marca</p><h2>O que deve orientar cada entrega</h2><span>Uma síntese operacional do que a marca comunica, para quem e com quais diferenciais.</span></div><CaduButton variant="secondary" type="button" onClick={openConversation}>Refinar com o Cadu</CaduButton></header>{brandSummary && <div className="cadu-ds-brand-direction__lead"><small>Essência da marca</small><p>{brandSummary}</p></div>}<FilledReading items={[{label:'Público', value:profile.targetAudience},{label:'Oferta', value:profile.productsServices},{label:'Tom', value:profile.toneOfVoice},{label:'Diferenciais', value:profile.differentiators},{label:'Direção criativa', value:profile.creativeGuidelines}]}/></section>
-              <CampaignSection campaigns={campaigns} urls={urls} csrfToken={bootstrap.csrf} canManageBrand={canEdit}/>
+              <BrandRadar brand={brand} radar={bootstrap.radar}/>
               {atlasHasContent && <AuditAtlas profile={profile} verified={verified}/>}
               <AuditScreenshot metadata={brand.analysisMetadata || {}}/>
               <BrandDossierSections profile={profile}/>

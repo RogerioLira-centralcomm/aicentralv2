@@ -128,6 +128,13 @@ function minutes(seconds) {
 
 const TIER_LABELS = {grande: 'Grande porte', medio: 'Médio porte', pequeno: 'Pequeno porte', nicho: 'Nicho local'};
 
+/** What a media buyer wants to know first: can it be bought programmatically, or only direct. */
+function programmaticLabel(item) {
+  if (['valid', 'partial'].includes(item.ads_txt_status) || ['detected', 'ads_txt_declared'].includes(item.programmatic_status)) return 'Programática pronta';
+  if (['missing', 'empty', 'invalid'].includes(item.ads_txt_status) && ['not_detected', 'adsense_native'].includes(item.programmatic_status)) return 'Venda direta';
+  return '';
+}
+
 function PortalRow({item, urls, selected, onToggle}) {
   const visits = Number(item.monthly_visits);
   const region = item.scope === 'nacional_premium' ? 'Premium nacional' : item.uf ? `Regional · ${item.uf}` : '';
@@ -138,10 +145,10 @@ function PortalRow({item, urls, selected, onToggle}) {
       {item.thumb_url && <small className="portal-row__tag">Ilustração</small>}</span>
     <LogoTile src={item.favicon_url} fallbacks={item.domain ? [`https://${item.domain}/favicon.ico`, `https://www.google.com/s2/favicons?domain=${item.domain}&sz=64`] : []} name={item.name} icon="browser" size="md"/>
     <span className="portal-row__main"><strong>{item.site_title || item.name}{item.featured_rank >= 1 && item.featured_rank <= 10 && <em className="portal-row__top">Top 10</em>}{item.uf_top && <em className="portal-row__top">Top 10 · {item.uf}</em>}</strong><small>{item.domain}</small></span>
-    <span className="portal-row__fact"><small>Categoria</small><b>{item.category || 'Não categorizado'}</b><small>{region}</small></span>
-    <span className="portal-row__fact"><small>{visits > 0 ? 'Acessos / mês' : 'Porte do portal'}</small>
-      <b>{visits > 0 ? visits.toLocaleString('pt-BR', {notation: 'compact', maximumFractionDigits: 1}) : TIER_LABELS[item.traffic_tier] || 'Sem dados'}</b>
-      <small>{visits > 0 ? (item.avg_time_seconds > 0 ? `Tempo médio ${minutes(item.avg_time_seconds)}` : '') : item.traffic_tier ? 'Estimado' : ''}</small></span>
+    <span className="portal-row__chips">
+      {[item.category || 'Não categorizado', region, visits > 0 ? `${visits.toLocaleString('pt-BR', {notation: 'compact', maximumFractionDigits: 1})} acessos/mês` : TIER_LABELS[item.traffic_tier] && `${TIER_LABELS[item.traffic_tier]} · estimado`, programmaticLabel(item)]
+        .filter(Boolean).map(label => <em key={label}>{label}</em>)}
+    </span>
     <span className="portal-row__action"><RowAddButton name={item.site_title || item.name} selected={selected} onToggle={onToggle}/></span>
   </div>;
 }

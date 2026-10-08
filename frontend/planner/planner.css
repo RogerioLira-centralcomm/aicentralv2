@@ -1903,4 +1903,22 @@ a.planner-card:focus-visible { outline: 2px solid var(--colors-brand-600, #07945
 
 /* Portal illustration: a small label marks it as artwork, not a capture of the site. */
 .portal-row__shot { position: relative; }
-.portal-row__tag { position: absolute; left: 6px; bottom: 6px; padding: 1px 6px; border-radius: 999px; background: rgba(16, 24, 40, .72); color: #fff; font-size: 10px; font-weight: 600; }
+.portal-row__tag { position: absolute; left: 6px; top: 6px; padding: 1px 7px; border-radius: 999px; background: rgba(255, 255, 255, .88); color: var(--planner-muted, #475467); font-size: 10px; font-weight: 600; letter-spacing: .01em; }
+
+/* Portal row v2: thumbnail, logo, then title with its facts as chips right under it; nothing is pushed to the far edge. */
+.portal-row.has-shot { grid-template-columns: 128px 44px minmax(0, 1fr) 36px; gap: 18px; }
+.portal-row__main strong { display: flex; align-items: center; gap: 8px; white-space: normal; font-size: 16px; line-height: 22px; }
+.portal-row__chips { display: flex; grid-column: 3; flex-wrap: wrap; gap: 6px; margin-top: -2px; }
+.portal-row__chips em { padding: 3px 10px; border-radius: 999px; background: var(--planner-soft, #f2f4f7); color: var(--planner-ink, #344054); font-size: 12px; font-style: normal; font-weight: 500; }
+.portal-row__chips em:last-child:not(:first-child) { background: var(--colors-brand-50, #ecfdf3); color: var(--colors-brand-800, #085d3a); }
+.portal-row.has-shot .portal-row__main { grid-column: 3; grid-row: 1; align-self: end; }
+.portal-row.has-shot .portal-row__chips { grid-row: 2; align-self: start; }
+.portal-row.has-shot .portal-row__shot { grid-row: 1 / span 2; }
+.portal-row.has-shot .logo-tile { grid-row: 1 / span 2; }
+.portal-row.has-shot .portal-row__action { grid-column: 4; grid-row: 1 / span 2; }
+@media (max-width: 760px) {
+  .portal-row.has-shot { grid-template-columns: 96px minmax(0, 1fr); padding-right: 52px; }
+  .portal-row.has-shot .logo-tile { display: none; }
+  .portal-row.has-shot .portal-row__main, .portal-row.has-shot .portal-row__chips { grid-column: 2; }
+  .portal-row.has-shot .portal-row__action { position: absolute; top: 8px; right: 8px; }
+}

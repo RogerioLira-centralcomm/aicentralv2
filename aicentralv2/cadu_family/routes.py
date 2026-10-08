@@ -156,6 +156,31 @@ def audit_planner_portals_command(apply_changes, keep_top):
         click.echo('Desativados.')
 
 
+@bp.cli.command('read-planner-portals-signals')
+@click.option('--top', is_flag=True, help='Só o Top 10 nacional.')
+@click.option('--limit', default=20, type=click.IntRange(1, 700), help='Máximo de portais por execução (mais antigos primeiro).')
+def read_planner_portals_signals_command(top, limit):
+    """Read ad formats and menu sections from the rendered home of each portal (Firecrawl)."""
+    from time import sleep
+    from ..cadu_planner import portal_signals, portals
+    from ..services.integration_credentials import resolve_firecrawl_api_key
+    key = resolve_firecrawl_api_key()
+    if not key:
+        raise click.ClickException('Sem chave do Firecrawl configurada.')
+    if top:
+        items = repository.rows('SELECT id, domain FROM cadu_planner_portals WHERE active AND domain = ANY(%s) ORDER BY featured_rank', (list(portals.TOP_PORTAL_DOMAINS),))
+    else:
+        items = repository.rows('SELECT id, domain FROM cadu_planner_portals WHERE active ORDER BY signals_checked_at NULLS FIRST, popularity_rank NULLS LAST LIMIT %s', (limit,))
+    for item in items:
+        try:
+            values = portal_signals.read(item['domain'], key)
+            portal_signals.save(item['id'], values)
+            click.echo(f"{item['domain']}: {len(values['ad_formats'])} formatos, {len(values['site_sections'])} editorias ({values['html_bytes']} bytes)")
+        except Exception as exc:  # one portal failing must not stop the batch
+            click.echo(f"{item['domain']}: erro {str(exc)[:100]}")
+        sleep(2)
+
+
 @bp.cli.command('radar-due')
 @click.option('--limit', default=3, show_default=True, help='Máximo de radares rodados nesta chamada.')
 def radar_due(limit):

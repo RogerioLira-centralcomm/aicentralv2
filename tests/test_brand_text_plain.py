@@ -19,3 +19,8 @@ def test_text_joins_evidence_list_without_python_repr():
 
 def test_text_respects_limit():
     assert _text([{'value': 'abcdef'}], 3) == 'abc'
+
+
+def test_text_separates_loose_items_as_sentences():
+    assert _text([{'value': 'Institucional'}, {'value': 'Acessível e bilíngue'}], 100) == 'Institucional. Acessível e bilíngue.'
+    assert _text([{'value': 'Uma frase.'}, {'value': 'Outra!'}], 100) == 'Uma frase. Outra!'

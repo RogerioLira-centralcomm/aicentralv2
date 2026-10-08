@@ -1675,7 +1675,9 @@ def _plain_text(value):
     if isinstance(value, dict):
         return _plain_text(value.get("value") or value.get("text") or value.get("name") or value.get("title") or "")
     if isinstance(value, (list, tuple)):
-        return " ".join(part for part in (_plain_text(item) for item in value) if part)
+        parts = [part for part in (_plain_text(item) for item in value) if part]
+        # Itens soltos (ex.: tons de voz) viram frases separadas em vez de uma linha corrida.
+        return " ".join(part if part[-1] in ".!?…:;" else part + "." for part in parts) if len(parts) > 1 else "".join(parts)
     return str(value or "").strip()
 
 

@@ -33,7 +33,11 @@ PORTAL_COLUMNS = """id, name, domain, category, description, audience_estimate,
                     (to_jsonb(cadu_planner_portals)->>'ads_txt_records')::INTEGER AS ads_txt_records,
                     COALESCE(to_jsonb(cadu_planner_portals)->'ads_txt_sellers', '[]'::jsonb) AS ads_txt_sellers,
                     to_jsonb(cadu_planner_portals)->>'programmatic_status' AS programmatic_status,
-                    COALESCE(to_jsonb(cadu_planner_portals)->'programmatic_signals', '[]'::jsonb) AS programmatic_signals"""
+                    COALESCE(to_jsonb(cadu_planner_portals)->'programmatic_signals', '[]'::jsonb) AS programmatic_signals,
+                    (to_jsonb(cadu_planner_portals)->>'popularity_rank')::INTEGER AS popularity_rank,
+                    to_jsonb(cadu_planner_portals)->>'popularity_source' AS popularity_source,
+                    to_jsonb(cadu_planner_portals)->>'traffic_tier' AS traffic_tier,
+                    to_jsonb(cadu_planner_portals)->'demographics' AS demographics"""
 # Columns added by the programmatic migration are read through to_jsonb so a
 # rolling deployment keeps working before that migration reaches the database.
 

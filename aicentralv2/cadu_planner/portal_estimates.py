@@ -17,6 +17,8 @@ TRANCO_PARENT_SOURCE = 'tranco_parent'
 SECOND_LEVEL = {'com', 'org', 'net', 'gov', 'edu', 'jus', 'mil'}
 # rank ceiling -> tier; a rank inherited from the parent domain is one tier lower (a section is smaller than its site).
 TIERS = ((10_000, 'grande'), (100_000, 'medio'), (1_000_000, 'pequeno'))
+# A section of a giant site (g1 inside globo.com) is still big; only smaller parents pass a tier down.
+TOP_PARENT_RANK = 1_000
 ORDER = ('grande', 'medio', 'pequeno', 'nicho')
 
 # category keyword -> (gender lean, dominant age band, social class); lean is measured against a 50/50 base.
@@ -75,7 +77,7 @@ def popularity(domain, ranks):
 
 def traffic_tier(rank, source):
     tier = next((name for ceiling, name in TIERS if rank and rank <= ceiling), 'nicho')
-    if source == TRANCO_PARENT_SOURCE and tier != 'nicho':
+    if source == TRANCO_PARENT_SOURCE and tier != 'nicho' and rank > TOP_PARENT_RANK:
         tier = ORDER[min(ORDER.index(tier) + 1, len(ORDER) - 1)]
     return tier
 

@@ -126,6 +126,8 @@ function minutes(seconds) {
   return value >= 60 ? `${Math.floor(value / 60)}min ${String(Math.round(value % 60)).padStart(2, '0')}s` : `${Math.round(value)}s`;
 }
 
+const TIER_LABELS = {grande: 'Grande porte', medio: 'Médio porte', pequeno: 'Pequeno porte', nicho: 'Nicho local'};
+
 function PortalRow({item, urls, selected, onToggle}) {
   const visits = Number(item.monthly_visits);
   const region = item.scope === 'nacional_premium' ? 'Premium nacional' : item.uf ? `Regional · ${item.uf}` : '';
@@ -136,7 +138,9 @@ function PortalRow({item, urls, selected, onToggle}) {
     <LogoTile src={item.favicon_url} fallbacks={item.domain ? [`https://${item.domain}/favicon.ico`, `https://www.google.com/s2/favicons?domain=${item.domain}&sz=64`] : []} name={item.name} icon="browser" size="md"/>
     <span className="portal-row__main"><strong>{item.site_title || item.name}{item.featured_rank >= 1 && item.featured_rank <= 10 && <em className="portal-row__top">Top 10</em>}</strong><small>{item.domain}</small></span>
     <span className="portal-row__fact"><small>Categoria</small><b>{item.category || 'Não categorizado'}</b><small>{region}</small></span>
-    <span className="portal-row__fact"><small>Acessos / mês</small><b>{visits > 0 ? visits.toLocaleString('pt-BR', {notation: 'compact', maximumFractionDigits: 1}) : 'Sem fonte'}</b><small>{item.avg_time_seconds > 0 ? `Tempo médio ${minutes(item.avg_time_seconds)}` : 'Tempo médio: sem fonte'}</small></span>
+    <span className="portal-row__fact"><small>{visits > 0 ? 'Acessos / mês' : 'Porte do portal'}</small>
+      <b>{visits > 0 ? visits.toLocaleString('pt-BR', {notation: 'compact', maximumFractionDigits: 1}) : TIER_LABELS[item.traffic_tier] || 'Sem dados'}</b>
+      <small>{visits > 0 ? (item.avg_time_seconds > 0 ? `Tempo médio ${minutes(item.avg_time_seconds)}` : '') : item.traffic_tier ? 'Estimado' : ''}</small></span>
     <span className="portal-row__action"><RowAddButton name={item.site_title || item.name} selected={selected} onToggle={onToggle}/></span>
   </div>;
 }

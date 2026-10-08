@@ -37,6 +37,9 @@ function splitList(value) {
 }
 const attributeValue = (attributes, key) => attributes.find(entry => String(entry.atributo || '').toLowerCase() === key)?.valor;
 
+const TIER_LABELS = {grande: 'Grande porte', medio: 'Médio porte', pequeno: 'Pequeno porte', nicho: 'Nicho local'};
+const LEAN = {masculino: 'Público mais masculino', feminino: 'Público mais feminino', equilibrado: 'Público equilibrado entre homens e mulheres'};
+
 const number = value => Number(value).toLocaleString('pt-BR');
 const minutes = seconds => Number(seconds) > 0 ? `${Math.floor(seconds / 60)}min ${String(Math.round(seconds % 60)).padStart(2, '0')}s` : null;
 const date = value => value ? new Date(value).toLocaleDateString('pt-BR') : '';
@@ -49,6 +52,8 @@ export function PortalDetail({boot, selection, plan = null}) {
     .filter(entry => entry && typeof entry === 'object' && entry.atributo !== 'status_curadoria');
   const pages = Number(portal.discovered_pages_count);
   const commercial = COMMERCIAL.map(([key, label]) => [label, splitList(attributeValue(attributes, key))]).filter(([, items]) => items.length);
+  const demographics = portal.demographics && typeof portal.demographics === 'object' ? portal.demographics : null;
+  const inherited = portal.popularity_source === 'tranco_parent';
   const place = String(attributeValue(attributes, 'localizacao') || '').trim();
 
   const shots = (portal.prints || []).filter(shot => shot?.url);
@@ -64,6 +69,13 @@ export function PortalDetail({boot, selection, plan = null}) {
       render: () => <div className="pd-profile">{commercial.map(([label, items]) => <div key={label}>
         <span>{label}</span>
         <ul className="pd-chips">{items.map(item => <li key={item}>{item}</li>)}</ul></div>)}</div>},
+    {id: 'demografia', label: 'Perfil do público', hidden: !demographics,
+      hint: `Estimado pela categoria editorial${demographics?.regiao ? ' e pela região' : ''}; confiança ${demographics?.confianca || 'baixa'}. Não é medição do portal.`,
+      render: () => <Facts items={[
+        ['Gênero', LEAN[demographics.genero] || null],
+        ['Faixa etária predominante', demographics.idade_dominante && `${demographics.idade_dominante} anos`],
+        ['Classe social predominante', demographics.classe && `Classe ${demographics.classe}`],
+        ['Região', [demographics.regiao, demographics.uf].filter(Boolean).join(' · ') || null]]}/>},
     {id: 'sobre', label: 'Sobre o portal', render: () => <Facts items={[
       ['Cobertura', place || null],
       ['Domínio', portal.domain && <a href={`https://${portal.domain}`} target="_blank" rel="noreferrer">{portal.domain}</a>],
@@ -74,6 +86,8 @@ export function PortalDetail({boot, selection, plan = null}) {
     eyebrow={portal.featured_rank ? 'Destaque' : portal.category}
     media={shots.length ? {type: 'carousel', items: shots.map(shot => shot.url)} : null}
     metrics={[
+      {icon: 'pulse', label: 'Porte estimado', value: TIER_LABELS[portal.traffic_tier] || null,
+        hint: portal.popularity_rank ? `Ranking público Tranco: #${number(portal.popularity_rank)}${inherited ? ' (do site principal)' : ''}` : 'Fora do ranking público dos 1 milhão de sites mais acessados'},
       {icon: 'users', label: 'Audiência pública', value: portal.audience_estimate, hint: portal.audience_source_url
         ? <a href={portal.audience_source_url} target="_blank" rel="noreferrer">Ver fonte</a> : 'Sem fonte publicada'},
       {icon: 'pulse', label: 'Acessos por mês', value: Number(portal.monthly_visits) > 0 ? number(portal.monthly_visits) : null, hint: portal.metrics_source_url ? <a href={portal.metrics_source_url} target="_blank" rel="noreferrer">Ver fonte</a> : 'Sem fonte publicada'},

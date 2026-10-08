@@ -10,14 +10,14 @@ import './radar-detail.css';
 
 const TABS = [['geral', 'Visão geral'], ['angulos', 'Ângulos estratégicos'], ['sinais', 'Sinais'], ['evidencias', 'Evidências'], ['aplicacoes', 'Aplicações'], ['metodologia', 'Metodologia']];
 const TIER = {A: ['Fonte forte', 'success'], B: ['Fonte regional', 'brand'], C: ['Fonte a conferir', 'neutral']};
-const STATUS = {done: ['Concluído', 'success'], running: ['Em andamento', 'brand'], failed: ['Falhou', 'neutral'], queued: ['Na fila', 'neutral'], cancelled: ['Cancelado', 'neutral']};
+export const STATUS = {done: ['Concluído', 'success'], running: ['Em andamento', 'brand'], failed: ['Falhou', 'neutral'], queued: ['Na fila', 'neutral'], cancelled: ['Cancelado', 'neutral']};
 // Sem nota explicável ainda (Radar v2): os dois primeiros ângulos do ranking são os de maior oportunidade.
 const HIGH_PRIORITY = 2;
-const day = value => value ? new Date(value).toLocaleDateString('pt-BR', {day: '2-digit', month: 'short', year: 'numeric'}).replace(/\./g, '') : '';
-const verified = signal => ['ok', 'bloqueado'].includes(signal.verification?.url_status);
+export const day = value => value ? new Date(value).toLocaleDateString('pt-BR', {day: '2-digit', month: 'short', year: 'numeric'}).replace(/\./g, '') : '';
+export const verified = signal => ['ok', 'bloqueado'].includes(signal.verification?.url_status);
 const count = (value, one, many) => `${value} ${value === 1 ? one : many}`;
 
-function SourceLink({name, url, tier, date}) {
+export function SourceLink({name, url, tier, date}) {
   const level = TIER[tier];
   return <a className="rd-source" href={url} target="_blank" rel="noreferrer noopener"><span>{name}</span>{date && <small>{day(date)}</small>}
     {level && <CaduBadge tone={level[1]}>{level[0]}</CaduBadge>}</a>;
@@ -158,7 +158,7 @@ function TypedAngle({item, isNew, onPlan, busy, pauta, onPauta, chatHref, full, 
   </article>;
 }
 
-function AngleGroups({angles, legacy, changedAngles, full, ...props}) {
+export function AngleGroups({angles, legacy, changedAngles, full, ...props}) {
   return <>{GROUPS.map(([type, title, hint]) => {
     const list = angles.filter(item => item.score_breakdown?.type === type);
     if (!list.length) return null;
@@ -172,7 +172,7 @@ function AngleGroups({angles, legacy, changedAngles, full, ...props}) {
   })}{legacy}</>;
 }
 
-function Signals({signals, planOf, plansUrl, onSignalPlan, planning}) {
+export function Signals({signals, planOf, plansUrl, onSignalPlan, planning}) {
   return <ol className="rd-signals">{signals.map(item => {
     const plan = planOf[item.id];
     return <li key={item.id}>
@@ -188,7 +188,7 @@ function Signals({signals, planOf, plansUrl, onSignalPlan, planning}) {
 }
 
 /** Evidências: uma linha por veículo, com o nível dele na base curada e o que ele sustentou. */
-function Evidence({signals}) {
+export function Evidence({signals}) {
   const rows = useMemo(() => {
     const byName = new Map();
     signals.forEach(item => {
@@ -212,7 +212,7 @@ function Evidence({signals}) {
 }
 
 /** Aplicações: formatos e canais que os ângulos pedem, do mais repetido ao menos. */
-function Applications({angles, catalogUrl}) {
+export function Applications({angles, catalogUrl}) {
   const groups = useMemo(() => {
     const build = key => {
       const map = new Map();

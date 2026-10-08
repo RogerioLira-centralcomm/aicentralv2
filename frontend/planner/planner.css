@@ -1927,3 +1927,6 @@ a.planner-card:focus-visible { outline: 2px solid var(--colors-brand-600, #07945
 .pd-chips a { color: inherit; text-decoration: none; }
 .pd-chips li:has(a):hover { background: var(--colors-brand-50, #ecfdf3); color: var(--colors-brand-800, #085d3a); }
 .pd-chips.is-soft li { background: none; border: 1px dashed var(--planner-line, #d0d5dd); color: var(--planner-muted, #667085); }
+
+.pd-bullets { display: grid; gap: 6px; margin: 0; padding-left: 18px; }
+.pd-bullets a { color: var(--colors-brand-800, #085d3a); font-weight: 600; }

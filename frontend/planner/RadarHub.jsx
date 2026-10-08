@@ -1,16 +1,31 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {CaduBadge} from '../cadu-design-system/components/CaduBadge.jsx';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {Illustration} from './Illustration.jsx';
 import {PlannerSelect} from './PlannerSelect.jsx';
 import {radarChatUrl} from './RadarDetail.jsx';
-import {RadarRuns, RUN_STATUS} from './RadarRuns.jsx';
+import {upperFirst} from './api.js';
+import {useConfirm} from './useConfirm.jsx';
 import './radar-hub.css';
 
-const TABS = [['radares', 'Meus radares', 'pulse'], ['pautas', 'Pautas salvas', 'library'], ['alta', 'Em alta', 'analysis'], ['recentes', 'Recentes', 'history'], ['salvos', 'Notícias salvas', 'check']];
-const PERIODS = [[7, 'Últimos 7 dias'], [30, 'Últimos 30 dias'], [90, 'Últimos 90 dias']];
-const TIER = {A: 'Fonte forte', B: 'Fonte regional', C: 'Fonte a conferir'};
+const TABS = [['radares', 'Meus radares'], ['pontuais', 'Solicitações pontuais'], ['pautas', 'Pautas salvas']];
+const STATUS_FILTERS = [['todos', 'Todos'], ['ativo', 'Ativos'], ['pausado', 'Pausados'], ['concluido', 'Concluídos']];
+const SORTS = [['recentes', 'Mais recentes'], ['novos', 'Mais novidades'], ['nome', 'Nome (A–Z)']];
+const PHASE = {programado: ['Ativo', 'success'], em_execucao: ['Em execução', 'brand'], pausado: ['Pausado', 'neutral'], concluido: ['Concluído', 'brand'], falha: ['Atenção', 'warning']};
+const plain = value => String(value || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const hueOf = text => [...String(text)].reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) % 360, 7);
+const filterOf = phase => ({programado: 'ativo', em_execucao: 'ativo', pausado: 'pausado', concluido: 'concluido', falha: 'ativo'})[phase] || 'concluido';
+
+/** "Hoje, 14:35" · "07 out, 09:12". */
+export function stamp(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  const time = date.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
+  if (date.toDateString() === new Date().toDateString()) return `Hoje, ${time}`;
+  return `${date.toLocaleDateString('pt-BR', {day: '2-digit', month: 'short'}).replace(/\./g, '')}, ${time}`;
+}
+
 /** Pautas de conteúdo salvas em todos os radares: prontas para o Cadu Chat produzir. */
 function PautasList({boot, request, notify}) {
   const [items, setItems] = useState(null);
@@ -39,199 +54,150 @@ function PautasList({boot, request, notify}) {
   })}</div>;
 }
 
-const SOURCES_SHOWN = 5;
-const day = value => value ? new Date(value).toLocaleDateString('pt-BR', {day: '2-digit', month: 'short', year: 'numeric'}).replace(/\./g, '') : '';
-const sinceDays = value => value ? (Date.now() - new Date(value).getTime()) / 86400000 : Infinity;
-const plain = value => String(value || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-const hueOf = text => [...String(text)].reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) % 360, 7);
-
-/** O feed não traz imagem da matéria: a capa mostra o que importa para priorizar, o dia da publicação. */
-function Cover({item}) {
-  const date = new Date(item.published_at || item.detected_at);
-  const hue = 130 + (hueOf(item.source) % 70);
-  return <div className="rh-cover" aria-hidden="true" style={{background: `linear-gradient(135deg, hsl(${hue} 45% 14%), hsl(${hue + 20} 55% 30%))`}}>
-    <span>{date.toLocaleDateString('pt-BR', {day: '2-digit'})}</span>
-    <small>{date.toLocaleDateString('pt-BR', {month: 'short', year: 'numeric'}).replace(/\./g, '').replace(' de ', ' ')}</small>
-  </div>;
+/** Menu ⋯ de um radar: abrir, pausar/retomar e apagar (os dois últimos só para radares ativos). */
+export function RadarMenu({radar, href, onAct, align = 'right'}) {
+  const [open, setOpen] = useState(false);
+  const root = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const outside = event => { if (!root.current?.contains(event.target)) setOpen(false); };
+    const escape = event => { if (event.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', outside);
+    document.addEventListener('keydown', escape);
+    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape); };
+  }, [open]);
+  const watch = radar.kind === 'watch';
+  const paused = radar.phase === 'pausado';
+  const run = action => { setOpen(false); onAct(radar, action); };
+  return <span className="rl-menu" ref={root}>
+    <button type="button" className="rl-menu__button" aria-haspopup="menu" aria-expanded={open} aria-label={`Ações de ${radar.title}`} onClick={() => setOpen(value => !value)}><Icon name="more" size={16}/></button>
+    {open && <div className={`rl-menu__list is-${align}`} role="menu">
+      {href && <a role="menuitem" href={href}>Abrir radar</a>}
+      {watch && <button type="button" role="menuitem" onClick={() => run(paused ? 'ativo' : 'pausado')}>{paused ? 'Retomar' : 'Pausar'}</button>}
+      {watch && <button type="button" role="menuitem" className="is-danger" onClick={() => run('delete')}>Apagar radar</button>}
+    </div>}
+  </span>;
 }
 
-function Tag({tone = 'plain', children}) { return <span className={`rh-tag rh-tag--${tone}`}>{children}</span>; }
+export function RadarTile({title, size = 40}) {
+  const hue = 130 + (hueOf(title) % 150);
+  return <span className="rl-tile" aria-hidden="true" style={{width: size, height: size, background: `hsl(${hue} 60% 94%)`, color: `hsl(${hue} 55% 32%)`}}>{(title || '?').trim().charAt(0).toUpperCase()}</span>;
+}
 
-function NewsCard({item, onSave, onPlan, planning, radarUrl, plansUrl}) {
-  const lead = item.angles.find(angle => angle.status !== 'em_plano') || null;
-  return <article className="rh-card">
-    <Cover item={item}/>
-    <div className="rh-card__body">
-      <div className="rh-card__tags">
-        <Tag>{item.theme_label}</Tag>
-        {item.tier && <Tag tone={item.tier === 'A' ? 'good' : 'plain'}>{TIER[item.tier]}</Tag>}
-        {item.angle_count > 0 && <Tag tone="brand"><Icon name="pulse" size={12}/>{item.angle_count === 1 ? 'Oportunidade' : `${item.angle_count} oportunidades`}</Tag>}
-      </div>
-      <h3><a href={item.url} target="_blank" rel="noreferrer noopener">{item.title}</a></h3>
-      {item.summary && <p>{item.summary}</p>}
-      {lead && <small className="rh-card__angle"><b>Ângulo:</b> {lead.title}</small>}
-      <div className="rh-card__cta">{item.plan
-        ? <CaduButton size="sm" variant="secondary" href={`${plansUrl}/${encodeURIComponent(item.plan.id)}`}>Abrir plano</CaduButton>
-        : <CaduButton size="sm" variant="secondary" loading={planning === item.id} onClick={() => onPlan(item)}>Criar planejamento</CaduButton>}</div>
-      {item.run_id && <a className="rh-card__radar" href={`${radarUrl}?run=${encodeURIComponent(item.run_id)}`}>Ver a busca completa</a>}
-      <footer>
-        <span className="rh-card__source"><i aria-hidden="true">{(item.source || '?').trim().charAt(0)}</i><em>{item.source}</em><small>{day(item.published_at || item.detected_at)}</small></span>
-        <span className="rh-card__actions">
-          <button type="button" className={`rh-icon${item.saved ? ' is-on' : ''}`} aria-pressed={item.saved} aria-label={item.saved ? 'Remover dos salvos' : 'Salvar'} title={item.saved ? 'Remover dos salvos' : 'Salvar'} onClick={() => onSave(item)}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill={item.saved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
-          </button>
-          <a className="rh-icon" href={item.url} target="_blank" rel="noreferrer noopener" aria-label="Abrir a fonte" title="Abrir a fonte"><Icon name="external" size={16}/></a>
-        </span>
-      </footer>
-    </div>
-  </article>;
+function Row({radar, names, href, onAct}) {
+  const phase = PHASE[radar.phase] || PHASE.concluido;
+  const theme = names[radar.brand_ref] || names[radar.project_ref] || '';
+  const title = upperFirst(radar.title || 'Radar sem nome');
+  const description = radar.focus && plain(radar.focus) !== plain(radar.title) ? upperFirst(radar.focus) : '';
+  const fresh = radar.changes.signals;
+  const [every, hours] = (radar.schedule?.label || 'Pontual').split(' · ');
+  return <tr className="rl-row">
+    <td><a className="rl-name" href={href}><RadarTile title={title}/><span><strong>{title}</strong>{description && <small>{description}</small>}</span></a></td>
+    <td>{theme ? <span className="rl-theme">{theme}</span> : <span className="rl-dash">—</span>}</td>
+    <td><span className="rl-two">{every}<small>{hours || ''}</small></span></td>
+    <td>{stamp(radar.latest.created_at)}</td>
+    <td><span className={`rl-results${fresh ? ' is-new' : ''}`}><i aria-hidden="true"/><span>{fresh} {fresh === 1 ? 'novo' : 'novos'}<small>{radar.latest.signals} no total</small></span></span></td>
+    <td><CaduBadge tone={phase[1]}>{phase[0]}</CaduBadge></td>
+    <td className="rl-end"><RadarMenu radar={radar} href={href} onAct={onAct}/></td>
+  </tr>;
 }
 
 /**
- * Resultados dos radares: o que as buscas acharam, com tema, fonte e os ângulos que cada notícia sustenta.
- * O assistente de busca ("Novo radar") fica em `?novo=1`; aqui só se lê, filtra, salva e vira plano.
+ * Radar: a lista dos radares (recorrentes e buscas pontuais) em tabela. Cada linha abre o radar,
+ * onde estão os resultados, os sinais e os ângulos. O assistente de criação fica em `?novo=1`.
  */
 export function RadarHub({boot, request, notify}) {
   const newUrl = `${boot.urls.radar}?novo=1`;
   const [tab, setTab] = useState('radares');
-  const [data, setData] = useState(null);
-  const [theme, setTheme] = useState('todos');
-  const [period, setPeriod] = useState(30);
+  const [radars, setRadars] = useState(null);
   const [query, setQuery] = useState('');
-  const [sources, setSources] = useState([]);
-  const [allSources, setAllSources] = useState(false);
-  const [planning, setPlanning] = useState('');
-  const [runs, setRuns] = useState(null);
-  const [filters, setFilters] = useState({brand: '', status: '', days: 0});
-
+  const [status, setStatus] = useState('todos');
+  const [sort, setSort] = useState('recentes');
+  const [busy, setBusy] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
   const names = useMemo(() => Object.fromEntries([...(boot.contextBar?.brands || []), ...(boot.contextBar?.projects || [])].map(entry => [entry.ref, entry.name])), [boot.contextBar]);
+
+  const load = useCallback(() => request('/radar/radars').then(result => setRadars(result.radars || [])), [request]);
+  useEffect(() => { load().catch(error => { setRadars([]); notify({tone: 'error', message: error.message}); }); }, [load, notify]);
+  // Uma busca em andamento atualiza sozinha.
   useEffect(() => {
-    // O tema de cada notícia é o assunto do radar que a achou (ou a marca, se a busca não teve tema).
-    request('/radar/feed?days=90').then(result => setData({items: (result.items || []).map(item => {
-      const label = item.radar || names[item.brand_ref] || names[item.project_ref] || 'Sem tema';
-      return {...item, theme: label, theme_label: label};
-    })})).catch(error => { setData({items: []}); notify({tone: 'error', message: error.message}); });
-  }, [request, notify, names]);
+    if (!(radars || []).some(item => item.phase === 'em_execucao')) return undefined;
+    const timer = window.setTimeout(() => load().catch(() => {}), 4000);
+    return () => window.clearTimeout(timer);
+  }, [radars, load]);
 
-  useEffect(() => { request('/radar/runs?limit=100').then(result => setRuns(result.runs || [])).catch(() => setRuns([])); }, [request]);
-
-  const inPeriod = useMemo(() => (data?.items || []).filter(item => sinceDays(item.published_at || item.detected_at) <= period), [data, period]);
-  const searched = useMemo(() => {
-    const needle = plain(query.trim());
-    return needle ? inPeriod.filter(item => plain(`${item.title} ${item.summary} ${item.source} ${item.radar}`).includes(needle)) : inPeriod;
-  }, [inPeriod, query]);
-  const themes = useMemo(() => {
-    const counts = new Map();
-    searched.forEach(item => counts.set(item.theme, (counts.get(item.theme) || 0) + 1));
-    return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pt-BR')).map(([id, count]) => ({id, label: id, count}));
-  }, [searched]);
-  const sourceList = useMemo(() => {
-    const counts = new Map();
-    searched.filter(item => theme === 'todos' || item.theme === theme).forEach(item => counts.set(item.source, (counts.get(item.source) || 0) + 1));
-    return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pt-BR'));
-  }, [searched, theme]);
-  const visible = useMemo(() => {
-    let list = searched.filter(item => (theme === 'todos' || item.theme === theme) && (!sources.length || sources.includes(item.source)));
-    if (tab === 'salvos') list = list.filter(item => item.saved);
-    return [...list].sort(tab === 'alta'
-      ? (a, b) => b.score - a.score
-      : (a, b) => new Date(b.published_at || b.detected_at) - new Date(a.published_at || a.detected_at));
-  }, [searched, theme, sources, tab]);
-  const total = searched.filter(item => theme === 'todos' || item.theme === theme).length;
-
-  const toggleSource = name => setSources(current => current.includes(name) ? current.filter(entry => entry !== name) : [...current, name]);
-  const save = useCallback(async item => {
-    const next = !item.saved;
-    const mark = value => setData(current => ({...current, items: current.items.map(entry => entry.id === item.id ? {...entry, saved: value} : entry)}));
-    mark(next);
-    try { await request(`/radar/signals/${item.id}/saved`, {method: 'PUT', body: JSON.stringify({saved: next})}); }
-    catch (error) { mark(!next); notify({tone: 'error', message: error.message}); }
-  }, [request, notify]);
-  // A notícia vira o briefing de um plano novo.
-  const plan = useCallback(async item => {
-    setPlanning(item.id);
+  const act = async (radar, action) => {
+    setBusy(true);
     try {
-      const created = await request(`/radar/signals/${item.id}/plan`, {method: 'POST', body: JSON.stringify({})});
-      window.location.assign(`${boot.urls.plans}/${encodeURIComponent(created.plan.id)}`);
-    } catch (error) { notify({tone: 'error', message: error.message}); setPlanning(''); }
-  }, [request, notify, boot.urls.plans]);
+      if (action === 'delete') {
+        if (!await confirm({title: `Apagar o radar "${radar.title}"?`, description: 'As consultas já feitas continuam no histórico.', confirmLabel: 'Apagar radar', tone: 'danger'})) return;
+        await request(`/radar/watches/${radar.id}`, {method: 'DELETE'});
+      } else {
+        await request(`/radar/watches/${radar.id}`, {method: 'PATCH', body: JSON.stringify({status: action})});
+      }
+      await load();
+    } catch (error) {
+      notify({tone: 'error', message: error.message});
+    } finally {
+      setBusy(false);
+    }
+  };
 
-  const highlights = useMemo(() => [...(data?.items || [])].sort((a, b) => b.score - a.score).slice(0, 4), [data]);
-  const loading = data === null;
-  const shownSources = allSources ? sourceList : sourceList.slice(0, SOURCES_SHOWN);
-  const savedCount = (data?.items || []).filter(item => item.saved).length;
+  const ofKind = useMemo(() => (radars || []).filter(item => item.kind === (tab === 'pontuais' ? 'single' : 'watch')), [radars, tab]);
+  const counts = useMemo(() => {
+    const result = {todos: ofKind.length, ativo: 0, pausado: 0, concluido: 0};
+    ofKind.forEach(item => { result[filterOf(item.phase)] += 1; });
+    return result;
+  }, [ofKind]);
+  const visible = useMemo(() => {
+    const needle = plain(query.trim());
+    const list = ofKind.filter(item => (status === 'todos' || filterOf(item.phase) === status)
+      && (!needle || plain(`${item.title} ${item.focus} ${names[item.brand_ref] || ''} ${names[item.project_ref] || ''}`).includes(needle)));
+    const order = {
+      recentes: (a, b) => new Date(b.activity_at) - new Date(a.activity_at),
+      novos: (a, b) => b.changes.signals - a.changes.signals || new Date(b.activity_at) - new Date(a.activity_at),
+      nome: (a, b) => a.title.localeCompare(b.title, 'pt-BR'),
+    }[sort];
+    return [...list].sort(order);
+  }, [ofKind, status, query, sort, names]);
+  const counted = kind => (radars || []).filter(item => item.kind === kind).length;
+  const tabCount = {radares: counted('watch'), pontuais: counted('single')};
+  const enabled = Boolean(boot.features?.radar);
+  const loading = radars === null;
 
-  const setFilter = (key, value) => setFilters(current => ({...current, [key]: current[key] === value ? (key === 'days' ? 0 : '') : value}));
-  const brandCounts = useMemo(() => {
-    const counts = new Map();
-    (runs || []).forEach(run => { const key = run.brand_ref || ''; if (key) counts.set(key, (counts.get(key) || 0) + 1); });
-    return [...counts].map(([ref, total]) => ({ref, total, name: names[ref] || ref})).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'pt-BR'));
-  }, [runs, names]);
-  const statusCounts = useMemo(() => {
-    const counts = {};
-    (runs || []).forEach(run => { counts[run.status] = (counts[run.status] || 0) + 1; });
-    return Object.entries(counts);
-  }, [runs]);
-  const side = (title, children) => <section className="rw-group"><h2>{title}</h2>{children}</section>;
+  return <div className="rl">
+    {confirmDialog}
+    <header className="rl-head">
+      <div><h1>Radar</h1><p>Monitore o mercado, concorrentes e tendências para melhores decisões.</p></div>
+      {enabled ? <CaduButton href={newUrl}><Icon name="plus" size={16}/>Novo radar</CaduButton> : <CaduBadge tone="brand">Em breve</CaduBadge>}
+    </header>
+    <div className="rl-tabs" role="tablist" aria-label="Visões do Radar">
+      {TABS.map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'is-active' : ''} onClick={() => { setTab(id); setStatus('todos'); }}>
+        {label}{tabCount[id] != null && <span>{tabCount[id]}</span>}</button>)}
+    </div>
 
-  return <div className="rw">
-    <aside className="rw-side" aria-label="Radar">
-      <div className="rw-side__title"><h1>Radar</h1><p>Sinais de mercado para melhores decisões.</p></div>
-      {boot.features?.radar && <CaduButton href={newUrl}><Icon name="plus" size={16}/>Novo radar</CaduButton>}
-      <nav aria-label="Visões do Radar">
-        {TABS.map(([id, label, icon]) => <button key={id} type="button" aria-current={tab === id ? 'page' : undefined} className={tab === id ? 'is-active' : ''} onClick={() => setTab(id)}>
-          <Icon name={icon} size={16}/><span>{label}</span>{id === 'salvos' && savedCount > 0 && <b>{savedCount}</b>}
-          {id === 'radares' && runs && runs.length > 0 && <b>{runs.length}</b>}</button>)}
-      </nav>
-      {tab === 'radares' && <>
-        {brandCounts.length > 0 && side('Marcas', <ul>{brandCounts.slice(0, 8).map(entry => <li key={entry.ref}>
-          <button type="button" className={filters.brand === entry.ref ? 'is-active' : ''} onClick={() => setFilter('brand', entry.ref)}><span>{entry.name}</span><b>{entry.total}</b></button></li>)}</ul>)}
-        {statusCounts.length > 0 && side('Status', <ul>{statusCounts.map(([id, total]) => <li key={id}>
-          <button type="button" className={filters.status === id ? 'is-active' : ''} onClick={() => setFilter('status', id)}><span>{(RUN_STATUS[id] || [id])[0]}</span><b>{total}</b></button></li>)}</ul>)}
-        {side('Período', <ul>{[[30, 'Últimos 30 dias'], [90, 'Últimos 90 dias'], [365, 'Últimos 12 meses']].map(([days, label]) => <li key={days}>
-          <button type="button" className={filters.days === days ? 'is-active' : ''} onClick={() => setFilter('days', days)}><span>{label}</span></button></li>)}</ul>)}
-      </>}
-    </aside>
+    {tab === 'pautas' ? <PautasList boot={boot} request={request} notify={notify}/> : <>
+      <label className="rl-search"><Icon name="search" size={16}/>
+        <input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar radares por nome, tema, marca ou palavra-chave…" aria-label="Buscar radares"/></label>
+      <div className="rl-filters">
+        <div className="rl-chips" role="group" aria-label="Status">
+          {STATUS_FILTERS.map(([id, label]) => <button key={id} type="button" aria-pressed={status === id} className={status === id ? 'is-active' : ''} onClick={() => setStatus(id)}>
+            {label}<span>{counts[id]}</span></button>)}
+        </div>
+        <div className="rl-sort"><PlannerSelect ariaLabel="Ordenar" value={sort} onChange={setSort} options={SORTS.map(([value, label]) => ({value, label}))}/></div>
+      </div>
 
-    <section className="rw-main">
-      {tab === 'pautas' ? <><h2 className="rw-title rp-title">Pautas salvas</h2><PautasList boot={boot} request={request} notify={notify}/></>
-        : tab === 'radares' ? <RadarRuns boot={boot} request={request} notify={notify} runs={runs} names={names} filters={filters} firstUse={data !== null && (data.items || []).length === 0 && runs !== null && runs.length === 0}/>
-        : <>
-          <div className="rh-toolbar">
-            <h2 className="rw-title">{TABS.find(([id]) => id === tab)[1]}<span>{visible.length}</span></h2>
-            <label className="rh-search"><Icon name="search" size={16}/><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar insights, temas ou fontes…" aria-label="Buscar nos resultados"/></label>
-            <div className="rh-select"><PlannerSelect ariaLabel="Tema" value={theme} onChange={value => { setTheme(value); setSources([]); }}
-              options={[{value: 'todos', label: 'Todos os temas'}, ...themes.map(entry => ({value: entry.id, label: entry.label}))]}/></div>
-            <div className="rh-select"><PlannerSelect ariaLabel="Período" value={String(period)} onChange={value => setPeriod(Number(value))}
-              options={PERIODS.map(([value, label]) => ({value: String(value), label}))}/></div>
-          </div>
-          <div className="rh-layout">
-          <aside className="rh-side" aria-label="Filtros">
-            <h2>Temas</h2>
-            <ul>
-              <li><button type="button" className={theme === 'todos' ? 'is-active' : ''} onClick={() => { setTheme('todos'); setSources([]); }}><span>Todos os temas</span><b>{searched.length}</b></button></li>
-              {themes.map(entry => <li key={entry.id}><button type="button" className={theme === entry.id ? 'is-active' : ''} onClick={() => { setTheme(entry.id); setSources([]); }}><span>{entry.label}</span><b>{entry.count}</b></button></li>)}
-            </ul>
-            {sourceList.length > 0 && <>
-              <h2>Fontes</h2>
-              <ul>
-                <li><label className="rh-check"><input type="checkbox" checked={!sources.length} onChange={() => setSources([])}/><span>Todas as fontes</span><b>{total}</b></label></li>
-                {shownSources.map(([name, count]) => <li key={name}><label className="rh-check"><input type="checkbox" checked={sources.includes(name)} onChange={() => toggleSource(name)}/><span>{name}</span><b>{count}</b></label></li>)}
-              </ul>
-              {sourceList.length > SOURCES_SHOWN && <button type="button" className="rh-more" onClick={() => setAllSources(value => !value)}>{allSources ? 'Ver menos' : 'Ver mais'}</button>}
-            </>}
-          </aside>
-          <div className="rh-main">
-            {loading ? <p className="planner-muted">Carregando…</p> : visible.length === 0 ? <div className={(data.items || []).length ? 'radar-empty-result' : 'rh-empty'}>
-              {(data.items || []).length ? <Illustration slot="radar-empty"/> : <img src="/static/images/planner/radar-empty-v1.webp" alt="" loading="lazy"/>}
-              <div><strong>{tab === 'salvos' ? 'Nada salvo ainda.' : (data.items || []).length ? 'Nada com esses filtros.' : 'Seus radares ainda não trouxeram resultados.'}</strong>
-                <p className="planner-muted">{tab === 'salvos' ? 'Use o marcador de um card para guardar o que vale revisitar.' : (data.items || []).length ? 'Mude o tema, a fonte ou o período.' : 'Monte um radar com um tema ou uma marca. Cada busca traz notícias com data recente e link que abre, e os ângulos para virar plano.'}</p>
-                {boot.features?.radar && !(data.items || []).length && <CaduButton size="sm" href={newUrl}>Criar o primeiro radar</CaduButton>}
-                {!boot.features?.radar && <CaduBadge tone="brand">Em breve</CaduBadge>}</div>
-            </div> : <div className="rh-grid">{visible.map(item => <NewsCard key={item.id} item={item} onSave={save} onPlan={plan} planning={planning} radarUrl={boot.urls.radar} plansUrl={boot.urls.plans}/>)}</div>}
-          </div>
-          </div>
-        </>}
-    </section>
+      {loading ? <p className="planner-muted">Carregando…</p> : visible.length === 0 ? <div className={ofKind.length ? 'radar-empty-result' : 'rh-empty'}>
+        {ofKind.length ? <Illustration slot="radar-empty"/> : (tab === 'radares' && <img src="/static/images/planner/radar-empty-v1.webp" alt="" loading="lazy"/>)}
+        <div><strong>{ofKind.length ? 'Nenhum radar com esses filtros.' : tab === 'pontuais' ? 'Nenhuma solicitação pontual ainda.' : 'Você ainda não tem radares.'}</strong>
+          <p className="planner-muted">{ofKind.length ? 'Mude a busca ou o status.' : tab === 'pontuais' ? 'As buscas avulsas que você fizer aparecem aqui.' : 'Monte uma busca em "Novo radar" e ligue "Me avise quando houver novidade" para ela se repetir sozinha.'}</p>
+          {enabled && !ofKind.length && <CaduButton size="sm" href={newUrl}>Criar {tab === 'pontuais' ? 'uma busca' : 'o primeiro radar'}</CaduButton>}</div>
+      </div> : <div className="rl-table" aria-busy={busy}>
+        <table>
+          <thead><tr><th scope="col">Radar</th><th scope="col">Tema</th><th scope="col">Frequência</th><th scope="col">Última execução</th><th scope="col">Resultados</th><th scope="col">Status</th><th scope="col"><span className="rl-sr">Ações</span></th></tr></thead>
+          <tbody>{visible.map(radar => <Row key={radar.id} radar={radar} names={names} onAct={act} href={`${boot.urls.radar}?radar=${encodeURIComponent(radar.id)}`}/>)}</tbody>
+        </table>
+      </div>}
+    </>}
   </div>;
 }

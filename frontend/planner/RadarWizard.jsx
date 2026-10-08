@@ -90,10 +90,6 @@ export function RadarWizard({boot, request, busy, onSubmit, context}) {
     ['Praça', data.places], ['Janela', `últimos ${data.recency_days} dias`]].filter(([, value]) => value);
 
   return <section className="wizard wizard--radar" aria-label="Novo radar">
-    <header className="wizard__bar">
-      <span className="wizard__title">Novo radar<em>Beta</em></span>
-      <nav className="wizard__links" aria-label="Voltar"><a href={boot.urls.radar}><Icon name="pulse" size={16}/>Voltar ao Radar</a></nav>
-    </header>
     <aside className="wizard__art">
       {/* A lista do que já foi criado mora na vitrine do Radar; aqui a coluna é sempre a ilustração do passo. */}
       <div className="wizard__intro">

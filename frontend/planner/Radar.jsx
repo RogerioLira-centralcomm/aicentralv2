@@ -5,11 +5,13 @@ import {PlannerHeader} from './PlannerHeader.jsx';
 import {RadarDetail} from './RadarDetail.jsx';
 import {PENDING_STEPS, RunChain} from './RadarRun.jsx';
 import {RadarHub} from './RadarHub.jsx';
+import {RadarWorkspace} from './RadarWorkspace.jsx';
 import {RADAR_DRAFT_KEY, RadarWizard} from './RadarWizard.jsx';
 
 export function RadarPage({boot, request, notify, context}) {
   const enabled = Boolean(boot.features?.radar);
   const runId = new URLSearchParams(window.location.search).get('run');
+  const radarId = new URLSearchParams(window.location.search).get('radar');
   const creating = new URLSearchParams(window.location.search).get('novo') === '1';
   const [run, setRun] = useState(null);
   const [loading, setLoading] = useState(Boolean(runId));
@@ -92,6 +94,7 @@ export function RadarPage({boot, request, notify, context}) {
     return <PlannerHeader title="Radar" description="O que está em buzz agora e os ângulos para falar de um conceito."
       meta={<CaduBadge tone="brand">Em breve</CaduBadge>}/>;
   }
+  if (radarId && !run) return <RadarWorkspace boot={boot} radarId={radarId} names={names} request={request} notify={notify} onPlan={createPlan} onSignalPlan={createSignalPlan} planning={planning}/>;
   if (!runId && !run && !creating) return <RadarHub boot={boot} request={request} notify={notify}/>;
   if (!runId && !run) {
     // Ao clicar em buscar a animação entra na hora, sem esperar a resposta; se falhar, o wizard volta com o rascunho.

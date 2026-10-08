@@ -1930,3 +1930,16 @@ a.planner-card:focus-visible { outline: 2px solid var(--colors-brand-600, #07945
 
 .pd-bullets { display: grid; gap: 6px; margin: 0; padding-left: 18px; }
 .pd-bullets a { color: var(--colors-brand-800, #085d3a); font-weight: 600; }
+
+/* Channel and portal logos: one softer, rounded shape everywhere, including logos shown loose on a card cover. */
+.logo-tile--xs { border-radius: 6px; }
+.logo-tile--sm { border-radius: 10px; }
+.logo-tile--md { border-radius: 12px; }
+.logo-tile--lg { border-radius: 14px; }
+.planner-select__list .logo-tile, .planner-select__value .logo-tile { border-radius: 7px; }
+.channel-card__photo > img.channel-card__logo { border-radius: 16px; }
+.channel-card__mark { border-radius: 12px; overflow: hidden; }
+.planner-mark--lg { border-radius: 14px; }
+.planner-mark--sm { border-radius: 10px; }
+.pdb__mark { border-radius: 16px; overflow: hidden; }
+.ph__leading .logo-tile--lg, .ph__leading .planner-mark--lg { border-radius: 12px; }

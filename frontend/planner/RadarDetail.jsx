@@ -9,7 +9,7 @@ import {RunChain, tokens} from './RadarRun.jsx';
 import './radar-detail.css';
 
 const TABS = [['geral', 'Visão geral'], ['angulos', 'Ângulos estratégicos'], ['sinais', 'Sinais'], ['evidencias', 'Evidências'], ['aplicacoes', 'Aplicações'], ['metodologia', 'Metodologia']];
-const TIER = {A: ['Fonte forte', 'success'], B: ['Fonte regional', 'brand'], C: ['Fonte a conferir', 'neutral']};
+export const TIER = {A: ['Fonte forte', 'success'], B: ['Fonte regional', 'brand'], C: ['Fonte a conferir', 'neutral']};
 export const STATUS = {done: ['Concluído', 'success'], running: ['Em andamento', 'brand'], failed: ['Falhou', 'neutral'], queued: ['Na fila', 'neutral'], cancelled: ['Cancelado', 'neutral']};
 // Sem nota explicável ainda (Radar v2): os dois primeiros ângulos do ranking são os de maior oportunidade.
 const HIGH_PRIORITY = 2;

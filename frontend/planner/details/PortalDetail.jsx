@@ -14,10 +14,28 @@ function ProgrammaticPanel({portal}) {
     Number(portal.ads_txt_records) > 0 ? ['ok', `${Number(portal.ads_txt_records).toLocaleString('pt-BR')} vendedores autorizados`] : null,
     PROGRAMMATIC[portal.programmatic_status] || (portal.programmatic_status ? ['unknown', 'Site não pôde ser lido'] : null),
   ].filter(Boolean);
-  if (!rows.length) return null;
+  if (!rows.length) return <p className="planner-muted">Verificação pendente: ainda não sabemos se este portal vende programática.</p>;
   const icon = {ok: 'check', warn: 'pulse', no: 'close', unknown: 'search'};
   return <ul className="pd-checks">{rows.map(([state, label]) => <li key={label} className={`is-${state}`}><Icon name={icon[state]} size={16}/>{label}</li>)}</ul>;
 }
+
+// Cadastro fields that help a media planner, in plain words. Everything else we hold is technical and stays out of the page.
+const COMMERCIAL = [
+  ['modelos_de_negocio_declarados', 'Formatos de publicidade que o portal vende'],
+  ['caracteristicas_declaradas', 'Linha editorial e seções'],
+];
+/** "A, B (x, y), C" -> ["A", "B (x, y)", "C"]: commas inside parentheses do not split. */
+function splitList(value) {
+  const parts = []; let depth = 0; let current = '';
+  for (const char of String(value ?? '')) {
+    if (char === '(') depth += 1;
+    if (char === ')') depth = Math.max(0, depth - 1);
+    if (char === ',' && depth === 0) { parts.push(current.trim()); current = ''; } else current += char;
+  }
+  parts.push(current.trim());
+  return parts.filter(Boolean);
+}
+const attributeValue = (attributes, key) => attributes.find(entry => String(entry.atributo || '').toLowerCase() === key)?.valor;
 
 const number = value => Number(value).toLocaleString('pt-BR');
 const minutes = seconds => Number(seconds) > 0 ? `${Math.floor(seconds / 60)}min ${String(Math.round(seconds % 60)).padStart(2, '0')}s` : null;
@@ -30,6 +48,8 @@ export function PortalDetail({boot, selection, plan = null}) {
   const attributes = (Array.isArray(portal.public_attributes) ? portal.public_attributes : [])
     .filter(entry => entry && typeof entry === 'object' && entry.atributo !== 'status_curadoria');
   const pages = Number(portal.discovered_pages_count);
+  const commercial = COMMERCIAL.map(([key, label]) => [label, splitList(attributeValue(attributes, key))]).filter(([, items]) => items.length);
+  const place = String(attributeValue(attributes, 'localizacao') || '').trim();
 
   const shots = (portal.prints || []).filter(shot => shot?.url);
 
@@ -38,17 +58,14 @@ export function PortalDetail({boot, selection, plan = null}) {
       hint: 'Capturas reais da página, sem edição. O que aparece como anúncio é o que o portal exibiu naquele momento.',
       render: () => <Gallery name={portal.name} photos={shots.map(shot => ({url: shot.url,
         caption: `${shot.kind === 'home' ? 'Página inicial' : shot.kind} · capturada em ${date(shot.captured_at)}`}))}/>},
-    {id: 'programatica', label: 'Pronto para programática', hidden: !portal.ads_txt_status && !portal.programmatic_status,
-      hint: portal.ads_txt_checked_at ? `Leitura automática do site em ${date(portal.ads_txt_checked_at)}.` : 'Leitura automática do site.',
+    {id: 'programatica', label: 'Pronto para programática', hint: portal.ads_txt_checked_at ? `Leitura automática do site em ${date(portal.ads_txt_checked_at)}.` : 'Ainda não lemos o ads.txt deste portal.',
       render: () => <ProgrammaticPanel portal={portal}/>},
-    {id: 'evidencias', label: 'Evidências públicas', count: attributes.length, hint: 'Características verificadas em fontes públicas.',
-      render: () => attributes.length ? <ul className="pd-evidence">{attributes.map((entry, index) => <li key={`${entry.atributo}-${index}`}>
-        <span>{String(entry.atributo || 'Característica').replaceAll('_', ' ')}</span>
-        <strong>{String(entry.valor ?? '—')}</strong>
-        <small>{[entry.observed_at && `Verificado em ${entry.observed_at}`].filter(Boolean).join('')}
-          {entry.source_url && <a href={entry.source_url} target="_blank" rel="noreferrer">Fonte</a>}</small>
-      </li>)}</ul> : <p className="planner-muted">Ainda não há características públicas verificadas para este portal.</p>},
+    {id: 'comercial', label: 'Perfil comercial', hidden: !commercial.length, hint: 'O que o portal declara vender e sobre o que escreve.',
+      render: () => <div className="pd-profile">{commercial.map(([label, items]) => <div key={label}>
+        <span>{label}</span>
+        <ul className="pd-chips">{items.map(item => <li key={item}>{item}</li>)}</ul></div>)}</div>},
     {id: 'sobre', label: 'Sobre o portal', render: () => <Facts items={[
+      ['Cobertura', place || null],
       ['Domínio', portal.domain && <a href={`https://${portal.domain}`} target="_blank" rel="noreferrer">{portal.domain}</a>],
       ['Categoria', portal.category], ['Escopo', portal.scope === 'nacional_premium' ? 'Premium nacional' : portal.uf ? `Regional · ${portal.uf}` : null], ['Título do site', portal.site_title], ['Período da audiência', portal.audience_period], ['Audiência conferida em', date(portal.audience_checked_at)]]}/>},
   ];

@@ -1883,3 +1883,10 @@ a.planner-card:focus-visible { outline: 2px solid var(--colors-brand-600, #07945
 /* Audience card: full text, and the three facts sit on one baseline at the foot of every card. */
 .audience-card .channel-card__stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 10px; margin-top: auto; padding-top: 12px; }
 .audience-card .channel-card__stats dt, .audience-card .channel-card__stats dd { overflow: visible; text-overflow: clip; white-space: normal; }
+
+/* Portal: commercial profile as chips instead of a raw evidence dump. */
+.pd-profile { display: grid; gap: 20px; }
+.pd-profile > div { display: grid; gap: 8px; }
+.pd-profile > div > span { color: var(--planner-muted); font-size: 13px; }
+.pd-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.pd-chips li { padding: 6px 12px; border-radius: 999px; background: var(--planner-soft, #f9fafb); font-size: 13px; font-weight: 500; }

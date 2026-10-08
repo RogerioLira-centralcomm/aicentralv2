@@ -93,6 +93,15 @@ def crawl_planner_portals_ads_command(limit, scope, stale_days, workers):
     click.echo(f'{len(domains)} portais verificados.')
 
 
+@bp.cli.command('rank-planner-portals-top')
+def rank_planner_portals_top_command():
+    """Mark the curated national Top 10 of portals in the showcase."""
+    from ..cadu_planner import portals
+    applied = portals.apply_top_ranking()
+    missing = [domain for domain in portals.TOP_PORTAL_DOMAINS if domain not in applied]
+    click.echo(f'{len(applied)} portais marcados no Top 10.' + (f' Fora do catálogo: {", ".join(missing)}' if missing else ''))
+
+
 @bp.cli.command('radar-due')
 @click.option('--limit', default=3, show_default=True, help='Máximo de radares rodados nesta chamada.')
 def radar_due(limit):

@@ -38,6 +38,10 @@ PORTAL_COLUMNS = """id, name, domain, category, description, audience_estimate,
 # rolling deployment keeps working before that migration reaches the database.
 
 SCOPES = {'nacional_premium', 'regional'}
+# Editorial Top 10 of national portals (curated, not measured); `featured_rank` 1..10 marks it in the showcase.
+TOP_PORTAL_DOMAINS = ('g1.globo.com', 'uol.com.br', 'oglobo.globo.com', 'folha.uol.com.br', 'estadao.com.br',
+                      'cnnbrasil.com.br', 'r7.com', 'metropoles.com', 'terra.com.br', 'ge.globo.com')
+TOP_FILTER = 'top10'
 ADS_TXT_FILTERS = {'valid': ('valid',), 'partial': ('partial',), 'missing': ('missing', 'empty', 'invalid'),
                    'unchecked': (None,)}
 PROGRAMMATIC_FILTERS = {'any': ('detected', 'ads_txt_declared'), 'detected': ('detected',),
@@ -61,7 +65,10 @@ def _filters(query, category, scope, uf, ads_txt, programmatic):
     if categories:
         where.append('category = ANY(%s)')
         params.append(categories)
-    if scope:
+    if scope == TOP_FILTER:
+        where.append('featured_rank BETWEEN 1 AND %s')
+        params.append(len(TOP_PORTAL_DOMAINS))
+    elif scope:
         if scope not in SCOPES:
             raise BadRequest('Escopo inválido.')
         where.append("COALESCE(to_jsonb(cadu_planner_portals)->>'scope', 'regional') = %s")
@@ -577,6 +584,26 @@ def save_crawl_result(result):
             saved = cur.rowcount > 0
         conn.commit()
         return saved
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def apply_top_ranking():
+    """Write featured_rank 1..N for TOP_PORTAL_DOMAINS (in that order) and clear stale ranks in that range."""
+    from ..db import get_db
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('UPDATE cadu_planner_portals SET featured_rank = NULL WHERE featured_rank BETWEEN 1 AND %s '
+                        'AND domain <> ALL(%s)', (len(TOP_PORTAL_DOMAINS), list(TOP_PORTAL_DOMAINS)))
+            applied = []
+            for rank, domain in enumerate(TOP_PORTAL_DOMAINS, start=1):
+                cur.execute('UPDATE cadu_planner_portals SET featured_rank = %s WHERE domain = %s AND active = TRUE', (rank, domain))
+                if cur.rowcount:
+                    applied.append(domain)
+        conn.commit()
+        return applied
     except Exception:
         conn.rollback()
         raise

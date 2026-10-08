@@ -118,7 +118,7 @@ function channelGroups(records, category, groupBy) {
   return [...groups].map(([title, items]) => ({title, items}));
 }
 
-const SCOPES = [['', 'Todos'], ['nacional_premium', 'Premium nacionais'], ['regional', 'Regionais']];
+const SCOPES = [['', 'Todos'], ['top10', 'Top 10'], ['nacional_premium', 'Premium nacionais'], ['regional', 'Regionais']];
 const BULK_LIMIT = 200;
 
 function minutes(seconds) {
@@ -134,7 +134,7 @@ function PortalRow({item, urls, selected, onToggle}) {
     <a className="planner-card__hit" href={catalogDetailUrl(urls, 'portais', item)} aria-label={`Ver portal ${item.site_title || item.name}`}/>
     {item.print_url && <span className="portal-row__shot"><img src={item.print_url} alt="" loading="lazy" onError={event => { event.currentTarget.parentElement.hidden = true; }}/></span>}
     <LogoTile src={item.favicon_url || (item.domain ? `https://${item.domain}/favicon.ico` : '')} name={item.name} icon="browser" size="md"/>
-    <span className="portal-row__main"><strong>{item.site_title || item.name}</strong><small>{item.domain}</small></span>
+    <span className="portal-row__main"><strong>{item.site_title || item.name}{item.featured_rank >= 1 && item.featured_rank <= 10 && <em className="portal-row__top">Top 10</em>}</strong><small>{item.domain}</small></span>
     <span className="portal-row__fact"><small>Categoria</small><b>{item.category || 'Não categorizado'}</b><small>{region}</small></span>
     <span className="portal-row__fact"><small>Acessos / mês</small><b>{visits > 0 ? visits.toLocaleString('pt-BR', {notation: 'compact', maximumFractionDigits: 1}) : 'Sem fonte'}</b><small>{item.avg_time_seconds > 0 ? `Tempo médio ${minutes(item.avg_time_seconds)}` : 'Tempo médio: sem fonte'}</small></span>
     <span className="portal-row__action"><RowAddButton name={item.site_title || item.name} selected={selected} onToggle={onToggle}/></span>
@@ -236,7 +236,7 @@ export function CatalogPage({boot, request, selection, notify}) {
     return () => { current = false; controller.abort(); };
   }, [request, notify, kind, portalMode, search, category, city, categories, filters, offset]);
 
-  const setFilter = (key, value) => { setFilters(current => ({...current, [key]: value, ...(key === 'scope' && value === 'nacional_premium' ? {uf: ''} : {})})); setOffset(0); };
+  const setFilter = (key, value) => { setFilters(current => ({...current, [key]: value, ...(key === 'scope' && (value === 'nacional_premium' || value === 'top10') ? {uf: ''} : {})})); setOffset(0); };
   const toggleCategory = value => { setCategories(current => current.includes(value) ? current.filter(item => item !== value) : [...current, value]); setOffset(0); };
   const [bulkBusy, setBulkBusy] = useState(false);
   async function addFiltered() {
@@ -290,7 +290,7 @@ export function CatalogPage({boot, request, selection, notify}) {
   const portalFields = portalMode && <>
     <div className="aud-bar__field"><PlannerSelect label="Escopo" value={filters.scope} onChange={value => setFilter('scope', value)}
       options={SCOPES.map(([value, label]) => ({value, label}))}/></div>
-    {filters.scope !== 'nacional_premium' && (boot.ufs || []).length > 0 && <div className="aud-bar__field"><PlannerSelect label="Estado" value={filters.uf} onChange={value => setFilter('uf', value)}
+    {!['nacional_premium', 'top10'].includes(filters.scope) && (boot.ufs || []).length > 0 && <div className="aud-bar__field"><PlannerSelect label="Estado" value={filters.uf} onChange={value => setFilter('uf', value)}
       options={[{value: '', label: 'Todos'}, ...boot.ufs.map(value => ({value, label: value}))]}/></div>}
     {(boot.categories || []).length > 0 && <div className="aud-bar__field aud-bar__field--multi"><details className="planner-multi" ref={categoryMenu}>
       <summary><span>Categorias:</span> <b>{categories.length ? `${categories.length} selecionadas` : 'Todas'}</b></summary>

@@ -448,7 +448,7 @@ def list_runs(client_id, *, limit=30, watch_id=None):
         params.append(str(watch_id))
     params.append(max(1, min(int(limit), 100)))
     rows = repository.rows(f'''SELECT r.id, r.status, r.focus, r.brand_ref, r.project_ref, r.params, r.trigger, r.watch_id, r.error, r.steps,
-                                      r.cost, r.created_at, r.finished_at, COUNT(o.id) AS opportunities,
+                                      r.cost, r.created_at, r.finished_at, r.created_by, COUNT(o.id) AS opportunities,
                                       COUNT(o.id) FILTER (WHERE o.status = 'em_plano') AS in_plan,
                                       COUNT(o.id) FILTER (WHERE o.score_breakdown->>'type' = 'midia') AS media_angles,
                                       COUNT(o.id) FILTER (WHERE o.score_breakdown->>'type' = 'conteudo') AS content_angles,

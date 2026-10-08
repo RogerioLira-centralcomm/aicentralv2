@@ -65,7 +65,16 @@ def _load(client_id):
             signals.setdefault(str(row['run_id']), []).append(row)
         for row in repository.rows('SELECT run_id, title FROM cadu_radar_opportunities WHERE run_id = ANY(%s::uuid[])', (ids,)):
             angles.setdefault(str(row['run_id']), []).append(row)
+    authors = {}
+    creators = sorted({int(run['created_by']) for run in runs if run.get('created_by')})
+    if creators:
+        try:
+            authors = {int(row['id']): row['nome'] for row in repository.rows(
+                'SELECT id_contato_cliente AS id, nome_completo AS nome FROM tbl_contato_cliente WHERE id_contato_cliente = ANY(%s)', (creators,))}
+        except Exception:  # sem o nome a lista só omite "por fulano"
+            authors = {}
     for run in runs:
+        run['author'] = ((authors.get(int(run['created_by'])) or '').split() or [''])[0] if run.get('created_by') else ''
         run['signal_rows'] = [{'url': row['url'], 'source': row['source'], 'ok': (row.get('verification') or {}).get('url_status') in ('ok', 'bloqueado')}
                               for row in signals.get(str(run['id']), [])]
         run['angle_rows'] = [{'title': row['title']} for row in angles.get(str(run['id']), [])]
@@ -83,7 +92,7 @@ def _user_state(client_id, user_id):
 def _summary(run):
     return {'id': str(run['id']), 'status': run['status'], 'created_at': run['created_at'], 'finished_at': run.get('finished_at'),
             'error': run.get('error'), 'trigger': run.get('trigger'), 'tokens': run.get('tokens', 0),
-            'signals': len(run['signal_rows']), 'sources': len({row['source'] for row in run['signal_rows'] if row['ok']}),
+            'author': run.get('author') or '', 'signals': len(run['signal_rows']), 'sources': len({row['source'] for row in run['signal_rows'] if row['ok']}),
             'angles': len(run['angle_rows']), 'in_plan': int(run.get('in_plan') or 0),
             'broken_sources': int(run.get('broken_sources') or 0)}
 
@@ -143,6 +152,24 @@ def list_radars(client_id, user_id):
     return radars
 
 
+def _attach_logos(run):
+    """Logo e cor do canal em cada item da combinação de mídia, para a lista de ângulos mostrar os canais sugeridos."""
+    media = []
+    for angle in (run or {}).get('opportunities') or []:
+        detail = angle.get('score_breakdown') or {}
+        media += (detail.get('media') or []) + ((detail.get('content') or {}).get('channels') or [])
+    if not media:
+        return
+    try:
+        channels = {row['id']: row for row in repository.catalog('canais')}
+    except Exception:  # catálogo fora do ar não derruba o radar: os canais saem sem logo
+        return
+    for entry in media:
+        row = channels.get(entry.get('id'))
+        if row:
+            entry['logo_path'], entry['color'] = row.get('logo_path'), row.get('cor')
+
+
 def get_radar(client_id, user_id, radar_id):
     """O radar com o histórico de execuções, a última execução completa e o que mudou desde a última visita."""
     groups, watch_rows = _groups(client_id)
@@ -158,6 +185,7 @@ def get_radar(client_id, user_id, radar_id):
         item['new_signals'], item['new_angles'] = (len(part) for part in _novelty(run, [earlier])) if earlier else (None, None)
         history.append(item)
     latest = pipeline.get_run(client_id, group[0]['id'])
+    _attach_logos(latest)
     changed = {'signals': [], 'angles': []}
     seen_at = radar['last_seen_at']
     baseline = _seen_before(group, seen_at)

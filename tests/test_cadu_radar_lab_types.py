@@ -28,7 +28,7 @@ def test_breakdown_by_type_keeps_legacy_fields():
                                    'mensagem': 'm', 'canais': [{'id': 5, 'name': 'Globoplay', 'formato': 'vídeo', 'por_que': 'x'}]})
     assert media['type'] == 'midia' and media['media'][0]['id'] == 5 and media['channels'] == ['Globoplay'] and media['formats'] == ['vídeo']
     content = angle_types.breakdown({'tipo': 'conteudo', 'tema': 't', 'formatos': ['artigo'], 'tom': 'leve'})
-    assert content['content'] == {'theme': 't', 'message': None, 'formats': ['artigo'], 'tone': 'leve'} and content['formats'] == ['artigo']
+    assert content['content'] == {'theme': 't', 'message': None, 'formats': ['artigo'], 'tone': 'leve', 'channels': []} and content['formats'] == ['artigo']
     intel = angle_types.breakdown({'tipo': 'inteligencia', 'impacto': 'i', 'observar': 'o'})
     assert intel['impact'] == 'i' and intel['watch'] == 'o' and intel['channels'] == []
 

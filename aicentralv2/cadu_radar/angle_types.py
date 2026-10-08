@@ -70,7 +70,8 @@ def validate(raw, buzz_ids, catalog):
             'janela': _short(item.get('janela'), 120), 'buzz': ids,
             'objetivo': item.get('objetivo') if item.get('objetivo') in OBJECTIVES else None,
             'publico': _short(item.get('publico'), 300), 'pracas': _short(item.get('pracas'), 160), 'periodo': _period(item.get('periodo')),
-            'mensagem': _short(item.get('mensagem'), 300), 'canais': channels[:4] if kind == 'midia' else [], 'canais_invalidos': invalid,
+            'mensagem': _short(item.get('mensagem'), 300), 'canais': channels[:4] if kind in ('midia', 'conteudo') else [], 'canais_invalidos': invalid,
+            'assunto': _short(item.get('assunto'), 30),
             'tema': _short(item.get('tema'), 200), 'formatos': [_short(value, 60) for value in item.get('formatos') or [] if value][:5],
             'tom': _short(item.get('tom'), 120), 'impacto': _short(item.get('impacto'), 400), 'observar': _short(item.get('observar'), 400)})
     return kept
@@ -79,7 +80,7 @@ def validate(raw, buzz_ids, catalog):
 def breakdown(angle):
     """Campos do tipo para ``score_breakdown``; ``formats`` e ``channels`` seguem preenchidos para telas antigas."""
     kind = angle.get('tipo')
-    data = {'type': kind, 'why_type': angle.get('por_que_o_tipo')}
+    data = {'type': kind, 'why_type': angle.get('por_que_o_tipo'), 'subject': angle.get('assunto') or ''}
     if kind == 'midia':
         data.update(objective=angle.get('objetivo'), audience=angle.get('publico'), places=angle.get('pracas'),
                     period=angle.get('periodo') or {}, message=angle.get('mensagem'), media=angle.get('canais') or [],
@@ -87,7 +88,7 @@ def breakdown(angle):
                     channels=[entry['name'] for entry in angle.get('canais') or []])
     elif kind == 'conteudo':
         data.update(content={'theme': angle.get('tema'), 'message': angle.get('mensagem'), 'formats': angle.get('formatos') or [],
-                             'tone': angle.get('tom')}, formats=angle.get('formatos') or [], channels=[])
+                             'tone': angle.get('tom'), 'channels': [{'id': entry['id'], 'name': entry['name']} for entry in angle.get('canais') or []]}, formats=angle.get('formatos') or [], channels=[])
     elif kind == 'inteligencia':
         data.update(impact=angle.get('impacto'), watch=angle.get('observar'), formats=[], channels=[])
     else:

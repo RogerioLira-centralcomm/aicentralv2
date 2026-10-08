@@ -23,9 +23,10 @@ import {PlanCreatePage, PlansPage} from './PlansPages.jsx';
 import {PlanDock} from './PlanDock.jsx';
 import {PlannerNotice, usePlanSelection} from './PlannerUi.jsx';
 import {PublicDoc, PublicPlan} from './PublicViews.jsx';
+import {PublicFinalPlan} from './FinalPlan.jsx';
 import {CATALOG_KINDS, createPlannerApi} from './api.js';
 
-const PUBLIC_VIEWS = new Set(['public-plan', 'public-doc']);
+const PUBLIC_VIEWS = new Set(['public-plan', 'public-doc', 'public-final-plan']);
 
 function App({boot}) {
   const request = useMemo(() => createPlannerApi(boot.csrf), [boot.csrf]);
@@ -54,6 +55,7 @@ function App({boot}) {
 
   const view = (() => {
     if (boot.view === 'public-plan') return <PublicPlan plan={plan}/>;
+    if (boot.view === 'public-final-plan') return <PublicFinalPlan document={boot.document}/>;
     if (boot.view === 'public-doc') return <PublicDoc document={boot.document}/>;
     if (boot.view === 'plan-detail') return <PlanDetail boot={boot} request={request} plan={plan} setPlan={setPlan} selection={selection} notify={notify}/>;
     if (boot.view === 'channel-detail') return <ChannelDetail boot={boot} selection={selection} plan={plan}/>;

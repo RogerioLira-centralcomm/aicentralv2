@@ -7,6 +7,7 @@ import {CaduSelectField, CaduTextAreaField} from '../cadu-design-system/componen
 import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {AddItemsDialog} from './AddItemsDialog.jsx';
+import {FinalPlanPanel} from './FinalPlan.jsx';
 import {MediaBalance} from './MediaBalance.jsx';
 import {FinalReviewDialog, TimeSaved} from './PlanReview.jsx';
 import {LogoTile, PlannerPanel} from './PlannerUi.jsx';
@@ -157,10 +158,11 @@ export function PlanDetail({boot, request, plan, setPlan, selection, notify}) {
           <span id="bloco-distribuicao" className="planner-anchor"/>
           <MediaBalance request={request} plan={plan} setPlan={setPlan} notify={notify} onEditDirection={() => selectSection('briefing')}/>
         </PlannerPanel>
-        <PlannerPanel className={`planner-block${SECTION_BLOCK[active] === 'criativos' ? ' is-active' : ''}`} title="Sistema criativo" description="Big idea, mensagens por etapa e a matriz de peças por canal.">
+        <PlannerPanel className={`planner-block${SECTION_BLOCK[active] === 'criativos' ? ' is-active' : ''}`} title="Sistema criativo (opcional)" description="Big idea, mensagens por etapa e a matriz de peças por canal.">
           <span id="bloco-criativos" className="planner-anchor"/>
-          <p className="planner-muted">O Cadu vai montar a matriz criativa com você a partir dos canais e formatos escolhidos, pronta para seguir ao Studio.</p>
+          <p className="planner-muted">Esta etapa é opcional: se você já tem o seu sistema criativo ou não precisa dele, pode ignorá-la e o plano segue normalmente. Se quiser, o Cadu monta a matriz criativa com você a partir dos canais e formatos escolhidos, pronta para seguir ao Studio.</p>
         </PlannerPanel>
+        <FinalPlanPanel boot={boot} request={request} plan={plan} notify={notify}/>
       </div>
       <div className="planner-workbench__side">
         <CaduPanel boot={boot} request={request} plan={plan} setPlan={setPlan} notify={notify} active={active}/>

@@ -2,6 +2,7 @@ import React from 'react';
 import {CaduEmptyState} from '../cadu-design-system/components/CaduEmptyState.jsx';
 import {MODULE_LABELS, objectiveLabel, plainText} from './api.js';
 import {MetricTiles} from './details/DetailLayout.jsx';
+import {FinalPlanDocument} from './FinalPlan.jsx';
 
 const KIND_ORDER = ['audiencias', 'canais', 'formatos', 'interativos', 'portais', 'places'];
 const money = value => Number(value) ? Number(value).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL', maximumFractionDigits: 0}) : '';
@@ -107,6 +108,11 @@ export function PublicPlan({plan}) {
           && <small>{[item.snapshot?.category, item.snapshot?.audience].filter(value => value && String(value).length <= 40).join(' · ')}</small>}
       </li>)}</ul>
     </section>)}
+
+    {plan.final_plan && <section className="pp-section">
+      <h2>Plano final</h2>
+      <FinalPlanDocument document={plan.final_plan}/>
+    </section>}
 
     {pending.length > 0 && <section className="pp-section pp-pending">
       <h2>Para alinharmos</h2>

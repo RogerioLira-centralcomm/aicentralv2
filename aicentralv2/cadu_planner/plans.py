@@ -207,6 +207,8 @@ def public_plan(token):
     plan['allocation_by_channel'] = {str(row['resource_id']): row for row in plan['allocations']}
     plan['story'] = _public_story(plan['id'])
     plan['pending'] = _public_pending(plan['id'])
+    from .final_plan import public_for_plan
+    plan['final_plan'] = public_for_plan(plan['id'])
     return plan
 
 

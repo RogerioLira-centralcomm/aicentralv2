@@ -28,8 +28,11 @@ SECTIONS = (
     ('canais', 'Canais e papéis', 'Onde comprar e qual o papel de cada canal no plano.'),
     ('formatos', 'Formatos e interativos', 'As peças que cada canal pede.'),
     ('verba', 'Verba e cenários', 'Faixa de investimento, distribuição e alcance provável.'),
-    ('criativos', 'Sistema criativo', 'Big idea, mensagens e matriz de peças.'),
+    ('criativos', 'Sistema criativo', 'Opcional: big idea, mensagens e matriz de peças.'),
 )
+# Seções opcionais: o usuário pode ter o seu próprio material ou não precisar dele.
+# Não contam no progresso, não bloqueiam o plano e o Cadu não as propõe por conta própria.
+OPTIONAL_SECTIONS = frozenset({'criativos'})
 SECTION_KEYS = tuple(key for key, _label, _hint in SECTIONS)
 STATES = ('vazia', 'proposta', 'aceita', 'editada', 'travada')
 DONE_STATES = {'aceita', 'editada', 'travada'}
@@ -79,11 +82,12 @@ def overview(plan: dict, pending: dict | None = None) -> dict:
         state = section_state(plan, key)
         if key in pending and state['state'] not in ('travada',):
             state = {**state, 'state': 'proposta', 'proposal_id': pending[key]}
-        sections.append({'key': key, 'label': label, 'hint': hint, **state})
-    done = sum(1 for item in sections if item['state'] in DONE_STATES)
-    next_open = next((item['key'] for item in sections if item['state'] in ('vazia', 'proposta')), None)
-    return {'sections': sections, 'done': done, 'total': len(sections),
-            'percent': round(done * 100 / len(sections)), 'next': next_open,
+        sections.append({'key': key, 'label': label, 'hint': hint, 'optional': key in OPTIONAL_SECTIONS, **state})
+    required = [item for item in sections if not item['optional']]
+    done = sum(1 for item in required if item['state'] in DONE_STATES)
+    next_open = next((item['key'] for item in required if item['state'] in ('vazia', 'proposta')), None)
+    return {'sections': sections, 'done': done, 'total': len(required),
+            'percent': round(done * 100 / len(required)), 'next': next_open,
             'revision': int(plan.get('revision') or 0)}
 
 

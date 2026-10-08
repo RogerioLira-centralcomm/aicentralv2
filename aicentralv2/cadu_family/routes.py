@@ -1132,6 +1132,65 @@ def planner_plan_briefing_review_estimate(plan_id):
     return jsonify(estimated_tokens=revisions.briefing_billing_estimate(selected['client_id'], user['id'], plan_id), passes=3)
 
 
+@bp.get('/api/planner/plans/<plan_id>/final-plan')
+def planner_final_plan(plan_id):
+    from ..cadu_planner import final_plan
+    user, selected = context.identity(), context.resolve()
+    return jsonify(final_plan=final_plan.get_state(selected['client_id'], user['id'], plan_id))
+
+
+@bp.get('/api/planner/plans/<plan_id>/final-plan/estimate')
+def planner_final_plan_estimate(plan_id):
+    from ..cadu_planner import final_plan
+    user, selected = context.identity(), context.resolve()
+    return jsonify(estimated_tokens=final_plan.estimate(selected['client_id'], user['id'], plan_id))
+
+
+@bp.post('/api/planner/plans/<plan_id>/final-plan')
+def planner_final_plan_generate(plan_id):
+    """Generate a new version of the final plan; sections the user edited survive unless overwrite is confirmed."""
+    from ..cadu_planner import final_plan
+    selected = writable_context()
+    user = context.identity()
+    body = request.get_json(silent=True) or {}
+    try:
+        return jsonify(final_plan=final_plan.generate(selected['client_id'], user['id'], plan_id,
+                                                      overwrite_edited=bool(body.get('overwrite_edited')),
+                                                      instructions=str(body.get('instructions') or '')[:2000]))
+    except InsufficientToolCredits as exc:
+        abort(409, description=str(exc))
+
+
+@bp.put('/api/planner/plans/<plan_id>/final-plan/sections/<section>')
+def planner_final_plan_section(plan_id, section):
+    from ..cadu_planner import final_plan
+    selected = writable_context()
+    user = context.identity()
+    body = request.get_json(silent=True) or {}
+    return jsonify(final_plan=final_plan.update_section(selected['client_id'], user['id'], plan_id, section,
+                                                        body.get('body'), expected_version=body.get('expected_version')))
+
+
+@bp.post('/api/planner/plans/<plan_id>/final-plan/share')
+def planner_final_plan_share(plan_id):
+    from ..cadu_planner import final_plan
+    selected = writable_context()
+    user = context.identity()
+    body = request.get_json(silent=True) or {}
+    return jsonify(final_plan=final_plan.set_share(selected['client_id'], user['id'], plan_id, bool(body.get('enabled'))))
+
+
+@bp.post('/api/planner/plans/<plan_id>/final-plan/project')
+def planner_final_plan_to_project(plan_id):
+    from ..cadu_planner import final_plan
+    selected = writable_context()
+    user = context.identity()
+    try:
+        return jsonify(final_plan=final_plan.add_to_project(selected['client_id'], user['id'], plan_id))
+    except InsufficientToolCredits as exc:
+        abort(409, description=str(exc))
+
+
 @bp.put('/api/planner/plans/<plan_id>/allocations')
 def planner_plan_allocations(plan_id):
     from ..cadu_planner import plans
@@ -1348,6 +1407,18 @@ def planner_public_plan(token):
     from ..cadu_planner import plans
     plan = plans.public_plan(token)
     return _render_planner('public-plan', 'planos', plan['title'], public=True, plan=plan)
+
+
+@bp.get('/planner/planos/public/final/<token>')
+def planner_public_final_plan(token):
+    """Open link to the current final plan: read-only, no login, no internal data."""
+    from ..cadu_planner import final_plan
+    document = final_plan.public_by_token(token)
+    response = make_response(_render_planner('public-final-plan', 'planos', document['title'] or 'Plano final',
+                                             public=True, document=document))
+    response.headers['X-Robots-Tag'] = 'noindex, nofollow'
+    response.headers['Cache-Control'] = 'no-store'
+    return response
 
 
 @bp.get('/planner/<kind>/<int:item_id>')

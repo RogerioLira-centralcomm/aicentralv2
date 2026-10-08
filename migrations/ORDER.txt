@@ -201,3 +201,5 @@ migrations/run_add_screenshotone_integration_credential.py
 migrations/run_sql_migration.py add_cadu_radar_v3.sql
 # Radar: estado de leitura e favoritos por pessoa (aditivo, idempotente; depende de add_cadu_radar_v2.sql).
 migrations/run_sql_migration.py add_cadu_radar_v4.sql
+# Plano final do Planner: versões do documento e link público próprio (aditivo, idempotente; depende de add_cadu_planner_plans.sql).
+migrations/run_sql_migration.py add_cadu_planner_final_plans.sql

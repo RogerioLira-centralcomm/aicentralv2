@@ -354,3 +354,105 @@ def get_media_plan(context: RequestContext, arguments: dict) -> dict:
     result = {key: plan.get(key) for key in ("id", "title", "objective", "status", "briefing", "items", "allocations", "readiness", "updated_at")}
     result["calculation_review"] = review_media_plan(result)
     return result
+
+
+def _final_plan_result(state: dict, plan_id: str) -> dict:
+    """Chat-facing view of the final plan: clean markdown to quote, plus the state needed to edit it."""
+    from ....product_domains import product_url
+    if not state.get("available"):
+        raise ToolError("O plano final ainda não está disponível neste ambiente.")
+    if not state.get("exists"):
+        return {"plan_id": plan_id, "exists": False,
+                "next_step": "Gere o plano final no bloco 'Plano final' do plano no Planner, ou use planner.revise_final_plan."}
+    result = {key: state.get(key) for key in ("version", "stale", "edited_sections", "origin", "created_at", "markdown")}
+    result["plan_id"] = plan_id
+    result["sections"] = [{"key": s.get("key"), "title": s.get("title"), "body": s.get("body") or ""}
+                          for s in (state.get("document") or {}).get("sections") or []]
+    result["planner_url"] = product_url("planner", f"/planos/{plan_id}")
+    if state.get("share_enabled") and state.get("share_token"):
+        result["public_url"] = product_url("planner", f"/planos/public/final/{state['share_token']}")
+    result["guidance"] = ("Mostre o markdown à pessoa e pergunte o que ajustar. Edição de texto de uma seção: "
+                          "planner.update_final_plan_section. Ajuste que depende dos dados do plano: planner.revise_final_plan. "
+                          "Toda alteração cria uma versão nova.")
+    return result
+
+
+def _final_plan_call(call):
+    try:
+        return call()
+    except HTTPException as exc:
+        raise ToolInputError(str(exc.description)) from exc
+
+
+@register_tool(
+    name="planner.get_final_plan", capability="planner", effect="read",
+    description=("Lê o plano final (documento gerado a partir do plano de mídia): folha-resumo e seções em markdown limpo "
+                 "para citar na conversa, versão atual, se está desatualizado em relação ao plano e o link público, quando ativo."),
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["plan_id"], "properties": {
+        "plan_id": {"type": "string", "minLength": 1, "maxLength": 100},
+    }, "additionalProperties": False},
+)
+def get_final_plan(context: RequestContext, arguments: dict) -> dict:
+    from ....cadu_planner import final_plan
+    plan_id = str(arguments["plan_id"]).strip()
+    state = _final_plan_call(lambda: final_plan.get_state(context.client_id, context.user_id, plan_id))
+    return _final_plan_result(state, plan_id)
+
+
+@register_tool(
+    name="planner.update_final_plan_section", capability="planner", effect="write",
+    description=("Substitui o texto (markdown) de uma seção do plano final pelo texto que a pessoa aprovou na conversa. "
+                 "Cria uma versão nova e marca a seção como editada pelo usuário; não chama IA e não cobra créditos. "
+                 "Seções: " + ", ".join(("resumo", "visao", "kpis", "praca", "audiencia", "mix", "criativo", "fases",
+                                          "premissas", "proximos_passos", "para_alinharmos")) + "."),
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["request_id", "confirmed", "plan_id", "section", "body"], "properties": {
+        "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
+        "confirmed": {"type": "boolean", "enum": [True]},
+        "plan_id": {"type": "string", "minLength": 1, "maxLength": 100},
+        "section": {"type": "string", "enum": ["resumo", "visao", "kpis", "praca", "audiencia", "mix", "criativo",
+                                                "fases", "premissas", "proximos_passos", "para_alinharmos"]},
+        "body": {"type": "string", "maxLength": 12000},
+        "expected_version": {"type": "integer", "minimum": 1},
+    }, "additionalProperties": False},
+)
+def update_final_plan_section(context: RequestContext, arguments: dict) -> dict:
+    from ....cadu_planner import final_plan
+    from .. import operations
+    plan_id = str(arguments["plan_id"]).strip()
+    payload = {key: arguments[key] for key in ("plan_id", "section", "body", "expected_version") if key in arguments}
+    state = _final_plan_call(lambda: operations.execute(
+        arguments["request_id"], context, "planner.update_final_plan_section", payload,
+        lambda: _final_plan_result(final_plan.update_section(
+            context.client_id, context.user_id, plan_id, arguments["section"], arguments["body"],
+            expected_version=arguments.get("expected_version")), plan_id),
+    ))
+    return state
+
+
+@register_tool(
+    name="planner.revise_final_plan", capability="planner", effect="write",
+    description=("Gera uma versão nova do plano final a partir dos dados atuais do plano e dos ajustes pedidos pela pessoa "
+                 "(instructions). Usa IA e cobra créditos pelo consumo real; confirme com a pessoa antes. Seções editadas "
+                 "pelo usuário são preservadas, a menos que overwrite_edited seja true. Nunca sobrescreve versões anteriores."),
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["request_id", "confirmed", "plan_id"], "properties": {
+        "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
+        "confirmed": {"type": "boolean", "enum": [True]},
+        "plan_id": {"type": "string", "minLength": 1, "maxLength": 100},
+        "instructions": {"type": "string", "maxLength": 2000},
+        "overwrite_edited": {"type": "boolean"},
+    }, "additionalProperties": False},
+)
+def revise_final_plan(context: RequestContext, arguments: dict) -> dict:
+    from ....cadu_planner import final_plan
+    from .. import operations
+    plan_id = str(arguments["plan_id"]).strip()
+    payload = {key: arguments[key] for key in ("plan_id", "instructions", "overwrite_edited") if key in arguments}
+    return _final_plan_call(lambda: operations.execute(
+        arguments["request_id"], context, "planner.revise_final_plan", payload,
+        lambda: _final_plan_result(final_plan.generate(
+            context.client_id, context.user_id, plan_id, overwrite_edited=bool(arguments.get("overwrite_edited")),
+            instructions=str(arguments.get("instructions") or "")), plan_id),
+    ))

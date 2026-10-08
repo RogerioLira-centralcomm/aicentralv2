@@ -25,7 +25,7 @@ export function SectionRail({overview, active, onSelect}) {
         <button type="button" className={`planner-rail__item is-${section.state}${active === section.key ? ' is-active' : ''}`}
           aria-current={active === section.key ? 'step' : undefined} onClick={() => onSelect(section.key)}>
           <span className="planner-rail__dot" aria-hidden="true">{['aceita', 'editada'].includes(section.state) ? <Icon name="check" size={8}/> : null}</span>
-          <span className="planner-rail__copy"><strong>{section.label}</strong><small>{state.label}</small></span>
+          <span className="planner-rail__copy"><strong>{section.label}</strong><small>{section.optional && section.state === 'vazia' ? 'Opcional' : state.label}</small></span>
         </button>
       </li>;
     })}</ol>

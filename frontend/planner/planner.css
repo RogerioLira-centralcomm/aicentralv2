@@ -1807,3 +1807,22 @@ a.planner-card:focus-visible { outline: 2px solid var(--colors-brand-600, #07945
 .pp-pending ul { display: grid; gap: 6px; margin: 0; padding-left: 20px; color: var(--color-text-secondary, #344054); font-size: 15px; }
 .pp-foot { padding-top: 12px; border-top: 1px solid var(--planner-line, #e4e7ec); }
 @media (max-width: 760px) { .planner-public--v2 { padding: 20px; } .pp-blocks, .pp-items { grid-template-columns: minmax(0, 1fr); } }
+
+/* Plano final: folha-resumo + corpo, no Planner e no link público. */
+.final-plan { display: grid; gap: 16px; }
+.final-plan__section { display: grid; gap: 8px; padding-top: 14px; border-top: 1px solid var(--planner-line, #e4e7ec); }
+.final-plan__section:first-child { border-top: 0; padding-top: 0; }
+.final-plan__section.is-summary { padding: 16px; border: 1px solid var(--colors-brand-200, #abefc6); border-radius: 12px; background: #f6fef9; }
+.final-plan__section header { display: flex; align-items: center; gap: 8px; }
+.final-plan__section h3 { margin: 0; font-size: 16px; font-weight: 650; }
+.final-plan__section header > :last-child:not(h3) { margin-left: auto; }
+.final-plan__section p, .final-plan__section li { margin: 0; color: var(--color-text-secondary, #344054); font-size: 15px; line-height: 1.6; }
+.final-plan__section ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.final-plan__table { overflow-x: auto; }
+.final-plan__table table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.final-plan__table th, .final-plan__table td { padding: 8px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--planner-line, #e4e7ec); }
+.final-plan__table th { color: var(--planner-muted, #667085); font-weight: 600; white-space: nowrap; }
+.final-plan__toolbar, .final-plan__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.final-plan__actions { justify-content: flex-end; margin: 8px 0 0; }
+.final-plan__stale { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 10px 12px; border-radius: 10px; background: #fffaeb; color: #93370d; font-size: 14px; }
+.final-plan__note { font-size: 13px; }

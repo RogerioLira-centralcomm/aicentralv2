@@ -270,6 +270,9 @@ def required_scope(tool_name: str) -> str:
         return "brands:write"
     if name in {"artifacts.create_draft", "artifacts.update_draft", "artifacts.restore_version", "artifacts.finalize_to_project", "artifacts.move_project"}:
         return "artifacts:write"
+    if name in {"planner.update_final_plan_section", "planner.revise_final_plan"}:
+        # The final plan is a versioned document: same grant as editing artifacts.
+        return "artifacts:write"
     if name == "resources.create_editable_copy":
         return "artifacts:write"
     if name == "resources.start_image_edit":

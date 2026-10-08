@@ -16,6 +16,9 @@ PUBLIC_TOOL_COSTS = {
     # Planner catalog and plans are read-only reference data: free so agents use them without friction.
     "planner.get_brief": 0,
     "planner.get_media_plan": 0,
+    # Final plan: reading and text edits are free; the AI revision charges real tokens inside the Planner service.
+    "planner.get_final_plan": 0,
+    "planner.update_final_plan_section": 0,
     "planner.list_plans": 0,
     "planner.search_catalog": 0,
     "planner.get_catalog_item": 0,
@@ -67,6 +70,7 @@ INTERNALLY_METERED_TOOLS = {
     "media.generate_image",
     "media.edit_image",
     "media.plan_video",
+    "planner.revise_final_plan",
 }
 
 # Explicit, current public tariff for tools that historically used the

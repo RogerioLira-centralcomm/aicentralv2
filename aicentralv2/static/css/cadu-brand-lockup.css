@@ -64,12 +64,6 @@
 /* Server-rendered product switch (Studio header and server pages): same lockup, caret after the name. */
 .cadu-product-switch > summary.cadu-brand-lockup.cadu-brand-lockup { gap: var(--cadu-brand-gap); }
 .cadu-product-switch > summary.cadu-brand-lockup > i { margin-left: 2px; }
-/* Studio header (dark, 56px like the Planner bar): 10px bar padding + 6px summary padding = logo at 16px; centred → top 16px. */
-@media (min-width: 821px) {
-  .mc-cadu-bar--studio { padding-left: 10px !important; }
-  .mc-cadu-bar--studio .cadu-product-switch > summary.cadu-brand-lockup { padding-left: 6px; }
-}
-.mc-cadu-bar--studio .cadu-brand-lockup.cadu-brand-lockup .cadu-brand-lockup__name { color: var(--studio-nav-text, var(--cadu-brand-ink-dark)); }
 
 /* The Workspace dock is a separate shortcut rail (44px button): it keeps its larger mark. */
 .cadu-ds-dock-solution .cadu-ds-solution-switcher > summary.cadu-brand-lockup.cadu-brand-lockup { width: 44px; height: 44px; justify-content: center; }
@@ -106,9 +100,8 @@
 /* Planner top bar (56px): content left 25, row centre 28. */
 .pn__brand .cadu-brand-lockup { --cadu-brand-dx: -9px; --cadu-brand-dy: 0px; }
 
-/* Studio React top bar (standalone pages, 56px): content left = side padding (18px; 12px on phones); row centre 28. */
-.csu-navbar { --csu-pad-x: 18px; }
-@media (max-width: 760px) { .csu-navbar { --csu-pad-x: 12px; } }
+/* Studio bar (every Studio page, Planner layout, 56px): side padding clamp(16px, 2.4vw, 40px); row centre 28. */
+.csu-navbar { --csu-pad-x: clamp(16px, 2.4vw, 40px); }
 .csu-navbar .csu-navbar__identity .cadu-brand-lockup { --cadu-brand-dx: calc(var(--cadu-brand-inset) - var(--csu-pad-x)); --cadu-brand-dy: 0px; }
 .csu-navbar .cadu-brand-lockup.cadu-brand-lockup .cadu-brand-lockup__name { color: var(--csu-text, var(--cadu-brand-ink-dark)); }
 

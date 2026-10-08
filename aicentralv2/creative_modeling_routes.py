@@ -325,8 +325,22 @@ def modelagem_criativos():
         return redirected
     response = make_response(render_template(
         "cadu_studio/home.html",
-        mc_page="hub",
-        mc_title="A peça na mesa",
+        mc_trocr_csrf=studio_csrf_token(),
+    ))
+    response.headers['Cache-Control'] = 'no-store, private'
+    return response
+
+
+@studio_or_admin_required
+def studio_library():
+    """Production library (legacy page, kept as is until it moves to React)."""
+    redirected = _host_redirect('studio')
+    if redirected:
+        return redirected
+    response = make_response(render_template(
+        "cadu_studio/library.html",
+        mc_page="library",
+        mc_title="Biblioteca",
         mc_trocr_csrf=studio_csrf_token(),
     ))
     response.headers['Cache-Control'] = 'no-store, private'
@@ -2321,6 +2335,7 @@ def register_studio_product_routes(blueprint):
     """Register short, product-owned workspace URLs on the Studio host."""
     blueprint.add_url_rule("/", endpoint="studio_home", view_func=modelagem_criativos)
     blueprint.add_url_rule("/audio", endpoint="studio_audio", view_func=studio_audio)
+    blueprint.add_url_rule("/biblioteca", endpoint="studio_library", view_func=studio_library)
     blueprint.add_url_rule(
         "/direcao-de-marca",
         endpoint="studio_workspace_brand",

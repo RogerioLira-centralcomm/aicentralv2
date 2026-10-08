@@ -3,6 +3,8 @@ import './tokens.css';
 import './navbar.css';
 import '../../aicentralv2/static/css/cadu-brand-lockup.css';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
+import {CaduSolutionSwitcher} from '../cadu-design-system/components/WorkspaceSelectors.jsx';
+import {workspaceSolutionItems} from '../cadu-design-system/workspaceSolutions';
 
 // One navigation for every Studio tool. Keys match the `links` bootstrap shared by the pages.
 export const STUDIO_SECTIONS = [
@@ -121,6 +123,7 @@ export function AccountMenu({user = {}, links = {}}) {
     <button type="button" className="csu-avatar" aria-haspopup="menu" aria-expanded={open} aria-label={`Conta de ${user.name || 'usuário'}`} onClick={() => setOpen(value => !value)}>
       {user.avatar ? <img src={user.avatar} alt=""/> : <span>{initials(user.name)}</span>}
     </button>
+    <span className="csu-account__first" aria-hidden="true">{String(user.name || '').trim().split(/\s+/)[0]}</span>
     {open && <div className="csu-popover csu-account__menu" role="menu">
       <div className="csu-account__who"><strong>{user.name || 'Minha conta'}</strong>{user.email && <small>{user.email}</small>}</div>
       {items.map(([label, href]) => <a key={label} role="menuitem" href={href}>{label}</a>)}
@@ -128,15 +131,43 @@ export function AccountMenu({user = {}, links = {}}) {
   </div>;
 }
 
+const PRODUCT_ICONS = {
+  workspace: '/static/images/cadu/products/cadu-icon.png', planner: '/static/images/cadu/products/planner-icon.png',
+  studio: '/static/images/cadu/products/studio-icon.png', connect: '/static/images/cadu/products/connect-icon.png',
+  skills: '/static/images/cadu/products/skills-icon.png',
+};
+
+/** Product hosts for the solution switcher: given by the page, or derived from the Studio host (studio.x → planner.x). */
+function productUrls(links) {
+  if (links.products) return links.products;
+  const host = typeof location === 'undefined' ? '' : location.hostname;
+  const sibling = name => (/^studio\./.test(host) ? `${location.protocol}//${host.replace(/^studio\./, `${name}.`)}/` : undefined);
+  return {workspace: links.workspace || sibling('workspace'), planner: sibling('planner'), studio: links.home || '/', connect: sibling('reports'), skills: undefined};
+}
+
+/**
+ * One Studio bar for every Studio page, with the Planner's layout in the Studio's dark theme: the product switch,
+ * the tools (icon beside the name) in the middle, then project, tokens and account. Below 1180px it folds into a menu.
+ */
 export default function StudioNavbar({active, links = {}, projects = [], projectId = '', onProjectChange, projectsLoading = false, allowQuick = false, quickLabel,
   credits, user, identity, actions, embedded = false}) {
   const Root = embedded ? 'div' : 'header';
-  return <Root className={`csu-navbar${embedded ? ' csu-navbar--embedded' : ''}`}>
-    {identity !== false && <div className="csu-navbar__identity">{identity || <a className="csu-brand cadu-brand-lockup" href={links.home || '#'} aria-label="Cadu Studio">
-      <img className="cadu-brand-lockup__logo" src="/static/images/cadu/products/studio-icon.png" alt=""/><span className="cadu-brand-lockup__name">Studio</span></a>}</div>}
+  const [menuOpen, setMenuOpen] = useState(false);
+  const solutions = useMemo(() => workspaceSolutionItems({urls: {solutions: productUrls(links)}, solutionIcons: PRODUCT_ICONS}), [links]);
+  useEffect(() => {
+    const onKey = event => { if (event.key === 'Escape') setMenuOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+  return <Root className={`csu-navbar${embedded ? ' csu-navbar--embedded' : ''}${menuOpen ? ' is-menu-open' : ''}`}>
+    {identity !== false && <div className="csu-navbar__identity">{identity || <CaduSolutionSwitcher logo={PRODUCT_ICONS.studio} solutions={solutions}
+      activeId="studio" activeLabel="Studio" showActiveLabel overlay overlayAccent="var(--csu-accent)"/>}</div>}
+    <button type="button" className="csu-navbar__burger" aria-label={menuOpen ? 'Fechar navegação' : 'Abrir navegação'} aria-expanded={menuOpen} onClick={() => setMenuOpen(value => !value)}>
+      <Icon name={menuOpen ? 'close' : 'menu'} size={20}/>
+    </button>
     <nav className="csu-navbar__nav" aria-label="Ferramentas do Studio">
       {STUDIO_SECTIONS.filter(([key]) => links[key]).map(([key, label, icon]) =>
-        <a key={key} href={links[key]} title={label} aria-current={key === active ? 'page' : undefined}><Icon name={icon} size={16}/><span>{label}</span></a>)}
+        <a key={key} href={links[key]} title={label} aria-current={key === active ? 'page' : undefined} onClick={() => setMenuOpen(false)}><Icon name={icon} size={16}/><span>{label}</span></a>)}
     </nav>
     <div className="csu-navbar__meta">
       {onProjectChange && <ProjectPicker projects={projects} projectId={projectId} onChange={onProjectChange} loading={projectsLoading} allowQuick={allowQuick} quickLabel={quickLabel}/>}

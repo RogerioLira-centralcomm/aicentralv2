@@ -62,7 +62,7 @@ function BridgedNavbar({bootstrap, select}) {
   };
   return <StudioNavbar active={bootstrap.active} links={bootstrap.links || {}} user={bootstrap.user || {}}
     projects={state.projects} projectId={state.projectId} projectsLoading={state.loading} allowQuick={state.allowQuick}
-    onProjectChange={select ? onProjectChange : undefined} credits={credits} identity={false} embedded/>;
+    onProjectChange={select ? onProjectChange : undefined} credits={credits}/>;
 }
 
 export function mountStudioNavbar() {

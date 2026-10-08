@@ -135,7 +135,7 @@ frontend_build_step() {
            tailwind.conversations.config.js tailwind.studio.config.js \
            vite.auth.config.mjs vite.conversations.config.mjs \
            vite.reports.config.mjs vite.planner.config.mjs \
-           vite.studio-editor.config.mjs vite.studio-audio.config.mjs vite.studio-ui.config.mjs \
+           vite.studio-editor.config.mjs vite.studio-audio.config.mjs vite.studio-ui.config.mjs vite.studio-home.config.mjs \
        || [ ! -f "aicentralv2/static/css/tailwind/output.css" ]; then
         if [ -x "./build_frontend_fast.sh" ]; then
             FRONTEND_BUILD_SCRIPT="./build_frontend_fast.sh"
@@ -225,6 +225,7 @@ BUILD_OUTPUT_PATHS=(
     "aicentralv2/static/cadu_studio/ui"
     "aicentralv2/static/cadu_studio/lab/react"
     "aicentralv2/static/cadu_studio/audio/react"
+    "aicentralv2/static/cadu_studio/home/react"
     "aicentralv2/static/cadu_studio/editor/react"
     "aicentralv2/static/css/tailwind"
     "aicentralv2/static/css/video-studio.css"

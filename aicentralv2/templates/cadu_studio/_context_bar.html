@@ -9,7 +9,7 @@
     <a id="mcCaduStill" href="{{ studio_url('modelagem_trocar') }}"{% if mc_page == 'trocar' %} class="is-current" aria-current="page"{% endif %}>Editar</a>
     <a id="mcCaduVideo" href="{{ studio_url('modelagem_video') }}"{% if mc_page == 'video' %} class="is-current" aria-current="page"{% endif %}>Vídeos</a>
     <a href="{{ product_url('studio', '/audio') }}"{% if mc_page == 'audio' %} class="is-current" aria-current="page"{% endif %}>Áudio</a>
-    <a href="{{ studio_url('modelagem_criativos') }}#studioLibrary"{% if mc_page == 'hub' %} class="is-current" aria-current="page"{% endif %}>Biblioteca</a>
+    <a href="{{ product_url('studio', '/biblioteca') }}"{% if mc_page in ('hub', 'library') %} class="is-current" aria-current="page"{% endif %}>Biblioteca</a>
     <a href="{{ product_url('studio', '/analyzer') }}"{% if mc_page == 'analyzer' %} class="is-current" aria-current="page"{% endif %}>Analyzer</a>
     {% if studio_lab_enabled is defined and studio_lab_enabled() %}<a href="{{ product_url('studio', '/lab') }}">Lab</a>{% endif %}
   </nav>
@@ -24,7 +24,7 @@
   </div>
 </header>
 <script id="caduStudioNavbarBootstrap" type="application/json">{{ {
-  'active': {'criar': 'create', 'trocar': 'editor', 'video': 'videos', 'audio': 'audio', 'analyzer': 'analyzer'}.get(mc_page, 'home'),
+  'active': {'criar': 'create', 'trocar': 'editor', 'video': 'videos', 'audio': 'audio', 'analyzer': 'analyzer', 'library': 'library'}.get(mc_page, 'home'),
   'creditSummaryUrl': '/workspace/api/creditos/resumo',
   'user': {'name': session.get('user_name', 'Minha conta'), 'email': session.get('user_email', ''), 'avatar': (perfil_contato or {}).get('foto_url') or session.get('user_photo_url', '')},
   'links': {
@@ -34,7 +34,7 @@
     'videos': studio_url('modelagem_video'),
     'audio': product_url('studio', '/audio'),
     'analyzer': product_url('studio', '/analyzer'),
-    'library': studio_url('modelagem_criativos') ~ '#studioLibrary',
+    'library': product_url('studio', '/biblioteca'),
     'lab': product_url('studio', '/lab') if studio_lab_enabled is defined and studio_lab_enabled() else None,
     'credits': product_url('workspace', '/workspace/app/creditos'),
     'profile': product_url('workspace', '/workspace/app/conta?section=perfil'),

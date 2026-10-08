@@ -1,0 +1,37 @@
+/* Studio home (always dark, like every Studio page). */
+html, body { background: var(--csu-bg, #0b1016); }
+.sh-app { min-height: 100dvh; background: var(--csu-bg, #0b1016); color: var(--csu-text, #eef2f6); font-family: var(--csu-font, Inter, system-ui, sans-serif); }
+.sh-main { max-width: 1440px; margin: 0 auto; padding: 32px clamp(16px, 2.4vw, 40px) 80px; }
+.sh-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.sh-head h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.01em; }
+.sh-head p { margin: 6px 0 0; color: var(--csu-muted, #8d99a5); font-size: 14px; }
+.sh-head p strong { color: var(--csu-text-soft, #c3ccd5); font-weight: 600; }
+.sh-filters { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--csu-raised, #161f28); }
+.sh-filters button { height: 32px; padding: 0 14px; border: 0; border-radius: 8px; background: none; color: var(--csu-muted, #8d99a5); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.sh-filters button[aria-pressed="true"] { background: var(--csu-overlay, #1b2531); color: var(--csu-text, #eef2f6); }
+.sh-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin: 0; padding: 0; list-style: none; }
+.sh-card { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--csu-line, rgba(255,255,255,.08)); border-radius: 14px; background: var(--csu-surface, #10171e); }
+.sh-card__media { position: relative; display: block; aspect-ratio: 4 / 5; padding: 0; border: 0; background: #0d1319; cursor: zoom-in; }
+.sh-card__media img { width: 100%; height: 100%; object-fit: cover; }
+.sh-card__placeholder { display: grid; place-items: center; height: 100%; color: var(--csu-muted, #8d99a5); }
+.sh-card__badge { position: absolute; top: 10px; left: 10px; padding: 3px 8px; border-radius: 99px; background: rgba(11, 16, 22, .75); color: #fff; font-size: 11px; font-weight: 600; }
+.sh-card__body { display: grid; gap: 2px; padding: 12px 14px 4px; min-width: 0; }
+.sh-card__body strong { overflow: hidden; font-size: 13.5px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.sh-card__body span { color: var(--csu-muted, #8d99a5); font-size: 12px; }
+.sh-card__action { align-self: flex-start; margin: 6px 14px 14px; color: var(--csu-accent-text, #c7bbff); font-size: 13px; font-weight: 600; text-decoration: none; }
+.sh-card__action:hover { text-decoration: underline; }
+.sh-card.is-skeleton { aspect-ratio: 4 / 5.6; background: linear-gradient(90deg, #121a22, #18222c, #121a22); background-size: 200% 100%; animation: sh-shimmer 1.4s infinite; }
+@keyframes sh-shimmer { to { background-position: -200% 0; } }
+.sh-empty { display: grid; justify-items: center; gap: 8px; padding: 64px 16px; border: 1px dashed var(--csu-line-strong, rgba(255,255,255,.16)); border-radius: 16px; color: var(--csu-muted, #8d99a5); text-align: center; }
+.sh-empty strong { color: var(--csu-text, #eef2f6); font-size: 15px; }
+.sh-button { display: inline-flex; align-items: center; height: 36px; padding: 0 16px; border-radius: 9px; background: var(--csu-accent, #7c5cff); color: #fff; font-size: 13px; font-weight: 600; text-decoration: none; }
+.sh-note { padding: 12px 14px; border-radius: 10px; background: var(--csu-raised, #161f28); font-size: 13px; }
+.sh-note.is-error { color: var(--csu-danger, #f08a8a); }
+.sh-more { margin-top: 20px; text-align: center; }
+.sh-more a { color: var(--csu-accent-text, #c7bbff); font-size: 13px; font-weight: 600; }
+.sh-preview { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 32px; background: rgba(4, 8, 12, .82); }
+.sh-preview figure { display: grid; gap: 12px; max-width: min(1100px, 100%); max-height: 100%; margin: 0; }
+.sh-preview img, .sh-preview video { max-width: 100%; max-height: calc(100dvh - 140px); border-radius: 12px; }
+.sh-preview figcaption { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sh-preview__close { position: fixed; top: 18px; right: 18px; display: grid; place-items: center; width: 38px; height: 38px; border: 0; border-radius: 50%; background: var(--csu-overlay, #1b2531); color: #fff; cursor: pointer; }
+@media (max-width: 560px) { .sh-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .sh-main { padding-top: 20px; } }

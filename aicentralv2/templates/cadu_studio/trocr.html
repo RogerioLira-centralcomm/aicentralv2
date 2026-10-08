@@ -26,7 +26,7 @@
     'videos': studio_url('modelagem_video'),
     'audio': product_url('studio', '/audio'),
     'analyzer': product_url('studio', '/analyzer'),
-    'library': studio_url('modelagem_criativos') ~ '#studioLibrary',
+    'library': product_url('studio', '/biblioteca'),
     'lab': product_url('studio', '/lab') if studio_lab_enabled is defined and studio_lab_enabled() else None,
     'workspace': product_url('workspace', '/workspace/app'),
     'profile': product_url('workspace', '/workspace/app/conta?section=perfil'),

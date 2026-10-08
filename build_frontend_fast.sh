@@ -54,6 +54,9 @@ npm run build:planner &
 npm run build:auth &
 npm run build:editor &
 npm run build:audio &
+npm run build:studio-ui &
+npm run build:lab &
+npm run build:studio-home &
 wait
 
 echo "[OK] Build concluído com sucesso!"

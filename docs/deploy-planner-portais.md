@@ -23,6 +23,15 @@ Em 2026-10-08 os canais abaixo foram completados direto na tabela `cadu_canais` 
 
 Se o banco do `.env` **não** for o de produção, esses UPDATEs precisam ser reaplicados lá (os textos estão neste roteiro e nas fontes de cada canal); se for, nada a fazer no deploy.
 
+## Reaplicar em outro banco (snapshot por domínio e slug)
+Se o banco de produção não for o do `.env` deste desenvolvimento, use o snapshot (`docs/planner-catalog-snapshot.json`, gerado por `scripts/export_planner_catalog_snapshot.py`):
+1. Rodar as migrações do `ORDER.txt` (estimates, signals, prints kinds) no banco de produção.
+2. Simular: `python scripts/apply_planner_catalog_snapshot.py docs/planner-catalog-snapshot.json` (não grava nada). Ele diz quantos portais têm o mesmo id nos dois bancos, quantos faltam e o que mudaria.
+3. Aplicar: `... --apply`. Regras: portal nunca é reativado; descrição só dos portais com perfil curado; leituras só se o snapshot for mais novo; canais por slug; prints aprovados registrados a partir dos arquivos do repositório.
+4. Se a simulação mostrar `ids_diferentes` maior que zero, as miniaturas e os prints (nomeados por id) precisam ser renomeados: aplicar com `--remap-files`.
+5. Os arquivos (ilustrações e prints) continuam indo pelo deploy do repositório.
+Para refazer o snapshot depois de novas mudanças: `python scripts/export_planner_catalog_snapshot.py docs/planner-catalog-snapshot.json`.
+
 ## Depois do deploy
 1. `flask cadu_family estimate-planner-portals` (só se o banco for outro).
 2. Abrir `/portais`, `/portais/1` (G1) e um regional; conferir miniatura, chips, formatos e galeria. Nos canais, abrir Logan, Uber e iFood (produtos em lista, fontes dos formatos, logos com cantos arredondados).

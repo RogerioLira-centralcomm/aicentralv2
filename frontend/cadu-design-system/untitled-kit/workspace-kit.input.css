@@ -18,6 +18,7 @@ button[data-rac] [data-text], a[data-rac] [data-text] { color: inherit !importan
 @source "./textarea.tsx";
 @source "./tabs.tsx";
 @source "./sidebar-nav.tsx";
+@source "./dropdown.tsx";
 
 @custom-variant dark (&:where(.dark-mode, .dark-mode *));
 @custom-variant label (& [data-label]);

@@ -737,3 +737,9 @@ body.portal--workspace .cadu-ds-project-today li small.is-warning { color:#b5470
 body.portal--workspace .cadu-ds-project-today li > div { display:flex; flex:none; flex-wrap:wrap; gap:4px; justify-content:flex-end; }
 body.portal--workspace .cadu-ds-project-today li a { text-decoration:none; }
 @media (max-width:640px) { body.portal--workspace .cadu-ds-project-today li { align-items:flex-start; flex-direction:column; gap:6px; } body.portal--workspace .cadu-ds-project-today li > div { justify-content:flex-start; } }
+
+/* Fontes: aviso de indexação logo abaixo do cabeçalho */
+body.portal--workspace .cadu-ds-project-explorer__attention { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:0 0 14px; padding:12px 14px; border:1px solid #fedf89; border-radius:10px; background:#fffcf5; }
+body.portal--workspace .cadu-ds-project-explorer__attention > span { display:grid; gap:2px; }
+body.portal--workspace .cadu-ds-project-explorer__attention b { font-size:13px; font-weight:600; color:#93370d; }
+body.portal--workspace .cadu-ds-project-explorer__attention small { color:var(--cadu-muted); font-size:12px; }

@@ -7,10 +7,13 @@ import {Icon} from './Icon';
  *  - compact: cartões menores, sem guias (conta com trabalho em andamento);
  *  - mobile: só imagem e título, em grade 2x2.
  */
-export function HomeExplore({explore, mode = 'full'}) {
-  const items = explore?.items || [];
+const GUIDE_SOLUTION = {plano: 'planner', radar: 'planner', studio: 'studio', reports: 'connect'};
+
+export function HomeExplore({explore, mode = 'full', solutions = {}}) {
+  // Only offer what this account can open: the server already filters `solutions` by access.
+  const items = solutions.planner ? explore?.items || [] : [];
   if (!items.length) return null;
-  const guides = mode === 'full' ? explore.guides || [] : [];
+  const guides = mode === 'full' ? (explore.guides || []).filter(guide => solutions[GUIDE_SOLUTION[guide.id]]) : [];
   return <section className={`cadu-ds-home-explore is-${mode}`} aria-label="Explore o Planner">
     {mode !== 'mobile' && <header><h2>{mode === 'full' ? 'Explore o Planner' : 'Explore'}</h2></header>}
     <div className="cadu-ds-home-explore__grid">

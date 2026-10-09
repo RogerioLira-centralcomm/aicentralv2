@@ -39,7 +39,13 @@ export function WorkspaceMobileChrome({title = 'Workspace', eyebrow = 'Workspace
     };
   }, [open]);
   const go = () => setOpen(false);
-  const availableContextItems = contextItems.filter(item => item?.href || item?.url).slice(0, 4);
+  const availableContextItems = (() => {
+    // Alternate kinds so a long run of conversations never hides every project.
+    const usable = contextItems.filter(item => item?.href || item?.url);
+    const projects = usable.filter(item => item.detail === 'Projeto');
+    const others = usable.filter(item => item.detail !== 'Projeto');
+    return [others[0], projects[0], others[1], projects[1], ...others.slice(2), ...projects.slice(2)].filter(Boolean).slice(0, 4);
+  })();
   const destinations = workspaceMobileDestinationItems(links);
   const solutions = workspaceSolutionItems({urls: links, solutionIcons}).filter(item => item.id !== 'studio' && (item.href || item.id === 'workspace'));
   const activeSolution = solutions.find(item => item.id === 'workspace');

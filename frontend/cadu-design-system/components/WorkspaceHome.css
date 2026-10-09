@@ -315,7 +315,7 @@ body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-worksp
 }
 
 /* ---- Home rica: boas-vindas, retomada e descoberta ---- */
-.cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content.is-rich { align-items:center; justify-content:flex-start; overflow-y:auto; }
+.cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content.is-rich { align-items:center; justify-content:flex-start; }
 .cadu-ds-home-intro__pill { display:inline-flex; align-items:center; gap:6px; margin-bottom:14px; padding:6px 12px; border:1px solid #cfe6e0; border-radius:999px; background:#eefaf6; color:#1d6f60; font-size:12px; font-weight:600; }
 .cadu-ds-home-intro p { margin:10px auto 0; color:#5f736f; font-size:15px; line-height:1.5; }
 body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-intro h1 { color:#10231f; font-weight:700; }

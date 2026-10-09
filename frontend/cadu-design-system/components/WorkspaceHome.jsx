@@ -227,7 +227,7 @@ export function WorkspaceHome({bootstrap}) {
           </>}
         </section>
         {hasWork && <HomeContinue items={continueItems} isMobile={isMobile} onOpen={openWorkspaceDetail}/>}
-        <HomeExplore explore={bootstrap.explore} mode={exploreMode}/>
+        <HomeExplore explore={bootstrap.explore} solutions={bootstrap.urls?.solutions} mode={exploreMode}/>
         </section>
       </div>
     </main>

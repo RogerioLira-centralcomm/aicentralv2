@@ -1965,3 +1965,5 @@ a.planner-card:focus-visible { outline: 2px solid var(--colors-brand-600, #07945
 .pd-related__text small { color: var(--planner-muted); font-size: 13px; }
 .pd-related .row-add { position: absolute; top: 10px; right: 10px; }
 @media (max-width: 760px) { .pd--market .pd-playbook { grid-template-columns: 1fr; } .pd-related ul { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 14px; } }
+.pd-related__link.is-row { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px; padding: 6px 0; }
+.pd-related li:has(> .is-row) .row-add { top: 50%; transform: translateY(-50%); right: 0; }

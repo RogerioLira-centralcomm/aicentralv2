@@ -194,11 +194,11 @@ export function RelatedList({title, items, empty = null}) {
   return <section className="pd-related" aria-label={title}>
     <h2>{title}<span>{items.length}</span></h2>
     <ul>{items.map(item => <li key={item.href}>
-      <a className="pd-related__link" href={item.href}>
-        <span className="pd-related__photo">
-          {item.image ? <img src={item.image} alt="" loading="lazy"/> : <Icon name={item.icon || 'plan'} size={28}/>}
+      <a className={`pd-related__link${item.image ? '' : ' is-row'}`} href={item.href}>
+        {item.image ? <span className="pd-related__photo">
+          <img src={item.image} alt="" loading="lazy"/>
           <LogoTile src={item.logo} name={item.title} icon={item.icon || 'plan'} size="md"/>
-        </span>
+        </span> : <LogoTile src={item.logo} name={item.title} icon={item.icon || 'plan'} size="sm"/>}
         <span className="pd-related__text"><strong>{item.title}</strong>{item.subtitle && <small>{item.subtitle}</small>}</span>
       </a>
       {item.onToggle && <RowAddButton name={item.title} selected={item.selected} onToggle={item.onToggle}/>}

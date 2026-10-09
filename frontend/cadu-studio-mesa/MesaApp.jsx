@@ -34,6 +34,7 @@ export function MesaApp({boot}) {
   const [shelfLoading, setShelfLoading] = useState(false);
   const [refs, setRefs] = useState([]);
   const [refsOpen, setRefsOpen] = useState(true);
+  const [viewport, setViewport] = useState({w: 1200, h: 800});
   const [startOpen, setStartOpen] = useState(false);
   const [draft, setDraft] = useState(null); // {type, title, rules, pieces: [{title, format, prompt}]}
   const [kind, setKind] = useState('anuncio');
@@ -325,15 +326,16 @@ export function MesaApp({boot}) {
       return;
     }
     say(`Preparando ${list.length} imagens…`);
-    const files = [];
-    for (const {series, piece, version} of list) {
+    const fetchOne = async ({series, piece, version}) => {
       const response = await fetch(version.url, {credentials: 'same-origin'});
-      if (!response.ok) continue;
+      if (!response.ok) return null;
       const ext = (version.url.split('?')[0].split('.').pop() || 'png').slice(0, 5);
       const index = piece.versions.indexOf(version) + 1;
-      files.push({name: `${slug(series.title)}/${slug(piece.title)}/${slug(piece.title)}_${piece.format?.width || ''}x${piece.format?.height || ''}_v${index}${piece.star === version.id ? '-base' : ''}.${ext}`,
-        bytes: new Uint8Array(await response.arrayBuffer())});
-    }
+      return {name: `${slug(series.title)}/${slug(piece.title)}/${slug(piece.title)}_${piece.format?.width || ''}x${piece.format?.height || ''}_v${index}${piece.star === version.id ? '-base' : ''}.${ext}`,
+        bytes: new Uint8Array(await response.arrayBuffer())};
+    };
+    const files = [];
+    for (let start = 0; start < list.length; start += 4) files.push(...(await Promise.all(list.slice(start, start + 4).map(fetchOne))).filter(Boolean));
     saveBlob(makeZip(files), `${slug(session.title || 'quadro')}.zip`);
   };
 
@@ -380,7 +382,7 @@ export function MesaApp({boot}) {
   const disabledAction = item => (item.needs === 'selection' && !selectedVersions.length) || (item.needs === 'anchor' && !selectedVersions.length && !anchorOf(currentSeries));
 
   return <div className="mq">
-    <Canvas ref={canvas} scene={scene} camera={camera} setCamera={setCamera} selected={selected} fresh={fresh.current} onSelect={onSelect} onLasso={onLasso}
+    <Canvas ref={canvas} scene={scene} camera={camera} setCamera={setCamera} selected={selected} fresh={fresh.current} onResize={setViewport} onSelect={onSelect} onLasso={onLasso}
       onOpen={id => { setSelected(new Set([id])); focusSelection(); }} onPin={(pieceId, pin) => setBoard(current => pinPiece(current, pieceId, pin))}/>
 
     {/* Superior esquerdo: quadro, projeto e séries */}
@@ -438,7 +440,7 @@ export function MesaApp({boot}) {
 
     {/* Inferior direito: minimapa */}
     {board.series.length > 0 && <div className="mq-hud mq-hud--br"><div className="mq-panel mq-panel--flush">
-      <Minimap scene={scene} camera={camera} viewport={canvas.current?.size || {w: 1200, h: 800}} onJump={(x, y) => canvas.current?.centerOn(x, y)}/>
+      <Minimap scene={scene} camera={camera} viewport={viewport} onJump={(x, y) => canvas.current?.centerOn(x, y)}/>
     </div></div>}
 
     {/* Chat flutuante */}

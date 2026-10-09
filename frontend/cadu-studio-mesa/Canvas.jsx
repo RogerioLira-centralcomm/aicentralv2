@@ -7,7 +7,7 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
  * Canvas infinito: só desenha o que está na tela; o nível de detalhe muda com o zoom.
  * Arrastar o fundo move; Shift+arrastar faz seleção em laço; espaço+arrastar move mesmo sobre as peças.
  */
-export const Canvas = forwardRef(function Canvas({scene, camera, setCamera, selected, fresh, onSelect, onLasso, onOpen, onPin}, ref) {
+export const Canvas = forwardRef(function Canvas({scene, camera, setCamera, selected, fresh, onSelect, onLasso, onOpen, onPin, onResize}, ref) {
   const host = useRef(null);
   const [size, setSize] = useState({w: 1, h: 1});
   const [lasso, setLasso] = useState(null);
@@ -16,7 +16,7 @@ export const Canvas = forwardRef(function Canvas({scene, camera, setCamera, sele
 
   useEffect(() => {
     const node = host.current;
-    const observer = new ResizeObserver(([entry]) => setSize({w: entry.contentRect.width, h: entry.contentRect.height}));
+    const observer = new ResizeObserver(([entry]) => { const next = {w: entry.contentRect.width, h: entry.contentRect.height}; setSize(next); onResize?.(next); });
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
@@ -80,7 +80,7 @@ export const Canvas = forwardRef(function Canvas({scene, camera, setCamera, sele
       drag.current = {mode: 'lasso', start};
       setLasso({x: start.x, y: start.y, w: 0, h: 0});
     } else {
-      drag.current = {mode: 'pan', sx: event.clientX, sy: event.clientY, cam: camera, moved: false};
+      drag.current = {mode: 'pan', sx: event.clientX, sy: event.clientY, cam: camera, moved: false, onBackground: !card};
     }
     host.current.setPointerCapture(event.pointerId);
   };
@@ -106,7 +106,7 @@ export const Canvas = forwardRef(function Canvas({scene, camera, setCamera, sele
     const state = drag.current;
     drag.current = null;
     if (!state) return;
-    if (state.mode === 'pan' && !state.moved && event.target === host.current.firstChild) onSelect(null, false);
+    if (state.mode === 'pan' && !state.moved && state.onBackground) onSelect(null, false);
     if (state.mode === 'lasso' && lasso) {
       const hits = scene.nodes.filter(node => node.kind === 'version' && node.x < lasso.x + lasso.w && node.x + node.w > lasso.x && node.y < lasso.y + lasso.h && node.y + node.h > lasso.y).map(node => node.id);
       onLasso(hits, event.shiftKey);

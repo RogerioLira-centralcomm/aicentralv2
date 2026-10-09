@@ -651,7 +651,8 @@ def create_image(payload, modeling, client_id, user_id):
     if type_playbook:
         # Third-party platforms named in the brief come with their official logo (the model invents them otherwise).
         from . import logo_catalog
-        free = MAX_IMAGE_REFERENCES - len([item for item in raw_references if isinstance(item, dict)])
+        # One slot stays free for the automatic display mask or position sketch added below.
+        free = MAX_IMAGE_REFERENCES - 1 - len([item for item in raw_references if isinstance(item, dict)])
         raw_references = [*raw_references, *logo_catalog.references(data.get("original_prompt") or data.get("prompt"), free)]
     # Lab v5: a layout by position (elements and relations) replaces the box mask; its sketch is the reference image.
     from . import position_layouts

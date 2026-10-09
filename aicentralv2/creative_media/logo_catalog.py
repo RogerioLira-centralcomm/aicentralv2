@@ -59,6 +59,17 @@ def _portals():
             yield {"name": row.get("name"), "names": _names(row), "path": url}
 
 
+_CACHE = {"at": 0.0, "entries": []}
+
+
+def _entries():
+    """Canais e portais do catálogo, lidos no máximo a cada 10 minutos (o catálogo muda raramente)."""
+    import time
+    if time.monotonic() - _CACHE["at"] > 600 or not _CACHE["entries"]:
+        _CACHE["entries"], _CACHE["at"] = [*_channels(), *_portals()], time.monotonic()
+    return _CACHE["entries"]
+
+
 def mentioned(brief, entries):
     """Uma plataforma por nome citado no pedido (palavra inteira, sem acento): o nome completo vence domínio e apelido."""
     text = _plain(brief)
@@ -108,7 +119,7 @@ def references(brief, limit=2):
     if limit <= 0 or not str(brief or "").strip():
         return []
     try:
-        entries = mentioned(brief, [*_channels(), *_portals()])
+        entries = mentioned(brief, _entries())
     except Exception:
         logger.warning("Studio logo catalog unavailable", exc_info=True)
         return []

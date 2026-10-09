@@ -163,7 +163,7 @@ def review(image_b64, book, *, brief="", brand_name="", key=""):
         return {"reviewed": False, "approved": True, "score": None, "reason": "", "reason_text": ""}
     checks = book.get("review") or {}
     reason = ("stray_text" if checks.get("no_text") and [item for item in seen.get("visible_text") or [] if str(item).strip()]
-              else "own_logo" if seen.get("own_logo") and "logo" not in brief.lower()
+              else "own_logo" if seen.get("own_logo") and not (brand_name and brand_name.lower() in brief.lower())
               else "frames" if seen.get("frames_or_cards") else "")
     fake = [item.get("name") for item in seen.get("third_party_logos") or [] if isinstance(item, dict) and not item.get("faithful")]
     notes = [f"Logos de terceiros não fiéis: {', '.join(filter(None, fake))}." if fake else "",

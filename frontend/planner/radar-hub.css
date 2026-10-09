@@ -132,6 +132,8 @@
 .rl-th { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
 .rl-th svg { transform: rotate(90deg); color: #98a2b3; }
 .rl-act { display: inline-flex; align-items: center; gap: 8px; }
+.rl-go { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 8px; color: #667085; }
+.rl-go:hover, .rl-go:focus-visible { background: #f2f4f7; color: var(--rl-ink); }
 .rl-muted { color: var(--rl-muted); font-size: 13px; }
 .rl-end { width: auto; white-space: nowrap; }
 .rl-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 8px; border-top: 1px solid var(--rl-line); color: var(--rl-muted); font-size: 14px; }
@@ -142,7 +144,9 @@
 .rl-pager button[aria-label^='Página'] svg { transform: rotate(180deg); }
 @media (max-width: 720px) { .rl-searchbar { flex-direction: column; } .rl-search kbd { display: none; } }
 
-.rl-ico { display: inline-grid; flex: none; place-items: center; width: 44px; height: 44px; border-radius: 12px; }
+.rl-ico { display: inline-grid; flex: none; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: #f2f4f7; color: #344054; }
+.rl-glyph, .rw2-ico .rl-glyph { display: block; background: currentColor; -webkit-mask: center / contain no-repeat; mask: center / contain no-repeat; }
+.rw2-ico { display: inline-grid; flex: none; place-items: center; width: 64px; height: 64px; border-radius: 16px; background: #f2f4f7; color: #344054; }
 .rl-two small { color: #98a2b3; font-size: 13px; }
 .rl-filterbtn { display: inline-grid; place-items: center; flex: none; width: 44px; height: 44px; border: 1px solid var(--rl-line); border-radius: 10px; background: #fff; color: #475467; cursor: pointer; }
 .rl-filterbtn.is-active { border-color: var(--rl-brand); color: var(--colors-brand-700, #087443); }

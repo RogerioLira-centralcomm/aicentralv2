@@ -4,7 +4,7 @@ import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {Applications, AngleGroups, Evidence, Signals, radarChatUrl} from './RadarDetail.jsx';
 import {RadarResults} from './RadarResults.jsx';
-import {RadarMenu, RadarTile, stamp} from './RadarHub.jsx';
+import {RadarGlyph, RadarMenu, stamp, themeOf} from './RadarHub.jsx';
 import {RunChain} from './RadarRun.jsx';
 import {upperFirst} from './api.js';
 import {useConfirm} from './useConfirm.jsx';
@@ -111,7 +111,7 @@ export function RadarWorkspace({boot, radarId, names, request, notify, onPlan, o
     {confirmDialog}
     {back}
     <header className="rw2-head">
-      <RadarTile title={title} size={64}/>
+      <span className="rw2-ico"><RadarGlyph name={themeOf(`${radar.title} ${radar.focus}`)} size={34}/></span>
       <div className="rw2-head__text">
         <h1>{title}</h1>
         {description && <p>{description}</p>}

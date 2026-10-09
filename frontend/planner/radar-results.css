@@ -8,11 +8,8 @@
 .rr-title small { color: var(--rr-muted); font-size: 13px; }
 .rr-list { margin: 0; padding: 0; overflow: hidden; border: 1px solid var(--rr-line); border-radius: 12px; background: #fff; list-style: none; }
 .rr-row + .rr-row { border-top: 1px solid var(--rr-line); }
-.rr-angle { display: grid; grid-template-columns: 44px minmax(0, 1fr) 100px 210px 150px 150px 28px; align-items: center; gap: 14px; padding: 14px 16px; }
-.rr-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; }
-.rr-icon.is-midia { background: #fffaeb; color: #dc6803; }
-.rr-icon.is-conteudo { background: #eff8ff; color: #175cd3; }
-.rr-icon.is-inteligencia { background: #f4f3ff; color: #5925dc; }
+.rr-angle { display: grid; grid-template-columns: 44px minmax(0, 1fr) 100px 210px 150px 160px 28px; align-items: center; gap: 14px; padding: 14px 16px; }
+.rr-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: #f2f4f7; color: #344054; }
 .rr-angle__text { display: grid; gap: 2px; min-width: 0; }
 .rr-angle__text strong { font-size: 15px; font-weight: 600; line-height: 22px; }
 .rr-angle__text p, .rr-clamp { display: -webkit-box; margin: 0; overflow: hidden; color: var(--rr-muted); font-size: 14px; line-height: 20px; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
@@ -21,7 +18,7 @@
 .rr-channels small, .rr-meta dt { color: var(--rr-muted); font-size: 12px; }
 .rr-channels > span { display: flex; align-items: center; gap: 6px; }
 .rr-channels em { color: var(--rr-muted); font-size: 12px; font-style: normal; }
-.rr-meta { display: grid; grid-template-columns: 56px 1fr; gap: 8px; margin: 0; }
+.rr-meta { display: grid; grid-template-columns: 44px auto; gap: 10px; margin: 0; }
 .rr-meta dd { margin: 2px 0 0; font-size: 13px; font-weight: 500; white-space: nowrap; }
 .rr-action { justify-self: end; }
 .rr-toggle { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: none; color: #98a2b3; cursor: pointer; }

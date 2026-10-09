@@ -152,6 +152,15 @@ def list_radars(client_id, user_id):
     return radars
 
 
+def _channel_logo(row):
+    """Mesmo caminho da página Canais: o logo do cadastro ou, se faltar, o arquivo de static/images/canais pelo slug."""
+    try:
+        from ..crm_v3_canais import _resolver_logo
+        return _resolver_logo(row.get('slug') or '', row.get('logo_path') or '') or row.get('logo_path')
+    except Exception:
+        return row.get('logo_path')
+
+
 def _attach_logos(run):
     """Logo e cor do canal em cada item da combinação de mídia, para a lista de ângulos mostrar os canais sugeridos."""
     media = []
@@ -167,7 +176,7 @@ def _attach_logos(run):
     for entry in media:
         row = channels.get(entry.get('id'))
         if row:
-            entry['logo_path'], entry['color'] = row.get('logo_path'), row.get('cor')
+            entry['logo_path'], entry['color'] = _channel_logo(row), row.get('cor')
 
 
 def get_radar(client_id, user_id, radar_id):

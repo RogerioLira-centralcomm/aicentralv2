@@ -18,21 +18,27 @@ const singleFilterOf = phase => ({em_execucao: 'andamento', falha: 'erro'})[phas
 const SORTS = [['recentes', 'Mais recentes'], ['novos', 'Mais novidades'], ['nome', 'Nome (A–Z)']];
 const PHASE = {programado: ['Ativo', 'success'], em_execucao: ['Em execução', 'brand'], pausado: ['Pausado', 'neutral'], concluido: ['Concluído', 'brand'], falha: ['Atenção', 'warning']};
 /** Ícone e cor da solicitação pelo assunto do tema; sem pista, o pulso do radar. */
-const THEMES = [[/concorr|lançamento/, 'analysis', 215], [/programátic|ctv|mídia|midia|tv\b/, 'browser', 340], [/transporte|logíst|logist|frota/, 'branch', 35],
-  [/consum|conta|luz|tarifa|energia/, 'wallet', 150], [/invest|capital|debênture/, 'table', 215], [/regula|norma|lei\b/, 'file', 255]];
-const themeOf = text => { const key = String(text || '').toLowerCase(); const hit = THEMES.find(([rule]) => rule.test(key)); return hit ? [hit[1], hit[2]] : ['pulse', 150]; };
+const THEMES = [[/concorr|lançamento/, 'concorrentes'], [/programátic|ctv|mídia|midia|tv\b/, 'midia'], [/transporte|logíst|logist|frota/, 'logistica'],
+  [/consum|conta|luz|tarifa|energia/, 'consumo'], [/invest|capital|debênture/, 'investimento'], [/regula|norma|lei\b/, 'regulacao']];
+/** Ícone monocromático (image 2.5) do tema do texto; `fallback` quando nenhum tema bate. */
+export const themeOf = (text, fallback = 'tendencias') => { const key = String(text || '').toLowerCase(); const hit = THEMES.find(([rule]) => rule.test(key)); return hit ? hit[1] : fallback; };
 const plain = value => String(value || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-const hueOf = text => [...String(text)].reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) % 360, 7);
 const SORT_SINGLE = [['recentes', 'Mais recentes'], ['antigas', 'Mais antigas'], ['nome', 'Nome (A–Z)']];
 const filterOf = phase => ({programado: 'ativo', em_execucao: 'ativo', pausado: 'pausado', concluido: 'concluido', falha: 'ativo'})[phase] || 'concluido';
 
-/** "Hoje, 14:35" · "07 out, 09:12". */
+/** Data relativa: "agora", "há 30 min", "há 3 h", "há 2 dias", "há 2 semanas", "há 3 meses". */
 export function stamp(value) {
   if (!value) return '—';
-  const date = new Date(value);
-  const time = date.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
-  if (date.toDateString() === new Date().toDateString()) return `Hoje, ${time}`;
-  return `${date.toLocaleDateString('pt-BR', {day: '2-digit', month: 'short'}).replace(/\./g, '')}, ${time}`;
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60000));
+  if (minutes < 1) return 'agora';
+  if (minutes < 60) return `há ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `há ${hours} h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `há ${days} ${days === 1 ? 'dia' : 'dias'}`;
+  if (days < 30) { const weeks = Math.floor(days / 7); return `há ${weeks} ${weeks === 1 ? 'semana' : 'semanas'}`; }
+  const months = Math.floor(days / 30);
+  return months < 12 ? `há ${months} ${months === 1 ? 'mês' : 'meses'}` : `há ${Math.floor(months / 12)} ${months < 24 ? 'ano' : 'anos'}`;
 }
 
 /** Pautas de conteúdo salvas em todos os radares: prontas para o Cadu Chat produzir. */
@@ -76,6 +82,7 @@ export function RadarMenu({radar, href, onAct, align = 'right'}) {
   const watch = radar.kind === 'watch';
   const paused = radar.phase === 'pausado';
   const run = action => { setOpen(false); onAct(radar, action); };
+  if (!href && !watch) return null;
   return <span className="rl-menu" ref={root}>
     <button type="button" className="rl-menu__button" aria-haspopup="menu" aria-expanded={open} aria-label={`Ações de ${radar.title}`} onClick={() => setOpen(value => !value)}><Icon name="more" size={16}/></button>
     {open && <div className={`rl-menu__list is-${align}`} role="menu">
@@ -86,9 +93,10 @@ export function RadarMenu({radar, href, onAct, align = 'right'}) {
   </span>;
 }
 
-export function RadarTile({title, size = 40}) {
-  const hue = 130 + (hueOf(title) % 150);
-  return <span className="rl-tile" aria-hidden="true" style={{width: size, height: size, background: `hsl(${hue} 60% 94%)`, color: `hsl(${hue} 55% 32%)`}}>{(title || '?').trim().charAt(0).toUpperCase()}</span>;
+/** Ícone de traço em `currentColor`: o PNG vira máscara, então herda a cor do texto. */
+export function RadarGlyph({name, size = 22}) {
+  const url = `url(/static/images/radar-tipos/${name}.png)`;
+  return <span className="rl-glyph" aria-hidden="true" style={{width: size, height: size, WebkitMaskImage: url, maskImage: url}}/>;
 }
 
 function Row({radar, names, href, onAct}) {
@@ -99,7 +107,7 @@ function Row({radar, names, href, onAct}) {
   const fresh = radar.changes.signals;
   const [every, hours] = (radar.schedule?.label || 'Pontual').split(' · ');
   return <tr className="rl-row">
-    <td><a className="rl-name" href={href}><RadarTile title={title}/><span><strong>{title}</strong>{description && <small>{description}</small>}</span></a></td>
+    <td><a className="rl-name" href={href}><span className="rl-ico"><RadarGlyph name={themeOf(`${radar.title} ${radar.focus}`)}/></span><span><strong>{title}</strong>{description && <small>{description}</small>}</span></a></td>
     <td>{theme ? <span className="rl-theme">{theme}</span> : <span className="rl-dash">—</span>}</td>
     <td><span className="rl-two">{every}<small>{hours || ''}</small></span></td>
     <td>{stamp(radar.latest.created_at)}</td>
@@ -125,15 +133,15 @@ function SingleRow({radar, names, href, onAct}) {
   const title = upperFirst(radar.title || 'Radar sem nome');
   const description = radar.focus && plain(radar.focus) !== plain(radar.title) ? upperFirst(radar.focus) : '';
   const latest = radar.latest;
-  const [icon, tone] = themeOf(`${radar.title} ${radar.focus}`);
+  const icon = themeOf(`${radar.title} ${radar.focus}`);
   const running = radar.phase === 'em_execucao';
   return <tr className="rl-row">
-    <td><a className="rl-name" href={href}><span className="rl-ico" style={{background: `hsl(${tone} 70% 95%)`, color: `hsl(${tone} 55% 38%)`}}><Icon name={icon} size={22}/></span><span><strong>{title}</strong>{description && <small>{description}</small>}</span></a></td>
+    <td><a className="rl-name" href={href}><span className="rl-ico"><RadarGlyph name={icon}/></span><span><strong>{title}</strong>{description && <small>{description}</small>}</span></a></td>
     <td>{theme ? <span className="rl-theme">{theme}</span> : <span className="rl-dash">—</span>}</td>
     <td><span className="rl-two">{stamp(latest.created_at)}{latest.author && <small>por {latest.author}</small>}</span></td>
     <td>{running ? <span className="rl-muted">Buscando…</span> : <span className="rl-results is-new"><i aria-hidden="true"/><span>{latest.signals} {latest.signals === 1 ? 'sinal' : 'sinais'} · {latest.angles} {latest.angles === 1 ? 'ângulo' : 'ângulos'}<small>{finishedLabel(latest)}</small></span></span>}</td>
     <td><CaduBadge tone={phase[1]}>{phase[0]}</CaduBadge></td>
-    <td className="rl-end"><span className="rl-act"><CaduButton size="sm" variant="secondary" href={href}>Ver resultado</CaduButton><RadarMenu radar={radar} href={href} onAct={onAct}/></span></td>
+    <td className="rl-end"><span className="rl-act"><RadarMenu radar={radar} onAct={onAct}/><a className="rl-go" href={href} aria-label={`Abrir radar: ${title}`} title="Abrir radar"><Icon name="chevron" size={18}/></a></span></td>
   </tr>;
 }
 

@@ -4,10 +4,10 @@ import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {PlannerSelect} from './PlannerSelect.jsx';
 import {LogoTile} from './PlannerUi.jsx';
 import {AngleGroups} from './RadarDetail.jsx';
-import {stamp} from './RadarHub.jsx';
+import {RadarGlyph, stamp, themeOf} from './RadarHub.jsx';
 import './radar-results.css';
 
-const TYPE = {midia: ['Mídia', 'pulse'], conteudo: ['Pauta', 'list'], inteligencia: ['Para saber', 'pulse']};
+const TYPE = {midia: ['Mídia', 'midia'], conteudo: ['Pauta', 'pauta'], inteligencia: ['Para saber', 'tendencias']};
 const STATUS = {nova: ['Nova', 'new'], salva: ['Salva', 'saved'], em_plano: ['Em plano', 'plan']};
 const ORDERS = [{value: 'recent', label: 'Mais recentes'}, {value: 'signals', label: 'Mais sinais'}];
 const PAUTAS_VISIBLE = 5;
@@ -33,7 +33,7 @@ function AngleRow({item, open, onToggle, isNew, busy, onPlan, groupProps}) {
   const content = detailOf(item).content || {};
   return <li className={`rr-row${open ? ' is-open' : ''}`}>
     <div className="rr-angle">
-      <span className={`rr-icon is-${kindOf(item) || 'inteligencia'}`}><Icon name={kind[1]} size={20}/></span>
+      <span className={`rr-icon is-${kindOf(item) || 'inteligencia'}`}><RadarGlyph name={themeOf(`${item.title} ${item.thesis}`, kind[1])} size={24}/></span>
       <div className="rr-angle__text"><strong>{item.title}{isNew && <i className="rr-new">Novo</i>}</strong><p>{item.thesis || content.message}</p></div>
       <span className="rr-tag">{subjectOf(item) || kind[0]}</span>
       <Channels item={item}/>

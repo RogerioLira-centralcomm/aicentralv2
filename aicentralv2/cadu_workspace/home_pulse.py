@@ -44,7 +44,7 @@ def _radar(client_id, user_id):
     news = sum(int((item.get('changes') or {}).get('signals') or 0) for item in items)
     top = [{'title': item.get('title') or 'Radar', 'changes': int((item.get('changes') or {}).get('signals') or 0), 'at': _iso(item.get('activity_at'))} for item in items[:2]]
     return {'id': 'radar', 'solution': 'planner', 'title': 'Radar', 'count': news,
-            'noun': 'novidade' if news == 1 else 'novidades', 'caption': 'desde sua última visita' if news else 'nenhuma novidade nova',
+            'noun': 'novidade' if news == 1 else 'novidades', 'caption': 'desde sua última visita',
             'detail': {'radars': top}, 'cta': 'Ver resultados', 'href': product_url('planner', '/radares')}
 
 

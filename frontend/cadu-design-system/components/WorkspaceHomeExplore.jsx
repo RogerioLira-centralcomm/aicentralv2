@@ -73,7 +73,7 @@ export function HomePulse({cards = [], solutions = {}, isMobile = false, emptyIm
     <header><h2>Seu dia no Cadu</h2>{!isMobile && <p>Aqui está o que mais importa para você agora.</p>}</header>
     <div className="cadu-ds-home-pulse__grid">{list.map(card => <a key={card.id} className={`cadu-ds-home-pulse__card is-${card.id}`} href={card.href}>
       <span className="cadu-ds-home-pulse__head"><Icon name={PULSE_ICON[card.id] || 'table'} size={16}/>{card.title}</span>
-      <strong>{card.count} {card.noun}</strong><small>{card.caption}</small>
+      <strong>{card.id === 'radar' && !card.count ? 'Sem novidades' : `${card.count} ${card.noun}`}</strong><small>{card.caption}</small>
       {!isMobile && <PulseDetail card={card}/>}
       <span className="cadu-ds-home-explore__cta">{card.cta}<Icon name="chevron" size={14}/></span>
     </a>)}</div>

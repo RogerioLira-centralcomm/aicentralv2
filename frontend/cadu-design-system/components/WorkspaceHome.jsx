@@ -71,7 +71,7 @@ export function WorkspaceHome({bootstrap}) {
     ...(home.resumeCards || []).map(item => ({key: `r:${item.id}`, kind: item.kind === 'conversation' ? 'Conversa' : item.kind === 'project' ? 'Projeto' : 'Retomar', title: item.title || item.name, context: item.context || item.status, href: item.href, raw: item})),
     ...projects.filter(project => !(home.resumeCards || []).some(card => card.id === project.id)).map(project => ({key: `p:${project.id}`, kind: 'Projeto', title: project.name, context: project.brandName, href: project.href, raw: project})),
   ].filter(item => item.title);
-  const hasWork = continueItems.length > 0 || (home.brands || []).length > 0;
+  const hasWork = continueItems.length > 0 || (home.brands || []).length > 0 || (home.pulse || []).length > 0;
   const exploreMode = isMobile ? 'mobile' : hasWork ? 'compact' : 'full';
   const releasePreviews = useCallback(items => items.forEach(item => { if (item.previewUrl) URL.revokeObjectURL(item.previewUrl); }), []);
   const classifyAttachment = useCallback(async file => {

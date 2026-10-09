@@ -60,7 +60,7 @@ export function PortalDetail({boot, selection, plan = null}) {
       hint: 'Conheça os formatos e veja as especificações para sua campanha.',
       render: () => <ul className="pd-fcards">{availableFormats.map(item => {
         const label = item.nome || item.label;
-        const size = item.size || item.dimensoes;
+        const size = String(item.size || item.dimensoes || '').split(/\s*[|;]\s*/)[0];
         const body = <>
           <FormatPreview dimensions={size} name={label} type={item.tipo}/>
           <span className="pd-fcards__text"><strong>{label}</strong>{size && <small>{String(size).replace('x', '×')}</small>}</span>

@@ -2000,3 +2000,28 @@ a.planner-card:focus-visible { outline: 2px solid var(--colors-brand-600, #07945
 .pd-fcards__text small { color: var(--planner-muted, #667085); font-size: 15px; }
 @media (max-width: 900px) { .pd-fcards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .pd-fcards { grid-template-columns: 1fr; } }
+
+/* Portal detail on tablet and phone: compact cover, two columns of cards on tablet, one-hand reading on phone. */
+@media (max-width: 900px) {
+  .pd--portais .pd-highlights__cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pd--portais .pdb__metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .pd--portais .pdb, .pd--portais .pdb.has-image { min-height: 0; margin-bottom: 20px; }
+  .pd--portais .pdb.has-image { background-position: right center; }
+  .pd--portais .pdb__inner, .pd--portais .pdb.has-image .pdb__inner { gap: 10px 12px; padding: 12px 16px 14px; }
+  .pd--portais .pdb__mark, .pd--portais .pdb.has-image .pdb__mark { width: 44px; height: 44px; border-radius: 10px; }
+  .pd--portais .pdb__mark .logo-tile, .pd--portais .pdb__mark .planner-mark { width: 38px; height: 38px; }
+  .pd--portais .pdb__title h1, .pd--portais .pdb.has-image .pdb__title h1 { font-size: 20px; line-height: 24px; }
+  .pd--portais .pdb__crumbs { display: none; }
+  .pd--portais .pdb__badge { top: 8px; right: 8px; padding: 2px 8px; font-size: 11px; }
+  .pd--portais .pdb__metrics { display: flex; gap: 16px; overflow-x: auto; scrollbar-width: none; }
+  .pd--portais .pdb__metrics div { flex: none; }
+  .pd--portais .pdb__metrics dd { font-size: 15px; line-height: 20px; }
+  .pd--portais .pd-highlights__cards { grid-template-columns: 1fr; }
+  .pd--portais .pd-intro__copy > p.pd-hero__lead { font-size: 16px; line-height: 24px; }
+  .pd-fcards a, .pd-fcards li > div { min-height: 96px; padding: 10px 12px; gap: 12px; }
+  .pd-lightbox { padding: 12px; }
+}
+@media (max-width: 560px) { .pd-fcards .fmt-preview { zoom: .62; } }
+@media (min-width: 561px) and (max-width: 900px) { .pd-fcards .fmt-preview { zoom: .75; } }

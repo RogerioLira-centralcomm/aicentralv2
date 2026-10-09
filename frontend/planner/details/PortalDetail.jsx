@@ -92,7 +92,9 @@ export function PortalDetail({boot, selection, plan = null}) {
         : <p className="planner-muted">Os exemplos de anúncios deste portal estão em preparação.</p>},
   ];
 
+  const inPlan = Boolean(selection?.isSelected?.('portais', portal.id));
   const highlights = [
+    ['Para o seu plano', inPlan ? `${portal.name} já está no seu plano${formatCount ? `. Escolha entre ${formatCount} ${formatCount === 1 ? 'formato' : 'formatos'} abaixo.` : '.'}` : ''],
     ['Formatos de anúncio', formatCount ? availableFormats.slice(0, 4).map(item => item.nome || item.label).join(', ') + (formatCount > 4 ? ' e outros.' : '.') : ''],
     ['Quem lê (estimado)', audienceText ? `${audienceText.charAt(0).toUpperCase()}${audienceText.slice(1)}.` : ''],
   ];

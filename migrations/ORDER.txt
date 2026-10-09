@@ -209,3 +209,5 @@ migrations/run_sql_migration.py add_cadu_planner_portal_estimates.sql
 migrations/run_sql_migration.py add_cadu_planner_portal_signals.sql
 # Prints dos portais: tipo editoria (idempotente; depende de add_cadu_planner_portal_prints.sql).
 migrations/run_sql_migration.py extend_cadu_planner_portal_prints_kinds.sql
+# Papel "illustration" nos ativos da marca (Quadro do Studio); depende de add_brand_asset_html_roles.sql (aditivo, idempotente: recria o CHECK com a lista completa).
+migrations/run_sql_migration.py add_brand_asset_illustration_role.sql

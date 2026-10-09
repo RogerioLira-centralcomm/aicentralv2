@@ -136,12 +136,14 @@ function programmaticLabel(item) {
 }
 
 function PortalRow({item, urls, selected, onToggle}) {
+  const [shotFailed, setShotFailed] = useState(false);
+  const hasShot = Boolean(item.thumb_url) && !shotFailed;
   const visits = Number(item.monthly_visits);
   const region = item.scope === 'nacional_premium' ? 'Premium nacional' : item.uf ? `Regional · ${item.uf}` : '';
-  return <div className={`portal-row${selected ? ' is-selected' : ''}${item.thumb_url ? ' has-shot' : ''}`}>
+  return <div className={`portal-row${selected ? ' is-selected' : ''}${hasShot ? ' has-shot' : ''}`}>
     <a className="planner-card__hit" href={catalogDetailUrl(urls, 'portais', item)} aria-label={`Ver portal ${item.site_title || item.name}`}/>
     {/* Only the illustrated cover: no real screenshot, and no placeholder when there is none (the row simply starts at the logo). */}
-    {item.thumb_url && <span className="portal-row__shot"><img src={item.thumb_url} alt="" loading="lazy" onError={event => { event.currentTarget.parentElement.remove(); }}/></span>}
+    {hasShot && <span className="portal-row__shot"><img src={item.thumb_url} alt="" loading="lazy" onError={() => setShotFailed(true)}/></span>}
     <LogoTile src={item.favicon_url} fallbacks={item.domain ? [`https://${item.domain}/favicon.ico`, `https://www.google.com/s2/favicons?domain=${item.domain}&sz=64`] : []} name={item.name} icon="browser" size="md"/>
     <span className="portal-row__main"><strong>{item.site_title || item.name}{item.featured_rank >= 1 && item.featured_rank <= 10 && <em className="portal-row__top">Top 10</em>}{item.uf_top && <em className="portal-row__top">Top 10 · {item.uf}</em>}</strong><small>{item.domain}</small></span>
     <span className="portal-row__chips">

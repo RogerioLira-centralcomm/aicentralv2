@@ -2,6 +2,7 @@ import React, {useCallback, useMemo, useState} from 'react';
 import './WorkspaceHome.css';
 import {CaduDock} from './CaduDock';
 import {CaduButton} from './CaduButton';
+import {HomeContinue, HomeExplore} from './WorkspaceHomeExplore';
 import {WorkspaceChatComposer} from './WorkspaceChatComposer';
 import {WorkspaceContextSidebar} from './WorkspaceContextSidebar';
 import {ShortcutManagerDialog, UndoToast, WorkspaceAccountMenu} from './WorkspaceFeedback';
@@ -64,6 +65,14 @@ export function WorkspaceHome({bootstrap}) {
     return rightDate - leftDate;
   });
   const composerContext = null;
+  // Two homes: an empty account is invited to explore and start; an account with
+  // conversations, projects or brands is led back to its work first.
+  const continueItems = [
+    ...(home.resumeCards || []).map(item => ({key: `r:${item.id}`, kind: item.kind === 'conversation' ? 'Conversa' : item.kind === 'project' ? 'Projeto' : 'Retomar', title: item.title || item.name, context: item.context || item.status, href: item.href, raw: item})),
+    ...projects.filter(project => !(home.resumeCards || []).some(card => card.id === project.id)).map(project => ({key: `p:${project.id}`, kind: 'Projeto', title: project.name, context: project.brandName, href: project.href, raw: project})),
+  ].filter(item => item.title);
+  const hasWork = continueItems.length > 0 || (home.brands || []).length > 0;
+  const exploreMode = isMobile ? 'mobile' : hasWork ? 'compact' : 'full';
   const releasePreviews = useCallback(items => items.forEach(item => { if (item.previewUrl) URL.revokeObjectURL(item.previewUrl); }), []);
   const classifyAttachment = useCallback(async file => {
     try {
@@ -203,8 +212,8 @@ export function WorkspaceHome({bootstrap}) {
         brands={sidebarBrands}
         resources={home.resources || []}
       />}
-        <section className="cadu-ds-home-content">
-        <div className="cadu-ds-home-intro"><h1>O que vamos resolver hoje?</h1></div>
+        <section className={`cadu-ds-home-content is-rich ${hasWork ? 'is-returning' : 'is-new'}`}>
+        <div className="cadu-ds-home-intro"><span className="cadu-ds-home-intro__pill">Bem-vindo ao Cadu</span><h1>Vamos transformar ideias em <em>resultados</em>?</h1>{!isMobile && <p>Pesquise, planeje, crie e analise com inteligência. O Cadu está aqui para ajudar.</p>}</div>
         <WorkspaceChatComposer value={value} onChange={setValue} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} hasProject={Boolean(projectRef)} executionMode={executionMode} onExecutionModeChange={setExecutionMode} composerContext={composerContext} onClearContext={() => { setProjectRef(''); setBrandRef(''); setAttachmentDestination('conversation'); }} onContextDrop={dropContext} onAttach={addFiles} projects={projects} projectRef={projectRef} onProjectChange={id => { setProjectRef(id); setBrandRef(''); setAttachmentDestination('conversation'); }} audioTranscriptionEndpoint={bootstrap.endpoints.audioTranscriptions} csrfToken={csrf()} embedded homeMode/>
         <section className="cadu-ds-home-resume" aria-label="Retomar trabalho">
           {resumeSuggestionState === 'ready' && resumeSuggestion ? <a className="cadu-ds-home-resume__result" href={resumeSuggestion.href}>
@@ -217,6 +226,8 @@ export function WorkspaceHome({bootstrap}) {
             {resumeSuggestionState === 'error' && <small role="status">Não consegui preparar a sugestão agora. Você pode continuar usando a Home normalmente.</small>}
           </>}
         </section>
+        {hasWork && <HomeContinue items={continueItems} isMobile={isMobile} onOpen={openWorkspaceDetail}/>}
+        <HomeExplore explore={bootstrap.explore} mode={exploreMode}/>
         </section>
       </div>
     </main>

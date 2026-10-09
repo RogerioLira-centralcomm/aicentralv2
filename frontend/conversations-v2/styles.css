@@ -1860,7 +1860,7 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
     width:100%;
     padding:10px max(12px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));
   }
-  #cadu-conversations-v2-root .cv-composer-input { font-size:15px !important; line-height:22px; }
+  #cadu-conversations-v2-root .cv-composer-input { font-size:16px !important; line-height:22px; }
 }
 
 /* Compact chat workspace alignment: one shared toolbar rhythm and one clear

@@ -33,6 +33,8 @@ export function useUnifiedViewport(queries = CHAT_QUERIES) {
     const tablet = window.matchMedia(queries.tablet);
     let frame = 0;
     let baselineHeight = viewport?.height || window.innerHeight;
+    // iOS can leave the page nudged sideways after focusing a field; bring it back once the field loses focus.
+    const resetSideScroll = () => window.setTimeout(() => { if (window.scrollX || (window.visualViewport?.offsetLeft || 0) > 0) window.scrollTo(0, window.scrollY); }, 120);
     const sync = () => {
       window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
@@ -59,6 +61,7 @@ export function useUnifiedViewport(queries = CHAT_QUERIES) {
     window.addEventListener('orientationchange', sync, {passive: true});
     document.addEventListener('focusin', sync);
     document.addEventListener('focusout', sync);
+    document.addEventListener('focusout', resetSideScroll);
     return () => {
       window.cancelAnimationFrame(frame);
       for (const media of [phone, tablet]) media.removeEventListener?.('change', sync);
@@ -68,6 +71,7 @@ export function useUnifiedViewport(queries = CHAT_QUERIES) {
       window.removeEventListener('orientationchange', sync);
       document.removeEventListener('focusin', sync);
       document.removeEventListener('focusout', sync);
+      document.removeEventListener('focusout', resetSideScroll);
       for (const name of ['--cv-visual-height', '--cv-visual-width', '--cv-visual-offset-top', '--cv-keyboard-height', '--workspace-visual-height']) root.style.removeProperty(name);
       root.classList.remove('cv-keyboard-open');
       root.removeAttribute('data-workspace-keyboard-open');

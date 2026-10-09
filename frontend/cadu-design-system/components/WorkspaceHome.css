@@ -50,7 +50,7 @@ body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-worksp
   body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-intro { margin-bottom:18px; }
   body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-intro h1 { font-size:clamp(25px,7vw,32px); }
   body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-cadu-mark { width:36px; height:22px; margin-bottom:12px; }
-  body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-chat-shell .cv-composer-input { font-size:15px !important; }
+  body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-chat-shell .cv-composer-input { font-size:16px !important; }
 }
 
 body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content .cadu-ds-home-chat-shell {
@@ -312,4 +312,59 @@ body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-worksp
   body.portal--workspace #cadu-conversations-v2-root .cadu-ds-context-sidebar.is-home .cadu-ds-context-sidebar__section-label {
     margin-bottom: 3px;
   }
+}
+
+/* ---- Home rica: boas-vindas, retomada e descoberta ---- */
+.cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content.is-rich { align-items:center; justify-content:flex-start; overflow-y:auto; }
+.cadu-ds-home-intro__pill { display:inline-flex; align-items:center; gap:6px; margin-bottom:14px; padding:6px 12px; border:1px solid #cfe6e0; border-radius:999px; background:#eefaf6; color:#1d6f60; font-size:12px; font-weight:600; }
+.cadu-ds-home-intro p { margin:10px auto 0; color:#5f736f; font-size:15px; line-height:1.5; }
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-intro h1 { color:#10231f; font-weight:700; }
+.cadu-ds-home-intro h1 em { color:#1f9a7f; font-style:normal; }
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content.is-rich .cadu-ds-home-chat-stage,
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content.is-rich .cadu-ds-home-intro,
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content.is-rich .cadu-ds-home-resume { width:min(860px,100%); }
+.cadu-ds-home-explore, .cadu-ds-home-continue { width:min(1180px,100%); margin-top:32px; }
+.cadu-ds-home-explore h2, .cadu-ds-home-continue h2 { margin:0 0 12px; color:#10231f; font-size:15px; font-weight:650; }
+.cadu-ds-home-explore__grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
+.cadu-ds-home-explore__card { position:relative; display:grid; align-content:start; gap:6px; min-width:0; overflow:hidden; padding:18px; border:1px solid #e1ece9; border-radius:16px; color:#10231f; text-decoration:none; background:#f3faf7; transition:transform .16s ease,box-shadow .16s ease; }
+.cadu-ds-home-explore__card.is-formatos { background:#eef5fc; }
+.cadu-ds-home-explore__card.is-audiencias { background:#f4f1fb; }
+.cadu-ds-home-explore__card.is-portais { background:#fdf5ec; }
+.cadu-ds-home-explore__card:hover,.cadu-ds-home-explore__card:focus-visible { transform:translateY(-2px); box-shadow:0 10px 26px rgba(16,35,31,.1); outline:0; }
+.cadu-ds-home-explore__card img { width:100%; aspect-ratio:3/2; object-fit:contain; margin-bottom:4px; }
+.cadu-ds-home-explore__label { color:#4f6b65; font-size:12px; font-weight:600; }
+.cadu-ds-home-explore__card b { font-size:17px; line-height:1.2; letter-spacing:-.02em; }
+.cadu-ds-home-explore__card small { color:#5f736f; font-size:13px; line-height:1.45; }
+.cadu-ds-home-explore__cta { display:inline-flex; align-items:center; gap:4px; margin-top:6px; color:#17695a; font-size:13px; font-weight:650; }
+.cadu-ds-home-explore.is-compact { margin-top:28px; }
+.cadu-ds-home-explore.is-compact .cadu-ds-home-explore__card { grid-template-columns:72px minmax(0,1fr); align-items:center; gap:2px 12px; padding:12px; }
+.cadu-ds-home-explore.is-compact .cadu-ds-home-explore__card img { grid-row:1 / span 3; width:72px; margin:0; }
+.cadu-ds-home-explore.is-compact .cadu-ds-home-explore__label { display:none; }
+.cadu-ds-home-explore.is-compact .cadu-ds-home-explore__card b { font-size:14px; }
+.cadu-ds-home-guides { margin-top:30px; padding-top:22px; border-top:1px solid #e3ece9; }
+.cadu-ds-home-guides header h2 { margin:0; font-size:16px; }
+.cadu-ds-home-guides header p { margin:2px 0 12px; color:#5f736f; font-size:13px; }
+.cadu-ds-home-guides>div { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+.cadu-ds-home-guides a { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px; border:1px solid #e1ece9; border-radius:12px; background:#fff; color:#10231f; text-decoration:none; }
+.cadu-ds-home-guides a:hover { border-color:#9dc3bb; }
+.cadu-ds-home-guides span { display:grid; gap:3px; min-width:0; }
+.cadu-ds-home-guides b { font-size:14px; } .cadu-ds-home-guides small { color:#5f736f; font-size:12px; line-height:1.4; }
+.cadu-ds-home-continue>div { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+.cadu-ds-home-continue a { display:grid; gap:3px; min-width:0; padding:14px; border:1px solid #e1ece9; border-radius:12px; background:#fff; color:#10231f; text-decoration:none; }
+.cadu-ds-home-continue a:hover { border-color:#9dc3bb; }
+.cadu-ds-home-continue__kind { color:#1d6f60; font-size:11px; font-weight:650; }
+.cadu-ds-home-continue b { overflow:hidden; font-size:14px; text-overflow:ellipsis; white-space:nowrap; }
+.cadu-ds-home-continue small { overflow:hidden; color:#5f736f; font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
+@media (min-width:761px) { body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content.is-rich { padding:clamp(40px,6vh,64px) clamp(24px,3vw,48px) 56px; } }
+@media (max-width:1100px) { .cadu-ds-home-explore__grid,.cadu-ds-home-guides>div { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:760px) {
+  .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content.is-rich { justify-content:flex-start; padding:20px 16px max(28px,env(safe-area-inset-bottom)); }
+  .cadu-ds-home-intro__pill { margin-bottom:10px; font-size:11px; }
+  .cadu-ds-home-explore.is-mobile { margin-top:20px; }
+  .cadu-ds-home-explore.is-mobile .cadu-ds-home-explore__grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+  .cadu-ds-home-explore.is-mobile .cadu-ds-home-explore__card { grid-template-columns:44px minmax(0,1fr); align-items:center; gap:10px; min-height:60px; padding:8px 10px; border-radius:12px; }
+  .cadu-ds-home-explore.is-mobile .cadu-ds-home-explore__card img { width:44px; margin:0; }
+  .cadu-ds-home-explore.is-mobile .cadu-ds-home-explore__label { color:#10231f; font-size:14px; }
+  .cadu-ds-home-continue { margin-top:20px; }
+  .cadu-ds-home-continue>div { grid-template-columns:1fr; }
 }

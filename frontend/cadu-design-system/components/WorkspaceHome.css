@@ -420,3 +420,12 @@ body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-worksp
   .cadu-ds-home-pulse>header h2,.cadu-ds-home-continue h2 { font-size:15px; }
 }
 .cadu-ds-home-pulse__card li > span { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+
+/* Revisão de espaçamento: linhas do Radar empilhadas (título, depois data) e título do bloco com respiro quando o subtítulo some. */
+.cadu-ds-home-pulse__card li { flex-direction:column; justify-content:flex-start; gap:1px; }
+.cadu-ds-home-pulse__card ul { gap:8px; }
+@media (max-width:760px) {
+  .cadu-ds-home-pulse>header { margin-bottom:10px; }
+  .cadu-ds-home-continue>header { margin-bottom:2px; }
+  .cadu-ds-home-continue a { padding:12px 14px; }
+}

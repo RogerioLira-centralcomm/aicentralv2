@@ -273,6 +273,8 @@ def register_studio_routes(blueprint):
     register(blueprint)
     blueprint.add_url_rule('/api/format-lab/studio/agent/plan', view_func=studio_agent_plan, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/prompt/optimize', view_func=studio_prompt_optimize, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/quadro/decompose', view_func=studio_quadro_decompose, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/quadro/publish', view_func=studio_quadro_publish, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/create/directions', view_func=studio_create_directions, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/create/image', view_func=studio_create_image, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/send-to-video', view_func=studio_send_to_video, methods=['POST'])
@@ -371,6 +373,71 @@ def studio_agent_plan():
         return ok(plan_request(
             data.get('message'), data.get('context'), text_callable=metered_plan
         ))
+
+    return execute(run)
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_quadro_publish():
+    """Quadro: as peças aprovadas pelo designer viram ativos oficiais da marca (biblioteca da marca)."""
+    from werkzeug.datastructures import FileStorage
+    from .studio_quadro import publish_role, resolve_generated_file
+    execute, json_body, ok, service = _http()
+
+    def run():
+        data = json_body()
+        brand_id = int(data.get('client_id') or 0)
+        account_id = int(session.get('cliente_id') or 0)
+        if not brand_id or not account_id:
+            raise ValueError('Escolha um projeto com marca para enviar à biblioteca da marca.')
+        _scope(brand_id)
+        modeling = service()
+        brand = modeling.get_client(brand_id)
+        if int((brand or {}).get('crm_client_id') or 0) != account_id:
+            raise ValueError('Esta marca não pertence à sua conta.')
+        published = []
+        for item in (data.get('items') or [])[:24]:
+            path = resolve_generated_file(str(item.get('url') or ''), modeling)
+            with path.open('rb') as handle:
+                upload = FileStorage(stream=handle, filename=f"{(str(item.get('title') or 'peca')[:60]).strip() or 'peca'}{path.suffix}",
+                                     content_type='image/png' if path.suffix == '.png' else 'image/jpeg' if path.suffix in {'.jpg', '.jpeg'} else 'image/webp')
+                assets = modeling.upload_client_brand_assets(brand_id, [upload], False, publish_role(item.get('kind')))
+            published.append({'version_id': str(item.get('version_id') or ''), 'asset_id': (assets or [{}])[0].get('id'),
+                              'role': publish_role(item.get('kind'))})
+        return ok({'brand_id': brand_id, 'published': published})
+
+    return execute(run)
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_quadro_decompose():
+    """Quadro: quebra um pedido com várias peças em lista revisável (cobra a chamada ao modelo)."""
+    from ..services.openrouter_service import chat_completion
+    from .studio_quadro import decompose
+    execute, json_body, ok, service = _http()
+
+    def run():
+        data = json_body()
+        quick_mode = not data.get('client_id')
+        modeling = service()
+        client_id = _quick_creative_client(modeling) if quick_mode else data.get('client_id')
+        if not session.get('user_id'):
+            raise ValueError('Entre novamente para separar as peças.')
+        _scope(client_id)
+        from ..cadu_credit_connector import CaduCreditConnector, CreditActor
+        payer = modeling._credits_crm_id(client_id) or int(client_id)
+        CaduCreditConnector(modeling.credit_ledger).authorize(CreditActor.from_values(payer, session.get('user_id')), 1500)
+        plan, provider_result = decompose(data.get('text'), data.get('type'), completion=chat_completion)
+        request_key = hashlib.sha256(f"{client_id}:{data.get('type')}:{data.get('text')}".encode('utf-8')).hexdigest()[:64]
+        charged = modeling._charge_studio_call(
+            client_id=client_id, user_id=session.get('user_id'), idempotency_key=f"studio:quadro-decompose:{request_key}",
+            stage="prompt_optimization", provider_result=provider_result, fallback_cost=modeling._estimate("prompt"), media=False,
+            metadata={"surface": "quadro"},
+        ) or {}
+        plan['charged_credits'] = int(charged.get('tokens_cobrados') or 0)
+        return ok(plan)
 
     return execute(run)
 
@@ -618,7 +685,8 @@ def studio_create_image():
             except Exception:
                 logger.exception('Studio image project history sync failed for %s', project_id)
                 result['history_sync_pending'] = True
-        if history and not result.get('replayed'):
+        # The Quadro publishes only what the designer approves (to the brand); its attempts stay out of the library.
+        if history and not result.get('replayed') and data.get('register_library') is not False:
             try:
                 result['library_asset_id'] = history.register_asset(
                     client_id, user_id, '' if quick_mode else project_id, 'image', 'studio_create',

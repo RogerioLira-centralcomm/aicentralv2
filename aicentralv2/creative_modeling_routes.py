@@ -2335,6 +2335,7 @@ def register_studio_product_routes(blueprint):
     """Register short, product-owned workspace URLs on the Studio host."""
     blueprint.add_url_rule("/", endpoint="studio_home", view_func=modelagem_criativos)
     blueprint.add_url_rule("/audio", endpoint="studio_audio", view_func=studio_audio)
+    blueprint.add_url_rule("/quadro", endpoint="studio_quadro", view_func=studio_quadro)
     blueprint.add_url_rule("/biblioteca", endpoint="studio_library", view_func=studio_library)
     blueprint.add_url_rule(
         "/direcao-de-marca",
@@ -2350,6 +2351,17 @@ def register_studio_product_routes(blueprint):
             f"/{path}", endpoint=f"studio_{page}",
             view_func=lambda page=page: modelagem_desk(page),
         )
+
+
+@studio_or_admin_required
+def studio_quadro():
+    """Quadro do Studio: mesa infinita de séries, peças e versões (React em cadu_studio/mesa)."""
+    redirected = _host_redirect('studio')
+    if redirected:
+        return redirected
+    response = make_response(render_template('cadu_studio/quadro.html', mc_trocr_csrf=studio_csrf_token(), mc_format_catalog=catalog_entries()))
+    response.headers['Cache-Control'] = 'no-store, private'
+    return response
 
 
 @studio_or_admin_required

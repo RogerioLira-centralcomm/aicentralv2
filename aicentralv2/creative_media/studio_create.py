@@ -82,10 +82,13 @@ def create(payload, text_callable):
         request = (note + "\n" + request) if note else request
     budget = studio_playbook.copy_budget(context.get("width"), context.get("height"))
     context["orcamento_de_texto"] = budget
+    from . import studio_playbooks
+    type_playbook = studio_playbooks.get(context.get("creation_type"))
     messages = [
-        {"role": "system", "content": system_prompt(count) + "\n\n" + studio_playbook.budget_instruction(
+        # A creation type with a playbook (interface illustration, page…) replaces the ad copy budget with its own rules.
+        {"role": "system", "content": system_prompt(count) + "\n\n" + (type_playbook["director"] if type_playbook else studio_playbook.budget_instruction(
             budget, context.get("width"), context.get("height"),
-            typeset=display_typeset(context.get("width"), context.get("height"), bool(context.get("typeset_social")) or SOCIAL_TYPESET))},
+            typeset=display_typeset(context.get("width"), context.get("height"), bool(context.get("typeset_social")) or SOCIAL_TYPESET)))},
         {"role": "user", "content": direction_user_content(request, context)},
     ]
     response = None
@@ -203,7 +206,7 @@ def clean_context(raw, count):
     data = raw if isinstance(raw, dict) else {}
     references = [clean_direction_reference(item, index) for index, item in enumerate(data.get("references", [])[:MAX_IMAGE_REFERENCES]) if isinstance(item, dict)]
     creation_intent = str(data.get("creation_intent") or "branded_creative").strip().lower()
-    if creation_intent not in {"branded_creative", "neutral_asset"}:
+    if creation_intent not in {"branded_creative", "neutral_asset", "brand_asset"}:
         creation_intent = "branded_creative"
     raw_brand = data.get("brand_context") if isinstance(data.get("brand_context"), dict) else {}
     brand_assets = raw_brand.get("assets") if isinstance(raw_brand.get("assets"), dict) else {}
@@ -251,11 +254,12 @@ def clean_context(raw, count):
         "generation_round": max(0, integer(data.get("generation_round"), 0)),
         "requested_palette": clean_palette(data.get("requested_palette")),
         "creation_intent": creation_intent,
+        "creation_type": text(data.get("creation_type"), 40),
         "references": references,
         "reference_mode": reference_mode(references),
         # When set, the Studio itself applies the official logo after generation, in this corner.
         "logo_corner": logo_position(references) if creation_intent == "branded_creative" and load_brand_logo(brand_context) is not None else "",
-        "brand_context": brand_context if brand_context.get("name") and creation_intent == "branded_creative" else {},
+        "brand_context": brand_context if brand_context.get("name") and creation_intent in {"branded_creative", "brand_asset"} else {},
     }
 
 
@@ -328,6 +332,15 @@ def brand_identity_guard(raw_brand, visual_reference=False, creation_intent="bra
             "Do not apply, infer, reserve space for, or describe the project's logo, palette, font system, product, claim or campaign. "
             "Follow only the user's requested visual material and any selected reference contract."
         )
+    if creation_intent == "brand_asset":
+        palette = [text(item, 16) for item in brand.get("palette", []) if text(item, 16)]
+        lines = ["BRAND LOOK (illustration, not an ad): use the brand's colors as the illustration's palette and accents"
+                 + (f" ({', '.join(palette[:5])})" if palette else "") + ", with a refined, consistent finish."]
+        forbidden = [text(item, 160) for item in brand.get("forbidden_elements", []) if text(item, 160)]
+        if forbidden:
+            lines.append("Never: " + "; ".join(forbidden[:5]) + ".")
+        lines.append("Do not stamp the brand's own logo, wordmark or name unless the brief explicitly asks for it.")
+        return " ".join(lines)
     if visual_reference:
         logo = official_logo_reference(brand)
         return (
@@ -625,10 +638,21 @@ def create_image(payload, modeling, client_id, user_id):
             raise ValueError("Formato de imagem inválido.")
     raw_references = data.get("references") if isinstance(data.get("references"), list) else []
     creation_intent = str(data.get("creation_intent") or "branded_creative").strip().lower()
-    if creation_intent not in {"branded_creative", "neutral_asset"}:
+    if creation_intent not in {"branded_creative", "neutral_asset", "brand_asset"}:
         creation_intent = "branded_creative"
     typeset_social = getattr(modeling, "typeset_social", None)
     typeset_social = SOCIAL_TYPESET if typeset_social is None else bool(typeset_social)
+    from . import studio_playbooks
+    # Creation types beyond ads (interface illustration, page…) bring their own contract; ads keep the measured pipeline.
+    type_playbook = studio_playbooks.get(data.get("creation_type"))
+    key_colour = (studio_playbooks.key_colour(clean_palette(data.get("requested_palette"))
+                                              or list((data.get("brand_context") or {}).get("palette") or []))
+                  if type_playbook and type_playbook["transparent"] else "")
+    if type_playbook:
+        # Third-party platforms named in the brief come with their official logo (the model invents them otherwise).
+        from . import logo_catalog
+        free = MAX_IMAGE_REFERENCES - len([item for item in raw_references if isinstance(item, dict)])
+        raw_references = [*raw_references, *logo_catalog.references(data.get("original_prompt") or data.get("prompt"), free)]
     # Lab v5: a layout by position (elements and relations) replaces the box mask; its sketch is the reference image.
     from . import position_layouts
     position_id = str(data.get("position_layout") or "")
@@ -791,6 +815,9 @@ def create_image(payload, modeling, client_id, user_id):
     composed = bool(sizing and (position_spec or sizing["strategy"] == "composed" or display_typeset(width, height, typeset_social))
                     and not mask and layout_specs() and "headline" in layout_specs()[0]["zones"]
                     and copy_headline)
+    if type_playbook and type_playbook["text"] == "none":
+        # No copy at all: nothing to typeset and no copy rules (they only tempt the model to write).
+        copy_headline, copy_cta, director_copy, composed = "", "", {"support": []}, False
     if director_copy:
         support_copy = director_copy["support"]
     else:
@@ -823,13 +850,15 @@ def create_image(payload, modeling, client_id, user_id):
         # The layout by position owns placement: the director's own placement sentences would contradict it.
         scene = studio_playbook.without_placement(scene)
     technical_prompt = "\n".join(line for line in [
+        *(type_playbook["image"] if type_playbook else []),
+        studio_playbooks.chroma_line(key_colour) if key_colour else "",
         *(["TEXT-FREE IMAGE (overrides every other instruction about copy): this image must contain no words, letters, numbers, buttons or logos. Ignore any request below to render a headline, CTA or brand name: the Studio typesets them afterwards."] if composed else []),
         *layout_lines,
         scene,
-        studio_playbook.ad_craft_line(text_free=composed),
+        "" if type_playbook else studio_playbook.ad_craft_line(text_free=composed),
         crop_safe_zone_line(aspect_ratio, width, height, provider_size),
         "BRIEF FIDELITY: keep every concrete element of the brief (product, packaging, people, setting, action); a composition reference only guides placement and never replaces the requested subject.",
-        *([] if composed else ["VISIBLE TEXT: only the literal copy below and the official logo; no subheadlines, lists, statistics, badges, dates or small print the brief did not write."]),
+        *([] if composed or type_playbook else ["VISIBLE TEXT: only the literal copy below and the official logo; no subheadlines, lists, statistics, badges, dates or small print the brief did not write."]),
         brand_identity_guard(data.get("brand_context"), visual_reference=visual_reference, creation_intent=creation_intent, editing=bool(mask), logo_corner=logo_corner, logo_free=logo_free),
         f"REQUESTED CREATIVE PALETTE: {', '.join(requested_palette)}. Use these colors for this piece's campaign mood only; they are not a claim about official brand identity and must not erase the official brand colors or logo." if requested_palette else "",
         *studio_playbook.prompt_lines([copy_headline, *support_copy, copy_cta], text_free=composed),
@@ -946,7 +975,7 @@ def create_image(payload, modeling, client_id, user_id):
                                    for item in raw_references if isinstance(item, dict)) else "none",
             has_cta=bool(copy_cta),
             refine=bool(getattr(modeling, "refine_target", None)),
-            text_free=composed,
+            text_free=composed or bool(type_playbook and type_playbook["review"].get("no_text")),
         )
 
         def reviewed(candidate_encoded, candidate_format, structure=False):
@@ -963,6 +992,10 @@ def create_image(payload, modeling, client_id, user_id):
                     args["required_text"] = [line for layer in piece_layers
                                              for line in (layer.get("phrases") or layer.get("lines")
                                                           or str(layer.get("text") or "").split("\n")) if line]
+                if type_playbook:
+                    # A creation type is judged by its own contract (text, own logo, frames…), not by ad criteria.
+                    return studio_playbooks.review(piece_b64, type_playbook, brief=data.get("original_prompt") or prompt,
+                                                   brand_name=args["brand_name"], key=key_colour)
                 return studio_review.review(image_b64=piece_b64, **args)
             except Exception:
                 logger.warning("Studio review failed request=%s", request_id, exc_info=True)
@@ -988,7 +1021,7 @@ def create_image(payload, modeling, client_id, user_id):
     variation_base = variation_reference(data, modeling)
     passes = []
     if variation_base and not mask:
-        provider, raw, output_format = render(studio_review.variation_prompt(aspect_ratio) + "\n\n" + technical_prompt,
+        provider, raw, output_format = render(studio_review.variation_prompt(aspect_ratio, str(data.get("creation_type") or "")) + "\n\n" + technical_prompt,
                                               [compact_provider_reference(variation_base), *provider_references[:MAX_IMAGE_REFERENCES - 1]])
         passes = ["variation"]
     elif (TWO_PASS if getattr(modeling, "two_pass", None) is None else modeling.two_pass) and not mask:
@@ -1023,7 +1056,9 @@ def create_image(payload, modeling, client_id, user_id):
         logger.info("Studio auto review request=%s version=1 approved=%s reason=%s score=%s",
                     request_id, best["verdict"]["approved"], best["verdict"].get("reason") or "-", best["verdict"].get("score"))
         version, latest = 1, best
-        while version < attempts and studio_review.wants_another(latest["verdict"], modeling):
+        while version < attempts and studio_review.wants_another(latest["verdict"], modeling) and (
+                # A playbook type is only re-edited for what an edit can fix (text, own logo, frames), never for ad criteria.
+                not type_playbook or latest["verdict"].get("reason") in set(studio_playbooks.FIXES)):
             version += 1
             try:
                 # Each edit starts from the latest version (the chain keeps what was already fixed); the best is delivered.
@@ -1037,7 +1072,8 @@ def create_image(payload, modeling, client_id, user_id):
                     provider_n, raw_n, format_n = render(studio_review.reframe_prompt(aspect_ratio), [base])
                 else:
                     base = compact_provider_reference(f"data:image/{latest['format'] or 'png'};base64,{latest['raw']}")
-                    provider_n, raw_n, format_n = render(studio_review.edit_prompt(latest["verdict"], aspect_ratio),
+                    provider_n, raw_n, format_n = render(studio_playbooks.edit_prompt(latest["verdict"], key_colour) if type_playbook
+                                                         else studio_review.edit_prompt(latest["verdict"], aspect_ratio),
                                                          [base, *provider_references[:MAX_IMAGE_REFERENCES - 1]])
                 encoded_n = fit_to(raw_n, format_n, width, height)
                 verdict_n = reviewed(encoded_n, format_n)
@@ -1059,7 +1095,8 @@ def create_image(payload, modeling, client_id, user_id):
                        "score": final.get("score"), "reason": first_verdict.get("reason"), "reason_text": first_verdict.get("reason_text"),
                        "final_reason": final.get("reason") or "",
                        "delivered": "first" if best["version"] == 1 else "second" if best["version"] == 2 else f"v{best['version']}",
-                       "delivered_version": best["version"], "attempts": log, **({"fix": "edit"} if version > 1 else {})}
+                       "delivered_version": best["version"], "attempts": log, **({"fix": "edit"} if version > 1 else {}),
+                       **({"notes": final.get("notes") or []} if type_playbook else {})}
         if len(log) > 1 and log[1].get("score") is not None:
             review_info["second_score"] = log[1]["score"]
         if any(item.get("failed") for item in log):
@@ -1069,8 +1106,15 @@ def create_image(payload, modeling, client_id, user_id):
         from .export import save_sibling, smallest_encoding
         budget = sizing["weight_budget_kb"] if sizing else None
         piece, base_encoded, layers = finish(encoded, output_format)
-        # Masked edits stay lossless PNG: the same file is edited again and again.
-        piece, delivered_format, file_kb = (piece, output_format, None) if mask else smallest_encoding(piece, budget)
+        if key_colour:
+            # Real transparency: the model painted a flat key colour; turn it into an alpha channel (always PNG).
+            keyed = studio_playbooks.key_out(base64.b64decode(piece), key_colour)
+            from ..creative_format_lab.chroma_key import has_real_transparency
+            if not has_real_transparency(keyed):
+                raise ValueError("Não foi possível separar o fundo desta ilustração. Gere de novo.")
+            piece, output_format = base64.b64encode(keyed).decode("ascii"), "png"
+        # Masked edits and transparent illustrations stay lossless PNG.
+        piece, delivered_format, file_kb = (piece, output_format, None) if mask or key_colour else smallest_encoding(piece, budget)
         image_url = modeling.storage.save_generated_base64(piece, delivered_format)
         if sizing and sizing.get("delivery_2x") and not mask:
             # Display units ship a 2x for high-density screens, cut from the same generation.

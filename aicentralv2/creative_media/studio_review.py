@@ -471,8 +471,17 @@ def finish_prompt(partial: dict | None, aspect_ratio: str = "") -> str:
     return "\n".join(lines)
 
 
-def variation_prompt(aspect_ratio: str = "") -> str:
+# Tipos de criação do Quadro que não são anúncio: a variação mantém a série, sem regras de peça publicitária.
+NON_AD_TYPES = {"ilustracao", "landing_vendas", "landing_institucional", "site", "post"}
+
+
+def variation_prompt(aspect_ratio: str = "", creation_type: str = "") -> str:
     """Another variation made from a finished piece: same campaign, a clearly different take."""
+    if creation_type in NON_AD_TYPES:
+        return ("VARIATION OF THE FIRST IMAGE. It is a finished piece of a visual series (not an advertisement). Create a clearly "
+                "different take that answers the new request: keep the same visual style, stroke, palette, typography and finish, "
+                "but do not copy its subject, objects or layout unless the request asks for them. Any other image supplied is a "
+                "reference only." + (f" Keep the canvas and aspect ratio ({aspect_ratio})." if aspect_ratio else ""))
     return ("VARIATION OF THE FIRST IMAGE. It is a finished ad of this campaign. Create a clearly different take of it: "
             "change the camera angle, the pose or the arrangement of the scene, while keeping the brand, the palette, the "
             "layout zones, the subject's identity and every piece of copy exactly as written. Any other image supplied is "

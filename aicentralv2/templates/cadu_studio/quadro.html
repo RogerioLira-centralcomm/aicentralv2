@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quadro — Cadu Studio</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='cadu_studio/mesa/react/app.css') }}?v={{ static_fingerprint('cadu_studio/mesa/react/app.css') if static_fingerprint is defined else 0 }}">
+</head>
+<body>
+<div id="cadu-studio-mesa-root"><noscript>Ative o JavaScript para usar o Cadu Studio.</noscript></div>
+<script id="cadu-studio-mesa-bootstrap" type="application/json">{{ {
+  'apiRoot': '/studio/api',
+  'csrf': mc_trocr_csrf,
+  'formatCatalog': mc_format_catalog,
+  'links': {'home': studio_url('modelagem_criativos'), 'create': studio_url('modelagem_criar'), 'editor': studio_url('modelagem_trocar')}
+}|tojson }}</script>
+<script type="module" src="{{ url_for('static', filename='cadu_studio/mesa/react/app.js') }}?v={{ static_fingerprint('cadu_studio/mesa/react/app.js') if static_fingerprint is defined else 0 }}"></script>
+</body>
+</html>

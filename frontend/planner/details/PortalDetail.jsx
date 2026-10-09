@@ -2,6 +2,8 @@ import React from 'react';
 import {CaduEmptyState} from '../../cadu-design-system/components/CaduEmptyState.jsx';
 import {DetailLayout, Facts, Gallery} from './DetailLayout.jsx';
 import {moduleUrl} from '../api.js';
+import {Icon} from '../../cadu-design-system/components/Icon.jsx';
+import {FormatPreview} from '../FormatPreview.jsx';
 
 // Cadastro fields that help a media planner, in plain words. Everything else we hold is technical and stays out of the page.
 const COMMERCIAL = [
@@ -56,9 +58,16 @@ export function PortalDetail({boot, selection, plan = null}) {
   const sections = [
     {id: 'formatos', label: 'Formatos de anúncio', hidden: !formatCount, count: formatCount,
       hint: 'Conheça os formatos e veja as especificações para sua campanha.',
-      render: () => <ul className="pd-chips">{availableFormats.map(item => <li key={item.id || item.label || item.nome}>
-        {formatLink(item, `${item.nome || item.label}${item.size ? ` · ${item.size.replace('x', '×')}` : ''}`)}
-      </li>)}</ul>},
+      render: () => <ul className="pd-fcards">{availableFormats.map(item => {
+        const label = item.nome || item.label;
+        const size = item.size || item.dimensoes;
+        const body = <>
+          <FormatPreview dimensions={size} name={label} type={item.tipo}/>
+          <span className="pd-fcards__text"><strong>{label}</strong>{size && <small>{String(size).replace('x', '×')}</small>}</span>
+          {item.id && <Icon name="chevron" size={16}/>}
+        </>;
+        return <li key={item.id || label}>{item.id ? <a href={`${moduleUrl(boot.urls, 'formatos')}/${item.id}`}>{body}</a> : <div>{body}</div>}</li>;
+      })}</ul>},
     {id: 'demografia', label: 'Perfil do público', hidden: !demographics,
       hint: `Estimado pela categoria editorial${demographics?.regiao ? ' e pela região' : ''}; confiança ${demographics?.confianca || 'baixa'}. Não é medição do portal.`,
       render: () => <Facts items={[

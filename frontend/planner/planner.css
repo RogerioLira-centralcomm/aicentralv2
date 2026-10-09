@@ -1968,3 +1968,25 @@ a.planner-card:focus-visible { outline: 2px solid var(--colors-brand-600, #07945
 .pd-related__link.is-row { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px; padding: 6px 0; }
 .pd-related li:has(> .is-row) .row-add { top: 50%; transform: translateY(-50%); right: 0; }
 .portal-row__shot.is-empty { display: grid; place-items: center; }
+
+/* Portal detail: compact cover, internal captures never enter the public gallery. */
+.pd--portais .pdb.has-image { height: 180px; }
+.pd--portais .pdb.has-image .pdb__inner { align-items: center; padding-block: 24px; }
+.pd--portais .pd-intro { max-width: none; }
+.pd--portais .pd-highlights__cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pd--portais .pd-gallery { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pd--portais .pd-gallery figure, .pd--portais .pd-gallery figure.is-lead { aspect-ratio: auto; overflow: visible; background: transparent; }
+.pd--portais .pd-gallery img { aspect-ratio: 3 / 2; height: auto; object-fit: contain; border: 1px solid var(--planner-line); border-radius: 8px; background: var(--planner-soft); }
+.pd--portais .pd-gallery figcaption { position: static; background: none; color: var(--planner-ink, #101828); padding: 10px 0; }
+@media (max-width: 900px) {
+  .pd--portais .pdb.has-image { height: auto; min-height: 180px; }
+  .pd--portais .pd-highlights__cards { grid-template-columns: 1fr; }
+  .pd--portais .pd-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) { .pd--portais .pd-gallery { grid-template-columns: 1fr; } }
+.pd-gallery__open { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
+.pd-lightbox { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 24px; background: rgba(10, 14, 20, .88); }
+.pd-lightbox figure { margin: 0; max-width: min(1400px, 100%); }
+.pd-lightbox img { display: block; max-width: 100%; max-height: calc(100vh - 120px); margin: 0 auto; border-radius: 8px; }
+.pd-lightbox figcaption { margin-top: 12px; color: #fff; font-size: 14px; text-align: center; }
+.pd-lightbox__close { position: absolute; top: 12px; right: 16px; width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .16); color: #fff; font-size: 26px; line-height: 1; cursor: pointer; }

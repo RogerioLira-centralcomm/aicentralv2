@@ -202,7 +202,6 @@ def catalog(query='', category='', sort='featured', limit=50, offset=0,
     top_uf = {row['id'] for row in repository.rows(TOP_UF_IDS_SQL, (TOP_UF_SIZE,))}
     for row in rows:
         row['uf_top'] = row['id'] in top_uf
-    attach_prints(rows)
     attach_thumbs(rows)
     return {'records': rows, 'total': total, 'limit': limit, 'offset': offset}
 
@@ -288,9 +287,11 @@ def detail(portal_id):
     if not rows:
         from werkzeug.exceptions import NotFound
         raise NotFound('Portal indisponível.')
-    attach_prints(rows, all_kinds=True)
+    from .portal_examples import attach_examples
+    attach_examples(rows)
     attach_thumbs(rows)
     attach_formats(rows[0])
+    rows[0]['formats'].pop('market', None)  # market defaults are not evidence about this portal
     return rows[0]
 
 

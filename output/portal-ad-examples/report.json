@@ -1,0 +1,163 @@
+[
+  {
+    "key": "format-ffccea907a9e",
+    "portal_id": 1,
+    "status": "ready",
+    "cost_usd": 0.023135,
+    "review": {
+      "portal_recognizable": true,
+      "ad_visible": true,
+      "ad_fully_inside_frame": true,
+      "ad_proportion_plausible": true,
+      "brand_legible": true,
+      "placement_plausible": true,
+      "device_matches": true,
+      "invented_claims": false,
+      "distorted_text": false,
+      "score": 75,
+      "issues": [
+        "Ad format is display/banner (not in-stream video as expected)",
+        "Video player visible but ad is static overlay, not true VAST/IMA in-stream",
+        "Expected format mismatch: Vídeo in-stream specified but delivery appears to be standard display ad",
+        "Ad placement is correct for G1, but format specification not met"
+      ],
+      "approved": true,
+      "reviewed": true,
+      "attempt": 1
+    }
+  },
+  {
+    "key": "format-e76bfc363cec",
+    "portal_id": 1,
+    "status": "ready",
+    "cost_usd": 0.023155,
+    "review": {
+      "portal_recognizable": true,
+      "ad_visible": true,
+      "ad_fully_inside_frame": true,
+      "ad_proportion_plausible": true,
+      "brand_legible": true,
+      "placement_plausible": true,
+      "device_matches": true,
+      "invented_claims": false,
+      "distorted_text": false,
+      "score": 92,
+      "issues": [
+        "Ad dimensions appear slightly wider than standard 970x250 (may be 970x273 or similar variant)",
+        "Minor: CTA button 'Saiba mais' could be more prominent"
+      ],
+      "approved": true,
+      "reviewed": true,
+      "attempt": 1
+    }
+  },
+  {
+    "key": "format-8fc3e708f106",
+    "portal_id": 1,
+    "status": "ready",
+    "cost_usd": 0.02317,
+    "review": {
+      "portal_recognizable": true,
+      "ad_visible": true,
+      "ad_fully_inside_frame": true,
+      "ad_proportion_plausible": true,
+      "brand_legible": true,
+      "placement_plausible": true,
+      "device_matches": true,
+      "invented_claims": false,
+      "distorted_text": false,
+      "score": 92,
+      "issues": [
+        "Ad dimensions appear slightly wider than standard 300x250 (may be 300x280 or similar variant)",
+        "CTA button 'Saiba mais' is generic and lacks specific product/offer details"
+      ],
+      "approved": true,
+      "reviewed": true,
+      "attempt": 1
+    }
+  },
+  {
+    "key": "format-806fe8291c3b",
+    "portal_id": 36,
+    "status": "failed",
+    "error": "A OpenAI recusou a consulta: Your request was rejected by the safety system. If you believe this is an error, contact us at help.openai.com and include the request ID req_be9ebc922fa94ff89627f86be673e02e."
+  },
+  {
+    "key": "format-1bead1d2c3a9",
+    "portal_id": 1,
+    "status": "ready",
+    "cost_usd": 0.02316,
+    "review": {
+      "portal_recognizable": true,
+      "ad_visible": true,
+      "ad_fully_inside_frame": true,
+      "ad_proportion_plausible": true,
+      "brand_legible": true,
+      "placement_plausible": true,
+      "device_matches": true,
+      "invented_claims": false,
+      "distorted_text": false,
+      "score": 92,
+      "issues": [
+        "Ad dimensions appear slightly wider than specified 300x600 format",
+        "Minor: CTA button 'Saiba mais' is generic without specific offer details"
+      ],
+      "approved": true,
+      "reviewed": true,
+      "attempt": 1
+    }
+  },
+  {
+    "key": "format-3821cbf6d478",
+    "portal_id": 36,
+    "status": "needs_review",
+    "cost_usd": 0.046814999999999996,
+    "review": {
+      "portal_recognizable": true,
+      "ad_visible": true,
+      "ad_fully_inside_frame": true,
+      "ad_proportion_plausible": false,
+      "brand_legible": true,
+      "placement_plausible": true,
+      "device_matches": false,
+      "invented_claims": false,
+      "distorted_text": false,
+      "score": 45,
+      "issues": [
+        "Ad dimensions appear to be approximately 546x90px, not the expected 320x50 mobile banner format",
+        "Ad is displayed at desktop/tablet width rather than mobile 320px width",
+        "Device mismatch: content shows full-width desktop layout, not mobile viewport",
+        "Ad proportions do not match standard 320x50 mobile banner specification"
+      ],
+      "approved": false,
+      "reviewed": true,
+      "attempt": 1
+    }
+  },
+  {
+    "key": "format-8fc3e708f106",
+    "portal_id": 1,
+    "status": "ready",
+    "cost_usd": 0.023305,
+    "review": {
+      "portal_recognizable": true,
+      "ad_visible": true,
+      "ad_fully_inside_frame": true,
+      "ad_proportion_plausible": true,
+      "empty_ad_slot": false,
+      "brand_legible": true,
+      "placement_plausible": true,
+      "device_matches": true,
+      "invented_claims": false,
+      "distorted_text": false,
+      "score": 92,
+      "issues": [
+        "Ad labeled 'Publicidade' but positioned prominently in editorial flow rather than in a dedicated sidebar slot",
+        "Expected 300x250 rectangle format not clearly confirmed - ad appears wider than standard retângulo dimensions"
+      ],
+      "approved": true,
+      "reviewed": true,
+      "attempt": 1
+    }
+  }
+]

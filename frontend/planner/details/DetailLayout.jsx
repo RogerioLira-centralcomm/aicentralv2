@@ -96,11 +96,30 @@ export function Rail({items, empty}) {
 /** Photo grid; the first photo leads. */
 export function Gallery({photos, name}) {
   const visible = (photos || []).filter(photo => photo?.url).slice(0, 12);
+  const [open, setOpen] = useState(null);
+  useEffect(() => {
+    if (open === null) return undefined;
+    const onKey = event => { if (event.key === 'Escape') setOpen(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
   if (!visible.length) return null;
-  return <div className="pd-gallery">{visible.map((photo, index) => <figure key={photo.url} className={index === 0 ? 'is-lead' : ''}>
-    <img src={photo.url} alt={photo.title || `Foto ${index + 1} de ${name}`} loading="lazy"/>
-    {photo.caption && <figcaption>{photo.caption}</figcaption>}
-  </figure>)}</div>;
+  const current = open === null ? null : visible[open];
+  return <>
+    <div className="pd-gallery">{visible.map((photo, index) => <figure key={photo.url} className={index === 0 ? 'is-lead' : ''}>
+      <button type="button" className="pd-gallery__open" onClick={() => setOpen(index)} aria-label={`Ampliar: ${photo.caption || photo.title || name}`}>
+        <img src={photo.url} alt={photo.title || `Foto ${index + 1} de ${name}`} loading="lazy"/>
+      </button>
+      {photo.caption && <figcaption>{photo.caption}</figcaption>}
+    </figure>)}</div>
+    {current && <div className="pd-lightbox" role="dialog" aria-modal="true" aria-label="Simulação ampliada" onClick={() => setOpen(null)}>
+      <figure onClick={event => event.stopPropagation()}>
+        <img src={current.url} alt={current.title || name}/>
+        {current.caption && <figcaption>{current.caption}</figcaption>}
+      </figure>
+      <button type="button" className="pd-lightbox__close" onClick={() => setOpen(null)} aria-label="Fechar">×</button>
+    </div>}
+  </>;
 }
 
 /**
@@ -149,7 +168,7 @@ export function DetailLayout({boot, selection, kind, record, icon = 'plan', eyeb
 
   // A marketplace listing: the photo is the banner (identity and key numbers over it), the pitch right below, a horizontal
   // index, the sections, and on the right the related items to compare.
-  return <article className="pd pd--market">
+  return <article className={`pd pd--market pd--${kind}`}>
     <header className={`pdb${bannerImage ? ' has-image' : ''}`} style={bannerImage ? {'--pdb-image': `url("${bannerImage}")`} : undefined}>
       {bannerImage && media?.illustrative && <span className="pdb__badge">Ilustração</span>}
       <div className="pdb__inner">

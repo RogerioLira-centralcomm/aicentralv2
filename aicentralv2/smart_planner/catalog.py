@@ -233,7 +233,7 @@ CHANNEL_LOGOS = {
     "interativos": "/static/images/canais/interativos.svg",
     "places": "",
     "ooh": "/static/images/canais/eletromidia.svg",
-    "logan": "/static/images/canais/logan.svg",
+    "logan": "/static/images/canais/logan.png",
 }
 
 GROUP_KPIS = {

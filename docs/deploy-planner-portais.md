@@ -17,7 +17,7 @@ Estimativas (Tranco) dos portais ativos, Top 10 nacional (`featured_rank` 1 a 10
 Em 2026-10-08 os canais abaixo foram completados direto na tabela `cadu_canais` do banco do `.env`, a partir de fontes públicas (links em `fontes_metricas.formatos` de cada um):
 - **Uber, iFood, 99:** formatos, produtos, mensuração e diferenciais novos (Journey Ads, Ride Offers e Destination Offers; Instant Sampling e closed loop; 99Ads no app e OOH na frota). iFood passou a ter 60M usuários/mês em 1.500 cidades.
 - **Amazon Ads / Marketplace:** Sponsored Products, Sponsored Brands e Amazon Stores (fonte de mercado, não oficial).
-- **Logan:** reescrito com a página oficial logan.ai/pt-br/logan-ads (plataforma multicanal: OOH, rich media, CTV, vídeo in-app, áudio, WhatsApp, in-game, push); categoria passou a Programática; logo oficial em `static/images/canais/logan.svg` (esse vai no commit, o resto é banco).
+- **Logan:** reescrito com a página oficial logan.ai/pt-br/logan-ads (plataforma multicanal: OOH, rich media, CTV, vídeo in-app, áudio, WhatsApp, in-game, push); categoria passou a Programática; logo oficial em `static/images/canais/logan.png` (esse vai no commit, o resto é banco).
 - **Serasa Data (DMP):** produtos confirmados (Programa de Parcerias, audiências digitais, Serasa Ads). O nome "DMP", a base de 200M de perfis e as integrações com DSPs seguem do cadastro anterior, **sem fonte pública**.
 - **Interativos:** descrição passou a refletir os 29 formatos do catálogo.
 

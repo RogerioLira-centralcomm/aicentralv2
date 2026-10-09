@@ -21,7 +21,9 @@ def attach_examples(portals):
         try:
             folder = EXAMPLES / str(int(portal['id']))
             records = json.loads((folder / 'gallery.json').read_text(encoding='utf-8'))
-            for item in records[:5]:
+            for item in records:
+                if len(portal['ad_examples']) == 5:
+                    break
                 filename = item.get('file', '')
                 if item.get('status') != 'published' or not re.fullmatch(r'[a-z0-9-]+\.webp', filename):
                     continue

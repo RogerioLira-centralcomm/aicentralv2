@@ -129,7 +129,8 @@ def generate(job, app, model, force=False):
         with Image.open(io.BytesIO(base64.b64decode(encoded))) as image:
             image.load()
             target.parent.mkdir(parents=True, exist_ok=True)
-            image.convert('RGB').save(target, 'WEBP', quality=90)
+            image.convert('RGB').save(target.with_suffix('.tmp'), 'WEBP', quality=90)
+            target.with_suffix('.tmp').replace(target)
         status = 'ready' if verdict.get('approved') is True and verdict.get('reviewed') is True else 'needs_review'
         entry = {**job, 'file': target.name, 'status': status, 'review': verdict, 'calls': calls}
         with LOCK:
@@ -141,7 +142,7 @@ def generate(job, app, model, force=False):
                 'cost_usd': sum(call.get('cost_usd') or 0 for call in calls), 'review': verdict}
 
 
-def publish(plan):
+def publish(plan, approved):
     count = 0
     for portal_id in dict.fromkeys(job['portal_id'] for job in plan['jobs']):
         path = EXAMPLES / str(portal_id) / 'gallery.json'
@@ -149,7 +150,7 @@ def publish(plan):
             continue
         records = json.loads(path.read_text())
         for entry in records:
-            if entry['status'] == 'ready' and (path.parent / entry['file']).exists():
+            if entry['status'] == 'ready' and entry['key'] in approved and (path.parent / entry['file']).exists():
                 entry['status'] = 'published'
                 count += 1
         write_json(path, records)
@@ -163,6 +164,7 @@ def main():
     parser.add_argument('--redo', action='append', default=[], help='regenerate this job key even if it exists')
     parser.add_argument('--keys', help='comma-separated job keys to generate (pilot)')
     parser.add_argument('--publish', action='store_true')
+    parser.add_argument('--approve', action='append', help='job key a person reviewed; only these are published')
     parser.add_argument('--max-images', type=int, default=200)
     parser.add_argument('--workers', type=int, choices=range(1, 5), default=4)
     parser.add_argument('--model', default='gpt-image-2.5-sunburst--openai')
@@ -195,7 +197,7 @@ def main():
             results = list(pool.map(run, jobs))
         print('Resultado:', {s: sum(r['status'] == s for r in results) for s in ('ready', 'needs_review', 'failed')}, flush=True)
     if args.publish:
-        print('Publicadas:', publish(plan), flush=True)
+        print('Publicadas:', publish(plan, set(args.approve or [])), flush=True)
 
 
 if __name__ == '__main__':

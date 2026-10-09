@@ -65,12 +65,19 @@ function PulseDetail({card}) {
 }
 
 /** "Seu dia no Cadu": um fato real por solução que a conta pode abrir. No mobile, só os dois mais urgentes e sem detalhe visual. */
-export function HomePulse({cards = [], solutions = {}, isMobile = false, emptyImage = ''}) {
+function greeting(name) {
+  const hour = new Date().getHours();
+  const first = String(name || '').trim().split(/\s+/)[0];
+  const salute = hour < 5 ? 'Boa noite' : hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+  return first && first !== 'Minha' ? `${salute}, ${first}` : salute;
+}
+
+export function HomePulse({cards = [], solutions = {}, isMobile = false, emptyImage = '', userName = ''}) {
   const visible = cards.filter(card => solutions[card.solution]).sort((a, b) => PULSE_ORDER.indexOf(a.id) - PULSE_ORDER.indexOf(b.id));
   if (!visible.length) return emptyImage ? <section className="cadu-ds-home-pulse is-empty" aria-label="Seu dia no Cadu"><img src={emptyImage} alt="" loading="lazy"/><div><h2>Seu dia ainda está tranquilo</h2><p>Quando você começar um plano, um criativo ou um relatório, o resumo aparece aqui.</p></div></section> : null;
   const list = isMobile ? visible.slice(0, 2) : visible;
   return <section className={`cadu-ds-home-pulse${isMobile ? ' is-mobile' : ''}`} aria-label="Seu dia no Cadu">
-    <header><h2>Seu dia no Cadu</h2>{!isMobile && <p>Aqui está o que mais importa para você agora.</p>}</header>
+    <header><h2>{greeting(userName)}</h2>{!isMobile && <p>O que mudou desde sua última visita.</p>}</header>
     <div className="cadu-ds-home-pulse__grid">{list.map(card => <a key={card.id} className={`cadu-ds-home-pulse__card is-${card.id}`} href={card.href}>
       <span className="cadu-ds-home-pulse__head"><Icon name={PULSE_ICON[card.id] || 'table'} size={16}/>{card.title}</span>
       <strong>{card.id === 'radar' && !card.count ? 'Sem novidades' : `${card.count} ${card.noun}`}</strong><small>{card.caption}</small>

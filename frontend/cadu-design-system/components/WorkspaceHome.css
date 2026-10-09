@@ -402,7 +402,7 @@ body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-worksp
 }
 
 /* Os blocos da Home rica usam a largura toda do conteúdo; regras genéricas do Workspace limitavam a 900px. */
-body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content.is-rich > :is(.cadu-ds-home-pulse,.cadu-ds-home-explore,.cadu-ds-home-continue) { width:min(1180px,100%); max-width:none; margin-right:auto; margin-left:auto; }
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content.is-rich > :is(.cadu-ds-home-pulse,.cadu-ds-home-explore,.cadu-ds-home-continue) { width:min(860px,100%); max-width:none; margin-right:auto; margin-left:auto; }
 
 @media (max-width:1100px) { .cadu-ds-home-pulse__grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (max-width:760px) {
@@ -419,3 +419,4 @@ body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-worksp
   .cadu-ds-home-pulse__card .cadu-ds-home-explore__cta { display:none; }
   .cadu-ds-home-pulse>header h2,.cadu-ds-home-continue h2 { font-size:15px; }
 }
+.cadu-ds-home-pulse__card li > span { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }

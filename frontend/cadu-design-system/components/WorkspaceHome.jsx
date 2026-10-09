@@ -1,8 +1,7 @@
 import React, {useCallback, useMemo, useState} from 'react';
 import './WorkspaceHome.css';
 import {CaduDock} from './CaduDock';
-import {CaduButton} from './CaduButton';
-import {HomeContinue, HomeExplore, HomePulse} from './WorkspaceHomeExplore';
+import {HomeContinue, HomePulse} from './WorkspaceHomeExplore';
 import {WorkspaceChatComposer} from './WorkspaceChatComposer';
 import {WorkspaceContextSidebar} from './WorkspaceContextSidebar';
 import {ShortcutManagerDialog, UndoToast, WorkspaceAccountMenu} from './WorkspaceFeedback';
@@ -38,19 +37,6 @@ export function WorkspaceHome({bootstrap}) {
   const [brandRef, setBrandRef] = useState('');
   const [attachments, setAttachments] = useState([]);
   const [attachmentDestination, setAttachmentDestination] = useState('conversation');
-  const [resumeSuggestion, setResumeSuggestion] = useState(null);
-  const [resumeSuggestionState, setResumeSuggestionState] = useState('idle');
-  const requestResumeSuggestion = async () => {
-    if (resumeSuggestionState === 'loading') return;
-    setResumeSuggestionState('loading');
-    try {
-      const result = await request('/workspace/api/home/resume-suggestion', {
-        method: 'POST', headers: {'X-CSRF-Token': csrf()},
-      });
-      setResumeSuggestion(result.suggestion || null);
-      setResumeSuggestionState(result.suggestion ? 'ready' : 'empty');
-    } catch (_) { setResumeSuggestionState('error'); }
-  };
   const projects = useMemo(() => [...(home.projects || [])].sort((left, right) => {
     const leftDate = Date.parse(left.updatedAt || left.updated_at || '') || 0;
     const rightDate = Date.parse(right.updatedAt || right.updated_at || '') || 0;
@@ -72,7 +58,6 @@ export function WorkspaceHome({bootstrap}) {
     ...projects.filter(project => !(home.resumeCards || []).some(card => card.id === project.id)).map(project => ({key: `p:${project.id}`, kind: 'Projeto', title: project.name, context: project.brandName, href: project.href, raw: project})),
   ].filter(item => item.title);
   const hasWork = continueItems.length > 0 || (home.brands || []).length > 0 || (home.pulse || []).length > 0;
-  const exploreMode = isMobile ? 'mobile' : hasWork ? 'compact' : 'full';
   const releasePreviews = useCallback(items => items.forEach(item => { if (item.previewUrl) URL.revokeObjectURL(item.previewUrl); }), []);
   const classifyAttachment = useCallback(async file => {
     try {
@@ -213,22 +198,10 @@ export function WorkspaceHome({bootstrap}) {
         resources={home.resources || []}
       />}
         <section className={`cadu-ds-home-content is-rich ${hasWork ? 'is-returning' : 'is-new'}`}>
-        <div className="cadu-ds-home-intro"><span className="cadu-ds-home-intro__pill">Bem-vindo ao Cadu</span><h1>Vamos transformar ideias em <em>resultados</em>?</h1>{!isMobile && <p>Pesquise, planeje, crie e analise com inteligência. O Cadu está aqui para ajudar.</p>}</div>
+        <div className="cadu-ds-home-intro"><h1>Vamos transformar ideias em <em>resultados</em>?</h1>{!isMobile && <p>Pesquise, planeje, crie e analise com inteligência. O Cadu está aqui para ajudar.</p>}</div>
         <WorkspaceChatComposer value={value} onChange={setValue} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} hasProject={Boolean(projectRef)} executionMode={executionMode} onExecutionModeChange={setExecutionMode} composerContext={composerContext} onClearContext={() => { setProjectRef(''); setBrandRef(''); setAttachmentDestination('conversation'); }} onContextDrop={dropContext} onAttach={addFiles} projects={projects} projectRef={projectRef} onProjectChange={id => { setProjectRef(id); setBrandRef(''); setAttachmentDestination('conversation'); }} audioTranscriptionEndpoint={bootstrap.endpoints.audioTranscriptions} csrfToken={csrf()} embedded homeMode/>
-        {hasWork && <section className="cadu-ds-home-resume" aria-label="Retomar trabalho">
-          {resumeSuggestionState === 'ready' && resumeSuggestion ? <a className="cadu-ds-home-resume__result" href={resumeSuggestion.href}>
-            <span><small>Trabalho atualizado recentemente</small><b>{resumeSuggestion.title}</b><small>{resumeSuggestion.context}{resumeSuggestion.context && resumeSuggestion.status ? ' · ' : ''}{resumeSuggestion.status}</small></span><span aria-hidden="true">›</span>
-          </a> : <>
-            {resumeSuggestionState !== 'empty' && <CaduButton type="button" variant="tertiary" onClick={requestResumeSuggestion} disabled={resumeSuggestionState === 'loading'}>
-              {resumeSuggestionState === 'loading' ? 'Carregando…' : resumeSuggestionState === 'error' ? 'Tentar novamente' : 'Retomar trabalho recente'}
-            </CaduButton>}
-            {resumeSuggestionState === 'empty' && <small role="status">Não encontrei uma sugestão útil para retomar agora.</small>}
-            {resumeSuggestionState === 'error' && <small role="status">Não consegui preparar a sugestão agora. Você pode continuar usando a Home normalmente.</small>}
-          </>}
-        </section>}
-        {hasWork && <HomePulse cards={home.pulse || []} solutions={bootstrap.urls?.solutions || {}} isMobile={isMobile} emptyImage={bootstrap.explore?.emptyImage}/>}
+        {hasWork && <HomePulse cards={home.pulse || []} solutions={bootstrap.urls?.solutions || {}} isMobile={isMobile} emptyImage={bootstrap.explore?.emptyImage} userName={bootstrap.user?.name}/>}
         {hasWork && <HomeContinue items={continueItems} isMobile={isMobile} onOpen={openWorkspaceDetail}/>}
-        <HomeExplore explore={bootstrap.explore} solutions={bootstrap.urls?.solutions} mode={exploreMode}/>
         </section>
       </div>
     </main>

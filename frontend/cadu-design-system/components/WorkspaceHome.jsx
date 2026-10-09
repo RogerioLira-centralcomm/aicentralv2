@@ -2,7 +2,7 @@ import React, {useCallback, useMemo, useState} from 'react';
 import './WorkspaceHome.css';
 import {CaduDock} from './CaduDock';
 import {CaduButton} from './CaduButton';
-import {HomeContinue, HomeExplore} from './WorkspaceHomeExplore';
+import {HomeContinue, HomeExplore, HomePulse} from './WorkspaceHomeExplore';
 import {WorkspaceChatComposer} from './WorkspaceChatComposer';
 import {WorkspaceContextSidebar} from './WorkspaceContextSidebar';
 import {ShortcutManagerDialog, UndoToast, WorkspaceAccountMenu} from './WorkspaceFeedback';
@@ -226,6 +226,7 @@ export function WorkspaceHome({bootstrap}) {
             {resumeSuggestionState === 'error' && <small role="status">Não consegui preparar a sugestão agora. Você pode continuar usando a Home normalmente.</small>}
           </>}
         </section>
+        {hasWork && <HomePulse cards={home.pulse || []} solutions={bootstrap.urls?.solutions || {}} isMobile={isMobile} emptyImage={bootstrap.explore?.emptyImage}/>}
         {hasWork && <HomeContinue items={continueItems} isMobile={isMobile} onOpen={openWorkspaceDetail}/>}
         <HomeExplore explore={bootstrap.explore} solutions={bootstrap.urls?.solutions} mode={exploreMode}/>
         </section>

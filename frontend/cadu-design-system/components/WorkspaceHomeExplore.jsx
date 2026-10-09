@@ -42,3 +42,40 @@ export function HomeContinue({items, isMobile, onOpen}) {
     </a>)}</div>
   </section>;
 }
+
+const RELATIVE = new Intl.RelativeTimeFormat('pt-BR', {numeric: 'auto'});
+function since(iso) {
+  const time = Date.parse(iso || '');
+  if (!time) return '';
+  const days = Math.round((time - Date.now()) / 86400000);
+  if (Math.abs(days) >= 1) return RELATIVE.format(days, 'day');
+  const hours = Math.round((time - Date.now()) / 3600000);
+  return hours ? RELATIVE.format(hours, 'hour') : 'agora';
+}
+
+const PULSE_ICON = {reports: 'table', studio: 'compose', plans: 'history', radar: 'pulse'};
+const PULSE_ORDER = ['radar', 'studio', 'plans', 'reports'];
+
+function PulseDetail({card}) {
+  const detail = card.detail || {};
+  if (card.id === 'studio') return <div className="cadu-ds-home-pulse__thumbs">{(detail.thumbs || []).map(src => <img key={src} src={src} alt="" loading="lazy"/>)}{detail.more > 0 && <i>+{detail.more}</i>}</div>;
+  if (card.id === 'radar') return <ul>{(detail.radars || []).map(radar => <li key={radar.title}><span>{radar.title}</span><small>{since(radar.at)}</small></li>)}</ul>;
+  if (card.id === 'plans') return <p><b>{detail.title}</b><small>{detail.items} {detail.items === 1 ? 'item' : 'itens'} · {since(detail.updatedAt)}</small></p>;
+  return <p><b>{detail.title}</b><small>atualizado {since(detail.updatedAt)}</small></p>;
+}
+
+/** "Seu dia no Cadu": um fato real por solução que a conta pode abrir. No mobile, só os dois mais urgentes e sem detalhe visual. */
+export function HomePulse({cards = [], solutions = {}, isMobile = false, emptyImage = ''}) {
+  const visible = cards.filter(card => solutions[card.solution]).sort((a, b) => PULSE_ORDER.indexOf(a.id) - PULSE_ORDER.indexOf(b.id));
+  if (!visible.length) return emptyImage ? <section className="cadu-ds-home-pulse is-empty" aria-label="Seu dia no Cadu"><img src={emptyImage} alt="" loading="lazy"/><div><h2>Seu dia ainda está tranquilo</h2><p>Quando você começar um plano, um criativo ou um relatório, o resumo aparece aqui.</p></div></section> : null;
+  const list = isMobile ? visible.slice(0, 2) : visible;
+  return <section className={`cadu-ds-home-pulse${isMobile ? ' is-mobile' : ''}`} aria-label="Seu dia no Cadu">
+    <header><h2>Seu dia no Cadu</h2>{!isMobile && <p>Aqui está o que mais importa para você agora.</p>}</header>
+    <div className="cadu-ds-home-pulse__grid">{list.map(card => <a key={card.id} className={`cadu-ds-home-pulse__card is-${card.id}`} href={card.href}>
+      <span className="cadu-ds-home-pulse__head"><Icon name={PULSE_ICON[card.id] || 'table'} size={16}/>{card.title}</span>
+      <strong>{card.count} {card.noun}</strong><small>{card.caption}</small>
+      {!isMobile && <PulseDetail card={card}/>}
+      <span className="cadu-ds-home-explore__cta">{card.cta}<Icon name="chevron" size={14}/></span>
+    </a>)}</div>
+  </section>;
+}

@@ -368,3 +368,35 @@ body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-worksp
   .cadu-ds-home-continue { margin-top:20px; }
   .cadu-ds-home-continue>div { grid-template-columns:1fr; }
 }
+
+/* ---- Seu dia no Cadu ---- */
+.cadu-ds-home-pulse { width:min(1180px,100%); margin-top:34px; }
+.cadu-ds-home-pulse>header h2 { margin:0; color:#10231f; font-size:17px; font-weight:700; }
+.cadu-ds-home-pulse>header p { margin:2px 0 14px; color:#5f736f; font-size:13px; }
+.cadu-ds-home-pulse__grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; }
+.cadu-ds-home-pulse__card { display:grid; align-content:start; gap:4px; min-width:0; padding:18px; border:1px solid #e1ece9; border-radius:16px; background:#fff; color:#10231f; text-decoration:none; transition:box-shadow .16s ease,transform .16s ease; }
+.cadu-ds-home-pulse__card:hover,.cadu-ds-home-pulse__card:focus-visible { transform:translateY(-2px); box-shadow:0 10px 26px rgba(16,35,31,.1); outline:0; }
+.cadu-ds-home-pulse__head { display:inline-flex; align-items:center; gap:8px; margin-bottom:8px; color:#2b4d46; font-size:13px; font-weight:650; }
+.cadu-ds-home-pulse__card.is-studio .cadu-ds-home-pulse__head { color:#7a3fc9; }
+.cadu-ds-home-pulse__card.is-plans .cadu-ds-home-pulse__head { color:#2563c9; }
+.cadu-ds-home-pulse__card.is-radar .cadu-ds-home-pulse__head { color:#1d8f72; }
+.cadu-ds-home-pulse__card strong { font-size:24px; letter-spacing:-.03em; line-height:1.1; }
+.cadu-ds-home-pulse__card>small { color:#5f736f; font-size:13px; }
+.cadu-ds-home-pulse__card ul { display:grid; gap:6px; margin:12px 0 0; padding:0; list-style:none; }
+.cadu-ds-home-pulse__card li { display:flex; justify-content:space-between; gap:8px; font-size:13px; }
+.cadu-ds-home-pulse__card li small { color:#8a9b97; white-space:nowrap; }
+.cadu-ds-home-pulse__card p { display:grid; gap:2px; margin:12px 0 0; font-size:13px; }
+.cadu-ds-home-pulse__card p small { color:#5f736f; }
+.cadu-ds-home-pulse__thumbs { display:flex; gap:6px; margin-top:12px; }
+.cadu-ds-home-pulse__thumbs img { width:52px; height:40px; object-fit:cover; border-radius:8px; }
+.cadu-ds-home-pulse__thumbs i { display:grid; width:52px; height:40px; place-items:center; border-radius:8px; background:#f0f3f2; color:#5f736f; font-size:12px; font-style:normal; }
+.cadu-ds-home-pulse .cadu-ds-home-explore__cta { margin-top:14px; }
+.cadu-ds-home-pulse.is-empty { display:flex; align-items:center; gap:20px; padding:18px 22px; border:1px dashed #cfe0db; border-radius:16px; background:#f7fbf9; }
+.cadu-ds-home-pulse.is-empty img { width:min(240px,34%); }
+.cadu-ds-home-pulse.is-empty h2 { margin:0 0 4px; font-size:16px; } .cadu-ds-home-pulse.is-empty p { margin:0; color:#5f736f; font-size:13px; }
+@media (max-width:760px) {
+  .cadu-ds-home-pulse { margin-top:20px; }
+  .cadu-ds-home-pulse__grid { grid-template-columns:1fr; gap:10px; }
+  .cadu-ds-home-pulse__card { padding:14px; border-radius:14px; }
+  .cadu-ds-home-pulse.is-empty { flex-direction:column; text-align:center; } .cadu-ds-home-pulse.is-empty img { width:60%; }
+}

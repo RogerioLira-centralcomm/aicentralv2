@@ -5860,6 +5860,11 @@ def dashboard():
         'preferences': {},
     }
     try:
+        from .home_pulse import build_home_pulse
+        home_data['pulse'] = build_home_pulse(client_id, user_id)
+    except Exception:
+        current_app.logger.warning('Não foi possível montar o resumo da Home do Workspace', exc_info=True)
+    try:
         home_data['preferences'] = _user_home_preferences(client_id, user_id)
     except Exception:
         current_app.logger.warning('Não foi possível carregar preferências da Home do Workspace', exc_info=True)

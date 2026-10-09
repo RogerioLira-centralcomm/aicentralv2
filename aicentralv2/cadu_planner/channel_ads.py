@@ -54,11 +54,11 @@ CHANNEL_ADS = {
         ('home-loja', 'p', 'Destaque na home da loja', 'Banner · home', 'Visibilidade para a marca logo na entrada.', 'smartphone shopping home with a hero brand banner'),
         ('marca-loja-propria', 'l', 'Loja da marca', 'Brand Store', 'Vitrine própria com todos os produtos da marca.', 'laptop showing a branded store page of the brand')]),
     'google-dv360': ('Programmatic display advertising mockups on real-looking news and content websites, clean.', [
-        ('display-300x250', 'l', 'Display retângulo médio', 'Display · 300x250', 'O formato mais comprado, presente em milhares de sites.', 'news article webpage on a laptop with a 300x250 ad box in the sidebar'),
-        ('display-970x250', 'l', 'Billboard no topo do site', 'Display · 970x250', 'Alto impacto no topo da página.', 'portal webpage with a wide 970x250 billboard ad at the top'),
-        ('mobile-320x100', 'p', 'Banner mobile', 'Display · 320x100', 'Banner fixo em sites e apps no celular.', 'smartphone news article with a banner ad pinned at the bottom'),
+        ('display-300x250', 'l', 'Display retângulo médio', 'Display · 300x250', 'O formato mais comprado, presente em milhares de sites.', 'g1 (Globo news portal, red and white) article webpage on a laptop with a 300x250 ad box in the sidebar'),
+        ('display-970x250', 'l', 'Billboard no topo do site', 'Display · 970x250', 'Alto impacto no topo da página.', 'g1 news portal homepage on a desktop monitor with a wide 970x250 banner ad at the top, the page below shows only weather, sports and technology headlines with generic landscape photos'),
+        ('mobile-320x100', 'p', 'Banner mobile', 'Display · 320x100', 'Banner fixo em sites e apps no celular.', 'smartphone g1 news article with a banner ad pinned at the bottom'),
         ('video-instream', 'l', 'Vídeo in-stream', 'Vídeo · in-stream', 'Anúncio de vídeo antes do conteúdo.', 'laptop video player with a pre-roll ad and a Skip button'),
-        ('native', 'p', 'Anúncio nativo', 'Nativo · feed de conteúdo', 'Se integra ao estilo do conteúdo ao redor.', 'smartphone article feed with a native sponsored card among articles')]),
+        ('native', 'p', 'Anúncio nativo', 'Nativo · feed de conteúdo', 'Se integra ao estilo do conteúdo ao redor.', 'smartphone news app article list with one native sponsored card, same style as the articles, labeled Patrocinado')]),
     'logan': ('Out-of-home advertising photo in Brazil, sharp and premium.', [
         ('frontlight', 'l', 'Outdoor de estrada', 'OOH · outdoor', 'Visibilidade em rodovias e grandes avenidas.', 'large roadside billboard along a highway at sunset'),
         ('led-avenida', 'l', 'Painel de LED', 'DOOH · LED', 'Troca de mensagem por horário e por dia.', 'large LED billboard on an urban avenue at night'),

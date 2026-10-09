@@ -10,9 +10,34 @@ from werkzeug.exceptions import NotFound
 from ..crm_v3_canais import _resolver_logo
 from ..db import get_db
 from ..cadu_family import repository
+from . import channel_ads
 
 
 _CHANNEL_CONCEPTS = {
+    '99': [
+        {'image_url': '/static/images/channel-creatives/99-banner-home.jpg', 'title': 'Coca-Cola · Banner na home do app', 'format': 'Banner patrocinado · tela inicial',
+         'description': 'Aparece acima das opções de corrida, no momento em que a pessoa decide para onde ir.'},
+        {'image_url': '/static/images/channel-creatives/99-cupom-corrida.jpg', 'title': 'Dove · Cupom nativo na corrida', 'format': 'Cupom nativo · pedido de corrida',
+         'description': 'Oferta com desconto dentro do fluxo de pedir a corrida, com botão de ação direto.'},
+        {'image_url': '/static/images/channel-creatives/99-espera-motorista.jpg', 'title': 'Danone · Tela de espera do motorista', 'format': 'Card patrocinado · espera',
+         'description': 'Atenção garantida nos minutos em que a pessoa aguarda o carro chegar.'},
+        {'image_url': '/static/images/channel-creatives/99-adesivo-frota.jpg', 'title': 'Nescau · Adesivagem da frota', 'format': 'OOH · carro parceiro',
+         'description': 'A marca circula pela cidade nos carros dos motoristas parceiros.'},
+        {'image_url': '/static/images/channel-creatives/99-food-patrocinado.jpg', 'title': 'Itambé · Destaque no 99Food', 'format': 'Carrossel patrocinado · delivery',
+         'description': 'Presença na aba de delivery, perto do momento da compra.'},
+    ],
+    'uber': [
+        {'image_url': '/static/images/channel-creatives/uber-journey-ads.jpg', 'title': 'Dove · Journey Ads durante a viagem', 'format': 'Card rico · viagem em andamento',
+         'description': 'Mensagem com foto e botão enquanto a pessoa acompanha o trajeto no mapa.'},
+        {'image_url': '/static/images/channel-creatives/uber-eats-patrocinado.jpg', 'title': 'Nescau · Banner no Uber Eats', 'format': 'Banner patrocinado · delivery',
+         'description': 'Topo da home de delivery, com etiqueta de patrocinado.'},
+        {'image_url': '/static/images/channel-creatives/uber-topper-carro.jpg', 'title': 'Coca-Cola · Topper no teto do carro', 'format': 'Display digital · OOH',
+         'description': 'Tela no teto do carro que muda a mensagem conforme o bairro.'},
+        {'image_url': '/static/images/channel-creatives/uber-reserva-viagem.jpg', 'title': 'Danone · Card na confirmação da viagem', 'format': 'Card patrocinado · confirmação',
+         'description': 'Aparece logo abaixo das opções de preço, no passo final do pedido.'},
+        {'image_url': '/static/images/channel-creatives/uber-recibo-email.jpg', 'title': 'Itambé · Anúncio no recibo por e-mail', 'format': 'E-mail transacional · recibo',
+         'description': 'Espaço de banner no recibo enviado depois da corrida.'},
+    ],
     'prime-video': [{
         'image_url': '/static/images/channel-creatives/loreal-prime-video-revitalift-concept.png',
         'title': 'L’Oréal Paris Revitalift',
@@ -74,14 +99,17 @@ def related(channel, limit=6):
     category = str(channel.get('categoria') or '').strip()
     if not category or category in repository.HIDDEN_CHANNEL_CATEGORIES:
         return []
-    records = _rows('''SELECT id, slug, nome AS name, categoria AS category, alcance, logo_path
+    records = _rows('''SELECT id, slug, nome AS name, categoria AS category, alcance, logo_path, imagem_path, og_image_path, imagens
                          FROM cadu_canais
                         WHERE is_active IS TRUE AND categoria = %s AND id <> %s AND slug <> ALL(%s)
                      ORDER BY ordem NULLS LAST, nome LIMIT %s''',
                     (category, channel.get('id'), list(repository.RETIRED_CHANNEL_SLUGS), limit))
     for record in records:
         record['logo_url'] = _channel_logo(str(record.get('slug') or '').lower(), record.get('logo_path'))
-        record.pop('logo_path', None)
+        record['image_url'] = cover_url(record)
+        record['image_illustrative'] = cover_is_illustration(record)
+        for key in ('logo_path', 'imagem_path', 'og_image_path', 'imagens'):
+            record.pop(key, None)
     return records
 
 
@@ -189,7 +217,9 @@ def related_media(channel):
 
 def activation_concepts(channel):
     """Curated concepts are clearly separate from client-approved ad examples."""
-    return _CHANNEL_CONCEPTS.get(str(channel.get('slug') or '').lower(), [])
+    slug = str(channel.get('slug') or '').lower()
+    items = [*_CHANNEL_CONCEPTS.get(slug, []), *channel_ads.concepts(slug)]
+    return [item for item in items if _safe_media_url(item.get('image_url'))]
 
 
 def formats(channel):

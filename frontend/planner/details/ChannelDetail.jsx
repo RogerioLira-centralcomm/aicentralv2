@@ -1,7 +1,6 @@
 import React from 'react';
 import {CaduEmptyState} from '../../cadu-design-system/components/CaduEmptyState.jsx';
 import {moduleUrl} from '../api.js';
-import {CaduBadge} from '../../cadu-design-system/components/CaduBadge.jsx';
 import {Icon} from '../../cadu-design-system/components/Icon.jsx';
 import {FormatCards} from '../FormatCards.jsx';
 import {SelectionButton} from '../PlannerUi.jsx';
@@ -15,6 +14,21 @@ const date = value => value ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${va
 const ROLE_ICON = [[/captur|busca/i, 'search'], [/alcance|cobertura/i, 'pulse'], [/frequ|contexto/i, 'audio'], [/complement|conex|ativa/i, 'share'], [/convers|venda|perform/i, 'check']];
 const roleIcon = role => (ROLE_ICON.find(([pattern]) => pattern.test(role || '')) || [null, 'plan'])[1];
 const audienceSize = value => /^\s*[+≈~]?\d/.test(String(value || '')) ? `${String(value).trim()} de pessoas` : String(value || '');
+
+// Strategy icons: simple glyphs on a 24px grid (the shared icon set has no pin, target or tag).
+const GLYPHS = {
+  pin: <><path d="M12 21s-6.5-5.7-6.5-11a6.5 6.5 0 0 1 13 0c0 5.3-6.5 11-6.5 11Z"/><circle cx="12" cy="10" r="2.4"/></>,
+  clock: <><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></>,
+  tag: <><path d="M3.5 12.5V4.5a1 1 0 0 1 1-1h8l8 8-9 9Z"/><circle cx="8" cy="8" r="1.4"/></>,
+  target: <><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></>,
+  users: <><circle cx="9" cy="8.5" r="3.2"/><path d="M3 20c.5-3.6 3-5.5 6-5.5s5.5 1.9 6 5.5"/><path d="M16 5.6a3.2 3.2 0 0 1 0 5.8M18 14.8c2 .6 3.2 2.3 3.5 5.2"/></>,
+  heart: <path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.6 4.3 4.3 0 0 1 19.500 10c0 5.400-7.500 10-7.500 10Z"/>,
+  bolt: <path d="M13 3 5 13.500h6L10 21l8-10.500h-6Z"/>,
+};
+const PLAYBOOK_GLYPH = [[/capital|prac|praç|cidade|regi|geogr|local|bairro|pra[cç]a/i, 'pin'], [/hor[aá]r|per[ií]odo|temporal|dia|sazon|moment/i, 'clock'],
+  [/classe|ticket|pre[cç]o|renda|cupom|oferta/i, 'tag'], [/interess|comport|afinid|perfil|p[uú]blico|audi[eê]ncia|demogr/i, 'users'], [/retarget|remarket|conver|a[cç][aã]o/i, 'target']];
+const playbookGlyph = name => (PLAYBOOK_GLYPH.find(([pattern]) => pattern.test(name || '')) || [null, 'bolt'])[1];
+const Glyph = ({name}) => <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{GLYPHS[name]}</svg>;
 
 export function ChannelDetail({boot, selection, plan = null}) {
   const channel = boot.record;
@@ -39,8 +53,8 @@ export function ChannelDetail({boot, selection, plan = null}) {
     ['Brand safety', listText(channel.brand_safety)],
     ['Produtos', Array.isArray(channel.produtos) && channel.produtos.length ? <ul className="pd-bullets">{channel.produtos.map(item => <li key={item}>{item}</li>)}</ul> : listText(channel.produtos)],
     ['Fontes dos formatos', formatSources.length ? <ul className="pd-bullets">{formatSources.map(url => <li key={url}><a href={url} target="_blank" rel="noreferrer">{hostOf(url)}</a></li>)}</ul> : null]];
-  const examples = [...ads.map(ad => ({url: ad.image_url, caption: ad.title || ad.source_domain})),
-    ...concepts.map(concept => ({url: concept.image_url, caption: `${concept.title} · conceito`}))];
+  const examples = ads.map(ad => ({url: ad.image_url, caption: ad.title || ad.source_domain}));
+  const mockups = concepts.filter(concept => concept.image_url);
 
   // A real ad on the channel says more than an illustration: when the cover is illustrative and real ads exist, they lead.
   const realAds = ads.map(ad => ad.image_url).filter(Boolean);
@@ -76,8 +90,15 @@ export function ChannelDetail({boot, selection, plan = null}) {
           <a href={`${moduleUrl(boot.urls, 'audiencias')}/${audience.id}`}>Ver detalhes</a>
         </li>;
       })}</ul>},
+    {id: 'anuncios', label: 'Anúncios neste canal', count: mockups.length, hidden: !mockups.length, wide: true,
+      hint: 'Simulações de como a marca apareceria, em cada formato. Demonstrações, não campanhas reais.',
+      render: () => <ul className="pd-ads">{mockups.map(item => <li key={item.image_url}>
+        <figure><img src={item.image_url} alt={`${item.title}: simulação de anúncio`} loading="lazy"/></figure>
+        {item.format && <span className="pd-ads__format">{item.format}</span>}
+        <strong>{item.title}</strong>
+        {item.description && <p>{item.description}</p>}
+      </li>)}</ul>},
     {id: 'exemplos', label: 'Exemplos', count: examples.length, hidden: !examples.length, wide: true,
-      hint: concepts.length ? 'Conceitos de ativação são demonstrações do formato, não campanhas reais.' : null,
       render: () => <div className="pd-gallery">{examples.map((item, index) => <figure key={item.url} className={index === 0 ? 'is-lead' : ''}>
         <img src={item.url} alt={item.caption || 'Exemplo de anúncio'} loading="lazy"/>{item.caption && <figcaption>{item.caption}</figcaption>}
       </figure>)}</div>},
@@ -89,9 +110,12 @@ export function ChannelDetail({boot, selection, plan = null}) {
         <dl className="pd-segments">{segmentation.map(([title, options]) => <div key={title}><dt>{title}</dt><dd><TagList value={options}/></dd></div>)}</dl></>}</>},
     {id: 'estrategias', label: 'Quando usar cada segmentação', count: playbook.length, hidden: !playbook.length, wide: true,
       render: () => <ul className="pd-playbook">{playbook.map(item => <li key={item.nome}>
-        <strong>{item.nome}</strong>
-        {item.quando && <div className="pd-playbook__row"><span>Quando</span><ReadMore text={item.quando} limit={140}/></div>}
-        {item.exemplo && <div className="pd-playbook__row"><span>Exemplo</span><ReadMore text={item.exemplo} limit={140}/></div>}
+        <span className="pd-playbook__icon" aria-hidden="true"><Glyph name={playbookGlyph(item.nome)}/></span>
+        <div>
+          <strong>{item.nome}</strong>
+          {item.quando && <p><b>Use quando</b> {item.quando}</p>}
+          {item.exemplo && <p className="pd-playbook__example"><b>Por exemplo</b> {item.exemplo}</p>}
+        </div>
       </li>)}</ul>},
     {id: 'novidades', label: 'Novidades', count: news.length, hidden: !news.length,
       render: () => <ul className="pd-news">{news.map(item => <li key={`${item.titulo}-${item.data_publicacao}`}>
@@ -114,9 +138,8 @@ export function ChannelDetail({boot, selection, plan = null}) {
     ]}
     highlights={[['Quem você alcança', channel.perfil_audiencia], ['Melhor uso', channel.melhor_uso]]}
     sourceNote={profileSource.pesquisado_em ? `Resumo de fontes públicas, pesquisado em ${date(profileSource.pesquisado_em)}.` : null}
-    extraMeta={hasValue(channel.medicao) ? <CaduBadge tone="success">Mensurável</CaduBadge> : null}
     aside={(channel.related || []).length > 0 ? <RelatedList title="Canais parecidos" items={(channel.related || []).map(item => ({
-      href: `${moduleUrl(boot.urls, 'canais')}/${item.id}`, title: item.name, icon: 'share', logo: item.logo_url,
+      href: `${moduleUrl(boot.urls, 'canais')}/${item.id}`, title: item.name, icon: 'share', logo: item.logo_url, image: item.image_url,
       subtitle: item.alcance || item.category,
       selected: selection.isSelected('canais', item.id), onToggle: () => selection.toggle('canais', item.id)}))}/> : null}
     sections={sections}/>;

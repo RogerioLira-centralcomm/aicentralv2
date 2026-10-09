@@ -188,15 +188,18 @@ export function DetailLayout({boot, selection, kind, record, icon = 'plan', eyeb
   </article>;
 }
 
-/** "Similar items" column of a marketplace: compact rows that link to the item, with a quiet add button on hover. */
+/** "Similar items" column of a marketplace: tall, borderless tiles (photo with the logo over it) that link to the item. */
 export function RelatedList({title, items, empty = null}) {
   if (!items?.length) return empty;
   return <section className="pd-related" aria-label={title}>
     <h2>{title}<span>{items.length}</span></h2>
     <ul>{items.map(item => <li key={item.href}>
       <a className="pd-related__link" href={item.href}>
-        <LogoTile src={item.logo} name={item.title} icon={item.icon || 'plan'} size="sm"/>
-        <span><strong>{item.title}</strong>{item.subtitle && <small>{item.subtitle}</small>}</span>
+        <span className="pd-related__photo">
+          {item.image ? <img src={item.image} alt="" loading="lazy"/> : <Icon name={item.icon || 'plan'} size={28}/>}
+          <LogoTile src={item.logo} name={item.title} icon={item.icon || 'plan'} size="md"/>
+        </span>
+        <span className="pd-related__text"><strong>{item.title}</strong>{item.subtitle && <small>{item.subtitle}</small>}</span>
       </a>
       {item.onToggle && <RowAddButton name={item.title} selected={item.selected} onToggle={item.onToggle}/>}
     </li>)}</ul>

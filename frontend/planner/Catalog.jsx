@@ -156,7 +156,7 @@ function PortalRow({item, urls, selected, onToggle}) {
 function MoreFilters({value, onChange}) {
   const [open, setOpen] = useState(false);
   const root = useRef(null);
-  const count = [value.measurable, value.formats].filter(Boolean).length;
+  const count = [value.formats].filter(Boolean).length;
   useEffect(() => {
     if (!open) return undefined;
     const outside = event => { if (!root.current?.contains(event.target)) setOpen(false); };
@@ -171,7 +171,6 @@ function MoreFilters({value, onChange}) {
       <Icon name="chevron" size={16}/>
     </button>
     {open && <div className="planner-select__list aud-more__menu" role="group" aria-label="Mais filtros">
-      <label><input type="checkbox" checked={value.measurable} onChange={event => onChange({...value, measurable: event.target.checked})}/>Só canais mensuráveis</label>
       <label><input type="checkbox" checked={value.formats} onChange={event => onChange({...value, formats: event.target.checked})}/>Só com formatos cadastrados</label>
     </div>}
   </div>;
@@ -199,7 +198,7 @@ export function CatalogPage({boot, request, selection, notify}) {
   const setGroupBy = value => { setGroupByState(value); try { window.localStorage.setItem(`planner.${kind}.groupMode`, JSON.stringify(value)); } catch { /* not remembered */ } };
   const [view, setViewState] = useState(() => { try { return window.localStorage.getItem('planner.canais.view') === 'lista' ? 'lista' : 'grade'; } catch { return 'grade'; } });
   const setView = value => { setViewState(value); try { window.localStorage.setItem('planner.canais.view', value); } catch { /* the choice just is not remembered */ } };
-  const [more, setMoreState] = useState(() => remembered('more', {measurable: false, formats: false}));
+  const [more, setMoreState] = useState(() => remembered('more', {formats: false}));
   const setMore = update => setMoreState(current => { const next = typeof update === 'function' ? update(current) : update; try { window.localStorage.setItem(`planner.${kind}.more`, JSON.stringify(next)); } catch { /* not remembered */ } return next; });
   // Chip counts come from the full list that arrives with the page, not from the filtered one.
   const categoryCounts = useMemo(() => {
@@ -250,11 +249,11 @@ export function CatalogPage({boot, request, selection, notify}) {
   const setFilter = (key, value) => { setFilters(current => ({...current, [key]: value, ...(key === 'scope' && (value === 'nacional_premium' || value === 'top10') ? {uf: ''} : {})})); setOffset(0); };
   const toggleCategory = value => { setCategories(current => current.includes(value) ? current.filter(item => item !== value) : [...current, value]); setOffset(0); };
 
-  const shown = kind === 'canais' ? records.filter(item => (!more.measurable || item.measurable) && (!more.formats || Number(item.formats_count) > 0)) : records;
+  const shown = kind === 'canais' ? records.filter(item => (!more.formats || Number(item.formats_count) > 0)) : records;
 
   const channels = kind === 'canais';
-  const channelFilters = Boolean(query || category || more.measurable || more.formats);
-  const clearChannelFilters = () => { setQuery(''); setCategory(''); setMore({measurable: false, formats: false}); setOffset(0); };
+  const channelFilters = Boolean(query || category || more.formats);
+  const clearChannelFilters = () => { setQuery(''); setCategory(''); setMore({formats: false}); setOffset(0); };
   const channelBar = channels && <div className="aud-bar" role="search">
     <label className="aud-bar__field aud-bar__field--search"><Icon name="search" size={16}/>
       <span className="aud-bar__text"><small>Buscar</small>
@@ -313,7 +312,7 @@ export function CatalogPage({boot, request, selection, notify}) {
       <span aria-live="polite">{loading ? 'Atualizando…' : `${number(shown.length)} ${shown.length === 1 ? 'resultado' : 'resultados'}`}</span>
       <CaduButton variant="tertiary" size="sm" onClick={clearChannelFilters}>Limpar filtros</CaduButton>
     </div>}
-    {!records.length && !loading ? <ShelfEmpty title="Nenhuma referência encontrada" description="Ajuste a busca ou escolha outra categoria. Se preferir, o Planejar monta uma sugestão com você." action={<CaduButton variant="secondary" onClick={() => { setQuery(''); setCategory(''); setMore({measurable: false, formats: false}); }}>Limpar filtros</CaduButton>}/>
+    {!records.length && !loading ? <ShelfEmpty title="Nenhuma referência encontrada" description="Ajuste a busca ou escolha outra categoria. Se preferir, o Planejar monta uma sugestão com você." action={<CaduButton variant="secondary" onClick={() => { setQuery(''); setCategory(''); setMore({formats: false}); }}>Limpar filtros</CaduButton>}/>
       : portalMode ? <div className="planner-list" aria-label="Portais disponíveis">{records.map(item => <PortalRow key={itemKey(item)} item={item} urls={boot.urls} selected={selection.isSelected(kind, itemKey(item))} onToggle={() => selection.toggle(kind, itemKey(item))}/>)}</div>
         : kind === 'canais' ? (() => {
           // The invitation to plan sits after the first eight cards (or at the end of a short list).

@@ -38,7 +38,6 @@ export function ChannelCard({item, urls, selected, onToggle}) {
           : <Icon name="share" size={32}/>}
       {photo && logo && <span className="channel-card__mark"><img src={item.logo_path} alt="" onError={() => setLogoFailed(true)}/></span>}
       {item.category && <span className="channel-card__badge">{item.category}</span>}
-      {item.measurable && <span className="channel-card__measurable">Mensurável</span>}
       {photo && item.image_illustrative && <span className="channel-card__illustration">Ilustração</span>}
     <span className="channel-card__cta"><SelectionButton size="md" selected={selected} onToggle={onToggle}/></span>
     </span>

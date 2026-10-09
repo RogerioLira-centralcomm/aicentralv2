@@ -15,7 +15,7 @@ import {WorkspaceMobileChrome} from './WorkspaceMobileChrome';
 import {useWorkspaceViewport} from '../hooks/useWorkspaceViewport';
 import {BrandCompletion, EntityContextRail, EntityNavigator} from './WorkspaceEntityPortal';
 
-const assetLabels = {logo: 'Logo', reference: 'Referência', creative: 'Peça criativa', background: 'Fundo', support: 'Apoio visual', icon: 'Ícone', cta_style: 'Estilo de CTA'};
+const assetLabels = {logo: 'Logo', reference: 'Referência', creative: 'Peça criativa', background: 'Fundo', support: 'Apoio visual', icon: 'Ícone', cta_style: 'Estilo de CTA', illustration: 'Ilustração'};
 const reviewStatus = {ready: 'Pronto para aprovação', review: 'Requer revisão'};
 const assetUrl = (template, id) => String(template || '').replace('__ASSET_ID__', encodeURIComponent(id));
 

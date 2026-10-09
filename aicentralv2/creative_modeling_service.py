@@ -145,6 +145,7 @@ BRAND_ASSET_ROLES = frozenset({
     "support",
     "icon",
     "cta_style",
+    "illustration",
 })
 
 

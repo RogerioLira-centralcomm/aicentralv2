@@ -530,8 +530,9 @@ class WorkspaceBrandsTest(TestCase):
         })
         self.assertEqual(response.status_code, 403)
 
+    @mock.patch('aicentralv2.cadu_family.repository.assert_entity_capacity')
     @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
-    def test_create_assigns_brand_to_active_organization(self, get_db):
+    def test_create_assigns_brand_to_active_organization(self, get_db, capacity):
         connection = mock.MagicMock()
         cursor = connection.cursor.return_value.__enter__.return_value
         cursor.fetchone.return_value = {'id': 81}
@@ -557,6 +558,7 @@ class WorkspaceBrandsTest(TestCase):
         self.assertIsNone(params[4])
         self.assertIsNone(params[5])
         self.assertGreaterEqual(connection.commit.call_count, 1)
+        capacity.assert_called_once_with(12)
 
     @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand')

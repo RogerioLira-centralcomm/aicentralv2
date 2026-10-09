@@ -203,6 +203,11 @@ def create_brand(context: RequestContext, *, request_id, name: str, website_url:
                 "created": False, "detail_url": product_url("workspace", f"/marcas/{replay['id']}"),
                 "artifact": {"type": "brand_identity", "brand_ref": f"studio:{replay['id']}",
                              "title": f"Identidade — {replay['name']}"}, "uploads": uploads}
+    from ..cadu_family import repository as family
+    try:
+        family.assert_entity_capacity(context.client_id)
+    except ValueError as exc:
+        raise BadRequest(str(exc)) from exc
     inspection = inspect_site(context, website_url, official_logo_url)
     explicit_logo = inspection.get("explicit_logo") or {}
     if explicit_logo.get("unsafe"):
@@ -371,7 +376,7 @@ def prepare_logo_upload(context: RequestContext, brand_id) -> dict:
     return prepare_asset_upload(context, brand_id, "logo")
 
 
-BRAND_ASSET_ROLES = frozenset({"logo", "reference", "creative", "background", "support", "icon"})
+BRAND_ASSET_ROLES = frozenset({"logo", "reference", "creative", "background", "support", "icon", "illustration"})
 
 
 def prepare_asset_upload(context: RequestContext, brand_id, role: str = "reference") -> dict:

@@ -6297,6 +6297,11 @@ def create_brand():
     # palette; administrative requests cannot seed identity evidence.
     data['primary_color'] = None
     data['secondary_color'] = None
+    from ..cadu_family import repository as family_repository
+    try:
+        family_repository.assert_entity_capacity(client_id)
+    except ValueError as exc:
+        abort(400, description=str(exc))
     connection = get_db()
     try:
         with connection.cursor() as cursor:

@@ -1146,6 +1146,24 @@ def count_distinct_entities(active_refs, links):
     return len({root(ref) for ref in active_refs})
 
 
+def plan_entity_limit(plan_type):
+    """Projetos/marcas ativos que o plano permite: enterprise sem limite (None), pro 10, demais 1."""
+    return None if plan_type == 'enterprise' else 10 if plan_type == 'pro' else 1
+
+
+def entity_limit(client_id):
+    current = rows('''SELECT plan_type FROM cadu_client_plans
+                      WHERE id_cliente = %s AND plan_status = 'active' LIMIT 1''', (client_id,))
+    return plan_entity_limit(current[0]['plan_type'] if current else '')
+
+
+def assert_entity_capacity(client_id):
+    """Mesma checagem para projeto e marca, por qualquer caminho (Workspace ou MCP)."""
+    limit = entity_limit(client_id)
+    if limit is not None and active_entity_count(client_id) >= limit:
+        raise ValueError(f'O plano permite {limit} projeto(s)/marca(s) ativos.')
+
+
 def active_entity_count(client_id):
     active = rows('''SELECT 'ci:' || id::text AS ref FROM cadu_ci_projetos
                      WHERE id_cliente = %s AND status = 'ativo'
@@ -1194,8 +1212,8 @@ def create_entity(client_id, user_id, payload, *, return_created=False, commit=T
             cur.execute('''SELECT plan_type FROM cadu_client_plans
                            WHERE id_cliente = %s AND plan_status = 'active' LIMIT 1''', (client_id,))
             current = cur.fetchone()
-            limit = 10 if current and current['plan_type'] in ('pro', 'enterprise') else 1
-            if active_entity_count(client_id) >= limit:
+            limit = plan_entity_limit(current['plan_type'] if current else '')
+            if limit is not None and active_entity_count(client_id) >= limit:
                 raise ValueError(f'O plano permite {limit} projeto(s)/marca(s) ativos.')
             cur.execute('''INSERT INTO cadu_ci_projetos
                 (id, id_cliente, criado_por, nome, descricao, tipo, instrucoes,

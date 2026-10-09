@@ -138,12 +138,10 @@ function programmaticLabel(item) {
 function PortalRow({item, urls, selected, onToggle}) {
   const visits = Number(item.monthly_visits);
   const region = item.scope === 'nacional_premium' ? 'Premium nacional' : item.uf ? `Regional · ${item.uf}` : '';
-  return <div className={`portal-row${selected ? ' is-selected' : ''} has-shot`}>
+  return <div className={`portal-row${selected ? ' is-selected' : ''}${item.thumb_url ? ' has-shot' : ''}`}>
     <a className="planner-card__hit" href={catalogDetailUrl(urls, 'portais', item)} aria-label={`Ver portal ${item.site_title || item.name}`}/>
-    {/* The list shows the illustrated cover (neutral icon when there is none) and the logo, never a real screenshot of the site (prints stay on the detail page). */}
-    <span className={`portal-row__shot${item.thumb_url ? '' : ' is-empty'}`}>{item.thumb_url
-      ? <img src={item.thumb_url} alt="" loading="lazy" onError={event => { event.currentTarget.remove(); }}/>
-      : <Icon name="browser" size={20}/>}</span>
+    {/* Only the illustrated cover: no real screenshot, and no placeholder when there is none (the row simply starts at the logo). */}
+    {item.thumb_url && <span className="portal-row__shot"><img src={item.thumb_url} alt="" loading="lazy" onError={event => { event.currentTarget.parentElement.remove(); }}/></span>}
     <LogoTile src={item.favicon_url} fallbacks={item.domain ? [`https://${item.domain}/favicon.ico`, `https://www.google.com/s2/favicons?domain=${item.domain}&sz=64`] : []} name={item.name} icon="browser" size="md"/>
     <span className="portal-row__main"><strong>{item.site_title || item.name}{item.featured_rank >= 1 && item.featured_rank <= 10 && <em className="portal-row__top">Top 10</em>}{item.uf_top && <em className="portal-row__top">Top 10 · {item.uf}</em>}</strong><small>{item.domain}</small></span>
     <span className="portal-row__chips">

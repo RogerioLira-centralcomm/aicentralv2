@@ -33,7 +33,7 @@ export function HomeExplore({explore, mode = 'full', solutions = {}}) {
 
 /** Retomada para quem já tem conversas, projetos ou marcas. */
 export function HomeContinue({items, isMobile, onOpen}) {
-  const list = items.slice(0, isMobile ? 3 : 6);
+  const list = items.slice(0, isMobile ? 2 : 6);
   if (!list.length) return null;
   return <section className="cadu-ds-home-continue" aria-label="Continue de onde parou">
     <header><h2>Continue de onde parou</h2></header>

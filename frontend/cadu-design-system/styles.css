@@ -4596,7 +4596,7 @@ body.portal--workspace .cadu-ds-entity-rail__readiness strong{font-size:20px;lin
 
 /* Drawer mobile do Workspace: uma coluna curta — criar, áreas, recentes — com troca de solução e conta fixas no rodapé. */
 @media (max-width: 760px) {
-  .cadu-ds-mobile-navigation>section { display:flex; flex-direction:column; width:min(84vw,320px); overflow:hidden; padding-bottom:0; }
+  .cadu-ds-mobile-navigation>section { display:flex; flex-direction:column; width:min(84vw,320px); height:100%; overflow:hidden; padding-bottom:0; }
   .cadu-ds-mobile-navigation header { min-height:calc(52px + env(safe-area-inset-top)); padding-inline:14px 6px; }
   .cadu-ds-mobile-navigation__brand { display:flex; align-items:center; gap:10px; min-width:0; }
   .cadu-ds-mobile-navigation__brand>span { display:grid; min-width:0; }

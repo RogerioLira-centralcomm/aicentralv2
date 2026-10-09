@@ -215,7 +215,7 @@ export function WorkspaceHome({bootstrap}) {
         <section className={`cadu-ds-home-content is-rich ${hasWork ? 'is-returning' : 'is-new'}`}>
         <div className="cadu-ds-home-intro"><span className="cadu-ds-home-intro__pill">Bem-vindo ao Cadu</span><h1>Vamos transformar ideias em <em>resultados</em>?</h1>{!isMobile && <p>Pesquise, planeje, crie e analise com inteligência. O Cadu está aqui para ajudar.</p>}</div>
         <WorkspaceChatComposer value={value} onChange={setValue} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} hasProject={Boolean(projectRef)} executionMode={executionMode} onExecutionModeChange={setExecutionMode} composerContext={composerContext} onClearContext={() => { setProjectRef(''); setBrandRef(''); setAttachmentDestination('conversation'); }} onContextDrop={dropContext} onAttach={addFiles} projects={projects} projectRef={projectRef} onProjectChange={id => { setProjectRef(id); setBrandRef(''); setAttachmentDestination('conversation'); }} audioTranscriptionEndpoint={bootstrap.endpoints.audioTranscriptions} csrfToken={csrf()} embedded homeMode/>
-        <section className="cadu-ds-home-resume" aria-label="Retomar trabalho">
+        {hasWork && <section className="cadu-ds-home-resume" aria-label="Retomar trabalho">
           {resumeSuggestionState === 'ready' && resumeSuggestion ? <a className="cadu-ds-home-resume__result" href={resumeSuggestion.href}>
             <span><small>Trabalho atualizado recentemente</small><b>{resumeSuggestion.title}</b><small>{resumeSuggestion.context}{resumeSuggestion.context && resumeSuggestion.status ? ' · ' : ''}{resumeSuggestion.status}</small></span><span aria-hidden="true">›</span>
           </a> : <>
@@ -225,7 +225,7 @@ export function WorkspaceHome({bootstrap}) {
             {resumeSuggestionState === 'empty' && <small role="status">Não encontrei uma sugestão útil para retomar agora.</small>}
             {resumeSuggestionState === 'error' && <small role="status">Não consegui preparar a sugestão agora. Você pode continuar usando a Home normalmente.</small>}
           </>}
-        </section>
+        </section>}
         {hasWork && <HomePulse cards={home.pulse || []} solutions={bootstrap.urls?.solutions || {}} isMobile={isMobile} emptyImage={bootstrap.explore?.emptyImage}/>}
         {hasWork && <HomeContinue items={continueItems} isMobile={isMobile} onOpen={openWorkspaceDetail}/>}
         <HomeExplore explore={bootstrap.explore} solutions={bootstrap.urls?.solutions} mode={exploreMode}/>

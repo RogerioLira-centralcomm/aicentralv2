@@ -338,7 +338,7 @@ body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-worksp
 .cadu-ds-home-explore__cta { display:inline-flex; align-items:center; gap:4px; margin-top:6px; color:#17695a; font-size:13px; font-weight:650; }
 .cadu-ds-home-explore.is-compact { margin-top:28px; }
 .cadu-ds-home-explore.is-compact .cadu-ds-home-explore__card { grid-template-columns:72px minmax(0,1fr); align-items:center; gap:2px 12px; padding:12px; }
-.cadu-ds-home-explore.is-compact .cadu-ds-home-explore__card img { grid-row:1 / span 3; width:72px; margin:0; }
+.cadu-ds-home-explore.is-compact .cadu-ds-home-explore__card img { grid-row:1 / span 3; width:72px; aspect-ratio:1; margin:0; }
 .cadu-ds-home-explore.is-compact .cadu-ds-home-explore__label { display:none; }
 .cadu-ds-home-explore.is-compact .cadu-ds-home-explore__card b { font-size:14px; }
 .cadu-ds-home-guides { margin-top:30px; padding-top:22px; border-top:1px solid #e3ece9; }
@@ -363,7 +363,7 @@ body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-worksp
   .cadu-ds-home-explore.is-mobile { margin-top:20px; }
   .cadu-ds-home-explore.is-mobile .cadu-ds-home-explore__grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
   .cadu-ds-home-explore.is-mobile .cadu-ds-home-explore__card { grid-template-columns:44px minmax(0,1fr); align-items:center; gap:10px; min-height:60px; padding:8px 10px; border-radius:12px; }
-  .cadu-ds-home-explore.is-mobile .cadu-ds-home-explore__card img { width:44px; margin:0; }
+  .cadu-ds-home-explore.is-mobile .cadu-ds-home-explore__card img { width:44px; aspect-ratio:1; margin:0; }
   .cadu-ds-home-explore.is-mobile .cadu-ds-home-explore__label { color:#10231f; font-size:14px; }
   .cadu-ds-home-continue { margin-top:20px; }
   .cadu-ds-home-continue>div { grid-template-columns:1fr; }

@@ -18,7 +18,7 @@ export function HomeExplore({explore, mode = 'full', solutions = {}}) {
     {mode !== 'mobile' && <header><h2>{mode === 'full' ? 'Explore o Planner' : 'Explore'}</h2></header>}
     <div className="cadu-ds-home-explore__grid">
       {items.map(item => <a key={item.id} className={`cadu-ds-home-explore__card is-${item.id}`} href={item.href}>
-        <img src={item.image} alt="" loading="lazy" decoding="async"/>
+        <img src={mode === 'full' ? item.image : item.icon || item.image} alt="" loading="lazy" decoding="async"/>
         <span className="cadu-ds-home-explore__label">{item.title}</span>
         {mode !== 'mobile' && <b>{item.headline}</b>}
         {mode === 'full' && <small>{item.text}</small>}

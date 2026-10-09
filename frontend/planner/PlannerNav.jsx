@@ -5,7 +5,7 @@ import {CaduSolutionSwitcher} from '../cadu-design-system/components/WorkspaceSe
 import {useCreditUsage} from '../cadu-design-system/components/SidebarAccount.jsx';
 import {workspaceSolutionItems} from '../cadu-design-system/workspaceSolutions';
 import '../cadu-design-system/components/SolutionSidebar.css';
-import {moduleUrl, newPlanUrl} from './api.js';
+import {moduleUrl} from './api.js';
 
 // Where people browse. The home page IS the channel shelf, so there is no separate "Início": the logo goes home and
 // Canais lights up there.
@@ -57,7 +57,7 @@ export function PlannerNav({boot, request, active}) {
         {DESTINATIONS.map(item => {
           const [id, label, icon] = item;
           const here = section === id || (id === 'planos' && section === 'novo-plano') || (id === 'radar' && section === 'radares');
-          return <a key={id} href={id === 'planos' ? newPlanUrl(urls) : hrefFor(id)} title={label} className={`pn__link${here ? ' is-active' : ''}`} aria-current={here ? 'page' : undefined} onClick={close}>
+          return <a key={id} href={hrefFor(id)} title={label} className={`pn__link${here ? ' is-active' : ''}`} aria-current={here ? 'page' : undefined} onClick={close}>
             <Icon name={icon} size={16}/><span>{label}</span>
           </a>;
         })}

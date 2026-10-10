@@ -1,7 +1,7 @@
 import React, {useCallback, useMemo, useState} from 'react';
 import './WorkspaceHome.css';
 import {CaduDock} from './CaduDock';
-import {HomeContinue, HomePulse} from './WorkspaceHomeExplore';
+import {HomeContinue, HomeExplore, HomePulse} from './WorkspaceHomeExplore';
 import {WorkspaceChatComposer} from './WorkspaceChatComposer';
 import {WorkspaceContextSidebar} from './WorkspaceContextSidebar';
 import {ShortcutManagerDialog, UndoToast, WorkspaceAccountMenu} from './WorkspaceFeedback';
@@ -200,8 +200,9 @@ export function WorkspaceHome({bootstrap}) {
         <section className={`cadu-ds-home-content is-rich ${hasWork ? 'is-returning' : 'is-new'}`}>
         <div className="cadu-ds-home-intro"><h1>Vamos transformar ideias em <em>resultados</em>?</h1>{!isMobile && <p>Pesquise, planeje, crie e analise com inteligência. O Cadu está aqui para ajudar.</p>}</div>
         <WorkspaceChatComposer value={value} onChange={setValue} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} onAttachmentPurposeChange={setAttachmentPurpose} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} hasProject={Boolean(projectRef)} executionMode={executionMode} onExecutionModeChange={setExecutionMode} composerContext={composerContext} onClearContext={() => { setProjectRef(''); setBrandRef(''); setAttachmentDestination('conversation'); }} onContextDrop={dropContext} onAttach={addFiles} projects={projects} projectRef={projectRef} onProjectChange={id => { setProjectRef(id); setBrandRef(''); setAttachmentDestination('conversation'); }} audioTranscriptionEndpoint={bootstrap.endpoints.audioTranscriptions} csrfToken={csrf()} embedded homeMode/>
-        {hasWork && <HomePulse cards={home.pulse || []} solutions={bootstrap.urls?.solutions || {}} isMobile={isMobile} emptyImage={bootstrap.explore?.emptyImage} userName={bootstrap.user?.name}/>}
+        {hasWork && <HomePulse cards={home.pulse || []} solutions={bootstrap.urls?.solutions || {}} isMobile={isMobile} emptyImage={bootstrap.explore?.emptyImage}/>}
         {hasWork && <HomeContinue items={continueItems} isMobile={isMobile} onOpen={openWorkspaceDetail}/>}
+        <HomeExplore explore={bootstrap.explore} solutions={bootstrap.urls?.solutions || {}} mode={isMobile ? 'mobile' : hasWork ? 'compact' : 'full'}/>
         </section>
       </div>
     </main>

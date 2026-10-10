@@ -429,3 +429,19 @@ body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-worksp
   .cadu-ds-home-continue>header { margin-bottom:2px; }
   .cadu-ds-home-continue a { padding:12px 14px; }
 }
+
+/* Títulos de bloco com um só estilo (mesma escala, margem e alinhamento à esquerda do campo). */
+.cadu-ds-home-pulse>header,.cadu-ds-home-continue>header,.cadu-ds-home-explore>header,.cadu-ds-home-guides>header { margin:0 0 12px; text-align:left; }
+.cadu-ds-home-pulse>header h2,.cadu-ds-home-continue>header h2,.cadu-ds-home-explore>header h2,.cadu-ds-home-guides>header h2 { margin:0; color:#10231f; font-size:15px; font-weight:650; line-height:1.3; }
+.cadu-ds-home-pulse>header p,.cadu-ds-home-guides>header p { margin:2px 0 0; color:#5f736f; font-size:13px; }
+.cadu-ds-home-explore,.cadu-ds-home-continue,.cadu-ds-home-pulse,.cadu-ds-home-guides { margin-top:32px; }
+.cadu-ds-home-explore .cadu-ds-home-guides { margin-top:28px; }
+/* Descubra (conta com trabalho): ícone e nome, em linha, sem competir com "Em andamento". */
+.cadu-ds-home-explore.is-compact .cadu-ds-home-explore__card,.cadu-ds-home-explore.is-mobile .cadu-ds-home-explore__card { grid-template-columns:44px minmax(0,1fr); align-items:center; gap:10px; padding:10px 12px; border-radius:12px; }
+.cadu-ds-home-explore.is-compact .cadu-ds-home-explore__card img,.cadu-ds-home-explore.is-mobile .cadu-ds-home-explore__card img { grid-row:auto; width:44px; aspect-ratio:1; margin:0; }
+.cadu-ds-home-explore.is-compact .cadu-ds-home-explore__label,.cadu-ds-home-explore.is-mobile .cadu-ds-home-explore__label { display:block; color:#10231f; font-size:14px; font-weight:600; }
+.cadu-ds-home-explore.is-compact .cadu-ds-home-explore__card>b,.cadu-ds-home-explore.is-compact .cadu-ds-home-explore__cta { display:none; }
+@media (max-width:760px) {
+  .cadu-ds-home-pulse,.cadu-ds-home-continue,.cadu-ds-home-explore { margin-top:22px; }
+  .cadu-ds-home-explore.is-mobile .cadu-ds-home-explore__grid { gap:8px; }
+}

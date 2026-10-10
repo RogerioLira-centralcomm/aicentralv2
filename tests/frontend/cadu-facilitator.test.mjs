@@ -52,7 +52,7 @@ test('open "what can you do" questions are detected, ordinary requests are not',
   for (const text of ['E ai vamos construir o que por aqui? o que vc pode me ajudar?', 'O que você pode fazer por mim?', 'como voce pode me ajudar neste projeto', 'Por onde começamos?', 'você pode me ajudar?']) {
     assert.equal(asksCapabilities(text), true, text);
   }
-  for (const text of ['Monte um plano de mídia de 30 dias.', 'Analise a campanha de leads da Clínica Sorriso', 'Quanto gastamos ontem?', '', undefined]) {
+  for (const text of ['Monte um plano de mídia de 30 dias.', 'Analise a campanha de leads da Clínica Sorriso', 'Quanto gastamos ontem?', 'Vamos criar a campanha de março hoje', 'Você pode me ajudar a montar um plano de mídia?', '', undefined]) {
     assert.equal(asksCapabilities(text), false, String(text));
   }
 });

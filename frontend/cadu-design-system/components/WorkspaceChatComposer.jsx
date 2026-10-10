@@ -3,6 +3,7 @@ import {Icon} from './Icon';
 import {ProjectSelector} from './WorkspaceSelectors';
 import {pluginPrompt} from '../../conversations-v2/lib/pluginPrompts';
 import {composerReducer, composerState} from '../lib/composerState.mjs';
+import {FACILITATOR_PROFILES, facilitatorSuggestions, loadFacilitatorProfile, saveFacilitatorProfile} from '../lib/facilitator.mjs';
 import {request} from '../../conversations-v2/lib/api';
 import {createLongTextAttachment, LONG_TEXT_ATTACHMENT_THRESHOLD, MAX_ATTACHMENTS, MAX_ATTACHMENT_BYTES} from '../../conversations-v2/lib/attachmentModel.mjs';
 
@@ -96,6 +97,33 @@ export function WorkspaceChatComposer({
     capabilityMenu.current?.removeAttribute('open');
     textarea.current?.focus();
   };
+  const facilitatorRoot = useRef(null);
+  const [facilitatorOpen, setFacilitatorOpen] = React.useState(false);
+  const [facilitatorProfile, setFacilitatorProfile] = React.useState(() => loadFacilitatorProfile());
+  const [profileMenuOpen, setProfileMenuOpen] = React.useState(false);
+  const projectName = String((projects.find(project => (project.ref || project.projectRef || project.id) === projectRef) || {}).name || '').trim();
+  const suggestions = facilitatorSuggestions({profile: facilitatorProfile, projectName, hasProject});
+  const profileLabel = (FACILITATOR_PROFILES.find(profile => profile.id === facilitatorProfile) || FACILITATOR_PROFILES[0]).label;
+  const closeFacilitator = () => { setFacilitatorOpen(false); setProfileMenuOpen(false); };
+  const chooseSuggestion = suggestion => {
+    onChange?.(suggestion.text);
+    closeFacilitator();
+    window.requestAnimationFrame(() => textarea.current?.focus());
+  };
+  const chooseProfile = id => {
+    setFacilitatorProfile(id);
+    saveFacilitatorProfile(id);
+    setProfileMenuOpen(false);
+  };
+  useEffect(() => { if (String(value).trim() && facilitatorOpen) closeFacilitator(); }, [value]);
+  useEffect(() => {
+    if (!facilitatorOpen) return undefined;
+    const onPointerDown = event => { if (!facilitatorRoot.current?.contains(event.target)) closeFacilitator(); };
+    const onKeyDown = event => { if (event.key === 'Escape') { closeFacilitator(); textarea.current?.focus(); } };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => { document.removeEventListener('pointerdown', onPointerDown); document.removeEventListener('keydown', onKeyDown); };
+  }, [facilitatorOpen]);
   useEffect(() => {
     if (slashQuery === null || pluginCatalog.length) return;
     let current = true;
@@ -337,6 +365,22 @@ export function WorkspaceChatComposer({
               {availableCapabilities.map(capability => <button key={capability.label} type="button" role="menuitem" className="cv-capability-action" onClick={() => selectCapability(capability)}><Icon name={capability.icon} size={16}/><span><b>{capability.label}</b><small>{capability.detail}</small></span><span className="cv-capability-action__result">Preencher</span></button>)}
             </div>
           </details>
+          <div ref={facilitatorRoot} className="cv-facilitator-anchor">
+            <button type="button" className={`cv-composer-facilitator${facilitatorOpen ? ' is-open' : ''}`} aria-expanded={facilitatorOpen} aria-haspopup="dialog" disabled={disabled} onClick={() => { capabilityMenu.current?.removeAttribute('open'); setFacilitatorOpen(open => !open); setProfileMenuOpen(false); }} title="Sugestões de pedido para o seu perfil"><Icon name="plugin" size={15}/><span>Facilitador</span></button>
+            {facilitatorOpen && <div className="cv-facilitator" role="dialog" aria-label="Sugestões para este projeto">
+              <div className="cv-facilitator__header">
+                <b>{hasProject ? 'Sugestões para este projeto' : 'Sugestões para começar'}</b>
+                <button type="button" className="cv-facilitator__profile" aria-expanded={profileMenuOpen} onClick={() => setProfileMenuOpen(open => !open)}>{profileLabel}<Icon name="chevron" size={11}/></button>
+              </div>
+              {profileMenuOpen && <div className="cv-facilitator__profiles" role="menu" aria-label="Seu perfil">
+                {FACILITATOR_PROFILES.map(profile => <button key={profile.id} type="button" role="menuitemradio" aria-checked={profile.id === facilitatorProfile} className={profile.id === facilitatorProfile ? 'is-active' : ''} onClick={() => chooseProfile(profile.id)}>{profile.label}{profile.id === facilitatorProfile && <Icon name="check" size={13}/>}</button>)}
+              </div>}
+              <div className="cv-facilitator__list" role="list">
+                {suggestions.map(suggestion => <button key={suggestion.id} type="button" role="listitem" onClick={() => chooseSuggestion(suggestion)}><Icon name={suggestion.icon} size={15}/><span>{suggestion.text}</span><Icon name="arrowUp" size={13}/></button>)}
+              </div>
+              <div className="cv-facilitator__hint">Eu preencho o campo. Você revisa antes de enviar.</div>
+            </div>}
+          </div>
         </div>
         <div className="cv-composer-submit-group cv-flex cv-items-center cv-gap-1.5">
           {homeMode && showProjectSelector && <ProjectSelector

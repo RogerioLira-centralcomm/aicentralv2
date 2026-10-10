@@ -2090,7 +2090,7 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 .cadu-ds-project-create-dialog--dark .cadu-untitled-field__control:focus-within,.cadu-ds-project-create-dialog--dark .cadu-untitled-select select:focus-visible,.cadu-ds-project-create-dialog--dark .cadu-untitled-textarea>textarea:focus-visible { box-shadow:inset 0 0 0 2px #55d8c6 !important; }
 .cadu-ds-project-create-dialog--dark input::placeholder,.cadu-ds-project-create-dialog--dark textarea::placeholder { color:#8aa39e; }
 .cadu-ds-project-create-dialog--dark .cadu-untitled-select select { color-scheme:dark; }
-.cadu-ds-project-create-dialog--dark .cadu-ds-project-create-folder>button,.cadu-ds-project-create-dialog .cadu-ds-project-create-folder>button:disabled { background:#14272a; color:#d5e4e1; border:1px dashed rgba(181,218,211,.28); }
+.cadu-ds-project-create-dialog--dark .cadu-ds-project-create-folder>button,.cadu-ds-project-create-dialog--dark .cadu-ds-project-create-folder>button:disabled { background:#14272a; color:#d5e4e1; border:1px dashed rgba(181,218,211,.28); }
 .cadu-ds-project-create-dialog--dark .cadu-ds-project-create-folder>button:hover { border-color:#55d8c6; color:#edf6f4; }
 .cadu-ds-project-create-dialog--dark footer button[type="submit"] { background:#55d8c6; color:#04201c; border:0; box-shadow:none; font-weight:700; }
 .cadu-ds-project-create-dialog--dark footer button[type="submit"]:hover:not(:disabled) { background:#6be0d0; }

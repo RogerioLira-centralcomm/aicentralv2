@@ -451,3 +451,50 @@ body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-worksp
 .cadu-ds-home-pulse__card strong { font-size:22px; }
 .cadu-ds-home-pulse__card li > span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; -webkit-line-clamp:unset; }
 .cadu-ds-home-pulse__card ul,.cadu-ds-home-pulse__card li { min-width:0; }
+
+/* ======================================================================
+   Escala tipográfica única da Home (vale para os dois perfis, em qualquer largura)
+   h1 36 · título de bloco 16 · título de cartão 20 · item 14 · apoio/rótulo 12–13 · link 13
+   Tudo alinhado ao mesmo eixo do campo do chat (860px, centralizado).
+   ====================================================================== */
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content.is-rich .cadu-ds-home-intro { display:grid; justify-items:center; width:min(860px,100%); margin:0 auto 24px; text-align:center; }
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content.is-rich .cadu-ds-home-intro h1 { width:100%; max-width:none; margin:0; font-size:clamp(28px,3.4vw,38px); font-weight:700; line-height:1.12; letter-spacing:-.04em; text-align:center; text-wrap:balance; }
+body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content.is-rich .cadu-ds-home-intro p { max-width:640px; margin:10px auto 0; font-size:15px; line-height:1.5; text-align:center; }
+
+/* títulos de bloco: mesmo tamanho, peso, margem e eixo */
+.cadu-ds-home-pulse>header h2,.cadu-ds-home-continue>header h2,.cadu-ds-home-explore>header h2,.cadu-ds-home-guides>header h2,.cadu-ds-home-pulse.is-empty h2 { margin:0; font-size:16px; font-weight:650; line-height:1.3; letter-spacing:-.01em; }
+.cadu-ds-home-pulse>header p,.cadu-ds-home-guides>header p,.cadu-ds-home-pulse.is-empty p { margin:3px 0 0; font-size:13px; line-height:1.4; }
+.cadu-ds-home-pulse>header,.cadu-ds-home-continue>header,.cadu-ds-home-explore>header,.cadu-ds-home-guides>header { margin:0 0 12px; padding:0; }
+
+/* cartões: mesmo raio, padding e hierarquia interna */
+.cadu-ds-home-pulse__card,.cadu-ds-home-continue a,.cadu-ds-home-explore__card,.cadu-ds-home-guides a { border-radius:14px; }
+.cadu-ds-home-pulse__card { padding:16px; gap:2px; }
+.cadu-ds-home-pulse__head { margin-bottom:6px; font-size:13px; font-weight:600; line-height:1.3; }
+.cadu-ds-home-pulse__card strong { font-size:20px; font-weight:700; line-height:1.2; letter-spacing:-.02em; }
+.cadu-ds-home-pulse__card>small { font-size:13px; line-height:1.4; }
+.cadu-ds-home-pulse__card li,.cadu-ds-home-pulse__card p { font-size:13px; line-height:1.4; }
+.cadu-ds-home-pulse__card li small,.cadu-ds-home-pulse__card p small { font-size:12px; line-height:1.4; }
+.cadu-ds-home-continue a { gap:2px; padding:12px 14px; }
+.cadu-ds-home-continue__kind { font-size:12px; font-weight:600; line-height:1.3; }
+.cadu-ds-home-continue b { font-size:14px; font-weight:600; line-height:1.35; }
+.cadu-ds-home-continue small { font-size:12px; line-height:1.4; }
+.cadu-ds-home-explore__label { font-size:12px; line-height:1.3; }
+.cadu-ds-home-explore__card b { font-size:16px; font-weight:650; line-height:1.25; }
+.cadu-ds-home-explore__card small { font-size:13px; line-height:1.45; }
+.cadu-ds-home-guides b { font-size:14px; font-weight:600; line-height:1.3; }
+.cadu-ds-home-guides small { font-size:12px; line-height:1.4; }
+
+/* links: mesma medida (13px/600) e área de toque mínima de 32px (44px no mobile) */
+.cadu-ds-home-explore__cta { min-height:32px; margin-top:4px; font-size:13px; font-weight:600; line-height:1; }
+.cadu-ds-home-pulse .cadu-ds-home-explore__cta { margin-top:10px; }
+.cadu-ds-home-explore.is-compact .cadu-ds-home-explore__card,.cadu-ds-home-explore.is-mobile .cadu-ds-home-explore__card { min-height:60px; }
+.cadu-ds-home-explore.is-compact .cadu-ds-home-explore__label,.cadu-ds-home-explore.is-mobile .cadu-ds-home-explore__label { font-size:14px; }
+
+@media (max-width:760px) {
+  body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content.is-rich .cadu-ds-home-intro { margin-bottom:18px; }
+  body.portal--workspace #cadu-conversations-v2-root .cadu-ds-home-shell.is-workspace-home .cadu-ds-home-content.is-rich .cadu-ds-home-intro h1 { font-size:clamp(25px,7.2vw,30px); }
+  .cadu-ds-home-pulse__card { padding:12px; }
+  .cadu-ds-home-pulse__card strong { font-size:18px; }
+  .cadu-ds-home-pulse>header h2,.cadu-ds-home-continue>header h2,.cadu-ds-home-explore>header h2 { font-size:16px; }
+  .cadu-ds-home-continue a { min-height:56px; }
+}

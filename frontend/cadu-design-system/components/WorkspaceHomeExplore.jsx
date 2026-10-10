@@ -33,7 +33,7 @@ export function HomeExplore({explore, mode = 'full', solutions = {}}) {
 
 /** Retomada para quem já tem conversas, projetos ou marcas. */
 export function HomeContinue({items, isMobile, onOpen}) {
-  const list = items.slice(0, isMobile ? 2 : 6);
+  const list = items.slice(0, isMobile ? 2 : 3);
   if (!list.length) return null;
   return <section className="cadu-ds-home-continue" aria-label="Continue de onde parou">
     <header><h2>Continue de onde parou</h2></header>
@@ -71,7 +71,7 @@ export function HomePulse({cards = [], solutions = {}, isMobile = false, emptyIm
   const list = isMobile ? visible.slice(0, 2) : visible;
   return <section className={`cadu-ds-home-pulse${isMobile ? ' is-mobile' : ''}`} aria-label="Em andamento">
     <header><h2>Em andamento</h2>{!isMobile && <p>O que mudou desde sua última visita.</p>}</header>
-    <div className="cadu-ds-home-pulse__grid">{list.map(card => <a key={card.id} className={`cadu-ds-home-pulse__card is-${card.id}`} href={card.href}>
+    <div className="cadu-ds-home-pulse__grid" style={{'--pulse-cols': Math.min(list.length, 4)}}>{list.map(card => <a key={card.id} className={`cadu-ds-home-pulse__card is-${card.id}`} href={card.href}>
       <span className="cadu-ds-home-pulse__head"><Icon name={PULSE_ICON[card.id] || 'table'} size={16}/>{card.title}</span>
       <strong>{card.id === 'radar' && !card.count ? 'Sem novidades' : `${card.count} ${card.noun}`}</strong><small>{card.caption}</small>
       {!isMobile && <PulseDetail card={card}/>}

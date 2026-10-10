@@ -20,6 +20,9 @@ function withQuery(url, values) {
   return target.pathname + target.search;
 }
 
+// Rótulo do que o item é (o feed mistura conversas, projetos e recursos dos projetos).
+const CONTINUE_KIND = {conversation: 'Conversa', project: 'Projeto', file: 'Arquivo', artifact: 'Artefato', media_plan: 'Plano de mídia', report: 'Relatório', image: 'Imagem', video: 'Vídeo', analysis: 'Análise', link: 'Link'};
+
 const isDockResource = item => Boolean(item?.resourceRef) || item?.kind === 'resource';
 
 
@@ -54,7 +57,7 @@ export function WorkspaceHome({bootstrap}) {
   // Two homes: an empty account is invited to explore and start; an account with
   // conversations, projects or brands is led back to its work first.
   const continueItems = [
-    ...(home.resumeCards || []).map(item => ({key: `r:${item.id}`, kind: item.kind === 'conversation' ? 'Conversa' : item.kind === 'project' ? 'Projeto' : 'Retomar', title: item.title || item.name, context: item.context || item.status, href: item.href, raw: item})),
+    ...(home.resumeCards || []).map(item => ({key: `r:${item.id}`, kind: CONTINUE_KIND[item.kind] || 'Recurso', title: item.title || item.name, context: item.context || item.status, href: item.href, raw: item})),
     ...projects.filter(project => !(home.resumeCards || []).some(card => card.id === project.id)).map(project => ({key: `p:${project.id}`, kind: 'Projeto', title: project.name, context: project.brandName, href: project.href, raw: project})),
   ].filter(item => item.title);
   const hasWork = continueItems.length > 0 || (home.brands || []).length > 0 || (home.pulse || []).length > 0;

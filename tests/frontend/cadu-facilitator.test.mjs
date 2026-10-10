@@ -27,6 +27,16 @@ test('without a project only suggestions that do not depend on it are offered', 
   assert.ok(facilitatorSuggestions({profile: 'planejamento', hasProject: false}).length > 0);
 });
 
+test('no suggestion produces a broken preposition, with or without a project name', () => {
+  for (const profile of FACILITATOR_PROFILES) {
+    for (const args of [{projectName: 'Clínica Sorriso', hasProject: true}, {hasProject: true}, {hasProject: false}]) {
+      for (const item of facilitatorSuggestions({profile: profile.id, ...args})) {
+        assert.ok(!/\b(de|em) (este|esta|a|o) /i.test(item.text), item.text);
+      }
+    }
+  }
+});
+
 test('unknown profiles fall back to the default and storage failures are harmless', () => {
   assert.equal(normalizeFacilitatorProfile('zzz'), DEFAULT_FACILITATOR_PROFILE);
   const memory = new Map();

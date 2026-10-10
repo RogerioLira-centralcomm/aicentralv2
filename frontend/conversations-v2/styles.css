@@ -2104,7 +2104,8 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 @media (max-width:640px) {
   #cadu-conversations-v2-root .cv-composer-facilitator span { display:none; }
   #cadu-conversations-v2-root .cv-composer-facilitator { width:30px; justify-content:center; padding:0; }
-  #cadu-conversations-v2-root .cv-facilitator { left:0; }
+  #cadu-conversations-v2-root .cv-facilitator-anchor { position:static; }
+  #cadu-conversations-v2-root .cv-facilitator { right:0; left:0; width:auto; }
 }
 #cadu-conversations-v2-root .cv-sidebar-title { display:block; width:100%; min-width:0; overflow:hidden; white-space:nowrap; -webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 9px),transparent 100%); mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 9px),transparent 100%); }
 #cadu-conversations-v2-root .cv-sidebar-title__text { display:inline-block; width:max-content; min-width:100%; white-space:nowrap; will-change:transform; }

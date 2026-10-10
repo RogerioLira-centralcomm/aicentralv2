@@ -106,7 +106,8 @@ export function WorkspaceChatComposer({
   const profileLabel = (FACILITATOR_PROFILES.find(profile => profile.id === facilitatorProfile) || FACILITATOR_PROFILES[0]).label;
   const closeFacilitator = () => { setFacilitatorOpen(false); setProfileMenuOpen(false); };
   const chooseSuggestion = suggestion => {
-    onChange?.(suggestion.text);
+    // Never discard a draft: the suggestion goes after what the user already wrote.
+    onChange?.(String(value).trim() ? `${String(value).trimEnd()}\n\n${suggestion.text}` : suggestion.text);
     closeFacilitator();
     window.requestAnimationFrame(() => textarea.current?.focus());
   };
@@ -375,8 +376,8 @@ export function WorkspaceChatComposer({
               {profileMenuOpen && <div className="cv-facilitator__profiles" role="menu" aria-label="Seu perfil">
                 {FACILITATOR_PROFILES.map(profile => <button key={profile.id} type="button" role="menuitemradio" aria-checked={profile.id === facilitatorProfile} className={profile.id === facilitatorProfile ? 'is-active' : ''} onClick={() => chooseProfile(profile.id)}>{profile.label}{profile.id === facilitatorProfile && <Icon name="check" size={13}/>}</button>)}
               </div>}
-              <div className="cv-facilitator__list" role="list">
-                {suggestions.map(suggestion => <button key={suggestion.id} type="button" role="listitem" onClick={() => chooseSuggestion(suggestion)}><Icon name={suggestion.icon} size={15}/><span>{suggestion.text}</span><Icon name="arrowUp" size={13}/></button>)}
+              <div className="cv-facilitator__list">
+                {suggestions.map(suggestion => <button key={suggestion.id} type="button" onClick={() => chooseSuggestion(suggestion)}><Icon name={suggestion.icon} size={15}/><span>{suggestion.text}</span><Icon name="arrowUp" size={13}/></button>)}
               </div>
               <div className="cv-facilitator__hint">Eu preencho o campo. Você revisa antes de enviar.</div>
             </div>}

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   DEFAULT_FACILITATOR_PROFILE, FACILITATOR_PROFILES, MAX_FACILITATOR_SUGGESTIONS,
-  facilitatorSuggestions, loadFacilitatorProfile, normalizeFacilitatorProfile, saveFacilitatorProfile,
+  asksCapabilities, facilitatorSuggestions, loadFacilitatorProfile, normalizeFacilitatorProfile, saveFacilitatorProfile,
 } from '../../frontend/cadu-design-system/lib/facilitator.mjs';
 
 test('every profile gets a full list of suggestions inside a project', () => {
@@ -46,4 +46,13 @@ test('unknown profiles fall back to the default and storage failures are harmles
   const broken = {getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); }};
   assert.equal(loadFacilitatorProfile(broken), DEFAULT_FACILITATOR_PROFILE);
   assert.doesNotThrow(() => saveFacilitatorProfile('gestor', broken));
+});
+
+test('open "what can you do" questions are detected, ordinary requests are not', () => {
+  for (const text of ['E ai vamos construir o que por aqui? o que vc pode me ajudar?', 'O que você pode fazer por mim?', 'como voce pode me ajudar neste projeto', 'Por onde começamos?', 'você pode me ajudar?']) {
+    assert.equal(asksCapabilities(text), true, text);
+  }
+  for (const text of ['Monte um plano de mídia de 30 dias.', 'Analise a campanha de leads da Clínica Sorriso', 'Quanto gastamos ontem?', '', undefined]) {
+    assert.equal(asksCapabilities(text), false, String(text));
+  }
 });

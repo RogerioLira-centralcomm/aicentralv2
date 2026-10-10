@@ -45,6 +45,13 @@ const RECIPES = [
     text: p => `Transforme o que temos ${p.de} em uma apresentação executiva de 8 slides.`},
 ];
 
+// Perguntas abertas do tipo "o que você pode fazer?": a resposta ganha atalhos clicáveis em vez de só mais texto.
+const CAPABILITY_QUESTION = /\b(o que|oque|no que|em que|como)\s+(voc[eê]|vc|c[eê])\s+(pode|consegue|sabe|faz)\b|\b(pode|consegue)\s+me\s+ajudar\b|\bvamos\s+(construir|fazer|criar)\b.*\b(aqui|hoje|agora)\b|\bpor onde\s+(come[cç]amos|come[cç]o)\b/i;
+
+export function asksCapabilities(text) {
+  return CAPABILITY_QUESTION.test(String(text || '').slice(0, 400));
+}
+
 export function normalizeFacilitatorProfile(value) {
   return FACILITATOR_PROFILES.some(profile => profile.id === value) ? value : DEFAULT_FACILITATOR_PROFILE;
 }

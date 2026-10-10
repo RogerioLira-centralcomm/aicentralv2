@@ -42,11 +42,15 @@ export function WorkspaceProjects({bootstrap}) {
     const byKey = new Map();
     projects.forEach(project => {
       const label = (project.brandName || '').trim() || 'Sem marca';
-      if (!byKey.has(label)) byKey.set(label, {key: label, label, projects: [], previewUrl: project.previewUrl, initials: (project.visualInitials || label.slice(0, 2)).toUpperCase(), color: project.visualColor});
+      if (!byKey.has(label)) {
+        // The header wears the brand's own identity (never a project thumbnail); initials when the brand has no logo.
+        const brand = (bootstrap.brands || []).find(item => normalizeProjectSearch(item.name) === normalizeProjectSearch(label));
+        byKey.set(label, {key: label, label, projects: [], previewUrl: brand?.logoUrl || '', initials: (brand?.visualInitials || label.slice(0, 2)).toUpperCase(), color: brand?.visualColor || ''});
+      }
       byKey.get(label).projects.push(project);
     });
     return [...byKey.values()].sort((left, right) => (left.label === 'Sem marca') - (right.label === 'Sem marca') || left.label.localeCompare(right.label, 'pt-BR', {sensitivity: 'base'}));
-  }, [projects]);
+  }, [projects, bootstrap.brands]);
   const toggleSidebar = async project => {
     const next = !shownInSidebar(project);
     setNotice('');

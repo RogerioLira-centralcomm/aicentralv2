@@ -87,6 +87,7 @@ def conversations_v2_lab():
             "href": url_for("cadu_workspace.clean_project_detail", project_id=str(project.get("id"))),
             "previewUrl": str(project.get("thumbnail_url") or ""), "dockLogoUrl": str(project.get("brand_logo_url") or ""),
             "brandName": str(project.get("thumbnail_label") or ""),
+            "showInSidebar": project.get("mostrar_na_sidebar") is not False,
         } for project in projects]
         dock_items = _workspace_common_dock_items(current.client_id, int(session.get("user_id") or 0), projects=projects, brands=brands)
         usage_percent = round(float((credit_position(current.client_id) or {}).get('monthly_usage_percentage') or 0), 1)

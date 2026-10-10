@@ -211,3 +211,5 @@ migrations/run_sql_migration.py add_cadu_planner_portal_signals.sql
 migrations/run_sql_migration.py extend_cadu_planner_portal_prints_kinds.sql
 # Papel "illustration" nos ativos da marca (Quadro do Studio); depende de add_brand_asset_html_roles.sql (aditivo, idempotente: recria o CHECK com a lista completa).
 migrations/run_sql_migration.py add_brand_asset_illustration_role.sql
+# Projeto na sidebar: coluna mostrar_na_sidebar em cadu_ci_projetos (aditivo, idempotente).
+migrations/run_sql_migration.py add_cadu_project_sidebar_visibility.sql

@@ -46,7 +46,8 @@ export function projectBrandKeys(project) {
 }
 
 export function groupWorkspaceProjects(brands = [], projects = []) {
-  const activeProjects = projects.filter(item => !isArchivedEntity(item)).slice().sort(compareWorkspaceActivity);
+  // A project the team took off the sidebar stays in the catalog and in "move to project" menus, but not in this tree.
+  const activeProjects = projects.filter(item => !isArchivedEntity(item) && item.showInSidebar !== false).slice().sort(compareWorkspaceActivity);
   const candidates = brands.map(brand => {
     const keys = brandIdentityKeys(brand);
     return {...brand, projects:activeProjects.filter(project => projectBrandKeys(project).some(key => keys.has(key)))};

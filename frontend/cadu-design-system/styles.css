@@ -4621,3 +4621,31 @@ body.portal--workspace .cadu-ds-entity-rail__readiness strong{font-size:20px;lin
   .cadu-ds-mobile-navigation__solutions>div { display:grid; padding:2px 0 4px; }
   .cadu-ds-mobile-navigation__footer img { border-radius:7px; }
 }
+
+/* Projetos: seções por marca, linha com chave "Na sidebar" */
+.cadu-projects-groups{display:grid;gap:28px}
+.cadu-projects-notice{margin:0;padding:10px 14px;border-radius:10px;background:#fef3f2;color:#b42318;font-size:13px}
+.cadu-projects-group{display:grid;gap:10px}
+.cadu-projects-group__head{display:flex;align-items:center;gap:12px}
+.cadu-projects-group__head>.cadu-ds-visual-identity{width:32px;height:32px;border-radius:8px}
+.cadu-projects-group__head h2{margin:0;font-size:16px;font-weight:700;letter-spacing:-.01em}
+.cadu-projects-group__head span{color:var(--cadu-muted);font-size:12px}
+.untitled-catalog-list.is-projects .untitled-catalog-list__head,.untitled-catalog-list.is-projects .untitled-catalog-item{grid-template-columns:minmax(280px,1.9fr) 80px 130px 24px}
+.untitled-catalog-list.is-projects .untitled-catalog-item{position:relative}
+.untitled-catalog-item__hit{position:absolute;inset:0;z-index:1}
+.untitled-catalog-item__hit:focus-visible{outline:2px solid var(--cadu-accent-strong);outline-offset:-2px}
+.untitled-catalog-item__pin{position:relative;z-index:2;display:flex;align-items:center;gap:10px;color:var(--cadu-muted);font-size:11px}
+.cadu-switch{position:relative;flex:none;width:36px;height:20px;padding:0;border:0;border-radius:999px;background:#d0d5dd;cursor:pointer;transition:background .15s}
+.cadu-switch i{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,.25);transition:transform .15s}
+.cadu-switch.is-on{background:var(--cadu-accent-strong,#067647)}
+.cadu-switch.is-on i{transform:translateX(16px)}
+.cadu-switch:disabled{opacity:.6;cursor:progress}
+.cadu-switch:focus-visible{outline:2px solid var(--cadu-accent-strong,#067647);outline-offset:2px}
+@media(max-width:760px){
+  .untitled-catalog-list.is-projects .untitled-catalog-item{grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto}
+  .untitled-catalog-list.is-projects .untitled-catalog-item__identity{grid-column:1 / -1}
+  .untitled-catalog-list.is-projects .untitled-catalog-item__metric{grid-column:1;grid-row:2}
+  .untitled-catalog-list.is-projects .untitled-catalog-item__metric small{display:inline;margin-right:6px}
+  .untitled-catalog-list.is-projects .untitled-catalog-item__pin{grid-column:2;grid-row:2}
+  .untitled-catalog-list.is-projects .untitled-catalog-item__chevron{display:none}
+}

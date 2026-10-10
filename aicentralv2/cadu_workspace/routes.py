@@ -921,7 +921,7 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
     project_items = [{
         'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'),
         'name': str(item.get('nome') or 'Projeto'), 'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id'))),
-        'previewUrl': str(item.get('thumbnail_url') or item.get('brand_logo_url') or ''), 'projectRef': f"ci:{item.get('id')}",
+        'previewUrl': str(item.get('thumbnail_url') or item.get('brand_logo_url') or ''), 'projectRef': f"ci:{item.get('id')}", 'showInSidebar': _shows_in_sidebar(item),
         'logoUrl': str(item.get('brand_logo_url') or ''),
         'brandName': str(item.get('thumbnail_label') or ''),
         'visualInitials': str(item.get('thumbnail_initials') or 'P'),
@@ -3757,6 +3757,11 @@ def _sync_approved_brand_to_projects(client_id: int, user_id: int, brand_id: int
 
 
 @_request_memo
+def _shows_in_sidebar(project: dict) -> bool:
+    """Whether the project is pinned to the main sidebar and Chat; true until the column exists or someone turns it off."""
+    return project.get('mostrar_na_sidebar') is not False
+
+
 def _workspace_projects(client_id: int, query: str = "", status: str = "ativos", *, raise_on_error: bool = False,
                         identity_brands: Optional[list[dict]] = None,
                         identity_links: Optional[list[dict]] = None,
@@ -4106,7 +4111,7 @@ def _workspace_sidebar_payload(client_id: int) -> dict:
         'id': f"ci:{item.get('id')}", 'kind': 'project',
         'name': str(item.get('nome') or 'Projeto'), 'title': str(item.get('nome') or 'Projeto'),
         'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id'))),
-        'projectRef': f"ci:{item.get('id')}",
+        'projectRef': f"ci:{item.get('id')}", 'showInSidebar': _shows_in_sidebar(item),
         'updatedAt': str(item.get('updated_at') or ''),
         'brandRef': str(item.get('brand_ref') or ''),
         'related_refs': list(item.get('related_refs') or []),
@@ -5787,7 +5792,7 @@ def dashboard():
     visible_brands = brand_items[:8]
     project_items = [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'),
                       'name': str(item.get('nome') or 'Projeto'), 'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id'))),
-                      'previewUrl': str(item.get('thumbnail_url') or ''), 'projectRef': f"ci:{item.get('id')}",
+                      'previewUrl': str(item.get('thumbnail_url') or ''), 'projectRef': f"ci:{item.get('id')}", 'showInSidebar': _shows_in_sidebar(item),
                       'updatedAt': str(item.get('updated_at') or ''),
                       'brandRef': str(item.get('brand_ref') or ''),
                       'related_refs': list(item.get('related_refs') or []),
@@ -6005,7 +6010,7 @@ def brands():
                     **metrics.get(str(item.get('id')), {}),
                     'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id')))} for item in catalog_records]
     project_items = [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'),
-                      'projectRef': f"ci:{item.get('id')}", 'previewUrl': str(item.get('brand_logo_url') or ''),
+                      'projectRef': f"ci:{item.get('id')}", 'showInSidebar': _shows_in_sidebar(item), 'previewUrl': str(item.get('brand_logo_url') or ''),
                       'visualInitials': str(item.get('thumbnail_initials') or 'P'), 'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'),
                       'visualVariant': _dock_visual_variant('project', item.get('id')),
                       'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id')))} for item in projects]
@@ -6412,7 +6417,7 @@ def projects():
         current_app.logger.exception('Não foi possível carregar o catálogo de projetos do cliente %s', client_id)
         catalog_records = []
         catalog_error = 'Os projetos estão temporariamente indisponíveis. Atualize a página para tentar novamente.'
-    items = [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'name': str(item.get('nome') or 'Projeto'), 'title': str(item.get('nome') or 'Projeto'), 'projectRef': f"ci:{item.get('id')}", 'previewUrl': str(item.get('thumbnail_url') or ''), 'dockLogoUrl': str(item.get('brand_logo_url') or ''), 'visualInitials': str(item.get('thumbnail_initials') or 'P'), 'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'), 'visualVariant': _dock_visual_variant('project', item.get('id')), 'description': str(item.get('descricao') or ''), 'brandName': str(item.get('thumbnail_label') or ''), 'status': str(item.get('status') or 'ativo'), 'sources': int(item.get('fontes_prontas') or 0), 'contextRevision': int(item.get('context_revision') or 1), 'contextItems': project_context_service.context_items({'revision': int(item.get('context_revision') or 1), 'updated_at': item.get('updated_at'), 'standard_fields': {'name': item.get('nome'), 'description': item.get('descricao'), 'instructions': item.get('instrucoes'), 'audience': item.get('publico'), 'tone_of_voice': item.get('tom_de_voz'), 'positioning': item.get('posicionamento'), 'color': item.get('cor')}, 'custom_fields': item.get('campos_personalizados') or {}}), 'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id')))} for item in catalog_records]
+    items = [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'name': str(item.get('nome') or 'Projeto'), 'title': str(item.get('nome') or 'Projeto'), 'projectRef': f"ci:{item.get('id')}", 'showInSidebar': _shows_in_sidebar(item), 'previewUrl': str(item.get('thumbnail_url') or ''), 'dockLogoUrl': str(item.get('brand_logo_url') or ''), 'visualInitials': str(item.get('thumbnail_initials') or 'P'), 'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'), 'visualVariant': _dock_visual_variant('project', item.get('id')), 'description': str(item.get('descricao') or ''), 'brandName': str(item.get('thumbnail_label') or ''), 'status': str(item.get('status') or 'ativo'), 'sources': int(item.get('fontes_prontas') or 0), 'contextRevision': int(item.get('context_revision') or 1), 'contextItems': project_context_service.context_items({'revision': int(item.get('context_revision') or 1), 'updated_at': item.get('updated_at'), 'standard_fields': {'name': item.get('nome'), 'description': item.get('descricao'), 'instructions': item.get('instrucoes'), 'audience': item.get('publico'), 'tone_of_voice': item.get('tom_de_voz'), 'positioning': item.get('posicionamento'), 'color': item.get('cor')}, 'custom_fields': item.get('campos_personalizados') or {}}), 'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id')))} for item in catalog_records]
     brands = [{'id': str(item.get('id')), 'kind': 'brand', 'name': str(item.get('name') or 'Marca'), 'title': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''), 'visualInitials': str(item.get('display_initials') or 'M'), 'visualColor': str(item.get('display_color') or item.get('primary_color') or ''), 'visualVariant': _dock_visual_variant('brand', item.get('id')), 'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id')))} for item in _workspace_brands(client_id)]
     dock_items = _workspace_common_dock_items(client_id, int(session.get('user_id') or 0))
     return render_template('cadu_workspace/projects_react.html', project_items=items, brand_items=brands, dock_items=dock_items,
@@ -6589,7 +6594,7 @@ def project_detail(project_id, project_view='overview'):
             'visualInitials': str(item.get('thumbnail_initials') or 'P'),
             'visualColor': str(item.get('thumbnail_color') or item.get('cor') or ''),
             'visualVariant': _dock_visual_variant('project', item.get('id')),
-            'projectRef': f"ci:{item.get('id')}",
+            'projectRef': f"ci:{item.get('id')}", 'showInSidebar': _shows_in_sidebar(item),
             'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id'))),
         } for item in projects]
         brand_items = [{
@@ -6921,6 +6926,31 @@ def update_project_direction_api(project_id):
         return jsonify({'error': str(exc), 'code': 'revision_conflict'}), 409
     except project_context_service.ProjectContextError as exc:
         return jsonify({'error': str(exc), 'code': 'invalid_project_context'}), 400
+
+
+@bp.patch('/workspace/api/projetos/<project_id>/sidebar')
+@login_required
+def update_project_sidebar_api(project_id):
+    """Pin or unpin a project from the main sidebar (and Chat); the choice is the project's, shared by the whole account."""
+    if not _workspace_api_csrf():
+        return jsonify({'error': 'Atualize a página e tente novamente.'}), 403
+    client_id = int(session.get('cliente_id') or 0)
+    if not _workspace_project(client_id, project_id):
+        abort(404)
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data.get('show'), bool):
+        return jsonify({'error': 'Informe show como verdadeiro ou falso.'}), 400
+    try:
+        with get_db().cursor() as cursor:
+            cursor.execute('UPDATE cadu_ci_projetos SET mostrar_na_sidebar = %s WHERE id_cliente = %s AND id::text = %s',
+                           (data['show'], client_id, str(project_id)))
+        get_db().commit()
+    except Exception:
+        get_db().rollback()
+        current_app.logger.exception('Não foi possível atualizar a sidebar do projeto %s', project_id)
+        return jsonify({'error': 'Não foi possível salvar agora. Tente novamente.'}), 500
+    g.pop('_workspace_sidebar_payload', None)
+    return jsonify({'projectRef': f'ci:{project_id}', 'showInSidebar': data['show']})
 
 
 @bp.get('/workspace/api/projetos/<project_id>/direcao/historico')
@@ -8695,7 +8725,7 @@ def brand_detail(brand_id):
                 break
         project_items = [{
             'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'),
-            'name': str(item.get('nome') or 'Projeto'), 'projectRef': f"ci:{item.get('id')}",
+            'name': str(item.get('nome') or 'Projeto'), 'projectRef': f"ci:{item.get('id')}", 'showInSidebar': _shows_in_sidebar(item),
             'previewUrl': str(item.get('brand_logo_url') or ''), 'visualInitials': str(item.get('thumbnail_initials') or 'P'),
             'visualColor': str(item.get('thumbnail_color') or item.get('cor') or ''),
             'visualVariant': _dock_visual_variant('project', item.get('id')),

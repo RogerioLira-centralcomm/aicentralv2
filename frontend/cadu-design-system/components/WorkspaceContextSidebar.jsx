@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {Icon} from './Icon';
 import {CaduSolutionSwitcher} from './WorkspaceSelectors';
 import {SidebarAccount, useCreditUsage} from './SidebarAccount';
@@ -76,7 +76,6 @@ export function WorkspaceContextSidebar({mode = 'home', preferenceKey = mode, bo
   const [storedCollapsed, setCollapsed] = useState(() => readCollapsed(mode, preferenceKey));
   const collapsed = rail || storedCollapsed;
   const items = HOME_ITEMS;
-  const recentFiles = useMemo(() => resources.filter(item => item?.href || item?.url).slice(0, 3), [resources]);
   const userName = String(bootstrap.user?.name || '').trim();
   const initialUsage = bootstrap.usagePercent ?? bootstrap.home?.usagePercent ?? bootstrap.account?.position?.usage_percentage;
   const usagePercent = useCreditUsage(initialUsage, bootstrap.endpoints?.creditSummary || undefined);
@@ -111,10 +110,6 @@ export function WorkspaceContextSidebar({mode = 'home', preferenceKey = mode, bo
     {mode === 'home' && <>
       <SidebarBrandProjects brands={brands} projects={projects} links={links}/>
     </>}
-    {mode === 'home' && recentFiles.length > 0 && <section className="cadu-ds-context-sidebar__recent" aria-label="Arquivos recentes">
-      <div className="cadu-ds-context-sidebar__section-label"><span>Arquivos recentes</span>{links.docs && <a href={links.docs} title="Abrir todos os arquivos">Ver todos</a>}</div>
-      {recentFiles.map(item => <a key={item.id || item.resourceRef} href={item.href || item.url} title={item.title || item.name}><Icon name="file" size={14}/><span><b>{item.title || item.name || 'Arquivo'}</b><small>{item.projectName || item.project_name || 'Workspace'}</small></span></a>)}
-    </section>}
     {mode === 'home' && !brands.length && <p className="cadu-ds-context-sidebar__empty">Nenhuma marca disponível.</p>}
     <footer className="cadu-ds-context-sidebar__footer">
       <SidebarAccount userName={userName} agencyName={agencyName} avatar={workspaceUserPhoto(bootstrap.user)} fallbackAvatar={bootstrap.user?.photoFallback || avatarBadgeSource(bootstrap.user)} profileUrl={links.perfil || links.profile || links.agencia || links.home || '/workspace/app'} creditsUrl={creditsHref} usagePercent={usagePercent} active={active === 'conta'}/>

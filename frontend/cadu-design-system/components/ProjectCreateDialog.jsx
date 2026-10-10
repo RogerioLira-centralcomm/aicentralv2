@@ -5,7 +5,7 @@ import {CaduInput} from './CaduInput';
 import {CaduSelect} from './CaduSelect';
 import {CaduTextarea} from './CaduTextarea';
 
-export function ProjectCreateDialog({action, csrfToken, brands = [], initialBrandId = '', onCreated, onClose}) {
+export function ProjectCreateDialog({action, csrfToken, brands = [], initialBrandId = '', tone = 'auto', onCreated, onClose}) {
   const nameInput = useRef(null);
   const folderInput = useRef(null);
   const [busy, setBusy] = useState(false);
@@ -55,7 +55,7 @@ export function ProjectCreateDialog({action, csrfToken, brands = [], initialBran
     }
   };
 
-  return <CaduModal className="cadu-ds-project-dialog cadu-ds-project-create-dialog" label="Criar projeto" initialFocusRef={nameInput} onClose={close}>
+  return <CaduModal className={`cadu-ds-project-dialog cadu-ds-project-create-dialog${tone === 'dark' ? ' cadu-ds-project-create-dialog--dark' : ''}`} label="Criar projeto" initialFocusRef={nameInput} onClose={close}>
     <form className="cadu-ds-project-form" aria-busy={busy} onSubmit={submit}>
       <header className="cadu-ds-project-create-dialog__header">
         <div><p className="cadu-ds-project-dialog__eyebrow">Novo espaço de trabalho</p><h2>Criar projeto</h2><p>Reúna conversas, referências, arquivos e conteúdos em um só lugar.</p></div>
@@ -66,7 +66,7 @@ export function ProjectCreateDialog({action, csrfToken, brands = [], initialBran
       <CaduSelect label="Marca associada" hint="Você pode alterar depois." name="brand_id" defaultValue={initialBrandId} options={[{value:'',label:'Sem marca'}, ...brands.map(brand => ({value:String(brand.id),label:brand.name}))]}/>
       <section className="cadu-ds-project-create-folder"><span>Pastas de origem <small>Opcional</small></span><input ref={folderInput} type="file" multiple directory="" webkitdirectory="" hidden onChange={selectFolder}/>{files.length ? <div className="cadu-ds-project-create-folder__selected"><b>{files[0]?.webkitRelativePath?.split('/')[0] || 'Arquivos selecionados'}</b><small>{files.length} arquivo{files.length === 1 ? '' : 's'} · serão enviados para revisão no projeto</small><button type="button" disabled={busy} onClick={() => { setFiles([]); if (folderInput.current) folderInput.current.value = ''; }}>Remover pasta</button></div> : <button type="button" disabled={busy} onClick={() => folderInput.current?.click()}>Adicionar uma pasta neste computador <span aria-hidden="true">⌄</span></button>}</section>
       {uploadProgress && <p className="cadu-ds-project-create-dialog__progress" role="status">{uploadProgress}</p>}
-      <p className="cadu-ds-project-create-dialog__scope">O projeto será criado no espaço deste cliente. Você pode associar uma marca depois.</p>
+      <p className="cadu-ds-project-create-dialog__scope">O projeto será criado no espaço deste cliente.</p>
       {error && <p className="cadu-ds-project-upload-error" role="alert">{error}</p>}
       <footer><CaduButton type="submit" loading={busy} disabled={busy}>{busy ? 'Criando…' : 'Criar projeto'}</CaduButton></footer>
     </form>

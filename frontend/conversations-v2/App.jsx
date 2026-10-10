@@ -1849,7 +1849,7 @@ export default function App({bootstrap}) {
           />}
         </div>
         <ConfirmDialog request={discardRequest} onResolve={resolveDiscard}/>
-        {projectCreateOpen && <ProjectCreateDialog action={bootstrap.endpoints.createProject} csrfToken={csrf()} brands={brands} initialBrandId={inheritedBrandId} onClose={() => setProjectCreateOpen(false)} onCreated={handleProjectCreated}/>}
+        {projectCreateOpen && <ProjectCreateDialog action={bootstrap.endpoints.createProject} csrfToken={csrf()} brands={brands} initialBrandId={inheritedBrandId} tone="dark" onClose={() => setProjectCreateOpen(false)} onCreated={handleProjectCreated}/>}
       </div>
       <nav className="cv-tablet-dock cv-phone-navigation" aria-label="Navegação do chat no tablet">
         <button type="button" onClick={closeSurface} aria-current={activeSurface === 'conversation' ? 'page' : undefined}><Icon name="newChat" size={18}/><span>Conversa</span></button>

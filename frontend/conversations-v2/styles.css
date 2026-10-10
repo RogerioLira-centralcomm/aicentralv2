@@ -2079,6 +2079,22 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-plugin-slash__status { flex:none; color:#82d8ca; font-size:9px; white-space:nowrap; }
 #cadu-conversations-v2-root .cv-plugin-slash>p { margin:0; padding:14px 8px; color:#a8bfba; font-size:11px; }
 #cadu-conversations-v2-root .cv-plugin-slash__hint { padding:7px 7px 2px; border-top:1px solid rgba(181,218,211,.1); }
+/* Criar projeto aberto pelo chat: o modal sai do #root (portal) e mistura tokens --cadu-* claros com tokens Untitled escuros.
+   Paleta explícita e única, só nesta variante; o modal do Workspace continua claro. */
+.cadu-untitled-modal:has(.cadu-ds-project-create-dialog--dark) { background:#0f1d20; color:#edf6f4; border:1px solid rgba(181,218,211,.18); border-radius:16px; }
+.cadu-ds-project-create-dialog--dark { color:#edf6f4; --cadu-ink:#edf6f4; --cadu-muted:#9ab0ac; --cadu-line:rgba(181,218,211,.18); --cadu-surface:#0f1d20; --cadu-surface-soft:#14272a; }
+.cadu-ds-project-create-dialog--dark h2,.cadu-ds-project-create-dialog--dark label { color:#edf6f4 !important; }
+.cadu-ds-project-create-dialog--dark .cadu-ds-project-dialog__eyebrow { color:#55d8c6; }
+.cadu-ds-project-create-dialog--dark .cadu-ds-project-create-dialog__header>div>p:last-child,.cadu-ds-project-create-dialog--dark .cadu-ds-project-create-dialog__scope,.cadu-ds-project-create-dialog--dark [data-hint],.cadu-ds-project-create-dialog--dark .cadu-ds-project-create-folder>span small { color:#9ab0ac !important; font-size:12px; }
+.cadu-ds-project-create-dialog--dark .cadu-untitled-field__control,.cadu-ds-project-create-dialog--dark .cadu-untitled-select select,.cadu-ds-project-create-dialog--dark .cadu-untitled-textarea>textarea { background:#14272a !important; color:#edf6f4 !important; box-shadow:inset 0 0 0 1px rgba(181,218,211,.2) !important; }
+.cadu-ds-project-create-dialog--dark .cadu-untitled-field__control:focus-within,.cadu-ds-project-create-dialog--dark .cadu-untitled-select select:focus-visible,.cadu-ds-project-create-dialog--dark .cadu-untitled-textarea>textarea:focus-visible { box-shadow:inset 0 0 0 2px #55d8c6 !important; }
+.cadu-ds-project-create-dialog--dark input::placeholder,.cadu-ds-project-create-dialog--dark textarea::placeholder { color:#8aa39e; }
+.cadu-ds-project-create-dialog--dark .cadu-untitled-select select { color-scheme:dark; }
+.cadu-ds-project-create-dialog--dark .cadu-ds-project-create-folder>button,.cadu-ds-project-create-dialog .cadu-ds-project-create-folder>button:disabled { background:#14272a; color:#d5e4e1; border:1px dashed rgba(181,218,211,.28); }
+.cadu-ds-project-create-dialog--dark .cadu-ds-project-create-folder>button:hover { border-color:#55d8c6; color:#edf6f4; }
+.cadu-ds-project-create-dialog--dark footer button[type="submit"] { background:#55d8c6; color:#04201c; border:0; box-shadow:none; font-weight:700; }
+.cadu-ds-project-create-dialog--dark footer button[type="submit"]:hover:not(:disabled) { background:#6be0d0; }
+.cadu-ds-project-create-dialog--dark header button { color:#9ab0ac; }
 #cadu-conversations-v2-root .cv-facilitator-anchor { position:relative; }
 #cadu-conversations-v2-root .cv-composer-facilitator { display:inline-flex; height:30px; align-items:center; gap:6px; padding:0 11px 0 9px; border:1px solid rgba(171,220,211,.16); border-radius:999px; background:transparent; color:#b9cfca; font:inherit; font-size:12px; cursor:pointer; transition:border-color 140ms ease,background 140ms ease,color 140ms ease; }
 #cadu-conversations-v2-root .cv-composer-facilitator:hover:not(:disabled),#cadu-conversations-v2-root .cv-composer-facilitator:focus-visible { outline:0; border-color:rgba(114,226,212,.45); color:#e7f2ef; }

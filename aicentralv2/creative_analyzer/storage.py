@@ -60,6 +60,10 @@ class AnalyzerStorage:
         source.write_bytes(payload)
         thumb = folder / "thumbnail.jpg"
         preview = image.convert("RGB")
+        # The large preview is what the result and the attention map show; the 720 px thumbnail is for list cards.
+        large = preview.copy()
+        large.thumbnail((1600, 1600))
+        large.save(folder / "preview.jpg", format="JPEG", quality=88, optimize=True)
         preview.thumbnail((720, 720))
         preview.save(thumb, format="JPEG", quality=84, optimize=True)
         return {
@@ -139,6 +143,12 @@ class AnalyzerStorage:
         folder = self.root() / _safe_id(public_id)
         if kind == "thumbnail":
             path = folder / "thumbnail.jpg"
+            mime = "image/jpeg"
+        elif kind == "preview":
+            # Analyses made before the large preview existed (and videos) fall back to the thumbnail.
+            path = folder / "preview.jpg"
+            if not path.is_file():
+                path = folder / "thumbnail.jpg"
             mime = "image/jpeg"
         elif kind == "source":
             matches = [path for path in folder.glob("source.*") if path.suffix in {".jpg", ".png", ".webp", ".mp4", ".mov", ".webm"}]

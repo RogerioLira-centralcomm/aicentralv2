@@ -74,3 +74,14 @@
 @media (max-width: 960px) { .analyzer-public > article { padding-inline: 24px; }.analyzer-public-stage { min-height: min(60vh, 640px); }.analyzer-public-stage > img, .analyzer-public-stage > video { max-height: min(56vh, 580px); } }
 @media (max-width: 720px) { .analyzer-public-nav { min-height: 56px; padding-inline: 16px; }.analyzer-public-brand { font-size: 13px; }.analyzer-public-product { font-size: 11px; }.analyzer-public > article { padding: 24px 14px 52px; }.analyzer-public-head { align-items: start; gap: 16px; margin-bottom: 16px; }.analyzer-public-head h1 { font-size: clamp(25px, 9vw, 34px); }.analyzer-public-head > strong { width: 52px; height: 52px; flex-basis: 52px; font-size: 19px; }.analyzer-public-stage { min-height: 0; padding: 14px; border-radius: 10px; }.analyzer-public-stage > img, .analyzer-public-stage > video { max-height: 62vh; }.analyzer-public-frames { grid-template-columns: repeat(2, minmax(0, 1fr)); }.analyzer-public-report-note { margin-top: 36px; }.analyzer-public-sections > section { min-height: 0; padding: 22px; } }
 @media (prefers-reduced-motion: reduce) { .analyzer-card { transition: none; } }
+
+/* Compact intro and a dark upload card, so the upload is on the first screen and matches the rest of the Studio. */
+.analyzer-main { padding-top: 28px; }
+.analyzer-intro { min-height: 0; gap: 32px; padding: 26px clamp(24px, 4vw, 48px); grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); }
+.analyzer-intro h1 { max-width: 640px; font-size: clamp(26px, 3vw, 36px); line-height: 1.12; letter-spacing: -.03em; }
+.analyzer-intro > div > p:last-child { margin-top: 12px; font-size: 15px; line-height: 1.55; }
+.analyzer-drop { margin: 20px 0 26px; border: 1px solid rgb(255 255 255 / .12); border-left: 3px solid #7456e8; border-radius: 12px; background: #161f28; color: #eef2f6; }
+.analyzer-drop span { color: #c7bbff; }
+.analyzer-drop p { color: #aebac7; }
+.analyzer-drop button { border-color: #7456e8; background: #7456e8; color: #fff; }
+@media (max-width: 760px) { .analyzer-intro { grid-template-columns: 1fr; } .analyzer-scan { display: none; } }

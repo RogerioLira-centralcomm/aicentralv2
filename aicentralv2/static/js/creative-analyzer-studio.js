@@ -58,6 +58,13 @@
     return node;
   };
 
+  // Result views use the large preview; analyses without one (older, or video) answer with the thumbnail.
+  function setLargeImage(image, thumbnailUrl) {
+    const large = String(thumbnailUrl || '').replace(/\/thumbnail$/, '/preview');
+    image.src = large;
+    if (large !== thumbnailUrl) image.addEventListener('error', () => { image.src = thumbnailUrl; }, { once: true });
+  }
+
   function card(item) {
     const link = element('a', 'analyzer-card');
     link.href = item.result_url;
@@ -120,7 +127,7 @@
     heading.append(element('h3', '', 'Caminho estimado do olhar'), element('p', '', 'A posição indica a ordem provável de leitura, não rastreamento observado.'));
     const stage = element('figure', 'analyzer-attention-stage');
     const image = document.createElement('img');
-    image.src = analysis.thumbnail_url;
+    setLargeImage(image, analysis.thumbnail_url);
     image.alt = `Mapa de atenção de ${analysis.original_name || 'criativo'}`;
     const overlay = element('div', 'analyzer-attention-overlay');
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -181,7 +188,7 @@
       media.appendChild(strip);
     } else if (analysis.thumbnail_url) {
       const image = document.createElement('img');
-      image.src = analysis.thumbnail_url;
+      setLargeImage(image, analysis.thumbnail_url);
       image.alt = `Prévia de ${analysis.original_name || 'criativo'}`;
       media.appendChild(image);
     }
@@ -359,7 +366,7 @@
       renderHistory();
       nextOffset = payload.next_offset;
       more.hidden = nextOffset === null || nextOffset === undefined;
-      status.textContent = historyItems.length ? `${historyItems.length} análises em ${grid.children.length} projetos ou acervos.` : 'Nenhuma análise encontrada para esta marca.';
+      status.textContent = historyItems.length ? `${historyItems.length} ${historyItems.length === 1 ? 'análise' : 'análises'}.` : 'Nenhuma análise encontrada para esta marca.';
     } catch (error) {
       status.textContent = error.message || 'Não foi possível carregar as análises.';
       more.hidden = true;

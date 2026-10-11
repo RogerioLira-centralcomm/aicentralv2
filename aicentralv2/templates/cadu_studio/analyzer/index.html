@@ -1,5 +1,5 @@
 {% extends "cadu_portals/base.html" %}
-{% block title %}Creative Analyzer — Cadu Studio{% endblock %}
+{% block title %}Analisar — Cadu Studio{% endblock %}
 {% block product_id %}studio{% endblock %}
 {% block navigation %}{% endblock %}
 {% block styles %}
@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/creative-analyzer-studio.css') }}?v=2">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/creative-analyzer-share.css') }}?v=2">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/creative-analyzer-interactive.css') }}?v=2">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/creative-analyzer-cadu-theme.css') }}?v=1">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/creative-analyzer-cadu-theme.css') }}?v=2">
 {% endblock %}
 {% block content %}
 <div class="studio-analyzer" id="creativeAnalyzer" data-mc-page="analyzer" data-client-id="174" data-status-url="{{ url_for('studio.creative_analyzer_status') }}" data-history-url="{{ url_for('studio.creative_analyzer_history') }}" data-projects-url="{{ url_for('studio.creative_analyzer_projects') }}" data-create-url="{{ url_for('studio.creative_analyzer_create') }}" data-detail-root="/studio/api/analyzer/analyses/" data-library-still-url="/studio/api/format-lab/swap/library" data-library-video-url="/studio/api/format-lab/studio/clips" data-image-editor-url="{{ product_url('studio', '/imagem') }}" data-video-editor-url="{{ product_url('studio', '/video') }}" data-share-suffix="/share" data-csrf="{{ analyzer_csrf }}"{% if analysis_id %} data-analysis-id="{{ analysis_id }}"{% endif %}>
@@ -34,7 +34,7 @@
     </form>
     <dialog class="analyzer-progress" id="analyzerProgress" aria-labelledby="analyzerProgressTitle" aria-describedby="analyzerProgressDetail">
       <div class="analyzer-progress__signal" aria-hidden="true"><i></i><i></i><i></i></div>
-      <p class="analyzer-progress__eyebrow">Creative Analyzer</p>
+      <p class="analyzer-progress__eyebrow">Analisar criativo</p>
       <h2 id="analyzerProgressTitle">Preparando a análise</h2>
       <p id="analyzerProgressDetail">Validando o criativo e organizando as evidências visuais.</p>
       <ol class="analyzer-progress__steps" id="analyzerProgressSteps"><li>Preparar arquivo</li><li>Extrair evidências</li><li>Interpretar a peça</li><li>Organizar o diagnóstico</li></ol>
@@ -45,7 +45,7 @@
     <section class="analyzer-result" id="analyzerResult" aria-live="polite" hidden></section>
 
     <section class="analyzer-history" aria-labelledby="historyTitle">
-      <header><div><h2 id="historyTitle">Análises anteriores</h2></div><p>Itens antigos abrem no endereço original. Nenhum upload foi movido ou apagado.</p></header>
+      <header><div><h2 id="historyTitle">Análises anteriores</h2></div><p>Análises da ferramenta anterior abrem no endereço original.</p></header>
       <p class="analyzer-status" id="analyzerStatus" role="status">Carregando análises…</p>
       <div class="analyzer-projects" id="analyzerGrid"></div>
       <button class="analyzer-more" id="analyzerMore" type="button" hidden>Mostrar mais</button>
@@ -56,5 +56,5 @@
 {% block portal_scripts %}
 <script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script>
 <script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=8" defer></script>
-<script src="{{ url_for('static', filename='js/creative-analyzer-studio.js') }}?v=2" defer></script>
+<script src="{{ url_for('static', filename='js/creative-analyzer-studio.js') }}?v=3" defer></script>
 {% endblock %}

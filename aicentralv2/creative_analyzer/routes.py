@@ -152,7 +152,7 @@ def analyzer_detail(public_id):
 
 @studio_or_admin_required_api
 def analyzer_asset(public_id, kind):
-    if kind not in {"source", "thumbnail", "frame-0", "frame-1", "frame-2", "frame-3"}:
+    if kind not in {"source", "thumbnail", "preview", "frame-0", "frame-1", "frame-2", "frame-3"}:
         abort(404)
     if not _repository().get_analysis(str(public_id), _client_id()):
         abort(404)
@@ -203,7 +203,7 @@ def analyzer_public(token):
 
 
 def analyzer_public_asset(token, kind):
-    if kind not in {"source", "thumbnail", "frame-0", "frame-1", "frame-2", "frame-3"}:
+    if kind not in {"source", "thumbnail", "preview", "frame-0", "frame-1", "frame-2", "frame-3"}:
         abort(404)
     analysis = _public_analysis(token)
     path, mime = AnalyzerStorage().read(str(analysis["public_id"]), kind)

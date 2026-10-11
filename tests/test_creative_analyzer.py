@@ -91,6 +91,24 @@ class CreativeAnalyzerImageTest(TestCase):
             self.assertTrue(Path(stored["source_key"]).is_file())
             self.assertTrue(Path(stored["thumbnail_key"]).is_file())
 
+    def test_large_preview_is_kept_apart_from_the_thumbnail(self):
+        from PIL import Image
+
+        stream = io.BytesIO()
+        Image.new("RGB", (2400, 1800), "#245f55").save(stream, format="PNG")
+        stream.seek(0)
+        upload = FileStorage(stream=stream, filename="grande.png", content_type="image/png")
+        with tempfile.TemporaryDirectory() as folder:
+            storage = AnalyzerStorage(folder)
+            storage.save_image("safe-id", upload)
+            preview, _ = storage.read("safe-id", "preview")
+            thumbnail, _ = storage.read("safe-id", "thumbnail")
+            self.assertEqual(max(Image.open(preview).size), 1600)
+            self.assertEqual(max(Image.open(thumbnail).size), 720)
+            preview.unlink()
+            fallback, _ = storage.read("safe-id", "preview")
+            self.assertEqual(fallback, thumbnail, "análises antigas sem preview usam a miniatura")
+
     def test_service_persists_result_without_php(self):
         class Repository:
             def __init__(self):

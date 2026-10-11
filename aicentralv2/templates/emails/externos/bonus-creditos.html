@@ -2,12 +2,12 @@
 {# Dois usos: bônus de lançamento (expires_at) e boas-vindas da conta pública (welcome_tokens). #}
 {% set eyebrow = 'Boas-vindas ao Cadu' if welcome_tokens else 'Tokens iniciais da equipe' %}
 {% block title %}{% if welcome_tokens %}{{ welcome_tokens }} tokens para começar{% else %}100.000 tokens para começar{% endif %}{% endblock %}
-{% block preheader %}{% if welcome_tokens %}Sua conta tem {{ welcome_tokens }} tokens de boas-vindas{% if plan_tokens %} e o plano {{ plan_name }} com {{ plan_tokens }} tokens por mês{% endif %}.{% else %}Sua equipe recebeu 100.000 tokens de bônus, válidos até {{ expires_at }}.{% endif %}{% endblock %}
+{% block preheader %}{% if welcome_tokens %}Seu plano {{ plan_name }} já inclui {{ welcome_tokens }} tokens para você começar.{% else %}Sua equipe recebeu 100.000 tokens de bônus, válidos até {{ expires_at }}.{% endif %}{% endblock %}
 {% block headline %}{% if welcome_tokens %}{{ welcome_tokens }} tokens para começar.{% else %}100.000 tokens para começar.{% endif %}{% endblock %}
 {% block content %}
   {% if welcome_tokens %}
-  <p style="margin:0">Olá, {{ primeiro_nome }}. Sua conta no Cadu está pronta, com <strong style="color:#173843">{{ welcome_tokens }} tokens de boas-vindas</strong>.</p>
-  <table role="presentation" width="100%" class="note" bgcolor="#e9f6f3" style="margin:22px 0;border-radius:10px;background:#e9f6f3"><tr><td style="padding:14px 16px;color:#315e57;font-size:12px;line-height:1.55">{% if plan_tokens %}<strong>Plano {{ plan_name }}: {{ plan_tokens }} tokens por mês.</strong><br>A franquia do plano renova a cada ciclo e é usada primeiro. {% endif %}Os {{ welcome_tokens }} tokens de boas-vindas ficam como pacote extra e não expiram.</td></tr></table>
+  <p style="margin:0">Olá, {{ primeiro_nome }}. Sua conta no Cadu está no plano <strong style="color:#173843">{{ plan_name }}</strong>, com <strong style="color:#173843">{{ welcome_tokens }} tokens inclusos</strong> para começar.</p>
+  <table role="presentation" width="100%" class="note" bgcolor="#e9f6f3" style="margin:22px 0;border-radius:10px;background:#e9f6f3"><tr><td style="padding:14px 16px;color:#315e57;font-size:12px;line-height:1.55">{% if plan_tokens %}<strong>Plano {{ plan_name }}: {{ plan_tokens }} tokens por mês.</strong><br>A franquia renova a cada ciclo; o que sobrar do ciclo anterior expira.{% else %}<strong>{{ welcome_tokens }} tokens inclusos no plano {{ plan_name }}.</strong><br>Este saldo inicial não expira.{% endif %}</td></tr></table>
   {% else %}
   <p style="margin:0">Olá, {{ primeiro_nome }}. A equipe da <strong style="color:#173843">{{ empresa }}</strong> recebeu 100.000 tokens de bônus.</p>
   <table role="presentation" width="100%" class="note" bgcolor="#e9f6f3" style="margin:22px 0;border-radius:10px;background:#e9f6f3"><tr><td style="padding:14px 16px;color:#315e57;font-size:12px;line-height:1.55"><strong>Use até {{ expires_at }}.</strong><br>O saldo é compartilhado por toda a equipe e o Cadu consome primeiro o lote que vence antes.</td></tr></table>
@@ -17,4 +17,4 @@
   <p style="margin:22px 0 0">A duração do saldo depende do ritmo e das ferramentas que a equipe usar. O extrato mostra cada execução{% if not welcome_tokens %} e o vencimento do lote{% endif %}.</p>
   <p style="margin:28px 0 0"><a class="button" href="{{ credits_url }}" style="display:inline-block;padding:14px 19px;border-radius:9px;background:#007d6d;color:#fff;font-size:14px;font-weight:700;text-decoration:none">Ver tokens da equipe</a></p>
 {% endblock %}
-{% block footer_note %}{% if welcome_tokens %}Os tokens de boas-vindas pertencem à sua conta e não expiram.{% else %}Este bônus inicial pertence à equipe da {{ empresa }} e segue as regras de validade exibidas no Workspace.{% endif %}{% endblock %}
+{% block footer_note %}{% if welcome_tokens %}Os tokens inclusos no plano {{ plan_name }} pertencem à sua conta.{% else %}Este bônus inicial pertence à equipe da {{ empresa }} e segue as regras de validade exibidas no Workspace.{% endif %}{% endblock %}

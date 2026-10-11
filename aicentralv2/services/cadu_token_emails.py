@@ -20,7 +20,7 @@ def _first_name(name) -> str:
 
 
 def send_public_welcome_tokens_email(*, user_email: str, user_name: str, client_id=None) -> dict:
-    """Saldo inicial da conta pública: tokens de boas-vindas + franquia do plano Free."""
+    """Saldo inicial da conta pública: os 100 mil tokens inclusos no plano Free."""
     try:
         if not user_email or not _enabled():
             return {"success": True, "skipped": True}
@@ -29,20 +29,23 @@ def send_public_welcome_tokens_email(*, user_email: str, user_name: str, client_
         from ..product_domains import product_url
         from .brevo_service import get_brevo_product_service, product_email_brand
 
-        welcome = welcome_tokens()
-        if welcome <= 0:
+        # Os 100 mil do Free chegam como lote único (franquia desligada) ou como franquia mensal.
+        monthly = allowance_enabled()
+        included = FREE_PLAN["tokens_monthly"] if monthly else welcome_tokens()
+        if included <= 0:
             return {"success": True, "skipped": True}
+        welcome = included
         brand = product_email_brand("workspace")
-        # Franquia só é anunciada quando realmente liberada (flag do plano ligada).
-        plan_tokens = _fmt(FREE_PLAN["tokens_monthly"]) if allowance_enabled() else ""
+        # A renovação mensal só é anunciada quando realmente liberada (flag do plano ligada).
+        plan_tokens = _fmt(FREE_PLAN["tokens_monthly"]) if monthly else ""
         return get_brevo_product_service("workspace").enviar_email_com_template(
             template_name="bonus-creditos.html", template_folder="emails/externos",
             to_email=user_email, to_name=user_name or "pessoa do time",
-            subject=f"{_fmt(welcome)} tokens para começar no Cadu",
+            subject=f"{_fmt(welcome)} tokens inclusos no seu plano Free",
             params={"PRIMEIRO_NOME": _first_name(user_name), "EMPRESA": user_name or "sua equipe",
                     "WELCOME_TOKENS": _fmt(welcome), "PLAN_NAME": FREE_PLAN["name"], "PLAN_TOKENS": plan_tokens,
                     "CREDITS_URL": product_url("workspace", "/workspace/app/creditos"), "BRAND": brand,
-                    "ILLUSTRATION_URL": brand["illustrations_url"] + "credits.png"})
+                    "ILLUSTRATION_URL": brand["illustrations_url"] + "signup-tokens.png"})
     except Exception:
         logger.exception("Boas-vindas com tokens não enviadas para o cliente %s", client_id)
         return {"success": False, "error": "welcome_tokens_email_failed"}

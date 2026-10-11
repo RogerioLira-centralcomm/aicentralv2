@@ -46,11 +46,15 @@ PLAN_CATALOG: tuple[dict, ...] = (
 # Plano inicial de toda conta do cadastro público (decisão do dono, 2026-10-06).
 # A franquia mensal só é liberada com CADU_PLAN_ALLOWANCE_ENABLED ligado.
 FREE_PLAN = {"slug": "free", "name": "Free", "tokens_monthly": 100_000}
-DEFAULT_WELCOME_TOKENS = 50_000
+DEFAULT_WELCOME_TOKENS = FREE_PLAN["tokens_monthly"]  # 100 mil inclusos no Free (decisão do dono, 2026-10-11)
 
 
 def welcome_tokens() -> int:
-    """Tokens de boas-vindas (lote extra sem expiração). ``CADU_WELCOME_TOKENS``; 0 desliga."""
+    """Tokens inclusos no Free enquanto a franquia mensal não está ligada (lote sem expiração).
+
+    ``CADU_WELCOME_TOKENS`` ajusta; 0 desliga. Com ``CADU_PLAN_ALLOWANCE_ENABLED`` ligado a
+    franquia mensal do plano fornece os 100 mil e este lote não é concedido (sem somar).
+    """
     try:
         return max(int(os.getenv("CADU_WELCOME_TOKENS", DEFAULT_WELCOME_TOKENS)), 0)
     except (TypeError, ValueError):

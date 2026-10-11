@@ -200,7 +200,7 @@ def test_cadastro_atomico_cria_cliente_contato_plano_free_e_boas_vindas(monkeypa
     assert "'admin'" in [s for s, _ in conn.executed if "INSERT INTO tbl_contato_cliente" in s][0]
     assert conn.commits == 1 and conn.rollbacks == 0
     assert conn.ran("pg_advisory_xact_lock")[0] == ("cadu-signup:ana@x.test",)
-    assert conn.ran("INSERT INTO cadu_credits_extras")[0] == (10, 50000)
+    assert conn.ran("INSERT INTO cadu_credits_extras")[0] == (10, 100000)
     assert "'welcome'" in [s for s, _ in conn.executed if "INSERT INTO cadu_credits_extras" in s][0]
     assert conn.ran("INSERT INTO cadu_client_plans")[0] == (10, 1, 100000)
     # o direito de lançamento (100k do trigger) é neutralizado ANTES do plano ativo
@@ -255,3 +255,11 @@ def test_pagina_de_checkout_so_oferece_planos_solicitaveis(monkeypatch):
     monkeypatch.setenv("CADU_PLAN_CATALOG_JSON", SELLABLE)
     plans = {p["slug"]: p["requestable"] for p in checkout.checkout_plans([{"id": 9, "plan_type": "pro"}])}
     assert plans == {"essencial": False, "equipe": True, "agencia": False}
+
+
+def test_signup_skips_welcome_lot_when_monthly_allowance_provides_the_100k(monkeypatch):
+    monkeypatch.setenv("CADU_PLAN_ALLOWANCE_ENABLED", "true")
+    conn = signup_script()
+    provision(conn)
+    assert not [s for s, _ in conn.executed if "INSERT INTO cadu_credits_extras" in s]
+    assert conn.ran("INSERT INTO cadu_client_plans")[0] == (10, 1, 100000)

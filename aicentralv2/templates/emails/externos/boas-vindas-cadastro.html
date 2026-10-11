@@ -1,0 +1,19 @@
+{% extends 'emails/externos/workspace-base.html' %}
+{# E-mail 1 de 3 do cadastro público. Convidados usam bem-vindo.html. #}
+{% set eyebrow = 'Boas-vindas ao Cadu' %}
+{% block title %}Boas-vindas ao Cadu{% endblock %}
+{% block preheader %}{{ primeiro_nome }}, sua conta está criada. Veja o que você encontra no Cadu.{% endblock %}
+{% block headline %}Boas-vindas ao Cadu.{% endblock %}
+{% block content %}
+  <p style="margin:0">Olá, {{ primeiro_nome }}. Sua conta está criada e pronta para o primeiro acesso.</p>
+  <p style="margin:16px 0 0">O Cadu reúne quatro soluções que trabalham com o mesmo contexto: a marca e o projeto que você cadastra no Workspace.</p>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:22px 0 0;border:1px solid #dceae6;border-radius:12px;overflow:hidden;background:#f8fbfa">
+    <tr><td style="padding:13px 16px;border-bottom:1px solid #dceae6;border-left:4px solid #007D6D"><strong style="color:#173843;font-size:15px">Workspace</strong><span style="display:block;margin-top:3px;color:#4f6763;font-size:14px;line-height:1.5">Marcas, projetos e conversas em um só lugar.</span></td></tr>
+    <tr><td style="padding:13px 16px;border-bottom:1px solid #dceae6;border-left:4px solid #087D4D"><strong style="color:#173843;font-size:15px">Planner</strong><span style="display:block;margin-top:3px;color:#4f6763;font-size:14px;line-height:1.5">Audiências, canais, formatos, interativos e locais para planejar a mídia.</span></td></tr>
+    <tr><td style="padding:13px 16px;border-bottom:1px solid #dceae6;border-left:4px solid #6344CF"><strong style="color:#173843;font-size:15px">Studio</strong><span style="display:block;margin-top:3px;color:#4f6763;font-size:14px;line-height:1.5">Criação de peças a partir da identidade da sua marca.</span></td></tr>
+    <tr><td style="padding:13px 16px;border-left:4px solid #1363C5"><strong style="color:#173843;font-size:15px">Reports</strong><span style="display:block;margin-top:3px;color:#4f6763;font-size:14px;line-height:1.5">Leitura de resultados por cliente e projeto.</span></td></tr>
+  </table>
+  <p style="margin:22px 0 0">Nos próximos e-mails, mostramos como configurar sua marca e seu primeiro projeto e o que já está incluso no seu plano.</p>
+  <p style="margin:28px 0 0"><a class="button" href="{{ link_login }}" style="display:inline-block;padding:14px 19px;border-radius:9px;background:#007d6d;color:#fff;font-size:14px;font-weight:700;text-decoration:none">Abrir meu Workspace</a></p>
+{% endblock %}
+{% block footer_note %}Você recebeu esta mensagem porque criou uma conta no Cadu.{% endblock %}

@@ -1328,17 +1328,9 @@ def init_routes(app):
                 post_signup_target=next_target,
             )
             try:
-                send_welcome_email(
-                    user_email=email, user_name=nome, cliente_nome=nome,
-                    login_link=product_url('workspace'), client_id=user['pk_id_tbl_cliente'],
-                )
-                from aicentralv2.services.cadu_token_emails import send_public_welcome_tokens_email
-                send_public_welcome_tokens_email(user_email=email, user_name=nome,
-                                                 client_id=user['pk_id_tbl_cliente'])
-                send_launch_bonus_email(
-                    user_email=email, user_name=nome, cliente_nome=nome,
-                    client_id=user['pk_id_tbl_cliente'],
-                )
+                from aicentralv2.services.cadu_signup_emails import send_signup_email_series
+                send_signup_email_series(user_email=email, user_name=nome,
+                                         client_id=user['pk_id_tbl_cliente'])
                 enviar_notificacao_cadastro(usuario=user, executivo=executivo, auth_method='form')
             except Exception:
                 app.logger.exception('Conta %s criada, mas o fluxo inicial de e-mails falhou', email)

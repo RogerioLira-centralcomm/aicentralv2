@@ -37,8 +37,8 @@ def test_welcome_announces_tokens_and_plan_when_allowance_on(monkeypatch):
     svc = mock.MagicMock()
     _run(te.send_public_welcome_tokens_email, svc, allowance=True, user_email="a@x.com", user_name="Ana Lima", client_id=1)
     kw = svc.enviar_email_com_template.call_args.kwargs
-    assert kw["template_name"] == "bonus-creditos.html" and "50.000 tokens" in kw["subject"]
-    assert kw["params"]["WELCOME_TOKENS"] == "50.000" and kw["params"]["PLAN_TOKENS"] == "100.000"
+    assert kw["template_name"] == "bonus-creditos.html" and "100.000 tokens" in kw["subject"]
+    assert kw["params"]["WELCOME_TOKENS"] == "100.000" and kw["params"]["PLAN_TOKENS"] == "100.000"
     assert kw["params"]["CREDITS_URL"] == "/workspace/app/creditos"
 
 
@@ -72,9 +72,9 @@ def test_bonus_template_renders_both_variants():
     from flask import render_template
     app = _app()
     with app.test_request_context():
-        welcome = render_template("emails/externos/bonus-creditos.html", welcome_tokens="50.000", plan_name="Free",
+        welcome = render_template("emails/externos/bonus-creditos.html", welcome_tokens="100.000", plan_name="Free",
                                   plan_tokens="100.000", primeiro_nome="Ana", credits_url="/c", brand=BRAND)
         launch = render_template("emails/externos/bonus-creditos.html", expires_at="01/12/2026", empresa="ACME",
                                  primeiro_nome="Ana", credits_url="/c", brand=BRAND)
-    assert "50.000 tokens de boas-vindas" in welcome and "100.000 tokens por mês" in welcome and "crédito" not in welcome
+    assert "100.000 tokens inclusos" in welcome and "100.000 tokens por mês" in welcome and "crédito" not in welcome
     assert "100.000 tokens de bônus" in launch and "01/12/2026" in launch

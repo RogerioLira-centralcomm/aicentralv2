@@ -1,4 +1,4 @@
-"""Internal transactional notifications for the customer Smart Planner."""
+"""Internal transactional notifications for the customer Planner."""
 from __future__ import annotations
 
 from flask import current_app
@@ -41,8 +41,8 @@ def notify_new_planner_user(*, user_name: str, user_email: str, client_name: str
         return {'success': True, 'skipped': True}
     recipients = _internal_recipients()
     return send_cadu_event(product='planner', event='planner.new_user_internal', template='planner-novo-usuario.html',
-        recipient=recipients, recipient_name='Time Smart Planner', internal=True,
-        subject='Novo usuário no Smart Planner',
+        recipient=recipients, recipient_name='Time Planner', internal=True,
+        subject='Novo usuário no Planner',
         params={'BRAND': product_email_brand('planner'), 'USER_NAME': user_name,
                 'USER_EMAIL': user_email, 'CLIENT_NAME': client_name},
     )

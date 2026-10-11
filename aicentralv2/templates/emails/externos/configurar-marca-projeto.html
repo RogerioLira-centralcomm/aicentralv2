@@ -1,0 +1,17 @@
+{% extends 'emails/externos/workspace-base.html' %}
+{# E-mail 2 de 3 do cadastro público. #}
+{% set eyebrow = 'Primeiros passos' %}
+{% block title %}Configure sua marca e seu primeiro projeto{% endblock %}
+{% block preheader %}{{ primeiro_nome }}, leva poucos minutos: marca, site e projeto para todas as soluções partirem do mesmo contexto.{% endblock %}
+{% block headline %}Configure sua marca e seu primeiro projeto.{% endblock %}
+{% block content %}
+  <p style="margin:0">Olá, {{ primeiro_nome }}. Tudo no Cadu começa pelo contexto: quando a marca e o projeto estão cadastrados, conversas, planejamento, criação e relatórios partem da mesma base.</p>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:22px 0 0;border:1px solid #dceae6;border-radius:12px;overflow:hidden;background:#f8fbfa">
+    <tr><td style="padding:14px 16px;border-bottom:1px solid #dceae6"><span style="display:block;color:#6a827d;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">1 · Empresa ou agência</span><span style="display:block;margin-top:4px;color:#173843;font-size:14px;line-height:1.5">Diga se a conta representa uma empresa ou uma agência.</span></td></tr>
+    <tr><td style="padding:14px 16px;border-bottom:1px solid #dceae6"><span style="display:block;color:#6a827d;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">2 · Marca e site oficial</span><span style="display:block;margin-top:4px;color:#173843;font-size:14px;line-height:1.5">Informe a primeira marca e o site, ou envie até 4 referências visuais. O Cadu usa isso para analisar a identidade da marca.</span></td></tr>
+    <tr><td style="padding:14px 16px"><span style="display:block;color:#6a827d;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">3 · Primeiro projeto</span><span style="display:block;margin-top:4px;color:#173843;font-size:14px;line-height:1.5">Dê um nome ao projeto e, se quiser, uma frase sobre o que ele precisa resolver.</span></td></tr>
+  </table>
+  <p style="margin:20px 0 0;color:#668079;font-size:13px;line-height:1.6">A análise da marca consome tokens do seu saldo. Você vê o consumo no extrato do Workspace.</p>
+  <p style="margin:28px 0 0"><a class="button" href="{{ onboarding_url }}" style="display:inline-block;padding:14px 19px;border-radius:9px;background:#007d6d;color:#fff;font-size:14px;font-weight:700;text-decoration:none">Configurar marca e projeto&nbsp; →</a></p>
+{% endblock %}
+{% block footer_note %}Você pode ajustar marca e projeto depois, dentro do Workspace.{% endblock %}

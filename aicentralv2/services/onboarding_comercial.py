@@ -73,7 +73,10 @@ def _existe(cursor, sql, params=()):
 
 
 def _conceder_plano_free_e_boas_vindas(cursor, client_id):
-    """A2: plano Free + lote de boas-vindas, no mesmo cursor/transação do cadastro.
+    """A2: plano Free com 100 mil tokens inclusos, no mesmo cursor/transação do cadastro.
+
+    Franquia mensal desligada: lote único de 100 mil (``welcome_tokens``). Ligada: o
+    próprio plano libera os 100 mil e nenhum lote extra é criado.
 
     O trigger ``trg_grant_cadu_launch_credit`` (add_cadu_launch_credit.sql)
     concederia 100k ao inserir um plano ativo. Para não somar 100k aos tokens de
@@ -90,7 +93,8 @@ def _conceder_plano_free_e_boas_vindas(cursor, client_id):
                           VALUES (%s, 'cadu_launch_100k', 0, 'replaced_by_welcome')
                           ON CONFLICT (id_cliente, entitlement_key) DO NOTHING""", (client_id,))
 
-    tokens = welcome_tokens()
+    from aicentralv2.cadu_plan_allowance import allowance_enabled
+    tokens = 0 if allowance_enabled() else welcome_tokens()
     if tokens:
         entitlement_id = None
         grant = True

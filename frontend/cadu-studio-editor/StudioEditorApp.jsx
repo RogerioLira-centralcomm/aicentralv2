@@ -60,7 +60,7 @@ export default function StudioEditorApp({bootstrap}) {
   // An open draft is offered, not forced: the person chooses between continuing it and a new session in the project.
   // A draft that only holds an image picked from the project shelf (no text, mask, crop or chat) is not work to resume:
   // it is dropped quietly, so a project's single logo does not come back as the base on every visit.
-  const shelfOnly = Boolean(stored.asset) && (stored.versions || []).every(version => String(version?.id || '').startsWith('shelf:'))
+  const shelfOnly = Boolean(stored.asset) && (stored.versions || []).length > 0 && stored.versions.every(version => String(version?.id || '').startsWith('shelf:'))
     && !String(stored.prompt || '').trim() && !stored.mask && !stored.crop && !(stored.agentMessages || []).length;
   const pendingDraft = !handoff && !bootstrap.sessionId && stored.asset && !shelfOnly ? stored : null;
   const initial = pendingDraft || (shelfOnly && !handoff && !bootstrap.sessionId) ? {} : stored;

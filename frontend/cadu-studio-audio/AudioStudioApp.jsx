@@ -82,16 +82,19 @@ function Timeline({tracks, setTracks, playhead, setPlayhead, selectedClip, setSe
 const LAUNCH_SEEN = 'cadu-studio-audio-launch-seen';
 
 /** Launch teaser: the page is a prototype, so after 3 s a modal says when it opens and lets the person ask to be told. */
-function LaunchModal({state, interest, onNotify, onClose}) {
+function LaunchModal({interest, onNotify, onClose}) {
   const primary = useRef(null);
   const previous = useRef(null);
+  // onClose is a new function on every render of the page: kept in a ref so focus is taken once on open and given back once on close.
+  const close = useRef(onClose);
+  close.current = onClose;
   useEffect(() => {
     previous.current = document.activeElement;
     primary.current?.focus({preventScroll: true});
-    const onKey = event => { if (event.key === 'Escape') onClose(); };
+    const onKey = event => { if (event.key === 'Escape') close.current(); };
     document.addEventListener('keydown', onKey);
     return () => { document.removeEventListener('keydown', onKey); previous.current?.focus?.({preventScroll: true}); };
-  }, [onClose]);
+  }, []);
   const done = interest === 'done';
   return <div className="au-launch-backdrop" onClick={onClose}>
     <section className="au-launch" role="dialog" aria-modal="true" aria-labelledby="au-launch-title" onClick={event => event.stopPropagation()}>
@@ -171,7 +174,7 @@ export default function AudioStudioApp({bootstrap={}}) {
       <div className="au-transport"><div><button className="au-play" onClick={()=>setPlaying(!playing)} aria-label={playing?'Pausar':'Reproduzir'}>{playing?'Ⅱ':'▶'}</button><button onClick={()=>setPlayhead(0)} aria-label="Voltar ao início">↤</button><button onClick={()=>setNotice('Gravação de microfone será integrada à faixa selecionada.')} aria-label="Gravar">●</button><strong>{time(playhead)} <span>/ 00:30.000</span></strong></div><div><span>Montagem multifaixa</span><button onClick={split} disabled={!selectedClip}>✂ Dividir</button><button onClick={()=>setPlayhead(8.24)}>↺ Voltar à seleção</button></div><div><span>Saída final</span><i className="au-meter"><b/></i><small>-14,2 LUFS</small><small>Pico -1,0 dB</small></div></div>
       <Timeline tracks={tracks} setTracks={setTracks} playhead={playhead} setPlayhead={setPlayhead} selectedClip={selectedClip} setSelectedClip={setSelectedClip} onSplit={split} onSeparate={separate}/>
     </main>
-    {launch==='open'&&<LaunchModal state={launch} interest={interest} onNotify={notify} onClose={closeLaunch}/>}
+    {launch==='open'&&<LaunchModal interest={interest} onNotify={notify} onClose={closeLaunch}/>}
     {notice&&<div className="au-toast" role="status">{notice}<button onClick={()=>setNotice('')} aria-label="Fechar aviso">×</button></div>}
     {modal&&<div className="au-modal-backdrop" onClick={()=>setModal(false)}><section className="au-modal" role="dialog" aria-modal="true" aria-labelledby="au-export-title" onClick={event=>event.stopPropagation()}><button className="au-modal-close" onClick={()=>setModal(false)} aria-label="Fechar">×</button><h2 id="au-export-title">Exportar áudio</h2><p>Este protótipo mostra a montagem e seus controles. A renderização final será conectada ao serviço de áudio e ao tokenizador.</p><label>Formato<select><option>WAV · 48 kHz · estéreo</option><option>MP3 · 320 kb/s</option></select></label><button className="au-primary" onClick={()=>setModal(false)}>Voltar à edição</button></section></div>}
   </div>;

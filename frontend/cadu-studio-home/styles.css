@@ -60,3 +60,4 @@ html, body { background: var(--csu-bg, #0b1016); }
 .sh-tool__icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: var(--csu-overlay, #1b2531); color: var(--csu-accent-text, #c7bbff); }
 @media (max-width: 860px) { .sh-onboard__hero { grid-template-columns: 1fr; padding: 22px; } }
 .sh-head[hidden] { display: none; }
+.sh-onboard__link { color: var(--csu-accent-text, #c7bbff); font-size: 14px; font-weight: 600; }

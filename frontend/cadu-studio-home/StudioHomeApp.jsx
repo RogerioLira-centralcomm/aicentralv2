@@ -30,6 +30,38 @@ async function readCredits(url) {
   return {available, usagePercent: total > 0 ? ((total - available) * 100) / total : 0};
 }
 
+const workTitle = item => item.headline || item.name || item.title || (item.media === 'video' ? 'Vídeo' : 'Imagem');
+
+function WorkCard({item, href, onPreview}) {
+  const thumb = safeUrl(item.thumb_url || item.poster_url || item.image_url);
+  const title = workTitle(item);
+  return <li className="sh-card">
+    <button type="button" className="sh-card__media" onClick={() => onPreview(item)} aria-label={`Ver ${title}`}>
+      {thumb ? <img src={thumb} alt="" loading="lazy"/> : <span className="sh-card__placeholder"><Icon name="image" size={22}/></span>}
+      {item.media === 'video' && <span className="sh-card__badge">Vídeo</span>}
+    </button>
+    <div className="sh-card__body"><strong title={title}>{title}</strong>
+      <span>{[item.aspect_ratio, shortDate(when(item))].filter(Boolean).join(' · ')}</span></div>
+    <a className="sh-card__action" href={href}>Continuar</a>
+  </li>;
+}
+
+/** Quick start for people who already work here: the idea goes to Criar through ?prompt=, with the project kept. */
+function QuickCreate({links, href}) {
+  const [text, setText] = useState('');
+  if (!links.create) return null;
+  const submit = event => {
+    event.preventDefault();
+    const base = href(links.create);
+    const value = text.trim().slice(0, 6000);
+    window.location.href = value ? `${base}${base.includes('?') ? '&' : '?'}prompt=${encodeURIComponent(value)}` : base;
+  };
+  return <form className="sh-quick" onSubmit={submit}>
+    <input type="text" value={text} onChange={event => setText(event.target.value)} maxLength={600} aria-label="O que você quer criar?" placeholder="O que você quer criar? Ex.: anúncio de lançamento para Instagram"/>
+    <button type="submit" className="sh-button">Criar</button>
+  </form>;
+}
+
 /** New accounts (no work in any project): says what the Studio is for and routes by goal, not by tool name. */
 function Onboarding({project, noProjects, firstName, links, href, credits}) {
   const goals = GOALS.filter(([key]) => links[key]);
@@ -142,14 +174,17 @@ export default function StudioHomeApp({bootstrap = {}}) {
   const noProjects = !projectState.loading && !projectState.error && !projects.length;
   const showEmpty = projectEmpty || noProjects;
   const checking = showEmpty && !noProjects && others.status !== 'done';
+  // With every type shown, the latest work gets its own larger row and is not repeated in the grid below.
+  const recents = filter === 'all' && visible.length > 3 ? visible.slice(0, 3) : [];
+  const rest = recents.length ? visible.slice(3) : visible;
   const filterEmpty = items.status === 'ready' && items.list.length > 0 && !visible.length;
   return <div className="sh-app">
     <StudioNavbar active="home" links={bootstrap.links || {}} user={bootstrap.user || {}} projects={options} projectId={projectId}
       projectsLoading={projectState.loading} onProjectChange={changeProject} credits={credits}/>
     <main className="sh-main">
       <header className="sh-head" hidden={showEmpty}>
-        <div><h1>Trabalhos recentes</h1>
-          <p>{project ? <>Do projeto <strong>{project.name}</strong> · {project.brand_name || 'marca vinculada'}</> : projectState.loading ? 'Carregando projetos…' : 'Escolha um projeto na barra para ver os trabalhos.'}</p></div>
+        <div><h1>{project ? project.name : 'Studio'}</h1>
+          <p>{project ? <>{project.brand_name || 'Marca vinculada'} · {items.list.length ? `${items.list.length} ${items.list.length === 1 ? 'trabalho' : 'trabalhos'}` : 'sem trabalhos'}</> : projectState.loading ? 'Carregando projetos…' : 'Escolha um projeto na barra para ver os trabalhos.'}</p></div>
         <div className="sh-filters" role="group" aria-label="Filtrar por tipo">{FILTERS.map(([key, label]) =>
           <button key={key} type="button" aria-pressed={filter === key} onClick={() => setFilter(key)}>{label}</button>)}</div>
       </header>
@@ -162,19 +197,13 @@ export default function StudioHomeApp({bootstrap = {}}) {
       {showEmpty && !checking && (noProjects || !others.list.length
         ? <Onboarding project={project} noProjects={noProjects} firstName={firstName} links={bootstrap.links || {}} href={toolHref} credits={credits}/>
         : <EmptyProject project={project} links={bootstrap.links || {}} href={toolHref} others={others.list} onPick={changeProject}/>)}
-      {visible.length > 0 && <ul className="sh-grid">{visible.map(item => {
-        const thumb = safeUrl(item.thumb_url || item.poster_url || item.image_url);
-        const title = item.headline || item.name || item.title || (item.media === 'video' ? 'Vídeo' : 'Imagem');
-        return <li key={`${item.media}-${item.id}`} className="sh-card">
-          <button type="button" className="sh-card__media" onClick={() => setPreview(item)} aria-label={`Ver ${title}`}>
-            {thumb ? <img src={thumb} alt="" loading="lazy"/> : <span className="sh-card__placeholder"><Icon name="image" size={22}/></span>}
-            {item.media === 'video' && <span className="sh-card__badge">Vídeo</span>}
-          </button>
-          <div className="sh-card__body"><strong title={title}>{title}</strong>
-            <span>{[item.aspect_ratio, shortDate(when(item))].filter(Boolean).join(' · ')}</span></div>
-          <a className="sh-card__action" href={editorHref(item)}>Continuar</a>
-        </li>;
-      })}</ul>}
+      {visible.length > 0 && <>
+        <QuickCreate links={bootstrap.links || {}} href={toolHref}/>
+        {recents.length > 0 && <section aria-label="Continuar de onde parou"><h2 className="sh-section">Continuar de onde parou</h2>
+          <ul className="sh-grid sh-grid--recent">{recents.map(item => <WorkCard key={`${item.media}-${item.id}`} item={item} onPreview={setPreview} href={editorHref(item)}/>)}</ul></section>}
+        {rest.length > 0 && <section aria-label="Todos os trabalhos">{recents.length > 0 && <h2 className="sh-section">Todos os trabalhos</h2>}
+          <ul className="sh-grid">{rest.map(item => <WorkCard key={`${item.media}-${item.id}`} item={item} onPreview={setPreview} href={editorHref(item)}/>)}</ul></section>}
+      </>}
       {items.list.length > visible.length && bootstrap.links?.library && <p className="sh-more"><a href={bootstrap.links.library}>Ver todos na biblioteca</a></p>}
     </main>
     {preview && <div className="sh-preview" role="dialog" aria-modal="true" aria-label="Prévia do trabalho" onClick={() => setPreview(null)}>

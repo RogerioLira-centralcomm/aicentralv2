@@ -64,3 +64,13 @@ html, body { background: var(--csu-bg, #0b1016); }
 button.sh-tool { font: inherit; text-align: left; cursor: pointer; grid-template-columns: 1fr; }
 button.sh-tool > span { grid-column: auto; }
 .sh-onboard .sh-empty .sh-onboard__cta { margin-top: 12px; justify-content: center; }
+
+.sh-quick { display: flex; gap: 10px; margin: 0 0 28px; padding: 8px; border: 1px solid var(--csu-line-strong, rgba(255,255,255,.16)); border-radius: 14px; background: var(--csu-surface, #10171e); }
+.sh-quick:focus-within { border-color: var(--csu-accent, #7c5cff); }
+.sh-quick input { flex: 1; min-width: 0; padding: 0 10px; border: 0; background: none; color: inherit; font: inherit; font-size: 15px; outline: none; }
+.sh-quick .sh-button { height: 40px; border: 0; cursor: pointer; }
+.sh-section { margin: 0 0 14px; font-size: 15px; font-weight: 650; }
+.sh-section:not(:first-child) { margin-top: 32px; }
+section[aria-label="Continuar de onde parou"] { margin-bottom: 8px; }
+.sh-grid--recent { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.sh-grid--recent .sh-card__media { aspect-ratio: 16 / 11; }

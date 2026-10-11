@@ -2378,6 +2378,7 @@ def studio_audio():
     response = make_response(render_template(
         'cadu_studio/audio.html',
         studio_credit=studio_credit,
+        mc_trocr_csrf=studio_csrf_token(),
     ))
     response.headers['Cache-Control'] = 'no-store, private'
     return response

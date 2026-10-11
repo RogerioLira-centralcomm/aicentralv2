@@ -94,3 +94,4 @@ button.sh-tool { width: 100%; }
 .sh-onboard section .sh-onboard__title { margin-bottom: 14px; }
 .sh-onboard__credits { display: block; margin-top: 14px; }
 .sh-tools .sh-tool { align-items: start; }
+.sh-app .sh-main { box-sizing: border-box; width: 100%; margin-inline: auto; }

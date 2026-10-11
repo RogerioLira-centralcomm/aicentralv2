@@ -399,6 +399,8 @@ def create_app(config_class=Config):
         register_camadas_routes(studio_bp)
         from .creative_analyzer import register_api_routes as register_creative_analyzer_api
         register_creative_analyzer_api(studio_bp)
+        from .studio_interest import register_api_routes as register_studio_interest_api
+        register_studio_interest_api(studio_bp)
         app.register_blueprint(studio_bp)
 
         studio_product_bp = Blueprint("studio_product", __name__)

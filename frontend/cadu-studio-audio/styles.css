@@ -28,3 +28,28 @@ body:has(#cadu-studio-audio-root)>#content{width:100%;max-width:none;min-height:
 .au-project-error{max-width:180px;overflow:hidden;color:#d3b591;font-size:10px;text-overflow:ellipsis;white-space:nowrap}
 
 .au-badge{display:inline-flex;align-items:center;padding:3px 9px;border:1px solid var(--csu-warn,#e0a03a);border-radius:999px;color:var(--csu-warn,#e0a03a);font-size:11.5px;font-weight:700;white-space:nowrap}
+
+/* The portal theme sets `.portal main { width: min(1180px, …); margin: auto }` on every <main>; the editor needs the full width. */
+.au-app .au-main { width: 100%; margin: 0; }
+.au-badge { background: none; cursor: pointer; font-family: inherit; }
+.au-badge:hover { background: rgba(224, 160, 58, .12); }
+
+/* Launch teaser */
+@keyframes au-launch-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes au-launch-rise { from { opacity: 0; transform: translateY(28px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes au-launch-bar { 0%, 100% { transform: scaleY(.25); } 50% { transform: scaleY(1); } }
+.au-launch-backdrop { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 16px; background: rgba(3, 7, 11, .5); backdrop-filter: blur(3px); animation: au-launch-fade .35s ease both; }
+.au-launch { position: relative; width: min(480px, 100%); padding: 30px 30px 26px; border: 1px solid rgba(169, 149, 255, .28); border-radius: 18px; background: linear-gradient(160deg, #1a2030, #111820 60%); box-shadow: 0 30px 90px rgba(0, 0, 0, .6), 0 0 0 1px rgba(124, 92, 255, .12); animation: au-launch-rise .55s cubic-bezier(.2, .9, .25, 1.1) both; }
+.au-launch-close { position: absolute; top: 12px; right: 14px; border: 0; background: none; color: #b8c4cf; font-size: 24px; line-height: 1; }
+.au-launch-art { display: flex; align-items: center; justify-content: center; gap: 4px; height: 56px; margin-bottom: 18px; }
+.au-launch-art i { width: 4px; height: 100%; border-radius: 4px; background: linear-gradient(#a995ff, #7c5cff); transform-origin: center; animation: au-launch-bar 1.4s ease-in-out infinite; animation-delay: calc(var(--i) * -.09s); }
+.au-launch-eyebrow { margin: 0 0 8px; color: #a995ff; font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.au-launch h2 { margin: 0; font-size: 24px; line-height: 1.2; letter-spacing: -.02em; }
+.au-launch-copy { margin: 12px 0 0; color: #aebac7; font-size: 14px; line-height: 1.6; }
+.au-launch-error { margin: 12px 0 0; color: #f08a8a; font-size: 13px; }
+.au-launch-actions { display: grid; gap: 8px; margin-top: 22px; }
+.au-launch-primary { height: 44px; border: 0; border-radius: 10px; background: #7c5cff; color: #fff; font-size: 14px; font-weight: 700; }
+.au-launch-primary:hover:not(:disabled) { background: #8d70ff; }
+.au-launch-secondary { height: 40px; border: 0; border-radius: 10px; background: none; color: #aebac7; font-size: 13px; }
+.au-launch-secondary:hover { color: #fff; }
+.au-app .au-badge { font-size: 11.5px; font-weight: 700; }

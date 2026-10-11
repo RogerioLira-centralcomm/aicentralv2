@@ -27,12 +27,12 @@ function Waveform({seed=1}) {
   return <span className="au-wave" aria-hidden="true">{bars.map((height,index)=><i key={index} style={{height:`${height}%`}}/>)}</span>;
 }
 
-function Topbar({bootstrap, projects, project, projectLoading, projectError, onProjectChange, onExport}) {
+function Topbar({bootstrap, projects, project, projectLoading, projectError, onProjectChange, onExport, onLaunchInfo, registered}) {
   const options = projects.map(item => ({id: String(item.id), name: item.name, brandName: item.brand_name || item.brandName || item.client_name || ''}));
   return <StudioNavbar active="audio" links={bootstrap.links || {}} user={bootstrap.user} projects={options} projectId={project?.id ? String(project.id) : ''}
     projectsLoading={projectLoading} allowQuick quickLabel="Sessão pessoal" onProjectChange={onProjectChange}
     credits={{available: bootstrap.credits, usagePercent: bootstrap.usagePercent}}
-    actions={<><span className="au-badge" title="As faixas, o roteiro e a campanha são exemplos; a renderização e o débito de tokens ainda não estão conectados.">Protótipo · dados de exemplo</span>{projectError && <small className="au-project-error" role="status">{projectError}</small>}<button type="button" className="csu-button csu-button--primary" onClick={onExport}>Exportar áudio</button></>}/>;
+    actions={<><button type="button" className="au-badge" onClick={onLaunchInfo} title="Protótipo com dados de exemplo; a renderização e o débito de tokens ainda não estão conectados. Clique para ver o lançamento.">{registered ? 'Em breve · dez/26 · você será avisado' : 'Em breve · dez/26'}</button>{projectError && <small className="au-project-error" role="status">{projectError}</small>}<button type="button" className="csu-button csu-button--primary" onClick={onExport}>Exportar áudio</button></>}/>;
 }
 
 function Timeline({tracks, setTracks, playhead, setPlayhead, selectedClip, setSelectedClip, onSplit, onSeparate}) {
@@ -79,6 +79,39 @@ function Timeline({tracks, setTracks, playhead, setPlayhead, selectedClip, setSe
   </section>;
 }
 
+const LAUNCH_SEEN = 'cadu-studio-audio-launch-seen';
+
+/** Launch teaser: the page is a prototype, so after 3 s a modal says when it opens and lets the person ask to be told. */
+function LaunchModal({state, interest, onNotify, onClose}) {
+  const primary = useRef(null);
+  const previous = useRef(null);
+  useEffect(() => {
+    previous.current = document.activeElement;
+    primary.current?.focus({preventScroll: true});
+    const onKey = event => { if (event.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('keydown', onKey); previous.current?.focus?.({preventScroll: true}); };
+  }, [onClose]);
+  const done = interest === 'done';
+  return <div className="au-launch-backdrop" onClick={onClose}>
+    <section className="au-launch" role="dialog" aria-modal="true" aria-labelledby="au-launch-title" onClick={event => event.stopPropagation()}>
+      <button type="button" className="au-launch-close" onClick={onClose} aria-label="Fechar">×</button>
+      <div className="au-launch-art" aria-hidden="true">{Array.from({length: 24}, (_, index) => <i key={index} style={{'--i': index}}/>)}</div>
+      <p className="au-launch-eyebrow">Em breve · dezembro de 2026</p>
+      <h2 id="au-launch-title">{done ? 'Combinado. Avisamos você.' : 'O Áudio do Studio chega em dezembro.'}</h2>
+      <p className="au-launch-copy">{done
+        ? 'Assim que o Áudio abrir, você recebe o aviso no e-mail da sua conta. Enquanto isso, pode explorar o protótipo.'
+        : 'Roteiro, vozes, trilha e mixagem em uma mesa só, já na identidade da sua marca. O que você vê aqui é um protótipo com dados de exemplo.'}</p>
+      {interest === 'error' && <p className="au-launch-error" role="alert">Não foi possível registrar agora. Tente de novo em instantes.</p>}
+      <div className="au-launch-actions">
+        {done ? <button ref={primary} type="button" className="au-launch-primary" onClick={onClose}>Ver o protótipo</button>
+          : <><button ref={primary} type="button" className="au-launch-primary" onClick={onNotify} disabled={interest === 'saving'}>{interest === 'saving' ? 'Registrando…' : 'Quero ser avisado'}</button>
+            <button type="button" className="au-launch-secondary" onClick={onClose}>Continuar vendo o protótipo</button></>}
+      </div>
+    </section>
+  </div>;
+}
+
 export default function AudioStudioApp({bootstrap={}}) {
   const [projects,setProjects]=useState(bootstrap.projects || []);
   const [projectId,setProjectId]=useState(bootstrap.projectId || '');
@@ -95,6 +128,25 @@ export default function AudioStudioApp({bootstrap={}}) {
   const [playing,setPlaying]=useState(false);
   const [tab,setTab]=useState('Roteiro');
   const [modal,setModal]=useState(false);
+  const [launch,setLaunch]=useState('closed');
+  const [interest,setInterest]=useState('unknown');
+  const closeLaunch=()=>{setLaunch('closed');try{sessionStorage.setItem(LAUNCH_SEEN,'1');}catch(_){/* storage may be blocked */}};
+  useEffect(()=>{
+    let alive=true,timer=0,registered=false;
+    const seen=()=>{try{return sessionStorage.getItem(LAUNCH_SEEN)==='1';}catch(_){return false;}};
+    if(bootstrap.apiRoot)fetch(`${bootstrap.apiRoot}/api/interesse/audio`,{credentials:'same-origin',headers:{Accept:'application/json'}}).then(r=>r.json()).then(body=>{if(alive&&body?.data?.registered){registered=true;setInterest('done');}}).catch(()=>{});
+    // The mock renders first; the teaser comes in after 3 s, unless the person already asked to be told or closed it in this tab.
+    timer=window.setTimeout(()=>{if(alive&&!registered&&!seen())setLaunch('open');},3000);
+    return()=>{alive=false;window.clearTimeout(timer);};
+  },[bootstrap.apiRoot]);
+  const notify=async()=>{
+    setInterest('saving');
+    try{
+      const response=await fetch(`${bootstrap.apiRoot}/api/interesse/audio`,{method:'POST',credentials:'same-origin',headers:{Accept:'application/json','X-Trocr-CSRF-Token':bootstrap.csrf||'','X-Studio-CSRF-Token':bootstrap.csrf||''}});
+      const body=await response.json().catch(()=>({}));
+      setInterest(response.ok&&body.success!==false?'done':'error');
+    }catch(_){setInterest('error');}
+  };
   const [imported,setImported]=useState([]);
   const importedUrls=useRef([]);
   const timer=useRef(null);
@@ -108,7 +160,7 @@ export default function AudioStudioApp({bootstrap={}}) {
   const applyProposal=()=>{if(!proposal)return;if(proposal.actions.some(action=>action.paid)){setNotice('Proposta preparada. A integração paga e o débito de tokens ainda não estão conectados neste protótipo.');return;}setTracks(rows=>rows.map(row=>row.id==='music'?{...row,gain:-7}:row));setProposal(null);setNotice('Volume da música ajustado na sessão.');};
   const importAudio=event=>{const files=Array.from(event.target.files || []);if(!files.length)return;const additions=files.map(file=>({id:uid(),name:file.name,url:URL.createObjectURL(file)}));importedUrls.current.push(...additions.map(file=>file.url));setImported(rows=>[...rows,...additions]);setNotice(`${files.length} arquivo(s) adicionado(s) à biblioteca local.`);event.target.value='';};
   useEffect(()=>()=>importedUrls.current.forEach(url=>URL.revokeObjectURL(url)),[]);
-  return <div className="au-app"><Topbar bootstrap={bootstrap} projects={projects} project={project} projectLoading={projectLoading} projectError={projectError} onProjectChange={id=>{setProjectId(id);setNotice(id?'Projeto selecionado. Esta prévia ainda não persiste a sessão.':'Sessão pessoal selecionada.');}} onExport={()=>setModal(true)}/>
+  return <div className="au-app"><Topbar onLaunchInfo={()=>setLaunch('open')} registered={interest==="done"} bootstrap={bootstrap} projects={projects} project={project} projectLoading={projectLoading} projectError={projectError} onProjectChange={id=>{setProjectId(id);setNotice(id?'Projeto selecionado. Esta prévia ainda não persiste a sessão.':'Sessão pessoal selecionada.');}} onExport={()=>setModal(true)}/>
     <div className="au-sessionbar"><div><strong>Campanha primavera · Spot 30s</strong><span>{project?`${project.name} · ${project.brand_name||'Marca vinculada'}`:'Sessão pessoal de áudio'}</span></div><span className="au-saved">● Rascunho local</span><div className="au-session-actions"><button onClick={()=>setNotice('Histórico de revisões disponível na implementação da sessão.')}>Histórico</button><button onClick={()=>setNotice('A sessão será salva no projeto após conectar o serviço de áudio.')}>Salvar sessão</button></div></div>
     <main className="au-main">
       <div className="au-upper">
@@ -119,6 +171,7 @@ export default function AudioStudioApp({bootstrap={}}) {
       <div className="au-transport"><div><button className="au-play" onClick={()=>setPlaying(!playing)} aria-label={playing?'Pausar':'Reproduzir'}>{playing?'Ⅱ':'▶'}</button><button onClick={()=>setPlayhead(0)} aria-label="Voltar ao início">↤</button><button onClick={()=>setNotice('Gravação de microfone será integrada à faixa selecionada.')} aria-label="Gravar">●</button><strong>{time(playhead)} <span>/ 00:30.000</span></strong></div><div><span>Montagem multifaixa</span><button onClick={split} disabled={!selectedClip}>✂ Dividir</button><button onClick={()=>setPlayhead(8.24)}>↺ Voltar à seleção</button></div><div><span>Saída final</span><i className="au-meter"><b/></i><small>-14,2 LUFS</small><small>Pico -1,0 dB</small></div></div>
       <Timeline tracks={tracks} setTracks={setTracks} playhead={playhead} setPlayhead={setPlayhead} selectedClip={selectedClip} setSelectedClip={setSelectedClip} onSplit={split} onSeparate={separate}/>
     </main>
+    {launch==='open'&&<LaunchModal state={launch} interest={interest} onNotify={notify} onClose={closeLaunch}/>}
     {notice&&<div className="au-toast" role="status">{notice}<button onClick={()=>setNotice('')} aria-label="Fechar aviso">×</button></div>}
     {modal&&<div className="au-modal-backdrop" onClick={()=>setModal(false)}><section className="au-modal" role="dialog" aria-modal="true" aria-labelledby="au-export-title" onClick={event=>event.stopPropagation()}><button className="au-modal-close" onClick={()=>setModal(false)} aria-label="Fechar">×</button><h2 id="au-export-title">Exportar áudio</h2><p>Este protótipo mostra a montagem e seus controles. A renderização final será conectada ao serviço de áudio e ao tokenizador.</p><label>Formato<select><option>WAV · 48 kHz · estéreo</option><option>MP3 · 320 kb/s</option></select></label><button className="au-primary" onClick={()=>setModal(false)}>Voltar à edição</button></section></div>}
   </div>;

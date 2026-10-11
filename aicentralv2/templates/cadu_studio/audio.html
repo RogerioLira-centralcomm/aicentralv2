@@ -7,6 +7,7 @@
 <div id="cadu-studio-audio-root"><noscript>Ative o JavaScript para usar o Cadu Studio Áudio.</noscript></div>
 <script id="cadu-studio-audio-bootstrap" type="application/json">{{ {
   'apiRoot': '/studio/api',
+  'csrf': mc_trocr_csrf,
   'projectId': request.args.get('project_id') or (session.get('workspace_recent_project_ids') or [''])[0],
   'credits': studio_credit.get('available', 0),
   'usagePercent': studio_credit.get('monthly_usage_percentage', 0),

@@ -205,6 +205,44 @@ def prepare_shared_cadu_chat():
         session.setdefault("family_csrf", secrets.token_urlsafe(32))
 
 
+# Onboarding obrigatório (decisão do dono, 2026-10-11): contas antigas também passam pela
+# configuração de marca e projeto no primeiro acesso ao Cadu 3.0. Só telas navegáveis (GET
+# de HTML) são barradas; APIs, webhooks, arquivos e a própria tela de onboarding ficam livres.
+_ONBOARDING_GATED_PREFIXES = (
+    '/app', '/workspace/app', '/workspace/agentes', '/workspace/minhas-skills', '/projetos', '/marcas',
+    '/docs', '/uso', '/plano', '/planos', '/equipe', '/perfil', '/faturamento', '/faturas', '/integracoes',
+)
+
+
+@bp.before_request
+def require_workspace_onboarding():
+    if request.method != 'GET' or not request.path.startswith(_ONBOARDING_GATED_PREFIXES):
+        return None
+    if 'text/html' not in request.headers.get('Accept', ''):
+        return None
+    try:
+        user_id = int(session.get('user_id') or 0)
+        client_id = int(session.get('cliente_id') or 0)
+    except (TypeError, ValueError):
+        return None
+    # Equipe CentralComm opera contas de clientes e não faz onboarding delas.
+    if not user_id or not client_id or session.get('is_centralcomm'):
+        return None
+    if session.get('workspace_onboarded') == client_id:
+        return None
+    try:
+        # Falha de leitura nunca tranca o acesso: o onboarding é um passo de entrada, não um cadeado.
+        if not _workspace_onboarding_table_available():
+            return None
+        if _workspace_onboarding_record(user_id, client_id) or _workspace_org_onboarded(client_id):
+            session['workspace_onboarded'] = client_id
+            return None
+    except Exception:
+        current_app.logger.warning('Não foi possível verificar o onboarding obrigatório', exc_info=True)
+        return None
+    return redirect(url_for('cadu_workspace.workspace_onboarding'), code=302)
+
+
 @bp.post('/workspace/api/email-events/brevo')
 def workspace_brevo_email_event():
     """Receive only authenticated Brevo lifecycle events for Workspace mail."""
@@ -715,6 +753,13 @@ def _workspace_onboarding_table_available() -> bool:
         except Exception:
             pass
         return False
+
+
+def _workspace_org_onboarded(client_id: int) -> bool:
+    """True quando alguém da conta já concluiu o onboarding (membros novos não repetem)."""
+    with get_db().cursor() as cursor:
+        cursor.execute("SELECT 1 FROM cadu_workspace_onboarding WHERE id_cliente=%s LIMIT 1", (client_id,))
+        return cursor.fetchone() is not None
 
 
 def _workspace_onboarding_record(contact_id: int, client_id: int) -> Optional[dict]:

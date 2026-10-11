@@ -39,6 +39,7 @@ async function readCredits(url) {
 function BridgedNavbar({bootstrap, select}) {
   const [state, setState] = useState(() => snapshot(select));
   const [credits, setCredits] = useState(null);
+  const [creditsPending, setCreditsPending] = useState(true);
   useEffect(() => {
     if (!select) return undefined;
     const sync = () => setState(snapshot(select));
@@ -50,7 +51,7 @@ function BridgedNavbar({bootstrap, select}) {
   }, [select]);
   useEffect(() => {
     let alive = true;
-    const refresh = () => readCredits(bootstrap.creditSummaryUrl || '/workspace/api/creditos/resumo').then(value => { if (alive && value) setCredits(value); }).catch(() => {});
+    const refresh = () => readCredits(bootstrap.creditSummaryUrl || '/workspace/api/creditos/resumo').then(value => { if (alive && value) setCredits(value); }).catch(() => {}).finally(() => { if (alive) setCreditsPending(false); });
     refresh();
     document.addEventListener('cadu:credits-refresh', refresh);
     return () => { alive = false; document.removeEventListener('cadu:credits-refresh', refresh); };
@@ -62,7 +63,7 @@ function BridgedNavbar({bootstrap, select}) {
   };
   return <StudioNavbar active={bootstrap.active} links={bootstrap.links || {}} user={bootstrap.user || {}}
     projects={state.projects} projectId={state.projectId} projectsLoading={state.loading} allowQuick={state.allowQuick}
-    onProjectChange={select ? onProjectChange : undefined} credits={credits}/>;
+    onProjectChange={select ? onProjectChange : undefined} credits={credits} creditsPending={creditsPending}/>;
 }
 
 export function mountStudioNavbar() {

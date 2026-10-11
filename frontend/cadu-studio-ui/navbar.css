@@ -88,4 +88,9 @@
 
 /* The server header is swapped for the React navbar on mount: hide the swap, never the page. */
 @keyframes csu-reveal{to{visibility:visible}}
-.mc-cadu-bar--studio:not(.has-studio-navbar)>.mc-cadu-nav,.mc-cadu-bar--studio:not(.has-studio-navbar)>.mc-cadu-meta{visibility:hidden;animation:csu-reveal 0s 1.2s forwards}
+.mc-cadu-bar.mc-cadu-bar--studio:not(.has-studio-navbar)>*{visibility:hidden;animation:csu-reveal 0s 1.2s forwards}
+/* Until the React bar mounts, the server header is an empty bar with the React bar's exact box, so mounting changes nothing visible. */
+.mc-cadu-bar.mc-cadu-bar--studio:not(.has-studio-navbar){display:block!important;height:56px!important;min-height:56px!important;overflow:hidden;padding:0!important;background:#10171e!important;border:0!important;border-bottom:1px solid rgba(255,255,255,.08)!important;box-shadow:none!important}
+/* Same footprint while the project name and the balance load, so the right side of the bar does not slide. */
+.csu-credits--pending{visibility:hidden}
+@media (min-width:1181px){.csu-project__trigger{min-width:230px}}

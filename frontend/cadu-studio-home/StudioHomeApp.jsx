@@ -109,6 +109,7 @@ export default function StudioHomeApp({bootstrap = {}}) {
   const [projectId, setProjectId] = useState('');
   const [projectState, setProjectState] = useState({loading: true, error: ''});
   const [credits, setCredits] = useState(null);
+  const [creditsPending, setCreditsPending] = useState(true);
   const [items, setItems] = useState({status: 'idle', list: [], error: ''});
   const [filter, setFilter] = useState('all');
   const [preview, setPreview] = useState(null);
@@ -126,7 +127,7 @@ export default function StudioHomeApp({bootstrap = {}}) {
       setProjectId(chosen ? String(chosen.id) : '');
       setProjectState({loading: false, error: requested && !match ? 'O projeto escolhido ainda não está disponível no Studio. Selecione um projeto na barra.' : ''});
     }).catch(error => alive && setProjectState({loading: false, error: error.message}));
-    readCredits(bootstrap.creditSummaryUrl || '/workspace/api/creditos/resumo').then(value => alive && value && setCredits(value)).catch(() => {});
+    readCredits(bootstrap.creditSummaryUrl || '/workspace/api/creditos/resumo').then(value => alive && value && setCredits(value)).catch(() => {}).finally(() => alive && setCreditsPending(false));
     return () => {alive = false;};
   }, [api, bootstrap.projectId, bootstrap.creditSummaryUrl]);
 
@@ -182,7 +183,7 @@ export default function StudioHomeApp({bootstrap = {}}) {
   const filterEmpty = items.status === 'ready' && items.list.length > 0 && !visible.length;
   return <div className="sh-app">
     <StudioNavbar active="home" links={bootstrap.links || {}} user={bootstrap.user || {}} projects={options} projectId={projectId}
-      projectsLoading={projectState.loading} onProjectChange={changeProject} credits={credits}/>
+      projectsLoading={projectState.loading} onProjectChange={changeProject} credits={credits} creditsPending={creditsPending}/>
     <main className="sh-main">
       <header className="sh-head" hidden={showEmpty || loadingAny}>
         <div><h1>{project ? project.name : 'Studio'}</h1>

@@ -151,7 +151,7 @@ function productUrls(links) {
  * the tools (icon beside the name) in the middle, then project, tokens and account. Below 1180px it folds into a menu.
  */
 export default function StudioNavbar({active, links = {}, projects = [], projectId = '', onProjectChange, projectsLoading = false, allowQuick = false, quickLabel,
-  credits, user, identity, actions, embedded = false}) {
+  credits, creditsPending = false, user, identity, actions, embedded = false}) {
   const Root = embedded ? 'div' : 'header';
   const [menuOpen, setMenuOpen] = useState(false);
   const solutions = useMemo(() => workspaceSolutionItems({urls: {solutions: productUrls(links)}, solutionIcons: PRODUCT_ICONS}), [links]);
@@ -172,6 +172,7 @@ export default function StudioNavbar({active, links = {}, projects = [], project
     </nav>
     <div className="csu-navbar__meta">
       {onProjectChange && <ProjectPicker projects={projects} projectId={projectId} onChange={onProjectChange} loading={projectsLoading} allowQuick={allowQuick} quickLabel={quickLabel}/>}
+      {!credits && creditsPending && <span className="csu-credits csu-credits--pending" aria-hidden="true"><small>Tokens</small><strong>0% usado</strong><i/></span>}
       {credits && <CreditMeter href={links.credits} usagePercent={credits.usagePercent} available={credits.available}/>}
       {actions}
       <AccountMenu user={user} links={links}/>

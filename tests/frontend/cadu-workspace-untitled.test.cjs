@@ -140,7 +140,7 @@ const pageHtml = (mode, section, extra = {}) => `<!doctype html><html lang="pt-B
       await page.setViewportSize({width, height:900});
       await page.goto('http://workspace.test/account/creditos');
       await page.evaluate(() => window.dispatchEvent(new CustomEvent('cadu-open-purchase', {detail:{name:'Pacote de teste', price:50, tokens:1000, kind:'package'}})));
-      const dialog = page.getByRole('dialog', {name:'Confirmar pacote'});
+      const dialog = page.getByRole('dialog', {name:'Confirmar compra'});
       await dialog.waitFor();
       assert.equal(await dialog.getAttribute('data-rac'), '', `Credits ${width}: Untitled UI purchase modal`);
       const bounds = await dialog.boundingBox();

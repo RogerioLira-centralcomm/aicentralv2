@@ -20,6 +20,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-nav-compact.css') }}?v=1">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-app-sidebar.css') }}?v=3">
   {% if portal_product in ('workspace', 'connect') %}<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">{% endif %}
+  {% if portal_product == 'workspace' %}<style>html{scrollbar-gutter:stable}</style>{% endif %}
   {% block styles %}{% endblock %}
   {% set cadu_theme_product = portal_product %}{% include 'cadu/_theme_head.html' %}
 </head>

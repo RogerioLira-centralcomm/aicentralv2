@@ -4649,3 +4649,56 @@ body.portal--workspace .cadu-ds-entity-rail__readiness strong{font-size:20px;lin
   .untitled-catalog-list.is-projects .untitled-catalog-item__pin{grid-column:2;grid-row:2}
   .untitled-catalog-list.is-projects .untitled-catalog-item__chevron{display:none}
 }
+
+/* Modal de compra de tokens: compacto, cabeçalho com ação de fechar alinhada */
+.cadu-untitled-modal-content.cadu-ds-purchase-modal__card { width:min(460px,calc(100vw - 32px)); max-width:460px; margin:0 auto; padding:22px; gap:14px; }
+.cadu-ds-purchase-modal__card .cadu-ds-purchase-modal__head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.cadu-ds-purchase-modal__card .cadu-ds-purchase-modal__head h2 { margin:2px 0 0; font-size:20px; letter-spacing:-.02em; }
+.cadu-ds-purchase-modal__card .cadu-ds-purchase-modal__close { position:static; flex:none; width:32px; height:32px; min-width:32px; padding:0; background:transparent; font-size:20px; line-height:1; }
+.cadu-ds-purchase-modal__card .cadu-ds-purchase-modal__summary { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0; padding:12px 14px; }
+.cadu-ds-purchase-modal__card .cadu-ds-purchase-modal__summary div { display:grid; gap:2px; }
+.cadu-ds-purchase-modal__card .cadu-ds-purchase-modal__summary strong { font-size:15px; }
+.cadu-ds-purchase-modal__card .cadu-ds-purchase-modal__summary b { font-size:18px; }
+.cadu-ds-purchase-modal__card .cadu-ds-purchase-modal__hint { margin:0; font-size:12px; }
+.cadu-ds-purchase-modal__card .cadu-ds-account-notice { margin:0; }
+@media (max-width:520px) { .cadu-ds-purchase-modal__card footer { flex-direction:column-reverse; } .cadu-ds-purchase-modal__card footer > * { width:100%; } }
+
+/* Resumo de tokens: coluna de franquia/consumo com mais espaço e texto sem corte */
+.cadu-ds-credit-summary { grid-template-columns:minmax(0,1fr) minmax(320px,1.1fr); }
+.cadu-ds-credit-summary small { overflow:visible; white-space:normal; text-overflow:clip; font-size:11px; }
+@media (max-width:900px) { .cadu-ds-credit-summary { grid-template-columns:1fr; } }
+
+/* Pacotes em cartões */
+.cadu-ds-package-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; padding:16px 20px 20px; }
+.cadu-ds-package-card { position:relative; display:grid; align-content:start; gap:6px; padding:18px; border:1px solid var(--cadu-line); border-radius:14px; background:var(--cadu-surface); }
+.cadu-ds-package-card.is-featured { border-color:var(--cadu-accent); box-shadow:0 0 0 1px var(--cadu-accent), 0 10px 28px #122b281a; }
+.cadu-ds-package-card em { position:absolute; top:-10px; left:16px; padding:2px 10px; border-radius:999px; background:var(--cadu-accent); color:var(--cadu-on-accent,#fff); font-size:11px; font-style:normal; font-weight:600; }
+.cadu-ds-package-card h3 { margin:0; font-size:14px; font-weight:600; color:var(--cadu-muted); }
+.cadu-ds-package-card strong { font-size:26px; letter-spacing:-.03em; }
+.cadu-ds-package-card b { font-size:14px; }
+.cadu-ds-package-card small { color:var(--cadu-muted); font-size:12px; }
+.cadu-ds-package-card p { margin:6px 0 10px; color:var(--cadu-muted); font-size:13px; line-height:1.45; min-height:38px; }
+.cadu-ds-package-card button { width:100%; }
+
+/* Planos: preços alinhados entre cartões, texto legível e botão sempre no rodapé */
+.cadu-ds-account-shell .cadu-ds-pricing-description { flex:1; min-height:0; font-size:13px; }
+.cadu-ds-account-shell .cadu-ds-pricing-card ul { flex:1; font-size:13px; }
+.cadu-ds-account-shell .cadu-ds-pricing-badge { font-size:11px; }
+.cadu-ds-account-shell .cadu-ds-pricing-price span { font-size:12px; white-space:nowrap; }
+.cadu-ds-account-shell .cadu-ds-pricing-card.is-highlight:not(.is-current) { border-color:var(--cadu-accent); }
+
+/* Equipe: uma ação principal por linha (papel muda ao escolher), ações destrutivas discretas */
+.cadu-ds-account-shell .cadu-ds-account-list em.is-off { color:var(--cadu-muted); background:var(--cadu-surface-soft); }
+.cadu-ds-account-shell .cadu-ds-account-row-actions { display:flex; align-items:center; gap:6px; }
+.cadu-ds-account-shell .cadu-ds-account-row-actions form { margin:0; }
+.cadu-ds-account-shell .cadu-ds-account-row-actions select { min-width:150px; }
+.cadu-ds-account-shell .cadu-ds-account-row-actions button.cadu-ds-account-quiet-action { min-width:76px; background:transparent; border-color:transparent; box-shadow:none; color:var(--cadu-muted); font-weight:500; }
+.cadu-ds-account-shell .cadu-ds-account-row-actions button.cadu-ds-account-quiet-action:hover { background:var(--cadu-surface-soft); color:var(--cadu-ink); }
+@media (max-width:720px) { .cadu-ds-account-shell .cadu-ds-account-list > article { flex-wrap:wrap; } .cadu-ds-account-shell .cadu-ds-account-row-actions { width:100%; justify-content:space-between; } }
+
+/* Faturamento */
+.cadu-ds-status-pill { display:inline-block; padding:2px 9px; border-radius:999px; background:var(--cadu-surface-soft); color:var(--cadu-muted); font-size:12px; font-weight:600; }
+.cadu-ds-status-pill.is-ok { background:var(--cadu-accent-soft); color:var(--cadu-accent-strong); }
+.cadu-ds-status-pill.is-late { background:#fdecea; color:#a8321f; }
+.cadu-ds-billing-footnote { margin:0; color:var(--cadu-muted); font-size:13px; line-height:1.5; }
+.cadu-ds-billing-footnote a { color:var(--cadu-accent-strong); }

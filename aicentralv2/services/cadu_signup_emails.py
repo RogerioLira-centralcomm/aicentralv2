@@ -7,15 +7,11 @@ from __future__ import annotations
 
 import logging
 
-from .cadu_product_emails import _enabled
+from .cadu_token_emails import _first_name
 
 logger = logging.getLogger(__name__)
 
 SIGNUP_EVENTS = ("signup_welcome", "signup_brand_project", "signup_tokens")
-
-
-def _first_name(name) -> str:
-    return (str(name or "").split() or ["pessoa do time"])[0]
 
 
 def send_signup_welcome_email(*, user_email: str, user_name: str) -> dict:
@@ -52,7 +48,9 @@ def send_signup_email_series(*, user_email: str, user_name: str, client_id=None)
     from ..email_service import record_workspace_email_event
     from .cadu_token_emails import send_public_welcome_tokens_email
 
-    if not user_email or not _enabled():
+    # Sem chave global: o e-mail de boas-vindas nunca dependeu de CADU_PRODUCT_EMAILS_ENABLED
+    # (send_welcome_email), e o de tokens já se desliga sozinho.
+    if not user_email:
         return []
     steps = (
         ("signup_welcome", "Boas-vindas ao Cadu",

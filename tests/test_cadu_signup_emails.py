@@ -53,10 +53,12 @@ def test_one_failure_does_not_block_the_next_emails():
     assert [r.get("success") for r in results] == [False, True, True]
 
 
-def test_series_is_a_noop_when_emails_are_disabled():
-    svc = mock.MagicMock()
-    results, _ = _run(svc, enabled=False, user_email="a@x.com", user_name="Ana")
-    assert results == [] and not svc.enviar_email_com_template.called
+def test_welcome_series_ignores_the_product_emails_switch_but_tokens_email_respects_it():
+    svc = mock.MagicMock(); svc.enviar_email_com_template.return_value = {"success": True}
+    results, _ = _run(svc, enabled=False, user_email="a@x.com", user_name="Ana", client_id=1)
+    templates = [c.kwargs["template_name"] for c in svc.enviar_email_com_template.call_args_list]
+    assert templates == ["boas-vindas-cadastro.html", "configurar-marca-projeto.html"]
+    assert results[2].get("skipped") is True
 
 
 def test_templates_render_with_family_colors_and_illustration():

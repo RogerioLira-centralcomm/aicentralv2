@@ -4,6 +4,7 @@ from unittest.mock import patch
 from flask import Flask
 
 from aicentralv2.brevo_test_routes import bp
+from aicentralv2.services.cadu_growth_email_templates import build_growth_email as build_growth_email_for_test
 from aicentralv2.services.cadu_growth_email_templates import (
     BREVO_GROWTH_TEST_RECIPIENT,
     GROWTH_EMAIL_MODELS,
@@ -137,3 +138,11 @@ class CaduGrowthRecurringModelsTests(unittest.TestCase):
         self.assertIn('class="button"', html)
         self.assertIn("Ler o guia do Radar", html)
         self.assertIn("#087D4D", html)
+
+    def test_artigos_do_portal_sempre_usam_o_dominio_do_workspace(self):
+        from aicentralv2.product_domains import product_url
+        app = Flask(__name__, template_folder="../aicentralv2/templates")
+        with app.test_request_context("/"):
+            for key in ("planner-radar", "studio-criar"):
+                url = build_growth_email_for_test(key)["params"]["SECONDARY_URL"]
+                self.assertTrue(url.startswith(product_url("workspace", "/workspace/conteudos/")), url)

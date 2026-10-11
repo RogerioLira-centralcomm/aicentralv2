@@ -79,3 +79,8 @@ button.sh-tool > span { grid-column: auto; }
 .sh-onboard > .sh-empty { padding: 36px 16px; gap: 6px; }
 button.sh-tool { width: 100%; }
 .sh-onboard > .sh-empty { border: 1px solid var(--csu-line, rgba(255,255,255,.08)); background: linear-gradient(135deg, #141c27, #10171e); }
+
+.sh-loading { display: grid; gap: 10px; }
+.sh-loading__title, .sh-loading__line { display: block; border-radius: 8px; background: linear-gradient(90deg, #121a22, #18222c, #121a22); background-size: 200% 100%; animation: sh-shimmer 1.4s infinite; }
+.sh-loading__title { width: 220px; height: 26px; }
+.sh-loading__line { width: 140px; height: 14px; margin-bottom: 14px; }

@@ -177,27 +177,29 @@ export default function StudioHomeApp({bootstrap = {}}) {
   // With every type shown, the latest work gets its own larger row and is not repeated in the grid below.
   const recents = filter === 'all' && visible.length > 3 ? visible.slice(0, 3) : [];
   const rest = recents.length ? visible.slice(3) : visible;
+  // One neutral loading screen until we know which layout applies (list, empty project or new account), so nothing swaps under the user.
+  const loadingAny = projectState.loading || items.status === 'loading' || (Boolean(project) && items.status === 'idle') || checking;
   const filterEmpty = items.status === 'ready' && items.list.length > 0 && !visible.length;
   return <div className="sh-app">
     <StudioNavbar active="home" links={bootstrap.links || {}} user={bootstrap.user || {}} projects={options} projectId={projectId}
       projectsLoading={projectState.loading} onProjectChange={changeProject} credits={credits}/>
     <main className="sh-main">
-      <header className="sh-head" hidden={showEmpty}>
+      <header className="sh-head" hidden={showEmpty || loadingAny}>
         <div><h1>{project ? project.name : 'Studio'}</h1>
           <p>{project ? <>{project.brand_name || 'Marca vinculada'} · {items.list.length ? `${items.list.length} ${items.list.length === 1 ? 'trabalho' : 'trabalhos'}` : 'sem trabalhos'}</> : projectState.loading ? 'Carregando projetos…' : 'Escolha um projeto na barra para ver os trabalhos.'}</p></div>
         <div className="sh-filters" role="group" aria-label="Filtrar por tipo">{FILTERS.map(([key, label]) =>
           <button key={key} type="button" aria-pressed={filter === key} onClick={() => setFilter(key)}>{label}</button>)}</div>
       </header>
       {projectState.error && <p className="sh-note is-error" role="alert">{projectState.error}</p>}
-      {items.status === 'loading' && <ul className="sh-grid" aria-busy="true">{Array.from({length: 8}, (_, index) => <li key={index} className="sh-card is-skeleton"><span/></li>)}</ul>}
+      {loadingAny && <div className="sh-loading" aria-busy="true" aria-label="Carregando"><span className="sh-loading__title"/><span className="sh-loading__line"/>
+        <ul className="sh-grid">{Array.from({length: 4}, (_, index) => <li key={index} className="sh-card is-skeleton"><span/></li>)}</ul></div>}
       {items.status === 'error' && <p className="sh-note is-error" role="alert">{items.error}</p>}
-      {checking && <ul className="sh-grid" aria-busy="true">{Array.from({length: 4}, (_, index) => <li key={index} className="sh-card is-skeleton"><span/></li>)}</ul>}
       {filterEmpty && <div className="sh-empty"><strong>{filter === 'video' ? 'Nenhum vídeo' : 'Nenhuma imagem'} neste projeto ainda</strong>
         <button type="button" className="sh-button" onClick={() => setFilter('all')}>Mostrar todos</button></div>}
-      {showEmpty && !checking && (noProjects || !others.list.length
+      {showEmpty && !loadingAny && (noProjects || !others.list.length
         ? <Onboarding project={project} noProjects={noProjects} firstName={firstName} links={bootstrap.links || {}} href={toolHref} credits={credits}/>
         : <EmptyProject project={project} links={bootstrap.links || {}} href={toolHref} others={others.list} onPick={changeProject}/>)}
-      {visible.length > 0 && <>
+      {visible.length > 0 && !loadingAny && <>
         <QuickCreate links={bootstrap.links || {}} href={toolHref}/>
         {recents.length > 0 && <section aria-label="Continuar de onde parou"><h2 className="sh-section">Continuar de onde parou</h2>
           <ul className="sh-grid sh-grid--recent">{recents.map(item => <WorkCard key={`${item.media}-${item.id}`} item={item} onPreview={setPreview} href={editorHref(item)}/>)}</ul></section>}

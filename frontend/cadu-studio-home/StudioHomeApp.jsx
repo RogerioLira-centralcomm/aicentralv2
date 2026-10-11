@@ -95,7 +95,7 @@ function EmptyProject({project, links, href, others, onPick}) {
         {links.videos && <a className="sh-onboard__link" href={href(links.videos)}>Montar um vídeo</a>}
       </div>
     </div>
-    {others.length > 0 && <div><h2 className="sh-onboard__title">Continuar em outro projeto</h2>
+    {others.length > 0 && <div className="sh-others"><h2 className="sh-onboard__title">Continuar em outro projeto</h2>
       <ul className="sh-tools">{others.map(({id, name, brand, count}) => <li key={id}>
         <button type="button" className="sh-tool" onClick={() => onPick(id)}><strong>{name}</strong>
           <span>{[brand, `${count} ${count === 1 ? 'trabalho' : 'trabalhos'}`].filter(Boolean).join(' · ')}</span></button></li>)}</ul></div>}

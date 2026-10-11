@@ -73,3 +73,9 @@ button.sh-tool > span { grid-column: auto; }
 .sh-main section + section { margin-top: 36px; }
 .sh-grid--recent { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 .sh-grid--recent .sh-card__media { aspect-ratio: 16 / 11; }
+
+.sh-others .sh-onboard__title { margin-bottom: 14px; }
+.sh-others .sh-tools { margin-top: 0; }
+.sh-onboard > .sh-empty { padding: 36px 16px; gap: 6px; }
+button.sh-tool { width: 100%; }
+.sh-onboard > .sh-empty { border: 1px solid var(--csu-line, rgba(255,255,255,.08)); background: linear-gradient(135deg, #141c27, #10171e); }

@@ -15,8 +15,7 @@ def _app():
 
 
 def _ctx(svc, enabled=True):
-    return [mock.patch.object(se, "_enabled", return_value=enabled),
-            mock.patch.object(te, "_enabled", return_value=enabled),
+    return [mock.patch.object(te, "_enabled", return_value=enabled),
             mock.patch("aicentralv2.services.brevo_service.get_brevo_product_service", return_value=svc),
             mock.patch("aicentralv2.services.brevo_service.product_email_brand", return_value=BRAND),
             mock.patch("aicentralv2.product_domains.product_url", side_effect=lambda p, path="/": path),

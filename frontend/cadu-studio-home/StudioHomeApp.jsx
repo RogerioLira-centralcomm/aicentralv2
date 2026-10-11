@@ -48,7 +48,7 @@ function Onboarding({project, firstName, links, href, credits, welcome, onDismis
           : `Comece a primeira peça${project ? ` de ${project.name}` : ''} ou escolha outra ferramenta abaixo.`}</p>
         <div className="sh-onboard__cta">
           {links.create && <a className="sh-button" href={href(links.create)} onClick={onDismiss}>Criar a primeira peça</a>}
-          {credits && <span className="sh-onboard__credits">Saldo: {Math.round(credits.available).toLocaleString('pt-BR')} créditos</span>}
+          {credits && <span className="sh-onboard__credits">Saldo: {Math.round(credits.available).toLocaleString('pt-BR')} tokens</span>}
         </div></div>
       <ol className="sh-steps">{steps.map(([title, hint, done], index) => <li key={title} className={done ? 'is-done' : ''}>
         <span className="sh-steps__n" aria-hidden="true">{done ? '✓' : index + 1}</span><div><strong>{title}</strong><span>{hint}</span></div></li>)}</ol>

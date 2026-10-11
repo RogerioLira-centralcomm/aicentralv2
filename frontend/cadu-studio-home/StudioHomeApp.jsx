@@ -3,6 +3,16 @@ import StudioNavbar from '../cadu-studio-ui/StudioNavbar';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 
 const PROJECT_KEY = 'cadu-studio-home-project';
+const WELCOME_KEY = 'cadu-studio-home-welcomed';
+const TOOLS = [
+  ['create', 'Criar', 'plus', 'Gere anúncios, posts, landings e sites em imagem, já com a identidade da marca.'],
+  ['editor', 'Editar', 'compose', 'Ajuste uma imagem existente: troque texto, fundo ou elementos e gere variações.'],
+  ['videos', 'Vídeo', 'image', 'Monte e edite vídeos com cortes, legendas e narração.'],
+  ['audio', 'Áudio', 'audio', 'Narrações e locuções em português, prontas para usar nos vídeos.'],
+  ['analyzer', 'Analisar', 'analysis', 'Envie um criativo e receba uma leitura do que funciona e do que melhorar.'],
+  ['library', 'Biblioteca', 'library', 'Tudo o que foi produzido, organizado por projeto, para baixar ou reutilizar.'],
+  ['lab', 'Lab', 'plugin', 'Recursos experimentais do Studio, liberados para a sua organização.'],
+];
 const FILTERS = [['all', 'Todos'], ['still', 'Imagens'], ['video', 'Vídeos']];
 const remember = id => {try {localStorage.setItem(PROJECT_KEY, id);} catch (_) { /* storage may be blocked */ }};
 const recall = () => {try {return localStorage.getItem(PROJECT_KEY) || '';} catch (_) {return '';}};
@@ -22,6 +32,32 @@ async function readCredits(url) {
   if (!data?.configured) return null;
   const total = Number(data.monthly || 0), available = Number(data.available || 0);
   return {available, usagePercent: total > 0 ? ((total - available) * 100) / total : 0};
+}
+
+function Onboarding({project, firstName, links, href, credits, welcome, onDismiss}) {
+  const tools = TOOLS.filter(([key]) => links[key]);
+  const steps = [
+    ['Escolha o projeto e a marca', 'Na barra de cima. É a marca do projeto que guia cores, tom e logotipo.', Boolean(project)],
+    ['Crie a primeira peça', 'Descreva o que precisa e o Studio gera a imagem.', false],
+    ['Ajuste ou transforme em vídeo', 'Refine a peça, peça variações ou monte um vídeo com ela.', false],
+  ];
+  return <section className="sh-onboard" aria-label={welcome ? 'Primeiros passos no Studio' : 'Projeto sem peças'}>
+    <div className="sh-onboard__hero">
+      <div><h1>{welcome ? `Bem-vindo ao Studio${firstName ? `, ${firstName}` : ''}` : 'Este projeto ainda não tem peças'}</h1>
+        <p>{welcome ? 'Crie anúncios, posts e vídeos já com a identidade da sua marca. Escolha por onde começar.'
+          : `Comece a primeira peça${project ? ` de ${project.name}` : ''} ou escolha outra ferramenta abaixo.`}</p>
+        <div className="sh-onboard__cta">
+          {links.create && <a className="sh-button" href={href(links.create)} onClick={onDismiss}>Criar a primeira peça</a>}
+          {credits && <span className="sh-onboard__credits">Saldo: {Math.round(credits.available).toLocaleString('pt-BR')} créditos</span>}
+        </div></div>
+      <ol className="sh-steps">{steps.map(([title, hint, done], index) => <li key={title} className={done ? 'is-done' : ''}>
+        <span className="sh-steps__n" aria-hidden="true">{done ? '✓' : index + 1}</span><div><strong>{title}</strong><span>{hint}</span></div></li>)}</ol>
+    </div>
+    <h2 className="sh-onboard__title">O que você faz no Studio</h2>
+    <ul className="sh-tools">{tools.map(([key, label, icon, hint]) => <li key={key}>
+      <a className="sh-tool" href={key === 'lab' || key === 'library' ? links[key] : href(links[key])} onClick={onDismiss}>
+        <span className="sh-tool__icon"><Icon name={icon} size={18}/></span><strong>{label}</strong><span>{hint}</span></a></li>)}</ul>
+  </section>;
 }
 
 /** Studio home: only the recent work of the project chosen in the bar, to pick up where it stopped. */
@@ -70,8 +106,12 @@ export default function StudioHomeApp({bootstrap = {}}) {
   const visible = useMemo(() => items.list.filter(item => filter === 'all' || item.media === filter).slice(0, 24), [items.list, filter]);
   const options = projects.map(item => ({id: String(item.id), name: item.name, brandName: item.brand_name || ''}));
   const changeProject = id => {setProjectId(id); remember(id);};
-  const editorHref = item => {
-    const base = bootstrap.links?.[item.media === 'video' ? 'videos' : 'editor'] || '#';
+  const [welcome, setWelcome] = useState(() => { try {return !localStorage.getItem(WELCOME_KEY);} catch (_) {return true;} });
+  const dismissWelcome = () => {setWelcome(false); try {localStorage.setItem(WELCOME_KEY, '1');} catch (_) { /* storage may be blocked */ }};
+  const firstName = String(bootstrap.user?.name || '').trim().split(/\s+/)[0];
+  const toolHref = base => (project ? `${base}${base.includes('?') ? '&' : '?'}project_id=${encodeURIComponent(project.external_project_id || project.id)}` : base);
+  const editorHref = (item, explicitBase) => {
+    const base = explicitBase || bootstrap.links?.[item.media === 'video' ? 'videos' : 'editor'] || '#';
     return project ? `${base}${base.includes('?') ? '&' : '?'}project_id=${encodeURIComponent(project.external_project_id || project.id)}` : base;
   };
 
@@ -79,7 +119,7 @@ export default function StudioHomeApp({bootstrap = {}}) {
     <StudioNavbar active="home" links={bootstrap.links || {}} user={bootstrap.user || {}} projects={options} projectId={projectId}
       projectsLoading={projectState.loading} onProjectChange={changeProject} credits={credits}/>
     <main className="sh-main">
-      <header className="sh-head">
+      <header className="sh-head" hidden={items.status === 'ready' && !items.list.length}>
         <div><h1>Trabalhos recentes</h1>
           <p>{project ? <>Do projeto <strong>{project.name}</strong> · {project.brand_name || 'marca vinculada'}</> : projectState.loading ? 'Carregando projetos…' : 'Escolha um projeto na barra para ver os trabalhos.'}</p></div>
         <div className="sh-filters" role="group" aria-label="Filtrar por tipo">{FILTERS.map(([key, label]) =>
@@ -88,8 +128,10 @@ export default function StudioHomeApp({bootstrap = {}}) {
       {projectState.error && <p className="sh-note is-error" role="alert">{projectState.error}</p>}
       {items.status === 'loading' && <ul className="sh-grid" aria-busy="true">{Array.from({length: 8}, (_, index) => <li key={index} className="sh-card is-skeleton"><span/></li>)}</ul>}
       {items.status === 'error' && <p className="sh-note is-error" role="alert">{items.error}</p>}
-      {items.status === 'ready' && !visible.length && <div className="sh-empty"><Icon name="image" size={28}/><strong>Nenhum trabalho ainda</strong>
-        <span>Crie a primeira peça deste projeto.</span>{bootstrap.links?.create && <a className="sh-button" href={bootstrap.links.create}>Criar</a>}</div>}
+      {items.status === 'ready' && !visible.length && (items.list.length > 0
+        ? <div className="sh-empty"><strong>{filter === 'video' ? 'Nenhum vídeo' : 'Nenhuma imagem'} neste projeto ainda</strong>
+          <button type="button" className="sh-button" onClick={() => setFilter('all')}>Mostrar todos</button></div>
+        : <Onboarding project={project} firstName={firstName} links={bootstrap.links || {}} href={toolHref} credits={credits} welcome={welcome} onDismiss={dismissWelcome}/>)}
       {visible.length > 0 && <ul className="sh-grid">{visible.map(item => {
         const thumb = safeUrl(item.thumb_url || item.poster_url || item.image_url);
         const title = item.headline || item.name || item.title || (item.media === 'video' ? 'Vídeo' : 'Imagem');

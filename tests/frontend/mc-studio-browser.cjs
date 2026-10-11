@@ -24,7 +24,7 @@ execFileSync(process.env.PYTHON || 'python3', ['tests/frontend/render-studio-fix
  await page.getByRole('searchbox').fill('');await page.getByLabel('Projeto ativo').selectOption('pB');await page.getByText('60% usado',{exact:true}).first().waitFor();await page.locator('.studio-card strong').first().filter({hasText:'B'}).waitFor();
  assert.match(await page.locator('.studio-card a.studio-card-action').first().getAttribute('href'),/client=B/);
  // O saldo agora vem da navbar única do Studio (Saldo + % usado), não do #mcCaduCredits legado.
- await page.waitForTimeout(100);assert.match(await page.locator('body').innerText(),/Saldo 200[\s\S]*60% usado/);
+ await page.waitForTimeout(100);assert.match(await page.locator('body').innerText(),/200 tokens[\s\S]*60% usado/);
  await page.screenshot({path:ARTIFACTS+'/home-desktop.png',fullPage:true});
  for (const width of [1024,768,390]) { await page.setViewportSize({width,height:844}); assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`Overflow em ${width}px`); }assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:ARTIFACTS+'/home-mobile.png',fullPage:true});
  videoFail=true;await page.getByRole('button',{name:'Atualizar',exact:true}).click();await page.locator('.studio-error[role=alert]').waitFor();assert.equal(await page.locator('.studio-card').count(),12);

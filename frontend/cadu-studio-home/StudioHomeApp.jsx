@@ -5,7 +5,7 @@ import {Icon} from '../cadu-design-system/components/Icon.jsx';
 const PROJECT_KEY = 'cadu-studio-home-project';
 const GOALS = [
   ['create', 'plus', 'Criar uma peça', 'Anúncio, post, landing ou site em imagem, com a identidade da marca.'],
-  ['videos', 'image', 'Montar um vídeo', 'Cortes, legendas e narração em um só lugar.'],
+  ['videos', 'video', 'Montar um vídeo', 'Cortes, legendas e narração em um só lugar.'],
   ['editor', 'compose', 'Melhorar uma imagem', 'Troque texto, fundo ou elementos de uma imagem que você já tem.'],
   ['analyzer', 'analysis', 'Analisar um criativo', 'Receba uma leitura do que funciona e do que melhorar.'],
 ];

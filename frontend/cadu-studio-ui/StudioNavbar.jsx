@@ -12,7 +12,7 @@ export const STUDIO_SECTIONS = [
   ['home', 'Início', 'home'],
   ['create', 'Criar', 'plus'],
   ['editor', 'Editar', 'compose'],
-  ['videos', 'Vídeo', 'image'],
+  ['videos', 'Vídeo', 'video'],
   ['audio', 'Áudio', 'audio'],
   ['analyzer', 'Analisar', 'analysis'],
   ['library', 'Biblioteca', 'library'],
@@ -109,7 +109,7 @@ export function CreditMeter({href, usagePercent, available}) {
   const tone = usage >= 90 ? ' is-critical' : usage >= 70 ? ' is-warning' : '';
   const balance = available != null && available !== '' && Number.isFinite(Number(available)) ? compactTokens(available) : '';
   return <a className={`csu-credits${tone}`} href={href || '#'} aria-label={`${usage}% dos tokens usados${balance ? `, saldo de ${balance} tokens` : ''}. Ver consumo e tokens.`}>
-    <small>{balance ? `Saldo ${balance}` : 'Tokens'}</small>
+    <small title={balance ? `${Number(available).toLocaleString('pt-BR')} tokens disponíveis` : undefined}>{balance ? `${balance} tokens` : 'Tokens'}</small>
     <strong>{usage}% <span>usado</span></strong>
     <i aria-hidden="true"><b style={{width: `${usage}%`}}/></i>
   </a>;

@@ -3756,12 +3756,12 @@ def _sync_approved_brand_to_projects(client_id: int, user_id: int, brand_id: int
             current_app.logger.exception('Não foi possível projetar a marca %s no projeto %s', brand_id, project_id)
 
 
-@_request_memo
 def _shows_in_sidebar(project: dict) -> bool:
     """Whether the project is pinned to the main sidebar and Chat; true until the column exists or someone turns it off."""
     return project.get('mostrar_na_sidebar') is not False
 
 
+@_request_memo
 def _workspace_projects(client_id: int, query: str = "", status: str = "ativos", *, raise_on_error: bool = False,
                         identity_brands: Optional[list[dict]] = None,
                         identity_links: Optional[list[dict]] = None,

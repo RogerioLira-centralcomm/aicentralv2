@@ -45,6 +45,15 @@ const page=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta 
   await tab.getByRole('dialog',{name:'Prévia do trabalho'}).waitFor();
   assert.equal(await tab.getByRole('link',{name:'Continuar editando'}).getAttribute('href'),'/imagem?project_id=ci%3A9');
   await tab.getByRole('button',{name:'Fechar'}).click();
+  await tab.getByRole('button',{name:'Post de lançamento'}).click();
+  assert.match(await tab.getByLabel('O que você quer criar?').inputValue(),/café especial/,'o exemplo preenche o campo');
+  const [request]=await Promise.all([tab.waitForRequest(req=>new URL(req.url()).pathname==='/criar'),tab.getByRole('button',{name:'Criar',exact:true}).click()]);
+  const sent=new URL(request.url()).searchParams;
+  assert.equal(sent.get('project_id'),'ci:9','mantém o projeto');
+  assert.match(sent.get('prompt'),/café especial/,'leva o texto ao Criar');
+  await tab.goBack().catch(()=>{});
+  await tab.goto('http://studio.test/');
+  await tab.getByText('Teaser 15s').waitFor();
   await tab.setViewportSize({width:390,height:844});
   assert.equal(await tab.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'sem rolagem horizontal em 390px');
   await tab.screenshot({path:`${ARTIFACTS}/home-mobile.png`});

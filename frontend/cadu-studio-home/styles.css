@@ -52,7 +52,7 @@ html, body { background: var(--csu-bg, #0b1016); }
 .sh-steps__n { display: grid; flex: none; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--csu-overlay, #1b2531); color: var(--csu-accent-text, #c7bbff); font-size: 12px; font-weight: 700; }
 .sh-steps li.is-done .sh-steps__n { background: var(--csu-accent, #7c5cff); color: #fff; }
 .sh-onboard__title { margin: 0; font-size: 16px; font-weight: 650; }
-.sh-tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin: -14px 0 0; padding: 0; list-style: none; }
+.sh-tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
 .sh-tool { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; align-items: center; height: 100%; padding: 16px; border: 1px solid var(--csu-line-strong, rgba(255,255,255,.16)); border-radius: 14px; background: var(--csu-surface, #10171e); color: inherit; text-decoration: none; }
 .sh-tool:hover, .sh-tool:focus-visible { border-color: var(--csu-accent, #7c5cff); }
 .sh-tool strong { font-size: 14.5px; }
@@ -84,3 +84,13 @@ button.sh-tool { width: 100%; }
 .sh-loading__title, .sh-loading__line { display: block; border-radius: 8px; background: linear-gradient(90deg, #121a22, #18222c, #121a22); background-size: 200% 100%; animation: sh-shimmer 1.4s infinite; }
 .sh-loading__title { width: 220px; height: 26px; }
 .sh-loading__line { width: 140px; height: 14px; margin-bottom: 14px; }
+
+.sh-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -16px 0 28px; }
+.sh-chips > span { color: var(--csu-muted, #8d99a5); font-size: 12.5px; }
+.sh-chip { height: 30px; padding: 0 12px; border: 1px solid var(--csu-line-strong, rgba(255,255,255,.16)); border-radius: 99px; background: none; color: var(--csu-text-soft, #c3ccd5); font: inherit; font-size: 12.5px; cursor: pointer; }
+.sh-chip:hover, .sh-chip:focus-visible { border-color: var(--csu-accent, #7c5cff); color: #fff; }
+.sh-onboard .sh-tool > span:last-child { white-space: normal; }
+
+.sh-onboard section .sh-onboard__title { margin-bottom: 14px; }
+.sh-onboard__credits { display: block; margin-top: 14px; }
+.sh-tools .sh-tool { align-items: start; }

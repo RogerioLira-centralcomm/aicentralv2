@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import StudioNavbar from '../cadu-studio-ui/StudioNavbar';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 
@@ -9,6 +9,17 @@ const GOALS = [
   ['editor', 'compose', 'Melhorar uma imagem', 'Troque texto, fundo ou elementos de uma imagem que você já tem.'],
   ['analyzer', 'analysis', 'Analisar um criativo', 'Receba uma leitura do que funciona e do que melhorar.'],
 ];
+// Ready-made ideas: they carry what a brand would (product, offer, style, format, colors), so a first piece looks good with no brand set up.
+const EXAMPLES = [
+  ['Anúncio de produto', 'Anúncio vertical 4:5 de um tênis de corrida laranja flutuando sobre fundo grafite #1c1c1e, luz de estúdio dramática, headline "Mais leve. Mais rápido.", botão "Compre agora". Espaço livre no rodapé para o logotipo.'],
+  ['Post de lançamento', 'Post quadrado de lançamento de um café especial: grãos e xícara em close, tons terrosos #6f4e37 e creme #f5e6d3, headline "Chegou o seu novo ritual da manhã".'],
+  ['Story de promoção', 'Story 9:16 de promoção relâmpago de 48 horas para uma loja de cosméticos: fundo rosa #ff5c8a, produto em destaque, selo "-30%", chamada "Só até sexta".'],
+  ['Hero de landing', 'Hero de landing page para um app de finanças pessoais: celular mostrando um gráfico de gastos, fundo azul-noite #0b1220, destaque verde #22c55e, título "Seu dinheiro, sem susto" e botão "Começar grátis".'],
+  ['Cartaz de evento', 'Cartaz de um festival de música indie ao ar livre ao pôr do sol, tipografia ousada, cores quentes #ff7a18 e #2b1055, texto "Festival Horizonte, 12 de dezembro".'],
+];
+// Cut at a word, never inside a color code or a number.
+const preview = text => (text.length > 110 ? `${text.slice(0, 110).replace(/\s+\S*$/, '')}…` : text);
+const withPrompt = (base, text) => `${base}${base.includes('?') ? '&' : '?'}prompt=${encodeURIComponent(String(text).slice(0, 6000))}`;
 const FILTERS = [['all', 'Todos'], ['still', 'Imagens'], ['video', 'Vídeos']];
 const remember = id => {try {localStorage.setItem(PROJECT_KEY, id);} catch (_) { /* storage may be blocked */ }};
 const recall = () => {try {return localStorage.getItem(PROJECT_KEY) || '';} catch (_) {return '';}};
@@ -49,6 +60,7 @@ function WorkCard({item, href, onPreview}) {
 /** Quick start for people who already work here: the idea goes to Criar through ?prompt=, with the project kept. */
 function QuickCreate({links, href}) {
   const [text, setText] = useState('');
+  const input = useRef(null);
   if (!links.create) return null;
   const submit = event => {
     event.preventDefault();
@@ -56,10 +68,14 @@ function QuickCreate({links, href}) {
     const value = text.trim().slice(0, 6000);
     window.location.href = value ? `${base}${base.includes('?') ? '&' : '?'}prompt=${encodeURIComponent(value)}` : base;
   };
-  return <form className="sh-quick" onSubmit={submit}>
-    <input type="text" value={text} onChange={event => setText(event.target.value)} maxLength={600} aria-label="O que você quer criar?" placeholder="O que você quer criar? Ex.: anúncio de lançamento para Instagram"/>
+  return <>
+  <form className="sh-quick" onSubmit={submit}>
+    <input ref={input} type="text" value={text} onChange={event => setText(event.target.value)} maxLength={600} aria-label="O que você quer criar?" placeholder="O que você quer criar? Ex.: anúncio de lançamento para Instagram"/>
     <button type="submit" className="sh-button">Criar</button>
-  </form>;
+  </form>
+  <div className="sh-chips" role="group" aria-label="Exemplos para começar"><span>Ideias:</span>{EXAMPLES.map(([label, prompt]) =>
+    <button key={label} type="button" className="sh-chip" onClick={() => {setText(prompt); input.current?.focus();}}>{label}</button>)}</div>
+  </>;
 }
 
 /** New accounts (no work in any project): says what the Studio is for and routes by goal, not by tool name. */
@@ -76,10 +92,14 @@ function Onboarding({project, noProjects, firstName, links, href, credits}) {
         <li><span className="sh-steps__n" aria-hidden="true">2</span><div><strong>Gere a primeira peça</strong><span>Descreva o que precisa e refine o resultado.</span></div></li>
       </ol>
     </div>
+    {links.create && <section aria-label="Comece com um exemplo"><h2 className="sh-onboard__title">Comece com um exemplo</h2>
+      <ul className="sh-tools">{EXAMPLES.slice(0, 3).map(([label, prompt]) => <li key={label}>
+        <a className="sh-tool" href={withPrompt(href(links.create), prompt)}><strong>{label}</strong><span>{preview(prompt)}</span></a></li>)}</ul></section>}
     {noProjects && links.workspace && <p className="sh-onboard__cta"><a className="sh-button" href={links.workspace}>Criar projeto no Workspace</a></p>}
-    <ul className="sh-tools">{goals.map(([key, icon, label, hint]) => <li key={key}>
+<section aria-label="Escolha por objetivo"><h2 className="sh-onboard__title">Ou escolha pelo que precisa fazer</h2>
+        <ul className="sh-tools">{goals.map(([key, icon, label, hint]) => <li key={key}>
       <a className="sh-tool" href={key === 'analyzer' ? links[key] : href(links[key])}>
-        <span className="sh-tool__icon"><Icon name={icon} size={18}/></span><strong>{label}</strong><span>{hint}</span></a></li>)}</ul>
+        <span className="sh-tool__icon"><Icon name={icon} size={18}/></span><strong>{label}</strong><span>{hint}</span></a></li>)}</ul></section>
   </section>;
 }
 

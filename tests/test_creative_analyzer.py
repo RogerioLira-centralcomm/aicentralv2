@@ -258,7 +258,7 @@ class CreativeAnalyzerRoutesTest(TestCase):
         response = self.client.get("/analyzer", headers={"Host": "studio.centralcomm.media"})
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("Creative Analyzer", html)
+        self.assertIn("Analisar — Cadu Studio", html)
         self.assertIn('data-mc-page="analyzer"', html)
 
     def test_history_is_scoped_to_studio_client(self):

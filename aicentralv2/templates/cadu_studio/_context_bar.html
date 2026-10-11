@@ -7,10 +7,10 @@
   <nav class="mc-cadu-nav" aria-label="Navegação do Studio" data-studio-navigation>
     <a href="{{ studio_url('modelagem_criar') }}"{% if mc_page == 'criar' %} class="is-current" aria-current="page"{% endif %}>Criar</a>
     <a id="mcCaduStill" href="{{ studio_url('modelagem_trocar') }}"{% if mc_page == 'trocar' %} class="is-current" aria-current="page"{% endif %}>Editar</a>
-    <a id="mcCaduVideo" href="{{ studio_url('modelagem_video') }}"{% if mc_page == 'video' %} class="is-current" aria-current="page"{% endif %}>Vídeos</a>
+    <a id="mcCaduVideo" href="{{ studio_url('modelagem_video') }}"{% if mc_page == 'video' %} class="is-current" aria-current="page"{% endif %}>Vídeo</a>
     <a href="{{ product_url('studio', '/audio') }}"{% if mc_page == 'audio' %} class="is-current" aria-current="page"{% endif %}>Áudio</a>
     <a href="{{ product_url('studio', '/biblioteca') }}"{% if mc_page in ('hub', 'library') %} class="is-current" aria-current="page"{% endif %}>Biblioteca</a>
-    <a href="{{ product_url('studio', '/analyzer') }}"{% if mc_page == 'analyzer' %} class="is-current" aria-current="page"{% endif %}>Analyzer</a>
+    <a href="{{ product_url('studio', '/analyzer') }}"{% if mc_page == 'analyzer' %} class="is-current" aria-current="page"{% endif %}>Analisar</a>
     {% if studio_lab_enabled is defined and studio_lab_enabled() %}<a href="{{ product_url('studio', '/lab') }}">Lab</a>{% endif %}
   </nav>
   <div class="mc-cadu-meta">

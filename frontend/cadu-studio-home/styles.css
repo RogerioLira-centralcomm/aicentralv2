@@ -70,7 +70,6 @@ button.sh-tool > span { grid-column: auto; }
 .sh-quick input { flex: 1; min-width: 0; padding: 0 10px; border: 0; background: none; color: inherit; font: inherit; font-size: 15px; outline: none; }
 .sh-quick .sh-button { height: 40px; border: 0; cursor: pointer; }
 .sh-section { margin: 0 0 14px; font-size: 15px; font-weight: 650; }
-.sh-section:not(:first-child) { margin-top: 32px; }
-section[aria-label="Continuar de onde parou"] { margin-bottom: 8px; }
+.sh-main section + section { margin-top: 36px; }
 .sh-grid--recent { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 .sh-grid--recent .sh-card__media { aspect-ratio: 16 / 11; }

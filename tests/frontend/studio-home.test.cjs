@@ -19,7 +19,8 @@ const page=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta 
       return route.fulfill({json:{success:true,data:{items:media==='video'
         ?[{id:'v1',headline:'Teaser 15s',poster_url:svg('#2b3a8f'),video_url:'/v.mp4',aspect_ratio:'9:16',updated_at:'2026-10-07T10:00:00Z'}]
         :[{id:'s1',headline:'Post carrossel',thumb_url:svg('#7c5cff'),image_url:svg('#7c5cff'),aspect_ratio:'4:5',updated_at:'2026-10-06T10:00:00Z'},
-          {id:'s2',headline:'Banner site',thumb_url:svg('#0e9384'),image_url:svg('#0e9384'),aspect_ratio:'16:9',updated_at:'2026-10-05T10:00:00Z'}]}}});}
+          {id:'s2',headline:'Banner site',thumb_url:svg('#0e9384'),image_url:svg('#0e9384'),aspect_ratio:'16:9',updated_at:'2026-10-05T10:00:00Z'},
+          {id:'s3',headline:'Story promo',thumb_url:svg('#b54708'),image_url:svg('#b54708'),aspect_ratio:'9:16',updated_at:'2026-10-04T10:00:00Z'}]}}});}
     if(path.endsWith('/creditos/resumo'))return route.fulfill({json:{configured:true,monthly:1000,available:640}});
     return route.fulfill({status:404,body:''});
   });
@@ -27,10 +28,12 @@ const page=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta 
   const nav=tab.getByRole('navigation',{name:'Ferramentas do Studio'});
   await nav.waitFor();
   assert.equal(await nav.getByRole('link',{name:'Início'}).getAttribute('aria-current'),'page');
-  await tab.getByRole('heading',{name:'Trabalhos recentes'}).waitFor();
+  await tab.getByRole('heading',{name:'Lançamento Verão',level:1}).waitFor();
   await tab.getByText('Teaser 15s').waitFor();
   const titles=await tab.locator('.sh-card__body strong').allTextContents();
-  assert.deepEqual(titles,['Teaser 15s','Post carrossel','Banner site'],'mais recentes primeiro, imagens e vídeos juntos');
+  assert.deepEqual(titles,['Teaser 15s','Post carrossel','Banner site','Story promo'],'mais recentes primeiro, imagens e vídeos juntos');
+  assert.deepEqual(await tab.locator('section[aria-label="Continuar de onde parou"] .sh-card__body strong').allTextContents(),['Teaser 15s','Post carrossel','Banner site'],'as 3 últimas em destaque, sem repetir na grade');
+  await tab.getByLabel('O que você quer criar?').waitFor();
   assert.deepEqual(libraryCalls.map(call=>call[0]),['174','174'],'biblioteca do cliente do projeto');
   assert.ok(libraryCalls.every(call=>call[2]==='t'),'envia o token CSRF do Studio');
   await tab.getByText('36% usado').waitFor();

@@ -104,3 +104,36 @@ class CaduGrowthEmailTemplateTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CaduGrowthRecurringModelsTests(unittest.TestCase):
+    NEW = ("dicas-de-uso", "dicas-de-prompts", "plugins-agentes", "planner-radar", "studio-criar")
+
+    def test_novos_modelos_tem_ilustracao_existente_e_cores_da_familia(self):
+        from pathlib import Path
+        root = Path(__file__).resolve().parents[1] / "aicentralv2" / "static" / "emails" / "growth"
+        families = {"dicas-de-uso": "workspace", "dicas-de-prompts": "workspace", "plugins-agentes": "workspace",
+                    "planner-radar": "planner", "studio-criar": "studio"}
+        for key in self.NEW:
+            model = GROWTH_EMAIL_MODELS[key]
+            self.assertEqual(model["product"], families[key])
+            self.assertTrue((root / model["illustration"]).exists(), key)
+            self.assertLessEqual(len(model["default_body"].split()), 300, key)
+            self.assertNotIn("Smart", model["title"] + model["subject"] + model["default_body"])
+
+    def test_links_do_portal_apontam_para_artigos_publicos_existentes(self):
+        from aicentralv2.cadu_workspace.routes import PUBLIC_ARTICLES
+        for key in self.NEW:
+            model = GROWTH_EMAIL_MODELS[key]
+            for path in (model["cta_path"], model.get("secondary_path", "")):
+                if path.startswith("/workspace/conteudos/"):
+                    self.assertIn(path.rsplit("/", 1)[-1], PUBLIC_ARTICLES, path)
+
+    def test_template_renderiza_ilustracao_botao_e_link_secundario(self):
+        app = Flask(__name__, template_folder="../aicentralv2/templates")
+        with app.test_request_context("/"):
+            html = render_growth_email("planner-radar")
+        self.assertIn("planner-radar.png", html)
+        self.assertIn('class="button"', html)
+        self.assertIn("Ler o guia do Radar", html)
+        self.assertIn("#087D4D", html)

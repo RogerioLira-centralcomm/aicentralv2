@@ -5121,6 +5121,27 @@ PUBLIC_ARTICLES = {
         "steps": ["Associe a campanha ao projeto", "Reúna as fontes de resultado", "Leia sinais e desvios", "Registre aprendizados", "Abra o próximo ciclo sem começar do zero"],
         "details": ["O vínculo traz objetivo, público, peças e decisões para perto dos números.", "Conecte plataformas, planilhas e documentos usados pelo time para prestar contas.", "Compare o que aconteceu com a hipótese original e identifique o que pede ação.", "Converta a leitura em decisões claras, com fonte, data e impacto esperado.", "Reaproveite públicos, formatos, peças e aprendizados quando a próxima campanha começar."],
     },
+    "dicas-de-prompts": {
+        "title": "Como escrever pedidos que geram respostas úteis",
+        "summary": "Quatro informações que transformam um pedido genérico em uma resposta pronta para revisão, usando o contexto que o Cadu já tem.",
+        "image": "public-people/cadu-workspace-detail-v1.jpg", "product": "Workspace",
+        "steps": ["Diga o objetivo da resposta", "Informe para quem ela se destina", "Escolha o formato de entrega", "Defina o tom", "Salve a resposta aprovada no projeto"],
+        "details": ["Explique o que você vai fazer com o resultado: decidir, apresentar, produzir ou revisar. O objetivo define a profundidade da resposta.", "Cliente, time interno ou público final pedem vocabulário e nível de detalhe diferentes. Diga quem vai ler.", "Peça lista, tabela, roteiro, texto curto ou plano em etapas. Um formato claro evita retrabalho de edição.", "Direto, técnico, institucional ou leve. Em uma frase você evita uma resposta correta no conteúdo e errada no jeito.", "Como marca e projeto já estão no Cadu, não repita o contexto: peça só o que falta e guarde a versão aprovada para as próximas conversas."],
+    },
+    "conectar-agente-de-ia": {
+        "title": "Como conectar o seu assistente de IA ao Cadu",
+        "summary": "Use ChatGPT, Claude, Cursor ou Codex sobre o mesmo contexto de projetos e marcas, liberando apenas o que você aprovar.",
+        "image": "public-people/cadu-workspace-detail-v1.jpg", "product": "Workspace",
+        "steps": ["Abra Integrações e escolha agentes de IA", "Selecione o assistente que você usa", "Aprove os módulos e permissões", "Escolha o projeto padrão", "Peça o trabalho e confirme as ações importantes"],
+        "details": ["A conexão é configurada em Integrações, na área de agentes de IA da sua conta.", "O mesmo projeto pode ser consultado a partir de diferentes assistentes, conforme a tarefa.", "Só os módulos e as permissões aprovadas ficam disponíveis. O que não foi liberado não aparece para o assistente.", "O projeto escolhido vira o padrão das consultas, e você pode indicar outro quando precisar.", "O assistente pode consultar projetos e marcas, enviar notas, links e arquivos, criar documentos e abrir uma sessão do Studio. Ações irreversíveis, de equipe ou que usam tokens pedem a sua confirmação."],
+    },
+    "radar-de-oportunidades": {
+        "title": "Como usar o Radar de Oportunidades no Planner",
+        "summary": "Descubra sinais de mercado ligados à marca e leve as melhores oportunidades para o planejamento, sempre com a fonte à vista.",
+        "image": "public-people/cadu-planner-detail-v1.jpg", "product": "Planner",
+        "steps": ["Escolha a marca e o projeto", "Descreva o que observar", "Inicie a busca", "Leia a matriz Orgânico × Pago", "Crie o planejamento a partir da oportunidade"],
+        "details": ["O Radar usa a marca e o projeto da barra de contexto para entender o que é relevante.", "Uma frase com o tema, a praça ou o movimento que você quer acompanhar orienta melhor a busca do que um pedido amplo.", "Cada busca usa tokens do seu saldo (cerca de 15 mil). Comece por um tema claro para aproveitar o saldo.", "As oportunidades aparecem separadas entre ações orgânicas e pagas, cada uma com a fonte de onde veio.", "Antes de levar ao cliente, confira fonte e data. Quando fizer sentido, use a ação de criar planejamento e siga com audiências, canais e formatos."],
+    },
     "skill-de-audiencia": {
         "title": "Quando usar uma Skill de audiência",
         "summary": "Aplique um método especializado ao projeto sem copiar e colar o briefing em outra ferramenta.",

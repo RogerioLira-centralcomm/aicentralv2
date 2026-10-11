@@ -1,6 +1,6 @@
 {% extends 'emails/externos/workspace-base.html' %}
 {# Dois usos: bônus de lançamento (expires_at) e boas-vindas da conta pública (welcome_tokens). #}
-{% set eyebrow = 'Boas-vindas ao Cadu' if welcome_tokens else 'Tokens iniciais da equipe' %}
+{% set eyebrow = 'Boas-vindas · 3 de 3' if welcome_tokens else 'Tokens iniciais da equipe' %}
 {% block title %}{% if welcome_tokens %}{{ welcome_tokens }} tokens para começar{% else %}100.000 tokens para começar{% endif %}{% endblock %}
 {% block preheader %}{% if welcome_tokens %}Seu plano {{ plan_name }} já inclui {{ welcome_tokens }} tokens para você começar.{% else %}Sua equipe recebeu 100.000 tokens de bônus, válidos até {{ expires_at }}.{% endif %}{% endblock %}
 {% block headline %}{% if welcome_tokens %}{{ welcome_tokens }} tokens para começar.{% else %}100.000 tokens para começar.{% endif %}{% endblock %}
@@ -17,4 +17,4 @@
   <p style="margin:22px 0 0">A duração do saldo depende do ritmo e das ferramentas que a equipe usar. O extrato mostra cada execução{% if not welcome_tokens %} e o vencimento do lote{% endif %}.</p>
   <p style="margin:28px 0 0"><a class="button" href="{{ credits_url }}" style="display:inline-block;padding:14px 19px;border-radius:9px;background:#007d6d;color:#fff;font-size:14px;font-weight:700;text-decoration:none">Ver tokens da equipe</a></p>
 {% endblock %}
-{% block footer_note %}{% if welcome_tokens %}Os tokens inclusos no plano {{ plan_name }} pertencem à sua conta.{% else %}Este bônus inicial pertence à equipe da {{ empresa }} e segue as regras de validade exibidas no Workspace.{% endif %}{% endblock %}
+{% block footer_note %}{% if welcome_tokens %}Os tokens inclusos no plano {{ plan_name }} pertencem à sua conta. Dúvidas? Responda este e-mail.{% else %}Este bônus inicial pertence à equipe da {{ empresa }} e segue as regras de validade exibidas no Workspace.{% endif %}{% endblock %}

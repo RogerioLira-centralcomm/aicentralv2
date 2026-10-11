@@ -154,6 +154,23 @@ Série proposta, todos na família Workspace:
 
 **Divergência a resolver:** o cadastro público concede **50.000** tokens (`DEFAULT_WELCOME_TOKENS`, `CADU_WELCOME_TOKENS`). Os **100.000** existem como franquia mensal do plano Free (só com `CADU_PLAN_ALLOWANCE_ENABLED`) e como bônus de lançamento (convidados e contas antigas). O e-mail 3 só pode dizer "100 mil" se o valor concedido for esse; senão o e-mail promete mais do que o saldo.
 
+## 5c. Sequência contínua revisada (2026-10-11)
+
+Substitui a tabela da seção 5 depois que o Apolo pediu dicas de uso, prompts, plugins, Planner Radar e Studio Criar. Todos os e-mails têm ilustração própria, botão na cor da família e um segundo link para o portal.
+
+| Passo | Dia | Família | Modelo | CTA principal | Portal |
+|---|---|---|---|---|---|
+| 1 | +2 | Workspace | `dicas-de-uso` | guia `briefing-vivo` | Projetos |
+| 2 | +4 | Workspace | `dicas-de-prompts` | guia `dicas-de-prompts` | Conversas |
+| 3 | +6 | Planner | `planner-radar` | Radar | guia `radar-de-oportunidades` |
+| 4 | +8 | Studio | `studio-criar` | Studio → Criar | guia `campanha-em-formatos` |
+| 5 | +10 | Workspace | `plugins-agentes` | Integrações | guia `conectar-agente-de-ia` |
+| 6 | +12 | Reports | `connect-reports` | Reports | `resultado-no-projeto` |
+
+Modelos já existentes (`audiencias`, `canais`, `formatos`, `places`) ficam como reserva para uma segunda rodada. **Interativos** ainda não tem modelo.
+
+Pendências de produto antes de ligar: confirmar `CADU_RADAR_ENABLED` em produção (o e-mail 3 anuncia o Radar), que o custo por busca (~15 mil tokens) continua verdadeiro, e que `/integracoes` mostra a área de agentes de IA.
+
 ## 6. Painel no CentralX — `/admin/emails`
 
 Rota com `@admin_required`, no menu ERP. Quatro abas:

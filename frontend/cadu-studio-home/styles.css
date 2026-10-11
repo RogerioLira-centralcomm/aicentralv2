@@ -61,3 +61,6 @@ html, body { background: var(--csu-bg, #0b1016); }
 @media (max-width: 860px) { .sh-onboard__hero { grid-template-columns: 1fr; padding: 22px; } }
 .sh-head[hidden] { display: none; }
 .sh-onboard__link { color: var(--csu-accent-text, #c7bbff); font-size: 14px; font-weight: 600; }
+button.sh-tool { font: inherit; text-align: left; cursor: pointer; grid-template-columns: 1fr; }
+button.sh-tool > span { grid-column: auto; }
+.sh-onboard .sh-empty .sh-onboard__cta { margin-top: 12px; justify-content: center; }

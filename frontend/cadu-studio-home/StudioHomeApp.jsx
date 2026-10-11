@@ -3,15 +3,11 @@ import StudioNavbar from '../cadu-studio-ui/StudioNavbar';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 
 const PROJECT_KEY = 'cadu-studio-home-project';
-const WELCOME_KEY = 'cadu-studio-home-welcomed';
-const TOOLS = [
-  ['create', 'Criar', 'plus', 'Gere anúncios, posts, landings e sites em imagem, já com a identidade da marca.'],
-  ['editor', 'Editar', 'compose', 'Ajuste uma imagem existente: troque texto, fundo ou elementos e gere variações.'],
-  ['videos', 'Vídeo', 'image', 'Monte e edite vídeos com cortes, legendas e narração.'],
-  ['audio', 'Áudio', 'audio', 'Narrações e locuções em português, prontas para usar nos vídeos.'],
-  ['analyzer', 'Analisar', 'analysis', 'Envie um criativo e receba uma leitura do que funciona e do que melhorar.'],
-  ['library', 'Biblioteca', 'library', 'Tudo o que foi produzido, organizado por projeto, para baixar ou reutilizar.'],
-  ['lab', 'Lab', 'plugin', 'Recursos experimentais do Studio, liberados para a sua organização.'],
+const GOALS = [
+  ['create', 'plus', 'Criar uma peça', 'Anúncio, post, landing ou site em imagem, com a identidade da marca.'],
+  ['videos', 'image', 'Montar um vídeo', 'Cortes, legendas e narração em um só lugar.'],
+  ['editor', 'compose', 'Melhorar uma imagem', 'Troque texto, fundo ou elementos de uma imagem que você já tem.'],
+  ['analyzer', 'analysis', 'Analisar um criativo', 'Receba uma leitura do que funciona e do que melhorar.'],
 ];
 const FILTERS = [['all', 'Todos'], ['still', 'Imagens'], ['video', 'Vídeos']];
 const remember = id => {try {localStorage.setItem(PROJECT_KEY, id);} catch (_) { /* storage may be blocked */ }};
@@ -34,30 +30,43 @@ async function readCredits(url) {
   return {available, usagePercent: total > 0 ? ((total - available) * 100) / total : 0};
 }
 
-function Onboarding({project, noProjects, firstName, links, href, credits, welcome, onDismiss}) {
-  const tools = TOOLS.filter(([key]) => links[key]);
-  const steps = [
-    ['Escolha o projeto e a marca', noProjects ? 'Ainda não há projeto com marca. Crie um no Workspace para o Studio usar cores, tom e logotipo.' : 'Na barra de cima. É a marca do projeto que guia cores, tom e logotipo.', Boolean(project)],
-    ['Crie a primeira peça', 'Descreva o que precisa e o Studio gera a imagem.', false],
-    ['Ajuste ou transforme em vídeo', 'Refine a peça, peça variações ou monte um vídeo com ela.', false],
-  ];
-  return <section className="sh-onboard" aria-label={welcome ? 'Primeiros passos no Studio' : 'Projeto sem peças'}>
+/** New accounts (no work in any project): says what the Studio is for and routes by goal, not by tool name. */
+function Onboarding({project, noProjects, firstName, links, href, credits}) {
+  const goals = GOALS.filter(([key]) => links[key]);
+  return <section className="sh-onboard" aria-label="Primeiros passos no Studio">
     <div className="sh-onboard__hero">
-      <div><h1>{welcome ? `Bem-vindo ao Studio${firstName ? `, ${firstName}` : ''}` : 'Este projeto ainda não tem peças'}</h1>
-        <p>{welcome ? 'Crie anúncios, posts e vídeos já com a identidade da sua marca. Escolha por onde começar.'
-          : `Comece a primeira peça${project ? ` de ${project.name}` : ''} ou escolha outra ferramenta abaixo.`}</p>
-        <div className="sh-onboard__cta">
-          {noProjects && links.workspace && <a className="sh-button" href={links.workspace}>Criar projeto no Workspace</a>}
-          {links.create && <a className={noProjects ? 'sh-onboard__link' : 'sh-button'} href={href(links.create)} onClick={onDismiss}>Criar a primeira peça</a>}
-          {credits && <span className="sh-onboard__credits">Saldo: {Math.round(credits.available).toLocaleString('pt-BR')} tokens</span>}
-        </div></div>
-      <ol className="sh-steps">{steps.map(([title, hint, done], index) => <li key={title} className={done ? 'is-done' : ''}>
-        <span className="sh-steps__n" aria-hidden="true">{done ? '✓' : index + 1}</span><div><strong>{title}</strong><span>{hint}</span></div></li>)}</ol>
+      <div><h1>Bem-vindo ao Studio{firstName ? `, ${firstName}` : ''}</h1>
+        <p>Crie anúncios, posts e vídeos já com a identidade da sua marca. O que você quer fazer primeiro?</p>
+        {credits && <span className="sh-onboard__credits">Saldo: {Math.round(credits.available).toLocaleString('pt-BR')} tokens</span>}</div>
+      <ol className="sh-steps">
+        <li className={project ? 'is-done' : ''}><span className="sh-steps__n" aria-hidden="true">{project ? '✓' : 1}</span>
+          <div><strong>Escolha o projeto e a marca</strong><span>{noProjects ? 'Ainda não há projeto com marca. Crie um no Workspace.' : 'Na barra de cima: a marca guia cores, tom e logotipo.'}</span></div></li>
+        <li><span className="sh-steps__n" aria-hidden="true">2</span><div><strong>Gere a primeira peça</strong><span>Descreva o que precisa e refine o resultado.</span></div></li>
+      </ol>
     </div>
-    <h2 className="sh-onboard__title">O que você faz no Studio</h2>
-    <ul className="sh-tools">{tools.map(([key, label, icon, hint]) => <li key={key}>
-      <a className="sh-tool" href={key === 'lab' || key === 'library' ? links[key] : href(links[key])} onClick={onDismiss}>
+    {noProjects && links.workspace && <p className="sh-onboard__cta"><a className="sh-button" href={links.workspace}>Criar projeto no Workspace</a></p>}
+    <ul className="sh-tools">{goals.map(([key, icon, label, hint]) => <li key={key}>
+      <a className="sh-tool" href={key === 'analyzer' ? links[key] : href(links[key])}>
         <span className="sh-tool__icon"><Icon name={icon} size={18}/></span><strong>{label}</strong><span>{hint}</span></a></li>)}</ul>
+  </section>;
+}
+
+/** Empty project of someone who already uses the Studio: no tour, just the next step and a way to the work they have elsewhere. */
+function EmptyProject({project, links, href, others, onPick}) {
+  return <section className="sh-onboard" aria-label="Projeto sem peças">
+    <div className="sh-empty">
+      <strong>{project ? `${project.name} ainda não tem peças` : 'Este projeto ainda não tem peças'}</strong>
+      <span>Comece por aqui ou continue o trabalho de outro projeto.</span>
+      <div className="sh-onboard__cta">
+        {links.create && <a className="sh-button" href={href(links.create)}>Criar uma peça</a>}
+        {links.editor && <a className="sh-onboard__link" href={href(links.editor)}>Editar uma imagem</a>}
+        {links.videos && <a className="sh-onboard__link" href={href(links.videos)}>Montar um vídeo</a>}
+      </div>
+    </div>
+    {others.length > 0 && <div><h2 className="sh-onboard__title">Continuar em outro projeto</h2>
+      <ul className="sh-tools">{others.map(({id, name, brand, count}) => <li key={id}>
+        <button type="button" className="sh-tool" onClick={() => onPick(id)}><strong>{name}</strong>
+          <span>{[brand, `${count} ${count === 1 ? 'trabalho' : 'trabalhos'}`].filter(Boolean).join(' · ')}</span></button></li>)}</ul></div>}
   </section>;
 }
 
@@ -107,22 +116,38 @@ export default function StudioHomeApp({bootstrap = {}}) {
   const visible = useMemo(() => items.list.filter(item => filter === 'all' || item.media === filter).slice(0, 24), [items.list, filter]);
   const options = projects.map(item => ({id: String(item.id), name: item.name, brandName: item.brand_name || ''}));
   const changeProject = id => {setProjectId(id); remember(id);};
-  const [welcome, setWelcome] = useState(() => { try {return !localStorage.getItem(WELCOME_KEY);} catch (_) {return true;} });
-  const dismissWelcome = () => {setWelcome(false); try {localStorage.setItem(WELCOME_KEY, '1');} catch (_) { /* storage may be blocked */ }};
   // The page template falls back to "Minha conta" when the session has no name: not a name to greet.
   const rawName = String(bootstrap.user?.name || '').trim();
   const firstName = rawName && rawName !== 'Minha conta' ? rawName.split(/\s+/)[0] : '';
   const toolHref = base => (project ? `${base}${base.includes('?') ? '&' : '?'}project_id=${encodeURIComponent(project.external_project_id || project.id)}` : base);
   const editorHref = item => toolHref(bootstrap.links?.[item.media === 'video' ? 'videos' : 'editor'] || '#');
-  // Brand-new accounts have no project, so no items are ever fetched: they still need the onboarding.
+  const projectEmpty = items.status === 'ready' && !items.list.length;
+  // Is the account new, or is only this project empty? Look for work in the other projects (one library call per client).
+  const [others, setOthers] = useState({status: 'idle', list: []});
+  useEffect(() => {
+    if (!projectEmpty) {setOthers({status: 'idle', list: []}); return undefined;}
+    const seen = new Set([String(project?.client_id)]);
+    const candidates = projects.filter(item => item.client_id && !seen.has(String(item.client_id)) && seen.add(String(item.client_id))).slice(0, 12);
+    if (!candidates.length) {setOthers({status: 'done', list: []}); return undefined;}
+    let alive = true;
+    setOthers({status: 'loading', list: []});
+    const count = (clientId, media) => getJson(`${api}/format-lab/swap/library?client_id=${encodeURIComponent(clientId)}&media=${media}`, bootstrap.csrf)
+      .then(data => (Array.isArray(data?.items) ? data.items.length : 0)).catch(() => 0);
+    Promise.all(candidates.map(item => Promise.all([count(item.client_id, 'still'), count(item.client_id, 'video')])
+      .then(([stills, videos]) => ({id: String(item.id), name: item.name, brand: item.brand_name || '', count: stills + videos}))))
+      .then(rows => alive && setOthers({status: 'done', list: rows.filter(row => row.count > 0).sort((a, b) => b.count - a.count).slice(0, 6)}));
+    return () => {alive = false;};
+  }, [api, bootstrap.csrf, projectEmpty, projects, project?.client_id]);
+  // Brand-new accounts may have no project at all, so no items are ever fetched.
   const noProjects = !projectState.loading && !projectState.error && !projects.length;
-  const showOnboarding = noProjects || (items.status === 'ready' && !items.list.length);
-
+  const showEmpty = projectEmpty || noProjects;
+  const checking = showEmpty && !noProjects && others.status !== 'done';
+  const filterEmpty = items.status === 'ready' && items.list.length > 0 && !visible.length;
   return <div className="sh-app">
     <StudioNavbar active="home" links={bootstrap.links || {}} user={bootstrap.user || {}} projects={options} projectId={projectId}
       projectsLoading={projectState.loading} onProjectChange={changeProject} credits={credits}/>
     <main className="sh-main">
-      <header className="sh-head" hidden={showOnboarding}>
+      <header className="sh-head" hidden={showEmpty}>
         <div><h1>Trabalhos recentes</h1>
           <p>{project ? <>Do projeto <strong>{project.name}</strong> · {project.brand_name || 'marca vinculada'}</> : projectState.loading ? 'Carregando projetos…' : 'Escolha um projeto na barra para ver os trabalhos.'}</p></div>
         <div className="sh-filters" role="group" aria-label="Filtrar por tipo">{FILTERS.map(([key, label]) =>
@@ -131,10 +156,12 @@ export default function StudioHomeApp({bootstrap = {}}) {
       {projectState.error && <p className="sh-note is-error" role="alert">{projectState.error}</p>}
       {items.status === 'loading' && <ul className="sh-grid" aria-busy="true">{Array.from({length: 8}, (_, index) => <li key={index} className="sh-card is-skeleton"><span/></li>)}</ul>}
       {items.status === 'error' && <p className="sh-note is-error" role="alert">{items.error}</p>}
-      {(showOnboarding || (items.status === 'ready' && !visible.length)) && (items.list.length > 0
-        ? <div className="sh-empty"><strong>{filter === 'video' ? 'Nenhum vídeo' : 'Nenhuma imagem'} neste projeto ainda</strong>
-          <button type="button" className="sh-button" onClick={() => setFilter('all')}>Mostrar todos</button></div>
-        : <Onboarding project={project} noProjects={noProjects} firstName={firstName} links={bootstrap.links || {}} href={toolHref} credits={credits} welcome={welcome} onDismiss={dismissWelcome}/>)}
+      {checking && <ul className="sh-grid" aria-busy="true">{Array.from({length: 4}, (_, index) => <li key={index} className="sh-card is-skeleton"><span/></li>)}</ul>}
+      {filterEmpty && <div className="sh-empty"><strong>{filter === 'video' ? 'Nenhum vídeo' : 'Nenhuma imagem'} neste projeto ainda</strong>
+        <button type="button" className="sh-button" onClick={() => setFilter('all')}>Mostrar todos</button></div>}
+      {showEmpty && !checking && (noProjects || !others.list.length
+        ? <Onboarding project={project} noProjects={noProjects} firstName={firstName} links={bootstrap.links || {}} href={toolHref} credits={credits}/>
+        : <EmptyProject project={project} links={bootstrap.links || {}} href={toolHref} others={others.list} onPick={changeProject}/>)}
       {visible.length > 0 && <ul className="sh-grid">{visible.map(item => {
         const thumb = safeUrl(item.thumb_url || item.poster_url || item.image_url);
         const title = item.headline || item.name || item.title || (item.media === 'video' ? 'Vídeo' : 'Imagem');

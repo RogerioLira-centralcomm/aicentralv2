@@ -82,7 +82,7 @@
       retry.type = 'button'; retry.addEventListener('click', () => store.retry());
       box.append(retry); errors.append(box);
     }
-    status.textContent = view.loading ? 'Carregando biblioteca e sessões…' : `${view.items.length} de ${view.total} ativo(s)${state.query ? ' para esta busca' : ''}.${state.project === 'all' ? ' Todos os projetos.' : ' Sessão filtrada.'}`;
+    status.textContent = view.loading ? 'Carregando biblioteca e sessões…' : `${view.items.length < view.total ? `Mostrando ${view.items.length} de ${view.total}` : `${view.total} ${view.total === 1 ? 'item' : 'itens'}`}${state.query ? ' para esta busca' : ''}${state.project === 'all' ? '' : ' · sessão filtrada'}.`;
     view.items.forEach(item => list.append(card(item, state.clientId)));
     visibleItems = view.items;
     selected.forEach(id => { if(!view.items.some(item=>item.id===id))selected.delete(id); });

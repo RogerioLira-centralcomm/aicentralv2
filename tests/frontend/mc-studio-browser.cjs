@@ -15,7 +15,7 @@ execFileSync(process.env.PYTHON || 'python3', ['tests/frontend/render-studio-fix
  if(url.pathname==='/workspace/api/creditos/resumo')return route.fulfill({json:{configured:true,available:200,monthly:500}});
  if(url.pathname.endsWith('/swap/library')){const video=url.searchParams.get('media')==='video';const client=url.searchParams.get('client_id');return route.fulfill({status:video&&videoFail?500:200,json:{data:{items:video?[]:Array.from({length:26},(_,i)=>({id:`${i}`,run_id:`run ${i}`,name:`${client} · Campanha ${i}`,headline:i===25?'Oferta especial fibra':'',aspect_ratio:'16:9',created_at:'2026-09-14',thumb_url:'/missing.png'}))}}});}
  return route.fulfill({status:404,body:''}); });
- await page.goto('http://studio.test/'); await page.getByText('12 de 26 ativo(s).',{exact:false}).waitFor();
+ await page.goto('http://studio.test/'); await page.getByText('Mostrando 12 de 26',{exact:false}).waitFor();
  assert.equal(counts['/parametros/api/format-lab/swap/library?client_id=A&media=still'],1);
  assert.equal(await page.locator('.studio-card').count(),12);
  await page.getByRole('button',{name:'Mostrar mais'}).click();assert.equal(await page.locator('.studio-card').count(),24);

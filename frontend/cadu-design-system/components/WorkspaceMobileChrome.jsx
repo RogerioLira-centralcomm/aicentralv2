@@ -6,6 +6,7 @@ import {workspaceChatHref, workspaceMobileDestinationItems, workspaceSolutionIte
 export function WorkspaceMobileChrome({title = 'Workspace', eyebrow = 'Workspace', workspaceName = '', links = {}, contextItems = [], accountItems = [], logo = '', solutionIcons = {}}) {
   const notifications = useWorkspaceNotifications();
   const [open, setOpen] = useState(false);
+  const [switching, setSwitching] = useState(false);
   const trigger = useRef(null);
   const panel = useRef(null);
   useEffect(() => {
@@ -50,13 +51,25 @@ export function WorkspaceMobileChrome({title = 'Workspace', eyebrow = 'Workspace
   const solutions = workspaceSolutionItems({urls: links, solutionIcons}).filter(item => item.id !== 'studio' && (item.href || item.id === 'workspace'));
   const activeSolution = solutions.find(item => item.id === 'workspace');
   const brandMark = logo || solutionIcons.workspace || '';
+  const sheetSolutions = workspaceSolutionItems({urls: links, solutionIcons}).filter(item => item.href || item.id === 'workspace');
   const chatSearchHref = links.search || workspaceChatHref(links, {history: true});
   return <>
     <header className="cadu-ds-mobile-chrome">
       <button ref={trigger} type="button" onClick={() => setOpen(true)} aria-label="Abrir menu" aria-haspopup="dialog" aria-expanded={open} aria-controls="workspace-mobile-navigation"><Icon name="menu" size={20}/></button>
-      <div className="cadu-ds-mobile-chrome__context"><strong>{title}</strong></div>
+      <div className="cadu-ds-mobile-chrome__context"><button type="button" className="cadu-ds-mobile-chrome__brand" onClick={() => setSwitching(true)} aria-label={`Trocar de solução Cadu. Atual: ${activeSolution?.name || title}`} aria-haspopup="dialog" aria-expanded={switching}>{brandMark ? <img src={brandMark} alt="" width="26" height="26"/> : <strong>Cadu</strong>}<Icon name="chevron" size={14}/></button></div>
       <div className="cadu-ds-mobile-chrome__actions">{notifications.open && notifications.pending.length > 0 && <button type="button" className="cadu-ds-mobile-chrome__notifications" onClick={notifications.open} aria-label="Abrir notificações"><Icon name="pulse" size={18}/><i>{notifications.pending.length > 9 ? '9+' : notifications.pending.length}</i></button>}</div>
     </header>
+    {switching && <div className="cadu-ds-mobile-sheet" role="presentation" onPointerDown={event => { if (event.target === event.currentTarget) setSwitching(false); }}>
+      <section role="dialog" aria-modal="true" aria-label="Soluções Cadu">
+        <span className="cadu-ds-mobile-sheet__grip" aria-hidden="true"/>
+        <h2>Para onde você quer ir?</h2>
+        <div className="cadu-ds-mobile-sheet__list">{sheetSolutions.map(item => {
+          const desktopOnly = item.id === 'studio';
+          return <a key={item.id} href={item.href || links.home || '/'} onClick={() => setSwitching(false)} aria-current={item.id === 'workspace' ? 'page' : undefined}>{item.icon && <img src={item.icon} alt="" width="36" height="36"/>}<span><b>{item.name}</b><small>{desktopOnly ? 'Melhor no computador' : item.description}</small></span></a>;
+        })}</div>
+        <button type="button" onClick={() => setSwitching(false)}>Fechar</button>
+      </section>
+    </div>}
     {open && <div className="cadu-ds-mobile-navigation" role="presentation" onPointerDown={event => { if (event.target === event.currentTarget) setOpen(false); }}>
       <section ref={panel} id="workspace-mobile-navigation" role="dialog" aria-modal="true" aria-label="Navegação do Workspace">
         <header><div className="cadu-ds-mobile-navigation__brand">{brandMark && <img src={brandMark} alt="" width="28" height="28"/>}<span><strong>Cadu</strong>{workspaceName && <small>{workspaceName}</small>}</span></div><button type="button" onClick={() => setOpen(false)} aria-label="Fechar navegação"><Icon name="close" size={18}/></button></header>

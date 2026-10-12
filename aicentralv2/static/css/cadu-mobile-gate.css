@@ -1,0 +1,14 @@
+/* Aviso de "melhor no computador" (Studio no celular). Escondido fora do mobile. */
+.cadu-mobile-gate{display:none}
+@media (max-width:760px){
+  body[data-product='studio'] .cadu-mobile-gate{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;overflow-y:auto;padding:max(24px,env(safe-area-inset-top)) 22px max(24px,env(safe-area-inset-bottom));background:var(--cadu-canvas,#f6f8f8);color:var(--cadu-ink,#10213b);font-family:Inter,system-ui,sans-serif}
+  body[data-product='studio']{overflow:hidden}
+  .cadu-mobile-gate__card{display:grid;gap:14px;width:min(100%,380px);text-align:center;justify-items:center}
+  .cadu-mobile-gate__logo{width:56px;height:56px;border-radius:16px;object-fit:contain}
+  .cadu-mobile-gate h1{margin:0;font-size:21px;line-height:1.25;font-weight:700}
+  .cadu-mobile-gate p{margin:0;color:var(--cadu-muted,#5c6b7a);font-size:14px;line-height:1.55}
+  .cadu-mobile-gate__actions{display:grid;gap:10px;width:100%;margin-top:6px}
+  .cadu-mobile-gate__actions a,.cadu-mobile-gate__actions button{display:flex;align-items:center;justify-content:center;min-height:48px;padding:0 16px;border:1px solid var(--cadu-line,#dbe3e3);border-radius:12px;background:#fff;color:inherit;font:600 14px Inter,system-ui,sans-serif;text-decoration:none;cursor:pointer}
+  .cadu-mobile-gate__actions .is-primary{border-color:transparent;background:var(--cadu-accent,#176b5e);color:#fff}
+  .cadu-mobile-gate__status{min-height:18px;font-size:12px}
+}

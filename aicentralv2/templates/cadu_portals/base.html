@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-product-switch.css') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-nav-compact.css') }}?v=1">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-app-sidebar.css') }}?v=3">
+  {% if portal_product == 'studio' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-mobile-gate.css') }}?v=1">{% endif %}
   {% if portal_product in ('workspace', 'connect') %}<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">{% endif %}
   {% if portal_product == 'workspace' %}<style>html{scrollbar-gutter:stable}</style>{% endif %}
   {% block styles %}{% endblock %}
@@ -26,6 +27,22 @@
 </head>
 <body class="portal portal--{{ portal_product }}" data-product="{{ portal_product }}" data-authenticated="{{ 'true' if session.get('user_id') else 'false' }}">
   <a class="portal-skip" href="#content">Ir para o conteúdo</a>
+  {% if portal_product == 'studio' %}
+  <section class="cadu-mobile-gate" role="alertdialog" aria-labelledby="cadu-mobile-gate-title" aria-describedby="cadu-mobile-gate-text">
+    <div class="cadu-mobile-gate__card">
+      <img class="cadu-mobile-gate__logo" src="{{ url_for('static', filename='images/cadu/products/cadu-icon.png') }}" alt="Cadu">
+      <h1 id="cadu-mobile-gate-title">O Studio funciona melhor no computador</h1>
+      <p id="cadu-mobile-gate-text">Criação de imagens, vídeos e áudio pede uma tela maior. No celular você continua com o Workspace, o Planner e o Reports.</p>
+      <div class="cadu-mobile-gate__actions">
+        <a class="is-primary" href="{{ product_url('workspace') }}">Voltar ao Workspace</a>
+        <a data-gate-mail href="mailto:">Enviar link por e-mail</a>
+        <button type="button" data-gate-copy>Copiar link</button>
+      </div>
+      <p class="cadu-mobile-gate__status" role="status" aria-live="polite"></p>
+    </div>
+  </section>
+  <script defer src="{{ url_for('static', filename='js/cadu-mobile-gate.js') }}?v=1"></script>
+  {% endif %}
   {% block navigation %}{% set cadu_active_product = portal_product %}{% include 'cadu/_product_nav.html' %}{% endblock %}
   <main id="content" class="{% block content_class %}{% endblock %}" tabindex="-1">{% block content %}{% endblock %}</main>
   {% if portal_product not in ('studio', 'workspace-onboarding') %}

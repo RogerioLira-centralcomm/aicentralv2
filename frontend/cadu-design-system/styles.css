@@ -4702,3 +4702,40 @@ body.portal--workspace .cadu-ds-entity-rail__readiness strong{font-size:20px;lin
 .cadu-ds-status-pill.is-late { background:#fdecea; color:#a8321f; }
 .cadu-ds-billing-footnote { margin:0; color:var(--cadu-muted); font-size:13px; line-height:1.5; }
 .cadu-ds-billing-footnote a { color:var(--cadu-accent-strong); }
+
+/* Desktop: a navegação contextual acompanha a janela. Sem altura própria ela
+   esticava até o fim do conteúdo e a conta/rodapé ficavam fora da tela; agora
+   fica presa ao topo com a altura do navegador e rola por dentro. */
+@media (min-width: 761px) {
+  body.portal--workspace .cadu-ds-context-sidebar {
+    position:sticky;
+    top:0;
+    align-self:flex-start;
+    height:100dvh;
+    max-height:100dvh;
+    min-height:0;
+    overflow-y:auto;
+    overscroll-behavior:contain;
+    scrollbar-width:thin;
+  }
+}
+
+/* Mobile: o logo do Cadu substitui o título e abre o seletor de soluções. */
+@media (max-width:760px) {
+  .cadu-ds-mobile-chrome__brand { display:inline-flex; min-height:44px; align-items:center; justify-content:center; gap:4px; padding:0 10px; border:0; border-radius:12px; background:transparent; color:var(--cadu-muted); cursor:pointer; }
+  .cadu-ds-mobile-chrome__brand img { width:26px; height:26px; border-radius:7px; object-fit:contain; }
+  .cadu-ds-mobile-chrome__brand svg { transform:rotate(90deg); }
+  .cadu-ds-mobile-sheet { position:fixed; inset:0; z-index:110; display:flex; align-items:flex-end; background:rgba(15,34,38,.4); }
+  .cadu-ds-mobile-sheet>section { width:100%; box-sizing:border-box; max-height:85dvh; overflow-y:auto; padding:10px 16px max(18px,env(safe-area-inset-bottom)); border-radius:20px 20px 0 0; background:var(--cadu-canvas); box-shadow:0 -16px 44px rgba(16,24,40,.22); }
+  .cadu-ds-mobile-sheet__grip { display:block; width:38px; height:4px; margin:0 auto 12px; border-radius:99px; background:var(--cadu-line); }
+  .cadu-ds-mobile-sheet h2 { margin:0 0 10px; color:var(--cadu-ink); font-size:15px; font-weight:700; }
+  .cadu-ds-mobile-sheet__list { display:grid; gap:4px; }
+  .cadu-ds-mobile-sheet__list a { display:flex; min-height:60px; align-items:center; gap:12px; padding:8px 10px; border-radius:14px; color:var(--cadu-ink); text-decoration:none; }
+  .cadu-ds-mobile-sheet__list a[aria-current] { background:var(--cadu-surface-soft); }
+  .cadu-ds-mobile-sheet__list a:active { background:var(--cadu-surface-soft); }
+  .cadu-ds-mobile-sheet__list img { width:36px; height:36px; border-radius:10px; object-fit:contain; }
+  .cadu-ds-mobile-sheet__list span { display:grid; gap:2px; min-width:0; }
+  .cadu-ds-mobile-sheet__list b { font-size:14px; }
+  .cadu-ds-mobile-sheet__list small { color:var(--cadu-muted); font-size:12px; }
+  .cadu-ds-mobile-sheet>button { width:100%; min-height:48px; margin-top:8px; border:0; border-radius:12px; background:var(--cadu-surface-soft); color:var(--cadu-ink); font:600 14px var(--cadu-font-sans); }
+}

@@ -42,6 +42,7 @@ from ..creative_brand_analysis import BRAND_ANALYSIS_PIPELINE_VERSION
 from . import notification_service, project_context_service, project_index_service, project_knowledge, project_resource_service, project_source_service, project_sources, workspace_ingestion_service
 from .agent_v2.request_context import resolve as resolve_request_context
 from .mcp.registry import ToolInputError
+from .public_solution_functions import SOLUTION_FUNCTIONS
 
 
 CADU_COMMERCIAL_PRICES = {
@@ -5043,6 +5044,7 @@ def index():
         canonical=product_url("workspace"),
         description="O ambiente Cadu que mantém cliente, marca, projeto, time e decisões conectados em cada campanha.",
         hero=secrets.choice(WORKSPACE_PUBLIC_HEROES),
+        home_articles=list(_public_articles().items())[:6],
         analytics_page_type='landing', analytics_content_group='home',
         analytics_product_interest='cadu_media', analytics_journey_stage='discovery',
     )
@@ -5136,39 +5138,53 @@ PUBLIC_SOLUTIONS = {
 
 PUBLIC_ARTICLES = {
     "briefing-vivo": {
-        "title": "Como transformar um briefing em uma base viva",
-        "summary": "Um passo a passo para reunir reunião, arquivos, links e decisões antes de começar a produzir.",
+        "title": "O que não pode faltar no briefing de uma campanha",
+        "summary": "Meta numérica, praça, verba, datas e restrições de marca: o checklist que evita o retrabalho entre atendimento, mídia e criação.",
         "image": "public-people/cadu-workspace-detail-v1.jpg", "product": "Workspace",
-        "steps": ["Crie o projeto e registre o objetivo", "Envie PDFs, textos e links", "Registre decisões da reunião", "Conecte o agente de IA preferido", "Salve a resposta útil no projeto"],
-        "details": ["Dê um nome direto ao trabalho e registre o resultado que a campanha precisa produzir.", "Inclua as fontes que explicam produto, público, marca e restrições. O Workspace indexa o conteúdo para consulta.", "Transforme a ata em decisões, dúvidas e responsáveis. Isso evita que a próxima conversa dependa da memória de alguém.", "Abra o contexto no ChatGPT, Claude, Cursor ou Codex conforme a tarefa e mantenha o projeto como referência.", "Revise a saída e registre somente o que deve continuar com o time."],
+        "steps": ["Escreva a meta com número e prazo", "Defina público e praça", "Registre verba, datas e sazonalidade", "Liste restrições de marca, legais e de plataforma", "Anexe o material e salve as decisões da reunião"],
+        "details": ["\"Aumentar vendas\" não orienta ninguém. \"Gerar 600 leads qualificados por mês com CPL até R$ 45 até dezembro\" orienta mídia, criação e relatório ao mesmo tempo.", "Quem compra, onde mora e em que momento decide. Para um varejista regional, a praça pesa mais que a idade; para B2B, o cargo e o porte da empresa.", "Verba total, divisão entre meses e as datas que mexem com o leilão: Dia das Mães, Black Friday, Natal, volta às aulas. Anote também o que está fechado com veículos.", "Categorias reguladas (financeiro, saúde, bebidas), regras do CONAR, políticas de anúncios do Meta e do Google, termos que o cliente não aceita usar e concorrentes que não podem ser citados.", "Suba o manual da marca, o deck do cliente, a ata da reunião e os links das pastas. O que foi decidido na reunião fica registrado com responsável e prazo, em vez de depender de quem lembra."],
     },
     "plano-de-midia": {
-        "title": "Do objetivo ao primeiro cenário de mídia",
-        "summary": "Use o contexto do projeto para comparar públicos, canais, formatos e investimento.",
+        "title": "Plano de mídia para a Black Friday: da verba ao calendário",
+        "summary": "Como dividir o investimento entre aquecimento, oferta e reforço, com cada canal cumprindo um papel e uma reserva para o que performar.",
         "image": "public-people/cadu-planner-detail-v1.jpg", "product": "Planner",
-        "steps": ["Confirme objetivo e restrições", "Escolha os públicos prioritários", "Compare canais e formatos", "Monte cenários de investimento", "Leve a direção aprovada para criação"],
-        "details": ["Comece pelo objetivo do projeto, prazo, região, verba e critérios que não podem mudar.", "Use dados e hipóteses já registrados para separar público principal, oportunidade e exclusões.", "Avalie o papel de cada canal antes de distribuir verba. Formato vem depois da função.", "Crie alternativas conservadora, recomendada e expansiva para tornar a decisão comercial mais simples.", "Registre o cenário escolhido e abra os formatos no Studio sem reescrever o briefing."],
+        "steps": ["Parta da meta e da margem", "Divida a verba por fase da campanha", "Dê um papel a cada canal", "Reserve verba para reforço", "Monte o calendário e os cenários"],
+        "details": ["Defina o ROAS ou o CPA mínimo que ainda deixa margem depois do desconto. Sem esse piso, qualquer resultado parece bom na semana e ruim no fechamento do mês.", "Uma divisão comum é aquecimento (lista de espera e remarketing), semana da oferta e últimos dias. Cada fase tem mensagem, público e verba próprios.", "Meta Ads para alcance e remarketing de catálogo, busca paga para demanda já existente, TikTok para descoberta e CRM para a base própria. O formato vem depois da função.", "Guarde de 15% a 20% da verba para dobrar o que estiver convertendo no pico. Mídia fixa demais não responde ao que o leilão mostra na hora.", "Apresente três cenários (conservador, recomendado e expansivo) com verba, resultado esperado e risco. Fica mais simples o cliente decidir e você justificar a escolha."],
     },
     "campanha-em-formatos": {
-        "title": "Uma campanha, vários formatos, a mesma direção",
-        "summary": "Crie a peça principal, edite detalhes e produza variações de imagem e vídeo no Studio.",
+        "title": "Uma campanha de varejo em Feed, Stories, Reels e mídia exterior",
+        "summary": "Como manter oferta, preço e identidade ao adaptar a mesma peça para 1:1, 4:5, 9:16 e 16:9.",
         "image": "public-people/cadu-studio-detail-v1.jpg", "product": "Studio",
-        "steps": ["Abra a direção criativa do projeto", "Crie a imagem principal", "Faça edições avançadas", "Gere versões e vídeos", "Analise consistência e adequação"],
-        "details": ["Use referências, identidade e decisões já aprovadas como ponto de partida.", "Defina primeiro a composição que sustenta a ideia da campanha.", "Ajuste produto, cenário, enquadramento, cor, texto e acabamento sem reconstruir a peça.", "Adapte proporções, canais e movimento. Produza vídeo quando ele tiver uma função clara no plano.", "Passe as peças pelo Creative Analyzer e revise marca, clareza, formato e continuidade."],
+        "steps": ["Aprove a peça principal", "Liste os formatos por canal", "Respeite as áreas seguras", "Revise texto de oferta e aviso legal", "Gere as variações e o vídeo curto"],
+        "details": ["Comece pela composição que carrega a ideia: produto, oferta e assinatura da marca. Se ela não funciona no tamanho principal, não vai funcionar nas variações.", "Feed em 1:1 e 4:5, Stories e Reels em 9:16, display e YouTube em 16:9, e mídia exterior ou painel digital conforme o padrão do veículo. Cada formato é um pedido separado.", "Em 9:16, a parte de cima e a de baixo ficam sob a interface da plataforma. Deixe preço e botão longe dessas faixas, senão o que importa fica escondido.", "Preço, prazo da promoção, condições de parcelamento e avisos exigidos pelo segmento precisam estar corretos e legíveis em todas as versões. Confira cada uma antes de enviar à aprovação.", "Adapte proporção e cenário sem recomeçar a peça. O vídeo de 6 a 15 segundos entra quando houver movimento que explique a oferta, não apenas por ser possível."],
     },
     "resultado-no-projeto": {
-        "title": "Como devolver o resultado para a próxima campanha",
-        "summary": "Conecte relatórios ao projeto e transforme números em decisões que o time consegue reutilizar.",
+        "title": "Relatório mensal para o cliente: o que mostrar além de cliques e CPM",
+        "summary": "Resultado de negócio, comparativo com a meta e próximos passos, em vez de uma lista de métricas de plataforma.",
         "image": "public-people/cadu-reports-detail-v1.jpg", "product": "Reports",
-        "steps": ["Associe a campanha ao projeto", "Reúna as fontes de resultado", "Leia sinais e desvios", "Registre aprendizados", "Abra o próximo ciclo sem começar do zero"],
-        "details": ["O vínculo traz objetivo, público, peças e decisões para perto dos números.", "Conecte plataformas, planilhas e documentos usados pelo time para prestar contas.", "Compare o que aconteceu com a hipótese original e identifique o que pede ação.", "Converta a leitura em decisões claras, com fonte, data e impacto esperado.", "Reaproveite públicos, formatos, peças e aprendizados quando a próxima campanha começar."],
+        "steps": ["Comece pela meta combinada", "Mostre custo por resultado", "Compare com o mês anterior e com a meta", "Explique desvios e aprendizados", "Feche com as próximas ações"],
+        "details": ["Abra com o que o cliente pediu no briefing: leads, vendas, visitas à loja. Impressões e cliques entram como apoio, não como conclusão.", "CPL, CPA e ROAS dizem se o dinheiro rendeu. Para vídeo, taxa de retenção nos primeiros segundos mostra se o criativo prende.", "Um número isolado não informa nada. Mostre a variação contra o mês anterior, contra a meta e, quando fizer sentido, contra o mesmo mês do ano passado.", "Se o CPA subiu 20% porque a frequência passou de 5, diga isso e o que foi feito. Cliente confia mais em quem explica o desvio do que em quem o esconde.", "Termine com três ou quatro ações, cada uma com responsável e data. O relatório do mês seguinte começa cobrando essas ações."],
+    },
+    "teste-de-criativos": {
+        "title": "Teste de criativos no Meta: como testar sem queimar a verba",
+        "summary": "Uma variável por vez, verba mínima por variação e um critério de decisão definido antes de o teste começar.",
+        "image": "public-people/cadu-studio-detail-v1.jpg", "product": "Studio",
+        "steps": ["Escolha a hipótese a testar", "Mude uma variável por vez", "Defina verba e duração", "Decida o critério antes de rodar", "Registre o vencedor e o motivo"],
+        "details": ["Pergunte algo específico: a oferta de frete grátis performa mais que o desconto? O depoimento segura mais que a demonstração do produto? Teste sem pergunta vira só variação.", "Se mudar imagem, título e botão ao mesmo tempo, você não saberá o que funcionou. Crie três ou quatro versões que diferem em um único ponto.", "Cada variação precisa de verba para gerar volume suficiente de conversões; poucos cliques não provam nada. Rode por cinco a sete dias para passar o efeito do dia da semana.", "Escreva antes: \"vence quem tiver menor CPA com pelo menos 50 conversões\". Decidir depois, olhando os números, favorece a versão que você já preferia.", "Guarde o resultado com a hipótese, o período e o número que decidiu. No próximo teste, o time parte do que já foi aprendido e não repete o que já falhou."],
+    },
+    "proposta-para-novo-cliente": {
+        "title": "Proposta de mídia para um novo cliente em até 48 horas",
+        "summary": "Como a agência junta briefing, referências de mercado e três cenários de investimento para chegar ao pitch com uma recomendação defendida.",
+        "image": "public-people/cadu-planner-detail-v1.jpg", "product": "Planner",
+        "steps": ["Reúna o que o cliente já enviou", "Entenda categoria e concorrentes", "Defina objetivo e público", "Monte três cenários de verba", "Prepare a proposta com premissas claras"],
+        "details": ["Briefing, apresentações antigas, relatórios do fornecedor anterior e acessos às contas ficam no mesmo projeto desde o primeiro dia, mesmo antes do contrato.", "Veja como a categoria se comunica e onde investe. Uma farmácia de bairro e uma rede nacional não disputam o mesmo leilão nem o mesmo público.", "Transforme o pedido do cliente em meta mensurável. Se ele fala em \"aparecer mais\", proponha um indicador, como alcance na praça ou visitas ao site.", "Com a verba informada, apresente um cenário enxuto, um recomendado e um ambicioso. Cada um mostra canais, resultado esperado e o que muda no risco.", "Deixe escrito o que você assumiu: ticket médio, taxa de conversão, sazonalidade. Se o cliente corrigir uma premissa, o plano é recalculado em vez de refeito."],
     },
     "dicas-de-prompts": {
-        "title": "Como escrever pedidos que geram respostas úteis",
+        "title": "Como pedir um resumo de reunião de aprovação que o cliente leia",
         "summary": "Quatro informações que transformam um pedido genérico em uma resposta pronta para revisão, usando o contexto que o Cadu já tem.",
         "image": "public-people/cadu-workspace-detail-v1.jpg", "product": "Workspace",
-        "steps": ["Diga o objetivo da resposta", "Informe para quem ela se destina", "Escolha o formato de entrega", "Defina o tom", "Salve a resposta aprovada no projeto"],
-        "details": ["Explique o que você vai fazer com o resultado: decidir, apresentar, produzir ou revisar. O objetivo define a profundidade da resposta.", "Cliente, time interno ou público final pedem vocabulário e nível de detalhe diferentes. Diga quem vai ler.", "Peça lista, tabela, roteiro, texto curto ou plano em etapas. Um formato claro evita retrabalho de edição.", "Direto, técnico, institucional ou leve. Em uma frase você evita uma resposta correta no conteúdo e errada no jeito.", "Como marca e projeto já estão no Cadu, não repita o contexto: peça só o que falta e guarde a versão aprovada para as próximas conversas."],
+        "steps": ["Diga o objetivo da resposta", "Informe quem vai ler", "Escolha o formato de entrega", "Defina o tom", "Salve a versão aprovada no projeto"],
+        "details": ["\"Resuma a reunião\" é vago. \"Resuma as decisões da reunião de ontem para o cliente aprovar a verba de dezembro\" diz o que a resposta precisa servir.", "O diretor do cliente quer decisão e custo; o time de criação quer detalhe de formato e prazo. Diga quem vai receber e o resumo muda de vocabulário e de tamanho.", "Peça lista de decisões com responsável e data, tabela de pendências ou e-mail curto. Formato claro evita reescrever tudo depois.", "Direto e objetivo para o cliente executivo, mais detalhado para o time técnico. Uma frase sobre o tom evita uma resposta correta no conteúdo e errada no jeito.", "Como marca, projeto e ata já estão no Cadu, você não repete o contexto: pede só o que falta e guarda o texto aprovado para as próximas conversas."],
     },
     "conectar-agente-de-ia": {
         "title": "Como conectar o seu assistente de IA ao Cadu",
@@ -5643,7 +5659,7 @@ def public_solution(solution):
         abort(404)
     return render_template(
         'cadu_workspace/public_solution.html', solution=solution, content=content,
-        solutions=_public_solutions(),
+        solutions=_public_solutions(), function_groups=SOLUTION_FUNCTIONS.get(solution, []),
         canonical=product_url('workspace', f'/workspace/solucoes/{solution}'),
         description=content['lead'],
         analytics_page_type='solution', analytics_content_group='solutions',
@@ -5666,6 +5682,106 @@ def public_article(slug):
         analytics_product_interest=str(article['product']).lower(),
         analytics_content_topic=slug, analytics_journey_stage='consideration',
     )
+
+
+# Textos comerciais da página pública de planos. Preço, nomes, tokens, espaço,
+# pacotes e recursos vêm do catálogo único (cadu_billing_catalog), como na área logada.
+PUBLIC_PLAN_COPY = {
+    "free": {"eyebrow": "Para começar", "description": "Crie sua conta e conheça o Cadu com tokens para começar.",
+             "usage": "Exemplo: primeiras sínteses e testes de criação."},
+    "essencial": {"eyebrow": "Para testar com trabalho real", "description": "Uma base direta para campanhas e projetos menores.",
+                  "usage": "Exemplo: sínteses, pesquisa e testes de criação."},
+    "equipe": {"eyebrow": "Para uso recorrente", "description": "Para planejar, criar e acompanhar várias campanhas.",
+               "usage": "Exemplo: planejamento recorrente, criação de imagens e análise de campanhas."},
+    "agencia": {"eyebrow": "Para alto volume", "description": "Mais capacidade para agências e equipes com muitas marcas.",
+                "usage": "Exemplo: várias marcas, vídeos, alto volume de criação e relatórios."},
+}
+# Plano de cadastro: toda conta nova começa aqui, então o botão leva ao cadastro.
+PUBLIC_FREE_PLAN = {"slug": "free", "name": "Free", "price_monthly": 0.0, "highlight": False,
+                    "tokens_monthly": 100_000, "storage_gb": None, "features": ["Workspace para começar"]}
+
+
+def _pt_int(value) -> str:
+    return f"{int(value):,}".replace(",", ".")
+
+
+def _brl_label(value) -> str:
+    if value is None:
+        return "Consulte"
+    number = float(value)
+    text = f"{number:,.0f}" if number.is_integer() else f"{number:,.2f}"
+    return "R$ " + text.translate(str.maketrans(",.", ".,"))
+
+
+def _tokens_short(value) -> str:
+    number = int(value or 0)
+    if number <= 0:
+        return "Consulte"
+    if number % 1_000_000 == 0:
+        return f"{number // 1_000_000} mi"
+    if number % 1_000 == 0:
+        return f"{number // 1_000} mil"
+    return _pt_int(number)
+
+
+def _storage_label(gb) -> str:
+    return "Consulte" if gb in (None, "", 0) else f"{float(gb):g} GB"
+
+
+def _public_plan_card(plan: dict, *, signup_url: str, contact_url: str) -> dict:
+    slug = plan["slug"]
+    copy = PUBLIC_PLAN_COPY.get(slug, {})
+    is_free = slug == "free"
+    price = plan.get("price_monthly")
+    short = _tokens_short(plan.get("tokens_monthly"))
+    storage = _storage_label(plan.get("storage_gb"))
+    if is_free:
+        price_main, price_unit = "Grátis", ""
+    else:
+        price_main = _brl_label(price)
+        price_unit = "/mês" if price is not None else ""
+    return {
+        "name": plan["name"], "slug": slug, "highlight": bool(plan.get("highlight")), "price_monthly": price,
+        "eyebrow": copy.get("eyebrow", ""), "description": copy.get("description", plan.get("tagline", "")),
+        "usage": copy.get("usage", ""),
+        "price_main": price_main, "price_unit": price_unit,
+        "price_text": price_main + price_unit,
+        "tokens_short": short,
+        "tokens_text": f"{short} tokens" if short != "Consulte" else "Consulte",
+        "tokens_line": (f"{short} tokens {'para começar' if is_free else 'por mês'}" if short != "Consulte"
+                        else "Tokens: Consulte"),
+        "storage_text": storage,
+        "storage_line": f"{storage} de espaço" if storage != "Consulte" else "Espaço: Consulte",
+        "users_text": "Ilimitados",
+        "features": list(plan.get("features") or []),
+        "href": signup_url if is_free else contact_url,
+        "cta_label": "Começar" if is_free else "Falar com a equipe",
+    }
+
+
+def _public_plan_view() -> dict:
+    from .. import db
+    from ..cadu_billing_catalog import PLAN_CATALOG, commercial_plans, load_packages, storage_packages
+    try:
+        definitions = [dict(row) for row in db.obter_plan_definitions(apenas_ativos=True)]
+    except Exception:
+        current_app.logger.warning("Planos públicos sem definições do banco; usando o catálogo do código", exc_info=True)
+        definitions = []
+    catalog_slugs = [item["slug"] for item in PLAN_CATALOG]
+    paid = {item["slug"]: item for item in commercial_plans(definitions) if item["slug"] in catalog_slugs}
+    urls = {"signup_url": product_url("auth", "/signup"), "contact_url": url_for("cadu_workspace.public_page", page="contato")}
+    cards = [_public_plan_card(PUBLIC_FREE_PLAN, **urls)]
+    cards += [_public_plan_card(paid[slug], **urls) for slug in catalog_slugs if slug in paid]
+    extra_packages = [{"name": item["name"], "description": item.get("description", ""),
+                       "price_text": _brl_label(item.get("price_brl")), "tokens_text": f"{_tokens_short(item.get('tokens'))} tokens"}
+                      for item in load_packages()]
+    extra_storage = [{"name": item["name"], "price_text": _brl_label(item.get("price_brl")),
+                      "gb_text": _storage_label(item.get("gb"))} for item in storage_packages()]
+    schema = {"@context": "https://schema.org", "@type": "Product", "name": "Cadu Media",
+              "description": PUBLIC_PAGES["planos"]["description"],
+              "offers": [{"@type": "Offer", "name": card["name"], "price": card["price_monthly"], "priceCurrency": "BRL"}
+                         for card in cards if card["price_monthly"] is not None]}
+    return {"plan_cards": cards, "extra_packages": extra_packages, "extra_storage": extra_storage, "plan_schema": schema}
 
 
 @bp.route("/workspace/<page>", methods=["GET", "POST"])
@@ -5752,6 +5868,7 @@ def public_page(page):
                 except Exception:
                     current_app.logger.exception('Contato público salvo, mas a notificação por email falhou')
                 return redirect(url_for('cadu_workspace.public_contact_thanks'), code=303)
+    plan_view = _public_plan_view() if page == 'planos' else {}
     content_group = {'planos': 'pricing', 'contato': 'contact', 'ajuda': 'support'}.get(page, 'institutional')
     journey_stage = 'intent' if page in {'planos', 'contato'} else 'consideration'
     return render_template(
@@ -5762,7 +5879,7 @@ def public_page(page):
         contact_form=contact_form,
         analytics_page_type=page, analytics_content_group=content_group,
         analytics_product_interest='cadu_media', analytics_content_topic=page,
-        analytics_journey_stage=journey_stage,
+        analytics_journey_stage=journey_stage, **plan_view,
     ), response_status
 
 

@@ -146,3 +146,24 @@ class CaduGrowthRecurringModelsTests(unittest.TestCase):
             for key in ("planner-radar", "studio-criar"):
                 url = build_growth_email_for_test(key)["params"]["SECONDARY_URL"]
                 self.assertTrue(url.startswith(product_url("workspace", "/workspace/conteudos/")), url)
+
+
+class EmailAssetDomainTests(unittest.TestCase):
+    def test_imagens_de_email_usam_o_dominio_publico_do_workspace_e_nunca_o_interno(self):
+        from aicentralv2.services.brevo_service import PRODUCT_EMAIL_BRANDS, product_email_brand
+        app = Flask(__name__, template_folder="../aicentralv2/templates")
+        app.config.update(WORKSPACE_URL="https://workspace.example/")
+        with app.app_context():
+            for product in PRODUCT_EMAIL_BRANDS:
+                brand = product_email_brand(product)
+                for field in ("icon_url", "logo_url", "illustrations_url"):
+                    if field in brand:
+                        self.assertTrue(brand[field].startswith("https://workspace.example/static/"), brand[field])
+            model = build_growth_email_for_test("planner-radar")["params"]
+            self.assertTrue(model["BRAND_BAND_URL"].startswith("https://workspace.example/static/"))
+            self.assertTrue(model["ILLUSTRATION_URL"].startswith("https://workspace.example/static/emails/growth/"))
+        self.assertNotIn("ai.centralcomm.media", str(PRODUCT_EMAIL_BRANDS))
+
+    def test_sem_contexto_flask_usa_o_dominio_publico_padrao(self):
+        from aicentralv2.services.brevo_service import email_asset_url
+        self.assertEqual(email_asset_url("/static/x.png"), "https://workspace.centralcomm.media/static/x.png")

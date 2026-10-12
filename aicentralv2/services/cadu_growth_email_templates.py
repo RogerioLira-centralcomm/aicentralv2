@@ -10,20 +10,20 @@ from flask import current_app, has_request_context, render_template
 from markupsafe import Markup, escape
 
 from aicentralv2.product_domains import product_url
-from aicentralv2.services.brevo_service import get_brevo_product_service, product_email_brand
+from aicentralv2.services.brevo_service import email_asset_url, get_brevo_product_service, product_email_brand
 
 
 # Nunca aceitar o destinatário por formulário: a suíte é exclusiva de homologação.
 BREVO_GROWTH_TEST_RECIPIENT = "apolo@centralcomm.media"
 GROWTH_EMAIL_BAND_URLS = {
-    "workspace": "https://ai.centralcomm.media/static/images/cadu/email/bands/workspace-band-v2.png",
-    "studio": "https://ai.centralcomm.media/static/images/cadu/email/bands/studio-band-v2.png",
-    "connect": "https://ai.centralcomm.media/static/images/cadu/email/bands/connect-band-v2.png",
-    "skills": "https://ai.centralcomm.media/static/images/cadu/email/bands/skills-band-v2.png",
-    "planner": "https://ai.centralcomm.media/static/images/cadu/email/bands/planner-band-v2.png",
+    "workspace": "/static/images/cadu/email/bands/workspace-band-v2.png",
+    "studio": "/static/images/cadu/email/bands/studio-band-v2.png",
+    "connect": "/static/images/cadu/email/bands/connect-band-v2.png",
+    "skills": "/static/images/cadu/email/bands/skills-band-v2.png",
+    "planner": "/static/images/cadu/email/bands/planner-band-v2.png",
 }
 
-GROWTH_EMAIL_ILLUSTRATIONS_URL = "https://ai.centralcomm.media/static/emails/growth/"
+GROWTH_EMAIL_ILLUSTRATIONS_URL = "/static/emails/growth/"
 
 GROWTH_EMAIL_MODELS: Dict[str, Dict[str, str]] = {
     "conversa-para-plano": {
@@ -222,14 +222,14 @@ def build_growth_email(model_key: str, *, body: str | None = None) -> Dict[str, 
         "product": product,
         "params": {
             "BRAND": product_email_brand(product),
-            "BRAND_BAND_URL": GROWTH_EMAIL_BAND_URLS[product],
+            "BRAND_BAND_URL": email_asset_url(GROWTH_EMAIL_BAND_URLS[product]),
             "TITLE": model["title"],
             "DESCRIPTION": model["description"],
             "BODY_HTML": _format_body_html(body or model["default_body"]),
             "CTA_LABEL": model["cta_label"],
             "CTA_URL": _absolute_url(product, model["cta_path"]),
             "EYEBROW": model.get("eyebrow", ""),
-            "ILLUSTRATION_URL": (GROWTH_EMAIL_ILLUSTRATIONS_URL + model["illustration"]) if model.get("illustration") else "",
+            "ILLUSTRATION_URL": email_asset_url(GROWTH_EMAIL_ILLUSTRATIONS_URL + model["illustration"]) if model.get("illustration") else "",
             "SECONDARY_LABEL": model.get("secondary_label", ""),
             "SECONDARY_URL": _absolute_url(model.get("secondary_product", product), model["secondary_path"]) if model.get("secondary_path") else "",
         },

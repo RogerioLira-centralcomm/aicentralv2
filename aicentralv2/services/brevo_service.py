@@ -23,13 +23,25 @@ LISTA_USUARIOS_ATIVOS = 21
 LISTA_CONVITES_PENDENTES = 22
 LISTA_USUARIOS_INATIVOS = 23
 
+PUBLIC_EMAIL_ASSET_FALLBACK = "https://workspace.centralcomm.media"
+
+
+def email_asset_url(path: str) -> str:
+    """URL pública de um arquivo estático usado em e-mails (domínio do Workspace, nunca o interno)."""
+    try:
+        base = str(current_app.config.get("WORKSPACE_URL") or "").strip().rstrip("/")
+    except RuntimeError:  # fora de contexto Flask (scripts, testes isolados)
+        base = ""
+    return f"{base or PUBLIC_EMAIL_ASSET_FALLBACK}/{str(path).lstrip('/')}"
+
+
 # A assinatura é única (contato@centralcomm.media); a aparência identifica o produto.
 PRODUCT_EMAIL_BRANDS = {
-    "workspace": {"name": "Workspace", "accent": "#007D6D", "deep": "#10213B", "soft": "#E9F6F3", "signal": "#009F8A", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/workspace-192.png", "illustrations_url": "https://ai.centralcomm.media/static/emails/workspace/"},
-    "studio": {"name": "Media Studio", "accent": "#6344CF", "deep": "#10213B", "soft": "#F1EDFC", "signal": "#7456E8", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/studio-192.png", "logo_url": "https://ai.centralcomm.media/static/images/cadu/products/studio-icon.png"},
-    "planner": {"name": "Planner", "accent": "#087D4D", "deep": "#10213B", "soft": "#E8F7EF", "signal": "#18B978", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/planner-192.png"},
-    "skills": {"name": "Skills", "accent": "#A94D08", "deep": "#10213B", "soft": "#FFF2E7", "signal": "#E87922", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/skills-192.png"},
-    "connect": {"name": "Reports", "accent": "#1363C5", "deep": "#10213B", "soft": "#EAF2FD", "signal": "#1976E9", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/connect-192.png"},
+    "workspace": {"name": "Workspace", "accent": "#007D6D", "deep": "#10213B", "soft": "#E9F6F3", "signal": "#009F8A", "icon_url": "/static/images/cadu/brand-icons/workspace-192.png", "illustrations_url": "/static/emails/workspace/"},
+    "studio": {"name": "Media Studio", "accent": "#6344CF", "deep": "#10213B", "soft": "#F1EDFC", "signal": "#7456E8", "icon_url": "/static/images/cadu/brand-icons/studio-192.png", "logo_url": "/static/images/cadu/products/studio-icon.png"},
+    "planner": {"name": "Planner", "accent": "#087D4D", "deep": "#10213B", "soft": "#E8F7EF", "signal": "#18B978", "icon_url": "/static/images/cadu/brand-icons/planner-192.png"},
+    "skills": {"name": "Skills", "accent": "#A94D08", "deep": "#10213B", "soft": "#FFF2E7", "signal": "#E87922", "icon_url": "/static/images/cadu/brand-icons/skills-192.png"},
+    "connect": {"name": "Reports", "accent": "#1363C5", "deep": "#10213B", "soft": "#EAF2FD", "signal": "#1976E9", "icon_url": "/static/images/cadu/brand-icons/connect-192.png"},
 }
 
 
@@ -38,7 +50,12 @@ def product_email_brand(product: str = "workspace") -> Dict[str, str]:
     key = str(product or "workspace").strip().lower()
     if key not in PRODUCT_EMAIL_BRANDS:
         raise ValueError(f"Produto de e-mail inválido: {product}")
-    return PRODUCT_EMAIL_BRANDS[key]
+    # Imagens de e-mail saem do domínio público do Workspace; ai.centralcomm.media é o acesso interno.
+    brand = dict(PRODUCT_EMAIL_BRANDS[key])
+    for field in ("icon_url", "logo_url", "illustrations_url"):
+        if brand.get(field, "").startswith("/static/"):
+            brand[field] = email_asset_url(brand[field])
+    return brand
 
 # Listas na pasta Contatos (Brevo): "[Vendedor] - Clientes" / "[Vendedor] - Leads"
 LISTA_CONTATOS_LUISA_CLIENTES = 37

@@ -49,7 +49,7 @@ def test_email_without_concept_falls_back_to_the_brand_and_escapes_html():
 
 def test_run_finished_sends_to_the_owner_and_uses_the_first_name(monkeypatch):
     sent = []
-    monkeypatch.setattr(notify, '_send', lambda *args: sent.append(args))
+    monkeypatch.setattr(notify, '_send', lambda *args, **kwargs: sent.append(args))
     run = {'opportunities': ANGLES, 'signals': BUZZ, 'focus': 'tema', 'params': {'places': 'BH', 'recency_days': 7}, 'tokens': 125, 'trigger': 'manual'}
     with Flask(__name__).app_context():
         assert notify.run_finished({'name': 'Ana Souza', 'email': ''}, run=run, brand='Cemig', run_url='u', radars_url='r') is False
@@ -60,7 +60,7 @@ def test_run_finished_sends_to_the_owner_and_uses_the_first_name(monkeypatch):
 
 def test_a_scheduled_radar_without_news_stays_quiet_but_a_manual_search_always_answers(monkeypatch):
     sent = []
-    monkeypatch.setattr(notify, '_send', lambda *args: sent.append(args))
+    monkeypatch.setattr(notify, '_send', lambda *args, **kwargs: sent.append(args))
     user = {'name': 'Ana', 'email': 'ana@x.com'}
     with Flask(__name__).app_context():
         empty = {'opportunities': [], 'signals': [], 'focus': 'tema', 'params': {}, 'tokens': 0}
@@ -77,8 +77,12 @@ def test_a_provider_failure_is_swallowed(monkeypatch):
         def enviar_email(self, **kwargs):
             raise RuntimeError('brevo fora')
 
-    monkeypatch.setattr(brevo_service, 'get_brevo_service', lambda: Broken())
-    notify._send(Flask(__name__), 'ana@x.com', 'Ana', 's', 't', 'h')  # não levanta
+    recorded = []
+    monkeypatch.setattr(brevo_service, 'get_brevo_product_service', lambda product: Broken())
+    monkeypatch.setattr('aicentralv2.email_service.record_workspace_email_event', lambda **kw: recorded.append(kw))
+    notify._send(Flask(__name__), 'ana@x.com', 'Ana', 's', 't', 'h', client_id=9)  # não levanta
+    assert recorded[0]['event_type'] == 'planner.radar_finished' and recorded[0]['result']['success'] is False
+    assert recorded[0]['client_id'] == 9
 
 
 def test_api_403_returns_the_reason_instead_of_a_generic_html_page():
@@ -104,3 +108,33 @@ def test_buzz_date_keeps_the_reporting_day_whatever_the_database_timezone():
     stored = datetime(2026, 10, 1, tzinfo=timezone.utc).astimezone(ZoneInfo('America/Sao_Paulo'))  # 30/09 21:00 no fuso do banco
     assert notify._day(stored) == '01/10' and notify._day(datetime(2026, 10, 1, tzinfo=timezone.utc)) == '01/10'
     assert notify._day('2026-10-01') == '01/10' and notify._day(None) == ''
+
+
+def test_links_do_buzz_so_aceitam_http_e_https():
+    buzz = [{**BUZZ[0], 'url': 'javascript:alert(1)'}, {**BUZZ[1], 'url': 'data:text/html,x'}]
+    _, _, html = notify.compose(**{**BASE, 'buzz': buzz})
+    assert 'javascript:' not in html and 'data:text' not in html
+    assert 'Bandeira verde em outubro' in html  # a manchete continua, só sem link
+
+
+def test_email_segue_o_padrao_do_planner_e_tem_saida_para_radar_agendado():
+    _, _, manual = notify.compose(**BASE)
+    assert '#087D4D' in manual and 'planner-band-v2.png' in manual and 'name="viewport"' in manual
+    assert 'iniciou uma busca' in manual and '#067647' not in manual
+    subject, _, scheduled = notify.compose(**{**BASE, 'scheduled': True})
+    assert subject == 'Radar: 2 ângulos novos sobre consumo consciente no fim do ano'
+    assert 'Para pausar' in scheduled and BASE['radars_url'] in scheduled and 'Novidades do seu radar' in scheduled
+
+
+def test_sem_nome_a_saudacao_e_so_ola():
+    _, text, _ = notify.compose(**{**BASE, 'name': ''})
+    assert text.startswith('Olá!') and 'tudo bem' not in text
+
+
+def test_radar_agendado_envia_com_o_cliente_para_o_registro(monkeypatch):
+    calls = []
+    monkeypatch.setattr(notify, '_send', lambda *args, **kwargs: calls.append(kwargs))
+    run = {'opportunities': ANGLES, 'signals': BUZZ, 'focus': 'tema', 'params': {}, 'tokens': 1, 'trigger': 'agendado'}
+    with Flask(__name__).app_context():
+        notify.run_finished({'name': 'Ana', 'email': 'ana@x.com', 'organization_id': 7}, run=run, brand='X', run_url='u', radars_url='r')
+    assert calls == [{'client_id': 7, 'scheduled': True}]

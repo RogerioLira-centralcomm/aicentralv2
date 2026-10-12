@@ -241,6 +241,8 @@ class BrevoService:
         reply_to: Dict[str, str] = None,
         attachments: List[Dict] = None,
         cc_email: Union[str, List[str]] = None,
+        headers: Dict[str, str] = None,
+        tags: List[str] = None,
     ) -> Dict[str, Any]:
         """
         Envia email transacional via API Brevo
@@ -285,6 +287,12 @@ class BrevoService:
         
         if attachments:
             payload["attachment"] = attachments
+
+        if headers:
+            payload["headers"] = headers
+
+        if tags:
+            payload["tags"] = list(tags)
         
         try:
             response = requests.post(

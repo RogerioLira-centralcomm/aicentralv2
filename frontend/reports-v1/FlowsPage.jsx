@@ -187,15 +187,19 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   const [pagesDays,setPagesDays]=useState(30);
   const [pagesReload,setPagesReload]=useState(0);
   const [pagesState,setPagesState]=useState({key:'',data:null,error:''});
+  // Read only while the tab is open (it scans the site's events), and again once the saved draft has other pages.
+  const pagesSignature=useMemo(()=>(flowConfig.nodes||[]).filter(node=>['page','form','conversion','error'].includes(node.type)).map(node=>`${node.id}:${node.host||''}${node.path||''}`).sort().join('|'),[flowConfig.nodes]);
+  // The server reads the saved draft, so wait until the autosave has caught up with the map.
+  const pagesSaved=editorSaveState==='saved'&&(editorMode!=='pages'||JSON.stringify({name:flowName,config:flowConfig})===savedSnapshotRef.current);
   useEffect(()=>{
-    if(flowView!=='edit'||!selectedFlowId)return undefined;
-    const key=`${selectedFlowId}:${pagesDays}:${pagesReload}`;let cancelled=false;
+    if(flowView!=='edit'||!selectedFlowId||editorMode!=='pages'||!pagesSaved)return undefined;
+    const key=`${selectedFlowId}:${pagesDays}:${pagesReload}:${pagesSignature}`;if(pagesState.key===key)return undefined;let cancelled=false;
     setPagesState(current=>current.key===key?current:{key,data:null,error:''});
     json(`/connect/api/v2/reports/flow/flows/${selectedFlowId}/pages?days=${pagesDays}`)
       .then(result=>{if(!cancelled)setPagesState({key,data:result,error:''});})
       .catch(failure=>{if(!cancelled)setPagesState({key,data:null,error:failure.message||'Não foi possível ler as páginas.'});});
     return()=>{cancelled=true;};
-  },[flowView,selectedFlowId,pagesDays,pagesReload]);
+  },[flowView,selectedFlowId,pagesDays,pagesReload,editorMode,pagesSaved,pagesSignature]);
   const pageUsage=useMemo(()=>Object.fromEntries((pagesState.data?.pages||[]).filter(row=>row.status==='measured'||row.status==='idle').map(row=>[row.node_id,row])),[pagesState.data]);
   const [simulatedPath,setSimulatedPath]=useState([]);
   const [journeyDays,setJourneyDays]=useState(30);

@@ -9,6 +9,7 @@ from flask import abort, jsonify, request
 
 from ..auth import login_required_api
 from ..db import get_db
+from .reports_page_identity import normalize_host
 from .reports_v1 import _rows, _selection, _write_guard
 
 CATALOG_MAX_PAGES = 5000
@@ -37,8 +38,12 @@ def client_hosts(client_id):
 def _host_param(client_id):
     hosts = client_hosts(client_id)
     host = (request.args.get('host') or (request.get_json(silent=True) or {}).get('host') or '').strip().lower().rstrip('.')
-    if host and host not in hosts:
-        abort(400, description='Esse domínio não está entre os sites do cliente.')
+    if host:
+        # 'www.' is the same site: answer with the domain as the client registered it.
+        match = next((item for item in hosts if normalize_host(item) == normalize_host(host)), None)
+        if match is None:
+            abort(400, description='Esse domínio não está entre os sites do cliente.')
+        host = match
     return host or (hosts[0] if hosts else ''), hosts
 
 
@@ -100,12 +105,13 @@ def observed_next_pages(client_id, host, path, limit=8):
         return _rows('''WITH recent AS (
                 SELECT session_id,page_path,occurred_at,id FROM cadu_reports_flow_events
                 WHERE client_id=%s AND event_kind IN ('page_view','conversion')
-                  AND occurred_at > NOW() - INTERVAL '30 days' AND page_host=%s
+                  AND occurred_at > NOW() - INTERVAL '30 days'
+                  AND LOWER(REGEXP_REPLACE(COALESCE(page_host,''),'^www\\.',''))=%s
             ), ordered AS (
                 SELECT page_path,LEAD(page_path) OVER (PARTITION BY session_id ORDER BY occurred_at,id) AS next_path FROM recent
             ) SELECT next_path AS path,COUNT(*)::bigint AS passes FROM ordered
               WHERE page_path=%s AND next_path IS NOT NULL AND next_path<>page_path
-              GROUP BY next_path ORDER BY passes DESC LIMIT %s''', (client_id, host, path, int(limit)))
+              GROUP BY next_path ORDER BY passes DESC LIMIT %s''', (client_id, normalize_host(host), path, int(limit)))
     except Exception:  # a slow or missing event table only removes the observed hint
         db.rollback()
         return []

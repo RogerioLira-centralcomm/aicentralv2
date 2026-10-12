@@ -27,6 +27,7 @@ class FlowPageRowsTests(unittest.TestCase):
         {'id': 'contato', 'type': 'form', 'title': 'Contato', 'path': '/contato'},
         {'id': 'fim', 'type': 'conversion', 'title': 'Obrigado', 'path': '/obrigado'},
         {'id': 'fora', 'type': 'page', 'title': 'Parceiro', 'path': '/x', 'host': 'outro.com'},
+        {'id': '404', 'type': 'error', 'title': 'Não encontrada', 'path': '/404'},
         {'id': 'meta', 'type': 'source', 'title': 'Meta'},
     ], 'edges': [{'from': 'home', 'to': 'contato'}, {'from': 'home', 'to': 'blog'}, {'from': 'contato', 'to': 'fim'}]}
 
@@ -54,6 +55,8 @@ class FlowPageRowsTests(unittest.TestCase):
         self.assertNotIn('meta', rows)
         # The thank-you page ends the visit by design: it has numbers but no usage score.
         self.assertEqual((rows['fim']['sessions'], rows['fim']['score']), (25, None))
+        # An error page nobody reaches is the good case: it is not reported as a page without traffic.
+        self.assertEqual((rows['404']['status'], rows['404']['score']), ('quiet', None))
 
 
 if __name__ == '__main__':

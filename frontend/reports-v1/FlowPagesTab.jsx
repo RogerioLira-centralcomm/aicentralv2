@@ -20,7 +20,7 @@ const seconds = value => {
 /** The usage score as a pill; without a score it says why. */
 export function UsageScore({row, compact = false}) {
   if (row.score == null) {
-    const why = row.status === 'idle' ? 'Sem tráfego' : row.type === 'conversion' ? 'Etapa final' : row.small_sample ? 'Amostra pequena' : row.status === 'external' ? 'Outro domínio' : row.status === 'no_address' ? 'Sem endereço' : 'Sem nota';
+    const why = row.status === 'idle' ? 'Sem tráfego' : row.type === 'conversion' ? 'Etapa final' : row.type === 'error' ? 'Página de erro' : row.small_sample ? 'Amostra pequena' : row.status === 'external' ? 'Outro domínio' : row.status === 'no_address' ? 'Sem endereço' : 'Sem nota';
     return <span className="flow-usage-score is-empty" title={row.small_sample ? 'Menos sessões que o mínimo para dar nota' : undefined}>{why}</span>;
   }
   const parts = Object.entries(row.components || {}).map(([key, value]) => `${COMPONENT_LABELS[key]}: ${value}`).join(' · ');

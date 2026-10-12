@@ -34,6 +34,7 @@ const pagesData={status:'ready',window:{days:30},site_id:'33333333-3333-4333-833
   idle:{flow:[row('blog','Blog','page','/blog',{status:'idle',sessions:0})],site:[{path:'/trabalhe-conosco',name:'Trabalhe Conosco',title:null},{path:'/blog/post-antigo',name:'Blog · Post Antigo',title:'Um post antigo'}],site_total:2,catalog:true}};
 const html='<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/static/cadu_connect/react/app.css"><link rel="stylesheet" href="/static/cadu_connect/react/untitled.css"></head><body><div id="cadu-reports-v1-root"></div><script type="module" src="/static/cadu_connect/react/app.js"></script></body></html>';
 const server=http.createServer((req,res)=>{const pathname=new URL(req.url,'http://localhost').pathname;if(pathname.startsWith('/static/')){const file=path.join(root,'aicentralv2',pathname);if(fs.existsSync(file)){res.setHeader('Content-Type',file.endsWith('.css')?'text/css':file.endsWith('.js')?'text/javascript':'image/png');return res.end(fs.readFileSync(file));}res.statusCode=404;return res.end();}res.setHeader('Content-Type','text/html');res.end(html);});
+let pagesRequests=0;
 const waitFor=async(check,label)=>{for(let i=0;i<100;i++){if(check())return;await new Promise(r=>setTimeout(r,100));}assert.fail(label);};
 
 (async()=>{
@@ -48,7 +49,7 @@ const waitFor=async(check,label)=>{for(let i=0;i<100;i++){if(check())return;awai
       if(p.endsWith('/bootstrap'))data={ready:true,features:{flows_workspace_v2:true},client:{client_id:1,role:'admin',client_name:'Teste'},clients:[{id:1,name:'Teste'}],accounts:[],campaigns:[],reports:[],link_tests:[],workspace_projects:[],csrf:'test'};
       else if(p.endsWith('/flow'))data={flows:[flow],activity:[],events:[],tags:[],steps:[],tag_urls:{},supertag_sites:[],canvas_nodes:flow.config.nodes,canvas_edges:flow.config.edges};
       else if(p.endsWith(`/flows/${id}`)&&method==='PATCH'){const payload=route.request().postDataJSON();Object.assign(flow,{config:payload.config,draft_revision:flow.draft_revision+1});data={flow};}
-      else if(p.endsWith(`/flows/${id}/pages`))data=pagesData;
+      else if(p.endsWith(`/flows/${id}/pages`)){pagesRequests+=1;data=pagesData;}
       else if(p.endsWith('/site-pages/next')){nextQueries.push(Object.fromEntries(url.searchParams));data={host:'example.test',catalog:true,observed_total:50,pages:[{host:'example.test',path:'/blog/guia-completo',name:'Blog · Guia Completo',title:'Guia completo',reason:'observed',passes:40,confidence:.8}]};}
       else if(p.endsWith('/site-pages'))data={hosts:['example.test'],host:'example.test',pages:[],page_count:0};
       else if(p.endsWith('/versions'))data={versions:[{revision:1,name:'Teste'}]};
@@ -95,7 +96,7 @@ const waitFor=async(check,label)=>{for(let i=0;i<100;i++){if(check())return;awai
     await page.screenshot({path:path.join(out,'board-editor-append-1440.png')});
 
     // Pages tab: usage score per page for managers, and the pages nobody visits (flow and sitemap).
-    assert.match(await page.locator('.react-flow__node[data-id="home"] .fnode__usage').innerText(),/78/);
+    assert.equal(pagesRequests,0,'the site scan only runs when the Pages tab is opened');
     await page.getByRole('group',{name:'Modo do fluxo'}).getByRole('button',{name:/^Páginas/}).click();
     const tab=page.getByRole('region',{name:'Páginas do fluxo'});await tab.waitFor();
     const usageRows=tab.getByRole('table',{name:'Uso das páginas do fluxo'}).getByRole('row');
@@ -107,6 +108,8 @@ const waitFor=async(check,label)=>{for(let i=0;i<100;i++){if(check())return;awai
     await page.screenshot({path:path.join(out,'board-pages-idle-1440.png')});
     await tab.getByRole('region',{name:'Páginas do fluxo sem tráfego'}).getByRole('button',{name:'Ver no mapa'}).click();
     await page.locator('.react-flow__node[data-id="blog"].selected').waitFor();
+    assert.match(await page.locator('.react-flow__node[data-id="home"] .fnode__usage').innerText(),/78/,'scores read in the tab stay on the cards');
+    assert.equal(pagesRequests,1);
 
     // Monitor: measured strokes with a scale, cards that can be arranged for this screen only.
     await page.goto(`${base}/connect/app/flows/${id}/monitor?client_id=1`);

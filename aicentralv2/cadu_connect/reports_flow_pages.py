@@ -37,7 +37,10 @@ _PAGES_SQL = _EVENTS + '''
     SELECT path,COUNT(*)::bigint AS views,COUNT(DISTINCT session_id)::bigint AS sessions,
         COUNT(*) FILTER (WHERE position=1)::bigint AS entries,COUNT(*) FILTER (WHERE position=length)::bigint AS exits,
         COUNT(*) FILTER (WHERE position=1 AND length=1)::bigint AS single_page
-    FROM views GROUP BY path ORDER BY views DESC LIMIT 5000'''
+    FROM views WHERE path=ANY(%(paths)s) GROUP BY path'''
+# Which sitemap pages had at least one view: asked for exactly those paths, so no ranking cut can hide a visited page.
+_VISITED_SQL = _EVENTS + '''
+    SELECT DISTINCT path FROM ev WHERE event_kind='page_view' AND path=ANY(%(catalog)s)'''
 _ENGAGEMENT_SQL = _EVENTS + '''
     SELECT path,PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY dur) FILTER (WHERE event_kind='page_leave') AS median_active_ms,
         COUNT(*) FILTER (WHERE event_kind='page_leave' AND dur IS NOT NULL)::bigint AS measured_visits,
@@ -118,9 +121,10 @@ def flow_page_rows(config, host, pages, engagement, transitions):
         advanced = sum(transitions.get((path, target_path), 0) for target_path, _ in followers)
         advance_rate = _rate(advanced, sessions) if followers and sessions else None
         exit_rate = _rate(exits, views)
-        # A thank-you page is where a visit should end: it is read by its conversions, not by a usage score.
-        score, components = (None, {}) if node['type'] == 'conversion' else usage_score(sessions, median, scroll_50, scroll_75, advance_rate, exit_rate)
-        out.append({**base, 'status': 'idle' if not sessions else 'measured', 'sessions': sessions, 'views': views,
+        # A thank-you page ends the visit by design and an error page should not be visited at all: neither gets a
+        # usage score, and an error page without traffic is not a problem to report.
+        score, components = (None, {}) if node['type'] in ('conversion', 'error') else usage_score(sessions, median, scroll_50, scroll_75, advance_rate, exit_rate)
+        out.append({**base, 'status': 'measured' if sessions else 'quiet' if node['type'] == 'error' else 'idle', 'sessions': sessions, 'views': views,
                     'median_active_seconds': round(median, 1) if median is not None else None,
                     'scroll_50': scroll_50, 'scroll_75': scroll_75, 'advance_rate': advance_rate,
                     'next_steps': [target.get('title') or target_path for target_path, target in followers],
@@ -151,7 +155,11 @@ def register(bp):
         with db.cursor() as cursor:
             cursor.execute("SET LOCAL statement_timeout = '15s'")
         try:
-            pages = {row['path']: row for row in _rows(_PAGES_SQL, scope)}
+            pages = {row['path']: row for row in _rows(_PAGES_SQL, scope)} if flow_paths else {}
+            catalog = _rows('SELECT path,name,title FROM cadu_reports_site_pages WHERE client_id=%s AND host=%s',
+                            (selected['client_id'], site['allowed_host']))
+            catalog_paths = sorted({normalize_path(row['path']) for row in catalog})
+            visited = {row['path'] for row in _rows(_VISITED_SQL, {**scope, 'catalog': catalog_paths})} if catalog_paths else set()
             engagement = {row['path']: row for row in _rows(_ENGAGEMENT_SQL, scope)} if flow_paths else {}
             transitions = {(row['path'], row['next_path']): int(row['sessions']) for row in _rows(_TRANSITIONS_SQL, scope)} if flow_paths else {}
         except Exception as failure:
@@ -160,10 +168,8 @@ def register(bp):
                 abort(503, description='A leitura das páginas demorou demais. Tente um período menor.')
             raise
         rows = flow_page_rows(config, host, pages, engagement, transitions)
-        catalog = _rows('SELECT path,name,title FROM cadu_reports_site_pages WHERE client_id=%s AND host=%s',
-                        (selected['client_id'], site['allowed_host']))
         in_flow = set(flow_paths)
-        idle_site = sorted((row for row in catalog if normalize_path(row['path']) not in pages and normalize_path(row['path']) not in in_flow),
+        idle_site = sorted((row for row in catalog if normalize_path(row['path']) not in visited and normalize_path(row['path']) not in in_flow),
                            key=lambda row: (row['path'].count('/'), len(row['path']), row['path']))
         return jsonify(status='ready', window=window, site_id=str(site['id']), host=site['allowed_host'],
                        min_sessions=MIN_SCORE_SESSIONS, weights=WEIGHTS, pages=rows,

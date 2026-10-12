@@ -215,3 +215,5 @@ migrations/run_sql_migration.py add_brand_asset_illustration_role.sql
 migrations/run_sql_migration.py add_cadu_project_sidebar_visibility.sql
 # Sequência de e-mails de adoção, preferências de contato e ledger único de envios (aditivo, idempotente; depende de tbl_contato_cliente).
 migrations/run_sql_migration.py add_cadu_email_sequence.sql
+# Origem/ciclo dos lotes de tokens e índice único da franquia do plano por ciclo (aditivo, idempotente; testado 2x em Postgres local).
+migrations/run_sql_migration.py add_cadu_credit_lot_source_v1.sql

@@ -1,5 +1,5 @@
 -- Origem do lote de tokens + ciclo da franquia mensal do plano.
--- Idempotente. NÃO registrado em ORDER.txt: aplicar só após Q1–Q8 em produção.
+-- Idempotente. Registrado em ORDER.txt (franquia do plano ligada por padrão).
 -- Usado por aicentralv2/cadu_plan_allowance.py (chave CADU_PLAN_ALLOWANCE_ENABLED).
 ALTER TABLE cadu_credits_extras
     ADD COLUMN IF NOT EXISTS source VARCHAR(24) NOT NULL DEFAULT 'purchase', -- plan_allowance|purchase|bonus|adjustment

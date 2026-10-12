@@ -326,7 +326,9 @@ def reengagement_body(unused: list[str]) -> str:
 
 
 _REENGAGE_SQL = """
-    SELECT o.contato_id, c.email, c.nome_completo, c.pk_id_tbl_cliente AS client_id
+    SELECT * FROM (
+    SELECT DISTINCT ON (o.contato_id) o.contato_id, c.email, c.nome_completo, c.pk_id_tbl_cliente AS client_id,
+           o.completed_at
       FROM cadu_workspace_onboarding o
       JOIN tbl_contato_cliente c ON c.id_contato_cliente = o.contato_id
       LEFT JOIN cadu_email_preferences p ON p.contato_id = o.contato_id
@@ -338,7 +340,9 @@ _REENGAGE_SQL = """
                          AND l.status <> 'skipped' AND l.sent_at > NOW() - INTERVAL '48 hours')
        AND NOT EXISTS (SELECT 1 FROM cadu_email_log l WHERE l.contato_id = o.contato_id
                          AND l.first_clicked_at > NOW() - INTERVAL '7 days')
-     ORDER BY o.completed_at
+     ORDER BY o.contato_id, o.completed_at
+    ) candidates
+     ORDER BY completed_at
      LIMIT %s"""
 
 
@@ -365,10 +369,15 @@ def process_reengagement(limit: int = 20) -> dict:
         unsub = unsubscribe_url(row["contato_id"])
         model = GROWTH_EMAIL_MODELS[REENGAGEMENT_KEY]
         try:
-            from flask import render_template
+            from flask import has_request_context, render_template
             cfg = build_growth_email(REENGAGEMENT_KEY, body=reengagement_body(unused), first_name=first or None,
                                      unsubscribe_url=unsub)
-            html = render_template("emails/externos/cadu-growth.html", **{k.lower(): v for k, v in cfg["params"].items()})
+            context = {k.lower(): v for k, v in cfg["params"].items()}
+            if has_request_context():
+                html = render_template("emails/externos/cadu-growth.html", **context)
+            else:  # o worker roda só com app context; os context processors do ERP esperam uma requisição
+                with current_app.test_request_context("/"):
+                    html = render_template("emails/externos/cadu-growth.html", **context)
             sent = get_brevo_product_service(model["product"]).enviar_email(
                 to_email=row["email"], to_name=row.get("nome_completo") or "", subject=model["subject"], html_content=html,
                 headers={"List-Unsubscribe": f"<{unsub}>", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"},

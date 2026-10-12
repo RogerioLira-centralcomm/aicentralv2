@@ -242,3 +242,18 @@ def test_reengajamento_ignora_quem_usou_algo_na_semana_e_envia_uma_vez(monkeypat
     assert "Olá, Bia." in html and "Studio para criar" in html and "assistente de IA" in html
     assert "<strong>Radar de Oportunidades</strong>" not in html  # já usou o Radar
     assert logged[0]["event_type"] == "reengajamento" and "NOT EXISTS" in conn.executed[0][0]
+
+
+def test_reengajamento_renderiza_fora_de_requisicao_e_sem_duplicar_pessoa(monkeypatch):
+    monkeypatch.setenv("CADU_EMAIL_SEQUENCE_ENABLED", "true")
+    conn = FakeConn([{"contato_id": 8, "email": "b@x.com", "nome_completo": "Bia", "client_id": 3}])
+    svc = mock.MagicMock(); svc.enviar_email.return_value = {"success": True}
+    with _app().app_context(), \
+         mock.patch.object(seq, "_db", return_value=conn), \
+         mock.patch.object(seq, "datetime", wraps=datetime) as dt, \
+         mock.patch.object(seq, "last_usage", return_value={}), \
+         mock.patch.object(seq, "log_email"), \
+         mock.patch("aicentralv2.services.brevo_service.get_brevo_product_service", return_value=svc):
+        dt.now.return_value = NOON
+        assert seq.process_reengagement()["reengaged"] == 1  # só app context, como no worker
+    assert "DISTINCT ON (o.contato_id)" in conn.executed[0][0]

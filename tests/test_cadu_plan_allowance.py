@@ -7,8 +7,10 @@ import pytest
 from aicentralv2 import cadu_plan_allowance as allowance
 
 
-def test_switch_is_off_by_default(monkeypatch):
+def test_switch_is_on_by_default_and_can_be_turned_off(monkeypatch):
     monkeypatch.delenv("CADU_PLAN_ALLOWANCE_ENABLED", raising=False)
+    assert allowance.allowance_enabled() is True
+    monkeypatch.setenv("CADU_PLAN_ALLOWANCE_ENABLED", "0")
     assert allowance.allowance_enabled() is False
     cursor = MagicMock()
     assert allowance.ensure_plan_allowance(cursor, 12) is None

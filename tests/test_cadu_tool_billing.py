@@ -1,3 +1,5 @@
+from unittest import mock
+import os
 import copy
 import unittest
 from decimal import Decimal
@@ -127,6 +129,11 @@ def charge(key="run-1", tokens=120):
 
 
 class ToolTokenLedgerTest(unittest.TestCase):
+    def setUp(self):
+        patcher = mock.patch.dict(os.environ, {"CADU_PLAN_ALLOWANCE_ENABLED": "0"})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_usage_and_media_cost_are_expressed_as_tokens(self):
         self.assertEqual(usage_tokens({"prompt_tokens": 10, "completion_tokens": 4}), (10, 4, 14))
         self.assertEqual(cost_token_equivalent("0.14", usd_per_credit_token="0.00001"), 14000)

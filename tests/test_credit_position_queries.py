@@ -3,6 +3,14 @@ from unittest import mock
 from aicentralv2.cadu_skills import repository
 
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _no_allowance(monkeypatch):
+    monkeypatch.setenv('CADU_PLAN_ALLOWANCE_ENABLED', '0')
+
+
 def _position(lots, plan):
     cursor = mock.MagicMock()
     cursor.__enter__.return_value = cursor

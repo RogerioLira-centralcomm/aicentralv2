@@ -6,7 +6,7 @@ Regras (decisões do dono, 2026-10-06):
 - tokens extras comprados não expiram;
 - o consumo debita primeiro a franquia, depois os extras.
 
-Tudo fica atrás de ``CADU_PLAN_ALLOWANCE_ENABLED`` (default desligado) e exige
+Tudo fica atrás de ``CADU_PLAN_ALLOWANCE_ENABLED`` (default ligado) e exige
 a migração ``add_cadu_credit_lot_source_v1.sql`` (colunas ``source`` e
 ``cycle_start`` + índice único). Sem as duas coisas, nada muda: as funções de
 integração viram no-op e o ledger mantém a ordem de débito atual.
@@ -30,7 +30,8 @@ class InsufficientAllowanceBalance(ValueError):
 
 
 def allowance_enabled() -> bool:
-    return os.getenv("CADU_PLAN_ALLOWANCE_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+    # Ligada por padrão: o saldo é único (franquia do plano + extras). Só desliga com 0/false/off.
+    return os.getenv("CADU_PLAN_ALLOWANCE_ENABLED", "1").strip().lower() not in {"0", "false", "no", "off"}
 
 
 def _int(value: Any) -> int:

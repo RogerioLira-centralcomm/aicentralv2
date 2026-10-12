@@ -99,6 +99,12 @@ class ToolTokenLedger:
     def available(self, client_id):
         conn = self.connection_factory()
         with conn.cursor() as cursor:
+            # Libera a franquia do ciclo antes de somar, senão a autorização
+            # recusa quem só tem a franquia (ainda não concedida neste ciclo).
+            from .cadu_plan_allowance import allowance_enabled, ensure_plan_allowance
+            if allowance_enabled():
+                ensure_plan_allowance(cursor, client_id)
+                conn.commit()
             cursor.execute(
                 """
                 SELECT COALESCE(SUM(tokens_amount - tokens_used), 0) AS available

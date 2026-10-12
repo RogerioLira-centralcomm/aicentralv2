@@ -343,6 +343,12 @@ def _credit_position(client_id: int) -> dict:
     try:
         conn = _db()
         with conn.cursor() as cursor:
+            # A franquia do ciclo só existe como lote depois de liberada; sem isto
+            # a navbar, a sidebar e o MCP mostram só os extras até o 1º consumo do ciclo.
+            from ..cadu_plan_allowance import allowance_enabled, ensure_plan_allowance
+            if allowance_enabled():
+                ensure_plan_allowance(cursor, client_id)
+                conn.commit()
             cursor.execute(
                 """
                 SELECT COALESCE(SUM(tokens_amount), 0) AS granted,

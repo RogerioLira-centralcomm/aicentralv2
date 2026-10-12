@@ -307,7 +307,7 @@ def protect():
         # Conversar é uma capacidade própria do Cadu. Ela pode registrar o
         # histórico e os arquivos da conversa sem liberar alterações no
         # Workspace (entidades, marcas, projetos ou configurações).
-        read_only_posts = {'cadu_family.set_context', 'cadu_family.copy_validate',
+        read_only_posts = {'cadu_family.set_context',
                            'cadu_family.conversation_send', 'cadu_family.conversation_preflight',
                            'cadu_family.conversation_upload', 'cadu_family.conversation_stop',
                            'cadu_family.conversation_work_memory_review',

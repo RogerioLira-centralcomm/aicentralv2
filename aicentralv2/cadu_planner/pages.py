@@ -33,9 +33,6 @@ def load_records(module, user, selected, query='', filters=None):
     if module == 'radar':
         from ..cadu_radar.repository import list_opportunities
         return list_opportunities(selected['client_id'])
-    if module == 'docs':
-        from .docs import list_documents
-        return list_documents(selected['client_id'], user['id'])
     return []
 
 

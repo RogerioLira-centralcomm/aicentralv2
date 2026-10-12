@@ -712,6 +712,12 @@ def _persist_completion(job: dict, context: RequestContext, artifact: dict | Non
     except Exception:
         connection.rollback()
         raise
+    try:  # a pessoa não ficou esperando: avisa por e-mail (uma vez, só quando a resposta foi gravada agora)
+        from ...services.cadu_workspace_emails import notify_conversation_important
+        notify_conversation_important(client_id=int(job["client_id"]), user_id=int(job["user_id"]),
+                                      title=str(job.get("title") or ""), project_ref=job.get("project_ref"))
+    except Exception:
+        current_app.logger.warning("Aviso de trabalho longo concluído não enviado (%s).", job.get("id"), exc_info=True)
 
 
 def process_one(worker_id="", job_id=None) -> bool:

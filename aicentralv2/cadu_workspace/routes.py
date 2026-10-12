@@ -4478,6 +4478,18 @@ def _chunk_project_note(content: str, limit: int = 1800) -> list[str]:
     return project_sources.chunks(content, limit)
 
 
+def _notify_source_received(client_id: int, project_id: str, user_id, names: list) -> None:
+    """Aviso ao dono do projeto quando um colega adiciona fonte (nunca derruba o envio da fonte)."""
+    try:
+        actor = int(user_id if user_id is not None else session.get('user_id') or 0)
+        if actor:
+            from ..services import cadu_workspace_emails
+            cadu_workspace_emails.fire(cadu_workspace_emails.notify_source_received, client_id=client_id,
+                                       project_id=str(project_id), actor_id=actor, source_names=list(names))
+    except Exception:
+        current_app.logger.warning('Aviso de fonte recebida não agendado.', exc_info=True)
+
+
 def _persist_project_source(client_id: int, project_id: str, title: str, content: str,
                             mime: str, size: int, storage_path: str, source: str,
                             user_id: Optional[int] = None, extraction_coverage: Optional[dict] = None) -> int:
@@ -4499,6 +4511,7 @@ def _persist_project_source(client_id: int, project_id: str, title: str, content
                 metadata={'extraction_coverage': extraction_coverage or {}},
             )
         connection.commit()
+        _notify_source_received(client_id, project_id, user_id, [title])
         return int(file_id)
     except Exception:
         connection.rollback()
@@ -4559,6 +4572,7 @@ def _try_queue_project_source(client_id: int, project_id: str, title: str, conte
                 metadata={'source': source, 'extraction_coverage': extraction_coverage or {}},
             )
         connection.commit()
+        _notify_source_received(client_id, project_id, effective_user_id, [title])
 
         try:
             from .project_index_jobs import enqueue
@@ -4693,10 +4707,18 @@ def _complete_queued_project_url_source(client_id: int, project_id: str, user_id
                  f"workspace-url:{source.get('url') or ''}", content, word_count, charged_tokens,
                  source_id, project_id, client_id),
             )
+            cursor.execute('SELECT created_at FROM cadu_ci_projeto_arquivos WHERE id = %s', (source_id,))
+            started_at = (cursor.fetchone() or {}).get('created_at')
         connection.commit()
     except Exception:
         connection.rollback()
         raise
+    try:
+        from ..services.cadu_workspace_emails import notify_source_indexed
+        notify_source_indexed(client_id=client_id, project_id=str(project_id), user_id=user_id,
+                              source_name=title, started_at=started_at)  # já roda numa thread de fundo
+    except Exception:
+        current_app.logger.warning('Aviso de link lido não enviado (%s).', source_id, exc_info=True)
 
 
 def _mark_project_source_error(client_id: int, project_id: str, source_id: int, error: Exception) -> None:
@@ -6305,8 +6327,14 @@ def review_workspace_document(document_id):
     _, document = _workspace_document(document_id)
     payload = request.get_json(silent=True) or {}
     source_context = _workspace_document_sources(document, payload.get('source_ids') or [])
-    return jsonify(revisions.review_document(int(session.get('cliente_id') or 0), int(session['user_id']), document_id,
-                                             source_context=source_context))
+    started = time.monotonic()
+    result = revisions.review_document(int(session.get('cliente_id') or 0), int(session['user_id']), document_id,
+                                       source_context=source_context)
+    from ..services import cadu_workspace_emails
+    cadu_workspace_emails.fire(cadu_workspace_emails.notify_document_reviewed, client_id=int(session.get('cliente_id') or 0),
+                               user_id=int(session['user_id']), document_id=str(document_id),
+                               title=str(document.get('title') or ''), elapsed_seconds=time.monotonic() - started)
+    return jsonify(result)
 
 
 @bp.post('/workspace/app/marcas/inspecionar-site')
@@ -6576,6 +6604,9 @@ def create_project():
         except Exception:
             pass
         abort(503, description='Não foi possível criar o projeto agora. Tente novamente.')
+    from ..services import cadu_workspace_emails
+    cadu_workspace_emails.fire(cadu_workspace_emails.notify_project_created, client_id=client_id,
+                               creator_id=int(session.get('user_id') or 0), project_id=project_id, name=name)
     detail_url = url_for('cadu_workspace.clean_project_detail', project_id=project_id)
     if request.is_json:
         return jsonify(project={
@@ -7991,6 +8022,7 @@ def upload_project_source(project_id):
                               'extraction_coverage': source.get('extraction_coverage') or {}},
                 )
             connection.commit()
+            _notify_source_received(client_id, project_id, session.get('user_id'), [source['name']])
         except Exception:
             if connection is not None:
                 try:

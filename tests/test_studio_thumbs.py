@@ -7,6 +7,7 @@ from flask import Flask
 from PIL import Image
 
 from aicentralv2.creative_media import studio_thumbs
+from aicentralv2.creative_format_lab.swap_session import display_thumb
 from aicentralv2.creative_media.studio_thumbs import send_resized, thumb_url_for, with_thumbs
 
 STILL = '/parametros/api/format-lab/swap/still/' + 'a' * 32 + '.png'
@@ -41,6 +42,15 @@ class ThumbUrlTests(unittest.TestCase):
         self.assertEqual(items[5], 'not-a-dict')
 
 
+class DisplayThumbTests(unittest.TestCase):
+    def test_library_items_get_a_reduced_copy_unless_they_already_have_one(self):
+        name = 'b' * 32 + '.png'
+        still = '/parametros/api/format-lab/swap/still/' + name
+        self.assertEqual(display_thumb(None, still), still + '?w=480')
+        self.assertEqual(display_thumb(still, still), still + '?w=480')
+        self.assertEqual(display_thumb('/static/uploads/creative_generated/own.png', still), '/static/uploads/creative_generated/own.png')
+
+
 class ThumbRouteTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -73,6 +83,22 @@ class ThumbRouteTests(unittest.TestCase):
     def test_an_unreadable_image_still_shows_at_full_size(self):
         response = self.client.get('/media/studio/480/creative_generated/broken.png')
         self.assertEqual((response.status_code, response.data), (200, b'not an image'))
+
+    def test_same_stem_with_another_extension_gets_its_own_copy(self):
+        folder = Path(self.tmp.name) / 'app/static/uploads/creative_generated'
+        Image.new('RGB', (1200, 800), (250, 10, 10)).save(folder / 'twin.png')
+        Image.new('RGB', (1200, 800), (10, 10, 250)).save(folder / 'twin.webp')
+        red = Image.open(io.BytesIO(self.client.get('/media/studio/480/creative_generated/twin.png').data)).convert('RGB').getpixel((5, 5))
+        blue = Image.open(io.BytesIO(self.client.get('/media/studio/480/creative_generated/twin.webp').data)).convert('RGB').getpixel((5, 5))
+        self.assertGreater(red[0], 200)
+        self.assertGreater(blue[2], 200)
+
+    def test_a_broken_image_is_reported_once(self):
+        studio_thumbs._reported.clear()
+        with self.assertLogs(studio_thumbs.logger, level='WARNING') as logs:
+            for _ in range(5):
+                self.client.get('/media/studio/480/creative_generated/broken.png')
+        self.assertEqual(len(logs.records), 1)
 
     def test_send_resized_without_a_width_sends_the_original(self):
         path = Path(self.tmp.name) / 'app/static/uploads/creative_generated/big.png'

@@ -8,8 +8,10 @@ that already lived under ``static/uploads``.
 from __future__ import annotations
 
 import hashlib
+import logging
 import mimetypes
 import re
+import threading
 from pathlib import Path
 
 from flask import Blueprint, abort, current_app, send_file
@@ -17,6 +19,7 @@ from flask import Blueprint, abort, current_app, send_file
 from ..places.thumbs import make_thumb
 
 bp = Blueprint("studio_thumbs", __name__)
+logger = logging.getLogger(__name__)
 
 WIDTH = 480
 WIDTHS = (240, WIDTH)
@@ -26,6 +29,11 @@ STILL_PREFIX = "/parametros/api/format-lab/swap/still/"
 ASSET_PATH = re.compile(r"^/parametros/api/media/assets/[^/?#]+/content$")
 _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._@-]{0,160}$")
 _IMAGE_SUFFIX = (".png", ".jpg", ".jpeg", ".webp")
+# A library page asks for up to two dozen uncached copies at once; decoding a multi-MB image costs seconds of CPU,
+# so only a few run together and the rest wait a little before falling back to the original.
+_slots = threading.BoundedSemaphore(4)
+SLOT_WAIT_SECONDS = 8
+_reported: set[str] = set()
 
 
 def thumb_url_for(url, width: int = WIDTH) -> str:
@@ -59,8 +67,17 @@ def with_thumbs(items):
 
 
 def _cache_root(source: Path) -> Path:
-    # Keyed by folder so equal file names in different places never share a copy.
-    return Path(current_app.instance_path) / "studio_thumbs" / hashlib.sha1(str(source.parent).encode()).hexdigest()[:12]
+    # One folder per source file: the same stem with another extension, or the same name elsewhere, never shares a copy.
+    return Path(current_app.instance_path) / "studio_thumbs" / hashlib.sha1(str(source).encode()).hexdigest()[:16]
+
+
+def _report_failure(source: Path) -> None:
+    """Log an image that could not be reduced once per process, not on every card of every page load."""
+    key = str(source)
+    if key in _reported or len(_reported) >= 2000:
+        return
+    _reported.add(key)
+    logger.warning("Miniatura do Studio falhou: %s", source.name, exc_info=True)
 
 
 def send_resized(path, mime, width):
@@ -71,11 +88,14 @@ def send_resized(path, mime, width):
     source = Path(path)
     kind = str(mime or "")
     if width in WIDTHS and kind.startswith("image/") and kind != "image/svg+xml":
-        try:
-            target = make_thumb(source, width, _cache_root(source))
-            return send_file(target, mimetype="image/webp", max_age=60 * 60 * 24 * 30, conditional=True)
-        except Exception:  # noqa: BLE001 - an unreadable image still shows, at full size
-            current_app.logger.warning("Miniatura do Studio falhou: %s", source.name, exc_info=True)
+        if _slots.acquire(timeout=SLOT_WAIT_SECONDS):
+            try:
+                target = make_thumb(source, width, _cache_root(source))
+                return send_file(target, mimetype="image/webp", max_age=60 * 60 * 24 * 30, conditional=True)
+            except Exception:  # noqa: BLE001 - an unreadable image still shows, at full size
+                _report_failure(source)
+            finally:
+                _slots.release()
     return send_file(source, mimetype=mime, max_age=86400, conditional=True)
 
 

@@ -238,6 +238,9 @@ def test_reengajamento_ignora_quem_usou_algo_na_semana_e_envia_uma_vez(monkeypat
         dt.now.return_value = NOON
         result = seq.process_reengagement()
     assert result == {"reengaged": 1, "active_users": 1}
+    checked = [l for l in logged if l["event_type"] == "reengajamento-verificado"]
+    assert len(checked) == 1 and checked[0]["contato_id"] == 7 and checked[0]["status"] == "skipped"
+    logged = [l for l in logged if l["event_type"] == "reengajamento"]
     html = svc.enviar_email.call_args.kwargs["html_content"]
     assert "Olá, Bia." in html and "Studio para criar" in html and "assistente de IA" in html
     assert "<strong>Radar de Oportunidades</strong>" not in html  # já usou o Radar
@@ -280,7 +283,9 @@ def test_resumo_semanal_so_na_segunda_e_so_para_time_com_atividade(monkeypatch):
         assert seq.process_weekly_digest() == {"digests": 1, "quiet_teams": 1}
     html = svc.enviar_email.call_args.kwargs["html_content"]
     assert "<strong>5</strong> conversas" in html and "<strong>1</strong> busca no Radar" in html and "Olá, Ana." in html
-    assert log.call_args.kwargs["event_type"] == "resumo-semanal"
+    statuses = sorted((c.kwargs["contato_id"], c.kwargs["status"]) for c in log.call_args_list)
+    assert statuses == [(7, "sent"), (8, "skipped")]  # o time parado sai da fila da semana
+    assert all(c.kwargs["event_type"] == "resumo-semanal" for c in log.call_args_list)
 
 
 def test_conversas_contam_como_atividade_no_reengajamento(monkeypatch):

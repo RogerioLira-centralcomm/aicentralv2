@@ -35,6 +35,8 @@ USAGE_SIGNALS = {
 # Atividade (para não lembrar quem já usa o Cadu): ferramentas acima + conversas no Workspace.
 ACTIVITY_SIGNALS = {**USAGE_SIGNALS, "conversas": ("cadu_conversations", "id_contato_cliente", "Conversas", "updated_at")}
 REENGAGEMENT_KEY = "reengajamento"
+# Quem foi conferido e estava ativo fica fora da fila por 7 dias: sem isso, ocuparia o lote em todo ciclo.
+REENGAGEMENT_CHECKED = "reengajamento-verificado"
 REENGAGEMENT_AFTER = timedelta(days=7)
 INTERVAL = timedelta(days=2)
 RETRY_DELAY = timedelta(hours=1)
@@ -338,6 +340,8 @@ _REENGAGE_SQL = """
        AND COALESCE(c.status, TRUE) AND NULLIF(c.email, '') IS NOT NULL
        AND NOT COALESCE(p.marketing_opt_out, FALSE)
        AND NOT EXISTS (SELECT 1 FROM cadu_email_log l WHERE l.contato_id = o.contato_id AND l.event_type = %s)
+       AND NOT EXISTS (SELECT 1 FROM cadu_email_log l WHERE l.contato_id = o.contato_id AND l.event_type = %s
+                         AND l.sent_at > NOW() - INTERVAL '7 days')
        AND NOT EXISTS (SELECT 1 FROM cadu_email_log l WHERE l.contato_id = o.contato_id AND l.kind = 'sequence'
                          AND l.status <> 'skipped' AND l.sent_at > NOW() - INTERVAL '48 hours')
        AND NOT EXISTS (SELECT 1 FROM cadu_email_log l WHERE l.contato_id = o.contato_id
@@ -357,7 +361,7 @@ def process_reengagement(limit: int = 20) -> dict:
     if adjust_to_send_window(now) > now:
         return result  # fora do horário: tenta no próximo ciclo
     with _db().cursor() as cursor:
-        cursor.execute(_REENGAGE_SQL, (REENGAGEMENT_KEY, int(limit)))
+        cursor.execute(_REENGAGE_SQL, (REENGAGEMENT_KEY, REENGAGEMENT_CHECKED, int(limit)))
         candidates = [dict(r) for r in cursor.fetchall()]
     from .brevo_service import get_brevo_product_service
     from .cadu_growth_email_templates import GROWTH_EMAIL_MODELS, build_growth_email
@@ -365,6 +369,8 @@ def process_reengagement(limit: int = 20) -> dict:
         usage = last_usage(row["contato_id"], signals=ACTIVITY_SIGNALS)
         if any(at and (now - at) < REENGAGEMENT_AFTER for at in usage.values()):
             result["active_users"] += 1
+            log_email(contato_id=row["contato_id"], client_id=row.get("client_id"), email=row["email"], kind="sequence",
+                      event_type=REENGAGEMENT_CHECKED, subject="Reengajamento não enviado: pessoa ativa", status="skipped")
             continue  # usa o produto: não precisa de lembrete
         unused = [USAGE_SIGNALS[key][2] for key in USAGE_SIGNALS if not usage.get(key)]
         first = (str(row.get("nome_completo") or "").split() or [""])[0]
@@ -464,6 +470,9 @@ def process_weekly_digest(limit: int = 100) -> dict:
         metrics = weeks[client_id]
         if not metrics:
             result["quiet_teams"] += 1
+            # Registro "Ignorado" tira a pessoa da fila da semana (evita ocupar o lote a cada ciclo).
+            log_email(contato_id=row["contato_id"], client_id=client_id, email=row["email"], kind="sequence",
+                      event_type=DIGEST_KEY, subject="Resumo não enviado: semana sem atividade", status="skipped")
             continue  # semana sem atividade não vira e-mail vazio
         first = (str(row.get("nome_completo") or "").split() or [""])[0]
         unsub = unsubscribe_url(row["contato_id"])

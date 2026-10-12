@@ -390,7 +390,7 @@ class ProductPortalsTest(TestCase):
             self.assertIn(f"images/cadu/brand-icons/{icon}", html)
         for integration in ("Google", "Trello", "Slack", "Asana", "ChatGPT", "Claude", "Cursor", "Codex"):
             self.assertIn(integration, html)
-        self.assertIn("Como transformar um briefing em uma base viva", html)
+        self.assertIn("O que não pode faltar no briefing de uma campanha", html)
 
     @mock.patch.dict("os.environ", {"CADU_SKILLS_ENABLED": "true"})
     def test_public_catalog_has_solution_article_and_commercial_plan_pages(self):

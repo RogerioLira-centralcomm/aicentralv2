@@ -57,7 +57,8 @@ async function open(browser,{query='',context,projectWork=true,projectContextsCa
   assert(fresh.saves.some(path=>/\/projects\/p2$/.test(path)),'um projeto novo foi criado');
   // 3. A link that already says what to open is not interrupted.
   const handoff=await open(browser,{query:'client=7&scenes=x',context:{clientId:'7'},projectContextsCalls:calls});
-  await handoff.page.waitForTimeout(800);
+  // The scenes are adopted (here: reported missing) only after the opening, past the point where the dialog would show.
+  await handoff.page.waitForFunction(()=>/ainda não apareceram/.test(document.getElementById('mcAnimateStatus')?.textContent||''));
   assert.equal(await handoff.page.locator('dialog.studio-session-prompt').count(),0,'cenas vindas do Criar não são interrompidas pelo diálogo');
   // 4. The bar never answers: the page opens anyway, says so, and does not wait on it for long.
   const started=Date.now();

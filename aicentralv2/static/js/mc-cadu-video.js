@@ -74,20 +74,27 @@ async function boot() {
     if(String(event.detail.client_id)!==String(state.clientId))return;
     await loadClips({prefer:event.detail.version,restore:false});
   });
-  document.addEventListener("cadu:brand-ready", (event) => applyBrand(event.detail?.clientId));
+  // While the page is opening, boot decides the brand; a later brand from the bar is replayed once it is done, so the
+  // opening does not load the same brand twice in parallel.
+  let booting = true, lateBrand = "";
+  document.addEventListener("cadu:brand-ready", (event) => { if (booting) lateBrand = String(event.detail?.clientId || ""); else applyBrand(event.detail?.clientId); });
   document.addEventListener("cadu:brand-change", (event) => {
-    applyBrand(event.detail?.clientId, { reset: true });
+    if (booting) lateBrand = String(event.detail?.clientId || ""); else applyBrand(event.detail?.clientId, { reset: true });
   });
   let linkedClient = params.get("creative_client_id") || params.get("client") || "";
+  let brandWarning = "";
   if (!linkedClient && params.get("project_id")) {
     linkedClient = await brandOfLinkedProject();
-    if (!linkedClient) setStatus("Não foi possível identificar a marca do projeto do link. Conferindo com a marca usada por último; troque a marca na barra se não for esta.");
+    if (!linkedClient) brandWarning = "Não foi possível identificar a marca do projeto do link. Abrimos com a marca usada por último; troque a marca na barra se não for esta.";
   }
   linkedClient = linkedClient || Desk.read();
   // Open work is offered, not forced: not when the link already says what to open (a clip, a saved session, scenes
   // from Criar) or when a generation is being resumed.
   askOnEntry = !params.get("clip") && !params.get("studio_session_id") && !params.get("scenes") && !sessionStorage.getItem(JOB_KEY);
-  await applyBrand(linkedClient);
+  try { await applyBrand(linkedClient); } finally { booting = false; }
+  if (lateBrand && lateBrand !== state.clientId) await applyBrand(lateBrand, { reset: true });
+  // Shown after the opening: loading the brand writes its own status messages.
+  if (brandWarning) setStatus(brandWarning);
   const linkedSessionId = String(params.get("studio_session_id") || "").trim();
   if (linkedSessionId && /^\d+$/.test(String(linkedClient || ""))) {
     try {
@@ -434,6 +441,7 @@ async function applyBrand(id, { reset = false } = {}) {
   clearTimeout(quoteTimer);
   saveRequest += 1;
   state.saving = false;
+  openWorkOffer = null; // an offer made for another brand must not surface later
   state.clientId = next;
   state.projectId = "";
   state.projects = [];

@@ -83,7 +83,87 @@ def search_pages(client_id, host, query, limit=SEARCH_LIMIT):
     return [{**row, 'url': f"https://{row['host']}{'' if row['path'] == '/' else row['path']}"} for row in rows]
 
 
+NEXT_PAGE_HINTS = {
+    'form': re.compile(r'contato|contact|orcamento|agendar|agende|cadastro|inscri|fale|formulario|lead', re.I),
+    'conversion': re.compile(r'obrigad|thank|sucesso|success|confirma|concluid|pedido-recebido', re.I),
+}
+
+
+def observed_next_pages(client_id, host, path, limit=8):
+    """Pages people actually opened right after `path` in the last 30 days (Super Tag page views of this client)."""
+    if not path:
+        return []
+    db = get_db()
+    try:
+        with db.cursor() as cursor:
+            cursor.execute("SET LOCAL statement_timeout = '4s'")
+        return _rows('''WITH recent AS (
+                SELECT session_id,page_path,occurred_at,id FROM cadu_reports_flow_events
+                WHERE client_id=%s AND event_kind IN ('page_view','conversion')
+                  AND occurred_at > NOW() - INTERVAL '30 days' AND page_host=%s
+            ), ordered AS (
+                SELECT page_path,LEAD(page_path) OVER (PARTITION BY session_id ORDER BY occurred_at,id) AS next_path FROM recent
+            ) SELECT next_path AS path,COUNT(*)::bigint AS passes FROM ordered
+              WHERE page_path=%s AND next_path IS NOT NULL AND next_path<>page_path
+              GROUP BY next_path ORDER BY passes DESC LIMIT %s''', (client_id, host, path, int(limit)))
+    except Exception:  # a slow or missing event table only removes the observed hint
+        db.rollback()
+        return []
+
+
+def suggest_next_pages(client_id, host, after, kind, exclude, observed, limit=5):
+    """Rank candidates for a new step: observed navigation first, then the address pattern of the step type, then
+    the catalog. `confidence` is the share of observed passes, so the editor only fills a page on its own when the
+    traffic clearly points to it."""
+    exclude = set(exclude)
+    total = sum(int(row['passes']) for row in observed) or 0
+    known = {row['path']: row for row in _rows(
+        'SELECT host,path,name,title FROM cadu_reports_site_pages WHERE client_id=%s AND host=%s AND path=ANY(%s)',
+        (client_id, host, [row['path'] for row in observed] or ['']))}
+    hint = NEXT_PAGE_HINTS.get(kind)
+    ranked, seen = [], set()
+
+    def push(path, name, title, reason, passes=None):
+        if path in exclude or path in seen or len(ranked) >= limit:
+            return
+        seen.add(path)
+        ranked.append({'host': host, 'path': path, 'name': name, 'title': title, 'reason': reason, 'passes': passes,
+                       'confidence': round(passes / total, 3) if passes and total else 0})
+
+    for row in observed:
+        if hint and not hint.search(row['path']) and kind != 'page':
+            continue
+        page = known.get(row['path']) or {}
+        push(row['path'], page.get('name') or slug_name(row['path']), page.get('title'), 'observed', int(row['passes']))
+    if hint:
+        for page in _rows('''SELECT path,name,title FROM cadu_reports_site_pages WHERE client_id=%s AND host=%s
+                AND (path ~* %s OR LOWER(COALESCE(title,'')) ~* %s) ORDER BY LENGTH(path),path LIMIT 20''',
+                          (client_id, host, hint.pattern, hint.pattern)):
+            push(page['path'], page['name'], page['title'], 'pattern')
+    if not after or after == '/':
+        for page in _rows('''SELECT path,name,title FROM cadu_reports_site_pages WHERE client_id=%s AND host=%s AND path<>'/'
+                ORDER BY array_length(string_to_array(trim(both '/' from path),'/'),1),LENGTH(path),path LIMIT 20''', (client_id, host)):
+            push(page['path'], page['name'], page['title'], 'catalog')
+    return ranked
+
+
 def register(bp):
+    @bp.get('/api/v2/reports/flow/site-pages/next')
+    @login_required_api
+    def reports_site_pages_next():
+        """Suggestions for the page of a step just added after `after`; empty when the client has no catalog."""
+        selected = _selection()
+        client_id = selected['client_id']
+        host, _ = _host_param(client_id)
+        kind = request.args.get('type') if request.args.get('type') in ('page', 'form', 'conversion', 'error') else 'page'
+        after = (request.args.get('after') or '')[:500]
+        exclude = [path for path in (request.args.get('exclude') or '').split(',') if path.startswith('/')][:200]
+        if not host or _catalog_state(client_id, host) is None:
+            return jsonify(host=host, pages=[], catalog=False)
+        observed = observed_next_pages(client_id, host, after) if after.startswith('/') else []
+        return jsonify(host=host, catalog=True, observed_total=sum(int(row['passes']) for row in observed),
+                       pages=suggest_next_pages(client_id, host, after, kind, exclude, observed))
+
     @bp.get('/api/v2/reports/flow/site-pages')
     @login_required_api
     def reports_site_pages():

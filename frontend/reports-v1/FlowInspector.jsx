@@ -116,7 +116,7 @@ function PageSource({node,spec,planned,readOnly,onChange,sitePages,integrationsU
       <button type="button" role="radio" aria-checked={!planned} disabled={readOnly} onClick={()=>setMode(false)}>Já existe</button>
       <button type="button" role="radio" aria-checked={planned} disabled={readOnly} onClick={()=>setMode(true)}>Vai ser criada</button>
     </div>
-    <FlowPagePicker node={node} readOnly={readOnly} planned={planned} clientId={sitePages?.clientId} csrf={sitePages?.csrf} hosts={sitePages?.hosts||[]} notice={sitePages?.notice||''} defaultHost={sitePages?.defaultHost||''} onPick={pick} onUrl={setUrl}/>
+    <FlowPagePicker node={node} readOnly={readOnly} planned={planned} clientId={sitePages?.clientId} csrf={sitePages?.csrf} hosts={sitePages?.hosts||[]} notice={sitePages?.notice||''} defaultHost={sitePages?.defaultHost||''} suggestions={sitePages?.hints?.[node.id]||[]} onPick={pick} onUrl={setUrl}/>
     {needsTag&&<small className="flow-inspector__tag-note">Outro domínio: instale a Super Tag em <strong>{node.host}</strong> para medir esta página.{integrationsUrl&&<> <a href={integrationsUrl}>Instalar ↗</a></>}</small>}
     {planned&&!readOnly&&<UntitledButton type="button" color="secondary" size="sm" onPress={()=>setBriefOpen(true)}>{Object.values(spec).some(Boolean)?'Abrir briefing':'Gerar briefing'}</UntitledButton>}
     {planned&&<FlowBriefingDialog open={briefOpen} node={node} config={config} clientId={sitePages?.clientId} csrf={sitePages?.csrf} flowId={flowId} clientName={clientName} host={host} flowName={flowName} readOnly={readOnly} onSave={next=>onChange('spec',{...spec,...next})} onClose={()=>setBriefOpen(false)}/>}

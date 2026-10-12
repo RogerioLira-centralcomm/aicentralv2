@@ -27,9 +27,9 @@ export async function layoutFlow(config,{width=240,height=150,nodeSpacing=48,lay
   const nodes=config.nodes.map(node=>{
     if(node.locked||node.type==='note')return node;
     const next={...node,stage:stageFor(node),...positions.get(node.id)};
-    while(occupied.some(other=>next.x<other.x+other.width+24&&next.x+(node.width||width)+24>other.x&&next.y<other.y+other.height+24&&next.y+(node.height||height)+24>other.y)){next.y+=height+32;if(next.y>10000)break;}
+    while(occupied.some(other=>next.x<other.x+other.width+24&&next.x+(node.width||width)+24>other.x&&next.y<other.y+other.height+24&&next.y+(node.height||height)+24>other.y)){next.y+=height+32;if(next.y>20000)break;}
     occupied.push({...next,width:node.width||width,height:node.height||height});return next;
   });
-  if(nodes.some(node=>node.x>10000||node.y>10000))throw new Error('Organize grupos menores para caber na área disponível.');
+  if(nodes.some(node=>node.x>20000||node.y>20000))throw new Error('Organize grupos menores para caber na área disponível.');
   return nodes;
 }

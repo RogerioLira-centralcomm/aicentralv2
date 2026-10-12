@@ -7,7 +7,9 @@ import {pageLabel,useSitePages} from './useSitePages.js';
 const OTHER='__other__';
 
 /** The address of a page: the client's domain is already chosen, so people search a page or, for another domain, paste a URL. */
-export function FlowPagePicker({node,readOnly,clientId,csrf,hosts=[],notice='',defaultHost='',planned,onPick,onUrl}) {
+const SUGGESTION_REASONS={observed:'quem visita a etapa anterior abre esta',pattern:'endereço típico deste tipo de etapa',catalog:'página principal do site'};
+
+export function FlowPagePicker({node,readOnly,clientId,csrf,hosts=[],notice='',defaultHost='',planned,suggestions=[],onPick,onUrl}) {
   const [domain,setDomain]=useState(null);
   const [query,setQuery]=useState('');
   const [open,setOpen]=useState(false);
@@ -22,7 +24,10 @@ export function FlowPagePicker({node,readOnly,clientId,csrf,hosts=[],notice='',d
   // A page can exist on the site without being in the sitemap (a thank-you page, for instance): let the typed path stand.
   const typed=query.trim().replace(/\s+/g,'-').replace(/^(?!\/)/,'/');
   const customPath=query.trim()&&!/^https?:/i.test(query.trim())&&!search.pages.some(page=>page.path===typed)?typed:'';
-  const options=customPath?[...search.pages,{host:initial,path:customPath,custom:true}]:search.pages;
+  // Pages suggested for this new step come first while nothing is typed.
+  const hinted=!query.trim()?suggestions.filter(page=>page.host===initial).map(page=>({...page,suggested:true})):[];
+  const listed=[...hinted,...search.pages.filter(page=>!hinted.some(hint=>hint.path===page.path))];
+  const options=customPath?[...listed,{host:initial,path:customPath,custom:true}]:listed;
   const choose=page=>{onPick({host:page.host,path:page.path,name:page.custom?'':pageLabel(page)});setQuery('');setOpen(false);};
   const commitUrl=value=>{
     const parsed=parsePageUrl(value);
@@ -52,7 +57,7 @@ export function FlowPagePicker({node,readOnly,clientId,csrf,hosts=[],notice='',d
           else if(event.key==='Escape'){setOpen(false);}
         }}/></label>
       {open&&<ul className="flow-page-picker__list" id={listId} role="listbox" aria-label="Páginas do site">
-        {options.map((page,index)=><li key={page.path} role="option" aria-selected={index===active}><button type="button" tabIndex={-1} className={index===active?'is-active':''} onMouseDown={event=>event.preventDefault()} onClick={()=>choose(page)}><strong>{page.custom?`Usar ${page.path}`:pageLabel(page)}</strong><small>{page.custom?'Fora do sitemap: usar este endereço mesmo assim':page.path}</small></button></li>)}
+        {options.map((page,index)=><li key={page.path} role="option" aria-selected={index===active}><button type="button" tabIndex={-1} className={index===active?'is-active':''} onMouseDown={event=>event.preventDefault()} onClick={()=>choose(page)}><strong>{page.custom?`Usar ${page.path}`:pageLabel(page)}{page.suggested&&<em className="flow-page-picker__hint">Sugerida</em>}</strong><small>{page.custom?'Fora do sitemap: usar este endereço mesmo assim':page.suggested?`${page.path} · ${SUGGESTION_REASONS[page.reason]||'sugerida'}${page.passes?` (${page.passes} visitas)`:''}`:page.path}</small></button></li>)}
         {!options.length&&<li className="flow-page-picker__empty">{search.loading?'Buscando…':search.notice||'Nenhuma página encontrada. Mude a busca ou use outro domínio.'}</li>}
       </ul>}
     </div>

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {FLOW_STRATEGIES, buildPathConfig, buildStrategyConfig, defaultStrategyChannels, readPathSeed} from '../../frontend/reports-v1/flowStrategies.js';
-import {flowValidation, MAX_FLOW_PAGES, isPlanned} from '../../frontend/reports-v1/flowValidation.js';
+import {flowValidation, SUGGESTED_FLOW_PAGES, isPlanned} from '../../frontend/reports-v1/flowValidation.js';
 
 const measured = new Set(['page', 'form', 'event', 'conversion', 'whatsapp', 'error']);
 const pageTypes = new Set(['page', 'form', 'conversion', 'error']);
@@ -14,7 +14,7 @@ for (const strategy of FLOW_STRATEGIES) {
     assert(config.edges.every(edge => ids.has(edge.from) && ids.has(edge.to) && edge.from !== edge.to));
     assert(config.nodes.filter(node => measured.has(node.type)).every(isPlanned), 'passos medidos nascem planejados');
     assert(config.nodes.filter(node => node.type === 'source').length >= 1);
-    assert(config.nodes.filter(node => pageTypes.has(node.type)).length <= MAX_FLOW_PAGES);
+    assert(config.nodes.filter(node => pageTypes.has(node.type)).length <= SUGGESTED_FLOW_PAGES);
     const connected = new Set(config.edges.flatMap(edge => [edge.from, edge.to]));
     assert(config.nodes.every(node => connected.has(node.id)), 'nenhum passo solto');
     const issues = flowValidation(config);

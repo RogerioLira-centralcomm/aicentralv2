@@ -303,7 +303,7 @@ def protect():
         if not token or not secrets.compare_digest(token, request.headers.get('X-CSRF-Token', '')):
             abort(403, description='Atualize a página e tente novamente.')
         # Fail closed for new mutation routes too. Context changes only the
-        # session; Copy Ads validation only reads the catalog.
+        # session.
         # Conversar é uma capacidade própria do Cadu. Ela pode registrar o
         # histórico e os arquivos da conversa sem liberar alterações no
         # Workspace (entidades, marcas, projetos ou configurações).
@@ -711,13 +711,6 @@ def public_conversation(token):
     response.headers['X-Robots-Tag'] = 'noindex, nofollow, noarchive'
     response.headers['Content-Security-Policy'] = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'"
     return response
-
-
-@bp.get('/api/studio/copy-ads/formats')
-def copy_formats():
-    from . import copy_ads
-    context.resolve()
-    return jsonify(formats=copy_ads.formats())
 
 
 @bp.get('/api/planner/catalog/<kind>')
@@ -1608,19 +1601,6 @@ def planner_doc_export(doc_id):
     document = docs.get_document(selected['client_id'], user['id'], doc_id)
     return send_file(BytesIO(docs.export_pdf(document)), mimetype='application/pdf', as_attachment=True,
                      download_name='documento-%s.pdf' % doc_id)
-
-
-@bp.post('/api/studio/copy-ads/validate')
-def copy_validate():
-    from . import copy_ads
-    context.resolve()
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        abort(400)
-    spec = next((row for row in copy_ads.formats() if str(row['id']) == str(data.get('format_id'))), None)
-    if spec is None:
-        abort(404, description='Formato indisponível. Atualize o catálogo.')
-    return jsonify(copy_ads.validate_copy(spec, data.get('values')))
 
 
 @bp.post('/api/conversations/send')

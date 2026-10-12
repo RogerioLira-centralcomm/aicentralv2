@@ -24,10 +24,6 @@
   <script defer src="{{ url_for('static', filename='cadu_workspace/conversations/render.js') }}"></script>
   <script defer src="{{ url_for('static', filename='cadu_workspace/conversations/chat.js') }}"></script>
   {% endif %}
-  {% if product == 'studio' and module == 'copy-ads' %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-copy-ads.css') }}">
-  <script defer src="{{ url_for('static', filename='js/cadu-copy-ads.js') }}"></script>
-  {% endif %}
   {% block product_head_scripts %}{% endblock %}
   {% set cadu_theme_product = product %}{% include 'cadu/_theme_head.html' %}
 </head>

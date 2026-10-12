@@ -1,4 +1,4 @@
-"""Studio page data. Copy Ads loads its catalog through its protected API."""
+"""Studio page data."""
 
 
 def load_records(module, user, selected, query=''):

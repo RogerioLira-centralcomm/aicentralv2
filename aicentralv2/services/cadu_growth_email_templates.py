@@ -206,16 +206,6 @@ GROWTH_EMAIL_MODELS: Dict[str, Dict[str, str]] = {
         "cta_path": "/skills/",
         "default_body": "Uma orientação útil não precisa ficar presa a uma conversa ou a uma pessoa. Quando você reúne **objetivo, contexto, exemplos aprovados e limites claros**, o time passa a aplicar o mesmo raciocínio com mais consistência.\n\nEm Skills, organize o que deve ser repetido: como analisar, qual referência usar, o que evitar e como revisar o resultado. A próxima pessoa começa com conhecimento confiável — e não apenas com uma página em branco.",
     },
-    "smart-docs": {
-        "label": "Smart Docs → decisão documentada",
-        "product": "workspace",
-        "subject": "Registre a decisão para o projeto não recomeçar do zero",
-        "title": "Registre a decisão para o projeto não recomeçar do zero.",
-        "description": "O que foi decidido precisa sobreviver à reunião.",
-        "cta_label": "Abrir Smart Docs",
-        "cta_path": "/smart-docs",
-        "default_body": "Um plano só continua útil se o time encontra **a tese, as escolhas feitas, as premissas e as pendências** depois da reunião. Sem isso, cada ajuste parece um recomeço.\n\nEm Smart Docs, registre a decisão recente perto do projeto: público, canais, formatos, riscos e próximos passos. Quando o cliente pedir mudança ou outra pessoa entrar no trabalho, a lógica continua acessível.",
-    },
 }
 
 

@@ -405,8 +405,10 @@ class ProductPortalsTest(TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertIn("Passo a passo", response.get_data(as_text=True))
         plans = client.get("/workspace/planos", headers=headers).get_data(as_text=True)
-        for value in ("R$ 149", "R$ 549", "R$ 1.490", "Funcionalidades por solução", "Tokens", "Espaço", "Projetos ativos"):
+        for value in ("Free", "Grátis", "Falar com a equipe", "Valor mensal", "Tokens mensais", "Usuários", "Tokens extras"):
             self.assertIn(value, plans)
+        for removed in ("R$ 149", "R$ 549", "R$ 1.490", "Projetos ativos"):
+            self.assertNotIn(removed, plans)
         self.assertIn('"@type": "Product"', plans)
         home = client.get("/workspace/", headers=headers).get_data(as_text=True)
         self.assertIn('"@type": "SoftwareApplication"', home)

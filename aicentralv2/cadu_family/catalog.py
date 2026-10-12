@@ -15,25 +15,23 @@ PRODUCTS = {
     }},
     'planner': {'name': 'SmartPlanner', 'navigation': (
         ('Planejar', ('inicio', 'planos', 'radar', 'radares', 'audiencias', 'canais', 'formatos', 'interativos', 'places', 'portais', 'monitoramento')),
-        ('Entregas', ('docs',)),
     ), 'modules': {
         'inicio': ('Visão geral', None),
         'planos': ('Planos de mídia', None), 'radar': ('Radar de Oportunidades', None), 'radares': ('Meus radares', None),
         'audiencias': ('Audiências', '/audiencias'),
         'canais': ('Canais', '/canais'), 'formatos': ('Formatos', '/formatos'),
-        'interativos': ('Interativos', '/interativos'), 'docs': ('Docs', '/smart-docs'),
+        'interativos': ('Interativos', '/interativos'),
         'places': ('Locais', '/places'),
         'portais': ('Portais', None),
         'monitoramento': ('Sites e funis', None),
     }},
     'studio': {'name': 'Studio', 'navigation': (
         ('Produção', ('inicio', 'criacao')),
-        ('Ferramentas', ('creative-analyzer', 'copy-ads')),
+        ('Ferramentas', ('creative-analyzer',)),
     ), 'modules': {
         'inicio': ('Visão geral', None),
         'criacao': ('Criar', None),
         'creative-analyzer': ('Creative Analyzer', '/analyzer'),
-        'copy-ads': ('Copy Ads', '/ferramentas-copy'),
     }},
     'connect': {'name': 'Reports', 'navigation': (
         ('Operação', ('inicio', 'relatorios')),
@@ -65,8 +63,7 @@ LANDINGS = {
         'heading': 'Prepare sua produção',
         'body': 'Selecione cliente, marca e projeto. O cadastro de marcas fica no Workspace; as ferramentas criativas ficam aqui.',
         'image': 'studio.png',
-        'links': [('copy-ads', 'Preparar Copy Ads', 'Revise textos e limites por formato. A geração automática ainda não está integrada.'),
-                  ('creative-analyzer', 'Creative Analyzer', 'Acompanhe a integração da análise de criativos.')],
+        'links': [('creative-analyzer', 'Creative Analyzer', 'Acompanhe a integração da análise de criativos.')],
     },
     'connect': {
         'title': 'Relatórios no contexto certo',

@@ -45,6 +45,6 @@ class FoundationTest(family.FamilyTest):
                           'https://workspace.centralcomm.media.evil.test/'):
                 with self.subTest(value=value):
                     self.assertEqual(safe_product_target(value, '/safe'), '/safe')
-            self.assertEqual(safe_product_target('/familia/studio/copy-ads?format=3'), '/familia/studio/copy-ads?format=3')
+            self.assertEqual(safe_product_target('/familia/studio/criacao?format=3'), '/familia/studio/criacao?format=3')
             self.assertEqual(safe_product_target('https://workspace.centralcomm.media/familia/workspace/'),
                              'https://workspace.centralcomm.media/familia/workspace/')

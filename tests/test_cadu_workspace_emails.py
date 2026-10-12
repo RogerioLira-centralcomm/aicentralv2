@@ -94,7 +94,8 @@ def test_intervalo_minimo_e_falha_de_leitura_nao_reenviam():
     with _app().app_context(), mock.patch("aicentralv2.services.cadu_product_emails._enabled", return_value=True), \
          mock.patch("aicentralv2.services.cadu_email_connector.send_cadu_event") as send, \
          mock.patch("aicentralv2.services.brevo_service.product_email_brand", return_value={}):
-        with mock.patch.object(we, "_recently_sent", return_value=True):
+        lock_conn = mock.MagicMock()
+        with mock.patch.object(we, "_recently_sent", return_value=True), mock.patch.object(we, "_db", return_value=lock_conn):
             assert we._send("workspace.project_created", recipient={"email": "a@x.com"}, subject="s", title="t",
                             description="d", cta_label="c", cta_url="u")["reason"] == "throttled"
         broken = mock.MagicMock(); broken.cursor.side_effect = RuntimeError("db")
@@ -107,3 +108,19 @@ def test_todos_os_eventos_do_workspace_estao_ativos():
     from aicentralv2.services.cadu_email_connector import CADU_EMAIL_EVENTS
     planned = [k for k, v in CADU_EMAIL_EVENTS.items() if v["status"] != "active"]
     assert planned == []
+
+
+def test_aviso_com_intervalo_usa_trava_no_banco_e_libera_depois():
+    executed = []
+    cur = mock.MagicMock(); cur.__enter__.return_value = cur
+    cur.execute.side_effect = lambda sql, params=None: executed.append((sql, params))
+    conn = mock.MagicMock(); conn.cursor.return_value = cur
+    with _app().app_context(), mock.patch("aicentralv2.services.cadu_product_emails._enabled", return_value=True), \
+         mock.patch("aicentralv2.services.cadu_email_connector.send_cadu_event", return_value={"success": True}) as send, \
+         mock.patch("aicentralv2.services.brevo_service.product_email_brand", return_value={}), \
+         mock.patch.object(we, "_db", return_value=conn), mock.patch.object(we, "_recently_sent", return_value=False):
+        we._send("workspace.source_received", recipient={"email": "A@x.com"}, subject="Novas fontes em X", title="t",
+                 description="d", cta_label="c", cta_url="u", throttle_hours=2)
+    send.assert_called_once()
+    assert executed[0][0].startswith("SELECT pg_advisory_lock") and executed[-1][0].startswith("SELECT pg_advisory_unlock")
+    assert executed[0][1] == ("a@x.com|workspace.source_received|Novas fontes em X",)

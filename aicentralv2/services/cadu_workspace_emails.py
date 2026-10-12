@@ -85,13 +85,36 @@ def _send(event: str, *, recipient: dict, subject: str, title: str, description:
     email = str(recipient.get("email") or "").strip()
     if not email or not _enabled() or recipient.get("status") is False:
         return {"success": True, "skipped": True}
-    if _recently_sent(email, event, subject=subject if throttle_subject else None, hours=throttle_hours):
-        return {"success": True, "skipped": True, "reason": "throttled"}
-    return send_cadu_event(product="workspace", event=event, template="produto-atividade.html",
-                           recipient=email, recipient_name=recipient.get("nome_completo") or "Pessoa do time",
-                           subject=subject, client_id=client_id,
-                           params={"BRAND": product_email_brand("workspace"), "TITLE": title,
-                                   "DESCRIPTION": description, "CTA_LABEL": cta_label, "CTA_URL": cta_url})
+
+    def deliver():
+        return send_cadu_event(product="workspace", event=event, template="produto-atividade.html",
+                               recipient=email, recipient_name=recipient.get("nome_completo") or "Pessoa do time",
+                               subject=subject, client_id=client_id,
+                               params={"BRAND": product_email_brand("workspace"), "TITLE": title,
+                                       "DESCRIPTION": description, "CTA_LABEL": cta_label, "CTA_URL": cta_url})
+
+    if throttle_hours <= 0:
+        return deliver()
+    # Vários uploads chegam em requisições paralelas: sem trava, todos passariam pela checagem antes do
+    # primeiro registro. A trava no banco (vale entre processos) serializa "conferir + enviar + registrar".
+    key = f"{email.lower()}|{event}|{subject if throttle_subject else ''}"
+    conn = _db()
+    locked = False
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT pg_advisory_lock(hashtext(%s))", (key,))
+        locked = True
+        if _recently_sent(email, event, subject=subject if throttle_subject else None, hours=throttle_hours):
+            return {"success": True, "skipped": True, "reason": "throttled"}
+        return deliver()
+    finally:
+        if locked:
+            try:
+                with _db().cursor() as cursor:
+                    cursor.execute("SELECT pg_advisory_unlock(hashtext(%s))", (key,))
+                _db().commit()
+            except Exception:  # conexão fechada pelo registro: a trava de sessão já foi liberada
+                pass
 
 
 def _project(client_id: int, project_id: str) -> dict:

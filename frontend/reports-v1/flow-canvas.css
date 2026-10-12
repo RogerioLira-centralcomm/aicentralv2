@@ -90,7 +90,6 @@
 .flow-react-canvas .react-flow__node-toolbar.flow-node-hover{display:grid;gap:5px;width:240px;max-width:80vw;padding:12px;border:1px solid var(--color-border-secondary);font-size:12px;pointer-events:none;text-align:left}
 .flow-node-hover small,.flow-node-hover p{font-size:11px;margin:0;color:var(--color-text-tertiary);overflow-wrap:anywhere}
 
-.flow-lanes{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none}.flow-lanes>div{position:absolute;top:0;bottom:0;border-radius:24px;background:color-mix(in srgb,var(--color-bg-secondary) 70%,transparent)}.flow-lanes>div:nth-child(even){background:transparent}.flow-lanes span{position:absolute;left:16px;color:var(--color-text-quaternary);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
 /* Node card, journey summary, view menu and conversion-probe panel. */
 /* One node card for every block type. Handles are direct children, centred on the card edge. */
 .fnode{position:relative;display:grid;gap:6px;width:232px;padding:12px 14px;border:1px solid var(--color-border-secondary);border-radius:14px;background:var(--color-bg-primary);color:var(--color-text-primary);box-shadow:0 1px 2px rgb(16 24 40/.06);transition:box-shadow .15s,border-color .15s}
@@ -196,3 +195,36 @@
 .flow-probe-callout.is-warn,.flow-probe-callout.is-warning{border-color:var(--color-border-warning);background:var(--color-bg-warning-primary);color:var(--color-text-warning-primary)}
 .flow-probe-callout.is-error{border-color:var(--color-border-error);background:var(--color-bg-error-primary);color:var(--color-text-error-primary)}
 .flow-probe-callout summary{cursor:pointer;font-size:12px;font-weight:600}
+
+/* Mesa infinita: etapa numerada, continuação e foco */
+.fnode__badge{position:absolute;bottom:calc(100% + 6px);left:2px;display:flex;align-items:center;gap:5px;pointer-events:none;color:var(--color-text-tertiary);font-size:10.5px;font-weight:600;letter-spacing:.01em;white-space:nowrap}
+.fnode__badge b{display:grid;min-width:18px;height:18px;padding:0 4px;place-items:center;border:1px solid var(--color-border-secondary);border-radius:5px;background:var(--color-bg-primary);color:var(--color-text-secondary);font-size:10px;font-variant-numeric:tabular-nums}
+.fnode__badge span{padding:2px 7px;border-radius:999px;background:var(--color-bg-secondary)}
+.fnode.is-type-source .fnode__badge span{background:var(--color-bg-brand-secondary);color:var(--color-text-brand-secondary)}
+.fnode.is-type-conversion .fnode__badge span{background:var(--color-bg-success-secondary,var(--color-bg-secondary));color:var(--color-text-success-primary,var(--color-text-secondary))}
+.fnode__append{position:absolute;top:50%;right:-46px;z-index:2;display:grid;width:26px;height:26px;padding:0;place-items:center;border:1.5px dashed var(--color-border-primary);border-radius:8px;background:var(--color-bg-primary);color:var(--color-fg-quaternary);cursor:pointer;opacity:.7;transform:translateY(-50%);transition:opacity .12s,border-color .12s,color .12s}
+.fnode__append::before{content:'';position:absolute;top:50%;right:100%;width:14px;border-top:1.5px dashed var(--color-border-primary)}
+.fnode:hover .fnode__append,.fnode.is-selected .fnode__append,.fnode__append:focus-visible{opacity:1;border-color:var(--color-fg-brand-primary);color:var(--color-fg-brand-primary);outline:0}
+.fnode.is-compact .fnode__append{display:none}
+.fnode.is-dimmed{opacity:.42;transition:opacity .15s}
+.flow-edge-actions.is-muted{opacity:.15!important}
+.flow-zoom-readout{width:auto!important;min-width:44px;font-size:11px;font-variant-numeric:tabular-nums}
+
+/* Legenda dos traços */
+.flow-edge-legend{position:absolute;bottom:62px;left:16px;z-index:6;max-width:min(250px,calc(100% - 200px));max-height:calc(100% - 140px);overflow:auto;padding:4px;border:1px solid var(--color-border-secondary);border-radius:10px;background:color-mix(in srgb,var(--color-bg-primary) 94%,transparent);box-shadow:0 4px 14px rgb(16 24 40 / 8%);font-size:11px;line-height:1.3;backdrop-filter:blur(6px)}
+.flow-edge-legend.is-closed{padding:0}
+.flow-edge-legend__toggle{width:100%;padding:5px 8px;border:0;border-radius:6px;background:transparent;color:var(--color-text-secondary);font-size:11px;font-weight:600;text-align:left;cursor:pointer}
+.flow-edge-legend__toggle:hover{background:var(--color-bg-secondary)}
+.flow-edge-legend ul{display:grid;gap:1px;margin:2px 0 0;padding:0;list-style:none}
+.flow-edge-legend li>button,.flow-edge-legend li.is-signal{display:flex;width:100%;align-items:center;gap:7px;padding:3px 6px;border:0;border-radius:6px;background:transparent;color:var(--color-text-secondary);font:inherit;text-align:left}
+.flow-edge-legend li>button{cursor:pointer}
+.flow-edge-legend li>button:hover{background:var(--color-bg-secondary)}
+.flow-edge-legend li>button.is-active{background:var(--color-bg-brand-secondary);color:var(--color-text-brand-secondary)}
+.flow-edge-legend li>button.is-muted{opacity:.55}
+.flow-edge-legend svg{flex:none}
+.flow-edge-legend__scale{display:flex;align-items:center;gap:4px;padding:0 6px 3px 49px;color:var(--color-text-tertiary);font-size:10.5px;font-variant-numeric:tabular-nums}
+.flow-edge-legend__scale svg{width:24px}
+.flow-edge-legend__clear{margin:4px 8px 2px;padding:0;border:0;background:none;color:var(--color-text-brand-secondary);font-size:11px;cursor:pointer}
+@media (max-width:1023px){.flow-edge-legend{max-width:calc(100% - 32px)}}
+.flow-react-canvas .react-flow__controls-button svg[stroke]{max-width:16px;max-height:16px;fill:none}
+.reports-shell--flow-editor .reports-flow-designer .flow-edge-legend button:not(.react-flow__controls-button):not([data-reports-tone=primary]){border:0;box-shadow:none}

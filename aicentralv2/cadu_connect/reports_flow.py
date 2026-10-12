@@ -19,7 +19,7 @@ from ..db import get_db
 from .reports_v1 import _rows, _selection, _write_guard, _customer_id, _customer_scope, _optional_positive_id
 from .reports_flow_versions import expected_revision, lock_flow, save_draft, publish_draft, session_snapshot, match_version_step
 from .reports_flow_schema import DEFAULT_KINDS, to_v3
-from .reports_flow_validation import MAX_FLOW_PAGES, validate_flow_config
+from .reports_flow_validation import MAX_FLOW_PAGES, SUGGESTED_FLOW_PAGES, validate_flow_config
 from .reports_flow_lifecycle import NODE_STATUSES, is_measured, measured_nodes, node_status, normalize_forecast, normalize_media, normalize_segment, normalize_spec
 from .reports_flow_stage import normalize_stage
 from .reports_flow_metrics import SEARCH_ENGINE_IDS, apply_engagement, apply_session_bounds, edge_observation, origin_landings, origin_summary
@@ -517,6 +517,10 @@ def _normalize_flow_tags(tags):
     return clean
 
 
+# The editor is an infinite board; this only keeps documents sane. Mirrors FLOW_COORD_LIMIT in frontend/reports-v1/flowDrag.js.
+FLOW_COORD_LIMIT = 20000
+
+
 def _normalize_flow_config(config, allowed_host):
     if not isinstance(config, dict):
         abort(400, description='A configuração do fluxo precisa ser um objeto.')
@@ -563,7 +567,7 @@ def _normalize_flow_config(config, allowed_host):
                 numeric = float(value)
             except (TypeError, ValueError):
                 abort(400, description='A posição de um nó é inválida.')
-            if not math.isfinite(numeric) or not 0 <= numeric <= 10000:
+            if not math.isfinite(numeric) or not -FLOW_COORD_LIMIT <= numeric <= FLOW_COORD_LIMIT:
                 abort(400, description='Mantenha os nós dentro da área do editor.')
             position[axis] = round(numeric)
         item = {'id': node_id, 'type': node_type, 'title': title,
@@ -579,7 +583,7 @@ def _normalize_flow_config(config, allowed_host):
             item['host'] = host
         if event_name:
             item['event_name'] = event_name
-        for field in ('source','event','discoveryPageId','stepId','pageGroup','suggestedRole','groupId','stage','role','origin','role_source','pageType','pageTypeStatus'):
+        for field in ('source','event','discoveryPageId','stepId','pageGroup','suggestedRole','groupId','stage','role','origin','role_source','pageType','pageTypeStatus','pathSource'):
             if isinstance(node.get(field), str):
                 item[field] = node[field][:120]
         # Persist the complete authored document, including visual and future
@@ -705,7 +709,7 @@ def _normalize_flow_config(config, allowed_host):
             abort(400,description='Identificador de grupo inválido.')
         if not isinstance(member_ids,list) or not member_ids or any(not isinstance(n,str) or n not in ids or n in members for n in member_ids) or len(set(member_ids))!=len(member_ids):
             abort(400,description='Cada nó pode pertencer a um único grupo válido.')
-        if not isinstance(bounds,dict) or any(isinstance(bounds.get(k),bool) or not isinstance(bounds.get(k),(float,int)) or not math.isfinite(bounds[k]) or not 0<=bounds[k]<=10000 for k in ('x','y','width','height')) or bounds['width']<100 or bounds['height']<100:
+        if not isinstance(bounds,dict) or any(isinstance(bounds.get(k),bool) or not isinstance(bounds.get(k),(float,int)) or not math.isfinite(bounds[k]) or not (-FLOW_COORD_LIMIT if k in ('x','y') else 0)<=bounds[k]<=(FLOW_COORD_LIMIT if k in ('x','y') else 2*FLOW_COORD_LIMIT) for k in ('x','y','width','height')) or bounds['width']<100 or bounds['height']<100:
             abort(400,description='Dimensões de grupo inválidas.')
         group_ids.add(group_id);members.update(member_ids)
         clean_groups.append({'id':group_id,'name':str(group.get('name') or 'Grupo')[:60],
@@ -1568,7 +1572,7 @@ def register(bp):
             primary, groups = _discovery_flow_groups(all_pages)
             suggestions = [{'id': group['id'], 'name': group['name'], 'kind': group['kind'],
                             'page_count': len(group['pages'])} for group in groups]
-            config, omitted = _assemble_discovered_flow(locked['draft_config'] or {}, primary, flow['allowed_host'], max_pages=MAX_FLOW_PAGES)
+            config, omitted = _assemble_discovered_flow(locked['draft_config'] or {}, primary, flow['allowed_host'], max_pages=SUGGESTED_FLOW_PAGES)
             config, _ = _normalize_flow_config(config, flow['allowed_host'])
             updated = save_draft(flow_id, selected, revision, locked['name'], config)
         get_db().commit()

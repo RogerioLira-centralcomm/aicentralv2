@@ -10,7 +10,7 @@ const moduleAt=async name=>import('data:text/javascript;base64,'+Buffer.from(fs.
  const canvas=fs.readFileSync(path.join(root,'frontend/reports-v1/FlowCanvas.jsx'),'utf8');
  assert(canvas.includes("origin:'manual',from:connection.source,to:connection.target"));
  assert(canvas.includes('old.data?.aggregate'));
- assert.equal((canvas.match(/groupMoved\?\{manuallyEdited:true\}/g)||[]).length,2);
+ assert(canvas.includes('applyDrag(current,raw'));assert(!canvas.includes('stageAtX'),'dragging must not change the stage');
  assert(canvas.includes('reconnectable:!readOnly'));
  const drawer=fs.readFileSync(path.join(root,'frontend/cadu-design-system/components/CaduDrawer.jsx'),'utf8');
  assert(drawer.includes('hidden={confirmClose}'));

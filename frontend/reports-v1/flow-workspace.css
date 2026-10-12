@@ -488,3 +488,5 @@
 .flow-plan-panel__goals button:disabled{opacity:.6;cursor:default}
 .flow-plan-panel__how{display:grid;gap:4px;font-size:12px}.flow-plan-panel__how ul{margin:0;padding-left:18px;display:grid;gap:3px;color:var(--color-text-secondary)}
 .flow-inspector__goal-hint{margin:0;padding:8px 10px;border-radius:10px;background:var(--color-bg-secondary);color:var(--color-text-secondary);font-size:12px;line-height:1.45}
+.flow-page-picker__hint{margin-left:6px;padding:1px 6px;border-radius:999px;background:var(--color-bg-brand-secondary);color:var(--color-text-brand-secondary);font-size:10px;font-style:normal;font-weight:600;vertical-align:1px}
+.reports-flow-mode-badge{display:inline-grid;min-width:18px;height:18px;margin-left:6px;padding:0 5px;place-items:center;border-radius:999px;background:var(--color-bg-warning-secondary,#fef0c7);color:var(--color-text-warning-primary,#b54708);font-size:11px;font-weight:700}

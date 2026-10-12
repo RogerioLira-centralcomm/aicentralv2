@@ -39,6 +39,12 @@ export function WorkspaceMobileChrome({title = 'Workspace', eyebrow = 'Workspace
       window.requestAnimationFrame(() => trigger.current?.focus());
     };
   }, [open]);
+  useEffect(() => {
+    if (!switching) return undefined;
+    const onKey = event => { if (event.key === 'Escape') setSwitching(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [switching]);
   const go = () => setOpen(false);
   const availableContextItems = (() => {
     // Alternate kinds so a long run of conversations never hides every project.

@@ -1,7 +1,7 @@
 (function () {
   var gate = document.querySelector('.cadu-mobile-gate');
   if (!gate) return;
-  var url = window.location.origin + window.location.pathname;
+  var url = window.location.origin + window.location.pathname + window.location.search;
   var mail = gate.querySelector('[data-gate-mail]');
   var copy = gate.querySelector('[data-gate-copy]');
   var status = gate.querySelector('.cadu-mobile-gate__status');

@@ -36,12 +36,27 @@ import {
   upsertWorkspaceSpend,
 } from "./cadu-video/state.js";
 import { newId, scriptText } from "./cadu-video/utils.js";
+import { askSession } from "./studio-session-prompt.js";
 
 let quoteTimer = null;
 let saveTimer = null;
 let quoteRequest = 0;
 let saveRequest = 0;
 let narrationRequest = 0;
+
+let askOnEntry = false;
+
+// The Studio project in the link (?project_id=) decides the brand, like it does in Editar.
+async function clientForStudioProject(projectId) {
+  const wanted = String(projectId || "").replace(/^ci:/, "");
+  if (!wanted) return "";
+  try {
+    const data = await get(`${studioApi}/project-contexts`);
+    const items = (data?.data || data)?.items || [];
+    const match = items.find((item) => [item.id, item.external_project_id].some((id) => String(id || "").replace(/^ci:/, "") === wanted));
+    return match?.client_id ? String(match.client_id) : "";
+  } catch (_) { return ""; }
+}
 
 boot();
 
@@ -60,7 +75,9 @@ async function boot() {
   document.addEventListener("cadu:brand-change", (event) => {
     applyBrand(event.detail?.clientId, { reset: true });
   });
-  const linkedClient = params.get("creative_client_id") || params.get("client") || Desk.read();
+  const linkedClient = params.get("creative_client_id") || params.get("client") || await clientForStudioProject(params.get("project_id")) || Desk.read();
+  // Open work is offered, not forced, unless the link already points at a clip or a saved session.
+  askOnEntry = !params.get("clip") && !params.get("studio_session_id");
   await applyBrand(linkedClient);
   const linkedSessionId = String(params.get("studio_session_id") || "").trim();
   if (linkedSessionId && /^\d+$/.test(String(linkedClient || ""))) {
@@ -432,6 +449,19 @@ async function restoreProject() {
     state.projects = data.items || [];
     state.projectId = data.activeId || "";
     applyProject(data.project || {});
+    const project = data.project || {};
+    const hasWork = Boolean(project.composition || project.script || project.storyboard_draft || project.active_clip_id || Object.keys(project.clip_edits || {}).length);
+    if (askOnEntry && hasWork) {
+      askOnEntry = false;
+      const choice = await askSession({
+        message: `Você tem um projeto de vídeo em andamento: ${project.name || "sem título"}. Quer continuar nele ou começar um novo projeto?`,
+        continueHint: "Retoma o roteiro, as cenas e os cortes de onde pararam.",
+        newLabel: "Novo projeto de vídeo", newHint: "Começa em branco; o projeto anterior continua na lista de projetos.",
+      });
+      if (clientId !== state.clientId) return;
+      if (choice === "new") { await newProject(); return; }
+    }
+    askOnEntry = false;
   } catch (error) {
     setStatus(`Não foi possível abrir o projeto: ${error.message}`);
   }

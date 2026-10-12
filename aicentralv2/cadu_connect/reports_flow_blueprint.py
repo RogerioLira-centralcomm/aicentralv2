@@ -3,7 +3,7 @@ import json
 import os
 import time
 import uuid
-from .reports_flow_validation import MAX_FLOW_PAGES
+from .reports_flow_validation import SUGGESTED_FLOW_PAGES
 from pathlib import Path
 from flask import abort, current_app, jsonify, request, session
 from ..db import get_db
@@ -67,7 +67,7 @@ def propose(catalog,goal,observed=None,media=None):
     elif goal=='appointment':pages.sort(key=lambda p:(not any(w in p['path_prefix'] for w in ('agend','calendar','booking')) and p['role']!='entry',priority.get(p['role'],9)))
     nodes=[];groups=[];templates={};visible=0;columns={};warnings=[]
     source_limit=min(3,len(observed.get('sources',[]))+len(media))
-    page_limit=MAX_FLOW_PAGES
+    page_limit=SUGGESTED_FLOW_PAGES
     for page in pages:
         template=page.get('template_id')
         if visible>=page_limit and template not in templates:continue

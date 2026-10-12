@@ -58,7 +58,10 @@ const server=http.createServer((req,res)=>{const pathname=new URL(req.url,'http:
     assert(await pending.isVisible());
     assert.match(await pending.innerText(),/Sem conversão definida, não será possível medir/);
     await pending.getByRole('button',{name:'Adicionar nó de Conversão'}).click();
-    assert.equal(await page.locator('.react-flow__node').count(),2);
+    // The new step continues the only open end of the path, so it arrives connected (and the exit appears beside it).
+    assert.equal(await page.locator('.react-flow__node:not(.react-flow__node-exitSink)').count(),2);
+    await page.locator('.react-flow__edge:not([data-id^="exit:"])').first().waitFor();
+    assert.equal(await page.locator('.react-flow__edge:not([data-id^="exit:"])').count(),1);
     flow={...flow,config:{nodes:[],edges:[]}};
     await page.reload();
     await page.locator('.reports-flow-empty-guide').waitFor();

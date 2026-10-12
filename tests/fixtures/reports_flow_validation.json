@@ -235,6 +235,97 @@
           "stage": "exploration"
         },
         {
+          "id": "p7",
+          "type": "page",
+          "title": "P7",
+          "path": "/p7",
+          "stage": "exploration"
+        },
+        {
+          "id": "p8",
+          "type": "page",
+          "title": "P8",
+          "path": "/p8",
+          "stage": "exploration"
+        },
+        {
+          "id": "p9",
+          "type": "page",
+          "title": "P9",
+          "path": "/p9",
+          "stage": "exploration"
+        },
+        {
+          "id": "p10",
+          "type": "page",
+          "title": "P10",
+          "path": "/p10",
+          "stage": "exploration"
+        },
+        {
+          "id": "p11",
+          "type": "page",
+          "title": "P11",
+          "path": "/p11",
+          "stage": "exploration"
+        },
+        {
+          "id": "p12",
+          "type": "page",
+          "title": "P12",
+          "path": "/p12",
+          "stage": "exploration"
+        },
+        {
+          "id": "p13",
+          "type": "page",
+          "title": "P13",
+          "path": "/p13",
+          "stage": "exploration"
+        },
+        {
+          "id": "p14",
+          "type": "page",
+          "title": "P14",
+          "path": "/p14",
+          "stage": "exploration"
+        },
+        {
+          "id": "p15",
+          "type": "page",
+          "title": "P15",
+          "path": "/p15",
+          "stage": "exploration"
+        },
+        {
+          "id": "p16",
+          "type": "page",
+          "title": "P16",
+          "path": "/p16",
+          "stage": "exploration"
+        },
+        {
+          "id": "p17",
+          "type": "page",
+          "title": "P17",
+          "path": "/p17",
+          "stage": "exploration"
+        },
+        {
+          "id": "p18",
+          "type": "page",
+          "title": "P18",
+          "path": "/p18",
+          "stage": "exploration"
+        },
+        {
+          "id": "p19",
+          "type": "page",
+          "title": "P19",
+          "path": "/p19",
+          "stage": "exploration"
+        },
+        {
           "id": "fim",
           "type": "conversion",
           "title": "Lead",
@@ -276,6 +367,71 @@
         {
           "id": "e6",
           "from": "p6",
+          "to": "fim"
+        },
+        {
+          "id": "e7",
+          "from": "p7",
+          "to": "fim"
+        },
+        {
+          "id": "e8",
+          "from": "p8",
+          "to": "fim"
+        },
+        {
+          "id": "e9",
+          "from": "p9",
+          "to": "fim"
+        },
+        {
+          "id": "e10",
+          "from": "p10",
+          "to": "fim"
+        },
+        {
+          "id": "e11",
+          "from": "p11",
+          "to": "fim"
+        },
+        {
+          "id": "e12",
+          "from": "p12",
+          "to": "fim"
+        },
+        {
+          "id": "e13",
+          "from": "p13",
+          "to": "fim"
+        },
+        {
+          "id": "e14",
+          "from": "p14",
+          "to": "fim"
+        },
+        {
+          "id": "e15",
+          "from": "p15",
+          "to": "fim"
+        },
+        {
+          "id": "e16",
+          "from": "p16",
+          "to": "fim"
+        },
+        {
+          "id": "e17",
+          "from": "p17",
+          "to": "fim"
+        },
+        {
+          "id": "e18",
+          "from": "p18",
+          "to": "fim"
+        },
+        {
+          "id": "e19",
+          "from": "p19",
           "to": "fim"
         }
       ]

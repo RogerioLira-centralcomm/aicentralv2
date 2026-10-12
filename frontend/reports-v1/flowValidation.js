@@ -14,7 +14,9 @@ export const isPlanned=node=>measured.has(node?.type)&&['planned','in_production
 export const isMeasured=node=>measured.has(node?.type)&&['ready','live'].includes(nodeStatus(node))&&hasRealPath(node);
 const pageTypes=new Set(['page','form','conversion','error']);
 // A flow follows a few pages that matter; the explorer is where the rest of the site lives.
-export const MAX_FLOW_PAGES=6;
+// A flow can follow up to 20 pages (a group counts once); generated flows still start with SUGGESTED_FLOW_PAGES.
+export const MAX_FLOW_PAGES=20;
+export const SUGGESTED_FLOW_PAGES=6;
 const details={
   no_conversion:['Sem conversão definida, não será possível medir a conclusão desta jornada.','add_conversion'],
   unmapped_page:['O nó não poderá ser associado a uma página ou evento recebido.','configure_url'],

@@ -35,6 +35,21 @@
         "5050"
       ],
       "port": 5050
+    },
+    {
+      "name": "flask-quadro",
+      "runtimeExecutable": "/usr/bin/env",
+      "runtimeArgs": [
+        "STUDIO_URL=http://studio.localhost:5051",
+        ".venv/bin/flask",
+        "--app",
+        "run:app",
+        "run",
+        "--port",
+        "5051"
+      ],
+      "port": 5051,
+      "autoPort": false
     }
   ]
 }

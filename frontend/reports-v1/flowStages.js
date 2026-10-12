@@ -38,7 +38,8 @@ export function funnelEdges(config,{full=false,returns=false}={}) {
   return valid.filter(edge=>{
     const from=byId.get(edge.from),to=byId.get(edge.to);
     if(from.groupId&&from.groupId===to.groupId)return false;
-    return returns||!isReturnEdge(edge,byId);
+    // A connection the person drew is never hidden; only inferred back-links wait for "Mostrar retornos".
+    return returns||edge.origin==='manual'||!isReturnEdge(edge,byId);
   });
 }
 

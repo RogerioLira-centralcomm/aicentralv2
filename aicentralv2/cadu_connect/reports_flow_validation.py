@@ -32,7 +32,9 @@ def is_measured(node):
 PAGE_TYPES = {'page', 'form', 'conversion', 'error'}
 # A flow follows a few pages that matter; the explorer is where the rest of the site lives.
 FLOW_GOALS = ('conversion', 'time', 'reach', 'navigation')
-MAX_FLOW_PAGES = 6
+MAX_FLOW_PAGES = 20
+# Flows assembled automatically (discovery, blueprint) start small; people add the rest up to MAX_FLOW_PAGES.
+SUGGESTED_FLOW_PAGES = 6
 DETAILS = {
     'no_conversion': ('Sem conversão definida, não será possível medir a conclusão desta jornada.', 'add_conversion'),
     'unmapped_page': ('O nó não poderá ser associado a uma página ou evento recebido.', 'configure_url'),

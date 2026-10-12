@@ -1,0 +1,9 @@
+{% set data = events if tab == 'eventos' else sequence %}
+{% if data.pages > 1 %}
+<nav class="flex items-center justify-between text-sm" aria-label="Paginação">
+  {% set base = dict(args) %}
+  {% if data.page > 1 %}{% set _ = base.update({'pagina': data.page - 1}) %}<a class="rounded-lg px-3 py-1.5 ring-1 ring-slate-300" href="{{ url_for('admin_emails.page', **base) }}">Anterior</a>{% else %}<span></span>{% endif %}
+  <span class="text-slate-600">Página {{ data.page }} de {{ data.pages }}</span>
+  {% if data.page < data.pages %}{% set _ = base.update({'pagina': data.page + 1}) %}<a class="rounded-lg px-3 py-1.5 ring-1 ring-slate-300" href="{{ url_for('admin_emails.page', **base) }}">Próxima</a>{% else %}<span></span>{% endif %}
+</nav>
+{% endif %}

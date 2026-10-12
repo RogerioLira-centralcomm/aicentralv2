@@ -1,0 +1,126 @@
+{% extends 'base_erp.html' %}
+{% block title %}E-mails — Administração{% endblock %}
+{% block page_label %}Administração · E-mails{% endblock %}
+{% block page_subtitle %}Envios, sequência de adoção e ações em massa{% endblock %}
+{% macro badge(text, tone='slate') -%}
+<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+  {% if tone == 'green' %}bg-emerald-50 text-emerald-700{% elif tone == 'red' %}bg-rose-50 text-rose-700{% elif tone == 'amber' %}bg-amber-50 text-amber-700{% elif tone == 'blue' %}bg-sky-50 text-sky-700{% else %}bg-slate-100 text-slate-700{% endif %}">{{ text }}</span>
+{%- endmacro %}
+{% macro status_badge(s) -%}
+{{ badge(status_labels.get(s, s), 'green' if s in ('delivered','opened','clicked') else 'red' if s in ('failed','bounced','complained','unsubscribed') else 'blue' if s == 'sent' else 'slate') }}
+{%- endmacro %}
+{% block content %}
+<div class="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6">
+  {% if not sequence_enabled %}
+  <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+    A sequência está <b>desligada</b> (<code>CADU_EMAIL_SEQUENCE_ENABLED</code>). As ações abaixo mudam o estado, mas nada é enviado até ela ser ligada.
+  </div>
+  {% endif %}
+  {% if load_error %}
+  <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">Não foi possível consultar o banco agora. Atualize a página.</div>
+  {% endif %}
+
+  <nav class="flex gap-1 rounded-xl bg-slate-100 p-1 text-sm font-medium" aria-label="Seções">
+    {% for key, label in [('visao','Visão geral'), ('eventos','Eventos'), ('sequencia','Sequência')] %}
+    <a href="{{ url_for('admin_emails.page', tab=key) }}" class="flex-1 rounded-lg px-3 py-2 text-center {% if tab == key %}bg-white text-slate-900 shadow-sm{% else %}text-slate-600 hover:text-slate-900{% endif %}">{{ label }}</a>
+    {% endfor %}
+  </nav>
+
+  {% if tab == 'visao' and overview %}
+  {% set o = overview %}
+  {% if not o.ready.log %}<p class="text-sm text-slate-600">A migração <code>add_cadu_email_sequence.sql</code> ainda não foi aplicada: só os envios transacionais antigos aparecem.</p>{% endif %}
+  <div class="flex items-center justify-between">
+    <h2 class="text-base font-semibold text-slate-900">Últimos {{ o.days }} dias</h2>
+    <div class="flex gap-1 text-xs">{% for d in [1, 7, 30] %}<a class="rounded-md px-2 py-1 {% if o.days == d %}bg-slate-900 text-white{% else %}bg-white text-slate-700 ring-1 ring-slate-200{% endif %}" href="{{ url_for('admin_emails.page', tab='visao', dias=d) }}">{{ d }}d</a>{% endfor %}</div>
+  </div>
+  <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+    {% for label, value, tone in [('Envios', o.total, ''), ('Abertos ou clicados', (o.by_status.get('opened', 0) + o.by_status.get('clicked', 0)), ''), ('Falhas, devoluções e spam', (o.by_status.get('failed', 0) + o.by_status.get('bounced', 0) + o.by_status.get('complained', 0)), 'red' if o.failure_rate > 5 else ''), ('Descadastros', o.opt_outs, '')] %}
+    <div class="rounded-xl bg-white p-4 ring-1 ring-slate-200"><div class="text-xs text-slate-500">{{ label }}</div><div class="mt-1 text-2xl font-semibold {% if tone == 'red' %}text-rose-700{% else %}text-slate-900{% endif %}">{{ value }}</div></div>
+    {% endfor %}
+  </div>
+  {% if o.failure_rate > 5 %}<p class="text-sm text-rose-700">Taxa de falha de {{ o.failure_rate }}% no período: confira a aba Eventos.</p>{% endif %}
+  <div class="rounded-xl bg-white p-4 ring-1 ring-slate-200">
+    <h3 class="mb-3 text-sm font-semibold text-slate-900">Sequência de adoção</h3>
+    <div class="mb-3 flex flex-wrap gap-2 text-sm">{% for key, label in sequence_labels.items() %}<a href="{{ url_for('admin_emails.page', tab='sequencia', status=key) }}" class="rounded-lg bg-slate-50 px-3 py-1.5 ring-1 ring-slate-200 hover:bg-slate-100">{{ label }}: <b>{{ o.sequence.get(key, 0) }}</b></a>{% endfor %}</div>
+    <table class="w-full text-sm"><thead><tr class="text-left text-xs text-slate-500"><th class="py-1">Passo</th><th>E-mail</th><th class="text-right">Aguardando</th></tr></thead><tbody>
+      {% for f in o.funnel %}<tr class="border-t border-slate-100"><td class="py-2">{{ f.step }}</td><td>{{ f.model }}</td><td class="text-right"><a class="text-sky-700 hover:underline" href="{{ url_for('admin_emails.page', tab='sequencia', status='active', passo=f.step) }}">{{ f.waiting }}</a></td></tr>{% endfor %}
+    </tbody></table>
+  </div>
+  {% endif %}
+
+  {% if tab == 'eventos' and events %}
+  {% set e = events %}
+  <form class="flex flex-wrap items-end gap-2 rounded-xl bg-white p-3 ring-1 ring-slate-200 text-sm" method="get">
+    <input type="hidden" name="tab" value="eventos">
+    <label class="flex-1 min-w-[180px]"><span class="block text-xs text-slate-500">Buscar</span><input name="q" value="{{ args.get('q', '') }}" placeholder="e-mail, assunto ou evento" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"></label>
+    <label><span class="block text-xs text-slate-500">Status</span><select name="status" class="mt-1 rounded-lg border border-slate-300 px-2 py-2"><option value="">Todos</option>{% for k, v in status_labels.items() %}<option value="{{ k }}" {% if args.get('status') == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
+    <label><span class="block text-xs text-slate-500">Tipo</span><select name="tipo" class="mt-1 rounded-lg border border-slate-300 px-2 py-2"><option value="">Todos</option>{% for k, v in [('sequence','Sequência'), ('transactional','Transacional')] %}<option value="{{ k }}" {% if args.get('tipo') == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
+    <label><span class="block text-xs text-slate-500">Período</span><select name="dias" class="mt-1 rounded-lg border border-slate-300 px-2 py-2">{% for d in [1, 7, 30, 90] %}<option value="{{ d }}" {% if args.get('dias', '30') == d|string %}selected{% endif %}>{{ d }} dias</option>{% endfor %}</select></label>
+    <button class="rounded-lg bg-slate-900 px-4 py-2 font-medium text-white">Filtrar</button>
+  </form>
+  <p class="text-xs text-slate-500">{{ e.total }} evento(s)</p>
+  <div class="overflow-x-auto rounded-xl bg-white ring-1 ring-slate-200">
+    <table class="w-full min-w-[720px] text-sm"><thead class="bg-slate-50 text-left text-xs text-slate-500"><tr><th class="px-3 py-2">Quando</th><th>Para</th><th>Assunto</th><th>Evento</th><th>Status</th></tr></thead><tbody>
+    {% for r in e.rows %}
+      <tr class="border-t border-slate-100 align-top">
+        <td class="whitespace-nowrap px-3 py-2 text-slate-600">{{ r.sent_at.strftime('%d/%m %H:%M') if r.sent_at else '' }}</td>
+        <td class="py-2">{% if r.contato_id or r.contact_ref %}<a class="text-sky-700 hover:underline" href="{{ url_for('admin_emails.user', contato_id=r.contato_id or r.contact_ref) }}">{{ r.nome_completo or r.recipient_email }}</a>{% else %}{{ r.recipient_email }}{% endif %}<div class="text-xs text-slate-500">{{ r.recipient_email }}</div></td>
+        <td class="py-2">{{ r.subject }}</td>
+        <td class="py-2 text-xs text-slate-600">{{ r.event_type }}{% if r.step %} · passo {{ r.step }}{% endif %}</td>
+        <td class="py-2">{{ status_badge(r.status) }}{% if r.provider_error %}<div class="mt-1 max-w-xs truncate text-xs text-rose-700" title="{{ r.provider_error }}">{{ r.provider_error }}</div>{% endif %}</td>
+      </tr>
+    {% else %}<tr><td colspan="5" class="px-3 py-6 text-center text-slate-500">Nenhum evento no filtro.</td></tr>{% endfor %}
+    </tbody></table>
+  </div>
+  {% include 'admin/_emails_pager.html' with context %}
+  {% endif %}
+
+  {% if tab == 'sequencia' and sequence %}
+  {% set s = sequence %}
+  {% if not s.ready.seq %}<p class="text-sm text-slate-600">A migração <code>add_cadu_email_sequence.sql</code> ainda não foi aplicada.</p>{% endif %}
+  <form class="flex flex-wrap items-end gap-2 rounded-xl bg-white p-3 ring-1 ring-slate-200 text-sm" method="get">
+    <input type="hidden" name="tab" value="sequencia">
+    <label class="flex-1 min-w-[180px]"><span class="block text-xs text-slate-500">Buscar</span><input name="q" value="{{ args.get('q', '') }}" placeholder="nome ou e-mail" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"></label>
+    <label><span class="block text-xs text-slate-500">Status</span><select name="status" class="mt-1 rounded-lg border border-slate-300 px-2 py-2"><option value="">Todos</option>{% for k, v in sequence_labels.items() %}<option value="{{ k }}" {% if args.get('status') == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
+    <label><span class="block text-xs text-slate-500">Próximo passo</span><select name="passo" class="mt-1 rounded-lg border border-slate-300 px-2 py-2"><option value="">Todos</option>{% for key in steps %}<option value="{{ loop.index }}" {% if args.get('passo') == loop.index|string %}selected{% endif %}>{{ loop.index }} · {{ key }}</option>{% endfor %}</select></label>
+    <button class="rounded-lg bg-slate-900 px-4 py-2 font-medium text-white">Filtrar</button>
+  </form>
+  <div class="flex flex-wrap items-center gap-2 rounded-xl bg-white p-3 text-sm ring-1 ring-slate-200">
+    <select id="bulk-action" class="rounded-lg border border-slate-300 px-2 py-2">{% for k, v in actions.items() if k != 'enroll' %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select>
+    <button type="button" id="bulk-selected" class="rounded-lg bg-slate-900 px-3 py-2 font-medium text-white">Aplicar aos selecionados</button>
+    <button type="button" id="bulk-filter" class="rounded-lg px-3 py-2 font-medium text-slate-800 ring-1 ring-slate-300">Aplicar a todos do filtro ({{ s.total }})</button>
+  </div>
+  <div class="overflow-x-auto rounded-xl bg-white ring-1 ring-slate-200">
+    <table class="w-full min-w-[760px] text-sm"><thead class="bg-slate-50 text-left text-xs text-slate-500"><tr><th class="px-3 py-2"><input type="checkbox" id="check-all" aria-label="Selecionar todos da página"></th><th>Pessoa</th><th>Status</th><th>Próximo passo</th><th>Próximo envio</th><th>Último envio</th></tr></thead><tbody>
+    {% for r in s.rows %}
+      <tr class="border-t border-slate-100">
+        <td class="px-3 py-2"><input type="checkbox" class="row-check" value="{{ r.contato_id }}" aria-label="Selecionar {{ r.nome_completo }}"></td>
+        <td class="py-2"><a class="text-sky-700 hover:underline" href="{{ url_for('admin_emails.user', contato_id=r.contato_id) }}">{{ r.nome_completo }}</a><div class="text-xs text-slate-500">{{ r.email }}</div></td>
+        <td class="py-2">{{ badge(sequence_labels.get(r.status, r.status), 'green' if r.status == 'active' else 'amber' if r.status == 'paused' else 'slate') }}{% if r.opt_out %} {{ badge('Descadastrado', 'red') }}{% endif %}{% if r.paused_reason %}<div class="text-xs text-slate-500">{{ r.paused_reason }}</div>{% endif %}</td>
+        <td class="py-2">{% if r.next_step <= steps|length %}{{ r.next_step }} · {{ steps[r.next_step - 1] }}{% else %}—{% endif %}</td>
+        <td class="py-2 text-slate-600">{{ r.next_send_at.strftime('%d/%m %H:%M') if r.next_send_at else '—' }}</td>
+        <td class="py-2 text-slate-600">{{ r.last_sent_at.strftime('%d/%m %H:%M') if r.last_sent_at else '—' }}</td>
+      </tr>
+    {% else %}<tr><td colspan="6" class="px-3 py-6 text-center text-slate-500">Ninguém na sequência com esse filtro.</td></tr>{% endfor %}
+    </tbody></table>
+  </div>
+  {% include 'admin/_emails_pager.html' with context %}
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+{% include 'admin/_emails_actions.html' %}
+<script>
+(function () {
+  const all = document.getElementById('check-all');
+  if (!all) return;
+  const checks = () => [...document.querySelectorAll('.row-check')];
+  all.addEventListener('change', () => checks().forEach(c => { c.checked = all.checked; }));
+  const action = () => document.getElementById('bulk-action').value;
+  document.getElementById('bulk-selected').addEventListener('click', () =>
+    emailAction(action(), checks().filter(c => c.checked).map(c => Number(c.value))));
+  document.getElementById('bulk-filter').addEventListener('click', () =>
+    emailAction(action(), [], {{ {'q': args.get('q', ''), 'status': args.get('status', ''), 'step': args.get('passo', '')}|tojson }}));
+})();
+</script>
+{% endblock %}

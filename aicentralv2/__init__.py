@@ -525,6 +525,8 @@ def create_app(config_class=Config):
         # após o deploy. Restrito a superadmin (auth.py).
         from .admin_migrations_routes import bp as admin_migrations_bp
         app.register_blueprint(admin_migrations_bp)
+        from .admin_emails_routes import bp as admin_emails_bp
+        app.register_blueprint(admin_emails_bp)
 
         from .product_domains import register_product_host_routing
         register_product_host_routing(app)

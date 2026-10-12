@@ -1,0 +1,25 @@
+{# Ações da sequência: prévia com a contagem, confirmação e execução. #}
+<script>
+(function () {
+  const csrf = {{ csrf|tojson }};
+  async function call(body) {
+    const res = await fetch({{ url_for('admin_emails.action')|tojson }}, {
+      method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf}, body: JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => ({ok: false, error: 'Resposta inválida.'}));
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Não foi possível concluir.');
+    return data;
+  }
+  window.emailAction = async function (action, ids, filters) {
+    const body = filters ? {action, scope: 'filter', filters} : {action, ids};
+    try {
+      const preview = await call({...body, dry_run: true});
+      if (!preview.count) { alert('Nenhuma pessoa selecionada.'); return; }
+      if (!confirm(`${preview.label}: ${preview.count} pessoa(s). Confirmar?`)) return;
+      const done = await call(body);
+      alert(`Feito: ${done.affected} de ${done.count} pessoa(s) alterada(s).`);
+      location.reload();
+    } catch (err) { alert(err.message); }
+  };
+})();
+</script>

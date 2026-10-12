@@ -1,0 +1,42 @@
+{% extends 'base_erp.html' %}
+{% block title %}E-mails de {{ h.contact.nome_completo }} — Administração{% endblock %}
+{% block page_label %}Administração · E-mails{% endblock %}
+{% block page_subtitle %}{{ h.contact.nome_completo }}{% endblock %}
+{% block content %}
+{% set st = h.state %}
+<div class="mx-auto max-w-5xl space-y-5 px-4 py-6 sm:px-6">
+  <a href="{{ url_for('admin_emails.page', tab='sequencia') }}" class="text-sm text-sky-700 hover:underline">← Voltar</a>
+  <div class="grid gap-3 md:grid-cols-3">
+    <div class="rounded-xl bg-white p-4 ring-1 ring-slate-200 md:col-span-1">
+      <div class="text-lg font-semibold text-slate-900">{{ h.contact.nome_completo }}</div>
+      <div class="text-sm text-slate-600">{{ h.contact.email }}</div>
+      <div class="mt-2 text-xs text-slate-500">Conta {{ h.contact.client_id }}{% if h.contact.status is sameas false %} · contato inativo{% endif %}</div>
+      <div class="mt-3 text-sm">Dicas: {% if h.prefs and h.prefs.marketing_opt_out %}<b class="text-rose-700">descadastrado</b> ({{ h.prefs.opt_out_source }}){% else %}<b class="text-emerald-700">recebe</b>{% endif %}</div>
+    </div>
+    <div class="rounded-xl bg-white p-4 ring-1 ring-slate-200 md:col-span-2">
+      <h2 class="text-sm font-semibold text-slate-900">Sequência de adoção</h2>
+      {% if st %}
+      <dl class="mt-2 grid grid-cols-2 gap-2 text-sm">
+        <div><dt class="text-xs text-slate-500">Status</dt><dd>{{ sequence_labels.get(st.status, st.status) }}{% if st.paused_reason %} · {{ st.paused_reason }}{% endif %}</dd></div>
+        <div><dt class="text-xs text-slate-500">Próximo passo</dt><dd>{% if st.next_step <= steps|length %}{{ st.next_step }} · {{ steps[st.next_step - 1] }}{% else %}concluída{% endif %}</dd></div>
+        <div><dt class="text-xs text-slate-500">Próximo envio</dt><dd>{{ st.next_send_at.strftime('%d/%m/%Y %H:%M') if st.next_send_at else '—' }}</dd></div>
+        <div><dt class="text-xs text-slate-500">Tentativas com falha</dt><dd>{{ st.attempts }}</dd></div>
+      </dl>
+      {% else %}<p class="mt-2 text-sm text-slate-600">Não está na sequência.</p>{% endif %}
+      <div class="mt-4 flex flex-wrap gap-2 text-sm">
+        {% for k, v in actions.items() if (st and k != 'enroll') or (not st and k in ('enroll', 'unsubscribe', 'resubscribe')) %}
+        <button type="button" class="rounded-lg px-3 py-1.5 ring-1 {% if k in ('cancel', 'unsubscribe') %}text-rose-700 ring-rose-200{% else %}text-slate-800 ring-slate-300{% endif %}" onclick="emailAction('{{ k }}', [{{ h.contact.id }}])">{{ v }}</button>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="overflow-x-auto rounded-xl bg-white ring-1 ring-slate-200">
+    <table class="w-full min-w-[640px] text-sm"><thead class="bg-slate-50 text-left text-xs text-slate-500"><tr><th class="px-3 py-2">Quando</th><th>Assunto</th><th>Evento</th><th>Status</th><th class="pr-3 text-right">Aberturas · cliques</th></tr></thead><tbody>
+    {% for r in h.events %}
+      <tr class="border-t border-slate-100 align-top"><td class="whitespace-nowrap px-3 py-2 text-slate-600">{{ r.sent_at.strftime('%d/%m/%Y %H:%M') if r.sent_at else '' }}</td><td class="py-2">{{ r.subject }}</td><td class="py-2 text-xs text-slate-600">{{ r.event_type }}{% if r.step %} · passo {{ r.step }}{% endif %}</td><td class="py-2">{{ status_labels.get(r.status, r.status) }}{% if r.provider_error %}<div class="max-w-xs truncate text-xs text-rose-700" title="{{ r.provider_error }}">{{ r.provider_error }}</div>{% endif %}</td><td class="py-2 pr-3 text-right text-slate-600">{{ r.open_count }} · {{ r.click_count }}</td></tr>
+    {% else %}<tr><td colspan="5" class="px-3 py-6 text-center text-slate-500">Nenhum e-mail registrado para esta pessoa.</td></tr>{% endfor %}
+    </tbody></table>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}{% include 'admin/_emails_actions.html' %}{% endblock %}

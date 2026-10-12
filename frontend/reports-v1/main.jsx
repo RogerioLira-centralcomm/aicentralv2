@@ -114,8 +114,10 @@ function Campaigns({data, save, busy, filters, refreshRevision}) {
 }
 
 // No tablet o menu abre recolhido (só ícones) para sobrar espaço à página; a preferência salva no desktop não muda.
-// No celular o Reports sempre abre num cliente (o salvo ou o primeiro), nunca em "todos".
+// No celular, Alertas e Relatórios abrem num cliente (o salvo ou o primeiro), nunca em "todos".
+// Telas de gestão (clientes, fontes, acesso) seguem com "todos".
 const PHONE = typeof matchMedia === 'function' && matchMedia('(max-width: 760px)').matches;
+const phoneScoped = route => PHONE && ['alerts', 'reports'].includes(route.nav);
 const TABLET = typeof matchMedia === 'function' && matchMedia('(min-width: 761px) and (max-width: 1100px)').matches;
 const reportIcons = {overview:'home', onboarding:'check', media:'analysis', journey:'branch', reports:'file', alerts:'alert', 'data-sources':'plugin', supertag:'pulse', events:'calendar', imports:'download', links:'link', customers:'users', accounts:'table', access:'folder'};
 const NAV_GROUPS = [
@@ -204,7 +206,7 @@ function App() {
   // Single-client screens never show "all": open on the saved client, else the first one.
   useEffect(() => {
     const list = (data?.customers || []).filter(item => item.status !== 'archived');
-    if (!data?.ready || !(route.needsCustomer || PHONE) || openFlowEntity || !list.length) return;
+    if (!data?.ready || !(route.needsCustomer || phoneScoped(route)) || openFlowEntity || !list.length) return;
     if (list.some(item => String(item.id) === readCustomer())) return;
     const saved = readSavedCustomer();
     writeCustomer(String((list.find(item => String(item.id) === saved) || list[0]).id));
@@ -314,7 +316,7 @@ function App() {
       access: () => data.can_manage_access ? <AccessPage data={data} save={save} busy={busy}/> : <Empty message="Seu acesso não permite administrar usuários do Reports neste cliente." />,
     }[pageSection]();
   return <ReportsContext.Provider value={context}><div data-cadu-skin="reports" className={`reports-shell reports-shell--${pageSection}${isFlowEditor?' reports-shell--flow-editor':''}`}>
-    {!isFlowEditor && <SolutionSidebar solution="Reports" autoCollapse={TABLET} userName={rootElement.dataset.userName||'Minha conta'} accountLabel={rootElement.dataset.agencyName||'Agência'} userAvatar={rootElement.dataset.userAvatar||''} creditsUrl={rootElement.dataset.creditsUrl} profileUrl={rootElement.dataset.profileUrl} accent="#175cd3" storageKey="reports-sidebar" active={route.nav} activeSolutionId="connect" solutionLogo={solutionIcons.connect} solutionUrls={solutionUrls} solutionIcons={solutionIcons} groups={groups} onNavigate={navigateOnClick} context={({collapsed}) => data ? <SidebarClient clients={data.clients} customers={data.customers} campaigns={data.campaigns} accounts={data.accounts} client={data.client} needsCustomer={Boolean(route.needsCustomer || PHONE)} collapsed={collapsed}/> : null} />}
+    {!isFlowEditor && <SolutionSidebar solution="Reports" autoCollapse={TABLET} userName={rootElement.dataset.userName||'Minha conta'} accountLabel={rootElement.dataset.agencyName||'Agência'} userAvatar={rootElement.dataset.userAvatar||''} creditsUrl={rootElement.dataset.creditsUrl} profileUrl={rootElement.dataset.profileUrl} accent="#175cd3" storageKey="reports-sidebar" active={route.nav} activeSolutionId="connect" solutionLogo={solutionIcons.connect} solutionUrls={solutionUrls} solutionIcons={solutionIcons} groups={groups} onNavigate={navigateOnClick} context={({collapsed}) => data ? <SidebarClient clients={data.clients} customers={data.customers} campaigns={data.campaigns} accounts={data.accounts} client={data.client} needsCustomer={Boolean(route.needsCustomer || phoneScoped(route))} collapsed={collapsed}/> : null} />}
     <main className="reports-main">
       <>
           {data && !isFlowEditor && <PageHeader {...header} activeTab={route.path} actions={pageSection === 'onboarding' ? <OnboardingHeaderActions/> : pageSection === 'reports' && data.client.role !== 'viewer' ? <NewReportButton/> : pageSection === 'accounts' && data.can_manage_clients ? <NewClientButton/> : undefined}

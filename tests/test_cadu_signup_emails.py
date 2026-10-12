@@ -72,3 +72,12 @@ def test_templates_render_with_family_colors_and_illustration():
         assert color in one
     assert "Planner" in one and "signup-welcome.png" in one
     assert "/workspace/onboarding" in two and "consome tokens" in two
+
+
+def test_followup_do_demetrius_entra_no_registro_de_envios():
+    from aicentralv2.services import onboarding_comercial as oc
+    logged = []
+    with mock.patch("aicentralv2.services.cadu_email_sequence.log_email", side_effect=lambda **kw: logged.append(kw)):
+        oc._log_envio(contato_id=5, email=["a@x.com", "b@x.com"], kind="internal", event_type="internal.novo_cadastro",
+                      subject="s", result={"success": True, "messageId": "m"})
+    assert [l["email"] for l in logged] == ["a@x.com", "b@x.com"] and logged[0]["status"] == "sent"

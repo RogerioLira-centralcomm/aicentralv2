@@ -23,8 +23,17 @@ logger = logging.getLogger(__name__)
 SEQUENCE_KEY = "adocao_v1"
 # Ordem aprovada no plano docs/plans/cadu-email-sequencia-e-painel.md (seção 5c).
 SEQUENCE_STEPS = (
-    "dicas-de-uso", "dicas-de-prompts", "planner-radar", "studio-criar", "plugins-agentes", "connect-reports",
+    "dicas-de-uso", "dicas-de-prompts", "planner-radar", "studio-criar", "planner-interativos",
+    "plugins-agentes", "connect-reports",
 )
+# Sinal de que a pessoa já usa a ferramenta: o passo correspondente é pulado (sem envio).
+USAGE_SIGNALS = {
+    "planner-radar": ("cadu_radar_runs", "created_by", "Radar de Oportunidades", "radar"),
+    "studio-criar": ("cx_studio_assets", "owner_user_id", "Studio para criar anúncios e imagens", "studio"),
+    "plugins-agentes": ("cadu_public_mcp_usage", "user_id", "seu assistente de IA conectado ao Cadu", "integracoes"),
+}
+REENGAGEMENT_KEY = "reengajamento"
+REENGAGEMENT_AFTER = timedelta(days=7)
 INTERVAL = timedelta(days=2)
 RETRY_DELAY = timedelta(hours=1)
 LEASE = timedelta(minutes=30)
@@ -191,6 +200,29 @@ def _update_state(cursor, state_id: int, **fields) -> None:
                    (*fields.values(), state_id))
 
 
+def last_usage(contato_id: int, *, keys=None) -> dict:
+    """Último uso de cada ferramenta com sinal conhecido. Tabela ausente ou erro: sem sinal (envia)."""
+    found = {}
+    conn = _db()
+    for key, (table, column, _label, _path) in USAGE_SIGNALS.items():
+        if keys is not None and key not in keys:
+            continue
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(f"SELECT to_regclass('public.{table}') IS NOT NULL AS ok")
+                if not (cursor.fetchone() or {}).get("ok"):
+                    continue
+                cursor.execute(f"SELECT MAX(created_at) AS at FROM {table} WHERE {column} = %s", (contato_id,))
+                found[key] = (cursor.fetchone() or {}).get("at")
+        except Exception:
+            logger.warning("Sinal de uso %s indisponível.", table, exc_info=True)
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+    return found
+
+
 def send_sequence_step(row: dict, model_key: str, step: int) -> dict:
     """Renderiza e envia um passo; devolve o resultado da Brevo."""
     from .brevo_service import get_brevo_product_service
@@ -244,6 +276,19 @@ def process_due(limit: int = 50) -> dict:
 
     for row, decision in leased:
         step, model_key = decision["step"], decision["model_key"]
+        if model_key in USAGE_SIGNALS and last_usage(row["contato_id"], keys={model_key}).get(model_key):
+            # Já usa a ferramenta: o e-mail que ensina a usá-la seria ruído. Pula e segue para o próximo.
+            log_email(contato_id=row["contato_id"], client_id=row.get("client_id"), email=row["email"], kind="sequence",
+                      event_type=f"seq.{model_key}", subject="Passo pulado: a pessoa já usa a ferramenta",
+                      status="skipped", sequence_key=row["sequence_key"], step=step)
+            with conn.cursor() as cursor:
+                nxt = after_success(step, datetime.now(timezone.utc))
+                if nxt["status"] == "active":
+                    nxt["next_send_at"] = adjust_to_send_window(datetime.now(timezone.utc))
+                _update_state(cursor, row["id"], attempts=0, **nxt)
+            conn.commit()
+            result["skipped"] = result.get("skipped", 0) + 1
+            continue
         try:
             sent = send_sequence_step(row, model_key, step) or {}
         except Exception as exc:  # um envio com erro nunca trava os outros
@@ -265,6 +310,76 @@ def process_due(limit: int = 50) -> dict:
                 _update_state(cursor, row["id"], attempts=attempts, **after_failure(attempts, now))
                 result["failed"] += 1
         conn.commit()
+    return result
+
+
+# --------------------------------------------------------------------------- reengajamento
+
+def reengagement_body(unused: list[str]) -> str:
+    """Texto do reengajamento a partir do que a pessoa ainda não usou."""
+    intro = "A sua marca e o seu projeto continuam no Workspace, prontos para a próxima conversa, plano ou peça."
+    if not unused:
+        return intro + "\n\nSe quiser um ponto de partida, abra o projeto e peça ao Cadu **um resumo do que já foi decidido e do que falta**."
+    items = "\n\n".join(f"**{label}**" for label in unused)
+    return (f"{intro}\n\nAlgumas ferramentas que você ainda não experimentou e que partem desse mesmo contexto:\n\n{items}"
+            "\n\nEscolha uma e teste com o projeto que já está lá.")
+
+
+_REENGAGE_SQL = """
+    SELECT o.contato_id, c.email, c.nome_completo, c.pk_id_tbl_cliente AS client_id
+      FROM cadu_workspace_onboarding o
+      JOIN tbl_contato_cliente c ON c.id_contato_cliente = o.contato_id
+      LEFT JOIN cadu_email_preferences p ON p.contato_id = o.contato_id
+     WHERE o.completed_at <= NOW() - INTERVAL '7 days'
+       AND COALESCE(c.status, TRUE) AND NULLIF(c.email, '') IS NOT NULL
+       AND NOT COALESCE(p.marketing_opt_out, FALSE)
+       AND NOT EXISTS (SELECT 1 FROM cadu_email_log l WHERE l.contato_id = o.contato_id AND l.event_type = %s)
+       AND NOT EXISTS (SELECT 1 FROM cadu_email_log l WHERE l.contato_id = o.contato_id AND l.kind = 'sequence'
+                         AND l.status <> 'skipped' AND l.sent_at > NOW() - INTERVAL '48 hours')
+       AND NOT EXISTS (SELECT 1 FROM cadu_email_log l WHERE l.contato_id = o.contato_id
+                         AND l.first_clicked_at > NOW() - INTERVAL '7 days')
+     ORDER BY o.completed_at
+     LIMIT %s"""
+
+
+def process_reengagement(limit: int = 20) -> dict:
+    """Uma única vez por pessoa: 7 dias sem usar Radar, Studio ou o assistente conectado, nem clicar nos e-mails."""
+    result = {"reengaged": 0, "active_users": 0}
+    if not sequence_enabled():
+        return result
+    now = datetime.now(timezone.utc)
+    if adjust_to_send_window(now) > now:
+        return result  # fora do horário: tenta no próximo ciclo
+    with _db().cursor() as cursor:
+        cursor.execute(_REENGAGE_SQL, (REENGAGEMENT_KEY, int(limit)))
+        candidates = [dict(r) for r in cursor.fetchall()]
+    from .brevo_service import get_brevo_product_service
+    from .cadu_growth_email_templates import GROWTH_EMAIL_MODELS, build_growth_email
+    for row in candidates:
+        usage = last_usage(row["contato_id"])
+        if any(at and (now - at) < REENGAGEMENT_AFTER for at in usage.values()):
+            result["active_users"] += 1
+            continue  # usa o produto: não precisa de lembrete
+        unused = [USAGE_SIGNALS[key][2] for key in USAGE_SIGNALS if not usage.get(key)]
+        first = (str(row.get("nome_completo") or "").split() or [""])[0]
+        unsub = unsubscribe_url(row["contato_id"])
+        model = GROWTH_EMAIL_MODELS[REENGAGEMENT_KEY]
+        try:
+            from flask import render_template
+            cfg = build_growth_email(REENGAGEMENT_KEY, body=reengagement_body(unused), first_name=first or None,
+                                     unsubscribe_url=unsub)
+            html = render_template("emails/externos/cadu-growth.html", **{k.lower(): v for k, v in cfg["params"].items()})
+            sent = get_brevo_product_service(model["product"]).enviar_email(
+                to_email=row["email"], to_name=row.get("nome_completo") or "", subject=model["subject"], html_content=html,
+                headers={"List-Unsubscribe": f"<{unsub}>", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"},
+                tags=["seq:reengajamento"]) or {}
+        except Exception as exc:
+            logger.exception("Reengajamento falhou para o contato %s", row["contato_id"])
+            sent = {"success": False, "error": str(exc)}
+        log_email(contato_id=row["contato_id"], client_id=row.get("client_id"), email=row["email"], kind="sequence",
+                  event_type=REENGAGEMENT_KEY, subject=model["subject"], status="sent" if sent.get("success") else "failed",
+                  message_id=sent.get("messageId"), error=sent.get("error"))
+        result["reengaged"] += int(bool(sent.get("success")))
     return result
 
 

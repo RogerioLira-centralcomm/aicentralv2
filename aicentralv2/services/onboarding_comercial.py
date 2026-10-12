@@ -187,12 +187,15 @@ def enviar_notificacao_cadastro(*, usuario, executivo, auth_method='form'):
         usuario=usuario,
         auth_method='Google' if auth_method == 'google' else 'formulário',
     )
-    return get_brevo_service().enviar_email(
+    subject = f'Novo cadastro no Cadu · {usuario.get("nome_completo") or usuario.get("email")}'
+    result = get_brevo_service().enviar_email(
         to_email=recipients,
         to_name='Equipe comercial Cadu',
-        subject=f'Novo cadastro no Cadu · {usuario.get("nome_completo") or usuario.get("email")}',
+        subject=subject,
         html_content=html,
     )
+    _log_envio(email=recipients, kind='internal', event_type='internal.novo_cadastro', subject=subject, result=result)
+    return result
 
 
 def enviar_notificacao_demetrius(*, usuario, onboarding, executivo):
@@ -203,10 +206,12 @@ def enviar_notificacao_demetrius(*, usuario, onboarding, executivo):
     perfil = 'Agência' if onboarding['perfil'] == 'agencia' else 'Cliente final'
     html = render_template('emails/internos/onboarding-concluido.html', usuario=usuario,
                            onboarding=onboarding, perfil=perfil)
-    return get_brevo_service().enviar_email(
-        to_email=recipients, to_name='Equipe comercial Cadu',
-        subject=f'Novo onboarding: {usuario["nome_completo"]} ({perfil})', html_content=html,
+    subject = f'Novo onboarding: {usuario["nome_completo"]} ({perfil})'
+    result = get_brevo_service().enviar_email(
+        to_email=recipients, to_name='Equipe comercial Cadu', subject=subject, html_content=html,
     )
+    _log_envio(email=recipients, kind='internal', event_type='internal.onboarding_concluido', subject=subject, result=result)
+    return result
 
 
 def enviar_email_onboarding_usuario(*, usuario, organization_name, brand_name, project_name,
@@ -236,6 +241,18 @@ def enviar_email_onboarding_usuario(*, usuario, organization_name, brand_name, p
     )
 
 
+def _log_envio(*, contato_id=None, email, kind, event_type, subject, result):
+    """Leva o envio ao registro do painel de e-mails; nunca interrompe o fluxo comercial."""
+    try:
+        from aicentralv2.services.cadu_email_sequence import log_email
+        for address in ([email] if isinstance(email, str) else list(email or [])):
+            log_email(contato_id=contato_id, client_id=None, email=str(address or ''), kind=kind, event_type=event_type,
+                      subject=subject, status='sent' if (result or {}).get('success') else 'failed',
+                      message_id=(result or {}).get('messageId'), error=(result or {}).get('error'))
+    except Exception:
+        logger.warning('Envio %s fora do registro de e-mails.', event_type, exc_info=True)
+
+
 def processar_followups_onboarding(limit=50):
     """Envia apenas itens persistidos e vencidos; seguro para execução recorrente."""
     from aicentralv2 import db
@@ -260,6 +277,8 @@ def processar_followups_onboarding(limit=50):
         )
         db.registrar_resultado_followup_onboarding(item['id'], success=result.get('success', False),
                                                    error=result.get('error'))
+        _log_envio(contato_id=item.get('contato_id'), email=item['email'], kind='onboarding',
+                   event_type='onboarding.demetrius_followup', subject='Posso ajudar você a começar no Cadu?', result=result)
         enviados += int(bool(result.get('success')))
         falhas += int(not result.get('success'))
     return {'enviados': enviados, 'falhas': falhas}

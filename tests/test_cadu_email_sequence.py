@@ -27,9 +27,9 @@ def _row(**kw):
 NOON = datetime(2026, 10, 13, 17, 0, tzinfo=UTC)
 
 
-def test_sequencia_tem_seis_passos_e_todos_existem():
+def test_sequencia_tem_sete_passos_e_todos_existem():
     from aicentralv2.services.cadu_growth_email_templates import GROWTH_EMAIL_MODELS
-    assert len(seq.SEQUENCE_STEPS) == 6
+    assert len(seq.SEQUENCE_STEPS) == 7 and "planner-interativos" in seq.SEQUENCE_STEPS
     assert all(key in GROWTH_EMAIL_MODELS for key in seq.SEQUENCE_STEPS)
 
 
@@ -45,7 +45,7 @@ def test_decisao_respeita_descadastro_contato_inativo_fim_e_horario():
     assert seq.decide_due(_row(marketing_opt_out=True), NOON)["action"] == "cancel"
     assert seq.decide_due(_row(contact_active=False), NOON)["action"] == "pause"
     assert seq.decide_due(_row(email=""), NOON)["action"] == "pause"
-    assert seq.decide_due(_row(next_step=7), NOON)["action"] == "complete"
+    assert seq.decide_due(_row(next_step=8), NOON)["action"] == "complete"
     assert seq.decide_due(_row(), datetime(2026, 10, 14, 1, 0, tzinfo=UTC))["action"] == "defer"
     send = seq.decide_due(_row(next_step=3), NOON)
     assert send == {"action": "send", "step": 3, "model_key": "planner-radar"}
@@ -55,7 +55,7 @@ def test_depois_do_envio_agenda_dois_dias_e_conclui_no_ultimo():
     nxt = seq.after_success(1, NOON)
     assert nxt["status"] == "active" and nxt["next_step"] == 2
     assert (nxt["next_send_at"] - NOON).days == 2
-    assert seq.after_success(6, NOON) == {"status": "completed", "next_step": 7, "next_send_at": None}
+    assert seq.after_success(7, NOON) == {"status": "completed", "next_step": 8, "next_send_at": None}
 
 
 def test_falha_tenta_de_novo_e_pausa_na_terceira():
@@ -117,6 +117,7 @@ def test_process_due_reserva_envia_registra_e_avanca(monkeypatch):
     conn = FakeConn([_row(), _row(id=2, contato_id=8, marketing_opt_out=True)])
     logged = []
     with mock.patch.object(seq, "_db", return_value=conn), \
+         mock.patch.object(seq, "last_usage", return_value={}), \
          mock.patch.object(seq, "datetime", wraps=datetime) as dt, \
          mock.patch.object(seq, "send_sequence_step", return_value={"success": True, "messageId": "m1"}) as send, \
          mock.patch.object(seq, "log_email", side_effect=lambda **kw: logged.append(kw)):
@@ -194,3 +195,50 @@ def test_webhook_da_brevo_repassa_cada_evento_ao_registro():
                                           headers={"Authorization": "Bearer tok"})
     assert response.status_code == 200
     apply.assert_called_once_with({"event": "delivered", "message-id": "a"})
+
+
+def test_passo_e_pulado_quando_a_pessoa_ja_usa_a_ferramenta(monkeypatch):
+    monkeypatch.setenv("CADU_EMAIL_SEQUENCE_ENABLED", "true")
+    conn = FakeConn([_row(next_step=3)])  # passo 3 = Radar
+    logged = []
+    with mock.patch.object(seq, "_db", return_value=conn), \
+         mock.patch.object(seq, "last_usage", return_value={"planner-radar": NOON}), \
+         mock.patch.object(seq, "datetime", wraps=datetime) as dt, \
+         mock.patch.object(seq, "send_sequence_step") as send, \
+         mock.patch.object(seq, "log_email", side_effect=lambda **kw: logged.append(kw)):
+        dt.now.return_value = NOON
+        result = seq.process_due()
+    send.assert_not_called()
+    assert result["skipped"] == 1 and logged[0]["status"] == "skipped" and logged[0]["step"] == 3
+    last = [p for s, p in conn.executed if s.startswith("UPDATE cadu_email_sequence_state")][-1]
+    assert 4 in last and "active" in last  # segue para o passo 4 sem esperar 2 dias
+
+
+def test_reengajamento_lista_so_o_que_a_pessoa_nao_usou():
+    body = seq.reengagement_body(["Radar de Oportunidades", "Studio para criar anúncios e imagens"])
+    assert "**Radar de Oportunidades**" in body and "Studio" in body and "assistente" not in body
+    assert "resumo do que já foi decidido" in seq.reengagement_body([])
+
+
+def test_reengajamento_ignora_quem_usou_algo_na_semana_e_envia_uma_vez(monkeypatch):
+    monkeypatch.setenv("CADU_EMAIL_SEQUENCE_ENABLED", "true")
+    from datetime import timedelta
+    conn = FakeConn([{"contato_id": 7, "email": "a@x.com", "nome_completo": "Ana", "client_id": 3},
+                     {"contato_id": 8, "email": "b@x.com", "nome_completo": "Bia", "client_id": 3}])
+    usage = {7: {"studio-criar": NOON - timedelta(days=1)}, 8: {"planner-radar": NOON - timedelta(days=30)}}
+    svc = mock.MagicMock(); svc.enviar_email.return_value = {"success": True, "messageId": "r1"}
+    logged = []
+    app = _app()
+    with app.test_request_context("/"), \
+         mock.patch.object(seq, "_db", return_value=conn), \
+         mock.patch.object(seq, "datetime", wraps=datetime) as dt, \
+         mock.patch.object(seq, "last_usage", side_effect=lambda cid, keys=None: usage[cid]), \
+         mock.patch.object(seq, "log_email", side_effect=lambda **kw: logged.append(kw)), \
+         mock.patch("aicentralv2.services.brevo_service.get_brevo_product_service", return_value=svc):
+        dt.now.return_value = NOON
+        result = seq.process_reengagement()
+    assert result == {"reengaged": 1, "active_users": 1}
+    html = svc.enviar_email.call_args.kwargs["html_content"]
+    assert "Olá, Bia." in html and "Studio para criar" in html and "assistente de IA" in html
+    assert "<strong>Radar de Oportunidades</strong>" not in html  # já usou o Radar
+    assert logged[0]["event_type"] == "reengajamento" and "NOT EXISTS" in conn.executed[0][0]

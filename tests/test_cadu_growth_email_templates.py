@@ -108,13 +108,14 @@ if __name__ == "__main__":
 
 
 class CaduGrowthRecurringModelsTests(unittest.TestCase):
-    NEW = ("dicas-de-uso", "dicas-de-prompts", "plugins-agentes", "planner-radar", "studio-criar")
+    NEW = ("dicas-de-uso", "dicas-de-prompts", "plugins-agentes", "planner-radar", "studio-criar", "planner-interativos", "reengajamento")
 
     def test_novos_modelos_tem_ilustracao_existente_e_cores_da_familia(self):
         from pathlib import Path
         root = Path(__file__).resolve().parents[1] / "aicentralv2" / "static" / "emails" / "growth"
         families = {"dicas-de-uso": "workspace", "dicas-de-prompts": "workspace", "plugins-agentes": "workspace",
-                    "planner-radar": "planner", "studio-criar": "studio"}
+                    "planner-radar": "planner", "studio-criar": "studio", "planner-interativos": "planner",
+                    "reengajamento": "workspace"}
         for key in self.NEW:
             model = GROWTH_EMAIL_MODELS[key]
             self.assertEqual(model["product"], families[key])

@@ -675,12 +675,14 @@ def register_commands(app):
     @click.option('--limit', default=50, show_default=True, type=int)
     def process_email_sequence_command(limit):
         """Envia os passos vencidos da sequência de adoção (agende a cada 15 minutos)."""
-        from .services.cadu_email_sequence import process_due
+        from .services.cadu_email_sequence import process_due, process_reengagement
         result = process_due(limit=limit)
         if result.get('disabled'):
             print('Sequência de e-mails desligada (CADU_EMAIL_SEQUENCE_ENABLED).')
             return
         print('Sequência: ' + ', '.join(f'{k}={v}' for k, v in result.items()))
+        reengaged = process_reengagement(limit=max(1, limit // 2))
+        print('Reengajamento: ' + ', '.join(f'{k}={v}' for k, v in reengaged.items()))
 
     @app.cli.command('create-contact')
     def create_contact_command():

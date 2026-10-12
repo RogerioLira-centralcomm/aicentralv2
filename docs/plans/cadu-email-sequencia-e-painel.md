@@ -165,9 +165,13 @@ Substitui a tabela da seção 5 depois que o Apolo pediu dicas de uso, prompts, 
 | 3 | +6 | Planner | `planner-radar` | Radar | guia `radar-de-oportunidades` |
 | 4 | +8 | Studio | `studio-criar` | Studio → Criar | guia `campanha-em-formatos` |
 | 5 | +10 | Workspace | `plugins-agentes` | Integrações | guia `conectar-agente-de-ia` |
-| 6 | +12 | Reports | `connect-reports` | Reports | `resultado-no-projeto` |
+| 5 | +10 | Planner | `planner-interativos` | Interativos | Formatos |
+| 6 | +12 | Workspace | `plugins-agentes` | Integrações | guia `conectar-agente-de-ia` |
+| 7 | +14 | Reports | `connect-reports` | Reports | `resultado-no-projeto` |
 
-Modelos já existentes (`audiencias`, `canais`, `formatos`, `places`) ficam como reserva para uma segunda rodada. **Interativos** ainda não tem modelo.
+(Atualizado: Formatos e Interativos entraram como passo 5; plugins passou a 6 e Reports a 7.)
+
+**Personalização por uso (implementada):** Radar, Studio e plugins são pulados para quem já usa a ferramenta (`cadu_radar_runs.created_by`, `cx_studio_assets.owner_user_id`, `cadu_public_mcp_usage.user_id`); o próximo passo sai no ciclo seguinte. **Reengajamento (implementado):** uma única vez, 7 dias após o onboarding, para quem não usou nenhuma dessas ferramentas nem clicou em e-mail na semana; o texto lista só o que a pessoa ainda não experimentou.
 
 Pendências de produto antes de ligar: confirmar `CADU_RADAR_ENABLED` em produção (o e-mail 3 anuncia o Radar), que o custo por busca (~15 mil tokens) continua verdadeiro, e que `/integracoes` mostra a área de agentes de IA.
 

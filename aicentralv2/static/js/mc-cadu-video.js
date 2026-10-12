@@ -44,18 +44,21 @@ let quoteRequest = 0;
 let saveRequest = 0;
 let narrationRequest = 0;
 
+// Offered once per page load, only when the link does not already say what to open.
 let askOnEntry = false;
+let openWorkOffer = null;
 
-// The Studio project in the link (?project_id=) decides the brand, like it does in Editar.
-async function clientForStudioProject(projectId) {
-  const wanted = String(projectId || "").replace(/^ci:/, "");
-  if (!wanted) return "";
-  try {
-    const data = await get(`${studioApi}/project-contexts`);
-    const items = (data?.data || data)?.items || [];
-    const match = items.find((item) => [item.id, item.external_project_id].some((id) => String(id || "").replace(/^ci:/, "") === wanted));
-    return match?.client_id ? String(match.client_id) : "";
-  } catch (_) { return ""; }
+// The Studio bar already reads the project list and publishes the brand of the project named in the link
+// (window.McCaduContext, then cadu:brand-ready); reuse that instead of asking the heavy project-contexts route again.
+function brandOfLinkedProject(timeoutMs = 3000) {
+  if (!document.getElementById("mcCaduProject")) return Promise.resolve("");
+  if (window.McCaduContext) return Promise.resolve(String(window.McCaduContext.clientId || "").trim());
+  return new Promise((resolve) => {
+    const finish = (value) => { clearTimeout(timer); document.removeEventListener("cadu:brand-ready", onReady); resolve(value); };
+    const onReady = (event) => finish(String(event.detail?.clientId || "").trim());
+    const timer = setTimeout(() => finish(""), timeoutMs);
+    document.addEventListener("cadu:brand-ready", onReady);
+  });
 }
 
 boot();
@@ -75,9 +78,15 @@ async function boot() {
   document.addEventListener("cadu:brand-change", (event) => {
     applyBrand(event.detail?.clientId, { reset: true });
   });
-  const linkedClient = params.get("creative_client_id") || params.get("client") || await clientForStudioProject(params.get("project_id")) || Desk.read();
-  // Open work is offered, not forced, unless the link already points at a clip or a saved session.
-  askOnEntry = !params.get("clip") && !params.get("studio_session_id");
+  let linkedClient = params.get("creative_client_id") || params.get("client") || "";
+  if (!linkedClient && params.get("project_id")) {
+    linkedClient = await brandOfLinkedProject();
+    if (!linkedClient) setStatus("Não foi possível identificar a marca do projeto do link. Conferindo com a marca usada por último; troque a marca na barra se não for esta.");
+  }
+  linkedClient = linkedClient || Desk.read();
+  // Open work is offered, not forced: not when the link already says what to open (a clip, a saved session, scenes
+  // from Criar) or when a generation is being resumed.
+  askOnEntry = !params.get("clip") && !params.get("studio_session_id") && !params.get("scenes") && !sessionStorage.getItem(JOB_KEY);
   await applyBrand(linkedClient);
   const linkedSessionId = String(params.get("studio_session_id") || "").trim();
   if (linkedSessionId && /^\d+$/.test(String(linkedClient || ""))) {
@@ -438,11 +447,29 @@ async function applyBrand(id, { reset = false } = {}) {
   await resetStudio();
   paintAll();
   scheduleQuote();
+  offerOpenWork().catch(() => {});
+}
+
+// Asked after the page is painted, so the studio is usable behind the dialog and the rest of the opening (a resumed
+// generation, a recovered session) is not held until someone answers.
+async function offerOpenWork() {
+  const offer = openWorkOffer;
+  openWorkOffer = null;
+  if (!offer || offer.clientId !== state.clientId) return;
+  const choice = await askSession({
+    message: `Você tem um projeto de vídeo em andamento: ${offer.name}. Quer continuar nele ou começar um novo projeto?`,
+    continueHint: "Retoma o roteiro, as cenas e os cortes de onde pararam.",
+    newLabel: "Novo projeto de vídeo", newHint: "Começa em branco; o projeto anterior continua na lista de projetos.",
+  });
+  if (choice === "new" && offer.clientId === state.clientId) await newProject();
 }
 
 async function restoreProject() {
   if (!state.clientId) return;
   const clientId = state.clientId;
+  // One offer per page load, whatever happens next (a failed restore must not leave it armed for a later brand).
+  const ask = askOnEntry;
+  askOnEntry = false;
   try {
     const data = await loadVideoProject(clientId);
     if (clientId !== state.clientId) return;
@@ -451,17 +478,8 @@ async function restoreProject() {
     applyProject(data.project || {});
     const project = data.project || {};
     const hasWork = Boolean(project.composition || project.script || project.storyboard_draft || project.active_clip_id || Object.keys(project.clip_edits || {}).length);
-    if (askOnEntry && hasWork) {
-      askOnEntry = false;
-      const choice = await askSession({
-        message: `Você tem um projeto de vídeo em andamento: ${project.name || "sem título"}. Quer continuar nele ou começar um novo projeto?`,
-        continueHint: "Retoma o roteiro, as cenas e os cortes de onde pararam.",
-        newLabel: "Novo projeto de vídeo", newHint: "Começa em branco; o projeto anterior continua na lista de projetos.",
-      });
-      if (clientId !== state.clientId) return;
-      if (choice === "new") { await newProject(); return; }
-    }
-    askOnEntry = false;
+    // The question waits until the page is painted (see offerOpenWork); it never holds the page back.
+    if (ask && hasWork) openWorkOffer = { clientId, name: project.name || "sem título" };
   } catch (error) {
     setStatus(`Não foi possível abrir o projeto: ${error.message}`);
   }

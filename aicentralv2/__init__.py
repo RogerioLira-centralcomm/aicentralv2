@@ -443,6 +443,9 @@ def create_app(config_class=Config):
         app.register_blueprint(places_bp)
         app.register_blueprint(places_thumbs_bp)
 
+        from .creative_media.studio_thumbs import bp as studio_thumbs_bp
+        app.register_blueprint(studio_thumbs_bp)
+
         from .cadu_skills import bp as cadu_skills_bp
         app.register_blueprint(cadu_skills_bp)
 

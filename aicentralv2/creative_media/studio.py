@@ -20,6 +20,7 @@ from flask import abort, current_app, jsonify, render_template, request, session
 from .http import studio_http as _http
 from .studio_auth import studio_or_admin_required_api
 from .studio_csrf import studio_csrf_required
+from .studio_thumbs import with_thumbs
 from .storage import media_root
 from .transcode import ffmpeg_available
 from ..creative_modeling_storage import ClientLogoStorage, CreativeAssetStorage
@@ -1201,7 +1202,7 @@ def studio_library_sessions():
         return ok({
             'client_id': client_id,
             'items': history.library_sessions(client_id) if history else [],
-            'personal_assets': personal_assets,
+            'personal_assets': with_thumbs(personal_assets),
             'reference_masks': _studio_reference_masks(),
         })
     return execute(run)
@@ -1495,6 +1496,7 @@ def studio_project_creation_history(ident):
             result['brand_context'] = brand
         except Exception:
             logger.exception('Studio project brand assets unavailable for %s', ident)
+        result['items'] = with_thumbs(result.get('items', []))
         result['reference_masks'] = _studio_reference_masks()
         return ok(result)
     return execute(run)

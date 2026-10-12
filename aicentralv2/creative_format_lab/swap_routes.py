@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import mimetypes
 
-from flask import request, send_file, session
+from flask import request, session
 
+from ..creative_media.studio_thumbs import send_resized
 from .studio_auth import studio_or_admin_required_api
 from .swap_csrf import trocr_csrf_required
 
@@ -249,7 +250,7 @@ def api_format_lab_swap_still(filename):
     def _send():
         path = service().serve_format_lab_swap_still(filename)
         mime = mimetypes.guess_type(str(path))[0] or "image/png"
-        return send_file(path, mimetype=mime, max_age=86400, conditional=True)
+        return send_resized(path, mime, request.args.get("w", type=int))
 
     return execute(_send)
 
@@ -322,6 +323,6 @@ def api_media_asset(asset_id):
 
     def _send():
         path, mime = service().serve_media_asset(asset_id)
-        return send_file(path, mimetype=mime, max_age=86400, conditional=True)
+        return send_resized(path, mime, request.args.get("w", type=int))
 
     return execute(_send)

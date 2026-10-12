@@ -112,9 +112,9 @@ class TrocrStore:
                     "name": str(item.get("name") or version_id or "Peça"),
                     "origin": str(item.get("origin") or ""),
                     "image_url": url,
-                    "thumb_url": published_still_url(item.get("thumb_url") or url),
+                    "thumb_url": display_thumb(item.get("thumb_url"), url),
                     "image": url,
-                    "thumb": published_still_url(item.get("thumb_url") or url),
+                    "thumb": display_thumb(item.get("thumb_url"), url),
                     "ocr": ocr,
                     "params": params,
                     "headline": headline,
@@ -865,7 +865,7 @@ class TrocrStore:
             if not is_video_version(item) and not self.still_alive(item.get("image_url") or item.get("image") or ""):
                 continue
             url = published_still_url(item.get("image_url") or "")
-            thumb = published_still_url(item.get("thumb_url") or url)
+            thumb = display_thumb(item.get("thumb_url"), url)
             poster = published_still_url(item.get("poster_url") or "") or url
             versions.append({
                 **item,
@@ -1401,6 +1401,13 @@ def still_data_format(raw):
     if "image/webp" in header:
         return "webp"
     return "png"
+
+
+def display_thumb(raw_thumb, url):
+    """The thumbnail a list shows: the stored one, or a reduced copy when it is the image itself."""
+    from ..creative_media.studio_thumbs import thumb_url_for
+    thumb = published_still_url(raw_thumb or url)
+    return thumb_url_for(thumb) if thumb == url else thumb
 
 
 def published_still_url(raw):

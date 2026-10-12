@@ -45,9 +45,12 @@ def thumb_url(url: str, width: int) -> str:
     return f"/media/places/{width}/{filename}"
 
 
-def make_thumb(source: Path, width: int) -> Path:
-    """Write (or reuse) the WebP copy of one gallery photo at ``width`` and return its path."""
-    target = source.parent / "_thumbs" / str(width) / f"{source.stem}.webp"
+def make_thumb(source: Path, width: int, cache_root: Path | None = None) -> Path:
+    """Write (or reuse) the WebP copy of one photo at ``width`` and return its path.
+
+    The copy lives next to the original (``_thumbs/<width>/``) unless ``cache_root`` says where.
+    """
+    target = (cache_root or source.parent / "_thumbs") / str(width) / f"{source.stem}.webp"
     if target.is_file() and target.stat().st_mtime >= source.stat().st_mtime:
         return target
     # A photo that already failed is not decoded again on every visit (a 6,500 px JPEG costs seconds of CPU);

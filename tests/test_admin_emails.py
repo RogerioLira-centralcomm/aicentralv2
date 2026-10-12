@@ -115,3 +115,20 @@ def test_acoes_de_estado_usam_guarda_e_descadastro_vai_para_preferencias():
         assert admin.apply_action("unsubscribe", [7]) == 1
     opt.assert_called_once_with(7, "admin")
     assert admin.apply_action("pause", []) == 0
+
+
+class OvCur:
+    def __init__(self, rows): self.rows, self.calls = rows, 0
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+    def execute(self, sql, params=None): self.calls += 1
+    def fetchone(self): return {"log": True, "seq": False, "legacy": False, "n": 0}
+    def fetchall(self): return self.rows
+
+
+def test_visao_geral_nao_conta_ignorados_como_envio():
+    cur = OvCur([{"status": "sent", "n": 8}, {"status": "failed", "n": 2}, {"status": "skipped", "n": 40}])
+    conn = mock.MagicMock(); conn.cursor.return_value = cur
+    with mock.patch.object(admin, "_db", return_value=conn):
+        data = admin.overview(7)
+    assert data["total"] == 10 and data["failure_rate"] == 20.0

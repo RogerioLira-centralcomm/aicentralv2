@@ -63,7 +63,8 @@ def overview(days: int = 7) -> dict:
             cursor.execute(f"""SELECT status, COUNT(*) AS n FROM ({union}) e
                                 WHERE e.sent_at >= NOW() - (%s || ' days')::interval GROUP BY status""", (str(int(days)),))
             data["by_status"] = {r["status"]: int(r["n"]) for r in cursor.fetchall()}
-            data["total"] = sum(data["by_status"].values())
+            # "Ignorado" é decisão de não enviar (passo pulado, time parado): não conta como envio.
+            data["total"] = sum(n for status, n in data["by_status"].items() if status != "skipped")
         if ready["seq"]:
             cursor.execute("""SELECT status, COUNT(*) AS n FROM cadu_email_sequence_state
                                WHERE sequence_key = %s GROUP BY status""", (SEQUENCE_KEY,))

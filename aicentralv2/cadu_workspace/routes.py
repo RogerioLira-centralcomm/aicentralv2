@@ -5482,6 +5482,18 @@ def workspace_onboarding():
             status_code=503,
         )
 
+    try:
+        # Sequência de adoção: 6 e-mails a cada 2 dias a partir de agora. O worker só envia com a chave
+        # CADU_EMAIL_SEQUENCE_ENABLED ligada; sem a migração a inscrição falha calada.
+        from ..services.cadu_email_sequence import enroll_contact
+        enroll_contact(contact_id)
+    except Exception:
+        current_app.logger.warning('Não foi possível inscrever %s na sequência de e-mails', contact_id, exc_info=True)
+        try:
+            get_db().rollback()
+        except Exception:
+            pass
+
     if files and brand_id and brand_was_created:
         try:
             from ..creative_modeling_service import CreativeModelingService

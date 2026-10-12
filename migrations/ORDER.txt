@@ -213,3 +213,5 @@ migrations/run_sql_migration.py extend_cadu_planner_portal_prints_kinds.sql
 migrations/run_sql_migration.py add_brand_asset_illustration_role.sql
 # Projeto na sidebar: coluna mostrar_na_sidebar em cadu_ci_projetos (aditivo, idempotente).
 migrations/run_sql_migration.py add_cadu_project_sidebar_visibility.sql
+# Sequência de e-mails de adoção, preferências de contato e ledger único de envios (aditivo, idempotente; depende de tbl_contato_cliente).
+migrations/run_sql_migration.py add_cadu_email_sequence.sql

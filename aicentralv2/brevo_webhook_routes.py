@@ -45,4 +45,17 @@ def receive_brevo_webhook():
         "Webhook Brevo recebido: %s evento(s), tipos=%s.",
         len(events), ",".join(event_types) or "unknown",
     )
+    from .services.cadu_email_sequence import apply_brevo_event
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        try:
+            apply_brevo_event(event)
+        except Exception:  # um evento ruim não derruba o lote; a Brevo reenviaria tudo
+            logger.warning("Webhook Brevo: evento não aplicado ao registro de envios.", exc_info=True)
+            try:
+                from .db import get_db
+                get_db().rollback()
+            except Exception:
+                pass
     return jsonify({"success": True, "received": len(events)}), 200

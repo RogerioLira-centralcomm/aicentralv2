@@ -429,6 +429,8 @@ def create_app(config_class=Config):
         app.register_blueprint(brevo_test_bp)
         from .brevo_webhook_routes import bp as brevo_webhook_bp
         app.register_blueprint(brevo_webhook_bp)
+        from .cadu_email_public_routes import bp as cadu_email_public_bp
+        app.register_blueprint(cadu_email_public_bp)
 
         from .crm_v3_routes import bp as crm_v3_bp
         app.register_blueprint(crm_v3_bp)
@@ -667,6 +669,17 @@ def register_commands(app):
         result = processar_followups_onboarding(limit=limit)
         print(f"Onboarding: {result['enviados']} enviado(s), {result['falhas']} falha(s).")
     
+    @app.cli.command('process-email-sequence')
+    @click.option('--limit', default=50, show_default=True, type=int)
+    def process_email_sequence_command(limit):
+        """Envia os passos vencidos da sequência de adoção (agende a cada 15 minutos)."""
+        from .services.cadu_email_sequence import process_due
+        result = process_due(limit=limit)
+        if result.get('disabled'):
+            print('Sequência de e-mails desligada (CADU_EMAIL_SEQUENCE_ENABLED).')
+            return
+        print('Sequência: ' + ', '.join(f'{k}={v}' for k, v in result.items()))
+
     @app.cli.command('create-contact')
     def create_contact_command():
         """Cria um contato de teste"""

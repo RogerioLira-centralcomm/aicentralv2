@@ -208,11 +208,15 @@ def _format_body_html(text: str) -> Markup:
     return Markup("".join(paragraphs))
 
 
-def build_growth_email(model_key: str, *, body: str | None = None) -> Dict[str, Any]:
+def build_growth_email(model_key: str, *, body: str | None = None, first_name: str | None = None,
+                       unsubscribe_url: str | None = None) -> Dict[str, Any]:
     model = _visible_growth_models().get(model_key)
     if not model:
         raise KeyError(model_key)
     product = model["product"]
+    text = body or model["default_body"]
+    if first_name:
+        text = f"Olá, {first_name}.\n\n{text}"
     return {
         "model_key": model_key,
         "model_label": model["label"],
@@ -225,7 +229,8 @@ def build_growth_email(model_key: str, *, body: str | None = None) -> Dict[str, 
             "BRAND_BAND_URL": email_asset_url(GROWTH_EMAIL_BAND_URLS[product]),
             "TITLE": model["title"],
             "DESCRIPTION": model["description"],
-            "BODY_HTML": _format_body_html(body or model["default_body"]),
+            "BODY_HTML": _format_body_html(text),
+            "UNSUBSCRIBE_URL": unsubscribe_url or "",
             "CTA_LABEL": model["cta_label"],
             "CTA_URL": _absolute_url(product, model["cta_path"]),
             "EYEBROW": model.get("eyebrow", ""),
@@ -236,8 +241,9 @@ def build_growth_email(model_key: str, *, body: str | None = None) -> Dict[str, 
     }
 
 
-def render_growth_email(model_key: str) -> str:
-    cfg = build_growth_email(model_key)
+def render_growth_email(model_key: str, *, first_name: str | None = None,
+                        unsubscribe_url: str | None = None) -> str:
+    cfg = build_growth_email(model_key, first_name=first_name, unsubscribe_url=unsubscribe_url)
     template_name = f"{cfg['template_folder']}/{cfg['template_name']}"
     template_vars = {key.lower(): value for key, value in cfg["params"].items()}
     if has_request_context():

@@ -190,6 +190,12 @@ def signup_script(**over):
     return FakeConn(list(script.items()))
 
 
+@pytest.fixture(autouse=True)
+def _welcome_lot_mode(monkeypatch):
+    # Estes testes cobrem o lote de boas-vindas; com a franquia ligada o cadastro não o cria.
+    monkeypatch.setenv("CADU_PLAN_ALLOWANCE_ENABLED", "0")
+
+
 def test_cadastro_atomico_cria_cliente_contato_plano_free_e_boas_vindas(monkeypatch):
     monkeypatch.delenv("CADU_WELCOME_TOKENS", raising=False)
     conn = signup_script()

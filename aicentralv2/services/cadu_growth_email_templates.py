@@ -90,6 +90,18 @@ GROWTH_EMAIL_MODELS: Dict[str, Dict[str, str]] = {
         "cta_path": "/app",
         "default_body": "A sua marca e o seu projeto continuam no Workspace, prontos para a próxima conversa, plano ou peça.\n\nSe quiser um ponto de partida, abra o projeto e peça ao Cadu **um resumo do que já foi decidido e do que falta**.",
     },
+    "resumo-semanal": {
+        "label": "Resumo semanal → o que o time fez no Cadu",
+        "product": "workspace",
+        "eyebrow": "Resumo da semana",
+        "illustration": "dicas-de-uso.png",
+        "subject": "A semana do seu time no Cadu",
+        "title": "A semana do seu time no Cadu.",
+        "description": "Conversas, fontes e buscas da sua equipe nos últimos 7 dias.",
+        "cta_label": "Abrir meu Workspace",
+        "cta_path": "/app",
+        "default_body": "Um resumo do que o seu time fez no Cadu nos últimos 7 dias.\n\n**Abra o Workspace** para retomar de onde parou.",
+    },
     "plugins-agentes": {
         "label": "Plugins → o Cadu dentro do seu assistente de IA",
         "product": "workspace",

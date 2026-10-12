@@ -173,6 +173,8 @@ Substitui a tabela da seção 5 depois que o Apolo pediu dicas de uso, prompts, 
 
 **Personalização por uso (implementada):** Radar, Studio e plugins são pulados para quem já usa a ferramenta (`cadu_radar_runs.created_by`, `cx_studio_assets.owner_user_id`, `cadu_public_mcp_usage.user_id`); o próximo passo sai no ciclo seguinte. **Reengajamento (implementado):** uma única vez, 7 dias após o onboarding, para quem não usou nenhuma dessas ferramentas nem clicou em e-mail na semana; o texto lista só o que a pessoa ainda não experimentou.
 
+**Também implementados (2026-10-12):** resumo semanal (segunda, 8h–21h, só para time com atividade: conversas, fontes e buscas no Radar), aviso de fonte com problema (`workspace.source_attention`, uma vez por fonte, sem expor o erro técnico), conversas como sinal de atividade no reengajamento, e e-mail do Demétrius responsivo com descadastro.
+
 Pendências de produto antes de ligar: confirmar `CADU_RADAR_ENABLED` em produção (o e-mail 3 anuncia o Radar), que o custo por busca (~15 mil tokens) continua verdadeiro, e que `/integracoes` mostra a área de agentes de IA.
 
 ## 6. Painel no CentralX — `/admin/emails`

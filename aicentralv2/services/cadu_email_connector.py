@@ -18,7 +18,7 @@ CADU_EMAIL_EVENTS: dict[str, dict[str, str]] = {
     "workspace.project_created": {"product": "workspace", "status": "planned"},
     "workspace.source_received": {"product": "workspace", "status": "planned"},
     "workspace.source_indexed": {"product": "workspace", "status": "planned"},
-    "workspace.source_attention": {"product": "workspace", "status": "planned"},
+    "workspace.source_attention": {"product": "workspace", "status": "active"},
     "workspace.document_reviewed": {"product": "workspace", "status": "planned"},
     "workspace.conversation_important": {"product": "workspace", "status": "planned"},
     "workspace.token_purchase_receipt": {"product": "workspace", "status": "active"},

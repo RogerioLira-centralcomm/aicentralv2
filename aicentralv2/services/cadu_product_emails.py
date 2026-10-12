@@ -305,3 +305,21 @@ def send_studio_generation_failed(*, recipient_email: str, recipient_name: str, 
         import logging
         logging.getLogger(__name__).exception("Aviso de falha de geração do Studio não enviado")
         return {"success": False, "error": "studio_generation_failed_email_failed"}
+
+
+def send_source_attention(*, recipient_email: str, recipient_name: str, source_name: str, url: str,
+                          client_id: int | None = None) -> dict:
+    """Avisa quem enviou a fonte que o Cadu não conseguiu lê-la (uma vez por fonte)."""
+    subject = "Não conseguimos ler uma fonte do seu projeto"
+    if not recipient_email or not _enabled():
+        return {"success": True, "skipped": True}
+    return send_cadu_event(product="workspace", event="workspace.source_attention", template="produto-atividade.html",
+        recipient=recipient_email, recipient_name=recipient_name or "Pessoa do time", subject=subject, client_id=client_id,
+        params={
+            "BRAND": product_email_brand("workspace"),
+            "TITLE": f"Não conseguimos ler “{(source_name or 'a fonte')[:90]}”",
+            "DESCRIPTION": ("O link foi adicionado ao projeto, mas o Cadu não conseguiu extrair o conteúdo dele. "
+                            "Isso acontece com páginas que exigem login, bloqueiam leitura automática ou estão fora do ar. "
+                            "Você pode tentar de novo, enviar o conteúdo como PDF ou colar o texto como nota."),
+            "CTA_LABEL": "Abrir o projeto", "CTA_URL": url,
+        })

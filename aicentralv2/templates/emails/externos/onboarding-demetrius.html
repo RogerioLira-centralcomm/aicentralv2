@@ -1,1 +1,27 @@
-<!doctype html><html lang="pt-BR"><body style="margin:0;background:#f4f7f6;color:#10213b;font-family:Arial,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:32px 16px"><table role="presentation" width="600" align="center" cellspacing="0" cellpadding="0" style="max-width:600px;background:#fff;border-radius:14px"><tr><td style="padding:32px"><p>Olá, {{ usuario.nome_completo.split(' ')[0] }}.</p><p>Vi que você acabou de entrar no Cadu como {{ perfil }}. Queria me apresentar e entender o que você busca fazer primeiro por aqui.</p><p>Se quiser, responda a este e-mail com sua dúvida ou me diga um bom horário para uma conversa rápida. Eu mesmo acompanho por aqui.</p><p>Abraço,<br><strong>{{ demetrius_nome }}</strong><br>Centralcomm</p></td></tr><tr><td style="padding:16px 32px;border-top:1px solid #e5e7eb;color:#65716d;font-size:11px">Você recebeu esta mensagem porque criou uma conta no Cadu. Se não quiser receber novos contatos comerciais, responda a este e-mail informando isso.</td></tr></table></td></tr></table></body></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light only">
+  <title>Posso ajudar você a começar no Cadu?</title>
+  <style>@media only screen and (max-width:620px){.shell{width:100%!important}.pad{padding:24px 20px!important}}</style>
+</head>
+<body style="margin:0;background:#f4f7f6;color:#10213b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0">Uma mensagem rápida para entender o que você quer fazer primeiro no Cadu.</div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:28px 12px">
+    <table role="presentation" class="shell" width="600" align="center" cellspacing="0" cellpadding="0" style="max-width:600px;width:100%;background:#fff;border-radius:14px">
+      <tr><td class="pad" style="padding:32px;font-size:16px;line-height:1.65">
+        <p style="margin:0 0 14px">Olá, {{ usuario.nome_completo.split(' ')[0] }}.</p>
+        <p style="margin:0 0 14px">Vi que você acabou de entrar no Cadu como {{ perfil }}. Queria me apresentar e entender o que você busca fazer primeiro por aqui.</p>
+        <p style="margin:0 0 14px">Se quiser, responda a este e-mail com sua dúvida ou me diga um bom horário para uma conversa rápida. Eu mesmo acompanho por aqui.</p>
+        <p style="margin:0">Abraço,<br><strong>{{ demetrius_nome }}</strong><br>CentralComm</p>
+      </td></tr>
+      <tr><td style="padding:16px 32px;border-top:1px solid #e5e7eb;color:#65716d;font-size:12px;line-height:1.55">
+        Você recebeu esta mensagem porque criou uma conta no Cadu.
+        {% if unsubscribe_url %}<a href="{{ unsubscribe_url }}" style="color:#65716d;text-decoration:underline">Não quero receber contatos e dicas</a>.{% else %}Se não quiser receber novos contatos comerciais, responda a este e-mail informando isso.{% endif %}
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body>
+</html>

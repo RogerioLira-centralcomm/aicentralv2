@@ -4701,9 +4701,16 @@ def _complete_queued_project_url_source(client_id: int, project_id: str, user_id
 
 def _mark_project_source_error(client_id: int, project_id: str, source_id: int, error: Exception) -> None:
     """Best-effort status update for failures that occur after the HTTP response."""
+    previous = None
     try:
         connection = get_db()
         with connection.cursor() as cursor:
+            cursor.execute(
+                """SELECT indexing_status, criado_por, nome_arquivo FROM cadu_ci_projeto_arquivos
+                    WHERE id = %s AND projeto_id = %s AND id_cliente = %s""",
+                (source_id, project_id, client_id),
+            )
+            previous = cursor.fetchone()
             cursor.execute(
                 """UPDATE cadu_ci_projeto_arquivos
                       SET indexing_status = 'error', erro_msg = %s, updated_at = NOW()
@@ -4713,6 +4720,19 @@ def _mark_project_source_error(client_id: int, project_id: str, source_id: int, 
         connection.commit()
     except Exception:
         current_app.logger.exception('Não foi possível registrar erro da fonte %s', source_id)
+        return
+    # Aviso por e-mail só na primeira falha da fonte (o erro técnico nunca vai para o cliente).
+    if not previous or previous.get('indexing_status') == 'error' or not previous.get('criado_por'):
+        return
+    try:
+        from .. import db
+        from ..services.cadu_product_emails import send_source_attention
+        owner = db.obter_contato_por_id(int(previous['criado_por'])) or {}
+        send_source_attention(recipient_email=owner.get('email') or '', recipient_name=owner.get('nome_completo') or '',
+                              source_name=previous.get('nome_arquivo') or '',
+                              url=product_url('workspace', f'/projetos/{project_id}'), client_id=client_id)
+    except Exception:
+        current_app.logger.warning('Aviso de fonte com problema não enviado (%s)', source_id, exc_info=True)
 
 
 def _project_source(client_id: int, project_id: str, source_id: int) -> Optional[dict]:

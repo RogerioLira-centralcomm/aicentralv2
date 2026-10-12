@@ -28,10 +28,12 @@ SEQUENCE_STEPS = (
 )
 # Sinal de que a pessoa já usa a ferramenta: o passo correspondente é pulado (sem envio).
 USAGE_SIGNALS = {
-    "planner-radar": ("cadu_radar_runs", "created_by", "Radar de Oportunidades", "radar"),
-    "studio-criar": ("cx_studio_assets", "owner_user_id", "Studio para criar anúncios e imagens", "studio"),
-    "plugins-agentes": ("cadu_public_mcp_usage", "user_id", "seu assistente de IA conectado ao Cadu", "integracoes"),
+    "planner-radar": ("cadu_radar_runs", "created_by", "Radar de Oportunidades", "created_at"),
+    "studio-criar": ("cx_studio_assets", "owner_user_id", "Studio para criar anúncios e imagens", "created_at"),
+    "plugins-agentes": ("cadu_public_mcp_usage", "user_id", "seu assistente de IA conectado ao Cadu", "created_at"),
 }
+# Atividade (para não lembrar quem já usa o Cadu): ferramentas acima + conversas no Workspace.
+ACTIVITY_SIGNALS = {**USAGE_SIGNALS, "conversas": ("cadu_conversations", "id_contato_cliente", "Conversas", "updated_at")}
 REENGAGEMENT_KEY = "reengajamento"
 REENGAGEMENT_AFTER = timedelta(days=7)
 INTERVAL = timedelta(days=2)
@@ -200,11 +202,11 @@ def _update_state(cursor, state_id: int, **fields) -> None:
                    (*fields.values(), state_id))
 
 
-def last_usage(contato_id: int, *, keys=None) -> dict:
+def last_usage(contato_id: int, *, keys=None, signals=None) -> dict:
     """Último uso de cada ferramenta com sinal conhecido. Tabela ausente ou erro: sem sinal (envia)."""
     found = {}
     conn = _db()
-    for key, (table, column, _label, _path) in USAGE_SIGNALS.items():
+    for key, (table, column, _label, time_column) in (signals or USAGE_SIGNALS).items():
         if keys is not None and key not in keys:
             continue
         try:
@@ -212,7 +214,7 @@ def last_usage(contato_id: int, *, keys=None) -> dict:
                 cursor.execute(f"SELECT to_regclass('public.{table}') IS NOT NULL AS ok")
                 if not (cursor.fetchone() or {}).get("ok"):
                     continue
-                cursor.execute(f"SELECT MAX(created_at) AS at FROM {table} WHERE {column} = %s", (contato_id,))
+                cursor.execute(f"SELECT MAX({time_column}) AS at FROM {table} WHERE {column} = %s", (contato_id,))
                 found[key] = (cursor.fetchone() or {}).get("at")
         except Exception:
             logger.warning("Sinal de uso %s indisponível.", table, exc_info=True)
@@ -360,7 +362,7 @@ def process_reengagement(limit: int = 20) -> dict:
     from .brevo_service import get_brevo_product_service
     from .cadu_growth_email_templates import GROWTH_EMAIL_MODELS, build_growth_email
     for row in candidates:
-        usage = last_usage(row["contato_id"])
+        usage = last_usage(row["contato_id"], signals=ACTIVITY_SIGNALS)
         if any(at and (now - at) < REENGAGEMENT_AFTER for at in usage.values()):
             result["active_users"] += 1
             continue  # usa o produto: não precisa de lembrete
@@ -369,15 +371,9 @@ def process_reengagement(limit: int = 20) -> dict:
         unsub = unsubscribe_url(row["contato_id"])
         model = GROWTH_EMAIL_MODELS[REENGAGEMENT_KEY]
         try:
-            from flask import has_request_context, render_template
             cfg = build_growth_email(REENGAGEMENT_KEY, body=reengagement_body(unused), first_name=first or None,
                                      unsubscribe_url=unsub)
-            context = {k.lower(): v for k, v in cfg["params"].items()}
-            if has_request_context():
-                html = render_template("emails/externos/cadu-growth.html", **context)
-            else:  # o worker roda só com app context; os context processors do ERP esperam uma requisição
-                with current_app.test_request_context("/"):
-                    html = render_template("emails/externos/cadu-growth.html", **context)
+            html = _render_growth(cfg)
             sent = get_brevo_product_service(model["product"]).enviar_email(
                 to_email=row["email"], to_name=row.get("nome_completo") or "", subject=model["subject"], html_content=html,
                 headers={"List-Unsubscribe": f"<{unsub}>", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"},
@@ -390,6 +386,112 @@ def process_reengagement(limit: int = 20) -> dict:
                   message_id=sent.get("messageId"), error=sent.get("error"))
         result["reengaged"] += int(bool(sent.get("success")))
     return result
+
+
+# --------------------------------------------------------------------------- resumo semanal do time
+
+DIGEST_KEY = "resumo-semanal"
+# (rótulo no singular, plural, tabela, coluna da conta, coluna de tempo)
+DIGEST_METRICS = (
+    ("conversa", "conversas", "cadu_conversations", "id_cliente", "created_at"),
+    ("fonte enviada aos projetos", "fontes enviadas aos projetos", "cadu_ci_projeto_arquivos", "id_cliente", "created_at"),
+    ("busca no Radar", "buscas no Radar", "cadu_radar_runs", "client_id", "created_at"),
+)
+
+
+def team_week(client_id: int) -> list[tuple[str, int]]:
+    """Contagens da semana da conta; métrica sem tabela ou com erro fica de fora."""
+    found = []
+    conn = _db()
+    for singular, plural, table, column, time_column in DIGEST_METRICS:
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(f"SELECT to_regclass('public.{table}') IS NOT NULL AS ok")
+                if not (cursor.fetchone() or {}).get("ok"):
+                    continue
+                cursor.execute(f"""SELECT COUNT(*) AS n FROM {table}
+                                    WHERE {column} = %s AND {time_column} >= NOW() - INTERVAL '7 days'""", (client_id,))
+                count = int((cursor.fetchone() or {}).get("n") or 0)
+            if count:
+                found.append((singular if count == 1 else plural, count))
+        except Exception:
+            logger.warning("Métrica do resumo semanal indisponível: %s", table, exc_info=True)
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+    return found
+
+
+def digest_body(metrics: list[tuple[str, int]]) -> str:
+    lines = "\n\n".join(f"**{count}** {label}" for label, count in metrics)
+    return ("Um resumo do que o seu time fez no Cadu nos últimos 7 dias:\n\n" + lines +
+            "\n\nAbra o Workspace para retomar de onde parou: os projetos guardam o contexto de cada trabalho.")
+
+
+_DIGEST_SQL = """
+    SELECT DISTINCT ON (c.id_contato_cliente) c.id_contato_cliente AS contato_id, c.email, c.nome_completo,
+           c.pk_id_tbl_cliente AS client_id
+      FROM cadu_workspace_onboarding o
+      JOIN tbl_contato_cliente c ON c.pk_id_tbl_cliente = o.id_cliente
+      LEFT JOIN cadu_email_preferences p ON p.contato_id = c.id_contato_cliente
+     WHERE COALESCE(c.status, TRUE) AND NULLIF(c.email, '') IS NOT NULL
+       AND NOT COALESCE(p.marketing_opt_out, FALSE)
+       AND NOT EXISTS (SELECT 1 FROM cadu_email_log l WHERE l.contato_id = c.id_contato_cliente
+                         AND l.event_type = %s AND l.sent_at > NOW() - INTERVAL '6 days')
+     ORDER BY c.id_contato_cliente
+     LIMIT %s"""
+
+
+def process_weekly_digest(limit: int = 100) -> dict:
+    """Segunda-feira, dentro da janela de envio: um resumo por pessoa, só se o time fez algo na semana."""
+    result = {"digests": 0, "quiet_teams": 0}
+    if not sequence_enabled():
+        return result
+    now = datetime.now(timezone.utc)
+    if now.astimezone(LOCAL_TZ).weekday() != 0 or adjust_to_send_window(now) > now:
+        return result
+    with _db().cursor() as cursor:
+        cursor.execute(_DIGEST_SQL, (DIGEST_KEY, int(limit)))
+        recipients = [dict(r) for r in cursor.fetchall()]
+    from .brevo_service import get_brevo_product_service
+    from .cadu_growth_email_templates import GROWTH_EMAIL_MODELS, build_growth_email
+    weeks: dict[int, list] = {}
+    for row in recipients:
+        client_id = int(row.get("client_id") or 0)
+        if client_id not in weeks:
+            weeks[client_id] = team_week(client_id)
+        metrics = weeks[client_id]
+        if not metrics:
+            result["quiet_teams"] += 1
+            continue  # semana sem atividade não vira e-mail vazio
+        first = (str(row.get("nome_completo") or "").split() or [""])[0]
+        unsub = unsubscribe_url(row["contato_id"])
+        model = GROWTH_EMAIL_MODELS[DIGEST_KEY]
+        try:
+            cfg = build_growth_email(DIGEST_KEY, body=digest_body(metrics), first_name=first or None, unsubscribe_url=unsub)
+            html = _render_growth(cfg)
+            sent = get_brevo_product_service(model["product"]).enviar_email(
+                to_email=row["email"], to_name=row.get("nome_completo") or "", subject=model["subject"], html_content=html,
+                headers={"List-Unsubscribe": f"<{unsub}>", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"},
+                tags=["seq:resumo-semanal"]) or {}
+        except Exception as exc:
+            logger.exception("Resumo semanal falhou para o contato %s", row["contato_id"])
+            sent = {"success": False, "error": str(exc)}
+        log_email(contato_id=row["contato_id"], client_id=client_id, email=row["email"], kind="sequence",
+                  event_type=DIGEST_KEY, subject=model["subject"], status="sent" if sent.get("success") else "failed",
+                  message_id=sent.get("messageId"), error=sent.get("error"))
+        result["digests"] += int(bool(sent.get("success")))
+    return result
+
+
+def _render_growth(cfg: dict) -> str:
+    from flask import has_request_context, render_template
+    context = {k.lower(): v for k, v in cfg["params"].items()}
+    if has_request_context():
+        return render_template("emails/externos/cadu-growth.html", **context)
+    with current_app.test_request_context("/"):  # worker: só app context
+        return render_template("emails/externos/cadu-growth.html", **context)
 
 
 # --------------------------------------------------------------------------- webhook da Brevo

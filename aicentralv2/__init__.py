@@ -683,6 +683,9 @@ def register_commands(app):
         print('Sequência: ' + ', '.join(f'{k}={v}' for k, v in result.items()))
         reengaged = process_reengagement(limit=max(1, limit // 2))
         print('Reengajamento: ' + ', '.join(f'{k}={v}' for k, v in reengaged.items()))
+        from .services.cadu_email_sequence import process_weekly_digest
+        digest = process_weekly_digest(limit=limit * 2)
+        print('Resumo semanal: ' + ', '.join(f'{k}={v}' for k, v in digest.items()))
 
     @app.cli.command('create-contact')
     def create_contact_command():

@@ -81,3 +81,22 @@ def test_followup_do_demetrius_entra_no_registro_de_envios():
         oc._log_envio(contato_id=5, email=["a@x.com", "b@x.com"], kind="internal", event_type="internal.novo_cadastro",
                       subject="s", result={"success": True, "messageId": "m"})
     assert [l["email"] for l in logged] == ["a@x.com", "b@x.com"] and logged[0]["status"] == "sent"
+
+
+def test_aviso_de_fonte_com_problema_nao_vaza_erro_tecnico():
+    from aicentralv2.services import cadu_product_emails as pe
+    with mock.patch.object(pe, "_enabled", return_value=True), mock.patch.object(pe, "send_cadu_event") as send, \
+         mock.patch.object(pe, "product_email_brand", return_value=BRAND):
+        pe.send_source_attention(recipient_email="a@x.com", recipient_name="Ana", source_name="site.com/pagina",
+                                 url="/projetos/1", client_id=3)
+    kw = send.call_args.kwargs
+    assert kw["event"] == "workspace.source_attention" and kw["client_id"] == 3
+    assert "site.com/pagina" in kw["params"]["TITLE"] and "PDF" in kw["params"]["DESCRIPTION"]
+
+
+def test_email_do_demetrius_tem_viewport_e_descadastro():
+    from flask import render_template
+    with _app().test_request_context():
+        html = render_template("emails/externos/onboarding-demetrius.html", usuario={"nome_completo": "Ana Lima"},
+                               perfil="agência", demetrius_nome="Demétrius", unsubscribe_url="https://w/x")
+    assert 'name="viewport"' in html and "Olá, Ana." in html and 'href="https://w/x"' in html

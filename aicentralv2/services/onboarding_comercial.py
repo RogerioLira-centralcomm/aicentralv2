@@ -266,9 +266,15 @@ def processar_followups_onboarding(limit=50):
             falhas += 1
             continue
         perfil = 'agência' if item['perfil'] == 'agencia' else 'cliente final'
+        unsubscribe = ''
+        try:
+            from aicentralv2.services.cadu_email_sequence import unsubscribe_url
+            unsubscribe = unsubscribe_url(item['contato_id']) if item.get('contato_id') else ''
+        except Exception:
+            logger.warning('Link de descadastro indisponível para o follow-up.', exc_info=True)
         html = render_template('emails/externos/onboarding-demetrius.html', usuario=item,
                                perfil=perfil, demetrius_nome=item.get('executivo_nome') or
-                               current_app.config.get('DEMETRIUS_NAME'))
+                               current_app.config.get('DEMETRIUS_NAME'), unsubscribe_url=unsubscribe)
         result = get_brevo_service().enviar_email(
             to_email=item['email'], to_name=item['nome_completo'],
             subject='Posso ajudar você a começar no Cadu?', html_content=html,

@@ -232,7 +232,7 @@ def test_reengajamento_ignora_quem_usou_algo_na_semana_e_envia_uma_vez(monkeypat
     with app.test_request_context("/"), \
          mock.patch.object(seq, "_db", return_value=conn), \
          mock.patch.object(seq, "datetime", wraps=datetime) as dt, \
-         mock.patch.object(seq, "last_usage", side_effect=lambda cid, keys=None: usage[cid]), \
+         mock.patch.object(seq, "last_usage", side_effect=lambda cid, keys=None, signals=None: usage[cid]), \
          mock.patch.object(seq, "log_email", side_effect=lambda **kw: logged.append(kw)), \
          mock.patch("aicentralv2.services.brevo_service.get_brevo_product_service", return_value=svc):
         dt.now.return_value = NOON
@@ -257,3 +257,42 @@ def test_reengajamento_renderiza_fora_de_requisicao_e_sem_duplicar_pessoa(monkey
         dt.now.return_value = NOON
         assert seq.process_reengagement()["reengaged"] == 1  # só app context, como no worker
     assert "DISTINCT ON (o.contato_id)" in conn.executed[0][0]
+
+
+MONDAY = datetime(2026, 10, 12, 13, 0, tzinfo=UTC)  # segunda, 10h em Brasília
+
+
+def test_resumo_semanal_so_na_segunda_e_so_para_time_com_atividade(monkeypatch):
+    monkeypatch.setenv("CADU_EMAIL_SEQUENCE_ENABLED", "true")
+    conn = FakeConn([{"contato_id": 7, "email": "a@x.com", "nome_completo": "Ana", "client_id": 3},
+                     {"contato_id": 8, "email": "b@x.com", "nome_completo": "Bia", "client_id": 4}])
+    svc = mock.MagicMock(); svc.enviar_email.return_value = {"success": True}
+    weeks = {3: [("conversas", 5), ("busca no Radar", 1)], 4: []}
+    with _app().app_context(), \
+         mock.patch.object(seq, "_db", return_value=conn), \
+         mock.patch.object(seq, "datetime", wraps=datetime) as dt, \
+         mock.patch.object(seq, "team_week", side_effect=lambda cid: weeks[cid]), \
+         mock.patch.object(seq, "log_email") as log, \
+         mock.patch("aicentralv2.services.brevo_service.get_brevo_product_service", return_value=svc):
+        dt.now.return_value = NOON  # terça
+        assert seq.process_weekly_digest() == {"digests": 0, "quiet_teams": 0}
+        dt.now.return_value = MONDAY
+        assert seq.process_weekly_digest() == {"digests": 1, "quiet_teams": 1}
+    html = svc.enviar_email.call_args.kwargs["html_content"]
+    assert "<strong>5</strong> conversas" in html and "<strong>1</strong> busca no Radar" in html and "Olá, Ana." in html
+    assert log.call_args.kwargs["event_type"] == "resumo-semanal"
+
+
+def test_conversas_contam_como_atividade_no_reengajamento(monkeypatch):
+    monkeypatch.setenv("CADU_EMAIL_SEQUENCE_ENABLED", "true")
+    from datetime import timedelta
+    conn = FakeConn([{"contato_id": 7, "email": "a@x.com", "nome_completo": "Ana", "client_id": 3}])
+    seen = {}
+    def usage(cid, keys=None, signals=None):
+        seen["signals"] = signals
+        return {"conversas": NOON - timedelta(days=2)}
+    with _app().app_context(), mock.patch.object(seq, "_db", return_value=conn), \
+         mock.patch.object(seq, "datetime", wraps=datetime) as dt, mock.patch.object(seq, "last_usage", side_effect=usage):
+        dt.now.return_value = NOON
+        assert seq.process_reengagement() == {"reengaged": 0, "active_users": 1}
+    assert "conversas" in seen["signals"]

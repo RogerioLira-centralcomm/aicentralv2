@@ -1,0 +1,989 @@
+{
+  "catalog_size": 26,
+  "results": [
+    {
+      "scenario": "cemig",
+      "focus": "conta de luz, bandeira tarifária, calor e consumo consciente no fim do ano",
+      "buzz": [
+        {
+          "id": "B1",
+          "assunto": "Bandeira verde em outubro e consumo consciente na conta de luz",
+          "por_que": "A Cemig destacou em sua seção de notícias que a bandeira ficou verde em outubro, mas alertou que o consumo consciente continua essencial para evitar surpresas na conta de luz; a própria página da Cemig mostra que setembro foi bandeira amarela e outubro verde, o que reforça a comparação mês a mês e puxa debate sobre gasto doméstico com energia no calor e no fim do ano.",
+          "data": "2026-10-01",
+          "local": "Minas Gerais/Belo Horizonte",
+          "veiculo": "Cemig Notícias",
+          "url": "https://www.cemig.com.br/noticias/",
+          "tier": "A",
+          "domain": "cemig.com.br",
+          "url_status": "ok"
+        },
+        {
+          "id": "B2",
+          "assunto": "Mudança de bandeira tarifária da Cemig para verde em outubro",
+          "por_que": "A Cemig informa na página principal de bandeiras tarifárias que setembro de 2026 estava com bandeira amarela e outubro de 2026 com bandeira verde, tema que costuma ganhar busca quando o consumidor quer entender se a conta vai subir ou aliviar no mês.",
+          "data": "2026-10-01",
+          "local": "Brasil",
+          "veiculo": "Cemig",
+          "url": "https://www.cemig.com.br/",
+          "tier": "A",
+          "domain": "cemig.com.br",
+          "url_status": "ok"
+        },
+        {
+          "id": "B3",
+          "assunto": "Como funciona a bandeira tarifária na conta de energia",
+          "por_que": "A Cemig explica que as bandeiras tarifárias são aplicadas automaticamente a todos os consumidores atendidos pela distribuidora e que a conta informa qual bandeira foi usada no período; esse tema ganha procura quando a fatura muda com o calor e com o consumo mais alto de ar-condicionado e ventilação.",
+          "data": "2026-10-08",
+          "local": "Brasil",
+          "veiculo": "Cemig",
+          "url": "https://www.cemig.com.br/valores-e-tarifas/bandeira-tarifaria/",
+          "tier": "A",
+          "domain": "cemig.com.br",
+          "url_status": "ok"
+        },
+        {
+          "id": "B4",
+          "assunto": "Arquivo de bandeiras tarifárias e atendimento no app Cemig Atende",
+          "por_que": "A área de dúvidas frequentes da Cemig direciona as principais solicitações para o app Cemig Atende e mantém o arquivo de bandeiras tarifárias, o que costuma gerar busca quando o consumidor quer confirmar a cor vigente e evitar cobrança inesperada.",
+          "data": "2026-10-08",
+          "local": "Brasil",
+          "veiculo": "Cemig",
+          "url": "https://www.cemig.com.br/duvida-frequente/categoria/bandeiras-tarifarias/",
+          "tier": "A",
+          "domain": "cemig.com.br",
+          "url_status": "ok"
+        }
+      ],
+      "tokens_buzz_check": 132,
+      "v15": {
+        "angles": [
+          {
+            "titulo": "Conta sob controle no calor",
+            "gancho": "A Cemig pode entrar na conversa mostrando que, mesmo com a bandeira verde, o calor de Minas faz o consumo subir e pode pesar na conta de luz. O foco é orientar famílias, empresas e clientes rurais a olhar hábitos que ajudam a evitar surpresa no fim do ano.",
+            "por_que_agora": "A bandeira tarifária está verde em outubro, mas a própria Cemig reforça que consumo consciente continua importante, justamente num período em que o uso de ar-condicionado, ventilação e outros equipamentos tende a aumentar.",
+            "formatos": [
+              "post com dica rápida",
+              "carrossel educativo",
+              "reels curto com alerta de consumo"
+            ],
+            "canais": [
+              "Instagram",
+              "Facebook",
+              "site da Cemig"
+            ],
+            "janela": "Até o fim de outubro, com extensão enquanto o calor seguir influenciando o consumo.",
+            "buzz": [
+              "B1",
+              "B3"
+            ]
+          },
+          {
+            "titulo": "Bandeira verde, explicação simples",
+            "gancho": "É uma boa hora para a Cemig traduzir de forma direta o que a mudança para bandeira verde significa na conta de luz e como isso aparece na fatura. O conteúdo pode tirar a dúvida mais comum do consumidor: afinal, a conta tende a aliviar ou ainda exige atenção?",
+            "por_que_agora": "A mudança da bandeira tarifária para verde em outubro está em evidência e costuma gerar buscas quando o cliente quer entender o impacto na conta do mês.",
+            "formatos": [
+              "FAQ em card",
+              "vídeo curto explicativo",
+              "artigo de apoio"
+            ],
+            "canais": [
+              "site da Cemig",
+              "Instagram",
+              "WhatsApp"
+            ],
+            "janela": "De agora até o fechamento do ciclo de faturamento de outubro.",
+            "buzz": [
+              "B2",
+              "B3"
+            ]
+          },
+          {
+            "titulo": "Como ler a sua fatura",
+            "gancho": "A Cemig pode aproveitar o interesse do momento para explicar, passo a passo, onde o cliente identifica a bandeira usada no período e como interpretar a conta de energia. É um conteúdo útil para reduzir dúvida e dar mais autonomia na conferência da fatura.",
+            "por_que_agora": "A página de bandeiras tarifárias e a explicação sobre como a cobrança aparece na conta ganham procura justamente quando a cor muda e o consumidor quer checar se houve variação na fatura.",
+            "formatos": [
+              "carrossel passo a passo",
+              "story com enquete",
+              "vídeo tutorial"
+            ],
+            "canais": [
+              "Instagram",
+              "site da Cemig",
+              "app Cemig Atende"
+            ],
+            "janela": "Enquanto a bandeira verde estiver vigente e houver dúvidas sobre a fatura do mês.",
+            "buzz": [
+              "B3",
+              "B4"
+            ]
+          },
+          {
+            "titulo": "Consulta rápida no app",
+            "gancho": "A comunicação pode puxar para a conveniência: se o consumidor quer confirmar a bandeira vigente ou rever informações passadas, o caminho mais direto é o app Cemig Atende. Isso posiciona a marca como útil no dia a dia, especialmente para quem está tentando evitar cobrança inesperada.",
+            "por_que_agora": "A própria Cemig direciona as dúvidas frequentes para o app Cemig Atende e mantém o arquivo de bandeiras tarifárias, o que vira assunto natural quando o público quer validar a cor do mês e consultar histórico.",
+            "formatos": [
+              "story com chamada para ação",
+              "banner no app",
+              "post de serviço"
+            ],
+            "canais": [
+              "app Cemig Atende",
+              "Instagram",
+              "site da Cemig"
+            ],
+            "janela": "Até a próxima atualização de bandeira e enquanto persistirem dúvidas sobre consulta e histórico.",
+            "buzz": [
+              "B4",
+              "B2"
+            ]
+          }
+        ],
+        "tokens": 26
+      },
+      "v16": {
+        "angles": [
+          {
+            "titulo": "Conta de luz sob controle no calor",
+            "gancho": "A conversa é preventiva: mostrar que a conta pode continuar sob controle mesmo com mais uso de ventilação e ar-condicionado no fim do ano. A marca entra como referência local para explicar o cenário e estimular consumo consciente agora.",
+            "por_que_agora": "A mudança para bandeira verde e a explicação sobre como ela funciona aumentam a busca e a atenção para a conta de energia em outubro.",
+            "janela": "Até o fim de novembro, enquanto o tema de bandeira tarifária e consumo no calor seguir relevante.",
+            "por_que_o_tipo": "Há um momento claro para capturar atenção sobre conta de luz e consumo consciente enquanto a bandeira está verde e o calor tende a aumentar o uso de energia.",
+            "publico": "Residências em Minas Gerais, com foco em Belo Horizonte, especialmente famílias que sentem a conta subir no calor.",
+            "pracas": "Minas Gerais e Belo Horizonte",
+            "periodo": {
+              "inicio": "2026-10-08",
+              "fim": "2026-11-30"
+            },
+            "mensagem": "Com a bandeira verde, vale manter o consumo consciente para evitar surpresas na conta de luz.",
+            "tema": null,
+            "formatos": null,
+            "tom": null,
+            "impacto": null,
+            "observar": null,
+            "tipo": "midia",
+            "objetivo": "awareness",
+            "canais": [
+              {
+                "id": 17,
+                "name": "Eletromidia",
+                "formato": "OOH digital em pontos de alto fluxo",
+                "por_que": "Acelera lembrança local em Belo Horizonte e reforça mensagem simples para público massivo em deslocamento."
+              },
+              {
+                "id": 31,
+                "name": "Instagram",
+                "formato": "Stories e reels curtos",
+                "por_que": "Permite explicar de forma rápida a relação entre bandeira, calor e conta de luz para quem já está pensando no orçamento doméstico."
+              },
+              {
+                "id": 30,
+                "name": "YouTube",
+                "formato": "Vídeo curto e bumper",
+                "por_que": "Ajuda a educar sobre bandeira tarifária com alta frequência e boa cobertura."
+              },
+              {
+                "id": 18,
+                "name": "Google DV360",
+                "formato": "Display programático geolocalizado",
+                "por_que": "Entrega alcance incremental em Minas Gerais com segmentação por praça e contexto de consumo doméstico."
+              }
+            ],
+            "canais_invalidos": [],
+            "buzz": [
+              "B1",
+              "B2",
+              "B3"
+            ]
+          },
+          {
+            "titulo": "Bandeira tarifária sem mistério",
+            "gancho": "Explicar de forma simples como a bandeira entra na conta, o que muda quando ela fica verde e por que o consumo consciente continua importante. A pauta pode ajudar o consumidor a entender a fatura e a se planejar para o fim do ano.",
+            "por_que_agora": "A própria mudança de bandeira e a dúvida sobre a conta de luz tendem a aumentar a procura por explicações neste momento.",
+            "janela": "Enquanto a discussão sobre bandeira e consumo no calor estiver no ar, especialmente até o início do verão.",
+            "por_que_o_tipo": "O tema pede explicação clara e serviço ao cliente, mais do que compra de mídia.",
+            "publico": null,
+            "pracas": null,
+            "periodo": null,
+            "mensagem": "A bandeira informa o custo do período e o consumo consciente ajuda a segurar a conta, mesmo quando o cenário é mais favorável.",
+            "tema": "Como funciona a bandeira tarifária e como evitar surpresas na conta de energia",
+            "formatos": [
+              "artigo",
+              "carrossel",
+              "vídeo curto",
+              "newsletter"
+            ],
+            "tom": "Didático, útil e próximo",
+            "impacto": null,
+            "observar": null,
+            "tipo": "conteudo",
+            "objetivo": null,
+            "canais": [],
+            "canais_invalidos": [],
+            "buzz": [
+              "B2",
+              "B3",
+              "B4"
+            ]
+          },
+          {
+            "titulo": "Leitura da conta e do consumo no calor",
+            "gancho": "A marca precisa acompanhar como a mudança de bandeira e a maior atenção do consumidor à fatura afetam dúvidas, percepção de custo e picos de interesse por atendimento.",
+            "por_que_agora": "A virada para bandeira verde e a sazonalidade de calor tornam este o momento de observar o comportamento de busca e dúvidas do consumidor.",
+            "janela": "Até o fechamento do verão, quando o impacto do calor sobre o consumo tende a ser mais sensível.",
+            "por_que_o_tipo": "O principal valor aqui é acompanhar um sinal de mercado e de comportamento que afeta orçamento e demanda, sem necessidade de compra imediata de mídia.",
+            "publico": null,
+            "pracas": null,
+            "periodo": null,
+            "mensagem": null,
+            "tema": null,
+            "formatos": null,
+            "tom": null,
+            "impacto": "Pode orientar a comunicação de serviço, a prioridade de esclarecimentos e o ritmo de respostas ao consumidor.",
+            "observar": "Volume de dúvidas sobre bandeira e conta de luz, procura por explicações de cobrança e interesse por atendimento digital e arquivo de bandeiras.",
+            "tipo": "inteligencia",
+            "objetivo": null,
+            "canais": [],
+            "canais_invalidos": [],
+            "buzz": [
+              "B1",
+              "B3",
+              "B4"
+            ]
+          },
+          {
+            "titulo": "Resposta rápida para quem busca a bandeira",
+            "gancho": "Quando a dúvida é prática e imediata, a marca pode aparecer com mensagem de serviço para reduzir fricção e levar o consumidor ao entendimento correto da conta. É uma presença de utilidade, não de produto.",
+            "por_que_agora": "A busca por informação sobre a bandeira e a fatura aumenta justamente quando o consumidor recebe a conta ou percebe variação no consumo.",
+            "janela": "Até que a curiosidade sobre a bandeira atual e a leitura da conta arrefeça.",
+            "por_que_o_tipo": "Existe oportunidade de defesa de marca em busca por informação imediata, quando o consumidor procura entender a cobrança e quer uma resposta rápida da distribuidora.",
+            "publico": "Clientes residenciais e pequenos negócios em Minas Gerais que estão consultando a conta ou querendo confirmar a bandeira vigente.",
+            "pracas": "Minas Gerais",
+            "periodo": {
+              "inicio": "2026-10-08",
+              "fim": "2026-11-15"
+            },
+            "mensagem": "Entenda a bandeira vigente e veja como a conta de energia é formada no período.",
+            "tema": null,
+            "formatos": null,
+            "tom": null,
+            "impacto": null,
+            "observar": null,
+            "tipo": "midia",
+            "objetivo": "trafego",
+            "canais": [
+              {
+                "id": 18,
+                "name": "Google DV360",
+                "formato": "Search e display programático",
+                "por_que": "Captura a intenção de busca e leva para uma explicação objetiva no momento da dúvida."
+              },
+              {
+                "id": 30,
+                "name": "YouTube",
+                "formato": "Vídeo curto com resposta direta",
+                "por_que": "Funciona bem para esclarecer a relação entre bandeira e conta de energia com linguagem simples."
+              },
+              {
+                "id": 31,
+                "name": "Instagram",
+                "formato": "Carrossel informativo",
+                "por_que": "Permite detalhar passos de leitura da fatura e reforçar a mensagem de serviço."
+              }
+            ],
+            "canais_invalidos": [],
+            "buzz": [
+              "B3",
+              "B4"
+            ]
+          }
+        ],
+        "tokens": 52
+      }
+    },
+    {
+      "scenario": "nike",
+      "focus": "corrida de rua, provas de fim de ano e São Silvestre",
+      "buzz": [
+        {
+          "id": "B1",
+          "assunto": "São Silvestre 2026 abre inscrições",
+          "por_que": "A abertura das inscrições para a 101ª edição da Corrida Internacional de São Silvestre, em São Paulo, costuma gerar forte procura e debate sobre preço, kit e estrutura da prova; em 2026, a cobertura destacou R$ 335,90 no kit básico e promessas de melhorias na inscrição e na infraestrutura.",
+          "data": "2026-09-25",
+          "local": "São Paulo/SP",
+          "veiculo": "CBN Globo",
+          "url": "https://cbn.globo.com/esporte/noticia/2026/09/25/sao-silvestre-2026-kit-basico-vai-custar-r-33590-e-organizacao-promete-melhorias-na-inscricao-e-infra-estrutura-da-prova.ghtml",
+          "tier": "C",
+          "domain": "cbn.globo.com",
+          "url_status": "ok"
+        },
+        {
+          "id": "B2",
+          "assunto": "Patrocínio da Netshoes à São Silvestre",
+          "por_que": "O anúncio de que a Netshoes será patrocinadora da São Silvestre de 2026 a 2028 e operará a loja de produtos oficiais colocou a prova no centro de conversas sobre corrida de rua, varejo esportivo e marca global no período de fim de ano.",
+          "data": "2026-09-30",
+          "local": "São Paulo/SP",
+          "veiculo": "Máquina do Esporte",
+          "url": "https://maquinadoesporte.com.br/running/netshoes-fecha-patrocinio-a-sao-silvestre-e-fara-operacao-da-loja-da-prova/",
+          "tier": "C",
+          "domain": "maquinadoesporte.com.br",
+          "url_status": "ok"
+        },
+        {
+          "id": "B3",
+          "assunto": "Crescimento das corridas de rua no Brasil",
+          "por_que": "O aumento do número de provas e a liderança de São Paulo em eventos em 2025 reforçaram o interesse por corrida de rua, especialmente entre praticantes que se preparam para provas de fim de ano como a São Silvestre.",
+          "data": "2026-10-02",
+          "local": "Brasil",
+          "veiculo": "Tribuna do Agreste",
+          "url": "https://www.tribunadoagreste.com.br/geral/2026/10/02/989678-cresce-o-numero-de-corridas-de-rua-e-cuidados-com-a-saude-sao-essenciais",
+          "tier": "C",
+          "domain": "tribunadoagreste.com.br",
+          "url_status": "ok"
+        },
+        {
+          "id": "B4",
+          "assunto": "Série da CBN sobre jornada para a São Silvestre",
+          "por_que": "A CBN lançou uma série com dicas de corrida de rua e acompanhamento da preparação para a São Silvestre, ampliando o interesse por treinos, equipamentos e participação na prova de fim de ano.",
+          "data": "2026-10-07",
+          "local": "Brasil",
+          "veiculo": "CBN Globo",
+          "url": "https://cbn.globo.com/esporte/noticia/2026/10/07/clube-da-corrida-cbn-serie-traz-dicas-de-corrida-de-rua-e-acompanha-a-jornada-para-correr-a-sao-silvestre.ghtml",
+          "tier": "C",
+          "domain": "cbn.globo.com",
+          "url_status": "ok"
+        },
+        {
+          "id": "B5",
+          "assunto": "Calendário de corridas de rua 2026 com foco na São Silvestre",
+          "por_que": "A divulgação de calendários de corrida de rua para 2026 mantém a São Silvestre em evidência como a principal prova de encerramento do ano esportivo no Brasil.",
+          "data": "2026-10-01",
+          "local": "Brasil",
+          "veiculo": "Rádio Itatiaia",
+          "url": "https://www.itatiaia.com.br/porlucasmachado/confira-os-calendario-de-corridas-de-rua-2026/",
+          "tier": "A",
+          "domain": "itatiaia.com.br",
+          "url_status": "ok"
+        },
+        {
+          "id": "B6",
+          "assunto": "Desafio 101 São Silvestre na Virada Esportiva",
+          "por_que": "A ação promocional ligada à 101ª edição da São Silvestre apareceu como ativação de marca e aquecimento para a prova, conectando corrida de rua, público amador e experiência esportiva na capital paulista.",
+          "data": "2026-10-07",
+          "local": "São Paulo/SP",
+          "veiculo": "Gazeta Esportiva",
+          "url": "https://www.gazetaesportiva.com/mais-esportes/gazeta-esportiva-desafio-101-sao-silvestre/?amp",
+          "tier": "C",
+          "domain": "gazetaesportiva.com",
+          "url_status": "ok"
+        },
+        {
+          "id": "B7",
+          "assunto": "Corridas de rua interditando vias e movimentando o fim de semana",
+          "por_que": "As reportagens sobre interdições e impacto no trânsito em provas urbanas mostram que corrida de rua segue em alta também como assunto de mobilidade e agenda esportiva nas capitais, especialmente no Sudeste.",
+          "data": "2026-09-28",
+          "local": "Rio de Janeiro/RJ",
+          "veiculo": "eshoje.com.br",
+          "url": "https://eshoje.com.br/servicos/2026/09/corrida-interdita-ruas-de-vila-velha-no-fim-de-semana/",
+          "tier": "C",
+          "domain": "eshoje.com.br",
+          "url_status": "ok"
+        }
+      ],
+      "tokens_buzz_check": 136,
+      "v15": {
+        "angles": [
+          {
+            "titulo": "Nike na linha de largada",
+            "gancho": "A Nike pode ocupar a conversa de quem vai encarar a São Silvestre como a prova mais simbólica do fim de ano, entrando com conteúdo e produto para a preparação, a estreia e o dia da corrida. O foco é ajudar o corredor de rua a se sentir pronto para fechar 2026 em alta.",
+            "por_que_agora": "A abertura das inscrições da São Silvestre e a repercussão sobre kit, preço e estrutura colocam a prova no centro da conversa neste momento.",
+            "formatos": [
+              "vídeo curto com chamada para a temporada da prova",
+              "carrossel com guia de preparação para a São Silvestre",
+              "landing page com seleção de itens para corrida de rua"
+            ],
+            "canais": [
+              "Instagram",
+              "TikTok",
+              "site Nike Brasil"
+            ],
+            "janela": "até a semana seguinte ao pico de inscrições da São Silvestre",
+            "buzz": [
+              "B1",
+              "B4"
+            ]
+          },
+          {
+            "titulo": "Fim de ano, calendário de prova",
+            "gancho": "A Nike pode se posicionar como marca que acompanha o corredor ao longo de todo o calendário de corridas de rua, da retomada dos treinos às provas de encerramento do ano. A ideia é conectar rotina de treino, escolha de equipamento e meta de chegar bem à São Silvestre.",
+            "por_que_agora": "A alta das corridas de rua no Brasil e a divulgação de calendários de 2026 mantêm o tema quente e reforçam a São Silvestre como principal prova de fechamento do ano esportivo.",
+            "formatos": [
+              "série de posts com agenda de corrida de rua",
+              "reels com dicas de montagem de rotina de treino",
+              "newsletter para corredores com foco em fim de temporada"
+            ],
+            "canais": [
+              "Instagram",
+              "e-mail marketing",
+              "site Nike Brasil"
+            ],
+            "janela": "até o fechamento dos calendários e consolidação das provas de fim de ano",
+            "buzz": [
+              "B3",
+              "B5"
+            ]
+          },
+          {
+            "titulo": "Treino guiado até a São Silvestre",
+            "gancho": "Com a conversa crescendo sobre preparação para a São Silvestre, a Nike pode trazer conteúdo de jornada para quem está treinando agora e ainda quer chegar melhor à prova. O recorte é serviço: como organizar a preparação, o que observar no treino e como escolher o que usar.",
+            "por_que_agora": "A série da CBN sobre a jornada para a São Silvestre amplia o interesse por treino, equipamentos e acompanhamento da preparação neste exato momento.",
+            "formatos": [
+              "série de stories com rotina de treino",
+              "vídeo com check-list de preparação",
+              "artigo no site com orientações para corredores"
+            ],
+            "canais": [
+              "Instagram Stories",
+              "YouTube",
+              "site Nike Brasil"
+            ],
+            "janela": "até o início da reta final de preparação para a prova",
+            "buzz": [
+              "B4",
+              "B3"
+            ]
+          },
+          {
+            "titulo": "Corrida de rua na cidade",
+            "gancho": "A Nike pode falar com força no eixo São Paulo e Rio mostrando a corrida de rua como experiência urbana, com treinos, provas e movimento nas capitais. O território é o corredor que vive a cidade e transforma o fim de semana em agenda esportiva.",
+            "por_que_agora": "As reportagens sobre interdições e impacto no trânsito mostram que as corridas seguem em alta como assunto das capitais, especialmente no Sudeste.",
+            "formatos": [
+              "conteúdo editorial com mapa de treino urbano",
+              "reels com cenas de corrida na cidade",
+              "posts com agenda de provas e mobilidade"
+            ],
+            "canais": [
+              "Instagram",
+              "TikTok",
+              "site Nike Brasil"
+            ],
+            "janela": "até a virada do calendário de provas urbanas de fim de ano",
+            "buzz": [
+              "B7",
+              "B3",
+              "B5"
+            ]
+          }
+        ],
+        "tokens": 28
+      },
+      "v16": {
+        "angles": [
+          {
+            "titulo": "Reta final para a São Silvestre",
+            "gancho": "Nike pode entrar agora para acompanhar quem já está treinando para as provas de fim de ano e quer se equipar melhor nas próximas semanas. A oportunidade é estar presente no momento de maior atenção à corrida de rua em São Paulo e no Rio de Janeiro.",
+            "por_que_agora": "A abertura das inscrições e a cobertura da preparação para a São Silvestre puxaram volume de atenção para corrida de rua, treino e equipamentos.",
+            "janela": "Até a semana da São Silvestre, quando a busca por preparação e itens de corrida tende a concentrar a demanda.",
+            "por_que_o_tipo": "Há um pico claro de interesse e intenção de treino/compra nas capitais, com a São Silvestre no centro da conversa de fim de ano.",
+            "publico": "corredores amadores e frequentes de São Paulo e Rio de Janeiro que estão se preparando para provas de fim de ano",
+            "pracas": "São Paulo e Rio de Janeiro",
+            "periodo": {
+              "inicio": "2026-10-08",
+              "fim": "2026-12-31"
+            },
+            "mensagem": "Nike acompanha sua preparação para as provas de fim de ano com produtos e inspiração para treinar, evoluir e chegar pronto à linha de largada.",
+            "tema": null,
+            "formatos": null,
+            "tom": null,
+            "impacto": null,
+            "observar": null,
+            "tipo": "midia",
+            "objetivo": "consideracao",
+            "canais": [
+              {
+                "id": 31,
+                "name": "Instagram",
+                "formato": "stories e reels com sequência de treino e produto",
+                "por_que": "fala com corredores no dia a dia e permite mostrar uso real, ritmo de treino e itens de corrida"
+              },
+              {
+                "id": 30,
+                "name": "YouTube",
+                "formato": "vídeo curto e bumper com foco em preparação para a prova",
+                "por_que": "constrói alcance rápido em conteúdo de treino e corrida, com contexto de performance"
+              },
+              {
+                "id": 32,
+                "name": "TikTok",
+                "formato": "vídeos curtos de desafio e rotina de treino",
+                "por_que": "atinge a audiência mais engajada com desafios e hábitos de corrida, boa para gerar lembrança"
+              },
+              {
+                "id": 17,
+                "name": "Eletromidia",
+                "formato": "painéis digitais próximos a rotas de deslocamento e áreas de treino",
+                "por_que": "capta corredores e público urbano nas capitais onde a prova ganha mais força"
+              }
+            ],
+            "canais_invalidos": [],
+            "buzz": [
+              "B1",
+              "B3",
+              "B4",
+              "B5"
+            ]
+          },
+          {
+            "titulo": "Como chegar pronto para as provas de fim de ano",
+            "gancho": "A Nike pode falar com corredores sobre a reta final da preparação, conectando treino, consistência e escolha de equipamento. A pauta serve para inspirar quem quer participar da temporada de corrida de rua com mais segurança e confiança.",
+            "por_que_agora": "A série sobre a jornada para a São Silvestre e a cobertura de dicas de corrida ampliaram o interesse por treino e equipamentos.",
+            "janela": "Até a semana da prova, enquanto a preparação ainda é tema quente.",
+            "por_que_o_tipo": "O assunto pede pauta editorial sobre preparação e jornada do corredor, sem depender de compra de mídia como centro.",
+            "publico": null,
+            "pracas": null,
+            "periodo": null,
+            "mensagem": "Uma boa preparação para a reta final passa por constância, recuperação e equipamentos adequados para o tipo de prova que o corredor vai encarar.",
+            "tema": "preparação para corrida de rua, rotina de treino e escolha de itens para provas de fim de ano",
+            "formatos": [
+              "artigo",
+              "carrossel",
+              "vídeo curto",
+              "newsletter"
+            ],
+            "tom": "motivador, prático e esportivo",
+            "impacto": null,
+            "observar": null,
+            "tipo": "conteudo",
+            "objetivo": null,
+            "canais": [],
+            "canais_invalidos": [],
+            "buzz": [
+              "B4",
+              "B5",
+              "B6"
+            ]
+          },
+          {
+            "titulo": "Quem ocupa a São Silvestre e quanto custa entrar na prova",
+            "gancho": "Nike precisa monitorar como a corrida de rua está sendo comercialmente capturada por concorrentes e como a percepção de preço e kit influencia o interesse do público. Isso ajuda a ajustar posicionamento e timing de comunicação.",
+            "por_que_agora": "O anúncio de patrocínio e o destaque dado ao valor do kit básico colocaram a prova no centro das conversas de marca e acesso.",
+            "janela": "Até o fechamento da temporada de inscrições e da preparação para a prova.",
+            "por_que_o_tipo": "A movimentação de patrocínio e preço muda a leitura de mercado e de concorrência, sem exigir ação imediata de mídia.",
+            "publico": null,
+            "pracas": null,
+            "periodo": null,
+            "mensagem": null,
+            "tema": null,
+            "formatos": null,
+            "tom": null,
+            "impacto": "orienta leitura de concorrência, percepção de valor e espaço de conversa em torno da principal corrida do calendário",
+            "observar": "patrocínio da prova, preço do kit, volume de menções à São Silvestre, associação entre a corrida e varejo esportivo, sinais de demanda por equipamentos de corrida",
+            "tipo": "inteligencia",
+            "objetivo": null,
+            "canais": [],
+            "canais_invalidos": [],
+            "buzz": [
+              "B1",
+              "B2"
+            ]
+          },
+          {
+            "titulo": "Nike no caminho do corredor urbano",
+            "gancho": "Com as corridas de rua movimentando o fim de semana e o calendário esportivo, vale colocar a Nike no trajeto de quem treina, se desloca e fala de corrida nas capitais. A ideia é combinar alcance urbano com lembrança de marca esportiva.",
+            "por_que_agora": "As reportagens sobre corridas urbanas e interdições mostram que a modalidade está presente no cotidiano das capitais, não só no dia da prova.",
+            "janela": "Até o fim do calendário de corridas urbanas e da alta de conversas sobre provas de rua.",
+            "por_que_o_tipo": "A cidade vira vitrine de corrida de rua e existe um momento claro para ocupar atenção com presença física e digital.",
+            "publico": "moradores e corredores urbanos de São Paulo e Rio de Janeiro com afinidade por esporte e mobilidade da cidade",
+            "pracas": "São Paulo e Rio de Janeiro",
+            "periodo": {
+              "inicio": "2026-10-08",
+              "fim": "2026-12-20"
+            },
+            "mensagem": "Nike está presente na rotina do corredor urbano que treina, se move pela cidade e se prepara para fechar o ano em prova.",
+            "tema": null,
+            "formatos": null,
+            "tom": null,
+            "impacto": null,
+            "observar": null,
+            "tipo": "midia",
+            "objetivo": "awareness",
+            "canais": [
+              {
+                "id": 17,
+                "name": "Eletromidia",
+                "formato": "DOOH em eixos de alto fluxo e trajetos urbanos",
+                "por_que": "gera presença massiva no caminho de quem corre e circula nas capitais"
+              },
+              {
+                "id": 31,
+                "name": "Instagram",
+                "formato": "stories com lembretes de treino e peças de produto",
+                "por_que": "acompanha a rotina do corredor com frequência e segmentação por interesse"
+              },
+              {
+                "id": 30,
+                "name": "YouTube",
+                "formato": "vídeo curto de alto alcance para reforço de marca",
+                "por_que": "ajuda a ampliar lembrança e associação com performance e corrida"
+              },
+              {
+                "id": 18,
+                "name": "Google DV360",
+                "formato": "segmentação programática para públicos de interesse em esporte e corrida",
+                "por_que": "permite escalar alcance com precisão em audiência relevante"
+              }
+            ],
+            "canais_invalidos": [],
+            "buzz": [
+              "B3",
+              "B5",
+              "B7"
+            ]
+          },
+          {
+            "titulo": "Corrida de rua na cidade: treinar, competir e circular",
+            "gancho": "Nike pode transformar a conversa sobre corridas urbanas em conteúdo útil para quem concilia treino com a rotina da cidade. O enfoque é mostrar como o corredor organiza seu percurso, seus horários e sua preparação para as provas de fim de ano.",
+            "por_que_agora": "As matérias sobre interdições e o crescimento das provas reforçam a corrida como parte da vida urbana nas capitais.",
+            "janela": "Enquanto as corridas urbanas seguirem em evidência no fim do ano.",
+            "por_que_o_tipo": "A alta de corridas e o tema trânsito/mobilidade abrem pauta útil para a marca conversar com o corredor urbano.",
+            "publico": null,
+            "pracas": null,
+            "periodo": null,
+            "mensagem": "Correr na cidade exige planejamento, consistência e atenção ao próprio ritmo, especialmente na reta final do ano.",
+            "tema": "corrida de rua como hábito urbano e preparação para provas",
+            "formatos": [
+              "artigo",
+              "vídeo curto",
+              "carrossel"
+            ],
+            "tom": "urbano, informativo e inspirador",
+            "impacto": null,
+            "observar": null,
+            "tipo": "conteudo",
+            "objetivo": null,
+            "canais": [],
+            "canais_invalidos": [],
+            "buzz": [
+              "B3",
+              "B7"
+            ]
+          }
+        ],
+        "tokens": 69
+      }
+    },
+    {
+      "scenario": "bomfim",
+      "focus": "pico logístico de Black Friday e Natal, frete e estradas",
+      "buzz": [],
+      "tokens_buzz_check": 158,
+      "v15": {
+        "angles": [],
+        "tokens": 0
+      },
+      "v16": {
+        "angles": [],
+        "tokens": 0
+      }
+    },
+    {
+      "scenario": "nike-concorrencia",
+      "focus": "lançamentos e campanhas de tênis de corrida da Adidas, Asics, Olympikus e Mizuno",
+      "buzz": [
+        {
+          "id": "B1",
+          "assunto": "Lançamento do Adidas Adizero Adios Pro 5 no Brasil",
+          "por_que": "A adidas oficializou a chegada do Adizero Adios Pro 5 ao mercado brasileiro, destacando o modelo como supertênis de competição com 177 g, nova tecnologia de carbono e preço de R$ 2.199,99; isso gerou cobertura em veículos de negócios e corrida, além de aparecer como novidade no site da marca.",
+          "data": "2026-09-22",
+          "local": "Brasil",
+          "veiculo": "Máquina do Esporte",
+          "url": "https://maquinadoesporte.com.br/running/adidas-lanca-adizero-adios-pro-5-com-nova-tecnologia-de-carbono-e-reducao-de-peso/",
+          "tier": "C",
+          "domain": "maquinadoesporte.com.br",
+          "url_status": "ok"
+        },
+        {
+          "id": "B2",
+          "assunto": "Nike Alphafly 4 chega em lote limitado e esgota no mesmo dia",
+          "por_que": "A Nike colocou à venda a quarta geração do Alphafly em 17 de setembro e o lote limitado esgotou no mesmo dia, o que aumentou o interesse por corrida de alta performance e por produtos de disponibilidade restrita.",
+          "data": "2026-09-17",
+          "local": "Brasil",
+          "veiculo": "Exame",
+          "url": "https://exame.com/casual/apos-arnault-e-mbappe-nike-apresenta-tenis-que-pode-ser-seu-salva-vidas/",
+          "tier": "A",
+          "domain": "exame.com",
+          "url_status": "ok"
+        },
+        {
+          "id": "B3",
+          "assunto": "Coleção Marvel x Adidas de tênis inspirada no Doutor Destino",
+          "por_que": "A parceria entre Marvel e adidas ganhou destaque com uma coleção temática de tênis baseada em personagens do MCU, puxando conversa além da corrida e alimentando buscas por collabs da marca com forte apelo cultural.",
+          "data": "2026-09-30",
+          "local": "Brasil",
+          "veiculo": "Omelete",
+          "url": "https://www.omelete.com.br/filmes/marvel-adidas-colecao-tenis-doutor-destino-mais",
+          "tier": "C",
+          "domain": "omelete.com.br",
+          "url_status": "ok"
+        },
+        {
+          "id": "B4",
+          "assunto": "Nova coleção Adidas x Pokémon 30th Anniversary",
+          "por_que": "A coleção adidas x Pokémon 30th Anniversary circulou em redes e sites de cultura sneaker em setembro, com imagens e datas de lançamento internacional, impulsionando o interesse por edições especiais da marca no Brasil.",
+          "data": "2026-09-15",
+          "local": "Brasil",
+          "veiculo": "Purepeople",
+          "url": "https://www.purepeople.com.br/noticia/tenis-adidas-pokemon-modelo-inspirado-no-pikachu-une-conforto-visual-divertido-e-nostalgia-dos-anos-90-para-os-looks-do-seu-boy-nerd_a424536/1",
+          "tier": "C",
+          "domain": "purepeople.com.br",
+          "url_status": "ok"
+        },
+        {
+          "id": "B5",
+          "assunto": "Linha Adidas Adizero em destaque no varejo brasileiro",
+          "por_que": "As páginas oficiais da adidas Brasil passaram a destacar Adizero EVO SL e Adizero Adios Pro 5 como novidades, reforçando a visibilidade dos lançamentos de corrida no varejo e ajudando a sustentar a busca por modelos de performance.",
+          "data": "2026-10-08",
+          "local": "Brasil",
+          "veiculo": "adidas Brasil",
+          "url": "https://www.adidas.com.br/novidades",
+          "tier": "C",
+          "domain": "adidas.com.br",
+          "url_status": "bloqueado"
+        }
+      ],
+      "tokens_buzz_check": 131,
+      "v15": {
+        "angles": [
+          {
+            "titulo": "O peso da performance",
+            "gancho": "Posicionar a Nike como a marca que transforma corrida de alta performance em desejo real de compra, não só em promessa técnica. O gancho é entrar na conversa sobre supertênis mostrando por que um produto esgota rápido e vira referência na categoria.",
+            "por_que_agora": "O AlphaFly 4 chegou em lote limitado e esgotou no mesmo dia, enquanto o Adizero Adios Pro 5 voltou a colocar tecnologia e peso do tênis no centro do debate. É o momento ideal para a Nike reforçar seu território de performance máxima.",
+            "formatos": [
+              "post social com mensagem de performance",
+              "vídeo curto comparando disponibilidade x desejo",
+              "landing page/editorial de produto"
+            ],
+            "canais": [
+              "Instagram",
+              "TikTok",
+              "site Nike Brasil",
+              "CRM"
+            ],
+            "janela": "Imediata, com força pelos próximos 10 a 14 dias",
+            "buzz": [
+              "B2",
+              "B1",
+              "B5"
+            ]
+          },
+          {
+            "titulo": "Edição limitada, impacto gigante",
+            "gancho": "Aproveitar a lógica do ‘sumiu do estoque, virou conversa’ para criar campanhas de corrida com sensação de oportunidade e urgência. A Nike pode falar de lançamento como acontecimento, não apenas como produto à venda.",
+            "por_que_agora": "O lote limitado do AlphaFly 4 esgotado no mesmo dia mostrou que disponibilidade restrita gera tração orgânica. Ao mesmo tempo, o interesse do público por lançamentos de performance segue quente com o destaque dado aos modelos Adizero no varejo.",
+            "formatos": [
+              "stories em sequência",
+              "peça de contagem regressiva",
+              "conteúdo de lista de espera",
+              "e-mail marketing"
+            ],
+            "canais": [
+              "Instagram Stories",
+              "site Nike Brasil",
+              "e-mail",
+              "WhatsApp/CRM"
+            ],
+            "janela": "Curta, enquanto a conversa sobre reposição e desejo seguir ativa, até 2 semanas",
+            "buzz": [
+              "B2",
+              "B5"
+            ]
+          },
+          {
+            "titulo": "Corrida também é cultura",
+            "gancho": "Abrir espaço para falar de corrida como parte do lifestyle sneaker, não só de treino. A Nike pode entrar na conversa mostrando que tênis de performance também disputam atenção com collabs e coleções temáticas.",
+            "por_que_agora": "A coleção Marvel x Adidas e a adidas x Pokémon 30th Anniversary puxaram o tema de collabs para o centro do interesse sneaker, ampliando o público além da corrida. Isso cria uma janela para a Nike conectar performance com cultura de forma mais aspiracional.",
+            "formatos": [
+              "reels com storytelling",
+              "carrossel editorial",
+              "conteúdo com creator sneaker/running"
+            ],
+            "canais": [
+              "Instagram",
+              "TikTok",
+              "YouTube Shorts"
+            ],
+            "janela": "Enquanto as collabs estiverem repercutindo nas redes e na mídia, cerca de 2 a 3 semanas",
+            "buzz": [
+              "B3",
+              "B4"
+            ]
+          },
+          {
+            "titulo": "A disputa do topo da corrida",
+            "gancho": "Criar um território de marca para afirmar liderança em tênis de competição sem falar de preço, mas de consistência, desejo e relevância no topo da categoria. A ideia é fazer a Nike parecer o nome natural quando o assunto é supertênis.",
+            "por_que_agora": "O lançamento do Adizero Adios Pro 5 e o destaque contínuo da linha Adizero no varejo reforçam que a categoria está quente e competitiva. Esse cenário abre espaço para a Nike ocupar o debate de maneira mais institucional e confiante.",
+            "formatos": [
+              "manifesto de marca",
+              "peça institucional curta",
+              "artigo no site",
+              "comunicação com especialistas"
+            ],
+            "canais": [
+              "site Nike Brasil",
+              "LinkedIn",
+              "Instagram",
+              "PR"
+            ],
+            "janela": "Boa para trabalhar nas próximas 3 semanas, enquanto os lançamentos seguem em evidência",
+            "buzz": [
+              "B1",
+              "B5"
+            ]
+          }
+        ],
+        "tokens": 29
+      },
+      "v16": {
+        "angles": [
+          {
+            "titulo": "Alphafly 4: captar a busca no pico",
+            "gancho": "O Alphafly 4 já provou que tem procura imediata no Brasil. A marca pode aproveitar esse interesse para levar tráfego qualificado e reforçar Nike como referência em supertênis de corrida.",
+            "por_que_agora": "O lote limitado esgotou no mesmo dia e manteve o assunto quente entre corredores e compradores de performance.",
+            "janela": "Enquanto a conversa sobre reposição, disponibilidade e performance seguir ativa após o esgotamento inicial.",
+            "por_que_o_tipo": "Há interesse comprovado em corrida de alta performance e a procura por um tênis Nike com oferta restrita cria oportunidade de capturar demanda agora.",
+            "publico": "corredores de alta performance, praticantes avançados e sneakerheads que buscam lançamentos Nike",
+            "pracas": "Brasil, com foco em capitais e praças de corrida forte",
+            "periodo": {
+              "inicio": "2026-10-08",
+              "fim": "2026-11-15"
+            },
+            "mensagem": "Nike é a marca para quem busca performance máxima em corrida e quer ficar por dentro das próximas oportunidades de compra.",
+            "tema": null,
+            "formatos": null,
+            "tom": null,
+            "impacto": null,
+            "observar": null,
+            "tipo": "midia",
+            "objetivo": "trafego",
+            "canais": [
+              {
+                "id": 18,
+                "name": "Google DV360",
+                "formato": "search e display programático com foco em intenção de compra",
+                "por_que": "captura quem já está procurando o modelo, concorrentes e termos de corrida de performance"
+              },
+              {
+                "id": 31,
+                "name": "Instagram",
+                "formato": "stories e reels com criativos de produto e prova social",
+                "por_que": "bom para estimular desejo e redirecionar para o site ou lista de interesse"
+              },
+              {
+                "id": 30,
+                "name": "YouTube",
+                "formato": "vídeos curtos e pre-roll com foco em tecnologia e velocidade",
+                "por_que": "ajuda a explicar o valor do produto em contexto de alta performance"
+              },
+              {
+                "id": 58,
+                "name": "Amazon Ads / Marketplace",
+                "formato": "anúncios em marketplace com destaque para disponibilidade e conversão",
+                "por_que": "pega o usuário no momento de compra, quando houver estoque ou alternativa equivalente"
+              }
+            ],
+            "canais_invalidos": [],
+            "buzz": [
+              "B2"
+            ]
+          },
+          {
+            "titulo": "Supertênis de corrida: como escolher o par certo",
+            "gancho": "A conversa sobre lançamentos premium abriu espaço para explicar o que realmente importa num tênis de corrida de alta performance. Nike pode falar com autoridade sobre tecnologia, encaixe e uso por objetivo de prova.",
+            "por_que_agora": "O destaque dado aos novos modelos de corrida elevou a curiosidade do público sobre diferenças de peso, placa e resposta.",
+            "janela": "Enquanto os lançamentos de corrida estiverem em evidência no varejo e na imprensa especializada.",
+            "por_que_o_tipo": "O momento pede uma pauta de educação sobre performance, não necessariamente compra de mídia pesada.",
+            "publico": null,
+            "pracas": null,
+            "periodo": null,
+            "mensagem": "Nem todo supertênis serve para o mesmo corredor ou prova; a escolha certa depende de ritmo, distância e sensação de corrida.",
+            "tema": "Guia de escolha de tênis de corrida de alta performance",
+            "formatos": [
+              "artigo",
+              "carrossel",
+              "vídeo curto",
+              "newsletter"
+            ],
+            "tom": "técnico, inspirador e acessível",
+            "impacto": null,
+            "observar": null,
+            "tipo": "conteudo",
+            "objetivo": null,
+            "canais": [],
+            "canais_invalidos": [],
+            "buzz": [
+              "B1",
+              "B2",
+              "B5"
+            ]
+          },
+          {
+            "titulo": "Mapa do mercado de corrida premium",
+            "gancho": "Os lançamentos e colaborações da concorrência mostram onde o interesse está migrando: performance pura, edição limitada ou apelo cultural. Isso ajuda a Nike a decidir onde defender marca e investimento.",
+            "por_que_agora": "A sequência de lançamentos e a visibilidade no varejo brasileiro criaram um novo patamar de comparação para supertênis.",
+            "janela": "Até a próxima rodada relevante de lançamentos e reposições no mercado brasileiro.",
+            "por_que_o_tipo": "O principal valor aqui é monitorar concorrência e mercado para orientar preço, estoque e posicionamento.",
+            "publico": null,
+            "pracas": null,
+            "periodo": null,
+            "mensagem": null,
+            "tema": null,
+            "formatos": null,
+            "tom": null,
+            "impacto": "ajuda a definir se a resposta da Nike deve focar em performance, disponibilidade, preço ou colaborações",
+            "observar": "preço dos concorrentes, velocidade de esgotamento, volume de cobertura, termos de busca e reação do varejo brasileiro",
+            "tipo": "inteligencia",
+            "objetivo": null,
+            "canais": [],
+            "canais_invalidos": [],
+            "buzz": [
+              "B1",
+              "B2",
+              "B3",
+              "B4",
+              "B5"
+            ]
+          },
+          {
+            "titulo": "O que faz um lançamento virar desejo",
+            "gancho": "O esgotamento rápido de um modelo mostra que, no mercado de corrida, não basta lançar: é preciso ter narrativa, timing e comunidade. Nike pode transformar esse comportamento em conversa de marca.",
+            "por_que_agora": "A venda rápida do tênis premium da própria Nike e a onda de lançamentos da concorrência reforçam o tema de desejo e escassez.",
+            "janela": "Enquanto o assunto de lançamentos esgotados e novidades de corrida continuar em alta.",
+            "por_que_o_tipo": "Há espaço para a Nike falar com sua comunidade de corrida sem transformar isso em compra de mídia prioritária.",
+            "publico": null,
+            "pracas": null,
+            "periodo": null,
+            "mensagem": "Lançamentos esportivos viram assunto quando unem tecnologia, timing e comunidade pronta para reagir.",
+            "tema": "Desejo, escassez e comunidade no lançamento de tênis de corrida",
+            "formatos": [
+              "post social",
+              "vídeo curto",
+              "artigo",
+              "newsletter"
+            ],
+            "tom": "provocativo, próximo da comunidade runner e com visão de produto",
+            "impacto": null,
+            "observar": null,
+            "tipo": "conteudo",
+            "objetivo": null,
+            "canais": [],
+            "canais_invalidos": [],
+            "buzz": [
+              "B2",
+              "B5"
+            ]
+          }
+        ],
+        "tokens": 61
+      }
+    }
+  ]
+}

@@ -1,0 +1,118 @@
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><script src="https://cdn.tailwindcss.com/3.4.1"></script></head><body class="bg-slate-50">
+<div class="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6">
+  
+  <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+    A sequência está <b>desligada</b> (<code>CADU_EMAIL_SEQUENCE_ENABLED</code>). As ações abaixo mudam o estado, mas nada é enviado até ela ser ligada.
+  </div>
+  
+  
+
+  <nav class="flex gap-1 rounded-xl bg-slate-100 p-1 text-sm font-medium" aria-label="Seções">
+    
+    <a href="/admin/emails/?tab=visao" class="flex-1 rounded-lg px-3 py-2 text-center text-slate-600 hover:text-slate-900">Visão geral</a>
+    
+    <a href="/admin/emails/?tab=eventos" class="flex-1 rounded-lg px-3 py-2 text-center text-slate-600 hover:text-slate-900">Eventos</a>
+    
+    <a href="/admin/emails/?tab=sequencia" class="flex-1 rounded-lg px-3 py-2 text-center bg-white text-slate-900 shadow-sm">Sequência</a>
+    
+  </nav>
+
+  
+
+  
+
+  
+  
+  
+  <form class="flex flex-wrap items-end gap-2 rounded-xl bg-white p-3 ring-1 ring-slate-200 text-sm" method="get">
+    <input type="hidden" name="tab" value="sequencia">
+    <label class="flex-1 min-w-[180px]"><span class="block text-xs text-slate-500">Buscar</span><input name="q" value="" placeholder="nome ou e-mail" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"></label>
+    <label><span class="block text-xs text-slate-500">Status</span><select name="status" class="mt-1 rounded-lg border border-slate-300 px-2 py-2"><option value="">Todos</option><option value="active" >Ativa</option><option value="paused" >Pausada</option><option value="completed" >Concluída</option><option value="cancelled" >Cancelada</option></select></label>
+    <label><span class="block text-xs text-slate-500">Próximo passo</span><select name="passo" class="mt-1 rounded-lg border border-slate-300 px-2 py-2"><option value="">Todos</option><option value="1" >1 · dicas-de-uso</option><option value="2" >2 · dicas-de-prompts</option><option value="3" >3 · planner-radar</option><option value="4" >4 · studio-criar</option><option value="5" >5 · plugins-agentes</option><option value="6" >6 · connect-reports</option></select></label>
+    <button class="rounded-lg bg-slate-900 px-4 py-2 font-medium text-white">Filtrar</button>
+  </form>
+  <div class="flex flex-wrap items-center gap-2 rounded-xl bg-white p-3 text-sm ring-1 ring-slate-200">
+    <select id="bulk-action" class="rounded-lg border border-slate-300 px-2 py-2"><option value="pause">Pausar</option><option value="resume">Retomar</option><option value="send_now">Enviar o próximo agora</option><option value="skip">Pular o próximo passo</option><option value="restart">Recomeçar do passo 1</option><option value="cancel">Cancelar a sequência</option><option value="unsubscribe">Descadastrar</option><option value="resubscribe">Reativar dicas</option></select>
+    <button type="button" id="bulk-selected" class="rounded-lg bg-slate-900 px-3 py-2 font-medium text-white">Aplicar aos selecionados</button>
+    <button type="button" id="bulk-filter" class="rounded-lg px-3 py-2 font-medium text-slate-800 ring-1 ring-slate-300">Aplicar a todos do filtro (3)</button>
+  </div>
+  <div class="overflow-x-auto rounded-xl bg-white ring-1 ring-slate-200">
+    <table class="w-full min-w-[760px] text-sm"><thead class="bg-slate-50 text-left text-xs text-slate-500"><tr><th class="px-3 py-2"><input type="checkbox" id="check-all" aria-label="Selecionar todos da página"></th><th>Pessoa</th><th>Status</th><th>Próximo passo</th><th>Próximo envio</th><th>Último envio</th></tr></thead><tbody>
+    
+      <tr class="border-t border-slate-100">
+        <td class="px-3 py-2"><input type="checkbox" class="row-check" value="7" aria-label="Selecionar Ana Lima"></td>
+        <td class="py-2"><a class="text-sky-700 hover:underline" href="/admin/emails/usuario/7">Ana Lima</a><div class="text-xs text-slate-500">ana@marca.com</div></td>
+        <td class="py-2"><span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+  bg-emerald-50 text-emerald-700">Ativa</span></td>
+        <td class="py-2">3 · planner-radar</td>
+        <td class="py-2 text-slate-600">12/10 15:00</td>
+        <td class="py-2 text-slate-600">12/10 15:00</td>
+      </tr>
+    
+      <tr class="border-t border-slate-100">
+        <td class="px-3 py-2"><input type="checkbox" class="row-check" value="8" aria-label="Selecionar Bruno Reis"></td>
+        <td class="py-2"><a class="text-sky-700 hover:underline" href="/admin/emails/usuario/8">Bruno Reis</a><div class="text-xs text-slate-500">bruno@agencia.com</div></td>
+        <td class="py-2"><span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+  bg-amber-50 text-amber-700">Pausada</span><div class="text-xs text-slate-500">falha_envio</div></td>
+        <td class="py-2">2 · dicas-de-prompts</td>
+        <td class="py-2 text-slate-600">—</td>
+        <td class="py-2 text-slate-600">12/10 15:00</td>
+      </tr>
+    
+      <tr class="border-t border-slate-100">
+        <td class="px-3 py-2"><input type="checkbox" class="row-check" value="9" aria-label="Selecionar Carla Dias"></td>
+        <td class="py-2"><a class="text-sky-700 hover:underline" href="/admin/emails/usuario/9">Carla Dias</a><div class="text-xs text-slate-500">carla@x.com</div></td>
+        <td class="py-2"><span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+  bg-slate-100 text-slate-700">Cancelada</span> <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+  bg-rose-50 text-rose-700">Descadastrado</span><div class="text-xs text-slate-500">descadastro</div></td>
+        <td class="py-2">4 · studio-criar</td>
+        <td class="py-2 text-slate-600">—</td>
+        <td class="py-2 text-slate-600">12/10 15:00</td>
+      </tr>
+    
+    </tbody></table>
+  </div>
+  
+
+  
+</div>
+
+
+<script>
+(function () {
+  const csrf = "tok";
+  async function call(body) {
+    const res = await fetch("/admin/emails/acao", {
+      method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf}, body: JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => ({ok: false, error: 'Resposta inválida.'}));
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Não foi possível concluir.');
+    return data;
+  }
+  window.emailAction = async function (action, ids, filters) {
+    const body = filters ? {action, scope: 'filter', filters} : {action, ids};
+    try {
+      const preview = await call({...body, dry_run: true});
+      if (!preview.count) { alert('Nenhuma pessoa selecionada.'); return; }
+      if (!confirm(`${preview.label}: ${preview.count} pessoa(s). Confirmar?`)) return;
+      const done = await call(body);
+      alert(`Feito: ${done.affected} de ${done.count} pessoa(s) alterada(s).`);
+      location.reload();
+    } catch (err) { alert(err.message); }
+  };
+})();
+</script>
+<script>
+(function () {
+  const all = document.getElementById('check-all');
+  if (!all) return;
+  const checks = () => [...document.querySelectorAll('.row-check')];
+  all.addEventListener('change', () => checks().forEach(c => { c.checked = all.checked; }));
+  const action = () => document.getElementById('bulk-action').value;
+  document.getElementById('bulk-selected').addEventListener('click', () =>
+    emailAction(action(), checks().filter(c => c.checked).map(c => Number(c.value))));
+  document.getElementById('bulk-filter').addEventListener('click', () =>
+    emailAction(action(), [], {"q": "", "status": "", "step": ""}));
+})();
+</script>
+</body></html>

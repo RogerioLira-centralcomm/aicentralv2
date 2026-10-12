@@ -1,0 +1,339 @@
+[
+  {
+    "key": "format-a3c3aefd80ce",
+    "portal_id": 1,
+    "portal": "G1",
+    "domain": "g1.globo.com",
+    "format": "Billboard 970x250",
+    "size": null,
+    "brand": "Vivo",
+    "identity": "purple, Brazilian telecom, connected everyday life",
+    "reference": "images/portais/prints/1/20261008-home.webp",
+    "reference_date": "2026-10-08 15:50:34.040739+00:00",
+    "reference_source": "https://g1.globo.com",
+    "prompt": "Create a high fidelity flat website advertising mockup of G1 (g1.globo.com). The reference is an internal screenshot of this exact portal. Preserve its recognizable masthead, editorial typography, colors and page layout. Show enough surrounding editorial content to explain placement. Feature ONE advertisement in the format Billboard 970x250, advertising Vivo (purple, Brazilian telecom, connected everyday life). Use the brand name legibly inside the advertisement with tasteful brand imagery and a short Portuguese CTA 'Saiba mais'. The advertiser identity belongs only inside the ad slot. This is an illustrative fictional placement, not an actual campaign. Label the slot 'Publicidade'. For mobile formats show the mobile portal layout; for video show a paused advertising frame inside the appropriate player; for native formats show a sponsored editorial card. No invented prices, discounts, performance figures, endorsements, or claims about advertiser relationships. No laptop, monitor, perspective, decorative frame or external caption. Do not turn the whole portal into a brand advertisement. The ad must be clearly visible with its correct proportions and plausible position.",
+    "file": "format-a3c3aefd80ce.webp",
+    "status": "needs_review",
+    "review": {
+      "reviewed": true,
+      "approved": false,
+      "retried": true,
+      "score": 68,
+      "reason": "margin",
+      "reason_text": "texto, botão ou logo encostado na borda (fora da margem de 8%)",
+      "final_reason": "margin",
+      "delivered": "second",
+      "delivered_version": 2,
+      "attempts": [
+        {
+          "version": 1,
+          "source": "studio_prompt",
+          "score": 65,
+          "approved": false,
+          "reason": "margin",
+          "margin": [
+            "Map story headline (right)"
+          ],
+          "improvements": [],
+          "seconds": 10.4
+        },
+        {
+          "version": 2,
+          "source": "reframe",
+          "score": 68,
+          "approved": false,
+          "reason": "margin",
+          "margin": [
+            "PP e União Brasil announcement (bottom)",
+            "Electoral map story (bottom)"
+          ],
+          "improvements": [],
+          "seconds": 9.8,
+          "best": true
+        }
+      ],
+      "fix": "edit",
+      "second_score": 68
+    },
+    "calls": [
+      {
+        "prompt": "Create a high fidelity flat website advertising mockup of G1 (g1.globo.com). The reference is an internal screenshot of this exact portal. Preserve its recognizable masthead, editorial typography, colors and page layout. Show enough surrounding editorial content to explain placement. Feature ONE advertisement in the format Billboard 970x250, advertising Vivo (purple, Brazilian telecom, connected everyday life). Use the brand name legibly inside the advertisement with tasteful brand imagery and a short Portuguese CTA 'Saiba mais'. The advertiser identity belongs only inside the ad slot. This is an illustrative fictional placement, not an actual campaign. Label the slot 'Publicidade'. For mobile formats show the mobile portal layout; for video show a paused advertising frame inside the appropriate player; for native formats show a sponsored editorial card. No invented prices, discounts, performance figures, endorsements, or claims about advertiser relationships. No laptop, monitor, perspective, decorative frame or external caption. Do not turn the whole portal into a brand advertisement. The ad must be clearly visible with its correct proportions and plausible position.\nAD CRAFT: one focal subject, sharp and well lit with natural commercial light; a clean background with breathing room; the brand colors living in the wardrobe, props or background accents; nothing decorative the brief did not ask for. Give the copy a calm, high-contrast area so it reads at a glance.\nSAFE MARGIN: keep all text, logos, CTA and key subjects at least 8% away from every edge; only background may reach the edge, nothing else may touch or cross the frame.\nBRIEF FIDELITY: keep every concrete element of the brief (product, packaging, people, setting, action); a composition reference only guides placement and never replaces the requested subject.\nVISIBLE TEXT: only the literal copy below and the official logo; no subheadlines, lists, statistics, badges, dates or small print the brief did not write.\nNEUTRAL ASSET MODE: This request is a page, background, texture, scene or other reusable visual asset, not a branded advertisement. Do not apply, infer, reserve space for, or describe the project's logo, palette, font system, product, claim or campaign. Follow only the user's requested visual material and any selected reference contract.\nDO NOT ADD: icons, badges, seals, stickers, extra buttons, charts, captions or decorative words that the briefing did not ask for. Phone, laptop and app screens show only abstract interface shapes: no readable words, numbers, prices, dates or charts on any screen.\n\nREFERENCE CONTRACT:\nIMAGE 1: source=user; the primary/base image whose unrequested content must be preserved (Captura interna — G1).\nRespect the declared role of every image. Never silently swap the base image and a supporting reference. Apart from the supplied official brand logo, never add third-party logos, prices or offers that the user did not request.\nNEUTRAL ASSET CHECK: Do not reserve space for a logo, headline, price, product packshot or brand lockup unless the user explicitly asks for that element.\nFORMAT: 1536x1024px (3:2); this format overrides any size written in the brief.",
+        "parameters": {
+          "size": "1536x1024",
+          "quality": "medium"
+        },
+        "references": 1,
+        "latency_ms": 20323,
+        "cost_usd": 0.02295,
+        "cost_source": "catalog_tokens",
+        "usage": {
+          "input_tokens": 1830,
+          "input_tokens_details": {
+            "image_tokens": 1170,
+            "text_tokens": 660
+          },
+          "output_tokens": 343,
+          "output_tokens_details": {
+            "image_tokens": 343,
+            "text_tokens": 0
+          },
+          "total_tokens": 2173
+        },
+        "request_id": null,
+        "model": "gpt-image-2.5-sunburst"
+      },
+      {
+        "prompt": "OUTPAINT THE BORDER. The first image is a finished ad scaled down and centred on a plain border band. Fill ONLY that border so the background continues seamlessly (same colors, gradients, textures, light and scene). Do not change, move, redraw or add anything inside the central picture; put no text, logo, button or object in the border. Keep the same canvas and aspect ratio (3:2).",
+        "parameters": {
+          "size": "1536x1024",
+          "quality": "medium"
+        },
+        "references": 1,
+        "latency_ms": 17273,
+        "cost_usd": 0.023078,
+        "cost_source": "catalog_tokens",
+        "usage": {
+          "input_tokens": 1636,
+          "input_tokens_details": {
+            "image_tokens": 1536,
+            "text_tokens": 100
+          },
+          "output_tokens": 343,
+          "output_tokens_details": {
+            "image_tokens": 343,
+            "text_tokens": 0
+          },
+          "total_tokens": 1979
+        },
+        "request_id": null,
+        "model": "gpt-image-2.5-sunburst"
+      }
+    ]
+  },
+  {
+    "key": "format-96cbef521790",
+    "portal_id": 1,
+    "portal": "G1",
+    "domain": "g1.globo.com",
+    "format": "Retângulo 300x250",
+    "size": null,
+    "brand": "Natura",
+    "identity": "warm earth tones, Brazilian cosmetics, botanical skincare",
+    "reference": "images/portais/prints/1/20261008-home.webp",
+    "reference_date": "2026-10-08 15:50:34.040739+00:00",
+    "reference_source": "https://g1.globo.com",
+    "prompt": "Create a high fidelity flat website advertising mockup of G1 (g1.globo.com). The reference is an internal screenshot of this exact portal. Preserve its recognizable masthead, editorial typography, colors and page layout. Show enough surrounding editorial content to explain placement. Feature ONE advertisement in the format Retângulo 300x250, advertising Natura (warm earth tones, Brazilian cosmetics, botanical skincare). Use the brand name legibly inside the advertisement with tasteful brand imagery and a short Portuguese CTA 'Saiba mais'. The advertiser identity belongs only inside the ad slot. This is an illustrative fictional placement, not an actual campaign. Label the slot 'Publicidade'. For mobile formats show the mobile portal layout; for video show a paused advertising frame inside the appropriate player; for native formats show a sponsored editorial card. No invented prices, discounts, performance figures, endorsements, or claims about advertiser relationships. No laptop, monitor, perspective, decorative frame or external caption. Do not turn the whole portal into a brand advertisement. The ad must be clearly visible with its correct proportions and plausible position.",
+    "file": "format-96cbef521790.webp",
+    "status": "needs_review",
+    "review": {
+      "reviewed": true,
+      "approved": false,
+      "retried": true,
+      "score": 37,
+      "reason": "cropped",
+      "reason_text": "algo importante foi cortado na borda",
+      "final_reason": "margin",
+      "delivered": "second",
+      "delivered_version": 2,
+      "attempts": [
+        {
+          "version": 1,
+          "source": "studio_prompt",
+          "score": 13,
+          "approved": false,
+          "reason": "cropped",
+          "margin": [
+            "PP e União Brasil anunciam apoio (right, bottom)",
+            "Caiado declara voto em Flávio (right, bottom)",
+            "Bancada ruralista no Congresso (right, bottom)"
+          ],
+          "improvements": [],
+          "seconds": 11.0
+        },
+        {
+          "version": 2,
+          "source": "edit",
+          "score": 37,
+          "approved": false,
+          "reason": "margin",
+          "margin": [
+            "PP e União Brasil anunciam apoio (right, bottom)",
+            "Bullet points - endorsements (right, bottom)"
+          ],
+          "improvements": [],
+          "seconds": 11.0,
+          "best": true
+        }
+      ],
+      "fix": "edit",
+      "second_score": 37
+    },
+    "calls": [
+      {
+        "prompt": "Create a high fidelity flat website advertising mockup of G1 (g1.globo.com). The reference is an internal screenshot of this exact portal. Preserve its recognizable masthead, editorial typography, colors and page layout. Show enough surrounding editorial content to explain placement. Feature ONE advertisement in the format Retângulo 300x250, advertising Natura (warm earth tones, Brazilian cosmetics, botanical skincare). Use the brand name legibly inside the advertisement with tasteful brand imagery and a short Portuguese CTA 'Saiba mais'. The advertiser identity belongs only inside the ad slot. This is an illustrative fictional placement, not an actual campaign. Label the slot 'Publicidade'. For mobile formats show the mobile portal layout; for video show a paused advertising frame inside the appropriate player; for native formats show a sponsored editorial card. No invented prices, discounts, performance figures, endorsements, or claims about advertiser relationships. No laptop, monitor, perspective, decorative frame or external caption. Do not turn the whole portal into a brand advertisement. The ad must be clearly visible with its correct proportions and plausible position.\nAD CRAFT: one focal subject, sharp and well lit with natural commercial light; a clean background with breathing room; the brand colors living in the wardrobe, props or background accents; nothing decorative the brief did not ask for. Give the copy a calm, high-contrast area so it reads at a glance.\nSAFE MARGIN: keep all text, logos, CTA and key subjects at least 8% away from every edge; only background may reach the edge, nothing else may touch or cross the frame.\nBRIEF FIDELITY: keep every concrete element of the brief (product, packaging, people, setting, action); a composition reference only guides placement and never replaces the requested subject.\nVISIBLE TEXT: only the literal copy below and the official logo; no subheadlines, lists, statistics, badges, dates or small print the brief did not write.\nNEUTRAL ASSET MODE: This request is a page, background, texture, scene or other reusable visual asset, not a branded advertisement. Do not apply, infer, reserve space for, or describe the project's logo, palette, font system, product, claim or campaign. Follow only the user's requested visual material and any selected reference contract.\nDO NOT ADD: icons, badges, seals, stickers, extra buttons, charts, captions or decorative words that the briefing did not ask for. Phone, laptop and app screens show only abstract interface shapes: no readable words, numbers, prices, dates or charts on any screen.\n\nREFERENCE CONTRACT:\nIMAGE 1: source=user; the primary/base image whose unrequested content must be preserved (Captura interna — G1).\nRespect the declared role of every image. Never silently swap the base image and a supporting reference. Apart from the supplied official brand logo, never add third-party logos, prices or offers that the user did not request.\nNEUTRAL ASSET CHECK: Do not reserve space for a logo, headline, price, product packshot or brand lockup unless the user explicitly asks for that element.\nFORMAT: 1536x1024px (3:2); this format overrides any size written in the brief.",
+        "parameters": {
+          "size": "1536x1024",
+          "quality": "medium"
+        },
+        "references": 1,
+        "latency_ms": 18461,
+        "cost_usd": 0.022965,
+        "cost_source": "catalog_tokens",
+        "usage": {
+          "input_tokens": 1833,
+          "input_tokens_details": {
+            "image_tokens": 1170,
+            "text_tokens": 663
+          },
+          "output_tokens": 343,
+          "output_tokens_details": {
+            "image_tokens": 343,
+            "text_tokens": 0
+          },
+          "total_tokens": 2176
+        },
+        "request_id": null,
+        "model": "gpt-image-2.5-sunburst"
+      },
+      {
+        "prompt": "EDIT THE FIRST IMAGE. It is a finished ad being refined. Keep the composition, people, product, colors, lighting, typography style and every correct element as they are. Any other image supplied is a reference only.\nFIX FIRST: MARGIN: move or shrink the elements cut by the frame edge so they sit fully inside an 8% safe margin; extend the background to fill.\nToo close to the edge now: PP e União Brasil anunciam apoio (right, bottom); Caiado declara voto em Flávio (right, bottom); Bancada ruralista no Congresso (right, bottom). Move them inward so every text, button and logo sits at least 8% from every edge; scale that group down slightly if needed and extend the background.\nCut by the edge now: Right edge of electoral map partially cut; Additional candidate profiles cut off on right side of carousel.\nThere is no logo in this piece: do not add any logo, wordmark or brand mark.\nDo not add any button or call to action to the image.\nDo not delete, add or reword any text other than what is listed above; every other text stays exactly as it is.\nKeep the same canvas and aspect ratio (3:2).",
+        "parameters": {
+          "size": "1536x1024",
+          "quality": "medium"
+        },
+        "references": 2,
+        "latency_ms": 19216,
+        "cost_usd": 0.033313,
+        "cost_source": "catalog_tokens",
+        "usage": {
+          "input_tokens": 2981,
+          "input_tokens_details": {
+            "image_tokens": 2706,
+            "text_tokens": 275
+          },
+          "output_tokens": 343,
+          "output_tokens_details": {
+            "image_tokens": 343,
+            "text_tokens": 0
+          },
+          "total_tokens": 3324
+        },
+        "request_id": null,
+        "model": "gpt-image-2.5-sunburst"
+      }
+    ]
+  },
+  {
+    "key": "format-ab0ff9914d97",
+    "portal_id": 1,
+    "portal": "G1",
+    "domain": "g1.globo.com",
+    "format": "Vídeo in-stream (VAST/IMA)",
+    "size": null,
+    "brand": "Itaú",
+    "identity": "orange and navy blue, Brazilian bank, everyday financial services",
+    "reference": "images/portais/prints/1/20261008-home.webp",
+    "reference_date": "2026-10-08 15:50:34.040739+00:00",
+    "reference_source": "https://g1.globo.com",
+    "prompt": "Create a high fidelity flat website advertising mockup of G1 (g1.globo.com). The reference is an internal screenshot of this exact portal. Preserve its recognizable masthead, editorial typography, colors and page layout. Show enough surrounding editorial content to explain placement. Feature ONE advertisement in the format Vídeo in-stream (VAST/IMA), advertising Itaú (orange and navy blue, Brazilian bank, everyday financial services). Use the brand name legibly inside the advertisement with tasteful brand imagery and a short Portuguese CTA 'Saiba mais'. The advertiser identity belongs only inside the ad slot. This is an illustrative fictional placement, not an actual campaign. Label the slot 'Publicidade'. For mobile formats show the mobile portal layout; for video show a paused advertising frame inside the appropriate player; for native formats show a sponsored editorial card. No invented prices, discounts, performance figures, endorsements, or claims about advertiser relationships. No laptop, monitor, perspective, decorative frame or external caption. Do not turn the whole portal into a brand advertisement. The ad must be clearly visible with its correct proportions and plausible position.",
+    "file": "format-ab0ff9914d97.webp",
+    "status": "needs_review",
+    "review": {
+      "reviewed": true,
+      "approved": false,
+      "retried": true,
+      "score": 68,
+      "reason": "margin",
+      "reason_text": "texto, botão ou logo encostado na borda (fora da margem de 8%)",
+      "final_reason": "margin",
+      "delivered": "second",
+      "delivered_version": 2,
+      "attempts": [
+        {
+          "version": 1,
+          "source": "studio_prompt",
+          "score": 61,
+          "approved": false,
+          "reason": "margin",
+          "margin": [
+            "PP e União Brasil anunciam apoio (right, bottom)",
+            "Article body text (right, bottom)",
+            "Os votos na sua urna (right, bottom)"
+          ],
+          "improvements": [],
+          "seconds": 9.7
+        },
+        {
+          "version": 2,
+          "source": "reframe",
+          "score": 68,
+          "approved": false,
+          "reason": "margin",
+          "margin": [
+            "PP e União Brasil (bottom)",
+            "Article bullets (bottom)"
+          ],
+          "improvements": [],
+          "seconds": 10.4,
+          "best": true
+        }
+      ],
+      "fix": "edit",
+      "second_score": 68
+    },
+    "calls": [
+      {
+        "prompt": "Create a high fidelity flat website advertising mockup of G1 (g1.globo.com). The reference is an internal screenshot of this exact portal. Preserve its recognizable masthead, editorial typography, colors and page layout. Show enough surrounding editorial content to explain placement. Feature ONE advertisement in the format Vídeo in-stream (VAST/IMA), advertising Itaú (orange and navy blue, Brazilian bank, everyday financial services). Use the brand name legibly inside the advertisement with tasteful brand imagery and a short Portuguese CTA 'Saiba mais'. The advertiser identity belongs only inside the ad slot. This is an illustrative fictional placement, not an actual campaign. Label the slot 'Publicidade'. For mobile formats show the mobile portal layout; for video show a paused advertising frame inside the appropriate player; for native formats show a sponsored editorial card. No invented prices, discounts, performance figures, endorsements, or claims about advertiser relationships. No laptop, monitor, perspective, decorative frame or external caption. Do not turn the whole portal into a brand advertisement. The ad must be clearly visible with its correct proportions and plausible position.\nAD CRAFT: one focal subject, sharp and well lit with natural commercial light; a clean background with breathing room; the brand colors living in the wardrobe, props or background accents; nothing decorative the brief did not ask for. Give the copy a calm, high-contrast area so it reads at a glance.\nSAFE MARGIN: keep all text, logos, CTA and key subjects at least 8% away from every edge; only background may reach the edge, nothing else may touch or cross the frame.\nBRIEF FIDELITY: keep every concrete element of the brief (product, packaging, people, setting, action); a composition reference only guides placement and never replaces the requested subject.\nVISIBLE TEXT: only the literal copy below and the official logo; no subheadlines, lists, statistics, badges, dates or small print the brief did not write.\nNEUTRAL ASSET MODE: This request is a page, background, texture, scene or other reusable visual asset, not a branded advertisement. Do not apply, infer, reserve space for, or describe the project's logo, palette, font system, product, claim or campaign. Follow only the user's requested visual material and any selected reference contract.\nDO NOT ADD: icons, badges, seals, stickers, extra buttons, charts, captions or decorative words that the briefing did not ask for. Phone, laptop and app screens show only abstract interface shapes: no readable words, numbers, prices, dates or charts on any screen.\n\nREFERENCE CONTRACT:\nIMAGE 1: source=user; the primary/base image whose unrequested content must be preserved (Captura interna — G1).\nRespect the declared role of every image. Never silently swap the base image and a supporting reference. Apart from the supplied official brand logo, never add third-party logos, prices or offers that the user did not request.\nNEUTRAL ASSET CHECK: Do not reserve space for a logo, headline, price, product packshot or brand lockup unless the user explicitly asks for that element.\nFORMAT: 1536x1024px (3:2); this format overrides any size written in the brief.",
+        "parameters": {
+          "size": "1536x1024",
+          "quality": "medium"
+        },
+        "references": 1,
+        "latency_ms": 20125,
+        "cost_usd": 0.02299,
+        "cost_source": "catalog_tokens",
+        "usage": {
+          "input_tokens": 1838,
+          "input_tokens_details": {
+            "image_tokens": 1170,
+            "text_tokens": 668
+          },
+          "output_tokens": 343,
+          "output_tokens_details": {
+            "image_tokens": 343,
+            "text_tokens": 0
+          },
+          "total_tokens": 2181
+        },
+        "request_id": null,
+        "model": "gpt-image-2.5-sunburst"
+      },
+      {
+        "prompt": "OUTPAINT THE BORDER. The first image is a finished ad scaled down and centred on a plain border band. Fill ONLY that border so the background continues seamlessly (same colors, gradients, textures, light and scene). Do not change, move, redraw or add anything inside the central picture; put no text, logo, button or object in the border. Keep the same canvas and aspect ratio (3:2).",
+        "parameters": {
+          "size": "1536x1024",
+          "quality": "medium"
+        },
+        "references": 1,
+        "latency_ms": 21076,
+        "cost_usd": 0.023078,
+        "cost_source": "catalog_tokens",
+        "usage": {
+          "input_tokens": 1636,
+          "input_tokens_details": {
+            "image_tokens": 1536,
+            "text_tokens": 100
+          },
+          "output_tokens": 343,
+          "output_tokens_details": {
+            "image_tokens": 343,
+            "text_tokens": 0
+          },
+          "total_tokens": 1979
+        },
+        "request_id": null,
+        "model": "gpt-image-2.5-sunburst"
+      }
+    ]
+  }
+]

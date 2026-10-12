@@ -1,0 +1,38 @@
+[
+ {
+  "id": 1,
+  "name": "Coca-Cola",
+  "before": {
+   "brand_summary": "[{'value': 'A operação apresentada no Brasil integra a The Coca‑Cola Company e seu sistema de parceiros engarrafadores, com atuação em fabricação, marketing e distribuição de bebidas.', 'source_url': 'https://www.coca-cola.com/br/pt/about-us/o-sistema-coca-cola', 'excerpt': 'A Coca‑Cola também é proprietária das marcas e é responsável pelas iniciativas de marketing das marcas para os consumidores. Nossos parceiros engarrafadores da Coca‑Cola fabricam, embalam, comercializam e distribuem as bebidas finais', 'confidence': 0.95}, {'value': 'O site brasileiro também posiciona a marca como plataforma de experiências, promoções, impacto social/sustentabilidade e relacionamento direto com consumidores.', 'source_url': 'https://www.coca-cola.com/br/pt', 'excerpt': 'Descobrir ... Fanta Halloween ... Copa do Mundo da FIFA 26™ ... Coke Studio ... Foodmarks ... Retornaveis ... Impacto ... Sustentabilidade ... Social ... Shop', 'confidence': 0.9}]",
+   "tone_of_voice": "[{'value': 'Promocional e entusiástico', 'source_url': 'https://www.coca-cola.com/br/pt', 'excerpt': 'Cada gole começa uma nova aventura', 'confidence': 0.88}, {'value': 'Próximo e acolhedor', 'source_url': 'https://www.coca-cola.com/br/pt/about-us/contact-us', 'excerpt': 'Na Coca‑Cola, queremos que suas experiências sejam sempre mágicas! Nos pergunte o que desejar', 'confidence': 0.9}, {'value': 'Inspiracional em temas institucionais e de carreira', 'source_url': 'https://www.coca-cola.com/br/pt/about-us/desenvolvimento', 'excerpt': 'Desbloqueie seu caminho para o crescimento e sucesso com oportunidades gratificantes de desenvolvimento de carreira', 'confidence': 0.87}]"
+  },
+  "after": {
+   "brand_summary": "A operação apresentada no Brasil integra a The Coca‑Cola Company e seu sistema de parceiros engarrafadores, com atuação em fabricação, marketing e distribuição de bebidas. O site brasileiro também posiciona a marca como plataforma de experiências, promoções, impacto social/sustentabilidade e relacionamento direto com consumidores.",
+   "tone_of_voice": "Promocional e entusiástico. Próximo e acolhedor. Inspiracional em temas institucionais e de carreira."
+  }
+ },
+ {
+  "id": 19,
+  "name": "TIM",
+  "before": {
+   "brand_summary": "[{'value': 'A TIM se apresenta como operadora de serviços de celular, internet, fixo e recarga no Brasil.', 'source_url': 'https://www.tim.com.br/rj', 'excerpt': 'TIM - Site Oficial | Celular, Internet, Fixo, Recarga e mais', 'confidence': 0.97}, {'value': \"A marca atende diferentes públicos e frentes, com navegação separada para 'Para você', 'Para empresas' e 'Para operadoras'.\", 'source_url': 'https://www.tim.com.br/rj', 'excerpt': 'Para você\\n\\nPara empresas\\n\\nPara operadoras\\n\\nQuem somos', 'confidence': 0.91}]",
+   "tone_of_voice": "[{'value': 'Tom promocional e coloquial.', 'source_url': 'https://www.tim.com.br/rj', 'excerpt': 'Mande bem com essa oferta imperdível e tenha muita internet', 'confidence': 0.95}, {'value': 'Tom aspiracional/comercial focado em desempenho e entretenimento.', 'source_url': 'https://www.tim.com.br/rj', 'excerpt': 'Ultravelocidade e muito conteúdo para curtir ao máximo', 'confidence': 0.93}, {'value': 'Tom acolhedor e informal em canais físicos.', 'source_url': 'https://www.tim.com.br/para-voce/atendimento/lojas', 'excerpt': 'Vem dar uma espiadinha nas lojas TIM', 'confidence': 0.88}]"
+  },
+  "after": {
+   "brand_summary": "A TIM se apresenta como operadora de serviços de celular, internet, fixo e recarga no Brasil. A marca atende diferentes públicos e frentes, com navegação separada para 'Para você', 'Para empresas' e 'Para operadoras'.",
+   "tone_of_voice": "Tom promocional e coloquial. Tom aspiracional/comercial focado em desempenho e entretenimento. Tom acolhedor e informal em canais físicos."
+  }
+ },
+ {
+  "id": 31,
+  "name": "Cemig",
+  "before": {
+   "brand_summary": "[{'value': 'A Cemig se apresenta como uma companhia de energia com frente institucional, serviços ao cliente, produtos comerciais e relações com investidores.', 'source_url': 'https://www.cemig.com.br', 'excerpt': '## SERVIÇOS ... ## INSTITUCIONAL ... ## RELACIONAMENTO ... ## PRODUTOS', 'confidence': 0.93}, {'value': 'A marca opera com contexto principal no Brasil em português, mas também oferece navegação em inglês.', 'source_url': 'https://www.cemig.com.br', 'excerpt': '[PT](https://www.cemig.com.br/ \"Português\") ... [EN](https://www.cemig.com.br/en \"English\")', 'confidence': 0.96}]",
+   "tone_of_voice": "[{'value': 'Institucional', 'source_url': 'https://www.cemig.com.br', 'excerpt': '## INSTITUCIONAL\\n- [A Cemig] ...\\n- [Governança] ...\\n- [Legislação do Setor] ...', 'confidence': 0.91}, {'value': 'Orientado a serviços e autoatendimento', 'source_url': 'https://www.cemig.com.br', 'excerpt': '## SERVIÇOS MAIS ACESSADOS\\n- [2ª via da conta] ...\\n- [Troca de titularidade] ...\\n- [Estou sem luz] ...\\n- [Religação] ...', 'confidence': 0.95}, {'value': 'Acessível e bilíngue', 'source_url': 'https://www.cemig.com.br', 'excerpt': '[Recursos de acessibilidade](https://www.cemig.com.br/recursos-de-acessibilidade/ \"Recursos de acessibilidade\")\\nLibras\\nAumentar contraste ... [PT] ... [EN] ...', 'confidence': 0.94}]"
+  },
+  "after": {
+   "brand_summary": "A Cemig se apresenta como uma companhia de energia com frente institucional, serviços ao cliente, produtos comerciais e relações com investidores. A marca opera com contexto principal no Brasil em português, mas também oferece navegação em inglês.",
+   "tone_of_voice": "Institucional. Orientado a serviços e autoatendimento. Acessível e bilíngue."
+  }
+ }
+]

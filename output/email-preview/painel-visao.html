@@ -1,0 +1,91 @@
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><script src="https://cdn.tailwindcss.com/3.4.1"></script></head><body class="bg-slate-50">
+<div class="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6">
+  
+  <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+    A sequência está <b>desligada</b> (<code>CADU_EMAIL_SEQUENCE_ENABLED</code>). As ações abaixo mudam o estado, mas nada é enviado até ela ser ligada.
+  </div>
+  
+  
+
+  <nav class="flex gap-1 rounded-xl bg-slate-100 p-1 text-sm font-medium" aria-label="Seções">
+    
+    <a href="/admin/emails/?tab=visao" class="flex-1 rounded-lg px-3 py-2 text-center bg-white text-slate-900 shadow-sm">Visão geral</a>
+    
+    <a href="/admin/emails/?tab=eventos" class="flex-1 rounded-lg px-3 py-2 text-center text-slate-600 hover:text-slate-900">Eventos</a>
+    
+    <a href="/admin/emails/?tab=sequencia" class="flex-1 rounded-lg px-3 py-2 text-center text-slate-600 hover:text-slate-900">Sequência</a>
+    
+  </nav>
+
+  
+  
+  
+  <div class="flex items-center justify-between">
+    <h2 class="text-base font-semibold text-slate-900">Últimos 7 dias</h2>
+    <div class="flex gap-1 text-xs"><a class="rounded-md px-2 py-1 bg-white text-slate-700 ring-1 ring-slate-200" href="/admin/emails/?tab=visao&amp;dias=1">1d</a><a class="rounded-md px-2 py-1 bg-slate-900 text-white" href="/admin/emails/?tab=visao&amp;dias=7">7d</a><a class="rounded-md px-2 py-1 bg-white text-slate-700 ring-1 ring-slate-200" href="/admin/emails/?tab=visao&amp;dias=30">30d</a></div>
+  </div>
+  <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+    
+    <div class="rounded-xl bg-white p-4 ring-1 ring-slate-200"><div class="text-xs text-slate-500">Envios</div><div class="mt-1 text-2xl font-semibold text-slate-900">420</div></div>
+    
+    <div class="rounded-xl bg-white p-4 ring-1 ring-slate-200"><div class="text-xs text-slate-500">Abertos ou clicados</div><div class="mt-1 text-2xl font-semibold text-slate-900">85</div></div>
+    
+    <div class="rounded-xl bg-white p-4 ring-1 ring-slate-200"><div class="text-xs text-slate-500">Falhas, devoluções e spam</div><div class="mt-1 text-2xl font-semibold text-slate-900">5</div></div>
+    
+    <div class="rounded-xl bg-white p-4 ring-1 ring-slate-200"><div class="text-xs text-slate-500">Descadastros</div><div class="mt-1 text-2xl font-semibold text-slate-900">7</div></div>
+    
+  </div>
+  
+  <div class="rounded-xl bg-white p-4 ring-1 ring-slate-200">
+    <h3 class="mb-3 text-sm font-semibold text-slate-900">Sequência de adoção</h3>
+    <div class="mb-3 flex flex-wrap gap-2 text-sm"><a href="/admin/emails/?tab=sequencia&amp;status=active" class="rounded-lg bg-slate-50 px-3 py-1.5 ring-1 ring-slate-200 hover:bg-slate-100">Ativa: <b>156</b></a><a href="/admin/emails/?tab=sequencia&amp;status=paused" class="rounded-lg bg-slate-50 px-3 py-1.5 ring-1 ring-slate-200 hover:bg-slate-100">Pausada: <b>4</b></a><a href="/admin/emails/?tab=sequencia&amp;status=completed" class="rounded-lg bg-slate-50 px-3 py-1.5 ring-1 ring-slate-200 hover:bg-slate-100">Concluída: <b>61</b></a><a href="/admin/emails/?tab=sequencia&amp;status=cancelled" class="rounded-lg bg-slate-50 px-3 py-1.5 ring-1 ring-slate-200 hover:bg-slate-100">Cancelada: <b>7</b></a></div>
+    <table class="w-full text-sm"><thead><tr class="text-left text-xs text-slate-500"><th class="py-1">Passo</th><th>E-mail</th><th class="text-right">Aguardando</th></tr></thead><tbody>
+      <tr class="border-t border-slate-100"><td class="py-2">1</td><td>dicas-de-uso</td><td class="text-right"><a class="text-sky-700 hover:underline" href="/admin/emails/?tab=sequencia&amp;status=active&amp;passo=1">42</a></td></tr><tr class="border-t border-slate-100"><td class="py-2">2</td><td>dicas-de-prompts</td><td class="text-right"><a class="text-sky-700 hover:underline" href="/admin/emails/?tab=sequencia&amp;status=active&amp;passo=2">35</a></td></tr><tr class="border-t border-slate-100"><td class="py-2">3</td><td>planner-radar</td><td class="text-right"><a class="text-sky-700 hover:underline" href="/admin/emails/?tab=sequencia&amp;status=active&amp;passo=3">30</a></td></tr><tr class="border-t border-slate-100"><td class="py-2">4</td><td>studio-criar</td><td class="text-right"><a class="text-sky-700 hover:underline" href="/admin/emails/?tab=sequencia&amp;status=active&amp;passo=4">22</a></td></tr><tr class="border-t border-slate-100"><td class="py-2">5</td><td>plugins-agentes</td><td class="text-right"><a class="text-sky-700 hover:underline" href="/admin/emails/?tab=sequencia&amp;status=active&amp;passo=5">18</a></td></tr><tr class="border-t border-slate-100"><td class="py-2">6</td><td>connect-reports</td><td class="text-right"><a class="text-sky-700 hover:underline" href="/admin/emails/?tab=sequencia&amp;status=active&amp;passo=6">9</a></td></tr>
+    </tbody></table>
+  </div>
+  
+
+  
+
+  
+</div>
+
+
+<script>
+(function () {
+  const csrf = "tok";
+  async function call(body) {
+    const res = await fetch("/admin/emails/acao", {
+      method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf}, body: JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => ({ok: false, error: 'Resposta inválida.'}));
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Não foi possível concluir.');
+    return data;
+  }
+  window.emailAction = async function (action, ids, filters) {
+    const body = filters ? {action, scope: 'filter', filters} : {action, ids};
+    try {
+      const preview = await call({...body, dry_run: true});
+      if (!preview.count) { alert('Nenhuma pessoa selecionada.'); return; }
+      if (!confirm(`${preview.label}: ${preview.count} pessoa(s). Confirmar?`)) return;
+      const done = await call(body);
+      alert(`Feito: ${done.affected} de ${done.count} pessoa(s) alterada(s).`);
+      location.reload();
+    } catch (err) { alert(err.message); }
+  };
+})();
+</script>
+<script>
+(function () {
+  const all = document.getElementById('check-all');
+  if (!all) return;
+  const checks = () => [...document.querySelectorAll('.row-check')];
+  all.addEventListener('change', () => checks().forEach(c => { c.checked = all.checked; }));
+  const action = () => document.getElementById('bulk-action').value;
+  document.getElementById('bulk-selected').addEventListener('click', () =>
+    emailAction(action(), checks().filter(c => c.checked).map(c => Number(c.value))));
+  document.getElementById('bulk-filter').addEventListener('click', () =>
+    emailAction(action(), [], {"q": "", "status": "", "step": ""}));
+})();
+</script>
+</body></html>

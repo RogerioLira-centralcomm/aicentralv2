@@ -1,0 +1,94 @@
+[
+  {
+    "key": "format-3821cbf6d478",
+    "portal_id": 36,
+    "portal": "UOL",
+    "domain": "uol.com.br",
+    "format": "Mobile banner",
+    "size": "320x50",
+    "brand": "Natura",
+    "identity": "warm earth tones, Brazilian cosmetics, botanical skincare",
+    "device": "mobile",
+    "reference": "images/portais/prints/36/20261008-home.webp",
+    "reference_date": "2026-10-08 15:50:40.131456+00:00",
+    "reference_source": "https://uol.com.br",
+    "prompt": "Create a high fidelity flat website advertising mockup of UOL (uol.com.br). The reference is an internal screenshot of this exact portal. Preserve its recognizable masthead, editorial typography, colors and page layout. Show enough surrounding editorial content to explain placement. Feature ONE advertisement in the format Mobile banner with the ad unit's exact proportions 320x50 pixels, advertising Natura (warm earth tones, Brazilian cosmetics, botanical skincare). Use the brand name legibly inside the advertisement with tasteful brand imagery and a short Portuguese CTA 'Saiba mais'. The advertiser identity belongs only inside the ad slot. This is an illustrative fictional placement, not an actual campaign. Label the slot 'Publicidade'. For mobile formats show the mobile portal layout; for video show a paused advertising frame inside the appropriate player; for native formats show a sponsored editorial card. No invented prices, discounts, performance figures, endorsements, or claims about advertiser relationships. No laptop, monitor, perspective, decorative frame or external caption. Do not turn the whole portal into a brand advertisement. The ad must be clearly visible with its correct proportions and plausible position. Keep the complete ad unit and its text fully inside the frame, never cropped by the image edge; the page itself may continue past the edges. Show the portal as seen on a smartphone, a tall mobile page filling the whole frame. ",
+    "file": "format-3821cbf6d478.webp",
+    "status": "needs_review",
+    "review": {
+      "portal_recognizable": true,
+      "ad_visible": true,
+      "ad_fully_inside_frame": true,
+      "ad_proportion_plausible": false,
+      "brand_legible": true,
+      "placement_plausible": true,
+      "device_matches": false,
+      "invented_claims": false,
+      "distorted_text": false,
+      "score": 45,
+      "issues": [
+        "Ad dimensions appear to be approximately 546x90px, not the expected 320x50 mobile banner format",
+        "Ad is displayed at desktop/tablet width rather than mobile 320px width",
+        "Device mismatch: content shows full-width desktop layout, not mobile viewport",
+        "Ad proportions do not match standard 320x50 mobile banner specification"
+      ],
+      "approved": false,
+      "reviewed": true,
+      "attempt": 1
+    },
+    "calls": [
+      {
+        "prompt": "Create a high fidelity flat website advertising mockup of UOL (uol.com.br). The reference is an internal screenshot of this exact portal. Preserve its recognizable masthead, editorial typography, colors and page layout. Show enough surrounding editorial content to explain placement. Feature ONE advertisement in the format Mobile banner with the ad unit's exact proportions 320x50 pixels, advertising Natura (warm earth tones, Brazilian cosmetics, botanical skincare). Use the brand name legibly inside the advertisement with tasteful brand imagery and a short Portuguese CTA 'Saiba mais'. The advertiser identity belongs only inside the ad slot. This is an illustrative fictional placement, not an actual campaign. Label the slot 'Publicidade'. For mobile formats show the mobile portal layout; for video show a paused advertising frame inside the appropriate player; for native formats show a sponsored editorial card. No invented prices, discounts, performance figures, endorsements, or claims about advertiser relationships. No laptop, monitor, perspective, decorative frame or external caption. Do not turn the whole portal into a brand advertisement. The ad must be clearly visible with its correct proportions and plausible position. Keep the complete ad unit and its text fully inside the frame, never cropped by the image edge; the page itself may continue past the edges. Show the portal as seen on a smartphone, a tall mobile page filling the whole frame.\nAD CRAFT: one focal subject, sharp and well lit with natural commercial light; a clean background with breathing room; the brand colors living in the wardrobe, props or background accents; nothing decorative the brief did not ask for. Give the copy a calm, high-contrast area so it reads at a glance.\nSAFE MARGIN: keep all text, logos, CTA and key subjects at least 8% away from every edge; only background may reach the edge, nothing else may touch or cross the frame.\nBRIEF FIDELITY: keep every concrete element of the brief (product, packaging, people, setting, action); a composition reference only guides placement and never replaces the requested subject.\nVISIBLE TEXT: only the literal copy below and the official logo; no subheadlines, lists, statistics, badges, dates or small print the brief did not write.\nNEUTRAL ASSET MODE: This request is a page, background, texture, scene or other reusable visual asset, not a branded advertisement. Do not apply, infer, reserve space for, or describe the project's logo, palette, font system, product, claim or campaign. Follow only the user's requested visual material and any selected reference contract.\nDO NOT ADD: icons, badges, seals, stickers, extra buttons, charts, captions or decorative words that the briefing did not ask for. Phone, laptop and app screens show only abstract interface shapes: no readable words, numbers, prices, dates or charts on any screen.\n\nREFERENCE CONTRACT:\nIMAGE 1: source=user; the primary/base image whose unrequested content must be preserved (Captura interna — UOL).\nRespect the declared role of every image. Never silently swap the base image and a supporting reference. Apart from the supplied official brand logo, never add third-party logos, prices or offers that the user did not request.\nNEUTRAL ASSET CHECK: Do not reserve space for a logo, headline, price, product packshot or brand lockup unless the user explicitly asks for that element.\nFORMAT: 1024x1536px (2:3); this format overrides any size written in the brief.",
+        "parameters": {
+          "size": "1024x1536",
+          "quality": "medium"
+        },
+        "references": 1,
+        "latency_ms": 17980,
+        "cost_usd": 0.02323,
+        "cost_source": "catalog_tokens",
+        "usage": {
+          "input_tokens": 1886,
+          "input_tokens_details": {
+            "image_tokens": 1170,
+            "text_tokens": 716
+          },
+          "output_tokens": 343,
+          "output_tokens_details": {
+            "image_tokens": 343,
+            "text_tokens": 0
+          },
+          "total_tokens": 2229
+        },
+        "request_id": null,
+        "model": "gpt-image-2.5-sunburst"
+      },
+      {
+        "prompt": "Create a high fidelity flat website advertising mockup of UOL (uol.com.br). The reference is an internal screenshot of this exact portal. Preserve its recognizable masthead, editorial typography, colors and page layout. Show enough surrounding editorial content to explain placement. Feature ONE advertisement in the format Mobile banner with the ad unit's exact proportions 320x50 pixels, advertising Natura (warm earth tones, Brazilian cosmetics, botanical skincare). Use the brand name legibly inside the advertisement with tasteful brand imagery and a short Portuguese CTA 'Saiba mais'. The advertiser identity belongs only inside the ad slot. This is an illustrative fictional placement, not an actual campaign. Label the slot 'Publicidade'. For mobile formats show the mobile portal layout; for video show a paused advertising frame inside the appropriate player; for native formats show a sponsored editorial card. No invented prices, discounts, performance figures, endorsements, or claims about advertiser relationships. No laptop, monitor, perspective, decorative frame or external caption. Do not turn the whole portal into a brand advertisement. The ad must be clearly visible with its correct proportions and plausible position. Keep the complete ad unit and its text fully inside the frame, never cropped by the image edge; the page itself may continue past the edges. Show the portal as seen on a smartphone, a tall mobile page filling the whole frame. CORRECTION: Ad dimensions appear to be approximately 546x90px, not the expected 320x50 mobile banner format; Ad is displayed at desktop/tablet width rather than mobile 320px width; Device mismatch: content shows full-width desktop layout, not mobile viewport; Ad proportions do not match standard 320x50 mobile banner specification\nAD CRAFT: one focal subject, sharp and well lit with natural commercial light; a clean background with breathing room; the brand colors living in the wardrobe, props or background accents; nothing decorative the brief did not ask for. Give the copy a calm, high-contrast area so it reads at a glance.\nSAFE MARGIN: keep all text, logos, CTA and key subjects at least 8% away from every edge; only background may reach the edge, nothing else may touch or cross the frame.\nBRIEF FIDELITY: keep every concrete element of the brief (product, packaging, people, setting, action); a composition reference only guides placement and never replaces the requested subject.\nVISIBLE TEXT: only the literal copy below and the official logo; no subheadlines, lists, statistics, badges, dates or small print the brief did not write.\nNEUTRAL ASSET MODE: This request is a page, background, texture, scene or other reusable visual asset, not a branded advertisement. Do not apply, infer, reserve space for, or describe the project's logo, palette, font system, product, claim or campaign. Follow only the user's requested visual material and any selected reference contract.\nDO NOT ADD: icons, badges, seals, stickers, extra buttons, charts, captions or decorative words that the briefing did not ask for. Phone, laptop and app screens show only abstract interface shapes: no readable words, numbers, prices, dates or charts on any screen.\n\nREFERENCE CONTRACT:\nIMAGE 1: source=user; the primary/base image whose unrequested content must be preserved (Captura interna — UOL).\nRespect the declared role of every image. Never silently swap the base image and a supporting reference. Apart from the supplied official brand logo, never add third-party logos, prices or offers that the user did not request.\nNEUTRAL ASSET CHECK: Do not reserve space for a logo, headline, price, product packshot or brand lockup unless the user explicitly asks for that element.\nFORMAT: 1024x1536px (2:3); this format overrides any size written in the brief.",
+        "parameters": {
+          "size": "1024x1536",
+          "quality": "medium"
+        },
+        "references": 1,
+        "latency_ms": 15896,
+        "cost_usd": 0.023585,
+        "cost_source": "catalog_tokens",
+        "usage": {
+          "input_tokens": 1957,
+          "input_tokens_details": {
+            "image_tokens": 1170,
+            "text_tokens": 787
+          },
+          "output_tokens": 343,
+          "output_tokens_details": {
+            "image_tokens": 343,
+            "text_tokens": 0
+          },
+          "total_tokens": 2300
+        },
+        "request_id": null,
+        "model": "gpt-image-2.5-sunburst"
+      }
+    ]
+  }
+]

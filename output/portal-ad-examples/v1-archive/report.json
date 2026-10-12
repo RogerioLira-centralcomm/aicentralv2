@@ -1,0 +1,165 @@
+[
+  {
+    "key": "format-a3c3aefd80ce",
+    "portal_id": 1,
+    "status": "failed",
+    "error": "Cliente e usuário são obrigatórios para cobrança."
+  },
+  {
+    "key": "format-ab0ff9914d97",
+    "portal_id": 1,
+    "status": "failed",
+    "error": "Cliente e usuário são obrigatórios para cobrança."
+  },
+  {
+    "key": "format-96cbef521790",
+    "portal_id": 1,
+    "status": "failed",
+    "error": "Cliente e usuário são obrigatórios para cobrança."
+  },
+  {
+    "key": "format-a3c3aefd80ce",
+    "portal_id": 1,
+    "status": "needs_review",
+    "cost_usd": 0.046028,
+    "review": {
+      "reviewed": true,
+      "approved": false,
+      "retried": true,
+      "score": 68,
+      "reason": "margin",
+      "reason_text": "texto, botão ou logo encostado na borda (fora da margem de 8%)",
+      "final_reason": "margin",
+      "delivered": "second",
+      "delivered_version": 2,
+      "attempts": [
+        {
+          "version": 1,
+          "source": "studio_prompt",
+          "score": 65,
+          "approved": false,
+          "reason": "margin",
+          "margin": [
+            "Map story headline (right)"
+          ],
+          "improvements": [],
+          "seconds": 10.4
+        },
+        {
+          "version": 2,
+          "source": "reframe",
+          "score": 68,
+          "approved": false,
+          "reason": "margin",
+          "margin": [
+            "PP e União Brasil announcement (bottom)",
+            "Electoral map story (bottom)"
+          ],
+          "improvements": [],
+          "seconds": 9.8,
+          "best": true
+        }
+      ],
+      "fix": "edit",
+      "second_score": 68
+    }
+  },
+  {
+    "key": "format-96cbef521790",
+    "portal_id": 1,
+    "status": "needs_review",
+    "cost_usd": 0.056278,
+    "review": {
+      "reviewed": true,
+      "approved": false,
+      "retried": true,
+      "score": 37,
+      "reason": "cropped",
+      "reason_text": "algo importante foi cortado na borda",
+      "final_reason": "margin",
+      "delivered": "second",
+      "delivered_version": 2,
+      "attempts": [
+        {
+          "version": 1,
+          "source": "studio_prompt",
+          "score": 13,
+          "approved": false,
+          "reason": "cropped",
+          "margin": [
+            "PP e União Brasil anunciam apoio (right, bottom)",
+            "Caiado declara voto em Flávio (right, bottom)",
+            "Bancada ruralista no Congresso (right, bottom)"
+          ],
+          "improvements": [],
+          "seconds": 11.0
+        },
+        {
+          "version": 2,
+          "source": "edit",
+          "score": 37,
+          "approved": false,
+          "reason": "margin",
+          "margin": [
+            "PP e União Brasil anunciam apoio (right, bottom)",
+            "Bullet points - endorsements (right, bottom)"
+          ],
+          "improvements": [],
+          "seconds": 11.0,
+          "best": true
+        }
+      ],
+      "fix": "edit",
+      "second_score": 37
+    }
+  },
+  {
+    "key": "format-ab0ff9914d97",
+    "portal_id": 1,
+    "status": "needs_review",
+    "cost_usd": 0.046068,
+    "review": {
+      "reviewed": true,
+      "approved": false,
+      "retried": true,
+      "score": 68,
+      "reason": "margin",
+      "reason_text": "texto, botão ou logo encostado na borda (fora da margem de 8%)",
+      "final_reason": "margin",
+      "delivered": "second",
+      "delivered_version": 2,
+      "attempts": [
+        {
+          "version": 1,
+          "source": "studio_prompt",
+          "score": 61,
+          "approved": false,
+          "reason": "margin",
+          "margin": [
+            "PP e União Brasil anunciam apoio (right, bottom)",
+            "Article body text (right, bottom)",
+            "Os votos na sua urna (right, bottom)"
+          ],
+          "improvements": [],
+          "seconds": 9.7
+        },
+        {
+          "version": 2,
+          "source": "reframe",
+          "score": 68,
+          "approved": false,
+          "reason": "margin",
+          "margin": [
+            "PP e União Brasil (bottom)",
+            "Article bullets (bottom)"
+          ],
+          "improvements": [],
+          "seconds": 10.4,
+          "best": true
+        }
+      ],
+      "fix": "edit",
+      "second_score": 68
+    }
+  }
+]

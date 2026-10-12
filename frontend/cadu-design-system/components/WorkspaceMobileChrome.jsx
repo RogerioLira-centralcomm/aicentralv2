@@ -54,15 +54,13 @@ export function WorkspaceMobileChrome({title = 'Workspace', eyebrow = 'Workspace
     return [others[0], projects[0], others[1], projects[1], ...others.slice(2), ...projects.slice(2)].filter(Boolean).slice(0, 4);
   })();
   const destinations = workspaceMobileDestinationItems(links);
-  const solutions = workspaceSolutionItems({urls: links, solutionIcons}).filter(item => item.id !== 'studio' && (item.href || item.id === 'workspace'));
-  const activeSolution = solutions.find(item => item.id === 'workspace');
   const brandMark = logo || solutionIcons.workspace || '';
   const sheetSolutions = workspaceSolutionItems({urls: links, solutionIcons}).filter(item => item.href || item.id === 'workspace');
   const chatSearchHref = links.search || workspaceChatHref(links, {history: true});
   return <>
     <header className="cadu-ds-mobile-chrome">
       <button ref={trigger} type="button" onClick={() => setOpen(true)} aria-label="Abrir menu" aria-haspopup="dialog" aria-expanded={open} aria-controls="workspace-mobile-navigation"><Icon name="menu" size={20}/></button>
-      <div className="cadu-ds-mobile-chrome__context"><button type="button" className="cadu-ds-mobile-chrome__brand" onClick={() => setSwitching(true)} aria-label={`Trocar de solução Cadu. Atual: ${activeSolution?.name || title}`} aria-haspopup="dialog" aria-expanded={switching}>{brandMark ? <img src={brandMark} alt="" width="26" height="26"/> : <strong>Cadu</strong>}<Icon name="chevron" size={14}/></button></div>
+      <div className="cadu-ds-mobile-chrome__context"><button type="button" className="cadu-ds-mobile-chrome__brand" onClick={() => setSwitching(true)} aria-label={`Trocar de solução Cadu. Atual: ${title}`} aria-haspopup="dialog" aria-expanded={switching}>{brandMark ? <img src={brandMark} alt="" width="26" height="26"/> : <strong>Cadu</strong>}<Icon name="chevron" size={14}/></button></div>
       <div className="cadu-ds-mobile-chrome__actions">{notifications.open && notifications.pending.length > 0 && <button type="button" className="cadu-ds-mobile-chrome__notifications" onClick={notifications.open} aria-label="Abrir notificações"><Icon name="pulse" size={18}/><i>{notifications.pending.length > 9 ? '9+' : notifications.pending.length}</i></button>}</div>
     </header>
     {switching && <div className="cadu-ds-mobile-sheet" role="presentation" onPointerDown={event => { if (event.target === event.currentTarget) setSwitching(false); }}>
@@ -82,11 +80,10 @@ export function WorkspaceMobileChrome({title = 'Workspace', eyebrow = 'Workspace
         <div className="cadu-ds-mobile-navigation__body">
           <div className="cadu-ds-mobile-navigation__primary">{links.newConversation && <a href={links.newConversation} onClick={go}><Icon name="compose" size={18}/>Novo chat</a>}{chatSearchHref && <a href={chatSearchHref} onClick={go} aria-label="Buscar chats"><Icon name="search" size={18}/></a>}</div>
           <nav aria-label="Áreas principais">{destinations.map(item => <a key={item.id} href={item.href} onClick={go}><Icon name={item.icon} size={18}/><span>{item.name}</span></a>)}</nav>
-          {accountItems.length > 0 && <nav aria-label="Seções da conta">{accountItems.map(item => <a key={item.id} href={item.href} onClick={go} aria-current={item.active ? 'page' : undefined}><Icon name={item.icon} size={18}/><span>{item.name}</span></a>)}</nav>}
           {availableContextItems.length > 0 && <div className="cadu-ds-mobile-navigation__context"><span>Recentes</span>{availableContextItems.map((item, index) => <a key={item.id || item.href || index} href={item.href || item.url} onClick={go}><b>{item.title || item.name || 'Item do Workspace'}</b>{item.detail && <small>{item.detail}</small>}</a>)}</div>}
+          {accountItems.length > 0 && <details className="cadu-ds-mobile-navigation__account"><summary>Conta e configurações<Icon name="chevron" size={14}/></summary><nav aria-label="Seções da conta">{accountItems.map(item => <a key={item.id} href={item.href} onClick={go} aria-current={item.active ? 'page' : undefined}><Icon name={item.icon} size={18}/><span>{item.name}</span></a>)}</nav></details>}
         </div>
         <footer className="cadu-ds-mobile-navigation__footer">
-          {solutions.length > 1 && <details className="cadu-ds-mobile-navigation__solutions"><summary aria-label="Trocar solução Cadu">{activeSolution?.icon && <img src={activeSolution.icon} alt="" width="24" height="24"/>}<span><b>{activeSolution?.name || 'Workspace'}</b><small>Trocar solução</small></span><Icon name="chevron" size={16}/></summary><div role="group" aria-label="Soluções Cadu">{solutions.map(item => <a key={item.id} href={item.href || links.home || '/'} onClick={go} aria-current={item.id === 'workspace' ? 'page' : undefined}>{item.icon && <img src={item.icon} alt="" width="24" height="24"/>}<b>{item.name}</b></a>)}</div></details>}
           {links.agency && <a className="cadu-ds-mobile-navigation__account-link" href={links.agency} onClick={go}><Icon name="home" size={18}/>Conta e workspace</a>}
         </footer>
       </section>

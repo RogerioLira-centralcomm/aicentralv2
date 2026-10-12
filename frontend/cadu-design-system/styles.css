@@ -4739,3 +4739,12 @@ body.portal--workspace .cadu-ds-entity-rail__readiness strong{font-size:20px;lin
   .cadu-ds-mobile-sheet__list small { color:var(--cadu-muted); font-size:12px; }
   .cadu-ds-mobile-sheet>button { width:100%; min-height:48px; margin-top:8px; border:0; border-radius:12px; background:var(--cadu-surface-soft); color:var(--cadu-ink); font:600 14px var(--cadu-font-sans); }
 }
+
+/* Drawer mobile: o essencial primeiro (chat, destinos, recentes); conta recolhida. */
+@media (max-width:760px) {
+  .cadu-ds-mobile-navigation__account { border-top:1px solid var(--cadu-line); }
+  .cadu-ds-mobile-navigation__account>summary { display:flex; min-height:48px; align-items:center; justify-content:space-between; padding:0 16px; color:var(--cadu-muted); font-size:12px; font-weight:700; list-style:none; cursor:pointer; }
+  .cadu-ds-mobile-navigation__account>summary::-webkit-details-marker { display:none; }
+  .cadu-ds-mobile-navigation__account[open]>summary svg { transform:rotate(90deg); }
+  .cadu-ds-mobile-navigation__account>nav { padding-top:0; }
+}

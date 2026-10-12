@@ -1,0 +1,23 @@
+/* Celular (até 760px): só o essencial de cada tela; o resto continua no desktop e no tablet. */
+@media (max-width:760px){
+  /* Monitor: três números que contam a história e o mapa em lista. */
+  .flow-monitor-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:10px 12px}
+  .flow-monitor-summary>div{min-width:0}
+  .flow-monitor-summary>div:nth-child(n+4){display:none}
+  .flow-monitor-summary small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .flow-monitor-scope{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* Alertas: críticos, atenção e resolvidos primeiro; o resumo secundário some. */
+  .al-kpis{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .al-kpis>.al-kpi:nth-child(n+4){display:none}
+  .al-kpis>.al-kpi{padding:10px}
+  .al-kpi__icon{display:none}
+  .al-title small,.al-impact small{max-width:100%}
+
+  /* Visão geral e relatórios: quatro métricas por vez, em duas colunas. */
+  .rs-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .rs-metrics>.rs-metric:nth-child(n+5){display:none}
+  .rs-metric:nth-child(odd){border-left:0}
+  .rs-metric:nth-child(n+3){border-top:1px solid var(--rs-line)}
+  .reports-main{padding-inline:14px}
+}

@@ -22,7 +22,8 @@ async function open(browser,kit){
     if(path.endsWith('/agent/storyboard')){
       const body=JSON.parse(route.request().postData());posted.push(body);
       const rows=[['hook','Família na sala'],['offer','Roteador em destaque'],['end','Fachada da loja']];
-      data={brand_presence:body.brand_presence,warnings:[],beats:rows.map(([purpose,visual],i)=>({id:'beat-'+(i+1),purpose,visual,motion:'push-in',hold:'',transition:'cut',spoken:'Fala '+(i+1),
+      data={brand_presence:body.brand_presence,style:body.style,warnings:[],concept:{ideia:'A fibra que some da sala',gancho:'Um cabo cortado',arco:'Do caos à calma'},
+        beats:rows.map(([purpose,visual],i)=>({id:'beat-'+(i+1),purpose,visual,shot:['detalhe','médio','geral'][i],setting:['Sala à noite','Cozinha','Fachada'][i],motion:'push-in',hold:'',transition:'cut',spoken:'Fala '+(i+1),
         brand:body.brand_presence==='none'?'none':i===rows.length-1?'signature':MARKS[body.brand_presence](purpose)}))};
     }
     if(path.endsWith('/agent/storyboard/image')){const body=JSON.parse(route.request().postData());if(body.dry_run)data={credits_per_image:120,credits_with_reference:150,brand_reference:true};else{images.push(body);data={image_url:'/static/images/canais/prime-video.svg?n='+images.length,scene_id:'p'+images.length,run_id:'run-1',charged_credits:150};}}
@@ -50,10 +51,15 @@ const marks=page=>page.$$eval('#mcVideoDraft [data-draft-field="brand"]',rows=>r
   assert.match(await page.locator('#mcVideoBrandHint').innerText(),/só na assinatura do fechamento/);
   // 2. A pessoa escolhe o nível; ele vai ao diretor e as cenas chegam marcadas.
   await page.click('.mc-video-brand-levels label:has-text("Equilibrada")');
+  await page.selectOption('#mcVideoDraftStyle','illustration');
   await page.fill('#mcVideoBriefing','Anúncio de internet fibra para famílias, com oferta e loja no fim.');
   await page.click('#mcVideoDraftBtn');
   await page.waitForFunction(()=>document.querySelectorAll('#mcVideoDraft .mc-draft-card').length===3);
-  assert.equal(posted[0].brand_presence,'balanced');
+  assert.equal(posted[0].brand_presence,'balanced');assert.equal(posted[0].style,'illustration');
+  // O conceito do diretor aparece antes das cenas; plano e ambiente de cada cena são editáveis.
+  assert.match(await page.locator('#mcVideoConcept').innerText(),/A fibra que some da sala[\s\S]*Um cabo cortado/);
+  assert.deepEqual(await page.$$eval('#mcVideoDraft [data-draft-field="shot"]',rows=>rows.map(row=>row.value)),['detalhe','médio','geral']);
+  await page.fill('[data-draft="beat-2"] [data-draft-field="setting"]','Cozinha de manhã');
   assert.deepEqual(await marks(page),['none','badge','signature']);
   // 3. Trocar o nível remarca o rascunho; ajustar uma cena vale só para ela.
   await page.click('.mc-video-brand-levels label:has-text("Forte")');
@@ -69,6 +75,8 @@ const marks=page=>page.$$eval('#mcVideoDraft [data-draft-field="brand"]',rows=>r
   await page.waitForFunction(()=>document.querySelectorAll('#mcVideoDraft .mc-draft-card').length===0);
   assert.match(dialogs.at(-1),/cerca de 150 tokens cada \(total ≈ 450\)/);
   assert.deepEqual(images.map(image=>image.beat.brand),['none','badge','signature']);
+  assert.deepEqual(images.map(image=>[image.style,image.beat.shot]),[['illustration','detalhe'],['illustration','médio'],['illustration','geral']]);
+  assert.equal(images[1].beat.setting,'Cozinha de manhã');
   // 5. A marcação segue para a sequência e para o editor da cena, que pode trocá-la.
   const script=await page.evaluate(async()=>{const {state,beatFor}=await import('/static/js/cadu-video/state.js');return state.scenes.map(scene=>beatFor(scene.id)?.brand);});
   assert.deepEqual(script,['none','badge','signature']);

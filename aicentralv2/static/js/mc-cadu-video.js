@@ -25,6 +25,7 @@ import {
   JOB_KEY,
   Desk,
   BRAND_PRESENCES,
+  VISUAL_STYLES,
   alignBeatsToScenes,
   beatFor,
   brandMarksFor,
@@ -331,6 +332,10 @@ function bindUi() {
     state.draft.briefing = event.target.value;
     markDirty();
   });
+  document.getElementById("mcVideoDraftStyle")?.addEventListener("change", (event) => {
+    state.draft.style = VISUAL_STYLES.includes(event.target.value) ? event.target.value : "photo";
+    markDirty();
+  });
   document.querySelectorAll('input[name="mcVideoBrandPresence"]').forEach((input) => input.addEventListener("change", onBrandPresence));
   document.getElementById("mcVideoDraftGenerate")?.addEventListener("click", generateAllDraftImages);
   document.getElementById("mcVideoDraftStop")?.addEventListener("click", () => { state.draft.stopRequested = true; });
@@ -592,6 +597,8 @@ function applyProject(project) {
       anchorUrl: String(savedDraft.anchor_url || ""),
       runId: String(savedDraft.run_id || ""),
       presence: BRAND_PRESENCES.includes(savedDraft.presence) ? savedDraft.presence : "discreet",
+      style: VISUAL_STYLES.includes(savedDraft.style) ? savedDraft.style : "photo",
+      concept: savedDraft.concept && typeof savedDraft.concept === "object" ? savedDraft.concept : null,
       status: "idle",
       error: "",
     };
@@ -625,7 +632,7 @@ function projectPayload() {
       quality: state.quality,
       scene_ids: state.scenes.map((item) => item.id),
       script: state.script,
-      storyboard_draft: { briefing: state.draft.briefing, beats: state.draft.beats, warnings: state.draft.warnings, anchor_url: state.draft.anchorUrl || "", run_id: state.draft.runId || "", presence: state.draft.presence || "discreet" },
+      storyboard_draft: { briefing: state.draft.briefing, beats: state.draft.beats, warnings: state.draft.warnings, anchor_url: state.draft.anchorUrl || "", run_id: state.draft.runId || "", presence: state.draft.presence || "discreet", style: state.draft.style || "photo", concept: state.draft.concept || null },
       audio: state.audio,
       edit: state.edit,
       composition:state.composition,
@@ -989,7 +996,7 @@ function onSceneCardClick(event) {
   }
 }
 
-const BEAT_TEXT_FIELDS = ["purpose", "visual", "motion", "hold", "transition", "spoken"];
+const BEAT_TEXT_FIELDS = ["purpose", "shot", "setting", "visual", "motion", "hold", "transition", "spoken"];
 const beatText = (beat) => Object.fromEntries(BEAT_TEXT_FIELDS.map((key) => [key, String(beat?.[key] || "")]));
 
 // Reescreve só o texto de UMA cena (texto barato). A versão anterior fica guardada para "Desfazer texto".
@@ -1015,8 +1022,8 @@ async function rewriteSceneText(id) {
     if (clientId !== state.clientId) return;
     const beat = ensureBeat(id);
     beat.previous = beatText(beat);
-    const { visual, motion, hold, transition, spoken } = data.beat;
-    Object.assign(beat, { visual, motion, hold, transition, spoken });
+    const { shot, setting, visual, motion, hold, transition, spoken } = data.beat;
+    Object.assign(beat, { shot, setting, visual, motion, hold, transition, spoken });
     const note = data.warnings?.length ? ` Atenção: ${data.warnings.join(" ")}` : "";
     setStatus(`Cena ${index + 1} reescrita. A imagem não mudou; use "Gerar nova imagem" se quiser refazê-la.${note}`);
     if (state.audio.narration_mode === "voiceover") state.audio.script = spokenFromBeats();
@@ -1127,11 +1134,13 @@ async function buildDraft() {
       duration: state.duration,
       aspect_ratio: state.aspectRatio,
       brand_presence: state.draft.presence || "discreet",
+      style: state.draft.style || "photo",
       request_id: newId(),
     });
     if (clientId !== state.clientId) return;
     state.draft.beats = data.beats || [];
     state.draft.presence = data.brand_presence || state.draft.presence;
+    state.draft.concept = data.concept || null;
     state.draft.warnings = data.warnings || [];
     state.draft.anchorUrl = "";
     state.draft.runId = "";
@@ -1229,7 +1238,7 @@ async function generateDraftImages(ids) {
       beat.generating = true;
       // O mesmo request_id é mantido enquanto o pedido for idêntico: repetir após queda de rede reaproveita a imagem
       // já paga. Se o conteúdo mudou (texto editado, referência de estilo, posição), o servidor recusaria o id antigo.
-      const requestKey = JSON.stringify([beat.visual, beat.hold, beat.brand || "none", state.aspectRatio, draft.anchorUrl || "", state.scenes.length, state.scenes.length + draft.beats.length]);
+      const requestKey = JSON.stringify([beat.visual, beat.hold, beat.brand || "none", beat.shot || "", beat.setting || "", draft.style || "photo", state.aspectRatio, draft.anchorUrl || "", state.scenes.length, state.scenes.length + draft.beats.length]);
       if (!beat.request_id || beat.request_key !== requestKey) {
         beat.request_id = newId();
         beat.request_key = requestKey;
@@ -1239,7 +1248,8 @@ async function generateDraftImages(ids) {
         const data = await post(`${studioApi}/agent/storyboard/image`, {
           client_id: clientId,
           request_id: beat.request_id,
-          beat: { visual: beat.visual, hold: beat.hold, brand: beat.brand || "none" },
+          beat: { visual: beat.visual, hold: beat.hold, brand: beat.brand || "none", shot: beat.shot || "", setting: beat.setting || "" },
+          style: draft.style || "photo",
           index: state.scenes.length,
           total: state.scenes.length + draft.beats.length,
           aspect_ratio: state.aspectRatio,

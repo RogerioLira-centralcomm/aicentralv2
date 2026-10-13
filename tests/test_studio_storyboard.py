@@ -21,7 +21,7 @@ def test_quantidade_sugerida_por_duracao():
 def test_beats_no_formato_do_video_com_ids_estaveis():
     out = plan_storyboard(BRIEF, duration=15, text_callable=fake([beat("hook"), beat("offer", spoken="500 mega"), beat("end")]))
     assert [b["id"] for b in out["beats"]] == ["beat-1", "beat-2", "beat-3"]
-    assert set(out["beats"][0]) == {"id", "purpose", "visual", "motion", "hold", "transition", "spoken", "brand"}
+    assert set(out["beats"][0]) == {"id", "purpose", "shot", "setting", "visual", "motion", "hold", "transition", "spoken", "brand"}
     assert out["warnings"] == []
 
 
@@ -66,7 +66,7 @@ def test_contexto_real_da_marca_chega_ao_diretor():
     seen = {}
 
     def model(messages, **options):
-        seen["user"] = messages[1]["content"]
+        seen.setdefault("user", messages[1]["content"])  # a 1ª passada (conceito e cenas)
         return {"message": {"content": {"beats": [beat("hook"), beat("beat"), beat("end")]}}}
 
     plan_storyboard(BRIEF, duration=15, text_callable=model, brand={

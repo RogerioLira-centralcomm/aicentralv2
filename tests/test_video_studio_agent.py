@@ -186,10 +186,11 @@ class StudioStoryboardEndpointTest(unittest.TestCase):
             {"client_id": 31, "request_id": "r1", "briefing": "Internet fibra para famílias, 500 mega.", "duration": 15},
             lambda *a, **k: {"message": {"content": {"beats": beats}}})
         self.assertEqual(len(result["beats"]), 3)
-        call = mocked.call_args.kwargs
-        self.assertEqual((call["client_id"], call["user_id"]), (174, 32))
-        self.assertEqual(call["idempotency_key"], "studio:storyboard:r1")
-        self.assertEqual(call["stage"], "video_storyboard")
+        # Duas cobranças de texto: conceito e cenas, depois a revisão crítica, cada uma com sua chave.
+        plan, review = (item.kwargs for item in mocked.call_args_list)
+        self.assertEqual((plan["client_id"], plan["user_id"]), (174, 32))
+        self.assertEqual((plan["idempotency_key"], plan["stage"]), ("studio:storyboard:r1", "video_storyboard"))
+        self.assertEqual((review["idempotency_key"], review["stage"]), ("studio:storyboard:r1:review", "video_storyboard_review"))
 
     def test_saldo_insuficiente_chega_ao_usuario(self):
         def broke(*a, **k):

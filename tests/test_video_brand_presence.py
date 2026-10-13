@@ -56,6 +56,72 @@ def test_reescrever_a_cena_mantem_a_marcacao_dela():
     assert regenerate_beat(BRIEF, scenes, 1, text_callable=model)["beat"]["brand"] == "badge"
 
 
+# ---- diretor em duas passadas ----
+
+def director(plan_beats, review=None):
+    calls = []
+
+    def model(messages, **options):
+        calls.append((options.get("step"), options.get("reasoning"), messages))
+        if options.get("step") == "review":
+            if isinstance(review, Exception):
+                raise review
+            return {"message": {"content": {"beats": review if review is not None else plan_beats}}}
+        return {"message": {"content": {"conceito": {"ideia": "A fibra que some da sala", "gancho": "Cabo cortado", "arco": "Do caos à calma"},
+                                        "beats": plan_beats}}}
+    return model, calls
+
+
+def test_conceito_e_revisao_critica_substituem_o_rascunho():
+    first = [beat("hook", shot="geral", setting="Sala"), beat("offer", shot="geral", setting="Sala"), beat("end", shot="close", setting="Rua")]
+    better = [beat("hook", shot="detalhe", setting="Sala à noite", visual="Mão corta um cabo emaranhado"), beat("offer", shot="médio", setting="Cozinha"),
+              beat("end", shot="geral", setting="Fachada")]
+    model, calls = director(first, better)
+    out = plan_storyboard(BRIEF, duration=12, text_callable=model, style="illustration")
+    assert [step for step, _, _ in calls] == ["plan", "review"]
+    assert calls[0][1] == {"effort": "medium"}
+    assert out["concept"]["ideia"] == "A fibra que some da sala" and out["style"] == "illustration"
+    assert out["beats"][0]["visual"] == "Mão corta um cabo emaranhado" and out["beats"][0]["shot"] == "detalhe"
+    assert "Ilustração digital" in calls[0][2][1]["content"]
+    assert "A fibra que some da sala" in calls[1][2][1]["content"]  # a revisão conhece o conceito
+    assert not any("mesmo plano" in warning for warning in out["warnings"])
+
+
+def test_revisao_que_falha_ou_muda_a_quantidade_mantem_o_rascunho():
+    first = [beat("hook", shot="geral", setting="Sala"), beat("beat", shot="close", setting="Sala"), beat("end", shot="detalhe", setting="Rua")]
+    for review in (ValueError("json"), [beat("hook"), beat("end")]):
+        model, _ = director(first, review)
+        out = plan_storyboard(BRIEF, duration=12, text_callable=model)
+        assert [row["shot"] for row in out["beats"]] == ["geral", "close", "detalhe"]
+
+
+def test_repeticao_de_plano_e_ambiente_vira_aviso():
+    same = [beat("hook", shot="médio", setting="Sala"), beat("beat", shot="médio", setting="sala"), beat("end", shot="geral", setting="Rua")]
+    model, _ = director(same)
+    assert "Cenas com o mesmo plano e ambiente da anterior: 2." in plan_storyboard(BRIEF, duration=12, text_callable=model)["warnings"]
+
+
+def test_diretor_recebe_a_marca_de_verdade_e_seus_numeros_valem_como_fato():
+    from aicentralv2.creative_media.studio_storyboard import _brand
+    brand = {"name": "Cemig", "products_services": ["Fibra 500 mega", "Wi-Fi 6"], "differentiators": ["Instalação em 24h"],
+             "proof_points": ["98% de satisfação"], "visual_motifs": ["ondas verdes"], "forbidden_elements": ["concorrentes"],
+             "creative_line": {"signature_summary": "Tecnologia que some na casa"}, "logo_url": "/static/x.png"}
+    context = _brand(brand)
+    assert context["products"] == "Fibra 500 mega; Wi-Fi 6" and context["forbidden"] == "concorrentes"
+    assert context["summary"] == "Tecnologia que some na casa" and "logo" not in str(context)
+    rows = [beat("hook"), beat("proof", visual="Selo de 98% de satisfação na parede"), beat("end")]
+    model, _ = director(rows)
+    assert not any("Números" in warning for warning in plan_storyboard(BRIEF, duration=12, text_callable=model, brand=brand)["warnings"])
+
+
+def test_imagem_da_cena_usa_plano_ambiente_estilo_e_ancora_so_de_identidade():
+    prompt = scene_image_prompt({"visual": "Mão corta um cabo", "shot": "detalhe", "setting": "Sala à noite"}, 1, 4, anchored=True, style="3d")
+    assert prompt.startswith("Cena 2 de 4 de um vídeo publicitário. Render 3D")
+    assert "Plano detalhe · Sala à noite." in prompt
+    assert "define só a identidade" in prompt and "plano, ângulo, ambiente, luz e ação" in prompt
+    assert "Fotografia publicitária realista" in scene_image_prompt({"visual": "x"}, 0, 2, style="desconhecido")
+
+
 # ---- cores e lugar do logo na imagem da cena ----
 
 def test_cores_da_marca_chegam_por_nome_e_sem_codigo():

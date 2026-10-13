@@ -955,11 +955,12 @@ def studio_agent_storyboard():
         brand = _storyboard_brand(modeling, client_id)
         connector = CaduAIConnector(CaduCreditConnector(modeling.credit_ledger))
 
-        def metered(messages, **options):
+        def metered(messages, step='plan', **options):
+            # Conceito e revisão são duas cobranças de texto, cada uma com sua chave (repetir o pedido não cobra de novo).
             return connector.complete(
                 messages, client_id=payer, user_id=user_id,
-                idempotency_key=f'studio:storyboard:{request_key}',
-                app='Cadu Studio', stage='video_storyboard', estimated_tokens=3500,
+                idempotency_key=f'studio:storyboard:{request_key}' + ('' if step == 'plan' else f':{step}'),
+                app='Cadu Studio', stage='video_storyboard' if step == 'plan' else f'video_storyboard_{step}', estimated_tokens=5000,
                 metadata={'studio_client_id': int(client_id), 'request_id': request_key, 'billing_class': 'agent'},
                 **options,
             )
@@ -968,6 +969,7 @@ def studio_agent_storyboard():
             data.get('briefing'), duration=data.get('duration') or 8,
             aspect_ratio=data.get('aspect_ratio') or '16:9', brand=brand,
             scene_count=data.get('scene_count'), text_callable=metered, presence=data.get('brand_presence'),
+            style=data.get('style'),
         ))
 
     return execute(run)
@@ -1090,7 +1092,7 @@ def studio_storyboard_image():
         # Sem a 1ª cena como âncora, a marca dá o estilo: uma foto de produto ou de campanha cadastrada em Marcas.
         brand_refs = [] if anchor else _brand_style_references(brand)
         prompt = scene_image_prompt(data.get('beat'), int(data.get('index') or 0), int(data.get('total') or 1), anchored=bool(anchor),
-                                    palette=palette_names(brand), brand_references=bool(brand_refs))
+                                    palette=palette_names(brand), brand_references=bool(brand_refs), style=data.get('style'))
         request_id = studio_create.image_request_id(data)
         history = _creation_history()
         if anchor and history and anchor not in history.owned_image_urls(client_id, [anchor]):

@@ -73,6 +73,7 @@
         <div class="mc-cadu-video-desk-head"><h2>Cena <span id="mcVideoSceneIndex">—</span> de <span id="mcVideoSceneCount">0</span></h2><p class="mc-cadu-video-hint" id="mcVideoSceneHint">Adicione uma peça da biblioteca.</p></div>
         <section class="mc-video-draft" id="mcVideoDraftPanel" aria-label="Storyboard por briefing">
           <label class="mc-cadu-video-field"><span class="mc-cadu-video-label">Descreva o vídeo</span><textarea id="mcVideoBriefing" rows="3" maxlength="3000" placeholder="Ex.: anúncio de internet fibra para famílias, com a oferta e o CTA no fim"></textarea></label>
+          <label class="mc-cadu-video-field"><span class="mc-cadu-video-label">Estilo das imagens</span><select id="mcVideoDraftStyle"><option value="photo">Foto realista</option><option value="illustration">Ilustração</option><option value="3d">3D</option><option value="motion">Motion gráfico</option></select></label>
           <fieldset class="mc-video-brand" id="mcVideoBrand" aria-describedby="mcVideoBrandHint"><legend>Presença da marca</legend>
             <div class="mc-video-brand-kit" id="mcVideoBrandKit" aria-live="polite"></div>
             <div class="mc-video-brand-levels" role="radiogroup" aria-label="Presença da marca">
@@ -86,6 +87,7 @@
           <div class="mc-cadu-video-actions"><button type="button" class="mc-cadu-video-ghost" id="mcVideoDraftBtn">Montar storyboard</button><small>Só texto: gasta poucos créditos e não gera imagem.</small></div>
           <p class="mc-cadu-video-hint" id="mcVideoDraftStatus" role="status" aria-live="polite"></p>
           <div class="mc-cadu-video-actions" id="mcVideoDraftImages" hidden><button type="button" class="mc-cadu-video-ghost" id="mcVideoDraftGenerate">Gerar imagens das cenas</button><button type="button" class="mc-cadu-video-ghost" id="mcVideoDraftStop" hidden>Parar</button><small>Gasta créditos de imagem, cobrados pelo valor real. A 1ª imagem vira a referência de estilo das demais.</small></div>
+          <div class="mc-video-concept" id="mcVideoConcept" hidden></div>
           <ol class="mc-draft-cards" id="mcVideoDraft" aria-label="Rascunho das cenas"></ol>
         </section>
         <section class="mc-studio-scene-assist" id="mcVideoSceneAssist" hidden><span aria-hidden="true">✦</span><div><strong>Continue a sequência visual</strong><p>Crie a próxima imagem coerente com a cena em foco para desenvolver a narrativa.</p><button type="button" class="mc-cadu-video-ghost" id="mcVideoCreateScene2">Criar próxima imagem</button><small>Gera uma nova imagem e utiliza créditos.</small></div></section>

@@ -84,7 +84,7 @@ def build_prompt(plan: dict) -> str:
                 if not isinstance(beat, dict):
                     continue
                 lines.append(
-                    f"{index}. {beat.get('purpose') or 'beat'}: {beat.get('visual') or ''} "
+                    f"{index}. {beat.get('purpose') or 'beat'}{f' ({shot} shot)' if (shot := beat.get('shot')) else ''}: {beat.get('visual') or ''} "
                     f"Motion: {beat.get('motion') or ''} Hold: {beat.get('hold') or ''} "
                     f"Transition to next scene: {beat.get('transition') or 'cut'}."
                 )

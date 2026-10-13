@@ -268,6 +268,7 @@ export function paintSceneCards() {
 
 const PURPOSE_OPTIONS = Object.entries(PURPOSE);
 const TRANSITION_OPTIONS = [["cut", "Corte direto"], ["cross dissolve", "Dissolver"], ["fade through black", "Passar pelo preto"], ["slide left", "Deslizar à esquerda"], ["wipe right", "Revelar à direita"]];
+const SHOT_OPTIONS = [["", "Plano livre"], ["geral", "Geral"], ["médio", "Médio"], ["close", "Close"], ["detalhe", "Detalhe"], ["ponto de vista", "Ponto de vista"], ["aéreo", "Aéreo"], ["zenital", "Zenital"]];
 const BRAND_MARK_OPTIONS = [["none", "Sem logo"], ["badge", "Selo no canto"], ["signature", "Assinatura no centro"]];
 const PRESENCE_HINTS = {
   none: "O vídeo sai sem logo. As cores da marca ainda orientam as imagens.",
@@ -324,13 +325,21 @@ export function paintDraft() {
     $("mcVideoDraftBtn").textContent = loading ? "Montando…" : (draft.beats?.length ? "Montar de novo" : "Montar storyboard");
   }
   if ($("mcVideoBriefing") && document.activeElement !== $("mcVideoBriefing")) $("mcVideoBriefing").value = draft.briefing || "";
+  if ($("mcVideoDraftStyle")) $("mcVideoDraftStyle").value = draft.style || "photo";
+  // O conceito do diretor: a ideia que amarra as cenas, para avaliar antes de gastar com imagens.
+  const concept = draft.concept || {};
+  if ($("mcVideoConcept")) {
+    $("mcVideoConcept").hidden = !(draft.beats?.length && (concept.ideia || concept.gancho));
+    $("mcVideoConcept").innerHTML = [["Ideia", concept.ideia], ["Gancho", concept.gancho], ["Arco", concept.arco]]
+      .filter(([, value]) => value).map(([label, value]) => `<p><strong>${label}</strong> ${escapeHtml(value)}</p>`).join("");
+  }
   if ($("mcVideoDraftStatus")) {
     const warnings = (draft.warnings || []).map(escapeHtml).join(" ");
     $("mcVideoDraftStatus").innerHTML = draft.error ? escapeHtml(draft.error) : (warnings || (draft.beats?.length
       ? `Rascunho com ${draft.beats.length} cenas. Edite o texto e escolha uma peça da biblioteca para cada cena.` : ""));
   }
   // Não recria os campos enquanto a pessoa digita neles.
-  if (list.contains(document.activeElement) && /^(TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
+  if (list.contains(document.activeElement) && /^(TEXTAREA|SELECT|INPUT)$/.test(document.activeElement.tagName)) return;
   const last = (draft.beats || []).length - 1;
   const busy = Boolean(draft.generating);
   if ($("mcVideoDraftImages")) $("mcVideoDraftImages").hidden = !(draft.beats || []).length;
@@ -346,6 +355,8 @@ export function paintDraft() {
       ${beat.error ? `<p class="mc-draft-error" role="alert">${escapeHtml(beat.error)}</p>` : ""}
       <header><strong>Cena ${index + 1}</strong>
         <select data-draft-field="purpose" data-id="${id}" aria-label="Função da cena ${index + 1}">${options(PURPOSE_OPTIONS, beat.purpose)}</select></header>
+      <div class="mc-draft-shot"><label><span>Plano</span><select data-draft-field="shot" data-id="${id}">${options(SHOT_OPTIONS, beat.shot || "")}</select></label>
+        <label><span>Ambiente</span><input data-draft-field="setting" data-id="${id}" maxlength="120" value="${escapeHtml(beat.setting || "")}"></label></div>
       <label><span>Visual</span><textarea data-draft-field="visual" data-id="${id}" rows="3" maxlength="400">${escapeHtml(beat.visual)}</textarea></label>
       <label><span>Movimento</span><textarea data-draft-field="motion" data-id="${id}" rows="2" maxlength="400">${escapeHtml(beat.motion)}</textarea></label>
       <label><span>Fala</span><textarea data-draft-field="spoken" data-id="${id}" rows="2" maxlength="300">${escapeHtml(beat.spoken)}</textarea></label>

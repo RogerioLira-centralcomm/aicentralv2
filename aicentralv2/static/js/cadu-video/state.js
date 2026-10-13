@@ -134,7 +134,7 @@ export const state = {
   dragSceneId: "",
   replaceSceneId: "",
   pickDraftId: "",
-  draft: { briefing: "", beats: [], warnings: [], status: "idle", error: "", presence: "discreet" },
+  draft: { briefing: "", beats: [], warnings: [], status: "idle", error: "", presence: "discreet", style: "photo", concept: null },
   // Logo, cores e fonte da marca (GET brand-kit); null enquanto não chega.
   brandKit: null,
 };
@@ -143,7 +143,7 @@ export function resetProjectFields() {
   state.clipEdits={};state.aspectExplicit=false;state.aspectPending=null;state.composition=null;
   state.scenes = [];
   state.script = null;
-  state.draft = { briefing: "", beats: [], warnings: [], status: "idle", error: "", presence: "discreet" };
+  state.draft = { briefing: "", beats: [], warnings: [], status: "idle", error: "", presence: "discreet", style: "photo", concept: null };
   state.pickDraftId = "";
   state.ocrFailed = false;
   state.activeClipId = "";
@@ -234,6 +234,7 @@ export function alignBeatsToScenes() {
 }
 
 export const BRAND_PRESENCES = ["none", "discreet", "balanced", "strong"];
+export const VISUAL_STYLES = ["photo", "illustration", "3d", "motion"];
 
 // Mesmo ponto de partida do servidor (studio_storyboard.assign_brand_marks): onde o logo oficial entra em cada cena.
 export function brandMarksFor(beats, presence) {

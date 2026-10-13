@@ -17,6 +17,10 @@ from .settings import STORYBOARD_MAX, STORYBOARD_MIN, TTS_MAX_WORDS_PER_SEC
 MODEL = os.getenv("CREATIVE_VIDEO_STORYBOARD_MODEL", "openai/gpt-5-mini")
 PURPOSES = ("hook", "beat", "offer", "proof", "end")
 TRANSITIONS = ("cut", "cross dissolve", "fade through black", "slide left", "wipe right")
+# Onde o logo oficial aparece em cada cena. Ele nunca é desenhado pela IA: entra por cima do vídeo pronto.
+BRAND_MARKS = ("none", "badge", "signature")
+BRAND_PRESENCES = ("none", "discreet", "balanced", "strong")
+DEFAULT_BRAND_PRESENCE = "discreet"
 
 SYSTEM = """Você é o diretor de storyboard do Cadu Video Studio. Receba o briefing de um vídeo
 publicitário e monte a sequência de cenas. Responda somente JSON: {"beats":[...]}.
@@ -60,8 +64,36 @@ def suggested_scene_count(duration):
     return max(STORYBOARD_MIN, min(seconds // 4, 8, STORYBOARD_MAX))
 
 
+def brand_presence(value):
+    value = str(value or "").strip().lower()
+    return value if value in BRAND_PRESENCES else DEFAULT_BRAND_PRESENCE
+
+
+def assign_brand_marks(beats, presence):
+    """Ponto de partida de onde o logo aparece; quem edita troca cena por cena.
+
+    Discreta: só a assinatura no fechamento. Equilibrada: selo na oferta e na prova, assinatura no fim.
+    Forte: selo em todas as cenas e assinatura no fim. Nenhuma: o vídeo sai sem logo.
+    """
+    presence = brand_presence(presence)
+    last = len(beats) - 1
+    for index, beat in enumerate(beats):
+        if presence == "none":
+            mark = "none"
+        elif index == last:
+            mark = "signature"
+        elif presence == "strong":
+            mark = "badge"
+        elif presence == "balanced" and beat.get("purpose") in {"offer", "proof"}:
+            mark = "badge"
+        else:
+            mark = "none"
+        beat["brand"] = mark
+    return beats
+
+
 def plan_storyboard(briefing, *, duration=8, aspect_ratio="16:9", brand=None, scene_count=None,
-                    text_callable=None, model=None):
+                    text_callable=None, model=None, presence=DEFAULT_BRAND_PRESENCE):
     text = str(briefing or "").strip()
     if len(text) < 10:
         raise ValueError("Descreva o vídeo em pelo menos uma frase.")
@@ -96,14 +128,15 @@ def plan_storyboard(briefing, *, duration=8, aspect_ratio="16:9", brand=None, sc
     except OpenRouterError as error:
         raise ValueError("Não foi possível montar o storyboard agora. Tente de novo.") from error
     beats, warnings = _normalize(raw, text, int(duration or 8), target)
-    return {"beats": beats, "warnings": warnings, "model": chosen, "scene_count": len(beats)}
+    presence = brand_presence(presence)
+    assign_brand_marks(beats, presence)
+    return {"beats": beats, "warnings": warnings, "model": chosen, "scene_count": len(beats), "brand_presence": presence}
 
 
 def _brand(brand):
     if not isinstance(brand, dict):
         return {}
-    palette = brand.get("palette")
-    colors = ", ".join(str(item) for item in palette[:5]) if isinstance(palette, list) else brand.get("colors")
+    colors = ", ".join(palette_names(brand)) or brand.get("colors")
     found = {
         "name": brand.get("name"),
         "tone": brand.get("tone") or brand.get("tone_of_voice"),
@@ -155,6 +188,7 @@ def _beat(row, beat_id):
         "hold": _clip(row.get("hold"), 400),
         "transition": transition if transition in TRANSITIONS else "cut",
         "spoken": _clip(row.get("spoken"), 300),
+        "brand": row.get("brand") if row.get("brand") in BRAND_MARKS else "none",
     }
 
 
@@ -196,7 +230,8 @@ def regenerate_beat(briefing, beats, index, *, instruction="", duration=8, brand
     row = raw.get("beat") if isinstance(raw, dict) else None
     if not isinstance(row, dict):
         raise ValueError("O diretor não devolveu a cena. Tente de novo.")
-    beat = _beat({"purpose": rows[index].get("purpose"), **row}, str(rows[index].get("id") or f"beat-{index + 1}"))
+    beat = _beat({"purpose": rows[index].get("purpose"), **row, "brand": rows[index].get("brand")},
+                 str(rows[index].get("id") or f"beat-{index + 1}"))
     if not beat["visual"]:
         raise ValueError("O diretor devolveu uma cena sem descrição visual. Tente de novo.")
     warnings = []
@@ -247,6 +282,19 @@ def plain_colors(text):
     return _HEX.sub(lambda match: color_name(match.group()), str(text or ""))
 
 
+def palette_names(brand, limit=4):
+    """As cores da marca por nome, sem repetir (dois tons de azul viram um só "azul")."""
+    palette = brand.get("palette") if isinstance(brand, dict) and isinstance(brand.get("palette"), list) else []
+    names = []
+    for code in palette:
+        code = str(code or "").strip()
+        # Código de 6 dígitos vira nome; o resto (nome escrito, "#fff") segue como veio.
+        name = color_name(code) if _HEX.fullmatch(code) else code[:40]
+        if name and name not in names:
+            names.append(name)
+    return names[:limit]
+
+
 def _clip(value, limit):
     if isinstance(value, dict):  # alguns modelos devolvem {"sujeito": ..., "ambiente": ...}
         value = ". ".join(str(item) for item in value.values() if item)
@@ -258,8 +306,12 @@ def _clip(value, limit):
 SCENE_ASPECTS = {"1:1", "4:5", "9:16", "16:9", "4:3", "3:4", "21:9"}
 
 
-def scene_image_prompt(beat, index, total, *, anchored=False):
-    """Prompt de uma cena do storyboard: imagem limpa, sem texto; marca e textos entram depois, por código."""
+def scene_image_prompt(beat, index, total, *, anchored=False, palette=None, brand_references=False):
+    """Prompt de uma cena do storyboard: imagem limpa, sem texto; marca e textos entram depois, por código.
+
+    `palette` são as cores da marca já por nome. A marcação da cena (`beat["brand"]`) reserva o lugar onde o
+    logo oficial vai entrar por cima do vídeo: o canto inferior direito (selo) ou o centro (assinatura).
+    """
     beat = beat if isinstance(beat, dict) else {}
     visual = _clip(beat.get("visual"), 400)
     if not visual:
@@ -268,8 +320,21 @@ def scene_image_prompt(beat, index, total, *, anchored=False):
     hold = _clip(beat.get("hold"), 300)
     if hold:
         parts.append(f"Manter: {hold}.")
+    # Só nomes: um código como "#fff" no prompt vira letras desenhadas na imagem.
+    names = [name for name in (palette or []) if name and not str(name).startswith("#")][:4]
+    if names:
+        parts.append(f"Paleta da marca presente na cena (figurino, objetos, cenário ou luz): {', '.join(names)}.")
     if anchored:
         parts.append("Mantenha a mesma identidade visual da imagem de referência: mesmas pessoas, produto, paleta, luz e estilo, "
                      "mas mostre esta nova cena; não copie o enquadramento nem o texto da referência.")
+    elif brand_references:
+        parts.append("As imagens de referência mostram o produto e o estilo da marca: siga o estilo, a luz e o produto, "
+                     "sem copiar o enquadramento nem o texto delas.")
+    mark = beat.get("brand")
+    if mark == "signature":
+        parts.append("Cena de fechamento: deixe o centro do quadro com fundo simples e limpo, sem pessoas nem objetos, "
+                     "para a assinatura da marca entrar por cima.")
+    elif mark == "badge":
+        parts.append("Deixe o canto inferior direito com fundo simples, sem rostos, objetos ou detalhes.")
     parts.append("Sem texto, sem logotipo e sem marca-d'água na imagem.")
     return " ".join(parts)

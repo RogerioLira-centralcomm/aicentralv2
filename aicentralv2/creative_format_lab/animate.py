@@ -314,6 +314,9 @@ class AnimateService:
         plan["source"]["reference"] = stills[0][2]
         plan["reference"] = stills[0][2]
         plan["preview_images"] = [item[1].get("image_url") or item[1].get("thumb_url") for item in stills if str(item[1].get("image_url") or item[1].get("thumb_url") or "").startswith("/")]
+        marks = brand_marks_for_plan(data.get("brand_marks"), plan["script"].get("beats"), [item[0] for item in stills])
+        if marks:
+            plan["brand_marks"] = marks
         history = {
             "run_id": (first_run or {}).get("run_id") or data.get("run_id") or "",
             "client_id": data.get("client_id") or (first_run or {}).get("client_id"),
@@ -860,6 +863,23 @@ class AnimateService:
             if int(live.get("scene_version") or 0) > int((snap or {}).get("scene_version") or 0):
                 return True
         return False
+
+
+def brand_marks_for_plan(raw, beats, scene_ids):
+    """Onde o logo oficial entra no vídeo pronto, cena a cena, e as variantes do logo para aplicá-lo.
+
+    A marcação vem do roteiro (beat["brand"], na ordem das cenas); as variantes vêm da marca, lidas na requisição.
+    Sem logo legível ou sem nenhuma cena marcada, o vídeo sai como hoje.
+    """
+    from ..creative_media.studio_storyboard import BRAND_MARKS
+    data = raw if isinstance(raw, dict) else {}
+    logos = [str(item) for item in (data.get("logos") or []) if str(item).startswith("data:image/png;base64,")][:3]
+    by_id = {str(beat.get("id") or ""): beat for beat in (beats or []) if isinstance(beat, dict)}
+    scenes = [by_id.get(str(ident), {}).get("brand") for ident in scene_ids]
+    scenes = [mark if mark in BRAND_MARKS else "none" for mark in scenes]
+    if not logos or not any(mark != "none" for mark in scenes):
+        return None
+    return {"scenes": scenes, "logos": logos}
 
 
 def _unique_ids(raw):

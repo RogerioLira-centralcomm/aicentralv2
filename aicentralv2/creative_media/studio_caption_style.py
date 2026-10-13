@@ -5,6 +5,7 @@ from functools import lru_cache
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 from .studio import number
+from .brand_fonts import video_font_path
 
 FONT_ROOT=Path(__file__).resolve().parents[1]/'static/fonts'
 
@@ -16,8 +17,12 @@ def catalog():
 def normalize_style(raw):
     raw=raw if isinstance(raw,dict) else {}
     preset=next((p for p in catalog()['presets'] if p['id']==raw.get('preset')),catalog()['presets'][0])
-    s={**preset['style'],**raw};out={'preset':preset['id']}
+    # 'brand' é montado no Vídeo a partir da marca (fonte e cor principal), não vem do catálogo.
+    s={**preset['style'],**raw};out={'preset':'brand' if raw.get('preset')=='brand' else preset['id']}
     out['font']=s['font'] if any(f['id']==s['font'] for f in catalog()['fonts']) else 'open'
+    # 'brand': a fonte da marca, pelo caminho em /static/ (só fontes do Studio; senão volta à Open Sans).
+    if s.get('font')=='brand' and video_font_path(s.get('brand_font')):
+        out['font']='brand';out['brand_font']=str(s['brand_font']).removeprefix('/static/');out['brand_family']=str(s.get('brand_family') or '')[:80]
     for key,low,high in [('size',.02,.12),('x',0,1),('y',0,1),('outline',0,.15),('background_opacity',0,1)]:
         out[key]=number(s.get(key),preset['style'][key],low,high)
     for key in ['color','outline_color','background']:
@@ -31,7 +36,7 @@ def caption_image(text,width,height,raw=None):
     s=normalize_style(raw);image=Image.new('RGBA',(width,height));draw=ImageDraw.Draw(image)
     if not text.strip():return image
     text=text.upper() if s['uppercase'] else text
-    font_file=next(f['file'] for f in catalog()['fonts'] if f['id']==s['font'])
+    font_path=video_font_path(s['brand_font']) if s['font']=='brand' else FONT_ROOT/next(f['file'] for f in catalog()['fonts'] if f['id']==s['font'])
     size=max(6,round(height*s['size']));max_width=width*.86
     def wrap(font):
         lines=[]
@@ -47,7 +52,7 @@ def caption_image(text,width,height,raw=None):
             lines.append(line)
         return lines
     while True:
-        font=ImageFont.truetype(str(FONT_ROOT/font_file),size);lines=wrap(font)
+        font=ImageFont.truetype(str(font_path),size);lines=wrap(font)
         pad=size*.3;line_height=size*1.3
         box_height=line_height*len(lines)+pad*2
         if box_height<=height*.94 or size<=6:break

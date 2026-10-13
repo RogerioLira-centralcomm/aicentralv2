@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
+from .brand_fonts import video_font_path
 
 
 def normalize_layers(raw):
@@ -16,6 +17,8 @@ def normalize_layers(raw):
         'x': number(row.get('x'),.5,0,1), 'y': number(row.get('y'),.8,0,1),
         'size': number(row.get('size'),.06,.02,.2),
         'color': row.get('color') if re.fullmatch(r'#[0-9a-fA-F]{6}',str(row.get('color') or '')) else '#ffffff',
+        # Caminho em /static/ da fonte da marca; vazio = Open Sans.
+        'font': str(row.get('font') or '').removeprefix('/static/')[:200] if video_font_path(row.get('font')) else '',
         'animation': 'fade' if row.get('animation') == 'fade' else 'none',
         'hidden': row.get('hidden') is True,
         'keyframes': normalize_keyframes(row.get('keyframes')),
@@ -34,7 +37,7 @@ def render_layers(source, dest, layers):
         for index,row in enumerate(active,1):
             animated=bool(row.get('keyframes'))
             canvas=Image.new('RGBA',(width,height));draw=ImageDraw.Draw(canvas)
-            font=ImageFont.truetype(str(font_path),max(10,round(height*row['size'])))
+            font=ImageFont.truetype(str(video_font_path(row.get('font')) or font_path),max(10,round(height*row['size'])))
             draw.multiline_text((round(width*(.5 if animated else row['x'])),round(height*(.5 if animated else row['y']))),row['text'],font=font,fill=row['color'],anchor='mm',align='center',stroke_width=1,stroke_fill='#000000')
             if animated:
                 bbox=canvas.getbbox()

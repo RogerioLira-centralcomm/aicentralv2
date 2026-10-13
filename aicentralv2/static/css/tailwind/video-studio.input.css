@@ -412,6 +412,22 @@
 .mc-video-studio .mc-scene-card-actions button[aria-pressed=true]{border-color:#d98a00}
 .mc-video-studio .mc-video-draft{display:grid;gap:6px;margin:8px 0;padding:8px;border:1px solid var(--mc-cadu-rule);border-radius:8px;background:var(--mc-cadu-paper)}
 .mc-video-studio .mc-video-draft textarea{width:100%;resize:vertical}
+.mc-video-studio .mc-video-brand{display:grid;gap:6px;margin:0;padding:6px 8px 8px;border:1px solid var(--mc-cadu-rule);border-radius:8px}
+.mc-video-studio .mc-video-brand legend{padding:0 4px;color:var(--mc-cadu-mute);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.mc-video-studio .mc-video-brand-kit{display:flex;align-items:center;gap:8px;min-height:34px}
+.mc-video-studio .mc-video-brand-logo{display:grid;place-items:center;flex:0 0 64px;height:34px;padding:3px;border-radius:6px;background:repeating-conic-gradient(var(--vs-control) 0 25%,var(--mc-cadu-paper) 0 50%) 0 0/10px 10px}
+.mc-video-studio .mc-video-brand-logo img{max-width:100%;max-height:100%;object-fit:contain}
+.mc-video-studio .mc-video-brand-missing{color:var(--mc-cadu-mute);font-size:10px}
+.mc-video-studio .mc-video-brand-facts{display:grid;gap:3px;min-width:0}
+.mc-video-studio .mc-video-brand-facts small{color:var(--mc-cadu-mute);font-size:10px;line-height:1.3}
+.mc-video-studio .mc-video-brand-swatches{display:flex;gap:3px}
+.mc-video-studio .mc-video-brand-swatch{width:16px;height:16px;border-radius:4px;box-shadow:inset 0 0 0 1px #0002}
+.mc-video-studio .mc-video-brand-levels{display:grid;grid-template-columns:repeat(2,1fr);gap:2px;padding:2px;border-radius:7px;background:var(--vs-control)}
+.mc-video-studio .mc-video-brand-levels label{position:relative;display:block}
+.mc-video-studio .mc-video-brand-levels input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.mc-video-studio .mc-video-brand-levels span{display:block;padding:4px;white-space:nowrap;border-radius:5px;text-align:center;font-size:11px;color:var(--mc-cadu-mute)}
+.mc-video-studio .mc-video-brand-levels input:checked+span{background:var(--mc-cadu-paper);color:var(--mc-cadu-ink);font-weight:600;box-shadow:0 1px 2px #0002}
+.mc-video-studio .mc-video-brand-levels input:focus-visible+span{outline:2px solid var(--vs-accent);outline-offset:1px}
 .mc-video-studio .mc-draft-cards{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .mc-video-studio .mc-draft-card{display:grid;gap:4px;padding:8px;border:1px dashed var(--mc-cadu-rule);border-radius:8px;background:var(--vs-control)}
 .mc-video-studio .mc-draft-card.is-replacing{border-color:#d98a00}

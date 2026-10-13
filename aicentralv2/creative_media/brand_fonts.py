@@ -83,6 +83,26 @@ def _uploaded(entry):
     return path if path.is_file() else None
 
 
+# What the Video editor may draw captions and text layers with: the brand's own files and the bundled
+# families, by their path under /static/. FreeType reads these; WOFF2 would need brotli, so it stays out.
+VIDEO_FONT_DIRS = ("fonts/brand/", "uploads/brand_fonts/")
+VIDEO_FONT_EXTENSIONS = {".ttf", ".otf", ".woff"}
+
+
+def video_font_path(value):
+    """The font file for a static-relative path from a composition, or None when it is not a Studio font."""
+    relative = str(value or "").strip().removeprefix("/static/")
+    if not relative.startswith(VIDEO_FONT_DIRS) or ".." in relative or "\\" in relative:
+        return None
+    root = (Path(__file__).resolve().parents[1] / "static").resolve()
+    try:
+        path = (root / relative).resolve()
+        path.relative_to(root)
+    except (OSError, ValueError):
+        return None
+    return path if path.suffix.lower() in VIDEO_FONT_EXTENSIONS and path.is_file() else None
+
+
 def resolve_font(brand_context, role="display", bold=False):
     """Font file and family the Studio should draw with, plus whether it is the brand's own."""
     fonts = brand_context.get("fonts") if isinstance(brand_context, dict) and isinstance(brand_context.get("fonts"), list) else []

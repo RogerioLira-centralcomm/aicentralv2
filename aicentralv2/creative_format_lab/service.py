@@ -487,7 +487,24 @@ class FormatLabService:
         return self._animate().script(payload, user_id=user_id)
 
     def submit_animate(self, payload=None, user_id=None):
-        return self._animate().submit(payload, user_id=user_id)
+        return self._animate().submit(self._with_brand_marks(payload), user_id=user_id)
+
+    def _with_brand_marks(self, payload):
+        """Lê o logo oficial aqui, na requisição: o worker aplica o logo sem acesso aos arquivos da marca."""
+        data = payload if isinstance(payload, dict) else {}
+        beats = (data.get("script") or {}).get("beats") if isinstance(data.get("script"), dict) else None
+        if not any(isinstance(beat, dict) and beat.get("brand") in {"badge", "signature"} for beat in beats or []):
+            return payload
+        if data.get("client_id") in (None, ""):
+            return payload
+        try:
+            from ..creative_media.studio_brand_kit import logo_variants_data
+            brand = build_brand_context(self._client(_integer(data.get("client_id"), "Cliente")))
+            logos = logo_variants_data(brand)
+        except Exception:
+            logger.exception("Brand logo unavailable for video of client %s", data.get("client_id"))
+            logos = []
+        return {**data, "brand_marks": {"logos": logos}}
 
     def animate_status(self, job_id):
         return self._animate().status(job_id)

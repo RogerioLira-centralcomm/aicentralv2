@@ -383,6 +383,18 @@ class AnimateWorker:
             except Exception:
                 logger.exception("Overlay falhou em %s", job_id)
                 raise RuntimeError("Não foi possível proteger textos e logos no master.")
+        branded = None
+        if mode == "storyboard" and plan.get("brand_marks"):
+            # O vídeo já foi pago: sem o logo, ele ainda é entregue, e o pacote diz que o logo não entrou.
+            self._stage(job_id, "compositing", 80, "Aplicando o logo da marca")
+            try:
+                from .composition.brand_marks import apply_brand_marks
+                stills = [_optional_still(item) for item in source.get("references") or []]
+                video = apply_brand_marks(video, plan["brand_marks"], stills)
+                branded = "ready"
+            except Exception:
+                logger.exception("Logo da marca não aplicado em %s", job_id)
+                branded = "failed"
         voiceover_id, mixed = self._mix_voiceover(job_id, row, plan, video)
         if mixed is not None:
             video = mixed
@@ -407,6 +419,8 @@ class AnimateWorker:
             {"kind": "seedance_base", "asset_id": base["public_id"], "status": "ready"},
             {"kind": "master", "asset_id": master["public_id"], "status": "ready"},
         ]
+        if branded:
+            packs.append({"kind": "brand_marks", "status": branded})
         poster = None
         try:
             poster_bytes = transcode.poster_jpg(master["storage_key"])

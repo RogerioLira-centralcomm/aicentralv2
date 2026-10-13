@@ -268,10 +268,53 @@ export function paintSceneCards() {
 
 const PURPOSE_OPTIONS = Object.entries(PURPOSE);
 const TRANSITION_OPTIONS = [["cut", "Corte direto"], ["cross dissolve", "Dissolver"], ["fade through black", "Passar pelo preto"], ["slide left", "Deslizar à esquerda"], ["wipe right", "Revelar à direita"]];
+const BRAND_MARK_OPTIONS = [["none", "Sem logo"], ["badge", "Selo no canto"], ["signature", "Assinatura no centro"]];
+const PRESENCE_HINTS = {
+  none: "O vídeo sai sem logo. As cores da marca ainda orientam as imagens.",
+  discreet: "Logo só na assinatura do fechamento. As outras cenas ficam limpas.",
+  balanced: "Selo discreto na oferta e na prova, assinatura no fechamento.",
+  strong: "Selo pequeno em todas as cenas e assinatura no fechamento.",
+};
+const FONT_SOURCES = {
+  brand_upload: "arquivo da marca",
+  bundled: "fonte da marca",
+  substitute: "parecida com a da marca",
+  fallback: "padrão do Studio: a marca não tem fonte cadastrada",
+};
+
+// O que vem da marca: logo, cores e fonte. Mostrado antes de montar, para ninguém descobrir só no vídeo pronto.
+export function paintBrandKit() {
+  const box = $("mcVideoBrandKit");
+  if (!box) return;
+  const kit = state.brandKit;
+  const presence = state.draft?.presence || "discreet";
+  document.querySelectorAll('input[name="mcVideoBrandPresence"]').forEach((input) => { input.checked = input.value === presence; });
+  if ($("mcVideoBrandHint")) {
+    const noLogo = kit && !kit.logo_url && presence !== "none";
+    $("mcVideoBrandHint").textContent = noLogo
+      ? "Esta marca não tem logo cadastrado. Envie um em Marcas para ele entrar no vídeo."
+      : PRESENCE_HINTS[presence] || "";
+  }
+  if (!state.clientId) { box.innerHTML = ""; return; }
+  if (!kit) { box.innerHTML = '<p class="mc-cadu-video-hint">Lendo a marca…</p>'; return; }
+  const logo = kit.logo_url
+    ? `<img src="${escapeHtml(kit.logo_url)}" alt="Logo de ${escapeHtml(kit.name || "a marca")}" loading="lazy">`
+    : '<span class="mc-video-brand-missing">Sem logo</span>';
+  const swatches = (kit.palette || []).map((color) =>
+    `<span class="mc-video-brand-swatch" style="background:${escapeHtml(color.hex)}" title="${escapeHtml(color.name)} ${escapeHtml(color.hex)}"></span>`).join("");
+  const font = kit.font || {};
+  box.innerHTML = `<span class="mc-video-brand-logo">${logo}</span>
+    <span class="mc-video-brand-facts">
+      <span class="mc-video-brand-swatches" aria-label="Cores: ${escapeHtml((kit.palette || []).map((color) => color.name).join(", ") || "nenhuma cadastrada")}">${swatches || '<small>Sem cores cadastradas</small>'}</span>
+      <small>Fonte: ${escapeHtml(font.family || "Open Sans")} · ${escapeHtml(FONT_SOURCES[font.source] || "")}</small>
+    </span>`;
+}
+
 const options = (list, current) => list.map(([value, label]) => `<option value="${value}" ${value === current ? "selected" : ""}>${label}</option>`).join("");
 
 // Rascunho do diretor: cartões de texto sem imagem. "Escolher peça" liga uma peça da biblioteca à cena.
 export function paintDraft() {
+  paintBrandKit();
   const list = $("mcVideoDraft");
   if (!list) return;
   const draft = state.draft || {};
@@ -307,6 +350,7 @@ export function paintDraft() {
       <label><span>Movimento</span><textarea data-draft-field="motion" data-id="${id}" rows="2" maxlength="400">${escapeHtml(beat.motion)}</textarea></label>
       <label><span>Fala</span><textarea data-draft-field="spoken" data-id="${id}" rows="2" maxlength="300">${escapeHtml(beat.spoken)}</textarea></label>
       <label><span>Transição para a próxima</span><select data-draft-field="transition" data-id="${id}">${options(TRANSITION_OPTIONS, beat.transition)}</select></label>
+      <label><span>Logo da marca</span><select data-draft-field="brand" data-id="${id}">${options(BRAND_MARK_OPTIONS, beat.brand || "none")}</select></label>
       <span class="mc-scene-card-actions">
         <button type="button" data-draft-action="up" data-id="${id}" ${index === 0 ? "disabled" : ""} aria-label="Subir cena ${index + 1}">↑</button>
         <button type="button" data-draft-action="down" data-id="${id}" ${index === last ? "disabled" : ""} aria-label="Descer cena ${index + 1}">↓</button>
@@ -353,6 +397,7 @@ export function paintProps() {
     $("mcVideoBeatVisual").value = beat.visual || "";
   }
   if ($("mcVideoBeatTransition")) $("mcVideoBeatTransition").value = beat.transition || "cut";
+  if ($("mcVideoBeatBrand")) $("mcVideoBeatBrand").value = beat.brand || "none";
   if ($("mcVideoBeatMotion") && document.activeElement !== $("mcVideoBeatMotion")) {
     $("mcVideoBeatMotion").value = beat.motion || "";
   }

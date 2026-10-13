@@ -164,7 +164,7 @@ def build_plan(payload=None) -> dict:
         "script": {
             "beats": [
                 {key: str(beat.get(key) or "")[:400]
-                 for key in ("id", "purpose", "visual", "motion", "hold", "spoken", "transition")}
+                 for key in ("id", "purpose", "visual", "motion", "hold", "spoken", "transition", "brand")}
                 for beat in (data["script"].get("beats") or [])[:30]
                 if isinstance(beat, dict)
             ]

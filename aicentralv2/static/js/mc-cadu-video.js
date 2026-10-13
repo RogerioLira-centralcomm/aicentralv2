@@ -24,8 +24,10 @@ import {
 import {
   JOB_KEY,
   Desk,
+  BRAND_PRESENCES,
   alignBeatsToScenes,
   beatFor,
+  brandMarksFor,
   ensureBeat,
   normalizeAudioState,
   normalizeWorkspaceSpend,
@@ -37,6 +39,7 @@ import {
 } from "./cadu-video/state.js";
 import { newId, scriptText } from "./cadu-video/utils.js";
 import { askSession } from "./studio-session-prompt.js";
+import { paintBrandColors } from "./cadu-video/brand-font.js";
 
 let quoteTimer = null;
 let saveTimer = null;
@@ -328,6 +331,7 @@ function bindUi() {
     state.draft.briefing = event.target.value;
     markDirty();
   });
+  document.querySelectorAll('input[name="mcVideoBrandPresence"]').forEach((input) => input.addEventListener("change", onBrandPresence));
   document.getElementById("mcVideoDraftGenerate")?.addEventListener("click", generateAllDraftImages);
   document.getElementById("mcVideoDraftStop")?.addEventListener("click", () => { state.draft.stopRequested = true; });
   const draftList = document.getElementById("mcVideoDraft");
@@ -337,7 +341,7 @@ function bindUi() {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && (state.replaceSceneId || state.pickDraftId)) cancelReplace();
   });
-  ["mcVideoBeatTransition", "mcVideoBeatPurpose", "mcVideoBeatVisual", "mcVideoBeatMotion", "mcVideoBeatHold", "mcVideoBeatSpoken"]
+  ["mcVideoBeatTransition", "mcVideoBeatBrand", "mcVideoBeatPurpose", "mcVideoBeatVisual", "mcVideoBeatMotion", "mcVideoBeatHold", "mcVideoBeatSpoken"]
     .forEach((id) => {
       document.getElementById(id)?.addEventListener("input", onBeatField);
       document.getElementById(id)?.addEventListener("change", onBeatField);
@@ -396,6 +400,7 @@ function onBeatField() {
   beat.purpose = document.getElementById("mcVideoBeatPurpose")?.value || beat.purpose;
   beat.visual = document.getElementById("mcVideoBeatVisual")?.value || "";
   beat.transition = document.getElementById("mcVideoBeatTransition")?.value || "cut";
+  beat.brand = document.getElementById("mcVideoBeatBrand")?.value || "none";
   beat.motion = document.getElementById("mcVideoBeatMotion")?.value || "";
   beat.hold = document.getElementById("mcVideoBeatHold")?.value || "";
   beat.spoken = document.getElementById("mcVideoBeatSpoken")?.value || "";
@@ -415,6 +420,36 @@ function onBeatField() {
 
 function currentBrand(id) {
   return String(id || Desk.read() || document.getElementById("mcCaduBarClient")?.value || "").trim();
+}
+
+// Logo, cores e fonte da marca, para o painel "Presença da marca". Falhar aqui não impede nada: o painel avisa.
+async function loadBrandKit(clientId) {
+  state.brandKit = null;
+  paintDraft();
+  try {
+    const kit = await get(`${studioApi}/brand-kit?client_id=${encodeURIComponent(clientId)}`);
+    if (clientId !== state.clientId) return;
+    state.brandKit = kit;
+  } catch (_) {
+    if (clientId !== state.clientId) return;
+    state.brandKit = { name: "", logo_url: "", palette: [], font: {}, unavailable: true };
+  }
+  paintBrandColors();
+  document.dispatchEvent(new Event("cadu:brand-kit"));
+  paintDraft();
+}
+
+// Trocar o nível refaz a marcação de todas as cenas (rascunho e sequência); depois dá para ajustar cena por cena.
+function onBrandPresence(event) {
+  const presence = BRAND_PRESENCES.includes(event.target.value) ? event.target.value : "discreet";
+  state.draft.presence = presence;
+  brandMarksFor(state.draft.beats, presence);
+  if (state.scenes.length) {
+    alignBeatsToScenes();
+    brandMarksFor(state.script.beats, presence);
+  }
+  paintAll();
+  markDirty();
 }
 
 async function applyBrand(id, { reset = false } = {}) {
@@ -448,6 +483,7 @@ async function applyBrand(id, { reset = false } = {}) {
   resetProjectFields();
   state.edit = defaultEdit();
   clearClip();
+  loadBrandKit(next);
   await Promise.all([loadLibrary(), loadClips()]);
   if (state.clientId !== next) return;
   await restoreProject();
@@ -544,6 +580,7 @@ function applyProject(project) {
       warnings: Array.isArray(savedDraft.warnings) ? savedDraft.warnings : [],
       anchorUrl: String(savedDraft.anchor_url || ""),
       runId: String(savedDraft.run_id || ""),
+      presence: BRAND_PRESENCES.includes(savedDraft.presence) ? savedDraft.presence : "discreet",
       status: "idle",
       error: "",
     };
@@ -577,7 +614,7 @@ function projectPayload() {
       quality: state.quality,
       scene_ids: state.scenes.map((item) => item.id),
       script: state.script,
-      storyboard_draft: { briefing: state.draft.briefing, beats: state.draft.beats, warnings: state.draft.warnings, anchor_url: state.draft.anchorUrl || "", run_id: state.draft.runId || "" },
+      storyboard_draft: { briefing: state.draft.briefing, beats: state.draft.beats, warnings: state.draft.warnings, anchor_url: state.draft.anchorUrl || "", run_id: state.draft.runId || "", presence: state.draft.presence || "discreet" },
       audio: state.audio,
       edit: state.edit,
       composition:state.composition,
@@ -1078,10 +1115,12 @@ async function buildDraft() {
       briefing,
       duration: state.duration,
       aspect_ratio: state.aspectRatio,
+      brand_presence: state.draft.presence || "discreet",
       request_id: newId(),
     });
     if (clientId !== state.clientId) return;
     state.draft.beats = data.beats || [];
+    state.draft.presence = data.brand_presence || state.draft.presence;
     state.draft.warnings = data.warnings || [];
     state.draft.anchorUrl = "";
     state.draft.runId = "";
@@ -1159,8 +1198,9 @@ async function generateDraftImages(ids) {
     prices = await post(`${studioApi}/agent/storyboard/image`, { client_id: clientId, dry_run: true, aspect_ratio: state.aspectRatio });
   } catch (_) { /* a confirmação segue sem o valor */ }
   // A 1ª imagem do storyboard não tem referência de estilo; as seguintes têm e custam um pouco mais.
+  // Com uma referência da marca, até a 1ª imagem leva referência de estilo.
   const plain = Number(prices?.credits_per_image || 0), styled = Number(prices?.credits_with_reference || plain);
-  const total = draft.anchorUrl ? styled * ids.length : plain + styled * (ids.length - 1);
+  const total = draft.anchorUrl || prices?.brand_reference ? styled * ids.length : plain + styled * (ids.length - 1);
   const price = plain ? `cerca de ${Math.round(total / ids.length).toLocaleString("pt-BR")} tokens cada (total ≈ ${Math.round(total).toLocaleString("pt-BR")})` : "tokens reais de imagem";
   if (!window.confirm(`Gerar ${ids.length} ${ids.length === 1 ? "imagem" : "imagens"}? Vai usar ${price}. Cada imagem é cobrada ao ficar pronta e você pode parar a qualquer momento.`)) return;
   // O formato foi decidido antes de gerar; a primeira imagem não pode trocá-lo para o das seguintes.
@@ -1178,7 +1218,7 @@ async function generateDraftImages(ids) {
       beat.generating = true;
       // O mesmo request_id é mantido enquanto o pedido for idêntico: repetir após queda de rede reaproveita a imagem
       // já paga. Se o conteúdo mudou (texto editado, referência de estilo, posição), o servidor recusaria o id antigo.
-      const requestKey = JSON.stringify([beat.visual, beat.hold, state.aspectRatio, draft.anchorUrl || "", state.scenes.length, state.scenes.length + draft.beats.length]);
+      const requestKey = JSON.stringify([beat.visual, beat.hold, beat.brand || "none", state.aspectRatio, draft.anchorUrl || "", state.scenes.length, state.scenes.length + draft.beats.length]);
       if (!beat.request_id || beat.request_key !== requestKey) {
         beat.request_id = newId();
         beat.request_key = requestKey;
@@ -1188,7 +1228,7 @@ async function generateDraftImages(ids) {
         const data = await post(`${studioApi}/agent/storyboard/image`, {
           client_id: clientId,
           request_id: beat.request_id,
-          beat: { visual: beat.visual, hold: beat.hold },
+          beat: { visual: beat.visual, hold: beat.hold, brand: beat.brand || "none" },
           index: state.scenes.length,
           total: state.scenes.length + draft.beats.length,
           aspect_ratio: state.aspectRatio,

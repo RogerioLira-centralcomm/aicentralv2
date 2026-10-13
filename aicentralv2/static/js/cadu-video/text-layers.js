@@ -1,13 +1,16 @@
 import {keyframeEditor,bindKeyframes,valuesAt} from './keyframes.js';
 import {state} from './state.js';
 import {escapeHtml} from './utils.js';
+import {brandFontFamily,brandFontLabel,brandFontPath,ensureBrandFont,onBrandFont} from './brand-font.js';
 const $=id=>document.getElementById(id);
 let signature='';
 export function bindTextLayers(dirty) {
   bindKeyframes($('mcStudioTextLayers'),owner=>state.edit.layers?.[Number(owner)],()=>{dirty();signature='';document.activeElement?.blur();paintTextLayers();},row=>Math.max(0,($('mcSwapVideo').currentTime-state.edit.start)/(state.edit.speed||1)-row.start));
   $('mcStudioAddText')?.addEventListener('click',()=>{
     state.edit.layers ||= [];if(state.edit.layers.length>=8)return;
-    state.edit.layers.push({text:'Seu texto',start:0,end:5,x:.5,y:.8,size:.06,color:'#ffffff',animation:'fade',hidden:false});
+    // Texto novo já sai na fonte da marca, quando ela tem uma.
+    const font=brandFontPath();if(font)ensureBrandFont(font);
+    state.edit.layers.push({text:'Seu texto',start:0,end:5,x:.5,y:.8,size:.06,color:'#ffffff',font,animation:'fade',hidden:false});
     dirty();paintTextLayers();
   });
   $('mcStudioTextLayers')?.addEventListener('input',event=>{
@@ -22,12 +25,21 @@ export function bindTextLayers(dirty) {
     state.edit.layers.splice(Number(index),1);dirty();paintTextLayers();
   });
   new ResizeObserver(paintTextPreview).observe($('mcSwapVideo'));
+  document.addEventListener('cadu:brand-kit',()=>{signature='';paintTextLayers();});
+  onBrandFont(paintTextPreview);
+}
+function fontSelect(row,i){
+  const path=brandFontPath();
+  if(!path&&!row.font)return '';
+  if(row.font)ensureBrandFont(row.font);
+  const brand=row.font||path;
+  return `<label>Fonte<select data-layer="${i}" data-key="font"><option value="" ${row.font?'':'selected'}>Open Sans</option><option value="${escapeHtml(brand)}" ${row.font?'selected':''}>Marca · ${escapeHtml(row.font&&row.font!==path?'fonte salva':brandFontLabel())}</option></select></label>`;
 }
 export function paintTextLayers(){
   const rows=state.edit?.layers||[],key=JSON.stringify(rows);if(!$('mcStudioTextLayers'))return;
   if(key!==signature && !$('mcStudioTextLayers').contains(document.activeElement)){
     signature=key;
-    $('mcStudioTextLayers').innerHTML=rows.map((row,i)=>`<fieldset class="mc-studio-text-card"><legend>Texto ${i+1}</legend><textarea aria-label="Texto ${i+1}" maxlength="200" data-layer="${i}" data-key="text">${escapeHtml(row.text)}</textarea><div class="mc-studio-pair">${[['start','Início (s)',0,1200,.1],['end','Fim (s)',.1,1200,.1],['x','Posição X',0,1,.01],['y','Posição Y',0,1,.01],['size','Tamanho',.02,.2,.01]].map(([name,label,min,max,step])=>`<label>${label}<input type="number" min="${min}" max="${max}" step="${step}" value="${row[name]}" data-layer="${i}" data-key="${name}"></label>`).join('')}<label>Cor<input type="color" value="${escapeHtml(row.color)}" data-layer="${i}" data-key="color"></label></div><label>Animação<select data-layer="${i}" data-key="animation"><option value="none" ${row.animation==='none'?'selected':''}>Sem animação</option><option value="fade" ${row.animation==='fade'?'selected':''}>Fade de entrada e saída</option></select></label>${keyframeEditor(row.keyframes,String(i))}<label><input type="checkbox" data-layer="${i}" data-key="hidden" ${row.hidden?'checked':''}> Ocultar camada</label><button type="button" class="mc-cadu-video-ghost" data-remove-layer="${i}">Excluir texto</button></fieldset>`).join('');
+    $('mcStudioTextLayers').innerHTML=rows.map((row,i)=>`<fieldset class="mc-studio-text-card"><legend>Texto ${i+1}</legend><textarea aria-label="Texto ${i+1}" maxlength="200" data-layer="${i}" data-key="text">${escapeHtml(row.text)}</textarea><div class="mc-studio-pair">${[['start','Início (s)',0,1200,.1],['end','Fim (s)',.1,1200,.1],['x','Posição X',0,1,.01],['y','Posição Y',0,1,.01],['size','Tamanho',.02,.2,.01]].map(([name,label,min,max,step])=>`<label>${label}<input type="number" min="${min}" max="${max}" step="${step}" value="${row[name]}" data-layer="${i}" data-key="${name}"></label>`).join('')}<label>Cor<input type="color" list="mcBrandColors" value="${escapeHtml(row.color)}" data-layer="${i}" data-key="color"></label></div>${fontSelect(row,i)}<label>Animação<select data-layer="${i}" data-key="animation"><option value="none" ${row.animation==='none'?'selected':''}>Sem animação</option><option value="fade" ${row.animation==='fade'?'selected':''}>Fade de entrada e saída</option></select></label>${keyframeEditor(row.keyframes,String(i))}<label><input type="checkbox" data-layer="${i}" data-key="hidden" ${row.hidden?'checked':''}> Ocultar camada</label><button type="button" class="mc-cadu-video-ghost" data-remove-layer="${i}">Excluir texto</button></fieldset>`).join('');
   }
   const video=$('mcSwapVideo');
   const duration=Math.max(.1,((state.edit.end||video?.duration||5)-state.edit.start)/(state.edit.speed||1));
@@ -48,7 +60,7 @@ export function paintTextPreview(){
     const values=valuesAt(row.keyframes,at-row.start,{x:row.x,y:row.y,scale:1,rotation:0,opacity:1});
     const fade=Math.min(.3,(row.end-row.start)/2);
     const opacity=row.animation==='fade'?Math.max(0,Math.min(1,(at-row.start)/fade,(row.end-at)/fade)):1;
-    span.style.cssText=`position:absolute;left:${values.x*100}%;top:${values.y*100}%;transform:translate(-50%,-50%) rotate(${values.rotation}deg) scale(${values.scale});font-family:StudioOpenSans;font-size:${height*row.size}px;color:${row.color};white-space:pre;text-align:center;line-height:1.35;opacity:${opacity*values.opacity};text-shadow:0 1px 1px #000;`;
+    span.style.cssText=`position:absolute;left:${values.x*100}%;top:${values.y*100}%;transform:translate(-50%,-50%) rotate(${values.rotation}deg) scale(${values.scale});font-family:${row.font?`${brandFontFamily(row.font)},`:''}StudioOpenSans;font-size:${height*row.size}px;color:${row.color};white-space:pre;text-align:center;line-height:1.35;opacity:${opacity*values.opacity};text-shadow:0 1px 1px #000;`;
     host.appendChild(span);
   }
 }

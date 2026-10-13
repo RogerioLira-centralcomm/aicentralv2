@@ -284,6 +284,7 @@ def register_studio_routes(blueprint):
     blueprint.add_url_rule('/api/format-lab/studio/agent/storyboard', view_func=studio_agent_storyboard, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/agent/storyboard/beat', view_func=studio_agent_storyboard_beat, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/agent/storyboard/image', view_func=studio_storyboard_image, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/brand-kit', view_func=studio_brand_kit, methods=['GET'])
     blueprint.add_url_rule('/api/format-lab/studio/projects', view_func=studio_projects, methods=['GET', 'POST'])
     blueprint.add_url_rule('/api/format-lab/studio/library-sessions', view_func=studio_library_sessions, methods=['GET'])
     blueprint.add_url_rule('/api/format-lab/studio/reference-uploads', view_func=studio_reference_uploads, methods=['POST'])
@@ -951,12 +952,7 @@ def studio_agent_storyboard():
         request_key = str(data.get('request_id') or hashlib.sha256(json.dumps(
             [client_id, data.get('briefing'), data.get('duration'), data.get('scene_count')],
             ensure_ascii=False, default=str).encode('utf-8')).hexdigest())[:160]
-        brand = {}
-        try:
-            from ..creative_format_lab.brand_context import build_brand_context
-            brand = build_brand_context(modeling.get_client(client_id)) or {}
-        except Exception:
-            logger.exception('Storyboard brand context unavailable for %s', client_id)
+        brand = _storyboard_brand(modeling, client_id)
         connector = CaduAIConnector(CaduCreditConnector(modeling.credit_ledger))
 
         def metered(messages, **options):
@@ -971,7 +967,7 @@ def studio_agent_storyboard():
         return ok(plan_storyboard(
             data.get('briefing'), duration=data.get('duration') or 8,
             aspect_ratio=data.get('aspect_ratio') or '16:9', brand=brand,
-            scene_count=data.get('scene_count'), text_callable=metered,
+            scene_count=data.get('scene_count'), text_callable=metered, presence=data.get('brand_presence'),
         ))
 
     return execute(run)
@@ -998,12 +994,7 @@ def studio_agent_storyboard_beat():
         request_key = str(data.get('request_id') or hashlib.sha256(json.dumps(
             [client_id, data.get('briefing'), data.get('index'), data.get('instruction')],
             ensure_ascii=False, default=str).encode('utf-8')).hexdigest())[:160]
-        brand = {}
-        try:
-            from ..creative_format_lab.brand_context import build_brand_context
-            brand = build_brand_context(modeling.get_client(client_id)) or {}
-        except Exception:
-            logger.exception('Storyboard brand context unavailable for %s', client_id)
+        brand = _storyboard_brand(modeling, client_id)
         connector = CaduAIConnector(CaduCreditConnector(modeling.credit_ledger))
 
         def metered(messages, **options):
@@ -1022,6 +1013,40 @@ def studio_agent_storyboard_beat():
         ))
 
     return execute(run)
+
+
+@studio_or_admin_required_api
+def studio_brand_kit():
+    """Logo, cores e fonte que o Vídeo vai aplicar nesta marca. Só leitura."""
+    from .studio_brand_kit import brand_kit
+    execute, _, ok, service = _http()
+
+    def run():
+        client_id = request.args.get('client_id')
+        _scope(client_id)
+        return ok(brand_kit(_storyboard_brand(service(), client_id)))
+
+    return execute(run)
+
+
+def _storyboard_brand(modeling, client_id):
+    try:
+        from ..creative_format_lab.brand_context import build_brand_context
+        return build_brand_context(modeling.get_client(client_id)) or {}
+    except Exception:
+        logger.exception('Storyboard brand context unavailable for %s', client_id)
+        return {}
+
+
+def _brand_style_references(brand):
+    """A primeira referência visual da marca (produto, campanha), como estilo da 1ª cena. Logo nunca entra aqui."""
+    assets = brand.get('assets') if isinstance(brand, dict) and isinstance(brand.get('assets'), dict) else {}
+    logos = {str(url) for url in [brand.get('logo_url'), *(assets.get('logo') or [])] if url}
+    for url in assets.get('references') or []:
+        url = str(url or '')
+        if url.startswith('/static/') and url not in logos and not url.lower().split('?')[0].endswith('.svg'):
+            return [{'url': url, 'role': 'style', 'source': 'project', 'label': f"{brand.get('name') or 'Marca'} · referência da marca"}]
+    return []
 
 
 def _storyboard_image_prices(aspect_ratio, fallback):
@@ -1043,7 +1068,7 @@ def _storyboard_image_prices(aspect_ratio, fallback):
 def studio_storyboard_image():
     """Gera a imagem de UMA cena do rascunho e a põe na biblioteca do Vídeo. Cobra tokens reais."""
     from . import studio_create
-    from .studio_storyboard import SCENE_ASPECTS, scene_image_prompt
+    from .studio_storyboard import SCENE_ASPECTS, palette_names, scene_image_prompt
     from .studio_costs import image_credits_by_quality
     execute, json_body, ok, service = _http()
 
@@ -1051,8 +1076,10 @@ def studio_storyboard_image():
         data = json_body()
         client_id = data.get('client_id')
         _scope(client_id)
+        brand = _storyboard_brand(service(), client_id)
         if data.get('dry_run') is True:
-            return ok(_storyboard_image_prices(data.get('aspect_ratio'), image_credits_by_quality().get('padrão')))
+            return ok({**_storyboard_image_prices(data.get('aspect_ratio'), image_credits_by_quality().get('padrão')),
+                       'brand_reference': bool(_brand_style_references(brand))})
         user_id = session.get('user_id')
         if not user_id:
             raise ValueError('Entre novamente para gerar a imagem.')
@@ -1060,7 +1087,10 @@ def studio_storyboard_image():
         if aspect not in SCENE_ASPECTS:
             raise ValueError('Formato de imagem inválido.')
         anchor = str(data.get('anchor_url') or '').strip()
-        prompt = scene_image_prompt(data.get('beat'), int(data.get('index') or 0), int(data.get('total') or 1), anchored=bool(anchor))
+        # Sem a 1ª cena como âncora, a marca dá o estilo: uma foto de produto ou de campanha cadastrada em Marcas.
+        brand_refs = [] if anchor else _brand_style_references(brand)
+        prompt = scene_image_prompt(data.get('beat'), int(data.get('index') or 0), int(data.get('total') or 1), anchored=bool(anchor),
+                                    palette=palette_names(brand), brand_references=bool(brand_refs))
         request_id = studio_create.image_request_id(data)
         history = _creation_history()
         if anchor and history and anchor not in history.owned_image_urls(client_id, [anchor]):
@@ -1068,7 +1098,7 @@ def studio_storyboard_image():
         request = {
             'prompt': prompt, 'aspect_ratio': aspect, 'creation_intent': 'neutral_asset', 'quality': 'Padrão',
             'request_id': request_id, 'auto_mask': False, 'logo_free': True,
-            'references': [{'url': anchor, 'role': 'style', 'source': 'user', 'label': 'Estilo da primeira cena'}] if anchor else [],
+            'references': [{'url': anchor, 'role': 'style', 'source': 'user', 'label': 'Estilo da primeira cena'}] if anchor else brand_refs,
         }
         request_hash = hashlib.sha256(json.dumps(request, ensure_ascii=False, sort_keys=True).encode('utf-8')).hexdigest()
         modeling = service()

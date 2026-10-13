@@ -21,7 +21,7 @@ def test_quantidade_sugerida_por_duracao():
 def test_beats_no_formato_do_video_com_ids_estaveis():
     out = plan_storyboard(BRIEF, duration=15, text_callable=fake([beat("hook"), beat("offer", spoken="500 mega"), beat("end")]))
     assert [b["id"] for b in out["beats"]] == ["beat-1", "beat-2", "beat-3"]
-    assert set(out["beats"][0]) == {"id", "purpose", "visual", "motion", "hold", "transition", "spoken"}
+    assert set(out["beats"][0]) == {"id", "purpose", "visual", "motion", "hold", "transition", "spoken", "brand"}
     assert out["warnings"] == []
 
 

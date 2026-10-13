@@ -317,7 +317,7 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn("pi-list-table--fiscal", self.template)
         self.assertIn("pi-col-client", self.template)
         self.assertIn("Cliente", table)
-        self.assertIn(".pi-list-table--fiscal .pi-col-client { width: 12%; }", self.css)
+        self.assertIn(".pi-list-table--fiscal .pi-col-client { width: 14%; }", self.css)
         self.assertIn("toggleInvoiceGroup", self.js)
 
     def test_fiscal_rows_render_campaign_count_without_missing_macro(self):
@@ -541,18 +541,21 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn(".platform-icon-wrap.is-programmatic", self.shared_css)
 
     def test_faturamento_uses_spedy_gerar_nf_flow(self):
+        fiscal = (PARTIALS / "_fiscal_row.html").read_text()
         agency = (PARTIALS / "_agency_group.html").read_text()
         self.assertIn('abrirModalSpedy', self.template)
-        self.assertIn('Gerar NF', self.template)
-        self.assertIn('abrirModalSpedy', agency)
-        self.assertIn('Gerar NF', agency)
+        self.assertIn('abrirModalSpedy', fiscal)
+        self.assertIn('Gerar NF via Spedy', fiscal)
+        self.assertIn('abrirModalImportarNf', fiscal)
+        self.assertIn('importarNF', fiscal)
+        self.assertIn('abrirModalImportarNf', agency)
+        self.assertIn('importarNF', agency)
         self.assertIn('/spedy/preview', self.template)
         self.assertIn('/spedy/emitir', self.template)
         self.assertIn('spedy_env_badge', self.template)
         self.assertIn('spedy_errors_box', self.template)
         self.assertIn('spedy_warnings_box', self.template)
-        self.assertNotIn('abrirModalImportarNf', self.template)
-        self.assertNotIn("partials/nf_import.html", self.template)
+        self.assertIn("partials/nf_import.html", self.template)
         self.assertIn('modal_spedy', self.template)
 
     def test_new_partials_do_not_introduce_daisyui_components(self):

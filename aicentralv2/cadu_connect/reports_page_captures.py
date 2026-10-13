@@ -7,7 +7,6 @@ authenticated route; the files are private.
 Storage sits behind ``CaptureStore``. Today it is the server's disk (like the flow previews); moving to an external
 service later means adding another implementation and pointing ``get_store`` at it, nothing else changes.
 """
-import fcntl
 import hashlib
 import io
 import json
@@ -23,6 +22,7 @@ from flask import abort, current_app, jsonify, request, send_file
 from PIL import Image
 
 from ..auth import login_required_api
+from ..creative_media.file_lock import flock_exclusive_nb, release_flock
 from . import reports_ai
 from .reports_flow import _safe_path
 from .reports_page_identity import canonical_page
@@ -73,6 +73,10 @@ class _FileLock:
 
     def release(self):
         try:
+            release_flock(self.handle)
+        except OSError:
+            pass
+        try:
             self.handle.close()
         except OSError:
             pass
@@ -109,8 +113,8 @@ class FilesystemCaptureStore(CaptureStore):
     def try_lock(self, key):
         handle = open(self.root / f'{key}.lock', 'a')
         try:
-            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
+            flock_exclusive_nb(handle)
+        except (BlockingIOError, OSError):
             handle.close()
             return None
         return _FileLock(handle)

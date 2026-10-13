@@ -9,7 +9,7 @@
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-ui.css') }}?v=3">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=4">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-pi-list.css') }}?v=17">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-pi-list.css') }}?v=18">
 {% endblock %}
 
 {% set nomes_meses = {'1':'Jan','2':'Fev','3':'Mar','4':'Abr','5':'Mai','6':'Jun','7':'Jul','8':'Ago','9':'Set','10':'Out','11':'Nov','12':'Dez'} %}
@@ -839,6 +839,10 @@
   </div>
   <form method="dialog" class="cx-modal-dismiss"><button>close</button></form>
 </dialog>
+
+{% if origem_lista == 'faturamento' %}
+{% include 'partials/nf_import.html' %}
+{% endif %}
 
 <!-- Modal Alterar Status NF -->
 <dialog id="modal_alterar_status_nf" class="cx-modal-shell">

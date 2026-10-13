@@ -84,9 +84,9 @@
                   </button>
                     {% endif %}
                   {% elif origem_lista == 'faturamento' %}
-                  <button type="button" onclick='abrirModalSpedy({{ pi.id_pi }}, {{ pi_info|tojson }})'
-                          class="cx-btn cx-btn-sm cx-btn-primary" title="Gerar NFS-e via Spedy">
-                    <i class="fa-solid fa-file-invoice" aria-hidden="true"></i>Gerar NF
+                  <button type="button" onclick='abrirModalImportarNf({{ pi.id_pi }}, {{ pi_info|tojson }})'
+                          class="cx-btn cx-btn-sm cx-btn-primary" title="Importar NF (PDF)">
+                    <i class="fa-solid fa-file-import" aria-hidden="true"></i>importarNF
                   </button>
                   {% else %}—{% endif %}
                 </td>

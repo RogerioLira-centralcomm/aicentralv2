@@ -70,8 +70,8 @@
 
 <td class="pi-fiscal-period" data-label="Período">
   {% if pi.get('periodo_inicio') %}
-  <strong>
-    {{ pi.periodo_inicio.strftime('%d/%m') }}{% if pi.get('periodo_fim') %} – {{ pi.periodo_fim.strftime('%d/%m') }}{% endif %}
+  <strong title="{% if pi.get('periodo_fim') %}{{ pi.periodo_inicio.strftime('%d/%m/%Y') }} – {{ pi.periodo_fim.strftime('%d/%m/%Y') }}{% else %}{{ pi.periodo_inicio.strftime('%d/%m/%Y') }}{% endif %}">
+    {{ pi.periodo_inicio.strftime('%d/%m/%y') }}{% if pi.get('periodo_fim') %} – {{ pi.periodo_fim.strftime('%d/%m/%y') }}{% endif %}
   </strong>
   {% if pi.get('periodo_fim') %}
   <span class="pi-cell-meta">{{ (pi.periodo_fim - pi.periodo_inicio).days }} dias</span>
@@ -130,10 +130,10 @@
     {% endif %}
     {% elif origem_lista == 'faturamento' %}
     <button type="button"
-            onclick='abrirModalSpedy({{ pi.id_pi }}, {{ pi_info|tojson }})'
+            onclick='abrirModalImportarNf({{ pi.id_pi }}, {{ pi_info|tojson }})'
             class="cx-btn cx-btn-sm cx-btn-primary"
-            title="Gerar NFS-e via Spedy">
-      <i class="fa-solid fa-file-invoice" aria-hidden="true"></i>Gerar NF
+            title="Importar NF (PDF)">
+      <i class="fa-solid fa-file-import" aria-hidden="true"></i>importarNF
     </button>
     {% else %}
     <span class="cx-cell-empty empty-na">Sem NF</span>

@@ -1,5 +1,4 @@
 """Private per-client page captures; bounded background work and cross-process locks."""
-import fcntl
 import hashlib
 import io
 import json
@@ -16,6 +15,7 @@ from flask import abort, current_app, jsonify, request, send_file
 from . import reports_ai
 from .reports_flow_schema import to_v3
 from ..auth import login_required_api
+from ..creative_media.file_lock import close_flock, flock_exclusive_nb
 from .reports_v1 import _selection, _write_guard, _rows
 from .reports_flow import _flow_row, _host_allowed, _safe_path
 
@@ -96,7 +96,7 @@ def _capture(app, root, key, url, allowed_host, lock, actor=None):
     except Exception:
         _write(root,key,{'status':'failed','updated':time.time(),'captured_at':previous.get('captured_at'),'message':'Não foi possível capturar. Tente regenerar a imagem.'})
     finally:
-        lock.close()
+        close_flock(lock)
         _slots.release()
 
 
@@ -105,18 +105,18 @@ def _schedule(root, key, url, host, force=False, actor=None):
         return False
     lock = open(root / f'{key}.lock','a')
     try:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        flock_exclusive_nb(lock)
         state = _state(root,key)
         if state['status']=='capturing' or (state['status']!='missing' and not force) or (force and time.time()-state.get('updated',0)<30):
-            lock.close();_slots.release();return state['status']=='capturing'
+            close_flock(lock);_slots.release();return state['status']=='capturing'
         _write(root,key,{**state,'status':'capturing','updated':time.time()})
         _pool.submit(_capture,current_app._get_current_object(),root,key,url,host,lock,actor)
         return True
-    except BlockingIOError:
-        lock.close();_slots.release()
+    except (BlockingIOError, OSError):
+        close_flock(lock);_slots.release()
         return False
     except Exception:
-        lock.close();_slots.release();raise
+        close_flock(lock);_slots.release();raise
 
 
 def register(bp):

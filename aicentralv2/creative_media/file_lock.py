@@ -47,3 +47,25 @@ def exclusive_file_lock(path):
             yield
         finally:
             _unlock(handle)
+
+
+def flock_exclusive_nb(handle):
+    """Non-blocking exclusive lock on an open file handle (POSIX + Windows)."""
+    _lock(handle, non_blocking=True)
+
+
+def release_flock(handle):
+    """Release advisory lock without closing the handle."""
+    _unlock(handle)
+
+
+def close_flock(handle):
+    """Release lock and close handle."""
+    try:
+        _unlock(handle)
+    except OSError:
+        pass
+    try:
+        handle.close()
+    except OSError:
+        pass

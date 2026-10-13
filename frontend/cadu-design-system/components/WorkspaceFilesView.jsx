@@ -36,8 +36,8 @@ function FileAction({file, onOpenFile}) {
 // A conversation holds a handful of attachments in the order they were sent:
 // a timeline reads better there than the project's filterable list.
 function ConversationFilesTimeline({files, onOpenFile}) {
-  const items = files.map((file, index) => ({...file, _key: String(file.id || `${file.name || file.title}-${index}`), _type: fileType(file)}))
-    .sort((left, right) => String(left.createdAt || '').localeCompare(String(right.createdAt || '')));
+  // Files arrive in message order, which already is send order.
+  const items = files.map((file, index) => ({...file, _key: String(file.id || `${file.name || file.title}-${index}`), _type: fileType(file)}));
   return <section className="cadu-ds-files is-conversation" aria-label="Arquivos">
     <header className="cadu-ds-files__intro"><div><h2>Arquivos</h2><p>Anexos enviados nesta conversa, em ordem de envio.</p></div></header>
     {items.length ? <ol className="cadu-ds-files__timeline">{items.map(file => <li key={file._key} className={`is-${file._type}`}>
@@ -57,19 +57,19 @@ export function WorkspaceFilesView({files = [], scope = 'project', onAdd, onOpen
   return <ProjectFilesView files={files} onAdd={onAdd} onOpenFile={onOpenFile}/>;
 }
 
-function ProjectFilesView({files, onAdd, onOpenFile, scope = 'project'}) {
+function ProjectFilesView({files, onAdd, onOpenFile}) {
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
   const normalized = useMemo(() => files.map((file, index) => ({...file, _key: String(file.id || `${file.name || file.title}-${index}`), _type: fileType(file)})), [files]);
   const visible = normalized.filter(file => (filter === 'all' || file._type === filter) && (!query.trim() || `${file.title || file.name} ${file.mime || file.kind || ''}`.toLocaleLowerCase('pt-BR').includes(query.trim().toLocaleLowerCase('pt-BR'))));
-  return <section className={`cadu-ds-files${scope === 'conversation' ? ' is-conversation' : ''}`} aria-label="Arquivos">
-    <header className="cadu-ds-files__intro"><div><h2>Arquivos</h2><p>{scope === 'project' ? 'Documentos e materiais adicionados a este projeto.' : 'Anexos enviados nesta conversa.'}</p></div>{onAdd && <button type="button" className="is-primary" onClick={onAdd}><Icon name="plus" size={15}/>Adicionar arquivo</button>}</header>
+  return <section className="cadu-ds-files" aria-label="Arquivos">
+    <header className="cadu-ds-files__intro"><div><h2>Arquivos</h2><p>Documentos e materiais adicionados a este projeto.</p></div>{onAdd && <button type="button" className="is-primary" onClick={onAdd}><Icon name="plus" size={15}/>Adicionar arquivo</button>}</header>
     <div className="cadu-ds-files__toolbar"><nav aria-label="Filtrar arquivos por tipo">{filters.map(([id, label]) => <button type="button" key={id} className={filter === id ? 'is-active' : ''} aria-pressed={filter === id} onClick={() => setFilter(id)}>{label}{id === 'all' && <small>{files.length}</small>}</button>)}</nav><label><Icon name="search" size={15}/><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar arquivos" aria-label="Buscar arquivos"/>{query && <CaduButton variant="tertiary" type="button" onClick={() => setQuery('')} aria-label="Limpar busca">×</CaduButton>}</label></div>
     {visible.length ? <div className="cadu-ds-files__list">{visible.map(file => <article key={file._key}>
       <span className={`cadu-ds-files__type is-${file._type}`}><Icon name={file._type === 'image' ? 'image' : file._type === 'pdf' ? 'pdf' : file._type === 'spreadsheet' ? 'table' : 'file'} size={18}/></span>
       <span className="cadu-ds-files__name"><b title={file.title || file.name}>{file.title || file.name || 'Arquivo'}</b><small>{[file.kind || file.mime || filters.find(item => item[0] === file._type)?.[1] || 'Arquivo', statusLabel(file.status), file.createdAt ? formatDate(file.createdAt) : ''].filter(Boolean).join(' · ')}</small></span>
       {file.size ? <small className="cadu-ds-files__size">{file.size}</small> : null}
       {file.href ? <a href={file.href} download aria-label={`Baixar ${file.title || file.name}`}>Baixar<Icon name="download" size={14}/></a> : onOpenFile ? <button type="button" onClick={() => onOpenFile(file)}>{file.actionLabel || 'Ver mensagem'}<Icon name="chevron" size={14}/></button> : <span className="cadu-ds-files__unavailable">Na base do projeto</span>}
-    </article>)}</div> : <div className="cadu-ds-files__empty"><span><Icon name="file" size={22}/></span><b>{query ? 'Nenhum arquivo encontrado' : filter !== 'all' ? 'Nenhum arquivo deste tipo' : scope === 'project' ? 'Este projeto ainda não tem arquivos' : 'Esta conversa ainda não tem anexos'}</b><p>{query ? 'Tente outro nome ou limpe a busca.' : scope === 'project' ? 'Adicione documentos para manter o material do projeto em um só lugar.' : 'Os arquivos anexados às mensagens vão aparecer aqui.'}</p>{query && <CaduButton variant="secondary" type="button" onClick={() => {setQuery(''); setFilter('all');}}>Limpar busca</CaduButton>}</div>}
+    </article>)}</div> : <div className="cadu-ds-files__empty"><span><Icon name="file" size={22}/></span><b>{query ? 'Nenhum arquivo encontrado' : filter !== 'all' ? 'Nenhum arquivo deste tipo' : 'Este projeto ainda não tem arquivos'}</b><p>{query ? 'Tente outro nome ou limpe a busca.' : 'Adicione documentos para manter o material do projeto em um só lugar.'}</p>{query && <CaduButton variant="secondary" type="button" onClick={() => {setQuery(''); setFilter('all');}}>Limpar busca</CaduButton>}</div>}
   </section>;
 }

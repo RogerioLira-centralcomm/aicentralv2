@@ -2035,7 +2035,6 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-btn--sm { min-height:28px; padding:0 10px; border-color:rgba(159,199,191,.25); border-radius:6px; background:#173032; color:#c9e5df; font-size:11px; font-weight:500; }
 #cadu-conversations-v2-root .cv-btn--sm:hover:not(:disabled) { border-color:#7bd8c9; background:#1f4141; }
 #cadu-conversations-v2-root .cv-btn--icon { min-height:32px; padding:0 8px; border-color:transparent; font-size:22px; font-weight:400; color:#bed3ce; }
-#cadu-conversations-v2-root .cv-plugins-page__header>[data-cadu-untitled-button] svg { transform:rotate(180deg); }
 #cadu-conversations-v2-root .cv-plugin-card { display:flex; width:100%; min-width:0; min-height:64px; align-items:center; gap:12px; padding:10px 12px; border:1px solid rgba(176,225,216,.14); border-radius:8px; background:#101f21; color:inherit; text-align:left; text-decoration:none; cursor:pointer; transition:background .14s ease,border-color .14s ease,transform .14s ease; }
 #cadu-conversations-v2-root button.cv-plugin-card:hover,#cadu-conversations-v2-root button.cv-plugin-card:focus-visible { border-color:rgba(101,216,203,.5); outline:0; background:#142b2c; }
 #cadu-conversations-v2-root button.cv-plugin-card:active { transform:scale(.995); }
@@ -2296,6 +2295,8 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-plugins-page__back:focus-visible { outline:2px solid var(--cv-accent); outline-offset:2px; }
 #cadu-conversations-v2-root .cv-plugins-page__back svg { transform:rotate(180deg); }
 #cadu-conversations-v2-root .cv-plugins-page__content { width:100%; flex:1 1 auto; margin:0; padding-inline:max(16px, calc((100% - 1120px) / 2)); }
+@container (max-width:760px) { #cadu-conversations-v2-root .cv-plugins-page__content { padding-inline:20px; } }
+@media(max-width:700px) { #cadu-conversations-v2-root .cv-plugins-page__content { padding-inline:10px; } }
 
 /* New file dialog. */
 #cadu-conversations-v2-root .cv-new-file-backdrop { position:fixed; inset:0; z-index:100; display:grid; place-items:center; padding:16px; background:rgba(0,0,0,.6); }

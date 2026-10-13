@@ -287,7 +287,7 @@ export function Conversation({inactive, layout, viewport, shellV2 = true, conver
     <WorkspaceChatComposer value={input} onChange={setInput} onSubmit={onSubmit} attachments={attachments} onRemoveAttachment={onRemoveAttachment} hasProject={Boolean(context?.project_ref)} executionMode={executionMode} onExecutionModeChange={onExecutionModeChange} running={running} onStop={onStop} allowQueue queuedCount={queuedTurns?.length || 0} composerContext={composerContext} onClearContext={onClearContext} onAttach={onAttach} onContextDrop={onContextDrop} onOpenLink={onOpenResource} longTextAsAttachment layout={shellV2 ? layout : 'desktop'} disabled={contextLoading} onStateChange={setComposerStatus} audioTranscriptionEndpoint={audioTranscriptionEndpoint} csrfToken={csrfToken}/>
     {newFileOpen && <div className="cv-new-file-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setNewFileOpen(false); }}><form className="cv-new-file" onSubmit={event => {
       event.preventDefault();
-      const title = newFileTitle.trim();
+      const title = newFileTitle.trim().replace(/\.(md|txt|html?)$/i, '').trim();
       const brief = newFileBrief.trim();
       if (!title || !brief) return;
       const format = resolvedNewFileFormat;

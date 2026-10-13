@@ -2252,13 +2252,12 @@ def test_new_project_and_brand_open_their_context_surfaces_after_creation():
     })
 
     assert project["open_surface"] == {"type": "project_profile", "project_ref": "ci:project-1"}
-    assert brand["open_surface"]["type"] == "personal_conversation"
-    assert brand["open_surface"]["brand_ref"] == "studio:81"
-    assert "sem vincular a marca a um projeto automaticamente" in brand["open_surface"]["seed_prompt"]
+    assert brand["open_surface"] == {"type": "brand_identity", "brand_ref": "studio:81"}
+    assert "ficou selecionada nesta conversa" in brand["answer"]
     assert brand["artifact"] == {"type": "brand_identity", "brand_ref": "studio:81"}
     assert brand["blocks"][1]["items"][0]["url"] == "https://workspace.example/marcas/81"
     assert project["activate_context"] == {"project_ref": "ci:project-1", "brand_ref": None}
-    assert brand["activate_context"] == {"project_ref": None, "brand_ref": None}
+    assert brand["activate_context"] == {"project_ref": None, "brand_ref": "studio:81"}
 
 
 def test_meeting_preflights_google_and_project_recipients():

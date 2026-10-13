@@ -610,9 +610,8 @@ def prepare_execution(message, request, history="", requested_mode="", conversat
                 missing.append("segmento")
             policy["action_preflight"]["missing"] = missing
             policy["action_preflight"]["next_step"] = (
-                "Entendi: você quer criar uma nova marca, acima do projeto atual. "
-                "Vou separar isso em uma conversa pessoal; para iniciar, informe nome, segmento e site oficial. "
-                "Os anexos e referências desta conversa serão preservados como base."
+                "Entendi: você quer criar uma nova marca, acima dos projetos. "
+                "Peça só o que falta entre nome, segmento e site oficial; com isso o cadastro aparece para aprovação aqui mesmo."
             )
         if original_action in {"studio_create_image", "studio_edit_image"}:
             cap = resolved.values.get("media.creation_capabilities") or {}

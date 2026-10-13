@@ -212,13 +212,13 @@ def _completion(step_name: str, result: dict) -> dict:
             ]},
         ]
         blocks[1]["items"] = [item for item in blocks[1]["items"] if item.get("url")]
-        return {"answer": f"A marca “{name}” foi criada acima dos projetos. Vou continuar em uma conversa pessoal para você completar identidade, referências e auditoria sem perder o trabalho atual.", "blocks": blocks,
-        "refresh_context": True, "open_surface": {
-            "type": "personal_conversation", "brand_ref": result.get("brand_ref"),
-            "seed_prompt": (f"Continue o trabalho sobre a marca {name}. Preserve o pedido original, os anexos e as referências da conversa anterior. "
-                            "Organize os próximos passos para completar nome, segmento, site, identidade visual e auditoria, sem vincular a marca a um projeto automaticamente."),
-        }, "artifact": result.get("artifact"),
-        "activate_context": {"project_ref": None, "brand_ref": None}}
+        # Stay in this conversation with the new brand selected: the next
+        # steps (logo, references, audit) need it as the active context.
+        return {"answer": f"A marca “{name}” foi criada e ficou selecionada nesta conversa. Escolha o próximo passo abaixo.",
+                "blocks": blocks, "refresh_context": True,
+                "open_surface": {"type": "brand_identity", "brand_ref": result.get("brand_ref")},
+                "artifact": result.get("artifact"),
+                "activate_context": {"project_ref": None, "brand_ref": result.get("brand_ref")}}
     if step_name in {"brands.prepare_logo_upload", "brands.prepare_asset_upload"}:
         replacing = result.get("purpose") == "replace_primary_logo"
         is_reference = result.get("role") == "reference"

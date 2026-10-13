@@ -89,7 +89,7 @@ def test_conceito_e_revisao_critica_substituem_o_rascunho():
 
 def test_revisao_que_falha_ou_muda_a_quantidade_mantem_o_rascunho():
     first = [beat("hook", shot="geral", setting="Sala"), beat("beat", shot="close", setting="Sala"), beat("end", shot="detalhe", setting="Rua")]
-    for review in (ValueError("json"), [beat("hook"), beat("end")]):
+    for review in (ValueError("json"), RuntimeError("saldo insuficiente"), KeyError("message"), [beat("hook"), beat("end")]):
         model, _ = director(first, review)
         out = plan_storyboard(BRIEF, duration=12, text_callable=model)
         assert [row["shot"] for row in out["beats"]] == ["geral", "close", "detalhe"]

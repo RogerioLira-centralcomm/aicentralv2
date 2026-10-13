@@ -7,6 +7,7 @@ revisar nos cartões antes de gastar crédito de imagem.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 
@@ -14,6 +15,7 @@ from ..creative_modeling_generation import _json_content
 from ..services.openrouter_service import OpenRouterError
 from .settings import STORYBOARD_MAX, STORYBOARD_MIN, TTS_MAX_WORDS_PER_SEC
 
+logger = logging.getLogger(__name__)
 MODEL = os.getenv("CREATIVE_VIDEO_STORYBOARD_MODEL", "openai/gpt-5-mini")
 PURPOSES = ("hook", "beat", "offer", "proof", "end")
 TRANSITIONS = ("cut", "cross dissolve", "fade through black", "slide left", "wipe right")
@@ -182,8 +184,9 @@ def plan_storyboard(briefing, *, duration=8, aspect_ratio="16:9", brand=None, sc
         revised, revised_warnings = _normalize(reviewed, text, int(duration or 8), target, facts=facts)
         if len(revised) == len(beats):
             beats, warnings = revised, revised_warnings
-    except (OpenRouterError, ValueError):
-        pass
+    except Exception:
+        # A 1ª passada já foi paga: qualquer falha da revisão (saldo, rede, resposta torta) mantém o rascunho.
+        logger.warning("Revisão do storyboard falhou; mantido o rascunho do diretor", exc_info=True)
     presence = brand_presence(presence)
     assign_brand_marks(beats, presence)
     return {"beats": beats, "warnings": warnings, "model": chosen, "scene_count": len(beats), "brand_presence": presence,

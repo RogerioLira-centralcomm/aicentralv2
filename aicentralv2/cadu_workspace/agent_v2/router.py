@@ -504,8 +504,9 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
                       else r"(?:imagem|foto|visual|ilustra[cç][aã]o|arte|criativo)")
     if not prompt_only and _has(
         text,
-        rf"\b(?:edit\w*|alter\w*|transform\w*)\b.{{0,55}}\b{visual_subject}\b|"
-        rf"\b{visual_subject}\b.{{0,55}}\b(?:edit\w*|alter\w*|transform\w*)\b",
+        # "editorial" and "alternativa" describe style/options, not an edit.
+        rf"\b(?:edit(?!oria)\w*|alter(?!nativ)\w*|transform\w*)\b.{{0,55}}\b{visual_subject}\b|"
+        rf"\b{visual_subject}\b.{{0,55}}\b(?:edit(?!oria)\w*|alter(?!nativ)\w*|transform\w*)\b",
     ):
         return IntentRoute("studio", "studio_edit_image", "medium", "analysis",
                            (), ("media.creation_capabilities",), None, True)

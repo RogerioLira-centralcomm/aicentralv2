@@ -52,6 +52,18 @@ def test_real_image_requests_still_reach_the_studio(message):
     assert route_request(message).action in {"studio_create_image", "studio_edit_image"}
 
 
+@pytest.mark.parametrize("message", [
+    "Gere uma imagem: feed 1:1, editorial de moda feminina premium, fotorealista",
+    "Crie uma imagem com uma alternativa mais clara para o banner",
+])
+def test_style_words_do_not_turn_creation_into_an_edit(message):
+    assert route_request(message).action == "studio_create_image"
+
+
+def test_explicit_edit_still_routes_to_edit():
+    assert route_request("Altere a imagem para fundo azul").action == "studio_edit_image"
+
+
 from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext
 from aicentralv2.cadu_workspace.agent_v2.prompt_assembler import build_payload
 from aicentralv2.cadu_workspace.agent_v2.response_policy import policy_for

@@ -245,8 +245,25 @@ step_done "git pull e artefatos gerados"
 # 2. Atualizar dependencias
 echo ""
 echo "[2/9] Atualizando dependencias..."
-VENV_PIP="venv/bin/pip"
-[ ! -f "$VENV_PIP" ] && VENV_PIP="venv_new/bin/pip"
+# gunicorn e os instaladores usam venv/; o ambiente real pode ser venv, venv_new ou .venv.
+# O repositório deixou de versionar o symlink venv -> .venv; recriamos quando só .venv existir.
+resolve_venv_pip() {
+    local candidate
+    for candidate in venv venv_new .venv; do
+        if [ -x "$candidate/bin/python" ]; then
+            if [ "$candidate" != "venv" ] && [ ! -x venv/bin/python ]; then
+                echo "  > Recriando symlink venv -> $candidate..."
+                ln -snf "$candidate" venv
+            fi
+            VENV_PIP="venv/bin/pip"
+            return 0
+        fi
+    done
+    echo "  > Nenhum ambiente virtual encontrado; criando venv/..."
+    python3 -m venv venv
+    VENV_PIP="venv/bin/pip"
+}
+resolve_venv_pip
 VENV_PYTHON="$(dirname "$VENV_PIP")/python"
 [ ! -x "$VENV_PYTHON" ] && {
     echo "  > ERRO: Python do ambiente virtual não encontrado em $VENV_PYTHON"
@@ -450,7 +467,7 @@ else
     tail -n 60 logs/error.log 2>/dev/null || echo "  (sem error.log)"
     echo ""
     echo "=== Teste manual de import ==="
-    venv/bin/python -c "from run import app; print('import OK')" 2>&1 || true
+    "$VENV_PYTHON" -c "from run import app; print('import OK')" 2>&1 || true
     echo ""
     sudo journalctl -u "$APP_SERVICE" -n 30 --no-pager 2>&1 | cat
     exit 1

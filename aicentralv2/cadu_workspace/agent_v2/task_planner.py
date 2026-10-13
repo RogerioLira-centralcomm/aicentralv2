@@ -379,7 +379,7 @@ def _brand_create_step(message: str):
     # A later turn of the same intake may correct the name ("mude o nome para X").
     renames = list(re.finditer(
         r"\b(?:mud[ae]|troqu?e|troca|alter[ae]|corrij[ae]|ajust[ae])\s+o\s+nome(?:\s+da\s+marca)?\s+para\s+[\"“]?"
-        r"([^\"”\n,;]{2,150}?)[\"”]?(?=\s+(?:apenas|somente|s[oó])\b|\s+e\s|[.,;\n]|$)",
+        r"([^\"”\n,;]{2,150}?)[\"”]?(?=\s+(?:apenas|somente|s[oó])\b|\s+e\s+(?:cadastr|cri|salv|confirm|registr)|[.,;\n]|$)",
         text, re.IGNORECASE,
     ))
     if renames:

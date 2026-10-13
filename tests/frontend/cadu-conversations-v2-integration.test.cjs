@@ -1328,3 +1328,18 @@ test('brand and project details share a compact operational header', () => {
   assert.match(styles, /\.cadu-ds-project-hero__meta/);
   assert.doesNotMatch(brand, /cadu-ds-brand-back/);
 });
+
+test('an undecided plan action keeps the approval card even when the turn answer arrives after it', async () => {
+  const os = require('node:os');
+  const {buildSync} = require(path.join(root, 'node_modules/esbuild'));
+  const outfile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'cadu-pending-')), 'pending.mjs');
+  buildSync({entryPoints: [path.join(root, 'frontend/conversations-v2/components/PendingInteraction.jsx')], bundle: true,
+    format: 'esm', platform: 'node', jsx: 'automatic', loader: {'.jsx': 'jsx'}, outfile, logLevel: 'error'});
+  const {pendingInteraction} = await import(pathToFileURL(outfile).href);
+  const user = {id: 'u', role: 'user', content: 'Cadastre a marca X'};
+  const action = {id: 'a', role: 'assistant', kind: 'action', action: {name: 'brands.create', summary: 'Criar a marca X'}};
+  const answer = {id: 'b', role: 'assistant', response: {answer: 'Confira os dados e aprove.'}};
+  assert.equal(pendingInteraction([user, action, answer], false)?.kind, 'action');
+  assert.equal(pendingInteraction([user, {...action, kind: undefined}, answer], false), null);
+  assert.equal(pendingInteraction([user, action, answer, {...user, id: 'u2'}, {...answer, id: 'c'}], false), null);
+});

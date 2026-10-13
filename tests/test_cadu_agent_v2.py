@@ -4158,3 +4158,21 @@ def test_provider_rebuilds_a_rejected_conversation_once_from_canonical_context(m
     assert "conversation_id" not in payloads[1]
     assert payloads[1]["inputs"]["evidence"] == "Bob Marley"
     assert events[0]["conversation_id"] == "dify-new"
+
+
+def test_brand_intake_across_two_turns_keeps_fields_and_applies_the_name_correction():
+    from aicentralv2.cadu_workspace.agent_v2.context_builder import turn_context
+    previous = [
+        {"id": "1", "role": "user",
+         "content": "Cadastre a marca Coca-Cola Brasil, site https://www.coca-cola.com/br/pt, setor bebidas"},
+        {"id": "2", "role": "assistant",
+         "content": "Confira os dados:\n- Nome: Coca-Cola Brasil\n- Site: https://www.coca-cola.com/br/pt\n- Setor: bebidas"},
+    ]
+    turn = turn_context("Mude o nome para Coca Cola apenas e cadastre amarca", previous)
+    assert turn["resolved_reference"] == "brand_draft"
+    route = route_request(turn["routing_message"])
+    action = next(step for step in build_task_plan(route, budget_for(route), turn["routing_message"])
+                  if step["kind"] == "action")
+    assert action["arguments"] == {
+        "name": "Coca Cola", "website_url": "https://www.coca-cola.com/br/pt", "sector": "bebidas",
+    }

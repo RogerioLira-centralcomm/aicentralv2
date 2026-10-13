@@ -27,8 +27,14 @@ function normalizeQuestions(items) {
 
 export function pendingInteraction(messages, running) {
   if (running || !messages?.length) return null;
-  const message = messages[messages.length - 1];
-  if (message?.role !== 'assistant' || message.kind === 'failure') return null;
+  const latest = messages[messages.length - 1];
+  if (latest?.role !== 'assistant' || latest.kind === 'failure') return null;
+  // Plan actions are proposed before the model answer streams in, so the
+  // answer of the same turn lands after them. An undecided action of the
+  // current turn still owns the interaction.
+  let turnStart = messages.length;
+  while (turnStart > 0 && messages[turnStart - 1]?.role !== 'user') turnStart -= 1;
+  const message = messages.slice(turnStart).reverse().find(item => item.kind === 'action') || latest;
   if (message.kind === 'action') {
     const name = String(message.action?.name || '');
     const presentation = name === 'media.generate_image'

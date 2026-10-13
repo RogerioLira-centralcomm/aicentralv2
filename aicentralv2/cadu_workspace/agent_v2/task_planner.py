@@ -367,7 +367,7 @@ def _brand_create_step(message: str):
     sector_match = re.search(
         r"\b(?:(?:setor|segmento|ramo)\s*(?:de|da|do|:|=|[ée])?|atua\s+no\s+(?:setor|segmento|ramo)\s+de)\s*"
         r"[\"“]?([^\"”\n,;]{2,80}?)(?=\s+(?:e\s+(?:o\s+)?)?(?:com\s+)?"
-        r"(?:site|website|endere[cç]o|logo|refer[eê]ncias?)\b|[,;]|$)",
+        r"(?:site|website|endere[cç]o|logo|refer[eê]ncias?)\b|[,;\n]|$)",
         text, re.IGNORECASE,
     )
     if not website_match or not name_match or not sector_match:
@@ -376,6 +376,14 @@ def _brand_create_step(message: str):
     if not re.match(r"^[a-z][a-z0-9+.-]*://", url, re.IGNORECASE):
         url = "https://" + url
     name = re.split(r"\s+(?:com|site|website|setor|segmento|ramo)\s+", name_match.group(1), maxsplit=1, flags=re.IGNORECASE)[0].strip(" .:-")
+    # A later turn of the same intake may correct the name ("mude o nome para X").
+    renames = list(re.finditer(
+        r"\b(?:mud[ae]|troqu?e|troca|alter[ae]|corrij[ae]|ajust[ae])\s+o\s+nome(?:\s+da\s+marca)?\s+para\s+[\"“]?"
+        r"([^\"”\n,;]{2,150}?)[\"”]?(?=\s+(?:apenas|somente|s[oó])\b|\s+e\s|[.,;\n]|$)",
+        text, re.IGNORECASE,
+    ))
+    if renames:
+        name = renames[-1].group(1).strip(" .:-")
     if len(name) < 2:
         return None
     sector = " ".join(sector_match.group(1).split()).strip(" .:-")[:80]

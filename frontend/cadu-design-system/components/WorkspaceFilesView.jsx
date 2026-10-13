@@ -24,7 +24,40 @@ function statusLabel(value) {
   return ({completed: 'Indexado', queued: 'Na fila', processing: 'Processando', paused: 'Aguardando revisão', error: 'Falha na indexação', failed: 'Falha na indexação', saved: 'Salvo'})[String(value || '').toLowerCase()] || String(value || '');
 }
 
+const typeLabels = {document: 'Documento', spreadsheet: 'Planilha', pdf: 'PDF', image: 'Imagem', other: 'Arquivo'};
+const typeIcons = {image: 'image', pdf: 'pdf', spreadsheet: 'table', document: 'file', other: 'file'};
+
+function FileAction({file, onOpenFile}) {
+  if (file.href) return <a href={file.href} download aria-label={`Baixar ${file.title || file.name}`}>Baixar<Icon name="download" size={14}/></a>;
+  if (onOpenFile) return <button type="button" onClick={() => onOpenFile(file)}>{file.actionLabel || 'Ver mensagem'}<Icon name="chevron" size={14}/></button>;
+  return null;
+}
+
+// A conversation holds a handful of attachments in the order they were sent:
+// a timeline reads better there than the project's filterable list.
+function ConversationFilesTimeline({files, onOpenFile}) {
+  const items = files.map((file, index) => ({...file, _key: String(file.id || `${file.name || file.title}-${index}`), _type: fileType(file)}))
+    .sort((left, right) => String(left.createdAt || '').localeCompare(String(right.createdAt || '')));
+  return <section className="cadu-ds-files is-conversation" aria-label="Arquivos">
+    <header className="cadu-ds-files__intro"><div><h2>Arquivos</h2><p>Anexos enviados nesta conversa, em ordem de envio.</p></div></header>
+    {items.length ? <ol className="cadu-ds-files__timeline">{items.map(file => <li key={file._key} className={`is-${file._type}`}>
+      <span className="cadu-ds-files__node" aria-hidden="true"><Icon name={typeIcons[file._type]} size={15}/></span>
+      <div className="cadu-ds-files__entry">
+        <small>{[typeLabels[file._type], file.createdAt ? formatDate(file.createdAt) : '', statusLabel(file.status)].filter(Boolean).join(' · ')}</small>
+        <b title={file.title || file.name}>{file.title || file.name || 'Arquivo'}</b>
+        {file.size ? <small>{file.size}</small> : null}
+      </div>
+      <FileAction file={file} onOpenFile={onOpenFile}/>
+    </li>)}</ol> : <div className="cadu-ds-files__empty"><span><Icon name="file" size={22}/></span><b>Nenhum anexo nesta conversa</b><p>Os arquivos que você anexar às mensagens aparecem aqui, em ordem.</p></div>}
+  </section>;
+}
+
 export function WorkspaceFilesView({files = [], scope = 'project', onAdd, onOpenFile}) {
+  if (scope === 'conversation') return <ConversationFilesTimeline files={files} onOpenFile={onOpenFile}/>;
+  return <ProjectFilesView files={files} onAdd={onAdd} onOpenFile={onOpenFile}/>;
+}
+
+function ProjectFilesView({files, onAdd, onOpenFile, scope = 'project'}) {
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
   const normalized = useMemo(() => files.map((file, index) => ({...file, _key: String(file.id || `${file.name || file.title}-${index}`), _type: fileType(file)})), [files]);

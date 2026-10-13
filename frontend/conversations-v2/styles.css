@@ -2279,3 +2279,37 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-sidebar-mini-rail__nav :is(a,span) { display:grid; width:36px; height:36px; place-items:center; border-radius:9px; color:#9ab0ac; text-decoration:none; }
 #cadu-conversations-v2-root .cv-sidebar-mini-rail__nav a:hover,#cadu-conversations-v2-root .cv-sidebar-mini-rail__nav a:focus-visible { background:rgba(181,218,211,.1); color:#edf6f4; }
 #cadu-conversations-v2-root .cv-sidebar-mini-rail__nav .is-current { background:rgba(85,216,198,.16); color:#a7e7dd; }
+
+/* Header: icon-only shortcuts with tooltip (title) and a tidier project selector. */
+#cadu-conversations-v2-root .cv-conversation-header .cv-conversation-library-link { width:34px; justify-content:center; padding:0; }
+#cadu-conversations-v2-root .cv-conversation-header .cv-conversation-library-link:disabled { opacity:.45; cursor:default; }
+.cv-context-selector>summary { justify-content:flex-start; gap:8px; }
+.cv-context-selector__icon { flex:none; color:#7fcfc3; }
+.cv-context-selector__label { flex:1; min-width:0; }
+.cv-context-selector__caret { flex:none; color:#8aa39f; transform:rotate(90deg); transition:transform .15s ease; }
+.cv-context-selector[open]>summary .cv-context-selector__caret { transform:rotate(-90deg); }
+
+/* Plugins page: inline back link, no header rule, scrollbar at the page edge. */
+#cadu-conversations-v2-root .cv-plugins-page__header { border-bottom:0; }
+#cadu-conversations-v2-root .cv-plugins-page__back { display:inline-flex; align-items:center; gap:4px; min-height:34px; padding:0 10px 0 6px; border:0; border-radius:8px; background:transparent; color:#9fc7bf; font-size:13px; cursor:pointer; }
+#cadu-conversations-v2-root .cv-plugins-page__back:hover { background:rgba(181,218,211,.08); color:#d7e7e3; }
+#cadu-conversations-v2-root .cv-plugins-page__back:focus-visible { outline:2px solid var(--cv-accent); outline-offset:2px; }
+#cadu-conversations-v2-root .cv-plugins-page__back svg { transform:rotate(180deg); }
+#cadu-conversations-v2-root .cv-plugins-page__content { width:100%; flex:1 1 auto; margin:0; padding-inline:max(16px, calc((100% - 1120px) / 2)); }
+
+/* New file dialog. */
+#cadu-conversations-v2-root .cv-new-file-backdrop { position:fixed; inset:0; z-index:100; display:grid; place-items:center; padding:16px; background:rgba(0,0,0,.6); }
+#cadu-conversations-v2-root .cv-new-file { display:grid; width:100%; max-width:460px; gap:16px; padding:24px; border:1px solid rgba(181,218,211,.14); border-radius:16px; background:#111e21; color:#eaf4f1; }
+#cadu-conversations-v2-root .cv-new-file h2 { margin:0; font-size:17px; }
+#cadu-conversations-v2-root .cv-new-file header p { margin:6px 0 0; color:#8ea9a3; font-size:13px; line-height:1.5; }
+#cadu-conversations-v2-root .cv-new-file label { display:grid; gap:6px; font-size:13px; }
+#cadu-conversations-v2-root .cv-new-file :is(input,textarea,select) { width:100%; padding:9px 10px; border:1px solid rgba(181,218,211,.2); border-radius:9px; background:#0c1719; color:#eaf4f1; font:inherit; font-size:13px; }
+#cadu-conversations-v2-root .cv-new-file :is(input,textarea)::placeholder { color:#5f7a75; }
+#cadu-conversations-v2-root .cv-new-file :is(input,textarea,select):focus-visible { outline:2px solid var(--cv-accent); outline-offset:1px; }
+#cadu-conversations-v2-root .cv-new-file textarea { resize:vertical; }
+#cadu-conversations-v2-root .cv-new-file__refs { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+#cadu-conversations-v2-root .cv-new-file__refs button { display:inline-flex; align-items:center; gap:6px; min-height:34px; padding:0 12px; border:1px dashed rgba(181,218,211,.3); border-radius:9px; background:transparent; color:#bfe3dc; font-size:12px; cursor:pointer; }
+#cadu-conversations-v2-root .cv-new-file__refs button:hover { background:rgba(181,218,211,.06); }
+#cadu-conversations-v2-root .cv-new-file__refs span { color:#8ea9a3; font-size:12px; }
+#cadu-conversations-v2-root .cv-new-file__format { max-width:240px; }
+#cadu-conversations-v2-root .cv-new-file footer { display:flex; justify-content:flex-end; gap:8px; }

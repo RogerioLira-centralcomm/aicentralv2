@@ -1498,6 +1498,7 @@ export default function App({bootstrap}) {
     return messages.flatMap(message => (message.files || []).map(file => ({
       ...file,
       messageId: message.id,
+      createdAt: file.createdAt || file.created_at || message.created_at || message.createdAt || '',
       actionLabel: 'Ver mensagem',
       href: file.id && conversationId
         ? `/workspace/api/v2/conversations/${encodeURIComponent(conversationId)}/files/${encodeURIComponent(file.id)}`

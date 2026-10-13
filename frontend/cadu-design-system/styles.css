@@ -4748,3 +4748,15 @@ body.portal--workspace .cadu-ds-entity-rail__readiness strong{font-size:20px;lin
   .cadu-ds-mobile-navigation__account[open]>summary svg { transform:rotate(90deg); }
   .cadu-ds-mobile-navigation__account>nav { padding-top:0; }
 }
+
+/* Conversation files: vertical timeline in send order. */
+.cadu-ds-files__timeline{position:relative;display:grid;gap:4px;margin:0;padding:0;list-style:none}
+.cadu-ds-files__timeline::before{content:"";position:absolute;top:18px;bottom:18px;left:17px;width:1px;background:var(--files-line)}
+.cadu-ds-files__timeline li{position:relative;display:flex;align-items:center;gap:14px;min-width:0;padding:8px 0}
+.cadu-ds-files__node{position:relative;z-index:1;display:grid;width:35px;height:35px;flex:none;place-items:center;border:1px solid var(--files-line);border-radius:50%;background:var(--files-surface);color:#9db7b2}
+.cadu-ds-files__timeline li.is-pdf .cadu-ds-files__node{color:#e0827d}.cadu-ds-files__timeline li.is-image .cadu-ds-files__node{color:#9aa6e6}.cadu-ds-files__timeline li.is-spreadsheet .cadu-ds-files__node{color:#6fcf9f}
+.cadu-ds-files__entry{display:grid;min-width:0;flex:1;gap:2px}
+.cadu-ds-files__entry b{overflow:hidden;font-size:13px;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
+.cadu-ds-files__entry small{color:var(--files-muted);font-size:11px}
+.cadu-ds-files__timeline li>a,.cadu-ds-files__timeline li>button{display:flex;align-items:center;gap:5px;flex:none;padding:7px;border:0;border-radius:7px;background:transparent;color:#7fd8ca;font:600 11px var(--cadu-font-sans,inherit);text-decoration:none;cursor:pointer}
+.cadu-ds-files__timeline li>a:hover,.cadu-ds-files__timeline li>button:hover{background:rgba(181,218,211,.08)}

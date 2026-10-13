@@ -51,7 +51,7 @@ export function PluginsPage({onClose, onUsePlugin, caduMark = '', exploreUrl = '
 
   return <section className="cv-plugins-page" aria-label="Plugins">
     <header className="cv-plugins-page__header">
-      <CaduButton variant="tertiary" size="sm" onClick={onClose} aria-label="Voltar à conversa"><Icon name="chevron" size={18}/><span>Voltar</span></CaduButton>
+      <button type="button" className="cv-plugins-page__back" onClick={onClose} aria-label="Voltar à conversa"><Icon name="chevron" size={16}/>Voltar</button>
       <div><h1>Plugins</h1></div>
       <span className="cv-plugins-page__count">{loading ? 'Carregando' : `${flows.length} fluxos de trabalho`}</span>
     </header>

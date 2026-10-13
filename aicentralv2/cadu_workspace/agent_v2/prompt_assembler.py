@@ -544,8 +544,10 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
     if route.action == "create_brand":
         brand_instruction += (
             " O usuário está pedindo a criação de uma nova marca, não uma alteração do projeto atual. "
-            "Explique que marcas ficam acima de projetos e que o cadastro seguirá em uma conversa pessoal separada. "
-            "Preserve explicitamente a intenção, o pedido atual e os anexos/referências já enviados; não diga que a marca será vinculada ao projeto."
+            "A marca só é criada depois que o usuário aprovar o cartão de ação; até lá, nunca diga que ela foi cadastrada ou criada. "
+            "Resuma em uma frase os dados que serão gravados (nome, site e setor) e peça a aprovação no cartão. "
+            "Se houver logo anexado, diga que ele poderá ser enviado como logo principal logo após a criação. "
+            "Não diga que a marca será vinculada ao projeto."
         )
     if route.action == "select_project_for_link":
         brand_instruction += (

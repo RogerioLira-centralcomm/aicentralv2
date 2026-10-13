@@ -3040,6 +3040,14 @@ def test_dense_plain_answer_without_an_artifact_route_stays_in_chat():
     assert "artefato ao lado" not in response.answer.lower()
 
 
+def test_confirmable_action_never_turns_its_field_list_into_choices():
+    response = normalize_response("Marca a criar:\n- Nome: Coca-Cola Brasil\n- Site: https://www.coca-cola.com/br/pt\n- Setor: Bebidas", {
+        "mode": "decision", "action_confirmation": True, "max_answer_chars": 320, "max_questions": 0, "max_next_steps": 0,
+    })
+    assert not any(block.get("type") == "decision" for block in response.blocks or [])
+    assert "Coca-Cola Brasil" in response.answer
+
+
 def test_plain_decision_list_becomes_an_interactive_decision_block():
     response = normalize_response("Escolha uma direção:\n- Editorial: mais autoral\n- Urbana: mais energia", {
         "mode": "decision", "max_answer_chars": 320, "max_questions": 0, "max_next_steps": 0,

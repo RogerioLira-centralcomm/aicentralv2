@@ -46,6 +46,10 @@ def policy_for(route: IntentRoute) -> dict:
         "clarification": {"max_questions": 3, "max_next_steps": 1, "max_answer_chars": 8000, "artifact_in_chat": False},
     }
     policy = {"mode": route.response_mode, **policies[route.response_mode]}
+    if route.requires_confirmation:
+        # The action card is the only control for a confirmable write. Prose
+        # lists (e.g. the fields of a brand) must not become clickable choices.
+        policy["action_confirmation"] = True
     if route.action == "search_insights":
         policy.update({"max_questions": 0, "max_next_steps": 0, "max_answer_chars": 10000})
     if route.action == "create_newsletter":

@@ -438,7 +438,7 @@ def _short_intro(answer, fallback):
 def _fallback_blocks(answer, policy):
     items = _list_items(answer)
     mode = policy.get("mode")
-    if mode == "decision" and 2 <= len(items) <= 5:
+    if mode == "decision" and not policy.get("action_confirmation") and 2 <= len(items) <= 5:
         for item in items:
             item.update({"recommended": False, "prompt": f"Use a opção “{item['title']}” e continue o trabalho."})
         return [{"type": "decision", "title": "Escolha uma direção", "summary": "", "items": items}]

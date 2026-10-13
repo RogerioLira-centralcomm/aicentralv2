@@ -2314,3 +2314,10 @@ body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
 #cadu-conversations-v2-root .cv-new-file__refs span { color:#8ea9a3; font-size:12px; }
 #cadu-conversations-v2-root .cv-new-file__format { max-width:240px; }
 #cadu-conversations-v2-root .cv-new-file footer { display:flex; justify-content:flex-end; gap:8px; }
+
+/* Approval card buttons: no white focus-like ring at rest. */
+#cadu-conversations-v2-root .cv-pending-interaction.is-action .cv-pending-interaction__options [data-cadu-untitled-button] { box-shadow:none !important; outline:0; }
+#cadu-conversations-v2-root .cv-pending-interaction.is-action .cv-pending-interaction__options [data-cadu-untitled-button].is-decline { border:1px solid rgba(181,218,211,.18); background:transparent; color:#cfe0dc; }
+#cadu-conversations-v2-root .cv-pending-interaction.is-action .cv-pending-interaction__options [data-cadu-untitled-button].is-decline:hover { background:rgba(181,218,211,.08); }
+#cadu-conversations-v2-root .cv-pending-interaction.is-action .cv-pending-interaction__options [data-cadu-untitled-button].is-approve { border:1px solid transparent; }
+#cadu-conversations-v2-root .cv-pending-interaction.is-action .cv-pending-interaction__options [data-cadu-untitled-button][data-focus-visible] { outline:2px solid var(--cv-accent); outline-offset:2px; }

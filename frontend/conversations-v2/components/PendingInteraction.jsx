@@ -25,6 +25,30 @@ function normalizeQuestions(items) {
     });
 }
 
+// Copy for each approval card: what will happen, in the user's words.
+const ACTION_PRESENTATION = {
+  'media.generate_image': {app: 'Cadu Studio', eyebrow: 'Criação de imagem', approve: 'Gerar imagem', progress: 'Gerando imagem…', detail: 'A estimativa de tokens aparece acima. A geração só começa depois da aprovação; o consumo final pode variar.'},
+  'media.edit_image': {app: 'Cadu Studio', eyebrow: 'Edição de imagem', approve: 'Editar imagem', progress: 'Editando imagem…', detail: 'A estimativa de tokens aparece acima. A edição só começa depois da aprovação; o consumo final pode variar.'},
+  'media.plan_video': {app: 'Cadu Studio', eyebrow: 'Plano de vídeo', approve: 'Preparar plano', progress: 'Preparando plano…', detail: 'A estimativa de tokens aparece acima. O plano será criado no Studio após a aprovação; a geração do vídeo continuará pendente.'},
+  'brands.create': {eyebrow: 'Nova marca', approve: 'Cadastrar marca', progress: 'Cadastrando…', detail: 'A marca será criada na organização. Depois você poderá enviar o logo.'},
+  'brands.update_identity': {eyebrow: 'Identidade da marca', approve: 'Salvar identidade', progress: 'Salvando…', detail: 'As alterações serão aplicadas à marca selecionada.'},
+  'brands.prepare_logo_upload': {eyebrow: 'Logo da marca', approve: 'Liberar envio', progress: 'Preparando…', detail: 'O envio do logo principal fica liberado por 10 minutos.'},
+  'brands.prepare_asset_upload': {eyebrow: 'Referência visual', approve: 'Liberar envio', progress: 'Preparando…', detail: 'O envio da referência fica liberado por 10 minutos.'},
+  'brands.start_audit': {eyebrow: 'Auditoria de marca', approve: 'Iniciar auditoria', progress: 'Iniciando…', detail: 'A análise será executada com o contexto disponível da marca.'},
+  'workspace.create_project': {eyebrow: 'Novo projeto', approve: 'Criar projeto', progress: 'Criando…', detail: 'O projeto será criado com os dados acima.'},
+  'workspace.update_project_context': {eyebrow: 'Contexto do projeto', approve: 'Salvar no projeto', progress: 'Salvando…', detail: 'Os dados acima serão gravados no projeto atual.'},
+  'workspace.set_project_status': {eyebrow: 'Status do projeto', approve: 'Alterar status', progress: 'Alterando…', detail: 'O status do projeto atual será atualizado.'},
+  'workspace.link_current_brand': {eyebrow: 'Vincular marca', approve: 'Vincular marca', progress: 'Vinculando…', detail: 'A marca será vinculada ao projeto atual.'},
+  'projects.create_link_reference': {eyebrow: 'Adicionar referência', approve: 'Adicionar ao projeto', progress: 'Adicionando…', detail: 'O link será salvo sem leitura ou indexação automática.'},
+  'projects.create_note': {eyebrow: 'Salvar anotação', approve: 'Salvar no projeto', progress: 'Salvando…', detail: 'A anotação ficará disponível no contexto do projeto.'},
+  'projects.reindex_source': {eyebrow: 'Atualizar fonte', approve: 'Reindexar fonte', progress: 'Reindexando…', detail: 'O conteúdo da fonte será processado novamente.'},
+  'projects.create_tasks': {eyebrow: 'Tarefas do projeto', approve: 'Criar tarefas', progress: 'Criando…', detail: 'As tarefas propostas serão adicionadas ao projeto.'},
+  'projects.create_initial_task_list': {eyebrow: 'Tarefas do projeto', approve: 'Criar tarefas', progress: 'Criando…', detail: 'A lista inicial de tarefas será criada no projeto.'},
+  'google.create_project_meeting': {app: 'Google Calendar', eyebrow: 'Reunião do projeto', approve: 'Agendar reunião', progress: 'Agendando…', detail: 'O convite será criado na sua agenda Google.'},
+  'reports.link_test': {eyebrow: 'Teste de links', approve: 'Testar links', progress: 'Testando…', detail: 'Os links serão verificados agora.'},
+  'reports.review_link_test': {eyebrow: 'Teste de links', approve: 'Revisar teste', progress: 'Revisando…', detail: 'O resultado do teste será revisado.'},
+};
+
 export function pendingInteraction(messages, running) {
   if (running || !messages?.length) return null;
   const latest = messages[messages.length - 1];
@@ -37,25 +61,11 @@ export function pendingInteraction(messages, running) {
   const message = messages.slice(turnStart).reverse().find(item => item.kind === 'action') || latest;
   if (message.kind === 'action') {
     const name = String(message.action?.name || '');
-    const presentation = name === 'media.generate_image'
-      ? {app: 'Cadu Studio', eyebrow: 'Criação de imagem', approve: 'Gerar imagem', progress: 'Gerando imagem…', detail: 'A estimativa de tokens aparece acima. A geração só começa depois da aprovação; o consumo final pode variar.'}
-      : name === 'media.edit_image'
-        ? {app: 'Cadu Studio', eyebrow: 'Edição de imagem', approve: 'Editar imagem', progress: 'Editando imagem…', detail: 'A estimativa de tokens aparece acima. A edição só começa depois da aprovação; o consumo final pode variar.'}
-        : name === 'media.plan_video'
-          ? {app: 'Cadu Studio', eyebrow: 'Plano de vídeo', approve: 'Preparar plano', progress: 'Preparando plano…', detail: 'A estimativa de tokens aparece acima. O plano será criado no Studio após a aprovação; a geração do vídeo continuará pendente.'}
-          : name === 'projects.create_link_reference'
-      ? {eyebrow: 'Adicionar referência', approve: 'Adicionar ao projeto', progress: 'Adicionando…', detail: 'O link será salvo sem leitura ou indexação automática.'}
-      : name === 'projects.create_note'
-        ? {eyebrow: 'Salvar anotação', approve: 'Salvar no projeto', progress: 'Salvando…', detail: 'A anotação ficará disponível no contexto do projeto.'}
-        : name === 'projects.reindex_source'
-          ? {eyebrow: 'Atualizar fonte', approve: 'Reindexar fonte', progress: 'Reindexando…', detail: 'O conteúdo da fonte será processado novamente.'}
-          : name === 'brands.start_audit'
-            ? {eyebrow: 'Iniciar auditoria', approve: 'Iniciar auditoria', progress: 'Iniciando…', detail: 'A análise será executada com o contexto disponível da marca.'}
-            : name.startsWith('brands.')
-              ? {eyebrow: 'Atualizar marca', approve: 'Confirmar alteração', progress: 'Atualizando…', detail: 'A alteração será aplicada à marca selecionada.'}
-              : {eyebrow: 'Confirmar ação', approve: 'Confirmar', progress: 'Executando…', detail: 'Nada será alterado até você escolher uma opção.'};
+    const presentation = ACTION_PRESENTATION[name] || (name.startsWith('brands.')
+      ? {eyebrow: 'Atualizar marca', approve: 'Confirmar alteração', progress: 'Atualizando…', detail: 'A alteração será aplicada à marca selecionada.'}
+      : {eyebrow: 'Confirmar ação', approve: 'Confirmar', progress: 'Executando…', detail: 'Nada será alterado até você escolher uma opção.'});
     return {
-      kind: 'action', message, app: presentation.app || 'Terminal', eyebrow: presentation.eyebrow,
+      kind: 'action', message, app: presentation.app || (message.action?.command ? 'Terminal' : 'Cadu'), eyebrow: presentation.eyebrow,
       question: message.action?.summary || 'Deseja concluir esta ação?',
       command: message.action?.command || message.action?.input?.command || message.action?.arguments?.command || '',
       brief: name.startsWith('media.') ? message.action?.arguments?.prompt || '' : '',
@@ -94,10 +104,10 @@ export function PendingInteraction({interaction, onPrompt, onDecision}) {
     ? onDecision(interaction.message, option.approved)
     : option.autoSubmit || !option.asContext ? onPrompt(option.prompt) : onPrompt('', {type: 'question', label: 'Respondendo', text: option.prompt});
   return <section className={`cv-pending-interaction ${interaction.kind === 'action' ? 'is-action' : ''}`} aria-label="Ação necessária">
-    <div className="cv-pending-interaction__heading">{interaction.kind === 'action' && <span className="cv-pending-interaction__app"><Icon name="pulse" size={13}/>{interaction.app || 'Terminal'}</span>}<span className="cv-pending-interaction__copy"><strong>{interaction.question}</strong>{interaction.detail && <i className={interaction.error ? 'is-error' : ''} role={interaction.error ? 'alert' : undefined}>{interaction.detail}</i>}</span>{freeform && <CaduButton variant="secondary" size="sm" className="cv-pending-interaction__respond" onClick={() => choose(interaction.options[0])}>Responder</CaduButton>}</div>
+    <div className="cv-pending-interaction__heading">{interaction.kind === 'action' && <span className="cv-pending-interaction__app"><Icon name={interaction.app === 'Terminal' ? 'pulse' : 'brand'} size={13}/>{interaction.app === 'Cadu' ? interaction.eyebrow : interaction.app}</span>}<span className="cv-pending-interaction__copy"><strong>{interaction.question}</strong>{interaction.detail && <i className={interaction.error ? 'is-error' : ''} role={interaction.error ? 'alert' : undefined}>{interaction.detail}</i>}</span>{freeform && <CaduButton variant="secondary" size="sm" className="cv-pending-interaction__respond" onClick={() => choose(interaction.options[0])}>Responder</CaduButton>}</div>
     {interaction.kind === 'action' && interaction.brief && <details className="cv-pending-interaction__brief"><summary><span>Conferir brief do Studio</span><span>Ver detalhes</span></summary><p>{interaction.brief}</p></details>}
     {interaction.kind === 'action' && interaction.command && <details className="cv-pending-interaction__command"><summary><code>{interaction.command}</code><span>Expandir</span></summary><pre>{interaction.command}</pre></details>}
-    {!freeform && !!interaction.options.length && <div className="cv-pending-interaction__options">{interaction.kind === 'action' ? <><CaduButton variant="secondary" size="sm" className="is-decline" disabled={interaction.pending} onClick={() => choose(interaction.options.find(option => !option.approved))}>Negar <kbd>Esc</kbd></CaduButton><CaduButton variant="primary" size="sm" className="is-approve" disabled={interaction.pending} onClick={() => choose(interaction.options.find(option => option.approved))}>{interaction.options.find(option => option.approved)?.label} <kbd>↵</kbd></CaduButton></> : interaction.options.map(option => <button key={option.id} className={option.recommended ? 'is-recommended' : ''} type="button" disabled={interaction.pending} onClick={() => choose(option)}><span><b>{option.label}</b>{option.detail && <small>{option.detail}</small>}</span>{option.recommended && <em>Recomendada</em>}<Icon name="chevron" size={14}/></button>)}</div>}
+    {!freeform && !!interaction.options.length && <div className="cv-pending-interaction__options">{interaction.kind === 'action' ? <><CaduButton variant="secondary" size="sm" className="is-decline" disabled={interaction.pending} onClick={() => choose(interaction.options.find(option => !option.approved))}>Agora não <kbd>Esc</kbd></CaduButton><CaduButton variant="primary" size="sm" className="is-approve" disabled={interaction.pending} onClick={() => choose(interaction.options.find(option => option.approved))}>{interaction.options.find(option => option.approved)?.label} <kbd>↵</kbd></CaduButton></> : interaction.options.map(option => <button key={option.id} className={option.recommended ? 'is-recommended' : ''} type="button" disabled={interaction.pending} onClick={() => choose(option)}><span><b>{option.label}</b>{option.detail && <small>{option.detail}</small>}</span>{option.recommended && <em>Recomendada</em>}<Icon name="chevron" size={14}/></button>)}</div>}
   </section>;
 }
 

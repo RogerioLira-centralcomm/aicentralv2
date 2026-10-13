@@ -1250,7 +1250,7 @@ def stream(run):
     # the complete response. Calling the provider afterwards can fabricate a
     # success message before the user has approved and executed the action.
     proposal_only_actions = {"projects.create_link_reference", "workspace.update_project_context",
-                             "media.generate_image", "media.edit_image", "media.plan_video"}
+                             "media.generate_image", "media.edit_image", "media.plan_video", "brands.create"}
     if any(action.get("name") in proposal_only_actions for action in waiting_actions):
         conn = repository.get_db()
         try:

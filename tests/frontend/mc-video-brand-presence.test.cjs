@@ -60,10 +60,14 @@ const marks=page=>page.$$eval('#mcVideoDraft [data-draft-field="brand"]',rows=>r
   assert.deepEqual(await marks(page),['badge','badge','signature']);
   await page.selectOption('[data-draft="beat-1"] [data-draft-field="brand"]','none');
   assert.deepEqual(await marks(page),['none','badge','signature']);
+  // Com ajuste manual, trocar o nível pede confirmação antes de refazer as cenas.
+  await page.click('.mc-video-brand-levels label:has-text("Equilibrada")');
+  assert.match(dialogs.at(-1),/inclusive as que você ajustou/);
+  assert.deepEqual(await marks(page),['none','badge','signature']);
   // 4. A imagem de cada cena leva a marcação; com referência da marca, a prévia cobra a referência desde a 1ª.
   await page.click('#mcVideoDraftGenerate');
   await page.waitForFunction(()=>document.querySelectorAll('#mcVideoDraft .mc-draft-card').length===0);
-  assert.match(dialogs[0],/cerca de 150 tokens cada \(total ≈ 450\)/);
+  assert.match(dialogs.at(-1),/cerca de 150 tokens cada \(total ≈ 450\)/);
   assert.deepEqual(images.map(image=>image.beat.brand),['none','badge','signature']);
   // 5. A marcação segue para a sequência e para o editor da cena, que pode trocá-la.
   const script=await page.evaluate(async()=>{const {state,beatFor}=await import('/static/js/cadu-video/state.js');return state.scenes.map(scene=>beatFor(scene.id)?.brand);});

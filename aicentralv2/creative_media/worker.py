@@ -384,7 +384,9 @@ class AnimateWorker:
                 logger.exception("Overlay falhou em %s", job_id)
                 raise RuntimeError("Não foi possível proteger textos e logos no master.")
         branded = None
-        if mode == "storyboard" and plan.get("brand_marks"):
+        if mode == "storyboard" and (plan.get("brand_marks") or {}).get("status") == "missing":
+            branded = "missing"
+        elif mode == "storyboard" and plan.get("brand_marks"):
             # O vídeo já foi pago: sem o logo, ele ainda é entregue, e o pacote diz que o logo não entrou.
             self._stage(job_id, "compositing", 80, "Aplicando o logo da marca")
             try:
@@ -421,6 +423,9 @@ class AnimateWorker:
         ]
         if branded:
             packs.append({"kind": "brand_marks", "status": branded})
+            # O Vídeo lê isto no status do job para avisar quando o logo pedido não entrou.
+            plan["brand_marks"] = {**plan["brand_marks"], "status": branded}
+            self.repository.update_job(job_id, plan_json=plan)
         poster = None
         try:
             poster_bytes = transcode.poster_jpg(master["storage_key"])

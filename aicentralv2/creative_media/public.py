@@ -45,6 +45,8 @@ def job_payload(row, *, scene_ahead=False):
             "aspect_ratio": plan.get("aspect_ratio"),
             "piece_ratio": plan.get("piece_ratio"),
             "audio_mode": plan.get("audio_mode"),
+            # pending (na fila), ready (logo aplicado), missing (marca sem logo legível) ou failed.
+            "brand_logo": (plan.get("brand_marks") or {}).get("status") or "",
             "source": {key:source[key] for key in ("mode","base_id","ref_ids","to_id","camadas_creative_id") if key in source},
         },
         "ui_stages": stages,

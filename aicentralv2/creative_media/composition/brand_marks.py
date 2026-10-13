@@ -116,7 +116,7 @@ def apply_brand_marks(video_bytes, brand_marks, stills=()):
     logos = _logo_images((brand_marks or {}).get("logos"))
     marks = list((brand_marks or {}).get("scenes") or [])
     if not logos or not marks:
-        return video_bytes
+        raise ValueError("Sem logo legível para aplicar.")
     with tempfile.TemporaryDirectory(prefix="brand-marks-") as folder:
         source = Path(folder) / "base.mp4"
         dest = Path(folder) / "out.mp4"

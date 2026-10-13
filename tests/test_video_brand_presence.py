@@ -128,7 +128,9 @@ def test_plano_leva_a_marcacao_na_ordem_das_cenas():
     marks = brand_marks_for_plan({"logos": [png_url(), "data:image/svg+xml;base64,AAAA", "https://evil/logo.png"]}, script, ["s1", "s2", "s3"])
     assert marks["scenes"] == ["badge", "signature", "none"]
     assert len(marks["logos"]) == 1  # só PNG embutido, lido pelo servidor
-    assert brand_marks_for_plan({"logos": []}, script, ["s1"]) is None  # sem logo: vídeo como hoje
+    assert marks["status"] == "pending"
+    # Cena marcada sem logo legível: o plano guarda isso para o Vídeo avisar na entrega.
+    assert brand_marks_for_plan({"logos": []}, script, ["s1"]) == {"scenes": ["badge"], "logos": [], "status": "missing"}
     assert brand_marks_for_plan({"logos": [png_url()]}, [{"id": "s1", "brand": "none"}], ["s1"]) is None
 
 
@@ -202,9 +204,21 @@ def test_video_pronto_recebe_o_logo_so_nas_cenas_marcadas(tmp_path):
     assert streams == ["video", "audio"]
 
 
-def test_sem_logo_legivel_o_video_volta_intacto():
+def test_sem_logo_legivel_a_aplicacao_falha_e_o_worker_registra():
     from aicentralv2.creative_media.composition.brand_marks import apply_brand_marks
-    assert apply_brand_marks(b"video", {"logos": ["data:image/png;base64,quebrado"], "scenes": ["signature"]}) == b"video"
+    with pytest.raises(ValueError):
+        apply_brand_marks(b"video", {"logos": ["data:image/png;base64,quebrado"], "scenes": ["signature"]})
+
+
+def test_status_do_job_diz_se_o_logo_entrou():
+    from aicentralv2.creative_media.public import job_payload
+    assert job_payload({"plan_json": {"brand_marks": {"status": "missing"}}})["plan"]["brand_logo"] == "missing"
+    assert job_payload({"plan_json": {}})["plan"]["brand_logo"] == ""
+
+
+def test_so_nomes_de_cor_chegam_ao_prompt_da_imagem():
+    prompt = scene_image_prompt({"visual": "x"}, 0, 2, palette=["verde-azulado escuro", "rgb(23, 107, 94)", "0x176b5e", "#fff", "Azul Cemig"])
+    assert "verde-azulado escuro, Azul Cemig." in prompt and "rgb" not in prompt and "0x" not in prompt
 
 
 # ---- fonte e cores da marca no editor ----

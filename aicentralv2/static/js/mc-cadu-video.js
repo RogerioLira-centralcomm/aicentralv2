@@ -442,6 +442,17 @@ async function loadBrandKit(clientId) {
 // Trocar o nível refaz a marcação de todas as cenas (rascunho e sequência); depois dá para ajustar cena por cena.
 function onBrandPresence(event) {
   const presence = BRAND_PRESENCES.includes(event.target.value) ? event.target.value : "discreet";
+  // Escolhas feitas à mão (diferentes do nível atual) só são trocadas com confirmação.
+  const current = state.draft.presence || "discreet";
+  const rows = [state.draft.beats, state.scenes.length ? state.script?.beats || [] : []];
+  const manual = rows.some((list) => {
+    const expected = brandMarksFor(list.map((beat) => ({ purpose: beat.purpose })), current);
+    return list.some((beat, index) => (beat.brand || "none") !== expected[index].brand);
+  });
+  if (manual && !window.confirm("Trocar o nível refaz o logo de todas as cenas, inclusive as que você ajustou. Continuar?")) {
+    paintDraft();
+    return;
+  }
   state.draft.presence = presence;
   brandMarksFor(state.draft.beats, presence);
   if (state.scenes.length) {
@@ -1775,7 +1786,10 @@ function resume(jobId) {
     const follow=followingJob(jobId);
     await loadClips({ prefer: version, restore: false, select:follow });
     recordSpend(`video:${jobId}`, "video", `Geração de vídeo · ${job.plan?.duration || state.duration}s`, job.quote, "confirmed");
-    setStatus(job.message || "Clipe pronto.");
+    const logo = job.plan?.brand_logo;
+    setStatus(logo === "missing" ? "Clipe pronto, sem o logo: a marca não tem um logo legível cadastrado em Marcas."
+      : logo === "failed" ? "Clipe pronto, mas o logo da marca não pôde ser aplicado. Adicione-o como texto ou gere de novo."
+      : job.message || "Clipe pronto.");
     state.generating = false;
     markDirty();
   }, (job) => {

@@ -877,9 +877,10 @@ def brand_marks_for_plan(raw, beats, scene_ids):
     by_id = {str(beat.get("id") or ""): beat for beat in (beats or []) if isinstance(beat, dict)}
     scenes = [by_id.get(str(ident), {}).get("brand") for ident in scene_ids]
     scenes = [mark if mark in BRAND_MARKS else "none" for mark in scenes]
-    if not logos or not any(mark != "none" for mark in scenes):
+    if not any(mark != "none" for mark in scenes):
         return None
-    return {"scenes": scenes, "logos": logos}
+    # Cenas marcadas sem logo legível: o vídeo sai sem logo, e o Vídeo avisa ao entregar.
+    return {"scenes": scenes, "logos": logos, "status": "pending" if logos else "missing"}
 
 
 def _unique_ids(raw):

@@ -321,7 +321,7 @@ def scene_image_prompt(beat, index, total, *, anchored=False, palette=None, bran
     if hold:
         parts.append(f"Manter: {hold}.")
     # Só nomes: um código como "#fff" no prompt vira letras desenhadas na imagem.
-    names = [name for name in (palette or []) if name and not str(name).startswith("#")][:4]
+    names = [name for name in (palette or []) if re.fullmatch(r"[^\W\d_][^\d#()]*", str(name or ""))][:4]
     if names:
         parts.append(f"Paleta da marca presente na cena (figurino, objetos, cenário ou luz): {', '.join(names)}.")
     if anchored:

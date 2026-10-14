@@ -249,3 +249,6 @@
   .portal--studio > .cadu-family-footer { width: calc(100% - 24px); gap: 9px; margin-block: 10px 14px; padding-inline: 12px; overflow-x: auto; white-space: nowrap; }
   .portal--studio > .cadu-family-footer nav { margin-left: 6px; }
 }
+
+/* A brand with several projects asks the user to pick one before creating. */
+.mc-cadu-bar--studio .mc-cadu-project select.is-choice-required { border-color: #f5a524 !important; box-shadow: 0 0 0 3px rgba(245, 165, 36, .28); }

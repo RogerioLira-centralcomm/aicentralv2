@@ -8947,6 +8947,8 @@ def brand_detail(brand_id):
         brands = _workspace_brands(client_id)
         linked_projects = _brand_linked_projects(client_id, brand_id)
         active_linked_project = linked_projects[0] if linked_projects else None
+        studio_projects = [project for project in linked_projects if str(project.get('status') or 'ativo') == 'ativo']
+        studio_project_query = f"&project_id={studio_projects[0].get('id')}" if len(studio_projects) == 1 else ''
         profile = brand.get('brand_profile') or {}
         campaigns = _brand_campaigns_with_institutional(client_id, brand_id, brand)
         review_pack = brand.get('review_pack') or {}
@@ -8997,8 +8999,11 @@ def brand_detail(brand_id):
             conversation_args['project'] = f"ci:{active_linked_project.get('id')}"
         brand_links = {
             'conversation': url_for('cadu_workspace.conversations', **conversation_args),
-            'createImage': product_url('studio', f"/studio/modelagem-criativos/criar?creative_client_id={brand_id}" + (f"&project_id={active_linked_project.get('id')}" if active_linked_project else '')),
-            'createVideo': product_url('studio', f"/studio/modelagem-criativos/video?creative_client_id={brand_id}" + (f"&project_id={active_linked_project.get('id')}" if active_linked_project else '')),
+            # The Studio works inside a project: without an active one the brand offers no image or video
+            # action; with several, the Studio asks which one to use.
+            'createImage': product_url('studio', f"/criar?creative_client_id={brand_id}" + studio_project_query) if studio_projects else '',
+            'createVideo': product_url('studio', f"/video?creative_client_id={brand_id}" + studio_project_query) if studio_projects else '',
+            'studioProjectCount': len(studio_projects),
             'createPlan': product_url('planner', f"/planos?create=1&brand_ref=studio:{brand_id}" + (f"&project_ref=ci:{active_linked_project.get('id')}" if active_linked_project else '')),
             'system': url_for('cadu_workspace.brand_system', brand_id=brand_id),
             'generateHero': url_for('cadu_workspace.generate_brand_hero', brand_id=brand_id),

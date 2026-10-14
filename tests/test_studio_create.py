@@ -121,55 +121,10 @@ def test_project_brand_guard_rejects_a_project_not_linked_to_the_current_account
                 raise AssertionError("O projeto não pode ser usado com outra marca.")
 
 
-class _OwnershipCursor:
-    def __init__(self, owned):
-        self.owned, self.params = owned, None
-    def __enter__(self):
-        return self
-    def __exit__(self, *_):
-        return False
-    def execute(self, _sql, params):
-        self.params = params
-    def fetchone(self):
-        return {"?column?": 1} if self.params in self.owned else None
-
-
-class _OwnershipDb:
-    def __init__(self, owned):
-        self.owned = owned
-    def cursor(self):
-        return _OwnershipCursor(self.owned)
-
-
-def test_quick_creation_with_a_brand_requires_the_account_to_own_it():
-    app = Flask(__name__)
-    app.secret_key = "test"
-    with app.test_request_context("/"):
-        session["cliente_id"] = 174
-        with patch("aicentralv2.db.get_db", return_value=_OwnershipDb({(50, 174)})):
-            studio._assert_creation_access("", 50)
-            try:
-                studio._assert_creation_access("", 51)
-            except ValueError as error:
-                assert str(error) == "Marca não encontrada nesta conta."
-            else:
-                raise AssertionError("Uma marca de outra conta não pode ser usada sem projeto.")
-
-
-def test_creation_with_a_project_still_goes_through_the_project_link():
-    app = Flask(__name__)
-    app.secret_key = "test"
-    with app.test_request_context("/"):
-        session["cliente_id"] = 91
-        with patch("aicentralv2.creative_media.project_contexts.linked_project_contexts", return_value=[{"id": 7, "client_id": 12}]), \
-             patch("aicentralv2.db.get_db", side_effect=AssertionError("posse da marca não deve ser consultada com projeto")):
-            studio._assert_creation_access("7", 12)
-
-
 def test_create_contract_binds_palette_and_image_to_the_project_context():
     source = (Path(__file__).resolve().parents[1] / "aicentralv2" / "creative_media" / "studio.py").read_text(encoding="utf-8")
-    assert source.count("_assert_creation_access(project_id, client_id)") >= 2
-    assert "_assert_creation_access(data.get('project_id'), client_id)" in source
+    assert source.count("_assert_project_brand_access(project_id, client_id)") >= 2
+    assert "_assert_project_brand_access(data.get('project_id'), client_id)" in source
     assert "brand-palette/suggest" in source
     assert "brand_identity_extraction" in source
     assert "select_brand_logo(" in source
@@ -656,3 +611,27 @@ def test_an_external_logo_that_fails_to_download_is_skipped_without_hammering_th
 def test_legacy_studio_desk_redirect_keeps_the_brand_and_project_query():
     source = (Path(__file__).resolve().parents[1] / "aicentralv2" / "creative_modeling_routes.py").read_text(encoding="utf-8")
     assert 'url_for(f"studio_product.studio_{page}", **request.args.to_dict(flat=True))' in source
+
+
+def test_brandless_project_is_usable_and_flagged_so_no_brand_identity_is_loaded():
+    app = Flask(__name__)
+    app.secret_key = "test"
+    contexts = [{"id": 7, "client_id": 12}, {"id": 8, "client_id": None}]
+    with app.test_request_context("/"):
+        session["cliente_id"] = 91
+        with patch("aicentralv2.creative_media.project_contexts.linked_project_contexts", return_value=[dict(item) for item in contexts]), \
+             patch.object(studio, "_quick_creative_client", return_value=40):
+            assert studio._assert_project_brand_access("7", 12) is False
+            assert studio._assert_project_brand_access("8", 40) is True
+            try:
+                studio._assert_project_brand_access("8", 12)
+            except ValueError as error:
+                assert str(error) == "Projeto não encontrado nesta marca."
+            else:
+                raise AssertionError("Um projeto sem marca não pode ser usado com a identidade de outra marca.")
+
+
+def test_brandless_creation_never_loads_a_stored_brand_identity():
+    source = (Path(__file__).resolve().parents[1] / "aicentralv2" / "creative_media" / "studio.py").read_text(encoding="utf-8")
+    assert source.count("brandless = bool(_assert_project_brand_access(project_id, client_id))") == 2
+    assert source.count("if not brandless:") >= 2

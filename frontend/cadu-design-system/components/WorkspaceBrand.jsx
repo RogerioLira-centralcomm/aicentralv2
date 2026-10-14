@@ -578,6 +578,7 @@ function BrandActions({lifecycle, status, verified, canEdit, urls, csrf, hasHist
     {verified && urls.createImage && <CaduButton variant="secondary" href={urls.createImage}>Criar imagem</CaduButton>}
     {verified && urls.createVideo && <CaduButton variant="secondary" href={urls.createVideo}>Criar vídeo</CaduButton>}
     <CaduActionMenu label="Mais" ariaLabel="Mais ações da marca" items={menuItems}/>
+    {verified && !urls.createImage && <p className="cadu-ds-brand-actions__note">Imagens e vídeos são criados dentro de um projeto. <button type="button" onClick={() => onDialog('project-create')}>Criar projeto com esta marca</button> ou <button type="button" onClick={() => onDialog('link')}>vincular a um existente</button>.</p>}
     {canEdit && hasHistory && urls.reevaluate && <form method="post" action={urls.reevaluate} ref={reevaluate} hidden><Hidden name="_csrf" value={csrf}/></form>}
   </div>;
 }

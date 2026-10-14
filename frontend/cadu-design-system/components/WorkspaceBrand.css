@@ -1192,3 +1192,7 @@ body.portal--workspace .cadu-ds-drawer .cadu-ds-panel__body:has(.cadu-ds-brand-p
 @media (max-width:760px) {
   body.portal--workspace .cadu-ds-brand-project-link__footer { margin-inline:-16px; padding-inline:16px; }
 }
+
+/* Sem projeto ativo, a marca explica onde imagens e vídeos são criados, sem botões que levariam ao Studio vazio. */
+body.portal--workspace .cadu-ds-brand-actions__note { flex-basis:100%; margin:2px 0 0; color:var(--cadu-muted); font:400 12px/1.5 var(--cadu-font-sans); }
+body.portal--workspace .cadu-ds-brand-actions__note button { padding:0; border:0; background:none; color:var(--cadu-accent-strong); font:inherit; font-weight:600; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }

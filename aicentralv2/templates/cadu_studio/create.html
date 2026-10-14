@@ -5,8 +5,8 @@
 {% block styles %}
 <meta name="trocr-csrf-token" content="{{ mc_trocr_csrf|default('') }}">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=13">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create-v2.css') }}?v=46">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=14">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create-v2.css') }}?v=47">
 {% endblock %}
 {% block content %}
 <main class="studio-v2" id="studioV2" data-state="draft"
@@ -88,4 +88,4 @@
   </dialog>
 </main>
 {% endblock %}
-{% block portal_scripts %}<script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script><script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=10" defer></script><script src="{{ url_for('static', filename='js/cadu-studio-create-v2.js') }}?v=50" defer></script>{% endblock %}
+{% block portal_scripts %}<script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script><script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=11" defer></script><script src="{{ url_for('static', filename='js/cadu-studio-create-v2.js') }}?v=51" defer></script>{% endblock %}

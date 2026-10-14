@@ -10,8 +10,12 @@ from __future__ import annotations
 from ..db import get_db
 
 
-def linked_project_contexts(account_id: int) -> list[dict]:
-    """Return active projects that have at least one explicitly linked brand."""
+def linked_project_contexts(account_id: int, include_brandless: bool = False) -> list[dict]:
+    """Return active projects that have at least one explicitly linked brand.
+
+    ``include_brandless`` adds active projects without any brand (client_id NULL, brand_count 0);
+    the Studio uses them with prompt and uploads only, never with a brand's prior identity.
+    """
     if account_id <= 0:
         return []
 
@@ -43,12 +47,25 @@ def linked_project_contexts(account_id: int) -> list[dict]:
                     WHERE p.id_cliente = %s
                       AND p.status = 'ativo'
                 )
-                SELECT id, nome, descricao, instrucoes, client_id, brand_name, brand_count
+                SELECT id, nome, descricao, instrucoes, client_id, brand_name, brand_count, updated_at
                   FROM linked_brands
                  WHERE brand_rank = 1
+                """ + ("""
+                UNION ALL
+                SELECT p.id, p.nome, p.descricao, p.instrucoes, NULL AS client_id, '' AS brand_name, 0 AS brand_count, p.updated_at
+                  FROM cadu_ci_projetos AS p
+                 WHERE p.id_cliente = %s
+                   AND p.status = 'ativo'
+                   AND NOT EXISTS (
+                       SELECT 1 FROM cadu_family_project_brands AS link
+                        WHERE link.client_id = p.id_cliente
+                          AND link.project_ref = ('ci:' || p.id::text)
+                          AND link.brand_ref LIKE 'studio:%%'
+                   )
+                """ if include_brandless else "") + """
                  ORDER BY updated_at DESC NULLS LAST, nome
                 """,
-                (account_id,),
+                (account_id, account_id) if include_brandless else (account_id,),
             )
             return [dict(row) for row in cursor.fetchall()]
     except Exception:

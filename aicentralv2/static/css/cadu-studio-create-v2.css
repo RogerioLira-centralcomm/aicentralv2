@@ -689,3 +689,6 @@ body.portal--studio:has(.studio-v2) > main#content > .studio-v2,.studio-v2 .stud
 
 .studio-v2 .result-review{margin:0;font-size:12px;color:#f0c674;line-height:1.35}
 .studio-v2:is([data-state="generated"],[data-state="results_ready"]) .result-card .result-review{display:block;flex:1 1 100%}
+
+/* A brand with several projects asks the user to pick one before creating. */
+.rail-project-context select.is-choice-required { border-color: #f5a524 !important; box-shadow: 0 0 0 3px rgba(245, 165, 36, .28); }

@@ -191,28 +191,19 @@ def _scope(client):
     return root
 
 
-def _assert_brand_access(client_id):
-    """A creation without a project may use a brand only when the signed-in account owns it."""
-    try:
-        account_id = int(session.get('cliente_id') or 0)
-        brand_id = int(client_id)
-    except (TypeError, ValueError):
-        raise ValueError('Marca não encontrada nesta conta.')
-    if not account_id:
-        return
-    from ..db import get_db
-    with get_db().cursor() as cursor:
-        cursor.execute("SELECT 1 FROM cx_clients WHERE id=%s AND crm_client_id=%s LIMIT 1", (brand_id, account_id))
-        if not cursor.fetchone():
-            raise ValueError('Marca não encontrada nesta conta.')
+def _studio_project_contexts(account_id, modeling=None):
+    """Projects the Studio can use: brand-linked ones, plus brandless ones billed to the account's own client.
 
-
-def _assert_creation_access(project_id, client_id):
-    """Project-led creations go through the project/brand link; a quick creation with a brand, through ownership."""
-    if str(project_id or '').strip():
-        _assert_project_brand_access(project_id, client_id)
-    else:
-        _assert_brand_access(client_id)
+    A brandless project carries ``brandless=True`` and is never given a brand's prior identity.
+    """
+    from .project_contexts import linked_project_contexts
+    items = linked_project_contexts(account_id, include_brandless=True)
+    if any(item.get('client_id') is None for item in items):
+        account_client = _quick_creative_client(modeling)
+        for item in items:
+            if item.get('client_id') is None:
+                item['client_id'], item['brandless'] = account_client, True
+    return items
 
 
 def _assert_project_brand_access(project_id, client_id):
@@ -232,15 +223,16 @@ def _assert_project_brand_access(project_id, client_id):
     except (TypeError, ValueError):
         raise ValueError('Projeto não encontrado nesta marca.')
     if not account_id:
-        return
-    from .project_contexts import linked_project_contexts
+        return False
+    contexts = _studio_project_contexts(account_id)
     allowed = {
         str(item.get('id')): int(item.get('client_id'))
-        for item in linked_project_contexts(account_id)
+        for item in contexts
         if item.get('id') is not None and item.get('client_id') is not None
     }
+    brandless = {str(item.get('id')) for item in contexts if item.get('brandless')}
     if allowed.get(project_key) == brand_id:
-        return
+        return project_key in brandless
     # The Studio selector carries the cx_studio_projects id; the permission
     # table is keyed by the external (Workspace) project id stored in its
     # document, so resolve one to the other before refusing.
@@ -258,6 +250,7 @@ def _assert_project_brand_access(project_id, client_id):
     external_id = str((row.get('external_id') if isinstance(row, dict) else row['external_id']) if row else '')
     if not external_id or allowed.get(external_id) != brand_id:
         raise ValueError('Projeto não encontrado nesta marca.')
+    return external_id in brandless
 
 
 def _studio_reference_masks():
@@ -545,13 +538,18 @@ def studio_create_directions():
         _scope(client_id)
         count = max(1, min(int(data.get('count') or 1), 5))
         project_id = str(data.get('project_id') or '')
+        brandless = False
         if not quick_mode:
-            _assert_creation_access(project_id, client_id)
+            brandless = bool(_assert_project_brand_access(project_id, client_id))
+        if not quick_mode:
             from ..creative_format_lab.brand_context import build_brand_context, select_brand_logo
             project_context = data.get('context') if isinstance(data.get('context'), dict) else {}
-            project_context['brand_context'] = select_brand_logo(
-                build_brand_context(modeling.get_client(client_id)), data.get('selected_logo_id'),
-            )
+            # A project without a brand never loads a stored identity: like quick creation, it keeps only
+            # what the user sent with this request (prompt, uploaded logo or colors).
+            if not brandless:
+                project_context['brand_context'] = select_brand_logo(
+                    build_brand_context(modeling.get_client(client_id)), data.get('selected_logo_id'),
+                )
             project_context['project_id'] = project_id
             data['context'] = project_context
         # The balance gate occurs before the provider receives the request.
@@ -621,13 +619,16 @@ def studio_create_image():
         _scope(client_id)
         project_id = str(data.get('project_id') or '')
         if not quick_mode:
-            _assert_creation_access(project_id, client_id)
+            brandless = bool(_assert_project_brand_access(project_id, client_id))
             # Rehydrate identity server-side. The browser only carries display
             # metadata and must never decide whether a brand asset is usable.
+            # A project without a brand never loads a stored identity: like quick creation, it keeps only
+            # what the user sent with this request (prompt, uploaded logo or colors).
             from ..creative_format_lab.brand_context import build_brand_context, select_brand_logo
-            data['brand_context'] = select_brand_logo(
-                build_brand_context(modeling.get_client(client_id)), data.get('selected_logo_id'),
-            )
+            if not brandless:
+                data['brand_context'] = select_brand_logo(
+                    build_brand_context(modeling.get_client(client_id)), data.get('selected_logo_id'),
+                )
         request_id = studio_create.image_request_id(data)
         data['request_id'] = request_id
         request_hash = hashlib.sha256(json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
@@ -810,7 +811,7 @@ def studio_brand_palette_suggest():
         if not user_id:
             raise ValueError('Entre novamente para definir as cores da marca.')
         _scope(client_id)
-        _assert_creation_access(data.get('project_id'), client_id)
+        _assert_project_brand_access(data.get('project_id'), client_id)
         modeling = service()
         brand_context = select_brand_logo(
             build_brand_context(modeling.get_client(client_id)), data.get('selected_logo_id'),
@@ -870,7 +871,7 @@ def studio_brand_font():
     def run():
         client_id = request.form.get('client_id')
         _scope(client_id)
-        _assert_creation_access(request.form.get('project_id'), client_id)
+        _assert_project_brand_access(request.form.get('project_id'), client_id)
         upload = request.files.get('font')
         if not upload or not upload.filename:
             raise ValueError('Escolha o arquivo da fonte.')
@@ -895,7 +896,7 @@ def studio_brand_palette():
         data = json_body()
         client_id = data.get('client_id')
         _scope(client_id)
-        _assert_creation_access(data.get('project_id'), client_id)
+        _assert_project_brand_access(data.get('project_id'), client_id)
         raw_colors = data.get('colors') if isinstance(data.get('colors'), list) else []
         colors = []
         for value in raw_colors[:6]:
@@ -1220,7 +1221,6 @@ def studio_library_sessions():
             raise ValueError('Não foi possível identificar a sua conta.')
 
         from ..db import get_db
-        from .project_contexts import linked_project_contexts
         with get_db().cursor() as cursor:
             cursor.execute(
                 "SELECT client_id,document FROM cx_studio_projects WHERE id=%s LIMIT 1",
@@ -1234,7 +1234,7 @@ def studio_library_sessions():
         external_id = str(document.get('external_project_id') or '')
         allowed = {
             str(item.get('id')): int(item.get('client_id'))
-            for item in linked_project_contexts(account_id)
+            for item in _studio_project_contexts(account_id)
         }
         client_id = int(row['client_id'])
         if not external_id or allowed.get(external_id) != client_id:
@@ -1462,7 +1462,6 @@ def studio_personal_assets():
 @studio_or_admin_required_api
 def studio_project_contexts():
     """Expose Studio's project-to-brand contexts from the shared database."""
-    from .project_contexts import linked_project_contexts
     try:
         account_id = int(session.get('cliente_id') or 0)
     except (TypeError, ValueError):
@@ -1475,7 +1474,7 @@ def studio_project_contexts():
     items = []
     db = get_db()
     with db.cursor() as cursor:
-        for project in linked_project_contexts(account_id):
+        for project in _studio_project_contexts(account_id, modeling):
             external_id = str(project['id'])
             client_id = int(project['client_id'])
             cursor.execute("SELECT id::text AS id FROM cx_studio_projects WHERE client_id=%s AND document->>'external_project_id'=%s LIMIT 1", (client_id, external_id))
@@ -1485,27 +1484,15 @@ def studio_project_contexts():
                 cursor.execute("INSERT INTO cx_studio_projects (id, client_id, name, revision, document) VALUES (%s,%s,%s,1,%s)", (studio_id, client_id, str(project.get('nome') or 'Projeto sem nome')[:120], Json({'external_project_id': external_id, 'brief': str(project.get('descricao') or project.get('instrucoes') or ''), 'brand_name': str(project.get('brand_name') or '')})))
                 cursor.execute("INSERT INTO cx_studio_project_revisions (project_id, revision, document) SELECT id, revision, document FROM cx_studio_projects WHERE id=%s", (studio_id,))
             brand_context = {}
-            try:
-                from ..creative_format_lab.brand_context import build_brand_context
-                brand_context = build_brand_context(modeling.get_client(client_id))
-            except Exception:
-                logger.exception('Studio project brand context unavailable for %s', external_id)
-            items.append({'id': studio_id, 'external_project_id': external_id, 'name': str(project.get('nome') or 'Projeto sem nome'), 'brief': str(project.get('descricao') or project.get('instrucoes') or ''), 'client_id': str(client_id), 'brand_name': str(project.get('brand_name') or brand_context.get('name') or 'Marca vinculada'), 'brand_count': int(project.get('brand_count') or 1), 'brand_context': brand_context})
+            if not project.get('brandless'):
+                try:
+                    from ..creative_format_lab.brand_context import build_brand_context
+                    brand_context = build_brand_context(modeling.get_client(client_id))
+                except Exception:
+                    logger.exception('Studio project brand context unavailable for %s', external_id)
+            items.append({'brandless': bool(project.get('brandless')), 'id': studio_id, 'external_project_id': external_id, 'name': str(project.get('nome') or 'Projeto sem nome'), 'brief': str(project.get('descricao') or project.get('instrucoes') or ''), 'client_id': str(client_id), 'brand_name': 'Sem marca' if project.get('brandless') else str(project.get('brand_name') or brand_context.get('name') or 'Marca vinculada'), 'brand_count': int(project.get('brand_count') or 1), 'brand_context': brand_context})
     db.commit()
-    data = {'items': items}
-    # A link that names only a brand (Workspace "Criar imagem") gets that brand's identity for a quick creation.
-    requested = str(request.args.get('brand_id') or '').strip()
-    if requested.isdigit():
-        try:
-            _assert_brand_access(requested)
-            from ..creative_format_lab.brand_context import build_brand_context
-            brand_context = build_brand_context(modeling.get_client(int(requested)))
-            data['requested_brand'] = {'client_id': requested, 'brand_name': str(brand_context.get('name') or 'Marca'), 'brand_context': brand_context}
-        except ValueError:
-            pass
-        except Exception:
-            logger.exception('Studio requested brand context unavailable for %s', requested)
-    return jsonify({'success': True, 'data': data})
+    return jsonify({'success': True, 'data': {'items': items}})
 
 
 @studio_or_admin_required_api

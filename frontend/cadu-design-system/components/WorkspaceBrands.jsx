@@ -72,7 +72,8 @@ function BrandCreateForm({bootstrap, onClose}) {
     const controller = new AbortController();
     inspectionController.current?.abort('replaced');
     inspectionController.current = controller;
-    const timeout = window.setTimeout(() => controller.abort('timeout'), 30000);
+    // A blocked site falls back to Firecrawl on the server, which can take up to ~50s with its retry.
+    const timeout = window.setTimeout(() => controller.abort('timeout'), 60000);
     try {
       const response = await fetch(bootstrap.urls.inspectBrandSite, {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-CSRF-Token':bootstrap.csrf, Accept:'application/json'}, body:JSON.stringify({website_url:normalized, logo_url:selectedLogo}), signal:controller.signal});
       const payload = await response.json().catch(() => ({}));

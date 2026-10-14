@@ -187,8 +187,8 @@ export function PlanCreatePage({boot, request, notify, selection}) {
   async function createFromWizard(fields) {
     setBusy(true);
     try {
-      const data = await request('/plans', {method: 'POST', body: JSON.stringify({...fields,
-        brand_ref: selection?.brand_ref || null, project_ref: selection?.project_ref || null})});
+      // Marca e projeto vêm do primeiro passo do wizard, não mais só da barra do topo.
+      const data = await request('/plans', {method: 'POST', body: JSON.stringify(fields)});
       try { window.sessionStorage.removeItem(DRAFT_KEY); } catch { /* the draft is only a convenience */ }
       window.location.assign(`${boot.urls.plans}/${encodeURIComponent(data.plan.id)}`);
     } catch (error) {
@@ -196,7 +196,7 @@ export function PlanCreatePage({boot, request, notify, selection}) {
       setBusy(false);
     }
   }
-  if (!fullForm) return <PlanWizard urls={boot.urls} suggestions={suggestions} context={context} busy={busy} onSubmit={createFromWizard} onFullForm={() => setFullForm(true)}/>;
+  if (!fullForm) return <PlanWizard request={request} contextBar={boot.contextBar} selection={selection} busy={busy} onSubmit={createFromWizard} onFullForm={() => setFullForm(true)}/>;
   // Remount the form when the context arrives so its suggestions become the defaults.
   const formKey = [context?.brand?.ref, context?.project?.ref].join('|');
   return <>

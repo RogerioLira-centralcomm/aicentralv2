@@ -181,8 +181,6 @@ export function RadarWizard({boot, request, busy, onSubmit, context}) {
           {!last && <button type="button" onClick={() => go(STEPS.length - 1)}>Pular e revisar</button>}
         </p>
       </form>
-      <ol className="wizard__steps">{STEPS.map((item, index) => <li key={item.key} className={index === step ? 'is-current' : ''}>
-        <button type="button" disabled={index > reached} onClick={() => go(index)}><b>{index + 1}</b>{item.label}</button></li>)}</ol>
     </main>
     {profileOpen && brand && <BrandProfileDialog request={request} brand={brand} onClose={() => setProfileOpen(false)} onSaved={() => setRefresh(value => value + 1)}/>}
   </section>;

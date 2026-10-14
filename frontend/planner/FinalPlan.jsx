@@ -7,7 +7,7 @@ import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {Illustration} from './Illustration.jsx';
 import {PlannerHeader} from './PlannerHeader.jsx';
 import {objectiveLabel, upperFirst} from './api.js';
-import {PlannerPanel} from './PlannerUi.jsx';
+import {LogoTile, PlannerPanel} from './PlannerUi.jsx';
 import {ShareControl} from './ShareControl.jsx';
 import {useConfirm} from './useConfirm.jsx';
 
@@ -41,26 +41,48 @@ export function MarkdownText({text}) {
   })}</>;
 }
 
-function MixTable({rows}) {
+// Um ícone por seção: ajuda a achar KPIs, praças e riscos num documento longo.
+const SECTION_ICONS = {resumo: 'plan', visao: 'flag', kpis: 'target', praca: 'pin', audiencia: 'users', jornada: 'route',
+  mix: 'share', criativo: 'palette', teste: 'flask', mensuracao: 'analysis', fases: 'calendar', riscos: 'alert',
+  restricoes: 'shield', premissas: 'list', proximos_passos: 'chevron', para_alinharmos: 'help', defesa: 'mic'};
+
+function ChannelChips({names, logos}) {
+  return <span className="final-plan__channels">{names.map(name => <span key={name} className="final-plan__channel">
+    <LogoTile src={logos[name]} name={name} icon="share" size="xs"/>{name}</span>)}</span>;
+}
+
+/** Números do plano no topo: investimento, período, praças, objetivo e os canais com logo. */
+export function FinalPlanFacts({facts, logos = {}}) {
+  if (!facts?.length) return null;
+  return <dl className="final-facts">{facts.map(fact => <div key={fact.label} className={fact.channels ? 'is-wide' : ''}>
+    <dt><Icon name={fact.icon || 'plan'} size={14}/>{fact.label}</dt>
+    <dd>{fact.channels ? <ChannelChips names={fact.channels.map(item => item.name)} logos={{...logos, ...Object.fromEntries(fact.channels.map(item => [item.name, item.logo]))}}/> : fact.value}</dd>
+  </div>)}</dl>;
+}
+
+function MixTable({rows, logos = {}}) {
   if (!rows?.length) return null;
   // Versões antigas não têm formatos nem KPIs por canal: as colunas só aparecem quando há conteúdo.
   const withFormats = rows.some(row => row.formatos?.length), withKpis = rows.some(row => row.kpis?.length);
   return <div className="final-plan__table"><table>
     <thead><tr><th>Canal</th><th className="is-num">%</th><th className="is-num">R$</th><th>Papel</th>
       {withFormats && <th>Formatos</th>}{withKpis && <th>KPIs</th>}<th>Justificativa</th></tr></thead>
-    <tbody>{rows.map(row => <tr key={row.canal}><td><strong>{row.canal}</strong></td><td className="is-num">{pct(row.percentual)}</td>
+    <tbody>{rows.map(row => <tr key={row.canal}><td><span className="final-plan__channel is-strong">
+      <LogoTile src={row.logo || logos[row.canal]} name={row.canal} icon="share" size="sm"/><strong>{row.canal}</strong></span></td><td className="is-num">{pct(row.percentual)}</td>
       <td className="is-num">{money(row.investimento)}</td><td>{row.papel}</td>
       {withFormats && <td>{(row.formatos || []).join(', ')}</td>}{withKpis && <td>{(row.kpis || []).map(kpi => <i key={kpi} className="final-plan__chip">{kpi}</i>)}</td>}
       <td>{row.justificativa}</td></tr>)}</tbody>
   </table></div>;
 }
 
-function GridTable({table}) {
+function GridTable({table, logos = {}}) {
   if (!table?.rows?.length) return null;
+  const channelColumn = table.columns.indexOf('Canais');
   return <div className="final-plan__table"><table>
     <thead><tr>{table.columns.map(column => <th key={column}>{column}</th>)}</tr></thead>
     <tbody>{table.rows.map((row, index) => <tr key={index}>{row.map((value, cell) =>
-      <td key={cell}>{cell === 0 ? <strong>{value}</strong> : value}</td>)}</tr>)}</tbody>
+      <td key={cell}>{cell === 0 ? <strong>{value}</strong>
+        : cell === channelColumn && value ? <ChannelChips names={String(value).split(', ')} logos={logos}/> : value}</td>)}</tr>)}</tbody>
   </table></div>;
 }
 
@@ -74,18 +96,22 @@ function SummaryCards({cards}) {
 }
 
 /** The document itself: summary sheet on top, then the body. Shared by the Planner and the public link. */
-export function FinalPlanDocument({document, editable = false, edited = [], busyKey = '', onSave, anchors = false}) {
+export function FinalPlanDocument({document, editable = false, edited = [], busyKey = '', onSave, anchors = false, logos: extraLogos = {}}) {
   const [editing, setEditing] = useState('');
+  // Logo de cada canal pelo nome: o do mix (versões novas) e, para as antigas, o que a página do plano conhece.
+  const mix = (document?.sections || []).find(section => section.key === 'mix');
+  const logos = {...extraLogos, ...Object.fromEntries((mix?.rows || []).filter(row => row.logo).map(row => [row.canal, row.logo]))};
   const sections = (document?.sections || []).filter(section => editable || section.body || section.rows?.length || section.table?.rows?.length);
   return <div className="final-plan">
     {sections.map(section => <section key={section.key} id={anchors ? `final-${section.key}` : undefined} className={`final-plan__section${section.key === 'resumo' ? ' is-summary' : ''}`}>
       <header>
+        <span className="final-plan__icon" aria-hidden="true"><Icon name={SECTION_ICONS[section.key] || 'plan'} size={16}/></span>
         <h3>{section.title}</h3>
         {edited.includes(section.key) && <CaduBadge tone="neutral">Editada por você</CaduBadge>}
         {editable && editing !== section.key && <CaduButton variant="tertiary" size="sm" onClick={() => setEditing(section.key)}>Editar</CaduButton>}
       </header>
-      {section.key === 'mix' && <MixTable rows={section.rows}/>}
-      {section.table && <GridTable table={section.table}/>}
+      {section.key === 'mix' && <MixTable rows={section.rows} logos={logos}/>}
+      {section.table && <GridTable table={section.table} logos={logos}/>}
       {editing === section.key
         ? <form onSubmit={async event => {
           event.preventDefault();
@@ -261,9 +287,13 @@ export function PlanFinalPage({boot, request, plan, notify}) {
   const briefing = plan.briefing || {};
   const channels = (plan.items || []).filter(item => item.kind === 'canais');
   // Os números do plano no topo do documento, para ler antes do texto.
-  const facts = [['Investimento', briefing.budget], ['Período', briefing.period], ['Praças', briefing.geography],
-    ['Objetivo', plan.objective && objectiveLabel(plan.objective)],
-    ['Canais', channels.length ? channels.map(item => item.snapshot?.name).filter(Boolean).join(', ') : '']].filter(([, value]) => value);
+  const logos = Object.fromEntries(channels.map(item => [item.snapshot?.name, item.logo]).filter(([name, logo]) => name && logo));
+  // Versões geradas antes da faixa de números não trazem `facts`: monta a partir do plano.
+  const facts = state?.document?.facts?.length ? state.document.facts : [
+    ['Investimento', briefing.budget, 'wallet'], ['Período', briefing.period, 'calendar'], ['Praças', briefing.geography, 'pin'],
+    ['Objetivo', plan.objective && objectiveLabel(plan.objective), 'target']]
+    .filter(([, value]) => value).map(([label, value, icon]) => ({label, value, icon}))
+    .concat(channels.length ? [{label: 'Canais', icon: 'share', channels: channels.map(item => ({name: item.snapshot?.name, logo: item.logo}))}] : []);
   return <>
     {busy === 'generate' && <FinalPlanBuilding/>}
     <PlannerHeader className="ph--plan" crumbs={[['Planos', boot.urls.plans], ['Plano', planUrl]]} title={title} actions={actions}
@@ -281,12 +311,12 @@ export function PlanFinalPage({boot, request, plan, notify}) {
     </section>}
     {exists && <div className="final-page">
       <nav className="final-page__index" aria-label="Seções do plano final"><ol>{sections.map(section =>
-        <li key={section.key}><a href={`#final-${section.key}`}>{section.title}</a></li>)}</ol></nav>
+        <li key={section.key}><a href={`#final-${section.key}`}><Icon name={SECTION_ICONS[section.key] || 'plan'} size={14}/>{section.title}</a></li>)}</ol></nav>
       <article className="final-page__paper">
-        {facts.length > 0 && <dl className="final-facts">{facts.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>}
+        <FinalPlanFacts facts={facts} logos={logos}/>
         {state.stale && <div className="final-plan__stale" role="status"><Icon name="alert" size={16}/>
           O plano mudou depois desta versão. Gere de novo para atualizar o documento.</div>}
-        <FinalPlanDocument document={state.document} editable edited={state.edited_sections || []} busyKey={busy} onSave={fp.saveSection} anchors/>
+        <FinalPlanDocument document={state.document} editable edited={state.edited_sections || []} busyKey={busy} onSave={fp.saveSection} anchors logos={logos}/>
       </article>
     </div>}
     {fp.confirmDialog}
@@ -300,6 +330,7 @@ export function PublicFinalPlan({document}) {
     <header className="planner-public__brand"><img src="/static/images/cadu/products/planner-icon.png" alt="" width="24" height="24"/><span>Plano final compartilhado pelo Cadu Planner</span>
       {document.updated_at && <small>Atualizado em {day(document.updated_at)}</small>}</header>
     <div className="pp-head"><h1>{document.title}</h1>{document.advertiser_name && <p>{document.advertiser_name}</p>}</div>
+    <FinalPlanFacts facts={document.facts}/>
     <FinalPlanDocument document={document}/>
   </article>;
 }

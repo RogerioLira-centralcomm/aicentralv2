@@ -25,6 +25,8 @@ from uuid import uuid4
 
 from werkzeug.exceptions import BadRequest, Conflict, NotFound
 
+from .geography import normalize as normalize_geography
+
 PROMPT_PATH = Path(__file__).with_name('final_plan_prompt.md')
 PROMPT_VERSION = 'final-plan-v2'
 MAX_PAYLOAD_CHARS = 24_000
@@ -158,7 +160,9 @@ def build_payload(plan: Mapping, *, story=None, pending=None) -> dict:
         'plano': {'titulo': plan.get('title'), 'anunciante': plan.get('advertiser_name'),
                   'campanha': plan.get('campaign_name'),
                   'objetivo': OBJECTIVE_LABELS.get(plan.get('objective'), plan.get('objective'))},
-        'briefing': {key: briefing.get(key) for key in ('budget', 'period', 'geography', 'kpis', 'notes')},
+        # Praças por extenso ('Sp, RJ, BH' → 'São Paulo, Rio de Janeiro e Belo Horizonte') antes de chegar ao modelo.
+        'briefing': {key: (normalize_geography(briefing.get(key)) if key == 'geography' else briefing.get(key))
+                     for key in ('budget', 'period', 'geography', 'kpis', 'notes')},
         'verba': {'informada': parse_budget(briefing.get('budget')) if briefing.get('budget') else None,
                   'alocada_nos_canais': allocated},
         'canais': rows[:MAX_LIST],
@@ -420,6 +424,35 @@ def validate(raw: Mapping, payload: Mapping) -> tuple[dict, list]:
     return document, warnings
 
 
+FACT_ICONS = {'Investimento': 'wallet', 'Período': 'calendar', 'Praças': 'pin', 'Objetivo': 'target', 'Canais': 'share'}
+
+
+def decorate(document: Mapping, plan: Mapping) -> dict:
+    """Dados que o modelo não escreve: números do plano no topo e o logo de cada canal (o mesmo da vitrine)."""
+    from .balance import parse_budget
+    briefing = plan.get('briefing') or {}
+    logos = {str(item.get('resource_id')): item.get('logo') or '' for item in plan.get('items') or [] if item.get('kind') == 'canais'}
+    names = {_fold((item.get('snapshot') or {}).get('name')): str(item.get('resource_id'))
+             for item in plan.get('items') or [] if item.get('kind') == 'canais'}
+    budget = parse_budget(briefing.get('budget')) if briefing.get('budget') else None
+    channels = [{'name': (item.get('snapshot') or {}).get('name') or str(item.get('resource_id')), 'logo': logos.get(str(item.get('resource_id')), '')}
+                for item in plan.get('items') or [] if item.get('kind') == 'canais']
+    facts = [('Investimento', _money(budget) if budget else briefing.get('budget')), ('Período', briefing.get('period')),
+             ('Praças', normalize_geography(briefing.get('geography'))),
+             ('Objetivo', OBJECTIVE_LABELS.get(plan.get('objective'), plan.get('objective')))]
+    out = {**document, 'facts': [{'label': label, 'value': value, 'icon': FACT_ICONS[label]} for label, value in facts if value]
+           + ([{'label': 'Canais', 'channels': channels, 'icon': 'share'}] if channels else [])}
+    sections = []
+    for section in document.get('sections') or []:
+        if section.get('key') == 'mix' and section.get('rows'):
+            section = {**section, 'rows': [{**row, 'logo': logos.get(names.get(_fold(row.get('canal'))), '')} for row in section['rows']]}
+        if section.get('key') == 'praca' and not section.get('body') and briefing.get('geography'):
+            section = {**section, 'body': normalize_geography(briefing.get('geography'))}
+        sections.append(section)
+    out['sections'] = sections
+    return out
+
+
 def parse_json(content) -> dict:
     raw = str(content or '').strip()
     fenced = re.fullmatch(r'```(?:json)?\s*(.*?)\s*```', raw, flags=re.S | re.I)
@@ -494,7 +527,7 @@ def public_projection(row: Mapping | None) -> dict | None:
     for s in document.get('sections') or []:
         item = {'key': s.get('key'), 'title': s.get('title'), 'body': s.get('body') or ''}
         if s.get('rows'):
-            item['rows'] = [{k: r.get(k) for k in ('canal', 'percentual', 'investimento', 'papel', 'justificativa', 'formatos', 'kpis')}
+            item['rows'] = [{k: r.get(k) for k in ('canal', 'percentual', 'investimento', 'papel', 'justificativa', 'formatos', 'kpis', 'logo')}
                             for r in s['rows']]
         for key in ('table', 'cards'):
             if s.get(key):
@@ -503,6 +536,7 @@ def public_projection(row: Mapping | None) -> dict | None:
             sections.append(item)
     return {'title': row.get('plan_title') or '', 'advertiser_name': row.get('advertiser_name') or '',
             'version': row.get('version'), 'updated_at': row.get('created_at'), 'sections': sections,
+            'facts': document.get('facts') or [],
             'note': document.get('note') or PRICE_NOTE}
 
 
@@ -630,6 +664,7 @@ def generate(client_id, actor_id, plan_id, *, overwrite_edited=False, instructio
         charged += _charge(credits, actor, run_id, attempt, response, plan['id'])
         try:
             document, warnings = validate(parse_json(response.get('content')), payload)
+            document = decorate(document, plan)
             break
         except BadRequest:
             if attempt == 2:

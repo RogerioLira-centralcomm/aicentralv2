@@ -2061,3 +2061,20 @@ a.planner-card:focus-visible { outline: 2px solid var(--colors-brand-600, #07945
 .final-page__paper .final-plan__table td { padding: 12px 10px; }
 .final-plan__chip { display: inline-block; margin: 0 4px 4px 0; padding: 1px 8px; border-radius: 4px; background: var(--planner-brand-soft); color: var(--planner-brand-strong); font-size: 12px; font-style: normal; white-space: nowrap; }
 @media (max-width: 900px) { .final-page__paper { padding: 24px 16px; } .final-summary__thesis { font-size: 17px !important; } }
+
+/* Plano final: ícone por seção, logos dos canais (os mesmos do balanço de mídia) e ícones na faixa de números. */
+.final-plan__section header { gap: 10px; }
+.final-plan__icon { display: inline-grid; flex: none; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: var(--planner-brand-soft); color: var(--planner-brand-strong); }
+.final-plan__section.is-summary .final-plan__icon { background: var(--planner-surface); }
+.final-plan__channels { display: flex; flex-wrap: wrap; gap: 6px 12px; }
+.final-plan__channel { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.final-plan__channel.is-strong { gap: 10px; white-space: normal; }
+.final-plan__channel .logo-tile--xs > img, .final-plan__channel .logo-tile--sm > img { width: 100%; height: 100%; padding: 3px; object-fit: contain; }
+.final-facts dt { display: flex; align-items: center; gap: 6px; }
+.final-facts dt svg { color: var(--planner-brand); }
+.final-facts > div.is-wide { grid-column: span 2; }
+.final-facts .final-plan__channels { font-size: 14px; font-weight: 600; }
+.final-page__index a { display: flex; align-items: center; gap: 8px; }
+.final-page__index a svg { flex: none; color: var(--planner-subtle); }
+.final-page__index a:hover svg { color: var(--planner-brand); }
+@media (max-width: 700px) { .final-facts > div.is-wide { grid-column: auto; } }

@@ -123,7 +123,8 @@ def test_public_projection_has_no_internal_fields():
            'charged_tokens': 999, 'created_by': 7, 'source_hash': 'h', 'plan_title': 'Lançamento Verão',
            'advertiser_name': 'Marca X', 'created_at': '2026-10-08'}
     public = final_plan.public_projection(row)
-    assert set(public) == {'title', 'advertiser_name', 'version', 'updated_at', 'sections', 'note'}
+    # facts: verba, período, praças, objetivo e canais, os mesmos dados que o mix público já mostra.
+    assert set(public) == {'title', 'advertiser_name', 'version', 'updated_at', 'sections', 'note', 'facts'}
     text = json.dumps(public, ensure_ascii=False)
     for forbidden in ('secret-id', 'charged_tokens', 'warnings', 'source_hash', 'canal_id', 'created_by', '999'):
         assert forbidden not in text
@@ -260,3 +261,17 @@ def test_v2_structured_sections_keep_only_plan_channels_formats_and_numbers():
     assert '| Etapa | Objetivo |' in final_plan.to_markdown(document)
     public = final_plan.public_projection({'document': document})
     assert any(s.get('table') for s in public['sections'])
+
+
+def test_decorate_adds_plan_facts_logos_and_full_place_names():
+    base = plan(briefing={'budget': 'R$ 200 mil', 'period': '8 semanas', 'geography': 'Sp, RJ, BH'})
+    base['items'][0]['logo'] = '/static/logos/youtube.svg'
+    document = final_plan.decorate({'sections': [{'key': 'mix', 'rows': [{'canal': 'YouTube'}]}, {'key': 'praca', 'body': ''}]}, base)
+    facts = {fact['label']: fact for fact in document['facts']}
+    assert facts['Praças']['value'] == 'São Paulo, Rio de Janeiro e Belo Horizonte'
+    assert facts['Investimento']['value'] == 'R$ 200.000'
+    assert facts['Canais']['channels'][0] == {'name': 'YouTube', 'logo': '/static/logos/youtube.svg'}
+    assert document['sections'][0]['rows'][0]['logo'] == '/static/logos/youtube.svg'
+    assert document['sections'][1]['body'] == 'São Paulo, Rio de Janeiro e Belo Horizonte'
+    payload = final_plan.build_payload(base)
+    assert payload['confirmado']['briefing']['geography'] == 'São Paulo, Rio de Janeiro e Belo Horizonte'

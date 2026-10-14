@@ -10,8 +10,9 @@ import {LogoTile, SelectionButton} from './PlannerUi.jsx';
 const KINDS = ['canais', 'audiencias', 'formatos', 'interativos', 'portais', 'places'];
 const KIND_ICON = {canais: 'share', audiencias: 'users', formatos: 'table', interativos: 'plugin', portais: 'library', places: 'browser'};
 
-function pathFor(kind, query) {
+function pathFor(kind, query, platforms) {
   const params = new URLSearchParams({q: query});
+  if (kind === 'formatos' && platforms?.length) params.set('platforms', platforms.join(','));
   if (kind === 'places') return `/places?${params}`;
   if (kind === 'audiencias' || kind === 'portais') params.set('limit', '24');
   return `/catalog/${kind}?${params}`;
@@ -36,8 +37,11 @@ function subtitleFor(kind, item) {
  * Inclusão de itens sem sair do plano: o usuário busca em qualquer vitrine e
  * adiciona ou tira na hora. O plano atualiza a composição e o balanceamento.
  */
-export function AddItemsDialog({request, selection, onClose, initialKind = 'canais'}) {
+export function AddItemsDialog({request, selection, onClose, initialKind = 'canais', formatPlatforms = []}) {
   const [kind, setKind] = useState(initialKind);
+  // Formatos começam pelos dos canais já escolhidos; 'Ver todos' tira o filtro.
+  const [planOnly, setPlanOnly] = useState(true);
+  const platforms = planOnly ? formatPlatforms : [];
   const [query, setQuery] = useState('');
   const [state, setState] = useState({records: [], loading: true});
   const search = useDebounced(query);
@@ -45,11 +49,11 @@ export function AddItemsDialog({request, selection, onClose, initialKind = 'cana
   useEffect(() => {
     const controller = new AbortController();
     setState(current => ({...current, loading: true}));
-    request(pathFor(kind, search), {signal: controller.signal})
+    request(pathFor(kind, search, platforms), {signal: controller.signal})
       .then(data => setState({records: (data.records || []).slice(0, 30), loading: false}))
       .catch(error => { if (error.name !== 'AbortError') setState({records: [], loading: false, error: error.message}); });
     return () => controller.abort();
-  }, [request, kind, search]);
+  }, [request, kind, search, platforms.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <CaduDialog className="planner-dialog planner-dialog--wide add-items" closeOnBackdrop onClose={onClose}>{({titleId}) => <>
     <header><h2 id={titleId}>Adicionar ao plano</h2>
@@ -59,6 +63,10 @@ export function AddItemsDialog({request, selection, onClose, initialKind = 'cana
     <CaduInput aria-label={`Buscar em ${MODULE_LABELS[kind]}`} type="search" value={query} autoFocus placeholder={`Buscar em ${MODULE_LABELS[kind].toLowerCase()}`}
       leading={<span className="planner-toolbar__search-icon" aria-hidden="true"><Icon name="search" size={16}/></span>}
       onChange={event => setQuery(event.target.value)}/>
+    {kind === 'formatos' && formatPlatforms.length > 0 && <p className="fmt-plan-filter" role="status">
+      {planOnly ? 'Formatos dos canais do plano.' : 'Todos os formatos.'}
+      <CaduButton variant="tertiary" size="sm" onClick={() => setPlanOnly(value => !value)}>{planOnly ? 'Ver todos os formatos' : 'Só os dos canais do plano'}</CaduButton>
+    </p>}
     <ul className={`add-items__list${state.loading ? ' is-loading' : ''}`} aria-busy={state.loading} aria-label="Resultados">
       {state.records.map(item => {
         const id = itemKey(item);

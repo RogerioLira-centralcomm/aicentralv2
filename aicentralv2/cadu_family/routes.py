@@ -729,10 +729,13 @@ def planner_catalog(kind):
     if kind == 'audiencias':
         return jsonify(kind=kind, **_audience_page(request.args))
     if kind in {'canais', 'formatos', 'interativos'}:
+        # ?platforms=meta_ads,programatica_iab: só os formatos que servem aos canais do plano.
+        platforms = [item.strip() for item in request.args.get('platforms', '').split(',') if item.strip()]
         records = repository.catalog(
             kind, request.args.get('q', ''), category=request.args.get('category', ''),
             platform=request.args.get('platform', ''), sort=request.args.get('sort', 'relevant'),
-            format_type=request.args.get('type', ''), segment=request.args.get('segment', ''))
+            format_type=request.args.get('type', ''), segment=request.args.get('segment', ''),
+            **({'platforms': platforms} if platforms and kind == 'formatos' else {}))
         if kind == 'canais':
             from ..cadu_planner.channels import decorate_logos
             decorate_logos(records)

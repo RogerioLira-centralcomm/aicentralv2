@@ -237,3 +237,23 @@ def news(channel_id):
                       FROM cadu_canais_noticias
                      WHERE canal_id = %s AND is_active IS TRUE
                      ORDER BY data_publicacao DESC NULLS LAST, id DESC LIMIT 6''', (channel_id,))
+
+
+# Canal do catálogo → plataforma dos formatos (cadu_formatos.plataforma_slug). Canais sem
+# formatos próprios (portais, programática, streaming, DOOH, mobilidade) compram em padrão IAB.
+FORMAT_PLATFORM_BY_CHANNEL = {
+    'instagram': 'meta_ads', 'youtube': 'google_ads', 'tiktok': 'tiktok_ads', 'linkedin': 'linkedin_ads',
+    'spotify': 'spotify_ads', 'cnn-brasil': 'cnn', 'g1-globo': 'g1', 'infomoney': 'infomoney', 'netflix': 'netflix',
+    'sbt': 'sbt', 'prime-video': 'prime_video', 'interativos': 'interativos',
+}
+DEFAULT_FORMAT_PLATFORM = 'programatica_iab'
+
+
+def format_platforms(channel_ids):
+    """Plataformas de formato que servem aos canais escolhidos, sem repetição."""
+    ids = [int(value) for value in channel_ids if str(value).isdigit()]
+    if not ids:
+        return []
+    slugs = repository.rows('SELECT slug FROM cadu_canais WHERE id = ANY(%s) ORDER BY id', (ids,))
+    platforms = [FORMAT_PLATFORM_BY_CHANNEL.get(row['slug'] or '', DEFAULT_FORMAT_PLATFORM) for row in slugs]
+    return list(dict.fromkeys(platforms))

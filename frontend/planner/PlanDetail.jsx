@@ -204,7 +204,7 @@ export function PlanDetail({boot, request, plan, setPlan, selection, notify}) {
       </div>
     </div>
     {quoteOpen && <QuoteDialog busy={busy === 'quote'} onClose={() => setQuoteOpen(false)} onSubmit={submitQuote}/>}
-    {addOpen && <AddItemsDialog request={request} selection={selection} onClose={() => setAddOpen(false)}/>}
+    {addOpen && <AddItemsDialog request={request} selection={selection} formatPlatforms={plan.format_platforms || []} onClose={() => setAddOpen(false)}/>}
     {reviewOpen && <FinalReviewDialog plan={plan} busy={busy === 'status'} onClose={() => setReviewOpen(false)} onFinalize={finalize}
       onGoTo={goTo} onAddItems={() => { setReviewOpen(false); setAddOpen(true); }}/>}
   </>;

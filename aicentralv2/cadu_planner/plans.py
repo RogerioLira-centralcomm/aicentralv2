@@ -119,6 +119,9 @@ def get_plan(client_id, actor_id, plan_id):
                                          FROM cadu_planner_plan_items WHERE plan_id = %s
                                       ORDER BY kind, created_at''', (str(plan_id),))
     _project_snapshots(plan['items'])
+    from .channels import format_platforms
+    # Formatos que servem aos canais do plano: a vitrine de formatos abre filtrada por eles.
+    plan['format_platforms'] = format_platforms(item['resource_id'] for item in plan['items'] if item['kind'] == 'canais')
     plan['allocations'] = repository.rows('''SELECT resource_id, investment, weight, flight, notes
                                                 FROM cadu_planner_channel_allocations WHERE plan_id = %s
                                              ORDER BY resource_id''', (str(plan_id),)) if _allocations_available() else []

@@ -808,7 +808,7 @@ def integrations(organization_id):
                 ORDER BY platform, platform_account_name''', (organization_id,))
 
 
-def catalog(module, query='', category='', platform='', sort='relevant', format_type='', segment=''):
+def catalog(module, query='', category='', platform='', sort='relevant', format_type='', segment='', platforms=None):
     search = '%' + query[:100] + '%'
     if module == 'audiencias':
         category = category.strip()[:100] if isinstance(category, str) else ''
@@ -850,6 +850,7 @@ def catalog(module, query='', category='', platform='', sort='relevant', format_
         platform = platform.strip()[:80] if isinstance(platform, str) else ''
         format_type = format_type.strip()[:80] if isinstance(format_type, str) else ''
         segment = segment.strip()[:100] if isinstance(segment, str) else ''
+        platforms_filter = [str(item)[:80] for item in platforms][:20] if platforms else None
         records = rows('''SELECT f.id, f.nome AS name, f.descricao AS description,
                              f.dimensoes AS dimensions, f.formatos_arquivo AS files,
                              f.tipo AS format_type, f.plataforma_slug AS platform_slug,
@@ -864,11 +865,12 @@ def catalog(module, query='', category='', platform='', sort='relevant', format_
                               OR COALESCE(f.plataforma_slug, '') ILIKE %s OR COALESCE(p.nome, '') ILIKE %s)
                          AND f.is_interativo = %s
                          AND (%s = '' OR f.plataforma_slug = %s)
+                         AND (%s::text[] IS NULL OR f.plataforma_slug = ANY(%s::text[]))
                          AND (%s = '' OR f.tipo = %s)
                          AND (%s = '' OR LOWER(COALESCE(NULLIF(TRIM(f.categoria_criativa), ''), NULLIF(TRIM(f.dados_extras ->> 'segmento'), ''), NULLIF(f.tipo, ''), 'Geral')) = LOWER(%s))
                     ORDER BY p.ordem NULLS LAST, f.ordem, f.nome LIMIT 400''',
                     (search, search, search, search, search, search, module == 'interativos',
-                     platform, platform, format_type, format_type, segment, segment))
+                     platform, platform, platforms_filter, platforms_filter, format_type, format_type, segment, segment))
         return [_decorate_format(record) for record in records]
     raise ValueError('Catálogo inválido.')
 

@@ -9,3 +9,11 @@ def test_text_and_json_sent_to_postgres_drop_nul():
     assert db._sem_nul({'notes\x00': ['está\x00dio', 0, None]}) == {'notes': ['estádio', 0, None]}
     assert db._StrSemNul(str).dump('a\x00b') == b'ab'
     assert json.loads(bytes(JsonDumper(Json).dump(Json({'notes': 'a\x00b'})))) == {'notes': 'ab'}
+
+
+def test_str_parameters_stay_untyped_so_postgres_can_cast_them():
+    # With the binary (text-typed) dumper as the default, "uuid_column = %s" failed everywhere.
+    import psycopg
+    from psycopg.adapt import PyFormat
+    from aicentralv2 import db
+    assert psycopg.adapters.get_dumper(str, PyFormat.AUTO) is db._StrSemNul

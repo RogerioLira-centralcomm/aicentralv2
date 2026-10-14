@@ -67,8 +67,11 @@ class _StrBinarioSemNul(StrBinaryDumper):
         return super().dump(_sem_nul(obj))
 
 
-psycopg.adapters.register_dumper(str, _StrSemNul)
+# A ordem importa: o último dumper registrado vira o padrão de %s. O de texto precisa ficar por
+# último, porque manda o valor sem tipo (unknown) e o Postgres o converte para uuid, date, int...
+# Com o binário por último, todo str ia como text e quebrava "coluna_uuid = %s" no sistema todo.
 psycopg.adapters.register_dumper(str, _StrBinarioSemNul)
+psycopg.adapters.register_dumper(str, _StrSemNul)
 set_json_dumps(lambda obj: json.dumps(_sem_nul(obj)))
 
 logger = logging.getLogger(__name__)

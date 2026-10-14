@@ -46,6 +46,8 @@ a { color: var(--cadu-accent-strong); }
 .cadu-auth-heading>p:last-child { max-width: 42ch; margin: 11px 0 0; color: var(--cadu-muted); font-size: 14px; line-height: 1.5; }
 .cadu-auth-wide { width: 100%; }
 .cadu-auth-google-mark { flex: none; }
+.cadu-auth-google-soon { cursor: not-allowed; }
+.cadu-auth-soon-badge { margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: var(--cadu-surface-2, #eef2f1); color: var(--cadu-muted); font-size: 11px; font-weight: 600; }
 .cadu-auth-google-note { margin: 10px 0 0; color: var(--cadu-muted); font-size: 12px; text-align: center; }
 .cadu-auth-divider { display: flex; align-items: center; gap: 12px; margin: 22px 0 18px; color: var(--cadu-muted); font-size: 12px; }
 .cadu-auth-divider::before, .cadu-auth-divider::after { flex: 1; height: 1px; background: var(--cadu-line); content: ''; }

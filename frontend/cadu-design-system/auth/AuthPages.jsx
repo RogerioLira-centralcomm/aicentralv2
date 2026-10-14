@@ -18,7 +18,7 @@ export function Login({bootstrap}) {
   }, {overlay: true});
   return <AuthFrame bootstrap={bootstrap} overlay={form.overlayVisible}>
     <PageHeading title={copy.loginTitle} description={copy.loginDescription} />
-    <GoogleButton href={bootstrap.googleUrl} label="Continuar com Google" />
+    <GoogleButton href={bootstrap.googleUrl} label="Continuar com Google" comingSoon />
     <div className="cadu-auth-divider"><span>{copy.loginDivider}</span></div>
     <form action={bootstrap.formAction} method="POST" onSubmit={form.handleSubmit} className="cadu-auth-form" noValidate>
       {hidden('next', bootstrap.next)}
@@ -44,8 +44,8 @@ export function Signup({bootstrap}) {
   const errors = (bootstrap.signupErrors || []).map(message => ['error', message]);
   return <AuthFrame bootstrap={{...bootstrap, messages: [...(bootstrap.messages || []), ...errors]}} signup overlay={form.overlayVisible}>
     <PageHeading eyebrow="Comece com um projeto real" title="Crie a base do seu próximo projeto" description="Reúna marca, briefing e fontes para o time continuar sem reconstruir o contexto." />
-    <GoogleButton href={bootstrap.googleUrl} label="Criar conta com Google" />
-    <p className="cadu-auth-google-note">Use sua conta Google para entrar sem criar mais uma senha.</p>
+    <GoogleButton href={bootstrap.googleUrl} label="Criar conta com Google" comingSoon />
+    <p className="cadu-auth-google-note">O acesso com Google chega em breve. Por enquanto, crie sua conta com email.</p>
     <div className="cadu-auth-divider"><span>ou crie com email</span></div>
     <form action={bootstrap.formAction} method="POST" onSubmit={form.handleSubmit} className="cadu-auth-form" noValidate>
       {hidden('next', bootstrap.next)}

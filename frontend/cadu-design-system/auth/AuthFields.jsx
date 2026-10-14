@@ -48,7 +48,14 @@ const GoogleMark = () => <svg className="cadu-auth-google-mark" viewBox="0 0 24 
   <path fill="#EA4335" d="M12 4.75c1.76 0 3.34.61 4.59 1.8l3.43-3.43A11.5 11.5 0 0 0 12 0 12 12 0 0 0 1.39 6.6l3.98 3.1A7.2 7.2 0 0 1 12 4.75Z"/>
 </svg>;
 
-export function GoogleButton({href, label}) {
+// Login Google ainda sem credenciais de produção: botão visível, mas inativo.
+// Para reativar, remova `comingSoon` dos usos em AuthPages.jsx.
+export function GoogleButton({href, label, comingSoon = false}) {
+  if (comingSoon) {
+    return <Button size="lg" color="secondary" iconLeading={<GoogleMark/>} className="cadu-auth-wide cadu-auth-google-soon" isDisabled>
+      {label} <span className="cadu-auth-soon-badge">Em breve</span>
+    </Button>;
+  }
   return <Button href={href} size="lg" color="secondary" iconLeading={<GoogleMark/>} className="cadu-auth-wide">{label}</Button>;
 }
 

@@ -112,13 +112,22 @@ def _estimate_tokens(source_chars: int, output_tokens_per_pass: int) -> int:
     return source_tokens + (output_tokens_per_pass * 5) + 600
 
 
+def _briefing_estimate_for(context: Mapping[str, object]) -> int:
+    """Teto das três passagens a partir do contexto que de fato vai ao modelo.
+
+    Cada passagem recebe o contexto inteiro de novo, mais o rascunho anterior (do tamanho de um briefing).
+    """
+    source_tokens = max(1, (len(repr(dict(context))) + 3) // 4)
+    draft_tokens = min(source_tokens, 1_200)
+    return source_tokens * 3 + draft_tokens * 2 + BRIEFING_OUTPUT_TOKENS_PER_PASS * 3 + 600
+
+
 def briefing_estimate(client_id: int, actor_id: int, plan_id: str) -> int:
     from . import plans
     plan = plans.get_plan(client_id, actor_id, plan_id)
-    source = repr({"title": plan.get("title"), "objective": plan.get("objective"),
-                   "advertiser_name": plan.get("advertiser_name"), "campaign_name": plan.get("campaign_name"),
-                   "briefing": plan.get("briefing") or {}, "items": plan.get("items") or []})
-    return _estimate_tokens(len(source), BRIEFING_OUTPUT_TOKENS_PER_PASS)
+    # Antes contava o snapshot completo de cada item (dados de audiência inteiros), que nunca é enviado:
+    # um plano com 9 itens reservava ~25 mil tokens para uma revisão que custa ~8 mil.
+    return _briefing_estimate_for(_briefing_context(client_id, plan))
 
 
 def briefing_billing_estimate(client_id: int, actor_id: int, plan_id: str) -> int:
@@ -215,6 +224,27 @@ def _charge_review_pass(*, credits, actor, review_id: str, scope: str, pass_numb
     return int((charge or {}).get("tokens_cobrados") or 0)
 
 
+def _briefing_context(client_id: int, plan: Mapping[str, object]) -> dict:
+    """O que a revisão manda ao modelo: o plano, o perfil da marca/projeto e só o nome dos itens."""
+    from .context import load_plan_context
+    try:
+        brand_context = load_plan_context(client_id, plan.get("brand_ref"), plan.get("project_ref"))
+    except Exception:  # noqa: BLE001 — the review still runs on the plan alone
+        brand_context = {}
+    def profile(entity):
+        return {"nome": entity.get("name"), **{item["label"]: item["value"] for item in entity.get("fields") or []
+                                              if item.get("value") not in (None, "", [], {})}} if entity else None
+    return {
+        "title": plan.get("title"), "objective": OBJECTIVE_LABELS.get(plan.get("objective"), plan.get("objective")),
+        "marca": profile(brand_context.get("brand")), "projeto": profile(brand_context.get("project")),
+        "advertiser_name": plan.get("advertiser_name"), "campaign_name": plan.get("campaign_name"),
+        "briefing": plan.get("briefing") or {},
+        "selected_media": [{"kind": item.get("kind"), "name": (item.get("snapshot") or {}).get("name"),
+                            "category": (item.get("snapshot") or {}).get("category")}
+                           for item in plan.get("items") or []],
+    }
+
+
 def review_briefing(client_id: int, actor_id: int, plan_id: str) -> dict:
     """Run the three sequential passes and persist only the final briefing.
 
@@ -226,27 +256,11 @@ def review_briefing(client_id: int, actor_id: int, plan_id: str) -> dict:
     from . import plans
 
     plan = plans.get_plan(client_id, actor_id, plan_id)
-    from .context import load_plan_context
-    try:
-        brand_context = load_plan_context(client_id, plan.get("brand_ref"), plan.get("project_ref"))
-    except Exception:  # noqa: BLE001 — the review still runs on the plan alone
-        brand_context = {}
-    def profile(entity):
-        return {"nome": entity.get("name"), **{item["label"]: item["value"] for item in entity.get("fields") or []
-                                              if item.get("value") not in (None, "", [], {})}} if entity else None
-    context = {
-        "title": plan.get("title"), "objective": OBJECTIVE_LABELS.get(plan.get("objective"), plan.get("objective")),
-        "marca": profile(brand_context.get("brand")), "projeto": profile(brand_context.get("project")),
-        "advertiser_name": plan.get("advertiser_name"), "campaign_name": plan.get("campaign_name"),
-        "briefing": plan.get("briefing") or {},
-        "selected_media": [{"kind": item.get("kind"), "name": (item.get("snapshot") or {}).get("name"),
-                            "category": (item.get("snapshot") or {}).get("category")}
-                           for item in plan.get("items") or []],
-    }
+    context = _briefing_context(client_id, plan)
     credits = CaduCreditConnector()
     actor = CreditActor.from_values(client_id, actor_id)
     # Reserve the full three-pass ceiling before any paid provider work starts.
-    credits.authorize(actor, briefing_billing_estimate(client_id, actor_id, plan_id))
+    credits.authorize(actor, _briefing_estimate_for(context) * TEXT_AGENT_MARGIN_MULTIPLIER)
     provider, draft, charged_tokens = TextProvider(), {}, 0
     review_id = str(uuid4())
     # Pass 1 finds the gaps and pass 3 only applies: keep every question and the last explanation, not just pass 3's.

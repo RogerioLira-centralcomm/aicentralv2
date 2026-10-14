@@ -35,12 +35,13 @@ const linkedSelection = selection => {
   const brand = query.get('brand_ref'), project = query.get('project_ref');
   return Boolean((brand && brand === selection?.brand_ref) || (project && project === selection?.project_ref));
 };
-// O rascunho guarda a barra do topo em que nasceu: se ela mudou desde então, ou se a pessoa
-// chegou por um link de projeto, vale a escolha nova.
+// O rascunho guarda a barra do topo em que nasceu. Se ela mudou desde então, o brief era de outra
+// marca ou projeto e recomeça vazio; um link de projeto sempre impõe a marca e o projeto dele.
 const initialData = (selection, brands, projects, linked) => {
-  const draft = readDraft();
   const seed = contextQuery(selection);
-  const own = !linked && draft.seed === seed;
+  const saved = readDraft();
+  const draft = saved.seed === seed ? saved : empty;
+  const own = !linked && draft === saved;
   const brand_ref = own ? draft.brand_ref : selection?.brand_ref;
   const project_ref = own ? draft.project_ref : selection?.project_ref;
   const brand = brands.find(item => item.ref === brand_ref);

@@ -46,10 +46,15 @@ KPI_GROUPS = (
     (('viewability', 'visibilidade'), {'programmatic', 'portais', 'video', 'ctv'}),  # antes de 'view'
     (('view', 'vtr', 'cpv', 'visualiza', 'video completo'), {'video', 'ctv', 'social'}),
     (('clique', 'ctr', 'cpc'), {'performance', 'social', 'programmatic', 'portais', 'apps'}),
+    # Sessão e visita ao site vêm antes de engajamento: 'sessões engajadas' é tráfego.
+    (('visita', 'sessao', 'sessoes', 'trafego', 'pagina', 'site', 'tempo de permanencia', 'tempo na pagina', 'rejeicao', 'bounce'),
+     {'performance', 'social', 'programmatic', 'portais'}),
+    (('interesse', 'consideracao', 'intencao'), {'video', 'ctv', 'social', 'portais', 'programmatic'}),
     (('engaja', 'interac'), {'social', 'portais'}),
+    (('busca', 'pesquisa', 'search'), {'performance'}),
+    (('download', 'instala', 'app install'), {'apps', 'performance', 'social'}),
     (('lead', 'cpl', 'cadastro'), {'performance', 'social', 'data'}),
     (('venda', 'cpa', 'roas', 'receita', 'conversa', 'conversoes', 'compra'), {'performance', 'social', 'data'}),
-    (('visita', 'sessao', 'sessoes', 'trafego', 'pagina', 'site'), {'performance', 'social', 'programmatic', 'portais'}),
     (('ouvinte', 'listener', 'audio'), {'audio'}),
 )
 
@@ -305,6 +310,9 @@ def compute(plan, method=None, manual=None, progress=True):
     orphan = [kpi for kpi in kpis if kpi_groups(kpi) and not kpi_groups(kpi) & present]
     if orphan:
         base['warnings'].append({'level': 'attention', 'text': f"Nenhum canal do plano mede {', '.join(orphan)}. Inclua um canal que meça ou ajuste os KPIs."})
+    unknown = [kpi for kpi in kpis if not kpi_groups(kpi)]
+    if unknown:
+        base['warnings'].append({'level': 'info', 'text': f"Não reconheci {', '.join(unknown)} como indicador de mídia. Use termos como alcance, CTR, VTR, leads ou visitas ao site."})
     return base
 
 

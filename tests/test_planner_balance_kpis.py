@@ -17,3 +17,12 @@ def test_kpi_cut_from_the_column_is_not_reported_as_unmeasured():
     kpis = balance.plan_kpis(plan['briefing']['kpis'])
     assert len(balance._channel_kpis('social', kpis)[0]) == 4
     assert [kpi for kpi in kpis if balance.kpi_groups(kpi) and not balance.kpi_groups(kpi) & present] == []
+
+
+def test_suggested_kpis_are_all_understood():
+    suggested = ['Alcance', 'Frequência média', 'Impressões', 'CPM', 'Lembrança de marca', 'Views completas (VTR)', 'CPV',
+                 'Cliques', 'CTR', 'Engajamento', 'Leads', 'CPL', 'Taxa de conversão', 'Vendas', 'CPA', 'ROAS', 'Receita',
+                 'Visitas ao site', 'CPC', 'Sessões engajadas']
+    assert [kpi for kpi in suggested if not balance.kpi_groups(kpi)] == []
+    assert 'performance' in balance.kpi_groups('Sessões engajadas')
+    assert balance.kpi_groups('Interesse qualificado')

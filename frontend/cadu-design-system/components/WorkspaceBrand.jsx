@@ -87,9 +87,31 @@ function IdentityDialog({brand, urls, csrfToken, onClose}) {
   </BrandDialog>;
 }
 
-function LinkProjectsDialog({brand, projects, csrfToken, onClose}) {
-  return <BrandDialog title={`Vincular ${brand.name}`} detail="Escolha um projeto para manter esta identidade disponível no contexto de trabalho." onClose={onClose}>
-    <div className="cadu-ds-brand-project-picker">{projects.length ? projects.map(project => <form method="post" action={project.linkUrl} key={project.id}><Hidden name="_csrf" value={csrfToken}/><input type="hidden" name="add_brand_id" value={brand.id}/><CaduButton variant="secondary" type="submit" className="cadu-ds-brand-project-picker__option"><span><b>{project.name}</b><small>{project.description || 'Sem contexto inicial'}</small></span><i aria-hidden="true">+</i></CaduButton></form>) : <p className="cadu-ds-brand-empty">Nenhum projeto ativo disponível.</p>}</div>
+const foldProjectText = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
+
+// Linking only adds this brand to a project that already exists; creating one is its own action.
+function LinkProjectsDialog({brand, projects, linkedProjects = [], csrfToken, onCreate, onClose}) {
+  const [query, setQuery] = useState('');
+  const linkedIds = new Set(linkedProjects.map(project => String(project.id)));
+  const needle = foldProjectText(query.trim());
+  const visible = projects.filter(project => !needle || foldProjectText(`${project.name} ${project.description}`).includes(needle))
+    .sort((left, right) => linkedIds.has(String(left.id)) - linkedIds.has(String(right.id)));
+  return <BrandDialog title="Vincular a um projeto" detail={`${brand.name} passa a fazer parte do contexto do projeto escolhido.`} onClose={onClose}>
+    <div className="cadu-ds-brand-project-link">
+      {projects.length > 5 && <div className="cadu-ds-brand-project-link__search" role="search"><Icon name="search" size={16}/><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar projeto" aria-label="Buscar projeto" autoFocus/></div>}
+      <ul className="cadu-ds-brand-project-link__list">
+        {visible.map(project => {
+          const linked = linkedIds.has(String(project.id));
+          return <li key={project.id} className={linked ? 'is-linked' : ''}>
+            <span className="cadu-ds-brand-project-link__initial" aria-hidden="true">{String(project.name || 'P').trim().slice(0, 1).toUpperCase()}</span>
+            <span className="cadu-ds-brand-project-link__copy"><b>{project.name}</b><small>{project.description || 'Sem contexto inicial'}</small></span>
+            {linked ? <em>Vinculado</em> : <form method="post" action={project.linkUrl}><Hidden name="_csrf" value={csrfToken}/><input type="hidden" name="add_brand_id" value={brand.id}/><CaduButton type="submit" variant="secondary" size="sm">Vincular</CaduButton></form>}
+          </li>;
+        })}
+      </ul>
+      {!visible.length && <p className="cadu-ds-brand-empty">{projects.length ? 'Nenhum projeto encontrado.' : 'Ainda não há projetos ativos.'}</p>}
+      <footer className="cadu-ds-brand-project-link__footer"><span>Não encontrou o projeto certo?</span><CaduButton type="button" variant="secondary" onClick={onCreate}>Criar novo projeto</CaduButton></footer>
+    </div>
   </BrandDialog>;
 }
 
@@ -544,7 +566,8 @@ function BrandActions({lifecycle, status, verified, canEdit, urls, csrf, hasHist
   const menuItems = [
     canEdit && !insufficient && {id:'identity', label:'Editar dados', onAction:() => onDialog('identity')},
     canShowSynthesis && {id:'reviews', label:'Ver síntese da análise', onAction:() => onDialog('reviews')},
-    {id:'link', label:'Criar ou vincular projeto', onAction:() => onDialog('link')},
+    {id:'project-create', label:'Novo projeto com esta marca', onAction:() => onDialog('project-create')},
+    {id:'link', label:'Vincular a projeto existente', onAction:() => onDialog('link')},
     canEdit && !insufficient && {id:'audit', label:status ? 'Atualizar análise' : 'Preparar análise', onAction:() => onDialog('audit')},
     canEdit && hasHistory && urls.reevaluate && {id:'reevaluate', label:'Reavaliar dados salvos', onAction:() => reevaluate.current?.requestSubmit()},
     canEdit && {id:'delete', label:'Apagar marca', destructive:true, separatorBefore:true, onAction:() => onDialog('delete')},
@@ -731,7 +754,7 @@ export function WorkspaceBrand({bootstrap}) {
     </main>
     {showCelebration && <AuditCelebration brand={brand} logoUrl={auditLogoUrl}/>}
     {dialog === 'identity' && <IdentityDialog brand={brand} urls={urls} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>}
-    {dialog === 'link' && <LinkProjectsDialog brand={brand} projects={bootstrap.availableProjects || []} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>}
+    {dialog === 'link' && <LinkProjectsDialog brand={brand} projects={bootstrap.availableProjects || []} linkedProjects={linkedProjects} csrfToken={bootstrap.csrf} onCreate={() => setDialog('project-create')} onClose={() => setDialog('')}/>}
     {dialog === 'project-create' && <CreateBrandProjectDialog brand={brand} action={urls.createProject} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>}
     {dialog === 'audit' && <AuditDialog brand={brand} urls={urls} csrfToken={bootstrap.csrf} creditAvailable={bootstrap.credit?.available} onClose={() => setDialog('')}/>}
     {dialog === 'reviews' && <ReviewDialog brand={brand} urls={urls} csrfToken={bootstrap.csrf} canEdit={canEdit} onClose={() => setDialog('')}/>}

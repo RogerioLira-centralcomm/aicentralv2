@@ -266,7 +266,7 @@ def test_v2_structured_sections_keep_only_plan_channels_formats_and_numbers():
 def test_decorate_adds_plan_facts_logos_and_full_place_names():
     base = plan(briefing={'budget': 'R$ 200 mil', 'period': '8 semanas', 'geography': 'Sp, RJ, BH'})
     base['items'][0]['logo'] = '/static/logos/youtube.svg'
-    document = final_plan.decorate({'sections': [{'key': 'mix', 'rows': [{'canal': 'YouTube'}]}, {'key': 'praca', 'body': ''}]}, base)
+    document = final_plan.decorate({'sections': [{'key': 'mix', 'rows': [{'canal': 'YouTube'}]}, {'key': 'praca', 'body': 'Sp, RJ, BH'}]}, base)
     facts = {fact['label']: fact for fact in document['facts']}
     assert facts['Praças']['value'] == 'São Paulo, Rio de Janeiro e Belo Horizonte'
     assert facts['Investimento']['value'] == 'R$ 200.000'
@@ -274,4 +274,7 @@ def test_decorate_adds_plan_facts_logos_and_full_place_names():
     assert document['sections'][0]['rows'][0]['logo'] == '/static/logos/youtube.svg'
     assert document['sections'][1]['body'] == 'São Paulo, Rio de Janeiro e Belo Horizonte'
     payload = final_plan.build_payload(base)
-    assert payload['confirmado']['briefing']['geography'] == 'São Paulo, Rio de Janeiro e Belo Horizonte'
+    assert payload['confirmado']['pracas'] == 'São Paulo, Rio de Janeiro e Belo Horizonte'
+    # A versão por extenso é derivada: não muda a impressão digital do plano (versões antigas não ficam desatualizadas).
+    without = {**payload, 'confirmado': {k: v for k, v in payload['confirmado'].items() if k != 'pracas'}}
+    assert final_plan.payload_hash(payload) == final_plan.payload_hash(without)

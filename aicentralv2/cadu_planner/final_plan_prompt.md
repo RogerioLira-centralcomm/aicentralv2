@@ -21,6 +21,7 @@ REGRAS (obrigatórias)
 - Dado de mercado: só quando houver notícia em `confirmado.historia.noticias`; `fonte_url` deve ser exatamente a URL dessa notícia. Sem fonte, deixe o objeto vazio.
 - Sistema criativo: se `confirmado.sistema_criativo` existir, use a big idea, as mensagens e a matriz como direção criativa. Se não existir, escreva a direção criativa a partir do objetivo, dos segmentos e dos formatos, sem criar slogans como se fossem aprovados.
 - Confidencialidade: cite o anunciante só pelo nome que está no contexto. Não cite concorrentes por nome, clientes de terceiros, e-mails, telefones, custos internos, créditos ou nomes de ferramentas internas.
+- Praças: escreva os nomes de `confirmado.pracas` (por extenso), nunca as siglas do briefing.
 - Fases do voo: use o período do briefing e o campo `voo` das alocações. Sem período confirmado, descreva as fases por ordem (lançamento, sustentação, fechamento) sem datas e registre a pendência.
 - Pendências do contexto (`pendencias`) entram em `para_alinharmos`, sem duplicar.
 - Profundidade: `visao` e `audiencia` em 3 a 5 frases cada; `direcao_criativa` com tom, mensagens-chave e o que cada formato precisa entregar; justificativas do mix em 2 a 3 frases. Texto direto, específico e sem jargão promocional. Não descreva o processo interno.

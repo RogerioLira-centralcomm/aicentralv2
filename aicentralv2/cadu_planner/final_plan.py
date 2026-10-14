@@ -160,9 +160,9 @@ def build_payload(plan: Mapping, *, story=None, pending=None) -> dict:
         'plano': {'titulo': plan.get('title'), 'anunciante': plan.get('advertiser_name'),
                   'campanha': plan.get('campaign_name'),
                   'objetivo': OBJECTIVE_LABELS.get(plan.get('objective'), plan.get('objective'))},
-        # Praças por extenso ('Sp, RJ, BH' → 'São Paulo, Rio de Janeiro e Belo Horizonte') antes de chegar ao modelo.
-        'briefing': {key: (normalize_geography(briefing.get(key)) if key == 'geography' else briefing.get(key))
-                     for key in ('budget', 'period', 'geography', 'kpis', 'notes')},
+        'briefing': {key: briefing.get(key) for key in ('budget', 'period', 'geography', 'kpis', 'notes')},
+        # Praças por extenso ('Sp, RJ, BH' → 'São Paulo, Rio de Janeiro e Belo Horizonte'): o modelo escreve estes nomes.
+        'pracas': normalize_geography(briefing.get('geography')) or None,
         'verba': {'informada': parse_budget(briefing.get('budget')) if briefing.get('budget') else None,
                   'alocada_nos_canais': allocated},
         'canais': rows[:MAX_LIST],
@@ -204,8 +204,13 @@ def build_payload(plan: Mapping, *, story=None, pending=None) -> dict:
     return payload
 
 
+# Campos derivados do que já está no payload: não mudam o plano, então não podem marcar versões como desatualizadas.
+DERIVED_KEYS = ('pracas',)
+
+
 def payload_hash(payload: Mapping) -> str:
-    return sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str).encode()).hexdigest()
+    confirmed = {k: v for k, v in (payload.get('confirmado') or {}).items() if k not in DERIVED_KEYS}
+    return sha256(json.dumps({**payload, 'confirmado': confirmed}, ensure_ascii=False, sort_keys=True, default=str).encode()).hexdigest()
 
 
 def build_prompt(payload: Mapping, instructions: str = '', previous: Mapping | None = None) -> str:
@@ -446,8 +451,10 @@ def decorate(document: Mapping, plan: Mapping) -> dict:
     for section in document.get('sections') or []:
         if section.get('key') == 'mix' and section.get('rows'):
             section = {**section, 'rows': [{**row, 'logo': logos.get(names.get(_fold(row.get('canal'))), '')} for row in section['rows']]}
-        if section.get('key') == 'praca' and not section.get('body') and briefing.get('geography'):
-            section = {**section, 'body': normalize_geography(briefing.get('geography'))}
+        # Seção vazia ou só a cópia das siglas do briefing ('Sp, RJ, BH'): vale a versão por extenso.
+        raw_places = briefing.get('geography')
+        if section.get('key') == 'praca' and raw_places and _fold(section.get('body') or '').strip(' .') in ('', _fold(raw_places).strip(' .')):
+            section = {**section, 'body': normalize_geography(raw_places)}
         sections.append(section)
     out['sections'] = sections
     return out
@@ -583,7 +590,9 @@ def describe(plan, payload, latest, share) -> dict:
     if latest:
         result.update({
             'version': latest['version'], 'created_at': latest['created_at'], 'origin': latest['origin'],
-            'document': latest['document'], 'edited_sections': latest.get('edited_sections') or [],
+            # Versões geradas antes da faixa de números e dos logos recebem o mesmo acabamento na leitura.
+            'document': latest['document'] if (latest['document'] or {}).get('facts') else decorate(latest['document'] or {}, plan),
+            'edited_sections': latest.get('edited_sections') or [],
             'warnings': latest.get('warnings') or [], 'project_source_id': latest.get('project_source_id'),
             'stale': latest['source_hash'] != payload_hash(payload),
             'generated_at_revision': latest.get('plan_revision'), 'plan_revision': int(plan.get('revision') or 0),

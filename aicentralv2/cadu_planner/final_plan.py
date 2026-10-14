@@ -26,12 +26,12 @@ from uuid import uuid4
 from werkzeug.exceptions import BadRequest, Conflict, NotFound
 
 PROMPT_PATH = Path(__file__).with_name('final_plan_prompt.md')
-PROMPT_VERSION = 'final-plan-v1'
+PROMPT_VERSION = 'final-plan-v2'
 MAX_PAYLOAD_CHARS = 24_000
 MAX_LIST = 30
 MAX_TEXT = 600
 MAX_SECTION_BODY = 12_000
-OUTPUT_TOKENS = 6_000          # teto de saída usado na estimativa (inclui raciocínio)
+OUTPUT_TOKENS = 10_000         # teto de saída usado na estimativa (inclui raciocínio); v2 tem jornada, teste e mensuração
 PRICE_NOTE = 'Valores sujeitos a cotação e à disponibilidade de inventário.'
 
 SECTIONS = (
@@ -39,13 +39,19 @@ SECTIONS = (
     ('visao', 'Visão e objetivo'),
     ('kpis', 'KPIs'),
     ('praca', 'Praças'),
-    ('audiencia', 'Audiência'),
+    ('audiencia', 'Audiência e segmentos'),
+    ('jornada', 'Jornada por etapa'),
     ('mix', 'Mix de canais'),
     ('criativo', 'Direção criativa'),
+    ('teste', 'Plano de teste'),
+    ('mensuracao', 'Mensuração'),
     ('fases', 'Fases do voo'),
+    ('riscos', 'Riscos e mitigação'),
+    ('restricoes', 'Cuidados e restrições'),
     ('premissas', 'Premissas'),
     ('proximos_passos', 'Próximos passos'),
     ('para_alinharmos', 'Para alinharmos'),
+    ('defesa', 'Defesa em 90 segundos'),
 )
 SECTION_KEYS = tuple(key for key, _ in SECTIONS)
 SECTION_TITLES = dict(SECTIONS)
@@ -311,6 +317,11 @@ def validate(raw: Mapping, payload: Mapping) -> tuple[dict, list]:
                f'**Dado de mercado.** {market_line}' if market_line else '',
                f"**Por que este plano.** {text('defesa', 'resumo')}" if raw.get('defesa') else '']
     sections['resumo'] = '\n\n'.join(line for line in summary if line and not line.endswith('** '))
+    extras = {}
+    # A folha-resumo também vai em cartões: a página mostra cada parte lado a lado.
+    extras['resumo'] = {'cards': [{'label': label, 'text': value} for label, value in (
+        ('Tese', thesis), ('Estratégia', text('estrategia', 'resumo')), ('Criativo no canal', text('criativo_no_canal', 'resumo')),
+        ('Dado de mercado', market_line), ('Por que este plano', text('defesa', 'resumo'))) if value]}
 
     sections['visao'] = text('visao')
     kpi_lines = []
@@ -329,6 +340,35 @@ def validate(raw: Mapping, payload: Mapping) -> tuple[dict, list]:
     sections['kpis'] = _bullets(kpi_lines)
     sections['praca'] = text('praca')
     sections['audiencia'] = text('audiencia')
+    names_by_id = {str(c['canal_id']): c['canal'] for c in channels}
+    channel_names = lambda ids: ', '.join(dict.fromkeys(names_by_id[str(i)] for i in (ids if isinstance(ids, list) else []) if str(i) in names_by_id))
+    cell = lambda value, where, limit=300: clean_text(value, allowed, plan_names, warnings, where, limit)
+
+    def table(key, columns, build):
+        rows = [row for row in (build(item) for item in as_list(key) if isinstance(item, Mapping)) if any(row)]
+        return {'table': {'columns': list(columns), 'rows': rows}} if rows else {}
+
+    extras['audiencia'] = table('segmentos', ('Segmento', 'Quem é', 'Barreira de compra', 'Mensagem', 'Canais'), lambda r: [
+        cell(r.get('segmento'), 'audiencia', 80), cell(r.get('quem'), 'audiencia'), cell(r.get('barreira'), 'audiencia'),
+        cell(r.get('mensagem'), 'audiencia'), channel_names(r.get('canais'))])
+    extras['jornada'] = table('jornada', ('Etapa', 'Objetivo', 'Canais', 'Mensagem', 'KPI'), lambda r: [
+        cell(r.get('etapa'), 'jornada', 80), cell(r.get('objetivo'), 'jornada'), channel_names(r.get('canais')),
+        cell(r.get('mensagem'), 'jornada'), cell(r.get('kpi'), 'jornada', 120)])
+    extras['mensuracao'] = table('mensuracao', ('KPI', 'Como medir', 'Evento que conta'), lambda r: [
+        cell(r.get('kpi'), 'mensuracao', 120), cell(r.get('como_medir'), 'mensuracao'), cell(r.get('evento'), 'mensuracao')])
+    extras['riscos'] = table('riscos', ('Risco', 'Mitigação'), lambda r: [
+        cell(r.get('risco'), 'riscos'), cell(r.get('mitigacao'), 'riscos')])
+    sections['jornada'] = sections['mensuracao'] = sections['riscos'] = ''
+    test = raw.get('teste') if isinstance(raw.get('teste'), Mapping) else {}
+    cells = [cell(item, 'teste', 200) for item in (test.get('celulas') or []) if item] if isinstance(test.get('celulas'), list) else []
+    test_lines = [f"**Hipótese.** {cell(test.get('hipotese'), 'teste', 500)}" if test.get('hipotese') else '',
+                  ('**Células.**\n' + _bullets(cells)) if any(cells) else '',
+                  f"**Métrica de decisão.** {cell(test.get('metrica'), 'teste')}" if test.get('metrica') else '',
+                  f"**Critério de leitura.** {cell(test.get('criterio'), 'teste', 500)}" if test.get('criterio') else '']
+    sections['teste'] = '\n\n'.join(line for line in test_lines if line and not line.endswith('** '))
+    sections['restricoes'] = _bullets(cell(v, 'restricoes') for v in as_list('restricoes'))
+    sections['defesa'] = text('defesa_90s', 'defesa')
+    formats_known = {_fold(i.get('nome')): i.get('nome') for i in confirmed.get('formatos') or [] if i.get('nome')}
 
     by_id = {}
     for row in as_list('mix'):
@@ -346,7 +386,10 @@ def validate(raw: Mapping, payload: Mapping) -> tuple[dict, list]:
             'percentual': channel.get('percentual'),
             'investimento': channel.get('investimento'),
             'papel': channel.get('papel') or clean_text(llm.get('papel'), allowed, plan_names, warnings, 'mix', 200),
-            'justificativa': clean_text(llm.get('justificativa'), allowed, plan_names, warnings, 'mix', 500),
+            'justificativa': clean_text(llm.get('justificativa'), allowed, plan_names, warnings, 'mix', 700),
+            # Formato só se for um dos formatos escolhidos no plano; KPI passa pela mesma limpeza do texto.
+            'formatos': [formats_known[_fold(f)] for f in (llm.get('formatos') or []) if isinstance(llm.get('formatos'), list) and _fold(f) in formats_known][:6],
+            'kpis': [k for k in (cell(v, 'mix', 80) for v in (llm.get('kpis') or [] if isinstance(llm.get('kpis'), list) else [])) if k][:4],
         })
     sections['mix'] = ''
     sections['criativo'] = text('direcao_criativa', 'criativo')
@@ -370,7 +413,7 @@ def validate(raw: Mapping, payload: Mapping) -> tuple[dict, list]:
     if not thesis:
         raise BadRequest('O Cadu não devolveu uma tese para o plano. Tente novamente.')
     document = {'sections': [{'key': key, 'title': SECTION_TITLES[key], 'body': sections.get(key) or '',
-                              **({'rows': mix_rows} if key == 'mix' else {})} for key in SECTION_KEYS],
+                              **({'rows': mix_rows} if key == 'mix' else {}), **extras.get(key, {})} for key in SECTION_KEYS],
                 'note': PRICE_NOTE}
     return document, warnings
 
@@ -390,12 +433,21 @@ def parse_json(content) -> dict:
 def mix_table(rows) -> str:
     if not rows:
         return ''
-    lines = ['| Canal | % | R$ | Papel | Justificativa |', '|---|---|---|---|---|']
+    lines = ['| Canal | % | R$ | Papel | Formatos | KPIs | Justificativa |', '|---|---|---|---|---|---|---|']
     for row in rows:
         pct = f"{row['percentual']:.1f}".replace('.', ',').replace(',0', '') + '%' if row.get('percentual') else 'a definir'
-        cells = [row.get('canal'), pct, _money(row.get('investimento')) or 'a definir',
-                 row.get('papel') or '', row.get('justificativa') or '']
+        cells = [row.get('canal'), pct, _money(row.get('investimento')) or 'a definir', row.get('papel') or '',
+                 ', '.join(row.get('formatos') or []), ', '.join(row.get('kpis') or []), row.get('justificativa') or '']
         lines.append('| ' + ' | '.join(str(c or '').replace('|', '/') for c in cells) + ' |')
+    return '\n'.join(lines)
+
+
+def grid_table(table) -> str:
+    if not table or not table.get('rows'):
+        return ''
+    columns = table.get('columns') or []
+    lines = ['| ' + ' | '.join(columns) + ' |', '|' + '---|' * len(columns)]
+    lines += ['| ' + ' | '.join(str(c or '').replace('|', '/') for c in row) + ' |' for row in table['rows']]
     return '\n'.join(lines)
 
 
@@ -404,7 +456,7 @@ def to_markdown(document: Mapping, title: str = '') -> str:
     out = [f'# Plano final — {title}' if title else '# Plano final']
     for section in document.get('sections') or []:
         body = '\n\n'.join(part for part in (mix_table(section.get('rows')) if section.get('key') == 'mix' else '',
-                                             section.get('body') or '') if part)
+                                             grid_table(section.get('table')), section.get('body') or '') if part)
         if body:
             out.append(f"## {section.get('title')}\n\n{body}")
     out.append(f"_{document.get('note') or PRICE_NOTE}_")
@@ -426,7 +478,8 @@ def apply_section_edit(document: Mapping, section: str, body: str) -> dict:
     body = str(body or '').strip()
     if len(body) > MAX_SECTION_BODY:
         raise BadRequest(f'O texto da seção passa de {MAX_SECTION_BODY:,} caracteres.'.replace(',', '.'))
-    return {**document, 'sections': [{**s, 'body': body} if s['key'] == section else s
+    # O texto editado passa a ser a seção: os cartões gerados da folha-resumo saem junto.
+    return {**document, 'sections': [{**{k: v for k, v in s.items() if k != 'cards'}, 'body': body} if s['key'] == section else s
                                      for s in document.get('sections') or []]}
 
 
@@ -439,9 +492,12 @@ def public_projection(row: Mapping | None) -> dict | None:
     for s in document.get('sections') or []:
         item = {'key': s.get('key'), 'title': s.get('title'), 'body': s.get('body') or ''}
         if s.get('rows'):
-            item['rows'] = [{k: r.get(k) for k in ('canal', 'percentual', 'investimento', 'papel', 'justificativa')}
+            item['rows'] = [{k: r.get(k) for k in ('canal', 'percentual', 'investimento', 'papel', 'justificativa', 'formatos', 'kpis')}
                             for r in s['rows']]
-        if item['body'] or item.get('rows'):
+        for key in ('table', 'cards'):
+            if s.get(key):
+                item[key] = s[key]
+        if item['body'] or item.get('rows') or item.get('table'):
             sections.append(item)
     return {'title': row.get('plan_title') or '', 'advertiser_name': row.get('advertiser_name') or '',
             'version': row.get('version'), 'updated_at': row.get('created_at'), 'sections': sections,

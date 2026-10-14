@@ -6,7 +6,7 @@ import {CaduTextAreaField} from '../cadu-design-system/components/CaduField.jsx'
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {Illustration} from './Illustration.jsx';
 import {PlannerHeader} from './PlannerHeader.jsx';
-import {upperFirst} from './api.js';
+import {objectiveLabel, upperFirst} from './api.js';
 import {PlannerPanel} from './PlannerUi.jsx';
 import {ShareControl} from './ShareControl.jsx';
 import {useConfirm} from './useConfirm.jsx';
@@ -43,17 +43,40 @@ export function MarkdownText({text}) {
 
 function MixTable({rows}) {
   if (!rows?.length) return null;
+  // Versões antigas não têm formatos nem KPIs por canal: as colunas só aparecem quando há conteúdo.
+  const withFormats = rows.some(row => row.formatos?.length), withKpis = rows.some(row => row.kpis?.length);
   return <div className="final-plan__table"><table>
-    <thead><tr><th>Canal</th><th>%</th><th>R$</th><th>Papel</th><th>Justificativa</th></tr></thead>
-    <tbody>{rows.map(row => <tr key={row.canal}><td><strong>{row.canal}</strong></td><td>{pct(row.percentual)}</td>
-      <td>{money(row.investimento)}</td><td>{row.papel}</td><td>{row.justificativa}</td></tr>)}</tbody>
+    <thead><tr><th>Canal</th><th className="is-num">%</th><th className="is-num">R$</th><th>Papel</th>
+      {withFormats && <th>Formatos</th>}{withKpis && <th>KPIs</th>}<th>Justificativa</th></tr></thead>
+    <tbody>{rows.map(row => <tr key={row.canal}><td><strong>{row.canal}</strong></td><td className="is-num">{pct(row.percentual)}</td>
+      <td className="is-num">{money(row.investimento)}</td><td>{row.papel}</td>
+      {withFormats && <td>{(row.formatos || []).join(', ')}</td>}{withKpis && <td>{(row.kpis || []).map(kpi => <i key={kpi} className="final-plan__chip">{kpi}</i>)}</td>}
+      <td>{row.justificativa}</td></tr>)}</tbody>
   </table></div>;
+}
+
+function GridTable({table}) {
+  if (!table?.rows?.length) return null;
+  return <div className="final-plan__table"><table>
+    <thead><tr>{table.columns.map(column => <th key={column}>{column}</th>)}</tr></thead>
+    <tbody>{table.rows.map((row, index) => <tr key={index}>{row.map((value, cell) =>
+      <td key={cell}>{cell === 0 ? <strong>{value}</strong> : value}</td>)}</tr>)}</tbody>
+  </table></div>;
+}
+
+function SummaryCards({cards}) {
+  const [thesis, ...rest] = cards;
+  return <div className="final-summary">
+    {thesis && <p className="final-summary__thesis"><span>{thesis.label}</span>{thesis.text}</p>}
+    <div className="final-summary__grid">{rest.map(card => <div key={card.label} className="final-summary__card">
+      <span>{card.label}</span><MarkdownText text={card.text}/></div>)}</div>
+  </div>;
 }
 
 /** The document itself: summary sheet on top, then the body. Shared by the Planner and the public link. */
 export function FinalPlanDocument({document, editable = false, edited = [], busyKey = '', onSave, anchors = false}) {
   const [editing, setEditing] = useState('');
-  const sections = (document?.sections || []).filter(section => editable || section.body || section.rows?.length);
+  const sections = (document?.sections || []).filter(section => editable || section.body || section.rows?.length || section.table?.rows?.length);
   return <div className="final-plan">
     {sections.map(section => <section key={section.key} id={anchors ? `final-${section.key}` : undefined} className={`final-plan__section${section.key === 'resumo' ? ' is-summary' : ''}`}>
       <header>
@@ -62,6 +85,7 @@ export function FinalPlanDocument({document, editable = false, edited = [], busy
         {editable && editing !== section.key && <CaduButton variant="tertiary" size="sm" onClick={() => setEditing(section.key)}>Editar</CaduButton>}
       </header>
       {section.key === 'mix' && <MixTable rows={section.rows}/>}
+      {section.table && <GridTable table={section.table}/>}
       {editing === section.key
         ? <form onSubmit={async event => {
           event.preventDefault();
@@ -75,7 +99,8 @@ export function FinalPlanDocument({document, editable = false, edited = [], busy
             <CaduButton type="submit" size="sm" loading={busyKey === section.key}>Salvar seção</CaduButton>
           </footer>
         </form>
-        : section.body ? <MarkdownText text={section.body}/> : (editable && section.key !== 'mix' && <p className="planner-muted">Seção vazia.</p>)}
+        : section.cards?.length ? <SummaryCards cards={section.cards}/>
+        : section.body ? <MarkdownText text={section.body}/> : (editable && !['mix', 'jornada', 'mensuracao', 'riscos'].includes(section.key) && <p className="planner-muted">Seção vazia.</p>)}
     </section>)}
     <p className="planner-muted final-plan__note">{document?.note || 'Valores sujeitos a cotação.'}</p>
   </div>;
@@ -225,7 +250,6 @@ export function PlanFinalPage({boot, request, plan, notify}) {
   const planUrl = `${boot.urls.plans}/${encodeURIComponent(plan.id)}`;
   const title = upperFirst(plan.title);
   const sections = exists ? (state.document?.sections || []).filter(section => section.body || section.rows?.length) : [];
-  const description = [plan.advertiser_name, plan.campaign_name !== plan.title && plan.campaign_name].filter(Boolean).join(' · ');
   const actions = exists ? <>
     <ShareControl title="Compartilhar o plano final" description="Gere um link aberto para o time ou o cliente. Ele mostra sempre a versão atual do plano final."
       url={state.share_token ? fp.publicUrl(state.share_token) : ''} enabled={state.share_enabled} busy={busy === 'share'} canRotate onToggle={fp.toggleShare}/>
@@ -234,10 +258,18 @@ export function PlanFinalPage({boot, request, plan, notify}) {
       {state.project_source_id ? 'Adicionar de novo ao projeto' : 'Adicionar ao projeto'}</CaduButton>
     <CaduButton loading={busy === 'generate'} onClick={fp.generate}>Gerar nova versão</CaduButton>
   </> : null;
+  const briefing = plan.briefing || {};
+  const channels = (plan.items || []).filter(item => item.kind === 'canais');
+  // Os números do plano no topo do documento, para ler antes do texto.
+  const facts = [['Investimento', briefing.budget], ['Período', briefing.period], ['Praças', briefing.geography],
+    ['Objetivo', plan.objective && objectiveLabel(plan.objective)],
+    ['Canais', channels.length ? channels.map(item => item.snapshot?.name).filter(Boolean).join(', ') : '']].filter(([, value]) => value);
   return <>
     {busy === 'generate' && <FinalPlanBuilding/>}
-    <PlannerHeader crumbs={[['Planos', boot.urls.plans], [title, planUrl]]} title="Plano final" actions={actions}
-      meta={exists ? <CaduBadge tone={state.stale ? 'warning' : 'success'}>{state.stale ? 'Desatualizado' : `Versão ${state.version}`}</CaduBadge> : null}/>
+    <PlannerHeader className="ph--plan" crumbs={[['Planos', boot.urls.plans], ['Plano', planUrl]]} title={title} actions={actions}
+      description={[plan.advertiser_name, plan.objective && objectiveLabel(plan.objective), briefing.period, briefing.geography].filter(Boolean).join(' · ')}
+      meta={<><CaduBadge tone="brand">Plano final</CaduBadge>
+        {exists && <CaduBadge tone={state.stale ? 'warning' : 'success'}>{state.stale ? 'Desatualizado' : `Versão ${state.version} · ${day(state.created_at)}`}</CaduBadge>}</>}/>
     {fp.unavailable && <CaduEmptyState title="Plano final indisponível" description="Este ambiente ainda não habilitou o plano final."/>}
     {!fp.unavailable && fp.loading && <p className="planner-muted">Carregando…</p>}
     {fp.loadError && <CaduEmptyState title="Não foi possível carregar o plano final" description="Atualize a página para tentar de novo."/>}
@@ -251,11 +283,7 @@ export function PlanFinalPage({boot, request, plan, notify}) {
       <nav className="final-page__index" aria-label="Seções do plano final"><ol>{sections.map(section =>
         <li key={section.key}><a href={`#final-${section.key}`}>{section.title}</a></li>)}</ol></nav>
       <article className="final-page__paper">
-        <header className="final-page__head">
-          <span className="final-page__eyebrow">Plano final · Versão {state.version} · {day(state.created_at)}</span>
-          <h2>{title}</h2>
-          {description && <p>{description}</p>}
-        </header>
+        {facts.length > 0 && <dl className="final-facts">{facts.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>}
         {state.stale && <div className="final-plan__stale" role="status"><Icon name="alert" size={16}/>
           O plano mudou depois desta versão. Gere de novo para atualizar o documento.</div>}
         <FinalPlanDocument document={state.document} editable edited={state.edited_sections || []} busyKey={busy} onSave={fp.saveSection} anchors/>

@@ -233,3 +233,30 @@ def test_mcp_final_plan_call_turns_credit_and_http_errors_into_tool_input_errors
     with pytest.raises(ToolInputError):
         _final_plan_call(raising(Conflict('mudou')))
     assert _final_plan_call(lambda: {'ok': 1}) == {'ok': 1}
+
+
+def test_v2_structured_sections_keep_only_plan_channels_formats_and_numbers():
+    extra = {
+        'segmentos': [{'segmento': 'Iniciantes', 'quem': 'Começam a correr', 'barreira': 'Não sabem escolher',
+                       'mensagem': 'Conforto no dia a dia', 'canais': ['10', '99']}],
+        'jornada': [{'etapa': 'Descoberta', 'objetivo': 'Apresentar a linha', 'canais': ['10'], 'mensagem': 'Feito para começar', 'kpi': 'Alcance'},
+                    {'etapa': 'Consideração', 'objetivo': 'Gerar 40 mil visitas', 'canais': ['11'], 'mensagem': 'x', 'kpi': 'CTR'}],
+        'mix': [{'canal_id': '10', 'papel': 'x', 'justificativa': 'Escala de vídeo.', 'formatos': ['Bumper 6s', 'Masthead'], 'kpis': ['Alcance']}],
+        'teste': {'hipotese': 'Mensagem de conforto supera a de versatilidade.', 'celulas': ['Conforto', 'Versatilidade'],
+                  'metrica': 'CTR', 'criterio': 'Ler após duas semanas.'},
+        'mensuracao': [{'kpi': 'CTR', 'como_medir': 'Cliques sobre impressões', 'evento': 'Clique no anúncio'}],
+        'riscos': [{'risco': 'Pouco inventário', 'mitigacao': 'Reservar cedo'}],
+        'restricoes': ['Não prometer desempenho esportivo.'],
+        'defesa_90s': 'Vídeo apresenta, áudio sustenta.',
+    }
+    document, warnings = final_plan.validate(raw(**extra), final_plan.build_payload(plan()))
+    by_key = {s['key']: s for s in document['sections']}
+    assert [c['label'] for c in by_key['resumo']['cards']][:2] == ['Tese', 'Estratégia']
+    assert by_key['audiencia']['table']['rows'][0][-1] == 'YouTube'          # canal 99 não está no plano
+    assert by_key['jornada']['table']['rows'][1][1] == ''                     # "40 mil" não tem base no briefing
+    assert by_key['mix']['rows'][0]['formatos'] == ['Bumper 6s']              # Masthead não foi escolhido
+    assert 'Hipótese' in by_key['teste']['body'] and 'Conforto' in by_key['teste']['body']
+    assert by_key['restricoes']['body'] and by_key['defesa']['body']
+    assert '| Etapa | Objetivo |' in final_plan.to_markdown(document)
+    public = final_plan.public_projection({'document': document})
+    assert any(s.get('table') for s in public['sections'])

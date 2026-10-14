@@ -24,13 +24,23 @@ const campaignProjectUrl = (template, id) => String(template || '').replace('__C
 
 const auditSteps = ['Fontes oficiais', 'Identidade visual', 'Mercado e campanhas', 'Consolidação'];
 
+// Until the audit finds a logo the card shows a loading skeleton; the logo cross-fades in once it has actually loaded.
+function AuditMark({logoUrl}) {
+  const [loadedUrl, setLoadedUrl] = useState('');
+  const ready = Boolean(logoUrl) && loadedUrl === logoUrl;
+  return <div className={`cadu-ds-brand-audit-mark${ready ? ' is-ready' : ''}`}>
+    <div className="cadu-ds-brand-audit-mark__skeleton"><i/><b/><b/></div>
+    {logoUrl && <img key={logoUrl} src={logoUrl} alt="" ref={node => { if (node?.complete && node.naturalWidth) setLoadedUrl(logoUrl); }} onLoad={() => setLoadedUrl(logoUrl)} onError={() => setLoadedUrl('')}/>}
+  </div>;
+}
+
 function BrandState({type, brand, canEdit, onAudit, onIdentity, logoUrl, progress = 1, hasHistory = false}) {
   const processing = type === 'processing';
   const failed = type === 'failed';
   return <section className={`cadu-ds-brand-state cadu-ds-brand-state--${type}`} id={processing ? 'analise' : 'estado-marca'} aria-live={processing ? 'polite' : undefined}>
     <div className="cadu-ds-brand-state__visual" aria-hidden="true">
       {!processing && <svg className="cadu-ds-brand-state__art" viewBox="0 0 240 200" role="presentation"><rect x="20" y="24" width="150" height="112" rx="16" fill="#fff" stroke="#cfe0dc"/><rect x="36" y="42" width="34" height="34" rx="10" fill="#bcd8d2"/><path d="M48 66l6-14 6 14m-9-4h6" stroke="#257669" strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round"/><rect x="82" y="46" width="64" height="8" rx="4" fill="#257669"/><rect x="82" y="62" width="44" height="6" rx="3" fill="#cfe0dc"/><rect x="36" y="92" width="118" height="6" rx="3" fill="#e1ece9"/><rect x="36" y="106" width="86" height="6" rx="3" fill="#e1ece9"/><circle cx="188" cy="62" r="30" fill="#e6f0ed" stroke="#cfe0dc"/><circle cx="188" cy="62" r="18" fill="#bcd8d2"/><circle cx="188" cy="62" r="8" fill="#257669"/><g transform="translate(120 128)"><rect width="100" height="52" rx="14" fill="#fff" stroke="#cfe0dc"/><circle cx="24" cy="26" r="9" fill="#257669"/><circle cx="48" cy="26" r="9" fill="#d9a441"/><circle cx="72" cy="26" r="9" fill="#14283a"/></g><path d="M196 124l3 8 8 3-8 3-3 8-3-8-8-3 8-3z" fill="#d9a441"/></svg>}
-      {processing && <><i className="cadu-ds-brand-orbit cadu-ds-brand-orbit--one"/><i className="cadu-ds-brand-orbit cadu-ds-brand-orbit--two"/><i className="cadu-ds-brand-orbit cadu-ds-brand-orbit--three"/><div className="cadu-ds-brand-audit-mark">{logoUrl ? <img src={logoUrl} alt=""/> : <span>{String(brand.name || 'M').slice(0, 1)}</span>}</div></>}
+      {processing && <><i className="cadu-ds-brand-orbit cadu-ds-brand-orbit--one"/><i className="cadu-ds-brand-orbit cadu-ds-brand-orbit--two"/><i className="cadu-ds-brand-orbit cadu-ds-brand-orbit--three"/><AuditMark logoUrl={logoUrl}/></>}
     </div>
     <div className="cadu-ds-brand-state__copy">
       <p>{processing ? 'Auditoria em andamento' : failed ? 'Não foi possível concluir a análise' : hasHistory ? 'Análise concluída sem dados suficientes' : 'Informações insuficientes'}</p>

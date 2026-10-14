@@ -492,8 +492,18 @@ body.portal--workspace .cadu-ds-brand-audit-mark {
   animation:cadu-brand-card-float 3.4s ease-in-out infinite;
 }
 
-body.portal--workspace .cadu-ds-brand-audit-mark img { width:100%; max-height:100%; object-fit:contain; }
-body.portal--workspace .cadu-ds-brand-audit-mark span { color:var(--cadu-accent-strong); font-size:64px; font-weight:700; }
+body.portal--workspace .cadu-ds-brand-audit-mark > * { grid-area:1 / 1; }
+body.portal--workspace .cadu-ds-brand-audit-mark img { width:100%; max-height:100%; object-fit:contain; opacity:0; filter:blur(8px); transform:scale(.94); transition:opacity .7s cubic-bezier(.2,.7,.2,1), filter .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
+body.portal--workspace .cadu-ds-brand-audit-mark.is-ready img { opacity:1; filter:none; transform:none; }
+/* Carregando: marca e duas linhas em esqueleto, com pulsação e um brilho que atravessa o cartão. */
+body.portal--workspace .cadu-ds-brand-audit-mark__skeleton { position:relative; display:grid; grid-template-columns:auto minmax(0,1fr); grid-template-rows:auto auto; align-items:center; gap:10px 14px; width:78%; overflow:hidden; transition:opacity .45s ease, transform .45s ease; animation:cadu-brand-skeleton-pulse 2.4s ease-in-out infinite; }
+body.portal--workspace .cadu-ds-brand-audit-mark__skeleton i { grid-row:1 / span 2; width:54px; height:54px; border-radius:16px; background:color-mix(in srgb,var(--cadu-accent) 22%,var(--cadu-surface)); }
+body.portal--workspace .cadu-ds-brand-audit-mark__skeleton b { display:block; height:12px; border-radius:999px; background:color-mix(in srgb,var(--cadu-accent) 16%,var(--cadu-surface)); }
+body.portal--workspace .cadu-ds-brand-audit-mark__skeleton b:last-child { width:62%; height:9px; opacity:.7; }
+body.portal--workspace .cadu-ds-brand-audit-mark__skeleton::after { position:absolute; inset:0; background:linear-gradient(100deg,transparent 20%,color-mix(in srgb,var(--cadu-surface) 85%,transparent) 50%,transparent 80%); transform:translateX(-100%); animation:cadu-brand-skeleton-shimmer 1.8s ease-in-out infinite; content:""; }
+body.portal--workspace .cadu-ds-brand-audit-mark.is-ready .cadu-ds-brand-audit-mark__skeleton { opacity:0; transform:scale(.96); animation:none; }
+@keyframes cadu-brand-skeleton-pulse { 0%,100% { opacity:1; } 50% { opacity:.55; } }
+@keyframes cadu-brand-skeleton-shimmer { to { transform:translateX(100%); } }
 body.portal--workspace .cadu-ds-brand-orbit { position:absolute; z-index:1; border:1px solid color-mix(in srgb,var(--cadu-accent) 48%,transparent); border-radius:50%; }
 body.portal--workspace .cadu-ds-brand-orbit::after { position:absolute; top:-7px; left:50%; width:14px; height:14px; border-radius:50%; background:var(--cadu-accent); content:""; }
 body.portal--workspace .cadu-ds-brand-orbit--one { inset:3% 7%; animation:cadu-brand-orbit 8s linear infinite; }
@@ -620,6 +630,9 @@ body.portal--workspace .cadu-ds-brand-celebration__fireworks i:nth-child(3n + 1)
 }
 
 @media (prefers-reduced-motion: reduce) {
+  body.portal--workspace .cadu-ds-brand-audit-mark__skeleton,
+  body.portal--workspace .cadu-ds-brand-audit-mark__skeleton::after { animation:none; }
+  body.portal--workspace .cadu-ds-brand-audit-mark img { filter:none; transform:none; }
   body.portal--workspace :is(.cadu-ds-brand-audit-mark,.cadu-ds-brand-orbit,.cadu-ds-brand-celebration,.cadu-ds-brand-celebration__mark,.cadu-ds-brand-celebration__fireworks i) { animation:none; }
   body.portal--workspace .cadu-ds-brand-celebration__fireworks { display:none; }
 }

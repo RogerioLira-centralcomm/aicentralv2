@@ -635,3 +635,9 @@ def test_brandless_creation_never_loads_a_stored_brand_identity():
     source = (Path(__file__).resolve().parents[1] / "aicentralv2" / "creative_media" / "studio.py").read_text(encoding="utf-8")
     assert source.count("brandless = bool(_assert_project_brand_access(project_id, client_id))") == 2
     assert source.count("if not brandless:") >= 2
+
+
+def test_studio_project_first_sync_casts_the_new_id_to_uuid():
+    source = (Path(__file__).resolve().parents[1] / "aicentralv2" / "creative_media" / "studio.py").read_text(encoding="utf-8")
+    assert "INSERT INTO cx_studio_projects (id, client_id, name, revision, document) VALUES (%s::uuid," in source
+    assert "FROM cx_studio_projects WHERE id=%s::uuid" in source

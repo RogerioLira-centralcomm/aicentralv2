@@ -81,7 +81,39 @@ def test_html_without_content_type_can_be_analyzed(monkeypatch):
 
 def test_anti_bot_block_is_flagged_without_warning_the_user(monkeypatch):
     public_dns(monkeypatch)
+    monkeypatch.setattr(inspector, "_firecrawl_page", lambda _url: (_ for _ in ()).throw(RuntimeError("Firecrawl não configurada")))
     result = inspector.inspect_brand_site("https://acme.example", session=Session([Response(status=403, body=b"")]))
     assert result["ready_for_analysis"] is False
     assert result["blocked_by_site"] is True
     assert result["warnings"] == []
+
+
+def test_anti_bot_block_is_read_through_firecrawl(monkeypatch):
+    public_dns(monkeypatch)
+    calls = []
+    html = '<html><head><title>Nike. Just Do It</title></head><body><img class="site-logo" src="/swoosh.svg"></body></html>'
+    def firecrawl(url):
+        calls.append(url)
+        return {"rawHtml": html, "metadata": {"statusCode": 200, "url": "https://acme.example/br/"},
+                "branding": {"images": {"logo": "https://acme.example/brand/logo.png"}}}
+    monkeypatch.setattr(inspector, "_firecrawl_page", firecrawl)
+    png = b"\x89PNG\r\n\x1a\n" + b"0" * 32
+    result = inspector.inspect_brand_site("https://acme.example", session=Session([
+        Response(status=403, body=b""),
+        Response(content_type="image/png", body=png),
+        Response(content_type="image/svg+xml", body=b'<svg xmlns="http://www.w3.org/2000/svg"></svg>'),
+    ]))
+    assert calls == ["https://acme.example"]
+    assert result["reader"] == "firecrawl"
+    assert result["ready_for_analysis"] is True
+    assert result["blocked_by_site"] is False
+    assert result["final_url"] == "https://acme.example/br/"
+    assert result["suggested_logo_url"] == "https://acme.example/brand/logo.png"
+    assert result["warnings"] == []
+
+
+def test_direct_read_does_not_spend_firecrawl(monkeypatch):
+    public_dns(monkeypatch)
+    monkeypatch.setattr(inspector, "_firecrawl_page", lambda _url: pytest.fail("Firecrawl só entra quando a leitura direta falha"))
+    result = inspector.inspect_brand_site("https://acme.example", session=Session([Response(body=b"<html><title>Acme</title></html>")]))
+    assert result["reader"] == "direct"

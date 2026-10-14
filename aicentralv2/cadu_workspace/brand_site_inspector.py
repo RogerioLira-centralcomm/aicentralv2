@@ -16,6 +16,40 @@ MAX_REDIRECTS = 5
 MAX_LOGO_CANDIDATES = 4
 REQUEST_TIMEOUT = (3, 5)
 BOT_BLOCK_STATUSES = {401, 403, 429}
+FIRECRAWL_TIMEOUT_S = 25
+
+
+def _firecrawl_page(url: str) -> dict:
+    """Read the page through Firecrawl, whose rotating proxies get past anti-bot walls that refuse the direct reader."""
+    from ..crm_v3_web_scout import _firecrawl_scrape
+    return _firecrawl_scrape(url, formats=["rawHtml", "branding"], timeout_s=FIRECRAWL_TIMEOUT_S)
+
+
+def _firecrawl_fallback(url: str):
+    """(status, final_url, html bytes, branding logo) from Firecrawl, or None when it cannot read the official page."""
+    try:
+        raw = _firecrawl_page(url)
+    except Exception:
+        return None
+    if not isinstance(raw, dict):
+        return None
+    metadata = raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {}
+    try:
+        status = int(metadata.get("statusCode") or 200)
+    except (TypeError, ValueError):
+        status = 200
+    html = str(raw.get("rawHtml") or raw.get("html") or "")
+    if status >= 400 or not html.strip():
+        return None
+    final_url = str(metadata.get("url") or metadata.get("sourceURL") or url)
+    try:
+        final_url = normalize_public_url(final_url)
+    except BadRequest:
+        final_url = url
+    branding = raw.get("branding") if isinstance(raw.get("branding"), dict) else {}
+    images = branding.get("images") if isinstance(branding.get("images"), dict) else {}
+    logo = str(branding.get("logo") or images.get("logo") or "").strip()
+    return status, final_url, html.encode("utf-8")[:MAX_HTML_BYTES], logo
 
 
 def normalize_public_url(value: str, *, label: str = "site") -> str:
@@ -284,16 +318,27 @@ def inspect_brand_site(website_url: str, *, logo_url: str = "", session=None) ->
         response.close()
     except BadRequest:
         raise
-    except requests.RequestException as exc:
-        return {"website_url": normalized, "reachable": False, "ready_for_analysis": False,
-                "logo_candidates": [], "warnings": ["O site não respondeu à inspeção."], "error": str(exc)}
-    except urllib3.exceptions.HTTPError as exc:
-        return {"website_url": normalized, "reachable": False, "ready_for_analysis": False,
-                "logo_candidates": [], "warnings": ["O site não respondeu à inspeção."], "error": str(exc)}
+    except (requests.RequestException, urllib3.exceptions.HTTPError) as exc:
+        fallback = _firecrawl_fallback(normalized)
+        if not fallback:
+            return {"website_url": normalized, "reachable": False, "ready_for_analysis": False,
+                    "logo_candidates": [], "warnings": ["O site não respondeu à inspeção."], "error": str(exc)}
+        status, final_url, body, branding_logo = fallback
+        content_type, reader = "text/html", "firecrawl"
+    else:
+        branding_logo, reader = "", "direct"
+        if status in BOT_BLOCK_STATUSES:
+            fallback = _firecrawl_fallback(final_url)
+            if fallback:
+                status, final_url, body, branding_logo = fallback
+                content_type, reader = "text/html", "firecrawl"
 
     parser = _BrandHTMLParser()
     if body:
         parser.feed(body.decode("utf-8", errors="replace"))
+    if branding_logo:
+        # Firecrawl's branding tells the real logo apart from promotional og:images.
+        parser.candidates.append((branding_logo, "firecrawl_branding", 0.95))
     site_host = (urlparse(final_url).hostname or "").lower()
     candidates = []
     seen = set()
@@ -333,7 +378,7 @@ def inspect_brand_site(website_url: str, *, logo_url: str = "", session=None) ->
             "suggested_name": _brand_name_from_site(parser, site_host),
             "suggested_sector": parser.industry,
             "description": parser.description,
-            "ready_for_analysis": reachable and html_response,
+            "ready_for_analysis": reachable and html_response, "reader": reader,
             "blocked_by_site": blocked,
             "explicit_logo": explicit_logo, "logo_candidates": candidates, "suggested_logo_url":
             ((explicit_logo or {}).get("url") if (explicit_logo or {}).get("valid_image") else

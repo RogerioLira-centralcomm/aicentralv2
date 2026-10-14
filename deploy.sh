@@ -444,9 +444,26 @@ if should_run "$WORKERS_STATE_FILE" "${FORCE_WORKERS:-0}" deploy requirements.tx
     RADAR_WATCH_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_radar_watch_timer.sh >> "$DEPLOY_LOG" 2>&1
     record_state "$WORKERS_STATE_FILE"
 else
-    echo "  > Workers sem alteracoes; reiniciando apenas o worker de midia."
-    sudo systemctl restart cadu-media-worker >> "$DEPLOY_LOG" 2>&1
+    echo "  > Workers sem alteracoes; instaladores pulados."
 fi
+# Workers de longa duração carregam o código da aplicação uma vez só: sem restart
+# ficam na versão anterior (os instaladores usam enable --now, que não reinicia o que
+# já roda). Os timers não entram aqui: cada disparo já sobe o código novo.
+# O de mídia sempre sobe (restart); nos demais, try-restart só age em unidade ativa e ignora o que não está instalado.
+sudo systemctl restart cadu-media-worker >> "$DEPLOY_LOG" 2>&1
+LONG_RUNNING_WORKERS=(
+    cadu-brand-audit-worker
+    cadu-conversation-memory-worker
+    cadu-resource-registry-worker
+    cadu-reports-flow-monitor
+    cadu-link-icon-worker@1
+    cadu-link-icon-worker@2
+)
+echo "  > Reiniciando workers de longa duracao..."
+for worker in "${LONG_RUNNING_WORKERS[@]}"; do
+    sudo systemctl try-restart "$worker" >> "$DEPLOY_LOG" 2>&1 || \
+        echo "  > AVISO: nao foi possivel reiniciar $worker (veja $DEPLOY_LOG)"
+done
 
 step_done "parada do servico, nginx, importacao e workers"
 

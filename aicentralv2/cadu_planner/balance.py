@@ -300,8 +300,9 @@ def compute(plan, method=None, manual=None, progress=True):
 
     base['warnings'] = _warnings(rows, base['groups'], budget, period)
     # KPI do plano que nenhum canal escolhido mede: o plano promete algo que a mídia não entrega.
-    covered = {_fold(kpi) for row in rows if row['kpis_from_plan'] for kpi in row['kpis']}
-    orphan = [kpi for kpi in kpis if _fold(kpi) not in covered and kpi_groups(kpi)]
+    # Conta pelos grupos, não pelas etiquetas exibidas: a coluna corta em 4 por canal.
+    present = {row['group'] for row in rows}
+    orphan = [kpi for kpi in kpis if kpi_groups(kpi) and not kpi_groups(kpi) & present]
     if orphan:
         base['warnings'].append({'level': 'attention', 'text': f"Nenhum canal do plano mede {', '.join(orphan)}. Inclua um canal que meça ou ajuste os KPIs."})
     return base

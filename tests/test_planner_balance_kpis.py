@@ -8,3 +8,12 @@ def test_channel_indicators_follow_plan_kpis():
     assert balance._channel_kpis('ctv', kpis) == (['views completas (VTR)', 'Viewability'], True)
     # Nenhum KPI do plano serve ao áudio: volta aos indicadores típicos do grupo.
     assert balance._channel_kpis('audio', kpis)[1] is False
+
+
+def test_kpi_cut_from_the_column_is_not_reported_as_unmeasured():
+    plan = {'briefing': {'kpis': 'Alcance, CTR, VTR, lembrança de marca, Vendas'}, 'items': []}
+    rows = [{'group': 'social'}]
+    present = {row['group'] for row in rows}
+    kpis = balance.plan_kpis(plan['briefing']['kpis'])
+    assert len(balance._channel_kpis('social', kpis)[0]) == 4
+    assert [kpi for kpi in kpis if balance.kpi_groups(kpi) and not balance.kpi_groups(kpi) & present] == []

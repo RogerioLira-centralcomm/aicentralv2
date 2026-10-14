@@ -366,8 +366,11 @@ def _final_plan_result(state: dict, plan_id: str) -> dict:
                 "next_step": "Gere o plano final no bloco 'Plano final' do plano no Planner, ou use planner.revise_final_plan."}
     result = {key: state.get(key) for key in ("version", "stale", "edited_sections", "origin", "created_at", "markdown")}
     result["plan_id"] = plan_id
-    result["sections"] = [{"key": s.get("key"), "title": s.get("title"), "body": s.get("body") or ""}
+    from ....cadu_planner.final_plan import section_markdown
+    # O corpo de cada seção inclui a tabela (mix, jornada, segmentos, mensuração, riscos), não só o texto.
+    result["sections"] = [{"key": s.get("key"), "title": s.get("title"), "body": section_markdown(s)}
                           for s in (state.get("document") or {}).get("sections") or []]
+    result["facts"] = (state.get("document") or {}).get("facts") or []
     result["planner_url"] = product_url("planner", f"/planos/{plan_id}")
     if state.get("share_enabled") and state.get("share_token"):
         result["public_url"] = product_url("planner", f"/planos/public/final/{state['share_token']}")

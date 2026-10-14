@@ -493,12 +493,21 @@ def grid_table(table) -> str:
     return '\n'.join(lines)
 
 
+def section_markdown(section: Mapping) -> str:
+    """Uma seção inteira em markdown: tabela do mix ou da seção estruturada, depois o texto."""
+    return '\n\n'.join(part for part in (mix_table(section.get('rows')) if section.get('key') == 'mix' else '',
+                                         grid_table(section.get('table')), section.get('body') or '') if part)
+
+
 def to_markdown(document: Mapping, title: str = '') -> str:
     """Clean markdown for the chat, the project knowledge and copy/paste."""
     out = [f'# Plano final — {title}' if title else '# Plano final']
+    facts = [f"**{fact['label']}:** " + (', '.join(c['name'] for c in fact['channels']) if fact.get('channels') else str(fact.get('value') or ''))
+             for fact in document.get('facts') or []]
+    if facts:
+        out.append(' · '.join(facts))
     for section in document.get('sections') or []:
-        body = '\n\n'.join(part for part in (mix_table(section.get('rows')) if section.get('key') == 'mix' else '',
-                                             grid_table(section.get('table')), section.get('body') or '') if part)
+        body = section_markdown(section)
         if body:
             out.append(f"## {section.get('title')}\n\n{body}")
     out.append(f"_{document.get('note') or PRICE_NOTE}_")
@@ -588,15 +597,16 @@ def describe(plan, payload, latest, share) -> dict:
     result = {'available': True, 'exists': bool(latest), 'share_enabled': bool(share.get('share_enabled')),
               'share_token': share.get('share_token') if share.get('share_enabled') else None}
     if latest:
+        # Versões geradas antes da faixa de números e dos logos recebem o mesmo acabamento na leitura.
+        document = latest['document'] if (latest['document'] or {}).get('facts') else decorate(latest['document'] or {}, plan)
         result.update({
             'version': latest['version'], 'created_at': latest['created_at'], 'origin': latest['origin'],
-            # Versões geradas antes da faixa de números e dos logos recebem o mesmo acabamento na leitura.
-            'document': latest['document'] if (latest['document'] or {}).get('facts') else decorate(latest['document'] or {}, plan),
+            'document': document,
             'edited_sections': latest.get('edited_sections') or [],
             'warnings': latest.get('warnings') or [], 'project_source_id': latest.get('project_source_id'),
             'stale': latest['source_hash'] != payload_hash(payload),
             'generated_at_revision': latest.get('plan_revision'), 'plan_revision': int(plan.get('revision') or 0),
-            'markdown': to_markdown(latest['document'], plan.get('title') or ''),
+            'markdown': to_markdown(document, plan.get('title') or ''),
         })
     return result
 

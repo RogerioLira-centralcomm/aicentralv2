@@ -79,7 +79,7 @@ export function FormatShowcase({boot, selection, plan = null}) {
       </div>}/>
     <section className="aud-filters" aria-label="Filtros de formatos">
       {planPlatforms.size > 0 && <p className="fmt-plan-filter" role="status">
-        {byPlan ? <>Mostrando os formatos dos canais do plano <b>{plan.title}</b>.</> : <>Mostrando todos os formatos.</>}
+        <span className="fmt-plan-filter__text" title={byPlan ? plan.title : undefined}>{byPlan ? <>Formatos dos canais do plano <b>{plan.title}</b></> : 'Mostrando todos os formatos'}</span>
         <CaduButton variant="tertiary" size="sm" onClick={() => setPlanOnly(value => !value)}>{byPlan ? 'Ver todos os formatos' : 'Só os dos canais do plano'}</CaduButton>
       </p>}
       <FacetChips label="Família" items={families} value={filters.family} total={familyTotal} onChange={value => set('family', value)}/>

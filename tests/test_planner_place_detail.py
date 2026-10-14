@@ -16,6 +16,10 @@ class WeeklyReachTest(unittest.TestCase):
         self.assertEqual(planner_places.weekly_reach("1.5 mi"), "375 mil")
         self.assertEqual(planner_places.weekly_reach("3,998 mi"), "1 mi")
 
+    def test_each_bound_keeps_its_own_unit(self):
+        self.assertEqual(planner_places.weekly_reach("641 mil–1,07 mi"), "160–268 mil")
+        self.assertEqual(planner_places.weekly_reach("2–4 mil"), "500–1.000")
+
     def test_pending_reach_has_no_weekly_number(self):
         self.assertEqual(planner_places.weekly_reach("A validar"), "")
         self.assertEqual(planner_places.weekly_reach(""), "")

@@ -18,29 +18,34 @@ def _coordinate(value, low, high):
     return number if low <= number <= high else None
 
 
-_REACH_NUMBER = re.compile(r"\d+(?:[.,]\d+)?")
-# 'milhão/milhões' and 'mi' are millions; 'mil' is thousands.
-_REACH_UNIT = re.compile(r"\b(milh\w*|mil|mi)\b")
+# Each number with the unit written after it: '641 mil–1,07 mi', '190–280 mil'.
+_REACH_PART = re.compile(r"(\d+(?:[.,]\d+)?)\s*(milh\w*|mil|mi\b)?")
+
+
+def _scale(unit):
+    """'milhão/milhões' and 'mi' are millions; 'mil' is thousands."""
+    return 1_000 if unit == "mil" else (1_000_000 if unit else 1)
 
 
 def _compact(people):
-    people = round(people, -3) if people >= 1_000 else round(people, -1)
+    people = round(people, -3) if people >= 10_000 else round(people, -1)
     if people >= 1_000_000:
         return f"{people / 1_000_000:.1f}".rstrip("0").rstrip(".").replace(".", ",") + " mi"
-    if people >= 1_000:
+    if people >= 10_000:
         return f"{people / 1_000:.0f} mil"
-    return f"{people:.0f}"
+    # Small places read better as whole numbers: '500–1.000', not '500–1 mil'.
+    return f"{people:,.0f}".replace(",", ".")
 
 
 def weekly_reach(label):
     """'190–280 mil' over four weeks → '48–70 mil' a week. A label without a number ('A validar') gives ''."""
-    value = str(label or "").lower()
-    numbers = [float(item.replace(",", ".")) for item in _REACH_NUMBER.findall(value)[:2]]
-    if not numbers:
+    parts = _REACH_PART.findall(str(label or "").lower())[:2]
+    if not parts:
         return ""
-    unit = _REACH_UNIT.search(value)
-    scale = 1_000 if unit and unit.group(1) == "mil" else (1_000_000 if unit else 1)
-    low, high = (_compact(number * scale / 4) for number in (numbers[0], numbers[-1]))
+    # A bound without its own unit borrows the next one: '190–280 mil'.
+    units = [unit or next((later for _, later in parts[index:] if later), "") for index, (_, unit) in enumerate(parts)]
+    people = [float(number.replace(",", ".")) * _scale(unit) / 4 for (number, _), unit in zip(parts, units)]
+    low, high = _compact(people[0]), _compact(people[-1])
     if low == high:
         return low
     # '48 mil–70 mil' reads as '48–70 mil' when both ends share the unit.

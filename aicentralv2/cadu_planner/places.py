@@ -28,7 +28,7 @@ def _scale(unit):
 
 
 def _compact(people):
-    people = round(people, -3) if people >= 10_000 else round(people, -1)
+    people = round(people, -3) if people >= 10_000 else round(people, -2 if people >= 1_000 else -1)
     if people >= 1_000_000:
         return f"{people / 1_000_000:.1f}".rstrip("0").rstrip(".").replace(".", ",") + " mi"
     if people >= 10_000:

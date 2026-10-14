@@ -2036,11 +2036,10 @@ a.planner-card:focus-visible { outline: 2px solid var(--colors-brand-600, #07945
 @media (min-width: 561px) and (max-width: 900px) { .pd-fcards .fmt-preview { zoom: .75; } }
 
 /* Formatos filtrados pelos canais do plano aberto, com a saída para o catálogo inteiro. */
-.fmt-plan-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0 0 8px; color: var(--planner-muted); font-size: 13px; }
-.fmt-plan-filter { flex-wrap: nowrap; min-width: 0; }
+.fmt-plan-filter { display: flex; flex-wrap: nowrap; min-width: 0; align-items: center; gap: 4px 12px; margin: 0 0 8px; color: var(--planner-muted); font-size: 13px; }
 .fmt-plan-filter__text { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fmt-plan-filter b { color: var(--planner-ink); font-weight: 600; }
-.fmt-plan-filter .cadu-button { flex: none; }
+.fmt-plan-filter [data-cadu-untitled-button] { flex: none; }
 
 /* Cabeçalho do plano: o título tem a linha inteira (até duas linhas), selos e resumo logo abaixo
    e as ações numa linha própria, sem disputar largura com um título longo. */

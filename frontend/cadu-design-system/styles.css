@@ -2594,12 +2594,6 @@ body.portal--workspace .cadu-ds-brand-hero {
   gap:18px;
   padding-bottom:28px;
 }
-body.portal--workspace .cadu-ds-brand-hero__identity,
-body.portal--workspace .cadu-ds-brand-hero__identity .cadu-ds-visual-identity {
-  width:72px;
-  height:72px;
-  border-radius:20px;
-}
 body.portal--workspace .cadu-ds-brand-hero h1 {
   font-size:clamp(36px,4vw,48px);
   font-weight:600;
@@ -2700,8 +2694,6 @@ body.portal--workspace .cadu-ds-brand-hero__meta { margin-top:5px; }
 @media (max-width:760px) {
   body.portal--workspace .cadu-ds-brand-content { padding:24px 16px max(44px,env(safe-area-inset-bottom)); }
   body.portal--workspace .cadu-ds-brand-hero { grid-template-columns:56px minmax(0,1fr); }
-  body.portal--workspace .cadu-ds-brand-hero__identity,
-  body.portal--workspace .cadu-ds-brand-hero__identity .cadu-ds-visual-identity { width:56px; height:56px; border-radius:16px; }
   body.portal--workspace .cadu-ds-brand-hero h1 { font-size:clamp(29px,9vw,38px); }
   .cadu-ds-brand-state { grid-template-columns:1fr; gap:24px; margin-top:20px; padding:20px 0; }
   .cadu-ds-brand-state__visual { min-height:180px; }
@@ -2729,8 +2721,6 @@ body.portal--workspace .cadu-ds-brand-hero__meta { margin-top:5px; }
 .cadu-ds-brand-back:hover { color:var(--cadu-accent-strong); }
 .cadu-ds-brand-hero { display:grid; grid-template-columns:78px minmax(0,1fr) auto; gap:20px; align-items:start; padding-bottom:32px; border-bottom:0; }
 .cadu-ds-brand-shell.is-audit_processing .cadu-ds-brand-hero { display:none; }
-.cadu-ds-brand-hero__identity { width:78px; height:78px; border-radius:22px; background:var(--cadu-surface); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--cadu-line) 72%,transparent); }
-.cadu-ds-brand-hero__identity .cadu-ds-visual-identity { width:100%; height:100%; border-radius:22px; font-size:24px; }
 .cadu-ds-brand-hero__copy { display:grid; min-width:0; gap:8px; }
 .cadu-ds-brand-hero__copy>p,.cadu-ds-brand-section header p,.cadu-ds-brand-next>p,.cadu-ds-brand-review p { margin:0; color:var(--cadu-accent-strong); font-size:11px; font-weight:700; }
 .cadu-ds-brand-hero h1 { margin:0; color:var(--cadu-ink); font-size:clamp(32px,4.5vw,56px); letter-spacing:-.055em; line-height:1; }
@@ -4274,8 +4264,6 @@ body.portal--workspace .cadu-ds-project-shell.is-editorial .cadu-ds-entity-detai
 body.portal--workspace .cadu-ds-project-hero__meta{display:flex;min-width:0;align-items:center;gap:12px}
 body.portal--workspace .cadu-ds-project-hero__meta a{width:auto;max-width:240px;color:var(--cadu-muted);font-size:10px;font-weight:600}
 body.portal--workspace .cadu-ds-brand-hero.cadu-ds-entity-detail-header{display:grid;grid-template-columns:52px minmax(0,1fr);align-items:center;gap:14px}
-body.portal--workspace .cadu-ds-brand-hero.cadu-ds-entity-detail-header .cadu-ds-brand-hero__identity,
-body.portal--workspace .cadu-ds-brand-hero.cadu-ds-entity-detail-header .cadu-ds-brand-hero__identity .cadu-ds-visual-identity{width:52px;height:52px;border-radius:14px}
 body.portal--workspace .cadu-ds-brand-hero.cadu-ds-entity-detail-header .cadu-ds-brand-hero__copy{display:grid;gap:2px}
 body.portal--workspace .cadu-ds-brand-hero.cadu-ds-entity-detail-header .cadu-ds-brand-hero__copy>span{max-width:72ch;overflow:hidden;color:var(--cadu-muted);font-size:10px;line-height:1.35;text-overflow:ellipsis;white-space:nowrap}
 body.portal--workspace .cadu-ds-brand-hero.cadu-ds-entity-detail-header .cadu-ds-brand-hero__meta{gap:7px;margin-top:2px}

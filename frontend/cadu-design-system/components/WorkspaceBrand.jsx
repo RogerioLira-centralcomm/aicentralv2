@@ -98,7 +98,7 @@ function LinkProjectsDialog({brand, projects, linkedProjects = [], csrfToken, on
     .sort((left, right) => linkedIds.has(String(left.id)) - linkedIds.has(String(right.id)));
   return <BrandDialog title="Vincular a um projeto" detail={`${brand.name} passa a fazer parte do contexto do projeto escolhido.`} onClose={onClose}>
     <div className="cadu-ds-brand-project-link">
-      {projects.length > 5 && <div className="cadu-ds-brand-project-link__search" role="search"><Icon name="search" size={16}/><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar projeto" aria-label="Buscar projeto" autoFocus/></div>}
+      {projects.length > 5 && <div className="cadu-ds-brand-project-link__search" role="search"><Icon name="search" size={16}/><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar projeto" aria-label="Buscar projeto" data-drawer-ignore="" autoFocus/></div>}
       <ul className="cadu-ds-brand-project-link__list">
         {visible.map(project => {
           const linked = linkedIds.has(String(project.id));

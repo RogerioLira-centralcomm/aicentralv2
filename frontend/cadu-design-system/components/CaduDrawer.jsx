@@ -8,7 +8,8 @@ export function CaduDrawer({open, onOpenChange, onDiscard, title, description, c
   const confirmButton = useRef(null);
   const body = useRef(null);
   const baseline = useRef(null);
-  const values = () => JSON.stringify(Array.from(body.current?.querySelectorAll('input,select,textarea') || []).map(field => [field.name, field.type, field.value, field.checked]));
+  // Fields marked data-drawer-ignore (search boxes, filters) are not edits and never ask to discard.
+  const values = () => JSON.stringify(Array.from(body.current?.querySelectorAll('input:not([data-drawer-ignore]),select:not([data-drawer-ignore]),textarea:not([data-drawer-ignore])') || []).map(field => [field.name, field.type, field.value, field.checked]));
   const [dirty, setDirty] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
   useEffect(() => { if (!open) { setDirty(false); setConfirmClose(false); } }, [open]);

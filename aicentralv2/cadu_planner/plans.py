@@ -296,12 +296,18 @@ def update_briefing(client_id, actor_id, plan_id, payload, *, expected_updated_a
     """Store the small, decision-facing brief that guides a media plan."""
     plan = get_plan(client_id, actor_id, plan_id)
     briefing = _clean_briefing(payload.get('briefing'))
+    # O objetivo vem no mesmo formulário da direção; sem a chave, o objetivo salvo fica como está.
+    objective = plan.get('objective') or ''
+    if 'objective' in payload:
+        objective = str(payload.get('objective') or '').strip()
+        if objective and objective not in VALID_OBJECTIVES:
+            raise BadRequest('Objetivo inválido.')
     with get_db() as conn, conn.cursor() as cur:
         cur.execute('''UPDATE cadu_planner_plans
-                          SET briefing = %s, advertiser_name = %s, campaign_name = %s, updated_at = NOW()
+                          SET briefing = %s, advertiser_name = %s, campaign_name = %s, objective = %s, updated_at = NOW()
                         WHERE id = %s AND (%s::timestamptz IS NULL OR updated_at IS NOT DISTINCT FROM %s::timestamptz)
                      RETURNING id''', (Json(briefing), _clean_label(payload.get('advertiser_name')),
-                                       _clean_label(payload.get('campaign_name')), str(plan['id']),
+                                       _clean_label(payload.get('campaign_name')), objective or None, str(plan['id']),
                                        expected_updated_at, expected_updated_at))
         updated = cur.fetchone()
         if updated and _cobuild_available():
@@ -329,6 +335,8 @@ def _edited_sections(plan, briefing, payload):
     for key in ('advertiser_name', 'campaign_name'):
         if (plan.get(key) or None) != _clean_label(payload.get(key)):
             sections.add('briefing')
+    if 'objective' in payload and (plan.get('objective') or '') != str(payload.get('objective') or '').strip():
+        sections.add('objetivo')
     return sorted(sections)
 
 

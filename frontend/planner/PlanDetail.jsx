@@ -30,7 +30,7 @@ const OBJECTIVE_KPIS = {
 };
 
 /** KPIs do plano: texto livre, com os indicadores do objetivo escolhido a um clique. */
-function KpiField({objective, defaultValue}) {
+function KpiField({objective, defaultValue, onEdit}) {
   const [value, setValue] = useState(defaultValue);
   const has = kpi => value.toLowerCase().split(/[,;]/).some(part => part.trim() === kpi.toLowerCase());
   const add = kpi => setValue(current => has(kpi) ? current : [current.trim().replace(/[,;]\s*$/, ''), kpi].filter(Boolean).join(', '));
@@ -38,7 +38,7 @@ function KpiField({objective, defaultValue}) {
   return <div className="is-wide planner-kpis">
     <CaduInput label="KPIs" name="kpis" value={value} onChange={event => setValue(event.target.value)} placeholder={`Ex.: ${kpis.slice(0, 3).join(', ').toLowerCase()}`} maxLength="180"/>
     <div className="wizard__chips" aria-label="Sugestões de KPI">{kpis.map(kpi => <button key={kpi} type="button" className={has(kpi) ? 'is-on' : ''}
-      aria-pressed={has(kpi)} onClick={() => add(kpi)}>{kpi}</button>)}</div>
+      aria-pressed={has(kpi)} onClick={() => { add(kpi); onEdit?.(); }}>{kpi}</button>)}</div>
   </div>;
 }
 const QUOTE_SCOPES = [['full_operation', 'Operação completa'], ['media_inventory', 'Inventário de mídia'], ['specific_channels', 'Canais específicos']];
@@ -80,6 +80,9 @@ export function PlanDetail({boot, request, plan, setPlan, selection, notify}) {
   const savedObjective = briefing.objective ?? plan.objective ?? '';
   const [objectiveDraft, setObjectiveDraft] = useState(savedObjective);
   useEffect(() => { setObjectiveDraft(savedObjective); }, [savedObjective, plan.updated_at]);
+  // A barra de seções só muda depois de salvar: o formulário avisa enquanto há mudança pendente.
+  const [dirty, setDirty] = useState(false);
+  useEffect(() => { setDirty(false); }, [plan.updated_at]);
   const items = plan.items || [];
   const readiness = plan.readiness || {checks: []};
   const lastQuote = (plan.quote_requests || [])[0];
@@ -115,8 +118,10 @@ export function PlanDetail({boot, request, plan, setPlan, selection, notify}) {
     event.preventDefault();
     const fields = Object.fromEntries(new FormData(event.currentTarget));
     run('briefing', async () => {
-      const data = await request(`/plans/${plan.id}`, {method: 'PUT', body: JSON.stringify({briefing: fields, advertiser_name: fields.advertiser_name, campaign_name: fields.campaign_name})});
+      const data = await request(`/plans/${plan.id}`, {method: 'PUT', body: JSON.stringify({briefing: fields, objective: fields.objective,
+        advertiser_name: fields.advertiser_name, campaign_name: fields.campaign_name})});
       if (data.plan) setPlan(data.plan);
+      setDirty(false);
       notify({message: 'Direção salva.'});
     });
   };
@@ -157,13 +162,14 @@ export function PlanDetail({boot, request, plan, setPlan, selection, notify}) {
       <div className="planner-workbench__main">
         <PlannerPanel className={`planner-block${SECTION_BLOCK[active] === 'direcao' ? ' is-active' : ''}`} title="Direção da campanha" description="Briefing, objetivo, KPIs e praças que orientam as escolhas de mídia.">
           <span id="bloco-direcao" className="planner-anchor"/>
-          <form key={String(plan.updated_at)} className="planner-fields" onSubmit={saveBriefing}>
+          <form key={String(plan.updated_at)} className="planner-fields" onSubmit={saveBriefing} onInput={() => setDirty(true)} onChange={() => setDirty(true)}>
             <CaduSelectField label="Objetivo" name="objective" defaultValue={briefing.objective ?? plan.objective ?? ''} options={OBJECTIVES.map(([value, label]) => ({value, label}))}
               onChange={event => setObjectiveDraft(event.target.value)}/>
             {BRIEFING_FIELDS.map(([name, label, placeholder]) => <CaduInput key={name} label={label} name={name} placeholder={placeholder} defaultValue={plan[name] || briefing[name] || ''}/>)}
-            <KpiField objective={objectiveDraft} defaultValue={briefing.kpis || ''}/>
+            <KpiField objective={objectiveDraft} defaultValue={briefing.kpis || ''} onEdit={() => setDirty(true)}/>
             <CaduTextAreaField className="is-wide" label="Notas" name="notes" rows={3} defaultValue={briefing.notes || ''}/>
-            <div className="planner-fields__actions"><CaduButton type="submit" variant="secondary" loading={busy === 'briefing'}>Salvar direção</CaduButton></div>
+            <div className="planner-fields__actions"><CaduButton type="submit" variant={dirty ? 'primary' : 'secondary'} loading={busy === 'briefing'}>Salvar direção</CaduButton>
+              {dirty && <span className="planner-muted" role="status">Alterações não salvas</span>}</div>
           </form>
         </PlannerPanel>
         <PlannerPanel className={`planner-block${SECTION_BLOCK[active] === 'composicao' ? ' is-active' : ''}`} title="Composição" description={`${items.length} ${items.length === 1 ? 'referência' : 'referências'} no plano`}>

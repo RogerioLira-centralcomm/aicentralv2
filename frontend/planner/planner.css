@@ -93,7 +93,7 @@ body.planner-react {
 .planner-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .planner-fields > .is-wide, .planner-fields__actions { grid-column: 1 / -1; }
 .planner-kpis { display: grid; gap: 8px; }
-.planner-fields__actions { display: flex; justify-content: flex-start; }
+.planner-fields__actions { display: flex; align-items: center; gap: 12px; justify-content: flex-start; }
 .planner-aside { position: sticky; top: 24px; display: grid; gap: 8px; padding: 20px; border: 1px solid var(--planner-line); border-radius: var(--planner-radius); background: var(--planner-soft); }
 .planner-aside h2 { font-size: 14px; font-weight: 600; }
 .planner-aside p, .planner-aside li { color: var(--planner-muted); font-size: 13px; }

@@ -166,8 +166,8 @@ function BrandAuditSources({initialAdditional = [], initialExcluded = []}) {
 }
 
 function AuditDialog({brand, urls, csrfToken, creditAvailable = 0, onClose}) {
-  // The most complete analysis comes checked whenever the balance allows it.
-  const [mode, setMode] = useState(() => Number(creditAvailable || 0) > 0 ? 'deep' : 'complete');
+  // Completa comes checked; Profunda costs twice as much, so it stays the user's call.
+  const [mode, setMode] = useState('complete');
   const [showAllAssets, setShowAllAssets] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');

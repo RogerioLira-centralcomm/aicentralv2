@@ -29,15 +29,24 @@ const BENEFITS = [['plan', 'Planos sob medida para o seu objetivo'], ['pulse', '
 
 const empty = {goal: '', custom: '', budget: '', period: '', geography: '', audience: '', title: '', advertiser: ''};
 const readDraft = () => { try { return {...empty, ...JSON.parse(window.sessionStorage.getItem(DRAFT_KEY) || '{}')}; } catch { return empty; } };
-// O rascunho guarda a barra do topo em que nasceu: se ela mudou desde então, vale a escolha nova da barra.
-const initialData = (selection, brands, projects) => {
+// Link de um projeto ou marca (?project_ref=…&brand_ref=…) que o servidor validou e aplicou à seleção.
+const linkedSelection = selection => {
+  const query = new URLSearchParams(window.location.search);
+  const brand = query.get('brand_ref'), project = query.get('project_ref');
+  return Boolean((brand && brand === selection?.brand_ref) || (project && project === selection?.project_ref));
+};
+// O rascunho guarda a barra do topo em que nasceu: se ela mudou desde então, ou se a pessoa
+// chegou por um link de projeto, vale a escolha nova.
+const initialData = (selection, brands, projects, linked) => {
   const draft = readDraft();
   const seed = contextQuery(selection);
-  const own = draft.seed === seed;
+  const own = !linked && draft.seed === seed;
   const brand_ref = own ? draft.brand_ref : selection?.brand_ref;
   const project_ref = own ? draft.project_ref : selection?.project_ref;
-  return {...draft, seed, brand_ref: brands.some(item => item.ref === brand_ref) ? brand_ref : '',
-    project_ref: projects.some(item => item.ref === project_ref) ? project_ref : ''};
+  const brand = brands.find(item => item.ref === brand_ref);
+  return {...draft, seed, brand_ref: brand ? brand_ref : '',
+    project_ref: projects.some(item => item.ref === project_ref) ? project_ref : '',
+    advertiser: draft.advertiser || brand?.name || ''};
 };
 
 /**
@@ -49,10 +58,13 @@ export function PlanWizard({request, contextBar, selection, busy, onSubmit, onFu
   const brands = contextBar?.brands || [];
   const allProjects = contextBar?.projects || [];
   const steps = brands.length || allProjects.length ? STEPS : STEPS.slice(1);
-  const [step, setStep] = useState(0);
-  const [reached, setReached] = useState(0);
-  const [visited, setVisited] = useState(() => new Set([0]));
-  const [data, setData] = useState(() => initialData(selection, brands, allProjects));
+  // Vindo de um projeto, marca e projeto já estão escolhidos: abre direto no objetivo.
+  const [linked] = useState(() => linkedSelection(selection));
+  const first = linked && steps[0].key === 'marca' ? 1 : 0;
+  const [step, setStep] = useState(first);
+  const [reached, setReached] = useState(first);
+  const [visited, setVisited] = useState(() => new Set([0, first]));
+  const [data, setData] = useState(() => initialData(selection, brands, allProjects, linked));
   const [known, setKnown] = useState(null);
   const panel = useRef(null);
   const set = (key, value) => setData(current => ({...current, [key]: value}));

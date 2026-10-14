@@ -35,7 +35,8 @@ ExecStart={python} -m flask --app run:app cadu_workspace brand-audit-worker-loop
 Restart=always
 RestartSec=5
 KillSignal=SIGTERM
-TimeoutStopSec=120
+# Uma auditoria profunda leva ~10 min: no SIGTERM o loop termina a atual antes de sair.
+TimeoutStopSec=900
 [Install]
 WantedBy=multi-user.target
 ''')

@@ -442,6 +442,7 @@ if should_run "$WORKERS_STATE_FILE" "${FORCE_WORKERS:-0}" deploy requirements.tx
     PLANNER_MONITOR_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_planner_portal_ads_timer.sh >> "$DEPLOY_LOG" 2>&1
     # Radares ativos do Planner: o comando só age com CADU_RADAR_ENABLED e a migração add_cadu_radar_v2 aplicada.
     RADAR_WATCH_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_radar_watch_timer.sh >> "$DEPLOY_LOG" 2>&1
+    BRAND_AUDIT_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_brand_audit_worker.sh >> "$DEPLOY_LOG" 2>&1
     record_state "$WORKERS_STATE_FILE"
 else
     echo "  > Workers sem alteracoes; instaladores pulados."
@@ -450,6 +451,8 @@ fi
 # ficam na versão anterior (os instaladores usam enable --now, que não reinicia o que
 # já roda). Os timers não entram aqui: cada disparo já sobe o código novo.
 # O de mídia sempre sobe (restart); nos demais, try-restart só age em unidade ativa e ignora o que não está instalado.
+# --no-block: o deploy não espera o worker terminar o job em andamento (a auditoria tem até
+# 15 min de TimeoutStopSec); o systemd sobe o código novo assim que o job atual acabar.
 sudo systemctl restart cadu-media-worker >> "$DEPLOY_LOG" 2>&1
 LONG_RUNNING_WORKERS=(
     cadu-brand-audit-worker
@@ -461,7 +464,7 @@ LONG_RUNNING_WORKERS=(
 )
 echo "  > Reiniciando workers de longa duracao..."
 for worker in "${LONG_RUNNING_WORKERS[@]}"; do
-    sudo systemctl try-restart "$worker" >> "$DEPLOY_LOG" 2>&1 || \
+    sudo systemctl try-restart --no-block "$worker" >> "$DEPLOY_LOG" 2>&1 || \
         echo "  > AVISO: nao foi possivel reiniciar $worker (veja $DEPLOY_LOG)"
 done
 

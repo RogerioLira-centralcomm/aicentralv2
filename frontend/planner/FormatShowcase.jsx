@@ -40,19 +40,14 @@ export function FormatShowcase({boot, selection, plan = null}) {
   const kind = boot.module === 'interativos' ? 'interativos' : 'formatos';
   const all = Array.isArray(boot.records) ? boot.records : [];
   const [filters, setFilters] = useState(filtersFromUrl);
-  // Com canais no plano aberto, a vitrine começa pelos formatos que esses canais compram.
-  const planPlatforms = useMemo(() => new Set(kind === 'formatos' ? plan?.format_platforms || [] : []), [kind, plan?.format_platforms]);
-  const [planOnly, setPlanOnly] = useState(() => !filtersFromUrl().platform);
-  const byPlan = planOnly && planPlatforms.size > 0;
   const search = useDebounced(filters.q);
   const set = (key, value) => setFilters(current => { const next = {...current, [key]: value}; writeUrl(next); return next; });
 
   const matches = (item, ignore) => (ignore === 'family' || !filters.family || item.family === filters.family)
     && (ignore === 'platform' || !filters.platform || item.platform_slug === filters.platform)
-    && (!byPlan || planPlatforms.has(item.platform_slug))
     && (!search || fold([item.name, item.description, item.platform, item.format_type, item.dimensions, item.purpose].join(' ')).includes(fold(search)));
 
-  const visible = useMemo(() => all.filter(item => matches(item)), [all, filters.family, filters.platform, search, byPlan, planPlatforms]); // eslint-disable-line react-hooks/exhaustive-deps
+  const visible = useMemo(() => all.filter(item => matches(item)), [all, filters.family, filters.platform, search]); // eslint-disable-line react-hooks/exhaustive-deps
   // Each facet counts what the other filters leave, so the numbers always add up.
   const familyCounts = tally(all.filter(item => matches(item, 'family')), 'family');
   const platformCounts = tally(all.filter(item => matches(item, 'platform')), 'platform_slug');
@@ -65,7 +60,7 @@ export function FormatShowcase({boot, selection, plan = null}) {
     .map(({value}) => ({family: value, items: visible.filter(item => item.family === value)}));
   const familyTotal = [...familyCounts.values()].reduce((sum, count) => sum + count, 0);
   const active = Object.values(filters).filter(Boolean).length;
-  const clear = () => { const empty = {q: '', family: '', platform: ''}; writeUrl(empty); setFilters(empty); setPlanOnly(false); };
+  const clear = () => { const empty = {q: '', family: '', platform: ''}; writeUrl(empty); setFilters(empty); };
 
   return <>
     <ShelfHeader title={kind === 'interativos' ? 'Interativos' : 'Formatos'}
@@ -78,10 +73,6 @@ export function FormatShowcase({boot, selection, plan = null}) {
           options={[{value: '', label: 'Todos os canais'}, ...platforms.map(item => ({value: item.slug, label: item.name, count: number(item.count)}))]}/></div>
       </div>}/>
     <section className="aud-filters" aria-label="Filtros de formatos">
-      {planPlatforms.size > 0 && <p className="fmt-plan-filter" role="status">
-        <span className="fmt-plan-filter__text" title={byPlan ? plan.title : undefined}>{byPlan ? <>Formatos dos canais do plano <b>{plan.title}</b></> : 'Mostrando todos os formatos'}</span>
-        <CaduButton variant="tertiary" size="sm" onClick={() => setPlanOnly(value => !value)}>{byPlan ? 'Ver todos os formatos' : 'Só os dos canais do plano'}</CaduButton>
-      </p>}
       <FacetChips label="Família" items={families} value={filters.family} total={familyTotal} onChange={value => set('family', value)}/>
       {active > 0 && <div className="aud-filters__summary">
         <span aria-live="polite">{number(visible.length)} {visible.length === 1 ? 'resultado' : 'resultados'}</span>

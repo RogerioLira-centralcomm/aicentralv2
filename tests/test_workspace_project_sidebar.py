@@ -27,3 +27,10 @@ def test_sidebar_flag_works_inside_a_get_request():
 def test_workspace_projects_keeps_its_request_memo():
     assert getattr(routes._workspace_projects, '__wrapped__', None) is not None
     assert getattr(routes._shows_in_sidebar, '__wrapped__', None) is None
+
+
+def test_catalog_query_reads_the_sidebar_flag():
+    # The catalog lists its columns one by one; without this one every project reads as visible after a reload.
+    import inspect
+    source = inspect.getsource(routes._workspace_projects.__wrapped__)
+    assert 'p.mostrar_na_sidebar' in source

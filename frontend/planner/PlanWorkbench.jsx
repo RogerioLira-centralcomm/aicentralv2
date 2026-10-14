@@ -20,7 +20,8 @@ export function SectionRail({overview, active, onSelect}) {
   return <nav className="planner-rail" aria-label="Seções do plano">
     <div className="planner-progress"><i><b style={{width: `${overview.percent}%`}}/></i>
       <small>{overview.done} de {overview.total} seções definidas</small></div>
-    <ol>{overview.sections.map(section => {
+    {/* Seção opcional ainda vazia (o sistema criativo) não ocupa a barra. */}
+    <ol>{overview.sections.filter(section => !(section.optional && section.state === 'vazia')).map(section => {
       const state = SECTION_STATES[section.state] || SECTION_STATES.vazia;
       return <li key={section.key}>
         <button type="button" className={`planner-rail__item is-${section.state}${active === section.key ? ' is-active' : ''}`}

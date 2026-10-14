@@ -180,8 +180,21 @@ const firstSentence = text => {
 };
 
 /** Compact block at the end of the plan: where the final plan stands and the way to its own page. */
-export function FinalPlanPanel({boot, request, plan, notify}) {
-  const fp = useFinalPlan({boot, request, plan, notify});
+/** Ações do plano final para o cabeçalho do plano: gerar, abrir e gerar de novo, perto de Reabrir. */
+export function FinalPlanActions({boot, plan, fp}) {
+  if (fp.unavailable) return null;
+  const url = finalPlanUrl(boot.urls, plan.id);
+  const generate = async () => { if (await fp.generate()) window.location.assign(url); };
+  if (!fp.exists) return <CaduButton loading={fp.busy === 'generate'} disabled={fp.loading || fp.loadError} onClick={generate}>Gerar plano final</CaduButton>;
+  return <>
+    <CaduButton variant="secondary" loading={fp.busy === 'generate'} onClick={generate}
+      title={fp.state.stale ? 'O plano mudou depois da última versão' : undefined}>{fp.state.stale ? 'Atualizar plano final' : 'Gerar nova versão'}</CaduButton>
+    <CaduButton href={url}>Abrir plano final</CaduButton>
+  </>;
+}
+
+// O estado do plano final é carregado uma vez na página do plano e dividido entre o cabeçalho e este painel.
+export function FinalPlanPanel({boot, plan, fp}) {
   const {state, busy, exists} = fp;
   if (fp.unavailable) return null;
   const url = finalPlanUrl(boot.urls, plan.id);

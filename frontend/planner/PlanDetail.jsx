@@ -7,7 +7,7 @@ import {CaduSelectField, CaduTextAreaField} from '../cadu-design-system/componen
 import {CaduInput} from '../cadu-design-system/components/CaduInput.jsx';
 import {Icon} from '../cadu-design-system/components/Icon.jsx';
 import {AddItemsDialog} from './AddItemsDialog.jsx';
-import {FinalPlanPanel} from './FinalPlan.jsx';
+import {FinalPlanActions, FinalPlanPanel, useFinalPlan} from './FinalPlan.jsx';
 import {MediaBalance} from './MediaBalance.jsx';
 import {FinalReviewDialog, TimeSaved} from './PlanReview.jsx';
 import {LogoTile, PlannerPanel} from './PlannerUi.jsx';
@@ -76,6 +76,7 @@ export function PlanDetail({boot, request, plan, setPlan, selection, notify}) {
   if (!plan) return <CaduEmptyState title="Plano indisponível" description="Ele pode ter sido removido ou você não tem acesso."/>;
 
   const briefing = plan.briefing || {};
+  const finalPlan = useFinalPlan({boot, request, plan, notify});
   // O objetivo escolhido no formulário (ainda não salvo) já troca as sugestões de KPI.
   const savedObjective = briefing.objective ?? plan.objective ?? '';
   const [objectiveDraft, setObjectiveDraft] = useState(savedObjective);
@@ -142,8 +143,9 @@ export function PlanDetail({boot, request, plan, setPlan, selection, notify}) {
   const goTo = key => { setReviewOpen(false); selectSection(key); };
   const grouped = KIND_ORDER.map(kind => [kind, items.filter(item => item.kind === kind)]).filter(([, list]) => list.length);
 
+  const missing = (readiness.checks || []).filter(check => !check.complete).map(check => check.label);
   return <>
-    <PlannerHeader crumbs={[['Planos', boot.urls.plans]]} title={plan.title}
+    <PlannerHeader className="ph--plan" crumbs={[['Planos', boot.urls.plans]]} title={plan.title}
       description={[plan.advertiser_name, plan.objective && objectiveLabel(plan.objective), briefing.period, briefing.geography].filter(Boolean).join(' · ') || 'Defina a direção da campanha para começar.'}
       meta={<><CaduBadge tone={planStatusTone(plan)}>{planStatusLabel(plan)}</CaduBadge>{lastQuote && <CaduBadge tone="brand">Proposta: {QUOTE_STATUS[lastQuote.status] || lastQuote.status}</CaduBadge>}
         {plan.status === 'ready' && <TimeSaved estimate={plan.time_saved} className="is-inline" compact/>}</>}
@@ -151,11 +153,12 @@ export function PlanDetail({boot, request, plan, setPlan, selection, notify}) {
         <ShareControl title="Compartilhar o plano" description="Link aberto para o time ou o cliente ver o plano. O plano final aparece nele quando o link do plano final também está ativo."
           url={plan.share_token ? new URL(`/planos/public/${plan.share_token}`, boot.urls.home).href : ''} enabled={Boolean(plan.share_enabled)}
           busy={busy === 'share'} onToggle={setShare}/>
-        <CaduButton variant="secondary" disabled={!readiness.ready} title={readiness.ready ? undefined : 'Complete o checklist para pedir proposta'}
+        <CaduButton variant="secondary" disabled={!readiness.ready} title={readiness.ready ? undefined : `Falta: ${missing.join(', ')}`}
           onClick={() => setQuoteOpen(true)}>Solicitar proposta</CaduButton>
         {plan.status === 'ready'
-          ? <CaduButton variant="secondary" loading={busy === 'status'} onClick={reopen}>Reabrir plano</CaduButton>
-          : <CaduButton onClick={() => setReviewOpen(true)} title={pending ? `Faltam ${pending} ${pending === 1 ? 'item' : 'itens'} do checklist` : undefined}>Revisar e finalizar</CaduButton>}
+          ? <><CaduButton variant="secondary" loading={busy === 'status'} onClick={reopen}>Reabrir plano</CaduButton>
+            <FinalPlanActions boot={boot} plan={plan} fp={finalPlan}/></>
+          : <CaduButton onClick={() => setReviewOpen(true)} title={pending ? `Falta: ${missing.join(', ')}` : undefined}>Revisar e finalizar</CaduButton>}
       </>}/>
     <div className="planner-workbench">
       <SectionRail overview={overview} active={active} onSelect={selectSection}/>
@@ -194,19 +197,11 @@ export function PlanDetail({boot, request, plan, setPlan, selection, notify}) {
           <span id="bloco-distribuicao" className="planner-anchor"/>
           <MediaBalance request={request} plan={plan} setPlan={setPlan} notify={notify} onEditDirection={() => selectSection('briefing')}/>
         </PlannerPanel>
-        <PlannerPanel className={`planner-block${SECTION_BLOCK[active] === 'criativos' ? ' is-active' : ''}`} title="Sistema criativo (opcional)" description="Big idea, mensagens por etapa e a matriz de peças por canal.">
-          <span id="bloco-criativos" className="planner-anchor"/>
-          <p className="planner-muted">Esta etapa é opcional: se você já tem o seu sistema criativo ou não precisa dele, pode ignorá-la e o plano segue normalmente. Se quiser, o Cadu monta a matriz criativa com você a partir dos canais e formatos escolhidos, pronta para seguir ao Studio.</p>
-        </PlannerPanel>
-        <FinalPlanPanel boot={boot} request={request} plan={plan} notify={notify}/>
+        <FinalPlanPanel boot={boot} plan={plan} fp={finalPlan}/>
       </div>
       <div className="planner-workbench__side">
+        {/* O progresso fica só na barra de seções à esquerda; o que falta aparece nos botões do cabeçalho. */}
         <CaduPanel boot={boot} request={request} plan={plan} setPlan={setPlan} notify={notify} active={active}/>
-        <PlannerPanel title={readiness.ready ? 'Pronto para revisão' : 'Checklist do plano'}>
-          <ul className="planner-checklist">{(readiness.checks || []).map(check => <li key={check.label} className={check.complete ? 'is-complete' : ''}>
-            <span aria-hidden="true">{check.complete ? <Icon name="check" size={14}/> : null}</span>{check.label}
-          </li>)}</ul>
-        </PlannerPanel>
       </div>
     </div>
     {quoteOpen && <QuoteDialog busy={busy === 'quote'} onClose={() => setQuoteOpen(false)} onSubmit={submitQuote}/>}

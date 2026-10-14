@@ -34,6 +34,53 @@ GROUP_ROLES = {
     'apps': 'Presença no trajeto e no momento de uso', 'ooh': 'Impacto físico nas praças',
     'places': 'Presença no ponto de interesse',
 }
+# Que grupos de mídia medem cada KPI que o cliente costuma escrever (termos já sem acento).
+# A coluna Indicadores mostra os KPIs do plano que o canal mede; os de GROUP_KPIS só quando nenhum serve.
+_REACH = {'social', 'apps', 'ooh', 'places', 'video', 'ctv', 'programmatic', 'portais', 'audio'}
+KPI_GROUPS = (
+    # Loja vem antes de vendas e de visitas: 'visitas a pontos de venda' é presença física.
+    (('ponto de venda', 'pontos de venda', 'loja', 'pdv', 'visita fisica', 'visitas fisicas'), {'places', 'ooh', 'apps'}),
+    (('alcance', 'cobertura', 'reach', 'frequencia', 'ots'), _REACH),
+    (('impress', 'cpm'), {'programmatic', 'portais', 'social', 'video', 'ctv', 'apps'}),
+    (('lembranca', 'brand lift', 'recall', 'awareness'), {'video', 'ctv', 'social', 'portais', 'ooh', 'audio'}),
+    (('viewability', 'visibilidade'), {'programmatic', 'portais', 'video', 'ctv'}),  # antes de 'view'
+    (('view', 'vtr', 'cpv', 'visualiza', 'video completo'), {'video', 'ctv', 'social'}),
+    (('clique', 'ctr', 'cpc'), {'performance', 'social', 'programmatic', 'portais', 'apps'}),
+    (('engaja', 'interac'), {'social', 'portais'}),
+    (('lead', 'cpl', 'cadastro'), {'performance', 'social', 'data'}),
+    (('venda', 'cpa', 'roas', 'receita', 'conversa', 'conversoes', 'compra'), {'performance', 'social', 'data'}),
+    (('visita', 'sessao', 'sessoes', 'trafego', 'pagina', 'site'), {'performance', 'social', 'programmatic', 'portais'}),
+    (('ouvinte', 'listener', 'audio'), {'audio'}),
+)
+
+
+def plan_kpis(raw):
+    """'alcance, CPM; lembrança de marca e VTR' → ['alcance', 'CPM', 'lembrança de marca', 'VTR']."""
+    parts = re.split(r'[,;\n/]|\s+e\s+|\d+\)', str(raw or ''))
+    seen, kpis = set(), []
+    for part in parts:
+        label = part.strip(' .-•')
+        if label and _fold(label) not in seen:
+            seen.add(_fold(label))
+            kpis.append(label[:60])
+    return kpis[:12]
+
+
+def kpi_groups(kpi):
+    """Grupos de mídia que medem o KPI; vazio quando o termo não é reconhecido."""
+    folded = _fold(kpi)
+    # O primeiro termo reconhecido decide: 'visitas a pontos de venda' é loja, não site.
+    for terms, groups in KPI_GROUPS:
+        if any(term in folded for term in terms):
+            return groups
+    return set()
+
+
+def _channel_kpis(group, kpis):
+    own = [kpi for kpi in kpis if group in kpi_groups(kpi)]
+    return (own[:4], True) if own else (list(GROUP_KPIS.get(group, ())), False)
+
+
 METHOD_IDS = tuple(item['id'] for item in engine.METHODS)
 CONCENTRATION_LIMIT = 60  # % de um só grupo a partir do qual o plano fica dependente dele
 MAX_MONTHS = 12
@@ -214,12 +261,14 @@ def compute(plan, method=None, manual=None, progress=True):
     pcts = _weights_for(channels, method, objective, manual)
     money = engine.shares_to_money([{'id': key, 'pct': pct} for key, pct in pcts.items()], budget or 0)
     saved = plan.get('allocation_by_channel') or {}
+    kpis = plan_kpis(briefing.get('kpis'))
     rows = []
     for channel in channels:
         key = channel['resource_id']
         current = saved.get(key) or {}
+        channel_kpis, from_plan = _channel_kpis(channel['group'], kpis)
         rows.append({**channel, 'group_label': CHANNEL_GROUPS.get(channel['group'], channel['group']),
-                     'role': GROUP_ROLES.get(channel['group'], ''), 'kpis': list(GROUP_KPIS.get(channel['group'], ())),
+                     'role': GROUP_ROLES.get(channel['group'], ''), 'kpis': channel_kpis, 'kpis_from_plan': from_plan,
                      'pct': pcts.get(key, 0), 'investment': money.get(key) if budget else None,
                      'current_pct': float(current['weight']) if current.get('weight') is not None else None,
                      'current_investment': float(current['investment']) if current.get('investment') is not None else None})
@@ -250,6 +299,11 @@ def compute(plan, method=None, manual=None, progress=True):
                             'totals': [{'month': item['key'], 'value': month_budget[item['key']]} for item in months]}
 
     base['warnings'] = _warnings(rows, base['groups'], budget, period)
+    # KPI do plano que nenhum canal escolhido mede: o plano promete algo que a mídia não entrega.
+    covered = {_fold(kpi) for row in rows if row['kpis_from_plan'] for kpi in row['kpis']}
+    orphan = [kpi for kpi in kpis if _fold(kpi) not in covered and kpi_groups(kpi)]
+    if orphan:
+        base['warnings'].append({'level': 'attention', 'text': f"Nenhum canal do plano mede {', '.join(orphan)}. Inclua um canal que meça ou ajuste os KPIs."})
     return base
 
 

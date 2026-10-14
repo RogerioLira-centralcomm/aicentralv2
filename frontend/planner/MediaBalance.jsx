@@ -159,7 +159,9 @@ export function MediaBalance({request, plan, setPlan, notify, onEditDirection}) 
         return <div key={channel.resource_id} role="row" className={`bal-row${warning ? ' has-warning' : ''}`}>
           <span role="cell" className="bal-row__channel"><LogoTile src={channel.logo} name={channel.name} color={channel.color}/>
             <span><strong>{channel.name}</strong><small>{channel.group_label} · {channel.role}</small></span></span>
-          <span role="cell" className="bal-row__kpis">{channel.kpis.map(kpi => <i key={kpi}>{kpi}</i>)}</span>
+          <span role="cell" className={`bal-row__kpis${channel.kpis_from_plan === false ? ' is-typical' : ''}`}
+            title={channel.kpis_from_plan === false ? 'Nenhum KPI do plano é medido por este canal; estes são os indicadores típicos dele.' : undefined}>
+            {channel.kpis.map(kpi => <i key={kpi}>{kpi}</i>)}</span>
           <span role="cell" className="is-num bal-row__pct">
             <CaduInput size="sm" inputMode="numeric" aria-label={`Fatia de ${channel.name} em %`}
               value={editing ? String(manual[channel.resource_id] ?? '') : String(channel.pct)}

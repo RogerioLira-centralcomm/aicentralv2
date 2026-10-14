@@ -79,7 +79,9 @@ function BrandCreateForm({bootstrap, onClose}) {
       if (!response.ok || !payload.ok) throw new Error(payload.error || 'Não foi possível inspecionar o endereço.');
       const inspection = payload.inspection || {};
       const explicitLogoValid = !selectedLogo || Boolean(inspection.explicit_logo?.valid_image);
-      const ok = Boolean(inspection.ready_for_analysis && explicitLogoValid);
+      // A site behind an anti-bot wall still gets its brand: the full analysis reads it through another path.
+      const blocked = Boolean(inspection.blocked_by_site);
+      const ok = Boolean((inspection.ready_for_analysis || blocked) && explicitLogoValid);
       const candidateCount = inspection.logo_candidates?.length || 0;
       const websiteUrl = inspection.final_url || inspection.website_url || normalized;
       setWebsite(websiteUrl);
@@ -94,7 +96,7 @@ function BrandCreateForm({bootstrap, onClose}) {
       }
       const suggestedLogo = inspection.explicit_logo?.valid_image ? inspection.explicit_logo.url : inspection.suggested_logo_url;
       if (!selectedLogo && suggestedLogo) setSelectedLogo(suggestedLogo);
-      setHealth({ok, inspection, inspectionToken:payload.inspection_token || '', message:ok ? `Site validado${candidateCount ? ` e ${candidateCount} candidato${candidateCount === 1 ? '' : 's'} de logo encontrado${candidateCount === 1 ? '' : 's'}` : ''}.` : inspection.warnings?.[0] || 'O site ou a logo não pôde ser validado.'});
+      setHealth({ok, inspection, inspectionToken:payload.inspection_token || '', message:ok && !blocked ? `Site validado${candidateCount ? ` e ${candidateCount} candidato${candidateCount === 1 ? '' : 's'} de logo encontrado${candidateCount === 1 ? '' : 's'}` : ''}.` : inspection.warnings?.[0] || 'O site ou a logo não pôde ser validado.'});
       return {ok, websiteUrl, inspectionToken:payload.inspection_token || ''};
     } catch (error) {
       if (controller.signal.reason !== 'unmounted' && controller.signal.reason !== 'replaced') setHealth({ok:false, message:controller.signal.reason === 'timeout' ? 'A inspeção demorou demais. Tente novamente.' : error?.message || 'Não foi possível inspecionar o endereço.'});

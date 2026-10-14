@@ -335,6 +335,7 @@ def inspect_brand_site(website_url: str, *, logo_url: str = "", session=None) ->
             "suggested_sector": parser.industry,
             "description": parser.description,
             "ready_for_analysis": reachable and html_response,
+            "blocked_by_site": status in BOT_BLOCK_STATUSES,
             "explicit_logo": explicit_logo, "logo_candidates": candidates, "suggested_logo_url":
             ((explicit_logo or {}).get("url") if (explicit_logo or {}).get("valid_image") else
              (candidates[0]["url"] if candidates else "")), "warnings": warnings}

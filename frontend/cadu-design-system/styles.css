@@ -4760,3 +4760,11 @@ body.portal--workspace .cadu-ds-entity-rail__readiness strong{font-size:20px;lin
 .cadu-ds-files__entry small{color:var(--files-muted);font-size:11px}
 .cadu-ds-files__timeline li>a,.cadu-ds-files__timeline li>button{display:flex;align-items:center;gap:5px;flex:none;padding:7px;border:0;border-radius:7px;background:transparent;color:#7fd8ca;font:600 11px var(--cadu-font-sans,inherit);text-decoration:none;cursor:pointer}
 .cadu-ds-files__timeline li>a:hover,.cadu-ds-files__timeline li>button:hover{background:rgba(181,218,211,.08)}
+
+/* Workspace drawers: the close button sits beside the title instead of on a row of its own. */
+.cadu-ds-workspace-drawer .cadu-ds-panel__header { position:relative; padding:16px 56px 4px 24px; }
+.cadu-ds-workspace-drawer .cadu-ds-panel__top { position:absolute; top:10px; right:12px; }
+.cadu-ds-workspace-drawer .cadu-ds-panel__top > span:empty { display:none; }
+.cadu-ds-workspace-drawer .cadu-ds-panel__header h2 { margin:0; font-size:17px; line-height:24px; }
+.cadu-ds-workspace-drawer .cadu-ds-panel__header p { margin-top:2px; font-size:13px; line-height:18px; }
+

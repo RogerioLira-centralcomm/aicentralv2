@@ -166,7 +166,8 @@ function BrandAuditSources({initialAdditional = [], initialExcluded = []}) {
 }
 
 function AuditDialog({brand, urls, csrfToken, creditAvailable = 0, onClose}) {
-  const [mode, setMode] = useState(() => Number(brand.readiness?.score || 0) < 85 && Number(creditAvailable || 0) > 0 ? 'deep' : 'complete');
+  // The most complete analysis comes checked whenever the balance allows it.
+  const [mode, setMode] = useState(() => Number(creditAvailable || 0) > 0 ? 'deep' : 'complete');
   const [showAllAssets, setShowAllAssets] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');

@@ -15,6 +15,9 @@ MAX_HTML_BYTES = 512_000
 MAX_REDIRECTS = 5
 MAX_LOGO_CANDIDATES = 4
 REQUEST_TIMEOUT = (3, 5)
+BOT_BLOCK_STATUSES = {401, 403, 429}
+
+
 def normalize_public_url(value: str, *, label: str = "site") -> str:
     raw = str(value or "").strip()[:2000]
     if raw and not raw.lower().startswith(("http://", "https://")):
@@ -312,7 +315,10 @@ def inspect_brand_site(website_url: str, *, logo_url: str = "", session=None) ->
     ):
         candidates.insert(0, {**explicit_logo, "source": "explicit_logo", "confidence": 1.0})
     warnings = []
-    if not (200 <= status < 400):
+    if status in BOT_BLOCK_STATUSES:
+        # Anti-bot walls refuse this light reader; the full analysis reads the site through another path.
+        warnings.append("Este site bloqueia leitores automáticos simples. A análise usa outro leitor e pode seguir normalmente.")
+    elif not (200 <= status < 400):
         warnings.append(f"O site respondeu com HTTP {status}.")
     if content_type and "html" not in content_type:
         warnings.append("O endereço não retornou uma página HTML.")

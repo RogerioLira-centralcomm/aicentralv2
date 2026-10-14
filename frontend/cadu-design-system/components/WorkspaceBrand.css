@@ -1039,19 +1039,51 @@ body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-entity-rail__group
 
 body.portal--workspace .cadu-ds-brand-state__art { display:block; width:100%; height:auto; max-width:300px; }
 
-/* Auditoria no drawer: uma coluna, seções separadas por linha, sem cartões dentro de cartões */
+/* Auditoria no drawer: uma coluna, seções separadas por linha, sem cartões dentro de cartões.
+   O drawer não recebe a classe do modal (.cadu-ds-brand-audit-dialog), então tudo aqui parte de .cadu-ds-drawer. */
 body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__columns { display:grid; grid-template-columns:1fr; overflow:visible; }
-body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__column { padding:20px 0; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__column { gap:10px; padding:14px 0; }
 body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__column:first-child { padding-top:4px; }
 body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__column + .cadu-ds-brand-audit-dialog__column { border-top:1px solid var(--cadu-line); border-left:0; }
-body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog .cadu-ds-brand-audit-dialog__scope { padding:20px 0; gap:0; }
-body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__scope > label,
-body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__scope > label.is-selected { padding:10px 0; border:0; border-radius:0; background:transparent; box-shadow:none; }
-body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__scope > label + label { border-top:1px solid var(--cadu-line); }
-body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__scope > label.is-selected b { color:var(--cadu-accent-strong); }
-body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__footer { padding:12px 0 0; border-top:1px solid var(--cadu-line); }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__column > header strong { font-size:13px; }
 body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__column > header span { font-size:12px; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-site { grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:2px 12px; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-site > :is(small,b) { grid-column:1; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-site > button { grid-column:2; grid-row:1 / span 2; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-site > [role=status] { grid-column:1 / -1; margin-top:4px; color:var(--cadu-muted); font-size:12px; line-height:1.4; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-sources summary { display:inline-flex; align-items:center; gap:6px; font-size:12px; list-style:none; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-sources summary::-webkit-details-marker { display:none; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-sources summary::before { content:"+"; display:grid; place-items:center; width:16px; height:16px; border-radius:4px; background:var(--cadu-accent-soft); font-size:13px; line-height:1; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-sources[open] summary::before { content:"−"; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-sources__form > button { grid-column:1; justify-self:start; width:auto; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-existing { padding-bottom:0; border-bottom:0; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-existing > strong { font-size:12px; }
 body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-uploads { min-height:0; justify-items:start; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__scope { padding:14px 0; gap:0; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__scope > label,
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__scope > label.is-selected { gap:2px; padding:10px 0; border:0; border-radius:0; background:transparent; box-shadow:none; cursor:pointer; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__scope > label + label { border-top:1px solid var(--cadu-line); }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__scope > label > span { display:flex; align-items:center; gap:8px; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__scope > label b { font-size:13px; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__scope > label.is-selected b { color:var(--cadu-accent-strong); }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__scope > label em { margin-left:auto; font-style:normal; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__scope > label small { padding-left:24px; font-size:12px; line-height:1.4; }
+/* Caixas de seleção e rádios do Cadu no lugar dos nativos; o marcado leva o check. */
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-form :is(input[type=checkbox],input[type=radio]) { appearance:none; flex:none; display:block; box-sizing:border-box; width:16px; height:16px; min-height:0; margin:0; padding:0; border:1px solid color-mix(in srgb,var(--cadu-muted) 45%,transparent); background:var(--cadu-surface); cursor:pointer; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-form input[type=checkbox] { border-radius:4px; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-form input[type=radio] { border-radius:50%; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-form :is(input[type=checkbox],input[type=radio]):checked { border-color:var(--cadu-accent-strong); background:var(--cadu-accent-strong) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/11px no-repeat; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-form :is(input[type=checkbox],input[type=radio]):focus-visible { outline:2px solid var(--cadu-accent-strong); outline-offset:2px; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-form :is(input[type=checkbox],input[type=radio]):disabled { cursor:not-allowed; opacity:.5; }
+/* O botão de enviar fica sempre visível no rodapé do drawer. */
+body.portal--workspace .cadu-ds-drawer .cadu-ds-panel__body:has(.cadu-ds-brand-audit-dialog__footer) { padding-bottom:0; }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__footer { position:sticky; bottom:0; z-index:1; flex-wrap:wrap; gap:8px 12px; min-height:0; margin:0 -24px; padding:12px 24px; border-top:1px solid var(--cadu-line); background:var(--cadu-surface); }
+body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__footer > footer { display:flex; gap:8px; margin-left:auto; }
+@media (max-width:760px) {
+  body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__footer { margin-inline:-16px; padding-inline:16px; }
+  body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__footer > footer { flex:1 1 100%; }
+  body.portal--workspace .cadu-ds-drawer .cadu-ds-brand-audit-dialog__footer > footer > * { flex:1 1 auto; }
+}
 
 /* O resumo do hero é só uma prévia; o texto completo fica em "Essência da marca". */
 body.portal--workspace .cadu-ds-brand-hero__copy > span {

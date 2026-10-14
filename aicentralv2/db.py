@@ -38,6 +38,38 @@ from .cotacao_plano import (
 import re
 import secrets
 import uuid
+from psycopg.types.json import set_json_dumps
+from psycopg.types.string import StrBinaryDumper, StrDumperUnknown
+
+
+# ==================== TEXTO SEM \x00 ====================
+# O Postgres recusa o caractere nulo em text e em json/jsonb. Texto colado de PDF
+# costuma trazê-lo, e a gravação falhava com UntranslatableCharacter (503 na tela).
+# Como ele nunca pode ser gravado, sai aqui, na conversão de todo valor enviado ao banco.
+
+def _sem_nul(valor):
+    if isinstance(valor, str):
+        return valor.replace('\x00', '') if '\x00' in valor else valor
+    if isinstance(valor, dict):
+        return {_sem_nul(chave): _sem_nul(item) for chave, item in valor.items()}
+    if isinstance(valor, (list, tuple)):
+        return [_sem_nul(item) for item in valor]
+    return valor
+
+
+class _StrSemNul(StrDumperUnknown):
+    def dump(self, obj):
+        return super().dump(_sem_nul(obj))
+
+
+class _StrBinarioSemNul(StrBinaryDumper):
+    def dump(self, obj):
+        return super().dump(_sem_nul(obj))
+
+
+psycopg.adapters.register_dumper(str, _StrSemNul)
+psycopg.adapters.register_dumper(str, _StrBinarioSemNul)
+set_json_dumps(lambda obj: json.dumps(_sem_nul(obj)))
 
 logger = logging.getLogger(__name__)
 

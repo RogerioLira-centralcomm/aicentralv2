@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {CaduButton} from '../cadu-design-system/components/CaduButton.jsx';
 import {CaduBadge} from '../cadu-design-system/components/CaduBadge.jsx';
 import {CaduDialog} from '../cadu-design-system/components/CaduDialog.jsx';
@@ -17,7 +17,30 @@ import {PlannerHeader} from './PlannerHeader.jsx';
 import {ShareControl} from './ShareControl.jsx';
 import {planStatusLabel, planStatusTone} from './PlansPages.jsx';
 
-const BRIEFING_FIELDS = [['advertiser_name', 'Anunciante'], ['campaign_name', 'Campanha'], ['budget', 'Investimento'], ['period', 'Período'], ['geography', 'Praça'], ['kpis', 'KPIs']];
+const BRIEFING_FIELDS = [['advertiser_name', 'Anunciante', 'Ex.: Nike'], ['campaign_name', 'Campanha', 'Ex.: Lançamento Pegasus 42'],
+  ['budget', 'Investimento', 'Ex.: R$ 280.000'], ['period', 'Período', 'Ex.: 8 semanas, de mai a jun'], ['geography', 'Praça', 'Ex.: SP, MG e RJ']];
+// Indicadores usuais de cada objetivo: viram sugestões clicáveis no campo KPIs.
+const OBJECTIVE_KPIS = {
+  awareness: ['Alcance', 'Frequência média', 'Impressões', 'CPM', 'Lembrança de marca'],
+  consideracao: ['Views completas (VTR)', 'CPV', 'Cliques', 'CTR', 'Engajamento'],
+  leads: ['Leads', 'CPL', 'Taxa de conversão', 'Cliques'],
+  vendas: ['Vendas', 'CPA', 'ROAS', 'Receita'],
+  trafego: ['Visitas ao site', 'CPC', 'CTR', 'Sessões engajadas'],
+  '': ['Alcance', 'Cliques', 'Leads', 'Vendas'],
+};
+
+/** KPIs do plano: texto livre, com os indicadores do objetivo escolhido a um clique. */
+function KpiField({objective, defaultValue}) {
+  const [value, setValue] = useState(defaultValue);
+  const has = kpi => value.toLowerCase().split(/[,;]/).some(part => part.trim() === kpi.toLowerCase());
+  const add = kpi => setValue(current => has(kpi) ? current : [current.trim().replace(/[,;]\s*$/, ''), kpi].filter(Boolean).join(', '));
+  const kpis = OBJECTIVE_KPIS[objective] || OBJECTIVE_KPIS[''];
+  return <div className="is-wide planner-kpis">
+    <CaduInput label="KPIs" name="kpis" value={value} onChange={event => setValue(event.target.value)} placeholder={`Ex.: ${kpis.slice(0, 3).join(', ').toLowerCase()}`} maxLength="180"/>
+    <div className="wizard__chips" aria-label="Sugestões de KPI">{kpis.map(kpi => <button key={kpi} type="button" className={has(kpi) ? 'is-on' : ''}
+      aria-pressed={has(kpi)} onClick={() => add(kpi)}>{kpi}</button>)}</div>
+  </div>;
+}
 const QUOTE_SCOPES = [['full_operation', 'Operação completa'], ['media_inventory', 'Inventário de mídia'], ['specific_channels', 'Canais específicos']];
 const QUOTE_STATUS = {requested: 'Solicitada', in_review: 'Em análise', needs_information: 'Precisa de informações', proposal_available: 'Proposta disponível', approved: 'Aprovada', closed: 'Encerrada'};
 const ADD_MODULES = ['canais', 'audiencias', 'formatos', 'interativos', 'portais', 'places'];
@@ -53,6 +76,10 @@ export function PlanDetail({boot, request, plan, setPlan, selection, notify}) {
   if (!plan) return <CaduEmptyState title="Plano indisponível" description="Ele pode ter sido removido ou você não tem acesso."/>;
 
   const briefing = plan.briefing || {};
+  // O objetivo escolhido no formulário (ainda não salvo) já troca as sugestões de KPI.
+  const savedObjective = briefing.objective ?? plan.objective ?? '';
+  const [objectiveDraft, setObjectiveDraft] = useState(savedObjective);
+  useEffect(() => { setObjectiveDraft(savedObjective); }, [savedObjective, plan.updated_at]);
   const items = plan.items || [];
   const readiness = plan.readiness || {checks: []};
   const lastQuote = (plan.quote_requests || [])[0];
@@ -131,8 +158,10 @@ export function PlanDetail({boot, request, plan, setPlan, selection, notify}) {
         <PlannerPanel className={`planner-block${SECTION_BLOCK[active] === 'direcao' ? ' is-active' : ''}`} title="Direção da campanha" description="Briefing, objetivo, KPIs e praças que orientam as escolhas de mídia.">
           <span id="bloco-direcao" className="planner-anchor"/>
           <form key={String(plan.updated_at)} className="planner-fields" onSubmit={saveBriefing}>
-            <CaduSelectField label="Objetivo" name="objective" defaultValue={briefing.objective ?? plan.objective ?? ''} options={OBJECTIVES.map(([value, label]) => ({value, label}))}/>
-            {BRIEFING_FIELDS.map(([name, label]) => <CaduInput key={name} label={label} name={name} defaultValue={plan[name] || briefing[name] || ''}/>)}
+            <CaduSelectField label="Objetivo" name="objective" defaultValue={briefing.objective ?? plan.objective ?? ''} options={OBJECTIVES.map(([value, label]) => ({value, label}))}
+              onChange={event => setObjectiveDraft(event.target.value)}/>
+            {BRIEFING_FIELDS.map(([name, label, placeholder]) => <CaduInput key={name} label={label} name={name} placeholder={placeholder} defaultValue={plan[name] || briefing[name] || ''}/>)}
+            <KpiField objective={objectiveDraft} defaultValue={briefing.kpis || ''}/>
             <CaduTextAreaField className="is-wide" label="Notas" name="notes" rows={3} defaultValue={briefing.notes || ''}/>
             <div className="planner-fields__actions"><CaduButton type="submit" variant="secondary" loading={busy === 'briefing'}>Salvar direção</CaduButton></div>
           </form>

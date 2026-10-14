@@ -92,6 +92,7 @@ body.planner-react {
 .planner-form__footer { display: flex; justify-content: flex-end; gap: 8px; }
 .planner-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .planner-fields > .is-wide, .planner-fields__actions { grid-column: 1 / -1; }
+.planner-kpis { display: grid; gap: 8px; }
 .planner-fields__actions { display: flex; justify-content: flex-start; }
 .planner-aside { position: sticky; top: 24px; display: grid; gap: 8px; padding: 20px; border: 1px solid var(--planner-line); border-radius: var(--planner-radius); background: var(--planner-soft); }
 .planner-aside h2 { font-size: 14px; font-weight: 600; }
@@ -848,13 +849,16 @@ a.planner-card:focus-visible { outline: 2px solid var(--colors-brand-600, #07945
 .bal-methods { margin: 0; padding: 0; border: 0; }
 .bal-methods legend { margin-bottom: var(--sp-3); font-size: 14px; font-weight: 600; }
 .bal-methods legend span { color: var(--planner-muted); font-weight: 400; }
-.bal-methods__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 184px), 1fr)); gap: var(--sp-2); }
+/* Uma linha só: as estratégias se comparam lado a lado; em tela estreita a linha rola de lado em vez de quebrar. */
+.bal-methods__grid { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(168px, 1fr); gap: var(--sp-2); padding-top: 10px; overflow-x: auto; scrollbar-width: thin; }
 .bal-method { position: relative; display: grid; gap: var(--sp-1); padding: var(--sp-3); border-radius: 8px; background: var(--planner-surface); box-shadow: inset 0 0 0 1px var(--planner-line); cursor: pointer; transition: box-shadow 120ms ease; }
 .bal-method:hover { box-shadow: inset 0 0 0 1px var(--color-border-primary, #d0d5dd); }
 .bal-method.is-selected { background: var(--planner-brand-soft); box-shadow: inset 0 0 0 2px var(--planner-brand); }
 .bal-method input { position: absolute; opacity: 0; pointer-events: none; }
 .bal-method:has(input:focus-visible) { outline: 2px solid var(--planner-brand); outline-offset: 2px; }
-.bal-method__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.bal-method__head { display: block; }
+/* O selo fica sobre a borda do card: não disputa largura com o título nem quebra a linha dele. */
+.bal-method__head .cadu-ds-badge { position: absolute; top: -10px; right: 10px; white-space: nowrap; }
 .bal-method strong { font-size: 14px; font-weight: 600; }
 .bal-method small { color: var(--planner-muted); font-size: 13px; line-height: 18px; }
 .bal-methods__when { display: flex; align-items: flex-start; gap: var(--sp-2); margin: var(--sp-3) 0 0; color: var(--planner-muted); font-size: 13px; }

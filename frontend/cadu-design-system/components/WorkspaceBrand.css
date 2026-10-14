@@ -1043,7 +1043,6 @@ body.portal--workspace .cadu-ds-brand-responsive-management { display:none; }
 }
 body.portal--workspace .cadu-ds-brand-content :is(.cadu-ds-brand-layout,.cadu-ds-brand-layout__main,.cadu-ds-brand-atlas__columns,.cadu-ds-brand-data-block) { min-width:0; }
 body.portal--workspace .cadu-ds-brand-data-block :is(b,small) { overflow-wrap:anywhere; }
-body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-entity-rail__group b { white-space:normal; overflow-wrap:anywhere; }
 
 /* Sem análise: sem trilho direito, o conteúdo ocupa a largura restante. */
 @media (min-width:1025px) {
@@ -1168,3 +1167,6 @@ body.portal--workspace .cadu-ds-brand-radar__signals { max-width:780px; margin-t
 body.portal--workspace .cadu-ds-brand-radar__signals h3 { margin:0 0 10px; font-size:13px; font-weight:600; }
 body.portal--workspace .cadu-ds-brand-radar__more { display:inline-block; margin-top:16px; }
 body.portal--workspace .cadu-ds-brand-radar > header a { text-decoration:none; }
+
+/* Ações de seção não encolhem: o texto do botão não pode encostar na borda. */
+body.portal--workspace .cadu-ds-brand-section > header > [data-cadu-untitled-button] { flex:none; white-space:nowrap; }

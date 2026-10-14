@@ -280,7 +280,6 @@ body.portal--workspace .cadu-ds-entity-portal--project .cadu-ds-project-hero::af
 }
 body.portal--workspace .cadu-ds-entity-portal--brand > .cadu-ds-entity-rail { border:0; background:var(--cadu-canvas); }
 body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-entity-rail__group a { min-width:0; }
-body.portal--workspace .cadu-ds-entity-portal--brand .cadu-ds-entity-rail__group a b { white-space:normal; line-height:1.3; }
 
 /* Project detail keeps its secondary rail focused on references and status. */
 body.portal--workspace .cadu-ds-entity-portal--project > .cadu-ds-entity-rail { border-left:0; }

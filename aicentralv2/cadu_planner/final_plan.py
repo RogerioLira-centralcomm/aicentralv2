@@ -310,18 +310,20 @@ def validate(raw: Mapping, payload: Mapping) -> tuple[dict, list]:
             market_line = f"{_short(market['texto'], 400)} (Fonte: [{source.get('veiculo') or source.get('titulo')}]({source['url']}))"
         else:
             warnings.append({'section': 'resumo', 'removed': _short(market['texto'], 200), 'reason': 'dado de mercado sem fonte do plano'})
-    thesis = text('tese', 'resumo')
+    # Cada campo é limpo uma vez: o texto e os cartões usam o mesmo resultado (e os avisos não se repetem).
+    thesis, strategy = text('tese', 'resumo'), text('estrategia', 'resumo')
+    creative, defense = text('criativo_no_canal', 'resumo'), text('defesa', 'resumo')
     summary = [f'**Tese.** {thesis}' if thesis else '',
-               f"**Estratégia.** {text('estrategia', 'resumo')}" if raw.get('estrategia') else '',
-               f"**Criativo no canal.** {text('criativo_no_canal', 'resumo')}" if raw.get('criativo_no_canal') else '',
+               f'**Estratégia.** {strategy}' if strategy else '',
+               f'**Criativo no canal.** {creative}' if creative else '',
                f'**Dado de mercado.** {market_line}' if market_line else '',
-               f"**Por que este plano.** {text('defesa', 'resumo')}" if raw.get('defesa') else '']
+               f'**Por que este plano.** {defense}' if defense else '']
     sections['resumo'] = '\n\n'.join(line for line in summary if line and not line.endswith('** '))
     extras = {}
     # A folha-resumo também vai em cartões: a página mostra cada parte lado a lado.
     extras['resumo'] = {'cards': [{'label': label, 'text': value} for label, value in (
-        ('Tese', thesis), ('Estratégia', text('estrategia', 'resumo')), ('Criativo no canal', text('criativo_no_canal', 'resumo')),
-        ('Dado de mercado', market_line), ('Por que este plano', text('defesa', 'resumo'))) if value]}
+        ('Tese', thesis), ('Estratégia', strategy), ('Criativo no canal', creative),
+        ('Dado de mercado', market_line), ('Por que este plano', defense)) if value]}
 
     sections['visao'] = text('visao')
     kpi_lines = []

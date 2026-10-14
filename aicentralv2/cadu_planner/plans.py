@@ -67,7 +67,7 @@ def list_plans(client_id, actor_id):
 
 def create_plan(client_id, actor_id, payload, context):
     _require_available()
-    title = ' '.join(str(payload.get('title') or '').split())[:180]
+    title = ' '.join(_text(payload.get('title')).split())[:180]
     if len(title) < 2:
         raise BadRequest('Informe um nome para o plano.')
     objective = str(payload.get('objective') or '').strip()
@@ -260,6 +260,11 @@ def readiness(plan):
     return {'ready': all(item['complete'] for item in checks), 'checks': checks}
 
 
+def _text(value):
+    """Texto colado de PDF pode trazer \x00, que o Postgres recusa em text e jsonb."""
+    return ('' if value is None else str(value)).replace('\x00', '')
+
+
 def _fit(value, limit):
     """Keep a field within its limit without cutting a sentence (or a word) in half."""
     if len(value) <= limit:
@@ -279,14 +284,14 @@ def _clean_briefing(raw_briefing):
         value = raw_briefing.get(key)
         if value is None:
             continue
-        value = str(value).strip()
+        value = _text(value).strip()
         if value:
             briefing[key] = _fit(value, limit)
     return briefing
 
 
 def _clean_label(value):
-    return ' '.join(str(value or '').split())[:180] or None
+    return ' '.join(_text(value).split())[:180] or None
 
 
 def update_briefing(client_id, actor_id, plan_id, payload, *, expected_updated_at=None):
@@ -444,7 +449,7 @@ def request_quote(client_id, actor_id, plan_id, payload):
     scope = str(payload.get('scope') or '').strip()
     if scope not in QUOTE_SCOPES:
         raise BadRequest('Escolha o escopo da cotação.')
-    message = str(payload.get('message') or '').strip()[:2000] or None
+    message = _text(payload.get('message')).strip()[:2000] or None
     snapshot = {
         'title': plan['title'], 'objective': plan.get('objective'),
         'advertiser_name': plan.get('advertiser_name'), 'campaign_name': plan.get('campaign_name'),

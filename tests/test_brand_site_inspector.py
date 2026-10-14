@@ -79,10 +79,9 @@ def test_html_without_content_type_can_be_analyzed(monkeypatch):
     assert result["ready_for_analysis"] is True
 
 
-def test_anti_bot_block_reads_as_a_blocked_reader_not_an_error(monkeypatch):
+def test_anti_bot_block_is_flagged_without_warning_the_user(monkeypatch):
     public_dns(monkeypatch)
     result = inspector.inspect_brand_site("https://acme.example", session=Session([Response(status=403, body=b"")]))
     assert result["ready_for_analysis"] is False
     assert result["blocked_by_site"] is True
-    assert "bloqueia leitores automáticos" in result["warnings"][0]
-    assert not any("HTTP 403" in warning for warning in result["warnings"])
+    assert result["warnings"] == []

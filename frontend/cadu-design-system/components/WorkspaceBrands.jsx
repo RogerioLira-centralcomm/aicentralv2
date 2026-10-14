@@ -96,7 +96,7 @@ function BrandCreateForm({bootstrap, onClose}) {
       }
       const suggestedLogo = inspection.explicit_logo?.valid_image ? inspection.explicit_logo.url : inspection.suggested_logo_url;
       if (!selectedLogo && suggestedLogo) setSelectedLogo(suggestedLogo);
-      setHealth({ok, inspection, inspectionToken:payload.inspection_token || '', message:ok && !blocked ? `Site validado${candidateCount ? ` e ${candidateCount} candidato${candidateCount === 1 ? '' : 's'} de logo encontrado${candidateCount === 1 ? '' : 's'}` : ''}.` : inspection.warnings?.[0] || 'O site ou a logo não pôde ser validado.'});
+      setHealth({ok, inspection, inspectionToken:payload.inspection_token || '', message:ok && blocked ? 'Site encontrado.' : ok ? `Site validado${candidateCount ? ` e ${candidateCount} candidato${candidateCount === 1 ? '' : 's'} de logo encontrado${candidateCount === 1 ? '' : 's'}` : ''}.` : inspection.warnings?.[0] || 'O site ou a logo não pôde ser validado.'});
       return {ok, websiteUrl, inspectionToken:payload.inspection_token || ''};
     } catch (error) {
       if (controller.signal.reason !== 'unmounted' && controller.signal.reason !== 'replaced') setHealth({ok:false, message:controller.signal.reason === 'timeout' ? 'A inspeção demorou demais. Tente novamente.' : error?.message || 'Não foi possível inspecionar o endereço.'});

@@ -315,16 +315,15 @@ def inspect_brand_site(website_url: str, *, logo_url: str = "", session=None) ->
     ):
         candidates.insert(0, {**explicit_logo, "source": "explicit_logo", "confidence": 1.0})
     warnings = []
-    if status in BOT_BLOCK_STATUSES:
-        # Anti-bot walls refuse this light reader; the full analysis reads the site through another path.
-        warnings.append("Este site bloqueia leitores automáticos simples. A análise usa outro leitor e pode seguir normalmente.")
-    elif not (200 <= status < 400):
+    blocked = status in BOT_BLOCK_STATUSES
+    # Anti-bot walls refuse only this light reader; the full analysis reads the site another way, so it is no warning.
+    if not blocked and not (200 <= status < 400):
         warnings.append(f"O site respondeu com HTTP {status}.")
     if content_type and "html" not in content_type:
         warnings.append("O endereço não retornou uma página HTML.")
     if explicit_logo and not explicit_logo.get("valid_image"):
         warnings.append("O link informado para a logo não retornou uma imagem válida.")
-    if not explicit_logo and not candidates:
+    if not explicit_logo and not candidates and not blocked:
         warnings.append("Nenhuma logo verificável foi encontrada automaticamente; ela poderá ser enviada depois.")
     reachable = 200 <= status < 400
     html_response = "html" in content_type or (not content_type and bool(body))
@@ -335,7 +334,7 @@ def inspect_brand_site(website_url: str, *, logo_url: str = "", session=None) ->
             "suggested_sector": parser.industry,
             "description": parser.description,
             "ready_for_analysis": reachable and html_response,
-            "blocked_by_site": status in BOT_BLOCK_STATUSES,
+            "blocked_by_site": blocked,
             "explicit_logo": explicit_logo, "logo_candidates": candidates, "suggested_logo_url":
             ((explicit_logo or {}).get("url") if (explicit_logo or {}).get("valid_image") else
              (candidates[0]["url"] if candidates else "")), "warnings": warnings}

@@ -369,7 +369,8 @@ def modelagem_desk(page):
             code=302,
         )
     if request.blueprint == "studio" and request.endpoint == f"studio.modelagem_{page}":
-        return redirect(url_for(f"studio_product.studio_{page}"), code=302)
+        # Keep the query: Workspace links carry the brand and project here.
+        return redirect(url_for(f"studio_product.studio_{page}", **request.args.to_dict(flat=True)), code=302)
     if page in CADU_RETIRED_DESKS:
         return redirect(url_for(".modelagem_criativos"))
     spec = MC_DESKS.get(page)

@@ -191,6 +191,30 @@ def _scope(client):
     return root
 
 
+def _assert_brand_access(client_id):
+    """A creation without a project may use a brand only when the signed-in account owns it."""
+    try:
+        account_id = int(session.get('cliente_id') or 0)
+        brand_id = int(client_id)
+    except (TypeError, ValueError):
+        raise ValueError('Marca não encontrada nesta conta.')
+    if not account_id:
+        return
+    from ..db import get_db
+    with get_db().cursor() as cursor:
+        cursor.execute("SELECT 1 FROM cx_clients WHERE id=%s AND crm_client_id=%s LIMIT 1", (brand_id, account_id))
+        if not cursor.fetchone():
+            raise ValueError('Marca não encontrada nesta conta.')
+
+
+def _assert_creation_access(project_id, client_id):
+    """Project-led creations go through the project/brand link; a quick creation with a brand, through ownership."""
+    if str(project_id or '').strip():
+        _assert_project_brand_access(project_id, client_id)
+    else:
+        _assert_brand_access(client_id)
+
+
 def _assert_project_brand_access(project_id, client_id):
     """Bind every project-led creation write to the signed-in tenant.
 
@@ -522,8 +546,7 @@ def studio_create_directions():
         count = max(1, min(int(data.get('count') or 1), 5))
         project_id = str(data.get('project_id') or '')
         if not quick_mode:
-            _assert_project_brand_access(project_id, client_id)
-        if not quick_mode:
+            _assert_creation_access(project_id, client_id)
             from ..creative_format_lab.brand_context import build_brand_context, select_brand_logo
             project_context = data.get('context') if isinstance(data.get('context'), dict) else {}
             project_context['brand_context'] = select_brand_logo(
@@ -598,7 +621,7 @@ def studio_create_image():
         _scope(client_id)
         project_id = str(data.get('project_id') or '')
         if not quick_mode:
-            _assert_project_brand_access(project_id, client_id)
+            _assert_creation_access(project_id, client_id)
             # Rehydrate identity server-side. The browser only carries display
             # metadata and must never decide whether a brand asset is usable.
             from ..creative_format_lab.brand_context import build_brand_context, select_brand_logo
@@ -787,7 +810,7 @@ def studio_brand_palette_suggest():
         if not user_id:
             raise ValueError('Entre novamente para definir as cores da marca.')
         _scope(client_id)
-        _assert_project_brand_access(data.get('project_id'), client_id)
+        _assert_creation_access(data.get('project_id'), client_id)
         modeling = service()
         brand_context = select_brand_logo(
             build_brand_context(modeling.get_client(client_id)), data.get('selected_logo_id'),
@@ -847,7 +870,7 @@ def studio_brand_font():
     def run():
         client_id = request.form.get('client_id')
         _scope(client_id)
-        _assert_project_brand_access(request.form.get('project_id'), client_id)
+        _assert_creation_access(request.form.get('project_id'), client_id)
         upload = request.files.get('font')
         if not upload or not upload.filename:
             raise ValueError('Escolha o arquivo da fonte.')
@@ -872,7 +895,7 @@ def studio_brand_palette():
         data = json_body()
         client_id = data.get('client_id')
         _scope(client_id)
-        _assert_project_brand_access(data.get('project_id'), client_id)
+        _assert_creation_access(data.get('project_id'), client_id)
         raw_colors = data.get('colors') if isinstance(data.get('colors'), list) else []
         colors = []
         for value in raw_colors[:6]:
@@ -1469,7 +1492,20 @@ def studio_project_contexts():
                 logger.exception('Studio project brand context unavailable for %s', external_id)
             items.append({'id': studio_id, 'external_project_id': external_id, 'name': str(project.get('nome') or 'Projeto sem nome'), 'brief': str(project.get('descricao') or project.get('instrucoes') or ''), 'client_id': str(client_id), 'brand_name': str(project.get('brand_name') or brand_context.get('name') or 'Marca vinculada'), 'brand_count': int(project.get('brand_count') or 1), 'brand_context': brand_context})
     db.commit()
-    return jsonify({'success': True, 'data': {'items': items}})
+    data = {'items': items}
+    # A link that names only a brand (Workspace "Criar imagem") gets that brand's identity for a quick creation.
+    requested = str(request.args.get('brand_id') or '').strip()
+    if requested.isdigit():
+        try:
+            _assert_brand_access(requested)
+            from ..creative_format_lab.brand_context import build_brand_context
+            brand_context = build_brand_context(modeling.get_client(int(requested)))
+            data['requested_brand'] = {'client_id': requested, 'brand_name': str(brand_context.get('name') or 'Marca'), 'brand_context': brand_context}
+        except ValueError:
+            pass
+        except Exception:
+            logger.exception('Studio requested brand context unavailable for %s', requested)
+    return jsonify({'success': True, 'data': data})
 
 
 @studio_or_admin_required_api

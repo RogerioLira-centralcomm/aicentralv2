@@ -22,6 +22,7 @@ from .schema import (
     group_directory,
     maps_directions_url,
     place_photos,
+    shown_label,
     related_cards,
     type_column_title,
 )
@@ -75,6 +76,7 @@ def _public_page(place, *, preview=False):
         related=related_cards(chrome.get("place_groups"), place or {}),
         maps_url=maps_directions_url((place or {}).get("geo") or {}),
         type_column=type_column_title((place or {}).get("place_type")),
+        shown_label=shown_label,
         **chrome,
     )
 

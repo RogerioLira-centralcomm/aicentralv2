@@ -42,11 +42,11 @@
         <dl class="cc-public-metrics" aria-label="Números principais">
           <div>
             <dt><svg class="cc-icon" aria-hidden="true"><use href="#cc-icon-flow"></use></svg><span>{{ place.traffic_label }}</span></dt>
-            <dd>{{ place.metrics.passengers.label or '—' }}</dd>
+            <dd>{{ shown_label(place.metrics.passengers.label) or '—' }}</dd>
           </div>
           <div>
             <dt><svg class="cc-icon" aria-hidden="true"><use href="#cc-icon-audience"></use></svg><span>Audiência estimada · 4 semanas</span></dt>
-            <dd>{{ place.metrics.addressable.label or place.metrics.four_weeks.label or '—' }}</dd>
+            <dd>{{ shown_label(place.metrics.addressable.label) or shown_label(place.metrics.four_weeks.label) or '—' }}</dd>
           </div>
           <div>
             <dt><svg class="cc-icon" aria-hidden="true"><use href="#cc-icon-investment"></use></svg><span>Investimento estimado · 4 semanas</span></dt>
@@ -87,7 +87,7 @@
             <div><span>{{ point.scope_label }}</span><h3>{{ point.name }}</h3></div>
           </header>
           <dl>
-            {% if point.reach %}<div><dt>Audiência · 4 semanas</dt><dd>{{ point.reach }}</dd></div>{% endif %}
+            {% if shown_label(point.reach) %}<div><dt>Audiência · 4 semanas</dt><dd>{{ point.reach }}</dd></div>{% endif %}
             <div><dt>Investimento</dt><dd>{{ point.investment or place.investment.label }}</dd></div>
           </dl>
           {% if point.commercial or point.defense %}<p>{{ point.commercial or point.defense }}</p>{% endif %}
@@ -102,7 +102,8 @@
       <div class="cc-audience-cycle-head">
         <p>{{ place.audience_plan.window }}</p>
         <h2>{{ place.audience_plan.title }}</h2>
-        <strong>{{ place.metrics.addressable.label or place.metrics.four_weeks.label }} dispositivos endereçáveis estimados no recorte principal.</strong>
+        {% set main_reach = shown_label(place.metrics.addressable.label) or shown_label(place.metrics.four_weeks.label) %}
+        {% if main_reach %}<strong>{{ main_reach }} dispositivos endereçáveis estimados no recorte principal.</strong>{% endif %}
       </div>
       <ol>
         {% for step in place.audience_plan.steps %}

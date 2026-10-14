@@ -90,6 +90,12 @@ def text(value: Any) -> str:
     return str(value).strip()
 
 
+def shown_label(value: Any) -> str:
+    """A number the client may see. Pending ones ('A validar', 'A validar com o operador') become ''."""
+    label = text(value)
+    return "" if label.casefold().startswith("a validar") else label
+
+
 def hex_color(value: Any, fallback: str = "#167A3A") -> str:
     candidate = text(value)
     if len(candidate) == 7 and candidate[0] == "#" and all(char in "0123456789abcdefABCDEF" for char in candidate[1:]):

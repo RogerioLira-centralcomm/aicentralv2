@@ -6,6 +6,7 @@ import time
 from werkzeug.exceptions import BadRequest, NotFound
 
 from ..places import service
+from ..places.schema import shown_label
 from ..places.thumbs import thumb_url
 
 
@@ -17,39 +18,35 @@ def _coordinate(value, low, high):
     return number if low <= number <= high else None
 
 
-_REACH_NUMBER = re.compile(r"\d+(?:,\d+)?")
-_REACH_SCALE = (("milh", 1_000_000), ("mil", 1_000), ("mi", 1_000_000))
+_REACH_NUMBER = re.compile(r"\d+(?:[.,]\d+)?")
+# 'milhão/milhões' and 'mi' are millions; 'mil' is thousands.
+_REACH_UNIT = re.compile(r"\b(milh\w*|mil|mi)\b")
 
 
 def _compact(people):
+    people = round(people, -3) if people >= 1_000 else round(people, -1)
     if people >= 1_000_000:
         return f"{people / 1_000_000:.1f}".rstrip("0").rstrip(".").replace(".", ",") + " mi"
     if people >= 1_000:
-        return f"{round(people / 1_000)} mil"
-    return f"{round(people, -1):.0f}"
+        return f"{people / 1_000:.0f} mil"
+    return f"{people:.0f}"
 
 
 def weekly_reach(label):
     """'190–280 mil' over four weeks → '48–70 mil' a week. A label without a number ('A validar') gives ''."""
     value = str(label or "").lower()
-    numbers = [float(item.replace(",", ".")) for item in _REACH_NUMBER.findall(value.replace(".", ""))[:2]]
+    numbers = [float(item.replace(",", ".")) for item in _REACH_NUMBER.findall(value)[:2]]
     if not numbers:
         return ""
-    unit = re.search(r"\b(milh\w*|mi|mil)\b", value)
-    scale = next((factor for prefix, factor in _REACH_SCALE if unit and unit.group(1).startswith(prefix)), 1)
+    unit = _REACH_UNIT.search(value)
+    scale = 1_000 if unit and unit.group(1) == "mil" else (1_000_000 if unit else 1)
     low, high = (_compact(number * scale / 4) for number in (numbers[0], numbers[-1]))
     if low == high:
         return low
     # '48 mil–70 mil' reads as '48–70 mil' when both ends share the unit.
     low_number, _, low_unit = low.partition(" ")
-    high_number, _, high_unit = high.partition(" ")
+    high_unit = high.partition(" ")[2]
     return f"{low_number}–{high}" if low_unit == high_unit else f"{low}–{high}"
-
-
-def _shown(label):
-    """A number the client can see: a pending one ('A validar') is left out rather than shown as text."""
-    value = str(label or "").strip()
-    return "" if value.casefold() == "a validar" else value
 
 
 def _points(row):
@@ -85,8 +82,8 @@ def _serialize(row, full=False):
         "description": row.get("subtitle") or row.get("operator") or "",
         "category": row.get("type_label") or row.get("place_type"),
         "city": row.get("city_label") or row.get("city"),
-        "audience": _shown((metrics.get("addressable") or {}).get("label")),
-        "traffic": _shown((metrics.get("passengers") or {}).get("label")),
+        "audience": shown_label((metrics.get("addressable") or {}).get("label")),
+        "traffic": shown_label((metrics.get("passengers") or {}).get("label")),
         "traffic_label": row.get("traffic_label") or "Movimento",
         # Originals reach 6,500 px / 3 MB: the card gets a 640 px copy, the fiche a 1,600 px one.
         "image_url": thumb_url(image, 1600 if full else 640),

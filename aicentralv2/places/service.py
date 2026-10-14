@@ -212,8 +212,8 @@ def _attach_bundled_gallery(view: dict) -> dict:
         photos.sort(key=lambda item: _photo_name(as_dict(item).get("url")) != cover)
     media["gallery"] = photos
     first_hero = next((text(item.get("url")) for item in photos if as_dict(item).get("kind") == "hero"), "")
-    if cover and first_hero:
-        media["hero_url"] = first_hero
+    if cover and photos and _photo_name(photos[0].get("url")) == cover:
+        media["hero_url"] = text(photos[0].get("url"))
     elif media.get("hero_url") and not _photo_ok(media["hero_url"]):
         media["hero_url"] = first_hero
     view["media"] = media

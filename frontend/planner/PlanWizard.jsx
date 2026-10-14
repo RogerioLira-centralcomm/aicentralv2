@@ -29,9 +29,16 @@ const BENEFITS = [['plan', 'Planos sob medida para o seu objetivo'], ['pulse', '
 
 const empty = {goal: '', custom: '', budget: '', period: '', geography: '', audience: '', title: '', advertiser: ''};
 const readDraft = () => { try { return {...empty, ...JSON.parse(window.sessionStorage.getItem(DRAFT_KEY) || '{}')}; } catch { return empty; } };
-// Um rascunho que já passou pela escolha guarda brand_ref ('' = sem marca); senão vale a barra do topo.
-const initialData = selection => { const draft = readDraft();
-  return {...draft, brand_ref: 'brand_ref' in draft ? draft.brand_ref : selection?.brand_ref || '', project_ref: 'project_ref' in draft ? draft.project_ref : selection?.project_ref || ''}; };
+// O rascunho guarda a barra do topo em que nasceu: se ela mudou desde então, vale a escolha nova da barra.
+const initialData = (selection, brands, projects) => {
+  const draft = readDraft();
+  const seed = contextQuery(selection);
+  const own = draft.seed === seed;
+  const brand_ref = own ? draft.brand_ref : selection?.brand_ref;
+  const project_ref = own ? draft.project_ref : selection?.project_ref;
+  return {...draft, seed, brand_ref: brands.some(item => item.ref === brand_ref) ? brand_ref : '',
+    project_ref: projects.some(item => item.ref === project_ref) ? project_ref : ''};
+};
 
 /**
  * "Planejar": the plan brief, one question at a time. It starts with who the plan
@@ -45,7 +52,7 @@ export function PlanWizard({request, contextBar, selection, busy, onSubmit, onFu
   const [step, setStep] = useState(0);
   const [reached, setReached] = useState(0);
   const [visited, setVisited] = useState(() => new Set([0]));
-  const [data, setData] = useState(() => initialData(selection));
+  const [data, setData] = useState(() => initialData(selection, brands, allProjects));
   const [known, setKnown] = useState(null);
   const panel = useRef(null);
   const set = (key, value) => setData(current => ({...current, [key]: value}));

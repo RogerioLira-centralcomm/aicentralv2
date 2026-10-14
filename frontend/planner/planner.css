@@ -2038,7 +2038,7 @@ a.planner-card:focus-visible { outline: 2px solid var(--colors-brand-600, #07945
 
 /* Cabeçalho do plano: o título tem a linha inteira (até duas linhas), selos e resumo logo abaixo
    e as ações numa linha própria, sem disputar largura com um título longo. */
-.ph.ph--plan { position: relative; flex-wrap: wrap; align-items: flex-start; row-gap: 12px; box-shadow: none; }
+.ph.ph--plan { position: static; top: auto; flex-wrap: wrap; align-items: flex-start; row-gap: 12px; box-shadow: none; }
 .ph--plan .ph__copy { flex: 1 1 100%; gap: 6px; }
 .ph--plan .ph__title { flex-wrap: wrap; row-gap: 8px; }
 .ph--plan .ph__title h1 { flex: 1 1 100%; display: -webkit-box; overflow: hidden; font-size: 22px; line-height: 30px; white-space: normal;

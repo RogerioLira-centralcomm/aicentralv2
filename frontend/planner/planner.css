@@ -1742,6 +1742,14 @@ a.planner-card:focus-visible { outline: 2px solid var(--colors-brand-600, #07945
 .pd-week__bar b { display: block; width: 100%; border-radius: 6px; background: var(--colors-brand-500, #17b26a); }
 .pd-week strong { font-size: 12px; }
 .pd-week small { color: var(--planner-muted, #667085); font-size: 12px; }
+/* A place's cuts: weekly audience and the apps used there. */
+.pd-points { display: grid; gap: 16px; margin: 0; padding: 0; list-style: none; }
+.pd-points > li { display: grid; gap: 8px; padding-bottom: 16px; border-bottom: 1px solid var(--colors-gray-200, #eaecf0); }
+.pd-points > li:last-child { padding-bottom: 0; border-bottom: 0; }
+.pd-points__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.pd-points__head small { color: var(--planner-muted, #667085); font-size: 12px; }
+.pd-points__reach { margin-left: auto; color: var(--planner-muted, #667085); font-size: 14px; }
+.pd-points__reach b { color: var(--colors-gray-900, #101828); font-size: 16px; }
 /* Result of a briefing review: what changed and the questions only the client can answer. */
 .planner-review-result { display: grid; gap: 8px; margin: 0 0 16px; padding: 14px 16px; border: 1px solid var(--colors-brand-200, #abefc6); border-radius: 12px; background: #f6fef9; }
 .planner-review-result header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -1985,7 +1993,7 @@ a.planner-card:focus-visible { outline: 2px solid var(--colors-brand-600, #07945
   .pd--portais .pd-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 560px) { .pd--portais .pd-gallery { grid-template-columns: 1fr; } }
-.pd-gallery__open { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
+.pd-gallery__open { display: block; width: 100%; height: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
 .pd-lightbox { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 24px; background: rgba(10, 14, 20, .88); }
 .pd-lightbox figure { margin: 0; max-width: min(1400px, 100%); }
 .pd-lightbox img { display: block; max-width: 100%; max-height: calc(100vh - 120px); margin: 0 auto; border-radius: 8px; }

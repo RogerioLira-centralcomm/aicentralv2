@@ -368,7 +368,8 @@ class PlacesCatalogTest(unittest.TestCase):
     def test_bundled_gallery_is_exposed_in_public_and_planner_views(self):
         place = serialize(dict(IGUATEMI_SP, id=20, preview_token="gallery", status="published"))
         gallery = place["media"]["gallery"]
-        self.assertGreaterEqual(len(gallery), 10)
+        # Ads, logos and photos of other malls are kept out (gallery_rejected.txt).
+        self.assertGreaterEqual(len(gallery), 5)
         self.assertTrue(all(item["url"].startswith("/static/images/places/gallery/") for item in gallery))
         # The shelf card carries only a 640 px copy; the fiche gets every photo as a 1,600 px copy.
         # (No copy made yet: URLs point to the route that makes them.)
@@ -1386,7 +1387,8 @@ class PlacesPublicRoutesTest(unittest.TestCase):
             response = self.client.get("/places/p/confins")
         html = response.get_data(as_text=True)
         self.assertEqual(response.status_code, 200)
-        self.assertIn("confins-hero-bad23d6b.png", html)
+        # The generated hero gave way to a real photo of the terminal.
+        self.assertIn("confins-hero-ff41c189.jpg", html)
         self.assertNotIn("Índices disponíveis sob consulta", html)
         self.assertIn("MG-010", html)
         self.assertIn("Escolha o recorte que faz sentido", html)

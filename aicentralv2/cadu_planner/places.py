@@ -1,5 +1,6 @@
 """Client-facing, read-only projection of published Places."""
 
+import re
 import time
 
 from werkzeug.exceptions import BadRequest, NotFound
@@ -14,6 +15,56 @@ def _coordinate(value, low, high):
     except (TypeError, ValueError):
         return None
     return number if low <= number <= high else None
+
+
+_REACH_NUMBER = re.compile(r"\d+(?:,\d+)?")
+_REACH_SCALE = (("milh", 1_000_000), ("mil", 1_000), ("mi", 1_000_000))
+
+
+def _compact(people):
+    if people >= 1_000_000:
+        return f"{people / 1_000_000:.1f}".rstrip("0").rstrip(".").replace(".", ",") + " mi"
+    if people >= 1_000:
+        return f"{round(people / 1_000)} mil"
+    return f"{round(people, -1):.0f}"
+
+
+def weekly_reach(label):
+    """'190–280 mil' over four weeks → '48–70 mil' a week. A label without a number ('A validar') gives ''."""
+    value = str(label or "").lower()
+    numbers = [float(item.replace(",", ".")) for item in _REACH_NUMBER.findall(value.replace(".", ""))[:2]]
+    if not numbers:
+        return ""
+    unit = re.search(r"\b(milh\w*|mi|mil)\b", value)
+    scale = next((factor for prefix, factor in _REACH_SCALE if unit and unit.group(1).startswith(prefix)), 1)
+    low, high = (_compact(number * scale / 4) for number in (numbers[0], numbers[-1]))
+    if low == high:
+        return low
+    # '48 mil–70 mil' reads as '48–70 mil' when both ends share the unit.
+    low_number, _, low_unit = low.partition(" ")
+    high_number, _, high_unit = high.partition(" ")
+    return f"{low_number}–{high}" if low_unit == high_unit else f"{low}–{high}"
+
+
+def _shown(label):
+    """A number the client can see: a pending one ('A validar') is left out rather than shown as text."""
+    value = str(label or "").strip()
+    return "" if value.casefold() == "a validar" else value
+
+
+def _points(row):
+    """Each cut of the place with what reaches it in a week and the apps people use there."""
+    result = []
+    for point in row.get("points") or []:
+        if not point.get("name"):
+            continue
+        result.append({
+            "name": point["name"],
+            "scope": point.get("scope_label") or "",
+            "weekly": weekly_reach(point.get("reach")),
+            "apps": [item.get("name") for item in point.get("apps") or [] if item.get("name")],
+        })
+    return result
 
 
 def _serialize(row, full=False):
@@ -34,8 +85,8 @@ def _serialize(row, full=False):
         "description": row.get("subtitle") or row.get("operator") or "",
         "category": row.get("type_label") or row.get("place_type"),
         "city": row.get("city_label") or row.get("city"),
-        "audience": (metrics.get("addressable") or {}).get("label") or "",
-        "traffic": (metrics.get("passengers") or {}).get("label") or "",
+        "audience": _shown((metrics.get("addressable") or {}).get("label")),
+        "traffic": _shown((metrics.get("passengers") or {}).get("label")),
         "traffic_label": row.get("traffic_label") or "Movimento",
         # Originals reach 6,500 px / 3 MB: the card gets a 640 px copy, the fiche a 1,600 px one.
         "image_url": thumb_url(image, 1600 if full else 640),
@@ -59,6 +110,7 @@ def _serialize(row, full=False):
         "demographics": {key: str(value) for key, value in (row.get("demographics") or {}).items() if value},
         "channel_ranking": [{"name": item.get("name") or "", "why": item.get("why") or "", "logo": item.get("icon") or ""}
                             for item in (row.get("channel_ranking") or [])[:6] if item.get("name")],
+        "points": _points(row),
     }
 
 

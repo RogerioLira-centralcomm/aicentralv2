@@ -163,12 +163,59 @@ def _bundled_gallery(slug: str) -> list[dict]:
     return result
 
 
+# The cover each Place opens with, when the first photo of the library is not the best one.
+COVERS = {
+    "confins": "confins-hero-ff41c189.jpg",
+}
+
+
+@lru_cache(maxsize=1)
+def _rejected_photos() -> frozenset[str]:
+    """Library files kept out of every page (ads, logos, icons, watermarks, wrong place)."""
+    path = Path(__file__).with_name("gallery_rejected.txt")
+    if not path.is_file():
+        return frozenset()
+    lines = (line.strip() for line in path.read_text(encoding="utf-8").splitlines())
+    return frozenset(line for line in lines if line and not line.startswith("#"))
+
+
+def _photo_name(url: str) -> str:
+    return text(url).split("?", 1)[0].rsplit("/", 1)[-1]
+
+
+def _photo_ok(url: str) -> bool:
+    name = _photo_name(url)
+    # Scraped .svg files are logos and arrows, never photos of the place.
+    return bool(name) and not name.lower().endswith(".svg") and name not in _rejected_photos()
+
+
+def _photo_key(url: str) -> str:
+    """The same picture is saved as hero-<hash> and point-<hash>: the hash identifies it."""
+    name = _photo_name(url)
+    if text(url).startswith("/static/images/places/gallery/") and "-" in name:
+        return name.rsplit(".", 1)[0].rsplit("-", 1)[-1]
+    return text(url)
+
+
 def _attach_bundled_gallery(view: dict) -> dict:
     media = dict(as_dict(view.get("media")))
-    existing = list(as_list(media.get("gallery")))
-    known = {text(as_dict(item).get("url")) for item in existing}
-    existing.extend(item for item in _bundled_gallery(view.get("slug")) if item["url"] not in known)
-    media["gallery"] = existing
+    photos, seen = [], set()
+    for item in list(as_list(media.get("gallery"))) + _bundled_gallery(view.get("slug")):
+        url = text(as_dict(item).get("url"))
+        key = _photo_key(url)
+        if url and key not in seen and _photo_ok(url):
+            seen.add(key)
+            photos.append(item)
+    # A photo picked on the desk wins over the fixed cover.
+    cover = "" if any(as_dict(item).get("selected") for item in photos) else COVERS.get(text(view.get("slug")))
+    if cover:
+        photos.sort(key=lambda item: _photo_name(as_dict(item).get("url")) != cover)
+    media["gallery"] = photos
+    first_hero = next((text(item.get("url")) for item in photos if as_dict(item).get("kind") == "hero"), "")
+    if cover and first_hero:
+        media["hero_url"] = first_hero
+    elif media.get("hero_url") and not _photo_ok(media["hero_url"]):
+        media["hero_url"] = first_hero
     view["media"] = media
     return view
 

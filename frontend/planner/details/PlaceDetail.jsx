@@ -1,7 +1,7 @@
 import React from 'react';
 import {CaduEmptyState} from '../../cadu-design-system/components/CaduEmptyState.jsx';
 import {Icon} from '../../cadu-design-system/components/Icon.jsx';
-import {DetailLayout, Facts, Gallery, OriginBadge, TagList, listText} from './DetailLayout.jsx';
+import {DetailLayout, Facts, Gallery, TagList, listText} from './DetailLayout.jsx';
 
 /** A Place is one media point: where it is and how many people pass. */
 export function PlaceDetail({boot, selection, plan = null}) {
@@ -19,6 +19,7 @@ export function PlaceDetail({boot, selection, plan = null}) {
   const DAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
   const week = (place.weekly_movement || []).map((value, index) => [DAYS[index], value]).filter(([, value]) => Number.isFinite(value));
   const peak = Math.max(1, ...week.map(([, value]) => value));
+  const points = (place.points || []).filter(point => point.weekly || point.apps?.length);
 
   const sections = [
     {id: 'localizacao', label: 'Localização', hidden: !hasCoordinates, hint: 'Este local é um único ponto de mídia.',
@@ -27,8 +28,7 @@ export function PlaceDetail({boot, selection, plan = null}) {
     {id: 'semana', label: 'Movimento na semana', hidden: week.length < 2, hint: 'Pessoas por dia, numa semana típica.',
       render: () => <><ul className="pd-week">{week.map(([day, value]) => <li key={day}>
         <span className="pd-week__bar"><b style={{height: `${Math.round(value * 100 / peak)}%`}}/></span>
-        <strong>{value.toLocaleString('pt-BR', {notation: 'compact', maximumFractionDigits: 1})}</strong><small>{day}</small></li>)}</ul>
-        <OriginBadge origin={place.weekly_origin}/></>},
+        <strong>{value.toLocaleString('pt-BR', {notation: 'compact', maximumFractionDigits: 1})}</strong><small>{day}</small></li>)}</ul></>},
     {id: 'fotos', label: 'Fotos', count: rest.length, hidden: !rest.length, wide: true,
       render: () => <Gallery photos={rest.map(photo => ({url: photo.url, title: photo.title}))} name={place.name}/>},
     {id: 'publico', label: 'Quem passa por aqui', hidden: !place.target_audience?.length && !Object.keys(place.demographics || {}).length,
@@ -36,8 +36,15 @@ export function PlaceDetail({boot, selection, plan = null}) {
         <TagList value={place.target_audience}/>
         <Facts items={[['Faixa etária', place.demographics?.age], ['Gênero', place.demographics?.gender],
           ['Renda', place.demographics?.income], ['Origem', place.demographics?.origin]]}/></>},
-    {id: 'canais', label: 'Onde alcançar esse público', hidden: !place.channel_ranking?.length, hint: 'Canais com maior afinidade com quem passa por aqui.',
-      render: () => <ol className="pd-text">{place.channel_ranking.map(item => <li key={item.name}><strong>{item.name}</strong>{item.why ? ` — ${item.why}` : ''}</li>)}</ol>},
+    {id: 'canais', label: 'Onde alcançar esse público', hidden: !points.length && !place.channel_ranking?.length,
+      hint: points.length ? 'Audiência semanal de cada ponto e os apps mais usados ali. Varia com a época e a programação.'
+        : 'Canais com maior afinidade com quem passa por aqui.',
+      render: () => points.length
+        ? <ul className="pd-points">{points.map(point => <li key={point.name}>
+            <div className="pd-points__head"><strong>{point.name}</strong>{point.scope && <small>{point.scope}</small>}
+              {point.weekly && <span className="pd-points__reach"><b>{point.weekly}</b> por semana</span>}</div>
+            <TagList value={point.apps}/></li>)}</ul>
+        : <ol className="pd-text">{place.channel_ranking.map(item => <li key={item.name}><strong>{item.name}</strong>{item.why ? ` — ${item.why}` : ''}</li>)}</ol>},
     {id: 'sobre', label: 'Sobre o lugar', render: () => <Facts items={[['Categoria', place.category], ['Cidade', place.city],
       ['Operador', place.operator], ['Código', place.code], ['Formatos', listText(place.formats)]]}/>},
   ];
@@ -46,8 +53,8 @@ export function PlaceDetail({boot, selection, plan = null}) {
     eyebrow={[place.category, place.city].filter(Boolean).join(' · ')}
     media={heroPhotos.length ? {type: 'carousel', items: heroPhotos} : null}
     metrics={[
-      {icon: 'users', label: place.traffic_label || 'Movimento', value: place.traffic, origin: place.traffic_origin},
-      {icon: 'pulse', label: 'Audiência', value: place.audience, origin: place.audience_origin},
+      {icon: 'users', label: place.traffic_label || 'Movimento', value: place.traffic},
+      {icon: 'pulse', label: 'Audiência', value: place.audience},
       {icon: 'plan', label: 'Cidade', value: place.city},
     ]}
     sections={sections}/>;

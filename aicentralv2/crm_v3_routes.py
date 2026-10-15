@@ -206,6 +206,13 @@ def _cotacao_com_url(cotacao):
     return cotacao
 
 
+@bp.route("/agencias")
+@login_required
+def crm_v3_agencias():
+    """Árvore de agências com seus clientes finais (gestão de vínculos)."""
+    return render_template("crm_v3_agencias.html")
+
+
 @bp.route("/")
 @login_required
 def crm_v3():

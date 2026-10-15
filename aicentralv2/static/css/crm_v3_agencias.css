@@ -1,0 +1,256 @@
+/* Página de agências do CRM v3 (árvore agência → clientes finais). */
+
+.crm-ag-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  max-width: 1100px;
+  margin: 0 auto;
+  color: var(--crm-ag-text, #0f172a);
+}
+
+.crm-ag-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.crm-ag-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.crm-ag-sub {
+  margin: 2px 0 0;
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+.crm-ag-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.crm-ag-input {
+  min-width: 240px;
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  background: #fff;
+  color: inherit;
+}
+
+.crm-ag-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  color: #475569;
+}
+
+.crm-ag-link {
+  font-size: 0.8125rem;
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.crm-ag-link:hover {
+  text-decoration: underline;
+}
+
+.crm-ag-status {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+.crm-ag-status.is-erro {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.crm-ag-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.crm-ag-agencia {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.crm-ag-agencia-head {
+  display: block;
+}
+
+.crm-ag-toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  color: inherit;
+}
+
+.crm-ag-toggle i {
+  width: 14px;
+  color: #64748b;
+}
+
+.crm-ag-agencia-nome {
+  flex: 1;
+  font-weight: 600;
+}
+
+.crm-ag-contagem {
+  font-size: 0.75rem;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.crm-ag-corpo {
+  padding: 0 12px 12px 36px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.crm-ag-filhos {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.crm-ag-filho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f8fafc;
+}
+
+.crm-ag-filho-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+}
+
+.crm-ag-filho-nome {
+  font-weight: 500;
+}
+
+.crm-ag-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.crm-ag-badge.is-principal {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.crm-ag-meta {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.crm-ag-vazio {
+  margin: 8px 0;
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+.crm-ag-adicionar {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.crm-ag-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.crm-ag-resultados {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.crm-ag-resultado {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #fff;
+  text-align: left;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.crm-ag-resultado:hover {
+  background: #f8fafc;
+}
+
+.crm-ag-btn {
+  padding: 4px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.crm-ag-btn.is-danger {
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.crm-ag-btn.is-danger:hover {
+  background: #fef2f2;
+}
+
+@media (max-width: 640px) {
+  .crm-ag-page {
+    padding: 16px;
+  }
+
+  .crm-ag-input {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .crm-ag-tools {
+    width: 100%;
+  }
+
+  .crm-ag-corpo {
+    padding-left: 12px;
+  }
+}

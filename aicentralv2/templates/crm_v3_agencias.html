@@ -1,0 +1,33 @@
+{% extends 'base_erp.html' %}
+
+{% block title %}Agências — CRM{% endblock %}
+{% block page_label %}CRM{% endblock %}
+{% block page_subtitle %}Agências e clientes finais{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3_agencias.css') }}?v=1">
+{% endblock %}
+
+{% block content %}
+<div class="crm-ag-page">
+  <header class="crm-ag-header">
+    <div class="crm-ag-heading">
+      <h1 class="crm-ag-title">Agências</h1>
+      <p class="crm-ag-sub" id="crm-ag-resumo">Carregando…</p>
+    </div>
+    <div class="crm-ag-tools">
+      <input type="search" id="crm-ag-busca" class="crm-ag-input" placeholder="Buscar agência ou cliente final" aria-label="Buscar agência ou cliente final">
+      <label class="crm-ag-check">
+        <input type="checkbox" id="crm-ag-so-vazias"> Só sem clientes finais
+      </label>
+      <a class="crm-ag-link" href="{{ url_for('crm_v3.crm_v3') }}">
+        <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Voltar ao CRM
+      </a>
+    </div>
+  </header>
+
+  <div id="crm-ag-status" class="crm-ag-status" role="status" aria-live="polite" hidden></div>
+  <div id="crm-ag-tree" class="crm-ag-tree" role="list"></div>
+</div>
+<script src="{{ url_for('static', filename='js/crm_v3_agencias.js') }}?v=1"></script>
+{% endblock %}

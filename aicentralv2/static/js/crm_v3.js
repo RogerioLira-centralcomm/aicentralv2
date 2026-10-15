@@ -1298,6 +1298,10 @@
      * fora do filtro, lendo os contadores já calculados em updatePillCounts.
      */
     function avisoGruposOcultos() {
+        // Com busca ativa ou filtro de situação (atrasado/sem atividade), os
+        // contadores não batem com o que a lista filtraria: não sugerir.
+        if (state.buscaCliente) return '';
+        if (state.filtroSecundario === 'atrasado' || state.filtroSecundario === 'sem-atividade') return '';
         var partes = [];
         $$('.crm-v3-pill[data-filter]').forEach(function (pill) {
             var f = pill.getAttribute('data-filter');

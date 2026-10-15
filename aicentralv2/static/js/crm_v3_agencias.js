@@ -193,7 +193,7 @@
       return;
     }
     var achados = state.clientes.filter(function (c) {
-      return !c.is_agencia && !jaVinculados[c.id] && norm(nomeDe(c)).indexOf(t) !== -1;
+      return !c.is_agencia && c.status !== false && !jaVinculados[c.id] && norm(nomeDe(c)).indexOf(t) !== -1;
     }).sort(porNome).slice(0, 8);
     box.innerHTML = achados.length
       ? achados.map(function (c) {

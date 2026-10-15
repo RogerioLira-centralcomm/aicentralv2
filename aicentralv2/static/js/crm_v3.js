@@ -1095,7 +1095,7 @@
         updatePillCounts();
 
         if (!filtrados.length) {
-            container.innerHTML = '<div class="crm-v3-contatos-empty p-3 text-sm text-slate-500">Nenhum cliente encontrado.</div>';
+            container.innerHTML = '<div class="crm-v3-contatos-empty p-3 text-sm text-slate-500">Nenhum cliente encontrado.</div>' + avisoGruposOcultos();
             syncSelecaoComFiltros();
             return;
         }
@@ -1290,6 +1290,27 @@
             var key = el.getAttribute('data-tab-count');
             if (key && counts[key] !== undefined) el.textContent = counts[key];
         });
+    }
+
+    /**
+     * Quando a lista está vazia porque a pill ativa esconde outros grupos
+     * (ex.: "Ativos" com 78 em Prospecção), mostra quantos clientes existem
+     * fora do filtro, lendo os contadores já calculados em updatePillCounts.
+     */
+    function avisoGruposOcultos() {
+        var partes = [];
+        $$('.crm-v3-pill[data-filter]').forEach(function (pill) {
+            var f = pill.getAttribute('data-filter');
+            if (f !== 'classif-ativo' && f !== 'classif-prospeccao' && f !== 'arquivo') return;
+            if (f === state.filtroPill || f === state.filtroSecundario) return;
+            var span = pill.querySelector('.crm-v3-pill-count');
+            var n = span ? parseInt(span.textContent, 10) : 0;
+            if (n > 0) partes.push(n + ' em ' + pill.getAttribute('aria-label'));
+        });
+        if (!partes.length) return '';
+        return '<div class="crm-v3-contatos-empty p-3 text-xs text-slate-500">'
+            + 'Há clientes fora deste filtro: ' + partes.join(', ')
+            + '. Troque a pill acima para vê-los.</div>';
     }
 
     function updatePillCounts() {

@@ -44,20 +44,26 @@ def run():
             cliente_ids = [row['id'] for row in cursor.fetchall()]
             for cid in cliente_ids:
                 cursor.execute('''
-                    WITH ativos AS (
-                        SELECT id_contato_cliente
-                          FROM tbl_contato_cliente
+                    SELECT id_contato_cliente
+                      FROM tbl_contato_cliente
+                     WHERE pk_id_tbl_cliente = %s
+                       AND COALESCE(status, TRUE) = TRUE
+                     ORDER BY id_contato_cliente
+                ''', (cid,))
+                ativos = [row['id_contato_cliente'] for row in cursor.fetchall()]
+                if len(ativos) == 1:
+                    cursor.execute('''
+                        UPDATE tbl_contato_cliente
+                           SET responsavel_setor = (id_contato_cliente = %s)
+                         WHERE pk_id_tbl_cliente = %s
+                    ''', (ativos[0], cid))
+                elif len(ativos) > 1:
+                    cursor.execute('''
+                        UPDATE tbl_contato_cliente
+                           SET responsavel_setor = FALSE
                          WHERE pk_id_tbl_cliente = %s
                            AND COALESCE(status, TRUE) = TRUE
-                    )
-                    UPDATE tbl_contato_cliente c
-                       SET responsavel_setor = (
-                           SELECT COUNT(*) = 1 FROM ativos
-                           AND c.id_contato_cliente = (SELECT id_contato_cliente FROM ativos LIMIT 1)
-                       )
-                     WHERE c.pk_id_tbl_cliente = %s
-                       AND COALESCE(c.status, TRUE) = TRUE
-                ''', (cid, cid))
+                    ''', (cid,))
         conn.commit()
         print('OK: responsavel_setor aplicado e backfill concluído.')
     finally:

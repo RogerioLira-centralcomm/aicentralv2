@@ -2096,6 +2096,8 @@ def init_routes(app):
                 cohorts=cohorts,
                 user_type=user_type
             )
+            if 'responsavel_setor' in data:
+                db.definir_responsavel_setor(contato_id, bool(data.get('responsavel_setor')))
 
             if session.get('user_type') in ('admin', 'superadmin') and (wasender_api_key or wasender_session_id or wasender_ativo):
                 db.atualizar_wasender_contato(
@@ -2189,6 +2191,7 @@ def init_routes(app):
             nova_senha = data.get('nova_senha', '').strip()
             cohorts = data.get('cohorts', 1)
             user_type = data.get('user_type', 'client')
+            responsavel_setor = data.get('responsavel_setor')
             
             # Validação de campos obrigatórios
             if not all([nome_completo, email]):
@@ -2236,6 +2239,9 @@ def init_routes(app):
                 ''', (nome_completo, email, telefone, telefone_secundario, cohorts,
                       pk_id_tbl_cargo, pk_id_aux_setor, user_type,
                       contato_id))
+            
+            if responsavel_setor is not None:
+                db.definir_responsavel_setor(contato_id, bool(responsavel_setor))
             
             # Atualizar senha se fornecida
             if nova_senha:
@@ -2340,19 +2346,25 @@ def init_routes(app):
             
             conn = db.get_db()
             with conn.cursor() as cursor:
-                cursor.execute('SELECT status, nome_completo FROM tbl_contato_cliente WHERE id_contato_cliente = %s', (contato_id,))
+                cursor.execute('''
+                    SELECT status, nome_completo, pk_id_tbl_cliente
+                      FROM tbl_contato_cliente WHERE id_contato_cliente = %s
+                ''', (contato_id,))
                 result = cursor.fetchone()
                 
                 if not result:
                     return jsonify({'success': False, 'message': 'Contato não encontrado!'}), 404
                 
                 novo_status = not result['status']
+                cliente_id_sync = result.get('pk_id_tbl_cliente')
                 cursor.execute('''
                     UPDATE tbl_contato_cliente
                     SET status = %s, data_modificacao = CURRENT_TIMESTAMP
                     WHERE id_contato_cliente = %s
                 ''', (novo_status, contato_id))
                 conn.commit()
+                if cliente_id_sync:
+                    db.sincronizar_responsavel_setor_padrao(cliente_id_sync)
                 
                 # Registro de auditoria
                 registrar_auditoria(
@@ -2433,6 +2445,9 @@ def init_routes(app):
 
                 cursor.execute('DELETE FROM tbl_contato_cliente WHERE id_contato_cliente = %s', (contato_id,))
             conn.commit()
+            cliente_id_sync = contato.get('pk_id_tbl_cliente')
+            if cliente_id_sync:
+                db.sincronizar_responsavel_setor_padrao(cliente_id_sync)
             
             # Registro de auditoria
             registrar_auditoria(
@@ -6553,11 +6568,11 @@ def init_routes(app):
             contatos_parceiro = []
             if cotacao.get('client_id'):
                 briefings = db.obter_briefings_por_cliente(cotacao['client_id'])
-                contatos_cliente = db.obter_contatos_comerciais_por_cliente(cotacao['client_id'])
+                contatos_cliente = db.obter_contatos_para_operacao(cotacao['client_id'])
             if cotacao.get('agencia_id'):
-                contatos_agencia = db.obter_contatos_por_cliente(cotacao['agencia_id'])
+                contatos_agencia = db.obter_contatos_para_operacao(cotacao['agencia_id'])
             if cotacao.get('id_parceiro'):
-                contatos_parceiro = db.obter_contatos_por_cliente(cotacao['id_parceiro'])
+                contatos_parceiro = db.obter_contatos_para_operacao(cotacao['id_parceiro'])
             return render_template('cadu_cotacoes_form_legado.html', 
                                   cotacao=cotacao, clientes=clientes, vendedores=vendedores, briefings=briefings, contatos_cliente=contatos_cliente, contatos_agencia=contatos_agencia, contatos_parceiro=contatos_parceiro, modo='editar',
                                   tipos_cliente=db.obter_tipos_cliente(), agencias_opts=db.obter_aux_agencia(),
@@ -6658,17 +6673,17 @@ def init_routes(app):
             briefing_atual = None
             if cotacao.get('client_id'):
                 app.logger.info(f"DEBUG: Buscando briefings para client_id={cotacao['client_id']}")
-                contatos_cliente = db.obter_contatos_comerciais_por_cliente(cotacao['client_id'])
+                contatos_cliente = db.obter_contatos_para_operacao(cotacao['client_id'])
                 briefings = db.obter_briefings_por_cliente(cotacao['client_id'])
                 app.logger.info(f"DEBUG: Encontrados {len(briefings)} briefings")
             
             # Buscar contatos da agência
             if cotacao.get('agencia_id'):
-                contatos_agencia = db.obter_contatos_por_cliente(cotacao['agencia_id'])
+                contatos_agencia = db.obter_contatos_para_operacao(cotacao['agencia_id'])
             
             # Buscar contatos do parceiro
             if cotacao.get('id_parceiro'):
-                contatos_parceiro = db.obter_contatos_por_cliente(cotacao['id_parceiro'])
+                contatos_parceiro = db.obter_contatos_para_operacao(cotacao['id_parceiro'])
             
             # Buscar briefing selecionado
             if cotacao.get('briefing_id'):
@@ -7506,6 +7521,39 @@ def init_routes(app):
             app.logger.error(f"Erro ao atualizar cotação via API: {str(e)}", exc_info=True)
             return jsonify({'success': False, 'message': str(e)}), 500
 
+    def _empresa_id_destino_cotacao(cotacao, tem_agencia, tem_parceiro):
+        if tem_agencia and cotacao.get('agencia_id'):
+            return int(cotacao['agencia_id'])
+        if tem_parceiro and cotacao.get('id_parceiro'):
+            return int(cotacao['id_parceiro'])
+        if cotacao.get('client_id'):
+            return int(cotacao['client_id'])
+        return None
+
+    def _destinatarios_email_cotacao_externo(cotacao, tem_agencia, tem_parceiro, destinatario, nome_destinatario):
+        empresa_id = _empresa_id_destino_cotacao(cotacao, tem_agencia, tem_parceiro)
+        lista = []
+        vistos = set()
+        if empresa_id:
+            for row in db.obter_contatos_responsavel_setor(empresa_id) or []:
+                email = (row.get('email') or '').strip()
+                if not email:
+                    continue
+                chave = email.lower()
+                if chave in vistos:
+                    continue
+                vistos.add(chave)
+                nome = (row.get('nome_completo') or '').strip() or email
+                lista.append({'email': email, 'nome': nome})
+        if not lista and destinatario:
+            email = str(destinatario).strip()
+            if email:
+                lista.append({
+                    'email': email,
+                    'nome': (nome_destinatario or email).strip() or email,
+                })
+        return lista
+
     @app.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/enviar-email', methods=['POST'])
     @login_required
     def enviar_email_cotacao(cotacao_id):
@@ -7522,13 +7570,19 @@ def init_routes(app):
             parceiro_nome = data.get('parceiro_nome', '')
             cliente_nome_param = data.get('cliente_nome', '')
             
-            if not destinatario:
-                return jsonify({'success': False, 'message': 'Email do destinatário não informado'}), 400
-            
             # Buscar cotação com dados completos
             cotacao = db.obter_cotacao_por_id(cotacao_id)
             if not cotacao:
                 return jsonify({'success': False, 'message': 'Cotação não encontrada'}), 404
+
+            destinatarios_externos = _destinatarios_email_cotacao_externo(
+                cotacao, tem_agencia, tem_parceiro, destinatario, nome_destinatario
+            )
+            if not destinatarios_externos:
+                return jsonify({
+                    'success': False,
+                    'message': 'Nenhum contato com responsavel_setor e e-mail válido para esta empresa.',
+                }), 400
             
             # Importar serviço Brevo
             from aicentralv2.services.brevo_service import enviar_email_cotacao_enviada_cliente, get_brevo_service
@@ -7580,36 +7634,40 @@ def init_routes(app):
             data_envio = datetime.now().strftime('%d/%m/%Y às %H:%M')
             
             try:
-                # Usar o serviço Brevo com template
-                resultado = enviar_email_cotacao_enviada_cliente(
-                    to_email=destinatario,
-                    to_name=nome_destinatario or cliente_nome,
-                    numero_cotacao=cotacao.get('numero_cotacao', ''),
-                    nome_campanha=cotacao.get('nome_campanha', ''),
-                    valor_total=valor_formatado,
-                    link_proposta=link_cotacao or '',
-                    validade=validade,
-                    executivo_nome=cotacao.get('responsavel_nome', ''),
-                    executivo_email=cotacao.get('responsavel_email', ''),
-                    tem_agencia=email_tem_agencia,
-                    agencia_nome=email_agencia_nome,
-                    cliente_nome=cliente_nome_param or cotacao.get('cliente_nome', '')
-                )
+                resultado = {'success': True}
+                emails_enviados = []
+                for dest in destinatarios_externos:
+                    r = enviar_email_cotacao_enviada_cliente(
+                        to_email=dest['email'],
+                        to_name=dest['nome'] or cliente_nome,
+                        numero_cotacao=cotacao.get('numero_cotacao', ''),
+                        nome_campanha=cotacao.get('nome_campanha', ''),
+                        valor_total=valor_formatado,
+                        link_proposta=link_cotacao or '',
+                        validade=validade,
+                        executivo_nome=cotacao.get('responsavel_nome', ''),
+                        executivo_email=cotacao.get('responsavel_email', ''),
+                        tem_agencia=email_tem_agencia,
+                        agencia_nome=email_agencia_nome,
+                        cliente_nome=cliente_nome_param or cotacao.get('cliente_nome', '')
+                    )
+                    if not r.get('success'):
+                        resultado = r
+                        break
+                    emails_enviados.append(dest['email'])
                 
                 if resultado.get('success'):
-                    # Atualizar status da cotação para "Enviada"
                     db.atualizar_cotacao(cotacao_id, status='Enviada', proposta_enviada_em=datetime.now())
                     
-                    # Registrar auditoria
                     registrar_auditoria(
                         acao='EMAIL_SENT',
                         modulo='cotacoes',
-                        descricao=f'Email cotação enviado para {destinatario} - Cotação {cotacao["numero_cotacao"]}',
+                        descricao=f'Email cotação enviado para {", ".join(emails_enviados)} - Cotação {cotacao["numero_cotacao"]}',
                         registro_id=cotacao_id,
                         registro_tipo='cadu_cotacoes',
                         dados_novos={
                             'tipo': tipo,
-                            'destinatario': destinatario,
+                            'destinatarios': emails_enviados,
                             'assunto': f'Sua Proposta - {cotacao["numero_cotacao"]}'
                         }
                     )
@@ -7658,13 +7716,22 @@ def init_routes(app):
             if not tipo:
                 return jsonify({'success': False, 'message': 'Tipo de email não informado'}), 400
             
-            if not destinatario:
-                return jsonify({'success': False, 'message': 'Email do destinatário não informado'}), 400
-            
             # Buscar cotação com dados completos
             cotacao = db.obter_cotacao_por_id(cotacao_id)
             if not cotacao:
                 return jsonify({'success': False, 'message': 'Cotação não encontrada'}), 404
+
+            destinatarios_externos = _destinatarios_email_cotacao_externo(
+                cotacao, tem_agencia, tem_parceiro, destinatario, nome_destinatario
+            )
+            if not destinatarios_externos:
+                return jsonify({
+                    'success': False,
+                    'message': 'Nenhum contato com responsavel_setor e e-mail válido para esta empresa.',
+                }), 400
+            emails_externos_resumo = ', '.join(d['email'] for d in destinatarios_externos)
+            destinatario = destinatarios_externos[0]['email']
+            nome_destinatario = destinatarios_externos[0]['nome']
             
             status = cotacao.get('status', '')
             
@@ -7720,20 +7787,23 @@ def init_routes(app):
             
             try:
                 if tipo == 'cotacao_enviada':
-                    # Email externo para cliente/agência/parceiro
-                    resultado_externo = enviar_email_cotacao_enviada_cliente(
-                        to_email=destinatario,
-                        to_name=nome_destinatario,
-                        numero_cotacao=numero_cotacao,
-                        nome_campanha=nome_campanha,
-                        valor_total=valor_formatado,
-                        link_proposta=link_cotacao or '',
-                        executivo_nome=responsavel_nome,
-                        executivo_email=responsavel_email,
-                        tem_agencia=email_tem_agencia,
-                        agencia_nome=email_agencia_nome,
-                        cliente_nome=cliente_nome
-                    )
+                    resultado_externo = {'success': True}
+                    for dest_ext in destinatarios_externos:
+                        resultado_externo = enviar_email_cotacao_enviada_cliente(
+                            to_email=dest_ext['email'],
+                            to_name=dest_ext['nome'],
+                            numero_cotacao=numero_cotacao,
+                            nome_campanha=nome_campanha,
+                            valor_total=valor_formatado,
+                            link_proposta=link_cotacao or '',
+                            executivo_nome=responsavel_nome,
+                            executivo_email=responsavel_email,
+                            tem_agencia=email_tem_agencia,
+                            agencia_nome=email_agencia_nome,
+                            cliente_nome=cliente_nome
+                        )
+                        if not resultado_externo.get('success'):
+                            break
                     
                     # Emails internos: responsável comercial + apolo
                     destinatarios_internos = []
@@ -7771,19 +7841,22 @@ def init_routes(app):
                         db.atualizar_cotacao(cotacao_id, status='Enviada', proposta_enviada_em=datetime.now())
                 
                 elif tipo == 'cotacao_aprovada':
-                    # Email externo para cliente/agência/parceiro
-                    resultado_externo = enviar_email_cotacao_aprovada_cliente(
-                        to_email=destinatario,
-                        to_name=nome_destinatario,
-                        numero_cotacao=numero_cotacao,
-                        nome_campanha=nome_campanha,
-                        valor_total=valor_formatado,
-                        executivo_nome=responsavel_nome,
-                        executivo_email=responsavel_email,
-                        tem_agencia=email_tem_agencia,
-                        agencia_nome=email_agencia_nome,
-                        cliente_nome=cliente_nome
-                    )
+                    resultado_externo = {'success': True}
+                    for dest_ext in destinatarios_externos:
+                        resultado_externo = enviar_email_cotacao_aprovada_cliente(
+                            to_email=dest_ext['email'],
+                            to_name=dest_ext['nome'],
+                            numero_cotacao=numero_cotacao,
+                            nome_campanha=nome_campanha,
+                            valor_total=valor_formatado,
+                            executivo_nome=responsavel_nome,
+                            executivo_email=responsavel_email,
+                            tem_agencia=email_tem_agencia,
+                            agencia_nome=email_agencia_nome,
+                            cliente_nome=cliente_nome
+                        )
+                        if not resultado_externo.get('success'):
+                            break
                     
                     # Emails internos: responsável comercial + apolo
                     destinatarios_internos = []
@@ -7818,18 +7891,21 @@ def init_routes(app):
                     resultado_interno = {'success': True}
                 
                 elif tipo == 'cotacao_rejeitada':
-                    # Email externo para cliente/agência/parceiro
-                    resultado_externo = enviar_email_cotacao_rejeitada_cliente(
-                        to_email=destinatario,
-                        to_name=nome_destinatario,
-                        numero_cotacao=numero_cotacao,
-                        nome_campanha=nome_campanha,
-                        executivo_nome=responsavel_nome,
-                        executivo_email=responsavel_email,
-                        tem_agencia=email_tem_agencia,
-                        agencia_nome=email_agencia_nome,
-                        cliente_nome=cliente_nome
-                    )
+                    resultado_externo = {'success': True}
+                    for dest_ext in destinatarios_externos:
+                        resultado_externo = enviar_email_cotacao_rejeitada_cliente(
+                            to_email=dest_ext['email'],
+                            to_name=dest_ext['nome'],
+                            numero_cotacao=numero_cotacao,
+                            nome_campanha=nome_campanha,
+                            executivo_nome=responsavel_nome,
+                            executivo_email=responsavel_email,
+                            tem_agencia=email_tem_agencia,
+                            agencia_nome=email_agencia_nome,
+                            cliente_nome=cliente_nome
+                        )
+                        if not resultado_externo.get('success'):
+                            break
                     
                     # Emails internos: responsável comercial + apolo
                     destinatarios_internos = []
@@ -7872,11 +7948,12 @@ def init_routes(app):
                     registrar_auditoria(
                         acao='EMAIL_SENT',
                         modulo='cotacoes',
-                        descricao=f'Email {tipo} enviado para {destinatario} - Cotação {numero_cotacao}',
+                        descricao=f'Email {tipo} enviado para {emails_externos_resumo} - Cotação {numero_cotacao}',
                         registro_id=cotacao_id,
                         registro_tipo='cadu_cotacoes',
                         dados_novos={
                             'tipo': tipo,
+                            'destinatarios': [d['email'] for d in destinatarios_externos],
                             'destinatario': destinatario,
                             'tem_agencia': tem_agencia,
                             'tem_parceiro': tem_parceiro,
@@ -8035,7 +8112,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     def api_contatos_briefing_por_cliente(cliente_id):
         """API para obter contatos de um cliente (setores Comercial e Operações) para briefings"""
         try:
-            contatos = db.obter_contatos_comerciais_por_cliente(cliente_id)
+            contatos = db.obter_contatos_para_operacao(cliente_id)
             return jsonify([dict(c) for c in contatos] if contatos else [])
         except Exception as e:
             app.logger.error(f"Erro ao buscar contatos do cliente para briefing: {str(e)}", exc_info=True)
@@ -8044,23 +8121,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     @app.route('/api/clientes/<int:cliente_id>/todos-contatos')
     @login_required
     def api_todos_contatos_por_cliente(cliente_id):
-        """API para obter TODOS os contatos de um cliente (sem filtro de setor)"""
+        """API para obter TODOS os contatos ativos de um cliente (sem filtro de setor ou convite)"""
         try:
-            conn = db.get_db()
-            with conn.cursor() as cursor:
-                cursor.execute('''
-                    SELECT 
-                        c.id_contato_cliente,
-                        c.nome_completo,
-                        c.email,
-                        s.display as setor
-                    FROM tbl_contato_cliente c
-                    LEFT JOIN tbl_setor s ON c.pk_id_tbl_setor = s.id_setor
-                    WHERE c.status = true
-                    AND c.pk_id_tbl_cliente = %s
-                    ORDER BY c.nome_completo ASC
-                ''', (cliente_id,))
-                contatos = cursor.fetchall()
+            contatos = db.obter_contatos_para_operacao(cliente_id)
             return jsonify([dict(c) for c in contatos] if contatos else [])
         except Exception as e:
             app.logger.error(f"Erro ao buscar todos contatos do cliente: {str(e)}", exc_info=True)
@@ -11247,14 +11310,29 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'id_agencia': pi.get('id_agencia'),
                 'id_parceiro': pi.get('id_parceiro'),
             },
-            'contatos': [
-                {
-                    'id_contato_cliente': c.get('id_contato_cliente'),
-                    'nome_completo': c.get('nome_completo') or c.get('email') or '',
-                }
-                for c in (db.obter_contatos_ativos() or [])
-            ],
+            'contatos': _contatos_pi_complementar(pi),
         }
+
+    def _contatos_pi_complementar(pi):
+        vistos = set()
+        lista = []
+        for empresa_id in (pi.get('id_cliente'), pi.get('id_agencia'), pi.get('id_parceiro')):
+            if not empresa_id:
+                continue
+            for c in db.obter_contatos_para_operacao(empresa_id) or []:
+                cid = c.get('id_contato_cliente')
+                if cid in vistos:
+                    continue
+                vistos.add(cid)
+                lista.append({
+                    'id_contato_cliente': cid,
+                    'nome_completo': c.get('nome_completo') or c.get('email') or '',
+                    'email': c.get('email') or '',
+                    'setor': c.get('setor') or '',
+                    'responsavel_setor': bool(c.get('responsavel_setor')),
+                })
+        lista.sort(key=lambda x: (x.get('nome_completo') or '').lower())
+        return lista
 
     @app.route('/api/cadu_pi/<int:id_pi>/complementar', methods=['GET'])
     @login_required
@@ -11816,6 +11894,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'vendedores_cc': vendedores,
             'agencias_opts': db.obter_aux_agencia(),
             'plataformas_campanha': plataformas_campanha,
+            'setores': db.obter_setores(),
         }
 
     # ==================== OBJETIVOS CAMPANHA PI - ROTAS ====================

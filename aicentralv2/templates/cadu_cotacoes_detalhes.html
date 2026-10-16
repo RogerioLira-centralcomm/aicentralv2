@@ -4069,7 +4069,7 @@ function calcularVolumeEdit() {
               <option value="">Selecione um contato...</option>
               {% if contatos_cliente %}
                 {% for cont in contatos_cliente %}
-                <option value="{{ cont.id_contato_cliente }}" {% if cotacao and cotacao.client_user_id|int == cont.id_contato_cliente|int %}selected{% endif %}>{{ cont.nome_completo }} ({{ cont.email or '-' }})</option>
+                <option value="{{ cont.id_contato_cliente }}" {% if cotacao and cotacao.client_user_id|int == cont.id_contato_cliente|int %}selected{% endif %}>{{ cont.nome_completo }} · {{ cont.email or '—' }} · {{ cont.setor or 'Sem Setor' }}</option>
                 {% endfor %}
               {% endif %}
             </select>
@@ -4119,7 +4119,7 @@ function calcularVolumeEdit() {
                 <option value="">Selecione um contato...</option>
                 {% if contatos_agencia %}
                   {% for cont in contatos_agencia %}
-                  <option value="{{ cont.id_contato_cliente }}" {% if cotacao and cotacao.agencia_user_id|int == cont.id_contato_cliente|int %}selected{% endif %}>{{ cont.nome_completo }} ({{ cont.email or '-' }})</option>
+                  <option value="{{ cont.id_contato_cliente }}" {% if cotacao and cotacao.agencia_user_id|int == cont.id_contato_cliente|int %}selected{% endif %}>{{ cont.nome_completo }} · {{ cont.email or '—' }} · {{ cont.setor or 'Sem Setor' }}</option>
                   {% endfor %}
                 {% endif %}
               </select>
@@ -4154,7 +4154,7 @@ function calcularVolumeEdit() {
                 <option value="">Selecione um contato...</option>
                 {% if contatos_parceiro %}
                   {% for cont in contatos_parceiro %}
-                  <option value="{{ cont.id_contato_cliente }}" {% if cotacao and cotacao.parceiro_user_id|int == cont.id_contato_cliente|int %}selected{% endif %}>{{ cont.nome_completo }} ({{ cont.email or '-' }})</option>
+                  <option value="{{ cont.id_contato_cliente }}" {% if cotacao and cotacao.parceiro_user_id|int == cont.id_contato_cliente|int %}selected{% endif %}>{{ cont.nome_completo }} · {{ cont.email or '—' }} · {{ cont.setor or 'Sem Setor' }}</option>
                   {% endfor %}
                 {% endif %}
               </select>

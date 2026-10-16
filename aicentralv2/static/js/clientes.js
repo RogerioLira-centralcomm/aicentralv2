@@ -1130,17 +1130,30 @@ function contatoInviteLabel(status) {
   return 'Sem convite';
 }
 
+function formatContatoOperacaoLabel(c) {
+  const nome = c.nome_completo || 'Contato';
+  const email = c.email || '—';
+  const setor = (c.setor || '').trim() || 'Sem Setor';
+  return `${nome} · ${email} · ${setor}`;
+}
+
 function renderContatoRowHtml(c, clienteId) {
   const nomeEsc = (c.nome_completo || '').replace(/'/g, "\\'");
+  const setorLabel = (c.setor || '').trim() || 'Sem Setor';
+  const respBadge = c.responsavel_setor
+    ? '<span class="cx-badge cx-badge-muted text-[10px] shrink-0">Resp. e-mails</span>'
+    : '';
   const statusClass = c.status ? 'cx-badge-success' : 'cx-badge-danger';
   const inviteClass = contatoInviteBadgeClass(c.invite_status);
   const inviteLabel = contatoInviteLabel(c.invite_status);
   return `<div class="cliente-contato-row" data-contato-id="${c.id_contato_cliente}">
     <button type="button" class="cliente-contato-main" onclick="abrirModalEditarContato(${c.id_contato_cliente})">
       <span class="cliente-contato-nome">${escapeHtml(c.nome_completo)}</span>
+      <span class="cliente-contato-setor">${escapeHtml(setorLabel)}</span>
       <span class="cliente-contato-email">${escapeHtml(c.email || '—')}</span>
     </button>
     <div class="cliente-contato-actions">
+      ${respBadge}
       <button type="button" class="cx-badge ${statusClass} cliente-contato-status" onclick="toggleContatoStatus(${c.id_contato_cliente}, ${clienteId}, this, ${c.status})">${c.status ? 'Ativo' : 'Inativo'}</button>
       <span class="cx-badge ${inviteClass}">${inviteLabel}</span>
       ${contatoInviteBtnHtml(c)}
@@ -1319,21 +1332,14 @@ function abrirModalNovoContato() {
     document.getElementById('contato_modal_title').textContent = 'Novo Contato';
     document.getElementById('contato_btn_text').textContent = 'Criar contato';
 
-    // Ocultar campo telefone em novo contato
-    document.getElementById('contato_telefone_container').classList.add('hidden');
-    document.getElementById('contato_telefone_secundario_container').classList.add('hidden');
+    const linhaTel = document.getElementById('contato_linha_telefones');
+    if (linhaTel) linhaTel.classList.add('hidden');
     if (document.getElementById('contato_wasender_api_key')) {
       document.getElementById('contato_wasender_api_key').value = '';
       document.getElementById('contato_wasender_session_id').value = '';
       document.getElementById('contato_wasender_ativo').checked = false;
       document.getElementById('contato_wasender_api_key_mask').textContent = '';
     }
-    // Ajustar largura dos campos nome e email para ocupar todo o espaço
-    document.getElementById('contato_nome_container').classList.remove('col-span-4');
-    document.getElementById('contato_nome_container').classList.add('col-span-6');
-    document.getElementById('contato_email_container').classList.remove('col-span-4');
-    document.getElementById('contato_email_container').classList.add('col-span-6');
-
     // Limpar select de cargos
     const cargoSelect = document.getElementById('contato_cargo');
     cargoSelect.innerHTML = '<option value="">Selecione setor</option>';
@@ -1439,15 +1445,11 @@ async function abrirModalEditarContato(contatoId) {
     }
     document.getElementById('contato_cohorts').value = contato.cohorts || 1;
     document.getElementById('contato_user_type').value = contato.user_type || 'client';
+    const respEl = document.getElementById('contato_responsavel_setor');
+    if (respEl) respEl.checked = !!contato.responsavel_setor;
 
-    // Mostrar campo telefone em edição
-    document.getElementById('contato_telefone_container').classList.remove('hidden');
-    document.getElementById('contato_telefone_secundario_container').classList.remove('hidden');
-    // Ajustar largura dos campos para acomodar o telefone
-    document.getElementById('contato_nome_container').classList.remove('col-span-6');
-    document.getElementById('contato_nome_container').classList.add('col-span-4');
-    document.getElementById('contato_email_container').classList.remove('col-span-6');
-    document.getElementById('contato_email_container').classList.add('col-span-4');
+    const linhaTel = document.getElementById('contato_linha_telefones');
+    if (linhaTel) linhaTel.classList.remove('hidden');
 
     // Setor e cargo
     const setorId = contato.pk_id_tbl_setor;
@@ -1604,6 +1606,10 @@ document.addEventListener('DOMContentLoaded', function() {
         cohorts: 1,  // Valor fixo
         user_type: formData.get('user_type')
       };
+      const respCheckbox = document.getElementById('contato_responsavel_setor');
+      if (respCheckbox) {
+        data.responsavel_setor = respCheckbox.checked;
+      }
 
       if (document.getElementById('contato_wasender_api_key')) {
         data.wasender_api_key = formData.get('wasender_api_key') || '';

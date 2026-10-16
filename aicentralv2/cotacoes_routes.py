@@ -931,6 +931,7 @@ def cotacao_nova():
                     agencias_opts=db.obter_aux_agencia(),
                     vendedores_cc=db.obter_vendedores_centralcomm(),
                     estados=db.obter_estados(),
+                    setores=db.obter_setores(),
                 )
 
             valor_total = float(valor_total_str) if valor_total_str else 0.0
@@ -1035,6 +1036,7 @@ def cotacao_nova():
                 agencias_opts=db.obter_aux_agencia(),
                 vendedores_cc=db.obter_vendedores_centralcomm(),
                 estados=db.obter_estados(),
+                setores=db.obter_setores(),
             )
 
     clientes = db.obter_clientes_simples()
@@ -1057,6 +1059,7 @@ def cotacao_nova():
         agencias_opts=db.obter_aux_agencia(),
         vendedores_cc=db.obter_vendedores_centralcomm(),
         estados=db.obter_estados(),
+        setores=db.obter_setores(),
     )
 
 
@@ -1150,6 +1153,7 @@ def cotacao_editar(cotacao_id):
                     vendedores_cc=db.obter_vendedores_centralcomm(),
                     resumo_metricas=_resumo_metricas_cotacao(),
                     estados=db.obter_estados(),
+                    setores=db.obter_setores(),
                 )
 
             valor_total = cotacao.get('valor_total_proposta') or 0.0
@@ -1250,11 +1254,11 @@ def cotacao_editar(cotacao_id):
         contatos_parceiro = []
         if cotacao.get('client_id'):
             briefings = db.obter_briefings_por_cliente(cotacao['client_id'])
-            contatos_cliente = db.obter_contatos_comerciais_por_cliente(cotacao['client_id'])
+            contatos_cliente = db.obter_contatos_para_operacao(cotacao['client_id'])
         if cotacao.get('agencia_id'):
-            contatos_agencia = db.obter_contatos_por_cliente(cotacao['agencia_id'])
+            contatos_agencia = db.obter_contatos_para_operacao(cotacao['agencia_id'])
         if cotacao.get('id_parceiro'):
-            contatos_parceiro = db.obter_contatos_por_cliente(cotacao['id_parceiro'])
+            contatos_parceiro = db.obter_contatos_para_operacao(cotacao['id_parceiro'])
 
         resumo_metricas = _resumo_metricas_cotacao()
 
@@ -1274,6 +1278,7 @@ def cotacao_editar(cotacao_id):
             vendedores_cc=db.obter_vendedores_centralcomm(),
             resumo_metricas=resumo_metricas,
             estados=db.obter_estados(),
+            setores=db.obter_setores(),
         )
 
     except Exception as e:
@@ -1475,12 +1480,12 @@ def cotacao_detalhes(cotacao_id):
         briefings = []
         briefing_atual = None
         if cotacao.get('client_id'):
-            contatos_cliente = db.obter_contatos_comerciais_por_cliente(cotacao['client_id'])
+            contatos_cliente = db.obter_contatos_para_operacao(cotacao['client_id'])
             briefings = db.obter_briefings_por_cliente(cotacao['client_id'])
         if cotacao.get('agencia_id'):
-            contatos_agencia = db.obter_contatos_por_cliente(cotacao['agencia_id'])
+            contatos_agencia = db.obter_contatos_para_operacao(cotacao['agencia_id'])
         if cotacao.get('id_parceiro'):
-            contatos_parceiro = db.obter_contatos_por_cliente(cotacao['id_parceiro'])
+            contatos_parceiro = db.obter_contatos_para_operacao(cotacao['id_parceiro'])
         if cotacao.get('briefing_id'):
             briefing_atual = db.obter_briefing_por_id(cotacao['briefing_id'])
 

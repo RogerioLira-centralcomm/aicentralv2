@@ -1,0 +1,109 @@
+<!-- Modal de Novo/Editar Contato (Clientes, PI, etc.) -->
+<dialog id="modal_contato" class="cx-modal-shell">
+  <div class="cx-modal-panel cx-modal-panel-md max-w-2xl p-4">
+    <form method="dialog">
+      <button class="cx-btn cx-btn-xs cx-btn-icon cx-btn-ghost absolute right-2 top-2">✕</button>
+    </form>
+
+    <h3 class="font-bold text-sm mb-2" id="contato_modal_title">Novo contato</h3>
+
+    <form id="form_contato" class="space-y-2" autocomplete="off">
+      <input type="hidden" id="contato_id" name="contato_id" value="">
+      <input type="hidden" id="contato_cliente_id" name="cliente_id" value="">
+
+      <div id="contato_foto_container" class="hidden items-center gap-3 mb-1 pb-2 border-b border-slate-200 flex">
+        <div id="contato_foto_avatar"></div>
+        <div>
+          <label for="contato_foto_input" class="cx-btn cx-btn-ghost cx-btn-xs px-1 h-6 min-h-6 text-xs gap-1">
+            <i class="fas fa-camera"></i>
+            <span id="contato_foto_label">Alterar foto</span>
+          </label>
+          <input id="contato_foto_input" type="file" accept="image/png,image/jpeg,image/webp" class="hidden">
+          <span id="contato_foto_msg" class="text-xs text-slate-500 ml-1"></span>
+        </div>
+      </div>
+
+      <div class="cliente-contato-form-grid">
+        <div class="cx-field cliente-contato-form-span-6" id="contato_nome_container">
+          <label class="cliente-contato-field-label"><span class="cx-label text-xs font-medium">Nome Completo <span class="text-error">*</span></span></label>
+          <input type="text" id="contato_nome_completo" name="nome_completo" class="cx-input cx-input-xs w-full text-xs" required placeholder="Nome completo">
+        </div>
+        <div class="cx-field cliente-contato-form-span-6" id="contato_email_container">
+          <label class="cliente-contato-field-label"><span class="cx-label text-xs font-medium">Email <span class="text-error">*</span></span></label>
+          <input type="email" id="contato_email" name="email" class="cx-input cx-input-xs w-full text-xs" required placeholder="email@exemplo.com">
+        </div>
+
+        <div id="contato_linha_telefones" class="cliente-contato-form-row-telefones hidden">
+          <div class="cx-field cliente-contato-form-span-6" id="contato_telefone_container">
+            <label class="cliente-contato-field-label"><span class="cx-label text-xs font-medium">Telefone</span></label>
+            <input type="text" id="contato_telefone" name="telefone" class="cx-input cx-input-xs w-full text-xs" placeholder="+55 (00) 00000-0000" maxlength="20">
+          </div>
+          <div class="cx-field cliente-contato-form-span-6" id="contato_telefone_secundario_container">
+            <label class="cliente-contato-field-label"><span class="cx-label text-xs font-medium">Segundo telefone</span></label>
+            <input type="text" id="contato_telefone_secundario" name="telefone_secundario" class="cx-input cx-input-xs w-full text-xs" placeholder="+55 (00) 00000-0000" maxlength="20">
+          </div>
+        </div>
+
+        {% if session.user_type in ['admin', 'superadmin'] %}
+        <div class="cliente-contato-wasender" id="contato_wasender_container">
+          <div class="cliente-contato-wasender-inputs">
+            <div class="cx-field cliente-contato-form-span-6">
+              <label class="cliente-contato-field-label"><span class="cx-label text-xs font-medium">Wasender API key</span></label>
+              <input type="password" id="contato_wasender_api_key" name="wasender_api_key" class="cx-input cx-input-xs w-full text-xs" placeholder="Informe para criar/alterar">
+            </div>
+            <div class="cx-field cliente-contato-form-span-6">
+              <label class="cliente-contato-field-label"><span class="cx-label text-xs font-medium">Wasender session id</span></label>
+              <input type="text" id="contato_wasender_session_id" name="wasender_session_id" class="cx-input cx-input-xs w-full text-xs" placeholder="Opcional">
+            </div>
+          </div>
+          <span id="contato_wasender_api_key_mask" class="cliente-contato-wasender-hint text-xs text-slate-500"></span>
+          <div class="cliente-contato-wasender-ativo-row">
+            <span class="cx-label text-xs font-medium">Ativo</span>
+            <input type="checkbox" id="contato_wasender_ativo" name="wasender_ativo" class="cx-toggle" aria-label="Wasender ativo">
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="cx-field cliente-contato-form-span-6">
+          <label class="cliente-contato-field-label"><span class="cx-label text-xs font-medium">Setor</span></label>
+          <select id="contato_setor" name="pk_id_aux_setor" class="cx-select cx-select-xs w-full text-xs" onchange="if(typeof carregarCargosPorSetor==='function') carregarCargosPorSetor(this.value)">
+            <option value="">Selecione</option>
+            {% for setor in setores %}
+            <option value="{{ setor.id_setor }}">{{ setor.display }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="cx-field cliente-contato-form-span-6">
+          <label class="cliente-contato-field-label"><span class="cx-label text-xs font-medium">Cargo</span></label>
+          <select id="contato_cargo" name="pk_id_tbl_cargo" class="cx-select cx-select-xs w-full text-xs">
+            <option value="">Selecione setor</option>
+          </select>
+        </div>
+        <input type="hidden" id="contato_user_type" name="user_type" value="client">
+        <input type="hidden" id="contato_cohorts" name="cohorts" value="1">
+
+        <div class="cliente-contato-form-span-12 cliente-contato-resp">
+          <label class="cliente-contato-resp-label" for="contato_responsavel_setor">
+            <input type="checkbox" id="contato_responsavel_setor" name="responsavel_setor" class="cx-checkbox cx-checkbox-sm shrink-0">
+            <span class="cliente-contato-resp-text">
+              <span class="cx-label text-xs font-medium">Responsável por e-mails do setor</span>
+              <span class="text-xs text-slate-500">Recebe e-mails de cotação e comunicações operacionais do PI.</span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <input type="hidden" id="contato_senha" name="senha" value="">
+
+      <div class="cx-modal-actions mt-2 pt-2 border-t">
+        <button type="button" id="contato_modal_cancel" onclick="if(window.modal_contato) modal_contato.close()" class="cx-btn cx-btn-ghost cx-btn-xs text-xs">Cancelar</button>
+        <button type="submit" class="cx-btn text-white cx-btn-xs text-xs" style="background-color: #72cd80; border-color: #72cd80;">
+          <i class="fas fa-save mr-1"></i><span id="contato_btn_text">Criar contato</span>
+        </button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="cx-modal-dismiss">
+    <button>close</button>
+  </form>
+</dialog>

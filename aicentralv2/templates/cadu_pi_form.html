@@ -4,7 +4,8 @@
 {% block page_label %}Operação: PI{% endblock %}
 {% block page_subtitle %}Visão detalhada do PI com foco na operação{% endblock %}
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=20">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=24">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/clientes.css') }}?v=6">
 {% endblock %}
 
 {% block content %}
@@ -21,6 +22,29 @@
   {% endfor %}
 </optgroup>
 {% endfor %}
+{% endmacro %}
+{% macro pi_contato_campo(party, role, select_id, select_name, req_badge='', locked=false) %}
+{% set role_label = 'Resp. de mídia' if role == 'midia' else ('Resp. financeiro' if role == 'fin' else 'Contato') %}
+<div class="pi-contato-slot{% if locked %} is-locked{% endif %}" data-pi-party="{{ party }}" data-pi-role="{{ role }}" data-pi-select-id="{{ select_id }}">
+  <div class="pi-contato-slot__head">
+    <span class="pi-contato-slot__label">{{ role_label }}{% if req_badge %} {{ req_badge|safe }}{% endif %}</span>
+    {% if not locked %}
+    <button type="button" class="pi-contato-slot__btn pi-contato-slot__btn--add" data-pi-action="contato-create" title="Novo contato" aria-label="Novo contato"><i class="fas fa-plus" aria-hidden="true"></i></button>
+    {% endif %}
+  </div>
+  <div class="pi-contato-slot__body">
+    {% if locked %}
+    <p class="pi-contato-slot__static"><strong data-pi-contato-display-for="{{ select_id }}">Sem responsável</strong></p>
+    {% else %}
+    <button type="button" class="pi-contato-slot__pick" data-pi-action="contato-pick">
+      <strong data-pi-contato-display-for="{{ select_id }}">Sem responsável</strong>
+    </button>
+    {% endif %}
+  </div>
+  <select name="{{ select_name }}" id="{{ select_id }}" class="pi-contato-slot__select" disabled aria-hidden="true" tabindex="-1">
+    <option value="">Selecione</option>
+  </select>
+</div>
 {% endmacro %}
 <div id="pi-operacao-app"
   class="pi-operation{% if modo == 'editar' and pi %} pi-has-mobile-tabs{% endif %}"
@@ -290,38 +314,15 @@
                   <div id="dropdown_clientes" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto hidden mt-1 text-[10px]"></div>
                 </div>
               </div>
-              <div class="pi-inline{% if record_locked %} is-locked{% endif %}" data-inline data-empty="Sem responsável">
-                <span class="pi-inline__label">Resp. de mídia</span>
-                {% if not record_locked %}
-                <button type="button" class="pi-inline__display" data-inline-open>
-                  <strong data-inline-text>Sem responsável</strong>
-                  <i class="fa-solid fa-pen" aria-hidden="true"></i>
+              {% if not record_locked %}
+              <div class="pi-contatos-party-toolbar">
+                <button type="button" class="pi-contatos-party-toolbar__btn" data-pi-action="contatos-lista-todos" data-pi-party="cliente">
+                  <i class="fas fa-address-book" aria-hidden="true"></i> Todos os contatos
                 </button>
-                {% else %}
-                <p class="pi-inline__static"><strong data-inline-text>Sem responsável</strong></p>
-                {% endif %}
-                <div class="pi-inline__edit">
-                  <select name="contato_midia_cliente" id="sel_contato_midia_cliente" disabled>
-                    <option value="">Selecione o cliente primeiro</option>
-                  </select>
-                </div>
               </div>
-              <div class="pi-inline{% if record_locked %} is-locked{% endif %}" data-inline data-empty="Sem responsável">
-                <span class="pi-inline__label">Resp. financeiro</span>
-                {% if not record_locked %}
-                <button type="button" class="pi-inline__display" data-inline-open>
-                  <strong data-inline-text>Sem responsável</strong>
-                  <i class="fa-solid fa-pen" aria-hidden="true"></i>
-                </button>
-                {% else %}
-                <p class="pi-inline__static"><strong data-inline-text>Sem responsável</strong></p>
-                {% endif %}
-                <div class="pi-inline__edit">
-                  <select name="contato_fin_cliente" id="sel_contato_fin_cliente" disabled>
-                    <option value="">Selecione o cliente primeiro</option>
-                  </select>
-                </div>
-              </div>
+              {% endif %}
+              {{ pi_contato_campo('cliente', 'midia', 'sel_contato_midia_cliente', 'contato_midia_cliente', locked=record_locked) }}
+              {{ pi_contato_campo('cliente', 'fin', 'sel_contato_fin_cliente', 'contato_fin_cliente', locked=record_locked) }}
             </article>
 
             <article class="pi-account{% if not pi or not pi.id_agencia %} is-vacant{% endif %}">
@@ -346,38 +347,15 @@
                   <div id="dropdown_agencias" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto hidden mt-1 text-[10px]"></div>
                 </div>
               </div>
-              <div class="pi-inline{% if record_locked %} is-locked{% endif %}" data-inline data-empty="Sem responsável">
-                <span class="pi-inline__label">Resp. de mídia <span class="contato-req-ag hidden">*</span></span>
-                {% if not record_locked %}
-                <button type="button" class="pi-inline__display" data-inline-open>
-                  <strong data-inline-text>Sem responsável</strong>
-                  <i class="fa-solid fa-pen" aria-hidden="true"></i>
+              {% if not record_locked %}
+              <div class="pi-contatos-party-toolbar">
+                <button type="button" class="pi-contatos-party-toolbar__btn" data-pi-action="contatos-lista-todos" data-pi-party="agencia">
+                  <i class="fas fa-address-book" aria-hidden="true"></i> Todos os contatos
                 </button>
-                {% else %}
-                <p class="pi-inline__static"><strong data-inline-text>Sem responsável</strong></p>
-                {% endif %}
-                <div class="pi-inline__edit">
-                  <select name="contato_midia_agencia" id="sel_contato_midia_agencia" disabled>
-                    <option value="">Selecione a agência primeiro</option>
-                  </select>
-                </div>
               </div>
-              <div class="pi-inline{% if record_locked %} is-locked{% endif %}" data-inline data-empty="Sem responsável">
-                <span class="pi-inline__label">Resp. financeiro <span class="contato-req-ag hidden">*</span></span>
-                {% if not record_locked %}
-                <button type="button" class="pi-inline__display" data-inline-open>
-                  <strong data-inline-text>Sem responsável</strong>
-                  <i class="fa-solid fa-pen" aria-hidden="true"></i>
-                </button>
-                {% else %}
-                <p class="pi-inline__static"><strong data-inline-text>Sem responsável</strong></p>
-                {% endif %}
-                <div class="pi-inline__edit">
-                  <select name="contato_fin_agencia" id="sel_contato_fin_agencia" disabled>
-                    <option value="">Selecione a agência primeiro</option>
-                  </select>
-                </div>
-              </div>
+              {% endif %}
+              {{ pi_contato_campo('agencia', 'midia', 'sel_contato_midia_agencia', 'contato_midia_agencia', req_badge='<span class="contato-req-ag hidden">*</span>', locked=record_locked) }}
+              {{ pi_contato_campo('agencia', 'fin', 'sel_contato_fin_agencia', 'contato_fin_agencia', req_badge='<span class="contato-req-ag hidden">*</span>', locked=record_locked) }}
             </article>
 
             <article class="pi-account{% if not pi or not pi.id_parceiro %} is-vacant{% endif %}">
@@ -402,38 +380,15 @@
                   <div id="dropdown_parceiros" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto hidden mt-1 text-[10px]"></div>
                 </div>
               </div>
-              <div class="pi-inline{% if record_locked %} is-locked{% endif %}" data-inline data-empty="Sem responsável">
-                <span class="pi-inline__label">Resp. de mídia <span class="contato-req-parc hidden">*</span></span>
-                {% if not record_locked %}
-                <button type="button" class="pi-inline__display" data-inline-open>
-                  <strong data-inline-text>Sem responsável</strong>
-                  <i class="fa-solid fa-pen" aria-hidden="true"></i>
+              {% if not record_locked %}
+              <div class="pi-contatos-party-toolbar">
+                <button type="button" class="pi-contatos-party-toolbar__btn" data-pi-action="contatos-lista-todos" data-pi-party="parceiro">
+                  <i class="fas fa-address-book" aria-hidden="true"></i> Todos os contatos
                 </button>
-                {% else %}
-                <p class="pi-inline__static"><strong data-inline-text>Sem responsável</strong></p>
-                {% endif %}
-                <div class="pi-inline__edit">
-                  <select name="contato_midia_parceiro" id="sel_contato_midia_parceiro" disabled>
-                    <option value="">Selecione o parceiro primeiro</option>
-                  </select>
-                </div>
               </div>
-              <div class="pi-inline{% if record_locked %} is-locked{% endif %}" data-inline data-empty="Sem responsável">
-                <span class="pi-inline__label">Resp. financeiro <span class="contato-req-parc hidden">*</span></span>
-                {% if not record_locked %}
-                <button type="button" class="pi-inline__display" data-inline-open>
-                  <strong data-inline-text>Sem responsável</strong>
-                  <i class="fa-solid fa-pen" aria-hidden="true"></i>
-                </button>
-                {% else %}
-                <p class="pi-inline__static"><strong data-inline-text>Sem responsável</strong></p>
-                {% endif %}
-                <div class="pi-inline__edit">
-                  <select name="contato_fin_parceiro" id="sel_contato_fin_parceiro" disabled>
-                    <option value="">Selecione o parceiro primeiro</option>
-                  </select>
-                </div>
-              </div>
+              {% endif %}
+              {{ pi_contato_campo('parceiro', 'midia', 'sel_contato_midia_parceiro', 'contato_midia_parceiro', req_badge='<span class="contato-req-parc hidden">*</span>', locked=record_locked) }}
+              {{ pi_contato_campo('parceiro', 'fin', 'sel_contato_fin_parceiro', 'contato_fin_parceiro', req_badge='<span class="contato-req-parc hidden">*</span>', locked=record_locked) }}
             </article>
           </div>
         </details>
@@ -822,7 +777,17 @@
 </div>
 
 {% include 'pi_operacao/_drive_modal.html' %}
+{% include 'clientes/_modal_contato.html' %}
+{% include 'pi_operacao/_modal_pi_lista_contatos.html' %}
 
+<script type="application/json" id="pi-contatos-config">{{ {
+  'setorOperacoesId': (setores | selectattr('display', 'equalto', 'Operações') | map(attribute='id_setor') | list | first) or (setores | selectattr('display', 'equalto', 'Operacao') | map(attribute='id_setor') | list | first),
+  'setorFinanceiroId': (setores | selectattr('display', 'equalto', 'Financeiro') | map(attribute='id_setor') | list | first),
+  'setorComercialId': (setores | selectattr('display', 'equalto', 'Comercial') | map(attribute='id_setor') | list | first)
+}|tojson }}</script>
+
+<script src="{{ url_for('static', filename='js/contatos_setor_utils.js') }}?v=4"></script>
+<script src="{{ url_for('static', filename='js/pi_contatos.js') }}?v=3"></script>
 <script>
 (function() {
   const DEBOUNCE_MS = 300;
@@ -1663,18 +1628,28 @@
       if (tipo === 'cliente') { midia = els.contatoMidiaCliente(); fin = els.contatoFinCliente(); }
       else if (tipo === 'parceiro') { midia = els.contatoMidiaParceiro(); fin = els.contatoFinParceiro(); }
       else { midia = els.contatoMidiaAgencia(); fin = els.contatoFinAgencia(); }
-      var optionsHtml = '<option value="">Selecione</option>';
-      contatos.forEach(function(c) {
-        var label = escapeHtml(c.nome_completo) + (c.setor ? ' (' + escapeHtml(c.setor) + ')' : '');
-        optionsHtml += '<option value="' + c.id_contato_cliente + '">' + label + '</option>';
+      var U = window.ContatosSetorUtils;
+      var midiaFiltrados = U.listaContatosSetor(contatos, 'operacoes');
+      var finFiltrados = U.listaContatosSetor(contatos, 'financeiro');
+      U.preencherSelect(midia, midiaFiltrados, {
+        placeholder: 'Selecione',
+        labelFn: U.formatarLabelContato,
+        valorPreferido: preselecaoMidia,
+        contatosCompletos: contatos,
+        setorCanonico: 'operacoes',
       });
-      midia.innerHTML = optionsHtml;
-      fin.innerHTML = optionsHtml;
+      U.preencherSelect(fin, finFiltrados, {
+        placeholder: 'Selecione',
+        labelFn: U.formatarLabelContato,
+        valorPreferido: preselecaoFin,
+        contatosCompletos: contatos,
+        setorCanonico: 'financeiro',
+      });
       midia.disabled = false;
       fin.disabled = false;
-      if (preselecaoMidia) midia.value = preselecaoMidia;
-      if (preselecaoFin) fin.value = preselecaoFin;
-      syncPiInlineFields();
+      if (window.PiContatos && window.PiContatos.syncAllDisplays) {
+        window.PiContatos.syncAllDisplays();
+      }
     } catch (err) { console.error('Erro ao carregar contatos (' + tipo + '):', err); }
   }
 
@@ -1690,19 +1665,14 @@
     setTimeout(function() {
       var midia = document.getElementById(midiaId);
       var fin = document.getElementById(finId);
-      var alvo = (!midia.value) ? midia : (!fin.value) ? fin : null;
-      if (!alvo) return;
-
-      var field = alvo.closest('.pi-inline');
-      if (field) openPiInline(field);
-      alvo.classList.add('border-blue-400', 'ring-2', 'ring-blue-200');
-      alvo.focus();
-      if (window.scrollIntoViewSuave) {
-        window.scrollIntoViewSuave(alvo);
-      } else {
-        alvo.scrollIntoView({ behavior: window.getScrollBehavior ? window.getScrollBehavior() : 'smooth', block: 'nearest' });
-      }
-      setTimeout(function() { alvo.classList.remove('border-blue-400', 'ring-2', 'ring-blue-200'); }, 3000);
+      var role = (!midia || !midia.value) ? 'midia' : (!fin || !fin.value) ? 'fin' : null;
+      if (!role || !window.PiContatos || !window.PiContatos.abrirListaContatos) return;
+      var selectId = role === 'midia' ? midiaId : finId;
+      window.PiContatos.abrirListaContatos({
+        party: tipo,
+        role: role,
+        selectId: selectId,
+      });
     }, 150);
   }
 
@@ -1980,6 +1950,9 @@
     atualizarAsteriscosContatos();
     initPiInlineFields();
   });
+
+  window.carregarContatos = carregarContatos;
+  window.abrirContatosESinalizar = abrirContatosESinalizar;
 })();
 </script>
 

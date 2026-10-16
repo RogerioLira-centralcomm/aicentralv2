@@ -9,6 +9,13 @@ from pathlib import Path
 # Adicionar o diretório atual ao path do Python
 sys.path.insert(0, str(Path(__file__).parent))
 
+_venv_python = Path(__file__).parent / "venv" / "Scripts" / "python.exe"
+if sys.prefix == sys.base_prefix and _venv_python.is_file():
+    print("Use o venv do projeto (o Python global não tem as dependências):")
+    print(f"  {_venv_python} {Path(__file__).name}")
+    print("  ou: .\\venv\\Scripts\\Activate.ps1  &&  python run.py")
+    sys.exit(1)
+
 from aicentralv2 import create_app
 from aicentralv2.config import DevelopmentConfig, ProductionConfig
 

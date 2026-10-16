@@ -459,6 +459,15 @@ def init_db(app):
                         END;
                         COMMENT ON COLUMN tbl_contato_cliente.pk_id_tbl_setor IS 'ID do setor do contato (ref tbl_setor)';
                     END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'tbl_contato_cliente' AND column_name = 'responsavel_setor'
+                    ) THEN
+                        ALTER TABLE tbl_contato_cliente
+                            ADD COLUMN responsavel_setor BOOLEAN NOT NULL DEFAULT FALSE;
+                        COMMENT ON COLUMN tbl_contato_cliente.responsavel_setor IS
+                            'Contato responsável por e-mails do setor (cotação/PI); auto TRUE se único ativo na empresa';
+                    END IF;
                 END $$;
             ''')
 
@@ -1490,6 +1499,7 @@ def obter_contato_por_id(contato_id):
                 c.cohorts,
                 c.user_type,
                 c.foto_url,
+                COALESCE(c.responsavel_setor, FALSE) AS responsavel_setor,
                 c.cadu_avatar_badge,
                 c.wasender_session_id,
                 COALESCE(c.wasender_ativo, FALSE) AS wasender_ativo,
@@ -1562,6 +1572,7 @@ def obter_contatos_por_cliente(id_cliente):
                 c.pk_id_tbl_setor,
                 c.pk_id_tbl_cargo,
                 c.foto_url,
+                COALESCE(c.responsavel_setor, FALSE) AS responsavel_setor,
                 s.display as setor,
                 cg.descricao as cargo,
                 inv.status as invite_status,
@@ -2262,11 +2273,142 @@ def criar_contato(nome_completo, email, senha=None, pk_id_tbl_cliente=None, tele
             novo_id = cursor.fetchone()['id_contato_cliente']
 
         conn.commit()
+        if pk_id_tbl_cliente:
+            sincronizar_responsavel_setor_padrao(pk_id_tbl_cliente)
         return novo_id
 
     except Exception as e:
         conn.rollback()
         raise
+
+
+def sincronizar_responsavel_setor_padrao(cliente_id):
+    """1 contato ativo -> responsavel_setor TRUE; 2+ ativos -> todos FALSE."""
+    if not cliente_id:
+        return
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT id_contato_cliente
+                  FROM tbl_contato_cliente
+                 WHERE pk_id_tbl_cliente = %s
+                   AND COALESCE(status, TRUE) = TRUE
+                 ORDER BY id_contato_cliente
+            ''', (cliente_id,))
+            ativos = [row['id_contato_cliente'] for row in cursor.fetchall()]
+            if len(ativos) == 1:
+                cursor.execute('''
+                    UPDATE tbl_contato_cliente
+                       SET responsavel_setor = (id_contato_cliente = %s)
+                     WHERE pk_id_tbl_cliente = %s
+                ''', (ativos[0], cliente_id))
+            elif len(ativos) > 1:
+                cursor.execute('''
+                    UPDATE tbl_contato_cliente
+                       SET responsavel_setor = FALSE
+                     WHERE pk_id_tbl_cliente = %s
+                       AND COALESCE(status, TRUE) = TRUE
+                ''', (cliente_id,))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def definir_responsavel_setor(contato_id, valor):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE tbl_contato_cliente
+                   SET responsavel_setor = %s,
+                       data_modificacao = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                 WHERE id_contato_cliente = %s
+            ''', (bool(valor), contato_id))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def obter_contatos_para_operacao(cliente_id):
+    """Contatos ativos para PI/Cotação (sem filtro de setor ou convite)."""
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT
+                c.id_contato_cliente,
+                c.nome_completo,
+                c.email,
+                s.display AS setor,
+                COALESCE(c.responsavel_setor, FALSE) AS responsavel_setor
+              FROM tbl_contato_cliente c
+              LEFT JOIN tbl_setor s ON c.pk_id_tbl_setor = s.id_setor
+             WHERE c.pk_id_tbl_cliente = %s
+               AND COALESCE(c.status, TRUE) = TRUE
+             ORDER BY c.nome_completo ASC
+        ''', (cliente_id,))
+        return cursor.fetchall()
+
+
+def obter_contatos_responsavel_setor(cliente_id):
+    """Contatos ativos marcados como responsáveis, com e-mail."""
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT
+                c.id_contato_cliente,
+                c.nome_completo,
+                c.email,
+                s.display AS setor,
+                COALESCE(c.responsavel_setor, FALSE) AS responsavel_setor
+              FROM tbl_contato_cliente c
+              LEFT JOIN tbl_setor s ON c.pk_id_tbl_setor = s.id_setor
+             WHERE c.pk_id_tbl_cliente = %s
+               AND COALESCE(c.status, TRUE) = TRUE
+               AND COALESCE(c.responsavel_setor, FALSE) = TRUE
+               AND NULLIF(TRIM(c.email), '') IS NOT NULL
+             ORDER BY c.nome_completo ASC
+        ''', (cliente_id,))
+        return cursor.fetchall()
+
+
+def _normalizar_chave_setor(display):
+    import unicodedata
+    if not display:
+        return ''
+    s = unicodedata.normalize('NFD', str(display).strip())
+    s = ''.join(c for c in s if unicodedata.category(c) != 'Mn').lower()
+    if s in ('operacoes', 'operacao') or s.startswith('operac'):
+        return 'operacoes'
+    if s == 'financeiro' or s.startswith('financ'):
+        return 'financeiro'
+    if s == 'comercial' or s.startswith('comerc'):
+        return 'comercial'
+    return s
+
+
+def resolver_contato_responsavel_setor(cliente_id, setor_display, somente_responsavel_setor=False):
+    """ID do contato responsavel_setor no setor (Operações, Financeiro, Comercial), ou None."""
+    if not cliente_id or not setor_display:
+        return None
+    alvo = _normalizar_chave_setor(setor_display)
+    contatos = obter_contatos_para_operacao(cliente_id)
+    no_setor = [
+        c for c in contatos
+        if _normalizar_chave_setor(c.get('setor')) == alvo
+    ]
+    if not no_setor:
+        return None
+    flagged = [c for c in no_setor if c.get('responsavel_setor')]
+    if flagged:
+        return flagged[0]['id_contato_cliente']
+    if somente_responsavel_setor:
+        return None
+    if len(no_setor) == 1:
+        return no_setor[0]['id_contato_cliente']
+    return None
 
 
 def atualizar_contato(contato_id, nome_completo, email, telefone=None, pk_id_tbl_cliente=None, telefone_secundario=None):
@@ -14559,12 +14701,22 @@ def gerar_pi_de_cotacao(cotacao_id, codigo_pi_cc=None):
         'mes_ref': mes_ref,
         'mes_ref_comp': mes_ref_comp,
         'resp_comercial': cotacao.get('responsavel_comercial'),
-        'contato_fin_cliente': cotacao.get('client_user_id'),
-        'contato_midia_cliente': cotacao.get('client_user_id'),
-        'contato_fin_agencia': cotacao.get('agencia_user_id'),
-        'contato_midia_agencia': cotacao.get('agencia_user_id'),
-        'contato_fin_parceiro': cotacao.get('parceiro_user_id'),
-        'contato_midia_parceiro': cotacao.get('parceiro_user_id'),
+        'contato_midia_cliente': resolver_contato_responsavel_setor(
+            cotacao.get('client_id'), 'Operações', somente_responsavel_setor=True),
+        'contato_fin_cliente': resolver_contato_responsavel_setor(
+            cotacao.get('client_id'), 'Financeiro', somente_responsavel_setor=True),
+        'contato_midia_agencia': resolver_contato_responsavel_setor(
+            cotacao.get('agencia_id'), 'Operações', somente_responsavel_setor=True)
+            if cotacao.get('agencia_id') else None,
+        'contato_fin_agencia': resolver_contato_responsavel_setor(
+            cotacao.get('agencia_id'), 'Financeiro', somente_responsavel_setor=True)
+            if cotacao.get('agencia_id') else None,
+        'contato_midia_parceiro': resolver_contato_responsavel_setor(
+            cotacao.get('id_parceiro'), 'Operações', somente_responsavel_setor=True)
+            if cotacao.get('id_parceiro') else None,
+        'contato_fin_parceiro': resolver_contato_responsavel_setor(
+            cotacao.get('id_parceiro'), 'Financeiro', somente_responsavel_setor=True)
+            if cotacao.get('id_parceiro') else None,
         'id_status_pi': 1,
         'id_sub_status_pi': 1,
         'obs_financeiro': None,

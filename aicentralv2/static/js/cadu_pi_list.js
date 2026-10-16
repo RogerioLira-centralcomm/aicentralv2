@@ -736,6 +736,12 @@
     });
   }
 
+  function labelContatoPi(c) {
+    var setor = (c.setor || '').trim() || 'Sem Setor';
+    var email = c.email || '—';
+    return (c.nome_completo || 'Contato') + ' · ' + email + ' · ' + setor;
+  }
+
   function fillContactSelects(contatos, pi) {
     const fields = [
       'contato_fin_cliente', 'contato_midia_cliente',
@@ -748,8 +754,7 @@
       const cur = pi[field];
       sel.innerHTML = '<option value="">— Nenhum —</option>' + (contatos || []).map(function (c) {
         const id = c.id_contato_cliente;
-        const nome = c.nome_completo || '';
-        return '<option value="' + id + '"' + (String(cur) === String(id) ? ' selected' : '') + '>' + nome + '</option>';
+        return '<option value="' + id + '"' + (String(cur) === String(id) ? ' selected' : '') + '>' + labelContatoPi(c) + '</option>';
       }).join('');
     });
   }

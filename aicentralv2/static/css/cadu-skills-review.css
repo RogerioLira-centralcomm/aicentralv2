@@ -1,0 +1,104 @@
+/* Cadu Análise — revisão de plano de mídia. Mesma linguagem do portal Skills v4. */
+.skills-review-page { --review-ok:#176b43; --review-ok-bg:#effaf3; --review-warn:#845b10; --review-warn-bg:#fff8e8; --review-err:#a3271b; --review-err-bg:#fdeeec; --review-na:#526078; --review-na-bg:#eef1f5;
+  max-width:1220px; margin:0 auto; padding:42px clamp(20px,5vw,72px) 110px; }
+.skills-review-page p { margin:0; }
+.skills-review-page__hero { display:grid; grid-template-columns:minmax(0,1fr) 260px; gap:clamp(28px,6vw,80px); align-items:end; padding:12px 0 44px; border-bottom:1px solid var(--skills-ink); }
+.skills-review-page__hero p,.skills-review-page__intro>p,.skills-review-result__verdict p { margin:0 0 13px; color:var(--skills-orange); font-size:12px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.skills-review-page__hero h1 { margin:0; font-family:Georgia,'Times New Roman',serif; font-size:clamp(46px,6vw,78px); font-weight:500; letter-spacing:-.075em; line-height:.94; }
+.skills-review-page__hero span { display:block; max-width:680px; margin-top:20px; color:var(--skills-muted); font-size:17px; line-height:1.55; }
+.skills-review-page__facts { display:grid; margin:0; border-top:1px solid var(--skills-line); }
+.skills-review-page__facts div { display:flex; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--skills-line); }
+.skills-review-page__facts dt { color:var(--skills-muted); font-size:12px; }
+.skills-review-page__facts dd { margin:0; font-size:13px; font-weight:800; }
+.skills-review-page__intro h2,.skills-review-result__verdict h2 { margin:0; font-family:Georgia,'Times New Roman',serif; font-size:clamp(28px,3vw,42px); font-weight:500; letter-spacing:-.055em; line-height:1.04; }
+.skills-review-page__intro span { display:block; max-width:440px; margin-top:14px; color:var(--skills-muted); line-height:1.55; }
+.skills-review-page__intro a { color:#934100; font-weight:800; }
+
+.skills-review-page__run { display:grid; grid-template-columns:minmax(0,.8fr) minmax(320px,1fr); gap:48px; padding:48px 0; border-bottom:1px solid var(--skills-line); }
+.skills-review-form { display:grid; gap:16px; }
+.skills-review-drop { position:relative; display:grid; gap:8px; place-items:center; min-height:170px; padding:26px; border:1.5px dashed #c9d3df; border-radius:var(--skills-radius); background:#fff; text-align:center; cursor:pointer; transition:border-color .15s, background .15s; }
+.skills-review-drop:hover,.skills-review-drop.is-dragging { border-color:var(--skills-orange); background:var(--skills-soft); }
+.skills-review-drop.has-file { border-style:solid; border-color:var(--skills-orange); }
+.skills-review-drop input { position:absolute; inset:0; opacity:0; cursor:pointer; }
+.skills-review-drop:focus-within { outline:2px solid var(--skills-orange); outline-offset:3px; }
+.skills-review-drop b { font-size:15px; overflow-wrap:anywhere; }
+.skills-review-drop small { max-width:420px; color:var(--skills-muted); font-size:12px; line-height:1.5; }
+.skills-review-form__context { border-top:1px solid var(--skills-line); border-bottom:1px solid var(--skills-line); padding:14px 0; }
+.skills-review-form__context summary { cursor:pointer; font-size:14px; font-weight:800; }
+.skills-review-form__context summary small { margin-left:6px; color:var(--skills-muted); font-weight:500; }
+.skills-review-form__context>div { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:16px; }
+.skills-review-form__context label { display:grid; gap:6px; font-size:12px; font-weight:800; }
+.skills-review-form__context label:first-child { grid-column:1/-1; }
+.skills-review-form__context input { width:100%; border:1px solid var(--skills-line); border-radius:8px; padding:10px 11px; background:#fff; font:inherit; font-size:14px; font-weight:400; color:var(--skills-ink); }
+.skills-review-form__context input:focus { outline:2px solid var(--skills-orange); outline-offset:1px; border-color:transparent; }
+.skills-review-form__actions { display:flex; align-items:center; gap:16px; }
+.skills-review-form__actions small { color:var(--skills-muted); font-size:12px; line-height:1.4; }
+.skills-review-form__actions small.is-error { color:var(--review-err); font-weight:700; }
+.skills-review-page button { display:inline-flex; align-items:center; justify-content:center; min-height:46px; padding:0 20px; border:0; border-radius:10px; background:var(--skills-orange); color:#fff; font:inherit; font-size:14px; font-weight:800; cursor:pointer; white-space:nowrap; }
+.skills-review-page button:hover { background:#b85008; }
+.skills-review-page button:disabled { opacity:.6; cursor:progress; }
+.skills-review-page button.is-secondary { border:1px solid var(--skills-line); background:#fff; color:var(--skills-ink); }
+.skills-review-page button.is-secondary:hover { border-color:var(--skills-ink); background:#fff; }
+
+.skills-review-result { padding:48px 0; border-bottom:1px solid var(--skills-line); }
+.skills-review-result[hidden] { display:none; }
+.skills-review-result__verdict { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:30px; align-items:end; padding-bottom:28px; border-bottom:1px solid var(--skills-ink); }
+.skills-review-result__verdict span { display:block; margin-top:12px; color:var(--skills-muted); font-size:14px; }
+.skills-review-result__verdict em { display:block; margin-top:12px; color:var(--review-warn); font-size:13px; font-style:normal; font-weight:700; }
+.skills-review-result__verdict em[hidden] { display:none; }
+.skills-review-result__verdict h2.is-aprovar { color:var(--review-ok); }
+.skills-review-result__verdict h2.is-aprovar_com_ajustes { color:#9a5a00; }
+.skills-review-result__verdict h2.is-refazer { color:var(--review-err); }
+.skills-review-result__score { display:grid; justify-items:end; }
+.skills-review-result__score b { font-family:Georgia,'Times New Roman',serif; font-size:64px; font-weight:500; letter-spacing:-.06em; line-height:1; font-variant-numeric:tabular-nums; }
+.skills-review-result__score small { color:var(--skills-muted); font-size:11px; }
+.skills-review-result__counts { display:flex; flex-wrap:wrap; gap:8px; margin:20px 0 0; padding:0; list-style:none; }
+.skills-review-status { display:inline-flex; align-items:center; gap:6px; width:max-content; border-radius:999px; padding:5px 10px; font-size:11px; font-weight:800; white-space:nowrap; }
+.skills-review-status::before { content:""; width:7px; height:7px; border-radius:50%; background:currentColor; }
+.skills-review-status.is-ok { background:var(--review-ok-bg); color:var(--review-ok); }
+.skills-review-status.is-atencao { background:var(--review-warn-bg); color:var(--review-warn); }
+.skills-review-status.is-erro { background:var(--review-err-bg); color:var(--review-err); }
+.skills-review-status.is-na { background:var(--review-na-bg); color:var(--review-na); }
+.skills-review-result__groups { display:grid; grid-template-columns:1fr 1fr; gap:0 40px; margin-top:30px; }
+.skills-review-group h3 { margin:0; padding-bottom:12px; border-bottom:1px solid var(--skills-ink); font-size:13px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+.skills-review-group h3 small { margin-left:8px; color:var(--skills-muted); font-weight:600; letter-spacing:0; text-transform:none; }
+.skills-review-group ol { margin:0; padding:0; list-style:none; }
+.skills-review-finding { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:6px 14px; padding:16px 0; border-bottom:1px solid var(--skills-line); }
+.skills-review-finding b { font-size:15px; }
+.skills-review-finding p { grid-column:1/-1; color:var(--skills-ink); font-size:14px; line-height:1.5; }
+.skills-review-finding small { grid-column:1/-1; padding-left:12px; border-left:2px solid var(--skills-orange); color:var(--skills-muted); font-size:13px; line-height:1.5; }
+.skills-review-result__lines { margin-top:28px; border-top:1px solid var(--skills-line); border-bottom:1px solid var(--skills-line); padding:14px 0; }
+.skills-review-result__lines summary { cursor:pointer; font-size:14px; font-weight:800; }
+.skills-review-result__table { overflow-x:auto; margin-top:14px; }
+.skills-review-result__table table { width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums; }
+.skills-review-result__table th { padding:8px 10px; border-bottom:1px solid var(--skills-ink); color:var(--skills-muted); font-size:11px; text-align:left; white-space:nowrap; }
+.skills-review-result__table td { padding:8px 10px; border-bottom:1px solid var(--skills-line); white-space:nowrap; }
+.skills-review-result__table td.is-number,.skills-review-result__table th.is-number { text-align:right; }
+.skills-review-result__table tr.is-flagged td:first-child { box-shadow:inset 3px 0 0 var(--skills-orange); }
+.skills-review-result__actions { display:flex; gap:12px; margin-top:26px; }
+
+.skills-review-connect { display:grid; grid-template-columns:minmax(0,.62fr) minmax(0,1.38fr); gap:44px; padding:48px 0 0; }
+.skills-review-connect__grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); border-top:1px solid var(--skills-ink); }
+.skills-review-connect__grid article { display:flex; flex-direction:column; gap:10px; min-width:0; padding:22px 20px 4px; border-left:1px solid var(--skills-line); }
+.skills-review-connect__grid article:first-child { border-left:0; padding-left:0; }
+.skills-review-connect__grid b { color:var(--skills-orange); font-size:13px; }
+.skills-review-connect__grid h3 { margin:18px 0 0; font-family:Georgia,'Times New Roman',serif; font-size:23px; font-weight:500; letter-spacing:-.04em; line-height:1.1; }
+.skills-review-connect__grid p { color:var(--skills-muted); font-size:13px; line-height:1.5; }
+.skills-review-connect__grid a { color:#934100; font-size:13px; font-weight:800; }
+.skills-review-code { display:grid; grid-template-columns:minmax(0,1fr) auto; margin-top:auto; overflow:hidden; border:1px solid var(--skills-line); border-radius:10px; background:#fff; }
+.skills-review-code code { overflow:hidden; padding:12px; color:#34445f; font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
+.skills-review-page .skills-review-code button { min-height:0; padding:0 13px; border-left:1px solid var(--skills-line); border-radius:0; background:var(--skills-soft); color:var(--skills-ink); font-size:12px; }
+
+@media (max-width:900px) {
+  .skills-review-page__hero,.skills-review-page__run,.skills-review-connect,.skills-review-result__groups { grid-template-columns:1fr; }
+  .skills-review-connect__grid { grid-template-columns:1fr; }
+  .skills-review-connect__grid article,.skills-review-connect__grid article:first-child { padding:20px 0; border-left:0; border-bottom:1px solid var(--skills-line); }
+  .skills-review-group + .skills-review-group { margin-top:30px; }
+}
+@media (max-width:560px) {
+  .skills-review-page { padding:28px 16px 80px; }
+  .skills-review-form__context>div { grid-template-columns:1fr; }
+  .skills-review-form__actions,.skills-review-result__actions { align-items:stretch; flex-direction:column; }
+  .skills-review-result__verdict { grid-template-columns:1fr; }
+  .skills-review-result__score { justify-items:start; }
+}

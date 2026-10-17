@@ -217,3 +217,5 @@ migrations/run_sql_migration.py add_cadu_project_sidebar_visibility.sql
 migrations/run_sql_migration.py add_cadu_email_sequence.sql
 # Origem/ciclo dos lotes de tokens e índice único da franquia do plano por ciclo (aditivo, idempotente; testado 2x em Postgres local).
 migrations/run_sql_migration.py add_cadu_credit_lot_source_v1.sql
+# Cadu Análise: registro das revisões (web, MCP e API key), sem arquivo nem linhas do plano (aditivo, idempotente).
+migrations/run_sql_migration.py add_cadu_review_runs.sql

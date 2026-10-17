@@ -31,6 +31,7 @@ _MARKETING_TOOLS = frozenset({
     "planner.get_final_plan", "planner.update_final_plan_section", "planner.revise_final_plan",
     "web.search", "web.read", "insights.research_market", "media.creation_capabilities", "media.plan_video",
     "resources.search", "resources.inspect_input", "resources.get", "resources.capabilities",
+    "review.media_plan",
 })
 
 

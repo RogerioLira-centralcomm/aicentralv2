@@ -51,8 +51,8 @@ def test_credit_purchase_uses_a_distinct_explicit_scope():
 
 
 def test_public_tool_modules_cover_the_whole_public_surface_and_start_with_marketing():
-    assert len(PUBLIC_TOOLS) == 105
-    assert len({name.split(".", 1)[0] for name in PUBLIC_TOOLS}) == 15
+    assert len(PUBLIC_TOOLS) == 106
+    assert len({name.split(".", 1)[0] for name in PUBLIC_TOOLS}) == 16
     assert set(DEFAULT_MODULES) == {"marketing"}
     assert set(ALL_MODULES) == set(TOOL_MODULES)
     assert {module_for_tool(name) for name in PUBLIC_TOOLS} <= set(TOOL_MODULES)

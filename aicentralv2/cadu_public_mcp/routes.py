@@ -188,6 +188,7 @@ PUBLIC_TOOLS = frozenset({
     "reports.list_project_reports",
     "reports.get_report_metrics",
     "reports.compare_report_to_plan",
+    "review.media_plan",
 })
 PUBLIC_WRITE_TOOLS = frozenset({
     "intent.execute",
@@ -630,6 +631,30 @@ def public_upload_edit_source():
     except HTTPException as exc:
         return jsonify(error=exc.description), exc.code
     return jsonify(**value), 201
+
+
+@bp.post(f"{PUBLIC_MCP_PATH}/reviews/media-plan")
+def public_review_media_plan():
+    """Cadu Análise por API key: um POST multipart com o plano devolve o parecer (v1, sem cobrança)."""
+    from ..cadu_review import access as review_access, service as review_service
+    from ..cadu_review.media_plan_parser import MAX_FILE_BYTES, PlanParseError
+    from ..cadu_workspace.mcp.tools.review import agent_view
+
+    principal, error = _multipart_principal("review.media_plan")
+    if error:
+        return error
+    if not review_access.allowed_for_user(principal.user_id):
+        return jsonify(error=review_access.INTERNAL_ONLY_MESSAGE), 403
+    uploaded = request.files.get("file")
+    if uploaded is None or not uploaded.filename:
+        return jsonify(error="Envie o plano no campo file (XLSX, CSV ou PDF)."), 400
+    try:
+        result = review_service.review_media_plan(
+            uploaded.read(MAX_FILE_BYTES + 1), uploaded.filename, context=request.form, channel="api",
+            client_id=principal.client_id, user_id=principal.user_id, api_key_id=principal.key_id)
+    except PlanParseError as exc:
+        return jsonify(error=str(exc)), 400
+    return jsonify(agent_view(result))
 
 
 @bp.post(f"{PUBLIC_MCP_PATH}/brand-uploads")

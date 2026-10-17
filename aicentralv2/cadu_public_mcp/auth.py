@@ -306,6 +306,9 @@ def required_scope(tool_name: str) -> str:
         return "resources:read"
     if name.startswith("web."):
         return "resources:read"
+    if name.startswith("review."):
+        # Revisar lê o arquivo enviado e devolve um parecer; não grava no projeto.
+        return "resources:read"
     return "projects:read"
 
 

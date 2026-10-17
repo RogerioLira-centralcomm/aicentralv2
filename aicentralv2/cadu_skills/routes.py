@@ -24,6 +24,8 @@ from .repository import (
     reserve_run, revoke_shares, update_customization_links, update_managed_skill,
 )
 from .runtime import run_test_skill
+from ..cadu_review import access as review_access, service as review_service
+from ..cadu_review.media_plan_parser import MAX_FILE_BYTES as REVIEW_MAX_BYTES, PlanParseError
 
 
 bp = Blueprint("cadu_skills", __name__, url_prefix="/skills")
@@ -75,6 +77,8 @@ def hide_skills_product_for_launch():
         or path.startswith("/skills/api/")
         or path.startswith("/skills/assets/")
         or path.startswith("/skills/s/")
+        # Cadu Análise: teste interno; as próprias rotas conferem o acesso.
+        or path.startswith("/skills/analise/")
     ):
         return None
     abort(404)
@@ -873,3 +877,69 @@ def customization_test(customization_id):
         if "reservation" in locals():
             finish_run(reservation, success=False, error_code=type(exc).__name__)
         return jsonify({"success": False, "error": str(exc), "charged_credits": 0}), 503
+
+
+# Cadu Análise: revisão de plano de mídia (v1, teste interno, sem cobrança).
+REVIEW_SKILL = {"slug": "cadu-revisar-plano-de-midia",
+                "path": Path(__file__).resolve().parent / "media-plan-review" / "SKILL.md"}
+
+
+def _review_allowed():
+    return review_access.allowed_for_session(session)
+
+
+@bp.get("/analise/plano-de-midia")
+@login_required
+def review_media_plan_page():
+    if not _review_allowed():
+        abort(404)
+    from ..cadu_public_mcp.routes import PUBLIC_MCP_PATH
+    from ..product_domains import product_url
+    return render_template(
+        "cadu_skills/review_media_plan.html",
+        context_fields=(
+            ("objetivo", "Objetivo", "Ex.: awareness da nova linha, leads para test drive"),
+            ("publico", "Público", "Ex.: mulheres 25-44, classes AB, capitais do Sudeste"),
+            ("kpi", "KPI principal", "Ex.: alcance, CPL, vendas"),
+            ("periodo", "Período", "Ex.: 01/11/2026 a 30/11/2026"),
+            ("verba", "Verba aprovada", "Ex.: R$ 250.000"),
+        ),
+        api_url=product_url("workspace", f"{PUBLIC_MCP_PATH}/reviews/media-plan"),
+        mcp_url=product_url("workspace", PUBLIC_MCP_PATH),
+        keys_url=product_url("workspace", "/workspace/app/integracoes/agents"),
+        skill_zip_url=_public_url("cadu_skills.review_media_plan_skill"),
+        internal_only=not review_access.public(),
+    )
+
+
+@bp.get("/analise/plano-de-midia/skill.zip")
+@login_required
+def review_media_plan_skill():
+    if not _review_allowed():
+        abort(404)
+    archive = _skill_archive(REVIEW_SKILL)
+    if archive is None:
+        abort(404)
+    return send_file(io.BytesIO(archive), mimetype="application/zip", as_attachment=True,
+                     download_name=f"{REVIEW_SKILL['slug']}.zip", max_age=0)
+
+
+@bp.post("/api/analise/plano-de-midia")
+@login_required_api
+def review_media_plan_run():
+    if not _review_allowed():
+        return jsonify({"success": False, "error": review_access.INTERNAL_ONLY_MESSAGE}), 404
+    token = session.get("family_csrf")
+    if not token or not secrets.compare_digest(token, request.headers.get("X-CSRF-Token", "")):
+        return jsonify({"success": False, "error": "Atualize a página e tente novamente."}), 403
+    uploaded = request.files.get("file")
+    if uploaded is None or not uploaded.filename:
+        return jsonify({"success": False, "error": "Escolha o arquivo do plano (XLSX, CSV ou PDF)."}), 400
+    raw = uploaded.read(REVIEW_MAX_BYTES + 1)
+    try:
+        result = review_service.review_media_plan(
+            raw, uploaded.filename, context=request.form, channel="web",
+            client_id=int(session.get("cliente_id") or 0), user_id=int(session["user_id"]))
+    except PlanParseError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    return jsonify({"success": True, "result": result})

@@ -1,0 +1,98 @@
+{% extends 'cadu_skills/base.html' %}
+{% block title %}Revisão de plano de mídia — Cadu Análise{% endblock %}
+{% block styles %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-skills-review.css') }}?v=1">{% endblock %}
+{% block content %}
+<article class="skills-review-page" data-review-page data-endpoint="{{ url_for('cadu_skills.review_media_plan_run') }}">
+  <header class="skills-review-page__hero">
+    <div>
+      <p>Cadu Análise{% if internal_only %} · teste interno{% endif %}</p>
+      <h1>Revisão de plano de mídia</h1>
+      <span>Envie o plano como ele chegou: planilha, CSV ou PDF de qualquer agência. O código confere a conta (verba, entrega, datas, custos) e o TypeSafe julga a estratégia (canais, público, funil e mensuração). Você recebe um parecer com os ajustes. O plano não é alterado.</span>
+    </div>
+    <dl class="skills-review-page__facts">
+      <div><dt>Critérios</dt><dd>14 + parecer</dd></div>
+      <div><dt>Formatos</dt><dd>XLSX, CSV, PDF</dd></div>
+      <div><dt>Custo na v1</dt><dd>sem cobrança</dd></div>
+    </dl>
+  </header>
+
+  <section class="skills-review-page__run" aria-labelledby="review-run-title">
+    <div class="skills-review-page__intro">
+      <p>1. Enviar</p>
+      <h2 id="review-run-title">Qual plano vamos revisar?</h2>
+      <span>Até 5 MB e 300 linhas. Se o arquivo já traz objetivo, público ou verba acima da tabela, a revisão usa esses dados; os campos abaixo completam ou corrigem.</span>
+    </div>
+    <form class="skills-review-form" data-review-form novalidate>
+      <label class="skills-review-drop" data-review-drop>
+        <input type="file" name="file" accept=".xlsx,.csv,.pdf" required data-review-file>
+        <b data-review-file-name>Arraste o plano aqui ou escolha um arquivo</b>
+        <small>XLSX, CSV ou PDF com colunas como Veículo, Formato, Modelo de compra, Custo unitário, Quantidade e Investimento.</small>
+      </label>
+      <details class="skills-review-form__context">
+        <summary>Contexto do briefing <small>opcional</small></summary>
+        <div>
+          {% for name, label, placeholder in context_fields %}
+          <label><span>{{ label }}</span><input name="{{ name }}" type="text" maxlength="600" placeholder="{{ placeholder }}" autocomplete="off"></label>
+          {% endfor %}
+        </div>
+      </details>
+      <div class="skills-review-form__actions">
+        <button type="submit" data-review-submit>Revisar plano</button>
+        <small data-review-status role="status" aria-live="polite"></small>
+      </div>
+    </form>
+  </section>
+
+  <section class="skills-review-result" data-review-result hidden aria-labelledby="review-result-title">
+    <div class="skills-review-result__verdict">
+      <div>
+        <p>2. Parecer</p>
+        <h2 id="review-result-title" data-review-verdict></h2>
+        <span data-review-meta></span>
+        <em data-review-partial hidden>Parecer parcial: a avaliação estratégica não respondeu. As checagens de conta valem.</em>
+      </div>
+      <div class="skills-review-result__score"><b data-review-score></b><small>nota de 0 a 100</small></div>
+    </div>
+    <ul class="skills-review-result__counts" data-review-counts></ul>
+    <div class="skills-review-result__groups" data-review-groups></div>
+    <details class="skills-review-result__lines">
+      <summary data-review-lines-title>Linhas lidas</summary>
+      <div class="skills-review-result__table"><table><thead><tr><th>Linha</th><th>Canal</th><th>Formato</th><th>Modelo</th><th>Custo unit.</th><th>Quantidade</th><th>Investimento</th><th>Período</th></tr></thead><tbody data-review-lines></tbody></table></div>
+    </details>
+    <div class="skills-review-result__actions">
+      <button type="button" data-review-copy>Copiar parecer</button>
+      <button type="button" class="is-secondary" data-review-again>Revisar outro plano</button>
+    </div>
+  </section>
+
+  <section class="skills-review-connect" aria-labelledby="review-connect-title">
+    <div class="skills-review-page__intro">
+      <p>No seu agente</p>
+      <h2 id="review-connect-title">A mesma revisão, onde a equipe já trabalha.</h2>
+      <span>Claude, ChatGPT, Codex ou qualquer agente usa o mesmo motor. Crie uma chave em <a href="{{ keys_url }}">Integrações › Agentes</a> e escolha o caminho.</span>
+    </div>
+    <div class="skills-review-connect__grid">
+      <article>
+        <b>Skill</b>
+        <h3>Instale e peça “revise este plano”.</h3>
+        <p>O agente lê o arquivo, chama a revisão e devolve o parecer na conversa.</p>
+        <div class="skills-review-code"><code>npx skills add {{ skill_zip_url }}</code><button type="button" class="sk-copy" data-copy-value="npx skills add {{ skill_zip_url }}" data-copy-label="Copiar">Copiar</button></div>
+        <a href="{{ skill_zip_url }}">Baixar pacote da skill</a>
+      </article>
+      <article>
+        <b>API key</b>
+        <h3>Um POST com o arquivo.</h3>
+        <p>Resposta em JSON com parecer, nota, critérios e o texto pronto em <code>markdown</code>.</p>
+        <div class="skills-review-code"><code>curl -H "Authorization: Bearer $CADU_API_KEY" -F file=@plano.xlsx -F objetivo="awareness" {{ api_url }}</code><button type="button" class="sk-copy" data-copy-value='curl -H "Authorization: Bearer $CADU_API_KEY" -F file=@plano.xlsx -F objetivo="awareness" {{ api_url }}' data-copy-label="Copiar">Copiar</button></div>
+      </article>
+      <article>
+        <b>MCP</b>
+        <h3>Ferramenta <code>review.media_plan</code>.</h3>
+        <p>No servidor Cadu do seu agente. Aceita o arquivo em base64 ou o CSV como texto.</p>
+        <div class="skills-review-code"><code>{{ mcp_url }}</code><button type="button" class="sk-copy" data-copy-value="{{ mcp_url }}" data-copy-label="Copiar">Copiar</button></div>
+      </article>
+    </div>
+  </section>
+</article>
+{% endblock %}
+{% block scripts %}{{ super() }}<script src="{{ url_for('static', filename='js/cadu-skills-review.js') }}?v=1" defer></script>{% endblock %}

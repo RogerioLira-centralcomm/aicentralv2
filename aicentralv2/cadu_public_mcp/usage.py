@@ -13,6 +13,8 @@ from ..db import get_db
 
 PUBLIC_TOOL_COSTS = {
     "operations.get": 0,
+    # Cadu Análise v1: teste interno sem cobrança; o consumo do TypeSafe fica em cadu_review_runs.
+    "review.media_plan": 0,
     # Planner catalog and plans are read-only reference data: free so agents use them without friction.
     "planner.get_brief": 0,
     "planner.get_media_plan": 0,

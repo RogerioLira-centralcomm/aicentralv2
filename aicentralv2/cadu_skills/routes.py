@@ -106,6 +106,8 @@ def prepare_shared_cadu_chat():
             or request.path.startswith("/skills/install/")
             or request.path.startswith("/skills/api/")
             or request.path.endswith("/download")
+            # Pacote da skill da Cadu Análise: a CLI baixa sem sessão; o acesso é conferido na API.
+            or request.path == "/skills/analise/plano-de-midia/skill.zip"
         )
     ):
         return redirect(workspace_public_url(), code=302)
@@ -913,10 +915,8 @@ def review_media_plan_page():
 
 
 @bp.get("/analise/plano-de-midia/skill.zip")
-@login_required
 def review_media_plan_skill():
-    if not _review_allowed():
-        abort(404)
+    # Público como os demais pacotes: só contém instruções; a revisão em si exige chave e acesso.
     archive = _skill_archive(REVIEW_SKILL)
     if archive is None:
         abort(404)

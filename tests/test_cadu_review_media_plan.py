@@ -195,6 +195,8 @@ def test_web_page_and_upload_for_internal_team(quiet, monkeypatch):
     page = client.get('/skills/analise/plano-de-midia')
     assert page.status_code == 200 and 'Revisão de plano de mídia' in page.get_data(as_text=True)
     assert client.get('/skills/analise/plano-de-midia/skill.zip').status_code == 200
+    anonymous = app.test_client().get('/skills/analise/plano-de-midia/skill.zip')
+    assert anonymous.status_code == 200 and anonymous.mimetype == 'application/zip'
     denied = client.post('/skills/api/analise/plano-de-midia', data={'file': (io.BytesIO(b'x'), 'p.csv')})
     assert denied.status_code == 403
     response = client.post('/skills/api/analise/plano-de-midia', headers={'X-CSRF-Token': 'tok'},
@@ -218,3 +220,27 @@ def test_csv_semicolon_with_decimal_comma_and_preamble():
     plan = parser.parse(content, 'plano.csv')
     assert [row['investimento'] for row in plan['lines']] == [12000, 10000]
     assert plan['context']['objetivo'] == 'Awareness'
+
+
+def test_number_scales_and_thousands():
+    assert parser.number('R$ 250 mil') == 250_000
+    assert parser.number('1,5 milhão') == 1_500_000
+    assert parser.number('12,000') == 12_000
+    assert parser.number('12,5') == 12.5
+    assert parser.number('1,000,000') == 1_000_000
+
+
+def test_gross_only_plan_uses_gross_total():
+    content = ('Canal;Formato;Compra;Valor bruto\nSpotify;Áudio;CPM;10.000,00\nMeta;Reels;CPM;5.000,00\n'
+               'Total;;;16.000,00\n').encode('utf-8')
+    result = media_plan.review_plan(parser.parse(content, 'p.csv'), call=fake_typesafe)
+    soma = next(item for item in result['findings'] if item['id'] == 'soma')
+    assert soma['status'] == 'erro'
+
+
+def test_concentration_normalizes_channel_names():
+    content = ('Canal;Formato;Compra;Investimento\nMeta;Reels;CPM;400\nMETA ;Stories;CPM;300\n'
+               'YouTube;Bumper;CPM;300\n').encode('utf-8')
+    result = media_plan.review_plan(parser.parse(content, 'p.csv'), call=fake_typesafe)
+    item = next(finding for finding in result['findings'] if finding['id'] == 'concentracao')
+    assert item['status'] == 'atencao' and '70%' in item['detail']

@@ -177,8 +177,10 @@ def check_sum(lines, totals, context):
     gross = sum(row['investimento_bruto'] or 0 for row in lines)
     if not total and gross:
         total = gross
-    declared = next((item['investimento'] for item in reversed(totals)
-                     if not item.get('subtotal') and item.get('investimento')), None)
+    gross_only = not any(row['investimento'] for row in lines)
+    declared = next((value for item in reversed(totals) if not item.get('subtotal')
+                     for value in ((item.get('investimento_bruto') or item.get('investimento')) if gross_only
+                                   else item.get('investimento'),) if value), None)
     source = 'linha de total'
     if declared is None:
         declared = parser.number(context.get('verba'))
@@ -250,10 +252,13 @@ def check_concentration(lines):
     total = sum(_investment(row) or 0 for row in lines)
     if not total:
         return _finding('concentracao', 'na', 'Sem investimento para medir a distribuição.')
-    by_channel = defaultdict(float)
+    by_channel, names = defaultdict(float), {}
     for row in lines:
-        by_channel[row['canal'] or 'Sem canal'] += _investment(row) or 0
-    channel, value = max(by_channel.items(), key=lambda item: item[1])
+        key = parser.normalized(row['canal']) or 'sem canal'
+        names.setdefault(key, row['canal'] or 'Sem canal')
+        by_channel[key] += _investment(row) or 0
+    key, value = max(by_channel.items(), key=lambda item: item[1])
+    channel = names[key]
     share = value * 100 / total
     small = [row for row in lines if 0 < (_investment(row) or 0) * 100 / total < SMALL_LINE_LIMIT]
     if share > CONCENTRATION_LIMIT and len(by_channel) > 1:
@@ -312,11 +317,11 @@ def check_kpi_model(lines, context):
 
 
 def check_duplicates(lines):
-    keys = Counter((parser.normalized(row['canal']), parser.normalized(row['formato']), row['inicio'], row['fim'],
-                    row['modelo'], parser.normalized(row['praca'])) for row in lines)
-    repeated = [row for row in lines if keys[(parser.normalized(row['canal']), parser.normalized(row['formato']),
-                                              row['inicio'], row['fim'], row['modelo'],
-                                              parser.normalized(row['praca']))] > 1]
+    def key(row):
+        return (parser.normalized(row['canal']), parser.normalized(row['formato']), row['inicio'], row['fim'],
+                row['modelo'], parser.normalized(row['praca']))
+    keys = Counter(key(row) for row in lines)
+    repeated = [row for row in lines if keys[key(row)] > 1]
     if repeated:
         return _finding('duplicidade', 'atencao', f'{len(repeated)} linhas repetem canal, formato e período '
                                                   f'(linhas {_rows_text(repeated)}).', repeated)

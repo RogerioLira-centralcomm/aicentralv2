@@ -91,6 +91,8 @@ def number(value):
     text = str(value).strip()
     if not text or text in {'-', '—', '–'}:
         return None
+    words = normalized(text)
+    scale = 1_000_000 if re.search(r'\b(mi|mm|milhao|milhoes)\b', words) else 1000 if re.search(r'\b(mil|k)\b', words) else 1
     negative = text.startswith('(') and text.endswith(')') or text.startswith('-')
     text = re.sub(r'[^0-9,.]', '', text)
     if not text or not re.search(r'\d', text):
@@ -101,13 +103,16 @@ def number(value):
         else:
             text = text.replace(',', '')
     elif ',' in text:
-        text = text.replace('.', '').replace(',', '.') if text.count(',') == 1 else text.replace(',', '')
+        # '12,5' é decimal; '12,000' / '1,000,000' (en-US) é milhar.
+        thousands = text.count(',') > 1 or re.fullmatch(r'\d{1,3}(,\d{3})+', text) and scale == 1
+        text = text.replace(',', '') if thousands else text.replace(',', '.')
     elif text.count('.') > 1 or re.fullmatch(r'\d{1,3}(\.\d{3})+', text):
         text = text.replace('.', '')
     try:
         result = float(text)
     except ValueError:
         return None
+    result *= scale
     return -result if negative else result
 
 

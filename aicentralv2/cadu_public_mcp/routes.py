@@ -643,17 +643,31 @@ def public_review_media_plan():
     principal, error = _multipart_principal("review.media_plan")
     if error:
         return error
+    try:
+        auth.ensure_module(principal, "review.media_plan")
+    except auth.PublicMcpAuthError as exc:
+        return jsonify(error=str(exc)), 403
     if not review_access.allowed_for_user(principal.user_id):
         return jsonify(error=review_access.INTERNAL_ONLY_MESSAGE), 403
     uploaded = request.files.get("file")
     if uploaded is None or not uploaded.filename:
         return jsonify(error="Envie o plano no campo file (XLSX, CSV ou PDF)."), 400
+    started, raw = monotonic(), uploaded.read(MAX_FILE_BYTES + 1)
+
+    def log(status, error_code=""):
+        usage.record(key_id=principal.key_id, client_id=principal.client_id, user_id=principal.user_id,
+                     client_type=principal.client_type, credential_type=principal.credential_type,
+                     method="rest/reviews.media_plan", tool_name="review.media_plan",
+                     request_id=usage.new_request_id(), status=status, started_at=started,
+                     input_bytes=len(raw), error_code=error_code)
     try:
         result = review_service.review_media_plan(
-            uploaded.read(MAX_FILE_BYTES + 1), uploaded.filename, context=request.form, channel="api",
+            raw, uploaded.filename, context=request.form, channel="api",
             client_id=principal.client_id, user_id=principal.user_id, api_key_id=principal.key_id)
     except PlanParseError as exc:
+        log("failed", "invalid_tool_input")
         return jsonify(error=str(exc)), 400
+    log("completed")
     return jsonify(agent_view(result))
 
 

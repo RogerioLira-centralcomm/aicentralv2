@@ -563,7 +563,10 @@
           var hasEmail = Boolean(String(item.email || '').trim());
           var disabled = readOnly || (!hasEmail && !entry.active) ||
             (item.indisponivel && !entry.active);
-          var detail = hasEmail ? esc(item.email) : '<span class="pi-op-recipient-missing">Sem e-mail cadastrado</span>';
+          var setorLine = (item.setor || '').trim() || 'Sem Setor';
+          var detail = hasEmail
+            ? esc(item.email) + ' · ' + esc(setorLine)
+            : '<span class="pi-op-recipient-missing">Sem e-mail cadastrado</span> · ' + esc(setorLine);
           if (item.indisponivel) detail += ' <span class="pi-op-recipient-unavailable">Contato inativo</span>';
           return '<label class="pi-op-check pi-op-recipient' + (!hasEmail ? ' has-warning' : '') + '">' +
             '<input type="checkbox" data-recipient-id="' + esc(entry.id) +
@@ -1643,8 +1646,10 @@
         select.innerHTML = items.length
           ? '<option value="">Selecione um contato</option>' + items.map(function (item) {
             var id = item.id_contato_cliente || item.id;
+            var setorLbl = (item.setor || '').trim() || 'Sem Setor';
+            var emailLbl = item.email || '—';
             return '<option value="' + esc(id) + '">' +
-              esc((item.nome_completo || 'Contato') + (item.email ? ' · ' + item.email : ' · sem e-mail')) +
+              esc((item.nome_completo || 'Contato') + ' · ' + emailLbl + ' · ' + setorLbl) +
               '</option>';
           }).join('')
           : '<option value="">Nenhum contato cadastrado nesta empresa</option>';

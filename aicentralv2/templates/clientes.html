@@ -6,7 +6,7 @@
 {% block title %}Clientes - CentralComm AI{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/clientes.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/clientes.css') }}?v=5">
 {% endblock %}
 
 {% block content %}
@@ -518,108 +518,7 @@
 </dialog>
 
 
-<!-- Modal de Novo/Editar Contato -->
-<dialog id="modal_contato" class="cx-modal-shell">
-  <div class="cx-modal-panel cx-modal-panel-md max-w-2xl p-4">
-    <form method="dialog">
-      <button class="cx-btn cx-btn-xs cx-btn-icon cx-btn-ghost absolute right-2 top-2">✕</button>
-    </form>
-
-    <h3 class="font-bold text-sm mb-2" id="contato_modal_title">Novo contato</h3>
-
-    <form id="form_contato" class="space-y-2" autocomplete="off">
-      <input type="hidden" id="contato_id" name="contato_id" value="">
-      <input type="hidden" id="contato_cliente_id" name="cliente_id" value="">
-
-      <!-- Foto do colaborador (apenas na edição) -->
-      <div id="contato_foto_container" class="hidden items-center gap-3 mb-1 pb-2 border-b border-slate-200 flex">
-        <div id="contato_foto_avatar"></div>
-        <div>
-          <label for="contato_foto_input" class="cx-btn cx-btn-ghost cx-btn-xs px-1 h-6 min-h-6 text-xs gap-1">
-            <i class="fas fa-camera"></i>
-            <span id="contato_foto_label">Alterar foto</span>
-          </label>
-          <input id="contato_foto_input" type="file" accept="image/png,image/jpeg,image/webp" class="hidden">
-          <span id="contato_foto_msg" class="text-xs text-slate-500 ml-1"></span>
-        </div>
-      </div>
-
-      <!-- Linha 1: Nome, Email, Telefone -->
-      <div id="contato_linha1" class="grid grid-cols-12 gap-2">
-        <div class="cx-field col-span-6" id="contato_nome_container">
-          <label class="cx-label-row py-0"><span class="cx-label text-xs font-medium">Nome Completo <span class="text-error">*</span></span></label>
-          <input type="text" id="contato_nome_completo" name="nome_completo" class="cx-input cx-input-xs w-full text-xs" required placeholder="Nome completo">
-        </div>
-        <div class="cx-field col-span-6" id="contato_email_container">
-          <label class="cx-label-row py-0"><span class="cx-label text-xs font-medium">Email <span class="text-error">*</span></span></label>
-          <input type="email" id="contato_email" name="email" class="cx-input cx-input-xs w-full text-xs" required placeholder="email@exemplo.com">
-        </div>
-        <div class="cx-field col-span-4 hidden" id="contato_telefone_container">
-          <label class="cx-label-row py-0"><span class="cx-label text-xs font-medium">Telefone</span></label>
-          <input type="text" id="contato_telefone" name="telefone" class="cx-input cx-input-xs w-full text-xs" placeholder="+55 (00) 00000-0000" maxlength="20">
-        </div>
-        <div class="cx-field col-span-4 hidden" id="contato_telefone_secundario_container">
-          <label class="cx-label-row py-0"><span class="cx-label text-xs font-medium">Segundo telefone</span></label>
-          <input type="text" id="contato_telefone_secundario" name="telefone_secundario" class="cx-input cx-input-xs w-full text-xs" placeholder="+55 (00) 00000-0000" maxlength="20">
-        </div>
-      </div>
-
-      {% if session.user_type in ['admin', 'superadmin'] %}
-      <div class="grid grid-cols-12 gap-2 border border-slate-200 rounded p-2 bg-slate-100/30" id="contato_wasender_container">
-        <div class="cx-field col-span-5">
-          <label class="cx-label-row py-0"><span class="cx-label text-xs font-medium">Wasender API key</span></label>
-          <input type="password" id="contato_wasender_api_key" name="wasender_api_key" class="cx-input cx-input-xs w-full text-xs" placeholder="Informe para criar/alterar">
-          <span id="contato_wasender_api_key_mask" class="text-xs text-slate-500 mt-0.5"></span>
-        </div>
-        <div class="cx-field col-span-5">
-          <label class="cx-label-row py-0"><span class="cx-label text-xs font-medium">Wasender session id</span></label>
-          <input type="text" id="contato_wasender_session_id" name="wasender_session_id" class="cx-input cx-input-xs w-full text-xs" placeholder="Opcional">
-        </div>
-        <label class="cx-field col-span-2 cursor-pointer justify-end">
-          <span class="cx-label text-xs font-medium mb-1">Ativo</span>
-          <input type="checkbox" id="contato_wasender_ativo" name="wasender_ativo" class="cx-toggle">
-        </label>
-      </div>
-      {% endif %}
-
-      <!-- Linha 2: Setor, Cargo, Tipo Usuário -->
-      <div class="grid grid-cols-12 gap-2">
-        <div class="cx-field col-span-4">
-          <label class="cx-label-row py-0"><span class="cx-label text-xs font-medium">Setor</span></label>
-          <select id="contato_setor" name="pk_id_aux_setor" class="cx-select cx-select-xs w-full text-xs" onchange="carregarCargosPorSetor(this.value)">
-            <option value="">Selecione</option>
-            {% for setor in setores %}
-            <option value="{{ setor.id_setor }}">{{ setor.display }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="cx-field col-span-4">
-          <label class="cx-label-row py-0"><span class="cx-label text-xs font-medium">Cargo</span></label>
-          <select id="contato_cargo" name="pk_id_tbl_cargo" class="cx-select cx-select-xs w-full text-xs">
-            <option value="">Selecione setor</option>
-          </select>
-        </div>
-        <!-- Tipo Usuário hidden com valor fixo -->
-        <input type="hidden" id="contato_user_type" name="user_type" value="client">
-        <!-- Cohorts fixo em 1 -->
-        <input type="hidden" id="contato_cohorts" name="cohorts" value="1">
-      </div>
-
-      <!-- Senha (hidden) -->
-      <input type="hidden" id="contato_senha" name="senha" value="">
-
-      <div class="cx-modal-actions mt-2 pt-2 border-t">
-        <button type="button" onclick="modal_contato.close()" class="cx-btn cx-btn-ghost cx-btn-xs text-xs">Cancelar</button>
-        <button type="submit" class="cx-btn text-white cx-btn-xs text-xs" style="background-color: #72cd80; border-color: #72cd80;">
-          <i class="fas fa-save mr-1"></i><span id="contato_btn_text">Criar contato</span>
-        </button>
-      </div>
-    </form>
-  </div>
-  <form method="dialog" class="cx-modal-dismiss">
-    <button>close</button>
-  </form>
-</dialog>
+{% include 'clientes/_modal_contato.html' %}
 
 
 <script type="application/json" id="clientes-config">{{ {

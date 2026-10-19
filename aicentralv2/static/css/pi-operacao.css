@@ -249,8 +249,143 @@ body:has(.pi-operation) dialog :is(input, select, textarea, button, a, label, p,
 }
 .pi-party-add:hover { border-color: #9fb2b4; background: #f5f8f8; color: var(--pi-primary); }
 .pi-party-add:focus-visible { outline: 2px solid var(--pi-primary); outline-offset: 2px; }
+
+.pi-contatos-party-toolbar {
+  margin: 6px 0 4px;
+  padding-top: 4px;
+  border-top: 1px dashed #e3ecec;
+}
+.pi-contatos-party-toolbar__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid #d5e0e0;
+  border-radius: 6px;
+  background: #fff;
+  color: #456164;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pi-contatos-party-toolbar__btn:hover { border-color: #9fb2b4; background: #f5f8f8; }
+
+.pi-contato-slot {
+  position: relative;
+  padding: 8px 0 6px;
+  border-bottom: 1px solid #eef3f3;
+}
+.pi-contato-slot:last-child { border-bottom: 0; }
+.pi-contato-slot__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.pi-contato-slot__label {
+  min-width: 0;
+  font-size: 10px;
+  font-weight: 650;
+  color: #6a7d7f;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.pi-contato-slot__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid #cfdada;
+  border-radius: 6px;
+  background: #fff;
+  color: #456164;
+  cursor: pointer;
+  font-size: 10px;
+}
+.pi-contato-slot__btn:hover { border-color: var(--pi-primary); color: var(--pi-primary); }
+.pi-contato-slot__body {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.pi-contato-slot__pick {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+  padding: 6px 8px;
+  border: 1px solid #e3ecec;
+  border-radius: 7px;
+  background: #fafcfc;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #263b3d;
+}
+.pi-contato-slot__pick:hover { border-color: #b8cbcb; background: #fff; }
+.pi-contato-slot.is-empty .pi-contato-slot__pick strong { color: #9aa8aa; font-weight: 550; }
+.pi-contato-slot > .pi-contato-slot__select {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  opacity: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  pointer-events: none !important;
+}
+.pi-contato-slot__static { margin: 0; font-size: 11px; }
+
+.pi-lista-contatos-modal__body {
+  max-height: min(52vh, 420px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pi-lista-contato-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid #e7eeee;
+  border-radius: 8px;
+  background: #fafcfc;
+}
+.pi-lista-contato-row--pickable .pi-lista-contato-row__main {
+  cursor: pointer;
+}
+.pi-lista-contato-row--pickable .pi-lista-contato-row__main:hover {
+  color: #1e4d4f;
+}
+.pi-lista-contato-row__main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pi-lista-contato-row__label {
+  font-size: 11px;
+  line-height: 1.35;
+  color: #263b3d;
+  word-break: break-word;
+}
+.pi-lista-contato-row__actions {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .pi-edit-contacts { margin-top: 13px; border-top: 1px solid #e5ebeb; padding-top: 13px; }
-.pi-edit-surface :is(input:not([type="checkbox"]):not([type="hidden"]), select, textarea) {
+.pi-edit-surface :is(input:not([type="checkbox"]):not([type="hidden"]), select:not(.pi-contato-slot__select), textarea) {
   min-height: 35px;
   border-color: #dce4e5;
   border-radius: 7px;
@@ -259,7 +394,7 @@ body:has(.pi-operation) dialog :is(input, select, textarea, button, a, label, p,
   font-size: 12px !important;
 }
 .pi-edit-surface textarea { line-height: 1.45; }
-.pi-edit-surface :is(input:not([type="checkbox"]), select, textarea):focus {
+.pi-edit-surface :is(input:not([type="checkbox"]), select:not(.pi-contato-slot__select), textarea):focus {
   border-color: var(--pi-primary);
   outline: 2px solid rgba(30,77,79,.11);
   background-color: #fff;

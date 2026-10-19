@@ -529,12 +529,14 @@ class PiOperacaoRepository:
         with self.conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT id_contato_cliente, pk_id_tbl_cliente, nome_completo,
-                       email, telefone
-                  FROM tbl_contato_cliente
-                 WHERE COALESCE(status, TRUE) = TRUE
-                   AND pk_id_tbl_cliente = ANY(%s)
-                 ORDER BY nome_completo
+                SELECT c.id_contato_cliente, c.pk_id_tbl_cliente, c.nome_completo,
+                       c.email, c.telefone, s.display AS setor,
+                       COALESCE(c.responsavel_setor, FALSE) AS responsavel_setor
+                  FROM tbl_contato_cliente c
+                  LEFT JOIN tbl_setor s ON s.id_setor = c.pk_id_tbl_setor
+                 WHERE COALESCE(c.status, TRUE) = TRUE
+                   AND c.pk_id_tbl_cliente = ANY(%s)
+                 ORDER BY c.nome_completo
                 """,
                 (empresas,),
             )
@@ -559,6 +561,44 @@ class PiOperacaoRepository:
 
     def listar_destinatarios_sugeridos(self, id_pi):
         pi = self.obter_pi(id_pi)
+        empresas = (
+            ("cliente_final", pi.get("id_cliente")),
+            ("agencia", pi.get("id_agencia")),
+            ("parceiro", pi.get("id_parceiro")),
+        )
+        resultado = []
+        with self.conn.cursor() as cursor:
+            for papel, empresa_id in empresas:
+                if not empresa_id:
+                    continue
+                cursor.execute(
+                    """
+                    SELECT c.id_contato_cliente, c.pk_id_tbl_cliente, c.nome_completo,
+                           c.email, c.telefone, s.display AS setor,
+                           COALESCE(c.responsavel_setor, FALSE) AS responsavel_setor
+                      FROM tbl_contato_cliente c
+                      LEFT JOIN tbl_setor s ON s.id_setor = c.pk_id_tbl_setor
+                     WHERE COALESCE(c.status, TRUE) = TRUE
+                       AND c.pk_id_tbl_cliente = %s
+                       AND COALESCE(c.responsavel_setor, FALSE) = TRUE
+                       AND NULLIF(TRIM(c.email), '') IS NOT NULL
+                     ORDER BY c.nome_completo
+                    """,
+                    (int(empresa_id),),
+                )
+                rows = cursor.fetchall()
+                for idx, row in enumerate(rows):
+                    resultado.append(
+                        {
+                            **dict(row),
+                            "papel": papel,
+                            "padrao": idx == 0,
+                            "sugerido": True,
+                        }
+                    )
+        if resultado:
+            return resultado
+
         candidatos = (
             ("cliente_final", pi.get("id_cont_cliente_financ") or pi.get("id_cont_cliente_midia")),
             ("agencia", pi.get("id_cont_agen_financ") or pi.get("id_cont_agen_midia")),
@@ -580,11 +620,11 @@ class PiOperacaoRepository:
             contatos = {
                 row["id_contato_cliente"]: dict(row) for row in cursor.fetchall()
             }
-        resultado = []
+        fallback = []
         for papel, contato_id in candidatos:
             contato = contatos.get(contato_id)
             if contato and contato.get("email"):
-                resultado.append(
+                fallback.append(
                     {
                         **contato,
                         "papel": papel,
@@ -592,7 +632,7 @@ class PiOperacaoRepository:
                         "sugerido": True,
                     }
                 )
-        return resultado
+        return fallback
 
     def substituir_destinatarios(self, id_pi, destinatarios, autor_id):
         pi = self.obter_pi(id_pi)

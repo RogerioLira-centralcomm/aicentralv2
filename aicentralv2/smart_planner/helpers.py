@@ -311,3 +311,18 @@ def plan_href(token: str, step: str, public_token: str = "") -> str:
         "conclusao": "conclusao",
     }.get(text(step), "briefing")
     return f"/smart-planner/{token}/{suffix}"
+
+
+TITLE_LIMIT = 64
+_TITLE_TAIL = {"a", "o", "as", "os", "de", "da", "do", "das", "dos", "em", "na", "no", "para", "e", "com", "por", "um", "uma"}
+
+
+def short_title(value: Any, limit: int = TITLE_LIMIT) -> str:
+    """Título em até duas linhas: corta na última palavra inteira antes do limite, sem reticências."""
+    title = " ".join(text(value).split()).rstrip(".:;")
+    if len(title) <= limit:
+        return title
+    cut = title[:limit].rsplit(" ", 1)[0]
+    while " " in cut and cut.split(" ")[-1].lower() in _TITLE_TAIL:
+        cut = cut.rsplit(" ", 1)[0]
+    return cut.rstrip(",.:;—- ")

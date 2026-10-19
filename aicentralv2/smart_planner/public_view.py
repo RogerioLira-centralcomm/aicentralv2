@@ -13,7 +13,7 @@ from urllib.parse import quote, urlparse
 from flask import has_request_context, url_for
 
 from .catalog import CHANNEL_CATALOG, CHANNEL_LOGOS, OBJETIVO_OPTIONS, PRIMARY_FORMATS, PRACA_OPTIONS, objetivo_label
-from .helpers import as_bool, as_dict, as_list, normalize_markdown, plan_mode_of, session_title, text
+from .helpers import as_bool, as_dict, as_list, normalize_markdown, plan_mode_of, session_title, short_title, text
 from .mix import METHODS
 from .pace import format_money, parse_money
 from .share import HOUSE, public_document_url, public_sheet_url
@@ -166,6 +166,14 @@ def _looks_like_density(channels: list[dict]) -> bool:
         elif label in DENSITY_LABELS:
             density += 1
     return known == 0 and density > 0
+
+
+def _titled(block) -> dict:
+    """Cópia do bloco com o título dentro do limite de duas linhas (planos gerados antes da regra)."""
+    out = dict(as_dict(block))
+    if text(out.get("title")):
+        out["title"] = short_title(out["title"])
+    return out
 
 
 def _fronts(page: dict, channels: list[dict]) -> list[dict]:
@@ -1278,14 +1286,14 @@ def public_view(row: dict, document: str | None = None) -> dict:
         )
     strategy_parts = _paragraphs(strategy.get("body"))
     defense_parts = _paragraphs(defense.get("body"))
-    challenge_v3 = as_dict(page_v2.get("challenge"))
-    opportunity_v3 = as_dict(page_v2.get("opportunity"))
+    challenge_v3 = _titled(page_v2.get("challenge"))
+    opportunity_v3 = _titled(page_v2.get("opportunity"))
     thesis_v3 = as_dict(page_v2.get("thesis"))
     creative_v3 = as_dict(page_v2.get("creative_expression"))
-    market_v3 = as_dict(page_v2.get("market_evidence"))
+    market_v3 = _titled(page_v2.get("market_evidence"))
     market_v3["source_url"] = _safe_http_url(market_v3.get("source_url"))
     media_narrative = as_dict(page_v2.get("media_narrative"))
-    concept = text(creative_v3.get("headline") or creative.get("title"))
+    concept = short_title(creative_v3.get("headline") or creative.get("title"), 80)
     concept_body = text(creative_v3.get("supporting_text") or creative.get("body"))
     support = text(opportunity_v3.get("body") or challenge_v3.get("body") or creative.get("body"))
     strategy_board = _strategy_board(
@@ -1408,7 +1416,7 @@ def public_view(row: dict, document: str | None = None) -> dict:
             body = _client_facing_text(raw_item)
             label = ""
         if body or label:
-            journey.append({"title": label or f"Etapa {index + 1}", "body": body})
+            journey.append({"title": short_title(label) or f"Etapa {index + 1}", "body": body})
     outputs = []
     for raw_output in as_list(page_v2.get("outputs")):
         output = as_dict(raw_output)

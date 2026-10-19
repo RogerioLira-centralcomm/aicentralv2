@@ -220,3 +220,12 @@ def test_public_fronts_group_channels_and_keep_unassigned_ones():
     assert fronts[1]["text"] == "Volta a falar com quem visitou o site."
     assert [c["id"] for c in fronts[2]["channels"]] == ["meta_ads"]
     assert _fronts({}, channels) == []
+
+
+def test_public_titles_are_shortened_for_plans_generated_before_the_rule():
+    from aicentralv2.smart_planner.public_view import _titled
+
+    long_title = "Usar portais como vitrine editorial e gatilho de retomada para quem já viu a coleção"
+    block = _titled({"title": long_title, "body": long_title})
+    assert len(block["title"]) <= 64 and block["body"] == long_title
+    assert _titled(None) == {}

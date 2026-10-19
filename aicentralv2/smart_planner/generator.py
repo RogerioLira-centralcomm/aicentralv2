@@ -20,6 +20,7 @@ from .cost import bound_session
 from .estimates import calculate_estimates, format_estimates_for_prompt
 from .pace import format_money
 from .helpers import (
+    TITLE_LIMIT,
     as_bool,
     as_dict,
     as_list,
@@ -29,6 +30,7 @@ from .helpers import (
     normalize_markdown,
     plan_mode_of,
     redact_advertiser,
+    short_title,
     text,
     thesis_is_meta,
 )
@@ -915,21 +917,7 @@ def _core_from_page(page: dict, nucleo: dict, snapshot: dict, material_hash: str
     return core
 
 
-TITLE_LIMIT = 64
-
-
-def _short_title(value: str, limit: int = TITLE_LIMIT) -> str:
-    """Título em até duas linhas: corta na última palavra inteira antes do limite, sem reticências."""
-    title = " ".join(text(value).split()).rstrip(".:;")
-    if len(title) <= limit:
-        return title
-    cut = title[:limit].rsplit(" ", 1)[0]
-    # Não termina em artigo ou preposição solta.
-    while cut.split(" ")[-1].lower() in {"a", "o", "as", "os", "de", "da", "do", "das", "dos", "em", "na", "no", "para", "e", "com", "por", "um", "uma"}:
-        cut = cut.rsplit(" ", 1)[0] if " " in cut else cut
-        if " " not in cut:
-            break
-    return cut.rstrip(",.:;—- ")
+_short_title = short_title
 
 
 def _limit_titles(page: dict) -> None:

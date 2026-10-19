@@ -39,6 +39,7 @@ from .repository import get_by_token, merge_dados, update_session
 from .skills import load_skill, skill_role
 from .snapshot import build_evidence, build_snapshot
 from .taticas import (
+    DCO_DESCRIPTION,
     FORMATO_DCO,
     hero_scope,
     primary_format as tatica_primary_format,
@@ -1368,7 +1369,7 @@ def _apply_taticas_to_roles(roles: list[dict], snapshot: dict) -> list[str]:
             function = text(role.get("function"))
             additions = []
             if channel_id in dco and not re.search(r"\bdco\b|din[aâ]mic", function, re.I):
-                additions.append("Formato DCO: o anúncio se monta sozinho com o produto, a cor e a oferta de interesse de cada pessoa.")
+                additions.append(f"Formato DCO: anúncio dinâmico, em que {DCO_DESCRIPTION}.")
             if channel_id == "interativos" and formats and not all(label.lower() in function.lower() for label in formats):
                 additions.append(f"Formatos interativos: {_join_pt(formats)}.")
             segment = text(tatica.get("segmento"))

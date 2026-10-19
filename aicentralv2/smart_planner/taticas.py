@@ -25,12 +25,17 @@ TATICA_TIPOS = {
 }
 
 FORMATO_DCO = {"id": "dco", "label": "DCO · anúncio dinâmico"}
+# DCO: anúncio dinâmico. A mesma peça muda conforme as regras da campanha.
+DCO_DESCRIPTION = (
+    "a peça muda sozinha por horário, geolocalização, estoque do item, condições definidas pela marca "
+    "e segmentação de audiência"
+)
 DCO_PRIMARY = {"id": "dco_dynamic", "label": "DCO · anúncio dinâmico", "surface": "display"}
 
 # Recortes de classe aceitos para orientar a escolha dos portais.
 SEGMENTOS = ("A", "AB", "B", "BC", "C")
 
-# DCO monta a peça com dados do usuário: precisa de tela com anúncio de imagem ou vídeo.
+# DCO varia a peça por regra de campanha: precisa de tela com anúncio de imagem ou vídeo.
 DCO_BLOCKED_GROUPS = {"ooh", "places", "audio", "ctv", "data"}
 
 INTERATIVOS_IDS = tuple(item["id"] for item in INTERATIVOS_FORMATS)

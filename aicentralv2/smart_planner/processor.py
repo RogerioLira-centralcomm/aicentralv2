@@ -75,7 +75,7 @@ Traduza termos técnicos para leitura comercial: retargeting = voltar a falar co
 Se houver places confirmados, nomeie apenas o ambiente/place e a audiência consolidada. Não cite ponto, raio ou app no plano.
 Em OOH ou DOOH, traduza qualquer menção a pontos como "presença em OOH/DOOH". Não escreva pontos, circuitos, inventário ou condições de compra.
 Formatos interativos só existem em portais (G1, UOL, R7, CNN, rede de portais), nunca em app, CTV, OOH ou Places.
-DCO = anúncio dinâmico: a peça se monta sozinha com o produto, a cor ou a oferta de interesse de cada pessoa. Se o material trouxer impacto e remarketing como frentes, mantenha as duas frentes, os formatos e o recorte de classe dos portais.
+DCO = anúncio dinâmico: a mesma peça muda por horário, geolocalização, estoque do item, condições definidas pela marca e segmentação de audiência. Se o material trouxer impacto e remarketing como frentes, mantenha as duas frentes, os formatos e o recorte de classe dos portais.
 Dados de terceiros servem para encontrar ou reencontrar públicos; não descreva isso como captura, venda ou coleta de dados.
 Preserve restrições e observações do anunciante.
 Não escreva uma seção de lacunas, validações ou observações finais. Ausências ficam nos campos estruturados e não entram na narrativa.

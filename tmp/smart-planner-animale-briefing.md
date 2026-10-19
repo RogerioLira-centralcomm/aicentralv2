@@ -10,7 +10,7 @@ A Animale (Grupo Soma) lança a coleção de Verão e quer elevar a consideraç�
 - Hotspot: uma foto da coleção com pontos clicáveis em cada look, abrindo preço de vitrine, cores e link para a peça no site.
 - Cartas: o usuário vira cartas para descobrir combinações de looks (dia, trabalho, noite) e salva as favoritas.
 
-**Frente 2 — Remarketing com DCO.** Quem interagiu com os interativos ou visitou o site da Animale volta a ver anúncios dinâmicos (DCO), em que o criativo monta automaticamente a peça com os produtos vistos, a cor e o tamanho de interesse, com mensagem e oferta variando por etapa (visualizou, adicionou à sacola, abandonou).
+**Frente 2 — Remarketing com DCO.** Quem interagiu com os interativos ou visitou o site da Animale volta a ver anúncios dinâmicos (DCO), em que a mesma peça muda por horário, geolocalização (lojas e praças de SP, RJ e BH), estoque do item, condições da marca (por exemplo, peça em falta sai do anúncio) e segmentação da audiência.
 
 Objetivo: consideração e tráfego qualificado para o e-commerce. KPIs: taxa de interação dos interativos, CTR, visitas qualificadas ao site, taxa de retorno do remarketing e conversões atribuídas.
 
@@ -39,6 +39,6 @@ Restrições: nada de desconto agressivo no discurso (marca premium), sem concor
 1. Os dois formatos (Hotspot e Cartas) e só eles, ligados ao portal.
 2. O recorte AB como critério de seleção dos portais, sem inventar lista de sites nem audiência.
 3. Duas táticas distintas: impacto (interativos) e remarketing (DCO), cada uma com papel, público e formato.
-4. DCO descrito como criativo dinâmico por etapa do funil, com os dados que o alimentam.
+4. DCO descrito como anúncio dinâmico por horário, geolocalização, estoque, condicionais e segmentação, sem inventar dados.
 5. O criativo da página única no canal de maior peso (interativos em portais).
-6. Nenhum número fora do briefing: sem alcance, CTR ou CPM prometidos.
+6. Estimativa de impacto (CPM, CPC, alcance) marcada como estimativa do modelo ou revisada pelo executivo, nunca como promessa.

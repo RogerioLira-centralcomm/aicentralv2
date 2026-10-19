@@ -163,3 +163,12 @@ def test_repair_maps_channel_alias_to_mix_row():
     roles = page["recommendation"]["channel_roles"]
     assert [role["channel"] for role in roles] == ["YouTube", "Meta Ads"]
     assert roles[1]["function"] == "Converte."
+
+
+def test_repair_drops_alias_that_duplicates_existing_role():
+    page = {
+        "recommendation": {"channel_roles": [{"channel": "YouTube"}, {"channel": "Meta Ads"}, {"channel": "Instagram"}]},
+        "creative_expression": {"channel": "YouTube"},
+    }
+    generator._repair_page_channels(page, SNAPSHOT)
+    assert [role["channel"] for role in page["recommendation"]["channel_roles"]] == ["YouTube", "Meta Ads"]

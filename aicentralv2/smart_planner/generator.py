@@ -1314,8 +1314,12 @@ def _repair_page_channels(page: dict, snapshot: dict) -> list[str]:
             if not alias:
                 repairs.append(f"Papel removido: {channel} não está no mix.")
                 continue
-            role["channel"] = text(alias.get("label") or alias.get("id"))
-            repairs.append(f"Papel de {channel} associado a {role['channel']}.")
+            label = text(alias.get("label") or alias.get("id"))
+            if any(_matches_mix(text(item.get("channel") or item.get("id")), [alias]) for item in kept + roles if item is not role):
+                repairs.append(f"Papel removido: {channel} repete {label}.")
+                continue
+            role["channel"] = label
+            repairs.append(f"Papel de {channel} associado a {label}.")
         kept.append(role)
     heroes = _hero_rows(_mix_rows(snapshot))
     if heroes:

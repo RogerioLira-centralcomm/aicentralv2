@@ -67,7 +67,7 @@ export function Comms({api, lead, contacts, communications, onChanged, notify}) 
         <div className="lv3-form__grid">
           <Field label="Para">
             <select className="lv3-select" value={contato} onChange={event => setContato(event.target.value)}>
-              <option value="">{decode(lead.nome) || 'Contato do lead'}</option>
+              <option value="">{lead.email || lead.telefone ? (decode(lead.nome) || 'Contato do lead') : 'Escolha uma pessoa'}</option>
               {contacts.map(c => <option key={c.id} value={c.id}>{decode(c.nome)}</option>)}
             </select>
           </Field>

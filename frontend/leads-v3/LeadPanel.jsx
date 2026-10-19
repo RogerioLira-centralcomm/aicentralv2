@@ -57,7 +57,11 @@ export function LeadPanel({boot, api, lead, contacts, candidates, loading, notif
   const nome = decode(lead.empresa || lead.nome);
   const servicos = asList(lead.servicos);
   const clientes = asList(lead.clientes_mencionados);
-  const temEnriquecimento = lead.descricao_empresa || lead.mercado_alvo || lead.presenca_digital || lead.oportunidades_midia || servicos.length;
+  // Boolean(): com `0 && <jsx>` o React renderiza o "0" na tela.
+  const temEnriquecimento = Boolean(lead.descricao_empresa || lead.mercado_alvo || lead.presenca_digital || lead.oportunidades_midia || servicos.length || clientes.length);
+  // Conta criada pelo Golden Circle não tem contato: o nome da empresa só preenche o campo obrigatório.
+  const temContato = Boolean(lead.email || lead.telefone || lead.cargo || lead.mensagem
+    || (decode(lead.nome).trim() && decode(lead.nome).trim().toLowerCase() !== decode(lead.empresa).trim().toLowerCase()));
 
   return (
     <section className="lv3-col lv3-lead" aria-label="Lead selecionado">
@@ -114,7 +118,7 @@ export function LeadPanel({boot, api, lead, contacts, candidates, loading, notif
       </header>
 
       <div className="lv3-lead__scroll">
-        <section className="lv3-section">
+        {temContato && <section className="lv3-section">
           <header className="lv3-section__head"><h3>Contato do lead</h3></header>
           <dl className="lv3-infos">
             <Info label="Nome">{decode(lead.nome)}</Info>
@@ -123,7 +127,7 @@ export function LeadPanel({boot, api, lead, contacts, candidates, loading, notif
             <Info label="Telefone">{lead.telefone && <a href={whatsappUrl(lead.telefone)} target="_blank" rel="noopener noreferrer">{lead.telefone} <Icon name="arrow-up-right-from-square"/></a>}</Info>
           </dl>
           {lead.mensagem && <blockquote className="lv3-message"><Icon name="quote-left"/>{decode(lead.mensagem)}</blockquote>}
-        </section>
+        </section>}
 
         <section className="lv3-section">
           <header className="lv3-section__head">

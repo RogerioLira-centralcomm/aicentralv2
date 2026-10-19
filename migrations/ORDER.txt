@@ -223,3 +223,5 @@ migrations/run_sql_migration.py add_cadu_review_runs.sql
 migrations/run_sql_migration.py add_cadu_leads_v3_prospeccao.sql
 # Apollo.io na central de credenciais (Leads v3): libera o provider no CHECK e grava APOLLO_API_KEY do .env criptografada, se existir (idempotente).
 migrations/run_add_apollo_integration_credential.py
+# Leads v3: alvo das contas do Golden Circle (valor, prazo, próximo marco, papéis) e modelos de cadência por papel (aditivo, idempotente; depende de add_cadu_leads_v3_prospeccao.sql).
+migrations/run_sql_migration.py add_cadu_leads_v3_cadencias_alvo.sql

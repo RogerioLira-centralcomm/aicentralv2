@@ -53,7 +53,17 @@ export function createApi(boot) {
     golden: (trimestre, executivo) => request(`${root}/golden${qs({trimestre, executivo})}`).then(p => p.data),
     validateGolden: body => request(`${root}/golden/validar`, {method: 'POST', body}).then(p => p.data),
     createGolden: body => request(`${root}/golden`, {method: 'POST', body}).then(p => p.data),
-    updateGolden: (id, status) => request(`${root}/golden/${id}`, {method: 'PATCH', body: {status}}),
+    updateGolden: (id, body) => request(`${root}/golden/${id}`, {method: 'PATCH', body: typeof body === 'string' ? {status: body} : body}),
+    leadGolden: id => request(`${root}/leads/${id}/golden`).then(p => p.data.conta),
+
+    operation: executivo => request(`${root}/operacao${qs({executivo})}`).then(p => p.data),
+    cadenceModels: () => request(`${root}/cadencias`).then(p => p.data.modelos),
+    leadCadences: id => request(`${root}/leads/${id}/cadencias`).then(p => p.data.inscricoes),
+    enrollContact: (contactId, idCadencia) => request(`${root}/contatos/${contactId}/cadencia`, {method: 'POST', body: {id_cadencia: idCadencia || null}}),
+    enrollLead: id => request(`${root}/leads/${id}/cadencia`, {method: 'POST', body: {}}).then(p => p.data),
+    stepAction: (inscricaoId, acao, nota) => request(`${root}/inscricoes/${inscricaoId}/${acao}`, {method: 'POST', body: {nota: nota || ''}}).then(p => p.data),
+    writeMessage: body => request(`${root}/mensagens/gerar`, {method: 'POST', body}).then(p => p.data),
+    marketContext: id => request(`${root}/leads/${id}/contexto`, {method: 'POST', body: {}}).then(p => p.data),
     removeGolden: id => request(`${root}/golden/${id}`, {method: 'DELETE'}),
 
     candidates: id => request(`${root}/leads/${id}/candidatos`).then(p => p.data.candidatos),

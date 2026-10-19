@@ -1,6 +1,7 @@
 import React, {useState} from 'react';
 import {Button, Empty, Field, Icon, decode, formatDate, linkedinSearchUrl, whatsappUrl} from './ui.jsx';
 import {People} from './People.jsx';
+import {FocusEditor, GoldenTarget, MarketContext} from './Focus.jsx';
 
 const CLOSED_LABELS = {nao_qualificado: 'Desqualificado', fechado_ganho: 'Ganho', fechado_perdido: 'Perdido'};
 const TIPO_LEAD = {cliente: 'Cliente', parceiro: 'Parceiro', fornecedor: 'Fornecedor', midia: 'Mídia', outro: 'Outro'};
@@ -34,7 +35,7 @@ function Socials({value}) {
   );
 }
 
-export function LeadPanel({boot, api, lead, contacts, candidates, loading, notify, onChanged, onEdit, onEditCompany, onConvert, onDisqualify}) {
+export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadences, loading, notify, onChanged, onEdit, onEditCompany, onConvert, onDisqualify, onMarkGolden}) {
   const [busy, setBusy] = useState(false);
   if (loading && !lead) return <section className="lv3-col lv3-lead"><div className="lv3-skeleton"/></section>;
   if (!lead) {
@@ -69,7 +70,7 @@ export function LeadPanel({boot, api, lead, contacts, candidates, loading, notif
         <div className="lv3-lead__title">
           {lead.favicon_url && <img src={lead.favicon_url} alt="" className="lv3-lead__favicon"/>}
           <div>
-            <h2>{nome || 'Sem nome'}{lead.prioridade_conta && <span className="lv3-prio">Prioridade {lead.prioridade_conta}</span>}</h2>
+            <h2>{nome || 'Sem nome'}{golden && <span className="lv3-gc-badge">Golden Circle {golden.trimestre.replace('-', ' ')}</span>}{lead.prioridade_conta && <span className="lv3-prio">Prioridade {lead.prioridade_conta}</span>}</h2>
             <p>{[lead.segmento, lead.fonte && `via ${lead.fonte}`, lead.created_at && `entrou em ${formatDate(lead.created_at)}`].filter(Boolean).join(' · ')}</p>
           </div>
         </div>
@@ -112,12 +113,19 @@ export function LeadPanel({boot, api, lead, contacts, candidates, loading, notif
             </Button>
           )}
           <Button icon="pen" onClick={onEdit} disabled={busy}>Editar</Button>
+          {!golden && !converted && <Button icon="bullseye" onClick={onMarkGolden} disabled={busy}>Marcar como Golden Circle</Button>}
           {!converted && <Button icon="user-check" onClick={onConvert} disabled={busy}>Converter em cliente</Button>}
           <Button variant="danger-ghost" icon="ban" onClick={onDisqualify} disabled={busy || lead.status === 'nao_qualificado'}>Desqualificar</Button>
         </div>
       </header>
 
       <div className="lv3-lead__scroll">
+        {golden && (
+          <section className="lv3-section lv3-section--golden">
+            <header className="lv3-section__head"><h3><Icon name="bullseye"/>&nbsp;Alvo Golden Circle</h3></header>
+            <GoldenTarget api={api} conta={golden} contacts={contacts} notify={notify} onChanged={onChanged}/>
+          </section>
+        )}
         {temContato && <section className="lv3-section">
           <header className="lv3-section__head"><h3>Contato do lead</h3></header>
           <dl className="lv3-infos">
@@ -164,7 +172,17 @@ export function LeadPanel({boot, api, lead, contacts, candidates, loading, notif
           </section>
         )}
 
-        <People key={lead.id} boot={boot} api={api} lead={lead} contacts={contacts} candidates={candidates} onChanged={onChanged} notify={notify} onEditCompany={onEditCompany}/>
+        <section className="lv3-section">
+          <header className="lv3-section__head"><h3>Foco: canais e conteúdo</h3></header>
+          <FocusEditor api={api} lead={lead} notify={notify} onChanged={onChanged}/>
+        </section>
+
+        <section className="lv3-section">
+          <header className="lv3-section__head"><h3>Contexto de mercado</h3></header>
+          <MarketContext api={api} lead={lead} notify={notify} onChanged={onChanged}/>
+        </section>
+
+        <People key={lead.id} cadences={cadences} boot={boot} api={api} lead={lead} contacts={contacts} candidates={candidates} onChanged={onChanged} notify={notify} onEditCompany={onEditCompany}/>
 
         <section className="lv3-section">
           <header className="lv3-section__head"><h3>Qualificação e histórico</h3></header>

@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {Button, Empty, Field, Icon, decode, linkedinSearchUrl, whatsappUrl} from './ui.jsx';
+import {Button, Empty, Field, Icon, decode, formatDate, linkedinSearchUrl, whatsappUrl} from './ui.jsx';
 
 // Papéis que o Golden Circle precisa cobrir em cada conta.
 const COVERAGE = [
@@ -37,13 +37,62 @@ function Coverage({contacts}) {
   );
 }
 
+const CANAL_LABEL = {email: 'e-mail', whatsapp: 'WhatsApp', linkedin: 'LinkedIn', telefone: 'ligação'};
+
+/** Linha da cadência da pessoa: passo, próximo toque e ações (o envio acontece na Operação). */
+function CadenceLine({api, contact, inscricao, notify, onChanged}) {
+  const [busy, setBusy] = useState(false);
+  const run = (fn, done) => async () => {
+    setBusy(true);
+    try { await fn(); notify(done); onChanged(); } catch (error) { notify(error.message, 'error'); } finally { setBusy(false); }
+  };
+  const iniciar = run(() => api.enrollContact(contact.id), 'Cadência iniciada. O primeiro passo já está na Operação.');
+  if (!inscricao) {
+    return (
+      <div className="lv3-cadence lv3-cadence--none">
+        <Button size="xs" icon="play" onClick={iniciar} disabled={busy}>Iniciar cadência</Button>
+        <span className="lv3-muted">modelo escolhido pela área da pessoa</span>
+      </div>
+    );
+  }
+  const passo = inscricao.passo || {};
+  const etapa = `passo ${Math.min(inscricao.passo_atual + 1, inscricao.total)}/${inscricao.total}`;
+  if (inscricao.status === 'ativa') {
+    return (
+      <div className="lv3-cadence is-active">
+        <Icon name="circle-play"/>
+        <span><strong>{inscricao.cadencia}</strong> · {etapa} · próximo: {CANAL_LABEL[passo.canal] || passo.canal} {inscricao.proxima_em ? `em ${formatDate(inscricao.proxima_em).slice(0, 10)}` : ''}</span>
+        <button type="button" className="lv3-link lv3-link--muted" disabled={busy} onClick={run(() => api.stepAction(inscricao.id, 'pausar'), 'Cadência pausada.')}>Pausar</button>
+        <button type="button" className="lv3-link lv3-link--muted" disabled={busy} onClick={() => { if (window.confirm('Encerrar a cadência desta pessoa?')) run(() => api.stepAction(inscricao.id, 'cancelar'), 'Cadência encerrada.')(); }}>Encerrar</button>
+      </div>
+    );
+  }
+  if (inscricao.status === 'pausada') {
+    return (
+      <div className="lv3-cadence is-paused">
+        <Icon name="circle-pause"/>
+        <span><strong>{inscricao.cadencia}</strong> pausada · {etapa}{inscricao.motivo_parada ? ` · ${inscricao.motivo_parada}` : ''}</span>
+        <button type="button" className="lv3-link" disabled={busy} onClick={run(() => api.stepAction(inscricao.id, 'retomar'), 'Cadência retomada.')}>Retomar</button>
+      </div>
+    );
+  }
+  const fim = {respondeu: 'respondeu', concluida: 'concluída', cancelada: 'encerrada', erro: 'com erro'}[inscricao.status] || inscricao.status;
+  return (
+    <div className={`lv3-cadence ${inscricao.status === 'respondeu' ? 'is-replied' : ''}`}>
+      <Icon name={inscricao.status === 'respondeu' ? 'reply' : 'circle-check'}/>
+      <span><strong>{inscricao.cadencia}</strong> {fim}{inscricao.motivo_parada && inscricao.status === 'respondeu' ? `: ${inscricao.motivo_parada}` : ''}</span>
+      <button type="button" className="lv3-link" disabled={busy} onClick={iniciar}>Nova cadência</button>
+    </div>
+  );
+}
+
 function emailFoundMessage(r) {
   if (r.encontrou === false) return r.motivo || 'Não achei o e-mail.';
   const fonte = r.metodo === 'padrao_contatos' ? 'padrão dos contatos da empresa' : 'e-mails públicos do domínio';
   return `E-mail sugerido: ${r.email} (${fonte}). Confira antes de enviar.`;
 }
 
-function Person({boot, api, leadId, contact: c, empresa, notify, onChanged}) {
+function Person({boot, api, leadId, contact: c, empresa, inscricao, notify, onChanged}) {
   const [busy, setBusy] = useState('');
   const [linkedin, setLinkedin] = useState(null);
   const nome = pretty(c.nome);
@@ -121,6 +170,8 @@ function Person({boot, api, leadId, contact: c, empresa, notify, onChanged}) {
           <Button size="sm" onClick={() => setLinkedin(null)}>Cancelar</Button>
         </form>
       )}
+
+      <CadenceLine api={api} contact={c} inscricao={inscricao} notify={notify} onChanged={onChanged}/>
 
       <div className="lv3-person__profile">
         {[['papel', 'Área', boot.papeis], ['senioridade', 'Nível', boot.senioridades], ['influencia', 'Influência', boot.influencias]].map(([campo, label, opcoes]) => (
@@ -230,13 +281,24 @@ function Discovery({boot, api, lead, candidates, onChanged, notify, onEditCompan
   );
 }
 
-export function People({boot, api, lead, contacts, candidates, onChanged, notify, onEditCompany}) {
+export function People({boot, api, lead, contacts, candidates, cadences = [], onChanged, notify, onEditCompany}) {
   const [draft, setDraft] = useState(null);
   const [saving, setSaving] = useState(false);
   const [bulk, setBulk] = useState('');
   const set = key => event => setDraft(d => ({...d, [key]: event.target.value}));
   const empresa = decode(lead.empresa || lead.nome);
   const semEmail = contacts.filter(c => !c.email);
+  // Inscrição que importa por pessoa: a ativa/pausada; senão a mais recente (a API já ordena assim).
+  const inscricaoDe = id => cadences.find(i => i.id_contato === id);
+  const semCadencia = contacts.filter(c => !cadences.some(i => i.id_contato === c.id && ['ativa', 'pausada'].includes(i.status)));
+  const inscreverTodos = async () => {
+    setBulk('cad');
+    try {
+      const r = await api.enrollLead(lead.id);
+      notify(r.inscritas ? `${r.inscritas} ${r.inscritas === 1 ? 'pessoa entrou' : 'pessoas entraram'} em cadência. Os passos aparecem na Operação.` : 'Todos já estão em cadência.');
+      onChanged();
+    } catch (error) { notify(error.message, 'error'); } finally { setBulk(''); }
+  };
 
   const save = async event => {
     event.preventDefault();
@@ -274,9 +336,14 @@ export function People({boot, api, lead, contacts, candidates, onChanged, notify
         <header className="lv3-section__head">
           <h3>Pessoas <span className="lv3-count">{contacts.length}</span></h3>
           <div className="lv3-section__tools">
+            {semCadencia.length > 0 && contacts.length > 0 && (
+              <Button size="sm" variant="ghost" icon="route" onClick={inscreverTodos} disabled={!!bulk}>
+                {bulk === 'cad' ? 'Inscrevendo…' : `Cadência para todos (${semCadencia.length})`}
+              </Button>
+            )}
             {semEmail.length > 0 && (
               <Button size="sm" variant="ghost" icon="wand-magic-sparkles" onClick={findAll} disabled={!!bulk}>
-                {bulk ? `Procurando ${bulk}…` : `Achar e-mails (${semEmail.length})`}
+                {bulk && bulk !== 'cad' ? `Procurando ${bulk}…` : `Achar e-mails (${semEmail.length})`}
               </Button>
             )}
             {!draft && <Button size="sm" icon="user-plus" onClick={() => setDraft(EMPTY_CONTACT)}>Adicionar</Button>}
@@ -303,7 +370,7 @@ export function People({boot, api, lead, contacts, candidates, onChanged, notify
           <Empty icon="users" title="Nenhuma pessoa cadastrada">Use "Encontrar pessoas" abaixo ou adicione manualmente.</Empty>
         ) : (
           <ul className="lv3-people">
-            {contacts.map(c => <Person key={c.id} boot={boot} api={api} leadId={lead.id} contact={c} empresa={empresa} notify={notify} onChanged={onChanged}/>)}
+            {contacts.map(c => <Person key={c.id} boot={boot} api={api} leadId={lead.id} contact={c} empresa={empresa} inscricao={inscricaoDe(c.id)} notify={notify} onChanged={onChanged}/>)}
           </ul>
         )}
       </section>

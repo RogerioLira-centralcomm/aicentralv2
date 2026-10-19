@@ -181,3 +181,15 @@ Unimed/Sicredi é o alvo, porque cada uma é um sistema com muitas empresas.
 2. Domínio/provedor de e-mail de prospecção.
 3. Apollo sozinho no piloto ou já testar Clay em paralelo.
 4. Golden Circle só por executivo, ou também por carteira/time com metas consolidadas.
+
+## 8. Estado em 2026-10-19
+
+Feito: mesa `/leads-v3` (fila, ações em massa, conversão), Golden Circle como marca de prioridade
+do lead no trimestre (selo, filtro, alvo com objetivo/valor/prazo/marco/papéis, validação
+automática), busca de pessoas (Apollo grátis + perfis públicos via Firecrawl, aprovação),
+"Achar e-mail" sem Apollo (padrão da empresa + MX), cadências por papel como tarefas assistidas
+e a página **Operação** (pendências, mensagem personalizada por canal e etapa topo/meio, foco de
+canais e conteúdo da empresa, contexto de mercado com fontes).
+
+Pendente: celular via Apollo (assíncrono por webhook, ~8 créditos), envio automático de e-mail
+(exige domínio de prospecção), campanhas em escala e métricas de funil.

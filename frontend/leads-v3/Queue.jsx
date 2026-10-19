@@ -46,7 +46,7 @@ function QueueItem({lead, statusLabel, active, selected, onOpen, onToggle}) {
       </label>
       <button type="button" className="lv3-qitem__main" onClick={() => onOpen(lead.id)} aria-current={active ? 'true' : undefined}>
         <span className="lv3-qitem__top">
-          <span className="lv3-qitem__name">{decode(lead.nome_lead) || 'Sem nome'}</span>
+          <span className="lv3-qitem__name">{lead.golden && <span className="lv3-gc-dot" title="Golden Circle do trimestre"/>}{decode(lead.nome_lead) || 'Sem nome'}</span>
           <Chip tone={potencialTone(lead.potencial)}>{lead.potencial === 'medio' ? 'Médio' : (lead.potencial || '—').replace(/^./, c => c.toUpperCase())}</Chip>
         </span>
         <span className="lv3-qitem__meta">
@@ -102,6 +102,10 @@ export function Queue({boot, leads, loading, error, filters, setFilters, activeI
             <option value="">Todo potencial</option>
             {boot.potenciais.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
+          <label className={`lv3-toggle lv3-toggle--wide ${filters.golden === '1' ? 'is-on' : ''}`}>
+            <input type="checkbox" checked={filters.golden === '1'} onChange={e => setFilters(f => ({...f, golden: e.target.checked ? '1' : ''}))}/>
+            <Icon name="bullseye"/>Só Golden Circle
+          </label>
           </>}
         </div>
       </div>

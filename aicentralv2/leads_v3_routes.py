@@ -14,6 +14,8 @@ from decimal import Decimal
 from flask import Blueprint, current_app, jsonify, render_template, request, session
 
 from . import db
+from . import leads_v3_cadencias as cadencias
+from . import leads_v3_mensagens as mensagens
 from . import leads_v3_prospeccao as prospeccao
 from .auth import centralcomm_required, centralcomm_required_api
 from .services.integration_credentials import resolve_apollo_api_key, resolve_firecrawl_api_key
@@ -44,6 +46,7 @@ SENIORIDADES = (("c_level", "C-level / VP"), ("diretor", "Diretor(a) / Head"), (
                 ("coordenador", "Coordenador(a)"), ("analista", "Analista"), ("outro", "Outro"))
 INFLUENCIAS = (("decisor", "Decisor"), ("influenciador", "Influenciador"), ("usuario", "Usuário"),
                ("bloqueador", "Bloqueador"))
+CANAIS_FOCO = ("email", "whatsapp", "linkedin", "telefone", "evento")
 STATUS_GOLDEN = ("planejada", "em_contato", "reuniao", "proposta", "ganha", "pausada", "perdida")
 # SQLSTATE de tabela/coluna inexistente: a migração do Leads v3 ainda não rodou neste banco.
 _SQLSTATE_SEM_ESQUEMA = {"42P01", "42703"}
@@ -139,7 +142,34 @@ def api_listar():
         current_app.logger.error("leads-v3 listar: %s", exc)
         return _erro("Não foi possível carregar os leads.", 500)
     leads = [{k: _json_safe(v) for k, v in dict(r).items()} for r in rows]
+    golden = _golden_por_lead([l["id"] for l in leads])
+    for lead in leads:
+        lead["golden"] = golden.get(lead["id"])
+    if request.args.get("golden") == "1":
+        leads = [l for l in leads if l["golden"]]
+    leads.sort(key=lambda l: not l["golden"])  # estável: Golden Circle no topo, resto na ordem do dashboard
     return _ok({"leads": leads, "total": len(leads)})
+
+
+def _golden_por_lead(ids):
+    """{id_lead: {id, status, proximo_marco}} das contas do trimestre; vazio se a migração não rodou."""
+    if not ids:
+        return {}
+    conn = None
+    try:  # o selo é extra: qualquer falha aqui não pode derrubar a fila
+        conn = db.get_db()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT DISTINCT ON (id_lead) id_lead, id, status FROM cadu_golden_circle WHERE id_lead = ANY(%s) AND trimestre = %s ORDER BY id_lead, id",
+                [ids, prospeccao.trimestre_atual()],
+            )
+            rows = cursor.fetchall()
+        conn.rollback()
+    except Exception:
+        if conn is not None:
+            conn.rollback()
+        return {}
+    return {r["id_lead"]: {"id": r["id"], "status": r["status"]} for r in rows}
 
 
 def _ids_do_lote(payload):
@@ -353,10 +383,10 @@ def api_golden_alterar(conta_id):
         if request.method == "DELETE":
             cursor.execute("DELETE FROM cadu_golden_circle WHERE id = %s RETURNING id", [conta_id])
         else:
-            status = payload.get("status")
-            if status not in STATUS_GOLDEN:
-                raise prospeccao.ProspeccaoError("Status inválido.")
-            cursor.execute("UPDATE cadu_golden_circle SET status = %s WHERE id = %s RETURNING id", [status, conta_id])
+            sets, params = _campos_alvo(payload)
+            if not sets:
+                raise prospeccao.ProspeccaoError("Nada para atualizar.")
+            cursor.execute(f"UPDATE cadu_golden_circle SET {', '.join(sets)} WHERE id = %s RETURNING id", [*params, conta_id])
         if not cursor.fetchone():
             return _erro("Conta não encontrada.", 404)
         return _ok({"id": conta_id})
@@ -608,6 +638,19 @@ def api_lead_empresa(lead_id):
             return _erro("Prioridade inválida.")
         sets.append("prioridade_conta = %s")
         params.append(prioridade)
+    if "canais_foco" in payload:
+        canais = payload.get("canais_foco") or []
+        if not isinstance(canais, list) or any(c not in CANAIS_FOCO for c in canais):
+            return _erro("Canais inválidos.")
+        sets.append("canais_foco = %s")
+        params.append(canais or None)
+    if "foco_conteudo" in payload:
+        foco = payload.get("foco_conteudo") or {}
+        if not isinstance(foco, dict):
+            return _erro("Foco de conteúdo inválido.")
+        limpo = {k: str(foco.get(k) or "").strip()[:1000] for k in ("topo", "meio", "tom", "evitar") if str(foco.get(k) or "").strip()}
+        sets.append("foco_conteudo = %s")
+        params.append(db.Json(limpo) if limpo else None)
     if not sets:
         return _erro("Nada para atualizar.")
 
@@ -691,3 +734,268 @@ def api_contato_achar_email(contato_id):
         return _ok({**resultado, "encontrou": True})
 
     return _transacao(run, "achar e-mail")
+
+
+# ─────────────────────────────────────────────────────
+# Cadências por pessoa e Fila do dia
+# ─────────────────────────────────────────────────────
+def _linhas(rows):
+    return [{k: _json_safe(v) for k, v in dict(r).items()} for r in rows]
+
+
+@bp.route("/api/cadencias")
+@centralcomm_required_api
+def api_cadencias():
+    return _transacao(lambda cursor: _ok({"modelos": _linhas(cadencias.listar_modelos(cursor))}), "modelos de cadência")
+
+
+@bp.route("/api/hoje")
+@centralcomm_required_api
+def api_hoje():
+    """Fila do dia: passos de cadência vencidos até o fim de hoje."""
+    executivo = _int(request.args.get("executivo"))
+    return _transacao(lambda cursor: _ok({"passos": _linhas(cadencias.fila_do_dia(cursor, executivo=executivo))}), "fila do dia")
+
+
+@bp.route("/api/leads/<int:lead_id>/cadencias")
+@centralcomm_required_api
+def api_cadencias_do_lead(lead_id):
+    return _transacao(lambda cursor: _ok({"inscricoes": _linhas(cadencias.inscricoes_do_lead(cursor, lead_id))}), "cadências do lead")
+
+
+@bp.route("/api/contatos/<int:contato_id>/cadencia", methods=["POST"])
+@centralcomm_required_api
+def api_inscrever_contato(contato_id):
+    id_cadencia = _int((request.get_json(silent=True) or {}).get("id_cadencia"))
+
+    def run(cursor):
+        inscricao = cadencias.inscrever(cursor, contato_id, usuario_id=session.get("user_id"),
+                                        usuario_nome=session.get("user_name"), id_cadencia=id_cadencia)
+        if not inscricao:
+            return _erro("Esta pessoa já está nessa cadência.", 409)
+        return _ok({"id": inscricao}, 201)
+
+    return _transacao(run, "inscrever contato")
+
+
+@bp.route("/api/leads/<int:lead_id>/cadencia", methods=["POST"])
+@centralcomm_required_api
+def api_inscrever_lead(lead_id):
+    """Inscreve todas as pessoas do lead que ainda não têm cadência ativa ou pausada (modelo pelo papel)."""
+    def run(cursor):
+        cursor.execute(
+            """
+            SELECT c.id FROM cadu_lead_contatos c
+             WHERE c.id_lead = %s
+               AND NOT EXISTS (SELECT 1 FROM cadu_lead_cadencia_inscricoes i
+                                WHERE i.id_contato = c.id AND i.status IN ('ativa', 'pausada'))
+             ORDER BY c.is_principal DESC, c.id
+            """,
+            [lead_id],
+        )
+        ids = [r["id"] for r in cursor.fetchall()]
+        criadas = [i for i in (cadencias.inscrever(cursor, cid, usuario_id=session.get("user_id"),
+                                                   usuario_nome=session.get("user_name")) for cid in ids) if i]
+        return _ok({"inscritas": len(criadas)}, 201 if criadas else 200)
+
+    return _transacao(run, "inscrever lead")
+
+
+@bp.route("/api/inscricoes/<int:inscricao_id>/<acao>", methods=["POST"])
+@centralcomm_required_api
+def api_inscricao_acao(inscricao_id, acao):
+    """feito | pular | respondeu | pausar | retomar | cancelar."""
+    if acao not in cadencias.ACOES:
+        return _erro("Ação inválida.", 404)
+    nota = str((request.get_json(silent=True) or {}).get("nota") or "")[:300]
+
+    def run(cursor):
+        estado = cadencias.avancar(cursor, inscricao_id, acao, usuario_id=session.get("user_id"),
+                                   usuario_nome=session.get("user_name"), nota=nota)
+        return _ok({k: _json_safe(v) for k, v in estado.items()})
+
+    return _transacao(run, f"cadência {acao}")
+
+
+@bp.route("/api/leads/<int:lead_id>/golden")
+@centralcomm_required_api
+def api_golden_do_lead(lead_id):
+    """Conta do Golden Circle do lead no trimestre (ou null): alvo, prazo e marco."""
+    trimestre = request.args.get("trimestre") or prospeccao.trimestre_atual()
+
+    def run(cursor):
+        cursor.execute(
+            """
+            SELECT id, id_executivo, trimestre, nome_conta, objetivo, status, meta, valor_alvo, prazo, proximo_marco, papeis_alvo
+              FROM cadu_golden_circle WHERE id_lead = %s AND trimestre = %s
+             ORDER BY id LIMIT 1
+            """,
+            [lead_id, trimestre],
+        )
+        row = cursor.fetchone()
+        return _ok({"conta": {k: _json_safe(v) for k, v in dict(row).items()} if row else None})
+
+    return _transacao(run, "golden do lead")
+
+
+MARCOS = ("primeira_conversa", "reuniao", "apresentacao", "proposta", "fechamento")
+
+
+def _campos_alvo(payload):
+    """Campos editáveis do alvo de uma conta do Golden Circle (validados)."""
+    sets, params = [], []
+    if "status" in payload:
+        if payload["status"] not in STATUS_GOLDEN:
+            raise prospeccao.ProspeccaoError("Status inválido.")
+        sets.append("status = %s"); params.append(payload["status"])
+    if "meta" in payload:
+        sets.append("meta = %s"); params.append(str(payload.get("meta") or "").strip()[:1000] or None)
+    if "valor_alvo" in payload:
+        bruto = str(payload.get("valor_alvo") or "").strip().replace("R$", "").replace(" ", "")
+        if "," in bruto:  # formato brasileiro: 1.234,56
+            bruto = bruto.replace(".", "").replace(",", ".")
+        try:
+            valor = float(bruto) if bruto else None
+        except ValueError:
+            raise prospeccao.ProspeccaoError("Valor-alvo inválido.")
+        sets.append("valor_alvo = %s"); params.append(valor)
+    if "prazo" in payload:
+        prazo = payload.get("prazo") or None
+        if prazo and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(prazo)):
+            raise prospeccao.ProspeccaoError("Prazo inválido.")
+        sets.append("prazo = %s"); params.append(prazo)
+    if "proximo_marco" in payload:
+        marco = payload.get("proximo_marco") or None
+        if marco is not None and marco not in MARCOS:
+            raise prospeccao.ProspeccaoError("Marco inválido.")
+        sets.append("proximo_marco = %s"); params.append(marco)
+    if "papeis_alvo" in payload:
+        papeis = payload.get("papeis_alvo") or []
+        if not isinstance(papeis, list) or any(p not in dict(PAPEIS) for p in papeis):
+            raise prospeccao.ProspeccaoError("Papéis inválidos.")
+        sets.append("papeis_alvo = %s"); params.append(papeis)
+    return sets, params
+
+
+# ─────────────────────────────────────────────────────
+# Operação: mensagens personalizadas, contexto de mercado e tarefas
+# ─────────────────────────────────────────────────────
+@bp.route("/api/mensagens/gerar", methods=["POST"])
+@centralcomm_required_api
+def api_gerar_mensagem():
+    """Mensagem para uma pessoa num canal e etapa (topo/meio), com foco, contexto e histórico da empresa."""
+    payload = request.get_json(silent=True) or {}
+    contato_id = _int(payload.get("id_contato"))
+    if not contato_id:
+        return _erro("Escolha a pessoa.")
+    conn = db.get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT c.nome, c.cargo, c.papel, l.id AS id_lead, COALESCE(l.empresa, l.nome) AS empresa, l.segmento,
+                       l.descricao_empresa, l.oportunidades_midia, l.foco_conteudo, l.contexto_mercado
+                  FROM cadu_lead_contatos c JOIN cadu_leads l ON l.id = c.id_lead WHERE c.id = %s
+                """,
+                [contato_id],
+            )
+            row = cursor.fetchone()
+            if not row:
+                conn.rollback()
+                return _erro("Contato não encontrado.", 404)
+            cursor.execute(
+                """
+                SELECT descricao FROM cadu_lead_atividades
+                 WHERE id_lead = %s AND tipo NOT IN ('status_change', 'atribuicao', 'edicao', 'importacao')
+                 ORDER BY created_at DESC LIMIT 6
+                """,
+                [row["id_lead"]],
+            )
+            historico = [r["descricao"] for r in cursor.fetchall()]
+        conn.rollback()
+    except Exception as exc:
+        conn.rollback()
+        if _sqlstate(exc) in _SQLSTATE_SEM_ESQUEMA:
+            return _erro("A migração do Leads v3 ainda não foi aplicada neste banco.", 503)
+        current_app.logger.error("leads-v3 gerar mensagem: %s", exc)
+        return _erro("Não foi possível preparar a mensagem.", 500)
+
+    contexto = (row["contexto_mercado"] or {}).get("texto") if isinstance(row["contexto_mercado"], dict) else None
+    try:
+        resultado = mensagens.gerar_mensagem(
+            mensagens.resolve_openrouter_key(),
+            canal=payload.get("canal") or "email", etapa=payload.get("etapa") or "topo",
+            objetivo=str(payload.get("objetivo") or "").strip()[:400],
+            pessoa={"nome": row["nome"], "cargo": row["cargo"], "papel": row["papel"]},
+            empresa={"nome": row["empresa"], "segmento": row["segmento"], "descricao": row["descricao_empresa"],
+                     "oportunidades_midia": row["oportunidades_midia"]},
+            foco=mensagens._resumo_foco(row["foco_conteudo"]), contexto=contexto, historico=historico,
+            remetente=session.get("user_name"),
+        )
+    except prospeccao.ProspeccaoError as exc:
+        return _erro(str(exc), 400)
+    return _ok(resultado)
+
+
+@bp.route("/api/leads/<int:lead_id>/contexto", methods=["POST"])
+@centralcomm_required_api
+def api_contexto_mercado(lead_id):
+    """Pesquisa na web (Sonar) notícias, campanhas e tendências da empresa; guarda com as fontes."""
+    conn = db.get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT COALESCE(empresa, nome) AS empresa, dominio, url_site, segmento FROM cadu_leads WHERE id = %s", [lead_id])
+            lead = cursor.fetchone()
+        conn.rollback()
+    except Exception as exc:
+        conn.rollback()
+        if _sqlstate(exc) in _SQLSTATE_SEM_ESQUEMA:
+            return _erro("A migração do Leads v3 ainda não foi aplicada neste banco.", 503)
+        return _erro("Não foi possível ler o lead.", 500)
+    if not lead:
+        return _erro("Lead não encontrado.", 404)
+    try:
+        contexto = mensagens.gerar_contexto_mercado(
+            mensagens.resolve_openrouter_key(), empresa=lead["empresa"],
+            dominio=lead["dominio"] or prospeccao.normalizar_dominio(lead["url_site"]), segmento=lead["segmento"])
+    except prospeccao.ProspeccaoError as exc:
+        return _erro(str(exc), 400)
+
+    def run(cursor):
+        cursor.execute("UPDATE cadu_leads SET contexto_mercado = %s WHERE id = %s", [db.Json(contexto), lead_id])
+        return _ok(contexto)
+
+    return _transacao(run, "contexto de mercado")
+
+
+def tarefas_pendentes(cursor, executivo=None):
+    """Atividades com prazo até hoje e não concluídas (as criadas à mão, fora das cadências)."""
+    filtro = "AND l.id_executivo = %(executivo)s" if executivo else ""
+    cursor.execute(
+        f"""
+        SELECT a.id, a.id_lead, a.id_contato, a.tipo, a.descricao, a.data_prazo, a.usuario_nome,
+               COALESCE(l.empresa, l.nome) AS empresa, c.nome AS contato_nome,
+               EXISTS (SELECT 1 FROM cadu_golden_circle g WHERE g.id_lead = a.id_lead AND g.trimestre = %(trimestre)s) AS golden
+          FROM cadu_lead_atividades a
+          JOIN cadu_leads l ON l.id = a.id_lead
+          LEFT JOIN cadu_lead_contatos c ON c.id = a.id_contato
+         WHERE a.data_prazo IS NOT NULL AND a.data_prazo <= CURRENT_DATE AND COALESCE(a.concluida, FALSE) = FALSE {filtro}
+         ORDER BY golden DESC, a.data_prazo, a.id
+         LIMIT 200
+        """,
+        {"executivo": executivo, "trimestre": prospeccao.trimestre_atual()},
+    )
+    return cursor.fetchall()
+
+
+@bp.route("/api/operacao")
+@centralcomm_required_api
+def api_operacao():
+    """Tudo o que está pendente para o executivo: passos de cadência vencidos e tarefas com prazo."""
+    executivo = _int(request.args.get("executivo"))
+
+    def run(cursor):
+        return _ok({"passos": _linhas(cadencias.fila_do_dia(cursor, executivo=executivo)),
+                    "tarefas": _linhas(tarefas_pendentes(cursor, executivo))})
+
+    return _transacao(run, "operação")

@@ -269,7 +269,9 @@ def session_title(row: dict, dados: dict) -> str:
     campaign_data = dados.get("campanha") if isinstance(dados.get("campanha"), dict) else {}
     objetivo = text(row.get("objetivo") or dados.get("objetivo") or campaign_data.get("objetivo"))
     if cliente and objetivo and cliente.lower() not in {"cliente temporário", "cliente temporario", "anunciante"}:
-        return f"{cliente} · {objetivo}"
+        from .catalog import objetivo_label
+
+        return f"{cliente} · {objetivo_label(objetivo) or objetivo}"
     return cliente or "Campanha sem nome"
 
 

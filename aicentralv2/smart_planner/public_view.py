@@ -168,6 +168,40 @@ def _looks_like_density(channels: list[dict]) -> bool:
     return known == 0 and density > 0
 
 
+def _fronts(page: dict, channels: list[dict]) -> list[dict]:
+    """Frentes da campanha (impacto, remarketing) com seus canais, para o bloco de mídia.
+
+    Sem táticas confirmadas devolve vazio e a página mostra a lista simples de canais.
+    """
+    fronts = [as_dict(item) for item in as_list(as_dict(page).get("taticas")) if as_dict(item).get("tipo")]
+    if not fronts:
+        return []
+    described = {
+        text(as_dict(item).get("tipo")): text(as_dict(item).get("descricao"))
+        for item in as_list(as_dict(as_dict(page).get("media_narrative")).get("taticas"))
+    }
+    out = []
+    for front in fronts:
+        tipo = text(front.get("tipo"))
+        rows = [channel for channel in channels if text(channel.get("tatica")) == tipo]
+        if not rows:
+            continue
+        out.append({
+            "tipo": tipo,
+            "label": text(front.get("tatica")) or tipo.title(),
+            "weight": front.get("peso_no_mix_pct"),
+            "text": described.get(tipo) or text(front.get("para_que")),
+            "formats": [text(item) for item in as_list(front.get("formatos")) if text(item)],
+            "segment": text(front.get("recorte_de_portais")),
+            "channels": rows,
+        })
+    placed = {text(channel.get("id")) for front in out for channel in front["channels"]}
+    rest = [channel for channel in channels if text(channel.get("id")) not in placed]
+    if out and rest:
+        out.append({"tipo": "outros", "label": "Demais canais", "weight": None, "text": "", "formats": [], "segment": "", "channels": rest})
+    return out
+
+
 def _decorate_channel(item: dict) -> dict:
     key = text(item.get("id"))
     meta = CHANNEL_CATALOG.get(key) or {}
@@ -188,6 +222,7 @@ def _decorate_channel(item: dict) -> dict:
         "logo": CHANNEL_LOGOS.get(key, ""),
         "color": CHANNEL_COLORS.get(key, "#1e4d4f"),
         "group": group,
+        "tatica": text(item.get("tatica")),
     }
 
 
@@ -1477,6 +1512,7 @@ def public_view(row: dict, document: str | None = None) -> dict:
         "support": support,
         "overview": overview,
         "overview_support": overview_support,
+        "fronts": _fronts(page_v2, media.get("channels") or []),
         "editorial_context": {
             "challenge": challenge_v3,
             "opportunity": opportunity_v3,

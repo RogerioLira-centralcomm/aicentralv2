@@ -915,6 +915,37 @@ def _core_from_page(page: dict, nucleo: dict, snapshot: dict, material_hash: str
     return core
 
 
+TITLE_LIMIT = 64
+
+
+def _short_title(value: str, limit: int = TITLE_LIMIT) -> str:
+    """Título em até duas linhas: corta na última palavra inteira antes do limite, sem reticências."""
+    title = " ".join(text(value).split()).rstrip(".:;")
+    if len(title) <= limit:
+        return title
+    cut = title[:limit].rsplit(" ", 1)[0]
+    # Não termina em artigo ou preposição solta.
+    while cut.split(" ")[-1].lower() in {"a", "o", "as", "os", "de", "da", "do", "das", "dos", "em", "na", "no", "para", "e", "com", "por", "um", "uma"}:
+        cut = cut.rsplit(" ", 1)[0] if " " in cut else cut
+        if " " not in cut:
+            break
+    return cut.rstrip(",.:;—- ")
+
+
+def _limit_titles(page: dict) -> None:
+    """Os títulos da página pública cabem em duas linhas; o detalhe fica no corpo do bloco."""
+    for key in ("challenge", "opportunity", "thesis", "market_evidence"):
+        block = page.get(key)
+        if isinstance(block, dict) and text(block.get("title")):
+            block["title"] = _short_title(block["title"])
+    creative = page.get("creative_expression")
+    if isinstance(creative, dict) and text(creative.get("headline")):
+        creative["headline"] = _short_title(creative["headline"], 80)
+    for step in as_list(as_dict(page.get("recommendation")).get("journey")):
+        if isinstance(step, dict) and text(step.get("moment")):
+            step["moment"] = _short_title(step["moment"])
+
+
 def _drop_blank_items(value):
     """O molde do JSON traz [""] e [{"name": ""}]; item vazio não vai para a página."""
     if isinstance(value, dict):
@@ -940,6 +971,7 @@ def _one_page_v4(snapshot: dict, evidence: dict, estimates: dict, material_hash:
     nucleo = _drop_blank_items(as_dict(raw.get("nucleo")))
     guard = _guard_page_numbers(page, payload)
     page = _drop_blank_items(page)
+    _limit_titles(page)
     page["visual_direction"] = {**_visual_direction_fallback(snapshot), **{
         key: value for key, value in as_dict(page.get("visual_direction")).items() if text(value)
     }}

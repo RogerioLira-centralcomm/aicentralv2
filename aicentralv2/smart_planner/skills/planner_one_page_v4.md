@@ -38,14 +38,14 @@ O CONTEXTO separa `confirmado` de `lacunas`.
 
 A página é lida em um minuto, então cada campo tem um tamanho certo. Profundidade aqui vem de especificidade, não de volume.
 - `challenge.body` e `opportunity.body`: 2 a 3 frases cada.
-- `thesis.statement`: 1 frase. `thesis.supporting_argument`: 1 a 2 frases.
+- `thesis.statement`: 1 frase de até 24 palavras, que abre a página e precisa caber em duas linhas. `thesis.supporting_argument`: 1 a 2 frases.
 - `recommendation.summary`: 2 a 3 frases sobre como a mídia resolve o desafio.
 - `recommendation.audience`: 1 a 2 frases. `recommendation.message`: 1 frase.
 - `journey`: de 2 a 4 momentos, cada um com o canal que o atende.
 - `channel_roles[].function`: 1 a 2 frases ligando o canal ao objetivo. `format_rationale`: 1 frase.
 - `creative_expression.headline`: até 10 palavras. `supporting_text`: 1 a 2 frases. `cta`: até 4 palavras.
 - `commercial_defense`: até 3 itens em cada lista, 1 frase cada, e de 2 a 3 objeções com resposta.
-- `title` dos blocos: concreto e derivado da decisão, nunca genérico como "Desafio" ou "Oportunidade".
+- `title` dos blocos e `moment` da jornada: concreto e derivado da decisão, nunca genérico como "Desafio" ou "Oportunidade", com no máximo 8 palavras e sem ponto final. O título nomeia a ideia do bloco; o detalhe vai no corpo.
 
 ## Saída
 

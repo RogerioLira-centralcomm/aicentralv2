@@ -203,3 +203,20 @@ def test_persist_canais_keeps_saved_taticas_when_payload_omits_them(monkeypatch)
     assert [item["tipo"] for item in campanha["taticas"]] == ["impacto", "remarketing"]
     persist_canais("tok", {"canais": CANAIS, "taticas": []})
     assert saved["dados_detectados"]["campanha"]["taticas"] == []
+
+
+def test_public_fronts_group_channels_and_keep_unassigned_ones():
+    from aicentralv2.smart_planner.public_view import _fronts
+
+    page = {
+        "taticas": [{"tipo": "impacto", "tatica": "Impacto", "peso_no_mix_pct": 60.0, "formatos": ["Hotspot"], "recorte_de_portais": "classes AB", "para_que": "Apresenta."},
+                    {"tipo": "remarketing", "tatica": "Remarketing", "peso_no_mix_pct": 40.0, "formatos": ["DCO · anúncio dinâmico"]}],
+        "media_narrative": {"taticas": [{"tipo": "remarketing", "descricao": "Volta a falar com quem visitou o site."}]},
+    }
+    channels = [{"id": "uol", "tatica": "impacto"}, {"id": "dv360", "tatica": "remarketing"}, {"id": "meta_ads", "tatica": ""}]
+    fronts = _fronts(page, channels)
+    assert [front["tipo"] for front in fronts] == ["impacto", "remarketing", "outros"]
+    assert fronts[0]["segment"] == "classes AB" and fronts[0]["text"] == "Apresenta."
+    assert fronts[1]["text"] == "Volta a falar com quem visitou o site."
+    assert [c["id"] for c in fronts[2]["channels"]] == ["meta_ads"]
+    assert _fronts({}, channels) == []

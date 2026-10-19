@@ -62,7 +62,7 @@ def test_history_row_links_to_canvas_when_quadro_exists():
         "updated_at": None,
     })
     # Sem nome de campanha, o título combina cliente e objetivo.
-    assert row["titulo"] == "Montana Grill · reconhecimento"
+    assert row["titulo"] == "Montana Grill · Reconhecimento"
     assert row["agencia"] == "Casa"
     assert row["executivo"] == "Apolo Lira"
     assert row["logo_url"] == "/static/x.png"

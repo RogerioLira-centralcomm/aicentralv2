@@ -172,3 +172,19 @@ def test_repair_drops_alias_that_duplicates_existing_role():
     }
     generator._repair_page_channels(page, SNAPSHOT)
     assert [role["channel"] for role in page["recommendation"]["channel_roles"]] == ["YouTube", "Meta Ads"]
+
+
+def test_titles_are_cut_at_a_whole_word_without_dangling_connectors():
+    short = generator._short_title("Transformar inspiração de Verão em visita qualificada para o e-commerce da marca")
+    assert len(short) <= generator.TITLE_LIMIT and not short.endswith(("para", "o", "de"))
+    assert generator._short_title("Título curto.") == "Título curto"
+
+
+def test_limit_titles_shortens_block_titles_but_never_the_thesis_text():
+    long_title = "Usar portais como vitrine editorial e gatilho de retomada para quem já viu a coleção"
+    page = {"opportunity": {"title": long_title, "body": long_title}, "thesis": {"statement": long_title * 2},
+            "recommendation": {"journey": [{"moment": long_title}]}}
+    generator._limit_titles(page)
+    assert len(page["opportunity"]["title"]) <= generator.TITLE_LIMIT
+    assert page["opportunity"]["body"] == long_title and page["thesis"]["statement"] == long_title * 2
+    assert len(page["recommendation"]["journey"][0]["moment"]) <= generator.TITLE_LIMIT

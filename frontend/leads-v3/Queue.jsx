@@ -66,7 +66,7 @@ function QueueItem({lead, statusLabel, active, selected, onOpen, onToggle}) {
 }
 
 export function Queue({boot, leads, loading, error, filters, setFilters, activeId, selected, busy,
-  onOpen, onToggle, onToggleAll, onSelectAll, onBulk, onDisqualify, onClear, onReload}) {
+  onOpen, onToggle, onToggleAll, onSelectAll, onBulk, onDisqualify, onClear, onReload, mode, setMode, children}) {
   const statusLabel = Object.fromEntries(boot.status.map(s => [s.value, s.label]));
   const allSelected = leads.length > 0 && leads.every(l => selected.has(l.id));
   const someSelected = selected.size > 0;
@@ -74,17 +74,26 @@ export function Queue({boot, leads, loading, error, filters, setFilters, activeI
 
   return (
     <aside className="lv3-col lv3-queue" aria-label="Fila de leads">
+      <div className="lv3-tabs lv3-tabs--queue" role="tablist">
+        <button type="button" role="tab" aria-selected={mode === 'fila'} className={mode === 'fila' ? 'is-on' : ''} onClick={() => setMode('fila')}>
+          <Icon name="inbox"/>Fila
+        </button>
+        <button type="button" role="tab" aria-selected={mode === 'golden'} className={mode === 'golden' ? 'is-on' : ''} onClick={() => setMode('golden')}>
+          <Icon name="bullseye"/>Golden Circle
+        </button>
+      </div>
       <div className="lv3-queue__filters">
-        <div className="lv3-search">
+        {mode === 'fila' && <div className="lv3-search">
           <Icon name="magnifying-glass"/>
           <input type="search" placeholder="Buscar empresa, nome ou e-mail" value={filters.q} onChange={set('q')} aria-label="Buscar leads"/>
-        </div>
-        <div className="lv3-queue__selects">
+        </div>}
+        <div className={`lv3-queue__selects ${mode === 'golden' ? 'lv3-queue__selects--single' : ''}`}>
           <select className="lv3-select" value={filters.executivo} onChange={set('executivo')} aria-label="Responsável">
             <option value="">Todos os responsáveis</option>
             <option value="sem">Sem responsável (Inbox)</option>
             {boot.executivos.map(e => <option key={e.id} value={String(e.id)}>{e.nome}</option>)}
           </select>
+          {mode === 'fila' && <>
           <select className="lv3-select" value={filters.status} onChange={set('status')} aria-label="Etapa">
             <option value="">Todas as etapas</option>
             {boot.status.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
@@ -93,9 +102,11 @@ export function Queue({boot, leads, loading, error, filters, setFilters, activeI
             <option value="">Todo potencial</option>
             {boot.potenciais.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
+          </>}
         </div>
       </div>
 
+      {mode === 'golden' ? children : <>
       {someSelected ? (
         <BulkBar boot={boot} count={selected.size} total={leads.length} onSelectAll={onSelectAll} busy={busy} onAction={onBulk} onDisqualify={onDisqualify} onClear={onClear}/>
       ) : (
@@ -122,6 +133,7 @@ export function Queue({boot, leads, loading, error, filters, setFilters, activeI
           ))}
         </ul>
       )}
+      </>}
     </aside>
   );
 }

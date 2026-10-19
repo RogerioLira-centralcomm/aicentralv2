@@ -46,6 +46,23 @@ export function createApi(boot) {
     addActivity: (id, body) => request(`${legacy}/${id}/atividades`, {method: 'POST', body}),
     toggleActivity: (activityId, concluida) => request(`${legacy}/atividades/${activityId}/concluir`, {method: 'PATCH', body: {concluida}}),
 
+    convert: (id, body) => request(`${legacy}/${id}/converter-cliente`, {method: 'POST', body}),
+    lookupCnpj: cnpj => request(`/api/buscar_cnpj/${cnpj}`).then(p => p.data || p),
+    updateCompany: (id, body) => request(`${root}/leads/${id}/empresa`, {method: 'PATCH', body}),
+
+    golden: (trimestre, executivo) => request(`${root}/golden${qs({trimestre, executivo})}`).then(p => p.data),
+    validateGolden: body => request(`${root}/golden/validar`, {method: 'POST', body}).then(p => p.data),
+    createGolden: body => request(`${root}/golden`, {method: 'POST', body}).then(p => p.data),
+    updateGolden: (id, status) => request(`${root}/golden/${id}`, {method: 'PATCH', body: {status}}),
+    removeGolden: id => request(`${root}/golden/${id}`, {method: 'DELETE'}),
+
+    candidates: id => request(`${root}/leads/${id}/candidatos`).then(p => p.data.candidatos),
+    discover: (id, fonte) => request(`${root}/leads/${id}/descobrir`, {method: 'POST', body: {fonte}}).then(p => p.data),
+    approveCandidate: (candidateId, revelar, papel) => request(`${root}/candidatos/${candidateId}/aprovar`, {method: 'POST', body: {revelar, papel}}).then(p => p.data),
+    discardCandidate: candidateId => request(`${root}/candidatos/${candidateId}/descartar`, {method: 'POST', body: {}}),
+    revealContact: contactId => request(`${root}/contatos/${contactId}/revelar`, {method: 'POST', body: {}}).then(p => p.data),
+    updateProfile: (contactId, body) => request(`${root}/contatos/${contactId}/perfil`, {method: 'PATCH', body}),
+
     communications: id => request(`${legacy}/${id}/comunicacoes`).then(p => p.comunicacoes || p.data || []),
     saveCommunication: (id, body) => request(`${legacy}/${id}/comunicacoes`, {method: 'POST', body}),
     generateCommunication: body => request('/api/ia/gerar-comunicacao', {method: 'POST', body}),

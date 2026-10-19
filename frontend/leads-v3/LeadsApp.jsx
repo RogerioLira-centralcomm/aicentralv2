@@ -4,10 +4,13 @@ import {Queue} from './Queue.jsx';
 import {LeadPanel} from './LeadPanel.jsx';
 import {Activities} from './Activities.jsx';
 import {Comms} from './Comms.jsx';
-import {DisqualifyDialog, EditDialog, NewLeadDialog} from './Dialogs.jsx';
+import {CompanyDialog, ConvertDialog, DisqualifyDialog, EditDialog, GoldenAddDialog, NewLeadDialog} from './Dialogs.jsx';
+import {GoldenCircle} from './GoldenCircle.jsx';
 import {Button, Empty, Icon, Toasts} from './ui.jsx';
 
 const FILTERS_KEY = 'leads-v3:filtros';
+const MODE_KEY = 'leads-v3:modo';
+const readMode = () => { try { return localStorage.getItem(MODE_KEY) === 'golden' ? 'golden' : 'fila'; } catch { return 'fila'; } };
 
 function readFilters(boot) {
   const base = {executivo: boot.filtroExecutivoInicial || '', status: '', potencial: '', q: ''};
@@ -39,7 +42,11 @@ export function LeadsApp({boot}) {
   const detailSeq = useRef(0);
 
   const [activeId, setActiveId] = useState(null);
-  const [detail, setDetail] = useState({lead: null, contacts: [], activities: [], communications: [], loading: false});
+  const [detail, setDetail] = useState({lead: null, contacts: [], activities: [], communications: [], candidates: [], loading: false});
+  const [mode, setModeState] = useState(readMode);
+  const [trimestre, setTrimestre] = useState(boot.trimestre);
+  const [golden, setGolden] = useState({data: null, loading: false, error: ''});
+  const goldenSeq = useRef(0);
   const [tab, setTab] = useState('atividades');
   const [dialog, setDialog] = useState(null); // {type: 'disqualify', ids} | {type: 'edit'} | {type: 'new'}
   const [toasts, setToasts] = useState([]);
@@ -107,13 +114,14 @@ export function LeadsApp({boot}) {
   const loadDetail = useCallback(async (id, {quiet = false} = {}) => {
     if (!id) return;
     const seq = ++detailSeq.current;
-    if (!quiet) setDetail(d => ({...d, loading: true, ...(d.lead?.id === id ? {} : {lead: null, contacts: [], activities: [], communications: []})}));
+    if (!quiet) setDetail(d => ({...d, loading: true, ...(d.lead?.id === id ? {} : {lead: null, contacts: [], activities: [], communications: [], candidates: []})}));
     try {
-      const [lead, contacts, activities, communications] = await Promise.all([
+      const [lead, contacts, activities, communications, candidates] = await Promise.all([
         api.lead(id), api.contacts(id), api.activities(id), api.communications(id).catch(() => []),
+        api.candidates(id).catch(() => []), // sem a migração do Leads v3 a fila de candidatos fica vazia
       ]);
       if (seq !== detailSeq.current) return; // o usuário já abriu outro lead
-      setDetail({lead, contacts, activities, communications, loading: false});
+      setDetail({lead, contacts, activities, communications, candidates, loading: false});
     } catch (error) {
       if (seq !== detailSeq.current) return;
       setDetail(d => ({...d, loading: false}));
@@ -123,7 +131,26 @@ export function LeadsApp({boot}) {
 
   useEffect(() => { if (activeId) loadDetail(activeId); }, [activeId, loadDetail]);
 
-  const refreshActive = useCallback(() => { loadDetail(activeId, {quiet: true}); loadList(); }, [activeId, loadDetail, loadList]);
+  // Golden Circle ------------------------------------------------------
+  const setMode = value => { setModeState(value); try { localStorage.setItem(MODE_KEY, value); } catch { /* sem armazenamento */ } };
+  const loadGolden = useCallback(async () => {
+    const seq = ++goldenSeq.current;
+    setGolden(g => ({...g, loading: true, error: ''}));
+    try {
+      const executivo = /^\d+$/.test(filters.executivo) ? filters.executivo : '';
+      const data = await api.golden(trimestre, executivo);
+      if (seq === goldenSeq.current) setGolden({data, loading: false, error: ''});
+    } catch (error) {
+      if (seq === goldenSeq.current) setGolden({data: null, loading: false, error: error.message});
+    }
+  }, [api, trimestre, filters.executivo]);
+  useEffect(() => { if (mode === 'golden') loadGolden(); }, [mode, loadGolden]);
+
+  const refreshActive = useCallback(() => {
+    loadDetail(activeId, {quiet: true});
+    loadList();
+    if (mode === 'golden') loadGolden();
+  }, [activeId, loadDetail, loadList, loadGolden, mode]);
 
   // Navegação pelo teclado na fila: ↑/↓ (fora de campos de texto).
   useEffect(() => {
@@ -160,6 +187,14 @@ export function LeadsApp({boot}) {
     } catch (error) { notify(error.message, 'error'); return false; }
   };
 
+  const saveCompany = async body => {
+    try { await api.updateCompany(activeId, body); notify('Dados da empresa salvos.'); setDialog(null); refreshActive(); return true; }
+    catch (error) { notify(error.message, 'error'); return false; }
+  };
+  const goldenAction = (fn, done) => async (...args) => {
+    try { await fn(...args); if (done) notify(done); loadGolden(); } catch (error) { notify(error.message, 'error'); }
+  };
+
   const {lead} = detail;
   const activities = lead && <Activities key={lead.id} api={api} leadId={lead.id} contacts={detail.contacts} activities={detail.activities} onChanged={refreshActive} notify={notify}/>;
   const comms = lead && <Comms key={lead.id} api={api} lead={lead} contacts={detail.contacts} communications={detail.communications} onChanged={refreshActive} notify={notify}/>;
@@ -183,10 +218,18 @@ export function LeadsApp({boot}) {
           activeId={activeId} selected={selected} busy={bulkBusy}
           onOpen={setActiveId} onToggle={toggle} onToggleAll={toggleAll} onSelectAll={() => setSelected(new Set(leads.map(l => l.id)))} onClear={() => setSelected(new Set())} onReload={loadList}
           onBulk={(acao, valor) => runBulk(acao, [...selected], {valor})}
-          onDisqualify={() => setDialog({type: 'disqualify', ids: [...selected]})}/>
+          onDisqualify={() => setDialog({type: 'disqualify', ids: [...selected]})}
+          mode={mode} setMode={setMode}>
+          <GoldenCircle boot={boot} data={golden.data} loading={golden.loading} error={golden.error}
+            trimestre={trimestre} setTrimestre={setTrimestre} executivo={filters.executivo} activeLeadId={activeId}
+            onOpen={setActiveId} onAdd={() => setDialog({type: 'golden'})} onReload={loadGolden}
+            onStatus={goldenAction((id, status) => api.updateGolden(id, status))}
+            onRemove={goldenAction(id => api.removeGolden(id), 'Conta retirada do Golden Circle.')}/>
+        </Queue>
 
-        <LeadPanel boot={boot} api={api} lead={lead} contacts={detail.contacts} loading={detail.loading} notify={notify}
+        <LeadPanel boot={boot} api={api} lead={lead} contacts={detail.contacts} candidates={detail.candidates} loading={detail.loading} notify={notify}
           onChanged={refreshActive} onEdit={() => setDialog({type: 'edit'})}
+          onEditCompany={() => setDialog({type: 'company'})} onConvert={() => setDialog({type: 'convert'})}
           onDisqualify={() => setDialog({type: 'disqualify', ids: [lead.id]})}/>
 
         {wide ? (
@@ -220,6 +263,18 @@ export function LeadsApp({boot}) {
       {dialog?.type === 'disqualify' && <DisqualifyDialog boot={boot} count={dialog.ids.length} onCancel={() => setDialog(null)} onConfirm={confirmDisqualify}/>}
       {dialog?.type === 'edit' && lead && <EditDialog lead={lead} onCancel={() => setDialog(null)} onSave={saveEdit}/>}
       {dialog?.type === 'new' && <NewLeadDialog boot={boot} onCancel={() => setDialog(null)} onSave={createLead}/>}
+      {dialog?.type === 'company' && lead && <CompanyDialog lead={lead} onCancel={() => setDialog(null)} onSave={saveCompany}/>}
+      {dialog?.type === 'convert' && lead && (
+        <ConvertDialog boot={boot} api={api} lead={lead} notify={notify} onCancel={() => setDialog(null)}
+          onDone={() => { notify('Lead convertido em cliente.'); setDialog(null); refreshActive(); }}/>
+      )}
+      {dialog?.type === 'golden' && (
+        <GoldenAddDialog boot={boot} api={api} trimestre={trimestre} executivo={filters.executivo} notify={notify} onCancel={() => setDialog(null)}
+          onDone={r => {
+            notify(`${r.criadas.length} ${r.criadas.length === 1 ? 'empresa adicionada' : 'empresas adicionadas'}${r.recusadas.length ? ` · ${r.recusadas.length} recusadas` : ''}.`);
+            setDialog(null); loadGolden(); loadList();
+          }}/>
+      )}
       <Toasts items={toasts} onDismiss={id => setToasts(list => list.filter(t => t.id !== id))}/>
     </div>
   );

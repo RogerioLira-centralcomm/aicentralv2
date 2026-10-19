@@ -1,97 +1,40 @@
 import React, {useState} from 'react';
-import {Button, Empty, Field, Icon, decode, formatDate, whatsappUrl} from './ui.jsx';
+import {Button, Empty, Field, Icon, decode, formatDate, linkedinSearchUrl, whatsappUrl} from './ui.jsx';
+import {People} from './People.jsx';
 
-function Info({label, children}) {
+const CLOSED_LABELS = {nao_qualificado: 'Desqualificado', fechado_ganho: 'Ganho', fechado_perdido: 'Perdido'};
+const TIPO_LEAD = {cliente: 'Cliente', parceiro: 'Parceiro', fornecedor: 'Fornecedor', midia: 'Mídia', outro: 'Outro'};
+const PORTE = {micro: 'Micro', pequeno: 'Pequeno', medio: 'Médio', grande: 'Grande', enterprise: 'Enterprise'};
+
+function Info({label, children, wide = false}) {
   return (
-    <div className="lv3-info">
+    <div className={`lv3-info ${wide ? 'lv3-info--wide' : ''}`}>
       <dt>{label}</dt>
       <dd>{children || <span className="lv3-muted">—</span>}</dd>
     </div>
   );
 }
 
-const CLOSED_LABELS = {nao_qualificado: 'Desqualificado', fechado_ganho: 'Ganho', fechado_perdido: 'Perdido'};
-const EMPTY_CONTACT ={nome: '', cargo: '', email: '', telefone: ''};
+const asList = value => (Array.isArray(value) ? value : value ? String(value).split(/[,;\n]/) : []).map(v => decode(v).trim()).filter(Boolean);
+const formatCnpj = value => {
+  const d = String(value || '').replace(/\D/g, '');
+  return d.length === 14 ? d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : value;
+};
+const siteUrl = value => (/^https?:/.test(value) ? value : `https://${value}`);
 
-function Contacts({api, leadId, contacts, onChanged, notify}) {
-  const [draft, setDraft] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const set = key => event => setDraft(d => ({...d, [key]: event.target.value}));
-
-  const save = async event => {
-    event.preventDefault();
-    if (!draft.nome.trim()) return notify('Informe o nome do contato.', 'error');
-    setSaving(true);
-    try {
-      await api.addContact(leadId, draft);
-      setDraft(null);
-      notify('Contato adicionado.');
-      onChanged();
-    } catch (error) { notify(error.message, 'error'); } finally { setSaving(false); }
-  };
-  const act = (fn, done) => async () => {
-    try { await fn(); notify(done); onChanged(); } catch (error) { notify(error.message, 'error'); }
-  };
-
+function Socials({value}) {
+  let redes = value;
+  if (typeof redes === 'string') { try { redes = JSON.parse(redes); } catch { redes = null; } }
+  const entries = redes && typeof redes === 'object' ? Object.entries(redes).filter(([, url]) => typeof url === 'string' && /^https?:/.test(url)) : [];
+  if (!entries.length) return null;
   return (
-    <section className="lv3-section">
-      <header className="lv3-section__head">
-        <h3>Pessoas <span className="lv3-count">{contacts.length}</span></h3>
-        {!draft && <Button size="sm" icon="user-plus" onClick={() => setDraft(EMPTY_CONTACT)}>Adicionar pessoa</Button>}
-      </header>
-
-      {draft && (
-        <form className="lv3-card lv3-form" onSubmit={save}>
-          <div className="lv3-form__grid">
-            <Field label="Nome"><input className="lv3-input" value={draft.nome} onChange={set('nome')} required/></Field>
-            <Field label="Cargo"><input className="lv3-input" value={draft.cargo} onChange={set('cargo')}/></Field>
-            <Field label="E-mail"><input className="lv3-input" type="email" value={draft.email} onChange={set('email')}/></Field>
-            <Field label="Telefone"><input className="lv3-input" value={draft.telefone} onChange={set('telefone')}/></Field>
-          </div>
-          <div className="lv3-form__actions">
-            <Button onClick={() => setDraft(null)} disabled={saving}>Cancelar</Button>
-            <Button variant="primary" type="submit" disabled={saving}>{saving ? 'Salvando…' : 'Salvar pessoa'}</Button>
-          </div>
-        </form>
-      )}
-
-      {!contacts.length && !draft ? (
-        <Empty icon="users" title="Nenhuma pessoa cadastrada">Adicione quem decide ou influencia a compra nesta empresa.</Empty>
-      ) : (
-        <ul className="lv3-people">
-          {contacts.map(c => (
-            <li key={c.id} className="lv3-person">
-              <div className="lv3-person__avatar" aria-hidden="true">{decode(c.nome).slice(0, 1).toUpperCase()}</div>
-              <div className="lv3-person__body">
-                <div className="lv3-person__name">
-                  {decode(c.nome)}
-                  {c.is_principal && <span className="lv3-chip lv3-chip--brand">Principal</span>}
-                </div>
-                <div className="lv3-person__role">{c.cargo || c.departamento || 'Cargo não informado'}</div>
-                <div className="lv3-person__links">
-                  {c.email && <a href={`mailto:${c.email}`}><Icon name="envelope"/>{c.email}</a>}
-                  {c.telefone && <a href={whatsappUrl(c.telefone)} target="_blank" rel="noopener noreferrer"><Icon name="phone"/>{c.telefone}</a>}
-                </div>
-              </div>
-              <div className="lv3-person__actions">
-                {!c.is_principal && (
-                  <button type="button" className="lv3-iconbtn" title="Tornar principal" aria-label={`Tornar ${decode(c.nome)} principal`}
-                    onClick={act(() => api.makePrimary(leadId, c.id), 'Contato principal atualizado.')}><Icon name="star"/></button>
-                )}
-                <button type="button" className="lv3-iconbtn lv3-iconbtn--danger" title="Remover" aria-label={`Remover ${decode(c.nome)}`}
-                  onClick={() => { if (window.confirm(`Remover ${decode(c.nome)} deste lead?`)) act(() => api.removeContact(c.id), 'Contato removido.')(); }}>
-                  <Icon name="trash"/>
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+    <div className="lv3-socials">
+      {entries.map(([rede, url]) => <a key={rede} href={url} target="_blank" rel="noopener noreferrer"><Icon name="arrow-up-right-from-square"/>{rede}</a>)}
+    </div>
   );
 }
 
-export function LeadPanel({boot, api, lead, contacts, loading, notify, onChanged, onEdit, onDisqualify}) {
+export function LeadPanel({boot, api, lead, contacts, candidates, loading, notify, onChanged, onEdit, onEditCompany, onConvert, onDisqualify}) {
   const [busy, setBusy] = useState(false);
   if (loading && !lead) return <section className="lv3-col lv3-lead"><div className="lv3-skeleton"/></section>;
   if (!lead) {
@@ -105,12 +48,16 @@ export function LeadPanel({boot, api, lead, contacts, loading, notify, onChanged
   const statusIndex = boot.status.findIndex(s => s.value === lead.status);
   const next = statusIndex >= 0 ? boot.status[statusIndex + 1] : null;
   const closed = statusIndex < 0;
+  const converted = !!lead.convertido_cliente_id;
   const patch = async (body, done) => {
     setBusy(true);
     try { await api.updateStatus(lead.id, body); notify(done); onChanged(); }
     catch (error) { notify(error.message, 'error'); } finally { setBusy(false); }
   };
   const nome = decode(lead.empresa || lead.nome);
+  const servicos = asList(lead.servicos);
+  const clientes = asList(lead.clientes_mencionados);
+  const temEnriquecimento = lead.descricao_empresa || lead.mercado_alvo || lead.presenca_digital || lead.oportunidades_midia || servicos.length;
 
   return (
     <section className="lv3-col lv3-lead" aria-label="Lead selecionado">
@@ -118,10 +65,17 @@ export function LeadPanel({boot, api, lead, contacts, loading, notify, onChanged
         <div className="lv3-lead__title">
           {lead.favicon_url && <img src={lead.favicon_url} alt="" className="lv3-lead__favicon"/>}
           <div>
-            <h2>{nome || 'Sem nome'}</h2>
+            <h2>{nome || 'Sem nome'}{lead.prioridade_conta && <span className="lv3-prio">Prioridade {lead.prioridade_conta}</span>}</h2>
             <p>{[lead.segmento, lead.fonte && `via ${lead.fonte}`, lead.created_at && `entrou em ${formatDate(lead.created_at)}`].filter(Boolean).join(' · ')}</p>
           </div>
         </div>
+
+        {converted && (
+          <div className="lv3-banner lv3-banner--success"><Icon name="circle-check"/>Convertido em cliente{lead.data_conversao ? ` em ${formatDate(lead.data_conversao)}` : ''}.</div>
+        )}
+        {lead.status === 'nao_qualificado' && (
+          <div className="lv3-banner lv3-banner--danger"><Icon name="ban"/>Desqualificado{lead.motivo_desqualificacao ? `: ${lead.motivo_desqualificacao}` : ''}.</div>
+        )}
 
         <div className="lv3-lead__controls">
           <Field label="Etapa">
@@ -153,46 +107,88 @@ export function LeadPanel({boot, api, lead, contacts, loading, notify, onChanged
               Avançar para {next.label}
             </Button>
           )}
-          <Button icon="pen" onClick={onEdit} disabled={busy}>Editar dados</Button>
-          <a className="lv3-btn lv3-btn--secondary lv3-btn--md" href={`${boot.legacyUrl}`} target="_blank" rel="noopener noreferrer"
-            title="Converter e mesclar ainda ficam no Leads atual">
-            <Icon name="user-check"/><span>Converter em cliente</span>
-          </a>
+          <Button icon="pen" onClick={onEdit} disabled={busy}>Editar</Button>
+          {!converted && <Button icon="user-check" onClick={onConvert} disabled={busy}>Converter em cliente</Button>}
           <Button variant="danger-ghost" icon="ban" onClick={onDisqualify} disabled={busy || lead.status === 'nao_qualificado'}>Desqualificar</Button>
         </div>
       </header>
 
       <div className="lv3-lead__scroll">
         <section className="lv3-section">
-          <header className="lv3-section__head"><h3>Dados do lead</h3></header>
+          <header className="lv3-section__head"><h3>Contato do lead</h3></header>
           <dl className="lv3-infos">
-            <Info label="Empresa">{decode(lead.empresa)}</Info>
-            <Info label="Contato">{decode(lead.nome)}</Info>
+            <Info label="Nome">{decode(lead.nome)}</Info>
             <Info label="Cargo">{lead.cargo}</Info>
             <Info label="E-mail">{lead.email && <a href={`mailto:${lead.email}`}>{lead.email}</a>}</Info>
             <Info label="Telefone">{lead.telefone && <a href={whatsappUrl(lead.telefone)} target="_blank" rel="noopener noreferrer">{lead.telefone} <Icon name="arrow-up-right-from-square"/></a>}</Info>
-            <Info label="Site">{lead.url_site && <a href={/^https?:/.test(lead.url_site) ? lead.url_site : `https://${lead.url_site}`} target="_blank" rel="noopener noreferrer">{lead.url_site}</a>}</Info>
-            <Info label="Valor estimado">{lead.valor_estimado != null && Number(lead.valor_estimado).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</Info>
-            <Info label="Score">{`${lead.qualificacao_score || 0}/100`}</Info>
           </dl>
-          {lead.mensagem && (
-            <blockquote className="lv3-message"><Icon name="quote-left"/>{decode(lead.mensagem)}</blockquote>
-          )}
+          {lead.mensagem && <blockquote className="lv3-message"><Icon name="quote-left"/>{decode(lead.mensagem)}</blockquote>}
+        </section>
+
+        <section className="lv3-section">
+          <header className="lv3-section__head">
+            <h3>Empresa</h3>
+            <div className="lv3-section__tools">
+              <a className="lv3-btn lv3-btn--ghost lv3-btn--sm" href={linkedinSearchUrl(nome)} target="_blank" rel="noopener noreferrer"><Icon name="arrow-up-right-from-square"/><span>LinkedIn</span></a>
+              <Button size="sm" variant="ghost" icon="building" onClick={onEditCompany}>Dados da empresa</Button>
+            </div>
+          </header>
+          <dl className="lv3-infos">
+            <Info label="Empresa">{decode(lead.empresa)}</Info>
+            <Info label="CNPJ">{lead.cnpj && formatCnpj(lead.cnpj)}</Info>
+            <Info label="Site">{lead.url_site && <a href={siteUrl(lead.url_site)} target="_blank" rel="noopener noreferrer">{lead.url_site}</a>}</Info>
+            <Info label="Domínio">{lead.dominio}</Info>
+            <Info label="Segmento">{lead.segmento}</Info>
+            <Info label="Porte">{PORTE[lead.porte_estimado] || lead.porte_estimado}</Info>
+            <Info label="Grupo econômico">{lead.grupo_economico}</Info>
+            <Info label="Tipo">{TIPO_LEAD[lead.tipo_lead] || lead.tipo_lead}</Info>
+          </dl>
+          <Socials value={lead.redes_sociais}/>
+        </section>
+
+        {temEnriquecimento && (
+          <section className="lv3-section">
+            <header className="lv3-section__head"><h3>O que sabemos da empresa</h3></header>
+            <dl className="lv3-infos">
+              {lead.descricao_empresa && <Info label="Descrição" wide>{decode(lead.descricao_empresa)}</Info>}
+              {lead.mercado_alvo && <Info label="Mercado-alvo" wide>{decode(lead.mercado_alvo)}</Info>}
+              {lead.presenca_digital && <Info label="Presença digital" wide>{decode(lead.presenca_digital)}</Info>}
+              {lead.oportunidades_midia && <Info label="Oportunidades de mídia" wide>{decode(lead.oportunidades_midia)}</Info>}
+              {servicos.length > 0 && <Info label="Serviços" wide><span className="lv3-tags">{servicos.map(s => <span key={s} className="lv3-tag">{s}</span>)}</span></Info>}
+              {clientes.length > 0 && <Info label="Clientes citados" wide><span className="lv3-tags">{clientes.map(s => <span key={s} className="lv3-tag">{s}</span>)}</span></Info>}
+            </dl>
+          </section>
+        )}
+
+        <People key={lead.id} boot={boot} api={api} lead={lead} contacts={contacts} candidates={candidates} onChanged={onChanged} notify={notify} onEditCompany={onEditCompany}/>
+
+        <section className="lv3-section">
+          <header className="lv3-section__head"><h3>Qualificação e histórico</h3></header>
+          <dl className="lv3-infos">
+            <Info label="Score">{`${lead.qualificacao_score || 0}/100`}</Info>
+            <Info label="Valor estimado">{lead.valor_estimado != null && Number(lead.valor_estimado).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</Info>
+            <Info label="Entrou">{formatDate(lead.created_at)}</Info>
+            <Info label="Atribuído">{lead.atribuido_em && formatDate(lead.atribuido_em)}</Info>
+            <Info label="Primeiro contato">{lead.contatado_em && formatDate(lead.contatado_em)}</Info>
+            <Info label="Atualizado">{lead.updated_at && formatDate(lead.updated_at)}</Info>
+            {lead.qualificacao_notas && <Info label="Notas de qualificação" wide>{lead.qualificacao_notas}</Info>}
+            {lead.notas_internas && <Info label="Notas internas" wide>{lead.notas_internas}</Info>}
+          </dl>
           <details className="lv3-details">
             <summary>Origem e campanha</summary>
             <dl className="lv3-infos">
               <Info label="Fonte">{lead.fonte}</Info>
               <Info label="Origem">{lead.origem}</Info>
               <Info label="Canal">{lead.canal}</Info>
-              <Info label="Página">{lead.pagina_origem}</Info>
+              <Info label="Interesse">{lead.interesse}</Info>
+              <Info label="Página" wide>{lead.pagina_origem}</Info>
               <Info label="UTM source">{lead.utm_source}</Info>
+              <Info label="UTM medium">{lead.utm_medium}</Info>
               <Info label="UTM campaign">{lead.utm_campaign}</Info>
+              <Info label="Lote de importação">{lead.lote_importacao}</Info>
             </dl>
           </details>
-          {lead.notas_internas && <p className="lv3-notes"><strong>Notas internas:</strong> {lead.notas_internas}</p>}
         </section>
-
-        <Contacts key={lead.id} api={api} leadId={lead.id} contacts={contacts} onChanged={onChanged} notify={notify}/>
       </div>
     </section>
   );

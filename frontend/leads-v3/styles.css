@@ -255,3 +255,76 @@
   .lv3-lead__controls, .lv3-infos, .lv3-form__grid, .lv3-composer__row { grid-template-columns: 1fr; }
   .lv3-topbar { padding: 12px 16px; flex-wrap: wrap; }
 }
+
+/* Proteção contra o CSS global do ERP: design-system.css estiliza todo
+   select:not([multiple]):not([size]):not(.select)… (especificidade 0,5,1). Este seletor fica em 0,5,3. */
+html body .lv3-root select.lv3-select:not([multiple]):not([size]):not(.select) {
+  padding-right: 32px; font-weight: 400; background-size: 12px; background-position: right 12px center;
+}
+html body .lv3-root select.lv3-select--xs:not([multiple]):not([size]):not(.select) { padding-right: 24px; background-position: right 8px center; font-size: 12px; }
+
+/* Abas da fila */
+.lv3-tabs--queue { padding: 0 12px; }
+.lv3-tabs--queue button { flex: 1; justify-content: center; }
+.lv3-queue__selects--single { grid-template-columns: 1fr; }
+
+/* Golden Circle */
+.lv3-gc__head { display: flex; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--lv3-line); }
+.lv3-gc__head .lv3-select { flex: 1; }
+.lv3-gc__summary { display: flex; align-items: center; gap: 14px; padding: 8px 12px 8px 16px; border-bottom: 1px solid var(--lv3-line); font-size: 12.5px; color: var(--lv3-muted); }
+.lv3-gc__summary strong { color: var(--lv3-ink); }
+.lv3-gc__summary .lv3-iconbtn { margin-left: auto; }
+.lv3-gcitem { display: flex; align-items: stretch; border-bottom: 1px solid var(--lv3-line); border-left: 3px solid transparent; }
+.lv3-gcitem:hover { background: var(--lv3-sunken); }
+.lv3-gcitem.is-active { background: var(--lv3-brand-soft); border-left-color: var(--lv3-brand); }
+.lv3-gcitem__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 12px 8px 12px 16px; border: 0; background: none; text-align: left; cursor: pointer; }
+.lv3-gcitem__side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; padding: 10px 10px 10px 0; }
+.lv3-roles { display: flex; flex-wrap: wrap; gap: 4px; }
+.lv3-role { padding: 1px 7px; border-radius: 999px; border: 1px dashed var(--lv3-line-strong); color: var(--lv3-subtle); font-size: 11.5px; font-weight: 600; }
+.lv3-role.is-on { border-style: solid; border-color: transparent; background: var(--lv3-success-bg); color: var(--lv3-success); }
+
+/* Cobertura e pessoas */
+.lv3-coverage { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.lv3-coverage__item { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; border: 1px dashed var(--lv3-line-strong); color: var(--lv3-muted); font-size: 12.5px; font-weight: 600; }
+.lv3-coverage__item.is-on { border: 1px solid transparent; background: var(--lv3-success-bg); color: var(--lv3-success); }
+.lv3-person__profile { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.lv3-select--xs { height: 28px; width: auto; padding: 0 24px 0 8px; font-size: 12px; box-shadow: none; }
+.lv3-person__reveal { margin-top: 6px; padding-left: 0; }
+.lv3-chip--tiny { height: 18px; padding: 0 6px; font-size: 11px; margin-left: 6px; }
+.lv3-ok { color: var(--lv3-success); margin-left: 2px; }
+.lv3-inline-form { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
+.lv3-inline-form .lv3-input { flex: 1; min-width: 0; }
+.lv3-input--sm { height: 34px; font-size: 13px; }
+.lv3-help { margin: -4px 0 12px; }
+.lv3-hint { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; color: var(--lv3-warning); }
+.lv3-discovery__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.lv3-candidates { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.lv3-candidate { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px dashed var(--lv3-line-strong); border-radius: var(--lv3-radius); background: var(--lv3-sunken); }
+.lv3-candidate__body { min-width: 0; }
+.lv3-candidate__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.lv3-candidate__actions .lv3-iconbtn { margin-left: auto; }
+.lv3-crash { min-height: 60vh; justify-content: center; }
+
+/* Lead: cabeçalho e informações */
+.lv3-prio { margin-left: 10px; padding: 2px 8px; border-radius: 6px; background: var(--lv3-accent); color: #1a2e05; font-size: 12px; font-weight: 700; vertical-align: middle; }
+.lv3-banner { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--lv3-radius-sm); font-size: 13px; font-weight: 600; }
+.lv3-banner--success { background: var(--lv3-success-bg); color: var(--lv3-success); }
+.lv3-banner--danger { background: var(--lv3-danger-bg); color: var(--lv3-danger); }
+.lv3-section__tools { display: flex; gap: 4px; }
+.lv3-info--wide { grid-column: 1 / -1; }
+.lv3-info--wide dd { font-weight: 400; color: var(--lv3-ink-2); white-space: pre-wrap; }
+.lv3-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.lv3-tag { padding: 2px 8px; border-radius: 6px; background: #f2f4f7; font-size: 12px; font-weight: 500; }
+.lv3-socials { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 12px; font-size: 13px; text-transform: capitalize; }
+.lv3-socials a { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Validação do Golden Circle */
+.lv3-validation { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.lv3-validation__item { display: flex; gap: 10px; padding: 10px 12px; border-radius: var(--lv3-radius-sm); border: 1px solid var(--lv3-line); }
+.lv3-validation__item > .lv3-icon { margin-top: 3px; }
+.lv3-validation__item div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lv3-validation__item.is-ok > .lv3-icon { color: var(--lv3-success); }
+.lv3-validation__item.is-blocked { background: var(--lv3-danger-bg); border-color: #fecdca; }
+.lv3-validation__item.is-blocked > .lv3-icon { color: var(--lv3-danger); }
+.lv3-validation__block { color: var(--lv3-danger); font-size: 13px; font-weight: 600; }
+.lv3-validation__warn { color: var(--lv3-warning); font-size: 13px; }

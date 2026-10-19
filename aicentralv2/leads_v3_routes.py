@@ -7,13 +7,16 @@ Plano em docs/leads-v3-plano.md.
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
 from decimal import Decimal
 
 from flask import Blueprint, current_app, jsonify, render_template, request, session
 
 from . import db
+from . import leads_v3_prospeccao as prospeccao
 from .auth import centralcomm_required, centralcomm_required_api
+from .services.integration_credentials import resolve_apollo_api_key, resolve_firecrawl_api_key
 
 bp = Blueprint("leads_v3", __name__, url_prefix="/leads-v3")
 
@@ -34,6 +37,16 @@ MOTIVOS_DESQUALIFICACAO = (
     ("outro", "Outro"),
 )
 MAX_LOTE = 500
+# Mesmos valores dos CHECKs da migração add_cadu_leads_v3_prospeccao.sql.
+PAPEIS = (("marketing", "Marketing"), ("midia", "Mídia"), ("criacao", "Criação"), ("diretoria", "Diretoria"),
+          ("compras", "Compras"), ("comercial", "Comercial"), ("outro", "Outro"))
+SENIORIDADES = (("c_level", "C-level / VP"), ("diretor", "Diretor(a) / Head"), ("gerente", "Gerente"),
+                ("coordenador", "Coordenador(a)"), ("analista", "Analista"), ("outro", "Outro"))
+INFLUENCIAS = (("decisor", "Decisor"), ("influenciador", "Influenciador"), ("usuario", "Usuário"),
+               ("bloqueador", "Bloqueador"))
+STATUS_GOLDEN = ("planejada", "em_contato", "reuniao", "proposta", "ganha", "pausada", "perdida")
+# SQLSTATE de tabela/coluna inexistente: a migração do Leads v3 ainda não rodou neste banco.
+_SQLSTATE_SEM_ESQUEMA = {"42P01", "42703"}
 
 
 def _ok(data, status=200):
@@ -79,9 +92,30 @@ def pagina():
         "status": [{"value": v, "label": l} for v, l in STATUS_ATIVOS],
         "potenciais": [{"value": v, "label": l} for v, l in POTENCIAIS],
         "motivos": [{"value": v, "label": l} for v, l in MOTIVOS_DESQUALIFICACAO],
+        "papeis": [{"value": v, "label": l} for v, l in PAPEIS],
+        "senioridades": [{"value": v, "label": l} for v, l in SENIORIDADES],
+        "influencias": [{"value": v, "label": l} for v, l in INFLUENCIAS],
+        "trimestre": prospeccao.trimestre_atual(),
+        "fontes": {"apollo": bool(resolve_apollo_api_key()), "web": bool(resolve_firecrawl_api_key())},
+        "conversao": _listas_conversao(),
         "legacyUrl": "/leads",
     }
     return render_template("leads_v3.html", boot=boot)
+
+
+def _listas_conversao():
+    """Listas do formulário de conversão em cliente (mesmas do Leads v2)."""
+    def seguro(fn):
+        try:
+            return fn() or []
+        except Exception as exc:
+            current_app.logger.warning("leads-v3: lista de conversão indisponível: %s", exc)
+            return []
+    return {
+        "tipos": [{"id": t["id_tipo_cliente"], "nome": t.get("display")} for t in seguro(db.obter_tipos_cliente)],
+        "agencias": [{"id": a["id_agencia"], "nome": a.get("display")} for a in seguro(db.obter_aux_agencia)],
+        "estados": [{"id": e["id_estado"], "sigla": e.get("sigla")} for e in seguro(db.obter_estados)],
+    }
 
 
 @bp.route("/api/leads")
@@ -193,3 +227,397 @@ def api_lote():
         current_app.logger.error("leads-v3 lote %s: %s", payload.get("acao"), exc)
         return _erro("Não foi possível aplicar a ação aos leads selecionados.", 500)
     return _ok({"alterados": alterados, "ignorados": len(ids) - len(alterados)})
+
+
+# ─────────────────────────────────────────────────────
+# Golden Circle, descoberta de pessoas e perfil do contato
+# ─────────────────────────────────────────────────────
+def _sqlstate(exc):
+    return getattr(exc, "sqlstate", None) or getattr(getattr(exc, "diag", None), "sqlstate", None)
+
+
+def _transacao(fn, contexto):
+    """Roda fn(cursor) numa transação e traduz os erros para respostas JSON."""
+    conn = db.get_db()
+    try:
+        with conn.cursor() as cursor:
+            resultado = fn(cursor)
+        conn.commit()
+        return resultado
+    except prospeccao.ProspeccaoError as exc:
+        conn.rollback()
+        return _erro(str(exc), 400)
+    except Exception as exc:
+        conn.rollback()
+        if _sqlstate(exc) in _SQLSTATE_SEM_ESQUEMA:
+            return _erro("A migração do Leads v3 ainda não foi aplicada neste banco.", 503)
+        current_app.logger.error("leads-v3 %s: %s", contexto, exc)
+        return _erro("Não foi possível concluir a operação.", 500)
+
+
+def _int(valor):
+    return int(valor) if str(valor or "").strip().isdigit() else None
+
+
+@bp.route("/api/golden")
+@centralcomm_required_api
+def api_golden_listar():
+    trimestre = request.args.get("trimestre") or prospeccao.trimestre_atual()
+    executivo = _int(request.args.get("executivo"))
+
+    def run(cursor):
+        cursor.execute(
+            f"""
+            SELECT gc.id, gc.id_executivo, gc.trimestre, gc.nome_conta, gc.id_lead, gc.id_cliente, gc.objetivo,
+                   gc.status, gc.meta, gc.created_at, l.status AS lead_status, l.dominio, l.cnpj,
+                   COUNT(c.id) AS pessoas,
+                   COUNT(c.id) FILTER (WHERE c.papel = 'marketing') AS marketing,
+                   COUNT(c.id) FILTER (WHERE c.papel = 'midia') AS midia,
+                   COUNT(c.id) FILTER (WHERE c.papel = 'criacao') AS criacao,
+                   COUNT(c.id) FILTER (WHERE c.papel = 'diretoria') AS diretoria,
+                   COUNT(c.id) FILTER (WHERE COALESCE(c.email, '') <> '') AS com_email,
+                   (SELECT COUNT(*) FROM cadu_lead_contato_candidatos k
+                     WHERE k.id_lead = gc.id_lead AND k.status = 'pendente') AS candidatos,
+                   (SELECT MAX(a.created_at) FROM cadu_lead_atividades a WHERE a.id_lead = gc.id_lead) AS ultima_atividade
+              FROM cadu_golden_circle gc
+              LEFT JOIN cadu_leads l ON l.id = gc.id_lead
+              LEFT JOIN cadu_lead_contatos c ON c.id_lead = gc.id_lead
+             WHERE gc.trimestre = %s {"AND gc.id_executivo = %s" if executivo else ""}
+             GROUP BY gc.id, l.id
+             ORDER BY gc.ordem, lower(gc.nome_conta)
+            """,
+            [trimestre, executivo] if executivo else [trimestre],
+        )
+        contas = [{k: _json_safe(v) for k, v in dict(r).items()} for r in cursor.fetchall()]
+        return _ok({"trimestre": trimestre, "contas": contas})
+
+    return _transacao(run, "golden listar")
+
+
+def _contas_do_payload(payload):
+    contas = payload.get("contas")
+    if not isinstance(contas, list) or not contas:
+        raise prospeccao.ProspeccaoError("Informe ao menos uma empresa.")
+    if len(contas) > 40:
+        raise prospeccao.ProspeccaoError("No máximo 40 empresas por vez.")
+    return [{"nome": str(c.get("nome") or "").strip()[:255], "dominio": c.get("dominio"), "cnpj": c.get("cnpj")}
+            for c in contas if isinstance(c, dict)]
+
+
+@bp.route("/api/golden/validar", methods=["POST"])
+@centralcomm_required_api
+def api_golden_validar():
+    """Só confere (não grava): CNPJ ativo, duplicidade, se já é lead ou cliente."""
+    payload = request.get_json(silent=True) or {}
+    trimestre = payload.get("trimestre") or prospeccao.trimestre_atual()
+    executivo = _int(payload.get("id_executivo"))
+
+    def run(cursor):
+        contas = _contas_do_payload(payload)
+        return _ok({"resultados": [
+            prospeccao.validar_conta(cursor, id_executivo=executivo, trimestre=trimestre, **conta) for conta in contas
+        ]})
+
+    return _transacao(run, "golden validar")
+
+
+@bp.route("/api/golden", methods=["POST"])
+@centralcomm_required_api
+def api_golden_criar():
+    """Valida de novo no servidor e grava só as empresas sem bloqueio."""
+    payload = request.get_json(silent=True) or {}
+    trimestre = payload.get("trimestre") or prospeccao.trimestre_atual()
+    executivo = _int(payload.get("id_executivo"))
+
+    def run(cursor):
+        criadas, recusadas = [], []
+        for conta in _contas_do_payload(payload):
+            validacao = prospeccao.validar_conta(cursor, id_executivo=executivo, trimestre=trimestre, **conta)
+            if not validacao["ok"]:
+                recusadas.append({"nome": conta["nome"], "bloqueios": validacao["bloqueios"]})
+                continue
+            gravada = prospeccao.criar_conta(cursor, validacao, id_executivo=executivo, trimestre=trimestre,
+                                             usuario_id=session.get("user_id"))
+            criadas.append({"nome": conta["nome"], **gravada, "avisos": validacao["avisos"]})
+        return _ok({"criadas": criadas, "recusadas": recusadas}, 201 if criadas else 200)
+
+    return _transacao(run, "golden criar")
+
+
+@bp.route("/api/golden/<int:conta_id>", methods=["PATCH", "DELETE"])
+@centralcomm_required_api
+def api_golden_alterar(conta_id):
+    payload = request.get_json(silent=True) or {}
+
+    def run(cursor):
+        if request.method == "DELETE":
+            cursor.execute("DELETE FROM cadu_golden_circle WHERE id = %s RETURNING id", [conta_id])
+        else:
+            status = payload.get("status")
+            if status not in STATUS_GOLDEN:
+                raise prospeccao.ProspeccaoError("Status inválido.")
+            cursor.execute("UPDATE cadu_golden_circle SET status = %s WHERE id = %s RETURNING id", [status, conta_id])
+        if not cursor.fetchone():
+            return _erro("Conta não encontrada.", 404)
+        return _ok({"id": conta_id})
+
+    return _transacao(run, "golden alterar")
+
+
+def _lead_para_busca(cursor, lead_id):
+    cursor.execute("SELECT id, empresa, nome, email, url_site, dominio FROM cadu_leads WHERE id = %s", [lead_id])
+    lead = cursor.fetchone()
+    if not lead:
+        raise prospeccao.ProspeccaoError("Lead não encontrado.")
+    dominio = lead["dominio"] or prospeccao.normalizar_dominio(lead["url_site"])
+    if not dominio:
+        email_dom = prospeccao.normalizar_dominio(lead["email"])
+        dominio = email_dom if email_dom not in prospeccao.FREE_EMAIL_DOMAINS else ""
+    return lead, dominio
+
+
+def _candidatos(cursor, lead_id):
+    cursor.execute(
+        """
+        SELECT id, provedor, provedor_ref, nome, cargo, papel_sugerido, senioridade_sugerida, email, linkedin_url,
+               payload, status, created_at
+          FROM cadu_lead_contato_candidatos
+         WHERE id_lead = %s AND status = 'pendente'
+         ORDER BY CASE senioridade_sugerida WHEN 'c_level' THEN 0 WHEN 'diretor' THEN 1 WHEN 'gerente' THEN 2
+                  WHEN 'coordenador' THEN 3 ELSE 4 END, nome
+        """,
+        [lead_id],
+    )
+    return [{k: _json_safe(v) for k, v in dict(r).items()} for r in cursor.fetchall()]
+
+
+@bp.route("/api/leads/<int:lead_id>/candidatos")
+@centralcomm_required_api
+def api_candidatos(lead_id):
+    return _transacao(lambda cursor: _ok({"candidatos": _candidatos(cursor, lead_id)}), "candidatos")
+
+
+@bp.route("/api/leads/<int:lead_id>/descobrir", methods=["POST"])
+@centralcomm_required_api
+def api_descobrir(lead_id):
+    """Busca pessoas (Apollo grátis ou web) e guarda como candidatos para revisão."""
+    fonte = (request.get_json(silent=True) or {}).get("fonte")
+    if fonte not in ("apollo", "web"):
+        return _erro("Fonte inválida.")
+
+    conn = db.get_db()
+    try:
+        with conn.cursor() as cursor:
+            lead, dominio = _lead_para_busca(cursor, lead_id)
+        conn.rollback()  # só leitura; libera a conexão antes da chamada externa
+        if fonte == "apollo":
+            if not dominio:
+                raise prospeccao.ProspeccaoError("Preencha o site ou domínio da empresa para buscar no Apollo.")
+            encontrados, total = prospeccao.apollo_buscar_pessoas(resolve_apollo_api_key(), dominio)
+        else:
+            encontrados, total = prospeccao.web_buscar_pessoas(resolve_firecrawl_api_key(), lead["empresa"] or lead["nome"]), None
+    except prospeccao.ProspeccaoError as exc:
+        return _erro(str(exc), 400)
+
+    def run(cursor):
+        cursor.execute("SELECT lower(nome) AS nome, lower(COALESCE(linkedin_url, '')) AS linkedin FROM cadu_lead_contatos WHERE id_lead = %s", [lead_id])
+        existentes = cursor.fetchall()
+        nomes = {r["nome"] for r in existentes}
+        linkedins = {r["linkedin"] for r in existentes if r["linkedin"]}
+        inseridos = 0
+        for c in encontrados:
+            if not c.get("provedor_ref") or c["nome"].lower() in nomes or (c.get("linkedin_url") or "").lower() in linkedins:
+                continue
+            cursor.execute(
+                """
+                INSERT INTO cadu_lead_contato_candidatos
+                    (id_lead, provedor, provedor_ref, nome, cargo, papel_sugerido, senioridade_sugerida,
+                     linkedin_url, payload, buscado_por)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (id_lead, provedor, provedor_ref) WHERE provedor_ref IS NOT NULL DO NOTHING
+                RETURNING id
+                """,
+                [lead_id, c["provedor"], c["provedor_ref"], c["nome"][:200], (c.get("cargo") or "")[:200] or None,
+                 c["papel_sugerido"], c["senioridade_sugerida"], c.get("linkedin_url"),
+                 db.Json(c.get("payload") or {}), session.get("user_id")],
+            )
+            inseridos += 1 if cursor.fetchone() else 0
+        return _ok({"encontrados": len(encontrados), "novos": inseridos, "total_fonte": total,
+                    "candidatos": _candidatos(cursor, lead_id)})
+
+    return _transacao(run, f"descobrir {fonte}")
+
+
+def _registrar_atividade(cursor, lead_id, tipo, descricao, id_contato=None):
+    cursor.execute(
+        """
+        INSERT INTO cadu_lead_atividades (id_lead, tipo, descricao, id_contato, id_usuario, usuario_nome)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """,
+        [lead_id, tipo, descricao, id_contato, session.get("user_id"), session.get("user_name")],
+    )
+
+
+@bp.route("/api/candidatos/<int:candidato_id>/<acao>", methods=["POST"])
+@centralcomm_required_api
+def api_candidato_acao(candidato_id, acao):
+    """aprovar (vira contato; com revelar=true, gasta crédito do Apollo) ou descartar."""
+    if acao not in ("aprovar", "descartar"):
+        return _erro("Ação inválida.", 404)
+    payload = request.get_json(silent=True) or {}
+
+    def run(cursor):
+        cursor.execute("SELECT * FROM cadu_lead_contato_candidatos WHERE id = %s FOR UPDATE", [candidato_id])
+        cand = cursor.fetchone()
+        if not cand:
+            return _erro("Candidato não encontrado.", 404)
+        if cand["status"] != "pendente":
+            return _erro("Este candidato já foi revisado.", 409)
+        if acao == "descartar":
+            cursor.execute(
+                "UPDATE cadu_lead_contato_candidatos SET status = 'descartado', revisado_por = %s, revisado_em = NOW() WHERE id = %s",
+                [session.get("user_id"), candidato_id],
+            )
+            return _ok({"id": candidato_id})
+
+        revelado = {}
+        if payload.get("revelar") and cand["provedor"] == "apollo":
+            revelado = prospeccao.apollo_revelar(resolve_apollo_api_key(), apollo_id=cand["provedor_ref"])
+        papel = payload.get("papel") if payload.get("papel") in dict(PAPEIS) else cand["papel_sugerido"]
+        cursor.execute(
+            """
+            INSERT INTO cadu_lead_contatos
+                (id_lead, nome, cargo, email, papel, senioridade, linkedin_url, origem_dado, origem_ref,
+                 email_status, enriquecido_em, adicionado_por)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+            """,
+            [cand["id_lead"], (revelado.get("nome") or cand["nome"])[:200], (revelado.get("cargo") or cand["cargo"] or "")[:150] or None,
+             revelado.get("email"), papel, cand["senioridade_sugerida"],
+             revelado.get("linkedin_url") or cand["linkedin_url"], cand["provedor"], cand["provedor_ref"],
+             revelado.get("email_status"), datetime.now() if revelado else None, session.get("user_id")],
+        )
+        contato_id = cursor.fetchone()["id"]
+        cursor.execute(
+            """
+            UPDATE cadu_lead_contato_candidatos
+               SET status = 'aprovado', id_contato = %s, email = %s, revisado_por = %s, revisado_em = NOW()
+             WHERE id = %s
+            """,
+            [contato_id, revelado.get("email"), session.get("user_id"), candidato_id],
+        )
+        origem = "Apollo" if cand["provedor"] == "apollo" else "busca na web"
+        _registrar_atividade(cursor, cand["id_lead"], "contato_add", f"Contato adicionado via {origem}: {cand['nome']}", contato_id)
+        return _ok({"id_contato": contato_id, "email": revelado.get("email"), "revelado": bool(revelado)}, 201)
+
+    return _transacao(run, f"candidato {acao}")
+
+
+@bp.route("/api/contatos/<int:contato_id>/revelar", methods=["POST"])
+@centralcomm_required_api
+def api_contato_revelar(contato_id):
+    """Busca e-mail e LinkedIn do contato no Apollo (consome crédito do plano)."""
+    def run(cursor):
+        cursor.execute(
+            """
+            SELECT c.*, l.dominio, l.url_site FROM cadu_lead_contatos c JOIN cadu_leads l ON l.id = c.id_lead
+             WHERE c.id = %s FOR UPDATE OF c
+            """,
+            [contato_id],
+        )
+        contato = cursor.fetchone()
+        if not contato:
+            return _erro("Contato não encontrado.", 404)
+        dominio = contato["dominio"] or prospeccao.normalizar_dominio(contato["url_site"])
+        revelado = prospeccao.apollo_revelar(
+            resolve_apollo_api_key(),
+            apollo_id=contato["origem_ref"] if contato["origem_dado"] == "apollo" else None,
+            linkedin_url=contato["linkedin_url"], nome=contato["nome"], dominio=dominio,
+        )
+        nome = revelado.get("nome") if revelado.get("nome") and "*" in (contato["nome"] or "") else contato["nome"]
+        cursor.execute(
+            """
+            UPDATE cadu_lead_contatos
+               SET nome = %s, email = COALESCE(%s, email), email_status = COALESCE(%s, email_status),
+                   linkedin_url = COALESCE(linkedin_url, %s), cargo = COALESCE(cargo, %s),
+                   enriquecido_em = CURRENT_TIMESTAMP
+             WHERE id = %s
+            """,
+            [nome, revelado.get("email"), revelado.get("email_status"), revelado.get("linkedin_url"),
+             revelado.get("cargo"), contato_id],
+        )
+        return _ok({"email": revelado.get("email"), "linkedin_url": revelado.get("linkedin_url"),
+                    "encontrou_email": bool(revelado.get("email"))})
+
+    return _transacao(run, "revelar contato")
+
+
+@bp.route("/api/contatos/<int:contato_id>/perfil", methods=["PATCH"])
+@centralcomm_required_api
+def api_contato_perfil(contato_id):
+    """Papel, senioridade, influência e LinkedIn do contato (mapa do comitê de compra)."""
+    payload = request.get_json(silent=True) or {}
+    permitidos = {"papel": dict(PAPEIS), "senioridade": dict(SENIORIDADES), "influencia": dict(INFLUENCIAS)}
+    sets, params = [], []
+    for campo, valores in permitidos.items():
+        if campo in payload:
+            valor = payload[campo] or None
+            if valor is not None and valor not in valores:
+                return _erro(f"Valor inválido para {campo}.")
+            sets.append(f"{campo} = %s")
+            params.append(valor)
+    if "linkedin_url" in payload:
+        url = str(payload.get("linkedin_url") or "").strip()
+        if url and not re.match(r"^https?://([a-z]+\.)?linkedin\.com/", url, re.I):
+            return _erro("Informe um endereço do LinkedIn.")
+        sets.append("linkedin_url = %s")
+        params.append(url or None)
+    if not sets:
+        return _erro("Nada para atualizar.")
+
+    def run(cursor):
+        cursor.execute(f"UPDATE cadu_lead_contatos SET {', '.join(sets)} WHERE id = %s RETURNING id", [*params, contato_id])
+        if not cursor.fetchone():
+            return _erro("Contato não encontrado.", 404)
+        return _ok({"id": contato_id})
+
+    return _transacao(run, "perfil contato")
+
+
+@bp.route("/api/leads/<int:lead_id>/empresa", methods=["PATCH"])
+@centralcomm_required_api
+def api_lead_empresa(lead_id):
+    """Dados de empresa do Leads v3 (domínio, CNPJ, grupo, prioridade) que a edição do v2 não grava."""
+    payload = request.get_json(silent=True) or {}
+    sets, params = [], []
+    if "dominio" in payload:
+        sets.append("dominio = %s")
+        params.append(prospeccao.normalizar_dominio(payload.get("dominio")) or None)
+    if "cnpj" in payload:
+        cnpj = prospeccao.digitos(payload.get("cnpj"))
+        if cnpj and len(cnpj) != 14:
+            return _erro("CNPJ precisa ter 14 dígitos.")
+        sets.append("cnpj = %s")
+        params.append(cnpj or None)
+    if "grupo_economico" in payload:
+        sets.append("grupo_economico = %s")
+        params.append(str(payload.get("grupo_economico") or "").strip()[:200] or None)
+    if "prioridade_conta" in payload:
+        prioridade = payload.get("prioridade_conta") or None
+        if prioridade not in (None, "A", "B", "C"):
+            return _erro("Prioridade inválida.")
+        sets.append("prioridade_conta = %s")
+        params.append(prioridade)
+    if not sets:
+        return _erro("Nada para atualizar.")
+
+    def run(cursor):
+        cursor.execute(
+            f"UPDATE cadu_leads SET {', '.join(sets)}, updated_at = CURRENT_TIMESTAMP WHERE id = %s RETURNING id",
+            [*params, lead_id],
+        )
+        if not cursor.fetchone():
+            return _erro("Lead não encontrado.", 404)
+        return _ok({"id": lead_id})
+
+    return _transacao(run, "dados de empresa")

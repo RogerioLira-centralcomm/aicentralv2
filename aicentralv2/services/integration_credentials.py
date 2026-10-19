@@ -73,6 +73,12 @@ PROVIDERS = {
         "secret_fields": ("api_key",),
         "required": ("api_key",),
     },
+    "apollo": {
+        "label": "Apollo.io",
+        "public_fields": (),
+        "secret_fields": ("api_key",),
+        "required": ("api_key",),
+    },
     "dify": {
         "label": "Dify — Integração global (legado)",
         "public_fields": ("base_url",),
@@ -148,6 +154,9 @@ ENV_FIELDS = {
     },
     "firecrawl": {
         "api_key": "FIRECRAWL_API_KEY",
+    },
+    "apollo": {
+        "api_key": "APOLLO_API_KEY",
     },
     "dify": {
         "base_url": "CADU_DIFY_BASE_URL",
@@ -587,6 +596,20 @@ def resolve_typesafe_api_key() -> str:
     except Exception:
         pass
     return str(_setting("TYPESAFE_API_KEY") or "").strip()
+
+
+def resolve_apollo_api_key() -> str:
+    """Chave do Apollo.io (Leads v3): banco criptografado primeiro, .env como reserva."""
+    try:
+        config = get_configuration("apollo", include_secrets=True)
+        if config.get("status") == "disabled":
+            return ""
+        key = str(config.get("api_key") or "").strip()
+        if key:
+            return key
+    except Exception:
+        pass
+    return str(_setting("APOLLO_API_KEY") or "").strip()
 
 
 def resolve_firecrawl_api_key() -> str:

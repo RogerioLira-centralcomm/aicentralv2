@@ -197,6 +197,25 @@
       {{ integration_footer('Salvar Firecrawl') }}
     </form>
 
+    <form class="cx-integration-card" data-integration-form="apollo">
+      <header>
+        <span class="cx-integration-logo is-apollo"><i class="fa-solid fa-address-book" aria-hidden="true"></i></span>
+        <div>
+          <h2>Apollo.io</h2>
+          <p>Busca de pessoas por empresa e cargo para o Leads v3 e o Golden Circle.</p>
+        </div>
+        <span class="cx-badge cx-badge-muted" data-integration-status>Carregando…</span>
+      </header>
+      <div class="cx-integration-fields">
+        {{ cx_secret_field('api_key', 'API key', 'Deixe vazio para manter a chave atual', 'Nenhuma chave armazenada.') }}
+      </div>
+      <aside>
+        <strong>Buscar é grátis, revelar gasta crédito</strong>
+        <span>A busca de pessoas não consome créditos. Revelar e-mail de um contato aprovado consome créditos do plano Apollo.</span>
+      </aside>
+      {{ integration_footer('Salvar Apollo') }}
+    </form>
+
     <form class="cx-integration-card" data-integration-form="screenshotone">
       <header>
         <span class="cx-integration-logo is-firecrawl"><i class="fa-solid fa-camera" aria-hidden="true"></i></span>

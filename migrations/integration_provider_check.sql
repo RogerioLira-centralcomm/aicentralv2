@@ -1,4 +1,4 @@
--- Lista canônica de providers (manter igual a add_typesafe_integration_credential.sql).
+-- Lista canônica de providers (manter igual a CANONICAL_PROVIDERS em integration_provider_check_lib.py).
 ALTER TABLE system_integration_credentials
     DROP CONSTRAINT IF EXISTS system_integration_credentials_provider_check;
 
@@ -7,5 +7,5 @@ ALTER TABLE system_integration_credentials
     CHECK (provider IN (
         'google_login_cadu', 'google_login_centralx', 'google_workspace',
         'google_calendar', 'higgsfield', 'openrouter', 'openai', 'typesafe',
-        'firecrawl', 'dify', 'dify_cadu_chat', 'brevo', 'd4sign', 'screenshotone'
+        'firecrawl', 'dify', 'dify_cadu_chat', 'brevo', 'd4sign', 'screenshotone', 'apollo'
     ));

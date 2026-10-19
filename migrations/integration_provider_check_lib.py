@@ -19,6 +19,7 @@ CANONICAL_PROVIDERS = (
     "brevo",
     "d4sign",
     "screenshotone",
+    "apollo",
 )
 
 SQL_PATH = Path(__file__).with_name("integration_provider_check.sql")

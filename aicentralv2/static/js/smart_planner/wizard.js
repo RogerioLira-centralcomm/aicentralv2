@@ -115,6 +115,37 @@
     return out;
   }
 
+  var taticasDraft = null;
+
+  function taticasFromRows(rows) {
+    return (rows || []).map(function (row) {
+      return {
+        tipo: row.tipo,
+        canais: (row.canais || []).slice(),
+        dco: (row.formatos || []).indexOf("dco") !== -1 || !!row.dco,
+        segmento: row.segmento || "",
+      };
+    });
+  }
+
+  function selectedCanaisNow() {
+    return Array.prototype.slice.call(document.querySelectorAll('#sp-mix-channels input[name="canais"]:checked')).map(function (el) {
+      return el.value;
+    });
+  }
+
+  function collectTaticas() {
+    if (taticasDraft === null) taticasDraft = taticasFromRows(readJson("sp-taticas-boot", []));
+    var canais = selectedCanaisNow();
+    var interativos = collectInterativos().formats;
+    return taticasDraft.map(function (row) {
+      var mine = row.canais.filter(function (key) { return canais.indexOf(key) !== -1; });
+      var formatos = mine.indexOf("interativos") !== -1 ? interativos.slice() : [];
+      if (row.dco) formatos.push("dco");
+      return { tipo: row.tipo, canais: mine, formatos: formatos, segmento: row.segmento || "" };
+    }).filter(function (row) { return row.canais.length; });
+  }
+
   function collectInterativos() {
     var channel = document.querySelector('#sp-mix-channels input[name="canais"][value="interativos"]');
     if (channel && !channel.checked) return { formats: [] };
@@ -1157,6 +1188,7 @@
         mix: currentWeights(),
         method: selectedMethod(),
         alocacao: monthValues(),
+        taticas: collectTaticas(),
       });
     }
     function restoreMediaSnapshot(raw) {
@@ -1168,6 +1200,8 @@
         desk.querySelectorAll('input[name="canais"]').forEach(function (input) {
           input.checked = (snap.canais || []).indexOf(input.value) !== -1;
         });
+        taticasDraft = taticasFromRows(snap.taticas || []);
+        document.dispatchEvent(new Event("sp-taticas-render"));
         if (snap.method) setMethod(snap.method);
         paintBars(allocate(
           selectedCanais(),
@@ -1750,6 +1784,7 @@
         },
         places: collectPlaces(),
         interativos: collectInterativos(),
+        taticas: collectTaticas(),
         verba_alocacao: monthValues(),
         campos: {
           campanha: data.get("campanha"),
@@ -1775,6 +1810,7 @@
           kpis: data.get("kpis"),
           places: collectPlaces(),
           interativos: collectInterativos(),
+          taticas: collectTaticas(),
           anunciante_confidencial: data.get("anunciante_confidencial") === "1" || data.get("anunciante_confidencial") === "on",
         },
       };
@@ -1795,6 +1831,7 @@
     setupPlacesDesk();
     setupGeoModal();
     setupInterativosDesk();
+    setupTaticasDesk();
     setupReviewSections();
     setupCompleteness();
     setupReviewAutosave(collectReview);
@@ -2257,6 +2294,118 @@
       dialog.close();
     });
     paint();
+  }
+
+  function setupTaticasDesk() {
+    var desk = document.getElementById("sp-taticas-desk");
+    var list = document.getElementById("sp-taticas-list");
+    var note = document.getElementById("sp-taticas-note");
+    var spec = readJson("sp-mix-spec", {});
+    var tspec = spec.taticas || {};
+    if (!desk || !list || !tspec.tipos) return;
+    var labels = spec.labels || {};
+    var groups = spec.groups || {};
+    var blocked = tspec.dcoBlockedGroups || [];
+    var hosts = tspec.interativosHosts || [];
+    function draft() {
+      if (taticasDraft === null) taticasDraft = taticasFromRows(readJson("sp-taticas-boot", []));
+      return taticasDraft;
+    }
+    function rowFor(tipo) {
+      return draft().filter(function (row) { return row.tipo === tipo; })[0];
+    }
+    function dcoChannels(canais) {
+      return canais.filter(function (key) {
+        return key !== "interativos" && blocked.indexOf(groups[key] || "") === -1;
+      });
+    }
+    function labelOf(key) {
+      var box = document.querySelector('#sp-mix-channels input[name="canais"][value="' + key + '"]');
+      var name = box && box.closest("label") && box.closest("label").querySelector("span:last-child");
+      return (name && name.textContent.trim()) || labels[key] || key;
+    }
+    function render() {
+      var canais = selectedCanaisNow().filter(function (key) { return (spec.media || []).indexOf(key) !== -1; });
+      desk.hidden = canais.length < 2;
+      if (desk.hidden) return;
+      var interativos = collectInterativos().formats;
+      var warn = [];
+      list.innerHTML = tspec.tipos.map(function (tipo) {
+        var row = rowFor(tipo.id);
+        var mine = row ? row.canais.filter(function (key) { return canais.indexOf(key) !== -1; }) : [];
+        var on = !!row;
+        var html = '<fieldset class="sp-tatica' + (on ? " is-on" : "") + '" data-tipo="' + tipo.id + '">'
+          + '<label class="sp-tatica__head"><input type="checkbox" name="tatica_on" value="' + tipo.id + '"' + (on ? " checked" : "") + ">"
+          + "<span>" + escapeHtml(tipo.label) + "<small>" + escapeHtml(tipo.hint) + "</small></span></label>";
+        if (on) {
+          html += '<div class="sp-tatica__body"><div class="sp-tatica__row"><span>Canais desta frente</span>'
+            + canais.map(function (key) {
+              return '<label><input type="checkbox" name="tatica_canal" data-tipo="' + tipo.id + '" value="' + key + '"'
+                + (mine.indexOf(key) !== -1 ? " checked" : "") + "> " + escapeHtml(labelOf(key)) + "</label>";
+            }).join("") + "</div>";
+          if (mine.indexOf("interativos") !== -1) {
+            var names = (spec.interativosFormats || []).filter(function (item) { return interativos.indexOf(item.id) !== -1; })
+              .map(function (item) { return item.label; });
+            html += '<div class="sp-tatica__row"><span>Formatos interativos: '
+              + escapeHtml(names.length ? names.join(", ") : "escolha nos formatos acima") + "</span></div>";
+            if (!names.length) warn.push(tipo.label + ": escolha os formatos interativos.");
+          }
+          if (dcoChannels(mine).length) {
+            html += '<div class="sp-tatica__row"><label><input type="checkbox" name="tatica_dco" data-tipo="' + tipo.id + '"'
+              + (row.dco ? " checked" : "") + "> " + escapeHtml((tspec.dco || {}).label || "DCO") + "</label></div>";
+          } else if (row.dco) {
+            row.dco = false;
+          }
+          if (mine.some(function (key) { return hosts.indexOf(key) !== -1; })) {
+            html += '<div class="sp-tatica__row"><label>Recorte dos portais <select class="cx-input" name="tatica_segmento" data-tipo="' + tipo.id + '">'
+              + '<option value="">Sem recorte</option>'
+              + (tspec.segmentos || []).map(function (seg) {
+                return '<option value="' + seg + '"' + (row.segmento === seg ? " selected" : "") + ">Classes " + seg + "</option>";
+              }).join("") + "</select></label></div>";
+          } else if (row.segmento) {
+            row.segmento = "";
+          }
+          if (!mine.length) warn.push(tipo.label + ": marque ao menos um canal.");
+          html += "</div>";
+        }
+        return html + "</fieldset>";
+      }).join("");
+      if (note) note.textContent = warn.join(" ");
+    }
+    list.addEventListener("change", function (event) {
+      var target = event.target;
+      if (!target || !target.name) return;
+      var tipo = target.getAttribute("data-tipo") || target.value;
+      if (target.name === "tatica_on") {
+        var rows = draft().filter(function (row) { return row.tipo !== tipo; });
+        if (target.checked) {
+          var canais = selectedCanaisNow();
+          var start = tipo === "impacto"
+            ? canais.filter(function (key) { return key === "interativos" || hosts.indexOf(key) !== -1; })
+            : canais.filter(function (key) { return key === "dv360"; });
+          rows.push({ tipo: tipo, canais: start, dco: tipo === "remarketing" && start.length > 0, segmento: "" });
+        }
+        taticasDraft = rows;
+      } else {
+        var row = rowFor(tipo);
+        if (!row) return;
+        if (target.name === "tatica_canal") {
+          row.canais = Array.prototype.slice.call(list.querySelectorAll('input[name="tatica_canal"][data-tipo="' + tipo + '"]:checked'))
+            .map(function (el) { return el.value; });
+        } else if (target.name === "tatica_dco") {
+          row.dco = target.checked;
+        } else if (target.name === "tatica_segmento") {
+          row.segmento = target.value;
+        }
+      }
+      render();
+      document.dispatchEvent(new Event("sp-taticas-changed"));
+    });
+    document.addEventListener("change", function (event) {
+      if (event.target && (event.target.name === "canais" || event.target.name === "interativos_formats")) render();
+    });
+    document.addEventListener("sp-taticas-render", render);
+    render();
   }
 
   function setupInterativosDesk() {

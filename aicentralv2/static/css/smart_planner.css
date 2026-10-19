@@ -3397,21 +3397,24 @@
 
 .sp-mix-ooh-note,
 .sp-places-desk p,
-.sp-interativos-desk p {
+.sp-interativos-desk p,
+.sp-taticas-desk p {
   margin: 0.55rem 0 0;
   color: var(--hi-fog);
   font-size: 0.75rem;
 }
 
 .sp-places-desk,
-.sp-interativos-desk {
+.sp-interativos-desk,
+.sp-taticas-desk {
   margin-top: 0.85rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--hi-line);
 }
 
 .sp-places-desk h3,
-.sp-interativos-desk h3 {
+.sp-interativos-desk h3,
+.sp-taticas-desk h3 {
   margin: 0 0 0.25rem;
   font-size: 0.75rem;
   font-weight: 600;
@@ -6093,4 +6096,64 @@ html.is-sp-media body {
 @media (max-width: 420px) {
   .sp-gallery { grid-template-columns: 1fr; }
   .sp-product-bar__actions .cx-btn, .sp-hi-foot .cx-btn { width: 100%; }
+}
+
+.sp-tatica {
+  margin: 0.55rem 0;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--hi-line);
+  border-radius: 0.6rem;
+}
+
+.sp-tatica.is-on {
+  border-color: var(--hi-accent, var(--hi-line));
+}
+
+.sp-tatica__head {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.sp-tatica__head small {
+  display: block;
+  margin-top: 0.15rem;
+  font-weight: 400;
+  color: var(--hi-fog);
+}
+
+.sp-tatica__body {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.sp-tatica__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+  font-size: 0.75rem;
+}
+
+.sp-tatica__row > span {
+  width: 100%;
+  color: var(--hi-fog);
+}
+
+.sp-tatica__row label {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.sp-tatica__row select {
+  min-width: 7rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.sp-taticas-note:empty {
+  display: none;
 }

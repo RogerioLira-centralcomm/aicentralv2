@@ -242,6 +242,8 @@ def campaign_from_campos(campos: dict) -> dict:
     if "interativos" in campos:
         raw = campos.get("interativos")
         out["interativos"] = raw if isinstance(raw, dict) else {"formats": as_list(raw)}
+    if "taticas" in campos:
+        out["taticas"] = [as_dict(item) for item in as_list(campos.get("taticas")) if as_dict(item)]
     if isinstance(campos.get("inventario_ooh"), dict):
         out["inventario_ooh"] = as_dict(campos.get("inventario_ooh"))
     return out

@@ -351,6 +351,7 @@ def channel_roles_for_one_page(snapshot: dict | None, roles=None) -> list[dict]:
             "status": "confirmed",
             "count": item.get("count") if item.get("count") not in (None, "") else None,
             "group": text(meta.get("group")),
+            "tatica": text(item.get("tatica")),
         })
     if not rows:
         for channel_id, role in role_map.items():
@@ -411,6 +412,7 @@ def build_media_board(
             "amount": amount or None,
             "amount_label": text(item.get("amount_label")) or (format_money(amount) if amount else ""),
             "role": role,
+            "tatica": text(item.get("tatica")),
         })
     channels.sort(key=lambda item: item.get("pct") or 0, reverse=True)
     pace_data = as_dict(pace)

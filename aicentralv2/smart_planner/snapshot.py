@@ -10,6 +10,7 @@ from .materials import normalize_references
 from .mix import progress_calendar, shares_to_money, should_progress
 from .pace import budget_shares, campaign_pace, campaign_verba, format_money
 from .places_bridge import snapshot_places
+from .taticas import normalize_taticas, tatica_by_channel
 
 
 def mix_shares(campanha: dict, canais: list[str]) -> tuple[dict[str, float], dict[str, int]]:
@@ -50,6 +51,8 @@ def build_snapshot(row: dict, dados: dict | None = None) -> dict:
     refs = normalize_references(fonte.get("referencias") or dados.get("referencias"))
     canais = [key for key in as_list(campanha.get("canais") or dados.get("canais")) if key in CHANNEL_CATALOG]
     shares, split = mix_shares(campanha, canais)
+    taticas = normalize_taticas(campanha.get("taticas") or dados.get("taticas"), canais)
+    tatica_of = tatica_by_channel(taticas)
     mix = []
     for key in canais:
         mix.append({
@@ -59,6 +62,7 @@ def build_snapshot(row: dict, dados: dict | None = None) -> dict:
             "amount": split.get(key),
             "amount_label": format_money(int(split.get(key) or 0)) if split.get(key) else "",
             "desc": (CHANNEL_CATALOG.get(key) or {}).get("desc", ""),
+            "tatica": tatica_of.get(key, ""),
         })
     pace = campaign_pace(campanha)
     sources = []
@@ -126,6 +130,7 @@ def build_snapshot(row: dict, dados: dict | None = None) -> dict:
         "places": snapshot_places(campanha.get("places") or dados.get("places")),
         "ooh_inventory": as_dict(campanha.get("inventario_ooh") or dados.get("inventario_ooh")),
         "interativos": as_dict(campanha.get("interativos") or dados.get("interativos")),
+        "taticas": taticas,
         "restrictions": [text(dados.get("observacoes"))] if text(dados.get("observacoes")) else [],
         # Apoio capturado pelo usuário: disponível para a geração, mas não promovido
         # automaticamente ao briefing estruturado nem tratado como fato confirmado.

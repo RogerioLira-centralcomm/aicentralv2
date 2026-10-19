@@ -74,7 +74,8 @@ Não acrescente formatos, dispositivos, métricas ou mecanismos que não estejam
 Traduza termos técnicos para leitura comercial: retargeting = voltar a falar com quem viu ou interagiu; B2B = empresas; B2C = pessoas. Não exponha ids internos de canal.
 Se houver places confirmados, nomeie apenas o ambiente/place e a audiência consolidada. Não cite ponto, raio ou app no plano.
 Em OOH ou DOOH, traduza qualquer menção a pontos como "presença em OOH/DOOH". Não escreva pontos, circuitos, inventário ou condições de compra.
-Formatos interativos só existem em portais (G1, UOL, R7, CNN), nunca em app, CTV, OOH ou Places.
+Formatos interativos só existem em portais (G1, UOL, R7, CNN, rede de portais), nunca em app, CTV, OOH ou Places.
+DCO = anúncio dinâmico: a peça se monta sozinha com o produto, a cor ou a oferta de interesse de cada pessoa. Se o material trouxer impacto e remarketing como frentes, mantenha as duas frentes, os formatos e o recorte de classe dos portais.
 Dados de terceiros servem para encontrar ou reencontrar públicos; não descreva isso como captura, venda ou coleta de dados.
 Preserve restrições e observações do anunciante.
 Não escreva uma seção de lacunas, validações ou observações finais. Ausências ficam nos campos estruturados e não entram na narrativa.
@@ -131,6 +132,8 @@ Regras:
 - Apps e sites cadastrados do Place podem aparecer no extrator e no planejamento como contexto de audiência digital. Eles não representam inventário, disponibilidade ou compra garantida.
 - Interativos só se um portal (g1, uol, r7, cnn) for citado. Formatos interativos não são Places.
 - Se o material pedir interativo em app, preserve o app apenas como contexto de audiência e mantenha o formato interativo no portal. Nunca descreva interativo dentro de app.
+- Interativos pedidos em "portais" sem nomear nenhum: use o canal dv360 (Rede de portais e sites) como portal e mantenha os formatos citados em "interativos". Não invente G1, UOL ou outro portal que o material não nomeou.
+- taticas: preencha só quando o material separar frentes (por exemplo, impacto e remarketing). Cada frente usa apenas ids que também estão em "canais"; interativos entram na frente que os cita, junto do canal "interativos". "dco" entra só quando o material pede DCO ou criativo dinâmico e fica no canal que o roda (nunca em interativos, OOH, Places, CTV ou áudio). Segmento AB, A ou BC descreve o recorte dos portais, não o público da marca.
 - praca_detalhe é cidade/UF. O venue vai em "places", não misturado como texto solto.
 - cliente é o anunciante (marca que anuncia). Em briefing de agência, a palavra "cliente" do texto = anunciante.
 - Quando o material começar com "Marca (Agência Nome):", a Marca é sempre o cliente/anunciante, mesmo que o nome também identifique um aeroporto, shopping, evento ou Place.
@@ -546,6 +549,7 @@ def rewrite_from_plan(token: str) -> dict:
         "canais": campanha.get("canais") or dados.get("canais") or [],
         "places": campanha.get("places") or dados.get("places") or [],
         "interativos": campanha.get("interativos") or dados.get("interativos") or {},
+        "taticas": campanha.get("taticas") or dados.get("taticas") or [],
         "inventario_ooh": campanha.get("inventario_ooh") or dados.get("inventario_ooh") or {},
         "mix": campanha.get("mix") or {},
         "anunciante_confidencial": as_bool(dados.get("anunciante_confidencial")),

@@ -48,6 +48,7 @@ from .helpers import (
     text,
 )
 from .materials import normalize_references
+from .taticas import problems as taticas_problems
 from .processor import suggest_campaign_name
 from .pace import (
     allocate_months,
@@ -181,6 +182,7 @@ def wizard_context(row: dict, step_id: str) -> dict:
         "anunciante_confidencial": as_bool(dados.get("anunciante_confidencial")),
         "places": campanha.get("places") or dados.get("places") or [],
         "interativos": campanha.get("interativos") or dados.get("interativos") or {},
+        "taticas": campanha.get("taticas") or dados.get("taticas") or [],
     }
     if not text(campos["campanha"]):
         campos["campanha"] = suggest_campaign_name(campos)
@@ -330,6 +332,7 @@ def wizard_context(row: dict, step_id: str) -> dict:
         },
         "places_catalog": planner_place_catalog(),
         "kpi_suggestions": group_kpis_for(campos.get("canais")),
+        "taticas_avisos": taticas_problems(as_list(campos.get("taticas")), campos.get("canais")),
     }
 
 
@@ -378,6 +381,8 @@ def persist_review(token: str, payload: dict) -> dict:
         campos["interativos"] = (
             payload.get("interativos") if payload.get("interativos") is not None else campos.get("interativos")
         )
+    if "taticas" in payload or "taticas" in campos:
+        campos["taticas"] = payload.get("taticas") if payload.get("taticas") is not None else campos.get("taticas")
     campos = apply_review_defaults(apply_places_to_campos(campos, lock_channel=True))
     review_budget = campaign_verba({
         "verba": campos.get("verba"),
@@ -503,6 +508,7 @@ def persist_canais(token: str, payload: dict) -> dict:
         "canais_verba": canais_verba,
         "places": resolve_places(payload.get("places") if "places" in payload else existing.get("places")),
         "interativos": payload.get("interativos") if "interativos" in payload else existing.get("interativos"),
+        "taticas": payload.get("taticas") if "taticas" in payload else existing.get("taticas") or [],
     }
     campos = apply_review_defaults(apply_places_to_campos(campos, lock_channel=True))
     if mix is not None:

@@ -4,7 +4,7 @@
 {% block title %}{{ steps[step_index].title }} · Planejamentos{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=57">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=58">
 {% endblock %}
 
 {% block content %}
@@ -620,10 +620,17 @@
               <p id="sp-interativos-note">Interativos entram no portal.</p>
               <div class="sp-kpi-chips" id="sp-interativos-formats"></div>
             </div>
+            <div class="sp-taticas-desk" id="sp-taticas-desk" hidden>
+              <h3>Táticas da campanha</h3>
+              <p>Separe as frentes da campanha. Cada uma usa canais e formatos próprios, e o plano explica o papel de cada canal dentro dela.</p>
+              <div id="sp-taticas-list"></div>
+              <p class="sp-taticas-note" id="sp-taticas-note" role="status" aria-live="polite">{{ (taticas_avisos or [])|join(' ') }}</p>
+            </div>
             <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-mix-more-btn" hidden>Ver mais canais</button>
             <script type="application/json" id="sp-places-boot">{{ (campos.places or [])|tojson }}</script>
             <script type="application/json" id="sp-places-catalog">{{ (places_catalog or [])|tojson }}</script>
             <script type="application/json" id="sp-interativos-boot">{{ (campos.interativos or {})|tojson }}</script>
+            <script type="application/json" id="sp-taticas-boot">{{ (campos.taticas or [])|tojson }}</script>
           </section>
           <section class="sp-media-balance" id="sp-media-balance-controls" aria-labelledby="sp-mix-balance-title">
             <h3 id="sp-mix-balance-title">Balanceamento de mídia</h3>
@@ -909,6 +916,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=33"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=34"></script>
 <script src="{{ url_for('static', filename='js/smart_planner/guide.js') }}?v=3"></script>
 {% endblock %}

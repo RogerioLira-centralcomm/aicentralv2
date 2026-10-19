@@ -139,6 +139,7 @@ FIELD_SCHEMA = {
     "places": "array de {slug, point_ids, apps} só com slugs e pontos do catálogo injetado. Vazio se o material não citar um venue publicado.",
     "inventario_ooh": "objeto {source, points:[{id, name, detail}]} somente para pontos de OOH enviados explicitamente como referência. Preserve texto e ordem; não deduza ponto, fornecedor, preço ou disponibilidade.",
     "interativos": "objeto {formats: []} só se um portal (g1, uol, r7, cnn) estiver nos canais. Formatos: hotspot, cartas, quiz, cube, scratch, 360, countdown, video.",
+    "taticas": "array de frentes de mídia que o material descreve, cada uma {tipo, canais, formatos, segmento}. tipo: impacto (apresenta a ideia, formatos interativos, presença editorial) ou remarketing (volta a falar com quem interagiu ou visitou o site). canais: ids do campo canais que a frente usa. formatos: interativos citados (hotspot, cartas, quiz, cube, scratch, 360, countdown, video) e \"dco\" quando o material pede criativo dinâmico (DCO). segmento: classe dos portais (A, AB, B, BC, C) só se o material disser. No máximo uma frente de cada tipo. Vazio se o material não separar frentes.",
     "criativos": "materiais disponíveis ou possíveis: formatos, durações, restrições.",
     "dispositivos": "array de ids de dispositivos/superfícies.",
     "kpis": "array de métricas de sucesso citadas.",

@@ -5,7 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from .catalog import CHANNEL_CATALOG, INTERATIVOS_FORMATS, PORTAL_CHANNELS
+from .catalog import CHANNEL_CATALOG, INTERATIVOS_FORMATS
+from .taticas import INTERATIVOS_HOSTS, interativos_from_taticas, normalize_taticas
 from .helpers import as_dict, as_list, text
 
 
@@ -296,7 +297,7 @@ def normalize_interativos(raw: Any, canais: Any) -> dict:
         key = text(item).lower().replace("í", "i")
         if key in allowed and key not in formats:
             formats.append(key)
-    if not keys.intersection(PORTAL_CHANNELS):
+    if not keys.intersection(INTERATIVOS_HOSTS):
         return {"formats": []}
     return {"formats": formats}
 
@@ -322,11 +323,17 @@ def apply_places_to_campos(
     if not resolved and not lock_channel:
         canais = [key for key in canais if key != "places"]
     interativos = normalize_interativos(out.get("interativos"), canais)
-    if "interativos" in canais and not any(key in PORTAL_CHANNELS for key in canais):
+    if "interativos" in canais and not any(key in INTERATIVOS_HOSTS for key in canais):
         canais = [key for key in canais if key != "interativos"]
         interativos = {"formats": []}
-    if interativos.get("formats") and "interativos" not in canais and any(key in PORTAL_CHANNELS for key in canais):
+    if interativos.get("formats") and "interativos" not in canais and any(key in INTERATIVOS_HOSTS for key in canais):
         canais.append("interativos")
+    if "taticas" in out:
+        # As táticas só valem para canais que seguem no mix; os formatos interativos delas mandam.
+        out["taticas"] = normalize_taticas(out.get("taticas"), canais)
+        declared = interativos_from_taticas(out["taticas"])
+        if declared and any(key in INTERATIVOS_HOSTS for key in canais):
+            interativos = {"formats": declared}
     out["interativos"] = interativos
     out["canais"] = canais
     return out

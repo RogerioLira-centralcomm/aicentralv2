@@ -19,7 +19,11 @@ O CONTEXTO separa `confirmado` de `lacunas`.
 
 - **Tese única.** `thesis.statement` é uma frase sobre o desafio ou a oportunidade de mídia deste anunciante. Não abra com "o planejamento", "este plano", "esta página" ou "esta folha". Se o nome da marca sair da frase, ela ainda precisa ser específica: ancore em produto, praça, público, canal ou restrição.
 - **Canais.** Use só os de `confirmado.mix`, pelo `canal` (nome) dele, na ordem do mix. Não acrescente canal. Cada canal do mix tem exatamente um item em `channel_roles`.
-- **Criativo.** `creative_expression.channel` é o `confirmado.mix_heroi`. `surface` e `primary_format` seguem o `formato_principal` desse canal. O criativo é uma referência estática 16:9 que o usuário produz depois. Aqui você só escreve o conceito, o título, o apoio, o CTA e o `image_prompt`.
+- **Táticas.** Quando existir `confirmado.taticas`, a campanha tem frentes e cada uma é uma decisão do executivo: `impacto` apresenta a ideia (formatos interativos e presença editorial) e `remarketing` volta a falar com quem interagiu ou visitou o site. Cada tática tem seus canais, formatos e peso no mix. Escreva as duas como frentes distintas, cada canal com o papel da frente a que pertence, e mostre como a jornada passa de uma para a outra. `challenge`, `thesis` e `journey` devem refletir as duas frentes.
+- **DCO.** O formato `DCO · anúncio dinâmico` é um anúncio que se monta sozinho com o produto, a cor ou a oferta de interesse de cada pessoa, e a mensagem muda por etapa (visualizou, adicionou à sacola, abandonou). Quando `confirmado.taticas` trouxer DCO, descreva-o assim no canal que o roda e diga que alimenta o remarketing quem interagiu ou visitou o site. Não prometa taxa de retorno nem catálogo de produtos que o contexto não traga.
+- **Formatos interativos.** Use só os de `confirmado.interativos` (e os da tática). Descreva cada um pela mecânica real: Hotspot = pontos clicáveis sobre a imagem; Cartas = o usuário vira cartas e descobre combinações; Quiz, Cube, Scratch, 360, Countdown e Vídeo seguem a mesma lógica. Não acrescente formato que não foi escolhido.
+- **Recorte de portais.** `recorte_de_portais` (por exemplo, classes AB) é o critério de seleção editorial dos portais. Diga que os portais são escolhidos por segmento e afinidade com esse recorte, sem lista de sites, sem volume e sem número de audiência.
+- **Criativo.** `creative_expression.channel` é o `confirmado.mix_heroi`, que já considera a tática de impacto. `surface` e `primary_format` seguem o `formato_principal` desse canal. O criativo é uma referência estática 16:9 que o usuário produz depois. Aqui você só escreve o conceito, o título, o apoio, o CTA e o `image_prompt`.
 - **Números.** Percentuais, valores e o voo mês a mês são preenchidos pelo sistema a partir do mix: não os repita no texto. Não escreva número que não esteja no contexto. Sem número, escreva a ideia sem ele.
 - **KPIs.** Só os de `confirmado.kpis`. Meta numérica só quando estiver no contexto.
 - **Mercado.** `market_evidence` só existe quando `confirmado.pesquisa_de_mercado` ou `confirmado.fontes` trazem um dado com fonte identificável. `source` e `source_url` copiam essa fonte exatamente. Sem fonte, deixe o objeto com textos vazios e `"status": "omitted"`.
@@ -55,7 +59,7 @@ Responda APENAS com JSON válido, sem markdown, exatamente nesta estrutura. Camp
 "recommendation":{"summary":"","audience":"","message":"",
  "journey":[{"moment":"","role":"","channel":""}],
  "channel_roles":[{"channel":"","role":"alcance|intencao|acao|reforco","function":"","primary_format":"","format_rationale":""}]},
-"media_narrative":{"decision":"","distribution":"","flight":""},
+"media_narrative":{"decision":"","distribution":"","flight":"","taticas":[{"tipo":"impacto|remarketing","descricao":""}]},
 "benefits":{"audience":[""],"brand":[""],"operation":[""]},
 "outputs":[{"name":"","description":""}],
 "creative_expression":{"channel":"","surface":"ctv|portal|app|display|place","headline":"","supporting_text":"","cta":"","image_prompt":""},

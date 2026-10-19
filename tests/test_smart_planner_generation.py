@@ -235,7 +235,7 @@ def test_estimates_calculate_cpm_scenarios():
     })
     assert result["status"] == "available"
     channel = result["channels"][0]
-    assert channel["status"] == "system_calculated"
+    assert channel["status"] == "executive_reviewed"
     ref = next(item for item in channel["scenarios"] if item["scenario"] == "referencia")
     assert ref["impressions"] == 5_000_000
     assert ref["reach"] == 1_250_000

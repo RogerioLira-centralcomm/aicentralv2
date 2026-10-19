@@ -158,6 +158,7 @@ def build_snapshot(row: dict, dados: dict | None = None) -> dict:
             "how": text(pace.get("como")),
         },
         "media_params": as_dict(dados.get("media_params") or campanha.get("media_params")),
+        "indicador_cliente": as_dict(dados.get("indicador_cliente")),
     }
 
 

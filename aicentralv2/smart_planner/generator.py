@@ -17,7 +17,15 @@ from .ai import chat_json, chat_text
 from .brand import brand_prompt_block
 from .catalog import CHANNEL_CATALOG, PLAN_MODES, PRIMARY_FORMATS
 from .cost import bound_session
-from .estimates import calculate_estimates, format_estimates_for_prompt
+from .estimates import (
+    calculate_estimates,
+    estimable,
+    format_estimates_for_prompt,
+    headline as estimates_headline,
+    normalize_media_params,
+    params_key,
+    suggest_media_params,
+)
 from .pace import format_money
 from .helpers import (
     TITLE_LIMIT,
@@ -167,13 +175,49 @@ def _spawn_generation(token: str, mode: str) -> None:
     threading.Thread(target=runner, daemon=True, name=f"sp-gen-{token[:12]}").start()
 
 
+def _ensure_media_params(token: str, snapshot: dict, dados: dict) -> bool:
+    """Garante taxas de mídia para a estimativa: o modelo sugere o que falta, o executivo manda no resto.
+
+    Refaz a sugestão do modelo quando praça, objetivo, público, canais ou táticas mudam e o executivo ainda
+    não revisou; valores do executivo e estimativas revisadas nunca são trocados. Devolve True se gravou.
+    """
+    if not _has_llm():
+        return False
+    ids = [text(as_dict(r).get("id")) for r in as_list(snapshot.get("mix")) if estimable(text(as_dict(r).get("id")))]
+    if not ids:
+        return False
+    current = as_dict(dados.get("media_params"))
+    normalized = normalize_media_params(current, ids)
+    key = params_key(snapshot)
+    missing = [item for item in ids if item not in normalized["canais"]]
+    stale = bool(normalized["canais"]) and text(current.get("chave")) != key and not normalized["revisado"]
+    if not missing and not stale:
+        return False
+    try:
+        updated = suggest_media_params(snapshot, current, force=stale)
+    except Exception:
+        logger.warning("Sugestão de taxas de mídia indisponível; a estimativa fica para o executivo.", exc_info=True)
+        return False
+    if not updated.get("canais"):
+        return False
+    updated["chave"] = key
+    merge_dados(token, {"media_params": updated})
+    snapshot["media_params"] = updated
+    return True
+
+
 def _run(token: str, mode: str) -> dict:
     row = get_by_token(token)
     dados = as_dict(row.get("dados_detectados"))
-    material_hash = _material_hash(row)
 
     mark_step(token, "snapshot", "running")
     snapshot = build_snapshot(row, dados)
+    if _ensure_media_params(token, snapshot, dados):
+        # As taxas entram no hash do material: sem isso o próximo clique refaria a página à toa.
+        row = get_by_token(token)
+        dados = as_dict(row.get("dados_detectados"))
+        snapshot = build_snapshot(row, dados)
+    material_hash = _material_hash(row)
     snapshot["material_hash"] = material_hash
     merge_dados(token, {"snapshot": snapshot, "plan_mode": mode, "material_hash": material_hash})
     mark_step(token, "snapshot", "done")
@@ -797,6 +841,10 @@ def _one_page_payload(snapshot: dict, evidence: dict, estimates: dict) -> dict:
         "marca": brand_prompt_block(as_dict(snap.get("brand"))) or None,
         "restricoes": [text(item) for item in as_list(snap.get("restrictions")) if text(item)],
         "estimativas": estimates_note,
+        "indicador_do_cliente": {
+            key: value for key, value in as_dict(as_dict(estimates).get("indicator")).items()
+            if key in {"rotulo", "meta", "estimado", "status"} and value not in (None, "")
+        } or None,
         "briefing": briefing[:8000],
         "briefing_do_usuario": user_briefing[:3000] if user_briefing and user_briefing not in briefing else "",
         "pesquisa_de_mercado": text(snap.get("market_research") or as_dict(evidence).get("market_research"))[:6000],
@@ -972,7 +1020,8 @@ def _one_page_v4(snapshot: dict, evidence: dict, estimates: dict, material_hash:
     page["visual_data"] = _visual_data_fallback(snapshot)
     page["result_estimates"] = {
         "status": as_dict(estimates).get("status") or "not_available",
-        "summary": format_estimates_for_prompt(estimates or {}),
+        "summary": estimates_headline(estimates) or format_estimates_for_prompt(estimates or {}),
+        "origin": as_dict(estimates).get("origin") or "",
     }
     _apply_no_budget_policy(page, snapshot)
     core = _core_from_page(page, nucleo, snapshot, material_hash)
@@ -1761,6 +1810,19 @@ def _cover_markdown(snapshot: dict, core: dict) -> str:
     ))
 
 
+def _params_signature(raw) -> dict:
+    """Parte estável das taxas: sem data de geração nem racional, que mudam sem mudar a estimativa."""
+    params = normalize_media_params(raw)
+    return {
+        "canais": {
+            key: {name: rates.get(name) for name in ("cpm", "cpc", "ctr", "frequencia", "conversao", "origem")}
+            for key, rates in params["canais"].items()
+        },
+        "indicador": params["indicador"],
+        "revisado": params["revisado"],
+    }
+
+
 def _material_hash(row: dict) -> str:
     dados = as_dict((row or {}).get("dados_detectados"))
     campanha = as_dict(dados.get("campanha"))
@@ -1771,7 +1833,7 @@ def _material_hash(row: dict) -> str:
         "praca": campanha.get("praca") or dados.get("praca"),
         "periodo": campanha.get("periodo") or (row or {}).get("prazo"),
         "objetivo": (row or {}).get("objetivo") or dados.get("objetivo") or campanha.get("objetivo"),
-        "media_params": dados.get("media_params") or campanha.get("media_params"),
+        "media_params": _params_signature(dados.get("media_params") or campanha.get("media_params")),
         "anunciante_confidencial": as_bool(dados.get("anunciante_confidencial")),
         # Rebalancear, trocar Places ou Interativos também muda o plano.
         "mix": {

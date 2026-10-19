@@ -143,6 +143,7 @@ FIELD_SCHEMA = {
     "criativos": "materiais disponíveis ou possíveis: formatos, durações, restrições.",
     "dispositivos": "array de ids de dispositivos/superfícies.",
     "kpis": "array de métricas de sucesso citadas.",
+    "indicador_cliente": "objeto {metrica, meta} com o indicador que o cliente sugeriu ou exige para medir a campanha. metrica: cpm, cpc, cpv, cpa, ctr, impressoes, alcance, cliques ou visitas. meta: o valor numérico citado (ex.: CPC de R$ 1,50 -> 1.5), ou null se só citou a métrica. Vazio se o material não indicar.",
     "observacoes": "toda informação relevante sem campo próprio.",
     "nao_informado": "array com os nomes dos campos que o anunciante disse não ter.",
 }

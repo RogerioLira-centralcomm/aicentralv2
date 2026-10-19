@@ -164,3 +164,9 @@ def test_fit_json_never_cuts_mid_string():
     dumped = _fit_json(payload, 20000)
     assert json.loads(dumped)["snapshot"]["client"]["name"] == "Marca"
     assert payload["snapshot"]["briefing"] == "é" * 50000  # o original não muda
+
+
+def test_market_research_survives_channel_swap():
+    row = {"briefing_melhorado": "b", "dados_detectados": {"campanha": {"praca": "sp", "canais": ["meta_ads"]}}}
+    swapped = {"briefing_melhorado": "b", "dados_detectados": {"campanha": {"praca": "sp", "canais": ["youtube"]}}}
+    assert generator._market_key(row) == generator._market_key(swapped)

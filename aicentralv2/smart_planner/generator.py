@@ -595,6 +595,11 @@ def _pack(snapshot: dict, evidence: dict, core: dict | None = None, estimates: d
 
 # Ordem de corte quando o pacote passa do limite: primeiro o apoio, por último a verdade da campanha.
 _TRIM_PATHS = (
+    (("confirmado", "apoio"), 3000),
+    (("confirmado", "pesquisa_de_mercado"), 4000),
+    (("confirmado", "briefing_do_usuario"), 1500),
+    (("confirmado", "briefing"), 5000),
+    (("confirmado", "apoio"), 0),
     (("conteudo_capturado_apoio", "texto"), 4000),
     (("evidence", "conteudo_capturado"), 2000),
     (("snapshot", "conteudo_capturado"), 2000),
@@ -814,7 +819,18 @@ def _guard_page_numbers(page: dict, payload: dict) -> list[dict]:
     from ..cadu_planner.final_plan import _bad_numbers, allowed_numbers
 
     allowed = allowed_numbers(payload)
+    mix = [as_dict(item) for item in as_list(as_dict(payload.get("confirmado")).get("mix"))]
+    shares = [float(item["percentual"]) for item in mix if isinstance(item.get("percentual"), (int, float))]
+    # Somas de fatias do mix ("YouTube e Meta somam 80%") são derivadas, não inventadas.
+    for i, first in enumerate(shares):
+        for second in shares[i + 1:]:
+            allowed.add(str(round(first + second)))
+    allowed.add(str(len(mix)))
     context = json.dumps(payload, ensure_ascii=False, default=str)
+    evidence_text = json.dumps(
+        {key: as_dict(payload.get("confirmado")).get(key) for key in ("pesquisa_de_mercado", "fontes")},
+        ensure_ascii=False, default=str,
+    )
     removed = []
     technical = {"channel", "channel_id", "primary_format_id", "surface", "status", "role", "source_url", "source_date", "image_prompt"}
 
@@ -840,11 +856,12 @@ def _guard_page_numbers(page: dict, payload: dict) -> list[dict]:
         page[key] = clean(page[key], key)
     market = as_dict(page.get("market_evidence"))
     url = text(market.get("source_url"))
-    if url and url not in context:
+    if url and url not in evidence_text:
         removed.append({"section": "market_evidence", "removed": url, "reason": "fonte fora do contexto"})
         market["source_url"] = ""
     source = text(market.get("source"))
-    if market.get("source_url") or (source and source in context):
+    # A fonte precisa vir da pesquisa ou das fontes do plano, não de uma menção solta no briefing.
+    if market.get("source_url") or (len(source) >= 4 and source in evidence_text):
         market["status"] = "confirmed"
     else:
         if source or text(market.get("stat")):
@@ -1249,6 +1266,30 @@ def _creative_plan(page: dict, snapshot: dict) -> list[dict]:
     return out
 
 
+# Nomes que o modelo usa para um canal do catálogo sem repetir o rótulo exato.
+CHANNEL_ALIASES = {
+    "instagram": "meta_ads", "facebook": "meta_ads", "meta": "meta_ads",
+    "google": "google_ads", "busca": "google_ads", "pesquisa google": "google_ads",
+}
+
+
+def _alias_row(channel: str, rows: list[dict]) -> dict:
+    """Linha do mix que o nome curto ou apelido do canal designa; vazio se ambíguo."""
+    name = re.sub(r"\s+", " ", re.sub(r"[^a-z0-9à-ú ]+", " ", text(channel).lower())).strip()
+    if not name:
+        return {}
+    target = CHANNEL_ALIASES.get(name)
+    if target:
+        return next((row for row in rows if text(row.get("id")) == target), {})
+    words = set(name.split())
+    found = []
+    for row in rows:
+        label = re.sub(r"[^a-z0-9à-ú ]+", " ", text(row.get("label") or row.get("id")).lower())
+        if words and words <= set(label.split()):
+            found.append(row)
+    return found[0] if len(found) == 1 else {}
+
+
 def _repair_page_channels(page: dict, snapshot: dict) -> list[str]:
     """Põe o texto do modelo de volta dentro do mix aprovado, sem refazer a geração.
 
@@ -1269,8 +1310,12 @@ def _repair_page_channels(page: dict, snapshot: dict) -> list[str]:
     for role in roles:
         channel = text(role.get("channel") or role.get("id"))
         if channel and approved and not (_channel_tokens(channel) & approved):
-            repairs.append(f"Papel removido: {channel} não está no mix.")
-            continue
+            alias = _alias_row(channel, _mix_rows(snapshot))
+            if not alias:
+                repairs.append(f"Papel removido: {channel} não está no mix.")
+                continue
+            role["channel"] = text(alias.get("label") or alias.get("id"))
+            repairs.append(f"Papel de {channel} associado a {role['channel']}.")
         kept.append(role)
     heroes = _hero_rows(_mix_rows(snapshot))
     if heroes:
@@ -1631,7 +1676,7 @@ def _material_hash(row: dict) -> str:
 
 
 def _market_key(row: dict) -> str:
-    """O que a pesquisa de mercado leva em conta: muda a praça ou o anunciante, refaz."""
+    """O que a pesquisa de mercado leva em conta: categoria, praça, anunciante e objetivo; trocar canal não refaz."""
     dados = as_dict((row or {}).get("dados_detectados"))
     campanha = as_dict(dados.get("campanha"))
     payload = {
@@ -1640,7 +1685,6 @@ def _market_key(row: dict) -> str:
         "praca": text(campanha.get("praca") or dados.get("praca")),
         "praca_detalhe": text(campanha.get("praca_detalhe") or dados.get("praca_detalhe")),
         "objetivo": text((row or {}).get("objetivo") or dados.get("objetivo") or campanha.get("objetivo")),
-        "canais": as_list(campanha.get("canais") or dados.get("canais")),
     }
     raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]

@@ -136,3 +136,30 @@ def test_v4_prompt_keeps_contract_keys_the_public_page_reads():
 def test_blank_template_items_are_dropped():
     cleaned = generator._drop_blank_items({"pending_decisions": [""], "outputs": [{"name": "", "description": ""}, {"name": "Leads"}]})
     assert cleaned == {"pending_decisions": [], "outputs": [{"name": "Leads"}]}
+
+
+def test_guard_keeps_sum_of_mix_shares():
+    payload = _one_page_payload(SNAPSHOT, {}, {})
+    page = {"commercial_defense": {"why_this_mix": ["YouTube e Meta Ads somam 80% do mix."]}}
+    _guard_page_numbers(page, payload)
+    assert page["commercial_defense"]["why_this_mix"] == ["YouTube e Meta Ads somam 80% do mix."]
+
+
+def test_guard_rejects_source_only_named_in_briefing():
+    snap = {**SNAPSHOT, "briefing": "Usar dados do IBGE quando possível.", "market_research": ""}
+    payload = _one_page_payload(snap, {}, {})
+    page = {"market_evidence": {"stat": "IBGE", "source": "IBGE", "insight": "Jovens compram online."}}
+    _guard_page_numbers(page, payload)
+    assert page["market_evidence"]["status"] == "omitted"
+    assert page["market_evidence"]["source"] == ""
+
+
+def test_repair_maps_channel_alias_to_mix_row():
+    page = {
+        "recommendation": {"channel_roles": [{"channel": "YouTube"}, {"channel": "Instagram", "function": "Converte."}]},
+        "creative_expression": {"channel": "YouTube"},
+    }
+    generator._repair_page_channels(page, SNAPSHOT)
+    roles = page["recommendation"]["channel_roles"]
+    assert [role["channel"] for role in roles] == ["YouTube", "Meta Ads"]
+    assert roles[1]["function"] == "Converte."

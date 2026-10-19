@@ -631,7 +631,7 @@
             {'group': 'CRM', 'label': 'Clientes', 'endpoint': 'clientes', 'url': url_for('clientes'), 'icon': 'fa-building'},
             {'group': 'CRM', 'label': 'CRM', 'endpoint': 'crm_v3.crm_v3', 'url': url_for('crm_v3.crm_v3'), 'icon': 'fa-address-book', 'central_only': true},
             {'group': 'CRM', 'label': 'Agências', 'endpoint': 'crm_v3.crm_v3_agencias', 'url': url_for('crm_v3.crm_v3_agencias'), 'icon': 'fa-building-user', 'central_only': true},
-            {'group': 'CRM', 'label': 'Leads', 'endpoint': 'leads_list', 'match_endpoints': ['leads_analise'], 'url': url_for('leads_list'), 'icon': 'fa-bullseye'},
+            {'group': 'CRM', 'label': 'Leads', 'endpoint': 'leads_v3.pagina', 'match_endpoints': ['leads_list', 'leads_analise'], 'url': url_for('leads_v3.pagina'), 'icon': 'fa-bullseye'},
             {'group': 'CRM', 'label': 'WhatsApp', 'endpoint': 'whatsapp.index', 'url': url_for('whatsapp.index'), 'icon': 'fa-whatsapp', 'brand': true},
             {'group': 'Propostas', 'label': 'Briefings', 'endpoint': 'briefing_list', 'match_endpoints': ['briefing_create', 'briefing_edit'], 'url': url_for('briefing_list'), 'icon': 'fa-clipboard-list'},
             {'group': 'Propostas', 'label': 'Planner', 'endpoint': 'smart_planner.index', 'match_prefix': 'smart_planner.', 'url': url_for('smart_planner.index'), 'icon': 'fa-chess'},

@@ -14,7 +14,11 @@
   <!-- ===== Top Bar ===== -->
   <div class="leads-topbar">
     <div class="flex items-center gap-1.5 flex-wrap">
-      <h1 class="text-sm font-semibold text-gray-800">Leads</h1>
+      <h1 class="text-sm font-semibold text-gray-800">Leads <span style="font-weight:500;color:#6b7280">(versão antiga)</span></h1>
+      <a href="{{ url_for('leads_v3.pagina') }}"
+         style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;font-size:10px;font-weight:600;background:#1E4D4F;color:#fff;border-radius:6px;text-decoration:none">
+        Abrir a mesa nova
+      </a>
 
       <button onclick="openNewLeadModal()"
               style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;font-size:10px;font-weight:600;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer">

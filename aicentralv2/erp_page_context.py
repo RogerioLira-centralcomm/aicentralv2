@@ -8,6 +8,7 @@ ENDPOINT_CONTEXT = {
     "crm_v3.crm_v3": ("crm", "clientes"),
     "crm_pipeline": ("comercial", "pipeline"),
     "clientes": ("crm", "clientes"),
+    "leads_v3.pagina": ("comercial", "leads"),
     "leads_list": ("comercial", "leads"),
     "leads_analise": ("comercial", "analise_leads"),
     "briefing_list": ("comercial", "briefings"),

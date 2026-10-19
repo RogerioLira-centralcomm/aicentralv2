@@ -27,6 +27,19 @@
       list.appendChild(item);
       links[section.id] = link;
     });
+    // No celular o topo esconde estes dois atalhos; a faixa os mantém ao alcance.
+    [["data-full-plan", "Plano completo ↗"], ["data-whatsapp", "Falar sobre o plano ↗"]].forEach(function (extra) {
+      var href = rail.getAttribute(extra[0]);
+      if (!href) return;
+      var item = document.createElement("li");
+      var link = document.createElement("a");
+      link.href = href;
+      link.textContent = extra[1];
+      link.className = "is-link";
+      if (extra[0] === "data-whatsapp") { link.target = "_blank"; link.rel = "noopener"; }
+      item.appendChild(link);
+      list.appendChild(item);
+    });
     rail.hidden = false;
     var current = "";
     function activate(id) {
@@ -41,8 +54,17 @@
         links[id].scrollIntoView({ block: "nearest", inline: "center" });
       }
     }
+    var root = document.documentElement;
+    var topbar = document.querySelector(".spv3-topbar");
+    // As barras fixas mudam de altura quando os botões quebram de linha: medir evita folga ou sobreposição.
+    function measureBars() {
+      root.style.setProperty("--spv3-bar", (topbar ? topbar.offsetHeight : 70) + "px");
+      var strip = window.getComputedStyle(rail).position === "sticky" && window.innerWidth < 1180;
+      root.style.setProperty("--spv3-rail", (strip ? rail.offsetHeight : 0) + "px");
+    }
+    measureBars();
     function spy() {
-      var line = window.innerHeight * 0.3;
+      var line = (topbar ? topbar.offsetHeight : 70) + (parseInt(root.style.getPropertyValue("--spv3-rail"), 10) || 0) + 40;
       var active = sections[0].id;
       sections.forEach(function (section) {
         if (section.getBoundingClientRect().top <= line) active = section.id;
@@ -57,7 +79,8 @@
       ticking = true;
       window.requestAnimationFrame(function () { ticking = false; spy(); });
     }, { passive: true });
-    window.addEventListener("resize", spy);
+    window.addEventListener("resize", function () { measureBars(); spy(); });
+    if ("ResizeObserver" in window && topbar) new ResizeObserver(function () { measureBars(); spy(); }).observe(topbar);
     spy();
   }
 

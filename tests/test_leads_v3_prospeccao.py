@@ -205,3 +205,16 @@ class AcharEmailTest(TestCase):
                 patch.object(p, "_firecrawl_search_endpoint", return_value="https://fc/v2/search"):
             candidato = p.web_buscar_pessoas("fc", "Zerezes")[0]
         self.assertEqual((candidato["papel_sugerido"], candidato["senioridade_sugerida"]), ("marketing", "c_level"))
+
+
+class AcharEmailNivelTest(TestCase):
+    def test_nome_oculto_do_apollo_nao_vira_palpite(self):
+        r = p.achar_email("Joao Pe***a", "zerezes.com.br", [("Gabriela Martins", "gabriela.martins@zerezes.com.br")], mx=lambda d: True)
+        self.assertIsNone(r["email"])
+        self.assertEqual(r["nivel"], "pessoa")
+
+    def test_falta_de_padrao_e_da_empresa(self):
+        r = p.achar_email("Bruno Reis", "vale.com", [], firecrawl_key="fc", coletar=lambda k, d: ([], []), mx=lambda d: True)
+        self.assertEqual(r["nivel"], "empresa")
+        sem_sobrenome = p.achar_email("Madonna", "vale.com", [("Ana Lima", "ana.lima@vale.com")], mx=lambda d: True)
+        self.assertEqual(sem_sobrenome["nivel"], "pessoa")

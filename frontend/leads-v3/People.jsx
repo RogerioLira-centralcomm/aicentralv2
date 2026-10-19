@@ -254,8 +254,14 @@ export function People({boot, api, lead, contacts, candidates, onChanged, notify
     let motivo = '';
     for (const [i, c] of semEmail.entries()) {
       setBulk(`${i + 1}/${semEmail.length}`);
-      try { const r = await api.findEmail(c.id); if (r.encontrou) achados += 1; else motivo = r.motivo || motivo; }
-      catch (error) { motivo = error.message; }
+      try {
+        const r = await api.findEmail(c.id);
+        if (r.encontrou) achados += 1;
+        else {
+          motivo = r.motivo || motivo;
+          if (r.nivel === 'empresa') break; // sem domínio, MX ou padrão: as próximas pessoas falhariam igual
+        }
+      } catch (error) { motivo = error.message; break; }
     }
     setBulk('');
     notify(achados ? `${achados} de ${semEmail.length} e-mails sugeridos pelo padrão da empresa. Confira antes de enviar.` : (motivo || 'Nenhum e-mail encontrado.'), achados ? 'success' : 'error');

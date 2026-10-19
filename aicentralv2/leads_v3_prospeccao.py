@@ -572,7 +572,13 @@ def dominio_recebe_email(dominio):
 
 def achar_email(nome, dominio, exemplos, *, firecrawl_key=None, coletar=firecrawl_contatos_do_dominio, mx=dominio_recebe_email):
     """Cascata sem Apollo. Devolve dict com email (ou None), método, padrão, confiança e telefones da empresa."""
-    resultado = {"email": None, "metodo": None, "padrao": None, "exemplos": 0, "telefones_empresa": [], "mx": None}
+    # nivel "empresa": a falha vale para todas as pessoas da conta (o lote pode parar);
+    # nivel "pessoa": só esta pessoa (nome incompleto).
+    resultado = {"email": None, "metodo": None, "padrao": None, "exemplos": 0, "telefones_empresa": [], "mx": None,
+                 "nivel": "empresa"}
+    if "*" in str(nome or ""):
+        resultado.update(nivel="pessoa", motivo="O sobrenome está oculto (veio do Apollo). Complete o nome ou use o Apollo.")
+        return resultado
     if not dominio:
         resultado["motivo"] = "A empresa não tem domínio cadastrado."
         return resultado
@@ -592,7 +598,7 @@ def achar_email(nome, dominio, exemplos, *, firecrawl_key=None, coletar=firecraw
         return resultado
     local = gerar_local(nome, padrao)
     if not local:
-        resultado["motivo"] = "O nome da pessoa está incompleto para montar o e-mail (falta sobrenome)."
+        resultado.update(nivel="pessoa", motivo="O nome da pessoa está incompleto para montar o e-mail (falta sobrenome).")
         return resultado
     resultado.update(email=f"{local}@{dominio}", metodo=metodo, padrao=padrao, exemplos=n)
     return resultado

@@ -193,10 +193,11 @@ function TaskPanel({api, item, notify, onDone, onOpenLead}) {
 function CompanyPanel({api, leadId, notify, onOpenLead}) {
   const [lead, setLead] = useState(null);
   const [conta, setConta] = useState(null);
+  const [contacts, setContacts] = useState([]);
   const load = useCallback(async () => {
     try {
-      const [l, g] = await Promise.all([api.lead(leadId), api.leadGolden(leadId).catch(() => null)]);
-      setLead(l); setConta(g);
+      const [l, g, c] = await Promise.all([api.lead(leadId), api.leadGolden(leadId).catch(() => null), api.contacts(leadId).catch(() => [])]);
+      setLead(l); setConta(g); setContacts(c);
     } catch (error) { notify(error.message, 'error'); }
   }, [api, leadId, notify]);
   useEffect(() => { setLead(null); load(); }, [load]);
@@ -214,7 +215,7 @@ function CompanyPanel({api, leadId, notify, onOpenLead}) {
       {conta && (
         <section className="lv3-op__block">
           <h4><Icon name="bullseye"/>Alvo Golden Circle</h4>
-          <GoldenTarget api={api} conta={conta} contacts={[]} notify={notify} onChanged={load}/>
+          <GoldenTarget api={api} conta={conta} contacts={contacts} notify={notify} onChanged={load}/>
         </section>
       )}
       <section className="lv3-op__block">

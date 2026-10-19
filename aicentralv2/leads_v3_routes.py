@@ -299,7 +299,9 @@ def api_golden_listar():
         cursor.execute(
             f"""
             SELECT gc.id, gc.id_executivo, gc.trimestre, gc.nome_conta, gc.id_lead, gc.id_cliente, gc.objetivo,
-                   gc.status, gc.meta, gc.created_at, l.status AS lead_status, l.dominio, l.cnpj,
+                   gc.status, gc.meta, gc.created_at, gc.proximo_marco, gc.valor_alvo, l.status AS lead_status, l.dominio, l.cnpj,
+                   (SELECT COUNT(*) FROM cadu_lead_cadencia_inscricoes i
+                     WHERE i.id_lead = gc.id_lead AND i.status = 'ativa') AS cadencias_ativas,
                    COUNT(c.id) AS pessoas,
                    COUNT(c.id) FILTER (WHERE c.papel = 'marketing') AS marketing,
                    COUNT(c.id) FILTER (WHERE c.papel = 'midia') AS midia,

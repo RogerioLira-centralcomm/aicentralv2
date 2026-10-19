@@ -6,6 +6,7 @@ const STATUS = [
   ['ganha', 'Ganha'], ['pausada', 'Pausada'], ['perdida', 'Perdida'],
 ];
 const ROLES = [['marketing', 'Mkt'], ['midia', 'Mídia'], ['criacao', 'Criação'], ['diretoria', 'Dir.']];
+const MARCO = {primeira_conversa: '1ª conversa', reuniao: 'Reunião', apresentacao: 'Apresentação', proposta: 'Proposta', fechamento: 'Fechamento'};
 
 /** Trimestre anterior, atual e próximo, a partir do atual (aaaa-Qn). */
 export function trimestresProximos(atual) {
@@ -58,8 +59,11 @@ export function GoldenCircle({boot, data, loading, error, trimestre, setTrimestr
                     <span key={r} className={`lv3-role ${Number(c[r]) > 0 ? 'is-on' : ''}`} title={`${c[r] || 0} em ${label}`}>{label}{Number(c[r]) > 1 ? ` ${c[r]}` : ''}</span>
                   ))}
                 </span>
+                {(c.proximo_marco || c.meta) && (
+                  <span className="lv3-gcitem__goal">{c.proximo_marco && <strong>Próximo: {MARCO[c.proximo_marco]}</strong>}{c.proximo_marco && c.meta ? ' · ' : ''}{c.meta}</span>
+                )}
                 <span className="lv3-qitem__meta">
-                  <span>{c.pessoas || 0} pessoas · {c.com_email || 0} com e-mail</span>
+                  <span>{c.pessoas || 0} pessoas · {c.com_email || 0} com e-mail · {c.cadencias_ativas || 0} em cadência</span>
                   {Number(c.candidatos) > 0 && <span className="lv3-qitem__stale">· {c.candidatos} para revisar</span>}
                   {(!executivo || !/^\d+$/.test(executivo)) && <span>· {nomeExec(c.id_executivo)}</span>}
                 </span>

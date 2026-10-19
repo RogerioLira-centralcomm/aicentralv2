@@ -192,7 +192,7 @@ export function LeadPanel({boot, api, lead, contacts, loading, notify, onChanged
           {lead.notas_internas && <p className="lv3-notes"><strong>Notas internas:</strong> {lead.notas_internas}</p>}
         </section>
 
-        <Contacts api={api} leadId={lead.id} contacts={contacts} onChanged={onChanged} notify={notify}/>
+        <Contacts key={lead.id} api={api} leadId={lead.id} contacts={contacts} onChanged={onChanged} notify={notify}/>
       </div>
     </section>
   );

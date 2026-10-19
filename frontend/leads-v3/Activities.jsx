@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {Button, Empty, Field, Icon, decode, formatDate} from './ui.jsx';
+import {Button, Empty, Field, Icon, decode, formatDate, todayLocal} from './ui.jsx';
 
 // Mesmos tipos que o Leads v2 oferece (e que o CHECK de cadu_lead_atividades aceita).
 export const ACTIVITY_TYPES = [
@@ -75,7 +75,7 @@ export function Activities({api, leadId, contacts, activities, onChanged, notify
         <ol className="lv3-timeline">
           {activities.map(a => {
             const type = TYPE_BY_VALUE[a.tipo] || SYSTEM_TYPES[a.tipo] || {label: a.tipo, icon: 'circle'};
-            const atrasada = a.data_prazo && !a.concluida && a.data_prazo < new Date().toISOString().slice(0, 10);
+            const atrasada = a.data_prazo && !a.concluida && a.data_prazo < todayLocal();
             return (
               <li key={a.id} className={`lv3-tl ${a.concluida ? 'is-done' : ''}`}>
                 <span className="lv3-tl__dot"><Icon name={type.icon}/></span>

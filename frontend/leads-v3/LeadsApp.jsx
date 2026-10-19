@@ -35,6 +35,8 @@ export function LeadsApp({boot}) {
   const [selected, setSelected] = useState(() => new Set());
   const anchor = useRef(null);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const listSeq = useRef(0);
+  const detailSeq = useRef(0);
 
   const [activeId, setActiveId] = useState(null);
   const [detail, setDetail] = useState({lead: null, contacts: [], activities: [], communications: [], loading: false});
@@ -50,14 +52,16 @@ export function LeadsApp({boot}) {
 
   // Fila ---------------------------------------------------------------
   const loadList = useCallback(async () => {
+    const seq = ++listSeq.current;
     setListState(s => ({...s, loading: true, error: ''}));
     try {
       const data = await api.listLeads(filters);
+      if (seq !== listSeq.current) return; // resposta de um filtro antigo
       setLeads(data.leads);
       setSelected(current => new Set([...current].filter(id => data.leads.some(l => l.id === id))));
       setListState({loading: false, error: ''});
     } catch (error) {
-      setListState({loading: false, error: error.message});
+      if (seq === listSeq.current) setListState({loading: false, error: error.message});
     }
   }, [api, filters]);
 
@@ -102,13 +106,16 @@ export function LeadsApp({boot}) {
   // Detalhe ------------------------------------------------------------
   const loadDetail = useCallback(async (id, {quiet = false} = {}) => {
     if (!id) return;
+    const seq = ++detailSeq.current;
     if (!quiet) setDetail(d => ({...d, loading: true, ...(d.lead?.id === id ? {} : {lead: null, contacts: [], activities: [], communications: []})}));
     try {
       const [lead, contacts, activities, communications] = await Promise.all([
         api.lead(id), api.contacts(id), api.activities(id), api.communications(id).catch(() => []),
       ]);
+      if (seq !== detailSeq.current) return; // o usuário já abriu outro lead
       setDetail({lead, contacts, activities, communications, loading: false});
     } catch (error) {
+      if (seq !== detailSeq.current) return;
       setDetail(d => ({...d, loading: false}));
       notify(error.message, 'error');
     }
@@ -154,8 +161,8 @@ export function LeadsApp({boot}) {
   };
 
   const {lead} = detail;
-  const activities = lead && <Activities api={api} leadId={lead.id} contacts={detail.contacts} activities={detail.activities} onChanged={refreshActive} notify={notify}/>;
-  const comms = lead && <Comms api={api} lead={lead} contacts={detail.contacts} communications={detail.communications} onChanged={refreshActive} notify={notify}/>;
+  const activities = lead && <Activities key={lead.id} api={api} leadId={lead.id} contacts={detail.contacts} activities={detail.activities} onChanged={refreshActive} notify={notify}/>;
+  const comms = lead && <Comms key={lead.id} api={api} lead={lead} contacts={detail.contacts} communications={detail.communications} onChanged={refreshActive} notify={notify}/>;
 
   return (
     <div className="lv3">
@@ -174,7 +181,7 @@ export function LeadsApp({boot}) {
       <div className={`lv3-grid ${wide ? 'lv3-grid--wide' : ''}`}>
         <Queue boot={boot} leads={leads} loading={listState.loading} error={listState.error} filters={filters} setFilters={setFilters}
           activeId={activeId} selected={selected} busy={bulkBusy}
-          onOpen={setActiveId} onToggle={toggle} onToggleAll={toggleAll} onClear={() => setSelected(new Set())} onReload={loadList}
+          onOpen={setActiveId} onToggle={toggle} onToggleAll={toggleAll} onSelectAll={() => setSelected(new Set(leads.map(l => l.id)))} onClear={() => setSelected(new Set())} onReload={loadList}
           onBulk={(acao, valor) => runBulk(acao, [...selected], {valor})}
           onDisqualify={() => setDialog({type: 'disqualify', ids: [...selected]})}/>
 

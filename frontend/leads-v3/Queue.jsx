@@ -2,7 +2,7 @@ import React from 'react';
 import {Button, Chip, Empty, Icon, decode, potencialTone} from './ui.jsx';
 
 /** Barra que substitui o cabeçalho da fila enquanto há leads selecionados. */
-function BulkBar({boot, count, busy, onAction, onDisqualify, onClear}) {
+function BulkBar({boot, count, total, busy, onAction, onDisqualify, onClear, onSelectAll}) {
   const pick = acao => event => {
     const valor = event.target.value;
     event.target.value = '';
@@ -12,6 +12,7 @@ function BulkBar({boot, count, busy, onAction, onDisqualify, onClear}) {
     <div className="lv3-bulk" role="toolbar" aria-label="Ações em massa">
       <div className="lv3-bulk__count">
         <strong>{count}</strong> {count === 1 ? 'selecionado' : 'selecionados'}
+        {count < total && <button type="button" className="lv3-link" onClick={onSelectAll} disabled={busy}>Selecionar os {total}</button>}
         <button type="button" className="lv3-link" onClick={onClear} disabled={busy}>Limpar</button>
       </div>
       <div className="lv3-bulk__actions">
@@ -38,8 +39,10 @@ function QueueItem({lead, statusLabel, active, selected, onOpen, onToggle}) {
   const parado = lead.dias_sem_atividade != null && lead.dias_sem_atividade >= 7;
   return (
     <li className={`lv3-qitem ${active ? 'is-active' : ''} ${selected ? 'is-selected' : ''}`}>
-      <label className="lv3-qitem__check" onClick={event => { event.stopPropagation(); onToggle(lead.id, event.shiftKey); }}>
-        <input type="checkbox" checked={selected} readOnly aria-label={`Selecionar ${decode(lead.nome_lead)}`}/>
+      {/* O clique fica só no input: no <label>, a ativação repassa o clique ao input e o toggle rodaria duas vezes. */}
+      <label className="lv3-qitem__check">
+        <input type="checkbox" checked={selected} readOnly aria-label={`Selecionar ${decode(lead.nome_lead)}`}
+          onClick={event => onToggle(lead.id, event.shiftKey)}/>
       </label>
       <button type="button" className="lv3-qitem__main" onClick={() => onOpen(lead.id)} aria-current={active ? 'true' : undefined}>
         <span className="lv3-qitem__top">
@@ -63,7 +66,7 @@ function QueueItem({lead, statusLabel, active, selected, onOpen, onToggle}) {
 }
 
 export function Queue({boot, leads, loading, error, filters, setFilters, activeId, selected, busy,
-  onOpen, onToggle, onToggleAll, onBulk, onDisqualify, onClear, onReload}) {
+  onOpen, onToggle, onToggleAll, onSelectAll, onBulk, onDisqualify, onClear, onReload}) {
   const statusLabel = Object.fromEntries(boot.status.map(s => [s.value, s.label]));
   const allSelected = leads.length > 0 && leads.every(l => selected.has(l.id));
   const someSelected = selected.size > 0;
@@ -94,7 +97,7 @@ export function Queue({boot, leads, loading, error, filters, setFilters, activeI
       </div>
 
       {someSelected ? (
-        <BulkBar boot={boot} count={selected.size} busy={busy} onAction={onBulk} onDisqualify={onDisqualify} onClear={onClear}/>
+        <BulkBar boot={boot} count={selected.size} total={leads.length} onSelectAll={onSelectAll} busy={busy} onAction={onBulk} onDisqualify={onDisqualify} onClear={onClear}/>
       ) : (
         <div className="lv3-queue__head">
           <label className="lv3-queue__all">

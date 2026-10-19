@@ -16,6 +16,12 @@ export function whatsappUrl(phone, text = '') {
   return `https://wa.me/${number}${text ? `?text=${encodeURIComponent(text)}` : ''}`;
 }
 
+/** Data local (aaaa-mm-dd): toISOString() é UTC e vira o dia às 21h no Brasil. */
+export function todayLocal() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
 export function formatDate(value) {
   if (!value) return '—';
   const iso = /^\d{4}-\d{2}-\d{2}/.test(value) ? value : null;

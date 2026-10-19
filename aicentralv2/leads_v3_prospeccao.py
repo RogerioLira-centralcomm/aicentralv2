@@ -395,10 +395,16 @@ def criar_conta(cursor, validacao, *, id_executivo, trimestre, usuario_id):
             """
             UPDATE cadu_leads
                SET cnpj = COALESCE(cnpj, %s), dominio = COALESCE(dominio, %s),
-                   url_site = COALESCE(url_site, %s), prioridade_conta = 'A', updated_at = CURRENT_TIMESTAMP
+                   url_site = COALESCE(url_site, %s), prioridade_conta = 'A',
+                   -- Lead sem dono passa a ser do executivo; o de outro executivo não é tomado.
+                   id_executivo = COALESCE(id_executivo, %s),
+                   atribuido_em = CASE WHEN id_executivo IS NULL THEN CURRENT_TIMESTAMP ELSE atribuido_em END,
+                   -- Conta-alvo volta para a fila mesmo que o lead tenha sido descartado antes.
+                   status = CASE WHEN status IN ('nao_qualificado', 'fechado_perdido') THEN 'inbox' ELSE status END,
+                   updated_at = CURRENT_TIMESTAMP
              WHERE id = %s
             """,
-            [dados.get("cnpj"), dados.get("dominio"), dados.get("dominio"), id_lead],
+            [dados.get("cnpj"), dados.get("dominio"), dados.get("dominio"), id_executivo, id_lead],
         )
     else:
         cursor.execute(

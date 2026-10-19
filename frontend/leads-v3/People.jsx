@@ -9,6 +9,9 @@ const COVERAGE = [
   {value: 'diretoria', label: 'Diretoria'},
 ];
 const EMPTY_CONTACT = {nome: '', cargo: '', email: '', telefone: ''};
+const FREE_EMAIL = new Set(['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com', 'yahoo.com.br', 'bol.com.br', 'uol.com.br', 'terra.com.br', 'icloud.com', 'live.com']);
+const hostOf = url => { if (!url) return ''; try { return new URL(/^https?:/.test(url) ? url : `http://${url}`).hostname.replace(/^www\./, ''); } catch { return ''; } };
+const corporateDomain = email => { const d = String(email || '').split('@')[1]?.toLowerCase() || ''; return d && !FREE_EMAIL.has(d) ? d : ''; };
 const SOURCE_LABEL = {apollo: 'Apollo', pesquisa_web: 'Web', site: 'Site', manual: 'Manual', import: 'Importação'};
 
 function Coverage({contacts}) {
@@ -106,7 +109,8 @@ function Person({boot, api, leadId, contact: c, empresa, fontes, notify, onChang
 function Discovery({boot, api, lead, candidates, onChanged, notify, onEditCompany}) {
   const [busy, setBusy] = useState('');
   const empresa = decode(lead.empresa || lead.nome);
-  const dominio = lead.dominio || '';
+  // Mesma regra do backend (_lead_para_busca): domínio, senão site, senão e-mail corporativo.
+  const dominio = lead.dominio || hostOf(lead.url_site) || corporateDomain(lead.email);
   const discover = fonte => async () => {
     setBusy(fonte);
     try {

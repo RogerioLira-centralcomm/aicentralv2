@@ -2394,12 +2394,24 @@
         var hasKpi = (document.getElementById("sp-field-kpi-principal") || {}).value || document.querySelector("#sp-kpi-chips button.is-on");
         if (objetivo && !objetivo.value) {
           focusField("sp-objetivo");
-        } else if (!hasKpi) {
+          toast("Escolha o objetivo da campanha antes de gerar.", "error");
+          return;
+        }
+        if (!hasKpi) {
           focusField("sp-kpi-chips");
           toast("Selecione pelo menos um KPI antes de gerar.", "error");
           return;
-        } else if (!hasCanal) {
+        }
+        if (!hasCanal) {
           focusField("sp-mix-channels");
+          toast("Marque pelo menos um canal antes de gerar.", "error");
+          return;
+        }
+        var mixStatus = document.getElementById("sp-mix-sum");
+        if (mixStatus && mixStatus.classList.contains("is-bad")) {
+          focusField("sp-mix-channels");
+          toast("Ajuste o mix até somar 100% antes de gerar.", "error");
+          return;
         }
         setLoading(trigger, true);
         try {

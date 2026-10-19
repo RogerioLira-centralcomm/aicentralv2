@@ -399,9 +399,21 @@ def save_campos(token: str, campos: dict, briefing_text: str | None = None) -> d
     if "canais" in campos:
         keep.add("canais")
     if isinstance(dados.get("campanha"), dict):
+        # Um campo enviado vazio é uma limpeza explícita; só os ausentes herdam o valor salvo.
         campanha = {
             **dados["campanha"],
-            **{k: v for k, v in campanha.items() if v or k in keep},
+            **{k: v for k, v in campanha.items() if v or k in keep or k in campos},
+        }
+    if "verba" in campos and not text(campos.get("verba")):
+        # Sem verba, valores antigos por canal e por mês deixariam de ser verdade.
+        campanha["verba_valor"] = 0
+        campanha["canais_verba"] = {}
+        campanha["verba_alocacao"] = {}
+    canais_atuais = {str(key) for key in as_list(campanha.get("canais"))}
+    if isinstance(campanha.get("canais_verba"), dict) and (canais_atuais or "canais" in campos):
+        # Canal removido não pode continuar com fatia de verba.
+        campanha["canais_verba"] = {
+            key: value for key, value in campanha["canais_verba"].items() if key in canais_atuais
         }
     dados.update(campos)
     dados["nome_campanha"] = text(campos.get("campanha") or dados.get("nome_campanha"))

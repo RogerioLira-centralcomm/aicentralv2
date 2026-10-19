@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import re
 import threading
 from datetime import datetime, timedelta, timezone
@@ -17,6 +18,7 @@ from .brand import brand_prompt_block
 from .catalog import CHANNEL_CATALOG, PLAN_MODES, PRIMARY_FORMATS
 from .cost import bound_session
 from .estimates import calculate_estimates, format_estimates_for_prompt
+from .pace import format_money
 from .helpers import (
     as_bool,
     as_dict,
@@ -171,8 +173,9 @@ def _run(token: str, mode: str) -> dict:
     merge_dados(token, {"evidence": evidence})
     mark_step(token, "evidence", "done")
 
+    market_key = _market_key(row)
     market_research = text(dados.get("market_research"))
-    if not market_research and _has_llm():
+    if not _usable_market(dados, market_key, material_hash) and _has_llm():
         mark_step(token, "market", "running")
         market_research = planner.research_market(
             text(snapshot.get("briefing")),
@@ -180,7 +183,7 @@ def _run(token: str, mode: str) -> dict:
             as_dict(snapshot.get("brand")),
             apoio=text(snapshot.get("user_briefing")),
         )
-        merge_dados(token, {"market_research": market_research})
+        merge_dados(token, {"market_research": market_research, "market_research_key": market_key})
         snapshot["market_research"] = market_research
         evidence["market_research"] = market_research
         merge_dados(token, {"evidence": evidence})
@@ -189,7 +192,27 @@ def _run(token: str, mode: str) -> dict:
         mark_step(token, "market", "skipped")
 
     core = as_dict(dados.get("strategy_core"))
-    if _usable_core(core, material_hash):
+    page = as_dict(dados.get("one_page_v3") or dados.get("one_page_v2"))
+    folha = as_dict(dados.get("folha"))
+    estimates = None
+    fresh_page = False
+    if _one_page_engine() == "v4":
+        # v4: núcleo e página saem de uma só chamada; a revisão é determinística.
+        if (
+            _usable_core(core, material_hash)
+            and _usable_page(page, material_hash, core)
+            and as_list(folha.get("sections"))
+        ):
+            mark_step(token, "core", "skipped")
+        else:
+            _require_llm("página única")
+            mark_step(token, "core", "running")
+            estimates = calculate_estimates(snapshot)
+            page, core = _one_page_v4(snapshot, evidence, estimates, material_hash)
+            merge_dados(token, {"strategy_core": core, "strategy_core_id": text(core.get("id"))})
+            mark_step(token, "core", "done")
+            fresh_page = True
+    elif _usable_core(core, material_hash):
         mark_step(token, "core", "skipped")
     else:
         _require_llm("núcleo estratégico")
@@ -200,21 +223,22 @@ def _run(token: str, mode: str) -> dict:
         mark_step(token, "core", "done")
 
     mark_step(token, "estimates", "running")
-    estimates = calculate_estimates(snapshot)
+    if estimates is None:
+        estimates = calculate_estimates(snapshot)
     merge_dados(token, {"estimates": estimates})
     mark_step(token, "estimates", "done")
 
-    page = as_dict(dados.get("one_page_v3") or dados.get("one_page_v2"))
-    folha = as_dict(dados.get("folha"))
-    if _usable_page(page, material_hash, core) and as_list(folha.get("sections")):
+    if not fresh_page and _usable_page(page, material_hash, core) and as_list(folha.get("sections")):
         mark_step(token, "one_page", "skipped")
     else:
-        _require_llm("página única")
         mark_step(token, "one_page", "running")
-        page = _one_page_v3(snapshot, evidence, core, estimates)
-        page = _review_page(page, snapshot, estimates)
-        page = _normalize_page_contract(page, snapshot, core, estimates)
+        if not fresh_page:
+            _require_llm("página única")
+            page = _one_page_v3(snapshot, evidence, core, estimates)
+            page = _review_page(page, snapshot, estimates)
+            page = _normalize_page_contract(page, snapshot, core, estimates)
         page = _normalize_client_channel_names(page)
+        _repair_page_channels(page, snapshot)
         page["creative_plan"] = _creative_plan(page, snapshot)
         page["material_hash"] = material_hash
         folha = _materialize_folha(token, snapshot, page, core)
@@ -337,13 +361,31 @@ def _normalize_client_channel_names(value):
     return value
 
 
+def _fit_review(payload: dict, limit: int) -> str:
+    """Pacote do revisor dentro do limite: encolhe a evidência de apoio, nunca o JSON."""
+    import copy
+
+    data = copy.deepcopy(payload)
+    evidence = as_dict(data.get("evidence"))
+    for key, size in (("conteudo_capturado_apoio", 4000), ("briefing", 3000), ("conteudo_capturado_apoio", 0), ("briefing", 1500)):
+        dumped = json.dumps(data, ensure_ascii=False, default=str)
+        if len(dumped) <= limit:
+            return dumped
+        evidence[key] = text(evidence.get(key))[:size]
+    if isinstance(data.get("document"), str):
+        overflow = len(json.dumps(data, ensure_ascii=False, default=str)) - limit
+        if overflow > 0:
+            data["document"] = data["document"][: max(4000, len(data["document"]) - overflow)]
+    return json.dumps(data, ensure_ascii=False, default=str)
+
+
 def _review_page(page: dict, snapshot: dict, estimates: dict) -> dict:
     if not _has_llm() or not isinstance(page, dict):
         return page
     try:
         result = chat_json(
             FINAL_REVIEW_PROMPT,
-            json.dumps({
+            _fit_review({
                 "kind": "one_page",
                 "evidence": {
                     "briefing": text(snapshot.get("briefing"))[:7000],
@@ -359,7 +401,7 @@ def _review_page(page: dict, snapshot: dict, estimates: dict) -> dict:
                     "estimates": estimates,
                 },
                 "document": page,
-            }, ensure_ascii=False, default=str)[:24000],
+            }, 24000),
             role="final_review",
             max_tokens=6000,
         )
@@ -387,7 +429,7 @@ def _review_document(document: str, snapshot: dict, page: dict, estimates: dict)
     try:
         result = chat_json(
             FINAL_REVIEW_PROMPT,
-            json.dumps({
+            _fit_review({
                 "kind": "full_plan",
                 "evidence": {
                     "briefing": text(snapshot.get("briefing"))[:7000],
@@ -403,7 +445,7 @@ def _review_document(document: str, snapshot: dict, page: dict, estimates: dict)
                 },
                 "page_decision": page,
                 "document": document[:30000],
-            }, ensure_ascii=False, default=str)[:42000],
+            }, 42000),
             role="final_review",
             max_tokens=7000,
         )
@@ -548,12 +590,58 @@ def _pack(snapshot: dict, evidence: dict, core: dict | None = None, estimates: d
     if extra:
         payload.update(extra)
     payload["estimates_note"] = estimates_note
-    dumped = json.dumps(payload, ensure_ascii=False, default=str)
-    if len(dumped) <= 36000:
+    return _fit_json(payload, 36000)
+
+
+# Ordem de corte quando o pacote passa do limite: primeiro o apoio, por último a verdade da campanha.
+_TRIM_PATHS = (
+    (("conteudo_capturado_apoio", "texto"), 4000),
+    (("evidence", "conteudo_capturado"), 2000),
+    (("snapshot", "conteudo_capturado"), 2000),
+    (("evidence", "briefing"), 2000),
+    (("market_research",), 4000),
+    (("evidence", "market_research"), 2000),
+    (("snapshot", "market_research"), 2000),
+    (("snapshot", "briefing"), 4000),
+    (("evidence", "user_briefing"), 2000),
+    (("snapshot", "user_briefing"), 2000),
+    (("evidence", "briefing"), 0),
+    (("evidence", "conteudo_capturado"), 0),
+    (("snapshot", "conteudo_capturado"), 0),
+    (("conteudo_capturado_apoio", "texto"), 1500),
+    (("market_research",), 2000),
+    (("snapshot", "briefing"), 2500),
+)
+
+
+def _fit_json(payload: dict, limit: int) -> str:
+    """Serializa dentro do limite cortando textos longos, nunca o JSON no meio."""
+    import copy
+
+    data = copy.deepcopy(payload)
+    dumped = json.dumps(data, ensure_ascii=False, default=str)
+    if len(dumped) <= limit:
         return dumped
-    snap["briefing"] = text(snap.get("briefing"))[:4000]
-    payload["snapshot"] = snap
-    return json.dumps(payload, ensure_ascii=False, default=str)[:36000]
+    for path, size in _TRIM_PATHS:
+        parent = data
+        for key in path[:-1]:
+            parent = parent.get(key) if isinstance(parent, dict) else None
+        if not isinstance(parent, dict) or not isinstance(parent.get(path[-1]), str):
+            continue
+        parent[path[-1]] = parent[path[-1]][:size]
+        dumped = json.dumps(data, ensure_ascii=False, default=str)
+        if len(dumped) <= limit:
+            return dumped
+    for key in ("starter_pitch_context", "conteudo_capturado_apoio"):
+        data.pop(key, None)
+    for holder in (as_dict(data.get("snapshot")), as_dict(data.get("evidence"))):
+        for item in as_list(holder.get("sources")):
+            if isinstance(item, dict):
+                item["notas"] = text(item.get("notas"))[:300]
+    dumped = json.dumps(data, ensure_ascii=False, default=str)
+    if len(dumped) > limit:
+        logger.warning("Pacote do Smart Planner segue acima do limite (%s > %s); enviado inteiro.", len(dumped), limit)
+    return dumped
 
 
 def _strategy_core(snapshot: dict, evidence: dict) -> dict:
@@ -601,6 +689,245 @@ def _one_page_v3(snapshot: dict, evidence: dict, core: dict, estimates: dict) ->
     parsed["schema_version"] = 3
     parsed["prompt_version"] = _one_page_prompt_version()
     return _normalize_page_contract(parsed, snapshot, core, estimates)
+
+
+NUCLEO_KEYS = (
+    "business_objective", "communication_objective", "media_objective", "value_proposition",
+    "message_pillars", "audience_barriers", "measurement_framework", "risks",
+)
+
+
+def _redact_all(value, name: str):
+    if not name:
+        return value
+    if isinstance(value, str):
+        return redact_advertiser(value, name)
+    if isinstance(value, list):
+        return [_redact_all(item, name) for item in value]
+    if isinstance(value, dict):
+        return {key: _redact_all(item, name) for key, item in value.items()}
+    return value
+
+
+def _one_page_payload(snapshot: dict, evidence: dict, estimates: dict) -> dict:
+    """Contexto da v4 no formato do Cadu Planner: `confirmado` é lei, `lacunas` viram perguntas."""
+    snap = as_dict(snapshot)
+    client = as_dict(snap.get("client"))
+    secret = text(client.get("name"))
+    confidential = bool(client.get("confidential"))
+    rows = sorted(_mix_rows(snap), key=lambda row: -float(row.get("pct") or 0))
+    mix = []
+    for row in rows:
+        channel_id = text(row.get("id"))
+        meta = CHANNEL_CATALOG.get(channel_id) or {}
+        primary = as_dict(PRIMARY_FORMATS.get(channel_id)) or {"label": "Imagem horizontal", "surface": "display"}
+        entry = {
+            "canal_id": channel_id,
+            "canal": text(row.get("label") or meta.get("label") or channel_id),
+            "descricao": text(row.get("desc") or meta.get("desc")),
+            "grupo": text(meta.get("group")),
+            "formato_principal": text(primary.get("label")),
+            "superficie": text(primary.get("surface")) or "display",
+        }
+        if row.get("pct") not in (None, ""):
+            entry["percentual"] = row.get("pct")
+        if text(meta.get("group")) not in {"ooh", "places"} and text(row.get("amount_label")):
+            entry["investimento"] = text(row.get("amount_label"))
+        mix.append(entry)
+    heroes = _hero_rows(_mix_rows(snap))
+    hero = text((heroes[0] if heroes else (rows[0] if rows else {})).get("label"))
+    objective = as_dict(snap.get("objective"))
+    geography = as_dict(snap.get("geography"))
+    pace = as_dict(snap.get("pace"))
+    places = as_dict(_places_law(snap))
+    briefing = text(snap.get("briefing"))
+    user_briefing = text(snap.get("user_briefing"))
+    estimates_note = format_estimates_for_prompt(estimates or {}) if as_dict(estimates).get("status") == "available" else ""
+    confirmed = {
+        "anunciante": client_display_name(client) if confidential else secret,
+        "agencia": text(client.get("agency")),
+        "campanha": text(as_dict(snap.get("campaign")).get("name")),
+        "objetivo": text(objective.get("label") or objective.get("id")),
+        "objetivo_detalhe": text(objective.get("text")),
+        "publico": [text(item) for item in as_list(snap.get("audiences")) if text(item)],
+        "praca": " · ".join(part for part in (text(geography.get("praca")), text(geography.get("detail"))) if part),
+        "periodo": text(as_dict(snap.get("period")).get("raw")),
+        "verba": text(as_dict(snap.get("budget")).get("raw")),
+        "kpis": [text(item) for item in as_list(snap.get("kpis")) if text(item)],
+        "mix": mix,
+        "mix_heroi": hero,
+        "metodo_do_mix": text(snap.get("mix_method")),
+        "voo": {
+            "como": text(pace.get("how")),
+            "meses": [
+                {"periodo": label, "valor": format_money(int(as_dict(pace.get("allocation")).get(key) or 0))}
+                for key, label in zip(as_list(pace.get("keys")), as_list(pace.get("labels")))
+                if as_dict(pace.get("allocation")).get(key)
+            ],
+        },
+        "places": {"regra": text(places.get("lei")), "ambientes": as_list(places.get("places"))} if places.get("places") else None,
+        "interativos": [text(item) for item in as_list(as_dict(snap.get("interativos")).get("formats")) if text(item)],
+        "marca": brand_prompt_block(as_dict(snap.get("brand"))) or None,
+        "restricoes": [text(item) for item in as_list(snap.get("restrictions")) if text(item)],
+        "estimativas": estimates_note,
+        "briefing": briefing[:8000],
+        "briefing_do_usuario": user_briefing[:3000] if user_briefing and user_briefing not in briefing else "",
+        "pesquisa_de_mercado": text(snap.get("market_research") or as_dict(evidence).get("market_research"))[:6000],
+        "fontes": [
+            {"fonte": text(item.get("label")), "papel": text(item.get("papel")), "notas": text(item.get("notas"))[:800]}
+            for item in (as_dict(source) for source in as_list(snap.get("sources")))
+            if text(item.get("notas"))
+        ][:8],
+        "apoio": text(snap.get("conteudo_capturado"))[:6000],
+    }
+    pitch = one_page.match_pitch(secret, text(client.get("agency")), briefing, as_list(snap.get("places")))
+    if pitch:
+        confirmed["referencia_do_cliente"] = {
+            "estrategia": text(pitch.get("strategy")),
+            "parceiros": list(pitch.get("partners") or []),
+            "defesa": text(pitch.get("defense")),
+        }
+    confirmed = {key: value for key, value in confirmed.items() if value not in (None, "", [], {})}
+    checks = (
+        ("objetivo", confirmed.get("objetivo")),
+        ("período", confirmed.get("periodo")),
+        ("praça", confirmed.get("praca")),
+        ("KPIs", confirmed.get("kpis")),
+        ("público", confirmed.get("publico")),
+        ("canais", mix),
+    )
+    gaps = [f"{label} não definido no plano" for label, value in checks if not value]
+    if not confirmed.get("verba") and not any(item.get("investimento") for item in mix):
+        gaps.append("verba não informada: não mencione valores")
+    if mix and not any("percentual" in item for item in mix):
+        gaps.append("divisão do mix entre canais ainda não definida")
+    payload = {
+        "confirmado": confirmed,
+        "lacunas": gaps,
+        "pendencias": [text(item)[:200] for item in as_list(snap.get("pending_decisions")) if text(item)][:8],
+    }
+    return _redact_all(payload, secret) if confidential else payload
+
+
+def _guard_page_numbers(page: dict, payload: dict) -> list[dict]:
+    """Tira da página toda frase com número que não está no contexto (a mesma régua do plano final do Cadu)."""
+    from ..cadu_planner.final_plan import _bad_numbers, allowed_numbers
+
+    allowed = allowed_numbers(payload)
+    context = json.dumps(payload, ensure_ascii=False, default=str)
+    removed = []
+    technical = {"channel", "channel_id", "primary_format_id", "surface", "status", "role", "source_url", "source_date", "image_prompt"}
+
+    def clean(value, where):
+        if isinstance(value, str):
+            kept = []
+            for sentence in re.split(r"(?<=[.!?])\s+", value):
+                bad = _bad_numbers(sentence, allowed) if sentence else []
+                if bad:
+                    removed.append({"section": where, "removed": sentence[:200], "reason": "número sem base no plano: " + ", ".join(bad)})
+                    continue
+                kept.append(sentence)
+            return " ".join(part for part in kept if part).strip()
+        if isinstance(value, list):
+            return [clean(item, where) for item in value]
+        if isinstance(value, dict):
+            return {key: item if key in technical else clean(item, f"{where}.{key}") for key, item in value.items()}
+        return value
+
+    for key in list(page):
+        if key in {"schema_version", "prompt_version", "material_hash", "snapshot_id", "strategy_core_id"}:
+            continue
+        page[key] = clean(page[key], key)
+    market = as_dict(page.get("market_evidence"))
+    url = text(market.get("source_url"))
+    if url and url not in context:
+        removed.append({"section": "market_evidence", "removed": url, "reason": "fonte fora do contexto"})
+        market["source_url"] = ""
+    source = text(market.get("source"))
+    if market.get("source_url") or (source and source in context):
+        market["status"] = "confirmed"
+    else:
+        if source or text(market.get("stat")):
+            removed.append({"section": "market_evidence", "removed": source or text(market.get("stat")), "reason": "dado sem fonte do contexto"})
+        market.update({"stat": "", "stat_label": "", "source": "", "source_date": "", "status": "omitted"})
+    page["market_evidence"] = market
+    return removed
+
+
+def _core_from_page(page: dict, nucleo: dict, snapshot: dict, material_hash: str) -> dict:
+    """O núcleo estratégico que o plano completo aprofunda, derivado da própria página."""
+    rec = as_dict(page.get("recommendation"))
+    defense = as_dict(page.get("commercial_defense"))
+    core = {
+        "challenge": text(as_dict(page.get("challenge")).get("body")),
+        "opportunity": text(as_dict(page.get("opportunity")).get("body")),
+        "central_thesis": text(as_dict(page.get("thesis")).get("statement")),
+        "recommended_strategy": text(rec.get("summary")),
+        "business_rationale": as_list(defense.get("why_this_plan")),
+        "priority_audiences": [text(rec.get("audience"))] if text(rec.get("audience")) else [],
+        "channel_roles": [
+            {"channel": text(as_dict(item).get("channel")), "role": text(as_dict(item).get("role")), "function": text(as_dict(item).get("function"))}
+            for item in as_list(rec.get("channel_roles"))
+        ],
+        "journey": as_list(rec.get("journey")),
+        "expected_outputs": as_list(page.get("outputs")),
+        "assumptions": [],
+        "source_ids": [],
+    }
+    for key in NUCLEO_KEYS:
+        core[key] = as_dict(nucleo).get(key) or ([] if key in {"message_pillars", "audience_barriers", "measurement_framework", "risks"} else "")
+    core["id"] = "strategy_" + text(snapshot.get("snapshot_id"))
+    core["snapshot_id"] = text(snapshot.get("snapshot_id"))
+    core["material_hash"] = material_hash
+    core["engine"] = "planner_one_page_v4"
+    return core
+
+
+def _drop_blank_items(value):
+    """O molde do JSON traz [""] e [{"name": ""}]; item vazio não vai para a página."""
+    if isinstance(value, dict):
+        return {key: _drop_blank_items(item) for key, item in value.items()}
+    if isinstance(value, list):
+        items = [_drop_blank_items(item) for item in value]
+        return [
+            item for item in items
+            if not (isinstance(item, str) and not item.strip())
+            and not (isinstance(item, dict) and not any(text(v) for v in item.values() if not isinstance(v, (dict, list))))
+        ]
+    return value
+
+
+def _one_page_v4(snapshot: dict, evidence: dict, estimates: dict, material_hash: str) -> tuple[dict, dict]:
+    payload = _one_page_payload(snapshot, evidence, estimates)
+    raw = as_dict(chat_json(
+        load_skill("planner_one_page_v4"),
+        "CONTEXTO:\n" + _fit_json(payload, 36000),
+        role=skill_role("planner_one_page_v4"),
+    ))
+    page = as_dict(raw.get("pagina")) or {key: value for key, value in raw.items() if key != "nucleo"}
+    nucleo = _drop_blank_items(as_dict(raw.get("nucleo")))
+    guard = _guard_page_numbers(page, payload)
+    page = _drop_blank_items(page)
+    page["visual_direction"] = {**_visual_direction_fallback(snapshot), **{
+        key: value for key, value in as_dict(page.get("visual_direction")).items() if text(value)
+    }}
+    page["audience_model"] = _audience_model_fallback(snapshot)
+    page["visual_data"] = _visual_data_fallback(snapshot)
+    page["result_estimates"] = {
+        "status": as_dict(estimates).get("status") or "not_available",
+        "summary": format_estimates_for_prompt(estimates or {}),
+    }
+    _apply_no_budget_policy(page, snapshot)
+    core = _core_from_page(page, nucleo, snapshot, material_hash)
+    page["snapshot_id"] = text(snapshot.get("snapshot_id"))
+    page["strategy_core_id"] = text(core.get("id"))
+    page["schema_version"] = 3
+    page["prompt_version"] = _one_page_prompt_version()
+    page["engine"] = "planner_one_page_v4"
+    if guard:
+        page["guard"] = guard
+        logger.info("Página única v4: %s trecho(s) sem base removido(s).", len(guard))
+    return _normalize_page_contract(page, snapshot, core, estimates), core
 
 
 def _normalize_page_contract(page: dict, snapshot: dict, core: dict, estimates: dict) -> dict:
@@ -922,11 +1249,71 @@ def _creative_plan(page: dict, snapshot: dict) -> list[dict]:
     return out
 
 
+def _repair_page_channels(page: dict, snapshot: dict) -> list[str]:
+    """Põe o texto do modelo de volta dentro do mix aprovado, sem refazer a geração.
+
+    O mix é lei e já está no snapshot: um papel para canal fora do plano sai, o
+    canal-herói ganha papel quando o modelo o esqueceu e o criativo vai para o
+    canal de maior peso. Cada conserto fica registrado em ``page["repairs"]``.
+    """
+    if not isinstance(page, dict):
+        return []
+    repairs = []
+    recommendation = page.setdefault("recommendation", {})
+    if not isinstance(recommendation, dict):
+        recommendation = {}
+        page["recommendation"] = recommendation
+    approved = _approved_tokens(snapshot)
+    roles = [as_dict(item) for item in as_list(recommendation.get("channel_roles"))]
+    kept = []
+    for role in roles:
+        channel = text(role.get("channel") or role.get("id"))
+        if channel and approved and not (_channel_tokens(channel) & approved):
+            repairs.append(f"Papel removido: {channel} não está no mix.")
+            continue
+        kept.append(role)
+    heroes = _hero_rows(_mix_rows(snapshot))
+    if heroes:
+        hero = heroes[0]
+        hero_label = text(hero.get("label") or hero.get("id"))
+        if not any(_matches_mix(text(item.get("channel") or item.get("id")), heroes) for item in kept):
+            kept.insert(0, {
+                "channel": hero_label,
+                "role": text(hero.get("role")),
+                "function": text(hero.get("desc")),
+                "primary_format_id": text((PRIMARY_FORMATS.get(text(hero.get("id"))) or {}).get("id")),
+                "primary_format": text((PRIMARY_FORMATS.get(text(hero.get("id"))) or {}).get("label")),
+                "format_rationale": "",
+            })
+            repairs.append(f"Papel incluído para o canal de maior peso: {hero_label}.")
+        creative = page.get("creative_expression")
+        if not isinstance(creative, dict):
+            creative = {}
+            page["creative_expression"] = creative
+        if not _matches_mix(text(creative.get("channel")), heroes):
+            previous = text(creative.get("channel"))
+            creative["channel"] = hero_label
+            surface = text((PRIMARY_FORMATS.get(text(hero.get("id"))) or {}).get("surface"))
+            if surface:
+                creative["surface"] = surface
+            repairs.append(
+                f"Criativo movido para o canal de maior peso: {hero_label}"
+                + (f" (o modelo escolheu {previous})." if previous else ".")
+            )
+    if kept != roles:
+        recommendation["channel_roles"] = kept
+    if repairs:
+        page["repairs"] = list(dict.fromkeys(as_list(page.get("repairs")) + repairs))
+        logger.info("Página única consertada no mix: %s", "; ".join(repairs))
+    return repairs
+
+
 def _validate_page(page: dict, snapshot: dict, estimates: dict) -> None:
     repaired = _repair_channel_policy_payload(page, snapshot)
     if repaired != page:
         page.clear()
         page.update(repaired)
+    _repair_page_channels(page, snapshot)
     thesis = text(as_dict(page.get("thesis")).get("statement"))
     if len(thesis) < 20:
         raise ValueError("A tese da página única voltou vazia. Gere novamente.")
@@ -1225,9 +1612,48 @@ def _material_hash(row: dict) -> str:
         "objetivo": (row or {}).get("objetivo") or dados.get("objetivo") or campanha.get("objetivo"),
         "media_params": dados.get("media_params") or campanha.get("media_params"),
         "anunciante_confidencial": as_bool(dados.get("anunciante_confidencial")),
+        # Rebalancear, trocar Places ou Interativos também muda o plano.
+        "mix": {
+            "method": text(as_dict(campanha.get("mix")).get("method")),
+            "weights": [
+                [text(as_dict(item).get("id")), as_dict(item).get("pct")]
+                for item in as_list(as_dict(campanha.get("mix")).get("weights"))
+            ],
+        },
+        "places": sorted(
+            text(as_dict(item).get("slug")) for item in as_list(campanha.get("places") or dados.get("places"))
+            if text(as_dict(item).get("slug"))
+        ),
+        "interativos": campanha.get("interativos") or dados.get("interativos"),
     }
     raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+
+
+def _market_key(row: dict) -> str:
+    """O que a pesquisa de mercado leva em conta: muda a praça ou o anunciante, refaz."""
+    dados = as_dict((row or {}).get("dados_detectados"))
+    campanha = as_dict(dados.get("campanha"))
+    payload = {
+        "briefing": text((row or {}).get("briefing_melhorado") or (row or {}).get("briefing_compilado")),
+        "cliente": text((row or {}).get("cliente") or dados.get("cliente")),
+        "praca": text(campanha.get("praca") or dados.get("praca")),
+        "praca_detalhe": text(campanha.get("praca_detalhe") or dados.get("praca_detalhe")),
+        "objetivo": text((row or {}).get("objetivo") or dados.get("objetivo") or campanha.get("objetivo")),
+        "canais": as_list(campanha.get("canais") or dados.get("canais")),
+    }
+    raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+
+
+def _usable_market(dados: dict, market_key: str, material_hash: str) -> bool:
+    if not text(dados.get("market_research")):
+        return False
+    stored = text(dados.get("market_research_key"))
+    if stored:
+        return stored == market_key
+    # Pesquisas antigas, sem chave: valem enquanto o material não mudou.
+    return text(dados.get("material_hash")) == material_hash
 
 
 def _usable_core(core: dict, material_hash: str) -> bool:
@@ -1250,9 +1676,21 @@ def _usable_page(page: dict, material_hash: str, core: dict | None = None) -> bo
     return True
 
 
+ONE_PAGE_ENGINES = {"v3": "planner_one_page_v3", "v4": "planner_one_page_v4"}
+
+
+def _one_page_engine() -> str:
+    """v4 por padrão; SMART_PLANNER_ONE_PAGE_ENGINE=v3 volta ao fluxo antigo para comparar."""
+    chosen = text(os.environ.get("SMART_PLANNER_ONE_PAGE_ENGINE")).strip().lower()
+    return chosen if chosen in ONE_PAGE_ENGINES else "v4"
+
+
 def _one_page_prompt_version() -> str:
-    content = load_skill("planner_one_page_v3")
-    return hashlib.sha256(content.encode("utf-8")).hexdigest()[:12]
+    skill = ONE_PAGE_ENGINES[_one_page_engine()]
+    content = load_skill(skill)
+    digest = hashlib.sha256(content.encode("utf-8")).hexdigest()[:12]
+    # A v3 guardava só o hash; manter o formato preserva o cache dela.
+    return digest if skill == "planner_one_page_v3" else f"{skill}:{digest}"
 
 
 def _stale_generation(geracao: dict, *, minutes: int = 15) -> bool:

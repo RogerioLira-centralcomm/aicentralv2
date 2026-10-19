@@ -359,18 +359,15 @@ def test_material_hash_changes_when_channels_change():
     assert _material_hash(row) != _material_hash(other)
 
 
-def test_validate_page_requires_client_and_rejects_foreign_channel():
+def test_validate_page_drops_foreign_channel_instead_of_failing():
     page = {
         "thesis": {"statement": "A campanha do BDMG parte dos canais oficiais."},
-        "recommendation": {"summary": "Organizar a jornada institucional.", "channel_roles": [{"channel": "tiktok"}]},
+        "recommendation": {"summary": "Organizar a jornada institucional.", "channel_roles": [{"channel": "tiktok"}, {"channel": "ooh"}]},
         "result_estimates": {"status": "available"},
     }
-    try:
-        _validate_page(page, {"client": {"name": "BDMG"}, "channels": ["ooh"]}, {"status": "not_available"})
-    except ValueError as exc:
-        assert "canais não aprovados" in str(exc)
-    else:
-        raise AssertionError("deveria rejeitar canal extra")
+    _validate_page(page, {"client": {"name": "BDMG"}, "channels": ["ooh"]}, {"status": "not_available"})
+    assert [role["channel"] for role in page["recommendation"]["channel_roles"]] == ["ooh"]
+    assert any("tiktok" in item for item in page["repairs"])
     ok = {
         "thesis": {"statement": "A campanha do BDMG parte dos canais oficiais."},
         "recommendation": {"summary": "Organizar a jornada institucional.", "channel_roles": [{"channel": "ooh"}]},
@@ -484,7 +481,7 @@ def _page_with_mix(channel="ooh", roles=None):
     }
 
 
-def test_validate_page_rejects_creative_outside_approved_mix():
+def test_validate_page_moves_creative_to_hero_channel():
     snapshot = {
         "client": {"name": "BDMG"},
         "channels": ["ooh", "google_ads"],
@@ -493,15 +490,13 @@ def test_validate_page_rejects_creative_outside_approved_mix():
             {"id": "google_ads", "label": "Google Ads", "pct": 30},
         ],
     }
-    try:
-        _validate_page(_page_with_mix("google_ads"), snapshot, {"status": "not_available"})
-    except ValueError as exc:
-        assert "maior peso" in str(exc)
-    else:
-        raise AssertionError("deveria rejeitar criativo fora do mix")
+    page = _page_with_mix("google_ads")
+    _validate_page(page, snapshot, {"status": "not_available"})
+    assert page["creative_expression"]["channel"] == "OOH / Painéis"
+    assert any("maior peso" in item for item in page["repairs"])
 
 
-def test_validate_page_requires_hero_channel_in_roles():
+def test_validate_page_adds_missing_hero_role():
     snapshot = {
         "client": {"name": "BDMG"},
         "channels": ["ooh", "google_ads"],
@@ -511,12 +506,8 @@ def test_validate_page_requires_hero_channel_in_roles():
         ],
     }
     page = _page_with_mix("ooh", roles=[{"channel": "google_ads", "role": "Busca"}])
-    try:
-        _validate_page(page, snapshot, {"status": "not_available"})
-    except ValueError as exc:
-        assert "herói" in str(exc)
-    else:
-        raise AssertionError("deveria exigir o canal-herói nos papéis")
+    _validate_page(page, snapshot, {"status": "not_available"})
+    assert page["recommendation"]["channel_roles"][0]["channel"] == "OOH / Painéis"
 
 
 def test_validate_page_accepts_mix_label_as_hero():

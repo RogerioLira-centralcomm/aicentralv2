@@ -9,7 +9,7 @@ from .catalog import CHANNEL_CATALOG, PLAN_MODES, channel_label
 from .helpers import as_dict, as_list, normalize_markdown, plan_mode_of, text
 from .places_bridge import places_prompt_block, snapshot_places
 from .materials import apoio_block
-from .pace import budget_shares, campaign_pace, format_money
+from .pace import campaign_pace, format_money
 from .repository import get_by_token, merge_dados, update_session
 
 
@@ -128,8 +128,8 @@ def _campaign_block(campanha: dict) -> str:
     mix = campanha.get("mix") if isinstance(campanha.get("mix"), dict) else {}
     if mix.get("method"):
         lines.append(f"- Método de mix: {mix.get('method')}")
-    split = campanha.get("canais_verba") if isinstance(campanha.get("canais_verba"), dict) else {}
-    shares = budget_shares(split) if split else {}
+    from .snapshot import mix_shares
+    shares, split = mix_shares(campanha, [str(key) for key in canais])
     if canais:
         lines.append("- Catálogo:")
         for key in canais:

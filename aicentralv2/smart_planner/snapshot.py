@@ -7,9 +7,39 @@ from datetime import datetime, timezone
 from .catalog import CHANNEL_CATALOG, channel_label, objetivo_label
 from .helpers import as_bool, as_dict, as_list, client_display_name, session_title, text
 from .materials import normalize_references
-from .mix import progress_calendar, should_progress
-from .pace import budget_shares, campaign_pace, format_money
+from .mix import progress_calendar, shares_to_money, should_progress
+from .pace import budget_shares, campaign_pace, campaign_verba, format_money
 from .places_bridge import snapshot_places
+
+
+def mix_shares(campanha: dict, canais: list[str]) -> tuple[dict[str, float], dict[str, int]]:
+    """Percentual e valor por canal, só para os canais atuais.
+
+    Os pesos do balanceamento são a decisão do usuário e valem mesmo sem verba;
+    a divisão em reais só entra quando há verba e cobre os mesmos canais.
+    """
+    campanha = as_dict(campanha)
+    current = set(canais)
+    weights = {}
+    for item in as_list(as_dict(campanha.get("mix")).get("weights")):
+        row = as_dict(item)
+        key = text(row.get("id"))
+        try:
+            pct = float(row.get("pct") or 0)
+        except (TypeError, ValueError):
+            pct = 0.0
+        if key in current:
+            weights[key] = pct
+    raw_split = campanha.get("canais_verba") if isinstance(campanha.get("canais_verba"), dict) else {}
+    split = {key: value for key, value in raw_split.items() if key in current}
+    valor = campaign_verba(campanha)["valor"]
+    if weights and sum(weights.values()) > 0:
+        if valor > 0:
+            split = shares_to_money([{"id": key, "pct": pct} for key, pct in weights.items()], valor)
+        else:
+            split = {}
+        return {key: round(pct, 1) for key, pct in weights.items()}, split
+    return (budget_shares(split) if split else {}), split
 
 
 def build_snapshot(row: dict, dados: dict | None = None) -> dict:
@@ -19,8 +49,7 @@ def build_snapshot(row: dict, dados: dict | None = None) -> dict:
     fonte = as_dict(dados.get("fonte"))
     refs = normalize_references(fonte.get("referencias") or dados.get("referencias"))
     canais = [key for key in as_list(campanha.get("canais") or dados.get("canais")) if key in CHANNEL_CATALOG]
-    split = campanha.get("canais_verba") if isinstance(campanha.get("canais_verba"), dict) else {}
-    shares = budget_shares(split) if split else {}
+    shares, split = mix_shares(campanha, canais)
     mix = []
     for key in canais:
         mix.append({

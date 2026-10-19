@@ -34,6 +34,11 @@ SKILLS = {
         "role": "sheet",
         "file": "planner_one_page_v3.md",
     },
+    "planner_one_page_v4": {
+        "label": "Narrativa editorial",
+        "role": "sheet",
+        "file": "planner_one_page_v4.md",
+    },
     "planner_commercial_defense_v1": {
         "label": "Defesa comercial",
         "role": "defense",
@@ -70,9 +75,9 @@ ONE_PAGE_STEPS = (
     {"id": "snapshot", "skill": "planner_truth_v1", "title": "Congelando a verdade da campanha", "kind": "python"},
     {"id": "evidence", "skill": "planner_truth_v1", "title": "Empacotando evidências e fontes", "kind": "python"},
     {"id": "market", "skill": "planner_truth_v1", "title": "Pesquisando mercado e praça", "kind": "llm"},
-    {"id": "core", "skill": "planner_strategy_core_v1", "title": "Escrevendo o núcleo estratégico", "kind": "llm"},
+    {"id": "core", "skill": "planner_strategy_core_v1", "title": "Escrevendo tese, mix e defesa", "kind": "llm"},
     {"id": "estimates", "skill": "planner_estimation_v1", "title": "Calculando indicadores", "kind": "python"},
-    {"id": "one_page", "skill": "planner_one_page_v3", "title": "Construindo a narrativa comercial", "kind": "llm"},
+    {"id": "one_page", "skill": "planner_one_page_v4", "title": "Conferindo números e montando a folha", "kind": "python"},
     {"id": "validate", "skill": "planner_consistency_v1", "title": "Conferindo tese, canais e confidencialidade", "kind": "python"},
     {"id": "publish", "skill": "planner_truth_v1", "title": "Publicando a folha", "kind": "python"},
 )

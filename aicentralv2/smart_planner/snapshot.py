@@ -64,6 +64,8 @@ def build_snapshot(row: dict, dados: dict | None = None) -> dict:
             "desc": (CHANNEL_CATALOG.get(key) or {}).get("desc", ""),
             "tatica": tatica_of.get(key, ""),
         })
+    # Places (produto em formatação) fica por último; a ordem dos demais canais não muda.
+    mix.sort(key=lambda row: 1 if row["id"] == "places" else 0)
     pace = campaign_pace(campanha)
     sources = []
     for item in refs:

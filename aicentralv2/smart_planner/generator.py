@@ -787,7 +787,11 @@ def _one_page_payload(snapshot: dict, evidence: dict, estimates: dict) -> dict:
                 if as_dict(pace.get("allocation")).get(key)
             ],
         },
-        "places": {"regra": text(places.get("lei")), "ambientes": as_list(places.get("places"))} if places.get("places") else None,
+        "places": {
+            "prioridade": "baixa: produto ainda em formatação",
+            "regra": text(places.get("lei")),
+            "ambientes": as_list(places.get("places")),
+        } if places.get("places") else None,
         "interativos": [text(item) for item in as_list(as_dict(snap.get("interativos")).get("formats")) if text(item)],
         "taticas": taticas,
         "marca": brand_prompt_block(as_dict(snap.get("brand"))) or None,
@@ -1240,8 +1244,17 @@ def _approved_tokens(snapshot: dict) -> set[str]:
     return tokens
 
 
+def _is_places(row: dict) -> bool:
+    return text(row.get("id")).lower() == "places" or text(row.get("group")).lower() == "places"
+
+
 def _hero_rows(mix: list[dict], snapshot: dict | None = None) -> list[dict]:
-    """Canais de maior peso; com tática de impacto, só entre os canais dela."""
+    """Canais de maior peso; com tática de impacto, só entre os canais dela.
+
+    Places é um produto ainda em formatação: nunca é o canal-herói quando há outro canal.
+    """
+    others = [row for row in mix if not _is_places(row)]
+    mix = others or mix
     scope = hero_scope(as_list(as_dict(snapshot).get("taticas")))
     if scope:
         scoped = [row for row in mix if text(row.get("id")) in scope]
@@ -1278,7 +1291,7 @@ def _creative_plan(page: dict, snapshot: dict) -> list[dict]:
     out = []
     for mix in _mix_rows(snapshot):
         channel_id = text(mix.get("id"))
-        if not channel_id:
+        if not channel_id or (_is_places(mix) and len(_mix_rows(snapshot)) > 1):
             continue
         proposed = next(
             (as_dict(item) for item in roles if _channel_tokens(as_dict(item).get("channel")) & _channel_tokens(channel_id, mix.get("label"))),

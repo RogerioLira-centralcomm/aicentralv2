@@ -229,3 +229,22 @@ def test_public_titles_are_shortened_for_plans_generated_before_the_rule():
     block = _titled({"title": long_title, "body": long_title})
     assert len(block["title"]) <= 64 and block["body"] == long_title
     assert _titled(None) == {}
+
+
+def test_places_never_leads_and_goes_last():
+    places = {"id": "places", "label": "Places", "pct": 50, "group": "places"}
+    youtube = {"id": "youtube", "label": "YouTube", "pct": 30}
+    snapshot = {"mix": [places, youtube]}
+    assert [row["id"] for row in generator._hero_rows(snapshot["mix"], snapshot)] == ["youtube"]
+    only = {"mix": [places]}
+    assert [row["id"] for row in generator._hero_rows(only["mix"], only)] == ["places"]
+    built = build_snapshot({"id": 1, "session_token": "t", "dados_detectados": {"campanha": {
+        "canais": ["places", "youtube"], "places": [{"slug": "x"}],
+        "mix": {"method": "manual", "weights": [{"id": "places", "pct": 50}, {"id": "youtube", "pct": 50}]}}}})
+    assert [row["id"] for row in built["mix"]][-1] == "places"
+
+
+def test_creative_plan_skips_places_when_other_channels_exist():
+    snapshot = {"mix": [{"id": "places", "label": "Places", "pct": 40, "group": "places"}, {"id": "youtube", "label": "YouTube", "pct": 60}], "pace": {}}
+    plan = generator._creative_plan({"recommendation": {}}, snapshot)
+    assert [row["channel_id"] for row in plan] == ["youtube"]

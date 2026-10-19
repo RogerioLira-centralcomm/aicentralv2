@@ -414,7 +414,7 @@ def build_media_board(
             "role": role,
             "tatica": text(item.get("tatica")),
         })
-    channels.sort(key=lambda item: item.get("pct") or 0, reverse=True)
+    channels.sort(key=lambda item: (item.get("id") == "places", -(item.get("pct") or 0)))
     pace_data = as_dict(pace)
     labels = [text(item) for item in as_list(pace_data.get("labels")) if text(item)]
     keys = [text(item) for item in as_list(pace_data.get("keys")) if text(item)]

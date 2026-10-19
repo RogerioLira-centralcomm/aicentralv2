@@ -6157,3 +6157,5 @@ html.is-sp-media body {
 .sp-taticas-note:empty {
   display: none;
 }
+
+.sp-mix-beta{margin-left:.25rem;padding:.05rem .4rem;border:1px solid var(--hi-line);border-radius:999px;color:var(--hi-fog);font-size:.62rem;font-weight:600;white-space:nowrap}

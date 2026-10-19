@@ -4,7 +4,7 @@
 {% block title %}{{ steps[step_index].title }} · Planejamentos{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=58">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=59">
 {% endblock %}
 
 {% block content %}
@@ -600,7 +600,7 @@
                     {% else %}
                     <span class="sp-mix-fallback" aria-hidden="true">{{ meta.label.split()[0][:1] }}{{ meta.label.split()[1][:1] if meta.label.split()|length > 1 else '' }}</span>
                     {% endif %}
-                    <span>{{ meta.label }}</span>
+                    <span>{{ meta.label }}{% if key == 'places' %} <small class="sp-mix-beta">em formatação</small>{% endif %}</span>
                   </label>
                   {% endif %}
                   {% endfor %}

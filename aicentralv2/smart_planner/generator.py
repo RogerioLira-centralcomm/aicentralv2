@@ -1424,8 +1424,8 @@ def _repair_page_channels(page: dict, snapshot: dict) -> list[str]:
                 + (f" (o modelo escolheu {previous})." if previous else ".")
             )
     repairs += _apply_taticas_to_roles(kept, snapshot)
-    if kept != roles:
-        recommendation["channel_roles"] = kept
+    # Sempre grava: os papéis podem ter sido completados no lugar, e não só filtrados.
+    recommendation["channel_roles"] = kept
     page["taticas"] = taticas_for_prompt(
         as_list(as_dict(snapshot).get("taticas")), mix_rows_for_tatica(_mix_rows(snapshot))
     )

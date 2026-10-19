@@ -151,3 +151,57 @@ class ContatoRoutesTest(TestCase):
         with patch.object(routes.db, "get_db", return_value=conn):
             _client().patch("/leads-v3/api/leads/1/empresa", json={"dominio": "https://www.vale.com/br"})
         self.assertEqual(conn.calls[0][1][0], "vale.com")
+
+
+class AcharEmailTest(TestCase):
+    def test_monta_local_pelo_padrao(self):
+        self.assertEqual(p.gerar_local("Carlos André Eyer", "nome.sobrenome"), "carlos.eyer")
+        self.assertEqual(p.gerar_local("Ana Maria da Silva", "nsobrenome"), "asilva")
+        self.assertEqual(p.gerar_local("GABRIELA MARTINS", "nome"), "gabriela")
+        self.assertIsNone(p.gerar_local("Madonna", "nome.sobrenome"))
+        self.assertEqual(p.gerar_local("Ana", "nome"), "ana")
+
+    def test_inferir_pelos_contatos_conhecidos(self):
+        exemplos = [("GABRIELA MARTINS", "gabriela.martins@zerezes.com.br"), ("Rui Lopes", "rui.lopes@zerezes.com.br"),
+                    ("Ana Lima", "alima@zerezes.com.br")]
+        self.assertEqual(p.inferir_padrao_por_exemplos(exemplos), ("nome.sobrenome", 2))
+        self.assertEqual(p.inferir_padrao_por_exemplos([("Ana", "contato@x.com")]), (None, 0))
+
+    def test_inferir_pela_estrutura_ignora_genericos(self):
+        self.assertEqual(p.inferir_padrao_por_estrutura(["contato@x.com", "imprensa@x.com"]), (None, 0))
+        self.assertEqual(p.inferir_padrao_por_estrutura(["maria.souza@x.com", "j.lima@x.com", "pedro.reis@x.com"]),
+                         ("nome.sobrenome", 2))
+
+    def test_cascata_usa_contatos_antes_do_firecrawl(self):
+        coletar = MagicMock()
+        r = p.achar_email("Carlos Eyer", "zerezes.com.br", [("Gabriela Martins", "gabriela.martins@zerezes.com.br")],
+                          firecrawl_key="fc", coletar=coletar, mx=lambda d: True)
+        self.assertEqual((r["email"], r["metodo"]), ("carlos.eyer@zerezes.com.br", "padrao_contatos"))
+        coletar.assert_not_called()
+
+    def test_cascata_cai_no_site_e_respeita_mx(self):
+        coletar = MagicMock(return_value=(["ana.lima@vale.com", "contato@vale.com"], ["(31) 3333-4444"]))
+        r = p.achar_email("Bruno Reis", "vale.com", [], firecrawl_key="fc", coletar=coletar, mx=lambda d: True)
+        self.assertEqual((r["email"], r["metodo"]), ("bruno.reis@vale.com", "padrao_site"))
+        self.assertEqual(r["telefones_empresa"], ["(31) 3333-4444"])
+        sem_mx = p.achar_email("Bruno Reis", "vale.com", [], firecrawl_key="fc", coletar=coletar, mx=lambda d: False)
+        self.assertIsNone(sem_mx["email"])
+        self.assertIn("não recebe e-mail", sem_mx["motivo"])
+
+    def test_sem_padrao_sugere_apollo(self):
+        r = p.achar_email("Bruno Reis", "vale.com", [], firecrawl_key="fc", coletar=lambda k, d: ([], []), mx=lambda d: True)
+        self.assertIsNone(r["email"])
+        self.assertIn("Apollo", r["motivo"])
+
+    def test_coleta_so_emails_do_dominio(self):
+        emails, tels = p._coletar_contatos("Fale: ana.lima@vale.com, x@gmail.com, ri@br.vale.com. Tel (31) 99999-8888", "vale.com")
+        self.assertEqual(emails, ["ana.lima@vale.com", "ri@br.vale.com"])
+        self.assertEqual(tels, ["(31) 99999-8888"])
+
+    def test_cargo_manda_mais_que_o_resumo(self):
+        body = {"data": {"web": [{"url": "https://br.linkedin.com/in/carlos", "title": "Carlos Eyer - Chief Marketing Officer - Zerezes | LinkedIn",
+                                  "description": "Design e criação de marcas na Zerezes"}]}}
+        with patch.object(p.requests, "post", return_value=_resp(body=body)), \
+                patch.object(p, "_firecrawl_search_endpoint", return_value="https://fc/v2/search"):
+            candidato = p.web_buscar_pessoas("fc", "Zerezes")[0]
+        self.assertEqual((candidato["papel_sugerido"], candidato["senioridade_sugerida"]), ("marketing", "c_level"))

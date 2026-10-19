@@ -248,7 +248,12 @@ def web_buscar_pessoas(api_key, empresa, *, limite=20):
             continue
         if not pessoa or sem_acento(cargo) == empresa_norm:
             cargo = ""
-        papel, senioridade = classificar_cargo(f"{cargo} {descricao[:160]}")
+        # O cargo manda; o resumo do perfil só entra quando o cargo não diz a área.
+        papel, senioridade = classificar_cargo(cargo)
+        if papel == "outro" or senioridade == "outro":
+            papel_r, senioridade_r = classificar_cargo(f"{cargo} {descricao[:160]}")
+            papel = papel if papel != "outro" else papel_r
+            senioridade = senioridade if senioridade != "outro" else senioridade_r
         if papel not in PAPEIS_FOCO and senioridade != "c_level":
             continue
         vistos.add(slug)
@@ -428,3 +433,166 @@ def criar_conta(cursor, validacao, *, id_executivo, trimestre, usuario_id):
         [id_executivo, trimestre, dados["nome"], id_lead, dados.get("id_cliente"), dados["objetivo"], usuario_id],
     )
     return {"id": cursor.fetchone()["id"], "id_lead": id_lead}
+
+
+# ─────────────────────────────────────────────────────
+# E-mail sem Apollo: padrão da empresa + Firecrawl + MX
+# ─────────────────────────────────────────────────────
+# Ordem da cascata em achar_email(): contatos já conhecidos do mesmo domínio → e-mails do
+# domínio achados na web/no site (Firecrawl) → confere MX. O Apollo fica como último recurso,
+# acionado pelo usuário. O resultado é um palpite (email_status = "arriscado"), nunca "valido".
+PARTICULAS = {"de", "da", "do", "das", "dos", "e", "di", "du", "van", "von"}
+GENERICOS = {
+    "contato", "contatos", "comercial", "imprensa", "sac", "rh", "vendas", "marketing", "atendimento",
+    "financeiro", "ouvidoria", "privacidade", "dpo", "lgpd", "suporte", "noreply", "no-reply", "info",
+    "hello", "ola", "oi", "faleconosco", "fale", "comunicacao", "juridico", "compras", "parcerias",
+    "trabalheconosco", "carreiras", "vagas", "admin", "webmaster", "press", "contact", "sales", "support",
+}
+# Padrões em ordem de frequência no Brasil corporativo.
+PADROES = ("nome.sobrenome", "nome", "nsobrenome", "nomesobrenome", "nome_sobrenome", "n.sobrenome",
+           "nome-sobrenome", "sobrenome.nome", "nomes")
+_EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+# Só telefone formatado (DDD com parênteses ou separadores): sequências soltas de dígitos costumam
+# ser carimbos de data ou IDs no código da página.
+_TEL_RE = re.compile(r"(?:\+55[\s.-]?)?\(?[1-9]\d\)?[\s.-]9?\d{4}[\s.-]\d{4}(?!\d)")
+
+
+def _partes_nome(nome):
+    tokens = [re.sub(r"[^a-z]", "", t) for t in sem_acento(nome).replace("*", " ").split()]
+    tokens = [t for t in tokens if t and t not in PARTICULAS]
+    if len(tokens) < 1:
+        return None, None
+    return tokens[0], (tokens[-1] if len(tokens) > 1 else "")
+
+
+def gerar_local(nome, padrao):
+    primeiro, ultimo = _partes_nome(nome)
+    if not primeiro or (padrao != "nome" and not ultimo):
+        return None
+    if padrao == "nome":
+        return primeiro
+    return {
+        "nome.sobrenome": f"{primeiro}.{ultimo}", "nsobrenome": f"{primeiro[0]}{ultimo}",
+        "nomesobrenome": f"{primeiro}{ultimo}", "nome_sobrenome": f"{primeiro}_{ultimo}",
+        "n.sobrenome": f"{primeiro[0]}.{ultimo}", "nome-sobrenome": f"{primeiro}-{ultimo}",
+        "sobrenome.nome": f"{ultimo}.{primeiro}", "nomes": f"{primeiro}{ultimo[0]}",
+    }.get(padrao)  # aqui `ultimo` já existe (checado acima)
+
+
+def inferir_padrao_por_exemplos(exemplos):
+    """exemplos: [(nome, email)] do mesmo domínio. Devolve (padrão, quantos exemplos casaram)."""
+    votos = {}
+    for nome, email in exemplos:
+        local = str(email or "").split("@")[0].lower()
+        for padrao in PADROES:
+            if gerar_local(nome, padrao) == local:
+                votos[padrao] = votos.get(padrao, 0) + 1
+                break
+    if not votos:
+        return None, 0
+    padrao = max(votos, key=lambda p: (votos[p], -PADROES.index(p)))
+    return padrao, votos[padrao]
+
+
+def inferir_padrao_por_estrutura(emails):
+    """Sem nomes, só pela forma dos e-mails pessoais (ex.: 'joao.silva@' → nome.sobrenome)."""
+    votos = {}
+    for email in emails:
+        local = email.split("@")[0].lower()
+        if local in GENERICOS or any(ch.isdigit() for ch in local):
+            continue
+        if re.fullmatch(r"[a-z]{2,}\.[a-z]{2,}", local):
+            padrao = "nome.sobrenome"
+        elif re.fullmatch(r"[a-z]\.[a-z]{2,}", local):
+            padrao = "n.sobrenome"
+        elif re.fullmatch(r"[a-z]{2,}_[a-z]{2,}", local):
+            padrao = "nome_sobrenome"
+        elif re.fullmatch(r"[a-z]{2,}-[a-z]{2,}", local):
+            padrao = "nome-sobrenome"
+        else:
+            continue  # "joaosilva" ou "joao" é ambíguo sem o nome da pessoa
+        votos[padrao] = votos.get(padrao, 0) + 1
+    if not votos:
+        return None, 0
+    padrao = max(votos, key=votos.get)
+    return padrao, votos[padrao]
+
+
+def _coletar_contatos(texto, dominio):
+    emails = {e.lower().rstrip(".") for e in _EMAIL_RE.findall(texto or "")}
+    do_dominio = sorted(e for e in emails if e.endswith("@" + dominio) or e.endswith("." + dominio))
+    telefones = sorted({re.sub(r"\s+", " ", t).strip() for t in _TEL_RE.findall(texto or "") if len(digitos(t)) >= 10})
+    return do_dominio, telefones[:5]
+
+
+def firecrawl_contatos_do_dominio(api_key, dominio, *, scrape=None, search=None):
+    """E-mails e telefones públicos do domínio: busca na web + página inicial e de contato do site."""
+    emails, telefones = set(), set()
+    if api_key and search is not False:
+        try:
+            response = (search or requests.post)(
+                _firecrawl_search_endpoint(),
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={"query": f'"@{dominio}"', "limit": 10, "country": "BR", "ignoreInvalidURLs": True},
+                timeout=TIMEOUT,
+            )
+            response.raise_for_status()
+            data = (response.json() or {}).get("data") or {}
+            for item in (data.get("web") if isinstance(data, dict) else data) or []:
+                achados, tels = _coletar_contatos(f"{item.get('title', '')} {item.get('description', '')}", dominio)
+                emails.update(achados)
+                telefones.update(tels)
+        except (requests.RequestException, ValueError):
+            pass
+    if scrape is None:
+        from .crm_v3_web_scout import _firecrawl_scrape as scrape
+    for caminho in ("", "/contato", "/fale-conosco"):
+        try:
+            pagina = scrape(f"https://{dominio}{caminho}", formats=["markdown"], timeout_s=30, only_main_content=False)
+        except Exception:
+            continue
+        achados, tels = _coletar_contatos((pagina or {}).get("markdown") or "", dominio)
+        emails.update(achados)
+        telefones.update(tels)
+        if emails:
+            break  # já dá para inferir o padrão; não gasta mais créditos
+    return sorted(emails), sorted(telefones)[:5]
+
+
+def dominio_recebe_email(dominio):
+    """MX via DNS sobre HTTPS (Google), sem dependência nova. None = não deu para conferir."""
+    try:
+        response = requests.get("https://dns.google/resolve", params={"name": dominio, "type": "MX"}, timeout=10)
+        response.raise_for_status()
+        body = response.json()
+    except (requests.RequestException, ValueError):
+        return None
+    return bool(body.get("Status") == 0 and any(a.get("type") == 15 for a in body.get("Answer") or []))
+
+
+def achar_email(nome, dominio, exemplos, *, firecrawl_key=None, coletar=firecrawl_contatos_do_dominio, mx=dominio_recebe_email):
+    """Cascata sem Apollo. Devolve dict com email (ou None), método, padrão, confiança e telefones da empresa."""
+    resultado = {"email": None, "metodo": None, "padrao": None, "exemplos": 0, "telefones_empresa": [], "mx": None}
+    if not dominio:
+        resultado["motivo"] = "A empresa não tem domínio cadastrado."
+        return resultado
+    padrao, n = inferir_padrao_por_exemplos(exemplos)
+    metodo = "padrao_contatos" if padrao else None
+    if not padrao and firecrawl_key:
+        emails, telefones = coletar(firecrawl_key, dominio)
+        resultado["telefones_empresa"] = telefones
+        padrao, n = inferir_padrao_por_estrutura(emails)  # sem nomes: só a forma dos e-mails ajuda
+        metodo = "padrao_site" if padrao else None
+    resultado["mx"] = mx(dominio)
+    if resultado["mx"] is False:
+        resultado["motivo"] = f"O domínio {dominio} não recebe e-mail (sem MX)."
+        return resultado
+    if not padrao:
+        resultado["motivo"] = "Não achei o padrão de e-mail da empresa. Use o Apollo como último recurso."
+        return resultado
+    local = gerar_local(nome, padrao)
+    if not local:
+        resultado["motivo"] = "O nome da pessoa está incompleto para montar o e-mail (falta sobrenome)."
+        return resultado
+    resultado.update(email=f"{local}@{dominio}", metodo=metodo, padrao=padrao, exemplos=n)
+    return resultado

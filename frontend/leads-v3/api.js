@@ -60,6 +60,7 @@ export function createApi(boot) {
     discover: (id, fonte) => request(`${root}/leads/${id}/descobrir`, {method: 'POST', body: {fonte}}).then(p => p.data),
     approveCandidate: (candidateId, revelar, papel) => request(`${root}/candidatos/${candidateId}/aprovar`, {method: 'POST', body: {revelar, papel}}).then(p => p.data),
     discardCandidate: candidateId => request(`${root}/candidatos/${candidateId}/descartar`, {method: 'POST', body: {}}),
+    findEmail: contactId => request(`${root}/contatos/${contactId}/achar-email`, {method: 'POST', body: {}}).then(p => p.data),
     revealContact: contactId => request(`${root}/contatos/${contactId}/revelar`, {method: 'POST', body: {}}).then(p => p.data),
     updateProfile: (contactId, body) => request(`${root}/contatos/${contactId}/perfil`, {method: 'PATCH', body}),
 

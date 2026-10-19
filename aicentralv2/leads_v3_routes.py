@@ -621,3 +621,73 @@ def api_lead_empresa(lead_id):
         return _ok({"id": lead_id})
 
     return _transacao(run, "dados de empresa")
+
+
+@bp.route("/api/contatos/<int:contato_id>/achar-email", methods=["POST"])
+@centralcomm_required_api
+def api_contato_achar_email(contato_id):
+    """E-mail sem Apollo: padrão dos contatos do mesmo domínio, depois site/web (Firecrawl), e MX.
+
+    Grava como palpite (email_status = 'arriscado'). O Apollo continua disponível como último recurso.
+    """
+    conn = db.get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT c.id, c.nome, c.email, l.id AS id_lead, l.dominio, l.url_site, l.email AS lead_email
+                  FROM cadu_lead_contatos c JOIN cadu_leads l ON l.id = c.id_lead
+                 WHERE c.id = %s
+                """,
+                [contato_id],
+            )
+            contato = cursor.fetchone()
+            if not contato:
+                conn.rollback()
+                return _erro("Contato não encontrado.", 404)
+            if contato["email"]:
+                conn.rollback()
+                return _ok({"email": contato["email"], "metodo": "ja_tinha"})
+            dominio = contato["dominio"] or prospeccao.normalizar_dominio(contato["url_site"])
+            if not dominio:
+                email_dom = prospeccao.normalizar_dominio(contato["lead_email"])
+                dominio = email_dom if email_dom not in prospeccao.FREE_EMAIL_DOMAINS else ""
+            # Exemplos: qualquer contato com e-mail deste domínio, em qualquer lead.
+            cursor.execute(
+                """
+                SELECT nome, lower(email) AS email FROM cadu_lead_contatos
+                 WHERE %s <> '' AND lower(email) LIKE %s AND id <> %s
+                 LIMIT 50
+                """,
+                [dominio, f"%@{dominio}", contato_id],
+            )
+            exemplos = [(r["nome"], r["email"]) for r in cursor.fetchall()]
+        conn.rollback()  # leitura; libera a conexão antes das chamadas externas
+    except Exception as exc:
+        conn.rollback()
+        if _sqlstate(exc) in _SQLSTATE_SEM_ESQUEMA:
+            return _erro("A migração do Leads v3 ainda não foi aplicada neste banco.", 503)
+        current_app.logger.error("leads-v3 achar e-mail: %s", exc)
+        return _erro("Não foi possível buscar o e-mail.", 500)
+
+    resultado = prospeccao.achar_email(contato["nome"], dominio, exemplos, firecrawl_key=resolve_firecrawl_api_key())
+    if not resultado["email"]:
+        return _ok({**resultado, "encontrou": False})
+
+    def run(cursor):
+        cursor.execute(
+            """
+            UPDATE cadu_lead_contatos
+               SET email = %s, email_status = 'arriscado', enriquecido_em = CURRENT_TIMESTAMP
+             WHERE id = %s AND COALESCE(email, '') = ''
+            RETURNING id
+            """,
+            [resultado["email"], contato_id],
+        )
+        if cursor.fetchone():
+            origem = "contatos da empresa" if resultado["metodo"] == "padrao_contatos" else "e-mails públicos do domínio"
+            _registrar_atividade(cursor, contato["id_lead"], "edicao",
+                                 f"E-mail sugerido para {contato['nome']} pelo padrão {resultado['padrao']} ({origem}).", contato_id)
+        return _ok({**resultado, "encontrou": True})
+
+    return _transacao(run, "achar e-mail")

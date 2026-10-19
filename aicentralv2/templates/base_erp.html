@@ -897,7 +897,7 @@
                 </div>
             </header>
 
-            <main class="erp-main-content cx-drawer-split-anchor {% if request.endpoint == 'crm_v3.crm_v3' %}is-crm{% elif request.endpoint == 'crm_pipeline' %}is-pipeline{% endif %}">
+            <main class="erp-main-content cx-drawer-split-anchor {% if request.endpoint in ('crm_v3.crm_v3', 'leads_v3.pagina') %}is-crm{% elif request.endpoint == 'crm_pipeline' %}is-pipeline{% endif %}">
                 {% block content %}{% endblock %}
             </main>
         </div>

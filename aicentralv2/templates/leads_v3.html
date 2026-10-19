@@ -1,0 +1,17 @@
+{% extends 'base_erp.html' %}
+
+{% block title %}Leads — CentralX{% endblock %}
+{% block page_label %}Leads{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='leads_v3/app.css') }}?v={{ static_fingerprint('leads_v3/app.css') if static_fingerprint is defined else 0 }}">
+{% endblock %}
+
+{% block content %}
+<script type="application/json" id="leads-v3-bootstrap">{{ boot|tojson }}</script>
+<div id="leads-v3-root" class="lv3-root"></div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{{ url_for('static', filename='leads_v3/app.js') }}?v={{ static_fingerprint('leads_v3/app.js') if static_fingerprint is defined else 0 }}"></script>
+{% endblock %}

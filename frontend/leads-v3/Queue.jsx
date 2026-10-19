@@ -1,0 +1,124 @@
+import React from 'react';
+import {Button, Chip, Empty, Icon, decode, potencialTone} from './ui.jsx';
+
+/** Barra que substitui o cabeçalho da fila enquanto há leads selecionados. */
+function BulkBar({boot, count, busy, onAction, onDisqualify, onClear}) {
+  const pick = acao => event => {
+    const valor = event.target.value;
+    event.target.value = '';
+    if (valor !== '') onAction(acao, valor);
+  };
+  return (
+    <div className="lv3-bulk" role="toolbar" aria-label="Ações em massa">
+      <div className="lv3-bulk__count">
+        <strong>{count}</strong> {count === 1 ? 'selecionado' : 'selecionados'}
+        <button type="button" className="lv3-link" onClick={onClear} disabled={busy}>Limpar</button>
+      </div>
+      <div className="lv3-bulk__actions">
+        <select className="lv3-select lv3-select--sm" defaultValue="" onChange={pick('status')} disabled={busy} aria-label="Mudar etapa dos selecionados">
+          <option value="" disabled>Mudar etapa…</option>
+          {boot.status.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </select>
+        <select className="lv3-select lv3-select--sm" defaultValue="" onChange={pick('potencial')} disabled={busy} aria-label="Mudar potencial dos selecionados">
+          <option value="" disabled>Potencial…</option>
+          {boot.potenciais.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+        </select>
+        <select className="lv3-select lv3-select--sm" defaultValue="" onChange={pick('responsavel')} disabled={busy} aria-label="Atribuir responsável aos selecionados">
+          <option value="" disabled>Responsável…</option>
+          <option value="sem">Sem responsável</option>
+          {boot.executivos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+        </select>
+        <Button variant="danger" size="sm" icon="ban" onClick={onDisqualify} disabled={busy}>Desqualificar</Button>
+      </div>
+    </div>
+  );
+}
+
+function QueueItem({lead, statusLabel, active, selected, onOpen, onToggle}) {
+  const parado = lead.dias_sem_atividade != null && lead.dias_sem_atividade >= 7;
+  return (
+    <li className={`lv3-qitem ${active ? 'is-active' : ''} ${selected ? 'is-selected' : ''}`}>
+      <label className="lv3-qitem__check" onClick={event => { event.stopPropagation(); onToggle(lead.id, event.shiftKey); }}>
+        <input type="checkbox" checked={selected} readOnly aria-label={`Selecionar ${decode(lead.nome_lead)}`}/>
+      </label>
+      <button type="button" className="lv3-qitem__main" onClick={() => onOpen(lead.id)} aria-current={active ? 'true' : undefined}>
+        <span className="lv3-qitem__top">
+          <span className="lv3-qitem__name">{decode(lead.nome_lead) || 'Sem nome'}</span>
+          <Chip tone={potencialTone(lead.potencial)}>{lead.potencial === 'medio' ? 'Médio' : (lead.potencial || '—').replace(/^./, c => c.toUpperCase())}</Chip>
+        </span>
+        <span className="lv3-qitem__meta">
+          <span>{statusLabel}</span>
+          <span aria-hidden="true">·</span>
+          <span>{lead.qtd_contatos ? `${lead.qtd_contatos} ${lead.qtd_contatos === 1 ? 'contato' : 'contatos'}` : 'sem contatos'}</span>
+          {lead.dias_sem_atividade != null && (
+            <span className={parado ? 'lv3-qitem__stale' : ''}>· {lead.dias_sem_atividade}d sem atividade</span>
+          )}
+        </span>
+        {lead.contato_principal_nome && lead.contato_principal_nome !== lead.nome_lead && (
+          <span className="lv3-qitem__sub"><Icon name="user"/>{decode(lead.contato_principal_nome)}</span>
+        )}
+      </button>
+    </li>
+  );
+}
+
+export function Queue({boot, leads, loading, error, filters, setFilters, activeId, selected, busy,
+  onOpen, onToggle, onToggleAll, onBulk, onDisqualify, onClear, onReload}) {
+  const statusLabel = Object.fromEntries(boot.status.map(s => [s.value, s.label]));
+  const allSelected = leads.length > 0 && leads.every(l => selected.has(l.id));
+  const someSelected = selected.size > 0;
+  const set = key => event => setFilters(f => ({...f, [key]: event.target.value}));
+
+  return (
+    <aside className="lv3-col lv3-queue" aria-label="Fila de leads">
+      <div className="lv3-queue__filters">
+        <div className="lv3-search">
+          <Icon name="magnifying-glass"/>
+          <input type="search" placeholder="Buscar empresa, nome ou e-mail" value={filters.q} onChange={set('q')} aria-label="Buscar leads"/>
+        </div>
+        <div className="lv3-queue__selects">
+          <select className="lv3-select" value={filters.executivo} onChange={set('executivo')} aria-label="Responsável">
+            <option value="">Todos os responsáveis</option>
+            <option value="sem">Sem responsável (Inbox)</option>
+            {boot.executivos.map(e => <option key={e.id} value={String(e.id)}>{e.nome}</option>)}
+          </select>
+          <select className="lv3-select" value={filters.status} onChange={set('status')} aria-label="Etapa">
+            <option value="">Todas as etapas</option>
+            {boot.status.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+          <select className="lv3-select" value={filters.potencial} onChange={set('potencial')} aria-label="Potencial">
+            <option value="">Todo potencial</option>
+            {boot.potenciais.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {someSelected ? (
+        <BulkBar boot={boot} count={selected.size} busy={busy} onAction={onBulk} onDisqualify={onDisqualify} onClear={onClear}/>
+      ) : (
+        <div className="lv3-queue__head">
+          <label className="lv3-queue__all">
+            <input type="checkbox" checked={allSelected} onChange={onToggleAll} disabled={!leads.length} aria-label="Selecionar todos"/>
+            <span>{loading ? 'Carregando…' : `${leads.length} ${leads.length === 1 ? 'lead' : 'leads'}`}</span>
+          </label>
+          <button type="button" className="lv3-iconbtn" onClick={onReload} aria-label="Atualizar lista" title="Atualizar"><Icon name="rotate-right"/></button>
+        </div>
+      )}
+
+      {error ? (
+        <Empty icon="triangle-exclamation" title="Não foi possível carregar">
+          {error} <button type="button" className="lv3-link" onClick={onReload}>Tentar de novo</button>
+        </Empty>
+      ) : !loading && !leads.length ? (
+        <Empty title="Nenhum lead aqui">Mude os filtros ou cadastre um lead novo.</Empty>
+      ) : (
+        <ul className="lv3-queue__list">
+          {leads.map(lead => (
+            <QueueItem key={lead.id} lead={lead} statusLabel={statusLabel[lead.status] || lead.status}
+              active={lead.id === activeId} selected={selected.has(lead.id)} onOpen={onOpen} onToggle={onToggle}/>
+          ))}
+        </ul>
+      )}
+    </aside>
+  );
+}

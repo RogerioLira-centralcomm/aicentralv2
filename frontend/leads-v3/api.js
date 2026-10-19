@@ -1,0 +1,53 @@
+// Cliente HTTP da mesa de Leads v3.
+// As rotas novas (/leads-v3/api) respondem {success, data | error}; as do Leads v2
+// (/api/leads, /api/ia) respondem {success, <chave>} e usam `message` no erro.
+
+async function request(url, {method = 'GET', body} = {}) {
+  const response = await fetch(url, {
+    method,
+    credentials: 'same-origin',
+    headers: {Accept: 'application/json', ...(body !== undefined ? {'Content-Type': 'application/json'} : {})},
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (response.status === 401) throw new Error('Sua sessão expirou. Recarregue a página e entre de novo.');
+  if (!response.ok || payload.success === false) {
+    throw new Error(payload.error || payload.message || 'Não foi possível concluir a ação.');
+  }
+  return payload;
+}
+
+const qs = params => {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => { if (value !== undefined && value !== null && value !== '') search.set(key, value); });
+  const text = search.toString();
+  return text ? `?${text}` : '';
+};
+
+export function createApi(boot) {
+  const root = boot.apiRoot;
+  const legacy = boot.legacyApiRoot;
+  return {
+    listLeads: filters => request(`${root}/leads${qs(filters)}`).then(p => p.data),
+    bulk: (acao, ids, extra = {}) => request(`${root}/leads/lote`, {method: 'POST', body: {acao, ids, ...extra}}).then(p => p.data),
+
+    lead: id => request(`${legacy}/${id}/detalhes`).then(p => p.lead),
+    updateStatus: (id, body) => request(`${legacy}/${id}/status`, {method: 'PATCH', body}),
+    updateLead: (id, body) => request(`${legacy}/${id}/editar`, {method: 'PATCH', body}),
+    createLead: body => request(`${legacy}/novo`, {method: 'POST', body}),
+
+    contacts: id => request(`${legacy}/${id}/contatos`).then(p => p.contatos || []),
+    addContact: (id, body) => request(`${legacy}/${id}/contatos`, {method: 'POST', body}),
+    updateContact: (contactId, body) => request(`${legacy}/contatos/${contactId}`, {method: 'PATCH', body}),
+    removeContact: contactId => request(`${legacy}/contatos/${contactId}`, {method: 'DELETE'}),
+    makePrimary: (leadId, contactId) => request(`${legacy}/contatos/${contactId}/principal`, {method: 'PATCH', body: {lead_id: leadId}}),
+
+    activities: id => request(`${legacy}/${id}/atividades`).then(p => p.atividades || []),
+    addActivity: (id, body) => request(`${legacy}/${id}/atividades`, {method: 'POST', body}),
+    toggleActivity: (activityId, concluida) => request(`${legacy}/atividades/${activityId}/concluir`, {method: 'PATCH', body: {concluida}}),
+
+    communications: id => request(`${legacy}/${id}/comunicacoes`).then(p => p.comunicacoes || p.data || []),
+    saveCommunication: (id, body) => request(`${legacy}/${id}/comunicacoes`, {method: 'POST', body}),
+    generateCommunication: body => request('/api/ia/gerar-comunicacao', {method: 'POST', body}),
+  };
+}

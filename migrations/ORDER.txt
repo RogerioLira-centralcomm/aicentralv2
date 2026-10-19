@@ -219,3 +219,5 @@ migrations/run_sql_migration.py add_cadu_email_sequence.sql
 migrations/run_sql_migration.py add_cadu_credit_lot_source_v1.sql
 # Cadu Análise: registro das revisões (web, MCP e API key), sem arquivo nem linhas do plano (aditivo, idempotente).
 migrations/run_sql_migration.py add_cadu_review_runs.sql
+# Leads v3 (fase 0): papéis por contato, candidatos do enriquecimento, Golden Circle, opt-out, cadências e eventos de mensagem (aditivo, idempotente; depende de cadu_leads/cadu_lead_contatos do site).
+migrations/run_sql_migration.py add_cadu_leads_v3_prospeccao.sql

@@ -435,6 +435,9 @@ def create_app(config_class=Config):
         from .crm_v3_routes import bp as crm_v3_bp
         app.register_blueprint(crm_v3_bp)
 
+        from .leads_v3_routes import bp as leads_v3_bp
+        app.register_blueprint(leads_v3_bp)
+
         from .smart_planner.routes import bp as smart_planner_bp
         app.register_blueprint(smart_planner_bp)
 

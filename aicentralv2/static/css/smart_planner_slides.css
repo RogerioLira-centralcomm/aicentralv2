@@ -366,7 +366,7 @@ body.is-presenter [data-sx-presenter],body.is-presenter [data-sx-present]{displa
 .sx-sites .sx-mock.is-xs .sx-mock-page{padding:10px 12px 12px}
 
 /* Sem manchete (planos antigos): a frase da tese entra inteira, em tamanho de leitura. */
-.sx-statement.is-long{max-width:46ch!important;font-size:38px!important;line-height:1.3!important;-webkit-line-clamp:7!important}
+.sx-statement.is-long{max-width:46ch!important;font-size:38px!important;line-height:1.3!important;-webkit-line-clamp:8!important}
 /* Executivo nos controles. */
 .sx-dock-talk{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 12px 0 4px;border-radius:999px;background:#ffffff14;color:#fff;font-size:13px;font-weight:650;text-decoration:none;white-space:nowrap}
 .sx-dock-talk:hover{background:#ffffff26}

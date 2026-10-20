@@ -140,8 +140,8 @@ class _Deck:
             return False
 
     def kicker(self, slide, data: dict, dark=False):
-        label = f"{int(data.get('index') or 0):02d}  {text(data.get('kicker'))}".strip()
-        self.text(slide, PAD, 0.55, 9, 0.4, label.upper(), size=12, bold=True, color=self.accent if dark else self.brand)
+        self.box(slide, PAD, 0.68, 0.35, 0.05, self.accent)
+        self.text(slide, PAD + 0.5, 0.55, 9, 0.4, text(data.get("kicker")), size=13, bold=True, color=self.accent if dark else self.brand)
 
     def title(self, slide, value, y=1.0, size=34, color=None, w=W_IN - 2 * PAD):
         self.text(slide, PAD, y, w, 1.3, value, size=size, bold=True, color=color)

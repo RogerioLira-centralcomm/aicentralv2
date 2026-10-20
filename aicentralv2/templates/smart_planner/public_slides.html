@@ -11,7 +11,7 @@
   <meta property="og:url" content="{{ document_url }}"><meta property="og:image" content="{{ share_image }}"><meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_slides.css') }}?v=7">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_slides.css') }}?v=8">
   {% if template_css %}<style>:root{ {{- template_css -}} }</style>{% else %}<style>:root{--sx-ink:{{ slide_ink or '#14252d' }};--sx-accent:{{ slide_accent or '#d5aa3b' }}}</style>{% endif %}
 </head>
 <body class="sx is-booting{% if neutral_palette %} is-neutral{% endif %}" data-document-url="{{ document_page_url }}" data-channel="{{ public_token or 'plano' }}" data-total="{{ slides|length }}">
@@ -27,7 +27,7 @@
   <figcaption>{{ m.label }}{% if m.channel and m.channel != m.label %} · {{ m.channel }}{% endif %}</figcaption>
 </figure>
 {% endmacro %}
-{% macro kicker(slide) %}<p class="sx-kicker"><span>{{ '%02d'|format(slide.index) }}</span>{{ slide.kicker }}</p>{% endmacro %}
+{% macro kicker(slide) %}<p class="sx-kicker"><i aria-hidden="true"></i>{{ slide.kicker }}</p>{% endmacro %}
   <a class="sx-skip" href="#s1">Ir para o primeiro slide</a>
   <header class="sx-bar" aria-label="Apresentação">
     <div class="sx-bar-id">
@@ -197,6 +197,7 @@
     <button type="button" class="sx-dock-btn" data-sx-grid aria-pressed="false" aria-label="Ver todos os slides" title="Ver todos (G)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg></button>
     <button type="button" class="sx-dock-btn" data-sx-full aria-label="Tela cheia" title="Tela cheia (F)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
     <button type="button" class="sx-dock-btn" data-sx-presenter aria-label="Modo apresentador em outra tela" title="Modo apresentador (P)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v11H3zM8 20h8M12 16v4"/></svg></button>
+    {% if executive.whatsapp_url %}<span class="sx-dock-sep" aria-hidden="true"></span><a class="sx-dock-talk" href="{{ executive.whatsapp_url }}" target="_blank" rel="noopener" title="Falar com {{ executive.name }} sobre o plano">{% if executive.photo_url %}<img src="{{ executive.photo_url }}" alt="" onerror="this.remove()">{% else %}<i aria-hidden="true">{{ executive.initials }}</i>{% endif %}<span>Fale com {{ executive.first_name or 'o executivo' }}</span></a>{% endif %}
     <button type="button" class="sx-dock-btn" data-sx-help aria-label="Atalhos do teclado" title="Atalhos (?)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 9a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1 1-1.1 1.8v.5M12 17.5v.01"/></svg></button>
   </nav>
 

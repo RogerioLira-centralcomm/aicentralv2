@@ -57,7 +57,7 @@ def test_slides_follow_the_client_conversation_and_drop_empty_ones():
 
 def test_text_budgets_keep_every_slide_inside_the_canvas():
     slides = {slide["type"]: slide for slide in build_slides(VIEW)}
-    assert len(slides["thesis"]["statement"]) <= LIMITS["statement"]
+    assert len(slides["thesis"]["statement"]) <= 340  # sem manchete, a frase entra inteira até 340
     assert all(len(block["body"]) <= LIMITS["block"] for block in slides["context"]["blocks"])
     assert len(slides["audience"]["steps"]) == 4 and all(len(s["body"]) <= LIMITS["step"] for s in slides["audience"]["steps"])
     assert len(slides["defense"]["groups"][0]["items"]) == 3

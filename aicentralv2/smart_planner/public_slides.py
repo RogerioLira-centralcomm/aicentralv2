@@ -84,7 +84,8 @@ def _thesis(view: dict) -> dict | None:
     headline = short_title(title, 70) if title and title.lower().strip(" .") not in GENERIC_TITLES else ""
     # Com manchete, a frase da tese vira o texto de apoio e cabe inteira; sem ela,
     # a frase é o título e desce de tamanho conforme o comprimento, sem reticências.
-    statement = _first_sentences(overview, 300 if headline else LIMITS["statement"])
+    # Planos gerados antes da manchete trazem só a frase: ela entra inteira, sem reticências.
+    statement = _first_sentences(overview, 300 if headline else 340)
     support = text(view.get("overview_support"))
     return {
         "type": "thesis",
@@ -92,7 +93,7 @@ def _thesis(view: dict) -> dict | None:
         "kicker": "A decisão",
         "headline": headline,
         "statement": statement,
-        "statement_size": "md" if headline or len(statement) <= 130 else "sm",
+        "statement_size": "md" if headline or len(statement) <= 130 else "sm" if len(statement) <= 190 else "long",
         "support": _first_sentences(support, LIMITS["support"]) if support and support != overview else "",
     }
 

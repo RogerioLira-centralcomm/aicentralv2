@@ -119,8 +119,8 @@ body.is-presenter .sx-dock{left:calc((100% - 420px)/2)}
 .sx-title-md{max-width:40ch!important;font-size:40px!important;line-height:1.15!important}
 .sx-slide h3{font-size:28px;line-height:1.2;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .sx-slide p{margin:0}
-.sx-kicker{display:flex;align-items:center;gap:var(--gap-2);margin:0 0 var(--gap-4)!important;color:var(--sx-muted);font-size:18px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
-.sx-kicker span{color:var(--sx-accent)}
+.sx-kicker{display:flex;align-items:center;gap:14px;margin:0 0 var(--gap-4)!important;color:var(--sx-brand);font-size:20px;font-weight:650;letter-spacing:0}
+.sx-kicker i{width:32px;height:4px;border-radius:2px;background:var(--sx-accent)}
 .sx-support{max-width:60ch;margin-top:var(--gap-3)!important;color:var(--sx-muted);font-size:26px;line-height:1.5}
 .sx-lead{max-width:58ch;font-size:30px;line-height:1.4}
 .sx-tag{display:inline-block;margin-bottom:var(--gap-2);color:var(--sx-brand);font-size:16px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
@@ -364,3 +364,12 @@ body.is-presenter [data-sx-presenter],body.is-presenter [data-sx-present]{displa
 .sx-sites .sx-mock.is-xs{margin-bottom:var(--gap-3)}
 .sx-sites .sx-mock.is-xs figcaption{display:none}
 .sx-sites .sx-mock.is-xs .sx-mock-page{padding:10px 12px 12px}
+
+/* Sem manchete (planos antigos): a frase da tese entra inteira, em tamanho de leitura. */
+.sx-statement.is-long{max-width:46ch!important;font-size:38px!important;line-height:1.3!important;-webkit-line-clamp:7!important}
+/* Executivo nos controles. */
+.sx-dock-talk{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 12px 0 4px;border-radius:999px;background:#ffffff14;color:#fff;font-size:13px;font-weight:650;text-decoration:none;white-space:nowrap}
+.sx-dock-talk:hover{background:#ffffff26}
+.sx-dock-talk img,.sx-dock-talk i{width:28px;height:28px;border-radius:50%;object-fit:cover;flex:none}
+.sx-dock-talk i{display:grid;place-items:center;background:var(--sx-accent);color:var(--sx-ink);font-size:11px;font-style:normal;font-weight:800}
+@media (max-width:760px){.sx-dock-talk span{display:none}.sx-dock-talk{padding:0 4px}}

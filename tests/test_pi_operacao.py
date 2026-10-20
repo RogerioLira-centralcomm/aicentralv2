@@ -474,7 +474,7 @@ class PiOperacaoServiceTest(unittest.TestCase):
         )
         self.assertEqual(
             contexto["logo_centralcomm_url"],
-            "https://ai.centralcomm.media/static/images/cc_logo.png",
+            "https://workspace.centralcomm.media/static/images/cc_logo.png",
         )
         self.assertNotIn("link_pi", contexto)
         self.assertEqual(

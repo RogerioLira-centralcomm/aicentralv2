@@ -199,6 +199,12 @@ class PiMobileUiContractTest(unittest.TestCase):
         operation_js = self._source(STATIC / "js" / "cadu_pi_operacao.js")
         css = self._source(STATIC / "css" / "pi-operacao.css")
 
+        self.assertIn('id="pi-recipients-form"', sidebar)
+        self.assertIn('id="pi-recipient-options"', sidebar)
+        self.assertNotIn(
+            "Estes contatos receberão as comunicações enviadas por esta operação.</p>\n      </form>",
+            sidebar,
+        )
         self.assertIn('id="pi-confirm-details"', sidebar)
         self.assertIn('id="pi-email-dialog"', sidebar)
         self.assertIn('id="pi-email-frame"', sidebar)

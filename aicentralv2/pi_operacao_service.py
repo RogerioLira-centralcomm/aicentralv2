@@ -4,11 +4,11 @@ import logging
 from datetime import date, datetime
 from html import escape
 
-from flask import has_request_context, render_template, url_for
+from flask import render_template
 
 from .campanha_pi_metrics import parse_brl_float, parse_volume_float
 from .pi_operacao_repository import PiOperacaoRepository, PropriedadeInvalidaError
-from .services.brevo_service import get_brevo_service
+from .services.brevo_service import email_asset_url, get_brevo_service
 
 
 logger = logging.getLogger(__name__)
@@ -1088,11 +1088,7 @@ class PiOperacaoService:
             "link_drive": (pi.get("googled_pi_princ") or "").strip(),
             "remetente": remetente,
             "modo_email": "carta" if tipo in EMAIL_CARTA else "aviso",
-            "logo_centralcomm_url": (
-                url_for("static", filename="images/cc_logo.png", _external=True)
-                if has_request_context()
-                else "https://ai.centralcomm.media/static/images/cc_logo.png"
-            ),
+            "logo_centralcomm_url": email_asset_url("/static/images/cc_logo.png"),
         }
         html = self.renderer(
             f"emails/externos/pi_operacao/{tipo}.html", **contexto

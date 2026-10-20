@@ -1,123 +1,163 @@
 import React, {useState} from 'react';
-import {Button, Chip, Empty, Field, Icon, decode, whatsappUrl} from './ui.jsx';
+import {Button, Chip, Empty, Field, Icon, decode, gmailUrl, linkedinSearchUrl, prettyName, whatsappUrl} from './ui.jsx';
 
-function splitEmail(text) {
-  const lines = String(text || '').split('\n');
-  if (lines[0]?.toLowerCase().startsWith('assunto:')) {
-    return {subject: lines[0].replace(/^assunto:\s*/i, '').trim(), body: lines.slice(1).join('\n').trim()};
-  }
-  return {subject: '', body: text};
-}
+const CANAIS = [
+  {value: 'email', label: 'E-mail', icon: 'envelope'},
+  {value: 'whatsapp', label: 'WhatsApp', icon: 'comment'},
+  {value: 'linkedin', label: 'LinkedIn', icon: 'user-group'},
+  {value: 'linkedin_conexao', label: 'Convite', icon: 'user-plus'},
+];
+const STATUS_CADENCIA = {ativa: 'em cadência', pausada: 'cadência pausada', respondeu: 'respondeu', concluida: 'cadência concluída'};
 
-export function Comms({api, lead, contacts, communications, onChanged, notify}) {
-  const [tipo, setTipo] = useState('whatsapp');
-  const [contato, setContato] = useState('');
+/** Comunicação por pessoa: escolher o contato, escrever com canal e etapa de funil, e ver o histórico só com ele. */
+export function Comms({api, lead, contacts, communications, cadences = [], onChanged, notify}) {
+  const principal = contacts.find(c => c.is_principal) || contacts[0];
+  const [escolhida, setPessoaId] = useState(principal?.id ?? null);
+  // Pessoa adicionada ou removida com a coluna aberta: cai na principal (ou na primeira).
+  const pessoaId = contacts.some(c => c.id === escolhida) ? escolhida : (principal?.id ?? null);
+  const pessoa = contacts.find(c => c.id === pessoaId) || null;
+  const [canal, setCanal] = useState('email');
+  const [etapa, setEtapa] = useState('topo');
   const [objetivo, setObjetivo] = useState('');
-  const [tamanho, setTamanho] = useState('medio');
+  const [assunto, setAssunto] = useState('');
   const [texto, setTexto] = useState('');
   const [busy, setBusy] = useState('');
 
-  const pessoa = contacts.find(c => String(c.id) === contato);
-  const telefone = pessoa?.telefone || lead.telefone;
-  const email = pessoa?.email || lead.email;
+  if (!contacts.length) {
+    return (
+      <Empty icon="users" title="Sem pessoas nesta empresa">
+        A comunicação é feita pessoa a pessoa. Adicione ou encontre pessoas na coluna do lead e elas aparecem aqui.
+      </Empty>
+    );
+  }
 
-  const generate = async () => {
-    if (!objetivo.trim()) return notify('Diga o objetivo da mensagem.', 'error');
-    setBusy('gerar');
+  const nome = prettyName(pessoa?.nome);
+  const empresa = decode(lead.empresa || lead.nome);
+  const historico = communications.filter(c => c.id_contato === pessoaId);
+  const inscricao = cadences.find(i => i.id_contato === pessoaId);
+  const trocarPessoa = id => { setPessoaId(id); setTexto(''); setAssunto(''); };
+
+  const escrever = async () => {
+    setBusy('ia');
     try {
-      const result = await api.generateCommunication({lead_id: lead.id, tipo, objetivo: objetivo.trim(), tamanho, tom: 'cordial',
-        incluir_dados_lead: true, contato_id: contato || null});
-      setTexto(result.texto || result.mensagem || '');
+      const r = await api.writeMessage({id_contato: pessoaId, canal, etapa, objetivo});
+      setTexto(r.texto || '');
+      setAssunto(r.assunto || '');
     } catch (error) { notify(error.message, 'error'); } finally { setBusy(''); }
   };
-  const save = status => async () => {
+  const corpo = (assunto ? `Assunto: ${assunto}\n\n` : '') + texto;
+  const salvar = status => async () => {
     setBusy(status);
     try {
-      await api.saveCommunication(lead.id, {tipo_canal: tipo, objetivo, texto, status, id_contato: contato || null, tom: 'cordial', tamanho, gerado_por_ia: true});
-      notify(status === 'enviado' ? 'Comunicação marcada como enviada.' : 'Rascunho salvo.');
-      if (status === 'enviado') { setTexto(''); setObjetivo(''); }
+      await api.saveCommunication(lead.id, {tipo_canal: canal.startsWith('linkedin') ? 'linkedin' : canal, objetivo, texto: corpo, status,
+        id_contato: pessoaId, gerado_por_ia: true, tom: 'cordial', tamanho: 'medio'});
+      notify(status === 'enviado' ? `Registrado como enviado para ${nome}.` : 'Rascunho salvo.');
+      if (status === 'enviado') { setTexto(''); setAssunto(''); }
       onChanged();
     } catch (error) { notify(error.message, 'error'); } finally { setBusy(''); }
   };
-  const copy = async () => {
-    try { await navigator.clipboard.writeText(texto); notify('Texto copiado.'); } catch { notify('Não foi possível copiar.', 'error'); }
+  const copiar = async () => {
+    try { await navigator.clipboard.writeText(assunto ? `${assunto}\n\n${texto}` : texto); notify('Texto copiado.'); return true; }
+    catch { notify('Não foi possível copiar.', 'error'); return false; }
   };
-  const openChannel = () => {
-    if (tipo === 'whatsapp') {
-      const url = whatsappUrl(telefone, texto);
-      if (!url) return notify('Este lead não tem telefone.', 'error');
+  const abrir = async () => {
+    if (canal === 'email') {
+      if (!pessoa?.email) return notify(`${nome} não tem e-mail. Use "Achar e-mail" em Pessoas.`, 'error');
+      window.open(gmailUrl(pessoa.email, assunto, texto), '_blank', 'noopener');
+    } else if (canal === 'whatsapp') {
+      const url = whatsappUrl(pessoa?.telefone, texto);
+      if (!url) return notify(`${nome} não tem telefone.`, 'error');
       window.open(url, '_blank', 'noopener');
     } else {
-      if (!email) return notify('Este lead não tem e-mail.', 'error');
-      const {subject, body} = splitEmail(texto);
-      window.open(`mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+      if (texto) await copiar();
+      window.open(pessoa?.linkedin_url || linkedinSearchUrl(nome, empresa), '_blank', 'noopener');
     }
   };
+  const disponivel = {email: !!pessoa?.email, whatsapp: !!pessoa?.telefone, linkedin: true, linkedin_conexao: true};
 
   return (
     <div className="lv3-comms">
+      <div className="lv3-comms__people" role="tablist" aria-label="Pessoa">
+        {contacts.map(c => {
+          const i = cadences.find(x => x.id_contato === c.id);
+          return (
+            <button key={c.id} type="button" role="tab" aria-selected={c.id === pessoaId} className={`lv3-comms__person ${c.id === pessoaId ? 'is-on' : ''}`} onClick={() => trocarPessoa(c.id)}>
+              <span className="lv3-person__avatar" aria-hidden="true">{prettyName(c.nome).slice(0, 1).toUpperCase()}</span>
+              <span className="lv3-comms__personbody">
+                <strong>{prettyName(c.nome)}</strong>
+                <span>{prettyName(c.cargo) || 'Cargo não informado'}</span>
+              </span>
+              {i && ['ativa', 'respondeu'].includes(i.status) && <span className={`lv3-comms__dot is-${i.status}`} title={STATUS_CADENCIA[i.status]}/>}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="lv3-card lv3-form">
-        <div className="lv3-segmented" role="radiogroup" aria-label="Canal">
-          {[['whatsapp', 'WhatsApp', 'comment'], ['email', 'E-mail', 'envelope']].map(([value, label, icon]) => (
-            <button key={value} type="button" role="radio" aria-checked={tipo === value} className={tipo === value ? 'is-on' : ''} onClick={() => setTipo(value)}>
-              <Icon name={icon}/>{label}
+        <div className="lv3-comms__who">
+          <span>Para <strong>{nome}</strong>{pessoa?.cargo ? ` · ${prettyName(pessoa.cargo)}` : ''}</span>
+          {inscricao && <span className="lv3-muted">{STATUS_CADENCIA[inscricao.status] || inscricao.status}</span>}
+        </div>
+        <div className="lv3-segmented lv3-segmented--4" role="radiogroup" aria-label="Canal">
+          {CANAIS.map(c => (
+            <button key={c.value} type="button" role="radio" aria-checked={canal === c.value} className={canal === c.value ? 'is-on' : ''}
+              onClick={() => setCanal(c.value)} title={disponivel[c.value] ? '' : 'Sem esse contato para a pessoa'}>
+              <Icon name={c.icon}/>{c.label}{!disponivel[c.value] && <span className="lv3-comms__missing" aria-label="indisponível">!</span>}
             </button>
           ))}
         </div>
-        <div className="lv3-form__grid">
-          <Field label="Para">
-            <select className="lv3-select" value={contato} onChange={event => setContato(event.target.value)}>
-              <option value="">{lead.email || lead.telefone ? (decode(lead.nome) || 'Contato do lead') : 'Escolha uma pessoa'}</option>
-              {contacts.map(c => <option key={c.id} value={c.id}>{decode(c.nome)}</option>)}
-            </select>
-          </Field>
-          <Field label="Tamanho">
-            <select className="lv3-select" value={tamanho} onChange={event => setTamanho(event.target.value)}>
-              <option value="curto">Curto</option><option value="medio">Médio</option><option value="longo">Longo</option>
-            </select>
-          </Field>
+        <div className="lv3-segmented" role="radiogroup" aria-label="Etapa do funil">
+          {[['topo', 'Topo', 'Gerar interesse com conteúdo útil'], ['meio', 'Meio', 'Aprofundar: case, diagnóstico, conversa curta']].map(([v, l, t]) => (
+            <button key={v} type="button" role="radio" aria-checked={etapa === v} className={etapa === v ? 'is-on' : ''} onClick={() => setEtapa(v)} title={t}>{l} de funil</button>
+          ))}
         </div>
         <Field label="Objetivo" wide>
-          <textarea className="lv3-input lv3-textarea" rows={2} placeholder="Ex.: agendar 20 minutos para apresentar mídia programática"
-            value={objetivo} onChange={event => setObjetivo(event.target.value)}/>
+          <textarea className="lv3-input lv3-textarea" rows={2} value={objetivo} onChange={e => setObjetivo(e.target.value)}
+            placeholder={etapa === 'topo' ? 'Ex.: compartilhar um estudo de audiência do setor' : 'Ex.: propor 20 minutos para mostrar um case parecido'}/>
         </Field>
-        <Button variant="ai" icon="wand-magic-sparkles" onClick={generate} disabled={!!busy} className="lv3-btn--block">
-          {busy === 'gerar' ? 'Escrevendo…' : texto ? 'Gerar outra versão' : 'Escrever com IA'}
+        <Button variant="ai" icon="wand-magic-sparkles" onClick={escrever} disabled={!!busy} className="lv3-btn--block">
+          {busy === 'ia' ? `Escrevendo para ${nome}…` : texto ? 'Escrever outra versão' : `Escrever para ${nome.split(' ')[0] || 'a pessoa'}`}
         </Button>
 
         {texto && (
           <>
+            {canal === 'email' && <Field label="Assunto" wide><input className="lv3-input" value={assunto} onChange={e => setAssunto(e.target.value)}/></Field>}
             <Field label="Mensagem (editável)" wide>
-              <textarea className="lv3-input lv3-textarea lv3-textarea--tall" value={texto} onChange={event => setTexto(event.target.value)}/>
+              <textarea className="lv3-input lv3-textarea lv3-textarea--tall" value={texto} onChange={e => setTexto(e.target.value)}/>
             </Field>
+            {canal === 'linkedin_conexao' && <p className={`lv3-muted ${texto.length > 300 ? 'lv3-danger' : ''}`}>{texto.length}/300 caracteres</p>}
             <div className="lv3-form__actions lv3-form__actions--wrap">
-              <Button size="sm" icon="copy" onClick={copy}>Copiar</Button>
-              <Button size="sm" icon={tipo === 'whatsapp' ? 'arrow-up-right-from-square' : 'paper-plane'} onClick={openChannel}>
-                {tipo === 'whatsapp' ? 'Abrir no WhatsApp' : 'Abrir no e-mail'}
+              <Button size="sm" variant="primary" icon={canal === 'email' ? 'paper-plane' : 'arrow-up-right-from-square'} onClick={abrir}>
+                {{email: 'Abrir no Gmail', whatsapp: 'Abrir no WhatsApp'}[canal] || 'Copiar e abrir LinkedIn'}
               </Button>
-              <Button size="sm" icon="floppy-disk" onClick={save('draft')} disabled={!!busy}>Salvar rascunho</Button>
-              <Button size="sm" variant="primary" icon="check" onClick={save('enviado')} disabled={!!busy}>Marcar como enviada</Button>
+              <Button size="sm" icon="copy" onClick={copiar}>Copiar</Button>
+              <Button size="sm" icon="floppy-disk" onClick={salvar('draft')} disabled={!!busy}>Rascunho</Button>
+              <Button size="sm" icon="check" onClick={salvar('enviado')} disabled={!!busy}>Marcar enviada</Button>
             </div>
           </>
         )}
       </div>
 
-      {!communications.length ? (
-        <Empty icon="comments" title="Nenhuma comunicação registrada"/>
+      <h4 className="lv3-comms__title">Histórico com {nome.split(' ')[0] || 'a pessoa'} {historico.length > 0 && <span className="lv3-count">{historico.length}</span>}</h4>
+      {!historico.length ? (
+        <p className="lv3-muted">Nada enviado para esta pessoa ainda.</p>
       ) : (
         <ul className="lv3-commlist">
-          {communications.map(c => (
+          {historico.map(c => (
             <li key={c.id} className="lv3-card lv3-comm">
               <div className="lv3-comm__head">
-                <Icon name={c.tipo_canal === 'email' ? 'envelope' : 'comment'}/>
-                <strong>{c.objetivo || (c.tipo_canal === 'email' ? 'E-mail' : 'WhatsApp')}</strong>
+                <Icon name={c.tipo_canal === 'email' ? 'envelope' : c.tipo_canal === 'linkedin' ? 'user-group' : 'comment'}/>
+                <strong>{c.objetivo || ({email: 'E-mail', whatsapp: 'WhatsApp', linkedin: 'LinkedIn'}[c.tipo_canal] || 'Mensagem')}</strong>
                 <Chip tone={c.status === 'enviado' ? 'success' : 'neutral'}>{c.status === 'enviado' ? 'Enviada' : 'Rascunho'}</Chip>
               </div>
               <p className="lv3-comm__text">{c.texto}</p>
-              <span className="lv3-muted">{[c.contato_nome && decode(c.contato_nome), c.usuario_nome, c.created_at && String(c.created_at).slice(0, 16).replace('T', ' ')].filter(Boolean).join(' · ')}</span>
+              <span className="lv3-muted">{[c.usuario_nome, c.created_at && String(c.created_at).slice(0, 16).replace('T', ' ')].filter(Boolean).join(' · ')}</span>
             </li>
           ))}
         </ul>
+      )}
+      {communications.length > historico.length && (
+        <p className="lv3-muted">{communications.length - historico.length} {communications.length - historico.length === 1 ? 'comunicação' : 'comunicações'} com outras pessoas desta empresa.</p>
       )}
     </div>
   );

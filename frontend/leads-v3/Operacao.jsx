@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {Button, Empty, Field, Icon, decode, formatDate, linkedinSearchUrl, todayLocal, whatsappUrl} from './ui.jsx';
+import {Button, Empty, Field, Icon, decode, formatDate, gmailUrl, linkedinSearchUrl, prettyName as pretty, todayLocal, whatsappUrl} from './ui.jsx';
 import {FocusEditor, GoldenTarget, MarketContext} from './Focus.jsx';
 
 const CANAL = {
@@ -11,12 +11,6 @@ const CANAL = {
 const TIPO_TAREFA = {ligacao: 'Ligação', whatsapp: 'WhatsApp', email_enviado: 'E-mail', reuniao: 'Reunião', follow_up: 'Follow-up',
   apresentacao: 'Apresentação', proposta_enviada: 'Proposta', nota: 'Nota'};
 
-const pretty = text => {
-  const value = decode(text || '').trim();
-  if (!value || value !== value.toUpperCase() || !/[A-ZÀ-Ý]/.test(value)) return value;
-  return value.toLowerCase().replace(/(^|[\s-])(\p{L})/gu, (_, sep, ch) => sep + ch.toUpperCase());
-};
-
 function atraso(data) {
   if (!data) return '';
   const dia = String(data).slice(0, 10);
@@ -27,10 +21,6 @@ function atraso(data) {
 }
 
 const canalDaMensagem = passo => (passo?.canal === 'linkedin' ? (passo.acao === 'conectar' ? 'linkedin_conexao' : 'linkedin') : passo?.canal || 'email');
-
-function gmailUrl(to, subject, body) {
-  return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to || '')}&su=${encodeURIComponent(subject || '')}&body=${encodeURIComponent(body || '')}`;
-}
 
 /** Composer do passo: etapa do funil, objetivo, mensagem da IA e envio assistido. */
 function StepComposer({api, item, notify, onDone}) {

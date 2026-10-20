@@ -1,5 +1,5 @@
-import React, {useState} from 'react';
-import {Button, Empty, Field, Icon, decode, formatDate, linkedinSearchUrl, whatsappUrl} from './ui.jsx';
+import React, {useEffect, useRef, useState} from 'react';
+import {Button, Empty, Icon, decode, formatDate, linkedinSearchUrl, prettyName, whatsappUrl} from './ui.jsx';
 import {People} from './People.jsx';
 import {FocusEditor, GoldenTarget, MarketContext} from './Focus.jsx';
 
@@ -35,6 +35,34 @@ function Socials({value}) {
   );
 }
 
+/** Menu "⋯" para as ações menos usadas do lead (fecha com clique fora ou Esc). */
+function MoreMenu({items, disabled}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = event => { if (event.type === 'keydown' ? event.key === 'Escape' : !ref.current?.contains(event.target)) setOpen(false); };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', close);
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', close); };
+  }, [open]);
+  return (
+    <div className="lv3-menu" ref={ref}>
+      <Button size="sm" icon="ellipsis" onClick={() => setOpen(o => !o)} disabled={disabled} aria-label="Mais ações" aria-expanded={open} title="Mais ações"/>
+      {open && (
+        <div className="lv3-menu__list" role="menu">
+          {items.map(item => (
+            <button key={item.label} type="button" role="menuitem" className={`lv3-menu__item ${item.danger ? 'is-danger' : ''}`}
+              onClick={() => { setOpen(false); item.onClick(); }}>
+              <Icon name={item.icon}/>{item.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadences, loading, notify, onChanged, onEdit, onEditCompany, onConvert, onDisqualify, onMarkGolden}) {
   const [busy, setBusy] = useState(false);
   if (loading && !lead) return <section className="lv3-col lv3-lead"><div className="lv3-skeleton"/></section>;
@@ -61,7 +89,12 @@ export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadenc
   // Boolean(): com `0 && <jsx>` o React renderiza o "0" na tela.
   const temEnriquecimento = Boolean(lead.descricao_empresa || lead.mercado_alvo || lead.presenca_digital || lead.oportunidades_midia || servicos.length || clientes.length);
   // Conta criada pelo Golden Circle não tem contato: o nome da empresa só preenche o campo obrigatório.
-  const temContato = Boolean(lead.email || lead.telefone || lead.cargo || lead.mensagem
+  // O contato do formulário já é uma das pessoas (mesmo e-mail ou nome)? Então não repete o bloco.
+  const contatoDuplicado = contacts.some(c => (lead.email && String(c.email || '').toLowerCase() === String(lead.email).toLowerCase())
+    || (lead.nome && decode(c.nome).trim().toLowerCase() === decode(lead.nome).trim().toLowerCase()));
+  const focoVazio = !(lead.canais_foco || []).length && !lead.foco_conteudo;
+  const contextoVazio = !(lead.contexto_mercado && (lead.contexto_mercado.texto || String(lead.contexto_mercado).includes('texto')));
+  const temContato = !contatoDuplicado && Boolean(lead.email || lead.telefone || lead.cargo || lead.mensagem
     || (decode(lead.nome).trim() && decode(lead.nome).trim().toLowerCase() !== decode(lead.empresa).trim().toLowerCase()));
 
   return (
@@ -73,6 +106,21 @@ export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadenc
             <h2>{nome || 'Sem nome'}{golden && <span className="lv3-gc-badge">Golden Circle {golden.trimestre.replace('-', ' ')}</span>}{lead.prioridade_conta && <span className="lv3-prio">Prioridade {lead.prioridade_conta}</span>}</h2>
             <p>{[lead.segmento, lead.fonte && `via ${lead.fonte}`, lead.created_at && `entrou em ${formatDate(lead.created_at)}`].filter(Boolean).join(' · ')}</p>
           </div>
+          <div className="lv3-lead__actions">
+          {next && (
+            <Button variant="primary" size="sm" icon="arrow-right" disabled={busy} title={`Mover para ${next.label}`}
+              onClick={() => patch({status: next.value}, `Lead movido para ${next.label}.`)}>
+              {next.label}
+            </Button>
+          )}
+          <Button size="sm" icon="pen" onClick={onEdit} disabled={busy} title="Editar dados do lead" aria-label="Editar"/>
+          <MoreMenu disabled={busy} items={[
+            !golden && !converted && {icon: 'bullseye', label: 'Marcar como Golden Circle', onClick: onMarkGolden},
+            !converted && {icon: 'user-check', label: 'Converter em cliente', onClick: onConvert},
+            {icon: 'building', label: 'Dados da empresa', onClick: onEditCompany},
+            lead.status !== 'nao_qualificado' && {icon: 'ban', label: 'Desqualificar', onClick: onDisqualify, danger: true},
+          ].filter(Boolean)}/>
+          </div>
         </div>
 
         {converted && (
@@ -82,40 +130,30 @@ export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadenc
           <div className="lv3-banner lv3-banner--danger"><Icon name="ban"/>Desqualificado{lead.motivo_desqualificacao ? `: ${lead.motivo_desqualificacao}` : ''}.</div>
         )}
 
-        <div className="lv3-lead__controls">
-          <Field label="Etapa">
-            <select className="lv3-select" value={closed ? '' : lead.status} disabled={busy}
+        <div className="lv3-lead__bar">
+          <label className="lv3-pill-select is-set lv3-pill-select--lg" title="Etapa">
+            <Icon name="flag"/>
+            <select value={closed ? '' : lead.status} disabled={busy} aria-label="Etapa"
               onChange={event => patch({status: event.target.value}, 'Etapa atualizada.')}>
               {closed && <option value="">{CLOSED_LABELS[lead.status] || lead.status}</option>}
               {boot.status.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
-          </Field>
-          <Field label="Potencial">
-            <select className="lv3-select" value={lead.potencial || ''} disabled={busy}
+          </label>
+          <label className="lv3-pill-select is-set lv3-pill-select--lg" title="Potencial">
+            <Icon name="signal"/>
+            <select value={lead.potencial || ''} disabled={busy} aria-label="Potencial"
               onChange={event => patch({potencial: event.target.value}, 'Potencial atualizado.')}>
               {boot.potenciais.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
-          </Field>
-          <Field label="Responsável">
-            <select className="lv3-select" value={lead.id_executivo ? String(lead.id_executivo) : '0'} disabled={busy}
+          </label>
+          <label className={`lv3-pill-select lv3-pill-select--lg ${lead.id_executivo ? 'is-set' : ''}`} title="Responsável">
+            <Icon name="user"/>
+            <select value={lead.id_executivo ? String(lead.id_executivo) : '0'} disabled={busy} aria-label="Responsável"
               onChange={event => patch({id_executivo: Number(event.target.value)}, 'Responsável atualizado.')}>
-              <option value="0">Sem responsável</option>
+              <option value="0">Ninguém</option>
               {boot.executivos.map(e => <option key={e.id} value={String(e.id)}>{e.nome}</option>)}
             </select>
-          </Field>
-        </div>
-
-        <div className="lv3-lead__ctas">
-          {next && (
-            <Button variant="primary" icon="arrow-right" disabled={busy}
-              onClick={() => patch({status: next.value}, `Lead movido para ${next.label}.`)}>
-              Avançar para {next.label}
-            </Button>
-          )}
-          <Button icon="pen" onClick={onEdit} disabled={busy}>Editar</Button>
-          {!golden && !converted && <Button icon="bullseye" onClick={onMarkGolden} disabled={busy}>Marcar como Golden Circle</Button>}
-          {!converted && <Button icon="user-check" onClick={onConvert} disabled={busy}>Converter em cliente</Button>}
-          <Button variant="danger-ghost" icon="ban" onClick={onDisqualify} disabled={busy || lead.status === 'nao_qualificado'}>Desqualificar</Button>
+          </label>
         </div>
       </header>
 
@@ -126,16 +164,25 @@ export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadenc
             <GoldenTarget api={api} conta={golden} contacts={contacts} notify={notify} onChanged={onChanged}/>
           </section>
         )}
+
+        {/* Pessoas logo no topo: é com elas que a conexão acontece. */}
+        <People key={lead.id} cadences={cadences} boot={boot} api={api} lead={lead} contacts={contacts} candidates={candidates} onChanged={onChanged} notify={notify} onEditCompany={onEditCompany}/>
         {temContato && <section className="lv3-section">
           <header className="lv3-section__head"><h3>Contato do lead</h3></header>
           <dl className="lv3-infos">
-            <Info label="Nome">{decode(lead.nome)}</Info>
-            <Info label="Cargo">{lead.cargo}</Info>
-            <Info label="E-mail">{lead.email && <a href={`mailto:${lead.email}`}>{lead.email}</a>}</Info>
+            <Info label="Nome">{prettyName(lead.nome)}</Info>
+            <Info label="Cargo">{prettyName(lead.cargo)}</Info>
+            <Info label="E-mail">{lead.email && <a href={`mailto:${lead.email}`}>{String(lead.email).toLowerCase()}</a>}</Info>
             <Info label="Telefone">{lead.telefone && <a href={whatsappUrl(lead.telefone)} target="_blank" rel="noopener noreferrer">{lead.telefone} <Icon name="arrow-up-right-from-square"/></a>}</Info>
           </dl>
           {lead.mensagem && <blockquote className="lv3-message"><Icon name="quote-left"/>{decode(lead.mensagem)}</blockquote>}
         </section>}
+        {!temContato && lead.mensagem && (
+          <section className="lv3-section">
+            <header className="lv3-section__head"><h3>Mensagem do formulário</h3></header>
+            <blockquote className="lv3-message lv3-message--flush"><Icon name="quote-left"/>{decode(lead.mensagem)}</blockquote>
+          </section>
+        )}
 
         <section className="lv3-section">
           <header className="lv3-section__head">
@@ -145,16 +192,31 @@ export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadenc
               <Button size="sm" variant="ghost" icon="building" onClick={onEditCompany}>Dados da empresa</Button>
             </div>
           </header>
-          <dl className="lv3-infos">
-            <Info label="Empresa">{decode(lead.empresa)}</Info>
-            <Info label="CNPJ">{lead.cnpj && formatCnpj(lead.cnpj)}</Info>
-            <Info label="Site">{lead.url_site && <a href={siteUrl(lead.url_site)} target="_blank" rel="noopener noreferrer">{lead.url_site}</a>}</Info>
-            <Info label="Domínio">{lead.dominio}</Info>
-            <Info label="Segmento">{lead.segmento}</Info>
-            <Info label="Porte">{PORTE[lead.porte_estimado] || lead.porte_estimado}</Info>
-            <Info label="Grupo econômico">{lead.grupo_economico}</Info>
-            <Info label="Tipo">{TIPO_LEAD[lead.tipo_lead] || lead.tipo_lead}</Info>
-          </dl>
+          {(() => {
+            // Só o que está preenchido; o que falta vira um lembrete curto no fim.
+            const campos = [
+              ['CNPJ', lead.cnpj && formatCnpj(lead.cnpj)],
+              ['Site', lead.url_site && <a href={siteUrl(lead.url_site)} target="_blank" rel="noopener noreferrer">{lead.url_site}</a>],
+              ['Domínio', lead.dominio],
+              ['Segmento', lead.segmento],
+              ['Porte', PORTE[lead.porte_estimado] || lead.porte_estimado],
+              ['Grupo econômico', lead.grupo_economico],
+              ['Tipo', TIPO_LEAD[lead.tipo_lead] || lead.tipo_lead],
+            ];
+            const cheios = campos.filter(([, v]) => v);
+            const faltam = campos.filter(([l, v]) => !v && ['CNPJ', 'Domínio', 'Segmento'].includes(l)).map(([l]) => l);
+            return (
+              <>
+                {cheios.length > 0 && <dl className="lv3-infos">{cheios.map(([l, v]) => <Info key={l} label={l}>{v}</Info>)}</dl>}
+                {faltam.length > 0 && (
+                  <p className="lv3-hint lv3-hint--muted">
+                    <Icon name="circle-info"/>Falta {faltam.join(', ').replace(/, ([^,]*)$/, ' e $1')}{faltam.includes('Domínio') ? ' (o domínio libera o Apollo e o "Achar e-mail")' : ''}.
+                    <button type="button" className="lv3-link" onClick={onEditCompany}>Completar</button>
+                  </p>
+                )}
+              </>
+            );
+          })()}
           <Socials value={lead.redes_sociais}/>
         </section>
 
@@ -172,17 +234,28 @@ export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadenc
           </section>
         )}
 
-        <section className="lv3-section">
-          <header className="lv3-section__head"><h3>Foco: canais e conteúdo</h3></header>
-          <FocusEditor api={api} lead={lead} notify={notify} onChanged={onChanged}/>
-        </section>
+        {focoVazio && contextoVazio ? (
+          <section className="lv3-section">
+            <header className="lv3-section__head"><h3>Personalizar a abordagem</h3></header>
+            <p className="lv3-muted lv3-help">Canais, conteúdos de topo e meio de funil e o contexto de mercado alimentam as mensagens da IA para cada pessoa.</p>
+            <div className="lv3-personalize">
+              <div><h4>Foco: canais e conteúdo</h4><FocusEditor api={api} lead={lead} notify={notify} onChanged={onChanged} bare/></div>
+              <div><h4>Contexto de mercado</h4><MarketContext api={api} lead={lead} notify={notify} onChanged={onChanged} bare/></div>
+            </div>
+          </section>
+        ) : (
+          <>
+            <section className="lv3-section">
+              <header className="lv3-section__head"><h3>Foco: canais e conteúdo</h3></header>
+              <FocusEditor api={api} lead={lead} notify={notify} onChanged={onChanged}/>
+            </section>
+            <section className="lv3-section">
+              <header className="lv3-section__head"><h3>Contexto de mercado</h3></header>
+              <MarketContext api={api} lead={lead} notify={notify} onChanged={onChanged}/>
+            </section>
+          </>
+        )}
 
-        <section className="lv3-section">
-          <header className="lv3-section__head"><h3>Contexto de mercado</h3></header>
-          <MarketContext api={api} lead={lead} notify={notify} onChanged={onChanged}/>
-        </section>
-
-        <People key={lead.id} cadences={cadences} boot={boot} api={api} lead={lead} contacts={contacts} candidates={candidates} onChanged={onChanged} notify={notify} onEditCompany={onEditCompany}/>
 
         <section className="lv3-section">
           <header className="lv3-section__head"><h3>Qualificação e histórico</h3></header>

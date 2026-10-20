@@ -218,7 +218,7 @@ export function LeadsApp({boot}) {
 
   const {lead} = detail;
   const activities = lead && <Activities key={lead.id} api={api} leadId={lead.id} contacts={detail.contacts} activities={detail.activities} onChanged={refreshActive} notify={notify}/>;
-  const comms = lead && <Comms key={lead.id} api={api} lead={lead} contacts={detail.contacts} communications={detail.communications} onChanged={refreshActive} notify={notify}/>;
+  const comms = lead && <Comms key={lead.id} api={api} lead={lead} contacts={detail.contacts} communications={detail.communications} cadences={detail.cadences} onChanged={refreshActive} notify={notify}/>;
 
   return (
     <div className="lv3">

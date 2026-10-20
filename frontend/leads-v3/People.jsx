@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {Button, Empty, Field, Icon, decode, formatDate, linkedinSearchUrl, whatsappUrl} from './ui.jsx';
+import {Button, Empty, Field, Icon, decode, formatDate, linkedinSearchUrl, prettyName as pretty, whatsappUrl} from './ui.jsx';
 
 // Papéis que o Golden Circle precisa cobrir em cada conta.
 const COVERAGE = [
@@ -13,14 +13,6 @@ const SOURCE_LABEL = {apollo: 'Apollo', pesquisa_web: 'Web', site: 'Site', manua
 const FREE_EMAIL = new Set(['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com', 'yahoo.com.br', 'bol.com.br', 'uol.com.br', 'terra.com.br', 'icloud.com', 'live.com']);
 const hostOf = url => { if (!url) return ''; try { return new URL(/^https?:/.test(url) ? url : `http://${url}`).hostname.replace(/^www\./, ''); } catch { return ''; } };
 const corporateDomain = email => { const d = String(email || '').split('@')[1]?.toLowerCase() || ''; return d && !FREE_EMAIL.has(d) ? d : ''; };
-
-/** "GABRIELA MARTINS" → "Gabriela Martins" (só quando o texto vem todo em maiúsculas). */
-function pretty(text) {
-  const value = decode(text || '').trim();
-  if (!value || value !== value.toUpperCase() || !/[A-ZÀ-Ý]/.test(value)) return value;
-  return value.toLowerCase().replace(/(^|[\s-])(\p{L})/gu, (_, sep, ch) => sep + ch.toUpperCase())
-    .replace(/\b(De|Da|Do|Das|Dos|E)\b/g, w => w.toLowerCase());
-}
 
 function Coverage({contacts}) {
   return (

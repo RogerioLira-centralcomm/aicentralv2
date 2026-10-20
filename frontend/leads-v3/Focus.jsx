@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {Button, Field, Icon, formatDate} from './ui.jsx';
+import {Button, Field, Icon, Markdown, formatDate} from './ui.jsx';
 
 export const CANAIS = [
   {value: 'email', label: 'E-mail', icon: 'envelope'},
@@ -21,7 +21,7 @@ const parseFoco = value => {
 };
 
 /** Foco da empresa: canais preferidos e conteúdos de topo e meio de funil (alimentam as mensagens da IA). */
-export function FocusEditor({api, lead, notify, onChanged, compact = false}) {
+export function FocusEditor({api, lead, notify, onChanged, compact = false, bare = false}) {
   const foco = parseFoco(lead.foco_conteudo);
   const canais = lead.canais_foco || [];
   const [form, setForm] = useState(null);
@@ -74,7 +74,7 @@ export function FocusEditor({api, lead, notify, onChanged, compact = false}) {
   return (
     <div className={`lv3-focus ${compact ? 'lv3-focus--compact' : ''}`}>
       {vazio ? (
-        <p className="lv3-muted">Defina canais e conteúdos de topo e meio de funil: a IA usa isso para personalizar cada mensagem.</p>
+        !bare && <p className="lv3-muted">Defina canais e conteúdos de topo e meio de funil: a IA usa isso para personalizar cada mensagem.</p>
       ) : (
         <>
           {canais.length > 0 && (
@@ -96,8 +96,9 @@ export function FocusEditor({api, lead, notify, onChanged, compact = false}) {
 }
 
 /** Contexto de mercado gerado por busca na web (com fontes). */
-export function MarketContext({api, lead, notify, onChanged}) {
+export function MarketContext({api, lead, notify, onChanged, bare = false}) {
   const [busy, setBusy] = useState(false);
+  const [aberto, setAberto] = useState(false);
   const ctx = typeof lead.contexto_mercado === 'string' ? parseFoco(lead.contexto_mercado) : (lead.contexto_mercado || null);
   const gerar = async () => {
     setBusy(true);
@@ -108,7 +109,9 @@ export function MarketContext({api, lead, notify, onChanged}) {
     <div className="lv3-context">
       {ctx?.texto ? (
         <>
-          <div className="lv3-context__text">{ctx.texto}</div>
+          {/* Sem rolagem própria (o painel já rola): recolhido mostra o começo, "Ver tudo" abre o resto. */}
+          <Markdown text={ctx.texto} fontes={ctx.fontes} className={`lv3-context__text ${aberto ? '' : 'is-collapsed'}`}/>
+          <button type="button" className="lv3-link" onClick={() => setAberto(a => !a)}>{aberto ? 'Recolher' : 'Ver tudo'}</button>
           {ctx.fontes?.length > 0 && (
             <ol className="lv3-context__sources">
               {ctx.fontes.map((url, i) => {
@@ -120,7 +123,7 @@ export function MarketContext({api, lead, notify, onChanged}) {
           <p className="lv3-muted">Gerado em {formatDate(ctx.gerado_em)} por busca na web. Confira as fontes antes de citar.</p>
         </>
       ) : (
-        <p className="lv3-muted">Notícias, campanhas e tendências recentes da empresa e do setor, com fontes, para personalizar a abordagem.</p>
+        !bare && <p className="lv3-muted">Notícias, campanhas e tendências recentes da empresa e do setor, com fontes, para personalizar a abordagem.</p>
       )}
       <Button size="sm" variant={ctx?.texto ? 'ghost' : 'secondary'} icon="magnifying-glass-chart" onClick={gerar} disabled={busy}>
         {busy ? 'Pesquisando…' : ctx?.texto ? 'Atualizar contexto' : 'Pesquisar contexto de mercado'}

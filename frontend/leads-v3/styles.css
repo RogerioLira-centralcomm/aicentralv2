@@ -459,3 +459,78 @@ html body .lv3-root .lv3-pill-select select:not([multiple]):not([size]):not(.sel
 @media (max-width: 760px) { .lv3-op { grid-template-columns: 1fr; overflow-y: auto; } .lv3-cadence { margin-left: 0; } .lv3-target__facts { grid-template-columns: 1fr; } }
 .lv3-gcitem__goal { font-size: 12.5px; color: var(--lv3-ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lv3-gcitem__goal strong { color: #92400e; font-weight: 600; }
+
+/* Markdown da IA e contexto sem rolagem aninhada */
+.lv3-md { font-size: 13px; line-height: 1.55; color: var(--lv3-ink-2); }
+.lv3-md p { margin: 0 0 8px; }
+.lv3-md h5 { margin: 10px 0 4px; font-size: 13px; font-weight: 700; color: var(--lv3-ink); }
+.lv3-md ul, .lv3-md ol { margin: 0 0 8px; padding-left: 18px; }
+.lv3-md li { margin-bottom: 6px; }
+.lv3-md strong { color: var(--lv3-ink); font-weight: 600; }
+.lv3-md sup { font-size: 10px; margin-left: 1px; }
+.lv3-md sup a { font-weight: 700; }
+.lv3-context__text { max-height: none; overflow: visible; white-space: normal; }
+.lv3-context__text.is-collapsed { max-height: 9.5em; overflow: hidden;
+  -webkit-mask-image: linear-gradient(#000 65%, transparent); mask-image: linear-gradient(#000 65%, transparent); }
+
+/* Topo do lead numa linha */
+.lv3-lead__head { gap: 12px; padding: 16px 24px 14px; }
+.lv3-lead__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.lv3-lead__spacer { flex: 1; min-width: 8px; }
+.lv3-pill-select--lg { height: 34px; padding: 0 10px 0 12px; font-size: 13px; }
+html body .lv3-root .lv3-pill-select--lg select:not([multiple]):not([size]):not(.select) { height: 32px; font-size: 13px; max-width: 180px; }
+.lv3-btn--sm:not(:has(span)) { width: 34px; padding: 0; }
+.lv3-menu { position: relative; }
+.lv3-menu__list { position: absolute; right: 0; top: calc(100% + 6px); z-index: 50; min-width: 230px; padding: 6px; border: 1px solid var(--lv3-line); border-radius: var(--lv3-radius); background: var(--lv3-surface); box-shadow: var(--lv3-shadow-lg); }
+.lv3-menu__item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 0; border-radius: 6px; background: none; font-size: 13.5px; font-weight: 500; text-align: left; cursor: pointer; }
+.lv3-menu__item:hover { background: var(--lv3-sunken); }
+.lv3-menu__item.is-danger { color: var(--lv3-danger); }
+
+/* Comunicação por pessoa */
+.lv3-comms { display: flex; flex-direction: column; gap: 12px; }
+.lv3-comms__people { display: flex; flex-direction: column; gap: 4px; }
+.lv3-comms__person { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid transparent; border-radius: var(--lv3-radius-sm); background: none; text-align: left; cursor: pointer; }
+.lv3-comms__person:hover { background: var(--lv3-surface); }
+.lv3-comms__person.is-on { border-color: var(--lv3-brand); background: var(--lv3-surface); box-shadow: var(--lv3-shadow); }
+.lv3-comms__person .lv3-person__avatar { width: 30px; height: 30px; font-size: 13px; }
+.lv3-comms__personbody { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.lv3-comms__personbody strong { font-size: 13.5px; }
+.lv3-comms__personbody span { font-size: 12px; color: var(--lv3-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lv3-comms__dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.lv3-comms__dot.is-ativa { background: var(--lv3-success); }
+.lv3-comms__dot.is-respondeu { background: #2e90fa; }
+.lv3-comms__who { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.lv3-segmented--4 { grid-template-columns: repeat(4, 1fr); }
+.lv3-segmented--4 button { font-size: 12.5px; gap: 6px; }
+.lv3-comms__missing { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; border-radius: 50%; background: var(--lv3-warning-bg); color: var(--lv3-warning); font-size: 10px; font-weight: 700; }
+.lv3-comms__title { display: flex; align-items: center; margin: 4px 0 0; font-size: 13px; font-weight: 700; color: var(--lv3-ink-2); }
+
+/* Ajustes de densidade (v3) */
+.lv3-lead__title { align-items: flex-start; }
+.lv3-lead__title > div:not(.lv3-lead__actions) { flex: 1; min-width: 0; }
+.lv3-lead__actions { flex: none; display: flex; align-items: center; gap: 6px; }
+.lv3-lead__bar { gap: 6px; }
+.lv3-pill-select--lg .lv3-icon { font-size: 11px; opacity: .8; }
+html body .lv3-root .lv3-pill-select--lg select:not([multiple]):not([size]):not(.select) { max-width: 150px; text-overflow: ellipsis; }
+.lv3-grid--wide { grid-template-columns: 380px minmax(440px, 1.2fr) minmax(340px, 1fr) minmax(360px, 420px); }
+.lv3-segmented--4 { grid-template-columns: repeat(2, 1fr); gap: 4px; }
+@media (min-width: 1900px) { .lv3-segmented--4 { grid-template-columns: repeat(4, 1fr); } }
+.lv3-hint--muted { color: var(--lv3-muted); flex-wrap: wrap; }
+.lv3-hint--muted .lv3-link { margin-left: 4px; }
+.lv3-message--flush { margin-top: 0; }
+.lv3-personalize { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+.lv3-personalize > div { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px dashed var(--lv3-line-strong); border-radius: var(--lv3-radius); }
+.lv3-personalize h4 { margin: 0; font-size: 13px; font-weight: 600; }
+.lv3-personalize .lv3-focus--edit { grid-column: 1 / -1; }
+@media (max-width: 760px) { .lv3-personalize { grid-template-columns: 1fr; } }
+
+/* Topo sempre em 2 linhas: título + ações, e as 3 pílulas dividindo uma linha */
+.lv3-lead__title h2 { font-size: 18px; line-height: 1.25; }
+.lv3-lead__title h2 .lv3-gc-badge { font-size: 11px; margin-left: 8px; padding: 1px 7px; }
+.lv3-lead__title p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lv3-lead__actions .lv3-btn--primary span { max-width: 130px; overflow: hidden; text-overflow: ellipsis; }
+.lv3-lead__bar { flex-wrap: nowrap; }
+.lv3-lead__bar .lv3-pill-select--lg { flex: 1 1 0; min-width: 0; padding: 0 8px 0 10px; }
+html body .lv3-root .lv3-lead__bar .lv3-pill-select--lg select:not([multiple]):not([size]):not(.select) { width: 100%; max-width: none; min-width: 0; }
+.lv3-section__head { flex-wrap: wrap; }
+.lv3-section__tools { flex-wrap: wrap; justify-content: flex-end; }

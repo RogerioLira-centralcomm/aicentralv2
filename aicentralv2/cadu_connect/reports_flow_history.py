@@ -10,7 +10,7 @@ from .reports_flow_lifecycle import is_measured
 from .reports_page_identity import sql_normalized_path as _norm_path
 
 
-def _norm_host(column):
+def norm_host_sql(column):
     return f"REGEXP_REPLACE(LOWER({column}),'^www[.]','')"
 
 
@@ -24,7 +24,7 @@ def node_match_json(config):
 
 CONFIGURED_NODES_SQL = f"""configured_nodes AS (
             SELECT node_id,node_type,event_name,{_norm_path('path')} AS npath,
-                CASE WHEN host IS NULL THEN NULL ELSE {_norm_host('host')} END AS nhost
+                CASE WHEN host IS NULL THEN NULL ELSE {norm_host_sql('host')} END AS nhost
             FROM jsonb_to_recordset(%s::jsonb) AS n(node_id TEXT,node_type TEXT,path TEXT,host TEXT,event_name TEXT)
         )"""
 
@@ -37,7 +37,7 @@ def node_match_condition(event_name='e.event_name'):
     """
     page_like = "e.event_kind IN ('page_view','conversion','error_view','page_leave')"
     return f"""n.npath={_norm_path('e.page_path')}
-                AND (n.nhost IS NULL OR n.nhost={_norm_host('e.page_host')})
+                AND (n.nhost IS NULL OR n.nhost={norm_host_sql('e.page_host')})
                 AND ((n.node_type='page' AND {page_like})
                   OR (n.node_type IN ('conversion','error') AND n.event_name='' AND {page_like}
                       AND (n.node_type='conversion' OR e.event_kind<>'conversion'))

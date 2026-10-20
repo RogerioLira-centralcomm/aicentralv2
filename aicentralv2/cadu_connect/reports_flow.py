@@ -1244,10 +1244,9 @@ def register(bp):
                                       'previous_id': str(ordered_steps[index - 1]['node_id']) if index else None}
                                      for index, step in enumerate(ordered_steps)])
             progression = _rows(scoped_events + f''', {CONFIGURED_NODES_SQL}, matched AS (
-                SELECT DISTINCT ON (e.id) e.session_id,n.node_id,e.occurred_at FROM selected_events e
+                SELECT e.session_id,n.node_id,e.occurred_at FROM selected_events e
                 JOIN configured_nodes n ON {node_match_condition(canvas_event_name_expr)}
                 WHERE e.event_kind IN ('page_view','conversion','error_view')
-                ORDER BY e.id,(n.node_type='page')
             ), first_step AS (
                 SELECT session_id,node_id,MIN(occurred_at) AS first_at FROM matched GROUP BY session_id,node_id
             ), ordered AS (
@@ -1290,18 +1289,16 @@ def register(bp):
                 if isinstance(edge, dict) and isinstance(edge.get('from'), str)
                 and isinstance(edge.get('to'), str)]
             if configured_nodes:
-                node_json = json.dumps([{'node_id': str(node.get('id') or ''),
-                    'node_type': node['type'], 'path': _safe_path(node['path']),
-                    'host': _host(node.get('host')) if node.get('host') else None,
-                    'event_name': str(node.get('event_name') or '')[:120]} for node in configured_nodes])
+                # The same node rows the journey and the step progression read.
+                node_json = node_match_json({'nodes': configured_nodes})
                 edge_json = json.dumps([{'source_id': edge['from'], 'target_id': edge['to']}
                     for edge in configured_edges if edge['from'] != edge['to']])
                 canvas_nodes = _rows(event_scoped_events + f''', {CONFIGURED_NODES_SQL}, matched AS (
-                    -- One node per event, by the rule the journey uses, across the publications read.
-                    SELECT DISTINCT ON (e.id) e.session_id,n.node_id,e.occurred_at FROM selected_events e
+                    -- By the rule the journey uses, across the publications read. Each node counts its own sessions,
+                    -- so a visit to an address drawn as a page and as a conversion counts on both.
+                    SELECT e.session_id,n.node_id,e.occurred_at FROM selected_events e
                     JOIN configured_nodes n ON {node_match_condition(canvas_event_name_expr)}
                     WHERE (%s::int IS NULL OR e.flow_revision=%s) AND e.event_kind NOT IN ('page_leave','heartbeat','click')
-                    ORDER BY e.id,(n.node_type='page')
                 ), configured_edges AS (
                     SELECT * FROM jsonb_to_recordset(%s::jsonb) AS x(source_id TEXT,target_id TEXT)
                 ), reached AS (

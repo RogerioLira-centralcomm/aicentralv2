@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 from flask import abort, jsonify, request
 
 from ..auth import login_required_api
-from .reports_flow_history import matched_events_cte, node_match_json
+from .reports_flow_history import matched_events_cte, node_match_json, norm_host_sql
 from .reports_flow_lifecycle import is_measured
 from .reports_flow_metrics import PLATFORM_LABELS, click_origin_sql, origin_platform
 from .reports_page_identity import normalize_host, normalize_path, sql_normalized_path
@@ -148,7 +148,7 @@ def page_influence(journeys, page_sessions, total_sessions, flow_paths, nodes_by
                                           'path': step['path'], 'host': step.get('host')})
             item['assisted'] += 1
             item['positions'][_position(index, len(pages))] += 1
-        prior = {page for session in journey.get('prior_sessions', []) for page in session.get('page_keys', session.get('pages', []))} - seen
+        prior = {page for session in journey.get('prior_sessions', []) for page in session.get('pages', [])} - seen
         for key in prior:
             host, _, rest = key.partition('/') if not key.startswith('/') else ('', '', key[1:])
             stats.setdefault(key, {'assisted': 0, 'assisted_prior': 0, 'positions': Counter(),
@@ -345,7 +345,7 @@ def register(bp):
             nodes_by_path.setdefault(node_key(node), node)
         flow_paths = set(nodes_by_path)
         counts = _rows(matched_events_cte('e.client_id=%s AND e.tag_id=%s AND e.occurred_at>=%s AND e.occurred_at<%s', _COLUMNS) +
-                       ", views AS (SELECT session_id,REGEXP_REPLACE(LOWER(page_host),'^www[.]','') AS host," + sql_normalized_path('page_path') + """ AS path
+                       ", views AS (SELECT session_id," + norm_host_sql('page_host') + " AS host," + sql_normalized_path('page_path') + """ AS path
                              FROM mapped WHERE event_kind IN ('page_view','conversion','error_view'))
                           SELECT host,path,COUNT(DISTINCT session_id)::bigint AS sessions,
                               (SELECT COUNT(DISTINCT session_id) FROM views)::bigint AS total

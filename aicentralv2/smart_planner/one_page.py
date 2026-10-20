@@ -735,6 +735,21 @@ def _normalize_card(card: dict, index: int) -> dict:
     for key in ("channel", "surface", "image_url", "image_prompt", "stat", "stat_label", "audience_model", "visual_data", "channel_roles"):
         if card.get(key):
             extra[key] = card.get(key) if key in {"audience_model", "visual_data", "channel_roles"} else text(card.get(key))
+    # Artes do criativo: a galeria, as versões por formato e a forma da arte escolhida.
+    if text(card.get("shape")) in {"horizontal", "vertical"}:
+        extra["shape"] = text(card.get("shape"))
+    if text(card.get("image_model")):
+        extra["image_model"] = text(card.get("image_model"))
+    variants = _clean_variants(card.get("variants"))
+    if variants:
+        extra["variants"] = variants
+    images = [
+        {"url": text(item.get("url")), "shape": text(item.get("shape")) or "horizontal", "variants": _clean_variants(item.get("variants")), "model": text(item.get("model"))}
+        for item in (as_dict(raw) for raw in as_list(card.get("images")))
+        if text(item.get("url"))
+    ][:12]
+    if images:
+        extra["images"] = images
     return _card(
         text(card.get("type") or "strategy"),
         card.get("title"),
@@ -742,6 +757,10 @@ def _normalize_card(card: dict, index: int) -> dict:
         extra,
         index=index,
     )
+
+
+def _clean_variants(raw) -> dict:
+    return {key: text(value) for key, value in as_dict(raw).items() if key in {"horizontal", "vertical", "square"} and text(value)}
 
 
 def normalize_one_page(payload: dict, meta: dict, branding: dict) -> dict:

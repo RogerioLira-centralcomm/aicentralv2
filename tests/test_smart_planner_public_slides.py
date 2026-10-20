@@ -374,3 +374,25 @@ def test_editor_gallery_lists_the_plan_arts_with_their_formats():
     items = _gallery(folha)
     assert [(i["label"], i["active"], i["formats"]) for i in items[:2]] == [
         ("Arte 1", True, ["9:16", "16:9", "1:1"]), ("Arte 2", False, ["16:9"])]
+
+
+def test_saving_the_editor_keeps_the_arts_and_their_versions():
+    from aicentralv2.smart_planner.one_page import normalize_one_page
+
+    card = {"type": "creative", "image_url": "/a.png", "shape": "vertical", "variants": {"square": "/q.png", "x": "/bad.png"},
+            "images": [{"url": "/a.png", "shape": "vertical", "variants": {"square": "/q.png"}}, {"url": ""}]}
+    plan = normalize_one_page({"sections": [{"id": "one_page", "cards": [card]}]}, {}, {})
+    saved = plan["sections"][0]["cards"][0]
+    assert saved["shape"] == "vertical" and saved["variants"] == {"square": "/q.png"}
+    assert saved["images"] == [{"url": "/a.png", "shape": "vertical", "variants": {"square": "/q.png"}, "model": ""}]
+
+
+def test_old_art_from_another_client_cannot_be_used(tmp_path, monkeypatch):
+    from aicentralv2.smart_planner import images
+
+    monkeypatch.setattr(images, "_art_dir", lambda: str(tmp_path))
+    (tmp_path / "animale-creative-aa11.png").write_bytes(b"x")
+    (tmp_path / "caixa-creative-bb22.png").write_bytes(b"x")
+    assert images.is_creative_file("/static/uploads/smart_planner/animale-creative-aa11.png", "animale")
+    assert not images.is_creative_file("/static/uploads/smart_planner/caixa-creative-bb22.png", "animale")
+    assert not images.is_creative_file("/static/uploads/smart_planner/animale-creative-square-cc33.png", "animale")

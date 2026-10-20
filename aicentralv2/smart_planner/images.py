@@ -36,13 +36,15 @@ def is_variant_file(url: str) -> bool:
     return bool(VARIANT_FILE.search(text(url)))
 
 
-def is_creative_file(url: str) -> bool:
-    """Arte 16:9 gerada para um plano, na pasta de artes, que existe no disco."""
+def is_creative_file(url: str, slug: str) -> bool:
+    """Arte gerada para este cliente, na pasta de artes, que existe no disco."""
     value = text(url)
-    if not value.startswith(ART_PUBLIC_PREFIX) or "-creative-" not in value or is_variant_file(value):
+    if not value.startswith(ART_PUBLIC_PREFIX) or is_variant_file(value):
         return False
     name = value[len(ART_PUBLIC_PREFIX):]
-    return "/" not in name and ".." not in name and os.path.isfile(os.path.join(_art_dir(), name))
+    if not name.startswith(f"{slug}-creative-") or "/" in name or ".." in name:
+        return False
+    return os.path.isfile(os.path.join(_art_dir(), name))
 
 
 def apply_sheet_art(plan: dict, force: bool = False) -> dict:
@@ -219,9 +221,13 @@ def use_creative(plan: dict, url: str, channels: list | None = None) -> dict:
     creative = _creative_card(plan)
     if not creative:
         return plan
+    meta = as_dict(plan.get("meta"))
+    branding = as_dict(plan.get("branding"))
+    hero = as_dict(branding.get("hero"))
+    slug = _slug(meta.get("client") or hero.get("name") or as_dict(plan.get("theme")).get("id") or "folha")
     images = creative_images(creative)
     chosen = next((item for item in images if item["url"] == text(url)), None)
-    if not chosen and is_creative_file(url):
+    if not chosen and is_creative_file(url, slug):
         # Arte gerada antes da lista de artes existir: a galeria a acha na pasta do plano.
         chosen = {"url": text(url), "variants": {}}
         images.insert(0, chosen)
@@ -229,10 +235,6 @@ def use_creative(plan: dict, url: str, channels: list | None = None) -> dict:
         raise ValueError("Esta arte não está na galeria do plano.")
     from .mockups import variants_needed
 
-    meta = as_dict(plan.get("meta"))
-    branding = as_dict(plan.get("branding"))
-    hero = as_dict(branding.get("hero"))
-    slug = _slug(meta.get("client") or hero.get("name") or as_dict(plan.get("theme")).get("id") or "folha")
     variants = dict(as_dict(chosen.get("variants")))
     shape = text(chosen.get("shape")) or "horizontal"
     missing = [name for name in variants_needed(channels, shape) if not text(variants.get(name))]

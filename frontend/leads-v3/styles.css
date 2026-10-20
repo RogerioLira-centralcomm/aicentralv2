@@ -721,3 +721,11 @@ html body .lv3-root .lv3-person__meta .lv3-pill-select select:not([multiple]):no
 .lv3-dups li { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--lv3-ink-2); }
 .lv3-candidate__match { display: flex; align-items: center; gap: 6px; margin: 4px 0 0; font-size: 12px; color: var(--lv3-success); }
 @media (max-width: 1100px) { .lv3-person__contact, .lv3-person__meta { padding-left: 0; } }
+
+/* Completar com os dados do formulário do site */
+.lv3-suggest { margin: 12px 0 4px; padding: 12px; border: 1px solid #c7d7fe; border-radius: var(--lv3-radius-sm); background: #f5f8ff; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.lv3-suggest__title { display: flex; align-items: center; gap: 8px; margin: 0; font-weight: 700; color: #3538cd; }
+.lv3-suggest__row { display: flex; align-items: center; gap: 8px; color: var(--lv3-ink-2); cursor: pointer; }
+.lv3-suggest__row > span { min-width: 0; overflow-wrap: anywhere; }
+.lv3-suggest__row .lv3-input { flex: 1; max-width: 260px; }
+.lv3-suggest__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }

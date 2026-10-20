@@ -1,3 +1,4 @@
+import re
 from datetime import date
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
@@ -326,3 +327,30 @@ class MesclarRoutesTest(TestCase):
 
     def test_acao_de_candidato_invalida(self):
         self.assertEqual(_client().post("/leads-v3/api/candidatos/1/xpto", json={}).status_code, 404)
+
+
+class LeadDoFormularioTest(TestCase):
+    def test_empresa_do_dominio(self):
+        self.assertEqual(p.empresa_do_dominio("nitrolab.com.br"), "Nitrolab")
+        self.assertEqual(p.empresa_do_dominio("secom.mt.gov.br"), "Secom")
+        self.assertEqual(p.empresa_do_dominio("asia-tcomm.tv.br"), "Asia Tcomm")
+        self.assertEqual(p.empresa_do_dominio("x.ai"), "X")
+
+    def test_sugestoes_com_email_corporativo(self):
+        lead = {"nome": "Adriene Mendes", "empresa": "", "email": "adriene@nitrolab.com.br", "cargo": "Midia OFF"}
+        s = p.sugestoes_do_lead(lead, [])
+        self.assertEqual((s["dominio"], s["empresa"]), ("nitrolab.com.br", "Nitrolab"))
+        self.assertEqual(s["contato"], {"nome": "Adriene Mendes", "email": "adriene@nitrolab.com.br", "telefone": None, "cargo": "Midia OFF"})
+
+    def test_sugestoes_com_email_pessoal_e_contato_ja_existente(self):
+        lead = {"nome": "Aline Benatti", "empresa": "Aline Benatti", "email": "aline@gmail.com"}
+        self.assertEqual(p.sugestoes_do_lead(lead, []), {"dominio": None, "empresa": None, "contato": None})
+        lead = {"nome": "Ana Lima", "empresa": "X", "email": "ana@x.com.br", "dominio": "x.com.br"}
+        self.assertIsNone(p.sugestoes_do_lead(lead, [{"id": 1, "nome": "ANA LIMA", "email": None}])["contato"])
+
+    def test_gatilho_usa_a_mesma_lista_de_emails_pessoais(self):
+        from pathlib import Path
+        sql = (Path(__file__).resolve().parents[1] / "migrations/add_cadu_leads_v3_site_contato.sql").read_text()
+        lista = set(re.findall(r"'([a-z.]+\.[a-z]+)'", sql.split("NOT IN (", 1)[1].split(")", 1)[0]))
+        self.assertEqual(lista, p.FREE_EMAIL_DOMAINS)
+

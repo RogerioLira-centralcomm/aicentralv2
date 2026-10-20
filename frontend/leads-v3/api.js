@@ -89,6 +89,8 @@ export function createApi(boot) {
     discardCandidate: candidateId => request(`${root}/candidatos/${candidateId}/descartar`, {method: 'POST', body: {}}),
     linkCandidate: (candidateId, revelar) => request(`${root}/candidatos/${candidateId}/vincular`, {method: 'POST', body: {revelar: !!revelar}}).then(p => p.data),
     duplicates: id => request(`${root}/leads/${id}/duplicados`).then(p => p.data.pares),
+    leadSuggestions: id => request(`${root}/leads/${id}/sugestoes`).then(p => p.data),
+    completeLead: (id, body) => request(`${root}/leads/${id}/completar`, {method: 'POST', body}).then(p => p.data),
     mergeContacts: (contactId, idDuplicado) => request(`${root}/contatos/${contactId}/mesclar`, {method: 'POST', body: {id_duplicado: idDuplicado}}).then(p => p.data),
     wrongData: (contactId, campo) => request(`${root}/contatos/${contactId}/dado-errado`, {method: 'POST', body: {campo}}),
     findEmail: contactId => request(`${root}/contatos/${contactId}/achar-email`, {method: 'POST', body: {}}).then(p => p.data),

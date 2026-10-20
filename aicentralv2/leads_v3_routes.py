@@ -688,6 +688,63 @@ def api_contato_perfil(contato_id):
     return _transacao(run, "perfil contato")
 
 
+def _lead_e_contatos(cursor, lead_id, travar=False):
+    cursor.execute(f"SELECT id, nome, empresa, email, telefone, cargo, dominio, url_site FROM cadu_leads WHERE id = %s{' FOR UPDATE' if travar else ''}", [lead_id])
+    lead = cursor.fetchone()
+    if not lead:
+        raise prospeccao.ProspeccaoError("Lead não encontrado.")
+    return dict(lead), _contatos_do_lead(cursor, lead_id)
+
+
+@bp.route("/api/leads/<int:lead_id>/sugestoes")
+@centralcomm_required_api
+def api_sugestoes_lead(lead_id):
+    """O que o próprio formulário permite completar: domínio, nome da empresa e a pessoa em Contatos."""
+    def run(cursor):
+        lead, contatos = _lead_e_contatos(cursor, lead_id)
+        return _ok(prospeccao.sugestoes_do_lead(lead, contatos))
+
+    return _transacao(run, "sugestões do lead")
+
+
+@bp.route("/api/leads/<int:lead_id>/completar", methods=["POST"])
+@centralcomm_required_api
+def api_completar_lead(lead_id):
+    """Aplica as sugestões escolhidas. Só preenche o que está vazio; o nome da empresa pode vir editado."""
+    payload = request.get_json(silent=True) or {}
+
+    def run(cursor):
+        lead, contatos = _lead_e_contatos(cursor, lead_id, travar=True)
+        sugestoes = prospeccao.sugestoes_do_lead(lead, contatos)
+        feito = []
+        if payload.get("dominio") and sugestoes["dominio"]:
+            cursor.execute("UPDATE cadu_leads SET dominio = %s WHERE id = %s AND COALESCE(dominio, '') = ''", [sugestoes["dominio"], lead_id])
+            feito.append(f"domínio {sugestoes['dominio']}")
+        empresa = str(payload.get("empresa") or "").strip()[:255]
+        if empresa and not str(lead["empresa"] or "").strip():
+            cursor.execute("UPDATE cadu_leads SET empresa = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s", [empresa, lead_id])
+            feito.append(f"empresa {empresa}")
+        contato_id = None
+        if payload.get("contato") and sugestoes["contato"]:
+            c = sugestoes["contato"]
+            principal = not contatos
+            cursor.execute(
+                """
+                INSERT INTO cadu_lead_contatos (id_lead, nome, email, telefone, cargo, is_principal, origem_dado, adicionado_por)
+                VALUES (%s, %s, %s, %s, %s, %s, 'site', %s) RETURNING id
+                """,
+                [lead_id, c["nome"], c["email"], c["telefone"], c["cargo"], principal, session.get("user_id")],
+            )
+            contato_id = cursor.fetchone()["id"]
+            feito.append(f"contato {c['nome']}")
+        if not feito:
+            return _erro("Nada para completar.")
+        _registrar_atividade(cursor, lead_id, "edicao", f"Completado com o formulário: {', '.join(feito)}.", contato_id)
+        return _ok({"feito": feito, "id_contato": contato_id})
+
+    return _transacao(run, "completar lead")
+
+
 @bp.route("/api/leads/<int:lead_id>/duplicados")
 @centralcomm_required_api
 def api_duplicados(lead_id):

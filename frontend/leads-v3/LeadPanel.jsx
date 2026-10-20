@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {Button, Empty, Icon, MoreMenu, decode, formatDate, linkedinSearchUrl, prettyName, whatsappUrl} from './ui.jsx';
 import {People} from './People.jsx';
 import {FocusEditor, GoldenTarget, MarketContext} from './Focus.jsx';
@@ -32,6 +32,66 @@ function Socials({value}) {
     <div className="lv3-socials">
       {entries.map(([rede, url]) => <a key={rede} href={url} target="_blank" rel="noopener noreferrer"><Icon name="arrow-up-right-from-square"/>{rede}</a>)}
     </div>
+  );
+}
+
+/** Faixa "Completar com o formulário": pessoa em Contatos, domínio do e-mail corporativo e nome da empresa. */
+function FormSuggestions({api, lead, contacts, notify, onChanged}) {
+  const [sug, setSug] = useState(null);
+  const [marcado, setMarcado] = useState({});
+  const [empresa, setEmpresa] = useState('');
+  const [busy, setBusy] = useState(false);
+  const chave = `${lead.id}:${lead.empresa || ''}:${lead.dominio || ''}:${contacts.length}`;
+  useEffect(() => {
+    let vivo = true;
+    api.leadSuggestions(lead.id).then(s => {
+      if (!vivo) return;
+      setSug(s);
+      setMarcado({contato: !!s.contato, dominio: !!s.dominio, empresa: !!s.empresa});
+      setEmpresa(s.empresa || '');
+    }).catch(() => vivo && setSug(null));
+    return () => { vivo = false; };
+  }, [api, chave]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!sug || !(sug.contato || sug.dominio || sug.empresa)) return null;
+  const alternar = campo => () => setMarcado(m => ({...m, [campo]: !m[campo]}));
+  const aplicar = async () => {
+    setBusy(true);
+    try {
+      const r = await api.completeLead(lead.id, {contato: marcado.contato, dominio: marcado.dominio, empresa: marcado.empresa ? empresa : ''});
+      notify(`Lead completado: ${r.feito.join(', ')}.`);
+      onChanged();
+    } catch (error) { notify(error.message, 'error'); } finally { setBusy(false); }
+  };
+  const c = sug.contato;
+  return (
+    <section className="lv3-suggest" aria-label="Completar com o formulário">
+      <p className="lv3-suggest__title"><Icon name="wand-magic-sparkles"/>Completar com os dados do formulário</p>
+      {c && (
+        <label className="lv3-suggest__row">
+          <input type="checkbox" checked={!!marcado.contato} onChange={alternar('contato')}/>
+          <span><strong>Contato</strong> {prettyName(c.nome)}{c.cargo ? ` · ${prettyName(c.cargo)}` : ''}{c.email ? ` · ${c.email}` : ''}{c.telefone ? ` · ${c.telefone}` : ''}</span>
+        </label>
+      )}
+      {sug.dominio && (
+        <label className="lv3-suggest__row">
+          <input type="checkbox" checked={!!marcado.dominio} onChange={alternar('dominio')}/>
+          <span><strong>Domínio</strong> {sug.dominio} <span className="lv3-muted">(do e-mail; libera Apollo e "Achar e-mail")</span></span>
+        </label>
+      )}
+      {sug.empresa && (
+        <label className="lv3-suggest__row">
+          <input type="checkbox" checked={!!marcado.empresa} onChange={alternar('empresa')}/>
+          <span><strong>Empresa</strong></span>
+          <input className="lv3-input lv3-input--sm" value={empresa} onChange={e => setEmpresa(e.target.value)} aria-label="Nome da empresa" disabled={!marcado.empresa}/>
+        </label>
+      )}
+      <div className="lv3-suggest__actions">
+        <Button size="sm" variant="primary" icon="check" onClick={aplicar} disabled={busy || !(marcado.contato || marcado.dominio || (marcado.empresa && empresa.trim()))}>
+          {busy ? 'Aplicando…' : 'Aplicar'}
+        </Button>
+        {sug.empresa && <span className="lv3-muted">O nome da empresa é deduzido do domínio; confira antes.</span>}
+      </div>
+    </section>
   );
 }
 
@@ -146,6 +206,7 @@ export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadenc
       </header>
 
       <div className="lv3-lead__scroll">
+        <FormSuggestions api={api} lead={lead} contacts={contacts} notify={notify} onChanged={onChanged}/>
         {golden && (
           <section className="lv3-section lv3-section--golden">
             <header className="lv3-section__head"><h3><Icon name="bullseye"/>&nbsp;Alvo Golden Circle</h3></header>

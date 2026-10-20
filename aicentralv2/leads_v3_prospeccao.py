@@ -30,8 +30,10 @@ APOLLO_TITLES = [
 ]
 APOLLO_SENIORITIES = ["owner", "founder", "c_suite", "partner", "vp", "head", "director", "manager"]
 PAPEIS_FOCO = {"marketing", "midia", "criacao", "diretoria"}
-FREE_EMAIL_DOMAINS = {"gmail.com", "hotmail.com", "outlook.com", "yahoo.com", "yahoo.com.br", "bol.com.br",
-                      "uol.com.br", "terra.com.br", "icloud.com", "live.com"}
+# Mesma lista no gatilho add_cadu_leads_v3_site_contato.sql (o teste confere que batem).
+FREE_EMAIL_DOMAINS = {"gmail.com", "hotmail.com", "hotmail.com.br", "outlook.com", "outlook.com.br", "yahoo.com",
+                      "yahoo.com.br", "bol.com.br", "uol.com.br", "terra.com.br", "icloud.com", "me.com", "live.com",
+                      "msn.com", "ig.com.br", "aol.com", "protonmail.com", "proton.me"}
 
 
 class ProspeccaoError(RuntimeError):
@@ -162,6 +164,45 @@ def pares_duplicados(contatos):
             usados.update({a["id"], b["id"]})
             pares.append((a, b))
     return pares
+
+
+# ─────────────────────────────────────────────────────
+# Lead do formulário: completar empresa, domínio e contato
+# ─────────────────────────────────────────────────────
+_SUFIXOS = {"br", "com", "net", "org", "gov", "edu", "tv", "io", "co", "ag", "coop", "art", "app", "adv", "eng",
+            "med", "mus", "ind", "inf", "uk", "us", "pt", "ar", "mx", "es", "it", "de", "fr", "cl"}
+
+
+def empresa_do_dominio(dominio) -> str:
+    """'nitrolab.com.br' → 'Nitrolab'; 'secom.mt.gov.br' → 'Secom'; 'asia-tcomm.tv.br' → 'Asia Tcomm'."""
+    partes = [p for p in str(dominio or "").lower().split(".") if p]
+    removidos = [partes.pop()] if len(partes) > 1 else []  # a terminação final (.br, .com, .ai) nunca é o nome
+    while len(partes) > 1 and partes[-1] in _SUFIXOS:
+        removidos.append(partes.pop())
+    if "gov" in removidos and len(partes) > 1 and len(partes[-1]) == 2:  # sigla do estado em .mt.gov.br
+        partes.pop()
+    nome = partes[-1] if partes else ""
+    return " ".join(w.capitalize() for w in re.split(r"[-_]+", nome) if w)
+
+
+def sugestoes_do_lead(lead, contatos):
+    """O que dá para completar com o próprio formulário: domínio (e-mail corporativo), empresa e o contato."""
+    sugestoes = {"dominio": None, "empresa": None, "contato": None}
+    dominio = lead.get("dominio") or normalizar_dominio(lead.get("url_site"))
+    if not dominio:
+        email_dom = normalizar_dominio(lead.get("email")) if "@" in str(lead.get("email") or "") else ""
+        if email_dom and email_dom not in FREE_EMAIL_DOMAINS:
+            dominio = sugestoes["dominio"] = email_dom
+    if not str(lead.get("empresa") or "").strip() and dominio:
+        sugestoes["empresa"] = empresa_do_dominio(dominio) or None
+    nome = str(lead.get("nome") or "").strip()
+    email = str(lead.get("email") or "").strip().lower() or None
+    telefone = str(lead.get("telefone") or "").strip() or None
+    if nome and (email or telefone) and nome.lower() != str(lead.get("empresa") or "").strip().lower() \
+            and not achar_existente({"nome": nome, "email": email}, contatos):
+        sugestoes["contato"] = {"nome": nome[:200], "email": email, "telefone": telefone,
+                                "cargo": str(lead.get("cargo") or "").strip()[:200] or None}
+    return sugestoes
 
 
 def trimestre_atual(hoje: date | None = None) -> str:

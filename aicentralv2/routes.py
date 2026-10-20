@@ -15271,6 +15271,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
     # ==================== CADU LEADS V2 — Dashboard de Prospecção ====================
 
+    def _leads_openrouter_key():
+        """Chave do OpenRouter para as rotas de leads: central de Integrações primeiro, .env como reserva
+        (a mesma regra do Leads v3; antes estas rotas liam só o .env)."""
+        from .leads_v3_mensagens import resolve_openrouter_key
+        return resolve_openrouter_key()
+
     @app.route('/leads')
     @login_required
     def leads_list():
@@ -15711,7 +15717,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             if not markdown_content:
                 return jsonify({'success': False, 'message': 'Nenhum conteúdo extraído da URL'}), 400
 
-            openrouter_key = os.environ.get('OPENROUTER_API_KEY', '')
+            openrouter_key = _leads_openrouter_key()
             system_prompt = '''Extraia informações desta página web de empresa/agência. Retorne APENAS JSON válido, sem explicações.
 
 {
@@ -15980,7 +15986,7 @@ Se não encontrar um campo, deixe vazio. Não invente dados.'''
             if not texto_bruto:
                 return jsonify({'success': False, 'message': 'Texto obrigatório'}), 400
 
-            openrouter_key = os.environ.get('OPENROUTER_API_KEY', '')
+            openrouter_key = _leads_openrouter_key()
             system_prompt = '''Você é um processador de dados de leads comerciais. Receba texto livre com informações de empresas e contatos e extraia dados estruturados.
 
 Regras:
@@ -16070,7 +16076,7 @@ Retorne APENAS JSON válido:
             if not texto:
                 return jsonify({'success': False, 'message': 'Texto obrigatório'}), 400
 
-            openrouter_key = os.environ.get('OPENROUTER_API_KEY', '')
+            openrouter_key = _leads_openrouter_key()
             system_prompt = '''Você é um assistente comercial. Receba o texto do executivo de vendas sobre uma interação com lead e:
 1. Corrija erros de português
 2. Amplie brevemente mantendo o sentido original
@@ -16191,7 +16197,7 @@ Retorne apenas o texto melhorado, sem explicações.'''
                     f"6. Retorne APENAS o texto ampliado, sem aspas, sem cabeçalhos, sem explicações."
                 )
 
-            openrouter_key = os.environ.get('OPENROUTER_API_KEY', '')
+            openrouter_key = _leads_openrouter_key()
             ai_resp = http_requests.post(
                 'https://openrouter.ai/api/v1/chat/completions',
                 headers={
@@ -16264,7 +16270,7 @@ Retorne apenas o texto melhorado, sem explicações.'''
             elif lead_dict.get('segmento') or lead_dict.get('descricao_empresa'):
                 empresa_info = f"\nDados da empresa:\nSegmento: {lead_dict.get('segmento', '')}\nDescrição: {(lead_dict.get('descricao_empresa', '') or '')[:300]}\n"
 
-            openrouter_key = os.environ.get('OPENROUTER_API_KEY', '')
+            openrouter_key = _leads_openrouter_key()
             system_prompt = '''Você é um assistente de vendas da CentralComm (comunicação e mídia).
 Analise o histórico de atividades de um lead, o perfil da empresa e os contatos para sugerir a PRÓXIMA atividade mais adequada.
 
@@ -16441,7 +16447,7 @@ Histórico de atividades (mais recentes primeiro):
             if incluir_oportunidades and lead.get('oportunidades_midia'):
                 contexto += f"\nOportunidades identificadas: {lead['oportunidades_midia'][:300]}"
 
-            openrouter_key = os.environ.get('OPENROUTER_API_KEY', '')
+            openrouter_key = _leads_openrouter_key()
             system_prompt = f'''Você é um executivo de vendas sênior da CentralComm, Hub de Mídia Digital referência nacional em comunicação corporativa.
 
 SOBRE A CENTRALCOMM:

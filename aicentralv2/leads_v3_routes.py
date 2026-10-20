@@ -151,8 +151,11 @@ def api_listar():
         leads = [l for l in leads if l.get("fonte") == "site"]
     elif origem == "adicionados":
         leads = [l for l in leads if l.get("fonte") != "site"]
-    leads.sort(key=lambda l: not l["golden"])  # estável: Golden Circle no topo, resto na ordem do dashboard
-    return _ok({"leads": leads, "total": len(leads)})
+    # Golden Circle tem aba própria: a Fila mostra só os demais e informa quantos ficaram de fora.
+    golden_separados = sum(1 for l in leads if l["golden"])
+    if request.args.get("golden") != "incluir":
+        leads = [l for l in leads if not l["golden"]]
+    return _ok({"leads": leads, "total": len(leads), "golden_separados": golden_separados})
 
 
 def _golden_por_lead(ids):
@@ -1124,7 +1127,32 @@ def api_analise_v3():
             {"trimestre": trimestre, "executivo": executivo},
         )
         golden = {k: _json_safe(v) for k, v in dict(cursor.fetchone() or {}).items()}
-        return _ok({"canais": canais, "inscricoes": inscricoes, "golden": {**golden, "trimestre": trimestre}})
+        # Funil separado por origem: o site (formulários) nunca se mistura com o que a equipe adicionou.
+        filtro_lead = "AND l.id_executivo = %(executivo)s" if executivo else ""
+        cursor.execute(
+            f"""
+            SELECT CASE WHEN l.fonte = 'site' THEN 'site' ELSE 'equipe' END AS origem,
+                   COUNT(*) AS entraram,
+                   COUNT(*) FILTER (WHERE l.status NOT IN ('inbox', 'nao_qualificado', 'fechado_perdido')) AS avancaram,
+                   COUNT(*) FILTER (WHERE l.status = 'inbox') AS no_inbox,
+                   COUNT(*) FILTER (WHERE l.convertido_cliente_id IS NOT NULL OR l.status = 'fechado_ganho') AS convertidos,
+                   COUNT(*) FILTER (WHERE l.status = 'nao_qualificado') AS desqualificados,
+                   COUNT(*) FILTER (WHERE l.status = 'fechado_perdido') AS perdidos,
+                   COUNT(*) FILTER (WHERE l.id_executivo IS NULL) AS sem_responsavel,
+                   COALESCE(SUM(l.valor_fechado) FILTER (WHERE l.status = 'fechado_ganho' OR l.convertido_cliente_id IS NOT NULL), 0) AS receita,
+                   ROUND(AVG(EXTRACT(EPOCH FROM (l.contatado_em - l.created_at)) / 3600)
+                         FILTER (WHERE l.contatado_em IS NOT NULL)::numeric, 1) AS horas_primeiro_contato,
+                   ROUND(AVG(EXTRACT(EPOCH FROM (l.data_conversao - l.created_at)) / 86400)
+                         FILTER (WHERE l.data_conversao IS NOT NULL)::numeric, 1) AS dias_ate_converter
+              FROM cadu_leads l
+             WHERE (%(inicio)s::date IS NULL OR l.created_at >= %(inicio)s::date)
+               AND (%(fim)s::date IS NULL OR l.created_at < %(fim)s::date + 1) {filtro_lead}
+             GROUP BY 1
+            """,
+            {"inicio": inicio, "fim": fim, "executivo": executivo},
+        )
+        funil = {r["origem"]: {k: _json_safe(v) for k, v in dict(r).items() if k != "origem"} for r in cursor.fetchall()}
+        return _ok({"canais": canais, "inscricoes": inscricoes, "golden": {**golden, "trimestre": trimestre}, "funil": funil})
 
     return _transacao(run, "análise v3")
 

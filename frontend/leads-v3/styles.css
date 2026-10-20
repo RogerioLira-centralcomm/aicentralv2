@@ -646,3 +646,15 @@ html body .lv3-root .lv3-queue__owner select:not([multiple]):not([size]):not(.se
 .lv3-heat td.lv3-heat__cell { min-width: 38px; border-left: 2px solid var(--lv3-surface); font-weight: 600; }
 .lv3-heat__name { white-space: nowrap; font-weight: 600; color: var(--lv3-ink); }
 .lv3-heat__total { font-weight: 700; color: var(--lv3-ink); }
+.lv3-queue__gcnote { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 16px; border: 0; border-bottom: 1px solid #fde68a; background: #fffbeb; color: #92400e; font-size: 12.5px; font-weight: 600; text-align: left; cursor: pointer; }
+.lv3-queue__gcnote .lv3-icon { margin-left: auto; font-size: 11px; }
+.lv3-queue__gcnote:hover { background: #fef3c7; }
+.lv3-an__split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.lv3-an__origin { padding: 14px; border: 1px solid var(--lv3-line); border-radius: var(--lv3-radius); }
+.lv3-an__origin header { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
+.lv3-an__origin header strong { font-size: 14px; }
+.lv3-an__origin--site { border-top: 3px solid #075985; }
+.lv3-an__origin--equipe { border-top: 3px solid var(--lv3-line-strong); }
+.lv3-stats--compact { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); margin-bottom: 0; }
+.lv3-stats--compact .lv3-stat__value { font-size: 20px; }
+@media (max-width: 1100px) { .lv3-an__split { grid-template-columns: 1fr; } }

@@ -44,6 +44,7 @@ export function LeadsApp({boot}) {
 
   const [filters, setFilters] = useState(() => readFilters(boot));
   const [leads, setLeads] = useState([]);
+  const [goldenSeparados, setGoldenSeparados] = useState(0);
   const [listState, setListState] = useState({loading: true, error: ''});
   const [selected, setSelected] = useState(() => new Set());
   const anchor = useRef(null);
@@ -76,6 +77,7 @@ export function LeadsApp({boot}) {
       const data = await api.listLeads(filters);
       if (seq !== listSeq.current) return; // resposta de um filtro antigo
       setLeads(data.leads);
+      setGoldenSeparados(data.golden_separados || 0);
       setSelected(current => new Set([...current].filter(id => data.leads.some(l => l.id === id))));
       setListState({loading: false, error: ''});
     } catch (error) {
@@ -257,7 +259,7 @@ export function LeadsApp({boot}) {
           onOpen={setActiveId} onToggle={toggle} onToggleAll={toggleAll} onSelectAll={() => setSelected(new Set(leads.map(l => l.id)))} onClear={() => setSelected(new Set())} onReload={loadList}
           onBulk={(acao, valor) => runBulk(acao, [...selected], {valor})}
           onDisqualify={() => setDialog({type: 'disqualify', ids: [...selected]})}
-          mode={mode} setMode={setMode}>
+          mode={mode} setMode={setMode} goldenSeparados={goldenSeparados}>
           <GoldenCircle boot={boot} data={golden.data} loading={golden.loading} error={golden.error}
             trimestre={trimestre} setTrimestre={setTrimestre} executivo={filters.executivo} activeLeadId={activeId}
             onOpen={setActiveId} onAdd={() => setDialog({type: 'golden'})} onReload={loadGolden}

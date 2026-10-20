@@ -167,3 +167,15 @@ class LeadsV3OrigemTest(TestCase):
             adicionados = _client().get("/leads-v3/api/leads?origem=adicionados").get_json()["data"]["leads"]
         self.assertEqual([l["id"] for l in site], [1])
         self.assertEqual([l["id"] for l in adicionados], [2, 3])
+
+
+class LeadsV3FilaSemGoldenTest(TestCase):
+    def test_golden_circle_sai_da_fila_e_e_contado(self):
+        rows = [{"id": 1, "fonte": "site"}, {"id": 2, "fonte": "manual"}]
+        with patch.object(routes.db, "obter_leads_dashboard", return_value=rows), \
+                patch.object(routes, "_golden_por_lead", return_value={2: {"id": 9, "status": "planejada"}}):
+            data = _client().get("/leads-v3/api/leads").get_json()["data"]
+            todos = _client().get("/leads-v3/api/leads?golden=incluir").get_json()["data"]
+        self.assertEqual([l["id"] for l in data["leads"]], [1])
+        self.assertEqual(data["golden_separados"], 1)
+        self.assertEqual(len(todos["leads"]), 2)

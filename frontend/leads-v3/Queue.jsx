@@ -143,7 +143,7 @@ function QueueItem({lead, statusLabel, active, selected, onOpen, onToggle}) {
 }
 
 export function Queue({boot, leads, loading, error, filters, setFilters, activeId, selected, busy,
-  onOpen, onToggle, onToggleAll, onSelectAll, onBulk, onDisqualify, onClear, onReload, mode, setMode, children}) {
+  onOpen, onToggle, onToggleAll, onSelectAll, onBulk, onDisqualify, onClear, onReload, mode, setMode, goldenSeparados = 0, children}) {
   const statusLabel = Object.fromEntries(boot.status.map(s => [s.value, s.label]));
   const allSelected = leads.length > 0 && leads.every(l => selected.has(l.id));
   const someSelected = selected.size > 0;
@@ -191,6 +191,13 @@ export function Queue({boot, leads, loading, error, filters, setFilters, activeI
         </div>
       )}
 
+      {goldenSeparados > 0 && (
+        <button type="button" className="lv3-queue__gcnote" onClick={() => setMode('golden')}>
+          <span className="lv3-gc-dot"/>
+          {goldenSeparados} {goldenSeparados === 1 ? 'conta do Golden Circle está' : 'contas do Golden Circle estão'} na aba Golden Circle
+          <Icon name="arrow-right"/>
+        </button>
+      )}
       {error ? (
         <Empty icon="triangle-exclamation" title="Não foi possível carregar">
           {error} <button type="button" className="lv3-link" onClick={onReload}>Tentar de novo</button>

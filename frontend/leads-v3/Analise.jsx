@@ -177,8 +177,6 @@ export function Analise({boot, api, executivo, setExecutivo, notify, onOpenLead}
   }, [api, inicio, fim, exec, notify]);
   useEffect(() => { load(); }, [load]);
 
-  const k = dados?.kpis || {};
-  const t = dados?.tempo_conversao || {};
   const ativ = Object.fromEntries((dados?.atividades_executivo || []).map(a => [a.id_executivo, a]));
   const canais = v3?.canais || [];
   const feitos = canais.reduce((s, c) => s + Number(c.feitos || 0), 0);
@@ -208,15 +206,27 @@ export function Analise({boot, api, executivo, setExecutivo, notify, onOpenLead}
       {!dados && loading ? <div className="lv3-skeleton"/> : !dados ? <Empty icon="chart-simple" title="Sem dados"/> : (
         <div className="lv3-an__body">
           <section className="lv3-an__section">
-            <h3>Funil no período</h3>
-            <div className="lv3-stats">
-              <Stat label="Leads que entraram" value={num(k.total_leads)}/>
-              <Stat label="Convertidos em cliente" value={num(k.convertidos)} hint={`taxa ${k.taxa_conversao != null ? `${num(k.taxa_conversao)}%` : '—'}`}/>
-              <Stat label="Desqualificados" value={num(k.desqualificados)} hint={pct(k.desqualificados, k.total_leads) + ' dos que entraram'}/>
-              <Stat label="Perdidos" value={num(k.perdidos)}/>
-              <Stat label="Receita fechada" value={moeda(k.receita_total)}/>
-              <Stat label="Dias até converter" value={num(t.avg_dias_conversao)} hint={t.min_dias != null ? `de ${Math.round(t.min_dias)} a ${Math.round(t.max_dias)} dias` : 'média'}/>
+            <h3>Funil no período, por origem</h3>
+            <p className="lv3-muted lv3-help">Leads que entraram no período. O site (formulários e landing pages) e o que a equipe adicionou (importação, manual, indicação, evento) são medidos separadamente.</p>
+            <div className="lv3-an__split">
+              {[['site', 'Site', 'Formulários e landing pages'], ['equipe', 'Equipe', 'Importação, manual, indicação, evento']].map(([chave, titulo, sub]) => {
+                const f = v3?.funil?.[chave] || {};
+                return (
+                  <div key={chave} className={`lv3-an__origin lv3-an__origin--${chave}`}>
+                    <header><strong>{titulo}</strong><span className="lv3-muted">{sub}</span></header>
+                    <div className="lv3-stats lv3-stats--compact">
+                      <Stat label="Entraram" value={num(f.entraram || 0)} hint={f.sem_responsavel ? `${num(f.sem_responsavel)} sem responsável` : null}/>
+                      <Stat label="Avançaram de etapa" value={num(f.avancaram || 0)} hint={`${pct(f.avancaram, f.entraram)} · ${num(f.no_inbox || 0)} ainda no Inbox`}/>
+                      <Stat label="Convertidos" value={num(f.convertidos || 0)} hint={`conversão ${pct(f.convertidos, f.entraram)}`}/>
+                      <Stat label="Desqualificados" value={num(f.desqualificados || 0)} hint={`${pct(f.desqualificados, f.entraram)} · ${num(f.perdidos || 0)} perdidos`}/>
+                      <Stat label="Receita fechada" value={moeda(f.receita)}/>
+                      <Stat label="1º contato" value={f.horas_primeiro_contato != null ? `${num(f.horas_primeiro_contato)} h` : '—'} hint={f.dias_ate_converter != null ? `${num(f.dias_ate_converter)} dias até converter` : 'média'}/>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+            {!v3 && <p className="lv3-muted">A separação por origem depende da migração do Leads v3.</p>}
           </section>
 
           {semanal && (

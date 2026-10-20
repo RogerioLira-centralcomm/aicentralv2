@@ -11,7 +11,7 @@
   <meta property="og:url" content="{{ document_url }}"><meta property="og:image" content="{{ share_image }}"><meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_slides.css') }}?v=10">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_slides.css') }}?v=11">
   {% if template_css %}<style>:root{ {{- template_css -}} }</style>{% else %}<style>:root{--sx-ink:{{ slide_ink or '#14252d' }};--sx-accent:{{ slide_accent or '#d5aa3b' }}}</style>{% endif %}
 </head>
 <body class="sx is-booting{% if neutral_palette %} is-neutral{% endif %}" data-document-url="{{ document_page_url }}" data-channel="{{ public_token or 'plano' }}" data-total="{{ slides|length }}">
@@ -19,6 +19,12 @@
 <figure class="sx-mock is-{{ m.kind }} is-{{ size }}" aria-label="Criativo em {{ m.label }}">
   {% if m.kind == 'tv' %}
   <div class="sx-mock-tv"><div class="sx-mock-screen"><img src="{{ m.image }}" alt="" loading="lazy"><span class="sx-mock-ad">Anúncio · 0:15</span>{% if m.logo %}<img class="sx-mock-logo" src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% endif %}<i class="sx-mock-progress"><b></b></i></div><i class="sx-mock-stand"></i></div>
+  {% elif m.kind == 'app' %}
+  <div class="sx-mock-phone is-app"><div class="sx-mock-map"><i class="sx-mock-route"></i><i class="sx-mock-car"></i><i class="sx-mock-pin"></i></div><div class="sx-mock-trip"><header>{% if m.logo %}<img src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% endif %}<span>Chegando em 4 min</span></header><div class="sx-mock-banner"><img src="{{ m.image }}" alt="" loading="lazy"><small>Patrocinado</small></div><i></i><i class="is-short"></i></div></div>
+  {% elif m.kind == 'vertical' %}
+  <div class="sx-mock-phone is-vertical"><div class="sx-mock-story"><img src="{{ m.image }}" alt="" loading="lazy"><header>{% if m.logo %}<img src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% endif %}<span>Patrocinado</span></header><footer><b>Saiba mais</b></footer></div></div>
+  {% elif m.kind == 'audio' %}
+  <div class="sx-mock-phone is-audio"><header>{% if m.logo %}<img src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% endif %}<span>Anúncio · 0:30</span></header><div class="sx-mock-cover"><img src="{{ m.image }}" alt="" loading="lazy"></div><div class="sx-mock-player"><i class="sx-mock-progress"><b></b></i><span><i></i><b></b><i></i></span></div></div>
   {% elif m.kind == 'social' %}
   <div class="sx-mock-phone"><header>{% if m.logo %}<img src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% endif %}<span>Patrocinado</span></header><div class="sx-mock-feed"><img src="{{ m.image }}" alt="" loading="lazy"></div><footer><i></i><i></i><i></i></footer></div>
   {% else %}
@@ -103,6 +109,14 @@
             </div>
             {% if slide.mockups %}<div class="sx-mocks is-{{ slide.mockups|length }}">{% for m in slide.mockups %}{{ mockup(m, 'lg' if loop.first else 'sm') }}{% endfor %}</div>{% elif slide.image %}<figure class="sx-art"><img src="{{ slide.image }}" alt="Referência do criativo" loading="lazy"></figure>{% endif %}
           </div>
+
+          {% elif slide.type == 'showcase' %}
+          {{ kicker(slide) }}
+          <h2 class="sx-title-md">{{ slide.title }}</h2>
+          <div class="sx-showcase is-{{ slide.screens|length }}">
+            {% for m in slide.screens %}<article class="is-{{ m.kind }}">{{ mockup(m, 'md') }}<h3 class="sx-with-logo">{{ m.channel }}{% if m.pct %}<b>{{ m.pct }}%</b>{% endif %}</h3><p>{{ m.placement }}</p></article>{% endfor %}
+          </div>
+          <p class="sx-footnote">{{ slide.note }}</p>
 
           {% elif slide.type == 'media' %}
           {{ kicker(slide) }}

@@ -408,6 +408,29 @@ def _impact(deck, data, view):
     return slide
 
 
+def _showcase(deck, data, view):
+    """Sem as telas desenhadas: a peça recortada no formato de cada canal, com nome e uso."""
+    slide = deck.slide()
+    deck.kicker(slide, data)
+    deck.title(slide, data.get("title"), size=28)
+    screens = [as_dict(m) for m in as_list(data.get("screens"))][:4]
+    ratios = {"tv": 16 / 9, "portal": 16 / 9, "social": 4 / 5, "vertical": 9 / 16, "app": 9 / 16, "audio": 1}
+    gap = 0.35
+    width = (W_IN - 2 * PAD - gap * (len(screens) - 1)) / max(1, len(screens))
+    for index, screen in enumerate(screens):
+        x = PAD + index * (width + gap)
+        ratio = ratios.get(text(screen.get("kind")), 16 / 9)
+        h = min(3.4, width / ratio)
+        w = h * ratio
+        if not deck.cover_image(slide, screen.get("image"), x + (width - w) / 2, 5.3 - h, w, h):
+            deck.box(slide, x, 5.3 - h, width, h, deck.soft)
+        label = text(screen.get("channel")) + (f" · {screen.get('pct')}%" if screen.get("pct") else "")
+        deck.text(slide, x, 5.45, width, 0.35, label, size=14, bold=True)
+        deck.text(slide, x, 5.8, width, 0.6, screen.get("placement"), size=11, color=deck.muted)
+    deck.text(slide, PAD, 6.55, W_IN - 2 * PAD, 0.3, data.get("note"), size=10, color=deck.muted)
+    return slide
+
+
 def _first_party(deck, data, view):
     slide = deck.slide()
     deck.kicker(slide, data)
@@ -454,7 +477,7 @@ def _contact(deck, data, view):
 
 
 RENDERERS = {
-    "thesis": _thesis, "context": _context, "audience": _audience, "creative": _creative,
+    "thesis": _thesis, "context": _context, "audience": _audience, "creative": _creative, "showcase": _showcase,
     "media": _media, "formats": _formats, "first_party": _first_party, "impact": _impact, "defense": _defense,
     "market": _market, "contact": _contact,
 }

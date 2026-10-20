@@ -11,7 +11,7 @@ import re
 from typing import Any
 
 from .helpers import as_dict, as_list, short_title, text
-from .mockups import channel_logo, mockups_for, site_logo
+from .mockups import channel_logo, mockups_for, showcase_for, site_logo
 
 # Orçamento de texto por bloco, medido no canvas de 1600 x 900 com as fontes do template.
 LIMITS = {
@@ -160,6 +160,23 @@ def _creative(view: dict) -> dict | None:
         # O criativo dentro da tela do canal (TV, portal, celular), não solto na página.
         "mockups": mockups_for(view, image),
         "outputs": outputs,
+    }
+
+
+def _showcase(view: dict) -> dict | None:
+    """O criativo montado na tela de cada canal do plano, no layout certo de cada um."""
+    hero = as_dict(view.get("hero"))
+    image = text(hero.get("creative_image")) if hero.get("has_generated_visual") else ""
+    screens = showcase_for(view, image)
+    if not screens:
+        return None
+    return {
+        "type": "showcase",
+        "nav": "Criativo nos canais",
+        "kicker": "Criativo nos canais",
+        "title": "Como a campanha aparece em cada canal",
+        "screens": screens,
+        "note": "Simulação com a peça principal. A versão final de cada formato é adaptada na produção.",
     }
 
 
@@ -416,7 +433,7 @@ def _contact(view: dict) -> dict:
     }
 
 
-BUILDERS = (_cover, _thesis, _context, _audience, _creative, _media, _formats, _first_party, _impact, _defense, _market, _contact)
+BUILDERS = (_cover, _thesis, _context, _audience, _creative, _showcase, _media, _formats, _first_party, _impact, _defense, _market, _contact)
 
 
 def _notes(slide: dict, view: dict) -> list[str]:

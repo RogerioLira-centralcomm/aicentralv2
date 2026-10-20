@@ -181,3 +181,21 @@ def test_unweighted_fronts_on_one_channel_keep_the_fronts_layout():
     view = {**VIEW, "fronts": [{**f, "weight": None} for f in VIEW["fronts"]]}
     media = next(s for s in build_slides(view) if s["type"] == "media")
     assert media["layout"] == "fronts" and len(media["fronts"]) == 2
+
+
+def test_showcase_puts_the_creative_in_each_channel_layout():
+    from aicentralv2.smart_planner.mockups import showcase_for
+
+    view = {"media": {"channels": [
+        {"id": "netflix", "label": "Netflix", "pct": 40, "group": "ctv"},
+        {"id": "uber", "label": "Uber", "pct": 20, "group": "apps"},
+        {"id": "tiktok", "label": "TikTok", "pct": 15, "group": "social"},
+        {"id": "spotify", "label": "Spotify", "pct": 15, "group": "audio"},
+        {"id": "ooh", "label": "OOH", "pct": 10, "group": "ooh"},
+    ]}}
+    screens = showcase_for(view, "/static/c.png")
+    assert [s["kind"] for s in screens] == ["tv", "app", "vertical", "audio"]
+    assert all(s["placement"] for s in screens)
+    slides = build_slides({**view, "title": "P", "hero": {"creative_image": "/static/c.png", "has_generated_visual": True}})
+    assert any(s["type"] == "showcase" for s in slides)
+    assert not any(s["type"] == "showcase" for s in build_slides({**view, "title": "P"}))

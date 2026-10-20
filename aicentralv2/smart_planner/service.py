@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from flask import session
 
 from .brand import seed_parties
@@ -79,6 +81,9 @@ from .repository import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 def current_user() -> dict:
     return {
         "user_id": session.get("user_id"),
@@ -89,7 +94,7 @@ def current_user() -> dict:
 
 def history_payload(include_all: bool = False) -> dict:
     user = current_user()
-    rows = list_sessions(user["user_email"], user["user_id"], include_all=include_all)
+    rows = list_sessions(user["user_email"], user["user_id"], limit=200 if include_all else 80, include_all=include_all)
     total_brl = 0.0
     for row in rows:
         try:
@@ -123,8 +128,29 @@ def start_plan(plan_mode: str, payload: dict | None = None) -> dict:
     return create_session(current_user(), mode, seed)
 
 
+def _is_admin() -> bool:
+    try:
+        from ..auth import is_admin
+
+        return bool(is_admin())
+    except Exception:
+        return False
+
+
 def load_owned(token: str) -> dict:
+    """Plano do usuário logado; o admin interno abre, edita e processa os de qualquer responsável.
+
+    O dono do plano não muda quando o admin mexe nele: o responsável segue o mesmo na listagem.
+    """
     user = current_user()
+    if _is_admin():
+        row = get_by_token(token)
+        if not row:
+            raise SessionNotFound("Plano não encontrado.")
+        owner = text(row.get("user_email")).lower()
+        if owner and owner != user["user_email"]:
+            logger.info("Admin %s acessou o plano %s de %s", user["user_email"], token[:12], owner)
+        return row
     return get_owned(token, user["user_email"], user["user_id"])
 
 

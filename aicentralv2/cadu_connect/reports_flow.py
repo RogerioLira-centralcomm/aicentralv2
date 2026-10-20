@@ -22,7 +22,7 @@ from .reports_flow_schema import DEFAULT_KINDS, to_v3
 from .reports_flow_validation import MAX_FLOW_PAGES, SUGGESTED_FLOW_PAGES, validate_flow_config
 from .reports_flow_lifecycle import NODE_STATUSES, is_measured, measured_nodes, node_status, normalize_forecast, normalize_media, normalize_segment, normalize_spec
 from .reports_flow_stage import normalize_stage
-from .reports_flow_history import matched_events_cte, node_match_json, publications_in_period
+from .reports_flow_history import CONFIGURED_NODES_SQL, matched_events_cte, node_match_condition, node_match_json, publications_in_period
 from .reports_flow_metrics import SEARCH_ENGINE_IDS, click_origin_sql, apply_engagement, apply_session_bounds, edge_observation, origin_landings, origin_summary
 
 MAX_TAG_EVENTS_PER_MINUTE = 1200
@@ -1127,7 +1127,7 @@ def register(bp):
                 AND (%s::uuid IS NULL OR id=%s::uuid) ORDER BY created_at DESC''',
             (*params,selected_flow['tag_id'] if selected_flow else None,
              selected_flow['tag_id'] if selected_flow else None))
-        steps = _rows('''SELECT s.id,s.tag_id,s.name,s.path_prefix,s.page_host,s.step_kind,s.is_entry,s.campaign_id,s.position,
+        steps = _rows('''SELECT s.id,s.tag_id,s.node_id,s.name,s.path_prefix,s.page_host,s.step_kind,s.is_entry,s.campaign_id,s.position,
             s.is_active,s.archived_at,
             c.name AS campaign_name FROM cadu_reports_flow_steps s
             LEFT JOIN cadu_reports_campaigns c ON c.id=s.campaign_id
@@ -1235,7 +1235,32 @@ def register(bp):
             ROUND((AVG(duration_ms) FILTER (WHERE event_kind='page_leave'))/1000,1) AS avg_active_seconds,
             COUNT(*) FILTER (WHERE utm_source IS NOT NULL OR referrer_host IS NOT NULL)::bigint AS attributed
             FROM selected_events''', tuple(event_scope_params))[0]
-        progression = _rows(scoped_events + ''' , first_step AS (
+        if selected_flow:
+            # Steps of the publication on screen, read over every publication of the period with its drawing:
+            # an event counts on the step whose page it matches now, not on the step frozen at ingestion.
+            ordered_steps = sorted((step for step in steps if step.get('node_id')),
+                                   key=lambda step: (not step['is_entry'], step['position'], step['id']))
+            order_json = json.dumps([{'step_id': step['id'], 'node_id': str(step['node_id']),
+                                      'previous_id': str(ordered_steps[index - 1]['node_id']) if index else None}
+                                     for index, step in enumerate(ordered_steps)])
+            progression = _rows(scoped_events + f''', {CONFIGURED_NODES_SQL}, matched AS (
+                SELECT DISTINCT ON (e.id) e.session_id,n.node_id,e.occurred_at FROM selected_events e
+                JOIN configured_nodes n ON {node_match_condition(canvas_event_name_expr)}
+                WHERE e.event_kind IN ('page_view','conversion','error_view')
+                ORDER BY e.id,(n.node_type='page')
+            ), first_step AS (
+                SELECT session_id,node_id,MIN(occurred_at) AS first_at FROM matched GROUP BY session_id,node_id
+            ), ordered AS (
+                SELECT * FROM jsonb_to_recordset(%s::jsonb) AS o(step_id BIGINT,node_id TEXT,previous_id TEXT)
+            )
+            SELECT o.step_id,COUNT(DISTINCT f.session_id) AS reached,
+                COUNT(DISTINCT f.session_id) FILTER (
+                    WHERE o.previous_id IS NULL OR p.first_at <= f.first_at) AS progressed
+            FROM ordered o LEFT JOIN first_step f ON f.node_id=o.node_id
+            LEFT JOIN first_step p ON p.node_id=o.previous_id AND p.session_id=f.session_id
+            GROUP BY o.step_id''', tuple(scope_params) + (node_match_json(selected_flow.get('active_config') or {}), order_json))
+        else:
+            progression = _rows(scoped_events + ''' , first_step AS (
             SELECT session_id,step_id,MIN(occurred_at) AS first_at
             FROM selected_events WHERE step_id IS NOT NULL
                 AND event_kind IN ('page_view','conversion','error_view')
@@ -1271,21 +1296,12 @@ def register(bp):
                     'event_name': str(node.get('event_name') or '')[:120]} for node in configured_nodes])
                 edge_json = json.dumps([{'source_id': edge['from'], 'target_id': edge['to']}
                     for edge in configured_edges if edge['from'] != edge['to']])
-                canvas_nodes = _rows(event_scoped_events + f''', configured_nodes AS (
-                    SELECT * FROM jsonb_to_recordset(%s::jsonb) AS n(
-                        node_id TEXT,node_type TEXT,path TEXT,host TEXT,event_name TEXT)
-                ), matched AS (
-                    SELECT e.session_id,n.node_id,e.occurred_at FROM selected_events e
-                    JOIN configured_nodes n ON (n.host IS NULL OR n.host=e.page_host)
-                        AND e.page_path=n.path
-                    WHERE (%s::int IS NULL OR e.flow_revision=%s) AND ((n.node_type='page' AND e.event_kind IN ('page_view','conversion','error_view'))
-                       OR (n.node_type='conversion' AND e.event_kind='conversion'
-                           AND (n.event_name='' OR n.event_name={canvas_event_name_expr}))
-                       OR (n.node_type='error' AND e.event_kind='error_view')
-                       OR (n.node_type='form' AND e.event_kind='form_submit')
-                       OR (n.node_type='whatsapp' AND e.event_kind='whatsapp_click')
-                       OR (n.node_type='event' AND e.event_kind='custom_event'
-                           AND (n.event_name='' OR n.event_name={canvas_event_name_expr})))
+                canvas_nodes = _rows(event_scoped_events + f''', {CONFIGURED_NODES_SQL}, matched AS (
+                    -- One node per event, by the rule the journey uses, across the publications read.
+                    SELECT DISTINCT ON (e.id) e.session_id,n.node_id,e.occurred_at FROM selected_events e
+                    JOIN configured_nodes n ON {node_match_condition(canvas_event_name_expr)}
+                    WHERE (%s::int IS NULL OR e.flow_revision=%s) AND e.event_kind NOT IN ('page_leave','heartbeat','click')
+                    ORDER BY e.id,(n.node_type='page')
                 ), configured_edges AS (
                     SELECT * FROM jsonb_to_recordset(%s::jsonb) AS x(source_id TEXT,target_id TEXT)
                 ), reached AS (

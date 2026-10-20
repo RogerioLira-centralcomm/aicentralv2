@@ -151,7 +151,7 @@ def test_conversions_list_paths_prior_visits_and_origins(client):
     assert data['status'] == 'ready' and data['coverage'] == {'conversions': 2, 'identified': 1, 'complete': True}
     returning, paid = data['journeys'][1], data['journeys'][0]
     assert [step['path'] for step in returning['steps']] == ['/', '/blog/ctv', '/contato', '/obrigado']
-    assert returning['steps'][1] == {'path': '/blog/ctv', 'kind': 'page', 'title': 'Blog CTV', 'node_id': None, 'off_flow': True}
+    assert returning['steps'][1] == {'path': '/blog/ctv', 'host': None, 'key': '/blog/ctv', 'kind': 'page', 'title': 'Blog CTV', 'node_id': None, 'off_flow': True}
     assert returning['origin'] == {'first': 'meta', 'last_non_direct': 'meta', 'session': 'direct'}
     assert returning['prior_sessions'][0]['pages'] == ['/', '/cases']
     assert paid['origin']['session'] == 'google' and not paid['identified']
@@ -199,3 +199,17 @@ def test_a_visitor_who_converted_before_shows_that_visit(client):
     assert data['coverage']['conversions'] == 3, 'a lone page_leave on the goal page is not a conversion'
     latest = next(journey for journey in data['journeys'] if journey['steps'][0]['path'] == '/' and len(journey['steps']) == 4)
     assert [visit['pages'] for visit in latest['prior_sessions']] == [['/', '/cases', '/obrigado']]
+
+
+def test_pages_on_another_domain_of_the_client_stay_apart(client):
+    from aicentralv2.cadu_connect import reports_flow_conversions as module
+    for minutes, path, host in ((20, '/', 'site.com'), (19, '/contato', 'loja.site.com'), (18, '/obrigado', 'site.com'),
+                                (15, '/', 'site.com'), (14, '/contato', 'loja.site.com'), (13, '/obrigado', 'site.com')):
+        session = 'a1' if minutes > 16 else 'b1'
+        module._rows("""INSERT INTO cadu_reports_flow_events(client_id,tag_id,session_id,event_kind,page_host,page_path,occurred_at,flow_revision)
+            VALUES (7,%s,%s,'page_view',%s,%s,%s,67)""", (TAG, uuid.uuid5(uuid.NAMESPACE_DNS, session), host, path, NOW - datetime.timedelta(minutes=minutes)))
+    with mock.patch.object(module, 'MIN_ASSISTED', 2):
+        data = client.get(f'/api/v2/reports/flow/flows/{FLOW}/influence?days=7').get_json()
+    off = {row['key']: row for row in data['off_flow']}
+    assert off['loja.site.com/contato']['host'] == 'loja.site.com' and off['loja.site.com/contato']['assisted'] == 2
+    assert {row['key'] for row in data['pages']} >= {'/contato'} and off['loja.site.com/contato']['in_flow'] is False

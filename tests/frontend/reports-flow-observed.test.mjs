@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {undrawnOrigins, addObservedOrigins, observedPageDetail, observedPassageDetail, addObservedChain, addObservedPassage, reachesGoal} from '../../frontend/reports-v1/flowObserved.js';
+import {pageKey, pagesByPath, undrawnOrigins, addObservedOrigins, observedPageDetail, observedPassageDetail, addObservedChain, addObservedPassage, reachesGoal} from '../../frontend/reports-v1/flowObserved.js';
 
 const n = (id, type, extra = {}) => ({id, type, title: id, x: 0, y: 0, ...extra});
 const config = {nodes: [n('meta', 'source', {source: 'meta'}), n('home', 'page', {path: '/'}), n('contato', 'page', {path: '/Contato/'}),
@@ -36,7 +36,7 @@ test('an off-flow page detail finds the drawn steps around it and the most commo
   const detail = observedPageDetail(journeys, '/Solucoes/CTV/', config);
   assert.equal(detail.conversions, 3);
   assert.deepEqual(detail.best, {before: 'home', after: 'contato', conversions: 2,
-    pages: [{path: '/solucoes/ctv', title: '/solucoes/ctv'}, {path: '/cases', title: '/cases'}]});
+    pages: [{path: '/solucoes/ctv', host: null, key: '/solucoes/ctv', title: '/solucoes/ctv'}, {path: '/cases', host: null, key: '/cases', title: '/cases'}]});
   assert.deepEqual(detail.ways[1].before, null);
   const {config: next, created} = addObservedChain(config, detail.best);
   assert.equal(created.length, 2);
@@ -64,4 +64,19 @@ test('a passage between drawn steps counts conversions and links to the goal onl
   const loose = {...config, edges: [config.edges[0]]};
   const wired = addObservedPassage(loose, {from: 'home', to: 'contato', goalId: 'ok'});
   assert.deepEqual(wired.edges.slice(1).map(edge => [edge.from, edge.to]), [['home', 'contato'], ['contato', 'ok']]);
+});
+
+test('a page on another of the client domains stays apart from the same path on the flow domain', () => {
+  assert.equal(pageKey('/Contato/', 'www.site.com', 'site.com'), '/contato');
+  assert.equal(pageKey('/contato', 'loja.site.com', 'site.com'), 'loja.site.com/contato');
+  const draft = {nodes: [...config.nodes, n('loja', 'page', {path: '/contato', host: 'loja.site.com'})], edges: []};
+  const drafted = pagesByPath(draft, 'site.com');
+  assert.equal(drafted.get('/contato').id, 'contato');
+  assert.equal(drafted.get('loja.site.com/contato').id, 'loja');
+  const journeys = [{steps: [step('/'), {kind: 'page', path: '/oferta', host: 'loja.site.com', key: 'loja.site.com/oferta', title: 'Oferta'}, step('/contato')]}];
+  const detail = observedPageDetail(journeys, 'loja.site.com/oferta', draft, 'site.com');
+  assert.equal(detail.conversions, 1);
+  const {config: next, created} = addObservedChain(draft, detail.best, 'site.com');
+  assert.equal(next.nodes.find(node => node.id === created[0]).host, 'loja.site.com');
+  assert.equal(observedPageDetail(journeys, '/oferta', draft, 'site.com').conversions, 0, 'the same path on the flow domain is another page');
 });

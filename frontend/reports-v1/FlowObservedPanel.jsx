@@ -14,7 +14,7 @@ const POSITIONS={start:'no início da visita',middle:'no meio da visita',eve:'lo
  * Reads the published period (all publications, current drawing); the draft can differ, so every item is checked
  * against the draft before it is offered.
  */
-export function FlowObserved({flowId,days,journey,config,readOnly,onChange,onSelectNode,onNotify}){
+export function FlowObserved({flowId,days,journey,config,host,readOnly,onChange,onSelectNode,onNotify}){
   const [open,setOpen]=useState(false);
   const [detail,setDetail]=useState(null);
   const ready=journey?.status==='ready';
@@ -30,9 +30,9 @@ export function FlowObserved({flowId,days,journey,config,readOnly,onChange,onSel
     return (journey.suggestions||[]).filter(item=>byId.has(item.from)&&byId.has(item.to)&&!drawn.has(`${item.from}>${item.to}`));
   },[ready,journey,config.edges,byId]);
   const pages=useMemo(()=>{
-    const drafted=pagesByPath(config);
-    return (influence.data?.off_flow||[]).filter(row=>!drafted.has(normPath(row.path)));
-  },[influence.data,config]);
+    const drafted=pagesByPath(config,host);
+    return (influence.data?.off_flow||[]).filter(row=>!drafted.has(row.key||normPath(row.path)));
+  },[influence.data,config,host]);
   const goals=goalNodes(config);
   const total=origins.length+passages.length+pages.length;
   if(!flowId||!ready||!total)return null;
@@ -55,7 +55,7 @@ export function FlowObserved({flowId,days,journey,config,readOnly,onChange,onSel
       <Button color="primary" disabled={readOnly} onClick={()=>addAllOrigins([origin])}>Adicionar esta origem</Button>
     </section>:null;
   }else if(detail?.type==='passage'){
-    const facts=observedPassageDetail(journeys,detail.from,detail.to,config);
+    const facts=observedPassageDetail(journeys,detail.from,detail.to,config,host);
     const goal=goals[0];
     body=<section className="flow-observed__detail">
       <h3>{title(detail.from)} → {title(detail.to)}</h3>
@@ -64,20 +64,20 @@ export function FlowObserved({flowId,days,journey,config,readOnly,onChange,onSel
       <Button color="primary" disabled={readOnly} onClick={()=>apply(addObservedPassage(config,{from:detail.from,to:detail.to,goalId:goal?.id}),'Caminho observado adicionado ao rascunho. Revise antes de publicar.',detail.to)}>{facts.reaches_goal||!goal?'Adicionar a ligação':'Adicionar a ligação até o objetivo'}</Button>
     </section>;
   }else if(detail?.type==='page'){
-    const row=pages.find(item=>item.path===detail.path);
-    const facts=observedPageDetail(journeys,detail.path,config);
+    const row=pages.find(item=>(item.key||item.path)===detail.key);
+    const facts=observedPageDetail(journeys,detail.key,config,host);
     const goal=goals[0];
     // The page itself keeps the name the site catalog gives it; the journey only knows the address.
-    const best=facts.best&&{...facts.best,pages:facts.best.pages.map(page=>page.path===row?.path?{...page,title:row.title}:page)};
+    const best=facts.best&&{...facts.best,pages:facts.best.pages.map(page=>page.key===detail.key?{...page,title:row?.title||page.title}:page)};
     const way=best?[best.before?title(best.before):'Início da visita',...best.pages.map(page=>page.title),best.after?title(best.after):goal?.title||'Conversão']:[];
     body=row?<section className="flow-observed__detail">
-      <h3>{row.title}</h3><small>{row.path}</small>
+      <h3>{row.title}</h3><small>{row.host?`${row.host}${row.path}`:row.path}</small>
       <p>{[row.assisted&&`${count(row.assisted)} ${row.assisted===1?'conversão':'conversões'} passaram por ela na mesma visita`,row.assisted_prior&&`${count(row.assisted_prior)} em uma visita anterior`].filter(Boolean).join(' · ')}.{row.position?` Costuma aparecer ${POSITIONS[row.position]}.`:''}{row.rate_with!=null?` ${row.rate_with}% de quem a viu converteu (sem ela: ${row.rate_without}%).`:''}</p>
       {best?<><strong>Caminho mais comum ({count(best.conversions)} de {count(facts.conversions)})</strong><p className="flow-journey-panel__steps">{way.map((label,index)=><span key={index} className={index>0&&index<=best.pages.length?'is-off-flow':''}>{label}</span>)}</p>
         {facts.ways.length>1&&<small>Outros {facts.ways.length-1} caminhos passam por ela.</small>}</>:<p>{conversions.loading?'Lendo as conversões…':'Ela só aparece em visitas anteriores das conversões: entra no rascunho como etapa solta.'}</p>}
       <div className="flow-observed__actions">
-        {best&&<Button color="primary" disabled={readOnly} onClick={()=>{const {config:next,created}=addObservedChain(config,{...best,goalId:goal?.id});apply(next,`${created.length} ${created.length===1?'etapa criada':'etapas criadas'} no caminho até ${best.after?title(best.after):goal?.title||'o objetivo'}. Revise antes de publicar.`,created[0]);}}>{best.pages.length>1?`Criar o caminho (${best.pages.length} páginas) até o objetivo`:'Criar a etapa no caminho até o objetivo'}</Button>}
-        <Button disabled={readOnly} onClick={()=>{const {config:next,created}=addObservedChain(config,{before:best?.before||null,pages:[{path:row.path,title:row.title}],after:null,goalId:null});apply(next,'Página adicionada ao rascunho. Ligue-a às próximas etapas antes de publicar.',created[0]);}}>Só adicionar a página</Button>
+        {best&&<Button color="primary" disabled={readOnly} onClick={()=>{const {config:next,created}=addObservedChain(config,{...best,goalId:goal?.id},host);apply(next,`${created.length} ${created.length===1?'etapa criada':'etapas criadas'} no caminho até ${best.after?title(best.after):goal?.title||'o objetivo'}. Revise antes de publicar.`,created[0]);}}>{best.pages.length>1?`Criar o caminho (${best.pages.length} páginas) até o objetivo`:'Criar a etapa no caminho até o objetivo'}</Button>}
+        <Button disabled={readOnly} onClick={()=>{const {config:next,created}=addObservedChain(config,{before:best?.before||null,pages:[{path:row.path,host:row.host,title:row.title}],after:null,goalId:null},host);apply(next,'Página adicionada ao rascunho. Ligue-a às próximas etapas antes de publicar.',created[0]);}}>Só adicionar a página</Button>
       </div>
     </section>:null;
   }
@@ -92,7 +92,7 @@ export function FlowObserved({flowId,days,journey,config,readOnly,onChange,onSel
         {passages.length>0&&<section className="flow-observed__group"><header><h3>Caminhos observados fora do desenho</h3></header>
           <ul>{passages.map(item=><li key={`${item.from}>${item.to}`}><button type="button" className="flow-observed__item is-alert" onClick={()=>setDetail({type:'passage',...item})}><b>{title(item.from)} → {title(item.to)}</b><small>{sessions(item.sessions)}{reachesGoal(config,item.to)?'':' · não leva ao objetivo'}</small></button></li>)}</ul></section>}
         {pages.length>0&&<section className="flow-observed__group"><header><h3>Páginas fora do desenho nas conversões</h3></header>
-          <ul>{pages.map(row=><li key={row.path}><button type="button" className="flow-observed__item is-alert" onClick={()=>setDetail({type:'page',path:row.path})}><b>{row.title}</b><small>{row.path} · {count(row.assisted+row.assisted_prior)} {row.assisted+row.assisted_prior===1?'conversão':'conversões'}</small></button></li>)}</ul></section>}
+          <ul>{pages.map(row=><li key={row.key||row.path}><button type="button" className="flow-observed__item is-alert" onClick={()=>setDetail({type:'page',key:row.key||normPath(row.path)})}><b>{row.title}</b><small>{row.host?`${row.host}${row.path}`:row.path} · {count(row.assisted+row.assisted_prior)} {row.assisted+row.assisted_prior===1?'conversão':'conversões'}</small></button></li>)}</ul></section>}
         <small className="flow-observed__hint">É associação observada, não prova de causa.</small>
       </>}
     </ReportsPanelShell>}

@@ -49,25 +49,38 @@ def off_flow_group(path):
     return '/' if not segments else f'/{segments[0]}' if len(segments) == 1 else f'/{segments[0]}/*'
 
 
-def collapse_steps(events, nodes_by_id, titles, conversion_id):
+def page_key(path, host=None):
+    """Identity of a page in a journey: its path on the flow's own domain, ``host + path`` on another of the client's."""
+    return f'{host}{normalize_path(path)}' if host else normalize_path(path)
+
+
+def _other_host(host, site_host):
+    host = normalize_host(host)
+    return host if host and host != site_host else None
+
+
+def collapse_steps(events, nodes_by_id, titles, conversion_id, site_host=''):
     """The visible steps of one converting session, up to and including the conversion event.
 
     Repeated views of the same page in a row are one step; page_leave only adds active time to the step it closes.
+    A page on another of the client's domains keeps that domain in ``host`` and in its ``key``.
     """
     steps = []
     for event in events:
+        key = page_key(event['page_path'], _other_host(event.get('page_host'), site_host))
         if event['event_kind'] == 'page_leave':
-            if steps and steps[-1]['path'] == normalize_path(event['page_path']) and event.get('duration_ms'):
+            if steps and steps[-1]['key'] == key and event.get('duration_ms'):
                 steps[-1]['seconds'] = round((steps[-1].get('seconds') or 0) + event['duration_ms'] / 1000)
             continue
         node = nodes_by_id.get(event.get('node_id'))
-        path = normalize_path(event['page_path'])
+        path, host = normalize_path(event['page_path']), _other_host(event.get('page_host'), site_host)
         kind = {'form_submit': 'form', 'whatsapp_click': 'whatsapp'}.get(event['event_kind'], 'page')
-        if steps and steps[-1]['path'] == path and steps[-1]['kind'] == kind and steps[-1].get('node_id') == (node or {}).get('id'):
+        if steps and steps[-1]['key'] == key and steps[-1]['kind'] == kind and steps[-1].get('node_id') == (node or {}).get('id'):
             if event['id'] == conversion_id:
                 steps[-1]['goal'] = True
             continue
-        step = {'path': path, 'kind': kind, 'title': (node or {}).get('title') or titles.get(path) or path,
+        step = {'path': path, 'host': host, 'key': key, 'kind': kind,
+                'title': (node or {}).get('title') or (key if host else titles.get(path) or path),
                 'node_id': node['id'] if node else None, 'off_flow': node is None}
         if event['id'] == conversion_id:
             step['goal'] = True
@@ -76,7 +89,7 @@ def collapse_steps(events, nodes_by_id, titles, conversion_id):
             break
     if len(steps) > MAX_STEPS:
         hidden = len(steps) - 29
-        steps = steps[:10] + [{'kind': 'gap', 'hidden': hidden, 'path': None, 'title': f'+{hidden} passos', 'off_flow': True}] + steps[-19:]
+        steps = steps[:10] + [{'kind': 'gap', 'hidden': hidden, 'path': None, 'host': None, 'key': None, 'title': f'+{hidden} passos', 'off_flow': True}] + steps[-19:]
     return steps
 
 
@@ -95,7 +108,7 @@ def path_signature(steps):
         if step['kind'] == 'gap':
             label = '…'
         elif step['off_flow']:
-            label = off_flow_group(step['path'])
+            label = (step.get('host') or '') + off_flow_group(step['path'])
         else:
             label = step['title']
         if not signature or signature[-1] != label:
@@ -118,8 +131,8 @@ def _position(index, length):
 def page_influence(journeys, page_sessions, total_sessions, flow_paths, nodes_by_path, titles, compare=True):
     """Per page: conversions it took part in (same session or an earlier visit), share, position and rates.
 
-    ``page_sessions`` maps a normalized path to the sessions that saw it in the period. Rates are compared only on a
-    sample large enough; below it the counts stand alone.
+    Pages are keyed by page_key: ``page_sessions``, ``flow_paths`` and ``nodes_by_path`` use the same keys. Rates are
+    compared only on a sample large enough; below it the counts stand alone.
     """
     total = len(journeys)
     stats = {}
@@ -127,23 +140,28 @@ def page_influence(journeys, page_sessions, total_sessions, flow_paths, nodes_by
         pages = [step for step in journey['steps'] if step['kind'] == 'page' and not step.get('goal')]
         seen = set()
         for index, step in enumerate(pages):
-            if step['path'] in seen:
+            key = step.get('key') or step['path']
+            if key in seen:
                 continue
-            seen.add(step['path'])
-            item = stats.setdefault(step['path'], {'assisted': 0, 'assisted_prior': 0, 'positions': Counter()})
+            seen.add(key)
+            item = stats.setdefault(key, {'assisted': 0, 'assisted_prior': 0, 'positions': Counter(),
+                                          'path': step['path'], 'host': step.get('host')})
             item['assisted'] += 1
             item['positions'][_position(index, len(pages))] += 1
-        prior = {normalize_path(path) for session in journey.get('prior_sessions', []) for path in session.get('pages', [])} - seen
-        for path in prior:
-            stats.setdefault(path, {'assisted': 0, 'assisted_prior': 0, 'positions': Counter()})['assisted_prior'] += 1
+        prior = {page for session in journey.get('prior_sessions', []) for page in session.get('page_keys', session.get('pages', []))} - seen
+        for key in prior:
+            host, _, rest = key.partition('/') if not key.startswith('/') else ('', '', key[1:])
+            stats.setdefault(key, {'assisted': 0, 'assisted_prior': 0, 'positions': Counter(),
+                                   'path': '/' + rest, 'host': host or None})['assisted_prior'] += 1
     # A capped read has fewer conversions than sessions show, so its rates would be understated.
     compare = compare and total >= MIN_RATE_CONVERSIONS
     rows = []
-    for path, item in stats.items():
-        sessions = int(page_sessions.get(path) or 0)
-        node = nodes_by_path.get(path)
-        row = {'path': path, 'title': (node or {}).get('title') or titles.get(path) or path,
-               'node_id': node['id'] if node else None, 'in_flow': path in flow_paths,
+    for key, item in stats.items():
+        sessions = int(page_sessions.get(key) or 0)
+        node = nodes_by_path.get(key)
+        row = {'key': key, 'path': item['path'], 'host': item['host'],
+               'title': (node or {}).get('title') or (key if item['host'] else titles.get(item['path']) or item['path']),
+               'node_id': node['id'] if node else None, 'in_flow': key in flow_paths,
                'assisted': item['assisted'], 'assisted_prior': item['assisted_prior'],
                'share': round(100 * item['assisted'] / total, 1) if total else None,
                'position': item['positions'].most_common(1)[0][0] if item['positions'] else None,
@@ -152,7 +170,7 @@ def page_influence(journeys, page_sessions, total_sessions, flow_paths, nodes_by
             row['rate_with'] = round(100 * item['assisted'] / sessions, 1)
             row['rate_without'] = round(100 * max(0, total - item['assisted']) / (total_sessions - sessions), 1)
         rows.append(row)
-    rows.sort(key=lambda row: (-(row['assisted'] + row['assisted_prior']), -(row['share'] or 0), row['path']))
+    rows.sort(key=lambda row: (-(row['assisted'] + row['assisted_prior']), -(row['share'] or 0), row['key']))
     return rows
 
 
@@ -194,6 +212,7 @@ def build_journeys(flow, client_id, start, end, limit, before=None):
     nodes = [node for node in config.get('nodes', []) if isinstance(node, dict) and node.get('id')]
     nodes_by_id = {node['id']: node for node in nodes}
     titles = _Titles(_titles(client_id, flow['allowed_host']))
+    site_host = normalize_host(flow['allowed_host'])
     if not goal_ids:
         return [], goal_ids, nodes_by_id, titles, False
     node_json = node_match_json(config)
@@ -220,7 +239,7 @@ def build_journeys(flow, client_id, start, end, limit, before=None):
         by_session.setdefault(str(event['session_id']), []).append(event)
     # Earlier visits: only a visitor id that is not the session itself identifies a returning person.
     visitors = sorted({str(row['visitor_id']) for row in conversions if row['visitor_id'] and row['visitor_id'] != row['session_id']})
-    prior_rows = _rows(f"""SELECT session_id,visitor_id,page_path,event_kind,occurred_at,{_ORIGIN} AS origin
+    prior_rows = _rows(f"""SELECT session_id,visitor_id,page_host,page_path,event_kind,occurred_at,{_ORIGIN} AS origin
         FROM cadu_reports_flow_events
         WHERE client_id=%s AND tag_id=%s AND visitor_id=ANY(%s::uuid[])
           AND occurred_at>=%s AND occurred_at<%s AND event_kind IN ('page_view','conversion','error_view')
@@ -230,9 +249,9 @@ def build_journeys(flow, client_id, start, end, limit, before=None):
     for row in prior_rows:
         visits = prior_by_visitor.setdefault(str(row['visitor_id']), {})
         visit = visits.setdefault(str(row['session_id']), {'started_at': row['occurred_at'], 'origin': row['origin'], 'pages': []})
-        path = normalize_path(row['page_path'])
-        if len(visit['pages']) < PRIOR_PAGES and (not visit['pages'] or visit['pages'][-1] != path):
-            visit['pages'].append(path)
+        key = page_key(row['page_path'], _other_host(row.get('page_host'), site_host))
+        if len(visit['pages']) < PRIOR_PAGES and (not visit['pages'] or visit['pages'][-1] != key):
+            visit['pages'].append(key)
     journeys = []
     for row in conversions:
         session_events = by_session.get(str(row['session_id']), [])
@@ -248,7 +267,7 @@ def build_journeys(flow, client_id, start, end, limit, before=None):
                          'identified': visitor is not None,
                          'origin': journey_origins(session_origin, prior),
                          'prior_sessions': prior,
-                         'steps': collapse_steps(session_events, nodes_by_id, titles, row['id'])})
+                         'steps': collapse_steps(session_events, nodes_by_id, titles, row['id'], site_host)})
     return journeys, goal_ids, nodes_by_id, titles, more
 
 
@@ -318,34 +337,39 @@ def register(bp):
             return jsonify(status='no_goal', window=window, pages=[], unused=[], thresholds=thresholds, notes=NOTES)
         config = flow.get('active_config') or {}
         host = normalize_host(flow['allowed_host'])
-        page_nodes = [node for node in nodes_by_id.values() if node.get('type') in ('page', 'form', 'conversion', 'error')
-                      and node.get('path') and normalize_host(node.get('host') or host) == host]
+        # Every drawn page, on any of the client's domains, keyed like the journey steps.
+        page_nodes = [node for node in nodes_by_id.values() if node.get('type') in ('page', 'form', 'conversion', 'error') and node.get('path')]
+        node_key = lambda node: page_key(node['path'], _other_host(node.get('host'), host))
         nodes_by_path = {}
         for node in sorted(page_nodes, key=lambda node: node.get('type') != 'page'):
-            nodes_by_path.setdefault(normalize_path(node['path']), node)
+            nodes_by_path.setdefault(node_key(node), node)
         flow_paths = set(nodes_by_path)
         counts = _rows(matched_events_cte('e.client_id=%s AND e.tag_id=%s AND e.occurred_at>=%s AND e.occurred_at<%s', _COLUMNS) +
-                       ", views AS (SELECT session_id," + sql_normalized_path('page_path') + """ AS path FROM mapped
-                             WHERE event_kind IN ('page_view','conversion','error_view'))
-                          SELECT path,COUNT(DISTINCT session_id)::bigint AS sessions,
+                       ", views AS (SELECT session_id,REGEXP_REPLACE(LOWER(page_host),'^www[.]','') AS host," + sql_normalized_path('page_path') + """ AS path
+                             FROM mapped WHERE event_kind IN ('page_view','conversion','error_view'))
+                          SELECT host,path,COUNT(DISTINCT session_id)::bigint AS sessions,
                               (SELECT COUNT(DISTINCT session_id) FROM views)::bigint AS total
-                          FROM views GROUP BY path""",
+                          FROM views GROUP BY host,path""",
                        (node_match_json(config), selected['client_id'], flow['tag_id'], start, end))
-        page_sessions = {row['path']: int(row['sessions']) for row in counts}
+        page_sessions = {}
+        for row in counts:
+            key = page_key(row['path'], _other_host(row['host'], host))
+            page_sessions[key] = page_sessions.get(key, 0) + int(row['sessions'])
         total_sessions = int(counts[0]['total']) if counts else 0
         rows = page_influence(journeys, page_sessions, total_sessions, flow_paths, nodes_by_path, titles, compare=not truncated)
         off_flow = [row for row in rows if not row['in_flow'] and row['assisted'] + row['assisted_prior'] >= MIN_ASSISTED]
-        used = {row['path'] for row in rows if row['in_flow']}
-        conversion_paths = {normalize_path(nodes_by_id[node_id]['path']) for node_id in goal_ids}
-        unused = [{'node_id': node['id'], 'title': node.get('title') or path, 'path': path, 'sessions': page_sessions.get(path, 0)}
-                  for path, node in sorted(nodes_by_path.items()) if path not in used and path not in conversion_paths]
+        used = {row['key'] for row in rows if row['in_flow']}
+        conversion_keys = {node_key(nodes_by_id[node_id]) for node_id in goal_ids}
+        unused = [{'node_id': node['id'], 'title': node.get('title') or node['path'], 'path': node['path'], 'host': node.get('host'),
+                   'key': key, 'sessions': page_sessions.get(key, 0)}
+                  for key, node in sorted(nodes_by_path.items()) if key not in used and key not in conversion_keys]
         # Where an off-flow page would go: after the drawn step that most often comes right before it.
         for row in off_flow:
             before = Counter()
             for journey in journeys:
                 steps = [step for step in journey['steps'] if step['kind'] == 'page']
                 for previous, step in zip(steps, steps[1:]):
-                    if step['path'] == row['path'] and previous.get('node_id'):
+                    if step.get('key') == row['key'] and previous.get('node_id'):
                         before[previous['node_id']] += 1
             row['after_node_id'] = before.most_common(1)[0][0] if before else None
         return jsonify(status='ready', window=window, revision=flow.get('published_revision'),

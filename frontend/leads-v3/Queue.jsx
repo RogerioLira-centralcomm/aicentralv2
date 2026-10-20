@@ -1,5 +1,70 @@
-import React from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {Button, Chip, Empty, Icon, decode, potencialTone, prettyName} from './ui.jsx';
+
+const ORIGENS_FILTRO = [['site', 'Vieram do site'], ['adicionados', 'Adicionados pela equipe']];
+
+/** Etapa, potencial e origem num menu: a coluna fica com uma linha só de filtros. */
+function FilterMenu({boot, filters, setFilters}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const ativos = ['status', 'potencial', 'origem'].filter(k => filters[k]).length;
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = event => { if (event.type === 'keydown' ? event.key === 'Escape' : !ref.current?.contains(event.target)) setOpen(false); };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', close);
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', close); };
+  }, [open]);
+  const set = key => event => setFilters(f => ({...f, [key]: event.target.value}));
+  return (
+    <div className="lv3-menu" ref={ref}>
+      <button type="button" className={`lv3-filterbtn ${ativos ? 'is-on' : ''}`} onClick={() => setOpen(o => !o)} aria-expanded={open} aria-label="Mais filtros">
+        <Icon name="sliders"/>{ativos ? <span className="lv3-filterbtn__count">{ativos}</span> : 'Filtros'}
+      </button>
+      {open && (
+        <div className="lv3-menu__list lv3-filtermenu" role="dialog" aria-label="Filtros">
+          <label className="lv3-field"><span className="lv3-field__label">Etapa</span>
+            <select className="lv3-select" value={filters.status} onChange={set('status')}>
+              <option value="">Todas</option>
+              {boot.status.map(st => <option key={st.value} value={st.value}>{st.label}</option>)}
+            </select></label>
+          <label className="lv3-field"><span className="lv3-field__label">Potencial</span>
+            <select className="lv3-select" value={filters.potencial} onChange={set('potencial')}>
+              <option value="">Todos</option>
+              {boot.potenciais.map(pt => <option key={pt.value} value={pt.value}>{pt.label}</option>)}
+            </select></label>
+          <label className="lv3-field"><span className="lv3-field__label">Origem</span>
+            <select className="lv3-select" value={filters.origem || ''} onChange={set('origem')}>
+              <option value="">Todas</option>
+              {ORIGENS_FILTRO.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select></label>
+          {ativos > 0 && (
+            <button type="button" className="lv3-link" onClick={() => setFilters(f => ({...f, status: '', potencial: '', origem: ''}))}>Limpar filtros</button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Filtros ativos como etiquetas removíveis (só aparece quando há algum). */
+function ActiveFilters({boot, filters, setFilters}) {
+  const tags = [
+    filters.status && ['status', boot.status.find(x => x.value === filters.status)?.label || filters.status],
+    filters.potencial && ['potencial', `Potencial ${boot.potenciais.find(x => x.value === filters.potencial)?.label || filters.potencial}`],
+    filters.origem && ['origem', ORIGENS_FILTRO.find(([v]) => v === filters.origem)?.[1] || filters.origem],
+  ].filter(Boolean);
+  if (!tags.length) return null;
+  return (
+    <div className="lv3-activefilters">
+      {tags.map(([k, label]) => (
+        <button key={k} type="button" className="lv3-activefilter" onClick={() => setFilters(f => ({...f, [k]: ''}))} aria-label={`Remover filtro ${label}`}>
+          {label}<Icon name="xmark"/>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 /** Barra que substitui o cabeçalho da fila enquanto há leads selecionados. */
 function BulkBar({boot, count, total, busy, onAction, onDisqualify, onClear, onSelectAll}) {
@@ -94,34 +159,24 @@ export function Queue({boot, leads, loading, error, filters, setFilters, activeI
           <Icon name="bullseye"/>Golden Circle
         </button>
       </div>
-      <div className="lv3-queue__filters">
-        {mode === 'fila' && <div className="lv3-search">
-          <Icon name="magnifying-glass"/>
-          <input type="search" placeholder="Buscar empresa, nome ou e-mail" value={filters.q} onChange={set('q')} aria-label="Buscar leads"/>
-        </div>}
-        <div className={`lv3-queue__selects ${mode === 'golden' ? 'lv3-queue__selects--single' : ''}`}>
-          <select className="lv3-select" value={filters.executivo} onChange={set('executivo')} aria-label="Responsável">
-            <option value="">Todos os responsáveis</option>
-            <option value="sem">Sem responsável (Inbox)</option>
+      <div className="lv3-queue__filters lv3-queue__filters--row">
+        {mode === 'fila' && (
+          <div className="lv3-search lv3-search--sm">
+            <Icon name="magnifying-glass"/>
+            <input type="search" placeholder="Buscar" value={filters.q} onChange={set('q')} aria-label="Buscar empresa, nome ou e-mail"/>
+          </div>
+        )}
+        <label className={`lv3-pill-select lv3-pill-select--lg lv3-queue__owner ${filters.executivo ? 'is-set' : ''}`} title="Responsável">
+          <Icon name="user"/>
+          <select value={filters.executivo} onChange={set('executivo')} aria-label="Responsável">
+            <option value="">Todos</option>
+            <option value="sem">Sem responsável</option>
             {boot.executivos.map(e => <option key={e.id} value={String(e.id)}>{e.nome}</option>)}
           </select>
-          {mode === 'fila' && <>
-          <select className="lv3-select" value={filters.status} onChange={set('status')} aria-label="Etapa">
-            <option value="">Todas as etapas</option>
-            {boot.status.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </select>
-          <select className="lv3-select" value={filters.potencial} onChange={set('potencial')} aria-label="Potencial">
-            <option value="">Todo potencial</option>
-            {boot.potenciais.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-          </select>
-          <select className="lv3-select lv3-queue__origin" value={filters.origem || ''} onChange={set('origem')} aria-label="Origem">
-            <option value="">Todas as origens</option>
-            <option value="site">Vieram do site (formulários)</option>
-            <option value="adicionados">Adicionados pela equipe</option>
-          </select>
-          </>}
-        </div>
+        </label>
+        {mode === 'fila' && <FilterMenu boot={boot} filters={filters} setFilters={setFilters}/>}
       </div>
+      {mode === 'fila' && <ActiveFilters boot={boot} filters={filters} setFilters={setFilters}/>}
 
       {mode === 'golden' ? children : <>
       {someSelected ? (

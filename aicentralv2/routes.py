@@ -15274,33 +15274,14 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     @app.route('/leads')
     @login_required
     def leads_list():
-        """Página principal do dashboard de leads"""
-        try:
-            executivos = db.obter_vendedores_centralcomm(incluir_usuario_comercial=True) or []
-            tipos_cliente = db.obter_tipos_cliente() or []
-            agencias = db.obter_aux_agencia() or []
-            estados = db.obter_estados() or []
-            return render_template('cadu_leads.html',
-                                   executivos=executivos,
-                                   tipos_cliente=tipos_cliente,
-                                   agencias=agencias,
-                                   estados=estados)
-        except Exception as e:
-            app.logger.error(f"Erro ao carregar página de leads: {e}")
-            flash('Erro ao carregar leads.', 'error')
-            return render_template('cadu_leads.html', executivos=[], tipos_cliente=[], agencias=[], estados=[])
+        """A tela antiga de leads foi substituída pela mesa Leads v3."""
+        return redirect(url_for('leads_v3.pagina'))
 
     @app.route('/leads/analise')
     @login_required
     def leads_analise():
-        """Página de análise de leads"""
-        try:
-            executivos = db.obter_vendedores_centralcomm() or []
-            return render_template('leads_analise.html', executivos=executivos)
-        except Exception as e:
-            app.logger.error(f"Erro ao carregar análise de leads: {e}")
-            flash('Erro ao carregar análise.', 'error')
-            return render_template('leads_analise.html', executivos=[])
+        """A análise de leads agora é uma visão da mesa Leads v3."""
+        return redirect(url_for('leads_v3.pagina', vista='analise'))
 
     @app.route('/api/leads/analise')
     @login_required

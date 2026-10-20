@@ -340,3 +340,229 @@ export function GoldenAddDialog({boot, api, trimestre, executivo, onCancel, onDo
     </Modal>
   );
 }
+
+/** Importação em massa: cola texto livre (ou sobe .csv/.txt), a IA organiza por empresa, revisa e importa. */
+export function ImportDialog({boot, api, onCancel, onDone, notify}) {
+  const [texto, setTexto] = useState('');
+  const [exec, setExec] = useState(boot.user?.id && boot.executivos.some(e => e.id === boot.user.id) ? String(boot.user.id) : '');
+  const [fonte, setFonte] = useState('import');
+  const [linhas, setLinhas] = useState(null); // [{empresa, contatos, incluir}]
+  const [busy, setBusy] = useState('');
+  const lerArquivo = event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) return notify('Arquivo grande demais (máx. 2 MB). Cole o conteúdo ou divida o arquivo.', 'error');
+    const reader = new FileReader();
+    reader.onload = () => setTexto(String(reader.result || ''));
+    reader.readAsText(file, 'utf-8');
+  };
+  const processar = async () => {
+    if (!texto.trim()) return notify('Cole a lista ou escolha um arquivo.', 'error');
+    setBusy('ler');
+    try {
+      const leads = await api.importParse(texto);
+      if (!leads.length) notify('A IA não encontrou empresas ou pessoas no texto.', 'error');
+      setLinhas(leads.map(l => ({...l, incluir: true})));
+    } catch (error) { notify(error.message, 'error'); } finally { setBusy(''); }
+  };
+  const selecionadas = (linhas || []).filter(l => l.incluir && String(l.empresa || '').trim());
+  const importar = async () => {
+    setBusy('importar');
+    try {
+      const r = await api.importConfirm({leads: selecionadas.map(({incluir, ...l}) => l), id_executivo: exec ? Number(exec) : null, tipo_lead: 'cliente', fonte});
+      onDone(r.total ?? selecionadas.length);
+    } catch (error) { notify(error.message, 'error'); setBusy(''); }
+  };
+  const editar = (i, campo, valor) => setLinhas(ls => ls.map((l, j) => (j === i ? {...l, [campo]: valor} : l)));
+
+  return (
+    <Modal title="Importar leads em massa" onClose={onCancel} width={760}
+      footer={linhas ? <>
+        <Button onClick={() => setLinhas(null)} disabled={!!busy}>Voltar</Button>
+        <Button variant="primary" icon="file-import" onClick={importar} disabled={!!busy || !selecionadas.length}>
+          {busy === 'importar' ? 'Importando…' : `Importar ${selecionadas.length} ${selecionadas.length === 1 ? 'empresa' : 'empresas'}`}
+        </Button>
+      </> : <>
+        <Button onClick={onCancel} disabled={!!busy}>Cancelar</Button>
+        <Button variant="ai" icon="wand-magic-sparkles" onClick={processar} disabled={!!busy}>{busy === 'ler' ? 'Organizando com IA…' : 'Organizar com IA'}</Button>
+      </>}>
+      {!linhas ? (
+        <>
+          <p className="lv3-muted">Cole uma lista em qualquer formato: planilha copiada, assinatura de e-mail, anotações. A IA separa empresas e pessoas (nome, cargo, e-mail, telefone) e você revisa antes de importar.</p>
+          <Field label="Lista" wide>
+            <textarea className="lv3-input lv3-textarea lv3-textarea--tall" value={texto} onChange={e => setTexto(e.target.value)}
+              placeholder={'Gerdau\nAna Lima — Gerente de Mídia — ana.lima@gerdau.com.br — (31) 99999-0000\n\nVale; Bruno Reis; Head de Marketing; bruno@vale.com'}/>
+          </Field>
+          <div className="lv3-form__grid">
+            <Field label="Ou um arquivo (.csv ou .txt)"><input className="lv3-input lv3-input--file" type="file" accept=".csv,.txt,text/csv,text/plain" onChange={lerArquivo}/></Field>
+            <Field label="Responsável">
+              <select className="lv3-select" value={exec} onChange={e => setExec(e.target.value)}>
+                <option value="">Sem responsável</option>
+                {boot.executivos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+              </select>
+            </Field>
+            <Field label="Origem">
+              <select className="lv3-select" value={fonte} onChange={e => setFonte(e.target.value)}>
+                <option value="import">Importação (lista da equipe)</option>
+                <option value="evento">Evento</option>
+                <option value="indicacao">Indicação</option>
+                <option value="manual">Manual</option>
+              </select>
+            </Field>
+          </div>
+        </>
+      ) : (
+        <ul className="lv3-import">
+          {linhas.map((l, i) => (
+            <li key={i} className={`lv3-import__item ${l.incluir ? '' : 'is-off'}`}>
+              <input type="checkbox" checked={l.incluir} onChange={e => editar(i, 'incluir', e.target.checked)} aria-label={`Importar ${l.empresa}`}/>
+              <div>
+                <input className="lv3-input lv3-input--sm" value={l.empresa || ''} onChange={e => editar(i, 'empresa', e.target.value)} aria-label="Empresa"/>
+                <ul className="lv3-import__people">
+                  {(l.contatos || []).map((c, j) => (
+                    <li key={j}>{c.nome || 'Sem nome'}{c.cargo ? ` · ${c.cargo}` : ''}{c.email ? ` · ${c.email}` : ''}{c.telefone ? ` · ${c.telefone}` : ''}</li>
+                  ))}
+                  {!(l.contatos || []).length && <li className="lv3-muted">Sem pessoas</li>}
+                </ul>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Modal>
+  );
+}
+
+/** Lê o site da empresa com IA (Firecrawl): descrição, segmento, serviços, redes, oportunidades e pessoas. */
+export function ExtractDialog({api, lead, onCancel, onDone, notify}) {
+  const inicial = lead.url_site || (lead.dominio ? `https://${lead.dominio}` : '');
+  const [url, setUrl] = useState(inicial);
+  const [res, setRes] = useState(null);
+  const [busy, setBusy] = useState('');
+  const [adicionados, setAdicionados] = useState(() => new Set());
+  const ler = async event => {
+    event?.preventDefault();
+    if (!url.trim()) return notify('Informe o site da empresa.', 'error');
+    setBusy('ler');
+    try { setRes(await api.extractSite(lead.id, /^https?:/.test(url) ? url.trim() : `https://${url.trim()}`)); }
+    catch (error) { notify(error.message, 'error'); } finally { setBusy(''); }
+  };
+  const salvar = async () => {
+    const d = res.dados;
+    let favicon = '';
+    try { favicon = `https://www.google.com/s2/favicons?domain=${new URL(res.url).hostname}&sz=64`; } catch { /* sem favicon */ }
+    setBusy('salvar');
+    try {
+      // salvar-dados-extraidos grava todos os campos de uma vez: manda o conjunto completo.
+      await api.saveExtracted(lead.id, {
+        url_site: res.url, descricao_empresa: d.descricao || '', segmento: d.segmento || lead.segmento || '',
+        redes_sociais: d.redes_sociais || {}, servicos: d.servicos || [], clientes_mencionados: d.clientes_mencionados || [],
+        dados_extraidos: d, favicon_url: favicon, porte_estimado: d.porte_estimado || '', mercado_alvo: d.mercado_alvo || '',
+        presenca_digital: d.presenca_digital || '', oportunidades_midia: d.oportunidades_midia || '', premios_certificacoes: d.premios_certificacoes || [],
+      });
+      onDone();
+    } catch (error) { notify(error.message, 'error'); setBusy(''); }
+  };
+  const addPessoa = async (c, i) => {
+    try {
+      await api.addContact(lead.id, {nome: c.nome || '', cargo: c.cargo || '', email: c.email || '', telefone: c.telefone || ''});
+      setAdicionados(s => new Set(s).add(i));
+      notify(`${c.nome || 'Pessoa'} adicionada.`);
+    } catch (error) { notify(error.message, 'error'); }
+  };
+  const d = res?.dados || {};
+  const pessoas = (d.contatos_encontrados || []).filter(c => c.nome);
+  return (
+    <Modal title="Ler o site da empresa" onClose={onCancel} width={720}
+      footer={res ? <>
+        <Button onClick={() => setRes(null)} disabled={!!busy}>Ler outro endereço</Button>
+        <Button variant="primary" icon="floppy-disk" onClick={salvar} disabled={!!busy}>{busy === 'salvar' ? 'Salvando…' : 'Salvar no lead'}</Button>
+      </> : <>
+        <Button onClick={onCancel} disabled={!!busy}>Cancelar</Button>
+        <Button variant="ai" icon="wand-magic-sparkles" type="submit" form="lv3-extract-form" disabled={!!busy}>{busy === 'ler' ? 'Lendo o site…' : 'Ler com IA'}</Button>
+      </>}>
+      {!res ? (
+        <form id="lv3-extract-form" onSubmit={ler}>
+          <Field label="Site" wide><input className="lv3-input" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://www.empresa.com.br" autoFocus/></Field>
+          <p className="lv3-muted">Lê a página e resume quem é a empresa, o que vende, presença digital, oportunidades de mídia e pessoas citadas. Leva alguns segundos.</p>
+        </form>
+      ) : (
+        <div className="lv3-extract">
+          {d.descricao && <p>{d.descricao}</p>}
+          <dl className="lv3-infos">
+            {d.segmento && <div className="lv3-info"><dt>Segmento</dt><dd>{d.segmento}</dd></div>}
+            {d.porte_estimado && <div className="lv3-info"><dt>Porte</dt><dd>{d.porte_estimado}</dd></div>}
+            {d.mercado_alvo && <div className="lv3-info lv3-info--wide"><dt>Mercado-alvo</dt><dd>{d.mercado_alvo}</dd></div>}
+            {d.oportunidades_midia && <div className="lv3-info lv3-info--wide"><dt>Oportunidades de mídia</dt><dd>{d.oportunidades_midia}</dd></div>}
+            {(d.servicos || []).length > 0 && <div className="lv3-info lv3-info--wide"><dt>Serviços</dt><dd><span className="lv3-tags">{d.servicos.map(s => <span key={s} className="lv3-tag">{s}</span>)}</span></dd></div>}
+          </dl>
+          {pessoas.length > 0 && (
+            <>
+              <h4 className="lv3-comms__title">Pessoas citadas no site</h4>
+              <ul className="lv3-candidates">
+                {pessoas.map((c, i) => (
+                  <li key={i} className="lv3-candidate">
+                    <div className="lv3-candidate__body">
+                      <div className="lv3-candidate__name"><span>{c.nome}</span></div>
+                      <div className="lv3-candidate__role">{[c.cargo, c.email, c.telefone].filter(Boolean).join(' · ') || 'Sem detalhes'}</div>
+                    </div>
+                    <div className="lv3-candidate__actions">
+                      {adicionados.has(i) ? <span className="lv3-muted">Adicionada</span>
+                        : <Button size="xs" variant="primary" icon="plus" onClick={() => addPessoa(c, i)}>Adicionar</Button>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+/** Mesclar um lead duplicado neste: tudo do duplicado vem para cá e ele é apagado. */
+export function MergeDialog({api, lead, onCancel, onDone, notify}) {
+  const [q, setQ] = useState(decode(lead.empresa || lead.nome || '').split(' ')[0] || '');
+  const [res, setRes] = useState([]);
+  const [escolhido, setEscolhido] = useState(null);
+  const [busy, setBusy] = useState('');
+  const buscar = async event => {
+    event?.preventDefault();
+    setBusy('buscar');
+    try {
+      const data = await api.listLeads({q, executivo: ''});
+      setRes(data.leads.filter(l => l.id !== lead.id).slice(0, 20));
+    } catch (error) { notify(error.message, 'error'); } finally { setBusy(''); }
+  };
+  const mesclar = async () => {
+    if (!window.confirm(`Mesclar "${decode(escolhido.nome_lead)}" em "${decode(lead.empresa || lead.nome)}"? O duplicado será apagado depois de mover pessoas, histórico, comunicações e cadências.`)) return;
+    setBusy('mesclar');
+    try { const r = await api.merge(lead.id, escolhido.id); onDone(r); }
+    catch (error) { notify(error.message, 'error'); setBusy(''); }
+  };
+  return (
+    <Modal title="Mesclar lead duplicado" onClose={onCancel} width={600}
+      footer={<>
+        <Button onClick={onCancel} disabled={!!busy}>Cancelar</Button>
+        <Button variant="danger" icon="code-merge" onClick={mesclar} disabled={!!busy || !escolhido}>{busy === 'mesclar' ? 'Mesclando…' : 'Mesclar neste lead'}</Button>
+      </>}>
+      <p className="lv3-muted">Fica este lead (<strong>{decode(lead.empresa || lead.nome)}</strong>). Do duplicado vêm pessoas, histórico, comunicações, cadências, candidatos e o Golden Circle; campos vazios aqui são completados com os dele.</p>
+      <form className="lv3-inline-form" onSubmit={buscar}>
+        <input className="lv3-input" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar o duplicado por empresa, nome ou e-mail" autoFocus/>
+        <Button type="submit" icon="magnifying-glass" disabled={!!busy}>{busy === 'buscar' ? '…' : 'Buscar'}</Button>
+      </form>
+      <ul className="lv3-radio-list lv3-radio-list--single">
+        {res.map(l => (
+          <li key={l.id}>
+            <label className={`lv3-radio ${escolhido?.id === l.id ? 'is-on' : ''}`}>
+              <input type="radio" name="dup" checked={escolhido?.id === l.id} onChange={() => setEscolhido(l)}/>
+              <span><strong>{decode(l.nome_lead)}</strong> <span className="lv3-muted">· {l.qtd_contatos || 0} pessoas · #{l.id}</span></span>
+            </label>
+          </li>
+        ))}
+        {!res.length && <li className="lv3-muted">Busque pelo nome para encontrar o duplicado.</li>}
+      </ul>
+    </Modal>
+  );
+}

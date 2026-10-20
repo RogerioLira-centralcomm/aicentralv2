@@ -63,7 +63,7 @@ function MoreMenu({items, disabled}) {
   );
 }
 
-export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadences, loading, notify, onChanged, onEdit, onEditCompany, onConvert, onDisqualify, onMarkGolden}) {
+export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadences, loading, notify, onChanged, onEdit, onEditCompany, onConvert, onDisqualify, onMarkGolden, onExtract, onMerge}) {
   const [busy, setBusy] = useState(false);
   if (loading && !lead) return <section className="lv3-col lv3-lead"><div className="lv3-skeleton"/></section>;
   if (!lead) {
@@ -118,6 +118,8 @@ export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadenc
             !golden && !converted && {icon: 'bullseye', label: 'Marcar como Golden Circle', onClick: onMarkGolden},
             !converted && {icon: 'user-check', label: 'Converter em cliente', onClick: onConvert},
             {icon: 'building', label: 'Dados da empresa', onClick: onEditCompany},
+            {icon: 'wand-magic-sparkles', label: 'Ler site com IA', onClick: onExtract},
+            {icon: 'code-merge', label: 'Mesclar duplicado', onClick: onMerge},
             lead.status !== 'nao_qualificado' && {icon: 'ban', label: 'Desqualificar', onClick: onDisqualify, danger: true},
           ].filter(Boolean)}/>
           </div>
@@ -189,7 +191,8 @@ export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadenc
             <h3>Empresa</h3>
             <div className="lv3-section__tools">
               <a className="lv3-btn lv3-btn--ghost lv3-btn--sm" href={linkedinSearchUrl(nome)} target="_blank" rel="noopener noreferrer"><Icon name="arrow-up-right-from-square"/><span>LinkedIn</span></a>
-              <Button size="sm" variant="ghost" icon="building" onClick={onEditCompany}>Dados da empresa</Button>
+              <Button size="sm" variant="ghost" icon="wand-magic-sparkles" onClick={onExtract}>Ler site</Button>
+              <Button size="sm" variant="ghost" icon="building" onClick={onEditCompany}>Dados</Button>
             </div>
           </header>
           {(() => {

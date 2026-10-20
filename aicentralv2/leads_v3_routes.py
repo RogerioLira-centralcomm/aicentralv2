@@ -101,7 +101,6 @@ def pagina():
         "trimestre": prospeccao.trimestre_atual(),
         "fontes": {"apollo": bool(resolve_apollo_api_key()), "web": bool(resolve_firecrawl_api_key())},
         "conversao": _listas_conversao(),
-        "legacyUrl": "/leads",
     }
     return render_template("leads_v3.html", boot=boot)
 
@@ -1004,3 +1003,123 @@ def api_operacao():
                     "tarefas": _linhas(tarefas_pendentes(cursor, executivo))})
 
     return _transacao(run, "operação")
+
+
+# ─────────────────────────────────────────────────────
+# Mesclar leads duplicados (tudo numa transação)
+# ─────────────────────────────────────────────────────
+# Tabelas que apontam para cadu_leads.id e precisam vir junto antes de apagar o duplicado.
+_TABELAS_DO_LEAD = (
+    "cadu_lead_atividades", "cadu_lead_comunicacoes", "cadu_lead_cadencia_inscricoes",
+    "cadu_lead_mensagem_eventos", "cadu_golden_circle",
+)
+_CAMPOS_COMPLETAR = ("email", "telefone", "cargo", "url_site", "dominio", "cnpj", "segmento", "descricao_empresa",
+                     "porte_estimado", "grupo_economico", "id_executivo")
+
+
+@bp.route("/api/leads/<int:lead_id>/mesclar", methods=["POST"])
+@centralcomm_required_api
+def api_mesclar(lead_id):
+    """Incorpora o lead duplicado neste: move pessoas, histórico, comunicações, cadências, candidatos e
+    Golden Circle; completa campos vazios com os do duplicado; depois apaga o duplicado."""
+    outro = _int((request.get_json(silent=True) or {}).get("id_duplicado"))
+    if not outro or outro == lead_id:
+        return _erro("Escolha outro lead para mesclar.")
+
+    def run(cursor):
+        cursor.execute("SELECT * FROM cadu_leads WHERE id = ANY(%s) FOR UPDATE", [[lead_id, outro]])
+        rows = {r["id"]: r for r in cursor.fetchall()}
+        if lead_id not in rows or outro not in rows:
+            return _erro("Lead não encontrado.", 404)
+        principal, duplicado = rows[lead_id], rows[outro]
+        completar = [c for c in _CAMPOS_COMPLETAR if c in principal and not principal[c] and duplicado.get(c)]
+        if completar:
+            cursor.execute(
+                f"UPDATE cadu_leads SET {', '.join(f'{c} = %s' for c in completar)} WHERE id = %s",
+                [*[duplicado[c] for c in completar], lead_id],
+            )
+        cursor.execute("UPDATE cadu_lead_contatos SET id_lead = %s, is_principal = FALSE WHERE id_lead = %s", [lead_id, outro])
+        # Candidatos: o índice único (lead, provedor, ref) não deixa trazer o que já existe aqui.
+        cursor.execute(
+            """
+            DELETE FROM cadu_lead_contato_candidatos d
+             WHERE d.id_lead = %s AND d.provedor_ref IS NOT NULL
+               AND EXISTS (SELECT 1 FROM cadu_lead_contato_candidatos p
+                            WHERE p.id_lead = %s AND p.provedor = d.provedor AND p.provedor_ref = d.provedor_ref)
+            """,
+            [outro, lead_id],
+        )
+        cursor.execute("UPDATE cadu_lead_contato_candidatos SET id_lead = %s WHERE id_lead = %s", [lead_id, outro])
+        for tabela in _TABELAS_DO_LEAD:
+            cursor.execute(f"UPDATE {tabela} SET id_lead = %s WHERE id_lead = %s", [lead_id, outro])
+        cursor.execute("DELETE FROM cadu_lead_links_uteis WHERE id_lead = %s", [outro])
+        cursor.execute("DELETE FROM cadu_leads WHERE id = %s", [outro])
+        nome = duplicado.get("empresa") or duplicado.get("nome") or f"#{outro}"
+        _registrar_atividade(cursor, lead_id, "edicao", f"Lead duplicado mesclado: {nome} (#{outro}).")
+        return _ok({"id": lead_id, "removido": outro, "campos_completados": completar})
+
+    return _transacao(run, "mesclar")
+
+
+# ─────────────────────────────────────────────────────
+# Análise: números das cadências e do Golden Circle (complementa /api/leads/analise)
+# ─────────────────────────────────────────────────────
+@bp.route("/api/analise")
+@centralcomm_required_api
+def api_analise_v3():
+    inicio = request.args.get("data_inicio") or None
+    fim = request.args.get("data_fim") or None
+    executivo = _int(request.args.get("id_executivo"))
+    for valor in (inicio, fim):
+        if valor and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", valor):
+            return _erro("Data inválida.")
+    trimestre = prospeccao.trimestre_atual()
+
+    def run(cursor):
+        filtro = "AND COALESCE(i.id_executivo, l.id_executivo) = %(executivo)s" if executivo else ""
+        cursor.execute(
+            f"""
+            SELECT e.canal,
+                   COUNT(*) FILTER (WHERE e.evento = 'tarefa_feita') AS feitos,
+                   COUNT(*) FILTER (WHERE e.evento = 'respondeu') AS respostas
+              FROM cadu_lead_mensagem_eventos e
+              JOIN cadu_leads l ON l.id = e.id_lead
+              LEFT JOIN cadu_lead_cadencia_inscricoes i ON i.id = e.id_inscricao
+             WHERE (%(inicio)s::date IS NULL OR e.ocorreu_em >= %(inicio)s::date)
+               AND (%(fim)s::date IS NULL OR e.ocorreu_em < %(fim)s::date + 1) {filtro}
+             GROUP BY e.canal ORDER BY e.canal
+            """,
+            {"inicio": inicio, "fim": fim, "executivo": executivo},
+        )
+        canais = _linhas(cursor.fetchall())
+        cursor.execute(
+            f"""
+            SELECT COUNT(*) FILTER (WHERE i.status = 'ativa') AS ativas,
+                   COUNT(*) FILTER (WHERE i.status = 'respondeu') AS responderam,
+                   COUNT(*) FILTER (WHERE i.status = 'concluida') AS concluidas,
+                   COUNT(*) AS total
+              FROM cadu_lead_cadencia_inscricoes i JOIN cadu_leads l ON l.id = i.id_lead
+             WHERE TRUE {filtro}
+            """,
+            {"executivo": executivo},
+        )
+        inscricoes = {k: _json_safe(v) for k, v in dict(cursor.fetchone() or {}).items()}
+        filtro_gc = "AND gc.id_executivo = %(executivo)s" if executivo else ""
+        cursor.execute(
+            f"""
+            SELECT COUNT(*) AS contas,
+                   COUNT(*) FILTER (WHERE gc.status NOT IN ('planejada', 'pausada', 'perdida')) AS em_andamento,
+                   COUNT(*) FILTER (WHERE gc.status = 'ganha') AS ganhas,
+                   COUNT(*) FILTER (WHERE NOT EXISTS (
+                       SELECT 1 FROM unnest(gc.papeis_alvo) p
+                        WHERE NOT EXISTS (SELECT 1 FROM cadu_lead_contatos c WHERE c.id_lead = gc.id_lead AND c.papel = p))) AS cobertas,
+                   COALESCE(SUM(gc.valor_alvo), 0) AS valor_alvo
+              FROM cadu_golden_circle gc
+             WHERE gc.trimestre = %(trimestre)s {filtro_gc}
+            """,
+            {"trimestre": trimestre, "executivo": executivo},
+        )
+        golden = {k: _json_safe(v) for k, v in dict(cursor.fetchone() or {}).items()}
+        return _ok({"canais": canais, "inscricoes": inscricoes, "golden": {**golden, "trimestre": trimestre}})
+
+    return _transacao(run, "análise v3")

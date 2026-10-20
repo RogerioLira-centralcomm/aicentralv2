@@ -106,3 +106,21 @@ class OperacaoRoutesTest(TestCase):
 
     def test_mensagem_exige_pessoa(self):
         self.assertEqual(_client().post("/leads-v3/api/mensagens/gerar", json={}).status_code, 400)
+
+
+class MigracaoLegadoTest(TestCase):
+    def test_mesclar_exige_outro_lead(self):
+        self.assertEqual(_client().post("/leads-v3/api/leads/5/mesclar", json={}).status_code, 400)
+        self.assertEqual(_client().post("/leads-v3/api/leads/5/mesclar", json={"id_duplicado": 5}).status_code, 400)
+
+    def test_analise_recusa_data_invalida(self):
+        self.assertEqual(_client().get("/leads-v3/api/analise?data_inicio=01/01/2026").status_code, 400)
+
+    def test_paginas_antigas_foram_removidas_e_redirecionam(self):
+        from pathlib import Path
+        root = Path(__file__).resolve().parents[1]
+        for arquivo in ("templates/cadu_leads.html", "templates/leads_analise.html", "static/js/leads.js", "static/css/leads.css"):
+            self.assertFalse((root / "aicentralv2" / arquivo).exists(), arquivo)
+        rotas = (root / "aicentralv2/routes.py").read_text()
+        self.assertIn("return redirect(url_for('leads_v3.pagina'))", rotas)
+        self.assertIn("return redirect(url_for('leads_v3.pagina', vista='analise'))", rotas)

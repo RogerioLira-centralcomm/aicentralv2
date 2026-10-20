@@ -69,6 +69,36 @@ export function Activities({api, leadId, contacts, activities, onChanged, notify
   const [contato, setContato] = useState('');
   const [saving, setSaving] = useState(false);
   const [maisOpcoes, setMaisOpcoes] = useState(false);
+  const [ia, setIa] = useState('');
+  const [editando, setEditando] = useState(null); // {id, descricao, data_prazo}
+
+  const sugerir = async () => {
+    setIa('sugerir');
+    try {
+      const s = await api.suggestActivity(leadId);
+      if (!s) { notify('Sem sugestão agora.', 'error'); return; }
+      if (TYPE_BY_VALUE[s.tipo]) setTipo(s.tipo);
+      setDescricao(s.descricao || '');
+      if (s.prazo_dias) {
+        const d = new Date(); d.setDate(d.getDate() + Number(s.prazo_dias));
+        setPrazo(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+        setMaisOpcoes(true);
+      }
+    } catch (error) { notify(error.message, 'error'); } finally { setIa(''); }
+  };
+  const melhorar = async () => {
+    if (!descricao.trim()) return notify('Escreva algo primeiro.', 'error');
+    setIa('melhorar');
+    try { setDescricao(await api.improveText(descricao)); } catch (error) { notify(error.message, 'error'); } finally { setIa(''); }
+  };
+  const salvarEdicao = async () => {
+    try {
+      const original = activities.find(a => a.id === editando.id);
+      await api.updateActivity(editando.id, {tipo: original?.tipo, descricao: editando.descricao, data_prazo: editando.data_prazo || null,
+        id_contato: original?.id_contato || null});
+      setEditando(null); notify('Registro atualizado.'); onChanged();
+    } catch (error) { notify(error.message, 'error'); }
+  };
 
   const submit = async event => {
     event.preventDefault();
@@ -114,9 +144,14 @@ export function Activities({api, leadId, contacts, activities, onChanged, notify
           </div>
         )}
         <div className="lv3-composer__foot">
-          <button type="button" className="lv3-link lv3-link--muted" onClick={() => setMaisOpcoes(v => !v)}>
-            {maisOpcoes ? 'Menos opções' : 'Agendar lembrete ou escolher pessoa'}
-          </button>
+          <span className="lv3-composer__tools">
+            <button type="button" className="lv3-link lv3-link--muted" onClick={sugerir} disabled={!!ia} title="A IA sugere o próximo passo pelo histórico do lead">
+              <Icon name="wand-magic-sparkles"/> {ia === 'sugerir' ? 'Pensando…' : 'Sugerir próximo passo'}</button>
+            {descricao.trim() && <button type="button" className="lv3-link lv3-link--muted" onClick={melhorar} disabled={!!ia}>{ia === 'melhorar' ? 'Melhorando…' : 'Melhorar texto'}</button>}
+            <button type="button" className="lv3-link lv3-link--muted" onClick={() => setMaisOpcoes(v => !v)}>
+              {maisOpcoes ? 'Menos opções' : 'Lembrete ou pessoa'}
+            </button>
+          </span>
           <Button variant="primary" size="sm" type="submit" icon="plus" disabled={saving}>{saving ? 'Salvando…' : prazo ? 'Agendar' : 'Registrar'}</Button>
         </div>
       </form>
@@ -150,9 +185,21 @@ export function Activities({api, leadId, contacts, activities, onChanged, notify
                 <div className="lv3-tl__body">
                   <div className="lv3-tl__head">
                     <strong>{type.label}{a.contato_nome ? ` · ${prettyName(a.contato_nome)}` : ''}</strong>
-                    <span className="lv3-muted">{a.created_at}{a.usuario_nome ? ` · ${a.usuario_nome}` : ''}</span>
+                    <span className="lv3-muted">{a.created_at}{a.usuario_nome ? ` · ${a.usuario_nome}` : ''}
+                      {editando?.id !== a.id && <button type="button" className="lv3-iconbtn lv3-iconbtn--xs" title="Editar" aria-label="Editar registro"
+                        onClick={() => setEditando({id: a.id, descricao: decode(a.descricao), data_prazo: a.data_prazo || ''})}><Icon name="pen"/></button>}
+                    </span>
                   </div>
-                  <p>{decode(a.descricao)}</p>
+                  {editando?.id === a.id ? (
+                    <div className="lv3-tl__edit">
+                      <textarea className="lv3-input lv3-textarea" rows={3} value={editando.descricao} onChange={e => setEditando(x => ({...x, descricao: e.target.value}))}/>
+                      <div className="lv3-tl__editbar">
+                        <input className="lv3-input lv3-input--sm" type="date" value={editando.data_prazo} onChange={e => setEditando(x => ({...x, data_prazo: e.target.value}))} aria-label="Lembrar em"/>
+                        <Button size="sm" onClick={() => setEditando(null)}>Cancelar</Button>
+                        <Button size="sm" variant="primary" onClick={salvarEdicao}>Salvar</Button>
+                      </div>
+                    </div>
+                  ) : <p>{decode(a.descricao)}</p>}
                   {a.data_prazo && (
                     <label className={`lv3-tl__task ${atrasada ? 'is-late' : ''}`}>
                       <input type="checkbox" checked={!!a.concluida} onChange={() => toggle(a)}/>

@@ -87,7 +87,14 @@ function emailFoundMessage(r) {
 function Person({boot, api, leadId, contact: c, empresa, inscricao, notify, onChanged}) {
   const [busy, setBusy] = useState('');
   const [linkedin, setLinkedin] = useState(null);
+  const [edit, setEdit] = useState(null);
   const nome = pretty(c.nome);
+  const salvarEdicao = async event => {
+    event.preventDefault();
+    if (!edit.nome.trim()) return notify('Informe o nome.', 'error');
+    await run('edit', () => api.updateContact(c.id, edit), 'Pessoa atualizada.')();
+    setEdit(null);
+  };
   const run = (key, fn, done) => async () => {
     setBusy(key);
     try {
@@ -119,6 +126,8 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, notify, onCh
           {c.linkedin_url
             ? <a className="lv3-iconbtn" href={c.linkedin_url} target="_blank" rel="noopener noreferrer" title="Abrir perfil no LinkedIn" aria-label={`LinkedIn de ${nome}`}><Icon name="arrow-up-right-from-square"/></a>
             : <a className="lv3-iconbtn" href={linkedinSearchUrl(nome.replace(/\*/g, ''), empresa)} target="_blank" rel="noopener noreferrer" title="Procurar no LinkedIn" aria-label={`Procurar ${nome} no LinkedIn`}><Icon name="magnifying-glass"/></a>}
+          <button type="button" className="lv3-iconbtn" title="Editar" aria-label={`Editar ${nome}`}
+            onClick={() => setEdit({nome: pretty(c.nome), cargo: pretty(c.cargo), email: String(c.email || '').toLowerCase(), telefone: c.telefone || ''})}><Icon name="pen"/></button>
           {!c.is_principal && (
             <button type="button" className="lv3-iconbtn" title="Tornar principal" aria-label={`Tornar ${nome} principal`}
               onClick={run('primary', () => api.makePrimary(leadId, c.id), 'Contato principal atualizado.')}><Icon name="star"/></button>
@@ -129,6 +138,21 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, notify, onCh
           </button>
         </div>
       </div>
+
+      {edit && (
+        <form className="lv3-person__edit" onSubmit={salvarEdicao}>
+          <div className="lv3-form__grid">
+            <Field label="Nome"><input className="lv3-input lv3-input--sm" value={edit.nome} onChange={e => setEdit(f => ({...f, nome: e.target.value}))} required/></Field>
+            <Field label="Cargo"><input className="lv3-input lv3-input--sm" value={edit.cargo} onChange={e => setEdit(f => ({...f, cargo: e.target.value}))}/></Field>
+            <Field label="E-mail"><input className="lv3-input lv3-input--sm" type="email" value={edit.email} onChange={e => setEdit(f => ({...f, email: e.target.value}))}/></Field>
+            <Field label="Telefone"><input className="lv3-input lv3-input--sm" value={edit.telefone} onChange={e => setEdit(f => ({...f, telefone: e.target.value}))}/></Field>
+          </div>
+          <div className="lv3-form__actions">
+            <Button size="sm" onClick={() => setEdit(null)}>Cancelar</Button>
+            <Button size="sm" variant="primary" type="submit" disabled={!!busy}>{busy === 'edit' ? 'Salvando…' : 'Salvar'}</Button>
+          </div>
+        </form>
+      )}
 
       <div className="lv3-person__contact">
         {c.email ? (

@@ -4,7 +4,8 @@ import {Queue} from './Queue.jsx';
 import {LeadPanel} from './LeadPanel.jsx';
 import {Activities} from './Activities.jsx';
 import {Comms} from './Comms.jsx';
-import {CompanyDialog, ConvertDialog, DisqualifyDialog, EditDialog, GoldenAddDialog, NewLeadDialog} from './Dialogs.jsx';
+import {CompanyDialog, ConvertDialog, DisqualifyDialog, EditDialog, ExtractDialog, GoldenAddDialog, ImportDialog, MergeDialog, NewLeadDialog} from './Dialogs.jsx';
+import {Analise} from './Analise.jsx';
 import {GoldenCircle} from './GoldenCircle.jsx';
 import {Operacao} from './Operacao.jsx';
 import {Button, Empty, Icon, Toasts} from './ui.jsx';
@@ -12,7 +13,13 @@ import {Button, Empty, Icon, Toasts} from './ui.jsx';
 const FILTERS_KEY = 'leads-v3:filtros';
 const MODE_KEY = 'leads-v3:modo';
 const VIEW_KEY = 'leads-v3:vista';
-const readView = () => { try { return localStorage.getItem(VIEW_KEY) === 'operacao' ? 'operacao' : 'mesa'; } catch { return 'mesa'; } };
+const VIEWS = ['mesa', 'operacao', 'analise'];
+const readView = () => {
+  // ?vista=analise vem do redirecionamento de /leads/analise; tem precedência sobre a última visão usada.
+  const pedida = new URLSearchParams(window.location.search).get('vista');
+  if (VIEWS.includes(pedida)) return pedida;
+  try { const salva = localStorage.getItem(VIEW_KEY); return VIEWS.includes(salva) ? salva : 'mesa'; } catch { return 'mesa'; }
+};
 const readMode = () => { try { return localStorage.getItem(MODE_KEY) === 'golden' ? 'golden' : 'fila'; } catch { return 'fila'; } };
 
 function readFilters(boot) {
@@ -228,16 +235,19 @@ export function LeadsApp({boot}) {
           <div className="lv3-viewswitch" role="tablist" aria-label="Visão">
             <button type="button" role="tab" aria-selected={view === 'mesa'} className={view === 'mesa' ? 'is-on' : ''} onClick={() => setView('mesa')}><Icon name="table-columns"/>Mesa</button>
             <button type="button" role="tab" aria-selected={view === 'operacao'} className={view === 'operacao' ? 'is-on' : ''} onClick={() => setView('operacao')}><Icon name="bolt"/>Operação</button>
+            <button type="button" role="tab" aria-selected={view === 'analise'} className={view === 'analise' ? 'is-on' : ''} onClick={() => setView('analise')}><Icon name="chart-simple"/>Análise</button>
           </div>
         </div>
         <div className="lv3-topbar__actions">
-          <a className="lv3-btn lv3-btn--ghost lv3-btn--md" href={`${boot.legacyUrl}/analise`}><Icon name="chart-simple"/><span>Análise</span></a>
-          <a className="lv3-btn lv3-btn--ghost lv3-btn--md" href={boot.legacyUrl} title="Importação em massa e kanban ficam no Leads atual"><Icon name="file-import"/><span>Importar</span></a>
+          <Button variant="ghost" icon="file-import" onClick={() => setDialog({type: 'import'})}>Importar</Button>
           <Button variant="primary" icon="plus" onClick={() => setDialog({type: 'new'})}>Novo lead</Button>
         </div>
       </header>
 
-      {view === 'operacao' ? (
+      {view === 'analise' ? (
+        <Analise boot={boot} api={api} executivo={filters.executivo} notify={notify} onOpenLead={openLead}
+          setExecutivo={value => setFilters(f => ({...f, executivo: value}))}/>
+      ) : view === 'operacao' ? (
         <Operacao boot={boot} api={api} executivo={filters.executivo} notify={notify} onOpenLead={openLead}
           setExecutivo={value => setFilters(f => ({...f, executivo: value}))}/>
       ) : (
@@ -259,6 +269,7 @@ export function LeadsApp({boot}) {
           golden={detail.golden} cadences={detail.cadences} onMarkGolden={markGolden}
           onChanged={refreshActive} onEdit={() => setDialog({type: 'edit'})}
           onEditCompany={() => setDialog({type: 'company'})} onConvert={() => setDialog({type: 'convert'})}
+          onExtract={() => setDialog({type: 'extract'})} onMerge={() => setDialog({type: 'merge'})}
           onDisqualify={() => setDialog({type: 'disqualify', ids: [lead.id]})}/>
 
         {wide ? (
@@ -294,6 +305,18 @@ export function LeadsApp({boot}) {
       {dialog?.type === 'edit' && lead && <EditDialog lead={lead} onCancel={() => setDialog(null)} onSave={saveEdit}/>}
       {dialog?.type === 'new' && <NewLeadDialog boot={boot} onCancel={() => setDialog(null)} onSave={createLead}/>}
       {dialog?.type === 'company' && lead && <CompanyDialog lead={lead} onCancel={() => setDialog(null)} onSave={saveCompany}/>}
+      {dialog?.type === 'import' && (
+        <ImportDialog boot={boot} api={api} notify={notify} onCancel={() => setDialog(null)}
+          onDone={total => { notify(`${total} ${total === 1 ? 'lead importado' : 'leads importados'}.`); setDialog(null); loadList(); }}/>
+      )}
+      {dialog?.type === 'extract' && lead && (
+        <ExtractDialog api={api} lead={lead} notify={notify} onCancel={() => { setDialog(null); refreshActive(); }}
+          onDone={() => { notify('Dados do site salvos no lead.'); setDialog(null); refreshActive(); }}/>
+      )}
+      {dialog?.type === 'merge' && lead && (
+        <MergeDialog api={api} lead={lead} notify={notify} onCancel={() => setDialog(null)}
+          onDone={r => { notify(`Duplicado mesclado${r.campos_completados?.length ? `; completados: ${r.campos_completados.join(', ')}` : ''}.`); setDialog(null); refreshActive(); }}/>
+      )}
       {dialog?.type === 'convert' && lead && (
         <ConvertDialog boot={boot} api={api} lead={lead} notify={notify} onCancel={() => setDialog(null)}
           onDone={() => { notify('Lead convertido em cliente.'); setDialog(null); refreshActive(); }}/>

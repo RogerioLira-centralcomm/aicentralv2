@@ -82,11 +82,11 @@ def _env(row: dict) -> dict:
 def load(force: bool = False) -> dict:
     """Ambientes ativos do Studio por slug, guardados por dez minutos; falha vira {}."""
     now = time.monotonic()
-    if not force and _CACHE["envs"] and now - _CACHE["at"] < CACHE_SECONDS:
+    if not force and _CACHE["at"] and now - _CACHE["at"] < CACHE_SECONDS:
         return _CACHE["envs"]
-    try:
-        from ..db import get_db
+    from ..db import get_db, recuperar_transacao_falha
 
+    try:
         with get_db().cursor() as cursor:
             cursor.execute(
                 """
@@ -98,6 +98,13 @@ def load(force: bool = False) -> dict:
             envs = {text(row["slug"]): _env(dict(row)) for row in cursor.fetchall()}
     except Exception:
         logger.exception("Falha ao ler os ambientes de mídia do Studio")
+        # A consulta que falhou não pode deixar a transação do request abortada; e a próxima
+        # tentativa espera o mesmo intervalo do cache, em vez de repetir a cada página.
+        try:
+            recuperar_transacao_falha()
+        except Exception:
+            logger.exception("Falha ao desfazer a transação depois dos ambientes do Studio")
+        _CACHE["at"] = now
         return _CACHE["envs"]
     _CACHE.update(at=now, envs=envs)
     return envs

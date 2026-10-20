@@ -283,3 +283,21 @@ def test_screens_use_the_studio_environment_and_name_real_sizes():
     assert screens["Portais"]["label"] == "g1" and screens["Portais"]["env"]["slug"] == "g1"
     assert [f["name"] for f in screens["Portais"]["formats"]] == ["Billboard", "Retângulo médio"]
     assert screens["Spotify"]["env"] == {} and screens["Spotify"]["formats"] == []
+
+
+def test_studio_environments_failure_rolls_back_and_waits(monkeypatch):
+    from aicentralv2 import db
+    from aicentralv2.smart_planner import viewer_envs
+
+    calls = {"query": 0, "rollback": 0}
+
+    class Broken:
+        def cursor(self):
+            calls["query"] += 1
+            raise RuntimeError("tabela ausente")
+
+    monkeypatch.setattr(db, "get_db", lambda: Broken())
+    monkeypatch.setattr(db, "recuperar_transacao_falha", lambda: calls.__setitem__("rollback", calls["rollback"] + 1))
+    monkeypatch.setattr(viewer_envs, "_CACHE", {"at": 0.0, "envs": {}})
+    assert viewer_envs.load() == {} and viewer_envs.load() == {}
+    assert calls == {"query": 1, "rollback": 1}

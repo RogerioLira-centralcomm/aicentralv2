@@ -47,6 +47,7 @@ import {FlowPublicationDialog, flowChangeSummary} from './FlowPublicationDialog.
 import {FlowSimulator} from './FlowSimulator.jsx';
 import {FlowJourneyPanel} from './FlowJourneyPanel.jsx';
 import {FlowObserved} from './FlowObservedPanel.jsx';
+import {normPath} from './flowObserved.js';
 import {FlowToast} from './FlowToast.jsx';
 import {plural, savedAgo, publishBlocked} from './flowFeedback.js';
 import {flowValidation, isMeasured, MAX_FLOW_PAGES} from './flowValidation.js';
@@ -435,7 +436,7 @@ function FlowDesktop({data, save, busy, filters, refreshRevision}) {
   const addJourneyPage = page => {
     if(flowConfig.nodes.length>=200){setJourneyError('O fluxo aceita até 200 nós.');return;}
     if(pageLimitReached(flowConfig))return;
-    if(flowConfig.nodes.some(node=>(node.path||'').toLowerCase().replace(/\/+$/,'')===page.path.replace(/\/+$/,'')&&!node.host)){setJourneyError('Esta página já está no rascunho.');return;}
+    if(flowConfig.nodes.some(node=>node.path&&!node.host&&normPath(node.path)===normPath(page.path))){setJourneyError('Esta página já está no rascunho.');return;}
     const id=crypto.randomUUID();
     setFlowConfig(current=>{
       const anchor=current.nodes.find(node=>node.id===page.after_node_id);

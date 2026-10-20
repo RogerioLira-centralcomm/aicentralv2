@@ -8,6 +8,10 @@ def _event_origin(event):
     """Same encoding the journey query uses, so live and journey agree on where a session came from."""
     if event.get('utm_source'):
         return f"utm:{str(event['utm_source']).lower()}|{str(event.get('utm_campaign') or '').lower()}"
+    click = str(event.get('click_id') or '').strip()
+    if click:
+        # Mirrors click_origin_sql: fbclid values start with "Iw"; gclid, gbraid and wbraid do not.
+        return 'click:meta' if click.startswith('Iw') else 'click:google'
     if event.get('referrer_host'):
         return f"ref:{str(event['referrer_host']).lower()}"
     return None

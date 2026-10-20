@@ -169,3 +169,33 @@ def test_influence_ranks_off_flow_pages_and_lists_drawn_pages_no_conversion_used
     off = {row['path']: row for row in data['off_flow']}
     assert set(off) == {'/blog/ctv', '/blog/dooh', '/cases'}
     assert off['/blog/ctv']['after_node_id'] == 'home' and off['/cases']['assisted_prior'] == 1
+
+
+def test_a_capped_read_never_compares_rates():
+    journeys = [{'steps': [{'kind': 'page', 'path': '/blog'}, {'kind': 'page', 'path': '/obrigado', 'goal': True}], 'prior_sessions': []}
+                for _ in range(10)]
+    row = conv.page_influence(journeys, {'/blog': 50}, 250, set(), {}, {}, compare=False)[0]
+    assert row['rate_with'] is None and row['rate_without'] is None
+
+
+def test_live_origin_reads_a_paid_click_like_the_journey():
+    from aicentralv2.cadu_connect.reports_flow_live import _event_origin
+    from aicentralv2.cadu_connect.reports_flow_metrics import origin_platform
+    assert origin_platform(_event_origin({'click_id': 'Cj0KCQ', 'referrer_host': 'site.com'})) == 'google'
+    assert origin_platform(_event_origin({'click_id': 'IwAR1'})) == 'meta'
+    assert _event_origin({'utm_source': 'Meta', 'click_id': 'Cj0'}) == 'utm:meta|'
+
+
+def test_a_visitor_who_converted_before_shows_that_visit(client):
+    # The fixture's returning person converts on the earlier visit too: it must appear as an earlier visit.
+    from aicentralv2.cadu_connect import reports_flow_conversions as module
+    rows = module._rows
+    first = rows("SELECT session_id,visitor_id FROM cadu_reports_flow_events WHERE page_path='/cases'")[0]
+    rows('''INSERT INTO cadu_reports_flow_events(client_id,tag_id,session_id,visitor_id,event_kind,page_host,page_path,occurred_at,flow_revision)
+        VALUES (7,%s,%s,%s,'page_view','site.com','/obrigado',%s,65)''', (TAG, first['session_id'], first['visitor_id'], NOW - datetime.timedelta(minutes=2998)))
+    rows('''INSERT INTO cadu_reports_flow_events(client_id,tag_id,session_id,event_kind,page_host,page_path,occurred_at,flow_revision)
+        VALUES (7,%s,%s,'page_leave','site.com','/obrigado',%s,67)''', (TAG, uuid.uuid4(), NOW - datetime.timedelta(minutes=5)))
+    data = client.get(f'/api/v2/reports/flow/flows/{FLOW}/conversions?days=7').get_json()
+    assert data['coverage']['conversions'] == 3, 'a lone page_leave on the goal page is not a conversion'
+    latest = next(journey for journey in data['journeys'] if journey['steps'][0]['path'] == '/' and len(journey['steps']) == 4)
+    assert [visit['pages'] for visit in latest['prior_sessions']] == [['/', '/cases', '/obrigado']]

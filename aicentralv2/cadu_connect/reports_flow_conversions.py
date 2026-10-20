@@ -17,7 +17,7 @@ from ..auth import login_required_api
 from .reports_flow_history import matched_events_cte, node_match_json
 from .reports_flow_lifecycle import is_measured
 from .reports_flow_metrics import PLATFORM_LABELS, click_origin_sql, origin_platform
-from .reports_page_identity import normalize_host, normalize_path
+from .reports_page_identity import normalize_host, normalize_path, sql_normalized_path
 from .reports_v1 import _rows, _selection
 
 PRIOR_DAYS = 30            # earlier sessions of the same visitor that count as part of a journey
@@ -115,7 +115,7 @@ def _position(index, length):
     return 'start' if index == 0 else 'eve' if index == length - 1 else 'middle'
 
 
-def page_influence(journeys, page_sessions, total_sessions, flow_paths, nodes_by_path, titles):
+def page_influence(journeys, page_sessions, total_sessions, flow_paths, nodes_by_path, titles, compare=True):
     """Per page: conversions it took part in (same session or an earlier visit), share, position and rates.
 
     ``page_sessions`` maps a normalized path to the sessions that saw it in the period. Rates are compared only on a
@@ -136,7 +136,8 @@ def page_influence(journeys, page_sessions, total_sessions, flow_paths, nodes_by
         prior = {normalize_path(path) for session in journey.get('prior_sessions', []) for path in session.get('pages', [])} - seen
         for path in prior:
             stats.setdefault(path, {'assisted': 0, 'assisted_prior': 0, 'positions': Counter()})['assisted_prior'] += 1
-    compare = total >= MIN_RATE_CONVERSIONS
+    # A capped read has fewer conversions than sessions show, so its rates would be understated.
+    compare = compare and total >= MIN_RATE_CONVERSIONS
     rows = []
     for path, item in stats.items():
         sessions = int(page_sessions.get(path) or 0)
@@ -203,7 +204,7 @@ def build_journeys(flow, client_id, start, end, limit, before=None):
         cursor_filter, cursor_params = ' AND (occurred_at,id)<(%s::timestamptz,%s::bigint)', before
     conversions = _rows(matched_events_cte(where, _COLUMNS) + f""", firsts AS (
             SELECT DISTINCT ON (session_id) id,session_id,visitor_id,occurred_at,node_id FROM mapped
-            WHERE node_id=ANY(%s::text[]) ORDER BY session_id,occurred_at,id
+            WHERE node_id=ANY(%s::text[]) AND event_kind<>'page_leave' ORDER BY session_id,occurred_at,id
         ) SELECT * FROM firsts WHERE TRUE{cursor_filter} ORDER BY occurred_at DESC,id DESC LIMIT %s""",
         (*scope, goal_ids, *cursor_params, limit + 1))
     more = len(conversions) > limit
@@ -221,10 +222,10 @@ def build_journeys(flow, client_id, start, end, limit, before=None):
     visitors = sorted({str(row['visitor_id']) for row in conversions if row['visitor_id'] and row['visitor_id'] != row['session_id']})
     prior_rows = _rows(f"""SELECT session_id,visitor_id,page_path,event_kind,occurred_at,{_ORIGIN} AS origin
         FROM cadu_reports_flow_events
-        WHERE client_id=%s AND tag_id=%s AND visitor_id=ANY(%s::uuid[]) AND session_id<>ALL(%s::uuid[])
+        WHERE client_id=%s AND tag_id=%s AND visitor_id=ANY(%s::uuid[])
           AND occurred_at>=%s AND occurred_at<%s AND event_kind IN ('page_view','conversion','error_view')
         ORDER BY session_id,occurred_at,id""",
-        (client_id, flow['tag_id'], visitors, sessions, start - timedelta(days=PRIOR_DAYS), end)) if visitors else []
+        (client_id, flow['tag_id'], visitors, start - timedelta(days=PRIOR_DAYS), end)) if visitors else []
     prior_by_visitor = {}
     for row in prior_rows:
         visits = prior_by_visitor.setdefault(str(row['visitor_id']), {})
@@ -324,7 +325,7 @@ def register(bp):
             nodes_by_path.setdefault(normalize_path(node['path']), node)
         flow_paths = set(nodes_by_path)
         counts = _rows(matched_events_cte('e.client_id=%s AND e.tag_id=%s AND e.occurred_at>=%s AND e.occurred_at<%s', _COLUMNS) +
-                       """, views AS (SELECT session_id,COALESCE(NULLIF(RTRIM(LOWER(page_path),'/'),''),'/') AS path FROM mapped
+                       ", views AS (SELECT session_id," + sql_normalized_path('page_path') + """ AS path FROM mapped
                              WHERE event_kind IN ('page_view','conversion','error_view'))
                           SELECT path,COUNT(DISTINCT session_id)::bigint AS sessions,
                               (SELECT COUNT(DISTINCT session_id) FROM views)::bigint AS total
@@ -332,7 +333,7 @@ def register(bp):
                        (node_match_json(config), selected['client_id'], flow['tag_id'], start, end))
         page_sessions = {row['path']: int(row['sessions']) for row in counts}
         total_sessions = int(counts[0]['total']) if counts else 0
-        rows = page_influence(journeys, page_sessions, total_sessions, flow_paths, nodes_by_path, titles)
+        rows = page_influence(journeys, page_sessions, total_sessions, flow_paths, nodes_by_path, titles, compare=not truncated)
         off_flow = [row for row in rows if not row['in_flow'] and row['assisted'] + row['assisted_prior'] >= MIN_ASSISTED]
         used = {row['path'] for row in rows if row['in_flow']}
         conversion_paths = {normalize_path(nodes_by_id[node_id]['path']) for node_id in goal_ids}
@@ -349,6 +350,6 @@ def register(bp):
             row['after_node_id'] = before.most_common(1)[0][0] if before else None
         return jsonify(status='ready', window=window, revision=flow.get('published_revision'),
                        conversions=len(journeys), sessions=total_sessions, truncated=truncated,
-                       compare_rates=len(journeys) >= MIN_RATE_CONVERSIONS,
+                       compare_rates=not truncated and len(journeys) >= MIN_RATE_CONVERSIONS,
                        pages=[row for row in rows if row['in_flow']], off_flow=off_flow, unused=unused,
                        thresholds=thresholds, notes=NOTES)

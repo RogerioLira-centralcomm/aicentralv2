@@ -18,7 +18,8 @@ export function FlowObserved({flowId,days,journey,config,readOnly,onChange,onSel
   const [open,setOpen]=useState(false);
   const [detail,setDetail]=useState(null);
   const ready=journey?.status==='ready';
-  const conversions=useFlowResource(flowId,'conversions',days,Boolean(flowId&&ready));
+  // The alert needs only the influence counts; the journeys behind the details load once the list opens.
+  const conversions=useFlowResource(flowId,'conversions',days,Boolean(flowId&&ready&&open));
   const influence=useFlowResource(flowId,'influence',days,Boolean(flowId&&ready));
   const journeys=conversions.data?.journeys||[];
   const byId=useMemo(()=>new Map((config.nodes||[]).map(node=>[node.id,node])),[config.nodes]);

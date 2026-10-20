@@ -1382,7 +1382,7 @@ def register(bp):
         generated_at = datetime.now(timezone.utc)
         if selected_flow and not selected_flow.get('historical_view') and selected_flow['status'] == 'published':
             from .reports_flow_live import build_live_snapshot
-            recent = _rows(f"""SELECT id,session_id,page_host,page_path,event_kind,referrer_host,utm_source,utm_campaign,
+            recent = _rows(f"""SELECT id,session_id,page_host,page_path,event_kind,referrer_host,utm_source,utm_campaign,click_id,
                     {"event_name" if has_event_name else "NULL::text"} AS event_name,occurred_at
                 FROM cadu_reports_flow_events
                 WHERE client_id=%s AND tag_id=%s AND flow_revision=%s
@@ -2100,7 +2100,7 @@ def register(bp):
                            active_window_seconds=90, next_cursor=since or None)
         if flow['status'] != 'published' or flow.get('revoked_at') or revision is None:
             return jsonify(**unavailable)
-        events = _rows("""SELECT id,visitor_id,session_id,page_host,page_path,event_kind,event_name,occurred_at,flow_revision,utm_source,referrer_host
+        events = _rows("""SELECT id,visitor_id,session_id,page_host,page_path,event_kind,event_name,occurred_at,flow_revision,utm_source,utm_campaign,click_id,referrer_host
             FROM cadu_reports_flow_events WHERE client_id=%s
               AND tag_id=%s AND flow_revision IS NOT NULL
               AND occurred_at>NOW()-INTERVAL '15 minutes' AND occurred_at<=NOW()

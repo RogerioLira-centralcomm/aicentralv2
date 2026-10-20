@@ -42,7 +42,8 @@ export function FlowJourneyNumbers({journey,days,onDaysChange,loading,error}) {
     if(journey?.status!=='ready')return [];
     const metrics=new Map((journey.nodes||[]).map(item=>[item.id,item]));
     const order=id=>FLOW_STAGES.findIndex(stage=>stage.id===id);
-    const arrived=(journey.config?.nodes||[]).filter(node=>node.type==='source').reduce((sum,node)=>sum+Number(metrics.get(node.id)?.sessions||0),0);
+    // The flow's one count of arrivals (journey.outcome); the sum over drawn origins only for older responses.
+    const arrived=journey.outcome?journey.outcome.sessions:(journey.config?.nodes||[]).filter(node=>node.type==='source').reduce((sum,node)=>sum+Number(metrics.get(node.id)?.sessions||0),0);
     return (journey.config?.nodes||[]).filter(node=>node.type!=='note').map(node=>{
       const metric=metrics.get(node.id)||{};
       const outgoing=(journey.edges||[]).filter(edge=>edge.from===node.id&&edge.sessions!=null);

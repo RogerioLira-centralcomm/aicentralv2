@@ -7,10 +7,7 @@ publishing again never resets the numbers. Matching mirrors match_flow_node.
 import json
 
 from .reports_flow_lifecycle import is_measured
-
-
-def _norm_path(column):
-    return f"COALESCE(NULLIF(RTRIM(LOWER({column}),'/'),''),'/')"
+from .reports_page_identity import sql_normalized_path as _norm_path
 
 
 def _norm_host(column):

@@ -6354,3 +6354,26 @@ html.is-sp-media body {
   font-size: 0.78rem;
   line-height: 1.5;
 }
+
+/* Modelo de apresentação (logo + paleta) no painel Publicação */
+.sp-template-picker { margin: 0 0 16px; padding: 0; border: 0; }
+.sp-template-picker legend { margin-bottom: 4px; font-weight: 700; font-size: 14px; }
+.sp-template-list { display: grid; gap: 8px; margin-top: 10px; }
+.sp-template-option { display: grid; grid-template-columns: auto 40px 1fr auto; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--cx-border, #dfe6e4); border-radius: 12px; cursor: pointer; }
+.sp-template-option:has(input:checked) { border-color: var(--cx-green, #0b6b52); box-shadow: 0 0 0 1px var(--cx-green, #0b6b52) inset; }
+.sp-template-option input { margin: 0; accent-color: var(--cx-green, #0b6b52); }
+.sp-template-logo { display: grid; place-items: center; width: 40px; height: 40px; overflow: hidden; border-radius: 10px; background: #f3f5f4; font-weight: 700; }
+.sp-template-logo img { max-width: 34px; max-height: 34px; object-fit: contain; }
+.sp-template-copy { display: grid; min-width: 0; }
+.sp-template-copy strong { font-size: 14px; }
+.sp-template-copy small { color: var(--cx-muted, #5f7076); font-size: 12px; line-height: 1.35; }
+.sp-template-swatches { display: flex; gap: 3px; }
+.sp-template-swatches i { width: 14px; height: 28px; border-radius: 4px; background: var(--swatch); box-shadow: 0 0 0 1px rgb(0 0 0 / 8%) inset; }
+.sp-template-status { min-height: 1.2em; margin: 6px 0 0; color: var(--cx-muted, #5f7076); font-size: 12px; }
+.sp-template-build { margin: 0 0 12px; padding: 10px 12px; border: 1px dashed var(--cx-border, #dfe6e4); border-radius: 12px; }
+.sp-template-build summary { cursor: pointer; font-weight: 650; font-size: 14px; }
+.sp-template-file { display: grid; gap: 4px; margin: 10px 0; font-size: 12px; }
+.sp-template-colors { display: flex; gap: 8px; margin-bottom: 10px; }
+.sp-template-colors input { width: 44px; height: 32px; padding: 0; border: 1px solid var(--cx-border, #dfe6e4); border-radius: 8px; background: none; cursor: pointer; }
+.sp-template-export { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 16px; }
+.sp-template-export > span { font-weight: 700; font-size: 13px; margin-right: 4px; }

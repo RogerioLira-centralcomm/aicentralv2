@@ -609,6 +609,73 @@
     }
   });
 
+  async function postModelo(path, body) {
+    var response = await fetch("/smart-planner/api/" + token + "/modelo" + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(body),
+    });
+    var payload = await response.json().catch(function () { return {}; });
+    if (!payload.success) throw new Error(payload.error || "Não foi possível salvar o modelo.");
+    return payload.data || {};
+  }
+
+  var templateStatus = document.querySelector("[data-template-status]");
+  document.querySelectorAll('input[name="presentation_template"]').forEach(function (input) {
+    input.addEventListener("change", async function () {
+      if (!input.checked) return;
+      if (templateStatus) templateStatus.textContent = "Salvando modelo…";
+      try {
+        await postModelo("", { template: input.value });
+        if (templateStatus) templateStatus.textContent = "Modelo aplicado ao link, ao PDF e ao PowerPoint.";
+      } catch (error) {
+        if (templateStatus) templateStatus.textContent = "";
+        toast(error.message, "error");
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-template-build]").forEach(function (box) {
+    var alvo = box.getAttribute("data-template-build");
+    var fileInput = box.querySelector("[data-template-logo]");
+    var colorInputs = Array.prototype.slice.call(box.querySelectorAll("[data-template-colors] input"));
+    var saveButton = box.querySelector("[data-template-save]");
+    var logoData = "";
+    fileInput?.addEventListener("change", function () {
+      var file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = async function () {
+        logoData = String(reader.result || "");
+        try {
+          var data = await postModelo("/cores", { logo: logoData });
+          (data.colors || []).forEach(function (color, index) {
+            if (colorInputs[index]) colorInputs[index].value = color.toLowerCase();
+          });
+        } catch (error) {
+          toast(error.message, "error");
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+    saveButton?.addEventListener("click", async function () {
+      saveButton.disabled = true;
+      try {
+        await postModelo("/marca", {
+          alvo: alvo,
+          logo: logoData,
+          cores: colorInputs.map(function (input) { return input.value; }),
+        });
+        toast("Modelo salvo. Vale para todos os planos desta marca.", "success");
+        window.location.reload();
+      } catch (error) {
+        toast(error.message, "error");
+        saveButton.disabled = false;
+      }
+    });
+  });
+
   presenterSelect?.addEventListener("change", async function () {
     if (!isEditor) return;
     try {

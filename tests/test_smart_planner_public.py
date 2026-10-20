@@ -381,7 +381,8 @@ class PublicPlannerTest(TestCase):
         self.assertIn("share_url", canvas)
         self.assertIn('id="sp-folha-form"', canvas)
         self.assertIn("sp-gallery", canvas)
-        self.assertIn("Criar marca no Workspace", canvas)
+        self.assertIn("Modelo de apresentação", canvas)
+        self.assertNotIn("Skin pública", canvas)
         self.assertNotIn("sp-qr", canvas)
         self.assertNotIn("sp-mockup", canvas)
 

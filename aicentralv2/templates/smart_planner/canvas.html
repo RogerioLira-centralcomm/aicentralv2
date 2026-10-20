@@ -4,7 +4,7 @@
 {% block title %}{{ titulo }} · Planejamentos{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=57">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=58">
 {% endblock %}
 
 {% block content %}
@@ -295,40 +295,44 @@
         </div>
           <section id="sp-acc-brand-body" class="sp-brand-panel sp-editor-publish" aria-labelledby="sp-publication-title">
             <header class="sp-editor-publish__head"><div><span class="sp-readout-kicker">Publicação</span><h2 id="sp-publication-title">Marca e apresentação pública</h2><p>Defina como o cliente verá este material; estas escolhas não alteram a estratégia ou o mix.</p></div>{% if share_url %}<a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ share_url }}" target="_blank" rel="noopener noreferrer">Abrir prévia pública</a>{% endif %}</header>
-            <div class="sp-brand-row">
-              {% if client.name %}
-              <div class="sp-brand-card">
-                {% if client.logo_url %}
-                <img src="{{ client.logo_url }}" alt="" width="40" height="40">
-                {% endif %}
-                <div>
-                  <strong>{{ client.name }}</strong>
-                  <span>{% if client.has_identity %}Identidade na Modelagem{% else %}Sem perfil completo{% endif %}</span>
-                  {% if client.asset_count %}<small>{{ client.asset_count }} asset{{ 's' if client.asset_count != 1 else '' }}</small>{% endif %}
-                </div>
+            {% set pres = presentation or {} %}
+            <fieldset class="sp-template-picker" id="sp-template-picker">
+              <legend>Modelo de apresentação</legend>
+              <p class="sp-acc-note">Logo e cores do link, do PDF e do PowerPoint. O modelo da agência vale para todos os planos dela.</p>
+              <div class="sp-template-list">
+                {% for option in pres.options or [] %}
+                <label class="sp-template-option">
+                  <input type="radio" name="presentation_template" value="{{ option.id }}" {% if pres.selected == option.id %}checked{% endif %}>
+                  <span class="sp-template-logo">{% if option.logo %}<img src="{{ option.logo }}" alt="" onerror="this.remove()">{% else %}{{ option.label[:1] }}{% endif %}</span>
+                  <span class="sp-template-copy"><strong>{{ option.label }}</strong><small>{{ option.note }}</small></span>
+                  <span class="sp-template-swatches" aria-hidden="true">{% for color in option.swatches[:5] %}<i style="--swatch: {{ color }}"></i>{% endfor %}</span>
+                </label>
+                {% endfor %}
               </div>
-              {% endif %}
-              {% if agency.name %}
-              <div class="sp-brand-card is-agency">
-                {% if agency.logo_url %}
-                <img src="{{ agency.logo_url }}" alt="" width="40" height="40">
-                {% endif %}
-                <div>
-                  <strong>{{ agency.name }}</strong>
-                  <span>Agência (CRM)</span>
-                </div>
+              <p class="sp-template-status" data-template-status role="status"></p>
+            </fieldset>
+            {% for item in pres.missing or [] %}
+            <details class="sp-template-build" data-template-build="{{ item.alvo }}">
+              <summary>Montar modelo {{ 'da agência' if item.alvo == 'agencia' else 'do cliente' }} {{ item.name }}</summary>
+              <p class="sp-acc-note">Envie a logo: as cores saem dela e você ajusta. Fica salvo na marca {{ 'da agência' if item.alvo == 'agencia' else 'do cliente' }} e passa a valer para todos os planos.</p>
+              <label class="sp-template-file"><span>Logo (PNG, JPG ou WEBP)</span><input type="file" accept="image/png,image/jpeg,image/webp" data-template-logo></label>
+              <div class="sp-template-colors" data-template-colors>
+                {% for index in range(4) %}<input type="color" value="{{ ['#0b6b52','#f0b000','#10252d','#7fa9a0'][index] }}" aria-label="Cor {{ index + 1 }}">{% endfor %}
               </div>
-              {% endif %}
+              <button type="button" class="cx-btn cx-btn-primary cx-btn-sm" data-template-save>Salvar modelo</button>
+            </details>
+            {% endfor %}
+            {% if pres.pptx_url %}
+            <div class="sp-template-export">
+              <span>Exportar</span>
+              <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ pres.slides_url }}" target="_blank" rel="noopener noreferrer">Apresentação</a>
+              <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ pres.pptx_url }}" download>PowerPoint</a>
+              <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ pres.pptx_url }}?paleta=neutra" download>PowerPoint neutro</a>
+              <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ pres.slides_url }}?paleta=neutra" target="_blank" rel="noopener noreferrer">Ver em cinza</a>
             </div>
-            {% if client.palette %}
-            <ul class="sp-brand-palette" aria-label="Paleta">
-              {% for color in client.palette %}
-              <li style="--swatch: {{ color }}" title="{{ color }}"></li>
-              {% endfor %}
-            </ul>
             {% endif %}
             <label class="sp-presenter" for="sp-presenter-legacy">
-              <span>Marca apresentadora da folha</span>
+              <span>Quem apresenta a proposta</span>
               <select class="cx-select" id="sp-presenter-legacy" name="presenter_legacy">
                 {% for option in presenter_options %}
                 <option value="{{ option.id }}" {% if presenter_brand == option.id %}selected{% endif %}>{{ option.label }}</option>
@@ -336,19 +340,6 @@
               </select>
             </label>
             <label class="sp-public-hero-option" for="sp-public-hero-background"><input id="sp-public-hero-background" type="checkbox" {% if (public_design.hero or {}).use_as_background %}checked{% endif %}><span><strong>Aplicar imagem principal também no fundo</strong><small>O link público usa a mesma imagem desfocada, com overlay escuro para manter a leitura.</small></span></label>
-            {% if public_design %}
-            <div class="sp-design-status">
-              <span>Skin pública</span>
-              <strong>{{ public_design.skin_id or 'paper-editorial' }}</strong>
-              <small>Hero: {{ (public_design.hero or {}).status or 'draft' }} · o texto permanece intacto ao trocar a aparência.</small>
-            </div>
-            {% endif %}
-            {% if brand.needs_create %}
-            <p class="sp-acc-note">Não há marca do anunciante no Workspace. Crie o perfil para usar logo, paleta e peças no planejamento.</p>
-            <a class="cx-btn cx-btn-primary cx-btn-sm" href="{{ brand.create_url }}" target="_blank" rel="noopener noreferrer">Criar marca no Workspace</a>
-            {% else %}
-            <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ brand.marcas_url }}" target="_blank" rel="noopener noreferrer">Abrir no Workspace</a>
-            {% endif %}
           </section>
       </form>
     </div>
@@ -399,5 +390,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}?v=9"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}?v=10"></script>
 {% endblock %}

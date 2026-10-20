@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 
@@ -12,8 +13,11 @@ from ..product_domains import product_url
 from .brand import brand_for_client, snapshot_brand, load_cx_client_for_crm
 from .canvas import SECTIONS
 from .helpers import as_dict, as_list, plan_mode_of, text
+from .images import ART_PUBLIC_PREFIX, is_generated_art
 from .logos import lookup_agency_for_client, public_logo
 from .skills.catalog import COMPLETO_STEPS, ONE_PAGE_STEPS
+
+logger = logging.getLogger(__name__)
 
 FOLHA_CHECKS = (
     {"id": "strategy", "label": "Tese e briefing", "anchor": "sp-acc-strategy"},
@@ -145,7 +149,7 @@ def _gallery(folha: dict) -> list[dict]:
             "active": creative_url == (public_hero or creative_url),
         })
     bg = text(theme.get("bg_url"))
-    if bg and "/generated/" in bg and not any(item["url"] == bg for item in items):
+    if bg and is_generated_art(bg) and not any(item["url"] == bg for item in items):
         items.append({
             "id": "bg",
             "label": "Fundo gerado",
@@ -156,7 +160,7 @@ def _gallery(folha: dict) -> list[dict]:
         })
     slug = _slug_from_meta(folha)
     for path in _generated_files(slug):
-        url = f"/static/images/smart_planner/generated/{path.name}"
+        url = f"{ART_PUBLIC_PREFIX}{path.name}"
         if any(item["url"] == url for item in items):
             continue
         kind = "creative" if "-creative-" in path.name else "background" if "-bg-" in path.name else "persona" if "-persona-" in path.name else "place" if "-place-" in path.name else "other"
@@ -199,7 +203,7 @@ def _art_dir() -> Path:
         root = current_app.static_folder
     else:
         root = os.path.join(os.path.dirname(__file__), "..", "static")
-    return Path(os.path.abspath(os.path.join(root, "images", "smart_planner", "generated")))
+    return Path(os.path.abspath(os.path.join(root, "uploads", "smart_planner")))
 
 
 def _brand_panel(dados: dict, folha: dict) -> dict:
@@ -262,6 +266,23 @@ def _brand_panel(dados: dict, folha: dict) -> dict:
     }
 
 
+def _presentation_panel(row: dict, dados: dict, folha: dict) -> dict:
+    """Seletor de modelo de apresentação (logo e paleta) e links de exportação."""
+    from . import presentation
+
+    try:
+        panel = presentation.editor_panel(row)
+    except Exception:
+        logger.exception("Falha ao montar o painel de modelo de apresentação")
+        panel = {"options": [], "selected": "centralcomm", "missing": []}
+    public_token = text(as_dict(folha.get("share")).get("public_token") or dados.get("public_token") or row.get("public_token"))
+    if public_token:
+        base = f"/smart-planner/p/{public_token}"
+        panel["slides_url"] = f"{base}/proposta"
+        panel["pptx_url"] = f"{base}/apresentacao.pptx"
+    return panel
+
+
 def editor_context(row: dict, share_url: str = "") -> dict:
     dados = as_dict(row.get("dados_detectados"))
     folha = as_dict(dados.get("folha"))
@@ -276,11 +297,13 @@ def editor_context(row: dict, share_url: str = "") -> dict:
     gallery = _gallery(folha)
     token = text(row.get("session_token"))
     url = text(share_url) or text(as_dict(folha.get("share")).get("url"))
+    presentation = _presentation_panel(row, dados, folha)
     return {
         "folha": folha,
         "cards": cards,
         "gallery": gallery,
         "brand_panel": brand_panel,
+        "presentation": presentation,
         "folha_checks": _folha_checklist(folha, cards, gallery, brand_panel),
         "completo_checks": _completo_checklist(row, dados, url, token),
         "media": as_dict(folha.get("media")),

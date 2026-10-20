@@ -60,11 +60,48 @@ def _hex_color(value, fallback: str) -> str:
     return raw if re.fullmatch(r"#[0-9a-fA-F]{3,8}", raw) else fallback
 
 
-def _public_document_response(view: dict):
+def _neutral_requested() -> bool:
+    return (request.args.get("paleta") or "").strip().lower() in {"neutra", "neutro"}
+
+
+def _existing_static(url: str) -> bool:
+    """Arquivos enviados que sumiram do disco não viram imagem quebrada na proposta."""
+    value = text(url)
+    if not value.startswith("/static/"):
+        return bool(value)
+    folder = current_app.static_folder or ""
+    path = os.path.abspath(os.path.join(folder, value[len("/static/"):].split("?", 1)[0]))
+    return path.startswith(os.path.abspath(folder)) and os.path.isfile(path)
+
+
+def _apply_presentation(view: dict, row: dict | None) -> dict:
+    """Aplica o modelo de apresentação do plano (logo e paleta) à visão pública."""
+    if not row:
+        return view
+    from . import presentation
+
+    try:
+        parties = presentation.plan_parties(row)
+        template = presentation.resolve(row, neutral_palette=_neutral_requested(), parties=parties)
+    except Exception:
+        logger.exception("Falha ao resolver o modelo de apresentação")
+        return view
+    if not _existing_static(view.get("brand_logo")):
+        client_logo = text(as_dict(as_dict(parties.get("client")).get("brand")).get("logo_url"))
+        view["brand_logo"] = client_logo if _existing_static(client_logo) else ""
+    if not _existing_static(template.get("logo")):
+        template["logo"] = ""
+    view["neutral_palette"] = bool(template.get("neutral"))
+    return presentation.apply_to_view(view, template)
+
+
+def _public_document_response(view: dict, row: dict | None = None):
     """Renderiza a página compartilhável sem permitir HTML antigo no CDN/browser.
 
     A proposta abre como apresentação em slides; ``?formato=documento`` mostra a versão em rolagem.
+    ``?paleta=neutra`` troca as cores do modelo por cinza (para exportar ou repassar).
     """
+    view = _apply_presentation(view, row)
     template = "smart_planner/public_document.html"
     base_url = text(view.get("document_url"))
     view["slides_url"] = base_url
@@ -80,6 +117,10 @@ def _public_document_response(view: dict):
             # As cores vão para um bloco <style>: só cor hexadecimal entra.
             view["slide_ink"] = _hex_color(hero.get("theme_ink"), "#14252d")
             view["slide_accent"] = _hex_color(hero.get("theme_accent"), "#d5aa3b")
+            neutral_query = "?paleta=neutra" if view.get("neutral_palette") else ""
+            if view.get("public_token"):
+                view["pptx_url"] = url_for("smart_planner.publico_pptx", public_token=view["public_token"]) + neutral_query
+            view["palette_toggle_url"] = base_url if view.get("neutral_palette") else (base_url or "") + "?paleta=neutra"
             template = "smart_planner/public_slides.html"
     response = make_response(render_template(template, **view))
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
@@ -218,7 +259,7 @@ def publico(public_token):
     if document:
         view = public_view(row, document=document)
         view["share_url"] = view.get("document_url") or public_document_url(public_token, document)
-        return _public_document_response(view)
+        return _public_document_response(view, row)
     view["share_url"] = view.get("share_url") or public_sheet_url(public_token)
     return render_template("smart_planner/public.html", **view)
 
@@ -233,12 +274,36 @@ def _public_document(public_token: str, document: str):
     if document == "full_plan" and not view.get("tem_completo"):
         raise SessionNotFound("Este planejamento completo não está publicado.")
     view["share_url"] = view.get("document_url")
-    return _public_document_response(view)
+    return _public_document_response(view, row)
 
 
 @bp.route("/p/<public_token>/proposta")
 def publico_proposta(public_token):
     return _public_document(public_token, "proposal")
+
+
+@bp.route("/p/<public_token>/apresentacao.pptx")
+def publico_pptx(public_token):
+    """A proposta em PowerPoint editável, no modelo do plano (``?paleta=neutra`` em cinza)."""
+    import re
+
+    from .pptx_export import build_pptx
+    from .public_slides import build_slides
+
+    row = get_by_public_token(public_token)
+    if not row:
+        raise SessionNotFound("Este planejamento não está no ar.")
+    view = public_view(row, document="proposal")
+    if not view.get("tem_folha"):
+        raise SessionNotFound("Esta proposta comercial não está publicada.")
+    view = _apply_presentation(view, row)
+    data = build_pptx(view, build_slides(view), as_dict(view.get("template")), current_app.static_folder or "")
+    stem = re.sub(r"[^a-z0-9]+", "-", f"{text(view.get('client'))} {text(view.get('title'))}".lower()).strip("-")[:70] or "proposta"
+    response = make_response(data)
+    response.headers["Content-Type"] = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    response.headers["Content-Disposition"] = f'attachment; filename="{stem}.pptx"'
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @bp.route("/p/<public_token>/plano")
@@ -780,6 +845,61 @@ def api_canvas_asset(token):
     except Exception:
         logger.exception("Falha ao salvar asset da folha")
         return _error("Não foi possível salvar esta imagem.", 500)
+
+
+@bp.route("/api/<token>/modelo", methods=["POST"])
+@centralcomm_required_api
+def api_presentation_template(token):
+    """Escolhe o modelo de apresentação do plano (agência, cliente, CentralComm ou neutro)."""
+    from . import presentation
+
+    try:
+        choice = text((request.get_json(silent=True) or {}).get("template")).lower()
+        if choice not in presentation.CHOICES:
+            return _error("Modelo de apresentação inválido.", 400)
+        load_owned(token)
+        merge_dados(token, {"presentation_template": choice})
+        return _ok({"template": choice, "presentation": presentation.editor_panel(load_owned(token))})
+    except SessionNotFound as exc:
+        return _error(exc, 404)
+
+
+@bp.route("/api/<token>/modelo/cores", methods=["POST"])
+@centralcomm_required_api
+def api_presentation_colors(token):
+    """Cores sugeridas a partir da logo enviada; o executivo ajusta antes de salvar."""
+    from . import presentation
+
+    try:
+        load_owned(token)
+        logo = (request.get_json(silent=True) or {}).get("logo")
+        return _ok({"colors": presentation.colors_from_image(logo if isinstance(logo, str) else "")})
+    except SessionNotFound as exc:
+        return _error(exc, 404)
+
+
+@bp.route("/api/<token>/modelo/marca", methods=["POST"])
+@centralcomm_required_api
+def api_presentation_brand(token):
+    """Salva logo e paleta na marca do Workspace da agência ou do cliente e usa o modelo no plano."""
+    from . import presentation
+
+    try:
+        payload = request.get_json(silent=True) or {}
+        alvo = text(payload.get("alvo")).lower()
+        logo = payload.get("logo") if isinstance(payload.get("logo"), str) else ""
+        colors = [text(c) for c in as_list(payload.get("cores"))][:6]
+        row = load_owned(token)
+        saved = presentation.save_party_template(row, alvo, logo, colors)
+        merge_dados(token, {"presentation_template": alvo})
+        return _ok({"saved": saved, "presentation": presentation.editor_panel(load_owned(token))})
+    except SessionNotFound as exc:
+        return _error(exc, 404)
+    except ValueError as exc:
+        return _error(exc, 400)
+    except Exception:
+        logger.exception("Falha ao salvar o modelo de apresentação")
+        return _error("Não foi possível salvar o modelo agora.", 500)
 
 
 @bp.route("/api/<int:session_id>/excluir", methods=["POST"])

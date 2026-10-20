@@ -133,9 +133,9 @@ def test_sheet_art_uses_openrouter_gpt_image_2(monkeypatch, tmp_path):
         "sections": [{"cards": [{"type": "creative", "surface": "ctv", "image_url": "", "image_prompt": "CTV ad"}]}],
     }
     apply_sheet_art(plan, force=True)
-    assert plan["theme"]["bg_url"].startswith("/static/images/smart_planner/generated/")
+    assert plan["theme"]["bg_url"].startswith("/static/uploads/smart_planner/")
     assert plan["theme"]["bg_model"] == "openai/gpt-image-2"
-    assert plan["sections"][0]["cards"][0]["image_url"].startswith("/static/images/smart_planner/generated/")
+    assert plan["sections"][0]["cards"][0]["image_url"].startswith("/static/uploads/smart_planner/")
     assert plan["sections"][0]["cards"][0]["image_model"] == "openai/gpt-image-2"
     assert list(tmp_path.glob("*.png"))
 
@@ -237,7 +237,7 @@ def test_folha_editor_is_enterprise_form_not_pitch_sheet():
     assert 'data-editor="1"' in html
     assert 'id="sp-folha-form"' in html
     assert "sp-gallery" in html
-    assert "Marca apresentadora da folha" in html
+    assert "Quem apresenta a proposta" in html
     assert "sp-image-prep" in html
     assert "sp-completo-checks" not in html
     assert "Protótipo visual no canal" in html

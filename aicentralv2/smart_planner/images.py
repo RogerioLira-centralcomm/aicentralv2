@@ -14,6 +14,17 @@ from ..services.openrouter_service import generate_image, resolve_image_model
 from .cost import record as record_cost
 from .helpers import as_dict, as_list, text
 
+# Arte e envios ficam em static/uploads, pasta fora do git que o deploy preserva.
+# A pasta antiga (static/images/smart_planner/generated) é versionada e perde os
+# arquivos novos a cada deploy; URLs antigas continuam sendo lidas como estão.
+ART_PUBLIC_PREFIX = "/static/uploads/smart_planner/"
+LEGACY_ART_MARKER = "/generated/"
+
+
+def is_generated_art(url: str) -> bool:
+    value = text(url)
+    return ART_PUBLIC_PREFIX in value or LEGACY_ART_MARKER in value
+
 logger = logging.getLogger(__name__)
 
 
@@ -81,7 +92,7 @@ def apply_sheet_art(plan: dict, force: bool = False) -> dict:
             "kind": "background",
             "asset_url": text(theme.get("bg_url")),
             "prompt": text(theme.get("bg_prompt")),
-            "status": "draft" if "/generated/" in text(theme.get("bg_url")) else "approved",
+            "status": "draft" if is_generated_art(theme.get("bg_url")) else "approved",
         }
     for item in existing.values():
         kind = text(item.get("kind"))
@@ -97,7 +108,7 @@ def apply_sheet_art(plan: dict, force: bool = False) -> dict:
     hero = as_dict(design.get("hero"))
     if text(theme.get("bg_url")):
         hero.update({"asset_url": text(theme.get("bg_url")), "prompt": text(theme.get("bg_prompt"))})
-        hero.setdefault("status", "draft" if "/generated/" in text(theme.get("bg_url")) else "approved")
+        hero.setdefault("status", "draft" if is_generated_art(theme.get("bg_url")) else "approved")
     design["hero"] = hero
     design.setdefault("skin_id", text(theme.get("id")) or "paper-editorial")
     design.setdefault("selection_mode", "auto")
@@ -159,7 +170,7 @@ def materialize_uploaded_references(values: list[str] | None = None) -> list[str
         if not os.path.exists(path):
             with open(path, "wb") as handle:
                 handle.write(raw)
-        out.append(f"/static/images/smart_planner/generated/{filename}")
+        out.append(f"{ART_PUBLIC_PREFIX}{filename}")
     return out
 
 
@@ -186,7 +197,7 @@ def _needs_exclusive_bg(theme: dict) -> bool:
     url = text(theme.get("bg_url"))
     if not url:
         return True
-    return "/smart_planner/bg-" in url and "/generated/" not in url
+    return "/smart_planner/bg-" in url and not is_generated_art(url)
 
 
 def _creative_card(plan: dict) -> dict | None:
@@ -262,7 +273,7 @@ def _render(prompt: str, stem: str, aspect_ratio: str, references: list[str] | N
         filename,
         result.get("model") or resolve_image_model(),
     )
-    return f"/static/images/smart_planner/generated/{filename}"
+    return f"{ART_PUBLIC_PREFIX}{filename}"
 
 
 def _art_dir() -> str:
@@ -270,7 +281,7 @@ def _art_dir() -> str:
         root = current_app.static_folder
     else:
         root = os.path.join(os.path.dirname(__file__), "..", "static")
-    dest = os.path.abspath(os.path.join(root, "images", "smart_planner", "generated"))
+    dest = os.path.abspath(os.path.join(root, "uploads", "smart_planner"))
     os.makedirs(dest, exist_ok=True)
     return dest
 

@@ -16,8 +16,8 @@ const readView = () => { try { return localStorage.getItem(VIEW_KEY) === 'operac
 const readMode = () => { try { return localStorage.getItem(MODE_KEY) === 'golden' ? 'golden' : 'fila'; } catch { return 'fila'; } };
 
 function readFilters(boot) {
-  const base = {executivo: boot.filtroExecutivoInicial || '', status: '', potencial: '', golden: '', q: ''};
-  try { return {...base, ...JSON.parse(localStorage.getItem(FILTERS_KEY) || '{}'), q: ''}; } catch { return base; }
+  const base = {executivo: boot.filtroExecutivoInicial || '', status: '', potencial: '', origem: '', q: ''};
+  try { const {golden, ...salvos} = JSON.parse(localStorage.getItem(FILTERS_KEY) || '{}'); return {...base, ...salvos, q: ''}; } catch { return base; }
 }
 
 function useWide(query) {

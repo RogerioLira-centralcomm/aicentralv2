@@ -145,8 +145,11 @@ def api_listar():
     golden = _golden_por_lead([l["id"] for l in leads])
     for lead in leads:
         lead["golden"] = golden.get(lead["id"])
-    if request.args.get("golden") == "1":
-        leads = [l for l in leads if l["golden"]]
+    origem = request.args.get("origem")
+    if origem == "site":
+        leads = [l for l in leads if l.get("fonte") == "site"]
+    elif origem == "adicionados":
+        leads = [l for l in leads if l.get("fonte") != "site"]
     leads.sort(key=lambda l: not l["golden"])  # estável: Golden Circle no topo, resto na ordem do dashboard
     return _ok({"leads": leads, "total": len(leads)})
 

@@ -156,3 +156,14 @@ class LeadsV3BulkTest(TestCase):
             resp = _client().post("/leads-v3/api/leads/lote", json={"acao": "potencial", "valor": "alto", "ids": [1]})
         self.assertEqual(resp.status_code, 500)
         self.assertTrue(conn.rolled_back)
+
+
+class LeadsV3OrigemTest(TestCase):
+    def test_filtro_de_origem_separa_site_dos_adicionados(self):
+        rows = [{"id": 1, "fonte": "site"}, {"id": 2, "fonte": "import"}, {"id": 3, "fonte": "manual"}]
+        with patch.object(routes.db, "obter_leads_dashboard", return_value=rows), \
+                patch.object(routes, "_golden_por_lead", return_value={}):
+            site = _client().get("/leads-v3/api/leads?origem=site").get_json()["data"]["leads"]
+            adicionados = _client().get("/leads-v3/api/leads?origem=adicionados").get_json()["data"]["leads"]
+        self.assertEqual([l["id"] for l in site], [1])
+        self.assertEqual([l["id"] for l in adicionados], [2, 3])

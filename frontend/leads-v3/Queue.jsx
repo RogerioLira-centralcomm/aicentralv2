@@ -1,5 +1,5 @@
 import React from 'react';
-import {Button, Chip, Empty, Icon, decode, potencialTone} from './ui.jsx';
+import {Button, Chip, Empty, Icon, decode, potencialTone, prettyName} from './ui.jsx';
 
 /** Barra que substitui o cabeçalho da fila enquanto há leads selecionados. */
 function BulkBar({boot, count, total, busy, onAction, onDisqualify, onClear, onSelectAll}) {
@@ -35,7 +35,18 @@ function BulkBar({boot, count, total, busy, onAction, onDisqualify, onClear, onS
   );
 }
 
+// De onde o lead veio: site (formulário) ou adicionado pela equipe.
+const ORIGEM = {
+  site: {label: 'Site', tone: 'site', title: 'Veio de formulário do site ou landing page'},
+  import: {label: 'Importado', tone: 'added', title: 'Adicionado por importação em massa'},
+  manual: {label: 'Manual', tone: 'added', title: 'Cadastrado pela equipe'},
+  indicacao: {label: 'Indicação', tone: 'added', title: 'Veio por indicação'},
+  evento: {label: 'Evento', tone: 'added', title: 'Veio de evento'},
+  outro: {label: 'Outro', tone: 'added', title: 'Outra origem'},
+};
+
 function QueueItem({lead, statusLabel, active, selected, onOpen, onToggle}) {
+  const origem = ORIGEM[lead.fonte];
   const parado = lead.dias_sem_atividade != null && lead.dias_sem_atividade >= 7;
   return (
     <li className={`lv3-qitem ${active ? 'is-active' : ''} ${selected ? 'is-selected' : ''}`}>
@@ -50,6 +61,7 @@ function QueueItem({lead, statusLabel, active, selected, onOpen, onToggle}) {
           <Chip tone={potencialTone(lead.potencial)}>{lead.potencial === 'medio' ? 'Médio' : (lead.potencial || '—').replace(/^./, c => c.toUpperCase())}</Chip>
         </span>
         <span className="lv3-qitem__meta">
+          {origem && <span className={`lv3-origin lv3-origin--${origem.tone}`} title={origem.title}>{origem.label}</span>}
           <span>{statusLabel}</span>
           <span aria-hidden="true">·</span>
           <span>{lead.qtd_contatos ? `${lead.qtd_contatos} ${lead.qtd_contatos === 1 ? 'contato' : 'contatos'}` : 'sem contatos'}</span>
@@ -58,7 +70,7 @@ function QueueItem({lead, statusLabel, active, selected, onOpen, onToggle}) {
           )}
         </span>
         {lead.contato_principal_nome && lead.contato_principal_nome !== lead.nome_lead && (
-          <span className="lv3-qitem__sub"><Icon name="user"/>{decode(lead.contato_principal_nome)}</span>
+          <span className="lv3-qitem__sub"><Icon name="user"/>{prettyName(lead.contato_principal_nome)}</span>
         )}
       </button>
     </li>
@@ -102,10 +114,11 @@ export function Queue({boot, leads, loading, error, filters, setFilters, activeI
             <option value="">Todo potencial</option>
             {boot.potenciais.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
-          <label className={`lv3-toggle lv3-toggle--wide ${filters.golden === '1' ? 'is-on' : ''}`}>
-            <input type="checkbox" checked={filters.golden === '1'} onChange={e => setFilters(f => ({...f, golden: e.target.checked ? '1' : ''}))}/>
-            <Icon name="bullseye"/>Só Golden Circle
-          </label>
+          <select className="lv3-select lv3-queue__origin" value={filters.origem || ''} onChange={set('origem')} aria-label="Origem">
+            <option value="">Todas as origens</option>
+            <option value="site">Vieram do site (formulários)</option>
+            <option value="adicionados">Adicionados pela equipe</option>
+          </select>
           </>}
         </div>
       </div>

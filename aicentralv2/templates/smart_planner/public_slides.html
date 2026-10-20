@@ -18,7 +18,7 @@
 {% macro mockup(m, size='lg') %}
 <figure class="sx-mock is-{{ m.kind }} is-{{ size }}" aria-label="Criativo em {{ m.label }}">
   {% if m.kind == 'tv' %}
-  <div class="sx-mock-tv"><div class="sx-mock-screen"><img src="{{ m.image }}" alt="" loading="lazy"><span class="sx-mock-ad">Anúncio · 0:15</span>{% if m.logo %}<img class="sx-mock-logo" src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% endif %}<i class="sx-mock-progress"><b></b></i></div><i class="sx-mock-stand"></i></div>
+  <div class="sx-mock-tv"><div class="sx-mock-screen"><img class="sx-mock-fill" src="{{ m.image }}" alt="" aria-hidden="true" loading="lazy"><img class="sx-mock-art" src="{{ m.image }}" alt="" loading="lazy"><span class="sx-mock-ad">Anúncio · 0:15</span>{% if m.logo %}<img class="sx-mock-logo" src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% endif %}<i class="sx-mock-progress"><b></b></i></div><i class="sx-mock-stand"></i></div>
   {% elif m.kind == 'app' %}
   <div class="sx-mock-phone is-app"><div class="sx-mock-map"><i class="sx-mock-route"></i><i class="sx-mock-car"></i><i class="sx-mock-pin"></i></div><div class="sx-mock-trip"><header>{% if m.logo %}<img src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% endif %}<span>Chegando em 4 min</span></header><div class="sx-mock-banner"><img src="{{ m.image }}" alt="" loading="lazy"><small>Patrocinado</small></div><i></i><i class="is-short"></i></div></div>
   {% elif m.kind == 'vertical' %}
@@ -26,7 +26,7 @@
   {% elif m.kind == 'audio' %}
   <div class="sx-mock-phone is-audio"><header>{% if m.logo %}<img src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% endif %}<span>Anúncio · 0:30</span></header><div class="sx-mock-cover"><img src="{{ m.image }}" alt="" loading="lazy"></div><div class="sx-mock-player"><i class="sx-mock-progress"><b></b></i><span><i></i><b></b><i></i></span></div></div>
   {% elif m.kind == 'social' %}
-  <div class="sx-mock-phone"><header>{% if m.logo %}<img src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% endif %}<span>Patrocinado</span></header><div class="sx-mock-feed"><img src="{{ m.image }}" alt="" loading="lazy"></div><footer><i></i><i></i><i></i></footer></div>
+  <div class="sx-mock-phone"><header>{% if m.logo %}<img src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% endif %}<span>Patrocinado</span></header><div class="sx-mock-feed"><img class="sx-mock-fill" src="{{ m.image }}" alt="" aria-hidden="true" loading="lazy"><img class="sx-mock-art" src="{{ m.image }}" alt="" loading="lazy"></div><footer><i></i><i></i><i></i></footer></div>
   {% else %}
   <div class="sx-mock-browser"><header><i></i><i></i><i></i><span></span></header><div class="sx-mock-page"><div class="sx-mock-mast">{% if m.logo %}<img src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% else %}<strong>{{ m.label }}</strong>{% endif %}<span></span><span></span><span></span></div><div class="sx-mock-leader"><img src="{{ m.image }}" alt="" loading="lazy"><small>Publicidade</small></div><div class="sx-mock-body"><div class="sx-mock-text"><b></b><i></i><i></i><i></i><i class="is-short"></i></div><div class="sx-mock-mrec"><img src="{{ m.image }}" alt="" loading="lazy"><small>Publicidade</small></div></div></div></div>
   {% endif %}

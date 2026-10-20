@@ -1,4 +1,4 @@
-import React, {useEffect, useRef} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 
 /** Textos do site chegam com entidades HTML ("&quot;"). DOMParser decodifica sem executar nada. */
 export function decode(text) {
@@ -169,4 +169,38 @@ export function prettyName(text) {
   if (!value || value !== value.toUpperCase() || !/[A-ZÀ-Ý]/.test(value)) return value;
   return value.toLowerCase().replace(/(^|[\s-])(\p{L})/gu, (_, sep, ch) => sep + ch.toUpperCase())
     .replace(/\b(De|Da|Do|Das|Dos|E)\b/g, w => w.toLowerCase());
+}
+
+/** Menu suspenso de ações (fecha com clique fora ou Esc). `trigger="icon"` usa um botão de ícone discreto. */
+export function MoreMenu({items, disabled, icon = 'ellipsis', label = 'Mais ações', trigger = 'button'}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = event => { if (event.type === 'keydown' ? event.key === 'Escape' : !ref.current?.contains(event.target)) setOpen(false); };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', close);
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', close); };
+  }, [open]);
+  if (!items.length) return null;
+  return (
+    <div className="lv3-menu" ref={ref}>
+      {trigger === 'icon' ? (
+        <button type="button" className={`lv3-iconbtn ${open ? 'is-open' : ''}`} onClick={() => setOpen(o => !o)} disabled={disabled}
+          aria-label={label} aria-expanded={open} title={label}><Icon name={icon}/></button>
+      ) : (
+        <Button size="sm" icon={icon} onClick={() => setOpen(o => !o)} disabled={disabled} aria-label={label} aria-expanded={open} title={label}/>
+      )}
+      {open && (
+        <div className="lv3-menu__list" role="menu">
+          {items.map(item => (
+            <button key={item.label} type="button" role="menuitem" className={`lv3-menu__item ${item.danger ? 'is-danger' : ''}`}
+              onClick={() => { setOpen(false); item.onClick(); }}>
+              <Icon name={item.icon}/><span>{item.label}{item.hint && <small>{item.hint}</small>}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }

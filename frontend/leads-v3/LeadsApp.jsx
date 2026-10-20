@@ -272,34 +272,21 @@ export function LeadsApp({boot}) {
           onChanged={refreshActive} onEdit={() => setDialog({type: 'edit'})}
           onEditCompany={() => setDialog({type: 'company'})} onConvert={() => setDialog({type: 'convert'})}
           onExtract={() => setDialog({type: 'extract'})} onMerge={() => setDialog({type: 'merge'})}
-          onDisqualify={() => setDialog({type: 'disqualify', ids: [lead.id]})}/>
+          onDisqualify={() => setDialog({type: 'disqualify', ids: [lead.id]})} split={wide}/>
 
-        {wide ? (
-          <>
-            <section className="lv3-col lv3-side" aria-label="Atividades">
-              <header className="lv3-col__head"><Icon name="list-check"/><h2>Atividades</h2></header>
-              <div className="lv3-col__scroll">{activities || <Empty icon="list-check" title="Sem lead selecionado"/>}</div>
-            </section>
-            <section className="lv3-col lv3-side" aria-label="Comunicação">
-              <header className="lv3-col__head"><Icon name="comments"/><h2>Comunicação</h2></header>
-              <div className="lv3-col__scroll">{comms || <Empty icon="comments" title="Sem lead selecionado"/>}</div>
-            </section>
-          </>
-        ) : (
-          <section className="lv3-col lv3-side" aria-label="Atividades e comunicação">
-            <div className="lv3-tabs" role="tablist">
-              <button type="button" role="tab" aria-selected={tab === 'atividades'} className={tab === 'atividades' ? 'is-on' : ''} onClick={() => setTab('atividades')}>
-                <Icon name="list-check"/>Atividades{detail.activities.length ? <span className="lv3-count">{detail.activities.length}</span> : null}
-              </button>
-              <button type="button" role="tab" aria-selected={tab === 'comunicacao'} className={tab === 'comunicacao' ? 'is-on' : ''} onClick={() => setTab('comunicacao')}>
-                <Icon name="comments"/>Comunicação{detail.communications.length ? <span className="lv3-count">{detail.communications.length}</span> : null}
-              </button>
-            </div>
-            <div className="lv3-col__scroll">
-              {(tab === 'atividades' ? activities : comms) || <Empty icon="hand-pointer" title="Sem lead selecionado"/>}
-            </div>
-          </section>
-        )}
+        <section className="lv3-col lv3-side" aria-label="Atividades e comunicação">
+          <div className="lv3-tabs" role="tablist">
+            <button type="button" role="tab" aria-selected={tab === 'atividades'} className={tab === 'atividades' ? 'is-on' : ''} onClick={() => setTab('atividades')}>
+              <Icon name="list-check"/>Atividades{detail.activities.length ? <span className="lv3-count">{detail.activities.length}</span> : null}
+            </button>
+            <button type="button" role="tab" aria-selected={tab === 'comunicacao'} className={tab === 'comunicacao' ? 'is-on' : ''} onClick={() => setTab('comunicacao')}>
+              <Icon name="comments"/>Comunicação{detail.communications.length ? <span className="lv3-count">{detail.communications.length}</span> : null}
+            </button>
+          </div>
+          <div className="lv3-col__scroll">
+            {(tab === 'atividades' ? activities : comms) || <Empty icon="hand-pointer" title="Sem lead selecionado"/>}
+          </div>
+        </section>
       </div>
       )}
 

@@ -1,5 +1,5 @@
-import React, {useState} from 'react';
-import {Button, Empty, Field, Icon, decode, formatDate, linkedinSearchUrl, prettyName as pretty, whatsappUrl} from './ui.jsx';
+import React, {useEffect, useState} from 'react';
+import {Button, Empty, Field, Icon, MoreMenu, decode, formatDate, linkedinSearchUrl, prettyName as pretty, whatsappUrl} from './ui.jsx';
 
 // Papéis que o Golden Circle precisa cobrir em cada conta.
 const COVERAGE = [
@@ -42,7 +42,7 @@ function CadenceLine({api, contact, inscricao, notify, onChanged}) {
   if (!inscricao) {
     return (
       <div className="lv3-cadence lv3-cadence--none">
-        <Button size="xs" icon="play" onClick={iniciar} disabled={busy}>Iniciar cadência</Button>
+        <Button size="xs" icon="play" onClick={iniciar} disabled={busy} title="Iniciar cadência (modelo escolhido pela área da pessoa)">Cadência</Button>
         <span className="lv3-muted">modelo escolhido pela área da pessoa</span>
       </div>
     );
@@ -89,6 +89,7 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, notify, onCh
   const [linkedin, setLinkedin] = useState(null);
   const [edit, setEdit] = useState(null);
   const nome = pretty(c.nome);
+  const abrirEdicao = () => setEdit({nome: pretty(c.nome), cargo: pretty(c.cargo), email: String(c.email || '').toLowerCase(), telefone: c.telefone || ''});
   const salvarEdicao = async event => {
     event.preventDefault();
     if (!edit.nome.trim()) return notify('Informe o nome.', 'error');
@@ -110,6 +111,23 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, notify, onCh
     run('linkedin', () => api.updateProfile(c.id, {linkedin_url: linkedin}), 'LinkedIn salvo.')().then(() => setLinkedin(null));
   };
   const palpite = c.email && c.email_status === 'arriscado';
+  const revelar = run('reveal', () => api.revealContact(c.id), r => r.encontrou_email ? `E-mail verificado: ${r.email}.` : (r.motivo || 'O Apollo não tem e-mail para esta pessoa.'));
+  const errado = (campo, valor) => () => {
+    if (window.confirm(`${valor} não é de ${nome}? Ele sai da ficha (fica registrado no histórico) e você pode digitar o certo.`)) {
+      run('wrong', () => api.wrongData(c.id, campo), `${campo === 'email' ? 'E-mail' : 'Celular'} retirado. Digite o certo em Editar.`)().then(abrirEdicao);
+    }
+  };
+  // Tudo que completa a ficha fica num menu só; a linha de contato mostra só o dado e a situação dele.
+  const enriquecer = [
+    !c.email && {icon: 'wand-magic-sparkles', label: 'Achar e-mail', hint: 'padrão da empresa, grátis', onClick: run('find', () => api.findEmail(c.id), emailFoundMessage)},
+    boot.fontes.apollo && (!c.email || palpite) && {icon: 'envelope-circle-check', label: palpite ? 'Verificar e-mail no Apollo' : 'E-mail verificado (Apollo)', hint: '1 crédito', onClick: revelar},
+    boot.fontes.apollo && !c.telefone && c.telefone_status !== 'pedido' && {icon: 'mobile-screen', label: 'Buscar celular (Apollo)', hint: c.telefone_status === 'sem_numero' ? 'o Apollo já disse que não tem; tentar de novo gasta créditos' : 'créditos de telefone, chega em minutos',
+      onClick: () => { if (window.confirm(`Pedir o celular de ${nome} ao Apollo? Consome créditos de telefone do plano (mais que um e-mail).`)) run('phone', () => api.requestPhone(c.id), 'Celular pedido ao Apollo. Chega em alguns minutos.')(); }},
+    !c.linkedin_url && {icon: 'link', label: 'Colar LinkedIn', onClick: () => setLinkedin('')},
+    {icon: 'keyboard', label: 'Digitar e-mail ou celular', onClick: abrirEdicao},
+    c.email && {icon: 'envelope', label: 'E-mail está errado', danger: true, onClick: errado('email', String(c.email).toLowerCase())},
+    c.telefone && {icon: 'phone-slash', label: 'Celular está errado', danger: true, onClick: errado('telefone', c.telefone)},
+  ].filter(Boolean);
 
   return (
     <li className="lv3-person">
@@ -121,22 +139,18 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, notify, onCh
             {c.is_principal && <span className="lv3-chip lv3-chip--brand lv3-chip--tiny">Principal</span>}
             {c.origem_dado && SOURCE_LABEL[c.origem_dado] && <span className="lv3-chip lv3-chip--neutral lv3-chip--tiny">{SOURCE_LABEL[c.origem_dado]}</span>}
           </div>
-          <div className="lv3-person__role">{pretty(c.cargo || c.departamento) || 'Cargo não informado'}</div>
+          <div className="lv3-person__role" title={pretty(c.cargo || c.departamento) || ''}>{pretty(c.cargo || c.departamento) || 'Cargo não informado'}</div>
         </div>
         <div className="lv3-person__actions">
           {c.linkedin_url
             ? <a className="lv3-iconbtn" href={c.linkedin_url} target="_blank" rel="noopener noreferrer" title="Abrir perfil no LinkedIn" aria-label={`LinkedIn de ${nome}`}><Icon name="arrow-up-right-from-square"/></a>
             : <a className="lv3-iconbtn" href={linkedinSearchUrl(nome.replace(/\*/g, ''), empresa)} target="_blank" rel="noopener noreferrer" title="Procurar no LinkedIn" aria-label={`Procurar ${nome} no LinkedIn`}><Icon name="magnifying-glass"/></a>}
-          <button type="button" className="lv3-iconbtn" title="Editar" aria-label={`Editar ${nome}`}
-            onClick={() => setEdit({nome: pretty(c.nome), cargo: pretty(c.cargo), email: String(c.email || '').toLowerCase(), telefone: c.telefone || ''})}><Icon name="pen"/></button>
-          {!c.is_principal && (
-            <button type="button" className="lv3-iconbtn" title="Tornar principal" aria-label={`Tornar ${nome} principal`}
-              onClick={run('primary', () => api.makePrimary(leadId, c.id), 'Contato principal atualizado.')}><Icon name="star"/></button>
-          )}
-          <button type="button" className="lv3-iconbtn lv3-iconbtn--danger" title="Remover" aria-label={`Remover ${nome}`}
-            onClick={() => { if (window.confirm(`Remover ${nome} deste lead?`)) run('remove', () => api.removeContact(c.id), 'Contato removido.')(); }}>
-            <Icon name="trash"/>
-          </button>
+          <MoreMenu trigger="icon" icon="wand-magic-sparkles" label={`Completar dados de ${nome}`} disabled={!!busy} items={enriquecer}/>
+          <MoreMenu trigger="icon" label={`Mais ações de ${nome}`} disabled={!!busy} items={[
+            {icon: 'pen', label: 'Editar', onClick: abrirEdicao},
+            !c.is_principal && {icon: 'star', label: 'Tornar principal', onClick: run('primary', () => api.makePrimary(leadId, c.id), 'Contato principal atualizado.')},
+            {icon: 'trash', label: 'Remover', danger: true, onClick: () => { if (window.confirm(`Remover ${nome} deste lead?`)) run('remove', () => api.removeContact(c.id), 'Contato removido.')(); }},
+          ].filter(Boolean)}/>
         </div>
       </div>
 
@@ -157,49 +171,21 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, notify, onCh
 
       <div className="lv3-person__contact">
         {c.email ? (
-          <span className="lv3-person__emailrow">
-            <a href={`mailto:${c.email}`} className="lv3-person__email">
-              <Icon name="envelope"/>{String(c.email).toLowerCase()}
-              {c.email_status === 'valido' && <Icon name="circle-check" className="lv3-ok"/>}
-              {palpite && <span className="lv3-chip lv3-chip--warning lv3-chip--tiny" title="Montado pelo padrão da empresa; confira antes de enviar">palpite</span>}
-            </a>
-            {palpite && boot.fontes.apollo && (
-              <button type="button" className="lv3-link lv3-link--muted" disabled={!!busy} title="Troca o palpite pelo e-mail verificado do Apollo (1 crédito)"
-                onClick={run('reveal', () => api.revealContact(c.id), r => r.encontrou_email ? `E-mail verificado: ${r.email}.` : (r.motivo || 'O Apollo não tem e-mail para esta pessoa.'))}>
-                {busy === 'reveal' ? 'Verificando…' : 'Verificar no Apollo'}
-              </button>
-            )}
-          </span>
-        ) : (
-          <span className="lv3-person__noemail">
-            <Button size="xs" variant="primary" icon="wand-magic-sparkles" disabled={!!busy}
-              onClick={run('find', () => api.findEmail(c.id), emailFoundMessage)}>
-              {busy === 'find' ? 'Procurando…' : 'Achar e-mail'}
-            </Button>
-            {boot.fontes.apollo && (
-              <button type="button" className="lv3-link lv3-link--muted" disabled={!!busy} title="E-mail verificado do Apollo: consome 1 crédito"
-                onClick={run('reveal', () => api.revealContact(c.id), r => r.encontrou_email ? `E-mail verificado: ${r.email}.` : (r.motivo || 'O Apollo não tem e-mail para esta pessoa.'))}>
-                {busy === 'reveal' ? 'Consultando Apollo…' : 'E-mail verificado (Apollo)'}
-              </button>
-            )}
-          </span>
-        )}
+          <a href={`mailto:${c.email}`} className="lv3-person__email" title={palpite ? 'Montado pelo padrão da empresa; confira antes de enviar' : String(c.email).toLowerCase()}>
+            <Icon name="envelope"/><span>{String(c.email).toLowerCase()}</span>
+            {c.email_status === 'valido' && <Icon name="circle-check" className="lv3-ok"/>}
+            {palpite && <span className="lv3-chip lv3-chip--warning lv3-chip--tiny">palpite</span>}
+          </a>
+        ) : <span className="lv3-person__missing"><Icon name="envelope"/>{busy === 'find' || busy === 'reveal' ? 'procurando…' : 'sem e-mail'}</span>}
         {c.telefone ? (
           <a href={whatsappUrl(c.telefone)} target="_blank" rel="noopener noreferrer"><Icon name="phone"/>{c.telefone}</a>
         ) : c.telefone_status === 'pedido' ? (
           <span className="lv3-person__phonewait" title="O Apollo envia o número alguns minutos depois do pedido">
-            <Icon name="hourglass-half"/>Celular pedido ao Apollo
-            <button type="button" className="lv3-link" onClick={onChanged}>Atualizar</button>
+            <Icon name="hourglass-half"/>celular pedido<button type="button" className="lv3-link" onClick={onChanged}>atualizar</button>
           </span>
-        ) : c.telefone_status === 'sem_numero' ? (
-          <span className="lv3-muted"><Icon name="phone-slash"/> Apollo sem celular</span>
-        ) : boot.fontes.apollo ? (
-          <button type="button" className="lv3-link lv3-link--muted" disabled={!!busy}
-            onClick={() => { if (window.confirm(`Pedir o celular de ${nome} ao Apollo? Consome créditos de telefone do plano (mais que um e-mail) e o número chega em alguns minutos.`)) run('phone', () => api.requestPhone(c.id), 'Celular pedido ao Apollo. Chega em alguns minutos.')(); }}>
-            <Icon name="mobile-screen"/> {busy === 'phone' ? 'Pedindo…' : 'Buscar celular (Apollo)'}
-          </button>
-        ) : null}
-        {!c.linkedin_url && linkedin === null && <button type="button" className="lv3-link" onClick={() => setLinkedin('')}>Colar LinkedIn</button>}
+        ) : <span className="lv3-person__missing" title={c.telefone_status === 'sem_numero' ? 'O Apollo não tem celular desta pessoa' : ''}>
+          <Icon name={c.telefone_status === 'sem_numero' ? 'phone-slash' : 'phone'}/>{c.telefone_status === 'sem_numero' ? 'Apollo sem celular' : 'sem celular'}
+        </span>}
       </div>
 
       {linkedin !== null && (
@@ -210,20 +196,50 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, notify, onCh
         </form>
       )}
 
-      <CadenceLine api={api} contact={c} inscricao={inscricao} notify={notify} onChanged={onChanged}/>
-
-      <div className="lv3-person__profile">
-        {[['papel', 'Área', boot.papeis], ['senioridade', 'Nível', boot.senioridades], ['influencia', 'Influência', boot.influencias]].map(([campo, label, opcoes]) => (
-          <label key={campo} className={`lv3-pill-select ${c[campo] ? 'is-set' : ''}`}>
-            <span>{label}</span>
-            <select value={c[campo] || ''} onChange={setProfile(campo)} disabled={!!busy} aria-label={`${label} de ${nome}`}>
-              <option value="">—</option>
-              {opcoes.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-            </select>
-          </label>
-        ))}
+      <div className="lv3-person__meta">
+        <CadenceLine api={api} contact={c} inscricao={inscricao} notify={notify} onChanged={onChanged}/>
+        <div className="lv3-person__profile">
+          {[['papel', 'Área', boot.papeis], ['senioridade', 'Nível', boot.senioridades], ['influencia', 'Influência', boot.influencias]].map(([campo, label, opcoes]) => (
+            <label key={campo} className={`lv3-pill-select ${c[campo] ? 'is-set' : ''}`}>
+              <span>{label}</span>
+              <select value={c[campo] || ''} onChange={setProfile(campo)} disabled={!!busy} aria-label={`${label} de ${nome}`} title={label}>
+                <option value="">{label}</option>
+                {opcoes.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+              </select>
+            </label>
+          ))}
+        </div>
       </div>
     </li>
+  );
+}
+
+/** Pares de contatos que parecem a mesma pessoa (nome mascarado do Apollo, importação repetida, e-mail igual). */
+function Duplicates({api, lead, contacts, notify, onChanged}) {
+  const [pares, setPares] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const chave = contacts.map(c => `${c.id}:${c.nome}:${c.email}`).join('|');
+  useEffect(() => { api.duplicates(lead.id).then(setPares).catch(() => setPares([])); }, [api, lead.id, chave]);
+  if (!pares.length) return null;
+  const mesclar = (a, b) => async () => {
+    setBusy(true);
+    try { await api.mergeContacts(a.id, b.id); notify('Contatos mesclados. Histórico e cadências foram para uma ficha só.'); onChanged(); }
+    catch (error) { notify(error.message, 'error'); } finally { setBusy(false); }
+  };
+  const rotulo = c => `${pretty(c.nome)}${c.email ? ` (${String(c.email).toLowerCase()})` : ''}`;
+  return (
+    <div className="lv3-dups" role="status">
+      <p><Icon name="clone"/>{pares.length === 1 ? 'Parece haver uma pessoa repetida' : `Parece haver ${pares.length} pessoas repetidas`}</p>
+      <ul>
+        {pares.map(([a, b]) => (
+          <li key={`${a.id}-${b.id}`}>
+            <span>{rotulo(a)} <span className="lv3-muted">e</span> {rotulo(b)}</span>
+            <Button size="xs" variant="primary" icon="code-merge" disabled={busy} onClick={mesclar(a, b)}>Mesclar</Button>
+          </li>
+        ))}
+      </ul>
+      <p className="lv3-muted">Fica a ficha mais completa; o histórico, as cadências e as mensagens das duas vão junto.</p>
+    </div>
   );
 }
 
@@ -249,7 +265,7 @@ function Discovery({boot, api, lead, candidates, onChanged, notify, onEditCompan
   const addAll = async () => {
     setBusy('all');
     let ok = 0;
-    for (const k of candidates) {
+    for (const k of candidates.filter(c => !c.existente)) {
       try { await api.approveCandidate(k.id, false); ok += 1; } catch { /* segue com os demais */ }
     }
     notify(`${ok} ${ok === 1 ? 'pessoa adicionada' : 'pessoas adicionadas'}. Use "Achar e-mails" em Pessoas.`);
@@ -299,12 +315,20 @@ function Discovery({boot, api, lead, candidates, onChanged, notify, onEditCompan
                     {pretty(k.cargo) || 'Cargo não informado'}
                     {k.linkedin_url && <a href={k.linkedin_url} target="_blank" rel="noopener noreferrer" aria-label="Abrir LinkedIn"> <Icon name="arrow-up-right-from-square"/></a>}
                   </div>
+                  {k.existente && (
+                    <p className="lv3-candidate__match"><Icon name="user-check"/>Já na base como <strong>{pretty(k.existente.nome)}</strong></p>
+                  )}
                 </div>
                 <div className="lv3-candidate__actions">
-                  <Button size="xs" variant="primary" icon="check" disabled={!!busy} onClick={act(`a${k.id}`, () => api.approveCandidate(k.id, false), 'Pessoa adicionada.')}>Adicionar</Button>
+                  {k.existente ? (
+                    <Button size="xs" variant="primary" icon="code-merge" disabled={!!busy} title="Soma cargo, LinkedIn e nível do Apollo à ficha que já existe (não gasta crédito)"
+                      onClick={act(`a${k.id}`, () => api.linkCandidate(k.id, false), `Dados somados a ${pretty(k.existente.nome)}.`)}>Completar ficha</Button>
+                  ) : (
+                    <Button size="xs" variant="primary" icon="check" disabled={!!busy} onClick={act(`a${k.id}`, () => api.approveCandidate(k.id, false), r => r.mesclado_com ? `Já existia: dados somados a ${pretty(r.mesclado_com)}.` : 'Pessoa adicionada.')}>Adicionar</Button>
+                  )}
                   {k.provedor === 'apollo' && k.payload?.has_email && (
                     <button type="button" className="lv3-link lv3-link--muted" disabled={!!busy} title="Último recurso: consome 1 crédito do Apollo"
-                      onClick={act(`r${k.id}`, () => api.approveCandidate(k.id, true), r => r.email ? `Adicionado com e-mail ${r.email}.` : 'Adicionado (o Apollo não liberou e-mail).')}>
+                      onClick={act(`r${k.id}`, () => api.approveCandidate(k.id, true), r => r.mesclado_com ? `Já existia: ${pretty(r.mesclado_com)} completado${r.email ? ` (e-mail ${r.email})` : ''}.` : r.email ? `Adicionado com e-mail ${r.email}.` : 'Adicionado (o Apollo não liberou e-mail).')}>
                       + e-mail Apollo
                     </button>
                   )}
@@ -418,6 +442,7 @@ export function People({boot, api, lead, contacts, candidates, cadences = [], on
           </div>
         </header>
         <Coverage contacts={contacts}/>
+        <Duplicates api={api} lead={lead} contacts={contacts} notify={notify} onChanged={onChanged}/>
 
         {draft && (
           <form className="lv3-card lv3-form" onSubmit={save}>

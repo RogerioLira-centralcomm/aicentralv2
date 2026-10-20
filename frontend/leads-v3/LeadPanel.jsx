@@ -1,5 +1,5 @@
-import React, {useEffect, useRef, useState} from 'react';
-import {Button, Empty, Icon, decode, formatDate, linkedinSearchUrl, prettyName, whatsappUrl} from './ui.jsx';
+import React, {useState} from 'react';
+import {Button, Empty, Icon, MoreMenu, decode, formatDate, linkedinSearchUrl, prettyName, whatsappUrl} from './ui.jsx';
 import {People} from './People.jsx';
 import {FocusEditor, GoldenTarget, MarketContext} from './Focus.jsx';
 
@@ -35,43 +35,26 @@ function Socials({value}) {
   );
 }
 
-/** Menu "⋯" para as ações menos usadas do lead (fecha com clique fora ou Esc). */
-function MoreMenu({items, disabled}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  useEffect(() => {
-    if (!open) return undefined;
-    const close = event => { if (event.type === 'keydown' ? event.key === 'Escape' : !ref.current?.contains(event.target)) setOpen(false); };
-    document.addEventListener('mousedown', close);
-    document.addEventListener('keydown', close);
-    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', close); };
-  }, [open]);
-  return (
-    <div className="lv3-menu" ref={ref}>
-      <Button size="sm" icon="ellipsis" onClick={() => setOpen(o => !o)} disabled={disabled} aria-label="Mais ações" aria-expanded={open} title="Mais ações"/>
-      {open && (
-        <div className="lv3-menu__list" role="menu">
-          {items.map(item => (
-            <button key={item.label} type="button" role="menuitem" className={`lv3-menu__item ${item.danger ? 'is-danger' : ''}`}
-              onClick={() => { setOpen(false); item.onClick(); }}>
-              <Icon name={item.icon}/>{item.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+/** Coluna própria de Pessoas (telas largas): cartões e busca de pessoas sem disputar espaço com a empresa. */
+function PeopleColumn({children}) {
+  return <section className="lv3-col lv3-peoplecol" aria-label="Pessoas"><div className="lv3-lead__scroll">{children}</div></section>;
 }
 
-export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadences, loading, notify, onChanged, onEdit, onEditCompany, onConvert, onDisqualify, onMarkGolden, onExtract, onMerge}) {
+export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadences, loading, notify, onChanged, onEdit, onEditCompany, onConvert, onDisqualify, onMarkGolden, onExtract, onMerge, split = false}) {
   const [busy, setBusy] = useState(false);
-  if (loading && !lead) return <section className="lv3-col lv3-lead"><div className="lv3-skeleton"/></section>;
+  if (loading && !lead) {
+    return <>
+      <section className="lv3-col lv3-lead"><div className="lv3-skeleton"/></section>
+      {split && <PeopleColumn><div className="lv3-skeleton"/></PeopleColumn>}
+    </>;
+  }
   if (!lead) {
-    return (
+    return <>
       <section className="lv3-col lv3-lead">
         <Empty icon="hand-pointer" title="Escolha um lead na fila">Use as caixas de seleção para agir em vários leads de uma vez.</Empty>
       </section>
-    );
+      {split && <PeopleColumn><Empty icon="users" title="Pessoas do lead aparecem aqui"/></PeopleColumn>}
+    </>;
   }
 
   const statusIndex = boot.status.findIndex(s => s.value === lead.status);
@@ -97,7 +80,10 @@ export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadenc
   const temContato = !contatoDuplicado && Boolean(lead.email || lead.telefone || lead.cargo || lead.mensagem
     || (decode(lead.nome).trim() && decode(lead.nome).trim().toLowerCase() !== decode(lead.empresa).trim().toLowerCase()));
 
+  const pessoas = <People key={lead.id} cadences={cadences} boot={boot} api={api} lead={lead} contacts={contacts} candidates={candidates} onChanged={onChanged} notify={notify} onEditCompany={onEditCompany}/>;
+
   return (
+    <>
     <section className="lv3-col lv3-lead" aria-label="Lead selecionado">
       <header className="lv3-lead__head">
         <div className="lv3-lead__title">
@@ -167,8 +153,8 @@ export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadenc
           </section>
         )}
 
-        {/* Pessoas logo no topo: é com elas que a conexão acontece. */}
-        <People key={lead.id} cadences={cadences} boot={boot} api={api} lead={lead} contacts={contacts} candidates={candidates} onChanged={onChanged} notify={notify} onEditCompany={onEditCompany}/>
+        {/* Pessoas logo no topo: é com elas que a conexão acontece (em tela larga, ganham coluna própria). */}
+        {!split && pessoas}
         {temContato && <section className="lv3-section">
           <header className="lv3-section__head"><h3>Contato do lead</h3></header>
           <dl className="lv3-infos">
@@ -289,5 +275,7 @@ export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadenc
         </section>
       </div>
     </section>
+    {split && <PeopleColumn>{pessoas}</PeopleColumn>}
+    </>
   );
 }

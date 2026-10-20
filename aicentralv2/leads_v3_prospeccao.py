@@ -92,6 +92,76 @@ def normalizar_dominio(valor) -> str:
     return host[4:] if host.startswith("www.") else host
 
 
+# ─────────────────────────────────────────────────────
+# Mesma pessoa? (evita contato repetido entre importação, cadastro manual, Apollo e web)
+# ─────────────────────────────────────────────────────
+def _tokens_nome(nome):
+    """'Ana Flávia MARTINS' → ['ana', 'flavia', 'martins']; o '*' do sobrenome mascarado do Apollo fica."""
+    return [t for t in (re.sub(r"[^a-z*]", "", p) for p in sem_acento(nome).split()) if t.strip("*")]
+
+
+def _casa_mascara(mascara, token):
+    """'ma***s' casa com 'martins': mesmo começo e mesmo fim, e o nome real é pelo menos desse tamanho."""
+    inicio, fim = mascara.split("*", 1)[0], mascara.rsplit("*", 1)[1]
+    return "*" not in token and token.startswith(inicio) and token.endswith(fim) and len(token) >= len(inicio) + len(fim)
+
+
+def nomes_batem(a, b) -> bool:
+    """Mesmo primeiro nome e: sobrenome mascarado compatível, ou último sobrenome igual, ou nome inteiro igual."""
+    ta, tb = _tokens_nome(a), _tokens_nome(b)
+    if not ta or not tb or ta[0] != tb[0] or "*" in ta[0]:
+        return False
+    if len(ta) == 1 or len(tb) == 1:
+        return ta == tb
+    ma = [t for t in ta[1:] if "*" in t]
+    mb = [t for t in tb[1:] if "*" in t]
+    if ma and mb:
+        return ma[-1] == mb[-1]
+    if ma or mb:
+        mascara, outros = (ma[-1], tb[1:]) if ma else (mb[-1], ta[1:])
+        return any(_casa_mascara(mascara, t) for t in outros)
+    return ta[-1] == tb[-1]
+
+
+def _linkedin_chave(url):
+    match = re.search(r"linkedin\.com/in/([^/?#]+)", str(url or ""), re.I)
+    return match.group(1).lower() if match else ""
+
+
+def achar_existente(pessoa, contatos):
+    """Primeiro contato que é a mesma pessoa (id do Apollo, LinkedIn, e-mail ou nome). None se não houver.
+
+    `pessoa` e `contatos` são dicts com nome, email, linkedin_url e o id do Apollo em `apollo_id`
+    (no contato: apollo_person_id, ou origem_ref quando a origem é o Apollo).
+    """
+    apollo = pessoa.get("apollo_id")
+    linkedin = _linkedin_chave(pessoa.get("linkedin_url"))
+    email = str(pessoa.get("email") or "").strip().lower()
+    for c in contatos:
+        ids = {c.get("apollo_person_id"), c.get("origem_ref") if c.get("origem_dado") == "apollo" else None} - {None, ""}
+        if (apollo and apollo in ids) or (linkedin and linkedin == _linkedin_chave(c.get("linkedin_url"))) \
+                or (email and email == str(c.get("email") or "").strip().lower()):
+            return c
+    for c in contatos:
+        if nomes_batem(pessoa.get("nome"), c.get("nome")):
+            return c
+    return None
+
+
+def pares_duplicados(contatos):
+    """Pares (a, b) de contatos do mesmo lead que parecem a mesma pessoa, sem repetir contato."""
+    pares, usados = [], set()
+    for i, a in enumerate(contatos):
+        if a["id"] in usados:
+            continue
+        b = achar_existente({**a, "apollo_id": a.get("apollo_person_id") or (a.get("origem_ref") if a.get("origem_dado") == "apollo" else None)},
+                            [c for c in contatos[i + 1:] if c["id"] not in usados])
+        if b:
+            usados.update({a["id"], b["id"]})
+            pares.append((a, b))
+    return pares
+
+
 def trimestre_atual(hoje: date | None = None) -> str:
     hoje = hoje or date.today()
     return f"{hoje.year}-Q{(hoje.month - 1) // 3 + 1}"

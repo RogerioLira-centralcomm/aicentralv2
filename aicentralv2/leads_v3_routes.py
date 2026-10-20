@@ -415,7 +415,22 @@ def _lead_para_busca(cursor, lead_id):
     return lead, dominio
 
 
+_COLUNAS_CASAMENTO = "id, nome, email, linkedin_url, origem_dado, origem_ref, apollo_person_id, cargo, papel, senioridade"
+
+
+def _contatos_do_lead(cursor, lead_id):
+    cursor.execute(f"SELECT {_COLUNAS_CASAMENTO} FROM cadu_lead_contatos WHERE id_lead = %s ORDER BY id", [lead_id])
+    return [dict(r) for r in cursor.fetchall()]
+
+
+def _pessoa_do_candidato(cand):
+    return {"nome": cand["nome"], "email": cand.get("email"), "linkedin_url": cand.get("linkedin_url"),
+            "apollo_id": cand["provedor_ref"] if cand["provedor"] == "apollo" else None}
+
+
 def _candidatos(cursor, lead_id):
+    """Pendentes de revisão; quem já parece estar na base vem com `existente` (id e nome do contato)."""
+    contatos = _contatos_do_lead(cursor, lead_id)
     cursor.execute(
         """
         SELECT id, provedor, provedor_ref, nome, cargo, papel_sugerido, senioridade_sugerida, email, linkedin_url,
@@ -427,7 +442,13 @@ def _candidatos(cursor, lead_id):
         """,
         [lead_id],
     )
-    return [{k: _json_safe(v) for k, v in dict(r).items()} for r in cursor.fetchall()]
+    lista = []
+    for r in cursor.fetchall():
+        item = {k: _json_safe(v) for k, v in dict(r).items()}
+        existente = prospeccao.achar_existente(_pessoa_do_candidato(item), contatos)
+        item["existente"] = {"id": existente["id"], "nome": existente["nome"]} if existente else None
+        lista.append(item)
+    return lista
 
 
 @bp.route("/api/leads/<int:lead_id>/candidatos")
@@ -459,13 +480,15 @@ def api_descobrir(lead_id):
         return _erro(str(exc), 400)
 
     def run(cursor):
-        cursor.execute("SELECT lower(nome) AS nome, lower(COALESCE(linkedin_url, '')) AS linkedin FROM cadu_lead_contatos WHERE id_lead = %s", [lead_id])
-        existentes = cursor.fetchall()
-        nomes = {r["nome"] for r in existentes}
-        linkedins = {r["linkedin"] for r in existentes if r["linkedin"]}
+        contatos = _contatos_do_lead(cursor, lead_id)
         inseridos = 0
         for c in encontrados:
-            if not c.get("provedor_ref") or c["nome"].lower() in nomes or (c.get("linkedin_url") or "").lower() in linkedins:
+            if not c.get("provedor_ref"):
+                continue
+            # Quem já está na base só volta como sugestão se o Apollo/web tiver algo a acrescentar.
+            existente = prospeccao.achar_existente(_pessoa_do_candidato(c), contatos)
+            if existente and existente["linkedin_url"] and (c["provedor"] != "apollo" or existente["apollo_person_id"]
+                                                            or (existente["origem_dado"] == "apollo" and existente["origem_ref"])):
                 continue
             cursor.execute(
                 """
@@ -500,8 +523,9 @@ def _registrar_atividade(cursor, lead_id, tipo, descricao, id_contato=None):
 @bp.route("/api/candidatos/<int:candidato_id>/<acao>", methods=["POST"])
 @centralcomm_required_api
 def api_candidato_acao(candidato_id, acao):
-    """aprovar (vira contato; com revelar=true, gasta crédito do Apollo) ou descartar."""
-    if acao not in ("aprovar", "descartar"):
+    """aprovar (vira contato; com revelar=true, gasta crédito do Apollo), vincular (completa quem já está na base)
+    ou descartar. Se a pessoa já existe no lead (antes ou depois de revelar), completa a ficha dela em vez de duplicar."""
+    if acao not in ("aprovar", "vincular", "descartar"):
         return _erro("Ação inválida.", 404)
     payload = request.get_json(silent=True) or {}
 
@@ -519,24 +543,66 @@ def api_candidato_acao(candidato_id, acao):
             )
             return _ok({"id": candidato_id})
 
+        contatos = _contatos_do_lead(cursor, cand["id_lead"])
+        existente = prospeccao.achar_existente(_pessoa_do_candidato(cand), contatos)
+        if acao == "vincular" and not existente:
+            return _erro("Não achei esta pessoa entre os contatos do lead.", 409)
         revelado = {}
         if payload.get("revelar") and cand["provedor"] == "apollo":
             revelado = prospeccao.apollo_revelar(resolve_apollo_api_key(), apollo_id=cand["provedor_ref"])
+            if not existente:  # com nome completo, e-mail e LinkedIn dá para reconhecer quem o nome mascarado escondia
+                existente = prospeccao.achar_existente(
+                    {"nome": revelado.get("nome"), "email": revelado.get("email"), "linkedin_url": revelado.get("linkedin_url"),
+                     "apollo_id": cand["provedor_ref"]}, contatos)
         papel = payload.get("papel") if payload.get("papel") in dict(PAPEIS) else cand["papel_sugerido"]
-        cursor.execute(
-            """
-            INSERT INTO cadu_lead_contatos
-                (id_lead, nome, cargo, email, papel, senioridade, linkedin_url, origem_dado, origem_ref,
-                 email_status, enriquecido_em, adicionado_por)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id
-            """,
-            [cand["id_lead"], (revelado.get("nome") or cand["nome"])[:200], (revelado.get("cargo") or cand["cargo"] or "")[:150] or None,
-             revelado.get("email"), papel, cand["senioridade_sugerida"],
-             revelado.get("linkedin_url") or cand["linkedin_url"], cand["provedor"], cand["provedor_ref"],
-             revelado.get("email_status"), datetime.now() if revelado else None, session.get("user_id")],
-        )
-        contato_id = cursor.fetchone()["id"]
+        apollo_id = cand["provedor_ref"] if cand["provedor"] == "apollo" else None
+        nome_novo = revelado.get("nome") or cand["nome"]
+        origem = "Apollo" if cand["provedor"] == "apollo" else "busca na web"
+
+        if existente:
+            # Completa só o que falta; o nome só muda se o da base estiver mascarado.
+            cursor.execute(
+                """
+                UPDATE cadu_lead_contatos
+                   SET nome = CASE WHEN nome LIKE '%%*%%' AND %(nome)s::text NOT LIKE '%%*%%' THEN %(nome)s::text ELSE nome END,
+                       cargo = COALESCE(NULLIF(cargo, ''), %(cargo)s::text),
+                       email_status = CASE WHEN NULLIF(email, '') IS NULL AND %(email)s::text IS NOT NULL THEN %(email_status)s::text ELSE email_status END,
+                       email = COALESCE(NULLIF(email, ''), %(email)s::text),
+                       linkedin_url = COALESCE(NULLIF(linkedin_url, ''), %(linkedin)s::text),
+                       papel = COALESCE(papel, %(papel)s::text), senioridade = COALESCE(senioridade, %(senioridade)s::text),
+                       apollo_person_id = COALESCE(apollo_person_id, %(apollo_id)s::text),
+                       enriquecido_em = CASE WHEN %(revelou)s::boolean THEN CURRENT_TIMESTAMP ELSE enriquecido_em END,
+                       updated_at = CURRENT_TIMESTAMP
+                 WHERE id = %(id)s
+                RETURNING email
+                """,
+                {"nome": nome_novo[:200], "cargo": (revelado.get("cargo") or cand["cargo"] or "")[:150] or None,
+                 "email": revelado.get("email"), "email_status": revelado.get("email_status"),
+                 "linkedin": revelado.get("linkedin_url") or cand["linkedin_url"], "papel": papel,
+                 "senioridade": cand["senioridade_sugerida"], "apollo_id": apollo_id, "revelou": bool(revelado),
+                 "id": existente["id"]},
+            )
+            email_final = cursor.fetchone()["email"]
+            contato_id = existente["id"]
+            _registrar_atividade(cursor, cand["id_lead"], "edicao",
+                                 f"Dados do {origem} somados a {existente['nome']} (já estava na base).", contato_id)
+        else:
+            cursor.execute(
+                """
+                INSERT INTO cadu_lead_contatos
+                    (id_lead, nome, cargo, email, papel, senioridade, linkedin_url, origem_dado, origem_ref,
+                     apollo_person_id, email_status, enriquecido_em, adicionado_por)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                [cand["id_lead"], nome_novo[:200], (revelado.get("cargo") or cand["cargo"] or "")[:150] or None,
+                 revelado.get("email"), papel, cand["senioridade_sugerida"],
+                 revelado.get("linkedin_url") or cand["linkedin_url"], cand["provedor"], cand["provedor_ref"], apollo_id,
+                 revelado.get("email_status"), datetime.now() if revelado else None, session.get("user_id")],
+            )
+            contato_id = cursor.fetchone()["id"]
+            email_final = revelado.get("email")
+            _registrar_atividade(cursor, cand["id_lead"], "contato_add", f"Contato adicionado via {origem}: {nome_novo}", contato_id)
         cursor.execute(
             """
             UPDATE cadu_lead_contato_candidatos
@@ -545,9 +611,8 @@ def api_candidato_acao(candidato_id, acao):
             """,
             [contato_id, revelado.get("email"), session.get("user_id"), candidato_id],
         )
-        origem = "Apollo" if cand["provedor"] == "apollo" else "busca na web"
-        _registrar_atividade(cursor, cand["id_lead"], "contato_add", f"Contato adicionado via {origem}: {cand['nome']}", contato_id)
-        return _ok({"id_contato": contato_id, "email": revelado.get("email"), "revelado": bool(revelado)}, 201)
+        return _ok({"id_contato": contato_id, "email": email_final, "revelado": bool(revelado),
+                    "mesclado_com": existente["nome"] if existente else None}, 201)
 
     return _transacao(run, f"candidato {acao}")
 
@@ -570,7 +635,7 @@ def api_contato_revelar(contato_id):
         dominio = contato["dominio"] or prospeccao.normalizar_dominio(contato["url_site"])
         revelado = prospeccao.apollo_revelar(
             resolve_apollo_api_key(),
-            apollo_id=contato["origem_ref"] if contato["origem_dado"] == "apollo" else None,
+            apollo_id=contato["apollo_person_id"] or (contato["origem_ref"] if contato["origem_dado"] == "apollo" else None),
             linkedin_url=contato["linkedin_url"], nome=contato["nome"], dominio=dominio,
         )
         nome = revelado.get("nome") if revelado.get("nome") and "*" in (contato["nome"] or "") else contato["nome"]
@@ -579,11 +644,11 @@ def api_contato_revelar(contato_id):
             UPDATE cadu_lead_contatos
                SET nome = %s, email = COALESCE(%s, email), email_status = COALESCE(%s, email_status),
                    linkedin_url = COALESCE(linkedin_url, %s), cargo = COALESCE(cargo, %s),
-                   enriquecido_em = CURRENT_TIMESTAMP
+                   apollo_person_id = COALESCE(apollo_person_id, %s), enriquecido_em = CURRENT_TIMESTAMP
              WHERE id = %s
             """,
             [nome, revelado.get("email"), revelado.get("email_status"), revelado.get("linkedin_url"),
-             revelado.get("cargo"), contato_id],
+             revelado.get("cargo"), revelado.get("apollo_id"), contato_id],
         )
         return _ok({"email": revelado.get("email"), "linkedin_url": revelado.get("linkedin_url"),
                     "encontrou_email": bool(revelado.get("email")), "motivo": revelado.get("motivo")})
@@ -621,6 +686,110 @@ def api_contato_perfil(contato_id):
         return _ok({"id": contato_id})
 
     return _transacao(run, "perfil contato")
+
+
+@bp.route("/api/leads/<int:lead_id>/duplicados")
+@centralcomm_required_api
+def api_duplicados(lead_id):
+    """Pares de contatos do lead que parecem a mesma pessoa (para mesclar)."""
+    def run(cursor):
+        pares = prospeccao.pares_duplicados(_contatos_do_lead(cursor, lead_id))
+        campos = ("id", "nome", "email", "cargo", "origem_dado")
+        return _ok({"pares": [[{k: a[k] for k in campos}, {k: b[k] for k in campos}] for a, b in pares]})
+
+    return _transacao(run, "duplicados")
+
+
+def _completude(c):
+    return sum(1 for campo in ("email", "telefone", "linkedin_url", "cargo", "papel", "senioridade", "apollo_person_id") if c.get(campo)) \
+        + (2 if c.get("email_status") == "valido" else 0) + (1 if c.get("is_principal") else 0) - (3 if "*" in (c.get("nome") or "") else 0)
+
+
+@bp.route("/api/contatos/<int:contato_id>/mesclar", methods=["POST"])
+@centralcomm_required_api
+def api_mesclar_contatos(contato_id):
+    """Junta dois contatos do mesmo lead: fica o mais completo, o outro passa histórico, cadências e mensagens e some."""
+    outro_id = _int((request.get_json(silent=True) or {}).get("id_duplicado"))
+    if not outro_id or outro_id == contato_id:
+        return _erro("Escolha o contato repetido.")
+
+    def run(cursor):
+        cursor.execute("SELECT * FROM cadu_lead_contatos WHERE id IN (%s, %s) ORDER BY id FOR UPDATE", [contato_id, outro_id])
+        rows = [dict(r) for r in cursor.fetchall()]
+        if len(rows) != 2:
+            return _erro("Contato não encontrado.", 404)
+        if rows[0]["id_lead"] != rows[1]["id_lead"]:
+            return _erro("Os contatos são de leads diferentes.", 409)
+        fica, sai = sorted(rows, key=lambda c: (-_completude(c), c["id"]))
+        # Campos vazios de quem fica são preenchidos com os de quem sai; o nome mascarado perde para o completo.
+        cursor.execute(
+            """
+            UPDATE cadu_lead_contatos f
+               SET nome = CASE WHEN f.nome LIKE '%%*%%' AND s.nome NOT LIKE '%%*%%' THEN s.nome ELSE f.nome END,
+                   cargo = COALESCE(NULLIF(f.cargo, ''), s.cargo), departamento = COALESCE(NULLIF(f.departamento, ''), s.departamento),
+                   email_status = CASE WHEN NULLIF(f.email, '') IS NULL THEN s.email_status ELSE f.email_status END,
+                   email = COALESCE(NULLIF(f.email, ''), s.email), telefone = COALESCE(NULLIF(f.telefone, ''), s.telefone),
+                   telefone_status = COALESCE(f.telefone_status, s.telefone_status),
+                   linkedin_url = COALESCE(NULLIF(f.linkedin_url, ''), s.linkedin_url),
+                   papel = COALESCE(f.papel, s.papel), senioridade = COALESCE(f.senioridade, s.senioridade),
+                   influencia = COALESCE(f.influencia, s.influencia), apollo_person_id = COALESCE(f.apollo_person_id, s.apollo_person_id),
+                   is_principal = COALESCE(f.is_principal, FALSE) OR COALESCE(s.is_principal, FALSE),
+                   principal = COALESCE(f.principal, FALSE) OR COALESCE(s.principal, FALSE),
+                   notas = NULLIF(concat_ws(E'\n', NULLIF(f.notas, ''), NULLIF(s.notas, '')), ''),
+                   updated_at = CURRENT_TIMESTAMP
+              FROM cadu_lead_contatos s
+             WHERE f.id = %s AND s.id = %s
+            """,
+            [fica["id"], sai["id"]],
+        )
+        # Cadência ativa repetida (mesmo modelo nas duas fichas) fica só a de quem fica.
+        cursor.execute(
+            """
+            UPDATE cadu_lead_cadencia_inscricoes d SET status = 'cancelada', proxima_em = NULL, motivo_parada = 'Contato mesclado'
+             WHERE d.id_contato = %s AND d.status IN ('ativa', 'pausada')
+               AND EXISTS (SELECT 1 FROM cadu_lead_cadencia_inscricoes k
+                            WHERE k.id_contato = %s AND k.id_cadencia = d.id_cadencia AND k.status IN ('ativa', 'pausada'))
+            """,
+            [sai["id"], fica["id"]],
+        )
+        for tabela in ("cadu_lead_cadencia_inscricoes", "cadu_lead_atividades", "cadu_lead_comunicacoes",
+                       "cadu_lead_mensagem_eventos", "cadu_lead_contato_candidatos"):
+            cursor.execute(f"UPDATE {tabela} SET id_contato = %s WHERE id_contato = %s", [fica["id"], sai["id"]])
+        cursor.execute("DELETE FROM cadu_lead_contatos WHERE id = %s", [sai["id"]])
+        email_sai = str(sai.get("email") or "").lower()
+        extra = f" O e-mail {email_sai} ficou fora (o principal é {str(fica.get('email') or '').lower()})." \
+            if email_sai and fica.get("email") and email_sai != str(fica["email"]).lower() else ""
+        _registrar_atividade(cursor, fica["id_lead"], "edicao", f"Contatos mesclados: {sai['nome']} junto com {fica['nome']}.{extra}", fica["id"])
+        return _ok({"id_contato": fica["id"], "removido": sai["id"]})
+
+    return _transacao(run, "mesclar contatos")
+
+
+@bp.route("/api/contatos/<int:contato_id>/dado-errado", methods=["POST"])
+@centralcomm_required_api
+def api_contato_dado_errado(contato_id):
+    """E-mail ou celular que não é da pessoa: sai da ficha (fica no histórico) e libera digitar o certo."""
+    campo = (request.get_json(silent=True) or {}).get("campo")
+    if campo not in ("email", "telefone"):
+        return _erro("Campo inválido.")
+
+    def run(cursor):
+        cursor.execute("SELECT id, id_lead, nome, email, telefone FROM cadu_lead_contatos WHERE id = %s FOR UPDATE", [contato_id])
+        contato = cursor.fetchone()
+        if not contato:
+            return _erro("Contato não encontrado.", 404)
+        valor = contato[campo]
+        if not valor:
+            return _erro("Este contato não tem esse dado.")
+        if campo == "email":
+            cursor.execute("UPDATE cadu_lead_contatos SET email = NULL, email_status = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = %s", [contato_id])
+        else:
+            cursor.execute("UPDATE cadu_lead_contatos SET telefone = NULL, telefone_status = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = %s", [contato_id])
+        rotulo = "E-mail" if campo == "email" else "Celular"
+        _registrar_atividade(cursor, contato["id_lead"], "edicao", f"{rotulo} {str(valor).lower()} de {contato['nome']} marcado como errado.", contato_id)
+        return _ok({"id": contato_id})
+
+    return _transacao(run, "dado errado")
 
 
 @bp.route("/api/leads/<int:lead_id>/empresa", methods=["PATCH"])

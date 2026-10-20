@@ -40,7 +40,7 @@
 
 /* Grade: fila | lead | atividades + comunicação (abas abaixo de 1600px) */
 .lv3-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 400px minmax(440px, 1.15fr) minmax(400px, 1fr); }
-.lv3-grid--wide { grid-template-columns: 420px minmax(480px, 1.2fr) minmax(380px, 1fr) minmax(400px, 440px); }
+.lv3-grid--wide { grid-template-columns: 360px minmax(380px, 1fr) minmax(420px, 1.1fr) minmax(340px, 400px); }
 .lv3-col { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--lv3-surface); border-right: 1px solid var(--lv3-line); }
 .lv3-col:last-child { border-right: 0; }
 .lv3-col__head { display: flex; align-items: center; gap: 8px; padding: 14px 20px; border-bottom: 1px solid var(--lv3-line); color: var(--lv3-ink-2); }
@@ -512,7 +512,7 @@ html body .lv3-root .lv3-pill-select--lg select:not([multiple]):not([size]):not(
 .lv3-lead__bar { gap: 6px; }
 .lv3-pill-select--lg .lv3-icon { font-size: 11px; opacity: .8; }
 html body .lv3-root .lv3-pill-select--lg select:not([multiple]):not([size]):not(.select) { max-width: 150px; text-overflow: ellipsis; }
-.lv3-grid--wide { grid-template-columns: 380px minmax(440px, 1.2fr) minmax(340px, 1fr) minmax(360px, 420px); }
+.lv3-grid--wide { grid-template-columns: 360px minmax(380px, 1fr) minmax(420px, 1.1fr) minmax(340px, 400px); }
 .lv3-segmented--4 { grid-template-columns: repeat(2, 1fr); gap: 4px; }
 @media (min-width: 1900px) { .lv3-segmented--4 { grid-template-columns: repeat(4, 1fr); } }
 .lv3-hint--muted { color: var(--lv3-muted); flex-wrap: wrap; }
@@ -684,3 +684,40 @@ html body .lv3-root .lv3-queue__owner select:not([multiple]):not([size]):not(.se
 .lv3-op__signature { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .lv3-segmented--sm { grid-template-columns: repeat(3, auto); }
 .lv3-segmented--sm button { height: 28px; padding: 0 12px; font-size: 12.5px; }
+
+/* Coluna própria de Pessoas (≥1600px) e cartão compacto */
+.lv3-peoplecol { background: var(--lv3-surface); }
+.lv3-peoplecol .lv3-lead__scroll { padding: 8px 20px 32px; }
+.lv3-people { gap: 8px; }
+.lv3-person { gap: 6px; padding: 10px 12px; }
+.lv3-person__head { gap: 10px; align-items: center; }
+.lv3-person__avatar { width: 30px; height: 30px; font-size: 13px; }
+.lv3-person__name { font-size: 14px; }
+.lv3-person__role { margin-top: 0; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lv3-person__actions { align-self: flex-start; }
+.lv3-person__actions .lv3-iconbtn { width: 28px; height: 28px; }
+.lv3-person__actions .lv3-iconbtn.is-open { background: var(--lv3-sunken); color: var(--lv3-ink); }
+.lv3-person__contact { padding-left: 40px; gap: 4px 14px; font-size: 12.5px; }
+.lv3-person__contact a, .lv3-person__missing { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.lv3-person__email span:not(.lv3-chip) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
+.lv3-person__missing { color: var(--lv3-subtle); }
+.lv3-person__phonewait .lv3-link { margin-left: 2px; font-size: 12px; }
+.lv3-person__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-left: 40px; }
+.lv3-person__meta .lv3-cadence { margin: 0; padding: 3px 8px; font-size: 12px; flex: 1 1 100%; }
+.lv3-person__meta .lv3-cadence > span { min-width: 0; }
+.lv3-person__meta .lv3-cadence--none { flex: 0 0 auto; padding: 0; background: none; }
+.lv3-person__meta .lv3-cadence--none .lv3-muted { display: none; }
+.lv3-person__meta .lv3-person__profile { padding-left: 0; margin: 0; gap: 4px; }
+.lv3-person__meta .lv3-pill-select { height: 24px; padding: 0 4px 0 8px; font-size: 11.5px; }
+.lv3-person__meta .lv3-pill-select > span { display: none; }
+html body .lv3-root .lv3-person__meta .lv3-pill-select select:not([multiple]):not([size]):not(.select) { height: 22px; field-sizing: content; max-width: 104px; font-size: 11.5px; text-overflow: ellipsis; }
+.lv3-person .lv3-inline-form, .lv3-person__edit { margin-left: 40px; }
+.lv3-menu__item span { display: flex; flex-direction: column; }
+.lv3-menu__item small { font-size: 11.5px; font-weight: 400; color: var(--lv3-muted); }
+.lv3-dups { margin: 10px 0; padding: 10px 12px; border: 1px solid #fedf89; border-radius: var(--lv3-radius-sm); background: var(--lv3-warning-bg); font-size: 13px; }
+.lv3-dups p { display: flex; align-items: center; gap: 8px; margin: 0; font-weight: 600; color: var(--lv3-warning); }
+.lv3-dups p.lv3-muted { font-weight: 400; color: var(--lv3-muted); font-size: 12px; }
+.lv3-dups ul { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.lv3-dups li { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--lv3-ink-2); }
+.lv3-candidate__match { display: flex; align-items: center; gap: 6px; margin: 4px 0 0; font-size: 12px; color: var(--lv3-success); }
+@media (max-width: 1100px) { .lv3-person__contact, .lv3-person__meta { padding-left: 0; } }

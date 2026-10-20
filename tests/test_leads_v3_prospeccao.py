@@ -284,3 +284,44 @@ class UrlWebhookTest(TestCase):
         with app.test_request_context("/", base_url="http://127.0.0.1:8001"):
             url = routes._url_webhook_celular(7)
         self.assertTrue(url.startswith("https://ai.centralcomm.media/leads-v3/webhooks/apollo/celular/7?token="), url)
+
+
+class MesmaPessoaTest(TestCase):
+    def test_sobrenome_mascarado_do_apollo(self):
+        self.assertTrue(p.nomes_batem("Ana Ma***s", "Ana Flávia Martins"))
+        self.assertTrue(p.nomes_batem("Giovane Lu***a", "Giovane Lucena"))
+        self.assertFalse(p.nomes_batem("Giovane Lu***a", "Giovane Luz"))
+        self.assertFalse(p.nomes_batem("Juliana Ol***a", "Juliana Romano"))
+
+    def test_nome_completo(self):
+        self.assertTrue(p.nomes_batem("JULIANA ROMANO", "Juliana Romano"))
+        self.assertTrue(p.nomes_batem("Ana Martins", "Ana Flávia Martins"))
+        self.assertFalse(p.nomes_batem("Ana Paula Barros", "Ana Paula Sanchez"))
+        self.assertFalse(p.nomes_batem("Paula", "Paula Nunes"))  # só o primeiro nome é pouco para juntar
+
+    def test_achar_existente_por_ids_antes_do_nome(self):
+        contatos = [{"id": 1, "nome": "Ana Souza", "email": "ana@x.com"},
+                    {"id": 2, "nome": "Bia Lima", "linkedin_url": "https://www.linkedin.com/in/bia-lima/"},
+                    {"id": 3, "nome": "Caio Reis", "origem_dado": "apollo", "origem_ref": "ap1"}]
+        self.assertEqual(p.achar_existente({"nome": "Outra", "email": "ANA@x.com"}, contatos)["id"], 1)
+        self.assertEqual(p.achar_existente({"nome": "B L", "linkedin_url": "http://linkedin.com/in/Bia-Lima?x=1"}, contatos)["id"], 2)
+        self.assertEqual(p.achar_existente({"nome": "?", "apollo_id": "ap1"}, contatos)["id"], 3)
+        self.assertEqual(p.achar_existente({"nome": "Caio Re***s"}, contatos)["id"], 3)
+        self.assertIsNone(p.achar_existente({"nome": "Davi Melo"}, contatos))
+
+    def test_pares_duplicados_nao_repete_contato(self):
+        contatos = [{"id": 1, "nome": "JULIANA ROMANO", "email": "j@q.com"}, {"id": 2, "nome": "Juliana Romano", "email": "j@q.com"},
+                    {"id": 3, "nome": "Juliana Romano"}, {"id": 4, "nome": "Felipe Anjos"}]
+        self.assertEqual([(a["id"], b["id"]) for a, b in p.pares_duplicados(contatos)], [(1, 2)])
+
+
+class MesclarRoutesTest(TestCase):
+    def test_mesclar_exige_outro_contato(self):
+        self.assertEqual(_client().post("/leads-v3/api/contatos/5/mesclar", json={}).status_code, 400)
+        self.assertEqual(_client().post("/leads-v3/api/contatos/5/mesclar", json={"id_duplicado": 5}).status_code, 400)
+
+    def test_dado_errado_valida_campo(self):
+        self.assertEqual(_client().post("/leads-v3/api/contatos/5/dado-errado", json={"campo": "nome"}).status_code, 400)
+
+    def test_acao_de_candidato_invalida(self):
+        self.assertEqual(_client().post("/leads-v3/api/candidatos/1/xpto", json={}).status_code, 404)

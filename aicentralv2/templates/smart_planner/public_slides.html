@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_slides.css') }}?v=4">
-  <style>:root{--sx-ink:{{ hero.theme_ink or '#14252d' }};--sx-accent:{{ hero.theme_accent or '#d5aa3b' }}}</style>
+  <style>:root{--sx-ink:{{ slide_ink or '#14252d' }};--sx-accent:{{ slide_accent or '#d5aa3b' }}}</style>
 </head>
 <body class="sx" data-document-url="{{ document_page_url }}">
 {% macro kicker(slide) %}<p class="sx-kicker"><span>{{ '%02d'|format(slide.index) }}</span>{{ slide.kicker }}</p>{% endmacro %}

@@ -111,3 +111,10 @@ def test_proposal_opens_as_slides_and_document_on_request(monkeypatch):
     assert doc["template"] == "smart_planner/public_document.html"
     full = _render(monkeypatch, "/smart-planner/p/t/plano", {**view, "document": "full_plan"})
     assert full["template"] == "smart_planner/public_document.html"
+
+
+def test_theme_colors_only_accept_hex(monkeypatch):
+    view = {**VIEW, "document": "proposal", "document_url": "/p/t/proposta",
+            "hero": {**VIEW["hero"], "theme_ink": "red;}body{display:none", "theme_accent": "#AbC123"}}
+    seen = _render(monkeypatch, "/smart-planner/p/t/proposta", view)
+    assert seen["ctx"]["slide_ink"] == "#14252d" and seen["ctx"]["slide_accent"] == "#AbC123"

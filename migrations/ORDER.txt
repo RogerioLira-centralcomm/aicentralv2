@@ -227,3 +227,5 @@ migrations/run_add_apollo_integration_credential.py
 migrations/run_sql_migration.py add_cadu_leads_v3_cadencias_alvo.sql
 # Leads v3: estado do celular pedido ao Apollo por webhook (aditivo, idempotente; depende de add_cadu_leads_v3_prospeccao.sql).
 migrations/run_sql_migration.py add_cadu_leads_v3_telefone_apollo.sql
+# Leads v3: dossiê de ganchos por empresa e preferências de escrita do executivo (aditivo, idempotente; depende de add_cadu_leads_v3_prospeccao.sql).
+migrations/run_sql_migration.py add_cadu_leads_v3_ganchos.sql

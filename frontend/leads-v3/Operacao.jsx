@@ -70,7 +70,10 @@ function CadenceTrack({item}) {
 const canalDaMensagem = passo => (passo?.canal === 'linkedin' ? (passo.acao === 'conectar' ? 'linkedin_conexao' : 'linkedin') : passo?.canal || 'email');
 
 /** Composer do passo: etapa do funil, objetivo, mensagem da IA e envio assistido. */
-function StepComposer({api, item, notify, onDone}) {
+const RODAPES = {nenhum: '', iphone: 'Enviado do meu iPhone', galaxy: 'Enviado do meu Galaxy'};
+const RODAPE_RE = /\n+Enviado do meu (iPhone|Galaxy)\s*$/;
+
+function StepComposer({api, item, notify, onDone, pautaVersao}) {
   const passo = item.passo || {};
   const canal = canalDaMensagem(passo);
   const [etapa, setEtapa] = useState(item.passo_atual < Math.ceil((item.total || 2) / 2) ? 'topo' : 'meio');
@@ -78,17 +81,41 @@ function StepComposer({api, item, notify, onDone}) {
   const [assunto, setAssunto] = useState('');
   const [texto, setTexto] = useState('');
   const [busy, setBusy] = useState('');
+  const [ganchos, setGanchos] = useState([]);
+  const [idGancho, setIdGancho] = useState(''); // '' = a IA escolhe o melhor ainda não usado com a pessoa
+  const [usado, setUsado] = useState(null);
+  const [alertas, setAlertas] = useState([]);
+  const [prefs, setPrefs] = useState({dispositivo: 'nenhum', assinatura: ''});
   const nome = pretty(item.contato_nome);
   const empresa = decode(item.empresa || item.lead_nome);
   const corpoCompleto = (assunto ? `Assunto: ${assunto}\n\n` : '') + texto;
 
+  useEffect(() => {
+    api.hooks(item.id_lead, item.id_contato).then(lista => setGanchos(lista.filter(g => g.status !== 'descartado'))).catch(() => setGanchos([]));
+  }, [api, item.id_lead, item.id_contato, pautaVersao]);
+  useEffect(() => { api.preferences().then(p => setPrefs({dispositivo: p.dispositivo || 'nenhum', assinatura: p.assinatura || ''})).catch(() => null); }, [api]);
+
   const escrever = async () => {
     setBusy('ia');
     try {
-      const r = await api.writeMessage({id_contato: item.id_contato, canal, etapa, objetivo});
+      const r = await api.writeMessage({id_contato: item.id_contato, canal, etapa, objetivo, id_gancho: idGancho || null});
       setTexto(r.texto || '');
       setAssunto(r.assunto || '');
+      setUsado(r.gancho || null);
+      setAlertas(r.alertas || []);
     } catch (error) { notify(error.message, 'error'); } finally { setBusy(''); }
+  };
+  // "Enviado do meu…" é preferência do executivo: muda o texto aberto e vale para as próximas mensagens.
+  const mudarRodape = async dispositivo => {
+    setPrefs(p => ({...p, dispositivo}));
+    setTexto(t => (t ? t.replace(RODAPE_RE, '') + (RODAPES[dispositivo] ? `\n\n${RODAPES[dispositivo]}` : '') : t));
+    try { await api.savePreferences({...prefs, dispositivo}); } catch (error) { notify(error.message, 'error'); }
+  };
+  const editarAssinatura = async () => {
+    const valor = window.prompt('Assinatura dos e-mails (ex.: "Abs,\nApolo"). Deixe vazio para usar "Abs," e seu primeiro nome.', prefs.assinatura || '');
+    if (valor === null) return;
+    try { setPrefs(await api.savePreferences({...prefs, assinatura: valor})); notify('Assinatura salva. Vale a partir da próxima mensagem.'); }
+    catch (error) { notify(error.message, 'error'); }
   };
   const copiar = async () => {
     try { await navigator.clipboard.writeText(assunto ? `${assunto}\n\n${texto}` : texto); notify('Texto copiado.'); return true; }
@@ -123,7 +150,7 @@ function StepComposer({api, item, notify, onDone}) {
         await api.saveCommunication(item.id_lead, {tipo_canal: passo.canal, objetivo, texto: corpoCompleto, status: 'enviado',
           id_contato: item.id_contato, gerado_por_ia: true, tamanho: 'medio', tom: 'cordial'}).catch(() => null);
       }
-      await api.stepAction(item.id, nome_acao, nota || (nome_acao === 'feito' && texto ? texto.slice(0, 140) : ''));
+      await api.stepAction(item.id, nome_acao, nota || (nome_acao === 'feito' && texto ? texto.slice(0, 140) : ''), nome_acao === 'feito' ? usado?.id : null);
       notify({feito: 'Passo feito. Próximo agendado.', respondeu: 'Resposta registrada; cadência encerrada.', pular: 'Passo pulado.', pausar: 'Cadência pausada.'}[nome_acao]);
       onDone();
     } catch (error) { notify(error.message, 'error'); setBusy(''); }
@@ -168,11 +195,25 @@ function StepComposer({api, item, notify, onDone}) {
           <Field label="Objetivo deste toque" wide>
             <textarea className="lv3-input lv3-textarea" rows={2} value={objetivo} onChange={e => setObjetivo(e.target.value)}/>
           </Field>
+          <Field label="Gancho" wide>
+            {ganchos.length ? (
+              <select className="lv3-select" value={idGancho} onChange={e => setIdGancho(e.target.value)}>
+                <option value="">Automático: o melhor de {etapa} ainda não usado com {nome.split(' ')[0]}</option>
+                {ganchos.map(g => (
+                  <option key={g.id} value={g.id}>{g.status === 'escolhido' ? '★ ' : ''}{g.usado_com_pessoa ? '(já usado) ' : ''}[{g.etapa}] {g.fato.slice(0, 110)}</option>
+                ))}
+              </select>
+            ) : <p className="lv3-muted lv3-op__nohook">Sem pauta pesquisada: a mensagem sai sem fato concreto. Use "Pesquisar pauta" ao lado.</p>}
+          </Field>
           <Button variant="ai" icon="wand-magic-sparkles" className="lv3-btn--block" onClick={escrever} disabled={!!busy}>
             {busy === 'ia' ? 'Escrevendo com o contexto da empresa…' : texto ? 'Escrever outra versão' : 'Escrever mensagem personalizada'}
           </Button>
           {texto && (
             <>
+              {usado && (
+                <p className="lv3-op__usedhook"><Icon name="lightbulb"/><span>Gancho: {usado.fato}{usado.fonte_url && <> · <a href={usado.fonte_url} target="_blank" rel="noopener noreferrer">fonte</a></>}</span></p>
+              )}
+              {alertas.length > 0 && <p className="lv3-op__warn"><Icon name="triangle-exclamation"/>Ainda soa como IA: {alertas.join(', ')}. Ajuste antes de enviar.</p>}
               {passo.canal === 'email' && (
                 <Field label="Assunto" wide><input className="lv3-input" value={assunto} onChange={e => setAssunto(e.target.value)}/></Field>
               )}
@@ -180,6 +221,17 @@ function StepComposer({api, item, notify, onDone}) {
                 <textarea className="lv3-input lv3-textarea lv3-textarea--tall" value={texto} onChange={e => setTexto(e.target.value)}/>
               </Field>
               {canal === 'linkedin_conexao' && <p className={`lv3-muted ${texto.length > 300 ? 'lv3-danger' : ''}`}>{texto.length}/300 caracteres</p>}
+              {passo.canal === 'email' && (
+                <div className="lv3-op__signature">
+                  <span className="lv3-muted">Rodapé</span>
+                  <div className="lv3-segmented lv3-segmented--sm" role="radiogroup" aria-label="Rodapé do e-mail">
+                    {[['nenhum', 'Nenhum'], ['iphone', 'iPhone'], ['galaxy', 'Galaxy']].map(([v, l]) => (
+                      <button key={v} type="button" role="radio" aria-checked={prefs.dispositivo === v} className={prefs.dispositivo === v ? 'is-on' : ''} onClick={() => mudarRodape(v)}>{l}</button>
+                    ))}
+                  </div>
+                  <button type="button" className="lv3-link lv3-link--muted" onClick={editarAssinatura}>Editar assinatura</button>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -265,7 +317,7 @@ function TaskPanel({api, item, notify, onDone, onOpenLead}) {
   );
 }
 
-function CompanyPanel({api, leadId, notify, onOpenLead}) {
+function CompanyPanel({api, leadId, notify, onOpenLead, onPauta}) {
   const [lead, setLead] = useState(null);
   const [conta, setConta] = useState(null);
   const [contacts, setContacts] = useState([]);
@@ -298,8 +350,8 @@ function CompanyPanel({api, leadId, notify, onOpenLead}) {
         <FocusEditor api={api} lead={lead} notify={notify} onChanged={load} compact/>
       </section>
       <section className="lv3-op__block">
-        <h4><Icon name="newspaper"/>Contexto de mercado</h4>
-        <MarketContext api={api} lead={lead} notify={notify} onChanged={load}/>
+        <h4><Icon name="newspaper"/>Pauta: ganchos com fonte</h4>
+        <MarketContext api={api} lead={lead} notify={notify} onChanged={() => { load(); onPauta(); }}/>
       </section>
     </div>
   );
@@ -310,6 +362,7 @@ export function Operacao({boot, api, executivo, setExecutivo, notify, onOpenLead
   const [aba, setAba] = useState('hoje');
   const [state, setState] = useState({loading: true, error: ''});
   const [selected, setSelected] = useState(null); // {tipo, id}
+  const [pautaVersao, setPautaVersao] = useState(0); // pesquisa ou estrela na pauta recarrega os ganchos do composer
 
   const load = useCallback(async () => {
     setState(s => ({...s, loading: true, error: ''}));
@@ -445,7 +498,7 @@ export function Operacao({boot, api, executivo, setExecutivo, notify, onOpenLead
       <section className="lv3-col lv3-op__main" aria-label="Pendência selecionada">
         {item ? (
           selected.tipo === 'passo' || selected.tipo === 'proximo'
-            ? <StepComposer key={`p${item.id}-${item.passo_atual}`} api={api} item={item} notify={notify} onDone={load}/>
+            ? <StepComposer key={`p${item.id}-${item.passo_atual}`} api={api} item={item} notify={notify} onDone={load} pautaVersao={pautaVersao}/>
             : selected.tipo === 'feito'
               ? <DonePanel key={`f${item.id}`} item={item} onOpenLead={onOpenLead}/>
               : <TaskPanel key={`t${item.id}`} api={api} item={item} notify={notify} onDone={load} onOpenLead={onOpenLead}/>
@@ -453,7 +506,7 @@ export function Operacao({boot, api, executivo, setExecutivo, notify, onOpenLead
       </section>
 
       <aside className="lv3-col lv3-op__side" aria-label="Empresa">
-        {item ? <CompanyPanel key={item.id_lead} api={api} leadId={item.id_lead} notify={notify} onOpenLead={onOpenLead}/> : <Empty icon="building" title="Sem empresa selecionada"/>}
+        {item ? <CompanyPanel key={item.id_lead} api={api} leadId={item.id_lead} notify={notify} onOpenLead={onOpenLead} onPauta={() => setPautaVersao(v => v + 1)}/> : <Empty icon="building" title="Sem empresa selecionada"/>}
       </aside>
     </div>
   );

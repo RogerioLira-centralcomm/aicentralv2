@@ -658,3 +658,29 @@ html body .lv3-root .lv3-queue__owner select:not([multiple]):not([size]):not(.se
 .lv3-stats--compact { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); margin-bottom: 0; }
 .lv3-stats--compact .lv3-stat__value { font-size: 20px; }
 @media (max-width: 1100px) { .lv3-an__split { grid-template-columns: 1fr; } }
+
+/* Pauta: ganchos com fonte e composer com gancho, alerta de tom e rodapé */
+.lv3-focus__tools { display: flex; flex-wrap: wrap; gap: 4px; }
+.lv3-hooks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.lv3-hook { padding: 10px 12px; border: 1px solid var(--lv3-line); border-radius: var(--lv3-radius-sm); background: var(--lv3-surface); }
+.lv3-hook.is-chosen { border-color: var(--lv3-brand); background: var(--lv3-brand-soft); }
+.lv3-hook.is-discarded { opacity: .6; }
+.lv3-hook__tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px; }
+.lv3-hook__type { font-size: 11.5px; font-weight: 600; color: var(--lv3-muted); }
+.lv3-hook__number { padding: 1px 6px; border-radius: 6px; background: var(--lv3-warning-bg); color: var(--lv3-warning); font-size: 11.5px; font-weight: 700; }
+.lv3-hook__used { font-size: 11.5px; color: var(--lv3-subtle); }
+.lv3-hook__fact { margin: 0; font-size: 13px; line-height: 1.45; color: var(--lv3-ink); }
+.lv3-hook__angle { margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--lv3-ink-2); font-style: italic; }
+.lv3-hook__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; font-size: 12px; }
+.lv3-hook__foot a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lv3-hook__actions { display: inline-flex; flex: none; }
+.lv3-hook__actions .lv3-iconbtn { width: 28px; height: 28px; }
+.lv3-hook__actions .lv3-iconbtn.is-on { color: #ca8a04; }
+.lv3-hookform { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.lv3-op__nohook { margin: 0; }
+.lv3-op__usedhook { display: flex; gap: 8px; margin: 0; padding: 8px 10px; border-radius: var(--lv3-radius-sm); background: var(--lv3-sunken); font-size: 12.5px; color: var(--lv3-ink-2); }
+.lv3-op__usedhook .lv3-icon { margin-top: 2px; color: #ca8a04; }
+.lv3-op__warn { display: flex; align-items: center; gap: 8px; margin: 0; padding: 8px 10px; border-radius: var(--lv3-radius-sm); background: var(--lv3-warning-bg); color: var(--lv3-warning); font-size: 12.5px; }
+.lv3-op__signature { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.lv3-segmented--sm { grid-template-columns: repeat(3, auto); }
+.lv3-segmented--sm button { height: 28px; padding: 0 12px; font-size: 12.5px; }

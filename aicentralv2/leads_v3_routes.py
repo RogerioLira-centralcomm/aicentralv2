@@ -816,11 +816,12 @@ def api_inscricao_acao(inscricao_id, acao):
     """feito | pular | respondeu | pausar | retomar | cancelar."""
     if acao not in cadencias.ACOES:
         return _erro("Ação inválida.", 404)
-    nota = str((request.get_json(silent=True) or {}).get("nota") or "")[:300]
+    payload = request.get_json(silent=True) or {}
+    nota = str(payload.get("nota") or "")[:300]
 
     def run(cursor):
         estado = cadencias.avancar(cursor, inscricao_id, acao, usuario_id=session.get("user_id"),
-                                   usuario_nome=session.get("user_name"), nota=nota)
+                                   usuario_nome=session.get("user_name"), nota=nota, id_gancho=_int(payload.get("id_gancho")))
         return _ok({k: _json_safe(v) for k, v in estado.items()})
 
     return _transacao(run, f"cadência {acao}")
@@ -887,94 +888,360 @@ def _campos_alvo(payload):
 
 
 # ─────────────────────────────────────────────────────
-# Operação: mensagens personalizadas, contexto de mercado e tarefas
+# Operação: mensagens personalizadas, ganchos de pauta e tarefas
 # ─────────────────────────────────────────────────────
+class _Resposta(Exception):
+    """Interrompe uma leitura devolvendo uma resposta pronta (ex.: 404)."""
+
+    def __init__(self, resposta):
+        super().__init__()
+        self.resposta = resposta
+
+
+def _ler(fn, contexto):
+    """Roda fn(cursor) só lendo (sem commit). Devolve (resultado, None) ou (None, resposta de erro)."""
+    conn = db.get_db()
+    try:
+        with conn.cursor() as cursor:
+            resultado = fn(cursor)
+        conn.rollback()
+        return resultado, None
+    except _Resposta as exc:
+        conn.rollback()
+        return None, exc.resposta
+    except Exception as exc:
+        conn.rollback()
+        if _sqlstate(exc) in _SQLSTATE_SEM_ESQUEMA:
+            return None, _erro("A migração do Leads v3 ainda não foi aplicada neste banco.", 503)
+        current_app.logger.error("leads-v3 %s: %s", contexto, exc)
+        return None, _erro("Não foi possível ler os dados.", 500)
+
+
+_COLUNAS_GANCHO = "id, etapa, tipo, fato, numero, angulo, fonte_url, fonte_nome, data_fato, status, origem, created_at"
+
+
+def _ganchos_usados(cursor, contato_id):
+    """Ids dos ganchos já usados com a pessoa (gravados no evento do passo feito)."""
+    cursor.execute(
+        """
+        SELECT DISTINCT (payload ->> 'id_gancho')::int AS id FROM cadu_lead_mensagem_eventos
+         WHERE id_contato = %s AND evento = 'tarefa_feita' AND payload ->> 'id_gancho' ~ '^[0-9]+$'
+        """,
+        [contato_id],
+    )
+    return {r["id"] for r in cursor.fetchall()}
+
+
+def _escolher_gancho(cursor, lead_id, etapa, usados, id_gancho=None):
+    """O gancho pedido, ou o melhor da etapa: escolhido antes de sugerido, ainda não usado com a pessoa."""
+    if id_gancho:
+        cursor.execute(f"SELECT {_COLUNAS_GANCHO} FROM cadu_lead_ganchos WHERE id = %s AND id_lead = %s", [id_gancho, lead_id])
+        return cursor.fetchone()
+    cursor.execute(
+        f"""
+        SELECT {_COLUNAS_GANCHO} FROM cadu_lead_ganchos
+         WHERE id_lead = %s AND status <> 'descartado'
+         ORDER BY (id = ANY(%s::int[])) ASC, (etapa = %s) DESC, (status = 'escolhido') DESC, id
+         LIMIT 1
+        """,
+        [lead_id, list(usados), etapa],
+    )
+    return cursor.fetchone()
+
+
 @bp.route("/api/mensagens/gerar", methods=["POST"])
 @centralcomm_required_api
 def api_gerar_mensagem():
-    """Mensagem para uma pessoa num canal e etapa (topo/meio), com foco, contexto e histórico da empresa."""
+    """Mensagem para uma pessoa num canal e etapa (topo/meio), a partir de um gancho, com foco e histórico da empresa."""
     payload = request.get_json(silent=True) or {}
     contato_id = _int(payload.get("id_contato"))
     if not contato_id:
         return _erro("Escolha a pessoa.")
-    conn = db.get_db()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT c.nome, c.cargo, c.papel, l.id AS id_lead, COALESCE(l.empresa, l.nome) AS empresa, l.segmento,
-                       l.descricao_empresa, l.oportunidades_midia, l.foco_conteudo, l.contexto_mercado
-                  FROM cadu_lead_contatos c JOIN cadu_leads l ON l.id = c.id_lead WHERE c.id = %s
-                """,
-                [contato_id],
-            )
-            row = cursor.fetchone()
-            if not row:
-                conn.rollback()
-                return _erro("Contato não encontrado.", 404)
-            cursor.execute(
-                """
-                SELECT descricao FROM cadu_lead_atividades
-                 WHERE id_lead = %s AND tipo NOT IN ('status_change', 'atribuicao', 'edicao', 'importacao')
-                 ORDER BY created_at DESC LIMIT 6
-                """,
-                [row["id_lead"]],
-            )
-            historico = [r["descricao"] for r in cursor.fetchall()]
-        conn.rollback()
-    except Exception as exc:
-        conn.rollback()
-        if _sqlstate(exc) in _SQLSTATE_SEM_ESQUEMA:
-            return _erro("A migração do Leads v3 ainda não foi aplicada neste banco.", 503)
-        current_app.logger.error("leads-v3 gerar mensagem: %s", exc)
-        return _erro("Não foi possível preparar a mensagem.", 500)
+    etapa = payload.get("etapa") or "topo"
 
+    def ler(cursor):
+        cursor.execute(
+            """
+            SELECT c.nome, c.cargo, c.papel, l.id AS id_lead, COALESCE(l.empresa, l.nome) AS empresa, l.segmento,
+                   l.descricao_empresa, l.oportunidades_midia, l.foco_conteudo, l.contexto_mercado
+              FROM cadu_lead_contatos c JOIN cadu_leads l ON l.id = c.id_lead WHERE c.id = %s
+            """,
+            [contato_id],
+        )
+        row = cursor.fetchone()
+        if not row:
+            raise _Resposta(_erro("Contato não encontrado.", 404))
+        cursor.execute(
+            """
+            SELECT descricao FROM cadu_lead_atividades
+             WHERE id_lead = %s AND tipo NOT IN ('status_change', 'atribuicao', 'edicao', 'importacao')
+             ORDER BY created_at DESC LIMIT 6
+            """,
+            [row["id_lead"]],
+        )
+        historico = [r["descricao"] for r in cursor.fetchall()]
+        usados = _ganchos_usados(cursor, contato_id)
+        gancho = _escolher_gancho(cursor, row["id_lead"], etapa, usados, _int(payload.get("id_gancho")))
+        ja_usados = []
+        if usados:
+            cursor.execute("SELECT fato FROM cadu_lead_ganchos WHERE id = ANY(%s::int[]) ORDER BY id DESC LIMIT 6", [list(usados)])
+            ja_usados = [r["fato"] for r in cursor.fetchall()]
+        cursor.execute("SELECT assinatura, dispositivo FROM cadu_lead_preferencias WHERE id_usuario = %s", [session.get("user_id")])
+        prefs = cursor.fetchone() or {}
+        return row, historico, gancho, ja_usados, prefs
+
+    lido, erro = _ler(ler, "gerar mensagem")
+    if erro:
+        return erro
+    row, historico, gancho, ja_usados, prefs = lido
     contexto = (row["contexto_mercado"] or {}).get("texto") if isinstance(row["contexto_mercado"], dict) else None
     try:
         resultado = mensagens.gerar_mensagem(
             mensagens.resolve_openrouter_key(),
-            canal=payload.get("canal") or "email", etapa=payload.get("etapa") or "topo",
+            canal=payload.get("canal") or "email", etapa=etapa,
             objetivo=str(payload.get("objetivo") or "").strip()[:400],
             pessoa={"nome": row["nome"], "cargo": row["cargo"], "papel": row["papel"]},
             empresa={"nome": row["empresa"], "segmento": row["segmento"], "descricao": row["descricao_empresa"],
                      "oportunidades_midia": row["oportunidades_midia"]},
             foco=mensagens._resumo_foco(row["foco_conteudo"]), contexto=contexto, historico=historico,
-            remetente=session.get("user_name"),
+            remetente=session.get("user_name"), gancho=dict(gancho) if gancho else None, ja_usados=ja_usados,
+            assinatura=prefs.get("assinatura"), dispositivo=prefs.get("dispositivo") or "nenhum",
         )
     except prospeccao.ProspeccaoError as exc:
         return _erro(str(exc), 400)
+    resultado["gancho"] = {k: _json_safe(v) for k, v in dict(gancho).items()} if gancho else None
     return _ok(resultado)
 
 
 @bp.route("/api/leads/<int:lead_id>/contexto", methods=["POST"])
 @centralcomm_required_api
 def api_contexto_mercado(lead_id):
-    """Pesquisa na web (Sonar) notícias, campanhas e tendências da empresa; guarda com as fontes."""
-    conn = db.get_db()
+    """Pesquisa na web (Sonar Pro) e monta o dossiê: resumo da empresa e ganchos com fonte e data."""
+
+    def ler(cursor):
+        cursor.execute(
+            """
+            SELECT COALESCE(empresa, nome) AS empresa, dominio, url_site, segmento, descricao_empresa,
+                   ARRAY(SELECT DISTINCT papel FROM cadu_lead_contatos WHERE id_lead = %s AND papel IS NOT NULL) AS papeis
+              FROM cadu_leads WHERE id = %s
+            """,
+            [lead_id, lead_id],
+        )
+        lead = cursor.fetchone()
+        if not lead:
+            raise _Resposta(_erro("Lead não encontrado.", 404))
+        return lead
+
+    lead, erro = _ler(ler, "contexto de mercado")
+    if erro:
+        return erro
     try:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT COALESCE(empresa, nome) AS empresa, dominio, url_site, segmento FROM cadu_leads WHERE id = %s", [lead_id])
-            lead = cursor.fetchone()
-        conn.rollback()
-    except Exception as exc:
-        conn.rollback()
-        if _sqlstate(exc) in _SQLSTATE_SEM_ESQUEMA:
-            return _erro("A migração do Leads v3 ainda não foi aplicada neste banco.", 503)
-        return _erro("Não foi possível ler o lead.", 500)
-    if not lead:
-        return _erro("Lead não encontrado.", 404)
-    try:
-        contexto = mensagens.gerar_contexto_mercado(
+        dossie = mensagens.gerar_dossie(
             mensagens.resolve_openrouter_key(), empresa=lead["empresa"],
-            dominio=lead["dominio"] or prospeccao.normalizar_dominio(lead["url_site"]), segmento=lead["segmento"])
+            dominio=lead["dominio"] or prospeccao.normalizar_dominio(lead["url_site"]), segmento=lead["segmento"],
+            descricao=lead["descricao_empresa"], papeis=lead["papeis"] or [])
     except prospeccao.ProspeccaoError as exc:
         return _erro(str(exc), 400)
 
     def run(cursor):
-        cursor.execute("UPDATE cadu_leads SET contexto_mercado = %s WHERE id = %s", [db.Json(contexto), lead_id])
-        return _ok(contexto)
+        cursor.execute("UPDATE cadu_leads SET contexto_mercado = %s WHERE id = %s", [db.Json(dossie["contexto"]), lead_id])
+        # A nova pesquisa substitui as sugestões antigas que ninguém escolheu nem usou.
+        cursor.execute(
+            """
+            DELETE FROM cadu_lead_ganchos g
+             WHERE g.id_lead = %s AND g.origem = 'pesquisa' AND g.status <> 'escolhido'
+               AND NOT EXISTS (SELECT 1 FROM cadu_lead_mensagem_eventos e
+                                WHERE e.id_lead = g.id_lead AND e.payload ->> 'id_gancho' = g.id::text)
+            """,
+            [lead_id],
+        )
+        cursor.execute("SELECT lower(left(fato, 80)) AS chave FROM cadu_lead_ganchos WHERE id_lead = %s", [lead_id])
+        existentes = {r["chave"] for r in cursor.fetchall()}
+        for g in dossie["ganchos"]:
+            if g["fato"].lower()[:80] in existentes:
+                continue
+            cursor.execute(
+                """
+                INSERT INTO cadu_lead_ganchos (id_lead, etapa, tipo, fato, numero, angulo, fonte_url, fonte_nome, data_fato, criado_por)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                [lead_id, g["etapa"], g["tipo"], g["fato"], g["numero"], g["angulo"], g["fonte_url"], g["fonte_nome"],
+                 g["data_fato"], session.get("user_id")],
+            )
+        return _ok({"contexto": dossie["contexto"], "ganchos_novos": len(dossie["ganchos"])})
 
     return _transacao(run, "contexto de mercado")
+
+
+@bp.route("/api/leads/<int:lead_id>/ganchos")
+@centralcomm_required_api
+def api_ganchos(lead_id):
+    """Ganchos da empresa; com ?id_contato=, marca os já usados com a pessoa."""
+    contato_id = _int(request.args.get("id_contato"))
+
+    def ler(cursor):
+        cursor.execute(
+            f"""
+            SELECT {_COLUNAS_GANCHO},
+                   (SELECT COUNT(*) FROM cadu_lead_mensagem_eventos e
+                     WHERE e.id_lead = g.id_lead AND e.evento = 'tarefa_feita' AND e.payload ->> 'id_gancho' = g.id::text) AS usos
+              FROM cadu_lead_ganchos g
+             WHERE g.id_lead = %s
+             ORDER BY (status = 'descartado'), (status = 'escolhido') DESC, (etapa = 'topo') DESC, id
+            """,
+            [lead_id],
+        )
+        ganchos = [{k: _json_safe(v) for k, v in dict(r).items()} for r in cursor.fetchall()]
+        usados = _ganchos_usados(cursor, contato_id) if contato_id else set()
+        for g in ganchos:
+            g["usado_com_pessoa"] = g["id"] in usados
+        return ganchos
+
+    ganchos, erro = _ler(ler, "ganchos")
+    return erro or _ok({"ganchos": ganchos})
+
+
+def _campos_gancho(payload, parcial):
+    """Campos editáveis de um gancho. No cadastro manual, fato e fonte são obrigatórios."""
+    sets, params = [], []
+    if "status" in payload:
+        if payload["status"] not in ("sugerido", "escolhido", "descartado"):
+            raise prospeccao.ProspeccaoError("Status inválido.")
+        sets.append("status = %s"); params.append(payload["status"])
+    if "etapa" in payload:
+        if payload["etapa"] not in mensagens.ETAPAS:
+            raise prospeccao.ProspeccaoError("Etapa inválida.")
+        sets.append("etapa = %s"); params.append(payload["etapa"])
+    if "tipo" in payload:
+        if payload["tipo"] not in mensagens.TIPOS_GANCHO:
+            raise prospeccao.ProspeccaoError("Tipo inválido.")
+        sets.append("tipo = %s"); params.append(payload["tipo"])
+    for campo, limite in (("fato", 600), ("numero", 120), ("angulo", 400), ("fonte_nome", 120), ("data_fato", 20)):
+        if campo in payload:
+            valor = str(payload.get(campo) or "").strip()[:limite] or None
+            if campo == "fato" and not valor:
+                raise prospeccao.ProspeccaoError("Escreva o fato.")
+            sets.append(f"{campo} = %s"); params.append(valor)
+    if "fonte_url" in payload:
+        url = str(payload.get("fonte_url") or "").strip()
+        if url and not url.startswith("http"):
+            raise prospeccao.ProspeccaoError("A fonte precisa ser um link (https://…).")
+        sets.append("fonte_url = %s"); params.append(url[:1000] or None)
+    if not parcial and not str(payload.get("fato") or "").strip():
+        raise prospeccao.ProspeccaoError("Escreva o fato.")
+    return sets, params
+
+
+@bp.route("/api/leads/<int:lead_id>/ganchos", methods=["POST"])
+@centralcomm_required_api
+def api_gancho_criar(lead_id):
+    """Gancho escrito pelo executivo (já entra como escolhido)."""
+    payload = request.get_json(silent=True) or {}
+
+    def run(cursor):
+        sets, params = _campos_gancho({**payload, "status": "escolhido"}, parcial=False)
+        colunas = [s.split(" = ")[0] for s in sets]
+        cursor.execute(
+            f"""
+            INSERT INTO cadu_lead_ganchos (id_lead, origem, criado_por, {', '.join(colunas)})
+            SELECT %s, 'manual', %s, {', '.join(['%s'] * len(params))} WHERE EXISTS (SELECT 1 FROM cadu_leads WHERE id = %s)
+            RETURNING id
+            """,
+            [lead_id, session.get("user_id"), *params, lead_id],
+        )
+        row = cursor.fetchone()
+        return _ok({"id": row["id"]}, 201) if row else _erro("Lead não encontrado.", 404)
+
+    return _transacao(run, "criar gancho")
+
+
+@bp.route("/api/ganchos/<int:gancho_id>", methods=["PATCH"])
+@centralcomm_required_api
+def api_gancho_alterar(gancho_id):
+    payload = request.get_json(silent=True) or {}
+
+    def run(cursor):
+        sets, params = _campos_gancho(payload, parcial=True)
+        if not sets:
+            return _erro("Nada para atualizar.")
+        cursor.execute(
+            f"UPDATE cadu_lead_ganchos SET {', '.join(sets)}, updated_at = CURRENT_TIMESTAMP WHERE id = %s RETURNING id",
+            [*params, gancho_id],
+        )
+        return _ok({"id": gancho_id}) if cursor.fetchone() else _erro("Gancho não encontrado.", 404)
+
+    return _transacao(run, "alterar gancho")
+
+
+@bp.route("/api/leads/<int:lead_id>/foco/sugerir", methods=["POST"])
+@centralcomm_required_api
+def api_sugerir_foco(lead_id):
+    """Sugestão de foco (topo, meio, tom, evitar) a partir dos ganchos; a tela abre o formulário preenchido."""
+
+    def ler(cursor):
+        cursor.execute(
+            """
+            SELECT COALESCE(empresa, nome) AS empresa, segmento, descricao_empresa,
+                   ARRAY(SELECT DISTINCT papel FROM cadu_lead_contatos WHERE id_lead = %s AND papel IS NOT NULL) AS papeis
+              FROM cadu_leads WHERE id = %s
+            """,
+            [lead_id, lead_id],
+        )
+        lead = cursor.fetchone()
+        if not lead:
+            raise _Resposta(_erro("Lead não encontrado.", 404))
+        cursor.execute(
+            """
+            SELECT etapa, tipo, fato, angulo FROM cadu_lead_ganchos
+             WHERE id_lead = %s AND status <> 'descartado' ORDER BY (status = 'escolhido') DESC, id LIMIT 10
+            """,
+            [lead_id],
+        )
+        return lead, [dict(r) for r in cursor.fetchall()]
+
+    lido, erro = _ler(ler, "sugerir foco")
+    if erro:
+        return erro
+    lead, ganchos = lido
+    try:
+        foco = mensagens.sugerir_foco(mensagens.resolve_openrouter_key(), empresa=lead["empresa"], segmento=lead["segmento"],
+                                      descricao=lead["descricao_empresa"], papeis=lead["papeis"] or [], ganchos=ganchos)
+    except prospeccao.ProspeccaoError as exc:
+        return _erro(str(exc), 400)
+    return _ok({"foco": foco})
+
+
+@bp.route("/api/preferencias", methods=["GET", "PUT"])
+@centralcomm_required_api
+def api_preferencias():
+    """Assinatura e 'Enviado do meu…' do executivo logado (entram no fim dos e-mails gerados)."""
+    usuario = session.get("user_id")
+    if request.method == "GET":
+        def ler(cursor):
+            cursor.execute("SELECT assinatura, dispositivo FROM cadu_lead_preferencias WHERE id_usuario = %s", [usuario])
+            return dict(cursor.fetchone() or {"assinatura": None, "dispositivo": "nenhum"})
+
+        prefs, erro = _ler(ler, "preferências")
+        return erro or _ok(prefs)
+
+    payload = request.get_json(silent=True) or {}
+    dispositivo = payload.get("dispositivo") or "nenhum"
+    if dispositivo not in mensagens.DISPOSITIVOS:
+        return _erro("Dispositivo inválido.")
+    assinatura = str(payload.get("assinatura") or "").strip()[:300] or None
+
+    def run(cursor):
+        cursor.execute(
+            """
+            INSERT INTO cadu_lead_preferencias (id_usuario, assinatura, dispositivo) VALUES (%s, %s, %s)
+            ON CONFLICT (id_usuario) DO UPDATE SET assinatura = EXCLUDED.assinatura, dispositivo = EXCLUDED.dispositivo,
+                                                   updated_at = CURRENT_TIMESTAMP
+            """,
+            [usuario, assinatura, dispositivo],
+        )
+        return _ok({"assinatura": assinatura, "dispositivo": dispositivo})
+
+    return _transacao(run, "preferências")
 
 
 def tarefas_pendentes(cursor, executivo=None):

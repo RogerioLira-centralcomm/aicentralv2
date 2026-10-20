@@ -240,10 +240,10 @@ export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadenc
         {focoVazio && contextoVazio ? (
           <section className="lv3-section">
             <header className="lv3-section__head"><h3>Personalizar a abordagem</h3></header>
-            <p className="lv3-muted lv3-help">Canais, conteúdos de topo e meio de funil e o contexto de mercado alimentam as mensagens da IA para cada pessoa.</p>
+            <p className="lv3-muted lv3-help">Fatos reais da empresa e do setor (com fonte) e o foco de topo e meio de funil alimentam as mensagens da IA para cada pessoa.</p>
             <div className="lv3-personalize">
               <div><h4>Foco: canais e conteúdo</h4><FocusEditor api={api} lead={lead} notify={notify} onChanged={onChanged} bare/></div>
-              <div><h4>Contexto de mercado</h4><MarketContext api={api} lead={lead} notify={notify} onChanged={onChanged} bare/></div>
+              <div><h4>Pauta: ganchos com fonte</h4><MarketContext api={api} lead={lead} notify={notify} onChanged={onChanged} bare/></div>
             </div>
           </section>
         ) : (
@@ -253,7 +253,7 @@ export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadenc
               <FocusEditor api={api} lead={lead} notify={notify} onChanged={onChanged}/>
             </section>
             <section className="lv3-section">
-              <header className="lv3-section__head"><h3>Contexto de mercado</h3></header>
+              <header className="lv3-section__head"><h3>Pauta: ganchos com fonte</h3></header>
               <MarketContext api={api} lead={lead} notify={notify} onChanged={onChanged}/>
             </section>
           </>

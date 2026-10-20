@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {Button, Field, Icon, Markdown, formatDate} from './ui.jsx';
 
 export const CANAIS = [
@@ -29,6 +29,14 @@ export function FocusEditor({api, lead, notify, onChanged, compact = false, bare
   const vazio = !canais.length && !foco.topo && !foco.meio && !foco.tom && !foco.evitar;
 
   const start = () => setForm({canais: [...canais], topo: foco.topo || '', meio: foco.meio || '', tom: foco.tom || '', evitar: foco.evitar || ''});
+  // A IA propõe a partir da pauta; o executivo revisa no formulário antes de salvar.
+  const sugerir = async () => {
+    setBusy(true);
+    try {
+      const s = await api.suggestFocus(lead.id);
+      setForm({canais: [...canais], topo: s.topo || '', meio: s.meio || '', tom: s.tom || '', evitar: s.evitar || ''});
+    } catch (error) { notify(error.message, 'error'); } finally { setBusy(false); }
+  };
   const toggle = value => setForm(f => ({...f, canais: f.canais.includes(value) ? f.canais.filter(c => c !== value) : [...f.canais, value]}));
   const save = async event => {
     event.preventDefault();
@@ -74,7 +82,7 @@ export function FocusEditor({api, lead, notify, onChanged, compact = false, bare
   return (
     <div className={`lv3-focus ${compact ? 'lv3-focus--compact' : ''}`}>
       {vazio ? (
-        !bare && <p className="lv3-muted">Defina canais e conteúdos de topo e meio de funil: a IA usa isso para personalizar cada mensagem.</p>
+        !bare && <p className="lv3-muted">Temas de topo e meio de funil e o tom com essas pessoas. A IA sugere a partir da pauta pesquisada.</p>
       ) : (
         <>
           {canais.length > 0 && (
@@ -90,44 +98,156 @@ export function FocusEditor({api, lead, notify, onChanged, compact = false, bare
           </dl>
         </>
       )}
-      <Button size="sm" variant="ghost" icon="pen" onClick={start}>{vazio ? 'Definir foco' : 'Editar foco'}</Button>
+      <div className="lv3-focus__tools">
+        <Button size="sm" variant="ghost" icon="wand-magic-sparkles" onClick={sugerir} disabled={busy}>{busy ? 'Sugerindo…' : 'Sugerir com IA'}</Button>
+        <Button size="sm" variant="ghost" icon="pen" onClick={start} disabled={busy}>{vazio ? 'Definir à mão' : 'Editar foco'}</Button>
+      </div>
     </div>
   );
 }
 
-/** Contexto de mercado gerado por busca na web (com fontes). */
-export function MarketContext({api, lead, notify, onChanged, bare = false}) {
+const TIPOS_GANCHO = {empresa: 'Empresa', campanha: 'Campanha', concorrente: 'Concorrente', setor: 'Dado do setor',
+  lideranca: 'Liderança', tendencia: 'Tendência'};
+
+const host = url => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } };
+
+/** Um gancho da pauta: fato, número, ângulo e fonte; o executivo escolhe ou descarta. */
+function HookCard({gancho, onStatus, busy}) {
+  const escolhido = gancho.status === 'escolhido';
+  return (
+    <li className={`lv3-hook ${escolhido ? 'is-chosen' : ''} ${gancho.status === 'descartado' ? 'is-discarded' : ''}`}>
+      <div className="lv3-hook__tags">
+        <span className={`lv3-funnel lv3-funnel--${gancho.etapa}`}>{gancho.etapa}</span>
+        <span className="lv3-hook__type">{TIPOS_GANCHO[gancho.tipo] || gancho.tipo}</span>
+        {gancho.numero && <span className="lv3-hook__number">{gancho.numero}</span>}
+        {gancho.usos > 0 && <span className="lv3-hook__used">usado {gancho.usos}x</span>}
+      </div>
+      <p className="lv3-hook__fact">{gancho.fato}</p>
+      {gancho.angulo && <p className="lv3-hook__angle">{gancho.angulo}</p>}
+      <div className="lv3-hook__foot">
+        {gancho.fonte_url
+          ? <a href={gancho.fonte_url} target="_blank" rel="noopener noreferrer">{gancho.fonte_nome || host(gancho.fonte_url)}{gancho.data_fato ? ` · ${gancho.data_fato}` : ''}</a>
+          : <span className="lv3-muted">sem fonte</span>}
+        <span className="lv3-hook__actions">
+          {gancho.status === 'descartado' ? (
+            <button type="button" className="lv3-link lv3-link--muted" disabled={busy} onClick={() => onStatus(gancho, 'sugerido')}>Restaurar</button>
+          ) : (
+            <>
+              <button type="button" className={`lv3-iconbtn ${escolhido ? 'is-on' : ''}`} title={escolhido ? 'Tirar dos escolhidos' : 'Usar nas mensagens'} aria-pressed={escolhido}
+                disabled={busy} onClick={() => onStatus(gancho, escolhido ? 'sugerido' : 'escolhido')}><Icon name="star"/></button>
+              <button type="button" className="lv3-iconbtn lv3-iconbtn--danger" title="Descartar" disabled={busy} onClick={() => onStatus(gancho, 'descartado')}><Icon name="xmark"/></button>
+            </>
+          )}
+        </span>
+      </div>
+    </li>
+  );
+}
+
+/** Gancho escrito pelo executivo (algo que ele leu ou ouviu), com fonte. */
+function HookForm({api, leadId, notify, onSaved, onCancel}) {
+  const [form, setForm] = useState({fato: '', fonte_url: '', etapa: 'topo', tipo: 'empresa'});
   const [busy, setBusy] = useState(false);
-  const [aberto, setAberto] = useState(false);
-  const ctx = typeof lead.contexto_mercado === 'string' ? parseFoco(lead.contexto_mercado) : (lead.contexto_mercado || null);
-  const gerar = async () => {
+  const save = async event => {
+    event.preventDefault();
     setBusy(true);
-    try { await api.marketContext(lead.id); notify('Contexto de mercado atualizado.'); onChanged(); }
+    try { await api.createHook(leadId, form); notify('Gancho adicionado.'); onSaved(); }
     catch (error) { notify(error.message, 'error'); } finally { setBusy(false); }
   };
   return (
+    <form className="lv3-hookform" onSubmit={save}>
+      <Field label="Fato (com número, se tiver)" wide>
+        <textarea className="lv3-input lv3-textarea" rows={2} required value={form.fato} onChange={e => setForm(f => ({...f, fato: e.target.value}))}
+          placeholder="Ex.: a marca abriu 40 lojas no Nordeste em 2026"/>
+      </Field>
+      <Field label="Fonte (link)" wide><input className="lv3-input" type="url" value={form.fonte_url} onChange={e => setForm(f => ({...f, fonte_url: e.target.value}))} placeholder="https://"/></Field>
+      <div className="lv3-form__grid">
+        <Field label="Etapa">
+          <select className="lv3-select" value={form.etapa} onChange={e => setForm(f => ({...f, etapa: e.target.value}))}>
+            <option value="topo">Topo</option><option value="meio">Meio</option>
+          </select>
+        </Field>
+        <Field label="Tipo">
+          <select className="lv3-select" value={form.tipo} onChange={e => setForm(f => ({...f, tipo: e.target.value}))}>
+            {Object.entries(TIPOS_GANCHO).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </Field>
+      </div>
+      <div className="lv3-form__actions">
+        <Button onClick={onCancel} disabled={busy}>Cancelar</Button>
+        <Button variant="primary" type="submit" disabled={busy}>{busy ? 'Salvando…' : 'Adicionar gancho'}</Button>
+      </div>
+    </form>
+  );
+}
+
+/** Pauta da empresa: resumo do momento e ganchos com fonte (pesquisa na web) para puxar conversa. */
+export function MarketContext({api, lead, notify, onChanged, bare = false}) {
+  const [busy, setBusy] = useState('');
+  const [aberto, setAberto] = useState(false);
+  const [ganchos, setGanchos] = useState(null);
+  const [novo, setNovo] = useState(false);
+  const [verDescartados, setVerDescartados] = useState(false);
+  const ctx = typeof lead.contexto_mercado === 'string' ? parseFoco(lead.contexto_mercado) : (lead.contexto_mercado || null);
+
+  const carregar = useCallback(async () => {
+    try { setGanchos(await api.hooks(lead.id)); } catch { setGanchos([]); }
+  }, [api, lead.id]);
+  useEffect(() => { carregar(); }, [carregar]);
+
+  const pesquisar = async () => {
+    setBusy('pesquisa');
+    try {
+      const r = await api.marketContext(lead.id);
+      notify(r.ganchos_novos ? `Pauta atualizada: ${r.ganchos_novos} ganchos com fonte.` : 'Pesquisa feita, mas sem ganchos com fonte. Tente de novo ou adicione à mão.');
+      await carregar();
+      onChanged();
+    } catch (error) { notify(error.message, 'error'); } finally { setBusy(''); }
+  };
+  const mudarStatus = async (gancho, status) => {
+    setBusy(`g${gancho.id}`);
+    try { await api.updateHook(gancho.id, {status}); await carregar(); onChanged(); }
+    catch (error) { notify(error.message, 'error'); } finally { setBusy(''); }
+  };
+
+  const ativos = (ganchos || []).filter(g => g.status !== 'descartado');
+  const descartados = (ganchos || []).filter(g => g.status === 'descartado');
+  const temAlgo = ctx?.texto || ativos.length > 0;
+  return (
     <div className="lv3-context">
-      {ctx?.texto ? (
+      {ctx?.texto && (
         <>
-          {/* Sem rolagem própria (o painel já rola): recolhido mostra o começo, "Ver tudo" abre o resto. */}
           <Markdown text={ctx.texto} fontes={ctx.fontes} className={`lv3-context__text ${aberto ? '' : 'is-collapsed'}`}/>
-          <button type="button" className="lv3-link" onClick={() => setAberto(a => !a)}>{aberto ? 'Recolher' : 'Ver tudo'}</button>
-          {ctx.fontes?.length > 0 && (
-            <ol className="lv3-context__sources">
-              {ctx.fontes.map((url, i) => {
-                let host = url; try { host = new URL(url).hostname.replace(/^www\./, ''); } catch { /* mantém a url */ }
-                return <li key={url}><a href={url} target="_blank" rel="noopener noreferrer">[{i + 1}] {host}</a></li>;
-              })}
-            </ol>
-          )}
-          <p className="lv3-muted">Gerado em {formatDate(ctx.gerado_em)} por busca na web. Confira as fontes antes de citar.</p>
+          {ctx.texto.length > 280 && <button type="button" className="lv3-link" onClick={() => setAberto(a => !a)}>{aberto ? 'Recolher' : 'Ver tudo'}</button>}
         </>
-      ) : (
-        !bare && <p className="lv3-muted">Notícias, campanhas e tendências recentes da empresa e do setor, com fontes, para personalizar a abordagem.</p>
       )}
-      <Button size="sm" variant={ctx?.texto ? 'ghost' : 'secondary'} icon="magnifying-glass-chart" onClick={gerar} disabled={busy}>
-        {busy ? 'Pesquisando…' : ctx?.texto ? 'Atualizar contexto' : 'Pesquisar contexto de mercado'}
-      </Button>
+      {ativos.length > 0 && (
+        <>
+          <p className="lv3-muted">Marque com a estrela os ganchos que quer usar. Cada mensagem usa um, sem repetir com a mesma pessoa.</p>
+          <ul className="lv3-hooks">
+            {ativos.map(g => <HookCard key={g.id} gancho={g} onStatus={mudarStatus} busy={!!busy}/>)}
+          </ul>
+        </>
+      )}
+      {descartados.length > 0 && (
+        <>
+          <button type="button" className="lv3-link lv3-link--muted" onClick={() => setVerDescartados(v => !v)}>
+            {verDescartados ? 'Esconder descartados' : `${descartados.length} descartado${descartados.length > 1 ? 's' : ''}`}
+          </button>
+          {verDescartados && <ul className="lv3-hooks">{descartados.map(g => <HookCard key={g.id} gancho={g} onStatus={mudarStatus} busy={!!busy}/>)}</ul>}
+        </>
+      )}
+      {!temAlgo && !bare && (
+        <p className="lv3-muted">Fatos reais e recentes da empresa, dos concorrentes e do setor, com fonte, para puxar conversa sobre mídia e marketing.</p>
+      )}
+      {ctx?.gerado_em && <p className="lv3-muted">Pesquisado em {formatDate(ctx.gerado_em)}. Confira a fonte antes de citar.</p>}
+      {novo && <HookForm api={api} leadId={lead.id} notify={notify} onSaved={() => { setNovo(false); carregar(); onChanged(); }} onCancel={() => setNovo(false)}/>}
+      <div className="lv3-focus__tools">
+        <Button size="sm" variant={temAlgo ? 'ghost' : 'secondary'} icon="magnifying-glass-chart" onClick={pesquisar} disabled={!!busy}>
+          {busy === 'pesquisa' ? 'Pesquisando na web…' : temAlgo ? 'Atualizar pauta' : 'Pesquisar pauta'}
+        </Button>
+        {!novo && <Button size="sm" variant="ghost" icon="plus" onClick={() => setNovo(true)} disabled={!!busy}>Gancho à mão</Button>}
+      </div>
     </div>
   );
 }

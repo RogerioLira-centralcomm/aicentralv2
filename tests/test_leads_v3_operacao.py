@@ -15,14 +15,24 @@ class MensagemTest(TestCase):
     base = dict(objetivo="abrir conversa", pessoa={"nome": "Ana Lima", "cargo": "Gerente de Mídia", "papel": "midia"},
                 empresa={"nome": "Vale", "segmento": "Mineração"})
 
-    def test_prompt_leva_etapa_canal_foco_contexto_e_historico(self):
+    def test_prompt_leva_etapa_canal_gancho_foco_e_historico(self):
+        gancho = {"fato": "Varejo cresceu 12% em CTV", "numero": "12%", "fonte_nome": "Kantar", "data_fato": "2026-08",
+                  "angulo": "Onde a marca aparece na TV conectada?"}
         system, user = m.montar_prompt_mensagem(canal="linkedin_conexao", etapa="topo", foco="Conteúdos de topo: estudo ESG",
-                                                contexto="Vale lançou campanha X", historico=["E-mail enviado"], remetente="Apolo", **self.base)
+                                                contexto="Vale lançou campanha X", historico=["E-mail enviado"], remetente="Apolo",
+                                                gancho=gancho, ja_usados=["Fato antigo"], **self.base)
         self.assertIn("TOPO de funil", system)
         self.assertIn("280 caracteres", system)
-        self.assertIn("nunca invente", system)
-        for trecho in ("Ana Lima", "Gerente de Mídia", "estudo ESG", "campanha X", "E-mail enviado", "Assine como Apolo"):
+        self.assertIn("Nunca invente", system)
+        self.assertIn("Você escreve como Apolo", system)
+        for trecho in ("Ana Lima", "Gerente de Mídia", "estudo ESG", "Varejo cresceu 12% em CTV", "Kantar (2026-08)",
+                       "Fato antigo", "E-mail enviado"):
             self.assertIn(trecho, user)
+        self.assertNotIn("campanha X", user)  # com gancho, o contexto solto não entra
+
+    def test_sem_gancho_usa_contexto(self):
+        _, user = m.montar_prompt_mensagem(canal="email", etapa="topo", contexto="Vale lançou campanha X", **self.base)
+        self.assertIn("campanha X", user)
 
     def test_canal_ou_etapa_invalidos(self):
         with self.assertRaises(ProspeccaoError):
@@ -30,19 +40,56 @@ class MensagemTest(TestCase):
         with self.assertRaises(ProspeccaoError):
             m.montar_prompt_mensagem(canal="email", etapa="fundo", **self.base)
 
-    def test_email_separa_assunto(self):
-        r = m.gerar_mensagem("k", chat_fn=_chat("Assunto: Ideia de mídia para a Vale\n\nOlá Ana,\nTudo bem?"), canal="email", etapa="meio", **self.base)
-        self.assertEqual(r["assunto"], "Ideia de mídia para a Vale")
-        self.assertTrue(r["texto"].startswith("Olá Ana"))
+    def test_email_separa_assunto_e_assina_como_executivo(self):
+        r = m.gerar_mensagem("k", chat_fn=_chat("Assunto: dado de ctv no varejo\n\nAna, o Kantar mostrou X.\n\nFaz sentido?\n\nUm abraço,\nApolo Lira"),
+                             canal="email", etapa="meio", remetente="Apolo Lira", dispositivo="iphone", **self.base)
+        self.assertEqual(r["assunto"], "dado de ctv no varejo")
+        self.assertEqual(r["texto"], "Ana, o Kantar mostrou X.\n\nFaz sentido?\n\nAbs,\nApolo\n\nEnviado do meu iPhone")
+        self.assertEqual(r["alertas"], [])
+
+    def test_assinatura_propria_e_whatsapp_sem_assinatura(self):
+        self.assertEqual(m.assinar("Oi", "email", assinatura="Abraço\nApolo · CentralComm", dispositivo="galaxy"),
+                         "Oi\n\nAbraço\nApolo · CentralComm\n\nEnviado do meu Galaxy")
+        self.assertEqual(m.assinar("Oi, Ana\n\nAbs", "whatsapp", remetente="Apolo"), "Oi, Ana")
+
+    def test_frase_de_ia_forca_uma_reescrita(self):
+        chat = MagicMock(side_effect=[("Ana, espero que esteja bem. Vi campanhas incríveis.", []),
+                                      ("Ana, vi que o varejo cresceu 12% em CTV. Faz sentido aí?", [])])
+        r = m.gerar_mensagem("k", chat_fn=chat, canal="whatsapp", etapa="topo", **self.base)
+        self.assertEqual(chat.call_count, 2)
+        self.assertIn("espero que esteja bem", chat.call_args_list[1].args[3])
+        self.assertEqual(r["alertas"], [])
+        self.assertEqual(m.frases_proibidas("Tudo bem? Soluções que vão alavancar"), ["tudo bem?", "soluções", "alavancar"])
 
     def test_convite_linkedin_respeita_300_caracteres(self):
         r = m.gerar_mensagem("k", chat_fn=_chat("palavra " * 80), canal="linkedin_conexao", etapa="topo", **self.base)
         self.assertLessEqual(len(r["texto"]), 300)
 
-    def test_contexto_guarda_fontes(self):
-        ctx = m.gerar_contexto_mercado("k", empresa="Vale", chat_fn=_chat("1. Fato", ["https://g1.globo.com/x"]))
-        self.assertEqual(ctx["fontes"], ["https://g1.globo.com/x"])
-        self.assertEqual(ctx["texto"], "1. Fato")
+    def test_dossie_valida_ganchos_e_resolve_fonte_por_indice(self):
+        resposta = """```json
+        {"resumo": "Vale investe em marca.", "ganchos": [
+          {"tipo": "setor", "etapa": "topo", "fato": "Mineração dobrou investimento em mídia", "numero": "2x",
+           "fonte_nome": "Cenp", "fonte_url": "[2]", "data": "2026-07", "angulo": "E a Vale?"},
+          {"tipo": "xpto", "etapa": "fundo", "fato": "Sem fonte", "fonte_url": ""},
+          {"tipo": "campanha", "etapa": "meio", "fato": "Vale lançou campanha ESG", "fonte_url": "https://mm.com.br/a"},
+          {"tipo": "campanha", "etapa": "meio", "fato": "Vale lançou campanha ESG", "fonte_url": "https://mm.com.br/b"}]}
+        ```"""
+        d = m.gerar_dossie("k", empresa="Vale", chat_fn=_chat(resposta, ["https://a.com", "https://cenp.com.br/x"]))
+        self.assertEqual(d["contexto"]["texto"], "Vale investe em marca.")
+        self.assertEqual([g["fato"] for g in d["ganchos"]], ["Mineração dobrou investimento em mídia", "Vale lançou campanha ESG"])
+        self.assertEqual(d["ganchos"][0]["fonte_url"], "https://cenp.com.br/x")
+        self.assertEqual((d["ganchos"][0]["data_fato"], d["ganchos"][1]["etapa"]), ("2026-07", "meio"))
+
+    def test_dossie_sem_json_guarda_texto(self):
+        d = m.gerar_dossie("k", empresa="Vale", chat_fn=_chat("Não achei nada.", []))
+        self.assertEqual((d["contexto"]["texto"], d["ganchos"]), ("Não achei nada.", []))
+
+    def test_sugerir_foco(self):
+        foco = m.sugerir_foco("k", empresa="Vale", ganchos=[{"etapa": "topo", "tipo": "setor", "fato": "F"}],
+                              chat_fn=_chat('{"topo": "CTV", "meio": "case", "tom": "direto", "evitar": "preço"}'))
+        self.assertEqual(foco, {"topo": "CTV", "meio": "case", "tom": "direto", "evitar": "preço"})
+        with self.assertRaises(ProspeccaoError):
+            m.sugerir_foco("k", empresa="Vale", chat_fn=_chat("sem json"))
 
     def test_chat_le_fontes_das_anotacoes(self):
         resp = MagicMock()
@@ -106,6 +153,16 @@ class OperacaoRoutesTest(TestCase):
 
     def test_mensagem_exige_pessoa(self):
         self.assertEqual(_client().post("/leads-v3/api/mensagens/gerar", json={}).status_code, 400)
+
+    def test_gancho_valida_campos(self):
+        with patch.object(routes.db, "get_db", return_value=FakeConn([])):
+            self.assertEqual(_client().post("/leads-v3/api/leads/1/ganchos", json={"fato": " "}).status_code, 400)
+            self.assertEqual(_client().post("/leads-v3/api/leads/1/ganchos", json={"fato": "F", "fonte_url": "mm.com"}).status_code, 400)
+            self.assertEqual(_client().patch("/leads-v3/api/ganchos/1", json={"status": "x"}).status_code, 400)
+            self.assertEqual(_client().patch("/leads-v3/api/ganchos/1", json={}).status_code, 400)
+
+    def test_preferencias_validam_dispositivo(self):
+        self.assertEqual(_client().put("/leads-v3/api/preferencias", json={"dispositivo": "nokia"}).status_code, 400)
 
 
 class MigracaoLegadoTest(TestCase):

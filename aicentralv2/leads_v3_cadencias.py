@@ -88,8 +88,11 @@ def _atividade(cursor, lead_id, tipo, descricao, contato_id, usuario_id, usuario
     )
 
 
-def avancar(cursor, inscricao_id, acao, *, usuario_id, usuario_nome=None, nota=None, agora=None):
-    """Aplica uma ação ao passo atual. Devolve o estado novo da inscrição."""
+def avancar(cursor, inscricao_id, acao, *, usuario_id, usuario_nome=None, nota=None, agora=None, id_gancho=None):
+    """Aplica uma ação ao passo atual. Devolve o estado novo da inscrição.
+
+    `id_gancho` (passo feito) fica no evento: é assim que se sabe que fato já foi usado com a pessoa.
+    """
     if acao not in ACOES:
         raise ProspeccaoError("Ação inválida.")
     agora = agora or datetime.now()
@@ -121,7 +124,8 @@ def avancar(cursor, inscricao_id, acao, *, usuario_id, usuario_nome=None, nota=N
                 VALUES (%s, %s, %s, %s, 'saida', 'tarefa_feita', %s)
                 """,
                 [insc["id_lead"], insc["id_contato"], inscricao_id, atual["canal"],
-                 _json({"passo": insc["passo_atual"], "titulo": atual.get("titulo"), "nota": nota})],
+                 _json({"passo": insc["passo_atual"], "titulo": atual.get("titulo"), "nota": nota,
+                        **({"id_gancho": id_gancho} if id_gancho else {})})],
             )
         descricao = (f"{atual.get('titulo')} — {insc['contato_nome']} (cadência {insc['cadencia']}, passo "
                      f"{insc['passo_atual'] + 1}/{len(passos)}){' · pulado' if acao == 'pular' else ''}"

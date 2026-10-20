@@ -198,14 +198,7 @@ def fila_do_dia(cursor, *, executivo=None, ate=None):
     cursor.execute(
         f"""
         SELECT i.id, i.id_lead, i.id_contato, i.passo_atual, i.proxima_em, i.created_at,
-               cad.nome AS cadencia, cad.passos -> i.passo_atual AS passo, jsonb_array_length(cad.passos) AS total,
-               c.nome AS contato_nome, c.cargo, c.email, c.telefone, c.linkedin_url, c.papel,
-               l.empresa, l.nome AS lead_nome,
-               EXISTS (SELECT 1 FROM cadu_golden_circle g WHERE g.id_lead = i.id_lead AND g.trimestre = %(trimestre)s) AS golden
-          FROM cadu_lead_cadencia_inscricoes i
-          JOIN cadu_lead_cadencias cad ON cad.id = i.id_cadencia
-          JOIN cadu_lead_contatos c ON c.id = i.id_contato
-          JOIN cadu_leads l ON l.id = i.id_lead
+               {_COLUNAS_PASSO}
          WHERE i.status = 'ativa' AND i.proxima_em <= %(ate)s {filtro}
          ORDER BY golden DESC, i.proxima_em, i.id
          LIMIT 300
@@ -226,5 +219,63 @@ def inscricoes_do_lead(cursor, lead_id):
          ORDER BY (i.status IN ('ativa', 'pausada')) DESC, i.created_at DESC
         """,
         [lead_id],
+    )
+    return cursor.fetchall()
+
+
+# Colunas e junções comuns da Fila do dia e dos Próximos (a trilha usa `passos` inteiro).
+_COLUNAS_PASSO = """
+               cad.nome AS cadencia, cad.passos -> i.passo_atual AS passo, cad.passos AS passos,
+               jsonb_array_length(cad.passos) AS total,
+               c.nome AS contato_nome, c.cargo, c.email, c.telefone, c.linkedin_url, c.papel,
+               l.empresa, l.nome AS lead_nome,
+               EXISTS (SELECT 1 FROM cadu_golden_circle g WHERE g.id_lead = i.id_lead AND g.trimestre = %(trimestre)s) AS golden
+          FROM cadu_lead_cadencia_inscricoes i
+          JOIN cadu_lead_cadencias cad ON cad.id = i.id_cadencia
+          JOIN cadu_lead_contatos c ON c.id = i.id_contato
+          JOIN cadu_leads l ON l.id = i.id_lead"""
+
+
+def proximos_passos(cursor, *, executivo=None, dias=14, agora=None):
+    """Passos agendados depois de hoje, até `dias` à frente (para ver e preparar com antecedência)."""
+    agora = agora or datetime.now()
+    fim_de_hoje = agora.replace(hour=23, minute=59, second=59, microsecond=0)
+    filtro = "AND COALESCE(i.id_executivo, l.id_executivo) = %(executivo)s" if executivo else ""
+    cursor.execute(
+        f"""
+        SELECT i.id, i.id_lead, i.id_contato, i.passo_atual, i.proxima_em, i.created_at,
+               {_COLUNAS_PASSO}
+         WHERE i.status = 'ativa' AND i.proxima_em > %(de)s AND i.proxima_em <= %(ate)s {filtro}
+         ORDER BY i.proxima_em, golden DESC, i.id
+         LIMIT 300
+        """,
+        {"de": fim_de_hoje, "ate": fim_de_hoje + timedelta(days=dias), "executivo": executivo,
+         "trimestre": trimestre_atual(agora.date())},
+    )
+    return cursor.fetchall()
+
+
+def feitos_hoje(cursor, *, executivo=None, agora=None):
+    """O que já foi executado hoje (passos feitos e respostas), com o próximo toque de cada pessoa."""
+    agora = agora or datetime.now()
+    filtro = "AND COALESCE(i.id_executivo, l.id_executivo) = %(executivo)s" if executivo else ""
+    cursor.execute(
+        f"""
+        SELECT e.id, e.id_lead, e.id_contato, e.id_inscricao, e.canal, e.evento, e.ocorreu_em,
+               e.payload ->> 'titulo' AS titulo, c.nome AS contato_nome, COALESCE(l.empresa, l.nome) AS empresa,
+               i.status AS status_cadencia, i.proxima_em, cad.nome AS cadencia,
+               cad.passos -> i.passo_atual AS proximo_passo,
+               EXISTS (SELECT 1 FROM cadu_golden_circle g WHERE g.id_lead = e.id_lead AND g.trimestre = %(trimestre)s) AS golden
+          FROM cadu_lead_mensagem_eventos e
+          JOIN cadu_leads l ON l.id = e.id_lead
+          LEFT JOIN cadu_lead_contatos c ON c.id = e.id_contato
+          LEFT JOIN cadu_lead_cadencia_inscricoes i ON i.id = e.id_inscricao
+          LEFT JOIN cadu_lead_cadencias cad ON cad.id = i.id_cadencia
+         WHERE e.evento IN ('tarefa_feita', 'respondeu') AND e.ocorreu_em >= %(inicio)s {filtro}
+         ORDER BY e.ocorreu_em DESC
+         LIMIT 200
+        """,
+        {"inicio": agora.replace(hour=0, minute=0, second=0, microsecond=0), "executivo": executivo,
+         "trimestre": trimestre_atual(agora.date())},
     )
     return cursor.fetchall()

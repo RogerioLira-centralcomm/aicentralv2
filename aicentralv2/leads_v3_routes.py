@@ -995,12 +995,14 @@ def tarefas_pendentes(cursor, executivo=None):
 @bp.route("/api/operacao")
 @centralcomm_required_api
 def api_operacao():
-    """Tudo o que está pendente para o executivo: passos de cadência vencidos e tarefas com prazo."""
+    """Visão da operação: pendências até hoje (passos e tarefas), próximos 14 dias e o que já foi feito hoje."""
     executivo = _int(request.args.get("executivo"))
 
     def run(cursor):
         return _ok({"passos": _linhas(cadencias.fila_do_dia(cursor, executivo=executivo)),
-                    "tarefas": _linhas(tarefas_pendentes(cursor, executivo))})
+                    "tarefas": _linhas(tarefas_pendentes(cursor, executivo)),
+                    "proximos": _linhas(cadencias.proximos_passos(cursor, executivo=executivo)),
+                    "feitos": _linhas(cadencias.feitos_hoje(cursor, executivo=executivo))})
 
     return _transacao(run, "operação")
 

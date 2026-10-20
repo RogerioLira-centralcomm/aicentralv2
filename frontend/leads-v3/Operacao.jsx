@@ -8,6 +8,8 @@ const CANAL = {
   linkedin: {label: 'LinkedIn', icon: 'user-group'},
   telefone: {label: 'Ligação', icon: 'phone'},
 };
+// Em qual lista de /api/operacao cada tipo de item selecionado mora.
+const LISTA = {passo: 'passos', tarefa: 'tarefas', proximo: 'proximos', feito: 'feitos'};
 const TIPO_TAREFA = {ligacao: 'Ligação', whatsapp: 'WhatsApp', email_enviado: 'E-mail', reuniao: 'Reunião', follow_up: 'Follow-up',
   apresentacao: 'Apresentação', proposta_enviada: 'Proposta', nota: 'Nota'};
 
@@ -18,6 +20,51 @@ function atraso(data) {
   if (dia >= hoje) return 'hoje';
   const dias = Math.round((new Date(`${hoje}T00:00`) - new Date(`${dia}T00:00`)) / 86400000);
   return dias === 1 ? 'atrasado 1 dia' : `atrasado ${dias} dias`;
+}
+
+const DIAS_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+/** "Amanhã", "qui 23/10" — para agrupar os próximos passos por dia. */
+function rotuloDia(valor) {
+  const dia = String(valor || '').slice(0, 10);
+  if (!dia) return 'Sem data';
+  const d = new Date(`${dia}T12:00`);
+  const amanha = new Date(`${todayLocal()}T12:00`); amanha.setDate(amanha.getDate() + 1);
+  const ddmm = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+  if (d.toDateString() === amanha.toDateString()) return `Amanhã · ${DIAS_SEMANA[d.getDay()]} ${ddmm}`;
+  return `${DIAS_SEMANA[d.getDay()]} ${ddmm}`;
+}
+const somaDias = (valor, dias) => { const d = new Date(String(valor).slice(0, 10) + 'T12:00'); d.setDate(d.getDate() + dias); return d; };
+const ddmm = d => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+
+/** Trilha da cadência: passos feitos ✓, o atual em destaque e os seguintes com data prevista. */
+function CadenceTrack({item}) {
+  const passos = Array.isArray(item.passos) ? item.passos : [];
+  if (!passos.length) return null;
+  const atual = passos[item.passo_atual] || {};
+  return (
+    <ol className="lv3-track" aria-label="Trilha da cadência">
+      {passos.map((p, i) => {
+        const estado = i < item.passo_atual ? 'feito' : i === item.passo_atual ? 'atual' : 'futuro';
+        // Feito; atual vencido = "agora", atual agendado = data; seguintes = data prevista pelo espaçamento do modelo.
+        let quando = '';
+        if (estado === 'feito') quando = 'feito';
+        else if (item.proxima_em && estado === 'atual') quando = String(item.proxima_em).slice(0, 10) <= todayLocal() ? 'agora' : ddmm(somaDias(item.proxima_em, 0));
+        // Passo atual atrasado: ao fazer hoje, a cadência reagenda a partir de hoje (leads_v3_cadencias.avancar).
+        else if (item.proxima_em) {
+          const base = String(item.proxima_em).slice(0, 10) > todayLocal() ? item.proxima_em : todayLocal();
+          quando = `~${ddmm(somaDias(base, Number(p.dia || 0) - Number(atual.dia || 0)))}`;
+        }
+        const info = CANAL[p.canal] || CANAL.email;
+        return (
+          <li key={i} className={`lv3-track__step is-${estado}`} title={`${p.titulo} · ${info.label}`}>
+            <span className="lv3-track__dot"><Icon name={estado === 'feito' ? 'check' : info.icon}/></span>
+            <span className="lv3-track__label">{p.titulo}</span>
+            <span className="lv3-track__when">{quando}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
 }
 
 const canalDaMensagem = passo => (passo?.canal === 'linkedin' ? (passo.acao === 'conectar' ? 'linkedin_conexao' : 'linkedin') : passo?.canal || 'email');
@@ -102,9 +149,10 @@ function StepComposer({api, item, notify, onDone}) {
         <span className="lv3-op__stepicon"><Icon name={info.icon}/></span>
         <div>
           <strong>{passo.titulo}</strong>
-          <span className="lv3-muted">{item.cadencia} · passo {item.passo_atual + 1} de {item.total} · {atraso(item.proxima_em)}</span>
+          <span className="lv3-muted">{item.cadencia} · passo {item.passo_atual + 1} de {item.total} · {String(item.proxima_em).slice(0, 10) > todayLocal() ? `agendado para ${rotuloDia(item.proxima_em)} (dá para adiantar)` : atraso(item.proxima_em)}</span>
         </div>
       </div>
+      <CadenceTrack item={item}/>
 
         <div className="lv3-card lv3-form">
           <div className="lv3-form__grid">
@@ -150,6 +198,43 @@ function StepComposer({api, item, notify, onDone}) {
         <Button icon="reply" onClick={acao('respondeu', 'O que a pessoa respondeu? (opcional)')} disabled={!!busy}>Respondeu</Button>
         <Button variant="ghost" icon="forward" onClick={acao('pular')} disabled={!!busy}>Pular passo</Button>
         <Button variant="ghost" icon="pause" onClick={acao('pausar', 'Motivo da pausa (opcional)')} disabled={!!busy}>Pausar</Button>
+      </div>
+    </div>
+  );
+}
+
+function DonePanel({item, onOpenLead}) {
+  const info = CANAL[item.canal] || CANAL.email;
+  const respondeu = item.evento === 'respondeu';
+  const prox = item.proximo_passo;
+  return (
+    <div className="lv3-op__composer">
+      <header className="lv3-op__person">
+        <div className="lv3-person__avatar lv3-person__avatar--ok" aria-hidden="true"><Icon name={respondeu ? 'reply' : 'check'}/></div>
+        <div>
+          <h2>{pretty(item.contato_nome) || 'Pessoa'}{item.golden && <span className="lv3-gc-badge">Golden Circle</span>}</h2>
+          <p>{decode(item.empresa)}</p>
+        </div>
+      </header>
+      <div className="lv3-op__step">
+        <span className="lv3-op__stepicon lv3-op__stepicon--ok"><Icon name={respondeu ? 'reply' : info.icon}/></span>
+        <div>
+          <strong>{respondeu ? 'Respondeu' : (item.titulo || `${info.label} feito`)}</strong>
+          <span className="lv3-muted">{item.cadencia ? `${item.cadencia} · ` : ''}hoje às {String(item.ocorreu_em).slice(11, 16)}</span>
+        </div>
+      </div>
+      <div className="lv3-card lv3-op__next">
+        <h4>Próximo toque</h4>
+        {item.status_cadencia === 'ativa' && prox ? (
+          <p><Icon name={(CANAL[prox.canal] || CANAL.email).icon}/> <strong>{prox.titulo}</strong> · {rotuloDia(item.proxima_em)}</p>
+        ) : item.status_cadencia === 'respondeu' ? (
+          <p>A cadência parou porque a pessoa respondeu. Siga a conversa e registre o próximo passo na mesa.</p>
+        ) : item.status_cadencia === 'concluida' ? (
+          <p>Cadência concluída. Avalie na mesa se vale uma nova cadência ou outro canal.</p>
+        ) : <p className="lv3-muted">Sem próximo toque agendado.</p>}
+      </div>
+      <div className="lv3-op__actions">
+        <Button icon="arrow-right" onClick={() => onOpenLead(item.id_lead)}>Abrir na mesa</Button>
       </div>
     </div>
   );
@@ -221,7 +306,8 @@ function CompanyPanel({api, leadId, notify, onOpenLead}) {
 }
 
 export function Operacao({boot, api, executivo, setExecutivo, notify, onOpenLead}) {
-  const [data, setData] = useState({passos: [], tarefas: []});
+  const [data, setData] = useState({passos: [], tarefas: [], proximos: [], feitos: []});
+  const [aba, setAba] = useState('hoje');
   const [state, setState] = useState({loading: true, error: ''});
   const [selected, setSelected] = useState(null); // {tipo, id}
 
@@ -232,8 +318,9 @@ export function Operacao({boot, api, executivo, setExecutivo, notify, onOpenLead
       setData(d);
       setState({loading: false, error: ''});
       setSelected(sel => {
-        const existe = sel && (sel.tipo === 'passo' ? d.passos : d.tarefas).some(i => i.id === sel.id);
+        const existe = sel && (LISTA[sel.tipo] ? (d[LISTA[sel.tipo]] || []).some(i => i.id === sel.id) : false);
         if (existe) return sel;
+        // O passo feito saiu de "Hoje": segue para a próxima pendência (o feito aparece em "Feitos hoje").
         if (d.passos[0]) return {tipo: 'passo', id: d.passos[0].id};
         if (d.tarefas[0]) return {tipo: 'tarefa', id: d.tarefas[0].id};
         return null;
@@ -244,10 +331,33 @@ export function Operacao({boot, api, executivo, setExecutivo, notify, onOpenLead
 
   const item = useMemo(() => {
     if (!selected) return null;
-    return (selected.tipo === 'passo' ? data.passos : data.tarefas).find(i => i.id === selected.id) || null;
+    return (data[LISTA[selected.tipo]] || []).find(i => i.id === selected.id) || null;
   }, [selected, data]);
 
   const total = data.passos.length + data.tarefas.length;
+  const proximos = data.proximos || [];
+  const feitos = data.feitos || [];
+  const porDia = proximos.reduce((grupos, p) => {
+    const chave = String(p.proxima_em).slice(0, 10);
+    (grupos[chave] = grupos[chave] || []).push(p);
+    return grupos;
+  }, {});
+  const itemPasso = (p, tipo) => {
+    const info = CANAL[p.passo?.canal] || CANAL.email;
+    const late = atraso(p.proxima_em);
+    return (
+      <li key={`${tipo}${p.id}`}>
+        <button type="button" className={`lv3-op__item ${selected?.tipo === tipo && selected.id === p.id ? 'is-active' : ''}`} onClick={() => setSelected({tipo, id: p.id})}>
+          <span className="lv3-op__itemicon"><Icon name={info.icon}/></span>
+          <span className="lv3-op__itembody">
+            <span className="lv3-op__itemtop"><strong>{pretty(p.contato_nome)}</strong>{p.golden && <span className="lv3-gc-dot" title="Golden Circle"/>}</span>
+            <span className="lv3-op__itemsub">{decode(p.empresa || p.lead_nome)} · {p.passo?.titulo}</span>
+            <span className={`lv3-op__itemdue ${tipo === 'passo' && late !== 'hoje' ? 'is-late' : ''}`}>{tipo === 'passo' ? late : (CANAL[p.passo?.canal] || CANAL.email).label} · passo {p.passo_atual + 1}/{p.total}</span>
+          </span>
+        </button>
+      </li>
+    );
+  };
   return (
     <div className="lv3-op">
       <aside className="lv3-col lv3-op__list" aria-label="Pendências">
@@ -258,56 +368,87 @@ export function Operacao({boot, api, executivo, setExecutivo, notify, onOpenLead
           </select>
           <button type="button" className="lv3-iconbtn" onClick={load} aria-label="Atualizar" title="Atualizar"><Icon name="rotate-right"/></button>
         </div>
-        <div className="lv3-op__summary">{state.loading ? 'Carregando…' : `${total} ${total === 1 ? 'pendência' : 'pendências'} até hoje`}</div>
+        <div className="lv3-tabs lv3-tabs--queue lv3-op__tabs" role="tablist">
+          <button type="button" role="tab" aria-selected={aba === 'hoje'} className={aba === 'hoje' ? 'is-on' : ''} onClick={() => setAba('hoje')}>
+            Hoje{total ? <span className="lv3-count">{total}</span> : null}</button>
+          <button type="button" role="tab" aria-selected={aba === 'proximos'} className={aba === 'proximos' ? 'is-on' : ''} onClick={() => setAba('proximos')}>
+            Próximos{proximos.length ? <span className="lv3-count">{proximos.length}</span> : null}</button>
+          <button type="button" role="tab" title="Feitos hoje" aria-selected={aba === 'feitos'} className={aba === 'feitos' ? 'is-on' : ''} onClick={() => setAba('feitos')}>
+            Feitos{feitos.length ? <span className="lv3-count">{feitos.length}</span> : null}</button>
+        </div>
         {state.error ? (
           <Empty icon="triangle-exclamation" title="Não foi possível carregar">{state.error}</Empty>
-        ) : !state.loading && !total ? (
-          <Empty icon="mug-hot" title="Nada pendente hoje">Inscreva as pessoas das contas em cadências na mesa (Pessoas › Iniciar cadência).</Empty>
-        ) : (
-          <div className="lv3-op__scroll">
-            {data.passos.length > 0 && <h3 className="lv3-op__group">Cadências <span className="lv3-count">{data.passos.length}</span></h3>}
-            <ul className="lv3-op__items">
-              {data.passos.map(p => {
-                const info = CANAL[p.passo?.canal] || CANAL.email;
-                const late = atraso(p.proxima_em);
-                return (
-                  <li key={`p${p.id}`}>
-                    <button type="button" className={`lv3-op__item ${selected?.tipo === 'passo' && selected.id === p.id ? 'is-active' : ''}`} onClick={() => setSelected({tipo: 'passo', id: p.id})}>
-                      <span className="lv3-op__itemicon"><Icon name={info.icon}/></span>
+        ) : state.loading && !total && !proximos.length && !feitos.length ? (
+          <div className="lv3-skeleton"/>
+        ) : aba === 'hoje' ? (
+          !total ? (
+            <Empty icon="mug-hot" title="Nada pendente até hoje">
+              {proximos.length ? `${proximos.length} ${proximos.length === 1 ? 'passo agendado' : 'passos agendados'} nos próximos 14 dias: veja em Próximos.` : 'Inscreva as pessoas das contas em cadências na mesa (Pessoas › Iniciar cadência).'}
+            </Empty>
+          ) : (
+            <div className="lv3-op__scroll">
+              {data.passos.length > 0 && <h3 className="lv3-op__group">Cadências <span className="lv3-count">{data.passos.length}</span></h3>}
+              <ul className="lv3-op__items">{data.passos.map(p => itemPasso(p, 'passo'))}</ul>
+              {data.tarefas.length > 0 && <h3 className="lv3-op__group">Tarefas <span className="lv3-count">{data.tarefas.length}</span></h3>}
+              <ul className="lv3-op__items">
+                {data.tarefas.map(t => (
+                  <li key={`t${t.id}`}>
+                    <button type="button" className={`lv3-op__item ${selected?.tipo === 'tarefa' && selected.id === t.id ? 'is-active' : ''}`} onClick={() => setSelected({tipo: 'tarefa', id: t.id})}>
+                      <span className="lv3-op__itemicon"><Icon name="list-check"/></span>
                       <span className="lv3-op__itembody">
-                        <span className="lv3-op__itemtop"><strong>{pretty(p.contato_nome)}</strong>{p.golden && <span className="lv3-gc-dot" title="Golden Circle"/>}</span>
-                        <span className="lv3-op__itemsub">{decode(p.empresa || p.lead_nome)} · {p.passo?.titulo}</span>
-                        <span className={`lv3-op__itemdue ${late !== 'hoje' ? 'is-late' : ''}`}>{late} · passo {p.passo_atual + 1}/{p.total}</span>
+                        <span className="lv3-op__itemtop"><strong>{TIPO_TAREFA[t.tipo] || 'Tarefa'} · {decode(t.empresa)}</strong>{t.golden && <span className="lv3-gc-dot" title="Golden Circle"/>}</span>
+                        <span className="lv3-op__itemsub">{decode(t.descricao)}</span>
+                        <span className={`lv3-op__itemdue ${atraso(t.data_prazo) !== 'hoje' ? 'is-late' : ''}`}>{atraso(t.data_prazo)}</span>
                       </span>
                     </button>
                   </li>
-                );
-              })}
-            </ul>
-            {data.tarefas.length > 0 && <h3 className="lv3-op__group">Tarefas <span className="lv3-count">{data.tarefas.length}</span></h3>}
-            <ul className="lv3-op__items">
-              {data.tarefas.map(t => (
-                <li key={`t${t.id}`}>
-                  <button type="button" className={`lv3-op__item ${selected?.tipo === 'tarefa' && selected.id === t.id ? 'is-active' : ''}`} onClick={() => setSelected({tipo: 'tarefa', id: t.id})}>
-                    <span className="lv3-op__itemicon"><Icon name="list-check"/></span>
-                    <span className="lv3-op__itembody">
-                      <span className="lv3-op__itemtop"><strong>{TIPO_TAREFA[t.tipo] || 'Tarefa'} · {decode(t.empresa)}</strong>{t.golden && <span className="lv3-gc-dot" title="Golden Circle"/>}</span>
-                      <span className="lv3-op__itemsub">{decode(t.descricao)}</span>
-                      <span className={`lv3-op__itemdue ${atraso(t.data_prazo) !== 'hoje' ? 'is-late' : ''}`}>{atraso(t.data_prazo)}</span>
-                    </span>
-                  </button>
-                </li>
+                ))}
+              </ul>
+            </div>
+          )
+        ) : aba === 'proximos' ? (
+          !proximos.length ? <Empty icon="calendar" title="Nada agendado nos próximos 14 dias"/> : (
+            <div className="lv3-op__scroll">
+              {Object.entries(porDia).map(([dia, itens]) => (
+                <React.Fragment key={dia}>
+                  <h3 className="lv3-op__group">{rotuloDia(dia)} <span className="lv3-count">{itens.length}</span></h3>
+                  <ul className="lv3-op__items">{itens.map(p => itemPasso(p, 'proximo'))}</ul>
+                </React.Fragment>
               ))}
-            </ul>
-          </div>
+            </div>
+          )
+        ) : (
+          !feitos.length ? <Empty icon="circle-check" title="Nada feito hoje ainda">Os passos marcados como feitos aparecem aqui, com o próximo toque de cada pessoa.</Empty> : (
+            <div className="lv3-op__scroll">
+              <ul className="lv3-op__items">
+                {feitos.map(f => {
+                  const info = CANAL[f.canal] || CANAL.email;
+                  return (
+                    <li key={`f${f.id}`}>
+                      <button type="button" className={`lv3-op__item ${selected?.tipo === 'feito' && selected.id === f.id ? 'is-active' : ''}`} onClick={() => setSelected({tipo: 'feito', id: f.id})}>
+                        <span className="lv3-op__itemicon lv3-op__itemicon--ok"><Icon name={f.evento === 'respondeu' ? 'reply' : 'check'}/></span>
+                        <span className="lv3-op__itembody">
+                          <span className="lv3-op__itemtop"><strong>{pretty(f.contato_nome) || 'Pessoa'}</strong>{f.golden && <span className="lv3-gc-dot" title="Golden Circle"/>}</span>
+                          <span className="lv3-op__itemsub">{decode(f.empresa)} · {f.evento === 'respondeu' ? 'respondeu' : (f.titulo || info.label)}</span>
+                          <span className="lv3-op__itemdue">{String(f.ocorreu_em).slice(11, 16)}{f.status_cadencia === 'ativa' && f.proximo_passo ? ` · próximo: ${f.proximo_passo.titulo} (${rotuloDia(f.proxima_em)})` : ''}</span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )
         )}
       </aside>
 
       <section className="lv3-col lv3-op__main" aria-label="Pendência selecionada">
         {item ? (
-          selected.tipo === 'passo'
+          selected.tipo === 'passo' || selected.tipo === 'proximo'
             ? <StepComposer key={`p${item.id}-${item.passo_atual}`} api={api} item={item} notify={notify} onDone={load}/>
-            : <TaskPanel key={`t${item.id}`} api={api} item={item} notify={notify} onDone={load} onOpenLead={onOpenLead}/>
+            : selected.tipo === 'feito'
+              ? <DonePanel key={`f${item.id}`} item={item} onOpenLead={onOpenLead}/>
+              : <TaskPanel key={`t${item.id}`} api={api} item={item} notify={notify} onDone={load} onOpenLead={onOpenLead}/>
         ) : <Empty icon="hand-pointer" title="Escolha uma pendência"/>}
       </section>
 

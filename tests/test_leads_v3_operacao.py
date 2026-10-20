@@ -124,3 +124,16 @@ class MigracaoLegadoTest(TestCase):
         rotas = (root / "aicentralv2/routes.py").read_text()
         self.assertIn("return redirect(url_for('leads_v3.pagina'))", rotas)
         self.assertIn("return redirect(url_for('leads_v3.pagina', vista='analise'))", rotas)
+
+
+class VisaoGeralOperacaoTest(TestCase):
+    def test_operacao_traz_hoje_proximos_e_feitos(self):
+        with patch.object(routes.db, "get_db", return_value=FakeConn([])), \
+                patch.object(routes.cadencias, "fila_do_dia", return_value=[{"id": 1}]), \
+                patch.object(routes.cadencias, "proximos_passos", return_value=[{"id": 2}]) as prox, \
+                patch.object(routes.cadencias, "feitos_hoje", return_value=[{"id": 3}]), \
+                patch.object(routes, "tarefas_pendentes", return_value=[]):
+            resp = _client().get("/leads-v3/api/operacao?executivo=9")
+        data = resp.get_json()["data"]
+        self.assertEqual([data[k][0]["id"] for k in ("passos", "proximos", "feitos")], [1, 2, 3])
+        self.assertEqual(prox.call_args.kwargs["executivo"], 9)

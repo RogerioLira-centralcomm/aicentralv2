@@ -604,3 +604,24 @@ html body .lv3-root .lv3-queue__owner select:not([multiple]):not([size]):not(.se
 .lv3-table .is-num { text-align: right; font-variant-numeric: tabular-nums; }
 .lv3-table tr.is-clickable { cursor: pointer; }
 .lv3-table tr.is-clickable:hover td { background: var(--lv3-sunken); }
+
+/* Operação: abas, trilha da cadência e feitos */
+.lv3-op__tabs button { font-size: 13px; height: 44px; padding: 0 8px; }
+.lv3-track { list-style: none; margin: 0; padding: 12px 14px; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px;
+  border: 1px solid var(--lv3-line); border-radius: var(--lv3-radius); background: var(--lv3-surface); overflow-x: auto; }
+.lv3-track__step { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 64px; text-align: center; }
+.lv3-track__step::before { content: ""; position: absolute; top: 13px; left: calc(-50% + 14px); right: calc(50% + 14px); height: 2px; background: var(--lv3-line); }
+.lv3-track__step:first-child::before { display: none; }
+.lv3-track__step.is-feito::before, .lv3-track__step.is-atual::before { background: var(--lv3-success); }
+.lv3-track__dot { position: relative; z-index: 1; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 50%;
+  border: 2px solid var(--lv3-line-strong); background: var(--lv3-surface); color: var(--lv3-muted); font-size: 11px; }
+.lv3-track__step.is-feito .lv3-track__dot { border-color: var(--lv3-success); background: var(--lv3-success); color: #fff; }
+.lv3-track__step.is-atual .lv3-track__dot { border-color: var(--lv3-brand); background: var(--lv3-brand); color: #fff; box-shadow: 0 0 0 4px var(--lv3-brand-soft); }
+.lv3-track__label { font-size: 11.5px; line-height: 1.25; color: var(--lv3-ink-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lv3-track__step.is-atual .lv3-track__label { font-weight: 700; color: var(--lv3-ink); }
+.lv3-track__when { font-size: 11px; color: var(--lv3-muted); font-variant-numeric: tabular-nums; }
+.lv3-track__step.is-feito .lv3-track__when { color: var(--lv3-success); font-weight: 600; }
+.lv3-op__itemicon--ok, .lv3-person__avatar--ok, .lv3-op__stepicon--ok { background: var(--lv3-success-bg); color: var(--lv3-success); border-color: transparent; }
+.lv3-op__next { padding: 14px 16px; }
+.lv3-op__next h4 { margin: 0 0 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--lv3-muted); }
+.lv3-op__next p { margin: 0; color: var(--lv3-ink-2); }

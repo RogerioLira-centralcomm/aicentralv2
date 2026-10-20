@@ -108,7 +108,8 @@
               <article class="sx-solo-channel">
                 <span class="sx-tag">Canal único · 100% da verba</span>
                 <h3 class="sx-with-logo">{% if slide.solo.logo %}<img src="{{ slide.solo.logo }}" alt="" onerror="this.remove()">{% endif %}{{ slide.solo.label }}</h3>
-                {% if slide.solo.role %}<p>{{ slide.solo.role }}</p>{% endif %}
+                {% if slide.solo.front.text %}<p>{{ slide.solo.front.label }}: {{ slide.solo.front.text }}</p>{% elif slide.solo.role %}<p>{{ slide.solo.role }}</p>{% endif %}
+                {% if slide.solo.front.types %}<ul class="sx-chips">{% for t in slide.solo.front.types %}<li class="is-type">{{ t }}</li>{% endfor %}</ul>{% endif %}
                 {% if slide.solo.formats %}<ul class="sx-chips">{% for fmt in slide.solo.formats %}<li>{{ fmt }}</li>{% endfor %}</ul>{% endif %}
               </article>
               {% if slide.reading %}

@@ -175,3 +175,9 @@ def test_whatsapp_message_carries_the_plan_link(monkeypatch):
     assert contact["first_name"] == "Ana"
     assert "https://x/p/T/proposta" in contact["whatsapp_message"] and "Animale" in contact["whatsapp_message"]
     assert contact["whatsapp_message"].endswith("tenho uma dúvida:")
+
+
+def test_unweighted_fronts_on_one_channel_keep_the_fronts_layout():
+    view = {**VIEW, "fronts": [{**f, "weight": None} for f in VIEW["fronts"]]}
+    media = next(s for s in build_slides(view) if s["type"] == "media")
+    assert media["layout"] == "fronts" and len(media["fronts"]) == 2

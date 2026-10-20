@@ -355,10 +355,10 @@ def _executive_contact(row: dict, title: str, link: str = "", client: str = "") 
     name = text(contact.get("nome_completo")) or fallback_name
     photo = text(contact.get("foto_url"))
     phone = normalizar_telefone_whatsapp(contact.get("telefone") or contact.get("telefone_secundario"))
-    first = name.split()[0] if name.split() else ""
+    first = name.split()[0] if name.split() and name != "Executivo responsável" else ""
     plan = f'o plano "{title}"' + (f" da {client}" if client and client.lower() not in title.lower() else "")
     # Mensagem pronta para o cliente: identifica o plano e leva o link, para o executivo abrir o mesmo material.
-    message = f"Olá, {first}! Estou vendo {plan}" + (f" ({link})" if link else "") + " e tenho uma dúvida:"
+    message = (f"Olá, {first}! " if first else "Olá! ") + f"Estou vendo {plan}" + (f" ({link})" if link else "") + " e tenho uma dúvida:"
     return {
         "name": name,
         "photo_url": photo,

@@ -252,7 +252,7 @@ def _media(view: dict) -> dict | None:
     flight = _flight(view)
     reading = _flight_reading(view)
     # Uma parte só (um canal, sem frentes divididas) não vira barra de 100%: o que informa é o voo.
-    solo = len(share) <= 1 and len([c for c in channels if c.get("pct")]) <= 1
+    solo = len(fronts) <= 1 and len(share) <= 1 and len([c for c in channels if c.get("pct")]) <= 1
     formats = as_dict(view.get("formats_by_channel"))
     solo_channel = {}
     if solo and channels:

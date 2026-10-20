@@ -82,27 +82,6 @@
 .spv3-front-channels{margin:10px 0 14px;color:var(--muted);font-size:13px}.spv3-front-channels strong{color:var(--ink)}
 .spv3-fronts+.spv3-editorial-channels{margin-top:22px}
 
-.spv3-editorial-impact{padding:var(--pad);border-radius:18px;background:var(--paper)}
-.spv3-editorial-impact h2{max-width:34ch;margin:0;font-size:clamp(1.3rem,1.8vw,1.7rem);line-height:1.2;letter-spacing:-.025em}
-.spv3-editorial-impact>header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 18px}
-.spv3-origin{padding:4px 12px;border:1px solid var(--line);border-radius:999px;background:#fff9e8;font-size:12px;font-weight:650}
-.spv3-origin.is-reviewed{background:var(--soft);border-color:var(--brand);color:var(--brand)}
-.spv3-impact-lead{max-width:60ch;margin:14px 0 0;color:var(--muted)}
-.spv3-impact-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:20px}
-.spv3-impact-cards article{padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff}
-.spv3-impact-cards span{display:block;color:var(--muted);font-size:12px}
-.spv3-impact-cards strong{display:block;margin-top:4px;font-size:1.5rem;letter-spacing:-.02em}
-.spv3-impact-cards small{display:block;margin-top:2px;color:var(--muted);font-size:12px}
-.spv3-impact-indicator{margin-top:16px;padding:14px 18px;border:1px solid var(--line);border-left:4px solid var(--muted);border-radius:12px;background:#fff}
-.spv3-impact-indicator.is-dentro{border-left-color:#2f8f5b}.spv3-impact-indicator.is-acima,.spv3-impact-indicator.is-abaixo{border-left-color:#c2842a}
-.spv3-impact-indicator span{color:var(--muted);font-size:12px}.spv3-impact-indicator strong{display:block;margin-top:2px}.spv3-impact-indicator p{margin:4px 0 0;font-size:14px}
-.spv3-impact-table{width:100%;margin-top:18px;border-collapse:collapse;font-size:14px}
-.spv3-impact-table th,.spv3-impact-table td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
-.spv3-impact-table th:first-child,.spv3-impact-table thead th:first-child{text-align:left}
-.spv3-impact-table thead th{color:var(--muted);font-size:12px;font-weight:600}
-.spv3-impact-assumptions{margin:16px 0 0;padding-left:18px;color:var(--muted);font-size:13px}
-.spv3-impact-note{display:block;margin-top:14px;color:var(--muted);font-size:12px}
-
 /* Navbar com o cliente */
 .spv3-topbar-id{display:flex;align-items:center;gap:14px;min-width:0}
 .spv3-topbar-sep{width:1px;height:26px;background:#14252d24}

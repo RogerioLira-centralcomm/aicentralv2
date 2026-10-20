@@ -1257,7 +1257,7 @@ def _materialize_folha(token: str, snapshot: dict, page: dict, core: dict) -> di
             "source": "confidential",
         }
     theme = one_page.theme_for_snapshot(client, agency, text(snapshot.get("briefing")), snapshot)
-    share = one_page.share_payload(text(dados.get("public_token")), client)
+    share = one_page.share_payload(text(dados.get("public_token")), client, text(meta.get("title")), bool(confidential))
     media = one_page.build_media_board(
         snapshot.get("mix"),
         method=text(snapshot.get("mix_method")),

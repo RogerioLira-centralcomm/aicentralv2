@@ -197,7 +197,7 @@ def materialize_folha(token: str, presenter_id: str | None = None) -> dict:
             }
         snapshot = as_dict(dados.get("snapshot")) or build_snapshot(row, dados)
         theme = one_page.theme_for_snapshot(meta.get("client"), meta.get("agency"), briefing, snapshot)
-        share = one_page.share_payload(text(dados.get("public_token")), meta.get("client"))
+        share = one_page.share_payload(text(dados.get("public_token")), meta.get("client"), meta.get("title"), confidential)
         media = one_page.build_media_board(
             snapshot.get("mix"),
             method=text(snapshot.get("mix_method")),

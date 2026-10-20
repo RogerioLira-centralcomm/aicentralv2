@@ -834,7 +834,7 @@ def build_one_page(
         "presenter": presenter["id"],
     }
     theme = compose_theme(client, agency, briefing, pitch)
-    share = share_payload(public_token, client)
+    share = share_payload(public_token, client, text(meta.get("title")))
     plan = empty_one_page(meta, branding, theme, share)
     plan["sections"][0]["cards"] = cards
     if presenter["id"] != "centralcomm":

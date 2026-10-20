@@ -70,6 +70,11 @@ def get_by_token(token: str) -> Optional[dict]:
 
 
 def get_by_public_token(public_token: str) -> Optional[dict]:
+    """Plano pelo link público atual ou por um link antigo, trocado pelo amigável."""
+    return _get_by_current_public_token(public_token) or get_by_old_public_token(public_token)
+
+
+def _get_by_current_public_token(public_token: str) -> Optional[dict]:
     token = (public_token or "").strip()
     if not token:
         return None
@@ -103,6 +108,48 @@ def get_by_public_token(public_token: str) -> Optional[dict]:
                 (token, token),
             )
             return cur.fetchone()
+
+
+def get_by_old_public_token(public_token: str) -> Optional[dict]:
+    """Plano cujo link antigo foi trocado pelo amigável: o token antigo fica em public_token_aliases."""
+    token = (public_token or "").strip()
+    if not token:
+        return None
+    conn = get_db()
+    with conn.cursor() as cur:
+        try:
+            cur.execute(
+                """
+                SELECT *
+                FROM cadu_smart_planner_sessions
+                WHERE deleted_at IS NULL
+                  AND COALESCE(dados_detectados->'public_token_aliases', '[]'::jsonb) ? %s
+                LIMIT 1
+                """,
+                (token,),
+            )
+            return cur.fetchone()
+        except Exception:
+            conn.rollback()
+            logger.exception("Falha ao buscar link antigo do Smart Planner")
+            return None
+
+
+def list_public_tokens() -> list[dict]:
+    """Planos com link público, para trocar todos pelo link amigável de uma vez."""
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT session_token, cliente, dados_detectados, plan_content
+            FROM cadu_smart_planner_sessions
+            WHERE deleted_at IS NULL
+              AND (COALESCE(dados_detectados->>'public_token', '') <> ''
+                   OR COALESCE(plan_content->'share'->>'public_token', '') <> '')
+            ORDER BY id
+            """
+        )
+        return list(cur.fetchall() or [])
 
 
 def get_owned(token: str, user_email: str, user_id: Any) -> dict:

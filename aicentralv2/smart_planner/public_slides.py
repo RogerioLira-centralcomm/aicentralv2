@@ -58,8 +58,15 @@ def _cover(view: dict) -> dict:
         if text(label) not in {"Anunciante", "Público"} and text(value)
     ][:4]
     title = short_title(identity.get("campaign") or view.get("title"), 70)
+    hero = as_dict(view.get("hero"))
+    creative = text(hero.get("creative_image")) if hero.get("has_generated_visual") else ""
+    mocks = mockups_for(view, creative) if creative else []
     return {
         "type": "cover",
+        # Com o criativo do plano, ele vira o fundo da capa e aparece inteiro no mockup do canal.
+        "layout": "hero" if creative else "",
+        "background": creative,
+        "mockup": mocks[0] if mocks else {},
         "nav": "Capa",
         "title": title,
         # Títulos longos descem de tamanho em vez de serem cortados com reticências.

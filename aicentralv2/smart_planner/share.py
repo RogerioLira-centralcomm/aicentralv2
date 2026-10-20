@@ -23,6 +23,41 @@ def make_public_token() -> str:
     return secrets.token_urlsafe(10)
 
 
+FRIENDLY_SUFFIX = 4
+_FRIENDLY = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*-[a-z0-9]{%d}$" % FRIENDLY_SUFFIX)
+_SUFFIX_ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789"
+
+
+def _slug_words(value: str, limit: int = 56) -> str:
+    import unicodedata
+
+    raw = unicodedata.normalize("NFKD", text(value).lower())
+    raw = "".join(ch for ch in raw if not unicodedata.combining(ch))
+    words = [w for w in re.split(r"[^a-z0-9]+", raw) if w]
+    out = ""
+    for word in words:
+        candidate = f"{out}-{word}" if out else word
+        if len(candidate) > limit:
+            break
+        out = candidate
+    return out
+
+
+def friendly_token(title: str, confidential: bool = False) -> str:
+    """Link amigável: o nome do plano com hífens e um final curto que evita colisão e adivinhação.
+
+    Ex.: ``educacao-financeira-caixa-proteja-seu-orcamento-k7m2``. Plano confidencial não leva
+    o nome do anunciante no link.
+    """
+    base = "plano-de-midia" if confidential else (_slug_words(title) or "plano-de-midia")
+    suffix = "".join(secrets.choice(_SUFFIX_ALPHABET) for _ in range(FRIENDLY_SUFFIX))
+    return f"{base}-{suffix}"
+
+
+def is_friendly(token: str) -> bool:
+    return bool(_FRIENDLY.match(text(token)))
+
+
 def public_path(public_token: str) -> str:
     return f"/smart-planner/p/{text(public_token)}"
 
@@ -61,8 +96,8 @@ def public_document_url(public_token: str, document: str) -> str:
     return f"{base}{path}" if base else path
 
 
-def share_payload(public_token: str, client: str = "") -> dict:
-    token = text(public_token) or make_public_token()
+def share_payload(public_token: str, client: str = "", title: str = "", confidential: bool = False) -> dict:
+    token = text(public_token) or friendly_token(title or client, confidential)
     url = public_sheet_url(token)
     return {
         "public_token": token,

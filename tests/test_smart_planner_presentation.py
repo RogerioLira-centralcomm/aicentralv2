@@ -198,3 +198,30 @@ def test_logo_fetch_refuses_internal_hosts():
     assert not presentation._public_host("http://169.254.169.254/latest/meta-data")
     assert not presentation._public_host("http://127.0.0.1/logo.png")
     assert not presentation._public_host("http://10.0.0.5/logo.png")
+
+
+def test_executive_contact_only_in_the_centralcomm_template(monkeypatch):
+    from flask import Flask
+
+    from aicentralv2.smart_planner import routes
+
+    agency = presentation.from_brand("agencia", {"name": "Rua", "palette": ["#C8102E"]})
+    monkeypatch.setattr(presentation, "plan_parties", lambda row: _parties())
+    app = Flask(__name__)
+    for template, keeps in ((agency, False), (dict(presentation.CENTRALCOMM), True)):
+        monkeypatch.setattr(presentation, "resolve", lambda row, neutral_palette=False, parties=None, t=template: dict(t))
+        with app.test_request_context("/smart-planner/p/x/proposta"):
+            view = routes._apply_presentation({"executive": {"name": "Ana", "whatsapp_url": "https://wa.me/1"}, "hero": {}, "media": {}}, {"dados_detectados": {}})
+        assert bool(view["executive"]) is keeps
+
+
+def test_cover_uses_the_generated_creative_as_background_with_a_mockup():
+    from aicentralv2.smart_planner.public_slides import build_slides
+
+    view = {"title": "Plano", "hero": {"creative_image": "/static/c.png", "has_generated_visual": True},
+            "media": {"channels": [{"id": "netflix", "label": "Netflix", "pct": 100, "group": "ctv"}]}}
+    cover = build_slides(view)[0]
+    assert cover["layout"] == "hero" and cover["background"] == "/static/c.png"
+    assert cover["mockup"]["kind"] == "tv"
+    plain = build_slides({**view, "hero": {"image": "/static/bg.png"}})[0]
+    assert plain["layout"] == ""

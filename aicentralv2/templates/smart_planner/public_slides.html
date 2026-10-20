@@ -7,11 +7,11 @@
   <link rel="icon" type="image/png" href="{{ house.logo }}">
   <meta name="description" content="{{ title }} — plano de mídia em apresentação.">
   <meta property="og:type" content="website"><meta property="og:site_name" content="Centralcomm Smart Planner">
-  <meta property="og:title" content="{{ title }} · Apresentação"><meta property="og:description" content="{{ overview or 'Plano de mídia preparado no Smart Planner.' }}">
+  <meta property="og:title" content="{{ title }} · Apresentação"><meta property="og:description" content="{{ (overview or 'Plano de mídia preparado no Smart Planner.')|truncate(180, true, '…') }}">
   <meta property="og:url" content="{{ document_url }}"><meta property="og:image" content="{{ share_image }}"><meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_slides.css') }}?v=9">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_slides.css') }}?v=10">
   {% if template_css %}<style>:root{ {{- template_css -}} }</style>{% else %}<style>:root{--sx-ink:{{ slide_ink or '#14252d' }};--sx-accent:{{ slide_accent or '#d5aa3b' }}}</style>{% endif %}
 </head>
 <body class="sx is-booting{% if neutral_palette %} is-neutral{% endif %}" data-document-url="{{ document_page_url }}" data-channel="{{ public_token or 'plano' }}" data-total="{{ slides|length }}">
@@ -58,8 +58,9 @@
     <div class="sx-deck" data-sx-deck>
       {% for slide in slides %}
       <div class="sx-frame" data-sx-frame="{{ slide.index }}" data-title="{{ slide.nav }}" id="s{{ slide.index }}" role="group" aria-roledescription="slide" aria-label="{{ slide.index }} de {{ slides|length }}: {{ slide.nav }}" tabindex="-1">
-        <section class="sx-slide is-{{ slide.type }}">
+        <section class="sx-slide is-{{ slide.type }}{% if slide.layout %} is-{{ slide.layout }}{% endif %}">
           {% if slide.type == 'cover' %}
+          {% if slide.layout == 'hero' %}<img class="sx-cover-bg" src="{{ slide.background }}" alt="" aria-hidden="true"><i class="sx-cover-shade" aria-hidden="true"></i>{% endif %}
           <div class="sx-cover-copy">
             {# A logo do cliente já está na barra do topo; na capa vai o nome, que nunca quebra a arte. #}
             {% if slide.client %}<p class="sx-cover-client">{{ slide.client }}</p>{% endif %}
@@ -70,7 +71,11 @@
               {% if slide.agency %}<p class="sx-cover-agency">Agência · {{ slide.agency }}</p>{% endif %}
             </div>
           </div>
+          {% if slide.layout == 'hero' %}
+          <div class="sx-cover-mock">{% if slide.mockup %}{{ mockup(slide.mockup, 'lg') }}{% endif %}</div>
+          {% else %}
           <figure class="sx-cover-art{% if not slide.image %} is-empty{% endif %}">{% if slide.image %}<img src="{{ slide.image }}" alt="">{% endif %}</figure>
+          {% endif %}
 
           {% elif slide.type == 'thesis' %}
           {{ kicker(slide) }}

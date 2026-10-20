@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 import os
 
+import click
+
 from flask import Blueprint, Response, current_app, jsonify, make_response, redirect, render_template, request, url_for
 
 from ..auth import centralcomm_required, centralcomm_required_api, is_admin
@@ -14,7 +16,7 @@ from . import canvas as canvas_mod
 from . import planner
 from . import processor
 from .logos import presenter_options, lookup_party_by_id
-from .public_view import public_view
+from .public_view import _public_asset_url, public_view
 from .share import HOUSE, public_sheet_url, qr_svg
 from .catalog import (
     CHANNEL_CATALOG,
@@ -92,7 +94,19 @@ def _apply_presentation(view: dict, row: dict | None) -> dict:
     if not _existing_static(template.get("logo")):
         template["logo"] = ""
     view["neutral_palette"] = bool(template.get("neutral"))
+    # Falar com o executivo de contas é do modelo CentralComm; no modelo da agência ou do
+    # cliente quem apresenta é a marca, então o contato do executivo sai da página.
+    if template.get("id") not in {"centralcomm", "neutro"}:
+        view["executive"] = {}
+        view["executive_contact"] = {}
+    # Prévia do link (WhatsApp, e-mail): a arte gerada para o plano; sem ela, o fundo do tema.
+    hero = as_dict(view.get("hero"))
+    for candidate in (hero.get("creative_image"), hero.get("image"), "/static/images/smart_planner/share-placeholder.svg"):
+        if text(candidate) and _existing_static(candidate):
+            view["share_image"] = _public_asset_url(text(candidate))
+            break
     return presentation.apply_to_view(view, template)
+
 
 
 def _public_document_response(view: dict, row: dict | None = None):
@@ -248,11 +262,29 @@ def conclusao(token):
     return render_template("smart_planner/wizard.html", **_page_ctx(**wizard_context(row, "conclusao")))
 
 
+def _canonical_redirect(public_token: str, row: dict, endpoint: str):
+    """Link antigo ou aleatório vira o amigável (uma vez) e redireciona para ele, com a mesma query."""
+    from .links import ensure_friendly
+
+    try:
+        current = ensure_friendly(row)
+    except Exception:
+        logger.exception("Falha ao trocar o link público %s", public_token)
+        current = session_public_token(row)
+    if current and current != public_token:
+        target = url_for(endpoint, public_token=current, **request.args.to_dict())
+        return redirect(target, code=301)
+    return None
+
+
 @bp.route("/p/<public_token>")
 def publico(public_token):
     row = get_by_public_token(public_token)
     if not row:
         raise SessionNotFound("Este planejamento não está no ar.")
+    moved = _canonical_redirect(public_token, row, "smart_planner.publico")
+    if moved:
+        return moved
     view = public_view(row)
     # O link compartilhável canônico deve usar o mesmo documento visual da
     # proposta/plano. O template antigo permanece apenas como fallback para
@@ -270,6 +302,10 @@ def _public_document(public_token: str, document: str):
     row = get_by_public_token(public_token)
     if not row:
         raise SessionNotFound("Este planejamento não está no ar.")
+    endpoint = "smart_planner.publico_plano" if document == "full_plan" else "smart_planner.publico_proposta"
+    moved = _canonical_redirect(public_token, row, endpoint)
+    if moved:
+        return moved
     view = public_view(row, document=document)
     if document == "proposal" and not view.get("tem_folha"):
         raise SessionNotFound("Esta proposta comercial não está publicada.")
@@ -277,6 +313,18 @@ def _public_document(public_token: str, document: str):
         raise SessionNotFound("Este planejamento completo não está publicado.")
     view["share_url"] = view.get("document_url")
     return _public_document_response(view, row)
+
+
+@bp.cli.command("friendly-links")
+@click.option("--dry-run", is_flag=True, help="Só mostra os links novos, sem gravar.")
+def friendly_links_command(dry_run):
+    """Troca todos os links públicos aleatórios pelo link amigável (o antigo redireciona)."""
+    from .links import rename_all
+
+    pairs = rename_all(dry_run=dry_run)
+    for old, new in pairs:
+        click.echo(f"{old} -> {new}")
+    click.echo(f"{len(pairs)} link(s) {'a trocar' if dry_run else 'trocados'}.")
 
 
 @bp.route("/p/<public_token>/proposta")
@@ -295,6 +343,9 @@ def publico_pptx(public_token):
     row = get_by_public_token(public_token)
     if not row:
         raise SessionNotFound("Este planejamento não está no ar.")
+    moved = _canonical_redirect(public_token, row, "smart_planner.publico_pptx")
+    if moved:
+        return moved
     view = public_view(row, document="proposal")
     if not view.get("tem_folha"):
         raise SessionNotFound("Esta proposta comercial não está publicada.")
@@ -366,6 +417,9 @@ def canvas_editar(public_token):
     found = get_by_public_token(public_token)
     if not found:
         raise SessionNotFound("Este planejamento não está no ar.")
+    moved = _canonical_redirect(public_token, found, "smart_planner.canvas_editar")
+    if moved:
+        return moved
     return _render_canvas(load_owned(found["session_token"]), force_folha=True)
 
 

@@ -327,6 +327,8 @@ export function People({boot, api, lead, contacts, candidates, cadences = [], on
   const set = key => event => setDraft(d => ({...d, [key]: event.target.value}));
   const empresa = decode(lead.empresa || lead.nome);
   const semEmail = contacts.filter(c => !c.email);
+  // Quem ainda não tem e-mail verificado (sem e-mail ou só palpite): onde o crédito do Apollo rende.
+  const paraVerificar = contacts.filter(c => !c.email || c.email_status === 'arriscado');
   // Inscrição que importa por pessoa: a ativa/pausada; senão a mais recente (a API já ordena assim).
   const inscricaoDe = id => cadences.find(i => i.id_contato === id);
   const semCadencia = contacts.filter(c => !cadences.some(i => i.id_contato === c.id && ['ativa', 'pausada'].includes(i.status)));
@@ -350,6 +352,27 @@ export function People({boot, api, lead, contacts, candidates, cadences = [], on
       onChanged();
     } catch (error) { notify(error.message, 'error'); } finally { setSaving(false); }
   };
+  const verificarTodos = async () => {
+    const n = paraVerificar.length;
+    if (!window.confirm(`Verificar no Apollo o e-mail de ${n} ${n === 1 ? 'pessoa' : 'pessoas'}? Usa até ${n} ${n === 1 ? 'crédito' : 'créditos'} de e-mail do plano (só gasta quando o Apollo encontra).`)) return;
+    let achados = 0;
+    let motivo = '';
+    for (const [i, c] of paraVerificar.entries()) {
+      setBulk(`apollo ${i + 1}/${n}`);
+      try {
+        const r = await api.revealContact(c.id);
+        if (r.encontrou_email) achados += 1;
+        else if (r.motivo && /cr[eé]dito|permite/i.test(r.motivo)) { motivo = r.motivo; break; } // plano travou: não insiste
+      } catch (error) {
+        motivo = error.message;
+        if (/cr[eé]dito|chave|plano|limite/i.test(error.message)) break;
+      }
+    }
+    setBulk('');
+    notify(achados ? `${achados} de ${n} e-mails verificados no Apollo.${motivo ? ` Parou: ${motivo}` : ''}` : (motivo || 'O Apollo não encontrou e-mail para essas pessoas.'), achados ? 'success' : 'error');
+    onChanged();
+  };
+
   const findAll = async () => {
     let achados = 0;
     let motivo = '';
@@ -375,6 +398,12 @@ export function People({boot, api, lead, contacts, candidates, cadences = [], on
         <header className="lv3-section__head">
           <h3>Pessoas <span className="lv3-count">{contacts.length}</span></h3>
           <div className="lv3-section__tools">
+            {boot.fontes.apollo && paraVerificar.length > 0 && (
+              <Button size="sm" variant="ghost" icon="envelope-circle-check" onClick={verificarTodos} disabled={!!bulk}
+                title="E-mail verificado do Apollo para quem não tem e-mail ou só tem palpite (1 crédito por e-mail encontrado)">
+                {String(bulk).startsWith('apollo') ? `Verificando ${String(bulk).slice(7)}…` : `Verificar e-mails no Apollo (${paraVerificar.length})`}
+              </Button>
+            )}
             {semCadencia.length > 0 && contacts.length > 0 && (
               <Button size="sm" variant="ghost" icon="route" onClick={inscreverTodos} disabled={!!bulk}>
                 {bulk === 'cad' ? 'Inscrevendo…' : `Cadência para todos (${semCadencia.length})`}
@@ -382,7 +411,7 @@ export function People({boot, api, lead, contacts, candidates, cadences = [], on
             )}
             {semEmail.length > 0 && (
               <Button size="sm" variant="ghost" icon="wand-magic-sparkles" onClick={findAll} disabled={!!bulk}>
-                {bulk && bulk !== 'cad' ? `Procurando ${bulk}…` : `Achar e-mails (${semEmail.length})`}
+                {bulk && bulk !== 'cad' && !String(bulk).startsWith('apollo') ? `Procurando ${bulk}…` : `Achar e-mails (${semEmail.length})`}
               </Button>
             )}
             {!draft && <Button size="sm" icon="user-plus" onClick={() => setDraft(EMPTY_CONTACT)}>Adicionar</Button>}

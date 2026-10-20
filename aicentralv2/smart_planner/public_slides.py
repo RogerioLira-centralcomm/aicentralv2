@@ -65,7 +65,8 @@ def _cover(view: dict) -> dict:
         "type": "cover",
         # Com o criativo do plano, ele vira o fundo da capa e aparece inteiro no mockup do canal.
         "layout": "hero" if creative else "",
-        "background": creative,
+        # Arte vertical: o fundo da capa usa a versão horizontal dela, quando existe.
+        "background": text(as_dict(hero.get("creative_variants")).get("horizontal")) or creative,
         "mockup": mocks[0] if mocks else {},
         "nav": "Capa",
         "title": title,

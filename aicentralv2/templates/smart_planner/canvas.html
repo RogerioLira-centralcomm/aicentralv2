@@ -4,7 +4,7 @@
 {% block title %}{{ titulo }} · Planejamentos{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=62">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=63">
 {% endblock %}
 
 {% block content %}
@@ -109,23 +109,68 @@
             <label for="sp-field-creative"><span>O que o protótipo mostra</span>
               <textarea id="sp-field-creative" name="creative_body" rows="4">{{ creative.body or '' }}</textarea>
             </label>
-            <div class="sp-image-prep" aria-label="Preparação da arte 16 por 9">
-              <div class="sp-image-prep__head">
-                <div><span class="sp-readout-kicker">Imagem do plano</span><strong>Logo aplicada em uma arte horizontal</strong></div>
-                <small>16:9 · display ou CTV · uma peça por plano</small>
-              </div>
-              <div class="sp-image-uploads">
-                <label class="sp-upload-tile" for="sp-logo-upload"><span class="sp-upload-icon">+</span><strong>Logo da marca</strong><small data-upload-copy="logo">Arraste ou escolha PNG/JPG</small><img id="sp-logo-upload-preview" class="sp-upload-preview" alt="Prévia da logo selecionada" hidden><input id="sp-logo-upload" type="file" accept="image/png,image/jpeg,image/webp"></label>
-                <label class="sp-upload-tile" for="sp-reference-upload"><span class="sp-upload-icon">+</span><strong>Imagem de referência</strong><small data-upload-copy="reference">Opcional · produto, cena ou estilo</small><img id="sp-reference-upload-preview" class="sp-upload-preview" alt="Prévia da imagem de referência selecionada" hidden><input id="sp-reference-upload" type="file" accept="image/png,image/jpeg,image/webp"></label>
-              </div>
-              <label for="sp-field-image-prompt" class="sp-prompt-review"><span>Prompt revisado antes de gerar</span>
-                <textarea id="sp-field-image-prompt" name="creative_image_prompt" rows="4">{{ creative.image_prompt or '' }}</textarea>
-              </label>
-              <div class="sp-image-actions">
-                <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-review-image-prompt">Revisar prompt</button>
+            {% set inputs = folha.visual_inputs or {} %}
+            {% set saved_logo = inputs.logo_url or ((folha.branding or {}).client or {}).logo_url %}
+            <div class="sp-art-studio">
+              <section class="sp-image-prep sp-art-make" aria-labelledby="sp-art-make-title">
+                <div class="sp-image-prep__head">
+                  <div><span class="sp-readout-kicker">Gerar artes</span><strong id="sp-art-make-title">Logo aplicada na arte do plano</strong></div>
+                </div>
+                <div class="sp-image-uploads">
+                  <label class="sp-upload-tile{% if saved_logo %} is-saved{% endif %}" for="sp-logo-upload"><span class="sp-upload-icon">+</span><strong>Logo da marca</strong><small data-upload-copy="logo">{% if saved_logo %}Logo salva no plano · clique para trocar{% else %}Arraste ou escolha PNG/JPG{% endif %}</small><img id="sp-logo-upload-preview" class="sp-upload-preview" alt="Prévia da logo" {% if saved_logo %}src="{{ saved_logo }}"{% else %}hidden{% endif %}><input id="sp-logo-upload" type="file" accept="image/png,image/jpeg,image/webp"></label>
+                  <label class="sp-upload-tile{% if inputs.reference_url %} is-saved{% endif %}" for="sp-reference-upload"><span class="sp-upload-icon">+</span><strong>Imagem de referência</strong><small data-upload-copy="reference">{% if inputs.reference_url %}Referência salva · clique para trocar{% else %}Opcional · produto, cena ou estilo{% endif %}</small><img id="sp-reference-upload-preview" class="sp-upload-preview" alt="Prévia da referência" {% if inputs.reference_url %}src="{{ inputs.reference_url }}"{% else %}hidden{% endif %}><input id="sp-reference-upload" type="file" accept="image/png,image/jpeg,image/webp"></label>
+                </div>
+                <div class="sp-art-options">
+                  <fieldset class="sp-seg" aria-label="Formato da arte">
+                    <legend>Formato</legend>
+                    {% set shape = creative.shape or 'horizontal' %}
+                    <label><input type="radio" name="sp-art-shape" value="horizontal" {% if shape != 'vertical' %}checked{% endif %}><span>Horizontal · 16:9</span></label>
+                    <label><input type="radio" name="sp-art-shape" value="vertical" {% if shape == 'vertical' %}checked{% endif %}><span>Vertical · 9:16</span></label>
+                  </fieldset>
+                  <fieldset class="sp-seg" aria-label="Quantas artes gerar">
+                    <legend>Quantas artes</legend>
+                    {% for n in [1, 2, 3, 4] %}<label><input type="radio" name="sp-art-count" value="{{ n }}" {% if n == 2 %}checked{% endif %}><span>{{ n }}</span></label>{% endfor %}
+                  </fieldset>
+                </div>
+                <label for="sp-field-image-prompt" class="sp-prompt-review"><span>Prompt revisado antes de gerar</span>
+                  <textarea id="sp-field-image-prompt" name="creative_image_prompt" rows="4">{{ creative.image_prompt or '' }}</textarea>
+                </label>
+                <div class="sp-image-actions">
+                  <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-review-image-prompt">Revisar prompt</button>
+                  <button type="button" class="cx-btn cx-btn-primary cx-btn-sm" id="sp-canvas-image">Gerar artes</button>
+                </div>
+                <div class="sp-art-progress" id="sp-art-progress" hidden>
+                  <div class="sp-art-progress__bar"><i></i></div>
+                  <p><strong data-art-step>Preparando a direção visual…</strong> <span data-art-elapsed>0s</span></p>
+                  <ol data-art-steps>
+                    <li data-step="prep">Logo, referência e prompt</li>
+                    <li data-step="arts">Artes no formato escolhido</li>
+                    <li data-step="variants">Versões para os canais do plano</li>
+                  </ol>
+                  <small>Cada arte leva cerca de um minuto; as artes saem ao mesmo tempo. Não feche esta página.</small>
+                </div>
                 <span id="sp-image-status" class="sp-image-status" role="status" aria-live="polite">Revise o prompt e gere quando estiver pronto.</span>
-              </div>
-              <p class="sp-image-note">Logo, referência, contraste e formato 16:9 entram na direção visual. A primeira versão não recebe texto promocional.</p>
+                <p class="sp-image-note">A arte escolhida ganha as versões que os canais do plano usam (horizontal, vertical ou quadrada). A primeira versão não recebe texto promocional.</p>
+              </section>
+              <section class="sp-art-pick" aria-labelledby="sp-art-pick-title">
+                <div class="sp-image-prep__head">
+                  <div><span class="sp-readout-kicker">Artes do plano</span><strong id="sp-art-pick-title">Escolha a que vai para a proposta</strong></div>
+                  <small>Vale para o link, o PDF e o PowerPoint.</small>
+                </div>
+                <div class="sp-gallery" id="sp-gallery" aria-label="Artes geradas">
+                  {% if gallery %}
+                  {% for item in gallery %}
+                  <figure class="sp-gallery-item is-{{ item.shape or 'horizontal' }} {% if item.active %}is-active{% endif %}" data-url="{{ item.url }}" data-kind="{{ item.kind }}">
+                    <img src="{{ item.url }}" alt="{{ item.label }}" loading="lazy">
+                    {% if item.active %}<span class="sp-gallery-badge">No plano</span>{% endif %}
+                    <figcaption><span>{{ item.label }}{% if item.shape_label %} · {{ item.shape_label }}{% endif %}</span>{% if item.formats %}<small>{{ item.formats|join(' · ') }}</small>{% endif %}<div class="sp-gallery-actions">{% if item.kind == 'creative' %}{% if not item.active %}<button type="button" data-gallery-action="use">Usar no plano</button>{% endif %}{% else %}<button type="button" data-gallery-action="hero">Usar no hero</button>{% endif %}<button type="button" data-gallery-action="remove">Apagar</button></div></figcaption>
+                  </figure>
+                  {% endfor %}
+                  {% else %}
+                  <p class="sp-gallery-empty">Nenhuma arte gerada ainda. Gere de 1 a 4 artes ao lado.</p>
+                  {% endif %}
+                </div>
+              </section>
             </div>
             <details class="sp-creative-direction sp-field-advanced">
               <summary>Campos avançados da peça</summary>
@@ -134,18 +179,6 @@
               </label>
             </details>
             <input type="hidden" id="sp-field-image-url" name="creative_image_url" value="{{ creative.image_url or '' }}">
-            <div class="sp-gallery" id="sp-gallery" aria-label="Imagens geradas">
-              {% if gallery %}
-              {% for item in gallery %}
-              <figure class="sp-gallery-item {% if item.active %}is-active{% endif %}" data-url="{{ item.url }}" data-kind="{{ item.kind }}">
-                <img src="{{ item.url }}" alt="{{ item.label }}" loading="lazy">
-                <figcaption><span>{{ item.label }} <small>{{ item.status or 'draft' }}</small></span><div class="sp-gallery-actions"><button type="button" data-gallery-action="hero">Usar no hero</button><button type="button" data-gallery-action="remove">Apagar</button></div></figcaption>
-              </figure>
-              {% endfor %}
-              {% else %}
-              <p class="sp-gallery-empty">Nenhuma imagem gerada ainda.</p>
-              {% endif %}
-            </div>
             {% if visual_direction.persona_description or visual_direction.place_scene %}
             <div class="sp-visual-brief">
               <div>
@@ -162,7 +195,6 @@
               {% endif %}
             </div>
             {% endif %}
-            <button type="button" class="cx-btn cx-btn-primary cx-btn-sm" id="sp-canvas-image">Gerar imagem do plano</button>
           </div>
         </details>
 
@@ -409,5 +441,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}?v=11"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}?v=12"></script>
 {% endblock %}

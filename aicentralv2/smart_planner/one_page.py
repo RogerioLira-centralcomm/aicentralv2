@@ -777,7 +777,21 @@ def normalize_one_page(payload: dict, meta: dict, branding: dict) -> dict:
         for key in ("public_design", "asset_manifest", "executive_contact", "audience_model", "visual_data", "visual_direction", "supporting_visuals", "visual_inputs"):
             if key in payload:
                 plan[key] = payload.get(key)
+    _keep_uploaded_logo(plan)
     return plan
+
+
+def _keep_uploaded_logo(plan: dict) -> None:
+    """A logo enviada no editor vale para a arte e o link público; salvar não a troca pela do cadastro."""
+    from .images import ART_PUBLIC_PREFIX
+
+    logo = text(as_dict(plan.get("visual_inputs")).get("logo_url"))
+    if not logo.startswith(ART_PUBLIC_PREFIX):
+        return
+    branding = dict(as_dict(plan.get("branding")))
+    for key in ("client", "hero"):
+        branding[key] = {**as_dict(branding.get(key)), "logo_url": logo}
+    plan["branding"] = branding
 
 
 def build_one_page(

@@ -377,7 +377,7 @@ def _creative_variants(creative: dict, shown: str) -> dict:
     if not shown or text(creative.get("image_url")) != text(shown):
         return {}
     variants = as_dict(creative.get("variants"))
-    return {key: text(variants.get(key)) for key in ("vertical", "square") if text(variants.get(key))}
+    return {key: text(variants.get(key)) for key in ("horizontal", "vertical", "square") if text(variants.get(key))}
 
 
 def _media_board(folha: dict, campos: dict | None = None) -> dict:

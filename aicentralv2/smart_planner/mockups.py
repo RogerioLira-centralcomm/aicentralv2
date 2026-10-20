@@ -75,27 +75,29 @@ NO_SCREEN_GROUPS = {"ooh", "places", "data"}
 
 # Variações da arte principal e as telas que as usam: a vertical vai para stories e vídeo
 # vertical; a quadrada, para o feed, o retângulo médio do portal e a capa do player de áudio.
-VARIANT_RATIOS = {"vertical": "2:3", "square": "1:1"}
-VARIANT_KINDS = {"vertical": {"vertical", "social"}, "square": {"social", "portal", "audio"}}
-# Em cada tela, a variação que melhor ocupa o espaço; sem ela, entra a arte principal.
-IMAGE_BY_KIND = {"vertical": "vertical", "social": "square", "audio": "square"}
+# A arte do plano pode nascer horizontal ou vertical; as outras formas saem dela.
+SHAPES = ("horizontal", "vertical")
+VARIANT_RATIOS = {"horizontal": "16:9", "vertical": "2:3", "square": "1:1"}
+VARIANT_KINDS = {"horizontal": {"tv", "portal", "app"}, "vertical": {"vertical", "social"}, "square": {"social", "portal", "audio"}}
+# Em cada tela, a forma que melhor ocupa o espaço; sem ela, entra a arte principal.
+IMAGE_BY_KIND = {"tv": "horizontal", "portal": "horizontal", "app": "horizontal", "vertical": "vertical", "social": "square", "audio": "square"}
 
 
-def variants_needed(channels: Any) -> list[str]:
-    """Quais variações o plano usa, pelos canais com tela."""
+def variants_needed(channels: Any, shape: str = "horizontal") -> list[str]:
+    """Quais variações o plano usa, pelos canais com tela; a forma da própria arte não conta."""
     kinds = {
         kind_for(channel)
         for channel in (as_dict(c) if isinstance(c, dict) else {"id": text(c)} for c in as_list(channels))
         if text(channel.get("id") or channel.get("label"))
         and (text(channel.get("group")) or text(as_dict(CHANNEL_CATALOG.get(text(channel.get("id")))).get("group"))) not in NO_SCREEN_GROUPS
     }
-    return [name for name, uses in VARIANT_KINDS.items() if kinds & uses]
+    return [name for name, uses in VARIANT_KINDS.items() if kinds & uses and name != shape]
 
 
 def _images(kind: str, image: str, variants: dict) -> dict:
     variants = as_dict(variants)
     best = text(variants.get(IMAGE_BY_KIND.get(kind, ""))) or text(image)
-    return {"image": best, "square": text(variants.get("square")) or text(image)}
+    return {"image": best, "square": text(variants.get("square")) or text(image), "wide": text(variants.get("horizontal")) or text(image)}
 
 
 def _screen(view: dict, channel: dict, kind: str, image: str) -> dict:

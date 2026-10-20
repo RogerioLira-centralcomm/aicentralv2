@@ -301,3 +301,76 @@ def test_studio_environments_failure_rolls_back_and_waits(monkeypatch):
     monkeypatch.setattr(viewer_envs, "_CACHE", {"at": 0.0, "envs": {}})
     assert viewer_envs.load() == {} and viewer_envs.load() == {}
     assert calls == {"query": 1, "rollback": 1}
+
+
+def _art_plan():
+    return {"meta": {"client": "Animale"}, "sections": [{"cards": [{"type": "creative"}]}]}
+
+
+def test_several_arts_in_parallel_only_the_chosen_one_gets_variants(monkeypatch):
+    from aicentralv2.smart_planner import images
+
+    calls = []
+
+    def fake(prompt, stem, aspect_ratio, references=None):
+        calls.append(aspect_ratio)
+        return f"/static/uploads/smart_planner/{stem}-{len(calls)}.png"
+
+    monkeypatch.setattr(images, "_render", fake)
+    plan = images.regenerate_creative(_art_plan(), channels=[{"id": "meta_ads", "group": "social"}], count=3, shape="vertical")
+    card = plan["sections"][0]["cards"][0]
+    assert sorted(calls[:3]) == ["9:16"] * 3
+    assert sorted(calls[3:]) == ["1:1"]  # vertical já é a forma da arte; falta só a quadrada
+    assert len(card["images"]) == 3 and card["image_url"] == card["images"][0]["url"]
+    assert card["shape"] == "vertical" and set(card["variants"]) == {"square"}
+    assert plan["public_design"]["hero"]["asset_url"] == card["image_url"]
+
+    other = card["images"][2]["url"]
+    calls.clear()
+    images.use_creative(plan, other, [{"id": "netflix", "group": "ctv"}])
+    assert calls == ["16:9"] and card["image_url"] == other
+    assert set(card["images"][2]["variants"]) == {"horizontal"}
+    calls.clear()
+    images.use_creative(plan, other, [{"id": "netflix", "group": "ctv"}])
+    assert calls == []  # variações já feitas não são geradas de novo
+
+
+def test_use_creative_rejects_art_outside_the_plan():
+    import pytest
+    from aicentralv2.smart_planner import images
+
+    with pytest.raises(ValueError):
+        images.use_creative(_art_plan(), "/static/uploads/smart_planner/outro-cliente.png", [])
+
+
+def test_vertical_art_uses_its_horizontal_version_on_wide_screens():
+    from aicentralv2.smart_planner.mockups import showcase_for, variants_needed
+
+    assert variants_needed([{"id": "netflix", "group": "ctv"}], "vertical") == ["horizontal"]
+    view = {"hero": {"creative_variants": {"horizontal": "/static/h.png"}},
+            "media": {"channels": [{"id": "netflix", "label": "Netflix", "pct": 60, "group": "ctv"}, {"id": "tiktok", "label": "TikTok", "pct": 40}]}}
+    images = {s["channel"]: s["image"] for s in showcase_for(view, "/static/v.png")}
+    assert images == {"Netflix": "/static/h.png", "TikTok": "/static/v.png"}
+
+
+def test_saving_the_editor_keeps_the_uploaded_logo():
+    from aicentralv2.smart_planner.one_page import normalize_one_page
+
+    logo = "/static/uploads/smart_planner/upload-ref-0-abc.png"
+    plan = normalize_one_page({"visual_inputs": {"logo_url": logo}, "sections": []}, {"client": "Animale"},
+                              {"client": {"logo_url": "/static/crm.png"}, "hero": {"name": "Animale"}})
+    assert plan["branding"]["client"]["logo_url"] == logo and plan["branding"]["hero"]["logo_url"] == logo
+    other = normalize_one_page({"visual_inputs": {"logo_url": "https://fora/x.png"}, "sections": []}, {}, {"client": {"logo_url": "/static/crm.png"}})
+    assert other["branding"]["client"]["logo_url"] == "/static/crm.png"
+
+
+def test_editor_gallery_lists_the_plan_arts_with_their_formats():
+    from aicentralv2.smart_planner.editor import _gallery
+
+    folha = {"sections": [{"cards": [{"type": "creative", "image_url": "/a.png", "images": [
+        {"url": "/a.png", "shape": "vertical", "variants": {"horizontal": "/ah.png", "square": "/aq.png"}},
+        {"url": "/b.png", "shape": "horizontal", "variants": {}},
+    ]}]}]}
+    items = _gallery(folha)
+    assert [(i["label"], i["active"], i["formats"]) for i in items[:2]] == [
+        ("Arte 1", True, ["9:16", "16:9", "1:1"]), ("Arte 2", False, ["16:9"])]

@@ -858,10 +858,15 @@ def api_canvas_imagem(token):
         generation_references = list(uploaded_references)
         if reference_url and reference_url not in generation_references:
             generation_references.append(reference_url)
-        # Os canais do plano dizem quais variações da arte (vertical, quadrada) gerar.
-        channels = as_list(as_dict(folha.get("media")).get("channels")) or as_list(as_dict(dados.get("campanha")).get("canais"))
+        try:
+            count = int(payload.get("count") or 1)
+        except (TypeError, ValueError):
+            count = 1
         with bound_session(token):
-            folha = regenerate_creative(folha, uploaded_references=generation_references, channels=channels)
+            folha = regenerate_creative(
+                folha, uploaded_references=generation_references, channels=_plan_channels(folha, dados),
+                count=count, shape="vertical" if text(payload.get("shape")) == "vertical" else "horizontal",
+            )
         merge_dados(token, {"folha": folha})
         if (dados.get("plan_mode") or "").strip().lower() != "completo":
             update_session(token, {"plan_content": folha})
@@ -873,6 +878,39 @@ def api_canvas_imagem(token):
     except Exception:
         logger.exception("Falha ao gerar imagem da folha")
         return _error("Não foi possível gerar a imagem.", 500)
+
+
+def _plan_channels(folha: dict, dados: dict) -> list:
+    # Os canais do plano dizem quais variações da arte (vertical, quadrada) gerar.
+    return as_list(as_dict(folha.get("media")).get("channels")) or as_list(as_dict(dados.get("campanha")).get("canais"))
+
+
+@bp.route("/api/<token>/canvas/imagem/usar", methods=["POST"])
+@centralcomm_required_api
+def api_canvas_use_image(token):
+    """Põe uma arte da galeria no plano; gera a vertical e a quadrada dela se faltarem."""
+    try:
+        url = text((request.get_json(silent=True) or {}).get("url"))
+        row = load_owned(token)
+        dados = as_dict(row.get("dados_detectados"))
+        folha = as_dict(dados.get("folha")) or as_dict(row.get("plan_content"))
+        from .cost import bound_session
+        from .images import use_creative
+        from .repository import update_session
+
+        with bound_session(token):
+            folha = use_creative(folha, url, _plan_channels(folha, dados))
+        merge_dados(token, {"folha": folha})
+        if (dados.get("plan_mode") or "").strip().lower() != "completo":
+            update_session(token, {"plan_content": folha})
+        return _ok({"plan": folha, "editor": editor_context(load_owned(token))})
+    except SessionNotFound as exc:
+        return _error(exc, 404)
+    except (ValueError, OpenRouterError) as exc:
+        return _error(exc, 422)
+    except Exception:
+        logger.exception("Falha ao escolher a arte do plano")
+        return _error("Não foi possível usar esta arte.", 500)
 
 
 @bp.route("/api/<token>/canvas/asset", methods=["POST"])

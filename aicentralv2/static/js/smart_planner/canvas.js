@@ -76,16 +76,36 @@
   // Contract: POST /canvas/imagem { logo?: dataUrl, reference?: dataUrl }
   // Response: { success, data: { plan, editor: { gallery } } }
 
+  function artShape() {
+    var checked = document.querySelector('input[name="sp-art-shape"]:checked');
+    return checked && checked.value === "vertical" ? "vertical" : "horizontal";
+  }
+
+  function artCount() {
+    var checked = document.querySelector('input[name="sp-art-count"]:checked');
+    return Math.max(1, Math.min(4, Number(checked && checked.value) || 1));
+  }
+
   function reviewedImagePrompt() {
     var body = val("sp-field-creative") || "o principal produto ou serviço da campanha";
     var channel = val("sp-field-channel") || "display ou CTV";
-    return "Crie uma arte publicitária horizontal 16:9 para " + channel + ", com fotografia realista e acabamento comercial. " +
+    var shape = artShape() === "vertical" ? "vertical 9:16" : "horizontal 16:9";
+    return "Crie uma arte publicitária " + shape + " para " + channel + ", com fotografia realista e acabamento comercial. " +
       "Mostre como herói o principal produto ou serviço da campanha: " + body + ". " +
       "A logo enviada é a fonte exata da identidade: preserve desenho, proporções e cores, sem redesenhar nem inventar texto. " +
       "Aplique a logo sempre no canto superior esquerdo, dentro de uma área segura, com contraste suficiente e espaço de respiro. " +
       "Use a imagem de referência apenas para orientar produto, cena, luz ou linguagem visual; não copie marcas de terceiros. " +
       "Use pessoas e contexto quando ajudarem a explicar a oferta. Harmonize as cores com a logo, priorizando contraste e legibilidade. " +
-      "Não criar mockup de site, interface, colagem, outra logo, marca d’água, agência, QR code, preço ou texto ilegível. Uma única cena, foco claro, sem corte vertical.";
+      "Não criar mockup de site, interface, colagem, outra logo, marca d’água, agência, QR code, preço ou texto ilegível. Uma única cena, foco claro, sem cortar a cena.";
+  }
+
+  function syncPromptShape() {
+    // Troca só o formato no prompt, sem apagar o que o executivo escreveu.
+    var field = document.getElementById("sp-field-image-prompt");
+    if (!field || !field.value) return reviewImagePrompt();
+    var shape = artShape() === "vertical" ? "vertical 9:16" : "horizontal 16:9";
+    field.value = field.value.replace(/horizontal 16:9|vertical 9:16/g, shape);
+    autosizeTextarea(field);
   }
 
   function reviewImagePrompt() {
@@ -198,31 +218,87 @@
     });
   }
 
+  function galleryItemHtml(item) {
+    var creative = item.kind === "creative";
+    var actions = creative
+      ? (item.active ? "" : '<button type="button" data-gallery-action="use">Usar no plano</button>')
+      : '<button type="button" data-gallery-action="hero">Usar no hero</button>';
+    return (
+      '<figure class="sp-gallery-item is-' + escapeHtml(item.shape || "horizontal") + (item.active ? " is-active" : "") +
+      '" data-url="' + escapeHtml(item.url) + '" data-kind="' + escapeHtml(item.kind || "") + '">' +
+      '<img src="' + escapeHtml(item.url) + '" alt="' + escapeHtml(item.label || "") + '" loading="lazy">' +
+      (item.active ? '<span class="sp-gallery-badge">No plano</span>' : "") +
+      "<figcaption><span>" + escapeHtml(item.label || "") + (item.shape_label ? " · " + escapeHtml(item.shape_label) : "") + "</span>" +
+      (item.formats && item.formats.length ? "<small>" + escapeHtml(item.formats.join(" · ")) + "</small>" : "") +
+      '<div class="sp-gallery-actions">' + actions + '<button type="button" data-gallery-action="remove">Apagar</button></div></figcaption></figure>'
+    );
+  }
+
   function refreshGallery(items) {
     var host = document.getElementById("sp-gallery");
-    if (!host || !items || !items.length) return;
-    host.innerHTML = items
-      .map(function (item) {
-        return (
-          '<figure class="sp-gallery-item' +
-          (item.active ? " is-active" : "") +
-          '" data-url="' +
-          escapeHtml(item.url) +
-          '" data-kind="' +
-          escapeHtml(item.kind || "") +
-          '" data-status="' +
-          escapeHtml(item.status || "draft") +
-          '"><img src="' +
-          escapeHtml(item.url) +
-          '" alt="' +
-          escapeHtml(item.label || "") +
-          '" loading="lazy"><figcaption><span>' +
-          escapeHtml(item.label || "") +
-          ' <small>' + escapeHtml(item.status || "draft") +
-          '</small></span><div class="sp-gallery-actions"><button type="button" data-gallery-action="hero">Usar no hero</button><button type="button" data-gallery-action="remove">Apagar</button></div></figcaption></figure>'
-        );
-      })
-      .join("");
+    if (!host || !items) return;
+    host.innerHTML = items.length
+      ? items.map(galleryItemHtml).join("")
+      : '<p class="sp-gallery-empty">Nenhuma arte gerada ainda. Gere de 1 a 4 artes ao lado.</p>';
+  }
+
+  // Progresso explícito: etapas, tempo corrido e espaços das artes que estão saindo.
+  var artProgressTimer = null;
+
+  function startArtProgress(count, shape, mode) {
+    var box = document.getElementById("sp-art-progress");
+    var host = document.getElementById("sp-gallery");
+    var started = Date.now();
+    document.querySelectorAll("#sp-canvas-image, #sp-gallery [data-gallery-action]").forEach(function (node) { node.disabled = true; });
+    if (box) {
+      box.hidden = false;
+      box.querySelectorAll("[data-step]").forEach(function (li) { li.className = ""; });
+      box.querySelector('[data-step="prep"]').hidden = mode === "use";
+      box.querySelector('[data-step="arts"]').hidden = mode === "use";
+    }
+    if (host && mode !== "use") {
+      host.querySelector(".sp-gallery-empty")?.remove();
+      var skeletons = "";
+      for (var i = 0; i < count; i++) skeletons += '<figure class="sp-gallery-item is-' + shape + ' is-pending" aria-hidden="true"><i></i><figcaption><span>Gerando arte ' + (i + 1) + " de " + count + "…</span></figcaption></figure>";
+      host.insertAdjacentHTML("afterbegin", skeletons);
+    }
+    function tick() {
+      var seconds = Math.round((Date.now() - started) / 1000);
+      var step = mode === "use" ? "variants" : seconds < 6 ? "prep" : seconds < 75 ? "arts" : "variants";
+      var labels = {
+        prep: "Preparando logo, referência e prompt…",
+        arts: count > 1 ? "Gerando " + count + " artes " + (shape === "vertical" ? "verticais" : "horizontais") + " ao mesmo tempo…" : "Gerando a arte " + (shape === "vertical" ? "vertical" : "horizontal") + "…",
+        variants: "Adaptando a arte escolhida para os formatos dos canais…",
+      };
+      if (box) {
+        box.querySelector("[data-art-step]").textContent = labels[step];
+        box.querySelector("[data-art-elapsed]").textContent = seconds + "s";
+        var order = ["prep", "arts", "variants"];
+        box.querySelectorAll("[data-step]").forEach(function (li) {
+          var at = order.indexOf(li.getAttribute("data-step"));
+          li.className = at < order.indexOf(step) ? "is-done" : at === order.indexOf(step) ? "is-current" : "";
+        });
+      }
+      setImageStatus(labels[step], "loading");
+    }
+    tick();
+    artProgressTimer = window.setInterval(tick, 1000);
+  }
+
+  function stopArtProgress() {
+    window.clearInterval(artProgressTimer);
+    artProgressTimer = null;
+    var box = document.getElementById("sp-art-progress");
+    if (box) box.hidden = true;
+    document.querySelectorAll("#sp-gallery .is-pending").forEach(function (node) { node.remove(); });
+    document.querySelectorAll("#sp-canvas-image, #sp-gallery [data-gallery-action]").forEach(function (node) { node.disabled = false; });
+  }
+
+  function applyPlanResponse(data) {
+    plan = data.plan || plan;
+    var card = (((plan.sections || [])[0] || {}).cards || []).find(function (item) { return item.type === "creative"; });
+    if (card && card.image_url) applyCreativeUrl(card.image_url);
+    if (data.editor && data.editor.gallery) refreshGallery(data.editor.gallery);
   }
 
   function applyCreativeUrl(url) {
@@ -245,7 +321,10 @@
       return (asset.asset_url || asset.image_url) !== url;
     });
     var creative = (((plan.sections || [])[0] || {}).cards || []).find(function (card) { return card.type === "creative"; });
-    if (creative && creative.image_url === url) creative.image_url = "";
+    if (creative) {
+      creative.images = (creative.images || []).filter(function (art) { return art.url !== url; });
+      if (creative.image_url === url) { creative.image_url = ""; creative.variants = {}; }
+    }
     plan.public_design = plan.public_design || {};
     plan.public_design.hero = plan.public_design.hero || {};
     if (plan.public_design.hero.asset_url === url) plan.public_design.hero.asset_url = "";
@@ -274,7 +353,10 @@
           if (preview) { preview.src = reader.result; preview.hidden = false; }
           if (copy) copy.textContent = item.label;
           setImageStatus(item.label, "ready");
-          persistVisualInput(item.copy, reader.result).catch(function (error) {
+          persistVisualInput(item.copy, reader.result).then(function () {
+            field.closest(".sp-upload-tile")?.classList.add("is-saved");
+            if (copy) copy.textContent = item.copy === "logo" ? "Logo salva no plano · clique para trocar" : "Referência salva · clique para trocar";
+          }).catch(function (error) {
             setImageStatus(error.message || "A imagem foi selecionada, mas não foi possível salvá-la.", "error");
           });
         };
@@ -516,31 +598,51 @@
   }
 
   async function generateImage() {
-    setLive("Gerando imagem…");
-    setImageStatus("Gerando arte 16:9 com a logo aplicada…", "loading");
-    await save();
-    var logo = await readImage(document.getElementById("sp-logo-upload")?.files?.[0]);
-    var reference = await readImage(document.getElementById("sp-reference-upload")?.files?.[0]);
-    var response = await fetch("/smart-planner/api/" + token + "/canvas/imagem", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify({ logo, reference }),
-    });
-    var payload = await response.json();
-    if (!payload.success) throw new Error(payload.error || "Falha ao gerar imagem");
-    plan = payload.data.plan || plan;
-    var creative = ((plan.sections || [])[0] || {}).cards || [];
-    var card = creative.find(function (item) {
-      return item.type === "creative";
-    });
-    if (card && card.image_url) applyCreativeUrl(card.image_url);
-    if (payload.data.editor && payload.data.editor.gallery) {
-      refreshGallery(payload.data.editor.gallery);
-      applyCreativeUrl(card && card.image_url);
+    var count = artCount();
+    var shape = artShape();
+    setLive("Gerando artes…");
+    startArtProgress(count, shape, "generate");
+    try {
+      await save();
+      var logo = await readImage(document.getElementById("sp-logo-upload")?.files?.[0]);
+      var reference = await readImage(document.getElementById("sp-reference-upload")?.files?.[0]);
+      var response = await fetch("/smart-planner/api/" + token + "/canvas/imagem", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ logo: logo, reference: reference, count: count, shape: shape }),
+      });
+      var payload = await response.json().catch(function () { return {}; });
+      if (!payload.success) throw new Error(payload.error || "Não foi possível gerar as artes. Tente de novo.");
+      stopArtProgress();
+      applyPlanResponse(payload.data);
+      setLive("Artes geradas.");
+      setImageStatus((count > 1 ? count + " artes geradas. A primeira já está no plano; escolha outra ao lado se preferir." : "Arte gerada e aplicada ao plano."), "success");
+    } finally {
+      stopArtProgress();
     }
-    setLive("Imagem atualizada.");
-    setImageStatus("Imagem gerada e aplicada ao plano.", "success");
+  }
+
+  async function useArt(url) {
+    setLive("Aplicando arte…");
+    startArtProgress(1, "horizontal", "use");
+    try {
+      await save();
+      var response = await fetch("/smart-planner/api/" + token + "/canvas/imagem/usar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ url: url }),
+      });
+      var payload = await response.json().catch(function () { return {}; });
+      if (!payload.success) throw new Error(payload.error || "Não foi possível usar esta arte.");
+      stopArtProgress();
+      applyPlanResponse(payload.data);
+      setLive("Arte aplicada.");
+      setImageStatus("Arte aplicada ao plano, com as versões dos canais.", "success");
+    } finally {
+      stopArtProgress();
+    }
   }
 
   document.getElementById("sp-canvas-save")?.addEventListener("click", async function () {
@@ -692,10 +794,11 @@
   document.getElementById("sp-gallery")?.addEventListener("click", function (event) {
     var action = event.target.closest("[data-gallery-action]");
     var figure = event.target.closest(".sp-gallery-item");
-    if (!figure) return;
+    if (!figure || !action || action.disabled) return;
+    event.preventDefault();
     var url = figure.getAttribute("data-url");
-    if (action && action.getAttribute("data-gallery-action") === "remove") {
-      event.preventDefault();
+    var kind = action.getAttribute("data-gallery-action");
+    if (kind === "remove") {
       removeGalleryAsset(url);
       save().then(function () {
         setLive("Imagem removida da página pública.");
@@ -703,14 +806,25 @@
       }).catch(function (error) { toast(error.message, "error"); });
       return;
     }
-    if (action || figure.getAttribute("data-kind") === "creative") {
-      event.preventDefault();
-      applyCreativeUrl(url);
-      save().then(function () {
-        setLive("Imagem principal atualizada.");
-        toast("Imagem definida como principal.", "success");
-      }).catch(function (error) { toast(error.message, "error"); });
+    if (kind === "use") {
+      useArt(url).then(function () {
+        toast("Arte aplicada ao plano.", "success");
+      }).catch(function (error) {
+        setLive("");
+        setImageStatus(error.message, "error");
+        toast(error.message, "error");
+      });
+      return;
     }
+    applyCreativeUrl(url);
+    save().then(function () {
+      setLive("Imagem principal atualizada.");
+      toast("Imagem definida como principal.", "success");
+    }).catch(function (error) { toast(error.message, "error"); });
+  });
+
+  document.querySelectorAll('input[name="sp-art-shape"]').forEach(function (input) {
+    input.addEventListener("change", syncPromptShape);
   });
 
   load().catch(function (error) {

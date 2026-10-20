@@ -29,6 +29,21 @@ def is_generated_art(url: str) -> bool:
 
 logger = logging.getLogger(__name__)
 
+VARIANT_FILE = re.compile(r"-creative-(?:vertical|square)-[0-9a-f]+\.png$")
+
+
+def is_variant_file(url: str) -> bool:
+    return bool(VARIANT_FILE.search(text(url)))
+
+
+def is_creative_file(url: str) -> bool:
+    """Arte 16:9 gerada para um plano, na pasta de artes, que existe no disco."""
+    value = text(url)
+    if not value.startswith(ART_PUBLIC_PREFIX) or "-creative-" not in value or is_variant_file(value):
+        return False
+    name = value[len(ART_PUBLIC_PREFIX):]
+    return "/" not in name and ".." not in name and os.path.isfile(os.path.join(_art_dir(), name))
+
 
 def apply_sheet_art(plan: dict, force: bool = False) -> dict:
     """Gera o conjunto visual contextual da proposta.
@@ -119,10 +134,49 @@ def apply_sheet_art(plan: dict, force: bool = False) -> dict:
     return plan
 
 
-def regenerate_creative(plan: dict, uploaded_references: list[str] | None = None, channels: list | None = None) -> dict:
-    """Gera só o criativo no canal — sem fundo e sem wallpaper no editor.
+MAX_ARTS_PER_RUN = 4
+SHAPE_BRIEF = {"horizontal": "horizontal 16:9 for display or CTV", "vertical": "vertical 9:16 for stories, reels and vertical video"}
+MAX_ARTS_KEPT = 12
+# Cada arte da mesma rodada muda o enquadramento, para o executivo ter opções de verdade.
+ART_ANGLES = (
+    "",
+    " Alternative take: a different camera angle and framing of the same idea.",
+    " Alternative take: a closer, product-led composition of the same idea.",
+    " Alternative take: a wider scene that shows more of the place and the audience.",
+)
 
-    Depois da arte principal, gera a vertical e a quadrada que os canais do plano usam.
+
+def _parallel(jobs: list) -> list:
+    """Roda as gerações ao mesmo tempo, cada uma com o contexto do app e da sessão de custo."""
+    if not jobs:
+        return []
+    with ThreadPoolExecutor(max_workers=len(jobs)) as pool:
+        futures = [pool.submit(contextvars.copy_context().run, job) for job in jobs]
+    out = []
+    for future in futures:
+        try:
+            out.append(future.result())
+        except Exception as exc:
+            logger.exception("Falha numa geração de arte do plano")
+            out.append(exc)
+    return out
+
+
+def creative_images(creative: dict) -> list[dict]:
+    """As artes do plano; uma arte antiga sem lista vira a primeira da lista."""
+    creative = as_dict(creative)
+    images = [as_dict(item) for item in as_list(creative.get("images")) if text(as_dict(item).get("url"))]
+    current = text(creative.get("image_url"))
+    if current and not any(item["url"] == current for item in images):
+        images.insert(0, {"url": current, "variants": as_dict(creative.get("variants"))})
+    return images
+
+
+def regenerate_creative(plan: dict, uploaded_references: list[str] | None = None, channels: list | None = None, count: int = 1, shape: str = "horizontal") -> dict:
+    """Gera de uma a quatro artes do criativo no canal, horizontais (16:9) ou verticais (9:16), em paralelo.
+
+    A primeira que sair vai para o plano; só ela ganha a vertical e a quadrada que os canais
+    do plano usam. As outras ficam na galeria e ganham as variações quando forem escolhidas.
     """
     if not isinstance(plan, dict):
         return plan
@@ -135,30 +189,72 @@ def regenerate_creative(plan: dict, uploaded_references: list[str] | None = None
         return plan
     slug = _slug(meta.get("client") or hero.get("name") or theme.get("id") or "folha")
     prompt = text(creative.get("image_prompt")) or _default_creative_prompt(creative, meta, hero)
-    prompt = _reviewed_horizontal_prompt(prompt, creative, meta, hero, has_uploaded_reference=bool(uploaded_references))
-    ratio = "16:9"
+    shape = shape if shape in SHAPE_BRIEF else "horizontal"
+    prompt = _reviewed_horizontal_prompt(prompt, creative, meta, hero, has_uploaded_reference=bool(uploaded_references), shape=shape)
     references = list(_brand_references(branding, hero))
     references.extend(
         text(item) for item in as_list(uploaded_references)
         if text(item).startswith(("/static/", "https://", "http://"))
     )
-    creative["image_url"] = _render(
-        prompt,
-        f"{slug}-creative",
-        aspect_ratio=ratio,
-        references=list(dict.fromkeys(references))[:3],
-    )
-    creative["image_model"] = resolve_image_model()
-    creative["variants"] = _render_variants(creative["image_url"], slug, _brand_references(branding, hero), channels)
+    references = list(dict.fromkeys(references))[:3]
+    count = max(1, min(int(count or 1), MAX_ARTS_PER_RUN))
+    results = _parallel([
+        (lambda angle=ART_ANGLES[i]: _render(prompt + angle, f"{slug}-creative", aspect_ratio="9:16" if shape == "vertical" else "16:9", references=references))
+        for i in range(count)
+    ])
+    urls = [url for url in results if isinstance(url, str)]
+    if not urls:
+        error = next((item for item in results if isinstance(item, Exception)), None)
+        raise error or RuntimeError("Nenhuma arte foi gerada.")
+    model = resolve_image_model()
+    fresh = [{"url": url, "shape": shape, "variants": {}, "model": model} for url in urls]
+    creative["images"] = (fresh + [item for item in creative_images(creative) if item["url"] not in urls])[:MAX_ARTS_KEPT]
+    creative["image_model"] = model
+    use_creative(plan, urls[0], channels)
     return plan
 
 
-def _render_variants(main_url: str, slug: str, brand_refs: list[str], channels: list | None) -> dict:
-    """Recompõe a arte principal nos formatos que o plano usa; uma falha não derruba a principal."""
-    from .mockups import VARIANT_RATIOS, variants_needed
+def use_creative(plan: dict, url: str, channels: list | None = None) -> dict:
+    """Põe uma arte da galeria no plano e gera as variações dela que ainda faltam."""
+    creative = _creative_card(plan)
+    if not creative:
+        return plan
+    images = creative_images(creative)
+    chosen = next((item for item in images if item["url"] == text(url)), None)
+    if not chosen and is_creative_file(url):
+        # Arte gerada antes da lista de artes existir: a galeria a acha na pasta do plano.
+        chosen = {"url": text(url), "variants": {}}
+        images.insert(0, chosen)
+    if not chosen:
+        raise ValueError("Esta arte não está na galeria do plano.")
+    from .mockups import variants_needed
+
+    meta = as_dict(plan.get("meta"))
+    branding = as_dict(plan.get("branding"))
+    hero = as_dict(branding.get("hero"))
+    slug = _slug(meta.get("client") or hero.get("name") or as_dict(plan.get("theme")).get("id") or "folha")
+    variants = dict(as_dict(chosen.get("variants")))
+    shape = text(chosen.get("shape")) or "horizontal"
+    missing = [name for name in variants_needed(channels, shape) if not text(variants.get(name))]
+    if missing:
+        variants.update(_render_variants(chosen["url"], slug, _brand_references(branding, hero), missing))
+    chosen["variants"] = variants
+    creative["images"] = images
+    creative["image_url"] = chosen["url"]
+    creative["variants"] = variants
+    creative["shape"] = shape
+    design = as_dict(plan.get("public_design"))
+    design["hero"] = {**as_dict(design.get("hero")), "asset_url": chosen["url"]}
+    plan["public_design"] = design
+    return plan
+
+
+def _render_variants(main_url: str, slug: str, brand_refs: list[str], names: list[str]) -> dict:
+    """Recompõe a arte nos formatos pedidos; uma variação que falha não derruba as outras."""
+    from .mockups import VARIANT_RATIOS
 
     def render(name: str) -> str:
-        shape = "vertical 2:3 (for stories and vertical video)" if name == "vertical" else "square 1:1 (for feed and medium rectangle)"
+        shape = {"horizontal": "horizontal 16:9 (for CTV and display)", "vertical": "vertical 2:3 (for stories and vertical video)"}.get(name, "square 1:1 (for feed and medium rectangle)")
         prompt = (
             f"Recompose the first reference image as a {shape} version of the same campaign key visual. "
             "Keep the same scene, people, product, lighting, palette and the logo exactly as in the reference; "
@@ -167,20 +263,8 @@ def _render_variants(main_url: str, slug: str, brand_refs: list[str], channels: 
         )
         return _render(prompt, f"{slug}-creative-{name}", aspect_ratio=VARIANT_RATIOS[name], references=[main_url, *brand_refs][:2])
 
-    names = variants_needed(channels)
-    if not names:
-        return {}
-    # Em paralelo, para a requisição caber no tempo do servidor; cada uma leva o contexto
-    # do app e da sessão de custo.
-    with ThreadPoolExecutor(max_workers=len(names)) as pool:
-        futures = {name: pool.submit(contextvars.copy_context().run, render, name) for name in names}
-    out = {}
-    for name, future in futures.items():
-        try:
-            out[name] = future.result()
-        except Exception:
-            logger.exception("Falha ao gerar a variação %s do criativo", name)
-    return out
+    results = _parallel([(lambda name=name: render(name)) for name in names])
+    return {name: url for name, url in zip(names, results) if isinstance(url, str)}
 
 
 def materialize_uploaded_references(values: list[str] | None = None) -> list[str]:
@@ -210,7 +294,7 @@ def materialize_uploaded_references(values: list[str] | None = None) -> list[str
     return out
 
 
-def _reviewed_horizontal_prompt(prompt: str, card: dict, meta: dict, hero: dict, *, has_uploaded_reference: bool = False) -> str:
+def _reviewed_horizontal_prompt(prompt: str, card: dict, meta: dict, hero: dict, *, has_uploaded_reference: bool = False, shape: str = "horizontal") -> str:
     """Turns the reviewer's direction into the fixed Smart Planner art contract."""
     reference_direction = (
         "An uploaded visual reference is available. Act as the art director before rendering: choose whether it should guide the product, composition, lighting, scene or visual language, and use it wherever it improves the campaign. Do not reproduce unrelated branding. "
@@ -218,14 +302,14 @@ def _reviewed_horizontal_prompt(prompt: str, card: dict, meta: dict, hero: dict,
         "No visual reference was provided beyond the logo; derive the scene only from the approved campaign context. "
     )
     return (
-        f"{prompt}. Create one horizontal 16:9 key visual for display or CTV, not a mockup of a website and not a generic creative. "
+        f"{prompt}. Create one {SHAPE_BRIEF.get(shape, SHAPE_BRIEF['horizontal'])} key visual, not a mockup of a website and not a generic creative. "
         + reference_direction +
         "Use the supplied logo exactly as provided, with no redraw, distortion, recoloring or invented lettering. Extract the logo's dominant and supporting colors and use them as the visual palette and accents; preserve their hue relationships and choose contrasting backgrounds so the logo remains readable. "
         "If typography is ever needed, use the logo's typographic character as the reference for weight, rhythm and personality; for this first version do not add any headline, slogan, CTA, price, caption or other copy. The only visible brand text may be the original logo artwork. "
         "Keep the logo in the same fixed safe position: upper-left, with generous clear space. "
         "Use the campaign's main product or service as the visual hero, with relevant people or context when useful. Prefer photoreal commercial photography and let the logo palette guide wardrobe, props, lighting accents and graphic surfaces without making the image monochromatic. "
         "Treat the logo and uploaded reference as reviewed inputs: the logo controls identity, while the reference may guide only product, scene, light or visual language. "
-        "No extra logos, no agency marks, no watermark, no generated text, no illegible text, no collage, no portrait crop, no QR code, no price and no invented claim."
+        f"No extra logos, no agency marks, no watermark, no generated text, no illegible text, no collage, no {'landscape' if shape == 'vertical' else 'portrait'} crop, no QR code, no price and no invented claim."
     )
 
 

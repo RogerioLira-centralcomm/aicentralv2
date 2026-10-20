@@ -13,7 +13,7 @@ from ..product_domains import product_url
 from .brand import brand_for_client, snapshot_brand, load_cx_client_for_crm
 from .canvas import SECTIONS
 from .helpers import as_dict, as_list, plan_mode_of, text
-from .images import ART_PUBLIC_PREFIX, is_generated_art
+from .images import ART_PUBLIC_PREFIX, creative_images, is_generated_art, is_variant_file
 from .logos import lookup_agency_for_client, public_logo
 from .skills.catalog import COMPLETO_STEPS, ONE_PAGE_STEPS
 
@@ -118,61 +118,52 @@ def _completo_checklist(row: dict, dados: dict, share_url: str, token: str) -> l
     return out
 
 
+SHAPE_LABELS = {"horizontal": "Horizontal", "vertical": "Vertical"}
+VARIANT_LABELS = {"horizontal": "16:9", "vertical": "9:16", "square": "1:1"}
+OTHER_LABELS = {"background": "Fundo gerado", "persona": "Persona do plano", "place": "Lugar da campanha"}
+
+
 def _gallery(folha: dict) -> list[dict]:
+    """Artes do plano primeiro (a que está no plano marcada), depois as imagens de apoio."""
     cards = _cards_by_type(folha)
     creative = cards.get("creative") or {}
-    theme = as_dict(folha.get("theme"))
-    public_hero = text(as_dict(as_dict(folha.get("public_design")).get("hero")).get("asset_url"))
+    current = text(as_dict(as_dict(folha.get("public_design")).get("hero")).get("asset_url")) or text(creative.get("image_url"))
     items = []
+    for index, art in enumerate(creative_images(creative), 1):
+        shape = text(art.get("shape")) or "horizontal"
+        variants = as_dict(art.get("variants"))
+        items.append({
+            "id": f"art-{index}",
+            "label": f"Arte {index}",
+            "url": art["url"],
+            "kind": "creative",
+            "shape": shape,
+            "shape_label": SHAPE_LABELS.get(shape, "Horizontal"),
+            "formats": [VARIANT_LABELS[shape]] + [VARIANT_LABELS[key] for key in ("horizontal", "vertical", "square") if text(variants.get(key)) and key != shape],
+            "active": art["url"] == current,
+        })
+    # Plano de antes da lista de artes: as artes antigas estão só na pasta, pelo nome do cliente.
+    legacy = [] if as_list(creative.get("images")) else _generated_files(_slug_from_meta(folha))
+    for path in legacy:
+        url = f"{ART_PUBLIC_PREFIX}{path.name}"
+        if "-creative-" not in path.name or is_variant_file(url) or any(item["url"] == url for item in items):
+            continue
+        items.append({
+            "id": path.stem, "label": "Arte anterior", "url": url, "kind": "creative", "shape": "horizontal",
+            "shape_label": "Horizontal", "formats": ["16:9"], "active": url == current,
+        })
     for asset in as_list(folha.get("asset_manifest")):
         row = as_dict(asset)
         url = text(row.get("asset_url") or row.get("image_url"))
         kind = text(row.get("kind")) or "other"
-        if not url:
+        if not url or kind == "creative" or any(item["url"] == url for item in items):
             continue
-        items.append({
-            "id": text(row.get("id") or kind),
-            "label": text(row.get("label")) or {"creative": "Criativo no canal", "background": "Fundo gerado", "persona": "Persona do plano", "place": "Lugar da campanha"}.get(kind, "Arte gerada"),
-            "url": url,
-            "kind": kind,
-            "status": text(row.get("status")) or "draft",
-            "active": url == (public_hero or text((cards.get("creative") or {}).get("image_url"))),
-        })
-    creative_url = text(creative.get("image_url"))
-    if creative_url and not any(item["url"] == creative_url for item in items):
-        items.append({
-            "id": "creative",
-            "label": "Criativo no canal",
-            "url": creative_url,
-            "kind": "creative",
-            "status": "approved",
-            "active": creative_url == (public_hero or creative_url),
-        })
-    bg = text(theme.get("bg_url"))
+        items.append({"id": text(row.get("id") or kind), "label": text(row.get("label")) or OTHER_LABELS.get(kind, "Imagem de apoio"),
+                      "url": url, "kind": kind, "status": text(row.get("status")) or "draft", "active": url == current})
+    bg = text(as_dict(folha.get("theme")).get("bg_url"))
     if bg and is_generated_art(bg) and not any(item["url"] == bg for item in items):
-        items.append({
-            "id": "bg",
-            "label": "Fundo gerado",
-            "url": bg,
-            "kind": "background",
-            "status": "draft",
-            "active": False,
-        })
-    slug = _slug_from_meta(folha)
-    for path in _generated_files(slug):
-        url = f"{ART_PUBLIC_PREFIX}{path.name}"
-        if any(item["url"] == url for item in items):
-            continue
-        kind = "creative" if "-creative-" in path.name else "background" if "-bg-" in path.name else "persona" if "-persona-" in path.name else "place" if "-place-" in path.name else "other"
-        items.append({
-            "id": path.stem,
-            "label": {"creative": "Criativo no canal", "background": "Fundo gerado", "persona": "Persona do plano", "place": "Lugar da campanha"}.get(kind, "Arte gerada"),
-            "url": url,
-            "kind": kind,
-            "status": "draft",
-            "active": False,
-        })
-    return items[:12]
+        items.append({"id": "bg", "label": "Fundo gerado", "url": bg, "kind": "background", "status": "draft", "active": False})
+    return items[:16]
 
 
 def _slug_from_meta(folha: dict) -> str:
@@ -192,10 +183,8 @@ def _generated_files(slug: str) -> list[Path]:
     root = _art_dir()
     if not root.is_dir():
         return []
-    matches = sorted(root.glob(f"{slug}-*.png"), key=lambda p: p.stat().st_mtime, reverse=True)
-    if matches:
-        return matches
-    return sorted(root.glob("*.png"), key=lambda p: p.stat().st_mtime, reverse=True)[:6]
+    # Só as artes deste cliente; a pasta é compartilhada por todos os planos.
+    return sorted(root.glob(f"{slug}-*.png"), key=lambda p: p.stat().st_mtime, reverse=True)[:12]
 
 
 def _art_dir() -> Path:

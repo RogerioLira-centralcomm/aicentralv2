@@ -354,7 +354,7 @@ export function People({boot, api, lead, contacts, candidates, cadences = [], on
   };
   const verificarTodos = async () => {
     const n = paraVerificar.length;
-    if (!window.confirm(`Verificar no Apollo o e-mail de ${n} ${n === 1 ? 'pessoa' : 'pessoas'}? Usa até ${n} ${n === 1 ? 'crédito' : 'créditos'} de e-mail do plano (só gasta quando o Apollo encontra).`)) return;
+    if (!window.confirm(`Verificar no Apollo o e-mail de ${n} ${n === 1 ? 'pessoa' : 'pessoas'}? Usa até ${n} ${n === 1 ? 'crédito' : 'créditos'} de e-mail do plano (a cobrança exata depende do plano Apollo).`)) return;
     let achados = 0;
     let motivo = '';
     for (const [i, c] of paraVerificar.entries()) {
@@ -400,7 +400,7 @@ export function People({boot, api, lead, contacts, candidates, cadences = [], on
           <div className="lv3-section__tools">
             {boot.fontes.apollo && paraVerificar.length > 0 && (
               <Button size="sm" variant="ghost" icon="envelope-circle-check" onClick={verificarTodos} disabled={!!bulk}
-                title="E-mail verificado do Apollo para quem não tem e-mail ou só tem palpite (1 crédito por e-mail encontrado)">
+                title="E-mail verificado do Apollo para quem não tem e-mail ou só tem palpite (até 1 crédito por pessoa)">
                 {String(bulk).startsWith('apollo') ? `Verificando ${String(bulk).slice(7)}…` : `Verificar e-mails no Apollo (${paraVerificar.length})`}
               </Button>
             )}

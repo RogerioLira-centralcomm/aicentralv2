@@ -310,7 +310,8 @@ def editor_panel(row: dict) -> dict:
     current = resolve(row, parties=parties)
     agency = as_dict(parties.get("agency"))
     client = as_dict(parties.get("client"))
-    have = {option["id"] for option in options}
+    # Marca só com logo (sem paleta) também pode ser completada aqui.
+    have = {option["id"] for option in options if option.get("has_palette", True)}
     missing = []
     if agency.get("id") and "agencia" not in have:
         missing.append({"alvo": "agencia", "name": text(agency.get("name"))})
@@ -433,23 +434,30 @@ def save_party_template(row: dict, alvo: str, logo_data: str = "", colors: list[
         palette = colors_from_image(logo_data)
     if not palette and not logo_data:
         raise ValueError("Envie a logo ou escolha as cores.")
-    logo_path = _save_logo(logo_data) if logo_data else ""
     current = load_cx_client_for_crm(crm_id) or {}
+    profile = as_dict(current.get("brand_profile"))
+    has_palette = bool(hex_colors(profile.get("color_palette")) or current.get("primary_color"))
+    has_logo = bool(current.get("logo_upload_path") or current.get("logo_url"))
+    if current.get("id") and has_palette and has_logo:
+        raise ValueError("Esta marca já tem logo e paleta no Workspace; o modelo usa as duas.")
+    logo_path = _save_logo(logo_data) if logo_data and not has_logo else ""
     conn = get_db()
     try:
         with conn.cursor() as cur:
             if current.get("id"):
-                profile = as_dict(current.get("brand_profile"))
-                if palette:
+                # Marca já existente: o planner só completa o que falta. Paleta e
+                # logo vindas da análise do Workspace nunca são sobrescritas aqui.
+                if palette and not has_palette:
                     profile["color_palette"] = _palette_records(palette)
+                fill = palette if not has_palette else []
                 cur.execute(
                     """UPDATE cx_clients
-                          SET logo_upload_path = COALESCE(NULLIF(%s, ''), logo_upload_path),
-                              primary_color = COALESCE(%s, primary_color),
-                              secondary_color = COALESCE(%s, secondary_color),
+                          SET logo_upload_path = COALESCE(logo_upload_path, NULLIF(%s, '')),
+                              primary_color = COALESCE(primary_color, %s),
+                              secondary_color = COALESCE(secondary_color, %s),
                               brand_profile = %s
                         WHERE id = %s""",
-                    (logo_path, palette[0] if palette else None, palette[1] if len(palette) > 1 else None,
+                    (logo_path, fill[0] if fill else None, fill[1] if len(fill) > 1 else None,
                      Json(profile), current["id"]),
                 )
                 brand_id = current["id"]

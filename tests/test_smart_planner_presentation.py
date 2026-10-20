@@ -147,3 +147,22 @@ def test_build_pptx_creates_editable_slides_with_notes():
     texts = " ".join(shape.text_frame.text for slide in deck.slides for shape in slide.shapes if shape.has_text_frame)
     assert "Animale Inverno" in texts and "Impacto · 70%" in texts
     assert deck.slides[1].notes_slide.notes_text_frame.text == "Texto completo da tese."
+
+
+def test_logo_only_brand_can_still_be_completed(monkeypatch):
+    monkeypatch.setattr(presentation, "plan_parties", lambda row: _parties(agency_brand={"name": "Agência Rua", "logo_url": "/static/rua.png"}))
+    panel = presentation.editor_panel(_row())
+    assert "agencia" in [o["id"] for o in panel["options"]]
+    assert "agencia" in {m["alvo"] for m in panel["missing"]}
+
+
+def test_save_never_overwrites_an_analyzed_brand(monkeypatch):
+    import aicentralv2.smart_planner.brand as brand_mod
+
+    monkeypatch.setattr(presentation, "plan_parties", lambda row: _parties())
+    monkeypatch.setattr(brand_mod, "load_cx_client_for_crm", lambda crm_id: {
+        "id": 5, "logo_url": "https://x/logo.png", "primary_color": "#123456",
+        "brand_profile": {"color_palette": [{"hex": "#123456"}]}})
+    monkeypatch.setattr(presentation, "_save_logo", lambda data: pytest.fail("não deveria gravar logo"))
+    with pytest.raises(ValueError):
+        presentation.save_party_template({}, "cliente", "data:image/png;base64,AAAA", ["#000000"])

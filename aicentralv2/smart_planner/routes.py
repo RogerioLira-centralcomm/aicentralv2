@@ -104,7 +104,7 @@ def _public_document_response(view: dict, row: dict | None = None):
     view = _apply_presentation(view, row)
     template = "smart_planner/public_document.html"
     base_url = text(view.get("document_url"))
-    view["slides_url"] = base_url
+    view["slides_url"] = base_url + ("?paleta=neutra" if view.get("neutral_palette") and base_url else "")
     view["document_page_url"] = (base_url + "?formato=documento") if base_url else "?formato=documento"
     if view.get("document") == "proposal" and (request.args.get("formato") or "").strip().lower() != "documento":
         from .public_slides import build_slides
@@ -121,6 +121,8 @@ def _public_document_response(view: dict, row: dict | None = None):
             if view.get("public_token"):
                 view["pptx_url"] = url_for("smart_planner.publico_pptx", public_token=view["public_token"]) + neutral_query
             view["palette_toggle_url"] = base_url if view.get("neutral_palette") else (base_url or "") + "?paleta=neutra"
+            if view.get("neutral_palette"):
+                view["document_page_url"] += "&paleta=neutra"
             template = "smart_planner/public_slides.html"
     response = make_response(render_template(template, **view))
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"

@@ -662,6 +662,8 @@
     saveButton?.addEventListener("click", async function () {
       saveButton.disabled = true;
       try {
+        // O painel é redesenhado no recarregamento; salva antes o que foi editado.
+        await save();
         await postModelo("/marca", {
           alvo: alvo,
           logo: logoData,

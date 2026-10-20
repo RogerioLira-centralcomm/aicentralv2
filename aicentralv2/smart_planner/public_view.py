@@ -17,6 +17,7 @@ from .estimates import public_view as estimates_public_view
 from .helpers import as_bool, as_dict, as_list, normalize_markdown, plan_mode_of, session_title, short_title, text
 from .mix import METHODS
 from .pace import format_money, parse_money
+from .dados_primarios import public_view as first_party_view
 from .share import HOUSE, public_document_url, public_sheet_url
 from .theme import resolve_market_id, theme_record
 from ..db import normalizar_telefone_whatsapp, obter_contato_por_email, obter_contato_por_id
@@ -1536,6 +1537,11 @@ def public_view(row: dict, document: str | None = None) -> dict:
         "overview_title": overview_title,
         "overview_support": overview_support,
         "impact": estimates_public_view(as_dict(dados.get("estimates"))),
+        "first_party": first_party_view(
+            as_dict(dados.get("campanha")).get("dados_primarios")
+            or dados.get("dados_primarios")
+            or as_dict(dados.get("snapshot")).get("dados_primarios")
+        ),
         "fronts": _fronts(page_v2, media.get("channels") or []),
         "formats_by_channel": as_dict(page_v2.get("formatos")),
         "aggregated_formats": [text(x) for x in as_list(page_v2.get("formatos_custo_agregado")) if text(x)],

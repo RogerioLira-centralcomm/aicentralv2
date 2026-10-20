@@ -56,6 +56,7 @@ from .taticas import (
     taticas_for_prompt,
 )
 from .taticas import normalize_taticas
+from .dados_primarios import for_prompt as dados_primarios_for_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -867,6 +868,7 @@ def _one_page_payload(snapshot: dict, evidence: dict, estimates: dict) -> dict:
         "formatos_com_custo_agregado": [text(item) for item in as_list(snap.get("formatos_com_custo_agregado")) if text(item)],
         "portais": _portais_for_prompt(snap),
         "taticas": taticas,
+        "dados_primarios": dados_primarios_for_prompt(snap.get("dados_primarios")),
         "marca": brand_prompt_block(as_dict(snap.get("brand"))) or None,
         "restricoes": [text(item) for item in as_list(snap.get("restrictions")) if text(item)],
         "estimativas": estimates_note,

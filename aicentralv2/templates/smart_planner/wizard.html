@@ -4,7 +4,7 @@
 {% block title %}{{ steps[step_index].title }} · Planejamentos{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=61">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=62">
 {% endblock %}
 
 {% block content %}
@@ -633,6 +633,21 @@
               <div id="sp-taticas-list"></div>
               <p class="sp-taticas-note" id="sp-taticas-note" role="status" aria-live="polite">{{ (taticas_avisos or [])|join(' ') }}</p>
             </div>
+            {% set dp = campos.dados_primarios or {} %}
+            {% set dp_spec = dados_primarios_spec or {} %}
+            <div class="sp-taticas-desk sp-dados-desk" id="sp-dados-desk">
+              <h3>Dados primários do cliente</h3>
+              <p>Audiências que o próprio cliente fornece. O plano só promete remarketing por CRM, lookalike ou exclusão quando a fonte estiver marcada aqui.</p>
+              <div class="sp-tatica__row"><span>O cliente fornece</span>
+                {% for item in dp_spec.fontes or [] %}<label title="{{ item.hint }}"><input type="checkbox" name="dp_fonte" value="{{ item.id }}" {% if item.id in (dp.fontes or []) %}checked{% endif %}> {{ item.label }}</label>{% endfor %}
+              </div>
+              <div class="sp-tatica__row"><span>Para usar em</span>
+                {% for item in dp_spec.usos or [] %}<label title="{{ item.hint }}"><input type="checkbox" name="dp_uso" value="{{ item.id }}" {% if item.id in (dp.usos or []) %}checked{% endif %}> {{ item.label }}</label>{% endfor %}
+              </div>
+              <label class="sp-dados-obs"><span>Detalhe (opcional)</span><input class="cx-input" type="text" name="dp_observacao" maxlength="280" value="{{ dp.observacao or '' }}" placeholder="Ex.: base de clientes do e-commerce, atualizada por mês"></label>
+              <p class="sp-taticas-note" id="sp-dados-note" role="status" aria-live="polite">{{ (dados_primarios_avisos or [])|join(' ') }}</p>
+              <script type="application/json" id="sp-dados-spec">{{ dp_spec|tojson }}</script>
+            </div>
             <div class="sp-estimativa-desk" id="sp-estimativa-desk" hidden>
               <h3>Estimativa de impacto</h3>
               <p>O modelo sugere CPM, CPC, CTR e frequência por canal e você revisa. O sistema calcula impressões, alcance e cliques, e a proposta mostra se a estimativa é do modelo ou revisada por você.</p>
@@ -942,6 +957,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=39"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=40"></script>
 <script src="{{ url_for('static', filename='js/smart_planner/guide.js') }}?v=3"></script>
 {% endblock %}

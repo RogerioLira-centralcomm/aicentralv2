@@ -13,6 +13,7 @@ from .places_bridge import snapshot_places
 from . import formats as format_catalog
 from .places_bridge import normalize_formatos
 from .portais import normalize_portais
+from .dados_primarios import normalize as dados_primarios_normalize
 from .taticas import formats_for_channel, normalize_taticas, tatica_by_channel
 
 
@@ -153,6 +154,7 @@ def build_snapshot(row: dict, dados: dict | None = None) -> dict:
         ),
         "portais": portais,
         "taticas": taticas,
+        "dados_primarios": dados_primarios_normalize(campanha.get("dados_primarios") or dados.get("dados_primarios")),
         "restrictions": [text(dados.get("observacoes"))] if text(dados.get("observacoes")) else [],
         # Apoio capturado pelo usuário: disponível para a geração, mas não promovido
         # automaticamente ao briefing estruturado nem tratado como fato confirmado.

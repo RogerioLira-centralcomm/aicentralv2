@@ -135,6 +135,7 @@ Regras:
 - G1, UOL, R7, CNN, Folha e demais portais não são canais: são sites da Rede de portais e sites (dv360). Use dv360 em "canais" e liste os que o material nomeou em portais.sites_preferidos. Não invente portal que o material não nomeou.
 - Se o material descrever portais por segmento, região ou tema (por exemplo "portais de classe AB", "portais de economia no Sudeste"), preencha "portais" com categorias, regioes, ufs e segmento. O segmento descreve o recorte dos portais, não o público da marca.
 - Se o material citar aplicativos de mobilidade, streaming ou redes sociais, cada um é um canal; os formatos que ele citar vão em "formatos" desse canal.
+- dados_primarios: preencha só quando o material citar dados do próprio anunciante (lista de clientes, CRM, pixel ou visitantes do site, usuários do app, leads, compradores). Remarketing que volta a quem visitou o site usa a fonte pixel; remarketing de quem interagiu com os anúncios usa interacoes. Não invente base, volume ou taxa de match.
 - taticas: preencha só quando o material separar frentes (por exemplo, impacto e remarketing). Cada frente usa ids que estão em "canais"; duas frentes podem usar o mesmo canal (a Rede de portais e sites com interativos e com DCO). Os formatos da frente são os que o material atribui a ela; "dco" entra só quando o material pede anúncio dinâmico, no canal que o roda (nunca em OOH, Places, CTV ou áudio). "peso" é o percentual da verba da frente quando o material disser (60 e 40). Segmento AB, A ou BC descreve o recorte dos portais.
 - praca_detalhe é cidade/UF. O venue vai em "places", não misturado como texto solto.
 - cliente é o anunciante (marca que anuncia). Em briefing de agência, a palavra "cliente" do texto = anunciante.
@@ -553,6 +554,7 @@ def rewrite_from_plan(token: str) -> dict:
         "formatos": campanha.get("formatos") or dados.get("formatos") or {},
         "portais": campanha.get("portais") or dados.get("portais") or {},
         "taticas": campanha.get("taticas") or dados.get("taticas") or [],
+        "dados_primarios": campanha.get("dados_primarios") or dados.get("dados_primarios") or {},
         "inventario_ooh": campanha.get("inventario_ooh") or dados.get("inventario_ooh") or {},
         "mix": campanha.get("mix") or {},
         "anunciante_confidencial": as_bool(dados.get("anunciante_confidencial")),

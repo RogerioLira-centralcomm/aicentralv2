@@ -202,6 +202,47 @@
     }).filter(function (row) { return row.canais.length; });
   }
 
+  function collectDadosPrimarios() {
+    var desk = document.getElementById("sp-dados-desk");
+    if (!desk) return undefined;
+    var pick = function (name) {
+      return Array.prototype.slice.call(desk.querySelectorAll('input[name="' + name + '"]:checked')).map(function (el) { return el.value; });
+    };
+    var note = desk.querySelector('input[name="dp_observacao"]');
+    return { fontes: pick("dp_fonte"), usos: pick("dp_uso"), observacao: note ? note.value.trim() : "" };
+  }
+
+  // Avisos e travas dos dados primários: remarketing precisa de audiência, lookalike e exclusão de base própria.
+  function setupDadosDesk() {
+    var desk = document.getElementById("sp-dados-desk");
+    if (!desk) return;
+    var spec = readJson("sp-dados-spec", {});
+    var campaignOnly = spec.campaignOnly || ["interacoes"];
+    var note = document.getElementById("sp-dados-note");
+    function refresh() {
+      var data = collectDadosPrimarios();
+      var own = data.fontes.filter(function (key) { return campaignOnly.indexOf(key) === -1; });
+      desk.querySelectorAll('input[name="dp_uso"]').forEach(function (input) {
+        var blocked = !data.fontes.length || (!own.length && input.value !== "remarketing");
+        input.disabled = blocked;
+        if (blocked) input.checked = false;
+      });
+      data = collectDadosPrimarios();
+      var hasRemarketing = collectTaticas().some(function (row) { return row.tipo === "remarketing"; });
+      var warn = [];
+      if (hasRemarketing && !data.fontes.length) warn.push("A frente de remarketing precisa de uma audiência: marque de onde ela vem (pixel do site, CRM ou quem interagiu com a campanha).");
+      if (data.usos.indexOf("remarketing") !== -1 && !hasRemarketing) warn.push("Os dados vão para remarketing, mas o plano não tem a frente de remarketing nas táticas.");
+      if (data.fontes.length && !data.usos.length) warn.push("Diga para que os dados do cliente serão usados: remarketing, lookalike ou exclusão.");
+      if (!own.length && data.fontes.length) warn.push("Quem interagiu com a campanha só existe depois que ela roda: serve para remarketing, não para lookalike ou exclusão.");
+      if (note) note.textContent = warn.join(" ");
+    }
+    document.addEventListener("change", function (event) {
+      var name = event.target && event.target.name;
+      if (name && (name.indexOf("dp_") === 0 || name.indexOf("tatica_") === 0 || name === "canais")) refresh();
+    });
+    refresh();
+  }
+
   function setWaitMeta(eyebrow, title, copy) {
     var eye = document.getElementById("sp-wait-eyebrow");
     var heading = document.getElementById("sp-wait-title");
@@ -1235,6 +1276,7 @@
         method: selectedMethod(),
         alocacao: monthValues(),
         taticas: collectTaticas(),
+        dados_primarios: collectDadosPrimarios(),
         formatos: collectFormatos(),
         portais: collectPortais(),
         estimativa: collectMediaParams(),
@@ -1838,6 +1880,7 @@
         formatos: collectFormatos(),
         portais: collectPortais(),
         taticas: collectTaticas(),
+        dados_primarios: collectDadosPrimarios(),
         media_params: collectMediaParams(),
         verba_alocacao: monthValues(),
         campos: {
@@ -1866,6 +1909,8 @@
           formatos: collectFormatos(),
           portais: collectPortais(),
           taticas: collectTaticas(),
+          dados_primarios: collectDadosPrimarios(),
+        dados_primarios: collectDadosPrimarios(),
           anunciante_confidencial: data.get("anunciante_confidencial") === "1" || data.get("anunciante_confidencial") === "on",
         },
       };
@@ -1887,6 +1932,7 @@
     setupPlacesDesk();
     setupGeoModal();
     setupFormatsDesk();
+    setupDadosDesk();
     setupEstimativaDesk();
     setupReviewSections();
     setupCompleteness();

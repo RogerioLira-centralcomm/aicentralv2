@@ -408,6 +408,21 @@ def _impact(deck, data, view):
     return slide
 
 
+def _first_party(deck, data, view):
+    slide = deck.slide()
+    deck.kicker(slide, data)
+    deck.title(slide, data.get("title"), size=28)
+    blocks = [{"kicker": "O cliente fornece", "title": "", "body": [f"{text(as_dict(i).get('label'))}: {text(as_dict(i).get('hint'))}" for i in as_list(data.get("sources"))]}]
+    if as_list(data.get("uses")):
+        blocks.append({"kicker": "Como o plano usa", "title": "", "body": [
+            f"{text(as_dict(i).get('label'))}: {text(as_dict(i).get('hint'))}" + (f" · {text(as_dict(i).get('where'))}" if text(as_dict(i).get("where")) else "")
+            for i in as_list(data.get("uses"))]})
+    _columns(deck, slide, blocks, y=2.2, height=4.0)
+    if text(data.get("note")):
+        deck.text(slide, PAD, 6.35, W_IN - 2 * PAD, 0.4, data.get("note"), size=11, color=deck.muted)
+    return slide
+
+
 def _defense(deck, data, view):
     slide = deck.slide()
     deck.kicker(slide, data)
@@ -440,7 +455,7 @@ def _contact(deck, data, view):
 
 RENDERERS = {
     "thesis": _thesis, "context": _context, "audience": _audience, "creative": _creative,
-    "media": _media, "formats": _formats, "impact": _impact, "defense": _defense,
+    "media": _media, "formats": _formats, "first_party": _first_party, "impact": _impact, "defense": _defense,
     "market": _market, "contact": _contact,
 }
 

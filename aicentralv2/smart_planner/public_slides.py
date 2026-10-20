@@ -340,6 +340,28 @@ def _impact(view: dict) -> dict | None:
     }
 
 
+def _first_party(view: dict) -> dict | None:
+    """Dados do cliente: o que ele fornece e como cada uso entra no plano."""
+    data = as_dict(view.get("first_party"))
+    if not as_list(data.get("sources")):
+        return None
+    fronts = {text(as_dict(f).get("tipo")): text(as_dict(f).get("label")) for f in as_list(view.get("fronts"))}
+    uses = []
+    for use in as_list(data.get("uses")):
+        use = as_dict(use)
+        where = fronts.get("remarketing") if use.get("id") == "remarketing" else ""
+        uses.append({**use, "where": f"Frente de {where.lower()}" if where else ""})
+    return {
+        "type": "first_party",
+        "nav": "Dados do cliente",
+        "kicker": "Dados do cliente",
+        "title": "Os dados da marca trabalham junto com a mídia",
+        "sources": as_list(data.get("sources"))[:6],
+        "uses": uses[:3],
+        "note": clip(data.get("note"), 160),
+    }
+
+
 def _defense(view: dict) -> dict | None:
     groups = []
     for group in as_list(view.get("defense_groups")):
@@ -387,7 +409,7 @@ def _contact(view: dict) -> dict:
     }
 
 
-BUILDERS = (_cover, _thesis, _context, _audience, _creative, _media, _formats, _impact, _defense, _market, _contact)
+BUILDERS = (_cover, _thesis, _context, _audience, _creative, _media, _formats, _first_party, _impact, _defense, _market, _contact)
 
 
 def _notes(slide: dict, view: dict) -> list[str]:

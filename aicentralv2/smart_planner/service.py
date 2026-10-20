@@ -55,6 +55,7 @@ from .materials import normalize_references
 from .snapshot import build_snapshot
 from .portais import facets as portais_facets
 from .taticas import problems as taticas_problems
+from . import dados_primarios as dados_primarios_mod
 from .processor import suggest_campaign_name
 from .pace import (
     allocate_months,
@@ -213,6 +214,7 @@ def wizard_context(row: dict, step_id: str) -> dict:
         "anunciante_confidencial": as_bool(dados.get("anunciante_confidencial")),
         "places": campanha.get("places") or dados.get("places") or [],
         "taticas": campanha.get("taticas") or dados.get("taticas") or [],
+        "dados_primarios": dados_primarios_mod.normalize(campanha.get("dados_primarios") or dados.get("dados_primarios")),
         "formatos": campanha.get("formatos") or dados.get("formatos") or {},
         "portais": campanha.get("portais") or dados.get("portais") or {},
     }
@@ -365,6 +367,8 @@ def wizard_context(row: dict, step_id: str) -> dict:
         "places_catalog": planner_place_catalog(),
         "kpi_suggestions": group_kpis_for(campos.get("canais")),
         "taticas_avisos": taticas_problems(as_list(campos.get("taticas")), campos.get("canais")),
+        "dados_primarios_avisos": dados_primarios_mod.problems(as_dict(campos.get("dados_primarios")), as_list(campos.get("taticas"))),
+        "dados_primarios_spec": dados_primarios_mod.spec_for_js(),
         "portais_facets": portais_facets(),
         "estimativa": estimate_panel(row, dados),
     }
@@ -456,6 +460,10 @@ def persist_review(token: str, payload: dict) -> dict:
         campos["media_params"] = reviewed_media_params(payload["media_params"])
     if "taticas" in payload or "taticas" in campos:
         campos["taticas"] = payload.get("taticas") if payload.get("taticas") is not None else campos.get("taticas")
+    if "dados_primarios" in payload or "dados_primarios" in campos:
+        campos["dados_primarios"] = dados_primarios_mod.normalize(
+            payload.get("dados_primarios") if payload.get("dados_primarios") is not None else campos.get("dados_primarios")
+        )
     campos = apply_review_defaults(apply_places_to_campos(campos, lock_channel=True))
     review_budget = campaign_verba({
         "verba": campos.get("verba"),
@@ -583,6 +591,9 @@ def persist_canais(token: str, payload: dict) -> dict:
         "formatos": payload.get("formatos") if "formatos" in payload else existing.get("formatos") or {},
         "portais": payload.get("portais") if "portais" in payload else existing.get("portais") or {},
         "taticas": payload.get("taticas") if "taticas" in payload else existing.get("taticas") or [],
+        "dados_primarios": dados_primarios_mod.normalize(
+            payload.get("dados_primarios") if "dados_primarios" in payload else existing.get("dados_primarios")
+        ),
     }
     campos = apply_review_defaults(apply_places_to_campos(campos, lock_channel=True))
     if mix is not None:

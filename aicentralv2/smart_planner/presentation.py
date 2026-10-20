@@ -175,9 +175,67 @@ def colors_from_image(data_url: str, count: int = 5) -> list[str]:
     if not header.startswith("data:image/") or not encoded:
         return []
     try:
+        raw = base64.b64decode(encoded, validate=True)
+    except Exception:
+        return []
+    return colors_from_bytes(raw, count, svg="svg" in header)
+
+
+_URL_COLORS: dict[str, list[str]] = {}
+
+
+def _logo_bytes(url: str) -> tuple[bytes, bool]:
+    """Bytes da logo já cadastrada: arquivo do próprio app ou URL pública do CRM (até 3 MB)."""
+    import os
+
+    value = text(url)
+    is_svg = value.lower().split("?", 1)[0].endswith(".svg")
+    if value.startswith("/static/"):
+        from flask import current_app, has_app_context
+
+        folder = current_app.static_folder if has_app_context() else os.path.join(os.path.dirname(__file__), "..", "static")
+        root = os.path.abspath(folder or "")
+        path = os.path.abspath(os.path.join(root, value[len("/static/"):].split("?", 1)[0]))
+        if path.startswith(root) and os.path.isfile(path):
+            with open(path, "rb") as handle:
+                return handle.read(3_000_000), is_svg
+        return b"", False
+    if value.startswith(("http://", "https://")):
+        import requests
+
+        with requests.get(value, timeout=6, stream=True, headers={"User-Agent": "CentralX Smart Planner"}) as response:
+            kind = (response.headers.get("Content-Type") or "").lower()
+            if response.status_code != 200 or not kind.startswith("image/"):
+                return b"", False
+            raw = response.raw.read(3_000_001, decode_content=True)
+            if len(raw) > 3_000_000:
+                return b"", False
+            return raw, is_svg or "svg" in kind
+    return b"", False
+
+
+def colors_from_url(url: str, count: int = 5) -> list[str]:
+    """Cores da logo que a marca já tem (CRM ou Workspace), sem pedir o arquivo de novo."""
+    key = text(url)
+    if not key:
+        return []
+    if key not in _URL_COLORS:
+        try:
+            raw, is_svg = _logo_bytes(key)
+            _URL_COLORS[key] = colors_from_bytes(raw, count, svg=is_svg) if raw else []
+        except Exception:
+            _URL_COLORS[key] = []
+    return list(_URL_COLORS[key])
+
+
+def colors_from_bytes(raw: bytes, count: int = 5, svg: bool = False) -> list[str]:
+    try:
         from PIL import Image
 
-        raw = base64.b64decode(encoded, validate=True)
+        if svg:
+            import cairosvg
+
+            raw = cairosvg.svg2png(bytestring=raw, output_width=320)
         image = Image.open(io.BytesIO(raw)).convert("RGBA")
         image.thumbnail((160, 160))
         pixels = [
@@ -313,10 +371,18 @@ def editor_panel(row: dict) -> dict:
     # Marca só com logo (sem paleta) também pode ser completada aqui.
     have = {option["id"] for option in options if option.get("has_palette", True)}
     missing = []
-    if agency.get("id") and "agencia" not in have:
-        missing.append({"alvo": "agencia", "name": text(agency.get("name"))})
-    if client.get("id") and "cliente" not in have:
-        missing.append({"alvo": "cliente", "name": text(client.get("name"))})
+    by_id = {option["id"]: option for option in options}
+    for alvo, party in (("agencia", agency), ("cliente", client)):
+        if not party.get("id") or alvo in have:
+            continue
+        # A marca já tem logo (CRM ou Workspace): as cores saem dela e o executivo só confere.
+        logo = text(as_dict(by_id.get(alvo)).get("logo"))
+        missing.append({
+            "alvo": alvo,
+            "name": text(party.get("name")),
+            "logo": logo,
+            "colors": colors_from_url(logo)[:4] if logo else [],
+        })
     return {
         "options": [
             {
@@ -463,11 +529,12 @@ def save_party_template(row: dict, alvo: str, logo_data: str = "", colors: list[
                 brand_id = current["id"]
             else:
                 cur.execute(
-                    """INSERT INTO cx_clients (crm_client_id, name, logo_upload_path, primary_color,
+                    """INSERT INTO cx_clients (crm_client_id, name, logo_upload_path, logo_url, primary_color,
                                                secondary_color, brand_profile, analysis_metadata, price_policy)
-                       VALUES (%s, %s, NULLIF(%s, ''), %s, %s, %s, %s, 'hide_price')
+                       VALUES (%s, %s, NULLIF(%s, ''), NULLIF(%s, ''), %s, %s, %s, %s, 'hide_price')
                        RETURNING id""",
                     (crm_id, text(party.get("name")) or "Marca", logo_path,
+                     text(party.get("logo_url")) if text(party.get("logo_url")).startswith(("http://", "https://")) and not logo_path else "",
                      palette[0] if palette else None, palette[1] if len(palette) > 1 else None,
                      Json({"color_palette": _palette_records(palette)}),
                      Json({"source_types": ["smart_planner_template"]})),

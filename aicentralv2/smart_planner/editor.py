@@ -266,6 +266,62 @@ def _brand_panel(dados: dict, folha: dict) -> dict:
     }
 
 
+def _channel_formats(dados: dict, media: dict) -> list[dict]:
+    """Formatos escolhidos por canal (revisão e táticas), com o tipo de cada um.
+
+    O catálogo de cada canal define o que ele aceita: interativos só existem na Rede de portais.
+    """
+    from . import formats as format_catalog
+    from .catalog import CHANNEL_CATALOG
+    from .taticas import family_label, family_of, formats_for_channel, normalize_taticas
+
+    try:
+        campanha = format_catalog.migrate_campanha(as_dict(dados.get("campanha")))
+        canais = [text(c) for c in as_list(campanha.get("canais"))]
+        taticas = normalize_taticas(campanha.get("taticas") or dados.get("taticas"), canais)
+        chosen = as_dict(campanha.get("formatos"))
+        labels = {text(as_dict(c).get("id")): text(as_dict(c).get("label")) for c in as_list(media.get("channels"))}
+        out = []
+        for key in canais:
+            slugs = list(dict.fromkeys([text(s) for s in as_list(chosen.get(key))] + formats_for_channel(key, taticas)))
+            catalog = format_catalog.formats_for_channel(key)
+            items = []
+            for slug in slugs:
+                row = format_catalog.by_id(slug)
+                family = family_of(slug)
+                items.append({
+                    "name": text(row.get("name")) or slug,
+                    "type": family_label(family) if family else "",
+                    "aggregated": bool(row.get("aggregated_cost")),
+                })
+            out.append({
+                "id": key,
+                "label": labels.get(key) or text(as_dict(CHANNEL_CATALOG.get(key)).get("label")) or key,
+                "formats": items,
+                "available": len(catalog),
+                "interactive": any(row.get("interactive") for row in catalog),
+            })
+        return out
+    except Exception:
+        logger.exception("Falha ao montar os formatos por canal do editor")
+        return []
+
+
+def _media_for_editor(media: dict) -> dict:
+    """Altura de cada barra do voo (semana ou mês) pela verba do período; o board só guarda o valor."""
+    media = dict(media)
+    pace = dict(as_dict(media.get("pace")))
+    months = [dict(as_dict(m)) for m in as_list(pace.get("months"))]
+    peak = max((int(m.get("amount") or 0) for m in months), default=0)
+    for month in months:
+        amount = int(month.get("amount") or 0)
+        month["pct"] = round(amount * 100 / peak) if peak and amount else 0
+    if months:
+        pace["months"] = months
+        media["pace"] = pace
+    return media
+
+
 def _presentation_panel(row: dict, dados: dict, folha: dict) -> dict:
     """Seletor de modelo de apresentação (logo e paleta) e links de exportação."""
     from . import presentation
@@ -304,9 +360,10 @@ def editor_context(row: dict, share_url: str = "") -> dict:
         "gallery": gallery,
         "brand_panel": brand_panel,
         "presentation": presentation,
+        "channel_formats": _channel_formats(dados, as_dict(folha.get("media"))),
         "folha_checks": _folha_checklist(folha, cards, gallery, brand_panel),
         "completo_checks": _completo_checklist(row, dados, url, token),
-        "media": as_dict(folha.get("media")),
+        "media": _media_for_editor(as_dict(folha.get("media"))),
         "theme": as_dict(folha.get("theme")),
         "meta": as_dict(folha.get("meta")),
         "public_design": as_dict(folha.get("public_design")),

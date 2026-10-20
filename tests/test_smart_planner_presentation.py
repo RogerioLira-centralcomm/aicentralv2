@@ -166,3 +166,29 @@ def test_save_never_overwrites_an_analyzed_brand(monkeypatch):
     monkeypatch.setattr(presentation, "_save_logo", lambda data: pytest.fail("não deveria gravar logo"))
     with pytest.raises(ValueError):
         presentation.save_party_template({}, "cliente", "data:image/png;base64,AAAA", ["#000000"])
+
+
+def test_existing_agency_logo_prefills_colors_instead_of_asking_for_upload(monkeypatch):
+    monkeypatch.setattr(presentation, "plan_parties", lambda row: {
+        "client": {}, "agency": {"id": 20, "name": "Binder", "logo_url": "/static/binder.png", "brand": {}}})
+    monkeypatch.setattr(presentation, "colors_from_url", lambda url: ["#111111", "#C8102E"])
+    panel = presentation.editor_panel(_row())
+    item = next(m for m in panel["missing"] if m["alvo"] == "agencia")
+    assert item["logo"] == "/static/binder.png" and item["colors"] == ["#111111", "#C8102E"]
+
+
+def test_editor_flight_bars_get_height_from_amount():
+    from aicentralv2.smart_planner.editor import _media_for_editor
+
+    media = _media_for_editor({"pace": {"months": [{"label": "S1", "amount": 50}, {"label": "S2", "amount": 100}, {"label": "S3"}]}})
+    assert [m["pct"] for m in media["pace"]["months"]] == [50, 100, 0]
+
+
+def test_editor_lists_formats_per_channel_from_review_and_taticas():
+    from aicentralv2.smart_planner.editor import _channel_formats
+
+    rows = _channel_formats({"campanha": {"canais": ["netflix", "dv360"], "formatos": {"dv360": ["interativo-hotspots-shop-the-look"]}}}, {"channels": [{"id": "netflix", "label": "Netflix"}]})
+    by_id = {row["id"]: row for row in rows}
+    assert by_id["netflix"]["formats"] == []  # sem escolha: o editor mostra quantos o catálogo oferece
+    assert by_id["dv360"]["label"] == "Rede de portais e sites"
+    assert by_id["dv360"]["formats"][0]["type"] == "Interativo" and by_id["dv360"]["formats"][0]["aggregated"]

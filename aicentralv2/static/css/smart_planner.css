@@ -6381,3 +6381,19 @@ html.is-sp-media body {
 /* Dados primários do cliente (revisão) */
 .sp-dados-obs { display: grid; gap: 0.25rem; margin-top: 0.5rem; font-size: 0.75rem; color: var(--hi-fog); }
 .sp-dados-desk input[type="checkbox"]:disabled + * , .sp-dados-desk label:has(input:disabled) { opacity: 0.5; }
+
+.sp-cal-mini small { color: var(--hi-fog); font-size: 0.62rem; white-space: nowrap; }
+
+/* Formatos por canal no editor */
+.sp-channel-formats { margin: 0.75rem 0; padding-top: 0.6rem; border-top: 1px solid var(--hi-line); }
+.sp-channel-formats > p { margin: 0 0 0.4rem; color: var(--hi-fog); font-size: 0.75rem; }
+.sp-channel-formats__row { display: grid; gap: 0.3rem; margin-bottom: 0.55rem; }
+.sp-channel-formats__row strong { font-size: 0.82rem; }
+.sp-channel-formats__row ul { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0; padding: 0; list-style: none; }
+.sp-channel-formats__row li { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.55rem; border: 1px solid var(--hi-line); border-radius: 999px; background: #fff; font-size: 0.74rem; }
+.sp-channel-formats__row li small { color: var(--hi-fog); font-size: 0.66rem; }
+.sp-channel-formats__row li.is-agg { border-color: #e2b23a; background: #fff8e6; }
+.sp-channel-formats__row em { color: var(--hi-fog); font-size: 0.74rem; }
+.sp-channel-formats__note { color: var(--hi-fog); font-size: 0.7rem; }
+.sp-template-current { display: flex; align-items: center; gap: 12px; margin: 10px 0 4px; }
+.sp-template-current .sp-acc-note { margin: 0; }

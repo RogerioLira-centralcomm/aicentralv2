@@ -67,16 +67,7 @@
         </div>
       </section>
 
-      <section class="sp-upgrade-bar" aria-label="Evoluir para plano completo">
-        <div class="sp-upgrade-current">
-          <strong>Precisa detalhar a operação?</strong>
-          <small>Transforme esta decisão em plano completo quando a estratégia estiver aprovada.</small>
-        </div>
-        <div class="sp-upgrade-action">
-          <small id="sp-upgrade-status" aria-live="polite">Aprofunde quando precisar da operação.</small>
-          <button type="button" class="cx-btn cx-btn-primary cx-btn-sm" id="sp-upgrade-completo">Transformar em plano completo</button>
-        </div>
-      </section>
+      {# O plano de página única é o que está em uso; o plano completo saiu da tela de edição. #}
 
       <form id="sp-folha-form" class="sp-review sp-editor-workspace" data-folha="1">
         <details class="sp-acc" data-acc="strategy" id="sp-acc-strategy" open>
@@ -200,14 +191,33 @@
               <ol>
                 {% for month in pace.months %}
                 <li>
-                  <b style="--pct: {{ month.pct or 0 }}"></b>
+                  <b style="--pct: {{ month.pct or 0 }}" title="{{ month.amount_label }}"></b>
                   <span>{{ month.label or month.id }}</span>
+                  {% if month.amount_label %}<small>{{ month.amount_label }}</small>{% endif %}
                 </li>
                 {% endfor %}
               </ol>
             </div>
             {% endif %}
-            <p class="sp-acc-note">Para rebalancear canais e verba, volte à revisão do briefing.</p>
+            {% if channel_formats %}
+            <div class="sp-channel-formats" aria-label="Formatos por canal">
+              <p>Formatos por canal</p>
+              {% for ch in channel_formats %}
+              <div class="sp-channel-formats__row">
+                <strong>{{ ch.label }}</strong>
+                {% if ch.formats %}
+                <ul>{% for fmt in ch.formats %}<li{% if fmt.aggregated %} class="is-agg" title="Custo agregado na proposta"{% endif %}>{{ fmt.name }}{% if fmt.type %}<small>{{ fmt.type }}</small>{% endif %}</li>{% endfor %}</ul>
+                {% elif ch.available %}
+                <em>Nenhum formato escolhido. {{ ch.available }} no catálogo do canal{% if ch.interactive %}, incluindo interativos{% endif %}.</em>
+                {% else %}
+                <em>Canal sem catálogo de formatos.</em>
+                {% endif %}
+              </div>
+              {% endfor %}
+              <small class="sp-channel-formats__note">Interativos só rodam na Rede de portais e sites. Escolha ou troque formatos na revisão, em Balancear mídia.</small>
+            </div>
+            {% endif %}
+            <p class="sp-acc-note">Para rebalancear canais, verba e formatos, volte à revisão do briefing.</p>
             <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ url_for('smart_planner.revisao', token=token) }}">Abrir revisão</a>
             {% else %}
             <p class="sp-acc-note">Ainda sem mix nesta folha. Gere de novo ou ajuste na revisão.</p>
@@ -312,12 +322,21 @@
               <p class="sp-template-status" data-template-status role="status"></p>
             </fieldset>
             {% for item in pres.missing or [] %}
-            <details class="sp-template-build" data-template-build="{{ item.alvo }}">
-              <summary>Montar modelo {{ 'da agência' if item.alvo == 'agencia' else 'do cliente' }} {{ item.name }}</summary>
-              <p class="sp-acc-note">Envie a logo: as cores saem dela e você ajusta. Fica salvo na marca {{ 'da agência' if item.alvo == 'agencia' else 'do cliente' }} e passa a valer para todos os planos.</p>
-              <label class="sp-template-file"><span>Logo (PNG, JPG ou WEBP)</span><input type="file" accept="image/png,image/jpeg,image/webp" data-template-logo></label>
+            {% set who = 'da agência' if item.alvo == 'agencia' else 'do cliente' %}
+            <details class="sp-template-build" data-template-build="{{ item.alvo }}"{% if item.logo %} open{% endif %}>
+              <summary>{% if item.logo %}Completar cores {{ who }} {{ item.name }}{% else %}Montar modelo {{ who }} {{ item.name }}{% endif %}</summary>
+              {% if item.logo %}
+              <div class="sp-template-current">
+                <span class="sp-template-logo"><img src="{{ item.logo }}" alt="" onerror="this.remove()"></span>
+                <p class="sp-acc-note">{% if item.colors %}As cores abaixo saíram da logo {{ who }}. Confira e salve: o modelo passa a valer para todos os planos.{% else %}A logo {{ who }} já está cadastrada. Escolha as cores da marca e salve: o modelo passa a valer para todos os planos.{% endif %}</p>
+              </div>
+              {% else %}
+              <p class="sp-acc-note">Envie a logo: as cores saem dela e você ajusta. Fica salvo na marca {{ who }} e passa a valer para todos os planos.</p>
+              {% endif %}
+              <label class="sp-template-file"><span>{% if item.logo %}Trocar logo (opcional){% else %}Logo (PNG, JPG ou WEBP){% endif %}</span><input type="file" accept="image/png,image/jpeg,image/webp" data-template-logo></label>
+              {% set defaults = ['#0b6b52','#f0b000','#10252d','#7fa9a0'] %}
               <div class="sp-template-colors" data-template-colors>
-                {% for index in range(4) %}<input type="color" value="{{ ['#0b6b52','#f0b000','#10252d','#7fa9a0'][index] }}" aria-label="Cor {{ index + 1 }}">{% endfor %}
+                {% for index in range(4) %}<input type="color" value="{{ (item.colors[index] if item.colors and index < item.colors|length else defaults[index])|lower }}" aria-label="Cor {{ index + 1 }}">{% endfor %}
               </div>
               <button type="button" class="cx-btn cx-btn-primary cx-btn-sm" data-template-save>Salvar modelo</button>
             </details>
@@ -390,5 +409,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}?v=10"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}?v=11"></script>
 {% endblock %}

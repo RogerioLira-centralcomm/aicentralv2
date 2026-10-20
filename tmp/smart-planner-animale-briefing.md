@@ -25,20 +25,21 @@ Restrições: nada de desconto agressivo no discurso (marca premium), sem concor
 | Campo | Valor esperado |
 | --- | --- |
 | Cliente | Animale |
-| Agência | (vazio ou a da conta) |
 | Objetivo | Consideração |
 | Verba / período | R$ 400.000 · 3 meses |
 | Praça | São Paulo, Rio de Janeiro, Belo Horizonte |
-| Canais | Portais de segmentação AB + Interativos + Rede de portais e sites (remarketing DCO) |
-| Interativos | Hotspot e Cartas (exatamente 2) |
-| Mix | ~60% Interativos/portais · ~40% remarketing |
+| Canal | Rede de portais e sites (G1, UOL e demais são sites da rede, não canais) |
+| Rede de portais | Recorte: classes AB, Sudeste, categorias de moda/lifestyle e economia |
+| Frente Impacto (60%) | Formatos interativos: Hotspots (Shop the Look) e Cards, com custo agregado |
+| Frente Remarketing (40%) | DCO + display IAB (Billboard 970x250 e Medium Rectangle 300x250) |
 | KPIs | Interação dos interativos, CTR, visitas qualificadas, retorno do remarketing |
+| Estimativa | Taxas sugeridas pelo modelo e revisadas pelo executivo; indicador do cliente quando houver |
 
 ## O que o plano gerado precisa mostrar
 
-1. Os dois formatos (Hotspot e Cartas) e só eles, ligados ao portal.
-2. O recorte AB como critério de seleção dos portais, sem inventar lista de sites nem audiência.
-3. Duas táticas distintas: impacto (interativos) e remarketing (DCO), cada uma com papel, público e formato.
+1. Um canal (Rede de portais e sites) com duas frentes e o peso de cada uma (60% e 40%).
+2. Os formatos de cada frente, vindos do catálogo: Hotspots e Cards (interativos, custo agregado) e os display IAB do remarketing.
+3. O recorte AB como critério de seleção dos portais, com a quantidade de sites do recorte e uma lista curta dos maiores, sem inventar nome nem audiência.
 4. DCO descrito como anúncio dinâmico por horário, geolocalização, estoque, condicionais e segmentação, sem inventar dados.
-5. O criativo da página única no canal de maior peso (interativos em portais).
-6. Estimativa de impacto (CPM, CPC, alcance) marcada como estimativa do modelo ou revisada pelo executivo, nunca como promessa.
+5. O criativo da página única no canal e no formato da frente de impacto (Hotspots).
+6. Estimativa de impacto (CPM, CPC, CTR, impressões, cliques) marcada como referência em validação ou revisada pelo executivo, nunca como promessa; indicador do cliente comparado com a estimativa.

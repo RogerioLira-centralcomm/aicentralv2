@@ -25,6 +25,10 @@ BEGIN
                 TRUE, 'site');
     END IF;
     RETURN NULL;
+EXCEPTION WHEN OTHERS THEN
+    -- Completar é conveniência: nunca pode derrubar a entrada do lead que veio do site.
+    RAISE WARNING 'cadu_leads_site_completar (lead %): %', NEW.id, SQLERRM;
+    RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
 

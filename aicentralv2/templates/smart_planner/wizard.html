@@ -4,7 +4,7 @@
 {% block title %}{{ steps[step_index].title }} · Planejamentos{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=60">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=61">
 {% endblock %}
 
 {% block content %}
@@ -633,11 +633,28 @@
               <div id="sp-taticas-list"></div>
               <p class="sp-taticas-note" id="sp-taticas-note" role="status" aria-live="polite">{{ (taticas_avisos or [])|join(' ') }}</p>
             </div>
+            <div class="sp-estimativa-desk" id="sp-estimativa-desk" hidden>
+              <h3>Estimativa de impacto</h3>
+              <p>O modelo sugere CPM, CPC, CTR e frequência por canal e você revisa. O sistema calcula impressões, alcance e cliques, e a proposta mostra se a estimativa é do modelo ou revisada por você.</p>
+              <div class="sp-estimativa-actions">
+                <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-estimativa-gerar">Estimar com o modelo</button>
+                <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-estimativa-calcular">Recalcular</button>
+                <label class="sp-estimativa-review"><input type="checkbox" id="sp-estimativa-revisado"> Revisado pelo executivo</label>
+              </div>
+              <div id="sp-estimativa-rows"></div>
+              <div class="sp-estimativa-indicador">
+                <label>Indicador do cliente <select class="cx-input" id="sp-estimativa-metrica"></select></label>
+                <label>Meta <input class="cx-input" id="sp-estimativa-meta" type="text" inputmode="decimal" placeholder="valor"></label>
+              </div>
+              <p class="sp-estimativa-status" id="sp-estimativa-status" role="status" aria-live="polite"></p>
+              <div class="sp-estimativa-result" id="sp-estimativa-result"></div>
+            </div>
             <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-mix-more-btn" hidden>Ver mais canais</button>
             <script type="application/json" id="sp-places-boot">{{ (campos.places or [])|tojson }}</script>
             <script type="application/json" id="sp-places-catalog">{{ (places_catalog or [])|tojson }}</script>
             <script type="application/json" id="sp-formatos-boot">{{ (campos.formatos or {})|tojson }}</script>
             <script type="application/json" id="sp-portais-boot">{{ (campos.portais or {})|tojson }}</script>
+            <script type="application/json" id="sp-estimativa-boot">{{ (estimativa or {})|tojson }}</script>
             <script type="application/json" id="sp-portais-facets">{{ (portais_facets or {})|tojson }}</script>
             <script type="application/json" id="sp-taticas-boot">{{ (campos.taticas or [])|tojson }}</script>
           </section>
@@ -925,6 +942,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=37"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=38"></script>
 <script src="{{ url_for('static', filename='js/smart_planner/guide.js') }}?v=3"></script>
 {% endblock %}

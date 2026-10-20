@@ -504,6 +504,43 @@ def api_canais(token):
         return _error("Não foi possível salvar canais e verba.", 500)
 
 
+@bp.route("/api/<token>/estimativa", methods=["POST"])
+@centralcomm_required_api
+def api_estimativa(token):
+    """Sugere as taxas de mídia com o modelo (quando pedido) e devolve a estimativa calculada.
+
+    O executivo revisa o resultado na tela e salva junto com a revisão; nada é gravado aqui.
+    """
+    try:
+        row = load_owned(token)
+        payload = request.get_json(silent=True) or {}
+        from .cost import bound_session
+        from .estimates import calculate_estimates, params_key, suggest_media_params
+        from .snapshot import build_snapshot
+        from .service import reviewed_media_params
+
+        dados = as_dict(row.get("dados_detectados"))
+        snapshot = build_snapshot(row, dados)
+        current = payload.get("media_params") if isinstance(payload.get("media_params"), dict) else dados.get("media_params")
+        if payload.get("generate", True):
+            with bound_session(token):
+                params = suggest_media_params(snapshot, current, force=bool(payload.get("force")))
+            params["chave"] = params_key(snapshot)
+        else:
+            params = reviewed_media_params(as_dict(current))
+        return _ok({
+            "media_params": params,
+            "estimates": calculate_estimates({**snapshot, "media_params": params}),
+        })
+    except SessionNotFound as exc:
+        return _error(exc, 404)
+    except OpenRouterError as exc:
+        return _error(exc, 422)
+    except Exception:
+        logger.exception("Falha ao estimar impacto")
+        return _error("Não foi possível calcular a estimativa.", 500)
+
+
 @bp.route("/api/<token>/ritmo", methods=["POST"])
 @centralcomm_required_api
 def api_ritmo(token):

@@ -113,6 +113,29 @@
   var taticasDraft = null;
   var formatosDraft = null;
   var portaisDraft = null;
+  var estimativaDraft = null;
+  var collectReviewRef = null; // preenchido pelo setupMixDesk: a revisão inteira, para salvar antes de estimar
+
+  function collectMediaParams() {
+    // Sem a seção na página (ou ainda sem estado), não manda nada: o servidor mantém o que está salvo.
+    if (estimativaDraft === null || !document.getElementById("sp-estimativa-desk")) return undefined;
+    var canais = selectedCanaisNow();
+    var out = {};
+    Object.keys(estimativaDraft.canais || {}).forEach(function (key) {
+      if (canais.indexOf(key) !== -1) out[key] = estimativaDraft.canais[key];
+    });
+    var metric = (document.getElementById("sp-estimativa-metrica") || {}).value || "";
+    var meta = parseFloat(String((document.getElementById("sp-estimativa-meta") || {}).value || "").replace(/\./g, "").replace(",", "."));
+    var review = document.getElementById("sp-estimativa-revisado");
+    return {
+      canais: out,
+      indicador: metric ? { metrica: metric, meta: meta > 0 ? meta : null, origem: "executivo" } : {},
+      revisado: !!(review && review.checked),
+      revisado_em: estimativaDraft.revisado_em || "",
+      premissas: estimativaDraft.premissas || [],
+      chave: estimativaDraft.chave || "",
+    };
+  }
 
   function selectedCanaisNow() {
     return Array.prototype.slice.call(document.querySelectorAll('#sp-mix-channels input[name="canais"]:checked')).map(function (el) {
@@ -1213,6 +1236,7 @@
         taticas: collectTaticas(),
         formatos: collectFormatos(),
         portais: collectPortais(),
+        estimativa: collectMediaParams(),
       });
     }
     function restoreMediaSnapshot(raw) {
@@ -1227,6 +1251,7 @@
         taticasDraft = taticasFromRows(snap.taticas || []);
         formatosDraft = JSON.parse(JSON.stringify(snap.formatos || {}));
         portaisDraft = JSON.parse(JSON.stringify(snap.portais || {}));
+        if (snap.estimativa) estimativaDraft = JSON.parse(JSON.stringify(snap.estimativa));
         document.dispatchEvent(new Event("sp-formats-render"));
         if (snap.method) setMethod(snap.method);
         paintBars(allocate(
@@ -1812,6 +1837,7 @@
         formatos: collectFormatos(),
         portais: collectPortais(),
         taticas: collectTaticas(),
+        media_params: collectMediaParams(),
         verba_alocacao: monthValues(),
         campos: {
           campanha: data.get("campanha"),
@@ -1844,6 +1870,7 @@
       };
     }
 
+    collectReviewRef = collectReview;
     form.addEventListener("submit", async function (event) {
       event.preventDefault();
       try {
@@ -1859,6 +1886,7 @@
     setupPlacesDesk();
     setupGeoModal();
     setupFormatsDesk();
+    setupEstimativaDesk();
     setupReviewSections();
     setupCompleteness();
     setupReviewAutosave(collectReview);
@@ -2587,6 +2615,143 @@
     });
     document.addEventListener("sp-formats-render", renderAll);
     renderAll();
+  }
+
+  function setupEstimativaDesk() {
+    var desk = document.getElementById("sp-estimativa-desk");
+    if (!desk) return;
+    var rowsBox = document.getElementById("sp-estimativa-rows");
+    var statusEl = document.getElementById("sp-estimativa-status");
+    var resultEl = document.getElementById("sp-estimativa-result");
+    var metricEl = document.getElementById("sp-estimativa-metrica");
+    var metaEl = document.getElementById("sp-estimativa-meta");
+    var reviewEl = document.getElementById("sp-estimativa-revisado");
+    var boot = readJson("sp-estimativa-boot", {});
+    var spec = readJson("sp-mix-spec", {});
+    var groups = spec.groups || {};
+    var skip = ["ooh", "places"];
+    var RATES = [["cpm", "CPM (R$)"], ["cpc", "CPC (R$)"], ["ctr", "CTR (%)"], ["frequencia", "Freq."]];
+    var labelsBoot = {};
+    (boot.channels || []).forEach(function (item) { labelsBoot[item.id] = item; });
+    var seed = boot.params || {};
+    estimativaDraft = {
+      canais: JSON.parse(JSON.stringify(seed.canais || {})),
+      indicador: seed.indicador || {},
+      revisado: !!seed.revisado,
+      revisado_em: seed.revisado_em || "",
+      premissas: seed.premissas || [],
+      chave: seed.chave || "",
+    };
+    var lastEstimates = boot.estimates || null;
+    var ptBR = new Intl.NumberFormat("pt-BR");
+
+    function brl(value) { return "R$ " + Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function count(value) {
+      var n = Number(value) || 0;
+      if (n >= 1e6) return (n / 1e6).toFixed(1).replace(".", ",").replace(",0", "") + " mi";
+      if (n >= 1e3) return ptBR.format(Math.round(n / 1e3)) + " mil";
+      return String(Math.round(n));
+    }
+    function labelOf(key) {
+      var box = document.querySelector('#sp-mix-channels input[name="canais"][value="' + key + '"]');
+      var name = box && box.closest("label") && box.closest("label").querySelector("span:last-child");
+      return (name && name.textContent.replace("em formatação", "").trim()) || (labelsBoot[key] || {}).label || (spec.labels || {})[key] || key;
+    }
+    function setStatus(text, error) {
+      if (!statusEl) return;
+      statusEl.textContent = text || "";
+      statusEl.classList.toggle("is-error", !!error);
+    }
+    function render() {
+      var canais = selectedCanaisNow().filter(function (key) { return (spec.media || []).indexOf(key) !== -1 && skip.indexOf(groups[key] || "") === -1; });
+      desk.hidden = !canais.length;
+      if (desk.hidden) return;
+      rowsBox.innerHTML = '<div class="sp-estimativa-row is-head"><span>Canal</span>' + RATES.map(function (r) { return "<span>" + r[1] + "</span>"; }).join("") + "<span>Origem</span></div>"
+        + canais.map(function (key) {
+          var rates = estimativaDraft.canais[key] || {};
+          return '<div class="sp-estimativa-row" data-canal="' + key + '"><strong>' + escapeHtml(labelOf(key)) + ((labelsBoot[key] || {}).amount_label ? "<small>" + escapeHtml(labelsBoot[key].amount_label) + "</small>" : "") + "</strong>"
+            + RATES.map(function (r) {
+              return '<input class="cx-input" type="text" inputmode="decimal" data-rate="' + r[0] + '" value="' + (rates[r[0]] != null ? String(rates[r[0]]).replace(".", ",") : "") + '" aria-label="' + r[1] + " de " + escapeHtml(labelOf(key)) + '">';
+            }).join("") + '<em class="sp-estimativa-origem is-' + (rates.origem === "modelo" ? "modelo" : "voce") + '">' + (rates.origem === "modelo" ? "Modelo" : (Object.keys(rates).length ? "Você" : "—")) + "</em></div>";
+        }).join("");
+      if (metricEl && !metricEl.options.length) {
+        metricEl.innerHTML = '<option value="">Sem indicador</option>' + (boot.indicators || []).map(function (item) { return '<option value="' + item.id + '">' + escapeHtml(item.label) + "</option>"; }).join("");
+        metricEl.value = (estimativaDraft.indicador || {}).metrica || "";
+        if (metaEl && (estimativaDraft.indicador || {}).meta) metaEl.value = String(estimativaDraft.indicador.meta).replace(".", ",");
+      }
+      if (reviewEl) reviewEl.checked = !!estimativaDraft.revisado;
+      renderResult();
+    }
+    function renderResult() {
+      if (!resultEl) return;
+      var data = lastEstimates;
+      if (!data || data.status !== "available") { resultEl.innerHTML = ""; return; }
+      var totals = data.totals || {};
+      var parts = [];
+      if (totals.impressions) parts.push(count(totals.impressions) + " impressões");
+      if (totals.clicks) parts.push(count(totals.clicks) + " cliques");
+      if (totals.cpm) parts.push("CPM médio " + brl(totals.cpm));
+      var line = '<strong>' + (data.reviewed ? "Estimativa revisada" : "Estimativa do modelo, a validar") + "</strong> · " + parts.join(" · ");
+      var ind = data.indicator || {};
+      if (ind.metrica) {
+        var fmt = function (v) { return v == null ? "—" : (ind.unidade === "brl" ? brl(v) : (ind.unidade === "pct" ? String(v).replace(".", ",") + "%" : count(v))); };
+        var verdict = { dentro: "dentro da meta", acima: "acima da meta", abaixo: "abaixo da meta", sem_meta: "sem meta", sem_estimativa: "sem estimativa" }[ind.status] || "";
+        line += "<br>" + escapeHtml(ind.rotulo) + ": meta " + fmt(ind.meta) + " · estimado " + fmt(ind.estimado) + " · " + verdict;
+      }
+      resultEl.innerHTML = line;
+    }
+    function apply(response) {
+      var data = (response && (response.data || response)) || {};
+      if (data.media_params) {
+        var params = data.media_params;
+        estimativaDraft.canais = params.canais || {};
+        estimativaDraft.premissas = params.premissas || [];
+        estimativaDraft.chave = params.chave || estimativaDraft.chave;
+        if (params.indicador && params.indicador.metrica) estimativaDraft.indicador = params.indicador;
+        if (reviewEl) { reviewEl.checked = false; estimativaDraft.revisado = false; }
+      }
+      lastEstimates = data.estimates || lastEstimates;
+      render();
+    }
+    async function run(generate, button) {
+      setLoading(button, true);
+      setStatus(generate ? "O modelo está estimando as taxas…" : "Recalculando…");
+      try {
+        // A estimativa parte do que está salvo: guarda a revisão antes de calcular.
+        if (generate) if (collectReviewRef) await postJson("/smart-planner/api/" + token + "/revisao", collectReviewRef());
+        var params = collectMediaParams();
+        var response = await postJson("/smart-planner/api/" + token + "/estimativa", { generate: generate, media_params: params });
+        apply(response);
+        setStatus(generate ? "Sugestão pronta. Revise os valores e marque como revisado." : "Estimativa recalculada.");
+      } catch (error) {
+        setStatus(error.message || "Não foi possível estimar agora.", true);
+      } finally {
+        setLoading(button, false);
+      }
+    }
+    var generateBtn = document.getElementById("sp-estimativa-gerar");
+    var calcBtn = document.getElementById("sp-estimativa-calcular");
+    if (generateBtn) generateBtn.addEventListener("click", function () { run(true, generateBtn); });
+    if (calcBtn) calcBtn.addEventListener("click", function () { run(false, calcBtn); });
+    rowsBox.addEventListener("input", function (event) {
+      var input = event.target;
+      var row = input && input.closest("[data-canal]");
+      if (!row || !input.getAttribute("data-rate")) return;
+      var key = row.getAttribute("data-canal");
+      var rates = estimativaDraft.canais[key] || {};
+      var value = parseFloat(String(input.value).replace(/\./g, "").replace(",", "."));
+      if (value > 0) rates[input.getAttribute("data-rate")] = value; else delete rates[input.getAttribute("data-rate")];
+      rates.origem = "executivo";
+      estimativaDraft.canais[key] = rates;
+      var tag = row.querySelector(".sp-estimativa-origem");
+      if (tag) { tag.textContent = "Você"; tag.className = "sp-estimativa-origem is-voce"; }
+    });
+    if (reviewEl) reviewEl.addEventListener("change", function () { estimativaDraft.revisado = reviewEl.checked; });
+    document.addEventListener("change", function (event) {
+      if (event.target && event.target.name === "canais") render();
+    });
+    document.addEventListener("sp-formats-render", render);
+    render();
   }
 
   function setupReviewAutosave(collectReview) {

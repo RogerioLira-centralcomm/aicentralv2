@@ -48,7 +48,9 @@ from .helpers import (
     text,
 )
 from . import formats as format_catalog
+from .estimates import normalize_media_params
 from .materials import normalize_references
+from .snapshot import build_snapshot
 from .portais import facets as portais_facets
 from .taticas import problems as taticas_problems
 from .processor import suggest_campaign_name
@@ -338,6 +340,7 @@ def wizard_context(row: dict, step_id: str) -> dict:
         "kpi_suggestions": group_kpis_for(campos.get("canais")),
         "taticas_avisos": taticas_problems(as_list(campos.get("taticas")), campos.get("canais")),
         "portais_facets": portais_facets(),
+        "estimativa": estimate_panel(row, dados),
     }
 
 
@@ -345,6 +348,44 @@ def _as_kpis(value) -> list[str]:
     if isinstance(value, str):
         return [part.strip() for part in value.replace(";", ",").split(",") if part.strip()]
     return [text(item) for item in as_list(value) if text(item)]
+
+
+def reviewed_media_params(raw: dict) -> dict:
+    """Taxas e indicador como o executivo deixou na revisão; a data só entra quando ele marcou como revisado."""
+    from datetime import datetime, timezone
+
+    params = normalize_media_params(raw)
+    if params["revisado"] and not params["revisado_em"]:
+        params["revisado_em"] = datetime.now(timezone.utc).isoformat()
+    if not params["revisado"]:
+        params["revisado_em"] = ""
+    return params
+
+
+def estimate_panel(row: dict, dados: dict, snapshot: dict | None = None) -> dict:
+    """Dados da seção "Estimativa de impacto" da revisão: taxas, indicador do cliente e o cálculo atual."""
+    from .estimates import INDICATORS, calculate_estimates, estimable, normalize_indicator, params_key
+
+    try:
+        snap = snapshot or build_snapshot(row, dados)
+    except Exception:
+        return {}
+    ids = [text(as_dict(item).get("id")) for item in as_list(snap.get("mix")) if text(as_dict(item).get("id"))]
+    params = normalize_media_params(dados.get("media_params"), ids)
+    if not params["indicador"]:
+        params["indicador"] = normalize_indicator(dados.get("indicador_cliente"))
+    params["chave"] = text(as_dict(dados.get("media_params")).get("chave"))
+    return {
+        "params": params,
+        "estimates": calculate_estimates({**snap, "media_params": params}),
+        "channels": [
+            {"id": text(item.get("id")), "label": text(item.get("label")), "amount_label": text(item.get("amount_label")),
+             "pct": item.get("pct"), "estimable": estimable(text(item.get("id")))}
+            for item in (as_dict(i) for i in as_list(snap.get("mix")))
+        ],
+        "indicators": [{"id": key, "label": meta["label"], "unit": meta["unit"]} for key, meta in INDICATORS.items()],
+        "key": params_key(snap),
+    }
 
 
 def persist_review(token: str, payload: dict) -> dict:
@@ -385,6 +426,8 @@ def persist_review(token: str, payload: dict) -> dict:
     for key in ("formatos", "portais"):
         if key in payload or key in campos:
             campos[key] = payload.get(key) if payload.get(key) is not None else campos.get(key)
+    if isinstance(payload.get("media_params"), dict):
+        campos["media_params"] = reviewed_media_params(payload["media_params"])
     if "taticas" in payload or "taticas" in campos:
         campos["taticas"] = payload.get("taticas") if payload.get("taticas") is not None else campos.get("taticas")
     campos = apply_review_defaults(apply_places_to_campos(campos, lock_channel=True))

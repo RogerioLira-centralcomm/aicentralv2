@@ -99,3 +99,68 @@ def test_params_key_changes_with_channels_and_praca():
     other = {**SNAP, "geography": {"praca": "nacional"}}
     assert estimates.params_key(SNAP) != estimates.params_key(other)
     assert estimates.params_key(SNAP) == estimates.params_key({**SNAP, "audiences": ["Mulheres AB"]})
+
+
+def test_review_keeps_revisado_em_only_when_reviewed():
+    from aicentralv2.smart_planner.service import reviewed_media_params
+
+    rates = {"dv360": {"cpm": 30, "origem": "executivo"}}
+    pending = reviewed_media_params({"canais": rates, "revisado": False, "revisado_em": "2026-01-01"})
+    assert pending["revisado"] is False and pending["revisado_em"] == ""
+    done = reviewed_media_params({"canais": rates, "revisado": True})
+    assert done["revisado"] is True and done["revisado_em"]
+    # sem nenhuma taxa não existe "revisado"
+    assert reviewed_media_params({"canais": {}, "revisado": True})["revisado"] is False
+
+
+def test_persist_review_saves_the_executive_params(monkeypatch):
+    from aicentralv2.smart_planner import repository, service
+
+    saved = {}
+    row = {"session_token": "tok", "dados_detectados": {"campanha": {"canais": ["dv360"]}}}
+    monkeypatch.setattr(repository, "get_by_token", lambda token: row)
+    monkeypatch.setattr(repository, "update_session", lambda token, payload: saved.update(payload) or payload)
+    service.persist_review("tok", {
+        "campos": {"canais": ["dv360"]},
+        "media_params": {"canais": {"dv360": {"cpm": 28, "ctr": 0.9, "origem": "executivo"}},
+                         "indicador": {"metrica": "cpc", "meta": 1.8}, "revisado": True},
+    })
+    stored = saved["dados_detectados"]["media_params"]
+    assert stored["canais"]["dv360"]["cpm"] == 28.0 and stored["canais"]["dv360"]["origem"] == "executivo"
+    assert stored["indicador"]["metrica"] == "cpc" and stored["revisado"] and stored["revisado_em"]
+    # revisão sem media_params não apaga o que já está salvo
+    saved.clear()
+    service.persist_review("tok", {"campos": {"canais": ["dv360"]}})
+    assert saved["dados_detectados"]["media_params"] == stored
+
+
+def test_estimate_panel_lists_channels_rates_and_calculation():
+    from aicentralv2.smart_planner.service import estimate_panel
+
+    row = {"id": 1, "session_token": "t", "briefing_melhorado": "b", "dados_detectados": {
+        "media_params": {"canais": {"dv360": {"cpm": 40, "ctr": 1, "origem": "modelo"}}, "chave": "abc"},
+        "indicador_cliente": {"metrica": "ctr", "meta": 0.8},
+        "campanha": {"canais": ["dv360", "places"], "verba": "R$ 100.000", "verba_valor": 100000,
+                     "mix": {"method": "manual", "weights": [{"id": "dv360", "pct": 100}]},
+                     "canais_verba": {"dv360": 100000}}}}
+    panel = estimate_panel(row, row["dados_detectados"])
+    assert panel["params"]["canais"]["dv360"]["origem"] == "modelo" and panel["params"]["chave"] == "abc"
+    assert panel["params"]["indicador"]["metrica"] == "ctr"  # vem do briefing quando a revisão não definiu
+    assert panel["estimates"]["status"] == "available" and panel["estimates"]["indicator"]["status"] == "dentro"
+    assert next(c for c in panel["channels"] if c["id"] == "places")["estimable"] is False
+    assert any(item["id"] == "cpc" for item in panel["indicators"])
+
+
+def test_public_view_formats_numbers_and_explains_the_indicator():
+    from aicentralv2.smart_planner.estimates import public_view
+
+    params = {"revisado": True, "canais": {"dv360": {"cpm": 25, "cpc": 1.0, "ctr": 2, "origem": "executivo"}},
+              "indicador": {"metrica": "cpc", "meta": 1.5}}
+    result = calculate_estimates({**SNAP, "media_params": params})
+    view = public_view(result)
+    assert view["origin_label"] == "Estimativa revisada pelo executivo" and view["reviewed"]
+    assert view["rows"][0]["label"] == "Rede de portais e sites" and view["rows"][0]["cpm"] == "R$ 25,00"
+    assert view["indicator"]["target"] == "R$ 1,50" and view["indicator"]["status_label"] == "Dentro da meta"
+    assert [card["label"] for card in view["cards"]][:2] == ["Impressões", "Cliques"]
+    assert "não soma" in view["reach_note"]
+    assert public_view({"status": "not_available"}) == {}

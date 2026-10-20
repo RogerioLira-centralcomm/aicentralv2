@@ -6254,3 +6254,103 @@ html.is-sp-media body {
 .sp-formatos-channel[open] > .sp-formatos-group:first-of-type { margin-top: 0.7rem; }
 .sp-formatos-channel .sp-formatos-group { max-width: 100%; }
 .sp-formatos-list-scroll { max-height: 22rem; overflow: auto; }
+
+.sp-estimativa-desk {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--hi-line);
+}
+
+.sp-estimativa-desk h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--hi-fog);
+}
+
+.sp-estimativa-desk > p {
+  margin: 0.4rem 0 0;
+  color: var(--hi-fog);
+  font-size: 0.75rem;
+}
+
+.sp-estimativa-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.8rem;
+  align-items: center;
+  margin-top: 0.6rem;
+}
+
+.sp-estimativa-review {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+  font-size: 0.75rem;
+}
+
+.sp-estimativa-row {
+  display: grid;
+  grid-template-columns: minmax(7rem, 1.4fr) repeat(4, minmax(3.2rem, 1fr)) 3.2rem;
+  gap: 0.35rem;
+  align-items: center;
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+}
+
+.sp-estimativa-row.is-head {
+  color: var(--hi-fog);
+  font-weight: 600;
+}
+
+.sp-estimativa-row strong small {
+  display: block;
+  color: var(--hi-fog);
+  font-weight: 400;
+}
+
+.sp-estimativa-row input {
+  min-width: 0;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.75rem;
+}
+
+.sp-estimativa-origem {
+  font-style: normal;
+  font-size: 0.68rem;
+  color: var(--hi-fog);
+}
+
+.sp-estimativa-origem.is-voce {
+  color: var(--hi-accent, inherit);
+  font-weight: 600;
+}
+
+.sp-estimativa-indicador {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+}
+
+.sp-estimativa-indicador label {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.sp-estimativa-status {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+}
+
+.sp-estimativa-status.is-error {
+  color: #b3261e;
+}
+
+.sp-estimativa-result {
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}

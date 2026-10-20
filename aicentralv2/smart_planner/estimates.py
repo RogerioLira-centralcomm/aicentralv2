@@ -389,6 +389,80 @@ def short_count(value) -> str:
     return str(int(number))
 
 
+def brl(value, digits: int = 2) -> str:
+    """1.5 -> 'R$ 1,50'."""
+    number = _number(value)
+    text_value = f"{number:,.{digits}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"R$ {text_value}"
+
+
+def public_view(estimates: dict) -> dict:
+    """Estimativa pronta para a página pública: números formatados, origem e comparação com o indicador."""
+    data = as_dict(estimates)
+    if data.get("status") != "available":
+        return {}
+    rows = []
+    for channel in as_list(data.get("channels")):
+        item = as_dict(channel)
+        if item.get("status") == "not_available":
+            continue
+        ref = _reference(item)
+        perf = _reference(item, "performance")
+        clicks = ref.get("clicks") or perf.get("clicks")
+        rows.append({
+            "label": text(item.get("label")),
+            "invested": text(item.get("amount_label")),
+            "cpm": brl(as_dict(item.get("rates")).get("cpm") or ref.get("cpm")) if (as_dict(item.get("rates")).get("cpm") or ref.get("cpm")) else "",
+            "cpc": brl(perf.get("cpc") or as_dict(item.get("rates")).get("cpc")) if (perf.get("cpc") or as_dict(item.get("rates")).get("cpc")) else "",
+            "impressions": short_count(ref.get("impressions")) if ref.get("impressions") else "",
+            "reach": short_count(ref.get("reach")) if ref.get("reach") else "",
+            "clicks": short_count(clicks) if clicks else "",
+            "reviewed": item.get("status") == "executive_reviewed",
+        })
+    totals = as_dict(data.get("totals"))
+    cards = []
+    if totals.get("impressions"):
+        span = ""
+        if totals.get("impressions_low") and totals.get("impressions_high"):
+            span = f"entre {short_count(totals['impressions_low'])} e {short_count(totals['impressions_high'])}"
+        cards.append({"label": "Impressões", "value": short_count(totals["impressions"]), "note": span})
+    if totals.get("clicks"):
+        cards.append({"label": "Cliques", "value": short_count(totals["clicks"]), "note": f"CTR {str(totals['ctr']).replace('.', ',')}%" if totals.get("ctr") else ""})
+    if totals.get("cpm"):
+        cards.append({"label": "CPM médio", "value": brl(totals["cpm"]), "note": ""})
+    if totals.get("cpc"):
+        cards.append({"label": "CPC médio", "value": brl(totals["cpc"]), "note": ""})
+    indicator = as_dict(data.get("indicator"))
+    indicator_view = {}
+    if indicator.get("metrica"):
+        def fmt_value(value):
+            if value in (None, ""):
+                return ""
+            if indicator.get("unidade") == "brl":
+                return brl(value)
+            if indicator.get("unidade") == "pct":
+                return f"{str(value).replace('.', ',')}%"
+            return short_count(value)
+
+        indicator_view = {
+            "label": indicator.get("rotulo"), "target": fmt_value(indicator.get("meta")), "estimated": fmt_value(indicator.get("estimado")),
+            "status": indicator.get("status"), "note": text(indicator.get("nota")),
+            "status_label": {"dentro": "Dentro da meta", "acima": "Acima da meta", "abaixo": "Abaixo da meta",
+                             "sem_meta": "Sem meta definida", "sem_estimativa": "Sem estimativa para este indicador"}.get(indicator.get("status"), ""),
+        }
+    return {
+        "origin": data.get("origin"),
+        "origin_label": ORIGIN_LABELS.get(data.get("origin"), "Estimativa"),
+        "reviewed": bool(data.get("reviewed")),
+        "headline": headline(data),
+        "cards": cards,
+        "rows": rows,
+        "indicator": indicator_view,
+        "assumptions": [text(item) for item in as_list(data.get("assumptions")) if text(item)][:4],
+        "reach_note": "O alcance é por canal e não soma: as mesmas pessoas podem ser impactadas por mais de um canal.",
+    }
+
+
 def headline(estimates: dict) -> str:
     """Uma frase para a página: origem, volume e investimento. Os detalhes ficam na seção de impacto."""
     data = as_dict(estimates)

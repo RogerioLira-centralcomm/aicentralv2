@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any, Iterator
@@ -11,6 +12,7 @@ from ..creative_modeling_fx import brl_from_usd, usd_brl_rate
 from .helpers import as_dict, as_list, text
 
 logger = logging.getLogger(__name__)
+_LOCK = threading.Lock()
 
 _STATE: ContextVar[dict | None] = ContextVar("smart_planner_cost", default=None)
 
@@ -170,16 +172,18 @@ def record(usage: Any, *, kind: str = "", model: str = "") -> dict | None:
     usd = usage_usd(usage, model=model)
     if usd is None or usd <= 0:
         return state.get("ledger")
-    state["ledger"] = apply_charge(
-        state.get("ledger"),
-        usage,
-        kind=kind,
-        model=model,
-        rate=state.get("rate"),
-        source=state.get("source") or "",
-    )
-    _persist(state)
-    return state["ledger"]
+    # As variações da arte são geradas em paralelo e somam no mesmo ledger.
+    with _LOCK:
+        state["ledger"] = apply_charge(
+            state.get("ledger"),
+            usage,
+            kind=kind,
+            model=model,
+            rate=state.get("rate"),
+            source=state.get("source") or "",
+        )
+        _persist(state)
+        return state["ledger"]
 
 
 @contextmanager

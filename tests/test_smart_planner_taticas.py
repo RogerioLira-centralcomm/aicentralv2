@@ -137,7 +137,9 @@ def test_normalize_drops_what_the_catalog_and_mix_do_not_support():
         {"tipo": "impacto", "canais": ["dv360"]},
     ]
     taticas = normalize_taticas(raw, ["dv360", "places"])
-    assert taticas == [{"tipo": "impacto", "canais": ["dv360"], "formatos": [HOTSPOT, "dco"], "segmento": "", "peso": None}]
+    # O tipo vem dos formatos escolhidos: Hotspots é interativo e DCO roda em display.
+    assert taticas == [{"tipo": "impacto", "canais": ["dv360"], "formatos": [HOTSPOT, "dco"],
+                        "tipos_formato": ["display", "interativo"], "segmento": "", "peso": None}]
     assert normalize_taticas([{"tipo": "impacto", "canais": ["places"], "formatos": ["dco"]}], ["places"])[0]["formatos"] == []
 
 
@@ -374,3 +376,12 @@ def test_sites_for_survives_a_missing_database(monkeypatch):
     monkeypatch.setattr("aicentralv2.cadu_family.repository.rows", boom)
     result = portais.sites_for({"sites_preferidos": ["G1"]})
     assert result["total"] == 0 and [site["name"] for site in result["sites"]] == ["G1"]
+
+
+def test_format_types_are_kept_when_the_channels_accept_them():
+    rows = normalize_taticas(
+        [{"tipo": "impacto", "canais": ["dv360"], "tipos_formato": ["Vídeo", "áudio", "native", "xyz"], "formatos": []}],
+        ["dv360"],
+    )
+    # A Rede de portais aceita vídeo e native; áudio não está no catálogo dela.
+    assert rows[0]["tipos_formato"] == ["video", "native"]

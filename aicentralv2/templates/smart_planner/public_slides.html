@@ -11,10 +11,22 @@
   <meta property="og:url" content="{{ document_url }}"><meta property="og:image" content="{{ share_image }}"><meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_slides.css') }}?v=6">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_slides.css') }}?v=7">
   {% if template_css %}<style>:root{ {{- template_css -}} }</style>{% else %}<style>:root{--sx-ink:{{ slide_ink or '#14252d' }};--sx-accent:{{ slide_accent or '#d5aa3b' }}}</style>{% endif %}
 </head>
 <body class="sx is-booting{% if neutral_palette %} is-neutral{% endif %}" data-document-url="{{ document_page_url }}" data-channel="{{ public_token or 'plano' }}" data-total="{{ slides|length }}">
+{% macro mockup(m, size='lg') %}
+<figure class="sx-mock is-{{ m.kind }} is-{{ size }}" aria-label="Criativo em {{ m.label }}">
+  {% if m.kind == 'tv' %}
+  <div class="sx-mock-tv"><div class="sx-mock-screen"><img src="{{ m.image }}" alt="" loading="lazy"><span class="sx-mock-ad">Anúncio · 0:15</span>{% if m.logo %}<img class="sx-mock-logo" src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% endif %}<i class="sx-mock-progress"><b></b></i></div><i class="sx-mock-stand"></i></div>
+  {% elif m.kind == 'social' %}
+  <div class="sx-mock-phone"><header>{% if m.logo %}<img src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% endif %}<span>Patrocinado</span></header><div class="sx-mock-feed"><img src="{{ m.image }}" alt="" loading="lazy"></div><footer><i></i><i></i><i></i></footer></div>
+  {% else %}
+  <div class="sx-mock-browser"><header><i></i><i></i><i></i><span></span></header><div class="sx-mock-page"><div class="sx-mock-mast">{% if m.logo %}<img src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% else %}<strong>{{ m.label }}</strong>{% endif %}<span></span><span></span><span></span></div><div class="sx-mock-leader"><img src="{{ m.image }}" alt="" loading="lazy"><small>Publicidade</small></div><div class="sx-mock-body"><div class="sx-mock-text"><b></b><i></i><i></i><i></i><i class="is-short"></i></div><div class="sx-mock-mrec"><img src="{{ m.image }}" alt="" loading="lazy"><small>Publicidade</small></div></div></div></div>
+  {% endif %}
+  <figcaption>{{ m.label }}{% if m.channel and m.channel != m.label %} · {{ m.channel }}{% endif %}</figcaption>
+</figure>
+{% endmacro %}
 {% macro kicker(slide) %}<p class="sx-kicker"><span>{{ '%02d'|format(slide.index) }}</span>{{ slide.kicker }}</p>{% endmacro %}
   <a class="sx-skip" href="#s1">Ir para o primeiro slide</a>
   <header class="sx-bar" aria-label="Apresentação">
@@ -25,7 +37,7 @@
       <div class="sx-bar-names"><strong>{{ client or cover.client or title }}</strong>{% if title and title != client %}<span>{{ title }}</span>{% endif %}</div>
     </div>
     <div class="sx-bar-actions">
-      {% if executive.whatsapp_url %}<a class="sx-btn is-quiet is-whatsapp" href="{{ executive.whatsapp_url }}" target="_blank" rel="noopener">Falar sobre o plano</a>{% endif %}
+      {% if executive.whatsapp_url %}<a class="sx-btn is-quiet is-whatsapp sx-talk" href="{{ executive.whatsapp_url }}" target="_blank" rel="noopener" title="Falar com {{ executive.name }} no WhatsApp">{% if executive.photo_url %}<img src="{{ executive.photo_url }}" alt="" onerror="this.remove()">{% else %}<i aria-hidden="true">{{ executive.initials }}</i>{% endif %}<span>Fale com {{ executive.first_name or 'o executivo' }}</span></a>{% endif %}
       <div class="sx-menu" data-sx-menu>
         <button type="button" class="sx-btn is-quiet" aria-haspopup="menu" aria-expanded="false" data-sx-menu-toggle>Compartilhar</button>
         <div class="sx-menu-list" role="menu" hidden>
@@ -49,10 +61,11 @@
         <section class="sx-slide is-{{ slide.type }}">
           {% if slide.type == 'cover' %}
           <div class="sx-cover-copy">
-            {% if slide.logo %}<img class="sx-cover-logo" src="{{ slide.logo }}" alt="Logo de {{ slide.client }}" data-name="{{ slide.client }}" onerror="var p=document.createElement('p');p.className='sx-cover-client';p.textContent=this.dataset.name||'';this.replaceWith(p)">{% elif slide.client %}<p class="sx-cover-client">{{ slide.client }}</p>{% endif %}
+            {# A logo do cliente já está na barra do topo; na capa vai o nome, que nunca quebra a arte. #}
+            {% if slide.client %}<p class="sx-cover-client">{{ slide.client }}</p>{% endif %}
             <div class="sx-cover-main">
               <p class="sx-cover-label">{{ slide.label }}</p>
-              <h1>{{ slide.title }}</h1>
+              <h1 class="is-{{ slide.title_size or 'lg' }}">{{ slide.title }}</h1>
               {% if slide.facts %}<dl class="sx-facts">{% for fact in slide.facts %}<div><dt>{{ fact.label }}</dt><dd>{{ fact.value }}</dd></div>{% endfor %}</dl>{% endif %}
               {% if slide.agency %}<p class="sx-cover-agency">Agência · {{ slide.agency }}</p>{% endif %}
             </div>
@@ -61,7 +74,7 @@
 
           {% elif slide.type == 'thesis' %}
           {{ kicker(slide) }}
-          <h2 class="sx-statement">{{ slide.statement }}</h2>
+          {% if slide.headline %}<h2 class="sx-headline">{{ slide.headline }}</h2><p class="sx-statement is-lead">{{ slide.statement }}</p>{% else %}<h2 class="sx-statement is-{{ slide.statement_size }}">{{ slide.statement }}</h2>{% endif %}
           {% if slide.support %}<p class="sx-support">{{ slide.support }}</p>{% endif %}
 
           {% elif slide.type == 'context' %}
@@ -83,12 +96,31 @@
               {% if slide.body %}<p class="sx-support">{{ slide.body }}</p>{% endif %}
               {% if slide.outputs %}<ul class="sx-outputs">{% for item in slide.outputs %}<li><strong>{{ item.name }}</strong>{% if item.body %}<span>{{ item.body }}</span>{% endif %}</li>{% endfor %}</ul>{% endif %}
             </div>
-            {% if slide.image %}<figure class="sx-art"><img src="{{ slide.image }}" alt="Referência do criativo" loading="lazy"></figure>{% endif %}
+            {% if slide.mockups %}<div class="sx-mocks is-{{ slide.mockups|length }}">{% for m in slide.mockups %}{{ mockup(m, 'lg' if loop.first else 'sm') }}{% endfor %}</div>{% elif slide.image %}<figure class="sx-art"><img src="{{ slide.image }}" alt="Referência do criativo" loading="lazy"></figure>{% endif %}
           </div>
 
           {% elif slide.type == 'media' %}
           {{ kicker(slide) }}
           <h2 class="sx-title-md">{{ slide.title }}</h2>
+          {% if slide.layout == 'solo' %}
+          <div class="sx-solo{% if slide.flight %} has-flight{% endif %}">
+            <div class="sx-solo-side">
+              <article class="sx-solo-channel">
+                <span class="sx-tag">Canal único · 100% da verba</span>
+                <h3 class="sx-with-logo">{% if slide.solo.logo %}<img src="{{ slide.solo.logo }}" alt="" onerror="this.remove()">{% endif %}{{ slide.solo.label }}</h3>
+                {% if slide.solo.role %}<p>{{ slide.solo.role }}</p>{% endif %}
+                {% if slide.solo.formats %}<ul class="sx-chips">{% for fmt in slide.solo.formats %}<li>{{ fmt }}</li>{% endfor %}</ul>{% endif %}
+              </article>
+              {% if slide.reading %}
+              <dl class="sx-stats">{% for stat in slide.reading.stats %}<div><dt>{{ stat.label }}</dt><dd>{{ stat.value }}</dd></div>{% endfor %}</dl>
+              <p class="sx-reading">{{ slide.reading.shape }}</p>
+              {% endif %}
+            </div>
+            {% if slide.flight %}
+            <figure class="sx-flight is-lg" aria-label="Verba por {{ slide.flight_unit }}"><figcaption>Verba por {{ slide.flight_unit }}</figcaption><div>{% for month in slide.flight %}<span{% if month.peak %} class="is-peak"{% endif %}><i style="height:{{ month.height }}%"></i><b>{{ month.value }}</b><small>{{ month.label }}</small></span>{% endfor %}</div></figure>
+            {% endif %}
+          </div>
+          {% else %}
           {% if slide.share %}
           <div class="sx-share" role="img" aria-label="{% for part in slide.share %}{{ part.label }} {{ part.pct }}%{{ ', ' if not loop.last }}{% endfor %}">
             {% for part in slide.share %}<span class="sx-share-part sx-tone-{{ loop.index0 % 5 }}" style="flex:{{ part.pct or 1 }}"><b>{{ part.pct }}%</b><em>{{ part.label }}</em></span>{% endfor %}
@@ -96,24 +128,26 @@
           {% endif %}
           <div class="sx-media-body{% if slide.flight %} has-flight{% endif %}">
             {% if slide.fronts %}
-            <div class="sx-fronts">{% for front in slide.fronts %}<article><header><h3>{{ front.label }}</h3>{% if front.weight %}<b>{{ front.weight }}%</b>{% endif %}</header><p>{{ front.text }}</p>{% if front.tags %}<ul class="sx-chips">{% for tag in front.tags %}<li>{{ tag }}</li>{% endfor %}</ul>{% endif %}</article>{% endfor %}</div>
+            <div class="sx-fronts">{% for front in slide.fronts %}<article><header><h3>{{ front.label }}</h3>{% if front.weight %}<b>{{ front.weight }}%</b>{% endif %}</header><p>{{ front.text }}</p>{% if front.tags or front.types %}<ul class="sx-chips">{% for t in front.types %}<li class="is-type">{{ t }}</li>{% endfor %}{% for tag in front.tags %}<li>{{ tag }}</li>{% endfor %}</ul>{% endif %}</article>{% endfor %}</div>
             {% elif slide.channels %}
-            <ul class="sx-channels">{% for channel in slide.channels %}<li><i style="background:{{ channel.color or 'var(--sx-ink)' }}"></i><strong>{{ channel.label }}</strong><span>{{ channel.role }}</span><b>{{ channel.pct }}%</b></li>{% endfor %}</ul>
+            <ul class="sx-channels">{% for channel in slide.channels %}<li><i style="background:{{ channel.color or 'var(--sx-ink)' }}"></i><strong class="sx-with-logo">{% if channel.logo %}<img src="{{ channel.logo }}" alt="" onerror="this.remove()">{% endif %}{{ channel.label }}</strong><span>{{ channel.role }}</span><b>{{ channel.pct }}%</b></li>{% endfor %}</ul>
             {% endif %}
             {% if slide.flight %}
-            <figure class="sx-flight" aria-label="Verba por mês"><figcaption>Verba por mês</figcaption><div>{% for month in slide.flight %}<span><i style="height:{{ month.height }}%"></i><b>{{ month.value }}</b><small>{{ month.label }}</small></span>{% endfor %}</div></figure>
+            <figure class="sx-flight" aria-label="Verba por {{ slide.flight_unit }}"><figcaption>Verba por {{ slide.flight_unit }}</figcaption><div>{% for month in slide.flight %}<span{% if month.peak %} class="is-peak"{% endif %}><i style="height:{{ month.height }}%"></i><b>{{ month.value }}</b><small>{{ month.label }}</small></span>{% endfor %}</div></figure>
             {% endif %}
           </div>
+          {% endif %}
 
           {% elif slide.type == 'formats' %}
           {{ kicker(slide) }}
+          {% if slide.fronts %}<ul class="sx-front-types">{% for front in slide.fronts %}<li><strong>{{ front.label }}</strong>{% for t in front.types %}<span>{{ t }}</span>{% endfor %}</li>{% endfor %}</ul>{% endif %}
           <div class="sx-formats{% if slide.sites %} has-sites{% endif %}">
             <div>
-              {% for group in slide.groups %}<article><h3>{{ group.channel }}</h3><ul class="sx-chips is-lg">{% for fmt in group.formats %}<li{% if fmt.aggregated %} class="is-agg"{% endif %}>{{ fmt.name }}</li>{% endfor %}{% if group.more %}<li class="is-more">+{{ group.more }}</li>{% endif %}</ul></article>{% endfor %}
+              {% for group in slide.groups %}<article><h3 class="sx-with-logo">{% if group.logo %}<img src="{{ group.logo }}" alt="" onerror="this.remove()">{% endif %}{{ group.channel }}</h3><ul class="sx-chips is-lg">{% for fmt in group.formats %}<li{% if fmt.aggregated %} class="is-agg"{% endif %}>{{ fmt.name }}</li>{% endfor %}{% if group.more %}<li class="is-more">+{{ group.more }}</li>{% endif %}</ul></article>{% endfor %}
               {% if slide.aggregated %}<p class="sx-note"><span class="sx-dot is-agg"></span>Custo agregado na proposta: {{ slide.aggregated|join(', ') }}.</p>{% endif %}
             </div>
             {% if slide.sites %}
-            <aside class="sx-sites"><h3>Rede de portais e sites</h3><p>{% if slide.sites_total %}{{ slide.sites_total }} sites no recorte{% if slide.segment %} de perfil classes {{ slide.segment }}{% endif %}. Os maiores:{% else %}Sites do plano:{% endif %}</p><ul>{% for site in slide.sites %}<li>{{ site }}</li>{% endfor %}</ul></aside>
+            <aside class="sx-sites">{% if slide.mockup %}{{ mockup(slide.mockup, 'xs') }}{% endif %}<h3>Rede de portais e sites</h3><p>{% if slide.sites_total %}{{ slide.sites_total }} sites no recorte{% if slide.segment %} de perfil classes {{ slide.segment }}{% endif %}. Os maiores:{% else %}Sites do plano:{% endif %}</p><ul>{% for site in slide.site_rows or [] %}<li>{% if site.logo %}<img src="{{ site.logo }}" alt="" onerror="this.remove()">{% endif %}{{ site.name }}</li>{% endfor %}</ul></aside>
             {% endif %}
           </div>
 
@@ -139,9 +173,10 @@
             {{ kicker(slide) }}
             <h2>Vamos colocar este plano no ar?</h2>
             <div class="sx-contact">
-              {% if slide.name %}<div class="sx-person">{% if slide.photo %}<img src="{{ slide.photo }}" alt="Foto de {{ slide.name }}" loading="lazy">{% else %}<span>{{ slide.initials }}</span>{% endif %}<div><strong>{{ slide.name }}</strong><p>Responsável por este plano</p></div></div>{% endif %}
-              <div class="sx-contact-actions">{% if slide.whatsapp %}<a class="sx-btn is-cta is-lg" href="{{ slide.whatsapp }}" target="_blank" rel="noopener">Conversar sobre o plano</a>{% endif %}{% if slide.full_plan_url %}<a class="sx-btn is-quiet is-lg" href="{{ slide.full_plan_url }}">Ver o plano completo</a>{% endif %}</div>
+              {% if slide.name %}<div class="sx-person">{% if slide.photo %}<img src="{{ slide.photo }}" alt="Foto de {{ slide.name }}" loading="lazy" onerror="this.remove()">{% else %}<span>{{ slide.initials }}</span>{% endif %}<div><strong>{{ slide.name }}</strong><p>{{ slide.role }}</p></div></div>{% endif %}
+              <div class="sx-contact-actions">{% if slide.whatsapp %}<a class="sx-btn is-cta is-lg" href="{{ slide.whatsapp }}" target="_blank" rel="noopener">Fale comigo no WhatsApp</a>{% endif %}{% if slide.full_plan_url %}<a class="sx-btn is-quiet is-lg" href="{{ slide.full_plan_url }}">Ver o plano completo</a>{% endif %}</div>
             </div>
+            {% if slide.whatsapp and slide.first_name %}<p class="sx-contact-note">A mensagem já vai com o link deste plano. É só escrever sua dúvida para {{ slide.first_name }}.</p>{% endif %}
           </div>
           {% endif %}
           <footer class="sx-foot"><span>{{ client or title }}</span><span>{{ slide.index }} / {{ slides|length }}</span></footer>

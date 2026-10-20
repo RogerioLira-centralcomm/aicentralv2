@@ -206,13 +206,14 @@ def _fronts(page: dict, channels: list[dict]) -> list[dict]:
             "weight": front.get("peso_pct"),
             "text": described.get(tipo) or text(front.get("para_que")),
             "formats": [text(item) for item in as_list(front.get("formatos")) if text(item)],
+            "format_types": [text(item) for item in as_list(front.get("tipos_de_formato")) if text(item)],
             "segment": text(front.get("recorte_de_portais")),
             "channels": rows,
         })
     placed = {text(channel.get("id")) for front in out for channel in front["channels"]}
     rest = [channel for channel in channels if text(channel.get("id")) not in placed]
     if out and rest:
-        out.append({"tipo": "outros", "label": "Demais canais", "weight": None, "text": "", "formats": [], "segment": "", "channels": rest})
+        out.append({"tipo": "outros", "label": "Demais canais", "weight": None, "text": "", "formats": [], "format_types": [], "segment": "", "channels": rest})
     return out
 
 
@@ -333,7 +334,7 @@ def _donut_style(channels: list[dict]) -> str:
     return "conic-gradient(" + ", ".join(stops) + ")"
 
 
-def _executive_contact(row: dict, title: str) -> dict:
+def _executive_contact(row: dict, title: str, link: str = "", client: str = "") -> dict:
     """Resolve o responsável do plano sem deixar dados internos expostos."""
     dados = as_dict((row or {}).get("dados_detectados"))
     selected_id = dados.get("executivo_id")
@@ -354,11 +355,16 @@ def _executive_contact(row: dict, title: str) -> dict:
     name = text(contact.get("nome_completo")) or fallback_name
     photo = text(contact.get("foto_url"))
     phone = normalizar_telefone_whatsapp(contact.get("telefone") or contact.get("telefone_secundario"))
-    message = f'Olá, {name.split()[0]}. Quero falar sobre o plano "{title}".'
+    first = name.split()[0] if name.split() else ""
+    plan = f'o plano "{title}"' + (f" da {client}" if client and client.lower() not in title.lower() else "")
+    # Mensagem pronta para o cliente: identifica o plano e leva o link, para o executivo abrir o mesmo material.
+    message = f"Olá, {first}! Estou vendo {plan}" + (f" ({link})" if link else "") + " e tenho uma dúvida:"
     return {
         "name": name,
         "photo_url": photo,
         "phone": phone,
+        "first_name": first,
+        "role": "Executivo comercial · responsável por este plano",
         "initials": "".join(part[0] for part in name.split()[:2]).upper() or "CX",
         "whatsapp_url": f"https://wa.me/{phone}?text={quote(message)}" if phone else "",
         "whatsapp_message": message,
@@ -1313,6 +1319,7 @@ def public_view(row: dict, document: str | None = None) -> dict:
     funnel = _funnel_from_channels(media.get("channels") or [])
     overview = text(thesis_v3.get("statement") or (strategy_parts[0] if strategy_parts else tagline))
     overview_support = text(thesis_v3.get("supporting_argument"))
+    overview_title = text(thesis_v3.get("title"))
     if not hero_image and _looks_like_water(title, text(strategy.get("body")), concept, support):
         hero_image = "/static/images/smart_planner/hero-water.svg"
     share_image = _public_asset_url(hero_image or "/static/images/smart_planner/share-placeholder.svg")
@@ -1433,7 +1440,7 @@ def public_view(row: dict, document: str | None = None) -> dict:
             outputs.append({"name": name, "description": description})
     approved_mix = bool(media.get("channels")) and int(media.get("total_pct") or 0) > 0
     client_brand = as_dict(branding.get("client") or branding.get("hero"))
-    executive = _executive_contact(row, title)
+    executive = _executive_contact(row, title, link=document_url or url, client="" if confidential else client)
     mix_label = " · ".join(
         f"{text(item.get('label'))} {item.get('pct')}%"
         for item in as_list(media.get("channels"))
@@ -1526,6 +1533,7 @@ def public_view(row: dict, document: str | None = None) -> dict:
         "concept_body": concept_body,
         "support": support,
         "overview": overview,
+        "overview_title": overview_title,
         "overview_support": overview_support,
         "impact": estimates_public_view(as_dict(dados.get("estimates"))),
         "fronts": _fronts(page_v2, media.get("channels") or []),

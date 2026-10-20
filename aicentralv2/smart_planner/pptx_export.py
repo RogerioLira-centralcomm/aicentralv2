@@ -172,7 +172,6 @@ def _cover(deck: _Deck, data: dict, view: dict, template: dict):
         deck.text(slide, x, 5.9, 1.8, 0.9, fact.get("value"), size=13, color="#FFFFFF")
     if not deck.cover_image(slide, data.get("image"), 8.75, 0, W_IN - 8.75, H_IN):
         deck.box(slide, 8.75, 0, W_IN - 8.75, H_IN, deck.brand)
-    deck.image(slide, data.get("logo"), 9.3, H_IN - 1.3, h=0.7)
     return slide
 
 
@@ -180,9 +179,14 @@ def _thesis(deck, data, view):
     slide = deck.slide()
     deck.kicker(slide, data)
     deck.box(slide, PAD, 1.25, 0.08, 2.6, deck.accent)
-    deck.text(slide, PAD + 0.35, 1.2, 10.8, 3.2, data.get("statement"), size=32, bold=True)
+    if text(data.get("headline")):
+        deck.text(slide, PAD + 0.35, 1.2, 10.8, 1.4, data.get("headline"), size=38, bold=True)
+        deck.text(slide, PAD + 0.35, 2.75, 10.8, 1.6, data.get("statement"), size=20)
+    else:
+        size = 32 if len(text(data.get("statement"))) <= 130 else 26
+        deck.text(slide, PAD + 0.35, 1.2, 10.8, 3.2, data.get("statement"), size=size, bold=True)
     if text(data.get("support")):
-        deck.text(slide, PAD + 0.35, 4.7, 10.5, 1.8, data.get("support"), size=18, color=deck.muted)
+        deck.text(slide, PAD + 0.35, 4.7, 10.5, 1.8, data.get("support"), size=16, color=deck.muted)
     return slide
 
 
@@ -261,10 +265,55 @@ def _share_bar(deck, slide, share: list[dict], y: float):
         x += part
 
 
+def _flight_chart(deck, slide, flight: list[dict], x, y, w, h, unit: str):
+    deck.box(slide, x, y, w, h, deck.soft)
+    deck.text(slide, x + 0.3, y + 0.2, w - 0.6, 0.3, f"Verba por {unit}", size=12, bold=True, color=deck.muted)
+    bars = flight[:12]
+    gap = 0.18
+    width = (w - 0.6 - gap * (len(bars) - 1)) / max(1, len(bars))
+    area = h - 1.4
+    for index, bar in enumerate(bars):
+        bar = as_dict(bar)
+        bh = max(0.1, area * int(bar.get("height") or 0) / 100)
+        bx = x + 0.3 + index * (width + gap)
+        deck.box(slide, bx, y + 0.6 + area - bh, width, bh, deck.accent if bar.get("peak") else deck.brand)
+        deck.text(slide, bx - 0.1, y + h - 0.75, width + 0.2, 0.25, bar.get("value"), size=9, bold=True, align=_center())
+        deck.text(slide, bx - 0.1, y + h - 0.5, width + 0.2, 0.25, bar.get("label"), size=9, color=deck.muted, align=_center())
+
+
+def _center():
+    from pptx.enum.text import PP_ALIGN
+
+    return PP_ALIGN.CENTER
+
+
+def _media_solo(deck, slide, data):
+    solo = as_dict(data.get("solo"))
+    deck.box(slide, PAD, 2.2, 0.08, 1.5, deck.brand)
+    deck.text(slide, PAD + 0.3, 2.2, 4.8, 0.3, "CANAL ÚNICO · 100% DA VERBA", size=11, bold=True, color=deck.brand)
+    deck.text(slide, PAD + 0.3, 2.5, 4.8, 0.6, solo.get("label"), size=26, bold=True)
+    lines = [solo.get("role")] + ([" · ".join(text(f) for f in as_list(solo.get("formats")))] if as_list(solo.get("formats")) else [])
+    deck.text(slide, PAD + 0.3, 3.1, 4.8, 0.8, [line for line in lines if text(line)], size=13, color=deck.muted)
+    reading = as_dict(data.get("reading"))
+    for index, stat in enumerate(as_list(reading.get("stats"))[:3]):
+        stat = as_dict(stat)
+        y = 4.1 + index * 0.62
+        deck.text(slide, PAD, y, 2.4, 0.3, stat.get("label"), size=11, color=deck.muted)
+        deck.text(slide, PAD + 2.4, y, 2.8, 0.3, stat.get("value"), size=15, bold=True)
+    if text(reading.get("shape")):
+        deck.text(slide, PAD, 6.0, 5.2, 0.7, reading.get("shape"), size=13)
+    flight = [as_dict(f) for f in as_list(data.get("flight"))]
+    if flight:
+        _flight_chart(deck, slide, flight, 6.4, 2.2, W_IN - PAD - 6.4, 4.6, text(data.get("flight_unit")) or "mês")
+    return slide
+
+
 def _media(deck, data, view):
     slide = deck.slide()
     deck.kicker(slide, data)
     deck.title(slide, data.get("title"), size=28)
+    if data.get("layout") == "solo":
+        return _media_solo(deck, slide, data)
     share = [as_dict(s) for s in as_list(data.get("share"))]
     if share:
         _share_bar(deck, slide, share, 2.2)

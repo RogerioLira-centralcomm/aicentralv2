@@ -160,6 +160,7 @@
         tipo: row.tipo,
         canais: (row.canais || []).slice(),
         formatos: formats,
+        tipos_formato: (row.tipos_formato || []).slice(),
         dco: (row.formatos || []).indexOf("dco") !== -1 || !!row.dco,
         segmento: row.segmento || "",
         peso: row.peso || "",
@@ -197,7 +198,7 @@
       var formatos = (row.formatos || []).slice();
       if (row.dco) formatos.push("dco");
       var peso = parseFloat(String(row.peso || "").replace(",", "."));
-      return { tipo: row.tipo, canais: mine, formatos: formatos, segmento: row.segmento || "", peso: peso > 0 ? peso : null };
+      return { tipo: row.tipo, canais: mine, tipos_formato: (row.tipos_formato || []).slice(), formatos: formatos, segmento: row.segmento || "", peso: peso > 0 ? peso : null };
     }).filter(function (row) { return row.canais.length; });
   }
 
@@ -2526,10 +2527,24 @@
               return '<label><input type="checkbox" name="tatica_canal" data-tipo="' + tipo.id + '" value="' + key + '"'
                 + (mine.indexOf(key) !== -1 ? " checked" : "") + "> " + escapeHtml(labelOf(key)) + "</label>";
             }).join("") + "</div>";
+          var names = {};
+          var familyOf = {};
+          Object.keys(channelFormats).forEach(function (key) { channelFormats[key].forEach(function (fmt) { names[fmt.id] = fmt.name; familyOf[fmt.id] = fmt.family || ""; }); });
+          // Tipos de formato da frente (vídeo, display IAB, native, áudio, interativo): o que os canais aceitam.
+          var families = (tspec.families || []).filter(function (fam) {
+            return mine.some(function (key) { return (channelFormats[key] || []).some(function (fmt) { return fmt.family === fam.id; }); });
+          });
+          row.tipos_formato = (row.tipos_formato || []).filter(function (id) { return families.some(function (fam) { return fam.id === id; }); });
+          if (families.length) {
+            html += '<div class="sp-tatica__row"><span>Tipos de formato</span>' + families.map(function (fam) {
+              return '<label title="' + escapeHtml(fam.hint || "") + '"><input type="checkbox" name="tatica_tipo_formato" data-tipo="' + tipo.id + '" value="' + fam.id + '"'
+                + (row.tipos_formato.indexOf(fam.id) !== -1 ? " checked" : "") + "> " + escapeHtml(fam.label) + "</label>";
+            }).join("") + "</div>";
+          }
           var available = [];
           mine.forEach(function (key) { (state[key] || []).forEach(function (slug) { if (available.indexOf(slug) === -1) available.push(slug); }); });
-          var names = {};
-          Object.keys(channelFormats).forEach(function (key) { channelFormats[key].forEach(function (fmt) { names[fmt.id] = fmt.name; }); });
+          // Com tipos marcados, a lista de formatos mostra só os desses tipos.
+          if (row.tipos_formato.length) available = available.filter(function (slug) { return row.tipos_formato.indexOf(familyOf[slug]) !== -1; });
           row.formatos = (row.formatos || []).filter(function (slug) { return available.indexOf(slug) !== -1; });
           if (available.length) {
             html += '<div class="sp-tatica__row"><span>Formatos desta frente</span>' + available.map(function (slug) {
@@ -2576,7 +2591,7 @@
           if (target.checked) {
             var canais = selectedCanaisNow();
             var start = tipo === "impacto" ? canais.filter(function (key) { return key === network || (channelFormats[key] || []).length; }).slice(0, 1) : canais.filter(function (key) { return key === network; });
-            rows.push({ tipo: tipo, canais: start, formatos: [], dco: tipo === "remarketing" && start.length > 0, segmento: "", peso: "" });
+            rows.push({ tipo: tipo, canais: start, tipos_formato: [], formatos: [], dco: tipo === "remarketing" && start.length > 0, segmento: "", peso: "" });
           }
           taticasDraft = rows;
         } else {
@@ -2586,6 +2601,8 @@
             row.canais = Array.prototype.slice.call(taticasList.querySelectorAll('input[name="tatica_canal"][data-tipo="' + tipo + '"]:checked')).map(function (el) { return el.value; });
           } else if (target.name === "tatica_formato") {
             row.formatos = Array.prototype.slice.call(taticasList.querySelectorAll('input[name="tatica_formato"][data-tipo="' + tipo + '"]:checked')).map(function (el) { return el.value; });
+          } else if (target.name === "tatica_tipo_formato") {
+            row.tipos_formato = Array.prototype.slice.call(taticasList.querySelectorAll('input[name="tatica_tipo_formato"][data-tipo="' + tipo + '"]:checked')).map(function (el) { return el.value; });
           } else if (target.name === "tatica_dco") {
             row.dco = target.checked;
           } else if (target.name === "tatica_segmento") {

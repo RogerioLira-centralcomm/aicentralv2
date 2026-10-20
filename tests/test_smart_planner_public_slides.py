@@ -77,7 +77,29 @@ def test_media_slide_uses_one_share_bar_and_one_bar_per_month():
     assert [m["height"] for m in media["flight"]] == [50, 100]
     assert media["channels"] == []  # com frentes, os canais não repetem a mesma informação
     no_fronts = next(s for s in build_slides({**VIEW, "fronts": []}) if s["type"] == "media")
-    assert no_fronts["share"] == [{"label": "Rede de portais e sites", "pct": 100}] and no_fronts["channels"]
+    # Um canal só não vira barra de 100%: o slide mostra o canal, a leitura da verba e o voo.
+    assert no_fronts["layout"] == "solo" and no_fronts["share"] == [] and no_fronts["channels"] == []
+    assert no_fronts["solo"]["label"] == "Rede de portais e sites"
+    assert no_fronts["flight_unit"] == "mês" and no_fronts["reading"]["stats"][0]["label"] == "Investimento"
+
+
+def test_weekly_flight_is_read_as_weeks_and_ramp_is_named():
+    from aicentralv2.smart_planner.public_slides import _flight_reading
+
+    weeks = [{"label": f"S{i} · {d}", "amount": a} for i, (d, a) in enumerate(zip(["24/9", "1/10", "8/10", "15/10", "22/10"], [10754, 16864, 20819, 24231, 27332]), 1)]
+    reading = _flight_reading({"media": {"months": weeks}})
+    assert reading["unit"] == "semana"
+    assert "semana a semana" in reading["shape"]
+    assert reading["stats"][1]["label"] == "Em 5 semanas"
+
+
+def test_thesis_uses_the_short_title_as_headline():
+    view = {**VIEW, "overview": "Quando o tema é proteção do orçamento diante da influência das propagandas, a oportunidade está em vídeo.", "overview_title": "Educação financeira onde a atenção está"}
+    thesis = next(s for s in build_slides(view) if s["type"] == "thesis")
+    assert thesis["headline"] == "Educação financeira onde a atenção está"
+    assert thesis["statement"].startswith("Quando o tema")
+    generic = next(s for s in build_slides({**view, "overview_title": "Tese central"}) if s["type"] == "thesis")
+    assert generic["headline"] == ""
 
 
 def test_clip_cuts_on_a_whole_word():
@@ -127,3 +149,29 @@ def test_presenter_notes_keep_the_full_text_the_slide_summarized():
     assert any(note.startswith("Etapa 5:") for note in slides["audience"]["notes"])  # etapa que não coube no slide
     assert slides["cover"]["notes"] == [] and slides["contact"]["notes"] == []
     assert all(len(slide["notes"]) <= 12 for slide in slides.values())
+
+
+def test_mockups_pick_one_screen_per_channel_kind_with_the_creative():
+    from aicentralv2.smart_planner.mockups import mockups_for
+
+    view = {"media": {"channels": [
+        {"id": "dv360", "label": "Rede de portais e sites", "pct": 60, "group": "programmatic"},
+        {"id": "netflix", "label": "Netflix", "pct": 40, "group": "ctv"},
+        {"id": "ooh", "label": "OOH", "pct": 10, "group": "ooh"},
+    ]}, "network_sites": {"sites": [{"name": "Valor Econômico"}, {"name": "G1"}]}}
+    mocks = mockups_for(view, "/static/x.png")
+    assert [m["kind"] for m in mocks] == ["portal", "tv"]
+    assert mocks[0]["label"] == "G1" and mocks[0]["logo"]  # o maior portal com logo vira a tela
+    assert all(m["image"] == "/static/x.png" for m in mocks)
+    assert mockups_for(view, "") == []
+
+
+def test_whatsapp_message_carries_the_plan_link(monkeypatch):
+    from aicentralv2.smart_planner import public_view as pv
+
+    monkeypatch.setattr(pv, "obter_contato_por_email", lambda email: {"nome_completo": "Ana Souza", "telefone": "11999998888"})
+    monkeypatch.setattr(pv, "normalizar_telefone_whatsapp", lambda phone: "5511999998888")
+    contact = pv._executive_contact({"user_email": "a@b.c", "dados_detectados": {}}, "Verão", link="https://x/p/T/proposta", client="Animale")
+    assert contact["first_name"] == "Ana"
+    assert "https://x/p/T/proposta" in contact["whatsapp_message"] and "Animale" in contact["whatsapp_message"]
+    assert contact["whatsapp_message"].endswith("tenho uma dúvida:")

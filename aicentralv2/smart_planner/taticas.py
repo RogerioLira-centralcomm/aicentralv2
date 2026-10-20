@@ -26,6 +26,30 @@ TATICA_TIPOS = {
     },
 }
 
+# Tipos de formato da frente: o que o cliente vê ("vídeo", "display IAB"…) antes dos formatos
+# específicos. Cada formato do catálogo pertence a um tipo pelo campo ``tipo`` do catálogo.
+FORMAT_FAMILIES = {
+    "video": {"label": "Vídeo", "hint": "Vídeo em portais, CTV, streaming e redes."},
+    "display": {"label": "Display IAB", "hint": "Banners nos tamanhos padrão IAB."},
+    "native": {"label": "Native", "hint": "Anúncio no formato do conteúdo do site."},
+    "audio": {"label": "Áudio", "hint": "Spots em streaming de áudio e podcasts."},
+    "interativo": {"label": "Interativo", "hint": "Rich media e formatos clicáveis; custo agregado na proposta."},
+}
+CATALOG_TYPE_FAMILY = {
+    "video": "video", "ctv": "video",
+    "display": "display",
+    "native": "native",
+    "audio": "audio",
+    "display_interativo": "interativo", "rich-media": "interativo", "rich media": "interativo", "interactive": "interativo",
+}
+FAMILY_ALIASES = {
+    "video": "video", "vídeo": "video", "videos": "video", "vídeos": "video", "ctv": "video", "olv": "video",
+    "display": "display", "iab": "display", "display iab": "display", "banner": "display", "banners": "display",
+    "native": "native", "nativo": "native", "conteudo nativo": "native",
+    "audio": "audio", "áudio": "audio", "spot": "audio", "podcast": "audio",
+    "interativo": "interativo", "interativos": "interativo", "rich media": "interativo", "rich-media": "interativo",
+}
+
 FORMATO_DCO = {"id": "dco", "label": "DCO · anúncio dinâmico"}
 # DCO: anúncio dinâmico. A mesma peça muda conforme as regras da campanha.
 DCO_DESCRIPTION = (
@@ -47,6 +71,40 @@ def formato_label(format_id: str) -> str:
     return format_catalog.display_name(format_id)
 
 
+def family_of(slug: str) -> str:
+    """Tipo de um formato do catálogo; DCO roda em display."""
+    if slug == FORMATO_DCO["id"]:
+        return "display"
+    row = format_catalog.by_id(slug)
+    if row.get("interactive"):
+        return "interativo"
+    return CATALOG_TYPE_FAMILY.get(text(row.get("type")).lower(), "")
+
+
+def families_for_channels(channels: list[str]) -> list[str]:
+    """Tipos que os canais da frente aceitam, pelo catálogo de formatos de cada um."""
+    found = {family_of(fmt["id"]) for key in channels for fmt in format_catalog.formats_for_channel(key)}
+    return [key for key in FORMAT_FAMILIES if key in found]
+
+
+def family_label(key: str) -> str:
+    return FORMAT_FAMILIES.get(key, {}).get("label", key)
+
+
+def _families(raw: Any, available: list[str], formats: list[str]) -> list[str]:
+    chosen = []
+    for value in as_list(raw):
+        key = FAMILY_ALIASES.get(text(value).strip().lower())
+        if key and key not in chosen and (not available or key in available):
+            chosen.append(key)
+    # Formato escolhido já diz o tipo; o tipo aparece mesmo que o executivo não o marque.
+    for slug in formats:
+        key = family_of(slug)
+        if key and key not in chosen:
+            chosen.append(key)
+    return [key for key in FORMAT_FAMILIES if key in chosen]
+
+
 def dco_allowed(channel_id: str) -> bool:
     return (CHANNEL_CATALOG.get(channel_id) or {}).get("group") not in DCO_BLOCKED_GROUPS
 
@@ -58,13 +116,14 @@ def spec_for_js() -> dict:
         rows = format_catalog.formats_for_channel(key)
         if rows:
             channels[key] = [
-                {"id": row["id"], "name": row["name"], "type": row["type"], "dimensions": row["dimensions"],
+                {"id": row["id"], "name": row["name"], "type": row["type"], "family": family_of(row["id"]), "dimensions": row["dimensions"],
                  "interactive": bool(row["interactive"]), "aggregated": bool(row["aggregated_cost"])}
                 for row in rows
             ]
     return {
         "tipos": [{"id": key, **meta} for key, meta in TATICA_TIPOS.items()],
         "segmentos": list(SEGMENTOS),
+        "families": [{"id": key, **meta} for key, meta in FORMAT_FAMILIES.items()],
         "dco": dict(FORMATO_DCO),
         "dcoBlockedGroups": sorted(DCO_BLOCKED_GROUPS),
         "network": format_catalog.NETWORK_CHANNEL,
@@ -118,6 +177,7 @@ def normalize_taticas(raw: Any, canais: Any) -> list[dict]:
             "tipo": tipo,
             "canais": channels,
             "formatos": formats,
+            "tipos_formato": _families(row.get("tipos_formato"), families_for_channels(channels), formats),
             "segmento": _segmento(row.get("segmento")),
             "peso": _peso(row.get("peso")),
         })
@@ -229,6 +289,7 @@ def taticas_for_prompt(taticas: list[dict], mix: list[dict]) -> list[dict]:
             "para_que": TATICA_TIPOS[row["tipo"]]["hint"],
             "canais": [labels.get(key) or key for key in row["canais"]],
             "formatos": [formato_label(fid) for fid in row["formatos"]],
+            "tipos_de_formato": [family_label(key) for key in row.get("tipos_formato") or []],
         }
         if weight:
             entry["peso_pct"] = round(weight, 1)

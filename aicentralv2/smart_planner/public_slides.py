@@ -11,6 +11,7 @@ import re
 from typing import Any
 
 from .helpers import as_dict, as_list, short_title, text
+from .mockups import channel_logo, mockups_for, site_logo
 
 # Orçamento de texto por bloco, medido no canvas de 1600 x 900 com as fontes do template.
 LIMITS = {
@@ -52,14 +53,17 @@ def _first_sentences(value: Any, limit: int) -> str:
 def _cover(view: dict) -> dict:
     identity = as_dict(view.get("cover_identity"))
     facts = [
-        {"label": label, "value": clip(value, 60)}
+        {"label": label, "value": clip(value, 38)}
         for label, value in as_list(view.get("facts"))
         if text(label) not in {"Anunciante", "Público"} and text(value)
     ][:4]
+    title = short_title(identity.get("campaign") or view.get("title"), 70)
     return {
         "type": "cover",
         "nav": "Capa",
-        "title": short_title(identity.get("campaign") or view.get("title"), 70),
+        "title": title,
+        # Títulos longos descem de tamanho em vez de serem cortados com reticências.
+        "title_size": "lg" if len(title) <= 32 else "md" if len(title) <= 52 else "sm",
         "client": text(identity.get("client") or view.get("client")),
         "agency": text(identity.get("agency")),
         "logo": text(view.get("brand_logo")),
@@ -69,17 +73,27 @@ def _cover(view: dict) -> dict:
     }
 
 
+GENERIC_TITLES = {"tese", "tese central", "a decisão", "decisão", "a tese", "tese do plano"}
+
+
 def _thesis(view: dict) -> dict | None:
-    statement = _first_sentences(view.get("overview"), LIMITS["statement"])
-    if not statement:
+    overview = text(view.get("overview"))
+    if not overview:
         return None
+    title = text(view.get("overview_title"))
+    headline = short_title(title, 70) if title and title.lower().strip(" .") not in GENERIC_TITLES else ""
+    # Com manchete, a frase da tese vira o texto de apoio e cabe inteira; sem ela,
+    # a frase é o título e desce de tamanho conforme o comprimento, sem reticências.
+    statement = _first_sentences(overview, 300 if headline else LIMITS["statement"])
     support = text(view.get("overview_support"))
     return {
         "type": "thesis",
         "nav": "A decisão",
         "kicker": "A decisão",
+        "headline": headline,
         "statement": statement,
-        "support": _first_sentences(support, LIMITS["support"]) if support and support != text(view.get("overview")) else "",
+        "statement_size": "md" if headline or len(statement) <= 130 else "sm",
+        "support": _first_sentences(support, LIMITS["support"]) if support and support != overview else "",
     }
 
 
@@ -127,13 +141,16 @@ def _creative(view: dict) -> dict | None:
         if text(as_dict(item).get("name"))
     ][:3]
     hero = as_dict(view.get("hero"))
+    image = text(hero.get("creative_image") or as_dict(hero.get("support_image")).get("url"))
     return {
         "type": "creative",
         "nav": "Criativo",
         "kicker": "Criativo no canal",
         "title": short_title(concept, 80),
         "body": _first_sentences(view.get("concept_body"), 260),
-        "image": text(hero.get("creative_image") or as_dict(hero.get("support_image")).get("url")),
+        "image": image,
+        # O criativo dentro da tela do canal (TV, portal, celular), não solto na página.
+        "mockups": mockups_for(view, image),
         "outputs": outputs,
     }
 
@@ -147,16 +164,67 @@ def _share_bar(view: dict) -> list[dict]:
     return [{"label": text(c.get("label")), "pct": int(c.get("pct") or 0)} for c in channels][:6]
 
 
+WEEK_LABEL = re.compile(r"^\s*S\d+", re.IGNORECASE)
+
+
+def _periods(view: dict) -> list[dict]:
+    return [as_dict(m) for m in as_list(as_dict(view.get("media")).get("months")) if text(as_dict(m).get("label"))]
+
+
+def _period_unit(months: list[dict]) -> str:
+    return "semana" if months and all(WEEK_LABEL.match(text(m.get("label"))) for m in months) else "mês"
+
+
 def _flight(view: dict) -> list[dict]:
-    months = [as_dict(m) for m in as_list(as_dict(view.get("media")).get("months")) if text(as_dict(m).get("label"))]
+    months = _periods(view)
     if len(months) < 2:
         return []
     peak = max((int(m.get("amount") or 0) for m in months), default=0) or 1
     return [
         {"label": text(m.get("full_label") or m.get("label")), "value": text(m.get("amount_label")),
-         "height": max(8, round(int(m.get("amount") or 0) * 100 / peak))}
+         "height": max(8, round(int(m.get("amount") or 0) * 100 / peak)),
+         "peak": int(m.get("amount") or 0) == peak}
         for m in months[:12]
     ]
+
+
+def _brl(value: float) -> str:
+    return "R$ " + f"{round(value):,}".replace(",", ".")
+
+
+def _flight_reading(view: dict) -> dict:
+    """Leitura do voo para quem decide: total, média, pico e como a verba se distribui no tempo."""
+    months = _periods(view)
+    amounts = [int(m.get("amount") or 0) for m in months]
+    total = sum(amounts)
+    if len(months) < 2 or not total:
+        return {}
+    unit = _period_unit(months)
+    plural = "semanas" if unit == "semana" else "meses"
+    peak_index = max(range(len(amounts)), key=lambda i: amounts[i])
+    half = len(amounts) // 2
+    late = sum(amounts[len(amounts) - half:]) * 100 / total if half else 0
+    early = sum(amounts[:half]) * 100 / total if half else 0
+    first, last = amounts[0], amounts[-1]
+    rising = first and last >= first * 1.4 and late > early
+    falling = last and first >= last * 1.4 and early > late
+    if rising:
+        ratio = f"{last / first:.1f}".replace(".", ",").replace(",0", "")
+        shape = f"A verba cresce {'semana a semana' if unit == 'semana' else 'mês a mês'}: o fim do voo recebe {ratio}x o começo, com mais peso perto da entrega."
+    elif falling:
+        shape = f"Começo forte: {round(early)}% da verba na primeira metade, para abrir a campanha com volume."
+    else:
+        shape = "Distribuição equilibrada no período, sem depender de um único pico."
+    peak = months[peak_index]
+    return {
+        "unit": unit,
+        "stats": [
+            {"label": "Investimento", "value": _brl(total)},
+            {"label": f"Em {len(months)} {plural}", "value": f"{_brl(total / len(months))} por {unit}"},
+            {"label": f"Pico · {text(peak.get('full_label') or peak.get('label'))}", "value": f"{round(amounts[peak_index] * 100 / total)}% da verba"},
+        ],
+        "shape": shape,
+    }
 
 
 def _media(view: dict) -> dict | None:
@@ -173,47 +241,81 @@ def _media(view: dict) -> dict | None:
             "label": text(row.get("label")),
             "weight": round(float(row["weight"])) if row.get("weight") else None,
             "text": _first_sentences(row.get("text"), 170),
+            "types": [text(t) for t in as_list(row.get("format_types")) if text(t)][:4],
             "tags": [clip(tag, 34) for tag in as_list(row.get("formats"))][:4] + ([text(row.get("segment"))] if text(row.get("segment")) else []),
         })
     channels = [
-        {"label": text(c.get("label")), "pct": c.get("pct"), "role": clip(c.get("role"), LIMITS["role"]), "color": text(c.get("color"))}
+        {"id": text(c.get("id")), "label": text(c.get("label")), "pct": c.get("pct"), "role": clip(c.get("role"), LIMITS["role"]), "color": text(c.get("color")), "logo": channel_logo(c)}
         for c in (as_dict(item) for item in as_list(media.get("channels")))
     ][:6]
+    share = _share_bar(view)
+    flight = _flight(view)
+    reading = _flight_reading(view)
+    # Uma parte só (um canal, sem frentes divididas) não vira barra de 100%: o que informa é o voo.
+    solo = len(share) <= 1 and len([c for c in channels if c.get("pct")]) <= 1
+    formats = as_dict(view.get("formats_by_channel"))
+    solo_channel = {}
+    if solo and channels:
+        lead = channels[0]
+        solo_channel = {
+            **lead,
+            "formats": [clip(as_dict(f).get("nome"), 34) for f in as_list(formats.get(lead.get("id")))][:5],
+            "front": fronts[0] if fronts else {},
+        }
     return {
         "type": "media",
         "nav": "Estratégia de mídia",
         "kicker": "Estratégia de mídia",
         "title": short_title(narrative.get("decision") or "Como a verba trabalha", 90),
-        "share": _share_bar(view),
-        "fronts": fronts[:2],
-        "channels": [] if fronts else channels,
-        "flight": _flight(view),
+        "layout": "solo" if solo else ("fronts" if fronts else "mix"),
+        "share": [] if solo else share,
+        "fronts": [] if solo else fronts[:2],
+        "channels": [] if solo or fronts else channels,
+        "solo": solo_channel,
+        "flight": flight,
+        "flight_unit": reading.get("unit") or _period_unit(_periods(view)),
+        "reading": reading,
     }
 
 
 def _formats(view: dict) -> dict | None:
     by_channel = as_dict(view.get("formats_by_channel"))
-    labels = {text(as_dict(c).get("id")): text(as_dict(c).get("label")) for c in as_list(as_dict(view.get("media")).get("channels"))}
+    media_channels = {text(as_dict(c).get("id")): as_dict(c) for c in as_list(as_dict(view.get("media")).get("channels"))}
+    labels = {key: text(c.get("label")) for key, c in media_channels.items()}
     groups = []
     for channel_id, rows in by_channel.items():
         items = [as_dict(row) for row in as_list(rows)]
         if items:
             groups.append({
                 "channel": labels.get(channel_id, channel_id),
+                "logo": channel_logo(media_channels.get(channel_id) or {"id": channel_id}),
                 "formats": [{"name": clip(item.get("nome"), 40), "aggregated": bool(item.get("custo_agregado"))} for item in items][:10],
                 "more": max(0, len(items) - 10),
             })
     sites = as_dict(view.get("network_sites"))
     site_names = [text(as_dict(site).get("name")) for site in as_list(sites.get("sites")) if text(as_dict(site).get("name"))][:10]
+    site_rows = [{"name": name, "logo": site_logo(name)} for name in site_names]
     if not groups and not site_names:
         return None
+    fronts = [
+        {"label": text(as_dict(f).get("label")), "types": [text(t) for t in as_list(as_dict(f).get("format_types")) if text(t)]}
+        for f in as_list(view.get("fronts"))
+        if text(as_dict(f).get("tipo")) != "outros" and as_list(as_dict(f).get("format_types"))
+    ][:2]
+    hero = as_dict(view.get("hero"))
+    image = text(hero.get("creative_image") or as_dict(hero.get("support_image")).get("url"))
+    portal = [m for m in mockups_for(view, image, limit=3) if m["kind"] == "portal"] if site_names else []
     return {
         "type": "formats",
+        "fronts": fronts,
+        # Na Rede de portais, a tela do maior portal mostra onde leaderboard e retângulo aparecem.
+        "mockup": portal[0] if portal else {},
         "nav": "Formatos e portais",
         "kicker": "Formatos e rede de portais",
         "groups": groups[:3],
         "aggregated": [clip(name, 40) for name in as_list(view.get("aggregated_formats"))][:6],
         "sites": site_names,
+        "site_rows": site_rows,
         "sites_total": int(sites.get("total") or 0),
         "segment": text(as_dict(sites.get("criterios")).get("segmento")),
     }
@@ -277,6 +379,8 @@ def _contact(view: dict) -> dict:
         "name": text(executive.get("name")),
         "photo": text(executive.get("photo_url")),
         "initials": text(executive.get("initials")),
+        "first_name": text(executive.get("first_name")),
+        "role": text(executive.get("role")) or "Responsável por este plano",
         "whatsapp": text(executive.get("whatsapp_url")),
         "full_plan_url": text(view.get("full_plan_url")) if view.get("tem_completo") else "",
     }

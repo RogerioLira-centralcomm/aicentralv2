@@ -12,6 +12,7 @@ from ..product_domains import product_url
 
 from .brand import brand_for_client, snapshot_brand, load_cx_client_for_crm
 from .canvas import SECTIONS
+from .estimates import ORIGIN_LABELS as ESTIMATE_ORIGIN_LABELS, public_view as estimates_view
 from .helpers import as_dict, as_list, plan_mode_of, text
 from .images import ART_PUBLIC_PREFIX, creative_images, is_generated_art, is_variant_file
 from .logos import lookup_agency_for_client, public_logo
@@ -328,6 +329,16 @@ def _presentation_panel(row: dict, dados: dict, folha: dict) -> dict:
     return panel
 
 
+def _impact_for_review(dados: dict) -> dict:
+    """Estimativa de impacto só para o executivo: valores parecem cotação e não vão para o cliente."""
+    estimates = as_dict(dados.get("estimates"))
+    view = estimates_view(estimates)
+    if not as_list(view.get("rows")):
+        return {}
+    view["origin_label"] = ESTIMATE_ORIGIN_LABELS.get(estimates.get("origin"), "Estimativa")
+    return view
+
+
 def editor_context(row: dict, share_url: str = "") -> dict:
     dados = as_dict(row.get("dados_detectados"))
     folha = as_dict(dados.get("folha"))
@@ -349,6 +360,7 @@ def editor_context(row: dict, share_url: str = "") -> dict:
         "gallery": gallery,
         "brand_panel": brand_panel,
         "presentation": presentation,
+        "impact_review": _impact_for_review(dados),
         "channel_formats": _channel_formats(dados, as_dict(folha.get("media"))),
         "folha_checks": _folha_checklist(folha, cards, gallery, brand_panel),
         "completo_checks": _completo_checklist(row, dados, url, token),

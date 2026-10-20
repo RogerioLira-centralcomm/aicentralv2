@@ -6439,3 +6439,20 @@ html.is-sp-media body {
 @media(max-width:980px){.sp-art-studio{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.sp-art-progress__bar i,.sp-gallery-item.is-pending>i{animation:none}}
 .sp-art-make .sp-image-note{margin:0;color:#667b7e;font-size:.7rem;line-height:1.4}
+
+/* Estimativa de impacto na revisão do plano: só para o executivo */
+.sp-impact-review__origin{justify-self:start;margin:0;padding:.25rem .7rem;border-radius:999px;background:#fbf3dc;color:#5c4a12;font-size:.75rem;font-weight:650}
+.sp-impact-review__origin.is-reviewed{background:#e6f2ec;color:#1f5b42}
+.sp-impact-review__cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.6rem}
+.sp-impact-review__cards div{display:grid;gap:.15rem;padding:.7rem .8rem;border:1px solid #e1e7e5;border-radius:10px;background:#fff}
+.sp-impact-review__cards span,.sp-impact-review__cards small{color:#5f7076;font-size:.72rem}
+.sp-impact-review__cards strong{font-size:1.15rem;font-variant-numeric:tabular-nums}
+.sp-impact-review__table{overflow-x:auto}
+.sp-impact-review__table table{width:100%;border-collapse:collapse;font-size:.8rem}
+.sp-impact-review__table th,.sp-impact-review__table td{padding:.45rem .5rem;border-bottom:1px solid #e1e7e5;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.sp-impact-review__table th:first-child{text-align:left}
+.sp-impact-review__table thead th{color:#5f7076;font-weight:600}
+.sp-impact-review__indicator{margin:0;font-size:.8rem}
+.sp-impact-review__assumptions{margin:0;padding-left:1.1rem;color:#36484e;font-size:.78rem}
+.sp-impact-review small{color:#5f7076;font-size:.72rem}
+.sp-impact-review .cx-btn{justify-self:start}

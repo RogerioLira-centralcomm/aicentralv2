@@ -4,7 +4,7 @@
 {% block title %}{{ titulo }} · Planejamentos{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=63">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=64">
 {% endblock %}
 
 {% block content %}
@@ -330,6 +330,25 @@
             </div>
           </div>
         </details>
+
+        {% if impact_review %}{% set imp = impact_review %}
+        <details class="sp-acc sp-impact-review" data-acc="impact" id="sp-acc-impact">
+          <summary aria-controls="sp-acc-impact-body">
+            <span class="sp-acc-title">Estimativa de impacto</span>
+            <span class="sp-acc-meta">uso interno · não vai para o cliente</span>
+          </summary>
+          <div class="sp-bf is-stack" id="sp-acc-impact-body">
+            <p class="sp-acc-note">Valores de referência para a sua conversa com o cliente. A proposta, os slides e o PowerPoint não mostram estes números, para não serem lidos como cotação.</p>
+            <p class="sp-impact-review__origin{% if imp.reviewed %} is-reviewed{% endif %}">{{ imp.origin_label }}</p>
+            {% if imp.cards %}<div class="sp-impact-review__cards">{% for card in imp.cards %}<div><span>{{ card.label }}</span><strong>{{ card.value }}</strong>{% if card.note %}<small>{{ card.note }}</small>{% endif %}</div>{% endfor %}</div>{% endif %}
+            <div class="sp-impact-review__table"><table><thead><tr><th>Canal</th><th>Investimento</th><th>CPM</th><th>Impressões</th><th>Alcance</th><th>Cliques</th></tr></thead><tbody>{% for row in imp.rows %}<tr><th scope="row">{{ row.label }}</th><td>{{ row.invested }}</td><td>{{ row.cpm or '—' }}</td><td>{{ row.impressions or '—' }}</td><td>{{ row.reach or '—' }}</td><td>{{ row.clicks or '—' }}</td></tr>{% endfor %}</tbody></table></div>
+            {% if imp.indicator and imp.indicator.label %}<p class="sp-impact-review__indicator"><b>{{ imp.indicator.label }}</b>{% if imp.indicator.target %} · meta {{ imp.indicator.target }}{% endif %}{% if imp.indicator.estimated %} · estimado {{ imp.indicator.estimated }}{% endif %} · {{ imp.indicator.status_label }}</p>{% endif %}
+            {% if imp.assumptions %}<ul class="sp-impact-review__assumptions">{% for item in imp.assumptions %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+            <small>{{ imp.reach_note }}</small>
+            <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ url_for('smart_planner.revisao', token=token) }}#sp-estimativa-desk">Ajustar taxas na revisão do briefing</a>
+          </div>
+        </details>
+        {% endif %}
 
         <div hidden aria-hidden="true">
           <input id="sp-field-defense-title" name="defense_title" value="{{ defense.title or 'Por que aprovar' }}">

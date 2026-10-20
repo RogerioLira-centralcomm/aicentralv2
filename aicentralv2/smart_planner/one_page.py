@@ -500,7 +500,6 @@ def cards_from_v2(page: dict, snapshot: dict | None = None) -> list[dict]:
     rec = as_dict(data.get("recommendation"))
     challenge = as_dict(data.get("challenge"))
     creative = as_dict(data.get("creative_expression"))
-    estimates = as_dict(data.get("result_estimates"))
     defense = as_dict(data.get("commercial_defense"))
     market_evidence = as_dict(data.get("market_evidence"))
     audience_model = as_dict(data.get("audience_model"))
@@ -527,8 +526,6 @@ def cards_from_v2(page: dict, snapshot: dict | None = None) -> list[dict]:
     market_bits = [text(audience), text(rec.get("message"))]
     if text(market_evidence.get("insight")):
         market_bits.append(text(market_evidence.get("insight")))
-    if estimates.get("status") == "available" and text(estimates.get("summary")):
-        market_bits.append(text(estimates.get("summary")))
     market_body = "\n\n".join(bit for bit in market_bits if bit)
     return [
         _card("strategy", "Decisão", strategy_body, index=0),

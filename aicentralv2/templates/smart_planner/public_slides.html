@@ -186,15 +186,6 @@
           </div>
           {% if slide.note %}<p class="sx-footnote">{{ slide.note }}</p>{% endif %}
 
-          {% elif slide.type == 'impact' %}
-          <div class="sx-impact-head">{{ kicker(slide) }}<span class="sx-origin{% if slide.reviewed %} is-reviewed{% endif %}">{{ slide.origin }}</span></div>
-          {% if slide.lead %}<p class="sx-impact-lead">{{ hl(slide.lead) }}</p>{% endif %}
-          <div class="sx-cards">{% for card in slide.cards %}<article><span>{{ card.label }}</span><strong>{{ card.value }}</strong>{% if card.note %}<small>{{ card.note }}</small>{% endif %}</article>{% endfor %}</div>
-          <div class="sx-impact-body{% if slide.indicator or slide.assumptions %} has-indicator{% endif %} is-rows-{{ slide.rows|length }}">
-            <table class="sx-table"><thead><tr><th>Canal</th><th>Investimento</th><th>CPM</th><th>Impressões</th>{% if slide.has_reach %}<th>Alcance</th>{% endif %}<th>Cliques</th></tr></thead><tbody>{% for row in slide.rows %}<tr><th>{{ row.label }}</th><td>{{ row.invested }}</td><td>{{ row.cpm or '—' }}</td><td>{{ row.impressions or '—' }}</td>{% if slide.has_reach %}<td>{{ row.reach or '—' }}</td>{% endif %}<td>{{ row.clicks or '—' }}</td></tr>{% endfor %}</tbody></table>
-            {% if slide.indicator %}<aside class="sx-indicator is-{{ slide.indicator.status }}"><span>Indicador do cliente</span><strong>{{ slide.indicator.label }}{% if slide.indicator.target %} · meta {{ slide.indicator.target }}{% endif %}</strong><p>{% if slide.indicator.estimated %}Estimado {{ slide.indicator.estimated }} · {% endif %}{{ slide.indicator.status_label }}</p></aside>{% elif slide.assumptions %}<aside class="sx-assumptions"><span>Premissas da conta</span><ul>{% for item in slide.assumptions %}<li>{{ hl(item) }}</li>{% endfor %}</ul></aside>{% endif %}
-          </div>
-          <p class="sx-footnote">{{ slide.note }}</p>
 
           {% elif slide.type == 'defense' %}
           {{ kicker(slide) }}

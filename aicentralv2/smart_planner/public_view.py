@@ -13,7 +13,6 @@ from urllib.parse import quote, urlparse
 from flask import has_request_context, url_for
 
 from .catalog import CHANNEL_CATALOG, CHANNEL_LOGOS, OBJETIVO_OPTIONS, PRIMARY_FORMATS, PRACA_OPTIONS, objetivo_label
-from .estimates import public_view as estimates_public_view
 from .helpers import as_bool, as_dict, as_list, normalize_markdown, plan_mode_of, session_title, short_title, text
 from .mix import METHODS
 from .pace import format_money, parse_money
@@ -1546,7 +1545,6 @@ def public_view(row: dict, document: str | None = None) -> dict:
         "overview": overview,
         "overview_title": overview_title,
         "overview_support": overview_support,
-        "impact": estimates_public_view(as_dict(dados.get("estimates"))),
         "first_party": first_party_view(
             as_dict(dados.get("campanha")).get("dados_primarios")
             or dados.get("dados_primarios")

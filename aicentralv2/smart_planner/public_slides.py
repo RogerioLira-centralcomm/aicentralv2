@@ -349,30 +349,6 @@ def _formats(view: dict) -> dict | None:
     }
 
 
-def _impact(view: dict) -> dict | None:
-    impact = as_dict(view.get("impact"))
-    if not as_list(impact.get("rows")):
-        return None
-    indicator = as_dict(impact.get("indicator"))
-    rows = as_list(impact.get("rows"))[:5]
-    lead = text(impact.get("headline")).split(": ", 1)[-1]
-    return {
-        "type": "impact",
-        "nav": "Estimativa de impacto",
-        "kicker": "Estimativa de impacto",
-        "origin": text(impact.get("origin_label")),
-        "reviewed": bool(impact.get("reviewed")),
-        "cards": as_list(impact.get("cards"))[:4],
-        "indicator": indicator if indicator.get("label") else {},
-        "rows": rows,
-        "has_reach": any(text(as_dict(row).get("reach")) for row in rows),
-        # A origem já está no selo ao lado do título; o slide lê só o volume e o investimento.
-        "lead": lead[:1].upper() + lead[1:],
-        "assumptions": [clip(item, 140) for item in as_list(impact.get("assumptions")) if text(item)][:4],
-        "note": "Estimativa de referência, não promessa de resultado. " + text(impact.get("reach_note")),
-    }
-
-
 def _first_party(view: dict) -> dict | None:
     """Dados do cliente: o que ele fornece e como cada uso entra no plano."""
     data = as_dict(view.get("first_party"))
@@ -452,7 +428,6 @@ ICONS = {
     "media": '<path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/>',
     "formats": '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
     "first_party": '<ellipse cx="12" cy="5.5" rx="8" ry="2.5"/><path d="M4 5.5v6c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5v-6"/><path d="M4 11.5v6c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5v-6"/>',
-    "impact": '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
     "defense": '<path d="M12 3l8 3v6c0 4.5-3.4 8.2-8 9-4.6-.8-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
     "market": '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
     "contact": '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-5A8 8 0 1 1 21 12z"/>',
@@ -505,7 +480,7 @@ def highlighter(view: dict):
     return lambda value: emphasize(value, pattern=pattern)
 
 
-BUILDERS = (_cover, _thesis, _context, _audience, _creative, _showcase, _media, _formats, _first_party, _impact, _defense, _market, _contact)
+BUILDERS = (_cover, _thesis, _context, _audience, _creative, _showcase, _media, _formats, _first_party, _defense, _market, _contact)
 
 
 def _notes(slide: dict, view: dict) -> list[str]:
@@ -530,8 +505,6 @@ def _notes(slide: dict, view: dict) -> list[str]:
     elif kind == "defense":
         for group in as_list(view.get("defense_groups")):
             notes += [text(item) for item in as_list(as_dict(group).get("items"))]
-    elif kind == "impact":
-        notes = [text(item) for item in as_list(as_dict(view.get("impact")).get("assumptions"))]
     elif kind == "market":
         notes = [text(as_dict(editorial.get("market")).get("insight"))]
     seen: list[str] = []

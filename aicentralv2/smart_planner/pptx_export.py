@@ -361,53 +361,6 @@ def _formats(deck, data, view):
     return slide
 
 
-def _impact(deck, data, view):
-    from pptx.util import Pt
-
-    slide = deck.slide()
-    deck.kicker(slide, data)
-    if text(data.get("origin")):
-        deck.text(slide, W_IN - PAD - 5, 0.55, 5, 0.4, data.get("origin"), size=12, color=deck.muted)
-    cards = [as_dict(c) for c in as_list(data.get("cards"))[:4]]
-    if cards:
-        width = (W_IN - 2 * PAD - 0.3 * (len(cards) - 1)) / len(cards)
-        for index, card in enumerate(cards):
-            x = PAD + index * (width + 0.3)
-            deck.box(slide, x, 1.1, width, 1.4, deck.soft)
-            deck.text(slide, x + 0.25, 1.25, width - 0.5, 0.3, text(card.get("label")).upper(), size=10, bold=True, color=deck.brand)
-            deck.text(slide, x + 0.25, 1.55, width - 0.5, 0.5, card.get("value"), size=26, bold=True)
-            if text(card.get("note")):
-                deck.text(slide, x + 0.25, 2.1, width - 0.5, 0.3, card.get("note"), size=10, color=deck.muted)
-    rows = [as_dict(r) for r in as_list(data.get("rows"))[:5]]
-    if rows:
-        headers = ["Canal", "Investimento", "CPM", "Impressões", "Cliques"]
-        shape = slide.shapes.add_table(len(rows) + 1, 5, deck.Inches(PAD), deck.Inches(2.8), deck.Inches(W_IN - 2 * PAD), deck.Inches(0.4 * (len(rows) + 1)))
-        table = shape.table
-        widths = (3.4, 2.2, 1.6, 2.2, 2.4)
-        scale = (W_IN - 2 * PAD) / sum(widths)
-        for index, inches in enumerate(widths):
-            table.columns[index].width = deck.Inches(inches * scale)
-        values = [headers] + [[r.get("label"), r.get("invested"), r.get("cpm") or "—", r.get("impressions") or "—", r.get("clicks") or "—"] for r in rows]
-        for r_index, row in enumerate(values):
-            for c_index, value in enumerate(row):
-                cell = table.cell(r_index, c_index)
-                cell.text = text(value)
-                cell.fill.solid()
-                cell.fill.fore_color.rgb = _rgb(deck.brand if r_index == 0 else deck.paper)
-                font = cell.text_frame.paragraphs[0].runs[0].font if cell.text_frame.paragraphs[0].runs else None
-                if font:
-                    font.size = Pt(12)
-                    font.name = FONT
-                    font.bold = r_index == 0 or c_index == 0
-                    font.color.rgb = _rgb("#FFFFFF" if r_index == 0 else deck.ink)
-    indicator = as_dict(data.get("indicator"))
-    if indicator.get("label"):
-        line = f"{text(indicator.get('label'))}: meta {text(indicator.get('target')) or '—'} · estimado {text(indicator.get('estimated')) or '—'}"
-        deck.text(slide, PAD, 5.6, W_IN - 2 * PAD, 0.4, line, size=14, bold=True)
-    deck.text(slide, PAD, 6.3, W_IN - 2 * PAD, 0.5, data.get("note"), size=10, color=deck.muted)
-    return slide
-
-
 def _showcase(deck, data, view):
     """Sem as telas desenhadas: a peça recortada no formato de cada canal, com nome e uso."""
     slide = deck.slide()
@@ -478,7 +431,7 @@ def _contact(deck, data, view):
 
 RENDERERS = {
     "thesis": _thesis, "context": _context, "audience": _audience, "creative": _creative, "showcase": _showcase,
-    "media": _media, "formats": _formats, "first_party": _first_party, "impact": _impact, "defense": _defense,
+    "media": _media, "formats": _formats, "first_party": _first_party, "defense": _defense,
     "market": _market, "contact": _contact,
 }
 

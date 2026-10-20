@@ -135,15 +135,11 @@ def test_build_pptx_creates_editable_slides_with_notes():
         {"type": "media", "index": 3, "kicker": "Estratégia de mídia", "title": "Como a verba trabalha",
          "share": [{"label": "Impacto", "pct": 70}, {"label": "Remarketing", "pct": 30}],
          "fronts": [{"label": "Impacto", "weight": 70, "text": "Interativos na rede de portais.", "tags": ["Display"]}], "channels": [], "flight": [], "notes": []},
-        {"type": "impact", "index": 4, "kicker": "Estimativa de impacto", "origin": "Estimativa de referência",
-         "cards": [{"label": "Impressões", "value": "12 mi", "note": ""}],
-         "rows": [{"label": "Rede de portais", "invested": "R$ 100 mil", "cpm": "R$ 12", "impressions": "8 mi", "clicks": "16 mil"}],
-         "indicator": {}, "note": "Estimativa de referência.", "notes": []},
-        {"type": "contact", "index": 5, "kicker": "Próximos passos", "name": "Ana", "whatsapp": "", "notes": []},
+        {"type": "contact", "index": 4, "kicker": "Próximos passos", "name": "Ana", "whatsapp": "", "notes": []},
     ]
     data = build_pptx({"client": "Animale", "title": "Inverno"}, slides, presentation.CENTRALCOMM)
     deck = Presentation(io.BytesIO(data))
-    assert len(deck.slides) == 5
+    assert len(deck.slides) == 4
     texts = " ".join(shape.text_frame.text for slide in deck.slides for shape in slide.shapes if shape.has_text_frame)
     assert "Animale Inverno" in texts and "Impacto · 70%" in texts
     assert deck.slides[1].notes_slide.notes_text_frame.text == "Texto completo da tese."

@@ -167,3 +167,15 @@ def test_public_view_formats_numbers_and_explains_the_indicator():
     assert [card["label"] for card in view["cards"]][:2] == ["Impressões", "Cliques"]
     assert "não soma" in view["reach_note"]
     assert public_view({"status": "not_available"}) == {}
+
+
+def test_estimate_stays_in_the_plan_review_and_out_of_the_public_view():
+    from pathlib import Path
+
+    from aicentralv2.smart_planner.editor import _impact_for_review
+
+    assert _impact_for_review({}) == {}
+    root = Path(__file__).resolve().parents[1] / "aicentralv2"
+    assert '"impact":' not in (root / "smart_planner/public_view.py").read_text()
+    assert "Estimativa de impacto" in (root / "templates/smart_planner/canvas.html").read_text()
+    assert "spv3-editorial-impact" not in (root / "templates/smart_planner/public_document.html").read_text()

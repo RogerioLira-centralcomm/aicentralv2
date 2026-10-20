@@ -49,8 +49,8 @@ VIEW = {
 
 def test_slides_follow_the_client_conversation_and_drop_empty_ones():
     types = [slide["type"] for slide in build_slides(VIEW)]
-    assert types == ["cover", "thesis", "context", "audience", "creative", "media", "formats", "impact", "defense", "contact"]
-    assert [slide["index"] for slide in build_slides(VIEW)] == list(range(1, 11))
+    assert types == ["cover", "thesis", "context", "audience", "creative", "media", "formats", "defense", "contact"]
+    assert [slide["index"] for slide in build_slides(VIEW)] == list(range(1, 10))
     minimal = build_slides({"title": "X", "cover_identity": {"campaign": "X"}})
     assert [slide["type"] for slide in minimal] == ["cover", "contact"]
 
@@ -407,13 +407,11 @@ def test_long_text_gets_up_to_three_escaped_highlights():
     assert "&lt;b&gt;" in html
 
 
-def test_slides_carry_line_icons_and_impact_reads_without_the_origin():
-    view = {**VIEW, "impact": {**VIEW["impact"], "headline": "Estimativa de referência, em validação: cerca de 6,5 mi de impressões.", "assumptions": ["CPM de R$ 70"]}}
-    slides = build_slides(view)
-    assert all(slide["icon"] for slide in slides if slide["type"] not in {"cover"})
-    impact = next(s for s in slides if s["type"] == "impact")
-    assert impact["lead"] == "Cerca de 6,5 mi de impressões."
-    assert impact["assumptions"] == ["CPM de R$ 70"]
+def test_slides_carry_line_icons_and_never_show_the_impact_estimate():
+    slides = build_slides(VIEW)
+    assert all(slide["icon"] for slide in slides if slide["type"] != "cover")
+    # Estimativa e CPM ficam na revisão do plano: no slide, o cliente leria como cotação.
+    assert not any(slide["type"] == "impact" for slide in slides)
 
 
 def test_highlight_stops_before_the_punctuation():

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ cover.client or client or title }} · {{ title }} · Apresentação</title>
+  <link rel="icon" type="image/png" href="{{ house.logo }}">
+  <meta name="description" content="{{ title }} — plano de mídia em apresentação.">
+  <meta property="og:type" content="website"><meta property="og:site_name" content="Centralcomm Smart Planner">
+  <meta property="og:title" content="{{ title }} · Apresentação"><meta property="og:description" content="{{ overview or 'Plano de mídia preparado no Smart Planner.' }}">
+  <meta property="og:url" content="{{ document_url }}"><meta property="og:image" content="{{ share_image }}"><meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_slides.css') }}?v=4">
+  <style>:root{--sx-ink:{{ hero.theme_ink or '#14252d' }};--sx-accent:{{ hero.theme_accent or '#d5aa3b' }}}</style>
+</head>
+<body class="sx" data-document-url="{{ document_page_url }}">
+{% macro kicker(slide) %}<p class="sx-kicker"><span>{{ '%02d'|format(slide.index) }}</span>{{ slide.kicker }}</p>{% endmacro %}
+  <header class="sx-bar" aria-label="Apresentação">
+    <div class="sx-bar-id">
+      <img class="sx-house" src="{{ house.logo }}" alt="{{ house.name }}">
+      <span class="sx-bar-sep" aria-hidden="true"></span>
+      {% if brand_logo %}<img class="sx-client-logo" src="{{ brand_logo }}" alt="Logo de {{ client }}">{% endif %}
+      <div class="sx-bar-names"><strong>{{ client or cover.client or title }}</strong>{% if title and title != client %}<span>{{ title }}</span>{% endif %}</div>
+    </div>
+    <div class="sx-bar-actions">
+      <span class="sx-count" aria-live="polite"><b data-sx-current>1</b> / {{ slides|length }}</span>
+      <button type="button" class="sx-btn" data-sx-grid aria-pressed="false">Ver todos</button>
+      <button type="button" class="sx-btn" data-sx-full>Tela cheia</button>
+      <a class="sx-btn is-quiet" href="{{ document_page_url }}">Documento</a>
+      <button type="button" class="sx-btn is-quiet" data-sx-copy>Copiar link</button>
+      <button type="button" class="sx-btn is-quiet" data-sx-print>PDF</button>
+      {% if executive.whatsapp_url %}<a class="sx-btn is-cta" href="{{ executive.whatsapp_url }}" target="_blank" rel="noopener">Falar sobre o plano</a>{% endif %}
+    </div>
+    <i class="sx-progress" data-sx-progress aria-hidden="true"></i>
+  </header>
+
+  <main class="sx-stage" data-sx-stage>
+    <button type="button" class="sx-arrow is-prev" data-sx-prev aria-label="Slide anterior">‹</button>
+    <div class="sx-deck" data-sx-deck>
+      {% for slide in slides %}
+      <div class="sx-frame" data-sx-frame="{{ slide.index }}" id="s{{ slide.index }}" role="group" aria-roledescription="slide" aria-label="{{ slide.index }} de {{ slides|length }}: {{ slide.nav }}" tabindex="-1">
+        <section class="sx-slide is-{{ slide.type }}">
+          {% if slide.type == 'cover' %}
+          <div class="sx-cover-copy">
+            {% if slide.logo %}<img class="sx-cover-logo" src="{{ slide.logo }}" alt="Logo de {{ slide.client }}">{% elif slide.client %}<p class="sx-cover-client">{{ slide.client }}</p>{% endif %}
+            <p class="sx-cover-label">{{ slide.label }}</p>
+            <h1>{{ slide.title }}</h1>
+            {% if slide.facts %}<dl class="sx-facts">{% for fact in slide.facts %}<div><dt>{{ fact.label }}</dt><dd>{{ fact.value }}</dd></div>{% endfor %}</dl>{% endif %}
+            {% if slide.agency %}<p class="sx-cover-agency">Agência · {{ slide.agency }}</p>{% endif %}
+          </div>
+          <figure class="sx-cover-art{% if not slide.image %} is-empty{% endif %}">{% if slide.image %}<img src="{{ slide.image }}" alt="">{% endif %}</figure>
+
+          {% elif slide.type == 'thesis' %}
+          {{ kicker(slide) }}
+          <h2 class="sx-statement">{{ slide.statement }}</h2>
+          {% if slide.support %}<p class="sx-support">{{ slide.support }}</p>{% endif %}
+
+          {% elif slide.type == 'context' %}
+          {{ kicker(slide) }}
+          <div class="sx-cols sx-cols-{{ slide.blocks|length }}">
+            {% for block in slide.blocks %}<article><span class="sx-tag">{{ block.kicker }}</span><h3>{{ block.title }}</h3><p>{{ block.body }}</p></article>{% endfor %}
+          </div>
+
+          {% elif slide.type == 'audience' %}
+          {{ kicker(slide) }}
+          {% if slide.audience %}<p class="sx-lead">{{ slide.audience }}</p>{% endif %}
+          {% if slide.steps %}<ol class="sx-steps sx-steps-{{ slide.steps|length }}">{% for step in slide.steps %}<li><b>{{ loop.index }}</b><h3>{{ step.title }}</h3><p>{{ step.body }}</p></li>{% endfor %}</ol>{% endif %}
+
+          {% elif slide.type == 'creative' %}
+          <div class="sx-split{% if not slide.image %} is-solo{% endif %}">
+            <div>
+              {{ kicker(slide) }}
+              <h2>{{ slide.title }}</h2>
+              {% if slide.body %}<p class="sx-support">{{ slide.body }}</p>{% endif %}
+              {% if slide.outputs %}<ul class="sx-outputs">{% for item in slide.outputs %}<li><strong>{{ item.name }}</strong>{% if item.body %}<span>{{ item.body }}</span>{% endif %}</li>{% endfor %}</ul>{% endif %}
+            </div>
+            {% if slide.image %}<figure class="sx-art"><img src="{{ slide.image }}" alt="Referência do criativo"></figure>{% endif %}
+          </div>
+
+          {% elif slide.type == 'media' %}
+          {{ kicker(slide) }}
+          <h2 class="sx-title-md">{{ slide.title }}</h2>
+          {% if slide.share %}
+          <div class="sx-share" role="img" aria-label="{% for part in slide.share %}{{ part.label }} {{ part.pct }}%{{ ', ' if not loop.last }}{% endfor %}">
+            {% for part in slide.share %}<span class="sx-share-part sx-tone-{{ loop.index0 % 5 }}" style="flex:{{ part.pct or 1 }}"><b>{{ part.pct }}%</b><em>{{ part.label }}</em></span>{% endfor %}
+          </div>
+          {% endif %}
+          <div class="sx-media-body{% if slide.flight %} has-flight{% endif %}">
+            {% if slide.fronts %}
+            <div class="sx-fronts">{% for front in slide.fronts %}<article><header><h3>{{ front.label }}</h3>{% if front.weight %}<b>{{ front.weight }}%</b>{% endif %}</header><p>{{ front.text }}</p>{% if front.tags %}<ul class="sx-chips">{% for tag in front.tags %}<li>{{ tag }}</li>{% endfor %}</ul>{% endif %}</article>{% endfor %}</div>
+            {% elif slide.channels %}
+            <ul class="sx-channels">{% for channel in slide.channels %}<li><i style="background:{{ channel.color or 'var(--sx-ink)' }}"></i><strong>{{ channel.label }}</strong><span>{{ channel.role }}</span><b>{{ channel.pct }}%</b></li>{% endfor %}</ul>
+            {% endif %}
+            {% if slide.flight %}
+            <figure class="sx-flight" aria-label="Verba por mês"><figcaption>Verba por mês</figcaption><div>{% for month in slide.flight %}<span><i style="height:{{ month.height }}%"></i><b>{{ month.value }}</b><small>{{ month.label }}</small></span>{% endfor %}</div></figure>
+            {% endif %}
+          </div>
+
+          {% elif slide.type == 'formats' %}
+          {{ kicker(slide) }}
+          <div class="sx-formats{% if slide.sites %} has-sites{% endif %}">
+            <div>
+              {% for group in slide.groups %}<article><h3>{{ group.channel }}</h3><ul class="sx-chips is-lg">{% for fmt in group.formats %}<li{% if fmt.aggregated %} class="is-agg"{% endif %}>{{ fmt.name }}</li>{% endfor %}{% if group.more %}<li class="is-more">+{{ group.more }}</li>{% endif %}</ul></article>{% endfor %}
+              {% if slide.aggregated %}<p class="sx-note"><span class="sx-dot is-agg"></span>Custo agregado na proposta: {{ slide.aggregated|join(', ') }}.</p>{% endif %}
+            </div>
+            {% if slide.sites %}
+            <aside class="sx-sites"><h3>Rede de portais e sites</h3><p>{% if slide.sites_total %}{{ slide.sites_total }} sites no recorte{% if slide.segment %} de perfil classes {{ slide.segment }}{% endif %}. Os maiores:{% else %}Sites do plano:{% endif %}</p><ul>{% for site in slide.sites %}<li>{{ site }}</li>{% endfor %}</ul></aside>
+            {% endif %}
+          </div>
+
+          {% elif slide.type == 'impact' %}
+          <div class="sx-impact-head">{{ kicker(slide) }}<span class="sx-origin{% if slide.reviewed %} is-reviewed{% endif %}">{{ slide.origin }}</span></div>
+          <div class="sx-cards">{% for card in slide.cards %}<article><span>{{ card.label }}</span><strong>{{ card.value }}</strong>{% if card.note %}<small>{{ card.note }}</small>{% endif %}</article>{% endfor %}</div>
+          <div class="sx-impact-body">
+            <table class="sx-table"><thead><tr><th>Canal</th><th>Investimento</th><th>CPM</th><th>Impressões</th><th>Cliques</th></tr></thead><tbody>{% for row in slide.rows %}<tr><th>{{ row.label }}</th><td>{{ row.invested }}</td><td>{{ row.cpm or '—' }}</td><td>{{ row.impressions or '—' }}</td><td>{{ row.clicks or '—' }}</td></tr>{% endfor %}</tbody></table>
+            {% if slide.indicator %}<aside class="sx-indicator is-{{ slide.indicator.status }}"><span>Indicador do cliente</span><strong>{{ slide.indicator.label }}{% if slide.indicator.target %} · meta {{ slide.indicator.target }}{% endif %}</strong><p>{% if slide.indicator.estimated %}Estimado {{ slide.indicator.estimated }} · {% endif %}{{ slide.indicator.status_label }}</p></aside>{% endif %}
+          </div>
+          <p class="sx-footnote">{{ slide.note }}</p>
+
+          {% elif slide.type == 'defense' %}
+          {{ kicker(slide) }}
+          <div class="sx-cols sx-cols-{{ slide.groups|length }} is-defense">{% for group in slide.groups %}<article><h3>{{ group.title }}</h3><ul>{% for item in group['items'] %}<li>{{ item }}</li>{% endfor %}</ul></article>{% endfor %}</div>
+
+          {% elif slide.type == 'market' %}
+          {{ kicker(slide) }}
+          <div class="sx-market">{% if slide.stat %}<strong>{{ slide.stat }}</strong>{% endif %}<div><h2 class="sx-title-md">{{ slide.title }}</h2><p class="sx-support">{{ slide.insight }}</p>{% if slide.source %}<small>Fonte: {% if slide.source_url %}<a href="{{ slide.source_url }}" target="_blank" rel="noopener">{{ slide.source }}</a>{% else %}{{ slide.source }}{% endif %}</small>{% endif %}</div></div>
+
+          {% elif slide.type == 'contact' %}
+          {{ kicker(slide) }}
+          <h2>Vamos colocar este plano no ar?</h2>
+          <div class="sx-contact">
+            {% if slide.name %}<div class="sx-person">{% if slide.photo %}<img src="{{ slide.photo }}" alt="Foto de {{ slide.name }}">{% else %}<span>{{ slide.initials }}</span>{% endif %}<div><strong>{{ slide.name }}</strong><p>Responsável por este plano</p></div></div>{% endif %}
+            <div class="sx-contact-actions">{% if slide.whatsapp %}<a class="sx-btn is-cta is-lg" href="{{ slide.whatsapp }}" target="_blank" rel="noopener">Conversar sobre o plano</a>{% endif %}{% if slide.full_plan_url %}<a class="sx-btn is-lg" href="{{ slide.full_plan_url }}">Ver o plano completo</a>{% endif %}</div>
+          </div>
+          {% endif %}
+          <footer class="sx-foot"><span>{{ client or title }}</span><span>{{ slide.index }} / {{ slides|length }}</span></footer>
+        </section>
+      </div>
+      {% endfor %}
+    </div>
+    <button type="button" class="sx-arrow is-next" data-sx-next aria-label="Próximo slide">›</button>
+  </main>
+  <script>window.SMART_PLANNER_PUBLIC_URL={{ document_url|tojson }};</script>
+  <script src="{{ url_for('static', filename='js/smart_planner/public-slides.js') }}?v=3"></script>
+</body>
+</html>

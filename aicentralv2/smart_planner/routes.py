@@ -54,8 +54,23 @@ bp = Blueprint("smart_planner", __name__, url_prefix="/smart-planner")
 
 
 def _public_document_response(view: dict):
-    """Renderiza a página compartilhável sem permitir HTML antigo no CDN/browser."""
-    response = make_response(render_template("smart_planner/public_document.html", **view))
+    """Renderiza a página compartilhável sem permitir HTML antigo no CDN/browser.
+
+    A proposta abre como apresentação em slides; ``?formato=documento`` mostra a versão em rolagem.
+    """
+    template = "smart_planner/public_document.html"
+    base_url = text(view.get("document_url"))
+    view["slides_url"] = base_url
+    view["document_page_url"] = (base_url + "?formato=documento") if base_url else "?formato=documento"
+    if view.get("document") == "proposal" and (request.args.get("formato") or "").strip().lower() != "documento":
+        from .public_slides import build_slides
+
+        slides = build_slides(view)
+        if len(slides) > 1:
+            view["slides"] = slides
+            view["cover"] = slides[0]
+            template = "smart_planner/public_slides.html"
+    response = make_response(render_template(template, **view))
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"

@@ -355,6 +355,7 @@ def _impact(view: dict) -> dict | None:
         return None
     indicator = as_dict(impact.get("indicator"))
     rows = as_list(impact.get("rows"))[:5]
+    lead = text(impact.get("headline")).split(": ", 1)[-1]
     return {
         "type": "impact",
         "nav": "Estimativa de impacto",
@@ -366,7 +367,7 @@ def _impact(view: dict) -> dict | None:
         "rows": rows,
         "has_reach": any(text(as_dict(row).get("reach")) for row in rows),
         # A origem já está no selo ao lado do título; o slide lê só o volume e o investimento.
-        "lead": text(impact.get("headline")).split(": ", 1)[-1][:1].upper() + text(impact.get("headline")).split(": ", 1)[-1][1:],
+        "lead": lead[:1].upper() + lead[1:],
         "assumptions": [clip(item, 140) for item in as_list(impact.get("assumptions")) if text(item)][:4],
         "note": "Estimativa de referência, não promessa de resultado. " + text(impact.get("reach_note")),
     }
@@ -458,7 +459,7 @@ ICONS = {
 }
 
 # Números que o cliente procura no texto: valores, percentuais e volumes (1,4 mi, 7 mil, 3x).
-NUMBER = r"R\$\s?\d[\d.,]*(?:\s?(?:milhões|milhão|bilhões|mil|mi|bi)(?!\w))?|\d[\d.,]*\s?(?:%|(?:milhões|milhão|bilhões|mil|mi|bi)(?!\w))|\d+x(?!\w)"
+NUMBER = r"R\$\s?\d+(?:[.,]\d+)*(?:\s?(?:milhões|milhão|bilhões|mil|mi|bi)(?!\w))?|\d+(?:[.,]\d+)*\s?(?:%|(?:milhões|milhão|bilhões|mil|mi|bi)(?!\w))|\d+x(?!\w)"
 MAX_EMPHASIS = 3
 
 
@@ -473,13 +474,17 @@ def emphasis_terms(view: dict) -> list[str]:
     return sorted(seen, key=len, reverse=True)
 
 
-def emphasize(value: Any, terms: list[str] | tuple = ()) -> Markup:
+def _emphasis_pattern(terms) -> re.Pattern:
+    parts = [NUMBER] + [rf"(?<!\w){re.escape(term)}(?!\w)" for term in terms]
+    return re.compile("|".join(f"(?:{part})" for part in parts))
+
+
+def emphasize(value: Any, terms: list[str] | tuple = (), pattern: re.Pattern | None = None) -> Markup:
     """Texto escapado com até três destaques em negrito (números e nomes), para leitura rápida."""
     raw = text(value)
     if not raw:
         return Markup("")
-    parts = [NUMBER] + [rf"(?<!\w){re.escape(term)}(?!\w)" for term in terms]
-    pattern = re.compile("|".join(f"(?:{part})" for part in parts))
+    pattern = pattern or _emphasis_pattern(terms)
     out, last, used, seen = [], 0, 0, set()
     for match in pattern.finditer(raw):
         key = match.group(0).lower()
@@ -496,8 +501,8 @@ def emphasize(value: Any, terms: list[str] | tuple = ()) -> Markup:
 
 def highlighter(view: dict):
     """Função do template: ``{{ hl(texto) }}`` devolve o texto com os destaques do plano."""
-    terms = emphasis_terms(view)
-    return lambda value: emphasize(value, terms)
+    pattern = _emphasis_pattern(emphasis_terms(view))
+    return lambda value: emphasize(value, pattern=pattern)
 
 
 BUILDERS = (_cover, _thesis, _context, _audience, _creative, _showcase, _media, _formats, _first_party, _impact, _defense, _market, _contact)

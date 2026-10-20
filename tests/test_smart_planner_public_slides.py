@@ -414,3 +414,9 @@ def test_slides_carry_line_icons_and_impact_reads_without_the_origin():
     impact = next(s for s in slides if s["type"] == "impact")
     assert impact["lead"] == "Cerca de 6,5 mi de impressões."
     assert impact["assumptions"] == ["CPM de R$ 70"]
+
+
+def test_highlight_stops_before_the_punctuation():
+    from aicentralv2.smart_planner.public_slides import emphasize
+
+    assert str(emphasize("com R$ 100.000, a marca")) == "com <strong>R$ 100.000</strong>, a marca"

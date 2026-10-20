@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import base64
+import contextvars
 import hashlib
 import logging
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 
 from flask import current_app, has_app_context
 
@@ -155,8 +157,7 @@ def _render_variants(main_url: str, slug: str, brand_refs: list[str], channels: 
     """Recompõe a arte principal nos formatos que o plano usa; uma falha não derruba a principal."""
     from .mockups import VARIANT_RATIOS, variants_needed
 
-    out = {}
-    for name in variants_needed(channels):
+    def render(name: str) -> str:
         shape = "vertical 2:3 (for stories and vertical video)" if name == "vertical" else "square 1:1 (for feed and medium rectangle)"
         prompt = (
             f"Recompose the first reference image as a {shape} version of the same campaign key visual. "
@@ -164,8 +165,19 @@ def _render_variants(main_url: str, slug: str, brand_refs: list[str], channels: 
             "reframe the composition for the new shape instead of cropping or stretching it. Keep the logo whole, "
             "with clear space, inside the safe area. No new text, no extra logos, no watermark, no collage."
         )
+        return _render(prompt, f"{slug}-creative-{name}", aspect_ratio=VARIANT_RATIOS[name], references=[main_url, *brand_refs][:2])
+
+    names = variants_needed(channels)
+    if not names:
+        return {}
+    # Em paralelo, para a requisição caber no tempo do servidor; cada uma leva o contexto
+    # do app e da sessão de custo.
+    with ThreadPoolExecutor(max_workers=len(names)) as pool:
+        futures = {name: pool.submit(contextvars.copy_context().run, render, name) for name in names}
+    out = {}
+    for name, future in futures.items():
         try:
-            out[name] = _render(prompt, f"{slug}-creative-{name}", aspect_ratio=VARIANT_RATIOS[name], references=[main_url, *brand_refs][:2])
+            out[name] = future.result()
         except Exception:
             logger.exception("Falha ao gerar a variação %s do criativo", name)
     return out

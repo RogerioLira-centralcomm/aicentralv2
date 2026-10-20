@@ -251,5 +251,5 @@ def test_regenerate_creative_renders_only_the_variants_the_plan_uses(monkeypatch
     monkeypatch.setattr(images, "_render", flaky)
     images.regenerate_creative(plan, channels=["tiktok", {"id": "meta", "group": "social"}])
     card = plan["sections"][0]["cards"][0]
-    assert calls == ["16:9", "2:3", "1:1"]
+    assert calls[0] == "16:9" and sorted(calls[1:]) == ["1:1", "2:3"]
     assert card["variants"] == {"square": "/static/animale-creative-square.png"}

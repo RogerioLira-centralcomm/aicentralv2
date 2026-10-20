@@ -61,6 +61,11 @@ class MensagemTest(TestCase):
         self.assertEqual(r["alertas"], [])
         self.assertEqual(m.frases_proibidas("Tudo bem? Soluções que vão alavancar"), ["tudo bem?", "soluções", "alavancar"])
 
+    def test_reescrita_sem_assunto_mantem_o_primeiro(self):
+        chat = MagicMock(side_effect=[("Assunto: dado de ctv\n\nAna, espero que esteja bem.", []), ("Ana, o varejo cresceu 12%.", [])])
+        r = m.gerar_mensagem("k", chat_fn=chat, canal="email", etapa="topo", **self.base)
+        self.assertEqual(r["assunto"], "dado de ctv")
+
     def test_convite_linkedin_respeita_300_caracteres(self):
         r = m.gerar_mensagem("k", chat_fn=_chat("palavra " * 80), canal="linkedin_conexao", etapa="topo", **self.base)
         self.assertLessEqual(len(r["texto"]), 300)

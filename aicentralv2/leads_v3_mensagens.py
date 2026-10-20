@@ -314,7 +314,8 @@ def gerar_mensagem(api_key, *, chat_fn=chat, assinatura=None, dispositivo="nenhu
         pedido = (f"{user}\n\nVersão anterior:\n" + (f"Assunto: {assunto}\n\n" if assunto else "") + texto +
                   f"\n\nReescreva sem estes trechos, mantendo o fato e a pergunta: {', '.join(alertas)}.")
         novo, _ = chat_fn(api_key, MODELO_MENSAGEM, system, pedido, max_tokens=1200, temperature=0.6)
-        assunto, texto = _separar(novo, canal)
+        novo_assunto, texto = _separar(novo, canal)
+        assunto = novo_assunto or assunto  # a reescrita às vezes vem só com o corpo
         alertas = frases_proibidas(f"{assunto or ''}\n{texto}")
     if canal == "linkedin_conexao" and len(texto) > 300:
         texto = texto[:297].rsplit(" ", 1)[0] + "…"

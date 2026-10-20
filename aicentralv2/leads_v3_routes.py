@@ -1045,15 +1045,15 @@ def api_contexto_mercado(lead_id):
 
     def run(cursor):
         cursor.execute("UPDATE cadu_leads SET contexto_mercado = %s WHERE id = %s", [db.Json(dossie["contexto"]), lead_id])
-        # A nova pesquisa substitui as sugestões antigas que ninguém escolheu nem usou.
+        # A nova pesquisa substitui as sugestões antigas que ninguém escolheu nem usou (se trouxe ganchos).
         cursor.execute(
             """
             DELETE FROM cadu_lead_ganchos g
-             WHERE g.id_lead = %s AND g.origem = 'pesquisa' AND g.status <> 'escolhido'
+             WHERE g.id_lead = %s AND g.origem = 'pesquisa' AND g.status <> 'escolhido' AND %s
                AND NOT EXISTS (SELECT 1 FROM cadu_lead_mensagem_eventos e
                                 WHERE e.id_lead = g.id_lead AND e.payload ->> 'id_gancho' = g.id::text)
             """,
-            [lead_id],
+            [lead_id, bool(dossie["ganchos"])],
         )
         cursor.execute("SELECT lower(left(fato, 80)) AS chave FROM cadu_lead_ganchos WHERE id_lead = %s", [lead_id])
         existentes = {r["chave"] for r in cursor.fetchall()}
@@ -1102,7 +1102,7 @@ def api_ganchos(lead_id):
 
 
 def _campos_gancho(payload, parcial):
-    """Campos editáveis de um gancho. No cadastro manual, fato e fonte são obrigatórios."""
+    """Campos editáveis de um gancho. No cadastro manual o fato é obrigatório; a fonte, se vier, precisa ser link."""
     sets, params = [], []
     if "status" in payload:
         if payload["status"] not in ("sugerido", "escolhido", "descartado"):

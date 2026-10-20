@@ -99,6 +99,13 @@ def _apply_presentation(view: dict, row: dict | None) -> dict:
         hero_view["creative_image"] = ""
         hero_view["has_generated_visual"] = False
         view["hero"] = hero_view
+    hero_view["creative_variants"] = {
+        key: url for key, url in as_dict(hero_view.get("creative_variants")).items() if _existing_static(url)
+    }
+    # Telas dos canais com a cara do veículo, pelos ambientes cadastrados no Cadu Studio.
+    from .viewer_envs import load as load_viewer_envs
+
+    view["viewer_envs"] = load_viewer_envs()
     view["neutral_palette"] = bool(template.get("neutral"))
     # Falar com o executivo de contas é do modelo CentralComm; no modelo da agência ou do
     # cliente quem apresenta é a marca, então o contato do executivo sai da página.

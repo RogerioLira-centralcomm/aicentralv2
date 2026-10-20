@@ -14,6 +14,7 @@ from typing import Any
 
 from .catalog import CHANNEL_CATALOG, CHANNEL_LOGOS
 from .helpers import as_dict, as_list, text
+from .viewer_envs import env_for, formats_for
 
 KIND_BY_GROUP = {"ctv": "tv", "video": "tv", "social": "social", "apps": "app", "audio": "audio"}
 # Canais cuja tela não segue o grupo: vídeo vertical e app de mobilidade com mapa.
@@ -97,20 +98,42 @@ def _images(kind: str, image: str, variants: dict) -> dict:
     return {"image": best, "square": text(variants.get("square")) or text(image)}
 
 
+def _screen(view: dict, channel: dict, kind: str, image: str) -> dict:
+    """A tela de um canal: logo, ambiente do Studio, formatos com tamanho e a arte certa."""
+    label, logo, site = text(channel.get("label")), channel_logo(channel), ""
+    envs = as_dict(view.get("viewer_envs"))
+    if kind == "portal":
+        # Na Rede de portais, a tela mostra o maior portal do recorte com ambiente no Studio
+        # ou, sem ele, o maior que tenha logo.
+        sites = [as_dict(s) for s in as_list(as_dict(view.get("network_sites")).get("sites"))]
+        pick = next((s for s in sites if env_for("", s.get("name"), envs)), None) or next((s for s in sites if site_logo(s.get("name"))), None)
+        if pick:
+            site = text(pick.get("name"))
+            label, logo = site, site_logo(site) or logo
+    env = env_for(text(channel.get("id")), site, envs)
+    return {
+        "kind": kind, "label": label, "logo": logo or env.get("logo", ""), "env": env,
+        "formats": formats_for(kind, text(channel.get("id"))),
+        **_images(kind, image, as_dict(as_dict(view.get("hero")).get("creative_variants"))),
+        "channel": text(channel.get("label")),
+    }
+
+
+def _channels(view: dict) -> list[dict]:
+    return sorted(
+        (as_dict(c) for c in as_list(as_dict(view.get("media")).get("channels"))),
+        key=lambda c: -(float(c.get("pct") or 0)),
+    )
+
+
 def mockups_for(view: dict, image: str, limit: int = 2) -> list[dict]:
     """Uma tela por tipo de canal do plano (o de maior peso primeiro), com o criativo dentro."""
     if not text(image):
         return []
-    channels = sorted(
-        (as_dict(c) for c in as_list(as_dict(view.get("media")).get("channels"))),
-        key=lambda c: -(float(c.get("pct") or 0)),
-    )
-    sites = [as_dict(s) for s in as_list(as_dict(view.get("network_sites")).get("sites"))]
-    variants = as_dict(as_dict(view.get("hero")).get("creative_variants"))
     out: list[dict] = []
     seen: set[str] = set()
-    for channel in channels:
-        if text(channel.get("group")) in {"ooh", "places", "audio", "data"}:
+    for channel in _channels(view):
+        if text(channel.get("group")) in NO_SCREEN_GROUPS | {"audio"}:
             continue
         kind = kind_for(channel)
         if kind in {"app", "vertical"}:
@@ -119,19 +142,11 @@ def mockups_for(view: dict, image: str, limit: int = 2) -> list[dict]:
         if kind in seen:
             continue
         seen.add(kind)
-        label, logo = text(channel.get("label")), channel_logo(channel)
-        if kind == "portal":
-            # Na Rede de portais, a tela mostra o maior portal do recorte que tenha logo.
-            for site in sites:
-                found = site_logo(site.get("name"))
-                if found:
-                    label, logo = text(site.get("name")), found
-                    break
-        out.append({"kind": kind, "label": label, "logo": logo, **_images(kind, image, variants), "channel": text(channel.get("label"))})
+        out.append(_screen(view, channel, kind, image))
         if len(out) >= limit:
             break
     if not out:
-        out.append({"kind": "portal", "label": "Portal", "logo": "", **_images("portal", image, variants), "channel": ""})
+        out.append({**_screen(view, {}, "portal", image), "label": "Portal"})
     return out
 
 
@@ -139,29 +154,12 @@ def showcase_for(view: dict, image: str, limit: int = 4) -> list[dict]:
     """Uma tela por canal do plano (até quatro), cada uma no layout do canal, com o criativo dentro."""
     if not text(image):
         return []
-    channels = sorted(
-        (as_dict(c) for c in as_list(as_dict(view.get("media")).get("channels"))),
-        key=lambda c: -(float(c.get("pct") or 0)),
-    )
-    sites = [as_dict(s) for s in as_list(as_dict(view.get("network_sites")).get("sites"))]
-    variants = as_dict(as_dict(view.get("hero")).get("creative_variants"))
     out = []
-    for channel in channels:
+    for channel in _channels(view):
         if text(channel.get("group")) in NO_SCREEN_GROUPS:
             continue
         kind = kind_for(channel)
-        label, logo = text(channel.get("label")), channel_logo(channel)
-        if kind == "portal":
-            for site in sites:
-                found = site_logo(site.get("name"))
-                if found:
-                    label, logo = text(site.get("name")), found
-                    break
-        out.append({
-            "kind": kind, "label": label, "logo": logo, **_images(kind, image, variants),
-            "channel": text(channel.get("label")), "pct": channel.get("pct"),
-            "placement": PLACEMENT.get(kind, ""),
-        })
+        out.append({**_screen(view, channel, kind, image), "pct": channel.get("pct"), "placement": PLACEMENT.get(kind, "")})
         if len(out) >= limit:
             break
     return out

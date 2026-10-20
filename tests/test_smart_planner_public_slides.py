@@ -253,3 +253,33 @@ def test_regenerate_creative_renders_only_the_variants_the_plan_uses(monkeypatch
     card = plan["sections"][0]["cards"][0]
     assert calls[0] == "16:9" and sorted(calls[1:]) == ["1:1", "2:3"]
     assert card["variants"] == {"square": "/static/animale-creative-square.png"}
+
+
+def test_studio_environment_keeps_only_safe_values():
+    from aicentralv2.smart_planner.viewer_envs import _env
+
+    env = _env({"slug": "netflix", "viewer_kind": "tv", "logo_asset_ref": "javascript:x",
+                "palette": {"primary": "#E50914", "canvas": "red;background:url(x)"},
+                "shell_spec": {"nav": ["Início", "Séries"], "sections": [{"title": "Em alta", "items": [{"image": "https://fora/x.svg"}, {"image": "/static/c.svg"}]}]}})
+    assert env["palette"] == {"primary": "#E50914"}
+    assert env["logo"] == "" and env["catalog"] == "/static/c.svg" and env["row_title"] == "Em alta"
+
+
+def test_screens_use_the_studio_environment_and_name_real_sizes():
+    from aicentralv2.smart_planner.mockups import showcase_for
+
+    view = {
+        "viewer_envs": {"netflix": {"slug": "netflix", "nav": ["Início"]}, "g1": {"slug": "g1", "nav": ["Brasil"]}},
+        "network_sites": {"sites": [{"name": "Terra"}, {"name": "g1"}]},
+        "media": {"channels": [
+            {"id": "netflix", "label": "Netflix", "pct": 60, "group": "ctv"},
+            {"id": "dv360", "label": "Portais", "pct": 30, "group": "programmatic"},
+            {"id": "spotify", "label": "Spotify", "pct": 10, "group": "audio"},
+        ]},
+    }
+    screens = {s["channel"]: s for s in showcase_for(view, "/static/c.png")}
+    assert screens["Netflix"]["env"]["slug"] == "netflix"
+    assert [f["size"] for f in screens["Netflix"]["formats"]] == ["1920×1080"]
+    assert screens["Portais"]["label"] == "g1" and screens["Portais"]["env"]["slug"] == "g1"
+    assert [f["name"] for f in screens["Portais"]["formats"]] == ["Billboard", "Retângulo médio"]
+    assert screens["Spotify"]["env"] == {} and screens["Spotify"]["formats"] == []

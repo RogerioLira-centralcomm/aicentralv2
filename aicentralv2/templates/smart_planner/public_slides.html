@@ -11,24 +11,30 @@
   <meta property="og:url" content="{{ document_url }}"><meta property="og:image" content="{{ share_image }}"><meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_slides.css') }}?v=11">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_slides.css') }}?v=14">
   {% if template_css %}<style>:root{ {{- template_css -}} }</style>{% else %}<style>:root{--sx-ink:{{ slide_ink or '#14252d' }};--sx-accent:{{ slide_accent or '#d5aa3b' }}}</style>{% endif %}
 </head>
 <body class="sx is-booting{% if neutral_palette %} is-neutral{% endif %}" data-document-url="{{ document_page_url }}" data-channel="{{ public_token or 'plano' }}" data-total="{{ slides|length }}">
+{# Paleta do ambiente do Studio; só entra cor hex validada em viewer_envs. #}
+{% macro env_style(env) %}{% set p = env.palette or {} %}{% if p.canvas %}--ev-bg:{{ p.canvas }};{% endif %}{% if p.surface %}--ev-sf:{{ p.surface }};{% endif %}{% if p.primary %}--ev-hi:{{ p.primary }};{% endif %}{% if p.secondary %}--ev-hi2:{{ p.secondary }};{% endif %}{% if p.text %}--ev-ink:{{ p.text }};{% endif %}{% endmacro %}
 {% macro mockup(m, size='lg') %}
 <figure class="sx-mock is-{{ m.kind }} is-{{ size }}" aria-label="Criativo em {{ m.label }}">
   {% if m.kind == 'tv' %}
+  {% if m.env %}
+  <div class="sx-mock-tv"><div class="sx-mock-screen is-env" style="{{ env_style(m.env) }}"><header class="sx-env-nav">{% if m.logo %}<img src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% endif %}{% for item in m.env.nav[:4] %}<span>{{ item }}</span>{% endfor %}</header><div class="sx-env-stage"><img class="sx-mock-fill" src="{{ m.image }}" alt="" aria-hidden="true" loading="lazy"><img class="sx-mock-art" src="{{ m.image }}" alt="" loading="lazy"><span class="sx-mock-ad">Anúncio · 0:15</span><i class="sx-mock-progress"><b></b></i></div>{% if m.env.catalog %}<div class="sx-env-row">{% if m.env.row_title %}<small>{{ m.env.row_title }}</small>{% endif %}<img src="{{ m.env.catalog }}" alt="" loading="lazy"></div>{% endif %}</div><i class="sx-mock-stand"></i></div>
+  {% else %}
   <div class="sx-mock-tv"><div class="sx-mock-screen"><img class="sx-mock-fill" src="{{ m.image }}" alt="" aria-hidden="true" loading="lazy"><img class="sx-mock-art" src="{{ m.image }}" alt="" loading="lazy"><span class="sx-mock-ad">Anúncio · 0:15</span>{% if m.logo %}<img class="sx-mock-logo" src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% endif %}<i class="sx-mock-progress"><b></b></i></div><i class="sx-mock-stand"></i></div>
+  {% endif %}
   {% elif m.kind == 'app' %}
   <div class="sx-mock-phone is-app"><div class="sx-mock-map"><i class="sx-mock-route"></i><i class="sx-mock-car"></i><i class="sx-mock-pin"></i></div><div class="sx-mock-trip"><header>{% if m.logo %}<img src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% endif %}<span>Chegando em 4 min</span></header><div class="sx-mock-banner"><img src="{{ m.image }}" alt="" loading="lazy"><small>Patrocinado</small></div><i></i><i class="is-short"></i></div></div>
   {% elif m.kind == 'vertical' %}
-  <div class="sx-mock-phone is-vertical"><div class="sx-mock-story"><img src="{{ m.image }}" alt="" loading="lazy"><header>{% if m.logo %}<img src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% endif %}<span>Patrocinado</span></header><footer><b>Saiba mais</b></footer></div></div>
+  <div class="sx-mock-phone is-vertical{% if m.env %} is-env{% endif %}"{% if m.env %} style="{{ env_style(m.env) }}"{% endif %}><div class="sx-mock-story">{% if m.env %}<aside class="sx-env-rail"><i></i><i></i><i></i></aside>{% endif %}<img src="{{ m.image }}" alt="" loading="lazy"><header>{% if m.logo %}<img src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% endif %}<span>Patrocinado</span></header><footer><b>Saiba mais</b></footer></div></div>
   {% elif m.kind == 'audio' %}
   <div class="sx-mock-phone is-audio"><header>{% if m.logo %}<img src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% endif %}<span>Anúncio · 0:30</span></header><div class="sx-mock-cover"><img src="{{ m.image }}" alt="" loading="lazy"></div><div class="sx-mock-player"><i class="sx-mock-progress"><b></b></i><span><i></i><b></b><i></i></span></div></div>
   {% elif m.kind == 'social' %}
-  <div class="sx-mock-phone"><header>{% if m.logo %}<img src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% endif %}<span>Patrocinado</span></header><div class="sx-mock-feed"><img class="sx-mock-fill" src="{{ m.image }}" alt="" aria-hidden="true" loading="lazy"><img class="sx-mock-art" src="{{ m.image }}" alt="" loading="lazy"></div><footer><i></i><i></i><i></i></footer></div>
+  <div class="sx-mock-phone{% if m.env %} is-env{% endif %}"{% if m.env %} style="{{ env_style(m.env) }}"{% endif %}><header>{% if m.logo %}<img src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% endif %}<span>Patrocinado</span></header><div class="sx-mock-feed"><img class="sx-mock-fill" src="{{ m.image }}" alt="" aria-hidden="true" loading="lazy"><img class="sx-mock-art" src="{{ m.image }}" alt="" loading="lazy"></div>{% if m.env %}<div class="sx-env-cta">Saiba mais<span>›</span></div>{% endif %}<footer><i></i><i></i><i></i></footer></div>
   {% else %}
-  <div class="sx-mock-browser"><header><i></i><i></i><i></i><span></span></header><div class="sx-mock-page"><div class="sx-mock-mast">{% if m.logo %}<img src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% else %}<strong>{{ m.label }}</strong>{% endif %}<span></span><span></span><span></span></div><div class="sx-mock-leader"><img src="{{ m.image }}" alt="" loading="lazy"><small>Publicidade</small></div><div class="sx-mock-body"><div class="sx-mock-text"><b></b><i></i><i></i><i></i><i class="is-short"></i></div><div class="sx-mock-mrec"><img src="{{ m.square or m.image }}" alt="" loading="lazy"><small>Publicidade</small></div></div></div></div>
+  <div class="sx-mock-browser{% if m.env %} is-env{% endif %}"{% if m.env %} style="{{ env_style(m.env) }}"{% endif %}><header><i></i><i></i><i></i><span></span></header><div class="sx-mock-page"><div class="sx-mock-mast">{% if m.logo %}<img src="{{ m.logo }}" alt="{{ m.label }}" onerror="this.remove()">{% else %}<strong>{{ m.label }}</strong>{% endif %}{% if m.env %}{% for item in m.env.nav[:4] %}<em>{{ item }}</em>{% endfor %}{% else %}<span></span><span></span><span></span>{% endif %}</div><div class="sx-mock-leader"><img src="{{ m.image }}" alt="" loading="lazy"><small>Publicidade</small></div><div class="sx-mock-body">{% set lead = m.env.news[0] if m.env and m.env.news else {} %}{% if m.env and (m.env.hero.image or lead) %}<div class="sx-env-news"><img src="{{ m.env.hero.image or lead.image }}" alt="" loading="lazy"><small>{{ m.env.hero.eyebrow or lead.category }}</small><b>{{ m.env.hero.title or lead.title }}</b></div>{% else %}<div class="sx-mock-text"><b></b><i></i><i></i><i></i><i class="is-short"></i></div>{% endif %}<div class="sx-mock-mrec"><img src="{{ m.square or m.image }}" alt="" loading="lazy"><small>Publicidade</small></div></div></div></div>
   {% endif %}
   <figcaption>{{ m.label }}{% if m.channel and m.channel != m.label %} · {{ m.channel }}{% endif %}</figcaption>
 </figure>
@@ -114,7 +120,7 @@
           {{ kicker(slide) }}
           <h2 class="sx-title-md">{{ slide.title }}</h2>
           <div class="sx-showcase is-{{ slide.screens|length }}">
-            {% for m in slide.screens %}<article class="is-{{ m.kind }}">{{ mockup(m, 'md') }}<h3 class="sx-with-logo">{{ m.channel }}{% if m.pct %}<b>{{ m.pct }}%</b>{% endif %}</h3><p>{{ m.placement }}</p></article>{% endfor %}
+            {% for m in slide.screens %}<article class="is-{{ m.kind }}">{{ mockup(m, 'md') }}<h3 class="sx-with-logo">{{ m.channel }}{% if m.pct %}<b>{{ m.pct }}%</b>{% endif %}</h3><p>{{ m.placement }}</p>{% if m.formats %}<p class="sx-format">{% for f in m.formats %}{{ f.name }} · {{ f.size }}{% if not loop.last %} + {% endif %}{% endfor %}</p>{% endif %}</article>{% endfor %}
           </div>
           <p class="sx-footnote">{{ slide.note }}</p>
 

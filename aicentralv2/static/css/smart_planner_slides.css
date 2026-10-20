@@ -410,7 +410,7 @@ body.is-presenter [data-sx-presenter],body.is-presenter [data-sx-present]{displa
 .sx-showcase.is-4{--cols:4}
 .sx-showcase article{display:flex;flex-direction:column;min-width:0}
 .sx-showcase .sx-mock figcaption{display:none}
-.sx-showcase .sx-mock{display:flex;align-items:flex-end;justify-content:center;height:420px}
+.sx-showcase .sx-mock{display:flex;align-items:flex-end;justify-content:center;height:360px}
 .sx-showcase .sx-mock>div{max-height:100%}
 .sx-showcase .is-tv .sx-mock-tv,.sx-showcase .is-portal .sx-mock-browser{width:100%}
 .sx-showcase .sx-mock-phone{width:auto;height:100%;aspect-ratio:9/18.5;margin:0 auto}
@@ -448,3 +448,28 @@ body.is-presenter [data-sx-presenter],body.is-presenter [data-sx-present]{displa
 .sx-mock-player span{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:14px}
 .sx-mock-player span i{width:14px;height:14px;border-radius:3px;background:#ffffffa0}
 .sx-mock-player span b{width:34px;height:34px;border-radius:50%;background:#fff}
+
+/* Ambientes do Cadu Studio: a tela do canal com a paleta, o menu e o conteúdo do veículo. */
+.sx-mock-screen.is-env{display:flex;flex-direction:column;container-type:inline-size;background:var(--ev-bg,#000);color:var(--ev-ink,#fff)}
+.sx-env-nav{display:flex;align-items:center;gap:3cqw;padding:1.6cqw 3cqw;font-size:2.1cqw;font-weight:600;white-space:nowrap;overflow:hidden}
+.sx-env-nav img{height:3.6cqw;width:auto;max-width:16cqw;object-fit:contain}
+.sx-env-nav span{opacity:.78}
+.sx-env-stage{position:relative;flex:1;min-height:0;overflow:hidden;background:#000}
+.sx-env-stage .sx-mock-art{position:relative;width:100%;height:100%;object-fit:contain}
+.sx-env-stage .sx-mock-ad{left:2.4cqw;bottom:3cqw;font-size:1.9cqw}
+.sx-env-row{padding:1.2cqw 3cqw 1.8cqw}
+.sx-env-row small{display:block;margin-bottom:.8cqw;font-size:1.8cqw;font-weight:700}
+.sx-env-row img{display:block;width:100%;height:8cqw;object-fit:cover;object-position:left;border-radius:.6cqw}
+.is-env .sx-mock-progress b{background:var(--ev-hi,#f5c518)}
+.sx-mock-browser.is-env{container-type:inline-size}
+.sx-mock-browser.is-env .sx-mock-mast{border-bottom:3px solid var(--ev-hi,#e6eaec)}
+.sx-mock-mast em{color:var(--ev-hi2,var(--ev-hi,#5f7076));font-size:clamp(9px,2.3cqw,13px);font-style:normal;font-weight:700;white-space:nowrap}
+.sx-env-news{display:flex;flex-direction:column;gap:6px;min-width:0}
+.sx-env-news img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:4px}
+.sx-env-news small{color:var(--ev-hi,#5f7076);font-size:clamp(8px,2cqw,11px);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.sx-env-news b{color:var(--ev-ink,#202020);font-size:clamp(10px,2.8cqw,15px);line-height:1.25;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.sx-mock-phone.is-env .sx-env-cta{display:flex;justify-content:space-between;padding:8px 12px;background:var(--ev-hi,#1877f2);color:#fff;font-size:12px;font-weight:700}
+.sx-mock-phone.is-vertical.is-env .sx-mock-story footer b{background:var(--ev-hi,#fff);color:#fff}
+.sx-env-rail{position:absolute;right:8px;bottom:22%;z-index:1;display:flex;flex-direction:column;gap:10px}
+.sx-env-rail i{width:22px;height:22px;border-radius:50%;background:#ffffffd9;box-shadow:0 0 0 2px var(--ev-hi2,transparent)}
+.sx-showcase .sx-format{margin-top:6px!important;color:var(--sx-ink);font-size:14px;font-weight:600;line-height:1.35}

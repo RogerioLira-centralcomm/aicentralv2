@@ -13,6 +13,8 @@ def test_friendly_token_uses_plan_name_with_hyphens_and_short_suffix():
 def test_ensure_friendly_renames_once_and_keeps_old_token_as_alias(monkeypatch):
     saved = {}
     monkeypatch.setattr(links, "update_session", lambda token, fields: saved.update(fields))
+    import aicentralv2.smart_planner.repository as repo
+    monkeypatch.setattr(repo, "get_by_token", lambda token: None)
     row = {"session_token": "s1", "cliente": "Caixa",
            "dados_detectados": {"public_token": "d6F0ge3mTNsx2A", "folha": {"meta": {"title": "Educação Financeira CAIXA"}, "share": {"public_token": "d6F0ge3mTNsx2A"}}},
            "plan_content": {"share": {"public_token": "d6F0ge3mTNsx2A"}}}
@@ -37,3 +39,11 @@ def test_old_link_redirects_to_the_friendly_one(monkeypatch):
         response = routes._canonical_redirect("OLD", {}, "smart_planner.publico_proposta")
     assert response.status_code == 301
     assert response.location.endswith("/smart-planner/p/caixa-plano-abcd/proposta?paleta=neutra")
+
+
+def test_concurrent_rename_reuses_the_link_already_saved(monkeypatch):
+    import aicentralv2.smart_planner.repository as repo
+
+    monkeypatch.setattr(repo, "get_by_token", lambda token: {"dados_detectados": {"public_token": "caixa-plano-k7m2"}})
+    monkeypatch.setattr(links, "update_session", lambda *a: (_ for _ in ()).throw(AssertionError("não deveria gravar")))
+    assert links.ensure_friendly({"session_token": "s1", "dados_detectados": {"public_token": "OLDtoken123"}}) == "caixa-plano-k7m2"

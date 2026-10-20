@@ -35,6 +35,15 @@ def ensure_friendly(row: dict) -> str:
     current = session_public_token(row)
     if not current or is_friendly(current):
         return current
+    # Relê o plano antes de gravar: dois primeiros acessos ao mesmo tempo não trocam o link duas vezes.
+    from .repository import get_by_token
+
+    fresh = get_by_token(text(row.get("session_token"))) if text(row.get("session_token")) else None
+    if fresh:
+        row = fresh
+        current = session_public_token(row)
+        if not current or is_friendly(current):
+            return current
     dados = as_dict(row.get("dados_detectados"))
     confidential = as_bool(dados.get("anunciante_confidencial"))
     title = plan_title(row)

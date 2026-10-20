@@ -93,6 +93,12 @@ def _apply_presentation(view: dict, row: dict | None) -> dict:
         view["brand_logo"] = client_logo if _existing_static(client_logo) else ""
     if not _existing_static(template.get("logo")):
         template["logo"] = ""
+    # Arte gerada que sumiu do disco (pasta antiga, apagada no deploy) não vira fundo quebrado na capa.
+    hero_view = as_dict(view.get("hero"))
+    if hero_view.get("creative_image") and not _existing_static(hero_view.get("creative_image")):
+        hero_view["creative_image"] = ""
+        hero_view["has_generated_visual"] = False
+        view["hero"] = hero_view
     view["neutral_palette"] = bool(template.get("neutral"))
     # Falar com o executivo de contas é do modelo CentralComm; no modelo da agência ou do
     # cliente quem apresenta é a marca, então o contato do executivo sai da página.

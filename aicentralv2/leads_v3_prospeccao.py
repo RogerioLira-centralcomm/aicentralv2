@@ -649,10 +649,12 @@ def melhor_celular(payload, apollo_person_id=None):
             numero = n.get("sanitized_number") or n.get("raw_number")
             if not numero:
                 continue
-            if n.get("status_cd") and n.get("status_cd") not in ("valid_number", "verified"):
-                continue
-            numeros.append((_PRIORIDADE_TELEFONE.get(n.get("type_cd"), 2), numero, n.get("type_cd")))
+            status = str(n.get("status_cd") or "")
+            if "invalid" in status:
+                continue  # só descarta o que o Apollo marcou como inválido; sem verificação ainda serve
+            # Entre números do mesmo tipo, o verificado vem antes do sem verificação.
+            numeros.append((_PRIORIDADE_TELEFONE.get(n.get("type_cd"), 2), status != "valid_number", numero, n.get("type_cd")))
     if not numeros:
         return None
-    numeros.sort(key=lambda x: x[0])
-    return {"numero": numeros[0][1], "tipo": numeros[0][2]}
+    numeros.sort(key=lambda x: (x[0], x[1]))
+    return {"numero": numeros[0][2], "tipo": numeros[0][3]}

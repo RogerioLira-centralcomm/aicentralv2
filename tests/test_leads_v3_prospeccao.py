@@ -261,3 +261,16 @@ class WebhookCelularTest(TestCase):
         with patch.object(routes.db, "get_db", return_value=conn):
             resp = app.test_client().post(f"/leads-v3/webhooks/apollo/celular/7?token={token}", json={"people": []})
         self.assertNotEqual(resp.status_code, 302)
+
+
+class CelularSemVerificacaoTest(TestCase):
+    def test_numero_sem_verificacao_ainda_serve(self):
+        payload = {"people": [{"id": "ap1", "phone_numbers": [
+            {"sanitized_number": "+5531977770000", "type_cd": "mobile", "status_cd": "no_status"}]}]}
+        self.assertEqual(p.melhor_celular(payload, "ap1")["numero"], "+5531977770000")
+
+    def test_verificado_vence_sem_verificacao_do_mesmo_tipo(self):
+        payload = {"people": [{"id": "ap1", "phone_numbers": [
+            {"sanitized_number": "+55319111", "type_cd": "mobile", "status_cd": "no_status"},
+            {"sanitized_number": "+55319222", "type_cd": "mobile", "status_cd": "valid_number"}]}]}
+        self.assertEqual(p.melhor_celular(payload, "ap1")["numero"], "+55319222")

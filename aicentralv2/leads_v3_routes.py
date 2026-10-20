@@ -1140,16 +1140,28 @@ def api_analise_v3():
                    COUNT(*) FILTER (WHERE l.status = 'fechado_perdido') AS perdidos,
                    COUNT(*) FILTER (WHERE l.id_executivo IS NULL) AS sem_responsavel,
                    COALESCE(SUM(l.valor_fechado) FILTER (WHERE l.status = 'fechado_ganho' OR l.convertido_cliente_id IS NOT NULL), 0) AS receita,
-                   ROUND(AVG(EXTRACT(EPOCH FROM (l.contatado_em - l.created_at)) / 3600)
-                         FILTER (WHERE l.contatado_em IS NOT NULL)::numeric, 1) AS horas_primeiro_contato,
+                   ROUND(AVG(EXTRACT(EPOCH FROM (pc.primeiro - l.created_at)) / 3600)
+                         FILTER (WHERE pc.primeiro IS NOT NULL)::numeric, 1) AS horas_primeiro_contato,
                    ROUND(AVG(EXTRACT(EPOCH FROM (l.data_conversao - l.created_at)) / 86400)
                          FILTER (WHERE l.data_conversao IS NOT NULL)::numeric, 1) AS dias_ate_converter
               FROM cadu_leads l
+              -- 1º contato: o que vier antes entre contatado_em (só a etapa antiga "contato" do site preenche),
+              -- a primeira atividade registrada à mão e o primeiro toque de cadência.
+              LEFT JOIN LATERAL (
+                  SELECT LEAST(
+                      l.contatado_em,
+                      (SELECT MIN(a.created_at) FROM cadu_lead_atividades a
+                        WHERE a.id_lead = l.id AND a.tipo = ANY(%(tipos)s)
+                          AND a.descricao NOT LIKE 'Cadência %% iniciada%%'),
+                      (SELECT MIN(e.ocorreu_em) FROM cadu_lead_mensagem_eventos e
+                        WHERE e.id_lead = l.id AND e.evento = 'tarefa_feita')
+                  ) AS primeiro
+              ) pc ON TRUE
              WHERE (%(inicio)s::date IS NULL OR l.created_at >= %(inicio)s::date)
                AND (%(fim)s::date IS NULL OR l.created_at < %(fim)s::date + 1) {filtro_lead}
              GROUP BY 1
             """,
-            {"inicio": inicio, "fim": fim, "executivo": executivo},
+            {"inicio": inicio, "fim": fim, "executivo": executivo, "tipos": list(TIPOS_HUMANOS)},
         )
         funil = {r["origem"]: {k: _json_safe(v) for k, v in dict(r).items() if k != "origem"} for r in cursor.fetchall()}
         return _ok({"canais": canais, "inscricoes": inscricoes, "golden": {**golden, "trimestre": trimestre}, "funil": funil})

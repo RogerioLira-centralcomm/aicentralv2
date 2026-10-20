@@ -99,7 +99,8 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, notify, onCh
     setBusy(key);
     try {
       const r = await fn();
-      if (done) notify(typeof done === 'function' ? done(r) : done, r?.encontrou === false ? 'error' : 'success');
+      const falhou = r?.encontrou === false || r?.encontrou_email === false;
+      if (done) notify(typeof done === 'function' ? done(r) : done, falhou ? 'error' : 'success');
       onChanged();
     } catch (error) { notify(error.message, 'error'); } finally { setBusy(''); }
   };
@@ -156,11 +157,19 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, notify, onCh
 
       <div className="lv3-person__contact">
         {c.email ? (
-          <a href={`mailto:${c.email}`} className="lv3-person__email">
-            <Icon name="envelope"/>{String(c.email).toLowerCase()}
-            {c.email_status === 'valido' && <Icon name="circle-check" className="lv3-ok"/>}
-            {palpite && <span className="lv3-chip lv3-chip--warning lv3-chip--tiny" title="Montado pelo padrão da empresa; confira antes de enviar">palpite</span>}
-          </a>
+          <span className="lv3-person__emailrow">
+            <a href={`mailto:${c.email}`} className="lv3-person__email">
+              <Icon name="envelope"/>{String(c.email).toLowerCase()}
+              {c.email_status === 'valido' && <Icon name="circle-check" className="lv3-ok"/>}
+              {palpite && <span className="lv3-chip lv3-chip--warning lv3-chip--tiny" title="Montado pelo padrão da empresa; confira antes de enviar">palpite</span>}
+            </a>
+            {palpite && boot.fontes.apollo && (
+              <button type="button" className="lv3-link lv3-link--muted" disabled={!!busy} title="Troca o palpite pelo e-mail verificado do Apollo (1 crédito)"
+                onClick={run('reveal', () => api.revealContact(c.id), r => r.encontrou_email ? `E-mail verificado: ${r.email}.` : (r.motivo || 'O Apollo não tem e-mail para esta pessoa.'))}>
+                {busy === 'reveal' ? 'Verificando…' : 'Verificar no Apollo'}
+              </button>
+            )}
+          </span>
         ) : (
           <span className="lv3-person__noemail">
             <Button size="xs" variant="primary" icon="wand-magic-sparkles" disabled={!!busy}
@@ -168,14 +177,28 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, notify, onCh
               {busy === 'find' ? 'Procurando…' : 'Achar e-mail'}
             </Button>
             {boot.fontes.apollo && (
-              <button type="button" className="lv3-link lv3-link--muted" disabled={!!busy} title="Último recurso: consome 1 crédito do Apollo"
-                onClick={run('reveal', () => api.revealContact(c.id), r => r.encontrou_email ? 'E-mail encontrado no Apollo.' : 'O Apollo não tem e-mail para esta pessoa.')}>
-                {busy === 'reveal' ? 'Consultando Apollo…' : 'Apollo (1 crédito)'}
+              <button type="button" className="lv3-link lv3-link--muted" disabled={!!busy} title="E-mail verificado do Apollo: consome 1 crédito"
+                onClick={run('reveal', () => api.revealContact(c.id), r => r.encontrou_email ? `E-mail verificado: ${r.email}.` : (r.motivo || 'O Apollo não tem e-mail para esta pessoa.'))}>
+                {busy === 'reveal' ? 'Consultando Apollo…' : 'E-mail verificado (Apollo)'}
               </button>
             )}
           </span>
         )}
-        {c.telefone && <a href={whatsappUrl(c.telefone)} target="_blank" rel="noopener noreferrer"><Icon name="phone"/>{c.telefone}</a>}
+        {c.telefone ? (
+          <a href={whatsappUrl(c.telefone)} target="_blank" rel="noopener noreferrer"><Icon name="phone"/>{c.telefone}</a>
+        ) : c.telefone_status === 'pedido' ? (
+          <span className="lv3-person__phonewait" title="O Apollo envia o número alguns minutos depois do pedido">
+            <Icon name="hourglass-half"/>Celular pedido ao Apollo
+            <button type="button" className="lv3-link" onClick={onChanged}>Atualizar</button>
+          </span>
+        ) : c.telefone_status === 'sem_numero' ? (
+          <span className="lv3-muted"><Icon name="phone-slash"/> Apollo sem celular</span>
+        ) : boot.fontes.apollo ? (
+          <button type="button" className="lv3-link lv3-link--muted" disabled={!!busy}
+            onClick={() => { if (window.confirm(`Pedir o celular de ${nome} ao Apollo? Consome créditos de telefone do plano (mais que um e-mail) e o número chega em alguns minutos.`)) run('phone', () => api.requestPhone(c.id), 'Celular pedido ao Apollo. Chega em alguns minutos.')(); }}>
+            <Icon name="mobile-screen"/> {busy === 'phone' ? 'Pedindo…' : 'Buscar celular (Apollo)'}
+          </button>
+        ) : null}
         {!c.linkedin_url && linkedin === null && <button type="button" className="lv3-link" onClick={() => setLinkedin('')}>Colar LinkedIn</button>}
       </div>
 

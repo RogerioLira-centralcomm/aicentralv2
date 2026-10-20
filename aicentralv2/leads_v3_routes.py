@@ -7,11 +7,13 @@ Plano em docs/leads-v3-plano.md.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import re
 from datetime import date, datetime
 from decimal import Decimal
 
-from flask import Blueprint, current_app, jsonify, render_template, request, session
+from flask import Blueprint, current_app, jsonify, render_template, request, session, url_for
 
 from . import db
 from . import leads_v3_cadencias as cadencias
@@ -581,7 +583,7 @@ def api_contato_revelar(contato_id):
              revelado.get("cargo"), contato_id],
         )
         return _ok({"email": revelado.get("email"), "linkedin_url": revelado.get("linkedin_url"),
-                    "encontrou_email": bool(revelado.get("email"))})
+                    "encontrou_email": bool(revelado.get("email")), "motivo": revelado.get("motivo")})
 
     return _transacao(run, "revelar contato")
 
@@ -1125,3 +1127,102 @@ def api_analise_v3():
         return _ok({"canais": canais, "inscricoes": inscricoes, "golden": {**golden, "trimestre": trimestre}})
 
     return _transacao(run, "análise v3")
+
+
+# ─────────────────────────────────────────────────────
+# Celular pelo Apollo: pedido + webhook assinado
+# ─────────────────────────────────────────────────────
+def _assinatura_contato(contato_id):
+    """HMAC do id do contato com a SECRET_KEY: só quem recebeu a URL do pedido consegue chamar o webhook."""
+    chave = str(current_app.config.get("SECRET_KEY") or "").encode()
+    return hmac.new(chave, f"apollo-telefone:{contato_id}".encode(), hashlib.sha256).hexdigest()[:40]
+
+
+@bp.route("/api/contatos/<int:contato_id>/celular", methods=["POST"])
+@centralcomm_required_api
+def api_contato_pedir_celular(contato_id):
+    """Pede o celular ao Apollo; o número chega minutos depois pelo webhook."""
+    conn = db.get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT c.id, c.nome, c.linkedin_url, c.origem_dado, c.origem_ref, c.apollo_person_id, c.telefone,
+                       l.dominio, l.url_site
+                  FROM cadu_lead_contatos c JOIN cadu_leads l ON l.id = c.id_lead WHERE c.id = %s
+                """,
+                [contato_id],
+            )
+            contato = cursor.fetchone()
+        conn.rollback()
+    except Exception as exc:
+        conn.rollback()
+        if _sqlstate(exc) in _SQLSTATE_SEM_ESQUEMA:
+            return _erro("A migração do Leads v3 ainda não foi aplicada neste banco.", 503)
+        current_app.logger.error("leads-v3 pedir celular: %s", exc)
+        return _erro("Não foi possível pedir o celular.", 500)
+    if not contato:
+        return _erro("Contato não encontrado.", 404)
+    webhook = url_for("leads_v3.webhook_apollo_celular", contato_id=contato_id, token=_assinatura_contato(contato_id),
+                      _external=True, _scheme="https")
+    try:
+        apollo_id = prospeccao.apollo_pedir_celular(
+            resolve_apollo_api_key(), webhook,
+            apollo_id=contato["apollo_person_id"] or (contato["origem_ref"] if contato["origem_dado"] == "apollo" else None),
+            linkedin_url=contato["linkedin_url"], nome=contato["nome"],
+            dominio=contato["dominio"] or prospeccao.normalizar_dominio(contato["url_site"]),
+        )
+    except prospeccao.ProspeccaoError as exc:
+        return _erro(str(exc), 400)
+
+    def run(cursor):
+        cursor.execute(
+            """
+            UPDATE cadu_lead_contatos
+               SET telefone_status = 'pedido', telefone_pedido_em = CURRENT_TIMESTAMP, apollo_person_id = %s
+             WHERE id = %s
+            """,
+            [apollo_id, contato_id],
+        )
+        return _ok({"status": "pedido"})
+
+    return _transacao(run, "pedir celular")
+
+
+@bp.route("/webhooks/apollo/celular/<int:contato_id>", methods=["POST"])
+def webhook_apollo_celular(contato_id):
+    """Recebe do Apollo o celular pedido. Sem sessão: a assinatura na URL autentica."""
+    token = request.args.get("token") or ""
+    if not hmac.compare_digest(token, _assinatura_contato(contato_id)):
+        return jsonify({"ok": False}), 403
+    payload = request.get_json(silent=True) or {}
+
+    def run(cursor):
+        cursor.execute("SELECT id, id_lead, nome, apollo_person_id FROM cadu_lead_contatos WHERE id = %s FOR UPDATE", [contato_id])
+        contato = cursor.fetchone()
+        if not contato:
+            return jsonify({"ok": True})  # contato apagado depois do pedido: nada a fazer
+        achado = prospeccao.melhor_celular(payload, contato["apollo_person_id"])
+        if achado:
+            cursor.execute(
+                """
+                UPDATE cadu_lead_contatos
+                   SET telefone = CASE WHEN COALESCE(telefone, '') = '' THEN %s ELSE telefone END,
+                       telefone_status = 'encontrado', enriquecido_em = CURRENT_TIMESTAMP
+                 WHERE id = %s
+                """,
+                [achado["numero"], contato_id],
+            )
+            tipo = "celular" if achado["tipo"] == "mobile" else "telefone direto"
+            cursor.execute(
+                """
+                INSERT INTO cadu_lead_atividades (id_lead, tipo, descricao, id_contato, usuario_nome)
+                VALUES (%s, 'edicao', %s, %s, 'Apollo')
+                """,
+                [contato["id_lead"], f"{tipo.capitalize()} de {contato['nome']} encontrado no Apollo.", contato_id],
+            )
+        else:
+            cursor.execute("UPDATE cadu_lead_contatos SET telefone_status = 'sem_numero' WHERE id = %s", [contato_id])
+        return jsonify({"ok": True})
+
+    return _transacao(run, "webhook celular apollo")

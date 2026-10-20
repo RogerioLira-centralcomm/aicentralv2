@@ -218,3 +218,46 @@ class AcharEmailNivelTest(TestCase):
         self.assertEqual(r["nivel"], "empresa")
         sem_sobrenome = p.achar_email("Madonna", "vale.com", [("Ana Lima", "ana.lima@vale.com")], mx=lambda d: True)
         self.assertEqual(sem_sobrenome["nivel"], "pessoa")
+
+
+class CelularApolloTest(TestCase):
+    def test_pedido_manda_webhook_e_reveal_phone(self):
+        with patch.object(p.requests, "post", return_value=_resp(body={"person": {"id": "ap1"}})) as post:
+            self.assertEqual(p.apollo_pedir_celular("k", "https://x/webhook", linkedin_url="https://linkedin.com/in/a"), "ap1")
+        body = post.call_args.kwargs["json"]
+        self.assertTrue(body["reveal_phone_number"])
+        self.assertEqual(body["webhook_url"], "https://x/webhook")
+        self.assertEqual(body["linkedin_url"], "https://linkedin.com/in/a")
+
+    def test_escolhe_celular_valido_antes_do_telefone_da_empresa(self):
+        payload = {"people": [{"id": "ap1", "phone_numbers": [
+            {"sanitized_number": "+553133330000", "type_cd": "work_hq", "status_cd": "valid_number"},
+            {"sanitized_number": "+5531999990000", "type_cd": "mobile", "status_cd": "invalid_number"},
+            {"sanitized_number": "+5531988880000", "type_cd": "mobile", "status_cd": "valid_number"},
+        ]}]}
+        self.assertEqual(p.melhor_celular(payload, "ap1"), {"numero": "+5531988880000", "tipo": "mobile"})
+        self.assertIsNone(p.melhor_celular({"people": [{"id": "ap1", "phone_numbers": []}]}, "ap1"))
+
+    def test_email_bloqueado_explica_o_motivo(self):
+        body = {"person": {"id": "a1", "name": "Ana", "email": "email_not_unlocked@domain.com"}}
+        with patch.object(p.requests, "post", return_value=_resp(body=body)):
+            r = p.apollo_revelar("k", apollo_id="a1")
+        self.assertIsNone(r["email"])
+        self.assertIn("créditos", r["motivo"])
+
+
+class WebhookCelularTest(TestCase):
+    def test_assinatura_invalida_e_recusada(self):
+        resp = _client().post("/leads-v3/webhooks/apollo/celular/7?token=errado", json={"people": []})
+        self.assertEqual(resp.status_code, 403)
+
+    def test_webhook_nao_exige_login(self):
+        from tests.test_leads_v3_routes import _app
+        app = _app()
+        with app.test_request_context():
+            token = routes._assinatura_contato(7)
+        conn = FakeConn([])
+        conn.cursor().fetchone = lambda: None
+        with patch.object(routes.db, "get_db", return_value=conn):
+            resp = app.test_client().post(f"/leads-v3/webhooks/apollo/celular/7?token={token}", json={"people": []})
+        self.assertNotEqual(resp.status_code, 302)

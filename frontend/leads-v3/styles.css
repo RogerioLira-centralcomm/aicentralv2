@@ -625,3 +625,6 @@ html body .lv3-root .lv3-queue__owner select:not([multiple]):not([size]):not(.se
 .lv3-op__next { padding: 14px 16px; }
 .lv3-op__next h4 { margin: 0 0 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--lv3-muted); }
 .lv3-op__next p { margin: 0; color: var(--lv3-ink-2); }
+.lv3-person__emailrow { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.lv3-person__phonewait { display: inline-flex; align-items: center; gap: 6px; color: var(--lv3-warning); font-weight: 600; }
+.lv3-person__phonewait .lv3-link { margin-left: 4px; }

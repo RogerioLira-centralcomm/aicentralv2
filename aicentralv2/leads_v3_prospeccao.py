@@ -177,9 +177,16 @@ def apollo_revelar(api_key, *, apollo_id=None, linkedin_url=None, nome=None, dom
     if not pessoa:
         raise ProspeccaoError("O Apollo não encontrou esta pessoa.")
     email = pessoa.get("email")
+    motivo = None
     if email and "email_not_unlocked" in email:
+        # O Apollo sabe o e-mail, mas o plano não deixou revelar pela API (sem crédito ou sem permissão).
         email = None
+        motivo = ("O Apollo tem o e-mail desta pessoa, mas não liberou: o plano está sem créditos de e-mail "
+                  "ou não permite revelar pela API. Confira em Apollo › Settings › Credits.")
+    elif not email:
+        motivo = "O Apollo não tem e-mail para esta pessoa."
     return {
+        "motivo": motivo,
         "nome": pessoa.get("name"),
         "cargo": pessoa.get("title"),
         "email": email,
@@ -602,3 +609,50 @@ def achar_email(nome, dominio, exemplos, *, firecrawl_key=None, coletar=firecraw
         return resultado
     resultado.update(email=f"{local}@{dominio}", metodo=metodo, padrao=padrao, exemplos=n)
     return resultado
+
+
+# ─────────────────────────────────────────────────────
+# Celular pelo Apollo (assíncrono: o número chega por webhook)
+# ─────────────────────────────────────────────────────
+def apollo_pedir_celular(api_key, webhook_url, *, apollo_id=None, linkedin_url=None, nome=None, dominio=None):
+    """Pede o celular ao Apollo. Devolve o id da pessoa no Apollo (para casar com o webhook).
+
+    Consome créditos de telefone do plano; o valor exato vem em `credits_consumed` no webhook.
+    """
+    payload = {"reveal_phone_number": True, "webhook_url": webhook_url, "reveal_personal_emails": False}
+    if apollo_id:
+        payload["id"] = apollo_id
+    elif linkedin_url:
+        payload["linkedin_url"] = linkedin_url
+    elif nome and dominio:
+        partes = nome.replace("*", " ").split()
+        payload.update({"first_name": partes[0], "last_name": " ".join(partes[1:]), "domain": dominio})
+    else:
+        raise ProspeccaoError("Faltam dados para o Apollo achar esta pessoa (LinkedIn ou nome + domínio).")
+    pessoa = (_apollo_post("people/match", api_key, payload) or {}).get("person")
+    if not pessoa or not pessoa.get("id"):
+        raise ProspeccaoError("O Apollo não encontrou esta pessoa.")
+    return pessoa["id"]
+
+
+_PRIORIDADE_TELEFONE = {"mobile": 0, "work_direct": 1, "work_hq": 3, "other": 2}
+
+
+def melhor_celular(payload, apollo_person_id=None):
+    """Escolhe o número do webhook do Apollo: celular válido primeiro, depois direto do trabalho."""
+    pessoas = (payload or {}).get("people") or []
+    if apollo_person_id:
+        pessoas = [p for p in pessoas if p.get("id") == apollo_person_id] or pessoas
+    numeros = []
+    for pessoa in pessoas:
+        for n in pessoa.get("phone_numbers") or []:
+            numero = n.get("sanitized_number") or n.get("raw_number")
+            if not numero:
+                continue
+            if n.get("status_cd") and n.get("status_cd") not in ("valid_number", "verified"):
+                continue
+            numeros.append((_PRIORIDADE_TELEFONE.get(n.get("type_cd"), 2), numero, n.get("type_cd")))
+    if not numeros:
+        return None
+    numeros.sort(key=lambda x: x[0])
+    return {"numero": numeros[0][1], "tipo": numeros[0][2]}

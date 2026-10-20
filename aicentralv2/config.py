@@ -40,6 +40,8 @@ class Config:
 	CONNECT_URL = os.getenv('CONNECT_URL', 'https://reports.centralcomm.media')
 	WORKSPACE_URL = os.getenv('WORKSPACE_URL', 'https://workspace.centralcomm.media')
 	AUTH_URL = os.getenv('AUTH_URL', 'https://auth.centralcomm.media')
+	# Endereço público do CentralX que o Apollo chama de volta com o celular (Leads v3).
+	LEADS_V3_WEBHOOK_BASE_URL = os.getenv('LEADS_V3_WEBHOOK_BASE_URL', 'https://ai.centralcomm.media')
 	# O PHP permanece dono destas telas; os caminhos podem ser ajustados sem
 	# duplicar regras de usuários, assinatura, créditos ou cobrança no Flask.
 	CADU_USERS_URL = os.getenv('CADU_USERS_URL', f"{CADU_URL.rstrip('/')}/usuarios")

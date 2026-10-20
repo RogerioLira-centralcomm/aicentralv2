@@ -274,3 +274,13 @@ class CelularSemVerificacaoTest(TestCase):
             {"sanitized_number": "+55319111", "type_cd": "mobile", "status_cd": "no_status"},
             {"sanitized_number": "+55319222", "type_cd": "mobile", "status_cd": "valid_number"}]}]}
         self.assertEqual(p.melhor_celular(payload, "ap1")["numero"], "+55319222")
+
+
+class UrlWebhookTest(TestCase):
+    def test_usa_o_dominio_publico_configurado(self):
+        from tests.test_leads_v3_routes import _app
+        app = _app()
+        app.config["LEADS_V3_WEBHOOK_BASE_URL"] = "https://ai.centralcomm.media/"
+        with app.test_request_context("/", base_url="http://127.0.0.1:8001"):
+            url = routes._url_webhook_celular(7)
+        self.assertTrue(url.startswith("https://ai.centralcomm.media/leads-v3/webhooks/apollo/celular/7?token="), url)

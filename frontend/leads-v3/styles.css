@@ -628,3 +628,21 @@ html body .lv3-root .lv3-queue__owner select:not([multiple]):not([size]):not(.se
 .lv3-person__emailrow { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .lv3-person__phonewait { display: inline-flex; align-items: center; gap: 6px; color: var(--lv3-warning); font-weight: 600; }
 .lv3-person__phonewait .lv3-link { margin-left: 4px; }
+
+/* Gráficos semanais da Análise */
+.lv3-chart { position: relative; margin-bottom: 14px; }
+.lv3-chart svg { display: block; max-width: 100%; }
+.lv3-chart__grid { stroke: #eaecf0; stroke-width: 1; }
+.lv3-chart__base { stroke: var(--lv3-line-strong); stroke-width: 1; }
+.lv3-chart__tick { font-size: 11px; fill: var(--lv3-muted); font-variant-numeric: tabular-nums; }
+.lv3-chart__value { font-size: 11px; font-weight: 700; fill: var(--lv3-ink-2); font-variant-numeric: tabular-nums; }
+.lv3-chart__tip { position: absolute; top: 0; transform: translateX(-50%); display: flex; flex-direction: column; gap: 2px; padding: 8px 10px;
+  border: 1px solid var(--lv3-line); border-radius: var(--lv3-radius-sm); background: var(--lv3-surface); box-shadow: var(--lv3-shadow-lg);
+  font-size: 12px; color: var(--lv3-ink-2); pointer-events: none; white-space: nowrap; z-index: 2; }
+.lv3-chart__tip strong { color: var(--lv3-ink); }
+.lv3-an__metricas { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.lv3-an__sub { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--lv3-line); }
+.lv3-an__sub h4 { margin: 0 0 8px; font-size: 13px; font-weight: 700; color: var(--lv3-ink-2); }
+.lv3-heat td.lv3-heat__cell { min-width: 38px; border-left: 2px solid var(--lv3-surface); font-weight: 600; }
+.lv3-heat__name { white-space: nowrap; font-weight: 600; color: var(--lv3-ink); }
+.lv3-heat__total { font-weight: 700; color: var(--lv3-ink); }

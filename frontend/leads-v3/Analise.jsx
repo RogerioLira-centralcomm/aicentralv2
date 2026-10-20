@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Empty, Icon, decode, formatDate, todayLocal} from './ui.jsx';
 
 const ETAPAS = {
@@ -15,6 +15,116 @@ const pct = (a, b) => (b ? `${Math.round((Number(a) / Number(b)) * 100)}%` : '�
 function diasAtras(n) {
   const d = new Date(); d.setDate(d.getDate() - n);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Rampa sequencial azul (referência validada da skill de dataviz): magnitude, um matiz, claro → escuro.
+const AZUL = ['#cde2fb', '#9ec5f4', '#6da7ec', '#3987e5', '#256abf', '#104281'];
+const COR_COLUNA = '#2a78d6';
+const semanaCurta = iso => { const [, m, d] = iso.split('-'); return `${d}/${m}`; };
+const tickLimpo = max => { if (max <= 5) return 5; const p = 10 ** Math.floor(Math.log10(max)); return Math.ceil(max / p) * p; };
+
+/** Colunas por semana (série única): valor no topo, linha de base, grade discreta e detalhe ao passar o mouse. */
+function ColunasSemanais({semanas, valores, detalhe, rotulo}) {
+  const [hover, setHover] = useState(null);
+  // Largura medida do contêiner: o desenho ocupa a coluna sem esticar texto nem altura.
+  const ref = useRef(null);
+  const [W, setW] = useState(720);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(([e]) => setW(Math.max(320, Math.round(e.contentRect.width))));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const H = 200, M = {t: 22, r: 12, b: 28, l: 34};
+  const max = tickLimpo(Math.max(1, ...valores));
+  const largura = (W - M.l - M.r) / Math.max(1, semanas.length);
+  const barra = Math.min(24, largura * 0.6);
+  const y = v => M.t + (H - M.t - M.b) * (1 - v / max);
+  const ticks = [0, max / 2, max];
+  return (
+    <div className="lv3-chart" ref={ref} onMouseLeave={() => setHover(null)}>
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${rotulo} por semana`}>
+        {ticks.map(t => (
+          <g key={t}>
+            <line x1={M.l} x2={W - M.r} y1={y(t)} y2={y(t)} className="lv3-chart__grid"/>
+            <text x={M.l - 6} y={y(t) + 4} className="lv3-chart__tick" textAnchor="end">{Number(t).toLocaleString('pt-BR')}</text>
+          </g>
+        ))}
+        {semanas.map((s, i) => {
+          const v = valores[i] || 0;
+          const x = M.l + largura * i + (largura - barra) / 2;
+          const topo = y(v), base = y(0), h = Math.max(0, base - topo);
+          const r = Math.min(4, h);
+          return (
+            <g key={s} onMouseEnter={() => setHover(i)}>
+              <rect x={M.l + largura * i} y={M.t} width={largura} height={H - M.t - M.b} fill="transparent"/>
+              {h > 0 && <path d={`M${x},${base} V${topo + r} Q${x},${topo} ${x + r},${topo} H${x + barra - r} Q${x + barra},${topo} ${x + barra},${topo + r} V${base} Z`}
+                fill={COR_COLUNA} opacity={hover === null || hover === i ? 1 : 0.45}/>}
+              {v > 0 && <text x={x + barra / 2} y={topo - 6} className="lv3-chart__value" textAnchor="middle">{v}</text>}
+              {(semanas.length <= 16 || i % 2 === 0) && <text x={x + barra / 2} y={H - 10} className="lv3-chart__tick" textAnchor="middle">{semanaCurta(s)}</text>}
+            </g>
+          );
+        })}
+        <line x1={M.l} x2={W - M.r} y1={y(0)} y2={y(0)} className="lv3-chart__base"/>
+      </svg>
+      {hover !== null && (
+        <div className="lv3-chart__tip" style={{left: `${((M.l + largura * (hover + 0.5)) / W) * 100}%`}}>
+          <strong>Semana de {semanaCurta(semanas[hover])}</strong>
+          {detalhe(hover).map(([k, v]) => <span key={k}>{k}: <b>{v}</b></span>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const METRICAS = [
+  ['atividades', 'Atividades registradas', 'Ligações, e-mails, WhatsApp, reuniões e notas registrados à mão (fora das cadências)'],
+  ['toques', 'Toques de cadência', 'Passos de cadência marcados como feitos'],
+  ['respostas', 'Respostas', 'Pessoas que responderam às cadências'],
+  ['adicionados', 'Leads adicionados', 'Leads cadastrados ou importados pela equipe (fora do site)'],
+];
+
+/** Executivos × semanas, intensidade pela rampa azul. A tabela é a própria leitura (sem depender só da cor). */
+function MapaExecutivos({semanas, executivos, nomeExec}) {
+  const [metrica, setMetrica] = useState('atividades');
+  const linhas = executivos.map(e => ({id: e.id_executivo, nome: nomeExec(e.id_executivo), valores: e[metrica] || []}))
+    .map(l => ({...l, total: l.valores.reduce((a, b) => a + b, 0)}))
+    .filter(l => l.total > 0)
+    .sort((a, b) => b.total - a.total);
+  const max = Math.max(1, ...linhas.flatMap(l => l.valores));
+  const cor = v => (v ? AZUL[Math.min(AZUL.length - 1, Math.ceil((v / max) * AZUL.length) - 1)] : 'transparent');
+  const desc = METRICAS.find(m => m[0] === metrica)?.[2];
+  return (
+    <>
+      <div className="lv3-an__metricas" role="radiogroup" aria-label="Métrica">
+        {METRICAS.map(([v, l]) => (
+          <button key={v} type="button" role="radio" aria-checked={metrica === v} className={`lv3-chipbtn ${metrica === v ? 'is-on' : ''}`} onClick={() => setMetrica(v)}>{l}</button>
+        ))}
+      </div>
+      <p className="lv3-muted lv3-help">{desc}. Cor mais forte = mais volume na semana.</p>
+      {!linhas.length ? <p className="lv3-muted">Nada registrado no período.</p> : (
+        <div className="lv3-table__wrap">
+          <table className="lv3-table lv3-heat">
+            <thead><tr><th>Executivo</th>{semanas.map(s => <th key={s} className="is-num">{semanaCurta(s)}</th>)}<th className="is-num">Total</th></tr></thead>
+            <tbody>
+              {linhas.map(l => (
+                <tr key={l.id ?? 'sem'}>
+                  <td className="lv3-heat__name">{l.nome}</td>
+                  {l.valores.map((v, i) => {
+                    const escuro = v && v / max > 0.5;
+                    return <td key={i} className="is-num lv3-heat__cell" style={{background: cor(v), color: escuro ? '#fff' : undefined}}
+                      title={`${l.nome} · semana de ${semanaCurta(semanas[i])}: ${v}`}>{v || ''}</td>;
+                  })}
+                  <td className="is-num lv3-heat__total">{l.total}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
 }
 
 /** Número de destaque: rótulo, valor e uma linha de contexto (sem gráfico: o número é a mensagem). */
@@ -51,6 +161,7 @@ export function Analise({boot, api, executivo, setExecutivo, notify, onOpenLead}
   const [fim, setFim] = useState(todayLocal());
   const [dados, setDados] = useState(null);
   const [v3, setV3] = useState(null);
+  const [semanal, setSemanal] = useState(null);
   const [loading, setLoading] = useState(true);
   const exec = /^\d+$/.test(executivo) ? executivo : '';
   const nomeExec = id => boot.executivos.find(e => e.id === id)?.nome || (id ? `#${id}` : 'Sem responsável');
@@ -59,8 +170,9 @@ export function Analise({boot, api, executivo, setExecutivo, notify, onOpenLead}
     setLoading(true);
     const params = {data_inicio: inicio, data_fim: fim, id_executivo: exec};
     try {
-      const [legado, novo] = await Promise.all([api.analyticsLegacy(params), api.analyticsV3(params).catch(() => null)]);
-      setDados(legado); setV3(novo);
+      const [legado, novo, sem] = await Promise.all([api.analyticsLegacy(params), api.analyticsV3(params).catch(() => null),
+        api.analyticsWeekly(params).catch(() => null)]);
+      setDados(legado); setV3(novo); setSemanal(sem);
     } catch (error) { notify(error.message, 'error'); } finally { setLoading(false); }
   }, [api, inicio, fim, exec, notify]);
   useEffect(() => { load(); }, [load]);
@@ -106,6 +218,36 @@ export function Analise({boot, api, executivo, setExecutivo, notify, onOpenLead}
               <Stat label="Dias até converter" value={num(t.avg_dias_conversao)} hint={t.min_dias != null ? `de ${Math.round(t.min_dias)} a ${Math.round(t.max_dias)} dias` : 'média'}/>
             </div>
           </section>
+
+          {semanal && (
+            <section className="lv3-an__section">
+              <h3>Leads do site por semana</h3>
+              <p className="lv3-muted lv3-help">Leads que entraram pelos formulários do site, por semana de entrada. O detalhe mostra o que aconteceu com cada leva até hoje.</p>
+              <ColunasSemanais semanas={semanal.semanas} valores={semanal.site.map(s => s.entraram)} rotulo="Leads do site"
+                detalhe={i => { const s = semanal.site[i]; return [['Entraram', s.entraram], ['Avançaram de etapa', s.avancaram], ['Desqualificados', s.desqualificados], ['Convertidos', s.convertidos], ['Sem responsável', s.sem_responsavel]]; }}/>
+              <Table empty="Nenhum lead do site no período." rows={semanal.site.filter(s => s.entraram)}
+                cols={[
+                  {key: 'semana', label: 'Semana de', render: r => semanaCurta(r.semana)},
+                  {key: 'entraram', label: 'Entraram', num: true},
+                  {key: 'avancaram', label: 'Avançaram', num: true, render: r => `${r.avancaram} (${pct(r.avancaram, r.entraram)})`},
+                  {key: 'desqualificados', label: 'Desqualificados', num: true},
+                  {key: 'convertidos', label: 'Convertidos', num: true},
+                  {key: 'sem_responsavel', label: 'Sem responsável', num: true},
+                ]}/>
+            </section>
+          )}
+
+          {semanal && (
+            <section className="lv3-an__section">
+              <h3>Evolução semanal por executivo</h3>
+              <MapaExecutivos semanas={semanal.semanas} executivos={semanal.executivos} nomeExec={nomeExec}/>
+              <div className="lv3-an__sub">
+                <h4>Leads adicionados pela equipe (fora do site)</h4>
+                <ColunasSemanais semanas={semanal.semanas} valores={semanal.adicionados_equipe} rotulo="Leads adicionados pela equipe"
+                  detalhe={i => [['Adicionados', semanal.adicionados_equipe[i]]]}/>
+              </div>
+            </section>
+          )}
 
           {v3 && (
             <section className="lv3-an__section">

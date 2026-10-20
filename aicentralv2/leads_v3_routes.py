@@ -1138,6 +1138,15 @@ def _assinatura_contato(contato_id):
     return hmac.new(chave, f"apollo-telefone:{contato_id}".encode(), hashlib.sha256).hexdigest()[:40]
 
 
+def _url_webhook_celular(contato_id):
+    """URL pública fixa (LEADS_V3_WEBHOOK_BASE_URL, padrão https://ai.centralcomm.media), não o host de quem clicou:
+    o Apollo precisa de um endereço HTTPS aberto e estável. Sem a configuração, cai no host da requisição."""
+    caminho = url_for("leads_v3.webhook_apollo_celular", contato_id=contato_id, token=_assinatura_contato(contato_id))
+    base = str(current_app.config.get("LEADS_V3_WEBHOOK_BASE_URL") or "").rstrip("/")
+    return f"{base}{caminho}" if base else url_for(
+        "leads_v3.webhook_apollo_celular", contato_id=contato_id, token=_assinatura_contato(contato_id), _external=True, _scheme="https")
+
+
 @bp.route("/api/contatos/<int:contato_id>/celular", methods=["POST"])
 @centralcomm_required_api
 def api_contato_pedir_celular(contato_id):
@@ -1163,8 +1172,7 @@ def api_contato_pedir_celular(contato_id):
         return _erro("Não foi possível pedir o celular.", 500)
     if not contato:
         return _erro("Contato não encontrado.", 404)
-    webhook = url_for("leads_v3.webhook_apollo_celular", contato_id=contato_id, token=_assinatura_contato(contato_id),
-                      _external=True, _scheme="https")
+    webhook = _url_webhook_celular(contato_id)
     try:
         apollo_id = prospeccao.apollo_pedir_celular(
             resolve_apollo_api_key(), webhook,
@@ -1226,3 +1234,122 @@ def webhook_apollo_celular(contato_id):
         return jsonify({"ok": True})
 
     return _transacao(run, "webhook celular apollo")
+
+
+# ─────────────────────────────────────────────────────
+# Análise semanal: site × equipe × executivos
+# ─────────────────────────────────────────────────────
+TIPOS_HUMANOS = ("ligacao", "whatsapp", "email_enviado", "reuniao", "follow_up", "apresentacao", "proposta_enviada", "nota")
+
+
+def _semanas(inicio, fim):
+    """Segundas-feiras de inicio..fim (semana ISO), para preencher semanas sem movimento com zero."""
+    from datetime import timedelta
+    seg = inicio - timedelta(days=inicio.weekday())
+    out = []
+    while seg <= fim:
+        out.append(seg.isoformat())
+        seg += timedelta(days=7)
+    return out
+
+
+@bp.route("/api/analise/semanal")
+@centralcomm_required_api
+def api_analise_semanal():
+    from datetime import timedelta
+    hoje = date.today()
+    try:
+        fim = date.fromisoformat(request.args.get("data_fim") or hoje.isoformat())
+        inicio = date.fromisoformat(request.args.get("data_inicio") or (fim - timedelta(weeks=12)).isoformat())
+    except ValueError:
+        return _erro("Data inválida.")
+    if inicio > fim or (fim - inicio).days > 400:
+        return _erro("Período inválido (máximo de 400 dias).")
+    executivo = _int(request.args.get("id_executivo"))
+    p = {"inicio": inicio, "fim": fim + timedelta(days=1), "executivo": executivo, "tipos": list(TIPOS_HUMANOS)}
+
+    def run(cursor):
+        semanas = _semanas(inicio, fim)
+        filtro_lead = "AND l.id_executivo = %(executivo)s" if executivo else ""
+        # Leads do site por semana de entrada (o estado atual mostra o que aconteceu com cada leva).
+        cursor.execute(
+            f"""
+            SELECT date_trunc('week', l.created_at)::date AS semana, COUNT(*) AS entraram,
+                   COUNT(*) FILTER (WHERE l.status NOT IN ('inbox', 'nao_qualificado')) AS avancaram,
+                   COUNT(*) FILTER (WHERE l.status = 'nao_qualificado') AS desqualificados,
+                   COUNT(*) FILTER (WHERE l.convertido_cliente_id IS NOT NULL OR l.status = 'fechado_ganho') AS convertidos,
+                   COUNT(*) FILTER (WHERE l.id_executivo IS NULL) AS sem_responsavel
+              FROM cadu_leads l
+             WHERE l.fonte = 'site' AND l.created_at >= %(inicio)s AND l.created_at < %(fim)s {filtro_lead}
+             GROUP BY 1
+            """,
+            p,
+        )
+        site = {r["semana"].isoformat(): r for r in cursor.fetchall()}
+        # Leads adicionados pela equipe (qualquer fonte que não seja o site), por executivo e semana.
+        cursor.execute(
+            f"""
+            SELECT date_trunc('week', l.created_at)::date AS semana, l.id_executivo, COUNT(*) AS n
+              FROM cadu_leads l
+             WHERE COALESCE(l.fonte, '') <> 'site' AND l.created_at >= %(inicio)s AND l.created_at < %(fim)s {filtro_lead}
+             GROUP BY 1, 2
+            """,
+            p,
+        )
+        adicionados = cursor.fetchall()
+        # Atividades registradas pelo executivo (sem os eventos automáticos).
+        filtro_usuario = "AND a.id_usuario = %(executivo)s" if executivo else ""
+        cursor.execute(
+            f"""
+            SELECT date_trunc('week', a.created_at)::date AS semana, a.id_usuario AS id_executivo, COUNT(*) AS n
+              FROM cadu_lead_atividades a
+             WHERE a.tipo = ANY(%(tipos)s) AND a.id_usuario IS NOT NULL
+               AND a.created_at >= %(inicio)s AND a.created_at < %(fim)s {filtro_usuario}
+               -- Os registros que a cadência grava (início e passos) já contam como toques.
+               AND a.descricao NOT LIKE 'Cadência %% iniciada%%' AND a.descricao NOT LIKE '%%(cadência %%'
+             GROUP BY 1, 2
+            """,
+            p,
+        )
+        atividades = cursor.fetchall()
+        # Toques e respostas de cadência, pelo executivo da inscrição.
+        filtro_insc = "AND COALESCE(i.id_executivo, l.id_executivo) = %(executivo)s" if executivo else ""
+        cursor.execute(
+            f"""
+            SELECT date_trunc('week', e.ocorreu_em)::date AS semana, COALESCE(i.id_executivo, l.id_executivo) AS id_executivo,
+                   COUNT(*) FILTER (WHERE e.evento = 'tarefa_feita') AS toques,
+                   COUNT(*) FILTER (WHERE e.evento = 'respondeu') AS respostas
+              FROM cadu_lead_mensagem_eventos e
+              JOIN cadu_leads l ON l.id = e.id_lead
+              LEFT JOIN cadu_lead_cadencia_inscricoes i ON i.id = e.id_inscricao
+             WHERE e.ocorreu_em >= %(inicio)s AND e.ocorreu_em < %(fim)s {filtro_insc}
+             GROUP BY 1, 2
+            """,
+            p,
+        )
+        cadencia = cursor.fetchall()
+
+        def zero_site():
+            return {"entraram": 0, "avancaram": 0, "desqualificados": 0, "convertidos": 0, "sem_responsavel": 0}
+
+        serie_site = [{"semana": s, **{k: int(v) for k, v in (site.get(s) or zero_site()).items() if k != "semana"}} for s in semanas]
+        por_exec = {}
+
+        def soma(rows, campo_origem, campo_destino):
+            for r in rows:
+                chave = r["id_executivo"]
+                linha = por_exec.setdefault(chave, {m: {s: 0 for s in semanas} for m in ("adicionados", "atividades", "toques", "respostas")})
+                semana = r["semana"].isoformat()
+                if semana in linha[campo_destino]:
+                    linha[campo_destino][semana] += int(r[campo_origem] or 0)
+
+        soma(adicionados, "n", "adicionados")
+        soma(atividades, "n", "atividades")
+        soma(cadencia, "toques", "toques")
+        soma(cadencia, "respostas", "respostas")
+        executivos = [{"id_executivo": k, **{m: [v[s] for s in semanas] for m, v in linhas.items()}}
+                      for k, linhas in por_exec.items()]
+        equipe = [sum(int(r["n"]) for r in adicionados if r["semana"].isoformat() == s) for s in semanas]
+        return _ok({"semanas": semanas, "site": serie_site, "adicionados_equipe": equipe, "executivos": executivos})
+
+    return _transacao(run, "análise semanal")

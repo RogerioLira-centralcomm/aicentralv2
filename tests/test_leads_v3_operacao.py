@@ -137,3 +137,14 @@ class VisaoGeralOperacaoTest(TestCase):
         data = resp.get_json()["data"]
         self.assertEqual([data[k][0]["id"] for k in ("passos", "proximos", "feitos")], [1, 2, 3])
         self.assertEqual(prox.call_args.kwargs["executivo"], 9)
+
+
+class AnaliseSemanalTest(TestCase):
+    def test_periodo_invalido(self):
+        self.assertEqual(_client().get("/leads-v3/api/analise/semanal?data_inicio=2026-10-21&data_fim=2026-10-01").status_code, 400)
+        self.assertEqual(_client().get("/leads-v3/api/analise/semanal?data_inicio=2024-01-01&data_fim=2026-10-01").status_code, 400)
+        self.assertEqual(_client().get("/leads-v3/api/analise/semanal?data_inicio=xx").status_code, 400)
+
+    def test_semanas_comecam_na_segunda(self):
+        from datetime import date
+        self.assertEqual(routes._semanas(date(2026, 10, 8), date(2026, 10, 20)), ["2026-10-05", "2026-10-12", "2026-10-19"])

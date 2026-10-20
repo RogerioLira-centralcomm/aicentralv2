@@ -37,6 +37,7 @@ export function createApi(boot) {
     createLead: body => request(`${legacy}/novo`, {method: 'POST', body}),
 
     analyticsLegacy: params => request(`${legacy}/analise${qs(params)}`).then(p => p.data || {}),
+    analyticsWeekly: params => request(`${root}/analise/semanal${qs(params)}`).then(p => p.data),
     analyticsV3: params => request(`${root}/analise${qs(params)}`).then(p => p.data),
     importParse: texto => request(`${legacy}/processar-importacao`, {method: 'POST', body: {texto_bruto: texto}}).then(p => p.leads || []),
     importConfirm: body => request(`${legacy}/importar`, {method: 'POST', body}),

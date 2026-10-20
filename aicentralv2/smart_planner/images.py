@@ -117,8 +117,11 @@ def apply_sheet_art(plan: dict, force: bool = False) -> dict:
     return plan
 
 
-def regenerate_creative(plan: dict, uploaded_references: list[str] | None = None) -> dict:
-    """Gera só o criativo no canal — sem fundo e sem wallpaper no editor."""
+def regenerate_creative(plan: dict, uploaded_references: list[str] | None = None, channels: list | None = None) -> dict:
+    """Gera só o criativo no canal — sem fundo e sem wallpaper no editor.
+
+    Depois da arte principal, gera a vertical e a quadrada que os canais do plano usam.
+    """
     if not isinstance(plan, dict):
         return plan
     meta = as_dict(plan.get("meta"))
@@ -144,7 +147,28 @@ def regenerate_creative(plan: dict, uploaded_references: list[str] | None = None
         references=list(dict.fromkeys(references))[:3],
     )
     creative["image_model"] = resolve_image_model()
+    creative["variants"] = _render_variants(creative["image_url"], slug, _brand_references(branding, hero), channels)
     return plan
+
+
+def _render_variants(main_url: str, slug: str, brand_refs: list[str], channels: list | None) -> dict:
+    """Recompõe a arte principal nos formatos que o plano usa; uma falha não derruba a principal."""
+    from .mockups import VARIANT_RATIOS, variants_needed
+
+    out = {}
+    for name in variants_needed(channels):
+        shape = "vertical 2:3 (for stories and vertical video)" if name == "vertical" else "square 1:1 (for feed and medium rectangle)"
+        prompt = (
+            f"Recompose the first reference image as a {shape} version of the same campaign key visual. "
+            "Keep the same scene, people, product, lighting, palette and the logo exactly as in the reference; "
+            "reframe the composition for the new shape instead of cropping or stretching it. Keep the logo whole, "
+            "with clear space, inside the safe area. No new text, no extra logos, no watermark, no collage."
+        )
+        try:
+            out[name] = _render(prompt, f"{slug}-creative-{name}", aspect_ratio=VARIANT_RATIOS[name], references=[main_url, *brand_refs][:2])
+        except Exception:
+            logger.exception("Falha ao gerar a variação %s do criativo", name)
+    return out
 
 
 def materialize_uploaded_references(values: list[str] | None = None) -> list[str]:

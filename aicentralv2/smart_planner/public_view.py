@@ -372,6 +372,14 @@ def _executive_contact(row: dict, title: str, link: str = "", client: str = "") 
     }
 
 
+def _creative_variants(creative: dict, shown: str) -> dict:
+    creative = as_dict(creative)
+    if not shown or text(creative.get("image_url")) != text(shown):
+        return {}
+    variants = as_dict(creative.get("variants"))
+    return {key: text(variants.get(key)) for key in ("vertical", "square") if text(variants.get(key))}
+
+
 def _media_board(folha: dict, campos: dict | None = None) -> dict:
     media = as_dict((folha or {}).get("media"))
     channels = []
@@ -1488,6 +1496,8 @@ def public_view(row: dict, document: str | None = None) -> dict:
             # fundo pública. Imagens de tema ou fallback não se passam por
             # criativo gerado.
             "creative_image": visuals[0]["url"] if visuals else "",
+            # Vertical e quadrada só valem para a arte de onde foram geradas.
+            "creative_variants": _creative_variants(creative, visuals[0]["url"] if visuals else ""),
             "support_image": visuals[1] if len(visuals) > 1 else {},
             "has_generated_visual": bool(visuals and visuals[0].get("kind") != "theme"),
             "uses_image_background": bool(visuals and visuals[0].get("kind") != "theme" and use_image_background),

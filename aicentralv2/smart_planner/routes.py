@@ -851,8 +851,10 @@ def api_canvas_imagem(token):
         generation_references = list(uploaded_references)
         if reference_url and reference_url not in generation_references:
             generation_references.append(reference_url)
+        # Os canais do plano dizem quais variações da arte (vertical, quadrada) gerar.
+        channels = as_list(as_dict(folha.get("media")).get("channels")) or as_list(as_dict(dados.get("campanha")).get("canais"))
         with bound_session(token):
-            folha = regenerate_creative(folha, uploaded_references=generation_references)
+            folha = regenerate_creative(folha, uploaded_references=generation_references, channels=channels)
         merge_dados(token, {"folha": folha})
         if (dados.get("plan_mode") or "").strip().lower() != "completo":
             update_session(token, {"plan_content": folha})

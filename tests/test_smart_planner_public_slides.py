@@ -199,3 +199,57 @@ def test_showcase_puts_the_creative_in_each_channel_layout():
     slides = build_slides({**view, "title": "P", "hero": {"creative_image": "/static/c.png", "has_generated_visual": True}})
     assert any(s["type"] == "showcase" for s in slides)
     assert not any(s["type"] == "showcase" for s in build_slides({**view, "title": "P"}))
+
+
+def test_variants_follow_the_channels_and_fill_each_screen():
+    from aicentralv2.smart_planner.mockups import showcase_for, variants_needed
+
+    assert variants_needed([{"id": "netflix", "group": "ctv"}]) == []
+    assert variants_needed(["tiktok"]) == ["vertical"]
+    assert variants_needed([{"id": "meta", "group": "social"}]) == ["vertical", "square"]
+    assert variants_needed([{"id": "dv360", "group": "programmatic"}]) == ["square"]
+    view = {
+        "hero": {"creative_variants": {"vertical": "/static/v.png", "square": "/static/q.png"}},
+        "media": {"channels": [
+            {"id": "tiktok", "label": "TikTok", "pct": 40},
+            {"id": "meta", "label": "Meta", "pct": 30, "group": "social"},
+            {"id": "netflix", "label": "Netflix", "pct": 20, "group": "ctv"},
+            {"id": "dv360", "label": "Portais", "pct": 10, "group": "programmatic"},
+        ]},
+    }
+    images = {s["channel"]: (s["image"], s["square"]) for s in showcase_for(view, "/static/c.png")}
+    assert images["TikTok"][0] == "/static/v.png"
+    assert images["Meta"][0] == "/static/q.png"
+    assert images["Netflix"][0] == "/static/c.png"
+    assert images["Portais"] == ("/static/c.png", "/static/q.png")
+
+
+def test_variants_are_dropped_when_another_art_is_shown():
+    from aicentralv2.smart_planner.public_view import _creative_variants
+
+    card = {"image_url": "/static/a.png", "variants": {"vertical": "/static/v.png"}}
+    assert _creative_variants(card, "/static/a.png") == {"vertical": "/static/v.png"}
+    assert _creative_variants(card, "/static/outra.png") == {}
+
+
+def test_regenerate_creative_renders_only_the_variants_the_plan_uses(monkeypatch):
+    from aicentralv2.smart_planner import images
+
+    calls = []
+    monkeypatch.setattr(images, "_render", lambda prompt, stem, aspect_ratio, references=None: calls.append(aspect_ratio) or f"/static/{stem}.png")
+    plan = {"meta": {"client": "Animale"}, "sections": [{"cards": [{"type": "creative"}]}]}
+    images.regenerate_creative(plan, channels=[{"id": "netflix", "group": "ctv"}])
+    assert calls == ["16:9"]
+    calls.clear()
+
+    def flaky(prompt, stem, aspect_ratio, references=None):
+        calls.append(aspect_ratio)
+        if aspect_ratio == "2:3":
+            raise RuntimeError("provedor fora")
+        return f"/static/{stem}.png"
+
+    monkeypatch.setattr(images, "_render", flaky)
+    images.regenerate_creative(plan, channels=["tiktok", {"id": "meta", "group": "social"}])
+    card = plan["sections"][0]["cards"][0]
+    assert calls == ["16:9", "2:3", "1:1"]
+    assert card["variants"] == {"square": "/static/animale-creative-square.png"}

@@ -69,6 +69,34 @@ def kind_for(channel: dict) -> str:
     return KIND_BY_GROUP.get(group, "portal")
 
 
+# Grupos que não têm tela com o criativo (OOH, lugares e dados ficam fora dos mockups).
+NO_SCREEN_GROUPS = {"ooh", "places", "data"}
+
+# Variações da arte principal e as telas que as usam: a vertical vai para stories e vídeo
+# vertical; a quadrada, para o feed, o retângulo médio do portal e a capa do player de áudio.
+VARIANT_RATIOS = {"vertical": "2:3", "square": "1:1"}
+VARIANT_KINDS = {"vertical": {"vertical", "social"}, "square": {"social", "portal", "audio"}}
+# Em cada tela, a variação que melhor ocupa o espaço; sem ela, entra a arte principal.
+IMAGE_BY_KIND = {"vertical": "vertical", "social": "square", "audio": "square"}
+
+
+def variants_needed(channels: Any) -> list[str]:
+    """Quais variações o plano usa, pelos canais com tela."""
+    kinds = {
+        kind_for(channel)
+        for channel in (as_dict(c) if isinstance(c, dict) else {"id": text(c)} for c in as_list(channels))
+        if text(channel.get("id") or channel.get("label"))
+        and (text(channel.get("group")) or text(as_dict(CHANNEL_CATALOG.get(text(channel.get("id")))).get("group"))) not in NO_SCREEN_GROUPS
+    }
+    return [name for name, uses in VARIANT_KINDS.items() if kinds & uses]
+
+
+def _images(kind: str, image: str, variants: dict) -> dict:
+    variants = as_dict(variants)
+    best = text(variants.get(IMAGE_BY_KIND.get(kind, ""))) or text(image)
+    return {"image": best, "square": text(variants.get("square")) or text(image)}
+
+
 def mockups_for(view: dict, image: str, limit: int = 2) -> list[dict]:
     """Uma tela por tipo de canal do plano (o de maior peso primeiro), com o criativo dentro."""
     if not text(image):
@@ -78,6 +106,7 @@ def mockups_for(view: dict, image: str, limit: int = 2) -> list[dict]:
         key=lambda c: -(float(c.get("pct") or 0)),
     )
     sites = [as_dict(s) for s in as_list(as_dict(view.get("network_sites")).get("sites"))]
+    variants = as_dict(as_dict(view.get("hero")).get("creative_variants"))
     out: list[dict] = []
     seen: set[str] = set()
     for channel in channels:
@@ -98,11 +127,11 @@ def mockups_for(view: dict, image: str, limit: int = 2) -> list[dict]:
                 if found:
                     label, logo = text(site.get("name")), found
                     break
-        out.append({"kind": kind, "label": label, "logo": logo, "image": text(image), "channel": text(channel.get("label"))})
+        out.append({"kind": kind, "label": label, "logo": logo, **_images(kind, image, variants), "channel": text(channel.get("label"))})
         if len(out) >= limit:
             break
     if not out:
-        out.append({"kind": "portal", "label": "Portal", "logo": "", "image": text(image), "channel": ""})
+        out.append({"kind": "portal", "label": "Portal", "logo": "", **_images("portal", image, variants), "channel": ""})
     return out
 
 
@@ -115,9 +144,10 @@ def showcase_for(view: dict, image: str, limit: int = 4) -> list[dict]:
         key=lambda c: -(float(c.get("pct") or 0)),
     )
     sites = [as_dict(s) for s in as_list(as_dict(view.get("network_sites")).get("sites"))]
+    variants = as_dict(as_dict(view.get("hero")).get("creative_variants"))
     out = []
     for channel in channels:
-        if text(channel.get("group")) in {"ooh", "places", "data"}:
+        if text(channel.get("group")) in NO_SCREEN_GROUPS:
             continue
         kind = kind_for(channel)
         label, logo = text(channel.get("label")), channel_logo(channel)
@@ -128,7 +158,7 @@ def showcase_for(view: dict, image: str, limit: int = 4) -> list[dict]:
                     label, logo = text(site.get("name")), found
                     break
         out.append({
-            "kind": kind, "label": label, "logo": logo, "image": text(image),
+            "kind": kind, "label": label, "logo": logo, **_images(kind, image, variants),
             "channel": text(channel.get("label")), "pct": channel.get("pct"),
             "placement": PLACEMENT.get(kind, ""),
         })

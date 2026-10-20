@@ -239,9 +239,13 @@ def campaign_from_campos(campos: dict) -> dict:
         out["places"] = [
             as_dict(item) for item in as_list(campos.get("places")) if as_dict(item).get("slug")
         ]
-    if "interativos" in campos:
-        raw = campos.get("interativos")
-        out["interativos"] = raw if isinstance(raw, dict) else {"formats": as_list(raw)}
+    if "formatos" in campos:
+        out["formatos"] = {
+            str(key): [str(item) for item in as_list(value) if str(item)]
+            for key, value in as_dict(campos.get("formatos")).items() if str(key)
+        }
+    if "portais" in campos:
+        out["portais"] = as_dict(campos.get("portais"))
     if "taticas" in campos:
         out["taticas"] = [as_dict(item) for item in as_list(campos.get("taticas")) if as_dict(item)]
     if isinstance(campos.get("inventario_ooh"), dict):

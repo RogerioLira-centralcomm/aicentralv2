@@ -5,8 +5,10 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from .catalog import CHANNEL_CATALOG, INTERATIVOS_FORMATS
-from .taticas import INTERATIVOS_HOSTS, interativos_from_taticas, normalize_taticas
+from . import formats as format_catalog
+from .catalog import CHANNEL_CATALOG
+from .portais import normalize_portais
+from .taticas import formats_for_channel as taticas_formats_for_channel, normalize_taticas
 from .helpers import as_dict, as_list, text
 
 
@@ -288,18 +290,20 @@ def snapshot_places(raw: Any, catalog: list[dict] | None = None) -> list[dict]:
     return out
 
 
-def normalize_interativos(raw: Any, canais: Any) -> dict:
-    keys = {text(key) for key in as_list(canais) if text(key)}
-    allowed = {item["id"] for item in INTERATIVOS_FORMATS}
-    formats = []
-    data = as_dict(raw) if not isinstance(raw, list) else {"formats": raw}
-    for item in as_list(data.get("formats")):
-        key = text(item).lower().replace("í", "i")
-        if key in allowed and key not in formats:
-            formats.append(key)
-    if not keys.intersection(INTERATIVOS_HOSTS):
-        return {"formats": []}
-    return {"formats": formats}
+def normalize_formatos(raw: Any, canais: Any) -> dict:
+    """Formatos escolhidos por canal, só os que o catálogo do canal aceita."""
+    selected = [text(key) for key in as_list(canais) if text(key)]
+    out: dict[str, list[str]] = {}
+    for channel_id, values in as_dict(raw).items():
+        channel_id = text(channel_id)
+        if channel_id not in selected:
+            continue
+        allowed = {row["id"] for row in format_catalog.formats_for_channel(channel_id)}
+        slugs = [format_catalog.resolve_id(value, allowed) for value in as_list(values)]
+        slugs = [slug for slug in dict.fromkeys(slugs) if slug]
+        if slugs:
+            out[channel_id] = slugs
+    return out
 
 
 def apply_places_to_campos(
@@ -309,7 +313,8 @@ def apply_places_to_campos(
     *,
     lock_channel: bool = False,
 ) -> dict:
-    out = dict(campos or {})
+    # Planos e extrações antigas trazem Interativos e portais soltos como canais: viram formatos e sites da rede.
+    out = format_catalog.migrate_campanha(campos)
     resolved = resolve_places(out.get("places"), catalog)
     if material:
         # The extractor may see the full catalog in its prompt. Re-resolve only
@@ -322,20 +327,20 @@ def apply_places_to_campos(
         canais.append("places")
     if not resolved and not lock_channel:
         canais = [key for key in canais if key != "places"]
-    interativos = normalize_interativos(out.get("interativos"), canais)
-    if "interativos" in canais and not any(key in INTERATIVOS_HOSTS for key in canais):
-        canais = [key for key in canais if key != "interativos"]
-        interativos = {"formats": []}
-    if interativos.get("formats") and "interativos" not in canais and any(key in INTERATIVOS_HOSTS for key in canais):
-        canais.append("interativos")
-    if "taticas" in out:
-        # As táticas só valem para canais que seguem no mix; os formatos interativos delas mandam.
-        out["taticas"] = normalize_taticas(out.get("taticas"), canais)
-        declared = interativos_from_taticas(out["taticas"])
-        if declared and any(key in INTERATIVOS_HOSTS for key in canais):
-            interativos = {"formats": declared}
-    out["interativos"] = interativos
     out["canais"] = canais
+    if "taticas" in out:
+        # As táticas só valem para canais que seguem no mix; os formatos delas entram nos do canal.
+        out["taticas"] = normalize_taticas(out.get("taticas"), canais)
+    if "formatos" in out or out.get("taticas"):
+        formatos = {key: list(value) for key, value in as_dict(out.get("formatos")).items()}
+        for row in out.get("taticas") or []:
+            for channel_id in row["canais"]:
+                picked = taticas_formats_for_channel(channel_id, [row])
+                if picked:
+                    formatos[channel_id] = list(dict.fromkeys(as_list(formatos.get(channel_id)) + picked))
+        out["formatos"] = normalize_formatos(formatos, canais)
+    if "portais" in out:
+        out["portais"] = normalize_portais(out.get("portais"))
     return out
 
 

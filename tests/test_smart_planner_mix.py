@@ -37,10 +37,10 @@ class MixEngineTest(unittest.TestCase):
         self.assertGreater(netflix_brand, netflix_sales)
 
     def test_alcance_spreads_across_groups(self):
-        weights = allocate(["google_ads", "meta_ads", "netflix", "g1"], "vendas", "alcance")
+        weights = allocate(["google_ads", "meta_ads", "netflix", "dv360"], "vendas", "alcance")
         by_id = {item["id"]: item["pct"] for item in weights}
         self.assertEqual(by_id["google_ads"], by_id["meta_ads"])
-        self.assertEqual(by_id["netflix"], by_id["g1"])
+        self.assertEqual(by_id["netflix"], by_id["dv360"])
         self.assertEqual(by_id["google_ads"], by_id["netflix"])
         self.assertEqual(sum(by_id.values()), 100)
 

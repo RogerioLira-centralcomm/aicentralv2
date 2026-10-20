@@ -1,8 +1,16 @@
-"""Táticas da campanha: impacto e remarketing, DCO, interativos e recorte de portais AB."""
+"""Táticas (impacto, remarketing, DCO), formatos por canal e Rede de portais e sites.
+
+Interativos não são canal: são tipos de formato da Rede de portais e sites, com custo agregado.
+G1, UOL, CNN e os demais portais são sites da rede.
+"""
 
 import json
+import time
 
-from aicentralv2.smart_planner import generator, repository
+import pytest
+
+from aicentralv2.smart_planner import formats as fmt
+from aicentralv2.smart_planner import generator, portais, repository
 from aicentralv2.smart_planner.generator import (
     _material_hash,
     _one_page_payload,
@@ -10,225 +18,255 @@ from aicentralv2.smart_planner.generator import (
     _validate_page,
 )
 from aicentralv2.smart_planner.helpers import campaign_from_campos
-from aicentralv2.smart_planner.places_bridge import apply_places_to_campos, normalize_interativos
+from aicentralv2.smart_planner.places_bridge import apply_places_to_campos, normalize_formatos
 from aicentralv2.smart_planner.service import persist_canais
 from aicentralv2.smart_planner.snapshot import build_snapshot
 from aicentralv2.smart_planner.taticas import (
     dco_channels,
+    formats_for_channel,
     hero_scope,
-    interativos_from_taticas,
+    interactive_formats,
     normalize_taticas,
     primary_format,
     problems,
+    tatica_by_channel,
     taticas_for_prompt,
 )
 
-CANAIS = ["uol", "g1", "interativos", "dv360"]
+HOTSPOT = "interativo-hotspots-shop-the-look"
+CARDS = "interativo-cards"
+BILLBOARD = "billboard-970x250"
+RECTANGLE = "medium-rectangle-300x250"
+
+
+@pytest.fixture(autouse=True)
+def static_catalog():
+    """Catálogo fixo: os testes não dependem do banco nem de mudanças no catálogo do Cadu."""
+    fmt._CACHE["rows"] = fmt._static_rows()
+    fmt._CACHE["at"] = time.monotonic() + 10**6
+    yield
+    fmt.reset_cache()
+
+
+CANAIS = ["dv360", "meta_ads"]
 RAW = [
-    {"tipo": "impacto", "canais": ["uol", "g1", "interativos"], "formatos": ["hotspot", "cartas"], "segmento": "ab"},
-    {"tipo": "remarketing", "canais": ["dv360"], "formatos": ["DCO"]},
+    {"tipo": "impacto", "canais": ["dv360"], "formatos": ["Hotspots", "cards"], "segmento": "ab", "peso": 60},
+    {"tipo": "remarketing", "canais": ["dv360"], "formatos": ["DCO", "Billboard 970x250"], "peso": 40},
 ]
 
 
-def test_normalize_keeps_both_fronts_formats_and_segment():
+# ---------------------------------------------------------------- formatos e migração
+
+
+def test_network_formats_are_iab_and_interactive_while_social_has_its_own():
+    network = {row["id"]: row for row in fmt.formats_for_channel("dv360")}
+    assert BILLBOARD in network and HOTSPOT in network
+    assert network[HOTSPOT]["aggregated_cost"] and not network[BILLBOARD]["aggregated_cost"]
+    assert fmt.formats_for_channel("netflix") == []  # sem formato no catálogo embutido: não inventa
+    assert fmt.aggregated_names([HOTSPOT, BILLBOARD, CARDS]) == ["Hotspots (Shop the Look)", "Cards"]
+
+
+def test_resolve_accepts_legacy_ids_names_and_rejects_unknown():
+    allowed = {row["id"] for row in fmt.formats_for_channel("dv360")}
+    assert fmt.resolve_id("hotspot", allowed) == HOTSPOT
+    assert fmt.resolve_id("Cards", allowed) == CARDS
+    assert fmt.resolve_id("Medium Rectangle 300x250", allowed) == RECTANGLE
+    assert fmt.resolve_id("inventado", allowed) == ""
+    assert fmt.resolve_id(HOTSPOT, {BILLBOARD}) == ""  # fora do que o canal aceita
+
+
+def test_legacy_plan_becomes_network_channel_with_formats_and_sites():
+    old = {
+        "canais": ["uol", "g1", "interativos", "dv360", "meta_ads"],
+        "mix": {"weights": [{"id": "uol", "pct": 20}, {"id": "g1", "pct": 15}, {"id": "interativos", "pct": 25},
+                            {"id": "dv360", "pct": 30}, {"id": "meta_ads", "pct": 10}]},
+        "canais_verba": {"uol": 80, "g1": 60, "interativos": 100, "dv360": 120, "meta_ads": 40},
+        "interativos": {"formats": ["hotspot", "cartas"]},
+        "taticas": [{"tipo": "impacto", "canais": ["uol", "g1", "interativos"], "formatos": ["hotspot"]},
+                    {"tipo": "remarketing", "canais": ["dv360"], "formatos": ["dco"]}],
+    }
+    new = fmt.migrate_campanha(old)
+    assert new["canais"] == ["dv360", "meta_ads"]
+    assert {row["id"]: row["pct"] for row in new["mix"]["weights"]} == {"dv360": 90, "meta_ads": 10}
+    assert new["canais_verba"] == {"dv360": 360, "meta_ads": 40}
+    assert new["formatos"] == {"dv360": [HOTSPOT, CARDS]}
+    assert new["portais"]["sites_preferidos"] == ["UOL", "G1"]
+    assert "interativos" not in new
+    assert new["taticas"][0]["canais"] == ["dv360"] and new["taticas"][0]["formatos"] == [HOTSPOT]
+    assert fmt.migrate_campanha(new) == new  # idempotente
+
+
+def test_interativos_never_stay_in_channels_after_review_normalization():
+    campos = apply_places_to_campos({"canais": ["meta_ads", "interativos"], "interativos": {"formats": ["quiz"]}}, lock_channel=True)
+    assert "interativos" not in campos["canais"] and "dv360" in campos["canais"]
+    assert campos["formatos"] == {"dv360": ["interativo-quiz"]}
+
+
+def test_formats_must_belong_to_the_channel():
+    assert normalize_formatos({"meta_ads": [HOTSPOT], "dv360": [HOTSPOT, "x"]}, ["dv360", "meta_ads"]) == {"dv360": [HOTSPOT]}
+    assert normalize_formatos({"dv360": [HOTSPOT]}, ["meta_ads"]) == {}
+
+
+# ---------------------------------------------------------------- táticas
+
+
+def test_two_fronts_can_share_the_network_with_own_formats_and_weights():
     taticas = normalize_taticas(RAW, CANAIS)
     assert [row["tipo"] for row in taticas] == ["impacto", "remarketing"]
-    assert taticas[0]["formatos"] == ["hotspot", "cartas"]
-    assert taticas[0]["segmento"] == "AB"
-    assert taticas[1]["formatos"] == ["dco"]
+    assert taticas[0]["formatos"] == [HOTSPOT, CARDS] and taticas[0]["segmento"] == "AB"
+    assert taticas[1]["formatos"] == ["dco", BILLBOARD]
+    assert [row["peso"] for row in taticas] == [60.0, 40.0]
     assert dco_channels(taticas) == ["dv360"]
-    assert interativos_from_taticas(taticas) == ["hotspot", "cartas"]
+    assert interactive_formats(taticas) == [HOTSPOT, CARDS]
+    assert tatica_by_channel(taticas) == {"dv360": ["impacto", "remarketing"]}
+    assert formats_for_channel("dv360", [taticas[0]]) == [HOTSPOT, CARDS]
 
 
-def test_normalize_drops_what_the_mix_does_not_support():
+def test_weights_are_normalized_or_dropped():
+    scaled = normalize_taticas([{**RAW[0], "peso": 3}, {**RAW[1], "peso": 1}], CANAIS)
+    assert [row["peso"] for row in scaled] == [75.0, 25.0]
+    partial = normalize_taticas([RAW[0], {**RAW[1], "peso": None}], CANAIS)
+    assert [row["peso"] for row in partial] == [None, None]
+
+
+def test_normalize_drops_what_the_catalog_and_mix_do_not_support():
     raw = [
-        {"tipo": "impacto", "canais": ["uol", "tiktok"], "formatos": ["hotspot", "dco"], "segmento": "ZZ"},
+        {"tipo": "impacto", "canais": ["dv360", "tiktok"], "formatos": ["Hotspots", "formato inventado", "dco"]},
         {"tipo": "remarketing", "canais": ["ooh"], "formatos": ["dco"]},
-        {"tipo": "remarketing", "canais": ["dv360"]},
-        {"tipo": "inventado", "canais": ["uol"]},
-        {"tipo": "impacto", "canais": ["g1"]},
+        {"tipo": "inventado", "canais": ["dv360"]},
+        {"tipo": "impacto", "canais": ["dv360"]},
     ]
-    taticas = normalize_taticas(raw, ["uol", "dv360"])
-    # tiktok não está no mix; hotspot exige o canal interativos; OOH nunca roda DCO.
-    assert taticas[0] == {"tipo": "impacto", "canais": ["uol"], "formatos": ["dco"], "segmento": ""}
-    assert [row["tipo"] for row in taticas] == ["impacto", "remarketing"]
-    assert taticas[1]["canais"] == ["dv360"]
+    taticas = normalize_taticas(raw, ["dv360", "places"])
+    assert taticas == [{"tipo": "impacto", "canais": ["dv360"], "formatos": [HOTSPOT, "dco"], "segmento": "", "peso": None}]
+    assert normalize_taticas([{"tipo": "impacto", "canais": ["places"], "formatos": ["dco"]}], ["places"])[0]["formatos"] == []
 
 
-def test_dco_is_never_applied_to_interativos_or_ooh():
-    taticas = normalize_taticas([{"tipo": "impacto", "canais": ["interativos", "uol"], "formatos": ["dco"]}], ["interativos", "uol"])
-    assert dco_channels(taticas) == ["uol"]
-    only = normalize_taticas([{"tipo": "impacto", "canais": ["interativos"], "formatos": ["dco"]}], ["interativos", "uol"])
-    assert only[0]["formatos"] == []
+def test_hero_comes_from_the_impact_front_and_primary_format_follows_it():
+    taticas = normalize_taticas(RAW, CANAIS)
+    assert hero_scope(taticas) == {"dv360"}
+    first = primary_format("dv360", taticas)
+    assert first["id"] == HOTSPOT and first["surface"] == "portal"
+    only_dco = normalize_taticas([{"tipo": "remarketing", "canais": ["dv360"], "formatos": ["dco"]}], CANAIS)
+    assert primary_format("dv360", only_dco)["id"] == "dco_dynamic"
+    assert primary_format("meta_ads", taticas) is None
 
 
-def test_dv360_counts_as_portal_for_interativos():
-    assert normalize_interativos({"formats": ["hotspot"]}, ["dv360", "interativos"]) == {"formats": ["hotspot"]}
-    assert normalize_interativos({"formats": ["hotspot"]}, ["meta_ads", "interativos"]) == {"formats": []}
+def test_prompt_view_uses_own_weight_and_splits_shared_channels_otherwise():
+    rows = [{"id": "dv360", "label": "Rede de portais e sites", "pct": 80}, {"id": "meta_ads", "label": "Meta Ads", "pct": 20}]
+    with_weight = taticas_for_prompt(normalize_taticas(RAW, CANAIS), rows)
+    assert [item["peso_pct"] for item in with_weight] == [60.0, 40.0]
+    assert with_weight[0]["recorte_de_portais"] == "classes AB" and with_weight[0]["formatos"][0] == "Hotspots (Shop the Look)"
+    no_weight = taticas_for_prompt(normalize_taticas([{**RAW[0], "peso": None}, {**RAW[1], "peso": None}], CANAIS), rows)
+    assert [item["peso_pct"] for item in no_weight] == [40.0, 40.0]  # canal dividido por igual
 
 
-def test_apply_places_syncs_interativos_from_taticas():
-    campos = apply_places_to_campos({"canais": CANAIS, "taticas": RAW, "interativos": {"formats": ["quiz"]}}, lock_channel=True)
-    assert campos["interativos"] == {"formats": ["hotspot", "cartas"]}
-    assert campos["taticas"][0]["segmento"] == "AB"
+def test_problems_flag_missing_formats_and_network():
+    taticas = normalize_taticas([{"tipo": "impacto", "canais": ["meta_ads"], "segmento": "AB"}], CANAIS)
+    assert problems(taticas, ["meta_ads"]) == [
+        "Impacto: o recorte AB precisa da Rede de portais e sites no mix.",
+        "Impacto: escolha os formatos que a frente vai veicular.",
+    ]
+    assert problems(normalize_taticas(RAW, CANAIS), CANAIS) == []
 
 
-def test_apply_places_does_not_touch_taticas_when_absent():
-    campos = apply_places_to_campos({"canais": CANAIS}, lock_channel=True)
-    assert "taticas" not in campos
-
-
-def test_removed_channel_leaves_the_tatica():
-    campos = apply_places_to_campos({"canais": ["uol", "dv360"], "taticas": RAW}, lock_channel=True)
-    assert [row["canais"] for row in campos["taticas"]] == [["uol"], ["dv360"]]
-    assert campos["taticas"][0]["formatos"] == []
-
-
-def test_campaign_from_campos_stores_taticas():
-    assert campaign_from_campos({"canais": CANAIS, "taticas": RAW})["taticas"] == RAW
-    assert "taticas" not in campaign_from_campos({"canais": CANAIS})
+# ---------------------------------------------------------------- campanha, snapshot e geração
 
 
 def _row(**campanha):
-    base = {"canais": CANAIS, "taticas": RAW, "interativos": {"formats": ["hotspot", "cartas"]},
-            "mix": {"method": "manual", "weights": [
-                {"id": "uol", "pct": 20}, {"id": "g1", "pct": 15}, {"id": "interativos", "pct": 25}, {"id": "dv360", "pct": 40}]}}
+    base = {"canais": CANAIS, "taticas": RAW,
+            "mix": {"method": "manual", "weights": [{"id": "dv360", "pct": 80}, {"id": "meta_ads", "pct": 20}]},
+            "portais": {"regioes": ["Sudeste"], "segmento": "AB"}}
     return {"id": 1, "session_token": "tok", "briefing_melhorado": "b", "dados_detectados": {"campanha": {**base, **campanha}}}
 
 
-def test_snapshot_tags_channels_with_their_tatica():
+def test_campaign_from_campos_stores_formatos_and_portais():
+    out = campaign_from_campos({"canais": CANAIS, "formatos": {"dv360": [HOTSPOT]}, "portais": {"segmento": "AB"}})
+    assert out["formatos"] == {"dv360": [HOTSPOT]} and out["portais"] == {"segmento": "AB"}
+    assert "formatos" not in campaign_from_campos({"canais": CANAIS})
+
+
+def test_snapshot_merges_front_formats_into_the_channel_and_flags_cost():
     snapshot = build_snapshot(_row())
-    tags = {row["id"]: row["tatica"] for row in snapshot["mix"]}
-    assert tags == {"uol": "impacto", "g1": "impacto", "interativos": "impacto", "dv360": "remarketing"}
-    assert [row["tipo"] for row in snapshot["taticas"]] == ["impacto", "remarketing"]
+    assert snapshot["formatos"]["dv360"] == [HOTSPOT, CARDS, BILLBOARD]
+    assert snapshot["formatos_com_custo_agregado"] == ["Hotspots (Shop the Look)", "Cards"]
+    assert snapshot["portais"] == {"regioes": ["Sudeste"], "segmento": "AB"}
+    mix = {row["id"]: row for row in snapshot["mix"]}
+    assert mix["dv360"]["taticas"] == ["impacto", "remarketing"] and mix["meta_ads"]["taticas"] == []
 
 
-def test_hero_comes_from_the_impact_front_not_the_biggest_channel():
-    snapshot = build_snapshot(_row())
-    assert hero_scope(snapshot["taticas"]) == {"uol", "g1", "interativos"}
-    heroes = generator._hero_rows(generator._mix_rows(snapshot), snapshot)
-    assert [row["id"] for row in heroes] == ["interativos"]  # dv360 pesa 40%, mas é remarketing
-    plain = build_snapshot(_row(taticas=[]))
-    assert [row["id"] for row in generator._hero_rows(generator._mix_rows(plain), plain)] == ["dv360"]
+def test_snapshot_reads_legacy_plans_in_the_new_model():
+    legacy = _row(canais=["g1", "interativos"], interativos={"formats": ["quiz"]}, taticas=[], portais={},
+                  mix={"method": "manual", "weights": [{"id": "g1", "pct": 40}, {"id": "interativos", "pct": 60}]})
+    snapshot = build_snapshot(legacy)
+    assert snapshot["channels"] == ["dv360"] and snapshot["formatos"] == {"dv360": ["interativo-quiz"]}
+    assert snapshot["mix"][0]["pct"] == 100.0
+    assert snapshot["portais"] == {"sites_preferidos": ["G1"]}
 
 
-def test_material_hash_changes_with_taticas():
-    without = _row(taticas=[])
-    with_taticas = _row()
-    swapped = _row(taticas=[{**RAW[0], "segmento": "A"}, RAW[1]])
-    assert len({_material_hash(item) for item in (without, with_taticas, swapped)}) == 3
+def test_material_hash_changes_with_formats_portals_and_fronts():
+    base = _row(taticas=[])
+    variants = [
+        base,
+        _row(taticas=[], formatos={"dv360": [HOTSPOT]}),
+        _row(taticas=[], portais={"segmento": "A"}),
+        _row(),
+        _row(taticas=[{**RAW[0], "segmento": "A"}, RAW[1]]),
+    ]
+    assert len({_material_hash(item) for item in variants}) == 5
 
 
-def test_primary_format_follows_dco_and_chosen_interativo():
-    taticas = normalize_taticas(RAW, CANAIS)
-    assert primary_format("dv360", taticas)["id"] == "dco_dynamic"
-    assert primary_format("interativos", taticas)["id"] == "hotspot"
-    taticas = normalize_taticas([{**RAW[0], "formatos": ["cartas", "hotspot"]}], CANAIS)
-    assert primary_format("interativos", taticas)["id"] == "cartas"
-    assert primary_format("uol", taticas) is None
-
-
-def test_payload_exposes_fronts_with_weight_dco_and_segment():
+def test_payload_describes_formats_per_channel_front_weight_and_network_sites():
     snapshot = {**build_snapshot(_row()), "client": {"name": "Animale"}}
+    snapshot["portais_sites"] = {"total": 13, "sites": [{"name": "Valor Econômico"}, {"name": "Exame"}],
+                                 "criterios": {"segmento": "AB"}, "relaxed": ""}
     confirmed = _one_page_payload(snapshot, {}, {})["confirmado"]
-    impacto, remarketing = confirmed["taticas"]
-    assert impacto["peso_no_mix_pct"] == 60 and impacto["recorte_de_portais"] == "classes AB"
-    assert impacto["formatos"] == ["Hotspot", "Cartas"]
-    assert remarketing["formatos"] == ["DCO · anúncio dinâmico"]
-    assert confirmed["mix_heroi"] == "Interativos"
-    dv = next(item for item in confirmed["mix"] if item["canal_id"] == "dv360")
-    assert dv["formato_principal"].startswith("DCO") and dv["tatica"] == "remarketing"
+    network = next(item for item in confirmed["mix"] if item["canal_id"] == "dv360")
+    assert [f["nome"] for f in network["formatos"]] == ["Hotspots (Shop the Look)", "Cards", "Billboard (970x250)"]
+    assert network["formatos"][0]["custo_agregado"] and "custo_agregado" not in network["formatos"][2]
+    assert network["formato_principal"].startswith("Hotspots") and network["tatica"] == "impacto,remarketing"
+    impacto = confirmed["taticas"][0]
+    assert impacto["peso_pct"] == 60.0 and impacto["recorte_de_portais"] == "classes AB"
+    assert confirmed["formatos_com_custo_agregado"] == ["Hotspots (Shop the Look)", "Cards"]
+    assert confirmed["portais"]["maiores_sites"] == ["Valor Econômico", "Exame"]
+    assert "interativos" not in confirmed
 
 
-def test_repair_writes_dco_formats_and_segment_into_roles():
+def test_repair_writes_formats_dco_and_segment_into_roles():
     snapshot = build_snapshot(_row())
     page = {
-        "recommendation": {"channel_roles": [
-            {"channel": "Interativos", "role": "intencao", "function": "Aprofunda a consideração."},
-            {"channel": "Rede de portais e sites", "role": "", "function": "Volta a falar com quem interagiu."},
-        ]},
+        "recommendation": {"channel_roles": [{"channel": "Rede de portais e sites", "role": "", "function": "Abre e retoma a audiência."}]},
         "creative_expression": {"channel": "Rede de portais e sites"},
     }
     repairs = _repair_page_channels(page, snapshot)
-    roles = {row["channel"]: row for row in page["recommendation"]["channel_roles"]}
-    assert "Hotspot e Cartas" in roles["Interativos"]["function"]
-    assert "classes AB" in roles["Interativos"]["function"]
-    dv = roles["Rede de portais e sites"]
-    assert "DCO" in dv["function"] and dv["role"] == "acao" and dv["primary_format_id"] == "dco_dynamic"
-    assert {"UOL", "G1"} <= set(roles)  # canais da frente de impacto ganham papel
-    assert page["creative_expression"]["channel"] == "Interativos"
+    role = page["recommendation"]["channel_roles"][0]
+    assert "Hotspots (Shop the Look)" in role["function"] and "Cards" in role["function"]
+    assert "DCO" in role["function"] and "classes AB" in role["function"]
+    assert role["role"] == "intencao" and role["primary_format_id"] == HOTSPOT
     assert page["taticas"][0]["recorte_de_portais"] == "classes AB"
+    assert page["formatos"]["dv360"][0]["custo_agregado"] and page["formatos_custo_agregado"]
     assert repairs
-    # idempotente: rodar de novo não duplica texto
     before = json.dumps(page, ensure_ascii=False)
     _repair_page_channels(page, snapshot)
-    assert json.dumps(page, ensure_ascii=False).count("Hotspot e Cartas") == before.count("Hotspot e Cartas")
+    assert json.dumps(page, ensure_ascii=False) == before  # idempotente
 
 
-def test_validate_page_accepts_dco_and_interativo_primary_formats():
-    snapshot = build_snapshot(_row())
-    snapshot["client"] = {"name": "Animale"}
+def test_validate_page_accepts_chosen_formats_as_primary():
+    snapshot = {**build_snapshot(_row()), "client": {"name": "Animale"}}
     page = {
         "thesis": {"statement": "A coleção de Verão ganha consideração quando é explorada antes de ser comparada."},
         "recommendation": {"summary": "Interativos apresentam e o DCO retoma quem demonstrou interesse.", "channel_roles": []},
-        "creative_expression": {"channel": "Interativos"},
+        "creative_expression": {"channel": "Rede de portais e sites"},
         "result_estimates": {"status": "not_available"},
     }
     page["creative_plan"] = generator._creative_plan(page, snapshot)
     ids = {row["channel_id"]: row["primary_format_id"] for row in page["creative_plan"]}
-    assert ids["dv360"] == "dco_dynamic" and ids["interativos"] == "hotspot"
+    assert ids["dv360"] == HOTSPOT
     _validate_page(page, snapshot, {"status": "not_available"})
 
 
-def test_problems_warn_about_missing_interativo_formats():
-    taticas = normalize_taticas([{"tipo": "impacto", "canais": ["interativos", "uol"]}], CANAIS)
-    assert problems(taticas, CANAIS) == ["Impacto: escolha os formatos interativos."]
-    assert problems(normalize_taticas(RAW, CANAIS), CANAIS) == []
-
-
-def test_taticas_for_prompt_uses_labels_and_rounds_weight():
-    rows = [{"id": "uol", "label": "UOL", "pct": 20.04}, {"id": "dv360", "label": "Rede de portais e sites", "pct": 40}]
-    out = taticas_for_prompt(normalize_taticas([{"tipo": "impacto", "canais": ["uol"]}], ["uol", "dv360"]), rows)
-    assert out[0]["canais"] == ["UOL"] and out[0]["peso_no_mix_pct"] == 20.0
-
-
-def test_persist_canais_keeps_saved_taticas_when_payload_omits_them(monkeypatch):
-    saved = {}
-    row = {"session_token": "tok", "dados_detectados": {"campanha": {"canais": CANAIS, "taticas": RAW, "verba": "R$ 100.000", "verba_valor": 100000}}}
-    monkeypatch.setattr("aicentralv2.smart_planner.service.get_by_token", lambda token: row)
-    monkeypatch.setattr(repository, "get_by_token", lambda token: row)
-    monkeypatch.setattr(repository, "update_session", lambda token, payload: saved.update(payload) or payload)
-    persist_canais("tok", {"canais": CANAIS})
-    campanha = saved["dados_detectados"]["campanha"]
-    assert [item["tipo"] for item in campanha["taticas"]] == ["impacto", "remarketing"]
-    persist_canais("tok", {"canais": CANAIS, "taticas": []})
-    assert saved["dados_detectados"]["campanha"]["taticas"] == []
-
-
-def test_public_fronts_group_channels_and_keep_unassigned_ones():
-    from aicentralv2.smart_planner.public_view import _fronts
-
-    page = {
-        "taticas": [{"tipo": "impacto", "tatica": "Impacto", "peso_no_mix_pct": 60.0, "formatos": ["Hotspot"], "recorte_de_portais": "classes AB", "para_que": "Apresenta."},
-                    {"tipo": "remarketing", "tatica": "Remarketing", "peso_no_mix_pct": 40.0, "formatos": ["DCO · anúncio dinâmico"]}],
-        "media_narrative": {"taticas": [{"tipo": "remarketing", "descricao": "Volta a falar com quem visitou o site."}]},
-    }
-    channels = [{"id": "uol", "tatica": "impacto"}, {"id": "dv360", "tatica": "remarketing"}, {"id": "meta_ads", "tatica": ""}]
-    fronts = _fronts(page, channels)
-    assert [front["tipo"] for front in fronts] == ["impacto", "remarketing", "outros"]
-    assert fronts[0]["segment"] == "classes AB" and fronts[0]["text"] == "Apresenta."
-    assert fronts[1]["text"] == "Volta a falar com quem visitou o site."
-    assert [c["id"] for c in fronts[2]["channels"]] == ["meta_ads"]
-    assert _fronts({}, channels) == []
-
-
-def test_public_titles_are_shortened_for_plans_generated_before_the_rule():
-    from aicentralv2.smart_planner.public_view import _titled
-
-    long_title = "Usar portais como vitrine editorial e gatilho de retomada para quem já viu a coleção"
-    block = _titled({"title": long_title, "body": long_title})
-    assert len(block["title"]) <= 64 and block["body"] == long_title
-    assert _titled(None) == {}
+def test_channel_with_chosen_formats_but_no_front_uses_the_first_as_primary():
+    snapshot = build_snapshot(_row(taticas=[], formatos={"dv360": [BILLBOARD, RECTANGLE]}))
+    assert generator._primary_format("dv360", snapshot)["id"] == BILLBOARD
 
 
 def test_places_never_leads_and_goes_last():
@@ -248,3 +286,91 @@ def test_creative_plan_skips_places_when_other_channels_exist():
     snapshot = {"mix": [{"id": "places", "label": "Places", "pct": 40, "group": "places"}, {"id": "youtube", "label": "YouTube", "pct": 60}], "pace": {}}
     plan = generator._creative_plan({"recommendation": {}}, snapshot)
     assert [row["channel_id"] for row in plan] == ["youtube"]
+
+
+def test_public_fronts_share_the_network_and_keep_unassigned_channels():
+    from aicentralv2.smart_planner.public_view import _fronts
+
+    page = {
+        "taticas": [{"tipo": "impacto", "tatica": "Impacto", "peso_pct": 60.0, "formatos": ["Hotspots"], "recorte_de_portais": "classes AB", "para_que": "Apresenta."},
+                    {"tipo": "remarketing", "tatica": "Remarketing", "peso_pct": 40.0, "formatos": ["DCO · anúncio dinâmico"]}],
+        "media_narrative": {"taticas": [{"tipo": "remarketing", "descricao": "Volta a falar com quem visitou o site."}]},
+    }
+    channels = [{"id": "dv360", "taticas": ["impacto", "remarketing"]}, {"id": "meta_ads", "taticas": []}]
+    fronts = _fronts(page, channels)
+    assert [front["tipo"] for front in fronts] == ["impacto", "remarketing", "outros"]
+    assert [c["id"] for c in fronts[0]["channels"]] == ["dv360"] == [c["id"] for c in fronts[1]["channels"]]
+    assert fronts[0]["weight"] == 60.0 and fronts[0]["segment"] == "classes AB"
+    assert fronts[1]["text"] == "Volta a falar com quem visitou o site."
+    assert [c["id"] for c in fronts[2]["channels"]] == ["meta_ads"]
+    assert _fronts({}, channels) == []
+
+
+def test_public_titles_are_shortened_for_plans_generated_before_the_rule():
+    from aicentralv2.smart_planner.public_view import _titled
+
+    long_title = "Usar portais como vitrine editorial e gatilho de retomada para quem já viu a coleção"
+    block = _titled({"title": long_title, "body": long_title})
+    assert len(block["title"]) <= 64 and block["body"] == long_title
+    assert _titled(None) == {}
+
+
+def test_persist_canais_keeps_saved_fronts_formats_and_portals_when_payload_omits_them(monkeypatch):
+    saved = {}
+    row = {"session_token": "tok", "dados_detectados": {"campanha": {
+        "canais": CANAIS, "taticas": RAW, "formatos": {"dv360": [HOTSPOT]}, "portais": {"segmento": "AB"},
+        "verba": "R$ 100.000", "verba_valor": 100000}}}
+    monkeypatch.setattr("aicentralv2.smart_planner.service.get_by_token", lambda token: row)
+    monkeypatch.setattr(repository, "get_by_token", lambda token: row)
+    monkeypatch.setattr(repository, "update_session", lambda token, payload: saved.update(payload) or payload)
+    persist_canais("tok", {"canais": CANAIS})
+    campanha = saved["dados_detectados"]["campanha"]
+    assert [item["tipo"] for item in campanha["taticas"]] == ["impacto", "remarketing"]
+    assert campanha["formatos"]["dv360"][0] == HOTSPOT and campanha["portais"] == {"segmento": "AB"}
+    persist_canais("tok", {"canais": CANAIS, "taticas": []})
+    assert saved["dados_detectados"]["campanha"]["taticas"] == []
+
+
+# ---------------------------------------------------------------- portais
+
+
+def test_portais_selection_is_validated():
+    out = portais.normalize_portais({
+        "categorias": ["Notícias gerais", "", "Notícias gerais"], "regioes": ["Sudeste", "Atlântida"],
+        "ufs": ["sp", "ZZ", "SP"], "segmento": "ab", "sites_preferidos": ["G1", "G1"],
+    })
+    assert out == {"categorias": ["Notícias gerais"], "regioes": ["Sudeste"], "ufs": ["SP"], "segmento": "AB", "sites_preferidos": ["G1"]}
+    assert portais.normalize_portais({"segmento": "Z"}) == {}
+
+
+def test_portais_where_combines_category_region_uf_and_class():
+    where, params = portais._where({"categorias": ["Jornalismo online", "Esportes"], "regioes": ["Sul"], "ufs": ["SP"], "segmento": "AB"})
+    assert "category LIKE %s" in where and "category = %s" in where and "uf = ANY(%s)" in where and "demographics" in where
+    assert params[0] == "Jornalismo online%" and params[1] == "Esportes"
+    assert ["PR", "RS", "SC", "SP"] in params and "%· Sul" in params and params[-1] == "A%"
+
+
+def test_sites_for_relaxes_region_before_class_and_keeps_preferred_sites(monkeypatch):
+    calls = []
+
+    def fake_rows(sql, params=None):
+        calls.append(sql)
+        if sql.startswith("SELECT count"):
+            # só o recorte sem região tem resultado
+            return [{"n": 0 if "uf = ANY" in sql or "· " in str(params) else 13}]
+        return [{"name": "Valor Econômico", "domain": "valor.globo.com", "category": "Economia e negócios", "uf": None, "traffic_tier": "grande"}]
+
+    monkeypatch.setattr("aicentralv2.cadu_family.repository.rows", fake_rows)
+    result = portais.sites_for({"regioes": ["Sudeste"], "segmento": "AB", "sites_preferidos": ["Folha"]})
+    assert result["total"] == 13 and result["relaxed"] == "regiao"
+    assert [site["name"] for site in result["sites"]] == ["Folha", "Valor Econômico"]
+    assert result["sites"][0]["preferred"] is True
+
+
+def test_sites_for_survives_a_missing_database(monkeypatch):
+    def boom(*args, **kwargs):
+        raise RuntimeError("sem banco")
+
+    monkeypatch.setattr("aicentralv2.cadu_family.repository.rows", boom)
+    result = portais.sites_for({"sites_preferidos": ["G1"]})
+    assert result["total"] == 0 and [site["name"] for site in result["sites"]] == ["G1"]

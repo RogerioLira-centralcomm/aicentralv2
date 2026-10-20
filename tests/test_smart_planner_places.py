@@ -115,7 +115,7 @@ class PlacesBridgeTest(unittest.TestCase):
         found = suggest_places_from_material("Campanha no terminal de Confins com Uber.", CATALOG)
         self.assertEqual(found[0]["slug"], "confins")
 
-    def test_extract_adds_places_channel_and_blocks_interativos_without_portal(self):
+    def test_extract_adds_places_channel_and_moves_interativos_to_the_network(self):
         campos = apply_places_to_campos(
             {
                 "canais": ["meta_ads", "interativos"],
@@ -124,20 +124,24 @@ class PlacesBridgeTest(unittest.TestCase):
             },
             CATALOG,
         )
+        # Interativos não é canal: vira formato da Rede de portais e sites.
         self.assertIn("places", campos["canais"])
         self.assertNotIn("interativos", campos["canais"])
-        self.assertEqual(campos["interativos"]["formats"], [])
+        self.assertIn("dv360", campos["canais"])
+        self.assertEqual(campos["formatos"]["dv360"], ["interativo-quiz", "interativo-hotspots-shop-the-look"])
+        self.assertNotIn("interativos", campos)
 
-    def test_interativos_stay_with_portal(self):
+    def test_portals_become_sites_of_the_network_and_keep_their_formats(self):
         campos = apply_places_to_campos(
             {
-                "canais": ["g1", "interativos"],
+                "canais": ["g1", "uol", "interativos"],
                 "interativos": {"formats": ["quiz"]},
             },
             CATALOG,
         )
-        self.assertIn("interativos", campos["canais"])
-        self.assertEqual(campos["interativos"]["formats"], ["quiz"])
+        self.assertEqual(campos["canais"], ["dv360"])
+        self.assertEqual(campos["formatos"], {"dv360": ["interativo-quiz"]})
+        self.assertEqual(campos["portais"]["sites_preferidos"], ["G1", "UOL"])
 
     def test_snapshot_does_not_sum_radii(self):
         rows = snapshot_places(
@@ -164,12 +168,12 @@ class PlacesBridgeTest(unittest.TestCase):
 
     def test_campaign_keeps_places(self):
         out = campaign_from_campos({
-            "canais": ["places", "g1"],
+            "canais": ["places", "dv360"],
             "places": [{"slug": "confins", "point_ids": ["cnf-terminal"]}],
-            "interativos": {"formats": ["quiz"]},
+            "formatos": {"dv360": ["interativo-quiz"]},
         })
         self.assertEqual(out["places"][0]["slug"], "confins")
-        self.assertEqual(out["interativos"]["formats"], ["quiz"])
+        self.assertEqual(out["formatos"], {"dv360": ["interativo-quiz"]})
 
     def test_defaults_and_live_score(self):
         campos = apply_review_defaults({"campanha": "Copasa", "objetivo": "leads"})

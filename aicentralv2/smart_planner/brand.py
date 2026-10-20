@@ -364,7 +364,9 @@ def briefing_pistas(dados: dict) -> dict:
         "contexto": " ".join(part for part in contexto_parts if part),
         "canais": [key for key in canais if key in CHANNEL_CATALOG],
         "places": campanha.get("places") or dados.get("places") or [],
-        "interativos": campanha.get("interativos") or dados.get("interativos") or {},
+        "taticas": campanha.get("taticas") or dados.get("taticas") or [],
+        "formatos": campanha.get("formatos") or dados.get("formatos") or {},
+        "portais": campanha.get("portais") or dados.get("portais") or {},
         "anunciante_confidencial": as_bool(dados.get("anunciante_confidencial")),
     }
 
@@ -383,8 +385,9 @@ def apply_pistas(campos: dict, pistas: dict | None) -> dict:
     merged["canais"] = list(dict.fromkeys(hinted + extracted))
     if not as_list(merged.get("places")) and as_list(hints.get("places")):
         merged["places"] = as_list(hints.get("places"))
-    if not as_dict(merged.get("interativos")).get("formats") and as_dict(hints.get("interativos")).get("formats"):
-        merged["interativos"] = as_dict(hints.get("interativos"))
+    for key, empty in (("taticas", []), ("formatos", {}), ("portais", {})):
+        if not merged.get(key) and hints.get(key):
+            merged[key] = hints.get(key)
     return merged
 
 

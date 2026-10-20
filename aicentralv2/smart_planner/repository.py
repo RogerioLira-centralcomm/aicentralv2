@@ -395,7 +395,7 @@ def save_campos(token: str, campos: dict, briefing_text: str | None = None) -> d
         raise SessionNotFound("Plano não encontrado.")
     dados = as_dict(row.get("dados_detectados"))
     campanha = campaign_from_campos(campos)
-    keep = {"verba_alocacao", "canais_verba", "verba_valor", "verba_base", "mix", "places", "interativos", "taticas"}
+    keep = {"verba_alocacao", "canais_verba", "verba_valor", "verba_base", "mix", "places", "taticas", "formatos", "portais"}
     if "canais" in campos:
         keep.add("canais")
     if isinstance(dados.get("campanha"), dict):

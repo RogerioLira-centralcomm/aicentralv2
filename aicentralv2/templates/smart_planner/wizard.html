@@ -4,7 +4,7 @@
 {% block title %}{{ steps[step_index].title }} · Planejamentos{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=59">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=60">
 {% endblock %}
 
 {% block content %}
@@ -593,7 +593,7 @@
                   {% if meta.tipo != 'dados' or key == 'serasa_dados' %}
                   {% set extra = shown.n >= 40 and key not in campos.canais %}
                   {% if not extra %}{% set shown.n = shown.n + 1 %}{% endif %}
-                  <label {% if extra %}data-extra="1" hidden{% endif %} data-label="{{ meta.label|lower }}" data-group="{{ group_key }}" {% if key == 'interativos' %}data-needs-portal="1"{% endif %}>
+                  <label {% if extra %}data-extra="1" hidden{% endif %} data-label="{{ meta.label|lower }}" data-group="{{ group_key }}">
                     <input form="sp-revisao-form" type="checkbox" name="canais" value="{{ key }}" {% if key in campos.canais %}checked{% endif %}>
                     {% if meta.logo %}
                     <img class="sp-mix-logo" src="{{ meta.logo }}" alt="" aria-hidden="true">
@@ -615,10 +615,17 @@
               <label class="sp-places-search" for="sp-places-search"><span class="sr-only">Buscar Place</span><input class="cx-input" id="sp-places-search" type="search" placeholder="Buscar Place ou cidade"></label>
               <div id="sp-places-list"></div>
             </div>
-            <div class="sp-interativos-desk" id="sp-interativos-desk" hidden>
-              <h3>Formatos interativos</h3>
-              <p id="sp-interativos-note">Interativos entram no portal.</p>
-              <div class="sp-kpi-chips" id="sp-interativos-formats"></div>
+            <div class="sp-formatos-desk" id="sp-formatos-desk" hidden>
+              <h3>Formatos por canal</h3>
+              <p>Escolha o que cada canal veicula: display IAB, vídeo, native e interativos. Interativos e rich media têm custo agregado na proposta.</p>
+              <div id="sp-formatos-list"></div>
+            </div>
+            <div class="sp-portais-desk" id="sp-portais-desk" hidden>
+              <h3>Rede de portais e sites</h3>
+              <p>A rede reúne mais de mil portais. Escolha categorias, regiões e o perfil de classe; o plano mostra quantos sites o recorte alcança e os maiores.</p>
+              <div id="sp-portais-filters"></div>
+              <p class="sp-portais-summary" id="sp-portais-summary" role="status"></p>
+              <ul class="sp-portais-sites" id="sp-portais-sites"></ul>
             </div>
             <div class="sp-taticas-desk" id="sp-taticas-desk" hidden>
               <h3>Táticas da campanha</h3>
@@ -629,7 +636,9 @@
             <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-mix-more-btn" hidden>Ver mais canais</button>
             <script type="application/json" id="sp-places-boot">{{ (campos.places or [])|tojson }}</script>
             <script type="application/json" id="sp-places-catalog">{{ (places_catalog or [])|tojson }}</script>
-            <script type="application/json" id="sp-interativos-boot">{{ (campos.interativos or {})|tojson }}</script>
+            <script type="application/json" id="sp-formatos-boot">{{ (campos.formatos or {})|tojson }}</script>
+            <script type="application/json" id="sp-portais-boot">{{ (campos.portais or {})|tojson }}</script>
+            <script type="application/json" id="sp-portais-facets">{{ (portais_facets or {})|tojson }}</script>
             <script type="application/json" id="sp-taticas-boot">{{ (campos.taticas or [])|tojson }}</script>
           </section>
           <section class="sp-media-balance" id="sp-media-balance-controls" aria-labelledby="sp-mix-balance-title">
@@ -916,6 +925,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=34"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=37"></script>
 <script src="{{ url_for('static', filename='js/smart_planner/guide.js') }}?v=3"></script>
 {% endblock %}

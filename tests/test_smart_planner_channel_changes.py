@@ -95,7 +95,7 @@ def test_material_hash_changes_with_mix_places_and_interativos():
     row = {"briefing_melhorado": "b", "dados_detectados": {"campanha": base}}
     rebalanced = {"briefing_melhorado": "b", "dados_detectados": {"campanha": {**base, "mix": {"method": "manual", "weights": [{"id": "meta_ads", "pct": 80}, {"id": "youtube", "pct": 20}]}}}}
     with_place = {"briefing_melhorado": "b", "dados_detectados": {"campanha": {**base, "places": [{"slug": "shopping-x"}]}}}
-    with_interativos = {"briefing_melhorado": "b", "dados_detectados": {"campanha": {**base, "interativos": {"formats": ["quiz"]}}}}
+    with_interativos = {"briefing_melhorado": "b", "dados_detectados": {"campanha": {**base, "formatos": {"dv360": ["interativo-quiz"]}}}}
     hashes = {_material_hash(item) for item in (row, rebalanced, with_place, with_interativos)}
     assert len(hashes) == 4
 

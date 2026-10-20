@@ -47,7 +47,9 @@ from .helpers import (
     session_title,
     text,
 )
+from . import formats as format_catalog
 from .materials import normalize_references
+from .portais import facets as portais_facets
 from .taticas import problems as taticas_problems
 from .processor import suggest_campaign_name
 from .pace import (
@@ -145,7 +147,8 @@ def _briefing_original(row: dict, dados: dict) -> str:
 
 def wizard_context(row: dict, step_id: str) -> dict:
     dados = as_dict(row.get("dados_detectados"))
-    campanha = dados.get("campanha") if isinstance(dados.get("campanha"), dict) else {}
+    # Planos antigos: Interativos e portais soltos viram formatos e sites da Rede de portais.
+    campanha = format_catalog.migrate_campanha(dados.get("campanha") if isinstance(dados.get("campanha"), dict) else {})
     step_ids = [item["id"] for item in WIZARD_STEPS]
     index = step_ids.index(step_id) if step_id in step_ids else 0
     campos = {
@@ -181,8 +184,9 @@ def wizard_context(row: dict, step_id: str) -> dict:
         "executivo_nome": text(dados.get("executivo_nome")),
         "anunciante_confidencial": as_bool(dados.get("anunciante_confidencial")),
         "places": campanha.get("places") or dados.get("places") or [],
-        "interativos": campanha.get("interativos") or dados.get("interativos") or {},
         "taticas": campanha.get("taticas") or dados.get("taticas") or [],
+        "formatos": campanha.get("formatos") or dados.get("formatos") or {},
+        "portais": campanha.get("portais") or dados.get("portais") or {},
     }
     if not text(campos["campanha"]):
         campos["campanha"] = suggest_campaign_name(campos)
@@ -250,7 +254,7 @@ def wizard_context(row: dict, step_id: str) -> dict:
         if key in seen or key not in CHANNEL_CATALOG:
             continue
         meta = CHANNEL_CATALOG[key]
-        if meta.get("tipo") == "dados":
+        if meta.get("tipo") == "dados" or meta.get("legacy"):
             continue
         available.append({"id": key, "label": meta.get("label", key), "desc": meta.get("desc", "")})
     praca_label = PRACA_OPTIONS.get(campos["praca"], {}).get("label", campos["praca"])
@@ -333,6 +337,7 @@ def wizard_context(row: dict, step_id: str) -> dict:
         "places_catalog": planner_place_catalog(),
         "kpi_suggestions": group_kpis_for(campos.get("canais")),
         "taticas_avisos": taticas_problems(as_list(campos.get("taticas")), campos.get("canais")),
+        "portais_facets": portais_facets(),
     }
 
 
@@ -377,10 +382,9 @@ def persist_review(token: str, payload: dict) -> dict:
         campos["canais"] = canais
     if "places" in payload or "places" in campos:
         campos["places"] = payload.get("places") if payload.get("places") is not None else campos.get("places")
-    if "interativos" in payload or "interativos" in campos:
-        campos["interativos"] = (
-            payload.get("interativos") if payload.get("interativos") is not None else campos.get("interativos")
-        )
+    for key in ("formatos", "portais"):
+        if key in payload or key in campos:
+            campos[key] = payload.get(key) if payload.get(key) is not None else campos.get(key)
     if "taticas" in payload or "taticas" in campos:
         campos["taticas"] = payload.get("taticas") if payload.get("taticas") is not None else campos.get("taticas")
     campos = apply_review_defaults(apply_places_to_campos(campos, lock_channel=True))
@@ -507,7 +511,8 @@ def persist_canais(token: str, payload: dict) -> dict:
         "canais": canais,
         "canais_verba": canais_verba,
         "places": resolve_places(payload.get("places") if "places" in payload else existing.get("places")),
-        "interativos": payload.get("interativos") if "interativos" in payload else existing.get("interativos"),
+        "formatos": payload.get("formatos") if "formatos" in payload else existing.get("formatos") or {},
+        "portais": payload.get("portais") if "portais" in payload else existing.get("portais") or {},
         "taticas": payload.get("taticas") if "taticas" in payload else existing.get("taticas") or [],
     }
     campos = apply_review_defaults(apply_places_to_campos(campos, lock_channel=True))

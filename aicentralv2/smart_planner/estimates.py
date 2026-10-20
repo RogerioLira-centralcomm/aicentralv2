@@ -204,6 +204,11 @@ def suggest_media_params(snapshot: dict, existing=None, *, force: bool = False) 
     for key, value in as_dict(parsed.get("canais")).items():
         if text(key) in {text(row.get("id")) for row in missing}:
             rates = normalize_rates({**as_dict(value), "origem": ORIGIN_MODEL})
+            if rates.get("cpm") and rates.get("ctr"):
+                # CPC = CPM / (CTR x 10): as três taxas só fecham entre si se o CPC vier das outras duas.
+                derived = round(rates["cpm"] / (rates["ctr"] * 10), 2)
+                if RATE_LIMITS["cpc"][0] <= derived <= RATE_LIMITS["cpc"][1]:
+                    rates["cpc"] = derived
             if any(name in rates for name in RATE_LIMITS):
                 suggested[text(key)] = rates
     return {

@@ -45,7 +45,9 @@ from .helpers import (
 from .progress import finish_progress, mark_step, start_progress
 from .repository import get_by_token, merge_dados, update_session
 from .skills import load_skill, skill_role
+from .portais import sites_for
 from .snapshot import build_evidence, build_snapshot
+from . import formats as format_catalog
 from .taticas import (
     DCO_DESCRIPTION,
     FORMATO_DCO,
@@ -219,6 +221,8 @@ def _run(token: str, mode: str) -> dict:
         snapshot = build_snapshot(row, dados)
     material_hash = _material_hash(row)
     snapshot["material_hash"] = material_hash
+    if format_catalog.NETWORK_CHANNEL in [text(as_dict(r).get("id")) for r in as_list(snapshot.get("mix"))]:
+        snapshot["portais_sites"] = sites_for(snapshot.get("portais"))
     merge_dados(token, {"snapshot": snapshot, "plan_mode": mode, "material_hash": material_hash})
     mark_step(token, "snapshot", "done")
 
@@ -555,17 +559,14 @@ def _places_law(snapshot: dict) -> dict:
             digital.extend(text(item) for item in as_list(row.get("apps")) + as_list(row.get("portals")) if text(item))
         digital_note = f" · ambientes digitais observados: {', '.join(sorted(set(digital))[:8])}" if digital else ""
         lines.append(f"{title} · audiência consolidada: {text(metrics.get('addressable')) or text(metrics.get('four_weeks')) or 'não informada'}{digital_note}")
-    interativos = as_dict((snapshot or {}).get("interativos"))
-    formats = [text(item) for item in as_list(interativos.get("formats")) if text(item)]
     return {
         "lei": (
             "Só estes ambientes e suas audiências consolidadas. Apps e sites observados no catálogo podem ser usados como contexto de audiência digital, nunca como promessa de compra ou inventário. Não cite preço, mínimo comercial, ponto, raio ou fornecedor. "
             "Se o catálogo trouxer sinal explícito, separe Places digital (apps e geolocalização) de Places OOH (presença física); sem sinal, use apenas ambiente Place. "
-            "Interativos não são Places — só no portal-herói se interativos estiver no mix."
+            "Formatos interativos são da Rede de portais e sites, nunca de Places."
         ),
         "places": lines,
         "multi": len(rows) > 1,
-        "interativos": formats,
     }
 
 
@@ -768,6 +769,24 @@ def _redact_all(value, name: str):
     return value
 
 
+def _portais_for_prompt(snapshot: dict) -> dict | None:
+    """Recorte da Rede de portais e sites e os maiores sites dele, vindos do catálogo (nunca inventados)."""
+    snap = as_dict(snapshot)
+    if format_catalog.NETWORK_CHANNEL not in {text(as_dict(r).get("id")) for r in as_list(snap.get("mix"))}:
+        return None
+    result = as_dict(snap.get("portais_sites")) or sites_for(snap.get("portais"))
+    if not result.get("sites") and not result.get("total"):
+        return None
+    out = {
+        "recorte": result.get("criterios") or {},
+        "sites_no_recorte": result.get("total"),
+        "maiores_sites": [text(site.get("name")) for site in as_list(result.get("sites")) if text(site.get("name"))],
+    }
+    if result.get("relaxed"):
+        out["recorte_aberto"] = result["relaxed"]
+    return {key: value for key, value in out.items() if value not in (None, "", [], {})}
+
+
 def mix_rows_for_tatica(rows: list[dict]) -> list[dict]:
     return [{"id": row.get("id"), "label": row.get("label"), "pct": row.get("pct")} for row in rows]
 
@@ -794,6 +813,15 @@ def _one_page_payload(snapshot: dict, evidence: dict, estimates: dict) -> dict:
         }
         if text(row.get("tatica")):
             entry["tatica"] = text(row.get("tatica"))
+        picked = [format_catalog.by_id(text(slug)) for slug in as_list(as_dict(snap.get("formatos")).get(channel_id))]
+        picked = [fmt for fmt in picked if fmt]
+        if picked:
+            # Formatos que o canal veicula: sustentam o plano de mídia (tamanhos IAB, vídeo, interativos).
+            entry["formatos"] = [
+                {"nome": fmt["name"], "tipo": fmt["type"], "dimensoes": fmt["dimensions"],
+                 **({"custo_agregado": True} if fmt.get("aggregated_cost") else {})}
+                for fmt in picked
+            ]
         if row.get("pct") not in (None, ""):
             entry["percentual"] = row.get("pct")
         if text(meta.get("group")) not in {"ooh", "places"} and text(row.get("amount_label")):
@@ -836,7 +864,8 @@ def _one_page_payload(snapshot: dict, evidence: dict, estimates: dict) -> dict:
             "regra": text(places.get("lei")),
             "ambientes": as_list(places.get("places")),
         } if places.get("places") else None,
-        "interativos": [text(item) for item in as_list(as_dict(snap.get("interativos")).get("formats")) if text(item)],
+        "formatos_com_custo_agregado": [text(item) for item in as_list(snap.get("formatos_com_custo_agregado")) if text(item)],
+        "portais": _portais_for_prompt(snap),
         "taticas": taticas,
         "marca": brand_prompt_block(as_dict(snap.get("brand"))) or None,
         "restricoes": [text(item) for item in as_list(snap.get("restrictions")) if text(item)],
@@ -1326,7 +1355,15 @@ def _matches_mix(value: str, rows: list[dict]) -> bool:
 def _primary_format(channel_id: str, snapshot: dict) -> dict | None:
     """Formato principal do canal: o que a tática impõe (DCO, interativo escolhido) ou o do catálogo."""
     forced = tatica_primary_format(channel_id, as_list(as_dict(snapshot).get("taticas")))
-    return forced or (dict(PRIMARY_FORMATS[channel_id]) if channel_id in PRIMARY_FORMATS else None)
+    if forced:
+        return forced
+    chosen = as_list(as_dict(as_dict(snapshot).get("formatos")).get(channel_id))
+    if chosen:
+        row = format_catalog.by_id(text(chosen[0]))
+        if row:
+            kind = "ctv" if row.get("type") in {"video", "ctv"} else ("portal" if row.get("interactive") else "display")
+            return {"id": row["id"], "label": row["name"], "surface": kind}
+    return dict(PRIMARY_FORMATS[channel_id]) if channel_id in PRIMARY_FORMATS else None
 
 
 def _creative_plan(page: dict, snapshot: dict) -> list[dict]:
@@ -1399,51 +1436,89 @@ def _alias_row(channel: str, rows: list[dict]) -> dict:
     return found[0] if len(found) == 1 else {}
 
 
+def _attach_formats_and_sites(page: dict, snapshot: dict) -> None:
+    """Dados determinísticos da página: formatos de cada canal, custo agregado e sites da rede."""
+    snap = as_dict(snapshot)
+    by_channel = {}
+    for channel_id, slugs in as_dict(snap.get("formatos")).items():
+        rows = [format_catalog.by_id(text(slug)) for slug in as_list(slugs)]
+        rows = [row for row in rows if row]
+        if rows:
+            by_channel[channel_id] = [
+                {"nome": row["name"], "tipo": row["type"], "dimensoes": row["dimensions"], "custo_agregado": bool(row.get("aggregated_cost"))}
+                for row in rows
+            ]
+    page["formatos"] = by_channel
+    page["formatos_custo_agregado"] = [text(item) for item in as_list(snap.get("formatos_com_custo_agregado")) if text(item)]
+    sites = as_dict(snap.get("portais_sites"))
+    page["portais"] = {
+        "total": sites.get("total") or 0,
+        "sites": as_list(sites.get("sites")),
+        "criterios": as_dict(sites.get("criterios")),
+        "relaxed": text(sites.get("relaxed")),
+    } if sites.get("sites") else {}
+
+
 def _join_pt(items: list[str]) -> str:
     items = [item for item in items if item]
     return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " e " + items[-1] if items else ""
 
 
 def _apply_taticas_to_roles(roles: list[dict], snapshot: dict) -> list[str]:
-    """Garante no papel de cada canal o que a tática definiu: formatos interativos, DCO e recorte AB."""
-    taticas = as_list(as_dict(snapshot).get("taticas"))
-    if not taticas:
-        return []
-    from .taticas import INTERATIVOS_HOSTS, TATICA_TIPOS, dco_channels, formato_label, interativos_from_taticas
+    """Garante no papel de cada canal os formatos que ele veicula e o que a tática definiu.
 
-    rows = {text(row.get("id")): row for row in _mix_rows(snapshot)}
+    Formatos de cada canal sustentam o plano de mídia: o papel cita os escolhidos (display IAB, vídeo,
+    interativos), o DCO quando houver, e o recorte de portais da frente de impacto.
+    """
+    snap = as_dict(snapshot)
+    taticas = as_list(snap.get("taticas"))
+    chosen = as_dict(snap.get("formatos"))
+    if not taticas and not chosen:
+        return []
+    from .taticas import TATICA_TIPOS, dco_channels, formato_label, formats_for_channel as tatica_formats
+
+    rows = {text(row.get("id")): row for row in _mix_rows(snap)}
     repairs: list[str] = []
     dco = set(dco_channels(taticas))
-    formats = [formato_label(fid) for fid in interativos_from_taticas(taticas)]
+    wanted: dict[str, list[tuple[str, list[str], str]]] = {}
     for tatica in taticas:
-        tipo = text(tatica.get("tipo"))
         for channel_id in tatica.get("canais") or []:
-            row = rows.get(channel_id)
-            if not row:
-                continue
-            role = next((r for r in roles if _matches_mix(text(r.get("channel") or r.get("id")), [row])), None)
-            if role is None:
-                role = {"channel": text(row.get("label") or channel_id), "role": "", "function": "", "format_rationale": ""}
-                roles.append(role)
-                repairs.append(f"Papel incluído para {role['channel']} (tática de {TATICA_TIPOS[tipo]['label'].lower()}).")
-            if not text(role.get("role")):
-                role["role"] = "acao" if tipo == "remarketing" else "intencao"
-            function = text(role.get("function"))
-            additions = []
-            if channel_id in dco and not re.search(r"\bdco\b|din[aâ]mic", function, re.I):
-                additions.append(f"Formato DCO: anúncio dinâmico, em que {DCO_DESCRIPTION}.")
-            if channel_id == "interativos" and formats and not all(label.lower() in function.lower() for label in formats):
-                additions.append(f"Formatos interativos: {_join_pt(formats)}.")
-            segment = text(tatica.get("segmento"))
-            if segment and (channel_id in INTERATIVOS_HOSTS or channel_id == "interativos") and f"classes {segment}".lower() not in function.lower():
+            wanted.setdefault(channel_id, []).append((text(tatica.get("tipo")), tatica_formats(channel_id, [tatica]), text(tatica.get("segmento"))))
+    for channel_id in chosen:
+        wanted.setdefault(channel_id, [])
+    for channel_id, fronts in wanted.items():
+        row = rows.get(channel_id)
+        if not row:
+            continue
+        role = next((r for r in roles if _matches_mix(text(r.get("channel") or r.get("id")), [row])), None)
+        if role is None:
+            role = {"channel": text(row.get("label") or channel_id), "role": "", "function": "", "format_rationale": ""}
+            roles.append(role)
+            repairs.append(f"Papel incluído para {role['channel']}.")
+        if not text(role.get("role")) and fronts:
+            role["role"] = "acao" if fronts[0][0] == "remarketing" else "intencao"
+        function = text(role.get("function"))
+        additions = []
+        picked = [text(slug) for slug in as_list(chosen.get(channel_id))]
+        names = [format_catalog.display_name(slug) for slug in picked]
+        if names and not all(name.lower() in function.lower() for name in names):
+            additions.append(f"Formatos: {_join_pt(names)}.")
+        if channel_id in dco and not re.search(r"\bdco\b|din[aâ]mic", function, re.I):
+            additions.append(f"Formato DCO: anúncio dinâmico, em que {DCO_DESCRIPTION}.")
+        for tipo, slugs, segment in fronts:
+            if segment and channel_id == format_catalog.NETWORK_CHANNEL and f"classes {segment}".lower() not in function.lower():
                 additions.append(f"Portais escolhidos por segmento editorial e afinidade com as classes {segment}.")
-            if additions:
-                role["function"] = " ".join(part for part in [function, *additions] if part)
-                repairs.append(f"Papel de {role['channel']} completado com a tática de {TATICA_TIPOS[tipo]['label'].lower()}.")
-            forced = _primary_format(channel_id, snapshot)
-            if forced and channel_id in dco | {"interativos"}:
-                role["primary_format_id"] = forced["id"]
-                role["primary_format"] = forced["label"]
+            if len(fronts) > 1 and slugs:
+                label = TATICA_TIPOS[tipo]["label"]
+                if not all(formato_label(slug).lower() in (function + " ".join(additions)).lower() for slug in slugs):
+                    additions.append(f"{label}: {_join_pt([formato_label(slug) for slug in slugs])}.")
+        if additions:
+            role["function"] = " ".join(part for part in [function, *additions] if part)
+            repairs.append(f"Papel de {role['channel']} completado com os formatos do canal.")
+        forced = _primary_format(channel_id, snap)
+        if forced:
+            role["primary_format_id"] = forced["id"]
+            role["primary_format"] = forced["label"]
     return repairs
 
 
@@ -1512,6 +1587,7 @@ def _repair_page_channels(page: dict, snapshot: dict) -> list[str]:
     page["taticas"] = taticas_for_prompt(
         as_list(as_dict(snapshot).get("taticas")), mix_rows_for_tatica(_mix_rows(snapshot))
     )
+    _attach_formats_and_sites(page, snapshot)
     if repairs:
         page["repairs"] = list(dict.fromkeys(as_list(page.get("repairs")) + repairs))
         logger.info("Página única consertada no mix: %s", "; ".join(repairs))
@@ -1847,7 +1923,8 @@ def _material_hash(row: dict) -> str:
             text(as_dict(item).get("slug")) for item in as_list(campanha.get("places") or dados.get("places"))
             if text(as_dict(item).get("slug"))
         ),
-        "interativos": campanha.get("interativos") or dados.get("interativos"),
+        "formatos": campanha.get("formatos") or dados.get("formatos"),
+        "portais": campanha.get("portais") or dados.get("portais"),
         "taticas": normalize_taticas(
             campanha.get("taticas") or dados.get("taticas"),
             campanha.get("canais") or dados.get("canais"),

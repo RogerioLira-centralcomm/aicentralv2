@@ -179,6 +179,7 @@ def _titled(block) -> dict:
 def _fronts(page: dict, channels: list[dict]) -> list[dict]:
     """Frentes da campanha (impacto, remarketing) com seus canais, para o bloco de mídia.
 
+    Uma frente pode dividir o canal com outra (a Rede de portais e sites com interativos e com DCO).
     Sem táticas confirmadas devolve vazio e a página mostra a lista simples de canais.
     """
     fronts = [as_dict(item) for item in as_list(as_dict(page).get("taticas")) if as_dict(item).get("tipo")]
@@ -188,16 +189,20 @@ def _fronts(page: dict, channels: list[dict]) -> list[dict]:
         text(as_dict(item).get("tipo")): text(as_dict(item).get("descricao"))
         for item in as_list(as_dict(as_dict(page).get("media_narrative")).get("taticas"))
     }
+    labels = {text(c.get("label")): c for c in channels}
     out = []
     for front in fronts:
         tipo = text(front.get("tipo"))
-        rows = [channel for channel in channels if text(channel.get("tatica")) == tipo]
+        rows = [
+            channel for channel in channels
+            if tipo in as_list(channel.get("taticas")) or text(channel.get("tatica")) == tipo
+        ] or [labels[name] for name in as_list(front.get("canais")) if name in labels]
         if not rows:
             continue
         out.append({
             "tipo": tipo,
             "label": text(front.get("tatica")) or tipo.title(),
-            "weight": front.get("peso_no_mix_pct"),
+            "weight": front.get("peso_pct"),
             "text": described.get(tipo) or text(front.get("para_que")),
             "formats": [text(item) for item in as_list(front.get("formatos")) if text(item)],
             "segment": text(front.get("recorte_de_portais")),
@@ -231,6 +236,7 @@ def _decorate_channel(item: dict) -> dict:
         "color": CHANNEL_COLORS.get(key, "#1e4d4f"),
         "group": group,
         "tatica": text(item.get("tatica")),
+        "taticas": [text(x) for x in as_list(item.get("taticas")) if text(x)],
     }
 
 
@@ -1521,6 +1527,9 @@ def public_view(row: dict, document: str | None = None) -> dict:
         "overview": overview,
         "overview_support": overview_support,
         "fronts": _fronts(page_v2, media.get("channels") or []),
+        "formats_by_channel": as_dict(page_v2.get("formatos")),
+        "aggregated_formats": [text(x) for x in as_list(page_v2.get("formatos_custo_agregado")) if text(x)],
+        "network_sites": as_dict(page_v2.get("portais")),
         "editorial_context": {
             "challenge": challenge_v3,
             "opportunity": opportunity_v3,

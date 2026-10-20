@@ -27,20 +27,21 @@ CHANNEL_CATALOG = {
     "samsung-tv-plus": {"label": "Samsung TV Plus", "group": "ctv", "desc": "Streaming gratuito em Smart TVs Samsung"},
     "serasa": {"label": "Serasa (mídia)", "group": "data", "desc": "Display e mobile dentro do app Serasa"},
     "serasa_dados": {"label": "Serasa (dados)", "group": "data", "desc": "Segmentação de crédito", "tipo": "dados"},
-    "g1": {"label": "G1", "group": "portais", "desc": "Notícias, display e native"},
-    "uol": {"label": "UOL", "group": "portais", "desc": "Portal, display e native"},
-    "r7": {"label": "R7", "group": "portais", "desc": "Portal, display e vídeo"},
-    "cnn": {"label": "CNN Brasil", "group": "portais", "desc": "Notícias, display e vídeo"},
-    "ge-globo-esporte": {"label": "GE (Globo Esporte)", "group": "portais", "desc": "Esportes, display e conteúdo"},
-    "infomoney": {"label": "InfoMoney", "group": "portais", "desc": "Finanças, investimentos e negócios"},
-    "sbt": {"label": "SBT", "group": "portais", "desc": "Notícias, entretenimento e esportes"},
-    "techtudo": {"label": "TechTudo", "group": "portais", "desc": "Tecnologia, reviews e tutoriais"},
-    "tudogostoso": {"label": "TudoGostoso", "group": "portais", "desc": "Receitas, culinária e gastronomia"},
+    "g1": {"label": "G1", "group": "portais", "legacy": "dv360", "desc": "Notícias, display e native"},
+    "uol": {"label": "UOL", "group": "portais", "legacy": "dv360", "desc": "Portal, display e native"},
+    "r7": {"label": "R7", "group": "portais", "legacy": "dv360", "desc": "Portal, display e vídeo"},
+    "cnn": {"label": "CNN Brasil", "group": "portais", "legacy": "dv360", "desc": "Notícias, display e vídeo"},
+    "ge-globo-esporte": {"label": "GE (Globo Esporte)", "group": "portais", "legacy": "dv360", "desc": "Esportes, display e conteúdo"},
+    "infomoney": {"label": "InfoMoney", "group": "portais", "legacy": "dv360", "desc": "Finanças, investimentos e negócios"},
+    "sbt": {"label": "SBT", "group": "portais", "legacy": "dv360", "desc": "Notícias, entretenimento e esportes"},
+    "techtudo": {"label": "TechTudo", "group": "portais", "legacy": "dv360", "desc": "Tecnologia, reviews e tutoriais"},
+    "tudogostoso": {"label": "TudoGostoso", "group": "portais", "legacy": "dv360", "desc": "Receitas, culinária e gastronomia"},
     "kwai": {"label": "Kwai", "group": "social", "desc": "Vídeos curtos e creators"},
     "twitch": {"label": "Twitch", "group": "video", "desc": "Lives, games e creators"},
     "waze": {"label": "Waze", "group": "apps", "desc": "Navegação e contexto de deslocamento"},
     "interativos": {
         "label": "Interativos",
+        "legacy": "dv360",
         "group": "portais",
         "desc": "Hotspot, Quiz, Cube e outros formatos só em portais",
     },
@@ -138,8 +139,9 @@ FIELD_SCHEMA = {
     "canais": "array de ids do catálogo de canais.",
     "places": "array de {slug, point_ids, apps} só com slugs e pontos do catálogo injetado. Vazio se o material não citar um venue publicado.",
     "inventario_ooh": "objeto {source, points:[{id, name, detail}]} somente para pontos de OOH enviados explicitamente como referência. Preserve texto e ordem; não deduza ponto, fornecedor, preço ou disponibilidade.",
-    "interativos": "objeto {formats: []} só se um portal (g1, uol, r7, cnn) estiver nos canais. Formatos: hotspot, cartas, quiz, cube, scratch, 360, countdown, video.",
-    "taticas": "array de frentes de mídia que o material descreve, cada uma {tipo, canais, formatos, segmento}. tipo: impacto (apresenta a ideia, formatos interativos, presença editorial) ou remarketing (volta a falar com quem interagiu ou visitou o site). canais: ids do campo canais que a frente usa. formatos: interativos citados (hotspot, cartas, quiz, cube, scratch, 360, countdown, video) e \"dco\" quando o material pede criativo dinâmico (DCO). segmento: classe dos portais (A, AB, B, BC, C) só se o material disser. No máximo uma frente de cada tipo. Vazio se o material não separar frentes.",
+    "formatos": "objeto {id_do_canal: [formatos]} com os formatos citados para cada canal. Use o nome do formato como o material escreveu (ex.: Hotspots, Cards, Quiz, Billboard 970x250, Pre-roll, Native). Interativos (Hotspots, Cards, Quiz, Cube, Scratch, 360, Countdown, Mini-game...) são formatos, nunca canal: entram aqui, no canal dv360 (Rede de portais e sites). Vazio se o material não citar formatos.",
+    "portais": "objeto {categorias: [], regioes: [], ufs: [], segmento, sites_preferidos: []} quando o material descreve a Rede de portais e sites: categorias temáticas (Notícias gerais, Economia e negócios, Mulher estilo e casa...), regiões (Norte, Nordeste, Centro-Oeste, Sudeste, Sul), UFs, segmento de classe dos portais (A, AB, B, BC, C) e sites que o material nomeou (G1, UOL, Folha...). Vazio se não houver recorte.",
+    "taticas": "array de frentes de mídia que o material descreve, cada uma {tipo, canais, formatos, segmento, peso}. tipo: impacto (apresenta a ideia, formatos interativos, presença editorial) ou remarketing (volta a falar com quem interagiu ou visitou o site). canais: ids do campo canais que a frente usa. formatos: formatos citados para a frente (interativos como Hotspots e Cards, display IAB, vídeo, native) e \"dco\" quando o material pede anúncio dinâmico (DCO). peso: percentual da verba da frente, se o material disser (60 e 40, por exemplo). segmento: classe dos portais (A, AB, B, BC, C) só se o material disser. No máximo uma frente de cada tipo. Vazio se o material não separar frentes.",
     "criativos": "materiais disponíveis ou possíveis: formatos, durações, restrições.",
     "dispositivos": "array de ids de dispositivos/superfícies.",
     "kpis": "array de métricas de sucesso citadas.",
@@ -179,7 +181,7 @@ CHANNEL_SHOWCASE = (
 )
 
 PORTAL_CHANNELS = ("g1", "uol", "r7", "cnn", "ge-globo-esporte", "infomoney", "sbt", "techtudo", "tudogostoso")
-SPECIAL_MIX_IDS = frozenset({"places", "interativos"})
+SPECIAL_MIX_IDS = frozenset({"places"})
 SPECIAL_SUGGESTED_PCT = 8
 DEFAULT_PERIOD = "30 dias"
 DEFAULT_VERBA = "A fechar"
@@ -297,7 +299,7 @@ def channels_by_group() -> list[tuple[str, str, list[tuple[str, dict]]]]:
     for group_key, group_label in CHANNEL_GROUPS.items():
         items = []
         for key, meta in CHANNEL_CATALOG.items():
-            if meta.get("group") != group_key:
+            if meta.get("group") != group_key or meta.get("legacy"):
                 continue
             items.append((key, {**meta, "logo": CHANNEL_LOGOS.get(key, "")}))
         if items:
@@ -310,7 +312,8 @@ def channel_label(key: str) -> str:
 
 
 def media_channel_keys() -> list[str]:
-    return [key for key, meta in CHANNEL_CATALOG.items() if meta.get("tipo") != "dados"]
+    # Interativos e portais soltos são formatos e sites da Rede de portais, não canais de compra.
+    return [key for key, meta in CHANNEL_CATALOG.items() if meta.get("tipo") != "dados" and not meta.get("legacy")]
 
 
 def objetivo_label(value: str) -> str:

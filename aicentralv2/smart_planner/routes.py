@@ -294,6 +294,23 @@ def canvas(token):
     return _render_canvas(row, force_folha=False)
 
 
+@bp.route("/api/portais/sites")
+@centralcomm_required_api
+def api_portais_sites():
+    """Prévia da Rede de portais e sites: quantos sites o recorte alcança e os maiores."""
+    from .portais import sites_for
+
+    args = request.args
+    split = lambda key: [item for item in (args.get(key) or "").split(",") if item.strip()]  # noqa: E731
+    result = sites_for({
+        "categorias": split("categorias"),
+        "regioes": split("regioes"),
+        "ufs": split("ufs"),
+        "segmento": args.get("segmento") or "",
+    })
+    return _ok(result)
+
+
 @bp.route("/api/partes")
 @centralcomm_required_api
 def api_partes():

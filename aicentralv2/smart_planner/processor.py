@@ -74,7 +74,7 @@ Não acrescente formatos, dispositivos, métricas ou mecanismos que não estejam
 Traduza termos técnicos para leitura comercial: retargeting = voltar a falar com quem viu ou interagiu; B2B = empresas; B2C = pessoas. Não exponha ids internos de canal.
 Se houver places confirmados, nomeie apenas o ambiente/place e a audiência consolidada. Não cite ponto, raio ou app no plano.
 Em OOH ou DOOH, traduza qualquer menção a pontos como "presença em OOH/DOOH". Não escreva pontos, circuitos, inventário ou condições de compra.
-Formatos interativos só existem em portais (G1, UOL, R7, CNN, rede de portais), nunca em app, CTV, OOH ou Places.
+Interativos são tipos de formato, veiculados na Rede de portais e sites; nunca em app, CTV, OOH ou Places. G1, UOL, CNN e os demais portais são sites da rede, não canais.
 DCO = anúncio dinâmico: a mesma peça muda por horário, geolocalização, estoque do item, condições definidas pela marca e segmentação de audiência. Se o material trouxer impacto e remarketing como frentes, mantenha as duas frentes, os formatos e o recorte de classe dos portais.
 Dados de terceiros servem para encontrar ou reencontrar públicos; não descreva isso como captura, venda ou coleta de dados.
 Preserve restrições e observações do anunciante.
@@ -88,6 +88,7 @@ def extract_fields(material: str, pistas: dict | None = None) -> dict:
     canais = "\n".join(
         f"{key} = {meta['label']}" + (" [fonte de dados]" if meta.get("tipo") == "dados" else "")
         for key, meta in CHANNEL_CATALOG.items()
+        if not meta.get("legacy")
     )
     places_lines = catalog_prompt_lines()
     confirmed = {k: v for k, v in (pistas or {}).items() if v not in ("", [], None)}
@@ -130,10 +131,11 @@ Regras:
 - Pontos enviados como inventário OOH são referência confirmada: copie inventario_ooh com texto e ordem. Eles implicam o canal ooh, mas não preço, fornecedor, disponibilidade ou alcance.
 - Nunca invente slug ou audiência. Places devem aparecer como ambientes consolidados, sem ponto ou raio.
 - Apps e sites cadastrados do Place podem aparecer no extrator e no planejamento como contexto de audiência digital. Eles não representam inventário, disponibilidade ou compra garantida.
-- Interativos só se um portal (g1, uol, r7, cnn) for citado. Formatos interativos não são Places.
-- Se o material pedir interativo em app, preserve o app apenas como contexto de audiência e mantenha o formato interativo no portal. Nunca descreva interativo dentro de app.
-- Interativos pedidos em "portais" sem nomear nenhum: use o canal dv360 (Rede de portais e sites) como portal e mantenha os formatos citados em "interativos". Não invente G1, UOL ou outro portal que o material não nomeou.
-- taticas: preencha só quando o material separar frentes (por exemplo, impacto e remarketing). Cada frente usa apenas ids que também estão em "canais"; interativos entram na frente que os cita, junto do canal "interativos". "dco" entra só quando o material pede DCO ou criativo dinâmico e fica no canal que o roda (nunca em interativos, OOH, Places, CTV ou áudio). Segmento AB, A ou BC descreve o recorte dos portais, não o público da marca.
+- Interativos não são canal nem Places: são tipos de formato (Hotspots, Cards, Quiz, Cube, Scratch, 360, Countdown, Mini-game e outros). Sempre vão em "formatos", no canal dv360 (Rede de portais e sites). Nunca coloque "interativos" em "canais".
+- G1, UOL, R7, CNN, Folha e demais portais não são canais: são sites da Rede de portais e sites (dv360). Use dv360 em "canais" e liste os que o material nomeou em portais.sites_preferidos. Não invente portal que o material não nomeou.
+- Se o material descrever portais por segmento, região ou tema (por exemplo "portais de classe AB", "portais de economia no Sudeste"), preencha "portais" com categorias, regioes, ufs e segmento. O segmento descreve o recorte dos portais, não o público da marca.
+- Se o material citar aplicativos de mobilidade, streaming ou redes sociais, cada um é um canal; os formatos que ele citar vão em "formatos" desse canal.
+- taticas: preencha só quando o material separar frentes (por exemplo, impacto e remarketing). Cada frente usa ids que estão em "canais"; duas frentes podem usar o mesmo canal (a Rede de portais e sites com interativos e com DCO). Os formatos da frente são os que o material atribui a ela; "dco" entra só quando o material pede anúncio dinâmico, no canal que o roda (nunca em OOH, Places, CTV ou áudio). "peso" é o percentual da verba da frente quando o material disser (60 e 40). Segmento AB, A ou BC descreve o recorte dos portais.
 - praca_detalhe é cidade/UF. O venue vai em "places", não misturado como texto solto.
 - cliente é o anunciante (marca que anuncia). Em briefing de agência, a palavra "cliente" do texto = anunciante.
 - Quando o material começar com "Marca (Agência Nome):", a Marca é sempre o cliente/anunciante, mesmo que o nome também identifique um aeroporto, shopping, evento ou Place.
@@ -548,7 +550,8 @@ def rewrite_from_plan(token: str) -> dict:
         "kpis": dados.get("kpis") or [],
         "canais": campanha.get("canais") or dados.get("canais") or [],
         "places": campanha.get("places") or dados.get("places") or [],
-        "interativos": campanha.get("interativos") or dados.get("interativos") or {},
+        "formatos": campanha.get("formatos") or dados.get("formatos") or {},
+        "portais": campanha.get("portais") or dados.get("portais") or {},
         "taticas": campanha.get("taticas") or dados.get("taticas") or [],
         "inventario_ooh": campanha.get("inventario_ooh") or dados.get("inventario_ooh") or {},
         "mix": campanha.get("mix") or {},

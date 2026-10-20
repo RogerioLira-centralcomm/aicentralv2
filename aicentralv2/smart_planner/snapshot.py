@@ -10,7 +10,10 @@ from .materials import normalize_references
 from .mix import progress_calendar, shares_to_money, should_progress
 from .pace import budget_shares, campaign_pace, campaign_verba, format_money
 from .places_bridge import snapshot_places
-from .taticas import normalize_taticas, tatica_by_channel
+from . import formats as format_catalog
+from .places_bridge import normalize_formatos
+from .portais import normalize_portais
+from .taticas import formats_for_channel, normalize_taticas, tatica_by_channel
 
 
 def mix_shares(campanha: dict, canais: list[str]) -> tuple[dict[str, float], dict[str, int]]:
@@ -45,7 +48,8 @@ def mix_shares(campanha: dict, canais: list[str]) -> tuple[dict[str, float], dic
 
 def build_snapshot(row: dict, dados: dict | None = None) -> dict:
     dados = as_dict(dados if dados is not None else row.get("dados_detectados"))
-    campanha = as_dict(dados.get("campanha"))
+    # Planos salvos antes da mudança trazem Interativos e portais como canais: lê no modelo atual.
+    campanha = format_catalog.migrate_campanha(as_dict(dados.get("campanha")))
     brand = as_dict(dados.get("brand"))
     fonte = as_dict(dados.get("fonte"))
     refs = normalize_references(fonte.get("referencias") or dados.get("referencias"))
@@ -53,6 +57,17 @@ def build_snapshot(row: dict, dados: dict | None = None) -> dict:
     shares, split = mix_shares(campanha, canais)
     taticas = normalize_taticas(campanha.get("taticas") or dados.get("taticas"), canais)
     tatica_of = tatica_by_channel(taticas)
+    formatos = normalize_formatos(
+        {
+            **{key: list(value) for key, value in as_dict(campanha.get("formatos")).items()},
+            **{
+                key: list(dict.fromkeys(as_list(as_dict(campanha.get("formatos")).get(key)) + formats_for_channel(key, taticas)))
+                for key in canais if formats_for_channel(key, taticas)
+            },
+        },
+        canais,
+    )
+    portais = normalize_portais(campanha.get("portais"))
     mix = []
     for key in canais:
         mix.append({
@@ -62,7 +77,8 @@ def build_snapshot(row: dict, dados: dict | None = None) -> dict:
             "amount": split.get(key),
             "amount_label": format_money(int(split.get(key) or 0)) if split.get(key) else "",
             "desc": (CHANNEL_CATALOG.get(key) or {}).get("desc", ""),
-            "tatica": tatica_of.get(key, ""),
+            "tatica": ",".join(tatica_of.get(key, [])),
+            "taticas": tatica_of.get(key, []),
         })
     # Places (produto em formatação) fica por último; a ordem dos demais canais não muda.
     mix.sort(key=lambda row: 1 if row["id"] == "places" else 0)
@@ -131,7 +147,11 @@ def build_snapshot(row: dict, dados: dict | None = None) -> dict:
         },
         "places": snapshot_places(campanha.get("places") or dados.get("places")),
         "ooh_inventory": as_dict(campanha.get("inventario_ooh") or dados.get("inventario_ooh")),
-        "interativos": as_dict(campanha.get("interativos") or dados.get("interativos")),
+        "formatos": formatos,
+        "formatos_com_custo_agregado": format_catalog.aggregated_names(
+            [slug for values in formatos.values() for slug in values]
+        ),
+        "portais": portais,
         "taticas": taticas,
         "restrictions": [text(dados.get("observacoes"))] if text(dados.get("observacoes")) else [],
         # Apoio capturado pelo usuário: disponível para a geração, mas não promovido

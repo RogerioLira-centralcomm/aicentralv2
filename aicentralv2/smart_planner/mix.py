@@ -10,13 +10,12 @@ from .catalog import (
     CHANNEL_GROUPS,
     CHANNEL_LOGOS,
     GROUP_KPIS,
-    INTERATIVOS_FORMATS,
     SPECIAL_MIX_IDS,
     SPECIAL_SUGGESTED_PCT,
     media_channel_keys,
 )
 from .helpers import as_bool, as_dict, as_list, text
-from .taticas import INTERATIVOS_HOSTS, spec_for_js as taticas_spec
+from .taticas import spec_for_js as taticas_spec
 from .pace import as_int, format_money
 
 
@@ -331,9 +330,7 @@ def spec_for_js() -> dict:
         "kpis": {key: list(value) for key, value in GROUP_KPIS.items()},
         "specialMix": list(SPECIAL_MIX_IDS),
         "specialPct": SPECIAL_SUGGESTED_PCT,
-        "portalChannels": list(INTERATIVOS_HOSTS),
         "taticas": taticas_spec(),
-        "interativosFormats": [dict(item) for item in INTERATIVOS_FORMATS],
         "defaultGroupWeight": _DEFAULT_GROUP_WEIGHT,
     }
 

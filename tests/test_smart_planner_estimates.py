@@ -85,6 +85,8 @@ def test_suggest_only_fills_missing_channels_and_never_touches_executive_values(
     out = suggest_media_params(SNAP, existing)
     assert out["canais"]["dv360"] == {"cpm": 22.0, "origem": "executivo"}
     assert out["canais"]["interativos"]["origem"] == "modelo" and out["canais"]["interativos"]["cpm"] == 48.0
+    # CPC coerente com CPM e CTR: 48 / (0,9 x 10) = 5,33, não o 2,1 que o modelo devolveu
+    assert out["canais"]["interativos"]["cpc"] == 5.33
     assert "places" not in out["canais"] and out["revisado"] is False
     assert out["indicador"]["metrica"] == "cpm" and "Referência de mercado." in out["premissas"]
     assert len(calls) == 1 and "places" not in calls[0].lower().split("canais")[-1][:400]

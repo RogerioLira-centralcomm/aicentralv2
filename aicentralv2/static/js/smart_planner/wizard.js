@@ -97,11 +97,6 @@
     }
   }
 
-  function portalSelected(canais) {
-    var portals = ((readJson("sp-mix-spec", {}).portalChannels) || ["g1", "uol", "r7", "cnn"]);
-    return (canais || []).some(function (key) { return portals.indexOf(key) !== -1; });
-  }
-
   function collectPlaces() {
     var channel = document.querySelector('#sp-mix-channels input[name="canais"][value="places"]');
     if (channel && !channel.checked) return [];
@@ -116,17 +111,8 @@
   }
 
   var taticasDraft = null;
-
-  function taticasFromRows(rows) {
-    return (rows || []).map(function (row) {
-      return {
-        tipo: row.tipo,
-        canais: (row.canais || []).slice(),
-        dco: (row.formatos || []).indexOf("dco") !== -1 || !!row.dco,
-        segmento: row.segmento || "",
-      };
-    });
-  }
+  var formatosDraft = null;
+  var portaisDraft = null;
 
   function selectedCanaisNow() {
     return Array.prototype.slice.call(document.querySelectorAll('#sp-mix-channels input[name="canais"]:checked')).map(function (el) {
@@ -134,26 +120,62 @@
     });
   }
 
+  function formatosState() {
+    if (formatosDraft === null) formatosDraft = JSON.parse(JSON.stringify(readJson("sp-formatos-boot", {}) || {}));
+    return formatosDraft;
+  }
+
+  function portaisState() {
+    if (portaisDraft === null) portaisDraft = JSON.parse(JSON.stringify(readJson("sp-portais-boot", {}) || {}));
+    return portaisDraft;
+  }
+
+  function taticasFromRows(rows) {
+    return (rows || []).map(function (row) {
+      var formats = (row.formatos || []).filter(function (slug) { return slug !== "dco"; });
+      return {
+        tipo: row.tipo,
+        canais: (row.canais || []).slice(),
+        formatos: formats,
+        dco: (row.formatos || []).indexOf("dco") !== -1 || !!row.dco,
+        segmento: row.segmento || "",
+        peso: row.peso || "",
+      };
+    });
+  }
+
+  function collectFormatos() {
+    var canais = selectedCanaisNow();
+    var out = {};
+    var state = formatosState();
+    Object.keys(state).forEach(function (key) {
+      if (canais.indexOf(key) !== -1 && (state[key] || []).length) out[key] = state[key].slice();
+    });
+    return out;
+  }
+
+  function collectPortais() {
+    if (selectedCanaisNow().indexOf("dv360") === -1) return {};
+    var state = portaisState();
+    var out = {};
+    ["categorias", "regioes", "ufs"].forEach(function (key) {
+      if ((state[key] || []).length) out[key] = state[key].slice();
+    });
+    if (state.segmento) out.segmento = state.segmento;
+    if ((state.sites_preferidos || []).length) out.sites_preferidos = state.sites_preferidos.slice();
+    return out;
+  }
+
   function collectTaticas() {
     if (taticasDraft === null) taticasDraft = taticasFromRows(readJson("sp-taticas-boot", []));
     var canais = selectedCanaisNow();
-    var interativos = collectInterativos().formats;
     return taticasDraft.map(function (row) {
       var mine = row.canais.filter(function (key) { return canais.indexOf(key) !== -1; });
-      var formatos = mine.indexOf("interativos") !== -1 ? interativos.slice() : [];
+      var formatos = (row.formatos || []).slice();
       if (row.dco) formatos.push("dco");
-      return { tipo: row.tipo, canais: mine, formatos: formatos, segmento: row.segmento || "" };
+      var peso = parseFloat(String(row.peso || "").replace(",", "."));
+      return { tipo: row.tipo, canais: mine, formatos: formatos, segmento: row.segmento || "", peso: peso > 0 ? peso : null };
     }).filter(function (row) { return row.canais.length; });
-  }
-
-  function collectInterativos() {
-    var channel = document.querySelector('#sp-mix-channels input[name="canais"][value="interativos"]');
-    if (channel && !channel.checked) return { formats: [] };
-    return {
-      formats: Array.prototype.slice.call(document.querySelectorAll('input[name="interativos_formats"]:checked')).map(function (el) {
-        return el.value;
-      }),
-    };
   }
 
   function setWaitMeta(eyebrow, title, copy) {
@@ -1189,6 +1211,8 @@
         method: selectedMethod(),
         alocacao: monthValues(),
         taticas: collectTaticas(),
+        formatos: collectFormatos(),
+        portais: collectPortais(),
       });
     }
     function restoreMediaSnapshot(raw) {
@@ -1201,7 +1225,9 @@
           input.checked = (snap.canais || []).indexOf(input.value) !== -1;
         });
         taticasDraft = taticasFromRows(snap.taticas || []);
-        document.dispatchEvent(new Event("sp-taticas-render"));
+        formatosDraft = JSON.parse(JSON.stringify(snap.formatos || {}));
+        portaisDraft = JSON.parse(JSON.stringify(snap.portais || {}));
+        document.dispatchEvent(new Event("sp-formats-render"));
         if (snap.method) setMethod(snap.method);
         paintBars(allocate(
           selectedCanais(),
@@ -1783,7 +1809,8 @@
           progress: false,
         },
         places: collectPlaces(),
-        interativos: collectInterativos(),
+        formatos: collectFormatos(),
+        portais: collectPortais(),
         taticas: collectTaticas(),
         verba_alocacao: monthValues(),
         campos: {
@@ -1809,7 +1836,8 @@
           kpi_principal: data.get("kpi_principal"),
           kpis: data.get("kpis"),
           places: collectPlaces(),
-          interativos: collectInterativos(),
+          formatos: collectFormatos(),
+          portais: collectPortais(),
           taticas: collectTaticas(),
           anunciante_confidencial: data.get("anunciante_confidencial") === "1" || data.get("anunciante_confidencial") === "on",
         },
@@ -1830,8 +1858,7 @@
     setupKpiChips();
     setupPlacesDesk();
     setupGeoModal();
-    setupInterativosDesk();
-    setupTaticasDesk();
+    setupFormatsDesk();
     setupReviewSections();
     setupCompleteness();
     setupReviewAutosave(collectReview);
@@ -2296,17 +2323,154 @@
     paint();
   }
 
-  function setupTaticasDesk() {
-    var desk = document.getElementById("sp-taticas-desk");
-    var list = document.getElementById("sp-taticas-list");
-    var note = document.getElementById("sp-taticas-note");
+  function setupFormatsDesk() {
+    var formatsDesk = document.getElementById("sp-formatos-desk");
+    var formatsList = document.getElementById("sp-formatos-list");
+    var portaisDesk = document.getElementById("sp-portais-desk");
+    var taticasDesk = document.getElementById("sp-taticas-desk");
+    var taticasList = document.getElementById("sp-taticas-list");
+    var taticasNote = document.getElementById("sp-taticas-note");
     var spec = readJson("sp-mix-spec", {});
     var tspec = spec.taticas || {};
-    if (!desk || !list || !tspec.tipos) return;
+    var channelFormats = tspec.channelFormats || {};
+    var facets = readJson("sp-portais-facets", {});
+    var network = tspec.network || "dv360";
     var labels = spec.labels || {};
     var groups = spec.groups || {};
     var blocked = tspec.dcoBlockedGroups || [];
-    var hosts = tspec.interativosHosts || [];
+    var TYPE_LABELS = { display: "Display", video: "Vídeo", native: "Native", "rich-media": "Rich media", display_interativo: "Interativos", interactive: "Interativos", social: "Social", ctv: "CTV", audio: "Áudio", search: "Busca" };
+
+    function labelOf(key) {
+      var box = document.querySelector('#sp-mix-channels input[name="canais"][value="' + key + '"]');
+      var name = box && box.closest("label") && box.closest("label").querySelector("span:last-child");
+      return (name && name.textContent.replace("em formatação", "").trim()) || labels[key] || key;
+    }
+    function groupFormats(rows) {
+      var order = [];
+      var byType = {};
+      rows.forEach(function (fmt) {
+        var key = fmt.interactive ? "interativos" : (fmt.type || "outros");
+        if (key === "display_interativo" || key === "rich-media") key = fmt.interactive ? "interativos" : key;
+        if (!byType[key]) { byType[key] = []; order.push(key); }
+        byType[key].push(fmt);
+      });
+      order.sort(function (a, b) { return (a === "interativos") - (b === "interativos"); });
+      return order.map(function (key) { return { key: key, label: key === "interativos" ? "Interativos" : (TYPE_LABELS[key] || key), items: byType[key] }; });
+    }
+    function dcoChannels(canais) {
+      return canais.filter(function (key) { return blocked.indexOf(groups[key] || "") === -1; });
+    }
+
+    // ---------- Formatos por canal
+    function renderFormats() {
+      if (!formatsDesk || !formatsList) return;
+      var canais = selectedCanaisNow().filter(function (key) { return (channelFormats[key] || []).length; });
+      formatsDesk.hidden = !canais.length;
+      if (!canais.length) return;
+      var state = formatosState();
+      formatsList.innerHTML = canais.map(function (key) {
+        var picked = state[key] || [];
+        var open = picked.length || key === network;
+        return '<details class="sp-formatos-channel"' + (open ? " open" : "") + '><summary><strong>' + escapeHtml(labelOf(key)) + "</strong><small>"
+          + (picked.length ? picked.length + (picked.length === 1 ? " formato" : " formatos") : "nenhum formato escolhido") + "</small></summary>"
+          + '<div class="sp-formatos-list-scroll">' + groupFormats(channelFormats[key]).map(function (group) {
+            return '<div class="sp-formatos-group"><span>' + escapeHtml(group.label) + (group.key === "interativos" ? " · custo agregado" : "") + "</span>"
+              + group.items.map(function (fmt) {
+                // O tamanho aparece só quando o nome ainda não o traz (Billboard (970x250) já diz).
+                var size = (fmt.dimensions || "").split(/[|;]/)[0].replace(/\s*pixels/i, "").trim();
+                var dims = size && !/IAB|conforme|autom/i.test(size) && fmt.name.replace(/\s/g, "").toLowerCase().indexOf(size.replace(/\s/g, "").toLowerCase()) === -1
+                  ? ' <small>' + escapeHtml(size.slice(0, 28)) + "</small>" : "";
+                return '<label><input type="checkbox" name="formato" data-canal="' + key + '" value="' + fmt.id + '"'
+                  + (picked.indexOf(fmt.id) !== -1 ? " checked" : "") + "> " + escapeHtml(fmt.name) + dims + "</label>";
+              }).join("") + "</div>";
+          }).join("") + "</div></details>";
+      }).join("");
+    }
+    if (formatsList) {
+      formatsList.addEventListener("change", function (event) {
+        var target = event.target;
+        if (!target || target.name !== "formato") return;
+        var state = formatosState();
+        var key = target.getAttribute("data-canal");
+        var list = (state[key] || []).filter(function (slug) { return slug !== target.value; });
+        if (target.checked) list.push(target.value);
+        state[key] = list;
+        renderFormats();
+        renderTaticas();
+      });
+    }
+
+    // ---------- Rede de portais e sites
+    var previewTimer = null;
+    function portaisQuery() {
+      var state = portaisState();
+      var params = new URLSearchParams();
+      ["categorias", "regioes", "ufs"].forEach(function (key) { if ((state[key] || []).length) params.set(key, state[key].join(",")); });
+      if (state.segmento) params.set("segmento", state.segmento);
+      return params.toString();
+    }
+    function paintSites(result) {
+      var box = document.getElementById("sp-portais-sites");
+      var summary = document.getElementById("sp-portais-summary");
+      if (!box || !summary) return;
+      var sites = (result && result.sites) || [];
+      summary.textContent = result && result.total
+        ? result.total + (result.total === 1 ? " site" : " sites") + " no recorte" + (result.relaxed === "regiao" ? " (portais nacionais: sem portais da região no perfil)" : result.relaxed === "segmento" ? " (classe aberta: sem portais com esse perfil)" : "") + ". Os maiores:"
+        : "Sem recorte: o plano mostra os maiores portais do catálogo.";
+      box.innerHTML = sites.map(function (site) { return "<li>" + escapeHtml(site.name) + "</li>"; }).join("");
+    }
+    function fetchSites() {
+      window.clearTimeout(previewTimer);
+      previewTimer = window.setTimeout(function () {
+        fetch("/smart-planner/api/portais/sites?" + portaisQuery(), { credentials: "same-origin" })
+          .then(function (response) { return response.json(); })
+          .then(function (data) { paintSites(data.data || data); })
+          .catch(function () {});
+      }, 250);
+    }
+    function renderPortais() {
+      if (!portaisDesk) return;
+      var show = selectedCanaisNow().indexOf(network) !== -1;
+      portaisDesk.hidden = !show;
+      if (!show) return;
+      var state = portaisState();
+      var box = document.getElementById("sp-portais-filters");
+      if (box && !box.dataset.ready) {
+        box.dataset.ready = "1";
+        box.innerHTML = '<div class="sp-tatica__row"><span>Categorias</span>' + (facets.categorias || []).map(function (item) {
+          return '<label><input type="checkbox" name="portal_categoria" value="' + escapeHtml(item.id) + '"> ' + escapeHtml(item.id) + " <small>" + item.count + "</small></label>";
+        }).join("") + '</div><div class="sp-tatica__row"><span>Regiões</span>' + (facets.regioes || []).map(function (item) {
+          return '<label><input type="checkbox" name="portal_regiao" value="' + item.id + '"> ' + item.id + "</label>";
+        }).join("") + '</div><div class="sp-tatica__row"><label>Perfil de classe <select class="cx-input" name="portal_segmento"><option value="">Sem recorte</option>'
+          + (facets.segmentos || []).map(function (seg) { return '<option value="' + seg + '">Classes ' + seg + "</option>"; }).join("") + "</select></label></div>";
+      }
+      if (box) {
+        box.querySelectorAll('input[name="portal_categoria"]').forEach(function (el) { el.checked = (state.categorias || []).indexOf(el.value) !== -1; });
+        box.querySelectorAll('input[name="portal_regiao"]').forEach(function (el) { el.checked = (state.regioes || []).indexOf(el.value) !== -1; });
+        var sel = box.querySelector('select[name="portal_segmento"]');
+        if (sel) sel.value = state.segmento || "";
+      }
+      fetchSites();
+    }
+    if (portaisDesk) {
+      portaisDesk.addEventListener("change", function (event) {
+        var target = event.target;
+        if (!target || !target.name) return;
+        var state = portaisState();
+        if (target.name === "portal_categoria" || target.name === "portal_regiao") {
+          var key = target.name === "portal_categoria" ? "categorias" : "regioes";
+          var list = (state[key] || []).filter(function (value) { return value !== target.value; });
+          if (target.checked) list.push(target.value);
+          state[key] = list;
+        } else if (target.name === "portal_segmento") {
+          state.segmento = target.value;
+        }
+        fetchSites();
+        renderTaticas();
+      });
+    }
+
+    // ---------- Táticas
     function draft() {
       if (taticasDraft === null) taticasDraft = taticasFromRows(readJson("sp-taticas-boot", []));
       return taticasDraft;
@@ -2314,23 +2478,14 @@
     function rowFor(tipo) {
       return draft().filter(function (row) { return row.tipo === tipo; })[0];
     }
-    function dcoChannels(canais) {
-      return canais.filter(function (key) {
-        return key !== "interativos" && blocked.indexOf(groups[key] || "") === -1;
-      });
-    }
-    function labelOf(key) {
-      var box = document.querySelector('#sp-mix-channels input[name="canais"][value="' + key + '"]');
-      var name = box && box.closest("label") && box.closest("label").querySelector("span:last-child");
-      return (name && name.textContent.trim()) || labels[key] || key;
-    }
-    function render() {
+    function renderTaticas() {
+      if (!taticasDesk || !taticasList) return;
       var canais = selectedCanaisNow().filter(function (key) { return (spec.media || []).indexOf(key) !== -1; });
-      desk.hidden = canais.length < 2;
-      if (desk.hidden) return;
-      var interativos = collectInterativos().formats;
+      taticasDesk.hidden = canais.length < 1;
+      if (taticasDesk.hidden) return;
+      var state = formatosState();
       var warn = [];
-      list.innerHTML = tspec.tipos.map(function (tipo) {
+      taticasList.innerHTML = (tspec.tipos || []).map(function (tipo) {
         var row = rowFor(tipo.id);
         var mine = row ? row.canais.filter(function (key) { return canais.indexOf(key) !== -1; }) : [];
         var on = !!row;
@@ -2343,12 +2498,19 @@
               return '<label><input type="checkbox" name="tatica_canal" data-tipo="' + tipo.id + '" value="' + key + '"'
                 + (mine.indexOf(key) !== -1 ? " checked" : "") + "> " + escapeHtml(labelOf(key)) + "</label>";
             }).join("") + "</div>";
-          if (mine.indexOf("interativos") !== -1) {
-            var names = (spec.interativosFormats || []).filter(function (item) { return interativos.indexOf(item.id) !== -1; })
-              .map(function (item) { return item.label; });
-            html += '<div class="sp-tatica__row"><span>Formatos interativos: '
-              + escapeHtml(names.length ? names.join(", ") : "escolha nos formatos acima") + "</span></div>";
-            if (!names.length) warn.push(tipo.label + ": escolha os formatos interativos.");
+          var available = [];
+          mine.forEach(function (key) { (state[key] || []).forEach(function (slug) { if (available.indexOf(slug) === -1) available.push(slug); }); });
+          var names = {};
+          Object.keys(channelFormats).forEach(function (key) { channelFormats[key].forEach(function (fmt) { names[fmt.id] = fmt.name; }); });
+          row.formatos = (row.formatos || []).filter(function (slug) { return available.indexOf(slug) !== -1; });
+          if (available.length) {
+            html += '<div class="sp-tatica__row"><span>Formatos desta frente</span>' + available.map(function (slug) {
+              return '<label><input type="checkbox" name="tatica_formato" data-tipo="' + tipo.id + '" value="' + slug + '"'
+                + (row.formatos.indexOf(slug) !== -1 ? " checked" : "") + "> " + escapeHtml(names[slug] || slug) + "</label>";
+            }).join("") + "</div>";
+          } else if (mine.length) {
+            html += '<div class="sp-tatica__row"><span>Escolha os formatos de ' + escapeHtml(mine.map(labelOf).join(", ")) + " em Formatos por canal.</span></div>";
+            if (tipo.id === "impacto") warn.push(tipo.label + ": escolha os formatos que a frente vai veicular.");
           }
           if (dcoChannels(mine).length) {
             html += '<div class="sp-tatica__row"><label><input type="checkbox" name="tatica_dco" data-tipo="' + tipo.id + '"'
@@ -2356,7 +2518,7 @@
           } else if (row.dco) {
             row.dco = false;
           }
-          if (mine.some(function (key) { return hosts.indexOf(key) !== -1; })) {
+          if (mine.indexOf(network) !== -1) {
             html += '<div class="sp-tatica__row"><label>Recorte dos portais <select class="cx-input" name="tatica_segmento" data-tipo="' + tipo.id + '">'
               + '<option value="">Sem recorte</option>'
               + (tspec.segmentos || []).map(function (seg) {
@@ -2365,89 +2527,66 @@
           } else if (row.segmento) {
             row.segmento = "";
           }
+          html += '<div class="sp-tatica__row"><label>Peso na verba <input class="cx-input sp-tatica__peso" type="number" min="1" max="100" step="1" name="tatica_peso" data-tipo="'
+            + tipo.id + '" value="' + escapeHtml(row.peso || "") + '" placeholder="%"> %</label></div>';
           if (!mine.length) warn.push(tipo.label + ": marque ao menos um canal.");
           html += "</div>";
         }
         return html + "</fieldset>";
       }).join("");
-      if (note) note.textContent = warn.join(" ");
+      var pesos = draft().filter(function (row) { return row.canais.length; }).map(function (row) { return parseFloat(row.peso) || 0; });
+      if (pesos.length > 1 && pesos.some(Boolean) && !pesos.every(Boolean)) warn.push("Informe o peso das duas frentes ou deixe em branco: o plano usa o mix dos canais.");
+      if (taticasNote) taticasNote.textContent = warn.join(" ");
     }
-    list.addEventListener("change", function (event) {
-      var target = event.target;
-      if (!target || !target.name) return;
-      var tipo = target.getAttribute("data-tipo") || target.value;
-      if (target.name === "tatica_on") {
-        var rows = draft().filter(function (row) { return row.tipo !== tipo; });
-        if (target.checked) {
-          var canais = selectedCanaisNow();
-          var start = tipo === "impacto"
-            ? canais.filter(function (key) { return key === "interativos" || hosts.indexOf(key) !== -1; })
-            : canais.filter(function (key) { return key === "dv360"; });
-          rows.push({ tipo: tipo, canais: start, dco: tipo === "remarketing" && start.length > 0, segmento: "" });
+    if (taticasList) {
+      taticasList.addEventListener("change", function (event) {
+        var target = event.target;
+        if (!target || !target.name) return;
+        var tipo = target.getAttribute("data-tipo") || target.value;
+        if (target.name === "tatica_on") {
+          var rows = draft().filter(function (row) { return row.tipo !== tipo; });
+          if (target.checked) {
+            var canais = selectedCanaisNow();
+            var start = tipo === "impacto" ? canais.filter(function (key) { return key === network || (channelFormats[key] || []).length; }).slice(0, 1) : canais.filter(function (key) { return key === network; });
+            rows.push({ tipo: tipo, canais: start, formatos: [], dco: tipo === "remarketing" && start.length > 0, segmento: "", peso: "" });
+          }
+          taticasDraft = rows;
+        } else {
+          var row = rowFor(tipo);
+          if (!row) return;
+          if (target.name === "tatica_canal") {
+            row.canais = Array.prototype.slice.call(taticasList.querySelectorAll('input[name="tatica_canal"][data-tipo="' + tipo + '"]:checked')).map(function (el) { return el.value; });
+          } else if (target.name === "tatica_formato") {
+            row.formatos = Array.prototype.slice.call(taticasList.querySelectorAll('input[name="tatica_formato"][data-tipo="' + tipo + '"]:checked')).map(function (el) { return el.value; });
+          } else if (target.name === "tatica_dco") {
+            row.dco = target.checked;
+          } else if (target.name === "tatica_segmento") {
+            row.segmento = target.value;
+          } else if (target.name === "tatica_peso") {
+            row.peso = target.value;
+          }
         }
-        taticasDraft = rows;
-      } else {
-        var row = rowFor(tipo);
-        if (!row) return;
-        if (target.name === "tatica_canal") {
-          row.canais = Array.prototype.slice.call(list.querySelectorAll('input[name="tatica_canal"][data-tipo="' + tipo + '"]:checked'))
-            .map(function (el) { return el.value; });
-        } else if (target.name === "tatica_dco") {
-          row.dco = target.checked;
-        } else if (target.name === "tatica_segmento") {
-          row.segmento = target.value;
+        renderTaticas();
+      });
+      taticasList.addEventListener("input", function (event) {
+        var target = event.target;
+        if (target && target.name === "tatica_peso") {
+          var row = rowFor(target.getAttribute("data-tipo"));
+          if (row) row.peso = target.value;
         }
-      }
-      render();
-      document.dispatchEvent(new Event("sp-taticas-changed"));
-    });
-    document.addEventListener("change", function (event) {
-      if (event.target && (event.target.name === "canais" || event.target.name === "interativos_formats")) render();
-    });
-    document.addEventListener("sp-taticas-render", render);
-    render();
-  }
-
-  function setupInterativosDesk() {
-    var desk = document.getElementById("sp-interativos-desk");
-    var formats = document.getElementById("sp-interativos-formats");
-    var note = document.getElementById("sp-interativos-note");
-    var spec = readJson("sp-mix-spec", {});
-    var boot = readJson("sp-interativos-boot", {});
-    var box = document.querySelector('#sp-mix-channels input[name="canais"][value="interativos"]');
-    var label = box && box.closest("label");
-    if (!desk || !formats) return;
-    function canaisNow() {
-      return Array.prototype.slice.call(document.querySelectorAll('#sp-mix-channels input[name="canais"]:checked')).map(function (el) {
-        return el.value;
       });
     }
-    function paint() {
-      var allowed = portalSelected(canaisNow());
-      if (label) label.classList.toggle("is-off", !allowed);
-      if (box && !allowed && box.checked) box.checked = false;
-      desk.hidden = !(box && box.checked && allowed);
-      if (note) note.textContent = allowed ? "Formatos só nestes portais." : "Interativos entram no portal.";
-      var picked = (boot.formats || []);
-      formats.innerHTML = (spec.interativosFormats || []).map(function (item) {
-        return '<label><input type="checkbox" name="interativos_formats" value="' + item.id + '"'
-          + (picked.indexOf(item.id) !== -1 ? " checked" : "") + "> " + escapeHtml(item.label) + "</label>";
-      }).join("");
+
+    function renderAll() {
+      renderFormats();
+      renderPortais();
+      renderTaticas();
     }
     document.addEventListener("change", function (event) {
-      if (!event.target) return;
-      if (event.target.name === "canais") {
-        if (event.target.value === "interativos" && event.target.checked && !portalSelected(canaisNow().concat(["interativos"]))) {
-          event.target.checked = false;
-          if (note) note.textContent = "Interativos entram no portal.";
-        }
-        paint();
-      }
-      if (event.target.name === "interativos_formats") {
-        boot.formats = collectInterativos().formats;
-      }
+      if (event.target && event.target.name === "canais") renderAll();
     });
-    paint();
+    document.addEventListener("sp-formats-render", renderAll);
+    renderAll();
   }
 
   function setupReviewAutosave(collectReview) {

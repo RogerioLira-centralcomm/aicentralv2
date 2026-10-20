@@ -392,10 +392,13 @@ body.is-presenter [data-sx-presenter],body.is-presenter [data-sx-present]{displa
   linear-gradient(0deg,color-mix(in srgb,var(--sx-ink) 70%,transparent) 0%,transparent 35%)}
 .is-hero .sx-cover-copy,.is-hero .sx-cover-mock,.is-hero .sx-foot{position:relative;z-index:1}
 .is-hero .sx-foot{position:absolute}
-.sx-cover-mock{display:flex;align-items:center;justify-content:center;padding:var(--pad-top) var(--pad-x) var(--pad-bottom) 0}
-.sx-cover-mock .sx-mock{width:100%;filter:drop-shadow(0 30px 60px #0007)}
-.sx-cover-mock .sx-mock figcaption{color:#ffffffcc}
-.sx-cover-mock .sx-mock-phone{width:52%}
+/* O mockup fica no canto de baixo, longe do centro da arte de fundo, onde costuma estar a pessoa ou o produto. */
+.sx-cover-mock{display:flex;align-items:flex-end;justify-content:flex-end;padding:var(--pad-top) var(--pad-x) calc(var(--pad-bottom) + 40px) 0}
+.sx-cover-mock .sx-mock{width:90%;filter:drop-shadow(0 30px 60px #0009)}
+.sx-cover-mock .sx-mock figcaption{display:flex;justify-content:flex-end;margin-top:14px;color:#ffffffcc}
+.sx-cover-mock .sx-mock-phone{width:46%;margin-right:0}
+/* A marca do anunciante costuma ficar no canto de cima à esquerda do criativo; a logo do canal vai para a direita. */
+.sx-mock-screen .sx-mock-logo{left:auto;right:16px}
 
 /* Criativo nos canais: uma tela por canal, no layout de cada um. */
 .sx-showcase{display:grid;grid-template-columns:repeat(var(--cols,3),minmax(0,1fr));gap:var(--gap-4);align-items:end;margin-top:var(--gap-4)}

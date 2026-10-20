@@ -208,7 +208,8 @@
             {% if slide.whatsapp and slide.first_name %}<p class="sx-contact-note">A mensagem já vai com o link deste plano. É só escrever sua dúvida para {{ slide.first_name }}.</p>{% endif %}
           </div>
           {% endif %}
-          <footer class="sx-foot"><span>{{ client or title }}</span><span>{{ slide.index }} / {{ slides|length }}</span></footer>
+          {# Na capa o nome do cliente já está no topo; o rodapé fica só com a numeração. #}
+          <footer class="sx-foot"><span>{% if slide.type != 'cover' %}{{ client or title }}{% endif %}</span><span>{{ slide.index }} / {{ slides|length }}</span></footer>
         </section>
         <p class="sx-frame-label" aria-hidden="true"><b>{{ slide.index }}</b>{{ slide.nav }}</p>
         <template data-sx-notes>{% for note in slide.notes %}<li>{{ note }}</li>{% endfor %}</template>

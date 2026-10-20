@@ -473,3 +473,30 @@ body.is-presenter [data-sx-presenter],body.is-presenter [data-sx-present]{displa
 .sx-env-rail{position:absolute;right:8px;bottom:22%;z-index:1;display:flex;flex-direction:column;gap:10px}
 .sx-env-rail i{width:22px;height:22px;border-radius:50%;background:#ffffffd9;box-shadow:0 0 0 2px var(--ev-hi2,transparent)}
 .sx-showcase .sx-format{margin-top:6px!important;color:var(--sx-ink);font-size:14px;font-weight:600;line-height:1.35}
+
+/* Ícone de linha no título do slide, no lugar do traço */
+.sx-kicker svg{width:44px;height:44px;flex:none;padding:9px;border-radius:12px;background:color-mix(in srgb,var(--sx-accent) 18%,#fff);fill:none;stroke:var(--sx-brand);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+/* Destaques em negrito no texto corrido: só peso e tinta, sem cor nova */
+.sx-slide p strong,.sx-slide span strong,.sx-cols.is-defense li strong,.sx-assumptions li strong{color:var(--sx-ink);font-size:inherit;font-weight:700;letter-spacing:inherit}
+
+/* Um canal só: a tela num tamanho de leitura e os dados ao lado, sem sobrar meia página */
+.sx-showcase.is-1{max-width:none;margin-top:var(--gap-5)}
+.sx-showcase.is-1 article{display:grid;grid-template-columns:minmax(0,680px) minmax(0,1fr);grid-template-rows:1fr auto auto auto 1fr;column-gap:var(--gap-8)}
+.sx-showcase.is-1 .sx-mock{grid-column:1;grid-row:1/-1;height:400px}
+.sx-showcase.is-1 h3,.sx-showcase.is-1 p{grid-column:2}
+.sx-showcase.is-1 h3{grid-row:2;flex-direction:column;align-items:flex-start;gap:4px;margin:0;font-size:40px}
+.sx-showcase.is-1 h3 b{order:-1;font-size:20px;font-weight:700;letter-spacing:0}
+.sx-showcase.is-1 h3 b::after{content:" da verba"}
+.sx-showcase.is-1 p{grid-row:3;margin-top:var(--gap-2)!important;max-width:30ch;font-size:24px;line-height:1.45}
+.sx-showcase.is-1 .sx-format{grid-row:4;margin-top:var(--gap-3)!important;padding:10px 16px;justify-self:start;border-radius:999px;background:var(--sx-soft);font-size:17px}
+
+/* Impacto: frase de leitura, tabela que respira com poucas linhas e premissas ao lado */
+.sx-impact-lead{max-width:52ch;margin:0 0 var(--gap-4)!important;color:var(--sx-muted);font-size:26px;line-height:1.4}
+.sx-impact-body.is-rows-1 .sx-table,.sx-impact-body.is-rows-2 .sx-table{font-size:22px}
+.sx-impact-body.is-rows-1 .sx-table th,.sx-impact-body.is-rows-1 .sx-table td,.sx-impact-body.is-rows-2 .sx-table th,.sx-impact-body.is-rows-2 .sx-table td{padding:18px 16px}
+.sx-impact-body{align-items:start}
+.sx-assumptions{padding:var(--gap-3);border-radius:18px;background:var(--sx-soft)}
+.sx-assumptions span{color:var(--sx-brand);font-size:15px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.sx-assumptions ul{margin:var(--gap-2) 0 0;padding-left:20px}
+.sx-assumptions li{color:var(--sx-ink);font-size:18px;line-height:1.45}
+.sx-assumptions li+li{margin-top:8px}

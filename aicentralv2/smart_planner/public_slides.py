@@ -10,6 +10,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from markupsafe import Markup, escape
+
 from .helpers import as_dict, as_list, short_title, text
 from .mockups import channel_logo, mockups_for, showcase_for, site_logo
 
@@ -352,6 +354,7 @@ def _impact(view: dict) -> dict | None:
     if not as_list(impact.get("rows")):
         return None
     indicator = as_dict(impact.get("indicator"))
+    rows = as_list(impact.get("rows"))[:5]
     return {
         "type": "impact",
         "nav": "Estimativa de impacto",
@@ -360,7 +363,11 @@ def _impact(view: dict) -> dict | None:
         "reviewed": bool(impact.get("reviewed")),
         "cards": as_list(impact.get("cards"))[:4],
         "indicator": indicator if indicator.get("label") else {},
-        "rows": as_list(impact.get("rows"))[:5],
+        "rows": rows,
+        "has_reach": any(text(as_dict(row).get("reach")) for row in rows),
+        # A origem já está no selo ao lado do título; o slide lê só o volume e o investimento.
+        "lead": text(impact.get("headline")).split(": ", 1)[-1][:1].upper() + text(impact.get("headline")).split(": ", 1)[-1][1:],
+        "assumptions": [clip(item, 140) for item in as_list(impact.get("assumptions")) if text(item)][:4],
         "note": "Estimativa de referência, não promessa de resultado. " + text(impact.get("reach_note")),
     }
 
@@ -434,6 +441,65 @@ def _contact(view: dict) -> dict:
     }
 
 
+# Ícone de linha (24 x 24, traço) no título de cada slide, no lugar do traço genérico.
+ICONS = {
+    "thesis": '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+    "context": '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>',
+    "audience": '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18 14.3a6.5 6.5 0 0 1 3.5 5.7"/>',
+    "creative": '<path d="M12 3l1.8 4.9L19 9.7l-5.2 1.8L12 16.5l-1.8-5L5 9.7l5.2-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
+    "showcase": '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+    "media": '<path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/>',
+    "formats": '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+    "first_party": '<ellipse cx="12" cy="5.5" rx="8" ry="2.5"/><path d="M4 5.5v6c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5v-6"/><path d="M4 11.5v6c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5v-6"/>',
+    "impact": '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+    "defense": '<path d="M12 3l8 3v6c0 4.5-3.4 8.2-8 9-4.6-.8-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
+    "market": '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+    "contact": '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-5A8 8 0 1 1 21 12z"/>',
+}
+
+# Números que o cliente procura no texto: valores, percentuais e volumes (1,4 mi, 7 mil, 3x).
+NUMBER = r"R\$\s?\d[\d.,]*(?:\s?(?:milhões|milhão|bilhões|mil|mi|bi)(?!\w))?|\d[\d.,]*\s?(?:%|(?:milhões|milhão|bilhões|mil|mi|bi)(?!\w))|\d+x(?!\w)"
+MAX_EMPHASIS = 3
+
+
+def emphasis_terms(view: dict) -> list[str]:
+    """Nomes que valem negrito em texto corrido: o cliente e os canais do plano."""
+    terms = [text(view.get("client")), text(as_dict(view.get("cover_identity")).get("client"))]
+    terms += [text(as_dict(c).get("label")) for c in as_list(as_dict(view.get("media")).get("channels"))]
+    seen: list[str] = []
+    for term in terms:
+        if len(term) >= 3 and term.lower() not in {t.lower() for t in seen}:
+            seen.append(term)
+    return sorted(seen, key=len, reverse=True)
+
+
+def emphasize(value: Any, terms: list[str] | tuple = ()) -> Markup:
+    """Texto escapado com até três destaques em negrito (números e nomes), para leitura rápida."""
+    raw = text(value)
+    if not raw:
+        return Markup("")
+    parts = [NUMBER] + [rf"(?<!\w){re.escape(term)}(?!\w)" for term in terms]
+    pattern = re.compile("|".join(f"(?:{part})" for part in parts))
+    out, last, used, seen = [], 0, 0, set()
+    for match in pattern.finditer(raw):
+        key = match.group(0).lower()
+        if used >= MAX_EMPHASIS or key in seen:
+            continue
+        seen.add(key)
+        used += 1
+        out.append(escape(raw[last:match.start()]))
+        out.append(Markup("<strong>%s</strong>") % match.group(0))
+        last = match.end()
+    out.append(escape(raw[last:]))
+    return Markup("").join(out)
+
+
+def highlighter(view: dict):
+    """Função do template: ``{{ hl(texto) }}`` devolve o texto com os destaques do plano."""
+    terms = emphasis_terms(view)
+    return lambda value: emphasize(value, terms)
+
+
 BUILDERS = (_cover, _thesis, _context, _audience, _creative, _showcase, _media, _formats, _first_party, _impact, _defense, _market, _contact)
 
 
@@ -480,5 +546,6 @@ def build_slides(view: dict) -> list[dict]:
             slides.append(slide)
     for index, slide in enumerate(slides, start=1):
         slide["index"] = index
+        slide["icon"] = Markup(ICONS.get(slide.get("type"), ""))
         slide["notes"] = _notes(slide, as_dict(view))
     return slides

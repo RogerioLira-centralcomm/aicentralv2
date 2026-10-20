@@ -134,11 +134,12 @@ def _public_document_response(view: dict, row: dict | None = None):
     view["slides_url"] = base_url + ("?paleta=neutra" if view.get("neutral_palette") and base_url else "")
     view["document_page_url"] = (base_url + "?formato=documento") if base_url else "?formato=documento"
     if view.get("document") == "proposal" and (request.args.get("formato") or "").strip().lower() != "documento":
-        from .public_slides import build_slides
+        from .public_slides import build_slides, highlighter
 
         slides = build_slides(view)
         if len(slides) > 1:
             view["slides"] = slides
+            view["hl"] = highlighter(view)
             view["cover"] = slides[0]
             hero = view.get("hero") or {}
             # As cores vão para um bloco <style>: só cor hexadecimal entra.

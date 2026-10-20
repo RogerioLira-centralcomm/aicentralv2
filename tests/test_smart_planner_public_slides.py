@@ -396,3 +396,21 @@ def test_old_art_from_another_client_cannot_be_used(tmp_path, monkeypatch):
     assert images.is_creative_file("/static/uploads/smart_planner/animale-creative-aa11.png", "animale")
     assert not images.is_creative_file("/static/uploads/smart_planner/caixa-creative-bb22.png", "animale")
     assert not images.is_creative_file("/static/uploads/smart_planner/animale-creative-square-cc33.png", "animale")
+
+
+def test_long_text_gets_up_to_three_escaped_highlights():
+    from aicentralv2.smart_planner.public_slides import emphasize
+
+    html = str(emphasize("Com R$ 100.000 no YouTube, 1,4 mi de impressões, 7 mil cliques e 0,5% <b>", ["YouTube"]))
+    assert html.count("<strong>") == 3
+    assert "<strong>R$ 100.000</strong>" in html and "<strong>YouTube</strong>" in html
+    assert "&lt;b&gt;" in html
+
+
+def test_slides_carry_line_icons_and_impact_reads_without_the_origin():
+    view = {**VIEW, "impact": {**VIEW["impact"], "headline": "Estimativa de referência, em validação: cerca de 6,5 mi de impressões.", "assumptions": ["CPM de R$ 70"]}}
+    slides = build_slides(view)
+    assert all(slide["icon"] for slide in slides if slide["type"] not in {"cover"})
+    impact = next(s for s in slides if s["type"] == "impact")
+    assert impact["lead"] == "Cerca de 6,5 mi de impressões."
+    assert impact["assumptions"] == ["CPM de R$ 70"]

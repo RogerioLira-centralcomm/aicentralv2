@@ -221,17 +221,39 @@
   function galleryItemHtml(item) {
     var creative = item.kind === "creative";
     var actions = creative
-      ? (item.active ? "" : '<button type="button" data-gallery-action="use">Usar no plano</button>')
+      ? (item.active ? "" : '<button type="button" data-gallery-action="use">Usar como principal</button>' + extraButton(item.in_plan))
       : '<button type="button" data-gallery-action="hero">Usar no hero</button>';
     return (
-      '<figure class="sp-gallery-item is-' + escapeHtml(item.shape || "horizontal") + (item.active ? " is-active" : "") +
+      '<figure class="sp-gallery-item is-' + escapeHtml(item.shape || "horizontal") + (item.active ? " is-active" : "") + (item.in_plan ? " is-extra" : "") +
       '" data-url="' + escapeHtml(item.url) + '" data-kind="' + escapeHtml(item.kind || "") + '">' +
       '<img src="' + escapeHtml(item.url) + '" alt="' + escapeHtml(item.label || "") + '" loading="lazy">' +
-      (item.active ? '<span class="sp-gallery-badge">No plano</span>' : "") +
+      (item.active ? '<span class="sp-gallery-badge">Principal</span>' : (item.in_plan ? '<span class="sp-gallery-badge is-extra">No plano</span>' : "")) +
       "<figcaption><span>" + escapeHtml(item.label || "") + (item.shape_label ? " · " + escapeHtml(item.shape_label) : "") + "</span>" +
       (item.formats && item.formats.length ? "<small>" + escapeHtml(item.formats.join(" · ")) + "</small>" : "") +
       '<div class="sp-gallery-actions">' + actions + '<button type="button" data-gallery-action="remove">Apagar</button></div></figcaption></figure>'
     );
+  }
+
+  function extraButton(inPlan) {
+    return '<button type="button" data-gallery-action="' + (inPlan ? "exclude" : "include") + '">' + (inPlan ? "Tirar do plano" : "Incluir no plano") + "</button>";
+  }
+
+  // Peças extras: além da principal, até três artes entram no slide de criativos da campanha.
+  var MAX_EXTRA_ARTS = 3;
+
+  function setExtraArt(figure, url, on) {
+    var creative = (((plan.sections || [])[0] || {}).cards || []).find(function (card) { return card.type === "creative"; });
+    var art = creative && (creative.images || []).find(function (item) { return item.url === url; });
+    if (!art) throw new Error("Esta arte não está na galeria do plano.");
+    if (on && (creative.images || []).filter(function (item) { return item.in_plan === true && item.url !== creative.image_url; }).length >= MAX_EXTRA_ARTS) {
+      throw new Error("O plano já tem 3 peças além da principal. Tire uma antes de incluir outra.");
+    }
+    art.in_plan = on;
+    figure.classList.toggle("is-extra", on);
+    figure.querySelector(".sp-gallery-badge")?.remove();
+    if (on) figure.querySelector("img").insertAdjacentHTML("afterend", '<span class="sp-gallery-badge is-extra">No plano</span>');
+    var button = figure.querySelector('[data-gallery-action="include"], [data-gallery-action="exclude"]');
+    if (button) button.outerHTML = extraButton(on);
   }
 
   function refreshGallery(items) {
@@ -803,6 +825,18 @@
       save().then(function () {
         setLive("Imagem removida da página pública.");
         toast("Imagem removida.", "success");
+      }).catch(function (error) { toast(error.message, "error"); });
+      return;
+    }
+    if (kind === "include" || kind === "exclude") {
+      try {
+        setExtraArt(figure, url, kind === "include");
+      } catch (error) {
+        toast(error.message, "error");
+        return;
+      }
+      save().then(function () {
+        toast(kind === "include" ? "Peça incluída no plano." : "Peça tirada do plano.", "success");
       }).catch(function (error) { toast(error.message, "error"); });
       return;
     }

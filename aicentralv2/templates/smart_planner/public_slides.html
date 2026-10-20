@@ -11,7 +11,7 @@
   <meta property="og:url" content="{{ document_url }}"><meta property="og:image" content="{{ share_image }}"><meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_slides.css') }}?v=15">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_slides.css') }}?v=16">
   {% if template_css %}<style>:root{ {{- template_css -}} }</style>{% else %}<style>:root{--sx-ink:{{ slide_ink or '#14252d' }};--sx-accent:{{ slide_accent or '#d5aa3b' }}}</style>{% endif %}
 </head>
 <body class="sx is-booting{% if neutral_palette %} is-neutral{% endif %}" data-document-url="{{ document_page_url }}" data-channel="{{ public_token or 'plano' }}" data-total="{{ slides|length }}">
@@ -121,6 +121,14 @@
           <h2 class="sx-title-md">{{ slide.title }}</h2>
           <div class="sx-showcase is-{{ slide.screens|length }}">
             {% for m in slide.screens %}<article class="is-{{ m.kind }}">{{ mockup(m, 'md') }}<h3 class="sx-with-logo">{{ m.channel }}{% if m.pct %}<b>{{ m.pct }}%</b>{% endif %}</h3><p>{{ m.placement }}</p>{% if m.formats %}<p class="sx-format">{% for f in m.formats %}{{ f.name }} · {{ f.size }}{% if not loop.last %} + {% endif %}{% endfor %}</p>{% endif %}</article>{% endfor %}
+          </div>
+          <p class="sx-footnote">{{ slide.note }}</p>
+
+          {% elif slide.type == 'arts' %}
+          {{ kicker(slide) }}
+          <h2 class="sx-title-md">{{ slide.title }}</h2>
+          <div class="sx-arts is-{{ slide.arts|length }}">
+            {% for art in slide.arts %}<figure class="is-{{ art.shape }}{% if loop.first %} is-main{% endif %}"><div><img src="{{ art.url }}" alt="{{ art.label }}" loading="lazy"></div><figcaption>{{ art.label }}</figcaption></figure>{% endfor %}
           </div>
           <p class="sx-footnote">{{ slide.note }}</p>
 

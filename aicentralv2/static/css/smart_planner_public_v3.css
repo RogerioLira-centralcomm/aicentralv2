@@ -95,3 +95,15 @@
 .spv3-decision-copy h2{font-size:clamp(1.25rem,1.6vw,1.6rem)!important}
 .spv3-editorial-market strong{font-size:clamp(1.4rem,2.2vw,2.2rem)!important}
 .spv3-media-sequence{display:none}
+
+/* Criativos da campanha */
+.spv3-editorial-arts{padding:var(--pad);border-radius:18px;background:var(--paper)}
+.spv3-editorial-arts h2{margin:0;font-size:clamp(1.3rem,1.8vw,1.7rem);line-height:1.2;letter-spacing:-.025em}
+.spv3-editorial-arts>p{max-width:62ch;margin:10px 0 0;color:var(--muted)}
+.spv3-arts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;align-items:end;margin-top:22px}
+.spv3-arts figure{display:flex;flex-direction:column;margin:0}
+.spv3-arts img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:12px}
+.spv3-arts .is-vertical img{width:auto;height:300px;aspect-ratio:9/16;margin:0 auto}
+.spv3-arts .is-vertical figcaption{text-align:center}
+.spv3-arts figcaption{margin-top:8px;color:var(--muted);font-size:13px;font-weight:600}
+.spv3-arts .is-main figcaption{color:var(--brand)}

@@ -14,7 +14,7 @@ from .brand import brand_for_client, snapshot_brand, load_cx_client_for_crm
 from .canvas import SECTIONS
 from .estimates import ORIGIN_LABELS as ESTIMATE_ORIGIN_LABELS, public_view as estimates_view
 from .helpers import as_dict, as_list, plan_mode_of, text
-from .images import ART_PUBLIC_PREFIX, creative_images, is_generated_art, is_variant_file
+from .images import ART_PUBLIC_PREFIX, MAX_EXTRA_ARTS, creative_images, is_generated_art, is_variant_file
 from .logos import lookup_agency_for_client, public_logo
 from .skills.catalog import COMPLETO_STEPS, ONE_PAGE_STEPS
 
@@ -142,6 +142,7 @@ def _gallery(folha: dict) -> list[dict]:
             "shape_label": SHAPE_LABELS.get(shape, "Horizontal"),
             "formats": [VARIANT_LABELS[shape]] + [VARIANT_LABELS[key] for key in ("horizontal", "vertical", "square") if text(variants.get(key)) and key != shape],
             "active": art["url"] == current,
+            "in_plan": art["url"] != current and art.get("in_plan") is True,
         })
     # Plano de antes da lista de artes: as artes antigas estão só na pasta, pelo nome do cliente.
     legacy = [] if as_list(creative.get("images")) else _generated_files(_slug_from_meta(folha))
@@ -164,6 +165,11 @@ def _gallery(folha: dict) -> list[dict]:
     bg = text(as_dict(folha.get("theme")).get("bg_url"))
     if bg and is_generated_art(bg) and not any(item["url"] == bg for item in items):
         items.append({"id": "bg", "label": "Fundo gerado", "url": bg, "kind": "background", "status": "draft", "active": False})
+    extras = 0
+    for item in items:
+        if item.get("in_plan"):
+            extras += 1
+            item["in_plan"] = extras <= MAX_EXTRA_ARTS
     return items[:16]
 
 

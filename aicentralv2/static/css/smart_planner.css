@@ -6456,3 +6456,7 @@ html.is-sp-media body {
 .sp-impact-review__assumptions{margin:0;padding-left:1.1rem;color:#36484e;font-size:.78rem}
 .sp-impact-review small{color:#5f7076;font-size:.72rem}
 .sp-impact-review .cx-btn{justify-self:start}
+
+/* Peças extras do plano: contorno mais leve que o da principal */
+.sp-gallery-badge.is-extra{background:#fff;color:#216b66;box-shadow:inset 0 0 0 1.5px #216b66}
+.sp-art-pick .sp-gallery-item.is-extra{outline:2px dashed #216b66;outline-offset:-1px}

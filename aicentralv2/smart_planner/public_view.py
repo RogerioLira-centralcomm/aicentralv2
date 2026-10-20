@@ -12,6 +12,7 @@ from urllib.parse import quote, urlparse
 
 from flask import has_request_context, url_for
 
+from .images import extra_arts
 from .catalog import CHANNEL_CATALOG, CHANNEL_LOGOS, OBJETIVO_OPTIONS, PRIMARY_FORMATS, PRACA_OPTIONS, objetivo_label
 from .helpers import as_bool, as_dict, as_list, normalize_markdown, plan_mode_of, session_title, short_title, text
 from .mix import METHODS
@@ -1498,6 +1499,12 @@ def public_view(row: dict, document: str | None = None) -> dict:
             # Vertical e quadrada só valem para a arte de onde foram geradas.
             "creative_variants": _creative_variants(creative, visuals[0]["url"] if visuals else ""),
             "support_image": visuals[1] if len(visuals) > 1 else {},
+            "creative_shape": text(creative.get("shape")) or "horizontal",
+            # Outras peças que o executivo marcou para o plano; só com criativo gerado como principal.
+            "campaign_arts": [
+                {"url": item["url"], "shape": text(item.get("shape")) or "horizontal"}
+                for item in extra_arts(creative) if visuals and visuals[0].get("kind") != "theme"
+            ],
             "has_generated_visual": bool(visuals and visuals[0].get("kind") != "theme"),
             "uses_image_background": bool(visuals and visuals[0].get("kind") != "theme" and use_image_background),
             "background_image": creative_image if use_image_background else "",

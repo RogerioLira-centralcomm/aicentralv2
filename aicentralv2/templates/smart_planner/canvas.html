@@ -4,7 +4,7 @@
 {% block title %}{{ titulo }} · Planejamentos{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=64">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=65">
 {% endblock %}
 
 {% block content %}
@@ -154,16 +154,16 @@
               </section>
               <section class="sp-art-pick" aria-labelledby="sp-art-pick-title">
                 <div class="sp-image-prep__head">
-                  <div><span class="sp-readout-kicker">Artes do plano</span><strong id="sp-art-pick-title">Escolha a que vai para a proposta</strong></div>
-                  <small>Vale para o link, o PDF e o PowerPoint.</small>
+                  <div><span class="sp-readout-kicker">Artes do plano</span><strong id="sp-art-pick-title">Escolha a principal e as outras peças do plano</strong></div>
+                  <small>A principal vai para a capa e as telas dos canais; até 3 outras entram no slide de criativos.</small>
                 </div>
                 <div class="sp-gallery" id="sp-gallery" aria-label="Artes geradas">
                   {% if gallery %}
                   {% for item in gallery %}
-                  <figure class="sp-gallery-item is-{{ item.shape or 'horizontal' }} {% if item.active %}is-active{% endif %}" data-url="{{ item.url }}" data-kind="{{ item.kind }}">
+                  <figure class="sp-gallery-item is-{{ item.shape or 'horizontal' }} {% if item.active %}is-active{% endif %} {% if item.in_plan %}is-extra{% endif %}" data-url="{{ item.url }}" data-kind="{{ item.kind }}">
                     <img src="{{ item.url }}" alt="{{ item.label }}" loading="lazy">
-                    {% if item.active %}<span class="sp-gallery-badge">No plano</span>{% endif %}
-                    <figcaption><span>{{ item.label }}{% if item.shape_label %} · {{ item.shape_label }}{% endif %}</span>{% if item.formats %}<small>{{ item.formats|join(' · ') }}</small>{% endif %}<div class="sp-gallery-actions">{% if item.kind == 'creative' %}{% if not item.active %}<button type="button" data-gallery-action="use">Usar no plano</button>{% endif %}{% else %}<button type="button" data-gallery-action="hero">Usar no hero</button>{% endif %}<button type="button" data-gallery-action="remove">Apagar</button></div></figcaption>
+                    {% if item.active %}<span class="sp-gallery-badge">Principal</span>{% elif item.in_plan %}<span class="sp-gallery-badge is-extra">No plano</span>{% endif %}
+                    <figcaption><span>{{ item.label }}{% if item.shape_label %} · {{ item.shape_label }}{% endif %}</span>{% if item.formats %}<small>{{ item.formats|join(' · ') }}</small>{% endif %}<div class="sp-gallery-actions">{% if item.kind == 'creative' %}{% if not item.active %}<button type="button" data-gallery-action="use">Usar como principal</button><button type="button" data-gallery-action="{{ 'exclude' if item.in_plan else 'include' }}">{{ 'Tirar do plano' if item.in_plan else 'Incluir no plano' }}</button>{% endif %}{% else %}<button type="button" data-gallery-action="hero">Usar no hero</button>{% endif %}<button type="button" data-gallery-action="remove">Apagar</button></div></figcaption>
                   </figure>
                   {% endfor %}
                   {% else %}
@@ -460,5 +460,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}?v=12"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}?v=13"></script>
 {% endblock %}

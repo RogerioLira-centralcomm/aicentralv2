@@ -183,6 +183,25 @@ def _showcase(view: dict) -> dict | None:
     }
 
 
+def _campaign_arts(view: dict) -> dict | None:
+    """As peças da campanha lado a lado: a principal e as extras que o executivo marcou."""
+    hero = as_dict(view.get("hero"))
+    extras = [as_dict(item) for item in as_list(hero.get("campaign_arts")) if text(as_dict(item).get("url"))]
+    main = text(hero.get("creative_image"))
+    if not extras or not main or not hero.get("has_generated_visual"):
+        return None
+    arts = [{"url": main, "shape": text(hero.get("creative_shape")) or "horizontal", "label": "Peça principal"}]
+    arts += [{"url": text(item["url"]), "shape": text(item.get("shape")) or "horizontal", "label": f"Peça {index}"} for index, item in enumerate(extras, 2)]
+    return {
+        "type": "arts",
+        "nav": "Criativos da campanha",
+        "kicker": "Criativos da campanha",
+        "title": "As peças que a campanha usa",
+        "arts": arts,
+        "note": "A peça principal aparece nas telas dos canais. As demais entram na rotação de criativos.",
+    }
+
+
 def _share_bar(view: dict) -> list[dict]:
     """Uma barra só: frentes, quando houver, ou canais. Mais que isso vira gráfico com linhas demais."""
     fronts = [as_dict(front) for front in as_list(view.get("fronts")) if as_dict(front).get("weight")]
@@ -425,6 +444,7 @@ ICONS = {
     "audience": '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18 14.3a6.5 6.5 0 0 1 3.5 5.7"/>',
     "creative": '<path d="M12 3l1.8 4.9L19 9.7l-5.2 1.8L12 16.5l-1.8-5L5 9.7l5.2-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
     "showcase": '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+    "arts": '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/>',
     "media": '<path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/>',
     "formats": '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
     "first_party": '<ellipse cx="12" cy="5.5" rx="8" ry="2.5"/><path d="M4 5.5v6c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5v-6"/><path d="M4 11.5v6c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5v-6"/>',
@@ -480,7 +500,7 @@ def highlighter(view: dict):
     return lambda value: emphasize(value, pattern=pattern)
 
 
-BUILDERS = (_cover, _thesis, _context, _audience, _creative, _showcase, _media, _formats, _first_party, _defense, _market, _contact)
+BUILDERS = (_cover, _thesis, _context, _audience, _creative, _showcase, _campaign_arts, _media, _formats, _first_party, _defense, _market, _contact)
 
 
 def _notes(slide: dict, view: dict) -> list[str]:

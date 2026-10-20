@@ -139,6 +139,8 @@ def apply_sheet_art(plan: dict, force: bool = False) -> dict:
 MAX_ARTS_PER_RUN = 4
 SHAPE_BRIEF = {"horizontal": "horizontal 16:9 for display or CTV", "vertical": "vertical 9:16 for stories, reels and vertical video"}
 MAX_ARTS_KEPT = 12
+# Peças extras que entram no slide de criativos da campanha, além da principal.
+MAX_EXTRA_ARTS = 3
 # Cada arte da mesma rodada muda o enquadramento, para o executivo ter opções de verdade.
 ART_ANGLES = (
     "",
@@ -216,6 +218,23 @@ def regenerate_creative(plan: dict, uploaded_references: list[str] | None = None
     return plan
 
 
+def extra_arts(creative: dict) -> list[dict]:
+    """Artes marcadas para o plano além da principal, na ordem da galeria."""
+    current = text(as_dict(creative).get("image_url"))
+    return [item for item in creative_images(creative) if item.get("in_plan") is True and item["url"] != current][:MAX_EXTRA_ARTS]
+
+
+def trim_extra_arts(images: list[dict]) -> list[dict]:
+    """No máximo MAX_EXTRA_ARTS extras: as mais antigas da lista perdem a marca."""
+    marked = 0
+    for item in images:
+        if item.get("in_plan") is True:
+            marked += 1
+            if marked > MAX_EXTRA_ARTS:
+                item["in_plan"] = False
+    return images
+
+
 def use_creative(plan: dict, url: str, channels: list | None = None) -> dict:
     """Põe uma arte da galeria no plano e gera as variações dela que ainda faltam."""
     creative = _creative_card(plan)
@@ -241,7 +260,13 @@ def use_creative(plan: dict, url: str, channels: list | None = None) -> dict:
     if missing:
         variants.update(_render_variants(chosen["url"], slug, _brand_references(branding, hero), missing))
     chosen["variants"] = variants
-    creative["images"] = images
+    # A principal não conta como extra; a que deixou de ser principal segue no plano como extra.
+    previous = text(creative.get("image_url"))
+    chosen.pop("in_plan", None)
+    for item in images:
+        if previous and item["url"] == previous and item is not chosen:
+            item["in_plan"] = True
+    creative["images"] = trim_extra_arts(images)
     creative["image_url"] = chosen["url"]
     creative["variants"] = variants
     creative["shape"] = shape

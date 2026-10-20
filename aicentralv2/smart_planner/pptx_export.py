@@ -384,6 +384,26 @@ def _showcase(deck, data, view):
     return slide
 
 
+def _arts(deck, data, view):
+    """As peças da campanha lado a lado, cada uma no seu formato."""
+    slide = deck.slide()
+    deck.kicker(slide, data)
+    deck.title(slide, data.get("title"), size=28)
+    arts = [as_dict(a) for a in as_list(data.get("arts"))][:4]
+    gap = 0.35
+    width = (W_IN - 2 * PAD - gap * (len(arts) - 1)) / max(1, len(arts))
+    for index, art in enumerate(arts):
+        x = PAD + index * (width + gap)
+        ratio = 9 / 16 if text(art.get("shape")) == "vertical" else 16 / 9
+        h = min(3.8, width / ratio)
+        w = h * ratio
+        if not deck.cover_image(slide, art.get("url"), x + (width - w) / 2, 5.6 - h, w, h):
+            deck.box(slide, x, 5.6 - h, width, h, deck.soft)
+        deck.text(slide, x, 5.75, width, 0.35, art.get("label"), size=14, bold=True, color=deck.brand if index == 0 else None)
+    deck.text(slide, PAD, 6.55, W_IN - 2 * PAD, 0.3, data.get("note"), size=10, color=deck.muted)
+    return slide
+
+
 def _first_party(deck, data, view):
     slide = deck.slide()
     deck.kicker(slide, data)
@@ -430,7 +450,7 @@ def _contact(deck, data, view):
 
 
 RENDERERS = {
-    "thesis": _thesis, "context": _context, "audience": _audience, "creative": _creative, "showcase": _showcase,
+    "thesis": _thesis, "context": _context, "audience": _audience, "creative": _creative, "showcase": _showcase, "arts": _arts,
     "media": _media, "formats": _formats, "first_party": _first_party, "defense": _defense,
     "market": _market, "contact": _contact,
 }

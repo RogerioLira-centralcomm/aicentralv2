@@ -741,7 +741,8 @@ def _normalize_card(card: dict, index: int) -> dict:
     if variants:
         extra["variants"] = variants
     images = [
-        {"url": text(item.get("url")), "shape": text(item.get("shape")) or "horizontal", "variants": _clean_variants(item.get("variants")), "model": text(item.get("model"))}
+        {"url": text(item.get("url")), "shape": text(item.get("shape")) or "horizontal", "variants": _clean_variants(item.get("variants")), "model": text(item.get("model")),
+         "in_plan": item.get("in_plan") is True}
         for item in (as_dict(raw) for raw in as_list(card.get("images")))
         if text(item.get("url"))
     ][:12]

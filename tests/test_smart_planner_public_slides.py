@@ -384,7 +384,7 @@ def test_saving_the_editor_keeps_the_arts_and_their_versions():
     plan = normalize_one_page({"sections": [{"id": "one_page", "cards": [card]}]}, {}, {})
     saved = plan["sections"][0]["cards"][0]
     assert saved["shape"] == "vertical" and saved["variants"] == {"square": "/q.png"}
-    assert saved["images"] == [{"url": "/a.png", "shape": "vertical", "variants": {"square": "/q.png"}, "model": ""}]
+    assert saved["images"] == [{"url": "/a.png", "shape": "vertical", "variants": {"square": "/q.png"}, "model": "", "in_plan": False}]
 
 
 def test_old_art_from_another_client_cannot_be_used(tmp_path, monkeypatch):
@@ -418,3 +418,37 @@ def test_highlight_stops_before_the_punctuation():
     from aicentralv2.smart_planner.public_slides import emphasize
 
     assert str(emphasize("com R$ 100.000, a marca")) == "com <strong>R$ 100.000</strong>, a marca"
+
+
+def test_extra_arts_go_with_the_main_one_and_cap_at_three(monkeypatch):
+    from aicentralv2.smart_planner import images
+    from aicentralv2.smart_planner.editor import _gallery
+
+    monkeypatch.setattr(images, "_render", lambda prompt, stem, aspect_ratio, references=None: f"/static/{stem}.png")
+    card = {"type": "creative", "image_url": "/a.png", "images": [
+        {"url": "/a.png"}, {"url": "/b.png", "in_plan": True}, {"url": "/c.png", "in_plan": True},
+        {"url": "/d.png", "in_plan": True}, {"url": "/e.png", "in_plan": True}, {"url": "/f.png"}]}
+    assert [a["url"] for a in images.extra_arts(card)] == ["/b.png", "/c.png", "/d.png"]
+    assert [i["in_plan"] for i in _gallery({"sections": [{"cards": [card]}]})] == [False, True, True, True, False, False]
+
+    # A principal trocada continua no plano como extra; a nova principal deixa de ser extra.
+    plan = {"meta": {"client": "x"}, "sections": [{"cards": [{"type": "creative", "image_url": "/a.png",
+            "images": [{"url": "/a.png"}, {"url": "/b.png", "in_plan": True}]}]}]}
+    images.use_creative(plan, "/b.png", [])
+    card = plan["sections"][0]["cards"][0]
+    assert card["image_url"] == "/b.png"
+    assert [a["url"] for a in images.extra_arts(card)] == ["/a.png"]
+
+
+def test_arts_slide_shows_the_main_piece_first_only_when_there_are_extras():
+    from aicentralv2.smart_planner.pptx_export import build_pptx
+    from aicentralv2.smart_planner import presentation
+
+    hero = {"creative_image": "/static/a.png", "has_generated_visual": True, "creative_shape": "vertical"}
+    assert not any(s["type"] == "arts" for s in build_slides({**VIEW, "hero": hero}))
+    slides = build_slides({**VIEW, "hero": {**hero, "campaign_arts": [{"url": "/static/b.png", "shape": "horizontal"}]}})
+    arts = next(s for s in slides if s["type"] == "arts")
+    assert [(a["url"], a["shape"], a["label"]) for a in arts["arts"]] == [
+        ("/static/a.png", "vertical", "Peça principal"), ("/static/b.png", "horizontal", "Peça 2")]
+    assert arts["icon"]
+    assert build_pptx({"client": "Animale"}, [arts], presentation.CENTRALCOMM)

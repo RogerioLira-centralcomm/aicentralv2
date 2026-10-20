@@ -35,6 +35,8 @@ except ImportError:  # pragma: no cover
 
 from flask import has_request_context, url_for
 
+from aicentralv2.services.brevo_service import email_asset_url
+
 from .pi_fechamento_service import PiFechamentoService, ZONA_LABELS
 
 
@@ -765,11 +767,7 @@ class PiDocumentoService:
         if not callable(renderer):
             return self._email_html(mensagem)
         codigo = _texto(snapshot.get("codigo_pi") or snapshot.get("id_pi"))
-        logo = (
-            url_for("static", filename="images/cc_logo.png", _external=True)
-            if has_request_context()
-            else "https://ai.centralcomm.media/static/images/cc_logo.png"
-        )
+        logo = email_asset_url("/static/images/cc_logo.png")
         corpo = escape(mensagem or "").replace("\n", "<br/>")
         try:
             return renderer(

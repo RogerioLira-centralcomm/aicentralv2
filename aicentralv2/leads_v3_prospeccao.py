@@ -107,7 +107,8 @@ def _casa_mascara(mascara, token):
 
 
 def nomes_batem(a, b) -> bool:
-    """Mesmo primeiro nome e: sobrenome mascarado compatível, ou último sobrenome igual, ou nome inteiro igual."""
+    """Mesmo primeiro nome e: sobrenome mascarado compatível, ou um nome contido no outro ('Ana Martins' em
+    'Ana Flávia Martins'). Nomes do meio diferentes ('Ana Paula Martins' x 'Ana Clara Martins') não batem."""
     ta, tb = _tokens_nome(a), _tokens_nome(b)
     if not ta or not tb or ta[0] != tb[0] or "*" in ta[0]:
         return False
@@ -120,7 +121,8 @@ def nomes_batem(a, b) -> bool:
     if ma or mb:
         mascara, outros = (ma[-1], tb[1:]) if ma else (mb[-1], ta[1:])
         return any(_casa_mascara(mascara, t) for t in outros)
-    return ta[-1] == tb[-1]
+    curto, longo = sorted((ta, tb), key=len)
+    return curto[-1] == longo[-1] and set(curto) <= set(longo)
 
 
 def _linkedin_chave(url):

@@ -89,7 +89,7 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, notify, onCh
   const [linkedin, setLinkedin] = useState(null);
   const [edit, setEdit] = useState(null);
   const nome = pretty(c.nome);
-  const abrirEdicao = () => setEdit({nome: pretty(c.nome), cargo: pretty(c.cargo), email: String(c.email || '').toLowerCase(), telefone: c.telefone || ''});
+  const abrirEdicao = (limpar = {}) => setEdit({nome: pretty(c.nome), cargo: pretty(c.cargo), email: String(c.email || '').toLowerCase(), telefone: c.telefone || '', ...limpar});
   const salvarEdicao = async event => {
     event.preventDefault();
     if (!edit.nome.trim()) return notify('Informe o nome.', 'error');
@@ -114,7 +114,7 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, notify, onCh
   const revelar = run('reveal', () => api.revealContact(c.id), r => r.encontrou_email ? `E-mail verificado: ${r.email}.` : (r.motivo || 'O Apollo não tem e-mail para esta pessoa.'));
   const errado = (campo, valor) => () => {
     if (window.confirm(`${valor} não é de ${nome}? Ele sai da ficha (fica registrado no histórico) e você pode digitar o certo.`)) {
-      run('wrong', () => api.wrongData(c.id, campo), `${campo === 'email' ? 'E-mail' : 'Celular'} retirado. Digite o certo em Editar.`)().then(abrirEdicao);
+      run('wrong', () => api.wrongData(c.id, campo), `${campo === 'email' ? 'E-mail' : 'Celular'} retirado. Digite o certo em Editar.`)().then(() => abrirEdicao({[campo]: ''}));
     }
   };
   // Tudo que completa a ficha fica num menu só; a linha de contato mostra só o dado e a situação dele.
@@ -124,7 +124,7 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, notify, onCh
     boot.fontes.apollo && !c.telefone && c.telefone_status !== 'pedido' && {icon: 'mobile-screen', label: 'Buscar celular (Apollo)', hint: c.telefone_status === 'sem_numero' ? 'o Apollo já disse que não tem; tentar de novo gasta créditos' : 'créditos de telefone, chega em minutos',
       onClick: () => { if (window.confirm(`Pedir o celular de ${nome} ao Apollo? Consome créditos de telefone do plano (mais que um e-mail).`)) run('phone', () => api.requestPhone(c.id), 'Celular pedido ao Apollo. Chega em alguns minutos.')(); }},
     !c.linkedin_url && {icon: 'link', label: 'Colar LinkedIn', onClick: () => setLinkedin('')},
-    {icon: 'keyboard', label: 'Digitar e-mail ou celular', onClick: abrirEdicao},
+    {icon: 'keyboard', label: 'Digitar e-mail ou celular', onClick: () => abrirEdicao()},
     c.email && {icon: 'envelope', label: 'E-mail está errado', danger: true, onClick: errado('email', String(c.email).toLowerCase())},
     c.telefone && {icon: 'phone-slash', label: 'Celular está errado', danger: true, onClick: errado('telefone', c.telefone)},
   ].filter(Boolean);
@@ -147,7 +147,7 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, notify, onCh
             : <a className="lv3-iconbtn" href={linkedinSearchUrl(nome.replace(/\*/g, ''), empresa)} target="_blank" rel="noopener noreferrer" title="Procurar no LinkedIn" aria-label={`Procurar ${nome} no LinkedIn`}><Icon name="magnifying-glass"/></a>}
           <MoreMenu trigger="icon" icon="wand-magic-sparkles" label={`Completar dados de ${nome}`} disabled={!!busy} items={enriquecer}/>
           <MoreMenu trigger="icon" label={`Mais ações de ${nome}`} disabled={!!busy} items={[
-            {icon: 'pen', label: 'Editar', onClick: abrirEdicao},
+            {icon: 'pen', label: 'Editar', onClick: () => abrirEdicao()},
             !c.is_principal && {icon: 'star', label: 'Tornar principal', onClick: run('primary', () => api.makePrimary(leadId, c.id), 'Contato principal atualizado.')},
             {icon: 'trash', label: 'Remover', danger: true, onClick: () => { if (window.confirm(`Remover ${nome} deste lead?`)) run('remove', () => api.removeContact(c.id), 'Contato removido.')(); }},
           ].filter(Boolean)}/>

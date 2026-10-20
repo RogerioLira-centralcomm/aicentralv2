@@ -297,6 +297,7 @@ class MesmaPessoaTest(TestCase):
         self.assertTrue(p.nomes_batem("JULIANA ROMANO", "Juliana Romano"))
         self.assertTrue(p.nomes_batem("Ana Martins", "Ana Flávia Martins"))
         self.assertFalse(p.nomes_batem("Ana Paula Barros", "Ana Paula Sanchez"))
+        self.assertFalse(p.nomes_batem("Ana Paula Martins", "Ana Clara Martins"))
         self.assertFalse(p.nomes_batem("Paula", "Paula Nunes"))  # só o primeiro nome é pouco para juntar
 
     def test_achar_existente_por_ids_antes_do_nome(self):

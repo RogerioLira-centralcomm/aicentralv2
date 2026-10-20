@@ -389,6 +389,13 @@ def short_count(value) -> str:
     return str(int(number))
 
 
+# Na página pública o cliente lê a origem sem o vocabulário interno (modelo, IA).
+PUBLIC_ORIGIN_LABELS = {
+    "model_estimate": "Estimativa de referência, em validação",
+    "executive_reviewed": "Estimativa revisada pelo executivo",
+}
+
+
 def brl(value, digits: int = 2) -> str:
     """1.5 -> 'R$ 1,50'."""
     number = _number(value)
@@ -452,7 +459,7 @@ def public_view(estimates: dict) -> dict:
         }
     return {
         "origin": data.get("origin"),
-        "origin_label": ORIGIN_LABELS.get(data.get("origin"), "Estimativa"),
+        "origin_label": PUBLIC_ORIGIN_LABELS.get(data.get("origin"), "Estimativa"),
         "reviewed": bool(data.get("reviewed")),
         "headline": headline(data),
         "cards": cards,
@@ -474,7 +481,7 @@ def headline(estimates: dict) -> str:
     parts = [f"cerca de {short_count(totals['impressions'])} de impressões"]
     if totals.get("clicks"):
         parts.append(f"{short_count(totals['clicks'])} de cliques")
-    origin = ORIGIN_LABELS.get(data.get("origin"), "Estimativa")
+    origin = PUBLIC_ORIGIN_LABELS.get(data.get("origin"), "Estimativa")
     return f"{origin}: {' e '.join(parts)} com {totals.get('invested_label')} investidos."
 
 

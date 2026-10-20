@@ -159,6 +159,9 @@ def test_public_view_formats_numbers_and_explains_the_indicator():
     result = calculate_estimates({**SNAP, "media_params": params})
     view = public_view(result)
     assert view["origin_label"] == "Estimativa revisada pelo executivo" and view["reviewed"]
+    unreviewed = public_view(calculate_estimates({**SNAP, "media_params": {**params, "revisado": False}}))
+    assert unreviewed["origin_label"] == "Estimativa de referência, em validação"
+    assert "modelo" not in unreviewed["origin_label"].lower() and "modelo" not in unreviewed["headline"].lower()
     assert view["rows"][0]["label"] == "Rede de portais e sites" and view["rows"][0]["cpm"] == "R$ 25,00"
     assert view["indicator"]["target"] == "R$ 1,50" and view["indicator"]["status_label"] == "Dentro da meta"
     assert [card["label"] for card in view["cards"]][:2] == ["Impressões", "Cliques"]

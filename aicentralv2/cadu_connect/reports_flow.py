@@ -22,7 +22,8 @@ from .reports_flow_schema import DEFAULT_KINDS, to_v3
 from .reports_flow_validation import MAX_FLOW_PAGES, SUGGESTED_FLOW_PAGES, validate_flow_config
 from .reports_flow_lifecycle import NODE_STATUSES, is_measured, measured_nodes, node_status, normalize_forecast, normalize_media, normalize_segment, normalize_spec
 from .reports_flow_stage import normalize_stage
-from .reports_flow_metrics import SEARCH_ENGINE_IDS, apply_engagement, apply_session_bounds, edge_observation, origin_landings, origin_summary
+from .reports_flow_history import matched_events_cte, node_match_json, publications_in_period
+from .reports_flow_metrics import SEARCH_ENGINE_IDS, click_origin_sql, apply_engagement, apply_session_bounds, edge_observation, origin_landings, origin_summary
 
 MAX_TAG_EVENTS_PER_MINUTE = 1200
 MAX_DISCOVERY_PAGES = 60
@@ -1073,7 +1074,10 @@ def register(bp):
                 WHERE tag_id=%s AND client_id=%s AND campaign_id IS NOT NULL)'''
             scope_params.append(selected_flow['tag_id'])
             conversion_params.extend((selected_flow['tag_id'],selected['client_id']))
-        if selected_flow:
+        # Only an explicitly chosen publication narrows the events; otherwise the period spans every
+        # publication, read with the drawing on screen, so publishing again keeps the history.
+        metrics_pinned = bool(selected_flow and request.args.get('revision'))
+        if metrics_pinned:
             event_filter += ' AND e.flow_revision=%s'
             scope_params.append(selected_flow['published_revision'])
         scoped_events = '''WITH selected_events AS (
@@ -1274,7 +1278,7 @@ def register(bp):
                     SELECT e.session_id,n.node_id,e.occurred_at FROM selected_events e
                     JOIN configured_nodes n ON (n.host IS NULL OR n.host=e.page_host)
                         AND e.page_path=n.path
-                    WHERE e.flow_revision=%s AND ((n.node_type='page' AND e.event_kind IN ('page_view','conversion','error_view'))
+                    WHERE (%s::int IS NULL OR e.flow_revision=%s) AND ((n.node_type='page' AND e.event_kind IN ('page_view','conversion','error_view'))
                        OR (n.node_type='conversion' AND e.event_kind='conversion'
                            AND (n.event_name='' OR n.event_name={canvas_event_name_expr}))
                        OR (n.node_type='error' AND e.event_kind='error_view')
@@ -1300,7 +1304,7 @@ def register(bp):
                     COALESCE(p.progressed,0) AS progressed
                 FROM configured_nodes n LEFT JOIN reached r USING(node_id)
                 LEFT JOIN progressed p USING(node_id)''',
-                    tuple(event_scope_params) + (node_json, selected_flow['published_revision'], edge_json))
+                    tuple(event_scope_params) + (node_json, *[selected_flow['published_revision'] if metrics_pinned else None]*2, edge_json))
                 metrics_by_node = {item['id']: item for item in canvas_nodes}
                 for node in configured_nodes:
                     metric = metrics_by_node.get(str(node.get('id') or ''), {})
@@ -1411,7 +1415,8 @@ def register(bp):
                        canvas_nodes=canvas_nodes if selected_flow else [],
                        canvas_edges=canvas_edges,
                        monitor_checks=monitor_checks,tracking_health=tracking_health,
-                       metrics_revision=selected_flow['published_revision'] if selected_flow else None)
+                       metrics_revision=selected_flow['published_revision'] if selected_flow else None,
+                       metrics_scope='publication' if metrics_pinned else 'all_publications_current_graph')
 
     @bp.patch('/api/v2/reports/flow/flows/<flow_id>/monitor')
     @login_required_api
@@ -2196,8 +2201,11 @@ def register(bp):
                 end=now
         except ValueError:
             abort(400,description='Informe um intervalo válido de até 367 dias.')
-        scope=[selected['client_id'],flow['tag_id'],revision,start,end]
-        extra=''
+        # Without ?revision= the period reads every publication with the current drawing, so
+        # publishing again keeps the history; with it, only that publication with its own drawing.
+        pinned=bool(requested_revision)
+        scope=[node_match_json(config),selected['client_id'],flow['tag_id'],start,end,*([revision] if pinned else [])]
+        extra=' AND e.flow_revision=%s' if pinned else ''
         for field,column in [('account_id','c.account_id'),('campaign_id','e.campaign_id')]:
             raw=request.args.get(field,'')
             if raw:
@@ -2213,23 +2221,19 @@ def register(bp):
             if not re.fullmatch(r'[a-z][a-z0-9_]{0,31}',platform):
                 abort(400,description='Plataforma inválida.')
             extra+=' AND a.platform=%s';scope.append(platform)
-        # Keep unmapped visits in the sequence. Match IDs were frozen at ingestion.
-        visits_cte="""WITH visits AS (
-            SELECT e.id,e.session_id,e.occurred_at,s.node_id,
-                COALESCE('utm:'||NULLIF(LOWER(e.utm_source),'')||'|'||COALESCE(LOWER(e.utm_campaign),''),'ref:'||NULLIF(LOWER(e.referrer_host),'')) AS origin
-            FROM cadu_reports_flow_events e
-            LEFT JOIN cadu_reports_flow_steps s ON s.id=e.step_id
-              AND s.client_id=e.client_id
-              AND s.flow_revision=e.flow_revision
-            LEFT JOIN cadu_reports_campaigns c ON c.id=e.campaign_id
-              AND c.client_id=e.client_id
-            LEFT JOIN cadu_reports_accounts a ON a.id=c.account_id
-              AND a.client_id=e.client_id
-            WHERE e.client_id=%s AND e.tag_id=%s AND e.flow_revision=%s
-              AND e.occurred_at >= %s AND e.occurred_at < %s
-              AND (e.event_kind IN ('page_view','conversion','error_view')
-                OR (s.node_id IS NOT NULL AND e.event_kind NOT IN ('heartbeat','page_leave','click')))
-        """+extra+"""), hits AS (
+        # Keep unmapped visits in the sequence. Events are matched to the drawing being read, not to
+        # the step frozen at ingestion, so a node keeps the visits its page had under older publications.
+        visits_cte=matched_events_cte(
+            "e.client_id=%s AND e.tag_id=%s AND e.occurred_at >= %s AND e.occurred_at < %s"+extra,
+            'e.id,e.session_id,e.occurred_at,e.event_kind,e.event_name,e.page_host,e.page_path,e.duration_ms,'
+            'e.utm_source,e.utm_campaign,e.click_id,e.referrer_host,e.flow_revision')+""", visits AS (
+            SELECT id,session_id,occurred_at,node_id,
+                COALESCE('utm:'||NULLIF(LOWER(utm_source),'')||'|'||COALESCE(LOWER(utm_campaign),''),
+                    """+click_origin_sql('click_id')+""",'ref:'||NULLIF(LOWER(referrer_host),'')) AS origin
+            FROM mapped
+            WHERE event_kind IN ('page_view','conversion','error_view')
+                OR (node_id IS NOT NULL AND event_kind NOT IN ('heartbeat','page_leave','click'))
+        ), hits AS (
             SELECT node_id,session_id,COUNT(*)::bigint AS events FROM visits
             WHERE node_id IS NOT NULL GROUP BY node_id,session_id
         ) """
@@ -2258,6 +2262,11 @@ def register(bp):
             (SELECT COUNT(DISTINCT v.session_id) FROM visits v JOIN entered e USING(session_id)
                 WHERE v.node_id=ANY(%s::text[]) AND (v.occurred_at,v.id)>(e.occurred_at,e.id))::bigint AS conversions""",
             (*scope, entry_ids, conversion_ids))[0]
+        # The one conversion count of the flow: sessions that reached any measured node, and those that reached a
+        # conversion node. The canvas summary, the panel and the conversion journeys all read these.
+        outcome = _rows(visits_cte + """SELECT COUNT(DISTINCT session_id) FILTER (WHERE node_id IS NOT NULL)::bigint AS sessions,
+            COUNT(DISTINCT session_id) FILTER (WHERE node_id=ANY(%s::text[]))::bigint AS converted FROM visits""",
+            (*scope, conversion_ids))[0]
         authored_edges = [edge for edge in config.get('edges', [])
             if isinstance(edge, dict) and edge.get('from') and edge.get('to')]
         transitions = _rows(visits_cte + """, numbered AS (
@@ -2322,15 +2331,12 @@ def register(bp):
         unattributed = apply_session_bounds(config, nodes, edges, bounds, measured_ids)
         # Engagement, for sites read by attention rather than a single conversion:
         # active time per page (page_leave carries it) and distinct pages per session.
-        active = _rows("""SELECT s.node_id,AVG(e.duration_ms)::bigint AS avg_active_ms,COUNT(*)::bigint AS leaves
-            FROM cadu_reports_flow_events e
-            JOIN cadu_reports_flow_steps s ON s.id=e.step_id AND s.client_id=e.client_id AND s.flow_revision=e.flow_revision
-            LEFT JOIN cadu_reports_campaigns c ON c.id=e.campaign_id AND c.client_id=e.client_id
-            LEFT JOIN cadu_reports_accounts a ON a.id=c.account_id AND a.client_id=e.client_id
-            WHERE e.client_id=%s AND e.tag_id=%s AND e.flow_revision=%s
-              AND e.occurred_at >= %s AND e.occurred_at < %s
-              AND e.event_kind='page_leave' AND e.duration_ms>0"""+extra+"""
-            GROUP BY s.node_id""", tuple(scope))
+        active = _rows(visits_cte + """SELECT node_id,AVG(duration_ms)::bigint AS avg_active_ms,COUNT(*)::bigint AS leaves
+            FROM mapped WHERE node_id IS NOT NULL AND event_kind='page_leave' AND duration_ms>0
+            GROUP BY node_id""", tuple(scope))
+        publications = publications_in_period(_rows(visits_cte + """SELECT flow_revision,COUNT(*)::bigint AS events,
+            MIN(occurred_at) AS first_event_at,MAX(occurred_at) AS last_event_at
+            FROM scoped GROUP BY flow_revision""", tuple(scope)), flow.get('published_revision'))
         depth = _rows(visits_cte + """SELECT AVG(pages)::numeric(10,2) AS pages_per_session FROM (
             SELECT session_id,COUNT(DISTINCT node_id) AS pages FROM visits WHERE node_id IS NOT NULL GROUP BY session_id) per_session""",
             tuple(scope))[0]
@@ -2348,8 +2354,11 @@ def register(bp):
                                    'last_event_at':collection['last_event_at'].isoformat() if collection['last_event_at'] else None,
                                    'source':'Super Tag deste fluxo'},
                        scope={'from':start.isoformat(),'to':end.isoformat(),'revision':revision,
+                              'metrics':'publication' if pinned else 'all_publications_current_graph','publications':publications,
                               'account_id':request.args.get('account_id'),'campaign_id':request.args.get('campaign_id'),'platform':platform},
                        nodes=nodes, edges=edges, origins=origins, origin_landings=landings, unattributed_origins=unattributed, engagement=engagement, suggestions=suggestions,group_nodes=group_nodes,group_edges=group_edges,
+                       outcome={'sessions': int(outcome['sessions'] or 0), 'converted': int(outcome['converted'] or 0),
+                                'rate': round(100 * int(outcome['converted'] or 0) / int(outcome['sessions']), 1) if outcome['sessions'] else None},
                        funnel={'entries': entries, 'conversions': conversions,
                                'rate': round(100 * conversions / entries, 1) if entries else None})
 

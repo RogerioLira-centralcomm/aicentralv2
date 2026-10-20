@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 from flask import abort, jsonify, request
 
 from ..auth import login_required_api
-from .reports_flow_metrics import PLATFORM_LABELS, origin_platform
+from .reports_flow_metrics import PLATFORM_LABELS, click_origin_sql, origin_platform
 from .reports_page_identity import canonical_page, sql_normalized_path
 from .reports_page_suggestions import MIN_TERM_CLICKS, build_suggestions
 from .reports_page_metrics import (
@@ -23,6 +23,9 @@ from .reports_v1 import _customer_scope, _rows, _selection
 HEALTH_TIMELINE = 30
 EVENT_TABLE = 'cadu_reports_supertag_events'
 _NORM_E = sql_normalized_path('e.page_path')
+# A paid click without UTM (gclid, fbclid) is a paid origin, not direct access.
+_CLICK_ORIGIN = click_origin_sql("attribution->>'click_id'")
+_CLICK_ORIGIN_E = click_origin_sql("e.attribution->>'click_id'")
 
 _COUNTS_SQL = f'''
     SELECT COUNT(*) FILTER (WHERE event_kind='page_view')::bigint AS views,
@@ -62,7 +65,7 @@ _GROUPS_SQL = f'''
             (ARRAY_AGG(np ORDER BY occurred_at DESC,id DESC))[1] AS last_np,
             COUNT(*) AS pages,
             (ARRAY_AGG(COALESCE(NULLIF('utm:'||LOWER(COALESCE(attribution->>'utm_source','')),'utm:'),
-                NULLIF('ref:'||COALESCE(referrer_host,''),'ref:')) ORDER BY occurred_at,id))[1] AS origin,
+                {_CLICK_ORIGIN},NULLIF('ref:'||COALESCE(referrer_host,''),'ref:')) ORDER BY occurred_at,id))[1] AS origin,
             (ARRAY_AGG(viewport_width ORDER BY occurred_at,id))[1] AS width,
             (ARRAY_AGG(LOWER(COALESCE(NULLIF(attribution->>'utm_id',''),NULLIF(attribution->>'utm_campaign',''),''))
                 ORDER BY occurred_at,id))[1] AS campaign
@@ -171,7 +174,7 @@ _CONVERSION_MAP_SQL = f'''
     ), first_event AS (
         SELECT DISTINCT ON (e.session_id) e.session_id,e.visitor_id,
             COALESCE(NULLIF('utm:'||LOWER(COALESCE(e.attribution->>'utm_source','')),'utm:'),
-                NULLIF('ref:'||COALESCE(e.referrer_host,''),'ref:')) AS origin
+                {_CLICK_ORIGIN_E},NULLIF('ref:'||COALESCE(e.referrer_host,''),'ref:')) AS origin
         FROM {EVENT_TABLE} e JOIN ps ON ps.session_id=e.session_id
         WHERE e.site_id=%(site)s AND e.expires_at>NOW() AND e.event_kind='page_view'
             AND e.occurred_at>=%(since)s - INTERVAL '1 day' AND e.occurred_at<%(until)s + INTERVAL '1 day'
@@ -379,7 +382,7 @@ _DOMAIN_SESSIONS_SQL = f'''
         COUNT(*)::bigint AS sessions
     FROM (SELECT e.site_id,e.session_id,
             (ARRAY_AGG(COALESCE(NULLIF('utm:'||LOWER(COALESCE(e.attribution->>'utm_source','')),'utm:'),
-                NULLIF('ref:'||COALESCE(e.referrer_host,''),'ref:')) ORDER BY e.occurred_at,e.id))[1] AS origin,
+                {_CLICK_ORIGIN_E},NULLIF('ref:'||COALESCE(e.referrer_host,''),'ref:')) ORDER BY e.occurred_at,e.id))[1] AS origin,
             (ARRAY_AGG(e.viewport_width ORDER BY e.occurred_at,e.id))[1] AS width
         FROM {EVENT_TABLE} e JOIN cadu_reports_supertag_sites s ON s.id=e.site_id
         WHERE s.client_id=%(client)s AND s.revoked_at IS NULL AND e.expires_at>NOW() AND e.event_kind='page_view'

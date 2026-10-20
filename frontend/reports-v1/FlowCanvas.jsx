@@ -37,10 +37,13 @@ function livePresence(metric,live,id){const n=live?.node_presence?.[id];return m
 function JourneySummary({config,journey}) {
   if(journey?.status!=='ready'||!journey.nodes?.length)return null;
   const rows=config.nodes.map(node=>({node,metric:nodeMetric(journey,node)})).filter(row=>row.metric?.sessions!=null);
-  const arrived=rows.filter(row=>row.node.type==='source').reduce((sum,row)=>sum+row.metric.sessions,0);
-  const converted=rows.filter(row=>row.node.type==='conversion').reduce((sum,row)=>sum+row.metric.sessions,0);
+  // The server's outcome counts each session once (a session on two conversion nodes is one conversion); the sums
+  // over nodes remain only for older responses.
+  const outcome=journey.outcome;
+  const arrived=outcome?outcome.sessions:rows.filter(row=>row.node.type==='source').reduce((sum,row)=>sum+row.metric.sessions,0);
+  const converted=outcome?outcome.converted:rows.filter(row=>row.node.type==='conversion').reduce((sum,row)=>sum+row.metric.sessions,0);
   const exits=rows.filter(row=>!['source','conversion'].includes(row.node.type));
-  const left=exits.reduce((sum,row)=>sum+(row.metric.exits||0),0);
+  const left=outcome?Math.max(0,outcome.sessions-outcome.converted):exits.reduce((sum,row)=>sum+(row.metric.exits||0),0);
   const top=exits.slice().sort((a,b)=>(b.metric.exits||0)-(a.metric.exits||0))[0];
   if(!arrived&&!converted)return null;
   if(isEngagementFlow(config)){
@@ -55,7 +58,7 @@ function JourneySummary({config,journey}) {
     const order={time:[time,reached,pages,leaving],reach:[reached,topSource,pages,leaving],navigation:[reached,pages,leaving,topExit]}[goal]||[reached,pages,time,leaving,topExit];
     return <div className="flow-journey-summary" role="status" aria-label={`Objetivo: ${goalById(goal).label}`}>{order.filter(Boolean)}</div>;
   }
-  const rate=arrived?Math.round(converted/arrived*100):null;
+  const rate=outcome?outcome.rate:arrived?Math.round(converted/arrived*100):null;
   return <div className="flow-journey-summary" role="status"><span><b>{number(arrived)}</b> chegaram</span><span><b>{number(converted)}</b> converteram{rate!=null&&` · ${rate}%`}</span><span><b>{number(left)}</b> saíram sem converter</span>{top&&top.metric.exits>0&&<span>Maior saída: <b>{top.node.title}</b> ({number(top.metric.exits)})</span>}</div>;
 }
 

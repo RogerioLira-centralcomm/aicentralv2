@@ -230,5 +230,8 @@ register_site_pages(bp)
 from .reports_flow_pages import register as register_flow_pages
 register_flow_pages(bp)
 
+from .reports_flow_conversions import register as register_flow_conversions
+register_flow_conversions(bp)
+
 from .reports_flow_catalog import register as register_flow_catalog
 register_flow_catalog(bp)

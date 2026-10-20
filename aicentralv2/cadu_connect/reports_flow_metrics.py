@@ -49,8 +49,20 @@ def search_engine_for_host(host):
     return None
 
 
+def click_origin_sql(click_id):
+    """SQL for the 'click:<platform>' origin of a paid click without UTM, or NULL.
+
+    Mirrors reports_journey.origin_group: fbclid values start with "Iw"; gclid, gbraid and wbraid do not.
+    """
+    value = f"BTRIM(COALESCE({click_id},''))"
+    return f"CASE WHEN {value}='' THEN NULL WHEN {value} ~ '^Iw' THEN 'click:meta' ELSE 'click:google' END"
+
+
 def parse_origin(origin):
-    """(kind, source_or_host, campaign) of an encoded origin; kind is None for direct access."""
+    """(kind, source_or_host, campaign) of an encoded origin; kind is None for direct access.
+
+    Kinds: 'utm' (utm_source and campaign), 'click' (a paid click id without UTM) and 'ref' (referrer host).
+    """
     if not origin:
         return None, '', ''
     kind, _, value = str(origin).partition(':')
@@ -109,6 +121,8 @@ def origin_platform(origin):
         return 'direct'
     if kind == 'utm':
         return next((platform for platform, aliases in PLATFORM_ALIASES.items() if value in aliases), 'campaign')
+    if kind == 'click':
+        return value if value in ('google', 'meta') else 'campaign'
     if ai_agent_for(value):
         return ai_agent_for(value)
     if search_engine_for_host(value):

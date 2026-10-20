@@ -72,6 +72,22 @@
 .flow-journey-panel__suggestions ul{display:grid;gap:8px;margin:0;padding:0;list-style:none}
 .flow-journey-panel__suggestions li{display:flex;align-items:center;justify-content:space-between;gap:7px}
 .flow-journey-panel__suggestions li span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.flow-journey-panel__tabs{display:flex;gap:4px;margin:0 0 12px;padding-bottom:10px;border-bottom:1px solid var(--color-border-secondary)}
+.flow-journey-panel__section{display:grid;gap:10px}
+.flow-journey-panel .flow-journey-panel__suggestions>button,.flow-journey-panel p button{white-space:normal;text-align:left}
+.flow-journey-panel__section p{margin:0}
+.flow-journey-panel__group{display:grid;gap:6px}
+.flow-journey-panel__group ul{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.flow-journey-panel__group li{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.flow-journey-panel__group li span{min-width:0;overflow-wrap:anywhere}
+.flow-journey-panel__group small,.flow-journey-panel__origin{color:var(--color-text-tertiary)}
+.flow-journey-panel__journeys{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.flow-journey-panel__journeys>li{display:grid;gap:3px;padding:8px 10px;border:1px solid var(--color-border-secondary);border-radius:8px}
+.flow-journey-panel__journeys>li>small{color:var(--color-text-tertiary)}
+.flow-journey-panel__steps{display:flex;flex-wrap:wrap;gap:4px;margin:2px 0 0}
+.flow-journey-panel__steps span{padding:1px 6px;border:1px solid var(--color-border-secondary);border-radius:6px;background:var(--color-bg-secondary)}
+.flow-journey-panel__steps span.is-off-flow{border-style:dashed;background:transparent}
+.flow-journey-panel__steps span.is-goal{border-color:var(--color-border-success,var(--color-fg-success-primary));color:var(--color-text-success-primary,inherit)}
 
 /* Shared editor/monitor shapes: only pages receive a preview frame. */
 .flow-react-canvas .react-flow__controls{bottom:16px;left:16px;display:flex;flex-direction:row;border-radius:8px;overflow:hidden;box-shadow:var(--shadow-sm)}
@@ -228,3 +244,20 @@
 @media (max-width:1023px){.flow-edge-legend{max-width:calc(100% - 32px)}}
 .flow-react-canvas .react-flow__controls-button svg[stroke]{max-width:16px;max-height:16px;fill:none}
 .reports-shell--flow-editor .reports-flow-designer .flow-edge-legend button:not(.react-flow__controls-button):not([data-reports-tone=primary]){border:0;box-shadow:none}
+
+/* Observed on the site while editing: the alert on the board and its panel. */
+.flow-observed-notice{position:absolute;z-index:40;top:16px;left:50%;transform:translateX(-50%);max-width:calc(100% - 420px)}
+.flow-observed-notice button{border-color:var(--color-border-warning,var(--color-fg-warning-primary));background:var(--color-bg-warning-primary,var(--color-bg-primary));color:var(--color-text-warning-primary,inherit);white-space:normal;text-align:left}
+.flow-observed{font-size:12px;line-height:1.5}
+.flow-observed__hint{display:block;margin:0 0 14px;color:var(--color-text-tertiary)}
+.flow-observed__group{display:grid;gap:6px;margin-bottom:14px}
+.flow-observed__group header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.flow-observed__group h3,.flow-observed__detail h3{margin:0;font-size:13px}
+.flow-observed__group ul,.flow-observed__detail ul{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.flow-observed__item{display:grid;gap:2px;width:100%;padding:8px 10px;border:1px solid var(--color-border-secondary);border-radius:8px;background:var(--color-bg-primary);color:inherit;font:inherit;text-align:left;cursor:pointer}
+.flow-observed__item:hover,.flow-observed__item:focus-visible{border-color:var(--color-border-brand,var(--color-border-primary))}
+.flow-observed__item.is-alert{border-left:3px solid var(--color-fg-warning-primary)}
+.flow-observed__item small,.flow-observed__detail small{color:var(--color-text-tertiary)}
+.flow-observed__detail{display:grid;gap:8px;margin-top:10px}
+.flow-observed__detail p{margin:0}
+.flow-observed__actions{display:grid;gap:6px}

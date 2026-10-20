@@ -438,6 +438,12 @@ def test_extra_arts_go_with_the_main_one_and_cap_at_three(monkeypatch):
     card = plan["sections"][0]["cards"][0]
     assert card["image_url"] == "/b.png"
     assert [a["url"] for a in images.extra_arts(card)] == ["/a.png"]
+    # Arte que não era extra só substitui a principal.
+    images.use_creative(plan, "/a.png", [])
+    images.use_creative(plan, "/a.png", [])
+    plan["sections"][0]["cards"][0]["images"].append({"url": "/c.png"})
+    images.use_creative(plan, "/c.png", [])
+    assert [a["url"] for a in images.extra_arts(plan["sections"][0]["cards"][0])] == ["/b.png"]
 
 
 def test_arts_slide_shows_the_main_piece_first_only_when_there_are_extras():

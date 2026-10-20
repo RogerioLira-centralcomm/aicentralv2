@@ -1503,7 +1503,8 @@ def public_view(row: dict, document: str | None = None) -> dict:
             # Outras peças que o executivo marcou para o plano; só com criativo gerado como principal.
             "campaign_arts": [
                 {"url": item["url"], "shape": text(item.get("shape")) or "horizontal"}
-                for item in extra_arts(creative) if visuals and visuals[0].get("kind") != "theme"
+                for item in extra_arts(creative)
+                if visuals and visuals[0].get("kind") != "theme" and item["url"] != visuals[0]["url"]
             ],
             "has_generated_visual": bool(visuals and visuals[0].get("kind") != "theme"),
             "uses_image_background": bool(visuals and visuals[0].get("kind") != "theme" and use_image_background),

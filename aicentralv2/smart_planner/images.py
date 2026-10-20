@@ -260,11 +260,12 @@ def use_creative(plan: dict, url: str, channels: list | None = None) -> dict:
     if missing:
         variants.update(_render_variants(chosen["url"], slug, _brand_references(branding, hero), missing))
     chosen["variants"] = variants
-    # A principal não conta como extra; a que deixou de ser principal segue no plano como extra.
+    # Promover uma extra troca as duas de lugar: a principal anterior segue no plano como extra.
+    # Arte nova ou fora do plano só substitui a principal.
     previous = text(creative.get("image_url"))
-    chosen.pop("in_plan", None)
+    swap = chosen.pop("in_plan", None) is True
     for item in images:
-        if previous and item["url"] == previous and item is not chosen:
+        if swap and previous and item["url"] == previous and item is not chosen:
             item["in_plan"] = True
     creative["images"] = trim_extra_arts(images)
     creative["image_url"] = chosen["url"]

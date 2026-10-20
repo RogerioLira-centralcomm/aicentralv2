@@ -192,3 +192,9 @@ def test_editor_lists_formats_per_channel_from_review_and_taticas():
     assert by_id["netflix"]["formats"] == []  # sem escolha: o editor mostra quantos o catálogo oferece
     assert by_id["dv360"]["label"] == "Rede de portais e sites"
     assert by_id["dv360"]["formats"][0]["type"] == "Interativo" and by_id["dv360"]["formats"][0]["aggregated"]
+
+
+def test_logo_fetch_refuses_internal_hosts():
+    assert not presentation._public_host("http://169.254.169.254/latest/meta-data")
+    assert not presentation._public_host("http://127.0.0.1/logo.png")
+    assert not presentation._public_host("http://10.0.0.5/logo.png")

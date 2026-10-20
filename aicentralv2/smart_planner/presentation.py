@@ -203,7 +203,11 @@ def _logo_bytes(url: str) -> tuple[bytes, bool]:
     if value.startswith(("http://", "https://")):
         import requests
 
-        with requests.get(value, timeout=6, stream=True, headers={"User-Agent": "CentralX Smart Planner"}) as response:
+        if not _public_host(value):
+            return b"", False
+        # Sem redirecionamento: o destino final também precisa ser o host público verificado.
+        with requests.get(value, timeout=3, stream=True, allow_redirects=False,
+                          headers={"User-Agent": "CentralX Smart Planner"}) as response:
             kind = (response.headers.get("Content-Type") or "").lower()
             if response.status_code != 200 or not kind.startswith("image/"):
                 return b"", False
@@ -212,6 +216,26 @@ def _logo_bytes(url: str) -> tuple[bytes, bool]:
                 return b"", False
             return raw, is_svg or "svg" in kind
     return b"", False
+
+
+def _public_host(url: str) -> bool:
+    """A URL da logo vem de dados raspados do site da marca: só hosts com IP público."""
+    import ipaddress
+    import socket
+    from urllib.parse import urlparse
+
+    host = urlparse(url).hostname or ""
+    if not host:
+        return False
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except OSError:
+        return False
+    for info in infos:
+        address = ipaddress.ip_address(info[4][0])
+        if address.is_private or address.is_loopback or address.is_link_local or address.is_reserved or address.is_multicast:
+            return False
+    return bool(infos)
 
 
 def colors_from_url(url: str, count: int = 5) -> list[str]:

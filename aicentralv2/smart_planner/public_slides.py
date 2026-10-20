@@ -285,6 +285,40 @@ def _contact(view: dict) -> dict:
 BUILDERS = (_cover, _thesis, _context, _audience, _creative, _media, _formats, _impact, _defense, _market, _contact)
 
 
+def _notes(slide: dict, view: dict) -> list[str]:
+    """Notas do apresentador: o texto completo que o slide resumiu, para quem conduz a reunião."""
+    editorial = as_dict(view.get("editorial_context"))
+    kind = slide.get("type")
+    notes: list[str] = []
+    if kind == "thesis":
+        notes = [text(view.get("overview")), text(view.get("overview_support"))]
+    elif kind == "context":
+        notes = [text(as_dict(editorial.get(key)).get("body")) for key in ("challenge", "opportunity")]
+    elif kind == "audience":
+        notes = [text(view.get("audience"))] + [
+            f"{text(as_dict(step).get('title'))}: {text(as_dict(step).get('body'))}" for step in as_list(editorial.get("journey"))
+        ]
+    elif kind == "creative":
+        notes = [text(view.get("concept_body"))]
+    elif kind == "media":
+        narrative = as_dict(editorial.get("media"))
+        notes = [text(narrative.get(key)) for key in ("decision", "distribution", "flight")]
+        notes += [f"{text(as_dict(f).get('label'))}: {text(as_dict(f).get('text'))}" for f in as_list(view.get("fronts"))]
+    elif kind == "defense":
+        for group in as_list(view.get("defense_groups")):
+            notes += [text(item) for item in as_list(as_dict(group).get("items"))]
+    elif kind == "impact":
+        notes = [text(item) for item in as_list(as_dict(view.get("impact")).get("assumptions"))]
+    elif kind == "market":
+        notes = [text(as_dict(editorial.get("market")).get("insight"))]
+    seen: list[str] = []
+    for note in notes:
+        note = re.sub(r"\s+", " ", note).strip()
+        if note and note not in seen:
+            seen.append(note)
+    return seen[:12]
+
+
 def build_slides(view: dict) -> list[dict]:
     """Slides da proposta, na ordem da conversa com o cliente; os sem conteúdo saem."""
     slides = []
@@ -294,4 +328,5 @@ def build_slides(view: dict) -> list[dict]:
             slides.append(slide)
     for index, slide in enumerate(slides, start=1):
         slide["index"] = index
+        slide["notes"] = _notes(slide, as_dict(view))
     return slides

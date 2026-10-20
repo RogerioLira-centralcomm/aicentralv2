@@ -118,3 +118,12 @@ def test_theme_colors_only_accept_hex(monkeypatch):
             "hero": {**VIEW["hero"], "theme_ink": "red;}body{display:none", "theme_accent": "#AbC123"}}
     seen = _render(monkeypatch, "/smart-planner/p/t/proposta", view)
     assert seen["ctx"]["slide_ink"] == "#14252d" and seen["ctx"]["slide_accent"] == "#AbC123"
+
+
+def test_presenter_notes_keep_the_full_text_the_slide_summarized():
+    slides = {slide["type"]: slide for slide in build_slides(VIEW)}
+    assert slides["thesis"]["notes"][0] == VIEW["overview"].strip()  # o slide corta, a nota não
+    assert len(slides["thesis"]["statement"]) < len(slides["thesis"]["notes"][0])
+    assert any(note.startswith("Etapa 5:") for note in slides["audience"]["notes"])  # etapa que não coube no slide
+    assert slides["cover"]["notes"] == [] and slides["contact"]["notes"] == []
+    assert all(len(slide["notes"]) <= 12 for slide in slides.values())

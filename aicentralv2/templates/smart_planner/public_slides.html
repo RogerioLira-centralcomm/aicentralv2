@@ -11,11 +11,12 @@
   <meta property="og:url" content="{{ document_url }}"><meta property="og:image" content="{{ share_image }}"><meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_slides.css') }}?v=4">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_slides.css') }}?v=5">
   <style>:root{--sx-ink:{{ slide_ink or '#14252d' }};--sx-accent:{{ slide_accent or '#d5aa3b' }}}</style>
 </head>
-<body class="sx" data-document-url="{{ document_page_url }}">
+<body class="sx is-booting" data-document-url="{{ document_page_url }}" data-channel="{{ public_token or 'plano' }}" data-total="{{ slides|length }}">
 {% macro kicker(slide) %}<p class="sx-kicker"><span>{{ '%02d'|format(slide.index) }}</span>{{ slide.kicker }}</p>{% endmacro %}
+  <a class="sx-skip" href="#s1">Ir para o primeiro slide</a>
   <header class="sx-bar" aria-label="Apresentação">
     <div class="sx-bar-id">
       <img class="sx-house" src="{{ house.logo }}" alt="{{ house.name }}">
@@ -24,30 +25,35 @@
       <div class="sx-bar-names"><strong>{{ client or cover.client or title }}</strong>{% if title and title != client %}<span>{{ title }}</span>{% endif %}</div>
     </div>
     <div class="sx-bar-actions">
-      <span class="sx-count" aria-live="polite"><b data-sx-current>1</b> / {{ slides|length }}</span>
-      <button type="button" class="sx-btn" data-sx-grid aria-pressed="false">Ver todos</button>
-      <button type="button" class="sx-btn" data-sx-full>Tela cheia</button>
-      <a class="sx-btn is-quiet" href="{{ document_page_url }}">Documento</a>
-      <button type="button" class="sx-btn is-quiet" data-sx-copy>Copiar link</button>
-      <button type="button" class="sx-btn is-quiet" data-sx-print>PDF</button>
-      {% if executive.whatsapp_url %}<a class="sx-btn is-cta" href="{{ executive.whatsapp_url }}" target="_blank" rel="noopener">Falar sobre o plano</a>{% endif %}
+      {% if executive.whatsapp_url %}<a class="sx-btn is-quiet is-whatsapp" href="{{ executive.whatsapp_url }}" target="_blank" rel="noopener">Falar sobre o plano</a>{% endif %}
+      <div class="sx-menu" data-sx-menu>
+        <button type="button" class="sx-btn is-quiet" aria-haspopup="menu" aria-expanded="false" data-sx-menu-toggle>Compartilhar</button>
+        <div class="sx-menu-list" role="menu" hidden>
+          <button type="button" role="menuitem" data-sx-copy>Copiar link</button>
+          <button type="button" role="menuitem" data-sx-print>Baixar PDF</button>
+          <a role="menuitem" href="{{ document_page_url }}">Ver como documento</a>
+          <button type="button" role="menuitem" data-sx-presenter>Abrir modo apresentador</button>
+        </div>
+      </div>
+      <button type="button" class="sx-btn is-primary" data-sx-present>Apresentar</button>
     </div>
     <i class="sx-progress" data-sx-progress aria-hidden="true"></i>
   </header>
 
-  <main class="sx-stage" data-sx-stage>
-    <button type="button" class="sx-arrow is-prev" data-sx-prev aria-label="Slide anterior">‹</button>
+  <main class="sx-stage" data-sx-stage aria-label="Slides">
     <div class="sx-deck" data-sx-deck>
       {% for slide in slides %}
-      <div class="sx-frame" data-sx-frame="{{ slide.index }}" id="s{{ slide.index }}" role="group" aria-roledescription="slide" aria-label="{{ slide.index }} de {{ slides|length }}: {{ slide.nav }}" tabindex="-1">
+      <div class="sx-frame" data-sx-frame="{{ slide.index }}" data-title="{{ slide.nav }}" id="s{{ slide.index }}" role="group" aria-roledescription="slide" aria-label="{{ slide.index }} de {{ slides|length }}: {{ slide.nav }}" tabindex="-1">
         <section class="sx-slide is-{{ slide.type }}">
           {% if slide.type == 'cover' %}
           <div class="sx-cover-copy">
             {% if slide.logo %}<img class="sx-cover-logo" src="{{ slide.logo }}" alt="Logo de {{ slide.client }}">{% elif slide.client %}<p class="sx-cover-client">{{ slide.client }}</p>{% endif %}
-            <p class="sx-cover-label">{{ slide.label }}</p>
-            <h1>{{ slide.title }}</h1>
-            {% if slide.facts %}<dl class="sx-facts">{% for fact in slide.facts %}<div><dt>{{ fact.label }}</dt><dd>{{ fact.value }}</dd></div>{% endfor %}</dl>{% endif %}
-            {% if slide.agency %}<p class="sx-cover-agency">Agência · {{ slide.agency }}</p>{% endif %}
+            <div class="sx-cover-main">
+              <p class="sx-cover-label">{{ slide.label }}</p>
+              <h1>{{ slide.title }}</h1>
+              {% if slide.facts %}<dl class="sx-facts">{% for fact in slide.facts %}<div><dt>{{ fact.label }}</dt><dd>{{ fact.value }}</dd></div>{% endfor %}</dl>{% endif %}
+              {% if slide.agency %}<p class="sx-cover-agency">Agência · {{ slide.agency }}</p>{% endif %}
+            </div>
           </div>
           <figure class="sx-cover-art{% if not slide.image %} is-empty{% endif %}">{% if slide.image %}<img src="{{ slide.image }}" alt="">{% endif %}</figure>
 
@@ -75,7 +81,7 @@
               {% if slide.body %}<p class="sx-support">{{ slide.body }}</p>{% endif %}
               {% if slide.outputs %}<ul class="sx-outputs">{% for item in slide.outputs %}<li><strong>{{ item.name }}</strong>{% if item.body %}<span>{{ item.body }}</span>{% endif %}</li>{% endfor %}</ul>{% endif %}
             </div>
-            {% if slide.image %}<figure class="sx-art"><img src="{{ slide.image }}" alt="Referência do criativo"></figure>{% endif %}
+            {% if slide.image %}<figure class="sx-art"><img src="{{ slide.image }}" alt="Referência do criativo" loading="lazy"></figure>{% endif %}
           </div>
 
           {% elif slide.type == 'media' %}
@@ -112,7 +118,7 @@
           {% elif slide.type == 'impact' %}
           <div class="sx-impact-head">{{ kicker(slide) }}<span class="sx-origin{% if slide.reviewed %} is-reviewed{% endif %}">{{ slide.origin }}</span></div>
           <div class="sx-cards">{% for card in slide.cards %}<article><span>{{ card.label }}</span><strong>{{ card.value }}</strong>{% if card.note %}<small>{{ card.note }}</small>{% endif %}</article>{% endfor %}</div>
-          <div class="sx-impact-body">
+          <div class="sx-impact-body{% if slide.indicator %} has-indicator{% endif %}">
             <table class="sx-table"><thead><tr><th>Canal</th><th>Investimento</th><th>CPM</th><th>Impressões</th><th>Cliques</th></tr></thead><tbody>{% for row in slide.rows %}<tr><th>{{ row.label }}</th><td>{{ row.invested }}</td><td>{{ row.cpm or '—' }}</td><td>{{ row.impressions or '—' }}</td><td>{{ row.clicks or '—' }}</td></tr>{% endfor %}</tbody></table>
             {% if slide.indicator %}<aside class="sx-indicator is-{{ slide.indicator.status }}"><span>Indicador do cliente</span><strong>{{ slide.indicator.label }}{% if slide.indicator.target %} · meta {{ slide.indicator.target }}{% endif %}</strong><p>{% if slide.indicator.estimated %}Estimado {{ slide.indicator.estimated }} · {% endif %}{{ slide.indicator.status_label }}</p></aside>{% endif %}
           </div>
@@ -127,21 +133,61 @@
           <div class="sx-market">{% if slide.stat %}<strong>{{ slide.stat }}</strong>{% endif %}<div><h2 class="sx-title-md">{{ slide.title }}</h2><p class="sx-support">{{ slide.insight }}</p>{% if slide.source %}<small>Fonte: {% if slide.source_url %}<a href="{{ slide.source_url }}" target="_blank" rel="noopener">{{ slide.source }}</a>{% else %}{{ slide.source }}{% endif %}</small>{% endif %}</div></div>
 
           {% elif slide.type == 'contact' %}
-          {{ kicker(slide) }}
-          <h2>Vamos colocar este plano no ar?</h2>
-          <div class="sx-contact">
-            {% if slide.name %}<div class="sx-person">{% if slide.photo %}<img src="{{ slide.photo }}" alt="Foto de {{ slide.name }}">{% else %}<span>{{ slide.initials }}</span>{% endif %}<div><strong>{{ slide.name }}</strong><p>Responsável por este plano</p></div></div>{% endif %}
-            <div class="sx-contact-actions">{% if slide.whatsapp %}<a class="sx-btn is-cta is-lg" href="{{ slide.whatsapp }}" target="_blank" rel="noopener">Conversar sobre o plano</a>{% endif %}{% if slide.full_plan_url %}<a class="sx-btn is-lg" href="{{ slide.full_plan_url }}">Ver o plano completo</a>{% endif %}</div>
+          <div class="sx-contact-wrap">
+            {{ kicker(slide) }}
+            <h2>Vamos colocar este plano no ar?</h2>
+            <div class="sx-contact">
+              {% if slide.name %}<div class="sx-person">{% if slide.photo %}<img src="{{ slide.photo }}" alt="Foto de {{ slide.name }}" loading="lazy">{% else %}<span>{{ slide.initials }}</span>{% endif %}<div><strong>{{ slide.name }}</strong><p>Responsável por este plano</p></div></div>{% endif %}
+              <div class="sx-contact-actions">{% if slide.whatsapp %}<a class="sx-btn is-cta is-lg" href="{{ slide.whatsapp }}" target="_blank" rel="noopener">Conversar sobre o plano</a>{% endif %}{% if slide.full_plan_url %}<a class="sx-btn is-quiet is-lg" href="{{ slide.full_plan_url }}">Ver o plano completo</a>{% endif %}</div>
+            </div>
           </div>
           {% endif %}
           <footer class="sx-foot"><span>{{ client or title }}</span><span>{{ slide.index }} / {{ slides|length }}</span></footer>
         </section>
+        <p class="sx-frame-label" aria-hidden="true"><b>{{ slide.index }}</b>{{ slide.nav }}</p>
+        <template data-sx-notes>{% for note in slide.notes %}<li>{{ note }}</li>{% endfor %}</template>
       </div>
       {% endfor %}
     </div>
-    <button type="button" class="sx-arrow is-next" data-sx-next aria-label="Próximo slide">›</button>
   </main>
+
+  <nav class="sx-dock" aria-label="Controles da apresentação" data-sx-dock>
+    <button type="button" class="sx-dock-btn" data-sx-prev aria-label="Slide anterior" title="Anterior (←)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="sx-dock-status"><span class="sx-dock-count"><b data-sx-current>1</b> / {{ slides|length }}</span><span class="sx-dock-title" data-sx-title>{{ slides[0].nav if slides }}</span></div>
+    <button type="button" class="sx-dock-btn" data-sx-next aria-label="Próximo slide" title="Próximo (→)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+    <span class="sx-dock-sep" aria-hidden="true"></span>
+    <button type="button" class="sx-dock-btn" data-sx-grid aria-pressed="false" aria-label="Ver todos os slides" title="Ver todos (G)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg></button>
+    <button type="button" class="sx-dock-btn" data-sx-full aria-label="Tela cheia" title="Tela cheia (F)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    <button type="button" class="sx-dock-btn" data-sx-presenter aria-label="Modo apresentador em outra tela" title="Modo apresentador (P)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v11H3zM8 20h8M12 16v4"/></svg></button>
+    <button type="button" class="sx-dock-btn" data-sx-help aria-label="Atalhos do teclado" title="Atalhos (?)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 9a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1 1-1.1 1.8v.5M12 17.5v.01"/></svg></button>
+  </nav>
+
+  <aside class="sx-presenter" data-sx-presenter-panel aria-label="Modo apresentador" hidden>
+    <header><span class="sx-timer" data-sx-timer>00:00</span><button type="button" class="sx-btn is-quiet" data-sx-timer-reset>Zerar</button><span class="sx-clock" data-sx-clock></span></header>
+    <div class="sx-next"><span>A seguir</span><div class="sx-next-slot" data-sx-next-slot></div></div>
+    <div class="sx-notes"><span>Notas</span><ul data-sx-notes-list></ul></div>
+    <p class="sx-presenter-tip">Deixe a outra janela na tela da sala, em tela cheia (F). Os slides andam juntos nas duas.</p>
+  </aside>
+
+  <div class="sx-help" role="dialog" aria-modal="true" aria-labelledby="sx-help-title" data-sx-help-panel hidden>
+    <div class="sx-help-card">
+      <h2 id="sx-help-title">Atalhos</h2>
+      <dl>
+        <div><dt><kbd>→</kbd> <kbd>Espaço</kbd> <kbd>PgDn</kbd></dt><dd>Próximo slide</dd></div>
+        <div><dt><kbd>←</kbd> <kbd>PgUp</kbd></dt><dd>Slide anterior</dd></div>
+        <div><dt><kbd>Home</kbd> <kbd>End</kbd></dt><dd>Primeiro e último</dd></div>
+        <div><dt><kbd>1</kbd>–<kbd>9</kbd></dt><dd>Ir para o slide</dd></div>
+        <div><dt><kbd>G</kbd></dt><dd>Ver todos os slides</dd></div>
+        <div><dt><kbd>F</kbd></dt><dd>Tela cheia</dd></div>
+        <div><dt><kbd>P</kbd></dt><dd>Modo apresentador em outra tela</dd></div>
+        <div><dt><kbd>Esc</kbd></dt><dd>Fechar grade ou ajuda</dd></div>
+      </dl>
+      <p>Clique na metade direita do slide para avançar e na esquerda para voltar.</p>
+      <button type="button" class="sx-btn" data-sx-help-close>Fechar</button>
+    </div>
+  </div>
+  <p class="sx-sr" aria-live="polite" data-sx-live></p>
   <script>window.SMART_PLANNER_PUBLIC_URL={{ document_url|tojson }};</script>
-  <script src="{{ url_for('static', filename='js/smart_planner/public-slides.js') }}?v=3"></script>
+  <script src="{{ url_for('static', filename='js/smart_planner/public-slides.js') }}?v=4"></script>
 </body>
 </html>

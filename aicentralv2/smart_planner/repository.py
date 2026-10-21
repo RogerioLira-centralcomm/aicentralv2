@@ -31,6 +31,50 @@ class SmartPlannerError(RuntimeError):
     pass
 
 
+_LIMITS: dict = {"cols": None}
+# Identidade do plano: cortada, deixaria de achar o dono; melhor falhar alto.
+KEEP_WHOLE_COLS = {"session_token", "user_email"}
+
+
+def _column_limits() -> dict[str, int]:
+    """Tamanho máximo das colunas de texto da tabela, lido do banco (o esquema veio do PHP e não está no repo).
+
+    Sem resposta, volta vazio e nada é cortado; na próxima chamada tenta de novo.
+    """
+    if _LIMITS["cols"] is not None:
+        return _LIMITS["cols"]
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT column_name, character_maximum_length FROM information_schema.columns
+                    WHERE table_name = 'cadu_smart_planner_sessions' AND character_maximum_length IS NOT NULL"""
+            )
+            rows = cur.fetchall() or []
+    except Exception:
+        logger.warning("Não foi possível ler o tamanho das colunas do Smart Planner.", exc_info=True)
+        conn.rollback()  # a transação abortada derrubaria o INSERT/UPDATE que vem em seguida
+        return {}
+    _LIMITS["cols"] = {
+        (row["column_name"] if isinstance(row, dict) else row[0]): int(row["character_maximum_length"] if isinstance(row, dict) else row[1])
+        for row in rows
+    }
+    return _LIMITS["cols"]
+
+
+def fit_column(col: str, value: Any) -> Any:
+    """Corta texto que não cabe na coluna (cliente, campanha, prazo extraídos de um PDF longo).
+
+    O valor inteiro continua em dados_detectados; a coluna só serve de resumo e busca.
+    """
+    if col in KEEP_WHOLE_COLS:
+        return value
+    limit = _column_limits().get(col)
+    if not limit or not isinstance(value, str) or len(value) <= limit:
+        return value
+    return value[: limit - 1].rstrip() + "…"
+
+
 class SessionNotFound(SmartPlannerError):
     pass
 
@@ -366,9 +410,9 @@ def create_session(user: dict, plan_mode: str, seed: dict | None = None) -> dict
                     token,
                     user.get("user_id"),
                     user.get("user_email"),
-                    user.get("user_name"),
+                    fit_column("user_name", user.get("user_name")),
                     Json(dados),
-                    cliente,
+                    fit_column("cliente", cliente),
                 ),
             )
             row = cur.fetchone()
@@ -387,7 +431,7 @@ def create_session(user: dict, plan_mode: str, seed: dict | None = None) -> dict
                     token,
                     user.get("user_id"),
                     user.get("user_email"),
-                    user.get("user_name"),
+                    fit_column("user_name", user.get("user_name")),
                     Json(dados),
                 ),
             )
@@ -412,7 +456,7 @@ def update_session(token: str, fields: dict) -> dict:
             params.append(Json(value) if value is not None else None)
         else:
             sets.append(f"{col} = %s")
-            params.append(value)
+            params.append(fit_column(col, value))
     if not sets:
         return row
     params.append(row["id"])

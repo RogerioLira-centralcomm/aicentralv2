@@ -1089,6 +1089,66 @@ def api_inscricao_acao(inscricao_id, acao):
     return _transacao(run, f"cadência {acao}")
 
 
+@bp.route("/api/inscricoes/<int:inscricao_id>/trocar", methods=["POST"])
+@centralcomm_required_api
+def api_trocar_fluxo(inscricao_id):
+    """Põe a pessoa em outro fluxo, começando no passo escolhido; fecha a cadência atual."""
+    payload = request.get_json(silent=True) or {}
+    id_cadencia = _int(payload.get("id_cadencia"))
+    if not id_cadencia:
+        return _erro("Escolha o fluxo.")
+
+    def run(cursor):
+        estado = cadencias.trocar_fluxo(cursor, inscricao_id, id_cadencia, passo=payload.get("passo") or 0,
+                                        usuario_id=session.get("user_id"), usuario_nome=session.get("user_name"))
+        return _ok({k: _json_safe(v) for k, v in estado.items()})
+
+    return _transacao(run, "trocar fluxo")
+
+
+@bp.route("/api/inscricoes/<int:inscricao_id>/passo", methods=["POST"])
+@centralcomm_required_api
+def api_ir_para_passo(inscricao_id):
+    payload = request.get_json(silent=True) or {}
+    if payload.get("passo") in (None, ""):
+        return _erro("Escolha o passo.")
+
+    def run(cursor):
+        estado = cadencias.ir_para_passo(cursor, inscricao_id, payload.get("passo"),
+                                         usuario_id=session.get("user_id"), usuario_nome=session.get("user_name"))
+        return _ok({k: _json_safe(v) for k, v in estado.items()})
+
+    return _transacao(run, "ir para passo")
+
+
+@bp.route("/api/inscricoes/<int:inscricao_id>/adiar", methods=["POST"])
+@centralcomm_required_api
+def api_adiar_toque(inscricao_id):
+    data = str((request.get_json(silent=True) or {}).get("data") or "")
+
+    def run(cursor):
+        estado = cadencias.adiar(cursor, inscricao_id, data, usuario_id=session.get("user_id"), usuario_nome=session.get("user_name"))
+        return _ok({k: _json_safe(v) for k, v in estado.items()})
+
+    return _transacao(run, "adiar toque")
+
+
+@bp.route("/api/leads/<int:lead_id>/trocar-fluxo", methods=["POST"])
+@centralcomm_required_api
+def api_trocar_fluxo_do_lead(lead_id):
+    payload = request.get_json(silent=True) or {}
+    id_cadencia = _int(payload.get("id_cadencia"))
+    if not id_cadencia:
+        return _erro("Escolha o fluxo.")
+
+    def run(cursor):
+        n = cadencias.trocar_fluxo_do_lead(cursor, lead_id, id_cadencia, passo=payload.get("passo") or 0,
+                                           usuario_id=session.get("user_id"), usuario_nome=session.get("user_name"))
+        return _ok({"trocadas": n})
+
+    return _transacao(run, "trocar fluxo da conta")
+
+
 @bp.route("/api/leads/<int:lead_id>/golden")
 @centralcomm_required_api
 def api_golden_do_lead(lead_id):

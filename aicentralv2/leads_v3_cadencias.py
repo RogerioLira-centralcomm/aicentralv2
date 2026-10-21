@@ -362,6 +362,139 @@ def avancar(cursor, inscricao_id, acao, *, usuario_id, usuario_nome=None, nota=N
     return {"status": status_novo, "passo_atual": insc["passo_atual"], "proxima_em": agora if status_novo == "ativa" else None}
 
 
+# ─── Controle do executivo sobre a cadência de uma pessoa ───────────────────────────
+def _inscricao_aberta(cursor, inscricao_id):
+    cursor.execute(
+        """
+        SELECT i.id, i.id_lead, i.id_contato, i.id_executivo, i.id_cadencia, i.status, i.passo_atual,
+               cad.nome AS cadencia, cad.passos, c.nome AS contato_nome
+          FROM cadu_lead_cadencia_inscricoes i
+          JOIN cadu_lead_cadencias cad ON cad.id = i.id_cadencia
+          JOIN cadu_lead_contatos c ON c.id = i.id_contato
+         WHERE i.id = %s
+           FOR UPDATE OF i
+        """,
+        [inscricao_id],
+    )
+    insc = cursor.fetchone()
+    if not insc:
+        raise ProspeccaoError("Cadência não encontrada.")
+    if insc["status"] not in ("ativa", "pausada"):
+        raise ProspeccaoError("Esta cadência já foi encerrada.")
+    return insc
+
+
+def _passo_valido(passo, passos):
+    try:
+        passo = int(passo or 0)
+    except (TypeError, ValueError):
+        raise ProspeccaoError("Passo inválido.") from None
+    if not 0 <= passo < len(passos or []):
+        raise ProspeccaoError("Este fluxo não tem esse passo.")
+    return passo
+
+
+def trocar_fluxo(cursor, inscricao_id, id_cadencia, *, passo=0, usuario_id, usuario_nome=None, agora=None):
+    """Fecha a cadência atual e põe a pessoa no fluxo escolhido, começando no passo pedido (o primeiro toque
+    vence agora). Tudo na mesma transação; o histórico registra de onde veio e para onde foi."""
+    agora = agora or datetime.now()
+    insc = _inscricao_aberta(cursor, inscricao_id)
+    cursor.execute("SELECT id, nome, passos FROM cadu_lead_cadencias WHERE id = %s AND ativo", [id_cadencia])
+    destino = cursor.fetchone()
+    if not destino:
+        raise ProspeccaoError("Escolha um fluxo ativo.")
+    passo = _passo_valido(passo, destino["passos"])
+    if destino["id"] == insc["id_cadencia"]:
+        raise ProspeccaoError("A pessoa já está neste fluxo. Para mudar de passo, use 'Ir para o passo'.")
+    cursor.execute(
+        "UPDATE cadu_lead_cadencia_inscricoes SET status = 'cancelada', proxima_em = NULL, motivo_parada = %s WHERE id = %s",
+        [f"Trocou para o fluxo {destino['nome']}"[:200], inscricao_id],
+    )
+    cursor.execute(
+        """
+        INSERT INTO cadu_lead_cadencia_inscricoes (id_cadencia, id_lead, id_contato, id_executivo, passo_atual, proxima_em, inscrito_por)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (id_cadencia, id_contato) WHERE status IN ('ativa', 'pausada') DO NOTHING
+        RETURNING id
+        """,
+        [destino["id"], insc["id_lead"], insc["id_contato"], insc["id_executivo"] or usuario_id, passo, agora, usuario_id],
+    )
+    novo = cursor.fetchone()
+    if not novo:
+        raise ProspeccaoError("A pessoa já está no fluxo de destino.")
+    titulo = (destino["passos"][passo] or {}).get("titulo") or f"passo {passo + 1}"
+    _atividade(cursor, insc["id_lead"], "follow_up",
+               f"{insc['contato_nome']} trocou de fluxo: {insc['cadencia']} → {destino['nome']} "
+               f"(começa no passo {passo + 1}/{len(destino['passos'])}: {titulo}).",
+               insc["id_contato"], usuario_id, usuario_nome)
+    return {"id": novo["id"], "status": "ativa", "passo_atual": passo, "proxima_em": agora, "cadencia": destino["nome"]}
+
+
+def ir_para_passo(cursor, inscricao_id, passo, *, usuario_id, usuario_nome=None, agora=None):
+    """Leva a pessoa a outro passo do mesmo fluxo (para frente ou para trás). Se a cadência está ativa,
+    o passo vence agora; pausada, continua pausada já no passo novo."""
+    agora = agora or datetime.now()
+    insc = _inscricao_aberta(cursor, inscricao_id)
+    passos = insc["passos"] or []
+    passo = _passo_valido(passo, passos)
+    if passo == insc["passo_atual"]:
+        raise ProspeccaoError("A pessoa já está neste passo.")
+    ativa = insc["status"] == "ativa"
+    cursor.execute(
+        "UPDATE cadu_lead_cadencia_inscricoes SET passo_atual = %s, proxima_em = %s WHERE id = %s",
+        [passo, agora if ativa else None, inscricao_id],
+    )
+    _atividade(cursor, insc["id_lead"], "nota",
+               f"Cadência {insc['cadencia']} de {insc['contato_nome']}: do passo {insc['passo_atual'] + 1} para o "
+               f"{passo + 1}/{len(passos)} ({(passos[passo] or {}).get('titulo') or 'sem título'}).",
+               insc["id_contato"], usuario_id, usuario_nome)
+    return {"status": insc["status"], "passo_atual": passo, "proxima_em": agora if ativa else None}
+
+
+def adiar(cursor, inscricao_id, data, *, usuario_id, usuario_nome=None, hoje=None):
+    """Marca o próximo toque para outra data (às 9h). Só cadência ativa; até 180 dias à frente."""
+    hoje = hoje or datetime.now().date()
+    try:
+        dia = datetime.strptime(str(data or ""), "%Y-%m-%d").date()
+    except ValueError:
+        raise ProspeccaoError("Data inválida.") from None
+    if dia < hoje or (dia - hoje).days > 180:
+        raise ProspeccaoError("Escolha uma data de hoje até 180 dias à frente.")
+    insc = _inscricao_aberta(cursor, inscricao_id)
+    if insc["status"] != "ativa":
+        raise ProspeccaoError("Retome a cadência antes de mudar a data.")
+    quando = datetime.combine(dia, datetime.min.time()).replace(hour=9)
+    cursor.execute("UPDATE cadu_lead_cadencia_inscricoes SET proxima_em = %s WHERE id = %s", [quando, inscricao_id])
+    _atividade(cursor, insc["id_lead"], "nota",
+               f"Próximo toque da cadência {insc['cadencia']} de {insc['contato_nome']} marcado para {dia.strftime('%d/%m/%Y')}.",
+               insc["id_contato"], usuario_id, usuario_nome)
+    return {"status": "ativa", "passo_atual": insc["passo_atual"], "proxima_em": quando}
+
+
+def trocar_fluxo_do_lead(cursor, lead_id, id_cadencia, *, passo=0, usuario_id, usuario_nome=None):
+    """Troca o fluxo de todas as pessoas da conta com cadência ativa ou pausada. Quem já está no destino fica."""
+    cursor.execute(
+        """
+        SELECT id FROM cadu_lead_cadencia_inscricoes
+         WHERE id_lead = %s AND status IN ('ativa', 'pausada') AND id_cadencia <> %s
+         ORDER BY id
+        """,
+        [lead_id, id_cadencia],
+    )
+    trocadas = 0
+    for row in cursor.fetchall():
+        cursor.execute("SAVEPOINT troca_fluxo")
+        try:
+            trocar_fluxo(cursor, row["id"], id_cadencia, passo=passo, usuario_id=usuario_id, usuario_nome=usuario_nome)
+            cursor.execute("RELEASE SAVEPOINT troca_fluxo")
+            trocadas += 1
+        except ProspeccaoError as exc:
+            cursor.execute("ROLLBACK TO SAVEPOINT troca_fluxo")
+            if "fluxo ativo" in str(exc) or "não tem esse passo" in str(exc):
+                raise  # erro do pedido, não da pessoa: vale para todas
+    return trocadas
+
+
 def _json(valor):
     from psycopg.types.json import Json
 
@@ -390,7 +523,7 @@ def inscricoes_do_lead(cursor, lead_id):
         """
         SELECT i.id, i.id_contato, i.status, i.passo_atual, i.proxima_em, i.motivo_parada, i.created_at,
                cad.id AS id_cadencia, cad.nome AS cadencia, cad.passos -> i.passo_atual AS passo,
-               jsonb_array_length(cad.passos) AS total
+               cad.passos AS passos, jsonb_array_length(cad.passos) AS total
           FROM cadu_lead_cadencia_inscricoes i JOIN cadu_lead_cadencias cad ON cad.id = i.id_cadencia
          WHERE i.id_lead = %s
          ORDER BY (i.status IN ('ativa', 'pausada')) DESC, i.created_at DESC
@@ -402,7 +535,7 @@ def inscricoes_do_lead(cursor, lead_id):
 
 # Colunas e junções comuns da Fila do dia e dos Próximos (a trilha usa `passos` inteiro).
 _COLUNAS_PASSO = """
-               cad.nome AS cadencia, cad.passos -> i.passo_atual AS passo, cad.passos AS passos,
+               cad.id AS id_cadencia, cad.nome AS cadencia, cad.passos -> i.passo_atual AS passo, cad.passos AS passos,
                jsonb_array_length(cad.passos) AS total,
                c.nome AS contato_nome, c.cargo, c.email, c.telefone, c.linkedin_url, c.papel,
                l.empresa, l.nome AS lead_nome,

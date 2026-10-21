@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {Button, Empty, Field, Icon, decode, formatDate, gmailUrl, linkedinSearchUrl, prettyName as pretty, todayLocal, whatsappUrl} from './ui.jsx';
+import {ManageCadence} from './CadenceControls.jsx';
 import {FocusEditor, GoldenTarget, MarketContext} from './Focus.jsx';
 
 const CANAL = {
@@ -73,7 +74,7 @@ const canalDaMensagem = passo => (passo?.canal === 'linkedin' ? (passo.acao === 
 const RODAPES = {nenhum: '', iphone: 'Enviado do meu iPhone', galaxy: 'Enviado do meu Galaxy'};
 const RODAPE_RE = /\n+Enviado do meu (iPhone|Galaxy)\s*$/;
 
-function StepComposer({api, item, notify, onDone, pautaVersao}) {
+function StepComposer({api, item, fluxos = [], notify, onDone, pautaVersao}) {
   const passo = item.passo || {};
   const canal = canalDaMensagem(passo);
   // A etapa vem do passo do fluxo; fluxo antigo sem etapa segue a regra de antes (primeira metade topo).
@@ -87,6 +88,7 @@ function StepComposer({api, item, notify, onDone, pautaVersao}) {
   const [usado, setUsado] = useState(null);
   const [alertas, setAlertas] = useState([]);
   const [prefs, setPrefs] = useState({dispositivo: 'nenhum', assinatura: ''});
+  const [gerir, setGerir] = useState(false);
   const nome = pretty(item.contato_nome);
   const empresa = decode(item.empresa || item.lead_nome);
   const corpoCompleto = (assunto ? `Assunto: ${assunto}\n\n` : '') + texto;
@@ -250,6 +252,8 @@ function StepComposer({api, item, notify, onDone, pautaVersao}) {
         <Button variant="primary" icon="check" onClick={acao('feito')} disabled={!!busy}>{busy === 'feito' ? 'Registrando…' : 'Marcar como feito'}</Button>
         <Button icon="reply" onClick={acao('respondeu', 'O que a pessoa respondeu? (opcional)')} disabled={!!busy}>Respondeu</Button>
         <Button variant="ghost" icon="forward" onClick={acao('pular')} disabled={!!busy}>Pular passo</Button>
+        <Button variant="ghost" icon="sliders" onClick={() => setGerir(true)} disabled={!!busy} title="Ir para outro passo, adiar ou trocar de fluxo">Gerenciar cadência</Button>
+        {gerir && <ManageCadence api={api} inscricao={{...item, status: 'ativa'}} nome={nome} fluxos={fluxos} notify={notify} onClose={() => setGerir(false)} onDone={onDone}/>}
         <Button variant="ghost" icon="pause" onClick={acao('pausar', 'Motivo da pausa (opcional)')} disabled={!!busy}>Pausar</Button>
       </div>
     </div>
@@ -364,6 +368,8 @@ export function Operacao({boot, api, executivo, setExecutivo, notify, onOpenLead
   const [state, setState] = useState({loading: true, error: ''});
   const [selected, setSelected] = useState(null); // {tipo, id}
   const [pautaVersao, setPautaVersao] = useState(0); // pesquisa ou estrela na pauta recarrega os ganchos do composer
+  const [fluxos, setFluxos] = useState([]);
+  useEffect(() => { api.cadenceModels().then(setFluxos).catch(() => setFluxos([])); }, [api]);
 
   const load = useCallback(async () => {
     setState(s => ({...s, loading: true, error: ''}));
@@ -499,7 +505,7 @@ export function Operacao({boot, api, executivo, setExecutivo, notify, onOpenLead
       <section className="lv3-col lv3-op__main" aria-label="Pendência selecionada">
         {item ? (
           selected.tipo === 'passo' || selected.tipo === 'proximo'
-            ? <StepComposer key={`p${item.id}-${item.passo_atual}`} api={api} item={item} notify={notify} onDone={load} pautaVersao={pautaVersao}/>
+            ? <StepComposer key={`p${item.id}-${item.passo_atual}`} api={api} item={item} fluxos={fluxos} notify={notify} onDone={load} pautaVersao={pautaVersao}/>
             : selected.tipo === 'feito'
               ? <DonePanel key={`f${item.id}`} item={item} onOpenLead={onOpenLead}/>
               : <TaskPanel key={`t${item.id}`} api={api} item={item} notify={notify} onDone={load} onOpenLead={onOpenLead}/>

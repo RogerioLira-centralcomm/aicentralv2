@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import {Button, Empty, Field, Icon, MoreMenu, decode, formatDate, linkedinSearchUrl, prettyName as pretty, whatsappUrl} from './ui.jsx';
 import {FlowSelect, sugerirFluxo} from './Fluxos.jsx';
+import {ManageCadence, SwitchLeadFlow} from './CadenceControls.jsx';
 
 // Papéis que o Golden Circle precisa cobrir em cada conta.
 const COVERAGE = [
@@ -36,7 +37,15 @@ const CANAL_LABEL = {email: 'e-mail', whatsapp: 'WhatsApp', linkedin: 'LinkedIn'
 function CadenceLine({api, contact, inscricao, fluxos = [], notify, onChanged}) {
   const [busy, setBusy] = useState(false);
   const [escolha, setEscolha] = useState(null); // null = fechado; id do fluxo enquanto escolhe
+  const [gerir, setGerir] = useState(false);
   const sugerido = sugerirFluxo(fluxos, contact.papel);
+  const painel = gerir && inscricao && (
+    <ManageCadence api={api} inscricao={inscricao} nome={pretty(contact.nome)} fluxos={fluxos} notify={notify}
+      onClose={() => setGerir(false)} onDone={onChanged}/>
+  );
+  const gerenciar = (
+    <button type="button" className="lv3-link" disabled={busy || !inscricao?.passos} onClick={() => setGerir(true)} title="Mudar de passo, adiar ou trocar de fluxo">Gerenciar</button>
+  );
   const run = (fn, done) => async () => {
     setBusy(true);
     try { await fn(); notify(done); onChanged(); } catch (error) { notify(error.message, 'error'); } finally { setBusy(false); }
@@ -69,8 +78,10 @@ function CadenceLine({api, contact, inscricao, fluxos = [], notify, onChanged}) 
       <div className="lv3-cadence is-active">
         <Icon name="circle-play"/>
         <span><strong>{inscricao.cadencia}</strong> · {etapa} · próximo: {CANAL_LABEL[passo.canal] || passo.canal} {inscricao.proxima_em ? `em ${formatDate(inscricao.proxima_em).slice(0, 10)}` : ''}</span>
+        {gerenciar}
         <button type="button" className="lv3-link lv3-link--muted" disabled={busy} onClick={run(() => api.stepAction(inscricao.id, 'pausar'), 'Cadência pausada.')}>Pausar</button>
         <button type="button" className="lv3-link lv3-link--muted" disabled={busy} onClick={() => { if (window.confirm('Encerrar a cadência desta pessoa?')) run(() => api.stepAction(inscricao.id, 'cancelar'), 'Cadência encerrada.')(); }}>Encerrar</button>
+        {painel}
       </div>
     );
   }
@@ -80,6 +91,8 @@ function CadenceLine({api, contact, inscricao, fluxos = [], notify, onChanged}) 
         <Icon name="circle-pause"/>
         <span><strong>{inscricao.cadencia}</strong> pausada · {etapa}{inscricao.motivo_parada ? ` · ${inscricao.motivo_parada}` : ''}</span>
         <button type="button" className="lv3-link" disabled={busy} onClick={run(() => api.stepAction(inscricao.id, 'retomar'), 'Cadência retomada.')}>Retomar</button>
+        {gerenciar}
+        {painel}
       </div>
     );
   }
@@ -366,6 +379,7 @@ export function People({boot, api, lead, contacts, candidates, cadences = [], on
   const [bulk, setBulk] = useState('');
   const [fluxos, setFluxos] = useState([]);
   const [fluxoTodos, setFluxoTodos] = useState(null); // null = fechado; '' = cada pessoa pela sua área
+  const [trocarConta, setTrocarConta] = useState(false);
   useEffect(() => { api.cadenceModels().then(setFluxos).catch(() => setFluxos([])); }, [api]);
   const set = key => event => setDraft(d => ({...d, [key]: event.target.value}));
   const empresa = decode(lead.empresa || lead.nome);
@@ -375,6 +389,7 @@ export function People({boot, api, lead, contacts, candidates, cadences = [], on
   // Inscrição que importa por pessoa: a ativa/pausada; senão a mais recente (a API já ordena assim).
   const inscricaoDe = id => cadences.find(i => i.id_contato === id);
   const semCadencia = contacts.filter(c => !cadences.some(i => i.id_contato === c.id && ['ativa', 'pausada'].includes(i.status)));
+  const emAndamento = cadences.filter(i => ['ativa', 'pausada'].includes(i.status)).length;
   const inscreverTodos = async () => {
     setBulk('cad');
     try {
@@ -463,6 +478,15 @@ export function People({boot, api, lead, contacts, candidates, cadences = [], on
                   <button type="button" className="lv3-link lv3-link--muted" onClick={() => setFluxoTodos(null)}>Cancelar</button>
                 </span>
               )
+            )}
+            {emAndamento > 0 && fluxos.length > 1 && (
+              <Button size="sm" variant="ghost" icon="shuffle" onClick={() => setTrocarConta(true)} disabled={!!bulk} title="Encerrar as cadências em andamento e pôr todos em outro fluxo">
+                {`Trocar fluxo da conta (${emAndamento})`}
+              </Button>
+            )}
+            {trocarConta && (
+              <SwitchLeadFlow api={api} leadId={lead.id} empresa={empresa} total={emAndamento} fluxos={fluxos} notify={notify}
+                onClose={() => setTrocarConta(false)} onDone={onChanged}/>
             )}
             {semEmail.length > 0 && (
               <Button size="sm" variant="ghost" icon="wand-magic-sparkles" onClick={findAll} disabled={!!bulk}>

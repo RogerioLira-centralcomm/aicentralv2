@@ -267,3 +267,34 @@ class FluxosTest(TestCase):
         r = cad.atualizar_fluxo(cursor, 4, {"nome": "Outro nome", "estagio": "novo",
                                             "passos": [{**antigo, "etapa": "topo", "objetivo": ""}]}, usuario_id=1)
         self.assertEqual(r, {"id": 4, "nova_versao": False})
+
+
+class ControleCadenciaTest(TestCase):
+    def test_rotas_pedem_fluxo_e_passo(self):
+        c = _client()
+        self.assertEqual(c.post("/leads-v3/api/inscricoes/3/trocar", json={}).status_code, 400)
+        self.assertEqual(c.post("/leads-v3/api/inscricoes/3/passo", json={}).status_code, 400)
+        self.assertEqual(c.post("/leads-v3/api/leads/3/trocar-fluxo", json={}).status_code, 400)
+
+    def test_adiar_valida_a_data_antes_do_banco(self):
+        from datetime import date
+        from aicentralv2 import leads_v3_cadencias as cad
+
+        cursor = MagicMock()
+        for ruim in ("21/10/2026", "2026-10-20", "2027-06-01"):
+            with self.assertRaises(ProspeccaoError):
+                cad.adiar(cursor, 1, ruim, usuario_id=1, hoje=date(2026, 10, 21))
+        cursor.execute.assert_not_called()
+
+    def test_trocar_para_o_mesmo_fluxo_ou_passo_inexistente(self):
+        from aicentralv2 import leads_v3_cadencias as cad
+
+        aberta = {"id": 1, "id_lead": 2, "id_contato": 3, "id_executivo": 4, "id_cadencia": 7, "status": "ativa",
+                  "passo_atual": 0, "cadencia": "A", "passos": [{}], "contato_nome": "Ana"}
+        for destino, passo, msg in (({"id": 7, "nome": "A", "passos": [{}]}, 0, "já está neste fluxo"),
+                                    ({"id": 8, "nome": "B", "passos": [{}]}, 3, "não tem esse passo")):
+            cursor = MagicMock()
+            cursor.fetchone.side_effect = [dict(aberta), destino]
+            with self.assertRaises(ProspeccaoError) as ctx:
+                cad.trocar_fluxo(cursor, 1, destino["id"], passo=passo, usuario_id=1)
+            self.assertIn(msg, str(ctx.exception))

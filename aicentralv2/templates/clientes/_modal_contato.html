@@ -44,7 +44,7 @@
           </div>
         </div>
 
-        {% if session.user_type in ['admin', 'superadmin'] %}
+        {% if session.user_type in ['admin', 'superadmin'] and not (hide_wasender|default(false)) %}
         <div class="cliente-contato-wasender" id="contato_wasender_container">
           <div class="cliente-contato-wasender-inputs">
             <div class="cx-field cliente-contato-form-span-6">

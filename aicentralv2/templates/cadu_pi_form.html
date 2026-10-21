@@ -777,7 +777,9 @@
 </div>
 
 {% include 'pi_operacao/_drive_modal.html' %}
+{% with hide_wasender=true %}
 {% include 'clientes/_modal_contato.html' %}
+{% endwith %}
 {% include 'pi_operacao/_modal_pi_lista_contatos.html' %}
 
 <script type="application/json" id="pi-contatos-config">{{ {

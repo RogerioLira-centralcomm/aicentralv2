@@ -65,6 +65,19 @@
     return document.getElementById('modal_contato');
   }
 
+  function isEntityContatoContext() {
+    return !!(
+      document.getElementById('pi-contatos-config') ||
+      document.getElementById('contatos-entity-config')
+    );
+  }
+
+  function syncWasenderVisibility() {
+    var box = document.getElementById('contato_wasender_container');
+    if (!box) return;
+    box.hidden = isEntityContatoContext();
+  }
+
   function getListaModal() {
     return document.getElementById('modal_pi_lista_contatos');
   }
@@ -132,6 +145,7 @@
     }
     var respEl = document.getElementById('contato_responsavel_setor');
     if (respEl) respEl.checked = options.marcarResponsavel !== false;
+    syncWasenderVisibility();
     modal.showModal();
   }
 
@@ -163,6 +177,7 @@
       }
       document.getElementById('contato_modal_title').textContent = 'Editar contato';
       document.getElementById('contato_btn_text').textContent = 'Atualizar contato';
+      syncWasenderVisibility();
       getModal().showModal();
     } catch (e) {
       console.error(e);

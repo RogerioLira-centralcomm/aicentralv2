@@ -911,7 +911,9 @@
   </div>
 </dialog>
 
+{% with hide_wasender=true %}
 {% include 'clientes/_modal_contato.html' %}
+{% endwith %}
 {% include 'pi_operacao/_modal_pi_lista_contatos.html' %}
 <script type="application/json" id="contatos-entity-config">
 {

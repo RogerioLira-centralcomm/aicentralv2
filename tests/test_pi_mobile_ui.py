@@ -137,6 +137,21 @@ class PiMobileUiContractTest(unittest.TestCase):
         self.assertIn("data['id_agencia'] = pi.get('id_agencia')", routes)
         self.assertIn("data['id_parceiro'] = pi.get('id_parceiro')", routes)
 
+    def test_modal_contato_oculta_wasender_no_pi_e_cotacao(self):
+        pi_detail = self._source(TEMPLATES / "cadu_pi_form.html")
+        cot_form = self._source(TEMPLATES / "cadu_cotacoes_form.html")
+        clientes = self._source(TEMPLATES / "clientes.html")
+        modal = self._source(TEMPLATES / "clientes" / "_modal_contato.html")
+        pi_js = self._source(STATIC / "js" / "pi_contatos.js")
+
+        self.assertIn("{% with hide_wasender=true %}", pi_detail)
+        self.assertIn("clientes/_modal_contato.html", pi_detail)
+        self.assertIn("{% with hide_wasender=true %}", cot_form)
+        self.assertNotIn("hide_wasender", clientes)
+        self.assertIn("hide_wasender|default(false)", modal)
+        self.assertIn("syncWasenderVisibility", pi_js)
+        self.assertIn("isEntityContatoContext", pi_js)
+
     def test_campanhas_usam_modal_enterprise_vanilla(self):
         pi_detail = self._source(TEMPLATES / "cadu_pi_form.html")
         modals = self._source(TEMPLATES / "cadu_pi" / "_campaign_modals.html")

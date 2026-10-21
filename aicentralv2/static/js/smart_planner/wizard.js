@@ -1735,6 +1735,8 @@
     if (mediaOpen) {
       mediaOpen.addEventListener("click", openDeskModal);
     }
+    // Formatos e outras mesas avisam aqui, para "Alterações não aplicadas" acompanhar.
+    document.addEventListener("sp-media-changed", paintDirty);
     if (mediaDlg) {
       mediaDlg.addEventListener("cancel", function (event) {
         event.preventDefault();
@@ -2437,18 +2439,25 @@
     }
 
     // ---------- Formatos por canal
+    // Na rede de portais os interativos têm painel próprio; aqui ficam display, vídeo e native.
+    function deskFormats(key) {
+      var rows = channelFormats[key] || [];
+      return key === network ? rows.filter(function (fmt) { return !fmt.interactive; }) : rows;
+    }
     function renderFormats() {
       if (!formatsDesk || !formatsList) return;
-      var canais = selectedCanaisNow().filter(function (key) { return (channelFormats[key] || []).length; });
+      var canais = selectedCanaisNow().filter(function (key) { return deskFormats(key).length; });
       formatsDesk.hidden = !canais.length;
+      renderInteractiveCallout();
       if (!canais.length) return;
       var state = formatosState();
       formatsList.innerHTML = canais.map(function (key) {
-        var picked = state[key] || [];
+        var ids = deskFormats(key).map(function (fmt) { return fmt.id; });
+        var picked = (state[key] || []).filter(function (slug) { return ids.indexOf(slug) !== -1; });
         var open = picked.length || key === network;
         return '<details class="sp-formatos-channel"' + (open ? " open" : "") + '><summary><strong>' + escapeHtml(labelOf(key)) + "</strong><small>"
           + (picked.length ? picked.length + (picked.length === 1 ? " formato" : " formatos") : "nenhum formato escolhido") + "</small></summary>"
-          + '<div class="sp-formatos-list-scroll">' + groupFormats(channelFormats[key]).map(function (group) {
+          + '<div class="sp-formatos-list-scroll">' + groupFormats(deskFormats(key)).map(function (group) {
             return '<div class="sp-formatos-group"><span>' + escapeHtml(group.label) + (group.key === "interativos" ? " · custo agregado" : "") + "</span>"
               + group.items.map(function (fmt) {
                 // O tamanho aparece só quando o nome ainda não o traz (Billboard (970x250) já diz).
@@ -2472,6 +2481,130 @@
         state[key] = list;
         renderFormats();
         renderTaticas();
+        document.dispatchEvent(new Event("sp-media-changed"));
+      });
+    }
+
+    // ---------- Formatos interativos da rede de portais
+    var strategy = document.getElementById("sp-media-strategy");
+    var ifmtCallout = document.getElementById("sp-ifmt-callout");
+    var ifmtPanel = document.getElementById("sp-ifmt");
+    var ifmtList = document.getElementById("sp-ifmt-list");
+    var ifmtCats = document.getElementById("sp-ifmt-cats");
+    var ifmtSearch = document.getElementById("sp-ifmt-search");
+    var ifmtCount = document.getElementById("sp-ifmt-count");
+    var ifmtCat = "";
+    function interactiveRows() {
+      return (channelFormats[network] || []).filter(function (fmt) { return fmt.interactive; });
+    }
+    function interactivePicked() {
+      var ids = interactiveRows().map(function (fmt) { return fmt.id; });
+      return (formatosState()[network] || []).filter(function (slug) { return ids.indexOf(slug) !== -1; });
+    }
+    function categoryOf(fmt) {
+      return fmt.category || (fmt.type === "rich-media" || fmt.type === "rich media" ? "Rich media" : "Interativos");
+    }
+    function fold(value) {
+      return String(value || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+    }
+    function renderInteractiveCallout(refreshPanel) {
+      if (!ifmtCallout) return;
+      var rows = interactiveRows();
+      var on = rows.length && selectedCanaisNow().indexOf(network) !== -1;
+      ifmtCallout.hidden = !on;
+      if (!on) { closeInteractive(); return; }
+      var picked = interactivePicked();
+      var names = {};
+      rows.forEach(function (fmt) { names[fmt.id] = fmt.name; });
+      ifmtCallout.innerHTML = '<div><strong>Formatos interativos</strong><small>' + escapeHtml(labelOf(network)) + " · "
+        + (picked.length ? picked.length + " de " + rows.length + (picked.length === 1 ? " escolhido" : " escolhidos") : rows.length + " disponíveis, nenhum escolhido") + "</small>"
+        + (picked.length ? '<ul>' + picked.slice(0, 6).map(function (slug) { return "<li>" + escapeHtml(names[slug] || slug) + "</li>"; }).join("")
+          + (picked.length > 6 ? "<li>+" + (picked.length - 6) + "</li>" : "") + "</ul>" : "")
+        + '</div><button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-ifmt-open">' + (picked.length ? "Editar formatos" : "Escolher formatos") + "</button>";
+      if (refreshPanel !== false && ifmtPanel && !ifmtPanel.hidden) renderInteractive();
+    }
+    // Marcar um formato não redesenha a lista, para o foco seguir no item marcado.
+    function renderInteractive(keepList) {
+      if (!ifmtList) return;
+      var rows = interactiveRows();
+      var picked = interactivePicked();
+      var query = fold(ifmtSearch && ifmtSearch.value).trim();
+      var cats = [];
+      var counts = {};
+      rows.forEach(function (fmt) {
+        var cat = categoryOf(fmt);
+        if (!counts[cat]) { counts[cat] = 0; cats.push(cat); }
+        counts[cat] += 1;
+      });
+      if ((ifmtCat === "__picked" && !picked.length) || (ifmtCat && ifmtCat !== "__picked" && !counts[ifmtCat])) ifmtCat = "";
+      var chip = function (value, label, count) {
+        return '<button type="button" data-cat="' + escapeHtml(value) + '" aria-pressed="' + (ifmtCat === value) + '">' + escapeHtml(label) + " <small>" + count + "</small></button>";
+      };
+      ifmtCats.innerHTML = chip("", "Todos", rows.length) + (picked.length ? chip("__picked", "Escolhidos", picked.length) : "")
+        + cats.map(function (cat) { return chip(cat, cat, counts[cat]); }).join("");
+      var visible = rows.filter(function (fmt) {
+        if (ifmtCat === "__picked" && picked.indexOf(fmt.id) === -1) return false;
+        if (ifmtCat && ifmtCat !== "__picked" && categoryOf(fmt) !== ifmtCat) return false;
+        return !query || fold([fmt.name, fmt.description, fmt.dimensions, categoryOf(fmt)].join(" ")).indexOf(query) !== -1;
+      });
+      if (ifmtCount) ifmtCount.textContent = picked.length + (picked.length === 1 ? " escolhido" : " escolhidos") + " · " + visible.length + " de " + rows.length + " na lista";
+      if (keepList === true) return;
+      ifmtList.innerHTML = visible.length ? visible.map(function (fmt) {
+        var on = picked.indexOf(fmt.id) !== -1;
+        var size = (fmt.dimensions || "").split(/[|;]/)[0].replace(/\s*pixels/i, "").trim();
+        var meta = [categoryOf(fmt)].concat(size && !/conforme/i.test(size) ? [size.slice(0, 40)] : []).join(" · ");
+        return '<article class="sp-ifmt__card' + (on ? " is-on" : "") + '"><label>'
+          + '<input type="checkbox" name="formato_interativo" value="' + escapeHtml(fmt.id) + '"' + (on ? " checked" : "") + ">"
+          + (fmt.image ? '<img src="' + escapeHtml(fmt.image) + '" alt="" loading="lazy" onerror="this.remove()">' : '<span class="sp-ifmt__thumb" aria-hidden="true">' + escapeHtml(fmt.name.slice(0, 2)) + "</span>")
+          + "<span><strong>" + escapeHtml(fmt.name) + "</strong><small>" + escapeHtml(meta) + "</small>"
+          + (fmt.description ? '<em title="' + escapeHtml(fmt.description) + '">' + escapeHtml(fmt.description) + "</em>" : "") + "</span></label>"
+          + (fmt.demo ? '<a href="' + escapeHtml(fmt.demo) + '" target="_blank" rel="noopener noreferrer">Testar a peça</a>' : "") + "</article>";
+      }).join("") : '<p class="sp-ifmt__empty">Nenhum formato com essa busca.</p>';
+    }
+    function openInteractive() {
+      if (!ifmtPanel || !strategy) return;
+      ifmtPanel.hidden = false;
+      strategy.classList.add("is-ifmt-open");
+      renderInteractive();
+      strategy.scrollTop = 0;
+      if (ifmtSearch) ifmtSearch.focus();
+    }
+    function closeInteractive() {
+      if (!ifmtPanel || ifmtPanel.hidden) return;
+      ifmtPanel.hidden = true;
+      if (strategy) strategy.classList.remove("is-ifmt-open");
+      var opener = document.getElementById("sp-ifmt-open");
+      if (opener) opener.focus();
+    }
+    if (ifmtCallout) {
+      ifmtCallout.addEventListener("click", function (event) {
+        if (event.target && event.target.id === "sp-ifmt-open") openInteractive();
+      });
+    }
+    if (ifmtPanel) {
+      document.getElementById("sp-ifmt-back").addEventListener("click", closeInteractive);
+      document.getElementById("sp-ifmt-done").addEventListener("click", closeInteractive);
+      ifmtSearch.addEventListener("input", function () { renderInteractive(); });
+      document.addEventListener("sp-media-will-open", function () { ifmtCat = ""; ifmtSearch.value = ""; closeInteractive(); });
+      ifmtCats.addEventListener("click", function (event) {
+        var button = event.target && event.target.closest("button[data-cat]");
+        if (!button) return;
+        ifmtCat = button.getAttribute("data-cat");
+        renderInteractive();
+      });
+      ifmtList.addEventListener("change", function (event) {
+        var target = event.target;
+        if (!target || target.name !== "formato_interativo") return;
+        var state = formatosState();
+        var list = (state[network] || []).filter(function (slug) { return slug !== target.value; });
+        if (target.checked) list.push(target.value);
+        state[network] = list;
+        var card = target.closest(".sp-ifmt__card");
+        if (card) card.classList.toggle("is-on", target.checked);
+        renderInteractive(true);
+        renderInteractiveCallout(false);
+        renderTaticas();
+        document.dispatchEvent(new Event("sp-media-changed"));
       });
     }
 

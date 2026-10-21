@@ -11,7 +11,7 @@
   <meta property="og:url" content="{{ document_url }}"><meta property="og:image" content="{{ share_image }}"><meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_slides.css') }}?v=16">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_slides.css') }}?v=17">
   {% if template_css %}<style>:root{ {{- template_css -}} }</style>{% else %}<style>:root{--sx-ink:{{ slide_ink or '#14252d' }};--sx-accent:{{ slide_accent or '#d5aa3b' }}}</style>{% endif %}
 </head>
 <body class="sx is-booting{% if neutral_palette %} is-neutral{% endif %}" data-document-url="{{ document_page_url }}" data-channel="{{ public_token or 'plano' }}" data-total="{{ slides|length }}">
@@ -184,6 +184,11 @@
             <aside class="sx-sites">{% if slide.mockup %}{{ mockup(slide.mockup, 'xs') }}{% endif %}<h3>Rede de portais e sites</h3><p>{% if slide.sites_total %}{{ slide.sites_total }} sites no recorte{% if slide.segment %} de perfil classes {{ slide.segment }}{% endif %}. Os maiores:{% else %}Sites do plano:{% endif %}</p><ul>{% for site in slide.site_rows or [] %}<li>{% if site.logo %}<img src="{{ site.logo }}" alt="" onerror="this.remove()">{% endif %}{{ site.name }}</li>{% endfor %}</ul></aside>
             {% endif %}
           </div>
+
+          {% elif slide.type == 'interactives' %}
+          {{ kicker(slide) }}
+          <ul class="sx-ifmt">{% for f in slide.cards %}<li><strong>{{ f.name }}</strong>{% if f.meta %}<small>{{ f.meta }}</small>{% endif %}{% if f.description %}<p>{{ f.description }}</p>{% endif %}{% if f.demo %}<a href="{{ f.demo }}" target="_blank" rel="noopener noreferrer">Testar a peça</a>{% endif %}</li>{% endfor %}</ul>
+          <p class="sx-note"><span class="sx-dot is-agg"></span>Custo agregado na proposta{% if slide.more %}. Mais {{ slide.more }} no documento do plano{% endif %}.</p>
 
           {% elif slide.type == 'first_party' %}
           {{ kicker(slide) }}

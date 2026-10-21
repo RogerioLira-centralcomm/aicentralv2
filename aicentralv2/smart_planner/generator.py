@@ -1447,7 +1447,8 @@ def _attach_formats_and_sites(page: dict, snapshot: dict) -> None:
         rows = [row for row in rows if row]
         if rows:
             by_channel[channel_id] = [
-                {"nome": row["name"], "tipo": row["type"], "dimensoes": row["dimensions"], "custo_agregado": bool(row.get("aggregated_cost"))}
+                {"id": row["id"], "nome": row["name"], "tipo": row["type"], "dimensoes": row["dimensions"],
+                 "custo_agregado": bool(row.get("aggregated_cost")), **format_catalog.particulars(row)}
                 for row in rows
             ]
     page["formatos"] = by_channel

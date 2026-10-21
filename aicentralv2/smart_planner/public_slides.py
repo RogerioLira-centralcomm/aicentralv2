@@ -368,6 +368,25 @@ def _formats(view: dict) -> dict | None:
     }
 
 
+def _interactives(view: dict) -> dict | None:
+    """Os interativos escolhidos, um cartão cada: mecânica, categoria, tamanho e a peça de teste."""
+    items = []
+    for item in as_list(view.get("interactive_formats"))[:6]:
+        item = as_dict(item)
+        size = text(item.get("dimensoes")).split("|")[0].replace(" pixels", "").strip()
+        meta = [text(item.get("categoria"))] + ([size] if size and "conforme" not in size.lower() else [])
+        items.append({
+            "name": clip(item.get("nome"), 40),
+            "meta": clip(" · ".join(part for part in meta if part), 60),
+            "description": clip(item.get("descricao"), 190),
+            "demo": text(item.get("demo")),
+        })
+    if not items:
+        return None
+    return {"type": "interactives", "nav": "Formatos interativos", "kicker": "Formatos interativos", "cards": items,
+            "more": max(0, len(as_list(view.get("interactive_formats"))) - 6)}
+
+
 def _first_party(view: dict) -> dict | None:
     """Dados do cliente: o que ele fornece e como cada uso entra no plano."""
     data = as_dict(view.get("first_party"))
@@ -446,6 +465,7 @@ ICONS = {
     "showcase": '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
     "arts": '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/>',
     "media": '<path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/>',
+    "interactives": '<path d="M9 9l10 4-4 2-2 4z"/><path d="M5 3v4M3 5h4M5 13v4M3 15h4"/>',
     "formats": '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
     "first_party": '<ellipse cx="12" cy="5.5" rx="8" ry="2.5"/><path d="M4 5.5v6c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5v-6"/><path d="M4 11.5v6c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5v-6"/>',
     "defense": '<path d="M12 3l8 3v6c0 4.5-3.4 8.2-8 9-4.6-.8-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
@@ -500,7 +520,7 @@ def highlighter(view: dict):
     return lambda value: emphasize(value, pattern=pattern)
 
 
-BUILDERS = (_cover, _thesis, _context, _audience, _creative, _showcase, _campaign_arts, _media, _formats, _first_party, _defense, _market, _contact)
+BUILDERS = (_cover, _thesis, _context, _audience, _creative, _showcase, _campaign_arts, _media, _formats, _interactives, _first_party, _defense, _market, _contact)
 
 
 def _notes(slide: dict, view: dict) -> list[str]:
@@ -527,6 +547,9 @@ def _notes(slide: dict, view: dict) -> list[str]:
             notes += [text(item) for item in as_list(as_dict(group).get("items"))]
     elif kind == "market":
         notes = [text(as_dict(editorial.get("market")).get("insight"))]
+    elif kind == "interactives":
+        notes = [f"{text(as_dict(f).get('nome'))}: {text(as_dict(f).get('descricao'))}" for f in as_list(view.get("interactive_formats"))
+                 if text(as_dict(f).get("descricao"))]
     seen: list[str] = []
     for note in notes:
         note = re.sub(r"\s+", " ", note).strip()

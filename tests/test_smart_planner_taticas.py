@@ -66,6 +66,74 @@ def test_network_formats_are_iab_and_interactive_while_social_has_its_own():
     assert fmt.aggregated_names([HOTSPOT, BILLBOARD, CARDS]) == ["Hotspots (Shop the Look)", "Cards"]
 
 
+def test_catalog_row_brings_the_showcase_of_the_planner(monkeypatch):
+    extras = {"segmento": "Ignorado", "imagem_referencia": "https://cdn.example/cube.png", "preview_url": "https://demo.example/cube"}
+    rows = [
+        {"slug": "cube", "nome": "Cube", "tipo": "display_interativo", "dimensoes": "IAB", "is_interativo": True,
+         "plataforma_slug": "interativos", "descricao": "Cubo 3D com imagens.", "categoria_criativa": "Exploração",
+         "dados_extras": json.dumps(extras)},
+        {"slug": "flip", "nome": "Flip", "tipo": "rich-media", "dimensoes": "300x250", "is_interativo": True,
+         "plataforma_slug": None, "descricao": None, "categoria_criativa": None, "dados_extras": {"segmento": ["Descoberta"]}},
+        {"slug": "branded-effects", "nome": "Branded Effects", "tipo": "social", "dimensoes": "9:16", "is_interativo": True,
+         "plataforma_slug": "tiktok_ads", "descricao": "", "categoria_criativa": "", "dados_extras": None},
+    ]
+    monkeypatch.setattr("aicentralv2.cadu_family.repository.rows", lambda sql, params=None: rows)
+    fmt.reset_cache()
+    by_id = {row["id"]: row for row in fmt.catalog()}
+    assert by_id["cube"]["description"] == "Cubo 3D com imagens."
+    assert by_id["cube"]["category"] == "Exploração"
+    assert by_id["cube"]["image_url"] == "https://cdn.example/cube.png"
+    assert by_id["cube"]["creative_url"] == "https://demo.example/cube"
+    assert by_id["flip"]["category"] == "Descoberta" and by_id["flip"]["creative_url"] == ""
+    # Interativo sem plataforma roda na rede de portais; o da TikTok fica na TikTok.
+    network = [row["id"] for row in fmt.formats_for_channel("dv360")]
+    assert network == ["cube", "flip"]
+    assert [row["id"] for row in fmt.formats_for_channel("tiktok")] == ["branded-effects"]
+
+
+def test_interactive_without_platform_is_kept_on_the_network_and_reaches_the_page():
+    flip = {"id": "flip", "name": "Flip", "type": "rich-media", "dimensions": "300x250", "interactive": True, "platform": "",
+            "description": "A peça vira e mostra o verso.", "category": "Descoberta", "creative_url": "https://demo.example/flip"}
+    fmt._CACHE["rows"] = fmt._static_rows() + [flip]
+    assert normalize_formatos({"dv360": ["flip", HOTSPOT], "meta_ads": ["flip"]}, CANAIS) == {"dv360": ["flip", HOTSPOT]}
+    page = {}
+    generator._attach_formats_and_sites(page, {"formatos": {"dv360": ["flip", BILLBOARD]}, "formatos_com_custo_agregado": ["Flip"]})
+    assert page["formatos"]["dv360"][0] == {
+        "id": "flip", "nome": "Flip", "tipo": "rich-media", "dimensoes": "300x250", "custo_agregado": True, "interativo": True,
+        "categoria": "Descoberta", "descricao": "A peça vira e mostra o verso.", "demo": "https://demo.example/flip",
+    }
+    assert "descricao" not in page["formatos"]["dv360"][1]  # display IAB não leva os particulares
+    assert page["formatos_custo_agregado"] == ["Flip"]
+
+
+def test_plan_outputs_detail_each_chosen_interactive_even_for_old_pages():
+    from aicentralv2.smart_planner.pptx_export import RENDERERS
+    from aicentralv2.smart_planner.public_slides import _interactives
+
+    # Página antiga: só nome e tipo. O catálogo completa; display e repetidos ficam de fora.
+    old = {"dv360": [{"nome": "Quiz", "tipo": "display_interativo", "custo_agregado": True},
+                     {"nome": "Billboard (970x250)", "tipo": "display"}],
+           "meta_ads": [{"id": "interativo-quiz", "nome": "Quiz"}]}
+    details = fmt.interactive_details(old)
+    assert [item["nome"] for item in details] == ["Quiz"]
+    slide = _interactives({"interactive_formats": [
+        {"nome": "Cube", "categoria": "Exploração", "dimensoes": "IAB desktop e mobile (conforme briefing)",
+         "descricao": "Cubo 3D. " * 40, "demo": "https://demo.example/cube"}]})
+    item = slide["cards"][0]
+    assert slide["type"] == "interactives" and item["meta"] == "Exploração" and item["demo"] == "https://demo.example/cube"
+    assert len(item["description"]) <= 190
+    assert "interactives" in RENDERERS
+    assert _interactives({"interactive_formats": []}) is None
+
+
+def test_screen_spec_shows_description_and_demo_only_for_interactives():
+    from aicentralv2.smart_planner.taticas import spec_for_js
+
+    rows = {row["id"]: row for row in spec_for_js()["channelFormats"]["dv360"]}
+    assert {"description", "category", "image", "demo"} <= set(rows[HOTSPOT])
+    assert "description" not in rows[BILLBOARD]
+
+
 def test_resolve_accepts_legacy_ids_names_and_rejects_unknown():
     allowed = {row["id"] for row in fmt.formats_for_channel("dv360")}
     assert fmt.resolve_id("hotspot", allowed) == HOTSPOT

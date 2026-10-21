@@ -117,7 +117,10 @@ def spec_for_js() -> dict:
         if rows:
             channels[key] = [
                 {"id": row["id"], "name": row["name"], "type": row["type"], "family": family_of(row["id"]), "dimensions": row["dimensions"],
-                 "interactive": bool(row["interactive"]), "aggregated": bool(row["aggregated_cost"])}
+                 "interactive": bool(row["interactive"]), "aggregated": bool(row["aggregated_cost"]),
+                 # A vitrine de interativos mostra descrição, categoria, imagem e a peça de teste.
+                 **({"description": text(row.get("description"))[:320], "category": text(row.get("category")),
+                     "image": text(row.get("image_url")), "demo": text(row.get("creative_url"))} if row["interactive"] else {})}
                 for row in rows
             ]
     return {

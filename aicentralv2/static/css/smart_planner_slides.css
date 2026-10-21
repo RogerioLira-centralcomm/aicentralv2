@@ -485,3 +485,9 @@ body.is-presenter [data-sx-presenter],body.is-presenter [data-sx-present]{displa
 .sx-arts figcaption{margin-top:var(--gap-2);color:var(--sx-muted);font-size:18px;font-weight:600}
 .sx-arts .is-main figcaption{color:var(--sx-brand)}
 .sx-arts figure.is-vertical figcaption{text-align:center}
+.sx-ifmt{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--gap-4);margin:var(--gap-4) 0 0;padding:0;list-style:none}
+.sx-ifmt li{display:flex;flex-direction:column;gap:6px;padding:20px 24px;border:1px solid var(--sx-line);border-radius:18px;background:#fff}
+.sx-ifmt strong{font-size:24px}
+.sx-ifmt small{color:var(--sx-muted);font-size:16px;font-weight:600}
+.sx-ifmt p{margin:4px 0 0;font-size:17px;line-height:1.4}
+.sx-ifmt a{margin-top:auto;padding-top:8px;color:inherit;font-size:16px;font-weight:700}

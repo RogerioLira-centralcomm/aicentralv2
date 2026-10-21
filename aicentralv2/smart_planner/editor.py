@@ -289,6 +289,7 @@ def _channel_formats(dados: dict, media: dict) -> list[dict]:
                     "name": text(row.get("name")) or slug,
                     "type": family_label(family) if family else "",
                     "aggregated": bool(row.get("aggregated_cost")),
+                    "description": text(row.get("description")) if row.get("interactive") else "",
                 })
             out.append({
                 "id": key,

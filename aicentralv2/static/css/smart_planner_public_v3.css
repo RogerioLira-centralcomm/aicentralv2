@@ -107,3 +107,12 @@
 .spv3-arts .is-vertical figcaption{text-align:center}
 .spv3-arts figcaption{margin-top:8px;color:var(--muted);font-size:13px;font-weight:600}
 .spv3-arts .is-main figcaption{color:var(--brand)}
+.spv3-ifmt{margin-top:22px;padding:16px 20px;border:1px solid var(--line);border-radius:14px;background:#fff}
+.spv3-ifmt h3{margin:0 0 6px;font-size:1rem}
+.spv3-ifmt>p{margin:0;color:var(--muted);font-size:14px}
+.spv3-ifmt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:14px}
+.spv3-ifmt-grid article{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border-radius:12px;background:var(--soft)}
+.spv3-ifmt-grid strong{font-size:15px}
+.spv3-ifmt-grid small{color:var(--muted);font-size:12px;font-weight:600}
+.spv3-ifmt-grid p{margin:2px 0 0;font-size:13px;line-height:1.45}
+.spv3-ifmt-grid a{margin-top:auto;padding-top:6px;font-size:13px;font-weight:700;color:inherit}

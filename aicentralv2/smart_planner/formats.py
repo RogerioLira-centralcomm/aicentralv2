@@ -11,6 +11,7 @@ embutido mantém o planejamento funcionando.
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from typing import Any
@@ -87,7 +88,8 @@ def _load() -> list[dict]:
         from ..cadu_family import repository
 
         rows = repository.rows(
-            """SELECT slug, nome, tipo, dimensoes, is_interativo, plataforma_slug, duracao
+            """SELECT slug, nome, tipo, dimensoes, is_interativo, plataforma_slug, duracao,
+                      descricao, categoria_criativa, dados_extras
                  FROM cadu_formatos WHERE is_active IS TRUE ORDER BY ordem NULLS LAST, nome"""
         )
     except Exception:
@@ -106,8 +108,32 @@ def _load() -> list[dict]:
             "interactive": bool(row.get("is_interativo")),
             "platform": text(row.get("plataforma_slug")),
             "duration": text(row.get("duracao")),
+            **_showcase(row),
         })
     return out or _static_rows()
+
+
+def _showcase(row: dict) -> dict:
+    """Descrição, categoria criativa, imagem e peça de teste: o que a vitrine de interativos do Planner mostra."""
+    from ..cadu_family.repository import _current_creative_url
+
+    extras = row.get("dados_extras") or {}
+    if isinstance(extras, str):
+        try:
+            extras = json.loads(extras)
+        except ValueError:
+            extras = {}
+    extras = extras if isinstance(extras, dict) else {}
+    segment = row.get("categoria_criativa") or extras.get("segmento") or ""
+    if isinstance(segment, list):
+        segment = segment[0] if segment else ""
+    creative = next((extras.get(key) for key in ("creative_url", "preview_url", "link", "url") if extras.get(key)), "")
+    return {
+        "description": text(row.get("descricao")),
+        "category": text(segment)[:100],
+        "image_url": _current_creative_url(extras.get("imagem_referencia", "")),
+        "creative_url": _current_creative_url(creative),
+    }
 
 
 def catalog() -> list[dict]:
@@ -128,9 +154,21 @@ def decorate(row: dict) -> dict:
     return {**row, "aggregated_cost": bool(row.get("interactive")) or kind in AGGREGATED_TYPES}
 
 
+# Plataformas que já têm canal próprio no Smart Planner.
+_MAPPED_PLATFORMS = {platform for platforms in CHANNEL_FORMAT_PLATFORMS.values() for platform in platforms}
+
+
 def formats_for_channel(channel_id: str) -> list[dict]:
-    platforms = CHANNEL_FORMAT_PLATFORMS.get(text(channel_id), ())
-    return [decorate(row) for row in catalog() if row.get("platform") in platforms]
+    """Formatos que o canal veicula. A rede de portais leva também os interativos de plataforma sem
+    canal próprio (rich media sem plataforma, por exemplo): interativo roda em portal."""
+    channel_id = text(channel_id)
+    platforms = CHANNEL_FORMAT_PLATFORMS.get(channel_id, ())
+    network = channel_id == NETWORK_CHANNEL
+    return [
+        decorate(row) for row in catalog()
+        if row.get("platform") in platforms
+        or (network and row.get("interactive") and row.get("platform") not in _MAPPED_PLATFORMS)
+    ]
 
 
 def by_id(slug: str) -> dict:
@@ -166,6 +204,47 @@ def resolve_id(value: Any, allowed: set[str] | None = None) -> str:
         return exact[0]
     loose = [row["id"] for row in rows if len(folded) >= 4 and (folded in _fold(row.get("name")) or _fold(row.get("name")) in folded)]
     return loose[0] if len(loose) == 1 else ""
+
+
+def particulars(row: dict) -> dict:
+    """O que o plano conta de um interativo escolhido: mecânica, categoria e a peça de teste."""
+    if not row.get("interactive"):
+        return {}
+    return {key: value for key, value in (
+        ("interativo", True),
+        ("categoria", text(row.get("category"))),
+        ("descricao", text(row.get("description"))[:600]),
+        ("demo", text(row.get("creative_url"))),
+    ) if value}
+
+
+def interactive_details(formats_by_channel: Any) -> list[dict]:
+    """Interativos escolhidos no plano, sem repetir, com os detalhes do catálogo.
+
+    Planos gerados antes de a página guardar os detalhes trazem só o nome: o catálogo completa.
+    """
+    out: list[dict] = []
+    seen: set[str] = set()
+    for items in as_dict(formats_by_channel).values():
+        for item in as_list(items):
+            item = as_dict(item)
+            slug = text(item.get("id")) or resolve_id(item.get("nome"))
+            row = by_id(slug) if slug else {}
+            if not (item.get("interativo") or row.get("interactive")):
+                continue
+            key = slug or text(item.get("nome"))
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            extra = particulars(row) if row else {}
+            out.append({
+                "nome": text(item.get("nome")) or text(row.get("name")),
+                "dimensoes": text(item.get("dimensoes")) or text(row.get("dimensions")),
+                "categoria": text(item.get("categoria")) or extra.get("categoria", ""),
+                "descricao": text(item.get("descricao")) or extra.get("descricao", ""),
+                "demo": text(item.get("demo")) or extra.get("demo", ""),
+            })
+    return out
 
 
 def channel_allows(channel_id: str, slug: str) -> bool:

@@ -4,7 +4,7 @@
 {% block title %}{{ steps[step_index].title }} · Planejamentos{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=62">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=63">
 {% endblock %}
 
 {% block content %}
@@ -583,6 +583,17 @@
               <span class="sr-only">Buscar canal</span>
               <input class="cx-input" id="sp-mix-search" type="search" placeholder="Buscar canal">
             </label>
+            <div class="sp-ifmt-callout" id="sp-ifmt-callout" hidden></div>
+            <div class="sp-ifmt" id="sp-ifmt" role="region" aria-labelledby="sp-ifmt-title" hidden>
+              <button type="button" class="sp-ifmt__back" id="sp-ifmt-back">← Voltar aos canais</button>
+              <h3 id="sp-ifmt-title">Formatos interativos da Rede de portais</h3>
+              <p class="sp-ifmt__lead">Peças que a pessoa toca, arrasta ou responde, veiculadas nos portais da rede. Têm custo agregado na proposta.</p>
+              <p class="sp-ifmt__count" id="sp-ifmt-count" aria-live="polite"></p>
+              <label class="sp-ifmt__search" for="sp-ifmt-search"><span class="sr-only">Buscar formato interativo</span><input class="cx-input" id="sp-ifmt-search" type="search" placeholder="Buscar por nome, mecânica ou tamanho"></label>
+              <div class="sp-ifmt__cats" id="sp-ifmt-cats" role="group" aria-label="Categoria"></div>
+              <div class="sp-ifmt__list" id="sp-ifmt-list"></div>
+              <button type="button" class="cx-btn cx-btn-primary cx-btn-sm sp-ifmt__done" id="sp-ifmt-done">Concluir</button>
+            </div>
             <div class="sp-mix-channels" id="sp-mix-channels">
               {% set shown = namespace(n=0) %}
               {% for group_key, group_label, group_items in channel_sections %}
@@ -957,6 +968,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=40"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=41"></script>
 <script src="{{ url_for('static', filename='js/smart_planner/guide.js') }}?v=3"></script>
 {% endblock %}

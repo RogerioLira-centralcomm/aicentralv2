@@ -361,6 +361,20 @@ def _formats(deck, data, view):
     return slide
 
 
+def _interactives(deck, data, view):
+    slide = deck.slide()
+    deck.kicker(slide, data)
+    blocks = [{"kicker": text(as_dict(f).get("meta")), "title": text(as_dict(f).get("name")),
+               "body": [text(as_dict(f).get("description"))] if text(as_dict(f).get("description")) else []}
+              for f in as_list(data.get("cards"))]
+    _columns(deck, slide, blocks[:3], y=1.1, height=2.55)
+    if blocks[3:]:
+        _columns(deck, slide, blocks[3:6], y=3.8, height=2.55)
+    note = "◆ Custo agregado na proposta." + (f" Mais {data['more']} no documento do plano." if data.get("more") else "")
+    deck.text(slide, PAD, 6.5, W_IN - 2 * PAD, 0.4, note, size=11, color=deck.muted)
+    return slide
+
+
 def _showcase(deck, data, view):
     """Sem as telas desenhadas: a peça recortada no formato de cada canal, com nome e uso."""
     slide = deck.slide()
@@ -451,7 +465,7 @@ def _contact(deck, data, view):
 
 RENDERERS = {
     "thesis": _thesis, "context": _context, "audience": _audience, "creative": _creative, "showcase": _showcase, "arts": _arts,
-    "media": _media, "formats": _formats, "first_party": _first_party, "defense": _defense,
+    "media": _media, "formats": _formats, "interactives": _interactives, "first_party": _first_party, "defense": _defense,
     "market": _market, "contact": _contact,
 }
 

@@ -238,7 +238,7 @@
               <div class="sp-channel-formats__row">
                 <strong>{{ ch.label }}</strong>
                 {% if ch.formats %}
-                <ul>{% for fmt in ch.formats %}<li{% if fmt.aggregated %} class="is-agg" title="Custo agregado na proposta"{% endif %}>{{ fmt.name }}{% if fmt.type %}<small>{{ fmt.type }}</small>{% endif %}</li>{% endfor %}</ul>
+                <ul>{% for fmt in ch.formats %}<li{% if fmt.aggregated %} class="is-agg"{% endif %}{% if fmt.description or fmt.aggregated %} title="{{ fmt.description }}{% if fmt.description and fmt.aggregated %} · {% endif %}{% if fmt.aggregated %}Custo agregado na proposta{% endif %}"{% endif %}>{{ fmt.name }}{% if fmt.type %}<small>{{ fmt.type }}</small>{% endif %}</li>{% endfor %}</ul>
                 {% elif ch.available %}
                 <em>Nenhum formato escolhido. {{ ch.available }} no catálogo do canal{% if ch.interactive %}, incluindo interativos{% endif %}.</em>
                 {% else %}

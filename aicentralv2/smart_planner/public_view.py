@@ -178,6 +178,17 @@ def _titled(block) -> dict:
     return out
 
 
+def _interactive_formats(formatos) -> list[dict]:
+    """Interativos escolhidos, com mecânica e peça de teste; o catálogo fora do ar não derruba a página."""
+    from .formats import interactive_details
+
+    try:
+        return interactive_details(formatos)
+    except Exception:
+        logger.exception("Falha ao detalhar os formatos interativos do plano")
+        return []
+
+
 def _fronts(page: dict, channels: list[dict]) -> list[dict]:
     """Frentes da campanha (impacto, remarketing) com seus canais, para o bloco de mídia.
 
@@ -1561,6 +1572,7 @@ def public_view(row: dict, document: str | None = None) -> dict:
         "fronts": _fronts(page_v2, media.get("channels") or []),
         "formats_by_channel": as_dict(page_v2.get("formatos")),
         "aggregated_formats": [text(x) for x in as_list(page_v2.get("formatos_custo_agregado")) if text(x)],
+        "interactive_formats": _interactive_formats(page_v2.get("formatos")),
         "network_sites": as_dict(page_v2.get("portais")),
         "editorial_context": {
             "challenge": challenge_v3,

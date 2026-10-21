@@ -458,7 +458,8 @@ def adiar(cursor, inscricao_id, data, *, usuario_id, usuario_nome=None, hoje=Non
         dia = datetime.strptime(str(data or ""), "%Y-%m-%d").date()
     except ValueError:
         raise ProspeccaoError("Data inválida.") from None
-    if dia < hoje or (dia - hoje).days > 180:
+    # Um dia de folga para trás: a tela usa o "hoje" do executivo e o servidor pode estar em UTC.
+    if (hoje - dia).days > 1 or (dia - hoje).days > 180:
         raise ProspeccaoError("Escolha uma data de hoje até 180 dias à frente.")
     insc = _inscricao_aberta(cursor, inscricao_id)
     if insc["status"] != "ativa":
@@ -481,17 +482,22 @@ def trocar_fluxo_do_lead(cursor, lead_id, id_cadencia, *, passo=0, usuario_id, u
         """,
         [lead_id, id_cadencia],
     )
+    linhas = cursor.fetchall()
+    # O pedido é validado uma vez: fluxo inexistente ou passo fora dele é erro para todas as pessoas.
+    cursor.execute("SELECT passos FROM cadu_lead_cadencias WHERE id = %s AND ativo", [id_cadencia])
+    destino = cursor.fetchone()
+    if not destino:
+        raise ProspeccaoError("Escolha um fluxo ativo.")
+    _passo_valido(passo, destino["passos"])
     trocadas = 0
-    for row in cursor.fetchall():
+    for row in linhas:
         cursor.execute("SAVEPOINT troca_fluxo")
         try:
             trocar_fluxo(cursor, row["id"], id_cadencia, passo=passo, usuario_id=usuario_id, usuario_nome=usuario_nome)
             cursor.execute("RELEASE SAVEPOINT troca_fluxo")
             trocadas += 1
-        except ProspeccaoError as exc:
-            cursor.execute("ROLLBACK TO SAVEPOINT troca_fluxo")
-            if "fluxo ativo" in str(exc) or "não tem esse passo" in str(exc):
-                raise  # erro do pedido, não da pessoa: vale para todas
+        except ProspeccaoError:
+            cursor.execute("ROLLBACK TO SAVEPOINT troca_fluxo")  # só esta pessoa (ex.: já está no destino)
     return trocadas
 
 

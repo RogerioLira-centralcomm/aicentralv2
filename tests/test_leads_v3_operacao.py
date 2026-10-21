@@ -281,7 +281,7 @@ class ControleCadenciaTest(TestCase):
         from aicentralv2 import leads_v3_cadencias as cad
 
         cursor = MagicMock()
-        for ruim in ("21/10/2026", "2026-10-20", "2027-06-01"):
+        for ruim in ("21/10/2026", "2026-10-19", "2027-06-01"):
             with self.assertRaises(ProspeccaoError):
                 cad.adiar(cursor, 1, ruim, usuario_id=1, hoje=date(2026, 10, 21))
         cursor.execute.assert_not_called()

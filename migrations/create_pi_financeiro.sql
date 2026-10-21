@@ -8,7 +8,6 @@ CREATE TABLE IF NOT EXISTS cadu_pi_financeiro (
             'aguardando_assinatura',
             'pronto_nf',
             'nf_emitida',
-            'aguardando_pagamento',
             'encerrado',
             'bloqueado'
         )),

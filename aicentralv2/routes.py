@@ -10542,6 +10542,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             pis = db.obter_cadu_pi_lista(filtros)
 
             nf_status_filtro = request.args.get('nf_status', '')
+            if nf_status_filtro == '2':
+                nf_status_filtro = '1'
             if origem_lista in ('nf_emitida', 'faturamento') and nf_status_filtro:
                 if nf_status_filtro == 'sem_nf':
                     pis = [pi for pi in (pis or []) if not pi.get('nf_id')]
@@ -14093,6 +14095,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 except (TypeError, ValueError):
                     return jsonify({'error': 'Status inválido.'}), 400
 
+            if not db.status_nota_fiscal_permitido(data.get('status')):
+                return jsonify({'error': 'Status de nota fiscal não permitido.'}), 400
+
             if id_pag_realizado is not None and data.get('status') == id_pag_realizado:
                 dpr = data.get('data_pagamento_realizado')
                 if not dpr or not str(dpr).strip():
@@ -14167,6 +14172,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 merged_status = int(merged_status)
             except (TypeError, ValueError):
                 return jsonify({'error': 'Status inválido.'}), 400
+
+        if 'status' in data and not db.status_nota_fiscal_permitido(merged_status):
+            return jsonify({'error': 'Status de nota fiscal não permitido.'}), 400
 
         if 'data_pagamento_realizado' in data:
             raw_dpr = data.get('data_pagamento_realizado')

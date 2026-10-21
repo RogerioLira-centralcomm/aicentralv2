@@ -220,10 +220,10 @@ class PiDocumentoServiceTest(unittest.TestCase):
             status_financeiro_por_notas(
                 [
                     {"status_descricao": "Pagamento Realizado"},
-                    {"status_descricao": "Aguardando Pagamento"},
+                    {"status_descricao": "NF Emitida"},
                 ]
             ),
-            "aguardando_pagamento",
+            "nf_emitida",
         )
 
     def test_enviar_ao_cliente_financeiro_anexa_pdf(self):
@@ -294,7 +294,7 @@ class PiDocumentoServiceTest(unittest.TestCase):
                 }
             ),
             modo="financeiro",
-            notas=[{"status_descricao": "Aguardando Pagamento", "valor_liquido": 1000}],
+            notas=[{"status_descricao": "NF Emitida", "valor_liquido": 1000}],
         )
         enviados = [doc for doc in resumo["documentos"] if doc["status"] == "enviado"]
         self.assertGreaterEqual(len(enviados), 2)

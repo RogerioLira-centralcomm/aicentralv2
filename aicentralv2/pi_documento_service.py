@@ -86,7 +86,6 @@ CATALOGO_CLIENTE = (
 
 STATUS_NF_PARA_FINANCEIRO = {
     "nf emitida": "nf_emitida",
-    "aguardando pagamento": "aguardando_pagamento",
     "pagamento realizado": "encerrado",
 }
 
@@ -234,9 +233,9 @@ def status_financeiro_por_notas(notas):
     ]
     if descricoes and all(item == "pagamento realizado" for item in descricoes):
         return "encerrado"
-    if any(item == "aguardando pagamento" for item in descricoes):
-        return "aguardando_pagamento"
     if any(item == "nf emitida" for item in descricoes):
+        return "nf_emitida"
+    if descricoes and any(item != "pagamento realizado" for item in descricoes):
         return "nf_emitida"
     return None
 
@@ -548,10 +547,7 @@ class PiDocumentoService:
             if nao_pagas:
                 nivel = "atencao"
                 if all(
-                    _texto(nota.get("status_descricao")).lower() not in {
-                        "aguardando pagamento",
-                        "nf emitida",
-                    }
+                    _texto(nota.get("status_descricao")).lower() != "nf emitida"
                     for nota in nao_pagas
                 ):
                     nivel = "critico"

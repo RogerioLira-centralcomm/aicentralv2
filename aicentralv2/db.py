@@ -12872,16 +12872,35 @@ def buscar_nota_fiscal_duplicada(numero_nota, id_pi):
         raise e
 
 
+_NF_STATUS_DESCRICAO_REMOVIDA = 'aguardando pagamento'
+
+
+def _nf_status_foi_removido(descricao):
+    return (descricao or '').strip().lower() == _NF_STATUS_DESCRICAO_REMOVIDA
+
+
 def obter_nota_fiscal_status():
-    """Retorna todos os status de nota fiscal"""
+    """Retorna status de nota fiscal visíveis (exclui status descontinuados)."""
     conn = get_db()
     try:
         with conn.cursor() as cursor:
             cursor.execute('SELECT id, descricao FROM cadu_pi_nota_fiscal_status ORDER BY id')
-            return cursor.fetchall()
+            rows = cursor.fetchall()
+            return [row for row in rows if not _nf_status_foi_removido(row.get('descricao'))]
     except Exception as e:
         conn.rollback()
         raise e
+
+
+def status_nota_fiscal_permitido(status_id):
+    """True se o id existe entre os status visíveis de NF."""
+    if status_id is None or status_id == '':
+        return True
+    try:
+        sid = int(status_id)
+    except (TypeError, ValueError):
+        return False
+    return any(row.get('id') == sid for row in (obter_nota_fiscal_status() or []))
 
 
 def obter_nota_fiscal_status_id_por_descricao(descricao):

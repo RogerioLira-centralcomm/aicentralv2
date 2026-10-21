@@ -21,7 +21,6 @@ HISTORY_STATUS_ORDER = {
 
 INVOICE_STATUS_GROUPS = (
     (1, "nf-emitida", "NF emitida"),
-    (2, "aguardando-pagamento", "Aguardando pagamento"),
     (3, "pagamento-realizado", "Pagamento realizado"),
     (None, "sem-status", "Sem status"),
 )

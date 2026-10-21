@@ -31,6 +31,12 @@
 
   function activeFilterEntries() {
     const params = new URLSearchParams(window.location.search);
+    const nfStatusLabels = {
+      '': 'Todos',
+      sem_nf: 'Sem NF',
+      '1': 'NF emitida',
+      '3': 'Pagamento realizado',
+    };
     const labels = {
       resp_comercial: 'Executivo',
       id_cliente: 'Cliente',
@@ -42,7 +48,11 @@
     };
     return Object.keys(labels)
       .filter(function (key) { return params.get(key); })
-      .map(function (key) { return { key: key, label: labels[key], value: params.get(key) }; });
+      .map(function (key) {
+        var raw = params.get(key);
+        var value = key === 'nf_status' ? (nfStatusLabels[raw] || raw) : raw;
+        return { key: key, label: labels[key], value: value };
+      });
   }
 
   function renderActiveFilters() {

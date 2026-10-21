@@ -18,7 +18,6 @@ STATUS_FINANCEIRO_LABELS = {
     "aguardando_assinatura": "Aguardando assinatura",
     "pronto_nf": "Pronto para NF",
     "nf_emitida": "NF emitida",
-    "aguardando_pagamento": "Aguardando pagamento",
     "encerrado": "Encerrado",
     "bloqueado": "Bloqueado",
 }

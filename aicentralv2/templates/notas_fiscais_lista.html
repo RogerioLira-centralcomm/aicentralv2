@@ -539,20 +539,11 @@ var STATUS_PAG_REALIZADO = null;
   }
 })();
 
-var STATUS_AGUARDANDO_PAGAMENTO = '2';
-
 function onClickNfRow(row) {
   var nfId = row.dataset.nfId;
-  var nfStatus = String(row.dataset.nfStatus);
   var codPi = row.dataset.codPi;
   var cliente = row.dataset.cliente;
-  var numeroNota = row.dataset.numeroNota;
-
-  if (nfStatus === STATUS_AGUARDANDO_PAGAMENTO) {
-    abrirModalPagamento(nfId, codPi, cliente, numeroNota);
-  } else {
-    abrirModalNfView(nfId, codPi, cliente);
-  }
+  abrirModalNfView(nfId, codPi, cliente);
 }
 
 function abrirModalPagamento(nfId, codPi, clienteNome, numeroNota) {

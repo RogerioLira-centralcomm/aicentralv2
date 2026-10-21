@@ -289,17 +289,17 @@ class CaduPiListUiContractTest(unittest.TestCase):
         groups = group_pis_by_invoice_status([
             {"id_pi": 1, "nf_status": 3, "nf_valor": "R$ 300,00"},
             {"id_pi": 2, "nf_status": 1, "nf_valor": 100},
-            {"id_pi": 3, "nf_status": 2, "nf_valor": "200,50"},
+            {"id_pi": 3, "nf_status": 1, "nf_valor": "200,50"},
             {"id_pi": 4, "nf_status": 1, "nf_valor": 50},
             {"id_pi": 5, "nf_status": 99, "nf_valor": None},
         ])
         self.assertEqual(
             [group["key"] for group in groups],
-            ["nf-emitida", "aguardando-pagamento", "pagamento-realizado", "sem-status"],
+            ["nf-emitida", "pagamento-realizado", "sem-status"],
         )
-        self.assertEqual(groups[0]["count"], 2)
-        self.assertEqual(groups[0]["subtotal"], 150.0)
-        self.assertEqual(groups[1]["subtotal"], 200.5)
+        self.assertEqual(groups[0]["count"], 3)
+        self.assertEqual(groups[0]["subtotal"], 350.5)
+        self.assertEqual(groups[1]["subtotal"], 300.0)
         self.assertEqual(groups[-1]["pis"][0]["id_pi"], 5)
         routes = ROUTES.read_text()
         self.assertIn("group_pis_by_invoice_status", routes)
@@ -352,7 +352,7 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn("pi-nf-cell", fiscal)
         self.assertIn("pi-pay-cell", fiscal)
         self.assertIn("pi-nf-state", fiscal)
-        self.assertIn("nf_status_int not in [2, 3]", fiscal)
+        self.assertIn("nf_status_int != 3", fiscal)
         self.assertIn("pi-nf-action", fiscal)
         self.assertIn("Registrar pagamento", fiscal)
         self.assertIn("Zona {{ zona }}", fiscal)
@@ -404,7 +404,7 @@ class CaduPiListUiContractTest(unittest.TestCase):
         self.assertIn("NF Emitida", filled)
         self.assertIn("Registrar pagamento", filled)
         self.assertIn("Ver PI", filled)
-        awaiting = template.render(
+        unpaid = template.render(
             origem_lista="faturamento",
             nomes_meses={},
             pi={
@@ -414,14 +414,13 @@ class CaduPiListUiContractTest(unittest.TestCase):
                 "cliente_nome": "Cliente",
                 "nf_id": 2,
                 "nf_numero_nota": "57",
-                "nf_status": 2,
-                "nf_status_descricao": "Aguardando pagamento",
+                "nf_status": 1,
+                "nf_status_descricao": "NF Emitida",
             },
         )
-        self.assertIn("NF 57", awaiting)
-        # O status só segue como dado do modal de alteração; não vira selo visível.
-        self.assertNotIn('<span class="pi-nf-state">Aguardando pagamento', awaiting)
-        self.assertIn("Registrar pagamento", awaiting)
+        self.assertIn("NF 57", unpaid)
+        self.assertIn('<span class="pi-nf-state">NF Emitida', unpaid)
+        self.assertIn("Registrar pagamento", unpaid)
         paid = template.render(
             origem_lista="faturamento",
             nomes_meses={},

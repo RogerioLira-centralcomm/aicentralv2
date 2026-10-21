@@ -4,7 +4,7 @@
 {% block title %}{{ steps[step_index].title }} · Planejamentos{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=63">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=64">
 {% endblock %}
 
 {% block content %}
@@ -607,7 +607,7 @@
                   <label {% if extra %}data-extra="1" hidden{% endif %} data-label="{{ meta.label|lower }}" data-group="{{ group_key }}">
                     <input form="sp-revisao-form" type="checkbox" name="canais" value="{{ key }}" {% if key in campos.canais %}checked{% endif %}>
                     {% if meta.logo %}
-                    <img class="sp-mix-logo" src="{{ meta.logo }}" alt="" aria-hidden="true">
+                    <img class="sp-mix-logo" src="{{ meta.logo }}" alt="" aria-hidden="true" onerror="this.style.visibility='hidden'">
                     {% else %}
                     <span class="sp-mix-fallback" aria-hidden="true">{{ meta.label.split()[0][:1] }}{{ meta.label.split()[1][:1] if meta.label.split()|length > 1 else '' }}</span>
                     {% endif %}
@@ -968,6 +968,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=41"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=42"></script>
 <script src="{{ url_for('static', filename='js/smart_planner/guide.js') }}?v=3"></script>
 {% endblock %}

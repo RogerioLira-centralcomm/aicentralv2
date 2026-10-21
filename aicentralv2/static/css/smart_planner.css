@@ -6492,3 +6492,5 @@ html.is-sp-media body {
 .sp-ifmt__card a{display:inline-block;margin:0 0 .5rem 5.6rem;color:#216b66;font-size:.66rem;font-weight:600}
 .sp-ifmt__empty{margin:0;color:var(--hi-fog);font-size:.72rem}
 .sp-ifmt__done{align-self:flex-end;position:sticky;bottom:0}
+/* A coluna de canais rola sozinha: lista longa de canais e o painel de interativos cabem no modal. */
+@media(min-width:901px){.sp-media-mix{min-height:0;overflow-y:auto;overscroll-behavior:contain}}

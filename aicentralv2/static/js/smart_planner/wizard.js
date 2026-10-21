@@ -1222,7 +1222,7 @@
     function channelMark(id, label) {
       var logo = (spec.logos || {})[id];
       var name = label || (spec.labels || {})[id] || id;
-      if (logo) return '<img class="sp-mix-logo" src="' + escapeHtml(logo) + '" alt="" aria-hidden="true">';
+      if (logo) return '<img class="sp-mix-logo" src="' + escapeHtml(logo) + '" alt="" aria-hidden="true" onerror="this.style.visibility=\'hidden\'">';
       var initials = String(name).replace(/[^A-Za-z0-9ÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç]+/g, " ").trim().split(/\s+/).slice(0, 2).map(function (word) {
         return word.charAt(0);
       }).join("").toUpperCase() || "?";
@@ -2151,7 +2151,7 @@
         var label = name ? name.textContent : input.value;
         var logo = (spec.logos || {})[input.value];
         var mark = logo
-          ? '<img class="sp-mix-logo" src="' + escapeHtml(logo) + '" alt="" aria-hidden="true">'
+          ? '<img class="sp-mix-logo" src="' + escapeHtml(logo) + '" alt="" aria-hidden="true" onerror="this.style.visibility=\'hidden\'">'
           : '<span class="sp-mix-fallback" aria-hidden="true">' + escapeHtml(String(label).slice(0, 2)) + "</span>";
         return '<span class="sp-mix-chip">' + mark + escapeHtml(label) + '<button type="button" data-uncheck="' + escapeHtml(input.value) + '" aria-label="Remover ' + escapeHtml(label) + '">×</button></span>';
       }).join("");

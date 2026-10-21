@@ -154,20 +154,20 @@ def decorate(row: dict) -> dict:
     return {**row, "aggregated_cost": bool(row.get("interactive")) or kind in AGGREGATED_TYPES}
 
 
-# Plataformas que já têm canal próprio no Smart Planner.
-_MAPPED_PLATFORMS = {platform for platforms in CHANNEL_FORMAT_PLATFORMS.values() for platform in platforms}
+# Interativos que também rodam na rede: os sem plataforma (rich media) e os de portais da rede.
+# Interativos de outras plataformas (Disney+, TikTok...) são do canal deles, não da rede.
+NETWORK_INTERACTIVE_PLATFORMS = {"", "cnn", "g1"}
 
 
 def formats_for_channel(channel_id: str) -> list[dict]:
-    """Formatos que o canal veicula. A rede de portais leva também os interativos de plataforma sem
-    canal próprio (rich media sem plataforma, por exemplo): interativo roda em portal."""
+    """Formatos que o canal veicula; a rede de portais leva também os interativos sem plataforma e os dos portais."""
     channel_id = text(channel_id)
     platforms = CHANNEL_FORMAT_PLATFORMS.get(channel_id, ())
     network = channel_id == NETWORK_CHANNEL
     return [
         decorate(row) for row in catalog()
         if row.get("platform") in platforms
-        or (network and row.get("interactive") and row.get("platform") not in _MAPPED_PLATFORMS)
+        or (network and row.get("interactive") and text(row.get("platform")) in NETWORK_INTERACTIVE_PLATFORMS)
     ]
 
 
@@ -228,9 +228,15 @@ def interactive_details(formats_by_channel: Any) -> list[dict]:
     for items in as_dict(formats_by_channel).values():
         for item in as_list(items):
             item = as_dict(item)
-            slug = text(item.get("id")) or resolve_id(item.get("nome"))
-            row = by_id(slug) if slug else {}
-            if not (item.get("interativo") or row.get("interactive")):
+            stored = bool(item.get("interativo"))
+            slug = text(item.get("id"))
+            if not slug and not stored:
+                # Página antiga: o nome só vale entre os interativos (há display e interativo com o mesmo nome).
+                interactive_ids = {row["id"] for row in catalog() if row.get("interactive")}
+                slug = resolve_id(item.get("nome"), interactive_ids)
+            # Página nova já traz os particulares; o catálogo só completa o que falta.
+            row = by_id(slug) if slug and not (stored and text(item.get("descricao"))) else {}
+            if not (stored or row.get("interactive")):
                 continue
             key = slug or text(item.get("nome"))
             if not key or key in seen:

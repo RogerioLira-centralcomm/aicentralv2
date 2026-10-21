@@ -76,6 +76,10 @@ def test_catalog_row_brings_the_showcase_of_the_planner(monkeypatch):
          "plataforma_slug": None, "descricao": None, "categoria_criativa": None, "dados_extras": {"segmento": ["Descoberta"]}},
         {"slug": "branded-effects", "nome": "Branded Effects", "tipo": "social", "dimensoes": "9:16", "is_interativo": True,
          "plataforma_slug": "tiktok_ads", "descricao": "", "categoria_criativa": "", "dados_extras": None},
+        {"slug": "pause-plus", "nome": "Pause+", "tipo": "ctv", "dimensoes": "16:9", "is_interativo": True,
+         "plataforma_slug": "disney_plus", "descricao": "", "categoria_criativa": "", "dados_extras": None},
+        {"slug": "cnn-shoppable", "nome": "Shoppable Video", "tipo": "rich-media", "dimensoes": "16:9", "is_interativo": True,
+         "plataforma_slug": "cnn", "descricao": "", "categoria_criativa": "", "dados_extras": None},
     ]
     monkeypatch.setattr("aicentralv2.cadu_family.repository.rows", lambda sql, params=None: rows)
     fmt.reset_cache()
@@ -85,9 +89,9 @@ def test_catalog_row_brings_the_showcase_of_the_planner(monkeypatch):
     assert by_id["cube"]["image_url"] == "https://cdn.example/cube.png"
     assert by_id["cube"]["creative_url"] == "https://demo.example/cube"
     assert by_id["flip"]["category"] == "Descoberta" and by_id["flip"]["creative_url"] == ""
-    # Interativo sem plataforma roda na rede de portais; o da TikTok fica na TikTok.
+    # Sem plataforma ou de portal da rede roda na rede; o da TikTok e o do Disney+ ficam fora.
     network = [row["id"] for row in fmt.formats_for_channel("dv360")]
-    assert network == ["cube", "flip"]
+    assert network == ["cube", "flip", "cnn-shoppable"]
     assert [row["id"] for row in fmt.formats_for_channel("tiktok")] == ["branded-effects"]
 
 

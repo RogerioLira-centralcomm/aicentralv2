@@ -257,3 +257,13 @@ class FluxosTest(TestCase):
 
     def test_rotas_de_fluxo_validam_antes_do_banco(self):
         self.assertEqual(_client().post("/leads-v3/api/cadencias", json={"nome": ""}).status_code, 400)
+
+    def test_renomear_fluxo_em_uso_com_passos_antigos_nao_cria_versao(self):
+        from aicentralv2 import leads_v3_cadencias as cad
+
+        antigo = {"dia": 0, "canal": "email", "acao": "enviar", "titulo": "Retomar"}  # sem etapa nem objetivo
+        cursor = MagicMock()
+        cursor.fetchone.side_effect = [{"id": 4, "chave": None, "passos": [antigo], "em_uso": True}]
+        r = cad.atualizar_fluxo(cursor, 4, {"nome": "Outro nome", "estagio": "novo",
+                                            "passos": [{**antigo, "etapa": "topo", "objetivo": ""}]}, usuario_id=1)
+        self.assertEqual(r, {"id": 4, "nova_versao": False})

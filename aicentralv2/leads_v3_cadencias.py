@@ -113,6 +113,15 @@ def criar_fluxo(cursor, dados, *, usuario_id):
     return cursor.fetchone()["id"]
 
 
+def _passos_comparaveis(passos):
+    """Passos gravados no formato da tela, para comparar com a edição sem acusar diferença de formato."""
+    try:
+        return normalizar_fluxo({"nome": "x", "passos": [
+            {**p, "etapa": etapa_do_passo(p, i, len(passos or []))} for i, p in enumerate(passos or [])]})["passos"]
+    except ProspeccaoError:
+        return None  # passo antigo fora das regras: qualquer edição conta como mudança
+
+
 def atualizar_fluxo(cursor, fluxo_id, dados, *, usuario_id):
     """Grava a edição. Se os passos mudaram e há gente no meio do fluxo, cria uma versão nova:
     quem já estava termina na versão antiga (que sai da lista) e as próximas inscrições usam a nova."""
@@ -129,7 +138,7 @@ def atualizar_fluxo(cursor, fluxo_id, dados, *, usuario_id):
     atual = cursor.fetchone()
     if not atual:
         raise ProspeccaoError("Fluxo não encontrado.")
-    if atual["em_uso"] and (atual["passos"] or []) != f["passos"]:
+    if atual["em_uso"] and _passos_comparaveis(atual["passos"]) != f["passos"]:
         # A chave do sistema (usada para escolher por papel) passa para a versão nova.
         cursor.execute("UPDATE cadu_lead_cadencias SET ativo = FALSE, chave = NULL WHERE id = %s", [fluxo_id])
         cursor.execute(

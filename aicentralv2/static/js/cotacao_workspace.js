@@ -223,4 +223,10 @@
   }
 
   render();
+
+  const layout = document.querySelector('.cot-workspace-layout[data-cotacao-id]');
+  const cotacaoId = layout ? Number(layout.dataset.cotacaoId || 0) : 0;
+  if (cotacaoId && typeof window.initCotacaoComunicacao === 'function') {
+    window.initCotacaoComunicacao({ cotacaoId, readOnly: false });
+  }
 })();

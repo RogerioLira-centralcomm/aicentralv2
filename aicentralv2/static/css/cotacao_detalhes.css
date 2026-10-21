@@ -1107,6 +1107,18 @@ body:has(.cot-op-page) dialog :is(input, select, textarea, button, a, label, p, 
   scrollbar-gutter: stable;
 }
 
+.cot-com-panel {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e9e8;
+}
+
+.cot-com-panel {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e9e8;
+}
+
 .cot-op-panel,
 .cot-op-next {
   margin: 0;

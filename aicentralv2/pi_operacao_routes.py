@@ -159,6 +159,18 @@ def criar_interacao(id_pi):
     )
 
 
+@bp.get("/<int:id_pi>/operacao/emails")
+@operacao_required_api
+def listar_emails_operacao(id_pi):
+    return _executar(lambda: _ok(_service().listar_emails_resumo(id_pi)))
+
+
+@bp.get("/<int:id_pi>/operacao/emails/<int:log_id>")
+@operacao_required_api
+def obter_email_operacao(id_pi, log_id):
+    return _executar(lambda: _ok(_service().obter_email_log(id_pi, log_id)))
+
+
 @bp.post("/<int:id_pi>/operacao/email/preview")
 @operacao_required_api
 def preview_email(id_pi):

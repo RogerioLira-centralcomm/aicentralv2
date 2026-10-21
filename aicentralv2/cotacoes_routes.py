@@ -1591,6 +1591,78 @@ def cotacao_proposta_pdf(cotacao_id):
 # --- API ---
 
 
+@bp.route('/api/cotacoes/<int:cotacao_id>/comunicacao', methods=['GET'])
+@login_required
+def api_cotacao_comunicacao(cotacao_id):
+    err = _guard_cotacao_teste(cotacao_id)
+    if err:
+        return err
+    try:
+        from aicentralv2.cotacao_comunicacao_service import CotacaoComunicacaoService
+
+        estado = CotacaoComunicacaoService().estado(cotacao_id)
+        return jsonify({'success': True, 'data': _serializar(estado)})
+    except Exception as e:
+        current_app.logger.error(
+            f'api_cotacao_comunicacao {cotacao_id}: {e}',
+            exc_info=True,
+        )
+        return jsonify({
+            'success': False,
+            'message': 'Não foi possível carregar destinatários e e-mails.',
+        }), 500
+
+
+@bp.route('/api/cotacoes/<int:cotacao_id>/comunicacao/destinatarios', methods=['PUT'])
+@login_required
+def api_cotacao_comunicacao_destinatarios(cotacao_id):
+    err = _guard_cotacao_teste(cotacao_id)
+    if err:
+        return err
+    payload = request.get_json(silent=True) or {}
+    destinatarios = payload.get('destinatarios')
+    if not isinstance(destinatarios, list):
+        return jsonify({'success': False, 'message': 'destinatarios deve ser uma lista.'}), 400
+    try:
+        from aicentralv2.cotacao_comunicacao_service import CotacaoComunicacaoService
+
+        data = CotacaoComunicacaoService().salvar_destinatarios(
+            cotacao_id,
+            destinatarios,
+            session.get('user_id'),
+        )
+        return jsonify({'success': True, 'data': _serializar(data)})
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except Exception as e:
+        current_app.logger.error(
+            f'api_cotacao_comunicacao_destinatarios {cotacao_id}: {e}',
+            exc_info=True,
+        )
+        return jsonify({'success': False, 'message': 'Erro ao salvar destinatários.'}), 500
+
+
+@bp.route('/api/cotacoes/<int:cotacao_id>/comunicacao/emails/<int:log_id>', methods=['GET'])
+@login_required
+def api_cotacao_comunicacao_email(cotacao_id, log_id):
+    err = _guard_cotacao_teste(cotacao_id)
+    if err:
+        return err
+    try:
+        from aicentralv2.cotacao_comunicacao_service import CotacaoComunicacaoService
+
+        data = CotacaoComunicacaoService().obter_email_log(cotacao_id, log_id)
+        return jsonify({'success': True, 'data': _serializar(data)})
+    except LookupError:
+        return jsonify({'success': False, 'message': 'E-mail não encontrado.'}), 404
+    except Exception as e:
+        current_app.logger.error(
+            f'api_cotacao_comunicacao_email {cotacao_id}/{log_id}: {e}',
+            exc_info=True,
+        )
+        return jsonify({'success': False, 'message': 'Erro ao carregar e-mail.'}), 500
+
+
 @bp.route('/api/cotacoes/<int:cotacao_id>/workspace-comercial', methods=['GET'])
 @login_required
 def api_workspace_comercial_cotacao(cotacao_id):

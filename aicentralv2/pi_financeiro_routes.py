@@ -250,12 +250,15 @@ def api_salvar_provisionamentos(id_pi):
 def api_enviar_assinatura(id_pi, tipo):
     body = request.get_json(silent=True) or {}
     try:
+        from aicentralv2.email_area_cc import extrair_cc_emails_solicitados
+
         data = PiDocumentoService().enviar_para_assinatura(
             id_pi,
             tipo,
             mensagem=body.get("mensagem"),
             variante=body.get("variante") or "agencia",
             autor_id=session.get("user_id"),
+            cc_emails=extrair_cc_emails_solicitados(body),
         )
         return jsonify({"success": True, "data": data})
     except DocumentoIndisponivelError as exc:
@@ -328,12 +331,15 @@ def api_atualizar_pagamento(id_pi, id_nota):
 def api_enviar_comunicacao_cliente(id_pi, tipo):
     body = request.get_json(silent=True) or {}
     try:
+        from aicentralv2.email_area_cc import extrair_cc_emails_solicitados
+
         data = PiDocumentoService().enviar_ao_cliente(
             id_pi,
             tipo,
             mensagem=body.get("mensagem"),
             autor_id=session.get("user_id"),
             pedir_assinatura=bool(body.get("pedir_assinatura")),
+            cc_emails=extrair_cc_emails_solicitados(body),
         )
         return jsonify({"success": True, "data": data})
     except DocumentoIndisponivelError as exc:

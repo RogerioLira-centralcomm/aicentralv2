@@ -878,6 +878,23 @@ class PiOperacaoRepository:
             )
             return [dict(row) for row in cursor.fetchall()]
 
+    def obter_email_log(self, id_pi, log_id):
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, tipo, assunto, destinatario_nome, destinatario_email,
+                       status, brevo_message_id, erro, criado_por, enviado_em,
+                       created_at, html
+                  FROM cadu_pi_email_log
+                 WHERE id_pi = %s AND id = %s
+                """,
+                (id_pi, log_id),
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise LookupError("E-mail não encontrado.")
+            return dict(row)
+
     def criar_email_log(self, id_pi, tipo, assunto, destinatario, html, autor_id):
         with self._write() as cursor:
             cursor.execute(

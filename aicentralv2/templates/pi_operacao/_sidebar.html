@@ -134,21 +134,30 @@
       <div id="pi-operation-communications" class="pi-op-state">Carregando catálogo…</div>
     </section>
 
-    <section class="pi-op-panel" aria-labelledby="pi-recipients-title">
-      <div class="pi-op-panel__title pi-op-panel__title--actions">
-        <span>
-          <i class="fa-solid fa-at" aria-hidden="true"></i>
-          <h3 id="pi-recipients-title">Destinatários</h3>
-        </span>
-        <strong id="pi-recipient-count" class="pi-op-recipient-count" aria-live="polite"></strong>
+    <section class="pi-op-panel pi-op-recipients-panel" aria-labelledby="pi-recipients-title">
+      <details class="pi-op-disclosure pi-op-recipients-disclosure">
+        <summary class="pi-op-recipients-summary">
+          <span class="pi-op-recipients-summary__title">
+            <i class="fa-solid fa-at" aria-hidden="true"></i>
+            <h3 id="pi-recipients-title">Destinatários</h3>
+          </span>
+          <div id="pi-recipient-summary" class="pi-op-recipient-summary-chips" aria-live="polite"></div>
+          <strong id="pi-recipient-count" class="pi-op-recipient-count" aria-live="polite"></strong>
+        </summary>
+        <div class="pi-op-recipients-details">
+          <p class="pi-op-section-help">Estes contatos receberão as comunicações enviadas por esta operação.</p>
+          <form id="pi-recipients-form" class="pi-op-stack">
+            <div id="pi-recipient-options" class="pi-op-state">Carregando contatos disponíveis…</div>
+            {% if not somente_leitura %}
+            <button type="submit" class="pi-op-btn pi-op-btn--secondary" disabled>Salvar destinatários</button>
+            {% endif %}
+          </form>
+        </div>
+      </details>
+      <div class="pi-op-sent-emails" aria-labelledby="pi-sent-emails-title">
+        <h4 id="pi-sent-emails-title" class="pi-op-sent-emails__title">E-mails enviados</h4>
+        <div id="pi-email-sent-list" class="pi-op-sent-emails__list" aria-live="polite">Carregando histórico…</div>
       </div>
-      <p class="pi-op-section-help">Estes contatos receberão as comunicações enviadas por esta operação.</p>
-      <form id="pi-recipients-form" class="pi-op-stack">
-        <div id="pi-recipient-options" class="pi-op-state">Carregando contatos disponíveis…</div>
-        {% if not somente_leitura %}
-        <button type="submit" class="pi-op-btn pi-op-btn--secondary" disabled>Salvar destinatários</button>
-        {% endif %}
-      </form>
     </section>
 
     {% if operacao_modo|default('pi') != 'campanha' %}
@@ -207,6 +216,10 @@
         <div id="pi-email-audience" class="pi-op-email-audience">
           <strong>Para quem vai</strong>
           <div class="pi-op-state">Carregando contatos…</div>
+        </div>
+        <div id="pi-email-cc-wrap" class="pi-op-email-cc-wrap" hidden>
+          <strong>Cópia (Cc)</strong>
+          <div id="pi-email-cc" class="pi-op-email-cc comm-cc-list" aria-live="polite"></div>
         </div>
       </section>
       <section class="pi-email-preview-pane" aria-label="Pré-visualização do e-mail">
@@ -273,6 +286,33 @@
       <button type="button" id="pi-contact-create" class="pi-op-btn pi-op-btn--primary">Criar e adicionar</button>
     </footer>
   </form>
+</dialog>
+
+<dialog id="pi-sent-email-dialog" class="pi-email-dialog pi-sent-email-dialog" aria-labelledby="pi-sent-email-title">
+  <div class="pi-email-modal">
+    <header class="pi-email-modal__header">
+      <div>
+        <span id="pi-sent-email-context">E-mail enviado</span>
+        <h2 id="pi-sent-email-title">Comunicação</h2>
+      </div>
+      <button type="button" class="pi-op-icon-btn" data-sent-email-close aria-label="Fechar e-mail">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+    </header>
+    <div class="pi-email-modal__body pi-sent-email-modal__body">
+      <div class="pi-email-preview-pane" aria-label="Conteúdo do e-mail enviado">
+        <div class="pi-email-preview-content">
+          <iframe id="pi-sent-email-frame" class="pi-op-email-frame" sandbox="" title="E-mail enviado" hidden></iframe>
+          <div id="pi-sent-email-preview-state" class="pi-email-preview-veil">
+            <span><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>Carregando e-mail</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <footer class="pi-email-modal__footer">
+      <button type="button" class="pi-op-btn pi-op-btn--secondary" data-sent-email-close>Fechar</button>
+    </footer>
+  </div>
 </dialog>
 
 <dialog id="pi-confirm-dialog" class="pi-confirm-dialog" aria-labelledby="pi-confirm-title" aria-describedby="pi-confirm-message">

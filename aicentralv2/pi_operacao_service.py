@@ -8,6 +8,7 @@ from flask import render_template
 
 from .campanha_pi_metrics import parse_brl_float, parse_volume_float
 from .pi_operacao_repository import PiOperacaoRepository, PropriedadeInvalidaError
+from .email_area_cc import CC_OPERACAO, extrair_cc_emails_solicitados, resolver_cc_envio
 from .services.brevo_service import email_asset_url, get_brevo_service
 
 
@@ -593,13 +594,21 @@ class PiOperacaoService:
             "campanhas": grupos,
         }
 
+    def listar_emails_resumo(self, id_pi):
+        self.repository.obter_pi(id_pi)
+        return self.repository.listar_emails(id_pi)
+
+    def obter_email_log(self, id_pi, log_id):
+        self.repository.obter_pi(id_pi)
+        return self.repository.obter_email_log(id_pi, log_id)
+
     def estado_completo(self, id_pi):
         pi = self.repository.obter_pi(id_pi)
         campanhas = self.repository.listar_campanhas(id_pi)
-        emails = self.repository.listar_emails(id_pi)
+        emails_meta = self.repository.listar_emails(id_pi)
         checklist = self._aplicar_evidencias(
             self.repository.listar_checklist(id_pi),
-            self._conclusoes_automaticas(pi, campanhas, emails),
+            self._conclusoes_automaticas(pi, campanhas, emails_meta),
             campanhas,
             pi,
         )
@@ -639,7 +648,7 @@ class PiOperacaoService:
             )
         etapas_gravadas = self.repository.listar_etapas(id_pi)
         timeline = self._timeline(
-            pi, campanhas, checklist, emails, etapas_gravadas
+            pi, campanhas, checklist, emails_meta, etapas_gravadas
         )
         saude = self._calcular_saude(campanhas, pi.get("desvio_aceitavel_pct"))
         sla = self._calcular_sla(pi, campanhas)
@@ -657,7 +666,7 @@ class PiOperacaoService:
                 checklist, campanhas
             ),
             "interacoes": self.repository.listar_interacoes(id_pi),
-            "emails": emails,
+            "emails": emails_meta,
             "timeline": timeline,
             "sla": sla,
             "saude": saude,
@@ -1100,12 +1109,14 @@ class PiOperacaoService:
             "destinatarios": destinatarios,
             "remetentes": remetentes,
             "remetente": remetente,
+            "cc_emails": list(CC_OPERACAO),
         }
 
     def enviar_email(self, id_pi, payload, autor_id, autor=None):
         autor = self._resolver_autor(autor_id, autor)
         preview = self.preview_email(id_pi, payload, autor)
         reply_to = self._reply_to(preview.get("remetente"))
+        cc_solicitados = extrair_cc_emails_solicitados(payload)
         resultados = []
         for destinatario in preview["destinatarios"]:
             individual = self.preview_email(
@@ -1131,6 +1142,11 @@ class PiOperacaoService:
                 subject=individual["assunto"],
                 html_content=individual["html"],
                 reply_to=reply_to,
+                cc_email=resolver_cc_envio(
+                    CC_OPERACAO,
+                    cc_solicitados,
+                    excluir_to=destinatario["email"],
+                ),
             )
             self.repository.concluir_email_log(log_id, resultado)
             resultados.append(

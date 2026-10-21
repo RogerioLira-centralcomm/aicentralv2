@@ -171,6 +171,14 @@ class PiDocumentoServiceTest(unittest.TestCase):
             self.assertEqual(result["destinatario"]["email"], "maria@agencia.com")
             kwargs = fechamento.brevo.enviar_email.call_args.kwargs
             self.assertEqual(kwargs["to_email"], "maria@agencia.com")
+            self.assertEqual(
+                kwargs["cc_email"],
+                [
+                    "financeiro@centralcomm.media",
+                    "pedro@centralcomm.media",
+                    "max@centralcomm.media",
+                ],
+            )
             self.assertTrue(kwargs["attachments"])
             self.assertIn("assinatura", kwargs["subject"].lower())
             self.assertEqual(fechamento.registrados[0][0], "comprovacao")
@@ -235,6 +243,14 @@ class PiDocumentoServiceTest(unittest.TestCase):
             self.assertEqual(result["destinatario"]["email"], "ana@cliente.com")
             kwargs = fechamento.brevo.enviar_email.call_args.kwargs
             self.assertEqual(kwargs["to_email"], "ana@cliente.com")
+            self.assertEqual(
+                kwargs["cc_email"],
+                [
+                    "financeiro@centralcomm.media",
+                    "pedro@centralcomm.media",
+                    "max@centralcomm.media",
+                ],
+            )
             self.assertTrue(kwargs["attachments"])
             self.assertIn("financeiro", kwargs["subject"].lower())
             self.assertEqual(fechamento.registrados[0][0], "cliente_financeiro")
@@ -246,6 +262,17 @@ class PiDocumentoServiceTest(unittest.TestCase):
         service = self._service(_snapshot(contato_cliente={}))
         with self.assertRaises(DocumentoIndisponivelError):
             service.enviar_ao_cliente(10, "financeiro")
+
+    def test_enviar_ao_cliente_sem_cc_quando_lista_vazia(self):
+        fechamento = FakeFechamento(_snapshot())
+        service = PiDocumentoService(fechamento=fechamento)
+        if REPORTLAB_AVAILABLE:
+            service.enviar_ao_cliente(10, "financeiro", autor_id=99, cc_emails=[])
+            kwargs = fechamento.brevo.enviar_email.call_args.kwargs
+            self.assertEqual(kwargs["cc_email"], [])
+        else:
+            with self.assertRaises(DocumentoIndisponivelError):
+                service.enviar_ao_cliente(10, "financeiro", cc_emails=[])
 
     def test_resumo_sidebar_fechamento_lista_agencia(self):
         service = self._service(_snapshot())

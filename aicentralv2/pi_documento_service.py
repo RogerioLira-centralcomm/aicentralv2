@@ -37,6 +37,7 @@ from flask import has_request_context, url_for
 
 from aicentralv2.services.brevo_service import email_asset_url
 
+from .email_area_cc import CC_FINANCEIRO, resolver_cc_envio
 from .pi_fechamento_service import PiFechamentoService, ZONA_LABELS
 
 
@@ -430,6 +431,7 @@ class PiDocumentoService:
             "remetente": remetente,
             "canal": "financeiro",
             "audiencia": audiencia,
+            "cc_emails": list(CC_FINANCEIRO),
         }
 
     def resumo_sidebar(self, snapshot, modo="fechamento", notas=None):
@@ -628,7 +630,15 @@ class PiDocumentoService:
             }
         ]
 
-    def enviar_ao_cliente(self, id_pi, tipo, mensagem=None, autor_id=None, pedir_assinatura=False):
+    def enviar_ao_cliente(
+        self,
+        id_pi,
+        tipo,
+        mensagem=None,
+        autor_id=None,
+        pedir_assinatura=False,
+        cc_emails=None,
+    ):
         tipo = str(tipo or "").strip()
         if tipo not in TIPOS_CLIENTE:
             raise DocumentoIndisponivelError("Tipo de comunicação ao cliente inválido.")
@@ -669,6 +679,9 @@ class PiDocumentoService:
             html_content=html,
             text_content=texto,
             attachments=anexos or None,
+            cc_email=resolver_cc_envio(
+                CC_FINANCEIRO, cc_emails, excluir_to=dest["email"]
+            ),
         )
         if not (resultado.get("success") or resultado.get("messageId")):
             raise DocumentoIndisponivelError(
@@ -848,7 +861,15 @@ class PiDocumentoService:
         nome = f"{codigo}-{tipo}-{variante}.pdf"
         return buffer.getvalue(), nome
 
-    def enviar_para_assinatura(self, id_pi, tipo, mensagem=None, variante="agencia", autor_id=None):
+    def enviar_para_assinatura(
+        self,
+        id_pi,
+        tipo,
+        mensagem=None,
+        variante="agencia",
+        autor_id=None,
+        cc_emails=None,
+    ):
         tipo = str(tipo or "").strip()
         if tipo not in {item["tipo"] for item in CATALOGO_AGENCIA}:
             raise DocumentoIndisponivelError("Este documento não vai para assinatura da agência.")
@@ -870,6 +891,9 @@ class PiDocumentoService:
             html_content=html,
             text_content=texto,
             attachments=[{"name": filename, "content": base64.b64encode(pdf).decode()}],
+            cc_email=resolver_cc_envio(
+                CC_FINANCEIRO, cc_emails, excluir_to=dest["email"]
+            ),
         )
         if not (resultado.get("success") or resultado.get("messageId")):
             raise DocumentoIndisponivelError(

@@ -233,3 +233,5 @@ migrations/run_sql_migration.py add_cadu_leads_v3_ganchos.sql
 migrations/run_sql_migration.py add_cadu_leads_v3_site_contato.sql
 # PI/NF: remove status "Aguardando pagamento", migra NFs e ajusta CHECK de cadu_pi_financeiro (idempotente).
 migrations/run_sql_migration.py remove_nf_status_aguardando_pagamento.sql
+# Cotação: destinatários operacionais e log de e-mails enviados (idempotente).
+migrations/run_sql_migration.py create_cotacao_comunicacao.sql

@@ -13,6 +13,8 @@ from urllib.parse import quote
 from flask import current_app, render_template
 from typing import Optional, List, Dict, Any, Union
 
+from aicentralv2.email_area_cc import cc_comercial, normalizar_cc
+
 logger = logging.getLogger(__name__)
 
 # Constantes da API Brevo
@@ -273,8 +275,12 @@ class BrevoService:
             "htmlContent": html_content
         }
         if cc_email:
-            cc_values = [cc_email] if isinstance(cc_email, str) else cc_email
-            payload["cc"] = [{"email": email} for email in cc_values if email]
+            cc_list = normalizar_cc(
+                [cc_email] if isinstance(cc_email, str) else cc_email,
+                excluir_to=to_email,
+            )
+            if cc_list:
+                payload["cc"] = [{"email": email} for email in cc_list]
         
         if text_content:
             payload["textContent"] = text_content
@@ -981,6 +987,19 @@ def enviar_alerta_consumo(
 # FUNÇÕES DE COTAÇÕES
 # =====================================================
 
+def _cc_cotacao_comercial(executivo_email: Optional[str] = None) -> List[str]:
+    return cc_comercial(executivo_email)
+
+
+def _cc_cotacao_para_envio(
+    executivo_email: Optional[str],
+    cc_emails: Optional[List[str]] = None,
+) -> List[str]:
+    if cc_emails is not None:
+        return cc_emails
+    return _cc_cotacao_comercial(executivo_email)
+
+
 def enviar_email_cotacao_aprovada(
     to_email: str,
     to_name: str,
@@ -995,7 +1014,9 @@ def enviar_email_cotacao_aprovada(
     link_admin: str = None,
     tem_agencia: bool = False,
     agencia_nome: str = None,
-    agencia_email: str = None
+    agencia_email: str = None,
+    executivo_email: str = None,
+    cc_emails: List[str] = None,
 ) -> Dict[str, Any]:
     """
     Envia email interno de cotação aprovada
@@ -1039,7 +1060,8 @@ def enviar_email_cotacao_aprovada(
         to_name=to_name,
         subject=f"✓ Proposta Aprovada - {numero_cotacao}",
         params=params,
-        template_folder="emails/internos"
+        template_folder="emails/internos",
+        cc_email=_cc_cotacao_para_envio(executivo_email, cc_emails),
     )
 
 
@@ -1054,7 +1076,9 @@ def enviar_email_cotacao_rejeitada(
     data_rejeicao: str = None,
     tem_agencia: bool = False,
     agencia_nome: str = None,
-    agencia_email: str = None
+    agencia_email: str = None,
+    executivo_email: str = None,
+    cc_emails: List[str] = None,
 ) -> Dict[str, Any]:
     """
     Envia email interno de cotação rejeitada
@@ -1092,7 +1116,8 @@ def enviar_email_cotacao_rejeitada(
         to_name=to_name,
         subject=f"✗ Proposta Rejeitada - {numero_cotacao}",
         params=params,
-        template_folder="emails/internos"
+        template_folder="emails/internos",
+        cc_email=_cc_cotacao_para_envio(executivo_email, cc_emails),
     )
 
 
@@ -1104,7 +1129,9 @@ def enviar_email_cotacao_recebida(
     cliente_nome: str,
     valor_total: str,
     link_proposta: str,
-    data_recebimento: str = None
+    data_recebimento: str = None,
+    executivo_email: str = None,
+    cc_emails: List[str] = None,
 ) -> Dict[str, Any]:
     """
     Envia email interno de nova cotação recebida
@@ -1126,7 +1153,8 @@ def enviar_email_cotacao_recebida(
         to_name=to_name,
         subject=f"Nova Proposta - {numero_cotacao}",
         params=params,
-        template_folder="emails/internos"
+        template_folder="emails/internos",
+        cc_email=_cc_cotacao_para_envio(executivo_email, cc_emails),
     )
 
 
@@ -1186,7 +1214,8 @@ def enviar_email_cotacao_enviada_cliente(
     data_envio: str = None,
     tem_agencia: bool = False,
     agencia_nome: str = None,
-    cliente_nome: str = None
+    cliente_nome: str = None,
+    cc_emails: List[str] = None,
 ) -> Dict[str, Any]:
     """
     Envia email para cliente ou agência de cotação enviada
@@ -1244,7 +1273,8 @@ def enviar_email_cotacao_enviada_cliente(
         to_name=to_name,
         subject=f"Sua Proposta - {numero_cotacao}",
         params=params,
-        template_folder="emails/externos"
+        template_folder="emails/externos",
+        cc_email=_cc_cotacao_para_envio(executivo_email, cc_emails),
     )
 
 
@@ -1261,7 +1291,8 @@ def enviar_email_cotacao_aprovada_cliente(
     link_proposta: str = None,
     tem_agencia: bool = False,
     agencia_nome: str = None,
-    cliente_nome: str = None
+    cliente_nome: str = None,
+    cc_emails: List[str] = None,
 ) -> Dict[str, Any]:
     """
     Envia email para cliente/agência de cotação aprovada
@@ -1309,7 +1340,8 @@ def enviar_email_cotacao_aprovada_cliente(
         to_name=to_name,
         subject=f"Proposta Aprovada - {numero_cotacao}",
         params=params,
-        template_folder="emails/externos"
+        template_folder="emails/externos",
+        cc_email=_cc_cotacao_para_envio(executivo_email, cc_emails),
     )
 
 
@@ -1325,7 +1357,8 @@ def enviar_email_cotacao_rejeitada_cliente(
     link_nova_cotacao: str = None,
     tem_agencia: bool = False,
     agencia_nome: str = None,
-    cliente_nome: str = None
+    cliente_nome: str = None,
+    cc_emails: List[str] = None,
 ) -> Dict[str, Any]:
     """
     Envia email para cliente/agência de cotação rejeitada/cancelada
@@ -1371,5 +1404,6 @@ def enviar_email_cotacao_rejeitada_cliente(
         to_name=to_name,
         subject=f"Atualização da Proposta - {numero_cotacao}",
         params=params,
-        template_folder="emails/externos"
+        template_folder="emails/externos",
+        cc_email=_cc_cotacao_para_envio(executivo_email, cc_emails),
     )

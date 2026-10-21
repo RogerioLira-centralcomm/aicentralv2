@@ -122,7 +122,7 @@ class WorkspaceComercialRouteTest(unittest.TestCase):
             / "aicentralv2"
             / "templates"
             / "cadu_cotacoes_detalhes.html"
-        ).read_text()
+        ).read_text(encoding="utf-8")
 
         self.assertIn("{% extends 'base_erp.html' %}", template)
         self.assertIn("cotacoes/_sidebar_comercial.html", template)
@@ -138,7 +138,7 @@ class WorkspaceComercialRouteTest(unittest.TestCase):
             / "aicentralv2"
             / "templates"
             / "cadu_cotacoes_detalhes.html"
-        ).read_text()
+        ).read_text(encoding="utf-8")
 
         self.assertIn("cot-op-primary-section", template)
         self.assertIn("A proposta ainda não tem itens", template)
@@ -150,7 +150,7 @@ class WorkspaceComercialRouteTest(unittest.TestCase):
             / "static"
             / "css"
             / "cotacao_detalhes.css"
-        ).read_text()
+        ).read_text(encoding="utf-8")
         self.assertLess(
             css.index('[data-section="itens"] { order: 1; }'),
             css.index('[data-section="parametros_proposta"] { order: 4; }'),
@@ -162,7 +162,7 @@ class WorkspaceComercialRouteTest(unittest.TestCase):
             / "aicentralv2"
             / "templates"
             / "cadu_cotacoes_detalhes.html"
-        ).read_text()
+        ).read_text(encoding="utf-8")
 
         self.assertIn(
             '<details data-section="resumo_comercial" class="cot-op-disclosure">',
@@ -176,8 +176,8 @@ class WorkspaceComercialRouteTest(unittest.TestCase):
 
     def test_abas_sao_controladas_pelo_javascript_vanilla(self):
         root = Path(__file__).parents[1] / "aicentralv2"
-        template = (root / "templates" / "cadu_cotacoes_detalhes.html").read_text()
-        javascript = (root / "static" / "js" / "cotacao_detalhes.js").read_text()
+        template = (root / "templates" / "cadu_cotacoes_detalhes.html").read_text(encoding="utf-8")
+        javascript = (root / "static" / "js" / "cotacao_detalhes.js").read_text(encoding="utf-8")
 
         self.assertNotIn("var mapa = {", template)
         self.assertIn("var tabSections =", javascript)
@@ -190,8 +190,8 @@ class WorkspaceComercialRouteTest(unittest.TestCase):
 
     def test_header_e_resumo_usam_shell_operacional_vanilla(self):
         root = Path(__file__).parents[1] / "aicentralv2"
-        template = (root / "templates" / "cadu_cotacoes_detalhes.html").read_text()
-        css = (root / "static" / "css" / "cotacao_detalhes.css").read_text()
+        template = (root / "templates" / "cadu_cotacoes_detalhes.html").read_text(encoding="utf-8")
+        css = (root / "static" / "css" / "cotacao_detalhes.css").read_text(encoding="utf-8")
 
         self.assertIn('class="cot-op-header"', template)
         self.assertIn('class="cot-op-summary-rail"', template)
@@ -208,8 +208,8 @@ class WorkspaceComercialRouteTest(unittest.TestCase):
 
     def test_secoes_secundarias_removem_handlers_inline_ativos(self):
         root = Path(__file__).parents[1] / "aicentralv2"
-        template = (root / "templates" / "cadu_cotacoes_detalhes.html").read_text()
-        javascript = (root / "static" / "js" / "cotacao_detalhes.js").read_text()
+        template = (root / "templates" / "cadu_cotacoes_detalhes.html").read_text(encoding="utf-8")
+        javascript = (root / "static" / "js" / "cotacao_detalhes.js").read_text(encoding="utf-8")
 
         self.assertIn("data-open-audience", template)
         self.assertIn("data-open-attachment", template)
@@ -221,23 +221,32 @@ class WorkspaceComercialRouteTest(unittest.TestCase):
 
     def test_sidebar_evitaria_cartoes_aninhados(self):
         root = Path(__file__).parents[1] / "aicentralv2"
-        sidebar = (root / "templates" / "cotacoes" / "_sidebar_comercial.html").read_text()
-        css = (root / "static" / "css" / "cotacao_detalhes.css").read_text()
+        sidebar = (root / "templates" / "cotacoes" / "_sidebar_comercial.html").read_text(encoding="utf-8")
+        css = (root / "static" / "css" / "cotacao_detalhes.css").read_text(encoding="utf-8")
 
         self.assertIn("Revise o que falta sem sair da montagem.", sidebar)
+        self.assertIn("cotacoes/_sidebar_destinatarios_emails.html", sidebar)
+        partial = (root / "templates" / "cotacoes" / "_sidebar_destinatarios_emails.html").read_text(encoding="utf-8")
+        self.assertIn('id="cot-email-sent-list"', partial)
         self.assertIn(".cot-op-panel,\n.cot-op-next", css)
         self.assertIn("border: 0;", css)
+        workspace = (root / "templates" / "cadu_cotacoes_workspace.html").read_text(encoding="utf-8")
+        self.assertIn("cotacoes/_sidebar_destinatarios_emails.html", workspace)
+        routes = (root / "cotacoes_routes.py").read_text(encoding="utf-8")
+        self.assertIn("/api/cotacoes/<int:cotacao_id>/comunicacao", routes)
+        migration = (Path(__file__).parents[1] / "migrations" / "create_cotacao_comunicacao.sql").read_text(encoding="utf-8")
+        self.assertIn("cadu_cotacao_email_log", migration)
 
     def test_tabela_de_midia_prioriza_compra_e_valores(self):
         root = Path(__file__).parents[1] / "aicentralv2"
-        template = (root / "templates" / "cadu_cotacoes_detalhes.html").read_text()
+        template = (root / "templates" / "cadu_cotacoes_detalhes.html").read_text(encoding="utf-8")
 
         self.assertIn('class="cot-media-table"', template)
         self.assertIn("Mídia e segmentação", template)
         self.assertIn("KPI e período", template)
         self.assertIn("data-open-media-item", template)
         self.assertIn("data-line-id=", template)
-        css = (root / "static" / "css" / "cotacao_detalhes.css").read_text()
+        css = (root / "static" / "css" / "cotacao_detalhes.css").read_text(encoding="utf-8")
         self.assertIn("cotacao_detalhes.css') }}?v=6", template)
         self.assertIn("@media (max-width: 900px)", css)
         self.assertIn("tr[data-media-row]", css)
@@ -250,7 +259,7 @@ class WorkspaceComercialRouteTest(unittest.TestCase):
 
     def test_modais_de_item_compartilham_sistema_semantico(self):
         root = Path(__file__).parents[1] / "aicentralv2"
-        template = (root / "templates" / "cadu_cotacoes_detalhes.html").read_text()
+        template = (root / "templates" / "cadu_cotacoes_detalhes.html").read_text(encoding="utf-8")
 
         self.assertIn('data-media-item-dialog="create"', template)
         self.assertIn('data-media-item-dialog="edit"', template)
@@ -264,8 +273,8 @@ class WorkspaceComercialRouteTest(unittest.TestCase):
 
     def test_controlador_vanilla_assume_acoes_principais_dos_itens(self):
         root = Path(__file__).parents[1] / "aicentralv2"
-        template = (root / "templates" / "cadu_cotacoes_detalhes.html").read_text()
-        javascript = (root / "static" / "js" / "cotacao_detalhes.js").read_text()
+        template = (root / "templates" / "cadu_cotacoes_detalhes.html").read_text(encoding="utf-8")
+        javascript = (root / "static" / "js" / "cotacao_detalhes.js").read_text(encoding="utf-8")
 
         self.assertIn("function initMediaItems()", javascript)
         self.assertIn("window.CotacaoMediaUI", javascript)

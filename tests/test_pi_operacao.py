@@ -511,11 +511,41 @@ class PiOperacaoServiceTest(unittest.TestCase):
         self.assertTrue(resultado["success"])
         self.assertEqual(brevo.envios[0]["to_email"], "cliente@example.com")
         self.assertEqual(
+            brevo.envios[0]["cc_email"],
+            [
+                "pedro@centralcomm.media",
+                "max@centralcomm.media",
+                "apolo@centralcomm.media",
+                "luiz@centralcomm.media",
+            ],
+        )
+        self.assertEqual(
             brevo.envios[0]["reply_to"],
             {"email": "ana@centralcomm.media", "name": "Ana Operacao"},
         )
         self.assertEqual(repo.logs[0]["resultado"]["messageId"], "brevo-123")
         self.assertEqual(len(repo.sync_calls), 1)
+
+    def test_envio_respeita_cc_emails_customizado(self):
+        repo = FakeRepository(substatus=3)
+        brevo = FakeBrevo()
+        service = PiOperacaoService(
+            repository=repo,
+            brevo_service=brevo,
+            renderer=lambda template, **ctx: "<p>Campanha iniciada</p>",
+        )
+        service.enviar_email(
+            10,
+            {
+                "tipo": "campanha_iniciada",
+                "cc_emails": ["pedro@centralcomm.media"],
+            },
+            autor_id=99,
+        )
+        self.assertEqual(
+            brevo.envios[0]["cc_email"],
+            ["pedro@centralcomm.media"],
+        )
 
     def test_email_de_teste_vai_para_quem_esta_logado(self):
         repo = FakeRepository(substatus=3)
@@ -532,6 +562,7 @@ class PiOperacaoServiceTest(unittest.TestCase):
         )
         self.assertTrue(resultado["success"])
         self.assertEqual(brevo.envios[0]["to_email"], "ana@centralcomm.media")
+        self.assertNotIn("cc_email", brevo.envios[0])
         self.assertTrue(brevo.envios[0]["subject"].startswith("[Teste] "))
         self.assertEqual(repo.logs, [])
         self.assertEqual(repo.sync_calls, [])

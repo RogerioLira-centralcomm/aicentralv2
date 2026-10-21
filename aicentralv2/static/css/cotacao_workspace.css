@@ -113,6 +113,11 @@
   border-left: 1px solid #dbe3e8;
   background: #fff;
 }
+.cot-workspace-sidebar .cot-com-panel {
+  margin-top: 0;
+  padding-top: 1rem;
+  border-top: 1px solid #dbe3e8;
+}
 .cot-workspace-control {
   display: grid;
   gap: .9rem;

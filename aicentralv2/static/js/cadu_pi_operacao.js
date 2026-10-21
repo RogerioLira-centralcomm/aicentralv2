@@ -29,6 +29,9 @@
   var currentEmailType = '';
   var currentEmailCampaignId = null;
   var emailPreviewReady = false;
+  var piEmailCcEditor = window.ComunicacaoCcEditor
+    ? window.ComunicacaoCcEditor.create(document.getElementById('pi-email-cc'))
+    : null;
   var userEmail = String(root.dataset.userEmail || '').trim();
   var userName = String(root.dataset.userName || '').trim();
   var mobileMedia = window.matchMedia('(max-width: 900px)');
@@ -102,7 +105,9 @@
         var role = document.createElement('em');
         name.textContent = item.nome_completo || item.nome || item.email || 'Contato';
         email.textContent = item.email || 'Sem e-mail';
-        role.textContent = String(item.papel || item.role || '').replace('_', ' ') || 'Destinatário';
+        var papelRaw = String(item.papel || item.role || '');
+        role.textContent = papelRaw === 'cc' ? 'Cópia (Cc)'
+          : papelRaw.replace('_', ' ') || 'Destinatário';
         identity.append(name, email);
         row.append(identity, role);
         details.appendChild(row);
@@ -472,7 +477,48 @@
     ).sort().join('|');
   }
 
+  var sentEmailDialogCtrl = window.ComunicacaoSidebar
+    ? window.ComunicacaoSidebar.initSentEmailDialog(
+      document.getElementById('pi-sent-email-dialog'),
+      {
+        frame: '#pi-sent-email-frame',
+        title: '#pi-sent-email-title',
+        context: '#pi-sent-email-context',
+        veil: '#pi-sent-email-preview-state',
+        close: '[data-sent-email-close]'
+      }
+    )
+    : null;
+
+  function renderRecipientSummaryPanel(data) {
+    if (!window.ComunicacaoSidebar) return;
+    window.ComunicacaoSidebar.renderRecipientSummary(
+      document.getElementById('pi-recipient-summary'),
+      data
+    );
+  }
+
+  async function openSentEmailLog(logId) {
+    if (!sentEmailDialogCtrl || !logId) return;
+    var meta = list(operationData && operationData.emails).find(function (item) {
+      return String(item.id) === String(logId);
+    }) || { id: logId };
+    await sentEmailDialogCtrl.open(meta, async function () {
+      var data = await request(base + '/emails/' + encodeURIComponent(logId));
+      return data.html;
+    });
+  }
+
+  function renderSentEmailHistory(data) {
+    var target = document.getElementById('pi-email-sent-list');
+    if (!target || !window.ComunicacaoSidebar) return;
+    window.ComunicacaoSidebar.renderSentEmails(target, list(data && data.emails));
+    window.ComunicacaoSidebar.bindSentEmailClicks(target, openSentEmailLog);
+  }
+
   function focusRecipientSelection() {
+    var disclosure = document.querySelector('.pi-op-recipients-disclosure');
+    if (disclosure) disclosure.open = true;
     var form = document.getElementById('pi-recipients-form');
     var panel = form && form.closest('.pi-op-panel');
     openSidebar();
@@ -581,6 +627,7 @@
       groupHtml('agencia', 'Agência', pi.id_agencia) +
       groupHtml('parceiro', 'Parceiro', pi.id_parceiro);
     updateRecipientCount();
+    renderRecipientSummaryPanel(data);
   }
 
   function updateRecipientCount() {
@@ -683,6 +730,7 @@
       renderRouteMap(operationData);
       renderTimeline(operationData);
       renderRecipients(operationData);
+      renderSentEmailHistory(operationData);
       renderCommunications();
     } catch (error) {
       var target = document.getElementById('pi-operation-recommendation');
@@ -691,6 +739,7 @@
       renderRouteMap({});
       renderTimeline({});
       renderRecipients({ recipient_error: error.message });
+      renderSentEmailHistory({});
     }
   }
 
@@ -828,6 +877,17 @@
     }
   }
 
+  function syncPiEmailCcFromPreview(data) {
+    var wrap = document.getElementById('pi-email-cc-wrap');
+    var ccList = list(data && data.cc_emails);
+    if (!piEmailCcEditor || !ccList.length) {
+      if (wrap) wrap.hidden = true;
+      return;
+    }
+    if (wrap) wrap.hidden = false;
+    piEmailCcEditor.reset(ccList);
+  }
+
   function emailDraft(type, campaignId, extra) {
     var subject = document.getElementById('pi-email-subject');
     var message = document.getElementById('pi-email-message');
@@ -839,7 +899,11 @@
       mensagem: message ? message.value.trim() : ''
     };
     if (sender && sender.value) draft.remetente_id = Number(sender.value);
-    return Object.assign(draft, extra || {});
+    var merged = Object.assign(draft, extra || {});
+    if (piEmailCcEditor && !merged.teste) {
+      merged.cc_emails = piEmailCcEditor.getEmails();
+    }
+    return merged;
   }
 
   function senderLabel(item) {
@@ -950,6 +1014,7 @@
       fillSenders(data.remetentes, data.remetente);
       if (subject && !subject.value) subject.value = data.assunto || '';
       if (message && !message.value && data.mensagem) message.value = data.mensagem;
+      syncPiEmailCcFromPreview(data);
       if (audience) {
         if (recipients.length) {
           audience.innerHTML = '<strong>Para quem vai</strong><ul>' +
@@ -998,10 +1063,15 @@
       }
       return;
     }
+    var ccDetails = piEmailCcEditor
+      ? piEmailCcEditor.getEmails().map(function (email) {
+        return { email: email, nome: email, papel: 'cc' };
+      })
+      : [];
     var confirmed = await confirmAction({
       title: 'Enviar comunicação',
       message: 'Revise quem receberá esta comunicação. O envio não poderá ser desfeito.',
-      details: recipients,
+      details: recipients.concat(ccDetails),
       kind: 'email',
       confirmText: recipients.length === 1 ? 'Enviar para 1 pessoa' : 'Enviar para ' + recipients.length + ' pessoas'
     });
@@ -1013,10 +1083,14 @@
         var url = fiscal.audiencia === 'agencia'
           ? '/api/cadu_pi/' + piId + '/documentos/' + encodeURIComponent(type) + '/enviar-assinatura'
           : '/api/cadu_pi/' + piId + '/financeiro/comunicacoes/' + encodeURIComponent(type) + '/enviar';
+        var fiscalDraft = emailDraft(type, campaignId);
         data = await request(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mensagem: emailDraft(type, campaignId).mensagem })
+          body: JSON.stringify({
+            mensagem: fiscalDraft.mensagem,
+            cc_emails: fiscalDraft.cc_emails
+          })
         });
       } else {
         data = await request(base + '/email/enviar', {

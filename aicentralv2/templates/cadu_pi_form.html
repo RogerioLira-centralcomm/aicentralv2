@@ -4,7 +4,7 @@
 {% block page_label %}Operação: PI{% endblock %}
 {% block page_subtitle %}Visão detalhada do PI com foco na operação{% endblock %}
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=24">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=25">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/clientes.css') }}?v=6">
 {% endblock %}
 
@@ -2926,7 +2926,8 @@ document.getElementById('ncpi_form').addEventListener('submit', async function(e
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/cadu_pi_operacao.js') }}?v=18"></script>
+<script src="{{ url_for('static', filename='js/comunicacao_sidebar.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/cadu_pi_operacao.js') }}?v=20"></script>
 {% if pi and pi.id_pi %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {

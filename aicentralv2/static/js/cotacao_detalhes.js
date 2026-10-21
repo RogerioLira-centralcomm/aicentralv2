@@ -540,4 +540,14 @@
   initSupplementalInteractions();
   initMediaItems();
   loadState(false);
+
+  if (typeof window.initCotacaoComunicacao === 'function' && cotacaoId) {
+    window.initCotacaoComunicacao({ cotacaoId: cotacaoId, readOnly: false });
+  }
+
+  document.addEventListener('cotacao:updated', function () {
+    if (window.CotacaoComunicacao && typeof window.CotacaoComunicacao.reload === 'function') {
+      window.CotacaoComunicacao.reload();
+    }
+  });
 })();

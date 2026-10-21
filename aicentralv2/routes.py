@@ -7554,12 +7554,39 @@ def init_routes(app):
                 })
         return lista
 
+    def _render_email_externo_cotacao(template_name, params):
+        template_vars = {k.lower(): v for k, v in (params or {}).items()}
+        return render_template(f'emails/externos/{template_name}', **template_vars)
+
+    def _registrar_log_email_cotacao(cotacao_id, tipo, assunto, destinatario, html, resultado_brevo):
+        try:
+            from aicentralv2.cotacao_comunicacao_service import CotacaoComunicacaoService
+
+            CotacaoComunicacaoService().registrar_envio(
+                cotacao_id,
+                tipo,
+                assunto,
+                destinatario,
+                html or '',
+                session.get('user_id'),
+                resultado_brevo or {'success': True},
+            )
+        except Exception as exc:
+            app.logger.warning(
+                'Falha ao registrar log de e-mail da cotação %s: %s',
+                cotacao_id,
+                exc,
+            )
+
     @app.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/enviar-email', methods=['POST'])
     @login_required
     def enviar_email_cotacao(cotacao_id):
         """API para enviar email relacionado à cotação usando Brevo"""
         try:
+            from aicentralv2.email_area_cc import extrair_cc_emails_solicitados
+
             data = request.get_json() or {}
+            cc_emails_solicitados = extrair_cc_emails_solicitados(data)
             
             tipo = data.get('tipo', 'enviar_cotacao')
             destinatario = data.get('destinatario')
@@ -7633,13 +7660,35 @@ def init_routes(app):
             # Data de envio
             data_envio = datetime.now().strftime('%d/%m/%Y às %H:%M')
             
+            assunto_enviada = f"Sua Proposta - {cotacao.get('numero_cotacao', '')}"
             try:
                 resultado = {'success': True}
                 emails_enviados = []
                 for dest in destinatarios_externos:
+                    dest_nome = dest['nome'] or cliente_nome
+                    params_enviada = {
+                        'NOME': dest_nome,
+                        'PRIMEIRO_NOME': dest_nome.split()[0] if dest_nome else 'Cliente',
+                        'NUMERO_COTACAO': cotacao.get('numero_cotacao', ''),
+                        'NOME_CAMPANHA': cotacao.get('nome_campanha', ''),
+                        'VALOR_INVESTIMENTO': valor_formatado,
+                        'LINK_COTACAO': link_cotacao or '',
+                        'VALIDADE': validade,
+                        'EXECUTIVO_NOME': cotacao.get('responsavel_nome', ''),
+                        'EXECUTIVO_EMAIL': cotacao.get('responsavel_email', ''),
+                        'PERIODO': periodo,
+                        'OBJETIVO': cotacao.get('objetivo_campanha') or '',
+                        'AUDIENCIA_NOME': '',
+                        'AUDIENCIA_CATEGORIA': '',
+                        'PRAZO_RESPOSTA': 'até 24 horas úteis',
+                        'DATA_ENVIO': data_envio,
+                        'TEM_AGENCIA': email_tem_agencia,
+                        'AGENCIA_NOME': email_agencia_nome,
+                        'CLIENTE_NOME': cliente_nome_param or cotacao.get('cliente_nome', ''),
+                    }
                     r = enviar_email_cotacao_enviada_cliente(
                         to_email=dest['email'],
-                        to_name=dest['nome'] or cliente_nome,
+                        to_name=dest_nome,
                         numero_cotacao=cotacao.get('numero_cotacao', ''),
                         nome_campanha=cotacao.get('nome_campanha', ''),
                         valor_total=valor_formatado,
@@ -7649,11 +7698,21 @@ def init_routes(app):
                         executivo_email=cotacao.get('responsavel_email', ''),
                         tem_agencia=email_tem_agencia,
                         agencia_nome=email_agencia_nome,
-                        cliente_nome=cliente_nome_param or cotacao.get('cliente_nome', '')
+                        cliente_nome=cliente_nome_param or cotacao.get('cliente_nome', ''),
+                        cc_emails=cc_emails_solicitados,
                     )
                     if not r.get('success'):
                         resultado = r
                         break
+                    html_log = _render_email_externo_cotacao('cotacao-enviada.html', params_enviada)
+                    _registrar_log_email_cotacao(
+                        cotacao_id,
+                        tipo or 'cotacao_enviada',
+                        assunto_enviada,
+                        dest,
+                        html_log,
+                        r,
+                    )
                     emails_enviados.append(dest['email'])
                 
                 if resultado.get('success'):
@@ -7702,7 +7761,10 @@ def init_routes(app):
         Emails internos: responsável comercial + apolo@centralcomm.media
         """
         try:
+            from aicentralv2.email_area_cc import extrair_cc_emails_solicitados
+
             data = request.get_json() or {}
+            cc_emails_solicitados = extrair_cc_emails_solicitados(data)
             
             tipo = data.get('tipo')
             destinatario = data.get('destinatario')
@@ -7788,10 +7850,13 @@ def init_routes(app):
             try:
                 if tipo == 'cotacao_enviada':
                     resultado_externo = {'success': True}
+                    assunto_tipo = f"Sua Proposta - {numero_cotacao}"
+                    data_envio_tipo = datetime.now().strftime('%d/%m/%Y às %H:%M')
                     for dest_ext in destinatarios_externos:
+                        dest_nome_ext = dest_ext['nome']
                         resultado_externo = enviar_email_cotacao_enviada_cliente(
                             to_email=dest_ext['email'],
-                            to_name=dest_ext['nome'],
+                            to_name=dest_nome_ext,
                             numero_cotacao=numero_cotacao,
                             nome_campanha=nome_campanha,
                             valor_total=valor_formatado,
@@ -7800,10 +7865,34 @@ def init_routes(app):
                             executivo_email=responsavel_email,
                             tem_agencia=email_tem_agencia,
                             agencia_nome=email_agencia_nome,
-                            cliente_nome=cliente_nome
+                            cliente_nome=cliente_nome,
+                            cc_emails=cc_emails_solicitados,
                         )
                         if not resultado_externo.get('success'):
                             break
+                        params_log = {
+                            'NOME': dest_nome_ext,
+                            'PRIMEIRO_NOME': dest_nome_ext.split()[0] if dest_nome_ext else 'Cliente',
+                            'NUMERO_COTACAO': numero_cotacao,
+                            'NOME_CAMPANHA': nome_campanha,
+                            'VALOR_INVESTIMENTO': valor_formatado,
+                            'LINK_COTACAO': link_cotacao or '',
+                            'VALIDADE': '',
+                            'EXECUTIVO_NOME': responsavel_nome,
+                            'EXECUTIVO_EMAIL': responsavel_email,
+                            'DATA_ENVIO': data_envio_tipo,
+                            'TEM_AGENCIA': email_tem_agencia,
+                            'AGENCIA_NOME': email_agencia_nome,
+                            'CLIENTE_NOME': cliente_nome,
+                        }
+                        _registrar_log_email_cotacao(
+                            cotacao_id,
+                            tipo,
+                            assunto_tipo,
+                            dest_ext,
+                            _render_email_externo_cotacao('cotacao-enviada.html', params_log),
+                            resultado_externo,
+                        )
                     
                     # Emails internos: responsável comercial + apolo
                     destinatarios_internos = []
@@ -7829,7 +7918,8 @@ def init_routes(app):
                                 executivo_email=responsavel_email,
                                 tem_agencia=email_tem_agencia,
                                 agencia_nome=email_agencia_nome,
-                                cliente_nome=cliente_nome
+                                cliente_nome=cliente_nome,
+                                cc_emails=cc_emails_solicitados,
                             )
                         except Exception as e:
                             app.logger.warning(f"Erro ao enviar email interno para {email_interno}: {e}")
@@ -7842,10 +7932,13 @@ def init_routes(app):
                 
                 elif tipo == 'cotacao_aprovada':
                     resultado_externo = {'success': True}
+                    assunto_tipo = f"Proposta Aprovada - {numero_cotacao}"
+                    data_aprovacao = datetime.now().strftime('%d/%m/%Y às %H:%M')
                     for dest_ext in destinatarios_externos:
+                        dest_nome_ext = dest_ext['nome']
                         resultado_externo = enviar_email_cotacao_aprovada_cliente(
                             to_email=dest_ext['email'],
-                            to_name=dest_ext['nome'],
+                            to_name=dest_nome_ext,
                             numero_cotacao=numero_cotacao,
                             nome_campanha=nome_campanha,
                             valor_total=valor_formatado,
@@ -7853,10 +7946,33 @@ def init_routes(app):
                             executivo_email=responsavel_email,
                             tem_agencia=email_tem_agencia,
                             agencia_nome=email_agencia_nome,
-                            cliente_nome=cliente_nome
+                            cliente_nome=cliente_nome,
+                            cc_emails=cc_emails_solicitados,
                         )
                         if not resultado_externo.get('success'):
                             break
+                        params_log = {
+                            'NOME': dest_nome_ext,
+                            'PRIMEIRO_NOME': dest_nome_ext.split()[0] if dest_nome_ext else 'Cliente',
+                            'NUMERO_COTACAO': numero_cotacao,
+                            'NOME_CAMPANHA': nome_campanha,
+                            'VALOR_TOTAL': valor_formatado,
+                            'CONTATO_COMERCIAL': responsavel_nome,
+                            'EMAIL_COMERCIAL': responsavel_email,
+                            'DATA_APROVACAO': data_aprovacao,
+                            'LINK_PROPOSTA': link_cotacao or '',
+                            'TEM_AGENCIA': email_tem_agencia,
+                            'AGENCIA_NOME': email_agencia_nome,
+                            'CLIENTE_NOME': cliente_nome,
+                        }
+                        _registrar_log_email_cotacao(
+                            cotacao_id,
+                            tipo,
+                            assunto_tipo,
+                            dest_ext,
+                            _render_email_externo_cotacao('cotacao-aprovada-cliente.html', params_log),
+                            resultado_externo,
+                        )
                     
                     # Emails internos: responsável comercial + apolo
                     destinatarios_internos = []
@@ -7883,7 +7999,9 @@ def init_routes(app):
                                 link_admin=link_admin,
                                 tem_agencia=email_tem_agencia,
                                 agencia_nome=email_agencia_nome,
-                                agencia_email=destinatario if email_tem_agencia else None
+                                agencia_email=destinatario if email_tem_agencia else None,
+                                executivo_email=responsavel_email,
+                                cc_emails=cc_emails_solicitados,
                             )
                         except Exception as e:
                             app.logger.warning(f"Erro ao enviar email interno para {email_interno}: {e}")
@@ -7892,20 +8010,48 @@ def init_routes(app):
                 
                 elif tipo == 'cotacao_rejeitada':
                     resultado_externo = {'success': True}
+                    assunto_tipo = f"Proposta não aprovada - {numero_cotacao}"
+                    data_rejeicao = datetime.now().strftime('%d/%m/%Y às %H:%M')
+                    motivo_rejeicao_ext = (
+                        cotacao.get('comentarios_internos') or cotacao.get('motivo_rejeicao') or ''
+                    )
                     for dest_ext in destinatarios_externos:
+                        dest_nome_ext = dest_ext['nome']
                         resultado_externo = enviar_email_cotacao_rejeitada_cliente(
                             to_email=dest_ext['email'],
-                            to_name=dest_ext['nome'],
+                            to_name=dest_nome_ext,
                             numero_cotacao=numero_cotacao,
                             nome_campanha=nome_campanha,
                             executivo_nome=responsavel_nome,
                             executivo_email=responsavel_email,
                             tem_agencia=email_tem_agencia,
                             agencia_nome=email_agencia_nome,
-                            cliente_nome=cliente_nome
+                            cliente_nome=cliente_nome,
+                            cc_emails=cc_emails_solicitados,
                         )
                         if not resultado_externo.get('success'):
                             break
+                        params_log = {
+                            'NOME': dest_nome_ext,
+                            'PRIMEIRO_NOME': dest_nome_ext.split()[0] if dest_nome_ext else 'Cliente',
+                            'NUMERO_COTACAO': numero_cotacao,
+                            'NOME_CAMPANHA': nome_campanha,
+                            'MOTIVO_REJEICAO': motivo_rejeicao_ext,
+                            'CONTATO_COMERCIAL': responsavel_nome,
+                            'EMAIL_COMERCIAL': responsavel_email,
+                            'DATA_REJEICAO': data_rejeicao,
+                            'TEM_AGENCIA': email_tem_agencia,
+                            'AGENCIA_NOME': email_agencia_nome,
+                            'CLIENTE_NOME': cliente_nome,
+                        }
+                        _registrar_log_email_cotacao(
+                            cotacao_id,
+                            tipo,
+                            assunto_tipo,
+                            dest_ext,
+                            _render_email_externo_cotacao('cotacao-rejeitada-cliente.html', params_log),
+                            resultado_externo,
+                        )
                     
                     # Emails internos: responsável comercial + apolo
                     destinatarios_internos = []
@@ -7932,7 +8078,9 @@ def init_routes(app):
                                 data_rejeicao=datetime.now().strftime('%d/%m/%Y às %H:%M'),
                                 tem_agencia=email_tem_agencia,
                                 agencia_nome=email_agencia_nome,
-                                agencia_email=destinatario if email_tem_agencia else None
+                                agencia_email=destinatario if email_tem_agencia else None,
+                                executivo_email=responsavel_email,
+                                cc_emails=cc_emails_solicitados,
                             )
                         except Exception as e:
                             app.logger.warning(f"Erro ao enviar email interno para {email_interno}: {e}")

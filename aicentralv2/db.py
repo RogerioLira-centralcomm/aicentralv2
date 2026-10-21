@@ -9413,6 +9413,7 @@ def obter_cotacao_por_id(cotacao_id):
                     c.*,
                     cli.nome_fantasia as cliente_nome,
                     resp.nome_completo as responsavel_nome,
+                    resp.email as responsavel_email,
                     cont.nome_completo as contato_cliente_nome,
                     cont.email as contato_cliente_email,
                     cont.telefone as contato_cliente_telefone,

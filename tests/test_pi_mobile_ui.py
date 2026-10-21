@@ -216,15 +216,16 @@ class PiMobileUiContractTest(unittest.TestCase):
 
         self.assertIn('id="pi-recipients-form"', sidebar)
         self.assertIn('id="pi-recipient-options"', sidebar)
-        self.assertNotIn(
-            "Estes contatos receberão as comunicações enviadas por esta operação.</p>\n      </form>",
-            sidebar,
-        )
+        self.assertIn('pi-op-recipients-disclosure', sidebar)
+        self.assertIn('id="pi-email-sent-list"', sidebar)
+        self.assertIn('id="pi-sent-email-dialog"', sidebar)
+        self.assertIn('renderSentEmailHistory', operation_js)
+        self.assertIn('renderRecipientSummaryPanel', operation_js)
         self.assertIn('id="pi-confirm-details"', sidebar)
         self.assertIn('id="pi-email-dialog"', sidebar)
         self.assertIn('id="pi-email-frame"', sidebar)
         self.assertIn('sandbox=""', sidebar)
-        self.assertIn("details: recipients", operation_js)
+        self.assertIn('disclosure.open = true', operation_js)
         self.assertIn("Revise quem receberá esta comunicação", operation_js)
         self.assertIn("emailDialog.showModal()", operation_js)
         self.assertIn("frame.srcdoc = data.html", operation_js)

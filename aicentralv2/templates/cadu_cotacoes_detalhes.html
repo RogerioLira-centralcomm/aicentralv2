@@ -7,6 +7,7 @@
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_detalhes.css') }}?v=6">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_plano.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=25">
 {% endblock %}
 
 {% block content %}
@@ -3078,6 +3079,12 @@ function calcularVolumeEdit() {
         {% endif %}
       </div>
 
+      <div>
+        <label class="block text-[11px] font-medium text-gray-600 mb-1">Cópia (Cc)</label>
+        <p class="text-[10px] text-gray-400 mb-1.5">Visível para todos os destinatários. Remova endereços que não devem receber cópia.</p>
+        <div id="proposta-email-cc" class="comm-cc-list min-h-[28px]"></div>
+      </div>
+
       <details class="border border-gray-200 rounded">
         <summary class="px-2.5 py-1.5 text-[11px] font-medium text-gray-600 cursor-pointer select-none">Configurações avançadas</summary>
         <div class="px-2.5 py-2 border-t border-gray-200">
@@ -5321,12 +5328,53 @@ function abrirPropostaPdf(baixar) {
   }
 }
 
+const responsavelNomeCotacao = "{{ cotacao.responsavel_nome if cotacao and cotacao.responsavel_nome else '' }}";
+const responsavelEmailCotacao = "{{ cotacao.responsavel_email if cotacao and cotacao.responsavel_email else '' }}";
+
+function cotacaoCcPadraoFromServer() {
+  const seen = new Set();
+  const out = [];
+  [responsavelEmailCotacao, 'apolo@centralcomm.media', 'luiz@centralcomm.media'].forEach(function (email) {
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!normalized || seen.has(normalized)) return;
+    seen.add(normalized);
+    out.push(normalized);
+  });
+  return out;
+}
+
+if (window.ComunicacaoCcEditor && !window.cotacaoEmailCc) {
+  window.cotacaoEmailCc = window.ComunicacaoCcEditor.create(null);
+}
+
+function mountCotacaoCcEditor(containerId, emails) {
+  if (!window.cotacaoEmailCc) return;
+  const host = document.getElementById(containerId);
+  if (!host) return;
+  window.cotacaoEmailCc.mount(host);
+  const source = emails && emails.length ? emails : cotacaoCcPadraoFromServer();
+  window.cotacaoEmailCc.reset(source);
+}
+
+function cotacaoCcEmailsForSend() {
+  if (window.cotacaoEmailCc) return window.cotacaoEmailCc.getEmails();
+  return cotacaoCcPadraoFromServer();
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  mountCotacaoCcEditor('cotacao-email-cc', cotacaoCcPadraoFromServer());
+});
+
 function abrirModalEnviarProposta() {
   const c = _resolverContatoProposta();
   const emailEl = document.getElementById('proposta_email');
   const nomeEl = document.getElementById('proposta_nome');
   if (emailEl) emailEl.value = (c && c.email) ? c.email : '';
   if (nomeEl) nomeEl.value = (c && c.nome) ? c.nome : '';
+  mountCotacaoCcEditor(
+    'proposta-email-cc',
+    window.cotacaoEmailCc ? window.cotacaoEmailCc.getEmails() : cotacaoCcPadraoFromServer()
+  );
   const dlg = document.getElementById('modal_enviar_proposta');
   if (dlg && dlg.showModal) dlg.showModal();
 }
@@ -5382,7 +5430,14 @@ async function enviarCotacaoEmail() {
     return;
   }
 
-  if (!confirm(`Deseja enviar esta cotação por email para ${contato.nome} (${contato.email})?\n\nDestinatário: ${tipoDestinatario}`)) {
+  const ccList = cotacaoCcEmailsForSend();
+  let confirmMsg = `Deseja enviar esta cotação por email para ${contato.nome} (${contato.email})?\n\nDestinatário: ${tipoDestinatario}`;
+  if (ccList.length) {
+    confirmMsg += `\n\nCópia (Cc): ${ccList.join(', ')}`;
+  } else {
+    confirmMsg += '\n\nCópia (Cc): nenhum endereço';
+  }
+  if (!confirm(confirmMsg)) {
     return;
   }
 
@@ -5398,7 +5453,8 @@ async function enviarCotacaoEmail() {
         tem_parceiro: temParceiro,
         agencia_nome: agenciaNome,
         parceiro_nome: parceiroNome,
-        cliente_nome: clienteNome
+        cliente_nome: clienteNome,
+        cc_emails: ccList
       })
     });
 
@@ -5542,9 +5598,8 @@ async function enviarEmailPorTipo() {
     'cotacao_rejeitada': 'informando sobre o cancelamento/rejeição da proposta'
   };
 
-  // Dados do responsável comercial
-  const responsavelNome = "{{ cotacao.responsavel_nome if cotacao and cotacao.responsavel_nome else '' }}";
-  const responsavelEmail = "{{ cotacao.responsavel_email if cotacao and cotacao.responsavel_email else '' }}";
+  const responsavelNome = responsavelNomeCotacao;
+  const responsavelEmail = responsavelEmailCotacao;
 
   // Montar mensagem de confirmação detalhada
   let mensagemConfirmacao = `CONFIRMAÇÃO DE ENVIO DE EMAIL\n\n`;
@@ -5568,6 +5623,16 @@ async function enviarEmailPorTipo() {
   }
   mensagemConfirmacao += `• Equipe Apolo: apolo@centralcomm.media\n`;
 
+  const ccEnvio = cotacaoCcEmailsForSend();
+  mensagemConfirmacao += `\nCÓPIA VISÍVEL (Cc) NO ENVIO:\n`;
+  if (ccEnvio.length) {
+    ccEnvio.forEach(function (email) {
+      mensagemConfirmacao += `• ${email}\n`;
+    });
+  } else {
+    mensagemConfirmacao += `• Nenhum endereço em Cc\n`;
+  }
+
   mensagemConfirmacao += `\nDeseja realmente enviar este email?`;
 
   // Confirmar envio
@@ -5587,7 +5652,8 @@ async function enviarEmailPorTipo() {
         tem_parceiro: temParceiro,
         agencia_nome: agenciaNome,
         parceiro_nome: parceiroNome,
-        cliente_nome: clienteNome
+        cliente_nome: clienteNome,
+        cc_emails: ccEnvio
       })
     });
 
@@ -8959,7 +9025,9 @@ async function recalcularValorTotalCotacao() {
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/cotacao_detalhes.js') }}?v=5"></script>
+<script src="{{ url_for('static', filename='js/comunicacao_sidebar.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/cotacao_comunicacao.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/cotacao_detalhes.js') }}?v=6"></script>
 <script src="{{ url_for('static', filename='js/cotacao_plano.js') }}?v=2"></script>
 {% if cotacao %}
 <script>
